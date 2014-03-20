@@ -2416,26 +2416,31 @@ scan_omp_teams (gimple stmt, omp_context *outer_ctx)
 static bool
 check_omp_nesting_restrictions (gimple stmt, omp_context *ctx)
 {
-  omp_context *ctx_;
-
   /* TODO: While the OpenACC specification does allow for certain kinds of
-     nesting, we don't support that yet.  */
-  /* No nesting of STMT (which is an OpenACC or OpenMP one, or a GOMP builtin)
-     inside any OpenACC CTX.  */
-  for (ctx_ = ctx; ctx_ != NULL; ctx_ = ctx_->outer)
-    if (is_gimple_omp (ctx_->stmt)
-	&& is_gimple_omp_oacc_specifically (ctx_->stmt))
-      {
-	error_at (gimple_location (stmt),
-		  "may not be nested");
-	return false;
-      }
-  /* No nesting of OpenACC STMT inside any OpenACC or OpenMP CTX.  */
+     nesting, we don't support many of these yet.  */
   if (is_gimple_omp (stmt)
       && is_gimple_omp_oacc_specifically (stmt))
     {
-      for (ctx_ = ctx; ctx_ != NULL; ctx_ = ctx_->outer)
-	if (is_gimple_omp (ctx_->stmt))
+      /* No nesting of OpenACC STMT inside any OpenACC or OpenMP CTX different
+	 from an OpenACC data construct.  */
+      for (omp_context *ctx_ = ctx; ctx_ != NULL; ctx_ = ctx_->outer)
+	if (is_gimple_omp (ctx_->stmt)
+	    && !(gimple_code (ctx_->stmt) == GIMPLE_OMP_TARGET
+		 && (gimple_omp_target_kind (ctx_->stmt)
+		     == GF_OMP_TARGET_KIND_OACC_DATA)))
+	  {
+	    error_at (gimple_location (stmt),
+		      "may not be nested");
+	    return false;
+	  }
+    }
+  else
+    {
+      /* No nesting of non-OpenACC STMT (that is, an OpenMP one, or a GOMP
+	 builtin) inside any OpenACC CTX.  */
+      for (omp_context *ctx_ = ctx; ctx_ != NULL; ctx_ = ctx_->outer)
+	if (is_gimple_omp (ctx_->stmt)
+	    && is_gimple_omp_oacc_specifically (ctx_->stmt))
 	  {
 	    error_at (gimple_location (stmt),
 		      "may not be nested");

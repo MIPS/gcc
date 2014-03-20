@@ -1,3 +1,8 @@
+2014-03-20  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* omp-low.c (check_omp_nesting_restrictions): Allow nesting of
+	OpenACC constructs inside of OpenACC data constructs.
+
 2014-03-18  Ilmir Usmanov  <i.usmanov@samsung.com>
 
 	* tree.def (OACC_LOOP): New tree code.

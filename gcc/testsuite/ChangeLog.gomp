@@ -1,5 +1,9 @@
 2014-03-20  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* c-c++-common/goacc/nesting-1.c: New file.
+	* c-c++-common/goacc/nesting-data-1.c: Likewise.
+	* c-c++-common/goacc/nesting-fail-1.c: Update.
+
 	* c-c++-common/goacc/nesting-fail-1.c (f_acc_kernels): Replace
 	OpenACC parallel with kernels directive.
 
