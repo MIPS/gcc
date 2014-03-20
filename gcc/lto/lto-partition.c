@@ -163,6 +163,11 @@ add_symbol_to_partition_1 (ltrans_partition part, symtab_node *node)
       for (e = cnode->callers; e; e = e->next_caller)
 	if (e->caller->thunk.thunk_p)
 	  add_symbol_to_partition_1 (part, e->caller);
+
+      /* Instrumented version is actually the same function.
+	 Therefore put it into the same partition.  */
+      if (cnode->instrumented_version)
+	add_symbol_to_partition_1 (part, cnode->instrumented_version);
     }
 
   add_references_to_partition (part, node);
@@ -745,6 +750,7 @@ privatize_symbol_name (symtab_node *node)
 {
   tree decl = node->decl;
   const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+  cgraph_node *cnode;
 
   /* Our renaming machinery do not handle more than one change of assembler name.
      We should not need more than one anyway.  */
@@ -774,6 +780,18 @@ privatize_symbol_name (symtab_node *node)
     lto_record_renamed_decl (node->lto_file_data, name,
 			     IDENTIFIER_POINTER
 			     (DECL_ASSEMBLER_NAME (decl)));
+  /* We could change name which is a target of transparent alias
+     chain of instrumented function name.  Fix alias chain if so  .*/
+  if ((cnode = dyn_cast <cgraph_node> (node))
+      && !cnode->instrumentation_clone
+      && cnode->instrumented_version
+      && cnode->instrumented_version->orig_decl == decl)
+    {
+      tree iname = DECL_ASSEMBLER_NAME (cnode->instrumented_version->decl);
+
+      gcc_assert (IDENTIFIER_TRANSPARENT_ALIAS (iname));
+      TREE_CHAIN (iname) = DECL_ASSEMBLER_NAME (decl);
+    }
   if (cgraph_dump_file)
     fprintf (cgraph_dump_file,
 	    "Privatizing symbol name: %s -> %s\n",
