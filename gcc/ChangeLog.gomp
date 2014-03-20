@@ -1,5 +1,34 @@
 2014-03-20  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* gimple.h (enum gf_mask): Add GF_OMP_FOR_KIND_OACC_LOOP.
+	(is_gimple_omp_oacc_specifically): Handle it.
+	* gimple-pretty-print.c (dump_gimple_omp_for): Likewise.
+	* gimple.def (GIMPLE_OMP_FOR): Update for OpenACC loop.
+	* gimple.c (gimple_build_omp_for): Don't explicitly mention some
+	clauses.
+	(gimple_copy) <GIMPLE_OMP_FOR>: Handle GF_OMP_FOR_KIND_OACC_LOOP.
+	* omp-low.c (extract_omp_for_data, scan_sharing_clauses)
+	(check_omp_nesting_restrictions, lower_rec_input_clauses)
+	(lower_lastprivate_clauses, lower_reduction_clauses)
+	(expand_omp_for_generic, expand_omp_for_static_nochunk)
+	(expand_omp_for_static_chunk, maybe_add_implicit_barrier_cancel)
+	(lower_omp_for): Likewise.
+	* tree-inline.c (remap_gimple_stmt): Likewise.
+	* tree-nested.c (walk_gimple_omp_for)
+	(convert_nonlocal_reference_stmt, convert_local_reference_stmt)
+	(convert_gimple_call): Likewise.
+	* doc/gimple.texi (GIMPLE_OMP_FOR): Don't explicitly mention some
+	clauses.
+	* gimplify.c (gimplify_omp_for, gimplify_expr): Handle OACC_LOOP.
+
+	* tree.def (OACC_LOOP): Sort after OMP_DISTRIBUTE.
+	* tree.h (OMP_LOOP_CHECK): Update accordingly.
+	* gimplify.c (is_gimple_stmt): Sort OACC_LOOP after
+	OMP_DISTRIBUTE.
+	* tree-pretty-print.c (dump_generic_node): Likewise.
+	* doc/generic.texi (OACC_LOOP): Sort after OACC_HOST_DATA.
+	(OMP_FOR): Fix and extend for OACC_LOOP.
+
 	* gimple.h (enum gf_mask): Add and use GF_OMP_FOR_SIMD.
 	* omp-low.c: Update accordingly.
 

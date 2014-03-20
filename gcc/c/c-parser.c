@@ -1204,10 +1204,13 @@ static struct c_expr c_parser_expression_conv (c_parser *);
 static vec<tree, va_gc> *c_parser_expr_list (c_parser *, bool, bool,
 					     vec<tree, va_gc> **, location_t *,
 					     tree *, vec<location_t> *);
+static tree c_parser_oacc_loop (location_t, c_parser *, char *);
 static void c_parser_omp_construct (c_parser *);
 static void c_parser_omp_threadprivate (c_parser *);
 static void c_parser_omp_barrier (c_parser *);
 static void c_parser_omp_flush (c_parser *);
+static tree c_parser_omp_for_loop (location_t, c_parser *, enum tree_code,
+				   tree, tree *);
 static void c_parser_omp_taskwait (c_parser *);
 static void c_parser_omp_taskyield (c_parser *);
 static void c_parser_omp_cancel (c_parser *);
@@ -4778,6 +4781,7 @@ c_parser_label (c_parser *parser)
      parallel-construct
      kernels-construct
      data-construct
+     loop-construct
 
    parallel-construct:
      parallel-directive structured-block
@@ -4787,6 +4791,9 @@ c_parser_label (c_parser *parser)
 
    data-construct:
      data-directive structured-block
+
+   loop-construct:
+     loop-directive structured-block
 
    OpenMP:
 
@@ -11557,8 +11564,6 @@ c_parser_oacc_data (location_t loc, c_parser *parser)
   return stmt;
 }
 
-static tree c_parser_oacc_loop (location_t, c_parser *, char *);
-
 /* OpenACC 2.0:
    # pragma acc kernels oacc-kernels-clause[optseq] new-line
      structured-block
@@ -11606,6 +11611,33 @@ c_parser_oacc_kernels (location_t loc, c_parser *parser, char *p_name)
   add_stmt (c_parser_omp_structured_block (parser));
 
   stmt = c_finish_oacc_kernels (loc, clauses, block);
+
+  return stmt;
+}
+
+/* OpenACC 2.0:
+   # pragma acc loop oacc-loop-clause[optseq] new-line
+     structured-block
+
+   LOC is the location of the #pragma token.
+*/
+
+#define OACC_LOOP_CLAUSE_MASK						\
+	(OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_NONE)
+
+static tree
+c_parser_oacc_loop (location_t loc, c_parser *parser, char *p_name)
+{
+  tree stmt, clauses, block;
+
+  strcat (p_name, " loop");
+
+  clauses = c_parser_oacc_all_clauses (parser, OACC_LOOP_CLAUSE_MASK, p_name);
+
+  block = c_begin_compound_stmt (true);
+  stmt = c_parser_omp_for_loop (loc, parser, OACC_LOOP, clauses, NULL);
+  block = c_end_compound_stmt (loc, block, true);
+  add_stmt (block);
 
   return stmt;
 }
@@ -12120,10 +12152,11 @@ c_parser_omp_flush (c_parser *parser)
   c_finish_omp_flush (loc);
 }
 
-/* Parse the restricted form of the for statement allowed by OpenMP.
+/* Parse the restricted form of loop statements allowed by OpenACC and OpenMP.
    The real trick here is to determine the loop control variable early
    so that we can push a new decl if necessary to make it private.
-   LOC is the location of the OMP in "#pragma omp".  */
+   LOC is the location of the "acc" or "omp" in "#pragma acc" or "#pragma omp",
+   respectively.  */
 
 static tree
 c_parser_omp_for_loop (location_t loc, c_parser *parser, enum tree_code code,
@@ -12138,7 +12171,10 @@ c_parser_omp_for_loop (location_t loc, c_parser *parser, enum tree_code code,
 
   for (cl = clauses; cl; cl = OMP_CLAUSE_CHAIN (cl))
     if (OMP_CLAUSE_CODE (cl) == OMP_CLAUSE_COLLAPSE)
+      {
+	gcc_assert (code != OACC_LOOP);
       collapse = tree_to_shwi (OMP_CLAUSE_COLLAPSE_EXPR (cl));
+      }
 
   gcc_assert (collapse >= 1);
 
@@ -12369,6 +12405,7 @@ c_parser_omp_for_loop (location_t loc, c_parser *parser, enum tree_code code,
 	  if (cclauses != NULL
 	      && cclauses[C_OMP_CLAUSE_SPLIT_PARALLEL] != NULL)
 	    {
+	      gcc_assert (code != OACC_LOOP);
 	      tree *c;
 	      for (c = &cclauses[C_OMP_CLAUSE_SPLIT_PARALLEL]; *c ; )
 		if (OMP_CLAUSE_CODE (*c) != OMP_CLAUSE_FIRSTPRIVATE
@@ -12431,33 +12468,6 @@ omp_split_clauses (location_t loc, enum tree_code code,
   for (i = 0; i < C_OMP_CLAUSE_SPLIT_COUNT; i++)
     if (cclauses[i])
       cclauses[i] = c_finish_omp_clauses (cclauses[i]);
-}
-
-/* OpenACC 2.0:
-   # pragma acc loop oacc-loop-clause[optseq] new-line
-     structured-block
-
-   LOC is the location of the #pragma token.
-*/
-
-#define OACC_LOOP_CLAUSE_MASK	\
-	(OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_NONE)
-
-static tree
-c_parser_oacc_loop (location_t loc, c_parser *parser, char *p_name)
-{
-  tree block, clauses, ret;
-
-  strcat (p_name, " loop");
-
-  clauses = c_parser_oacc_all_clauses (parser, OACC_LOOP_CLAUSE_MASK, p_name);
-
-  block = c_begin_compound_stmt (true);
-  ret = c_parser_omp_for_loop (loc, parser, OACC_LOOP, clauses, NULL);
-  block = c_end_compound_stmt (loc, block, true);
-  add_stmt (block);
-
-  return ret;
 }
 
 /* OpenMP 4.0:
@@ -13977,13 +13987,13 @@ c_parser_omp_construct (c_parser *parser)
       strcpy (p_name, "#pragma acc");
       stmt = c_parser_oacc_kernels (loc, parser, p_name);
       break;
-    case PRAGMA_OACC_PARALLEL:
-      strcpy (p_name, "#pragma acc");
-      stmt = c_parser_oacc_parallel (loc, parser, p_name);
-      break;
     case PRAGMA_OACC_LOOP:
       strcpy (p_name, "#pragma acc");
       stmt = c_parser_oacc_loop (loc, parser, p_name);
+      break;
+    case PRAGMA_OACC_PARALLEL:
+      strcpy (p_name, "#pragma acc");
+      stmt = c_parser_oacc_parallel (loc, parser, p_name);
       break;
     case PRAGMA_OMP_ATOMIC:
       c_parser_omp_atomic (loc, parser);

@@ -622,6 +622,8 @@ walk_gimple_omp_for (gimple for_stmt,
     		     walk_stmt_fn callback_stmt, walk_tree_fn callback_op,
     		     struct nesting_info *info)
 {
+  gcc_assert (!is_gimple_omp_oacc_specifically (for_stmt));
+
   struct walk_stmt_info wi;
   gimple_seq seq;
   tree t;
@@ -1282,6 +1284,7 @@ convert_nonlocal_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       break;
 
     case GIMPLE_OMP_FOR:
+      gcc_assert (!is_gimple_omp_oacc_specifically (stmt));
       save_suppress = info->suppress_expansion;
       convert_nonlocal_omp_clauses (gimple_omp_for_clauses_ptr (stmt), wi);
       walk_gimple_omp_for (stmt, convert_nonlocal_reference_stmt,
@@ -1746,6 +1749,7 @@ convert_local_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       break;
 
     case GIMPLE_OMP_FOR:
+      gcc_assert (!is_gimple_omp_oacc_specifically (stmt));
       save_suppress = info->suppress_expansion;
       convert_local_omp_clauses (gimple_omp_for_clauses_ptr (stmt), wi);
       walk_gimple_omp_for (stmt, convert_local_reference_stmt,
@@ -2178,6 +2182,7 @@ convert_gimple_call (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       break;
 
     case GIMPLE_OMP_FOR:
+      gcc_assert (!is_gimple_omp_oacc_specifically (stmt));
       walk_body (convert_gimple_call, NULL, info,
 	  	 gimple_omp_for_pre_body_ptr (stmt));
       /* FALLTHRU */

@@ -1,5 +1,12 @@
 2014-03-20  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* c-c++-common/goacc-gomp/nesting-1.c: New file.
+	* c-c++-common/goacc-gomp/nesting-fail-1.c: Extend.
+	* c-c++-common/goacc/clauses-fail.c: Likewise.
+	* c-c++-common/goacc/nesting-1.c: Likewise.
+	* gcc.dg/goacc/sb-1.c: Likewise.
+	* gcc.dg/goacc/sb-3.c: New file.
+
 	* c-c++-common/goacc/nesting-1.c: New file.
 	* c-c++-common/goacc/nesting-data-1.c: Likewise.
 	* c-c++-common/goacc/nesting-fail-1.c: Update.

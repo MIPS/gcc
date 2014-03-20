@@ -1,6 +1,8 @@
 void
 f (void)
 {
+  int i;
+
 #pragma acc parallel one /* { dg-error "expected clause before 'one'" } */
   ;
 
@@ -9,4 +11,8 @@ f (void)
 
 #pragma acc data two /* { dg-error "expected clause before 'two'" } */
   ;
+
+#pragma acc loop deux /* { dg-error "expected clause before 'deux'" } */
+  for (i = 0; i < 2; ++i)
+    ;
 }

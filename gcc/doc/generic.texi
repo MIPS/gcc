@@ -2054,8 +2054,8 @@ edge.  Rethrowing the exception is represented using @code{RESX_EXPR}.
 @tindex OACC_PARALLEL
 @tindex OACC_KERNELS
 @tindex OACC_DATA
-@tindex OACC_LOOP
 @tindex OACC_HOST_DATA
+@tindex OACC_LOOP
 @tindex OACC_DECLARE
 @tindex OACC_UPDATE
 @tindex OACC_ENTER_DATA
@@ -2091,13 +2091,15 @@ Represents @code{#pragma acc kernels [clause1 @dots{} clauseN]}.
 
 Represents @code{#pragma acc data [clause1 @dots{} clauseN]}.
 
+@item OACC_HOST_DATA
+
+Represents @code{#pragma acc host_data [clause1 @dots{} clauseN]}.
+
 @item OACC_LOOP
 
 Represents @code{#pragma acc loop [clause1 @dots{} clauseN]}.
 
-@item OACC_HOST_DATA
-
-Represents @code{#pragma acc host_data [clause1 @dots{} clauseN]}.
+See the description of the @code{OMP_FOR} code.
 
 @item OACC_DECLARE
 
@@ -2150,8 +2152,8 @@ variables.
 
 @item OMP_FOR
 
-Represents @code{#pragma omp for [clause1 @dots{} clauseN]}.  It
-has 5 operands:
+Represents @code{#pragma omp for [clause1 @dots{} clauseN]}.  It has
+six operands:
 
 Operand @code{OMP_FOR_BODY} contains the loop body.
 
@@ -2241,10 +2243,9 @@ building code (@code{omp-low.c}).
 @item OMP_CONTINUE
 
 Similarly, this instruction does not represent an OpenMP
-directive, it is used by @code{OMP_FOR} and
+directive, it is used by @code{OACC_LOOP}, @code{OMP_FOR} as well as
 @code{OMP_SECTIONS} to mark the place where the code needs to
-loop to the next iteration (in the case of @code{OMP_FOR}) or
-the next section (in the case of @code{OMP_SECTIONS}).
+loop to the next iteration, or the next section, respectively.
 
 In some cases, @code{OMP_CONTINUE} is placed right before
 @code{OMP_RETURN}.  But if there are cleanups that need to

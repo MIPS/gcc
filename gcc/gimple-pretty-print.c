@@ -1116,14 +1116,17 @@ dump_gimple_omp_for (pretty_printer *buffer, gimple gs, int spc, int flags)
 	case GF_OMP_FOR_KIND_FOR:
 	  kind = "";
 	  break;
+	case GF_OMP_FOR_KIND_DISTRIBUTE:
+	  kind = " distribute";
+	  break;
+	case GF_OMP_FOR_KIND_OACC_LOOP:
+	  kind = " oacc_loop";
+	  break;
 	case GF_OMP_FOR_KIND_SIMD:
 	  kind = " simd";
 	  break;
 	case GF_OMP_FOR_KIND_CILKSIMD:
 	  kind = " cilksimd";
-	  break;
-	case GF_OMP_FOR_KIND_DISTRIBUTE:
-	  kind = " distribute";
 	  break;
 	default:
 	  gcc_unreachable ();
@@ -1150,14 +1153,17 @@ dump_gimple_omp_for (pretty_printer *buffer, gimple gs, int spc, int flags)
 	case GF_OMP_FOR_KIND_FOR:
 	  pp_string (buffer, "#pragma omp for");
 	  break;
+	case GF_OMP_FOR_KIND_DISTRIBUTE:
+	  pp_string (buffer, "#pragma omp distribute");
+	  break;
+	case GF_OMP_FOR_KIND_OACC_LOOP:
+	  pp_string (buffer, "#pragma acc loop");
+	  break;
 	case GF_OMP_FOR_KIND_SIMD:
 	  pp_string (buffer, "#pragma omp simd");
 	  break;
 	case GF_OMP_FOR_KIND_CILKSIMD:
 	  pp_string (buffer, "#pragma simd");
-	  break;
-	case GF_OMP_FOR_KIND_DISTRIBUTE:
-	  pp_string (buffer, "#pragma omp distribute");
 	  break;
 	default:
 	  gcc_unreachable ();

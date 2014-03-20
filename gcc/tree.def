@@ -1065,7 +1065,7 @@ DEFTREECODE (OMP_TASK, "omp_task", tcc_statement, 2)
    private.  N1, N2 and INCR are required to be loop invariant integer
    expressions that are evaluated without any synchronization.
    The evaluation order, frequency of evaluation and side-effects are
-   unspecified by the standard.  */
+   unspecified by the standards.  */
 DEFTREECODE (OMP_FOR, "omp_for", tcc_statement, 6)
 
 /* OpenMP - #pragma omp simd [clause1 ... clauseN]
@@ -1076,13 +1076,13 @@ DEFTREECODE (OMP_SIMD, "omp_simd", tcc_statement, 6)
    Operands like for OMP_FOR.  */
 DEFTREECODE (CILK_SIMD, "cilk_simd", tcc_statement, 6)
 
-/* OpenACC - #pragma acc loop [clause1 ... clauseN]
-   Operands like for OMP_FOR.  */
-DEFTREECODE (OACC_LOOP, "oacc_loop", tcc_statement, 6)
-
 /* OpenMP - #pragma omp distribute [clause1 ... clauseN]
    Operands like for OMP_FOR.  */
 DEFTREECODE (OMP_DISTRIBUTE, "omp_distribute", tcc_statement, 6)
+
+/* OpenMP - #pragma acc loop [clause1 ... clauseN]
+   Operands like for OMP_FOR.  */
+DEFTREECODE (OACC_LOOP, "oacc_loop", tcc_statement, 6)
 
 /* OpenMP - #pragma omp teams [clause1 ... clauseN]
    Operand 0: OMP_TEAMS_BODY: Teams body.

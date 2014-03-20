@@ -293,7 +293,7 @@ c_finish_omp_flush (location_t loc)
 }
 
 
-/* Check and canonicalize #pragma omp for increment expression.
+/* Check and canonicalize OMP_FOR increment expression.
    Helper function for c_finish_omp_for.  */
 
 static tree
@@ -381,7 +381,7 @@ c_omp_for_incr_canonicalize_ptr (location_t loc, tree decl, tree incr)
   return incr;
 }
 
-/* Validate and emit code for the OpenMP directive #pragma omp for.
+/* Validate and generate OMP_FOR.
    DECLV is a vector of iteration variables, for each collapsed loop.
    INITV, CONDV and INCRV are vectors containing initialization
    expressions, controlling predicates and increment expressions.

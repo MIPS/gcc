@@ -1342,6 +1342,7 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 	  break;
 
 	case GIMPLE_OMP_FOR:
+	  gcc_assert (!is_gimple_omp_oacc_specifically (stmt));
 	  s1 = remap_gimple_seq (gimple_omp_body (stmt), id);
 	  s2 = remap_gimple_seq (gimple_omp_for_pre_body (stmt), id);
 	  copy = gimple_build_omp_for (s1, gimple_omp_for_kind (stmt),

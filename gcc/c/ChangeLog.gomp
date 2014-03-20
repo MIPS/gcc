@@ -1,3 +1,11 @@
+2014-03-20  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-parser.c: Update comments.
+	(c_parser_oacc_loop): Move.
+	(c_parser_omp_for_loop): Catch some unsupported cases.
+	(c_parser_omp_construct) <case PRAGMA_OACC_LOOP>: Sort
+	alphabetically.
+
 2014-03-18  Ilmir Usmanov  <i.usmanov@samsung.com>
 
 	* c-parser.c (c_parser_oacc_loop): New function.

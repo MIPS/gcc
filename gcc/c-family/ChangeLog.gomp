@@ -1,3 +1,10 @@
+2014-03-20  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-omp.c (check_omp_for_incr_expr, c_finish_omp_for): Update
+	comments.
+	* c-pragma.c (oacc_pragmas): Sort PRAGMA_OACC_LOOP alphabetically.
+	* c-pragma.h (enum pragma_kind): Likewise.
+
 2014-03-18  Ilmir Usmanov  <i.usmanov@samsung.com>
 
 	* c-pragma.h (enum pragma_kind): Add PRAGMA_OACC_LOOP.

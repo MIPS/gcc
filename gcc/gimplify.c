@@ -4363,8 +4363,8 @@ is_gimple_stmt (tree t)
     case OMP_FOR:
     case OMP_SIMD:
     case CILK_SIMD:
-    case OACC_LOOP:
     case OMP_DISTRIBUTE:
+    case OACC_LOOP:
     case OMP_SECTIONS:
     case OMP_SECTION:
     case OMP_SINGLE:
@@ -6683,14 +6683,36 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
   gimple_seq for_body, for_pre_body;
   int i;
   bool simd;
+  enum gimplify_omp_var_data govd_private;
+  enum omp_region_type ort;
   bitmap has_decl_expr = NULL;
 
   orig_for_stmt = for_stmt = *expr_p;
 
-  simd = TREE_CODE (for_stmt) == OMP_SIMD
-    || TREE_CODE (for_stmt) == CILK_SIMD;
-  gimplify_scan_omp_clauses (&OMP_FOR_CLAUSES (for_stmt), pre_p,
-			     simd ? ORT_SIMD : ORT_WORKSHARE);
+  switch (TREE_CODE (for_stmt))
+    {
+    case OMP_FOR:
+    case OMP_DISTRIBUTE:
+      simd = false;
+      govd_private = GOVD_PRIVATE;
+      ort = ORT_WORKSHARE;
+      break;
+    case OACC_LOOP:
+      simd = false;
+      govd_private = /* TODO */ GOVD_LOCAL;
+      ort = /* TODO */ ORT_WORKSHARE;
+      break;
+    case OMP_SIMD:
+    case CILK_SIMD:
+      simd = true;
+      govd_private = GOVD_PRIVATE;
+      ort = ORT_SIMD;
+      break;
+    default:
+      gcc_unreachable ();
+    }
+
+  gimplify_scan_omp_clauses (&OMP_FOR_CLAUSES (for_stmt), pre_p, ort);
 
   /* Handle OMP_FOR_INIT.  */
   for_pre_body = NULL;
@@ -6722,6 +6744,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 
   if (OMP_FOR_INIT (for_stmt) == NULL_TREE)
     {
+      gcc_assert (TREE_CODE (for_stmt) != OACC_LOOP);
       for_stmt = walk_tree (&OMP_FOR_BODY (for_stmt), find_combined_omp_for,
 			    NULL, NULL);
       gcc_assert (for_stmt != NULL_TREE);
@@ -6742,7 +6765,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
       gcc_assert (INTEGRAL_TYPE_P (TREE_TYPE (decl))
 		  || POINTER_TYPE_P (TREE_TYPE (decl)));
 
-      /* Make sure the iteration variable is private.  */
+      /* Make sure the iteration variable is some kind of private.  */
       tree c = NULL_TREE;
       if (orig_for_stmt != for_stmt)
 	/* Do this only on innermost construct for combined ones.  */;
@@ -6768,6 +6791,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 	    }
 	  else
 	    {
+	      gcc_assert (govd_private == GOVD_PRIVATE);
 	      bool lastprivate
 		= (!has_decl_expr
 		   || !bitmap_bit_p (has_decl_expr, DECL_UID (decl)));
@@ -6785,7 +6809,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
       else if (omp_is_private (gimplify_omp_ctxp, decl, simd))
 	omp_notice_variable (gimplify_omp_ctxp, decl, true);
       else
-	omp_add_variable (gimplify_omp_ctxp, decl, GOVD_PRIVATE | GOVD_SEEN);
+	omp_add_variable (gimplify_omp_ctxp, decl, govd_private | GOVD_SEEN);
 
       /* If DECL is not a gimple register, create a temporary variable to act
 	 as an iteration counter.  This is valid, since DECL cannot be
@@ -6799,7 +6823,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 
 	  gimplify_seq_add_stmt (&for_body, gimple_build_assign (decl, var));
 
-	  omp_add_variable (gimplify_omp_ctxp, var, GOVD_PRIVATE | GOVD_SEEN);
+	  omp_add_variable (gimplify_omp_ctxp, var, govd_private | GOVD_SEEN);
 	}
       else
 	var = decl;
@@ -6936,7 +6960,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 	t = TREE_VEC_ELT (OMP_FOR_INIT (for_stmt), i);
 	decl = TREE_OPERAND (t, 0);
 	var = create_tmp_var (TREE_TYPE (decl), get_name (decl));
-	omp_add_variable (gimplify_omp_ctxp, var, GOVD_PRIVATE | GOVD_SEEN);
+	omp_add_variable (gimplify_omp_ctxp, var, govd_private | GOVD_SEEN);
 	TREE_OPERAND (t, 0) = var;
 	t = TREE_VEC_ELT (OMP_FOR_INCR (for_stmt), i);
 	TREE_OPERAND (t, 1) = copy_node (TREE_OPERAND (t, 1));
@@ -6952,6 +6976,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
     case OMP_SIMD: kind = GF_OMP_FOR_KIND_SIMD; break;
     case CILK_SIMD: kind = GF_OMP_FOR_KIND_CILKSIMD; break;
     case OMP_DISTRIBUTE: kind = GF_OMP_FOR_KIND_DISTRIBUTE; break;
+    case OACC_LOOP: kind = GF_OMP_FOR_KIND_OACC_LOOP; break;
     default:
       gcc_unreachable ();
     }
@@ -8048,7 +8073,6 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	case OACC_EXIT_DATA:
 	case OACC_WAIT:
 	case OACC_CACHE:
-	case OACC_LOOP:
 	  sorry ("directive not yet implemented");
 	  ret = GS_ALL_DONE;
 	  break;
@@ -8067,6 +8091,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	case OMP_SIMD:
 	case CILK_SIMD:
 	case OMP_DISTRIBUTE:
+	case OACC_LOOP:
 	  ret = gimplify_omp_for (expr_p, pre_p);
 	  break;
 

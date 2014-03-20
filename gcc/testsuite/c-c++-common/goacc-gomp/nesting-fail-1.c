@@ -24,6 +24,9 @@ f_omp (void)
       ;
 #pragma acc data	/* { dg-error "may not be nested" } */
       ;
+#pragma acc loop	/* { dg-error "may not be closely nested" } */
+      for (i = 0; i < 2; ++i)
+	;
     }
 
 #pragma omp sections
@@ -42,6 +45,12 @@ f_omp (void)
 #pragma acc data	/* { dg-error "may not be nested" } */
       ;
     }
+#pragma omp section
+    {
+#pragma acc loop	/* { dg-error "may not be closely nested" } */
+      for (i = 0; i < 2; ++i)
+	;
+    }
   }
 
 #pragma omp single
@@ -52,6 +61,9 @@ f_omp (void)
     ;
 #pragma acc data	/* { dg-error "may not be nested" } */
     ;
+#pragma acc loop	/* { dg-error "may not be closely nested" } */
+    for (i = 0; i < 2; ++i)
+      ;
   }
 
 #pragma omp task
@@ -62,6 +74,9 @@ f_omp (void)
     ;
 #pragma acc data	/* { dg-error "may not be nested" } */
     ;
+#pragma acc loop	/* { dg-error "may not be closely nested" } */
+    for (i = 0; i < 2; ++i)
+      ;
   }
 
 #pragma omp master
@@ -72,6 +87,9 @@ f_omp (void)
     ;
 #pragma acc data	/* { dg-error "may not be nested" } */
     ;
+#pragma acc loop	/* { dg-error "may not be closely nested" } */
+    for (i = 0; i < 2; ++i)
+      ;
   }
 
 #pragma omp critical
@@ -82,6 +100,9 @@ f_omp (void)
     ;
 #pragma acc data	/* { dg-error "may not be nested" } */
     ;
+#pragma acc loop	/* { dg-error "may not be closely nested" } */
+    for (i = 0; i < 2; ++i)
+      ;
   }
 
 #pragma omp ordered
@@ -92,6 +113,9 @@ f_omp (void)
     ;
 #pragma acc data	/* { dg-error "may not be nested" } */
     ;
+#pragma acc loop	/* { dg-error "may not be closely nested" } */
+    for (i = 0; i < 2; ++i)
+      ;
   }
 }
 
@@ -288,4 +312,78 @@ f_acc_data (void)
 #pragma omp ordered	/* { dg-error "may not be nested" } */
     ;
   }
+}
+
+/* TODO: Some of these should either be allowed or fail with a more sensible
+   error message.  */
+void
+f_acc_loop (void)
+{
+  int i;
+
+#pragma acc loop
+  for (i = 0; i < 2; ++i)
+    {
+#pragma omp parallel	/* { dg-error "may not be nested" } */
+      ;
+    }
+
+#pragma acc loop
+  for (i = 0; i < 2; ++i)
+    {
+#pragma omp for		/* { dg-error "may not be nested" } */
+      for (i = 0; i < 3; i++)
+	;
+    }
+
+#pragma acc loop
+  for (i = 0; i < 2; ++i)
+    {
+#pragma omp sections	/* { dg-error "may not be nested" } */
+      {
+	;
+      }
+    }
+
+#pragma acc loop
+  for (i = 0; i < 2; ++i)
+    {
+#pragma omp single	/* { dg-error "may not be nested" } */
+      ;
+    }
+
+#pragma acc loop
+  for (i = 0; i < 2; ++i)
+    {
+#pragma omp task	/* { dg-error "may not be nested" } */
+      ;
+    }
+
+#pragma acc loop
+  for (i = 0; i < 2; ++i)
+    {
+#pragma omp master	/* { dg-error "may not be nested" } */
+      ;
+    }
+
+#pragma acc loop
+  for (i = 0; i < 2; ++i)
+    {
+#pragma omp critical	/* { dg-error "may not be nested" } */
+      ;
+    }
+
+#pragma acc loop
+  for (i = 0; i < 2; ++i)
+    {
+#pragma omp atomic write
+      i = 0;		/* { dg-error "may not be nested" } */
+    }
+
+#pragma acc loop
+  for (i = 0; i < 2; ++i)
+    {
+#pragma omp ordered	/* { dg-error "may not be nested" } */
+      ;
+    }
 }
