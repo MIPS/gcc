@@ -8,5 +8,7 @@
 	in case it is instrumentation clone of the global
 	function.
 	(do_assemble_alias): Follow transparent alias chain
-	for identifier.
+	for identifier.  Check if original alias is public.
+	(maybe_assemble_visibility): Use visibility of the
+	original function for instrumented version.
 	(default_unique_section): Likewise.
