@@ -4158,7 +4158,9 @@ chkp_finish_file (void)
   stmts.avail = MAX_STMTS_IN_STATIC_CHKP_CTOR;
   stmts.stmts = NULL;
   FOR_EACH_VARIABLE (node)
-    if (node->need_bounds_init && POINTER_BOUNDS_P (node->decl))
+    if (node->need_bounds_init
+	&& POINTER_BOUNDS_P (node->decl)
+	&& TREE_ASM_WRITTEN (node->decl))
       {
 	tree bnd = node->decl;
 	tree var;
@@ -4167,8 +4169,7 @@ chkp_finish_file (void)
 		    && TREE_CODE (DECL_INITIAL (bnd)) == ADDR_EXPR);
 
 	var = TREE_OPERAND (DECL_INITIAL (bnd), 0);
-	if (TREE_ASM_WRITTEN (bnd))
-	  chkp_output_static_bounds (bnd, var, &stmts);
+	chkp_output_static_bounds (bnd, var, &stmts);
       }
 
   if (stmts.stmts)
@@ -4471,16 +4472,15 @@ static tree
 chkp_replace_function_pointer (tree *op, int *walk_subtrees,
 			       void *data ATTRIBUTE_UNUSED)
 {
-  if (TREE_CODE (*op) == FUNCTION_DECL)
+  if (TREE_CODE (*op) == FUNCTION_DECL
+      && !lookup_attribute ("bnd_legacy", DECL_ATTRIBUTES (*op)))
     {
       struct cgraph_node *node = cgraph_get_create_node (*op);
 
       if (!node->instrumentation_clone)
-	{
-	  node = chkp_maybe_create_clone (*op);
-	  *op = node->decl;
-	}
+	chkp_maybe_create_clone (*op);
 
+      *op = node->instrumented_version->decl;
       *walk_subtrees = 0;
     }
 
