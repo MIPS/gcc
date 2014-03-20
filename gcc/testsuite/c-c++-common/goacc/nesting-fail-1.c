@@ -19,7 +19,7 @@ f_acc_parallel (void)
 void
 f_acc_kernels (void)
 {
-#pragma acc parallel
+#pragma acc kernels
   {
 #pragma acc parallel	/* { dg-error "may not be nested" } */
     ;
