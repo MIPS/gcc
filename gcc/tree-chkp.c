@@ -1893,9 +1893,11 @@ chkp_find_bounds_for_elem (tree elem, tree *all_bounds,
       tree etype = TREE_TYPE (type);
       HOST_WIDE_INT esize = TREE_INT_CST_LOW (TYPE_SIZE (etype));
       unsigned HOST_WIDE_INT cur;
-      unsigned HOST_WIDE_INT max = maxval ? TREE_INT_CST_LOW (maxval) : 0;
 
-      for (cur = 0; cur <= max; cur++)
+      if (!maxval || integer_minus_onep (maxval))
+	return;
+
+      for (cur = 0; cur <= TREE_INT_CST_LOW (maxval); cur++)
 	{
 	  tree base = chkp_can_be_shared (elem)
 	    ? elem
@@ -1945,9 +1947,11 @@ chkp_find_bound_slots_1 (const_tree type, bitmap have_bound,
       tree etype = TREE_TYPE (type);
       HOST_WIDE_INT esize = TREE_INT_CST_LOW (TYPE_SIZE (etype));
       unsigned HOST_WIDE_INT cur;
-      unsigned HOST_WIDE_INT max = maxval ? TREE_INT_CST_LOW (maxval) : 0;
 
-      for (cur = 0; cur <= max; cur++)
+      if (!maxval || integer_minus_onep (maxval))
+	return;
+
+      for (cur = 0; cur <= TREE_INT_CST_LOW (maxval); cur++)
 	chkp_find_bound_slots_1 (etype, have_bound, offs + cur * esize);
     }
 }
@@ -4087,7 +4091,7 @@ chkp_walk_pointer_assignments (tree lhs, tree rhs, void *arg,
 	    }
 	}
       /* Copy array only when size is known.  */
-      else if (maxval)
+      else if (maxval && !integer_minus_onep (maxval))
 	for (cur = 0; cur <= TREE_INT_CST_LOW (maxval); cur++)
 	  {
 	    tree lhs_elem = chkp_build_array_ref (lhs, etype, esize, cur);
