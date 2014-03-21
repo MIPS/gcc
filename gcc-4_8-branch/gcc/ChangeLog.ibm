@@ -1,3 +1,22 @@
+2014-03-21  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Add long double builtins.  This is not intended for mainline or
+	the FSF 4.8 branch.
+
+	* config/rs6000/rs6000-builtin.def (RS6000_BUILTIN_LONGDOUBLE_DW0): Add
+	new long double builtin.
+	(RS6000_BUILTIN_LONGDOUBLE_DW1): Likewise.
+	(RS6000_BUILTIN_PACK_LONGDOUBLE): Likewise.
+	* config/rs6000/rs6000.c (rs6000_expand_builtin): Add builtins
+	__builtin_longdouble_dw0, __builtin_longdouble_dw1 and
+	__builtin_pack_longdouble.
+	(rs6000_init_builtins): Likewise.
+	* config/rs6000/rs6000.md (unspec): Add unspecs UNSPEC_LONGDOUBLE_DW0,
+	UNSPEC_LONGDOUBLE_DW1 and UNSPEC_PACK_LONGDOUBLE.
+	(longdouble_dw0): New define_insn_and_split.
+	(longdouble_dw1): New define_insn.
+	(pack_longdouble): Likewise.
+
 2014-03-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to subversion id 208621 (fixes bugs with FTensor).

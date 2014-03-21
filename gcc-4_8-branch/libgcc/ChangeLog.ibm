@@ -1,3 +1,16 @@
+2014-03-21  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Add long double builtins.  This is not intended for mainline or
+	the FSF 4.8 branch.
+
+	* config/rs6000/ibm-ldouble.c (pack_ldouble): New function.
+	(__gcc_qadd): Use it.
+	(__gcc_qmul): Likewise.
+	(__gcc_qdiv): Likewise.
+	(__gcc_qneg): Likewise.
+	(__gcc_stoq): Likewise.
+	(__gcc_dtoq): Likewise.
+
 2013-11-15  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
 	Backport from mainline r204808:

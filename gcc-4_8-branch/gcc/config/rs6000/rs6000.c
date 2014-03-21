@@ -13532,6 +13532,15 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
   switch (fcode)
     {
+    case RS6000_BUILTIN_LONGDOUBLE_DW0:
+      return rs6000_expand_unop_builtin (CODE_FOR_longdouble_dw0, exp, target);
+
+    case RS6000_BUILTIN_LONGDOUBLE_DW1:
+      return rs6000_expand_unop_builtin (CODE_FOR_longdouble_dw1, exp, target);
+
+    case RS6000_BUILTIN_PACK_LONGDOUBLE:
+      return rs6000_expand_binop_builtin (CODE_FOR_pack_longdouble, exp, target);
+
     case RS6000_BUILTIN_RECIP:
       return rs6000_expand_binop_builtin (CODE_FOR_recipdf3, exp, target);
 
@@ -13751,6 +13760,7 @@ rs6000_init_builtins (void)
   builtin_mode_to_type[TImode][1] = unsigned_intTI_type_node;
   builtin_mode_to_type[SFmode][0] = float_type_node;
   builtin_mode_to_type[DFmode][0] = double_type_node;
+  builtin_mode_to_type[TFmode][0] = long_double_type_node;
   builtin_mode_to_type[V1TImode][0] = V1TI_type_node;
   builtin_mode_to_type[V1TImode][1] = unsigned_V1TI_type_node;
   builtin_mode_to_type[V2SImode][0] = V2SI_type_node;
@@ -13873,6 +13883,18 @@ rs6000_init_builtins (void)
 
   if (TARGET_EXTRA_BUILTINS || TARGET_SPE || TARGET_PAIRED_FLOAT)
     rs6000_common_init_builtins ();
+
+  ftype = builtin_function_type (DFmode, TFmode, VOIDmode, VOIDmode,
+				 RS6000_BUILTIN_LONGDOUBLE_DW0, "__builtin_longdouble_dw0");
+  def_builtin ("__builtin_longdouble_dw0", ftype, RS6000_BUILTIN_LONGDOUBLE_DW0);
+
+  ftype = builtin_function_type (DFmode, TFmode, VOIDmode, VOIDmode,
+				 RS6000_BUILTIN_LONGDOUBLE_DW1, "__builtin_longdouble_dw1");
+  def_builtin ("__builtin_longdouble_dw1", ftype, RS6000_BUILTIN_LONGDOUBLE_DW1);
+
+  ftype = builtin_function_type (TFmode, DFmode, DFmode, VOIDmode,
+				 RS6000_BUILTIN_PACK_LONGDOUBLE, "__builtin_pack_longdouble");
+  def_builtin ("__builtin_pack_longdouble", ftype, RS6000_BUILTIN_PACK_LONGDOUBLE);
 
   ftype = builtin_function_type (DFmode, DFmode, DFmode, VOIDmode,
 				 RS6000_BUILTIN_RECIP, "__builtin_recipdiv");
