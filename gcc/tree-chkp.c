@@ -860,13 +860,15 @@ chkp_maybe_create_clone (tree fndecl)
 	    chkp_maybe_create_clone (ref->referred->decl);
 
 	  if (node->alias_target)
-	    if (TREE_CODE (node->alias_target) == FUNCTION_DECL)
-	      {
-		target = chkp_maybe_create_clone (node->alias_target);
-		clone->alias_target = target->decl;
-	      }
-	    else
-	      clone->alias_target = node->alias_target;
+	    {
+	      if (TREE_CODE (node->alias_target) == FUNCTION_DECL)
+		{
+		  target = chkp_maybe_create_clone (node->alias_target);
+		  clone->alias_target = target->decl;
+		}
+	      else
+		clone->alias_target = node->alias_target;
+	    }
 	}
 
       /* Add IPA reference.  It's main role is to keep instrumented
