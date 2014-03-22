@@ -964,7 +964,7 @@
     if (which_alternative == 1)
       {
 	operands[2] = CONST_VECTOR_ELT (operands[2], 0);
-	return "ori.b\r%w0,%w1,%2";
+	return "ori.b\t%w0,%w1,%2";
       }
     else
       return "or.v\t%w0,%w1,%w2";
