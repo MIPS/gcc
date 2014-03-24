@@ -825,7 +825,8 @@ chkp_maybe_create_clone (tree fndecl)
       if (clone->thunk.thunk_p)
 	chkp_function_mark_instrumented (clone->decl);
 
-      cgraph_call_function_insertion_hooks (clone);
+      if (gimple_has_body_p (fndecl))
+	cgraph_call_function_insertion_hooks (clone);
 
       /* Clone all aliases.  */
       for (i = 0; ipa_ref_list_referring_iterate (&node->ref_list, i, ref); i++)
