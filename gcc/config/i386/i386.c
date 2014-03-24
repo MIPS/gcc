@@ -8500,7 +8500,6 @@ ix86_setup_incoming_vararg_bounds (cumulative_args_t cum_v,
 			       x86_64_int_parameter_registers[i]);
 	rtx ptr = reg;
 	rtx bounds;
-	rtx mem;
 
 	if (bnd_reg <= LAST_BND_REG)
 	  bounds = gen_rtx_REG (BNDmode, bnd_reg);
