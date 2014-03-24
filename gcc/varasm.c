@@ -5920,6 +5920,7 @@ maybe_assemble_visibility (tree decl)
   enum symbol_visibility vis = DECL_VISIBILITY (decl);
 
   if (TREE_CODE (decl) == FUNCTION_DECL
+      && cgraph_get_node (decl)
       && cgraph_get_node (decl)->instrumentation_clone
       && cgraph_get_node (decl)->instrumented_version)
     vis = DECL_VISIBILITY (cgraph_get_node (decl)->instrumented_version->decl);
