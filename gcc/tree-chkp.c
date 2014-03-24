@@ -1464,9 +1464,6 @@ static void
 chkp_output_static_bounds (tree bnd_var, tree var,
 			   struct chkp_ctor_stmt_list *stmts)
 {
-  /* FIXME: Move bounds initialization code generation
-     into target hook.  */
-
   tree lb, ub, size;
 
   if (TREE_CODE (var) == STRING_CST)
@@ -2254,8 +2251,7 @@ chkp_make_static_const_bounds (HOST_WIDE_INT lb,
   DECL_INITIAL (var) = targetm.chkp_make_bounds_constant (lb, ub);
   /* We may use this symbol during ctors generation in chkp_finish_file
      when all symbols are emitted.  Force output to avoid undefined
-     symbols in ctors.
-     TODO: replace force with more accurate analysis.  */
+     symbols in ctors.  */
   varpool_node_for_decl (var)->force_output = 1;
   varpool_finalize_decl (var);
 
