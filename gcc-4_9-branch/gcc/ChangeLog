@@ -1,3 +1,74 @@
+2014-03-23  Teresa Johnson  <tejohnson@google.com>
+
+	* ipa-utils.c (ipa_print_order): Use specified dump file.
+
+2014-03-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/60601
+	* bb-reorder.c (fix_up_fall_thru_edges): Test EDGE_FALLTHRU everywhere.
+
+	* gcc.c (eval_spec_function): Initialize save_growing_value.
+
+2014-03-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/60613
+	* internal-fn.c (ubsan_expand_si_overflow_addsub_check): For
+	code == MINUS_EXPR, never swap op0 with op1.
+
+	* toplev.c (init_local_tick): Avoid signed integer multiplication
+	overflow.
+	* genautomata.c (reserv_sets_hash_value): Fix rotate idiom, avoid
+	shift by first operand's bitsize.
+
+2014-03-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/60610
+	* config/i386/i386.h (TARGET_64BIT_P): If not TARGET_BI_ARCH,
+	redefine to 1 or 0.
+	* config/i386/darwin.h (TARGET_64BIT_P): Redefine to
+	TARGET_ISA_64BIT_P(x).
+
+2014-03-21  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_expand_vector_set): Generate a
+	pattern for vector nor instead of subtract from splat(-1).
+	(altivec_expand_vec_perm_const_le): Likewise.
+
+2014-03-21  Richard Henderson  <rth@twiddle.net>
+
+	PR target/60598
+	* ifcvt.c (dead_or_predicable): Return FALSE if there are any frame
+	related insns after epilogue_completed.
+
+2014-03-21  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/59176
+	* cgraph.h (symtab_node): New flag body_removed.
+	* ipa.c (symtab_remove_unreachable_nodes): Set body_removed flag
+	when removing bodies.
+	* symtab.c (dump_symtab_base): Dump body_removed flag.
+	* cgraph.c (verify_edge_corresponds_to_fndecl): Skip nodes which
+	had their bodies removed.
+
+2014-03-21  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/60419
+	* ipa.c (symtab_remove_unreachable_nodes): Clear thunk flag of nodes
+	in the border.
+
+2014-03-21  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/60577
+	* tree-core.h (struct tree_base): Document nothrow_flag use
+	in VAR_DECL_NONALIASED.
+	* tree.h (VAR_DECL_NONALIASED): New.
+	(may_be_aliased): Adjust.
+	* coverage.c (build_var): Set VAR_DECL_NONALIASED.
+
+2014-03-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* expr.c (expand_expr_real_1): Remove outdated comment.
+
 2014-03-20  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/60597

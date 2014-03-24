@@ -1,3 +1,72 @@
+2014-03-23  John David Anglin  <danglin@gcc.gnu.org>
+
+	* gcc.dg/tree-prof/pr59003.c: Add -fno-common to dg-options on
+	hppa*-*-hpux*.
+
+	* gcc.dg/torture/pr60092.c: Skip on 32-bit hpux.
+
+	PR libfortran/59313
+	PR libfortran/58015
+	* gfortran.dg/erf_3.F90: Skip on hppa*-*-hpux*.
+	* gfortran.dg/round_4.f90: Likewise.
+
+2014-03-23  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	PR libfortran/60128
+	* gfortran.dg/fmt_en.f90: Update test. XFAIL for
+	i?86-*-solaris2.9*.
+
+2014-03-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/60613
+	* c-c++-common/ubsan/pr60613-1.c: New test.
+	* c-c++-common/ubsan/pr60613-2.c: New test.
+
+2014-03-22  Matthias Klose  <doko@ubuntu.com>
+
+	* g++.dg/cpp0x/regress: Remove empty directory.
+
+2014-03-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/60603
+	* gcc.dg/debug/dwarf2/dwarf2-macro2.c: New test.
+
+2014-03-21  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* g++.dg/cpp1y/pr60033.C: Use target c++1y.
+	* g++.dg/cpp1y/pr60393.C: Likewise.
+
+2014-03-21  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/60384
+	* g++.dg/cpp1y/pr60384.C: New.
+
+2014-03-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/60598
+	* gcc.dg/pr60598.c: New test.
+
+2014-03-21  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/59176
+	* g++.dg/torture/pr59176.C: New test.
+
+2014-03-21  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/60419
+	* g++.dg/ipa/pr60419.C: New test.
+
+2014-03-21  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/60577
+	* gcc.dg/tree-ssa/ssa-lim-11.c: New testcase.
+
+2014-03-21  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/60599
+	* lib/gcc-dg.exp (scan-module): Uncompress .mod files for
+	reading.
+
 2014-03-20  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/60597
