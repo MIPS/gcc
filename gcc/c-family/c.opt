@@ -882,6 +882,11 @@ Forces Pointer Bounds Checker to use narrowed bounds for address of the first
 field in the structure.  By default pointer to the first field has the same
 bounds as pointer to the whole structure.
 
+fchkp-narrow-bounds
+C ObjC C++ ObjC++ Report Var(flag_chkp_narrow_bounds) Init(1)
+Control how Pointer Bounds Checker handle pointers to object fields.  When
+narrowing is on, field bounds are used.  Otherwise full object bounds are used.
+
 fchkp-narrow-to-innermost-array
 C ObjC C++ ObjC++ RejectNegative Report Var(flag_chkp_narrow_to_innermost_arrray)
 Forces Pointer Bounds Checker to use bounds of the innermost arrays in case of
