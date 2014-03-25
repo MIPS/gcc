@@ -408,8 +408,7 @@ static void chkp_parse_array_and_component_ref (tree node, tree *ptr,
 						bool *bitfield,
 						tree *bounds,
 						gimple_stmt_iterator *iter,
-						bool innermost_bounds,
-						bool always_narrow);
+						bool innermost_bounds);
 
 #define chkp_bndldx_fndecl \
   (targetm.builtin_chkp_function (BUILT_IN_CHKP_BNDLDX))
@@ -3466,12 +3465,9 @@ chkp_may_narrow_to_field (tree field)
 }
 
 /* Return 1 if bounds for FIELD should be narrowed to
-   field's own size.
-
-   If ALWAYS_NARROW is non zero and narrowing is possible
-   then true is returned.  */
+   field's own size.  */
 static bool
-chkp_narrow_bounds_for_field (tree field, bool always_narrow)
+chkp_narrow_bounds_for_field (tree field)
 {
   HOST_WIDE_INT offs;
   HOST_WIDE_INT bit_offs;
@@ -3487,8 +3483,10 @@ chkp_narrow_bounds_for_field (tree field, bool always_narrow)
   offs = tree_to_uhwi (DECL_FIELD_OFFSET (field));
   bit_offs = tree_to_uhwi (DECL_FIELD_BIT_OFFSET (field));
 
-  return (always_narrow || flag_chkp_first_field_has_own_bounds
-	  || offs || bit_offs);
+  return (flag_chkp_narrow_bounds
+	  && (flag_chkp_first_field_has_own_bounds
+	      || offs
+	      || bit_offs));
 }
 
 /* Perform narrowing for BOUNDS using bounds computed for field
@@ -3524,17 +3522,14 @@ chkp_narrow_bounds_to_field (tree bounds, tree component,
    access (may be NULL).
 
    If INNERMOST_BOUNDS is 1 then try to narrow bounds to the
-   innermost ccessed component.
-
-   If ALWAYS_NARROW then do narrowing ignoring field offset.  */
+   innermost accessed component.  */
 static void
 chkp_parse_array_and_component_ref (tree node, tree *ptr,
 				    tree *elt, bool *safe,
 				    bool *bitfield,
 				    tree *bounds,
 				    gimple_stmt_iterator *iter,
-				    bool innermost_bounds,
-				    bool always_narrow)
+				    bool innermost_bounds)
 {
   tree comp_to_narrow = NULL_TREE;
   tree last_comp = NULL_TREE;
@@ -3611,7 +3606,8 @@ chkp_parse_array_and_component_ref (tree node, tree *ptr,
 	{
 	  *safe = false;
 	  array_ref_found = true;
-	  if (!flag_chkp_narrow_to_innermost_arrray
+	  if (flag_chkp_narrow_bounds
+	      && !flag_chkp_narrow_to_innermost_arrray
 	      && (!last_comp
 		  || chkp_may_narrow_to_field (TREE_OPERAND (last_comp, 1))))
 	    {
@@ -3625,11 +3621,12 @@ chkp_parse_array_and_component_ref (tree node, tree *ptr,
 
 	  if (innermost_bounds
 	      && !array_ref_found
-	      && chkp_narrow_bounds_for_field (field, always_narrow))
+	      && chkp_narrow_bounds_for_field (field))
 	    comp_to_narrow = var;
 	  last_comp = var;
 
-	  if (flag_chkp_narrow_to_innermost_arrray
+	  if (flag_chkp_narrow_bounds
+	      && flag_chkp_narrow_to_innermost_arrray
 	      && TREE_CODE (TREE_TYPE (field)) == ARRAY_TYPE)
 	    {
 	      if (bounds)
@@ -3651,12 +3648,9 @@ chkp_parse_array_and_component_ref (tree node, tree *ptr,
     *bounds = chkp_find_bounds (*ptr, iter);
 }
 
-/* Compute and returne bounds for address of OBJ.
-   If ALWAYS_NARROW_FIELDS is 1 then we need to narrow
-   bounds to the smallest addressed field.  */
+/* Compute and returne bounds for address of OBJ.  */
 static tree
-chkp_make_addressed_object_bounds (tree obj, gimple_stmt_iterator *iter,
-				  bool always_narrow_fields)
+chkp_make_addressed_object_bounds (tree obj, gimple_stmt_iterator *iter)
 {
   tree bounds = chkp_get_registered_addr_bounds (obj);
 
@@ -3684,8 +3678,7 @@ chkp_make_addressed_object_bounds (tree obj, gimple_stmt_iterator *iter,
 	bool bitfield;
 
 	chkp_parse_array_and_component_ref (obj, &ptr, &elt, &safe,
-					  &bitfield, &bounds, iter, true,
-					  always_narrow_fields);
+					    &bitfield, &bounds, iter, true);
 
 	gcc_assert (bounds);
       }
@@ -3702,9 +3695,7 @@ chkp_make_addressed_object_bounds (tree obj, gimple_stmt_iterator *iter,
 
     case REALPART_EXPR:
     case IMAGPART_EXPR:
-      bounds = chkp_make_addressed_object_bounds (TREE_OPERAND (obj, 0),
-						iter,
-						always_narrow_fields);
+      bounds = chkp_make_addressed_object_bounds (TREE_OPERAND (obj, 0), iter);
       break;
 
     default:
@@ -3734,15 +3725,10 @@ chkp_make_addressed_object_bounds (tree obj, gimple_stmt_iterator *iter,
    If PTR_SRC is not NULL_TREE then ITER points to statements which loads
    PTR.  If PTR is a any memory reference then ITER points to a statement
    after which bndldx will be inserterd.  In both cases ITER will be updated
-   to point to the inserted bndldx statement.
-
-   If ALWAYS_NARROW_FIELD is non zero and PTR is an address of structure
-   field then we have to ignore flag_chkp_first_field_has_own_bounds flag
-   value and perform bounds narrowing for this field.  */
+   to point to the inserted bndldx statement.  */
 
 static tree
-chkp_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
-		    bool always_narrow_fields)
+chkp_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter)
 {
   tree addr = NULL_TREE;
   tree bounds = NULL_TREE;
@@ -3855,8 +3841,7 @@ chkp_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
       break;
 
     case ADDR_EXPR:
-      bounds = chkp_make_addressed_object_bounds (TREE_OPERAND (ptr_src, 0), iter,
-						always_narrow_fields);
+      bounds = chkp_make_addressed_object_bounds (TREE_OPERAND (ptr_src, 0), iter);
       break;
 
     case INTEGER_CST:
@@ -3894,7 +3879,7 @@ chkp_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
 static tree
 chkp_find_bounds (tree ptr, gimple_stmt_iterator *iter)
 {
-  return chkp_find_bounds_1 (ptr, NULL_TREE, iter, false);
+  return chkp_find_bounds_1 (ptr, NULL_TREE, iter);
 }
 
 /* Search bounds for pointer PTR loaded from PTR_SRC
@@ -3902,7 +3887,7 @@ chkp_find_bounds (tree ptr, gimple_stmt_iterator *iter)
 static tree
 chkp_find_bounds_loaded (tree ptr, tree ptr_src, gimple_stmt_iterator *iter)
 {
-  return chkp_find_bounds_1 (ptr, ptr_src, iter, false);
+  return chkp_find_bounds_1 (ptr, ptr_src, iter);
 }
 
 /* Search for bounds for PTR to be used in abnormal PHI node.
@@ -3911,7 +3896,7 @@ chkp_find_bounds_loaded (tree ptr, tree ptr_src, gimple_stmt_iterator *iter)
 static tree
 chkp_find_bounds_abnormal (tree ptr, tree phi, edge e)
 {
-  tree bounds = chkp_find_bounds_1 (ptr, NULL_TREE, NULL, false);
+  tree bounds = chkp_find_bounds_1 (ptr, NULL_TREE, NULL);
   tree copy = NULL;
   gimple assign;
   gimple_stmt_iterator gsi;
@@ -4242,8 +4227,7 @@ chkp_process_stmt (gimple_stmt_iterator *iter, tree node,
 	  }
 
 	chkp_parse_array_and_component_ref (node, &ptr, &elt, &safe,
-					    &bitfield, &bounds, iter, false,
-					    false);
+					    &bitfield, &bounds, iter, false);
 
 	/* Break if there is no dereference and operation is safe.  */
 
