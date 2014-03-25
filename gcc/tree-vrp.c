@@ -999,9 +999,9 @@ static bool
 gimple_call_nonnegative_warnv_p (gimple stmt, bool *strict_overflow_p)
 {
   tree arg0 = gimple_call_num_args (stmt) > 0 ?
-    gimple_call_arg (stmt, 0) : NULL_TREE;
+    gimple_call_arg (stmt, 0) : NULL_GIMPLE;
   tree arg1 = gimple_call_num_args (stmt) > 1 ?
-    gimple_call_arg (stmt, 1) : NULL_TREE;
+    gimple_call_arg (stmt, 1) : NULL_GIMPLE;
 
   return tree_call_nonnegative_warnv_p (gimple_expr_type (stmt),
 					gimple_call_fndecl (stmt),
@@ -8795,7 +8795,7 @@ simplify_bit_ops_using_ranges (gimple_stmt_iterator *gsi, gimple stmt)
   if (op == NULL_TREE)
     return false;
 
-  gimple_assign_set_rhs_with_ops (gsi, TREE_CODE (op), op, NULL);
+  gimple_assign_set_rhs_with_ops (gsi, TREE_CODE (op), op, NULL_GIMPLE);
   update_stmt (gsi_stmt (*gsi));
   return true;
 }

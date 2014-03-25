@@ -1,0 +1,62 @@
+/* Gimple decl, type, and expression support functions.
+
+   Copyright (C) 2007-2014 Free Software Foundation, Inc.
+   Contributed by Aldy Hernandez <aldyh@redhat.com>
+
+This file is part of GCC.
+
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 3, or (at your option) any later
+version.
+
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
+
+You should have received a copy of the GNU General Public License
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
+
+#include "config.h"
+#include "system.h"
+#include "coretypes.h"
+#include "tm.h"
+#include "gimple-value.h"
+#include "gimple-tree.h"
+#include "langhooks.h"
+
+Gimple::value boolean_true_node (global_trees[TI_BOOLEAN_TRUE]);
+Gimple::value boolean_false_node (global_trees[TI_BOOLEAN_FALSE]);
+Gimple::type void_type_node (global_trees[TI_VOID_TYPE]);
+Gimple::type boolean_type_node (global_trees[TI_BOOLEAN_TYPE]);
+
+location_t 
+expr_location (Gimple::value v)
+{
+  if (v)
+    return v->expr_location();
+  else
+    return UNKNOWN_LOCATION;
+}
+
+
+void
+strip_nops (Gimple::value_ptr gv)
+{ 
+  *gv = tree_strip_nop_conversions (CONST_CAST_TREE ((tree)(*gv)));
+}
+
+namespace Gimple {
+
+Gimple::identifier
+decl_with_viz_desc::assembler_name()
+{
+  if (!assembler_name_set_p ())
+    lang_hooks.set_decl_assembler_name (&node);
+  return node.decl_with_vis.assembler_name;
+}
+
+
+}  // namespace Gimple

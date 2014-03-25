@@ -3014,7 +3014,7 @@ initialize_inlined_parameters (copy_body_data *id, gimple stmt,
   for (p = parms, i = 0; p; p = DECL_CHAIN (p), i++)
     {
       tree val;
-      val = i < gimple_call_num_args (stmt) ? gimple_call_arg (stmt, i) : NULL;
+      val = i < gimple_call_num_args (stmt) ? gimple_call_arg (stmt, i) : NULL_GIMPLE;
       setup_one_parameter (id, p, val, fn, bb, &vars);
     }
   /* After remapping parameters remap their types.  This has to be done
@@ -3800,7 +3800,7 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
       				      gimple_assign_rhs1 (stmt),
 				      get_gimple_rhs_class (gimple_assign_rhs_code (stmt))
 				      == GIMPLE_BINARY_RHS
-				      ? gimple_assign_rhs2 (stmt) : NULL);
+				      ? gimple_assign_rhs2 (stmt) : NULL_GIMPLE);
       break;
 
     case GIMPLE_COND:
@@ -4486,7 +4486,7 @@ fold_marked_statements (int first, struct pointer_set_t *statements)
 	  if (pointer_set_contains (statements, gsi_stmt (gsi)))
 	    {
 	      gimple old_stmt = gsi_stmt (gsi);
-	      tree old_decl = is_gimple_call (old_stmt) ? gimple_call_fndecl (old_stmt) : 0;
+	      tree old_decl = is_gimple_call (old_stmt) ? gimple_call_fndecl (old_stmt) : NULL_GIMPLE;
 
 	      if (old_decl && DECL_BUILT_IN (old_decl))
 		{

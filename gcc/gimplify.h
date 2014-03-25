@@ -23,7 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 /* Validation of GIMPLE expressions.  Note that these predicates only check
    the basic form of the expression, they don't recurse to make sure that
    underlying nodes are also of the right form.  */
-typedef bool (*gimple_predicate)(tree);
+typedef bool (*gimple_predicate)(Gimple::value);
 
 /* FIXME we should deduce this from the predicate.  */
 enum fallback {
@@ -71,7 +71,7 @@ extern gimple_predicate rhs_predicate_for (tree);
 extern bool gimplify_stmt (tree *, gimple_seq *);
 extern void omp_firstprivatize_variable (struct gimplify_omp_ctx *, tree);
 extern enum gimplify_status gimplify_expr (tree *, gimple_seq *, gimple_seq *,
-					   bool (*) (tree), fallback_t);
+					   gimple_predicate, fallback_t);
 
 extern void gimplify_type_sizes (tree, gimple_seq *);
 extern void gimplify_one_sizepos (tree *, gimple_seq *);

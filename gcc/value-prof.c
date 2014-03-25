@@ -1614,8 +1614,8 @@ gimple_stringop_fixed_value (gimple vcall_stmt, tree icall_size, int prob,
   cond_stmt = gimple_build_cond (EQ_EXPR, tmp1, tmp0, NULL_TREE, NULL_TREE);
   gsi_insert_before (&gsi, cond_stmt, GSI_SAME_STMT);
 
-  gimple_set_vdef (vcall_stmt, NULL);
-  gimple_set_vuse (vcall_stmt, NULL);
+  gimple_set_vdef (vcall_stmt, NULL_GIMPLE);
+  gimple_set_vuse (vcall_stmt, NULL_GIMPLE);
   update_stmt (vcall_stmt);
   icall_stmt = gimple_copy (vcall_stmt);
   gimple_call_set_arg (icall_stmt, size_arg, icall_size);

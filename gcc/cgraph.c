@@ -1493,7 +1493,7 @@ cgraph_update_edges_for_call_stmt_node (struct cgraph_node *node,
 					gimple new_stmt)
 {
   tree new_call = (new_stmt && is_gimple_call (new_stmt))
-		  ? gimple_call_fndecl (new_stmt) : 0;
+		  ? gimple_call_fndecl (new_stmt) : NULL_GIMPLE;
 
   /* We are seeing indirect calls, then there is nothing to update.  */
   if (!new_call && !old_call)

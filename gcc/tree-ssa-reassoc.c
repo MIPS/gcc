@@ -3893,7 +3893,8 @@ repropagate_negates (void)
 	      tree x = make_ssa_name (TREE_TYPE (gimple_assign_lhs (feed)), NULL);
 	      gimple g = gimple_build_assign_with_ops (PLUS_EXPR, x, a, b);
 	      gsi_insert_before (&gsi2, g, GSI_SAME_STMT);
-	      gimple_assign_set_rhs_with_ops (&gsi2, NEGATE_EXPR, x, NULL);
+	      gimple_assign_set_rhs_with_ops (&gsi2, NEGATE_EXPR, x,
+					      NULL_GIMPLE);
 	      user = gsi_stmt (gsi2);
 	      update_stmt (user);
 	      gsi_remove (&gsi, true);

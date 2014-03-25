@@ -201,8 +201,8 @@ expr_elt_hasher::equal (const value_type *p1, const compare_type *p2)
       && types_compatible_p (expr1->type, expr2->type))
     {
       /* Note that STMT1 and/or STMT2 may be NULL.  */
-      return ((stmt1 ? gimple_vuse (stmt1) : NULL_TREE)
-	      == (stmt2 ? gimple_vuse (stmt2) : NULL_TREE));
+      return ((stmt1 ? gimple_vuse (stmt1) : NULL_GIMPLE)
+	      == (stmt2 ? gimple_vuse (stmt2) : NULL_GIMPLE));
     }
 
   return false;

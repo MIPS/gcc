@@ -8429,7 +8429,7 @@ execute_fixup_cfg (void)
 	  gimple stmt = gsi_stmt (gsi);
 	  tree decl = is_gimple_call (stmt)
 		      ? gimple_call_fndecl (stmt)
-		      : NULL;
+		      : NULL_GIMPLE;
 	  if (decl)
 	    {
 	      int flags = gimple_call_flags (stmt);
