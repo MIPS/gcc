@@ -330,24 +330,172 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
   #{gimple_build_assign_with_ops(NOP_EXPR, $LHS, $RHS, NULL_TREE)}#
 )
 
-;;; match a gimple assign with unary minus X = -Y
-(defcmatcher gimple_assign_unary_minus
+;;; match a gimple assign with unary negation X = -Y
+(defcmatcher gimple_assign_negate
   (:gimple ga)
   (:tree lhs
    :tree rhs)
   gaum
-  :doc #{$GIMPLE_ASSIGN_UNARY_MINUS match or build an unary negate assign into $LHS of $RHS.}# 
+  :doc #{$GIMPLE_ASSIGN_NEGATE match or build an unary negate assign into $LHS of $RHS.}# 
   ;; test
-  #{ /* gimple_assign_unary_minus $GAUM ? */ ($GA 
+  #{ /* gimple_assign_negate $GAUM ? */ ($GA 
      && gimple_expr_code ($GA) == NEGATE_EXPR)
   }#
   ;; fill
-  #{ /* gimple_assign_unary_minus $GAUM ! */
+  #{ /* gimple_assign_negate $GAUM ! */
        $LHS = gimple_assign_lhs ($GA);
        $RHS = gimple_assign_rhs1 ($GA);
   }#
   ;; operator expansion
-  #{/*gimple_assign_unary_minus:*/ gimple_build_assign_with_ops(NEGATE_EXPR,
+  #{/*gimple_assign_negate:*/ gimple_build_assign_with_ops(NEGATE_EXPR,
+     $LHS, $RHS, NULL_TREE)}#
+  )
+
+;;; match a gimple assign with unary float conversion X = (float)Y
+(defcmatcher gimple_assign_float
+  (:gimple ga)
+  (:tree lhs
+   :tree rhs)
+  gauf
+  :doc #{$GIMPLE_ASSIGN_FLOAT match or build an unary float conversion assign into $LHS of $RHS.}# 
+  ;; test
+  #{ /* gimple_assign_float $GAUF ? */ ($GA 
+     && gimple_expr_code ($GA) == FLOAT_EXPR)
+  }#
+  ;; fill
+  #{ /* gimple_assign_float $GAUF ! */
+       $LHS = gimple_assign_lhs ($GA);
+       $RHS = gimple_assign_rhs1 ($GA);
+  }#
+  ;; operator expansion
+  #{/*gimple_assign_float:*/ gimple_build_assign_with_ops(FLOAT_EXPR,
+     $LHS, $RHS, NULL_TREE)}#
+  )
+
+;;; match a gimple assign absolute value X = abs(Y)
+(defcmatcher gimple_assign_abs
+  (:gimple ga)
+  (:tree lhs
+   :tree rhs)
+  gaua
+  :doc #{$GIMPLE_ASSIGN_ABS match or build an unary float conversion assign into $LHS of $RHS.}# 
+  ;; test
+  #{ /* gimple_assign_abs $GAUA ? */ ($GA 
+                  && gimple_expr_code ($GA) == ABS_EXPR)
+  }#
+  ;; fill
+  #{ /* gimple_assign_abs $GAUA ! */
+       $LHS = gimple_assign_lhs ($GA);
+       $RHS = gimple_assign_rhs1 ($GA);
+  }#
+  ;; operator expansion
+  #{/*gimple_assign_abs:*/ gimple_build_assign_with_ops(ABS_EXPR,
+     $LHS, $RHS, NULL_TREE)}#
+  )
+
+;;; match a gimple assign with barrier parenthesis X = (Y)
+(defcmatcher gimple_assign_paren
+  (:gimple ga)
+  (:tree lhs
+   :tree rhs)
+  gaup
+  :doc #{$GIMPLE_ASSIGN_PAREN match or build a barrier parenthesis assign into $LHS of $RHS.}# 
+  ;; test
+  #{ /* gimple_assign_paren $GAUP ? */ ($GA 
+                  && gimple_expr_code ($GA) == PAREN_EXPR)
+  }#
+  ;; fill
+  #{ /* gimple_assign_paren $GAUP ! */
+       $LHS = gimple_assign_lhs ($GA);
+       $RHS = gimple_assign_rhs1 ($GA);
+  }#
+  ;; operator expansion
+  #{/*gimple_assign_paren:*/ gimple_build_assign_with_ops(PAREN_EXPR,
+     $LHS, $RHS, NULL_TREE)}#
+  )
+
+;;; match a gimple assign with conversion X = convert(Y)
+(defcmatcher gimple_assign_convert
+  (:gimple ga)
+  (:tree lhs
+   :tree rhs)
+  gauc
+  :doc #{$GIMPLE_ASSIGN_CONVERT match or build a conversion assign into $LHS of $RHS.}# 
+  ;; test
+  #{ /* gimple_assign_convert $GAUC ? */ ($GA 
+                  && gimple_expr_code ($GA) == CONVERT_EXPR)
+  }#
+  ;; fill
+  #{ /* gimple_assign_convert $GAUC ! */
+       $LHS = gimple_assign_lhs ($GA);
+       $RHS = gimple_assign_rhs1 ($GA);
+  }#
+  ;; operator expansion
+  #{/*gimple_assign_convert:*/ gimple_build_assign_with_ops(CONVERT_EXPR,
+     $LHS, $RHS, NULL_TREE)}#
+  )
+
+;;; match a gimple assign with address space conversion X = adconvert(Y)
+(defcmatcher gimple_assign_addr_space_convert
+  (:gimple ga)
+  (:tree lhs
+   :tree rhs)
+  gauc
+  :doc #{$GIMPLE_ASSIGN_ADDR_SPACE_CONVERT match or build an address space conversion assign into $LHS of $RHS.}# 
+  ;; test
+  #{ /* gimple_assign_addr_space_convert $GAUC ? */ ($GA 
+                  && gimple_expr_code ($GA) == ADDR_SPACE_CONVERT_EXPR)
+  }#
+  ;; fill
+  #{ /* gimple_assign_addr_space_convert $GAUC ! */
+       $LHS = gimple_assign_lhs ($GA);
+       $RHS = gimple_assign_rhs1 ($GA);
+  }#
+  ;; operator expansion
+  #{/*gimple_assign_addr_space_convert:*/ gimple_build_assign_with_ops(ADDR_SPACE_CONVERT_EXPR,
+     $LHS, $RHS, NULL_TREE)}#
+  )
+
+;;; match a gimple assign with fixedpoint conversion X = fixconvert(Y)
+(defcmatcher gimple_assign_fixed_convert
+  (:gimple ga)
+  (:tree lhs
+   :tree rhs)
+  gauc
+  :doc #{$GIMPLE_ASSIGN_FIXED_CONVERT match or build a fixed-point conversion assign into $LHS of $RHS.}# 
+  ;; test
+  #{ /* gimple_assign_fixed_convert $GAUC ? */ ($GA 
+                  && gimple_expr_code ($GA) == FIXED_CONVERT_EXPR)
+  }#
+  ;; fill
+  #{ /* gimple_assign_fixed_convert $GAUC ! */
+       $LHS = gimple_assign_lhs ($GA);
+       $RHS = gimple_assign_rhs1 ($GA);
+  }#
+  ;; operator expansion
+  #{/*gimple_assign_fixed_convert:*/ gimple_build_assign_with_ops(FIXED_CONVERT_EXPR,
+     $LHS, $RHS, NULL_TREE)}#
+  )
+
+
+;;; match a gimple assign with nop conversion X = nopconvert(Y)
+(defcmatcher gimple_assign_nop
+  (:gimple ga)
+  (:tree lhs
+   :tree rhs)
+  gauc
+  :doc #{$GIMPLE_ASSIGN_NOP match or build a no-op conversion assign into $LHS of $RHS.}# 
+  ;; test
+  #{ /* gimple_assign_nop $GAUC ? */ ($GA 
+                  && gimple_expr_code ($GA) == NOP_EXPR)
+  }#
+  ;; fill
+  #{ /* gimple_assign_nop $GAUC ! */
+       $LHS = gimple_assign_lhs ($GA);
+       $RHS = gimple_assign_rhs1 ($GA);
+  }#
+  ;; operator expansion
+  #{/*gimple_assign_nop:*/ gimple_build_assign_with_ops(NOP_EXPR,
      $LHS, $RHS, NULL_TREE)}#
   )
 
@@ -633,25 +781,25 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
 )
 
 ;; pointer arithmetic
-(defcmatcher gimple_assign_pointerplus
+(defcmatcher gimple_assign_pointer_plus
   (:gimple ga)				;match
   (:tree lhs				;left hand side
    :tree rhs1
    :tree rhs2
    )
   gaspplus
-  :doc #{$GIMPLE_ASSIGN_POINTERMINUS match or build pointer addition into $LHS of $RHS1 and $RHS2.}#
+  :doc #{$GIMPLE_ASSIGN_POINTER_MINUS match or build pointer addition into $LHS of $RHS1 and $RHS2.}#
   ;; test
-  #{/*gimple_assign_pointerplus $GASPPLUS ?*/  $ga && is_gimple_assign($ga) 
+  #{/*gimple_assign_pointer_plus $GASPPLUS ?*/  $ga && is_gimple_assign($ga) 
      && gimple_expr_code($ga) == POINTER_PLUS_EXPR }#
   ;; fill
-  #{/*gimple_assign_pointerplus $GASPPLUS !*/  
+  #{/*gimple_assign_pointer_plus $GASPPLUS !*/  
    $lhs = gimple_assign_lhs($ga);
    $rhs1 = gimple_assign_rhs1($ga);
    $rhs2 = gimple_assign_rhs2($ga);
   }# 
   ;; operator expansion
-  #{/*gimple_assign_pointerplus:*/ gimple_build_assign_with_ops(POINTER_PLUS_EXPR, 
+  #{/*gimple_assign_pointer_plus:*/ gimple_build_assign_with_ops(POINTER_PLUS_EXPR, 
     $LHS, $RHS1, $RHS2)}#
 )
 
@@ -677,6 +825,29 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    }# 
   ;; operator expansion
   #{/*gimple_assign_mult:*/ gimple_build_assign_with_ops(MULT_EXPR, 
+    $LHS, $RHS1, $RHS2)}#
+)
+
+;;;; match a gimple assign with highpart multiplication ie X = HIGHPART(Y * Z)
+(defcmatcher gimple_assign_mult_highpart
+  (:gimple ga)				;match
+  (:tree lhs				;left hand side
+   :tree rhs1
+   :tree rhs2
+   )
+  gasmult
+  :doc #{$GIMPLE_ASSIGN_MULT_HIGHPART match or build multiplication into $LHS of $RHS1 and $RHS2.}#
+  ;; test
+  #{/*gimple_assign_mult_highpart $GASMULT ?*/ ($ga && is_gimple_assign($ga) 
+     && gimple_expr_code($ga) == MULT_EXPR)}#
+  ;; fill
+  #{/*gimple_assign_mult_highpart $GASMULT !*/ 
+   $lhs = gimple_assign_lhs($ga);
+   $rhs1 = gimple_assign_rhs1($ga);
+   $rhs2 = gimple_assign_rhs2($ga);
+   }# 
+  ;; operator expansion
+  #{/*gimple_assign_mult_highpart:*/ gimple_build_assign_with_ops(MULT_EXPR, 
     $LHS, $RHS1, $RHS2)}#
 )
 
@@ -2824,6 +2995,8 @@ MELT_EXTERN bool melt_4dot8_walk_hook_use_def_wrapper(tree, gimple, void *);
  foreach_case_of_gimple_switch
  foreach_mapgimple 
  gimple_asm
+ gimple_assign_abs
+ gimple_assign_addr_space_convert
  gimple_assign_binaryop
  gimple_assign_bit_and
  gimple_assign_bit_ior
@@ -2832,8 +3005,11 @@ MELT_EXTERN bool melt_4dot8_walk_hook_use_def_wrapper(tree, gimple, void *);
  gimple_assign_cast
  gimple_assign_ceil_div 
  gimple_assign_ceil_mod
+ gimple_assign_convert
  gimple_assign_copy
  gimple_assign_exact_div
+ gimple_assign_fixed_convert
+ gimple_assign_float
  gimple_assign_floor_div
  gimple_assign_floor_mod
  gimple_assign_lrotate
@@ -2841,9 +3017,12 @@ MELT_EXTERN bool melt_4dot8_walk_hook_use_def_wrapper(tree, gimple, void *);
  gimple_assign_max
  gimple_assign_min
  gimple_assign_minus
+ gimple_assign_mult_highpart
  gimple_assign_mult
+ gimple_assign_nop
+ gimple_assign_paren
  gimple_assign_plus
- gimple_assign_pointerplus
+ gimple_assign_pointer_plus
  gimple_assign_rdiv
  gimple_assign_round_div
  gimple_assign_round_mod 
@@ -2854,7 +3033,7 @@ MELT_EXTERN bool melt_4dot8_walk_hook_use_def_wrapper(tree, gimple, void *);
  gimple_assign_to 
  gimple_assign_trunc_div
  gimple_assign_trunc_mod
- gimple_assign_unary_minus
+ gimple_assign_negate
  gimple_assign_unary_nop
  gimple_assign_widen_mult
  gimple_at_source_location 

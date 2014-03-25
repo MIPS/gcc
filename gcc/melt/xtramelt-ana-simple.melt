@@ -112,7 +112,7 @@
 	 (justscan_tree jsdata rhs1)
 	 (justscan_tree jsdata rhs2)
 	 )
-       (?(gimple_assign_pointerplus ?lhs ?rhs1 ?rhs2)
+       (?(gimple_assign_pointer_plus ?lhs ?rhs1 ?rhs2)
 	 (justscan_tree jsdata lhs)
 	 (justscan_tree jsdata rhs1)
 	 (justscan_tree jsdata rhs2)

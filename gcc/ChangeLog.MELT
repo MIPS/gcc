@@ -1,6 +1,19 @@
 
 2014-03-25  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/xtramelt-ana-gimple.melt (gimple_assign_abs)
+	(gimple_assign_addr_space_convert, gimple_assign_convert)
+	(gimple_assign_fixed_convert, gimple_assign_float)
+	(gimple_assign_mult_highpart, gimple_assign_nop)
+	(gimple_assign_paren, gimple_assign_negate): New.
+	(gimple_assign_pointerplus): Rename as
+	(gimple_assign_pointer_plus): renamed.
+
+
+	* melt/xtramelt-ana-simple.melt: Use gimple_assign_pointer_plus.
+
+2014-03-25  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/generated/*: Regenerated.
 
 
