@@ -56,12 +56,10 @@ class _ptr
     void set_ptr(const void *p) 
 		{ Tree = reinterpret_cast<tree_desc *>(const_cast<void *>(p)); }
   public:
-    inline _ptr() { Tree = NULL; }
-    inline _ptr(const gimple_null& g ATTRIBUTE_UNUSED) { Tree = NULL; }
+    inline _ptr() { Tree = NULL; } inline _ptr(const gimple_null& g ATTRIBUTE_UNUSED) { Tree = NULL; }
     inline _ptr (const tree t)  { set_ptr (t); check_contents (); }
     inline _ptr (const_tree t)  { set_ptr (t); check_contents (); }
     inline _ptr (const T *v) { set_ptr (v); }
-    inline _ptr (long v) { set_ptr ((void *)v); }
     inline _ptr& operator= (const tree t) 
 				    { set_ptr (t); check_contents (); return *this;}
     inline _ptr& operator= (const_tree t)
@@ -69,7 +67,6 @@ class _ptr
     inline _ptr& operator= (const T *v) { set_ptr (v); return *this;}
     inline _ptr& operator= (const gimple_null& g ATTRIBUTE_UNUSED)
 				    { Tree = NULL; return *this;}
-    inline _ptr& operator= (long v) { set_ptr ((void *)v); return *this;}
 
     bool operator!() const { return Tree == NULL; }
     inline operator tree () const { return reinterpret_cast<tree>(Tree); }
@@ -137,7 +134,6 @@ class _dptr : public dT
     inline _dptr () : dT () { }
     inline _dptr (const gimple_null& g ATTRIBUTE_UNUSED) : dT() { }
     inline _dptr (const tree t) : dT (t) { check_contents(); }
-    inline _dptr (long t) : dT (t) { check_contents(); }
     inline _dptr (const_tree t) : dT (t) { check_contents(); }
     inline _dptr (const dT& d) : dT () { if (d) dT::operator= (dyn_cast (d)); }
     inline _dptr (const pT *n) : dT () {  dT::set_ptr (n); }
@@ -145,8 +141,6 @@ class _dptr : public dT
     inline _dptr& operator= (const tree t) 
 			  { dT::operator= (t); check_contents(); return *this; }
     inline _dptr& operator= (const_tree t) 
-			  { dT::operator= (t); check_contents(); return *this; }
-    inline _dptr& operator= (long t) 
 			  { dT::operator= (t); check_contents(); return *this; }
     inline _dptr& operator= (const dT& d) 
 			  { if (d) dT::operator= (dyn_cast (d)); else dT::set_ptr (NULL); return *this; }
