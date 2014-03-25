@@ -9,6 +9,7 @@
 	* c-family/c.opt (fchkp-check-incomplete-type): New.
 	(fchkp-zero-input-bounds-for-main): New.
 	(fchkp-first-field-has-own-bounds): New.
+	(fchkp-narrow-bounds): New.
 	(fchkp-narrow-to-innermost-array): New.
 	(fchkp-optimize): New.
 	(fchkp-use-fast-string-functions): New.
