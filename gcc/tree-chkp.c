@@ -293,20 +293,17 @@ along with GCC; see the file COPYING3.  If not see
 
       In this example address of the second structure field is returned.
 
-      foo (struct A * p)
+      foo (struct A * p, __bounds_type __bounds_of_p)
       {
         <unnamed type> __bound_tmp.3;
 	int * _2;
 	int * _5;
 
-	<bb 3>:
-	__bound_tmp.3_4 = __builtin___chkp_arg_bnd (p_1(D));
-
 	<bb 2>:
 	_5 = &p_1(D)->second_field;
 	__bound_tmp.3_6 = __builtin___chkp_bndmk (_5, 4);
 	__bound_tmp.3_8 = __builtin___chkp_intersect (__bound_tmp.3_6,
-	                                             __bound_tmp.3_4);
+	                                              __bounds_of_p_3(D));
 	_2 = &p_1(D)->second_field;
 	return _2, __bound_tmp.3_8;
       }
@@ -315,23 +312,19 @@ along with GCC; see the file COPYING3.  If not see
 
       In this example address of the first field of array element is returned.
 
-      foo (struct A * p, int i)
+      foo (struct A * p, , __bounds_type __bounds_of_p, int i)
       {
-        <unnamed type> __bound_tmp.3;
-	long unsigned int _2;
 	long unsigned int _3;
-	struct A * _5;
-	int * _6;
-
-	<bb 3>:
-	__bound_tmp.3_8 = __builtin___chkp_arg_bnd (p_4(D));
+	long unsigned int _4;
+	struct A * _6;
+	int * _7;
 
 	<bb 2>:
-	_2 = (long unsigned int) i_1(D);
-	_3 = _2 * 8;
-	_5 = p_4(D) + _3;
-	_6 = &_5->first_field;
-	return _6, __bound_tmp.3_8;
+	_3 = (long unsigned int) i_1(D);
+	_4 = _3 * 8;
+	_6 = p_5(D) + _4;
+	_7 = &_6->first_field;
+	return _7, __bounds_of_p_2(D);
       }
 
 
@@ -2516,17 +2509,6 @@ chkp_retbnd_call_by_val (tree val)
       return USE_STMT (use_p);
 
   return NULL;
-}
-
-/* Return PARM_DECL for corresponding to arg_bnd
-   call with argument ARG.  */
-tree
-chkp_parm_for_arg_bnd_arg (tree arg)
-{
-  gcc_assert (TREE_CODE (arg) == SSA_NAME);
-  arg = SSA_NAME_VAR (arg);
-  gcc_assert (TREE_CODE (arg) == PARM_DECL);
-  return arg;
 }
 
 /* Check the next parameter for the given PARM is bounds
