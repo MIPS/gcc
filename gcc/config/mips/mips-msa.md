@@ -1413,7 +1413,7 @@
 ;; D=operand 0
 ;; S=operand 2
 ;; T=operand 3
-;; D <- (D & (T ^ -1)) | (S & T)
+;; D <- (D & (T ^ -1)) | (T & S)
 (define_expand "msa_bmnz_v_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand")
 	(unspec:IMSA [(match_operand:IMSA 1 "register_operand")
