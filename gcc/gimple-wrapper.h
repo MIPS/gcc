@@ -56,25 +56,26 @@ class _ptr
     void set_ptr(const void *p) 
 		{ Tree = reinterpret_cast<tree_desc *>(const_cast<void *>(p)); }
   public:
-    inline _ptr() { Tree = NULL; } inline _ptr(const gimple_null& g ATTRIBUTE_UNUSED) { Tree = NULL; }
+    inline _ptr () { Tree = NULL; }
+    inline _ptr (const gimple_null& g ATTRIBUTE_UNUSED) { Tree = NULL; }
     inline _ptr (const tree t)  { set_ptr (t); check_contents (); }
     inline _ptr (const_tree t)  { set_ptr (t); check_contents (); }
     inline _ptr (const T *v) { set_ptr (v); }
-    inline _ptr& operator= (const tree t) 
-				    { set_ptr (t); check_contents (); return *this;}
-    inline _ptr& operator= (const_tree t)
-				    { set_ptr (t); check_contents (); return *this;}
-    inline _ptr& operator= (const T *v) { set_ptr (v); return *this;}
     inline _ptr& operator= (const gimple_null& g ATTRIBUTE_UNUSED)
 				    { Tree = NULL; return *this;}
+    inline _ptr& operator= (const tree t) 
+			      { set_ptr (t); check_contents (); return *this;}
+    inline _ptr& operator= (const_tree t)
+			      { set_ptr (t); check_contents (); return *this;}
+    inline _ptr& operator= (const T *v) { set_ptr (v); return *this;}
 
     bool operator!() const { return Tree == NULL; }
     inline operator tree () const { return reinterpret_cast<tree>(Tree); }
 
     inline T * operator->() { return ptr (); }
     inline const T * operator->() const { return ptr (); }
-    inline T& operator*() { return *ptr (); }
-    inline const T& operator*() const { return *ptr (); }
+//    inline T& operator*() { return *ptr (); }
+//    inline const T& operator*() const { return *ptr (); }
 
     friend bool is_same(const _ptr a, _ptr b)
 				    { return a->code () == b->code (); }
@@ -111,6 +112,7 @@ class _ptr
     template<typename, typename> friend class _dptr;
 };
 
+
 template<typename pT, typename dT>
 class _dptr : public dT
 {
@@ -123,12 +125,13 @@ class _dptr : public dT
     static inline  const pT * as_a(const dT &d)
 			    { return static_cast<const pT *>(d.operator->()); }
     static inline pT * dyn_cast(dT &d) 
-	  { return (Test (d)) ? static_cast<pT *>(d.operator->()) : NULL; }
+	      { return (Test (d)) ? static_cast<pT *>(d.operator->()) : NULL; }
     static inline const pT * dyn_cast(const dT &d) 
-	  { return (Test (d)) ? static_cast<const pT *>(d.operator->()) : NULL; }
+	{ return (Test (d)) ? static_cast<const pT *>(d.operator->()) : NULL; }
+
     pT *ptr() const { return static_cast<pT *>(dT::Tree); }
     void set_ptr(const void *p) 
-		{ dT::Tree = reinterpret_cast<tree_desc *>(const_cast<void *>(p)); }
+	    { dT::Tree = reinterpret_cast<tree_desc *>(const_cast<void *>(p)); }
   public:
 
     inline _dptr () : dT () { }
@@ -144,17 +147,16 @@ class _dptr : public dT
 			  { dT::operator= (t); check_contents(); return *this; }
     inline _dptr& operator= (const dT& d) 
 			  { if (d) dT::operator= (dyn_cast (d)); else dT::set_ptr (NULL); return *this; }
-    inline _dptr& operator= (const pT *p)
-					  { dT::set_ptr (p); return *this; }
+    inline _dptr& operator= (const pT *p) { dT::set_ptr (p); return *this; }
     inline _dptr& operator= (const gimple_null& g ATTRIBUTE_UNUSED)
-				    { dT::set_ptr (NULL); return *this;}
+					    { dT::set_ptr (NULL); return *this;}
 
     inline pT * operator->() { return static_cast<pT *>(dT::ptr()); }
     inline const pT * operator->() const 
-			  { return static_cast<const pT *>(dT::ptr()); }
-    inline pT& operator*() { return *static_cast<pT *>(dT::ptr()); }
-    inline const pT& operator*() const
-			  { return *static_cast<const pT *>(dT::ptr()); }
+				  { return static_cast<const pT *>(dT::ptr()); }
+//    inline pT& operator*() { return *static_cast<pT *>(dT::ptr()); }
+//    inline const pT& operator*() const
+//				{ return *static_cast<const pT *>(dT::ptr()); }
 
     template <typename T1, typename T2>
     friend bool operator== (const _dptr<T1,T2>& a, const T1 *b);
@@ -281,17 +283,20 @@ operator!= (const _ptr<T>& t1, long t2)
 //////////////////////////////////////////////////////////////////
 
 
-typedef _ptr<value_desc>			value;
+typedef _ptr<value_desc>		value;
+typedef _addr<value>			value_ptr;
+
+typedef _ptr<type_desc>			type;
+typedef _ptr<block_desc>		block;
+
 template<>
 inline void 
 _ptr<value_desc>::check_contents() const
 {
 }
 
-typedef _addr<value>			value_ptr;
-
-typedef _ptr<type_desc>			type;
-template<> inline void 
+template<>
+inline void 
 _ptr<type_desc>::check_contents() const
 {
 #if GIMPLE_CHECKING_ON
@@ -300,7 +305,6 @@ _ptr<type_desc>::check_contents() const
 #endif
 }
 
-typedef _ptr<block_desc>			block;
 template<>
 inline void 
 _ptr<block_desc>::check_contents() const
