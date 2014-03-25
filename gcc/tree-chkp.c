@@ -400,7 +400,7 @@ struct bb_checks
 static tree chkp_get_zero_bounds ();
 static tree chkp_find_bounds (tree ptr, gimple_stmt_iterator *iter);
 static tree chkp_find_bounds_loaded (tree ptr, tree ptr_src,
-				   gimple_stmt_iterator *iter);
+				     gimple_stmt_iterator *iter);
 static tree chkp_find_bounds_abnormal (tree ptr, tree phi, edge e);
 static void chkp_collect_value (tree ssa_name, address_t &res);
 static void chkp_parse_array_and_component_ref (tree node, tree *ptr,
@@ -557,7 +557,7 @@ chkp_build_instrumented_fndecl (tree fndecl)
 
 /* Fix operands of attribute from ATTRS list named ATTR_NAME.
    Integer operands are replaced with values according to
-   INDEXES map having LEN elements.  For operands out og len
+   INDEXES map having LEN elements.  For operands out of len
    we just add DELTA.  */
 
 static void
@@ -664,7 +664,7 @@ chkp_copy_function_type_adding_bounds (tree orig_type)
     }
 
   /* If function type has attribute with arg indexes then
-     we have  to copy it fixing attribute ops.  Map for
+     we have to copy it fixing attribute ops.  Map for
      fixing is in indexes array.  */
   attrs = TYPE_ATTRIBUTES (type);
   if (lookup_attribute ("nonnull", attrs)
@@ -1129,7 +1129,7 @@ chkp_make_bounds_for_struct_addr (tree ptr)
    Traversal stops when first unknown phi argument is found.  */
 static bool
 chkp_may_complete_phi_bounds (const void *key, void **slot ATTRIBUTE_UNUSED,
-			     void *res)
+			      void *res)
 {
   const_tree bounds = (const_tree)key;
   gimple phi;
@@ -1172,7 +1172,8 @@ chkp_may_finish_incomplete_bounds (void)
 /* Helper function for chkp_finish_incomplete_bounds.
    Recompute args for bounds phi node.  */
 static bool
-chkp_recompute_phi_bounds (const void *key, void **slot, void *res ATTRIBUTE_UNUSED)
+chkp_recompute_phi_bounds (const void *key, void **slot,
+			   void *res ATTRIBUTE_UNUSED)
 {
   tree bounds = const_cast<tree> ((const_tree)key);
   tree ptr = *(tree *)slot;
@@ -1278,8 +1279,9 @@ chkp_find_valid_phi_bounds (const void *key, void **slot, void *res)
 /* Helper function for chkp_finish_incomplete_bounds.
    Marks all incompleted bounds as invalid.  */
 static bool
-chkp_mark_invalid_bounds_walker (const void *key, void **slot ATTRIBUTE_UNUSED,
-				void *res ATTRIBUTE_UNUSED)
+chkp_mark_invalid_bounds_walker (const void *key,
+				 void **slot ATTRIBUTE_UNUSED,
+				 void *res ATTRIBUTE_UNUSED)
 {
   tree bounds = const_cast<tree> ((const_tree)key);
 
@@ -1427,7 +1429,7 @@ chkp_register_var_initializer (tree var)
 
    Add new modification statement (RHS is assigned to LHS)
    into list of static initilizer statementes (passed in ARG).
-   If statements list becomes too big, emit checker contructor
+   If statements list becomes too big, emit checker constructor
    and start the new one.  */
 static void
 chkp_add_modification_to_stmt_list (tree lhs,
@@ -1458,7 +1460,7 @@ chkp_build_addr_expr (tree obj)
 /* Helper function for chkp_finish_file.
    Initialize bound variable BND_VAR with bounds of variable
    VAR to statements list STMTS.  If statements list becomes
-   too big, emit checker contructor and start the new one.  */
+   too big, emit checker constructor and start the new one.  */
 static void
 chkp_output_static_bounds (tree bnd_var, tree var,
 			   struct chkp_ctor_stmt_list *stmts)
@@ -1599,9 +1601,9 @@ chkp_force_gimple_call_op (tree op, gimple_seq *seq)
    DIRFLAG indicates whether memory access is load or store.  */
 static void
 chkp_check_lower (tree addr, tree bounds,
-		 gimple_stmt_iterator iter,
-		 location_t location ATTRIBUTE_UNUSED,
-		 tree dirflag)
+		  gimple_stmt_iterator iter,
+		  location_t location ATTRIBUTE_UNUSED,
+		  tree dirflag)
 {
   gimple_seq seq;
   gimple check;
@@ -1644,9 +1646,9 @@ chkp_check_lower (tree addr, tree bounds,
    DIRFLAG indicates whether memory access is load or store.  */
 static void
 chkp_check_upper (tree addr, tree bounds,
-		 gimple_stmt_iterator iter,
-		 location_t location ATTRIBUTE_UNUSED,
-		 tree dirflag)
+		  gimple_stmt_iterator iter,
+		  location_t location ATTRIBUTE_UNUSED,
+		  tree dirflag)
 {
   gimple_seq seq;
   gimple check;
@@ -1690,9 +1692,9 @@ chkp_check_upper (tree addr, tree bounds,
    DIRFLAG indicates whether memory access is load or store.  */
 static void
 chkp_check_mem_access (tree first, tree last, tree bounds,
-		      gimple_stmt_iterator iter,
-		      location_t location,
-		      tree dirflag)
+		       gimple_stmt_iterator iter,
+		       location_t location,
+		       tree dirflag)
 {
   chkp_check_lower (first, bounds, iter, location, dirflag);
   chkp_check_upper (last, bounds, iter, location, dirflag);
@@ -1704,7 +1706,7 @@ chkp_check_mem_access (tree first, tree last, tree bounds,
 
 void
 chkp_replace_address_check_builtin (gimple_stmt_iterator *gsi,
-				   tree dirflag)
+				    tree dirflag)
 {
   gimple_stmt_iterator call_iter = *gsi;
   gimple call = gsi_stmt (*gsi);
@@ -1787,7 +1789,7 @@ chkp_build_component_ref (tree obj, tree field)
    specified element type ETYPE and element size ESIZE.  */
 static tree
 chkp_build_array_ref (tree arr, tree etype, tree esize,
-		    unsigned HOST_WIDE_INT idx)
+		      unsigned HOST_WIDE_INT idx)
 {
   tree index = build_int_cst (size_type_node, idx);
   tree res;
@@ -2064,12 +2066,6 @@ chkp_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
   if (!flag_chkp_instrument_calls)
     return;
 
-  /* Do nothing if builtin was called as builtin.  */
-  //if (fndecl
-  //    && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
-  //    && called_as_built_in (fndecl))
-  //  return;
-
   /* If function decl is available then use it for
      formal arguments list.  Otherwise use function type.  */
   if (fndecl && DECL_ARGUMENTS (fndecl))
@@ -2274,7 +2270,7 @@ chkp_make_bounds (tree lb, tree size, gimple_stmt_iterator *iter, bool after)
   else
     gsi = gsi_start_bb (chkp_get_entry_block ());
 
-  seq = NULL;//gimple_seq_alloc ();
+  seq = NULL;
 
   lb = chkp_force_gimple_call_op (lb, &seq);
   size = chkp_force_gimple_call_op (size, &seq);
@@ -2926,7 +2922,7 @@ chkp_compute_bounds_for_assignment (tree node, gimple assign)
    Return computed bounds.  */
 static tree
 chkp_get_bounds_by_definition (tree node, gimple def_stmt,
-			      gimple_stmt_iterator *iter)
+			       gimple_stmt_iterator *iter)
 {
   tree var, bounds;
   enum gimple_code code = gimple_code (def_stmt);
@@ -3231,8 +3227,6 @@ chkp_generate_extern_var_bounds (tree var)
       fprintf (dump_file, "'\n");
     }
 
-  //size_reloc = chkp_get_var_size_decl (var);
-
   stmt = gimple_build_call (chkp_sizeof_fndecl, 1, var);
 
   size_reloc = create_tmp_reg (chkp_uintptr_type, CHKP_SIZE_TMP_NAME);
@@ -3415,7 +3409,7 @@ chkp_intersect_bounds (tree bounds1, tree bounds2, gimple_stmt_iterator *iter)
       gimple stmt;
       tree bounds;
 
-      seq = NULL;//gimple_seq_alloc ();
+      seq = NULL;
 
       stmt = gimple_build_call (chkp_intersect_fndecl, 2, bounds1, bounds2);
       chkp_mark_stmt (stmt);
@@ -3995,7 +3989,7 @@ chkp_find_bounds_abnormal (tree ptr, tree phi, edge e)
    or initilize bounds for copied object.  */
 static void
 chkp_walk_pointer_assignments (tree lhs, tree rhs, void *arg,
-			      assign_handler handler)
+			       assign_handler handler)
 {
   tree type = TREE_TYPE (lhs);
 
