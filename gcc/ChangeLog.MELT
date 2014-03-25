@@ -1,4 +1,9 @@
 
+2014-03-25  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{merged with trunk, and....}}
+	* melt-runtime.cc (melt_load_module_index): Accept very short versionmelt strings.
+
 2014-03-11  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-runtime.cc (melt_open_ppfile): Also use open_memstream with

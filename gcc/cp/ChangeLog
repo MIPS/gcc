@@ -1,3 +1,34 @@
+2014-03-24  Adam Butcher  <adam@jessamine.co.uk>
+
+	PR c++/60627
+	* parser.c (cp_parser_parameter_declaration_clause): Prevent 'auto' from
+	introducing an implicit function template parameter within an explicit
+	instantiation.
+
+2014-03-22  Jason Merrill  <jason@redhat.com>
+
+	PR c++/60574
+	* decl.c (grokdeclarator): Change permerror about 'virtual auto'
+	to error.
+
+2014-03-21  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/60384
+	* name-lookup.c (push_class_level_binding_1): Check identifier_p
+	on the name argument.
+
+2014-03-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/60572
+	* init.c (build_zero_init_1): Ignore fields with error_mark_node
+	type.
+
+2014-03-19  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51474
+	* call.c (build_new_method_call_1): Handle pure virtuals called by
+	NSDMIs too.
+
 2014-03-17  Adam Butcher  <adam@jessamine.co.uk>
 
 	PR c++/60390

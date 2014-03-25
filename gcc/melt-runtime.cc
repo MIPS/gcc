@@ -9092,18 +9092,20 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
                     desclinenum, (int) desclinlen, descline);
       /* parse the melt_versionmeltstr */
       if (descversionmelt == NULL
-          && (pc = strstr(descline, "melt_versionmeltstr[]")) != NULL
+          && (pc = strstr(descline, "melt_versionmeltstr")) != NULL
           && (pqu1 = strchr (pc, '"')) != NULL
           && (pqu2 = strchr (pqu1+1, '"')) != NULL
-          && pqu2 > pqu1 + 10 /*actually should be more than 10*/)
+          && pqu2 > pqu1 + 2 /* shortest version is something like 1.1 */)
         {
+          debugeprintf ("melt_load_module_index got versionmeltstr pc=%s pqu1=%s",
+			pc, pqu1);
           descversionmelt = melt_c_string_in_descr (pqu1);
           debugeprintf ("melt_load_module_index found descversionmelt %s L%d",
                         descversionmelt, desclinenum);
         }
       /* parse the melt_modulename */
       if (descmodulename == NULL
-          && (pc = strstr(descline, "melt_modulename[]")) != NULL
+          && (pc = strstr(descline, "melt_modulename")) != NULL
           && (pqu1 = strchr (pc, '"')) != NULL
           && (pqu2 = strchr (pqu1+1, '"')) != NULL)
         {
