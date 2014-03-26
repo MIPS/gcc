@@ -4268,6 +4268,21 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	  return false;
 	}
 
+      /* If it's an add + mult (which is equivalent to shift left)
+       * and it's immediate operand satisfies const_immlsa_operand
+       * predicate. */
+      if (ISA_HAS_LSA
+	  && mode == SImode
+	  && GET_CODE (XEXP (x, 0)) == MULT)
+	{
+	  rtx op2 = XEXP (XEXP (x, 0), 1);
+	  if (const_immlsa_operand (op2, mode))
+	    {
+	      *total = 0;
+	      return true;
+	    }
+	}
+
       /* Double-word operations require three single-word operations and
 	 an SLTU.  The MIPS16 version then needs to move the result of
 	 the SLTU from $24 to a MIPS16 register.  */
@@ -8844,6 +8859,7 @@ mips_print_operand_punct_valid_p (unsigned char code)
    'L'	Print the low-order register in a double-word register operand.
    'M'	Print high-order register in a double-word register operand.
    'z'	Print $0 if OP is zero, otherwise print OP normally.
+   'y'	Print exact log2 of CONST_INT OP in decimal.
    'b'	Print the address of a memory operand, without offset.
    'v'	Print the insn size suffix b,h,w,d,f or d for vector modes V16QI,V8HI,V4SI,
 	  V2SI,V4DF and V2DF.  */
@@ -8897,6 +8913,19 @@ mips_print_operand (FILE *file, rtx op, int letter)
     case 'm':
       if (CONST_INT_P (op))
 	fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (op) - 1);
+      else
+	output_operand_lossage ("invalid use of '%%%c'", letter);
+      break;
+
+    case 'y':
+      if (CONST_INT_P (op))
+	{
+	  int val = exact_log2 (INTVAL (op));
+	  if (val != -1)
+	    fprintf (file, "%d", val);
+	  else
+	    output_operand_lossage ("invalid use of '%%%c'", letter);
+	}
       else
 	output_operand_lossage ("invalid use of '%%%c'", letter);
       break;
