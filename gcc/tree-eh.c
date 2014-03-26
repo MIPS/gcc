@@ -769,7 +769,7 @@ static void
 do_goto_redirection (struct goto_queue_node *q, tree finlab, gimple_seq mod,
 		     struct leh_tf_state *tf)
 {
-  gimple x;
+  gimple_goto x;
 
   gcc_assert (q->is_label);
 
@@ -789,7 +789,7 @@ static void
 emit_post_landing_pad (gimple_seq *seq, eh_region region)
 {
   eh_landing_pad lp = region->landing_pads;
-  gimple x;
+  gimple_label x;
 
   if (lp == NULL)
     lp = gen_eh_landing_pad (region);

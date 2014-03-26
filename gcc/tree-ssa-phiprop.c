@@ -166,7 +166,7 @@ phiprop_insert_phi (basic_block bb, gimple_phi phi, gimple use_stmt,
   FOR_EACH_EDGE (e, ei, bb->preds)
     {
       tree old_arg, new_var;
-      gimple tmp;
+      gimple_assign tmp;
       source_location locus;
 
       old_arg = PHI_ARG_DEF_FROM_EDGE (phi, e);

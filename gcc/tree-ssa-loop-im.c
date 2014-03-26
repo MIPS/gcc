@@ -875,12 +875,12 @@ nonpure_call_p (gimple stmt)
 static gimple
 rewrite_reciprocal (gimple_stmt_iterator *bsi)
 {
-  gimple stmt, stmt1, stmt2;
+  gimple_assign stmt, stmt1, stmt2;
   tree name, lhs, type;
   tree real_one;
   gimple_stmt_iterator gsi;
 
-  stmt = gsi_stmt (*bsi);
+  stmt = as_a <gimple_assign> (gsi_stmt (*bsi));
   lhs = gimple_assign_lhs (stmt);
   type = TREE_TYPE (lhs);
 
@@ -910,11 +910,14 @@ rewrite_reciprocal (gimple_stmt_iterator *bsi)
 static gimple
 rewrite_bittest (gimple_stmt_iterator *bsi)
 {
-  gimple stmt, use_stmt, stmt1, stmt2;
+  gimple_assign stmt;
+  gimple stmt1;
+  gimple_assign stmt2;
+  gimple use_stmt;
   tree lhs, name, t, a, b;
   use_operand_p use;
 
-  stmt = gsi_stmt (*bsi);
+  stmt = as_a <gimple_assign> (gsi_stmt (*bsi));
   lhs = gimple_assign_lhs (stmt);
 
   /* Verify that the single use of lhs is a comparison against zero.  */
@@ -1167,7 +1170,7 @@ move_computations_dom_walker::before_dom_children (basic_block bb)
 
   for (bsi = gsi_start_phis (bb); !gsi_end_p (bsi); )
     {
-      gimple new_stmt;
+      gimple_assign new_stmt;
       stmt = gsi_stmt (bsi);
 
       lim_data = get_lim_data (stmt);
@@ -1939,7 +1942,7 @@ execute_sm (struct loop *loop, vec<edge> exits, mem_ref_p ref)
 {
   tree tmp_var, store_flag = NULL_TREE;
   unsigned i;
-  gimple load;
+  gimple_assign load;
   struct fmt_data fmt_data;
   edge ex;
   struct lim_aux_data *lim_data;
@@ -1996,7 +1999,7 @@ execute_sm (struct loop *loop, vec<edge> exits, mem_ref_p ref)
   FOR_EACH_VEC_ELT (exits, i, ex)
     if (!multi_threaded_model_p)
       {
-	gimple store;
+	gimple_assign store;
 	store = gimple_build_assign (unshare_expr (ref->mem.ref), tmp_var);
 	gsi_insert_on_edge (ex, store);
       }

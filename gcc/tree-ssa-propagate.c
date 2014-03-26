@@ -739,7 +739,7 @@ bool
 update_gimple_call (gimple_stmt_iterator *si_p, tree fn, int nargs, ...)
 {
   va_list ap;
-  gimple new_stmt, stmt = gsi_stmt (*si_p);
+  gimple_call new_stmt, stmt = as_a <gimple_call> (gsi_stmt (*si_p));
 
   gcc_assert (is_gimple_call (stmt));
   va_start (ap, nargs);
@@ -773,7 +773,7 @@ update_call_from_tree (gimple_stmt_iterator *si_p, tree expr)
       unsigned i;
       unsigned nargs = call_expr_nargs (expr);
       vec<tree> args = vNULL;
-      gimple new_stmt;
+      gimple_call new_stmt;
 
       if (nargs > 0)
         {

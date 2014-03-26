@@ -643,7 +643,7 @@ adjust_return_value_with_ops (enum tree_code code, const char *label,
 
   tree ret_type = TREE_TYPE (DECL_RESULT (current_function_decl));
   tree result = make_temp_ssa_name (ret_type, NULL, label);
-  gimple stmt;
+  gimple_assign stmt;
 
   if (POINTER_TYPE_P (ret_type))
     {
@@ -680,7 +680,7 @@ static tree
 update_accumulator_with_ops (enum tree_code code, tree acc, tree op1,
 			     gimple_stmt_iterator gsi)
 {
-  gimple stmt;
+  gimple_assign stmt;
   tree var = copy_ssa_name (acc, NULL);
   if (types_compatible_p (TREE_TYPE (acc), TREE_TYPE (op1)))
     stmt = gimple_build_assign_with_ops (code, var, acc, op1);

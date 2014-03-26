@@ -2193,7 +2193,7 @@ record_equivalences_from_stmt (gimple stmt, int may_optimize_p)
       && !is_gimple_reg (lhs))
     {
       tree rhs = gimple_assign_rhs1 (stmt);
-      gimple new_stmt;
+      gimple_assign new_stmt;
 
       /* Build a new statement with the RHS and LHS exchanged.  */
       if (TREE_CODE (rhs) == SSA_NAME)
@@ -2409,7 +2409,7 @@ optimize_stmt (basic_block bb, gimple_stmt_iterator si)
 	  tree lhs = gimple_assign_lhs (stmt);
 	  tree rhs = gimple_assign_rhs1 (stmt);
 	  tree cached_lhs;
-	  gimple new_stmt;
+	  gimple_assign new_stmt;
 	  if (TREE_CODE (rhs) == SSA_NAME)
 	    {
 	      tree tem = SSA_NAME_VALUE (rhs);

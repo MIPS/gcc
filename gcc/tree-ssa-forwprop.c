@@ -1959,7 +1959,7 @@ simplify_bitwise_binary (gimple_stmt_iterator *gsi)
       && INTEGRAL_TYPE_P (TREE_TYPE (def1_arg1))
       && int_fits_type_p (arg2, TREE_TYPE (def1_arg1)))
     {
-      gimple newop;
+      gimple_assign newop;
       tree tem = make_ssa_name (TREE_TYPE (def1_arg1), NULL);
       newop =
         gimple_build_assign_with_ops (code, tem, def1_arg1,
@@ -1982,7 +1982,7 @@ simplify_bitwise_binary (gimple_stmt_iterator *gsi)
       && types_compatible_p (TREE_TYPE (def1_arg1), TREE_TYPE (def2_arg1))
       && hoist_conversion_for_bitop_p (TREE_TYPE (arg1), TREE_TYPE (def1_arg1)))
     {
-      gimple newop;
+      gimple_assign newop;
       tree tem = make_ssa_name (TREE_TYPE (def1_arg1), NULL);
       newop = gimple_build_assign_with_ops (code, tem, def1_arg1, def2_arg1);
       gimple_set_location (newop, gimple_location (stmt));
@@ -2024,7 +2024,7 @@ simplify_bitwise_binary (gimple_stmt_iterator *gsi)
 	}
       else
 	{
-	  gimple newop;
+	  gimple_assign newop;
 	  tree tem;
 	  tem = make_ssa_name (TREE_TYPE (arg2), NULL);
 	  newop = gimple_build_assign_with_ops (code, tem, a, c);
@@ -2048,7 +2048,7 @@ simplify_bitwise_binary (gimple_stmt_iterator *gsi)
       tree cst = fold_build2 (BIT_AND_EXPR, TREE_TYPE (arg2),
 			      arg2, def1_arg2);
       tree tem;
-      gimple newop;
+      gimple_assign newop;
       if (integer_zerop (cst))
 	{
 	  gimple_assign_set_rhs1 (stmt, def1_arg1);
@@ -2256,7 +2256,7 @@ simplify_rotate (gimple_stmt_iterator *gsi)
   tree lhs;
   int i;
   bool swapped_p = false;
-  gimple g;
+  gimple_assign g;
 
   arg[0] = gimple_assign_rhs1 (stmt);
   arg[1] = gimple_assign_rhs2 (stmt);

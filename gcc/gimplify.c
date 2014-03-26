@@ -1022,7 +1022,7 @@ voidify_wrapper_expr (tree wrapper, tree temp)
    a temporary through which they communicate.  */
 
 static void
-build_stack_save_restore (gimple *save, gimple *restore)
+build_stack_save_restore (gimple_call *save, gimple_call *restore)
 {
   tree tmp_var;
 
@@ -1045,7 +1045,7 @@ gimplify_bind_expr (tree *expr_p, gimple_seq *pre_p)
   tree t;
   gimple_bind gimple_bind;
   gimple_seq body, cleanup;
-  gimple stack_save;
+  gimple_call stack_save;
   location_t start_locus = 0, end_locus = 0;
 
   tree temp = voidify_wrapper_expr (bind_expr, NULL);
@@ -1116,7 +1116,7 @@ gimplify_bind_expr (tree *expr_p, gimple_seq *pre_p)
   stack_save = NULL;
   if (gimplify_ctxp->save_stack)
     {
-      gimple stack_restore;
+      gimple_call stack_restore;
 
       /* Save stack on entry and restore it on exit.  Add a try_finally
 	 block to achieve this.  */
@@ -1153,7 +1153,7 @@ gimplify_bind_expr (tree *expr_p, gimple_seq *pre_p)
 
   if (cleanup)
     {
-      gimple gs;
+      gimple_try gs;
       gimple_seq new_body;
 
       new_body = NULL;
@@ -1484,7 +1484,7 @@ gimplify_switch_expr (tree *expr_p, gimple_seq *pre_p)
       vec<tree> labels;
       vec<tree> saved_labels;
       tree default_case = NULL_TREE;
-      gimple gimple_switch;
+      gimple_switch gimple_switch;
 
       /* If someone can be bothered to fill in the labels, they can
 	 be bothered to null out the body too.  */
@@ -1504,7 +1504,7 @@ gimplify_switch_expr (tree *expr_p, gimple_seq *pre_p)
 
       if (!default_case)
 	{
-	  gimple new_default;
+	  gimple_label new_default;
 
 	  default_case
 	    = build_case_label (NULL_TREE, NULL_TREE,
@@ -2957,7 +2957,7 @@ gimplify_cond_expr (tree *expr_p, gimple_seq *pre_p, fallback_t fallback)
   enum gimplify_status ret;
   tree label_true, label_false, label_cont;
   bool have_then_clause_p, have_else_clause_p;
-  gimple gimple_cond;
+  gimple_cond gimple_cond;
   enum tree_code pred_code;
   gimple_seq seq = NULL;
 
@@ -4059,7 +4059,7 @@ gimplify_init_constructor (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	{
 	  tree lhs = TREE_OPERAND (*expr_p, 0);
 	  tree rhs = TREE_OPERAND (*expr_p, 1);
-	  gimple init = gimple_build_assign (lhs, rhs);
+	  gimple_assign init = gimple_build_assign (lhs, rhs);
 	  gimplify_seq_add_stmt (pre_p, init);
 	  *expr_p = NULL;
 	}
@@ -5208,7 +5208,7 @@ gimplify_cleanup_point_expr (tree *expr_p, gimple_seq *pre_p)
 	    }
 	  else
 	    {
-	      gimple_statement_try *gtry;
+	      gimple_try gtry;
 	      gimple_seq seq;
 	      enum gimple_try_flags kind;
 
@@ -5280,8 +5280,8 @@ gimple_push_cleanup (tree var, tree cleanup, bool eh_only, gimple_seq *pre_p)
 	   val
       */
       tree flag = create_tmp_var (boolean_type_node, "cleanup");
-      gimple ffalse = gimple_build_assign (flag, boolean_false_node);
-      gimple ftrue = gimple_build_assign (flag, boolean_true_node);
+      gimple_assign ffalse = gimple_build_assign (flag, boolean_false_node);
+      gimple_assign ftrue = gimple_build_assign (flag, boolean_true_node);
 
       cleanup = build3 (COND_EXPR, void_type_node, flag, cleanup, NULL);
       gimplify_stmt (&cleanup, &cleanup_stmts);

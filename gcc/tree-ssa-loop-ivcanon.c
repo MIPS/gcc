@@ -494,7 +494,7 @@ remove_exits_and_undefined_stmts (struct loop *loop, unsigned int npeeled)
 	  && wi::ltu_p (elt->bound, npeeled))
 	{
 	  gimple_stmt_iterator gsi = gsi_for_stmt (elt->stmt);
-	  gimple stmt = gimple_build_call
+	  gimple_call stmt = gimple_build_call
 	      (builtin_decl_implicit (BUILT_IN_UNREACHABLE), 0);
 
 	  gimple_set_location (stmt, gimple_location (elt->stmt));
@@ -613,7 +613,7 @@ unloop_loops (bitmap loop_closed_ssa_invalidated,
       edge latch_edge = loop_latch_edge (loop);
       int flags = latch_edge->flags;
       location_t locus = latch_edge->goto_locus;
-      gimple stmt;
+      gimple_call stmt;
       gimple_stmt_iterator gsi;
 
       remove_exits_and_undefined_stmts (loop, n_unroll);

@@ -1130,7 +1130,8 @@ insert_backedge_copies (void)
 		      || trivially_conflicts_p (bb, result, arg)))
 		{
 		  tree name;
-		  gimple stmt, last = NULL;
+		  gimple_assign stmt;
+		  gimple last = NULL;
 		  gimple_stmt_iterator gsi2;
 
 		  gsi2 = gsi_last_bb (gimple_phi_arg_edge (phi, i)->src);

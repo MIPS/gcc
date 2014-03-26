@@ -127,10 +127,11 @@ along with GCC; see the file COPYING3.  If not see
      and gimple_value_profile_transformations table-driven, perhaps...
 */
 
-static tree gimple_divmod_fixed_value (gimple, tree, int, gcov_type, gcov_type);
-static tree gimple_mod_pow2 (gimple, int, gcov_type, gcov_type);
-static tree gimple_mod_subtract (gimple, int, int, int, gcov_type, gcov_type,
-				 gcov_type);
+static tree gimple_divmod_fixed_value (gimple_assign, tree, int, gcov_type,
+				       gcov_type);
+static tree gimple_mod_pow2 (gimple_assign, int, gcov_type, gcov_type);
+static tree gimple_mod_subtract (gimple_assign, int, int, int, gcov_type,
+				 gcov_type, gcov_type);
 static bool gimple_divmod_fixed_value_transform (gimple_stmt_iterator *);
 static bool gimple_mod_pow2_value_transform (gimple_stmt_iterator *);
 static bool gimple_mod_subtract_transform (gimple_stmt_iterator *);
@@ -726,10 +727,11 @@ gimple_value_profile_transformations (void)
    alter the original STMT.  */
 
 static tree
-gimple_divmod_fixed_value (gimple stmt, tree value, int prob, gcov_type count,
-			   gcov_type all)
+gimple_divmod_fixed_value (gimple_assign stmt, tree value, int prob,
+			   gcov_type count, gcov_type all)
 {
-  gimple stmt1, stmt2, stmt3;
+  gimple_assign stmt1, stmt2;
+  gimple_cond stmt3;
   tree tmp0, tmp1, tmp2;
   gimple bb1end, bb2end, bb3end;
   basic_block bb, bb2, bb3, bb4;
@@ -813,10 +815,10 @@ gimple_divmod_fixed_value_transform (gimple_stmt_iterator *si)
   gcov_type val, count, all;
   tree result, value, tree_val;
   gcov_type prob;
-  gimple stmt;
+  gimple_assign stmt;
 
-  stmt = gsi_stmt (*si);
-  if (gimple_code (stmt) != GIMPLE_ASSIGN)
+  stmt = dyn_cast <gimple_assign> (gsi_stmt (*si));
+  if (!stmt)
     return false;
 
   if (!INTEGRAL_TYPE_P (TREE_TYPE (gimple_assign_lhs (stmt))))
@@ -889,9 +891,10 @@ gimple_divmod_fixed_value_transform (gimple_stmt_iterator *si)
    within roundoff error).  This generates the result into a temp and returns
    the temp; it does not replace or alter the original STMT.  */
 static tree
-gimple_mod_pow2 (gimple stmt, int prob, gcov_type count, gcov_type all)
+gimple_mod_pow2 (gimple_assign stmt, int prob, gcov_type count, gcov_type all)
 {
-  gimple stmt1, stmt2, stmt3, stmt4;
+  gimple_assign stmt1, stmt2, stmt3;
+  gimple_cond stmt4;
   tree tmp2, tmp3;
   gimple bb1end, bb2end, bb3end;
   basic_block bb, bb2, bb3, bb4;
@@ -975,10 +978,10 @@ gimple_mod_pow2_value_transform (gimple_stmt_iterator *si)
   gcov_type count, wrong_values, all;
   tree lhs_type, result, value;
   gcov_type prob;
-  gimple stmt;
+  gimple_assign stmt;
 
-  stmt = gsi_stmt (*si);
-  if (gimple_code (stmt) != GIMPLE_ASSIGN)
+  stmt = dyn_cast <gimple_assign> (gsi_stmt (*si));
+  if (!stmt)
     return false;
 
   lhs_type = TREE_TYPE (gimple_assign_lhs (stmt));
@@ -1041,10 +1044,12 @@ gimple_mod_pow2_value_transform (gimple_stmt_iterator *si)
 /* FIXME: Generalize the interface to handle NCOUNTS > 1.  */
 
 static tree
-gimple_mod_subtract (gimple stmt, int prob1, int prob2, int ncounts,
+gimple_mod_subtract (gimple_assign stmt, int prob1, int prob2, int ncounts,
 		     gcov_type count1, gcov_type count2, gcov_type all)
 {
-  gimple stmt1, stmt2, stmt3;
+  gimple_assign stmt1;
+  gimple stmt2;
+  gimple_cond stmt3;
   tree tmp1;
   gimple bb1end, bb2end = NULL, bb3end;
   basic_block bb, bb2, bb3, bb4;
@@ -1147,10 +1152,10 @@ gimple_mod_subtract_transform (gimple_stmt_iterator *si)
   gcov_type prob1, prob2;
   unsigned int i, steps;
   gcov_type count1, count2;
-  gimple stmt;
+  gimple_assign stmt;
 
-  stmt = gsi_stmt (*si);
-  if (gimple_code (stmt) != GIMPLE_ASSIGN)
+  stmt = dyn_cast <gimple_assign> (gsi_stmt (*si));
+  if (!stmt)
     return false;
 
   lhs_type = TREE_TYPE (gimple_assign_lhs (stmt));
@@ -1369,7 +1374,9 @@ gimple
 gimple_ic (gimple icall_stmt, struct cgraph_node *direct_call,
 	   int prob, gcov_type count, gcov_type all)
 {
-  gimple dcall_stmt, load_stmt, cond_stmt;
+  gimple dcall_stmt;
+  gimple_assign load_stmt;
+  gimple_cond cond_stmt;
   tree tmp0, tmp1, tmp;
   basic_block cond_bb, dcall_bb, icall_bb, join_bb = NULL;
   tree optype = build_pointer_type (void_type_node);

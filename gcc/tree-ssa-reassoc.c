@@ -1318,7 +1318,7 @@ build_and_add_sum (tree type, tree op1, tree op2, enum tree_code opcode)
   gimple op1def = NULL, op2def = NULL;
   gimple_stmt_iterator gsi;
   tree op;
-  gimple sum;
+  gimple_assign sum;
 
   /* Create the addition statement.  */
   op = make_ssa_name (type, NULL);
@@ -2706,8 +2706,9 @@ update_ops (tree var, enum tree_code code, vec<operand_entry_t> ops,
     {
       gimple_stmt_iterator gsi = gsi_for_stmt (stmt);
       var = make_ssa_name (TREE_TYPE (var), NULL);
-      gimple g = gimple_build_assign_with_ops (gimple_assign_rhs_code (stmt),
-					       var, rhs[2], rhs[3]);
+      gimple_assign g =
+	gimple_build_assign_with_ops (gimple_assign_rhs_code (stmt),
+				      var, rhs[2], rhs[3]);
       gimple_set_uid (g, gimple_uid (stmt));
       gimple_set_visited (g, true);
       gsi_insert_before (&gsi, g, GSI_SAME_STMT);
@@ -3005,7 +3006,7 @@ maybe_optimize_range_tests (gimple stmt)
 		      tree new_lhs = make_ssa_name (TREE_TYPE (lhs), NULL);
 		      enum tree_code rhs_code
 			= gimple_assign_rhs_code (cast_stmt);
-		      gimple g;
+		      gimple_assign g;
 		      if (is_gimple_min_invariant (new_op))
 			{
 			  new_op = fold_convert (TREE_TYPE (lhs), new_op);
@@ -3392,7 +3393,7 @@ get_reassociation_width (int ops_num, enum tree_code opc,
    parallel.  */
 
 static void
-rewrite_expr_tree_parallel (gimple stmt, int width,
+rewrite_expr_tree_parallel (gimple_assign stmt, int width,
 			    vec<operand_entry_t> ops)
 {
   enum tree_code opcode = gimple_assign_rhs_code (stmt);
@@ -4533,7 +4534,8 @@ reassociate_bb (basic_block bb)
 
 		  if (width > 1
 		      && ops.length () > 3)
-		    rewrite_expr_tree_parallel (stmt, width, ops);
+		    rewrite_expr_tree_parallel (as_a <gimple_assign> (stmt),
+						width, ops);
 		  else
                     {
                       /* When there are three operands left, we want

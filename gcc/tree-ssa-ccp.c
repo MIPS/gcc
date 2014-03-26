@@ -1903,7 +1903,8 @@ static void
 insert_clobber_before_stack_restore (tree saved_val, tree var,
 				     gimple_htab **visited)
 {
-  gimple stmt, clobber_stmt;
+  gimple stmt;
+  gimple_assign clobber_stmt;
   tree clobber;
   imm_use_iterator iter;
   gimple_stmt_iterator i;

@@ -1319,7 +1319,7 @@ thunk_adjust (gimple_stmt_iterator * bsi,
 	      tree ptr, bool this_adjusting,
 	      HOST_WIDE_INT fixed_offset, tree virtual_offset)
 {
-  gimple stmt;
+  gimple_assign stmt;
   tree ret;
 
   if (this_adjusting

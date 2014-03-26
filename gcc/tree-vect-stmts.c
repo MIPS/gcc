@@ -6794,7 +6794,7 @@ vectorizable_condition (gimple stmt, gimple_stmt_iterator *gsi,
   /* Handle cond expr.  */
   for (j = 0; j < ncopies; j++)
     {
-      gimple new_stmt = NULL;
+      gimple_assign new_stmt = NULL;
       if (j == 0)
 	{
           if (slp_node)

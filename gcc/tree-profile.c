@@ -294,7 +294,7 @@ void
 gimple_gen_edge_profiler (int edgeno, edge e)
 {
   tree ref, one, gcov_type_tmp_var;
-  gimple stmt1, stmt2, stmt3;
+  gimple_assign stmt1, stmt2, stmt3;
 
   ref = tree_coverage_counter_ref (GCOV_COUNTER_ARCS, edgeno);
   one = build_int_cst (gcov_type_node, 1);
@@ -402,7 +402,7 @@ void
 gimple_gen_ic_profiler (histogram_value value, unsigned tag, unsigned base)
 {
   tree tmp1;
-  gimple stmt1, stmt2, stmt3;
+  gimple_assign stmt1, stmt2, stmt3;
   gimple stmt = value->hvalue.stmt;
   gimple_stmt_iterator gsi = gsi_for_stmt (stmt);
   tree ref_ptr = tree_coverage_counter_addr (tag, base);
@@ -444,7 +444,8 @@ gimple_gen_ic_func_profiler (void)
 {
   struct cgraph_node * c_node = cgraph_node::get (current_function_decl);
   gimple_stmt_iterator gsi;
-  gimple stmt1, stmt2;
+  gimple_call stmt1;
+  gimple_assign stmt2;
   tree tree_uid, cur_func, void0;
 
   if (c_node->only_called_directly_p ())

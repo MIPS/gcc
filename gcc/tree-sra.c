@@ -1531,7 +1531,7 @@ build_ref_for_offset (location_t loc, tree base, HOST_WIDE_INT offset,
      offset such as array[var_index].  */
   if (!base)
     {
-      gimple stmt;
+      gimple_assign stmt;
       tree tmp, addr;
 
       gcc_checking_assert (gsi);
@@ -2613,7 +2613,7 @@ generate_subtree_copies (struct access *access, tree agg,
 	      || access->offset + access->size > start_offset))
 	{
 	  tree expr, repl = get_access_replacement (access);
-	  gimple stmt;
+	  gimple_assign stmt;
 
 	  expr = build_ref_for_model (loc, agg, access->offset - top_offset,
 				      access, gsi, insert_after);
@@ -2651,7 +2651,7 @@ generate_subtree_copies (struct access *access, tree agg,
 	       && (chunk_size == 0
 		   || access->offset + access->size > start_offset))
 	{
-	  gimple ds;
+	  gimple_debug ds;
 	  tree drhs = build_debug_ref_for_model (loc, agg,
 						 access->offset - top_offset,
 						 access);
@@ -2687,7 +2687,7 @@ init_subtree_with_zero (struct access *access, gimple_stmt_iterator *gsi,
 
   if (access->grp_to_be_replaced)
     {
-      gimple stmt;
+      gimple_assign stmt;
 
       stmt = gimple_build_assign (get_access_replacement (access),
 				  build_zero_cst (access->type));
@@ -2700,9 +2700,10 @@ init_subtree_with_zero (struct access *access, gimple_stmt_iterator *gsi,
     }
   else if (access->grp_to_be_debug_replaced)
     {
-      gimple ds = gimple_build_debug_bind (get_access_replacement (access),
-					   build_zero_cst (access->type),
-					   gsi_stmt (*gsi));
+      gimple_debug ds =
+	gimple_build_debug_bind (get_access_replacement (access),
+				 build_zero_cst (access->type),
+				 gsi_stmt (*gsi));
       if (insert_after)
 	gsi_insert_after (gsi, ds, GSI_NEW_STMT);
       else
@@ -2796,7 +2797,7 @@ sra_modify_expr (tree *expr, gimple_stmt_iterator *gsi, bool write)
 
 	  if (write)
 	    {
-	      gimple stmt;
+	      gimple_assign stmt;
 
 	      if (access->grp_partial_lhs)
 		ref = force_gimple_operand_gsi (gsi, ref, true, NULL_TREE,
@@ -2807,7 +2808,7 @@ sra_modify_expr (tree *expr, gimple_stmt_iterator *gsi, bool write)
 	    }
 	  else
 	    {
-	      gimple stmt;
+	      gimple_assign stmt;
 
 	      if (access->grp_partial_lhs)
 		repl = force_gimple_operand_gsi (gsi, repl, true, NULL_TREE,
@@ -2823,9 +2824,10 @@ sra_modify_expr (tree *expr, gimple_stmt_iterator *gsi, bool write)
     }
   else if (write && access->grp_to_be_debug_replaced)
     {
-      gimple ds = gimple_build_debug_bind (get_access_replacement (access),
-					   NULL_TREE,
-					   gsi_stmt (*gsi));
+      gimple_debug ds =
+	gimple_build_debug_bind (get_access_replacement (access),
+				 NULL_TREE,
+				 gsi_stmt (*gsi));
       gsi_insert_after (gsi, ds, GSI_NEW_STMT);
     }
 
@@ -2925,7 +2927,7 @@ load_assign_lhs_subreplacements (struct access *lacc,
       if (lacc->grp_to_be_replaced)
 	{
 	  struct access *racc;
-	  gimple stmt;
+	  gimple_assign stmt;
 	  tree rhs;
 
 	  racc = find_access_in_subtree (sad->top_racc, offset, lacc->size);
@@ -2975,7 +2977,7 @@ load_assign_lhs_subreplacements (struct access *lacc,
 
 	  if (lacc && lacc->grp_to_be_debug_replaced)
 	    {
-	      gimple ds;
+	      gimple_debug ds;
 	      tree drhs;
 	      struct access *racc = find_access_in_subtree (sad->top_racc,
 							    offset,
@@ -3217,7 +3219,7 @@ sra_modify_assign (gimple stmt, gimple_stmt_iterator *gsi)
 	    drhs = fold_build1_loc (loc, VIEW_CONVERT_EXPR,
 				    TREE_TYPE (dlhs), drhs);
 	}
-      gimple ds = gimple_build_debug_bind (dlhs, drhs, stmt);
+      gimple_debug ds = gimple_build_debug_bind (dlhs, drhs, stmt);
       gsi_insert_before (gsi, ds, GSI_SAME_STMT);
     }
 
@@ -4730,7 +4732,8 @@ sra_ipa_reset_debug_stmts (ipa_parm_adjustment_vec adjustments)
     {
       struct ipa_parm_adjustment *adj;
       imm_use_iterator ui;
-      gimple stmt, def_temp;
+      gimple stmt;
+      gimple_debug def_temp;
       tree name, vexpr, copy = NULL_TREE;
       use_operand_p use_p;
 

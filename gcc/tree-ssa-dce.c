@@ -1125,7 +1125,7 @@ remove_dead_stmt (gimple_stmt_iterator *i, basic_block bb)
 	  && !DECL_HAS_VALUE_EXPR_P (lhs))
 	{
 	  tree rhs = gimple_assign_rhs1 (stmt);
-	  gimple note
+	  gimple_debug note
 	    = gimple_build_debug_bind (lhs, unshare_expr (rhs), stmt);
 	  gsi_insert_after (i, note, GSI_SAME_STMT);
 	}

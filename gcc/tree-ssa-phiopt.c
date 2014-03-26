@@ -437,7 +437,8 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
 			 tree arg0, tree arg1)
 {
   tree result;
-  gimple stmt, new_stmt;
+  gimple stmt;
+  gimple_assign new_stmt;
   tree cond;
   gimple_stmt_iterator gsi;
   edge true_edge, false_edge;
@@ -1158,7 +1159,8 @@ abs_replacement (basic_block cond_bb, basic_block middle_bb,
 		 gimple phi, tree arg0, tree arg1)
 {
   tree result;
-  gimple new_stmt, cond;
+  gimple_assign new_stmt;
+  gimple cond;
   gimple_stmt_iterator gsi;
   edge true_edge, false_edge;
   gimple assign;

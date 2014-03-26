@@ -3345,7 +3345,7 @@ scev_const_prop (void)
   basic_block bb;
   tree name, type, ev;
   gimple_phi phi;
-  gimple ass;
+  gimple_assign ass;
   struct loop *loop, *ex_loop;
   bitmap ssa_names_to_remove = NULL;
   unsigned i;

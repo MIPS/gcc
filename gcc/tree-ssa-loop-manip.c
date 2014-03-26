@@ -1253,7 +1253,7 @@ rewrite_phi_with_iv (loop_p loop,
 		     tree main_iv)
 {
   affine_iv iv;
-  gimple stmt;
+  gimple_assign stmt;
   gimple_phi phi = psi->phi ();
   tree atype, mtype, val, res = PHI_RESULT (phi);
 

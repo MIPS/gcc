@@ -318,7 +318,7 @@ emit_case_bit_tests (gimple_switch swtch, tree index_expr,
   unsigned int branch_num = gimple_switch_num_labels (swtch);
 
   gimple_stmt_iterator gsi;
-  gimple shift_stmt;
+  gimple_assign shift_stmt;
 
   tree idx, tmp, csui;
   tree word_type_node = lang_hooks.types.type_for_mode (word_mode, 1);

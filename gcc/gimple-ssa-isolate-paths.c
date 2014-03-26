@@ -96,7 +96,7 @@ insert_trap_and_remove_trailing_statements (gimple_stmt_iterator *si_p, tree op)
       update_stmt (stmt);
     }
 
-  gimple new_stmt
+  gimple_call new_stmt
     = gimple_build_call (builtin_decl_explicit (BUILT_IN_TRAP), 0);
   gimple_seq seq = NULL;
   gimple_seq_add_stmt (&seq, new_stmt);

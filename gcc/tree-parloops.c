@@ -490,7 +490,7 @@ take_address_of (tree obj, tree type, edge entry,
 {
   int uid;
   tree *var_p, name, addr;
-  gimple stmt;
+  gimple_assign stmt;
   gimple_seq stmts;
 
   /* Since the address of OBJ is invariant, the trees may be shared.

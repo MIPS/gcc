@@ -4606,7 +4606,7 @@ static gimple
 build_assert_expr_for (tree cond, tree v)
 {
   tree a;
-  gimple assertion;
+  gimple_assign assertion;
 
   gcc_assert (TREE_CODE (v) == SSA_NAME
 	      && COMPARISON_CLASS_P (cond));
@@ -8725,7 +8725,8 @@ simplify_truth_ops_using_ranges (gimple_stmt_iterator *gsi, gimple stmt)
   else if (need_conversion)
     {
       tree tem = make_ssa_name (TREE_TYPE (op0), NULL);
-      gimple newop = gimple_build_assign_with_ops (BIT_XOR_EXPR, tem, op0, op1);
+      gimple_assign newop =
+	gimple_build_assign_with_ops (BIT_XOR_EXPR, tem, op0, op1);
       gsi_insert_before (gsi, newop, GSI_SAME_STMT);
       gimple_assign_set_rhs_with_ops (gsi, NOP_EXPR, tem, NULL_TREE);
     }
@@ -9404,7 +9405,7 @@ simplify_float_conversion_using_ranges (gimple_stmt_iterator *gsi, gimple stmt)
   enum machine_mode fltmode = TYPE_MODE (TREE_TYPE (gimple_assign_lhs (stmt)));
   enum machine_mode mode;
   tree tem;
-  gimple conv;
+  gimple_assign conv;
 
   /* We can only handle constant ranges.  */
   if (vr->type != VR_RANGE

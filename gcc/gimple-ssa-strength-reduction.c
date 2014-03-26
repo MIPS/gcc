@@ -2052,7 +2052,7 @@ replace_mult_candidate (slsr_cand_t c, tree basis_name, widest_int bump)
       if (bump == 0)
 	{
 	  tree lhs = gimple_assign_lhs (c->cand_stmt);
-	  gimple copy_stmt = gimple_build_assign (lhs, basis_name);
+	  gimple_assign copy_stmt = gimple_build_assign (lhs, basis_name);
 	  gimple_stmt_iterator gsi = gsi_for_stmt (c->cand_stmt);
 	  gimple_set_location (copy_stmt, gimple_location (c->cand_stmt));
 	  gsi_replace (&gsi, copy_stmt, false);
@@ -2151,7 +2151,7 @@ create_add_on_incoming_edge (slsr_cand_t c, tree basis_name,
   basic_block insert_bb;
   gimple_stmt_iterator gsi;
   tree lhs, basis_type;
-  gimple new_stmt;
+  gimple_assign new_stmt;
 
   /* If the add candidate along this incoming edge has the same
      index as C's hidden basis, the hidden basis represents this
@@ -3108,7 +3108,7 @@ insert_initializers (slsr_cand_t c)
     {
       basic_block bb;
       slsr_cand_t where = NULL;
-      gimple init_stmt;
+      gimple_assign init_stmt;
       tree stride_type, new_name, incr_tree;
       widest_int incr = incr_vec[i].incr;
 
@@ -3246,7 +3246,7 @@ static tree
 introduce_cast_before_cand (slsr_cand_t c, tree to_type, tree from_expr)
 {
   tree cast_lhs;
-  gimple cast_stmt;
+  gimple_assign cast_stmt;
   gimple_stmt_iterator gsi = gsi_for_stmt (c->cand_stmt);
 
   cast_lhs = make_temp_ssa_name (to_type, NULL, "slsr");
@@ -3408,7 +3408,7 @@ replace_one_candidate (slsr_cand_t c, unsigned i, tree basis_name)
       
       if (types_compatible_p (lhs_type, basis_type))
 	{
-	  gimple copy_stmt = gimple_build_assign (lhs, basis_name);
+	  gimple_assign copy_stmt = gimple_build_assign (lhs, basis_name);
 	  gimple_stmt_iterator gsi = gsi_for_stmt (c->cand_stmt);
 	  gimple_set_location (copy_stmt, gimple_location (c->cand_stmt));
 	  gsi_replace (&gsi, copy_stmt, false);
@@ -3420,9 +3420,10 @@ replace_one_candidate (slsr_cand_t c, unsigned i, tree basis_name)
       else
 	{
 	  gimple_stmt_iterator gsi = gsi_for_stmt (c->cand_stmt);
-	  gimple cast_stmt = gimple_build_assign_with_ops (NOP_EXPR, lhs,
-							   basis_name,
-							   NULL_TREE);
+	  gimple_assign cast_stmt =
+	    gimple_build_assign_with_ops (NOP_EXPR, lhs,
+					  basis_name,
+					  NULL_TREE);
 	  gimple_set_location (cast_stmt, gimple_location (c->cand_stmt));
 	  gsi_replace (&gsi, cast_stmt, false);
 	  c->cand_stmt = cast_stmt;

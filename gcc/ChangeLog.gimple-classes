@@ -1,5 +1,166 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Use more concrete types for various gimple statements
+
+	* cgraphunit.c (thunk_adjust): Strengthen local "stmt" from gimple
+	to gimple_assign.
+
+	* gimple-ssa-isolate-paths.c
+	(insert_trap_and_remove_trailing_statements): Strengthen local
+	"new_stmt" from gimple to gimple_call.
+
+	* gimple-ssa-strength-reduction.c (replace_mult_candidate):
+	Strengthen local "copy_stmt" from gimple to gimple_assign.
+	(create_add_on_incoming_edge): Likewise, for "new_stmt".
+	(insert_initializers): Likewise, for "init_stmt".
+	(introduce_cast_before_cand): Likewise, for "cast_stmt".
+	(replace_one_candidate): Likewise, for "copy_stmt" and
+	"cast_stmt".
+
+	* gimplify.c (build_stack_save_restore): Require gimple_calls
+	rather than plain gimples.
+	(gimplify_bind_expr): Strengthen locals "stack_save" and
+	"stack_restore" from gimple to gimple_call.  Strengthen "gs"
+	to gimple_try.
+	(gimplify_switch_expr): Strengthen local "gimple_switch" from
+	gimple to gimple_switch, and "new_default" to gimple_label.
+	(gimplify_cond_expr): Strengthen local "gimple_cond" from gimple
+	to gimple_cond.
+	(gimplify_init_constructor): Strengthen local "init" from gimple
+	to gimple_assign.
+	(gimplify_cleanup_point_expr): Strengthen local "gtry" from gimple
+	to gimple_try.
+	(gimple_push_cleanup): Strengthen locals "ffalse" and "ftrue" from
+	gimple to gimple_assign.
+
+	* tree-eh.c (do_goto_redirection): Strengthen local to gimple_goto.
+	(emit_post_landing_pad): Strengthen local to gimple_label.
+
+	* tree-outof-ssa.c (insert_backedge_copies): Strengthen local
+	"stmt" from gimple to gimple_assign.
+
+	* tree-parloops.c (take_address_of): Likewise.
+
+	* tree-predcom.c (replace_ref_with): Likewise, for "new_stmt".
+	(initialize_root_vars_lm): Likewise, for "init_stmt".
+	(reassociate_to_the_same_stmt): Likewise, for "new_stmt" and "tmp_stmt".
+
+	* tree-profile.c (gimple_gen_edge_profiler): Likewise, for "stmt1",
+	"stmt2", "stmt3".
+	(gimple_gen_ic_profiler): Likewise.
+	(gimple_gen_ic_func_profiler): Strengthen local "stmt1" from
+	gimple to gimple_call, and "stmt2" to gimple_assign.
+
+	* tree-scalar-evolution.c (scev_const_prop): Strengthen local
+	"ass" from gimple to gimple_assign.
+
+	* tree-sra.c (build_ref_for_offset): Likewise for "stmt".
+	(generate_subtree_copies): Likewise; also strengthen "ds" to
+	gimple_debug.
+	(init_subtree_with_zero): Likewise.
+	(sra_modify_expr): Likewise.
+	(load_assign_lhs_subreplacements): Likewise.
+	(sra_modify_assign): Strengthen "ds" to gimple_debug.
+	(sra_ipa_reset_debug_stmts): Likewise for "def_temp".
+
+	* tree-ssa-ccp.c (insert_clobber_before_stack_restore):
+	Strengthen local "clobber_stmt" from gimple to gimple_assign.
+
+	* tree-ssa-dce.c (remove_dead_stmt): Strengthen "note" to
+	gimple_debug.
+
+	* tree-ssa-dom.c (record_equivalences_from_stmt): Strengthen
+	local "new_stmt" from gimple to gimple_assign.
+	(optimize_stmt): Likewise.
+
+	* tree-ssa-forwprop.c (simplify_bitwise_binary): Likewise for
+	4 declarations of "newop".
+	(simplify_rotate): Likewise for "g".
+
+	* tree-ssa-loop-im.c (rewrite_reciprocal): Likewise for 3 locals.
+	(rewrite_bittest): Likewise for "stmt" and "stmt2".
+	(move_computations_dom_walker::before_dom_children): Likewise for
+	"new_stmt".
+	(execute_sm): Likewise for "load" and "store".
+
+	* tree-ssa-loop-ivcanon.c (remove_exits_and_undefined_stmts):
+	Strengthen local "stmt" from gimple to gimple_call.
+	(unloop_loops): Likewise.
+
+	* tree-ssa-loop-ivopts.c (rewrite_use_nonlinear_expr): Strengthen
+	local "ass" from gimple to gimple_assign.
+	(remove_unused_ivs): Strengthen "def_temp" to gimple_debug.
+
+	* tree-ssa-loop-manip.c (rewrite_phi_with_iv): Strengthen local "stmt"
+	from gimple to gimple_assign.
+
+	* tree-ssa-loop-prefetch.c (issue_prefetch_ref): Strengthen local
+	"prefetch" from gimple to gimple_call.
+
+	* tree-ssa-math-opts.c (insert_reciprocals): Strengthen local
+	"new_stmt" from gimple to gimple_assign.
+	(powi_as_mults_1): Likewise for "mult_stmt".
+	(powi_as_mults): Likewise for "div_stmt".
+	(build_and_insert_binop): Likewise for "stmt".
+	(build_and_insert_cast): Likewise.
+	(pass_cse_sincos::execute): Likewise for "stmt" and various decls
+	of "new_stmt".
+	(convert_mult_to_fma): Likewise for "fma_stmt".
+
+	* tree-ssa-phiopt.c (conditional_replacement): Likewise for "new_stmt".
+	(abs_replacement): Likewise.
+
+	* tree-ssa-phiprop.c (phiprop_insert_phi): Likewise for "tmp".
+
+	* tree-ssa-pre.c (create_expression_by_pieces): Likewise for "newstmt".
+	(eliminate_insert): Likewise for "tem".
+
+	* tree-ssa-propagate.c (update_gimple_call): Strengthen locals
+	"new_stmt" and "stmt" from gimple to gimple_call.
+	(update_call_from_tree): Likewise for "new_stmt".
+
+	* tree-ssa-reassoc.c (build_and_add_sum): Likewise for "sum".
+	(update_ops): Likewise for "g".
+	(maybe_optimize_range_tests): Likewise.
+	(rewrite_expr_tree_parallel): Require a gimple_assign rather than
+	a plain gimple.
+	(reassociate_bb): Add a checked cast to gimple_assign.
+
+	* tree-ssa.c (insert_debug_temp_for_var_def): Strengthen local
+	"def_temp" from gimple to gimple_debug.
+
+	* tree-switch-conversion.c (emit_case_bit_tests): Strengthen local
+	"shift_stmt" from gimple to gimple_assign.
+
+	* tree-tailcall.c (adjust_return_value_with_ops): Likewise for
+	"stmt".
+	(update_accumulator_with_ops): Likewise.
+
+	* tree-vect-data-refs.c (bump_vector_ptr): Likewise for
+	"incr_stmt".
+
+	* tree-vect-stmts.c (vectorizable_condition): Likewise for
+	"new_stmt".
+
+	* tree-vrp.c (build_assert_expr_for): Likewise for "assertion".
+	(simplify_truth_ops_using_ranges): Likewise for "newop".
+	(simplify_float_conversion_using_ranges): Likewise for "conv".
+
+	* ubsan.c (instrument_mem_ref): Strengthen local "g" from gimple
+	to gimple_call.
+
+	* value-prof.c (gimple_divmod_fixed_value): Require a
+	gimple_assign rather than a plain gimple; strengthen types of locals.
+	(gimple_mod_pow2): Likewise.
+	(gimple_mod_subtract): Likewise.
+	(gimple_divmod_fixed_value_transform): Strengthen local
+	"stmt" from gimple to gimple_assign.
+	(gimple_mod_pow2_value_transform): Likewise.
+	(gimple_mod_subtract_transform): Likewise.
+	(gimple_ic): Strengthen types of locals.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Introduce gimple_try
 
 	* coretypes.h (gimple_try): New typedef.

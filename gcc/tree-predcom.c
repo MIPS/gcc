@@ -1293,7 +1293,7 @@ static void
 replace_ref_with (gimple stmt, tree new_tree, bool set, bool in_lhs)
 {
   tree val;
-  gimple new_stmt;
+  gimple_assign new_stmt;
   gimple_stmt_iterator bsi, psi;
 
   if (gimple_code (stmt) == GIMPLE_PHI)
@@ -1562,7 +1562,7 @@ initialize_root_vars_lm (struct loop *loop, dref root, bool written,
     }
   else
     {
-      gimple init_stmt = gimple_build_assign (var, init);
+      gimple_assign init_stmt = gimple_build_assign (var, init);
       gsi_insert_on_edge_immediate (entry, init_stmt);
     }
 }
@@ -2129,7 +2129,7 @@ static gimple
 reassociate_to_the_same_stmt (tree name1, tree name2)
 {
   gimple stmt1, stmt2, root1, root2, s1, s2;
-  gimple new_stmt, tmp_stmt;
+  gimple_assign new_stmt, tmp_stmt;
   tree new_name, tmp_name, var, r1, r2;
   unsigned dist1, dist2;
   enum tree_code code;
