@@ -1183,6 +1183,19 @@ static const struct mips_rtx_cost_data
     COSTS_N_INSNS (68),           /* int_div_di */
 		     1,           /* branch_cost */
 		     4            /* memory_latency */
+  },
+  { /* P5600 */
+    COSTS_N_INSNS (4),            /* fp_add */
+    COSTS_N_INSNS (5),            /* fp_mult_sf */
+    COSTS_N_INSNS (5),            /* fp_mult_df */
+    COSTS_N_INSNS (17),           /* fp_div_sf */
+    COSTS_N_INSNS (17),           /* fp_div_df */
+    COSTS_N_INSNS (5),            /* int_mult_si */
+    COSTS_N_INSNS (5),            /* int_mult_di */
+    COSTS_N_INSNS (8),            /* int_div_si */
+    COSTS_N_INSNS (8),            /* int_div_di */
+                   2,           /* branch_cost */
+                   10           /* memory_latency */
   }
 };
 
@@ -13843,6 +13856,32 @@ mips_msa_output_division (const char *division, rtx *operands)
   return s;
 }
 
+/* Return true if destination of IN_INSN is used as add source in
+   OUT_INSN. Both IN_INSN and OUT_INSN are of type fmadd. Example:
+   madd.s dst, x, y, z
+   madd.s a, dst, b, c */
+   
+bool
+mips_fmadd_bypass (rtx out_insn, rtx in_insn)
+{
+  int dst_reg, src_reg;
+  
+  if (recog_memoized (in_insn) < 0 || 
+    recog_memoized (out_insn) < 0)
+    return false;
+    
+  extract_insn (in_insn);
+  dst_reg = REG_P (recog_data.operand[0]);
+  
+  extract_insn (out_insn);
+  src_reg = REG_P (recog_data.operand[1]);
+  
+  if (dst_reg == src_reg)
+    return true;
+  
+  return false;
+}
+
 /* Return true if IN_INSN is a multiply-add or multiply-subtract
    instruction and if OUT_INSN assigns to the accumulator operand.  */
 
@@ -13978,6 +14017,7 @@ mips_issue_rate (void)
     case PROCESSOR_LOONGSON_2E:
     case PROCESSOR_LOONGSON_2F:
     case PROCESSOR_LOONGSON_3A:
+    case PROCESSOR_P5600:
       return 4;
 
     case PROCESSOR_XLP:
@@ -14112,6 +14152,9 @@ mips_multipass_dfa_lookahead (void)
 
   if (TUNE_OCTEON)
     return 2;
+
+  if (TUNE_P5600)
+    return 4;
 
   return 0;
 }
@@ -14398,7 +14441,7 @@ mips_sched_reorder_1 (FILE *file ATTRIBUTE_UNUSED, int verbose ATTRIBUTE_UNUSED,
       && *nreadyp > 1)
     vr4130_reorder (ready, *nreadyp);
 
-  if (TUNE_74K)
+  if (TUNE_74K || TUNE_P5600)
     mips_74k_agen_reorder (ready, *nreadyp);
 }
 
@@ -14467,7 +14510,7 @@ mips_variable_issue (FILE *file ATTRIBUTE_UNUSED, int verbose ATTRIBUTE_UNUSED,
       if (!reload_completed && TUNE_MACC_CHAINS)
 	mips_macc_chains_record (insn);
       vr4130_last_insn = insn;
-      if (TUNE_74K)
+      if (TUNE_74K || TUNE_P5600)
 	mips_74k_agen_init (insn);
       else if (TUNE_LOONGSON_2EF)
 	mips_ls2_variable_issue (insn);

@@ -65,6 +65,7 @@
   sr71000
   xlr
   xlp
+  p5600
 ])
 
 (define_c_enum "unspec" [
@@ -1077,6 +1078,9 @@
 (define_insn_reservation "ghost" 0
   (eq_attr "type" "ghost")
   "nothing")
+
+;; Pipeline description for P5600
+(include "P5600.md")
 
 (include "4k.md")
 (include "5k.md")
