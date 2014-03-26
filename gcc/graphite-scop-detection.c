@@ -1338,14 +1338,14 @@ canonicalize_loop_closed_ssa (loop_p loop)
     }
   else
     {
-      gimple_stmt_iterator psi;
+      gimple_phi_iterator psi;
       basic_block close = split_edge (e);
 
       e = single_succ_edge (close);
 
       for (psi = gsi_start_phis (bb); !gsi_end_p (psi); gsi_next (&psi))
 	{
-	  gimple phi = gsi_stmt (psi);
+	  gimple_phi phi = psi.phi ();
 	  unsigned i;
 
 	  for (i = 0; i < gimple_phi_num_args (phi); i++)

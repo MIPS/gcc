@@ -1,5 +1,78 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Update GRAPHITE to use more concrete gimple statement classes
+
+	* graphite-scop-detection.c (canonicalize_loop_closed_ssa):
+	Strengthen local "psi" to be a gimple_phi_iterator and "phi" to
+	a gimple_phi.
+
+	* graphite-sese-to-poly.c (phi_arg_in_outermost_loop): Require
+	a gimple_phi rathen than a plain gimple.
+	(remove_simple_copy_phi): Require a gimple_phi_iterator;
+	strengthen local "phi" to be a gimple_phi and "stmt" to be a
+	gimple_assign.
+	(remove_invariant_phi): Likewise.
+	(simple_copy_phi_p): Require a gimple_phi.
+	(reduction_phi_p): Require a gimple_phi_iterator; strengthen
+	local "phi" to be a gimple_phi.
+	(add_condition_to_pbb): Require a gimple_cond rather than a
+	plain gimple.
+	(add_conditions_to_domain): Add checked cast to gimple_cond
+	within GIMPLE_COND case of switch statement.
+	(single_pred_cond_non_loop_exit): Return a gimple_cond rather
+	than a plain gimple, via a checked cast.
+	(sese_dom_walker::before_dom_children): Strengthen local "stmt"
+	from gimple to gimple_cond.
+	(gsi_for_phi_node): Require a gimple_phi, and return a
+	gimple_phi_iterator.
+	(insert_out_of_ssa_copy): Strengthen local "stmt" from gimple to
+	gimple_assign.
+	(rewrite_reductions_out_of_ssa): Strengthen "psi" to be a
+	gimple_phi_iterator, and "phi" to be a gimple_phi.
+	(phi_contains_arg): Require a gimple_phi.
+	(follow_ssa_with_commutative_ops): Strengthen return type from
+	gimple to gimple_phi, by converting a check for code GIMPLE_PHI to
+	a dyn_cast<gimple_phi>, and strengthening local "res" from gimple
+	to gimple_phi.
+	(detect_commutative_reduction_arg): Strengthen return type from
+	gimple to gimple_phi, and strengthen local "phi" to be a
+	gimple_phi.
+	(detect_commutative_reduction_assign): Strengthen return type from
+	gimple to gimple_phi, and strengthen local "res" to be a
+	gimple_phi.
+	(follow_inital_value_to_phi): Strengthen return type from
+	gimple to gimple_phi.  Replace check for code GIMPLE_PHI with
+	a dyn_cast<gimple_phi>.
+	(detect_commutative_reduction): Strengthen return type and locals
+	"loop_phi", "phi", "close_phi" from gimple to gimple_phi,
+	introducing a checked cast of "stmt" in region guarded by
+	scalar_close_phi_node_p (stmt).
+	(translate_scalar_reduction_to_array_for_stmt): Require param
+	"loop_phi" to be a gimple_phi.  Strengthen local "assign" from
+	gimple to gimple_assign.
+	(remove_phi): Require a gimple_phi.
+	(close_phi_written_to_memory): Likewise.
+	(translate_scalar_reduction_to_array): We expect the first element
+	in each vector to be an arbitrary statement, but all of the
+	subsequent elements to be phi nodes.  Hence the decls of gimple
+	locals "loop_phi" and "close_phi" are replaced with decls of gimple
+	"loop_stmt" and "close_stmt", with decls of the more-strongly typed
+	gimple_phi "loop_phi" and "close_phi" occurring lower down, within
+	the region where we're dealing with i > 0 and hence where we can
+	safely assign them using the checked cast as_a <gimple_phi>.
+	This allows many of the strengthenings from gimple to gimple_phi
+	above.  We eliminate the local "stmt", since we can simply use
+	"loop_stmt".
+	(rewrite_commutative_reductions_out_of_ssa_close_phi): Strengthen
+	param "close_phi" from gimple to gimple_phi, and local "gsi" from
+	gimple_stmt_iterator to gimple_phi_iterator, converting uses of
+	gsi_stmt to gsi.phi for type-safety.
+	(scop_ivs_can_be_represented): Strengthen local "gsi" from
+	gimple_stmt_iterator to gimple_phi_iterator, and "phi" from gimple
+	to gimple_phi.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Make gimple_phi_arg_set_location require a gimple_phi
 
 	* gimple.h (gimple_phi_arg_set_location): Require a gimple_phi
