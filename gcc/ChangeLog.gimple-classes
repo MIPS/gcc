@@ -1,0 +1,100 @@
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
+	Introduce gimple_switch and use it in various places
+
+	* gimple.h (gimple_statement_switch): New subclass of
+	gimple_statement_with_ops, adding the invariant that
+	stmt->code == GIMPLE_SWITCH.
+	(is_a_helper <gimple_statement_switch>::test (gimple)): New.
+
+	* coretypes.h (gimple_switch): New typedef
+	(const_gimple_switch): Likewise.
+
+	* gdbhooks.py (build_pretty_printer): Add gimple_switch
+	and its variants, using the gimple printer.
+
+	* gimple.c (gimple_build_switch_nlabels): Return a gimple_switch
+	rather than just a gimple.
+	(gimple_build_switch): Likewise.
+	* gimple.h (gimple_build_switch_nlabels): Likewise.
+	(gimple_build_switch): Likewise.
+
+	* gimple.h (gimple_switch_num_labels): Update type-signature to
+	require a gimple_switch rather than just a gimple.
+	(gimple_switch_set_num_labels): Likewise.
+	(gimple_switch_set_index): Likewise.
+	(gimple_switch_label): Likewise.
+	(gimple_switch_set_label): Likewise.
+	(gimple_switch_default_label): Likewise.
+	(gimple_switch_set_default_label): Likewise.
+	* expr.h (expand_case): Likewise.
+	* gimple-pretty-print.c (dump_gimple_call): Likewise.
+	* stmt.c (compute_cases_per_edge): Likewise.
+	(expand_case): Likewise.
+	* tree-cfg.h (group_case_labels_stmt): Likewise.
+	* tree-cfg.c (make_gimple_switch_edges): Likewise.
+	(find_taken_edge_switch_expr) Likewise.
+	(find_case_label_for_value) Likewise.
+	(get_cases_for_edge): Likewise.
+	(group_case_labels_stmt): Likewise.
+	(verify_gimple_switch): Likewise.
+	* tree-eh.c (verify_norecord_switch_expr): Likewise.
+	* tree-eh.c (lower_eh_constructs_2): Likewise.
+	* tree-loop-distribution.c (generate_loops_for_partition): Likewise.
+	* tree-ssa-dom.c (record_edge_info): Likewise.
+	* tree-ssa-forwprop.c (simplify_gimple_switch_label_vec): Likewise.
+	(simplify_gimple_switch): Likewise.
+	* tree-switch-conversion.c (emit_case_bit_tests): Likewise.
+	(collect_switch_conv_info): Likewise.
+	(build_constructors): Likewise.
+	(array_value_type): Likewise.
+	(build_one_array): Likewise.
+	(build_arrays): Likewise.
+	(gen_inbound_check): Likewise.
+	* tree-vrp.c (find_switch_asserts): Likewise.
+	(find_case_label_range): Likewise.
+	(find_case_label_ranges): Likewise.
+	(vrp_visit_switch_stmt): Likewise.
+	(simplify_switch_using_ranges): Likewise.
+
+	* tree-vrp.c (switch_update): Strengthen field "stmt" from being
+	merely a gimple to being a gimple_switch.
+
+	* cfgexpand.c (expand_gimple_stmt_1): Add checked cast to
+	gimple_switch in regions where the stmt code has been tested as
+	GIMPLE_SWITCH.
+	* gimple-pretty-print.c (pp_gimple_stmt_1): Likewise.
+	* tree-cfg.c (make_edges): Likewise.
+	(end_recording_case_labels): Likewise.
+	(cleanup_dead_labels): Likewise.
+	(cleanup_dead_labels): Likewise.
+	(group_case_labels): Likewise.
+	(find_taken_edge): Likewise.
+	(find_case_label_for_value): Likewise.
+	(verify_gimple_stmt): Likewise.
+	(gimple_verify_flow_info): Likewise.
+	(gimple_redirect_edge_and_branch): Likewise.
+	* tree-inline.c (estimate_num_insns): Likewise.
+	* tree-ssa-forwprop.c (ssa_forward_propagate_and_combine): Likewise.
+	* tree-ssa-uncprop.c (associate_equivalences_with_edges): Likewise.
+	* tree-switch-conversion.c (do_switchconv): Likewise.
+	* tree-vrp.c  (find_assert_locations_1): Likewise.
+	(vrp_visit_stmt): Likewise.
+	(simplify_stmt_using_ranges): Likewise.
+
+	* ipa-inline-analysis.c (set_switch_stmt_execution_predicate):
+	Introduce local "lastg" as a generic gimple, so that local "last"
+	can be of type gimple_switch once lastg's code has been verified.
+
+	* omp-low.c (diagnose_sb_2): Introduce switch_stmt local to handle
+	the GIMPLE_SWITCH case.
+
+	* tree-cfg.c (find_taken_edge_switch_expr): Add gimple_switch
+	argument, since the caller (find_taken_edge) has checked that
+	last_stmt is a switch.
+
+Copyright (C) 2014 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.

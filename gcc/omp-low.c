@@ -10912,10 +10912,11 @@ diagnose_sb_2 (gimple_stmt_iterator *gsi_p, bool *handled_ops_p,
 
     case GIMPLE_SWITCH:
       {
+	gimple_switch switch_stmt = as_a <gimple_switch> (stmt);
 	unsigned int i;
-	for (i = 0; i < gimple_switch_num_labels (stmt); ++i)
+	for (i = 0; i < gimple_switch_num_labels (switch_stmt); ++i)
 	  {
-	    tree lab = CASE_LABEL (gimple_switch_label (stmt, i));
+	    tree lab = CASE_LABEL (gimple_switch_label (switch_stmt, i));
 	    n = splay_tree_lookup (all_labels, (splay_tree_key) lab);
 	    if (n && diagnose_sb_0 (gsi_p, context, (gimple) n->value))
 	      break;

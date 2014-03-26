@@ -687,8 +687,9 @@ generate_loops_for_partition (struct loop *loop, partition_t partition,
 		}
 	      else if (gimple_code (stmt) == GIMPLE_SWITCH)
 		{
+		  gimple_switch switch_stmt = as_a <gimple_switch> (stmt);
 		  gimple_switch_set_index
-		      (stmt, CASE_LOW (gimple_switch_label (stmt, 1)));
+		      (switch_stmt, CASE_LOW (gimple_switch_label (switch_stmt, 1)));
 		  update_stmt (stmt);
 		}
 	      else

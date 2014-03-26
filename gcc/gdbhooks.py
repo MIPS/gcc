@@ -455,7 +455,12 @@ def build_pretty_printer():
                              'tree', TreePrinter)
     pp.add_printer_for_types(['cgraph_node *'],
                              'cgraph_node', CGraphNodePrinter)
-    pp.add_printer_for_types(['gimple', 'gimple_statement_base *'],
+    pp.add_printer_for_types(['gimple', 'gimple_statement_base *',
+
+                              # Keep this in the same order as gimple.def:
+                              'gimple_switch', 'const_gimple_switch',
+                              'gimple_statement_switch *'],
+
                              'gimple',
                              GimplePrinter)
     pp.add_printer_for_types(['basic_block', 'basic_block_def *'],

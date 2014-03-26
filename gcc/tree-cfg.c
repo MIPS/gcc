@@ -152,7 +152,7 @@ static void make_blocks (gimple_seq);
 static void make_edges (void);
 static void assign_discriminators (void);
 static void make_cond_expr_edges (basic_block);
-static void make_gimple_switch_edges (basic_block);
+static void make_gimple_switch_edges (gimple_switch, basic_block);
 static bool make_goto_expr_edges (basic_block);
 static void make_gimple_asm_edges (basic_block);
 static edge gimple_redirect_edge_and_branch (edge, basic_block);
@@ -172,8 +172,8 @@ static bool gimple_can_merge_blocks_p (basic_block, basic_block);
 static void remove_bb (basic_block);
 static edge find_taken_edge_computed_goto (basic_block, tree);
 static edge find_taken_edge_cond_expr (basic_block, tree);
-static edge find_taken_edge_switch_expr (basic_block, tree);
-static tree find_case_label_for_value (gimple, tree);
+static edge find_taken_edge_switch_expr (gimple_switch, basic_block, tree);
+static tree find_case_label_for_value (gimple_switch, tree);
 
 void
 init_empty_tree_cfg_for_function (struct function *fn)
@@ -804,7 +804,7 @@ make_edges (void)
 	      fallthru = false;
 	      break;
 	    case GIMPLE_SWITCH:
-	      make_gimple_switch_edges (bb);
+	      make_gimple_switch_edges (as_a <gimple_switch> (last), bb);
 	      fallthru = false;
 	      break;
 	    case GIMPLE_RESX:
@@ -1127,7 +1127,7 @@ end_recording_case_labels (void)
 	{
 	  gimple stmt = last_stmt (bb);
 	  if (stmt && gimple_code (stmt) == GIMPLE_SWITCH)
-	    group_case_labels_stmt (stmt);
+	    group_case_labels_stmt (as_a <gimple_switch> (stmt));
 	}
     }
   BITMAP_FREE (touched_switch_bbs);
@@ -1139,7 +1139,7 @@ end_recording_case_labels (void)
    Otherwise return NULL.  */
 
 static tree
-get_cases_for_edge (edge e, gimple t)
+get_cases_for_edge (edge e, gimple_switch t)
 {
   tree *slot;
   size_t i, n;
@@ -1178,9 +1178,8 @@ get_cases_for_edge (edge e, gimple t)
 /* Create the edges for a GIMPLE_SWITCH starting at block BB.  */
 
 static void
-make_gimple_switch_edges (basic_block bb)
+make_gimple_switch_edges (gimple_switch entry, basic_block bb)
 {
-  gimple entry = last_stmt (bb);
   size_t i, n;
 
   n = gimple_switch_num_labels (entry);
@@ -1431,12 +1430,13 @@ cleanup_dead_labels (void)
 
 	case GIMPLE_SWITCH:
 	  {
-	    size_t i, n = gimple_switch_num_labels (stmt);
+	    gimple_switch switch_stmt = as_a <gimple_switch> (stmt);
+	    size_t i, n = gimple_switch_num_labels (switch_stmt);
 
 	    /* Replace all destination labels.  */
 	    for (i = 0; i < n; ++i)
 	      {
-		tree case_label = gimple_switch_label (stmt, i);
+		tree case_label = gimple_switch_label (switch_stmt, i);
 		label = CASE_LABEL (case_label);
 		new_label = main_block_label (label);
 		if (new_label != label)
@@ -1533,7 +1533,7 @@ cleanup_dead_labels (void)
    Eg. three separate entries 1: 2: 3: become one entry 1..3:  */
 
 void
-group_case_labels_stmt (gimple stmt)
+group_case_labels_stmt (gimple_switch stmt)
 {
   int old_size = gimple_switch_num_labels (stmt);
   int i, j, new_size = old_size;
@@ -1621,7 +1621,7 @@ group_case_labels (void)
     {
       gimple stmt = last_stmt (bb);
       if (stmt && gimple_code (stmt) == GIMPLE_SWITCH)
-	group_case_labels_stmt (stmt);
+	group_case_labels_stmt (as_a <gimple_switch> (stmt));
     }
 }
 
@@ -2096,7 +2096,7 @@ find_taken_edge (basic_block bb, tree val)
     return find_taken_edge_cond_expr (bb, val);
 
   if (gimple_code (stmt) == GIMPLE_SWITCH)
-    return find_taken_edge_switch_expr (bb, val);
+    return find_taken_edge_switch_expr (as_a <gimple_switch> (stmt), bb, val);
 
   if (computed_goto_p (stmt))
     {
@@ -2155,14 +2155,13 @@ find_taken_edge_cond_expr (basic_block bb, tree val)
    NULL if any edge may be taken.  */
 
 static edge
-find_taken_edge_switch_expr (basic_block bb, tree val)
+find_taken_edge_switch_expr (gimple_switch switch_stmt, basic_block bb,
+			     tree val)
 {
   basic_block dest_bb;
   edge e;
-  gimple switch_stmt;
   tree taken_case;
 
-  switch_stmt = last_stmt (bb);
   taken_case = find_case_label_for_value (switch_stmt, val);
   dest_bb = label_to_block (CASE_LABEL (taken_case));
 
@@ -2177,7 +2176,7 @@ find_taken_edge_switch_expr (basic_block bb, tree val)
    sorted: We can do a binary search for a case matching VAL.  */
 
 static tree
-find_case_label_for_value (gimple switch_stmt, tree val)
+find_case_label_for_value (gimple_switch switch_stmt, tree val)
 {
   size_t low, high, n = gimple_switch_num_labels (switch_stmt);
   tree default_case = gimple_switch_default_label (switch_stmt);
@@ -4326,7 +4325,7 @@ verify_gimple_goto (gimple stmt)
    is a problem, otherwise false.  */
 
 static bool
-verify_gimple_switch (gimple stmt)
+verify_gimple_switch (gimple_switch stmt)
 {
   unsigned int i, n;
   tree elt, prev_upper_bound = NULL_TREE;
@@ -4508,7 +4507,7 @@ verify_gimple_stmt (gimple stmt)
       return verify_gimple_goto (stmt);
 
     case GIMPLE_SWITCH:
-      return verify_gimple_switch (stmt);
+      return verify_gimple_switch (as_a <gimple_switch> (stmt));
 
     case GIMPLE_RETURN:
       return verify_gimple_return (stmt);
@@ -5235,26 +5234,27 @@ gimple_verify_flow_info (void)
 
 	case GIMPLE_SWITCH:
 	  {
+	    gimple_switch switch_stmt = as_a <gimple_switch> (stmt);
 	    tree prev;
 	    edge e;
 	    size_t i, n;
 
-	    n = gimple_switch_num_labels (stmt);
+	    n = gimple_switch_num_labels (switch_stmt);
 
 	    /* Mark all the destination basic blocks.  */
 	    for (i = 0; i < n; ++i)
 	      {
-		tree lab = CASE_LABEL (gimple_switch_label (stmt, i));
+		tree lab = CASE_LABEL (gimple_switch_label (switch_stmt, i));
 		basic_block label_bb = label_to_block (lab);
 		gcc_assert (!label_bb->aux || label_bb->aux == (void *)1);
 		label_bb->aux = (void *)1;
 	      }
 
 	    /* Verify that the case labels are sorted.  */
-	    prev = gimple_switch_label (stmt, 0);
+	    prev = gimple_switch_label (switch_stmt, 0);
 	    for (i = 1; i < n; ++i)
 	      {
-		tree c = gimple_switch_label (stmt, i);
+		tree c = gimple_switch_label (switch_stmt, i);
 		if (!CASE_LOW (c))
 		  {
 		    error ("found default case not at the start of "
@@ -5300,7 +5300,7 @@ gimple_verify_flow_info (void)
 	    /* Check that we have all of them.  */
 	    for (i = 0; i < n; ++i)
 	      {
-		tree lab = CASE_LABEL (gimple_switch_label (stmt, i));
+		tree lab = CASE_LABEL (gimple_switch_label (switch_stmt, i));
 		basic_block label_bb = label_to_block (lab);
 
 		if (label_bb->aux != (void *)2)
@@ -5488,8 +5488,9 @@ gimple_redirect_edge_and_branch (edge e, basic_block dest)
 
     case GIMPLE_SWITCH:
       {
+	gimple_switch switch_stmt = as_a <gimple_switch> (stmt);
 	tree label = gimple_block_label (dest);
-        tree cases = get_cases_for_edge (e, stmt);
+        tree cases = get_cases_for_edge (e, switch_stmt);
 
 	/* If we have a list of cases associated with E, then use it
 	   as it's a lot faster than walking the entire case vector.  */
@@ -5510,7 +5511,7 @@ gimple_redirect_edge_and_branch (edge e, basic_block dest)
 	       to move all the cases associated with E to E2.  */
 	    if (e2)
 	      {
-		tree cases2 = get_cases_for_edge (e2, stmt);
+		tree cases2 = get_cases_for_edge (e2, switch_stmt);
 
 		CASE_CHAIN (last) = CASE_CHAIN (cases2);
 		CASE_CHAIN (cases2) = first;
@@ -5519,11 +5520,11 @@ gimple_redirect_edge_and_branch (edge e, basic_block dest)
 	  }
 	else
 	  {
-	    size_t i, n = gimple_switch_num_labels (stmt);
+	    size_t i, n = gimple_switch_num_labels (switch_stmt);
 
 	    for (i = 0; i < n; i++)
 	      {
-		tree elt = gimple_switch_label (stmt, i);
+		tree elt = gimple_switch_label (switch_stmt, i);
 		if (label_to_block (CASE_LABEL (elt)) == e->dest)
 		  CASE_LABEL (elt) = label;
 	      }

@@ -689,7 +689,8 @@ maybe_record_in_goto_queue (struct leh_state *state, gimple stmt)
    of the labels will leave outer GIMPLE_TRY_FINALLY nodes. Verify this.  */
 
 static void
-verify_norecord_switch_expr (struct leh_state *state, gimple switch_expr)
+verify_norecord_switch_expr (struct leh_state *state,
+			     gimple_switch switch_expr)
 {
   struct leh_tf_state *tf = state->tf;
   size_t i, n;
@@ -2028,7 +2029,7 @@ lower_eh_constructs_2 (struct leh_state *state, gimple_stmt_iterator *gsi)
       break;
 
     case GIMPLE_SWITCH:
-      verify_norecord_switch_expr (state, stmt);
+      verify_norecord_switch_expr (state, as_a <gimple_switch> (stmt));
       break;
 
     case GIMPLE_TRY:

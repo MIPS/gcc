@@ -3209,7 +3209,7 @@ expand_gimple_stmt_1 (gimple stmt)
     case GIMPLE_PREDICT:
       break;
     case GIMPLE_SWITCH:
-      expand_case (stmt);
+      expand_case (as_a <gimple_switch> (stmt));
       break;
     case GIMPLE_ASM:
       expand_asm_stmt (stmt);

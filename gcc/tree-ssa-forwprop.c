@@ -1286,7 +1286,7 @@ simplify_not_neg_expr (gimple_stmt_iterator *gsi_p)
    have values outside the range of the new type.  */
 
 static void
-simplify_gimple_switch_label_vec (gimple stmt, tree index_type)
+simplify_gimple_switch_label_vec (gimple_switch stmt, tree index_type)
 {
   unsigned int branch_num = gimple_switch_num_labels (stmt);
   auto_vec<tree> labels (branch_num);
@@ -1356,7 +1356,7 @@ simplify_gimple_switch_label_vec (gimple stmt, tree index_type)
    the condition which we may be able to optimize better.  */
 
 static bool
-simplify_gimple_switch (gimple stmt)
+simplify_gimple_switch (gimple_switch stmt)
 {
   /* The optimization that we really care about is removing unnecessary
      casts.  That will let us do much better in propagating the inferred
@@ -3830,7 +3830,7 @@ pass_forwprop::execute (function *fun)
 	      }
 
 	    case GIMPLE_SWITCH:
-	      changed = simplify_gimple_switch (stmt);
+	      changed = simplify_gimple_switch (as_a <gimple_switch> (stmt));
 	      break;
 
 	    case GIMPLE_COND:

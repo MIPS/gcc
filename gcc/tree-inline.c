@@ -3857,15 +3857,18 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
       break;
 
     case GIMPLE_SWITCH:
-      /* Take into account cost of the switch + guess 2 conditional jumps for
-         each case label.
+      {
+	gimple_switch switch_stmt = as_a <gimple_switch> (stmt);
+	/* Take into account cost of the switch + guess 2 conditional jumps for
+	   each case label.
 
-	 TODO: once the switch expansion logic is sufficiently separated, we can
-	 do better job on estimating cost of the switch.  */
-      if (weights->time_based)
-        cost = floor_log2 (gimple_switch_num_labels (stmt)) * 2;
-      else
-        cost = gimple_switch_num_labels (stmt) * 2;
+	   TODO: once the switch expansion logic is sufficiently separated, we can
+	   do better job on estimating cost of the switch.  */
+	if (weights->time_based)
+	  cost = floor_log2 (gimple_switch_num_labels (switch_stmt)) * 2;
+	else
+	  cost = gimple_switch_num_labels (switch_stmt) * 2;
+      }
       break;
 
     case GIMPLE_CALL:

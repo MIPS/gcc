@@ -203,6 +203,7 @@ struct GTY((desc ("gimple_statement_structure (&%h)"), tag ("GSS_BASE"),
      and the prev pointer being the last.  */
   gimple next;
   gimple GTY((skip)) prev;
+
 };
 
 
@@ -768,6 +769,16 @@ enum gimple_statement_structure_enum {
 };
 #undef DEFGSSTRUCT
 
+/* A statement with the invariant that
+      stmt->code == GIMPLE_SWITCH
+   i.e. a switch statement.  */
+
+struct GTY((tag("GSS_WITH_OPS")))
+  gimple_statement_switch : public gimple_statement_with_ops
+{
+  /* no additional fields; this uses the layout for GSS_WITH_OPS. */
+};
+
 template <>
 template <>
 inline bool
@@ -958,6 +969,14 @@ inline bool
 is_a_helper <gimple_statement_transaction *>::test (gimple gs)
 {
   return gs->code == GIMPLE_TRANSACTION;
+}
+
+template <>
+template <>
+inline bool
+is_a_helper <gimple_statement_switch *>::test (gimple gs)
+{
+  return gs->code == GIMPLE_SWITCH;
 }
 
 template <>
@@ -1197,8 +1216,8 @@ gimple_statement_try *gimple_build_try (gimple_seq, gimple_seq,
 					enum gimple_try_flags);
 gimple gimple_build_wce (gimple_seq);
 gimple gimple_build_resx (int);
-gimple gimple_build_switch_nlabels (unsigned, tree, tree);
-gimple gimple_build_switch (tree, tree, vec<tree> );
+gimple_switch gimple_build_switch_nlabels (unsigned, tree, tree);
+gimple_switch gimple_build_switch (tree, tree, vec<tree> );
 gimple gimple_build_eh_dispatch (int);
 gimple gimple_build_debug_bind_stat (tree, tree, gimple MEM_STAT_DECL);
 #define gimple_build_debug_bind(var,val,stmt)			\
@@ -3979,7 +3998,7 @@ gimple_eh_dispatch_set_region (gimple gs, int region)
 /* Return the number of labels associated with the switch statement GS.  */
 
 static inline unsigned
-gimple_switch_num_labels (const_gimple gs)
+gimple_switch_num_labels (const_gimple_switch gs)
 {
   unsigned num_ops;
   GIMPLE_CHECK (gs, GIMPLE_SWITCH);
@@ -3992,7 +4011,7 @@ gimple_switch_num_labels (const_gimple gs)
 /* Set NLABELS to be the number of labels for the switch statement GS.  */
 
 static inline void
-gimple_switch_set_num_labels (gimple g, unsigned nlabels)
+gimple_switch_set_num_labels (gimple_switch g, unsigned nlabels)
 {
   GIMPLE_CHECK (g, GIMPLE_SWITCH);
   gimple_set_num_ops (g, nlabels + 1);
@@ -4022,7 +4041,7 @@ gimple_switch_index_ptr (const_gimple gs)
 /* Set INDEX to be the index variable for switch statement GS.  */
 
 static inline void
-gimple_switch_set_index (gimple gs, tree index)
+gimple_switch_set_index (gimple_switch gs, tree index)
 {
   GIMPLE_CHECK (gs, GIMPLE_SWITCH);
   gcc_gimple_checking_assert (SSA_VAR_P (index) || CONSTANT_CLASS_P (index));
@@ -4034,7 +4053,7 @@ gimple_switch_set_index (gimple gs, tree index)
    labels in a switch statement.  */
 
 static inline tree
-gimple_switch_label (const_gimple gs, unsigned index)
+gimple_switch_label (const_gimple_switch gs, unsigned index)
 {
   GIMPLE_CHECK (gs, GIMPLE_SWITCH);
   gcc_gimple_checking_assert (gimple_num_ops (gs) > index + 1);
@@ -4044,7 +4063,7 @@ gimple_switch_label (const_gimple gs, unsigned index)
 /* Set the label number INDEX to LABEL.  0 is always the default label.  */
 
 static inline void
-gimple_switch_set_label (gimple gs, unsigned index, tree label)
+gimple_switch_set_label (gimple_switch gs, unsigned index, tree label)
 {
   GIMPLE_CHECK (gs, GIMPLE_SWITCH);
   gcc_gimple_checking_assert (gimple_num_ops (gs) > index + 1
@@ -4056,7 +4075,7 @@ gimple_switch_set_label (gimple gs, unsigned index, tree label)
 /* Return the default label for a switch statement.  */
 
 static inline tree
-gimple_switch_default_label (const_gimple gs)
+gimple_switch_default_label (const_gimple_switch gs)
 {
   tree label = gimple_switch_label (gs, 0);
   gcc_checking_assert (!CASE_LOW (label) && !CASE_HIGH (label));
@@ -4066,7 +4085,7 @@ gimple_switch_default_label (const_gimple gs)
 /* Set the default label for a switch statement.  */
 
 static inline void
-gimple_switch_set_default_label (gimple gs, tree label)
+gimple_switch_set_default_label (gimple_switch gs, tree label)
 {
   gcc_checking_assert (!CASE_LOW (label) && !CASE_HIGH (label));
   gimple_switch_set_label (gs, 0, label);

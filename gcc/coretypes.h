@@ -86,6 +86,14 @@ typedef struct gimple_statement_base *gimple;
 typedef const struct gimple_statement_base *const_gimple;
 typedef gimple gimple_seq;
 struct gimple_stmt_iterator;
+
+/* Typedefs for leaf gimple subclasses (for individual gimple codes).
+   Keep this in the same order as the corresponding codes in gimple.def.  */
+
+struct gimple_statement_switch;
+typedef struct gimple_statement_switch *gimple_switch;
+typedef const struct gimple_statement_switch *const_gimple_switch;
+
 union section;
 typedef union section section;
 struct gcc_options;

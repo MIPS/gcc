@@ -714,13 +714,14 @@ gimple_build_resx (int region)
    NLABELS is the number of labels in the switch excluding the default.
    DEFAULT_LABEL is the default label for the switch statement.  */
 
-gimple
+gimple_switch
 gimple_build_switch_nlabels (unsigned nlabels, tree index, tree default_label)
 {
   /* nlabels + 1 default label + 1 index.  */
   gcc_checking_assert (default_label);
-  gimple p = gimple_build_with_ops (GIMPLE_SWITCH, ERROR_MARK,
-				    1 + 1 + nlabels);
+  gimple_switch p =
+    as_a <gimple_switch> (gimple_build_with_ops (GIMPLE_SWITCH, ERROR_MARK,
+						 1 + 1 + nlabels));
   gimple_switch_set_index (p, index);
   gimple_switch_set_default_label (p, default_label);
   return p;
@@ -732,12 +733,12 @@ gimple_build_switch_nlabels (unsigned nlabels, tree index, tree default_label)
    DEFAULT_LABEL is the default label
    ARGS is a vector of labels excluding the default.  */
 
-gimple
+gimple_switch
 gimple_build_switch (tree index, tree default_label, vec<tree> args)
 {
   unsigned i, nlabels = args.length ();
 
-  gimple p = gimple_build_switch_nlabels (nlabels, index, default_label);
+  gimple_switch p = gimple_build_switch_nlabels (nlabels, index, default_label);
 
   /* Copy the labels from the vector to the switch statement.  */
   for (i = 0; i < nlabels; i++)

@@ -1798,7 +1798,7 @@ set_switch_stmt_execution_predicate (struct ipa_node_params *info,
 				     struct inline_summary *summary,
 				     basic_block bb)
 {
-  gimple last;
+  gimple lastg;
   tree op;
   int index;
   struct agg_position_info aggpos;
@@ -1807,9 +1807,10 @@ set_switch_stmt_execution_predicate (struct ipa_node_params *info,
   size_t n;
   size_t case_idx;
 
-  last = last_stmt (bb);
-  if (!last || gimple_code (last) != GIMPLE_SWITCH)
+  lastg = last_stmt (bb);
+  if (!lastg || gimple_code (lastg) != GIMPLE_SWITCH)
     return;
+  gimple_switch last = as_a <gimple_switch> (lastg);
   op = gimple_switch_index (last);
   if (!unmodified_parm_or_parm_agg_item (info, last, op, &index, &aggpos))
     return;

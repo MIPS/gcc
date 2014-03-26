@@ -169,7 +169,7 @@ static bool values_propagated;
 static int *vr_phi_edge_counts;
 
 typedef struct {
-  gimple stmt;
+  gimple_switch stmt;
   tree vec;
 } switch_update;
 
@@ -5779,7 +5779,7 @@ compare_case_labels (const void *p1, const void *p2)
    list of assertions for the corresponding operands.  */
 
 static bool
-find_switch_asserts (basic_block bb, gimple last)
+find_switch_asserts (basic_block bb, gimple_switch last)
 {
   bool need_assert;
   gimple_stmt_iterator bsi;
@@ -5950,7 +5950,7 @@ find_assert_locations_1 (basic_block bb, sbitmap live)
   if (last
       && gimple_code (last) == GIMPLE_SWITCH
       && !ZERO_SSA_OPERANDS (last, SSA_OP_USE))
-    need_assert |= find_switch_asserts (bb, last);
+    need_assert |= find_switch_asserts (bb, as_a <gimple_switch> (last));
 
   /* Traverse all the statements in BB marking used names and looking
      for statements that may infer assertions for their used operands.  */
@@ -7433,7 +7433,7 @@ vrp_visit_cond_stmt (gimple stmt, edge *taken_edge_p)
    returned. */
 
 static bool
-find_case_label_index (gimple stmt, size_t start_idx, tree val, size_t *idx)
+find_case_label_index (gimple_switch stmt, size_t start_idx, tree val, size_t *idx)
 {
   size_t n = gimple_switch_num_labels (stmt);
   size_t low, high;
@@ -7483,7 +7483,7 @@ find_case_label_index (gimple stmt, size_t start_idx, tree val, size_t *idx)
    Returns true if the default label is not needed. */
 
 static bool
-find_case_label_range (gimple stmt, tree min, tree max, size_t *min_idx,
+find_case_label_range (gimple_switch stmt, tree min, tree max, size_t *min_idx,
 		       size_t *max_idx)
 {
   size_t i, j;
@@ -7539,7 +7539,7 @@ find_case_label_range (gimple stmt, tree min, tree max, size_t *min_idx,
    Returns true if the default label is not needed.  */
 
 static bool
-find_case_label_ranges (gimple stmt, value_range_t *vr, size_t *min_idx1,
+find_case_label_ranges (gimple_switch stmt, value_range_t *vr, size_t *min_idx1,
 			size_t *max_idx1, size_t *min_idx2,
 			size_t *max_idx2)
 {
@@ -7617,7 +7617,7 @@ find_case_label_ranges (gimple stmt, value_range_t *vr, size_t *min_idx1,
    SSA_PROP_VARYING.  */
 
 static enum ssa_prop_result
-vrp_visit_switch_stmt (gimple stmt, edge *taken_edge_p)
+vrp_visit_switch_stmt (gimple_switch stmt, edge *taken_edge_p)
 {
   tree op, val;
   value_range_t *vr;
@@ -7732,7 +7732,7 @@ vrp_visit_stmt (gimple stmt, edge *taken_edge_p, tree *output_p)
   else if (gimple_code (stmt) == GIMPLE_COND)
     return vrp_visit_cond_stmt (stmt, taken_edge_p);
   else if (gimple_code (stmt) == GIMPLE_SWITCH)
-    return vrp_visit_switch_stmt (stmt, taken_edge_p);
+    return vrp_visit_switch_stmt (as_a <gimple_switch> (stmt), taken_edge_p);
 
   /* All other statements produce nothing of interest for VRP, so mark
      their outputs varying and prevent further simulation.  */
@@ -9220,7 +9220,7 @@ simplify_cond_using_ranges (gimple stmt)
    argument.  */
 
 static bool
-simplify_switch_using_ranges (gimple stmt)
+simplify_switch_using_ranges (gimple_switch stmt)
 {
   tree op = gimple_switch_index (stmt);
   value_range_t *vr;
@@ -9615,7 +9615,7 @@ simplify_stmt_using_ranges (gimple_stmt_iterator *gsi)
   else if (gimple_code (stmt) == GIMPLE_COND)
     return simplify_cond_using_ranges (stmt);
   else if (gimple_code (stmt) == GIMPLE_SWITCH)
-    return simplify_switch_using_ranges (stmt);
+    return simplify_switch_using_ranges (as_a <gimple_switch> (stmt));
   else if (is_gimple_call (stmt)
 	   && gimple_call_internal_p (stmt))
     return simplify_internal_call_using_ranges (gsi, stmt);

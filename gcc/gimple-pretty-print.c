@@ -785,7 +785,8 @@ dump_gimple_call (pretty_printer *buffer, gimple gs, int spc, int flags)
    pp_gimple_stmt_1.  */
 
 static void
-dump_gimple_switch (pretty_printer *buffer, gimple gs, int spc, int flags)
+dump_gimple_switch (pretty_printer *buffer, gimple_switch gs, int spc,
+		    int flags)
 {
   unsigned int i;
 
@@ -2120,7 +2121,7 @@ pp_gimple_stmt_1 (pretty_printer *buffer, gimple gs, int spc, int flags)
       break;
 
     case GIMPLE_SWITCH:
-      dump_gimple_switch (buffer, gs, spc, flags);
+      dump_gimple_switch (buffer, as_a <gimple_switch> (gs), spc, flags);
       break;
 
     case GIMPLE_TRY:

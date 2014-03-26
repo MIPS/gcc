@@ -1795,19 +1795,20 @@ record_edge_info (basic_block bb)
 
       if (gimple_code (stmt) == GIMPLE_SWITCH)
 	{
+	  gimple_switch switch_stmt = as_a <gimple_switch> (stmt);
 	  tree index = gimple_switch_index (stmt);
 
 	  if (TREE_CODE (index) == SSA_NAME)
 	    {
 	      int i;
-              int n_labels = gimple_switch_num_labels (stmt);
+              int n_labels = gimple_switch_num_labels (switch_stmt);
 	      tree *info = XCNEWVEC (tree, last_basic_block_for_fn (cfun));
 	      edge e;
 	      edge_iterator ei;
 
 	      for (i = 0; i < n_labels; i++)
 		{
-		  tree label = gimple_switch_label (stmt, i);
+		  tree label = gimple_switch_label (switch_stmt, i);
 		  basic_block target_bb = label_to_block (CASE_LABEL (label));
 		  if (CASE_HIGH (label)
 		      || !CASE_LOW (label)

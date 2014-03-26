@@ -299,7 +299,7 @@ case_bit_test_cmp (const void *p1, const void *p2)
     node targets.  */
 
 static void
-emit_case_bit_tests (gimple swtch, tree index_expr,
+emit_case_bit_tests (gimple_switch swtch, tree index_expr,
 		     tree minval, tree range, tree maxval)
 {
   struct case_bit_test test[MAX_CASE_BIT_TESTS];
@@ -635,7 +635,7 @@ struct switch_conv_info
 /* Collect information about GIMPLE_SWITCH statement SWTCH into INFO.  */
 
 static void
-collect_switch_conv_info (gimple swtch, struct switch_conv_info *info)
+collect_switch_conv_info (gimple_switch swtch, struct switch_conv_info *info)
 {
   unsigned int branch_num = gimple_switch_num_labels (swtch);
   tree min_case, max_case;
@@ -880,7 +880,7 @@ gather_default_values (tree default_case, struct switch_conv_info *info)
    order of phi nodes.  SWTCH is the switch statement being converted.  */
 
 static void
-build_constructors (gimple swtch, struct switch_conv_info *info)
+build_constructors (gimple_switch swtch, struct switch_conv_info *info)
 {
   unsigned i, branch_num = gimple_switch_num_labels (swtch);
   tree pos = info->range_min;
@@ -974,7 +974,7 @@ constructor_contains_same_values_p (vec<constructor_elt, va_gc> *vec)
    all the constants.  */
 
 static tree
-array_value_type (gimple swtch, tree type, int num,
+array_value_type (gimple_switch swtch, tree type, int num,
 		  struct switch_conv_info *info)
 {
   unsigned int i, len = vec_safe_length (info->constructors[num]);
@@ -1051,8 +1051,8 @@ array_value_type (gimple swtch, tree type, int num,
    new array.  */
 
 static void
-build_one_array (gimple swtch, int num, tree arr_index_type, gimple phi,
-		 tree tidx, struct switch_conv_info *info)
+build_one_array (gimple_switch swtch, int num, tree arr_index_type,
+		 gimple phi, tree tidx, struct switch_conv_info *info)
 {
   tree name, cst;
   gimple load;
@@ -1117,7 +1117,7 @@ build_one_array (gimple swtch, int num, tree arr_index_type, gimple phi,
    them.  */
 
 static void
-build_arrays (gimple swtch, struct switch_conv_info *info)
+build_arrays (gimple_switch swtch, struct switch_conv_info *info)
 {
   tree arr_index_type;
   tree tidx, sub, utype;
@@ -1238,7 +1238,7 @@ fix_phi_nodes (edge e1f, edge e2f, basic_block bbf,
 */
 
 static void
-gen_inbound_check (gimple swtch, struct switch_conv_info *info)
+gen_inbound_check (gimple_switch swtch, struct switch_conv_info *info)
 {
   tree label_decl1 = create_artificial_label (UNKNOWN_LOCATION);
   tree label_decl2 = create_artificial_label (UNKNOWN_LOCATION);
@@ -1358,7 +1358,7 @@ gen_inbound_check (gimple swtch, struct switch_conv_info *info)
    conversion failed.  */
 
 static const char *
-process_switch (gimple swtch)
+process_switch (gimple_switch swtch)
 {
   struct switch_conv_info info;
 
@@ -1492,7 +1492,7 @@ pass_convert_switch::execute (function *fun)
 	    putc ('\n', dump_file);
 	  }
 
-	failure_reason = process_switch (stmt);
+	failure_reason = process_switch (as_a <gimple_switch> (stmt));
 	if (! failure_reason)
 	  {
 	    if (dump_file)
