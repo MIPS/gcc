@@ -388,11 +388,11 @@ static tree
 propagate_through_phis (tree var, edge e)
 {
   basic_block dest = e->dest;
-  gimple_stmt_iterator gsi;
+  gimple_phi_iterator gsi;
 
   for (gsi = gsi_start_phis (dest); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple phi = gsi_stmt (gsi);
+      gimple_phi phi = gsi.phi ();
       if (PHI_ARG_DEF_FROM_EDGE (phi, e) == var)
         return PHI_RESULT (phi);
     }
@@ -620,10 +620,10 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
 static void
 add_successor_phi_arg (edge e, tree var, tree phi_arg)
 {
-  gimple_stmt_iterator gsi;
+  gimple_phi_iterator gsi;
 
   for (gsi = gsi_start_phis (e->dest); !gsi_end_p (gsi); gsi_next (&gsi))
-    if (PHI_RESULT (gsi_stmt (gsi)) == var)
+    if (PHI_RESULT (gsi.phi ()) == var)
       break;
 
   gcc_assert (!gsi_end_p (gsi));

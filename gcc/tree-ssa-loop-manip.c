@@ -630,12 +630,12 @@ split_loop_exit_edge (edge exit)
   gimple phi, new_phi;
   tree new_name, name;
   use_operand_p op_p;
-  gimple_stmt_iterator psi;
+  gimple_phi_iterator psi;
   source_location locus;
 
   for (psi = gsi_start_phis (dest); !gsi_end_p (psi); gsi_next (&psi))
     {
-      phi = gsi_stmt (psi);
+      phi = psi.phi ();
       op_p = PHI_ARG_DEF_PTR_FROM_EDGE (phi, single_succ_edge (bb));
       locus = gimple_phi_arg_location_from_edge (phi, single_succ_edge (bb));
 
@@ -1023,8 +1023,8 @@ tree_transform_and_unroll_loop (struct loop *loop, unsigned factor,
   tree ctr_before, ctr_after;
   tree enter_main_cond, exit_base, exit_step, exit_bound;
   enum tree_code exit_cmp;
-  gimple phi_old_loop, phi_new_loop, phi_rest;
-  gimple_stmt_iterator psi_old_loop, psi_new_loop;
+  gimple_phi phi_old_loop, phi_new_loop, phi_rest;
+  gimple_phi_iterator psi_old_loop, psi_new_loop;
   tree init, next, new_init;
   struct loop *new_loop;
   basic_block rest, exit_bb;
@@ -1131,8 +1131,8 @@ tree_transform_and_unroll_loop (struct loop *loop, unsigned factor,
        !gsi_end_p (psi_old_loop);
        gsi_next (&psi_old_loop), gsi_next (&psi_new_loop))
     {
-      phi_old_loop = gsi_stmt (psi_old_loop);
-      phi_new_loop = gsi_stmt (psi_new_loop);
+      phi_old_loop = psi_old_loop.phi ();
+      phi_new_loop = psi_new_loop.phi ();
 
       init = PHI_ARG_DEF_FROM_EDGE (phi_old_loop, old_entry);
       op = PHI_ARG_DEF_PTR_FROM_EDGE (phi_new_loop, new_entry);
@@ -1248,12 +1248,13 @@ tree_unroll_loop (struct loop *loop, unsigned factor,
 
 static void
 rewrite_phi_with_iv (loop_p loop,
-		     gimple_stmt_iterator *psi,
+		     gimple_phi_iterator *psi,
 		     gimple_stmt_iterator *gsi,
 		     tree main_iv)
 {
   affine_iv iv;
-  gimple stmt, phi = gsi_stmt (*psi);
+  gimple stmt;
+  gimple_phi phi = psi->phi ();
   tree atype, mtype, val, res = PHI_RESULT (phi);
 
   if (virtual_operand_p (res) || res == main_iv)
@@ -1291,7 +1292,7 @@ rewrite_all_phi_nodes_with_iv (loop_p loop, tree main_iv)
 {
   unsigned i;
   basic_block *bbs = get_loop_body_in_dom_order (loop);
-  gimple_stmt_iterator psi;
+  gimple_phi_iterator psi;
 
   for (i = 0; i < loop->num_nodes; i++)
     {
@@ -1324,7 +1325,8 @@ canonicalize_loop_ivs (struct loop *loop, tree *nit, bool bump_in_latch)
   unsigned precision = TYPE_PRECISION (TREE_TYPE (*nit));
   unsigned original_precision = precision;
   tree type, var_before;
-  gimple_stmt_iterator gsi, psi;
+  gimple_stmt_iterator gsi;
+  gimple_phi_iterator psi;
   gimple stmt;
   edge exit = single_dom_exit (loop);
   gimple_seq stmts;
@@ -1334,7 +1336,7 @@ canonicalize_loop_ivs (struct loop *loop, tree *nit, bool bump_in_latch)
   for (psi = gsi_start_phis (loop->header);
        !gsi_end_p (psi); gsi_next (&psi))
     {
-      gimple phi = gsi_stmt (psi);
+      gimple_phi phi = psi.phi ();
       tree res = PHI_RESULT (phi);
       bool uns;
 

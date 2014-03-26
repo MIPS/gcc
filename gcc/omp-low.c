@@ -4483,7 +4483,7 @@ expand_parallel_call (struct omp_region *region, basic_block bb,
 
 	  if (gimple_in_ssa_p (cfun))
 	    {
-	      gimple phi = create_phi_node (tmp_join, bb);
+	      gimple_phi phi = create_phi_node (tmp_join, bb);
 	      add_phi_arg (phi, tmp_then, e_then, UNKNOWN_LOCATION);
 	      add_phi_arg (phi, tmp_else, e_else, UNKNOWN_LOCATION);
 	    }

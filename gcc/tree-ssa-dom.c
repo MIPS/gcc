@@ -1189,11 +1189,11 @@ dom_opt_dom_walker::thread_across_edge (edge e)
 static void
 record_equivalences_from_phis (basic_block bb)
 {
-  gimple_stmt_iterator gsi;
+  gimple_phi_iterator gsi;
 
   for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple phi = gsi_stmt (gsi);
+      gimple_phi phi = gsi.phi ();
 
       tree lhs = gimple_phi_result (phi);
       tree rhs = NULL;
@@ -1716,7 +1716,7 @@ cprop_into_successor_phis (basic_block bb)
   FOR_EACH_EDGE (e, ei, bb->succs)
     {
       int indx;
-      gimple_stmt_iterator gsi;
+      gimple_phi_iterator gsi;
 
       /* If this is an abnormal edge, then we do not want to copy propagate
 	 into the PHI alternative associated with this edge.  */
@@ -1755,7 +1755,7 @@ cprop_into_successor_phis (basic_block bb)
 	  tree new_val;
 	  use_operand_p orig_p;
 	  tree orig_val;
-          gimple phi = gsi_stmt (gsi);
+          gimple_phi phi = gsi.phi ();
 
 	  /* The alternative may be associated with a constant, so verify
 	     it is an SSA_NAME before doing anything with it.  */
@@ -2846,7 +2846,8 @@ propagate_rhs_into_lhs (gimple stmt, tree lhs, tree rhs, bitmap interesting_name
 		  edge te = find_taken_edge (bb, val);
 		  edge_iterator ei;
 		  edge e;
-		  gimple_stmt_iterator gsi, psi;
+		  gimple_stmt_iterator gsi;
+		  gimple_phi_iterator psi;
 
 		  /* Remove all outgoing edges except TE.  */
 		  for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei));)
@@ -2859,7 +2860,7 @@ propagate_rhs_into_lhs (gimple stmt, tree lhs, tree rhs, bitmap interesting_name
                                !gsi_end_p (psi);
                                gsi_next (&psi))
                             {
-                              gimple phi = gsi_stmt (psi);
+                              gimple_phi phi = psi.phi ();
 
 			      tree result = gimple_phi_result (phi);
 			      int version = SSA_NAME_VERSION (result);
@@ -2969,12 +2970,12 @@ eliminate_const_or_copy (gimple stmt, bitmap interesting_names)
 static void
 eliminate_degenerate_phis_1 (basic_block bb, bitmap interesting_names)
 {
-  gimple_stmt_iterator gsi;
+  gimple_phi_iterator gsi;
   basic_block son;
 
   for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple phi = gsi_stmt (gsi);
+      gimple_phi phi = gsi.phi ();
 
       eliminate_const_or_copy (phi, interesting_names);
     }

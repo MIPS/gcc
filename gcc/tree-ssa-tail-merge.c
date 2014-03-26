@@ -1285,11 +1285,11 @@ static bool
 same_phi_alternatives_1 (basic_block dest, edge e1, edge e2)
 {
   int n1 = e1->dest_idx, n2 = e2->dest_idx;
-  gimple_stmt_iterator gsi;
+  gimple_phi_iterator gsi;
 
   for (gsi = gsi_start_phis (dest); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple phi = gsi_stmt (gsi);
+      gimple_phi phi = gsi.phi ();
       tree lhs = gimple_phi_result (phi);
       tree val1 = gimple_phi_arg_def (phi, n1);
       tree val2 = gimple_phi_arg_def (phi, n2);
@@ -1470,10 +1470,10 @@ static gimple
 vop_phi (basic_block bb)
 {
   gimple stmt;
-  gimple_stmt_iterator gsi;
+  gimple_phi_iterator gsi;
   for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      stmt = gsi_stmt (gsi);
+      stmt = gsi.phi ();
       if (! virtual_operand_p (gimple_phi_result (stmt)))
 	continue;
       return stmt;

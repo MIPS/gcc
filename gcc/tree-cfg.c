@@ -2588,7 +2588,7 @@ reinstall_phi_args (edge new_edge, edge old_edge)
 {
   edge_var_map *vm;
   int i;
-  gimple_stmt_iterator phis;
+  gimple_phi_iterator phis;
 
   vec<edge_var_map> *v = redirect_edge_var_map_vector (old_edge);
   if (!v)
@@ -2598,7 +2598,7 @@ reinstall_phi_args (edge new_edge, edge old_edge)
        v->iterate (i, &vm) && !gsi_end_p (phis);
        i++, gsi_next (&phis))
     {
-      gimple phi = gsi_stmt (phis);
+      gimple_phi phi = phis.phi ();
       tree result = redirect_edge_var_map_result (vm);
       tree arg = redirect_edge_var_map_def (vm);
 
@@ -5342,7 +5342,7 @@ gimple_make_forwarder_block (edge fallthru)
   edge_iterator ei;
   basic_block dummy, bb;
   tree var;
-  gimple_stmt_iterator gsi;
+  gimple_phi_iterator gsi;
 
   dummy = fallthru->src;
   bb = fallthru->dest;
@@ -5354,9 +5354,9 @@ gimple_make_forwarder_block (edge fallthru)
      start of BB.  */
   for (gsi = gsi_start_phis (dummy); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple phi, new_phi;
+      gimple_phi phi, new_phi;
 
-      phi = gsi_stmt (gsi);
+      phi = gsi.phi ();
       var = gimple_phi_result (phi);
       new_phi = create_phi_node (var, bb);
       gimple_phi_set_result (phi, copy_ssa_name (var, phi));
@@ -5823,9 +5823,9 @@ add_phi_args_after_copy_edge (edge e_copy)
   basic_block bb, bb_copy = e_copy->src, dest;
   edge e;
   edge_iterator ei;
-  gimple phi, phi_copy;
+  gimple_phi phi, phi_copy;
   tree def;
-  gimple_stmt_iterator psi, psi_copy;
+  gimple_phi_iterator psi, psi_copy;
 
   if (gimple_seq_empty_p (phi_nodes (e_copy->dest)))
     return;
@@ -5858,8 +5858,8 @@ add_phi_args_after_copy_edge (edge e_copy)
        !gsi_end_p (psi);
        gsi_next (&psi), gsi_next (&psi_copy))
     {
-      phi = gsi_stmt (psi);
-      phi_copy = gsi_stmt (psi_copy);
+      phi = psi.phi ();
+      phi_copy = psi_copy.phi ();
       def = PHI_ARG_DEF_FROM_EDGE (phi, e);
       add_phi_arg (phi_copy, def, e_copy,
 		   gimple_phi_arg_location_from_edge (phi, e));
@@ -7967,8 +7967,8 @@ static void
 gimple_lv_adjust_loop_header_phi (basic_block first, basic_block second,
 				  basic_block new_head, edge e)
 {
-  gimple phi1, phi2;
-  gimple_stmt_iterator psi1, psi2;
+  gimple_phi phi1, phi2;
+  gimple_phi_iterator psi1, psi2;
   tree def;
   edge e2 = find_edge (new_head, second);
 
@@ -7984,8 +7984,8 @@ gimple_lv_adjust_loop_header_phi (basic_block first, basic_block second,
        !gsi_end_p (psi2) && !gsi_end_p (psi1);
        gsi_next (&psi2),  gsi_next (&psi1))
     {
-      phi1 = gsi_stmt (psi1);
-      phi2 = gsi_stmt (psi2);
+      phi1 = psi1.phi ();
+      phi2 = psi2.phi ();
       def = PHI_ARG_DEF (phi2, e2->dest_idx);
       add_phi_arg (phi1, def, e, gimple_phi_arg_location_from_edge (phi2, e2));
     }

@@ -485,7 +485,7 @@ bb_with_exit_edge_p (struct loop *loop, basic_block bb)
    - there is a virtual PHI in a BB other than the loop->header.  */
 
 static bool
-if_convertible_phi_p (struct loop *loop, basic_block bb, gimple phi,
+if_convertible_phi_p (struct loop *loop, basic_block bb, gimple_phi phi,
 		      bool any_mask_load_store)
 {
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1251,10 +1251,10 @@ if_convertible_loop_p_1 (struct loop *loop,
   for (i = 0; i < loop->num_nodes; i++)
     {
       basic_block bb = ifc_bbs[i];
-      gimple_stmt_iterator itr;
+      gimple_phi_iterator itr;
 
       for (itr = gsi_start_phis (bb); !gsi_end_p (itr); gsi_next (&itr))
-	if (!if_convertible_phi_p (loop, bb, gsi_stmt (itr),
+	if (!if_convertible_phi_p (loop, bb, itr.phi (),
 				   *any_mask_load_store))
 	  return false;
     }

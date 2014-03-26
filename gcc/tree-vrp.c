@@ -6076,10 +6076,10 @@ find_assert_locations (void)
     {
       i = loop->latch->index;
       unsigned int j = single_succ_edge (loop->latch)->dest_idx;
-      for (gimple_stmt_iterator gsi = gsi_start_phis (loop->header);
+      for (gimple_phi_iterator gsi = gsi_start_phis (loop->header);
 	   !gsi_end_p (gsi); gsi_next (&gsi))
 	{
-	  gimple phi = gsi_stmt (gsi);
+	  gimple_phi phi = gsi.phi ();
 	  if (virtual_operand_p (gimple_phi_result (phi)))
 	    continue;
 	  tree arg = gimple_phi_arg_def (phi, j);

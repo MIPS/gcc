@@ -149,8 +149,8 @@ redirect_edge_var_map_destroy (void)
 edge
 ssa_redirect_edge (edge e, basic_block dest)
 {
-  gimple_stmt_iterator gsi;
-  gimple phi;
+  gimple_phi_iterator gsi;
+  gimple_phi phi;
 
   redirect_edge_var_map_clear (e);
 
@@ -160,7 +160,7 @@ ssa_redirect_edge (edge e, basic_block dest)
       tree def;
       source_location locus ;
 
-      phi = gsi_stmt (gsi);
+      phi = gsi.phi ();
       def = gimple_phi_arg_def (phi, e->dest_idx);
       locus = gimple_phi_arg_location (phi, e->dest_idx);
 
@@ -182,10 +182,10 @@ ssa_redirect_edge (edge e, basic_block dest)
 void
 flush_pending_stmts (edge e)
 {
-  gimple phi;
+  gimple_phi phi;
   edge_var_map *vm;
   int i;
-  gimple_stmt_iterator gsi;
+  gimple_phi_iterator gsi;
 
   vec<edge_var_map> *v = redirect_edge_var_map_vector (e);
   if (!v)
@@ -197,7 +197,7 @@ flush_pending_stmts (edge e)
     {
       tree def;
 
-      phi = gsi_stmt (gsi);
+      phi = gsi.phi ();
       def = redirect_edge_var_map_def (vm);
       add_phi_arg (phi, def, e, redirect_edge_var_map_location (vm));
     }

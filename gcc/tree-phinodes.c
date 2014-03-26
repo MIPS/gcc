@@ -291,11 +291,11 @@ reserve_phi_args_for_new_edge (basic_block bb)
 {
   size_t len = EDGE_COUNT (bb->preds);
   size_t cap = ideal_phi_node_len (len + 4);
-  gimple_stmt_iterator gsi;
+  gimple_phi_iterator gsi;
 
   for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple_phi stmt = as_a <gimple_phi> (gsi_stmt (gsi));
+      gimple_phi stmt = gsi.phi ();
 
       if (len > gimple_phi_capacity (stmt))
 	{
@@ -326,7 +326,7 @@ reserve_phi_args_for_new_edge (basic_block bb)
 /* Adds PHI to BB.  */
 
 void
-add_phi_node_to_bb (gimple phi, basic_block bb)
+add_phi_node_to_bb (gimple_phi phi, basic_block bb)
 {
   gimple_seq seq = phi_nodes (bb);
   /* Add the new PHI node to the list of PHI nodes for block BB.  */
@@ -431,10 +431,10 @@ remove_phi_arg_num (gimple_phi phi, int i)
 void
 remove_phi_args (edge e)
 {
-  gimple_stmt_iterator gsi;
+  gimple_phi_iterator gsi;
 
   for (gsi = gsi_start_phis (e->dest); !gsi_end_p (gsi); gsi_next (&gsi))
-    remove_phi_arg_num (as_a <gimple_statement_phi *> (gsi_stmt (gsi)),
+    remove_phi_arg_num (gsi.phi (),
 			e->dest_idx);
 }
 
@@ -466,7 +466,7 @@ remove_phi_node (gimple_stmt_iterator *gsi, bool release_lhs_p)
 void
 remove_phi_nodes (basic_block bb)
 {
-  gimple_stmt_iterator gsi;
+  gimple_phi_iterator gsi;
 
   for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); )
     remove_phi_node (&gsi, true);

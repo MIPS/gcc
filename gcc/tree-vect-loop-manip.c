@@ -391,8 +391,8 @@ static void
 slpeel_update_phi_nodes_for_guard1 (edge guard_edge, struct loop *loop,
                                     bool is_new_loop, basic_block *new_exit_bb)
 {
-  gimple orig_phi, new_phi;
-  gimple update_phi, update_phi2;
+  gimple_phi orig_phi, new_phi;
+  gimple_phi update_phi, update_phi2;
   tree guard_arg, loop_arg;
   basic_block new_merge_bb = guard_edge->dest;
   edge e = EDGE_SUCC (new_merge_bb, 0);
@@ -400,7 +400,7 @@ slpeel_update_phi_nodes_for_guard1 (edge guard_edge, struct loop *loop,
   basic_block orig_bb = loop->header;
   edge new_exit_e;
   tree current_new_name;
-  gimple_stmt_iterator gsi_orig, gsi_update;
+  gimple_phi_iterator gsi_orig, gsi_update;
 
   /* Create new bb between loop and new_merge_bb.  */
   *new_exit_bb = split_edge (single_exit (loop));
@@ -414,8 +414,8 @@ slpeel_update_phi_nodes_for_guard1 (edge guard_edge, struct loop *loop,
     {
       source_location loop_locus, guard_locus;
       tree new_res;
-      orig_phi = gsi_stmt (gsi_orig);
-      update_phi = gsi_stmt (gsi_update);
+      orig_phi = gsi_orig.phi ();
+      update_phi = gsi_update.phi ();
 
       /** 1. Handle new-merge-point phis  **/
 
@@ -531,8 +531,8 @@ static void
 slpeel_update_phi_nodes_for_guard2 (edge guard_edge, struct loop *loop,
                                     bool is_new_loop, basic_block *new_exit_bb)
 {
-  gimple orig_phi, new_phi;
-  gimple update_phi, update_phi2;
+  gimple_phi orig_phi, new_phi;
+  gimple_phi update_phi, update_phi2;
   tree guard_arg, loop_arg;
   basic_block new_merge_bb = guard_edge->dest;
   edge e = EDGE_SUCC (new_merge_bb, 0);
@@ -541,7 +541,7 @@ slpeel_update_phi_nodes_for_guard2 (edge guard_edge, struct loop *loop,
   tree orig_def, orig_def_new_name;
   tree new_name, new_name2;
   tree arg;
-  gimple_stmt_iterator gsi;
+  gimple_phi_iterator gsi;
 
   /* Create new bb between loop and new_merge_bb.  */
   *new_exit_bb = split_edge (single_exit (loop));
@@ -551,7 +551,7 @@ slpeel_update_phi_nodes_for_guard2 (edge guard_edge, struct loop *loop,
   for (gsi = gsi_start_phis (update_bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       tree new_res;
-      update_phi = gsi_stmt (gsi);
+      update_phi = gsi.phi ();
       orig_phi = update_phi;
       orig_def = PHI_ARG_DEF_FROM_EDGE (orig_phi, e);
       /* This loop-closed-phi actually doesn't represent a use
@@ -1173,7 +1173,7 @@ slpeel_tree_peel_loop_to_edge (struct loop *loop, struct loop *scalar_loop,
   basic_block bb_before_first_loop;
   basic_block bb_between_loops;
   basic_block new_exit_bb;
-  gimple_stmt_iterator gsi;
+  gimple_phi_iterator gsi;
   edge exit_e = single_exit (loop);
   source_location loop_loc;
   /* There are many aspects to how likely the first loop is going to be executed.
@@ -1205,7 +1205,7 @@ slpeel_tree_peel_loop_to_edge (struct loop *loop, struct loop *scalar_loop,
   for (gsi = gsi_start_phis (loop->header); !gsi_end_p (gsi); gsi_next (&gsi))
     if (virtual_operand_p (gimple_phi_result (gsi_stmt (gsi))))
       {
-	gimple phi = gsi_stmt (gsi);
+	gimple_phi phi = gsi.phi ();
 	for (gsi = gsi_start_phis (exit_e->dest);
 	     !gsi_end_p (gsi); gsi_next (&gsi))
 	  if (virtual_operand_p (gimple_phi_result (gsi_stmt (gsi))))
@@ -1529,7 +1529,7 @@ vect_can_advance_ivs_p (loop_vec_info loop_vinfo)
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   basic_block bb = loop->header;
   gimple phi;
-  gimple_stmt_iterator gsi;
+  gimple_phi_iterator gsi;
 
   /* Analyze phi functions of the loop header.  */
 
@@ -1539,7 +1539,7 @@ vect_can_advance_ivs_p (loop_vec_info loop_vinfo)
     {
       tree evolution_part;
 
-      phi = gsi_stmt (gsi);
+      phi = gsi.phi ();
       if (dump_enabled_p ())
 	{
           dump_printf_loc (MSG_NOTE, vect_location, "Analyze phi: ");
@@ -1638,8 +1638,8 @@ vect_update_ivs_after_vectorizer (loop_vec_info loop_vinfo, tree niters,
 {
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   basic_block exit_bb = single_exit (loop)->dest;
-  gimple phi, phi1;
-  gimple_stmt_iterator gsi, gsi1;
+  gimple_phi phi, phi1;
+  gimple_phi_iterator gsi, gsi1;
   basic_block update_bb = update_e->dest;
 
   gcc_checking_assert (vect_can_advance_ivs_p (loop_vinfo));
@@ -1658,8 +1658,8 @@ vect_update_ivs_after_vectorizer (loop_vec_info loop_vinfo, tree niters,
       gimple_stmt_iterator last_gsi;
       stmt_vec_info stmt_info;
 
-      phi = gsi_stmt (gsi);
-      phi1 = gsi_stmt (gsi1);
+      phi = gsi.phi ();
+      phi1 = gsi1.phi ();
       if (dump_enabled_p ())
         {
           dump_printf_loc (MSG_NOTE, vect_location,

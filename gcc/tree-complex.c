@@ -722,11 +722,11 @@ update_parameter_components (void)
 static void
 update_phi_components (basic_block bb)
 {
-  gimple_stmt_iterator gsi;
+  gimple_phi_iterator gsi;
 
   for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple phi = gsi_stmt (gsi);
+      gimple_phi phi = gsi.phi ();
 
       if (is_complex_reg (gimple_phi_result (phi)))
 	{

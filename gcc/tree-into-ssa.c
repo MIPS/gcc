@@ -1395,8 +1395,8 @@ rewrite_add_phi_arguments (basic_block bb)
 
   FOR_EACH_EDGE (e, ei, bb->succs)
     {
-      gimple phi;
-      gimple_stmt_iterator gsi;
+      gimple_phi phi;
+      gimple_phi_iterator gsi;
 
       for (gsi = gsi_start_phis (e->dest); !gsi_end_p (gsi);
 	   gsi_next (&gsi))
@@ -1404,7 +1404,7 @@ rewrite_add_phi_arguments (basic_block bb)
 	  tree currdef, res;
 	  location_t loc;
 
-	  phi = gsi_stmt (gsi);
+	  phi = gsi.phi ();
 	  res = gimple_phi_result (phi);
 	  currdef = get_reaching_def (SSA_NAME_VAR (res));
 	  /* Virtual operand PHI args do not need a location.  */

@@ -1970,8 +1970,8 @@ update_ssa_across_abnormal_edges (basic_block bb, basic_block ret_bb,
     if (!e->dest->aux
 	|| ((basic_block)e->dest->aux)->index == ENTRY_BLOCK)
       {
-	gimple phi;
-	gimple_stmt_iterator si;
+	gimple_phi phi;
+	gimple_phi_iterator si;
 
 	if (!nonlocal_goto)
 	  gcc_assert (e->flags & EDGE_EH);
@@ -1983,7 +1983,7 @@ update_ssa_across_abnormal_edges (basic_block bb, basic_block ret_bb,
 	  {
 	    edge re;
 
-	    phi = gsi_stmt (si);
+	    phi = si.phi ();
 
 	    /* For abnormal goto/call edges the receiver can be the
 	       ENTRY_BLOCK.  Do not assert this cannot happen.  */
@@ -2137,17 +2137,17 @@ copy_phis_for_bb (basic_block bb, copy_body_data *id)
 {
   basic_block const new_bb = (basic_block) bb->aux;
   edge_iterator ei;
-  gimple phi;
-  gimple_stmt_iterator si;
+  gimple_phi phi;
+  gimple_phi_iterator si;
   edge new_edge;
   bool inserted = false;
 
   for (si = gsi_start_phis (bb); !gsi_end_p (si); gsi_next (&si))
     {
       tree res, new_res;
-      gimple new_phi;
+      gimple_phi new_phi;
 
-      phi = gsi_stmt (si);
+      phi = si.phi ();
       res = PHI_RESULT (phi);
       new_res = res;
       if (!virtual_operand_p (res))

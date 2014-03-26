@@ -147,7 +147,7 @@ determine_value_range (struct loop *loop, tree type, tree var, mpz_t off,
     {
       edge e = loop_preheader_edge (loop);
       signop sgn = TYPE_SIGN (type);
-      gimple_stmt_iterator gsi;
+      gimple_phi_iterator gsi;
 
       /* Either for VAR itself...  */
       rtype = get_range_info (var, &minv, &maxv);
@@ -155,7 +155,7 @@ determine_value_range (struct loop *loop, tree type, tree var, mpz_t off,
 	 PHI argument from the loop preheader edge.  */
       for (gsi = gsi_start_phis (loop->header); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
-	  gimple phi = gsi_stmt (gsi);
+	  gimple_phi phi = gsi.phi ();
 	  wide_int minc, maxc;
 	  if (PHI_ARG_DEF_FROM_EDGE (phi, e) == var
 	      && (get_range_info (gimple_phi_result (phi), &minc, &maxc)

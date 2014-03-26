@@ -622,7 +622,7 @@ vect_analyze_scalar_cycles_1 (loop_vec_info loop_vinfo, struct loop *loop)
   basic_block bb = loop->header;
   tree init, step;
   auto_vec<gimple, 64> worklist;
-  gimple_stmt_iterator gsi;
+  gimple_phi_iterator gsi;
   bool double_reduc;
 
   if (dump_enabled_p ())
@@ -634,7 +634,7 @@ vect_analyze_scalar_cycles_1 (loop_vec_info loop_vinfo, struct loop *loop)
      changed.  */
   for (gsi = gsi_start_phis  (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple phi = gsi_stmt (gsi);
+      gimple_phi phi = gsi.phi ();
       tree access_fn = NULL;
       tree def = PHI_RESULT (phi);
       stmt_vec_info stmt_vinfo = vinfo_for_stmt (phi);

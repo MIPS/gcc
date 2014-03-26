@@ -1,5 +1,121 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Introduce gimple_phi_iterator
+
+	* gimple-iterator.h (struct gimple_phi_iterator): New subclass of
+	gimple_stmt_iterator with identical layout, but adding...
+	(gimple_phi_iterator::phi): ...new method, equivalent to
+	gsi_stmt (), but casting the underlying gimple to gimple_phi,
+	checking that code == GIMPLE_PHI in a checked build.
+	(gsi_start_phis): Return a gimple_phi_iterator, rather than just a
+	gimple_stmt_iterator.
+
+	* tree-if-conv.c (bb_with_exit_edge_p): Require a gimple_phi rather
+	than just a gimple.
+	(if_convertible_phi_p): Likewise.
+	* tree-phinodes.h (add_phi_node_to_bb): Likewise.
+	* tree-ssa-phiprop.c (propagate_with_phi): Likewise.
+
+	* tree-ssa-uninit.c (warn_uninitialized_phi): Require a gimple_phi
+	and a vec<gimple_phi> *, rather than just a gimple and
+	vec<gimple> *, and a hash_set<gimple_phi> * rather than a
+	hash_set<gimple> *.
+	(find_uninit_use): Likewise; add checked cast to gimple_phi when
+	adding to worklist.
+	(pass_late_warn_uninitialized::execute): Strengthen types of
+	various locals, "worklist" from vec<gimple> to vec<gimple_phi>,
+	"gsi" to a gimple_phi_iterator, "phi" and "cur_phi" to a
+	gimple_phi, "added_to_worklist" from hash_set<gimple> to
+	hash_set<gimple_phi>.
+
+	* tree-ssa-loop-manip.c (rewrite_phi_with_iv): Require a
+	gimple_phi_iterator * rather than a gimple_stmt_iterator *;
+	use it to strengthen local from a gimple to a gimple_phi.
+
+	* cfgloop.c (find_subloop_latch_edge_by_ivs): Convert local from a
+	gimple_stmt_iterator to a gimple_phi_iterator.  Use the iterator's
+	"phi" method rather than gsi_stmt.  Use this checked cast to convert
+	the type of related local from a plain gimple to a gimple_phi.
+	* gimple-pretty-print.c (dump_phi_nodes): Likewise.
+	* gimple-ssa-isolate-paths.c (find_implicit_erroneous_behaviour):
+	Likewise.
+	* sese.c (sese_add_exit_phis_edge): Likewise.
+	* tree-cfg.c (reinstall_phi_args): Likewise.
+	(gimple_make_forwarder_block): Likewise.
+	(add_phi_args_after_copy_edge): Likewise.
+	(gimple_lv_adjust_loop_header_phi): Likewise.
+	* tree-cfgcleanup.c (phi_alternatives_equal): Likewise.
+	(remove_forwarder_block_with_phi): Likewise.
+	(merge_phi_nodes): Likewise.
+	* tree-complex.c (update_phi_components): Likewise.
+	* tree-if-conv.c (if_convertible_loop_p_1): Likewise.
+	* tree-inline.c (update_ssa_across_abnormal_edges): Likewise.
+	(copy_phis_for_bb): Likewise.
+	* tree-into-ssa.c (rewrite_add_phi_arguments): Likewise.
+	* tree-outof-ssa.c (eliminate_build): Likewise.
+	(eliminate_useless_phis): Likewise.
+	(rewrite_trees): Likewise.
+	(insert_backedge_copies): Likewise.
+	* tree-phinodes.c (reserve_phi_args_for_new_edge): Likewise.
+	(remove_phi_args): Likewise.
+	(remove_phi_nodes): Likewise.
+	* tree-predcom.c (find_looparound_phi): Likewise.
+	(eliminate_temp_copies): Likewise.
+	* tree-scalar-evolution.c (loop_closed_phi_def): Likewise.
+	(scev_const_prop): Likewise; also, add checked cast to phi.
+	* tree-ssa-coalesce.c (coalesce_partitions): Likewise.
+	* tree-ssa-dce.c (remove_dead_phis): Likewise.
+	(forward_edge_to_pdom): Likewise.
+	* tree-ssa-dom.c (record_equivalences_from_phis): Likewise.
+	(cprop_into_successor_phis): Likewise.
+	(propagate_rhs_into_lhs): Likewise.
+	(eliminate_degenerate_phis_1): Likewise.
+	* tree-ssa-ifcombine.c (same_phi_args_p): Likewise.
+	* tree-ssa-live.c (calculate_live_on_exit): Likewise.
+	(verify_live_on_entry): Likewise.
+	* tree-ssa-loop-im.c
+	(move_computations_dom_walker::before_dom_children): Likewise.
+	* tree-ssa-loop-ivopts.c (find_bivs): Likewise.
+	(mark_bivs): Likewise.
+	(find_interesting_uses_outside): Likewise.
+	(determine_set_costs): Likewise.
+	* tree-ssa-loop-manip.c (split_loop_exit_edge): Likewise.
+	(tree_transform_and_unroll_loop): Likewise.
+	(rewrite_all_phi_nodes_with_iv): Likewise.
+	(canonicalize_loop_ivs): Likewise.
+	* tree-ssa-loop-niter.c (determine_value_range): Likewise.
+	* tree-ssa-phiopt.c (hoist_adjacent_loads): Likewise.
+	* tree-ssa-phiprop.c (tree_ssa_phiprop): Likewise.
+	* tree-ssa-reassoc.c (suitable_cond_bb): Likewise.
+	* tree-ssa-tail-merge.c (same_phi_alternatives_1): Likewise.
+	(vop_phi): Likewise.
+	* tree-ssa-threadedge.c (record_temporary_equivalences_from_phis):
+	Likewise.
+	* tree-ssa-threadupdate.c (copy_phi_arg_into_existing_phi): Likewise.
+	(copy_phi_args): Likewise.
+	(phi_args_equal_on_edges): Likewise.
+	* tree-ssa.c (ssa_redirect_edge): Likewise.
+	(flush_pending_stmts): Likewise.
+	* tree-switch-conversion.c (check_final_bb): Likewise.
+	(gather_default_values): Likewise.
+	(build_constructors): Likewise.
+	(fix_phi_nodes): Likewise.
+	* tree-tailcall.c (propagate_through_phis): Likewise.
+	(add_successor_phi_arg): Likewise.
+	* tree-vect-loop-manip.c (slpeel_update_phi_nodes_for_guard1):
+	Likewise.
+	(slpeel_update_phi_nodes_for_guard2): Likewise.
+	(slpeel_tree_peel_loop_to_edge): Likewise.
+	(vect_can_advance_ivs_p): Likewise.
+	(vect_update_ivs_after_vectorizer): Likewise.
+	* tree-vect-loop.c (vect_analyze_scalar_cycles_1): Likewise.
+	* tree-vrp.c (find_assert_locations): Likewise.
+	* value-prof.c (gimple_ic): Likewise.
+
+	* omp-low.c (expand_parallel_call): Convert local to a gimple_phi.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Introduce gimple_phi and use it in various places
 
 	* coretypes.h (gimple_phi): New typedef.

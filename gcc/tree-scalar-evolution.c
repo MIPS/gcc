@@ -2238,8 +2238,8 @@ loop_closed_phi_def (tree var)
 {
   struct loop *loop;
   edge exit;
-  gimple phi;
-  gimple_stmt_iterator psi;
+  gimple_phi phi;
+  gimple_phi_iterator psi;
 
   if (var == NULL_TREE
       || TREE_CODE (var) != SSA_NAME)
@@ -2252,7 +2252,7 @@ loop_closed_phi_def (tree var)
 
   for (psi = gsi_start_phis (exit->dest); !gsi_end_p (psi); gsi_next (&psi))
     {
-      phi = gsi_stmt (psi);
+      phi = psi.phi ();
       if (PHI_ARG_DEF_FROM_EDGE (phi, exit) == var)
 	return PHI_RESULT (phi);
     }
@@ -3338,11 +3338,12 @@ scev_const_prop (void)
 {
   basic_block bb;
   tree name, type, ev;
-  gimple phi, ass;
+  gimple_phi phi;
+  gimple ass;
   struct loop *loop, *ex_loop;
   bitmap ssa_names_to_remove = NULL;
   unsigned i;
-  gimple_stmt_iterator psi;
+  gimple_phi_iterator psi;
 
   if (number_of_loops (cfun) <= 1)
     return 0;
@@ -3353,7 +3354,7 @@ scev_const_prop (void)
 
       for (psi = gsi_start_phis (bb); !gsi_end_p (psi); gsi_next (&psi))
 	{
-	  phi = gsi_stmt (psi);
+	  phi = psi.phi ();
 	  name = PHI_RESULT (phi);
 
 	  if (virtual_operand_p (name))
@@ -3391,7 +3392,7 @@ scev_const_prop (void)
 	{
 	  gimple_stmt_iterator psi;
 	  name = ssa_name (i);
-	  phi = SSA_NAME_DEF_STMT (name);
+	  phi = as_a <gimple_phi> (SSA_NAME_DEF_STMT (name));
 
 	  gcc_assert (gimple_code (phi) == GIMPLE_PHI);
 	  psi = gsi_for_stmt (phi);
@@ -3429,7 +3430,7 @@ scev_const_prop (void)
 
       for (psi = gsi_start_phis (exit->dest); !gsi_end_p (psi); )
 	{
-	  phi = gsi_stmt (psi);
+	  phi = psi.phi ();
 	  rslt = PHI_RESULT (phi);
 	  def = PHI_ARG_DEF_FROM_EDGE (phi, exit);
 	  if (virtual_operand_p (def))

@@ -581,13 +581,13 @@ eliminate_build (elim_graph g)
 {
   tree Ti;
   int p0, pi;
-  gimple_stmt_iterator gsi;
+  gimple_phi_iterator gsi;
 
   clear_elim_graph (g);
 
   for (gsi = gsi_start_phis (g->e->dest); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple phi = gsi_stmt (gsi);
+      gimple_phi phi = gsi.phi ();
       source_location locus;
 
       p0 = var_to_partition (g->map, gimple_phi_result (phi));
@@ -832,14 +832,14 @@ static void
 eliminate_useless_phis (void)
 {
   basic_block bb;
-  gimple_stmt_iterator gsi;
+  gimple_phi_iterator gsi;
   tree result;
 
   FOR_EACH_BB_FN (bb, cfun)
     {
       for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); )
         {
-	  gimple phi = gsi_stmt (gsi);
+	  gimple_phi phi = gsi.phi ();
 	  result = gimple_phi_result (phi);
 	  if (virtual_operand_p (result))
 	    {
@@ -895,10 +895,10 @@ rewrite_trees (var_map map ATTRIBUTE_UNUSED)
      create incorrect code.  */
   FOR_EACH_BB_FN (bb, cfun)
     {
-      gimple_stmt_iterator gsi;
+      gimple_phi_iterator gsi;
       for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
-	  gimple phi = gsi_stmt (gsi);
+	  gimple_phi phi = gsi.phi ();
 	  tree T0 = var_to_partition_to_var (map, gimple_phi_result (phi));
 	  if (T0 == NULL_TREE)
 	    {
@@ -1097,7 +1097,7 @@ static void
 insert_backedge_copies (void)
 {
   basic_block bb;
-  gimple_stmt_iterator gsi;
+  gimple_phi_iterator gsi;
 
   mark_dfs_back_edges ();
 
@@ -1108,7 +1108,7 @@ insert_backedge_copies (void)
 
       for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
-	  gimple phi = gsi_stmt (gsi);
+	  gimple_phi phi = gsi.phi ();
 	  tree result = gimple_phi_result (phi);
 	  size_t i;
 

@@ -886,9 +886,17 @@ gsi_commit_one_edge_insert (edge e, basic_block *new_bb)
 
 /* Returns iterator at the start of the list of phi nodes of BB.  */
 
-gimple_stmt_iterator
+gimple_phi_iterator
 gsi_start_phis (basic_block bb)
 {
   gimple_seq *pseq = phi_nodes_ptr (bb);
-  return gsi_start_1 (pseq);
+
+  /* Adapted from gsi_start_1. */
+  gimple_phi_iterator i;
+
+  i.ptr = gimple_seq_first (*pseq);
+  i.seq = pseq;
+  i.bb = i.ptr ? gimple_bb (i.ptr) : NULL;
+
+  return i;
 }

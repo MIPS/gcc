@@ -202,14 +202,14 @@ record_temporary_equivalence (tree x, tree y, vec<tree> *stack)
 static bool
 record_temporary_equivalences_from_phis (edge e, vec<tree> *stack)
 {
-  gimple_stmt_iterator gsi;
+  gimple_phi_iterator gsi;
 
   /* Each PHI creates a temporary equivalence, record them.
      These are context sensitive equivalences and will be removed
      later.  */
   for (gsi = gsi_start_phis (e->dest); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple phi = gsi_stmt (gsi);
+      gimple_phi phi = gsi.phi ();
       tree src = PHI_ARG_DEF_FROM_EDGE (phi, e);
       tree dst = gimple_phi_result (phi);
 

@@ -2297,15 +2297,15 @@ dump_gimple_bb_footer (FILE *outf ATTRIBUTE_UNUSED,
 static void
 dump_phi_nodes (pretty_printer *buffer, basic_block bb, int indent, int flags)
 {
-  gimple_stmt_iterator i;
+  gimple_phi_iterator i;
 
   for (i = gsi_start_phis (bb); !gsi_end_p (i); gsi_next (&i))
     {
-      gimple phi = gsi_stmt (i);
+      gimple_phi phi = i.phi ();
       if (!virtual_operand_p (gimple_phi_result (phi)) || (flags & TDF_VOPS))
         {
           INDENT (indent);
-	  dump_gimple_phi (buffer, as_a <gimple_phi> (phi), indent, true, flags);
+	  dump_gimple_phi (buffer, phi, indent, true, flags);
           pp_newline (buffer);
         }
     }

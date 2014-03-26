@@ -578,8 +578,8 @@ find_subloop_latch_edge_by_ivs (struct loop *loop ATTRIBUTE_UNUSED, vec<edge> la
 {
   edge e, latch = latches[0];
   unsigned i;
-  gimple phi;
-  gimple_stmt_iterator psi;
+  gimple_phi phi;
+  gimple_phi_iterator psi;
   tree lop;
   basic_block bb;
 
@@ -597,7 +597,7 @@ find_subloop_latch_edge_by_ivs (struct loop *loop ATTRIBUTE_UNUSED, vec<edge> la
      a subloop.  */
   for (psi = gsi_start_phis (loop->header); !gsi_end_p (psi); gsi_next (&psi))
     {
-      phi = gsi_stmt (psi);
+      phi = psi.phi ();
       lop = PHI_ARG_DEF_FROM_EDGE (phi, latch);
 
       /* Ignore the values that are not changed inside the subloop.  */

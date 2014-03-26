@@ -232,7 +232,7 @@ find_implicit_erroneous_behaviour (void)
 
   FOR_EACH_BB_FN (bb, cfun)
     {
-      gimple_stmt_iterator si;
+      gimple_phi_iterator si;
 
       /* Out of an abundance of caution, do not isolate paths to a
 	 block where the block has any abnormal outgoing edges.
@@ -251,7 +251,7 @@ find_implicit_erroneous_behaviour (void)
 	 cases.   */
       for (si = gsi_start_phis (bb); !gsi_end_p (si); gsi_next (&si))
 	{
-	  gimple phi = gsi_stmt (si);
+	  gimple_phi phi = si.phi ();
 	  tree lhs = gimple_phi_result (phi);
 
 	  /* If the result is not a pointer, then there is no need to

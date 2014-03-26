@@ -2005,14 +2005,14 @@ hoist_adjacent_loads (basic_block bb0, basic_block bb1,
 {
   int param_align = PARAM_VALUE (PARAM_L1_CACHE_LINE_SIZE);
   unsigned param_align_bits = (unsigned) (param_align * BITS_PER_UNIT);
-  gimple_stmt_iterator gsi;
+  gimple_phi_iterator gsi;
 
   /* Walk the phis in bb3 looking for an opportunity.  We are looking
      for phis of two SSA names, one each of which is defined in bb1 and
      bb2.  */
   for (gsi = gsi_start_phis (bb3); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple phi_stmt = gsi_stmt (gsi);
+      gimple_phi phi_stmt = gsi.phi ();
       gimple def1, def2, defswap;
       tree arg1, arg2, ref1, ref2, field1, field2, fieldswap;
       tree tree_offset1, tree_offset2, tree_size2, next;

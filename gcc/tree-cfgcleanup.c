@@ -367,11 +367,11 @@ phi_alternatives_equal (basic_block dest, edge e1, edge e2)
 {
   int n1 = e1->dest_idx;
   int n2 = e2->dest_idx;
-  gimple_stmt_iterator gsi;
+  gimple_phi_iterator gsi;
 
   for (gsi = gsi_start_phis (dest); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple phi = gsi_stmt (gsi);
+      gimple_phi phi = gsi.phi ();
       tree val1 = gimple_phi_arg_def (phi, n1);
       tree val2 = gimple_phi_arg_def (phi, n2);
 
@@ -855,7 +855,7 @@ remove_forwarder_block_with_phi (basic_block bb)
   while (EDGE_COUNT (bb->preds) > 0)
     {
       edge e = EDGE_PRED (bb, 0), s;
-      gimple_stmt_iterator gsi;
+      gimple_phi_iterator gsi;
 
       s = find_edge (e->src, dest);
       if (s)
@@ -887,7 +887,7 @@ remove_forwarder_block_with_phi (basic_block bb)
 	   !gsi_end_p (gsi);
 	   gsi_next (&gsi))
 	{
-	  gimple phi = gsi_stmt (gsi);
+	  gimple_phi phi = gsi.phi ();
 	  tree def = gimple_phi_arg_def (phi, succ->dest_idx);
 	  source_location locus = gimple_phi_arg_location_from_edge (phi, succ);
 
@@ -1035,7 +1035,7 @@ pass_merge_phi::execute (function *fun)
 	}
       else
 	{
-	  gimple_stmt_iterator gsi;
+	  gimple_phi_iterator gsi;
 	  unsigned int dest_idx = single_succ_edge (bb)->dest_idx;
 
 	  /* BB dominates DEST.  There may be many users of the PHI
@@ -1046,7 +1046,7 @@ pass_merge_phi::execute (function *fun)
 	  for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
 	       gsi_next (&gsi))
 	    {
-	      gimple phi = gsi_stmt (gsi);
+	      gimple_phi phi = gsi.phi ();
 	      tree result = gimple_phi_result (phi);
 	      use_operand_p imm_use;
 	      gimple use_stmt;

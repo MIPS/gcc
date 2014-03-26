@@ -933,13 +933,13 @@ static bool
 remove_dead_phis (basic_block bb)
 {
   bool something_changed = false;
-  gimple phi;
-  gimple_stmt_iterator gsi;
+  gimple_phi phi;
+  gimple_phi_iterator gsi;
 
   for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi);)
     {
       stats.total_phis++;
-      phi = gsi_stmt (gsi);
+      phi = gsi.phi ();
 
       /* We do not track necessity of virtual PHI nodes.  Instead do
          very simple dead PHI removal here.  */
@@ -991,7 +991,7 @@ remove_dead_phis (basic_block bb)
 static edge
 forward_edge_to_pdom (edge e, basic_block post_dom_bb)
 {
-  gimple_stmt_iterator gsi;
+  gimple_phi_iterator gsi;
   edge e2 = NULL;
   edge_iterator ei;
 
@@ -1015,7 +1015,7 @@ forward_edge_to_pdom (edge e, basic_block post_dom_bb)
 	  break;
       for (gsi = gsi_start_phis (post_dom_bb); !gsi_end_p (gsi);)
 	{
-	  gimple phi = gsi_stmt (gsi);
+	  gimple_phi phi = gsi.phi ();
 	  tree op;
 	  source_location locus;
 

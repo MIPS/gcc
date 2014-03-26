@@ -773,12 +773,12 @@ check_all_empty_except_final (struct switch_conv_info *info)
 static bool
 check_final_bb (struct switch_conv_info *info)
 {
-  gimple_stmt_iterator gsi;
+  gimple_phi_iterator gsi;
 
   info->phi_count = 0;
   for (gsi = gsi_start_phis (info->final_bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple phi = gsi_stmt (gsi);
+      gimple_phi phi = gsi.phi ();
       unsigned int i;
 
       info->phi_count++;
@@ -854,7 +854,7 @@ free_temp_arrays (struct switch_conv_info *info)
 static void
 gather_default_values (tree default_case, struct switch_conv_info *info)
 {
-  gimple_stmt_iterator gsi;
+  gimple_phi_iterator gsi;
   basic_block bb = label_to_block (CASE_LABEL (default_case));
   edge e;
   int i = 0;
@@ -868,7 +868,7 @@ gather_default_values (tree default_case, struct switch_conv_info *info)
 
   for (gsi = gsi_start_phis (info->final_bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple phi = gsi_stmt (gsi);
+      gimple_phi phi = gsi.phi ();
       tree val = PHI_ARG_DEF_FROM_EDGE (phi, e);
       gcc_assert (val);
       info->default_values[i++] = val;
@@ -891,7 +891,7 @@ build_constructors (gimple_switch swtch, struct switch_conv_info *info)
       basic_block bb = label_to_block (CASE_LABEL (cs));
       edge e;
       tree high;
-      gimple_stmt_iterator gsi;
+      gimple_phi_iterator gsi;
       int j;
 
       if (bb == info->final_bb)
@@ -926,7 +926,7 @@ build_constructors (gimple_switch swtch, struct switch_conv_info *info)
       for (gsi = gsi_start_phis (info->final_bb);
 	   !gsi_end_p (gsi); gsi_next (&gsi))
 	{
-	  gimple phi = gsi_stmt (gsi);
+	  gimple_phi phi = gsi.phi ();
 	  tree val = PHI_ARG_DEF_FROM_EDGE (phi, e);
 	  tree low = CASE_LOW (cs);
 	  pos = CASE_LOW (cs);
@@ -1204,13 +1204,13 @@ static void
 fix_phi_nodes (edge e1f, edge e2f, basic_block bbf,
 	       struct switch_conv_info *info)
 {
-  gimple_stmt_iterator gsi;
+  gimple_phi_iterator gsi;
   int i;
 
   for (gsi = gsi_start_phis (bbf), i = 0;
        !gsi_end_p (gsi); gsi_next (&gsi), i++)
     {
-      gimple phi = gsi_stmt (gsi);
+      gimple_phi phi = gsi.phi ();
       add_phi_arg (phi, info->target_inbound_names[i], e1f, UNKNOWN_LOCATION);
       add_phi_arg (phi, info->target_outbound_names[i], e2f, UNKNOWN_LOCATION);
     }

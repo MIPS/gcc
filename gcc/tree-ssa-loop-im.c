@@ -1264,11 +1264,11 @@ move_computations_dom_walker::before_dom_children (basic_block bb)
 	{
 	  /* The new VUSE is the one from the virtual PHI in the loop
 	     header or the one already present.  */
-	  gimple_stmt_iterator gsi2;
+	  gimple_phi_iterator gsi2;
 	  for (gsi2 = gsi_start_phis (e->dest);
 	       !gsi_end_p (gsi2); gsi_next (&gsi2))
 	    {
-	      gimple phi = gsi_stmt (gsi2);
+	      gimple_phi phi = gsi2.phi ();
 	      if (virtual_operand_p (gimple_phi_result (phi)))
 		{
 		  gimple_set_vuse (stmt, PHI_ARG_DEF_FROM_EDGE (phi, e));

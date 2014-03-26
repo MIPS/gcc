@@ -2493,7 +2493,7 @@ suitable_cond_bb (basic_block bb, basic_block test_bb, basic_block *other_bb,
   edge_iterator ei, ei2;
   edge e, e2;
   gimple stmt;
-  gimple_stmt_iterator gsi;
+  gimple_phi_iterator gsi;
   bool other_edge_seen = false;
   bool is_cond;
 
@@ -2555,7 +2555,7 @@ suitable_cond_bb (basic_block bb, basic_block test_bb, basic_block *other_bb,
   e2 = find_edge (test_bb, *other_bb);
   for (gsi = gsi_start_phis (e->dest); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple phi = gsi_stmt (gsi);
+      gimple_phi phi = gsi.phi ();
       /* If both BB and TEST_BB end with GIMPLE_COND, all PHI arguments
 	 corresponding to BB and TEST_BB predecessor must be the same.  */
       if (!operand_equal_p (gimple_phi_arg_def (phi, e->dest_idx),

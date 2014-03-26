@@ -1378,7 +1378,7 @@ gimple_ic (gimple icall_stmt, struct cgraph_node *direct_call,
   int lp_nr, dflags;
   edge e_eh, e;
   edge_iterator ei;
-  gimple_stmt_iterator psi;
+  gimple_phi_iterator psi;
 
   cond_bb = gimple_bb (icall_stmt);
   gsi = gsi_for_stmt (icall_stmt);
@@ -1491,7 +1491,7 @@ gimple_ic (gimple icall_stmt, struct cgraph_node *direct_call,
 	for (psi = gsi_start_phis (e_eh->dest);
 	     !gsi_end_p (psi); gsi_next (&psi))
 	  {
-	    gimple phi = gsi_stmt (psi);
+	    gimple_phi phi = psi.phi ();
 	    SET_USE (PHI_ARG_DEF_PTR_FROM_EDGE (phi, e),
 		     PHI_ARG_DEF_FROM_EDGE (phi, e_eh));
 	  }

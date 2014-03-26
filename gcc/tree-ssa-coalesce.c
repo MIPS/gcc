@@ -1189,11 +1189,11 @@ coalesce_partitions (var_map map, ssa_conflicts_p graph, coalesce_list_p cl,
       FOR_EACH_EDGE (e, ei, bb->preds)
 	if (e->flags & EDGE_ABNORMAL)
 	  {
-	    gimple_stmt_iterator gsi;
+	    gimple_phi_iterator gsi;
 	    for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
 		 gsi_next (&gsi))
 	      {
-		gimple phi = gsi_stmt (gsi);
+		gimple_phi phi = gsi.phi ();
 		tree res = PHI_RESULT (phi);
 	        tree arg = PHI_ARG_DEF (phi, e->dest_idx);
 		int v1 = SSA_NAME_VERSION (res);

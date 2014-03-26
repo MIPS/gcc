@@ -2174,9 +2174,9 @@ is_use_properly_guarded (gimple use_stmt,
    if the new phi is already in the worklist.  */
 
 static gimple
-find_uninit_use (gimple phi, unsigned uninit_opnds,
-                 vec<gimple> *worklist,
-		 hash_set<gimple> *added_to_worklist)
+find_uninit_use (gimple_phi phi, unsigned uninit_opnds,
+                 vec<gimple_phi> *worklist,
+		 hash_set<gimple_phi> *added_to_worklist)
 {
   tree phi_result;
   use_operand_p use_p;
@@ -2215,7 +2215,7 @@ find_uninit_use (gimple phi, unsigned uninit_opnds,
 
       /* Found a phi use that is not guarded,
          add the phi to the worklist.  */
-      if (!added_to_worklist->add (use_stmt))
+      if (!added_to_worklist->add (as_a <gimple_phi> (use_stmt)))
         {
           if (dump_file && (dump_flags & TDF_DETAILS))
             {
@@ -2223,7 +2223,7 @@ find_uninit_use (gimple phi, unsigned uninit_opnds,
               print_gimple_stmt (dump_file, use_stmt, 0, 0);
             }
 
-          worklist->safe_push (use_stmt);
+          worklist->safe_push (as_a <gimple_phi> (use_stmt));
           possibly_undefined_names->add (phi_result);
         }
     }
@@ -2240,8 +2240,8 @@ find_uninit_use (gimple phi, unsigned uninit_opnds,
    a pointer set tracking if the new phi is added to the worklist or not.  */
 
 static void
-warn_uninitialized_phi (gimple phi, vec<gimple> *worklist,
-                        hash_set<gimple> *added_to_worklist)
+warn_uninitialized_phi (gimple_phi phi, vec<gimple_phi> *worklist,
+                        hash_set<gimple_phi> *added_to_worklist)
 {
   unsigned uninit_opnds;
   gimple uninit_use_stmt = 0;
@@ -2326,8 +2326,8 @@ unsigned int
 pass_late_warn_uninitialized::execute (function *fun)
 {
   basic_block bb;
-  gimple_stmt_iterator gsi;
-  vec<gimple> worklist = vNULL;
+  gimple_phi_iterator gsi;
+  vec<gimple_phi> worklist = vNULL;
 
   calculate_dominance_info (CDI_DOMINATORS);
   calculate_dominance_info (CDI_POST_DOMINATORS);
@@ -2339,13 +2339,13 @@ pass_late_warn_uninitialized::execute (function *fun)
   timevar_push (TV_TREE_UNINIT);
 
   possibly_undefined_names = new hash_set<tree>;
-  hash_set<gimple> added_to_worklist;
+  hash_set<gimple_phi> added_to_worklist;
 
   /* Initialize worklist  */
   FOR_EACH_BB_FN (bb, fun)
     for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
       {
-	gimple phi = gsi_stmt (gsi);
+	gimple_phi phi = gsi.phi ();
 	size_t n, i;
 
 	n = gimple_phi_num_args (phi);
@@ -2374,7 +2374,7 @@ pass_late_warn_uninitialized::execute (function *fun)
 
   while (worklist.length () != 0)
     {
-      gimple cur_phi = 0;
+      gimple_phi cur_phi = 0;
       cur_phi = worklist.pop ();
       warn_uninitialized_phi (cur_phi, &worklist, &added_to_worklist);
     }

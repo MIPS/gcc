@@ -1116,10 +1116,11 @@ static gimple
 find_looparound_phi (struct loop *loop, dref ref, dref root)
 {
   tree name, init, init_ref;
-  gimple phi = NULL, init_stmt;
+  gimple_phi phi = NULL;
+  gimple init_stmt;
   edge latch = loop_latch_edge (loop);
   struct data_reference init_dr;
-  gimple_stmt_iterator psi;
+  gimple_phi_iterator psi;
 
   if (is_gimple_assign (ref->stmt))
     {
@@ -1135,7 +1136,7 @@ find_looparound_phi (struct loop *loop, dref ref, dref root)
 
   for (psi = gsi_start_phis (loop->header); !gsi_end_p (psi); gsi_next (&psi))
     {
-      phi = gsi_stmt (psi);
+      phi = psi.phi ();
       if (PHI_ARG_DEF_FROM_EDGE (phi, latch) == name)
 	break;
     }
@@ -1887,14 +1888,15 @@ static void
 eliminate_temp_copies (struct loop *loop, bitmap tmp_vars)
 {
   edge e;
-  gimple phi, stmt;
+  gimple_phi phi;
+  gimple stmt;
   tree name, use, var;
-  gimple_stmt_iterator psi;
+  gimple_phi_iterator psi;
 
   e = loop_latch_edge (loop);
   for (psi = gsi_start_phis (loop->header); !gsi_end_p (psi); gsi_next (&psi))
     {
-      phi = gsi_stmt (psi);
+      phi = psi.phi ();
       name = PHI_RESULT (phi);
       var = SSA_NAME_VAR (name);
       if (!var || !bitmap_bit_p (tmp_vars, DECL_UID (var)))
