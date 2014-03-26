@@ -547,7 +547,7 @@ fold_gimple_assign (gimple_stmt_iterator *si)
    assumed that the operands have been previously folded.  */
 
 static bool
-fold_gimple_cond (gimple stmt)
+fold_gimple_cond (gimple_cond stmt)
 {
   tree result = fold_binary_loc (gimple_location (stmt),
 			     gimple_cond_code (stmt),
@@ -2925,7 +2925,7 @@ fold_stmt_1 (gimple_stmt_iterator *gsi, bool inplace)
       }
 
     case GIMPLE_COND:
-      changed |= fold_gimple_cond (stmt);
+      changed |= fold_gimple_cond (as_a <gimple_cond> (stmt));
       break;
 
     case GIMPLE_CALL:

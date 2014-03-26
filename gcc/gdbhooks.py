@@ -458,6 +458,8 @@ def build_pretty_printer():
     pp.add_printer_for_types(['gimple', 'gimple_statement_base *',
 
                               # Keep this in the same order as gimple.def:
+                              'gimple_cond', 'const_gimple_cond',
+                              'gimple_statement_cond *',
                               'gimple_switch', 'const_gimple_switch',
                               'gimple_statement_switch *',
                               'gimple_bind', 'const_gimple_bind',

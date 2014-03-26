@@ -770,6 +770,16 @@ enum gimple_statement_structure_enum {
 #undef DEFGSSTRUCT
 
 /* A statement with the invariant that
+      stmt->code == GIMPLE_COND
+   i.e. a conditional jump statement.  */
+
+struct GTY((tag("GSS_WITH_OPS")))
+  gimple_statement_cond : public gimple_statement_with_ops
+{
+  /* no additional fields; this uses the layout for GSS_WITH_OPS. */
+};
+
+/* A statement with the invariant that
       stmt->code == GIMPLE_SWITCH
    i.e. a switch statement.  */
 
@@ -809,6 +819,14 @@ inline bool
 is_a_helper <gimple_statement_catch *>::test (gimple gs)
 {
   return gs->code == GIMPLE_CATCH;
+}
+
+template <>
+template <>
+inline bool
+is_a_helper <gimple_statement_cond *>::test (gimple gs)
+{
+  return gs->code == GIMPLE_COND;
 }
 
 template <>
@@ -1198,9 +1216,9 @@ gimple gimple_build_assign_with_ops (enum tree_code, tree,
 				     tree, tree, tree CXX_MEM_STAT_INFO);
 gimple gimple_build_assign_with_ops (enum tree_code, tree,
 				     tree, tree CXX_MEM_STAT_INFO);
-gimple gimple_build_cond (enum tree_code, tree, tree, tree, tree);
-gimple gimple_build_cond_from_tree (tree, tree, tree);
-void gimple_cond_set_condition_from_tree (gimple, tree);
+gimple_cond gimple_build_cond (enum tree_code, tree, tree, tree, tree);
+gimple_cond gimple_build_cond_from_tree (tree, tree, tree);
+void gimple_cond_set_condition_from_tree (gimple_cond, tree);
 gimple gimple_build_label (tree label);
 gimple gimple_build_goto (tree dest);
 gimple gimple_build_nop (void);
@@ -3041,7 +3059,7 @@ gimple_cond_make_true (gimple gs)
   'if (0 == 0)', 'if (1 != 0)' or 'if (0 != 1)' */
 
 static inline bool
-gimple_cond_true_p (const_gimple gs)
+gimple_cond_true_p (const_gimple_cond gs)
 {
   tree lhs = gimple_cond_lhs (gs);
   tree rhs = gimple_cond_rhs (gs);
@@ -3066,7 +3084,7 @@ gimple_cond_true_p (const_gimple gs)
    'if (0 != 0)', 'if (1 == 0)' or 'if (0 == 1)' */
 
 static inline bool
-gimple_cond_false_p (const_gimple gs)
+gimple_cond_false_p (const_gimple_cond gs)
 {
   tree lhs = gimple_cond_lhs (gs);
   tree rhs = gimple_cond_rhs (gs);
@@ -3090,7 +3108,8 @@ gimple_cond_false_p (const_gimple gs)
 /* Set the code, LHS and RHS of GIMPLE_COND STMT from CODE, LHS and RHS.  */
 
 static inline void
-gimple_cond_set_condition (gimple stmt, enum tree_code code, tree lhs, tree rhs)
+gimple_cond_set_condition (gimple_cond stmt, enum tree_code code, tree lhs,
+			   tree rhs)
 {
   gimple_cond_set_code (stmt, code);
   gimple_cond_set_lhs (stmt, lhs);

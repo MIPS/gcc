@@ -831,7 +831,7 @@ public:
 private:
   void thread_across_edge (edge);
 
-  gimple m_dummy_cond;
+  gimple_cond m_dummy_cond;
 };
 
 /* Jump threading, redundancy elimination and const/copy propagation.
@@ -1003,7 +1003,7 @@ make_pass_dominator (gcc::context *ctxt)
    condition to a canonical form.  */
 
 static void
-canonicalize_comparison (gimple condstmt)
+canonicalize_comparison (gimple_cond condstmt)
 {
   tree op0;
   tree op1;
@@ -2326,7 +2326,7 @@ optimize_stmt (basic_block bb, gimple_stmt_iterator si)
     }
 
   if (gimple_code (stmt) == GIMPLE_COND)
-    canonicalize_comparison (stmt);
+    canonicalize_comparison (as_a <gimple_cond> (stmt));
 
   update_stmt_if_modified (stmt);
   opt_stats.num_stmts++;

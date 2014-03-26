@@ -4365,8 +4365,8 @@ eliminate_dom_walker::before_dom_children (basic_block b)
 	      fold_stmt (&gsi);
 	      stmt = gsi_stmt (gsi);
 	      if ((gimple_code (stmt) == GIMPLE_COND
-		   && (gimple_cond_true_p (stmt)
-		       || gimple_cond_false_p (stmt)))
+		   && (gimple_cond_true_p (as_a <gimple_cond> (stmt))
+		       || gimple_cond_false_p (as_a <gimple_cond> (stmt))))
 		  || (gimple_code (stmt) == GIMPLE_SWITCH
 		      && TREE_CODE (gimple_switch_index (stmt)) == INTEGER_CST))
 		el_todo |= TODO_cleanup_cfg;

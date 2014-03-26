@@ -776,7 +776,7 @@ create_empty_loop_on_edge (edge entry_edge,
   struct loop *loop;
   gimple_stmt_iterator gsi;
   gimple_seq stmts;
-  gimple cond_expr;
+  gimple_cond cond_expr;
   tree exit_test;
   edge exit_e;
   int prob;

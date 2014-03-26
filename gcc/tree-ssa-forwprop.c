@@ -503,7 +503,7 @@ forward_propagate_into_comparison (gimple_stmt_iterator *gsi)
    This must be kept in sync with forward_propagate_into_cond.  */
 
 static int
-forward_propagate_into_gimple_cond (gimple stmt)
+forward_propagate_into_gimple_cond (gimple_cond stmt)
 {
   tree tmp;
   enum tree_code code = gimple_cond_code (stmt);
@@ -3836,7 +3836,8 @@ pass_forwprop::execute (function *fun)
 	    case GIMPLE_COND:
 	      {
 		int did_something;
-		did_something = forward_propagate_into_gimple_cond (stmt);
+		did_something =
+		  forward_propagate_into_gimple_cond (as_a <gimple_cond> (stmt));
 		if (did_something == 2)
 		  cfg_changed = true;
 		changed = did_something != 0;

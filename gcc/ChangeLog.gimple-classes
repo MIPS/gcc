@@ -1,5 +1,71 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Introduce gimple_cond and use it in various places
+
+	* coretypes.h (gimple_cond): New typedef.
+	(const_gimple_cond): Likewise.
+
+	* gimple.h (struct gimple_statement_cond): New subclass of
+	gimple_statement_with_ops, adding the invariant that
+	stmt->code == GIMPLE_COND.
+	(is_a_helper <gimple_statement_cond>::test): New.
+	(gimple_build_cond): Return a gimple_cond, rather than just
+	a gimple.
+	(gimple_build_cond_from_tree): Likewise.
+
+	* gdbhooks.py (build_pretty_printer): Add gimple_cond and its
+	variants, using the gimple printer.
+
+	* cfgexpand.c (expand_gimple_cond): Require a gimple_cond rather
+	than just a gimple.
+	* gimple.h (gimple_cond_set_condition_from_tree): Likewise.
+	(gimple_cond_true_p): Likewise.
+	(gimple_cond_false_p): Likewise.
+	(gimple_cond_set_condition): Likewise.
+	* gimple.c (gimple_cond_set_condition_from_tree): Likewise.
+	* gimple-fold.c (fold_gimple_cond): Likewise.
+	* gimple-pretty-print.c (dump_gimple_cond): Likewise.
+	* tree-ssa-dom.c (canonicalize_comparison): Likewise.
+	* tree-ssa-forwprop.c (forward_propagate_into_gimple_cond): Likewise.
+	* tree-ssa-ifcombine.c (recognize_single_bit_test): Likewise.
+	(recognize_bits_test): Likewise.
+	* tree-ssa-threadedge.c (simplify_control_stmt_condition): Likewise.
+	(thread_around_empty_blocks): Likewise.
+	(thread_through_normal_block): Likewise.
+	(thread_across_edge): Likewise.
+	* tree-ssa-threadedge.h (thread_across_edge): Likewise.
+	* tree-vrp.c (range_fits_type_p): Likewise.
+
+	* cfgexpand.c (expand_gimple_basic_block): Add checked cast to
+	gimple_cond in regions where a stmt is known to have code GIMPLE_COND.
+	* gimple-fold.c (fold_stmt_1): Likewise.
+	* gimple-pretty-print.c (pp_gimple_stmt_1): Likewise.
+	* tree-ssa-dom.c (optimize_stmt): Likewise.
+	* tree-ssa-forwprop.c (ssa_forward_propagate_and_combine): Likewise.
+	* tree-ssa-loop-unswitch.c (tree_unswitch_single_loop): Likewise.
+	* tree-ssa-pre.c (eliminate_dom_walker::before_dom_children):
+	Likewise.
+	* tree-vrp.c (simplify_stmt_using_ranges): Likewise.
+
+	* cfgloopmanip.c (create_empty_loop_on_edge): Update local to be a
+	gimple_cond.
+	* tree-vrp.c (identify_jump_threads): Likewise.
+
+	* gimple.c (gimple_build_cond): Return a gimple_cond, rather than
+	just a gimple.
+	(gimple_build_cond_from_tree): Likewise.
+
+	* tree-ssa-dom.c (class dom_opt_dom_walker): Strengthen type of
+	field "m_dummy_cond" from a plain gimple to a gimple_cond.
+
+	* tree-ssa-ifcombine.c (ifcombine_ifandif): Introduce locals
+	inner_stmt and outer_stmt so that inner_cond and outer_cond can be
+	of type gimple_cond once we know that we have code == GIMPLE_COND.
+	* tree-ssa-loop-unswitch.c (tree_may_unswitch_on): Introduce local
+	"last" so that stmt can be of type gimple_cond.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Introduce gimple_bind and use it for accessors.
 
 	* coretypes.h (gimple_bind): New typedef.

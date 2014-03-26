@@ -438,14 +438,14 @@ gimple_build_assign_with_ops (enum tree_code subcode, tree lhs, tree op1,
    T_LABEL is the label to jump to if the condition is true.
    F_LABEL is the label to jump to otherwise.  */
 
-gimple
+gimple_cond
 gimple_build_cond (enum tree_code pred_code, tree lhs, tree rhs,
 		   tree t_label, tree f_label)
 {
-  gimple p;
+  gimple_cond p;
 
   gcc_assert (TREE_CODE_CLASS (pred_code) == tcc_comparison);
-  p = gimple_build_with_ops (GIMPLE_COND, pred_code, 4);
+  p = as_a <gimple_cond> (gimple_build_with_ops (GIMPLE_COND, pred_code, 4));
   gimple_cond_set_lhs (p, lhs);
   gimple_cond_set_rhs (p, rhs);
   gimple_cond_set_true_label (p, t_label);
@@ -456,7 +456,7 @@ gimple_build_cond (enum tree_code pred_code, tree lhs, tree rhs,
 /* Build a GIMPLE_COND statement from the conditional expression tree
    COND.  T_LABEL and F_LABEL are as in gimple_build_cond.  */
 
-gimple
+gimple_cond
 gimple_build_cond_from_tree (tree cond, tree t_label, tree f_label)
 {
   enum tree_code code;
@@ -470,7 +470,7 @@ gimple_build_cond_from_tree (tree cond, tree t_label, tree f_label)
    boolean expression tree COND.  */
 
 void
-gimple_cond_set_condition_from_tree (gimple stmt, tree cond)
+gimple_cond_set_condition_from_tree (gimple_cond stmt, tree cond)
 {
   enum tree_code code;
   tree lhs, rhs;

@@ -9073,7 +9073,7 @@ range_fits_type_p (value_range_t *vr, unsigned dest_precision, signop dest_sgn)
    the original conditional.  */
 
 static bool
-simplify_cond_using_ranges (gimple stmt)
+simplify_cond_using_ranges (gimple_cond stmt)
 {
   tree op0 = gimple_cond_lhs (stmt);
   tree op1 = gimple_cond_rhs (stmt);
@@ -9613,7 +9613,7 @@ simplify_stmt_using_ranges (gimple_stmt_iterator *gsi)
 	}
     }
   else if (gimple_code (stmt) == GIMPLE_COND)
-    return simplify_cond_using_ranges (stmt);
+    return simplify_cond_using_ranges (as_a <gimple_cond> (stmt));
   else if (gimple_code (stmt) == GIMPLE_SWITCH)
     return simplify_switch_using_ranges (as_a <gimple_switch> (stmt));
   else if (is_gimple_call (stmt)
@@ -9757,7 +9757,7 @@ static void
 identify_jump_threads (void)
 {
   basic_block bb;
-  gimple dummy;
+  gimple_cond dummy;
   int i;
   edge e;
 

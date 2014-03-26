@@ -2070,7 +2070,7 @@ maybe_cleanup_end_of_block (edge e, rtx_insn *last)
    block and created a new one.  */
 
 static basic_block
-expand_gimple_cond (basic_block bb, gimple stmt)
+expand_gimple_cond (basic_block bb, gimple_cond stmt)
 {
   basic_block new_bb, dest;
   edge new_edge;
@@ -5071,7 +5071,7 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 	 fixup the CFG accordingly.  */
       if (gimple_code (stmt) == GIMPLE_COND)
 	{
-	  new_bb = expand_gimple_cond (bb, stmt);
+	  new_bb = expand_gimple_cond (bb, as_a <gimple_cond> (stmt));
 	  if (new_bb)
 	    return new_bb;
 	}

@@ -521,7 +521,7 @@ dummy_simplify (gimple stmt1 ATTRIBUTE_UNUSED, gimple stmt2 ATTRIBUTE_UNUSED)
 static tree
 simplify_control_stmt_condition (edge e,
 				 gimple stmt,
-				 gimple dummy_cond,
+				 gimple_cond dummy_cond,
 				 tree (*simplify) (gimple, gimple),
 				 bool handle_dominating_asserts)
 {
@@ -802,7 +802,7 @@ propagate_threaded_block_debug_into (basic_block dest, basic_block src)
    try and simplify the condition at the end of TAKEN_EDGE->dest.  */
 static bool
 thread_around_empty_blocks (edge taken_edge,
-			    gimple dummy_cond,
+			    gimple_cond dummy_cond,
 			    bool handle_dominating_asserts,
 			    tree (*simplify) (gimple, gimple),
 			    bitmap visited,
@@ -950,7 +950,7 @@ thread_around_empty_blocks (edge taken_edge,
 
 static int
 thread_through_normal_block (edge e,
-			     gimple dummy_cond,
+			     gimple_cond dummy_cond,
 			     bool handle_dominating_asserts,
 			     vec<tree> *stack,
 			     tree (*simplify) (gimple, gimple),
@@ -1078,7 +1078,7 @@ thread_through_normal_block (edge e,
    SIMPLIFY is a pass-specific function used to simplify statements.  */
 
 void
-thread_across_edge (gimple dummy_cond,
+thread_across_edge (gimple_cond dummy_cond,
 		    edge e,
 		    bool handle_dominating_asserts,
 		    vec<tree> *stack,
