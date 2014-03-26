@@ -378,7 +378,7 @@ static void
 lower_gimple_bind (gimple_stmt_iterator *gsi, struct lower_data *data)
 {
   tree old_block = data->block;
-  gimple stmt = gsi_stmt (*gsi);
+  gimple_bind stmt = as_a <gimple_bind> (gsi_stmt (*gsi));
   tree new_block = gimple_bind_block (stmt);
 
   if (new_block)
@@ -572,7 +572,8 @@ gimple_stmt_may_fallthru (gimple stmt)
       return false;
 
     case GIMPLE_BIND:
-      return gimple_seq_may_fallthru (gimple_bind_body (stmt));
+      return gimple_seq_may_fallthru (
+	       gimple_bind_body (as_a <gimple_bind> (stmt)));
 
     case GIMPLE_TRY:
       if (gimple_try_kind (stmt) == GIMPLE_TRY_CATCH)

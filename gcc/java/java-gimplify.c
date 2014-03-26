@@ -128,7 +128,7 @@ java_gimplify_block (tree java_block)
 {
   tree decls = BLOCK_VARS (java_block);
   tree body = BLOCK_EXPR_BODY (java_block);
-  gimple outer = gimple_current_bind_expr ();
+  gimple_bind outer = gimple_current_bind_expr ();
   tree block;
 
   /* Don't bother with empty blocks.  */

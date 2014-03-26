@@ -4622,7 +4622,8 @@ verify_gimple_in_seq_2 (gimple_seq stmts)
       switch (gimple_code (stmt))
         {
 	case GIMPLE_BIND:
-	  err |= verify_gimple_in_seq_2 (gimple_bind_body (stmt));
+	  err |= verify_gimple_in_seq_2 (
+                   gimple_bind_body (as_a <gimple_bind> (stmt)));
 	  break;
 
 	case GIMPLE_TRY:
@@ -8351,7 +8352,7 @@ do_warn_unused_result (gimple_seq seq)
       switch (gimple_code (g))
 	{
 	case GIMPLE_BIND:
-	  do_warn_unused_result (gimple_bind_body (g));
+	  do_warn_unused_result (gimple_bind_body (as_a <gimple_bind >(g)));
 	  break;
 	case GIMPLE_TRY:
 	  do_warn_unused_result (gimple_try_eval (g));

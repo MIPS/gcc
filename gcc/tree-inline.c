@@ -792,7 +792,7 @@ remap_gimple_seq (gimple_seq body, copy_body_data *id)
    block using the mapping information in ID.  */
 
 static gimple
-copy_gimple_bind (gimple stmt, copy_body_data *id)
+copy_gimple_bind (gimple_bind stmt, copy_body_data *id)
 {
   gimple new_bind;
   tree new_block, new_vars;
@@ -1334,7 +1334,7 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
       switch (gimple_code (stmt))
 	{
 	case GIMPLE_BIND:
-	  copy = copy_gimple_bind (stmt, id);
+	  copy = copy_gimple_bind (as_a <gimple_bind> (stmt), id);
 	  break;
 
 	case GIMPLE_CATCH:
@@ -3962,7 +3962,9 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
       return 10;
 
     case GIMPLE_BIND:
-      return estimate_num_insns_seq (gimple_bind_body (stmt), weights);
+      return estimate_num_insns_seq (
+	       gimple_bind_body (as_a <gimple_bind> (stmt)),
+	       weights);
 
     case GIMPLE_EH_FILTER:
       return estimate_num_insns_seq (gimple_eh_filter_failure (stmt), weights);
@@ -4882,9 +4884,9 @@ replace_locals_stmt (gimple_stmt_iterator *gsip,
 		     struct walk_stmt_info *wi)
 {
   copy_body_data *id = (copy_body_data *) wi->info;
-  gimple stmt = gsi_stmt (*gsip);
+  gimple gs = gsi_stmt (*gsip);
 
-  if (gimple_code (stmt) == GIMPLE_BIND)
+  if (gimple_bind stmt = dyn_cast <gimple_bind> (gs))
     {
       tree block = gimple_bind_block (stmt);
 

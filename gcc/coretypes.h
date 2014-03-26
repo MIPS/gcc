@@ -94,6 +94,10 @@ struct gimple_statement_switch;
 typedef struct gimple_statement_switch *gimple_switch;
 typedef const struct gimple_statement_switch *const_gimple_switch;
 
+struct gimple_statement_bind;
+typedef struct gimple_statement_bind *gimple_bind;
+typedef const struct gimple_statement_bind *const_gimple_bind;
+
 union section;
 typedef union section section;
 struct gcc_options;

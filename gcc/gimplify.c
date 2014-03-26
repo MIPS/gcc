@@ -113,7 +113,7 @@ struct gimplify_ctx
 {
   struct gimplify_ctx *prev_context;
 
-  vec<gimple> bind_expr_stack;
+  vec<gimple_bind> bind_expr_stack;
   tree temps;
   gimple_seq conditional_cleanups;
   tree exit_label;
@@ -264,10 +264,10 @@ pop_gimplify_context (gimple body)
 /* Push a GIMPLE_BIND tuple onto the stack of bindings.  */
 
 static void
-gimple_push_bind_expr (gimple gimple_bind)
+gimple_push_bind_expr (gimple_bind bind_stmt)
 {
   gimplify_ctxp->bind_expr_stack.reserve (8);
-  gimplify_ctxp->bind_expr_stack.safe_push (gimple_bind);
+  gimplify_ctxp->bind_expr_stack.safe_push (bind_stmt);
 }
 
 /* Pop the first element off the stack of bindings.  */
@@ -280,7 +280,7 @@ gimple_pop_bind_expr (void)
 
 /* Return the first element of the stack of bindings.  */
 
-gimple
+gimple_bind
 gimple_current_bind_expr (void)
 {
   return gimplify_ctxp->bind_expr_stack.last ();
@@ -288,7 +288,7 @@ gimple_current_bind_expr (void)
 
 /* Return the stack of bindings created during gimplification.  */
 
-vec<gimple> 
+vec<gimple_bind>
 gimple_bind_expr_stack (void)
 {
   return gimplify_ctxp->bind_expr_stack;
@@ -565,14 +565,14 @@ get_initialized_tmp_var (tree val, gimple_seq *pre_p, gimple_seq *post_p)
    generate debug info for them; otherwise don't.  */
 
 void
-declare_vars (tree vars, gimple scope, bool debug_info)
+declare_vars (tree vars, gimple gs, bool debug_info)
 {
   tree last = vars;
   if (last)
     {
       tree temps, block;
 
-      gcc_assert (gimple_code (scope) == GIMPLE_BIND);
+      gimple_bind scope = as_a <gimple_bind> (gs);
 
       temps = nreverse (last);
 
@@ -1043,7 +1043,7 @@ gimplify_bind_expr (tree *expr_p, gimple_seq *pre_p)
   tree bind_expr = *expr_p;
   bool old_save_stack = gimplify_ctxp->save_stack;
   tree t;
-  gimple gimple_bind;
+  gimple_bind gimple_bind;
   gimple_seq body, cleanup;
   gimple stack_save;
   location_t start_locus = 0, end_locus = 0;
@@ -8730,12 +8730,13 @@ gimplify_one_sizepos (tree *expr_p, gimple_seq *stmt_p)
    containing the sequence of corresponding GIMPLE statements.  If DO_PARMS
    is true, also gimplify the parameters.  */
 
-gimple
+gimple_bind
 gimplify_body (tree fndecl, bool do_parms)
 {
   location_t saved_location = input_location;
   gimple_seq parm_stmts, seq;
-  gimple outer_bind;
+  gimple outer_stmt;
+  gimple_bind outer_bind;
   struct cgraph_node *cgn;
 
   timevar_push (TV_TREE_GIMPLIFY);
@@ -8775,18 +8776,18 @@ gimplify_body (tree fndecl, bool do_parms)
   /* Gimplify the function's body.  */
   seq = NULL;
   gimplify_stmt (&DECL_SAVED_TREE (fndecl), &seq);
-  outer_bind = gimple_seq_first_stmt (seq);
-  if (!outer_bind)
+  outer_stmt = gimple_seq_first_stmt (seq);
+  if (!outer_stmt)
     {
-      outer_bind = gimple_build_nop ();
-      gimplify_seq_add_stmt (&seq, outer_bind);
+      outer_stmt = gimple_build_nop ();
+      gimplify_seq_add_stmt (&seq, outer_stmt);
     }
 
   /* The body must contain exactly one statement, a GIMPLE_BIND.  If this is
      not the case, wrap everything in a GIMPLE_BIND to make it so.  */
-  if (gimple_code (outer_bind) == GIMPLE_BIND
+  if (gimple_code (outer_stmt) == GIMPLE_BIND
       && gimple_seq_first (seq) == gimple_seq_last (seq))
-    ;
+    outer_bind = as_a <gimple_bind> (outer_stmt);
   else
     outer_bind = gimple_build_bind (NULL_TREE, seq, NULL);
 
@@ -8900,7 +8901,7 @@ gimplify_function_tree (tree fndecl)
 {
   tree parm, ret;
   gimple_seq seq;
-  gimple bind;
+  gimple_bind bind;
 
   gcc_assert (!gimple_body (fndecl));
 
@@ -8944,7 +8945,7 @@ gimplify_function_tree (tree fndecl)
       && !flag_instrument_functions_exclude_p (fndecl))
     {
       tree x;
-      gimple new_bind;
+      gimple_bind new_bind;
       gimple tf;
       gimple_seq cleanup = NULL, body = NULL;
       tree tmp_var;

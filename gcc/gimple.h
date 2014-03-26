@@ -1204,7 +1204,7 @@ void gimple_cond_set_condition_from_tree (gimple, tree);
 gimple gimple_build_label (tree label);
 gimple gimple_build_goto (tree dest);
 gimple gimple_build_nop (void);
-gimple gimple_build_bind (tree, gimple_seq, tree);
+gimple_bind gimple_build_bind (tree, gimple_seq, tree);
 gimple gimple_build_asm_vec (const char *, vec<tree, va_gc> *,
 			     vec<tree, va_gc> *, vec<tree, va_gc> *,
 			     vec<tree, va_gc> *);
@@ -1338,6 +1338,16 @@ gimple_seq_first_stmt (gimple_seq s)
 {
   gimple_seq_node n = gimple_seq_first (s);
   return n;
+}
+
+/* Return the first statement in GIMPLE sequence S as a gimple_bind,
+   verifying that it has code GIMPLE_BIND in a checked build.  */
+
+static inline gimple_bind
+gimple_seq_first_stmt_as_a_bind (gimple_seq s)
+{
+  gimple_seq_node n = gimple_seq_first (s);
+  return as_a <gimple_bind> (n);
 }
 
 
@@ -3131,10 +3141,8 @@ gimple_goto_set_dest (gimple gs, tree dest)
 /* Return the variables declared in the GIMPLE_BIND statement GS.  */
 
 static inline tree
-gimple_bind_vars (const_gimple gs)
+gimple_bind_vars (const_gimple_bind bind_stmt)
 {
-  const gimple_statement_bind *bind_stmt =
-    as_a <const gimple_statement_bind *> (gs);
   return bind_stmt->vars;
 }
 
@@ -3143,9 +3151,8 @@ gimple_bind_vars (const_gimple gs)
    statement GS.  */
 
 static inline void
-gimple_bind_set_vars (gimple gs, tree vars)
+gimple_bind_set_vars (gimple_bind bind_stmt, tree vars)
 {
-  gimple_statement_bind *bind_stmt = as_a <gimple_statement_bind *> (gs);
   bind_stmt->vars = vars;
 }
 
@@ -3154,24 +3161,22 @@ gimple_bind_set_vars (gimple gs, tree vars)
    statement GS.  */
 
 static inline void
-gimple_bind_append_vars (gimple gs, tree vars)
+gimple_bind_append_vars (gimple_bind bind_stmt, tree vars)
 {
-  gimple_statement_bind *bind_stmt = as_a <gimple_statement_bind *> (gs);
   bind_stmt->vars = chainon (bind_stmt->vars, vars);
 }
 
 
 static inline gimple_seq *
-gimple_bind_body_ptr (gimple gs)
+gimple_bind_body_ptr (gimple_bind bind_stmt)
 {
-  gimple_statement_bind *bind_stmt = as_a <gimple_statement_bind *> (gs);
   return &bind_stmt->body;
 }
 
 /* Return the GIMPLE sequence contained in the GIMPLE_BIND statement GS.  */
 
 static inline gimple_seq
-gimple_bind_body (gimple gs)
+gimple_bind_body (gimple_bind gs)
 {
   return *gimple_bind_body_ptr (gs);
 }
@@ -3181,9 +3186,8 @@ gimple_bind_body (gimple gs)
    statement GS.  */
 
 static inline void
-gimple_bind_set_body (gimple gs, gimple_seq seq)
+gimple_bind_set_body (gimple_bind bind_stmt, gimple_seq seq)
 {
-  gimple_statement_bind *bind_stmt = as_a <gimple_statement_bind *> (gs);
   bind_stmt->body = seq;
 }
 
@@ -3191,9 +3195,8 @@ gimple_bind_set_body (gimple gs, gimple_seq seq)
 /* Append a statement to the end of a GIMPLE_BIND's body.  */
 
 static inline void
-gimple_bind_add_stmt (gimple gs, gimple stmt)
+gimple_bind_add_stmt (gimple_bind bind_stmt, gimple stmt)
 {
-  gimple_statement_bind *bind_stmt = as_a <gimple_statement_bind *> (gs);
   gimple_seq_add_stmt (&bind_stmt->body, stmt);
 }
 
@@ -3201,9 +3204,8 @@ gimple_bind_add_stmt (gimple gs, gimple stmt)
 /* Append a sequence of statements to the end of a GIMPLE_BIND's body.  */
 
 static inline void
-gimple_bind_add_seq (gimple gs, gimple_seq seq)
+gimple_bind_add_seq (gimple_bind bind_stmt, gimple_seq seq)
 {
-  gimple_statement_bind *bind_stmt = as_a <gimple_statement_bind *> (gs);
   gimple_seq_add_seq (&bind_stmt->body, seq);
 }
 
@@ -3212,10 +3214,8 @@ gimple_bind_add_seq (gimple gs, gimple_seq seq)
    GS.  This is analogous to the BIND_EXPR_BLOCK field in trees.  */
 
 static inline tree
-gimple_bind_block (const_gimple gs)
+gimple_bind_block (const_gimple_bind bind_stmt)
 {
-  const gimple_statement_bind *bind_stmt =
-    as_a <const gimple_statement_bind *> (gs);
   return bind_stmt->block;
 }
 
@@ -3224,9 +3224,8 @@ gimple_bind_block (const_gimple gs)
    statement GS.  */
 
 static inline void
-gimple_bind_set_block (gimple gs, tree block)
+gimple_bind_set_block (gimple_bind bind_stmt, tree block)
 {
-  gimple_statement_bind *bind_stmt = as_a <gimple_statement_bind *> (gs);
   gcc_gimple_checking_assert (block == NULL_TREE
 			      || TREE_CODE (block) == BLOCK);
   bind_stmt->block = block;

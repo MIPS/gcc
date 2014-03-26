@@ -2841,7 +2841,9 @@ scan_omp_1_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 
 	*handled_ops_p = false;
 	if (ctx)
-	  for (var = gimple_bind_vars (stmt); var ; var = DECL_CHAIN (var))
+	  for (var = gimple_bind_vars (as_a <gimple_bind> (stmt));
+	       var ;
+	       var = DECL_CHAIN (var))
 	    insert_decl_map (&ctx->cb, var, var);
       }
       break;
@@ -8858,7 +8860,8 @@ lower_omp_sections (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 {
   tree block, control;
   gimple_stmt_iterator tgsi;
-  gimple stmt, new_stmt, bind, t;
+  gimple stmt, t;
+  gimple_bind new_stmt, bind;
   gimple_seq ilist, dlist, olist, new_body;
 
   stmt = gsi_stmt (*gsi_p);
@@ -9067,7 +9070,8 @@ static void
 lower_omp_single (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 {
   tree block;
-  gimple t, bind, single_stmt = gsi_stmt (*gsi_p);
+  gimple t, single_stmt = gsi_stmt (*gsi_p);
+  gimple_bind bind;
   gimple_seq bind_body, bind_body_tail = NULL, dlist;
 
   push_gimplify_context ();
@@ -9125,7 +9129,8 @@ static void
 lower_omp_master (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 {
   tree block, lab = NULL, x, bfn_decl;
-  gimple stmt = gsi_stmt (*gsi_p), bind;
+  gimple stmt = gsi_stmt (*gsi_p);
+  gimple_bind bind;
   location_t loc = gimple_location (stmt);
   gimple_seq tseq;
 
@@ -9165,7 +9170,8 @@ lower_omp_master (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 static void
 lower_omp_taskgroup (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 {
-  gimple stmt = gsi_stmt (*gsi_p), bind, x;
+  gimple stmt = gsi_stmt (*gsi_p), x;
+  gimple_bind bind;
   tree block = make_node (BLOCK);
 
   bind = gimple_build_bind (NULL, NULL, block);
@@ -9193,7 +9199,8 @@ static void
 lower_omp_ordered (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 {
   tree block;
-  gimple stmt = gsi_stmt (*gsi_p), bind, x;
+  gimple stmt = gsi_stmt (*gsi_p), x;
+  gimple_bind bind;
 
   push_gimplify_context ();
 
@@ -9236,7 +9243,8 @@ lower_omp_critical (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 {
   tree block;
   tree name, lock, unlock;
-  gimple stmt = gsi_stmt (*gsi_p), bind;
+  gimple stmt = gsi_stmt (*gsi_p);
+  gimple_bind bind;
   location_t loc = gimple_location (stmt);
   gimple_seq tbody;
 
@@ -9378,7 +9386,8 @@ lower_omp_for (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 {
   tree *rhs_p, block;
   struct omp_for_data fd, *fdp = NULL;
-  gimple stmt = gsi_stmt (*gsi_p), new_stmt;
+  gimple stmt = gsi_stmt (*gsi_p);
+  gimple_bind new_stmt;
   gimple_seq omp_for_body, body, dlist;
   size_t i;
 
@@ -9399,7 +9408,8 @@ lower_omp_for (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   if (!gimple_seq_empty_p (omp_for_body)
       && gimple_code (gimple_seq_first_stmt (omp_for_body)) == GIMPLE_BIND)
     {
-      gimple inner_bind = gimple_seq_first_stmt (omp_for_body);
+      gimple_bind inner_bind =
+	as_a <gimple_bind> (gimple_seq_first_stmt (omp_for_body));
       tree vars = gimple_bind_vars (inner_bind);
       gimple_bind_append_vars (new_stmt, vars);
       /* bind_vars/BLOCK_VARS are being moved to new_stmt/block, don't
@@ -9896,12 +9906,12 @@ lower_omp_taskreg (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   tree clauses;
   tree child_fn, t;
   gimple stmt = gsi_stmt (*gsi_p);
-  gimple par_bind, bind, dep_bind = NULL;
+  gimple_bind par_bind, bind, dep_bind = NULL;
   gimple_seq par_body, olist, ilist, par_olist, par_rlist, par_ilist, new_body;
   location_t loc = gimple_location (stmt);
 
   clauses = gimple_omp_taskreg_clauses (stmt);
-  par_bind = gimple_seq_first_stmt (gimple_omp_body (stmt));
+  par_bind = gimple_seq_first_stmt_as_a_bind (gimple_omp_body (stmt));
   par_body = gimple_bind_body (par_bind);
   child_fn = ctx->cb.dst_fn;
   if (gimple_code (stmt) == GIMPLE_OMP_PARALLEL
@@ -10018,7 +10028,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   tree clauses;
   tree child_fn, t, c;
   gimple stmt = gsi_stmt (*gsi_p);
-  gimple tgt_bind = NULL, bind;
+  gimple_bind tgt_bind = NULL, bind;
   gimple_seq tgt_body = NULL, olist, ilist, new_body;
   location_t loc = gimple_location (stmt);
   int kind = gimple_omp_target_kind (stmt);
@@ -10027,7 +10037,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   clauses = gimple_omp_target_clauses (stmt);
   if (kind == GF_OMP_TARGET_KIND_REGION)
     {
-      tgt_bind = gimple_seq_first_stmt (gimple_omp_body (stmt));
+      tgt_bind = gimple_seq_first_stmt_as_a_bind (gimple_omp_body (stmt));
       tgt_body = gimple_bind_body (tgt_bind);
     }
   else if (kind == GF_OMP_TARGET_KIND_DATA)
@@ -10331,7 +10341,7 @@ lower_omp_teams (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   push_gimplify_context ();
 
   tree block = make_node (BLOCK);
-  gimple bind = gimple_build_bind (NULL, NULL, block);
+  gimple_bind bind = gimple_build_bind (NULL, NULL, block);
   gsi_replace (gsi_p, bind, true);
   gimple_seq bind_body = NULL;
   gimple_seq dlist = NULL;
@@ -10460,7 +10470,7 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
       lower_omp (gimple_transaction_body_ptr (stmt), ctx);
       break;
     case GIMPLE_BIND:
-      lower_omp (gimple_bind_body_ptr (stmt), ctx);
+      lower_omp (gimple_bind_body_ptr (as_a <gimple_bind> (stmt)), ctx);
       break;
     case GIMPLE_OMP_PARALLEL:
     case GIMPLE_OMP_TASK:

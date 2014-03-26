@@ -541,8 +541,9 @@ walk_gimple_stmt (gimple_stmt_iterator *gsi, walk_stmt_fn callback_stmt,
   switch (gimple_code (stmt))
     {
     case GIMPLE_BIND:
-      ret = walk_gimple_seq_mod (gimple_bind_body_ptr (stmt), callback_stmt,
-				 callback_op, wi);
+      ret =
+	walk_gimple_seq_mod (gimple_bind_body_ptr (as_a <gimple_bind> (stmt)),
+			     callback_stmt, callback_op, wi);
       if (ret)
 	return wi->callback_result;
       break;

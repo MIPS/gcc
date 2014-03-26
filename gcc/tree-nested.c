@@ -1425,10 +1425,12 @@ convert_nonlocal_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       break;
 
     case GIMPLE_BIND:
-      if (!optimize && gimple_bind_block (stmt))
-	note_nonlocal_block_vlas (info, gimple_bind_block (stmt));
+      {
+      gimple_bind bind_stmt = as_a <gimple_bind> (stmt);
+      if (!optimize && gimple_bind_block (bind_stmt))
+	note_nonlocal_block_vlas (info, gimple_bind_block (bind_stmt));
 
-      for (tree var = gimple_bind_vars (stmt); var; var = DECL_CHAIN (var))
+      for (tree var = gimple_bind_vars (bind_stmt); var; var = DECL_CHAIN (var))
 	if (TREE_CODE (var) == NAMELIST_DECL)
 	  {
 	    /* Adjust decls mentioned in NAMELIST_DECL.  */
@@ -1449,7 +1451,7 @@ convert_nonlocal_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 
       *handled_ops_p = false;
       return NULL_TREE;
-
+      }
     case GIMPLE_COND:
       wi->val_only = true;
       wi->is_lhs = false;
@@ -2007,7 +2009,9 @@ convert_local_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       return NULL_TREE;
 
     case GIMPLE_BIND:
-      for (tree var = gimple_bind_vars (stmt); var; var = DECL_CHAIN (var))
+      for (tree var = gimple_bind_vars (as_a <gimple_bind> (stmt));
+	   var;
+	   var = DECL_CHAIN (var))
 	if (TREE_CODE (var) == NAMELIST_DECL)
 	  {
 	    /* Adjust decls mentioned in NAMELIST_DECL.  */
@@ -2773,9 +2777,9 @@ finalize_nesting_tree_1 (struct nesting_info *root)
   /* If we created initialization statements, insert them.  */
   if (stmt_list)
     {
-      gimple bind;
+      gimple_bind bind;
       annotate_all_with_location (stmt_list, DECL_SOURCE_LOCATION (context));
-      bind = gimple_seq_first_stmt (gimple_body (context));
+      bind = gimple_seq_first_stmt_as_a_bind (gimple_body (context));
       gimple_seq_add_seq (&stmt_list, gimple_bind_body (bind));
       gimple_bind_set_body (bind, stmt_list);
     }
@@ -2804,7 +2808,7 @@ finalize_nesting_tree_1 (struct nesting_info *root)
   if (root->debug_var_chain)
     {
       tree debug_var;
-      gimple scope;
+      gimple_bind scope;
 
       remap_vla_decls (DECL_INITIAL (root->context), root);
 
@@ -2859,7 +2863,7 @@ finalize_nesting_tree_1 (struct nesting_info *root)
 	  delete id.cb.decl_map;
 	}
 
-      scope = gimple_seq_first_stmt (gimple_body (root->context));
+      scope = gimple_seq_first_stmt_as_a_bind (gimple_body (root->context));
       if (gimple_bind_block (scope))
 	declare_vars (root->debug_var_chain, scope, true);
       else

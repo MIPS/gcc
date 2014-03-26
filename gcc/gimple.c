@@ -513,10 +513,10 @@ gimple_build_nop (void)
    VARS are the variables in BODY.
    BLOCK is the containing block.  */
 
-gimple
+gimple_bind
 gimple_build_bind (tree vars, gimple_seq body, tree block)
 {
-  gimple p = gimple_alloc (GIMPLE_BIND, 0);
+  gimple_bind p = as_a <gimple_bind> (gimple_alloc (GIMPLE_BIND, 0));
   gimple_bind_set_vars (p, vars);
   if (body)
     gimple_bind_set_body (p, body);
@@ -1261,8 +1261,8 @@ empty_stmt_p (gimple stmt)
 {
   if (gimple_code (stmt) == GIMPLE_NOP)
     return true;
-  if (gimple_code (stmt) == GIMPLE_BIND)
-    return empty_body_p (gimple_bind_body (stmt));
+  if (gimple_bind bind_stmt = dyn_cast <gimple_bind> (stmt))
+    return empty_body_p (gimple_bind_body (bind_stmt));
   return false;
 }
 
@@ -1640,10 +1640,15 @@ gimple_copy (gimple stmt)
       switch (gimple_code (stmt))
 	{
 	case GIMPLE_BIND:
-	  new_seq = gimple_seq_copy (gimple_bind_body (stmt));
-	  gimple_bind_set_body (copy, new_seq);
-	  gimple_bind_set_vars (copy, unshare_expr (gimple_bind_vars (stmt)));
-	  gimple_bind_set_block (copy, gimple_bind_block (stmt));
+	  {
+	    gimple_bind bind_stmt = as_a <gimple_bind> (stmt);
+	    gimple_bind bind_copy = as_a <gimple_bind> (copy);
+	    new_seq = gimple_seq_copy (gimple_bind_body (bind_stmt));
+	    gimple_bind_set_body (bind_copy, new_seq);
+	    gimple_bind_set_vars (bind_copy,
+				  unshare_expr (gimple_bind_vars (bind_stmt)));
+	    gimple_bind_set_block (bind_copy, gimple_bind_block (bind_stmt));
+	  }
 	  break;
 
 	case GIMPLE_CATCH:

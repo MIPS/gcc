@@ -1,5 +1,94 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Introduce gimple_bind and use it for accessors.
+
+	* coretypes.h (gimple_bind): New typedef.
+	(const_gimple_bind): New typedef.
+
+	* gdbhooks.py (build_pretty_printer): Add gimple_bind
+	and its variants, using the gimple printer.
+
+	* gimple-pretty-print.c (dump_gimple_bind): Update type-signature to
+	require a gimple_bind rather than just a gimple.
+
+	* gimple.c (gimple_build_bind): Return a gimple_bind rather than
+	just a gimple.
+	* gimple.h (gimple_build_bind): Likewise.
+
+	* gimple.h (gimple_seq_first_stmt_as_a_bind): New.
+
+	* gimple.h (gimple_bind_vars): Update type-signature to
+	require a gimple_bind rather than just a gimple, removing
+	as_a and hence run-time check.
+	(gimple_bind_set_vars): Likewise.
+	(gimple_bind_append_vars): Likewise.
+	(gimple_bind_body_ptr): Likewise.
+	(gimple_bind_body): Likewise.
+	(gimple_bind_set_body): Likewise.
+	(gimple_bind_add_stmt): Likewise.
+	(gimple_bind_add_seq): Likewise.
+	(gimple_bind_block): Likewise.
+	(gimple_bind_set_block): Likewise.
+	* gimplify.c (gimple_push_bind_expr): Likewise.
+	(gimple_current_bind_expr): Likewise.
+	* tree-inline.c (copy_gimple_bind): Likewise.
+
+	* gimplify.h (gimple_current_bind_expr): Return a gimple_bind
+	rather than a plain gimple.
+	(gimplify_body): Likewise.
+	(gimple_bind_expr_stack): Return a vec<gimple_bind> rather than
+	a vec<gimple>.
+
+	* gimplify.c (struct gimplify_ctx): Strengthen field
+	"bind_expr_stack" from vec<gimple> to vec<gimple_bind>.
+	(gimple_bind_expr_stack): Likewise for type of returned value.
+
+	* gimplify.c (gimplify_body): Strengthen various types from gimple
+	to gimple_bind, including the return type.
+
+	* gimplify.c (declare_vars): Introduce "gs" as a generic gimple,
+	so that local "scope" can be of type gimple_bind once we've reached
+	the region where it must be of code GIMPLE_BIND.
+
+	* gimple-low.c (lower_gimple_bind): Add checked cast to
+	gimple_bind, since both callers (lower_function_body and
+	lower_stmt) have checked the code for us.
+
+	* gimple.c (gimple_copy): Add checked cast to gimple_bind in
+	region guarded by check for code GIMPLE_BIND.
+	* gimple-low.c (gimple_stmt_may_fallthru): Likewise.
+	* gimple-pretty-print.c (pp_gimple_stmt_1): Likewise.
+	* gimple-walk.c (walk_gimple_stmt): Likewise.
+	* omp-low.c (scan_omp_1_stmt): Likewise.
+	(lower_omp_1): Likewise.
+	(lower_omp_for): Likewise.
+	* tree-cfg.c (verify_gimple_in_seq_2): Likewise.
+	(do_warn_unused_result): Likewise.
+	* tree-inline.c (remap_gimple_stmt): Likewise.
+	(estimate_num_insns): Likewise.
+	* tree-nested.c (convert_nonlocal_reference_stmt): Likewise.
+
+	* gimplify.c (gimplify_bind_expr): Update local(s) to be a
+	gimple_bind rather than just a gimple.
+	(gimplify_function_tree): Likewise.
+	* omp-low.c (lower_omp_sections): Likewise.
+	(lower_omp_single): Likewise.
+	(lower_omp_master): Likewise.
+	(lower_omp_taskgroup): Likewise.
+	(lower_omp_ordered): Likewise.
+	(lower_omp_critical): Likewise.
+	(lower_omp_taskreg): Likewise.
+	(lower_omp_teams): Likewise.
+	* omp-low.c (lower_omp_for): Likewise; use
+	gimple_seq_first_stmt_as_a_bind to encapsulate the checked cast.
+	(lower_omp_target): Likewise.
+	* tree-nested.c (finalize_nesting_tree_1): Likewise.
+
+	* gimple.c (empty_stmt_p): Add dyn_cast to a gimple_bind.
+	* tree-inline.c (replace_locals_stmt): Add dyn_cast to gimple_bind.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Introduce gimple_switch and use it in various places
 
 	* gimple.h (gimple_statement_switch): New subclass of

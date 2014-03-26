@@ -1,0 +1,12 @@
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
+	Introduce gimple_bind and use it for accessors.
+
+	* java-gimplify.c (java_gimplify_block): Update local to be a
+	gimple_bind rather than just a gimple.
+
+Copyright (C) 2014 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
