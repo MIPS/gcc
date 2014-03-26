@@ -675,12 +675,12 @@
    (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "msa_lsa"
- [(set (match_operand:SI 0 "register_operand" "=f")
-       (plus:SI (match_operand:SI 1 "register_operand" "f")
-		(ashiftrt:SI (match_operand:SI 2 "register_operand" "f")
-			     (match_operand    3 "const_immlsa_operand" ""))))]
- "ISA_HAS_MSA"
- "lsa\t%0,%1,%2,%m3"
+ [(set (match_operand:SI 0 "register_operand" "=d")
+       (plus:SI (mult:SI (match_operand:SI 1 "register_operand" "d")
+			 (match_operand    2 "const_immlsa_operand" ""))
+		(match_operand:SI 3 "register_operand" "d")))]
+ "ISA_HAS_LSA"
+ "lsa\t%0,%1,%3,%y2"
  [(set_attr "type"      "arith")
   (set_attr "mode"      "SI")])
 
@@ -821,11 +821,11 @@
 	if (val < 0)
 	  {
 	    operands[2] = GEN_INT (-val);
-	    return "subvi.<msafmt>\t%w0,%w1,%s2";
+	    return "subvi.<msafmt>\t%w0,%w1,%d2";
 	  }
 	else
 	  {
-	    operands[2] = elt0;
+	    operands[2] = GEN_INT (val);
 	    return "addvi.<msafmt>\t%w0,%w1,%d2";
 	  }
       }
@@ -2477,7 +2477,7 @@
 (define_insn "msa_shf_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
 	(unspec:IMSA [(match_operand:IMSA 1 "register_operand" "f")
-			(match_operand 2 "const_uimm8_operand" "")]
+		      (match_operand 2 "const_uimm8_operand" "")]
 		       UNSPEC_MSA_SHF))]
   "ISA_HAS_MSA"
   "shf.<msafmt>\t%w0,%w1,%2"
