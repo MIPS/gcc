@@ -510,6 +510,7 @@ ira_create_allocno (int regno, bool cap_p,
   ALLOCNO_NUM (a) = ira_allocnos_num;
   bitmap_set_bit (loop_tree_node->all_allocnos, ALLOCNO_NUM (a));
   ALLOCNO_NREFS (a) = 0;
+  ALLOCNO_NREFS_SHORT (a) = 0;
   ALLOCNO_FREQ (a) = 0;
   ALLOCNO_HARD_REGNO (a) = -1;
   ALLOCNO_CALL_FREQ (a) = 0;
@@ -906,6 +907,7 @@ create_cap_allocno (ira_allocno_t a)
      ALLOCNO_CONFLICT_HARD_REG_COSTS (a));
   ALLOCNO_BAD_SPILL_P (cap) = ALLOCNO_BAD_SPILL_P (a);
   ALLOCNO_NREFS (cap) = ALLOCNO_NREFS (a);
+  ALLOCNO_NREFS_SHORT (cap) = ALLOCNO_NREFS_SHORT (a);
   ALLOCNO_FREQ (cap) = ALLOCNO_FREQ (a);
   ALLOCNO_CALL_FREQ (cap) = ALLOCNO_CALL_FREQ (a);
 
@@ -1858,7 +1860,7 @@ static basic_block curr_bb;
    pseudo-registers containing in X.  True OUTPUT_P means that X is
    a lvalue.  */
 static void
-create_insn_allocnos (rtx x, bool output_p)
+create_insn_allocnos (rtx x, bool output_p, bool short_form)
 {
   int i, j;
   const char *fmt;
@@ -1876,6 +1878,8 @@ create_insn_allocnos (rtx x, bool output_p)
 	    a = ira_create_allocno (regno, false, ira_curr_loop_tree_node);
 
 	  ALLOCNO_NREFS (a)++;
+	  if (short_form)
+		ALLOCNO_NREFS_SHORT (a)++;
 	  ALLOCNO_FREQ (a) += REG_FREQ_FROM_BB (curr_bb);
 	  if (output_p)
 	    bitmap_set_bit (ira_curr_loop_tree_node->modified_regnos, regno);
@@ -1884,25 +1888,25 @@ create_insn_allocnos (rtx x, bool output_p)
     }
   else if (code == SET)
     {
-      create_insn_allocnos (SET_DEST (x), true);
-      create_insn_allocnos (SET_SRC (x), false);
+      create_insn_allocnos (SET_DEST (x), true, short_form);
+      create_insn_allocnos (SET_SRC (x), false, short_form);
       return;
     }
   else if (code == CLOBBER)
     {
-      create_insn_allocnos (XEXP (x, 0), true);
+      create_insn_allocnos (XEXP (x, 0), true, short_form);
       return;
     }
   else if (code == MEM)
     {
-      create_insn_allocnos (XEXP (x, 0), false);
+      create_insn_allocnos (XEXP (x, 0), false, short_form);
       return;
     }
   else if (code == PRE_DEC || code == POST_DEC || code == PRE_INC ||
 	   code == POST_INC || code == POST_MODIFY || code == PRE_MODIFY)
     {
-      create_insn_allocnos (XEXP (x, 0), true);
-      create_insn_allocnos (XEXP (x, 0), false);
+      create_insn_allocnos (XEXP (x, 0), true, short_form);
+      create_insn_allocnos (XEXP (x, 0), false, short_form);
       return;
     }
 
@@ -1910,10 +1914,10 @@ create_insn_allocnos (rtx x, bool output_p)
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     {
       if (fmt[i] == 'e')
-	create_insn_allocnos (XEXP (x, i), output_p);
+	create_insn_allocnos (XEXP (x, i), output_p, short_form);
       else if (fmt[i] == 'E')
 	for (j = 0; j < XVECLEN (x, i); j++)
-	  create_insn_allocnos (XVECEXP (x, i, j), output_p);
+	  create_insn_allocnos (XVECEXP (x, i, j), output_p, short_form);
     }
 }
 
@@ -1932,7 +1936,12 @@ create_bb_allocnos (ira_loop_tree_node_t bb_node)
   ira_assert (bb != NULL);
   FOR_BB_INSNS_REVERSE (bb, insn)
     if (NONDEBUG_INSN_P (insn))
-      create_insn_allocnos (PATTERN (insn), false);
+      {
+	bool short_form = false;
+	if (targetm.insn_has_short_form (insn))
+	  short_form = true;
+	create_insn_allocnos (PATTERN (insn), false, short_form);
+      }
   /* It might be a allocno living through from one subloop to
      another.  */
   EXECUTE_IF_SET_IN_REG_SET (df_get_live_in (bb), FIRST_PSEUDO_REGISTER, i, bi)
@@ -2041,6 +2050,7 @@ propagate_allocno_info (void)
 	  if (! ALLOCNO_BAD_SPILL_P (a))
 	    ALLOCNO_BAD_SPILL_P (parent_a) = false;
 	  ALLOCNO_NREFS (parent_a) += ALLOCNO_NREFS (a);
+	  ALLOCNO_NREFS_SHORT (parent_a) += ALLOCNO_NREFS_SHORT (a);
 	  ALLOCNO_FREQ (parent_a) += ALLOCNO_FREQ (a);
 	  ALLOCNO_CALL_FREQ (parent_a) += ALLOCNO_CALL_FREQ (a);
 	  merge_hard_reg_conflicts (a, parent_a, true);
@@ -2423,6 +2433,7 @@ propagate_some_info_from_allocno (ira_allocno_t a, ira_allocno_t from_a)
 
   merge_hard_reg_conflicts (from_a, a, false);
   ALLOCNO_NREFS (a) += ALLOCNO_NREFS (from_a);
+  ALLOCNO_NREFS_SHORT (a) += ALLOCNO_NREFS_SHORT (from_a);
   ALLOCNO_FREQ (a) += ALLOCNO_FREQ (from_a);
   ALLOCNO_CALL_FREQ (a) += ALLOCNO_CALL_FREQ (from_a);
   ALLOCNO_CALLS_CROSSED_NUM (a) += ALLOCNO_CALLS_CROSSED_NUM (from_a);
@@ -3150,6 +3161,7 @@ ira_flattening (int max_regno_before_emit, int ira_max_point_before_emit)
 	  for (;;)
 	    {
 	      ALLOCNO_NREFS (parent_a) -= ALLOCNO_NREFS (a);
+	      ALLOCNO_NREFS_SHORT (parent_a) -= ALLOCNO_NREFS_SHORT (a);
 	      ALLOCNO_FREQ (parent_a) -= ALLOCNO_FREQ (a);
 	      ALLOCNO_CALL_FREQ (parent_a) -= ALLOCNO_CALL_FREQ (a);
 	      ALLOCNO_CALLS_CROSSED_NUM (parent_a)

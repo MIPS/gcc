@@ -166,6 +166,7 @@ extern bool default_addr_space_subset_p (addr_space_t, addr_space_t);
 extern rtx default_addr_space_convert (rtx, tree, tree);
 extern unsigned int default_case_values_threshold (void);
 extern bool default_have_conditional_execution (void);
+extern int default_allocno_compare_func (const void *, const void *);
 
 extern bool default_libc_has_function (enum function_class);
 extern bool no_c99_libc_has_function (enum function_class);

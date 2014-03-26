@@ -3854,6 +3854,25 @@ knows about.
 Default return value is @code{true}.
 @end deftypefn
 
+@deftypefn {Target Hook} bool TARGET_INSN_HAS_SHORT_FORM (rtx @var{insn})
+Returns @code{true} if the there is short form of the given instruction.
+
+Default return value is @code{false}.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_POST_IRA_RECOLOR (void)
+This target hook allows a backend to recolor the allocnos using a custom
+algorithm 
+@end deftypefn
+
+@deftypefn {Target Hook} int TARGET_ALLOCNO_COMPARE_FUNC (const void * @var{first}, const void * @var{second})
+Returns -1 or 1 to indicate that the first allocno @code{first} should
+be pushed before or after the second allocno @code{second} into the coloring
+stack.
+
+Default return value is based on a direct comparison of the allocno number.
+@end deftypefn
+
 @defmac INITIAL_ELIMINATION_OFFSET (@var{from-reg}, @var{to-reg}, @var{offset-var})
 This macro is similar to @code{INITIAL_FRAME_POINTER_OFFSET}.  It
 specifies the initial difference between the specified pair of

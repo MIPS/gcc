@@ -2685,4 +2685,8 @@ Create a position independent executable
 z
 Driver Joined Separate
 
+fira-recoloring
+Common Var(ira_recoloring_flag) Optimization
+Do the recoloring before reload
+
 ; This comment is to ensure we retain the blank line above.

@@ -4716,6 +4716,28 @@ Default return value is @code{true}.",
  bool, (const int from_reg, const int to_reg),
  hook_bool_const_int_const_int_true)
 
+/* Returns true if the there is short form of given instruction. */
+DEFHOOK
+(insn_has_short_form,
+ "",
+ bool, (rtx insn),
+ hook_bool_rtx_false)
+
+/* Compare two allocnos to define which allocno should be pushed first
+   into the coloring stack.  */
+DEFHOOK
+(allocno_compare_func,
+ "",
+ int, (const void * first, const void * second),
+ default_allocno_compare_func)
+
+/* Optionally recolor allocnos after initial IRA coloring */
+DEFHOOK
+(post_ira_recolor,
+ "",
+ void, (void),
+ default_post_ira_recoloring)
+
 /* Modify any or all of fixed_regs, call_used_regs, global_regs,
    reg_names, and reg_class_contents to account of the vagaries of the
    target.  */

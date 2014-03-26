@@ -5437,6 +5437,9 @@ do_reload (void)
   if (flag_ira_verbose < 10)
     ira_dump_file = dump_file;
 
+  if (ira_recoloring_flag)
+    targetm.post_ira_recolor ();
+
   timevar_push (TV_RELOAD);
   if (ira_use_lra_p)
     {

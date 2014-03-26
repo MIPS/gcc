@@ -329,6 +329,9 @@ struct ira_allocno
      of the corresponding pseudo-register in this region and in all
      nested subregions recursively. */
   int nrefs;
+  /* Accumulated usage references of the allocno in instructions which
+     can have the short representation.  */
+  int nrefs_short;
   /* Accumulated frequency of usage of the allocno.  */
   int freq;
   /* Minimal accumulated and updated costs of usage register of the
@@ -402,6 +405,142 @@ struct ira_allocno
   void *add_data;
 };
 
+typedef struct allocno_hard_regs *allocno_hard_regs_t;
+
+/* The structure contains information about hard registers can be
+   assigned to allocnos.  Usually it is allocno profitable hard
+   registers but in some cases this set can be a bit different.  Major
+   reason of the difference is a requirement to use hard register sets
+   that form a tree or a forest (set of trees), i.e. hard register set
+   of a node should contain hard register sets of its subnodes.  */
+struct allocno_hard_regs
+{
+  /* Hard registers can be assigned to an allocno.  */
+  HARD_REG_SET set;
+  /* Overall (spilling) cost of all allocnos with given register
+     set.  */
+  HOST_WIDEST_INT cost;
+};
+
+typedef struct allocno_hard_regs_node *allocno_hard_regs_node_t;
+
+/* A node representing allocno hard registers.  Such nodes form a
+   forest (set of trees).  Each subnode of given node in the forest
+   refers for hard register set (usually allocno profitable hard
+   register set) which is a subset of one referred from given
+   node.  */
+struct allocno_hard_regs_node
+{
+  /* Set up number of the node in preorder traversing of the forest.  */
+  int preorder_num;
+  /* Used for different calculation like finding conflict size of an
+     allocno.  */
+  int check;
+  /* Used for calculation of conflict size of an allocno.  The
+     conflict size of the allocno is maximal number of given allocno
+     hard registers needed for allocation of the conflicting allocnos.
+     Given allocno is trivially colored if this number plus the number
+     of hard registers needed for given allocno is not greater than
+     the number of given allocno hard register set.  */
+  int conflict_size;
+  /* The number of hard registers given by member hard_regs.  */
+  int hard_regs_num;
+  /* The following member is used to form the final forest.  */
+  bool used_p;
+  /* Pointer to the corresponding profitable hard registers.  */
+  allocno_hard_regs_t hard_regs;
+  /* Parent, first subnode, previous and next node with the same
+     parent in the forest.  */
+  allocno_hard_regs_node_t parent, first, prev, next;
+};
+
+/* See below.  */
+typedef struct coalesce_data *coalesce_data_t;
+
+/* To decrease footprint of ira_allocno structure we store all data
+ *    needed only for coalescing in the following structure.  */
+struct coalesce_data
+{
+  /* Coalesced allocnos form a cyclic list.  One allocno given by
+   *      FIRST represents all coalesced allocnos.  The
+   *           list is chained by NEXT.  */
+  ira_allocno_t first;
+  ira_allocno_t next;
+  int temp;
+};
+
+/* Container for storing allocno data concerning coalescing.  */
+static coalesce_data_t allocno_coalesce_data;
+
+/* Info about changing hard reg costs of an allocno.  */
+struct update_cost_record
+{
+  /* Hard regno for which we changed the cost.  */
+  int hard_regno;
+  /* Divisor used when we changed the cost of HARD_REGNO.  */
+  int divisor;
+  /* Next record for given allocno.  */
+  struct update_cost_record *next;
+};
+
+/* To decrease footprint of ira_allocno structure we store all data
+   needed only for coloring in the following structure.  */
+struct allocno_color_data
+{
+  /* TRUE value means that the allocno was not removed yet from the
+     conflicting graph during colouring.  */
+  unsigned int in_graph_p : 1;
+  /* TRUE if it is put on the stack to make other allocnos
+     colorable.  */
+  unsigned int may_be_spilled_p : 1;
+ /* TRUE if the allocno is trivially colorable.  */
+  unsigned int colorable_p : 1;
+  /* Number of hard registers of the allocno class really
+     available for the allocno allocation.  It is number of the
+     profitable hard regs.  */
+  int available_regs_num;
+  /* Allocnos in a bucket (used in coloring) chained by the following
+     two members.  */
+  ira_allocno_t next_bucket_allocno;
+  ira_allocno_t prev_bucket_allocno;
+  /* Used for temporary purposes.  */
+  int temp;
+  /* Used to exclude repeated processing.  */
+  int last_process;
+  /* Profitable hard regs available for this pseudo allocation.  It
+     means that the set excludes unavailable hard regs and hard regs
+     conflicting with given pseudo.  They should be of the allocno
+     class.  */
+  HARD_REG_SET profitable_hard_regs;
+  /* The allocno hard registers node.  */
+  allocno_hard_regs_node_t hard_regs_node;
+  /* Array of structures allocno_hard_regs_subnode representing
+     given allocno hard registers node (the 1st element in the array)
+     and all its subnodes in the tree (forest) of allocno hard
+     register nodes (see comments above).  */
+  int hard_regs_subnodes_start;
+  /* The length of the previous array. */
+  int hard_regs_subnodes_num;
+  /* Records about updating allocno hard reg costs from copies.  If
+     the allocno did not get expected hard register, these records are
+     used to restore original hard reg costs of allocnos connected to
+     this allocno by copies.  */
+  struct update_cost_record *update_cost_records;
+  /* Threads.  We collect allocnos connected by copies into threads
+     and try to assign hard regs to allocnos by threads.  */
+  /* Allocno representing all thread.  */
+  ira_allocno_t first_thread_allocno;
+  /* Allocnos in thread forms a cycle list through the following
+     member.  */
+  ira_allocno_t next_thread_allocno;
+  /* All thread frequency.  Defined only for first thread allocno.  */
+  int thread_freq;
+};
+
+/* To decrease footprint of ira_allocno structure we store all data
+   needed only for coloring in the following structure.  */
+/* See above.  */
+typedef struct allocno_color_data *allocno_color_data_t;
 
 /* All members of the allocno structures should be accessed only
    through the following macros.  */
@@ -413,6 +552,7 @@ struct ira_allocno
 #define ALLOCNO_CAP(A) ((A)->cap)
 #define ALLOCNO_CAP_MEMBER(A) ((A)->cap_member)
 #define ALLOCNO_NREFS(A) ((A)->nrefs)
+#define ALLOCNO_NREFS_SHORT(A) ((A)->nrefs_short)
 #define ALLOCNO_FREQ(A) ((A)->freq)
 #define ALLOCNO_HARD_REGNO(A) ((A)->hard_regno)
 #define ALLOCNO_CALL_FREQ(A) ((A)->call_freq)
@@ -448,6 +588,10 @@ struct ira_allocno
 #define ALLOCNO_OBJECT(A,N) ((A)->objects[N])
 #define ALLOCNO_NUM_OBJECTS(A) ((A)->num_objects)
 #define ALLOCNO_ADD_DATA(A) ((A)->add_data)
+/* Macro to access the data concerning coalescing.  */
+#define ALLOCNO_COALESCE_DATA(a) ((coalesce_data_t) ALLOCNO_ADD_DATA (a))
+/* Macro to access the data concerning coloring.  */
+#define ALLOCNO_COLOR_DATA(a) ((allocno_color_data_t) ALLOCNO_ADD_DATA (a))
 
 /* Typedef for pointer to the subsequent structure.  */
 typedef struct ira_emit_data *ira_emit_data_t;

@@ -196,3 +196,4 @@ extern bool ira_better_spill_reload_regno_p (int *, int *, rtx, rtx, rtx);
 extern bool ira_bad_reload_regno (int, rtx, rtx);
 
 extern void ira_adjust_equiv_reg_cost (unsigned, int);
+extern int bucket_allocno_compare_func (const void *, const void *);

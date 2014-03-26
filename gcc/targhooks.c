@@ -75,6 +75,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "tree-ssanames.h"
 #include "insn-codes.h"
+#include "ira.h"
 
 
 bool
@@ -1586,6 +1587,20 @@ default_canonicalize_comparison (int *, rtx *, rtx *, bool)
 void
 default_atomic_assign_expand_fenv (tree *, tree *, tree *)
 {
+}
+
+/* Compare two allocnos to define which allocno should be pushed first
+   into the coloring stack.  */
+int
+default_allocno_compare_func (const void *v1p, const void *v2p)
+{
+  return bucket_allocno_compare_func (v1p, v2p);
+}
+
+void
+default_post_ira_recoloring (void)
+{
+  return;
 }
 
 #ifndef PAD_VARARGS_DOWN
