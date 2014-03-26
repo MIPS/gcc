@@ -189,7 +189,7 @@ gimple_build_return (tree retval)
 /* Reset alias information on call S.  */
 
 void
-gimple_call_reset_alias_info (gimple s)
+gimple_call_reset_alias_info (gimple_call s)
 {
   if (gimple_call_flags (s) & ECF_CONST)
     memset (gimple_call_use_set (s), 0, sizeof (struct pt_solution));
@@ -206,10 +206,12 @@ gimple_call_reset_alias_info (gimple s)
    components of a GIMPLE_CALL statement to function FN with NARGS
    arguments.  */
 
-static inline gimple
+static inline gimple_call
 gimple_build_call_1 (tree fn, unsigned nargs)
 {
-  gimple s = gimple_build_with_ops (GIMPLE_CALL, ERROR_MARK, nargs + 3);
+  gimple_call s =
+    as_a <gimple_call> (gimple_build_with_ops (GIMPLE_CALL, ERROR_MARK,
+					       nargs + 3));
   if (TREE_CODE (fn) == FUNCTION_DECL)
     fn = build_fold_addr_expr (fn);
   gimple_set_op (s, 1, fn);
@@ -222,12 +224,12 @@ gimple_build_call_1 (tree fn, unsigned nargs)
 /* Build a GIMPLE_CALL statement to function FN with the arguments
    specified in vector ARGS.  */
 
-gimple
+gimple_call
 gimple_build_call_vec (tree fn, vec<tree> args)
 {
   unsigned i;
   unsigned nargs = args.length ();
-  gimple call = gimple_build_call_1 (fn, nargs);
+  gimple_call call = gimple_build_call_1 (fn, nargs);
 
   for (i = 0; i < nargs; i++)
     gimple_call_set_arg (call, i, args[i]);
@@ -239,11 +241,11 @@ gimple_build_call_vec (tree fn, vec<tree> args)
 /* Build a GIMPLE_CALL statement to function FN.  NARGS is the number of
    arguments.  The ... are the arguments.  */
 
-gimple
+gimple_call
 gimple_build_call (tree fn, unsigned nargs, ...)
 {
   va_list ap;
-  gimple call;
+  gimple_call call;
   unsigned i;
 
   gcc_assert (TREE_CODE (fn) == FUNCTION_DECL || is_gimple_call_addr (fn));
@@ -262,10 +264,10 @@ gimple_build_call (tree fn, unsigned nargs, ...)
 /* Build a GIMPLE_CALL statement to function FN.  NARGS is the number of
    arguments.  AP contains the arguments.  */
 
-gimple
+gimple_call
 gimple_build_call_valist (tree fn, unsigned nargs, va_list ap)
 {
-  gimple call;
+  gimple_call call;
   unsigned i;
 
   gcc_assert (TREE_CODE (fn) == FUNCTION_DECL || is_gimple_call_addr (fn));
@@ -283,10 +285,12 @@ gimple_build_call_valist (tree fn, unsigned nargs, va_list ap)
    Build the basic components of a GIMPLE_CALL statement to internal
    function FN with NARGS arguments.  */
 
-static inline gimple
+static inline gimple_call
 gimple_build_call_internal_1 (enum internal_fn fn, unsigned nargs)
 {
-  gimple s = gimple_build_with_ops (GIMPLE_CALL, ERROR_MARK, nargs + 3);
+  gimple_call s =
+    as_a <gimple_call> (gimple_build_with_ops (GIMPLE_CALL, ERROR_MARK,
+					       nargs + 3));
   s->subcode |= GF_CALL_INTERNAL;
   gimple_call_set_internal_fn (s, fn);
   gimple_call_reset_alias_info (s);
@@ -297,11 +301,11 @@ gimple_build_call_internal_1 (enum internal_fn fn, unsigned nargs)
 /* Build a GIMPLE_CALL statement to internal function FN.  NARGS is
    the number of arguments.  The ... are the arguments.  */
 
-gimple
+gimple_call
 gimple_build_call_internal (enum internal_fn fn, unsigned nargs, ...)
 {
   va_list ap;
-  gimple call;
+  gimple_call call;
   unsigned i;
 
   call = gimple_build_call_internal_1 (fn, nargs);
@@ -317,11 +321,11 @@ gimple_build_call_internal (enum internal_fn fn, unsigned nargs, ...)
 /* Build a GIMPLE_CALL statement to internal function FN with the arguments
    specified in vector ARGS.  */
 
-gimple
+gimple_call
 gimple_build_call_internal_vec (enum internal_fn fn, vec<tree> args)
 {
   unsigned i, nargs;
-  gimple call;
+  gimple_call call;
 
   nargs = args.length ();
   call = gimple_build_call_internal_1 (fn, nargs);
@@ -336,11 +340,11 @@ gimple_build_call_internal_vec (enum internal_fn fn, vec<tree> args)
    assumed to be in GIMPLE form already.  Minimal checking is done of
    this fact.  */
 
-gimple
+gimple_call
 gimple_build_call_from_tree (tree t)
 {
   unsigned i, nargs;
-  gimple call;
+  gimple_call call;
   tree fndecl = get_callee_fndecl (t);
 
   gcc_assert (TREE_CODE (t) == CALL_EXPR);
@@ -1403,7 +1407,7 @@ gimple_call_arg_flags (const_gimple stmt, unsigned arg)
 /* Detects return flags for the call STMT.  */
 
 int
-gimple_call_return_flags (const_gimple stmt)
+gimple_call_return_flags (const_gimple_call stmt)
 {
   const_tree attr;
 
@@ -2028,13 +2032,13 @@ canonicalize_cond_expr_cond (tree t)
 /* Build a GIMPLE_CALL identical to STMT but skipping the arguments in
    the positions marked by the set ARGS_TO_SKIP.  */
 
-gimple
+gimple_call
 gimple_call_copy_skip_args (gimple stmt, bitmap args_to_skip)
 {
   int i;
   int nargs = gimple_call_num_args (stmt);
   auto_vec<tree> vargs (nargs);
-  gimple new_stmt;
+  gimple_call new_stmt;
 
   for (i = 0; i < nargs; i++)
     if (!bitmap_bit_p (args_to_skip, i))

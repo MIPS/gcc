@@ -185,13 +185,13 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
 		  == TREE_TYPE (TREE_OPERAND (TREE_OPERAND (*opp, 0), 0))))
 	    *opp = TREE_OPERAND (TREE_OPERAND (*opp, 0), 0);
 	}
-      if (is_gimple_call (stmt))
+      if (gimple_call call_stmt = dyn_cast <gimple_call> (stmt))
 	{
-	  if (gimple_call_internal_p (stmt))
+	  if (gimple_call_internal_p (call_stmt))
 	    gimple_call_set_internal_fn
-	      (stmt, streamer_read_enum (ib, internal_fn, IFN_LAST));
+	      (call_stmt, streamer_read_enum (ib, internal_fn, IFN_LAST));
 	  else
-	    gimple_call_set_fntype (stmt, stream_read_tree (ib, data_in));
+	    gimple_call_set_fntype (call_stmt, stream_read_tree (ib, data_in));
 	}
       break;
 
@@ -230,7 +230,7 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
 
   /* Reset alias information.  */
   if (code == GIMPLE_CALL)
-    gimple_call_reset_alias_info (stmt);
+    gimple_call_reset_alias_info (as_a <gimple_call> (stmt));
 
   /* Mark the statement modified so its operand vectors can be filled in.  */
   gimple_set_modified (stmt, true);

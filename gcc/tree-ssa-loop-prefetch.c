@@ -1244,7 +1244,7 @@ emit_mfence_after_loop (struct loop *loop)
 {
   vec<edge> exits = get_loop_exit_edges (loop);
   edge exit;
-  gimple call;
+  gimple_call call;
   gimple_stmt_iterator bsi;
   unsigned i;
 

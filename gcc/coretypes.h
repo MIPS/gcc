@@ -110,6 +110,10 @@ struct gimple_statement_assign;
 typedef struct gimple_statement_assign *gimple_assign;
 typedef const struct gimple_statement_assign *const_gimple_assign;
 
+struct gimple_statement_call;
+typedef struct gimple_statement_call *gimple_call;
+typedef const struct gimple_statement_call *const_gimple_call;
+
 struct gimple_statement_bind;
 typedef struct gimple_statement_bind *gimple_bind;
 typedef const struct gimple_statement_bind *const_gimple_bind;

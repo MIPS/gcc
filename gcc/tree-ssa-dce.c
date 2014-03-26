@@ -1221,7 +1221,7 @@ eliminate_unnecessary_stmts (void)
 	    {
 	      tree name = gimple_call_lhs (stmt);
 
-	      notice_special_calls (stmt);
+	      notice_special_calls (as_a <gimple_call> (stmt));
 
 	      /* When LHS of var = call (); is dead, simplify it into
 		 call (); saving one operand.  */

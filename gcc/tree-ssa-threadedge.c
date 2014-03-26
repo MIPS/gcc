@@ -463,7 +463,7 @@ record_temporary_equivalences_from_stmts_at_dest (edge e,
 	  /* Try to fold/lookup the new expression.  Inserting the
 	     expression into the hash table is unlikely to help.  */
           if (is_gimple_call (stmt))
-            cached_lhs = fold_call_stmt (stmt, false);
+            cached_lhs = fold_call_stmt (as_a <gimple_call> (stmt), false);
 	  else
             cached_lhs = fold_assignment_stmt (stmt);
 

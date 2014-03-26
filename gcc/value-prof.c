@@ -1343,7 +1343,7 @@ find_func_by_profile_id (int profile_id)
    Returns true if TARGET is considered ok for call CALL_STMT.  */
 
 static bool
-check_ic_target (gimple call_stmt, struct cgraph_node *target)
+check_ic_target (gimple_call call_stmt, struct cgraph_node *target)
 {
    location_t locus;
    if (gimple_check_call_matching_types (call_stmt, target->decl, true))
@@ -1508,12 +1508,13 @@ gimple_ic (gimple icall_stmt, struct cgraph_node *direct_call,
 static bool
 gimple_ic_transform (gimple_stmt_iterator *gsi)
 {
-  gimple stmt = gsi_stmt (*gsi);
+  gimple_call stmt;
   histogram_value histogram;
   gcov_type val, count, all, bb_all;
   struct cgraph_node *direct_call;
 
-  if (gimple_code (stmt) != GIMPLE_CALL)
+  stmt = dyn_cast <gimple_call> (gsi_stmt (*gsi));
+  if (!stmt)
     return false;
 
   if (gimple_call_fndecl (stmt) != NULL_TREE)
@@ -1595,7 +1596,7 @@ gimple_ic_transform (gimple_stmt_iterator *gsi)
    operation.
 */
 static bool
-interesting_stringop_to_profile_p (tree fndecl, gimple call, int *size_arg)
+interesting_stringop_to_profile_p (tree fndecl, gimple_call call, int *size_arg)
 {
   enum built_in_function fcode = DECL_FUNCTION_CODE (fndecl);
 
@@ -1632,7 +1633,7 @@ interesting_stringop_to_profile_p (tree fndecl, gimple call, int *size_arg)
    assuming we'll propagate a true constant into ICALL_SIZE later.  */
 
 static void
-gimple_stringop_fixed_value (gimple vcall_stmt, tree icall_size, int prob,
+gimple_stringop_fixed_value (gimple_call vcall_stmt, tree icall_size, int prob,
 			     gcov_type count, gcov_type all)
 {
   gimple tmp_stmt, cond_stmt, icall_stmt;
@@ -1726,7 +1727,7 @@ gimple_stringop_fixed_value (gimple vcall_stmt, tree icall_size, int prob,
 static bool
 gimple_stringops_transform (gimple_stmt_iterator *gsi)
 {
-  gimple stmt = gsi_stmt (*gsi);
+  gimple_call stmt;
   tree fndecl;
   tree blck_size;
   enum built_in_function fcode;
@@ -1738,7 +1739,8 @@ gimple_stringops_transform (gimple_stmt_iterator *gsi)
   tree tree_val;
   int size_arg;
 
-  if (gimple_code (stmt) != GIMPLE_CALL)
+  stmt = dyn_cast <gimple_call> (gsi_stmt (*gsi));
+  if (!stmt)
     return false;
   fndecl = gimple_call_fndecl (stmt);
   if (!fndecl)
@@ -1955,14 +1957,16 @@ gimple_indirect_call_to_profile (gimple stmt, histogram_values *values)
 /* Find values inside STMT for that we want to measure histograms for
    string operations.  */
 static void
-gimple_stringops_values_to_profile (gimple stmt, histogram_values *values)
+gimple_stringops_values_to_profile (gimple gs, histogram_values *values)
 {
+  gimple_call stmt;
   tree fndecl;
   tree blck_size;
   tree dest;
   int size_arg;
 
-  if (gimple_code (stmt) != GIMPLE_CALL)
+  stmt = dyn_cast <gimple_call> (gs);
+  if (!stmt)
     return;
   fndecl = gimple_call_fndecl (stmt);
   if (!fndecl)

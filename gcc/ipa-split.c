@@ -1119,7 +1119,7 @@ split_function (struct split_point *split_point)
   basic_block return_bb = find_return_bb ();
   basic_block call_bb;
   gimple_stmt_iterator gsi;
-  gimple call;
+  gimple_call call;
   edge e;
   edge_iterator ei;
   tree retval = NULL, real_retval = NULL;

@@ -465,7 +465,7 @@ special_builtin_state (enum pure_const_state_e *state, bool *looping,
    the entire call expression.  */
 
 static void
-check_call (funct_state local, gimple call, bool ipa)
+check_call (funct_state local, gimple_call call, bool ipa)
 {
   int flags = gimple_call_flags (call);
   tree callee_t = gimple_call_fndecl (call);
@@ -686,7 +686,7 @@ check_stmt (gimple_stmt_iterator *gsip, funct_state local, bool ipa)
   switch (gimple_code (stmt))
     {
     case GIMPLE_CALL:
-      check_call (local, stmt, ipa);
+      check_call (local, as_a <gimple_call> (stmt), ipa);
       break;
     case GIMPLE_LABEL:
       if (DECL_NONLOCAL (gimple_label_label (stmt)))

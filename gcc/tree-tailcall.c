@@ -406,7 +406,8 @@ static void
 find_tail_calls (basic_block bb, struct tailcall **ret)
 {
   tree ass_var = NULL_TREE, ret_var, func, param;
-  gimple stmt, call = NULL;
+  gimple stmt;
+  gimple_call call = NULL;
   gimple_stmt_iterator gsi, agsi;
   bool tail_recursion;
   struct tailcall *nw;
@@ -433,8 +434,8 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
       /* Check for a call.  */
       if (is_gimple_call (stmt))
 	{
-	  call = stmt;
-	  ass_var = gimple_call_lhs (stmt);
+	  call = as_a <gimple_call> (stmt);
+	  ass_var = gimple_call_lhs (call);
 	  break;
 	}
 

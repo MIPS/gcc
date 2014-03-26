@@ -90,7 +90,7 @@ get_multi_vector_move (tree array_type, convert_optab optab)
 /* Expand LOAD_LANES call STMT.  */
 
 static void
-expand_LOAD_LANES (gimple stmt)
+expand_LOAD_LANES (gimple_call stmt)
 {
   struct expand_operand ops[2];
   tree type, lhs, rhs;
@@ -114,7 +114,7 @@ expand_LOAD_LANES (gimple stmt)
 /* Expand STORE_LANES call STMT.  */
 
 static void
-expand_STORE_LANES (gimple stmt)
+expand_STORE_LANES (gimple_call stmt)
 {
   struct expand_operand ops[2];
   tree type, lhs, rhs;
@@ -136,7 +136,7 @@ expand_STORE_LANES (gimple stmt)
 }
 
 static void
-expand_ANNOTATE (gimple stmt ATTRIBUTE_UNUSED)
+expand_ANNOTATE (gimple_call stmt ATTRIBUTE_UNUSED)
 {
   gcc_unreachable ();
 }
@@ -144,7 +144,7 @@ expand_ANNOTATE (gimple stmt ATTRIBUTE_UNUSED)
 /* This should get expanded in adjust_simduid_builtins.  */
 
 static void
-expand_GOMP_SIMD_LANE (gimple stmt ATTRIBUTE_UNUSED)
+expand_GOMP_SIMD_LANE (gimple_call stmt ATTRIBUTE_UNUSED)
 {
   gcc_unreachable ();
 }
@@ -152,7 +152,7 @@ expand_GOMP_SIMD_LANE (gimple stmt ATTRIBUTE_UNUSED)
 /* This should get expanded in adjust_simduid_builtins.  */
 
 static void
-expand_GOMP_SIMD_VF (gimple stmt ATTRIBUTE_UNUSED)
+expand_GOMP_SIMD_VF (gimple_call stmt ATTRIBUTE_UNUSED)
 {
   gcc_unreachable ();
 }
@@ -160,7 +160,7 @@ expand_GOMP_SIMD_VF (gimple stmt ATTRIBUTE_UNUSED)
 /* This should get expanded in adjust_simduid_builtins.  */
 
 static void
-expand_GOMP_SIMD_LAST_LANE (gimple stmt ATTRIBUTE_UNUSED)
+expand_GOMP_SIMD_LAST_LANE (gimple_call stmt ATTRIBUTE_UNUSED)
 {
   gcc_unreachable ();
 }
@@ -168,7 +168,7 @@ expand_GOMP_SIMD_LAST_LANE (gimple stmt ATTRIBUTE_UNUSED)
 /* This should get expanded in the sanopt pass.  */
 
 static void
-expand_UBSAN_NULL (gimple stmt ATTRIBUTE_UNUSED)
+expand_UBSAN_NULL (gimple_call stmt ATTRIBUTE_UNUSED)
 {
   gcc_unreachable ();
 }
@@ -176,7 +176,7 @@ expand_UBSAN_NULL (gimple stmt ATTRIBUTE_UNUSED)
 /* This should get expanded in the sanopt pass.  */
 
 static void
-expand_UBSAN_BOUNDS (gimple stmt ATTRIBUTE_UNUSED)
+expand_UBSAN_BOUNDS (gimple_call stmt ATTRIBUTE_UNUSED)
 {
   gcc_unreachable ();
 }
@@ -184,7 +184,7 @@ expand_UBSAN_BOUNDS (gimple stmt ATTRIBUTE_UNUSED)
 /* This should get expanded in the sanopt pass.  */
 
 static void
-expand_UBSAN_OBJECT_SIZE (gimple stmt ATTRIBUTE_UNUSED)
+expand_UBSAN_OBJECT_SIZE (gimple_call stmt ATTRIBUTE_UNUSED)
 {
   gcc_unreachable ();
 }
@@ -192,7 +192,7 @@ expand_UBSAN_OBJECT_SIZE (gimple stmt ATTRIBUTE_UNUSED)
 /* This should get expanded in the sanopt pass.  */
 
 static void
-expand_ASAN_CHECK (gimple stmt ATTRIBUTE_UNUSED)
+expand_ASAN_CHECK (gimple_call stmt ATTRIBUTE_UNUSED)
 {
   gcc_unreachable ();
 }
@@ -201,7 +201,7 @@ expand_ASAN_CHECK (gimple stmt ATTRIBUTE_UNUSED)
    CODE says whether the operation is +, or -.  */
 
 void
-ubsan_expand_si_overflow_addsub_check (tree_code code, gimple stmt)
+ubsan_expand_si_overflow_addsub_check (tree_code code, gimple_call stmt)
 {
   rtx res, op0, op1;
   tree lhs, fn, arg0, arg1;
@@ -350,7 +350,7 @@ ubsan_expand_si_overflow_addsub_check (tree_code code, gimple stmt)
 /* Add negate overflow checking to the statement STMT.  */
 
 void
-ubsan_expand_si_overflow_neg_check (gimple stmt)
+ubsan_expand_si_overflow_neg_check (gimple_call stmt)
 {
   rtx res, op1;
   tree lhs, fn, arg1;
@@ -427,7 +427,7 @@ ubsan_expand_si_overflow_neg_check (gimple stmt)
 /* Add mul overflow checking to the statement STMT.  */
 
 void
-ubsan_expand_si_overflow_mul_check (gimple stmt)
+ubsan_expand_si_overflow_mul_check (gimple_call stmt)
 {
   rtx res, op0, op1;
   tree lhs, fn, arg0, arg1;
@@ -821,7 +821,7 @@ ubsan_expand_si_overflow_mul_check (gimple stmt)
 /* Expand UBSAN_CHECK_ADD call STMT.  */
 
 static void
-expand_UBSAN_CHECK_ADD (gimple stmt)
+expand_UBSAN_CHECK_ADD (gimple_call stmt)
 {
   ubsan_expand_si_overflow_addsub_check (PLUS_EXPR, stmt);
 }
@@ -829,7 +829,7 @@ expand_UBSAN_CHECK_ADD (gimple stmt)
 /* Expand UBSAN_CHECK_SUB call STMT.  */
 
 static void
-expand_UBSAN_CHECK_SUB (gimple stmt)
+expand_UBSAN_CHECK_SUB (gimple_call stmt)
 {
   if (integer_zerop (gimple_call_arg (stmt, 0)))
     ubsan_expand_si_overflow_neg_check (stmt);
@@ -840,7 +840,7 @@ expand_UBSAN_CHECK_SUB (gimple stmt)
 /* Expand UBSAN_CHECK_MUL call STMT.  */
 
 static void
-expand_UBSAN_CHECK_MUL (gimple stmt)
+expand_UBSAN_CHECK_MUL (gimple_call stmt)
 {
   ubsan_expand_si_overflow_mul_check (stmt);
 }
@@ -848,13 +848,13 @@ expand_UBSAN_CHECK_MUL (gimple stmt)
 /* This should get folded in tree-vectorizer.c.  */
 
 static void
-expand_LOOP_VECTORIZED (gimple stmt ATTRIBUTE_UNUSED)
+expand_LOOP_VECTORIZED (gimple_call stmt ATTRIBUTE_UNUSED)
 {
   gcc_unreachable ();
 }
 
 static void
-expand_MASK_LOAD (gimple stmt)
+expand_MASK_LOAD (gimple_call stmt)
 {
   struct expand_operand ops[3];
   tree type, lhs, rhs, maskt;
@@ -879,7 +879,7 @@ expand_MASK_LOAD (gimple stmt)
 }
 
 static void
-expand_MASK_STORE (gimple stmt)
+expand_MASK_STORE (gimple_call stmt)
 {
   struct expand_operand ops[3];
   tree type, lhs, rhs, maskt;
@@ -902,12 +902,12 @@ expand_MASK_STORE (gimple stmt)
 }
 
 static void
-expand_ABNORMAL_DISPATCHER (gimple)
+expand_ABNORMAL_DISPATCHER (gimple_call)
 {
 }
 
 static void
-expand_BUILTIN_EXPECT (gimple stmt)
+expand_BUILTIN_EXPECT (gimple_call stmt)
 {
   /* When guessing was done, the hints should be already stripped away.  */
   gcc_assert (!flag_guess_branch_prob || optimize == 0 || seen_error ());
@@ -926,10 +926,10 @@ expand_BUILTIN_EXPECT (gimple stmt)
 /* Routines to expand each internal function, indexed by function number.
    Each routine has the prototype:
 
-       expand_<NAME> (gimple stmt)
+       expand_<NAME> (gimple_call stmt)
 
    where STMT is the statement that performs the call. */
-static void (*const internal_fn_expanders[]) (gimple) = {
+static void (*const internal_fn_expanders[]) (gimple_call) = {
 #define DEF_INTERNAL_FN(CODE, FLAGS, FNSPEC) expand_##CODE,
 #include "internal-fn.def"
 #undef DEF_INTERNAL_FN
@@ -939,7 +939,7 @@ static void (*const internal_fn_expanders[]) (gimple) = {
 /* Expand STMT, which is a call to internal function FN.  */
 
 void
-expand_internal_call (gimple stmt)
+expand_internal_call (gimple_call stmt)
 {
   internal_fn_expanders[(int) gimple_call_internal_fn (stmt)] (stmt);
 }

@@ -236,7 +236,8 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
 	  wi->val_only = true;
 	}
 
-      ret = walk_tree (gimple_call_chain_ptr (stmt), callback_op, wi, pset);
+      ret = walk_tree (gimple_call_chain_ptr (as_a <gimple_call> (stmt)),
+		       callback_op, wi, pset);
       if (ret)
         return ret;
 

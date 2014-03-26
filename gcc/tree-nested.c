@@ -408,7 +408,7 @@ get_chain_field (struct nesting_info *info)
 
 static tree
 init_tmp_var_with_call (struct nesting_info *info, gimple_stmt_iterator *gsi,
-		        gimple call)
+		        gimple_call call)
 {
   tree t;
 
@@ -2063,7 +2063,7 @@ convert_nl_goto_reference (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 {
   struct nesting_info *const info = (struct nesting_info *) wi->info, *i;
   tree label, new_label, target_context, x, field;
-  gimple call;
+  gimple_call call;
   gimple stmt = gsi_stmt (*gsi);
 
   if (gimple_code (stmt) != GIMPLE_GOTO)
@@ -2180,7 +2180,7 @@ convert_tramp_reference_op (tree *tp, int *walk_subtrees, void *data)
   struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
   struct nesting_info *const info = (struct nesting_info *) wi->info, *i;
   tree t = *tp, decl, target_context, x, builtin;
-  gimple call;
+  gimple_call call;
 
   *walk_subtrees = 0;
   switch (TREE_CODE (t))
@@ -2329,8 +2329,9 @@ convert_gimple_call (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       target_context = decl_function_context (decl);
       if (target_context && DECL_STATIC_CHAIN (decl))
 	{
-	  gimple_call_set_chain (stmt, get_static_chain (info, target_context,
-							 &wi->gsi));
+	  gimple_call_set_chain (as_a <gimple_call> (stmt),
+				 get_static_chain (info, target_context,
+						   &wi->gsi));
 	  info->static_chain_added |= (1 << (info->context != target_context));
 	}
       break;

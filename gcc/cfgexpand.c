@@ -2241,7 +2241,7 @@ mark_transaction_restart_calls (gimple stmt)
    statement STMT.  */
 
 static void
-expand_call_stmt (gimple stmt)
+expand_call_stmt (gimple_call stmt)
 {
   tree exp, decl, lhs;
   bool builtin_p;
@@ -3215,7 +3215,7 @@ expand_gimple_stmt_1 (gimple stmt)
       expand_asm_stmt (stmt);
       break;
     case GIMPLE_CALL:
-      expand_call_stmt (stmt);
+      expand_call_stmt (as_a <gimple_call> (stmt));
       break;
 
     case GIMPLE_RETURN:

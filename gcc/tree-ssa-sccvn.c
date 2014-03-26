@@ -1119,7 +1119,7 @@ ao_ref_init_from_vn_reference (ao_ref *ref,
    vn_reference_op_s's.  */
 
 static void
-copy_reference_ops_from_call (gimple call,
+copy_reference_ops_from_call (gimple_call call,
 			      vec<vn_reference_op_s> *result)
 {
   vn_reference_op_s temp;
@@ -1443,7 +1443,7 @@ valueize_shared_reference_ops_from_ref (tree ref, bool *valueized_anything)
    this function.  */
 
 static vec<vn_reference_op_s> 
-valueize_shared_reference_ops_from_call (gimple call)
+valueize_shared_reference_ops_from_call (gimple_call call)
 {
   if (!call)
     return vNULL;
@@ -1617,7 +1617,8 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 	}
       if (valueized_anything)
 	{
-	  bool res = call_may_clobber_ref_p_1 (def_stmt, ref);
+	  bool res = call_may_clobber_ref_p_1 (as_a <gimple_call> (def_stmt),
+					       ref);
 	  for (unsigned i = 0; i < gimple_call_num_args (def_stmt); ++i)
 	    gimple_call_set_arg (def_stmt, i, oldargs[i]);
 	  if (!res)
@@ -2143,7 +2144,7 @@ vn_reference_lookup (tree op, tree vuse, vn_lookup_kind kind,
    *VNRESULT if found.  Populates *VR for the hashtable lookup.  */
 
 void
-vn_reference_lookup_call (gimple call, vn_reference_t *vnresult,
+vn_reference_lookup_call (gimple_call call, vn_reference_t *vnresult,
 			  vn_reference_t vr)
 {
   if (vnresult)
@@ -2846,7 +2847,7 @@ visit_nary_op (tree lhs, gimple stmt)
    of the LHS has changed as a result.  */
 
 static bool
-visit_reference_op_call (tree lhs, gimple stmt)
+visit_reference_op_call (tree lhs, gimple_call stmt)
 {
   bool changed = false;
   struct vn_reference_s vr1;
@@ -3580,7 +3581,7 @@ visit_use (tree use)
 	  else
 	    changed = defs_to_varying (stmt);
 	}
-      else if (is_gimple_call (stmt))
+      else if (gimple_call call_stmt = dyn_cast <gimple_call> (stmt))
 	{
 	  tree lhs = gimple_call_lhs (stmt);
 	  if (lhs && TREE_CODE (lhs) == SSA_NAME)
@@ -3666,11 +3667,11 @@ visit_use (tree use)
 		         not alias with anything else.  In which case the
 			 information that the values are distinct are encoded
 			 in the IL.  */
-		      && !(gimple_call_return_flags (stmt) & ERF_NOALIAS)
+		      && !(gimple_call_return_flags (call_stmt) & ERF_NOALIAS)
 		      /* Only perform the following when being called from PRE
 			 which embeds tail merging.  */
 		      && default_vn_walk_kind == VN_WALK)))
-	    changed = visit_reference_op_call (lhs, stmt);
+	    changed = visit_reference_op_call (lhs, call_stmt);
 	  else
 	    changed = defs_to_varying (stmt);
 	}

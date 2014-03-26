@@ -579,7 +579,7 @@ dump_gimple_return (pretty_printer *buffer, gimple gs, int spc, int flags)
    dump_gimple_call.  */
 
 static void
-dump_gimple_call_args (pretty_printer *buffer, gimple gs, int flags)
+dump_gimple_call_args (pretty_printer *buffer, gimple_call gs, int flags)
 {
   size_t i;
 
@@ -652,7 +652,7 @@ pp_points_to_solution (pretty_printer *buffer, struct pt_solution *pt)
    pp_gimple_stmt_1.  */
 
 static void
-dump_gimple_call (pretty_printer *buffer, gimple gs, int spc, int flags)
+dump_gimple_call (pretty_printer *buffer, gimple_call gs, int spc, int flags)
 {
   tree lhs = gimple_call_lhs (gs);
   tree fn = gimple_call_fn (gs);
@@ -2097,7 +2097,7 @@ pp_gimple_stmt_1 (pretty_printer *buffer, gimple gs, int spc, int flags)
       break;
 
     case GIMPLE_CALL:
-      dump_gimple_call (buffer, gs, spc, flags);
+      dump_gimple_call (buffer, as_a <gimple_call> (gs), spc, flags);
       break;
 
     case GIMPLE_COND:

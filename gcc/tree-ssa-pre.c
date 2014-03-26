@@ -3713,7 +3713,7 @@ compute_avail (void)
 		if (gimple_call_internal_p (stmt))
 		  continue;
 
-		vn_reference_lookup_call (stmt, &ref, &ref1);
+		vn_reference_lookup_call (as_a <gimple_call> (stmt), &ref, &ref1);
 		if (!ref)
 		  continue;
 

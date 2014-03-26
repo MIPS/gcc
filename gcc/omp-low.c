@@ -2884,7 +2884,7 @@ build_omp_barrier (tree lhs)
 {
   tree fndecl = builtin_decl_explicit (lhs ? BUILT_IN_GOMP_BARRIER_CANCEL
 					   : BUILT_IN_GOMP_BARRIER);
-  gimple g = gimple_build_call (fndecl, 0);
+  gimple_call g = gimple_build_call (fndecl, 0);
   if (lhs)
     gimple_call_set_lhs (g, lhs);
   return g;
@@ -3347,7 +3347,7 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 
 	      if (c_kind != OMP_CLAUSE_FIRSTPRIVATE || !is_task_ctx (ctx))
 		{
-		  gimple stmt;
+		  gimple_call stmt;
 		  tree tmp, atmp;
 
 		  ptr = DECL_VALUE_EXPR (new_var);

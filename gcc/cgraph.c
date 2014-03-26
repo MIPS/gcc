@@ -1238,7 +1238,7 @@ cgraph_edge::redirect_call_stmt_to_callee (void)
 
   tree decl = gimple_call_fndecl (e->call_stmt);
   tree lhs = gimple_call_lhs (e->call_stmt);
-  gimple new_stmt;
+  gimple_call new_stmt;
   gimple_stmt_iterator gsi;
 #ifdef ENABLE_CHECKING
   cgraph_node *node;
@@ -1375,7 +1375,7 @@ cgraph_edge::redirect_call_stmt_to_callee (void)
     }
   else
     {
-      new_stmt = e->call_stmt;
+      new_stmt = as_a <gimple_call> (e->call_stmt);
       gimple_call_set_fndecl (new_stmt, e->callee->decl);
       update_stmt_fn (DECL_STRUCT_FUNCTION (e->caller->decl), new_stmt);
     }

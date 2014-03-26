@@ -1952,7 +1952,7 @@ single_noncomplex_succ (basic_block bb)
 /* T is CALL_EXPR.  Set current_function_calls_* flags.  */
 
 void
-notice_special_calls (gimple call)
+notice_special_calls (gimple_call call)
 {
   int flags = gimple_call_flags (call);
 

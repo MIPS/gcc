@@ -634,7 +634,7 @@ get_tmr_operands (struct function *fn, gimple stmt, tree expr, int flags)
    escape, add them to the VDEF/VUSE lists for it.  */
 
 static void
-maybe_add_call_vops (struct function *fn, gimple stmt)
+maybe_add_call_vops (struct function *fn, gimple_call stmt)
 {
   int call_flags = gimple_call_flags (stmt);
 
@@ -930,7 +930,7 @@ parse_ssa_operands (struct function *fn, gimple stmt)
 
     case GIMPLE_CALL:
       /* Add call-clobbered operands, if needed.  */
-      maybe_add_call_vops (fn, stmt);
+      maybe_add_call_vops (fn, as_a <gimple_call> (stmt));
       /* FALLTHRU */
 
     case GIMPLE_ASSIGN:

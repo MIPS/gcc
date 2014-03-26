@@ -2252,7 +2252,7 @@ gimplify_call_expr (tree *expr_p, gimple_seq *pre_p, bool want_value)
   tree fndecl, parms, p, fnptrtype;
   enum gimplify_status ret;
   int i, nargs;
-  gimple call;
+  gimple_call call;
   bool builtin_va_start_p = false;
   location_t loc = EXPR_LOCATION (*expr_p);
 
@@ -3205,7 +3205,7 @@ gimplify_modify_expr_to_memcpy (tree *expr_p, tree size, bool want_value,
     				gimple_seq *seq_p)
 {
   tree t, to, to_ptr, from, from_ptr;
-  gimple gs;
+  gimple_call gs;
   location_t loc = EXPR_LOCATION (*expr_p);
 
   to = TREE_OPERAND (*expr_p, 0);
@@ -3252,7 +3252,7 @@ gimplify_modify_expr_to_memset (tree *expr_p, tree size, bool want_value,
     				gimple_seq *seq_p)
 {
   tree t, from, to, to_ptr;
-  gimple gs;
+  gimple_call gs;
   location_t loc = EXPR_LOCATION (*expr_p);
 
   /* Assert our assumptions, to abort instead of producing wrong code
@@ -4637,7 +4637,7 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  assign = gimple_build_call_from_tree (*from_p);
 	  gimple_call_set_fntype (assign, TREE_TYPE (fnptrtype));
 	}
-      notice_special_calls (assign);
+      notice_special_calls (as_a <gimple_call> (assign));
       if (!gimple_call_noreturn_p (assign))
 	gimple_call_set_lhs (assign, *to_p);
     }
@@ -7728,7 +7728,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	      }
 	    tree tmp = create_tmp_var (type, NULL);
 	    gimplify_arg (&cond, pre_p, EXPR_LOCATION (*expr_p));
-	    gimple call
+	    gimple_call call
 	      = gimple_build_call_internal (IFN_ANNOTATE, 2, cond, kind);
 	    gimple_call_set_lhs (call, tmp);
 	    gimplify_seq_add_stmt (pre_p, call);
@@ -8949,7 +8949,7 @@ gimplify_function_tree (tree fndecl)
       gimple tf;
       gimple_seq cleanup = NULL, body = NULL;
       tree tmp_var;
-      gimple call;
+      gimple_call call;
 
       x = builtin_decl_implicit (BUILT_IN_RETURN_ADDRESS);
       call = gimple_build_call (x, 1, integer_zero_node);

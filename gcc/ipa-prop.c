@@ -4148,7 +4148,7 @@ ipa_modify_call_arguments (struct cgraph_edge *cs, gimple stmt,
   struct cgraph_node *current_node = cgraph_node::get (current_function_decl);
   vec<tree> vargs;
   vec<tree, va_gc> **debug_args = NULL;
-  gimple new_stmt;
+  gimple_call new_stmt;
   gimple_stmt_iterator gsi, prev_gsi;
   tree callee_decl;
   int i, len;

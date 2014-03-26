@@ -1261,13 +1261,13 @@ extern gimple currently_expanding_gimple_stmt;
 #define gimple_alloc(c, n) gimple_alloc_stat (c, n MEM_STAT_INFO)
 gimple gimple_alloc_stat (enum gimple_code, unsigned MEM_STAT_DECL);
 gimple gimple_build_return (tree);
-void gimple_call_reset_alias_info (gimple);
-gimple gimple_build_call_vec (tree, vec<tree> );
-gimple gimple_build_call (tree, unsigned, ...);
-gimple gimple_build_call_valist (tree, unsigned, va_list);
-gimple gimple_build_call_internal (enum internal_fn, unsigned, ...);
-gimple gimple_build_call_internal_vec (enum internal_fn, vec<tree> );
-gimple gimple_build_call_from_tree (tree);
+void gimple_call_reset_alias_info (gimple_call);
+gimple_call gimple_build_call_vec (tree, vec<tree> );
+gimple_call gimple_build_call (tree, unsigned, ...);
+gimple_call gimple_build_call_valist (tree, unsigned, va_list);
+gimple_call gimple_build_call_internal (enum internal_fn, unsigned, ...);
+gimple_call gimple_build_call_internal_vec (enum internal_fn, vec<tree> );
+gimple_call gimple_build_call_from_tree (tree);
 gimple_assign gimple_build_assign_stat (tree, tree MEM_STAT_DECL);
 #define gimple_build_assign(l,r) gimple_build_assign_stat (l, r MEM_STAT_INFO)
 gimple_assign gimple_build_assign_with_ops (enum tree_code, tree,
@@ -1333,7 +1333,7 @@ gimple_seq gimple_seq_copy (gimple_seq);
 bool gimple_call_same_target_p (const_gimple, const_gimple);
 int gimple_call_flags (const_gimple);
 int gimple_call_arg_flags (const_gimple, unsigned);
-int gimple_call_return_flags (const_gimple);
+int gimple_call_return_flags (const_gimple_call);
 bool gimple_assign_copy_p (gimple);
 bool gimple_assign_ssa_name_copy_p (gimple);
 bool gimple_assign_unary_nop_p (gimple);
@@ -1351,7 +1351,7 @@ bool gimple_assign_rhs_could_trap_p (gimple);
 extern void dump_gimple_statistics (void);
 unsigned get_gimple_rhs_num_ops (enum tree_code);
 extern tree canonicalize_cond_expr_cond (tree);
-gimple gimple_call_copy_skip_args (gimple, bitmap);
+gimple_call gimple_call_copy_skip_args (gimple, bitmap);
 extern bool gimple_compare_field_offset (tree, tree);
 extern tree gimple_unsigned_type (tree);
 extern tree gimple_signed_type (tree);
@@ -2657,13 +2657,12 @@ gimple_call_set_fndecl (gimple gs, tree decl)
 }
 
 
-/* Set internal function FN to be the function called by call statement GS.  */
+/* Set internal function FN to be the function called by call statement CALL_STMT.  */
 
 static inline void
-gimple_call_set_internal_fn (gimple gs, enum internal_fn fn)
+gimple_call_set_internal_fn (gimple_call call_stmt, enum internal_fn fn)
 {
-  gimple_statement_call *call_stmt = as_a <gimple_statement_call *> (gs);
-  gcc_gimple_checking_assert (gimple_call_internal_p (gs));
+  gcc_gimple_checking_assert (gimple_call_internal_p (call_stmt));
   call_stmt->u.internal_fn = fn;
 }
 
@@ -2682,7 +2681,7 @@ gimple_call_fndecl (const_gimple gs)
 /* Return the type returned by call statement GS.  */
 
 static inline tree
-gimple_call_return_type (const_gimple gs)
+gimple_call_return_type (const_gimple_call gs)
 {
   tree type = gimple_call_fntype (gs);
 
@@ -2705,23 +2704,20 @@ gimple_call_chain (const_gimple gs)
 }
 
 
-/* Return a pointer to the static chain for call statement GS.  */
+/* Return a pointer to the static chain for call statement CALL_STMT.  */
 
 static inline tree *
-gimple_call_chain_ptr (const_gimple gs)
+gimple_call_chain_ptr (const_gimple_call call_stmt)
 {
-  GIMPLE_CHECK (gs, GIMPLE_CALL);
-  return gimple_op_ptr (gs, 2);
+  return gimple_op_ptr (call_stmt, 2);
 }
 
-/* Set CHAIN to be the static chain for call statement GS.  */
+/* Set CHAIN to be the static chain for call statement CALL_STMT.  */
 
 static inline void
-gimple_call_set_chain (gimple gs, tree chain)
+gimple_call_set_chain (gimple_call call_stmt, tree chain)
 {
-  GIMPLE_CHECK (gs, GIMPLE_CALL);
-
-  gimple_set_op (gs, 2, chain);
+  gimple_set_op (call_stmt, 2, chain);
 }
 
 
@@ -2798,9 +2794,8 @@ gimple_call_tail_p (gimple s)
    expansion as the return slot for calls that return in memory.  */
 
 static inline void
-gimple_call_set_return_slot_opt (gimple s, bool return_slot_opt_p)
+gimple_call_set_return_slot_opt (gimple_call s, bool return_slot_opt_p)
 {
-  GIMPLE_CHECK (s, GIMPLE_CALL);
   if (return_slot_opt_p)
     s->subcode |= GF_CALL_RETURN_SLOT_OPT;
   else
@@ -2822,9 +2817,8 @@ gimple_call_return_slot_opt_p (gimple s)
    thunk to the thunked-to function.  */
 
 static inline void
-gimple_call_set_from_thunk (gimple s, bool from_thunk_p)
+gimple_call_set_from_thunk (gimple_call s, bool from_thunk_p)
 {
-  GIMPLE_CHECK (s, GIMPLE_CALL);
   if (from_thunk_p)
     s->subcode |= GF_CALL_FROM_THUNK;
   else
@@ -2835,9 +2829,8 @@ gimple_call_set_from_thunk (gimple s, bool from_thunk_p)
 /* Return true if GIMPLE_CALL S is a jump from a thunk.  */
 
 static inline bool
-gimple_call_from_thunk_p (gimple s)
+gimple_call_from_thunk_p (gimple_call s)
 {
-  GIMPLE_CHECK (s, GIMPLE_CALL);
   return (s->subcode & GF_CALL_FROM_THUNK) != 0;
 }
 
@@ -2846,9 +2839,8 @@ gimple_call_from_thunk_p (gimple s)
    argument pack in its argument list.  */
 
 static inline void
-gimple_call_set_va_arg_pack (gimple s, bool pass_arg_pack_p)
+gimple_call_set_va_arg_pack (gimple_call s, bool pass_arg_pack_p)
 {
-  GIMPLE_CHECK (s, GIMPLE_CALL);
   if (pass_arg_pack_p)
     s->subcode |= GF_CALL_VA_ARG_PACK;
   else
@@ -2860,9 +2852,8 @@ gimple_call_set_va_arg_pack (gimple s, bool pass_arg_pack_p)
    argument pack in its argument list.  */
 
 static inline bool
-gimple_call_va_arg_pack_p (gimple s)
+gimple_call_va_arg_pack_p (gimple_call s)
 {
-  GIMPLE_CHECK (s, GIMPLE_CALL);
   return (s->subcode & GF_CALL_VA_ARG_PACK) != 0;
 }
 
@@ -2905,9 +2896,8 @@ gimple_call_nothrow_p (gimple s)
    stack growth even when they occur in loops.  */
 
 static inline void
-gimple_call_set_alloca_for_var (gimple s, bool for_var)
+gimple_call_set_alloca_for_var (gimple_call s, bool for_var)
 {
-  GIMPLE_CHECK (s, GIMPLE_CALL);
   if (for_var)
     s->subcode |= GF_CALL_ALLOCA_FOR_VAR;
   else
@@ -2917,9 +2907,8 @@ gimple_call_set_alloca_for_var (gimple s, bool for_var)
 /* Return true of S is a call to builtin_alloca emitted for VLA objects.  */
 
 static inline bool
-gimple_call_alloca_for_var_p (gimple s)
+gimple_call_alloca_for_var_p (gimple_call s)
 {
-  GIMPLE_CHECK (s, GIMPLE_CALL);
   return (s->subcode & GF_CALL_ALLOCA_FOR_VAR) != 0;
 }
 
@@ -5762,11 +5751,12 @@ gimple_expr_type (const_gimple stmt)
 	 original RHS type as far as we can reconstruct it.  */
       if (code == GIMPLE_CALL)
 	{
-	  if (gimple_call_internal_p (stmt)
-	      && gimple_call_internal_fn (stmt) == IFN_MASK_STORE)
-	    type = TREE_TYPE (gimple_call_arg (stmt, 3));
+	  const_gimple_call call_stmt = as_a <const_gimple_call> (stmt);
+	  if (gimple_call_internal_p (call_stmt)
+	      && gimple_call_internal_fn (call_stmt) == IFN_MASK_STORE)
+	    type = TREE_TYPE (gimple_call_arg (call_stmt, 3));
 	  else
-	    type = gimple_call_return_type (stmt);
+	    type = gimple_call_return_type (call_stmt);
 	}
       else
 	switch (gimple_assign_rhs_code (stmt))

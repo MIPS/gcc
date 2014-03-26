@@ -950,7 +950,8 @@ expand_complex_libcall (gimple_stmt_iterator *gsi, tree ar, tree ai,
   enum machine_mode mode;
   enum built_in_function bcode;
   tree fn, type, lhs;
-  gimple old_stmt, stmt;
+  gimple old_stmt;
+  gimple_call stmt;
 
   old_stmt = gsi_stmt (*gsi);
   lhs = gimple_assign_lhs (old_stmt);

@@ -4769,7 +4769,6 @@ vect_setup_realignment (gimple stmt, gimple_stmt_iterator *gsi,
   gimple inc;
   tree ptr;
   tree data_ref;
-  gimple new_stmt;
   basic_block new_bb;
   tree msq_init = NULL_TREE;
   tree new_temp;
@@ -4864,6 +4863,7 @@ vect_setup_realignment (gimple stmt, gimple_stmt_iterator *gsi,
   if (alignment_support_scheme == dr_explicit_realign_optimized)
     {
       /* Create msq_init = *(floor(p1)) in the loop preheader  */
+      gimple_assign new_stmt;
 
       gcc_assert (!compute_in_loop);
       vec_dest = vect_create_destination_var (scalar_dest, vectype);
@@ -4900,6 +4900,7 @@ vect_setup_realignment (gimple stmt, gimple_stmt_iterator *gsi,
 
   if (targetm.vectorize.builtin_mask_for_load)
     {
+      gimple_call new_stmt;
       tree builtin_decl;
 
       /* Compute INIT_ADDR - the initial addressed accessed by this memref.  */

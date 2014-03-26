@@ -1,5 +1,276 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Introduce gimple_call
+
+	* coretypes.h (gimple_call): New typedef.
+	(const_gimple_call): New typedef.
+
+	* asan.c (get_mem_refs_of_builtin_call): Require a
+	const_gimple_call rather than a const gimple.
+	(has_stmt_been_instrumented_p): Add a checked cast to
+	gimple_call.
+	(instrument_strlen_call): Likewise.
+	(instrument_builtin_call): Likewise.
+	* builtins.c (validate_gimple_arglist): Require a
+	const_gimple_call rather than a const gimple.
+	(fold_call_stmt): Require a gimple_call rather than a gimple.
+	* builtins.h (validate_gimple_arglist): Require a
+	const_gimple_call rather than a const gimple.
+	(fold_call_stmt): Require a gimple_call rather than a gimple.
+	* cfgexpand.c (expand_call_stmt): Likewise.
+	(expand_gimple_stmt_1): Add a checked cast to gimple_call within
+	GIMPLE_CALL case.
+	* cgraph.c (cgraph_edge::redirect_call_stmt_to_callee): Strengthen
+	local "new_stmt" from gimple to gimple_call, adding a checked
+	cast.
+	* cgraphunit.c (cgraph_node::expand_thunk): Likewise for local
+	"call".
+	* gimple-fold.c (gimple_fold_builtin_snprintf_chk): Likewise for
+	local "stmt".
+	(gimple_fold_builtin_snprintf): Likewise.
+	(gimple_fold_builtin): Likewise.
+	(gimple_fold_call): Likewise.
+	(gimple_fold_stmt_to_constant_1): Introduce local "call_stmt" via
+	checked cast of "stmt" to gimple_call, using it in various places
+	for typesafety.
+	* gimple-pretty-print.c (dump_gimple_call_args): Strengthen param
+	2 from gimple to gimple_call.
+	(dump_gimple_call): Likewise.
+	(pp_gimple_stmt_1): Add a checked cast to gimple_call within
+	GIMPLE_CALL case.
+	* gimple-streamer-in.c (input_gimple_stmt): Replace is_gimple_call
+	with a dyn_cast<gimple_call>, introducing local "call_stmt", and
+	using it in place of "stmt" for typesafety.  Add a checked cast
+	in statement guarded by check for GIMPLE_CALL.
+	* gimple-walk.c (walk_gimple_op): Add a checked cast to
+	gimple_call.
+	* gimple.c (gimple_call_reset_alias_info): Strengthen param from
+	gimple to gimple_call.
+	(gimple_build_call_1): Strengthen return type and local from
+	gimple to gimple_call.
+	(gimple_build_call_vec): Likewise.
+	(gimple_build_call): Likewise.
+	(gimple_build_call_valist): Likewise.
+	(gimple_build_call_internal_1): Likewise.
+	(gimple_build_call_internal): Likewise.
+	(gimple_build_call_internal_vec): Likewise.
+	(gimple_build_call_from_tree): Likewise.
+	(gimple_call_return_flags): Strengthen param from
+	const_gimple to const_gimple_call.
+	(gimple_call_copy_skip_args): Strengthen return type and local from
+	gimple to gimple_call.
+	* gimple.h (gimple_call_reset_alias_info): Strengthen param from
+	gimple to gimple_call.
+	(gimple_build_call_vec): Strengthen return type from gimple to
+	gimple_call.
+	(gimple_build_call): Likewise.
+	(gimple_build_call_valist): Likewise.
+	(gimple_build_call_internal): Likewise.
+	(gimple_build_call_internal_vec): Likewise.
+	(gimple_build_call_from_tree): Likewise.
+	(gimple_call_return_flags): Strengthen param from const_gimple to
+	const_gimple_call.
+	(gimple_call_copy_skip_args): Strengthen return type from gimple
+	to gimple_call.
+	(gimple_call_set_internal_fn): Strengthen param "call_stmt" from
+	gimple to gimple_call.
+	(gimple_call_return_type): Strengthen param from const_gimple to
+	const_gimple_call.
+	(gimple_call_chain_ptr): Likewise.
+	(gimple_call_set_chain): Strengthen param from gimple to
+	gimple_call.
+	(gimple_call_set_return_slot_opt): Likewise.
+	(gimple_call_set_from_thunk): Likewise.
+	(gimple_call_from_thunk_p): Likewise.
+	(gimple_call_set_va_arg_pack): Likewise.
+	(gimple_call_va_arg_pack_p): Likewise.
+	(gimple_call_set_alloca_for_var): Likewise.
+	(gimple_call_alloca_for_var_p): Likewise.
+	(gimple_expr_type): Introduce local "call_stmt" via a checked cast
+	and use it for typesafety.
+	* gimplify.c (gimplify_call_expr): Strengthen local "call" from
+	gimple to gimple_call.
+	(gimplify_modify_expr_to_memcpy): Likewise for local "gs".
+	(gimplify_modify_expr_to_memset): Likewise.
+	(gimplify_modify_expr): Add a checked cast to gimple_call.
+	(gimplify_expr): Strengthen local "call" from gimple to
+	gimple_call.
+	(gimplify_function_tree): Likewise.
+	* internal-fn.c (expand_LOAD_LANES): Strengthen param from gimple
+	to gimple_call.
+	(expand_STORE_LANES): Likewise.
+	(expand_ANNOTATE): Likewise.
+	(expand_GOMP_SIMD_LANE): Likewise.
+	(expand_GOMP_SIMD_VF): Likewise.
+	(expand_GOMP_SIMD_LAST_LANE): Likewise.
+	(expand_UBSAN_NULL): Likewise.
+	(expand_UBSAN_BOUNDS): Likewise.
+	(expand_UBSAN_OBJECT_SIZE): Likewise.
+	(expand_ASAN_CHECK): Likewise.
+	(ubsan_expand_si_overflow_addsub_check): Likewise.
+	(ubsan_expand_si_overflow_neg_check): Likewise.
+	(ubsan_expand_si_overflow_mul_check): Likewise.
+	(expand_UBSAN_CHECK_ADD): Likewise.
+	(expand_UBSAN_CHECK_SUB): Likewise.
+	(expand_UBSAN_CHECK_MUL): Likewise.
+	(expand_LOOP_VECTORIZED): Likewise.
+	(expand_MASK_LOAD): Likewise.
+	(expand_MASK_STORE): Likewise.
+	(expand_ABNORMAL_DISPATCHER): Likewise.
+	(expand_BUILTIN_EXPECT): Likewise.
+	(internal_fn_expanders): Likewise for entries in this table.
+	(expand_internal_call): Likewise.
+	* internal-fn.def: Update comment to reflect strengthening of
+	param of expanders.
+	* internal-fn.h (expand_internal_call): Strengthen param from
+	gimple to gimple_call.
+	* ipa-prop.c (ipa_modify_call_arguments): Likewise for local
+	"new_stmt".
+	* ipa-pure-const.c (check_call): Likewise for param "call".
+	(check_stmt): Add a checked cast to gimple_call within GIMPLE_CALL
+	case.
+	* ipa-split.c (split_function): Strengthen local "call" from
+	gimple to gimple_call.
+	* omp-low.c (build_omp_barrier): Likewise for local "g".
+	(lower_rec_input_clauses): Likewise for local "stmt".
+	* trans-mem.c (build_tm_load): Likewise for return type and local
+	"gcall".
+	(build_tm_store): Likewise.
+	(expand_transaction): Likewise for local "call".
+	* tree-call-cdce.c (check_pow): Likewise for param.
+	(check_builtin_call): Likewise.
+	(is_call_dce_candidate): Likewise.
+	(gen_conditions_for_pow): Likewise.
+	(gen_shrink_wrap_conditions): Likewise.
+	(shrink_wrap_one_built_in_call): Likewise.
+	(shrink_wrap_conditional_dead_built_in_calls): Strengthen param
+	from vec<gimple> to vec<gimple_call>, and local "bi_call" from
+	gimple to gimple_call.
+	(pass_call_cdce::execute): Strengthen local
+	"cond_dead_built_in_calls" from auto_vec<gimple> to
+	auto_vec<gimple_call> and local "stmt" from gimple to gimple_call,
+	* tree-cfg.c (notice_special_calls): Strengthen param from gimple
+	to gimple_call.
+	* tree-cfg.h (notice_special_calls): Likewise.
+	* tree-complex.c (expand_complex_libcall): Likewise for local
+	"stmt".
+	* tree-inline.c (remap_gimple_stmt): Add checked cast to
+	gimple_call.
+	(copy_bb): Likewise.  Strengthen local "new_call" from gimple to
+	gimple_call.
+	(inline_forbidden_p_stmt): Add checked cast to gimple_call.
+	* tree-nested.c (init_tmp_var_with_call): Strengthen param "call"
+	from gimple to gimple_call.
+	(convert_nl_goto_reference): Likewise for local "call".
+	(convert_tramp_reference_op): Likewise.
+	(convert_gimple_call): Add checked cast to gimple_call.
+	* tree-nrv.c (dest_safe_for_nrv_p): Strengthen param "call" from
+	gimple to gimple_call.
+	(pass_return_slot::execute): Likewise for local "stmt", using a
+	dyn_cast<gimple_call> rather than an is_gimple_call call.
+	* tree-object-size.c (alloc_object_size): Strengthen param "call"
+	from const_gimple to const_gimple_call.
+	(pass_through_call): Likewise.
+	(call_object_size): Strengthen param "call" from gimple to
+	gimple_call.
+	(collect_object_sizes_for): Introduce local "call_stmt" via a
+	checked cast, using it for typesafety.
+	(check_for_plus_in_loops_1): Likewise.
+	(pass_object_sizes::execute): Add a checked cast to gimple_call.
+	* tree-profile.c (gimple_gen_interval_profiler): Strengthen local
+	"call" from gimple to gimple_call.
+	(gimple_gen_pow2_profiler): Likewise.
+	(gimple_gen_one_value_profiler): Likewise.
+	(gimple_gen_time_profiler): Likewise.
+	(gimple_gen_average_profiler): Likewise.
+	(gimple_gen_ior_profiler): Likewise.
+	* tree-ssa-alias.c (ref_maybe_used_by_call_p_1): Likewise for
+	param "call".
+	(ref_maybe_used_by_call_p): Likewise.
+	(ref_maybe_used_by_stmt_p): Add a checked cast to gimple_call.
+	(call_may_clobber_ref_p_1): Strengthen param "call" from gimple to
+	gimple_call.
+	(call_may_clobber_ref_p): Likewise.
+	(stmt_may_clobber_ref_p_1): Add a checked cast to gimple_call.
+	* tree-ssa-alias.h (call_may_clobber_ref_p): Strengthen param 1
+	from gimple to gimple_call.
+	(call_may_clobber_ref_p_1): Likewise.
+	* tree-ssa-dce.c (eliminate_unnecessary_stmts): Add a checked cast
+	to gimple_call.
+	* tree-ssa-loop-prefetch.c (emit_mfence_after_loop): Strengthen
+	local "call" from gimple to gimple_call.
+	* tree-ssa-math-opts.c (build_and_insert_call): Likewise for local
+	"call_stmt".
+	* tree-ssa-operands.c (maybe_add_call_vops): Likewise for param
+	"stmt".
+	(parse_ssa_operands): Add a checked cast to gimple_call within
+	GIMPLE_CALL case.
+	* tree-ssa-pre.c (compute_avail): Add a checked cast to
+	gimple_call.
+	* tree-ssa-sccvn.c (copy_reference_ops_from_call): Strengthen
+	param "call" from gimple to gimple_call.
+	(valueize_shared_reference_ops_from_call): Likewise.
+	(vn_reference_lookup_3): Add a checked cast to gimple_call.
+	(vn_reference_lookup_call): Strengthen param "call" from gimple to
+	gimple_call.
+	(visit_reference_op_call): Likewise for param "stmt".
+	(visit_use): Replace is_gimple_call with a dyn_cast, introducing
+	local "call_stmt", using it in place of "stmt" for type-safety.
+	* tree-ssa-sccvn.h (vn_reference_lookup_call): Strengthen param 1
+	from gimple to gimple_call.
+	* tree-ssa-structalias.c (get_call_vi): Likewise.
+	(lookup_call_use_vi): Likewise.
+	(lookup_call_clobber_vi): Likewise.
+	(get_call_use_vi): Likewise.
+	(get_call_clobber_vi): Likewise.
+	(handle_rhs_call): Likewise.
+	(handle_lhs_call): Likewise.
+	(handle_const_call): Likewise.
+	(handle_pure_call): Likewise.
+	(get_fi_for_callee): Likewise.
+	(find_func_aliases_for_builtin_call): Likewise for param 2.
+	(find_func_aliases_for_call): Likewise.
+	(find_func_aliases): Add a checked cast to gimple_call.
+	(find_func_clobbers): Replace is_gimple_call with a dyn_cast,
+	introducing local "call_stmt", using it in place of "stmt" for
+	type-safety.
+	(compute_points_to_sets): Strengthen local "stmt" from gimple to
+	gimple_call, replacing is_gimple_call with a
+	dyn_cast <gimple_call>.
+	(ipa_pta_execute): Likewise.
+	* tree-ssa-threadedge.c
+	(record_temporary_equivalences_from_stmts_at_dest): Add checked
+	cast to gimple_call.
+	* tree-tailcall.c (find_tail_calls): Strengthen local "call" from
+	gimple to gimple_call, adding a checked cast.
+	* tree-vect-data-refs.c (vect_setup_realignment): Eliminate
+	top-level local "new_stmt" in favor of more tightly-scoped locals
+	"new_stmt" of type gimple_assign and gimple_call.
+	* tree-vect-patterns.c (vect_recog_pow_pattern): Strenghthen local
+	"stmt" from gimple to gimple_call.
+	* tree-vect-stmts.c (vectorizable_function): Likewise for param
+	"call".
+	(vectorizable_call): Rename param 1 from "stmt" to "gs",
+	reintroducing "stmt" as a gimple_call once we've established that
+	we're working with a GIMPLE_CALL.
+	* tree-vectorizer.h (vectorizable_function): Strengthen param 1
+	from gimple to gimple_call.
+	* value-prof.c (check_ic_target): Likewise.
+	(gimple_ic_transform): Likewise for local "stmt", replacing a
+	check for GIMPLE_CALL with a dyn_cast.
+	(interesting_stringop_to_profile_p): Strengthen param "call"
+	from gimple to gimple_call.
+	(gimple_stringop_fixed_value): Likewise for param "vcall_stmt".
+	(gimple_stringops_transform): Likewise for local "stmt",
+	replacing a check for GIMPLE_CALL with a dyn_cast.
+	(gimple_stringops_values_to_profile): Rename param 1 from "stmt"
+	to "gs", reintroducing "stmt" as a gimple_call once we've
+	established that we're working with a GIMPLE_CALL.
+	* vtable-verify.c (verify_bb_vtables): Strengthen local
+	"call_stmt" from gimple to gimple_call.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Concretize get_loop_exit_condition et al to working on gimple_cond
 
 	* tree-scalar-evolution.h (get_loop_exit_condition): Return a

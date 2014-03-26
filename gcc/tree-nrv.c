@@ -315,7 +315,7 @@ make_pass_nrv (gcc::context *ctxt)
    DEST is available if it is not clobbered or used by the call.  */
 
 static bool
-dest_safe_for_nrv_p (gimple call)
+dest_safe_for_nrv_p (gimple_call call)
 {
   tree dest = gimple_call_lhs (call);
 
@@ -382,10 +382,11 @@ pass_return_slot::execute (function *fun)
       gimple_stmt_iterator gsi;
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
-	  gimple stmt = gsi_stmt (gsi);
+	  gimple_call stmt;
 	  bool slot_opt_p;
 
-	  if (is_gimple_call (stmt)
+	  stmt = dyn_cast <gimple_call> (gsi_stmt (gsi));
+	  if (stmt
 	      && gimple_call_lhs (stmt)
 	      && !gimple_call_return_slot_opt_p (stmt)
 	      && aggregate_value_p (TREE_TYPE (gimple_call_lhs (stmt)),

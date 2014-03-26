@@ -1065,7 +1065,7 @@ static tree
 build_and_insert_call (gimple_stmt_iterator *gsi, location_t loc,
 		       tree fn, tree arg)
 {
-  gimple call_stmt;
+  gimple_call call_stmt;
   tree ssa_target;
 
   call_stmt = gimple_build_call (fn, 1, arg);

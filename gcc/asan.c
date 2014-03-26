@@ -482,7 +482,7 @@ get_mem_ref_of_assignment (const_gimple_assign assignment,
    representing a builtin call that has to do with memory access.  */
 
 static bool
-get_mem_refs_of_builtin_call (const gimple call,
+get_mem_refs_of_builtin_call (const_gimple_call call,
 			      asan_mem_ref *src0,
 			      tree *src0_len,
 			      bool *src0_is_store,
@@ -836,7 +836,7 @@ has_stmt_been_instrumented_p (gimple stmt)
       tree src0_len = NULL_TREE, src1_len = NULL_TREE, dest_len = NULL_TREE;
       bool src0_is_store = false, src1_is_store = false,
 	dest_is_store = false, dest_is_deref = false;
-      if (get_mem_refs_of_builtin_call (stmt,
+      if (get_mem_refs_of_builtin_call (as_a <gimple_call> (stmt),
 					&src0, &src0_len, &src0_is_store,
 					&src1, &src1_len, &src1_is_store,
 					&dest, &dest_len, &dest_is_store,
@@ -1844,7 +1844,7 @@ static bool
 instrument_strlen_call (gimple_stmt_iterator *iter)
 {
   gimple g;
-  gimple call = gsi_stmt (*iter);
+  gimple_call call = as_a <gimple_call> (gsi_stmt (*iter));
   gcc_assert (is_gimple_call (call));
 
   tree callee = gimple_call_fndecl (call);
@@ -1907,7 +1907,7 @@ instrument_builtin_call (gimple_stmt_iterator *iter)
     return false;
 
   bool iter_advanced_p = false;
-  gimple call = gsi_stmt (*iter);
+  gimple_call call = as_a <gimple_call> (gsi_stmt (*iter));
 
   gcc_checking_assert (gimple_call_builtin_p (call, BUILT_IN_NORMAL));
 

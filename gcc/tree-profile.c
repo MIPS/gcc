@@ -335,7 +335,7 @@ gimple_gen_interval_profiler (histogram_value value, unsigned tag, unsigned base
   gimple stmt = value->hvalue.stmt;
   gimple_stmt_iterator gsi = gsi_for_stmt (stmt);
   tree ref = tree_coverage_counter_ref (tag, base), ref_ptr;
-  gimple call;
+  gimple_call call;
   tree val;
   tree start = build_int_cst_type (integer_type_node,
 				   value->hdata.intvl.int_start);
@@ -361,7 +361,7 @@ gimple_gen_pow2_profiler (histogram_value value, unsigned tag, unsigned base)
   gimple stmt = value->hvalue.stmt;
   gimple_stmt_iterator gsi = gsi_for_stmt (stmt);
   tree ref_ptr = tree_coverage_counter_addr (tag, base);
-  gimple call;
+  gimple_call call;
   tree val;
 
   ref_ptr = force_gimple_operand_gsi (&gsi, ref_ptr,
@@ -381,7 +381,7 @@ gimple_gen_one_value_profiler (histogram_value value, unsigned tag, unsigned bas
   gimple stmt = value->hvalue.stmt;
   gimple_stmt_iterator gsi = gsi_for_stmt (stmt);
   tree ref_ptr = tree_coverage_counter_addr (tag, base);
-  gimple call;
+  gimple_call call;
   tree val;
 
   ref_ptr = force_gimple_operand_gsi (&gsi, ref_ptr,
@@ -504,7 +504,7 @@ gimple_gen_time_profiler (unsigned tag, unsigned base,
                           gimple_stmt_iterator &gsi)
 {
   tree ref_ptr = tree_coverage_counter_addr (tag, base);
-  gimple call;
+  gimple_call call;
 
   ref_ptr = force_gimple_operand_gsi (&gsi, ref_ptr,
 				      true, NULL_TREE, true, GSI_SAME_STMT);
@@ -539,7 +539,7 @@ gimple_gen_average_profiler (histogram_value value, unsigned tag, unsigned base)
   gimple stmt = value->hvalue.stmt;
   gimple_stmt_iterator gsi = gsi_for_stmt (stmt);
   tree ref_ptr = tree_coverage_counter_addr (tag, base);
-  gimple call;
+  gimple_call call;
   tree val;
 
   ref_ptr = force_gimple_operand_gsi (&gsi, ref_ptr,
@@ -560,7 +560,7 @@ gimple_gen_ior_profiler (histogram_value value, unsigned tag, unsigned base)
   gimple stmt = value->hvalue.stmt;
   gimple_stmt_iterator gsi = gsi_for_stmt (stmt);
   tree ref_ptr = tree_coverage_counter_addr (tag, base);
-  gimple call;
+  gimple_call call;
   tree val;
 
   ref_ptr = force_gimple_operand_gsi (&gsi, ref_ptr,

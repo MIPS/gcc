@@ -1970,7 +1970,7 @@ static bool
 gimple_fold_builtin_snprintf_chk (gimple_stmt_iterator *gsi,
 				  enum built_in_function fcode)
 {
-  gimple stmt = gsi_stmt (*gsi);
+  gimple_call stmt = as_a <gimple_call> (gsi_stmt (*gsi));
   tree dest, size, len, fn, fmt, flag;
   const char *fmt_str;
 
@@ -2273,7 +2273,7 @@ gimple_fold_builtin_sprintf (gimple_stmt_iterator *gsi)
 static bool
 gimple_fold_builtin_snprintf (gimple_stmt_iterator *gsi)
 {
-  gimple stmt = gsi_stmt (*gsi);
+  gimple_call stmt = as_a <gimple_call> (gsi_stmt (*gsi));
   tree dest = gimple_call_arg (stmt, 0);
   tree destsize = gimple_call_arg (stmt, 1);
   tree fmt = gimple_call_arg (stmt, 2);
@@ -2423,7 +2423,7 @@ gimple_fold_builtin_strlen (gimple_stmt_iterator *gsi)
 static bool
 gimple_fold_builtin (gimple_stmt_iterator *gsi)
 {
-  gimple stmt = gsi_stmt (*gsi);
+  gimple_call stmt = as_a <gimple_call >(gsi_stmt (*gsi));
   tree callee = gimple_call_fndecl (stmt);
 
   /* Give up for always_inline inline builtins until they are
@@ -2538,7 +2538,7 @@ gimple_fold_builtin (gimple_stmt_iterator *gsi)
 static bool
 gimple_fold_call (gimple_stmt_iterator *gsi, bool inplace)
 {
-  gimple stmt = gsi_stmt (*gsi);
+  gimple_call stmt = as_a <gimple_call> (gsi_stmt (*gsi));
   tree callee;
   bool changed = false;
   unsigned i;
@@ -4329,6 +4329,7 @@ gimple_fold_stmt_to_constant_1 (gimple stmt, tree (*valueize) (tree))
     case GIMPLE_CALL:
       {
 	tree fn;
+	gimple_call call_stmt = as_a <gimple_call> (stmt);
 
 	if (gimple_call_internal_p (stmt))
 	  {
@@ -4393,14 +4394,15 @@ gimple_fold_stmt_to_constant_1 (gimple stmt, tree (*valueize) (tree))
 	    for (i = 0; i < gimple_call_num_args (stmt); ++i)
 	      args[i] = (*valueize) (gimple_call_arg (stmt, i));
 	    call = build_call_array_loc (loc,
-					 gimple_call_return_type (stmt),
+					 gimple_call_return_type (call_stmt),
 					 fn, gimple_call_num_args (stmt), args);
 	    retval = fold_call_expr (EXPR_LOCATION (call), call, false);
 	    if (retval)
 	      {
 		/* fold_call_expr wraps the result inside a NOP_EXPR.  */
 		STRIP_NOPS (retval);
-		retval = fold_convert (gimple_call_return_type (stmt), retval);
+		retval = fold_convert (gimple_call_return_type (call_stmt),
+				       retval);
 	      }
 	    return retval;
 	  }

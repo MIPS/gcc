@@ -2084,12 +2084,12 @@ transaction_subcode_ior (struct tm_region *region, unsigned flags)
 
    LOC is the location to use for the new statement(s).  */
 
-static gimple
+static gimple_call
 build_tm_load (location_t loc, tree lhs, tree rhs, gimple_stmt_iterator *gsi)
 {
   enum built_in_function code = END_BUILTINS;
   tree t, type = TREE_TYPE (rhs), decl;
-  gimple gcall;
+  gimple_call gcall;
 
   if (type == float_type_node)
     code = BUILT_IN_TM_LOAD_FLOAT;
@@ -2156,12 +2156,12 @@ build_tm_load (location_t loc, tree lhs, tree rhs, gimple_stmt_iterator *gsi)
 
 /* Similarly for storing TYPE in a transactional context.  */
 
-static gimple
+static gimple_call
 build_tm_store (location_t loc, tree lhs, tree rhs, gimple_stmt_iterator *gsi)
 {
   enum built_in_function code = END_BUILTINS;
   tree t, fn, type = TREE_TYPE (rhs), simple_type;
-  gimple gcall;
+  gimple_call gcall;
 
   if (type == float_type_node)
     code = BUILT_IN_TM_STORE_FLOAT;
@@ -2717,7 +2717,7 @@ expand_transaction (struct tm_region *region, void *data ATTRIBUTE_UNUSED)
     if (subcode & GTMA_IS_OUTER)
       region->original_transaction_was_outer = true;
     tree t = build_int_cst (tm_state_type, flags);
-    gimple call = gimple_build_call (tm_start, 1, t);
+    gimple_call call = gimple_build_call (tm_start, 1, t);
     gimple_call_set_lhs (call, tm_state);
     gimple_set_location (call, gimple_location (region->transaction_stmt));
 

@@ -1565,7 +1565,7 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 		 keep it valid over inlining by setting DECL_PT_UID.  */
 	      if (!id->src_cfun->gimple_df
 		  || !id->src_cfun->gimple_df->ipa_pta)
-		gimple_call_reset_alias_info (copy);
+		gimple_call_reset_alias_info (as_a <gimple_call> (copy));
 	    }
 	    break;
 
@@ -1707,13 +1707,13 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 
 	  stmt = gsi_stmt (copy_gsi);
 	  if (is_gimple_call (stmt)
-	      && gimple_call_va_arg_pack_p (stmt)
+	      && gimple_call_va_arg_pack_p (as_a <gimple_call> (stmt))
 	      && id->gimple_call)
 	    {
 	      /* __builtin_va_arg_pack () should be replaced by
 		 all arguments corresponding to ... in the caller.  */
 	      tree p;
-	      gimple new_call;
+	      gimple_call new_call;
 	      vec<tree> argarray;
 	      size_t nargs = gimple_call_num_args (id->gimple_call);
 	      size_t n;
@@ -1915,7 +1915,7 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 		    }
 		}
 
-	      notice_special_calls (stmt);
+	      notice_special_calls (as_a <gimple_call> (stmt));
 	    }
 
 	  maybe_duplicate_eh_stmt_fn (cfun, stmt, id->src_cfun, orig_stmt,
@@ -3395,7 +3395,7 @@ inline_forbidden_p_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 	 VLA objects as those can't cause unbounded growth (they're always
 	 wrapped inside stack_save/stack_restore regions.  */
       if (gimple_alloca_call_p (stmt)
-	  && !gimple_call_alloca_for_var_p (stmt)
+	  && !gimple_call_alloca_for_var_p (as_a <gimple_call> (stmt))
 	  && !lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)))
 	{
 	  inline_forbidden_reason

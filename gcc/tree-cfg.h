@@ -36,7 +36,7 @@ extern void group_case_labels_stmt (gimple_switch);
 extern void group_case_labels (void);
 extern void replace_uses_by (tree, tree);
 extern basic_block single_noncomplex_succ (basic_block bb);
-extern void notice_special_calls (gimple);
+extern void notice_special_calls (gimple_call);
 extern void clear_special_calls (void);
 extern edge find_taken_edge (basic_block, tree);
 extern void gimple_debug_bb (basic_block);
