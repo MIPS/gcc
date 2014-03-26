@@ -1,3 +1,7 @@
+2014-03-25  Andrew Pinski  <apinski@cavium.com>
+
+	* config/mips/mips-tables.opt: Regenerate.
+
 2012-08-31  Andrew Pinski  <apinski@cavium.com>
 
 	* config/mips/octeon.md (octeon_fpu): Add to the automaton.
