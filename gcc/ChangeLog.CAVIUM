@@ -1,5 +1,10 @@
 2014-03-25  Andrew Pinski  <apinski@cavium.com>
 
+	* config/mips/mips.c (mips_rtx_cost_data): Add
+	the missing movz fields.
+
+2014-03-25  Andrew Pinski  <apinski@cavium.com>
+
 	* config/mips/mips-tables.opt: Regenerate.
 
 2012-08-31  Andrew Pinski  <apinski@cavium.com>
