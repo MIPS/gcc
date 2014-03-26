@@ -13866,20 +13866,20 @@ bool
 mips_fmadd_bypass (rtx out_insn, rtx in_insn)
 {
   int dst_reg, src_reg;
-  
-  if (recog_memoized (in_insn) < 0 || 
-    recog_memoized (out_insn) < 0)
+
+  if (recog_memoized (in_insn) < 0 ||
+      recog_memoized (out_insn) < 0)
     return false;
-    
+
   extract_insn (in_insn);
   dst_reg = REG_P (recog_data.operand[0]);
-  
+
   extract_insn (out_insn);
   src_reg = REG_P (recog_data.operand[1]);
-  
+
   if (dst_reg == src_reg)
     return true;
-  
+
   return false;
 }
 
