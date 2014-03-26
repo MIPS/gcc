@@ -1,3 +1,8 @@
+2014-03-25  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	Bug #5839
+	* config/aarch64/aarch64.c (TARGET_FLAGS_REGNUM): Define.
+
 2014-03-18  Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
 
 	* config/aarch64/aarch64.md (mov<mode>cc): Define for floating
