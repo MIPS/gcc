@@ -41,7 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 /* Output PHI function PHI to the main stream in OB.  */
 
 static void
-output_phi (struct output_block *ob, gimple phi)
+output_phi (struct output_block *ob, gimple_phi phi)
 {
   unsigned i, len = gimple_phi_num_args (phi);
 
@@ -238,9 +238,11 @@ output_bb (struct output_block *ob, basic_block bb, struct function *fn)
 
       streamer_write_record_start (ob, LTO_null);
 
-      for (bsi = gsi_start_phis (bb); !gsi_end_p (bsi); gsi_next (&bsi))
+      for (gimple_phi_iterator psi = gsi_start_phis (bb);
+	   !gsi_end_p (psi);
+	   gsi_next (&psi))
 	{
-	  gimple phi = gsi_stmt (bsi);
+	  gimple_phi phi = psi.phi ();
 
 	  /* Only emit PHIs for gimple registers.  PHI nodes for .MEM
 	     will be filled in on reading when the SSA form is

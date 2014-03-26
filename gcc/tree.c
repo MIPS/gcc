@@ -5502,12 +5502,13 @@ find_decls_types_in_node (struct cgraph_node *n, struct free_lang_data_d *fld)
   /* Traverse every statement in FN.  */
   FOR_EACH_BB_FN (bb, fn)
     {
+      gimple_phi_iterator psi;
       gimple_stmt_iterator si;
       unsigned i;
 
-      for (si = gsi_start_phis (bb); !gsi_end_p (si); gsi_next (&si))
+      for (psi = gsi_start_phis (bb); !gsi_end_p (psi); gsi_next (&psi))
 	{
-	  gimple phi = gsi_stmt (si);
+	  gimple_phi phi = psi.phi ();
 
 	  for (i = 0; i < gimple_phi_num_args (phi); i++)
 	    {

@@ -6131,8 +6131,8 @@ gimple_duplicate_sese_tail (edge entry ATTRIBUTE_UNUSED, edge exit ATTRIBUTE_UNU
   gimple cond_stmt;
   edge sorig, snew;
   basic_block exit_bb;
-  gimple_stmt_iterator psi;
-  gimple phi;
+  gimple_phi_iterator psi;
+  gimple_phi phi;
   tree def;
   struct loop *target, *aloop, *cloop;
 
@@ -6252,7 +6252,7 @@ gimple_duplicate_sese_tail (edge entry ATTRIBUTE_UNUSED, edge exit ATTRIBUTE_UNU
 	     !gsi_end_p (psi);
 	     gsi_next (&psi))
 	  {
-	    phi = gsi_stmt (psi);
+	    phi = psi.phi ();
 	    def = PHI_ARG_DEF (phi, nexits[0]->dest_idx);
 	    add_phi_arg (phi, def, e, gimple_phi_arg_location_from_edge (phi, e));
 	  }
@@ -6629,9 +6629,10 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
   (*cfg->x_basic_block_info)[bb->index] = bb;
 
   /* Remap the variables in phi nodes.  */
-  for (si = gsi_start_phis (bb); !gsi_end_p (si); )
+  for (gimple_phi_iterator psi = gsi_start_phis (bb);
+       !gsi_end_p (psi); )
     {
-      gimple phi = gsi_stmt (si);
+      gimple_phi phi = psi.phi ();
       use_operand_p use;
       tree op = PHI_RESULT (phi);
       ssa_op_iter oi;
@@ -6641,7 +6642,7 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
 	{
 	  /* Remove the phi nodes for virtual operands (alias analysis will be
 	     run for the new function, anyway).  */
-          remove_phi_node (&si, true);
+          remove_phi_node (&psi, true);
 	  continue;
 	}
 
@@ -6671,7 +6672,7 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
 	    }
 	}
 
-      gsi_next (&si);
+      gsi_next (&psi);
     }
 
   for (si = gsi_start_bb (bb); !gsi_end_p (si); gsi_next (&si))

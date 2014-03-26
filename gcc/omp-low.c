@@ -6732,8 +6732,8 @@ expand_omp_for_static_chunk (struct omp_region *region,
 
   if (gimple_in_ssa_p (cfun))
     {
-      gimple_stmt_iterator psi;
-      gimple phi;
+      gimple_phi_iterator psi;
+      gimple_phi phi;
       edge re, ene;
       edge_var_map *vm;
       size_t i;
@@ -6752,10 +6752,10 @@ expand_omp_for_static_chunk (struct omp_region *region,
       for (i = 0; !gsi_end_p (psi) && head->iterate (i, &vm);
 	   gsi_next (&psi), ++i)
 	{
-	  gimple nphi;
+	  gimple_phi nphi;
 	  source_location locus;
 
-	  phi = gsi_stmt (psi);
+	  phi = psi.phi ();
 	  t = gimple_phi_result (phi);
 	  gcc_assert (t == redirect_edge_var_map_result (vm));
 	  nphi = create_phi_node (t, iter_part_bb);

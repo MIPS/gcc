@@ -3971,12 +3971,12 @@ gimple_phi_arg_def (gimple gs, size_t index)
 }
 
 
-/* Return a pointer to the tree operand for argument I of PHI node GS.  */
+/* Return a pointer to the tree operand for argument I of phi node PHI.  */
 
 static inline tree *
-gimple_phi_arg_def_ptr (gimple gs, size_t index)
+gimple_phi_arg_def_ptr (gimple_phi phi, size_t index)
 {
-  return &gimple_phi_arg (gs, index)->def;
+  return &gimple_phi_arg (phi, index)->def;
 }
 
 /* Return the edge associated with argument I of phi node GS.  */
@@ -4011,12 +4011,12 @@ gimple_phi_arg_set_location (gimple gs, size_t i, source_location loc)
   gimple_phi_arg (gs, i)->locus = loc;
 }
 
-/* Return TRUE if argument I of phi node GS has a location record.  */
+/* Return TRUE if argument I of phi node PHI has a location record.  */
 
 static inline bool
-gimple_phi_arg_has_location (gimple gs, size_t i)
+gimple_phi_arg_has_location (gimple_phi phi, size_t i)
 {
-  return gimple_phi_arg_location (gs, i) != UNKNOWN_LOCATION;
+  return gimple_phi_arg_location (phi, i) != UNKNOWN_LOCATION;
 }
 
 

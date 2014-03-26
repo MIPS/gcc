@@ -2317,11 +2317,12 @@ vect_loop_versioning (loop_vec_info loop_vinfo,
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   struct loop *scalar_loop = LOOP_VINFO_SCALAR_LOOP (loop_vinfo);
   basic_block condition_bb;
-  gimple_stmt_iterator gsi, cond_exp_gsi;
+  gimple_phi_iterator gsi;
+  gimple_stmt_iterator cond_exp_gsi;
   basic_block merge_bb;
   basic_block new_exit_bb;
   edge new_exit_e, e;
-  gimple orig_phi, new_phi;
+  gimple_phi orig_phi, new_phi;
   tree cond_expr = NULL_TREE;
   gimple_seq cond_expr_stmt_list = NULL;
   tree arg;
@@ -2425,7 +2426,7 @@ vect_loop_versioning (loop_vec_info loop_vinfo,
       for (gsi = gsi_start_phis (merge_bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  tree new_res;
-	  orig_phi = gsi_stmt (gsi);
+	  orig_phi = gsi.phi ();
 	  new_res = copy_ssa_name (PHI_RESULT (orig_phi), NULL);
 	  new_phi = create_phi_node (new_res, new_exit_bb);
 	  arg = PHI_ARG_DEF_FROM_EDGE (orig_phi, e);

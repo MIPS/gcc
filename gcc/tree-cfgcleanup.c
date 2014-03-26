@@ -468,11 +468,11 @@ remove_forwarder_block (basic_block bb)
 	{
 	  /* Create arguments for the phi nodes, since the edge was not
 	     here before.  */
-	  for (gsi = gsi_start_phis (dest);
-	       !gsi_end_p (gsi);
-	       gsi_next (&gsi))
+	  for (gimple_phi_iterator psi = gsi_start_phis (dest);
+	       !gsi_end_p (psi);
+	       gsi_next (&psi))
 	    {
-	      gimple phi = gsi_stmt (gsi);
+	      gimple_phi phi = psi.phi ();
 	      source_location l = gimple_phi_arg_location_from_edge (phi, succ);
 	      tree def = gimple_phi_arg_def (phi, succ->dest_idx);
 	      add_phi_arg (phi, unshare_expr (def), s, l);

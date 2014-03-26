@@ -44,14 +44,14 @@ along with GCC; see the file COPYING3.  If not see
 /* Read a PHI function for basic block BB in function FN.  DATA_IN is
    the file being read.  IB is the input block to use for reading.  */
 
-static gimple
+static gimple_phi
 input_phi (struct lto_input_block *ib, basic_block bb, struct data_in *data_in,
 	   struct function *fn)
 {
   unsigned HOST_WIDE_INT ix;
   tree phi_result;
   int i, len;
-  gimple result;
+  gimple_phi result;
 
   ix = streamer_read_uhwi (ib);
   phi_result = (*SSANAMES (fn))[ix];
