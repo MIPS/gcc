@@ -98,6 +98,20 @@ case ${host} in
     ;;
 esac
 
+# Host which has an abi which is ILP32 but long long
+# is the native register size.
+case ${host} in
+  mips64*-*-*)
+    use_long_long_for_widest_fast_int=yes
+    ;;
+  aarch64*-*-*)
+    use_long_long_for_widest_fast_int=yes
+    ;;
+  x86_64-*-*)
+    use_long_long_for_widest_fast_int=yes
+    ;;
+esac
+
 case ${host} in
   arm*-*-linux*)
     case ${target} in

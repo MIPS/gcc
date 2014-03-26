@@ -66,6 +66,11 @@
 	* passes.def: Move pass_late_warn_uninitialized
 	to before the pass_late_phiopt pass.
 
+2014-03-26  Andrew Pinski  <apinski@cavium.com>
+
+	* config.host: Set use_long_long_for_widest_fast_int to yes
+	for mips64*-*-*, aarch64*-*-*, and x86_64-*-*.
+
 2014-03-25  Andrew Pinski  <apinski@cavium.com>
 
 	* config/mips/mips.c (mips_rtx_cost_data): Add
