@@ -1104,7 +1104,7 @@ get_base_value (tree t)
    Otherwise return false and set LOOP_INVAIANT to NULL.  */
 
 static bool
-is_comparison_with_loop_invariant_p (gimple stmt, struct loop *loop,
+is_comparison_with_loop_invariant_p (gimple_cond stmt, struct loop *loop,
 				     tree *loop_invariant,
 				     enum tree_code *compare_code,
 				     tree *loop_step,
@@ -1269,7 +1269,8 @@ predict_iv_comparison (struct loop *loop, basic_block bb,
   stmt = last_stmt (bb);
   if (!stmt || gimple_code (stmt) != GIMPLE_COND)
     return;
-  if (!is_comparison_with_loop_invariant_p (stmt, loop, &compare_var,
+  if (!is_comparison_with_loop_invariant_p (as_a <gimple_cond> (stmt),
+					    loop, &compare_var,
 					    &compare_code,
 					    &compare_step_var,
 					    &compare_base))
@@ -1445,10 +1446,16 @@ predict_extra_loop_exits (edge exit_edge)
   gimple lhs_def_stmt;
   gimple_phi phi_stmt;
   tree cmp_rhs, cmp_lhs;
-  gimple cmp_stmt = last_stmt (exit_edge->src);
+  gimple last;
+  gimple_cond cmp_stmt;
 
-  if (!cmp_stmt || gimple_code (cmp_stmt) != GIMPLE_COND)
+  last = last_stmt (exit_edge->src);
+  if (!last)
     return;
+  cmp_stmt = dyn_cast <gimple_cond> (last);
+  if (!cmp_stmt)
+    return;
+
   cmp_rhs = gimple_cond_rhs (cmp_stmt);
   cmp_lhs = gimple_cond_lhs (cmp_stmt);
   if (!TREE_CONSTANT (cmp_rhs)
@@ -1515,7 +1522,7 @@ predict_loops (void)
       tree loop_bound_step = NULL;
       tree loop_bound_var = NULL;
       tree loop_iv_base = NULL;
-      gimple stmt = NULL;
+      gimple_cond stmt = NULL;
 
       exits = get_loop_exit_edges (loop);
       n_exits = exits.length ();
@@ -1582,12 +1589,12 @@ predict_loops (void)
 	if (nb_iter->stmt
 	    && gimple_code (nb_iter->stmt) == GIMPLE_COND)
 	  {
-	    stmt = nb_iter->stmt;
+	    stmt = as_a <gimple_cond> (nb_iter->stmt);
 	    break;
 	  }
       if (!stmt && last_stmt (loop->header)
 	  && gimple_code (last_stmt (loop->header)) == GIMPLE_COND)
-	stmt = last_stmt (loop->header);
+	stmt = as_a <gimple_cond> (last_stmt (loop->header));
       if (stmt)
 	is_comparison_with_loop_invariant_p (stmt, loop,
 					     &loop_bound_var,

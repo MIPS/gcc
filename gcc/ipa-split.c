@@ -353,9 +353,10 @@ check_forbidden_calls (gimple stmt)
       basic_block use_bb, forbidden_bb;
       enum tree_code code;
       edge true_edge, false_edge;
-      gimple use_stmt = USE_STMT (use_p);
+      gimple_cond use_stmt;
 
-      if (gimple_code (use_stmt) != GIMPLE_COND)
+      use_stmt = dyn_cast <gimple_cond> (USE_STMT (use_p));
+      if (!use_stmt)
 	continue;
 
       /* Assuming canonical form for GIMPLE_COND here, with constant

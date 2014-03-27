@@ -5701,7 +5701,7 @@ register_edge_assert_for (tree name, edge e, gimple_stmt_iterator si,
    list of assertions for the corresponding operands.  */
 
 static bool
-find_conditional_asserts (basic_block bb, gimple last)
+find_conditional_asserts (basic_block bb, gimple_cond last)
 {
   bool need_assert;
   gimple_stmt_iterator bsi;
@@ -5943,7 +5943,7 @@ find_assert_locations_1 (basic_block bb, sbitmap live)
       && gimple_code (last) == GIMPLE_COND
       && !fp_predicate (last)
       && !ZERO_SSA_OPERANDS (last, SSA_OP_USE))
-    need_assert |= find_conditional_asserts (bb, last);
+    need_assert |= find_conditional_asserts (bb, as_a <gimple_cond> (last));
 
   /* If BB's last statement is a switch statement involving integer
      operands, determine if we need to add ASSERT_EXPRs.  */
@@ -7318,7 +7318,7 @@ vrp_evaluate_conditional (enum tree_code code, tree op0, tree op1, gimple stmt)
    SSA_PROP_VARYING.  */
 
 static enum ssa_prop_result
-vrp_visit_cond_stmt (gimple stmt, edge *taken_edge_p)
+vrp_visit_cond_stmt (gimple_cond stmt, edge *taken_edge_p)
 {
   tree val;
   bool sop;
@@ -7730,7 +7730,7 @@ vrp_visit_stmt (gimple stmt, edge *taken_edge_p, tree *output_p)
   else if (is_gimple_assign (stmt) || is_gimple_call (stmt))
     return vrp_visit_assignment_or_call (stmt, output_p);
   else if (gimple_code (stmt) == GIMPLE_COND)
-    return vrp_visit_cond_stmt (stmt, taken_edge_p);
+    return vrp_visit_cond_stmt (as_a <gimple_cond> (stmt), taken_edge_p);
   else if (gimple_code (stmt) == GIMPLE_SWITCH)
     return vrp_visit_switch_stmt (as_a <gimple_switch> (stmt), taken_edge_p);
 
@@ -9644,10 +9644,10 @@ fold_predicate_in (gimple_stmt_iterator *si)
 				      gimple_assign_rhs2 (stmt),
 				      stmt);
     }
-  else if (gimple_code (stmt) == GIMPLE_COND)
-    val = vrp_evaluate_conditional (gimple_cond_code (stmt),
-				    gimple_cond_lhs (stmt),
-				    gimple_cond_rhs (stmt),
+  else if (gimple_cond cond_stmt = dyn_cast <gimple_cond> (stmt))
+    val = vrp_evaluate_conditional (gimple_cond_code (cond_stmt),
+				    gimple_cond_lhs (cond_stmt),
+				    gimple_cond_rhs (cond_stmt),
 				    stmt);
   else
     return false;
@@ -9712,10 +9712,11 @@ static vec<tree> equiv_stack;
 static tree
 simplify_stmt_for_jump_threading (gimple stmt, gimple within_stmt)
 {
-  if (gimple_code (stmt) == GIMPLE_COND)
-    return vrp_evaluate_conditional (gimple_cond_code (stmt),
-				     gimple_cond_lhs (stmt),
-				     gimple_cond_rhs (stmt), within_stmt);
+  if (gimple_cond cond_stmt = dyn_cast <gimple_cond> (stmt))
+    return vrp_evaluate_conditional (gimple_cond_code (cond_stmt),
+				     gimple_cond_lhs (cond_stmt),
+				     gimple_cond_rhs (cond_stmt),
+				     within_stmt);
 
   if (gimple_assign assign_stmt = dyn_cast <gimple_assign> (stmt))
     {

@@ -1,5 +1,29 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Concretize various expressions from gimple to gimple_cond
+
+	* ipa-split.c (check_forbidden_calls): Replace check against
+	GIMPLE_COND with a dyn_cast<gimple_cond>, introducing a
+	gimple_cond local.
+	* predict.c (predict_extra_loop_exits): Likewise.
+	* tree-vrp.c (fold_predicate_in): Likewise.
+	(simplify_stmt_for_jump_threading): Likewise.
+
+	* predict.c (is_comparison_with_loop_invariant_p): Require a
+	gimple_cond.
+	(predict_iv_comparison): Add checked cast to gimple_cond once we
+	know the code is GIMPLE_COND.
+	(predict_loops): Change type of "stmt" to gimple_cond,
+	adding checked casts to its assignments (which are both guarded by
+	checks against GIMPLE_COND).
+
+	* tree-vrp.c (find_conditional_asserts): Require a gimple_cond.
+	(vrp_evaluate_conditional): Likewise.
+	(find_assert_locations_1): Add checked cast to gimple_cond.
+	(vrp_visit_stmt): Likewise.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Concretize gimple_cond_{lhs|rhs}_ptr
 
 	* gimple.h (gimple_cond_lhs_ptr): Require a const_gimple_cond
