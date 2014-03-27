@@ -1,5 +1,83 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Make gimple_phi_arg_edge require a gimple_phi
+
+	* gimple.h (gimple_phi_arg_edge): Require a gimple_phi rather
+	than a plain gimple.
+
+	* gimple-ssa-strength-reduction.c (ncd_with_phi): Strengthen
+	param "phi" from gimple to gimple_phi.  Add a checked cast.
+	(ncd_of_cand_and_phis): Add a checked cast.
+
+	* graphite-sese-to-poly.c (rewrite_phi_out_of_ssa): Require a
+	gimple_phi_iterator; strengthen local "phi" from gimple to a
+	gimple_phi.
+	(rewrite_cross_bb_scalar_deps): Strengthen local "psi" from
+	a gimple_stmt_iterator to a gimple_phi_iterator.
+	(edge_initial_value_for_loop_phi): Require a gimple phi.
+	(initial_value_for_loop_phi): Likewise.
+
+	* ipa-split.c (consider_split): Convert "bsi" to a
+	gimple_phi_iterator and "stmt" to a gimple_phi.
+
+	* predict.c (predict_extra_loop_exits): Convert "phi_stmt" to be
+	a gimple_phi; introduce "lhs_def_stmt" as plain gimple.
+	(apply_return_prediction): Convert "phi" to be a gimple_phi.
+
+	* tree-cfg.c (replace_uses_by): Add checked cast to gimple_phi.
+	(verify_gimple_in_cfg): Introduce gimple_phi_iterator "gpi" and use
+	it to convert "phi" to a gimple_phi.
+
+	* tree-eh.c (cleanup_empty_eh_merge_phis): Convert "ngsi", "ogsi"
+	to be gimple_phi_iterators.  Convert "ophi", "nphi" to be
+	gimple_phi.
+
+	* tree-into-ssa.c (prepare_use_sites_for): Add checked cast to
+	gimple_phi.
+
+	* tree-ssa-coalesce.c (create_outofssa_var_map): Introduce
+	gimple_phi_iterator "gpi" and use it to convert "phi" to a
+	gimple_phi.
+
+	* tree-ssa-dce.c (propagate_necessity): Introduce local "phi",
+	from checked cast to gimple_phi.
+
+	* tree-ssa-live.c (set_var_live_on_entry): Add checked cast to
+	gimple_phi.
+
+	* tree-ssa-propagate.c (replace_phi_args_in): Require a gimple_phi
+	rather than a plain gimple.
+	(substitute_and_fold_dom_walker::before_dom_children): Introduce
+	gimple_phi_iterator "gpi".
+
+	* tree-ssa-sink.c (find_bb_for_arg): Require a gimple_phi rather
+	than a plain gimple.
+	(nearest_common_dominator_of_uses): Replace check of code against
+	GIMPLE_PHI with a dyn_cast<gimple_phi>, introducing a new local.
+	(statement_sink_location): Add checked cast to gimple_phi.
+
+	* tree-ssa-uninit.c (compute_uninit_opnds_pos): Require a
+	gimple_phi rather than a plain gimple.
+	(collect_phi_def_edges): Likewise.  Add a checked cast.
+	(find_def_preds): Strengthen param "phi" from gimple to
+	gimple_phi.
+	(prune_uninit_phi_opnds_in_unrealizable_paths): Likewise for
+	params "phi" and "flag_def".  Strenghen param "visited_phis" from
+	hash_set<gimple> * to hash_set<gimple_phi> *.  Convert
+	"flag_arg_def", "phi_arg_def" to gimple_phi using
+	dyn_cast<gimple_phi>.  Similarly, introduce new local
+	"opnd_def_phi".
+	(use_pred_not_overlap_with_undef_path_pred): Strengthen param
+	"phi" from gimple to gimple_phi, and param "visited_phis" from
+	hash_set<gimple> * to hash_set<gimple_phi> *.  Add a checked cast.
+	(is_use_properly_guarded): Likewise for params.
+	(find_uninit_use): Replace check of code against GIMPLE_PHI with
+	a dyn_cast<gimple_phi>, introducing a new local "use_phi".
+	Strengthen local "visited_phis" from hash_set<gimple> to
+	hash_set<gimple_phi>.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Update GRAPHITE to use more concrete gimple statement classes
 
 	* graphite-scop-detection.c (canonicalize_loop_closed_ssa):

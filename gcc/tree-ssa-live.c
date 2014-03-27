@@ -1106,7 +1106,7 @@ set_var_live_on_entry (tree ssa_name, tree_live_info_p live)
 	     as this is where a copy would be inserted.  Check to see if it is
 	     defined in that block, or whether its live on entry.  */
 	  int index = PHI_ARG_INDEX_FROM_USE (use);
-	  edge e = gimple_phi_arg_edge (use_stmt, index);
+	  edge e = gimple_phi_arg_edge (as_a <gimple_phi> (use_stmt), index);
 	  if (e->src != ENTRY_BLOCK_PTR_FOR_FN (cfun))
 	    {
 	      if (e->src != def_bb)

@@ -1736,7 +1736,8 @@ replace_uses_by (tree name, tree val)
 
 	  if (gimple_code (stmt) == GIMPLE_PHI)
 	    {
-	      e = gimple_phi_arg_edge (stmt, PHI_ARG_INDEX_FROM_USE (use));
+	      e = gimple_phi_arg_edge (as_a <gimple_phi> (stmt),
+				       PHI_ARG_INDEX_FROM_USE (use));
 	      if (e->flags & EDGE_ABNORMAL)
 		{
 		  /* This can only occur for virtual operands, since
@@ -4876,9 +4877,11 @@ verify_gimple_in_cfg (struct function *fn, bool verify_nothrow)
     {
       gimple_stmt_iterator gsi;
 
-      for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+      for (gimple_phi_iterator gpi = gsi_start_phis (bb);
+	   !gsi_end_p (gpi);
+	   gsi_next (&gpi))
 	{
-	  gimple phi = gsi_stmt (gsi);
+	  gimple_phi phi = gpi.phi ();
 	  bool err2 = false;
 	  unsigned i;
 

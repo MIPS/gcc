@@ -934,9 +934,11 @@ create_outofssa_var_map (coalesce_list_p cl, bitmap used_in_copy)
     {
       tree arg;
 
-      for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+      for (gimple_phi_iterator gpi = gsi_start_phis (bb);
+	   !gsi_end_p (gpi);
+	   gsi_next (&gpi))
 	{
-	  gimple phi = gsi_stmt (gsi);
+	  gimple_phi phi = gpi.phi ();
 	  size_t i;
 	  int ver;
 	  tree res;

@@ -659,6 +659,7 @@ propagate_necessity (bool aggressive)
 	     we also consider the control dependent edges leading to the
 	     predecessor block associated with each PHI alternative as
 	     necessary.  */
+	  gimple_phi phi = as_a <gimple_phi> (stmt);
 	  size_t k;
 
 	  for (k = 0; k < gimple_phi_num_args (stmt); k++)
@@ -741,7 +742,7 @@ propagate_necessity (bool aggressive)
 	    {
 	      for (k = 0; k < gimple_phi_num_args (stmt); k++)
 		{
-		  basic_block arg_bb = gimple_phi_arg_edge (stmt, k)->src;
+		  basic_block arg_bb = gimple_phi_arg_edge (phi, k)->src;
 
 		  if (gimple_bb (stmt)
 		      != get_immediate_dominator (CDI_POST_DOMINATORS, arg_bb))

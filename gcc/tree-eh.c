@@ -4093,7 +4093,7 @@ static bool
 cleanup_empty_eh_merge_phis (basic_block new_bb, basic_block old_bb,
 			     edge old_bb_out, bool change_region)
 {
-  gimple_stmt_iterator ngsi, ogsi;
+  gimple_phi_iterator ngsi, ogsi;
   edge_iterator ei;
   edge e;
   bitmap ophi_handled;
@@ -4123,7 +4123,7 @@ cleanup_empty_eh_merge_phis (basic_block new_bb, basic_block old_bb,
      for the edges we're going to move.  */
   for (ngsi = gsi_start_phis (new_bb); !gsi_end_p (ngsi); gsi_next (&ngsi))
     {
-      gimple ophi, nphi = gsi_stmt (ngsi);
+      gimple_phi ophi, nphi = ngsi.phi ();
       tree nresult, nop;
 
       nresult = gimple_phi_result (nphi);
@@ -4134,7 +4134,7 @@ cleanup_empty_eh_merge_phis (basic_block new_bb, basic_block old_bb,
       ophi = NULL;
       for (ogsi = gsi_start_phis (old_bb); !gsi_end_p (ogsi); gsi_next (&ogsi))
 	{
-	  ophi = gsi_stmt (ogsi);
+	  ophi = ogsi.phi ();
 	  if (gimple_phi_result (ophi) == nop)
 	    break;
 	  ophi = NULL;

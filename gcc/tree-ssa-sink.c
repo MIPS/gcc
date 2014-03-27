@@ -85,7 +85,7 @@ static struct
    we return NULL.  */
 
 static basic_block
-find_bb_for_arg (gimple phi, tree def)
+find_bb_for_arg (gimple_phi phi, tree def)
 {
   size_t i;
   bool foundone = false;
@@ -149,11 +149,11 @@ nearest_common_dominator_of_uses (def_operand_p def_p, bool *debug_stmts)
       gimple usestmt = USE_STMT (use_p);
       basic_block useblock;
 
-      if (gimple_code (usestmt) == GIMPLE_PHI)
+      if (gimple_phi phi = dyn_cast <gimple_phi> (usestmt))
 	{
 	  int idx = PHI_ARG_INDEX_FROM_USE (use_p);
 
-	  useblock = gimple_phi_arg_edge (usestmt, idx)->src;
+	  useblock = gimple_phi_arg_edge (phi, idx)->src;
 	}
       else if (is_gimple_debug (usestmt))
 	{
@@ -446,7 +446,7 @@ statement_sink_location (gimple stmt, basic_block frombb,
 	}
     }
 
-  sinkbb = find_bb_for_arg (use, DEF_FROM_PTR (def_p));
+  sinkbb = find_bb_for_arg (as_a <gimple_phi> (use), DEF_FROM_PTR (def_p));
 
   /* This can happen if there are multiple uses in a PHI.  */
   if (!sinkbb)

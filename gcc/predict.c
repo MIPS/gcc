@@ -1442,7 +1442,8 @@ predict_extra_loop_exits (edge exit_edge)
 {
   unsigned i;
   bool check_value_one;
-  gimple phi_stmt;
+  gimple lhs_def_stmt;
+  gimple_phi phi_stmt;
   tree cmp_rhs, cmp_lhs;
   gimple cmp_stmt = last_stmt (exit_edge->src);
 
@@ -1463,8 +1464,12 @@ predict_extra_loop_exits (edge exit_edge)
 		    ^ (gimple_cond_code (cmp_stmt) == EQ_EXPR))
 		    ^ ((exit_edge->flags & EDGE_TRUE_VALUE) != 0));
 
-  phi_stmt = SSA_NAME_DEF_STMT (cmp_lhs);
-  if (!phi_stmt || gimple_code (phi_stmt) != GIMPLE_PHI)
+  lhs_def_stmt = SSA_NAME_DEF_STMT (cmp_lhs);
+  if (!lhs_def_stmt)
+    return;
+
+  phi_stmt = dyn_cast <gimple_phi> (lhs_def_stmt);
+  if (!phi_stmt)
     return;
 
   for (i = 0; i < gimple_phi_num_args (phi_stmt); i++)
@@ -2143,7 +2148,7 @@ apply_return_prediction (void)
   gimple return_stmt = NULL;
   tree return_val;
   edge e;
-  gimple phi;
+  gimple_phi phi;
   int phi_num_args, i;
   enum br_predictor pred;
   enum prediction direction;
@@ -2165,7 +2170,7 @@ apply_return_prediction (void)
       || !SSA_NAME_DEF_STMT (return_val)
       || gimple_code (SSA_NAME_DEF_STMT (return_val)) != GIMPLE_PHI)
     return;
-  phi = SSA_NAME_DEF_STMT (return_val);
+  phi = as_a <gimple_phi> (SSA_NAME_DEF_STMT (return_val));
   phi_num_args = gimple_phi_num_args (phi);
   pred = return_prediction (PHI_ARG_DEF (phi, 0), &direction);
 

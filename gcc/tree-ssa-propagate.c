@@ -966,7 +966,7 @@ replace_uses_in (gimple stmt, ssa_prop_get_value_fn get_value)
    values from PROP_VALUE.  */
 
 static bool
-replace_phi_args_in (gimple phi, ssa_prop_get_value_fn get_value)
+replace_phi_args_in (gimple_phi phi, ssa_prop_get_value_fn get_value)
 {
   size_t i;
   bool replaced = false;
@@ -1054,12 +1054,12 @@ public:
 void
 substitute_and_fold_dom_walker::before_dom_children (basic_block bb)
 {
-  gimple_stmt_iterator i;
-
   /* Propagate known values into PHI nodes.  */
-  for (i = gsi_start_phis (bb); !gsi_end_p (i); gsi_next (&i))
+  for (gimple_phi_iterator i = gsi_start_phis (bb);
+       !gsi_end_p (i);
+       gsi_next (&i))
     {
-      gimple phi = gsi_stmt (i);
+      gimple_phi phi = i.phi ();
       tree res = gimple_phi_result (phi);
       if (virtual_operand_p (res))
 	continue;
@@ -1080,7 +1080,9 @@ substitute_and_fold_dom_walker::before_dom_children (basic_block bb)
 
   /* Propagate known values into stmts.  In some case it exposes
      more trivially deletable stmts to walk backward.  */
-  for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
+  for (gimple_stmt_iterator i = gsi_start_bb (bb);
+       !gsi_end_p (i);
+       gsi_next (&i))
     {
       bool did_replace;
       gimple stmt = gsi_stmt (i);

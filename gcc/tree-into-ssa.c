@@ -2600,7 +2600,7 @@ prepare_use_sites_for (tree name, bool insert_phi_p)
       if (gimple_code (stmt) == GIMPLE_PHI)
 	{
 	  int ix = PHI_ARG_INDEX_FROM_USE (use_p);
-	  edge e = gimple_phi_arg_edge (stmt, ix);
+	  edge e = gimple_phi_arg_edge (as_a <gimple_phi> (stmt), ix);
 	  mark_use_interesting (name, stmt, e->src, insert_phi_p);
 	}
       else

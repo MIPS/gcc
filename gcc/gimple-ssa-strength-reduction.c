@@ -2970,7 +2970,7 @@ ncd_for_two_cands (basic_block bb1, basic_block bb2,
    candidates, return the earliest candidate in the block in *WHERE.  */
 
 static basic_block
-ncd_with_phi (slsr_cand_t c, const widest_int &incr, gimple phi,
+ncd_with_phi (slsr_cand_t c, const widest_int &incr, gimple_phi phi,
 	      basic_block ncd, slsr_cand_t *where)
 {
   unsigned i;
@@ -2986,7 +2986,8 @@ ncd_with_phi (slsr_cand_t c, const widest_int &incr, gimple phi,
 	  gimple arg_def = SSA_NAME_DEF_STMT (arg);
 
 	  if (gimple_code (arg_def) == GIMPLE_PHI)
-	    ncd = ncd_with_phi (c, incr, arg_def, ncd, where);
+	    ncd = ncd_with_phi (c, incr, as_a <gimple_phi> (arg_def), ncd,
+				where);
 	  else 
 	    {
 	      slsr_cand_t arg_cand = base_cand_from_table (arg);
@@ -3020,7 +3021,8 @@ ncd_of_cand_and_phis (slsr_cand_t c, const widest_int &incr, slsr_cand_t *where)
     }
   
   if (phi_dependent_cand_p (c))
-    ncd = ncd_with_phi (c, incr, lookup_cand (c->def_phi)->cand_stmt,
+    ncd = ncd_with_phi (c, incr,
+			as_a <gimple_phi> (lookup_cand (c->def_phi)->cand_stmt),
 			ncd, where);
 
   return ncd;

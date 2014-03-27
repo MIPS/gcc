@@ -3979,12 +3979,12 @@ gimple_phi_arg_def_ptr (gimple_phi phi, size_t index)
   return &gimple_phi_arg (phi, index)->def;
 }
 
-/* Return the edge associated with argument I of phi node GS.  */
+/* Return the edge associated with argument I of phi node PHI.  */
 
 static inline edge
-gimple_phi_arg_edge (gimple gs, size_t i)
+gimple_phi_arg_edge (gimple_phi phi, size_t i)
 {
-  return EDGE_PRED (gimple_bb (gs), i);
+  return EDGE_PRED (gimple_bb (phi), i);
 }
 
 /* Return the source location of gimple argument I of phi node GS.  */

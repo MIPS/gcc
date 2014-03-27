@@ -2235,10 +2235,10 @@ rewrite_close_phi_out_of_ssa (scop_p scop, gimple_stmt_iterator *psi)
    dimension array for it.  */
 
 static void
-rewrite_phi_out_of_ssa (scop_p scop, gimple_stmt_iterator *psi)
+rewrite_phi_out_of_ssa (scop_p scop, gimple_phi_iterator *psi)
 {
   size_t i;
-  gimple phi = gsi_stmt (*psi);
+  gimple_phi phi = psi->phi ();
   basic_block bb = gimple_bb (phi);
   tree res = gimple_phi_result (phi);
   tree zero_dim_array = create_zero_dim_array (res, "phi_out_of_ssa");
@@ -2449,7 +2449,7 @@ rewrite_cross_bb_scalar_deps (scop_p scop, gimple_stmt_iterator *gsi)
     if (gimple_code (use_stmt) == GIMPLE_PHI
 	&& (res = true))
       {
-	gimple_stmt_iterator psi = gsi_for_stmt (use_stmt);
+	gimple_phi_iterator psi = gsi_start_phis (gimple_bb (use_stmt));
 
 	if (scalar_close_phi_node_p (gsi_stmt (psi)))
 	  rewrite_close_phi_out_of_ssa (scop, &psi);
@@ -2741,7 +2741,7 @@ follow_inital_value_to_phi (tree arg, tree lhs)
    from outside the loop.  */
 
 static edge
-edge_initial_value_for_loop_phi (gimple phi)
+edge_initial_value_for_loop_phi (gimple_phi phi)
 {
   size_t i;
 
@@ -2761,7 +2761,7 @@ edge_initial_value_for_loop_phi (gimple phi)
    from outside the loop.  */
 
 static tree
-initial_value_for_loop_phi (gimple phi)
+initial_value_for_loop_phi (gimple_phi phi)
 {
   size_t i;
 

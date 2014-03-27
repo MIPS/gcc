@@ -294,7 +294,7 @@ can_skip_redundant_opnd (tree opnd, gimple phi)
    that have empty (or possibly empty) definitions.  */
 
 static unsigned
-compute_uninit_opnds_pos (gimple phi)
+compute_uninit_opnds_pos (gimple_phi phi)
 {
   size_t i, n;
   unsigned uninit_opnds = 0;
@@ -646,7 +646,7 @@ find_predicates (pred_chain_union *preds,
    VISITED_PHIS is a pointer set for detecting cycles.  */
 
 static void
-collect_phi_def_edges (gimple phi, basic_block cd_root,
+collect_phi_def_edges (gimple_phi phi, basic_block cd_root,
                        vec<edge> *edges,
                        hash_set<gimple> *visited_phis)
 {
@@ -679,7 +679,7 @@ collect_phi_def_edges (gimple phi, basic_block cd_root,
           if (gimple_code (def) == GIMPLE_PHI
               && dominated_by_p (CDI_DOMINATORS,
                                  gimple_bb (def), cd_root))
-            collect_phi_def_edges (def, cd_root, edges,
+            collect_phi_def_edges (as_a <gimple_phi> (def), cd_root, edges,
                                    visited_phis);
           else if (!uninit_undefined_value_p (opnd))
             {
@@ -699,7 +699,7 @@ collect_phi_def_edges (gimple phi, basic_block cd_root,
    composite predicates pointed to by PREDS.  */
 
 static bool
-find_def_preds (pred_chain_union *preds, gimple phi)
+find_def_preds (pred_chain_union *preds, gimple_phi phi)
 {
   size_t num_chains = 0, i, n;
   vec<edge> dep_chains[MAX_NUM_CHAINS];
@@ -937,9 +937,9 @@ find_matching_predicate_in_rest_chains (pred_info pred,
 static bool
 is_use_properly_guarded (gimple use_stmt,
                          basic_block use_bb,
-                         gimple phi,
+                         gimple_phi phi,
                          unsigned uninit_opnds,
-                         hash_set<gimple> *visited_phis);
+                         hash_set<gimple_phi> *visited_phis);
 
 /* Returns true if all uninitialized opnds are pruned. Returns false
    otherwise. PHI is the phi node with uninitialized operands,
@@ -976,12 +976,12 @@ is_use_properly_guarded (gimple use_stmt,
 */
 
 static bool
-prune_uninit_phi_opnds_in_unrealizable_paths (gimple phi,
+prune_uninit_phi_opnds_in_unrealizable_paths (gimple_phi phi,
 					      unsigned uninit_opnds,
-					      gimple flag_def,
+					      gimple_phi flag_def,
 					      tree boundary_cst,
 					      enum tree_code cmp_code,
-					      hash_set<gimple> *visited_phis,
+					      hash_set<gimple_phi> *visited_phis,
 					      bitmap *visited_flag_phis)
 {
   unsigned i;
@@ -996,22 +996,22 @@ prune_uninit_phi_opnds_in_unrealizable_paths (gimple phi,
       flag_arg = gimple_phi_arg_def (flag_def, i);
       if (!is_gimple_constant (flag_arg))
         {
-          gimple flag_arg_def, phi_arg_def;
+          gimple_phi flag_arg_def, phi_arg_def;
           tree phi_arg;
           unsigned uninit_opnds_arg_phi;
 
           if (TREE_CODE (flag_arg) != SSA_NAME)
             return false;
-          flag_arg_def = SSA_NAME_DEF_STMT (flag_arg);
-          if (gimple_code (flag_arg_def) != GIMPLE_PHI)
+          flag_arg_def = dyn_cast <gimple_phi> (SSA_NAME_DEF_STMT (flag_arg));
+	  if (!flag_arg_def)
             return false;
 
           phi_arg = gimple_phi_arg_def (phi, i);
           if (TREE_CODE (phi_arg) != SSA_NAME)
             return false;
 
-          phi_arg_def = SSA_NAME_DEF_STMT (phi_arg);
-          if (gimple_code (phi_arg_def) != GIMPLE_PHI)
+          phi_arg_def = dyn_cast <gimple_phi> (SSA_NAME_DEF_STMT (phi_arg));
+	  if (!phi_arg_def)
             return false;
 
           if (gimple_bb (phi_arg_def) != gimple_bb (flag_arg_def))
@@ -1052,16 +1052,16 @@ prune_uninit_phi_opnds_in_unrealizable_paths (gimple phi,
 
           opnd = gimple_phi_arg_def (phi, i);
           opnd_def = SSA_NAME_DEF_STMT (opnd);
-          if (gimple_code (opnd_def) == GIMPLE_PHI)
+          if (gimple_phi opnd_def_phi = dyn_cast <gimple_phi> (opnd_def))
             {
               edge opnd_edge;
               unsigned uninit_opnds2
-                  = compute_uninit_opnds_pos (opnd_def);
+                  = compute_uninit_opnds_pos (opnd_def_phi);
               gcc_assert (!MASK_EMPTY (uninit_opnds2));
               opnd_edge = gimple_phi_arg_edge (phi, i);
               if (!is_use_properly_guarded (phi,
                                             opnd_edge->src,
-                                            opnd_def,
+                                            opnd_def_phi,
                                             uninit_opnds2,
                                             visited_phis))
                   return false;
@@ -1150,8 +1150,8 @@ prune_uninit_phi_opnds_in_unrealizable_paths (gimple phi,
 
 static bool
 use_pred_not_overlap_with_undef_path_pred (pred_chain_union preds,
-				           gimple phi, unsigned uninit_opnds,
-					   hash_set<gimple> *visited_phis)
+				           gimple_phi phi, unsigned uninit_opnds,
+					   hash_set<gimple_phi> *visited_phis)
 {
   unsigned int i, n;
   gimple flag_def = 0;
@@ -1224,7 +1224,7 @@ use_pred_not_overlap_with_undef_path_pred (pred_chain_union preds,
 
   all_pruned = prune_uninit_phi_opnds_in_unrealizable_paths (phi,
                                                              uninit_opnds,
-                                                             flag_def,
+                                                             as_a <gimple_phi> (flag_def),
                                                              boundary_cst,
                                                              cmp_code,
                                                              visited_phis,
@@ -2105,9 +2105,9 @@ normalize_preds (pred_chain_union preds, gimple use_or_def, bool is_use)
 static bool
 is_use_properly_guarded (gimple use_stmt,
                          basic_block use_bb,
-                         gimple phi,
+                         gimple_phi phi,
                          unsigned uninit_opnds,
-                         hash_set<gimple> *visited_phis)
+                         hash_set<gimple_phi> *visited_phis)
 {
   basic_block phi_bb;
   pred_chain_union preds = vNULL;
@@ -2193,13 +2193,13 @@ find_uninit_use (gimple_phi phi, unsigned uninit_opnds,
       if (is_gimple_debug (use_stmt))
 	continue;
 
-      if (gimple_code (use_stmt) == GIMPLE_PHI)
-	use_bb = gimple_phi_arg_edge (use_stmt,
+      if (gimple_phi use_phi = dyn_cast <gimple_phi> (use_stmt))
+	use_bb = gimple_phi_arg_edge (use_phi,
 				      PHI_ARG_INDEX_FROM_USE (use_p))->src;
       else
 	use_bb = gimple_bb (use_stmt);
 
-      hash_set<gimple> visited_phis;
+      hash_set<gimple_phi> visited_phis;
       if (is_use_properly_guarded (use_stmt, use_bb, phi, uninit_opnds,
                                    &visited_phis))
 	continue;

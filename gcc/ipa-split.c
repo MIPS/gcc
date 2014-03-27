@@ -409,7 +409,7 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
   unsigned int call_overhead;
   edge e;
   edge_iterator ei;
-  gimple_stmt_iterator bsi;
+  gimple_phi_iterator bsi;
   unsigned int i;
   int incoming_freq = 0;
   tree retval;
@@ -466,7 +466,7 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
      incoming from header are the same.  */
   for (bsi = gsi_start_phis (current->entry_bb); !gsi_end_p (bsi); gsi_next (&bsi))
     {
-      gimple stmt = gsi_stmt (bsi);
+      gimple_phi stmt = bsi.phi ();
       tree val = NULL;
 
       if (virtual_operand_p (gimple_phi_result (stmt)))
