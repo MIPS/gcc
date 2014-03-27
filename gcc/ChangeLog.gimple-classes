@@ -1,5 +1,15 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Make gimple_goto_set_dest require a gimple_goto
+
+	* gimple.h (gimple_goto_set_dest): Require a gimple_goto.
+
+	* tree-cfg.c (factor_computed_gotos): Add checked cast to
+	gimple_goto.
+	(cleanup_dead_labels): Likewise.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Make gimple_label_set_label require a gimple_label
 
 	* gimple.h (gimple_label_set_label): Require a gimple_label.

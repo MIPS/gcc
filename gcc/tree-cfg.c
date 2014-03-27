@@ -1466,10 +1466,11 @@ cleanup_dead_labels (void)
 	case GIMPLE_GOTO:
 	  if (!computed_goto_p (stmt))
 	    {
-	      label = gimple_goto_dest (stmt);
+	      gimple_goto goto_stmt = as_a <gimple_goto> (stmt);
+	      label = gimple_goto_dest (goto_stmt);
 	      new_label = main_block_label (label);
 	      if (new_label != label)
-		gimple_goto_set_dest (stmt, new_label);
+		gimple_goto_set_dest (goto_stmt, new_label);
 	    }
 	  break;
 

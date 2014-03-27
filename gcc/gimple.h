@@ -3237,9 +3237,8 @@ gimple_goto_dest (const_gimple gs)
 /* Set DEST to be the destination of the unconditonal jump GS.  */
 
 static inline void
-gimple_goto_set_dest (gimple gs, tree dest)
+gimple_goto_set_dest (gimple_goto gs, tree dest)
 {
-  GIMPLE_CHECK (gs, GIMPLE_GOTO);
   gimple_set_op (gs, 0, dest);
 }
 
