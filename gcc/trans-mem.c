@@ -2350,7 +2350,7 @@ static bool
 expand_call_tm (struct tm_region *region,
 		gimple_stmt_iterator *gsi)
 {
-  gimple stmt = gsi_stmt (*gsi);
+  gimple_call stmt = as_a <gimple_call> (gsi_stmt (*gsi));
   tree lhs = gimple_call_lhs (stmt);
   tree fn_decl;
   struct cgraph_node *node;
@@ -2437,6 +2437,7 @@ expand_call_tm (struct tm_region *region,
       tree tmp = create_tmp_reg (TREE_TYPE (lhs), NULL);
       location_t loc = gimple_location (stmt);
       edge fallthru_edge = NULL;
+      gimple_assign assign_stmt;
 
       /* Remember if the call was going to throw.  */
       if (stmt_can_throw_internal (stmt))
@@ -2455,15 +2456,15 @@ expand_call_tm (struct tm_region *region,
 
       gimple_call_set_lhs (stmt, tmp);
       update_stmt (stmt);
-      stmt = gimple_build_assign (lhs, tmp);
-      gimple_set_location (stmt, loc);
+      assign_stmt = gimple_build_assign (lhs, tmp);
+      gimple_set_location (assign_stmt, loc);
 
       /* We cannot throw in the middle of a BB.  If the call was going
 	 to throw, place the instrumentation on the fallthru edge, so
 	 the call remains the last statement in the block.  */
       if (fallthru_edge)
 	{
-	  gimple_seq fallthru_seq = gimple_seq_alloc_with_stmt (stmt);
+	  gimple_seq fallthru_seq = gimple_seq_alloc_with_stmt (assign_stmt);
 	  gimple_stmt_iterator fallthru_gsi = gsi_start (fallthru_seq);
 	  expand_assign_tm (region, &fallthru_gsi);
 	  gsi_insert_seq_on_edge (fallthru_edge, fallthru_seq);
@@ -2471,7 +2472,7 @@ expand_call_tm (struct tm_region *region,
 	}
       else
 	{
-	  gsi_insert_after (gsi, stmt, GSI_CONTINUE_LINKING);
+	  gsi_insert_after (gsi, assign_stmt, GSI_CONTINUE_LINKING);
 	  expand_assign_tm (region, gsi);
 	}
 

@@ -2847,9 +2847,8 @@ gimple_call_set_return_slot_opt (gimple_call s, bool return_slot_opt_p)
 /* Return true if S is marked for return slot optimization.  */
 
 static inline bool
-gimple_call_return_slot_opt_p (gimple s)
+gimple_call_return_slot_opt_p (gimple_call s)
 {
-  GIMPLE_CHECK (s, GIMPLE_CALL);
   return (s->subcode & GF_CALL_RETURN_SLOT_OPT) != 0;
 }
 

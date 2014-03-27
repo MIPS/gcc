@@ -1,5 +1,24 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Make gimple_call_return_slot_opt_p require a gimple_call.
+
+	* gimple.h (gimple_call_return_slot_opt_p): Require a gimple_call
+	rather than a plain gimple.
+
+	* gimple-walk.c (walk_stmt_load_store_addr_ops): Convert usage of
+	is_gimple_call to dyn_cast<gimple_call>, introducing a new local
+	"call_stmt".
+
+	* trans-mem.c (expand_call_tm): Split local "stmt", strengthening
+	from plain gimple to a gimple_call, and introducing new local
+	gimple_assign "assign_stmt".
+
+	* tree-inline.c (expand_call_inline):  Convert check of code against
+	GIMPLE_CALL to dyn_cast<gimple_call>, introducing a new local
+	"call_stmt".
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	More gimple_phi
 
 	* gimple.h (gimple_phi_set_result): Require a gimple_phi rather

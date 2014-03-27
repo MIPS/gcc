@@ -4172,6 +4172,7 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
   gimple_stmt_iterator gsi, stmt_gsi;
   bool successfully_inlined = FALSE;
   bool purge_dead_abnormal_edges;
+  gimple_call call_stmt;
 
   /* Set input_location here so we get the right instantiation context
      if we call instantiate_decl from inlinable_function_p.  */
@@ -4180,7 +4181,8 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
   input_location = gimple_location (stmt);
 
   /* From here on, we're only interested in CALL_EXPRs.  */
-  if (gimple_code (stmt) != GIMPLE_CALL)
+  call_stmt = dyn_cast <gimple_call> (stmt);
+  if (!call_stmt)
     goto egress;
 
   cg_edge = id->dst_node->get_edge (stmt);
@@ -4390,7 +4392,7 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
       if (DECL_P (modify_dest))
 	TREE_NO_WARNING (modify_dest) = 1;
 
-      if (gimple_call_return_slot_opt_p (stmt))
+      if (gimple_call_return_slot_opt_p (call_stmt))
 	{
 	  return_slot = modify_dest;
 	  modify_dest = NULL;
