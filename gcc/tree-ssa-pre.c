@@ -4298,9 +4298,9 @@ eliminate_dom_walker::before_dom_children (basic_block b)
 
       /* Visit indirect calls and turn them into direct calls if
 	 possible using the devirtualization machinery.  */
-      if (is_gimple_call (stmt))
+      if (gimple_call call_stmt = dyn_cast <gimple_call> (stmt))
 	{
-	  tree fn = gimple_call_fn (stmt);
+	  tree fn = gimple_call_fn (call_stmt);
 	  if (fn
 	      && flag_devirtualize
 	      && virtual_method_call_p (fn))
@@ -4339,7 +4339,7 @@ eliminate_dom_walker::before_dom_children (basic_block b)
 				       "function %s\n",
 				       cgraph_node::get (fn)->name ());
 		    }
-		  gimple_call_set_fndecl (stmt, fn);
+		  gimple_call_set_fndecl (call_stmt, fn);
 		  gimple_set_modified (stmt, true);
 		}
 	    }

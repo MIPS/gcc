@@ -1,5 +1,30 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Various gimple to gimple_call conversions in IPA
+
+	* ipa-prop.c (detect_type_change_from_memory_writes): Require a
+	gimple_call rather than a plain gimple.
+	(detect_type_change): Likewise.
+	(detect_type_change_ssa): Likewise.
+	(compute_complex_assign_jump_func): Likewise.
+	(compute_complex_ancestor_jump_func): Likewise.
+	(compute_known_type_jump_func): Likewise.
+	(determine_locally_known_aggregate_parts): Likewise.
+	(ipa_compute_jump_functions_for_edge): Strengthen local "call" to
+	a gimple_call; add checked cast to gimple_phi.
+	(ipa_note_param_call): Require a gimple_call rather than a plain
+	gimple.
+	(ipa_analyze_indirect_call_uses): Likewise.
+	(ipa_analyze_virtual_call_uses): Likewise.
+	(ipa_analyze_call_uses): Likewise.
+	(ipa_analyze_stmt_uses):Add checked cast to gimple_call.
+
+	* tree-ssa-pre.c (eliminate_dom_walker::before_dom_children):
+	Replace use of is_gimple_call with dyn_cast<gimple_call> and a
+	new local "call_stmt".
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Use gimple_call for callgraph edges
 
 	* cgraph.h (cgraph_edge::call_stmt): Strengthen field from plain
