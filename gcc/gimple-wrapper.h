@@ -52,6 +52,8 @@ class _ptr
   protected:
     class tree_desc *Tree;
     inline void check_contents () const;
+    static inline _ptr create ();
+    inline _ptr copy () const;
     T* ptr() const { return static_cast<T *>(Tree); }
     void set_ptr(const void *p) 
 		{ Tree = reinterpret_cast<tree_desc *>(const_cast<void *>(p)); }
@@ -109,6 +111,10 @@ class _ptr
     friend bool operator== (const _ptr<TT>&, long);
     template <typename TT>
     friend bool operator!= (const _ptr<TT>&, long);
+
+    template <typename TT> friend TT copy (TT ptr);
+    template <typename TT> friend TT create ();
+
     template<typename, typename> friend class _dptr;
 };
 
@@ -119,6 +125,8 @@ class _dptr : public dT
   protected:
     static inline bool Test (const dT &);
     inline void check_contents () const;
+    static inline _dptr create ();
+    inline _dptr copy () const;
     static inline bool is_a(const dT &d) { return Test (d); }
     static inline  pT * as_a(dT &d)
 			    { return static_cast<pT *>(d.operator->()); }
@@ -170,6 +178,8 @@ class _dptr : public dT
     template <typename T, typename D> bool friend ::is_a(D);
     template <typename T, typename D> T friend ::as_a(D);
     template <typename T, typename D> T friend ::dyn_cast(D);
+    template <typename TT> friend TT copy (TT ptr);
+    template <typename TT> friend TT create ();
 };
 
 template<typename T>
@@ -282,6 +292,38 @@ operator!= (const _ptr<T>& t1, long t2)
 //
 //////////////////////////////////////////////////////////////////
 
+extern void * gimple_copy_node (const void *t);
+extern void * gimple_make_node (enum tree_code t);
+
+template<typename T>
+inline _ptr<T> 
+_ptr<T>::copy() const
+{
+  return _ptr<T> (reinterpret_cast<tree> (gimple_copy_node (this)));
+}
+
+template<typename T, typename D>
+inline _dptr<T, D> 
+_dptr<T, D>::copy() const
+{
+  return _dptr<T, D> (reinterpret_cast<tree> (gimple_copy_node (this)));
+}
+
+template<typename T>
+inline T
+copy(T ptr)
+{
+  return ptr.copy();
+}
+
+template<typename T>
+inline T
+create ()
+{
+  return T::create ();
+}
+
+
 
 typedef _ptr<value_desc>		value;
 typedef _addr<value>			value_ptr;
@@ -296,6 +338,13 @@ _ptr<value_desc>::check_contents() const
 }
 
 template<>
+inline _ptr<value_desc> 
+_ptr<value_desc>::create()
+{
+  gcc_unreachable ();
+}
+
+template<>
 inline void 
 _ptr<type_desc>::check_contents() const
 {
@@ -303,6 +352,13 @@ _ptr<type_desc>::check_contents() const
   if (Tree)
     Tree->check_node (tcc_type);
 #endif
+}
+
+template<>
+inline _ptr<type_desc> 
+_ptr<type_desc>::create()
+{
+  gcc_unreachable ();
 }
 
 template<>
@@ -315,6 +371,12 @@ _ptr<block_desc>::check_contents() const
 #endif
 }
 
+template<>
+inline _ptr<block_desc> 
+_ptr<block_desc>::create()
+{
+  return _ptr<block_desc> (reinterpret_cast<tree> (gimple_make_node (BLOCK)));
+}
 
 #if GIMPLE_CHECKING_ON
 #define CHKNODE(...) if (Tree) Tree->check_node (__VA_ARGS__)
@@ -329,7 +391,27 @@ _dptr<LAB ## _desc, DT>::check_contents() const		\
 { CHKNODE (CC) ; }					\
 template<> inline bool					\
 _dptr<LAB ## _desc, DT>::Test(const DT &d)		\
-{ return d.Tree->test_node (CC); }
+{ return d.Tree->test_node (CC); }			\
+template<> inline _dptr<LAB ## _desc, DT>		\
+_dptr<LAB ## _desc, DT>::create ()			\
+{ gcc_unreachable (); }
+
+
+
+#define TERMINAL_PTR(LAB, CC, DT)			\
+typedef _dptr<LAB ## _desc, DT>	LAB;			\
+template<> inline void 					\
+_dptr<LAB ## _desc, DT>::check_contents() const		\
+{ CHKNODE (CC) ; }					\
+template<> inline bool					\
+_dptr<LAB ## _desc, DT>::Test(const DT &d)		\
+{ return d.Tree->test_node (CC); }			\
+template<> inline _dptr<LAB ## _desc, DT>		\
+_dptr<LAB ## _desc, DT>::create ()			\
+{ return _dptr<LAB ## _desc, DT> 			\
+   (reinterpret_cast<tree> (gimple_make_node (CC))); }
+
+
 
 
 DERIVED_PTR (decl, tcc_declaration, value)
@@ -339,39 +421,39 @@ DERIVED_PTR (comparison, tcc_comparison, value)
 DERIVED_PTR (unary, tcc_unary, value)
 DERIVED_PTR (binary, tcc_binary, value)
 
-DERIVED_PTR (identifier, IDENTIFIER_NODE, value) 
-DERIVED_PTR (integer_cst, INTEGER_CST, value)
-DERIVED_PTR (var_decl, VAR_DECL, value)
-DERIVED_PTR (parm_decl, PARM_DECL, value)
-DERIVED_PTR (result_decl, RESULT_DECL, value)
-DERIVED_PTR (label_decl, LABEL_DECL, value)
-DERIVED_PTR (function_decl, FUNCTION_DECL, value)
-DERIVED_PTR (ssa_name, SSA_NAME, value)
-DERIVED_PTR (mem_ref, MEM_REF, value)
-DERIVED_PTR (addr_expr, ADDR_EXPR, value)
-DERIVED_PTR (value_list, TREE_LIST, value)
-DERIVED_PTR (type_list, TREE_LIST, value)
-DERIVED_PTR (identifier_list, TREE_LIST, value)
-DERIVED_PTR (case_label_expr, CASE_LABEL_EXPR, value)
-DERIVED_PTR (truth_not_expr, TRUTH_NOT_EXPR, value)
-DERIVED_PTR (with_size_expr, WITH_SIZE_EXPR, value)
-DERIVED_PTR (call_expr, CALL_EXPR, value)
-DERIVED_PTR (nop_expr, NOP_EXPR, value)
-DERIVED_PTR (bit_field_ref, BIT_FIELD_REF, value)
-DERIVED_PTR (target_mem_ref, TARGET_MEM_REF, value)
-DERIVED_PTR (array_ref, ARRAY_REF, value)
-DERIVED_PTR (array_range_ref, ARRAY_RANGE_REF, value)
-DERIVED_PTR (obj_type_ref, OBJ_TYPE_REF, value)
+TERMINAL_PTR (identifier, IDENTIFIER_NODE, value) 
+TERMINAL_PTR (integer_cst, INTEGER_CST, value)
+TERMINAL_PTR (var_decl, VAR_DECL, value)
+TERMINAL_PTR (parm_decl, PARM_DECL, value)
+TERMINAL_PTR (result_decl, RESULT_DECL, value)
+TERMINAL_PTR (label_decl, LABEL_DECL, value)
+TERMINAL_PTR (function_decl, FUNCTION_DECL, value)
+TERMINAL_PTR (ssa_name, SSA_NAME, value)
+TERMINAL_PTR (mem_ref, MEM_REF, value)
+TERMINAL_PTR (addr_expr, ADDR_EXPR, value)
+TERMINAL_PTR (value_list, TREE_LIST, value)
+TERMINAL_PTR (type_list, TREE_LIST, value)
+TERMINAL_PTR (identifier_list, TREE_LIST, value)
+TERMINAL_PTR (case_label_expr, CASE_LABEL_EXPR, value)
+TERMINAL_PTR (truth_not_expr, TRUTH_NOT_EXPR, value)
+TERMINAL_PTR (with_size_expr, WITH_SIZE_EXPR, value)
+TERMINAL_PTR (call_expr, CALL_EXPR, value)
+TERMINAL_PTR (nop_expr, NOP_EXPR, value)
+TERMINAL_PTR (bit_field_ref, BIT_FIELD_REF, value)
+TERMINAL_PTR (target_mem_ref, TARGET_MEM_REF, value)
+TERMINAL_PTR (array_ref, ARRAY_REF, value)
+TERMINAL_PTR (array_range_ref, ARRAY_RANGE_REF, value)
+TERMINAL_PTR (obj_type_ref, OBJ_TYPE_REF, value)
 
-DERIVED_PTR (boolean_type, BOOLEAN_TYPE, type)
-DERIVED_PTR (integer_type, INTEGER_TYPE, type)
-DERIVED_PTR (real_type, REAL_TYPE, type)
-DERIVED_PTR (fixed_point_type, FIXED_POINT_TYPE, type)
-DERIVED_PTR (function_type, FUNCTION_TYPE, type)
-DERIVED_PTR (method_type, METHOD_TYPE, type)
-DERIVED_PTR (array_type, ARRAY_TYPE, type)
-DERIVED_PTR (complex_type, COMPLEX_TYPE, type)
-DERIVED_PTR (vector_type, VECTOR_TYPE, type)
+TERMINAL_PTR (boolean_type, BOOLEAN_TYPE, type)
+TERMINAL_PTR (integer_type, INTEGER_TYPE, type)
+TERMINAL_PTR (real_type, REAL_TYPE, type)
+TERMINAL_PTR (fixed_point_type, FIXED_POINT_TYPE, type)
+TERMINAL_PTR (function_type, FUNCTION_TYPE, type)
+TERMINAL_PTR (method_type, METHOD_TYPE, type)
+TERMINAL_PTR (array_type, ARRAY_TYPE, type)
+TERMINAL_PTR (complex_type, COMPLEX_TYPE, type)
+TERMINAL_PTR (vector_type, VECTOR_TYPE, type)
 
 DERIVED_PTR (decl_with_rtl, TS_DECL_WRTL, value)
 DERIVED_PTR (decl_with_viz, TS_DECL_WITH_VIS, value)

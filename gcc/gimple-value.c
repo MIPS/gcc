@@ -41,14 +41,30 @@ expr_location (Gimple::value v)
     return UNKNOWN_LOCATION;
 }
 
-
 void
 strip_nops (Gimple::value_ptr gv)
 { 
   *gv = tree_strip_nop_conversions (CONST_CAST_TREE ((tree)(*gv)));
 }
 
+extern tree copy_node_stat (tree MEM_STAT_DECL);
+extern tree make_node_stat (enum tree_code MEM_STAT_DECL);
+
 namespace Gimple {
+
+void *
+gimple_copy_node (const void *t)
+{
+  return (void *) copy_node_stat
+		  (reinterpret_cast<tree>(const_cast<void *>(t)) MEM_STAT_INFO);
+}
+
+void *
+gimple_make_node (enum tree_code t)
+{
+  return (void *) make_node_stat (t MEM_STAT_INFO);
+}
+
 
 Gimple::identifier
 decl_with_viz_desc::assembler_name()
@@ -58,5 +74,6 @@ decl_with_viz_desc::assembler_name()
   return node.decl_with_vis.assembler_name;
 }
 
-
 }  // namespace Gimple
+
+
