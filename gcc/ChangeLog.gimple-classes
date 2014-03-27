@@ -1,5 +1,11 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Tweak to gimplify_modify_expr
+
+	* gimplify.c (gimplify_modify_expr): Introduce local "call_stmt".
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Concretize gimple_call_nothrow_p
 
 	* gimple.h (gimple_call_nothrow_p): Require a gimple_call.

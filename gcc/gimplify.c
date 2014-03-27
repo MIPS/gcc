@@ -4624,22 +4624,24 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
       CALL_EXPR_FN (*from_p) = TREE_OPERAND (CALL_EXPR_FN (*from_p), 0);
       STRIP_USELESS_TYPE_CONVERSION (CALL_EXPR_FN (*from_p));
       tree fndecl = get_callee_fndecl (*from_p);
+      gimple_call call_stmt;
       if (fndecl
 	  && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
 	  && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_EXPECT
 	  && call_expr_nargs (*from_p) == 3)
-	assign = gimple_build_call_internal (IFN_BUILTIN_EXPECT, 3,
-					     CALL_EXPR_ARG (*from_p, 0),
-					     CALL_EXPR_ARG (*from_p, 1),
-					     CALL_EXPR_ARG (*from_p, 2));
+	call_stmt = gimple_build_call_internal (IFN_BUILTIN_EXPECT, 3,
+						CALL_EXPR_ARG (*from_p, 0),
+						CALL_EXPR_ARG (*from_p, 1),
+						CALL_EXPR_ARG (*from_p, 2));
       else
 	{
-	  assign = gimple_build_call_from_tree (*from_p);
-	  gimple_call_set_fntype (assign, TREE_TYPE (fnptrtype));
+	  call_stmt = gimple_build_call_from_tree (*from_p);
+	  gimple_call_set_fntype (call_stmt, TREE_TYPE (fnptrtype));
 	}
-      notice_special_calls (as_a <gimple_call> (assign));
-      if (!gimple_call_noreturn_p (assign))
-	gimple_call_set_lhs (assign, *to_p);
+      notice_special_calls (call_stmt);
+      if (!gimple_call_noreturn_p (call_stmt))
+	gimple_call_set_lhs (call_stmt, *to_p);
+      assign = call_stmt;
     }
   else
     {
