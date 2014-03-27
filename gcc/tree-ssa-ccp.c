@@ -829,11 +829,11 @@ ccp_initialize (void)
      except for phi nodes for virtual operands when we do not do store ccp.  */
   FOR_EACH_BB_FN (bb, cfun)
     {
-      gimple_stmt_iterator i;
+      gimple_phi_iterator i;
 
       for (i = gsi_start_phis (bb); !gsi_end_p (i); gsi_next (&i))
         {
-          gimple phi = gsi_stmt (i);
+          gimple_phi phi = i.phi ();
 
 	  if (virtual_operand_p (gimple_phi_result (phi)))
             prop_set_simulate_again (phi, false);

@@ -1434,8 +1434,6 @@ public:
 void
 rewrite_dom_walker::before_dom_children (basic_block bb)
 {
-  gimple_stmt_iterator gsi;
-
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\n\nRenaming block #%d\n\n", bb->index);
 
@@ -1445,7 +1443,8 @@ rewrite_dom_walker::before_dom_children (basic_block bb)
   /* Step 1.  Register new definitions for every PHI node in the block.
      Conceptually, all the PHI nodes are executed in parallel and each PHI
      node introduces a new version for the associated variable.  */
-  for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+  for (gimple_phi_iterator gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
+       gsi_next (&gsi))
     {
       tree result = gimple_phi_result (gsi_stmt (gsi));
       register_new_def (result, SSA_NAME_VAR (result));
@@ -1455,7 +1454,8 @@ rewrite_dom_walker::before_dom_children (basic_block bb)
      with its immediate reaching definitions.  Update the current definition
      of a variable when a new real or virtual definition is found.  */
   if (bitmap_bit_p (interesting_blocks, bb->index))
-    for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+    for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);
+	 gsi_next (&gsi))
       rewrite_stmt (&gsi);
 
   /* Step 3.  Visit all the successor blocks of BB looking for PHI nodes.
@@ -2084,7 +2084,6 @@ void
 rewrite_update_dom_walker::before_dom_children (basic_block bb)
 {
   bool is_abnormal_phi;
-  gimple_stmt_iterator gsi;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Registering new PHI nodes in block #%d\n",
@@ -2105,10 +2104,11 @@ rewrite_update_dom_walker::before_dom_children (basic_block bb)
      register it as a new definition for its corresponding name.  Also
      register definitions for names whose underlying symbols are
      marked for renaming.  */
-  for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+  for (gimple_phi_iterator gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
+       gsi_next (&gsi))
     {
       tree lhs, lhs_sym;
-      gimple phi = gsi_stmt (gsi);
+      gimple_phi phi = gsi.phi ();
 
       if (!register_defs_p (phi))
 	continue;
@@ -2140,7 +2140,8 @@ rewrite_update_dom_walker::before_dom_children (basic_block bb)
   if (bitmap_bit_p (interesting_blocks, bb->index))
     {
       gcc_checking_assert (bitmap_bit_p (blocks_to_update, bb->index));
-      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+      for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);
+	   gsi_next (&gsi))
         rewrite_update_stmt (gsi_stmt (gsi), gsi);
     }
 
@@ -2495,7 +2496,6 @@ static void
 prepare_block_for_update (basic_block bb, bool insert_phi_p)
 {
   basic_block son;
-  gimple_stmt_iterator si;
   edge e;
   edge_iterator ei;
 
@@ -2503,9 +2503,10 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
 
   /* Process PHI nodes marking interesting those that define or use
      the symbols that we are interested in.  */
-  for (si = gsi_start_phis (bb); !gsi_end_p (si); gsi_next (&si))
+  for (gimple_phi_iterator si = gsi_start_phis (bb); !gsi_end_p (si);
+       gsi_next (&si))
     {
-      gimple phi = gsi_stmt (si);
+      gimple_phi phi = si.phi ();
       tree lhs_sym, lhs = gimple_phi_result (phi);
 
       if (TREE_CODE (lhs) == SSA_NAME
@@ -2529,7 +2530,8 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
     }
 
   /* Process the statements.  */
-  for (si = gsi_start_bb (bb); !gsi_end_p (si); gsi_next (&si))
+  for (gimple_stmt_iterator si = gsi_start_bb (bb); !gsi_end_p (si);
+       gsi_next (&si))
     {
       gimple stmt;
       ssa_op_iter i;
@@ -2908,7 +2910,7 @@ mark_virtual_operand_for_renaming (tree name)
    removed.  */
 
 void
-mark_virtual_phi_result_for_renaming (gimple phi)
+mark_virtual_phi_result_for_renaming (gimple_phi phi)
 {
   if (dump_file && (dump_flags & TDF_DETAILS))
     {

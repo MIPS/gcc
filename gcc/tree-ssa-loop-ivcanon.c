@@ -1069,12 +1069,10 @@ propagate_into_all_uses (tree ssa_name, tree val)
 static void
 propagate_constants_for_unrolling (basic_block bb)
 {
-  gimple_stmt_iterator gsi;
-
   /* Look for degenerate PHI nodes with constant argument.  */
-  for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); )
+  for (gimple_phi_iterator gsi = gsi_start_phis (bb); !gsi_end_p (gsi); )
     {
-      gimple phi = gsi_stmt (gsi);
+      gimple_phi phi = gsi.phi ();
       tree result = gimple_phi_result (phi);
       tree arg = gimple_phi_arg_def (phi, 0);
 
@@ -1089,7 +1087,7 @@ propagate_constants_for_unrolling (basic_block bb)
     }
 
   /* Look for assignments to SSA names with constant RHS.  */
-  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); )
+  for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi); )
     {
       gimple stmt = gsi_stmt (gsi);
       tree lhs;

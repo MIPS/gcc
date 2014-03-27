@@ -1255,7 +1255,7 @@ limit_scops (vec<scop_p> *scops)
    argument.  */
 
 static inline bool
-same_close_phi_node (gimple p1, gimple p2)
+same_close_phi_node (gimple_phi p1, gimple_phi p2)
 {
   return operand_equal_p (gimple_phi_arg_def (p1, 0),
 			  gimple_phi_arg_def (p2, 0), 0);
@@ -1265,15 +1265,15 @@ same_close_phi_node (gimple p1, gimple p2)
    of PHI.  */
 
 static void
-remove_duplicate_close_phi (gimple phi, gimple_stmt_iterator *gsi)
+remove_duplicate_close_phi (gimple_phi phi, gimple_phi_iterator *gsi)
 {
   gimple use_stmt;
   use_operand_p use_p;
   imm_use_iterator imm_iter;
   tree res = gimple_phi_result (phi);
-  tree def = gimple_phi_result (gsi_stmt (*gsi));
+  tree def = gimple_phi_result (gsi->phi ());
 
-  gcc_assert (same_close_phi_node (phi, gsi_stmt (*gsi)));
+  gcc_assert (same_close_phi_node (phi, gsi->phi ()));
 
   FOR_EACH_IMM_USE_STMT (use_stmt, imm_iter, def)
     {
@@ -1298,12 +1298,12 @@ remove_duplicate_close_phi (gimple phi, gimple_stmt_iterator *gsi)
 static void
 make_close_phi_nodes_unique (basic_block bb)
 {
-  gimple_stmt_iterator psi;
+  gimple_phi_iterator psi;
 
   for (psi = gsi_start_phis (bb); !gsi_end_p (psi); gsi_next (&psi))
     {
-      gimple_stmt_iterator gsi = psi;
-      gimple phi = gsi_stmt (psi);
+      gimple_phi_iterator gsi = psi;
+      gimple_phi phi = psi.phi ();
 
       /* At this point, PHI should be a close phi in normal form.  */
       gcc_assert (gimple_phi_num_args (phi) == 1);
@@ -1311,7 +1311,7 @@ make_close_phi_nodes_unique (basic_block bb)
       /* Iterate over the next phis and remove duplicates.  */
       gsi_next (&gsi);
       while (!gsi_end_p (gsi))
-	if (same_close_phi_node (phi, gsi_stmt (gsi)))
+	if (same_close_phi_node (phi, gsi.phi ()))
 	  remove_duplicate_close_phi (phi, &gsi);
 	else
 	  gsi_next (&gsi);

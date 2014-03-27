@@ -478,7 +478,7 @@ remove_phi_nodes (basic_block bb)
    NULL.  */
 
 tree
-degenerate_phi_result (gimple phi)
+degenerate_phi_result (gimple_phi phi)
 {
   tree lhs = gimple_phi_result (phi);
   tree val = NULL;

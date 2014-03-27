@@ -5930,7 +5930,6 @@ find_switch_asserts (basic_block bb, gimple_switch last)
 static bool
 find_assert_locations_1 (basic_block bb, sbitmap live)
 {
-  gimple_stmt_iterator si;
   gimple last;
   bool need_assert;
 
@@ -5954,7 +5953,8 @@ find_assert_locations_1 (basic_block bb, sbitmap live)
 
   /* Traverse all the statements in BB marking used names and looking
      for statements that may infer assertions for their used operands.  */
-  for (si = gsi_last_bb (bb); !gsi_end_p (si); gsi_prev (&si))
+  for (gimple_stmt_iterator si = gsi_last_bb (bb); !gsi_end_p (si);
+       gsi_prev (&si))
     {
       gimple stmt;
       tree op;
@@ -6027,11 +6027,12 @@ find_assert_locations_1 (basic_block bb, sbitmap live)
     }
 
   /* Traverse all PHI nodes in BB, updating live.  */
-  for (si = gsi_start_phis (bb); !gsi_end_p (si); gsi_next (&si))
+  for (gimple_phi_iterator si = gsi_start_phis (bb); !gsi_end_p (si);
+       gsi_next (&si))
     {
       use_operand_p arg_p;
       ssa_op_iter i;
-      gimple phi = gsi_stmt (si);
+      gimple_phi phi = si.phi ();
       tree res = gimple_phi_result (phi);
 
       if (virtual_operand_p (res))
@@ -6833,11 +6834,10 @@ vrp_initialize (void)
 
   FOR_EACH_BB_FN (bb, cfun)
     {
-      gimple_stmt_iterator si;
-
-      for (si = gsi_start_phis (bb); !gsi_end_p (si); gsi_next (&si))
+      for (gimple_phi_iterator si = gsi_start_phis (bb); !gsi_end_p (si);
+	   gsi_next (&si))
 	{
-	  gimple phi = gsi_stmt (si);
+	  gimple_phi phi = si.phi ();
 	  if (!stmt_interesting_for_vrp (phi))
 	    {
 	      tree lhs = PHI_RESULT (phi);
@@ -6848,7 +6848,8 @@ vrp_initialize (void)
 	    prop_set_simulate_again (phi, true);
 	}
 
-      for (si = gsi_start_bb (bb); !gsi_end_p (si); gsi_next (&si))
+      for (gimple_stmt_iterator si = gsi_start_bb (bb); !gsi_end_p (si);
+	   gsi_next (&si))
         {
 	  gimple stmt = gsi_stmt (si);
 

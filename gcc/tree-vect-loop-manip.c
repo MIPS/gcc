@@ -85,7 +85,6 @@ rename_use_op (use_operand_p op_p)
 static void
 rename_variables_in_bb (basic_block bb)
 {
-  gimple_stmt_iterator gsi;
   gimple stmt;
   use_operand_p use_p;
   ssa_op_iter iter;
@@ -93,7 +92,8 @@ rename_variables_in_bb (basic_block bb)
   edge_iterator ei;
   struct loop *loop = bb->loop_father;
 
-  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+  for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);
+       gsi_next (&gsi))
     {
       stmt = gsi_stmt (gsi);
       FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_ALL_USES)
@@ -104,8 +104,9 @@ rename_variables_in_bb (basic_block bb)
     {
       if (!flow_bb_inside_loop_p (loop, e->src))
 	continue;
-      for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-        rename_use_op (PHI_ARG_DEF_PTR_FROM_EDGE (gsi_stmt (gsi), e));
+      for (gimple_phi_iterator gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
+	   gsi_next (&gsi))
+        rename_use_op (PHI_ARG_DEF_PTR_FROM_EDGE (gsi.phi (), e));
     }
 }
 

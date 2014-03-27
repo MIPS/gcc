@@ -358,7 +358,7 @@ insert_debug_temp_for_var_def (gimple_stmt_iterator *gsi, tree var)
      we'll have to drop debug information.  */
   if (gimple_code (def_stmt) == GIMPLE_PHI)
     {
-      value = degenerate_phi_result (def_stmt);
+      value = degenerate_phi_result (as_a <gimple_phi> (def_stmt));
       if (value && walk_tree (&value, find_released_ssa_name, NULL, NULL))
 	value = NULL;
       /* error_mark_node is what fixup_noreturn_call changes PHI arguments
@@ -830,7 +830,7 @@ verify_use (basic_block bb, basic_block def_bb, use_operand_p use_p,
       definition of SSA_NAME.  */
 
 static bool
-verify_phi_args (gimple phi, basic_block bb, basic_block *definition_block)
+verify_phi_args (gimple_phi phi, basic_block bb, basic_block *definition_block)
 {
   edge e;
   bool err = false;
@@ -961,9 +961,7 @@ verify_ssa (bool check_modified_stmt, bool check_ssa_operands)
   FOR_EACH_BB_FN (bb, cfun)
     {
       edge e;
-      gimple phi;
       edge_iterator ei;
-      gimple_stmt_iterator gsi;
 
       /* Make sure that all edges have a clear 'aux' field.  */
       FOR_EACH_EDGE (e, ei, bb->preds)
@@ -977,9 +975,9 @@ verify_ssa (bool check_modified_stmt, bool check_ssa_operands)
 	}
 
       /* Verify the arguments for every PHI node in the block.  */
-      for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+      for (gimple_phi_iterator gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
-	  phi = gsi_stmt (gsi);
+	  gimple_phi phi = gsi.phi ();
 	  if (verify_phi_args (phi, bb, definition_block))
 	    goto err;
 
@@ -988,7 +986,8 @@ verify_ssa (bool check_modified_stmt, bool check_ssa_operands)
 	}
 
       /* Now verify all the uses and vuses in every statement of the block.  */
-      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+      for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);
+	   gsi_next (&gsi))
 	{
 	  gimple stmt = gsi_stmt (gsi);
 	  use_operand_p use_p;
@@ -1397,7 +1396,6 @@ maybe_optimize_var (tree var, bitmap addresses_taken, bitmap not_reg_needs,
 void
 execute_update_addresses_taken (void)
 {
-  gimple_stmt_iterator gsi;
   basic_block bb;
   bitmap addresses_taken = BITMAP_ALLOC (NULL);
   bitmap not_reg_needs = BITMAP_ALLOC (NULL);
@@ -1411,7 +1409,8 @@ execute_update_addresses_taken (void)
      the function body.  */
   FOR_EACH_BB_FN (bb, cfun)
     {
-      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+      for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);
+	   gsi_next (&gsi))
 	{
 	  gimple stmt = gsi_stmt (gsi);
 	  enum gimple_code code = gimple_code (stmt);
@@ -1481,10 +1480,11 @@ execute_update_addresses_taken (void)
 	    }
 	}
 
-      for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+      for (gimple_phi_iterator gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
+	   gsi_next (&gsi))
 	{
 	  size_t i;
-	  gimple phi = gsi_stmt (gsi);
+	  gimple_phi phi = gsi.phi ();
 
 	  for (i = 0; i < gimple_phi_num_args (phi); i++)
 	    {
@@ -1513,7 +1513,7 @@ execute_update_addresses_taken (void)
   if (!bitmap_empty_p (suitable_for_renaming))
     {
       FOR_EACH_BB_FN (bb, cfun)
-	for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi);)
+	for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);)
 	  {
 	    gimple stmt = gsi_stmt (gsi);
 

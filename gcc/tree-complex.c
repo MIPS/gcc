@@ -201,20 +201,20 @@ static bool
 init_dont_simulate_again (void)
 {
   basic_block bb;
-  gimple_stmt_iterator gsi;
-  gimple phi;
   bool saw_a_complex_op = false;
 
   FOR_EACH_BB_FN (bb, cfun)
     {
-      for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+      for (gimple_phi_iterator gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
+	   gsi_next (&gsi))
 	{
-	  phi = gsi_stmt (gsi);
+	  gimple_phi phi = gsi.phi ();
 	  prop_set_simulate_again (phi,
 				   is_complex_reg (gimple_phi_result (phi)));
 	}
 
-      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+      for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);
+	   gsi_next (&gsi))
 	{
 	  gimple stmt;
 	  tree op0, op1;

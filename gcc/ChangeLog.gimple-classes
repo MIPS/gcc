@@ -1,5 +1,108 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Use gimple_phi in many more places.
+
+	* gimple-ssa-strength-reduction.c (slsr_process_phi): Require a
+	gimple_phi.
+	* ipa-inline-analysis.c (predicate_for_phi_result): Likewise.
+	* tree-emutls.c (lower_emutls_phi_arg): Likewise.
+	* tree-if-conv.c (predicate_scalar_phi): Likewise.
+	* tree-into-ssa.c (mark_virtual_phi_result_for_renaming): Likewise.
+	* tree-into-ssa.h (mark_virtual_phi_result_for_renaming): Likewise.
+	* tree-phinodes.c (degenerate_phi_result): Likewise.
+	* tree-phinodes.h (degenerate_phi_result): Likewise.
+	* tree-ssa.c (verify_use): Likewise.
+	* tree-switch-conversion.c (array_value_type): Likewise.
+
+	* graphite-scop-detection.c (same_close_phi_node): Require a pair
+	of gimple_phi.
+	(remove_duplicate_close_phi): Require a gimple_phi and a
+	gimple_phi_iterator.
+	(make_close_phi_nodes_unique): Convert a local into a
+	gimple_phi_iterator.
+
+	* gimple-pretty-print.c (gimple_dump_bb_for_graph): Split iterator
+	into gimple_stmt_iterator and gimple_phi_iterator, converting local
+	from gimple to gimple_phi.
+	* gimple-ssa-strength-reduction.c
+	(find_candidates_dom_walker::before_dom_children): Likewise.
+	* ipa-inline-analysis.c (estimate_function_body_sizes): Likewise.
+	* ipa-split.c (verify_non_ssa_vars): Likewise.
+	(visit_bb): Likewise.
+	(split_function): Likewise.
+	* lto-streamer-out.c (output_function): Likewise.
+	* sese.c (sese_build_liveouts_bb): Likewise.
+	* tree-cfg.c (gimple_can_merge_blocks_p): Likewise.
+	* tree-complex.c (init_dont_simulate_again): Likewise.
+	* tree-dfa.c (collect_dfa_stats): Likewise.
+	* tree-eh.c (sink_clobbers): Likewise.
+	* tree-emutls.c (lower_emutls_function_body): Likewise.
+	* tree-into-ssa.c (rewrite_dom_walker::before_dom_children):
+	Likewise.
+	(rewrite_update_dom_walker::before_dom_children): Likewise.
+	(prepare_block_for_update): Likewise.
+	* tree-loop-distribution.c (stmts_from_loop): Likewise.
+	(generate_loops_for_partition): Likewise.
+	(destroy_loop): Likewise.
+	(tree_loop_distribution): Likewise.
+	* tree-ssa-coalesce.c (build_ssa_conflict_graph): Likewise.
+	* tree-ssa-copy.c (init_copy_prop): Likewise.
+	* tree-ssa-copyrename.c (rename_ssa_copies): Likewise.
+	* tree-ssa-loop-ivcanon.c (propagate_constants_for_unrolling): Likewise.
+	* tree-ssa-loop-manip.c (find_uses_to_rename_bb): Likewise.
+	(verify_loop_closed_ssa): Likewise.
+	* tree-ssa-math-opts.c (execute_cse_reciprocals): Likewise.
+	* tree-ssa-pre.c (compute_avail): Likewise.
+	(eliminate_dom_walker::before_dom_children): Likewise.
+	* tree-ssa-strlen.c (strlen_dom_walker::before_dom_children): Likewise.
+	* tree-ssa-structalias.c (compute_points_to_sets): Likewise.
+	(ipa_pta_execute): Likewise.
+	* tree-ssa-tail-merge.c (same_succ_hash): Likewise.
+	(release_last_vdef): Likewise.
+	* tree-ssa.c (verify_ssa): Likewise.
+	(execute_update_addresses_taken): Likewise.
+	* tree-stdarg.c (check_all_va_list_escapes): Likewise.
+	(execute_optimize_stdarg): Likewise.
+	* tree-switch-conversion.c (build_arrays): Likewise.
+	* tree-vect-loop-manip.c (rename_variables_in_bb): Likewise.
+	* tree-vect-loop.c (vect_determine_vectorization_factor): Likewise.
+	(vect_analyze_loop_operations): Likewise.
+	(vect_transform_loop): Likewise.
+	* tree-vrp.c (find_assert_locations_1): Likewise.
+	(vrp_initialize): Likewise.
+
+	* graphite-sese-to-poly.c (gsi_for_phi_node): Convert psi to a
+	gimple_phi_iterator.
+	(rewrite_degenerate_phi): Require a gimple_phi_iterator; strengthen
+	local "phi" from gimple to gimple-phi.
+
+	* ipa-split.c (consider_split): Convert local psi to a
+	gimple_phi_iterator.
+	* tree-cfg.c (gimple_merge_blocks): Likewise.
+
+	* tree-eh.c (unsplit_eh): Replace reuse of gsi with a new
+	gimple_phi_iterator gpi, using it to convert statement from gimple
+	to a gimple_phi.
+	(cleanup_empty_eh_merge_phis): Strengthen ophi from gimple to
+	gimple_phi.
+	* tree-ssa-dce.c (eliminate_unnecessary_stmts): Replace reuse of
+	gsi with a new gimple_phi_iterator gpi, using it to convert
+	expressions from gimple to gimple_phi; add a checked cast to
+	gimple_phi.
+
+	* tree-if-conv.c (predicate_all_scalar_phis): Convert local phi_gsi
+	to be a gimple_phi_iterator; convert "phi" to be a gimple_phi.
+	* tree-parloops.c (loop_has_vector_phi_nodes): Convert local to be a
+	gimple_phi_iterator.
+	* tree-ssa-ccp.c (ccp_initialize): Likewise.
+
+	* tree-scalar-evolution.c (analyze_initial_condition): Add checked cast
+	to a gimple_phi.
+	* tree-ssa.c (insert_debug_temp_for_var_def): Likewise.
+	* tree-ssa-dom.c (get_rhs_or_phi_arg): Likewise.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Use gimple_call in some places within tree-ssa-dom.c
 
 	* tree-ssa-dom.c (struct hashable_expr): Strengthen field

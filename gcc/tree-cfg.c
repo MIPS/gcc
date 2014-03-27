@@ -1643,7 +1643,6 @@ static bool
 gimple_can_merge_blocks_p (basic_block a, basic_block b)
 {
   gimple stmt;
-  gimple_stmt_iterator gsi;
 
   if (!single_succ_p (a))
     return false;
@@ -1673,7 +1672,8 @@ gimple_can_merge_blocks_p (basic_block a, basic_block b)
 	return false;
 
   /* Examine the labels at the beginning of B.  */
-  for (gsi = gsi_start_bb (b); !gsi_end_p (gsi); gsi_next (&gsi))
+  for (gimple_stmt_iterator gsi = gsi_start_bb (b); !gsi_end_p (gsi);
+       gsi_next (&gsi))
     {
       tree lab;
       gimple_label label_stmt = dyn_cast <gimple_label> (gsi_stmt (gsi));
@@ -1693,9 +1693,10 @@ gimple_can_merge_blocks_p (basic_block a, basic_block b)
   /* It must be possible to eliminate all phi nodes in B.  If ssa form
      is not up-to-date and a name-mapping is registered, we cannot eliminate
      any phis.  Symbols marked for renaming are never a problem though.  */
-  for (gsi = gsi_start_phis (b); !gsi_end_p (gsi); gsi_next (&gsi))
+  for (gimple_phi_iterator gsi = gsi_start_phis (b); !gsi_end_p (gsi);
+       gsi_next (&gsi))
     {
-      gimple phi = gsi_stmt (gsi);
+      gimple_phi phi = gsi.phi ();
       /* Technically only new names matter.  */
       if (name_registered_for_update_p (PHI_RESULT (phi)))
 	return false;
@@ -1807,7 +1808,8 @@ replace_uses_by (tree name, tree val)
 static void
 gimple_merge_blocks (basic_block a, basic_block b)
 {
-  gimple_stmt_iterator last, gsi, psi;
+  gimple_stmt_iterator last, gsi;
+  gimple_phi_iterator psi;
 
   if (dump_file)
     fprintf (dump_file, "Merging blocks %d and %d\n", a->index, b->index);

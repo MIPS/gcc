@@ -457,13 +457,12 @@ same_succ_hash (const_same_succ e)
   unsigned int first = bitmap_first_set_bit (e->bbs);
   basic_block bb = BASIC_BLOCK_FOR_FN (cfun, first);
   int size = 0;
-  gimple_stmt_iterator gsi;
   gimple stmt;
   tree arg;
   unsigned int s;
   bitmap_iterator bs;
 
-  for (gsi = gsi_start_nondebug_bb (bb);
+  for (gimple_stmt_iterator gsi = gsi_start_nondebug_bb (bb);
        !gsi_end_p (gsi); gsi_next_nondebug (&gsi))
     {
       stmt = gsi_stmt (gsi);
@@ -506,10 +505,12 @@ same_succ_hash (const_same_succ e)
   EXECUTE_IF_SET_IN_BITMAP (e->succs, 0, s, bs)
     {
       int n = find_edge (bb, BASIC_BLOCK_FOR_FN (cfun, s))->dest_idx;
-      for (gsi = gsi_start_phis (BASIC_BLOCK_FOR_FN (cfun, s)); !gsi_end_p (gsi);
+      for (gimple_phi_iterator gsi =
+	     gsi_start_phis (BASIC_BLOCK_FOR_FN (cfun, s));
+	   !gsi_end_p (gsi);
 	   gsi_next (&gsi))
 	{
-	  gimple phi = gsi_stmt (gsi);
+	  gimple_phi phi = gsi.phi ();
 	  tree lhs = gimple_phi_result (phi);
 	  tree val = gimple_phi_arg_def (phi, n);
 
@@ -846,9 +847,8 @@ same_succ_flush_bbs (bitmap bbs)
 static void
 release_last_vdef (basic_block bb)
 {
-  gimple_stmt_iterator i;
-
-  for (i = gsi_last_bb (bb); !gsi_end_p (i); gsi_prev_nondebug (&i))
+  for (gimple_stmt_iterator i = gsi_last_bb (bb); !gsi_end_p (i);
+       gsi_prev_nondebug (&i))
     {
       gimple stmt = gsi_stmt (i);
       if (gimple_vdef (stmt) == NULL_TREE)
@@ -858,9 +858,10 @@ release_last_vdef (basic_block bb)
       return;
     }
 
-  for (i = gsi_start_phis (bb); !gsi_end_p (i); gsi_next (&i))
+  for (gimple_phi_iterator i = gsi_start_phis (bb); !gsi_end_p (i);
+       gsi_next (&i))
     {
-      gimple phi = gsi_stmt (i);
+      gimple_phi phi = i.phi ();
       tree res = gimple_phi_result (phi);
 
       if (!virtual_operand_p (res))

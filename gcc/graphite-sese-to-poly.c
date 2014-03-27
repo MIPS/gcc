@@ -1938,7 +1938,7 @@ gsi_for_phi_node (gimple_phi stmt)
   basic_block bb = gimple_bb (stmt);
 
   for (psi = gsi_start_phis (bb); !gsi_end_p (psi); gsi_next (&psi))
-    if (stmt == gsi_stmt (psi))
+    if (stmt == psi.phi ())
       return psi;
 
   gcc_unreachable ();
@@ -2269,12 +2269,12 @@ rewrite_phi_out_of_ssa (scop_p scop, gimple_phi_iterator *psi)
    form "x = phi (y, y, ..., y)" to "x = y".  */
 
 static void
-rewrite_degenerate_phi (gimple_stmt_iterator *psi)
+rewrite_degenerate_phi (gimple_phi_iterator *psi)
 {
   tree rhs;
   gimple stmt;
   gimple_stmt_iterator gsi;
-  gimple phi = gsi_stmt (*psi);
+  gimple_phi phi = psi->phi ();
   tree res = gimple_phi_result (phi);
   basic_block bb;
 

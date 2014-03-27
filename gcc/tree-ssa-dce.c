@@ -1278,13 +1278,15 @@ eliminate_unnecessary_stmts (void)
 	  if (!bitmap_bit_p (bb_contains_live_stmts, bb->index)
 	      || !(bb->flags & BB_REACHABLE))
 	    {
-	      for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-		if (virtual_operand_p (gimple_phi_result (gsi_stmt (gsi))))
+	      for (gimple_phi_iterator gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
+		   gsi_next (&gsi))
+		if (virtual_operand_p (gimple_phi_result (gsi.phi ())))
 		  {
 		    bool found = false;
 		    imm_use_iterator iter;
 
-		    FOR_EACH_IMM_USE_STMT (stmt, iter, gimple_phi_result (gsi_stmt (gsi)))
+		    FOR_EACH_IMM_USE_STMT (stmt, iter,
+					   gimple_phi_result (gsi.phi ()))
 		      {
 			if (!(gimple_bb (stmt)->flags & BB_REACHABLE))
 			  continue;
@@ -1296,7 +1298,7 @@ eliminate_unnecessary_stmts (void)
 			  }
 		      }
 		    if (found)
-		      mark_virtual_phi_result_for_renaming (gsi_stmt (gsi));
+		      mark_virtual_phi_result_for_renaming (gsi.phi ());
 		  }
 
 	      if (!(bb->flags & BB_REACHABLE))

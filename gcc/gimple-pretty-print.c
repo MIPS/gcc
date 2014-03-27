@@ -2472,14 +2472,13 @@ gimple_dump_bb (FILE *file, basic_block bb, int indent, int flags)
 void
 gimple_dump_bb_for_graph (pretty_printer *pp, basic_block bb)
 {
-  gimple_stmt_iterator gsi;
-
   pp_printf (pp, "<bb %d>:\n", bb->index);
   pp_write_text_as_dot_label_to_stream (pp, /*for_record=*/true);
 
-  for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+  for (gimple_phi_iterator gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
+       gsi_next (&gsi))
     {
-      gimple phi = gsi_stmt (gsi);
+      gimple_phi phi = gsi.phi ();
       if (!virtual_operand_p (gimple_phi_result (phi))
 	  || (dump_flags & TDF_VOPS))
 	{
@@ -2492,7 +2491,8 @@ gimple_dump_bb_for_graph (pretty_printer *pp, basic_block bb)
 	}
     }
 
-  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+  for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);
+       gsi_next (&gsi))
     {
       gimple stmt = gsi_stmt (gsi);
       pp_bar (pp);

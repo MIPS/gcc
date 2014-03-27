@@ -175,18 +175,19 @@ sese_build_liveouts_use (sese region, bitmap liveouts, basic_block bb,
 static void
 sese_build_liveouts_bb (sese region, bitmap liveouts, basic_block bb)
 {
-  gimple_stmt_iterator bsi;
   edge e;
   edge_iterator ei;
   ssa_op_iter iter;
   use_operand_p use_p;
 
   FOR_EACH_EDGE (e, ei, bb->succs)
-    for (bsi = gsi_start_phis (e->dest); !gsi_end_p (bsi); gsi_next (&bsi))
+    for (gimple_phi_iterator bsi = gsi_start_phis (e->dest); !gsi_end_p (bsi);
+	 gsi_next (&bsi))
       sese_build_liveouts_use (region, liveouts, bb,
-			       PHI_ARG_DEF_FROM_EDGE (gsi_stmt (bsi), e));
+			       PHI_ARG_DEF_FROM_EDGE (bsi.phi (), e));
 
-  for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
+  for (gimple_stmt_iterator bsi = gsi_start_bb (bb); !gsi_end_p (bsi);
+       gsi_next (&bsi))
     {
       gimple stmt = gsi_stmt (bsi);
 

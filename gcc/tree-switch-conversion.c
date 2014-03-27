@@ -1052,7 +1052,7 @@ array_value_type (gimple_switch swtch, tree type, int num,
 
 static void
 build_one_array (gimple_switch swtch, int num, tree arr_index_type,
-		 gimple phi, tree tidx, struct switch_conv_info *info)
+		 gimple_phi phi, tree tidx, struct switch_conv_info *info)
 {
   tree name, cst;
   gimple load;
@@ -1123,6 +1123,7 @@ build_arrays (gimple_switch swtch, struct switch_conv_info *info)
   tree tidx, sub, utype;
   gimple stmt;
   gimple_stmt_iterator gsi;
+  gimple_phi_iterator gpi;
   int i;
   location_t loc = gimple_location (swtch);
 
@@ -1148,9 +1149,9 @@ build_arrays (gimple_switch swtch, struct switch_conv_info *info)
   update_stmt (stmt);
   info->arr_ref_first = stmt;
 
-  for (gsi = gsi_start_phis (info->final_bb), i = 0;
-       !gsi_end_p (gsi); gsi_next (&gsi), i++)
-    build_one_array (swtch, i, arr_index_type, gsi_stmt (gsi), tidx, info);
+  for (gpi = gsi_start_phis (info->final_bb), i = 0;
+       !gsi_end_p (gpi); gsi_next (&gpi), i++)
+    build_one_array (swtch, i, arr_index_type, gpi.phi (), tidx, info);
 }
 
 /* Generates and appropriately inserts loads of default values at the position

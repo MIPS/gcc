@@ -29,7 +29,7 @@ extern void add_phi_arg (gimple_phi, tree, edge, source_location);
 extern void remove_phi_args (edge);
 extern void remove_phi_node (gimple_stmt_iterator *, bool);
 extern void remove_phi_nodes (basic_block);
-extern tree degenerate_phi_result (gimple);
+extern tree degenerate_phi_result (gimple_phi);
 extern void set_phi_nodes (basic_block, gimple_seq);
 
 static inline use_operand_p

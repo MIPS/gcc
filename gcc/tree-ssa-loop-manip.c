@@ -431,20 +431,21 @@ find_uses_to_rename_stmt (gimple stmt, bitmap *use_blocks, bitmap need_phis)
 static void
 find_uses_to_rename_bb (basic_block bb, bitmap *use_blocks, bitmap need_phis)
 {
-  gimple_stmt_iterator bsi;
   edge e;
   edge_iterator ei;
 
   FOR_EACH_EDGE (e, ei, bb->succs)
-    for (bsi = gsi_start_phis (e->dest); !gsi_end_p (bsi); gsi_next (&bsi))
+    for (gimple_phi_iterator bsi = gsi_start_phis (e->dest); !gsi_end_p (bsi);
+	 gsi_next (&bsi))
       {
-        gimple phi = gsi_stmt (bsi);
+        gimple_phi phi = bsi.phi ();
 	if (! virtual_operand_p (gimple_phi_result (phi)))
 	  find_uses_to_rename_use (bb, PHI_ARG_DEF_FROM_EDGE (phi, e),
 				   use_blocks, need_phis);
       }
 
-  for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
+  for (gimple_stmt_iterator bsi = gsi_start_bb (bb); !gsi_end_p (bsi);
+       gsi_next (&bsi))
     find_uses_to_rename_stmt (gsi_stmt (bsi), use_blocks, need_phis);
 }
 
@@ -590,8 +591,6 @@ DEBUG_FUNCTION void
 verify_loop_closed_ssa (bool verify_ssa_p)
 {
   basic_block bb;
-  gimple_stmt_iterator bsi;
-  gimple phi;
   edge e;
   edge_iterator ei;
 
@@ -605,15 +604,17 @@ verify_loop_closed_ssa (bool verify_ssa_p)
 
   FOR_EACH_BB_FN (bb, cfun)
     {
-      for (bsi = gsi_start_phis (bb); !gsi_end_p (bsi); gsi_next (&bsi))
+      for (gimple_phi_iterator bsi = gsi_start_phis (bb); !gsi_end_p (bsi);
+	   gsi_next (&bsi))
 	{
-	  phi = gsi_stmt (bsi);
+	  gimple_phi phi = bsi.phi ();
 	  FOR_EACH_EDGE (e, ei, bb->preds)
 	    check_loop_closed_ssa_use (e->src,
 				       PHI_ARG_DEF_FROM_EDGE (phi, e));
 	}
 
-      for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
+      for (gimple_stmt_iterator bsi = gsi_start_bb (bb); !gsi_end_p (bsi);
+	   gsi_next (&bsi))
 	check_loop_closed_ssa_stmt (bb, gsi_stmt (bsi));
     }
 

@@ -1596,13 +1596,15 @@ analyze_initial_condition (gimple_phi loop_phi_node)
   if (TREE_CODE (init_cond) == SSA_NAME)
     {
       gimple def = SSA_NAME_DEF_STMT (init_cond);
-      tree res;
-      if (gimple_code (def) == GIMPLE_PHI
-	  && (res = degenerate_phi_result (def)) != NULL_TREE
-	  /* Only allow invariants here, otherwise we may break
-	     loop-closed SSA form.  */
-	  && is_gimple_min_invariant (res))
-	init_cond = res;
+      if (gimple_phi phi = dyn_cast <gimple_phi> (def))
+	{
+	  tree res = degenerate_phi_result (phi);
+	  if (res != NULL_TREE
+	      /* Only allow invariants here, otherwise we may break
+		 loop-closed SSA form.  */
+	      && is_gimple_min_invariant (res))
+	    init_cond = res;
+	}
     }
 
   if (dump_file && (dump_flags & TDF_SCEV))

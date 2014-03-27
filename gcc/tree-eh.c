@@ -3469,14 +3469,15 @@ sink_clobbers (basic_block bb)
 
   /* See if there is a virtual PHI node to take an updated virtual
      operand from.  */
-  gimple vphi = NULL;
+  gimple_phi vphi = NULL;
   tree vuse = NULL_TREE;
-  for (gsi = gsi_start_phis (succbb); !gsi_end_p (gsi); gsi_next (&gsi))
+  for (gimple_phi_iterator gpi = gsi_start_phis (succbb);
+       !gsi_end_p (gpi); gsi_next (&gpi))
     {
-      tree res = gimple_phi_result (gsi_stmt (gsi));
+      tree res = gimple_phi_result (gpi.phi ());
       if (virtual_operand_p (res))
 	{
-	  vphi = gsi_stmt (gsi);
+	  vphi = gpi.phi ();
 	  vuse = res;
 	  break;
 	}
@@ -4031,9 +4032,10 @@ unsplit_eh (eh_landing_pad lp)
      that doesn't appear to handle virtuals.  Propagate by hand.  */
   if (!gimple_seq_empty_p (phi_nodes (bb)))
     {
-      for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); )
+      for (gimple_phi_iterator gpi = gsi_start_phis (bb); !gsi_end_p (gpi); )
 	{
-	  gimple use_stmt, phi = gsi_stmt (gsi);
+	  gimple use_stmt;
+	  gimple_phi phi = gpi.phi ();
 	  tree lhs = gimple_phi_result (phi);
 	  tree rhs = gimple_phi_arg_def (phi, 0);
 	  use_operand_p use_p;
@@ -4048,7 +4050,7 @@ unsplit_eh (eh_landing_pad lp)
 	  if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (lhs))
 	    SSA_NAME_OCCURS_IN_ABNORMAL_PHI (rhs) = 1;
 
-	  remove_phi_node (&gsi, true);
+	  remove_phi_node (&gpi, true);
 	}
     }
 
@@ -4191,7 +4193,7 @@ cleanup_empty_eh_merge_phis (basic_block new_bb, basic_block old_bb,
      we don't know what values from the other edges into NEW_BB to use.  */
   for (ogsi = gsi_start_phis (old_bb); !gsi_end_p (ogsi); gsi_next (&ogsi))
     {
-      gimple ophi = gsi_stmt (ogsi);
+      gimple_phi ophi = ogsi.phi ();
       tree oresult = gimple_phi_result (ophi);
       if (!bitmap_bit_p (ophi_handled, SSA_NAME_VERSION (oresult)))
 	goto fail;

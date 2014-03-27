@@ -187,10 +187,9 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   basic_block *bbs = LOOP_VINFO_BBS (loop_vinfo);
   int nbbs = loop->num_nodes;
-  gimple_stmt_iterator si;
   unsigned int vectorization_factor = 0;
   tree scalar_type;
-  gimple phi;
+  gimple_phi phi;
   tree vectype;
   unsigned int nunits;
   stmt_vec_info stmt_info;
@@ -209,9 +208,10 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
     {
       basic_block bb = bbs[i];
 
-      for (si = gsi_start_phis (bb); !gsi_end_p (si); gsi_next (&si))
+      for (gimple_phi_iterator si = gsi_start_phis (bb); !gsi_end_p (si);
+	   gsi_next (&si))
 	{
-	  phi = gsi_stmt (si);
+	  phi = si.phi ();
 	  stmt_info = vinfo_for_stmt (phi);
 	  if (dump_enabled_p ())
 	    {
@@ -269,7 +269,8 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
 	    }
 	}
 
-      for (si = gsi_start_bb (bb); !gsi_end_p (si) || analyze_pattern_stmt;)
+      for (gimple_stmt_iterator si = gsi_start_bb (bb);
+	   !gsi_end_p (si) || analyze_pattern_stmt;)
         {
           tree vf_vectype;
 
@@ -1334,10 +1335,8 @@ vect_analyze_loop_operations (loop_vec_info loop_vinfo, bool slp)
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   basic_block *bbs = LOOP_VINFO_BBS (loop_vinfo);
   int nbbs = loop->num_nodes;
-  gimple_stmt_iterator si;
   unsigned int vectorization_factor = 0;
   int i;
-  gimple phi;
   stmt_vec_info stmt_info;
   bool need_to_vectorize = false;
   int min_profitable_iters;
@@ -1364,7 +1363,8 @@ vect_analyze_loop_operations (loop_vec_info loop_vinfo, bool slp)
       for (i = 0; i < nbbs; i++)
 	{
 	  basic_block bb = bbs[i];
-	  for (si = gsi_start_bb (bb); !gsi_end_p (si); gsi_next (&si))
+	  for (gimple_stmt_iterator si = gsi_start_bb (bb); !gsi_end_p (si);
+	       gsi_next (&si))
 	    {
 	      gimple stmt = gsi_stmt (si);
 	      stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
@@ -1394,9 +1394,10 @@ vect_analyze_loop_operations (loop_vec_info loop_vinfo, bool slp)
     {
       basic_block bb = bbs[i];
 
-      for (si = gsi_start_phis (bb); !gsi_end_p (si); gsi_next (&si))
+      for (gimple_phi_iterator si = gsi_start_phis (bb); !gsi_end_p (si);
+	   gsi_next (&si))
         {
-          phi = gsi_stmt (si);
+          gimple_phi phi = si.phi ();
           ok = true;
 
           stmt_info = vinfo_for_stmt (phi);
@@ -1499,7 +1500,8 @@ vect_analyze_loop_operations (loop_vec_info loop_vinfo, bool slp)
             }
         }
 
-      for (si = gsi_start_bb (bb); !gsi_end_p (si); gsi_next (&si))
+      for (gimple_stmt_iterator si = gsi_start_bb (bb); !gsi_end_p (si);
+	   gsi_next (&si))
         {
           gimple stmt = gsi_stmt (si);
 	  if (!gimple_clobber_p (stmt)
@@ -5773,7 +5775,6 @@ vect_transform_loop (loop_vec_info loop_vinfo)
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   basic_block *bbs = LOOP_VINFO_BBS (loop_vinfo);
   int nbbs = loop->num_nodes;
-  gimple_stmt_iterator si;
   int i;
   tree ratio = NULL;
   int vectorization_factor = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
@@ -5882,11 +5883,11 @@ vect_transform_loop (loop_vec_info loop_vinfo)
     {
       basic_block bb = bbs[i];
       stmt_vec_info stmt_info;
-      gimple phi;
 
-      for (si = gsi_start_phis (bb); !gsi_end_p (si); gsi_next (&si))
+      for (gimple_phi_iterator si = gsi_start_phis (bb); !gsi_end_p (si);
+	   gsi_next (&si))
         {
-	  phi = gsi_stmt (si);
+	  gimple_phi phi = si.phi ();
 	  if (dump_enabled_p ())
 	    {
 	      dump_printf_loc (MSG_NOTE, vect_location,
@@ -5920,7 +5921,8 @@ vect_transform_loop (loop_vec_info loop_vinfo)
 	}
 
       pattern_stmt = NULL;
-      for (si = gsi_start_bb (bb); !gsi_end_p (si) || transform_pattern_stmt;)
+      for (gimple_stmt_iterator si = gsi_start_bb (bb);
+	   !gsi_end_p (si) || transform_pattern_stmt;)
 	{
 	  bool is_store;
 

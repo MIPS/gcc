@@ -742,7 +742,7 @@ add_cand_for_stmt (gimple gs, slsr_cand_t c)
    is used to help find a basis for subsequent candidates.  */
 
 static void
-slsr_process_phi (gimple phi, bool speed)
+slsr_process_phi (gimple_phi phi, bool speed)
 {
   unsigned i;
   tree arg0_base = NULL_TREE, base_type;
@@ -1667,12 +1667,13 @@ void
 find_candidates_dom_walker::before_dom_children (basic_block bb)
 {
   bool speed = optimize_bb_for_speed_p (bb);
-  gimple_stmt_iterator gsi;
 
-  for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-    slsr_process_phi (gsi_stmt (gsi), speed);
+  for (gimple_phi_iterator gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
+       gsi_next (&gsi))
+    slsr_process_phi (gsi.phi (), speed);
 
-  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+  for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);
+       gsi_next (&gsi))
     {
       gimple gs = gsi_stmt (gsi);
 
