@@ -1983,7 +1983,6 @@ label_rtx_for_bb (basic_block bb ATTRIBUTE_UNUSED)
 {
   gimple_stmt_iterator gsi;
   tree lab;
-  gimple lab_stmt;
 
   if (bb->flags & BB_RTL)
     return block_label (bb);
@@ -1996,8 +1995,10 @@ label_rtx_for_bb (basic_block bb ATTRIBUTE_UNUSED)
 
   for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      lab_stmt = gsi_stmt (gsi);
-      if (gimple_code (lab_stmt) != GIMPLE_LABEL)
+      gimple_label lab_stmt;
+
+      lab_stmt = dyn_cast <gimple_label> (gsi_stmt (gsi));
+      if (!lab_stmt)
 	break;
 
       lab = gimple_label_label (lab_stmt);
@@ -3203,7 +3204,7 @@ expand_gimple_stmt_1 (gimple stmt)
 	expand_computed_goto (op0);
       break;
     case GIMPLE_LABEL:
-      expand_label (gimple_label_label (stmt));
+      expand_label (gimple_label_label (as_a <gimple_label> (stmt)));
       break;
     case GIMPLE_NOP:
     case GIMPLE_PREDICT:

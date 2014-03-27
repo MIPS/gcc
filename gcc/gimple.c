@@ -1514,7 +1514,7 @@ gimple_set_bb (gimple stmt, basic_block bb)
       tree t;
       int uid;
 
-      t = gimple_label_label (stmt);
+      t = gimple_label_label (as_a <gimple_label> (stmt));
       uid = LABEL_DECL_UID (t);
       if (uid == -1)
 	{

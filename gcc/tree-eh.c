@@ -243,7 +243,7 @@ collect_finally_tree (gimple stmt, gimple_try region)
   switch (gimple_code (stmt))
     {
     case GIMPLE_LABEL:
-      temp.t = gimple_label_label (stmt);
+      temp.t = gimple_label_label (as_a <gimple_label> (stmt));
       record_in_finally_tree (temp, region);
       break;
 
@@ -4004,13 +4004,13 @@ unsplit_eh (eh_landing_pad lp)
      for a different region.  */
   for (gsi = gsi_start_bb (e_out->dest); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple stmt = gsi_stmt (gsi);
+      gimple_label label_stmt = dyn_cast <gimple_label> (gsi_stmt (gsi));
       tree lab;
       int lp_nr;
 
-      if (gimple_code (stmt) != GIMPLE_LABEL)
+      if (!label_stmt)
 	break;
-      lab = gimple_label_label (stmt);
+      lab = gimple_label_label (label_stmt);
       lp_nr = EH_LANDING_PAD_NR (lab);
       if (lp_nr && get_eh_region_from_lp_number (lp_nr) != lp->region)
 	return false;
@@ -4275,10 +4275,10 @@ cleanup_empty_eh_unsplit (basic_block bb, edge e_out, eh_landing_pad lp)
   lab = NULL;
   for (gsi = gsi_start_bb (e_out->dest); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple stmt = gsi_stmt (gsi);
+      gimple_label stmt = dyn_cast <gimple_label> (gsi_stmt (gsi));
       int lp_nr;
 
-      if (gimple_code (stmt) != GIMPLE_LABEL)
+      if (!stmt)
 	break;
       lab = gimple_label_label (stmt);
       lp_nr = EH_LANDING_PAD_NR (lab);

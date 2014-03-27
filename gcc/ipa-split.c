@@ -252,13 +252,13 @@ verify_non_ssa_vars (struct split_point *current, bitmap non_ssa_vars,
 	      ok = false;
 	      goto done;
 	    }
-	  if (gimple_code (stmt) == GIMPLE_LABEL
-	      && test_nonssa_use (stmt, gimple_label_label (stmt),
-				  NULL_TREE, non_ssa_vars))
-	    {
-	      ok = false;
-	      goto done;
-	    }
+	  if (gimple_label label_stmt = dyn_cast <gimple_label> (stmt))
+	    if (test_nonssa_use (stmt, gimple_label_label (label_stmt),
+				 NULL_TREE, non_ssa_vars))
+	      {
+		ok = false;
+		goto done;
+	      }
 	}
       for (bsi = gsi_start_phis (bb); !gsi_end_p (bsi); gsi_next (&bsi))
 	{
@@ -300,15 +300,18 @@ verify_non_ssa_vars (struct split_point *current, bitmap non_ssa_vars,
       {
         gimple_stmt_iterator bsi;
         for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
-	  if (gimple_code (gsi_stmt (bsi)) == GIMPLE_LABEL
-	      && test_nonssa_use (gsi_stmt (bsi),
-				  gimple_label_label (gsi_stmt (bsi)),
-				  NULL_TREE, non_ssa_vars))
+	  if (gimple_label label_stmt =
+	        dyn_cast <gimple_label> (gsi_stmt (bsi)))
 	    {
-	      ok = false;
-	      goto done;
+	      if (test_nonssa_use (label_stmt,
+				   gimple_label_label (label_stmt),
+				   NULL_TREE, non_ssa_vars))
+		{
+		  ok = false;
+		  goto done;
+		}
 	    }
-	  else if (gimple_code (gsi_stmt (bsi)) != GIMPLE_LABEL)
+	  else
 	    break;
       }
     

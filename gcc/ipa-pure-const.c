@@ -689,7 +689,7 @@ check_stmt (gimple_stmt_iterator *gsip, funct_state local, bool ipa)
       check_call (local, as_a <gimple_call> (stmt), ipa);
       break;
     case GIMPLE_LABEL:
-      if (DECL_NONLOCAL (gimple_label_label (stmt)))
+      if (DECL_NONLOCAL (gimple_label_label (as_a <gimple_label> (stmt))))
 	/* Target of long jump. */
 	{
           if (dump_file)

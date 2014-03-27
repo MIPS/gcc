@@ -10860,7 +10860,9 @@ diagnose_sb_1 (gimple_stmt_iterator *gsi_p, bool *handled_ops_p,
       break;
 
     case GIMPLE_LABEL:
-      splay_tree_insert (all_labels, (splay_tree_key) gimple_label_label (stmt),
+      splay_tree_insert (all_labels,
+			 (splay_tree_key) gimple_label_label (
+					    as_a <gimple_label> (stmt)),
 			 (splay_tree_value) context);
       break;
 

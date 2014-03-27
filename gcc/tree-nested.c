@@ -2136,9 +2136,9 @@ convert_nl_goto_receiver (gimple_stmt_iterator *gsi, bool *handled_ops_p,
   struct nesting_info *const info = (struct nesting_info *) wi->info;
   tree label, new_label;
   gimple_stmt_iterator tmp_gsi;
-  gimple stmt = gsi_stmt (*gsi);
+  gimple_label stmt = dyn_cast <gimple_label> (gsi_stmt (*gsi));
 
-  if (gimple_code (stmt) != GIMPLE_LABEL)
+  if (!stmt)
     {
       *handled_ops_p = false;
       return NULL_TREE;

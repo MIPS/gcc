@@ -2564,10 +2564,10 @@ optimize_unreachable (gimple_stmt_iterator i)
       if (is_gimple_debug (stmt))
        continue;
 
-      if (gimple_code (stmt) == GIMPLE_LABEL)
+      if (gimple_label label_stmt = dyn_cast <gimple_label> (stmt))
 	{
 	  /* Verify we do not need to preserve the label.  */
-	  if (FORCED_LABEL (gimple_label_label (stmt)))
+	  if (FORCED_LABEL (gimple_label_label (label_stmt)))
 	    return false;
 
 	  continue;

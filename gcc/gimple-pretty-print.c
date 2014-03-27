@@ -2348,7 +2348,9 @@ pp_cfg_jump (pretty_printer *buffer, basic_block bb)
   if (stmt && gimple_code (stmt) == GIMPLE_LABEL)
     {
       pp_string (buffer, " (");
-      dump_generic_node (buffer, gimple_label_label (stmt), 0, 0, false);
+      dump_generic_node (buffer,
+			 gimple_label_label (as_a <gimple_label> (stmt)),
+			 0, 0, false);
       pp_right_paren (buffer);
       pp_semicolon (buffer);
     }

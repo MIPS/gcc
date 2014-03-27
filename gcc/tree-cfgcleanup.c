@@ -309,7 +309,7 @@ tree_forwarder_block_p (basic_block bb, bool phi_wanted)
       switch (gimple_code (stmt))
 	{
 	case GIMPLE_LABEL:
-	  if (DECL_NONLOCAL (gimple_label_label (stmt)))
+	  if (DECL_NONLOCAL (gimple_label_label (as_a <gimple_label> (stmt))))
 	    return false;
 	  if (optimize == 0 && gimple_location (stmt) != locus)
 	    return false;
@@ -406,11 +406,11 @@ remove_forwarder_block (basic_block bb)
   /* If the destination block consists of a nonlocal label or is a
      EH landing pad, do not merge it.  */
   label = first_stmt (dest);
-  if (label
-      && gimple_code (label) == GIMPLE_LABEL
-      && (DECL_NONLOCAL (gimple_label_label (label))
-	  || EH_LANDING_PAD_NR (gimple_label_label (label)) != 0))
-    return false;
+  if (label)
+    if (gimple_label label_stmt = dyn_cast <gimple_label> (label))
+      if (DECL_NONLOCAL (gimple_label_label (label_stmt))
+	  || EH_LANDING_PAD_NR (gimple_label_label (label_stmt)) != 0)
+	return false;
 
   /* If there is an abnormal edge to basic block BB, but not into
      dest, problems might occur during removal of the phi node at out
@@ -492,7 +492,7 @@ remove_forwarder_block (basic_block bb)
       label = gsi_stmt (gsi);
       if (is_gimple_debug (label))
 	break;
-      decl = gimple_label_label (label);
+      decl = gimple_label_label (as_a <gimple_label> (label));
       if (EH_LANDING_PAD_NR (decl) != 0
 	  || DECL_NONLOCAL (decl)
 	  || FORCED_LABEL (decl)
@@ -840,10 +840,10 @@ remove_forwarder_block_with_phi (basic_block bb)
   /* If the destination block consists of a nonlocal label, do not
      merge it.  */
   label = first_stmt (dest);
-  if (label
-      && gimple_code (label) == GIMPLE_LABEL
-      && DECL_NONLOCAL (gimple_label_label (label)))
-    return false;
+  if (label)
+    if (gimple_label label_stmt = dyn_cast <gimple_label> (label))
+      if (DECL_NONLOCAL (gimple_label_label (label_stmt)))
+	return false;
 
   /* Record BB's single pred in case we need to update the father
      loop's latch information later.  */

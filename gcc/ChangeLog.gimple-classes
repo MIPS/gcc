@@ -1,5 +1,50 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Concretize gimple_label_label
+
+	* gimple.h (gimple_label_label): Require a const_gimple_label
+	rather than just a const_gimple.
+
+	* cfgexpand.c (label_rtx_for_bb): Convert local from gimple to
+	gimple_label, replacing a check against GIMPLE_LABEL with a
+	dyn_cast<gimple_label>.
+	* predict.c (tree_estimate_probability_bb): Likewise.
+	* tree-cfg.c (make_edges): Likewise.
+	(cleanup_dead_labels): Likewise (twice).
+	(gimple_can_merge_blocks_p): Likewise.
+	(gimple_block_label): Likewise.
+	* tree-eh.c (unsplit_eh): Likewise.
+	(cleanup_empty_eh_unsplit): Likewise.
+	* tree-inline.c (mark_local_labels_stmt): Likewise.
+	* tree-nested.c (convert_nl_goto_receiver): Likewise.
+
+	* cfgexpand.c (expand_gimple_stmt_1): Add a checked cast to
+	gimple_label when invoking gimple_label_label in a region where
+	we've checked the code is GIMPLE_LABEL.
+	* gimple-pretty-print.c (pp_cfg_jump): Likewise.
+	* gimple.c (gimple_set_bb): Likewise.
+	* ipa-pure-const.c (check_stmt): Likewise.
+	* omp-low.c (diagnose_sb_1): Likewise.
+	* tree-cfg.c (gimple_verify_flow_info): Likewise.
+	* tree-cfgcleanup.c (tree_forwarder_block_p): Likewise.
+	(remove_forwarder_block): Likewise.
+	* tree-eh.c (collect_finally_tree): Likewise.
+
+	* ipa-split.c (verify_non_ssa_vars): Replace a check against
+	GIMPLE_LABEL with a dyn_cast<gimple_label>, introducing a
+	gimple_label local.
+	* tree-cfg.c (gimple_can_merge_blocks_p): Likewise.
+	(gimple_merge_blocks): Likewise.
+	(remove_bb): Likewise.
+	(stmt_starts_bb_p): Likewise.
+	(gimple_verify_flow_info): Likewise.
+	(move_block_to_fn): Likewise.
+	* tree-cfgcleanup.c (remove_forwarder_block): Likewise.
+	(remove_forwarder_block_with_phi): Likewise.
+	* tree-ssa-ccp.c (optimize_unreachable): Likewise.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Concretize gimple_call_use_set and gimple_call_clobber_set
 
 	* gimple.h (gimple_call_use_set): Require a gimple_call.

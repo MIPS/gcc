@@ -3205,9 +3205,8 @@ gimple_cond_set_condition (gimple_cond stmt, enum tree_code code, tree lhs,
 /* Return the LABEL_DECL node used by GIMPLE_LABEL statement GS.  */
 
 static inline tree
-gimple_label_label (const_gimple gs)
+gimple_label_label (const_gimple_label gs)
 {
-  GIMPLE_CHECK (gs, GIMPLE_LABEL);
   return gimple_op (gs, 0);
 }
 

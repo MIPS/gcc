@@ -2275,12 +2275,13 @@ tree_estimate_probability_bb (basic_block bb)
 	  gimple_stmt_iterator gi;
 	  for (gi = gsi_start_bb (e->dest); !gsi_end_p (gi); gsi_next (&gi))
 	    {
-	      gimple stmt = gsi_stmt (gi);
+	      gimple_label label_stmt =
+		dyn_cast <gimple_label> (gsi_stmt (gi));
 	      tree decl;
 
-	      if (gimple_code (stmt) != GIMPLE_LABEL)
+	      if (!label_stmt)
 		break;
-	      decl = gimple_label_label (stmt);
+	      decl = gimple_label_label (label_stmt);
 	      if (DECL_ARTIFICIAL (decl))
 		continue;
 

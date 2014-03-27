@@ -909,10 +909,11 @@ make_edges (void)
 	{
 	  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	    {
-	      gimple label_stmt = gsi_stmt (gsi);
+	      gimple_label label_stmt =
+		dyn_cast <gimple_label> (gsi_stmt (gsi));
 	      tree target;
 
-	      if (gimple_code (label_stmt) != GIMPLE_LABEL)
+	      if (!label_stmt)
 		break;
 
 	      target = gimple_label_label (label_stmt);
@@ -1373,12 +1374,12 @@ cleanup_dead_labels (void)
       for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
 	{
 	  tree label;
-	  gimple stmt = gsi_stmt (i);
+	  gimple_label label_stmt = dyn_cast <gimple_label> (gsi_stmt (i));
 
-	  if (gimple_code (stmt) != GIMPLE_LABEL)
+	  if (!label_stmt)
 	    break;
 
-	  label = gimple_label_label (stmt);
+	  label = gimple_label_label (label_stmt);
 
 	  /* If we have not yet seen a label for the current block,
 	     remember this one and see if there are more labels.  */
@@ -1513,12 +1514,12 @@ cleanup_dead_labels (void)
       for (i = gsi_start_bb (bb); !gsi_end_p (i); )
 	{
 	  tree label;
-	  gimple stmt = gsi_stmt (i);
+	  gimple_label label_stmt = dyn_cast <gimple_label> (gsi_stmt (i));
 
-	  if (gimple_code (stmt) != GIMPLE_LABEL)
+	  if (!label_stmt)
 	    break;
 
-	  label = gimple_label_label (stmt);
+	  label = gimple_label_label (label_stmt);
 
 	  if (label == label_for_this_bb
 	      || !DECL_ARTIFICIAL (label)
@@ -1660,19 +1661,19 @@ gimple_can_merge_blocks_p (basic_block a, basic_block b)
     return false;
 
   /* Do not allow a block with only a non-local label to be merged.  */
-  if (stmt
-      && gimple_code (stmt) == GIMPLE_LABEL
-      && DECL_NONLOCAL (gimple_label_label (stmt)))
-    return false;
+  if (stmt)
+    if (gimple_label label_stmt = dyn_cast <gimple_label> (stmt))
+      if (DECL_NONLOCAL (gimple_label_label (label_stmt)))
+	return false;
 
   /* Examine the labels at the beginning of B.  */
   for (gsi = gsi_start_bb (b); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       tree lab;
-      stmt = gsi_stmt (gsi);
-      if (gimple_code (stmt) != GIMPLE_LABEL)
+      gimple_label label_stmt = dyn_cast <gimple_label> (gsi_stmt (gsi));
+      if (!label_stmt)
 	break;
-      lab = gimple_label_label (stmt);
+      lab = gimple_label_label (label_stmt);
 
       /* Do not remove user forced labels or for -O0 any user labels.  */
       if (!DECL_ARTIFICIAL (lab) && (!optimize || FORCED_LABEL (lab)))
@@ -1872,9 +1873,9 @@ gimple_merge_blocks (basic_block a, basic_block b)
   for (gsi = gsi_start_bb (b); !gsi_end_p (gsi);)
     {
       gimple stmt = gsi_stmt (gsi);
-      if (gimple_code (stmt) == GIMPLE_LABEL)
+      if (gimple_label label_stmt = dyn_cast <gimple_label> (stmt))
 	{
-	  tree label = gimple_label_label (stmt);
+	  tree label = gimple_label_label (label_stmt);
 	  int lp_nr;
 
 	  gsi_remove (&gsi, false);
@@ -2032,9 +2033,10 @@ remove_bb (basic_block bb)
       for (i = gsi_last_bb (bb); !gsi_end_p (i);)
 	{
 	  gimple stmt = gsi_stmt (i);
-	  if (gimple_code (stmt) == GIMPLE_LABEL
-	      && (FORCED_LABEL (gimple_label_label (stmt))
-		  || DECL_NONLOCAL (gimple_label_label (stmt))))
+	  gimple_label label_stmt = dyn_cast <gimple_label> (stmt);
+	  if (label_stmt
+	      && (FORCED_LABEL (gimple_label_label (label_stmt))
+		  || DECL_NONLOCAL (gimple_label_label (label_stmt))))
 	    {
 	      basic_block new_bb;
 	      gimple_stmt_iterator new_gsi;
@@ -2042,10 +2044,10 @@ remove_bb (basic_block bb)
 	      /* A non-reachable non-local label may still be referenced.
 		 But it no longer needs to carry the extra semantics of
 		 non-locality.  */
-	      if (DECL_NONLOCAL (gimple_label_label (stmt)))
+	      if (DECL_NONLOCAL (gimple_label_label (label_stmt)))
 		{
-		  DECL_NONLOCAL (gimple_label_label (stmt)) = 0;
-		  FORCED_LABEL (gimple_label_label (stmt)) = 1;
+		  DECL_NONLOCAL (gimple_label_label (label_stmt)) = 0;
+		  FORCED_LABEL (gimple_label_label (label_stmt)) = 1;
 		}
 
 	      new_bb = bb->prev_bb;
@@ -2467,16 +2469,17 @@ stmt_starts_bb_p (gimple stmt, gimple prev_stmt)
   /* Labels start a new basic block only if the preceding statement
      wasn't a label of the same type.  This prevents the creation of
      consecutive blocks that have nothing but a single label.  */
-  if (gimple_code (stmt) == GIMPLE_LABEL)
+  if (gimple_label label_stmt = dyn_cast <gimple_label> (stmt))
     {
       /* Nonlocal and computed GOTO targets always start a new block.  */
-      if (DECL_NONLOCAL (gimple_label_label (stmt))
-	  || FORCED_LABEL (gimple_label_label (stmt)))
+      if (DECL_NONLOCAL (gimple_label_label (label_stmt))
+	  || FORCED_LABEL (gimple_label_label (label_stmt)))
 	return true;
 
       if (prev_stmt && gimple_code (prev_stmt) == GIMPLE_LABEL)
 	{
-	  if (DECL_NONLOCAL (gimple_label_label (prev_stmt)))
+	  if (DECL_NONLOCAL (gimple_label_label (
+			       as_a <gimple_label> (prev_stmt))))
 	    return true;
 
 	  cfg_stats.num_merged_labels++;
@@ -5081,7 +5084,7 @@ gimple_verify_flow_info (void)
 	  if (gimple_code (stmt) != GIMPLE_LABEL)
 	    break;
 
-	  label = gimple_label_label (stmt);
+	  label = gimple_label_label (as_a <gimple_label> (stmt));
 	  if (prev_stmt && DECL_NONLOCAL (label))
 	    {
 	      error ("nonlocal label ");
@@ -5134,10 +5137,10 @@ gimple_verify_flow_info (void)
 	  if (stmt_ends_bb_p (stmt))
 	    found_ctrl_stmt = true;
 
-	  if (gimple_code (stmt) == GIMPLE_LABEL)
+	  if (gimple_label label_stmt = dyn_cast <gimple_label> (stmt))
 	    {
 	      error ("label ");
-	      print_generic_expr (stderr, gimple_label_label (stmt), 0);
+	      print_generic_expr (stderr, gimple_label_label (label_stmt), 0);
 	      fprintf (stderr, " in the middle of basic block %d", bb->index);
 	      err = 1;
 	    }
@@ -5396,12 +5399,12 @@ gimple_block_label (basic_block bb)
   gimple_stmt_iterator i, s = gsi_start_bb (bb);
   bool first = true;
   tree label;
-  gimple stmt;
+  gimple_label stmt;
 
   for (i = s; !gsi_end_p (i); first = false, gsi_next (&i))
     {
-      stmt = gsi_stmt (i);
-      if (gimple_code (stmt) != GIMPLE_LABEL)
+      stmt = dyn_cast <gimple_label> (gsi_stmt (i));
+      if (!stmt)
 	break;
       label = gimple_label_label (stmt);
       if (!DECL_NONLOCAL (label))
@@ -6692,9 +6695,9 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
       wi.info = d;
       walk_gimple_stmt (&si, move_stmt_r, move_stmt_op, &wi);
 
-      if (gimple_code (stmt) == GIMPLE_LABEL)
+      if (gimple_label label_stmt = dyn_cast <gimple_label> (stmt))
 	{
-	  tree label = gimple_label_label (stmt);
+	  tree label = gimple_label_label (label_stmt);
 	  int uid = LABEL_DECL_UID (label);
 
 	  gcc_assert (uid > -1);

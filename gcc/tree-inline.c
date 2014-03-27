@@ -4839,9 +4839,9 @@ mark_local_labels_stmt (gimple_stmt_iterator *gsip,
 		        struct walk_stmt_info *wi)
 {
   copy_body_data *id = (copy_body_data *) wi->info;
-  gimple stmt = gsi_stmt (*gsip);
+  gimple_label stmt = dyn_cast <gimple_label> (gsi_stmt (*gsip));
 
-  if (gimple_code (stmt) == GIMPLE_LABEL)
+  if (stmt)
     {
       tree decl = gimple_label_label (stmt);
 
