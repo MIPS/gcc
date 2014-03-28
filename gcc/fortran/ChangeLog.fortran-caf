@@ -1,3 +1,10 @@
+2014-03-28  Tobias Burnus  <burnus@net-b.de>
+
+	* trans-intrinsic.c (caf_get_image_index, conv_caf_send): New.
+	(gfc_conv_intrinsic_subroutine): Call it.
+	* resolve.c (resolve_ordinary_assign): Enable coindex LHS
+	support for -fcoarray=lib.
+
 2014-03-15  Tobias Burnus  <burnus@net-b.de>
 
 	* gfortran.h (gfc_isym_id): Add GFC_ISYM_CAF_SEND.
@@ -6,6 +13,8 @@
 	* resolve.c (resolve_ordinary_assign): Prepare the
 	replacement of the assignment for coindexed LHS by
 	a call to caf_send.
+	(resolve_code): Ignore component_assignments for those
+	assignments which have been replaced.
 
 2014-03-14  Tobias Burnus  <burnus@net-b.de>
 

@@ -9229,7 +9229,7 @@ resolve_ordinary_assign (gfc_code *code, gfc_namespace *ns)
 
   gfc_check_assign (lhs, rhs, 1);
 
-  if (false && lhs_coindexed && gfc_option.coarray == GFC_FCOARRAY_LIB)
+  if (lhs_coindexed && gfc_option.coarray == GFC_FCOARRAY_LIB)
     {
       code->op = EXEC_CALL;
       gfc_get_sym_tree (GFC_PREFIX ("caf_send"), ns, &code->symtree, true);
