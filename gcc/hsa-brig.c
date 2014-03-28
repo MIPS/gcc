@@ -23,12 +23,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "hsa.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "tree-cfg.h"
 #include "machmode.h"
 #include "output.h"
 #include "basic-block.h"
 #include "vec.h"
 #include "gimple-pretty-print.h"
+#include "diagnostic-core.h"
 
 #define BRIG_SECTION_STRING_NAME ".brig_strtab"
 #define BRIG_SECTION_DIRECTIVE_NAME ".brig_directives"
@@ -385,7 +387,11 @@ emit_symbol_directive (struct hsa_symbol *symbol)
   symdir.code = htole32 (brig_code.total_size);
 
   if (symbol->decl && is_global_var (symbol->decl))
-    prefix = '&';
+    {
+      prefix = '&';
+      if (TREE_CODE (symbol->decl) == VAR_DECL)
+	warning (0, "referring to global symbol %q+D by name from HSA code won't work", symbol->decl);
+    }
   else
     prefix = '%';
 
@@ -504,6 +510,69 @@ emit_bb_label_directive (hsa_bb *hbb)
 							sizeof (lbldir));
 }
 
+BrigType16_t
+bittype_for_type (BrigType16_t t)
+{
+  switch (t)
+    {
+      case BRIG_TYPE_B1:
+	return BRIG_TYPE_B1;
+
+    case BRIG_TYPE_U8:
+    case BRIG_TYPE_S8:
+    case BRIG_TYPE_B8:
+      return BRIG_TYPE_B8;
+
+    case BRIG_TYPE_U16:
+    case BRIG_TYPE_S16:
+    case BRIG_TYPE_B16:
+    case BRIG_TYPE_F16:
+      return BRIG_TYPE_B16;
+
+    case BRIG_TYPE_U32:
+    case BRIG_TYPE_S32:
+    case BRIG_TYPE_B32:
+    case BRIG_TYPE_F32:
+    case BRIG_TYPE_U8X4:
+    case BRIG_TYPE_U16X2:
+    case BRIG_TYPE_S8X4:
+    case BRIG_TYPE_S16X2:
+    case BRIG_TYPE_F16X2:
+      return BRIG_TYPE_B32;
+
+    case BRIG_TYPE_U64:
+    case BRIG_TYPE_S64:
+    case BRIG_TYPE_F64:
+    case BRIG_TYPE_B64:
+    case BRIG_TYPE_U8X8:
+    case BRIG_TYPE_U16X4:
+    case BRIG_TYPE_U32X2:
+    case BRIG_TYPE_S8X8:
+    case BRIG_TYPE_S16X4:
+    case BRIG_TYPE_S32X2:
+    case BRIG_TYPE_F16X4:
+    case BRIG_TYPE_F32X2:
+
+      return BRIG_TYPE_B64;
+
+    case BRIG_TYPE_B128:
+    case BRIG_TYPE_U8X16:
+    case BRIG_TYPE_U16X8:
+    case BRIG_TYPE_U32X4:
+    case BRIG_TYPE_U64X2:
+    case BRIG_TYPE_S8X16:
+    case BRIG_TYPE_S16X8:
+    case BRIG_TYPE_S32X4:
+    case BRIG_TYPE_S64X2:
+    case BRIG_TYPE_F16X8:
+    case BRIG_TYPE_F32X4:
+    case BRIG_TYPE_F64X2:
+      return BRIG_TYPE_B128;
+
+    default:
+      gcc_unreachable ();
+    }
+}
 /* Map a normal HSAIL type to the type of the equivalent BRIG operand
    holding such, for constants and registers.  */
 
@@ -707,6 +776,33 @@ emit_immediate_operand (hsa_op_immed *imm)
       break;
 
     case BRIG_TYPE_F32:
+    case BRIG_TYPE_F64:
+      {
+	tree expr = imm->value;
+	tree type = TREE_TYPE (expr);
+
+	len = GET_MODE_SIZE (TYPE_MODE (type));
+
+	/* There are always 32 bits in each long, no matter the size of
+	   the hosts long.  */
+	long tmp[6];
+
+	gcc_assert (len == 4 || len == 8);
+
+	real_to_target (tmp, TREE_REAL_CST_PTR (expr), TYPE_MODE (type));
+
+	if (len == 4)
+	  bytes.b32 = (uint32_t) tmp[0];
+	else
+	  {
+	    bytes.b64 = (uint64_t)(uint32_t) tmp[1];
+	    bytes.b64 <<= 32;
+	    bytes.b64 |= (uint32_t) tmp[0];
+	  }
+
+	break;
+      }
+
     case BRIG_TYPE_U8X4:
     case BRIG_TYPE_S8X4:
     case BRIG_TYPE_U16X2:
@@ -714,7 +810,6 @@ emit_immediate_operand (hsa_op_immed *imm)
     case BRIG_TYPE_F16X2:
       gcc_unreachable ();
 
-    case BRIG_TYPE_F64:
     case BRIG_TYPE_U8X8:
     case BRIG_TYPE_S8X8:
     case BRIG_TYPE_U16X4:
@@ -729,7 +824,7 @@ emit_immediate_operand (hsa_op_immed *imm)
 
   out.size = htole16 ((8 + len + 3) & ~3);
   out.kind = htole16 (BRIG_OPERAND_IMMED);
-  out.type = htole16 (regtype_for_type (imm->type));
+  out.type = htole16 (bittype_for_type (imm->type));
   out.byteCount = htole16 (len);
   brig_operand.add (&out, 8);
   brig_operand.add (&bytes, len);
@@ -882,12 +977,45 @@ emit_memory_insn (hsa_insn_mem *mem)
     repr.segment = addr->symbol->segment;
   else
     repr.segment = BRIG_SEGMENT_FLAT;
-  repr.modifier = BRIG_SEMANTIC_REGULAR;
+  repr.modifier = mem->semantic ? mem->semantic : BRIG_SEMANTIC_REGULAR;
   repr.equivClass = mem->equiv_class;
   if (mem->opcode == BRIG_OPCODE_LD)
     repr.width = BRIG_WIDTH_1;
   else
     repr.width = BRIG_WIDTH_NONE;
+  brig_code.add (&repr, sizeof (repr));
+  brig_insn_count++;
+}
+
+/* Emit an HSA memory instruction and all nececcary directives, schedule
+   necessary operands for writing .  */
+
+static void
+emit_atomic_insn (hsa_insn_atomic *mem)
+{
+  struct BrigInstAtomic repr;
+  hsa_op_address *addr = as_a <hsa_op_address> (mem->operands[1]);
+
+  /* This is necessary because of the errorneous typedef of
+     BrigMemoryModifier8_t which introduces padding which may then contain
+     random stuff (which we do not want so that we can test things don't
+     change).  */
+  memset (&repr, 0, sizeof (repr));
+  repr.size = htole16 (sizeof (repr));
+  repr.kind = htole16 (BRIG_INST_ATOMIC);
+  repr.opcode = htole16 (mem->opcode);
+  repr.type = htole16 (mem->type);
+  repr.operands[0] = htole32 (enqueue_op (mem->operands[0]));
+  repr.operands[1] = htole32 (enqueue_op (mem->operands[1]));
+  repr.operands[2] = htole32 (enqueue_op (mem->operands[2]));
+  if (mem->atomicop == BRIG_ATOMIC_CAS)
+    repr.operands[3] = htole32 (enqueue_op (mem->operands[3]));
+  if (addr->symbol)
+    repr.segment = addr->symbol->segment;
+  else
+    repr.segment = BRIG_SEGMENT_FLAT;
+  repr.memorySemantic = mem->semantic ? mem->semantic : BRIG_SEMANTIC_REGULAR;
+  repr.atomicOperation = mem->atomicop;
   brig_code.add (&repr, sizeof (repr));
   brig_insn_count++;
 }
@@ -1099,6 +1227,11 @@ static void
 emit_insn (hsa_insn_basic *insn)
 {
   gcc_assert (!is_a <hsa_insn_phi> (insn));
+  if (hsa_insn_atomic *atom = dyn_cast <hsa_insn_atomic> (insn))
+    {
+      emit_atomic_insn (atom);
+      return;
+    }
   if (hsa_insn_mem *mem = dyn_cast <hsa_insn_mem> (insn))
     {
       emit_memory_insn (mem);

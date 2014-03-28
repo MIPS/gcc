@@ -196,18 +196,21 @@ stupid_regalloc_bb (basic_block bb, struct reg_class_desc *classes)
 		}
 	      else
 		{
-		  reg->spill_sym = hsa_get_spill_symbol (reg->type);
+		  BrigType16_t type = reg->type;
+		  if (type == BRIG_TYPE_B1)
+		    type = BRIG_TYPE_U8;
+		  reg->spill_sym = hsa_get_spill_symbol (type);
 		  reg->spill_sym->name_number = reg->order;
 		}
 	    }
 
 	  if (reg->spill_sym)
 	    {
-	      hsa_op_reg *tmp;
+	      hsa_op_reg *tmp, *tmp2;
 	      if (hsa_opcode_op_output_p (insn->opcode, i))
-		tmp = hsa_spill_out (insn, reg->spill_sym);
+		tmp = hsa_spill_out (insn, reg, &tmp2);
 	      else
-		tmp = hsa_spill_in (insn, reg->spill_sym);
+		tmp = hsa_spill_in (insn, reg, &tmp2);
 
 	      if (regaddr)
 		*regaddr = tmp;
@@ -216,6 +219,12 @@ stupid_regalloc_bb (basic_block bb, struct reg_class_desc *classes)
 
 	      tmp->reg_class = classes[cl].cl_char;
 	      tmp->hard_num = (char) (classes[cl].max_num + i);
+	      if (tmp2)
+		{
+		  gcc_assert (cl == 0);
+		  tmp2->reg_class = classes[1].cl_char;
+		  tmp2->hard_num = (char) (classes[1].max_num + i);
+		}
 	    }
 	}
     }
@@ -230,7 +239,7 @@ stupid_regalloc (void)
   reg_class_desc classes[4];
 
   classes[0].next_avail = 0;
-  classes[0].max_num = 4;
+  classes[0].max_num = 7;
   classes[0].cl_char = 'c';
   classes[1].cl_char = 's';
   classes[2].cl_char = 'd';

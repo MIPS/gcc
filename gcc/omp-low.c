@@ -1883,6 +1883,8 @@ create_omp_child_function (omp_context *ctx, bool task_copy)
 
   DECL_ATTRIBUTES (decl) = tree_cons (get_identifier ("hsa"), NULL_TREE,
 				      DECL_ATTRIBUTES (decl));
+  DECL_ATTRIBUTES (decl) = tree_cons (get_identifier ("flatten"), NULL_TREE,
+				      DECL_ATTRIBUTES (decl));
 
   t = build_decl (DECL_SOURCE_LOCATION (decl),
 		  RESULT_DECL, NULL_TREE, void_type_node);

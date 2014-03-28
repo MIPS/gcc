@@ -290,6 +290,9 @@ struct hsa_insn_mem : public hsa_insn_basic
   /* HSA equiv class, basically an alias set number. */
   uint8_t equiv_class;
 
+  /* Things like aquire/release/aligned.  */
+  enum BrigMemorySemantic semantic;
+
   /* TODO:  Add width modifier, perhaps also other things.  */
 };
 
@@ -302,6 +305,25 @@ is_a_helper <hsa_insn_mem>::test (struct hsa_insn_basic *p)
 {
   return (p->opcode == BRIG_OPCODE_LD
 	  || p->opcode == BRIG_OPCODE_ST);
+}
+
+/* HSA instruction for atomic operations.  */
+
+struct hsa_insn_atomic : public hsa_insn_mem
+{
+  /* The operation itself.  */
+  enum BrigAtomicOperation atomicop;
+};
+
+/* Report whether or not P is a memory instruction.  */
+
+template <>
+template <>
+inline bool
+is_a_helper <hsa_insn_atomic>::test (struct hsa_insn_basic *p)
+{
+  return (p->opcode == BRIG_OPCODE_ATOMIC
+	  || p->opcode == BRIG_OPCODE_ATOMICNORET);
 }
 
 /* Though the HSA PRM in 19.10.1.7 says that LDA is should be BrigInstMem, the
@@ -468,8 +490,8 @@ bool hsa_full_profile_p (void);
 bool hsa_opcode_op_output_p (BrigOpcode16_t, int);
 void hsa_build_append_simple_mov (hsa_op_reg *, hsa_op_base *, hsa_bb *);
 hsa_symbol *hsa_get_spill_symbol (BrigType16_t);
-hsa_op_reg *hsa_spill_in (hsa_insn_basic *, hsa_symbol *);
-hsa_op_reg *hsa_spill_out (hsa_insn_basic *, hsa_symbol *);
+hsa_op_reg *hsa_spill_in (hsa_insn_basic *, hsa_op_reg *, hsa_op_reg **);
+hsa_op_reg *hsa_spill_out (hsa_insn_basic *, hsa_op_reg *, hsa_op_reg **);
 hsa_bb *hsa_init_new_bb (basic_block);
 void hsa_deinit_compilation_unit_data (void);
 
@@ -479,6 +501,7 @@ void hsa_regalloc (void);
 /* In hsa-brig.c.  */
 void hsa_brig_emit_function (void);
 void hsa_output_brig (void);
+BrigType16_t bittype_for_type (BrigType16_t t);
 
 /*  In hsa-dump.c.  */
 const char *hsa_seg_name (BrigSegment8_t);

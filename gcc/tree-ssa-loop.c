@@ -157,6 +157,9 @@ tree_loop_vectorize (void)
 static bool
 gate_tree_loop_vectorize (void)
 {
+  if (lookup_attribute ("hsa",
+			DECL_ATTRIBUTES (current_function_decl)))
+    return false;
   return flag_tree_loop_vectorize || cfun->has_force_vect_loops;
 }
 

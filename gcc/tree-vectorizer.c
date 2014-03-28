@@ -616,6 +616,9 @@ execute_vect_slp (void)
 static bool
 gate_vect_slp (void)
 {
+  if (lookup_attribute ("hsa",
+			DECL_ATTRIBUTES (current_function_decl)))
+    return false;
   return flag_tree_slp_vectorize != 0;
 }
 

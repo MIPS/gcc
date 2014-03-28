@@ -513,6 +513,66 @@ hsa_cmpop_name (BrigCompareOperation8_t cmpop)
     }
 }
 
+/* Return textual name for memory semantics.  */
+
+static const char *
+hsa_memsem_name (enum BrigMemorySemantic sem)
+{
+  switch (sem)
+    {
+    case BRIG_SEMANTIC_NONE:
+    case BRIG_SEMANTIC_REGULAR:
+      return "";
+    case BRIG_SEMANTIC_ACQUIRE:
+      return "acq";
+    case BRIG_SEMANTIC_RELEASE:
+      return "rel";
+    case BRIG_SEMANTIC_ACQUIRE_RELEASE:
+      return "ar";
+    case BRIG_SEMANTIC_PARTIAL_ACQUIRE:
+      return "part_acq";
+    case BRIG_SEMANTIC_PARTIAL_RELEASE:
+      return "part_rel";
+    case BRIG_SEMANTIC_PARTIAL_ACQUIRE_RELEASE:
+      return "part_ar";
+    default:
+      return "UNKNOWN_SEMANTIC";
+    }
+
+}
+
+static const char *
+hsa_atomicop_name (enum BrigAtomicOperation op)
+{
+  switch (op)
+    {
+    case BRIG_ATOMIC_AND:
+      return "and";
+    case BRIG_ATOMIC_OR:
+      return "or";
+    case BRIG_ATOMIC_XOR:
+      return "xor";
+    case BRIG_ATOMIC_CAS:
+      return "cas";
+    case BRIG_ATOMIC_EXCH:
+      return "exch";
+    case BRIG_ATOMIC_ADD:
+      return "add";
+    case BRIG_ATOMIC_INC:
+      return "inc";
+    case BRIG_ATOMIC_DEC:
+      return "dec";
+    case BRIG_ATOMIC_MIN:
+      return "min";
+    case BRIG_ATOMIC_MAX:
+      return "max";
+    case BRIG_ATOMIC_SUB:
+      return "sub";
+    default:
+      return "UNKNOWN_ATOMIC_OP";
+    }
+}
+
 /* Dump textual representation of HSA IL register REG to file F.  */
 
 static void
@@ -604,6 +664,32 @@ dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int indent)
 	}
       fprintf (f, ">\n");
     }
+  else if (is_a <hsa_insn_atomic> (insn))
+    {
+      hsa_insn_atomic *mem = as_a <hsa_insn_atomic> (insn);
+      hsa_op_address *addr = as_a <hsa_op_address> (mem->operands[1]);
+
+      fprintf (f, "%s", hsa_opcode_name (mem->opcode));
+      fprintf (f, "_%s", hsa_atomicop_name (mem->atomicop));
+      if (addr->symbol)
+	fprintf (f, "_%s", hsa_seg_name (addr->symbol->segment));
+      if (mem->semantic != BRIG_SEMANTIC_NONE
+	  && mem->semantic != BRIG_SEMANTIC_REGULAR)
+	fprintf (f, "_%s", hsa_memsem_name (mem->semantic));
+      fprintf (f, "_%s ", hsa_type_name (mem->type));
+
+      dump_hsa_imm_or_reg (f, mem->operands[0]);
+      fprintf (f, ", ");
+      dump_hsa_address (f, addr);
+      fprintf (f, ", ");
+      dump_hsa_imm_or_reg (f, mem->operands[2]);
+      if (mem->atomicop == BRIG_ATOMIC_CAS)
+	{
+	  fprintf (f, ", ");
+	  dump_hsa_imm_or_reg (f, mem->operands[3]);
+	}
+      fprintf (f, "\n");
+    }
   else if (is_a <hsa_insn_mem> (insn))
     {
       hsa_insn_mem *mem = as_a <hsa_insn_mem> (insn);
@@ -612,6 +698,9 @@ dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int indent)
       fprintf (f, "%s", hsa_opcode_name (mem->opcode));
       if (addr->symbol)
 	fprintf (f, "_%s", hsa_seg_name (addr->symbol->segment));
+      if (mem->semantic != BRIG_SEMANTIC_NONE
+	  && mem->semantic != BRIG_SEMANTIC_REGULAR)
+	fprintf (f, "_%s", hsa_memsem_name (mem->semantic));
       if (mem->equiv_class != 0)
 	fprintf (f, "_equiv(%i)", mem->equiv_class);
       fprintf (f, "_%s ", hsa_type_name (mem->type));
