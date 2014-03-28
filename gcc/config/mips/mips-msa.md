@@ -1379,7 +1379,7 @@
 		  (and:IMSA (match_dup 0)
 			    (match_operand:IMSA 3 "register_operand" "f"))))]
   "ISA_HAS_MSA"
-  "bsel.v\t%w0,%w1,%w3";
+  "bsel.v\t%w0,%w2,%w3";
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")])
 
@@ -1391,7 +1391,7 @@
 		  (and:IMSA (match_dup 1)
 			    (match_operand:IMSA 3 "register_operand" "f"))))]
   "ISA_HAS_MSA"
-  "bmnz.v\t%w0,%w1,%w3";
+  "bmnz.v\t%w0,%w2,%w3";
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
    (set_attr "msa_execunit" "msa_eu_logic_l")])
@@ -1922,7 +1922,7 @@
   "fill.<msafmt>\t%w0,%z1"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
-   (set_attr "msa_execunit" "msa_eu_float4")])
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 ;; Note that fill.d and fill_d_f will be split later if !TARGET_64BIT.
 
