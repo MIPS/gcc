@@ -1379,7 +1379,7 @@
 		  (and:IMSA (match_dup 0)
 			    (match_operand:IMSA 3 "register_operand" "f"))))]
   "ISA_HAS_MSA"
-  "bsel.v\t%w0,%w2,%w3";
+  "bsel.v\t%w0,%w1,%w3";
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")])
 
@@ -1391,7 +1391,7 @@
 		  (and:IMSA (match_dup 1)
 			    (match_operand:IMSA 3 "register_operand" "f"))))]
   "ISA_HAS_MSA"
-  "bmnz.v\t%w0,%w2,%w3";
+  "bmnz.v\t%w0,%w1,%w3";
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
    (set_attr "msa_execunit" "msa_eu_logic_l")])
@@ -2156,7 +2156,8 @@
   "ISA_HAS_MSA"
   "ilvev.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "alu_type"	"add")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "msa_ilvl_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
