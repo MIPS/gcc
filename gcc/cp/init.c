@@ -192,6 +192,9 @@ build_zero_init_1 (tree type, tree nelts, bool static_storage_p,
 	  if (TREE_CODE (field) != FIELD_DECL)
 	    continue;
 
+	  if (TREE_TYPE (field) == error_mark_node)
+	    continue;
+
 	  /* Don't add virtual bases for base classes if they are beyond
 	     the size of the current field, that means it is present
 	     somewhere else in the object.  */
@@ -2154,7 +2157,7 @@ diagnose_uninitialized_cst_or_ref_member_1 (tree type, tree origin,
 			   "of %q#T", DECL_CONTEXT (field), origin);
 		}
 	      inform (DECL_SOURCE_LOCATION (field),
-		      "%qD should be initialized", field);
+		      "%q#D should be initialized", field);
 	    }
 	}
 
@@ -2182,7 +2185,7 @@ diagnose_uninitialized_cst_or_ref_member_1 (tree type, tree origin,
 			   "of %q#T", DECL_CONTEXT (field), origin);
 		}
 	      inform (DECL_SOURCE_LOCATION (field),
-		      "%qD should be initialized", field);
+		      "%q#D should be initialized", field);
 	    }
 	}
 
