@@ -23,12 +23,17 @@ namespace Gimple {
 
 template<typename T> class _ptr;
 template<typename pT, typename dT> class _dptr;
+template<typename T> class _addr;
+
 #define FWD_DECL_BASE(NAME)	typedef _ptr<class NAME ## _desc> NAME
 #define FWD_DECL(NAME, BASE)	typedef _dptr<class NAME ## _desc, BASE> NAME
+#define FWD_DECL_PTR(NAME)	typedef _addr<NAME> NAME ## _ptr
 
 FWD_DECL_BASE (value);
 FWD_DECL_BASE (type);
 FWD_DECL_BASE (block);
+
+FWD_DECL_PTR (value);
 
 FWD_DECL (numerical_type, type);
 
@@ -386,6 +391,10 @@ class decl_desc : public value_desc
     void set_ignored_p (const bool);
     Gimple::value context() const;
     void set_context(Gimple::value);
+    unsigned int uid() const;
+
+    enum machine_mode mode () const;
+    void set_mode (enum machine_mode);
 /*
     bool is_type_context () const;
     Gimple::function_decl function_context () const;
@@ -401,6 +410,10 @@ protected:
     bool decl_has_assembler_p () const;
     bool decl_has_rtl_p () const;
     bool decl_has_noncommon_p () const;
+};
+
+class debug_expr_decl_desc : public decl_desc
+{
 };
 
 class decl_with_rtl_desc : public decl_desc
@@ -452,6 +465,7 @@ class value_list_desc : public value_desc
 {
   public:
     Gimple::value value() const;
+    Gimple::value_ptr ptrto_value();
     value_list chain () const;
 };
 
@@ -488,6 +502,7 @@ class ssa_name_desc : public value_desc
     void set_is_default_def (bool);
     struct ssa_use_operand_t * imm_use_node_ptr ();
     bool occurs_in_abnormal_phi () const;
+    void set_occurs_in_abnormal_phi (bool);
     bool same_base (const Gimple::ssa_name n) const;
 };
 

@@ -242,6 +242,13 @@ value_list_desc::value () const
   return Gimple::value (node.list.value);
 }
 
+inline Gimple::value_ptr
+value_list_desc::ptrto_value ()
+{ 
+  return Gimple::value_ptr (&(node.list.value));
+}
+
+
 inline value_list
 value_list_desc::chain () const
 { 
@@ -779,6 +786,23 @@ decl_desc::set_context (Gimple::value t)
   node.decl_minimal.context = t;
 }
 
+inline unsigned int
+decl_desc::uid () const
+{
+  return node.decl_minimal.uid;
+}
+
+inline enum machine_mode
+decl_desc::mode () const
+{
+  return node.decl_common.mode;
+}
+
+inline void 
+decl_desc::set_mode (enum machine_mode m)
+{
+  node.decl_common.mode = m;
+}
 
 inline bool 
 decl_desc::decl_has_assembler_p() const
@@ -884,7 +908,15 @@ ssa_name_desc::set_version (unsigned int v)
 
 inline bool
 ssa_name_desc::occurs_in_abnormal_phi () const
-{ return node.base.asm_written_flag; }
+{
+  return node.base.asm_written_flag;
+}
+
+inline void
+ssa_name_desc::set_occurs_in_abnormal_phi (bool f)
+{
+ node.base.asm_written_flag = f;
+}
 
 inline decl
 ssa_name_desc::var () const

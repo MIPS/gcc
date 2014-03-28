@@ -20,16 +20,16 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_TREE_INTO_SSA_H
 #define GCC_TREE_INTO_SSA_H
 
-extern tree get_current_def (tree);
-extern void set_current_def (tree, tree);
+extern tree get_current_def (Gimple::value);
+extern void set_current_def (Gimple::value , Gimple::value);
 void delete_update_ssa (void);
-tree create_new_def_for (tree, gimple, def_operand_p);
+Gimple::ssa_name create_new_def_for (Gimple::ssa_name, gimple, def_operand_p);
 void mark_virtual_operands_for_renaming (struct function *);
-void mark_virtual_operand_for_renaming (tree);
+void mark_virtual_operand_for_renaming (Gimple::ssa_name);
 void mark_virtual_phi_result_for_renaming (gimple);
 bool need_ssa_update_p (struct function *);
-bool name_registered_for_update_p (tree);
-void release_ssa_name_after_update_ssa (tree);
+bool name_registered_for_update_p (Gimple::ssa_name);
+void release_ssa_name_after_update_ssa (Gimple::ssa_name);
 void update_ssa (unsigned);
 
 /* Prototypes for debugging functions.  */
@@ -44,8 +44,8 @@ extern void dump_tree_ssa_stats (FILE *);
 extern void debug_tree_ssa_stats (void);
 extern void dump_var_infos (FILE *);
 extern void debug_var_infos (void);
-extern void dump_names_replaced_by (FILE *, tree);
-extern void debug_names_replaced_by (tree);
+extern void dump_names_replaced_by (FILE *, Gimple::ssa_name);
+extern void debug_names_replaced_by (Gimple::ssa_name);
 extern void dump_update_ssa (FILE *);
 extern void debug_update_ssa (void);
 

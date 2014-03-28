@@ -3,6 +3,8 @@
 
 #include "langhooks.h"
 
+#define MAY_HAVE_DEBUG_STMTS    (flag_var_tracking_assignments)
+
 const char * gimple_tree_printable_name (tree, int);
 
 extern void clean_symbol_name (char *p);

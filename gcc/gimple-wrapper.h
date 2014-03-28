@@ -44,6 +44,24 @@ inline T dyn_cast (D v)
 { return T::dyn_cast (v); }
 
 
+// Should probably discourage these 3 routines, but they should be 
+// eliminatable as more things are converted and extrernal calls no longer
+// return trees
+
+template<typename T>
+inline bool is_a (tree v)
+{ T tmp = v; return tmp != NULL; }
+
+template<typename T>
+inline T as_a (tree v)
+{ T tmp = v; return tmp; }
+
+template<typename T>
+inline T dyn_cast  (tree v)
+{ T tmp = v; return tmp; }
+
+
+
 namespace Gimple {
 
 template<typename T>
@@ -63,6 +81,7 @@ class _ptr
     inline _ptr (const tree t)  { set_ptr (t); check_contents (); }
     inline _ptr (const_tree t)  { set_ptr (t); check_contents (); }
     inline _ptr (const T *v) { set_ptr (v); }
+    inline _ptr (int x ATTRIBUTE_UNUSED) { gcc_assert (!x); set_ptr (NULL); }
     inline _ptr& operator= (const gimple_null& g ATTRIBUTE_UNUSED)
 				    { Tree = NULL; return *this;}
     inline _ptr& operator= (const tree t) 
@@ -70,14 +89,16 @@ class _ptr
     inline _ptr& operator= (const_tree t)
 			      { set_ptr (t); check_contents (); return *this;}
     inline _ptr& operator= (const T *v) { set_ptr (v); return *this;}
+    inline _ptr& operator= (int x ATTRIBUTE_UNUSED) 
+			  { gcc_assert (!x); set_ptr (NULL); return *this; }
 
     bool operator!() const { return Tree == NULL; }
     inline operator tree () const { return reinterpret_cast<tree>(Tree); }
 
     inline T * operator->() { return ptr (); }
     inline const T * operator->() const { return ptr (); }
-//    inline T& operator*() { return *ptr (); }
-//    inline const T& operator*() const { return *ptr (); }
+    inline T& operator*() { return *ptr (); }
+    inline const T& operator*() const { return *ptr (); }
 
     friend bool is_same(const _ptr a, _ptr b)
 				    { return a->code () == b->code (); }
@@ -110,8 +131,7 @@ class _ptr
     template <typename TT>
     friend bool operator== (const _ptr<TT>&, long);
     template <typename TT>
-    friend bool operator!= (const _ptr<TT>&, long);
-
+    friend bool operator!= (const _ptr<TT>&, long); 
     template <typename TT> friend TT copy (TT ptr);
     template <typename TT> friend TT create ();
 
@@ -148,6 +168,7 @@ class _dptr : public dT
     inline _dptr (const_tree t) : dT (t) { check_contents(); }
     inline _dptr (const dT& d) : dT () { if (d) dT::operator= (dyn_cast (d)); }
     inline _dptr (const pT *n) : dT () {  dT::set_ptr (n); }
+    inline _dptr (int x ATTRIBUTE_UNUSED) : dT () { gcc_assert (!x); }
 
     inline _dptr& operator= (const tree t) 
 			  { dT::operator= (t); check_contents(); return *this; }
@@ -158,13 +179,15 @@ class _dptr : public dT
     inline _dptr& operator= (const pT *p) { dT::set_ptr (p); return *this; }
     inline _dptr& operator= (const gimple_null& g ATTRIBUTE_UNUSED)
 					    { dT::set_ptr (NULL); return *this;}
+    inline _dptr& operator= (int x ATTRIBUTE_UNUSED) 
+		      { gcc_assert (!x); dT::set_ptr (NULL); return *this; }
 
     inline pT * operator->() { return static_cast<pT *>(dT::ptr()); }
     inline const pT * operator->() const 
 				  { return static_cast<const pT *>(dT::ptr()); }
-//    inline pT& operator*() { return *static_cast<pT *>(dT::ptr()); }
-//    inline const pT& operator*() const
-//				{ return *static_cast<const pT *>(dT::ptr()); }
+    inline pT& operator*() { return *static_cast<pT *>(dT::ptr()); }
+    inline const pT& operator*() const
+				{ return *static_cast<const pT *>(dT::ptr()); }
 
     template <typename T1, typename T2>
     friend bool operator== (const _dptr<T1,T2>& a, const T1 *b);
@@ -428,6 +451,8 @@ TERMINAL_PTR (parm_decl, PARM_DECL, value)
 TERMINAL_PTR (result_decl, RESULT_DECL, value)
 TERMINAL_PTR (label_decl, LABEL_DECL, value)
 TERMINAL_PTR (function_decl, FUNCTION_DECL, value)
+TERMINAL_PTR (debug_expr_decl, DEBUG_EXPR_DECL, value)
+
 TERMINAL_PTR (ssa_name, SSA_NAME, value)
 TERMINAL_PTR (mem_ref, MEM_REF, value)
 TERMINAL_PTR (addr_expr, ADDR_EXPR, value)
