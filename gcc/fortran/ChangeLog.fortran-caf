@@ -1,5 +1,9 @@
 2014-03-28  Tobias Burnus  <burnus@net-b.de>
 
+	* trans-intrinsic.c (conv_caf_send): Fix offset calculation.
+
+2014-03-28  Tobias Burnus  <burnus@net-b.de>
+
 	* trans-intrinsic.c (caf_get_image_index, conv_caf_send): New.
 	(gfc_conv_intrinsic_subroutine): Call it.
 	* resolve.c (resolve_ordinary_assign): Enable coindex LHS

@@ -7942,7 +7942,8 @@ conv_caf_send (gfc_code *code) {
    }
 
   offset = fold_build2_loc (input_location, MINUS_EXPR, gfc_array_index_type,
-                            offset, tmp);
+			    fold_convert (gfc_array_index_type, offset),
+			    fold_convert (gfc_array_index_type, tmp));
 
   /* RHS - a noncoarray.  */
 
