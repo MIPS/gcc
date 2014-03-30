@@ -34,7 +34,7 @@ typedef struct func
 
 extern func_t functions[];
 
-static int n_functions;
+static unsigned n_functions;
 static void **sorted_functions;
 
 /* Find the index of function START in backtrace.  Start at index IDX.  */
