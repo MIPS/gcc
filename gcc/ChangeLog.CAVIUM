@@ -68,6 +68,7 @@
 
 2014-03-26  Andrew Pinski  <apinski@cavium.com>
 
+	Bug #9559
 	* config.host: Set use_long_long_for_widest_fast_int to yes
 	for mips64*-*-*, aarch64*-*-*, and x86_64-*-*.
 
