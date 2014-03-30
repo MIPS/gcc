@@ -34,15 +34,15 @@ typedef struct func
 
 extern func_t functions[];
 
-static unsigned n_functions;
+static int n_functions;
 static void **sorted_functions;
 
 /* Find the index of function START in backtrace.  Start at index IDX.  */
 
 static int
-find_function (void *start, void *bt[], unsigned len, unsigned idx)
+find_function (void *start, void *bt[], int len, int idx)
 {
-  unsigned i;
+  int i;
   void *end;
 
   for (i = 0, end = 0; i < n_functions; i++)
@@ -137,7 +137,7 @@ compare (const void *a, const void *b)
 static void
 testbt_setup (void)
 {
-  unsigned i;
+  int i;
 
   /* Don't expect functions to be a complete here, find the end at run
      time.  */
