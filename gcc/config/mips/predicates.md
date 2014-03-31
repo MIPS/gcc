@@ -581,12 +581,6 @@
   return mips_const_vector_bitimm_clr_p (op, mode);
 })
 
-(define_predicate "const_vector_same_uimm5_operand"
-  (match_code "const_vector")
-{
-  return mips_const_vector_same_int_p (op, mode, 0, 31);
-})
-
 (define_predicate "const_vector_same_v4si_set_operand"
   (match_code "const_vector")
 {
@@ -617,10 +611,22 @@
   return mips_const_vector_bitimm_clr_p (op, mode);
 })
 
+(define_predicate "const_vector_same_ximm5_operand"
+  (match_code "const_vector")
+{
+  return mips_const_vector_same_int_p (op, mode, -31, 31);
+})
+
 (define_predicate "const_vector_same_simm5_operand"
   (match_code "const_vector")
 {
-  return mips_const_vector_same_int_p (op, mode, -32, 31);
+  return mips_const_vector_same_int_p (op, mode, -32, 0);
+})
+
+(define_predicate "const_vector_same_uimm5_operand"
+  (match_code "const_vector")
+{
+  return mips_const_vector_same_int_p (op, mode, 0, 31);
 })
 
 (define_predicate "const_vector_same_uimm8_operand"
@@ -629,25 +635,17 @@
   return mips_const_vector_same_int_p (op, mode, 0, 255);
 })
 
-(define_predicate "const_vector_any_simm5_operand"
-  (match_code "const_vector")
-{
-  return mips_const_vector_any_int_p (op, mode, -32, 31);
-})
-
-(define_predicate "const_vector_any_uimm8_operand"
-  (match_code "const_vector")
-{
-  return mips_const_vector_any_int_p (op, mode, 0, 255);
-})
-
-(define_predicate "reg_or_vector_any_simm5_operand"
+(define_predicate "reg_or_vector_same_ximm5_operand"
   (ior (match_operand 0 "register_operand")
-       (match_operand 0 "const_vector_any_simm5_operand")))
+       (match_operand 0 "const_vector_same_ximm5_operand")))
 
 (define_predicate "reg_or_vector_same_simm5_operand"
   (ior (match_operand 0 "register_operand")
        (match_operand 0 "const_vector_same_simm5_operand")))
+
+(define_predicate "reg_or_vector_same_uimm5_operand"
+  (ior (match_operand 0 "register_operand")
+       (match_operand 0 "const_vector_same_uimm5_operand")))
 
 (define_predicate "reg_or_vector_same_uimm3_operand"
   (ior (match_operand 0 "register_operand")
@@ -673,10 +671,6 @@
   (ior (match_operand 0 "register_operand")
        (match_operand 0 "const_vector_same_v8hi_clr_operand")))
 
-(define_predicate "reg_or_vector_same_uimm5__operand"
-  (ior (match_operand 0 "register_operand")
-       (match_operand 0 "const_vector_same_uimm5_operand")))
-
 (define_predicate "reg_or_vector_same_v4si_set_operand"
   (ior (match_operand 0 "register_operand")
        (match_operand 0 "const_vector_same_v4si_set_operand")))
@@ -700,10 +694,6 @@
 (define_predicate "reg_or_vector_same_uimm8_operand"
   (ior (match_operand 0 "register_operand")
        (match_operand 0 "const_vector_same_uimm8_operand")))
-
-(define_predicate "reg_or_vector_any_uimm8_operand"
-  (ior (match_operand 0 "register_operand")
-       (match_operand 0 "const_vector_any_uimm8_operand")))
 
 (define_predicate "reg_or_vector_same_bitumm3_operand"
   (ior (match_operand 0 "register_operand")

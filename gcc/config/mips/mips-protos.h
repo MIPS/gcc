@@ -288,7 +288,6 @@ extern void mips_expand_epilogue (bool);
 extern bool mips_can_use_return_insn (void);
 extern bool mips_const_vector_same_val_p (rtx, enum machine_mode);
 extern bool mips_const_vector_same_int_p (rtx, enum machine_mode, HOST_WIDE_INT, HOST_WIDE_INT);
-extern bool mips_const_vector_any_int_p (rtx, enum machine_mode, HOST_WIDE_INT, HOST_WIDE_INT);
 extern bool mips_const_vector_bitimm_set_p (rtx, enum machine_mode);
 extern bool mips_const_vector_bitimm_clr_p (rtx, enum machine_mode);
 extern bool mips_cannot_change_mode_class (enum machine_mode,
