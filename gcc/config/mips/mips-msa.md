@@ -1947,7 +1947,7 @@
   "fill.<msafmt>\t%w0,%z1"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
-   (set_attr "msa_execunit" "msa_eu_float4")])
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 ;; Note that fill.d and fill_d_f will be split later if !TARGET_64BIT.
 
@@ -2181,7 +2181,8 @@
   "ISA_HAS_MSA"
   "ilvev.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "alu_type"	"add")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "msa_ilvl_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
