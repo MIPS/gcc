@@ -806,28 +806,31 @@
 
 ;; Integer operations
 (define_insn "add<mode>3"
-  [(set (match_operand:IMSA 0 "register_operand" "=f,f")
-	(plus:IMSA (match_operand:IMSA 1 "register_operand" "f,f")
-		   (match_operand:IMSA 2 "reg_or_vector_any_simm5_operand" "f,Usv6")))]
+  [(set (match_operand:IMSA 0 "register_operand" "=f,f,f")
+	(plus:IMSA (match_operand:IMSA 1 "register_operand" "f,f,f")
+		   (match_operand:IMSA 2 "reg_or_vector_same_ximm5_operand" "f,Un31,Up31")))]
   "ISA_HAS_MSA"
   {
-    if (which_alternative == 0)
-      return "addv.<msafmt>\t%w0,%w1,%w2";
-    else
+    switch (which_alternative)
       {
-	rtx elt0 = CONST_VECTOR_ELT (operands[2], 0);
-	HOST_WIDE_INT val = INTVAL (elt0);
+      case 0:
+	return "addv.<msafmt>\t%w0,%w1,%w2";
+      case 1:
+	{
+	  HOST_WIDE_INT val = INTVAL (CONST_VECTOR_ELT (operands[2], 0));
 
-	if (val < 0)
-	  {
-	    operands[2] = GEN_INT (-val);
-	    return "subvi.<msafmt>\t%w0,%w1,%d2";
-	  }
-	else
-	  {
-	    operands[2] = GEN_INT (val);
-	    return "addvi.<msafmt>\t%w0,%w1,%d2";
-	  }
+	  operands[2] = GEN_INT (-val);
+	  return "subvi.<msafmt>\t%w0,%w1,%d2";
+	}
+      case 2:
+	{
+	  HOST_WIDE_INT val = INTVAL (CONST_VECTOR_ELT (operands[2], 0));
+
+	  operands[2] = GEN_INT (val);
+	  return "addvi.<msafmt>\t%w0,%w1,%d2";
+	}
+      default:
+	gcc_unreachable ();
       }
   }
   [(set_attr "alu_type"	"add")
@@ -835,11 +838,33 @@
    (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "sub<mode>3"
-  [(set (match_operand:IMSA 0 "register_operand" "=f")
-	(minus:IMSA (match_operand:IMSA 1 "register_operand" "f")
-		    (match_operand:IMSA 2 "register_operand" "f")))]
+  [(set (match_operand:IMSA 0 "register_operand" "=f,f,f")
+	(minus:IMSA (match_operand:IMSA 1 "register_operand" "f,f,f")
+		    (match_operand:IMSA 2 "reg_or_vector_same_ximm5_operand" "f,Un31,Up31")))]
   "ISA_HAS_MSA"
-  "subv.<msafmt>\t%w0,%w1,%w2"
+  {
+    switch (which_alternative)
+      {
+      case 0:
+	return "subv.<msafmt>\t%w0,%w1,%w2";
+      case 1:
+	{
+	  HOST_WIDE_INT val = INTVAL (CONST_VECTOR_ELT (operands[2], 0));
+
+	  operands[2] = GEN_INT (-val);
+	  return "addvi.<msafmt>\t%w0,%w1,%d2";
+	}
+      case 2:
+	{
+	  HOST_WIDE_INT val = INTVAL (CONST_VECTOR_ELT (operands[2], 0));
+
+	  operands[2] = GEN_INT (val);
+	  return "subvi.<msafmt>\t%w0,%w1,%d2";
+	}
+      default:
+	gcc_unreachable ();
+      }
+  }
   [(set_attr "alu_type"	"sub")
    (set_attr "mode"	"TI")
    (set_attr "msa_execunit"	"msa_eu_int_add")])

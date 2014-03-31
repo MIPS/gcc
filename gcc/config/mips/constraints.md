@@ -322,24 +322,33 @@
   (and (match_code "const_vector")
        (match_test "mips_const_vector_bitimm_clr_p (op, mode)")))
 
-(define_constraint "Usv6"
+(define_constraint "Un31"
   "@internal
-   A replicated vector const in which the replicated value is a signed
-   6-bit integer number"
+   A replicated vector const in which the replicated value is negative
+   integer number in range [-31,0]"
   (and (match_code "const_vector")
-       (match_test "mips_const_vector_any_int_p (op, mode, -32, 31)")))
+       (match_test "mips_const_vector_same_int_p (op, mode, -31, 0)")))
+
+(define_constraint "Up31"
+  "@internal
+   A replicated vector const in which the replicated value is positive
+   integer number in range [0,31]"
+  (and (match_code "const_vector")
+       (match_test "mips_const_vector_same_int_p (op, mode, 0, 31)")))
 
 (define_constraint "Uuv6"
   "@internal
-   A constant vector with each element a unsigned 6-bit integer"
+   A replicated vector const in which the replicated value is a unsigned
+   6-bit integer number"
   (and (match_code "const_vector")
-       (match_test "mips_const_vector_any_int_p (op, mode, 0, 63)")))
+       (match_test "mips_const_vector_same_int_p (op, mode, 0, 63)")))
 
 (define_constraint "Uuv8"
   "@internal
-   A constant vector with each element a unsigned 8-bit integer"
+   A replicated vector const in which the replicated value is a unsigned
+   8-bit integer number"
   (and (match_code "const_vector")
-       (match_test "mips_const_vector_any_int_p (op, mode, 0, 255)")))
+       (match_test "mips_const_vector_same_int_p (op, mode, 0, 255)")))
 
 (define_memory_constraint "ZC"
   "When compiling microMIPS code, this constraint matches a memory operand
