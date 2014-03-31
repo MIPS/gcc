@@ -1892,42 +1892,6 @@ mips_const_vector_same_int_p (rtx op, enum machine_mode mode, HOST_WIDE_INT low,
   return (value >= low && value <= high);
 }
 
-/* Return true if OP is a constant vector with the number of units in MODE,
-   and each unit has the integer value in the range [LOW, HIGH].  */
-
-bool
-mips_const_vector_any_int_p (rtx op, enum machine_mode mode, HOST_WIDE_INT low,
-			     HOST_WIDE_INT high)
-{
-  HOST_WIDE_INT value;
-  int i, nunits = GET_MODE_NUNITS (mode);
-  rtx elem;
-
-  if (GET_CODE (op) != CONST_VECTOR || CONST_VECTOR_NUNITS (op) != nunits)
-    return false;
-
-  elem =  CONST_VECTOR_ELT (op, 0);
-  if (!CONST_INT_P (elem))
-    return false;
-
-  value = INTVAL (elem);
-  if (value < low || value > high)
-    return false;
-
-  for (i = 1; i < nunits; i++)
-    {
-      elem = CONST_VECTOR_ELT (op, i);
-      if (!CONST_INT_P (elem))
-        return false;
-
-      value = INTVAL (elem);
-      if (value < low || value > high)
-        return false;
-    }
-
-  return true;
-}
-
 /* Return true if rtx constants of mode MODE should be put into a small
    data section.  */
 
