@@ -66,7 +66,7 @@ check_backtrace (void)
 {
   void *buffer[10];
   unsigned len, i;
-  int f_idx; 
+  int f_idx = -1; 
 
   len = backtrace (buffer, 10);
   if (!len)

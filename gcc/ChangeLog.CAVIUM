@@ -68,6 +68,10 @@
 
 2014-03-30  Andrew Pinski  <apinski@cavium.com>
 
+	* testsuite/gcc.dg/octeon/test-backtrace.h: Fix uninitialized warning.
+
+2014-03-30  Andrew Pinski  <apinski@cavium.com>
+
 	* testsuite/gcc.dg/octeon/test-backtrace.h: Fix unsigned comparing with signed warnings.
 
 2014-03-26  Andrew Pinski  <apinski@cavium.com>
