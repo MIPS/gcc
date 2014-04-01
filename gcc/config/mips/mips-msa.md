@@ -1416,7 +1416,7 @@
 		  (and:IMSA (match_dup 1)
 			    (match_operand:IMSA 3 "register_operand" "f"))))]
   "ISA_HAS_MSA"
-  "bmnz.v\t%w0,%w1,%w3";
+  "bmnz.v\t%w0,%w3,%w1";
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
    (set_attr "msa_execunit" "msa_eu_logic_l")])
