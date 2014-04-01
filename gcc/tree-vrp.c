@@ -4496,7 +4496,7 @@ build_assert_expr_for (tree cond, tree v)
      operand of the ASSERT_EXPR.  Create it so the new name and the old one
      are registered in the replacement table so that we can fix the SSA web
      after adding all the ASSERT_EXPRs.  */
-  create_new_def_for (v, assertion, NULL);
+  create_new_def_for (v, assertion, NULL_GIMPLE);
 
   return assertion;
 }

@@ -43,25 +43,6 @@ template<typename T, typename D>
 inline T dyn_cast (D v)
 { return T::dyn_cast (v); }
 
-
-// Should probably discourage these 3 routines, but they should be 
-// eliminatable as more things are converted and extrernal calls no longer
-// return trees
-
-template<typename T>
-inline bool is_a (tree v)
-{ T tmp = v; return tmp != NULL; }
-
-template<typename T>
-inline T as_a (tree v)
-{ T tmp = v; return tmp; }
-
-template<typename T>
-inline T dyn_cast  (tree v)
-{ T tmp = v; return tmp; }
-
-
-
 namespace Gimple {
 
 template<typename T>
