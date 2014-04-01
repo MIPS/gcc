@@ -5,7 +5,7 @@ AutoGen definitions melt-build-script.tpl;
 // and the autogen utility by 'autogen melt-build-script.def'.
 // This file is written by Basile Starynkevitch
 //
-//   Copyright 2012 - 2013  Free Software Foundation
+//   Copyright 2012-2014  Free Software Foundation
 //
 // This file is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -91,37 +91,45 @@ melt_translator_file = {
 
 
 //////////////////////////////////////////////////////////////// 
-// The additional MELT application files, which are not useful to
+// The additional MELT library files, which are not useful to
 // translate MELT code to C, so are not bootstrapped.
-melt_application_file = { base = "xtramelt-ana-base"; varsuf =
-ANA_BASE; };
 
-melt_application_file = {
-  base = "xtramelt-ana-tree";
+melt_library_file = {
+  base = "libmelt-ana-base"; 
+  varsuf = ANA_BASE; 
+};
+melt_library_file = {
+  base = "libmelt-ana-tree";
   varsuf = ANA_TREE;
 };
 
-melt_application_file = {
-  base = "xtramelt-ana-gimple";
+melt_library_file = {
+  base = "libmelt-ana-gimple";
   varsuf = ANA_GIMPLE;
 };
 
-melt_application_file = {
+//////////////////////////////////////////////////////////////// 
+// The additional MELT extra files, which are not useful to
+// translate MELT code to C, so are not bootstrapped.
+// Each extra file is an independent example
+
+melt_extra_file = {
   base = "xtramelt-probe";
   varsuf = PROBE;
 };
 
-melt_application_file = {
+melt_extra_file = {
   base = "xtramelt-ana-simple";
   varsuf = ANA_SIMPLE;
 };
 
-melt_application_file = {
+melt_extra_file = {
   base = "xtramelt-playground";
   varsuf = PLAYGROUND;
 };
 
 
+////////////////////////////////////////////////////////////////
 // The various MELT stages: stagdir gives the directory name, stagsuf gives a
 // suffix for variable name, and stagprevdir gives the directory name for
 // the previous stage, and stagprevflavor gives its flavor.

@@ -1,4 +1,21 @@
 
+2014-04-01  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{Now have library and extra MELT files}}
+	* melt-build-script.def: Have library and extra MELT files.
+	* melt-build-script.tpl: Process library and extra MELT files.
+	* melt-build-script.sh: Regenerate.
+
+	* melt/xtramelt-ana-base.melt: Rename file as...
+	* melt/libmelt-ana-base.melt: File was xtramelt-ana-base.melt
+
+	* melt/xtramelt-ana-tree.melt: Rename file as...
+	* melt/libmelt-ana-tree.melt: File was xtramelt-ana-tree.melt
+
+	* melt/xtramelt-ana-gimple.melt: Rename file as...
+	* melt/libmelt-ana-gimple.melt: File was xtramelt-ana-gimple.melt
+
+
 2014-03-25  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/xtramelt-ana-gimple.melt (gimple_assign_abs)

@@ -5,7 +5,7 @@ sh
 +]#!/bin/bash
 [+ (. (dne "#@#@# " "#@! ")) +]
 # Generated shell script for MELT modules and MELT translator bootstrap
-#   Copyright (C) 2012 - 2013  Free Software Foundation
+#   Copyright (C) 2012-2014  Free Software Foundation
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -53,7 +53,7 @@ export MD5SUM=${MD5SUM:=md5sum}
 export GCCMELT_STAGE=""
 ## GCCMELT_BASE is an internal variable; it keeps the current MELT base
 export GCCMELT_BASE=""
-## GCCMELT_SKIPEMITC is an internal variable; it skips the emission of C code when non-empty
+## GCCMELT_SKIPEMITC is an internal variable; it skips the emission of C++ code when non-empty
 export GCCMELT_SKIPEMITC=""
 
 
@@ -256,7 +256,7 @@ meltbuild_info [+(.(fromline))+] times after stagezero at `date '+%x %H:%M:%S'`:
 
 
 ################################################################
-## function to run MELT to emit C code  [+(.(fromline))+]
+## function to run MELT to emit C++ code  [+(.(fromline))+]
 function meltbuild_emit () {
     local meltfrom=$1
     local meltmode=$2
@@ -281,7 +281,7 @@ function meltbuild_emit () {
 	meltbuild_error $meltfrom no MELT init  at stage $meltstage base $meltbase
     fi
     meltsum=$($MD5SUM $meltsrc | $GAWK '{print $1}')
-    meltbuild_info $meltfrom emit C code for $meltbase of $meltstage
+    meltbuild_info $meltfrom emit C++ code for $meltbase of $meltstage
     echo -Wno-shadow -frandom-seed=$meltsum > $meltargs-$$-tmp
     ## various arguments
     echo " -DGCCMELT_FROM_ARG=\"$meltfrom\"" >>  $meltargs-$$-tmp
@@ -319,7 +319,7 @@ function meltbuild_emit () {
 	    fi
 	done
     else
-	meltbuild_info $meltfrom skips emission of C code with  @$meltargs stage $meltstage prevstage $meltprevstage skipreason $GCCMELT_SKIPEMITC  [+(.(fromline))+] 
+	meltbuild_info $meltfrom skips emission of C++ code with  @$meltargs stage $meltstage prevstage $meltprevstage skipreason $GCCMELT_SKIPEMITC  [+(.(fromline))+] 
 	ls -l $meltprevstage/$meltbase*
 	meltbuild_info $meltfrom symlinking previous stage $meltprevstage  [+(.(fromline))+] 
 	for meltprevf in $meltprevstage/$meltbase.cc  $meltprevstage/$meltbase+[0-9][0-9].cc  $meltprevstage/$meltbase+meltdesc.c  $meltprevstage/$meltbase+melttime.h   $meltprevstage/$meltbase+meltbuild.mk ; do
@@ -368,9 +368,9 @@ function meltbuild_do_stage () {
   (define outbase (get "base")) (define outindex (for-index)) +]
 
     #in meltbuild_do_stage [+(.(fromline))+] base [+base+]
-    meltbuild_info [+(.(fromline))+] from $meltfrom generating C code of [+base+] in $meltcurstagedir
+    meltbuild_info [+(.(fromline))+] from $meltfrom generating C++ code of [+base+] in $meltcurstagedir
 
-    #in meltbuild_do_stage [+(.(fromline))+] emit C code for [+base+]
+    #in meltbuild_do_stage [+(.(fromline))+] emit C++ code for [+base+]
     meltbuild_emit [+(.(fromline))+]-$meltfrom \
 	[+IF (= outindex 0)+]translateinit[+ELSE+]translatefile[+ENDIF+] \
 	[+base+] \
@@ -384,10 +384,10 @@ function meltbuild_do_stage () {
     "[+FOR includeload " "+][+includeload+][+ENDFOR includeload+]" \
     "$meltbuildoption"
 
-    #in meltbuild_do_stage [+(.(fromline))+] checksum C code for [+base+]
+    #in meltbuild_do_stage [+(.(fromline))+] checksum C++ code for [+base+]
     meltchecksum_cumul_[+varsuf+]=$(cat "$meltcurstagedir"/[+base+].cc "$meltcurstagedir"/[+base+]+[0-9][0-9].cc | $MD5SUM | cut -b 1-32)
 
-    #in meltbuild_do_stage [+(.(fromline))+] perhaps compiling C code for [+base+]
+    #in meltbuild_do_stage [+(.(fromline))+] perhaps compiling C++ code for [+base+]
     if [ -z "$GCCMELT_SKIPEMITC" ]; then
 	meltbuild_info [+(.(fromline))+]-$meltfrom compiling module [+base+] in "$meltcurstagedir"
 	$GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
@@ -480,7 +480,7 @@ meltbuild_info [+(.(fromline))+] last stage $GCCMELT_LASTSTAGE
 function meltbuild_emit_translator_sources () {
 [+FOR melt_translator_file+]
   ## meltbuild_emit_source  [+(.(fromline))+] base [+base+]
-  meltbuild_info [+(.(fromline))+] generating C code of [+base+] in meltbuild-sources
+  meltbuild_info [+(.(fromline))+] generating C++ code of [+base+] in meltbuild-sources
   meltbuild_emit [+(.(fromline))+] \
       [+IF (= (for-index) 0)+]translateinit[+ELSE+]translatefile[+ENDIF+] \
       [+base+] \
@@ -655,50 +655,50 @@ fi
 
 ################################################################
 ################################################################
-######################### APPLICATIONS #########################
+########################### LIBRARY ############################
 ################
-#@ [+(.(fromline))+] before application xtramelt* modules
+#@ [+(.(fromline))+] before library libmelt* modules
 ################################################################
-meltbuild_info [+(.(fromline))+] before applications GCCMELT_SKIPEMITC=$GCCMELT_SKIPEMITC.
+meltbuild_info [+(.(fromline))+] before library GCCMELT_SKIPEMITC=$GCCMELT_SKIPEMITC.
 
-meltbuild_info [+(.(fromline))+] times before applications at `date '+%x %H:%M:%S'`: ;  times >&2
+meltbuild_info [+(.(fromline))+] times before libraries at `date '+%x %H:%M:%S'`: ;  times >&2
  
-melt_final_application_stamp=meltbuild-final-application.stamp
+melt_final_library_stamp=meltbuild-final-library.stamp
 
-function meltbuild_do_applications () {
-  meltbuild_notice 'start doing applications'  [+(.(fromline))+] doing applications 
-  [+FOR melt_application_file+]
+function meltbuild_do_libraries () {
+  meltbuild_notice 'start doing libraries'  [+(.(fromline))+] doing libraries 
+  [+FOR melt_library_file+]
   [+ (define apbase (get "base")) (define apindex (for-index)) +]
-    ## meltbuild_do_applications [+base+] [+(.(fromline))+]
-    meltbuild_info [+(.(fromline))+] doing application [+base+]
+    ## meltbuild_do_libraries [+base+] [+(.(fromline))+]
+    meltbuild_info [+(.(fromline))+] doing library [+base+]
     if [ ! -f meltbuild-sources/[+base+].melt ]; then
         meltbuild_symlink $GCCMELT_MELTSOURCEDIR/[+base+].melt meltbuild-sources/[+base+].melt
     fi
-    ## meltbuild_do_applications [+base+] [+(.(fromline))+]
+    ## meltbuild_do_libraries [+base+] [+(.(fromline))+]
     if [ ! -f meltbuild-sources/[+base+].cc -o  ! -f meltbuild-sources/[+base+]+meltdesc.c \
          -o meltbuild-sources/[+base+]+meltdesc.c -ot meltbuild-final-translator.stamp \
-         -o meltbuild-sources/[+base+]+meltdesc.c -ot  meltbuild-sources/[+base+].melt \
-  [+FOR melt_application_file+][+IF (< (for-index) apindex)+] -o meltbuild-sources/[+base+]+meltdesc.c -ot meltbuild-sources/[+(. apbase)+]+meltdesc.c \
-  [+ENDIF+][+ENDFOR melt_application_file+] ]; then
-        meltbuild_info [+(.(fromline))+] emit application C code for [+base+]
+         -o meltbuild-sources/[+base+]+meltdesc.c -ot meltbuild-sources/[+base+].melt \
+  [+FOR melt_library_file+][+IF (< (for-index) apindex)+] -o meltbuild-sources/[+base+]+meltdesc.c -ot meltbuild-sources/[+(. apbase)+]+meltdesc.c \
+  [+ENDIF+][+ENDFOR melt_library_file+] ]; then
+        meltbuild_info [+(.(fromline))+] emit library C++ code for [+base+]
         meltbuild_emit [+(.(fromline))+] \
   	  translatefile \
   	  [+base+] \
   	  meltbuild-sources \
   	  meltbuild-modules \
-  	  [+FOR melt_translator_file ":"+][+base+].optimized[+ENDFOR melt_translator_file+][+FOR melt_application_file+][+IF (< (for-index) apindex)+]:[+base+].quicklybuilt[+ENDIF+][+ENDFOR melt_application_file+] \
+  	  [+FOR melt_translator_file ":"+][+base+].optimized[+ENDFOR melt_translator_file+][+FOR melt_library_file+][+IF (< (for-index) apindex)+]:[+base+].quicklybuilt[+ENDIF+][+ENDFOR melt_library_file+] \
       "[+FOR includeload " "+][+includeload+][+ENDFOR includeload+]" \
-  	  || meltbuild_error [+(.(fromline))+] failed to generate C code of application [+base+]
+  	  || meltbuild_error [+(.(fromline))+] failed to generate C++ code of library [+base+]
     else
-        meltbuild_info [+(.(fromline))+] DONT emit application C code for [+base+]
+        meltbuild_info [+(.(fromline))+] DONT emit library C++ code for [+base+]
     fi
-    local meltapp_[+varsuf+]_cumulmd5=$(cat  meltbuild-sources/[+base+].cc meltbuild-sources/[+base+]+[0-9][0-9].cc  | $MD5SUM | cut -b 1-32)
+    local meltlib_[+varsuf+]_cumulmd5=$(cat  meltbuild-sources/[+base+].cc meltbuild-sources/[+base+]+[0-9][0-9].cc  | $MD5SUM | cut -b 1-32)
    [+FOR flavor IN quicklybuilt optimized debugnoline+]
-    if [ ! -f meltbuild-modules/[+base+].meltmod-$meltapp_[+varsuf+]_cumulmd5.[+flavor+].so \
-        -o meltbuild-modules/[+base+].meltmod-$meltapp_[+varsuf+]_cumulmd5.[+flavor+].so -ot  meltbuild-final-translator.stamp \
-        -o  meltbuild-modules/[+base+].meltmod-$meltapp_[+varsuf+]_cumulmd5.[+flavor+].so -ot  meltbuild-sources/[+base+].cc \
-        -o  meltbuild-modules/[+base+].meltmod-$meltapp_[+varsuf+]_cumulmd5.[+flavor+].so -ot  meltbuild-sources/[+base+]+meltdesc.c ]; then
-        meltbuild_info [+(.(fromline))+] compiling application module for [+base+] [+flavor+]
+    if [ ! -f meltbuild-modules/[+base+].meltmod-$meltlib_[+varsuf+]_cumulmd5.[+flavor+].so \
+        -o meltbuild-modules/[+base+].meltmod-$meltlib_[+varsuf+]_cumulmd5.[+flavor+].so -ot  meltbuild-final-translator.stamp \
+        -o  meltbuild-modules/[+base+].meltmod-$meltlib_[+varsuf+]_cumulmd5.[+flavor+].so -ot  meltbuild-sources/[+base+].cc \
+        -o  meltbuild-modules/[+base+].meltmod-$meltlib_[+varsuf+]_cumulmd5.[+flavor+].so -ot  meltbuild-sources/[+base+]+meltdesc.c ]; then
+        meltbuild_info [+(.(fromline))+] compiling library module for [+base+] [+flavor+]
         $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
   	  GCCMELT_FROM=[+(.(fromline))+] \
   	  GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
@@ -707,7 +707,7 @@ function meltbuild_do_applications () {
   	  GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
   	  GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/[+base+] \
   	  GCCMELT_MODULE_BINARYBASE=meltbuild-modules/[+base+] \
-  	  || ( meltbuild_notice [+(.(fromline))+] in meltbuild-modules failure to compile application [+base+] [+flavor+] ; \
+  	  || ( meltbuild_notice [+(.(fromline))+] in meltbuild-modules failure to compile library [+base+] [+flavor+] ; \
   	       $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
   			     GCCMELT_FROM=[+(.(fromline))+] \
   			     GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
@@ -716,45 +716,45 @@ function meltbuild_do_applications () {
   			     GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS -DMELTGCC_NOLINENUMBERING" \
   			     GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/[+base+] \
   			     GCCMELT_MODULE_BINARYBASE=meltbuild-modules/[+base+] ; \
-  	       meltbuild_error  [+(.(fromline))+] in meltbuild-modules failed to compile application [+base+] [+flavor+] \
+  	       meltbuild_error  [+(.(fromline))+] in meltbuild-modules failed to compile library [+base+] [+flavor+] \
   				"($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER_FLAGS cflags $GCCMELT_COMPILER_FLAGS )
   	       else
-        meltbuild_info [+(.(fromline))+] not compiling application module for [+base+] [+flavor+]
+        meltbuild_info [+(.(fromline))+] not compiling library module for [+base+] [+flavor+]
     fi
    [+ENDFOR flavor+]
-  [+ENDFOR melt_application_file+]
-    ## meltbuild_do_applications [+base+] [+(.(fromline))+]
-    local meltappstamptemp=$melt_final_application_stamp-tmp$$
-    echo "///MELT application time stamp $melt_final_application_stamp" > $meltappstamptemp
-    echo $GCCMELT_RUNTIME_DEPENDENCY_MD5SUM $GCCMELT_RUNTIME_DEPENDENCY >>  $meltappstamptemp
-  [+FOR melt_application_file+]
-    $MD5SUM meltbuild-sources/[+base+].melt >>  $meltappstamptemp
-    $MD5SUM meltbuild-sources/[+base+].cc meltbuild-sources/[+base+]+[0-9][0-9].cc  >> $meltappstamptemp
+  [+ENDFOR melt_library_file+]
+    ## meltbuild_do_libraries [+base+] [+(.(fromline))+]
+    local meltlibstamptemp=$melt_final_library_stamp-tmp$$
+    echo "///MELT library time stamp $melt_final_library_stamp" > $meltlibstamptemp
+    echo $GCCMELT_RUNTIME_DEPENDENCY_MD5SUM $GCCMELT_RUNTIME_DEPENDENCY >>  $meltlibstamptemp
+  [+FOR melt_library_file+]
+    $MD5SUM meltbuild-sources/[+base+].melt >>  $meltlibstamptemp
+    $MD5SUM meltbuild-sources/[+base+].cc meltbuild-sources/[+base+]+[0-9][0-9].cc  >> $meltlibstamptemp
    [+FOR flavor IN quicklybuilt optimized debugnoline+]
-    $MD5SUM meltbuild-modules/[+base+].meltmod-$meltapp_[+varsuf+]_cumulmd5.[+flavor+].so >> $meltappstamptemp
+    $MD5SUM meltbuild-modules/[+base+].meltmod-$meltlib_[+varsuf+]_cumulmd5.[+flavor+].so >> $meltlibstamptemp
    [+ENDFOR flavor+]
-  [+ENDFOR melt_application_file+]
-    echo "///end stamp $melt_final_application_stamp"  >> $meltappstamptemp
-    $GCCMELT_MOVE_IF_CHANGE $meltappstamptemp  $melt_final_application_stamp
-  meltbuild_info [+(.(fromline))+] times after applications at `date '+%x %H:%M:%S'`: ;  times >&2
-} ## end function meltbuild_do_applications  [+(.(fromline))+]
+  [+ENDFOR melt_library_file+]
+    echo "///end stamp $melt_final_library_stamp"  >> $meltlibstamptemp
+    $GCCMELT_MOVE_IF_CHANGE $meltlibstamptemp  $melt_final_library_stamp
+  meltbuild_info [+(.(fromline))+] times after libraries at `date '+%x %H:%M:%S'`: ;  times >&2
+} ## end function meltbuild_do_libraries  [+(.(fromline))+]
 
 
-if [ ! -f  "$melt_final_application_stamp" \
-     -o "$melt_final_application_stamp" -ot "$melt_final_translator_stamp" \
-[+FOR melt_application_file+] -o "$melt_final_application_stamp" -ot "$GCCMELT_MELTSOURCEDIR/[+base+].melt" \
-[+ENDFOR melt_application_file+] ]; then
-    meltbuild_info [+(.(fromline))+] building MELT applications
-    meltbuild_do_applications
+if [ ! -f  "$melt_final_library_stamp" \
+     -o "$melt_final_library_stamp" -ot "$melt_final_translator_stamp" \
+[+FOR melt_library_file+] -o "$melt_final_library_stamp" -ot "$GCCMELT_MELTSOURCEDIR/[+base+].melt" \
+[+ENDFOR melt_library_file+] ]; then
+    meltbuild_info [+(.(fromline))+] building MELT libraries
+    meltbuild_do_libraries
 else
-    meltbuild_info [+(.(fromline))+] not building MELT applications because of applstamp  "$melt_final_application_stamp"
+    meltbuild_info [+(.(fromline))+] not building MELT libraries because of applstamp  "$melt_final_library_stamp"
 fi
 
 ################################################################
 #@ [+(.(fromline))+]
-if [ "$melt_overall_goal" = "applications" ]; then
-    meltbuild_info [+(.(fromline))+] done applications overall goal with stamp  $melt_final_translator_stamp
-    meltbuild_notice 'Done applications' [+(.(fromline))+] applications overall goal 
+if [ "$melt_overall_goal" = "libraries" ]; then
+    meltbuild_info [+(.(fromline))+] done libraries overall goal with stamp  $melt_final_translator_stamp
+    meltbuild_notice 'Done libraries' [+(.(fromline))+] libraries overall goal 
     exit 0
 fi
 
@@ -764,7 +764,7 @@ fi
 [+FOR flavor in quicklybuilt optimized debugnoline+]
 if [ ! -f "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.[+flavor+].modlis" \
     -o "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.[+flavor+].modlis" -ot $melt_final_translator_stamp \
-    -o "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.[+flavor+].modlis" -ot $melt_final_application_stamp ]; then
+    -o "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.[+flavor+].modlis" -ot $melt_final_library_stamp ]; then
   #  [+ (. (fromline))+] module list [+flavor+]
   meltbuild_info  [+(.(fromline))+] generating module list  "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.[+flavor+].modlis"
   melt_modlis_temp="meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.[+flavor+].modlis-tmp$$"
@@ -774,10 +774,10 @@ if [ ! -f "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.[+flavor+].modlis" \
   echo [+base+].[+flavor+] >> $melt_modlis_temp
  [+ENDFOR melt_translator_file+]
   #@  [+ (. (fromline))+]
-  echo "# MELT application modules:" >> $melt_modlis_temp
- [+FOR melt_application_file+]
+  echo "# MELT library modules:" >> $melt_modlis_temp
+ [+FOR melt_library_file+]
   echo [+base+].[+flavor+] >> $melt_modlis_temp
- [+ENDFOR melt_application_file+]
+ [+ENDFOR melt_library_file+]
   $GCCMELT_MOVE_IF_CHANGE $melt_modlis_temp  "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.[+flavor+].modlis"
 else
   meltbuild_info  [+(.(fromline))+] keeping module list  "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.[+flavor+].modlis"  
@@ -792,11 +792,96 @@ fi
 ################################################################
 #@ [+(.(fromline))+] module lists
 if [ "$melt_overall_goal" = "modlists" ]; then
-    meltbuild_info [+(.(fromline))+] done modlists overall goal with stamp  $melt_final_application_stamp
+    meltbuild_info [+(.(fromline))+] done modlists overall goal with stamp  $melt_final_library_stamp
     exit 0
 fi
 
+################################################################
+################################################################
+########################### EXTRA ############################
+################
+#@ [+(.(fromline))+] before extra libmelt* modules
+################################################################
+meltbuild_info [+(.(fromline))+] before extra GCCMELT_SKIPEMITC=$GCCMELT_SKIPEMITC.
 
+meltbuild_info [+(.(fromline))+] times before extras at `date '+%x %H:%M:%S'`: ;  times >&2
+ 
+melt_final_extra_stamp=meltbuild-final-extra.stamp
+
+
+
+function meltbuild_do_extras () {
+  meltbuild_notice 'start doing extras'  [+(.(fromline))+] doing extras 
+  [+FOR melt_extra_file+]
+  [+ (define apbase (get "base")) (define apindex (for-index)) +]
+    ## meltbuild_do_extras [+base+] [+(.(fromline))+]
+    meltbuild_info [+(.(fromline))+] doing extra [+base+]
+    if [ ! -f meltbuild-sources/[+base+].melt ]; then
+        meltbuild_symlink $GCCMELT_MELTSOURCEDIR/[+base+].melt meltbuild-sources/[+base+].melt
+    fi
+    ## meltbuild_do_extras [+base+] [+(.(fromline))+]
+    if [ ! -f meltbuild-sources/[+base+].cc -o  ! -f meltbuild-sources/[+base+]+meltdesc.c \
+         -o meltbuild-sources/[+base+]+meltdesc.c -ot meltbuild-final-library.stamp \
+         -o meltbuild-sources/[+base+]+meltdesc.c -ot meltbuild-sources/[+base+].melt \
+    ]; then 
+        meltbuild_info [+(.(fromline))+] emit library C++ code for [+base+]
+        meltbuild_emit [+(.(fromline))+] \
+  	  translatefile \
+  	  [+base+] \
+  	  meltbuild-sources \
+  	  meltbuild-modules \
+  	  [+FOR melt_translator_file ":"+][+base+].optimized[+ENDFOR melt_translator_file+]:[+FOR melt_library_file ":"+][+base+].optimized[+ENDFOR melt_library_file+] \
+      "[+FOR includeload " "+][+includeload+][+ENDFOR includeload+]" \
+  	  || meltbuild_error [+(.(fromline))+] failed to generate C++ code of extra [+base+]
+    else
+        meltbuild_info [+(.(fromline))+] DONT emit extra C++ code for [+base+]
+    fi
+    local meltextra_[+varsuf+]_cumulmd5=$(cat  meltbuild-sources/[+base+].cc meltbuild-sources/[+base+]+[0-9][0-9].cc  | $MD5SUM | cut -b 1-32)
+   [+FOR flavor IN quicklybuilt optimized debugnoline+]
+    if [ ! -f meltbuild-modules/[+base+].meltmod-$meltlib_[+varsuf+]_cumulmd5.[+flavor+].so \
+        -o meltbuild-modules/[+base+].meltmod-$meltlib_[+varsuf+]_cumulmd5.[+flavor+].so -ot  meltbuild-final-translator.stamp \
+        -o  meltbuild-modules/[+base+].meltmod-$meltlib_[+varsuf+]_cumulmd5.[+flavor+].so -ot  meltbuild-sources/[+base+].cc \
+        -o  meltbuild-modules/[+base+].meltmod-$meltlib_[+varsuf+]_cumulmd5.[+flavor+].so -ot  meltbuild-sources/[+base+]+meltdesc.c ]; then
+        meltbuild_info [+(.(fromline))+] compiling extra module for [+base+] [+flavor+]
+        $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
+  	  GCCMELT_FROM=[+(.(fromline))+] \
+  	  GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
+  	  GCCMELT_MODULE_FLAVOR=[+flavor+] \
+  	  GCCMELT_COMPILER="$GCCMELT_COMPILER" \
+  	  GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
+  	  GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/[+base+] \
+  	  GCCMELT_MODULE_BINARYBASE=meltbuild-modules/[+base+] \
+  	  || ( meltbuild_notice [+(.(fromline))+] in meltbuild-modules failure to compile extra [+base+] [+flavor+] ; \
+  	       $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
+  			     GCCMELT_FROM=[+(.(fromline))+] \
+  			     GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
+  			     GCCMELT_MODULE_FLAVOR=[+flavor+] \
+  			     GCCMELT_COMPILER="$GCCMELT_COMPILER" \
+  			     GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS -DMELTGCC_NOLINENUMBERING" \
+  			     GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/[+base+] \
+  			     GCCMELT_MODULE_BINARYBASE=meltbuild-modules/[+base+] ; \
+  	       meltbuild_error  [+(.(fromline))+] in meltbuild-modules failed to compile library [+base+] [+flavor+] \
+  				"($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER_FLAGS cflags $GCCMELT_COMPILER_FLAGS )
+  	       else
+        meltbuild_info [+(.(fromline))+] not compiling library module for [+base+] [+flavor+]
+    fi
+   [+ENDFOR flavor+]
+  [+ENDFOR melt_extra_file+]
+    ## meltbuild_do_extras [+base+] [+(.(fromline))+]
+    local meltextrastamptemp=$melt_final_extra_stamp-tmp$$
+    echo "///MELT extra time stamp $melt_final_extra_stamp" > $meltextrastamptemp
+    echo $GCCMELT_RUNTIME_DEPENDENCY_MD5SUM $GCCMELT_RUNTIME_DEPENDENCY >>  $meltextrastamptemp
+  [+FOR melt_extra_file+]
+    $MD5SUM meltbuild-sources/[+base+].melt >>  $meltextrastamptemp
+    $MD5SUM meltbuild-sources/[+base+].cc meltbuild-sources/[+base+]+[0-9][0-9].cc  >> $meltextrastamptemp
+   [+FOR flavor IN quicklybuilt optimized debugnoline+]
+    $MD5SUM meltbuild-modules/[+base+].meltmod-$meltlib_[+varsuf+]_cumulmd5.[+flavor+].so >> $meltextrastamptemp
+   [+ENDFOR flavor+]
+  [+ENDFOR melt_extra_file+]
+    echo "///end stamp $melt_final_extra_stamp"  >> $meltextrastamptemp
+    $GCCMELT_MOVE_IF_CHANGE $meltextrastamptemp  $melt_final_extra_stamp
+  meltbuild_info [+(.(fromline))+] times after extras at `date '+%x %H:%M:%S'`: ;  times >&2
+} ## end function meltbuild_do_extras  [+(.(fromline))+]
 
 
 ################################################################
@@ -812,7 +897,7 @@ fi
 meltcheckruntime_stamp=meltbuild-checkruntime.stamp
 if [ ! -f $meltcheckruntime_stamp -o $meltcheckruntime_stamp -ot "$GCCMELT_RUNTIME_ARGS" \
     -o $meltcheckruntime_stamp -ot "$GCCMELT_RUNTIME_CC" \
-    -o $meltcheckruntime_stamp -ot $melt_final_application_stamp ]; then
+    -o $meltcheckruntime_stamp -ot $melt_final_extra_stamp ]; then
     #@ [+(.(fromline))+] checkruntime
     if [ -f melt-no-check-runtime -o -n "$MELTGCC_NO_CHECK_RUNTIME" -o ! -f melt-runtime.i ]; then
 	meltbuild_info [+(.(fromline))+] skipping check of MELT runtime
@@ -825,7 +910,9 @@ if [ ! -f $meltcheckruntime_stamp -o $meltcheckruntime_stamp -ot "$GCCMELT_RUNTI
 	meltbuild_arg tempdir=meltbuild-tempdir >> $meltcheckruntime_argstemp
 	meltbuild_arg source-path=meltbuild-sources >> $meltcheckruntime_argstemp
 	meltbuild_arg module-path=meltbuild-modules >> $meltcheckruntime_argstemp
+        meltbuild_arg extra=xtramelt-ana-simple >> $meltcheckruntime_argstemp
 	meltbuild_arg "module-cflags=\"$GCCMELT_COMPILER_FLAGS\"" >> $meltcheckruntime_argstemp
+	meltbuild_arg   >> $meltcheckruntime_argstemp
 	meltbuild_arg bootstrapping  >> $meltcheckruntime_argstemp
 	echo ' -o /dev/null' >> $meltcheckruntime_argstemp
 	echo melt-runtime.i >> $meltcheckruntime_argstemp
@@ -874,8 +961,8 @@ if [ ! -f $meltcheckruntime_stamp -o $meltcheckruntime_stamp -ot "$GCCMELT_RUNTI
     $MD5SUM $GCCMELT_RUNTIME_CC < /dev/null >>  $meltcheckruntime_stamptemp
     $MD5SUM meltbuild-hello.melt < /dev/null >>  $meltcheckruntime_stamptemp
     [ -f "$melt_final_translator_stamp" ] || meltbuild_error [+(.(fromline))+] missing final translator stamp "$melt_final_translator_stamp"
-    [ -f "$melt_final_application_stamp" ] || meltbuild_error [+(.(fromline))+] missing final application stamp "$melt_final_application_stamp"
-    grep meltbuild-modules/ "$melt_final_translator_stamp" "$melt_final_application_stamp" < /dev/null >>   $meltcheckruntime_stamptemp
+    [ -f "$melt_final_library_stamp" ] || meltbuild_error [+(.(fromline))+] missing final library stamp "$melt_final_library_stamp"
+    grep meltbuild-modules/ "$melt_final_translator_stamp" "$melt_final_library_stamp" < /dev/null >>   $meltcheckruntime_stamptemp
     echo "///end timestamp file $meltcheckruntime_stamp" >>   $meltcheckruntime_stamptemp
     $GCCMELT_MOVE_IF_CHANGE  $meltcheckruntime_stamptemp $meltcheckruntime_stamp
     meltbuild_info [+(.(fromline))+] done check runtime  $meltcheckruntime_stamp
@@ -893,7 +980,7 @@ fi
 ### the generated documentation meltgendoc.texi [+ (. (fromline))+]
 
 if [   ! -f meltgendoc.texi [+FOR melt_translator_file " \\\n"+] -o meltbuild-sources/[+base+].melt -nt meltgendoc.texi [+ENDFOR melt_translator_file+] \
- [+FOR melt_application_file " \\\n"+] -o meltbuild-sources/[+base+].melt -nt meltgendoc.texi [+ENDFOR melt_application_file+]  ]; then
+ [+FOR melt_library_file " \\\n"+] -o meltbuild-sources/[+base+].melt -nt meltgendoc.texi [+ENDFOR melt_library_file+]  ]; then
    meltbuild_info [+(.(fromline))+] generating meltgendoc.texi
    meltgen_args=meltbuild-gendoc.args-tmp$$
    echo ' -DGCCMELT_FROM_ARG="[+(.(fromline))+]"' > $meltgen_args
@@ -907,7 +994,7 @@ if [   ! -f meltgendoc.texi [+FOR melt_translator_file " \\\n"+] -o meltbuild-so
 meltbuild_arg "module-cflags=\"$GCCMELT_COMPILER_FLAGS\"" >> $meltgen_args
 meltbuild_arg "module-makefile=\"$GCCMELT_MODULE_MK\""  >>  $meltgen_args
    meltbuild_arg bootstrapping  >> $meltgen_args 
-   meltbuild_arg arglist=[+FOR melt_translator_file ","+][+base+].melt[+ENDFOR melt_translator_file+],[+FOR melt_application_file ","+][+base+].melt[+ENDFOR melt_application_file+]  >> $meltgen_args 
+   meltbuild_arg arglist=[+FOR melt_translator_file ","+][+base+].melt[+ENDFOR melt_translator_file+],[+FOR melt_library_file ","+][+base+].melt[+ENDFOR melt_library_file+]  >> $meltgen_args 
    echo meltbuild-empty-file.c >> $meltgen_args
    $GCCMELT_MOVE_IF_CHANGE  $meltgen_args meltbuild-gendoc.args
    meltbuild_info [+(.(fromline))+]  meltbuild-gendoc.args is
