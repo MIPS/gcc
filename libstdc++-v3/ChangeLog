@@ -1,3 +1,57 @@
+2014-03-31  Lars Gullik Bjønnes  <larsbj@gullik.org>
+	    Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/60270
+	* include/std/iomanip (_Quoted_string operator>>): Do not clear
+	string if input is not quoted.
+	* testsuite/27_io/manipulators/standard/char/60270.cc: New.
+
+2014-03-31  Jonathan Wakely  <jwakely@redhat.com>
+
+	* libsupc++/eh_ptr.cc: Improve static_assert messages.
+
+2014-03-31  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* testsuite/18_support/exception_ptr/60612-terminate.cc
+	(terminate, f): Wrap in _GLIBCXX_USE_C99.
+	* testsuite/18_support/exception_ptr/60612-unexpected.cc: Likewise.
+
+2014-03-27  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/manual/io.xml (std.io.objects): Additional markup.
+
+	* doc/xml/faq.xml (faq): Refer to clauses instead of chapters.
+	* doc/xml/manual/appendix_contributing.xml (contrib.design_notes):
+	Likewise.
+	* doc/xml/manual/backwards_compatibility.xml (backwards.third):
+	Likewise.
+	* doc/xml/manual/test.xml (test.organization.layout): Likewise.
+
+	* doc/xml/manual/containers.xml (associative.bitset.size_variable):
+	Fix bad s/part/chapter/ substitutions.
+	* doc/xml/manual/io.xml (std.io): Likewise.
+	* doc/xml/manual/numerics.xml (std.numerics.generalized_ops): Likewise.
+	* doc/xml/manual/strings.xml (strings.string.Cstring): Likewise.
+
+	* doc/html/*: Regenerate.
+
+2014-03-27  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/60612
+	* libsupc++/eh_ptr.cc: Assert __cxa_dependent_exception layout is
+	compatible with __cxa_exception.
+	* libsupc++/unwind-cxx.h (__cxa_dependent_exception): Add padding.
+	Fix typos in comments.
+	* testsuite/18_support/exception_ptr/60612-terminate.cc: New.
+	* testsuite/18_support/exception_ptr/60612-unexpected.cc: New.
+
+2014-03-25  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/60658
+	* include/bits/atomic_base.h (__atomic_base<_PTp*>::is_lock_free()):
+	Use sizeof pointer type not the element type.
+	* testsuite/29_atomics/atomic/60658.cc: New.
+
 2014-03-24  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/abi/post/powerpc64-linux-gnu/32/baseline_symbols.txt: Update.
