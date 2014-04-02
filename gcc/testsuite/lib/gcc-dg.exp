@@ -94,6 +94,7 @@ if [check_effective_target_lto] {
 	  { -O2 -flto -flto-partition=none } \
 	  { -O2 -flto }
       ]
+      set gcc_force_conventional_output "-ffat-lto-objects"
     }
 }
 
