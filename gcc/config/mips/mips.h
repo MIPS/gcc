@@ -52,10 +52,15 @@ extern int target_flags_explicit;
    PTF_AVOID_IMADD
 	Set if it is usually not profitable to use the integer MADD or MSUB
 	instructions because of the overhead of getting the result out of
-	the HI/LO registers.  */
+	the HI/LO registers.
+
+   PTF_AVOID_ODD_SPREG
+	Set if the processor does not support using odd numbered
+	single-precision registers with -mfp32 or -mfpxx.  */
 
 #define PTF_AVOID_BRANCHLIKELY	0x1
 #define PTF_AVOID_IMADD		0x2
+#define PTF_AVOID_ODD_SPREG	0x4
 
 /* Information about one recognized processor.  Defined here for the
    benefit of TARGET_CPU_CPP_BUILTINS.  */
@@ -515,6 +520,8 @@ struct mips_cpu_info {
       builtin_define_with_int_value ("_MIPS_SZPTR", POINTER_SIZE);	\
       builtin_define_with_int_value ("_MIPS_FPSET",			\
 				     32 / MAX_FPRS_PER_FMT);		\
+      builtin_define_with_int_value ("_MIPS_SPFPSET",			\
+				     32 / MIN_FPRS_PER_FMT);		\
 									\
       /* These defines reflect the ABI in use, not whether the  	\
 	 FPU is directly accessible.  */				\
@@ -854,6 +861,15 @@ struct mips_cpu_info {
 #define ISA_HAS_BRANCHLIKELY	(!ISA_MIPS1 &&                          \
                                  !ISA_MIPS32R6 &&                       \
                                  !ISA_MIPS64R6)
+
+/* ISA has 32 single-precision registers.  */
+#define ISA_HAS_ODD_SPREG	(ISA_MIPS32				\
+				 || ISA_MIPS32R2			\
+				 || ISA_MIPS32R6			\
+				 || ISA_MIPS64				\
+				 || ISA_MIPS64R2			\
+				 || ISA_MIPS64R6			\
+				 || TARGET_FLOAT64)
 
 /* ISA has a three-operand multiplication instruction (usually spelt "mul").  */
 #define ISA_HAS_MUL3		((TARGET_MIPS3900                       \
@@ -1473,9 +1489,7 @@ struct mips_cpu_info {
 /* The number of consecutive floating-point registers needed to store the
    smallest format supported by the FPU.  */
 #define MIN_FPRS_PER_FMT \
-  (ISA_MIPS32 || ISA_MIPS32R2 || ISA_MIPS32R6 \
-   || ISA_MIPS64 || ISA_MIPS64R2 || ISA_MIPS64R6 \
-   ? 1 : MAX_FPRS_PER_FMT)
+  (TARGET_ODD_SPREG ? 1 : MAX_FPRS_PER_FMT)
 
 /* The largest size of value that can be held in floating-point
    registers and moved with a single instruction.  */
