@@ -5138,13 +5138,15 @@ expand_oacc_offload (struct omp_region *region)
     }
 
   gimple g;
-  /* FIXME: This will be address of
-     extern char __OPENMP_TARGET__[] __attribute__((visibility ("hidden")))
-     symbol, as soon as the linker plugin is able to create it for us.  */
-  tree openmp_target = build_zero_cst (ptr_type_node);
+  tree openmp_target
+    = build_decl (UNKNOWN_LOCATION, VAR_DECL,
+		  get_identifier ("__OPENMP_TARGET__"), ptr_type_node);
+  TREE_PUBLIC (openmp_target) = 1;
+  DECL_EXTERNAL (openmp_target) = 1;
   tree fnaddr = build_fold_addr_expr (child_fn);
-  g = gimple_build_call (builtin_decl_explicit (start_ix),
-			 10, device, fnaddr, openmp_target, t1, t2, t3, t4,
+  g = gimple_build_call (builtin_decl_explicit (start_ix), 10, device,
+			 fnaddr, build_fold_addr_expr (openmp_target),
+			 t1, t2, t3, t4,
 			 t_num_gangs, t_num_workers, t_vector_length);
   gimple_set_location (g, gimple_location (entry_stmt));
   gsi_insert_before (&gsi, g, GSI_SAME_STMT);

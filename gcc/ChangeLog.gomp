@@ -1,3 +1,8 @@
+2014-04-02  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* omp-low.c (expand_oacc_offload): Handle __OPENMP_TARGET__
+	symbol.
+
 2014-03-20  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* gimple.h (enum gf_mask): Add GF_OMP_FOR_KIND_OACC_LOOP.
