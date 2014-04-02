@@ -1,5 +1,5 @@
 /* None of these extractions need shifting later.  */
-/* { dg-options "-O2 isa_rev>=2" } */
+/* { dg-options "isa_rev>=2" } */
 /* { dg-final { scan-assembler-not "sll" } } */
 /* { dg-final { scan-assembler-times "ext\\t" 5 } } */
 

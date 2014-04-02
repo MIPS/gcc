@@ -1,4 +1,4 @@
-/* { dg-options "-O -mgp64 forbid_cpu=octeon.* isa_rev>=2" } */
+/* { dg-options "-mgp64 forbid_cpu=octeon.* isa_rev>=2" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 /* { dg-final { scan-assembler-times "\tdsll\t" 3 } } */
 /* { dg-final { scan-assembler-times "\tdsra\t" 3 } } */

@@ -1,4 +1,4 @@
-/* { dg-options "-O2 isa_rev>=2 -mgp64" } */
+/* { dg-options "isa_rev>=2 -mgp64" } */
 /* { dg-final { scan-assembler "dins\t" } } */
 /* { dg-final { scan-assembler-not "dsra\t" } } */
 /* { dg-final { scan-assembler-not "dsll\t" } } */
