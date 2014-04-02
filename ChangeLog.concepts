@@ -1,3 +1,7 @@
+2014-03-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/testuite/g++.dg/concepts/fn1.C: New test.
+	* gcc/testuite/g++.dg/concepts/fn2.C: New test.
+
 2013-11-012  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/parser.c (synthesize_implicit_template_parm): Allow concepts
 	to declare implicit template parameters. Only synthesize new parameters
