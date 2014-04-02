@@ -1,5 +1,8 @@
 2014-04-02  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* omp-low.c (omp_finish_file): Use num_vars instead of num_funcs
+	when recording offload symbols v_vars.
+
 	* omp-low.c (expand_oacc_offload): Handle __OPENMP_TARGET__
 	symbol.
 

@@ -12934,7 +12934,7 @@ omp_finish_file (void)
 	  tree it = (*v_funcs)[i];
 	  targetm.record_offload_symbol (it);
 	}  
-      for (unsigned i = 0; i < num_funcs; i++)
+      for (unsigned i = 0; i < num_vars; i++)
 	{
 	  tree it = (*v_vars)[i];
 	  targetm.record_offload_symbol (it);
