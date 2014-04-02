@@ -176,6 +176,9 @@ const int melt_gcc_version = MELT_GCC_VERSION;
 ////// the actually done modes
 std::vector<std::string> melt_done_modes_vector;
 
+///// the asked modes
+std::vector<std::string> melt_asked_modes_vector;
+
 ////// builtin MELT parameter settings
 
 
@@ -572,7 +575,7 @@ Melt_Module::~Melt_Module()
   if (_mm_dlh)
     {
       if (dlclose (_mm_dlh))
-        melt_fatal_error ("failed to dlcose module #%d %s - %s",
+        melt_fatal_error ("failed to dlclose module #%d %s - %s",
                           _mm_index, _mm_modpath.c_str(), dlerror());
       _mm_dlh = 0;
     }
@@ -10174,13 +10177,13 @@ meltgc_load_module_list (int depth, const char *modlistbase)
       lincnt++;
       if (modlinlen <= 0 || modlin[0] == '#' || modlin[0] == '\n')
         continue;
-      if (modlinlen > 0 && modlin[modlinlen-1] == '\n')
+      while (modlinlen > 0 && ISSPACE(modlin[modlinlen-1]))
         modlin[--modlinlen] = (char)0;
       debugeprintf ("meltgc_load_module_list line #%d: %s", lincnt, modlin);
       MELT_LOCATION_HERE_PRINTF
-      (curlocbuf,
-       "meltgc_load_module_list %s line %d: %s",
-       modlistpath, lincnt, modlin);
+	(curlocbuf,
+	 "meltgc_load_module_list %s line %d: %s",
+	 modlistpath, lincnt, modlin);
       /* Handle nested module lists */
       if (modlin[0] == '@')
         {
@@ -10188,30 +10191,58 @@ meltgc_load_module_list (int depth, const char *modlistbase)
             melt_fatal_error ("MELT has too nested [%d] module list %s with %s",
                               depth, modlistbase, modlin);
           MELT_LOCATION_HERE_PRINTF
-          (curlocbuf,
-           "meltgc_load_module_list %s recursive line %d: '%s'",
-           modlistpath, lincnt, modlin);
+	    (curlocbuf,
+	     "meltgc_load_module_list %s recursive line %d: '%s'",
+	     modlistpath, lincnt, modlin);
           debugeprintf ("meltgc_load_module_list recurse depth %d sublist '%s'", depth, modlin+1);
           meltgc_load_module_list (depth+1, modlin+1);
         }
+      /* Handle mode-conditional module item */
+      else if (modlin[0] == '!')
+	{
+	  std::string condmodstr;
+	  std::string condcompstr;
+	  for (unsigned ix=1; modlin[ix] && (ISALNUM(modlin[ix])||modlin[ix]=='_'); ix++)
+	    condmodstr += modlin[ix];
+	  {
+	    unsigned cix = 1+condmodstr.size();
+	    while (cix<modlinlen && ISSPACE(modlin[cix])) cix++;
+	    condcompstr = modlin+cix;
+	  }
+          debugeprintf ("meltgc_load_module_list modeconditional condmod='%s' condcomp='%s'",
+			condmodstr.c_str(), condcompstr.c_str());
+	  unsigned nbaskedmodes = melt_asked_modes_vector.size();
+	  if (!condcompstr.empty())
+	    for (unsigned modix=0; modix<nbaskedmodes; modix++)
+	      if (melt_asked_modes_vector[modix] == condmodstr) {
+		MELT_LOCATION_HERE_PRINTF
+		  (curlocbuf,
+		   "meltgc_load_module_list %s mode-condition %s line %d: '%s'",
+		   modlistpath, condmodstr.c_str(), lincnt, modlin);
+		if (condcompstr[0] == '@')
+		  meltgc_load_module_list (depth+1, condcompstr.c_str()+1);
+		else
+		  meltgc_load_one_module (condcompstr.c_str());
+	      }
+	}
       else
         {
           MELT_LOCATION_HERE_PRINTF
-          (curlocbuf,
-           "meltgc_load_module_list %s plain line %d: '%s'",
-           modlistpath, lincnt, modlin);
+	    (curlocbuf,
+	     "meltgc_load_module_list %s plain line %d: '%s'",
+	     modlistpath, lincnt, modlin);
           debugeprintf ("meltgc_load_module_list depth %d module '%s'", depth, modlin);
           (void) meltgc_load_one_module (modlin);
         }
       MELT_LOCATION_HERE_PRINTF
-      (curlocbuf,
-       "meltgc_load_module_list %s done line %d: %s",
-       modlistpath, lincnt, modlin);
+	(curlocbuf,
+	 "meltgc_load_module_list %s done line %d: %s",
+	 modlistpath, lincnt, modlin);
     };
   free (modlin), modlin = NULL;
   fclose (filmod), filmod = NULL;
   goto end;
-end:
+ end:
   MELT_EXITFRAME ();
   if (modlistfull)
     free(modlistfull), modlistfull = NULL;
@@ -10232,7 +10263,6 @@ meltgc_load_modules_and_do_mode (void)
 {
   char *curmod = NULL;
   char *nextmod = NULL;
-  const char*modstr = NULL;
   const char*inistr = NULL;
   const char* xtrastr = NULL;
   char *dupmodpath = NULL;
@@ -10242,11 +10272,10 @@ meltgc_load_modules_and_do_mode (void)
 #endif
   MELT_ENTERFRAME(1, NULL);
 #define modatv     meltfram__.mcfr_varptr[0]
-  modstr = melt_argument ("mode");
   inistr = melt_argument ("init");
-  debugeprintf ("meltgc_load_modules_and_do_mode start modstr %s inistr %s",
-                modstr, inistr);
-  if (!modstr || !modstr[0])
+  debugeprintf ("meltgc_load_modules_and_do_mode startinistr %s",
+                inistr);
+  if (melt_asked_modes_vector.empty())
     {
       debugeprintf ("meltgc_load_modules_and_do_mode do nothing without mode (inistr=%s)",
                     inistr);
@@ -10358,24 +10387,24 @@ meltgc_load_modules_and_do_mode (void)
         } /* end for curxtra */
     }
   /**
-   * then we do the mode if needed
+   * then we do all the modes if needed
    **/
-  if (melt_get_inisysdata (MELTFIELD_SYSDATA_MODE_DICT) && modstr
-      && modstr[0])
+  if (melt_get_inisysdata (MELTFIELD_SYSDATA_MODE_DICT)
+      && !melt_asked_modes_vector.empty())
     {
-      MELT_LOCATION_HERE_PRINTF
-      (locbuf,
-       "meltgc_load_modules_and_do_mode before initial mode[s] %s", modstr);
-      melthookproc_HOOK_MELT_DO_INITIAL_MODE((melt_ptr_t) modatv, modstr);
-      debugeprintf
-      ("meltgc_load_modules_and_do_mode after doing initial mode[s] %s",
-       modstr);
-      MELT_LOCATION_HERE_PRINTF
-      (locbuf, "meltgc_load_modules_and_do_mode done initial mode[s] %s", modstr);
+      unsigned nbaskedmodes = melt_asked_modes_vector.size();
+      for (unsigned modix=0; modix<nbaskedmodes; modix++) {
+	std::string curmodstr = melt_asked_modes_vector[modix];
+	MELT_LOCATION_HERE_PRINTF
+	  (locbuf,
+	   "meltgc_load_modules_and_do_mode before #%u initial mode %s", modix, curmodstr.c_str());
+	melthookproc_HOOK_MELT_DO_INITIAL_MODE((melt_ptr_t) modatv, curmodstr.c_str());
+	debugeprintf
+	  ("meltgc_load_modules_and_do_mode after doing #%u initial mode %s", modix, curmodstr.c_str());
+	MELT_LOCATION_HERE_PRINTF
+	  (locbuf, "meltgc_load_modules_and_do_mode done #%u initial mode %s", modix, curmodstr.c_str());
+      }
     }
-  else if (modstr)
-    melt_fatal_error ("melt with mode string %s without mode dispatcher",
-                      modstr);
 end:
   MELT_EXITFRAME ();
 #undef modatv
@@ -10634,7 +10663,7 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
   modstr = melt_argument ("mode");
   inistr = melt_argument ("init");
   countdbgstr = melt_argument ("debugskip");
-
+  ///////
   printset = melt_argument ("print-settings");
   if (printset)
     {
@@ -10708,8 +10737,6 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
 #else /* !ENABLE_BUILD_WITH_CXX*/
       fprintf (setfil, "# MELTGCCBUILTIN_BUILD_WITH_CXX is not set\n");
 #endif /*ENABLE_BUILD_WITH_CXX*/
-
-
       fflush (setfil);
       if (setfil == stdout)
         inform (UNKNOWN_LOCATION,
@@ -10762,6 +10789,21 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
       return;
     }
 
+  /* Transform the colon-separated modstr into the vector of strings melt_asked_modes_vector */
+  {
+    const char* colon = NULL;
+    std::string curmod;
+    for ( ;
+	 modstr != NULL && (colon=strchr(modstr, ':'), *modstr);
+	  modstr = colon?(colon+1):NULL) {
+      if (colon)
+	curmod.assign(modstr, colon-modstr-1);
+      else
+	curmod.assign(modstr);
+      melt_asked_modes_vector.push_back (curmod);
+      debugeprintf("melt_really_initialize curmod='%s' #%d", curmod.c_str(), melt_asked_modes_vector.size());
+    }
+  }
   /* Optionally trace the dynamic linking of modules.  */
   {
     char* moduleenv = getenv ("GCCMELT_TRACE_MODULE");
@@ -10826,14 +10868,7 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
   if (countdbgstr != (char *) 0)
     melt_debugskipcount = atol (countdbgstr);
   seed = 0;
-  /* In GCC 4.6, get_random_seed gives a string, but in 4.7 it gives a
-     number.  */
-#if MELT_GCC_VERSION<=4006
-  randomseedstr = get_random_seed (false);
-  gcc_assert (randomseedstr != (char *) 0);
-#else
   randomseednum = get_random_seed (false);
-#endif
   gcc_assert (MELT_ALIGN == sizeof (void *)
               || MELT_ALIGN == 2 * sizeof (void *)
               || MELT_ALIGN == 4 * sizeof (void *));
@@ -10841,12 +10876,7 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
   ggc_collect ();
   obstack_init (&melt_bstring_obstack);
   obstack_init (&melt_bname_obstack);
-#if MELT_GCC_VERSION<=4006
-  for (pc = randomseedstr; *pc; pc++)
-    seed ^= (seed << 6) + (*pc);
-#else
   seed = ((seed * 35851) ^ (randomseednum * 65867));
-#endif /*MELT_GCC_VERSION*/
   srand48 (seed);
   gcc_assert (!melt_curalz);
   {

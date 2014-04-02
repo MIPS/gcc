@@ -912,7 +912,6 @@ if [ ! -f $meltcheckruntime_stamp -o $meltcheckruntime_stamp -ot "$GCCMELT_RUNTI
 	meltbuild_arg module-path=meltbuild-modules >> $meltcheckruntime_argstemp
         meltbuild_arg extra=xtramelt-ana-simple >> $meltcheckruntime_argstemp
 	meltbuild_arg "module-cflags=\"$GCCMELT_COMPILER_FLAGS\"" >> $meltcheckruntime_argstemp
-	meltbuild_arg   >> $meltcheckruntime_argstemp
 	meltbuild_arg bootstrapping  >> $meltcheckruntime_argstemp
 	echo ' -o /dev/null' >> $meltcheckruntime_argstemp
 	echo melt-runtime.i >> $meltcheckruntime_argstemp

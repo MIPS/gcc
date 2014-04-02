@@ -45,6 +45,18 @@
 	 )
     (if (mapstring_getstr cmdict cnam)
 	(warningmsg_strv "installing an existing mode" cnam))
+    (code_chunk
+     checkmodename_chk
+     #{ /* install_melt_mode $CHECKMODENAME_CHK */
+       const char* modnamstr = melt_string_str ($CNAM);
+       if (!modnamstr)
+         melt_fatal_error("missing mode name in mode@%p", (void*)$MODE);
+       for (const char*pc = modnamstr;
+	    *pc;
+	    pc++)
+          if (!ISALNUM(*pc) && *pc != '_')
+             melt_fatal_error("invalid mode name %s", modnamstr);
+     }#)
     (debug "install_melt_mode mode=" mode)
     (mapstring_putstr cmdict cnam mode)
 ))

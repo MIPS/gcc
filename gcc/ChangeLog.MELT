@@ -1,4 +1,22 @@
 
+2014-04-03  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{New feature: mode-conditional module component in module list, **UNSTABLE**}}
+
+	* melt-build-script.tpl: typo for xtramelt-ana-simple!
+	* melt-build-script.sh: Regenerate.
+
+	* melt-runtime.cc (melt_asked_modes_vector): New static
+	variable.
+	(Melt_Module::~Melt_Module): Typo in error message.
+	(meltgc_load_module_list): Remove trailing spaces.
+	Handle mode-conditional module component: !modename modulename
+	(meltgc_load_modules_and_do_mode): Use melt_asked_modes_vector.
+	(melt_really_initialize): Set melt_asked_modes_vector.
+	Random seed is always a number, not a string.
+
+	* melt/warmelt-modes.melt (install_melt_mode): Check name of mode,
+	should be a C identifier like name.
+
 2014-04-01  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Now have library and extra MELT files}}
