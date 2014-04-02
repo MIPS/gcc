@@ -1,5 +1,61 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Use gimple_call for callgraph edges
+
+	* cgraph.h (cgraph_edge::call_stmt): Strengthen field from plain
+	gimple to a gimple_call.
+	(cgraph_node::set_call_stmt_including_clones): Likewise for param
+	"new_stmt".
+	(cgraph_node::create_edge): Likewise for param "call_stmt".
+	(cgraph_node::create_indirect_edge): Likewise.
+	(cgraph_node::create_edge_including_clones): Likewise for param
+	"stmt".
+	(cgraph_edge::set_call_stmt): Likewise for param "new_stmt".
+	(cgraph_edge::clone): Likewise for param "call_stmt".
+	(symbol_table::create_edge): Likewise.
+
+	* cgraph.c (cgraph_edge::set_call_stmt): Require a gimple_call
+	rather than a plain gimple.
+	(symbol_table::create_edge): Likewise.
+	(cgraph_node::create_edge): Likewise.
+	(cgraph_node::create_indirect_edge): Likewise.
+	(cgraph_edge::redirect_call_stmt_to_callee): Strengthen local
+	"new_stmt" from gimple to gimple_call.
+	(cgraph_update_edges_for_call_stmt_node): Add checked casts to
+	gimple_call.
+
+	* cgraphbuild.c (pass_build_cgraph_edges::execute): Replace
+	is_gimple_call with dyn_cast<gimple_call> and new local
+	"call_stmt".
+	(cgraph_edge::rebuild_edges): Likewise.
+
+	* cgraphclones.c (cgraph_edge::clone): Require a gimple_call
+	rather than a plain gimple.
+	(cgraph_node::set_call_stmt_including_clones): Likewise.
+	(cgraph_node::create_edge_including_clones): Likewise.
+
+	* lto-streamer-in.c (fixup_call_stmt_edges_1): Add checked casts
+	to gimple_call.
+
+	* omp-low.c (simd_clone_adjust): Strengthen local "call" from
+	gimple to gimple_call.
+
+	* trans-mem.c (ipa_tm_insert_irr_call): Likewise for "g".
+	(ipa_tm_insert_gettmclone_call): Likewise; also strengthen "g2"
+	to gimple_assign.
+
+	* tree-emutls.c (gen_emutls_addr): Strengthen local "x" from
+	gimple to gimple_call.
+
+	* tree-inline.c (copy_bb): Replace is_gimple_call with
+	dyn_cast<gimple_call> and new local "call_stmt".
+
+	* value-prof.c (gimple_ic): Require and return a gimple_call,
+	rather than a plain gimple.
+	* value-prof.h (gimple_ic): Likewise.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Make gimple_call_return_slot_opt_p require a gimple_call.
 
 	* gimple.h (gimple_call_return_slot_opt_p): Require a gimple_call

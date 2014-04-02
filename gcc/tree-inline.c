@@ -1811,7 +1811,7 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 
 	  /* We're duplicating a CALL_EXPR.  Find any corresponding
 	     callgraph edges and update or duplicate them.  */
-	  if (is_gimple_call (stmt))
+	  if (gimple_call call_stmt = dyn_cast <gimple_call> (stmt))
 	    {
 	      struct cgraph_edge *edge;
 
@@ -1824,7 +1824,7 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 		      int edge_freq = edge->frequency;
 		      int new_freq;
 		      struct cgraph_edge *old_edge = edge;
-		      edge = edge->clone (id->dst_node, stmt,
+		      edge = edge->clone (id->dst_node, call_stmt,
 					  gimple_uid (stmt),
 					  REG_BR_PROB_BASE, CGRAPH_FREQ_BASE,
 					  true);
@@ -1843,7 +1843,7 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 
 			  gcc_assert (!edge->indirect_unknown_callee);
 			  old_edge->speculative_call_info (direct, indirect, ref);
-			  indirect = indirect->clone (id->dst_node, stmt,
+			  indirect = indirect->clone (id->dst_node, call_stmt,
 						      gimple_uid (stmt),
 						      REG_BR_PROB_BASE, CGRAPH_FREQ_BASE,
 						      true);
@@ -1882,14 +1882,14 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 
 		case CB_CGE_MOVE_CLONES:
 		  id->dst_node->set_call_stmt_including_clones (orig_stmt,
-								stmt);
+								call_stmt);
 		  edge = id->dst_node->get_edge (stmt);
 		  break;
 
 		case CB_CGE_MOVE:
 		  edge = id->dst_node->get_edge (orig_stmt);
 		  if (edge)
-		    edge->set_call_stmt (stmt);
+		    edge->set_call_stmt (call_stmt);
 		  break;
 
 		default:
@@ -1918,12 +1918,12 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 			      || !id->dst_node->definition);
 		  if (id->transform_call_graph_edges == CB_CGE_MOVE_CLONES)
 		    id->dst_node->create_edge_including_clones
-		      (dest, orig_stmt, stmt, bb->count,
+		      (dest, orig_stmt, call_stmt, bb->count,
 		       compute_call_stmt_bb_frequency (id->dst_node->decl,
 		       				       copy_basic_block),
 		       CIF_ORIGINALLY_INDIRECT_CALL);
 		  else
-		    id->dst_node->create_edge (dest, stmt,
+		    id->dst_node->create_edge (dest, call_stmt,
 					bb->count,
 					compute_call_stmt_bb_frequency
 					  (id->dst_node->decl,

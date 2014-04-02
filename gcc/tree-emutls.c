@@ -406,7 +406,7 @@ gen_emutls_addr (tree decl, struct lower_emutls_data *d)
     {
       varpool_node *cvar;
       tree cdecl;
-      gimple x;
+      gimple_call x;
 
       cvar = data->control_var;
       cdecl = cvar->decl;

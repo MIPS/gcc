@@ -106,7 +106,7 @@ along with GCC; see the file COPYING3.  If not see
    the callgraph.  */
 
 cgraph_edge *
-cgraph_edge::clone (cgraph_node *n, gimple call_stmt, unsigned stmt_uid,
+cgraph_edge::clone (cgraph_node *n, gimple_call call_stmt, unsigned stmt_uid,
 		    gcov_type count_scale, int freq_scale, bool update_original)
 {
   cgraph_edge *new_edge;
@@ -688,7 +688,8 @@ cgraph_node::find_replacement (void)
    call.  */
 
 void
-cgraph_node::set_call_stmt_including_clones (gimple old_stmt, gimple new_stmt,
+cgraph_node::set_call_stmt_including_clones (gimple old_stmt,
+					     gimple_call new_stmt,
 					     bool update_speculative)
 {
   cgraph_node *node;
@@ -743,7 +744,7 @@ cgraph_node::set_call_stmt_including_clones (gimple old_stmt, gimple new_stmt,
 
 void
 cgraph_node::create_edge_including_clones (cgraph_node *callee,
-					   gimple old_stmt, gimple stmt,
+					   gimple old_stmt, gimple_call stmt,
 					   gcov_type count,
 					   int freq,
 					   cgraph_inline_failed_t reason)

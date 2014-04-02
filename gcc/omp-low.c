@@ -12136,7 +12136,7 @@ simd_clone_adjust (struct cgraph_node *node)
 	    tree fn = builtin_decl_explicit (BUILT_IN_ASSUME_ALIGNED);
 	    gimple_seq seq = NULL;
 	    bool need_cvt = false;
-	    gimple call
+	    gimple_call call
 	      = gimple_build_call (fn, 2, def, size_int (alignment));
 	    g = call;
 	    if (!useless_type_conversion_p (TREE_TYPE (orig_arg),

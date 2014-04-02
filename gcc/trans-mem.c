@@ -4965,7 +4965,7 @@ ipa_tm_insert_irr_call (struct cgraph_node *node, struct tm_region *region,
 			basic_block bb)
 {
   gimple_stmt_iterator gsi;
-  gimple g;
+  gimple_call g;
 
   transaction_subcode_ior (region, GTMA_MAY_ENTER_IRREVOCABLE);
 
@@ -4991,7 +4991,8 @@ ipa_tm_insert_gettmclone_call (struct cgraph_node *node,
 			       gimple_stmt_iterator *gsi, gimple stmt)
 {
   tree gettm_fn, ret, old_fn, callfn;
-  gimple g, g2;
+  gimple_call g;
+  gimple_assign g2;
   bool safe;
 
   old_fn = gimple_call_fn (stmt);

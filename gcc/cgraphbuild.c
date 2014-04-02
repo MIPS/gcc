@@ -337,18 +337,18 @@ pass_build_cgraph_edges::execute (function *fun)
 	  if (is_gimple_debug (stmt))
 	    continue;
 
-	  if (is_gimple_call (stmt))
+	  if (gimple_call call_stmt = dyn_cast <gimple_call> (stmt))
 	    {
 	      int freq = compute_call_stmt_bb_frequency (current_function_decl,
 							 bb);
-	      decl = gimple_call_fndecl (stmt);
+	      decl = gimple_call_fndecl (call_stmt);
 	      if (decl)
-		node->create_edge (cgraph_node::get_create (decl), stmt, bb->count, freq);
-	      else if (gimple_call_internal_p (stmt))
+		node->create_edge (cgraph_node::get_create (decl), call_stmt, bb->count, freq);
+	      else if (gimple_call_internal_p (call_stmt))
 		;
 	      else
-		node->create_indirect_edge (stmt,
-					    gimple_call_flags (stmt),
+		node->create_indirect_edge (call_stmt,
+					    gimple_call_flags (call_stmt),
 					    bb->count, freq);
 	    }
 	  node->record_stmt_references (stmt);
@@ -433,19 +433,19 @@ cgraph_edge::rebuild_edges (void)
 	  gimple stmt = gsi_stmt (gsi);
 	  tree decl;
 
-	  if (is_gimple_call (stmt))
+	  if (gimple_call call_stmt = dyn_cast <gimple_call> (stmt))
 	    {
 	      int freq = compute_call_stmt_bb_frequency (current_function_decl,
 							 bb);
-	      decl = gimple_call_fndecl (stmt);
+	      decl = gimple_call_fndecl (call_stmt);
 	      if (decl)
-		node->create_edge (cgraph_node::get_create (decl), stmt,
+		node->create_edge (cgraph_node::get_create (decl), call_stmt,
 				   bb->count, freq);
-	      else if (gimple_call_internal_p (stmt))
+	      else if (gimple_call_internal_p (call_stmt))
 		;
 	      else
-		node->create_indirect_edge (stmt,
-					    gimple_call_flags (stmt),
+		node->create_indirect_edge (call_stmt,
+					    gimple_call_flags (call_stmt),
 					    bb->count, freq);
 	    }
 	  node->record_stmt_references (stmt);

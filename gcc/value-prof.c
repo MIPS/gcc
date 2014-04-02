@@ -1370,11 +1370,11 @@ check_ic_target (gimple_call call_stmt, struct cgraph_node *target)
     old call
  */
 
-gimple
-gimple_ic (gimple icall_stmt, struct cgraph_node *direct_call,
+gimple_call
+gimple_ic (gimple_call icall_stmt, struct cgraph_node *direct_call,
 	   int prob, gcov_type count, gcov_type all)
 {
-  gimple dcall_stmt;
+  gimple_call dcall_stmt;
   gimple_assign load_stmt;
   gimple_cond cond_stmt;
   tree tmp0, tmp1, tmp;
@@ -1407,7 +1407,7 @@ gimple_ic (gimple icall_stmt, struct cgraph_node *direct_call,
   gimple_set_vdef (icall_stmt, NULL_TREE);
   gimple_set_vuse (icall_stmt, NULL_TREE);
   update_stmt (icall_stmt);
-  dcall_stmt = gimple_copy (icall_stmt);
+  dcall_stmt = as_a <gimple_call> (gimple_copy (icall_stmt));
   gimple_call_set_fndecl (dcall_stmt, direct_call->decl);
   dflags = flags_from_decl_or_type (direct_call->decl);
   if ((dflags & ECF_NORETURN) != 0)
