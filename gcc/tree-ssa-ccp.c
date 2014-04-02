@@ -343,23 +343,23 @@ get_value (tree var)
 
 /* Return the constant tree value associated with VAR.  */
 
-static inline tree
-get_constant_value (tree var)
+static inline Gimple::value
+get_constant_value (Gimple::value var)
 {
   prop_value_t *val;
-  if (TREE_CODE (var) != SSA_NAME)
+  if (!is_a<Gimple::ssa_name> (var))
     {
       if (is_gimple_min_invariant (var))
         return var;
-      return NULL_TREE;
+      return NULL_GIMPLE;
     }
   val = get_value (var);
   if (val
       && val->lattice_val == CONSTANT
-      && (TREE_CODE (val->value) != INTEGER_CST
+      && (!is_a<Gimple::integer_cst> (Gimple::value(val->value))
 	  || val->mask.is_zero ()))
     return val->value;
-  return NULL_TREE;
+  return NULL_GIMPLE;
 }
 
 /* Sets the value associated with VAR to VARYING.  */
