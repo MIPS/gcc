@@ -1,0 +1,10 @@
+2014-04-02  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* crtstuff.c [!ENABLE_OFFLOADING] (__OPENMP_TARGET__): Define to
+	NULL.
+
+Copyright (C) 2014 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
