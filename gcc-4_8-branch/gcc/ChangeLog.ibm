@@ -1,3 +1,14 @@
+2014-04-02  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline r205308
+	2013-11-23  David Edelsohn  <dje.gcc@gmail.com>
+
+	* config/rs6000/rs6000.c (IN_NAMED_SECTION): New macro.
+	(rs6000_xcoff_select_section): Place decls with stricter alignment
+	into named sections.
+	(rs6000_xcoff_unique_section): Allow unique sections for
+	uninitialized data with strict alignment.
+
 2014-04-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Back port from main line:
