@@ -2111,9 +2111,13 @@ static void
 output_weakrefs (void)
 {
   symtab_node *node;
+  cgraph_node *cnode;
   FOR_EACH_SYMBOL (node)
     if (node->alias
         && !TREE_ASM_WRITTEN (node->decl)
+	&& (!(cnode = dyn_cast <cgraph_node> (node))
+	    || !cnode->instrumented_version
+	    || !TREE_ASM_WRITTEN (cnode->instrumented_version->decl))
 	&& node->weakref)
       {
 	tree target;
