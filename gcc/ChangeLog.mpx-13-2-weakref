@@ -1,0 +1,5 @@
+2013-11-15  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* cgraphunit.c (output_weakrefs): If there are both
+	instrumented and original versions, output only one
+	of them.
