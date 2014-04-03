@@ -1,5 +1,13 @@
 
 2014-04-03  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{New feature: mode-conditional module component in module list, stabilizing}}
+
+	* melt-build-script.tpl: Add call to meltbuild_do_extras.
+	* melt-build-script.sh: Regenerate.
+	* melt-runtime.cc (meltgc_load_module_list): mode-conditional
+	module starts with ?modename instead of !modename
+
+2014-04-02  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{New feature: mode-conditional module component in module list, **UNSTABLE**}}
 
 	* melt-build-script.tpl: typo for xtramelt-ana-simple!

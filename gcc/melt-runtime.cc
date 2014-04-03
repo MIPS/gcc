@@ -10198,7 +10198,7 @@ meltgc_load_module_list (int depth, const char *modlistbase)
           meltgc_load_module_list (depth+1, modlin+1);
         }
       /* Handle mode-conditional module item */
-      else if (modlin[0] == '!')
+      else if (modlin[0] == '?')
 	{
 	  std::string condmodstr;
 	  std::string condcompstr;
@@ -10217,12 +10217,13 @@ meltgc_load_module_list (int depth, const char *modlistbase)
 	      if (melt_asked_modes_vector[modix] == condmodstr) {
 		MELT_LOCATION_HERE_PRINTF
 		  (curlocbuf,
-		   "meltgc_load_module_list %s mode-condition %s line %d: '%s'",
-		   modlistpath, condmodstr.c_str(), lincnt, modlin);
+		   "meltgc_load_module_list %s mode-condition %s comp %s line %d: '%s'",
+		   modlistpath, condmodstr.c_str(), condcompstr.c_str(), lincnt, modlin);
 		if (condcompstr[0] == '@')
 		  meltgc_load_module_list (depth+1, condcompstr.c_str()+1);
 		else
 		  meltgc_load_one_module (condcompstr.c_str());
+		break;
 	      }
 	}
       else

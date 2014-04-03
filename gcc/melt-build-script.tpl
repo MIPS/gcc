@@ -747,7 +747,7 @@ if [ ! -f  "$melt_final_library_stamp" \
     meltbuild_info [+(.(fromline))+] building MELT libraries
     meltbuild_do_libraries
 else
-    meltbuild_info [+(.(fromline))+] not building MELT libraries because of applstamp  "$melt_final_library_stamp"
+    meltbuild_info [+(.(fromline))+] not building MELT libraries because of libstamp  "$melt_final_library_stamp"
 fi
 
 ################################################################
@@ -824,7 +824,7 @@ function meltbuild_do_extras () {
          -o meltbuild-sources/[+base+]+meltdesc.c -ot meltbuild-final-library.stamp \
          -o meltbuild-sources/[+base+]+meltdesc.c -ot meltbuild-sources/[+base+].melt \
     ]; then 
-        meltbuild_info [+(.(fromline))+] emit library C++ code for [+base+]
+        meltbuild_info [+(.(fromline))+] emit extra C++ code for [+base+]
         meltbuild_emit [+(.(fromline))+] \
   	  translatefile \
   	  [+base+] \
@@ -838,10 +838,10 @@ function meltbuild_do_extras () {
     fi
     local meltextra_[+varsuf+]_cumulmd5=$(cat  meltbuild-sources/[+base+].cc meltbuild-sources/[+base+]+[0-9][0-9].cc  | $MD5SUM | cut -b 1-32)
    [+FOR flavor IN quicklybuilt optimized debugnoline+]
-    if [ ! -f meltbuild-modules/[+base+].meltmod-$meltlib_[+varsuf+]_cumulmd5.[+flavor+].so \
-        -o meltbuild-modules/[+base+].meltmod-$meltlib_[+varsuf+]_cumulmd5.[+flavor+].so -ot  meltbuild-final-translator.stamp \
-        -o  meltbuild-modules/[+base+].meltmod-$meltlib_[+varsuf+]_cumulmd5.[+flavor+].so -ot  meltbuild-sources/[+base+].cc \
-        -o  meltbuild-modules/[+base+].meltmod-$meltlib_[+varsuf+]_cumulmd5.[+flavor+].so -ot  meltbuild-sources/[+base+]+meltdesc.c ]; then
+    if [ ! -f meltbuild-modules/[+base+].meltmod-$meltextra_[+varsuf+]_cumulmd5.[+flavor+].so \
+        -o meltbuild-modules/[+base+].meltmod-$meltextra_[+varsuf+]_cumulmd5.[+flavor+].so -ot  meltbuild-final-translator.stamp \
+        -o  meltbuild-modules/[+base+].meltmod-$meltextra_[+varsuf+]_cumulmd5.[+flavor+].so -ot  meltbuild-sources/[+base+].cc \
+        -o  meltbuild-modules/[+base+].meltmod-$meltextra_[+varsuf+]_cumulmd5.[+flavor+].so -ot  meltbuild-sources/[+base+]+meltdesc.c ]; then
         meltbuild_info [+(.(fromline))+] compiling extra module for [+base+] [+flavor+]
         $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
   	  GCCMELT_FROM=[+(.(fromline))+] \
@@ -860,14 +860,17 @@ function meltbuild_do_extras () {
   			     GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS -DMELTGCC_NOLINENUMBERING" \
   			     GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/[+base+] \
   			     GCCMELT_MODULE_BINARYBASE=meltbuild-modules/[+base+] ; \
-  	       meltbuild_error  [+(.(fromline))+] in meltbuild-modules failed to compile library [+base+] [+flavor+] \
+  	       meltbuild_error  [+(.(fromline))+] in meltbuild-modules failed to compile extra [+base+] [+flavor+] \
   				"($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER_FLAGS cflags $GCCMELT_COMPILER_FLAGS )
   	       else
-        meltbuild_info [+(.(fromline))+] not compiling library module for [+base+] [+flavor+]
+        meltbuild_info [+(.(fromline))+] not compiling extra module for [+base+] [+flavor+]
     fi
    [+ENDFOR flavor+]
-  [+ENDFOR melt_extra_file+]
-    ## meltbuild_do_extras [+base+] [+(.(fromline))+]
+   ## meltbuild_do_extras after build [+base+] [+(.(fromline))+]
+   
+   [+ENDFOR melt_extra_file+]
+ 
+   ## meltbuild_do_extras timestamping  [+(.(fromline))+]
     local meltextrastamptemp=$melt_final_extra_stamp-tmp$$
     echo "///MELT extra time stamp $melt_final_extra_stamp" > $meltextrastamptemp
     echo $GCCMELT_RUNTIME_DEPENDENCY_MD5SUM $GCCMELT_RUNTIME_DEPENDENCY >>  $meltextrastamptemp
@@ -875,15 +878,33 @@ function meltbuild_do_extras () {
     $MD5SUM meltbuild-sources/[+base+].melt >>  $meltextrastamptemp
     $MD5SUM meltbuild-sources/[+base+].cc meltbuild-sources/[+base+]+[0-9][0-9].cc  >> $meltextrastamptemp
    [+FOR flavor IN quicklybuilt optimized debugnoline+]
-    $MD5SUM meltbuild-modules/[+base+].meltmod-$meltlib_[+varsuf+]_cumulmd5.[+flavor+].so >> $meltextrastamptemp
+    $MD5SUM meltbuild-modules/[+base+].meltmod-$meltextra_[+varsuf+]_cumulmd5.[+flavor+].so >> $meltextrastamptemp
    [+ENDFOR flavor+]
-  [+ENDFOR melt_extra_file+]
+   ## meltbuild_do_extras end extra [+base+] [+(.(fromline))+]
+ 
+   [+ENDFOR melt_extra_file+]
+
+    ## meltbuild_do_extras final  [+(.(fromline))+]
     echo "///end stamp $melt_final_extra_stamp"  >> $meltextrastamptemp
     $GCCMELT_MOVE_IF_CHANGE $meltextrastamptemp  $melt_final_extra_stamp
   meltbuild_info [+(.(fromline))+] times after extras at `date '+%x %H:%M:%S'`: ;  times >&2
 } ## end function meltbuild_do_extras  [+(.(fromline))+]
 
+ ## building extras [+(.(fromline))+]
+if [ ! -f  "$melt_final_extra_stamp" \
+     -o "$melt_final_extra_stamp" -ot "$melt_final_translator_stamp" \
+     -o "$melt_final_extra_stamp" -ot "$melt_final_library_stamp" \
+[+FOR melt_extra_file+] -o "$melt_final_extra_stamp" -ot "$GCCMELT_MELTSOURCEDIR/[+base+].melt" \
+[+ENDFOR melt_extra_file+] ]; then
+    meltbuild_info [+(.(fromline))+] building MELT extras
+    meltbuild_do_extras
+else
+    meltbuild_info [+(.(fromline))+] not building MELT extra because of xtrastamp  "$melt_final_extra_stamp"
+fi
+ ## done building extras [+(.(fromline))+]
 
+
+################################################################
 ################################################################
 #@ [+(.(fromline))+] runtime self check
 
