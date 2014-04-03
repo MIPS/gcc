@@ -5,6 +5,7 @@
 package json
 
 import (
+	"bytes"
 	"errors"
 	"io"
 )
@@ -56,6 +57,12 @@ func (dec *Decoder) Decode(v interface{}) error {
 	dec.buf = dec.buf[0:rest]
 
 	return err
+}
+
+// Buffered returns a reader of the data remaining in the Decoder's
+// buffer. The reader is valid until the next call to Decode.
+func (dec *Decoder) Buffered() io.Reader {
+	return bytes.NewReader(dec.buf)
 }
 
 // readValue reads a JSON value into dec.buf.
@@ -141,7 +148,7 @@ func NewEncoder(w io.Writer) *Encoder {
 	return &Encoder{w: w}
 }
 
-// Encode writes the JSON encoding of v to the connection.
+// Encode writes the JSON encoding of v to the stream.
 //
 // See the documentation for Marshal for details about the
 // conversion of Go values to JSON.
@@ -149,8 +156,8 @@ func (enc *Encoder) Encode(v interface{}) error {
 	if enc.err != nil {
 		return enc.err
 	}
-	enc.e.Reset()
-	err := enc.e.marshal(v)
+	e := newEncodeState()
+	err := e.marshal(v)
 	if err != nil {
 		return err
 	}
@@ -161,11 +168,12 @@ func (enc *Encoder) Encode(v interface{}) error {
 	// is required if the encoded value was a number,
 	// so that the reader knows there aren't more
 	// digits coming.
-	enc.e.WriteByte('\n')
+	e.WriteByte('\n')
 
-	if _, err = enc.w.Write(enc.e.Bytes()); err != nil {
+	if _, err = enc.w.Write(e.Bytes()); err != nil {
 		enc.err = err
 	}
+	putEncodeState(e)
 	return err
 }
 

@@ -1,7 +1,6 @@
 // Allocators -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-// 2011, 2012 Free Software Foundation, Inc.
+// Copyright (C) 2001-2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -44,24 +43,20 @@
 #ifndef _ALLOCATOR_H
 #define _ALLOCATOR_H 1
 
-// Define the base class to std::allocator.
-#include <bits/c++allocator.h>
+#include <bits/c++allocator.h> // Define the base class to std::allocator.
+#include <bits/memoryfwd.h>
+#if __cplusplus >= 201103L
+#include <type_traits>
+#endif
 
 namespace std _GLIBCXX_VISIBILITY(default)
 {
 _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
-   * @defgroup allocators Allocators
-   * @ingroup memory
-   *
-   * Classes encapsulating memory operations.
-   *
-   * @{
+   *  @addtogroup allocators
+   *  @{
    */
-
-  template<typename _Tp>
-    class allocator;
 
   /// allocator<void> specialization.
   template<>
@@ -77,6 +72,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       template<typename _Tp1>
         struct rebind
         { typedef allocator<_Tp1> other; };
+
+#if __cplusplus >= 201103L
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 2103. std::allocator propagate_on_container_move_assignment
+      typedef true_type propagate_on_container_move_assignment;
+#endif
     };
 
   /**
@@ -102,6 +103,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       template<typename _Tp1>
         struct rebind
         { typedef allocator<_Tp1> other; };
+
+#if __cplusplus >= 201103L
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 2103. std::allocator propagate_on_container_move_assignment
+      typedef true_type propagate_on_container_move_assignment;
+#endif
 
       allocator() throw() { }
 
@@ -136,13 +143,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     operator!=(const allocator<_Tp>&, const allocator<_Tp>&)
     { return false; }
 
-  /// Declare uses_allocator so it can be specialized in <queue> etc.
-  template<typename, typename>
-    struct uses_allocator;
-
-  /**
-   * @}
-   */
+  /// @} group allocator
 
   // Inhibit implicit instantiations for required instantiations,
   // which are defined via explicit instantiations elsewhere.
@@ -157,13 +158,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   // To implement Option 3 of DR 431.
   template<typename _Alloc, bool = __is_empty(_Alloc)>
     struct __alloc_swap
-    { static void _S_do_it(_Alloc&, _Alloc&) { } };
+    { static void _S_do_it(_Alloc&, _Alloc&) _GLIBCXX_NOEXCEPT { } };
 
   template<typename _Alloc>
     struct __alloc_swap<_Alloc, false>
     {
       static void
-      _S_do_it(_Alloc& __one, _Alloc& __two)
+      _S_do_it(_Alloc& __one, _Alloc& __two) _GLIBCXX_NOEXCEPT
       {
 	// Precondition: swappable allocators.
 	if (__one != __two)
@@ -188,18 +189,18 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       { return __one != __two; }
     };
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
   template<typename _Tp, bool
     = __or_<is_copy_constructible<typename _Tp::value_type>,
             is_nothrow_move_constructible<typename _Tp::value_type>>::value>
     struct __shrink_to_fit_aux
-    { static bool _S_do_it(_Tp&) { return false; } };
+    { static bool _S_do_it(_Tp&) noexcept { return false; } };
 
   template<typename _Tp>
     struct __shrink_to_fit_aux<_Tp, true>
     {
       static bool
-      _S_do_it(_Tp& __c)
+      _S_do_it(_Tp& __c) noexcept
       {
 	__try
 	  {

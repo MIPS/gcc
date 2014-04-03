@@ -7,12 +7,8 @@
   <indexterm><primary>Numerics</primary></indexterm>
 </title>
   <keywordset>
-    <keyword>
-      ISO C++
-    </keyword>
-    <keyword>
-      library
-    </keyword>
+    <keyword>ISO C++</keyword>
+    <keyword>library</keyword>
   </keywordset>
 </info>
 
@@ -69,7 +65,7 @@
    <itemizedlist>
       <listitem><para><code>accumulate</code></para></listitem>
       <listitem><para><code>inner_product</code></para></listitem>
-      <listitem><para><code>chapterial_sum</code></para></listitem>
+      <listitem><para><code>partial_sum</code></para></listitem>
       <listitem><para><code>adjacent_difference</code></para></listitem>
    </itemizedlist>
    <para>Here is a simple example of the two forms of <code>accumulate</code>.

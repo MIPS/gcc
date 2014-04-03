@@ -1,5 +1,4 @@
-@c Copyright (C) 2002, 2003, 2004, 2005, 2007, 2008, 2009, 2010, 2011, 2012
-@c Free Software Foundation, Inc.
+@c Copyright (C) 2002-2014 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -104,10 +103,6 @@ The runtime support library for transactional memory.
 @item libjava
 The Java runtime library.
 
-@item libmudflap
-The @code{libmudflap} library, used for instrumenting pointer and array
-dereferencing operations.
-
 @item libobjc
 The Objective-C and Objective-C++ runtime library.
 
@@ -121,7 +116,7 @@ The Stack protector runtime library.
 The C++ runtime library.
 
 @item lto-plugin
-Plugin used by @command{gold} if link-time optimizations are enabled.
+Plugin used by the linker if link-time optimizations are enabled.
 
 @item maintainer-scripts
 Scripts used by the @code{gccadmin} account on @code{gcc.gnu.org}.
@@ -691,7 +686,7 @@ standard rule in @file{gcc/Makefile.in} to the variable
 @code{lang_checks}.
 
 @table @code
-@itemx all.cross
+@item all.cross
 @itemx start.encap
 @itemx rest.encap
 FIXME: exactly what goes in each of these targets?
@@ -1556,6 +1551,19 @@ ARM target generates Thumb-2 code for @code{-mthumb}.
 ARM target supports @code{-mfpu=vfp -mfloat-abi=softfp}.
 Some multilibs may be incompatible with these options.
 
+@item arm_vfp3_ok
+@anchor{arm_vfp3_ok}
+ARM target supports @code{-mfpu=vfp3 -mfloat-abi=softfp}.
+Some multilibs may be incompatible with these options.
+
+@item arm_v8_vfp_ok
+ARM target supports @code{-mfpu=fp-armv8 -mfloat-abi=softfp}.
+Some multilibs may be incompatible with these options.
+
+@item arm_v8_neon_ok
+ARM target supports @code{-mfpu=neon-fp-armv8 -mfloat-abi=softfp}.
+Some multilibs may be incompatible with these options.
+
 @item arm_prefer_ldrd_strd
 ARM target prefers @code{LDRD} and @code{STRD} instructions over
 @code{LDM} and @code{STM} instructions.
@@ -1950,6 +1958,10 @@ keyword}.
 NEON and half-precision floating point support.  Only ARM targets
 support this feature, and only then in certain modes; see
 the @ref{arm_neon_ok,,arm_neon_fp16_ok effective target keyword}.
+
+@item arm_vfp3
+arm vfp3 floating point support; see
+the @ref{arm_vfp3_ok,,arm_vfp3_ok effective target keyword}.
 
 @item bind_pic_locally
 Add the target-specific flags needed to enable functions to bind

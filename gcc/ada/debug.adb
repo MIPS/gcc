@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -111,7 +111,7 @@ package body Debug is
    --  d.r  Enable OK_To_Reorder_Components in non-variant records
    --  d.s  Disable expansion of slice move, use memmove
    --  d.t  Disable static allocation of library level dispatch tables
-   --  d.u
+   --  d.u  Enable Modify_Tree_For_C (update tree for c)
    --  d.v  Enable OK_To_Reorder_Components in variant records
    --  d.w  Do not check for infinite loops
    --  d.x  No exception handlers
@@ -121,16 +121,16 @@ package body Debug is
    --  d.A  Read/write Aspect_Specifications hash table to tree
    --  d.B
    --  d.C  Generate concatenation call, do not generate inline code
-   --  d.D  Strict Alfa mode
-   --  d.E  Force Alfa mode for gnat2why
-   --  d.F  Alfa mode
-   --  d.G  Precondition only mode for gnat2why
-   --  d.H  Standard package only mode for gnat2why
-   --  d.I  SCIL generation mode
+   --  d.D
+   --  d.E  Turn selected errors into warnings
+   --  d.F  Debug mode for GNATprove
+   --  d.G
+   --  d.H
+   --  d.I  Do not ignore enum representation clauses in CodePeer mode
    --  d.J  Disable parallel SCIL generation mode
-   --  d.K  Alfa detection only mode for gnat2why
+   --  d.K
    --  d.L  Depend on back end for limited types in if and case expressions
-   --  d.M
+   --  d.M  Relaxed RM semantics
    --  d.N  Add node to all entities
    --  d.O  Dump internal SCO tables
    --  d.P  Previous (non-optimized) handling of length comparisons
@@ -141,8 +141,8 @@ package body Debug is
    --  d.U  Ignore indirect calls for static elaboration
    --  d.V
    --  d.W  Print out debugging information for Walk_Library_Items
-   --  d.X  Use Expression_With_Actions
-   --  d.Y  Do not use Expression_With_Actions
+   --  d.X
+   --  d.Y
    --  d.Z
 
    --  d1   Error msgs have node numbers where possible
@@ -575,59 +575,61 @@ package body Debug is
    --       previous dynamic construction of tables. It is there as a possible
    --       work around if we run into trouble with the new implementation.
 
+   --  d.u  Sets Modify_Tree_For_C mode in which tree is modified to make it
+   --       easier to generate code using a C compiler.
+
    --  d.v  Forces the flag OK_To_Reorder_Components to be set in all record
    --       base types that have at least one discriminant (v = variant).
 
    --  d.w  This flag turns off the scanning of loops to detect possible
    --       infinite loops.
 
-   --  d.A  There seems to be a problem with ASIS if we activate the circuit
-   --       for reading and writing the aspect specification hash table, so
-   --       for now, this is controlled by the debug flag d.A. The hash table
-   --       is only written and read if this flag is set.
-
    --  d.x  No exception handlers in generated code. This causes exception
    --       handlers to be eliminated from the generated code. They are still
    --       fully compiled and analyzed, they just get eliminated from the
    --       code generation step.
 
+   --  d.A  There seems to be a problem with ASIS if we activate the circuit
+   --       for reading and writing the aspect specification hash table, so
+   --       for now, this is controlled by the debug flag d.A. The hash table
+   --       is only written and read if this flag is set.
+
    --  d.C  Generate call to System.Concat_n.Str_Concat_n routines in cases
    --       where we would normally generate inline concatenation code.
 
-   --  d.D  Strict Alfa mode. Interpret compiler permissions as strictly as
-   --       possible in Alfa mode.
+   --  d.E  Turn selected errors into warnings. This debug switch causes a
+   --       specific set of error messages into warnings. Setting this switch
+   --       causes Opt.Error_To_Warning to be set to True. The intention is
+   --       that this be used for messages representing upwards incompatible
+   --       changes to Ada 2012 that cause previously correct programs to be
+   --       treated as illegal now. The following cases are affected:
+   --
+   --          Errors relating to overlapping subprogram parameters for cases
+   --          other than IN OUT parameters to functions.
+   --
+   --          Errors relating to the new rules about not defining equality
+   --          too late so that composition of equality can be assured.
 
-   --  d.E  Force Alfa mode for gnat2why. In this mode, errors are issued for
-   --       all violations of Alfa in user code, and warnings are issued for
-   --       constructs not yet implemented in gnat2why.
+   --  d.F  Sets GNATprove_Mode to True. This allows debugging the frontend in
+   --       the special mode used by GNATprove.
 
-   --  d.F  Alfa mode. Generate AST in a form suitable for formal verification,
-   --       as well as additional cross reference information in ALI files to
-   --       compute effects of subprograms.
-
-   --  d.G  Precondition only mode for gnat2why. In this mode, gnat2why will
-   --       only generate Why code that checks for the well-guardedness of
-   --       preconditions.
-
-   --  d.H  Standard package only mode for gnat2why. In this mode, gnat2why
-   --       will only generate Why code for package Standard. Any given input
-   --       file will be ignored.
-
-   --  d.I  Generate SCIL mode. Generate intermediate code for the sake of
-   --       of static analysis tools, and ensure additional tree consistency
-   --       between different compilations of specs.
+   --  d.I  Do not ignore enum representation clauses in CodePeer mode.
+   --       The default of ignoring representation clauses for enumeration
+   --       types in CodePeer is good for the majority of Ada code, but in some
+   --       cases being able to change this default might be useful to remove
+   --       some false positives.
 
    --  d.J  Disable parallel SCIL generation. Normally SCIL file generation is
    --       done in parallel to speed processing. This switch disables this
    --       behavior.
 
-   --  d.K  Alfa detection only mode for gnat2why. In this mode, gnat2why
-   --       will only generate the .alfa file, but no Why code.
-
    --  d.L  Normally the front end generates special expansion for conditional
    --       expressions of a limited type. This debug flag removes this special
    --       case expansion, leaving it up to the back end to handle conditional
    --       expressions correctly.
+
+   --  d.M  Relaxed RM semantics. This flag sets Opt.Relaxed_RM_Semantics
+   --       See Opt.Relaxed_RM_Semantics for more details.
 
    --  d.N  Enlarge entities by one node (but don't attempt to use this extra
    --       node for storage of any flags or fields). This can be used to do
@@ -661,18 +663,6 @@ package body Debug is
    --  d.W  Print out debugging information for Walk_Library_Items, including
    --       the order in which units are walked. This is primarily for use in
    --       debugging CodePeer mode.
-
-   --  d.X  By default, the compiler uses an elaborate rewriting framework for
-   --       short-circuited forms where the right hand condition generates
-   --       actions to be inserted. With the gcc backend, we now use the new
-   --       N_Expression_With_Actions node for this expansion, but we still use
-   --       the old method for other backends and in SCIL mode. This debug flag
-   --       forces use of the new N_Expression_With_Actions node in these other
-   --       cases and is intended for transitional use.
-
-   --  d.Y  Prevents the use of the N_Expression_With_Actions node even in the
-   --       case of the gcc back end. Provided as a back up in case the new
-   --       scheme has problems.
 
    --  d1   Error messages have node numbers where possible. Normally error
    --       messages have only source locations. This option is useful when

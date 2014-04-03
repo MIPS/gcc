@@ -1,5 +1,5 @@
 /* Structured Exception Handling (SEH) runtime interface routines.
-   Copyright (C) 2010  Free Software Foundation, Inc.
+   Copyright (C) 2010-2014 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -28,7 +28,7 @@
 #include "tm.h"
 #include "unwind.h"
 
-#ifdef __SEH__
+#if defined (__SEH__) && !defined (__USING_SJLJ_EXCEPTIONS__)
 
 /* At the moment everything is written for x64, but in theory this could
    also be used for i386, arm, mips and other extant embedded Windows.  */
@@ -313,8 +313,9 @@ _GCC_specific_handler (PEXCEPTION_RECORD ms_exc, void *this_frame,
 	  ms_exc->ExceptionInformation[3] = gcc_context.reg[1];
 
 	  /* Begin phase 2.  Perform the unwinding.  */
-	  RtlUnwindEx (this_frame, gcc_context.ra, ms_exc, gcc_exc,
-		       ms_orig_context, ms_disp->HistoryTable);
+	  RtlUnwindEx (this_frame, gcc_context.ra, ms_exc,
+		       (PVOID)gcc_context.reg[0], ms_orig_context,
+		       ms_disp->HistoryTable);
 	}
 
       /* In _Unwind_RaiseException we return _URC_FATAL_PHASE1_ERROR.  */
@@ -480,4 +481,4 @@ _Unwind_Backtrace(_Unwind_Trace_Fn trace ATTRIBUTE_UNUSED,
   return _URC_END_OF_STACK;
 #endif
 }
-#endif /* __SEH__ */
+#endif /* __SEH__  && !defined (__USING_SJLJ_EXCEPTIONS__)  */

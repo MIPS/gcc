@@ -9,25 +9,14 @@ import (
 	"testing"
 )
 
-func skip(t *testing.T) bool {
+func check(t *testing.T) {
 	if !implemented {
-		t.Logf("user: not implemented; skipping tests")
-		return true
+		t.Skip("user: not implemented; skipping tests")
 	}
-
-	switch runtime.GOOS {
-	case "linux", "freebsd", "darwin", "windows":
-		return false
-	}
-
-	t.Logf("user: Lookup not implemented on %s; skipping test", runtime.GOOS)
-	return true
 }
 
 func TestCurrent(t *testing.T) {
-	if skip(t) {
-		return
-	}
+	check(t)
 
 	u, err := Current()
 	if err != nil {
@@ -53,8 +42,7 @@ func compare(t *testing.T, want, got *User) {
 	}
 	// TODO(brainman): fix it once we know how.
 	if runtime.GOOS == "windows" {
-		t.Log("skipping Gid and HomeDir comparisons")
-		return
+		t.Skip("skipping Gid and HomeDir comparisons")
 	}
 	if want.Gid != got.Gid {
 		t.Errorf("got Gid=%q; want %q", got.Gid, want.Gid)
@@ -65,8 +53,10 @@ func compare(t *testing.T, want, got *User) {
 }
 
 func TestLookup(t *testing.T) {
-	if skip(t) {
-		return
+	check(t)
+
+	if runtime.GOOS == "plan9" {
+		t.Skipf("Lookup not implemented on %q", runtime.GOOS)
 	}
 
 	want, err := Current()
@@ -81,8 +71,10 @@ func TestLookup(t *testing.T) {
 }
 
 func TestLookupId(t *testing.T) {
-	if skip(t) {
-		return
+	check(t)
+
+	if runtime.GOOS == "plan9" {
+		t.Skipf("LookupId not implemented on %q", runtime.GOOS)
 	}
 
 	want, err := Current()

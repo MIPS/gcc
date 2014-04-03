@@ -1,7 +1,6 @@
 // List implementation (out of line) -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-// 2011, 2012 Free Software Foundation, Inc.
+// Copyright (C) 2001-2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -64,7 +63,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
   template<typename _Tp, typename _Alloc>
     void
     _List_base<_Tp, _Alloc>::
-    _M_clear()
+    _M_clear() _GLIBCXX_NOEXCEPT
     {
       typedef _List_node<_Tp>  _Node;
       _Node* __cur = static_cast<_Node*>(_M_impl._M_node._M_next);
@@ -72,7 +71,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 	{
 	  _Node* __tmp = __cur;
 	  __cur = static_cast<_Node*>(__cur->_M_next);
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
 	  _M_get_Node_allocator().destroy(__tmp);
 #else
 	  _M_get_Tp_allocator().destroy(std::__addressof(__tmp->_M_data));
@@ -81,15 +80,15 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 	}
     }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
   template<typename _Tp, typename _Alloc>
     template<typename... _Args>
       typename list<_Tp, _Alloc>::iterator
       list<_Tp, _Alloc>::
-      emplace(iterator __position, _Args&&... __args)
+      emplace(const_iterator __position, _Args&&... __args)
       {
 	_Node* __tmp = _M_create_node(std::forward<_Args>(__args)...);
-	__tmp->_M_hook(__position._M_node);
+	__tmp->_M_hook(__position._M_const_cast()._M_node);
 	return iterator(__tmp);
       }
 #endif
@@ -97,24 +96,66 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
   template<typename _Tp, typename _Alloc>
     typename list<_Tp, _Alloc>::iterator
     list<_Tp, _Alloc>::
+#if __cplusplus >= 201103L
+    insert(const_iterator __position, const value_type& __x)
+#else
     insert(iterator __position, const value_type& __x)
+#endif
     {
       _Node* __tmp = _M_create_node(__x);
-      __tmp->_M_hook(__position._M_node);
+      __tmp->_M_hook(__position._M_const_cast()._M_node);
       return iterator(__tmp);
     }
+
+#if __cplusplus >= 201103L
+  template<typename _Tp, typename _Alloc>
+    typename list<_Tp, _Alloc>::iterator
+    list<_Tp, _Alloc>::
+    insert(const_iterator __position, size_type __n, const value_type& __x)
+    {
+      if (__n)
+	{
+	  list __tmp(__n, __x, get_allocator());
+	  iterator __it = __tmp.begin();
+	  splice(__position, __tmp);
+	  return __it;
+	}
+      return __position._M_const_cast();
+    }
+
+  template<typename _Tp, typename _Alloc>
+    template<typename _InputIterator, typename>
+      typename list<_Tp, _Alloc>::iterator
+      list<_Tp, _Alloc>::
+      insert(const_iterator __position, _InputIterator __first,
+	     _InputIterator __last)
+      {
+	list __tmp(__first, __last, get_allocator());
+	if (!__tmp.empty())
+	  {
+	    iterator __it = __tmp.begin();
+	    splice(__position, __tmp);
+	    return __it;
+	  }
+	return __position._M_const_cast();
+      }
+#endif
 
   template<typename _Tp, typename _Alloc>
     typename list<_Tp, _Alloc>::iterator
     list<_Tp, _Alloc>::
+#if __cplusplus >= 201103L
+    erase(const_iterator __position) noexcept
+#else
     erase(iterator __position)
+#endif
     {
       iterator __ret = iterator(__position._M_node->_M_next);
-      _M_erase(__position);
+      _M_erase(__position._M_const_cast());
       return __ret;
     }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
   template<typename _Tp, typename _Alloc>
     void
     list<_Tp, _Alloc>::
@@ -285,7 +326,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
   template<typename _Tp, typename _Alloc>
     void
     list<_Tp, _Alloc>::
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
     merge(list&& __x)
 #else
     merge(list& __x)
@@ -319,7 +360,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
     template <typename _StrictWeakOrdering>
       void
       list<_Tp, _Alloc>::
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       merge(list&& __x, _StrictWeakOrdering __comp)
 #else
       merge(list& __x, _StrictWeakOrdering __comp)

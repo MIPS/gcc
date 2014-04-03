@@ -3,6 +3,9 @@
 /* ELF size: 32 or 64 */
 #undef BACKTRACE_ELF_SIZE
 
+/* Define to 1 if you have the __atomic functions */
+#undef HAVE_ATOMIC_FUNCTIONS
+
 /* Define to 1 if you have the declaration of `strnlen', and to 0 if you
    don't. */
 #undef HAVE_DECL_STRNLEN
@@ -15,6 +18,9 @@
 
 /* Define to 1 if you have the fcntl function */
 #undef HAVE_FCNTL
+
+/* Define if getexecname is available. */
+#undef HAVE_GETEXECNAME
 
 /* Define if _Unwind_GetIPInfo is available. */
 #undef HAVE_GETIPINFO

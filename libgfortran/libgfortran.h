@@ -1,7 +1,5 @@
 /* Common declarations for all of libgfortran.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-   2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 2002-2014 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>, and
    Andy Vaught <andy@xena.eas.asu.edu>
 
@@ -45,6 +43,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #include <stddef.h>
 #include <float.h>
 #include <stdarg.h>
+#include <stdbool.h>
 
 #if HAVE_COMPLEX_H
 /* Must appear before math.h on VMS systems.  */
@@ -97,6 +96,16 @@ typedef off_t gfc_offset;
 #ifndef NULL
 #define NULL (void *) 0
 #endif
+
+
+/* The following macros can be used to annotate conditions which are likely or
+   unlikely to be true.  Avoid using them when a condition is only slightly
+   more likely/less unlikely than average to avoid the performance penalties of
+   branch misprediction. In addition, as __builtin_expect overrides the compiler
+   heuristic, do not use in conditions where one of the branches ends with a
+   call to a function with __attribute__((noreturn)): the compiler internal
+   heuristic will mark this branch as much less likely as unlikely() would
+   do.  */
 
 #ifndef __GNUC__
 #define __attribute__(x)
@@ -535,6 +544,7 @@ typedef struct
   size_t record_marker;
   int max_subrecord_length;
   int bounds_check;
+  int fpe_summary;
 }
 compile_options_t;
 
@@ -563,10 +573,6 @@ typedef enum
 { NOTIFICATION_SILENT, NOTIFICATION_WARNING, NOTIFICATION_ERROR }
 notification;
 
-/* This is returned by notify_std and several io functions.  */
-typedef enum
-{ SUCCESS = 1, FAILURE }
-try;
 
 /* The filename and line number don't go inside the globals structure.
    They are set by the rest of the program and must be linked to.  */
@@ -667,8 +673,8 @@ internal_proto(find_addr2line);
 
 /* backtrace.c */
 
-extern void show_backtrace (void);
-internal_proto(show_backtrace);
+extern void backtrace (void);
+iexport_proto(backtrace);
 
 /* error.c */
 
@@ -734,7 +740,7 @@ iexport_proto(generate_error);
 extern void generate_warning (st_parameter_common *, const char *);
 internal_proto(generate_warning);
 
-extern try notify_std (st_parameter_common *, int, const char *);
+extern bool notify_std (st_parameter_common *, int, const char *);
 internal_proto(notify_std);
 
 extern notification notification_std(int);
@@ -747,6 +753,15 @@ internal_proto(gf_strerror);
 
 extern void set_fpu (void);
 internal_proto(set_fpu);
+
+extern int get_fpu_except_flags (void);
+internal_proto(get_fpu_except_flags);
+
+extern void set_fpu_rounding_mode (int round);
+internal_proto(set_fpu_rounding_mode);
+
+extern int get_fpu_rounding_mode (void);
+internal_proto(get_fpu_rounding_mode);
 
 /* memory.c */
 

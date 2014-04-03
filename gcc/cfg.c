@@ -1,7 +1,5 @@
 /* Control flow graph manipulation code for GNU compiler.
-   Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -71,17 +69,17 @@ init_flow (struct function *the_fun)
 {
   if (!the_fun->cfg)
     the_fun->cfg = ggc_alloc_cleared_control_flow_graph ();
-  n_edges_for_function (the_fun) = 0;
-  ENTRY_BLOCK_PTR_FOR_FUNCTION (the_fun)
+  n_edges_for_fn (the_fun) = 0;
+  ENTRY_BLOCK_PTR_FOR_FN (the_fun)
     = ggc_alloc_cleared_basic_block_def ();
-  ENTRY_BLOCK_PTR_FOR_FUNCTION (the_fun)->index = ENTRY_BLOCK;
-  EXIT_BLOCK_PTR_FOR_FUNCTION (the_fun)
+  ENTRY_BLOCK_PTR_FOR_FN (the_fun)->index = ENTRY_BLOCK;
+  EXIT_BLOCK_PTR_FOR_FN (the_fun)
     = ggc_alloc_cleared_basic_block_def ();
-  EXIT_BLOCK_PTR_FOR_FUNCTION (the_fun)->index = EXIT_BLOCK;
-  ENTRY_BLOCK_PTR_FOR_FUNCTION (the_fun)->next_bb
-    = EXIT_BLOCK_PTR_FOR_FUNCTION (the_fun);
-  EXIT_BLOCK_PTR_FOR_FUNCTION (the_fun)->prev_bb
-    = ENTRY_BLOCK_PTR_FOR_FUNCTION (the_fun);
+  EXIT_BLOCK_PTR_FOR_FN (the_fun)->index = EXIT_BLOCK;
+  ENTRY_BLOCK_PTR_FOR_FN (the_fun)->next_bb
+    = EXIT_BLOCK_PTR_FOR_FN (the_fun);
+  EXIT_BLOCK_PTR_FOR_FN (the_fun)->prev_bb
+    = ENTRY_BLOCK_PTR_FOR_FN (the_fun);
 }
 
 /* Helper function for remove_edge and clear_edges.  Frees edge structure
@@ -90,7 +88,7 @@ init_flow (struct function *the_fun)
 static void
 free_edge (edge e)
 {
-  n_edges--;
+  n_edges_for_fn (cfun)--;
   ggc_free (e);
 }
 
@@ -103,20 +101,20 @@ clear_edges (void)
   edge e;
   edge_iterator ei;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       FOR_EACH_EDGE (e, ei, bb->succs)
 	free_edge (e);
-      VEC_truncate (edge, bb->succs, 0);
-      VEC_truncate (edge, bb->preds, 0);
+      vec_safe_truncate (bb->succs, 0);
+      vec_safe_truncate (bb->preds, 0);
     }
 
-  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
+  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR_FOR_FN (cfun)->succs)
     free_edge (e);
-  VEC_truncate (edge, EXIT_BLOCK_PTR->preds, 0);
-  VEC_truncate (edge, ENTRY_BLOCK_PTR->succs, 0);
+  vec_safe_truncate (EXIT_BLOCK_PTR_FOR_FN (cfun)->preds, 0);
+  vec_safe_truncate (ENTRY_BLOCK_PTR_FOR_FN (cfun)->succs, 0);
 
-  gcc_assert (!n_edges);
+  gcc_assert (!n_edges_for_fn (cfun));
 }
 
 /* Allocate memory for basic_block.  */
@@ -155,8 +153,8 @@ compact_blocks (void)
 {
   int i;
 
-  SET_BASIC_BLOCK (ENTRY_BLOCK, ENTRY_BLOCK_PTR);
-  SET_BASIC_BLOCK (EXIT_BLOCK, EXIT_BLOCK_PTR);
+  SET_BASIC_BLOCK_FOR_FN (cfun, ENTRY_BLOCK, ENTRY_BLOCK_PTR_FOR_FN (cfun));
+  SET_BASIC_BLOCK_FOR_FN (cfun, EXIT_BLOCK, EXIT_BLOCK_PTR_FOR_FN (cfun));
 
   if (df)
     df_compact_blocks ();
@@ -165,18 +163,18 @@ compact_blocks (void)
       basic_block bb;
 
       i = NUM_FIXED_BLOCKS;
-      FOR_EACH_BB (bb)
+      FOR_EACH_BB_FN (bb, cfun)
 	{
-	  SET_BASIC_BLOCK (i, bb);
+	  SET_BASIC_BLOCK_FOR_FN (cfun, i, bb);
 	  bb->index = i;
 	  i++;
 	}
-      gcc_assert (i == n_basic_blocks);
+      gcc_assert (i == n_basic_blocks_for_fn (cfun));
 
-      for (; i < last_basic_block; i++)
-	SET_BASIC_BLOCK (i, NULL);
+      for (; i < last_basic_block_for_fn (cfun); i++)
+	SET_BASIC_BLOCK_FOR_FN (cfun, i, NULL);
     }
-  last_basic_block = n_basic_blocks;
+  last_basic_block_for_fn (cfun) = n_basic_blocks_for_fn (cfun);
 }
 
 /* Remove block B from the basic block array.  */
@@ -185,8 +183,8 @@ void
 expunge_block (basic_block b)
 {
   unlink_block (b);
-  SET_BASIC_BLOCK (b->index, NULL);
-  n_basic_blocks--;
+  SET_BASIC_BLOCK_FOR_FN (cfun, b->index, NULL);
+  n_basic_blocks_for_fn (cfun)--;
   /* We should be able to ggc_free here, but we are not.
      The dead SSA_NAMES are left pointing to dead statements that are pointing
      to dead basic blocks making garbage collector to die.
@@ -199,7 +197,7 @@ expunge_block (basic_block b)
 static inline void
 connect_src (edge e)
 {
-  VEC_safe_push (edge, gc, e->src->succs, e);
+  vec_safe_push (e->src->succs, e);
   df_mark_solutions_dirty ();
 }
 
@@ -209,7 +207,7 @@ static inline void
 connect_dest (edge e)
 {
   basic_block dest = e->dest;
-  VEC_safe_push (edge, gc, dest->preds, e);
+  vec_safe_push (dest->preds, e);
   e->dest_idx = EDGE_COUNT (dest->preds) - 1;
   df_mark_solutions_dirty ();
 }
@@ -227,7 +225,7 @@ disconnect_src (edge e)
     {
       if (tmp == e)
 	{
-	  VEC_unordered_remove (edge, src->succs, ei.index);
+	  src->succs->unordered_remove (ei.index);
 	  df_mark_solutions_dirty ();
 	  return;
 	}
@@ -246,7 +244,7 @@ disconnect_dest (edge e)
   basic_block dest = e->dest;
   unsigned int dest_idx = e->dest_idx;
 
-  VEC_unordered_remove (edge, dest->preds, dest_idx);
+  dest->preds->unordered_remove (dest_idx);
 
   /* If we removed an edge in the middle of the edge vector, we need
      to update dest_idx of the edge that moved into the "hole".  */
@@ -264,7 +262,7 @@ unchecked_make_edge (basic_block src, basic_block dst, int flags)
 {
   edge e;
   e = ggc_alloc_cleared_edge_def ();
-  n_edges++;
+  n_edges_for_fn (cfun)++;
 
   e->src = src;
   e->dest = dst;
@@ -284,16 +282,16 @@ edge
 cached_make_edge (sbitmap edge_cache, basic_block src, basic_block dst, int flags)
 {
   if (edge_cache == NULL
-      || src == ENTRY_BLOCK_PTR
-      || dst == EXIT_BLOCK_PTR)
+      || src == ENTRY_BLOCK_PTR_FOR_FN (cfun)
+      || dst == EXIT_BLOCK_PTR_FOR_FN (cfun))
     return make_edge (src, dst, flags);
 
   /* Does the requested edge already exist?  */
-  if (! TEST_BIT (edge_cache, dst->index))
+  if (! bitmap_bit_p (edge_cache, dst->index))
     {
       /* The edge does not exist.  Create one and update the
 	 cache.  */
-      SET_BIT (edge_cache, dst->index);
+      bitmap_set_bit (edge_cache, dst->index);
       return unchecked_make_edge (src, dst, flags);
     }
 
@@ -389,7 +387,7 @@ clear_bb_flags (void)
 {
   basic_block bb;
 
-  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR_FOR_FN (cfun), NULL, next_bb)
     bb->flags &= BB_FLAGS_TO_PRESERVE;
 }
 
@@ -410,10 +408,10 @@ check_bb_profile (basic_block bb, FILE * file, int indent, int flags)
   memset ((void *) s_indent, ' ', (size_t) indent);
   s_indent[indent] = '\0';
 
-  if (profile_status_for_function (fun) == PROFILE_ABSENT)
+  if (profile_status_for_fn (fun) == PROFILE_ABSENT)
     return;
 
-  if (bb != EXIT_BLOCK_PTR_FOR_FUNCTION (fun))
+  if (bb != EXIT_BLOCK_PTR_FOR_FN (fun))
     {
       FOR_EACH_EDGE (e, ei, bb->succs)
 	sum += e->probability;
@@ -430,7 +428,7 @@ check_bb_profile (basic_block bb, FILE * file, int indent, int flags)
 		 (flags & TDF_COMMENT) ? ";; " : "", s_indent,
 		 (int) lsum, (int) bb->count);
     }
-    if (bb != ENTRY_BLOCK_PTR_FOR_FUNCTION (fun))
+    if (bb != ENTRY_BLOCK_PTR_FOR_FN (fun))
     {
       sum = 0;
       FOR_EACH_EDGE (e, ei, bb->preds)
@@ -448,6 +446,21 @@ check_bb_profile (basic_block bb, FILE * file, int indent, int flags)
 		 (flags & TDF_COMMENT) ? ";; " : "", s_indent,
 		 (int) lsum, (int) bb->count);
     }
+  if (BB_PARTITION (bb) == BB_COLD_PARTITION)
+    {
+      /* Warn about inconsistencies in the partitioning that are
+         currently caused by profile insanities created via optimization.  */
+      if (!probably_never_executed_bb_p (fun, bb))
+        fprintf (file, "%s%sBlock in cold partition with hot count\n",
+                 (flags & TDF_COMMENT) ? ";; " : "", s_indent);
+      FOR_EACH_EDGE (e, ei, bb->preds)
+        {
+          if (!probably_never_executed_edge_p (fun, e))
+            fprintf (file,
+                     "%s%sBlock in cold partition with incoming hot edge\n",
+                     (flags & TDF_COMMENT) ? ";; " : "", s_indent);
+        }
+    }
 }
 
 void
@@ -460,8 +473,6 @@ dump_edge_info (FILE *file, edge e, int flags, int do_succ)
       && (flags & TDF_SLIM) == 0)
     do_details = true;
 
-  /* ENTRY_BLOCK_PTR/EXIT_BLOCK_PTR depend on cfun.
-     Compare against ENTRY_BLOCK/EXIT_BLOCK to avoid that dependency.  */
   if (side->index == ENTRY_BLOCK)
     fputs (" ENTRY", file);
   else if (side->index == EXIT_BLOCK)
@@ -506,6 +517,23 @@ dump_edge_info (FILE *file, edge e, int flags, int do_succ)
       fputc (')', file);
     }
 }
+
+DEBUG_FUNCTION void
+debug (edge_def &ref)
+{
+  /* FIXME (crowl): Is this desireable?  */
+  dump_edge_info (stderr, &ref, 0, false);
+  dump_edge_info (stderr, &ref, 0, true);
+}
+
+DEBUG_FUNCTION void
+debug (edge_def *ptr)
+{
+  if (ptr)
+    debug (*ptr);
+  else
+    fprintf (stderr, "<nil>\n");
+}
 
 /* Simple routines to easily allocate AUX fields of basic blocks.  */
 
@@ -548,7 +576,7 @@ alloc_aux_for_blocks (int size)
     {
       basic_block bb;
 
-      FOR_ALL_BB (bb)
+      FOR_ALL_BB_FN (bb, cfun)
 	alloc_aux_for_block (bb, size);
     }
 }
@@ -560,7 +588,7 @@ clear_aux_for_blocks (void)
 {
   basic_block bb;
 
-  FOR_ALL_BB (bb)
+  FOR_ALL_BB_FN (bb, cfun)
     bb->aux = NULL;
 }
 
@@ -611,7 +639,8 @@ alloc_aux_for_edges (int size)
     {
       basic_block bb;
 
-      FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
+      FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR_FOR_FN (cfun),
+		      EXIT_BLOCK_PTR_FOR_FN (cfun), next_bb)
 	{
 	  edge e;
 	  edge_iterator ei;
@@ -630,7 +659,8 @@ clear_aux_for_edges (void)
   basic_block bb;
   edge e;
 
-  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR_FOR_FN (cfun),
+		  EXIT_BLOCK_PTR_FOR_FN (cfun), next_bb)
     {
       edge_iterator ei;
       FOR_EACH_EDGE (e, ei, bb->succs)
@@ -660,7 +690,7 @@ debug_bb (basic_block bb)
 DEBUG_FUNCTION basic_block
 debug_bb_n (int n)
 {
-  basic_block bb = BASIC_BLOCK (n);
+  basic_block bb = BASIC_BLOCK_FOR_FN (cfun, n);
   debug_bb (bb);
   return bb;
 }
@@ -798,7 +828,7 @@ brief_dump_cfg (FILE *file, int flags)
 {
   basic_block bb;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       dump_bb_info (file, bb, 0,
 		    flags & (TDF_COMMENT | TDF_DETAILS),
@@ -833,7 +863,7 @@ update_bb_profile_for_threading (basic_block bb, int edge_frequency,
   /* Compute the probability of TAKEN_EDGE being reached via threaded edge.
      Watch for overflows.  */
   if (bb->frequency)
-    prob = edge_frequency * REG_BR_PROB_BASE / bb->frequency;
+    prob = GCOV_COMPUTE_SCALE (edge_frequency, bb->frequency);
   else
     prob = 0;
   if (prob > taken_edge->probability)
@@ -1109,7 +1139,7 @@ get_bb_original (basic_block bb)
   key.index1 = bb->index;
   entry = bb_original.find (&key);
   if (entry)
-    return BASIC_BLOCK (entry->index2);
+    return BASIC_BLOCK_FOR_FN (cfun, entry->index2);
   else
     return NULL;
 }
@@ -1134,7 +1164,7 @@ get_bb_copy (basic_block bb)
   key.index1 = bb->index;
   entry = bb_copy.find (&key);
   if (entry)
-    return BASIC_BLOCK (entry->index2);
+    return BASIC_BLOCK_FOR_FN (cfun, entry->index2);
   else
     return NULL;
 }
@@ -1164,7 +1194,7 @@ get_loop_copy (struct loop *loop)
   key.index1 = loop->num;
   entry = loop_copy.find (&key);
   if (entry)
-    return get_loop (entry->index2);
+    return get_loop (cfun, entry->index2);
   else
     return NULL;
 }

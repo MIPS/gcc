@@ -1,6 +1,5 @@
 /* Post-reload compare elimination.
-   Copyright (C) 2010, 2011
-   Free Software Foundation, Inc.
+   Copyright (C) 2010-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -120,10 +119,8 @@ struct comparison
 };
   
 typedef struct comparison *comparison_struct_p;
-DEF_VEC_P(comparison_struct_p);
-DEF_VEC_ALLOC_P(comparison_struct_p, heap);
 
-static VEC(comparison_struct_p, heap) *all_compares;
+static vec<comparison_struct_p> all_compares;
 
 /* Look for a "conforming" comparison, as defined above.  If valid, return
    the rtx for the COMPARE itself.  */
@@ -246,13 +243,21 @@ find_flags_uses_in_insn (struct comparison *cmp, rtx insn)
   cmp->missing_uses = true;
 }
 
+class find_comparison_dom_walker : public dom_walker
+{
+public:
+  find_comparison_dom_walker (cdi_direction direction)
+    : dom_walker (direction) {}
+
+  virtual void before_dom_children (basic_block);
+};
+
 /* Identify comparison instructions within BB.  If the flags from the last
    compare in the BB is live at the end of the block, install the compare
-   in BB->AUX.  Called via walk_dominators_tree.  */
+   in BB->AUX.  Called via dom_walker.walk ().  */
 
-static void
-find_comparisons_in_bb (struct dom_walk_data *data ATTRIBUTE_UNUSED,
-			basic_block bb)
+void
+find_comparison_dom_walker::before_dom_children (basic_block bb)
 {
   struct comparison *last_cmp;
   rtx insn, next, last_clobber;
@@ -337,7 +342,7 @@ find_comparisons_in_bb (struct dom_walk_data *data ATTRIBUTE_UNUSED,
 	  last_cmp->in_a = XEXP (src, 0);
 	  last_cmp->in_b = XEXP (src, 1);
 	  last_cmp->orig_mode = src_mode;
-	  VEC_safe_push (comparison_struct_p, heap, all_compares, last_cmp);
+	  all_compares.safe_push (last_cmp);
 
 	  /* It's unusual, but be prepared for comparison patterns that
 	     also clobber an input, or perhaps a scratch.  */
@@ -406,17 +411,10 @@ find_comparisons_in_bb (struct dom_walk_data *data ATTRIBUTE_UNUSED,
 static void
 find_comparisons (void)
 {
-  struct dom_walk_data data;
-
-  memset (&data, 0, sizeof(data));
-  data.dom_direction = CDI_DOMINATORS;
-  data.before_dom_children = find_comparisons_in_bb;
-
   calculate_dominance_info (CDI_DOMINATORS);
 
-  init_walk_dominator_tree (&data);
-  walk_dominator_tree (&data, ENTRY_BLOCK_PTR);
-  fini_walk_dominator_tree (&data);
+  find_comparison_dom_walker (CDI_DOMINATORS)
+    .walk (cfun->cfg->x_entry_block_ptr);
 
   clear_aux_for_blocks ();
   free_dominance_info (CDI_DOMINATORS);
@@ -623,24 +621,23 @@ execute_compare_elim_after_reload (void)
 {
   df_analyze ();
 
-  gcc_checking_assert (all_compares == NULL);
+  gcc_checking_assert (!all_compares.exists ());
 
   /* Locate all comparisons and their uses, and eliminate duplicates.  */
   find_comparisons ();
-  if (all_compares)
+  if (all_compares.exists ())
     {
       struct comparison *cmp;
       size_t i;
 
       /* Eliminate comparisons that are redundant with flags computation.  */
-      FOR_EACH_VEC_ELT (comparison_struct_p, all_compares, i, cmp)
+      FOR_EACH_VEC_ELT (all_compares, i, cmp)
 	{
 	  try_eliminate_compare (cmp);
 	  XDELETE (cmp);
 	}
 
-      VEC_free (comparison_struct_p, heap, all_compares);
-      all_compares = NULL;
+      all_compares.release ();
     }
 
   return 0;
@@ -655,24 +652,41 @@ gate_compare_elim_after_reload (void)
   return flag_compare_elim_after_reload;
 }
 
-struct rtl_opt_pass pass_compare_elim_after_reload =
+namespace {
+
+const pass_data pass_data_compare_elim_after_reload =
 {
- {
-  RTL_PASS,
-  "cmpelim",				/* name */
-  gate_compare_elim_after_reload,	/* gate */
-  execute_compare_elim_after_reload,	/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_NONE,				/* tv_id */
-  0,					/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_df_finish
-  | TODO_df_verify
-  | TODO_verify_rtl_sharing
-  | TODO_ggc_collect			/* todo_flags_finish */
- }
+  RTL_PASS, /* type */
+  "cmpelim", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_NONE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  ( TODO_df_finish | TODO_df_verify
+    | TODO_verify_rtl_sharing ), /* todo_flags_finish */
 };
+
+class pass_compare_elim_after_reload : public rtl_opt_pass
+{
+public:
+  pass_compare_elim_after_reload (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_compare_elim_after_reload, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_compare_elim_after_reload (); }
+  unsigned int execute () { return execute_compare_elim_after_reload (); }
+
+}; // class pass_compare_elim_after_reload
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_compare_elim_after_reload (gcc::context *ctxt)
+{
+  return new pass_compare_elim_after_reload (ctxt);
+}

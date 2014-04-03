@@ -1,5 +1,5 @@
 /* mmap.c -- Memory allocation with mmap.
-   Copyright (C) 2012 Free Software Foundation, Inc.
+   Copyright (C) 2012-2014 Free Software Foundation, Inc.
    Written by Ian Lance Taylor, Google.
 
 Redistribution and use in source and binary forms, with or without
@@ -36,6 +36,7 @@ POSSIBILITY OF SUCH DAMAGE.  */
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/types.h>
 #include <sys/mman.h>
 
 #include "backtrace.h"
@@ -84,6 +85,7 @@ backtrace_alloc (struct backtrace_state *state,
 		 void *data)
 {
   void *ret;
+  int locked;
   struct backtrace_freelist_struct **pp;
   size_t pagesize;
   size_t asksize;
@@ -96,7 +98,12 @@ backtrace_alloc (struct backtrace_state *state,
      using mmap.  __sync_lock_test_and_set returns the old state of
      the lock, so we have acquired it if it returns 0.  */
 
-  if (!__sync_lock_test_and_set (&state->lock_alloc, 1))
+  if (!state->threaded)
+    locked = 1;
+  else
+    locked = __sync_lock_test_and_set (&state->lock_alloc, 1) == 0;
+
+  if (locked)
     {
       for (pp = &state->freelist; *pp != NULL; pp = &(*pp)->next)
 	{
@@ -120,7 +127,8 @@ backtrace_alloc (struct backtrace_state *state,
 	    }
 	}
 
-      __sync_lock_release (&state->lock_alloc);
+      if (state->threaded)
+	__sync_lock_release (&state->lock_alloc);
     }
 
   if (ret == NULL)
@@ -154,15 +162,24 @@ backtrace_free (struct backtrace_state *state, void *addr, size_t size,
 		backtrace_error_callback error_callback ATTRIBUTE_UNUSED,
 		void *data ATTRIBUTE_UNUSED)
 {
+  int locked;
+
   /* If we can acquire the lock, add the new space to the free list.
      If we can't acquire the lock, just leak the memory.
      __sync_lock_test_and_set returns the old state of the lock, so we
      have acquired it if it returns 0.  */
-  if (!__sync_lock_test_and_set (&state->lock_alloc, 1))
+
+  if (!state->threaded)
+    locked = 1;
+  else
+    locked = __sync_lock_test_and_set (&state->lock_alloc, 1) == 0;
+
+  if (locked)
     {
       backtrace_free_locked (state, addr, size);
 
-      __sync_lock_release (&state->lock_alloc);
+      if (state->threaded)
+	__sync_lock_release (&state->lock_alloc);
     }
 }
 
@@ -213,12 +230,19 @@ backtrace_vector_grow (struct backtrace_state *state,size_t size,
 
 /* Finish the current allocation on VEC.  */
 
-void
-backtrace_vector_finish (struct backtrace_state *state ATTRIBUTE_UNUSED,
-			 struct backtrace_vector *vec)
+void *
+backtrace_vector_finish (
+  struct backtrace_state *state ATTRIBUTE_UNUSED,
+  struct backtrace_vector *vec,
+  backtrace_error_callback error_callback ATTRIBUTE_UNUSED,
+  void *data ATTRIBUTE_UNUSED)
 {
+  void *ret;
+
+  ret = vec->base;
   vec->base = (char *) vec->base + vec->size;
   vec->size = 0;
+  return ret;
 }
 
 /* Release any extra space allocated for VEC.  */
@@ -229,7 +253,18 @@ backtrace_vector_release (struct backtrace_state *state,
 			  backtrace_error_callback error_callback,
 			  void *data)
 {
-  backtrace_free (state, (char *) vec->base + vec->size, vec->alc,
+  size_t size;
+  size_t alc;
+  size_t aligned;
+
+  /* Make sure that the block that we free is aligned on an 8-byte
+     boundary.  */
+  size = vec->size;
+  alc = vec->alc;
+  aligned = (size + 7) & ~ (size_t) 7;
+  alc -= aligned - size;
+
+  backtrace_free (state, (char *) vec->base + aligned, alc,
 		  error_callback, data);
   vec->alc = 0;
   return 1;

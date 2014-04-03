@@ -11,5 +11,5 @@ test(int c)
 }
 /* If we start duplicating headers prior curoll, this loop will have 0 iterations.  */
 
-/* { dg-final { scan-tree-dump "Unrolled loop 1 completely .duplicated 1 times.." "cunrolli"} } */
+/* { dg-final { scan-tree-dump "loop with 2 iterations completely unrolled" "cunrolli"} } */
 /* { dg-final { cleanup-tree-dump "cunrolli" } } */

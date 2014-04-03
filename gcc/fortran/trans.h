@@ -1,7 +1,5 @@
 /* Header for code translation functions
-   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-   2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 2002-2014 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -22,6 +20,8 @@ along with GCC; see the file COPYING3.  If not see
 
 #ifndef GFC_TRANS_H
 #define GFC_TRANS_H
+
+#include "predict.h"  /* For enum br_predictor and PRED_*.  */
 
 /* Mangled symbols take the form __module__name.  */
 #define GFC_MAX_MANGLED_SYMBOL_LEN  (GFC_MAX_SYMBOL_LEN*2+4)
@@ -343,14 +343,20 @@ gfc_wrapped_block;
 /* Class API functions.  */
 tree gfc_class_data_get (tree);
 tree gfc_class_vptr_get (tree);
+void gfc_reset_vptr (stmtblock_t *, gfc_expr *);
+tree gfc_class_set_static_fields (tree, tree, tree);
 tree gfc_vtable_hash_get (tree);
 tree gfc_vtable_size_get (tree);
 tree gfc_vtable_extends_get (tree);
 tree gfc_vtable_def_init_get (tree);
 tree gfc_vtable_copy_get (tree);
+tree gfc_vtable_final_get (tree);
 tree gfc_get_vptr_from_expr (tree);
 tree gfc_get_class_array_ref (tree, tree);
 tree gfc_copy_class_to_class (tree, tree, tree);
+bool gfc_add_finalizer_call (stmtblock_t *, gfc_expr *);
+bool gfc_add_comp_finalizer_call (stmtblock_t *, tree, gfc_component *, bool);
+
 void gfc_conv_derived_to_class (gfc_se *, gfc_expr *, gfc_typespec, tree, bool,
 				bool);
 void gfc_conv_class_to_class (gfc_se *, gfc_expr *, gfc_typespec, bool, bool,
@@ -402,6 +408,9 @@ void gfc_conv_expr_lhs (gfc_se * se, gfc_expr * expr);
 void gfc_conv_expr_reference (gfc_se * se, gfc_expr *);
 void gfc_conv_expr_type (gfc_se * se, gfc_expr *, tree);
 
+tree gfc_conv_scalar_to_descriptor (gfc_se *, tree, symbol_attribute);
+
+
 /* trans-expr.c */
 void gfc_conv_scalar_char_value (gfc_symbol *sym, gfc_se *se, gfc_expr **expr);
 tree gfc_string_to_single_character (tree len, tree str, int kind);
@@ -415,6 +424,8 @@ tree gfc_evaluate_now (tree, stmtblock_t *);
 /* Find the appropriate variant of a math intrinsic.  */
 tree gfc_builtin_decl_for_float_kind (enum built_in_function, int);
 
+tree size_of_string_in_bytes (int, tree);
+
 /* Intrinsic procedure handling.  */
 tree gfc_conv_intrinsic_subroutine (gfc_code *);
 void gfc_conv_intrinsic_function (gfc_se *, gfc_expr *);
@@ -427,7 +438,7 @@ int gfc_is_intrinsic_libcall (gfc_expr *);
 /* Used to call ordinary functions/subroutines
    and procedure pointer components.  */
 int gfc_conv_procedure_call (gfc_se *, gfc_symbol *, gfc_actual_arglist *,
-			     gfc_expr *, VEC(tree,gc) *);
+			     gfc_expr *, vec<tree, va_gc> *);
 
 void gfc_conv_subref_array_arg (gfc_se *, gfc_expr *, int, sym_intent, bool);
 
@@ -571,8 +582,11 @@ void gfc_generate_constructors (void);
 bool get_array_ctor_strlen (stmtblock_t *, gfc_constructor_base, tree *);
 
 /* Mark a condition as likely or unlikely.  */
-tree gfc_likely (tree);
-tree gfc_unlikely (tree);
+tree gfc_likely (tree, enum br_predictor);
+tree gfc_unlikely (tree, enum br_predictor);
+
+/* Return the string length of a deferred character length component.  */
+bool gfc_deferred_strlen (gfc_component *, tree *);
 
 /* Generate a runtime error call.  */
 tree gfc_trans_runtime_error (bool, locus*, const char*, ...);
@@ -618,7 +632,6 @@ tree gfc_trans_pointer_assignment (gfc_expr *, gfc_expr *);
 /* Initialize function decls for library functions.  */
 void gfc_build_intrinsic_lib_fndecls (void);
 /* Create function decls for IO library functions.  */
-void gfc_trans_io_runtime_check (tree, tree, int, const char *, stmtblock_t *);
 void gfc_build_io_library_fndecls (void);
 /* Build a function decl for a library function.  */
 tree gfc_build_library_function_decl (tree, tree, int, ...);
@@ -824,7 +837,6 @@ struct GTY((variable_size)) lang_decl {
 #define GFC_DECL_CRAY_POINTEE(node) DECL_LANG_FLAG_4(node)
 #define GFC_DECL_RESULT(node) DECL_LANG_FLAG_5(node)
 #define GFC_DECL_SUBREF_ARRAY_P(node) DECL_LANG_FLAG_6(node)
-#define GFC_DECL_PUSH_TOPLEVEL(node) DECL_LANG_FLAG_7(node)
 #define GFC_DECL_CLASS(node) DECL_LANG_FLAG_8(node)
 
 /* An array descriptor.  */

@@ -1,6 +1,5 @@
 /* Xstormy16 target functions.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
-   2006, 2007, 2008, 2009, 2010, 2011  Free Software Foundation, Inc.
+   Copyright (C) 1997-2014 Free Software Foundation, Inc.
    Contributed by Red Hat, Inc.
 
    This file is part of GCC.
@@ -36,6 +35,10 @@
 #include "diagnostic-core.h"
 #include "obstack.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "stor-layout.h"
+#include "varasm.h"
+#include "calls.h"
 #include "expr.h"
 #include "optabs.h"
 #include "except.h"
@@ -44,10 +47,21 @@
 #include "target-def.h"
 #include "tm_p.h"
 #include "langhooks.h"
+#include "pointer-set.h"
+#include "hash-table.h"
+#include "vec.h"
+#include "ggc.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
+#include "gimplify.h"
 #include "df.h"
 #include "reload.h"
-#include "ggc.h"
 
 static rtx emit_addhi3_postreload (rtx, rtx, rtx);
 static void xstormy16_asm_out_constructor (rtx, int);
@@ -1083,7 +1097,7 @@ xstormy16_expand_prologue (void)
 					     gen_rtx_MEM (Pmode, stack_pointer_rtx),
 					     reg);
 	XVECEXP (dwarf, 0, 1) = gen_rtx_SET (Pmode, stack_pointer_rtx,
-					     plus_constant (Pmode, \
+					     plus_constant (Pmode,
 							    stack_pointer_rtx,
 							    GET_MODE_SIZE (Pmode)));
 	add_reg_note (insn, REG_FRAME_RELATED_EXPR, dwarf);
@@ -2442,8 +2456,7 @@ combine_bnp (rtx insn)
 	  if (reg_mentioned_p (reg, and_insn))
 	    return;
 
-	  if (GET_CODE (and_insn) != NOTE
-	      && GET_CODE (and_insn) != INSN)
+	  if (! NOTE_P (and_insn) && ! NONJUMP_INSN_P (and_insn))
 	    return;
 	}
     }
@@ -2462,8 +2475,7 @@ combine_bnp (rtx insn)
 	  if (reg_mentioned_p (reg, and_insn))
 	    return;
 
-	  if (GET_CODE (and_insn) != NOTE
-	      && GET_CODE (and_insn) != INSN)
+	  if (! NOTE_P (and_insn) && ! NONJUMP_INSN_P (and_insn))
 	    return;
 	}
 
@@ -2487,8 +2499,7 @@ combine_bnp (rtx insn)
 		break;
 
 	      if (reg_mentioned_p (reg, shift)
-		  || (GET_CODE (shift) != NOTE
-		      && GET_CODE (shift) != INSN))
+		  || (! NOTE_P (shift) && ! NONJUMP_INSN_P (shift)))
 		{
 		  shift = NULL_RTX;
 		  break;
@@ -2535,8 +2546,7 @@ combine_bnp (rtx insn)
       if (reg_mentioned_p (reg, load))
 	return;
 
-      if (GET_CODE (load) != NOTE
-	  && GET_CODE (load) != INSN)
+      if (! NOTE_P (load) && ! NONJUMP_INSN_P (load))
 	return;
     }
   if (!load)

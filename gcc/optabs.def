@@ -1,5 +1,5 @@
 /* Definitions for operation tables, or "optabs".
-   Copyright (C) 1987-2012 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -171,6 +171,12 @@ OPTAB_DC(mov_optab, "mov$a", SET)
 OPTAB_DC(movstrict_optab, "movstrict$a", STRICT_LOW_PART)
 OPTAB_D (movmisalign_optab, "movmisalign$a")
 OPTAB_D (storent_optab, "storent$a")
+OPTAB_D (insv_optab, "insv$a")
+OPTAB_D (extv_optab, "extv$a")
+OPTAB_D (extzv_optab, "extzv$a")
+OPTAB_D (insvmisalign_optab, "insvmisalign$a")
+OPTAB_D (extvmisalign_optab, "extvmisalign$a")
+OPTAB_D (extzvmisalign_optab, "extzvmisalign$a")
 OPTAB_D (push_optab, "push$a1")
 OPTAB_D (reload_in_optab, "reload_in$a")
 OPTAB_D (reload_out_optab, "reload_out$a")
@@ -181,6 +187,11 @@ OPTAB_D (movcc_optab, "mov$acc")
 OPTAB_D (cmov_optab, "cmov$a6")
 OPTAB_D (cstore_optab, "cstore$a4")
 OPTAB_D (ctrap_optab, "ctrap$a4")
+OPTAB_D (addv4_optab, "addv$I$a4")
+OPTAB_D (subv4_optab, "subv$I$a4")
+OPTAB_D (mulv4_optab, "mulv$I$a4")
+OPTAB_D (negv3_optab, "negv$I$a3")
+OPTAB_D (addptr3_optab, "addptr$a3")
 
 OPTAB_D (smul_highpart_optab, "smul$a3_highpart")
 OPTAB_D (umul_highpart_optab, "umul$a3_highpart")
@@ -242,6 +253,8 @@ OPTAB_D (sdot_prod_optab, "sdot_prod$I$a")
 OPTAB_D (ssum_widen_optab, "widen_ssum$I$a3")
 OPTAB_D (udot_prod_optab, "udot_prod$I$a")
 OPTAB_D (usum_widen_optab, "widen_usum$I$a3")
+OPTAB_D (maskload_optab, "maskload$a")
+OPTAB_D (maskstore_optab, "maskstore$a")
 OPTAB_D (vec_extract_optab, "vec_extract$a")
 OPTAB_D (vec_init_optab, "vec_init$a")
 OPTAB_D (vec_pack_sfix_trunc_optab, "vec_pack_sfix_trunc_$a")

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -40,20 +40,6 @@ with Ada.Containers.Prime_Numbers;
 with System; use type System.Address;
 
 package body Ada.Containers.Indefinite_Hashed_Sets is
-
-   type Iterator is new Limited_Controlled and
-     Set_Iterator_Interfaces.Forward_Iterator with
-   record
-      Container : Set_Access;
-   end record;
-
-   overriding procedure Finalize (Object : in out Iterator);
-
-   overriding function First (Object : Iterator) return Cursor;
-
-   overriding function Next
-     (Object   : Iterator;
-      Position : Cursor) return Cursor;
 
    -----------------------
    -- Local Subprograms --
@@ -89,7 +75,9 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
       Node     : out Node_Access;
       Inserted : out Boolean);
 
-   function Is_In (HT  : Hash_Table_Type; Key : Node_Access) return Boolean;
+   function Is_In
+     (HT  : aliased in out Hash_Table_Type;
+      Key : Node_Access) return Boolean;
    pragma Inline (Is_In);
 
    function Next (Node : Node_Access) return Node_Access;
@@ -373,6 +361,7 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
      (Target : in out Set;
       Source : Set)
    is
+      Src_HT   : Hash_Table_Type renames Source'Unrestricted_Access.HT;
       Tgt_Node : Node_Access;
 
    begin
@@ -381,7 +370,7 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
          return;
       end if;
 
-      if Source.HT.Length = 0 then
+      if Src_HT.Length = 0 then
          return;
       end if;
 
@@ -390,12 +379,12 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
            "attempt to tamper with cursors (set is busy)";
       end if;
 
-      if Source.HT.Length < Target.HT.Length then
+      if Src_HT.Length < Target.HT.Length then
          declare
             Src_Node : Node_Access;
 
          begin
-            Src_Node := HT_Ops.First (Source.HT);
+            Src_Node := HT_Ops.First (Src_HT);
             while Src_Node /= null loop
                Tgt_Node := Element_Keys.Find (Target.HT, Src_Node.Element.all);
 
@@ -404,14 +393,14 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
                   Free (Tgt_Node);
                end if;
 
-               Src_Node := HT_Ops.Next (Source.HT, Src_Node);
+               Src_Node := HT_Ops.Next (Src_HT, Src_Node);
             end loop;
          end;
 
       else
          Tgt_Node := HT_Ops.First (Target.HT);
          while Tgt_Node /= null loop
-            if Is_In (Source.HT, Tgt_Node) then
+            if Is_In (Src_HT, Tgt_Node) then
                declare
                   X : Node_Access := Tgt_Node;
                begin
@@ -428,8 +417,10 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
    end Difference;
 
    function Difference (Left, Right : Set) return Set is
-      Buckets : HT_Types.Buckets_Access;
-      Length  : Count_Type;
+      Left_HT  : Hash_Table_Type renames Left'Unrestricted_Access.HT;
+      Right_HT : Hash_Table_Type renames Right'Unrestricted_Access.HT;
+      Buckets  : HT_Types.Buckets_Access;
+      Length   : Count_Type;
 
    begin
       if Left'Address = Right'Address then
@@ -464,14 +455,23 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
 
          procedure Process (L_Node : Node_Access) is
          begin
-            if not Is_In (Right.HT, L_Node) then
+            if not Is_In (Right_HT, L_Node) then
                declare
-                  Src    : Element_Type renames L_Node.Element.all;
-                  Indx   : constant Hash_Type := Hash (Src) mod Buckets'Length;
+                  --  Per AI05-0022, the container implementation is required
+                  --  to detect element tampering by a generic actual
+                  --  subprogram, hence the use of Checked_Index instead of a
+                  --  simple invocation of generic formal Hash.
+
+                  Indx   : constant Hash_Type :=
+                    HT_Ops.Checked_Index (Left_HT, Buckets.all, L_Node);
+
                   Bucket : Node_Access renames Buckets (Indx);
+                  Src    : Element_Type renames L_Node.Element.all;
                   Tgt    : Element_Access := new Element_Type'(Src);
+
                begin
                   Bucket := new Node_Type'(Tgt, Bucket);
+
                exception
                   when others =>
                      Free_Element (Tgt);
@@ -486,6 +486,7 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
 
       begin
          Iterate (Left.HT);
+
       exception
          when others =>
             HT_Ops.Free_Hash_Table (Buckets);
@@ -551,6 +552,20 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
 
       pragma Assert (Vet (Left), "bad Left cursor in Equivalent_Elements");
       pragma Assert (Vet (Right), "bad Right cursor in Equivalent_Elements");
+
+      --  AI05-0022 requires that a container implementation detect element
+      --  tampering by a generic actual subprogram. However, the following case
+      --  falls outside the scope of that AI. Randy Brukardt explained on the
+      --  ARG list on 2013/02/07 that:
+
+      --  (Begin Quote):
+      --  But for an operation like "<" [the ordered set analog of
+      --  Equivalent_Elements], there is no need to "dereference" a cursor
+      --  after the call to the generic formal parameter function, so nothing
+      --  bad could happen if tampering is undetected. And the operation can
+      --  safely return a result without a problem even if an element is
+      --  deleted from the container.
+      --  (End Quote).
 
       return Equivalent_Elements
                (Left.Node.Element.all,
@@ -667,7 +682,8 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
      (Container : Set;
       Item      : Element_Type) return Cursor
    is
-      Node : constant Node_Access := Element_Keys.Find (Container.HT, Item);
+      HT   : Hash_Table_Type renames Container'Unrestricted_Access.HT;
+      Node : constant Node_Access := Element_Keys.Find (HT, Item);
    begin
       return (if Node = null then No_Element
               else Cursor'(Container'Unrestricted_Access, Node));
@@ -760,6 +776,7 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
 
       begin
          Free_Element (X.Element);
+
       exception
          when others =>
             X.Element := null;
@@ -918,6 +935,7 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
      (Target : in out Set;
       Source : Set)
    is
+      Src_HT   : Hash_Table_Type renames Source'Unrestricted_Access.HT;
       Tgt_Node : Node_Access;
 
    begin
@@ -937,7 +955,7 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
 
       Tgt_Node := HT_Ops.First (Target.HT);
       while Tgt_Node /= null loop
-         if Is_In (Source.HT, Tgt_Node) then
+         if Is_In (Src_HT, Tgt_Node) then
             Tgt_Node := HT_Ops.Next (Target.HT, Tgt_Node);
 
          else
@@ -953,8 +971,10 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
    end Intersection;
 
    function Intersection (Left, Right : Set) return Set is
-      Buckets : HT_Types.Buckets_Access;
-      Length  : Count_Type;
+      Left_HT  : Hash_Table_Type renames Left'Unrestricted_Access.HT;
+      Right_HT : Hash_Table_Type renames Right'Unrestricted_Access.HT;
+      Buckets  : HT_Types.Buckets_Access;
+      Length   : Count_Type;
 
    begin
       if Left'Address = Right'Address then
@@ -987,18 +1007,24 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
 
          procedure Process (L_Node : Node_Access) is
          begin
-            if Is_In (Right.HT, L_Node) then
+            if Is_In (Right_HT, L_Node) then
                declare
-                  Src : Element_Type renames L_Node.Element.all;
+                  --  Per AI05-0022, the container implementation is required
+                  --  to detect element tampering by a generic actual
+                  --  subprogram, hence the use of Checked_Index instead of a
+                  --  simple invocation of generic formal Hash.
 
-                  Indx : constant Hash_Type := Hash (Src) mod Buckets'Length;
+                  Indx : constant Hash_Type :=
+                    HT_Ops.Checked_Index (Left_HT, Buckets.all, L_Node);
 
                   Bucket : Node_Access renames Buckets (Indx);
 
+                  Src : Element_Type renames L_Node.Element.all;
                   Tgt : Element_Access := new Element_Type'(Src);
 
                begin
                   Bucket := new Node_Type'(Tgt, Bucket);
+
                exception
                   when others =>
                      Free_Element (Tgt);
@@ -1013,6 +1039,7 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
 
       begin
          Iterate (Left.HT);
+
       exception
          when others =>
             HT_Ops.Free_Hash_Table (Buckets);
@@ -1035,7 +1062,10 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
    -- Is_In --
    -----------
 
-   function Is_In (HT  : Hash_Table_Type; Key : Node_Access) return Boolean is
+   function Is_In
+     (HT  : aliased in out Hash_Table_Type;
+      Key : Node_Access) return Boolean
+   is
    begin
       return Element_Keys.Find (HT, Key.Element.all) /= null;
    end Is_In;
@@ -1048,6 +1078,8 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
      (Subset : Set;
       Of_Set : Set) return Boolean
    is
+      Subset_HT   : Hash_Table_Type renames Subset'Unrestricted_Access.HT;
+      Of_Set_HT   : Hash_Table_Type renames Of_Set'Unrestricted_Access.HT;
       Subset_Node : Node_Access;
 
    begin
@@ -1059,13 +1091,13 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
          return False;
       end if;
 
-      Subset_Node := HT_Ops.First (Subset.HT);
+      Subset_Node := HT_Ops.First (Subset_HT);
       while Subset_Node /= null loop
-         if not Is_In (Of_Set.HT, Subset_Node) then
+         if not Is_In (Of_Set_HT, Subset_Node) then
             return False;
          end if;
 
-         Subset_Node := HT_Ops.Next (Subset.HT, Subset_Node);
+         Subset_Node := HT_Ops.Next (Subset_HT, Subset_Node);
       end loop;
 
       return True;
@@ -1200,6 +1232,8 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
    -------------
 
    function Overlap (Left, Right : Set) return Boolean is
+      Left_HT   : Hash_Table_Type renames Left'Unrestricted_Access.HT;
+      Right_HT  : Hash_Table_Type renames Right'Unrestricted_Access.HT;
       Left_Node : Node_Access;
 
    begin
@@ -1211,13 +1245,13 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
          return True;
       end if;
 
-      Left_Node := HT_Ops.First (Left.HT);
+      Left_Node := HT_Ops.First (Left_HT);
       while Left_Node /= null loop
-         if Is_In (Right.HT, Left_Node) then
+         if Is_In (Right_HT, Left_Node) then
             return True;
          end if;
 
-         Left_Node := HT_Ops.Next (Left.HT, Left_Node);
+         Left_Node := HT_Ops.Next (Left_HT, Left_Node);
       end loop;
 
       return False;
@@ -1410,13 +1444,25 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
      (Target : in out Set;
       Source : Set)
    is
+      Tgt_HT : Hash_Table_Type renames Target.HT;
+      Src_HT : Hash_Table_Type renames Source.HT'Unrestricted_Access.all;
+
+      --  Per AI05-0022, the container implementation is required to detect
+      --  element tampering by a generic actual subprogram.
+
+      TB : Natural renames Tgt_HT.Busy;
+      TL : Natural renames Tgt_HT.Lock;
+
+      SB : Natural renames Src_HT.Busy;
+      SL : Natural renames Src_HT.Lock;
+
    begin
       if Target'Address = Source'Address then
          Clear (Target);
          return;
       end if;
 
-      if Target.HT.Busy > 0 then
+      if TB > 0 then
          raise Program_Error with
            "attempt to tamper with cursors (set is busy)";
       end if;
@@ -1424,8 +1470,8 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
       declare
          N : constant Count_Type := Target.Length + Source.Length;
       begin
-         if N > HT_Ops.Capacity (Target.HT) then
-            HT_Ops.Reserve_Capacity (Target.HT, N);
+         if N > HT_Ops.Capacity (Tgt_HT) then
+            HT_Ops.Reserve_Capacity (Tgt_HT, N);
          end if;
       end;
 
@@ -1441,9 +1487,9 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
 
             procedure Process (Src_Node : Node_Access) is
                E : Element_Type renames Src_Node.Element.all;
-               B : Buckets_Type renames Target.HT.Buckets.all;
+               B : Buckets_Type renames Tgt_HT.Buckets.all;
                J : constant Hash_Type := Hash (E) mod B'Length;
-               N : Count_Type renames Target.HT.Length;
+               N : Count_Type renames Tgt_HT.Length;
 
             begin
                declare
@@ -1462,7 +1508,29 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
          --  Start of processing for Iterate_Source_When_Empty_Target
 
          begin
-            Iterate (Source.HT);
+            TB := TB + 1;
+            TL := TL + 1;
+
+            SB := SB + 1;
+            SL := SL + 1;
+
+            Iterate (Src_HT);
+
+            SL := SL - 1;
+            SB := SB - 1;
+
+            TL := TL - 1;
+            TB := TB - 1;
+
+         exception
+            when others =>
+               SL := SL - 1;
+               SB := SB - 1;
+
+               TL := TL - 1;
+               TB := TB - 1;
+
+               raise;
          end Iterate_Source_When_Empty_Target;
 
       else
@@ -1478,9 +1546,9 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
 
             procedure Process (Src_Node : Node_Access) is
                E : Element_Type renames Src_Node.Element.all;
-               B : Buckets_Type renames Target.HT.Buckets.all;
+               B : Buckets_Type renames Tgt_HT.Buckets.all;
                J : constant Hash_Type := Hash (E) mod B'Length;
-               N : Count_Type renames Target.HT.Length;
+               N : Count_Type renames Tgt_HT.Length;
 
             begin
                if B (J) = null then
@@ -1541,14 +1609,38 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
          --  Start of processing for Iterate_Source
 
          begin
-            Iterate (Source.HT);
+            TB := TB + 1;
+            TL := TL + 1;
+
+            SB := SB + 1;
+            SL := SL + 1;
+
+            Iterate (Src_HT);
+
+            SL := SL - 1;
+            SB := SB - 1;
+
+            TL := TL - 1;
+            TB := TB - 1;
+
+         exception
+            when others =>
+               SL := SL - 1;
+               SB := SB - 1;
+
+               TL := TL - 1;
+               TB := TB - 1;
+
+               raise;
          end Iterate_Source;
       end if;
    end Symmetric_Difference;
 
    function Symmetric_Difference (Left, Right : Set) return Set is
-      Buckets : HT_Types.Buckets_Access;
-      Length  : Count_Type;
+      Left_HT  : Hash_Table_Type renames Left'Unrestricted_Access.HT;
+      Right_HT : Hash_Table_Type renames Right'Unrestricted_Access.HT;
+      Buckets  : HT_Types.Buckets_Access;
+      Length   : Count_Type;
 
    begin
       if Left'Address = Right'Address then
@@ -1584,10 +1676,17 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
 
          procedure Process (L_Node : Node_Access) is
          begin
-            if not Is_In (Right.HT, L_Node) then
+            if not Is_In (Right_HT, L_Node) then
                declare
                   E : Element_Type renames L_Node.Element.all;
-                  J : constant Hash_Type := Hash (E) mod Buckets'Length;
+
+                  --  Per AI05-0022, the container implementation is required
+                  --  to detect element tampering by a generic actual
+                  --  subprogram, hence the use of Checked_Index instead of a
+                  --  simple invocation of generic formal Hash.
+
+                  J : constant Hash_Type :=
+                    HT_Ops.Checked_Index (Left_HT, Buckets.all, L_Node);
 
                begin
                   declare
@@ -1608,7 +1707,7 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
       --  Start of processing for Iterate_Left
 
       begin
-         Iterate (Left.HT);
+         Iterate (Left_HT);
       exception
          when others =>
             HT_Ops.Free_Hash_Table (Buckets);
@@ -1627,10 +1726,17 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
 
          procedure Process (R_Node : Node_Access) is
          begin
-            if not Is_In (Left.HT, R_Node) then
+            if not Is_In (Left_HT, R_Node) then
                declare
                   E : Element_Type renames R_Node.Element.all;
-                  J : constant Hash_Type := Hash (E) mod Buckets'Length;
+
+                  --  Per AI05-0022, the container implementation is required
+                  --  to detect element tampering by a generic actual
+                  --  subprogram, hence the use of Checked_Index instead of a
+                  --  simple invocation of generic formal Hash.
+
+                  J : constant Hash_Type :=
+                    HT_Ops.Checked_Index (Right_HT, Buckets.all, R_Node);
 
                begin
                   declare
@@ -1651,7 +1757,8 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
       --  Start of processing for Iterate_Right
 
       begin
-         Iterate (Right.HT);
+         Iterate (Right_HT);
+
       exception
          when others =>
             HT_Ops.Free_Hash_Table (Buckets);
@@ -1749,8 +1856,10 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
    end Union;
 
    function Union (Left, Right : Set) return Set is
-      Buckets : HT_Types.Buckets_Access;
-      Length  : Count_Type;
+      Left_HT  : Hash_Table_Type renames Left.HT'Unrestricted_Access.all;
+      Right_HT : Hash_Table_Type renames Right.HT'Unrestricted_Access.all;
+      Buckets  : HT_Types.Buckets_Access;
+      Length   : Count_Type;
 
    begin
       if Left'Address = Right'Address then
@@ -1795,12 +1904,30 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
                raise;
          end Process;
 
-      --  Start of processing for Process
+         --  Per AI05-0022, the container implementation is required to detect
+         --  element tampering by a generic actual subprogram, hence the use of
+         --  Checked_Index instead of a simple invocation of generic formal
+         --  Hash.
+
+         B : Integer renames Left_HT.Busy;
+         L : Integer renames Left_HT.Lock;
+
+      --  Start of processing for Iterate_Left
 
       begin
+         B := B + 1;
+         L := L + 1;
+
          Iterate (Left.HT);
+
+         L := L - 1;
+         B := B - 1;
+
       exception
          when others =>
+            L := L - 1;
+            B := B - 1;
+
             HT_Ops.Free_Hash_Table (Buckets);
             raise;
       end Iterate_Left;
@@ -1844,12 +1971,42 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
             Length := Length + 1;
          end Process;
 
+         --  Per AI05-0022, the container implementation is required to detect
+         --  element tampering by a generic actual subprogram, hence the use of
+         --  Checked_Index instead of a simple invocation of generic formal
+         --  Hash.
+
+         LB : Integer renames Left_HT.Busy;
+         LL : Integer renames Left_HT.Lock;
+
+         RB : Integer renames Right_HT.Busy;
+         RL : Integer renames Right_HT.Lock;
+
       --  Start of processing for Iterate_Right
 
       begin
+         LB := LB + 1;
+         LL := LL + 1;
+
+         RB := RB + 1;
+         RL := RL + 1;
+
          Iterate (Right.HT);
+
+         RL := RL - 1;
+         RB := RB - 1;
+
+         LL := LL - 1;
+         LB := LB - 1;
+
       exception
          when others =>
+            RL := RL - 1;
+            RB := RB - 1;
+
+            LL := LL - 1;
+            LB := LB - 1;
+
             HT_Ops.Free_Hash_Table (Buckets);
             raise;
       end Iterate_Right;
@@ -1894,7 +2051,9 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
             return False;
          end if;
 
-         X := HT.Buckets (Element_Keys.Index (HT, Position.Node.Element.all));
+         X := HT.Buckets (Element_Keys.Checked_Index
+                            (HT,
+                             Position.Node.Element.all));
 
          for J in 1 .. HT.Length loop
             if X = Position.Node then
@@ -1988,8 +2147,8 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
         (Container : aliased Set;
          Key       : Key_Type) return Constant_Reference_Type
       is
-         Node : constant Node_Access :=
-           Key_Keys.Find (Container.HT, Key);
+         HT   : Hash_Table_Type renames Container'Unrestricted_Access.HT;
+         Node : constant Node_Access := Key_Keys.Find (HT, Key);
 
       begin
          if Node = null then
@@ -2001,7 +2160,6 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
          end if;
 
          declare
-            HT : Hash_Table_Type renames Container'Unrestricted_Access.all.HT;
             B : Natural renames HT.Busy;
             L : Natural renames HT.Lock;
          begin
@@ -2041,7 +2199,7 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
          Key_Keys.Delete_Key_Sans_Free (Container.HT, Key, X);
 
          if X = null then
-            raise Constraint_Error with "key not in map";  --  ??? "set"
+            raise Constraint_Error with "key not in set";
          end if;
 
          Free (X);
@@ -2055,11 +2213,12 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
         (Container : Set;
          Key       : Key_Type) return Element_Type
       is
-         Node : constant Node_Access := Key_Keys.Find (Container.HT, Key);
+         HT   : Hash_Table_Type renames Container'Unrestricted_Access.HT;
+         Node : constant Node_Access := Key_Keys.Find (HT, Key);
 
       begin
          if Node = null then
-            raise Constraint_Error with "key not in map";  --  ??? "set"
+            raise Constraint_Error with "key not in set";
          end if;
 
          return Node.Element.all;
@@ -2098,7 +2257,8 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
         (Container : Set;
          Key       : Key_Type) return Cursor
       is
-         Node : constant Node_Access := Key_Keys.Find (Container.HT, Key);
+         HT   : Hash_Table_Type renames Container'Unrestricted_Access.HT;
+         Node : constant Node_Access := Key_Keys.Find (HT, Key);
       begin
          return (if Node = null then No_Element
                  else Cursor'(Container'Unrestricted_Access, Node));
@@ -2254,7 +2414,8 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
            (Vet (Position),
             "bad cursor in Update_Element_Preserving_Key");
 
-         Indx := HT_Ops.Index (HT, Position.Node);
+         --  Per AI05-0022, the container implementation is required to detect
+         --  element tampering by a generic actual subprogram.
 
          declare
             E : Element_Type renames Position.Node.Element.all;
@@ -2263,24 +2424,29 @@ package body Ada.Containers.Indefinite_Hashed_Sets is
             B : Natural renames HT.Busy;
             L : Natural renames HT.Lock;
 
+            Eq : Boolean;
+
          begin
             B := B + 1;
             L := L + 1;
 
             begin
+               Indx := HT_Ops.Index (HT, Position.Node);
                Process (E);
+               Eq := Equivalent_Keys (K, Key (E));
+
             exception
                when others =>
                   L := L - 1;
                   B := B - 1;
+
                   raise;
             end;
 
             L := L - 1;
             B := B - 1;
 
-            if Equivalent_Keys (K, Key (E)) then
-               pragma Assert (Hash (K) = Hash (E));
+            if Eq then
                return;
             end if;
          end;

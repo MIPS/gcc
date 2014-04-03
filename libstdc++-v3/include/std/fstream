@@ -1,8 +1,6 @@
 // File based streams -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
-// 2006, 2007, 2008, 2009, 2010, 2011, 2012
-// Free Software Foundation, Inc.
+// Copyright (C) 1997-2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -42,7 +40,7 @@
 #include <bits/codecvt.h>
 #include <cstdio>             // For BUFSIZ
 #include <bits/basic_file.h>  // For __basic_file, __c_lock
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
 #include <string>             // For std::string overloads.
 #endif
 
@@ -240,9 +238,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        *  given in @a __mode.
        *
        *  Table 92, adapted here, gives the relation between openmode
-       *  combinations and the equivalent fopen() flags.
+       *  combinations and the equivalent @c fopen() flags.
        *  (NB: lines app, in|out|app, in|app, binary|app, binary|in|out|app,
        *  and binary|in|app per DR 596)
+       *  <pre>
        *  +---------------------------------------------------------+
        *  | ios_base Flag combination            stdio equivalent   |
        *  |binary  in  out  trunc  app                              |
@@ -267,11 +266,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        *  |   +     +   +           +            a+b                |
        *  |   +     +               +            a+b                |
        *  +---------------------------------------------------------+
+       *  </pre>
        */
       __filebuf_type*
       open(const char* __s, ios_base::openmode __mode);
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       /**
        *  @brief  Opens an external file.
        *  @param  __s  The name of the file.
@@ -396,9 +396,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       void
       _M_set_buffer(streamsize __off)
       {
- 	const bool __testin = _M_mode & ios_base::in;
- 	const bool __testout = _M_mode & ios_base::out;
-	
+	const bool __testin = _M_mode & ios_base::in;
+	const bool __testout = (_M_mode & ios_base::out
+				|| _M_mode & ios_base::app);
+
 	if (__testin && __off > 0)
 	  this->setg(_M_buf, _M_buf, _M_buf + __off);
 	else
@@ -473,7 +474,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	this->open(__s, __mode);
       }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       /**
        *  @brief  Create an input file stream.
        *  @param  __s  std::string specifying the filename.
@@ -547,7 +548,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  this->clear();
       }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       /**
        *  @brief  Opens an external file.
        *  @param  __s  The name of the file.
@@ -647,7 +648,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	this->open(__s, __mode);
       }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       /**
        *  @brief  Create an output file stream.
        *  @param  __s  std::string specifying the filename.
@@ -723,7 +724,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  this->clear();
       }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       /**
        *  @brief  Opens an external file.
        *  @param  __s  The name of the file.
@@ -823,7 +824,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	this->open(__s, __mode);
       }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       /**
        *  @brief  Create an input/output file stream.
        *  @param  __s  Null terminated string specifying the filename.
@@ -896,7 +897,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  this->clear();
       }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       /**
        *  @brief  Opens an external file.
        *  @param  __s  The name of the file.

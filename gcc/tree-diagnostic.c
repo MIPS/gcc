@@ -1,8 +1,7 @@
 /* Language-independent diagnostic subroutines for the GNU Compiler
    Collection that are only for use in the compilers proper and not
    the driver or other programs.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008,
-   2009, 2010 Free Software Foundation, Inc.
+   Copyright (C) 1999-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -40,7 +39,8 @@ diagnostic_report_current_function (diagnostic_context *context,
 				    diagnostic_info *diagnostic)
 {
   diagnostic_report_current_module (context, diagnostic->location);
-  lang_hooks.print_error_function (context, input_filename, diagnostic);
+  lang_hooks.print_error_function (context, LOCATION_FILE (input_location),
+				   diagnostic);
 }
 
 static void
@@ -61,8 +61,6 @@ typedef struct
   source_location where;
 } loc_map_pair;
 
-DEF_VEC_O (loc_map_pair);
-DEF_VEC_ALLOC_O (loc_map_pair, heap);
 
 /* Unwind the different macro expansions that lead to the token which
    location is WHERE and emit diagnostics showing the resulting
@@ -106,7 +104,7 @@ maybe_unwind_expanded_macro_loc (diagnostic_context *context,
                                  source_location where)
 {
   const struct line_map *map;
-  VEC(loc_map_pair,heap) *loc_vec = NULL;
+  vec<loc_map_pair> loc_vec = vNULL;
   unsigned ix;
   loc_map_pair loc, *iter;
 
@@ -127,7 +125,7 @@ maybe_unwind_expanded_macro_loc (diagnostic_context *context,
       loc.where = where;
       loc.map = map;
 
-      VEC_safe_push (loc_map_pair, heap, loc_vec, loc);
+      loc_vec.safe_push (loc);
 
       /* WHERE is the location of a token inside the expansion of a
          macro.  MAP is the map holding the locations of that macro
@@ -148,7 +146,7 @@ maybe_unwind_expanded_macro_loc (diagnostic_context *context,
     expand_location_to_spelling_point (diagnostic->location).line;
 
   if (!LINEMAP_SYSP (map))
-    FOR_EACH_VEC_ELT (loc_map_pair, loc_vec, ix, iter)
+    FOR_EACH_VEC_ELT (loc_vec, ix, iter)
       {
 	/* Sometimes, in the unwound macro expansion trace, we want to
 	   print a part of the context that shows where, in the
@@ -223,7 +221,7 @@ maybe_unwind_expanded_macro_loc (diagnostic_context *context,
                                 linemap_map_get_macro_name (iter->map));
       }
 
-  VEC_free (loc_map_pair, heap, loc_vec);
+  loc_vec.release ();
 }
 
 /*  This is a diagnostic finalizer implementation that is aware of
@@ -271,7 +269,7 @@ default_tree_printer (pretty_printer *pp, text_info *text, const char *spec,
 
     case 'D':
       t = va_arg (*text->args_ptr, tree);
-      if (DECL_DEBUG_EXPR_IS_FROM (t) && DECL_DEBUG_EXPR (t))
+      if (TREE_CODE (t) == VAR_DECL && DECL_HAS_DEBUG_EXPR_P (t))
 	t = DECL_DEBUG_EXPR (t);
       break;
 

@@ -1,6 +1,5 @@
 /* Inlining decision heuristics.
-   Copyright (C) 2003, 2004, 2007, 2008, 2009, 2010, 2011
-   Free Software Foundation, Inc.
+   Copyright (C) 2003-2014 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -19,6 +18,8 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+#include "ipa-prop.h"
+
 /* Representation of inline parameters that do depend on context function is
    inlined into (i.e. known constant values of function parameters.
 
@@ -26,35 +27,53 @@ along with GCC; see the file COPYING3.  If not see
    vector.  They are of simple for  function_param OP VAL, where VAL is
    IPA invariant.  The conditions are then referred by predicates.  */
 
-typedef struct GTY(()) condition
-  {
-    /* If agg_contents is set, this is the offset from which the used data was
-       loaded.  */
-    HOST_WIDE_INT offset;
-    tree val;
-    int operand_num;
-    ENUM_BITFIELD(tree_code) code : 16;
-    /* Set if the used data were loaded from an aggregate parameter or from
-       data received by reference.  */
-    unsigned agg_contents : 1;
-    /* If agg_contents is set, this differentiates between loads from data
-       passed by reference and by value.  */
-    unsigned by_ref : 1;
-  } condition;
+struct GTY(()) condition
+{
+  /* If agg_contents is set, this is the offset from which the used data was
+     loaded.  */
+  HOST_WIDE_INT offset;
+  tree val;
+  int operand_num;
+  ENUM_BITFIELD(tree_code) code : 16;
+  /* Set if the used data were loaded from an aggregate parameter or from
+     data received by reference.  */
+  unsigned agg_contents : 1;
+  /* If agg_contents is set, this differentiates between loads from data
+     passed by reference and by value.  */
+  unsigned by_ref : 1;
+};
 
-/* Inline hints are reasons why inline heuristics should preffer inlining given function.
-   They are represtented as bitmap of the following values.  */
+/* Inline hints are reasons why inline heuristics should preffer inlining given
+   function.  They are represtented as bitmap of the following values.  */
 enum inline_hints_vals {
+  /* When inlining turns indirect call into a direct call,
+     it is good idea to do so.  */
   INLINE_HINT_indirect_call = 1,
+  /* Inlining may make loop iterations or loop stride known.  It is good idea
+     to do so because it enables loop optimizatoins.  */
   INLINE_HINT_loop_iterations = 2,
-  INLINE_HINT_loop_stride = 4
+  INLINE_HINT_loop_stride = 4,
+  /* Inlining within same strongly connected component of callgraph is often
+     a loss due to increased stack frame usage and prologue setup costs.  */
+  INLINE_HINT_same_scc = 8,
+  /* Inlining functions in strongly connected component is not such a great
+     win.  */
+  INLINE_HINT_in_scc = 16,
+  /* If function is declared inline by user, it may be good idea to inline
+     it.  */
+  INLINE_HINT_declared_inline = 32,
+  /* Programs are usually still organized for non-LTO compilation and thus
+     if functions are in different modules, inlining may not be so important. 
+   */
+  INLINE_HINT_cross_module = 64,
+  /* If array indexes of loads/stores become known there may be room for
+     further optimization.  */
+  INLINE_HINT_array_index = 128
 };
 typedef int inline_hints;
 
-DEF_VEC_O (condition);
-DEF_VEC_ALLOC_O (condition, gc);
 
-typedef VEC(condition,gc) *conditions;
+typedef vec<condition, va_gc> *conditions;
 
 /* Representation of predicates i.e. formulas using conditions defined
    above.  Predicates are simple logical formulas in conjunctive-disjunctive
@@ -80,14 +99,12 @@ struct GTY(()) predicate
    accounted.  */
 #define INLINE_SIZE_SCALE 2
 #define INLINE_TIME_SCALE (CGRAPH_FREQ_BASE * 2)
-typedef struct GTY(()) size_time_entry
+struct GTY(()) size_time_entry
 {
   struct predicate predicate;
   int size;
   int time;
-} size_time_entry;
-DEF_VEC_O (size_time_entry);
-DEF_VEC_ALLOC_O (size_time_entry, gc);
+};
 
 /* Function inlining information.  */
 struct GTY(()) inline_summary
@@ -100,6 +117,8 @@ struct GTY(()) inline_summary
   int self_size;
   /* Time of the function body.  */
   int self_time;
+  /* Minimal size increase after inlining.  */
+  int min_size;
 
   /* False when there something makes inlining impossible (such as va_arg).  */
   unsigned inlinable : 1;
@@ -119,7 +138,7 @@ struct GTY(()) inline_summary
   /* Conditional size/time information.  The summaries are being
      merged during inlining.  */
   conditions conds;
-  VEC(size_time_entry,gc) *entry;
+  vec<size_time_entry, va_gc> *entry;
 
   /* Predicate on when some loop in the function becomes to have known
      bounds.   */
@@ -127,13 +146,22 @@ struct GTY(()) inline_summary
   /* Predicate on when some loop in the function becomes to have known
      stride.   */
   struct predicate * GTY((skip)) loop_stride;
+  /* Predicate on when some array indexes become constants.  */
+  struct predicate * GTY((skip)) array_index;
+  /* Estimated growth for inlining all copies of the function before start
+     of small functions inlining.
+     This value will get out of date as the callers are duplicated, but
+     using up-to-date value in the badness metric mean a lot of extra
+     expenses.  */
+  int growth;
+  /* Number of SCC on the beginning of inlining process.  */
+  int scc_no;
 };
 
-
+/* Need a typedef for inline_summary because of inline function
+   'inline_summary' below.  */
 typedef struct inline_summary inline_summary_t;
-DEF_VEC_O(inline_summary_t);
-DEF_VEC_ALLOC_O(inline_summary_t,gc);
-extern GTY(()) VEC(inline_summary_t,gc) *inline_summary_vec;
+extern GTY(()) vec<inline_summary_t, va_gc> *inline_summary_vec;
 
 /* Information kept about parameter of call site.  */
 struct inline_param_summary
@@ -147,9 +175,6 @@ struct inline_param_summary
      Value 0 is reserved for compile time invariants. */
   int change_prob;
 };
-typedef struct inline_param_summary inline_param_summary_t;
-DEF_VEC_O(inline_param_summary_t);
-DEF_VEC_ALLOC_O(inline_param_summary_t,heap);
 
 /* Information kept about callgraph edges.  */
 struct inline_edge_summary
@@ -163,24 +188,22 @@ struct inline_edge_summary
   /* Array indexed by parameters.
      0 means that parameter change all the time, REG_BR_PROB_BASE means
      that parameter is constant.  */
-  VEC (inline_param_summary_t, heap) *param;
+  vec<inline_param_summary> param;
 };
 
+/* Need a typedef for inline_edge_summary because of inline function
+   'inline_edge_summary' below.  */
 typedef struct inline_edge_summary inline_edge_summary_t;
-DEF_VEC_O(inline_edge_summary_t);
-DEF_VEC_ALLOC_O(inline_edge_summary_t,heap);
-extern VEC(inline_edge_summary_t,heap) *inline_edge_summary_vec;
+extern vec<inline_edge_summary_t> inline_edge_summary_vec;
 
-typedef struct edge_growth_cache_entry
+struct edge_growth_cache_entry
 {
   int time, size;
   inline_hints hints;
-} edge_growth_cache_entry;
-DEF_VEC_O(edge_growth_cache_entry);
-DEF_VEC_ALLOC_O(edge_growth_cache_entry,heap);
+};
 
-extern VEC(int,heap) *node_growth_cache;
-extern VEC(edge_growth_cache_entry,heap) *edge_growth_cache;
+extern vec<int> node_growth_cache;
+extern vec<edge_growth_cache_entry> edge_growth_cache;
 
 /* In ipa-inline-analysis.c  */
 void debug_inline_summary (struct cgraph_node *);
@@ -195,10 +218,11 @@ void initialize_inline_failed (struct cgraph_edge *);
 int estimate_time_after_inlining (struct cgraph_node *, struct cgraph_edge *);
 int estimate_size_after_inlining (struct cgraph_node *, struct cgraph_edge *);
 void estimate_ipcp_clone_size_and_time (struct cgraph_node *,
-					VEC (tree, heap) *known_vals,
-					VEC (tree, heap) *known_binfos,
-					int *, int *);
+					vec<tree>,  vec<tree>,
+					vec<ipa_agg_jump_function_p>,
+					int *, int *, inline_hints *);
 int do_estimate_growth (struct cgraph_node *);
+bool growth_likely_positive (struct cgraph_node *, int);
 void inline_merge_summary (struct cgraph_edge *edge);
 void inline_update_overall_summary (struct cgraph_node *node);
 int do_estimate_edge_size (struct cgraph_edge *edge);
@@ -207,11 +231,13 @@ inline_hints do_estimate_edge_hints (struct cgraph_edge *edge);
 void initialize_growth_caches (void);
 void free_growth_caches (void);
 void compute_inline_parameters (struct cgraph_node *, bool);
+bool speculation_useful_p (struct cgraph_edge *e, bool anticipate_inlining);
 
 /* In ipa-inline-transform.c  */
-bool inline_call (struct cgraph_edge *, bool, VEC (cgraph_edge_p, heap) **, int *, bool);
+bool inline_call (struct cgraph_edge *, bool, vec<cgraph_edge_p> *, int *, bool);
 unsigned int inline_transform (struct cgraph_node *);
-void clone_inlined_nodes (struct cgraph_edge *e, bool, bool, int *);
+void clone_inlined_nodes (struct cgraph_edge *e, bool, bool, int *,
+			  int freq_scale);
 
 extern int ncalls_inlined;
 extern int nfunctions_inlined;
@@ -219,14 +245,13 @@ extern int nfunctions_inlined;
 static inline struct inline_summary *
 inline_summary (struct cgraph_node *node)
 {
-  return &VEC_index (inline_summary_t, inline_summary_vec, node->uid);
+  return &(*inline_summary_vec)[node->uid];
 }
 
 static inline struct inline_edge_summary *
 inline_edge_summary (struct cgraph_edge *edge)
 {
-  return &VEC_index (inline_edge_summary_t,
-		    inline_edge_summary_vec, edge->uid);
+  return &inline_edge_summary_vec[edge->uid];
 }
 
 /* Return estimated unit growth after inlning all calls to NODE.
@@ -238,8 +263,8 @@ static inline int
 estimate_growth (struct cgraph_node *node)
 {
   int ret;
-  if ((int)VEC_length (int, node_growth_cache) <= node->uid
-      || !(ret = VEC_index (int, node_growth_cache, node->uid)))
+  if ((int)node_growth_cache.length () <= node->uid
+      || !(ret = node_growth_cache[node->uid]))
     return do_estimate_growth (node);
   return ret - (ret > 0);
 }
@@ -251,10 +276,8 @@ static inline int
 estimate_edge_size (struct cgraph_edge *edge)
 {
   int ret;
-  if ((int)VEC_length (edge_growth_cache_entry, edge_growth_cache) <= edge->uid
-      || !(ret = VEC_index (edge_growth_cache_entry,
-			    edge_growth_cache,
-			    edge->uid).size))
+  if ((int)edge_growth_cache.length () <= edge->uid
+      || !(ret = edge_growth_cache[edge->uid].size))
     return do_estimate_edge_size (edge);
   return ret - (ret > 0);
 }
@@ -265,7 +288,8 @@ static inline int
 estimate_edge_growth (struct cgraph_edge *edge)
 {
 #ifdef ENABLE_CHECKING
-  gcc_checking_assert (inline_edge_summary (edge)->call_stmt_size);
+  gcc_checking_assert (inline_edge_summary (edge)->call_stmt_size
+		       || !edge->callee->analyzed);
 #endif
   return (estimate_edge_size (edge)
 	  - inline_edge_summary (edge)->call_stmt_size);
@@ -278,10 +302,8 @@ static inline int
 estimate_edge_time (struct cgraph_edge *edge)
 {
   int ret;
-  if ((int)VEC_length (edge_growth_cache_entry, edge_growth_cache) <= edge->uid
-      || !(ret = VEC_index (edge_growth_cache_entry,
-			    edge_growth_cache,
-			    edge->uid).time))
+  if ((int)edge_growth_cache.length () <= edge->uid
+      || !(ret =  edge_growth_cache[edge->uid].time))
     return do_estimate_edge_time (edge);
   return ret - (ret > 0);
 }
@@ -294,10 +316,8 @@ static inline inline_hints
 estimate_edge_hints (struct cgraph_edge *edge)
 {
   inline_hints ret;
-  if ((int)VEC_length (edge_growth_cache_entry, edge_growth_cache) <= edge->uid
-      || !(ret = VEC_index (edge_growth_cache_entry,
-			    edge_growth_cache,
-			    edge->uid).hints))
+  if ((int)edge_growth_cache.length () <= edge->uid
+      || !(ret = edge_growth_cache[edge->uid].hints))
     return do_estimate_edge_hints (edge);
   return ret - 1;
 }
@@ -308,8 +328,8 @@ estimate_edge_hints (struct cgraph_edge *edge)
 static inline void
 reset_node_growth_cache (struct cgraph_node *node)
 {
-  if ((int)VEC_length (int, node_growth_cache) > node->uid)
-    VEC_replace (int, node_growth_cache, node->uid, 0);
+  if ((int)node_growth_cache.length () > node->uid)
+    node_growth_cache[node->uid] = 0;
 }
 
 /* Reset cached value for EDGE.  */
@@ -317,9 +337,9 @@ reset_node_growth_cache (struct cgraph_node *node)
 static inline void
 reset_edge_growth_cache (struct cgraph_edge *edge)
 {
-  if ((int)VEC_length (edge_growth_cache_entry, edge_growth_cache) > edge->uid)
+  if ((int)edge_growth_cache.length () > edge->uid)
     {
       struct edge_growth_cache_entry zero = {0, 0, 0};
-      VEC_replace (edge_growth_cache_entry, edge_growth_cache, edge->uid, zero);
+      edge_growth_cache[edge->uid] = zero;
     }
 }

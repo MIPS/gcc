@@ -2,22 +2,33 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build darwin freebsd linux netbsd openbsd windows
-
-// (Raw) IP sockets
+// +build darwin dragonfly freebsd linux netbsd openbsd windows
 
 package net
 
 import (
 	"syscall"
+	"time"
 )
+
+// BUG(mikio): On every POSIX platform, reads from the "ip4" network
+// using the ReadFrom or ReadFromIP method might not return a complete
+// IPv4 packet, including its header, even if there is space
+// available. This can occur even in cases where Read or ReadMsgIP
+// could return a complete packet. For this reason, it is recommended
+// that you do not uses these methods if it is important to receive a
+// full packet.
+//
+// The Go 1 compatibliity guidelines make it impossible for us to
+// change the behavior of these methods; use Read or ReadMsgIP
+// instead.
 
 func sockaddrToIP(sa syscall.Sockaddr) Addr {
 	switch sa := sa.(type) {
 	case *syscall.SockaddrInet4:
-		return &IPAddr{sa.Addr[0:]}
+		return &IPAddr{IP: sa.Addr[0:]}
 	case *syscall.SockaddrInet6:
-		return &IPAddr{sa.Addr[0:]}
+		return &IPAddr{IP: sa.Addr[0:], Zone: zoneToString(int(sa.ZoneId))}
 	}
 	return nil
 }
@@ -40,25 +51,19 @@ func (a *IPAddr) isWildcard() bool {
 }
 
 func (a *IPAddr) sockaddr(family int) (syscall.Sockaddr, error) {
-	return ipToSockaddr(family, a.IP, 0)
-}
-
-func (a *IPAddr) toAddr() sockaddr {
-	if a == nil { // nil *IPAddr
-		return nil // nil interface
+	if a == nil {
+		return nil, nil
 	}
-	return a
+	return ipToSockaddr(family, a.IP, 0, a.Zone)
 }
 
-// IPConn is the implementation of the Conn and PacketConn
-// interfaces for IP network connections.
+// IPConn is the implementation of the Conn and PacketConn interfaces
+// for IP network connections.
 type IPConn struct {
 	conn
 }
 
 func newIPConn(fd *netFD) *IPConn { return &IPConn{conn{fd}} }
-
-// IP-specific methods.
 
 // ReadFromIP reads an IP packet from c, copying the payload into b.
 // It returns the number of bytes copied into b and the return address
@@ -77,14 +82,14 @@ func (c *IPConn) ReadFromIP(b []byte) (int, *IPAddr, error) {
 	n, sa, err := c.fd.ReadFrom(b)
 	switch sa := sa.(type) {
 	case *syscall.SockaddrInet4:
-		addr = &IPAddr{sa.Addr[0:]}
+		addr = &IPAddr{IP: sa.Addr[0:]}
 		if len(b) >= IPv4len { // discard ipv4 header
 			hsize := (int(b[0]) & 0xf) * 4
 			copy(b, b[hsize:])
 			n -= hsize
 		}
 	case *syscall.SockaddrInet6:
-		addr = &IPAddr{sa.Addr[0:]}
+		addr = &IPAddr{IP: sa.Addr[0:], Zone: zoneToString(int(sa.ZoneId))}
 	}
 	return n, addr, err
 }
@@ -94,12 +99,12 @@ func (c *IPConn) ReadFrom(b []byte) (int, Addr, error) {
 	if !c.ok() {
 		return 0, nil, syscall.EINVAL
 	}
-	n, uaddr, err := c.ReadFromIP(b)
-	return n, uaddr.toAddr(), err
+	n, addr, err := c.ReadFromIP(b)
+	return n, addr.toAddr(), err
 }
 
 // ReadMsgIP reads a packet from c, copying the payload into b and the
-// associdated out-of-band data into oob.  It returns the number of
+// associated out-of-band data into oob.  It returns the number of
 // bytes copied into b, the number of bytes copied into oob, the flags
 // that were set on the packet and the source address of the packet.
 func (c *IPConn) ReadMsgIP(b, oob []byte) (n, oobn, flags int, addr *IPAddr, err error) {
@@ -110,22 +115,26 @@ func (c *IPConn) ReadMsgIP(b, oob []byte) (n, oobn, flags int, addr *IPAddr, err
 	n, oobn, flags, sa, err = c.fd.ReadMsg(b, oob)
 	switch sa := sa.(type) {
 	case *syscall.SockaddrInet4:
-		addr = &IPAddr{sa.Addr[0:]}
+		addr = &IPAddr{IP: sa.Addr[0:]}
 	case *syscall.SockaddrInet6:
-		addr = &IPAddr{sa.Addr[0:]}
+		addr = &IPAddr{IP: sa.Addr[0:], Zone: zoneToString(int(sa.ZoneId))}
 	}
 	return
 }
 
-// WriteToIP writes an IP packet to addr via c, copying the payload from b.
+// WriteToIP writes an IP packet to addr via c, copying the payload
+// from b.
 //
-// WriteToIP can be made to time out and return
-// an error with Timeout() == true after a fixed time limit;
-// see SetDeadline and SetWriteDeadline.
-// On packet-oriented connections, write timeouts are rare.
+// WriteToIP can be made to time out and return an error with
+// Timeout() == true after a fixed time limit; see SetDeadline and
+// SetWriteDeadline.  On packet-oriented connections, write timeouts
+// are rare.
 func (c *IPConn) WriteToIP(b []byte, addr *IPAddr) (int, error) {
 	if !c.ok() {
 		return 0, syscall.EINVAL
+	}
+	if addr == nil {
+		return 0, &OpError{Op: "write", Net: c.fd.net, Addr: nil, Err: errMissingAddress}
 	}
 	sa, err := addr.sockaddr(c.fd.family)
 	if err != nil {
@@ -153,6 +162,9 @@ func (c *IPConn) WriteMsgIP(b, oob []byte, addr *IPAddr) (n, oobn int, err error
 	if !c.ok() {
 		return 0, 0, syscall.EINVAL
 	}
+	if addr == nil {
+		return 0, 0, &OpError{Op: "write", Net: c.fd.net, Addr: nil, Err: errMissingAddress}
+	}
 	sa, err := addr.sockaddr(c.fd.family)
 	if err != nil {
 		return 0, 0, &OpError{"write", c.fd.net, addr, err}
@@ -160,45 +172,50 @@ func (c *IPConn) WriteMsgIP(b, oob []byte, addr *IPAddr) (n, oobn int, err error
 	return c.fd.WriteMsg(b, oob, sa)
 }
 
-// DialIP connects to the remote address raddr on the network protocol netProto,
-// which must be "ip", "ip4", or "ip6" followed by a colon and a protocol number or name.
+// DialIP connects to the remote address raddr on the network protocol
+// netProto, which must be "ip", "ip4", or "ip6" followed by a colon
+// and a protocol number or name.
 func DialIP(netProto string, laddr, raddr *IPAddr) (*IPConn, error) {
-	net, proto, err := parseDialNetwork(netProto)
+	return dialIP(netProto, laddr, raddr, noDeadline)
+}
+
+func dialIP(netProto string, laddr, raddr *IPAddr, deadline time.Time) (*IPConn, error) {
+	net, proto, err := parseNetwork(netProto)
 	if err != nil {
-		return nil, err
+		return nil, &OpError{Op: "dial", Net: netProto, Addr: raddr, Err: err}
 	}
 	switch net {
 	case "ip", "ip4", "ip6":
 	default:
-		return nil, UnknownNetworkError(net)
+		return nil, &OpError{Op: "dial", Net: netProto, Addr: raddr, Err: UnknownNetworkError(netProto)}
 	}
 	if raddr == nil {
-		return nil, &OpError{"dial", netProto, nil, errMissingAddress}
+		return nil, &OpError{Op: "dial", Net: netProto, Addr: nil, Err: errMissingAddress}
 	}
-	fd, err := internetSocket(net, laddr.toAddr(), raddr.toAddr(), syscall.SOCK_RAW, proto, "dial", sockaddrToIP)
+	fd, err := internetSocket(net, laddr, raddr, deadline, syscall.SOCK_RAW, proto, "dial", sockaddrToIP)
 	if err != nil {
-		return nil, err
+		return nil, &OpError{Op: "dial", Net: netProto, Addr: raddr, Err: err}
 	}
 	return newIPConn(fd), nil
 }
 
-// ListenIP listens for incoming IP packets addressed to the
-// local address laddr.  The returned connection c's ReadFrom
-// and WriteTo methods can be used to receive and send IP
-// packets with per-packet addressing.
+// ListenIP listens for incoming IP packets addressed to the local
+// address laddr.  The returned connection's ReadFrom and WriteTo
+// methods can be used to receive and send IP packets with per-packet
+// addressing.
 func ListenIP(netProto string, laddr *IPAddr) (*IPConn, error) {
-	net, proto, err := parseDialNetwork(netProto)
+	net, proto, err := parseNetwork(netProto)
 	if err != nil {
-		return nil, err
+		return nil, &OpError{Op: "dial", Net: netProto, Addr: laddr, Err: err}
 	}
 	switch net {
 	case "ip", "ip4", "ip6":
 	default:
-		return nil, UnknownNetworkError(net)
+		return nil, &OpError{Op: "listen", Net: netProto, Addr: laddr, Err: UnknownNetworkError(netProto)}
 	}
-	fd, err := internetSocket(net, laddr.toAddr(), nil, syscall.SOCK_RAW, proto, "listen", sockaddrToIP)
+	fd, err := internetSocket(net, laddr, nil, noDeadline, syscall.SOCK_RAW, proto, "listen", sockaddrToIP)
 	if err != nil {
-		return nil, err
+		return nil, &OpError{Op: "listen", Net: netProto, Addr: laddr, Err: err}
 	}
 	return newIPConn(fd), nil
 }

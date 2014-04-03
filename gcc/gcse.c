@@ -1,6 +1,5 @@
 /* Partial redundancy elimination / Hoisting for RTL.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
-   2006, 2007, 2008, 2009, 2010, 2011, 2012 Free Software Foundation, Inc.
+   Copyright (C) 1997-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -20,9 +19,6 @@ along with GCC; see the file COPYING3.  If not see
 
 /* TODO
    - reordering of memory allocation and freeing to be more space efficient
-   - simulate register pressure change of each basic block accurately during
-     hoist process.  But I doubt the benefit since most expressions hoisted
-     are constant or address, which usually won't reduce register pressure.
    - calc rough register pressure information and use the info to drive all
      kinds of code motion (including code hoisting) in a unified way.
 */
@@ -162,7 +158,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "obstack.h"
 #include "tree-pass.h"
-#include "hashtab.h"
+#include "hash-table.h"
 #include "df.h"
 #include "dbgcnt.h"
 #include "target.h"
@@ -258,8 +254,6 @@ int flag_rerun_cse_after_global_opts;
 /* An obstack for our working variables.  */
 static struct obstack gcse_obstack;
 
-struct reg_use {rtx reg_rtx; };
-
 /* Hash table of expressions.  */
 
 struct expr
@@ -313,8 +307,6 @@ struct occr
 };
 
 typedef struct occr *occr_t;
-DEF_VEC_P (occr_t);
-DEF_VEC_ALLOC_P (occr_t, heap);
 
 /* Expression hash tables.
    Each hash table is an array of buckets.
@@ -367,8 +359,34 @@ struct ls_expr
 /* Head of the list of load/store memory refs.  */
 static struct ls_expr * pre_ldst_mems = NULL;
 
+struct pre_ldst_expr_hasher : typed_noop_remove <ls_expr>
+{
+  typedef ls_expr value_type;
+  typedef value_type compare_type;
+  static inline hashval_t hash (const value_type *);
+  static inline bool equal (const value_type *, const compare_type *);
+};
+
+/* Hashtable helpers.  */
+inline hashval_t
+pre_ldst_expr_hasher::hash (const value_type *x)
+{
+  int do_not_record_p = 0;
+  return
+    hash_rtx (x->pattern, GET_MODE (x->pattern), &do_not_record_p, NULL, false);
+}
+
+static int expr_equiv_p (const_rtx, const_rtx);
+
+inline bool
+pre_ldst_expr_hasher::equal (const value_type *ptr1,
+			     const compare_type *ptr2)
+{
+  return expr_equiv_p (ptr1->pattern, ptr2->pattern);
+}
+
 /* Hashtable for the load/store memory refs.  */
-static htab_t pre_ldst_table = NULL;
+static hash_table <pre_ldst_expr_hasher> pre_ldst_table;
 
 /* Bitmap containing one bit for each register in the program.
    Used when performing GCSE to track which registers have been set since
@@ -377,7 +395,7 @@ static regset reg_set_bitmap;
 
 /* Array, indexed by basic block number for a list of insns which modify
    memory within that block.  */
-static VEC (rtx,heap) **modify_mem_list;
+static vec<rtx> *modify_mem_list;
 static bitmap modify_mem_list_set;
 
 typedef struct modify_pair_s
@@ -386,12 +404,10 @@ typedef struct modify_pair_s
   rtx dest_addr;		/* The canonical address of `dest'.  */
 } modify_pair;
 
-DEF_VEC_O(modify_pair);
-DEF_VEC_ALLOC_O(modify_pair,heap);
 
 /* This array parallels modify_mem_list, except that it stores MEMs
    being set and their canonicalized memory addresses.  */
-static VEC (modify_pair,heap) **canon_modify_mem_list;
+static vec<modify_pair> *canon_modify_mem_list;
 
 /* Bitmap indexed by block numbers to record which blocks contain
    function calls.  */
@@ -421,6 +437,15 @@ struct bb_data
   /* Maximal register pressure inside basic block for given register class
      (defined only for the pressure classes).  */
   int max_reg_pressure[N_REG_CLASSES];
+  /* Recorded register pressure of basic block before trying to hoist
+     an expression.  Will be used to restore the register pressure
+     if the expression should not be hoisted.  */
+  int old_pressure;
+  /* Recorded register live_in info of basic block during code hoisting
+     process.  BACKUP is used to record live_in info before trying to
+     hoist an expression, and will be used to restore LIVE_IN if the
+     expression should not be hoisted.  */
+  bitmap live_in, backup;
 };
 
 #define BB_DATA(bb) ((struct bb_data *) (bb)->aux)
@@ -448,7 +473,6 @@ static int oprs_available_p (const_rtx, const_rtx);
 static void insert_expr_in_table (rtx, enum machine_mode, rtx, int, int, int,
 				  struct hash_table_d *);
 static unsigned int hash_expr (const_rtx, enum machine_mode, int *, int);
-static int expr_equiv_p (const_rtx, const_rtx);
 static void record_last_reg_set_info (rtx, int);
 static void record_last_mem_set_info (rtx);
 static void record_last_set_info (rtx, const_rtx, void *);
@@ -481,8 +505,9 @@ static void compute_code_hoist_vbeinout (void);
 static void compute_code_hoist_data (void);
 static int should_hoist_expr_to_dom (basic_block, struct expr *, basic_block,
 				     sbitmap, int, int *, enum reg_class,
-				     int *, bitmap);
+				     int *, bitmap, rtx);
 static int hoist_code (void);
+static enum reg_class get_regno_pressure_class (int regno, int *nregs);
 static enum reg_class get_pressure_class_and_nregs (rtx insn, int *nregs);
 static int one_code_hoisting_pass (void);
 static rtx process_insert_insn (struct expr *);
@@ -604,10 +629,13 @@ alloc_gcse_mem (void)
   reg_set_bitmap = ALLOC_REG_SET (NULL);
 
   /* Allocate array to keep a list of insns which modify memory in each
-     basic block.  */
-  modify_mem_list = GCNEWVEC (VEC (rtx,heap) *, last_basic_block);
-  canon_modify_mem_list = GCNEWVEC (VEC (modify_pair,heap) *,
-				    last_basic_block);
+     basic block.  The two typedefs are needed to work around the
+     pre-processor limitation with template types in macro arguments.  */
+  typedef vec<rtx> vec_rtx_heap;
+  typedef vec<modify_pair> vec_modify_pair_heap;
+  modify_mem_list = GCNEWVEC (vec_rtx_heap, last_basic_block_for_fn (cfun));
+  canon_modify_mem_list = GCNEWVEC (vec_modify_pair_heap,
+				    last_basic_block_for_fn (cfun));
   modify_mem_list_set = BITMAP_ALLOC (NULL);
   blocks_with_calls = BITMAP_ALLOC (NULL);
 }
@@ -658,13 +686,13 @@ compute_local_properties (sbitmap *transp, sbitmap *comp, sbitmap *antloc,
   /* Initialize any bitmaps that were passed in.  */
   if (transp)
     {
-      sbitmap_vector_ones (transp, last_basic_block);
+      bitmap_vector_ones (transp, last_basic_block_for_fn (cfun));
     }
 
   if (comp)
-    sbitmap_vector_zero (comp, last_basic_block);
+    bitmap_vector_clear (comp, last_basic_block_for_fn (cfun));
   if (antloc)
-    sbitmap_vector_zero (antloc, last_basic_block);
+    bitmap_vector_clear (antloc, last_basic_block_for_fn (cfun));
 
   for (i = 0; i < table->size; i++)
     {
@@ -686,7 +714,7 @@ compute_local_properties (sbitmap *transp, sbitmap *comp, sbitmap *antloc,
 	  if (antloc)
 	    for (occr = expr->antic_occr; occr != NULL; occr = occr->next)
 	      {
-		SET_BIT (antloc[BLOCK_FOR_INSN (occr->insn)->index], indx);
+		bitmap_set_bit (antloc[BLOCK_FOR_INSN (occr->insn)->index], indx);
 
 		/* While we're scanning the table, this is a good place to
 		   initialize this.  */
@@ -698,7 +726,7 @@ compute_local_properties (sbitmap *transp, sbitmap *comp, sbitmap *antloc,
 	  if (comp)
 	    for (occr = expr->avail_occr; occr != NULL; occr = occr->next)
 	      {
-		SET_BIT (comp[BLOCK_FOR_INSN (occr->insn)->index], indx);
+		bitmap_set_bit (comp[BLOCK_FOR_INSN (occr->insn)->index], indx);
 
 		/* While we're scanning the table, this is a good place to
 		   initialize this.  */
@@ -888,8 +916,9 @@ oprs_unchanged_p (const_rtx x, const_rtx insn, int avail_p)
       }
 
     case MEM:
-      if (load_killed_in_block_p (current_bb, DF_INSN_LUID (insn),
-				  x, avail_p))
+      if (! flag_gcse_lm
+	  || load_killed_in_block_p (current_bb, DF_INSN_LUID (insn),
+				     x, avail_p))
 	return 0;
       else
 	return oprs_unchanged_p (XEXP (x, 0), insn, avail_p);
@@ -997,7 +1026,7 @@ static int
 load_killed_in_block_p (const_basic_block bb, int uid_limit, const_rtx x,
 			int avail_p)
 {
-  VEC (rtx,heap) *list = modify_mem_list[bb->index];
+  vec<rtx> list = modify_mem_list[bb->index];
   rtx setter;
   unsigned ix;
 
@@ -1005,7 +1034,7 @@ load_killed_in_block_p (const_basic_block bb, int uid_limit, const_rtx x,
   if (MEM_READONLY_P (x))
     return 0;
 
-  FOR_EACH_VEC_ELT_REVERSE (rtx, list, ix, setter)
+  FOR_EACH_VEC_ELT_REVERSE (list, ix, setter)
     {
       struct mem_conflict_info mci;
 
@@ -1459,7 +1488,7 @@ canon_list_insert (rtx dest ATTRIBUTE_UNUSED, const_rtx x ATTRIBUTE_UNUSED,
 
   pair.dest = dest;
   pair.dest_addr = dest_addr;
-  VEC_safe_push (modify_pair, heap, canon_modify_mem_list[bb], pair);
+  canon_modify_mem_list[bb].safe_push (pair);
 }
 
 /* Record memory modification information for INSN.  We do not actually care
@@ -1469,11 +1498,15 @@ canon_list_insert (rtx dest ATTRIBUTE_UNUSED, const_rtx x ATTRIBUTE_UNUSED,
 static void
 record_last_mem_set_info (rtx insn)
 {
-  int bb = BLOCK_FOR_INSN (insn)->index;
+  int bb;
+
+  if (! flag_gcse_lm)
+    return;
 
   /* load_killed_in_block_p will handle the case of calls clobbering
      everything.  */
-  VEC_safe_push (rtx, heap, modify_mem_list[bb], insn);
+  bb = BLOCK_FOR_INSN (insn)->index;
+  modify_mem_list[bb].safe_push (insn);
   bitmap_set_bit (modify_mem_list_set, bb);
 
   if (CALL_P (insn))
@@ -1526,7 +1559,7 @@ compute_hash_table_work (struct hash_table_d *table)
   for (i = 0; i < max_reg_num (); ++i)
     reg_avail_info[i].last_bb = NULL;
 
-  FOR_EACH_BB (current_bb)
+  FOR_EACH_BB_FN (current_bb, cfun)
     {
       rtx insn;
       unsigned int regno;
@@ -1615,8 +1648,8 @@ clear_modify_mem_tables (void)
 
   EXECUTE_IF_SET_IN_BITMAP (modify_mem_list_set, 0, i, bi)
     {
-      VEC_free (rtx, heap, modify_mem_list[i]);
-      VEC_free (modify_pair, heap, canon_modify_mem_list[i]);
+      modify_mem_list[i].release ();
+      canon_modify_mem_list[i].release ();
     }
   bitmap_clear (modify_mem_list_set);
   bitmap_clear (blocks_with_calls);
@@ -1662,7 +1695,7 @@ compute_transp (const_rtx x, int indx, sbitmap *bmap)
 	  for (def = DF_REG_DEF_CHAIN (REGNO (x));
 	       def;
 	       def = DF_REF_NEXT_REG (def))
-	    RESET_BIT (bmap[DF_REF_BB (def)->index], indx);
+	    bitmap_clear_bit (bmap[DF_REF_BB (def)->index], indx);
 	}
 
       return;
@@ -1672,35 +1705,42 @@ compute_transp (const_rtx x, int indx, sbitmap *bmap)
 	{
 	  bitmap_iterator bi;
 	  unsigned bb_index;
+	  rtx x_addr;
+
+	  x_addr = get_addr (XEXP (x, 0));
+	  x_addr = canon_rtx (x_addr);
 
 	  /* First handle all the blocks with calls.  We don't need to
 	     do any list walking for them.  */
 	  EXECUTE_IF_SET_IN_BITMAP (blocks_with_calls, 0, bb_index, bi)
 	    {
-	      RESET_BIT (bmap[bb_index], indx);
+	      bitmap_clear_bit (bmap[bb_index], indx);
 	    }
 
-	    /* Now iterate over the blocks which have memory modifications
-	       but which do not have any calls.  */
-	    EXECUTE_IF_AND_COMPL_IN_BITMAP (modify_mem_list_set,
-					    blocks_with_calls,
-					    0, bb_index, bi)
-	      {
-		VEC (modify_pair,heap) *list
-		  = canon_modify_mem_list[bb_index];
-		modify_pair *pair;
-		unsigned ix;
+	  /* Now iterate over the blocks which have memory modifications
+	     but which do not have any calls.  */
+	  EXECUTE_IF_AND_COMPL_IN_BITMAP (modify_mem_list_set,
+					  blocks_with_calls,
+					  0, bb_index, bi)
+	    {
+	      vec<modify_pair> list
+		= canon_modify_mem_list[bb_index];
+	      modify_pair *pair;
+	      unsigned ix;
 
-		FOR_EACH_VEC_ELT_REVERSE (modify_pair, list, ix, pair)
-		  {
-		    rtx dest = pair->dest;
-		    rtx dest_addr = pair->dest_addr;
+	      FOR_EACH_VEC_ELT_REVERSE (list, ix, pair)
+		{
+		  rtx dest = pair->dest;
+		  rtx dest_addr = pair->dest_addr;
 
-		    if (canon_true_dependence (dest, GET_MODE (dest),
-					       dest_addr, x, NULL_RTX))
-		      RESET_BIT (bmap[bb_index], indx);
-	          }
-	      }
+		  if (canon_true_dependence (dest, GET_MODE (dest),
+					     dest_addr, x, x_addr))
+		    {
+		      bitmap_clear_bit (bmap[bb_index], indx);
+		      break;
+		    }
+	        }
+	    }
 	}
 
       x = XEXP (x, 0);
@@ -1823,7 +1863,7 @@ prune_expressions (bool pre_p)
   basic_block bb;
 
   prune_exprs = sbitmap_alloc (expr_hash_table.n_elems);
-  sbitmap_zero (prune_exprs);
+  bitmap_clear (prune_exprs);
   for (ui = 0; ui < expr_hash_table.size; ui++)
     {
       for (expr = expr_hash_table.table[ui]; expr; expr = expr->next_same_hash)
@@ -1831,7 +1871,7 @@ prune_expressions (bool pre_p)
 	  /* Note potentially trapping expressions.  */
 	  if (may_trap_p (expr->expr))
 	    {
-	      SET_BIT (prune_exprs, expr->bitmap_index);
+	      bitmap_set_bit (prune_exprs, expr->bitmap_index);
 	      continue;
 	    }
 
@@ -1857,12 +1897,12 @@ prune_expressions (bool pre_p)
 		 analysis to determine if this mem is actually killed
 		 by this call.  */
 
-	      SET_BIT (prune_exprs, expr->bitmap_index);
+	      bitmap_set_bit (prune_exprs, expr->bitmap_index);
 	    }
 	}
     }
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       edge e;
       edge_iterator ei;
@@ -1886,9 +1926,9 @@ prune_expressions (bool pre_p)
 	if ((e->flags & EDGE_ABNORMAL)
 	    && (pre_p || CALL_P (BB_END (e->src))))
 	  {
-	    sbitmap_difference (antloc[bb->index],
+	    bitmap_and_compl (antloc[bb->index],
 				antloc[bb->index], prune_exprs);
-	    sbitmap_difference (transp[bb->index],
+	    bitmap_and_compl (transp[bb->index],
 				transp[bb->index], prune_exprs);
 	    break;
 	  }
@@ -1924,21 +1964,21 @@ prune_insertions_deletions (int n_elems)
      the number of deletions achieved.  We will prune these out of the
      insertion/deletion sets.  */
   prune_exprs = sbitmap_alloc (n_elems);
-  sbitmap_zero (prune_exprs);
+  bitmap_clear (prune_exprs);
 
   /* Iterate over the edges counting the number of times each expression
      needs to be inserted.  */
-  for (i = 0; i < (unsigned) n_edges; i++)
+  for (i = 0; i < (unsigned) n_edges_for_fn (cfun); i++)
     {
-      EXECUTE_IF_SET_IN_SBITMAP (pre_insert_map[i], 0, j, sbi)
+      EXECUTE_IF_SET_IN_BITMAP (pre_insert_map[i], 0, j, sbi)
 	insertions[j]++;
     }
 
   /* Similarly for deletions, but those occur in blocks rather than on
      edges.  */
-  for (i = 0; i < (unsigned) last_basic_block; i++)
+  for (i = 0; i < (unsigned) last_basic_block_for_fn (cfun); i++)
     {
-      EXECUTE_IF_SET_IN_SBITMAP (pre_delete_map[i], 0, j, sbi)
+      EXECUTE_IF_SET_IN_BITMAP (pre_delete_map[i], 0, j, sbi)
 	deletions[j]++;
     }
 
@@ -1949,16 +1989,16 @@ prune_insertions_deletions (int n_elems)
   for (j = 0; j < (unsigned) n_elems; j++)
     if (deletions[j]
 	&& ((unsigned) insertions[j] / deletions[j]) > MAX_GCSE_INSERTION_RATIO)
-      SET_BIT (prune_exprs, j);
+      bitmap_set_bit (prune_exprs, j);
 
   /* Now prune PRE_INSERT_MAP and PRE_DELETE_MAP based on PRUNE_EXPRS.  */
-  EXECUTE_IF_SET_IN_SBITMAP (prune_exprs, 0, j, sbi)
+  EXECUTE_IF_SET_IN_BITMAP (prune_exprs, 0, j, sbi)
     {
-      for (i = 0; i < (unsigned) n_edges; i++)
-	RESET_BIT (pre_insert_map[i], j);
+      for (i = 0; i < (unsigned) n_edges_for_fn (cfun); i++)
+	bitmap_clear_bit (pre_insert_map[i], j);
 
-      for (i = 0; i < (unsigned) last_basic_block; i++)
-	RESET_BIT (pre_delete_map[i], j);
+      for (i = 0; i < (unsigned) last_basic_block_for_fn (cfun); i++)
+	bitmap_clear_bit (pre_delete_map[i], j);
     }
 
   sbitmap_free (prune_exprs);
@@ -1976,17 +2016,17 @@ compute_pre_data (void)
 
   compute_local_properties (transp, comp, antloc, &expr_hash_table);
   prune_expressions (true);
-  sbitmap_vector_zero (ae_kill, last_basic_block);
+  bitmap_vector_clear (ae_kill, last_basic_block_for_fn (cfun));
 
   /* Compute ae_kill for each basic block using:
 
      ~(TRANSP | COMP)
   */
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
-      sbitmap_a_or_b (ae_kill[bb->index], transp[bb->index], comp[bb->index]);
-      sbitmap_not (ae_kill[bb->index], ae_kill[bb->index]);
+      bitmap_ior (ae_kill[bb->index], transp[bb->index], comp[bb->index]);
+      bitmap_not (ae_kill[bb->index], ae_kill[bb->index]);
     }
 
   edge_list = pre_edge_lcm (expr_hash_table.n_elems, transp, comp, antloc,
@@ -2027,13 +2067,13 @@ pre_expr_reaches_here_p_work (basic_block occr_bb, struct expr *expr,
     {
       basic_block pred_bb = pred->src;
 
-      if (pred->src == ENTRY_BLOCK_PTR
+      if (pred->src == ENTRY_BLOCK_PTR_FOR_FN (cfun)
 	  /* Has predecessor has already been visited?  */
 	  || visited[pred_bb->index])
 	;/* Nothing to do.  */
 
       /* Does this predecessor generate this expression?  */
-      else if (TEST_BIT (comp[pred_bb->index], expr->bitmap_index))
+      else if (bitmap_bit_p (comp[pred_bb->index], expr->bitmap_index))
 	{
 	  /* Is this the occurrence we're looking for?
 	     Note that there's only one generating occurrence per block
@@ -2044,7 +2084,7 @@ pre_expr_reaches_here_p_work (basic_block occr_bb, struct expr *expr,
 	  visited[pred_bb->index] = 1;
 	}
       /* Ignore this predecessor if it kills the expression.  */
-      else if (! TEST_BIT (transp[pred_bb->index], expr->bitmap_index))
+      else if (! bitmap_bit_p (transp[pred_bb->index], expr->bitmap_index))
 	visited[pred_bb->index] = 1;
 
       /* Neither gen nor kill.  */
@@ -2067,7 +2107,7 @@ static int
 pre_expr_reaches_here_p (basic_block occr_bb, struct expr *expr, basic_block bb)
 {
   int rval;
-  char *visited = XCNEWVEC (char, last_basic_block);
+  char *visited = XCNEWVEC (char, last_basic_block_for_fn (cfun));
 
   rval = pre_expr_reaches_here_p_work (occr_bb, expr, bb, visited);
 
@@ -2138,20 +2178,9 @@ insert_insn_end_basic_block (struct expr *expr, basic_block bb)
 	      || single_succ_edge (bb)->flags & EDGE_ABNORMAL)))
     {
 #ifdef HAVE_cc0
-      rtx note;
-#endif
-
-      /* If this is a jump table, then we can't insert stuff here.  Since
-	 we know the previous real insn must be the tablejump, we insert
-	 the new instruction just before the tablejump.  */
-      if (GET_CODE (PATTERN (insn)) == ADDR_VEC
-	  || GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC)
-	insn = prev_active_insn (insn);
-
-#ifdef HAVE_cc0
       /* FIXME: 'twould be nice to call prev_cc0_setter here but it aborts
 	 if cc0 isn't set.  */
-      note = find_reg_note (insn, REG_CC_SETTER, NULL_RTX);
+      rtx note = find_reg_note (insn, REG_CC_SETTER, NULL_RTX);
       if (note)
 	insn = XEXP (note, 0);
       else
@@ -2235,7 +2264,7 @@ pre_edge_insert (struct edge_list *edge_list, struct expr **index_map)
   set_size = pre_insert_map[0]->size;
   num_edges = NUM_EDGES (edge_list);
   inserted = sbitmap_vector_alloc (num_edges, expr_hash_table.n_elems);
-  sbitmap_vector_zero (inserted, num_edges);
+  bitmap_vector_clear (inserted, num_edges);
 
   for (e = 0; e < num_edges; e++)
     {
@@ -2262,7 +2291,7 @@ pre_edge_insert (struct edge_list *edge_list, struct expr **index_map)
 
 		    /* Insert this expression on this edge if it would
 		       reach the deleted occurrence in BB.  */
-		    if (!TEST_BIT (inserted[e], j))
+		    if (!bitmap_bit_p (inserted[e], j))
 		      {
 			rtx insn;
 			edge eg = INDEX_EDGE (edge_list, e);
@@ -2292,7 +2321,7 @@ pre_edge_insert (struct edge_list *edge_list, struct expr **index_map)
 			  }
 
 			update_ld_motion_stores (expr);
-			SET_BIT (inserted[e], j);
+			bitmap_set_bit (inserted[e], j);
 			did_insert = 1;
 			gcse_create_count++;
 		      }
@@ -2482,23 +2511,27 @@ gcse_emit_move_after (rtx dest, rtx src, rtx insn)
   rtx new_rtx;
   rtx set = single_set (insn), set2;
   rtx note;
-  rtx eqv;
+  rtx eqv = NULL_RTX;
 
   /* This should never fail since we're creating a reg->reg copy
      we've verified to be valid.  */
 
   new_rtx = emit_insn_after (gen_move_insn (dest, src), insn);
 
-  /* Note the equivalence for local CSE pass.  */
+  /* Note the equivalence for local CSE pass.  Take the note from the old
+     set if there was one.  Otherwise record the SET_SRC from the old set
+     unless DEST is also an operand of the SET_SRC.  */
   set2 = single_set (new_rtx);
   if (!set2 || !rtx_equal_p (SET_DEST (set2), dest))
     return new_rtx;
   if ((note = find_reg_equal_equiv_note (insn)))
     eqv = XEXP (note, 0);
-  else
+  else if (! REG_P (dest)
+	   || ! reg_mentioned_p (dest, SET_SRC (set)))
     eqv = SET_SRC (set);
 
-  set_unique_reg_note (new_rtx, REG_EQUAL, copy_insn_1 (eqv));
+  if (eqv != NULL_RTX)
+    set_unique_reg_note (new_rtx, REG_EQUAL, copy_insn_1 (eqv));
 
   return new_rtx;
 }
@@ -2506,7 +2539,7 @@ gcse_emit_move_after (rtx dest, rtx src, rtx insn)
 /* Delete redundant computations.
    Deletion is done by changing the insn to copy the `reaching_reg' of
    the expression into the result of the SET.  It is left to later passes
-   (cprop, cse2, flow, combine, regmove) to propagate the copy or eliminate it.
+   to propagate the copy or eliminate it.
 
    Return nonzero if a change is made.  */
 
@@ -2532,7 +2565,7 @@ pre_delete (void)
 	    basic_block bb = BLOCK_FOR_INSN (insn);
 
 	    /* We only delete insns that have a single_set.  */
-	    if (TEST_BIT (pre_delete_map[bb->index], indx)
+	    if (bitmap_bit_p (pre_delete_map[bb->index], indx)
 		&& (set = single_set (insn)) != 0
                 && dbg_cnt (pre_insn))
 	      {
@@ -2633,7 +2666,7 @@ one_pre_gcse_pass (void)
   gcse_create_count = 0;
 
   /* Return if there's nothing to do, or it is too expensive.  */
-  if (n_basic_blocks <= NUM_FIXED_BLOCKS + 1
+  if (n_basic_blocks_for_fn (cfun) <= NUM_FIXED_BLOCKS + 1
       || is_too_expensive (_("PRE disabled")))
     return 0;
 
@@ -2658,7 +2691,7 @@ one_pre_gcse_pass (void)
   if (expr_hash_table.n_elems > 0)
     {
       struct edge_list *edge_list;
-      alloc_pre_mem (last_basic_block, expr_hash_table.n_elems);
+      alloc_pre_mem (last_basic_block_for_fn (cfun), expr_hash_table.n_elems);
       edge_list = compute_pre_data ();
       changed |= pre_gcse (edge_list);
       free_edge_list (edge_list);
@@ -2679,7 +2712,8 @@ one_pre_gcse_pass (void)
   if (dump_file)
     {
       fprintf (dump_file, "PRE GCSE of %s, %d basic blocks, %d bytes needed, ",
-	       current_function_name (), n_basic_blocks, bytes_used);
+	       current_function_name (), n_basic_blocks_for_fn (cfun),
+	       bytes_used);
       fprintf (dump_file, "%d substs, %d insns created\n",
 	       gcse_subst_count, gcse_create_count);
     }
@@ -2786,8 +2820,8 @@ compute_code_hoist_vbeinout (void)
   int changed, passes;
   basic_block bb;
 
-  sbitmap_vector_zero (hoist_vbeout, last_basic_block);
-  sbitmap_vector_zero (hoist_vbein, last_basic_block);
+  bitmap_vector_clear (hoist_vbeout, last_basic_block_for_fn (cfun));
+  bitmap_vector_clear (hoist_vbein, last_basic_block_for_fn (cfun));
 
   passes = 0;
   changed = 1;
@@ -2798,20 +2832,20 @@ compute_code_hoist_vbeinout (void)
 
       /* We scan the blocks in the reverse order to speed up
 	 the convergence.  */
-      FOR_EACH_BB_REVERSE (bb)
+      FOR_EACH_BB_REVERSE_FN (bb, cfun)
 	{
-	  if (bb->next_bb != EXIT_BLOCK_PTR)
+	  if (bb->next_bb != EXIT_BLOCK_PTR_FOR_FN (cfun))
 	    {
-	      sbitmap_intersection_of_succs (hoist_vbeout[bb->index],
-					     hoist_vbein, bb);
+	      bitmap_intersection_of_succs (hoist_vbeout[bb->index],
+					    hoist_vbein, bb);
 
 	      /* Include expressions in VBEout that are calculated
 		 in BB and available at its end.  */
-	      sbitmap_a_or_b (hoist_vbeout[bb->index],
+	      bitmap_ior (hoist_vbeout[bb->index],
 			      hoist_vbeout[bb->index], comp[bb->index]);
 	    }
 
-	  changed |= sbitmap_a_or_b_and_c_cg (hoist_vbein[bb->index],
+	  changed |= bitmap_or_and (hoist_vbein[bb->index],
 					      antloc[bb->index],
 					      hoist_vbeout[bb->index],
 					      transp[bb->index]);
@@ -2824,12 +2858,12 @@ compute_code_hoist_vbeinout (void)
     {
       fprintf (dump_file, "hoisting vbeinout computation: %d passes\n", passes);
 
-      FOR_EACH_BB (bb)
+      FOR_EACH_BB_FN (bb, cfun)
         {
 	  fprintf (dump_file, "vbein (%d): ", bb->index);
-	  dump_sbitmap_file (dump_file, hoist_vbein[bb->index]);
+	  dump_bitmap_file (dump_file, hoist_vbein[bb->index]);
 	  fprintf (dump_file, "vbeout(%d): ", bb->index);
-	  dump_sbitmap_file (dump_file, hoist_vbeout[bb->index]);
+	  dump_bitmap_file (dump_file, hoist_vbeout[bb->index]);
 	}
     }
 }
@@ -2845,6 +2879,71 @@ compute_code_hoist_data (void)
   calculate_dominance_info (CDI_DOMINATORS);
   if (dump_file)
     fprintf (dump_file, "\n");
+}
+
+/* Update register pressure for BB when hoisting an expression from
+   instruction FROM, if live ranges of inputs are shrunk.  Also
+   maintain live_in information if live range of register referred
+   in FROM is shrunk.
+   
+   Return 0 if register pressure doesn't change, otherwise return
+   the number by which register pressure is decreased.
+   
+   NOTE: Register pressure won't be increased in this function.  */
+
+static int
+update_bb_reg_pressure (basic_block bb, rtx from)
+{
+  rtx dreg, insn;
+  basic_block succ_bb;
+  df_ref *op, op_ref;
+  edge succ;
+  edge_iterator ei;
+  int decreased_pressure = 0;
+  int nregs;
+  enum reg_class pressure_class;
+  
+  for (op = DF_INSN_USES (from); *op; op++)
+    {
+      dreg = DF_REF_REAL_REG (*op);
+      /* The live range of register is shrunk only if it isn't:
+	 1. referred on any path from the end of this block to EXIT, or
+	 2. referred by insns other than FROM in this block.  */
+      FOR_EACH_EDGE (succ, ei, bb->succs)
+	{
+	  succ_bb = succ->dest;
+	  if (succ_bb == EXIT_BLOCK_PTR_FOR_FN (cfun))
+	    continue;
+
+	  if (bitmap_bit_p (BB_DATA (succ_bb)->live_in, REGNO (dreg)))
+	    break;
+	}
+      if (succ != NULL)
+	continue;
+
+      op_ref = DF_REG_USE_CHAIN (REGNO (dreg));
+      for (; op_ref; op_ref = DF_REF_NEXT_REG (op_ref))
+	{
+	  if (!DF_REF_INSN_INFO (op_ref))
+	    continue;
+
+	  insn = DF_REF_INSN (op_ref);
+	  if (BLOCK_FOR_INSN (insn) == bb
+	      && NONDEBUG_INSN_P (insn) && insn != from)
+	    break;
+	}
+
+      pressure_class = get_regno_pressure_class (REGNO (dreg), &nregs);
+      /* Decrease register pressure and update live_in information for
+	 this block.  */
+      if (!op_ref && pressure_class != NO_REGS)
+	{
+	  decreased_pressure += nregs;
+	  BB_DATA (bb)->max_reg_pressure[pressure_class] -= nregs;
+	  bitmap_clear_bit (BB_DATA (bb)->live_in, REGNO (dreg));
+	}
+    }
+  return decreased_pressure;
 }
 
 /* Determine if the expression EXPR should be hoisted to EXPR_BB up in
@@ -2863,6 +2962,8 @@ compute_code_hoist_data (void)
    HOISTED_BBS points to a bitmap indicating basic blocks through which
    EXPR is hoisted.
 
+   FROM is the instruction from which EXPR is hoisted.
+
    It's unclear exactly what Muchnick meant by "unimpared".  It seems
    to me that the expression must either be computed or transparent in
    *every* block in the path(s) from EXPR_BB to BB.  Any other definition
@@ -2877,28 +2978,54 @@ static int
 should_hoist_expr_to_dom (basic_block expr_bb, struct expr *expr,
 			  basic_block bb, sbitmap visited, int distance,
 			  int *bb_size, enum reg_class pressure_class,
-			  int *nregs, bitmap hoisted_bbs)
+			  int *nregs, bitmap hoisted_bbs, rtx from)
 {
   unsigned int i;
   edge pred;
   edge_iterator ei;
   sbitmap_iterator sbi;
   int visited_allocated_locally = 0;
+  int decreased_pressure = 0;
 
+  if (flag_ira_hoist_pressure)
+    {
+      /* Record old information of basic block BB when it is visited
+	 at the first time.  */
+      if (!bitmap_bit_p (hoisted_bbs, bb->index))
+	{
+	  struct bb_data *data = BB_DATA (bb);
+	  bitmap_copy (data->backup, data->live_in);
+	  data->old_pressure = data->max_reg_pressure[pressure_class];
+	}
+      decreased_pressure = update_bb_reg_pressure (bb, from);
+    }
   /* Terminate the search if distance, for which EXPR is allowed to move,
      is exhausted.  */
   if (distance > 0)
     {
-      /* Let EXPR be hoisted through basic block at no cost if the block
-	 has low register pressure.  An exception is constant expression,
-	 because hoisting constant expr aggressively results in worse code.
-	 The exception is made by the observation of CSiBE on ARM target,
-	 while it has no obvious effect on other targets like x86, x86_64,
-	 mips and powerpc.  */
-      if (!flag_ira_hoist_pressure
-	  || (BB_DATA (bb)->max_reg_pressure[pressure_class]
-		>= ira_class_hard_regs_num[pressure_class]
-	      || CONST_INT_P (expr->expr)))
+      if (flag_ira_hoist_pressure)
+	{
+	  /* Prefer to hoist EXPR if register pressure is decreased.  */
+	  if (decreased_pressure > *nregs)
+	    distance += bb_size[bb->index];
+	  /* Let EXPR be hoisted through basic block at no cost if one
+	     of following conditions is satisfied:
+
+	     1. The basic block has low register pressure.
+	     2. Register pressure won't be increases after hoisting EXPR.
+
+	     Constant expressions is handled conservatively, because
+	     hoisting constant expression aggressively results in worse
+	     code.  This decision is made by the observation of CSiBE
+	     on ARM target, while it has no obvious effect on other
+	     targets like x86, x86_64, mips and powerpc.  */
+	  else if (CONST_INT_P (expr->expr)
+		   || (BB_DATA (bb)->max_reg_pressure[pressure_class]
+			 >= ira_class_hard_regs_num[pressure_class]
+		       && decreased_pressure < *nregs))
+	    distance -= bb_size[bb->index];
+	}
+      else
 	distance -= bb_size[bb->index];
 
       if (distance <= 0)
@@ -2910,46 +3037,43 @@ should_hoist_expr_to_dom (basic_block expr_bb, struct expr *expr,
   if (visited == NULL)
     {
       visited_allocated_locally = 1;
-      visited = sbitmap_alloc (last_basic_block);
-      sbitmap_zero (visited);
+      visited = sbitmap_alloc (last_basic_block_for_fn (cfun));
+      bitmap_clear (visited);
     }
 
   FOR_EACH_EDGE (pred, ei, bb->preds)
     {
       basic_block pred_bb = pred->src;
 
-      if (pred->src == ENTRY_BLOCK_PTR)
+      if (pred->src == ENTRY_BLOCK_PTR_FOR_FN (cfun))
 	break;
       else if (pred_bb == expr_bb)
 	continue;
-      else if (TEST_BIT (visited, pred_bb->index))
+      else if (bitmap_bit_p (visited, pred_bb->index))
 	continue;
-      else if (! TEST_BIT (transp[pred_bb->index], expr->bitmap_index))
+      else if (! bitmap_bit_p (transp[pred_bb->index], expr->bitmap_index))
 	break;
       /* Not killed.  */
       else
 	{
-	  SET_BIT (visited, pred_bb->index);
+	  bitmap_set_bit (visited, pred_bb->index);
 	  if (! should_hoist_expr_to_dom (expr_bb, expr, pred_bb,
 					  visited, distance, bb_size,
-					  pressure_class, nregs, hoisted_bbs))
+					  pressure_class, nregs,
+					  hoisted_bbs, from))
 	    break;
 	}
     }
   if (visited_allocated_locally)
     {
       /* If EXPR can be hoisted to expr_bb, record basic blocks through
-	 which EXPR is hoisted in hoisted_bbs.  Also update register
-	 pressure for basic blocks newly added in hoisted_bbs.  */
+	 which EXPR is hoisted in hoisted_bbs.  */
       if (flag_ira_hoist_pressure && !pred)
 	{
-	  EXECUTE_IF_SET_IN_SBITMAP (visited, 0, i, sbi)
-	    if (!bitmap_bit_p (hoisted_bbs, i))
-	      {
-		bitmap_set_bit (hoisted_bbs, i);
-		BB_DATA (BASIC_BLOCK (i))->max_reg_pressure[pressure_class]
-		    += *nregs;
-	      }
+	  /* Record the basic block from which EXPR is hoisted.  */
+	  bitmap_set_bit (visited, bb->index);
+	  EXECUTE_IF_SET_IN_BITMAP (visited, 0, i, sbi)
+	    bitmap_set_bit (hoisted_bbs, i);
 	}
       sbitmap_free (visited);
     }
@@ -2990,31 +3114,36 @@ find_occr_in_bb (struct occr *occr, basic_block bb)
    from rtx cost of the corresponding expression and it's used to control
    how long the expression can be hoisted up in flow graph.  As the
    expression is hoisted up in flow graph, GCC decreases its DISTANCE
-   and stops the hoist if DISTANCE reaches 0.
+   and stops the hoist if DISTANCE reaches 0.  Code hoisting can decrease
+   register pressure if live ranges of inputs are shrunk.
 
    Option "-fira-hoist-pressure" implements register pressure directed
    hoist based on upper method.  The rationale is:
      1. Calculate register pressure for each basic block by reusing IRA
 	facility.
      2. When expression is hoisted through one basic block, GCC checks
-	register pressure of the basic block and decrease DISTANCE only
-	when the register pressure is high.  In other words, expression
-	will be hoisted through basic block with low register pressure
-	at no cost.
-     3. Update register pressure information for basic blocks through
- 	which expression is hoisted.
-	TODO: It is possible to have register pressure decreased because
-	of shrinked live ranges of input pseudo registers when hoisting
-	an expression.  For now, this effect is not simulated and we just
-	increase register pressure for hoisted expressions.  */
+	the change of live ranges for inputs/output.  The basic block's
+	register pressure will be increased because of extended live
+	range of output.  However, register pressure will be decreased
+	if the live ranges of inputs are shrunk.
+     3. After knowing how hoisting affects register pressure, GCC prefers
+	to hoist the expression if it can decrease register pressure, by
+	increasing DISTANCE of the corresponding expression.
+     4. If hoisting the expression increases register pressure, GCC checks
+	register pressure of the basic block and decrease DISTANCE only if
+	the register pressure is high.  In other words, expression will be
+	hoisted through at no cost if the basic block has low register
+	pressure.
+     5. Update register pressure information for basic blocks through
+	which expression is hoisted.  */
 
 static int
 hoist_code (void)
 {
   basic_block bb, dominated;
-  VEC (basic_block, heap) *dom_tree_walk;
+  vec<basic_block> dom_tree_walk;
   unsigned int dom_tree_walk_index;
-  VEC (basic_block, heap) *domby;
+  vec<basic_block> domby;
   unsigned int i, j, k;
   struct expr **index_map;
   struct expr *expr;
@@ -3041,9 +3170,9 @@ hoist_code (void)
      data to restrict distance an expression can travel.  */
 
   to_bb_head = XCNEWVEC (int, get_max_uid ());
-  bb_size = XCNEWVEC (int, last_basic_block);
+  bb_size = XCNEWVEC (int, last_basic_block_for_fn (cfun));
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       rtx insn;
       int to_head;
@@ -3060,31 +3189,31 @@ hoist_code (void)
       bb_size[bb->index] = to_head;
     }
 
-  gcc_assert (EDGE_COUNT (ENTRY_BLOCK_PTR->succs) == 1
-	      && (EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->dest
-		  == ENTRY_BLOCK_PTR->next_bb));
+  gcc_assert (EDGE_COUNT (ENTRY_BLOCK_PTR_FOR_FN (cfun)->succs) == 1
+	      && (EDGE_SUCC (ENTRY_BLOCK_PTR_FOR_FN (cfun), 0)->dest
+		  == ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb));
 
   from_bbs = BITMAP_ALLOC (NULL);
   if (flag_ira_hoist_pressure)
     hoisted_bbs = BITMAP_ALLOC (NULL);
 
   dom_tree_walk = get_all_dominated_blocks (CDI_DOMINATORS,
-					    ENTRY_BLOCK_PTR->next_bb);
+					    ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb);
 
   /* Walk over each basic block looking for potentially hoistable
      expressions, nothing gets hoisted from the entry block.  */
-  FOR_EACH_VEC_ELT (basic_block, dom_tree_walk, dom_tree_walk_index, bb)
+  FOR_EACH_VEC_ELT (dom_tree_walk, dom_tree_walk_index, bb)
     {
       domby = get_dominated_to_depth (CDI_DOMINATORS, bb, MAX_HOIST_DEPTH);
 
-      if (VEC_length (basic_block, domby) == 0)
+      if (domby.length () == 0)
 	continue;
 
       /* Examine each expression that is very busy at the exit of this
 	 block.  These are the potentially hoistable expressions.  */
       for (i = 0; i < SBITMAP_SIZE (hoist_vbeout[bb->index]); i++)
 	{
-	  if (TEST_BIT (hoist_vbeout[bb->index], i))
+	  if (bitmap_bit_p (hoist_vbeout[bb->index], i))
 	    {
 	      int nregs = 0;
 	      enum reg_class pressure_class = NO_REGS;
@@ -3093,7 +3222,7 @@ hoist_code (void)
 	      /* Number of occurrences of EXPR that can be hoisted to BB.  */
 	      int hoistable = 0;
 	      /* Occurrences reachable from BB.  */
-	      VEC (occr_t, heap) *occrs_to_hoist = NULL;
+	      vec<occr_t> occrs_to_hoist = vNULL;
 	      /* We want to insert the expression into BB only once, so
 		 note when we've inserted it.  */
 	      int insn_inserted_p;
@@ -3101,7 +3230,7 @@ hoist_code (void)
 
 	      /* If an expression is computed in BB and is available at end of
 		 BB, hoist all occurrences dominated by BB to BB.  */
-	      if (TEST_BIT (comp[bb->index], i))
+	      if (bitmap_bit_p (comp[bb->index], i))
 		{
 		  occr = find_occr_in_bb (expr->antic_occr, bb);
 
@@ -3122,7 +3251,7 @@ hoist_code (void)
 	      /* We've found a potentially hoistable expression, now
 		 we look at every block BB dominates to see if it
 		 computes the expression.  */
-	      FOR_EACH_VEC_ELT (basic_block, domby, j, dominated)
+	      FOR_EACH_VEC_ELT (domby, j, dominated)
 		{
 		  int max_distance;
 
@@ -3132,7 +3261,7 @@ hoist_code (void)
 		  /* We've found a dominated block, now see if it computes
 		     the busy expression and whether or not moving that
 		     expression to the "beginning" of that block is safe.  */
-		  if (!TEST_BIT (antloc[dominated->index], i))
+		  if (!bitmap_bit_p (antloc[dominated->index], i))
 		    continue;
 
 		  occr = find_occr_in_bb (expr->antic_occr, dominated);
@@ -3163,11 +3292,10 @@ hoist_code (void)
 		  if (should_hoist_expr_to_dom (bb, expr, dominated, NULL,
 						max_distance, bb_size,
 						pressure_class,	&nregs,
-						hoisted_bbs))
+						hoisted_bbs, occr->insn))
 		    {
 		      hoistable++;
-		      VEC_safe_push (occr_t, heap,
-				     occrs_to_hoist, occr);
+		      occrs_to_hoist.safe_push (occr);
 		      bitmap_set_bit (from_bbs, dominated->index);
 		    }
 		}
@@ -3184,11 +3312,10 @@ hoist_code (void)
 		 to nullify any benefit we get from code hoisting.  */
 	      if (hoistable > 1 && dbg_cnt (hoist_insn))
 		{
-		  /* If (hoistable != VEC_length), then there is
+		  /* If (hoistable != vec::length), then there is
 		     an occurrence of EXPR in BB itself.  Don't waste
 		     time looking for LCA in this case.  */
-		  if ((unsigned) hoistable
-		      == VEC_length (occr_t, occrs_to_hoist))
+		  if ((unsigned) hoistable == occrs_to_hoist.length ())
 		    {
 		      basic_block lca;
 
@@ -3197,29 +3324,38 @@ hoist_code (void)
 		      if (lca != bb)
 			/* Punt, it's better to hoist these occurrences to
 			   LCA.  */
-			VEC_free (occr_t, heap, occrs_to_hoist);
+			occrs_to_hoist.release ();
 		    }
 		}
 	      else
-		/* Punt, no point hoisting a single occurence.  */
-		VEC_free (occr_t, heap, occrs_to_hoist);
+		/* Punt, no point hoisting a single occurrence.  */
+		occrs_to_hoist.release ();
 
 	      if (flag_ira_hoist_pressure
-		  && !VEC_empty (occr_t, occrs_to_hoist))
+		  && !occrs_to_hoist.is_empty ())
 		{
-		  /* Update register pressure for basic block to which expr
-		     is hoisted.  */
+		  /* Increase register pressure of basic blocks to which
+		     expr is hoisted because of extended live range of
+		     output.  */
 		  data = BB_DATA (bb);
 		  data->max_reg_pressure[pressure_class] += nregs;
+		  EXECUTE_IF_SET_IN_BITMAP (hoisted_bbs, 0, k, bi)
+		    {
+		      data = BB_DATA (BASIC_BLOCK_FOR_FN (cfun, k));
+		      data->max_reg_pressure[pressure_class] += nregs;
+		    }
 		}
 	      else if (flag_ira_hoist_pressure)
 		{
-		  /* Restore register pressure of basic block recorded in
-		     hoisted_bbs when expr will not be hoisted.  */
+		  /* Restore register pressure and live_in info for basic
+		     blocks recorded in hoisted_bbs when expr will not be
+		     hoisted.  */
 		  EXECUTE_IF_SET_IN_BITMAP (hoisted_bbs, 0, k, bi)
 		    {
-		      data = BB_DATA (BASIC_BLOCK (k));
-		      data->max_reg_pressure[pressure_class] -= nregs;
+		      data = BB_DATA (BASIC_BLOCK_FOR_FN (cfun, k));
+		      bitmap_copy (data->live_in, data->backup);
+		      data->max_reg_pressure[pressure_class]
+			  = data->old_pressure;
 		    }
 		}
 
@@ -3230,7 +3366,7 @@ hoist_code (void)
 
 	      /* Walk through occurrences of I'th expressions we want
 		 to hoist to BB and make the transformations.  */
-	      FOR_EACH_VEC_ELT (occr_t, occrs_to_hoist, j, occr)
+	      FOR_EACH_VEC_ELT (occrs_to_hoist, j, occr)
 		{
 		  rtx insn;
 		  rtx set;
@@ -3266,14 +3402,14 @@ hoist_code (void)
 		    }
 		}
 
-	      VEC_free (occr_t, heap, occrs_to_hoist);
+	      occrs_to_hoist.release ();
 	      bitmap_clear (from_bbs);
 	    }
 	}
-      VEC_free (basic_block, heap, domby);
+      domby.release ();
     }
 
-  VEC_free (basic_block, heap, dom_tree_walk);
+  dom_tree_walk.release ();
   BITMAP_FREE (from_bbs);
   if (flag_ira_hoist_pressure)
     BITMAP_FREE (hoisted_bbs);
@@ -3377,12 +3513,15 @@ calculate_bb_reg_pressure (void)
   bitmap_iterator bi;
 
 
-  ira_setup_eliminable_regset (false);
+  ira_setup_eliminable_regset ();
   curr_regs_live = BITMAP_ALLOC (&reg_obstack);
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       curr_bb = bb;
-      bitmap_copy (curr_regs_live, DF_LR_OUT (bb));
+      BB_DATA (bb)->live_in = BITMAP_ALLOC (NULL);
+      BB_DATA (bb)->backup = BITMAP_ALLOC (NULL);
+      bitmap_copy (BB_DATA (bb)->live_in, df_get_live_in (bb));
+      bitmap_copy (curr_regs_live, df_get_live_out (bb));
       for (i = 0; i < ira_pressure_classes_num; i++)
 	curr_reg_pressure[ira_pressure_classes[i]] = 0;
       EXECUTE_IF_SET_IN_BITMAP (curr_regs_live, 0, j, bi)
@@ -3426,7 +3565,7 @@ calculate_bb_reg_pressure (void)
     return;
 
   fprintf (dump_file, "\nRegister Pressure: \n");
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       fprintf (dump_file, "  Basic block %d: \n", bb->index);
       for (i = 0; (int) i < ira_pressure_classes_num; i++)
@@ -3457,7 +3596,7 @@ one_code_hoisting_pass (void)
   gcse_create_count = 0;
 
   /* Return if there's nothing to do, or it is too expensive.  */
-  if (n_basic_blocks <= NUM_FIXED_BLOCKS + 1
+  if (n_basic_blocks_for_fn (cfun) <= NUM_FIXED_BLOCKS + 1
       || is_too_expensive (_("GCSE disabled")))
     return 0;
 
@@ -3487,7 +3626,8 @@ one_code_hoisting_pass (void)
 
   if (expr_hash_table.n_elems > 0)
     {
-      alloc_code_hoist_mem (last_basic_block, expr_hash_table.n_elems);
+      alloc_code_hoist_mem (last_basic_block_for_fn (cfun),
+			    expr_hash_table.n_elems);
       compute_code_hoist_data ();
       changed = hoist_code ();
       free_code_hoist_mem ();
@@ -3508,7 +3648,8 @@ one_code_hoisting_pass (void)
   if (dump_file)
     {
       fprintf (dump_file, "HOIST of %s, %d basic blocks, %d bytes needed, ",
-	       current_function_name (), n_basic_blocks, bytes_used);
+	       current_function_name (), n_basic_blocks_for_fn (cfun),
+	       bytes_used);
       fprintf (dump_file, "%d substs, %d insns created\n",
 	       gcse_subst_count, gcse_create_count);
     }
@@ -3543,23 +3684,6 @@ one_code_hoisting_pass (void)
     load towards the exit, and we end up with no loads or stores of 'i'
     in the loop.  */
 
-static hashval_t
-pre_ldst_expr_hash (const void *p)
-{
-  int do_not_record_p = 0;
-  const struct ls_expr *const x = (const struct ls_expr *) p;
-  return
-    hash_rtx (x->pattern, GET_MODE (x->pattern), &do_not_record_p, NULL, false);
-}
-
-static int
-pre_ldst_expr_eq (const void *p1, const void *p2)
-{
-  const struct ls_expr *const ptr1 = (const struct ls_expr *) p1,
-    *const ptr2 = (const struct ls_expr *) p2;
-  return expr_equiv_p (ptr1->pattern, ptr2->pattern);
-}
-
 /* This will search the ldst list for a matching expression. If it
    doesn't find one, we create one and initialize it.  */
 
@@ -3569,16 +3693,16 @@ ldst_entry (rtx x)
   int do_not_record_p = 0;
   struct ls_expr * ptr;
   unsigned int hash;
-  void **slot;
+  ls_expr **slot;
   struct ls_expr e;
 
   hash = hash_rtx (x, GET_MODE (x), &do_not_record_p,
 		   NULL,  /*have_reg_qty=*/false);
 
   e.pattern = x;
-  slot = htab_find_slot_with_hash (pre_ldst_table, &e, hash, INSERT);
+  slot = pre_ldst_table.find_slot_with_hash (&e, hash, INSERT);
   if (*slot)
-    return (struct ls_expr *)*slot;
+    return *slot;
 
   ptr = XNEW (struct ls_expr);
 
@@ -3614,9 +3738,8 @@ free_ldst_entry (struct ls_expr * ptr)
 static void
 free_ld_motion_mems (void)
 {
-  if (pre_ldst_table)
-    htab_delete (pre_ldst_table);
-  pre_ldst_table = NULL;
+  if (pre_ldst_table.is_created ())
+    pre_ldst_table.dispose ();
 
   while (pre_ldst_mems)
     {
@@ -3671,14 +3794,14 @@ static struct ls_expr *
 find_rtx_in_ldst (rtx x)
 {
   struct ls_expr e;
-  void **slot;
-  if (!pre_ldst_table)
+  ls_expr **slot;
+  if (!pre_ldst_table.is_created ())
     return NULL;
   e.pattern = x;
-  slot = htab_find_slot (pre_ldst_table, &e, NO_INSERT);
-  if (!slot || ((struct ls_expr *)*slot)->invalid)
+  slot = pre_ldst_table.find_slot (&e, NO_INSERT);
+  if (!slot || (*slot)->invalid)
     return NULL;
-  return (struct ls_expr *) *slot;
+  return *slot;
 }
 
 /* Load Motion for loads which only kill themselves.  */
@@ -3766,10 +3889,9 @@ compute_ld_motion_mems (void)
   rtx insn;
 
   pre_ldst_mems = NULL;
-  pre_ldst_table
-    = htab_create (13, pre_ldst_expr_hash, pre_ldst_expr_eq, NULL);
+  pre_ldst_table.create (13);
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       FOR_BB_INSNS (bb, insn)
 	{
@@ -3779,6 +3901,8 @@ compute_ld_motion_mems (void)
 		{
 		  rtx src = SET_SRC (PATTERN (insn));
 		  rtx dest = SET_DEST (PATTERN (insn));
+		  rtx note = find_reg_equal_equiv_note (insn);
+		  rtx src_eq;
 
 		  /* Check for a simple LOAD...  */
 		  if (MEM_P (src) && simple_mem (src))
@@ -3794,6 +3918,15 @@ compute_ld_motion_mems (void)
 		      /* Make sure there isn't a buried load somewhere.  */
 		      invalidate_any_buried_refs (src);
 		    }
+
+		  if (note != 0 && REG_NOTE_KIND (note) == REG_EQUAL)
+		    src_eq = XEXP (note, 0);
+		  else
+		    src_eq = NULL_RTX;
+
+		  if (src_eq != NULL_RTX
+		      && !(MEM_P (src_eq) && simple_mem (src_eq)))
+		    invalidate_any_buried_refs (src_eq);
 
 		  /* Check for stores. Don't worry about aliased ones, they
 		     will block any movement we might do later. We only care
@@ -3858,7 +3991,7 @@ trim_ld_motion_mems (void)
       else
 	{
 	  *last = ptr->next;
-	  htab_remove_elt_with_hash (pre_ldst_table, ptr, ptr->hash_index);
+	  pre_ldst_table.remove_elt_with_hash (ptr, ptr->hash_index);
 	  free_ldst_entry (ptr);
 	  ptr = * last;
 	}
@@ -3941,24 +4074,25 @@ is_too_expensive (const char *pass)
      which have a couple switch statements.  Rather than simply
      threshold the number of blocks, uses something with a more
      graceful degradation.  */
-  if (n_edges > 20000 + n_basic_blocks * 4)
+  if (n_edges_for_fn (cfun) > 20000 + n_basic_blocks_for_fn (cfun) * 4)
     {
       warning (OPT_Wdisabled_optimization,
 	       "%s: %d basic blocks and %d edges/basic block",
-	       pass, n_basic_blocks, n_edges / n_basic_blocks);
+	       pass, n_basic_blocks_for_fn (cfun),
+	       n_edges_for_fn (cfun) / n_basic_blocks_for_fn (cfun));
 
       return true;
     }
 
   /* If allocating memory for the dataflow bitmaps would take up too much
      storage it's better just to disable the optimization.  */
-  if ((n_basic_blocks
+  if ((n_basic_blocks_for_fn (cfun)
        * SBITMAP_SET_SIZE (max_reg_num ())
        * sizeof (SBITMAP_ELT_TYPE)) > MAX_GCSE_MEMORY)
     {
       warning (OPT_Wdisabled_optimization,
 	       "%s: %d basic blocks and %d registers",
-	       pass, n_basic_blocks, max_reg_num ());
+	       pass, n_basic_blocks_for_fn (cfun), max_reg_num ());
 
       return true;
     }
@@ -4022,44 +4156,82 @@ execute_rtl_hoist (void)
   return 0;
 }
 
-struct rtl_opt_pass pass_rtl_pre =
+namespace {
+
+const pass_data pass_data_rtl_pre =
 {
- {
-  RTL_PASS,
-  "rtl pre",                            /* name */
-  gate_rtl_pre,                         /* gate */
-  execute_rtl_pre,    			/* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_PRE,                               /* tv_id */
-  PROP_cfglayout,                       /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_verify_flow | TODO_ggc_collect   /* todo_flags_finish */
- }
+  RTL_PASS, /* type */
+  "rtl pre", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_PRE, /* tv_id */
+  PROP_cfglayout, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  ( TODO_df_finish | TODO_verify_rtl_sharing
+    | TODO_verify_flow ), /* todo_flags_finish */
 };
 
-struct rtl_opt_pass pass_rtl_hoist =
+class pass_rtl_pre : public rtl_opt_pass
 {
- {
-  RTL_PASS,
-  "hoist",                              /* name */
-  gate_rtl_hoist,                       /* gate */
-  execute_rtl_hoist,  			/* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_HOIST,                             /* tv_id */
-  PROP_cfglayout,                       /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_verify_flow | TODO_ggc_collect   /* todo_flags_finish */
- }
+public:
+  pass_rtl_pre (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_rtl_pre, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_rtl_pre (); }
+  unsigned int execute () { return execute_rtl_pre (); }
+
+}; // class pass_rtl_pre
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_rtl_pre (gcc::context *ctxt)
+{
+  return new pass_rtl_pre (ctxt);
+}
+
+namespace {
+
+const pass_data pass_data_rtl_hoist =
+{
+  RTL_PASS, /* type */
+  "hoist", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_HOIST, /* tv_id */
+  PROP_cfglayout, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  ( TODO_df_finish | TODO_verify_rtl_sharing
+    | TODO_verify_flow ), /* todo_flags_finish */
 };
+
+class pass_rtl_hoist : public rtl_opt_pass
+{
+public:
+  pass_rtl_hoist (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_rtl_hoist, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_rtl_hoist (); }
+  unsigned int execute () { return execute_rtl_hoist (); }
+
+}; // class pass_rtl_hoist
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_rtl_hoist (gcc::context *ctxt)
+{
+  return new pass_rtl_hoist (ctxt);
+}
 
 #include "gt-gcse.h"

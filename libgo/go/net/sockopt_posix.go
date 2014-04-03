@@ -2,16 +2,13 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build darwin freebsd linux netbsd openbsd windows
-
-// Socket options
+// +build darwin dragonfly freebsd linux netbsd openbsd windows
 
 package net
 
 import (
 	"os"
 	"syscall"
-	"time"
 )
 
 // Boolean to int.
@@ -104,7 +101,7 @@ done:
 }
 
 func setReadBuffer(fd *netFD, bytes int) error {
-	if err := fd.incref(false); err != nil {
+	if err := fd.incref(); err != nil {
 		return err
 	}
 	defer fd.decref()
@@ -112,52 +109,19 @@ func setReadBuffer(fd *netFD, bytes int) error {
 }
 
 func setWriteBuffer(fd *netFD, bytes int) error {
-	if err := fd.incref(false); err != nil {
+	if err := fd.incref(); err != nil {
 		return err
 	}
 	defer fd.decref()
 	return os.NewSyscallError("setsockopt", syscall.SetsockoptInt(fd.sysfd, syscall.SOL_SOCKET, syscall.SO_SNDBUF, bytes))
 }
 
-func setReadDeadline(fd *netFD, t time.Time) error {
-	if t.IsZero() {
-		fd.rdeadline = 0
-	} else {
-		fd.rdeadline = t.UnixNano()
-	}
-	return nil
-}
-
-func setWriteDeadline(fd *netFD, t time.Time) error {
-	if t.IsZero() {
-		fd.wdeadline = 0
-	} else {
-		fd.wdeadline = t.UnixNano()
-	}
-	return nil
-}
-
-func setDeadline(fd *netFD, t time.Time) error {
-	if err := setReadDeadline(fd, t); err != nil {
-		return err
-	}
-	return setWriteDeadline(fd, t)
-}
-
 func setKeepAlive(fd *netFD, keepalive bool) error {
-	if err := fd.incref(false); err != nil {
+	if err := fd.incref(); err != nil {
 		return err
 	}
 	defer fd.decref()
 	return os.NewSyscallError("setsockopt", syscall.SetsockoptInt(fd.sysfd, syscall.SOL_SOCKET, syscall.SO_KEEPALIVE, boolint(keepalive)))
-}
-
-func setNoDelay(fd *netFD, noDelay bool) error {
-	if err := fd.incref(false); err != nil {
-		return err
-	}
-	defer fd.decref()
-	return os.NewSyscallError("setsockopt", syscall.SetsockoptInt(fd.sysfd, syscall.IPPROTO_TCP, syscall.TCP_NODELAY, boolint(noDelay)))
 }
 
 func setLinger(fd *netFD, sec int) error {
@@ -169,7 +133,7 @@ func setLinger(fd *netFD, sec int) error {
 		l.Onoff = 0
 		l.Linger = 0
 	}
-	if err := fd.incref(false); err != nil {
+	if err := fd.incref(); err != nil {
 		return err
 	}
 	defer fd.decref()

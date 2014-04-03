@@ -1,6 +1,5 @@
 ;; GCC machine description for SPARC synchronization instructions.
-;; Copyright (C) 2005, 2007, 2009, 2010, 2011
-;; Free Software Foundation, Inc.
+;; Copyright (C) 2005-2014 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -35,8 +34,7 @@
 
 (define_expand "membar"
   [(set (match_dup 1)
-	(unspec:BLK [(match_dup 1)
-		     (match_operand:SI 0 "const_int_operand")]
+	(unspec:BLK [(match_dup 1) (match_operand:SI 0 "const_int_operand")]
 		    UNSPEC_MEMBAR))]
   "TARGET_V8 || TARGET_V9"
 {
@@ -66,7 +64,7 @@
   "stbar"
   [(set_attr "type" "multi")])
 
-;; For V8, LDSTUB has the effect of membar #StoreLoad
+;; For V8, LDSTUB has the effect of membar #StoreLoad.
 (define_insn "*membar_storeload"
   [(set (match_operand:BLK 0 "" "")
 	(unspec:BLK [(match_dup 0) (const_int 2)] UNSPEC_MEMBAR))]
@@ -94,6 +92,18 @@
   "TARGET_V9"
   "membar\t%1"
   [(set_attr "type" "multi")])
+
+(define_peephole2
+  [(set (match_operand:BLK 0 "" "")
+	(unspec:BLK [(match_dup 0) (match_operand:SI 1 "const_int_operand")]
+		    UNSPEC_MEMBAR))
+   (set (match_operand:BLK 2 "" "")
+	(unspec:BLK [(match_dup 2) (match_operand:SI 3 "const_int_operand")]
+		    UNSPEC_MEMBAR))]
+  ""
+  [(set (match_operand:BLK 0 "" "")
+	(unspec:BLK [(match_dup 0) (match_dup 1)] UNSPEC_MEMBAR))]
+{ operands[1] = GEN_INT (UINTVAL (operands[1]) | UINTVAL (operands[3])); })
 
 (define_expand "atomic_load<mode>"
   [(match_operand:I 0 "register_operand" "")
@@ -123,8 +133,8 @@
   [(set_attr "type" "load,fpload")])
 
 (define_expand "atomic_store<mode>"
-  [(match_operand:I 0 "register_operand" "")
-   (match_operand:I 1 "memory_operand" "")
+  [(match_operand:I 0 "memory_operand" "")
+   (match_operand:I 1 "register_operand" "")
    (match_operand:SI 2 "const_int_operand" "")]
   ""
 {
@@ -163,7 +173,8 @@
    (match_operand:SI 5 "const_int_operand" "")		;; is_weak
    (match_operand:SI 6 "const_int_operand" "")		;; mod_s
    (match_operand:SI 7 "const_int_operand" "")]		;; mod_f
-  "TARGET_V9 && (<MODE>mode != DImode || TARGET_ARCH64 || TARGET_V8PLUS)"
+  "(TARGET_V9 || TARGET_LEON3)
+   && (<MODE>mode != DImode || TARGET_ARCH64 || TARGET_V8PLUS)"
 {
   sparc_expand_compare_and_swap (operands);
   DONE;
@@ -178,7 +189,7 @@
 	     [(match_operand:I48MODE 2 "register_operand" "")
 	      (match_operand:I48MODE 3 "register_operand" "")]
 	     UNSPECV_CAS))])]
-  "TARGET_V9"
+  "TARGET_V9 || TARGET_LEON3"
   "")
 
 (define_insn "*atomic_compare_and_swap<mode>_1"
@@ -189,7 +200,7 @@
 	  [(match_operand:I48MODE 2 "register_operand" "r")
 	   (match_operand:I48MODE 3 "register_operand" "0")]
 	  UNSPECV_CAS))]
-  "TARGET_V9 && (<MODE>mode == SImode || TARGET_ARCH64)"
+  "(TARGET_V9 || TARGET_LEON3) && (<MODE>mode != DImode || TARGET_ARCH64)"
   "cas<modesuffix>\t%1, %2, %0"
   [(set_attr "type" "multi")])
 
@@ -222,7 +233,7 @@
    (match_operand:SI 1 "memory_operand" "")
    (match_operand:SI 2 "register_operand" "")
    (match_operand:SI 3 "const_int_operand" "")]
-  "TARGET_V8 || TARGET_V9"
+  "(TARGET_V8 || TARGET_V9) && !sparc_fix_ut699"
 {
   enum memmodel model = (enum memmodel) INTVAL (operands[3]);
 
@@ -238,7 +249,7 @@
 			    UNSPECV_SWAP))
    (set (match_dup 1)
 	(match_operand:SI 2 "register_operand" "0"))]
-  "TARGET_V8 || TARGET_V9"
+  "(TARGET_V8 || TARGET_V9) && !sparc_fix_ut699"
   "swap\t%1, %0"
   [(set_attr "type" "multi")])
 
@@ -246,7 +257,7 @@
   [(match_operand:QI 0 "register_operand" "")
    (match_operand:QI 1 "memory_operand" "")
    (match_operand:SI 2 "const_int_operand" "")]
-  ""
+  "!sparc_fix_ut699"
 {
   enum memmodel model = (enum memmodel) INTVAL (operands[2]);
   rtx ret;
@@ -270,6 +281,6 @@
 	(unspec_volatile:QI [(match_operand:QI 1 "memory_operand" "+m")]
 			    UNSPECV_LDSTUB))
    (set (match_dup 1) (const_int -1))]
-  ""
+  "!sparc_fix_ut699"
   "ldstub\t%1, %0"
   [(set_attr "type" "multi")])

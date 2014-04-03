@@ -4,15 +4,9 @@
 
 <info><title>Configure</title>
   <keywordset>
-    <keyword>
-      ISO C++
-    </keyword>
-    <keyword>
-      configure
-    </keyword>
-    <keyword>
-      options
-    </keyword>
+    <keyword>ISO C++</keyword>
+    <keyword>configure</keyword>
+    <keyword>options</keyword>
   </keywordset>
 </info>
 
@@ -106,7 +100,7 @@
 	choices are 'ieee_1003.1-2001' to specify an X/Open, Standard Unix
 	(IEEE Std. 1003.1-2001) model based on langinfo/iconv/catgets,
 	'gnu' to specify a model based on functionality from the GNU C
-	library (langinfo/iconv/gettext) (from <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="http://sources.redhat.com/glibc/">glibc</link>, the GNU C
+	library (langinfo/iconv/gettext) (from <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.gnu.org/software/libc/">glibc</link>, the GNU C
 	library), 'generic' to use a generic "C" abstraction which consists
 	of "C" locale info, 'newlib' to specify the Newlib C library model
 	which only differs from the 'generic' model in the handling of
@@ -382,10 +376,22 @@
      to standard error for certain events such as calling a pure virtual
      function or the invocation of the standard terminate handler.  Those
      messages cause the library to depend on the demangler and standard I/O
-     facilites, which might be undesirable in a low-memory environment or
+     facilities, which might be undesirable in a low-memory environment or
      when standard error is not available.  This option disables those
      messages.  This option does not change the library ABI.
    </para>
+ </listitem></varlistentry>
+
+ <varlistentry><term><code>--enable-vtable-verify</code>[default]</term>
+ <listitem>
+    <para>Use <code>-fvtable-verify=std</code> to compile the C++
+    runtime with instrumentation for vtable verification. All virtual
+    functions in the standard library will be verified at runtime.
+    Types impacted include <classname>locale</classname> and
+    <classname>iostream</classname>, and others.  Disabling means that
+    the C++ runtime is compiled without support for vtable
+    verification. By default, this option is off.
+     </para>
  </listitem></varlistentry>
 
 </variablelist>

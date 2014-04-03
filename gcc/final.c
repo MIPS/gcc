@@ -1,8 +1,5 @@
 /* Convert RTL to assembler code and output it, for GNU compiler.
-   Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
-   2010, 2011
-   Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -51,6 +48,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 
 #include "tree.h"
+#include "varasm.h"
 #include "rtl.h"
 #include "tm_p.h"
 #include "regs.h"
@@ -73,15 +71,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "debug.h"
 #include "expr.h"
 #include "tree-pass.h"
-#include "tree-flow.h"
 #include "cgraph.h"
+#include "tree-ssa.h"
 #include "coverage.h"
 #include "df.h"
-#include "vecprim.h"
 #include "ggc.h"
 #include "cfgloop.h"
 #include "params.h"
 #include "tree-pretty-print.h" /* for dump_function_header */
+#include "asan.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
@@ -114,9 +112,8 @@ along with GCC; see the file COPYING3.  If not see
 #endif
 
 /* Bitflags used by final_scan_insn.  */
-#define SEEN_BB		1
-#define SEEN_NOTE	2
-#define SEEN_EMITTED	4
+#define SEEN_NOTE	1
+#define SEEN_EMITTED	2
 
 /* Last insn processed by final_scan_insn.  */
 static rtx debug_insn;
@@ -204,9 +201,10 @@ rtx current_insn_predicate;
 /* True if printing into -fdump-final-insns= dump.  */   
 bool final_insns_dump_p;
 
-#ifdef HAVE_ATTR_length
+/* True if profile_function should be called, but hasn't been called yet.  */
+static bool need_profile_function;
+
 static int asm_insn_count (rtx);
-#endif
 static void profile_function (FILE *);
 static void profile_after_prologue (FILE *);
 static bool notice_source_line (rtx, bool *);
@@ -224,9 +222,7 @@ static int alter_cond (rtx);
 #ifndef ADDR_VEC_ALIGN
 static int final_addr_vec_align (rtx);
 #endif
-#ifdef HAVE_ATTR_length
 static int align_fuzz (rtx, rtx, int, unsigned);
-#endif
 
 /* Initialize data in final at the beginning of a compilation.  */
 
@@ -313,7 +309,7 @@ dbr_sequence_length (void)
 
 static int *insn_lengths;
 
-VEC(int,heap) *insn_addresses_;
+vec<int> insn_addresses_;
 
 /* Max uid for which the above arrays are valid.  */
 static int insn_lengths_max_uid;
@@ -362,9 +358,8 @@ init_insn_lengths (void)
       insn_lengths = 0;
       insn_lengths_max_uid = 0;
     }
-#ifdef HAVE_ATTR_length
-  INSN_ADDRESSES_FREE ();
-#endif
+  if (HAVE_ATTR_length)
+    INSN_ADDRESSES_FREE ();
   if (uid_align)
     {
       free (uid_align);
@@ -376,13 +371,14 @@ init_insn_lengths (void)
    get its actual length.  Otherwise, use FALLBACK_FN to calculate the
    length.  */
 static inline int
-get_attr_length_1 (rtx insn ATTRIBUTE_UNUSED,
-		   int (*fallback_fn) (rtx) ATTRIBUTE_UNUSED)
+get_attr_length_1 (rtx insn, int (*fallback_fn) (rtx))
 {
-#ifdef HAVE_ATTR_length
   rtx body;
   int i;
   int length = 0;
+
+  if (!HAVE_ATTR_length)
+    return 0;
 
   if (insn_lengths_max_uid > INSN_UID (insn))
     return insn_lengths[INSN_UID (insn)];
@@ -396,18 +392,8 @@ get_attr_length_1 (rtx insn ATTRIBUTE_UNUSED,
 	return 0;
 
       case CALL_INSN:
-	length = fallback_fn (insn);
-	break;
-
       case JUMP_INSN:
-	body = PATTERN (insn);
-	if (GET_CODE (body) == ADDR_VEC || GET_CODE (body) == ADDR_DIFF_VEC)
-	  {
-	    /* Alignment is machine-dependent and should be handled by
-	       ADDR_VEC_ALIGN.  */
-	  }
-	else
-	  length = fallback_fn (insn);
+	length = fallback_fn (insn);
 	break;
 
       case INSN:
@@ -432,11 +418,6 @@ get_attr_length_1 (rtx insn ATTRIBUTE_UNUSED,
   ADJUST_INSN_LENGTH (insn, length);
 #endif
   return length;
-#else /* not HAVE_ATTR_length */
-  return 0;
-#define insn_default_length 0
-#define insn_min_length 0
-#endif /* not HAVE_ATTR_length */
 }
 
 /* Obtain the current length of an insn.  If branch shortening has been done,
@@ -583,7 +564,6 @@ label_to_max_skip (rtx label)
   return 0;
 }
 
-#ifdef HAVE_ATTR_length
 /* The differences in addresses
    between a branch and its target might grow or shrink depending on
    the alignment the start insn of the range (the branch for a forward
@@ -686,7 +666,6 @@ insn_current_reference_address (rtx branch)
 	      + align_fuzz (dest, seq, length_unit_log, ~0));
     }
 }
-#endif /* HAVE_ATTR_length */
 
 /* Compute branch alignments based on frequency information in the
    CFG.  */
@@ -720,14 +699,14 @@ compute_alignments (void)
       flow_loops_dump (dump_file, NULL, 1);
     }
   loop_optimizer_init (AVOID_CFG_MODIFICATIONS);
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     if (bb->frequency > freq_max)
       freq_max = bb->frequency;
   freq_threshold = freq_max / PARAM_VALUE (PARAM_ALIGN_THRESHOLD);
 
   if (dump_file)
-    fprintf(dump_file, "freq_max: %i\n",freq_max);
-  FOR_EACH_BB (bb)
+    fprintf (dump_file, "freq_max: %i\n",freq_max);
+  FOR_EACH_BB_FN (bb, cfun)
     {
       rtx label = BB_HEAD (bb);
       int fallthru_frequency = 0, branch_frequency = 0, has_fallthru = 0;
@@ -738,9 +717,10 @@ compute_alignments (void)
 	  || optimize_bb_for_size_p (bb))
 	{
 	  if (dump_file)
-	    fprintf(dump_file, "BB %4i freq %4i loop %2i loop_depth %2i skipped.\n",
-		    bb->index, bb->frequency, bb->loop_father->num,
-		    bb_loop_depth (bb));
+	    fprintf (dump_file,
+		     "BB %4i freq %4i loop %2i loop_depth %2i skipped.\n",
+		     bb->index, bb->frequency, bb->loop_father->num,
+		     bb_loop_depth (bb));
 	  continue;
 	}
       max_log = LABEL_ALIGN (label);
@@ -755,10 +735,11 @@ compute_alignments (void)
 	}
       if (dump_file)
 	{
-	  fprintf(dump_file, "BB %4i freq %4i loop %2i loop_depth %2i fall %4i branch %4i",
-		  bb->index, bb->frequency, bb->loop_father->num,
-		  bb_loop_depth (bb),
-		  fallthru_frequency, branch_frequency);
+	  fprintf (dump_file, "BB %4i freq %4i loop %2i loop_depth"
+		   " %2i fall %4i branch %4i",
+		   bb->index, bb->frequency, bb->loop_father->num,
+		   bb_loop_depth (bb),
+		   fallthru_frequency, branch_frequency);
 	  if (!bb->loop_father->inner && bb->loop_father->num)
 	    fprintf (dump_file, " inner_loop");
 	  if (bb->loop_father->header == bb)
@@ -780,11 +761,11 @@ compute_alignments (void)
 	  && (branch_frequency > freq_threshold
 	      || (bb->frequency > bb->prev_bb->frequency * 10
 		  && (bb->prev_bb->frequency
-		      <= ENTRY_BLOCK_PTR->frequency / 2))))
+		      <= ENTRY_BLOCK_PTR_FOR_FN (cfun)->frequency / 2))))
 	{
 	  log = JUMP_ALIGN (label);
 	  if (dump_file)
-	    fprintf(dump_file, "  jump alignment added.\n");
+	    fprintf (dump_file, "  jump alignment added.\n");
 	  if (max_log < log)
 	    {
 	      max_log = log;
@@ -801,7 +782,7 @@ compute_alignments (void)
 	{
 	  log = LOOP_ALIGN (label);
 	  if (dump_file)
-	    fprintf(dump_file, "  internal loop alignment added.\n");
+	    fprintf (dump_file, "  internal loop alignment added.\n");
 	  if (max_log < log)
 	    {
 	      max_log = log;
@@ -817,25 +798,89 @@ compute_alignments (void)
   return 0;
 }
 
-struct rtl_opt_pass pass_compute_alignments =
+/* Grow the LABEL_ALIGN array after new labels are created.  */
+
+static void 
+grow_label_align (void)
 {
- {
-  RTL_PASS,
-  "alignments",                         /* name */
-  NULL,                                 /* gate */
-  compute_alignments,                   /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_NONE,                              /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_verify_rtl_sharing
-  | TODO_ggc_collect                    /* todo_flags_finish */
- }
+  int old = max_labelno;
+  int n_labels;
+  int n_old_labels;
+
+  max_labelno = max_label_num ();
+
+  n_labels = max_labelno - min_labelno + 1;
+  n_old_labels = old - min_labelno + 1;
+
+  label_align = XRESIZEVEC (struct label_alignment, label_align, n_labels);
+
+  /* Range of labels grows monotonically in the function.  Failing here
+     means that the initialization of array got lost.  */
+  gcc_assert (n_old_labels <= n_labels);
+
+  memset (label_align + n_old_labels, 0,
+          (n_labels - n_old_labels) * sizeof (struct label_alignment));
+}
+
+/* Update the already computed alignment information.  LABEL_PAIRS is a vector
+   made up of pairs of labels for which the alignment information of the first
+   element will be copied from that of the second element.  */
+
+void
+update_alignments (vec<rtx> &label_pairs)
+{
+  unsigned int i = 0;
+  rtx iter, label = NULL_RTX;
+
+  if (max_labelno != max_label_num ())
+    grow_label_align ();
+
+  FOR_EACH_VEC_ELT (label_pairs, i, iter)
+    if (i & 1)
+      {
+	LABEL_TO_ALIGNMENT (label) = LABEL_TO_ALIGNMENT (iter);
+	LABEL_TO_MAX_SKIP (label) = LABEL_TO_MAX_SKIP (iter);
+      }
+    else
+      label = iter;
+}
+
+namespace {
+
+const pass_data pass_data_compute_alignments =
+{
+  RTL_PASS, /* type */
+  "alignments", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  false, /* has_gate */
+  true, /* has_execute */
+  TV_NONE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  TODO_verify_rtl_sharing, /* todo_flags_finish */
 };
+
+class pass_compute_alignments : public rtl_opt_pass
+{
+public:
+  pass_compute_alignments (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_compute_alignments, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  unsigned int execute () { return compute_alignments (); }
+
+}; // class pass_compute_alignments
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_compute_alignments (gcc::context *ctxt)
+{
+  return new pass_compute_alignments (ctxt);
+}
 
 
 /* Make a pass over all insns and compute their actual lengths by shortening
@@ -850,14 +895,13 @@ struct rtl_opt_pass pass_compute_alignments =
    slots.  */
 
 void
-shorten_branches (rtx first ATTRIBUTE_UNUSED)
+shorten_branches (rtx first)
 {
   rtx insn;
   int max_uid;
   int i;
   int max_log;
   int max_skip;
-#ifdef HAVE_ATTR_length
 #define MAX_CODE_ALIGN 16
   rtx seq;
   int something_changed = 1;
@@ -865,8 +909,6 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
   rtx body;
   int uid;
   rtx align_tab[MAX_CODE_ALIGN];
-
-#endif
 
   /* Compute maximum UID and allocate label_align / uid_shuid.  */
   max_uid = get_max_uid ();
@@ -877,25 +919,7 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
   uid_shuid = XNEWVEC (int, max_uid);
 
   if (max_labelno != max_label_num ())
-    {
-      int old = max_labelno;
-      int n_labels;
-      int n_old_labels;
-
-      max_labelno = max_label_num ();
-
-      n_labels = max_labelno - min_labelno + 1;
-      n_old_labels = old - min_labelno + 1;
-
-      label_align = XRESIZEVEC (struct label_alignment, label_align, n_labels);
-
-      /* Range of labels grows monotonically in the function.  Failing here
-         means that the initialization of array got lost.  */
-      gcc_assert (n_old_labels <= n_labels);
-
-      memset (label_align + n_old_labels, 0,
-	      (n_labels - n_old_labels) * sizeof (struct label_alignment));
-    }
+    grow_label_align ();
 
   /* Initialize label_align and set up uid_shuid to be strictly
      monotonically rising with insn order.  */
@@ -974,7 +998,8 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 	      }
 	}
     }
-#ifdef HAVE_ATTR_length
+  if (!HAVE_ATTR_length)
+    return;
 
   /* Allocate the rest of the arrays.  */
   insn_lengths = XNEWVEC (int, max_uid);
@@ -1033,7 +1058,7 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 	  int min_align;
 	  addr_diff_vec_flags flags;
 
-	  if (!JUMP_P (insn)
+	  if (! JUMP_TABLE_DATA_P (insn)
 	      || GET_CODE (PATTERN (insn)) != ADDR_DIFF_VEC)
 	    continue;
 	  pat = PATTERN (insn);
@@ -1101,13 +1126,13 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
       INSN_ADDRESSES (uid) = insn_current_address + insn_lengths[uid];
 
       if (NOTE_P (insn) || BARRIER_P (insn)
-	  || LABEL_P (insn) || DEBUG_INSN_P(insn))
+	  || LABEL_P (insn) || DEBUG_INSN_P (insn))
 	continue;
       if (INSN_DELETED_P (insn))
 	continue;
 
       body = PATTERN (insn);
-      if (GET_CODE (body) == ADDR_VEC || GET_CODE (body) == ADDR_DIFF_VEC)
+      if (JUMP_TABLE_DATA_P (insn))
 	{
 	  /* This only takes room if read-only data goes into the text
 	     section.  */
@@ -1198,6 +1223,29 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 	  if (LABEL_P (insn))
 	    {
 	      int log = LABEL_TO_ALIGNMENT (insn);
+
+#ifdef CASE_VECTOR_SHORTEN_MODE
+	      /* If the mode of a following jump table was changed, we
+		 may need to update the alignment of this label.  */
+	      rtx next;
+	      bool next_is_jumptable;
+
+	      next = next_nonnote_insn (insn);
+	      next_is_jumptable = next && JUMP_TABLE_DATA_P (next);
+	      if ((JUMP_TABLES_IN_TEXT_SECTION
+		   || readonly_data_section == text_section)
+		  && next_is_jumptable)
+		{
+		  int newlog = ADDR_VEC_ALIGN (next);
+		  if (newlog != log)
+		    {
+		      log = newlog;
+		      LABEL_TO_ALIGNMENT (insn) = log;
+		      something_changed = 1;
+		    }
+		}
+#endif
+
 	      if (log > insn_current_align)
 		{
 		  int align = 1 << log;
@@ -1220,7 +1268,8 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 	  INSN_ADDRESSES (uid) = insn_current_address;
 
 #ifdef CASE_VECTOR_SHORTEN_MODE
-	  if (optimize && JUMP_P (insn)
+	  if (optimize
+	      && JUMP_TABLE_DATA_P (insn)
 	      && GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC)
 	    {
 	      rtx body = PATTERN (insn);
@@ -1420,11 +1469,8 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
     }
 
   free (varying_length);
-
-#endif /* HAVE_ATTR_length */
 }
 
-#ifdef HAVE_ATTR_length
 /* Given the body of an INSN known to be generated by an ASM statement, return
    the number of machine instructions likely to be generated for this insn.
    This is used to compute its length.  */
@@ -1441,7 +1487,6 @@ asm_insn_count (rtx body)
 
   return asm_str_count (templ);
 }
-#endif
 
 /* Return the number of machine instructions likely to be generated for the
    inline-asm template. */
@@ -1475,7 +1520,7 @@ typedef struct debug_prefix_map
 } debug_prefix_map;
 
 /* Linked list of such structures.  */
-debug_prefix_map *debug_prefix_maps;
+static debug_prefix_map *debug_prefix_maps;
 
 
 /* Record a debug file prefix mapping.  ARG is the argument to
@@ -1608,11 +1653,25 @@ reemit_insn_block_notes (void)
   rtx insn, note;
 
   insn = get_insns ();
-  if (!active_insn_p (insn))
-    insn = next_active_insn (insn);
-  for (; insn; insn = next_active_insn (insn))
+  for (; insn; insn = NEXT_INSN (insn))
     {
       tree this_block;
+
+      /* Prevent lexical blocks from straddling section boundaries.  */
+      if (NOTE_P (insn) && NOTE_KIND (insn) == NOTE_INSN_SWITCH_TEXT_SECTIONS)
+        {
+          for (tree s = cur_block; s != DECL_INITIAL (cfun->decl);
+               s = BLOCK_SUPERCONTEXT (s))
+            {
+              rtx note = emit_note_before (NOTE_INSN_BLOCK_END, insn);
+              NOTE_BLOCK (note) = s;
+              note = emit_note_after (NOTE_INSN_BLOCK_BEG, insn);
+              NOTE_BLOCK (note) = s;
+            }
+        }
+
+      if (!active_insn_p (insn))
+        continue;
 
       /* Avoid putting scope notes between jump table and its label.  */
       if (JUMP_TABLE_DATA_P (insn))
@@ -1632,7 +1691,12 @@ reemit_insn_block_notes (void)
 					     insn_scope (XVECEXP (body, 0, i)));
 	}
       if (! this_block)
-	this_block = DECL_INITIAL (cfun->decl);
+	{
+	  if (INSN_LOCATION (insn) == UNKNOWN_LOCATION)
+	    continue;
+	  else
+	    this_block = DECL_INITIAL (cfun->decl);
+	}
 
       if (this_block != cur_block)
 	{
@@ -1660,18 +1724,23 @@ reemit_insn_block_notes (void)
      test and compare insns.  */
 
 void
-final_start_function (rtx first ATTRIBUTE_UNUSED, FILE *file,
+final_start_function (rtx first, FILE *file,
 		      int optimize_p ATTRIBUTE_UNUSED)
 {
   block_depth = 0;
 
   this_is_asm_operands = 0;
 
+  need_profile_function = false;
+
   last_filename = LOCATION_FILE (prologue_location);
   last_linenum = LOCATION_LINE (prologue_location);
   last_discriminator = discriminator = 0;
 
   high_block_linenum = high_function_linenum = last_linenum;
+
+  if (flag_sanitize & SANITIZE_ADDRESS)
+    asan_function_start ();
 
   if (!DECL_IGNORED_P (current_function_decl))
     debug_hooks->begin_prologue (last_linenum, last_filename);
@@ -1687,7 +1756,41 @@ final_start_function (rtx first ATTRIBUTE_UNUSED, FILE *file,
   /* The Sun386i and perhaps other machines don't work right
      if the profiling code comes after the prologue.  */
   if (targetm.profile_before_prologue () && crtl->profile)
-    profile_function (file);
+    {
+      if (targetm.asm_out.function_prologue
+	  == default_function_pro_epilogue
+#ifdef HAVE_prologue
+	  && HAVE_prologue
+#endif
+	 )
+	{
+	  rtx insn;
+	  for (insn = first; insn; insn = NEXT_INSN (insn))
+	    if (!NOTE_P (insn))
+	      {
+		insn = NULL_RTX;
+		break;
+	      }
+	    else if (NOTE_KIND (insn) == NOTE_INSN_BASIC_BLOCK
+		     || NOTE_KIND (insn) == NOTE_INSN_FUNCTION_BEG)
+	      break;
+	    else if (NOTE_KIND (insn) == NOTE_INSN_DELETED
+		     || NOTE_KIND (insn) == NOTE_INSN_VAR_LOCATION)
+	      continue;
+	    else
+	      {
+		insn = NULL_RTX;
+		break;
+	      }
+
+	  if (insn)
+	    need_profile_function = true;
+	  else
+	    profile_function (file);
+	}
+      else
+	profile_function (file);
+    }
 
   /* If debugging, assign block numbers to all of the blocks in this
      function.  */
@@ -1892,7 +1995,7 @@ final (rtx first, FILE *file, int optimize_p)
 
       /* There is no cfg for a thunk.  */
       if (!cfun->is_thunk)
-	FOR_EACH_BB_REVERSE (bb)
+	FOR_EACH_BB_REVERSE_FN (bb, cfun)
 	  {
 	    start_to_bb[INSN_UID (BB_HEAD (bb))] = bb;
 	    end_to_bb[INSN_UID (BB_END (bb))] = bb;
@@ -1902,17 +2005,18 @@ final (rtx first, FILE *file, int optimize_p)
   /* Output the insns.  */
   for (insn = first; insn;)
     {
-#ifdef HAVE_ATTR_length
-      if ((unsigned) INSN_UID (insn) >= INSN_ADDRESSES_SIZE ())
+      if (HAVE_ATTR_length)
 	{
-	  /* This can be triggered by bugs elsewhere in the compiler if
-	     new insns are created after init_insn_lengths is called.  */
-	  gcc_assert (NOTE_P (insn));
-	  insn_current_address = -1;
+	  if ((unsigned) INSN_UID (insn) >= INSN_ADDRESSES_SIZE ())
+	    {
+	      /* This can be triggered by bugs elsewhere in the compiler if
+		 new insns are created after init_insn_lengths is called.  */
+	      gcc_assert (NOTE_P (insn));
+	      insn_current_address = -1;
+	    }
+	  else
+	    insn_current_address = INSN_ADDRESSES (INSN_UID (insn));
 	}
-      else
-	insn_current_address = INSN_ADDRESSES (INSN_UID (insn));
-#endif /* HAVE_ATTR_length */
 
       dump_basic_block_info (file, insn, start_to_bb, end_to_bb,
                              bb_map_size, &bb_seqn);
@@ -2023,9 +2127,7 @@ call_from_call_insn (rtx insn)
 
    SEEN is used to track the end of the prologue, for emitting
    debug information.  We force the emission of a line note after
-   both NOTE_INSN_PROLOGUE_END and NOTE_INSN_FUNCTION_BEG, or
-   at the beginning of the second basic block, whichever comes
-   first.  */
+   both NOTE_INSN_PROLOGUE_END and NOTE_INSN_FUNCTION_BEG.  */
 
 rtx
 final_scan_insn (rtx insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
@@ -2063,19 +2165,26 @@ final_scan_insn (rtx insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	  targetm.asm_out.function_switched_text_sections (asm_out_file,
 							   current_function_decl,
 							   in_cold_section_p);
+	  /* Emit a label for the split cold section.  Form label name by
+	     suffixing "cold" to the original function's name.  */
+	  if (in_cold_section_p)
+	    {
+	      tree cold_function_name
+		= clone_function_name (current_function_decl, "cold");
+	      ASM_OUTPUT_LABEL (asm_out_file,
+				IDENTIFIER_POINTER (cold_function_name));
+	    }
 	  break;
 
 	case NOTE_INSN_BASIC_BLOCK:
+	  if (need_profile_function)
+	    {
+	      profile_function (asm_out_file);
+	      need_profile_function = false;
+	    }
+
 	  if (targetm.asm_out.unwind_emit)
 	    targetm.asm_out.unwind_emit (asm_out_file, insn);
-
-	  if ((*seen & (SEEN_EMITTED | SEEN_BB)) == SEEN_BB)
-	    {
-	      *seen |= SEEN_EMITTED;
-	      force_source_line = true;
-	    }
-	  else
-	    *seen |= SEEN_BB;
 
           discriminator = NOTE_BASIC_BLOCK (insn)->discriminator;
 
@@ -2121,6 +2230,12 @@ final_scan_insn (rtx insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	  break;
 
 	case NOTE_INSN_FUNCTION_BEG:
+	  if (need_profile_function)
+	    {
+	      profile_function (asm_out_file);
+	      need_profile_function = false;
+	    }
+
 	  app_disable ();
 	  if (!DECL_IGNORED_P (current_function_decl))
 	    debug_hooks->end_prologue (last_linenum, last_filename);
@@ -2344,7 +2459,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	/* Detect insns that are really jump-tables
 	   and output them as such.  */
 
-	if (GET_CODE (body) == ADDR_VEC || GET_CODE (body) == ADDR_DIFF_VEC)
+        if (JUMP_TABLE_DATA_P (insn))
 	  {
 #if !(defined(ASM_OUTPUT_ADDR_VEC) || defined(ASM_OUTPUT_ADDR_DIFF_VEC))
 	    int vlen, idx;
@@ -2699,36 +2814,19 @@ final_scan_insn (rtx insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 		else_rtx = const0_rtx;
 	      }
 
-	    switch (GET_CODE (cond_rtx))
+	    if (COMPARISON_P (cond_rtx)
+		&& XEXP (cond_rtx, 0) == cc0_rtx)
 	      {
-	      case GTU:
-	      case GT:
-	      case LTU:
-	      case LT:
-	      case GEU:
-	      case GE:
-	      case LEU:
-	      case LE:
-	      case EQ:
-	      case NE:
-		{
-		  int result;
-		  if (XEXP (cond_rtx, 0) != cc0_rtx)
-		    break;
-		  result = alter_cond (cond_rtx);
-		  if (result == 1)
-		    validate_change (insn, &SET_SRC (set), then_rtx, 0);
-		  else if (result == -1)
-		    validate_change (insn, &SET_SRC (set), else_rtx, 0);
-		  else if (result == 2)
-		    INSN_CODE (insn) = -1;
-		  if (SET_DEST (set) == SET_SRC (set))
-		    delete_insn (insn);
-		}
-		break;
-
-	      default:
-		break;
+		int result;
+		result = alter_cond (cond_rtx);
+		if (result == 1)
+		  validate_change (insn, &SET_SRC (set), then_rtx, 0);
+		else if (result == -1)
+		  validate_change (insn, &SET_SRC (set), else_rtx, 0);
+		else if (result == 2)
+		  INSN_CODE (insn) = -1;
+		if (SET_DEST (set) == SET_SRC (set))
+		  delete_insn (insn);
 	      }
 	  }
 
@@ -2853,12 +2951,10 @@ final_scan_insn (rtx insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	    if (new_rtx == insn && PATTERN (new_rtx) == body)
 	      fatal_insn ("could not split insn", insn);
 
-#ifdef HAVE_ATTR_length
-	    /* This instruction should have been split in shorten_branches,
-	       to ensure that we would have valid length info for the
-	       splitees.  */
-	    gcc_unreachable ();
-#endif
+	    /* If we have a length attribute, this instruction should have
+	       been split in shorten_branches, to ensure that we would have
+	       valid length info for the splitees.  */
+	    gcc_assert (!HAVE_ATTR_length);
 
 	    return new_rtx;
 	  }
@@ -3292,10 +3388,11 @@ output_asm_name (void)
 	       insn_data[num].name);
       if (insn_data[num].n_alternatives > 1)
 	fprintf (asm_out_file, "/%d", which_alternative + 1);
-#ifdef HAVE_ATTR_length
-      fprintf (asm_out_file, "\t[length = %d]",
-	       get_attr_length (debug_insn));
-#endif
+
+      if (HAVE_ATTR_length)
+	fprintf (asm_out_file, "\t[length = %d]",
+		 get_attr_length (debug_insn));
+
       /* Clear this so only the first assembler insn
 	 of any rtl insn will get the special comment for -dp.  */
       debug_insn = 0;
@@ -3398,8 +3495,21 @@ do_assembler_dialects (const char *p, int *dialect)
            DIALECT_NUMBER of strings ending with '|'.  */
         for (i = 0; i < dialect_number; i++)
           {
-            while (*p && *p != '}' && *p++ != '|')
-	      ;
+            while (*p && *p != '}')
+	      {
+		if (*p == '|')
+		  {
+		    p++;
+		    break;
+		  }
+
+		/* Skip over any character after a percent sign.  */
+		if (*p == '%')
+		  p++;
+		if (*p)
+		  p++;
+	      }
+
             if (*p == '}')
 	      break;
           }
@@ -3420,8 +3530,19 @@ do_assembler_dialects (const char *p, int *dialect)
 		  output_operand_lossage ("unterminated assembly dialect alternative");
 		  break;
 		}
+
+	      /* Skip over any character after a percent sign.  */
+	      if (*p == '%' && p[1])
+		{
+		  p += 2;
+		  continue;
+		}
+
+	      if (*p++ == '}')
+		break;
             }
-          while (*p++ != '}');
+          while (1);
+
           *dialect = 0;
         }
       else
@@ -3514,11 +3635,17 @@ output_asm_insn (const char *templ, rtx *operands)
 #endif
 
       case '%':
-	/* %% outputs a single %.  */
-	if (*p == '%')
+	/* %% outputs a single %.  %{, %} and %| print {, } and | respectively
+	   if ASSEMBLER_DIALECT defined and these characters have a special
+	   meaning as dialect delimiters.*/
+	if (*p == '%'
+#ifdef ASSEMBLER_DIALECT
+	    || *p == '{' || *p == '}' || *p == '|'
+#endif
+	    )
 	  {
+	    putc (*p, asm_out_file);
 	    p++;
-	    putc (c, asm_out_file);
 	  }
 	/* %= outputs a number which is unique to each insn in the entire
 	   compilation.  This is useful for making local labels that are
@@ -4112,28 +4239,12 @@ int
 leaf_function_p (void)
 {
   rtx insn;
-  rtx link;
 
   if (crtl->profile || profile_arc_flag)
     return 0;
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
-      if (CALL_P (insn)
-	  && ! SIBLING_CALL_P (insn))
-	return 0;
-      if (NONJUMP_INSN_P (insn)
-	  && GET_CODE (PATTERN (insn)) == SEQUENCE
-	  && CALL_P (XVECEXP (PATTERN (insn), 0, 0))
-	  && ! SIBLING_CALL_P (XVECEXP (PATTERN (insn), 0, 0)))
-	return 0;
-    }
-  for (link = crtl->epilogue_delay_list;
-       link;
-       link = XEXP (link, 1))
-    {
-      insn = XEXP (link, 0);
-
       if (CALL_P (insn)
 	  && ! SIBLING_CALL_P (insn))
 	return 0;
@@ -4212,11 +4323,6 @@ leaf_renumber_regs (rtx first)
   for (insn = first; insn; insn = NEXT_INSN (insn))
     if (INSN_P (insn))
       leaf_renumber_regs_insn (PATTERN (insn));
-  for (insn = crtl->epilogue_delay_list;
-       insn;
-       insn = XEXP (insn, 1))
-    if (INSN_P (XEXP (insn, 0)))
-      leaf_renumber_regs_insn (PATTERN (XEXP (insn, 0)));
 }
 
 /* Scan IN_RTX and its subexpressions, and renumber all regs into those
@@ -4368,24 +4474,42 @@ rest_of_handle_final (void)
   return 0;
 }
 
-struct rtl_opt_pass pass_final =
+namespace {
+
+const pass_data pass_data_final =
 {
- {
-  RTL_PASS,
-  "final",                              /* name */
-  NULL,                                 /* gate */
-  rest_of_handle_final,                 /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_FINAL,                             /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_ggc_collect                      /* todo_flags_finish */
- }
+  RTL_PASS, /* type */
+  "final", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  false, /* has_gate */
+  true, /* has_execute */
+  TV_FINAL, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
 };
+
+class pass_final : public rtl_opt_pass
+{
+public:
+  pass_final (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_final, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  unsigned int execute () { return rest_of_handle_final (); }
+
+}; // class pass_final
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_final (gcc::context *ctxt)
+{
+  return new pass_final (ctxt);
+}
 
 
 static unsigned int
@@ -4396,24 +4520,42 @@ rest_of_handle_shorten_branches (void)
   return 0;
 }
 
-struct rtl_opt_pass pass_shorten_branches =
+namespace {
+
+const pass_data pass_data_shorten_branches =
 {
- {
-  RTL_PASS,
-  "shorten",                            /* name */
-  NULL,                                 /* gate */
-  rest_of_handle_shorten_branches,      /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_SHORTEN_BRANCH,                    /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  0                                     /* todo_flags_finish */
- }
+  RTL_PASS, /* type */
+  "shorten", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  false, /* has_gate */
+  true, /* has_execute */
+  TV_SHORTEN_BRANCH, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
 };
+
+class pass_shorten_branches : public rtl_opt_pass
+{
+public:
+  pass_shorten_branches (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_shorten_branches, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  unsigned int execute () { return rest_of_handle_shorten_branches (); }
+
+}; // class pass_shorten_branches
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_shorten_branches (gcc::context *ctxt)
+{
+  return new pass_shorten_branches (ctxt);
+}
 
 
 static unsigned int
@@ -4542,21 +4684,39 @@ rest_of_clean_state (void)
   return 0;
 }
 
-struct rtl_opt_pass pass_clean_state =
+namespace {
+
+const pass_data pass_data_clean_state =
 {
- {
-  RTL_PASS,
-  "*clean_state",                       /* name */
-  NULL,                                 /* gate */
-  rest_of_clean_state,                  /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_FINAL,                             /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  PROP_rtl,                             /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  0                                     /* todo_flags_finish */
- }
+  RTL_PASS, /* type */
+  "*clean_state", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  false, /* has_gate */
+  true, /* has_execute */
+  TV_FINAL, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  PROP_rtl, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
 };
+
+class pass_clean_state : public rtl_opt_pass
+{
+public:
+  pass_clean_state (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_clean_state, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  unsigned int execute () { return rest_of_clean_state (); }
+
+}; // class pass_clean_state
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_clean_state (gcc::context *ctxt)
+{
+  return new pass_clean_state (ctxt);
+}

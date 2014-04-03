@@ -2,23 +2,22 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// UDP sockets for Plan 9
-
 package net
 
 import (
 	"errors"
 	"os"
 	"syscall"
+	"time"
 )
 
-// UDPConn is the implementation of the Conn and PacketConn
-// interfaces for UDP network connections.
+// UDPConn is the implementation of the Conn and PacketConn interfaces
+// for UDP network connections.
 type UDPConn struct {
-	plan9Conn
+	conn
 }
 
-// UDP-specific methods.
+func newUDPConn(fd *netFD) *UDPConn { return &UDPConn{conn{fd}} }
 
 // ReadFromUDP reads a UDP packet from c, copying the payload into b.
 // It returns the number of bytes copied into b and the return address
@@ -28,17 +27,11 @@ type UDPConn struct {
 // Timeout() == true after a fixed time limit; see SetDeadline and
 // SetReadDeadline.
 func (c *UDPConn) ReadFromUDP(b []byte) (n int, addr *UDPAddr, err error) {
-	if !c.ok() {
+	if !c.ok() || c.fd.data == nil {
 		return 0, nil, syscall.EINVAL
 	}
-	if c.data == nil {
-		c.data, err = os.OpenFile(c.dir+"/data", os.O_RDWR, 0)
-		if err != nil {
-			return 0, nil, err
-		}
-	}
 	buf := make([]byte, udpHeaderSize+len(b))
-	m, err := c.data.Read(buf)
+	m, err := c.fd.data.Read(buf)
 	if err != nil {
 		return
 	}
@@ -49,11 +42,11 @@ func (c *UDPConn) ReadFromUDP(b []byte) (n int, addr *UDPAddr, err error) {
 
 	h, buf := unmarshalUDPHeader(buf)
 	n = copy(b, buf)
-	return n, &UDPAddr{h.raddr, int(h.rport)}, nil
+	return n, &UDPAddr{IP: h.raddr, Port: int(h.rport)}, nil
 }
 
 // ReadFrom implements the PacketConn ReadFrom method.
-func (c *UDPConn) ReadFrom(b []byte) (n int, addr Addr, err error) {
+func (c *UDPConn) ReadFrom(b []byte) (int, Addr, error) {
 	if !c.ok() {
 		return 0, nil, syscall.EINVAL
 	}
@@ -61,7 +54,7 @@ func (c *UDPConn) ReadFrom(b []byte) (n int, addr Addr, err error) {
 }
 
 // ReadMsgUDP reads a packet from c, copying the payload into b and
-// the associdated out-of-band data into oob.  It returns the number
+// the associated out-of-band data into oob.  It returns the number
 // of bytes copied into b, the number of bytes copied into oob, the
 // flags that were set on the packet and the source address of the
 // packet.
@@ -76,37 +69,34 @@ func (c *UDPConn) ReadMsgUDP(b, oob []byte) (n, oobn, flags int, addr *UDPAddr, 
 // Timeout() == true after a fixed time limit; see SetDeadline and
 // SetWriteDeadline.  On packet-oriented connections, write timeouts
 // are rare.
-func (c *UDPConn) WriteToUDP(b []byte, addr *UDPAddr) (n int, err error) {
-	if !c.ok() {
+func (c *UDPConn) WriteToUDP(b []byte, addr *UDPAddr) (int, error) {
+	if !c.ok() || c.fd.data == nil {
 		return 0, syscall.EINVAL
 	}
-	if c.data == nil {
-		c.data, err = os.OpenFile(c.dir+"/data", os.O_RDWR, 0)
-		if err != nil {
-			return 0, err
-		}
+	if addr == nil {
+		return 0, &OpError{Op: "write", Net: c.fd.dir, Addr: nil, Err: errMissingAddress}
 	}
 	h := new(udpHeader)
 	h.raddr = addr.IP.To16()
-	h.laddr = c.laddr.(*UDPAddr).IP.To16()
+	h.laddr = c.fd.laddr.(*UDPAddr).IP.To16()
 	h.ifcaddr = IPv6zero // ignored (receive only)
 	h.rport = uint16(addr.Port)
-	h.lport = uint16(c.laddr.(*UDPAddr).Port)
+	h.lport = uint16(c.fd.laddr.(*UDPAddr).Port)
 
 	buf := make([]byte, udpHeaderSize+len(b))
 	i := copy(buf, h.Bytes())
 	copy(buf[i:], b)
-	return c.data.Write(buf)
+	return c.fd.data.Write(buf)
 }
 
 // WriteTo implements the PacketConn WriteTo method.
-func (c *UDPConn) WriteTo(b []byte, addr Addr) (n int, err error) {
+func (c *UDPConn) WriteTo(b []byte, addr Addr) (int, error) {
 	if !c.ok() {
 		return 0, syscall.EINVAL
 	}
 	a, ok := addr.(*UDPAddr)
 	if !ok {
-		return 0, &OpError{"write", c.dir, addr, syscall.EINVAL}
+		return 0, &OpError{"write", c.fd.dir, addr, syscall.EINVAL}
 	}
 	return c.WriteToUDP(b, a)
 }
@@ -121,7 +111,14 @@ func (c *UDPConn) WriteMsgUDP(b, oob []byte, addr *UDPAddr) (n, oobn int, err er
 // DialUDP connects to the remote address raddr on the network net,
 // which must be "udp", "udp4", or "udp6".  If laddr is not nil, it is
 // used as the local address for the connection.
-func DialUDP(net string, laddr, raddr *UDPAddr) (c *UDPConn, err error) {
+func DialUDP(net string, laddr, raddr *UDPAddr) (*UDPConn, error) {
+	return dialUDP(net, laddr, raddr, noDeadline)
+}
+
+func dialUDP(net string, laddr, raddr *UDPAddr, deadline time.Time) (*UDPConn, error) {
+	if !deadline.IsZero() {
+		panic("net.dialUDP: deadline not implemented on Plan 9")
+	}
 	switch net {
 	case "udp", "udp4", "udp6":
 	default:
@@ -130,11 +127,11 @@ func DialUDP(net string, laddr, raddr *UDPAddr) (c *UDPConn, err error) {
 	if raddr == nil {
 		return nil, &OpError{"dial", net, nil, errMissingAddress}
 	}
-	c1, err := dialPlan9(net, laddr, raddr)
+	fd, err := dialPlan9(net, laddr, raddr)
 	if err != nil {
-		return
+		return nil, err
 	}
-	return &UDPConn{*c1}, nil
+	return newUDPConn(fd), nil
 }
 
 const udpHeaderSize = 16*3 + 2*2
@@ -166,27 +163,34 @@ func unmarshalUDPHeader(b []byte) (*udpHeader, []byte) {
 }
 
 // ListenUDP listens for incoming UDP packets addressed to the local
-// address laddr.  The returned connection c's ReadFrom and WriteTo
+// address laddr.  Net must be "udp", "udp4", or "udp6".  If laddr has
+// a port of 0, ListenUDP will choose an available port.
+// The LocalAddr method of the returned UDPConn can be used to
+// discover the port.  The returned connection's ReadFrom and WriteTo
 // methods can be used to receive and send UDP packets with per-packet
 // addressing.
-func ListenUDP(net string, laddr *UDPAddr) (c *UDPConn, err error) {
+func ListenUDP(net string, laddr *UDPAddr) (*UDPConn, error) {
 	switch net {
 	case "udp", "udp4", "udp6":
 	default:
 		return nil, UnknownNetworkError(net)
 	}
 	if laddr == nil {
-		return nil, &OpError{"listen", net, nil, errMissingAddress}
+		laddr = &UDPAddr{}
 	}
 	l, err := listenPlan9(net, laddr)
 	if err != nil {
-		return
+		return nil, err
 	}
 	_, err = l.ctl.WriteString("headers")
 	if err != nil {
-		return
+		return nil, err
 	}
-	return &UDPConn{*l.plan9Conn()}, nil
+	l.data, err = os.OpenFile(l.dir+"/data", os.O_RDWR, 0)
+	if err != nil {
+		return nil, err
+	}
+	return newUDPConn(l.netFD()), nil
 }
 
 // ListenMulticastUDP listens for incoming multicast UDP packets

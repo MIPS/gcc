@@ -1,7 +1,5 @@
 /* Target-dependent costs for expmed.c.
-   Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -223,12 +221,21 @@ expmed_mode_index (enum machine_mode mode)
     case MODE_INT:
       return mode - MIN_MODE_INT;
     case MODE_PARTIAL_INT:
-      return mode - MIN_MODE_PARTIAL_INT + NUM_MODE_INT;
+      /* If there are no partial integer modes, help the compiler
+	 to figure out this will never happen.  See PR59934.  */
+      if (MIN_MODE_PARTIAL_INT != VOIDmode)
+	return mode - MIN_MODE_PARTIAL_INT + NUM_MODE_INT;
+      break;
     case MODE_VECTOR_INT:
-      return mode - MIN_MODE_VECTOR_INT + NUM_MODE_IP_INT;
+      /* If there are no vector integer modes, help the compiler
+	 to figure out this will never happen.  See PR59934.  */
+      if (MIN_MODE_VECTOR_INT != VOIDmode)
+	return mode - MIN_MODE_VECTOR_INT + NUM_MODE_IP_INT;
+      break;
     default:
-      gcc_unreachable ();
+      break;
     }
+  gcc_unreachable ();
 }
 
 /* Return a pointer to a boolean contained in EOC indicating whether

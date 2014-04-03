@@ -99,7 +99,7 @@ func (r *commentListReader) next() {
 
 // A nodeStack keeps track of nested nodes.
 // A node lower on the stack lexically contains the nodes higher on the stack.
-// 
+//
 type nodeStack []Node
 
 // push pops all nodes that appear lexically before n
@@ -113,7 +113,7 @@ func (s *nodeStack) push(n Node) {
 // pop pops all nodes that appear lexically before pos
 // (i.e., whose lexical extent has ended before or at pos).
 // It returns the last node popped.
-// 
+//
 func (s *nodeStack) pop(pos token.Pos) (top Node) {
 	i := len(*s)
 	for i > 0 && (*s)[i-1].End() <= pos {
@@ -129,11 +129,11 @@ func (s *nodeStack) pop(pos token.Pos) (top Node) {
 //
 // A comment group g is associated with a node n if:
 //
-// - g starts on the same line as n ends
-// - g starts on the line immediately following n, and there is
-//   at least one empty line after g and before the next node
-// - g starts before n and is not associated to the node before n
-//   via the previous rules
+//   - g starts on the same line as n ends
+//   - g starts on the line immediately following n, and there is
+//     at least one empty line after g and before the next node
+//   - g starts before n and is not associated to the node before n
+//     via the previous rules
 //
 // NewCommentMap tries to associate a comment group to the "largest"
 // node possible: For instance, if the comment is a line comment

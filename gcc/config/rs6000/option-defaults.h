@@ -1,7 +1,5 @@
 /* Definitions of default options for config/rs6000 configurations.
-   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 1992-2014 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -56,6 +54,7 @@
    --with-float is ignored if -mhard-float or -msoft-float are
      specified.  */
 #define OPTION_DEFAULT_SPECS \
+  {"abi", "%{!mabi=elfv*:-mabi=%(VALUE)}" }, \
   {"tune", "%{!mtune=*:%{!mcpu=*:-mtune=%(VALUE)}}" }, \
   {"tune_32", "%{" OPT_ARCH32 ":%{!mtune=*:%{!mcpu=*:-mtune=%(VALUE)}}}" }, \
   {"tune_64", "%{" OPT_ARCH64 ":%{!mtune=*:%{!mcpu=*:-mtune=%(VALUE)}}}" }, \

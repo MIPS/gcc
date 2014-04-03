@@ -1,6 +1,5 @@
 /* Definitions for code generation pass of GNU compiler.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
-   2010, 2012  Free Software Foundation, Inc.
+   Copyright (C) 2001-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -77,6 +76,7 @@ struct target_optabs {
 };
 
 extern struct target_optabs default_target_optabs;
+extern struct target_optabs *this_fn_optabs;
 #if SWITCHABLE_TARGET
 extern struct target_optabs *this_target_optabs;
 #else
@@ -236,7 +236,7 @@ extern rtx expand_vec_cond_expr (tree, tree, tree, tree, rtx);
 /* Generate code for VEC_LSHIFT_EXPR and VEC_RSHIFT_EXPR.  */
 extern rtx expand_vec_shift_expr (sepops, rtx);
 
-/* Return tree if target supports vector operations for VEC_PERM_EXPR.  */
+/* Return true if target supports vector operations for VEC_PERM_EXPR.  */
 extern bool can_vec_perm_p (enum machine_mode, bool, const unsigned char *);
 
 /* Generate code for VEC_PERM_EXPR.  */
@@ -247,6 +247,9 @@ extern int can_mult_highpart_p (enum machine_mode, bool);
 
 /* Generate code for MULT_HIGHPART_EXPR.  */
 extern rtx expand_mult_highpart (enum machine_mode, rtx, rtx, rtx, bool);
+
+/* Return true if target supports vector masked load/store for mode.  */
+extern bool can_vec_mask_load_store_p (enum machine_mode, bool);
 
 /* Return the insn used to implement mode MODE of OP, or CODE_FOR_nothing
    if the target does not have such an insn.  */
@@ -322,6 +325,38 @@ trapv_binoptab_p (optab binoptab)
 extern rtx optab_libfunc (optab optab, enum machine_mode mode);
 extern rtx convert_optab_libfunc (convert_optab optab, enum machine_mode mode1,
 			          enum machine_mode mode2);
+
+/* Describes an instruction that inserts or extracts a bitfield.  */
+struct extraction_insn
+{
+  /* The code of the instruction.  */
+  enum insn_code icode;
+
+  /* The mode that the structure operand should have.  This is byte_mode
+     when using the legacy insv, extv and extzv patterns to access memory.  */
+  enum machine_mode struct_mode;
+
+  /* The mode of the field to be inserted or extracted, and by extension
+     the mode of the insertion or extraction itself.  */
+  enum machine_mode field_mode;
+
+  /* The mode of the field's bit position.  This is only important
+     when the position is variable rather than constant.  */
+  enum machine_mode pos_mode;
+};
+
+/* Enumerates the possible extraction_insn operations.  */
+enum extraction_pattern { EP_insv, EP_extv, EP_extzv };
+
+extern bool get_best_reg_extraction_insn (extraction_insn *,
+					  enum extraction_pattern,
+					  unsigned HOST_WIDE_INT,
+					  enum machine_mode);
+
+extern bool get_best_mem_extraction_insn (extraction_insn *,
+					  enum extraction_pattern,
+					  HOST_WIDE_INT, HOST_WIDE_INT,
+					  enum machine_mode);
 
 extern bool insn_operand_matches (enum insn_code icode, unsigned int opno,
 				  rtx operand);
@@ -519,5 +554,6 @@ extern void gen_satfract_conv_libfunc (convert_optab, const char *,
 extern void gen_satfractuns_conv_libfunc (convert_optab, const char *,
 					  enum machine_mode,
 					  enum machine_mode);
+extern void init_tree_optimization_optabs (tree);
 
 #endif /* GCC_OPTABS_H */

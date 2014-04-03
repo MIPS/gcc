@@ -1,7 +1,5 @@
 /* Definitions of target machine for GNU compiler for Renesas / SuperH SH.
-   Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2003,
-   2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 1993-2014 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com).
    Improved by Jim Wilson (wilson@cygnus.com).
 
@@ -118,6 +116,9 @@ extern void emit_df_insn (rtx);
 extern void output_pic_addr_const (FILE *, rtx);
 extern bool expand_block_move (rtx *);
 extern void prepare_move_operands (rtx[], enum machine_mode mode);
+extern bool sh_expand_cmpstr (rtx *);
+extern bool sh_expand_cmpnstr (rtx *);
+extern bool sh_expand_strlen  (rtx *);
 extern enum rtx_code prepare_cbranch_operands (rtx *, enum machine_mode mode,
 					       enum rtx_code comparison);
 extern void expand_cbranchsi4 (rtx *operands, enum rtx_code comparison, int);
@@ -159,10 +160,10 @@ extern bool sh_expand_t_scc (rtx *);
 extern rtx sh_gen_truncate (enum machine_mode, rtx, int);
 extern bool sh_vector_mode_supported_p (enum machine_mode);
 extern bool sh_cfun_trap_exit_p (void);
-extern void sh_canonicalize_comparison (enum rtx_code&, rtx&, rtx&,
-					enum machine_mode mode = VOIDmode);
 extern rtx sh_find_equiv_gbr_addr (rtx cur_insn, rtx mem);
 extern int sh_eval_treg_value (rtx op);
+extern HOST_WIDE_INT sh_disp_addr_displacement (rtx mem_op);
+extern int sh_max_mov_insn_displacement (machine_mode mode, bool consider_sh2a);
 
 /* Result value of sh_find_set_of_reg.  */
 struct set_of_reg
@@ -216,7 +217,8 @@ extern void sh_pr_nosave_low_regs (struct cpp_reader *);
 extern rtx function_symbol (rtx, const char *, enum sh_function_kind);
 extern rtx sh_get_pr_initial_val (void);
 
-extern void sh_init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx, tree, signed int, enum machine_mode);
+extern void sh_init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx, tree,
+				     signed int, enum machine_mode);
 extern rtx sh_dwarf_register_span (rtx);
 
 extern rtx replace_n_hard_rtx (rtx, rtx *, int , int);

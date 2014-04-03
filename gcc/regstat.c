@@ -1,6 +1,5 @@
 /* Scanning of rtl for dataflow analysis.
-   Copyright (C) 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 2007-2014 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck (zadeck@naturalbridge.com).
 
 This file is part of GCC.
@@ -121,7 +120,7 @@ regstat_bb_compute_ri (unsigned int bb_index,
 		       bitmap local_live, bitmap local_processed,
 		       int *local_live_last_luid)
 {
-  basic_block bb = BASIC_BLOCK (bb_index);
+  basic_block bb = BASIC_BLOCK_FOR_FN (cfun, bb_index);
   rtx insn;
   df_ref *def_rec;
   df_ref *use_rec;
@@ -173,7 +172,7 @@ regstat_bb_compute_ri (unsigned int bb_index,
       while (link)
 	{
 	  if (REG_NOTE_KIND (link) == REG_DEAD)
-	    REG_N_DEATHS(REGNO (XEXP (link, 0)))++;
+	    REG_N_DEATHS (REGNO (XEXP (link, 0)))++;
 	  link = XEXP (link, 1);
 	}
 
@@ -376,7 +375,7 @@ regstat_compute_ri (void)
   reg_info_p = XCNEWVEC (struct reg_info_t, max_regno);
   local_live_last_luid = XNEWVEC (int, max_regno);
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       regstat_bb_compute_ri (bb->index, live, artificial_uses,
 			     local_live, local_processed,
@@ -389,7 +388,7 @@ regstat_compute_ri (void)
   BITMAP_FREE (local_processed);
   free (local_live_last_luid);
 
-  /* See the setjmp comment in regstat_ri_bb_compute.  */
+  /* See the setjmp comment in regstat_bb_compute_ri.  */
   EXECUTE_IF_SET_IN_BITMAP (setjmp_crosses, FIRST_PSEUDO_REGISTER, regno, bi)
     {
       REG_BASIC_BLOCK (regno) = REG_BLOCK_UNKNOWN;
@@ -441,7 +440,7 @@ regstat_get_setjmp_crosses (void)
 static void
 regstat_bb_compute_calls_crossed (unsigned int bb_index, bitmap live)
 {
-  basic_block bb = BASIC_BLOCK (bb_index);
+  basic_block bb = BASIC_BLOCK_FOR_FN (cfun, bb_index);
   rtx insn;
   df_ref *def_rec;
   df_ref *use_rec;
@@ -523,7 +522,7 @@ regstat_compute_calls_crossed (void)
   reg_info_p_size = max_regno;
   reg_info_p = XCNEWVEC (struct reg_info_t, max_regno);
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       regstat_bb_compute_calls_crossed (bb->index, live);
     }

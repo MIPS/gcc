@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *         Copyright (C) 1992-2012, Free Software Foundation, Inc.          *
+ *         Copyright (C) 1992-2013, Free Software Foundation, Inc.          *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -42,6 +42,13 @@
 #endif
 #include "selectLib.h"
 #include "vxWorks.h"
+#if defined (__RTP__)
+#  include "vwModNum.h"
+#endif /* __RTP__ */
+#endif
+
+#ifdef __ANDROID__
+#undef linux
 #endif
 
 #ifdef IN_RTS
@@ -717,7 +724,7 @@ __gnat_localtime_tzoff (const time_t *timer, const int *is_historic, long *off)
       && SystemTimeToTzSpecificLocalTime (&tzi, &utc_sys_time, &local_sys_time)
       && SystemTimeToFileTime (&local_sys_time, &local_time.ft_time);
 
-    /* An error has occured, return invalid_tzoff */
+    /* An error has occurred, return invalid_tzoff */
 
     if (!status) {
       *off = __gnat_invalid_tzoff;
@@ -916,10 +923,60 @@ __gnat_is_file_not_found_error (int errno_val) {
 #if ! defined (__RTP__) && (! defined (VTHREADS) || defined (__VXWORKSMILS__))
       case S_nfsLib_NFSERR_NOENT:
 #endif
+#if defined (__RTP__)
+	/* An RTP can return an NFS file not found, and the NFS bits must
+	   first be masked on to check the errno.  */
+      case M_nfsStat | ENOENT:
+#endif
 #endif
          return 1;
 
       default:
-         return 0;
+        return 0;
    }
 }
+
+#ifdef __ANDROID__
+
+/* Provide extern symbols for sig* as needed by the tasking run-time, instead
+   of static inline functions.  */
+
+#include <signal.h>
+
+int
+_sigismember (sigset_t *set, int signum)
+{
+  return sigismember (set, signum);
+}
+
+int
+_sigaddset (sigset_t *set, int signum)
+{
+  return sigaddset (set, signum);
+}
+
+int
+_sigdelset (sigset_t *set, int signum)
+{
+  return sigdelset (set, signum);
+}
+
+int
+_sigemptyset (sigset_t *set)
+{
+  return sigemptyset (set);
+}
+
+int
+_sigfillset (sigset_t *set)
+{
+  return sigfillset (set);
+}
+
+#include <unistd.h>
+int
+_getpagesize (void)
+{
+  return getpagesize ();
+}
+#endif

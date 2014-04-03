@@ -1,5 +1,5 @@
 /* Definitions for <stdint.h> types on systems using newlib.
-   Copyright (C) 2012 Free Software Foundation, Inc.
+   Copyright (C) 2012-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -30,15 +30,15 @@ along with GCC; see the file COPYING3.  If not see
    - For the same reason, [u]int_fast8_t is defined as 8-bit type.
 
 */
-   
+
 #define SIG_ATOMIC_TYPE "char"
 
 #define INT8_TYPE "signed char"
-#define INT16_TYPE (INT_TYPE_SIZE == 16 ? "short int" : "long int")
+#define INT16_TYPE (INT_TYPE_SIZE == 16 ? "int" : "long int")
 #define INT32_TYPE (INT_TYPE_SIZE == 16 ? "long int" : "long long int")
 #define INT64_TYPE (INT_TYPE_SIZE == 16 ? "long long int" : 0)
 #define UINT8_TYPE "unsigned char"
-#define UINT16_TYPE (INT_TYPE_SIZE == 16 ? "short unsigned int" : "long unsigned int")
+#define UINT16_TYPE (INT_TYPE_SIZE == 16 ? "unsigned int" : "long unsigned int")
 #define UINT32_TYPE (INT_TYPE_SIZE == 16 ? "long unsigned int" : "long long unsigned int")
 #define UINT64_TYPE (INT_TYPE_SIZE == 16 ? "long long unsigned int" : 0)
 

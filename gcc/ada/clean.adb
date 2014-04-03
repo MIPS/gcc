@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2003-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 2003-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -39,6 +39,7 @@ with Prj.Tree; use Prj.Tree;
 with Prj.Util; use Prj.Util;
 with Sdefault;
 with Snames;
+with Stringt;
 with Switch;   use Switch;
 with Table;
 with Targparm; use Targparm;
@@ -97,8 +98,6 @@ package body Clean is
    Project_File_Name : String_Access := null;
 
    Project_Node_Tree : Project_Node_Tree_Ref;
-
-   Root_Environment : Prj.Tree.Environment;
 
    Main_Project : Prj.Project_Id := Prj.No_Project;
 
@@ -397,7 +396,8 @@ package body Clean is
                 File    => Main_Lib_File,
                 Unit    => No_Unit_Name,
                 Index   => 0,
-                Project => No_Project));
+                Project => No_Project,
+                Sid     => No_Source));
          end if;
 
          while not Queue.Is_Empty loop
@@ -440,7 +440,8 @@ package body Clean is
                                   File    => Withs.Table (K).Afile,
                                   Unit    => No_Unit_Name,
                                   Index   => 0,
-                                  Project => No_Project));
+                                  Project => No_Project,
+                                  Sid     => No_Source));
                            end if;
                         end loop;
                      end loop;
@@ -1248,7 +1249,30 @@ package body Clean is
            or else Is_Writable_File (Full_Name (1 .. Last))
            or else Is_Symbolic_Link (Full_Name (1 .. Last))
          then
-            Delete_File (Full_Name (1 .. Last), Success);
+            --  On VMS, we have to delete all versions of the file
+
+            if OpenVMS_On_Target then
+               declare
+                  Host_Full_Name : constant String_Access :=
+                    To_Host_File_Spec (Full_Name (1 .. Last));
+               begin
+                  if Host_Full_Name = null
+                    or else Host_Full_Name'Length = 0
+                  then
+                     Success := False;
+                  else
+                     Delete_File (Host_Full_Name.all & ";*", Success);
+                  end if;
+               end;
+
+            --  Otherwise just delete the specified file
+
+            else
+               Delete_File (Full_Name (1 .. Last), Success);
+            end if;
+
+         --  Here if no deletion required
+
          else
             Success := False;
          end if;
@@ -1352,6 +1376,13 @@ package body Clean is
 
       Parse_Cmd_Line;
 
+      --  Add the default project search directories now, after the directories
+      --  that have been specified by switches -aP<dir>.
+
+      Prj.Env.Initialize_Default_Project_Path
+        (Root_Environment.Project_Path,
+         Target_Name => Sdefault.Target_Name.all);
+
       if Verbose_Mode then
          Display_Copyright;
       end if;
@@ -1386,6 +1417,12 @@ package body Clean is
 
          if Main_Project = No_Project then
             Fail ("""" & Project_File_Name.all & """ processing failed");
+
+         elsif Main_Project.Qualifier = Aggregate then
+            Fail ("aggregate projects are not supported");
+
+         elsif Aggregate_Libraries_In (Project_Tree) then
+            Fail ("aggregate library projects are not supported");
          end if;
 
          if Opt.Verbose_Mode then
@@ -1523,11 +1560,9 @@ package body Clean is
 
          Csets.Initialize;
          Snames.Initialize;
+         Stringt.Initialize;
 
          Prj.Tree.Initialize (Root_Environment, Gnatmake_Flags);
-         Prj.Env.Initialize_Default_Project_Path
-            (Root_Environment.Project_Path,
-             Target_Name => Sdefault.Target_Name.all);
 
          Project_Node_Tree := new Project_Node_Tree_Data;
          Prj.Tree.Initialize (Project_Node_Tree);
@@ -1704,6 +1739,7 @@ package body Clean is
 
                      when 'f' =>
                         Force_Deletions := True;
+                        Directories_Must_Exist_In_Projects := False;
 
                      when 'F' =>
                         Full_Path_Name_For_Brief_Errors := True;

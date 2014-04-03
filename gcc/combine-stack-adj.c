@@ -1,7 +1,5 @@
 /* Combine stack adjustments.
-   Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
-   2010, 2012 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -97,7 +95,7 @@ combine_stack_adjustments (void)
 {
   basic_block bb;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     combine_stack_adjustments_for_block (bb);
 }
 
@@ -645,22 +643,40 @@ rest_of_handle_stack_adjustments (void)
   return 0;
 }
 
-struct rtl_opt_pass pass_stack_adjustments =
+namespace {
+
+const pass_data pass_data_stack_adjustments =
 {
- {
-  RTL_PASS,
-  "csa",                                /* name */
-  gate_handle_stack_adjustments,        /* gate */
-  rest_of_handle_stack_adjustments,     /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_COMBINE_STACK_ADJUST,              /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_ggc_collect,                     /* todo_flags_finish */
- }
+  RTL_PASS, /* type */
+  "csa", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_COMBINE_STACK_ADJUST, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  ( TODO_df_finish | TODO_verify_rtl_sharing ), /* todo_flags_finish */
 };
+
+class pass_stack_adjustments : public rtl_opt_pass
+{
+public:
+  pass_stack_adjustments (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_stack_adjustments, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_handle_stack_adjustments (); }
+  unsigned int execute () { return rest_of_handle_stack_adjustments (); }
+
+}; // class pass_stack_adjustments
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_stack_adjustments (gcc::context *ctxt)
+{
+  return new pass_stack_adjustments (ctxt);
+}

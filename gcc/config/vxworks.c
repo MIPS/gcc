@@ -1,6 +1,5 @@
 /* Common VxWorks target definitions for GNU compiler.
-   Copyright (C) 2007, 2008, 2010, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 2007-2014 Free Software Foundation, Inc.
    Contributed by CodeSourcery, Inc.
 
 This file is part of GCC.
@@ -27,6 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 #include "tm.h"
 #include "tree.h"
+#include "stringpool.h"
 
 /* Like default_named_section_asm_out_constructor, except that even
    constructors with DEFAULT_INIT_PRIORITY must go in a numbered
@@ -96,23 +96,24 @@ vxworks_emutls_var_fields (tree type, tree *name)
 static tree
 vxworks_emutls_var_init (tree var, tree decl, tree tmpl_addr)
 {
-  VEC(constructor_elt,gc) *v = VEC_alloc (constructor_elt, gc, 3);
+  vec<constructor_elt, va_gc> *v;
+  vec_alloc (v, 3);
   
   tree type = TREE_TYPE (var);
   tree field = TYPE_FIELDS (type);
   
   constructor_elt elt = {field, fold_convert (TREE_TYPE (field), tmpl_addr)};
-  VEC_quick_push (constructor_elt, v, elt);
+  v->quick_push (elt);
   
   field = DECL_CHAIN (field);
   elt.index = field;
   elt.value = build_int_cst (TREE_TYPE (field), 0);
-  VEC_quick_push (constructor_elt, v, elt);
+  v->quick_push (elt);
   
   field = DECL_CHAIN (field);
   elt.index = field;
   elt.value = fold_convert (TREE_TYPE (field), DECL_SIZE_UNIT (decl));
-  VEC_quick_push (constructor_elt, v, elt);
+  v->quick_push (elt);
   
   return build_constructor (type, v);
 }

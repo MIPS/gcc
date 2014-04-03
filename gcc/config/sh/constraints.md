@@ -1,5 +1,5 @@
 ;; Constraint definitions for Renesas / SuperH SH.
-;; Copyright (C) 2007, 2008, 2011, 2012 Free Software Foundation, Inc.
+;; Copyright (C) 2007-2014 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -26,7 +26,7 @@
 ;;  Csu: unsigned 16-bit constant, literal or symbolic
 ;;  Csy: label or symbol
 ;;  Cpg: non-explicit constants that can be directly loaded into a general
-;;       purpose register in PIC code.  like 's' except we don't allow
+;;       purpose register in PIC code.  Like 's' except we don't allow
 ;;       PIC_ADDR_P
 ;; IJKLMNOP: CONT_INT constants
 ;;  Ixx: signed xx bit
@@ -221,6 +221,7 @@
 (define_constraint "Q"
   "A pc relative load operand."
   (and (match_code "mem")
+       (match_test "GET_MODE (op) != QImode")
        (match_test "IS_PC_RELATIVE_LOAD_ADDR_P (XEXP (op, 0))")))
 
 (define_constraint "Bsc"
@@ -295,13 +296,15 @@
 
 (define_memory_constraint "Sdd"
   "A memory reference that uses displacement addressing."
-  (and (match_test "MEM_P (op) && GET_CODE (XEXP (op, 0)) == PLUS")
+  (and (match_code "mem")
+       (match_test "GET_CODE (XEXP (op, 0)) == PLUS")
        (match_test "REG_P (XEXP (XEXP (op, 0), 0))")
        (match_test "CONST_INT_P (XEXP (XEXP (op, 0), 1))")))
 
 (define_memory_constraint "Snd"
   "A memory reference that excludes displacement addressing."
-  (match_test "! satisfies_constraint_Sdd (op)"))
+  (and (match_code "mem")
+       (match_test "! satisfies_constraint_Sdd (op)")))
 
 (define_memory_constraint "Sbv"
   "A memory reference, as used in SH2A bclr.b, bset.b, etc."
@@ -315,7 +318,7 @@
        (match_test "satisfies_constraint_K12 (XEXP (XEXP (op, 0), 1))")))
 
 (define_memory_constraint "Sra"
-  "A memory reference that uses a simple register addressing."
+  "A memory reference that uses simple register addressing."
   (and (match_test "MEM_P (op)")
        (match_test "REG_P (XEXP (op, 0))")))
 

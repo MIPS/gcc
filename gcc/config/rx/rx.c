@@ -1,6 +1,5 @@
 /* Subroutines used for code generation on Renesas RX processors.
-   Copyright (C) 2008, 2009, 2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 2008-2014 Free Software Foundation, Inc.
    Contributed by Red Hat.
 
    This file is part of GCC.
@@ -28,6 +27,9 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "varasm.h"
+#include "stor-layout.h"
+#include "calls.h"
 #include "rtl.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -345,9 +347,9 @@ rx_mode_dependent_address_p (const_rtx addr, addr_space_t as ATTRIBUTE_UNUSED)
 
 	case CONST_INT:
 	  /* REG+INT is only mode independent if INT is a
-	     multiple of 4, positive and will fit into 8-bits.  */
+	     multiple of 4, positive and will fit into 16-bits.  */
 	  if (((INTVAL (addr) & 3) == 0)
-	      && IN_RANGE (INTVAL (addr), 4, 252))
+	      && IN_RANGE (INTVAL (addr), 4, 0xfffc))
 	    return false;
 	  return true;
 
@@ -976,6 +978,8 @@ rx_gen_move_template (rtx * operands, bool is_movu)
 	   loading an immediate into a register.  */
 	extension = ".W";
       break;
+    case DFmode:
+    case DImode:
     case SFmode:
     case SImode:
       extension = ".L";
@@ -989,19 +993,44 @@ rx_gen_move_template (rtx * operands, bool is_movu)
     }
 
   if (MEM_P (src) && rx_pid_data_operand (XEXP (src, 0)) == PID_UNENCODED)
-    src_template = "(%A1-__pid_base)[%P1]";
+    {
+      gcc_assert (GET_MODE (src) != DImode);
+      gcc_assert (GET_MODE (src) != DFmode);
+      
+      src_template = "(%A1 - __pid_base)[%P1]";
+    }
   else if (MEM_P (src) && rx_small_data_operand (XEXP (src, 0)))
-    src_template = "%%gp(%A1)[%G1]";
+    {
+      gcc_assert (GET_MODE (src) != DImode);
+      gcc_assert (GET_MODE (src) != DFmode);
+      
+      src_template = "%%gp(%A1)[%G1]";
+    }
   else
     src_template = "%1";
 
   if (MEM_P (dest) && rx_small_data_operand (XEXP (dest, 0)))
-    dst_template = "%%gp(%A0)[%G0]";
+    {
+      gcc_assert (GET_MODE (dest) != DImode);
+      gcc_assert (GET_MODE (dest) != DFmode);
+      
+      dst_template = "%%gp(%A0)[%G0]";
+    }
   else
     dst_template = "%0";
 
-  sprintf (out_template, "%s%s\t%s, %s", is_movu ? "movu" : "mov",
-	   extension, src_template, dst_template);
+  if (GET_MODE (dest) == DImode || GET_MODE (dest) == DFmode)
+    {
+      gcc_assert (! is_movu);
+
+      if (REG_P (src) && REG_P (dest) && (REGNO (dest) == REGNO (src) + 1))
+	sprintf (out_template, "mov.L\t%%H1, %%H0 ! mov.L\t%%1, %%0");
+      else
+	sprintf (out_template, "mov.L\t%%1, %%0 ! mov.L\t%%H1, %%H0");
+    }
+  else
+    sprintf (out_template, "%s%s\t%s, %s", is_movu ? "movu" : "mov",
+	     extension, src_template, dst_template);
   return out_template;
 }
 
@@ -1086,7 +1115,20 @@ static unsigned int
 rx_function_arg_boundary (enum machine_mode mode ATTRIBUTE_UNUSED,
 			  const_tree type ATTRIBUTE_UNUSED)
 {
-  return 32;
+  /* Older versions of the RX backend aligned all on-stack arguments
+     to 32-bits.  The RX C ABI however says that they should be
+     aligned to their natural alignment.  (See section 5.2.2 of the ABI).  */
+  if (TARGET_GCC_ABI)
+    return STACK_BOUNDARY;
+
+  if (type)
+    {
+      if (DECL_P (type))
+	return DECL_ALIGN (type);
+      return TYPE_ALIGN (type);
+    }
+
+  return PARM_BOUNDARY;
 }
 
 /* Return an RTL describing where a function return value of type RET_TYPE
@@ -2234,6 +2276,14 @@ static GTY(()) tree rx_builtins[(int) RX_BUILTIN_max];
 static void
 rx_init_builtins (void)
 {
+#define ADD_RX_BUILTIN0(UC_NAME, LC_NAME, RET_TYPE)		\
+   rx_builtins[RX_BUILTIN_##UC_NAME] =					\
+   add_builtin_function ("__builtin_rx_" LC_NAME,			\
+			build_function_type_list (RET_TYPE##_type_node, \
+						  NULL_TREE),		\
+			RX_BUILTIN_##UC_NAME,				\
+			BUILT_IN_MD, NULL, NULL_TREE)
+
 #define ADD_RX_BUILTIN1(UC_NAME, LC_NAME, RET_TYPE, ARG_TYPE)		\
    rx_builtins[RX_BUILTIN_##UC_NAME] =					\
    add_builtin_function ("__builtin_rx_" LC_NAME,			\
@@ -2264,7 +2314,7 @@ rx_init_builtins (void)
 			RX_BUILTIN_##UC_NAME,				\
 			BUILT_IN_MD, NULL, NULL_TREE)
 
-  ADD_RX_BUILTIN1 (BRK,     "brk",     void,  void);
+  ADD_RX_BUILTIN0 (BRK,     "brk",     void);
   ADD_RX_BUILTIN1 (CLRPSW,  "clrpsw",  void,  integer);
   ADD_RX_BUILTIN1 (SETPSW,  "setpsw",  void,  integer);
   ADD_RX_BUILTIN1 (INT,     "int",     void,  integer);
@@ -2272,18 +2322,18 @@ rx_init_builtins (void)
   ADD_RX_BUILTIN2 (MACLO,   "maclo",   void,  intSI, intSI);
   ADD_RX_BUILTIN2 (MULHI,   "mulhi",   void,  intSI, intSI);
   ADD_RX_BUILTIN2 (MULLO,   "mullo",   void,  intSI, intSI);
-  ADD_RX_BUILTIN1 (MVFACHI, "mvfachi", intSI, void);
-  ADD_RX_BUILTIN1 (MVFACMI, "mvfacmi", intSI, void);
+  ADD_RX_BUILTIN0 (MVFACHI, "mvfachi", intSI);
+  ADD_RX_BUILTIN0 (MVFACMI, "mvfacmi", intSI);
   ADD_RX_BUILTIN1 (MVTACHI, "mvtachi", void,  intSI);
   ADD_RX_BUILTIN1 (MVTACLO, "mvtaclo", void,  intSI);
-  ADD_RX_BUILTIN1 (RMPA,    "rmpa",    void,  void);
+  ADD_RX_BUILTIN0 (RMPA,    "rmpa",    void);
   ADD_RX_BUILTIN1 (MVFC,    "mvfc",    intSI, integer);
   ADD_RX_BUILTIN2 (MVTC,    "mvtc",    void,  integer, integer);
   ADD_RX_BUILTIN1 (MVTIPL,  "mvtipl",  void,  integer);
   ADD_RX_BUILTIN1 (RACW,    "racw",    void,  integer);
   ADD_RX_BUILTIN1 (ROUND,   "round",   intSI, float);
   ADD_RX_BUILTIN1 (REVW,    "revw",    intSI, intSI);
-  ADD_RX_BUILTIN1 (WAIT,    "wait",    void,  void);
+  ADD_RX_BUILTIN0 (WAIT,    "wait",    void);
 }
 
 /* Return the RX builtin for CODE.  */
@@ -2614,43 +2664,43 @@ rx_option_override (void)
 {
   unsigned int i;
   cl_deferred_option *opt;
-  VEC(cl_deferred_option,heap) *vec
-    = (VEC(cl_deferred_option,heap) *) rx_deferred_options;
+  vec<cl_deferred_option> *v = (vec<cl_deferred_option> *) rx_deferred_options;
 
-  FOR_EACH_VEC_ELT (cl_deferred_option, vec, i, opt)
-    {
-      switch (opt->opt_index)
-	{
-	case OPT_mint_register_:
-	  switch (opt->value)
-	    {
-	    case 4:
-	      fixed_regs[10] = call_used_regs [10] = 1;
-	      /* Fall through.  */
-	    case 3:
-	      fixed_regs[11] = call_used_regs [11] = 1;
-	      /* Fall through.  */
-	    case 2:
-	      fixed_regs[12] = call_used_regs [12] = 1;
-	      /* Fall through.  */
-	    case 1:
-	      fixed_regs[13] = call_used_regs [13] = 1;
-	      /* Fall through.  */
-	    case 0:
-	      rx_num_interrupt_regs = opt->value;
-	      break;
-	    default:
-	      rx_num_interrupt_regs = 0;
-	      /* Error message already given because rx_handle_option
-		 returned false.  */
-	      break;
-	    }
-	  break;
+  if (v)
+    FOR_EACH_VEC_ELT (*v, i, opt)
+      {
+	switch (opt->opt_index)
+	  {
+	  case OPT_mint_register_:
+	    switch (opt->value)
+	      {
+	      case 4:
+		fixed_regs[10] = call_used_regs [10] = 1;
+		/* Fall through.  */
+	      case 3:
+		fixed_regs[11] = call_used_regs [11] = 1;
+		/* Fall through.  */
+	      case 2:
+		fixed_regs[12] = call_used_regs [12] = 1;
+		/* Fall through.  */
+	      case 1:
+		fixed_regs[13] = call_used_regs [13] = 1;
+		/* Fall through.  */
+	      case 0:
+		rx_num_interrupt_regs = opt->value;
+		break;
+	      default:
+		rx_num_interrupt_regs = 0;
+		/* Error message already given because rx_handle_option
+		  returned false.  */
+		break;
+	      }
+	    break;
 
-	default:
-	  gcc_unreachable ();
-	}
-    }
+	  default:
+	    gcc_unreachable ();
+	  }
+      }
 
   /* This target defaults to strict volatile bitfields.  */
   if (flag_strict_volatile_bitfields < 0 && abi_version_at_least(2))
@@ -3202,7 +3252,45 @@ rx_adjust_insn_length (rtx insn, int current_length)
 
   return (zero && factor == 1) ? 4 : 5;
 }
+
+static bool
+rx_narrow_volatile_bitfield (void)
+{
+  return true;
+}
+
+static bool
+rx_ok_to_inline (tree caller, tree callee)
+{
+  /* Do not inline functions with local variables
+     into a naked CALLER - naked function have no stack frame and
+     locals need a frame in order to have somewhere to live.
+
+     Unfortunately we have no way to determine the presence of
+     local variables in CALLEE, so we have to be cautious and
+     assume that there might be some there.
+
+     We do allow inlining when CALLEE has the "inline" type
+     modifier or the "always_inline" or "gnu_inline" attributes.  */
+  return lookup_attribute ("naked", DECL_ATTRIBUTES (caller)) == NULL_TREE
+    || DECL_DECLARED_INLINE_P (callee)
+    || lookup_attribute ("always_inline", DECL_ATTRIBUTES (callee)) != NULL_TREE
+    || lookup_attribute ("gnu_inline", DECL_ATTRIBUTES (callee)) != NULL_TREE;
+}
+
+static bool
+rx_enable_lra (void)
+{
+  return TARGET_ENABLE_LRA;
+}
+
 
+#undef  TARGET_NARROW_VOLATILE_BITFIELD
+#define TARGET_NARROW_VOLATILE_BITFIELD		rx_narrow_volatile_bitfield
+
+#undef  TARGET_CAN_INLINE_P
+#define TARGET_CAN_INLINE_P			rx_ok_to_inline
+
 #undef  TARGET_ASM_JUMP_ALIGN_MAX_SKIP
 #define TARGET_ASM_JUMP_ALIGN_MAX_SKIP			rx_max_skip_for_label
 #undef  TARGET_ASM_LOOP_ALIGN_MAX_SKIP
@@ -3344,8 +3432,11 @@ rx_adjust_insn_length (rtx insn, int current_length)
 #undef  TARGET_LEGITIMIZE_ADDRESS
 #define TARGET_LEGITIMIZE_ADDRESS		rx_legitimize_address
 
-#undef TARGET_WARN_FUNC_RETURN
-#define TARGET_WARN_FUNC_RETURN rx_warn_func_return
+#undef  TARGET_WARN_FUNC_RETURN
+#define TARGET_WARN_FUNC_RETURN 		rx_warn_func_return
+
+#undef  TARGET_LRA_P
+#define TARGET_LRA_P 				rx_enable_lra
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

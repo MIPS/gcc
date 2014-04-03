@@ -1,6 +1,5 @@
 ;; Predicate definitions for DEC Alpha.
-;; Copyright (C) 2004, 2005, 2006, 2007, 2008, 2010
-;; Free Software Foundation, Inc.
+;; Copyright (C) 2004-2014 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -358,7 +357,7 @@
 	    && !SYMBOL_REF_TLS_MODEL (op))
     {
       if (SYMBOL_REF_DECL (op))
-        max_ofs = tree_low_cst (DECL_SIZE_UNIT (SYMBOL_REF_DECL (op)), 1);
+        max_ofs = tree_to_uhwi (DECL_SIZE_UNIT (SYMBOL_REF_DECL (op)));
     }
   else
     return false;

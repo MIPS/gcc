@@ -1,5 +1,5 @@
 /* fileline.c -- Get file and line number information in a backtrace.
-   Copyright (C) 2012 Free Software Foundation, Inc.
+   Copyright (C) 2012-2014 Free Software Foundation, Inc.
    Written by Ian Lance Taylor, Google.
 
 Redistribution and use in source and binary forms, with or without
@@ -34,11 +34,16 @@ POSSIBILITY OF SUCH DAMAGE.  */
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <stdlib.h>
 
 #include "backtrace.h"
 #include "internal.h"
+
+#ifndef HAVE_GETEXECNAME
+#define getexecname() NULL
+#endif
 
 /* Initialize the fileline information from the executable.  Returns 1
    on success, 0 on failure.  */
@@ -49,17 +54,14 @@ fileline_initialize (struct backtrace_state *state,
 {
   int failed;
   fileline fileline_fn;
+  int pass;
+  int called_error_callback;
   int descriptor;
 
-  failed = state->fileline_initialization_failed;
-
-  if (state->threaded)
-    {
-      /* Use __sync_bool_compare_and_swap to do an atomic load.  */
-      while (!__sync_bool_compare_and_swap
-	     (&state->fileline_initialization_failed, failed, failed))
-	failed = state->fileline_initialization_failed;
-    }
+  if (!state->threaded)
+    failed = state->fileline_initialization_failed;
+  else
+    failed = backtrace_atomic_load_int (&state->fileline_initialization_failed);
 
   if (failed)
     {
@@ -67,24 +69,67 @@ fileline_initialize (struct backtrace_state *state,
       return 0;
     }
 
-  fileline_fn = state->fileline_fn;
-  if (state->threaded)
-    {
-      while (!__sync_bool_compare_and_swap (&state->fileline_fn, fileline_fn,
-					    fileline_fn))
-	fileline_fn = state->fileline_fn;
-    }
+  if (!state->threaded)
+    fileline_fn = state->fileline_fn;
+  else
+    fileline_fn = backtrace_atomic_load_pointer (&state->fileline_fn);
   if (fileline_fn != NULL)
     return 1;
 
   /* We have not initialized the information.  Do it now.  */
 
-  if (state->filename != NULL)
-    descriptor = backtrace_open (state->filename, error_callback, data);
-  else
-    descriptor = backtrace_open ("/proc/self/exe", error_callback, data);
+  descriptor = -1;
+  called_error_callback = 0;
+  for (pass = 0; pass < 4; ++pass)
+    {
+      const char *filename;
+      int does_not_exist;
+
+      switch (pass)
+	{
+	case 0:
+	  filename = state->filename;
+	  break;
+	case 1:
+	  filename = getexecname ();
+	  break;
+	case 2:
+	  filename = "/proc/self/exe";
+	  break;
+	case 3:
+	  filename = "/proc/curproc/file";
+	  break;
+	default:
+	  abort ();
+	}
+
+      if (filename == NULL)
+	continue;
+
+      descriptor = backtrace_open (filename, error_callback, data,
+				   &does_not_exist);
+      if (descriptor < 0 && !does_not_exist)
+	{
+	  called_error_callback = 1;
+	  break;
+	}
+      if (descriptor >= 0)
+	break;
+    }
+
   if (descriptor < 0)
-    failed = 1;
+    {
+      if (!called_error_callback)
+	{
+	  if (state->filename != NULL)
+	    error_callback (data, state->filename, ENOENT);
+	  else
+	    error_callback (data,
+			    "libbacktrace could not find executable to open",
+			    0);
+	}
+      failed = 1;
+    }
 
   if (!failed)
     {
@@ -98,8 +143,7 @@ fileline_initialize (struct backtrace_state *state,
       if (!state->threaded)
 	state->fileline_initialization_failed = 1;
       else
-	__sync_bool_compare_and_swap (&state->fileline_initialization_failed,
-				      0, failed);
+	backtrace_atomic_store_int (&state->fileline_initialization_failed, 1);
       return 0;
     }
 
@@ -107,15 +151,10 @@ fileline_initialize (struct backtrace_state *state,
     state->fileline_fn = fileline_fn;
   else
     {
-      __sync_bool_compare_and_swap (&state->fileline_fn, NULL, fileline_fn);
+      backtrace_atomic_store_pointer (&state->fileline_fn, fileline_fn);
 
-      /* At this point we know that state->fileline_fn is not NULL.
-	 Either we stored our value, or some other thread stored its
-	 value.  If some other thread stored its value, we leak the
-	 one we just initialized.  Either way, state->fileline_fn is
-	 initialized.  The compare_and_swap is a full memory barrier,
-	 so we should have full access to that value even if it was
-	 created by another thread.  */
+      /* Note that if two threads initialize at once, one of the data
+	 sets may be leaked.  */
     }
 
   return 1;

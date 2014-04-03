@@ -1,6 +1,5 @@
 /* Machine mode definitions for GCC; included by rtl.h and tree.h.
-   Copyright (C) 1991, 1993, 1994, 1996, 1998, 1999, 2000, 2001, 2003,
-   2007, 2008, 2009, 2010, 2012 Free Software Foundation, Inc.
+   Copyright (C) 1991-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -259,13 +258,36 @@ extern enum machine_mode int_mode_for_mode (enum machine_mode);
 
 extern enum machine_mode mode_for_vector (enum machine_mode, unsigned);
 
+/* A class for iterating through possible bitfield modes.  */
+class bit_field_mode_iterator
+{
+public:
+  bit_field_mode_iterator (HOST_WIDE_INT, HOST_WIDE_INT,
+			   HOST_WIDE_INT, HOST_WIDE_INT,
+			   unsigned int, bool);
+  bool next_mode (enum machine_mode *);
+  bool prefer_smaller_modes ();
+
+private:
+  enum machine_mode m_mode;
+  /* We use signed values here because the bit position can be negative
+     for invalid input such as gcc.dg/pr48335-8.c.  */
+  HOST_WIDE_INT m_bitsize;
+  HOST_WIDE_INT m_bitpos;
+  HOST_WIDE_INT m_bitregion_start;
+  HOST_WIDE_INT m_bitregion_end;
+  unsigned int m_align;
+  bool m_volatilep;
+  int m_count;
+};
+
 /* Find the best mode to use to access a bit field.  */
 
 extern enum machine_mode get_best_mode (int, int,
 					unsigned HOST_WIDE_INT,
 					unsigned HOST_WIDE_INT,
 					unsigned int,
-					enum machine_mode, int);
+					enum machine_mode, bool);
 
 /* Determine alignment, 1<=result<=BIGGEST_ALIGNMENT.  */
 
@@ -274,6 +296,10 @@ extern CONST_MODE_BASE_ALIGN unsigned char mode_base_align[NUM_MACHINE_MODES];
 extern unsigned get_mode_alignment (enum machine_mode);
 
 #define GET_MODE_ALIGNMENT(MODE) get_mode_alignment (MODE)
+
+/* Get the precision of the mode or its inner mode if it has one.  */
+
+extern unsigned int element_precision (enum machine_mode);
 
 /* For each class, get the narrowest mode in that class.  */
 

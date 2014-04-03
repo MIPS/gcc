@@ -24,8 +24,6 @@ const (
 var padZeroBytes = make([]byte, nByte)
 var padSpaceBytes = make([]byte, nByte)
 
-var newline = []byte{'\n'}
-
 func init() {
 	for i := 0; i < nByte; i++ {
 		padZeroBytes[i] = '0'
@@ -72,7 +70,7 @@ func (f *fmt) init(buf *buffer) {
 	f.clearflags()
 }
 
-// Compute left and right padding widths (only one will be non-zero).
+// computePadding computes left and right padding widths (only one will be non-zero).
 func (f *fmt) computePadding(width int) (padding []byte, leftWidth, rightWidth int) {
 	left := !f.minus
 	w := f.wid
@@ -95,7 +93,7 @@ func (f *fmt) computePadding(width int) (padding []byte, leftWidth, rightWidth i
 	return
 }
 
-// Generate n bytes of padding.
+// writePadding generates n bytes of padding.
 func (f *fmt) writePadding(n int, padding []byte) {
 	for n > 0 {
 		m := n
@@ -107,8 +105,7 @@ func (f *fmt) writePadding(n int, padding []byte) {
 	}
 }
 
-// Append b to f.buf, padded on left (w > 0) or right (w < 0 or f.minus)
-// clear flags afterwards.
+// pad appends b to f.buf, padded on left (w > 0) or right (w < 0 or f.minus).
 func (f *fmt) pad(b []byte) {
 	if !f.widPresent || f.wid == 0 {
 		f.buf.Write(b)
@@ -124,8 +121,7 @@ func (f *fmt) pad(b []byte) {
 	}
 }
 
-// append s to buf, padded on left (w > 0) or right (w < 0 or f.minus).
-// clear flags afterwards.
+// padString appends s to buf, padded on left (w > 0) or right (w < 0 or f.minus).
 func (f *fmt) padString(s string) {
 	if !f.widPresent || f.wid == 0 {
 		f.buf.WriteString(s)
@@ -139,17 +135,6 @@ func (f *fmt) padString(s string) {
 	if right > 0 {
 		f.writePadding(right, padding)
 	}
-}
-
-func putint(buf []byte, base, val uint64, digits string) int {
-	i := len(buf) - 1
-	for val >= base {
-		buf[i] = digits[val%base]
-		i--
-		val /= base
-	}
-	buf[i] = digits[val]
-	return i - 1
 }
 
 var (
@@ -175,6 +160,11 @@ func (f *fmt) integer(a int64, base uint64, signedness bool, digits string) {
 	}
 
 	var buf []byte = f.intbuf[0:]
+	if f.widPresent && f.wid > nByte {
+		// We're going to need a bigger boat.
+		buf = make([]byte, f.wid)
+	}
+
 	negative := signedness == signed && a < 0
 	if negative {
 		a = -a
@@ -197,7 +187,7 @@ func (f *fmt) integer(a int64, base uint64, signedness bool, digits string) {
 	// a is made into unsigned ua.  we could make things
 	// marginally faster by splitting the 32-bit case out into a separate
 	// block but it's not worth the duplication, so ua has 64 bits.
-	i := len(f.intbuf)
+	i := len(buf)
 	ua := uint64(a)
 	for ua >= base {
 		i--
@@ -206,7 +196,7 @@ func (f *fmt) integer(a int64, base uint64, signedness bool, digits string) {
 	}
 	i--
 	buf[i] = digits[ua]
-	for i > 0 && prec > nByte-i {
+	for i > 0 && prec > len(buf)-i {
 		i--
 		buf[i] = '0'
 	}
@@ -369,6 +359,14 @@ func (f *fmt) formatFloat(v float64, verb byte, prec, n int) {
 	// The formatted number starts at slice[1].
 	switch slice[1] {
 	case '-', '+':
+		// If we're zero padding, want the sign before the leading zeros.
+		// Achieve this by writing the sign out and padding the postive number.
+		if f.zero && f.widPresent && f.wid > len(slice) {
+			f.buf.WriteByte(slice[1])
+			f.wid--
+			f.pad(slice[2:])
+			return
+		}
 		// We're set; drop the leading space.
 		slice = slice[1:]
 	default:
@@ -396,7 +394,7 @@ func (f *fmt) fmt_f64(v float64) { f.formatFloat(v, 'f', doPrec(f, 6), 64) }
 // fmt_g64 formats a float64 in the 'f' or 'e' form according to size.
 func (f *fmt) fmt_g64(v float64) { f.formatFloat(v, 'g', doPrec(f, -1), 64) }
 
-// fmt_g64 formats a float64 in the 'f' or 'E' form according to size.
+// fmt_G64 formats a float64 in the 'f' or 'E' form according to size.
 func (f *fmt) fmt_G64(v float64) { f.formatFloat(v, 'G', doPrec(f, -1), 64) }
 
 // fmt_fb64 formats a float64 in the form -123p3 (exponent is power of 2).
@@ -428,8 +426,11 @@ func (f *fmt) fmt_fb32(v float32) { f.formatFloat(float64(v), 'b', 0, 32) }
 func (f *fmt) fmt_c64(v complex64, verb rune) {
 	f.buf.WriteByte('(')
 	r := real(v)
+	oldPlus := f.plus
 	for i := 0; ; i++ {
 		switch verb {
+		case 'b':
+			f.fmt_fb32(r)
 		case 'e':
 			f.fmt_e32(r)
 		case 'E':
@@ -447,6 +448,7 @@ func (f *fmt) fmt_c64(v complex64, verb rune) {
 		f.plus = true
 		r = imag(v)
 	}
+	f.plus = oldPlus
 	f.buf.Write(irparenBytes)
 }
 
@@ -454,8 +456,11 @@ func (f *fmt) fmt_c64(v complex64, verb rune) {
 func (f *fmt) fmt_c128(v complex128, verb rune) {
 	f.buf.WriteByte('(')
 	r := real(v)
+	oldPlus := f.plus
 	for i := 0; ; i++ {
 		switch verb {
+		case 'b':
+			f.fmt_fb64(r)
 		case 'e':
 			f.fmt_e64(r)
 		case 'E':
@@ -473,5 +478,6 @@ func (f *fmt) fmt_c128(v complex128, verb rune) {
 		f.plus = true
 		r = imag(v)
 	}
+	f.plus = oldPlus
 	f.buf.Write(irparenBytes)
 }

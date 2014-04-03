@@ -1,5 +1,4 @@
-# Copyright (C) 1997, 2004, 2005, 2006, 2007, 2008, 2010
-# Free Software Foundation, Inc.
+# Copyright (C) 1997-2014 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -42,6 +41,28 @@ if ![check_vect_support_and_set_flags] {
 # These flags are used for all targets.
 lappend DEFAULT_VECTCFLAGS "-ftree-vectorize" "-fno-vect-cost-model" "-fno-common"
 
+# If the linker used understands -M <mapfile>, pass it to clear hardware
+# capabilities set by the Sun assembler.
+# Try mapfile syntax v2 first which is the only way to clear hwcap_2 flags.
+set clearcap_ldflags "-Wl,-M,$srcdir/gcc.target/i386/clearcapv2.map"
+
+if ![check_no_compiler_messages mapfilev2 executable {
+    int main (void) { return 0; }
+} $clearcap_ldflags ] {
+    # If this doesn't work, fall back to the less capable v1 syntax.
+    set clearcap_ldflags "-Wl,-M,$srcdir/gcc.target/i386/clearcap.map"
+
+    if ![check_no_compiler_messages mapfile executable {
+	int main (void) { return 0; }
+    } $clearcap_ldflags ] {
+	unset clearcap_ldflags
+    }
+}
+
+if [info exists clearcap_ldflags] {
+    lappend DEFAULT_VECTCFLAGS $clearcap_ldflags
+}
+
 # Initialize `dg'.
 dg-init
 
@@ -77,7 +98,7 @@ lappend VECT_SLP_CFLAGS "-fdump-tree-slp-details"
 # Main loop.
 set VECT_ADDITIONAL_FLAGS [list ""]
 if { [check_effective_target_lto] } {
-    lappend VECT_ADDITIONAL_FLAGS "-flto"
+    lappend VECT_ADDITIONAL_FLAGS "-flto -ffat-lto-objects"
 }
 foreach flags $VECT_ADDITIONAL_FLAGS {
     dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/pr*.\[cS\]]]  \
@@ -157,7 +178,8 @@ dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/section-anchors-*.\[cS\]]]  
 
 # alignment-sensitive -fsection-anchors tests
 set DEFAULT_VECTCFLAGS $SAVED_DEFAULT_VECTCFLAGS
-lappend DEFAULT_VECTCFLAGS "-fsection-anchors" "-fdump-ipa-increase_alignment"
+lappend DEFAULT_VECTCFLAGS "-fsection-anchors" \
+	"-fdump-ipa-increase_alignment-details"
 dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/aligned-section-anchors-*.\[cS\]]]  \
 	"" $DEFAULT_VECTCFLAGS
 

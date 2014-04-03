@@ -39,7 +39,14 @@ type Time struct {
 	// nsec specifies a non-negative nanosecond
 	// offset within the second named by Seconds.
 	// It must be in the range [0, 999999999].
-	nsec int32
+	//
+	// It is declared as uintptr instead of int32 or uint32
+	// to avoid garbage collector aliasing in the case where
+	// on a 64-bit system the int32 or uint32 field is written
+	// over the low half of a pointer, creating another pointer.
+	// TODO(rsc): When the garbage collector is completely
+	// precise, change back to int32.
+	nsec uintptr
 
 	// loc specifies the Location that should be used to
 	// determine the minute, hour, month, day, and year
@@ -261,8 +268,8 @@ func (t Time) abs() uint64 {
 // extracting both return values from a single zone lookup.
 func (t Time) locabs() (name string, offset int, abs uint64) {
 	l := t.loc
-	if l == nil {
-		l = &utcLoc
+	if l == nil || l == &localLoc {
+		l = l.get()
 	}
 	// Avoid function call if we hit the local time cache.
 	sec := t.sec + internalToUnix
@@ -423,6 +430,11 @@ func (t Time) YearDay() int {
 // as an int64 nanosecond count.  The representation limits the
 // largest representable duration to approximately 290 years.
 type Duration int64
+
+const (
+	minDuration Duration = -1 << 63
+	maxDuration Duration = 1<<63 - 1
+)
 
 // Common durations.  There is no definition for units of Day or larger
 // to avoid confusion across daylight savings time zone transitions.
@@ -600,21 +612,33 @@ func (d Duration) Hours() float64 {
 // Add returns the time t+d.
 func (t Time) Add(d Duration) Time {
 	t.sec += int64(d / 1e9)
-	t.nsec += int32(d % 1e9)
-	if t.nsec >= 1e9 {
+	nsec := int32(t.nsec) + int32(d%1e9)
+	if nsec >= 1e9 {
 		t.sec++
-		t.nsec -= 1e9
-	} else if t.nsec < 0 {
+		nsec -= 1e9
+	} else if nsec < 0 {
 		t.sec--
-		t.nsec += 1e9
+		nsec += 1e9
 	}
+	t.nsec = uintptr(nsec)
 	return t
 }
 
-// Sub returns the duration t-u.
+// Sub returns the duration t-u. If the result exceeds the maximum (or minimum)
+// value that can be stored in a Duration, the maximum (or minimum) duration
+// will be returned.
 // To compute t-d for a duration d, use t.Add(-d).
 func (t Time) Sub(u Time) Duration {
-	return Duration(t.sec-u.sec)*Second + Duration(t.nsec-u.nsec)
+	d := Duration(t.sec-u.sec)*Second + Duration(int32(t.nsec)-int32(u.nsec))
+	// Check for overflow or underflow.
+	switch {
+	case u.Add(d).Equal(t):
+		return d // d is correct
+	case t.Before(u):
+		return minDuration // t - u is negative out of range
+	default:
+		return maxDuration // t - u is positive out of range
+	}
 }
 
 // Since returns the time elapsed since t.
@@ -645,7 +669,6 @@ const (
 	daysPer400Years  = 365*400 + 97
 	daysPer100Years  = 365*100 + 24
 	daysPer4Years    = 365*4 + 1
-	days1970To2001   = 31*365 + 8
 )
 
 // date computes the year, day of year, and when full=true,
@@ -760,7 +783,7 @@ func now() (sec int64, nsec int32)
 // Now returns the current local time.
 func Now() Time {
 	sec, nsec := now()
-	return Time{sec + unixToInternal, nsec, Local}
+	return Time{sec + unixToInternal, uintptr(nsec), Local}
 }
 
 // UTC returns t with the location set to UTC.
@@ -816,10 +839,10 @@ func (t Time) UnixNano() int64 {
 	return (t.sec+internalToUnix)*1e9 + int64(t.nsec)
 }
 
-const timeGobVersion byte = 1
+const timeBinaryVersion byte = 1
 
-// GobEncode implements the gob.GobEncoder interface.
-func (t Time) GobEncode() ([]byte, error) {
+// MarshalBinary implements the encoding.BinaryMarshaler interface.
+func (t Time) MarshalBinary() ([]byte, error) {
 	var offsetMin int16 // minutes east of UTC. -1 is UTC.
 
 	if t.Location() == &utcLoc {
@@ -827,17 +850,17 @@ func (t Time) GobEncode() ([]byte, error) {
 	} else {
 		_, offset := t.Zone()
 		if offset%60 != 0 {
-			return nil, errors.New("Time.GobEncode: zone offset has fractional minute")
+			return nil, errors.New("Time.MarshalBinary: zone offset has fractional minute")
 		}
 		offset /= 60
 		if offset < -32768 || offset == -1 || offset > 32767 {
-			return nil, errors.New("Time.GobEncode: unexpected zone offset")
+			return nil, errors.New("Time.MarshalBinary: unexpected zone offset")
 		}
 		offsetMin = int16(offset)
 	}
 
 	enc := []byte{
-		timeGobVersion,    // byte 0 : version
+		timeBinaryVersion, // byte 0 : version
 		byte(t.sec >> 56), // bytes 1-8: seconds
 		byte(t.sec >> 48),
 		byte(t.sec >> 40),
@@ -857,18 +880,19 @@ func (t Time) GobEncode() ([]byte, error) {
 	return enc, nil
 }
 
-// GobDecode implements the gob.GobDecoder interface.
-func (t *Time) GobDecode(buf []byte) error {
+// UnmarshalBinary implements the encoding.BinaryUnmarshaler interface.
+func (t *Time) UnmarshalBinary(data []byte) error {
+	buf := data
 	if len(buf) == 0 {
-		return errors.New("Time.GobDecode: no data")
+		return errors.New("Time.UnmarshalBinary: no data")
 	}
 
-	if buf[0] != timeGobVersion {
-		return errors.New("Time.GobDecode: unsupported version")
+	if buf[0] != timeBinaryVersion {
+		return errors.New("Time.UnmarshalBinary: unsupported version")
 	}
 
 	if len(buf) != /*version*/ 1+ /*sec*/ 8+ /*nsec*/ 4+ /*zone offset*/ 2 {
-		return errors.New("Time.GobDecode: invalid length")
+		return errors.New("Time.UnmarshalBinary: invalid length")
 	}
 
 	buf = buf[1:]
@@ -876,7 +900,7 @@ func (t *Time) GobDecode(buf []byte) error {
 		int64(buf[3])<<32 | int64(buf[2])<<40 | int64(buf[1])<<48 | int64(buf[0])<<56
 
 	buf = buf[8:]
-	t.nsec = int32(buf[3]) | int32(buf[2])<<8 | int32(buf[1])<<16 | int32(buf[0])<<24
+	t.nsec = uintptr(int32(buf[3]) | int32(buf[2])<<8 | int32(buf[1])<<16 | int32(buf[0])<<24)
 
 	buf = buf[4:]
 	offset := int(int16(buf[1])|int16(buf[0])<<8) * 60
@@ -892,8 +916,22 @@ func (t *Time) GobDecode(buf []byte) error {
 	return nil
 }
 
+// TODO(rsc): Remove GobEncoder, GobDecoder, MarshalJSON, UnmarshalJSON in Go 2.
+// The same semantics will be provided by the generic MarshalBinary, MarshalText,
+// UnmarshalBinary, UnmarshalText.
+
+// GobEncode implements the gob.GobEncoder interface.
+func (t Time) GobEncode() ([]byte, error) {
+	return t.MarshalBinary()
+}
+
+// GobDecode implements the gob.GobDecoder interface.
+func (t *Time) GobDecode(data []byte) error {
+	return t.UnmarshalBinary(data)
+}
+
 // MarshalJSON implements the json.Marshaler interface.
-// Time is formatted as RFC3339.
+// The time is a quoted string in RFC 3339 format, with sub-second precision added if present.
 func (t Time) MarshalJSON() ([]byte, error) {
 	if y := t.Year(); y < 0 || y >= 10000 {
 		return nil, errors.New("Time.MarshalJSON: year outside of range [0,9999]")
@@ -902,10 +940,27 @@ func (t Time) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface.
-// Time is expected in RFC3339 format.
+// The time is expected to be a quoted string in RFC 3339 format.
 func (t *Time) UnmarshalJSON(data []byte) (err error) {
 	// Fractional seconds are handled implicitly by Parse.
 	*t, err = Parse(`"`+RFC3339+`"`, string(data))
+	return
+}
+
+// MarshalText implements the encoding.TextMarshaler interface.
+// The time is formatted in RFC 3339 format, with sub-second precision added if present.
+func (t Time) MarshalText() ([]byte, error) {
+	if y := t.Year(); y < 0 || y >= 10000 {
+		return nil, errors.New("Time.MarshalText: year outside of range [0,9999]")
+	}
+	return []byte(t.Format(RFC3339Nano)), nil
+}
+
+// UnmarshalText implements the encoding.TextUnmarshaler interface.
+// The time is expected to be in RFC 3339 format.
+func (t *Time) UnmarshalText(data []byte) (err error) {
+	// Fractional seconds are handled implicitly by Parse.
+	*t, err = Parse(RFC3339, string(data))
 	return
 }
 
@@ -922,7 +977,7 @@ func Unix(sec int64, nsec int64) Time {
 			sec--
 		}
 	}
-	return Time{sec + unixToInternal, int32(nsec), Local}
+	return Time{sec + unixToInternal, uintptr(nsec), Local}
 }
 
 func isLeap(year int) bool {
@@ -1031,5 +1086,119 @@ func Date(year int, month Month, day, hour, min, sec, nsec int, loc *Location) T
 		unix -= int64(offset)
 	}
 
-	return Time{unix + unixToInternal, int32(nsec), loc}
+	return Time{unix + unixToInternal, uintptr(nsec), loc}
+}
+
+// Truncate returns the result of rounding t down to a multiple of d (since the zero time).
+// If d <= 0, Truncate returns t unchanged.
+func (t Time) Truncate(d Duration) Time {
+	if d <= 0 {
+		return t
+	}
+	_, r := div(t, d)
+	return t.Add(-r)
+}
+
+// Round returns the result of rounding t to the nearest multiple of d (since the zero time).
+// The rounding behavior for halfway values is to round up.
+// If d <= 0, Round returns t unchanged.
+func (t Time) Round(d Duration) Time {
+	if d <= 0 {
+		return t
+	}
+	_, r := div(t, d)
+	if r+r < d {
+		return t.Add(-r)
+	}
+	return t.Add(d - r)
+}
+
+// div divides t by d and returns the quotient parity and remainder.
+// We don't use the quotient parity anymore (round half up instead of round to even)
+// but it's still here in case we change our minds.
+func div(t Time, d Duration) (qmod2 int, r Duration) {
+	neg := false
+	nsec := int32(t.nsec)
+	if t.sec < 0 {
+		// Operate on absolute value.
+		neg = true
+		t.sec = -t.sec
+		nsec = -nsec
+		if nsec < 0 {
+			nsec += 1e9
+			t.sec-- // t.sec >= 1 before the -- so safe
+		}
+	}
+
+	switch {
+	// Special case: 2d divides 1 second.
+	case d < Second && Second%(d+d) == 0:
+		qmod2 = int(nsec/int32(d)) & 1
+		r = Duration(nsec % int32(d))
+
+	// Special case: d is a multiple of 1 second.
+	case d%Second == 0:
+		d1 := int64(d / Second)
+		qmod2 = int(t.sec/d1) & 1
+		r = Duration(t.sec%d1)*Second + Duration(nsec)
+
+	// General case.
+	// This could be faster if more cleverness were applied,
+	// but it's really only here to avoid special case restrictions in the API.
+	// No one will care about these cases.
+	default:
+		// Compute nanoseconds as 128-bit number.
+		sec := uint64(t.sec)
+		tmp := (sec >> 32) * 1e9
+		u1 := tmp >> 32
+		u0 := tmp << 32
+		tmp = uint64(sec&0xFFFFFFFF) * 1e9
+		u0x, u0 := u0, u0+tmp
+		if u0 < u0x {
+			u1++
+		}
+		u0x, u0 = u0, u0+uint64(nsec)
+		if u0 < u0x {
+			u1++
+		}
+
+		// Compute remainder by subtracting r<<k for decreasing k.
+		// Quotient parity is whether we subtract on last round.
+		d1 := uint64(d)
+		for d1>>63 != 1 {
+			d1 <<= 1
+		}
+		d0 := uint64(0)
+		for {
+			qmod2 = 0
+			if u1 > d1 || u1 == d1 && u0 >= d0 {
+				// subtract
+				qmod2 = 1
+				u0x, u0 = u0, u0-d0
+				if u0 > u0x {
+					u1--
+				}
+				u1 -= d1
+			}
+			if d1 == 0 && d0 == uint64(d) {
+				break
+			}
+			d0 >>= 1
+			d0 |= (d1 & 1) << 63
+			d1 >>= 1
+		}
+		r = Duration(u0)
+	}
+
+	if neg && r != 0 {
+		// If input was negative and not an exact multiple of d, we computed q, r such that
+		//	q*d + r = -t
+		// But the right answers are given by -(q-1), d-r:
+		//	q*d + r = -t
+		//	-q*d - r = t
+		//	-(q-1)*d + (d - r) = t
+		qmod2 ^= 1
+		r = d - r
+	}
+	return
 }

@@ -1,7 +1,5 @@
 /* Main parser.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008,
-   2009, 2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 2000-2014 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -102,7 +100,7 @@ use_modules (void)
 
 #define match(keyword, subr, st)				\
     do {							\
-      if (match_word(keyword, subr, &old_locus) == MATCH_YES)	\
+      if (match_word (keyword, subr, &old_locus) == MATCH_YES)	\
 	return st;						\
       else							\
 	undo_new_statement ();				  \
@@ -264,6 +262,7 @@ end_of_block:
 static gfc_statement
 decode_statement (void)
 {
+  gfc_namespace *ns;
   gfc_statement st;
   locus old_locus;
   match m;
@@ -365,7 +364,12 @@ decode_statement (void)
   match (NULL, gfc_match_associate, ST_ASSOCIATE);
   match (NULL, gfc_match_critical, ST_CRITICAL);
   match (NULL, gfc_match_select, ST_SELECT_CASE);
+
+  gfc_current_ns = gfc_build_block_ns (gfc_current_ns);
   match (NULL, gfc_match_select_type, ST_SELECT_TYPE);
+  ns = gfc_current_ns;
+  gfc_current_ns = gfc_current_ns->parent;
+  gfc_free_namespace (ns);
 
   /* General statement matching: Instead of testing every possible
      statement, we eliminate most possibilities by peeking at the
@@ -546,8 +550,7 @@ decode_omp_directive (void)
       return ST_NONE;
     }
 
-  if (gfc_implicit_pure (NULL))
-    gfc_current_ns->proc_name->attr.implicit_pure = 0;
+  gfc_unset_implicit_pure (NULL);
 
   old_locus = gfc_current_locus;
 
@@ -617,6 +620,7 @@ decode_omp_directive (void)
       match ("taskyield", gfc_match_omp_taskyield, ST_OMP_TASKYIELD);
       match ("threadprivate", gfc_match_omp_threadprivate,
 	     ST_OMP_THREADPRIVATE);
+      break;
     case 'w':
       match ("workshare", gfc_match_omp_workshare, ST_OMP_WORKSHARE);
       break;
@@ -1070,7 +1074,7 @@ pop_state (void)
 
 /* Try to find the given state in the state stack.  */
 
-gfc_try
+bool
 gfc_find_state (gfc_compile_state state)
 {
   gfc_state_data *p;
@@ -1079,7 +1083,7 @@ gfc_find_state (gfc_compile_state state)
     if (p->state == state)
       break;
 
-  return (p == NULL) ? FAILURE : SUCCESS;
+  return (p == NULL) ? false : true;
 }
 
 
@@ -1090,7 +1094,7 @@ new_level (gfc_code *q)
 {
   gfc_code *p;
 
-  p = q->block = gfc_get_code ();
+  p = q->block = gfc_get_code (EXEC_NOP);
 
   gfc_state_stack->head = gfc_state_stack->tail = p;
 
@@ -1106,7 +1110,7 @@ add_statement (void)
 {
   gfc_code *p;
 
-  p = gfc_get_code ();
+  p = XCNEW (gfc_code);
   *p = new_st;
 
   p->loc = gfc_current_locus;
@@ -1765,7 +1769,7 @@ unexpected_statement (gfc_statement st)
 /* Given the next statement seen by the matcher, make sure that it is
    in proper order with the last.  This subroutine is initialized by
    calling it with an argument of ST_NONE.  If there is a problem, we
-   issue an error and return FAILURE.  Otherwise we return SUCCESS.
+   issue an error and return false.  Otherwise we return true.
 
    Individual parsers need to verify that the statements seen are
    valid before calling here, i.e., ENTRY statements are not allowed in
@@ -1817,7 +1821,7 @@ typedef struct
 }
 st_state;
 
-static gfc_try
+static bool
 verify_st_order (st_state *p, gfc_statement st, bool silent)
 {
 
@@ -1899,7 +1903,7 @@ verify_st_order (st_state *p, gfc_statement st, bool silent)
   /* All is well, record the statement in case we need it next time.  */
   p->where = gfc_current_locus;
   p->last_statement = st;
-  return SUCCESS;
+  return true;
 
 order:
   if (!silent)
@@ -1907,7 +1911,7 @@ order:
 	       gfc_ascii_statement (st),
 	       gfc_ascii_statement (p->last_statement), &p->where);
 
-  return FAILURE;
+  return false;
 }
 
 
@@ -1979,8 +1983,7 @@ parse_derived_contains (void)
 	  goto error;
 
 	case ST_PROCEDURE:
-	  if (gfc_notify_std (GFC_STD_F2003, "Type-bound"
-					     " procedure at %C") == FAILURE)
+	  if (!gfc_notify_std (GFC_STD_F2003, "Type-bound procedure at %C"))
 	    goto error;
 
 	  accept_statement (ST_PROCEDURE);
@@ -1988,8 +1991,7 @@ parse_derived_contains (void)
 	  break;
 
 	case ST_GENERIC:
-	  if (gfc_notify_std (GFC_STD_F2003, "GENERIC binding"
-					     " at %C") == FAILURE)
+	  if (!gfc_notify_std (GFC_STD_F2003, "GENERIC binding at %C"))
 	    goto error;
 
 	  accept_statement (ST_GENERIC);
@@ -1997,9 +1999,8 @@ parse_derived_contains (void)
 	  break;
 
 	case ST_FINAL:
-	  if (gfc_notify_std (GFC_STD_F2003,
-			      "FINAL procedure declaration"
-			      " at %C") == FAILURE)
+	  if (!gfc_notify_std (GFC_STD_F2003, "FINAL procedure declaration"
+			       " at %C"))
 	    goto error;
 
 	  accept_statement (ST_FINAL);
@@ -2010,16 +2011,15 @@ parse_derived_contains (void)
 	  to_finish = true;
 
 	  if (!seen_comps
-	      && (gfc_notify_std (GFC_STD_F2008, "Derived type "
-				  "definition at %C with empty CONTAINS "
-				  "section") == FAILURE))
+	      && (!gfc_notify_std(GFC_STD_F2008, "Derived type definition "
+				  "at %C with empty CONTAINS section")))
 	    goto error;
 
 	  /* ST_END_TYPE is accepted by parse_derived after return.  */
 	  break;
 
 	case ST_PRIVATE:
-	  if (gfc_find_state (COMP_MODULE) == FAILURE)
+	  if (!gfc_find_state (COMP_MODULE))
 	    {
 	      gfc_error ("PRIVATE statement in TYPE at %C must be inside "
 			 "a MODULE");
@@ -2122,7 +2122,7 @@ endType:
 	  break;
 
 	case ST_PRIVATE:
-	  if (gfc_find_state (COMP_MODULE) == FAILURE)
+	  if (!gfc_find_state (COMP_MODULE))
 	    {
 	      gfc_error ("PRIVATE statement in TYPE at %C must be inside "
 			 "a MODULE");
@@ -2227,11 +2227,11 @@ endType:
 	  sym->attr.coarray_comp = 1;
 	}
      
-      if (c->ts.type == BT_DERIVED && c->ts.u.derived->attr.coarray_comp)
+      if (c->ts.type == BT_DERIVED && c->ts.u.derived->attr.coarray_comp
+	  && !c->attr.pointer)
 	{
 	  coarray = true;
-	  if (!pointer && !allocatable)
-	    sym->attr.coarray_comp = 1;
+	  sym->attr.coarray_comp = 1;
 	}
 
       /* Looking for lock_type components.  */
@@ -2397,8 +2397,8 @@ loop:
 	  gfc_new_block->attr.pointer = 0;
 	  gfc_new_block->attr.proc_pointer = 1;
 	}
-      if (gfc_add_explicit_interface (gfc_new_block, IFSRC_IFBODY,
-				  gfc_new_block->formal, NULL) == FAILURE)
+      if (!gfc_add_explicit_interface (gfc_new_block, IFSRC_IFBODY, 
+				       gfc_new_block->formal, NULL))
 	{
 	  reject_statement ();
 	  gfc_free_namespace (gfc_current_ns);
@@ -2627,6 +2627,33 @@ loop:
 	default:
 	  break;
       }
+  else if (gfc_current_state () == COMP_BLOCK_DATA)
+    /* Fortran 2008, C1116.  */
+    switch (st)
+      {
+        case ST_DATA_DECL:
+	case ST_COMMON:
+	case ST_DATA:
+	case ST_TYPE:
+	case ST_END_BLOCK_DATA:
+	case ST_ATTR_DECL:
+	case ST_EQUIVALENCE:
+	case ST_PARAMETER:
+	case ST_IMPLICIT:
+	case ST_IMPLICIT_NONE:
+	case ST_DERIVED_DECL:
+	case ST_USE:
+	  break;
+
+	case ST_NONE:
+	  break;
+	  
+	default:
+	  gfc_error ("%s statement is not allowed inside of BLOCK DATA at %C",
+		     gfc_ascii_statement (st));
+	  reject_statement ();
+	  break;
+      }
   
   /* If we find a statement that can not be followed by an IMPLICIT statement
      (and thus we can expect to see none any further), type the function result
@@ -2644,7 +2671,7 @@ loop:
 	  verify_st_order (&dummyss, ST_NONE, false);
 	  verify_st_order (&dummyss, st, false);
 
-	  if (verify_st_order (&dummyss, ST_IMPLICIT, true) == FAILURE)
+	  if (!verify_st_order (&dummyss, ST_IMPLICIT, true))
 	    verify_now = true;
 	}
 
@@ -2685,7 +2712,7 @@ loop:
     case ST_DERIVED_DECL:
     case_decl:
 declSt:
-      if (verify_st_order (&ss, st, false) == FAILURE)
+      if (!verify_st_order (&ss, st, false))
 	{
 	  reject_statement ();
 	  st = next_statement ();
@@ -3315,14 +3342,14 @@ gfc_build_block_ns (gfc_namespace *parent_ns)
     my_ns->proc_name = gfc_new_block;
   else
     {
-      gfc_try t;
+      bool t;
       char buffer[20];  /* Enough to hold "block@2147483648\n".  */
 
       snprintf(buffer, sizeof(buffer), "block@%d", numblock++);
       gfc_get_symbol (buffer, my_ns, &my_ns->proc_name);
       t = gfc_add_flavor (&my_ns->proc_name->attr, FL_LABEL,
 			  my_ns->proc_name->name, NULL);
-      gcc_assert (t == SUCCESS);
+      gcc_assert (t);
       gfc_commit_symbol (my_ns->proc_name);
     }
 
@@ -3928,7 +3955,6 @@ gfc_fixup_sibling_symbols (gfc_symbol *sym, gfc_namespace *siblings)
   gfc_symtree *st;
   gfc_symbol *old_sym;
 
-  sym->attr.referenced = 1;
   for (ns = siblings; ns; ns = ns->sibling)
     {
       st = gfc_find_symtree (ns->sym_root, sym->name);
@@ -4029,9 +4055,9 @@ parse_contained (int module)
 			   "ambiguous", gfc_new_block->name);
 	      else
 		{
-		  if (gfc_add_procedure (&sym->attr, PROC_INTERNAL, sym->name,
-					 &gfc_new_block->declared_at) ==
-		      SUCCESS)
+		  if (gfc_add_procedure (&sym->attr, PROC_INTERNAL, 
+					 sym->name, 
+					 &gfc_new_block->declared_at))
 		    {
 		      if (st == ST_FUNCTION)
 			gfc_add_function (&sym->attr, sym->name,
@@ -4050,7 +4076,6 @@ parse_contained (int module)
 	  /* Mark this as a contained function, so it isn't replaced
 	     by other module functions.  */
 	  sym->attr.contained = 1;
-	  sym->attr.referenced = 1;
 
 	  /* Set implicit_pure so that it can be reset if any of the
 	     tests for purity fail.  This is used for some optimisation
@@ -4178,7 +4203,7 @@ contains:
     if (p->state == COMP_CONTAINS)
       n++;
 
-  if (gfc_find_state (COMP_MODULE) == SUCCESS)
+  if (gfc_find_state (COMP_MODULE) == true)
     n--;
 
   if (n > 0)
@@ -4233,8 +4258,12 @@ gfc_global_used (gfc_gsymbol *sym, locus *where)
       name = NULL;
     }
 
-  gfc_error("Global name '%s' at %L is already being used as a %s at %L",
-	      sym->name, where, name, &sym->where);
+  if (sym->binding_label)
+    gfc_error ("Global binding name '%s' at %L is already being used as a %s "
+	       "at %L", sym->binding_label, where, name, &sym->where);
+  else
+    gfc_error ("Global name '%s' at %L is already being used as a %s at %L",
+	       sym->name, where, name, &sym->where);
 }
 
 
@@ -4267,11 +4296,11 @@ parse_block_data (void)
       s = gfc_get_gsymbol (gfc_new_block->name);
       if (s->defined
 	  || (s->type != GSYM_UNKNOWN && s->type != GSYM_BLOCK_DATA))
-       gfc_global_used(s, NULL);
+       gfc_global_used (s, &gfc_new_block->declared_at);
       else
        {
 	 s->type = GSYM_BLOCK_DATA;
-	 s->where = gfc_current_locus;
+	 s->where = gfc_new_block->declared_at;
 	 s->defined = 1;
        }
     }
@@ -4295,19 +4324,21 @@ parse_module (void)
 {
   gfc_statement st;
   gfc_gsymbol *s;
+  bool error;
 
   s = gfc_get_gsymbol (gfc_new_block->name);
   if (s->defined || (s->type != GSYM_UNKNOWN && s->type != GSYM_MODULE))
-    gfc_global_used(s, NULL);
+    gfc_global_used (s, &gfc_new_block->declared_at);
   else
     {
       s->type = GSYM_MODULE;
-      s->where = gfc_current_locus;
+      s->where = gfc_new_block->declared_at;
       s->defined = 1;
     }
 
   st = parse_spec (ST_NONE);
 
+  error = false;
 loop:
   switch (st)
     {
@@ -4326,34 +4357,73 @@ loop:
       gfc_error ("Unexpected %s statement in MODULE at %C",
 		 gfc_ascii_statement (st));
 
+      error = true;
       reject_statement ();
       st = next_statement ();
       goto loop;
     }
 
-  s->ns = gfc_current_ns;
+  /* Make sure not to free the namespace twice on error.  */
+  if (!error)
+    s->ns = gfc_current_ns;
 }
 
 
 /* Add a procedure name to the global symbol table.  */
 
 static void
-add_global_procedure (int sub)
+add_global_procedure (bool sub)
 {
   gfc_gsymbol *s;
 
-  s = gfc_get_gsymbol(gfc_new_block->name);
-
-  if (s->defined
-      || (s->type != GSYM_UNKNOWN
-	  && s->type != (sub ? GSYM_SUBROUTINE : GSYM_FUNCTION)))
-    gfc_global_used(s, NULL);
-  else
+  /* Only in Fortran 2003: For procedures with a binding label also the Fortran
+     name is a global identifier.  */
+  if (!gfc_new_block->binding_label || gfc_notification_std (GFC_STD_F2008))
     {
-      s->type = sub ? GSYM_SUBROUTINE : GSYM_FUNCTION;
-      s->where = gfc_current_locus;
-      s->defined = 1;
-      s->ns = gfc_current_ns;
+      s = gfc_get_gsymbol (gfc_new_block->name);
+
+      if (s->defined
+	  || (s->type != GSYM_UNKNOWN
+	      && s->type != (sub ? GSYM_SUBROUTINE : GSYM_FUNCTION)))
+	{
+	  gfc_global_used (s, &gfc_new_block->declared_at);
+	  /* Silence follow-up errors.  */
+	  gfc_new_block->binding_label = NULL;
+	}
+      else
+	{
+	  s->type = sub ? GSYM_SUBROUTINE : GSYM_FUNCTION;
+	  s->sym_name = gfc_new_block->name;
+	  s->where = gfc_new_block->declared_at;
+	  s->defined = 1;
+	  s->ns = gfc_current_ns;
+	}
+    }
+
+  /* Don't add the symbol multiple times.  */
+  if (gfc_new_block->binding_label
+      && (!gfc_notification_std (GFC_STD_F2008)
+          || strcmp (gfc_new_block->name, gfc_new_block->binding_label) != 0))
+    {
+      s = gfc_get_gsymbol (gfc_new_block->binding_label);
+
+      if (s->defined
+	  || (s->type != GSYM_UNKNOWN
+	      && s->type != (sub ? GSYM_SUBROUTINE : GSYM_FUNCTION)))
+	{
+	  gfc_global_used (s, &gfc_new_block->declared_at);
+	  /* Silence follow-up errors.  */
+	  gfc_new_block->binding_label = NULL;
+	}
+      else
+	{
+	  s->type = sub ? GSYM_SUBROUTINE : GSYM_FUNCTION;
+	  s->sym_name = gfc_new_block->name;
+	  s->binding_label = gfc_new_block->binding_label;
+	  s->where = gfc_new_block->declared_at;
+	  s->defined = 1;
+	  s->ns = gfc_current_ns;
+	}
     }
 }
 
@@ -4370,19 +4440,18 @@ add_global_program (void)
   s = gfc_get_gsymbol (gfc_new_block->name);
 
   if (s->defined || (s->type != GSYM_UNKNOWN && s->type != GSYM_PROGRAM))
-    gfc_global_used(s, NULL);
+    gfc_global_used (s, &gfc_new_block->declared_at);
   else
     {
       s->type = GSYM_PROGRAM;
-      s->where = gfc_current_locus;
+      s->where = gfc_new_block->declared_at;
       s->defined = 1;
       s->ns = gfc_current_ns;
     }
 }
 
 
-/* Resolve all the program units when whole file scope option
-   is active. */
+/* Resolve all the program units. */
 static void
 resolve_all_program_units (gfc_namespace *gfc_global_ns_list)
 {
@@ -4423,9 +4492,8 @@ clean_up_modules (gfc_gsymbol *gsym)
 }
 
 
-/* Translate all the program units when whole file scope option
-   is active. This could be in a different order to resolution if
-   there are forward references in the file.  */
+/* Translate all the program units. This could be in a different order
+   to resolution if there are forward references in the file.  */
 static void
 translate_all_program_units (gfc_namespace *gfc_global_ns_list,
 			     bool main_in_tu)
@@ -4493,7 +4561,7 @@ translate_all_program_units (gfc_namespace *gfc_global_ns_list,
 
 /* Top level parser.  */
 
-gfc_try
+bool
 gfc_parse_file (void)
 {
   int seen_program, errors_before, errors;
@@ -4517,7 +4585,7 @@ gfc_parse_file (void)
   gfc_statement_label = NULL;
 
   if (setjmp (eof_buf))
-    return FAILURE;	/* Come here on unexpected EOF */
+    return false;	/* Come here on unexpected EOF */
 
   /* Prepare the global namespace that will contain the
      program units.  */
@@ -4550,26 +4618,23 @@ loop:
       accept_statement (st);
       add_global_program ();
       parse_progunit (ST_NONE);
-      if (gfc_option.flag_whole_file)
-	goto prog_units;
+      goto prog_units;
       break;
 
     case ST_SUBROUTINE:
-      add_global_procedure (1);
+      add_global_procedure (true);
       push_state (&s, COMP_SUBROUTINE, gfc_new_block);
       accept_statement (st);
       parse_progunit (ST_NONE);
-      if (gfc_option.flag_whole_file)
-	goto prog_units;
+      goto prog_units;
       break;
 
     case ST_FUNCTION:
-      add_global_procedure (0);
+      add_global_procedure (false);
       push_state (&s, COMP_FUNCTION, gfc_new_block);
       accept_statement (st);
       parse_progunit (ST_NONE);
-      if (gfc_option.flag_whole_file)
-	goto prog_units;
+      goto prog_units;
       break;
 
     case ST_BLOCK_DATA:
@@ -4596,8 +4661,7 @@ loop:
       push_state (&s, COMP_PROGRAM, gfc_new_block);
       main_program_symbol (gfc_current_ns, "MAIN__");
       parse_progunit (st);
-      if (gfc_option.flag_whole_file)
-	goto prog_units;
+      goto prog_units;
       break;
     }
 
@@ -4614,19 +4678,9 @@ loop:
   if (s.state == COMP_MODULE)
     {
       gfc_dump_module (s.sym->name, errors_before == errors);
-      if (!gfc_option.flag_whole_file)
-	{
-	  if (errors == 0)
-	    gfc_generate_module_code (gfc_current_ns);
-	  pop_state ();
-	  gfc_done_2 ();
-	}
-      else
-	{
-	  gfc_current_ns->derived_types = gfc_derived_types;
-	  gfc_derived_types = NULL;
-	  goto prog_units;
-	}
+      gfc_current_ns->derived_types = gfc_derived_types;
+      gfc_derived_types = NULL;
+      goto prog_units;
     }
   else
     {
@@ -4659,9 +4713,6 @@ prog_units:
 
   done:
 
-  if (!gfc_option.flag_whole_file)
-    goto termination;
-
   /* Do the resolution.  */
   resolve_all_program_units (gfc_global_ns_list);
 
@@ -4680,10 +4731,8 @@ prog_units:
   /* Do the translation.  */
   translate_all_program_units (gfc_global_ns_list, seen_program);
 
-termination:
-
   gfc_end_source_files ();
-  return SUCCESS;
+  return true;
 
 duplicate_main:
   /* If we see a duplicate main program, shut down.  If the second
@@ -4692,5 +4741,5 @@ duplicate_main:
   gfc_error ("Two main PROGRAMs at %L and %C", &prog_locus);
   reject_statement ();
   gfc_done_2 ();
-  return SUCCESS;
+  return true;
 }

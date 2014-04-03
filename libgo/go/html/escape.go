@@ -15,7 +15,7 @@ type writer interface {
 	WriteString(string) (int, error)
 }
 
-// These replacements permit compatibility with old numeric entities that 
+// These replacements permit compatibility with old numeric entities that
 // assumed Windows-1252 encoding.
 // http://www.whatwg.org/specs/web-apps/current-work/multipage/tokenization.html#consume-a-character-reference
 var replacementTable = [...]rune{
@@ -51,7 +51,7 @@ var replacementTable = [...]rune{
 	'\u009D',
 	'\u017E',
 	'\u0178', // Last entry is 0x9F.
-	// 0x00->'\uFFFD' is handled programmatically. 
+	// 0x00->'\uFFFD' is handled programmatically.
 	// 0x0D->'\u000D' is a no-op.
 }
 
@@ -182,16 +182,6 @@ func unescape(b []byte) []byte {
 				}
 			}
 			return b[0:dst]
-		}
-	}
-	return b
-}
-
-// lower lower-cases the A-Z bytes in b in-place, so that "aBc" becomes "abc".
-func lower(b []byte) []byte {
-	for i, c := range b {
-		if 'A' <= c && c <= 'Z' {
-			b[i] = c + 'a' - 'A'
 		}
 	}
 	return b

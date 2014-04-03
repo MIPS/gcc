@@ -1,7 +1,7 @@
 /* Heuristics and transform for loop blocking and strip mining on
    polyhedral representation.
 
-   Copyright (C) 2009, 2010, 2011 Free Software Foundation, Inc.
+   Copyright (C) 2009-2014 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <sebastian.pop@amd.com> and
    Pranav Garg  <pranav.garg2107@gmail.com>.
 
@@ -34,7 +34,15 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "system.h"
 #include "coretypes.h"
-#include "tree-flow.h"
+#include "tree.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
+#include "gimple-iterator.h"
+#include "tree-ssa-loop.h"
 #include "dumpfile.h"
 #include "cfgloop.h"
 #include "tree-chrec.h"
@@ -175,7 +183,7 @@ lst_do_strip_mine_loop (lst_p lst, int depth, int stride)
     {
       int res = 0;
 
-      FOR_EACH_VEC_ELT (lst_p, LST_SEQ (lst), i, l)
+      FOR_EACH_VEC_ELT (LST_SEQ (lst), i, l)
 	res += lst_do_strip_mine_loop (l, depth, stride);
 
       return res;
@@ -217,7 +225,7 @@ lst_do_strip_mine (lst_p lst, int stride)
       || !LST_LOOP_P (lst))
     return false;
 
-  FOR_EACH_VEC_ELT (lst_p, LST_SEQ (lst), i, l)
+  FOR_EACH_VEC_ELT (LST_SEQ (lst), i, l)
     res += lst_do_strip_mine (l, stride);
 
   depth = lst_depth (lst);

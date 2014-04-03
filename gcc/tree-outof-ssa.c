@@ -1,6 +1,5 @@
 /* Convert a program in SSA form into Normal form.
-   Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 2004-2014 Free Software Foundation, Inc.
    Contributed by Andrew Macleod <amacleod@redhat.com>
 
 This file is part of GCC.
@@ -24,22 +23,91 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
-#include "ggc.h"
+#include "stor-layout.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "bitmap.h"
-#include "tree-flow.h"
+#include "sbitmap.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
 #include "dumpfile.h"
 #include "diagnostic-core.h"
-#include "ssaexpand.h"
+#include "tree-ssa-live.h"
+#include "tree-ssa-ter.h"
+#include "tree-ssa-coalesce.h"
+#include "tree-outof-ssa.h"
 
 /* FIXME: A lot of code here deals with expanding to RTL.  All that code
    should be in cfgexpand.c.  */
 #include "expr.h"
 
+/* Return TRUE if expression STMT is suitable for replacement.  */
 
-DEF_VEC_I(source_location);
-DEF_VEC_ALLOC_I(source_location,heap);
+bool
+ssa_is_replaceable_p (gimple stmt)
+{
+  use_operand_p use_p;
+  tree def;
+  gimple use_stmt;
+
+  /* Only consider modify stmts.  */
+  if (!is_gimple_assign (stmt))
+    return false;
+
+  /* If the statement may throw an exception, it cannot be replaced.  */
+  if (stmt_could_throw_p (stmt))
+    return false;
+
+  /* Punt if there is more than 1 def.  */
+  def = SINGLE_SSA_TREE_OPERAND (stmt, SSA_OP_DEF);
+  if (!def)
+    return false;
+
+  /* Only consider definitions which have a single use.  */
+  if (!single_imm_use (def, &use_p, &use_stmt))
+    return false;
+
+  /* Used in this block, but at the TOP of the block, not the end.  */
+  if (gimple_code (use_stmt) == GIMPLE_PHI)
+    return false;
+
+  /* There must be no VDEFs.  */
+  if (gimple_vdef (stmt))
+    return false;
+
+  /* Float expressions must go through memory if float-store is on.  */
+  if (flag_float_store
+      && FLOAT_TYPE_P (gimple_expr_type (stmt)))
+    return false;
+
+  /* An assignment with a register variable on the RHS is not
+     replaceable.  */
+  if (gimple_assign_rhs_code (stmt) == VAR_DECL
+      && DECL_HARD_REGISTER (gimple_assign_rhs1 (stmt)))
+    return false;
+
+  /* No function calls can be replaced.  */
+  if (is_gimple_call (stmt))
+    return false;
+
+  /* Leave any stmt with volatile operands alone as well.  */
+  if (gimple_has_volatile_ops (stmt))
+    return false;
+
+  return true;
+}
+
 
 /* Used to hold all the components required to do SSA PHI elimination.
    The node and pred/succ list is a simple linear list of nodes and
@@ -67,19 +135,19 @@ typedef struct _elim_graph {
   int size;
 
   /* List of nodes in the elimination graph.  */
-  VEC(int,heap) *nodes;
+  vec<int> nodes;
 
   /*  The predecessor and successor edge list.  */
-  VEC(int,heap) *edge_list;
+  vec<int> edge_list;
 
   /* Source locus on each edge */
-  VEC(source_location,heap) *edge_locus;
+  vec<source_location> edge_locus;
 
   /* Visited vector.  */
   sbitmap visited;
 
   /* Stack for visited nodes.  */
-  VEC(int,heap) *stack;
+  vec<int> stack;
 
   /* The variable partition map.  */
   var_map map;
@@ -88,11 +156,11 @@ typedef struct _elim_graph {
   edge e;
 
   /* List of constant copies to emit.  These are pushed on in pairs.  */
-  VEC(int,heap) *const_dests;
-  VEC(tree,heap) *const_copies;
+  vec<int> const_dests;
+  vec<tree> const_copies;
 
   /* Source locations for any constant copies.  */
-  VEC(source_location,heap) *copy_locus;
+  vec<source_location> copy_locus;
 } *elim_graph;
 
 
@@ -338,13 +406,13 @@ new_elim_graph (int size)
 {
   elim_graph g = (elim_graph) xmalloc (sizeof (struct _elim_graph));
 
-  g->nodes = VEC_alloc (int, heap, 30);
-  g->const_dests = VEC_alloc (int, heap, 20);
-  g->const_copies = VEC_alloc (tree, heap, 20);
-  g->copy_locus = VEC_alloc (source_location, heap, 10);
-  g->edge_list = VEC_alloc (int, heap, 20);
-  g->edge_locus = VEC_alloc (source_location, heap, 10);
-  g->stack = VEC_alloc (int, heap, 30);
+  g->nodes.create (30);
+  g->const_dests.create (20);
+  g->const_copies.create (20);
+  g->copy_locus.create (10);
+  g->edge_list.create (20);
+  g->edge_locus.create (10);
+  g->stack.create (30);
 
   g->visited = sbitmap_alloc (size);
 
@@ -357,9 +425,9 @@ new_elim_graph (int size)
 static inline void
 clear_elim_graph (elim_graph g)
 {
-  VEC_truncate (int, g->nodes, 0);
-  VEC_truncate (int, g->edge_list, 0);
-  VEC_truncate (source_location, g->edge_locus, 0);
+  g->nodes.truncate (0);
+  g->edge_list.truncate (0);
+  g->edge_locus.truncate (0);
 }
 
 
@@ -369,13 +437,13 @@ static inline void
 delete_elim_graph (elim_graph g)
 {
   sbitmap_free (g->visited);
-  VEC_free (int, heap, g->stack);
-  VEC_free (int, heap, g->edge_list);
-  VEC_free (tree, heap, g->const_copies);
-  VEC_free (int, heap, g->const_dests);
-  VEC_free (int, heap, g->nodes);
-  VEC_free (source_location, heap, g->copy_locus);
-  VEC_free (source_location, heap, g->edge_locus);
+  g->stack.release ();
+  g->edge_list.release ();
+  g->const_copies.release ();
+  g->const_dests.release ();
+  g->nodes.release ();
+  g->copy_locus.release ();
+  g->edge_locus.release ();
 
   free (g);
 }
@@ -386,7 +454,7 @@ delete_elim_graph (elim_graph g)
 static inline int
 elim_graph_size (elim_graph g)
 {
-  return VEC_length (int, g->nodes);
+  return g->nodes.length ();
 }
 
 
@@ -398,10 +466,10 @@ elim_graph_add_node (elim_graph g, int node)
   int x;
   int t;
 
-  FOR_EACH_VEC_ELT (int, g->nodes, x, t)
+  FOR_EACH_VEC_ELT (g->nodes, x, t)
     if (t == node)
       return;
-  VEC_safe_push (int, heap, g->nodes, node);
+  g->nodes.safe_push (node);
 }
 
 
@@ -410,9 +478,9 @@ elim_graph_add_node (elim_graph g, int node)
 static inline void
 elim_graph_add_edge (elim_graph g, int pred, int succ, source_location locus)
 {
-  VEC_safe_push (int, heap, g->edge_list, pred);
-  VEC_safe_push (int, heap, g->edge_list, succ);
-  VEC_safe_push (source_location, heap, g->edge_locus, locus);
+  g->edge_list.safe_push (pred);
+  g->edge_list.safe_push (succ);
+  g->edge_locus.safe_push (locus);
 }
 
 
@@ -424,14 +492,14 @@ elim_graph_remove_succ_edge (elim_graph g, int node, source_location *locus)
 {
   int y;
   unsigned x;
-  for (x = 0; x < VEC_length (int, g->edge_list); x += 2)
-    if (VEC_index (int, g->edge_list, x) == node)
+  for (x = 0; x < g->edge_list.length (); x += 2)
+    if (g->edge_list[x] == node)
       {
-        VEC_replace (int, g->edge_list, x, -1);
-	y = VEC_index (int, g->edge_list, x + 1);
-	VEC_replace (int, g->edge_list, x + 1, -1);
-	*locus = VEC_index (source_location, g->edge_locus, x / 2);
-	VEC_replace (source_location, g->edge_locus, x / 2, UNKNOWN_LOCATION);
+        g->edge_list[x] = -1;
+	y = g->edge_list[x + 1];
+	g->edge_list[x + 1] = -1;
+	*locus = g->edge_locus[x / 2];
+	g->edge_locus[x / 2] = UNKNOWN_LOCATION;
 	return y;
       }
   *locus = UNKNOWN_LOCATION;
@@ -447,14 +515,13 @@ elim_graph_remove_succ_edge (elim_graph g, int node, source_location *locus)
 do {									\
   unsigned x_;								\
   int y_;								\
-  for (x_ = 0; x_ < VEC_length (int, (GRAPH)->edge_list); x_ += 2)	\
+  for (x_ = 0; x_ < (GRAPH)->edge_list.length (); x_ += 2)	\
     {									\
-      y_ = VEC_index (int, (GRAPH)->edge_list, x_);			\
+      y_ = (GRAPH)->edge_list[x_];					\
       if (y_ != (NODE))							\
         continue;							\
-      (void) ((VAR) = VEC_index (int, (GRAPH)->edge_list, x_ + 1));	\
-      (void) ((LOCUS) = VEC_index (source_location,			\
-				   (GRAPH)->edge_locus, x_ / 2));	\
+      (void) ((VAR) = (GRAPH)->edge_list[x_ + 1]);			\
+      (void) ((LOCUS) = (GRAPH)->edge_locus[x_ / 2]);			\
       CODE;								\
     }									\
 } while (0)
@@ -468,14 +535,13 @@ do {									\
 do {									\
   unsigned x_;								\
   int y_;								\
-  for (x_ = 0; x_ < VEC_length (int, (GRAPH)->edge_list); x_ += 2)	\
+  for (x_ = 0; x_ < (GRAPH)->edge_list.length (); x_ += 2)	\
     {									\
-      y_ = VEC_index (int, (GRAPH)->edge_list, x_ + 1);			\
+      y_ = (GRAPH)->edge_list[x_ + 1];					\
       if (y_ != (NODE))							\
         continue;							\
-      (void) ((VAR) = VEC_index (int, (GRAPH)->edge_list, x_));		\
-      (void) ((LOCUS) = VEC_index (source_location,			\
-				   (GRAPH)->edge_locus, x_ / 2));	\
+      (void) ((VAR) = (GRAPH)->edge_list[x_]);				\
+      (void) ((LOCUS) = (GRAPH)->edge_locus[x_ / 2]);			\
       CODE;								\
     }									\
 } while (0)
@@ -489,6 +555,23 @@ eliminate_name (elim_graph g, int T)
   elim_graph_add_node (g, T);
 }
 
+/* Return true if this phi argument T should have a copy queued when using
+   var_map MAP.  PHI nodes should contain only ssa_names and invariants.  A
+   test for ssa_name is definitely simpler, but don't let invalid contents
+   slip through in the meantime.  */
+
+static inline bool
+queue_phi_copy_p (var_map map, tree t)
+{
+  if (TREE_CODE (t) == SSA_NAME)
+    { 
+      if (var_to_partition (map, t) == NO_PARTITION)
+        return true;
+      return false;
+    }
+  gcc_checking_assert (is_gimple_min_invariant (t));
+  return true;
+}
 
 /* Build elimination graph G for basic block BB on incoming PHI edge
    G->e.  */
@@ -518,15 +601,13 @@ eliminate_build (elim_graph g)
       /* If this argument is a constant, or a SSA_NAME which is being
 	 left in SSA form, just queue a copy to be emitted on this
 	 edge.  */
-      if (!phi_ssa_name_p (Ti)
-	  || (TREE_CODE (Ti) == SSA_NAME
-	      && var_to_partition (g->map, Ti) == NO_PARTITION))
+      if (queue_phi_copy_p (g->map, Ti))
         {
 	  /* Save constant copies until all other copies have been emitted
 	     on this edge.  */
-	  VEC_safe_push (int, heap, g->const_dests, p0);
-	  VEC_safe_push (tree, heap, g->const_copies, Ti);
-	  VEC_safe_push (source_location, heap, g->copy_locus, locus);
+	  g->const_dests.safe_push (p0);
+	  g->const_copies.safe_push (Ti);
+	  g->copy_locus.safe_push (locus);
 	}
       else
         {
@@ -550,13 +631,13 @@ elim_forward (elim_graph g, int T)
   int S;
   source_location locus;
 
-  SET_BIT (g->visited, T);
+  bitmap_set_bit (g->visited, T);
   FOR_EACH_ELIM_GRAPH_SUCC (g, T, S, locus,
     {
-      if (!TEST_BIT (g->visited, S))
+      if (!bitmap_bit_p (g->visited, S))
         elim_forward (g, S);
     });
-  VEC_safe_push (int, heap, g->stack, T);
+  g->stack.safe_push (T);
 }
 
 
@@ -570,7 +651,7 @@ elim_unvisited_predecessor (elim_graph g, int T)
 
   FOR_EACH_ELIM_GRAPH_PRED (g, T, P, locus,
     {
-      if (!TEST_BIT (g->visited, P))
+      if (!bitmap_bit_p (g->visited, P))
         return 1;
     });
   return 0;
@@ -584,10 +665,10 @@ elim_backward (elim_graph g, int T)
   int P;
   source_location locus;
 
-  SET_BIT (g->visited, T);
+  bitmap_set_bit (g->visited, T);
   FOR_EACH_ELIM_GRAPH_PRED (g, T, P, locus,
     {
-      if (!TEST_BIT (g->visited, P))
+      if (!bitmap_bit_p (g->visited, P))
         {
 	  elim_backward (g, P);
 	  insert_partition_copy_on_edge (g->e, P, T, locus);
@@ -629,7 +710,7 @@ elim_create (elim_graph g, int T)
       insert_part_to_rtx_on_edge (g->e, U, T, UNKNOWN_LOCATION);
       FOR_EACH_ELIM_GRAPH_PRED (g, T, P, locus,
 	{
-	  if (!TEST_BIT (g->visited, P))
+	  if (!bitmap_bit_p (g->visited, P))
 	    {
 	      elim_backward (g, P);
 	      insert_rtx_to_part_on_edge (g->e, P, U, unsignedsrcp, locus);
@@ -641,7 +722,7 @@ elim_create (elim_graph g, int T)
       S = elim_graph_remove_succ_edge (g, T, &locus);
       if (S != -1)
 	{
-	  SET_BIT (g->visited, T);
+	  bitmap_set_bit (g->visited, T);
 	  insert_partition_copy_on_edge (g->e, T, S, locus);
 	}
     }
@@ -655,8 +736,8 @@ eliminate_phi (edge e, elim_graph g)
 {
   int x;
 
-  gcc_assert (VEC_length (tree, g->const_copies) == 0);
-  gcc_assert (VEC_length (source_location, g->copy_locus) == 0);
+  gcc_assert (g->const_copies.length () == 0);
+  gcc_assert (g->copy_locus.length () == 0);
 
   /* Abnormal edges already have everything coalesced.  */
   if (e->flags & EDGE_ABNORMAL)
@@ -670,34 +751,34 @@ eliminate_phi (edge e, elim_graph g)
     {
       int part;
 
-      sbitmap_zero (g->visited);
-      VEC_truncate (int, g->stack, 0);
+      bitmap_clear (g->visited);
+      g->stack.truncate (0);
 
-      FOR_EACH_VEC_ELT (int, g->nodes, x, part)
+      FOR_EACH_VEC_ELT (g->nodes, x, part)
         {
-	  if (!TEST_BIT (g->visited, part))
+	  if (!bitmap_bit_p (g->visited, part))
 	    elim_forward (g, part);
 	}
 
-      sbitmap_zero (g->visited);
-      while (VEC_length (int, g->stack) > 0)
+      bitmap_clear (g->visited);
+      while (g->stack.length () > 0)
 	{
-	  x = VEC_pop (int, g->stack);
-	  if (!TEST_BIT (g->visited, x))
+	  x = g->stack.pop ();
+	  if (!bitmap_bit_p (g->visited, x))
 	    elim_create (g, x);
 	}
     }
 
   /* If there are any pending constant copies, issue them now.  */
-  while (VEC_length (tree, g->const_copies) > 0)
+  while (g->const_copies.length () > 0)
     {
       int dest;
       tree src;
       source_location locus;
 
-      src = VEC_pop (tree, g->const_copies);
-      dest = VEC_pop (int, g->const_dests);
-      locus = VEC_pop (source_location, g->copy_locus);
+      src = g->const_copies.pop ();
+      dest = g->const_dests.pop ();
+      locus = g->copy_locus.pop ();
       insert_value_copy_on_edge (e, dest, src, locus);
     }
 }
@@ -754,7 +835,7 @@ eliminate_useless_phis (void)
   gimple_stmt_iterator gsi;
   tree result;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); )
         {
@@ -812,7 +893,7 @@ rewrite_trees (var_map map ATTRIBUTE_UNUSED)
   /* Search for PHIs where the destination has no partition, but one
      or more arguments has a partition.  This should not happen and can
      create incorrect code.  */
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator gsi;
       for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
@@ -854,7 +935,8 @@ expand_phi_nodes (struct ssaexpand *sa)
   elim_graph g = new_elim_graph (sa->map->num_partitions);
   g->map = sa->map;
 
-  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR->next_bb, EXIT_BLOCK_PTR, next_bb)
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb,
+		  EXIT_BLOCK_PTR_FOR_FN (cfun), next_bb)
     if (!gimple_seq_empty_p (phi_nodes (bb)))
       {
 	edge e;
@@ -1019,7 +1101,7 @@ insert_backedge_copies (void)
 
   mark_dfs_back_edges ();
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       /* Mark block as possibly needing calculation of UIDs.  */
       bb->aux = &bb->aux;

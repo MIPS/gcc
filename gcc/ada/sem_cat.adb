@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -561,8 +561,7 @@ package body Sem_Cat is
         and then Is_Package_Or_Generic_Package (Unit_Entity)
         and then Unit_Kind /= N_Package_Body
         and then List_Containing (N) =
-                   Visible_Declarations
-                     (Specification (Unit_Declaration_Node (Unit_Entity)))
+                   Visible_Declarations (Package_Specification (Unit_Entity))
         and then not In_Package_Body (Unit_Entity)
         and then not In_Instance;
 
@@ -923,6 +922,7 @@ package body Sem_Cat is
       then
          --  If the type is private, it must have the Ada 2005 pragma
          --  Has_Preelaborable_Initialization.
+
          --  The check is omitted within predefined units. This is probably
          --  obsolete code to fix the Ada 95 weakness in this area ???
 
@@ -1066,7 +1066,7 @@ package body Sem_Cat is
       --  Note that the 10.2.1(9) restrictions are not relevant to us anyway.
       --  We have to enforce them for RM compatibility, but we have no trouble
       --  accepting these objects and doing the right thing. Note that there is
-      --  no requirement that Preelaborate not actually generate any code!
+      --  no requirement that Preelaborate not actually generate any code.
 
       if In_Preelaborated_Unit
         and then not Debug_Flag_PP
@@ -1225,7 +1225,14 @@ package body Sem_Cat is
                   --  means that a pragma Preelaborable_Initialization was
                   --  given for the private type.
 
-                  if Has_Preelaborable_Initialization (Ent) then
+                  if Relaxed_RM_Semantics then
+
+                     --  In relaxed mode, do not issue these messages, this
+                     --  is basically similar to the GNAT_Mode test below.
+
+                     null;
+
+                  elsif Has_Preelaborable_Initialization (Ent) then
 
                      --  But for the predefined units, we will ignore this
                      --  status unless we are in Ada 2005 mode since we want
@@ -1728,8 +1735,7 @@ package body Sem_Cat is
       Direct_Designated_Type := Designated_Type (T);
       Desig_Type := Etype (Direct_Designated_Type);
 
-      --  Why is the check below not in
-      --  Validate_Remote_Access_To_Class_Wide_Type???
+      --  Why is this check not in Validate_Remote_Access_To_Class_Wide_Type???
 
       if not Is_Valid_Remote_Object_Type (Desig_Type) then
          Error_Msg_N
@@ -2047,6 +2053,7 @@ package body Sem_Cat is
       function Is_Primary (N : Node_Id) return Boolean;
       --  Determine whether node is syntactically a primary in an expression
       --  This function should probably be somewhere else ???
+      --
       --  Also it does not do what it says, e.g if N is a binary operator
       --  whose parent is a binary operator, Is_Primary returns True ???
 
@@ -2165,12 +2172,13 @@ package body Sem_Cat is
             --  This is the error case
 
             else
-               --  In GNAT mode, this is just a warning, to allow it to be
-               --  judiciously turned off. Otherwise it is a real error.
+               --  In GNAT mode or Relaxed RM Semantic mode, this is just a
+               --  warning, to allow it to be judiciously turned off.
+               --  Otherwise it is a real error.
 
-               if GNAT_Mode then
+               if GNAT_Mode or Relaxed_RM_Semantics then
                   Error_Msg_N
-                    ("?non-static constant in preelaborated unit", N);
+                    ("??non-static constant in preelaborated unit", N);
                else
                   Flag_Non_Static_Expr
                     ("non-static constant in preelaborated unit", N);

@@ -1,7 +1,5 @@
 /* Subroutines used for code generation on the DEC Alpha.
-   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-   2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 1992-2014 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GCC.
@@ -27,6 +25,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "rtl.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "calls.h"
+#include "varasm.h"
 #include "regs.h"
 #include "hard-reg-set.h"
 #include "insn-config.h"
@@ -50,8 +51,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "debug.h"
 #include "langhooks.h"
 #include "splay-tree.h"
+#include "pointer-set.h"
+#include "hash-table.h"
+#include "vec.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
-#include "tree-flow.h"
+#include "gimplify.h"
+#include "gimple-ssa.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
 #include "tree-stdarg.h"
 #include "tm-constrs.h"
 #include "df.h"
@@ -2661,6 +2675,7 @@ alpha_emit_conditional_move (rtx cmp, enum machine_mode mode)
       cmp_mode = cmp_mode == DImode ? DFmode : DImode;
       op0 = gen_lowpart (cmp_mode, tem);
       op1 = CONST0_RTX (cmp_mode);
+      cmp = gen_rtx_fmt_ee (code, VOIDmode, op0, op1);
       local_fast_math = 1;
     }
 
@@ -2702,12 +2717,12 @@ alpha_emit_conditional_move (rtx cmp, enum machine_mode mode)
       break;
 
     case GE:  case GT:  case GEU:  case GTU:
-      /* These must be swapped.  */
-      if (op1 != CONST0_RTX (cmp_mode))
-	{
-	  code = swap_condition (code);
-	  tem = op0, op0 = op1, op1 = tem;
-	}
+      /* These normally need swapping, but for integer zero we have
+	 special patterns that recognize swapped operands.  */
+      if (cmp_mode == DImode && op1 == const0_rtx)
+	break;
+      code = swap_condition (code);
+      tem = op0, op0 = op1, op1 = tem;
       break;
 
     default:
@@ -3069,12 +3084,9 @@ alpha_emit_xfloating_compare (enum rtx_code *pcode, rtx op0, rtx op1)
   operands[1] = op1;
   out = gen_reg_rtx (DImode);
 
-  /* What's actually returned is -1,0,1, not a proper boolean value,
-     so use an EXPR_LIST as with a generic libcall instead of a 
-     comparison type expression.  */
-  note = gen_rtx_EXPR_LIST (VOIDmode, op1, NULL_RTX);
-  note = gen_rtx_EXPR_LIST (VOIDmode, op0, note);
-  note = gen_rtx_EXPR_LIST (VOIDmode, func, note);
+  /* What's actually returned is -1,0,1, not a proper boolean value.  */
+  note = gen_rtx_fmt_ee (cmp_code, VOIDmode, op0, op1);
+  note = gen_rtx_UNSPEC (DImode, gen_rtvec (1, note), UNSPEC_XFLT_COMPARE);
   alpha_emit_xfloating_libcall (func, out, operands, 2, note);
 
   return out;
@@ -4231,12 +4243,12 @@ alpha_expand_builtin_vector_binop (rtx (*gen) (rtx, rtx, rtx),
 static void
 emit_unlikely_jump (rtx cond, rtx label)
 {
-  rtx very_unlikely = GEN_INT (REG_BR_PROB_BASE / 100 - 1);
+  int very_unlikely = REG_BR_PROB_BASE / 100 - 1;
   rtx x;
 
   x = gen_rtx_IF_THEN_ELSE (VOIDmode, cond, label, pc_rtx);
   x = emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx, x));
-  add_reg_note (x, REG_BR_PROB, very_unlikely);
+  add_int_reg_note (x, REG_BR_PROB, very_unlikely);
 }
 
 /* A subroutine of the atomic operation splitters.  Emit a load-locked
@@ -4833,7 +4845,8 @@ alpha_gp_save_rtx (void)
 	 label.  Emit the sequence properly on the edge.  We are only
 	 invoked from dw2_build_landing_pads and finish_eh_generation
 	 will call commit_edge_insertions thanks to a kludge.  */
-      insert_insn_on_edge (seq, single_succ_edge (ENTRY_BLOCK_PTR));
+      insert_insn_on_edge (seq,
+			   single_succ_edge (ENTRY_BLOCK_PTR_FOR_FN (cfun)));
 
       cfun->machine->gp_save_rtx = m;
     }
@@ -5862,7 +5875,7 @@ va_list_skip_additions (tree lhs)
       if (!CONVERT_EXPR_CODE_P (code)
 	  && ((code != PLUS_EXPR && code != POINTER_PLUS_EXPR)
 	      || TREE_CODE (gimple_assign_rhs2 (stmt)) != INTEGER_CST
-	      || !host_integerp (gimple_assign_rhs2 (stmt), 1)))
+	      || !tree_fits_uhwi_p (gimple_assign_rhs2 (stmt))))
 	return stmt;
 
       lhs = gimple_assign_rhs1 (stmt);
@@ -5988,10 +6001,10 @@ alpha_stdarg_optimize_hook (struct stdarg_info *si, const_gimple stmt)
 	  else
 	    goto escapes;
 
-	  if (!host_integerp (gimple_assign_rhs2 (arg2_stmt), 0))
+	  if (!tree_fits_shwi_p (gimple_assign_rhs2 (arg2_stmt)))
 	    goto escapes;
 
-	  sub = tree_low_cst (gimple_assign_rhs2 (arg2_stmt), 0);
+	  sub = tree_to_shwi (gimple_assign_rhs2 (arg2_stmt));
 	  if (code2 == MINUS_EXPR)
 	    sub = -sub;
 	  if (sub < -48 || sub > -32)
@@ -7456,7 +7469,6 @@ alpha_does_function_need_gp (void)
 
   for (; insn; insn = NEXT_INSN (insn))
     if (NONDEBUG_INSN_P (insn)
-	&& ! JUMP_TABLE_DATA_P (insn)
 	&& GET_CODE (PATTERN (insn)) != USE
 	&& GET_CODE (PATTERN (insn)) != CLOBBER
 	&& get_attr_usegp (insn))
@@ -9253,23 +9265,26 @@ alpha_pad_function_end (void)
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
-      if (! (CALL_P (insn)
-	     && (SIBLING_CALL_P (insn)
-		 || find_reg_note (insn, REG_NORETURN, NULL_RTX))))
+      if (!CALL_P (insn)
+	  || !(SIBLING_CALL_P (insn)
+	       || find_reg_note (insn, REG_NORETURN, NULL_RTX)))
         continue;
 
       /* Make sure we do not split a call and its corresponding
 	 CALL_ARG_LOCATION note.  */
-      if (CALL_P (insn))
+      next = NEXT_INSN (insn);
+      if (next == NULL)
+	continue;
+      if (BARRIER_P (next))
 	{
-	  next = NEXT_INSN (insn);
-	  if (next && NOTE_P (next)
-	      && NOTE_KIND (next) == NOTE_INSN_CALL_ARG_LOCATION)
-	    insn = next;
+	  next = NEXT_INSN (next);
+	  if (next == NULL)
+	    continue;
 	}
+      if (NOTE_P (next) && NOTE_KIND (next) == NOTE_INSN_CALL_ARG_LOCATION)
+	insn = next;
 
       next = next_active_insn (insn);
-
       if (next)
 	{
 	  rtx pat = PATTERN (next);
@@ -9683,6 +9698,30 @@ alpha_conditional_register_usage (void)
     for (i = 32; i < 63; i++)
       fixed_regs[i] = call_used_regs[i] = 1;
 }
+
+/* Canonicalize a comparison from one we don't have to one we do have.  */
+
+static void
+alpha_canonicalize_comparison (int *code, rtx *op0, rtx *op1,
+			       bool op0_preserve_value)
+{
+  if (!op0_preserve_value
+      && (*code == GE || *code == GT || *code == GEU || *code == GTU)
+      && (REG_P (*op1) || *op1 == const0_rtx))
+    {
+      rtx tem = *op0;
+      *op0 = *op1;
+      *op1 = tem;
+      *code = (int)swap_condition ((enum rtx_code)*code);
+    }
+
+  if ((*code == LT || *code == LTU)
+      && CONST_INT_P (*op1) && INTVAL (*op1) == 256)
+    {
+      *code = *code == LT ? LE : LEU;
+      *op1 = GEN_INT (255);
+    }
+}
 
 /* Initialize the GCC target structure.  */
 #if TARGET_ABI_OPEN_VMS
@@ -9849,6 +9888,9 @@ alpha_conditional_register_usage (void)
 
 #undef TARGET_CONDITIONAL_REGISTER_USAGE
 #define TARGET_CONDITIONAL_REGISTER_USAGE alpha_conditional_register_usage
+
+#undef TARGET_CANONICALIZE_COMPARISON
+#define TARGET_CANONICALIZE_COMPARISON alpha_canonicalize_comparison
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

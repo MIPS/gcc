@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -57,7 +57,7 @@ package body ALI is
       'Y'    => True,   -- limited_with
       'Z'    => True,   -- implicit with from instantiation
       'C'    => True,   -- SCO information
-      'F'    => True,   -- Alfa information
+      'F'    => True,   -- SPARK cross-reference information
       others => False);
 
    --------------------
@@ -107,17 +107,18 @@ package body ALI is
       --  Initialize global variables recording cumulative options in all
       --  ALI files that are read for a given processing run in gnatbind.
 
-      Dynamic_Elaboration_Checks_Specified := False;
-      Float_Format_Specified               := ' ';
-      Locking_Policy_Specified             := ' ';
-      No_Normalize_Scalars_Specified       := False;
-      No_Object_Specified                  := False;
-      Normalize_Scalars_Specified          := False;
-      Queuing_Policy_Specified             := ' ';
-      Static_Elaboration_Model_Used        := False;
-      Task_Dispatching_Policy_Specified    := ' ';
-      Unreserve_All_Interrupts_Specified   := False;
-      Zero_Cost_Exceptions_Specified       := False;
+      Dynamic_Elaboration_Checks_Specified   := False;
+      Float_Format_Specified                 := ' ';
+      Locking_Policy_Specified               := ' ';
+      No_Normalize_Scalars_Specified         := False;
+      No_Object_Specified                    := False;
+      Normalize_Scalars_Specified            := False;
+      Partition_Elaboration_Policy_Specified := ' ';
+      Queuing_Policy_Specified               := ' ';
+      Static_Elaboration_Model_Used          := False;
+      Task_Dispatching_Policy_Specified      := ' ';
+      Unreserve_All_Interrupts_Specified     := False;
+      Zero_Cost_Exceptions_Specified         := False;
    end Initialize_ALI;
 
    --------------
@@ -185,9 +186,13 @@ package body ALI is
       function Getc return Character;
       --  Get next character, bumping P past the character obtained
 
-      function Get_File_Name (Lower : Boolean := False) return File_Name_Type;
+      function Get_File_Name
+        (Lower         : Boolean := False;
+         May_Be_Quoted : Boolean := False) return File_Name_Type;
       --  Skip blanks, then scan out a file name (name is left in Name_Buffer
       --  with length in Name_Len, as well as returning a File_Name_Type value.
+      --  If May_Be_Quoted is True and the first non blank character is '"',
+      --  then remove starting and ending quotes and undoubled internal quotes.
       --  If lower is false, the case is unchanged, if Lower is True then the
       --  result is forced to all lower case for systems where file names are
       --  not case sensitive. This ensures that gnatbind works correctly
@@ -197,7 +202,8 @@ package body ALI is
 
       function Get_Name
         (Ignore_Spaces  : Boolean := False;
-         Ignore_Special : Boolean := False) return Name_Id;
+         Ignore_Special : Boolean := False;
+         May_Be_Quoted  : Boolean := False) return Name_Id;
       --  Skip blanks, then scan out a name (name is left in Name_Buffer with
       --  length in Name_Len, as well as being returned in Name_Id form).
       --  If Lower is set to True then the Name_Buffer will be converted to
@@ -213,6 +219,10 @@ package body ALI is
       --    a typeref bracket or an equal sign except for the special case of
       --    an operator name starting with a double quote which is terminated
       --    by another double quote.
+      --
+      --    If May_Be_Quoted is True and the first non blank character is '"'
+      --    the name is 'unquoted'. In this case Ignore_Special is ignored and
+      --    assumed to be True.
       --
       --  It is an error to set both Ignore_Spaces and Ignore_Special to True.
       --  This function handles wide characters properly.
@@ -449,12 +459,14 @@ package body ALI is
       -------------------
 
       function Get_File_Name
-        (Lower : Boolean := False) return File_Name_Type
+        (Lower         : Boolean := False;
+         May_Be_Quoted : Boolean := False) return File_Name_Type
       is
          F : Name_Id;
 
       begin
-         F := Get_Name (Ignore_Special => True);
+         F := Get_Name (Ignore_Special => True,
+                        May_Be_Quoted  => May_Be_Quoted);
 
          --  Convert file name to all lower case if file names are not case
          --  sensitive. This ensures that we handle names in the canonical
@@ -474,8 +486,11 @@ package body ALI is
 
       function Get_Name
         (Ignore_Spaces  : Boolean := False;
-         Ignore_Special : Boolean := False) return Name_Id
+         Ignore_Special : Boolean := False;
+         May_Be_Quoted  : Boolean := False) return Name_Id
       is
+         Char : Character;
+
       begin
          Name_Len := 0;
          Skip_Space;
@@ -488,38 +503,79 @@ package body ALI is
             end if;
          end if;
 
-         loop
-            Add_Char_To_Name_Buffer (Getc);
+         Char := Getc;
 
-            exit when At_End_Of_Field and then not Ignore_Spaces;
+         --  Deal with quoted characters
 
-            if not Ignore_Special then
-               if Name_Buffer (1) = '"' then
-                  exit when Name_Len > 1 and then Name_Buffer (Name_Len) = '"';
-
-               else
-                  --  Terminate on parens or angle brackets or equal sign
-
-                  exit when Nextc = '(' or else Nextc = ')'
-                    or else Nextc = '{' or else Nextc = '}'
-                    or else Nextc = '<' or else Nextc = '>'
-                    or else Nextc = '=';
-
-                  --  Terminate on comma
-
-                  exit when Nextc = ',';
-
-                  --  Terminate if left bracket not part of wide char sequence
-                  --  Note that we only recognize brackets notation so far ???
-
-                  exit when Nextc = '[' and then T (P + 1) /= '"';
-
-                  --  Terminate if right bracket not part of wide char sequence
-
-                  exit when Nextc = ']' and then T (P - 1) /= '"';
+         if May_Be_Quoted and then Char = '"' then
+            loop
+               if At_Eol then
+                  if Ignore_Errors then
+                     return Error_Name;
+                  else
+                     Fatal_Error;
+                  end if;
                end if;
-            end if;
-         end loop;
+
+               Char := Getc;
+
+               if Char = '"' then
+                  if At_Eol then
+                     exit;
+
+                  else
+                     Char := Getc;
+
+                     if Char /= '"' then
+                        P := P - 1;
+                        exit;
+                     end if;
+                  end if;
+               end if;
+
+               Add_Char_To_Name_Buffer (Char);
+            end loop;
+
+         --  Other than case of quoted character
+
+         else
+            P := P - 1;
+            loop
+               Add_Char_To_Name_Buffer (Getc);
+
+               exit when At_End_Of_Field and then not Ignore_Spaces;
+
+               if not Ignore_Special then
+                  if Name_Buffer (1) = '"' then
+                     exit when Name_Len > 1
+                               and then Name_Buffer (Name_Len) = '"';
+
+                  else
+                     --  Terminate on parens or angle brackets or equal sign
+
+                     exit when Nextc = '(' or else Nextc = ')'
+                       or else Nextc = '{' or else Nextc = '}'
+                       or else Nextc = '<' or else Nextc = '>'
+                       or else Nextc = '=';
+
+                     --  Terminate on comma
+
+                     exit when Nextc = ',';
+
+                     --  Terminate if left bracket not part of wide char
+                     --  sequence Note that we only recognize brackets
+                     --  notation so far ???
+
+                     exit when Nextc = '[' and then T (P + 1) /= '"';
+
+                     --  Terminate if right bracket not part of wide char
+                     --  sequence.
+
+                     exit when Nextc = ']' and then T (P - 1) /= '"';
+                  end if;
+               end if;
+            end loop;
+         end if;
 
          return Name_Find;
       end Get_Name;
@@ -813,36 +869,37 @@ package body ALI is
       Set_Name_Table_Info (F, Int (Id));
 
       ALIs.Table (Id) := (
-        Afile                      => F,
-        Compile_Errors             => False,
-        First_Interrupt_State      => Interrupt_States.Last + 1,
-        First_Sdep                 => No_Sdep_Id,
-        First_Specific_Dispatching => Specific_Dispatching.Last + 1,
-        First_Unit                 => No_Unit_Id,
-        Float_Format               => 'I',
-        Last_Interrupt_State       => Interrupt_States.Last,
-        Last_Sdep                  => No_Sdep_Id,
-        Last_Specific_Dispatching  => Specific_Dispatching.Last,
-        Last_Unit                  => No_Unit_Id,
-        Locking_Policy             => ' ',
-        Main_Priority              => -1,
-        Main_CPU                   => -1,
-        Main_Program               => None,
-        No_Object                  => False,
-        Normalize_Scalars          => False,
-        Ofile_Full_Name            => Full_Object_File_Name,
-        Queuing_Policy             => ' ',
-        Restrictions               => No_Restrictions,
-        SAL_Interface              => False,
-        Sfile                      => No_File,
-        Task_Dispatching_Policy    => ' ',
-        Time_Slice_Value           => -1,
-        Allocator_In_Body          => False,
-        WC_Encoding                => 'b',
-        Unit_Exception_Table       => False,
-        Ver                        => (others => ' '),
-        Ver_Len                    => 0,
-        Zero_Cost_Exceptions       => False);
+        Afile                        => F,
+        Compile_Errors               => False,
+        First_Interrupt_State        => Interrupt_States.Last + 1,
+        First_Sdep                   => No_Sdep_Id,
+        First_Specific_Dispatching   => Specific_Dispatching.Last + 1,
+        First_Unit                   => No_Unit_Id,
+        Float_Format                 => 'I',
+        Last_Interrupt_State         => Interrupt_States.Last,
+        Last_Sdep                    => No_Sdep_Id,
+        Last_Specific_Dispatching    => Specific_Dispatching.Last,
+        Last_Unit                    => No_Unit_Id,
+        Locking_Policy               => ' ',
+        Main_Priority                => -1,
+        Main_CPU                     => -1,
+        Main_Program                 => None,
+        No_Object                    => False,
+        Normalize_Scalars            => False,
+        Ofile_Full_Name              => Full_Object_File_Name,
+        Partition_Elaboration_Policy => ' ',
+        Queuing_Policy               => ' ',
+        Restrictions                 => No_Restrictions,
+        SAL_Interface                => False,
+        Sfile                        => No_File,
+        Task_Dispatching_Policy      => ' ',
+        Time_Slice_Value             => -1,
+        Allocator_In_Body            => False,
+        WC_Encoding                  => 'b',
+        Unit_Exception_Table         => False,
+        Ver                          => (others => ' '),
+        Ver_Len                      => 0,
+        Zero_Cost_Exceptions         => False);
 
       --  Now we acquire the input lines from the ALI file. Note that the
       --  convention in the following code is that as we enter each section,
@@ -968,9 +1025,16 @@ package body ALI is
                Add_Char_To_Name_Buffer (Getc);
             end loop;
 
-            --  If -fstack-check, record that it occurred
+            --  If -fstack-check, record that it occurred. Note that an
+            --  additional string parameter can be specified, in the form of
+            --  -fstack-check={no|generic|specific}. "no" means no checking,
+            --  "generic" means force the use of old-style checking, and
+            --  "specific" means use the best checking method.
 
-            if Name_Buffer (1 .. Name_Len) = "-fstack-check" then
+            if Name_Len >= 13
+              and then Name_Buffer (1 .. 13) = "-fstack-check"
+              and then Name_Buffer (1 .. Name_Len) /= "-fstack-check=no"
+            then
                Stack_Check_Switch_Set := True;
             end if;
 
@@ -1026,6 +1090,13 @@ package body ALI is
             elsif C = 'D' then
                Checkc ('B');
                Detect_Blocking := True;
+
+            --  Processing for Ex
+
+            elsif C = 'E' then
+               Partition_Elaboration_Policy_Specified := Getc;
+               ALIs.Table (Id).Partition_Elaboration_Policy :=
+                 Partition_Elaboration_Policy_Specified;
 
             --  Processing for FD/FG/FI
 
@@ -1219,7 +1290,7 @@ package body ALI is
 
                   begin
                      R := Restriction_Id'First;
-                     while R < Not_A_Restriction_Id loop
+                     while R /= Not_A_Restriction_Id loop
                         if Restriction_Id'Image (R) = RN then
                            goto R_Found;
                         end if;
@@ -1315,9 +1386,9 @@ package body ALI is
                                     when Constraint_Error =>
 
                                        --  A constraint error comes from the
-                                       --  additionh. We reset to the maximum
-                                       --  and indicate that the real value is
-                                       --  now unknown.
+                                       --  addition. We reset to the maximum
+                                       --  and indicate that the real value
+                                       --  is now unknown.
 
                                        Cumulative_Restrictions.Value (R) :=
                                          Integer'Last;
@@ -2145,7 +2216,7 @@ package body ALI is
       else
          --  Deal with body only and spec only cases, note that the reason we
          --  do our own checking of the name (rather than using Is_Body_Name)
-         --  is that Uname drags in far too much compiler junk!
+         --  is that Uname drags in far too much compiler junk.
 
          Get_Name_String (Units.Table (Units.Last).Uname);
 
@@ -2208,7 +2279,10 @@ package body ALI is
             --  In the following call, Lower is not set to True, this is either
             --  a bug, or it deserves a special comment as to why this is so???
 
-            Sdep.Table (Sdep.Last).Sfile := Get_File_Name;
+            --  The file/path name may be quoted
+
+            Sdep.Table (Sdep.Last).Sfile :=
+              Get_File_Name (May_Be_Quoted =>  True);
 
             Sdep.Table (Sdep.Last).Stamp := Get_Stamp;
             Sdep.Table (Sdep.Last).Dummy_Entry :=
@@ -2654,7 +2728,7 @@ package body ALI is
       --  Here after dealing with xref sections
 
       --  Ignore remaining lines, which belong to an additional section of the
-      --  ALI file not considered here (like SCO or Alfa).
+      --  ALI file not considered here (like SCO or SPARK information).
 
       Check_Unknown_Line;
 

@@ -1,5 +1,4 @@
-/* Copyright (C) 2006, 2007, 2008, 2009, 2010, 2011
-   Free Software Foundation, Inc.
+/* Copyright (C) 2006-2014 Free Software Foundation, Inc.
 
    This file is free software; you can redistribute it and/or modify it under
    the terms of the GNU General Public License as published by the Free
@@ -29,6 +28,10 @@
 #include "recog.h"
 #include "obstack.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "stor-layout.h"
+#include "calls.h"
+#include "varasm.h"
 #include "expr.h"
 #include "optabs.h"
 #include "except.h"
@@ -46,7 +49,16 @@
 #include "sched-int.h"
 #include "params.h"
 #include "machmode.h"
+#include "pointer-set.h"
+#include "hash-table.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
+#include "gimplify.h"
 #include "tm-constrs.h"
 #include "ddg.h"
 #include "sbitmap.h"
@@ -1963,7 +1975,7 @@ struct spu_bb_info
 static struct spu_bb_info *spu_bb_info;
 
 #define STOP_HINT_P(INSN) \
-		(GET_CODE(INSN) == CALL_INSN \
+		(CALL_P(INSN) \
 		 || INSN_CODE(INSN) == CODE_FOR_divmodsi4 \
 		 || INSN_CODE(INSN) == CODE_FOR_udivmodsi4)
 
@@ -1979,13 +1991,22 @@ static struct spu_bb_info *spu_bb_info;
 /* Emit a nop for INSN such that the two will dual issue.  This assumes
    INSN is 8-byte aligned.  When INSN is inline asm we emit an lnop.
    We check for TImode to handle a MULTI1 insn which has dual issued its
-   first instruction.  get_pipe returns -1 for MULTI0, inline asm, or
-   ADDR_VEC insns. */
+   first instruction.  get_pipe returns -1 for MULTI0 or inline asm.  */
 static void
 emit_nop_for_insn (rtx insn)
 {
   int p;
   rtx new_insn;
+
+  /* We need to handle JUMP_TABLE_DATA separately.  */
+  if (JUMP_TABLE_DATA_P (insn))
+    {
+      new_insn = emit_insn_after (gen_lnop(), insn);
+      recog_memoized (new_insn);
+      INSN_LOCATION (new_insn) = UNKNOWN_LOCATION;
+      return;
+    }
+
   p = get_pipe (insn);
   if ((CALL_P (insn) || JUMP_P (insn)) && SCHED_ON_EVEN_P (insn))
     new_insn = emit_insn_after (gen_lnop (), insn);
@@ -2102,7 +2123,7 @@ spu_emit_branch_hint (rtx before, rtx branch, rtx target,
   LABEL_PRESERVE_P (branch_label) = 1;
   insn = emit_label_before (branch_label, branch);
   branch_label = gen_rtx_LABEL_REF (VOIDmode, branch_label);
-  SET_BIT (blocks, BLOCK_FOR_INSN (branch)->index);
+  bitmap_set_bit (blocks, BLOCK_FOR_INSN (branch)->index);
 
   hint = emit_insn_before (gen_hbr (branch_label, target), before);
   recog_memoized (hint);
@@ -2164,18 +2185,13 @@ spu_emit_branch_hint (rtx before, rtx branch, rtx target,
 static rtx
 get_branch_target (rtx branch)
 {
-  if (GET_CODE (branch) == JUMP_INSN)
+  if (JUMP_P (branch))
     {
       rtx set, src;
 
       /* Return statements */
       if (GET_CODE (PATTERN (branch)) == RETURN)
 	return gen_rtx_REG (SImode, LINK_REGISTER_REGNUM);
-
-      /* jump table */
-      if (GET_CODE (PATTERN (branch)) == ADDR_VEC
-	  || GET_CODE (PATTERN (branch)) == ADDR_DIFF_VEC)
-	return 0;
 
      /* ASM GOTOs. */
      if (extract_asm_operands (PATTERN (branch)) != NULL)
@@ -2194,7 +2210,7 @@ get_branch_target (rtx branch)
 	    {
 	      /* If the more probable case is not a fall through, then
 	         try a branch hint.  */
-	      HOST_WIDE_INT prob = INTVAL (XEXP (note, 0));
+	      int prob = XINT (note, 0);
 	      if (prob > (REG_BR_PROB_BASE * 6 / 10)
 		  && GET_CODE (XEXP (src, 1)) != PC)
 		lab = XEXP (src, 1);
@@ -2213,7 +2229,7 @@ get_branch_target (rtx branch)
 
       return src;
     }
-  else if (GET_CODE (branch) == CALL_INSN)
+  else if (CALL_P (branch))
     {
       rtx call;
       /* All of our call patterns are in a PARALLEL and the CALL is
@@ -2453,8 +2469,8 @@ spu_machine_dependent_reorg (void)
       return;
     }
 
-  blocks = sbitmap_alloc (last_basic_block);
-  sbitmap_zero (blocks);
+  blocks = sbitmap_alloc (last_basic_block_for_fn (cfun));
+  bitmap_clear (blocks);
 
   in_spu_reorg = 1;
   compute_bb_for_insn ();
@@ -2466,15 +2482,15 @@ spu_machine_dependent_reorg (void)
   compact_blocks ();
 
   spu_bb_info =
-    (struct spu_bb_info *) xcalloc (n_basic_blocks,
+    (struct spu_bb_info *) xcalloc (n_basic_blocks_for_fn (cfun),
 				    sizeof (struct spu_bb_info));
 
   /* We need exact insn addresses and lengths.  */
   shorten_branches (get_insns ());
 
-  for (i = n_basic_blocks - 1; i >= 0; i--)
+  for (i = n_basic_blocks_for_fn (cfun) - 1; i >= 0; i--)
     {
-      bb = BASIC_BLOCK (i);
+      bb = BASIC_BLOCK_FOR_FN (cfun, i);
       branch = 0;
       if (spu_bb_info[i].prop_jump)
 	{
@@ -2625,11 +2641,11 @@ spu_machine_dependent_reorg (void)
     }
   free (spu_bb_info);
 
-  if (!sbitmap_empty_p (blocks))
+  if (!bitmap_empty_p (blocks))
     find_many_sub_basic_blocks (blocks);
 
   /* We have to schedule to make sure alignment is ok. */
-  FOR_EACH_BB (bb) bb->flags &= ~BB_DISABLE_SCHEDULE;
+  FOR_EACH_BB_FN (bb, cfun) bb->flags &= ~BB_DISABLE_SCHEDULE;
 
   /* The hints need to be scheduled, so call it again. */
   schedule_insns ();
@@ -4339,7 +4355,7 @@ ea_load_store_inline (rtx mem, bool is_store, rtx ea_addr, rtx data_addr)
 							    hit_ref, pc_rtx)));
   /* Say that this branch is very likely to happen.  */
   v = REG_BR_PROB_BASE - REG_BR_PROB_BASE / 100 - 1;
-  add_reg_note (insn, REG_BR_PROB, GEN_INT (v));
+  add_int_reg_note (insn, REG_BR_PROB, v);
 
   ea_load_store (mem, is_store, ea_addr, data_addr);
   cont_label = gen_label_rtx ();
@@ -7095,6 +7111,20 @@ spu_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
   final_end_function ();
 }
 
+/* Canonicalize a comparison from one we don't have to one we do have.  */
+static void
+spu_canonicalize_comparison (int *code, rtx *op0, rtx *op1,
+			     bool op0_preserve_value)
+{
+  if (!op0_preserve_value
+      && (*code == LE || *code == LT || *code == LEU || *code == LTU))
+    {
+      rtx tem = *op0;
+      *op0 = *op1;
+      *op1 = tem;
+      *code = (int)swap_condition ((enum rtx_code)*code);
+    }
+}
 
 /*  Table of machine attributes.  */
 static const struct attribute_spec spu_attribute_table[] =
@@ -7307,6 +7337,12 @@ static const struct attribute_spec spu_attribute_table[] =
    change order of insns.  It also needs a valid CFG.  */
 #undef TARGET_DELAY_VARTRACK
 #define TARGET_DELAY_VARTRACK true
+
+#undef TARGET_CANONICALIZE_COMPARISON
+#define TARGET_CANONICALIZE_COMPARISON spu_canonicalize_comparison
+
+#undef TARGET_CAN_USE_DOLOOP_P
+#define TARGET_CAN_USE_DOLOOP_P can_use_doloop_if_innermost
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

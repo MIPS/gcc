@@ -1,8 +1,6 @@
 /* Get common system includes and various definitions and declarations based
    on autoconf macros.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008,
-   2009, 2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 1998-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -29,7 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #ifndef va_copy
 # ifdef __va_copy
-#   define va_copy(d,s)  __va_copy((d),(s))
+#   define va_copy(d,s)  __va_copy (d, s)
 # else
 #   define va_copy(d,s)  ((d) = (s))
 # endif
@@ -55,9 +53,9 @@ along with GCC; see the file COPYING3.  If not see
 #undef fopen 
 #undef freopen 
 
-#define fopen(PATH,MODE) fopen_unlocked(PATH,MODE)
-#define fdopen(FILDES,MODE) fdopen_unlocked(FILDES,MODE)
-#define freopen(PATH,MODE,STREAM) freopen_unlocked(PATH,MODE,STREAM)
+#define fopen(PATH, MODE) fopen_unlocked (PATH, MODE)
+#define fdopen(FILDES, MODE) fdopen_unlocked (FILDES, MODE)
+#define freopen(PATH, MODE, STREAM) freopen_unlocked (PATH, MODE, STREAM)
 
 /* The compiler is not a multi-threaded application and therefore we
    do not have to use the locking functions.  In fact, using the locking
@@ -228,6 +226,17 @@ extern int errno;
 # include <stdlib.h>
 #endif
 
+/* When compiling C++ we need to include <cstdlib> as well as <stdlib.h> so
+   that it is processed before we poison "malloc"; otherwise, if a source
+   file uses a standard library header that includes <cstdlib>, we will get
+   an error about 'using std::malloc'.  */
+#ifdef __cplusplus
+#include <cstdlib>
+#endif
+
+/* Undef vec_free from AIX stdlib.h header which conflicts with vec.h.  */
+#undef vec_free
+
 /* If we don't have an overriding definition, set SUCCESS_EXIT_CODE and
    FATAL_EXIT_CODE to EXIT_SUCCESS and EXIT_FAILURE respectively,
    or 0 and 1 if those macros are not defined.  */
@@ -255,16 +264,14 @@ extern int errno;
 
 #ifdef HAVE_SYS_PARAM_H
 # include <sys/param.h>
-/* We use this identifier later and it appears in some vendor param.h's.  */
+/* We use these identifiers later and they appear in some vendor param.h's.  */
 # undef PREFETCH
+# undef m_slot
 #endif
 
 #if HAVE_LIMITS_H
 # include <limits.h>
 #endif
-
-/* Get definitions of HOST_WIDE_INT and HOST_WIDEST_INT.  */
-#include "hwint.h"
 
 /* A macro to determine whether a VALUE lies inclusively within a
    certain range without evaluating the VALUE more than once.  This
@@ -285,7 +292,7 @@ extern int errno;
 /* The outer cast is needed to work around a bug in Cray C 5.0.3.0.
    It is necessary at least when t == time_t.  */
 #define INTTYPE_MINIMUM(t) ((t) (INTTYPE_SIGNED (t) \
-                             ? ~ (t) 0 << (sizeof(t) * CHAR_BIT - 1) : (t) 0))
+                             ? ~ (t) 0 << (sizeof (t) * CHAR_BIT - 1) : (t) 0))
 #define INTTYPE_MAXIMUM(t) ((t) (~ (t) 0 - INTTYPE_MINIMUM (t)))
 
 /* Use that infrastructure to provide a few constants.  */
@@ -527,7 +534,7 @@ extern int snprintf (char *, size_t, const char *, ...);
 #endif
 
 #if defined (HAVE_DECL_VSNPRINTF) && !HAVE_DECL_VSNPRINTF
-extern int vsnprintf(char *, size_t, const char *, va_list);
+extern int vsnprintf (char *, size_t, const char *, va_list);
 #endif
 
 #ifdef __cplusplus
@@ -602,11 +609,11 @@ extern int vsnprintf(char *, size_t, const char *, va_list);
 
 /* Some systems have mkdir that takes a single argument.  */
 #ifdef MKDIR_TAKES_ONE_ARG
-# define mkdir(a,b) mkdir(a)
+# define mkdir(a,b) mkdir (a)
 #endif
 
 #ifndef HAVE_KILL
-# define kill(p,s) raise(s)
+# define kill(p,s) raise (s)
 #endif
 
 /* Provide a way to print an address via printf.  */
@@ -633,6 +640,11 @@ extern int vsnprintf(char *, size_t, const char *, va_list);
 #if defined (ENABLE_PLUGIN) && defined (HAVE_DLFCN_H)
 /* If plugin support is enabled, we could use libdl.  */
 #include <dlfcn.h>
+#endif
+
+/* Do not introduce a gmp.h dependency on the build system.  */
+#ifndef GENERATOR_FILE
+#include <gmp.h>
 #endif
 
 /* Get libiberty declarations.  */
@@ -679,7 +691,7 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
    ((void)(!(EXPR) ? fancy_abort (__FILE__, __LINE__, __FUNCTION__), 0 : 0))
 #elif (GCC_VERSION >= 4005)
 #define gcc_assert(EXPR) 						\
-  ((void)(__builtin_expect(!(EXPR), 0) ? __builtin_unreachable(), 0 : 0))
+  ((void)(__builtin_expect (!(EXPR), 0) ? __builtin_unreachable (), 0 : 0))
 #else
 /* Include EXPR, so that unused variable warnings do not occur.  */
 #define gcc_assert(EXPR) ((void)(0 && (EXPR)))
@@ -694,7 +706,7 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 /* Use gcc_unreachable() to mark unreachable locations (like an
    unreachable default case of a switch.  Do not use gcc_assert(0).  */
 #if (GCC_VERSION >= 4005) && !ENABLE_ASSERT_CHECKING
-#define gcc_unreachable() __builtin_unreachable()
+#define gcc_unreachable() __builtin_unreachable ()
 #else
 #define gcc_unreachable() (fancy_abort (__FILE__, __LINE__, __FUNCTION__))
 #endif
@@ -773,6 +785,11 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
    otherwise.  */
 #undef strerror
  #pragma GCC poison strerror
+
+/* loc_t is defined on some systems and too inviting for some
+   programmers to avoid.  */
+#undef loc_t
+ #pragma GCC poison loc_t
 
 /* Old target macros that have moved to the target hooks structure.  */
  #pragma GCC poison ASM_OPEN_PAREN ASM_CLOSE_PAREN			\
@@ -894,7 +911,8 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 	UNALIGNED_LONG_ASM_OP UNALIGNED_DOUBLE_INT_ASM_OP		   \
 	USE_COMMON_FOR_ONE_ONLY IFCVT_EXTRA_FIELDS IFCVT_INIT_EXTRA_FIELDS \
 	CASE_USE_BIT_TESTS FIXUNS_TRUNC_LIKE_FIX_TRUNC                     \
-        GO_IF_MODE_DEPENDENT_ADDRESS
+        GO_IF_MODE_DEPENDENT_ADDRESS DELAY_SLOTS_FOR_EPILOGUE              \
+        ELIGIBLE_FOR_EPILOGUE_DELAY TARGET_C99_FUNCTIONS TARGET_HAS_SINCOS
 
 /* Hooks that are no longer used.  */
  #pragma GCC poison LANG_HOOKS_FUNCTION_MARK LANG_HOOKS_FUNCTION_FREE	\
@@ -991,11 +1009,11 @@ helper_const_non_const_cast (const char *p)
 #define CONST_CAST2(TOTYPE,FROMTYPE,X) ((TOTYPE)(FROMTYPE)(X))
 #endif
 #endif
-#define CONST_CAST(TYPE,X) CONST_CAST2(TYPE, const TYPE, (X))
-#define CONST_CAST_TREE(X) CONST_CAST(union tree_node *, (X))
-#define CONST_CAST_RTX(X) CONST_CAST(struct rtx_def *, (X))
-#define CONST_CAST_BB(X) CONST_CAST(struct basic_block_def *, (X))
-#define CONST_CAST_GIMPLE(X) CONST_CAST(union gimple_statement_d *, (X))
+#define CONST_CAST(TYPE,X) CONST_CAST2 (TYPE, const TYPE, (X))
+#define CONST_CAST_TREE(X) CONST_CAST (union tree_node *, (X))
+#define CONST_CAST_RTX(X) CONST_CAST (struct rtx_def *, (X))
+#define CONST_CAST_BB(X) CONST_CAST (struct basic_block_def *, (X))
+#define CONST_CAST_GIMPLE(X) CONST_CAST (struct gimple_statement_base *, (X))
 
 /* Activate certain diagnostics as warnings (not errors via the
    -Werror flag).  */
@@ -1041,5 +1059,8 @@ helper_const_non_const_cast (const char *p)
 #define DEBUG_FUNCTION
 #define DEBUG_VARIABLE
 #endif
+
+/* Get definitions of HOST_WIDE_INT and HOST_WIDEST_INT.  */
+#include "hwint.h"
 
 #endif /* ! GCC_SYSTEM_H */

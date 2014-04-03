@@ -21,7 +21,7 @@ static Gogo* gogo;
 GO_EXTERN_C
 void
 go_create_gogo(int int_type_size, int pointer_size, const char *pkgpath,
-	       const char *prefix)
+	       const char *prefix, const char *relative_import_path)
 {
   go_assert(::gogo == NULL);
   Linemap* linemap = go_get_linemap();
@@ -32,6 +32,9 @@ go_create_gogo(int int_type_size, int pointer_size, const char *pkgpath,
   else if (prefix != NULL)
     ::gogo->set_prefix(prefix);
 
+  if (relative_import_path != NULL)
+    ::gogo->set_relative_import_path(relative_import_path);
+
   // FIXME: This should be in the gcc dependent code.
   ::gogo->define_builtin_function_trees();
 }
@@ -41,7 +44,7 @@ go_create_gogo(int int_type_size, int pointer_size, const char *pkgpath,
 GO_EXTERN_C
 void
 go_parse_input_files(const char** filenames, unsigned int filename_count,
-		     bool only_check_syntax, bool require_return_statement)
+		     bool only_check_syntax, bool)
 {
   go_assert(filename_count > 0);
 
@@ -81,9 +84,15 @@ go_parse_input_files(const char** filenames, unsigned int filename_count,
   // Finalize method lists and build stub methods for named types.
   ::gogo->finalize_methods();
 
+  // Check that functions have a terminating statement.
+  ::gogo->check_return_statements();
+
   // Now that we have seen all the names, lower the parse tree into a
   // form which is easier to use.
   ::gogo->lower_parse_tree();
+
+  // Create function descriptors as needed.
+  ::gogo->create_function_descriptors();
 
   // Write out queued up functions for hash and comparison of types.
   ::gogo->write_specific_type_functions();
@@ -101,10 +110,6 @@ go_parse_input_files(const char** filenames, unsigned int filename_count,
   if (only_check_syntax)
     return;
 
-  // Check that functions have return statements.
-  if (require_return_statement)
-    ::gogo->check_return_statements();
-
   // Export global identifiers as appropriate.
   ::gogo->do_exports();
 
@@ -114,12 +119,18 @@ go_parse_input_files(const char** filenames, unsigned int filename_count,
   // Use temporary variables to force order of evaluation.
   ::gogo->order_evaluations();
 
+  // Convert named types to backend representation.
+  ::gogo->convert_named_types();
+
+  // Flatten the parse tree.
+  ::gogo->flatten();
+
   // Build thunks for functions which call recover.
   ::gogo->build_recover_thunks();
 
   // Convert complicated go and defer statements into simpler ones.
   ::gogo->simplify_thunk_statements();
-  
+
   // Dump ast, use filename[0] as the base name
   ::gogo->dump_ast(filenames[0]);
 }

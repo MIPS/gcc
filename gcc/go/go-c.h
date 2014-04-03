@@ -1,5 +1,5 @@
 /* go-c.h -- Header file for go frontend gcc C interface.
-   Copyright (C) 2009, 2010, 2011, 2012 Free Software Foundation, Inc.
+   Copyright (C) 2009-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -33,7 +33,8 @@ extern int go_enable_optimize (const char*);
 extern void go_add_search_path (const char*);
 
 extern void go_create_gogo (int int_type_size, int pointer_size,
-			    const char* pkgpath, const char *prefix);
+			    const char* pkgpath, const char *prefix,
+			    const char *relative_import_path);
 
 extern void go_parse_input_files (const char**, unsigned int,
 				  bool only_check_syntax,

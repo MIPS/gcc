@@ -1,7 +1,5 @@
 /* gfortran backend interface
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008,
-   2010, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 2000-2014 Free Software Foundation, Inc.
    Contributed by Paul Brook.
 
 This file is part of GCC.
@@ -30,7 +28,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
-#include "gimple.h"
 #include "flags.h"
 #include "langhooks.h"
 #include "langhooks-def.h"
@@ -223,8 +220,11 @@ gfc_init (void)
 
   gfc_init_1 ();
 
-  if (gfc_new_file () != SUCCESS)
+  if (!gfc_new_file ())
     fatal_error ("can't open input file: %s", gfc_source_file);
+
+  if (flag_preprocess_only)
+    return false;
 
   return true;
 }
@@ -533,8 +533,11 @@ gfc_builtin_function (tree decl)
   return decl;
 }
 
-/* So far we need just these 4 attribute types.  */
+/* So far we need just these 7 attribute types.  */
+#define ATTR_NULL			0
+#define ATTR_LEAF_LIST			(ECF_LEAF)
 #define ATTR_NOTHROW_LEAF_LIST		(ECF_NOTHROW | ECF_LEAF)
+#define ATTR_NOTHROW_LEAF_MALLOC_LIST	(ECF_NOTHROW | ECF_LEAF | ECF_MALLOC)
 #define ATTR_CONST_NOTHROW_LEAF_LIST	(ECF_NOTHROW | ECF_LEAF | ECF_CONST)
 #define ATTR_NOTHROW_LIST		(ECF_NOTHROW)
 #define ATTR_CONST_NOTHROW_LIST		(ECF_NOTHROW | ECF_CONST)
@@ -547,13 +550,7 @@ gfc_define_builtin (const char *name, tree type, enum built_in_function code,
 
   decl = add_builtin_function (name, type, code, BUILT_IN_NORMAL,
 			       library_name, NULL_TREE);
-  if (attr & ECF_CONST)
-    TREE_READONLY (decl) = 1;
-  if (attr & ECF_NOTHROW)
-    TREE_NOTHROW (decl) = 1;
-  if (attr & ECF_LEAF)
-    DECL_ATTRIBUTES (decl) = tree_cons (get_identifier ("leaf"),
-					NULL, DECL_ATTRIBUTES (decl));
+  set_call_expr_flags (decl, attr);
 
   set_builtin_decl (code, decl, true);
 }
@@ -625,6 +622,7 @@ gfc_init_builtin_functions (void)
 #define DEF_FUNCTION_TYPE_5(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5) NAME,
 #define DEF_FUNCTION_TYPE_6(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6) NAME,
 #define DEF_FUNCTION_TYPE_7(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6, ARG7) NAME,
+#define DEF_FUNCTION_TYPE_8(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6, ARG7, ARG8) NAME,
 #define DEF_FUNCTION_TYPE_VAR_0(NAME, RETURN) NAME,
 #define DEF_POINTER_TYPE(NAME, TYPE) NAME,
 #include "types.def"
@@ -637,6 +635,7 @@ gfc_init_builtin_functions (void)
 #undef DEF_FUNCTION_TYPE_5
 #undef DEF_FUNCTION_TYPE_6
 #undef DEF_FUNCTION_TYPE_7
+#undef DEF_FUNCTION_TYPE_8
 #undef DEF_FUNCTION_TYPE_VAR_0
 #undef DEF_POINTER_TYPE
     BT_LAST
@@ -833,7 +832,7 @@ gfc_init_builtin_functions (void)
 		      BUILT_IN_POWIF, "powif", ATTR_CONST_NOTHROW_LEAF_LIST);
 
 
-  if (TARGET_C99_FUNCTIONS)
+  if (targetm.libc_has_function (function_c99_math_complex))
     {
       gfc_define_builtin ("__builtin_cbrtl", mfunc_longdouble[0],
 			  BUILT_IN_CBRTL, "cbrtl",
@@ -855,7 +854,7 @@ gfc_init_builtin_functions (void)
 			  ATTR_CONST_NOTHROW_LEAF_LIST);
     }
 
-  if (TARGET_HAS_SINCOS)
+  if (targetm.libc_has_function (function_sincos))
     {
       gfc_define_builtin ("__builtin_sincosl",
 			  func_longdouble_longdoublep_longdoublep,
@@ -916,13 +915,12 @@ gfc_init_builtin_functions (void)
   ftype = build_function_type_list (pvoid_type_node,
                                     size_type_node, NULL_TREE);
   gfc_define_builtin ("__builtin_malloc", ftype, BUILT_IN_MALLOC,
-		      "malloc", ATTR_NOTHROW_LEAF_LIST);
-  DECL_IS_MALLOC (builtin_decl_explicit (BUILT_IN_MALLOC)) = 1;
+		      "malloc", ATTR_NOTHROW_LEAF_MALLOC_LIST);
 
   ftype = build_function_type_list (pvoid_type_node, size_type_node,
 				    size_type_node, NULL_TREE);
   gfc_define_builtin ("__builtin_calloc", ftype, BUILT_IN_CALLOC,
-		      "calloc", ATTR_NOTHROW_LEAF_LIST);
+		      "calloc", ATTR_NOTHROW_LEAF_MALLOC_LIST);
   DECL_IS_MALLOC (builtin_decl_explicit (BUILT_IN_CALLOC)) = 1;
 
   ftype = build_function_type_list (pvoid_type_node,
@@ -1000,6 +998,19 @@ gfc_init_builtin_functions (void)
                                 builtin_types[(int) ARG6],              \
                                 builtin_types[(int) ARG7],              \
                                 NULL_TREE);
+#define DEF_FUNCTION_TYPE_8(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+			    ARG6, ARG7, ARG8)				\
+  builtin_types[(int) ENUM]						\
+    = build_function_type_list (builtin_types[(int) RETURN],		\
+				builtin_types[(int) ARG1],		\
+				builtin_types[(int) ARG2],		\
+				builtin_types[(int) ARG3],		\
+				builtin_types[(int) ARG4],		\
+				builtin_types[(int) ARG5],		\
+				builtin_types[(int) ARG6],		\
+				builtin_types[(int) ARG7],		\
+				builtin_types[(int) ARG8],		\
+				NULL_TREE);
 #define DEF_FUNCTION_TYPE_VAR_0(ENUM, RETURN)				\
   builtin_types[(int) ENUM]						\
     = build_varargs_function_type_list (builtin_types[(int) RETURN],    \

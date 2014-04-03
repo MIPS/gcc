@@ -122,6 +122,9 @@ func Walk(v Visitor, node Node) {
 		if n.High != nil {
 			Walk(v, n.High)
 		}
+		if n.Max != nil {
+			Walk(v, n.Max)
+		}
 
 	case *TypeAssertExpr:
 		Walk(v, n.X)
@@ -158,7 +161,9 @@ func Walk(v Visitor, node Node) {
 		Walk(v, n.Fields)
 
 	case *FuncType:
-		Walk(v, n.Params)
+		if n.Params != nil {
+			Walk(v, n.Params)
+		}
 		if n.Results != nil {
 			Walk(v, n.Results)
 		}

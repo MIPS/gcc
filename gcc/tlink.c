@@ -1,8 +1,7 @@
 /* Scan linker error messages for missing template instantiations and provide
    them.
 
-   Copyright (C) 1995, 1998, 1999, 2000, 2001, 2003, 2004, 2005, 2007, 2008,
-   2009, 2010, 2011 Free Software Foundation, Inc.
+   Copyright (C) 1995-2014 Free Software Foundation, Inc.
    Contributed by Jason Merrill (jason@cygnus.com).
 
 This file is part of GCC.
@@ -69,13 +68,11 @@ typedef struct file_hash_entry
 } file;
 
 typedef const char *str;
-DEF_VEC_P(str);
-DEF_VEC_ALLOC_P(str,heap);
 
 typedef struct demangled_hash_entry
 {
   const char *key;
-  VEC(str,heap) *mangled;
+  vec<str> mangled;
 } demangled;
 
 /* Hash and comparison functions for these hash tables.  */
@@ -609,7 +606,7 @@ demangle_new_symbols (void)
 	continue;
 
       dem = demangled_hash_lookup (p, true);
-      VEC_safe_push (str, heap, dem->mangled, sym->key);
+      dem->mangled.safe_push (sym->key);
     }
 }
 
@@ -771,13 +768,13 @@ scan_linker_output (const char *fname)
 	     constructor or destructor, there can be several mangled names
 	     that match it, so choose or unchoose all of them.  If some are
 	     chosen and some not, leave the later ones that don't match
-	     alone for now; either this will cause the link to suceed, or
+	     alone for now; either this will cause the link to succeed, or
 	     on the next attempt we will switch all of them the other way
 	     and that will cause it to succeed.  */
 	  int chosen = 0;
-	  int len = VEC_length (str, dem->mangled);
+	  int len = dem->mangled.length ();
 	  ok = true;
-	  FOR_EACH_VEC_ELT (str, dem->mangled, ix, s)
+	  FOR_EACH_VEC_ELT (dem->mangled, ix, s)
 	    {
 	      sym = symbol_hash_lookup (s, false);
 	      if (ix == 0)
@@ -820,18 +817,18 @@ scan_linker_output (const char *fname)
 void
 do_tlink (char **ld_argv, char **object_lst ATTRIBUTE_UNUSED)
 {
-  int exit = tlink_execute ("ld", ld_argv, ldout, lderrout);
+  int ret = tlink_execute ("ld", ld_argv, ldout, lderrout);
 
   tlink_init ();
 
-  if (exit)
+  if (ret)
     {
       int i = 0;
 
       /* Until collect does a better job of figuring out which are object
 	 files, assume that everything on the command line could be.  */
       if (read_repo_files (ld_argv))
-	while (exit && i++ < MAX_ITERATIONS)
+	while (ret && i++ < MAX_ITERATIONS)
 	  {
 	    if (tlink_verbose >= 3)
 	      {
@@ -846,7 +843,7 @@ do_tlink (char **ld_argv, char **object_lst ATTRIBUTE_UNUSED)
 	      break;
 	    if (tlink_verbose)
 	      fprintf (stderr, _("collect: relinking\n"));
-	    exit = tlink_execute ("ld", ld_argv, ldout, lderrout);
+	    ret = tlink_execute ("ld", ld_argv, ldout, lderrout);
 	  }
     }
 
@@ -854,10 +851,10 @@ do_tlink (char **ld_argv, char **object_lst ATTRIBUTE_UNUSED)
   unlink (ldout);
   dump_ld_file (lderrout, stderr);
   unlink (lderrout);
-  if (exit)
+  if (ret)
     {
-      error ("ld returned %d exit status", exit);
-      collect_exit (exit);
+      error ("ld returned %d exit status", ret);
+      exit (ret);
     }
   else
     {

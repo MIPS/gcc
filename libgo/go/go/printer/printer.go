@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"text/tabwriter"
+	"unicode"
 )
 
 const (
@@ -164,15 +165,15 @@ func (p *printer) atLineBegin(pos token.Position) {
 	// write indentation
 	// use "hard" htabs - indentation columns
 	// must not be discarded by the tabwriter
-	for i := 0; i < p.indent; i++ {
+	n := p.Config.Indent + p.indent // include base indentation
+	for i := 0; i < n; i++ {
 		p.output = append(p.output, '\t')
 	}
 
 	// update positions
-	i := p.indent
-	p.pos.Offset += i
-	p.pos.Column += i
-	p.out.Column += i
+	p.pos.Offset += n
+	p.pos.Column += n
+	p.out.Column += n
 }
 
 // writeByte writes ch n times to p.output and updates p.pos.
@@ -220,14 +221,6 @@ func (p *printer) writeString(pos token.Position, s string, isLit bool) {
 		// atLineBegin updates p.pos if there's indentation, but p.pos
 		// is the position of s.
 		p.pos = pos
-		// reset state if the file changed
-		// (used when printing merged ASTs of different files
-		// e.g., the result of ast.MergePackageFiles)
-		if p.last.IsValid() && p.last.Filename != pos.Filename {
-			p.indent = 0
-			p.mode = 0
-			p.wsbuf = p.wsbuf[0:0]
-		}
 	}
 
 	if isLit {
@@ -402,36 +395,9 @@ func (p *printer) writeCommentPrefix(pos, next token.Position, prev, comment *as
 	}
 }
 
-// Split comment text into lines
-// (using strings.Split(text, "\n") is significantly slower for
-// this specific purpose, as measured with: go test -bench=Print)
-func split(text string) []string {
-	// count lines (comment text never ends in a newline)
-	n := 1
-	for i := 0; i < len(text); i++ {
-		if text[i] == '\n' {
-			n++
-		}
-	}
-
-	// split
-	lines := make([]string, n)
-	n = 0
-	i := 0
-	for j := 0; j < len(text); j++ {
-		if text[j] == '\n' {
-			lines[n] = text[i:j] // exclude newline
-			i = j + 1            // discard newline
-			n++
-		}
-	}
-	lines[n] = text[i:]
-
-	return lines
-}
-
 // Returns true if s contains only white space
 // (only tabs and blanks can appear in the printer's context).
+//
 func isBlank(s string) bool {
 	for i := 0; i < len(s); i++ {
 		if s[i] > ' ' {
@@ -441,6 +407,7 @@ func isBlank(s string) bool {
 	return true
 }
 
+// commonPrefix returns the common prefix of a and b.
 func commonPrefix(a, b string) string {
 	i := 0
 	for i < len(a) && i < len(b) && a[i] == b[i] && (a[i] <= ' ' || a[i] == '*') {
@@ -449,9 +416,14 @@ func commonPrefix(a, b string) string {
 	return a[0:i]
 }
 
+// trimRight returns s with trailing whitespace removed.
+func trimRight(s string) string {
+	return strings.TrimRightFunc(s, unicode.IsSpace)
+}
+
 // stripCommonPrefix removes a common prefix from /*-style comment lines (unless no
 // comment line is indented, all but the first line have some form of space prefix).
-// The prefix is computed using heuristics such that is is likely that the comment
+// The prefix is computed using heuristics such that is likely that the comment
 // contents are nicely laid out after re-printing each line using the printer's
 // current indentation.
 //
@@ -550,9 +522,7 @@ func stripCommonPrefix(lines []string) {
 			}
 			// Shorten the computed common prefix by the length of
 			// suffix, if it is found as suffix of the prefix.
-			if strings.HasSuffix(prefix, string(suffix)) {
-				prefix = prefix[0 : len(prefix)-len(suffix)]
-			}
+			prefix = strings.TrimSuffix(prefix, string(suffix))
 		}
 	}
 
@@ -611,13 +581,13 @@ func (p *printer) writeComment(comment *ast.Comment) {
 
 	// shortcut common case of //-style comments
 	if text[1] == '/' {
-		p.writeString(pos, text, true)
+		p.writeString(pos, trimRight(text), true)
 		return
 	}
 
 	// for /*-style comments, print line by line and let the
 	// write function take care of the proper indentation
-	lines := split(text)
+	lines := strings.Split(text, "\n")
 
 	// The comment started in the first column but is going
 	// to be indented. For an idempotent result, add indentation
@@ -641,7 +611,7 @@ func (p *printer) writeComment(comment *ast.Comment) {
 			pos = p.pos
 		}
 		if len(line) > 0 {
-			p.writeString(pos, line, true)
+			p.writeString(pos, trimRight(line), true)
 		}
 	}
 }
@@ -1031,9 +1001,9 @@ func (p *printer) printNode(node interface{}) error {
 	case ast.Expr:
 		p.expr(n)
 	case ast.Stmt:
-		// A labeled statement will un-indent to position the
-		// label. Set indent to 1 so we don't get indent "underflow".
-		if _, labeledStmt := n.(*ast.LabeledStmt); labeledStmt {
+		// A labeled statement will un-indent to position the label.
+		// Set p.indent to 1 so we don't get indent "underflow".
+		if _, ok := n.(*ast.LabeledStmt); ok {
 			p.indent = 1
 		}
 		p.stmt(n, false)
@@ -1041,6 +1011,17 @@ func (p *printer) printNode(node interface{}) error {
 		p.decl(n)
 	case ast.Spec:
 		p.spec(n, 1, false)
+	case []ast.Stmt:
+		// A labeled statement will un-indent to position the label.
+		// Set p.indent to 1 so we don't get indent "underflow".
+		for _, s := range n {
+			if _, ok := s.(*ast.LabeledStmt); ok {
+				p.indent = 1
+			}
+		}
+		p.stmtList(n, 0, false)
+	case []ast.Decl:
+		p.declList(n)
 	case *ast.File:
 		p.file(n)
 	default:
@@ -1159,7 +1140,7 @@ func (p *trimmer) Write(data []byte) (n int, err error) {
 // ----------------------------------------------------------------------------
 // Public interface
 
-// A Mode value is a set of flags (or 0). They control printing. 
+// A Mode value is a set of flags (or 0). They control printing.
 type Mode uint
 
 const (
@@ -1173,6 +1154,7 @@ const (
 type Config struct {
 	Mode     Mode // default: 0
 	Tabwidth int  // default: 8
+	Indent   int  // default: 0 (all code is indented at least by this much)
 }
 
 // fprint implements Fprint and takes a nodesSizes map for setting up the printer state.
@@ -1217,7 +1199,7 @@ func (cfg *Config) fprint(output io.Writer, fset *token.FileSet, node interface{
 	}
 
 	// flush tabwriter, if any
-	if tw, _ := (output).(*tabwriter.Writer); tw != nil {
+	if tw, _ := output.(*tabwriter.Writer); tw != nil {
 		err = tw.Flush()
 	}
 
@@ -1234,8 +1216,8 @@ type CommentedNode struct {
 
 // Fprint "pretty-prints" an AST node to output for a given configuration cfg.
 // Position information is interpreted relative to the file set fset.
-// The node type must be *ast.File, *CommentedNode, or assignment-compatible
-// to ast.Expr, ast.Decl, ast.Spec, or ast.Stmt.
+// The node type must be *ast.File, *CommentedNode, []ast.Decl, []ast.Stmt,
+// or assignment-compatible to ast.Expr, ast.Decl, ast.Spec, or ast.Stmt.
 //
 func (cfg *Config) Fprint(output io.Writer, fset *token.FileSet, node interface{}) error {
 	return cfg.fprint(output, fset, node, make(map[ast.Node]int))

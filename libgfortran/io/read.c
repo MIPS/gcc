@@ -1,5 +1,4 @@
-/* Copyright (C) 2002, 2003, 2005, 2007, 2008, 2009, 2010, 2011
-   Free Software Foundation, Inc.
+/* Copyright (C) 2002-2014 Free Software Foundation, Inc.
    Contributed by Andy Vaught
    F2003 I/O support contributed by Jerry DeLisle
 
@@ -92,7 +91,9 @@ set_integer (void *dest, GFC_INTEGER_LARGEST value, int length)
 GFC_UINTEGER_LARGEST
 si_max (int length)
 {
+#if defined HAVE_GFC_REAL_16 || defined HAVE_GFC_REAL_10
   GFC_UINTEGER_LARGEST value;
+#endif
 
   switch (length)
       {
@@ -128,6 +129,24 @@ int
 convert_real (st_parameter_dt *dtp, void *dest, const char *buffer, int length)
 {
   char *endptr = NULL;
+  int round_mode, old_round_mode;
+
+  switch (dtp->u.p.current_unit->round_status)
+    {
+      case ROUND_COMPATIBLE:
+	/* FIXME: As NEAREST but round away from zero for a tie.  */
+      case ROUND_UNSPECIFIED:
+	/* Should not occur.  */
+      case ROUND_PROCDEFINED:
+	round_mode = ROUND_NEAREST;
+	break;
+      default:
+	round_mode = dtp->u.p.current_unit->round_status;
+	break;
+    }
+
+  old_round_mode = get_fpu_rounding_mode();
+  set_fpu_rounding_mode (round_mode);
 
   switch (length)
     {
@@ -165,6 +184,8 @@ convert_real (st_parameter_dt *dtp, void *dest, const char *buffer, int length)
     default:
       internal_error (&dtp->common, "Unsupported real kind during IO");
     }
+
+  set_fpu_rounding_mode (old_round_mode);
 
   if (buffer == endptr)
     {
@@ -656,7 +677,13 @@ read_decimal (st_parameter_dt *dtp, const fnode *f, char *dest, int length)
 	
       if (c == ' ')
         {
-	  if (dtp->u.p.blank_status == BLANK_NULL) continue;
+	  if (dtp->u.p.blank_status == BLANK_NULL)
+	    {
+	      /* Skip spaces.  */
+	      for ( ; w > 0; p++, w--)
+		if (*p != ' ') break; 
+	      continue;
+	    }
 	  if (dtp->u.p.blank_status == BLANK_ZERO) c = '0';
         }
         
@@ -1129,7 +1156,9 @@ done:
 	  exponent = - exponent;
 	}
 
-      assert (exponent < 10000);
+      if (exponent >= 10000)
+	goto bad_float;
+
       for (dig = 3; dig >= 0; --dig)
 	{
 	  out[dig] = (char) ('0' + exponent % 10);

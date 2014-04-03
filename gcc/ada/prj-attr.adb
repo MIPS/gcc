@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2001-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -111,6 +111,7 @@ package body Prj.Attr is
    "SVlibrary_auto_init#" &
    "LVleading_library_options#" &
    "LVlibrary_options#" &
+   "Lalibrary_rpath_options#" &
    "SVlibrary_src_dir#" &
    "SVlibrary_ali_dir#" &
    "SVlibrary_gcc#" &
@@ -265,6 +266,7 @@ package body Prj.Attr is
    "Ladefault_switches#" &
    "LcOleading_switches#" &
    "LcOswitches#" &
+   "LcOtrailing_switches#" &
    "LVlinker_options#" &
    "SVmap_file_option#" &
 
@@ -287,6 +289,8 @@ package body Prj.Attr is
    "LVswitches#" &
    "Lasource_artifact_extensions#" &
    "Laobject_artifact_extensions#" &
+   "LVartifacts_in_exec_dir#" &
+   "LVartifacts_in_object_dir#" &
 
    --  package Cross_Reference
 
@@ -360,6 +364,15 @@ package body Prj.Attr is
    "SVlib_subdir#" &
    "SVproject_subdir#" &
    "SVactive#" &
+   "LAartifacts#" &
+
+   --  package Remote
+
+   "Premote#" &
+   "SVroot_dir#" &
+   "LVexcluded_patterns#" &
+   "LVincluded_patterns#" &
+   "LVincluded_artifact_patterns#" &
 
    --  package Stack
 
@@ -1003,7 +1016,7 @@ package body Prj.Attr is
      (Pkg : Package_Node_Id) return Attribute_Node_Id
    is
    begin
-      if Pkg = Empty_Package then
+      if Pkg = Empty_Package or else Pkg = Unknown_Package then
          return Empty_Attribute;
       else
          return

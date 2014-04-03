@@ -51,6 +51,13 @@ func (z *Int) SetInt64(x int64) *Int {
 	return z
 }
 
+// SetUint64 sets z to x and returns z.
+func (z *Int) SetUint64(x uint64) *Int {
+	z.abs = z.abs.setUint64(x)
+	z.neg = false
+	return z
+}
+
 // NewInt allocates and returns a new Int set to x.
 func NewInt(x int64) *Int {
 	return new(Int).SetInt64(x)
@@ -412,7 +419,7 @@ func (x *Int) Format(s fmt.State, ch rune) {
 	if precisionSet {
 		switch {
 		case len(digits) < precision:
-			zeroes = precision - len(digits) // count of zero padding 
+			zeroes = precision - len(digits) // count of zero padding
 		case digits == "0" && precision == 0:
 			return // print nothing if zero value (x == 0) and zero precision ("." or ".0")
 		}
@@ -506,15 +513,22 @@ func (z *Int) Scan(s fmt.ScanState, ch rune) error {
 // Int64 returns the int64 representation of x.
 // If x cannot be represented in an int64, the result is undefined.
 func (x *Int) Int64() int64 {
+	v := int64(x.Uint64())
+	if x.neg {
+		v = -v
+	}
+	return v
+}
+
+// Uint64 returns the uint64 representation of x.
+// If x cannot be represented in a uint64, the result is undefined.
+func (x *Int) Uint64() uint64 {
 	if len(x.abs) == 0 {
 		return 0
 	}
-	v := int64(x.abs[0])
+	v := uint64(x.abs[0])
 	if _W == 32 && len(x.abs) > 1 {
-		v |= int64(x.abs[1]) << 32
-	}
-	if x.neg {
-		v = -v
+		v |= uint64(x.abs[1]) << 32
 	}
 	return v
 }
@@ -549,31 +563,30 @@ func (z *Int) SetBytes(buf []byte) *Int {
 	return z
 }
 
-// Bytes returns the absolute value of z as a big-endian byte slice.
+// Bytes returns the absolute value of x as a big-endian byte slice.
 func (x *Int) Bytes() []byte {
 	buf := make([]byte, len(x.abs)*_S)
 	return buf[x.abs.bytes(buf):]
 }
 
-// BitLen returns the length of the absolute value of z in bits.
+// BitLen returns the length of the absolute value of x in bits.
 // The bit length of 0 is 0.
 func (x *Int) BitLen() int {
 	return x.abs.bitLen()
 }
 
-// Exp sets z = x**y mod m and returns z. If m is nil, z = x**y.
+// Exp sets z = x**y mod |m| (i.e. the sign of m is ignored), and returns z.
+// If y <= 0, the result is 1; if m == nil or m == 0, z = x**y.
 // See Knuth, volume 2, section 4.6.3.
 func (z *Int) Exp(x, y, m *Int) *Int {
 	if y.neg || len(y.abs) == 0 {
-		neg := x.neg
-		z.SetInt64(1)
-		z.neg = neg
-		return z
+		return z.SetInt64(1)
 	}
+	// y > 0
 
 	var mWords nat
 	if m != nil {
-		mWords = m.abs
+		mWords = m.abs // m.abs may be nil for m == 0
 	}
 
 	z.abs = z.abs.expNN(x.abs, y.abs, mWords)
@@ -690,14 +703,15 @@ func (z *Int) binaryGCD(a, b *Int) *Int {
 		// reduce t
 		t.Rsh(t, t.abs.trailingZeroBits())
 		if t.neg {
-			v.Neg(t)
+			v, t = t, v
+			v.neg = len(v.abs) > 0 && !v.neg // 0 has no sign
 		} else {
-			u.Set(t)
+			u, t = t, u
 		}
 		t.Sub(u, v)
 	}
 
-	return u.Lsh(u, k)
+	return z.Lsh(u, k)
 }
 
 // ProbablyPrime performs n Miller-Rabin tests to check whether x is prime.
@@ -776,8 +790,8 @@ func (x *Int) Bit(i int) uint {
 }
 
 // SetBit sets z to x, with x's i'th bit set to b (0 or 1).
-// That is, if bit is 1 SetBit sets z = x | (1 << i);
-// if bit is 0 it sets z = x &^ (1 << i). If bit is not 0 or 1,
+// That is, if b is 1 SetBit sets z = x | (1 << i);
+// if b is 0 SetBit sets z = x &^ (1 << i). If b is not 0 or 1,
 // SetBit will panic.
 func (z *Int) SetBit(x *Int, i int, b uint) *Int {
 	if i < 0 {
@@ -938,6 +952,9 @@ const intGobVersion byte = 1
 
 // GobEncode implements the gob.GobEncoder interface.
 func (x *Int) GobEncode() ([]byte, error) {
+	if x == nil {
+		return nil, nil
+	}
 	buf := make([]byte, 1+len(x.abs)*_S) // extra byte for version and sign bit
 	i := x.abs.bytes(buf) - 1            // i >= 0
 	b := intGobVersion << 1              // make space for sign bit
@@ -951,7 +968,9 @@ func (x *Int) GobEncode() ([]byte, error) {
 // GobDecode implements the gob.GobDecoder interface.
 func (z *Int) GobDecode(buf []byte) error {
 	if len(buf) == 0 {
-		return errors.New("Int.GobDecode: no data")
+		// Other side sent a nil or default value.
+		*z = Int{}
+		return nil
 	}
 	b := buf[0]
 	if b>>1 != intGobVersion {

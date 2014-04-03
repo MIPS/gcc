@@ -1,6 +1,5 @@
 /* RTL dead code elimination.
-   Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011
-   Free Software Foundation, Inc.
+   Copyright (C) 2005-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -52,7 +51,7 @@ static bool can_alter_cfg = false;
 
 /* Instructions that have been marked but whose dependencies have not
    yet been processed.  */
-static VEC(rtx,heap) *worklist;
+static vec<rtx> worklist;
 
 /* Bitmap of instructions marked as needed indexed by INSN_UID.  */
 static sbitmap marked;
@@ -121,6 +120,12 @@ deletable_insn_p (rtx insn, bool fast, bitmap arg_stores)
       && !insn_nothrow_p (insn))
     return false;
 
+  /* If INSN sets a global_reg, leave it untouched.  */
+  for (df_ref *def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
+    if (HARD_REGISTER_NUM_P (DF_REF_REGNO (*def_rec))
+	&& global_regs[DF_REF_REGNO (*def_rec)])
+      return false;
+
   body = PATTERN (insn);
   switch (GET_CODE (body))
     {
@@ -163,7 +168,7 @@ marked_insn_p (rtx insn)
   /* Artificial defs are always needed and they do not have an insn.
      We should never see them here.  */
   gcc_assert (insn);
-  return TEST_BIT (marked, INSN_UID (insn));
+  return bitmap_bit_p (marked, INSN_UID (insn));
 }
 
 
@@ -176,8 +181,8 @@ mark_insn (rtx insn, bool fast)
   if (!marked_insn_p (insn))
     {
       if (!fast)
-	VEC_safe_push (rtx, heap, worklist, insn);
-      SET_BIT (marked, INSN_UID (insn));
+	worklist.safe_push (insn);
+      bitmap_set_bit (marked, INSN_UID (insn));
       if (dump_file)
 	fprintf (dump_file, "  Adding insn %d to worklist\n", INSN_UID (insn));
       if (CALL_P (insn)
@@ -506,7 +511,7 @@ reset_unmarked_insns_debug_uses (void)
   basic_block bb;
   rtx insn, next;
 
-  FOR_EACH_BB_REVERSE (bb)
+  FOR_EACH_BB_REVERSE_FN (bb, cfun)
     FOR_BB_INSNS_REVERSE_SAFE (bb, insn, next)
       if (DEBUG_INSN_P (insn))
 	{
@@ -545,7 +550,7 @@ delete_unmarked_insns (void)
   rtx insn, next;
   bool must_clean = false;
 
-  FOR_EACH_BB_REVERSE (bb)
+  FOR_EACH_BB_REVERSE_FN (bb, cfun)
     FOR_BB_INSNS_REVERSE_SAFE (bb, insn, next)
       if (NONDEBUG_INSN_P (insn))
 	{
@@ -618,7 +623,7 @@ prescan_insns_for_dce (bool fast)
   if (!df_in_progress && ACCUMULATE_OUTGOING_ARGS)
     arg_stores = BITMAP_ALLOC (NULL);
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       FOR_BB_INSNS_REVERSE_SAFE (bb, insn, prev)
 	if (NONDEBUG_INSN_P (insn))
@@ -658,7 +663,7 @@ mark_artificial_uses (void)
   struct df_link *defs;
   df_ref *use_rec;
 
-  FOR_ALL_BB (bb)
+  FOR_ALL_BB_FN (bb, cfun)
     {
       for (use_rec = df_get_artificial_uses (bb->index);
 	   *use_rec; use_rec++)
@@ -724,7 +729,7 @@ init_dce (bool fast)
     can_alter_cfg = true;
 
   marked = sbitmap_alloc (get_max_uid () + 1);
-  sbitmap_zero (marked);
+  bitmap_clear (marked);
 }
 
 
@@ -754,12 +759,12 @@ rest_of_handle_ud_dce (void)
 
   prescan_insns_for_dce (false);
   mark_artificial_uses ();
-  while (VEC_length (rtx, worklist) > 0)
+  while (worklist.length () > 0)
     {
-      insn = VEC_pop (rtx, worklist);
+      insn = worklist.pop ();
       mark_reg_dependencies (insn);
     }
-  VEC_free (rtx, heap, worklist);
+  worklist.release ();
 
   if (MAY_HAVE_DEBUG_INSNS)
     reset_unmarked_insns_debug_uses ();
@@ -781,25 +786,43 @@ gate_ud_dce (void)
     && dbg_cnt (dce_ud);
 }
 
-struct rtl_opt_pass pass_ud_rtl_dce =
+namespace {
+
+const pass_data pass_data_ud_rtl_dce =
 {
- {
-  RTL_PASS,
-  "ud_dce",                             /* name */
-  gate_ud_dce,                          /* gate */
-  rest_of_handle_ud_dce,                /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_DCE,                               /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_ggc_collect                     /* todo_flags_finish */
- }
+  RTL_PASS, /* type */
+  "ud_dce", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_DCE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  ( TODO_df_finish | TODO_verify_rtl_sharing ), /* todo_flags_finish */
 };
+
+class pass_ud_rtl_dce : public rtl_opt_pass
+{
+public:
+  pass_ud_rtl_dce (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_ud_rtl_dce, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_ud_dce (); }
+  unsigned int execute () { return rest_of_handle_ud_dce (); }
+
+}; // class pass_ud_rtl_dce
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_ud_rtl_dce (gcc::context *ctxt)
+{
+  return new pass_ud_rtl_dce (ctxt);
+}
 
 
 /* -------------------------------------------------------------------------
@@ -880,7 +903,10 @@ word_dce_process_block (basic_block bb, bool redo_out,
 
 	    for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
 	      dead_debug_insert_temp (&debug, DF_REF_REGNO (*def_rec), insn,
-				      DEBUG_TEMP_BEFORE_WITH_VALUE);
+				      marked_insn_p (insn)
+				      && !control_flow_insn_p (insn)
+				      ? DEBUG_TEMP_AFTER_WITH_REG_FORCE
+				      : DEBUG_TEMP_BEFORE_WITH_VALUE);
 	  }
 
 	if (dump_file)
@@ -981,7 +1007,9 @@ dce_process_block (basic_block bb, bool redo_out, bitmap au,
 	if (debug.used && !bitmap_empty_p (debug.used))
 	  for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
 	    dead_debug_insert_temp (&debug, DF_REF_REGNO (*def_rec), insn,
-				    DEBUG_TEMP_BEFORE_WITH_VALUE);
+				    needed && !control_flow_insn_p (insn)
+				    ? DEBUG_TEMP_AFTER_WITH_REG_FORCE
+				    : DEBUG_TEMP_BEFORE_WITH_VALUE);
       }
 
   dead_debug_local_finish (&debug, NULL);
@@ -1037,7 +1065,7 @@ fast_dce (bool word_level)
       for (i = 0; i < n_blocks; i++)
 	{
 	  int index = postorder[i];
-	  basic_block bb = BASIC_BLOCK (index);
+	  basic_block bb = BASIC_BLOCK_FOR_FN (cfun, index);
 	  bool local_changed;
 
 	  if (index < NUM_FIXED_BLOCKS)
@@ -1082,7 +1110,7 @@ fast_dce (bool word_level)
 	  /* So something was deleted that requires a redo.  Do it on
 	     the cheap.  */
 	  delete_unmarked_insns ();
-	  sbitmap_zero (marked);
+	  bitmap_clear (marked);
 	  bitmap_clear (processed);
 	  bitmap_clear (redo_out);
 
@@ -1191,22 +1219,40 @@ gate_fast_dce (void)
     && dbg_cnt (dce_fast);
 }
 
-struct rtl_opt_pass pass_fast_rtl_dce =
+namespace {
+
+const pass_data pass_data_fast_rtl_dce =
 {
- {
-  RTL_PASS,
-  "rtl_dce",                            /* name */
-  gate_fast_dce,                        /* gate */
-  rest_of_handle_fast_dce,              /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_DCE,                               /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_ggc_collect                      /* todo_flags_finish */
- }
+  RTL_PASS, /* type */
+  "rtl_dce", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_DCE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  ( TODO_df_finish | TODO_verify_rtl_sharing ), /* todo_flags_finish */
 };
+
+class pass_fast_rtl_dce : public rtl_opt_pass
+{
+public:
+  pass_fast_rtl_dce (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_fast_rtl_dce, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_fast_dce (); }
+  unsigned int execute () { return rest_of_handle_fast_dce (); }
+
+}; // class pass_fast_rtl_dce
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_fast_rtl_dce (gcc::context *ctxt)
+{
+  return new pass_fast_rtl_dce (ctxt);
+}

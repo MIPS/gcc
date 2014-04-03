@@ -1,8 +1,6 @@
 /* Declarations for insn-output.c and other code to write to asm_out_file.
    These functions are defined in final.c, and varasm.c.
-   Copyright (C) 1987, 1991, 1994, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011
-   Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -199,6 +197,10 @@ extern void assemble_end_function (tree, const char *);
    initial value (that will be done by the caller).  */
 extern void assemble_variable (tree, int, int, int);
 
+/* Put the vtable verification constructor initialization function
+   into the preinit array.  */
+extern void assemble_vtv_preinit_initializer (tree);
+
 /* Compute the alignment of variable specified by DECL.
    DONT_OUTPUT_DATA is from assemble_variable.  */
 extern void align_variable (tree decl, bool dont_output_data);
@@ -287,16 +289,6 @@ extern void output_shared_constant_pool (void);
 extern void output_object_blocks (void);
 
 extern void output_quoted_string (FILE *, const char *);
-
-/* Output assembler code for constant EXP to FILE, with no label.
-   This includes the pseudo-op such as ".int" or ".byte", and a newline.
-   Assumes output_addressed_constants has been done on EXP already.
-
-   Generate exactly SIZE bytes of assembler data, padding at the end
-   with zeros if necessary.  SIZE must always be specified.
-
-   ALIGN is the alignment in bits that may be assumed for the data.  */
-extern void output_constant (tree, unsigned HOST_WIDE_INT, unsigned int);
 
 /* When outputting delayed branch sequences, this rtx holds the
    sequence being output.  It is null when no delayed branch
@@ -556,6 +548,8 @@ extern void output_file_directive (FILE *, const char *);
 extern unsigned int default_section_type_flags (tree, const char *, int);
 
 extern bool have_global_bss_p (void);
+extern bool bss_initializer_p (const_tree);
+
 extern void default_no_named_section (const char *, unsigned int, tree);
 extern void default_elf_asm_named_section (const char *, unsigned int, tree);
 extern enum section_category categorize_decl_for_section (const_tree, int);

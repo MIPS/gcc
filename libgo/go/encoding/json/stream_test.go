@@ -6,8 +6,10 @@ package json
 
 import (
 	"bytes"
+	"io/ioutil"
 	"net"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -80,6 +82,28 @@ func TestDecoder(t *testing.T) {
 			}
 			break
 		}
+	}
+}
+
+func TestDecoderBuffered(t *testing.T) {
+	r := strings.NewReader(`{"Name": "Gopher"} extra `)
+	var m struct {
+		Name string
+	}
+	d := NewDecoder(r)
+	err := d.Decode(&m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Name != "Gopher" {
+		t.Errorf("Name = %q; want Gopher", m.Name)
+	}
+	rest, err := ioutil.ReadAll(d.Buffered())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if g, w := string(rest), " extra "; g != w {
+		t.Errorf("Remaining = %q; want %q", g, w)
 	}
 }
 
@@ -165,5 +189,18 @@ func TestBlocking(t *testing.T) {
 		}
 		r.Close()
 		w.Close()
+	}
+}
+
+func BenchmarkEncoderEncode(b *testing.B) {
+	b.ReportAllocs()
+	type T struct {
+		X, Y string
+	}
+	v := &T{"foo", "bar"}
+	for i := 0; i < b.N; i++ {
+		if err := NewEncoder(ioutil.Discard).Encode(v); err != nil {
+			b.Fatal(err)
+		}
 	}
 }

@@ -1,6 +1,6 @@
 /* Infrastructure for tracking user variable locations and values
    throughout compilation.
-   Copyright (C) 2010, 2011, 2012  Free Software Foundation, Inc.
+   Copyright (C) 2010-2014 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva <aoliva@redhat.com>.
 
 This file is part of GCC.
@@ -29,6 +29,24 @@ along with GCC; see the file COPYING3.  If not see
 #include "regs.h"
 #include "emit-rtl.h"
 
+/* gen_lowpart_no_emit hook implementation for DEBUG_INSNs.  In DEBUG_INSNs,
+   all lowpart SUBREGs are valid, despite what the machine requires for
+   instructions.  */
+
+static rtx
+gen_lowpart_for_debug (enum machine_mode mode, rtx x)
+{
+  rtx result = gen_lowpart_if_possible (mode, x);
+  if (result)
+    return result;
+
+  if (GET_MODE (x) != VOIDmode)
+    return gen_rtx_raw_SUBREG (mode, x,
+			       subreg_lowpart_offset (mode, GET_MODE (x)));
+
+  return NULL_RTX;
+}
+
 /* Replace auto-increment addressing modes with explicit operations to access
    the same addresses without modifying the corresponding registers.  */
 
@@ -53,7 +71,11 @@ cleanup_auto_inc_dec (rtx src, enum machine_mode mem_mode ATTRIBUTE_UNUSED)
       /* SCRATCH must be shared because they represent distinct values.  */
       return x;
     case CLOBBER:
-      if (REG_P (XEXP (x, 0)) && REGNO (XEXP (x, 0)) < FIRST_PSEUDO_REGISTER)
+      /* Share clobbers of hard registers (like cc0), but do not share pseudo reg
+         clobbers or clobbers of hard registers that originated as pseudos.
+         This is needed to allow safe register renaming.  */
+      if (REG_P (XEXP (x, 0)) && REGNO (XEXP (x, 0)) < FIRST_PSEUDO_REGISTER
+	  && ORIGINAL_REGNO (XEXP (x, 0)) == REGNO (XEXP (x, 0)))
 	return x;
       break;
 
@@ -71,9 +93,10 @@ cleanup_auto_inc_dec (rtx src, enum machine_mode mem_mode ATTRIBUTE_UNUSED)
       gcc_assert (mem_mode != VOIDmode && mem_mode != BLKmode);
       return gen_rtx_PLUS (GET_MODE (x),
 			   cleanup_auto_inc_dec (XEXP (x, 0), mem_mode),
-			   GEN_INT (code == PRE_INC
-				    ? GET_MODE_SIZE (mem_mode)
-				    : -GET_MODE_SIZE (mem_mode)));
+			   gen_int_mode (code == PRE_INC
+					 ? GET_MODE_SIZE (mem_mode)
+					 : -GET_MODE_SIZE (mem_mode),
+					 GET_MODE (x)));
 
     case POST_INC:
     case POST_DEC:
@@ -158,6 +181,7 @@ propagate_for_debug (rtx insn, rtx last, rtx dest, rtx src,
 		     basic_block this_basic_block)
 {
   rtx next, loc, end = NEXT_INSN (BB_END (this_basic_block));
+  rtx (*saved_rtl_hook_no_emit) (enum machine_mode, rtx);
 
   struct rtx_subst_pair p;
   p.to = src;
@@ -165,6 +189,8 @@ propagate_for_debug (rtx insn, rtx last, rtx dest, rtx src,
 
   next = NEXT_INSN (insn);
   last = NEXT_INSN (last);
+  saved_rtl_hook_no_emit = rtl_hooks.gen_lowpart_no_emit;
+  rtl_hooks.gen_lowpart_no_emit = gen_lowpart_for_debug;
   while (next != last && next != end)
     {
       insn = next;
@@ -179,6 +205,7 @@ propagate_for_debug (rtx insn, rtx last, rtx dest, rtx src,
 	  df_insn_rescan (insn);
 	}
     }
+  rtl_hooks.gen_lowpart_no_emit = saved_rtl_hook_no_emit;
 }
 
 /* Initialize DEBUG to an empty list, and clear USED, if given.  */
@@ -225,14 +252,13 @@ dead_debug_global_find (struct dead_debug_global *global, rtx reg)
 
   dead_debug_global_entry *entry = global->htab.find (&temp_entry);
   gcc_checking_assert (entry && entry->reg == temp_entry.reg);
-  gcc_checking_assert (entry->dtemp);
 
   return entry;
 }
 
 /* Insert an entry mapping REG to DTEMP in GLOBAL->htab.  */
 
-static void
+static dead_debug_global_entry *
 dead_debug_global_insert (struct dead_debug_global *global, rtx reg, rtx dtemp)
 {
   dead_debug_global_entry temp_entry;
@@ -246,6 +272,7 @@ dead_debug_global_insert (struct dead_debug_global *global, rtx reg, rtx dtemp)
   gcc_checking_assert (!*slot);
   *slot = XNEW (dead_debug_global_entry);
   **slot = temp_entry;
+  return *slot;
 }
 
 /* If UREGNO, referenced by USE, is a pseudo marked as used in GLOBAL,
@@ -263,15 +290,18 @@ dead_debug_global_replace_temp (struct dead_debug_global *global,
 {
   if (!global || uregno < FIRST_PSEUDO_REGISTER
       || !global->used
+      || !REG_P (*DF_REF_REAL_LOC (use))
+      || REGNO (*DF_REF_REAL_LOC (use)) != uregno
       || !bitmap_bit_p (global->used, uregno))
     return false;
-
-  gcc_checking_assert (REGNO (*DF_REF_REAL_LOC (use)) == uregno);
 
   dead_debug_global_entry *entry
     = dead_debug_global_find (global, *DF_REF_REAL_LOC (use));
   gcc_checking_assert (GET_CODE (entry->reg) == REG
 		       && REGNO (entry->reg) == uregno);
+
+  if (!entry->dtemp)
+    return true;
 
   *DF_REF_REAL_LOC (use) = entry->dtemp;
   if (!pto_rescan)
@@ -364,6 +394,8 @@ dead_debug_promote_uses (struct dead_debug_local *debug)
        head; head = *headp)
     {
       rtx reg = *DF_REF_REAL_LOC (head->use);
+      df_ref ref;
+      dead_debug_global_entry *entry;
 
       if (GET_CODE (reg) != REG
 	  || REGNO (reg) < FIRST_PSEUDO_REGISTER)
@@ -375,18 +407,49 @@ dead_debug_promote_uses (struct dead_debug_local *debug)
       if (!debug->global->used)
 	debug->global->used = BITMAP_ALLOC (NULL);
 
-      if (bitmap_set_bit (debug->global->used, REGNO (reg)))
-	dead_debug_global_insert (debug->global, reg,
-				  make_debug_expr_from_rtl (reg));
+      bool added = bitmap_set_bit (debug->global->used, REGNO (reg));
+      gcc_checking_assert (added);
 
-      if (!dead_debug_global_replace_temp (debug->global, head->use,
-					   REGNO (reg), &debug->to_rescan))
-	{
-	  headp = &head->next;
-	  continue;
-	}
-      
+      entry = dead_debug_global_insert (debug->global, reg,
+					make_debug_expr_from_rtl (reg));
+
+      gcc_checking_assert (entry->dtemp);
+
+      /* Tentatively remove the USE from the list.  */
       *headp = head->next;
+
+      if (!debug->to_rescan)
+	debug->to_rescan = BITMAP_ALLOC (NULL);
+
+      for (ref = DF_REG_USE_CHAIN (REGNO (reg)); ref;
+	   ref = DF_REF_NEXT_REG (ref))
+	if (DEBUG_INSN_P (DF_REF_INSN (ref)))
+	  {
+	    if (!dead_debug_global_replace_temp (debug->global, ref,
+						 REGNO (reg),
+						 &debug->to_rescan))
+	      {
+		rtx insn = DF_REF_INSN (ref);
+		INSN_VAR_LOCATION_LOC (insn) = gen_rtx_UNKNOWN_VAR_LOC ();
+		bitmap_set_bit (debug->to_rescan, INSN_UID (insn));
+	      }
+	  }
+
+      for (ref = DF_REG_DEF_CHAIN (REGNO (reg)); ref;
+	   ref = DF_REF_NEXT_REG (ref))
+	if (!dead_debug_insert_temp (debug, REGNO (reg), DF_REF_INSN (ref),
+				     DEBUG_TEMP_BEFORE_WITH_VALUE))
+	  {
+	    rtx bind;
+	    bind = gen_rtx_VAR_LOCATION (GET_MODE (reg),
+					 DEBUG_EXPR_TREE_DECL (entry->dtemp),
+					 gen_rtx_UNKNOWN_VAR_LOC (),
+					 VAR_INIT_STATUS_INITIALIZED);
+	    rtx insn = emit_debug_insn_before (bind, DF_REF_INSN (ref));
+	    bitmap_set_bit (debug->to_rescan, INSN_UID (insn));
+	  }
+
+      entry->dtemp = NULL;
       XDELETE (head);
     }
 }
@@ -398,11 +461,11 @@ dead_debug_promote_uses (struct dead_debug_local *debug)
 void
 dead_debug_local_finish (struct dead_debug_local *debug, bitmap used)
 {
-  if (debug->used != used)
-    BITMAP_FREE (debug->used);
-
   if (debug->global)
     dead_debug_promote_uses (debug);
+
+  if (debug->used != used)
+    BITMAP_FREE (debug->used);
 
   dead_debug_reset_uses (debug, debug->head);
 
@@ -535,6 +598,8 @@ dead_debug_insert_temp (struct dead_debug_local *debug, unsigned int uregno,
 	= dead_debug_global_find (debug->global, reg);
       gcc_checking_assert (entry->reg == reg);
       dval = entry->dtemp;
+      if (!dval)
+	return 0;
     }
 
   gcc_checking_assert (uses || global);
@@ -648,11 +713,14 @@ dead_debug_insert_temp (struct dead_debug_local *debug, unsigned int uregno,
 			       DEBUG_EXPR_TREE_DECL (dval), breg,
 			       VAR_INIT_STATUS_INITIALIZED);
 
-  if (where == DEBUG_TEMP_AFTER_WITH_REG)
+  if (where == DEBUG_TEMP_AFTER_WITH_REG
+      || where == DEBUG_TEMP_AFTER_WITH_REG_FORCE)
     bind = emit_debug_insn_after (bind, insn);
   else
     bind = emit_debug_insn_before (bind, insn);
-  df_insn_rescan (bind);
+  if (debug->to_rescan == NULL)
+    debug->to_rescan = BITMAP_ALLOC (NULL);
+  bitmap_set_bit (debug->to_rescan, INSN_UID (bind));
 
   /* Adjust all uses.  */
   while ((cur = uses))
@@ -663,8 +731,6 @@ dead_debug_insert_temp (struct dead_debug_local *debug, unsigned int uregno,
 	*DF_REF_REAL_LOC (cur->use)
 	  = gen_lowpart_SUBREG (GET_MODE (*DF_REF_REAL_LOC (cur->use)), dval);
       /* ??? Should we simplify subreg of subreg?  */
-      if (debug->to_rescan == NULL)
-	debug->to_rescan = BITMAP_ALLOC (NULL);
       bitmap_set_bit (debug->to_rescan, INSN_UID (DF_REF_INSN (cur->use)));
       uses = cur->next;
       XDELETE (cur);

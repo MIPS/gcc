@@ -176,10 +176,7 @@ func FromSlash(path string) string {
 // usually found in PATH or GOPATH environment variables.
 // Unlike strings.Split, SplitList returns an empty slice when passed an empty string.
 func SplitList(path string) []string {
-	if path == "" {
-		return []string{}
-	}
-	return strings.Split(path, string(ListSeparator))
+	return splitList(path)
 }
 
 // Split splits path immediately following the final Separator,
@@ -325,13 +322,18 @@ func Rel(basepath, targpath string) (string, error) {
 var SkipDir = errors.New("skip this directory")
 
 // WalkFunc is the type of the function called for each file or directory
-// visited by Walk.  If there was a problem walking to the file or directory
-// named by path, the incoming error will describe the problem and the
-// function can decide how to handle that error (and Walk will not descend
-// into that directory).  If an error is returned, processing stops.  The
-// sole exception is that if path is a directory and the function returns the
-// special value SkipDir, the contents of the directory are skipped
-// and processing continues as usual on the next file.
+// visited by Walk. The path argument contains the argument to Walk as a
+// prefix; that is, if Walk is called with "dir", which is a directory
+// containing the file "a", the walk function will be called with argument
+// "dir/a". The info argument is the os.FileInfo for the named path.
+//
+// If there was a problem walking to the file or directory named by path, the
+// incoming error will describe the problem and the function can decide how
+// to handle that error (and Walk will not descend into that directory). If
+// an error is returned, processing stops. The sole exception is that if path
+// is a directory and the function returns the special value SkipDir, the
+// contents of the directory are skipped and processing continues as usual on
+// the next file.
 type WalkFunc func(path string, info os.FileInfo, err error) error
 
 // walk recursively descends path, calling w.
@@ -369,6 +371,7 @@ func walk(path string, info os.FileInfo, walkFn WalkFunc) error {
 // and directories are filtered by walkFn. The files are walked in lexical
 // order, which makes the output deterministic but means that for very
 // large directories Walk can be inefficient.
+// Walk does not follow symbolic links.
 func Walk(root string, walkFn WalkFunc) error {
 	info, err := os.Lstat(root)
 	if err != nil {
@@ -431,7 +434,8 @@ func Base(path string) string {
 }
 
 // Dir returns all but the last element of path, typically the path's directory.
-// Trailing path separators are removed before processing.
+// After dropping the final element, the path is Cleaned and trailing
+// slashes are removed.
 // If the path is empty, Dir returns ".".
 // If the path consists entirely of separators, Dir returns a single separator.
 // The returned path does not end in a separator unless it is the root directory.
@@ -452,7 +456,7 @@ func Dir(path string) string {
 	return vol + dir
 }
 
-// VolumeName returns leading volume name.  
+// VolumeName returns leading volume name.
 // Given "C:\foo\bar" it returns "C:" under windows.
 // Given "\\host\share\foo" it returns "\\host\share".
 // On other platforms it returns "".

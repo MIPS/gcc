@@ -1,6 +1,5 @@
 /* Rename SSA copies.
-   Copyright (C) 2004, 2006, 2007, 2008, 2009, 2010, 2011
-   Free Software Foundation, Inc.
+   Copyright (C) 2004-2014 Free Software Foundation, Inc.
    Contributed by Andrew MacLeod <amacleod@redhat.com>
 
 This file is part of GCC.
@@ -24,14 +23,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
-#include "gimple.h"
-#include "flags.h"
 #include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
+#include "gimple-iterator.h"
+#include "flags.h"
 #include "function.h"
 #include "tree-pretty-print.h"
 #include "bitmap.h"
-#include "tree-flow.h"
-#include "gimple.h"
+#include "gimple-ssa.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
+#include "expr.h"
+#include "tree-dfa.h"
 #include "tree-inline.h"
 #include "hashtab.h"
 #include "tree-ssa-live.h"
@@ -114,7 +121,7 @@ static struct
 /* Coalesce the partitions in MAP representing VAR1 and VAR2 if it is valid.
    Choose a representative for the partition, and send debug info to DEBUG.  */
 
-static bool
+static void
 copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
 {
   int p1, p2, p3;
@@ -147,7 +154,7 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
     {
       if (debug)
 	fprintf (debug, " : Already coalesced.\n");
-      return false;
+      return;
     }
 
   rep1 = partition_to_var (map, p1);
@@ -155,7 +162,7 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
   root1 = SSA_NAME_VAR (rep1);
   root2 = SSA_NAME_VAR (rep2);
   if (!root1 && !root2)
-    return false;
+    return;
 
   /* Don't coalesce if one of the variables occurs in an abnormal PHI.  */
   abnorm = (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (rep1)
@@ -164,7 +171,7 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
     {
       if (debug)
 	fprintf (debug, " : Abnormal PHI barrier.  No coalesce.\n");
-      return false;
+      return;
     }
 
   /* Partitions already have the same root, simply merge them.  */
@@ -173,7 +180,7 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
       p1 = partition_union (map->var_partition, p1, p2);
       if (debug)
 	fprintf (debug, " : Same root, coalesced --> P%d.\n", p1);
-      return false;
+      return;
     }
 
   /* Never attempt to coalesce 2 different parameters.  */
@@ -182,7 +189,7 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
     {
       if (debug)
         fprintf (debug, " : 2 different PARM_DECLS. No coalesce.\n");
-      return false;
+      return;
     }
 
   if ((root1 && TREE_CODE (root1) == RESULT_DECL)
@@ -190,7 +197,7 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
     {
       if (debug)
         fprintf (debug, " : One root a RESULT_DECL. No coalesce.\n");
-      return false;
+      return;
     }
 
   ign1 = !root1 || (TREE_CODE (root1) == VAR_DECL && DECL_IGNORED_P (root1));
@@ -207,7 +214,7 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
 	{
 	  if (debug)
 	    fprintf (debug, " : 2 different USER vars. No coalesce.\n");
-	  return false;
+	  return;
 	}
       else
 	ign2 = true;
@@ -221,7 +228,7 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
 	{
 	  if (debug)
 	    fprintf (debug, " : 2 default defs. No coalesce.\n");
-	  return false;
+	  return;
 	}
       else
         {
@@ -241,7 +248,7 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
     {
       if (debug)
 	fprintf (debug, " : Choosen variable has no root.  No coalesce.\n");
-      return false;
+      return;
     }
 
   /* Don't coalesce if the new chosen root variable would be read-only.
@@ -254,7 +261,7 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
     {
       if (debug)
 	fprintf (debug, " : Readonly variable.  No coalesce.\n");
-      return false;
+      return;
     }
 
   /* Don't coalesce if the two variables aren't type compatible .  */
@@ -267,7 +274,7 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
     {
       if (debug)
 	fprintf (debug, " : Incompatible types.  No coalesce.\n");
-      return false;
+      return;
     }
 
   /* Merge the two partitions.  */
@@ -289,7 +296,6 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
 			  TDF_SLIM);
       fprintf (debug, "\n");
     }
-  return true;
 }
 
 
@@ -309,7 +315,6 @@ rename_ssa_copies (void)
   gimple stmt, phi;
   unsigned x;
   FILE *debug;
-  bool updated = false;
 
   memset (&stats, 0, sizeof (stats));
 
@@ -320,7 +325,7 @@ rename_ssa_copies (void)
 
   map = init_var_map (num_ssa_names);
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       /* Scan for real copies.  */
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
@@ -331,12 +336,12 @@ rename_ssa_copies (void)
 	      tree lhs = gimple_assign_lhs (stmt);
 	      tree rhs = gimple_assign_rhs1 (stmt);
 
-	      updated |= copy_rename_partition_coalesce (map, lhs, rhs, debug);
+	      copy_rename_partition_coalesce (map, lhs, rhs, debug);
 	    }
 	}
     }
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       /* Treat PHI nodes as copies between the result and each argument.  */
       for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
@@ -359,8 +364,8 @@ rename_ssa_copies (void)
 	      {
 		tree arg = PHI_ARG_DEF (phi, i);
 		if (TREE_CODE (arg) == SSA_NAME)
-		  updated |= copy_rename_partition_coalesce (map, res, arg,
-							     debug);
+		  copy_rename_partition_coalesce (map, res, arg,
+						  debug);
 	      }
 	  /* Else if all arguments are in the same partition try to merge
 	     it with the result.  */
@@ -391,9 +396,9 @@ rename_ssa_copies (void)
 		    }
 		}
 	      if (all_p_same == 1)
-		updated |= copy_rename_partition_coalesce (map, res,
-							   PHI_ARG_DEF (phi, 0),
-							   debug);
+		copy_rename_partition_coalesce (map, res,
+						PHI_ARG_DEF (phi, 0),
+						debug);
 	    }
         }
     }
@@ -427,7 +432,7 @@ rename_ssa_copies (void)
   statistics_counter_event (cfun, "copies coalesced",
 			    stats.coalesced);
   delete_var_map (map);
-  return updated ? TODO_remove_unused_locals : 0;
+  return 0;
 }
 
 /* Return true if copy rename is to be performed.  */
@@ -438,21 +443,41 @@ gate_copyrename (void)
   return flag_tree_copyrename != 0;
 }
 
-struct gimple_opt_pass pass_rename_ssa_copies =
+namespace {
+
+const pass_data pass_data_rename_ssa_copies =
 {
- {
-  GIMPLE_PASS,
-  "copyrename",				/* name */
-  gate_copyrename,			/* gate */
-  rename_ssa_copies,			/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_TREE_COPY_RENAME,			/* tv_id */
-  PROP_cfg | PROP_ssa,			/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_verify_ssa                       /* todo_flags_finish */
- }
+  GIMPLE_PASS, /* type */
+  "copyrename", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_TREE_COPY_RENAME, /* tv_id */
+  ( PROP_cfg | PROP_ssa ), /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  TODO_verify_ssa, /* todo_flags_finish */
 };
+
+class pass_rename_ssa_copies : public gimple_opt_pass
+{
+public:
+  pass_rename_ssa_copies (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_rename_ssa_copies, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  opt_pass * clone () { return new pass_rename_ssa_copies (m_ctxt); }
+  bool gate () { return gate_copyrename (); }
+  unsigned int execute () { return rename_ssa_copies (); }
+
+}; // class pass_rename_ssa_copies
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_rename_ssa_copies (gcc::context *ctxt)
+{
+  return new pass_rename_ssa_copies (ctxt);
+}

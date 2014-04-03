@@ -2,9 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build darwin freebsd linux netbsd openbsd windows
-
-// TCP sockets
+// +build darwin dragonfly freebsd linux netbsd openbsd windows
 
 package net
 
@@ -23,14 +21,9 @@ import (
 func sockaddrToTCP(sa syscall.Sockaddr) Addr {
 	switch sa := sa.(type) {
 	case *syscall.SockaddrInet4:
-		return &TCPAddr{sa.Addr[0:], sa.Port}
+		return &TCPAddr{IP: sa.Addr[0:], Port: sa.Port}
 	case *syscall.SockaddrInet6:
-		return &TCPAddr{sa.Addr[0:], sa.Port}
-	default:
-		if sa != nil {
-			// Diagnose when we will turn a non-nil sockaddr into a nil.
-			panic("unexpected type in sockaddrToTCP")
-		}
+		return &TCPAddr{IP: sa.Addr[0:], Port: sa.Port, Zone: zoneToString(int(sa.ZoneId))}
 	}
 	return nil
 }
@@ -53,18 +46,14 @@ func (a *TCPAddr) isWildcard() bool {
 }
 
 func (a *TCPAddr) sockaddr(family int) (syscall.Sockaddr, error) {
-	return ipToSockaddr(family, a.IP, a.Port)
-}
-
-func (a *TCPAddr) toAddr() sockaddr {
-	if a == nil { // nil *TCPAddr
-		return nil // nil interface
+	if a == nil {
+		return nil, nil
 	}
-	return a
+	return ipToSockaddr(family, a.IP, a.Port, a.Zone)
 }
 
-// TCPConn is an implementation of the Conn interface
-// for TCP network connections.
+// TCPConn is an implementation of the Conn interface for TCP network
+// connections.
 type TCPConn struct {
 	conn
 }
@@ -101,17 +90,17 @@ func (c *TCPConn) CloseWrite() error {
 	return c.fd.CloseWrite()
 }
 
-// SetLinger sets the behavior of Close() on a connection
-// which still has data waiting to be sent or to be acknowledged.
+// SetLinger sets the behavior of Close() on a connection which still
+// has data waiting to be sent or to be acknowledged.
 //
-// If sec < 0 (the default), Close returns immediately and
-// the operating system finishes sending the data in the background.
+// If sec < 0 (the default), Close returns immediately and the
+// operating system finishes sending the data in the background.
 //
 // If sec == 0, Close returns immediately and the operating system
 // discards any unsent or unacknowledged data.
 //
-// If sec > 0, Close blocks for at most sec seconds waiting for
-// data to be sent and acknowledged.
+// If sec > 0, Close blocks for at most sec seconds waiting for data
+// to be sent and acknowledged.
 func (c *TCPConn) SetLinger(sec int) error {
 	if !c.ok() {
 		return syscall.EINVAL
@@ -128,10 +117,18 @@ func (c *TCPConn) SetKeepAlive(keepalive bool) error {
 	return setKeepAlive(c.fd, keepalive)
 }
 
+// SetKeepAlivePeriod sets period between keep alives.
+func (c *TCPConn) SetKeepAlivePeriod(d time.Duration) error {
+	if !c.ok() {
+		return syscall.EINVAL
+	}
+	return setKeepAlivePeriod(c.fd, d)
+}
+
 // SetNoDelay controls whether the operating system should delay
-// packet transmission in hopes of sending fewer packets
-// (Nagle's algorithm).  The default is true (no delay), meaning
-// that data is sent as soon as possible after a Write.
+// packet transmission in hopes of sending fewer packets (Nagle's
+// algorithm).  The default is true (no delay), meaning that data is
+// sent as soon as possible after a Write.
 func (c *TCPConn) SetNoDelay(noDelay bool) error {
 	if !c.ok() {
 		return syscall.EINVAL
@@ -140,14 +137,22 @@ func (c *TCPConn) SetNoDelay(noDelay bool) error {
 }
 
 // DialTCP connects to the remote address raddr on the network net,
-// which must be "tcp", "tcp4", or "tcp6".  If laddr is not nil, it is used
-// as the local address for the connection.
+// which must be "tcp", "tcp4", or "tcp6".  If laddr is not nil, it is
+// used as the local address for the connection.
 func DialTCP(net string, laddr, raddr *TCPAddr) (*TCPConn, error) {
-	if raddr == nil {
-		return nil, &OpError{"dial", net, nil, errMissingAddress}
+	switch net {
+	case "tcp", "tcp4", "tcp6":
+	default:
+		return nil, &OpError{Op: "dial", Net: net, Addr: raddr, Err: UnknownNetworkError(net)}
 	}
+	if raddr == nil {
+		return nil, &OpError{Op: "dial", Net: net, Addr: nil, Err: errMissingAddress}
+	}
+	return dialTCP(net, laddr, raddr, noDeadline)
+}
 
-	fd, err := internetSocket(net, laddr.toAddr(), raddr.toAddr(), syscall.SOCK_STREAM, 0, "dial", sockaddrToTCP)
+func dialTCP(net string, laddr, raddr *TCPAddr, deadline time.Time) (*TCPConn, error) {
+	fd, err := internetSocket(net, laddr, raddr, deadline, syscall.SOCK_STREAM, 0, "dial", sockaddrToTCP)
 
 	// TCP has a rarely used mechanism called a 'simultaneous connection' in
 	// which Dial("tcp", addr1, addr2) run on the machine at addr1 can
@@ -177,11 +182,11 @@ func DialTCP(net string, laddr, raddr *TCPAddr) (*TCPConn, error) {
 		if err == nil {
 			fd.Close()
 		}
-		fd, err = internetSocket(net, laddr.toAddr(), raddr.toAddr(), syscall.SOCK_STREAM, 0, "dial", sockaddrToTCP)
+		fd, err = internetSocket(net, laddr, raddr, deadline, syscall.SOCK_STREAM, 0, "dial", sockaddrToTCP)
 	}
 
 	if err != nil {
-		return nil, err
+		return nil, &OpError{Op: "dial", Net: net, Addr: raddr, Err: err}
 	}
 	return newTCPConn(fd), nil
 }
@@ -213,36 +218,16 @@ func spuriousENOTAVAIL(err error) bool {
 	return ok && e.Err == syscall.EADDRNOTAVAIL
 }
 
-// TCPListener is a TCP network listener.
-// Clients should typically use variables of type Listener
-// instead of assuming TCP.
+// TCPListener is a TCP network listener.  Clients should typically
+// use variables of type Listener instead of assuming TCP.
 type TCPListener struct {
 	fd *netFD
 }
 
-// ListenTCP announces on the TCP address laddr and returns a TCP listener.
-// Net must be "tcp", "tcp4", or "tcp6".
-// If laddr has a port of 0, it means to listen on some available port.
-// The caller can use l.Addr() to retrieve the chosen address.
-func ListenTCP(net string, laddr *TCPAddr) (*TCPListener, error) {
-	fd, err := internetSocket(net, laddr.toAddr(), nil, syscall.SOCK_STREAM, 0, "listen", sockaddrToTCP)
-	if err != nil {
-		return nil, err
-	}
-	err = syscall.Listen(fd.sysfd, listenerBacklog)
-	if err != nil {
-		closesocket(fd.sysfd)
-		return nil, &OpError{"listen", net, laddr, err}
-	}
-	l := new(TCPListener)
-	l.fd = fd
-	return l, nil
-}
-
-// AcceptTCP accepts the next incoming call and returns the new connection
-// and the remote address.
-func (l *TCPListener) AcceptTCP() (c *TCPConn, err error) {
-	if l == nil || l.fd == nil || l.fd.sysfd < 0 {
+// AcceptTCP accepts the next incoming call and returns the new
+// connection.
+func (l *TCPListener) AcceptTCP() (*TCPConn, error) {
+	if l == nil || l.fd == nil {
 		return nil, syscall.EINVAL
 	}
 	fd, err := l.fd.accept(sockaddrToTCP)
@@ -252,14 +237,14 @@ func (l *TCPListener) AcceptTCP() (c *TCPConn, err error) {
 	return newTCPConn(fd), nil
 }
 
-// Accept implements the Accept method in the Listener interface;
-// it waits for the next call and returns a generic Conn.
-func (l *TCPListener) Accept() (c Conn, err error) {
-	c1, err := l.AcceptTCP()
+// Accept implements the Accept method in the Listener interface; it
+// waits for the next call and returns a generic Conn.
+func (l *TCPListener) Accept() (Conn, error) {
+	c, err := l.AcceptTCP()
 	if err != nil {
 		return nil, err
 	}
-	return c1, nil
+	return c, nil
 }
 
 // Close stops listening on the TCP address.
@@ -280,10 +265,34 @@ func (l *TCPListener) SetDeadline(t time.Time) error {
 	if l == nil || l.fd == nil {
 		return syscall.EINVAL
 	}
-	return setDeadline(l.fd, t)
+	return l.fd.setDeadline(t)
 }
 
-// File returns a copy of the underlying os.File, set to blocking mode.
-// It is the caller's responsibility to close f when finished.
+// File returns a copy of the underlying os.File, set to blocking
+// mode.  It is the caller's responsibility to close f when finished.
 // Closing l does not affect f, and closing f does not affect l.
+//
+// The returned os.File's file descriptor is different from the
+// connection's.  Attempting to change properties of the original
+// using this duplicate may or may not have the desired effect.
 func (l *TCPListener) File() (f *os.File, err error) { return l.fd.dup() }
+
+// ListenTCP announces on the TCP address laddr and returns a TCP
+// listener.  Net must be "tcp", "tcp4", or "tcp6".  If laddr has a
+// port of 0, ListenTCP will choose an available port.  The caller can
+// use the Addr method of TCPListener to retrieve the chosen address.
+func ListenTCP(net string, laddr *TCPAddr) (*TCPListener, error) {
+	switch net {
+	case "tcp", "tcp4", "tcp6":
+	default:
+		return nil, &OpError{Op: "listen", Net: net, Addr: laddr, Err: UnknownNetworkError(net)}
+	}
+	if laddr == nil {
+		laddr = &TCPAddr{}
+	}
+	fd, err := internetSocket(net, laddr, nil, noDeadline, syscall.SOCK_STREAM, 0, "listen", sockaddrToTCP)
+	if err != nil {
+		return nil, &OpError{Op: "listen", Net: net, Addr: laddr, Err: err}
+	}
+	return &TCPListener{fd}, nil
+}

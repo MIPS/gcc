@@ -10,8 +10,6 @@
 
 #define	NOSELGEN	1
 
-static	int32	debug	= 0;
-
 typedef	struct	WaitQ	WaitQ;
 typedef	struct	SudoG	SudoG;
 typedef	struct	Select	Select;
@@ -35,13 +33,16 @@ struct	WaitQ
 	SudoG*	last;
 };
 
+// The garbage collector is assuming that Hchan can only contain pointers into the stack
+// and cannot contain pointers into the heap.
 struct	Hchan
 {
 	uintgo	qcount;			// total data in the q
 	uintgo	dataqsiz;		// size of the circular q
 	uint16	elemsize;
-	bool	closed;
 	uint8	elemalign;
+	uint8	pad;			// ensures proper alignment of the buffer that follows Hchan in memory
+	bool	closed;
 	uintgo	sendx;			// send index
 	uintgo	recvx;			// receive index
 	WaitQ	recvq;			// list of recv waiters
@@ -49,12 +50,16 @@ struct	Hchan
 	Lock;
 };
 
+uint32 runtime_Hchansize = sizeof(Hchan);
+
 // Buffer follows Hchan immediately in memory.
 // chanbuf(c, i) is pointer to the i'th slot in the buffer.
 #define chanbuf(c, i) ((byte*)((c)+1)+(uintptr)(c)->elemsize*(i))
 
 enum
 {
+	debug = 0,
+
 	// Scase.kind
 	CaseRecv,
 	CaseSend,
@@ -101,16 +106,17 @@ runtime_makechan_c(ChanType *t, int64 hint)
 		runtime_panicstring("makechan: size out of range");
 
 	n = sizeof(*c);
+	n = ROUND(n, elem->__align);
 
 	// allocate memory in one call
-	c = (Hchan*)runtime_mal(n + hint*elem->__size);
+	c = (Hchan*)runtime_mallocgc(n + hint*elem->__size, (uintptr)t | TypeInfo_Chan, 0);
 	c->elemsize = elem->__size;
 	c->elemalign = elem->__align;
 	c->dataqsiz = hint;
 
 	if(debug)
-		runtime_printf("makechan: chan=%p; elemsize=%D; elemalign=%d; dataqsiz=%D\n",
-			c, (int64)elem->__size, elem->__align, (int64)c->dataqsiz);
+		runtime_printf("makechan: chan=%p; elemsize=%D; dataqsiz=%D\n",
+			c, (int64)elem->__size, (int64)c->dataqsiz);
 
 	return c;
 }
@@ -118,7 +124,7 @@ runtime_makechan_c(ChanType *t, int64 hint)
 // For reflect
 //	func makechan(typ *ChanType, size uint64) (chan)
 uintptr reflect_makechan(ChanType *, uint64)
-  asm ("reflect.makechan");
+  __asm__ (GOSYM_PREFIX "reflect.makechan");
 
 uintptr
 reflect_makechan(ChanType *t, uint64 size)
@@ -180,7 +186,7 @@ runtime_chansend(ChanType *t, Hchan *c, byte *ep, bool *pres, void *pc)
 		return;  // not reached
 	}
 
-	if(runtime_gcwaiting)
+	if(runtime_gcwaiting())
 		runtime_gosched();
 
 	if(debug) {
@@ -195,9 +201,8 @@ runtime_chansend(ChanType *t, Hchan *c, byte *ep, bool *pres, void *pc)
 	}
 
 	runtime_lock(c);
-	// TODO(dvyukov): add similar instrumentation to select.
 	if(raceenabled)
-		runtime_racereadpc(c, pc);
+		runtime_racereadpc(c, pc, runtime_chansend);
 	if(c->closed)
 		goto closed;
 
@@ -306,7 +311,7 @@ runtime_chanrecv(ChanType *t, Hchan* c, byte *ep, bool *selected, bool *received
 	int64 t0;
 	G *g;
 
-	if(runtime_gcwaiting)
+	if(runtime_gcwaiting())
 		runtime_gosched();
 
 	if(debug)
@@ -508,7 +513,7 @@ __go_receive_big(ChanType *t, Hchan* c, byte* p)
 }
 
 _Bool runtime_chanrecv2(ChanType *t, Hchan* c, byte* p)
-  __asm__("runtime.chanrecv2");
+  __asm__ (GOSYM_PREFIX "runtime.chanrecv2");
 
 _Bool
 runtime_chanrecv2(ChanType *t, Hchan* c, byte* p)
@@ -613,7 +618,7 @@ runtime_selectnbrecv2(ChanType *t, byte *v, _Bool *received, Hchan *c)
 // the actual data if it fits, or else a pointer to the data.
 
 _Bool reflect_chansend(ChanType *, Hchan *, uintptr, _Bool)
-  __asm__("reflect.chansend");
+  __asm__ (GOSYM_PREFIX "reflect.chansend");
 
 _Bool
 reflect_chansend(ChanType *t, Hchan *c, uintptr val, _Bool nb)
@@ -650,7 +655,7 @@ struct chanrecv_ret
 };
 
 struct chanrecv_ret reflect_chanrecv(ChanType *, Hchan *, _Bool)
-  __asm__("reflect.chanrecv");
+  __asm__ (GOSYM_PREFIX "reflect.chanrecv");
 
 struct chanrecv_ret
 reflect_chanrecv(ChanType *t, Hchan *c, _Bool nb)
@@ -686,7 +691,7 @@ static void newselect(int32, Select**);
 
 // newselect(size uint32) (sel *byte);
 
-void* runtime_newselect(int32) __asm__("runtime.newselect");
+void* runtime_newselect(int32) __asm__ (GOSYM_PREFIX "runtime.newselect");
 
 void*
 runtime_newselect(int32 size)
@@ -732,7 +737,7 @@ static void selectsend(Select *sel, Hchan *c, int index, void *elem);
 // selectsend(sel *byte, hchan *chan any, elem *any) (selected bool);
 
 void runtime_selectsend(Select *, Hchan *, void *, int32)
-  __asm__("runtime.selectsend");
+  __asm__ (GOSYM_PREFIX "runtime.selectsend");
 
 void
 runtime_selectsend(Select *sel, Hchan *c, void *elem, int32 index)
@@ -772,7 +777,7 @@ static void selectrecv(Select *sel, Hchan *c, int index, void *elem, bool*);
 // selectrecv(sel *byte, hchan *chan any, elem *any) (selected bool);
 
 void runtime_selectrecv(Select *, Hchan *, void *, int32)
-  __asm__("runtime.selectrecv");
+  __asm__ (GOSYM_PREFIX "runtime.selectrecv");
 
 void
 runtime_selectrecv(Select *sel, Hchan *c, void *elem, int32 index)
@@ -787,7 +792,7 @@ runtime_selectrecv(Select *sel, Hchan *c, void *elem, int32 index)
 // selectrecv2(sel *byte, hchan *chan any, elem *any, received *bool) (selected bool);
 
 void runtime_selectrecv2(Select *, Hchan *, void *, bool *, int32)
-  __asm__("runtime.selectrecv2");
+  __asm__ (GOSYM_PREFIX "runtime.selectrecv2");
 
 void
 runtime_selectrecv2(Select *sel, Hchan *c, void *elem, bool *received, int32 index)
@@ -827,7 +832,7 @@ static void selectdefault(Select*, int);
 
 // selectdefault(sel *byte) (selected bool);
 
-void runtime_selectdefault(Select *, int32) __asm__("runtime.selectdefault");
+void runtime_selectdefault(Select *, int32) __asm__ (GOSYM_PREFIX "runtime.selectdefault");
 
 void
 runtime_selectdefault(Select *sel, int32 index)
@@ -875,16 +880,27 @@ sellock(Select *sel)
 static void
 selunlock(Select *sel)
 {
-	uint32 i;
-	Hchan *c, *c0;
+	int32 i, n, r;
+	Hchan *c;
 
-	c = nil;
-	for(i=sel->ncase; i-->0;) {
-		c0 = sel->lockorder[i];
-		if(c0 && c0 != c) {
-			c = c0;
-			runtime_unlock(c);
-		}
+	// We must be very careful here to not touch sel after we have unlocked
+	// the last lock, because sel can be freed right after the last unlock.
+	// Consider the following situation.
+	// First M calls runtime_park() in runtime_selectgo() passing the sel.
+	// Once runtime_park() has unlocked the last lock, another M makes
+	// the G that calls select runnable again and schedules it for execution.
+	// When the G runs on another M, it locks all the locks and frees sel.
+	// Now if the first M touches sel, it will access freed memory.
+	n = (int32)sel->ncase;
+	r = 0;
+	// skip the default case
+	if(n>0 && sel->lockorder[0] == nil)
+		r = 1;
+	for(i = n-1; i >= r; i--) {
+		c = sel->lockorder[i];
+		if(i>0 && sel->lockorder[i-1] == c)
+			continue;  // will unlock it on the next iteration
+		runtime_unlock(c);
 	}
 }
 
@@ -898,7 +914,7 @@ static int selectgo(Select**);
 
 // selectgo(sel *byte);
 
-int runtime_selectgo(Select *) __asm__("runtime.selectgo");
+int runtime_selectgo(Select *) __asm__ (GOSYM_PREFIX "runtime.selectgo");
 
 int
 runtime_selectgo(Select *sel)
@@ -910,7 +926,8 @@ static int
 selectgo(Select **selp)
 {
 	Select *sel;
-	uint32 o, i, j;
+	uint32 o, i, j, k;
+	int64 t0;
 	Scase *cas, *dfl;
 	Hchan *c;
 	SudoG *sg;
@@ -919,13 +936,20 @@ selectgo(Select **selp)
 	G *g;
 
 	sel = *selp;
-	if(runtime_gcwaiting)
+	if(runtime_gcwaiting())
 		runtime_gosched();
 
 	if(debug)
 		runtime_printf("select: sel=%p\n", sel);
 
 	g = runtime_g();
+
+	t0 = 0;
+	if(runtime_blockprofilerate > 0) {
+		t0 = runtime_cputicks();
+		for(i=0; i<sel->ncase; i++)
+			sel->scase[i].sg.releasetime = -1;
+	}
 
 	// The compiler rewrites selects that statically have
 	// only 0 or 1 cases plus default into simpler constructs.
@@ -946,12 +970,42 @@ selectgo(Select **selp)
 	}
 
 	// sort the cases by Hchan address to get the locking order.
+	// simple heap sort, to guarantee n log n time and constant stack footprint.
 	for(i=0; i<sel->ncase; i++) {
-		c = sel->scase[i].chan;
-		for(j=i; j>0 && sel->lockorder[j-1] >= c; j--)
-			sel->lockorder[j] = sel->lockorder[j-1];
+		j = i;
+		c = sel->scase[j].chan;
+		while(j > 0 && sel->lockorder[k=(j-1)/2] < c) {
+			sel->lockorder[j] = sel->lockorder[k];
+			j = k;
+		}
 		sel->lockorder[j] = c;
 	}
+	for(i=sel->ncase; i-->0; ) {
+		c = sel->lockorder[i];
+		sel->lockorder[i] = sel->lockorder[0];
+		j = 0;
+		for(;;) {
+			k = j*2+1;
+			if(k >= i)
+				break;
+			if(k+1 < i && sel->lockorder[k] < sel->lockorder[k+1])
+				k++;
+			if(c < sel->lockorder[k]) {
+				sel->lockorder[j] = sel->lockorder[k];
+				j = k;
+				continue;
+			}
+			break;
+		}
+		sel->lockorder[j] = c;
+	}
+	/*
+	for(i=0; i+1<sel->ncase; i++)
+		if(sel->lockorder[i] > sel->lockorder[i+1]) {
+			runtime_printf("i=%d %p %p\n", i, sel->lockorder[i], sel->lockorder[i+1]);
+			runtime_throw("select: broken sort");
+		}
+	*/
 	sellock(sel);
 
 loop:
@@ -977,6 +1031,8 @@ loop:
 			break;
 
 		case CaseSend:
+			if(raceenabled)
+				runtime_racereadpc(c, runtime_selectgo, runtime_chansend);
 			if(c->closed)
 				goto sclose;
 			if(c->dataqsiz > 0) {
@@ -1048,7 +1104,7 @@ loop:
 	c = cas->chan;
 
 	if(c->dataqsiz > 0)
-		runtime_throw("selectgo: shouldnt happen");
+		runtime_throw("selectgo: shouldn't happen");
 
 	if(debug)
 		runtime_printf("wait-return: sel=%p c=%p cas=%p kind=%d\n",
@@ -1078,6 +1134,8 @@ asyncrecv:
 	if(sg != nil) {
 		gp = sg->g;
 		selunlock(sel);
+		if(sg->releasetime)
+			sg->releasetime = runtime_cputicks();
 		runtime_ready(gp);
 	} else {
 		selunlock(sel);
@@ -1096,6 +1154,8 @@ asyncsend:
 	if(sg != nil) {
 		gp = sg->g;
 		selunlock(sel);
+		if(sg->releasetime)
+			sg->releasetime = runtime_cputicks();
 		runtime_ready(gp);
 	} else {
 		selunlock(sel);
@@ -1115,6 +1175,8 @@ syncrecv:
 		runtime_memmove(cas->sg.elem, sg->elem, c->elemsize);
 	gp = sg->g;
 	gp->param = sg;
+	if(sg->releasetime)
+		sg->releasetime = runtime_cputicks();
 	runtime_ready(gp);
 	goto retc;
 
@@ -1140,11 +1202,15 @@ syncsend:
 		runtime_memmove(sg->elem, cas->sg.elem, c->elemsize);
 	gp = sg->g;
 	gp->param = sg;
+	if(sg->releasetime)
+		sg->releasetime = runtime_cputicks();
 	runtime_ready(gp);
 
 retc:
 	// return index corresponding to chosen case
 	index = cas->index;
+	if(cas->sg.releasetime > 0)
+		runtime_blockevent(cas->sg.releasetime - t0, 2);
 	runtime_free(sel);
 	return index;
 
@@ -1181,7 +1247,7 @@ struct rselect_ret {
 // func rselect(cases []runtimeSelect) (chosen int, word uintptr, recvOK bool)
 
 struct rselect_ret reflect_rselect(Slice)
-     asm("reflect.rselect");
+     __asm__ (GOSYM_PREFIX "reflect.rselect");
 
 struct rselect_ret
 reflect_rselect(Slice cases)
@@ -1251,9 +1317,28 @@ reflect_rselect(Slice cases)
 	return ret;
 }
 
+static void closechan(Hchan *c, void *pc);
+
 // closechan(sel *byte);
 void
 runtime_closechan(Hchan *c)
+{
+	closechan(c, runtime_getcallerpc(&c));
+}
+
+// For reflect
+//	func chanclose(c chan)
+
+void reflect_chanclose(uintptr) __asm__ (GOSYM_PREFIX "reflect.chanclose");
+
+void
+reflect_chanclose(uintptr c)
+{
+	closechan((Hchan*)c, runtime_getcallerpc(&c));
+}
+
+static void
+closechan(Hchan *c, void *pc)
 {
 	SudoG *sg;
 	G* gp;
@@ -1261,7 +1346,7 @@ runtime_closechan(Hchan *c)
 	if(c == nil)
 		runtime_panicstring("close of nil channel");
 
-	if(runtime_gcwaiting)
+	if(runtime_gcwaiting())
 		runtime_gosched();
 
 	runtime_lock(c);
@@ -1271,7 +1356,7 @@ runtime_closechan(Hchan *c)
 	}
 
 	if(raceenabled) {
-		runtime_racewritepc(c, runtime_getcallerpc(&c));
+		runtime_racewritepc(c, pc, runtime_closechan);
 		runtime_racerelease(c);
 	}
 
@@ -1284,6 +1369,8 @@ runtime_closechan(Hchan *c)
 			break;
 		gp = sg->g;
 		gp->param = nil;
+		if(sg->releasetime)
+			sg->releasetime = runtime_cputicks();
 		runtime_ready(gp);
 	}
 
@@ -1294,6 +1381,8 @@ runtime_closechan(Hchan *c)
 			break;
 		gp = sg->g;
 		gp->param = nil;
+		if(sg->releasetime)
+			sg->releasetime = runtime_cputicks();
 		runtime_ready(gp);
 	}
 
@@ -1307,20 +1396,9 @@ __go_builtin_close(Hchan *c)
 }
 
 // For reflect
-//	func chanclose(c chan)
-
-void reflect_chanclose(uintptr) __asm__("reflect.chanclose");
-
-void
-reflect_chanclose(uintptr c)
-{
-	runtime_closechan((Hchan*)c);
-}
-
-// For reflect
 //	func chanlen(c chan) (len int)
 
-intgo reflect_chanlen(uintptr) __asm__("reflect.chanlen");
+intgo reflect_chanlen(uintptr) __asm__ (GOSYM_PREFIX "reflect.chanlen");
 
 intgo
 reflect_chanlen(uintptr ca)
@@ -1345,7 +1423,7 @@ __go_chan_len(Hchan *c)
 // For reflect
 //	func chancap(c chan) (cap intgo)
 
-intgo reflect_chancap(uintptr) __asm__("reflect.chancap");
+intgo reflect_chancap(uintptr) __asm__ (GOSYM_PREFIX "reflect.chancap");
 
 intgo
 reflect_chancap(uintptr ca)

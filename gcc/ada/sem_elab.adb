@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1997-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 1997-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -47,8 +47,6 @@ with Sem_Aux;  use Sem_Aux;
 with Sem_Cat;  use Sem_Cat;
 with Sem_Ch7;  use Sem_Ch7;
 with Sem_Ch8;  use Sem_Ch8;
-with Sem_Res;  use Sem_Res;
-with Sem_Type; use Sem_Type;
 with Sem_Util; use Sem_Util;
 with Sinfo;    use Sinfo;
 with Sinput;   use Sinput;
@@ -828,6 +826,7 @@ package body Sem_Elab is
                --  If no alias, there is a previous error
 
                if No (Ent) then
+                  Check_Error_Detected;
                   return;
                end if;
             end loop;
@@ -868,7 +867,7 @@ package body Sem_Elab is
            and then not Elaboration_Checks_Suppressed (Ent)
            and then not Suppress_Elaboration_Warnings (E_Scope)
            and then not Elaboration_Checks_Suppressed (E_Scope)
-           and then Elab_Warnings
+           and then (Elab_Warnings or Elab_Info_Messages)
            and then Generate_Warnings
          then
             Generate_Elab_Warnings : declare
@@ -878,8 +877,9 @@ package body Sem_Elab is
                   Ent   : Node_Or_Entity_Id);
                --  Generate a call to Error_Msg_NE with parameters Msg_D or
                --  Msg_S (for dynamic or static elaboration model), N and Ent.
-               --  Msg_D is suppressed for the attribute reference case, since
-               --  we never raise Program_Error for an attribute reference.
+               --  Msg_D is a real warning (output if Msg_D is non-null and
+               --  Elab_Warnings is set), Msg_S is an info message (output if
+               --  Elab_Info_Messages is set.
 
                ------------------
                -- Elab_Warning --
@@ -891,12 +891,21 @@ package body Sem_Elab is
                   Ent   : Node_Or_Entity_Id)
                is
                begin
+                  --  Dynamic elaboration checks, real warning
+
                   if Dynamic_Elaboration_Checks then
                      if not Access_Case then
-                        Error_Msg_NE (Msg_D, N, Ent);
+                        if Msg_D /= "" and then Elab_Warnings then
+                           Error_Msg_NE (Msg_D, N, Ent);
+                        end if;
                      end if;
+
+                  --  Static elaboration checks, info message
+
                   else
-                     Error_Msg_NE (Msg_S, N, Ent);
+                     if Elab_Info_Messages then
+                        Error_Msg_NE (Msg_S, N, Ent);
+                     end if;
                   end if;
                end Elab_Warning;
 
@@ -907,10 +916,10 @@ package body Sem_Elab is
 
                if Inst_Case then
                   Elab_Warning
-                    ("instantiation of& may raise Program_Error?",
+                    ("instantiation of& may raise Program_Error?l?",
                      "info: instantiation of& during elaboration?", Ent);
 
-               --  Indirect call case, warning only in static elaboration
+               --  Indirect call case, info message only in static elaboration
                --  case, because the attribute reference itself cannot raise
                --  an exception.
 
@@ -926,13 +935,13 @@ package body Sem_Elab is
                     and then Comes_From_Source (Ent)
                   then
                      Elab_Warning
-                       ("implicit call to & may raise Program_Error?",
+                       ("implicit call to & may raise Program_Error?l?",
                         "info: implicit call to & during elaboration?",
                         Ent);
 
                   else
                      Elab_Warning
-                       ("call to & may raise Program_Error?",
+                       ("call to & may raise Program_Error?l?",
                         "info: call to & during elaboration?",
                         Ent);
                   end if;
@@ -942,13 +951,13 @@ package body Sem_Elab is
 
                if Nkind (N) in N_Subprogram_Instantiation then
                   Elab_Warning
-                    ("\missing pragma Elaborate for&?",
+                    ("\missing pragma Elaborate for&?l?",
                      "\info: implicit pragma Elaborate for& generated?",
                      W_Scope);
 
                else
                   Elab_Warning
-                    ("\missing pragma Elaborate_All for&?",
+                    ("\missing pragma Elaborate_All for&?l?",
                      "\info: implicit pragma Elaborate_All for & generated?",
                      W_Scope);
                end if;
@@ -977,7 +986,7 @@ package body Sem_Elab is
                --  elaboration Boolean for the unit containing the entity.
 
                --  Note that for this case, we do check the real unit (the one
-               --  from following renamings, since that is the issue!)
+               --  from following renamings, since that is the issue).
 
                --  Could this possibly miss a useless but required PE???
 
@@ -1019,16 +1028,16 @@ package body Sem_Elab is
             --  Here we need to generate an implicit elaborate all
 
             else
-               --  Generate elaborate_all warning unless suppressed
+               --  Generate Elaborate_all warning unless suppressed
 
-               if (Elab_Warnings and Generate_Warnings and not Inst_Case)
+               if (Elab_Info_Messages and Generate_Warnings and not Inst_Case)
                  and then not Suppress_Elaboration_Warnings (Ent)
                  and then not Suppress_Elaboration_Warnings (E_Scope)
                  and then not Suppress_Elaboration_Warnings (W_Scope)
                then
                   Error_Msg_Node_2 := W_Scope;
                   Error_Msg_NE
-                    ("call to& in elaboration code " &
+                    ("info: call to& in elaboration code " &
                      "requires pragma Elaborate_All on&?", N, E);
                end if;
 
@@ -1137,15 +1146,14 @@ package body Sem_Elab is
 
       --  Here we definitely have a bad instantiation
 
-      Error_Msg_NE
-        ("?cannot instantiate& before body seen", N, Ent);
+      Error_Msg_Warn := SPARK_Mode /= On;
+      Error_Msg_NE ("cannot instantiate& before body seen<<", N, Ent);
 
       if Present (Instance_Spec (N)) then
          Supply_Bodies (Instance_Spec (N));
       end if;
 
-      Error_Msg_N
-        ("\?Program_Error will be raised at run time", N);
+      Error_Msg_N ("\Program_Error [<<", N);
       Insert_Elab_Check (N);
       Set_ABE_Is_Certain (N);
    end Check_Bad_Instantiation;
@@ -1555,11 +1563,9 @@ package body Sem_Elab is
       --  then there is nothing to do (we do not know what is being assigned),
       --  but otherwise this is an assignment to the prefix.
 
-      if Nkind (N) = N_Indexed_Component
-           or else
-         Nkind (N) = N_Selected_Component
-           or else
-         Nkind (N) = N_Slice
+      if Nkind_In (N, N_Indexed_Component,
+                      N_Selected_Component,
+                      N_Slice)
       then
          if not Is_Access_Type (Etype (Prefix (N))) then
             Check_Elab_Assign (Prefix (N));
@@ -1721,13 +1727,11 @@ package body Sem_Elab is
             Error_Msg_Sloc := Sloc (Ent);
 
             Error_Msg_NE
-              ("?elaboration code may access& before it is initialized",
+              ("??& can be accessed by clients before this initialization",
                N, Ent);
             Error_Msg_NE
-              ("\?suggest adding pragma Elaborate_Body to spec of &",
-               N, Scop);
-            Error_Msg_N
-              ("\?or an explicit initialization could be added #", N);
+              ("\??add Elaborate_Body to spec to ensure & is initialized",
+               N, Ent);
          end if;
 
          if not All_Errors_Mode then
@@ -1886,18 +1890,15 @@ package body Sem_Elab is
 
    begin
       --  If not function or procedure call or instantiation, then ignore
-      --  call (this happens in some error case and rewriting cases)
+      --  call (this happens in some error cases and rewriting cases).
 
-      if Nkind (N) /= N_Function_Call
-           and then
-         Nkind (N) /= N_Procedure_Call_Statement
-           and then
-         not Inst_Case
+      if not Nkind_In (N, N_Function_Call, N_Procedure_Call_Statement)
+        and then not Inst_Case
       then
          return;
 
-      --  Nothing to do if this is a call or instantiation that has
-      --  already been found to be a sure ABE
+      --  Nothing to do if this is a call or instantiation that has already
+      --  been found to be a sure ABE.
 
       elsif ABE_Is_Certain (N) then
          return;
@@ -1997,7 +1998,7 @@ package body Sem_Elab is
          then
             return Abandon;
 
-            --  If we have a function call, check it
+         --  If we have a function call, check it
 
          elsif Nkind (N) = N_Function_Call then
             Check_Elab_Call (N, Outer_Scope);
@@ -2025,9 +2026,8 @@ package body Sem_Elab is
 
          elsif not Debug_Flag_Dot_UU
            and then Nkind (N) = N_Attribute_Reference
-           and then (Attribute_Name (N) = Name_Access
-                       or else
-                     Attribute_Name (N) = Name_Unrestricted_Access)
+           and then Nam_In (Attribute_Name (N), Name_Access,
+                                                Name_Unrestricted_Access)
            and then Is_Entity_Name (Prefix (N))
            and then Is_Subprogram (Entity (Prefix (N)))
          then
@@ -2049,7 +2049,7 @@ package body Sem_Elab is
          --  we go in unconditionally. This is not so terrible, it means the
          --  error backtrace is not quite complete, and we are too eager to
          --  scan bodies of tasks that are unused, but this is hardly very
-         --  significant!
+         --  significant.
 
          elsif Nkind (N) = N_Subprogram_Body
            and then Comes_From_Source (N)
@@ -2078,8 +2078,7 @@ package body Sem_Elab is
 
       Elab_Visited.Append (E);
 
-      --  If the call is to a function that renames a literal, no check
-      --  is needed.
+      --  If the call is to a function that renames a literal, no check needed
 
       if Ekind (E) = E_Enumeration_Literal then
          return;
@@ -2162,18 +2161,52 @@ package body Sem_Elab is
 
       declare
          P : Node_Id;
+         O : Node_Id;
+
       begin
          P := Parent (N);
          loop
+            --  Keep looking at parents if we are still in the subexpression
+
             if Nkind (P) in N_Subexpr then
                P := Parent (P);
-            elsif Nkind (P) = N_If_Statement
-              and then Nkind (Original_Node (P)) = N_Pragma
-              and then Present (Corresponding_Aspect (Original_Node (P)))
-            then
-               return;
+
+            --  Here P is the parent of the expression, check for special case
+
             else
-               exit;
+               O := Original_Node (P);
+
+               --  Definitely not the special case if orig node is not a pragma
+
+               exit when Nkind (O) /= N_Pragma;
+
+               --  Check we have an If statement or a null statement (happens
+               --  when the If has been expanded to be True).
+
+               exit when not Nkind_In (P, N_If_Statement, N_Null_Statement);
+
+               --  Our special case will be indicated either by the pragma
+               --  coming from an aspect ...
+
+               if Present (Corresponding_Aspect (O)) then
+                  return;
+
+               --  Or, in the case of an initial condition, specifically by a
+               --  Check pragma specifying an Initial_Condition check.
+
+               elsif Pragma_Name (O) = Name_Check
+                 and then
+                   Chars
+                     (Expression (First (Pragma_Argument_Associations (O)))) =
+                                                       Name_Initial_Condition
+               then
+                  return;
+
+               --  For anything else, we have an error
+
+               else
+                  exit;
+               end if;
             end if;
          end loop;
       end;
@@ -2184,16 +2217,17 @@ package body Sem_Elab is
       --  level, and the ABE is bound to occur.
 
       if Elab_Call.Last = 0 then
+         Error_Msg_Warn := SPARK_Mode /= On;
+
          if Inst_Case then
             Error_Msg_NE
-              ("?cannot instantiate& before body seen", N, Orig_Ent);
+              ("cannot instantiate& before body seen<<", N, Orig_Ent);
          else
             Error_Msg_NE
-              ("?cannot call& before body seen", N, Orig_Ent);
+              ("cannot call& before body seen<<", N, Orig_Ent);
          end if;
 
-         Error_Msg_N
-           ("\?Program_Error will be raised at run time", N);
+         Error_Msg_N ("\Program_Error [<<", N);
          Insert_Elab_Check (N);
 
       --  Call is not at outer level
@@ -2259,18 +2293,28 @@ package body Sem_Elab is
 
          if not Suppress_Elaboration_Warnings (E)
            and then not Elaboration_Checks_Suppressed (E)
+
+           --  Suppress this warning if we have a function call that occurred
+           --  within an assertion expression, since we can get false warnings
+           --  in this case, due to the out of order handling in this case.
+
+           and then
+             (Nkind (Original_Node (N)) /= N_Function_Call
+               or else not In_Assertion_Expression_Pragma (Original_Node (N)))
          then
+            Error_Msg_Warn := SPARK_Mode /= On;
+
             if Inst_Case then
                Error_Msg_NE
-                 ("instantiation of& may occur before body is seen?",
+                 ("instantiation of& may occur before body is seen<<",
                   N, Orig_Ent);
             else
                Error_Msg_NE
-                 ("call to& may occur before body is seen?", N, Orig_Ent);
+                 ("call to& may occur before body is seen<<", N, Orig_Ent);
             end if;
 
             Error_Msg_N
-              ("\Program_Error may be raised at run time?", N);
+              ("\Program_Error ]<<", N);
 
             Output_Calls (N);
          end if;
@@ -2365,11 +2409,11 @@ package body Sem_Elab is
                       or else
                     Scope (Proc) = Scope (Defining_Identifier (Decl)))
                then
+                  Error_Msg_Warn := SPARK_Mode /= On;
                   Error_Msg_N
-                    ("task will be activated before elaboration of its body?",
+                    ("task will be activated before elaboration of its body<<",
                       Decl);
-                  Error_Msg_N
-                    ("\Program_Error will be raised at run time?", Decl);
+                  Error_Msg_N ("\Program_Error [<<", Decl);
 
                elsif
                  Present (Corresponding_Body (Unit_Declaration_Node (Proc)))
@@ -2506,13 +2550,13 @@ package body Sem_Elab is
 
             if not Suppress_Elaboration_Warnings (Ent)
               and then not Elaboration_Checks_Suppressed (Ent)
-              and then Elab_Warnings
+              and then Elab_Info_Messages
               and then not Suppress_Elaboration_Warnings (Task_Scope)
               and then not Elaboration_Checks_Suppressed (Task_Scope)
             then
                Error_Msg_Node_2 := Task_Scope;
                Error_Msg_NE
-                 ("activation of an instance of task type&" &
+                 ("info: activation of an instance of task type&" &
                   " requires pragma Elaborate_All on &?", N, Ent);
             end if;
 
@@ -2548,8 +2592,14 @@ package body Sem_Elab is
      Scop : Entity_Id)
    is
       Elab_Unit  : Entity_Id;
+
+      --  Check whether this is a call to an Initialize subprogram for a
+      --  controlled type. Note that Call can also be a 'Access attribute
+      --  reference, which now generates an elaboration check.
+
       Init_Call  : constant Boolean :=
-                     Chars (Subp) = Name_Initialize
+                     Nkind (Call) = N_Procedure_Call_Statement
+                       and then Chars (Subp) = Name_Initialize
                        and then Comes_From_Source (Subp)
                        and then Present (Parameter_Associations (Call))
                        and then Is_Controlled (Etype (First_Actual (Call)));
@@ -2558,7 +2608,7 @@ package body Sem_Elab is
       --  visible, and we can set the elaboration flag.
 
       if Is_Immediately_Visible (Scop)
-        or else (Is_Child_Unit (Scop) and then Is_Visible_Child_Unit (Scop))
+        or else (Is_Child_Unit (Scop) and then Is_Visible_Lib_Unit (Scop))
       then
          Activate_Elaborate_All_Desirable (Call, Scop);
          Set_Suppress_Elaboration_Warnings (Scop, True);
@@ -2880,6 +2930,9 @@ package body Sem_Elab is
       Nod : Node_Id;
       Loc : constant Source_Ptr := Sloc (N);
 
+      Chk : Node_Id;
+      --  The check (N_Raise_Program_Error) node to be inserted
+
    begin
       --  If expansion is disabled, do not generate any checks. Also
       --  skip checks if any subunits are missing because in either
@@ -2903,106 +2956,35 @@ package body Sem_Elab is
          Nod := N;
       end if;
 
+      --  Build check node, possibly with condition
+
+      Chk :=
+        Make_Raise_Program_Error (Loc, Reason => PE_Access_Before_Elaboration);
+
+      if Present (C) then
+         Set_Condition (Chk, Make_Op_Not (Loc, Right_Opnd => C));
+      end if;
+
       --  If we are inserting at the top level, insert in Aux_Decls
 
       if Nkind (Parent (Nod)) = N_Compilation_Unit then
          declare
             ADN : constant Node_Id := Aux_Decls_Node (Parent (Nod));
-            R   : Node_Id;
 
          begin
-            if No (C) then
-               R :=
-                 Make_Raise_Program_Error (Loc,
-                   Reason => PE_Access_Before_Elaboration);
-            else
-               R :=
-                 Make_Raise_Program_Error (Loc,
-                   Condition => Make_Op_Not (Loc, C),
-                   Reason    => PE_Access_Before_Elaboration);
-            end if;
-
             if No (Declarations (ADN)) then
-               Set_Declarations (ADN, New_List (R));
+               Set_Declarations (ADN, New_List (Chk));
             else
-               Append_To (Declarations (ADN), R);
+               Append_To (Declarations (ADN), Chk);
             end if;
 
-            Analyze (R);
+            Analyze (Chk);
          end;
 
-      --  Otherwise just insert before the node in question. However, if
-      --  the context of the call has already been analyzed, an insertion
-      --  will not work if it depends on subsequent expansion (e.g. a call in
-      --  a branch of a short-circuit). In that case we replace the call with
-      --  an if expression, or with a Raise if it is unconditional.
-
-      --  Unfortunately this does not work if the call has a dynamic size,
-      --  because gigi regards it as a dynamic-sized temporary. If such a call
-      --  appears in a short-circuit expression, the elaboration check will be
-      --  missed (rare enough ???). Otherwise, the code below inserts the check
-      --  at the appropriate place before the call. Same applies in the even
-      --  rarer case the return type has a known size but is unconstrained.
+      --  Otherwise just insert as an action on the node in question
 
       else
-         if Nkind (N) = N_Function_Call
-           and then Analyzed (Parent (N))
-           and then Size_Known_At_Compile_Time (Etype (N))
-           and then
-            (not Has_Discriminants (Etype (N))
-              or else Is_Constrained (Etype (N)))
-
-         then
-            declare
-               Typ : constant Entity_Id := Etype (N);
-               Chk : constant Boolean   := Do_Range_Check (N);
-
-               R  : constant Node_Id :=
-                      Make_Raise_Program_Error (Loc,
-                         Reason => PE_Access_Before_Elaboration);
-
-               Reloc_N : Node_Id;
-
-            begin
-               Set_Etype (R, Typ);
-
-               if No (C) then
-                  Rewrite (N, R);
-
-               else
-                  Reloc_N := Relocate_Node (N);
-                  Save_Interps (N, Reloc_N);
-                  Rewrite (N,
-                    Make_If_Expression (Loc,
-                      Expressions => New_List (C, Reloc_N, R)));
-               end if;
-
-               Analyze_And_Resolve (N, Typ);
-
-               --  If the original call requires a range check, so does the
-               --  if expression.
-
-               if Chk then
-                  Enable_Range_Check (N);
-               else
-                  Set_Do_Range_Check (N, False);
-               end if;
-            end;
-
-         else
-            if No (C) then
-               Insert_Action (Nod,
-                  Make_Raise_Program_Error (Loc,
-                    Reason => PE_Access_Before_Elaboration));
-            else
-               Insert_Action (Nod,
-                  Make_Raise_Program_Error (Loc,
-                    Condition =>
-                      Make_Op_Not (Loc,
-                        Right_Opnd => C),
-                    Reason => PE_Access_Before_Elaboration));
-            end if;
-         end if;
+         Insert_Action (Nod, Chk);
       end if;
    end Insert_Elab_Check;
 
@@ -3089,16 +3071,16 @@ package body Sem_Elab is
          Ent := Elab_Call.Table (J).Ent;
 
          if Is_Generic_Unit (Ent) then
-            Error_Msg_NE ("\?& instantiated #", N, Ent);
+            Error_Msg_NE ("\??& instantiated #", N, Ent);
 
          elsif Is_Init_Proc (Ent) then
-            Error_Msg_N ("\?initialization procedure called #", N);
+            Error_Msg_N ("\??initialization procedure called #", N);
 
          elsif Is_Printable_Error_Name (Chars (Ent)) then
-            Error_Msg_NE ("\?& called #", N, Ent);
+            Error_Msg_NE ("\??& called #", N, Ent);
 
          else
-            Error_Msg_N ("\? called #", N);
+            Error_Msg_N ("\?? called #", N);
          end if;
       end loop;
    end Output_Calls;
@@ -3333,9 +3315,11 @@ package body Sem_Elab is
             if Nkind (Item) = N_Pragma
               and then Pragma_Name (Item) = Name_Elaborate_All
             then
-               --  Return if some previous error on the pragma itself
+               --  Return if some previous error on the pragma itself. The
+               --  pragma may be unanalyzed, because of a previous error, or
+               --  if it is the context of a subunit, inherited by its parent.
 
-               if Error_Posted (Item) then
+               if Error_Posted (Item) or else not Analyzed (Item) then
                   return;
                end if;
 

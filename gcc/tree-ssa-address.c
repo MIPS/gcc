@@ -1,6 +1,5 @@
 /* Memory address lowering and addressing mode selection.
-   Copyright (C) 2004, 2006, 2007, 2008, 2009, 2010, 2011
-   Free Software Foundation, Inc.
+   Copyright (C) 2004-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -26,10 +25,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "tm_p.h"
 #include "basic-block.h"
 #include "tree-pretty-print.h"
-#include "tree-flow.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
+#include "tree-ssa-loop-ivopts.h"
+#include "expr.h"
+#include "tree-dfa.h"
 #include "dumpfile.h"
 #include "flags.h"
 #include "tree-inline.h"
@@ -40,9 +51,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "recog.h"
 #include "expr.h"
-#include "ggc.h"
 #include "target.h"
 #include "expmed.h"
+#include "tree-ssa-address.h"
 
 /* TODO -- handling of symbols (according to Richard Hendersons
    comments, http://gcc.gnu.org/ml/gcc-patches/2005-04/msg00949.html):
@@ -79,14 +90,12 @@ typedef struct GTY (()) mem_addr_template {
 				   be filled in.  */
 } mem_addr_template;
 
-DEF_VEC_O (mem_addr_template);
-DEF_VEC_ALLOC_O (mem_addr_template, gc);
 
 /* The templates.  Each of the low five bits of the index corresponds to one
    component of TARGET_MEM_REF being present, while the high bits identify
    the address space.  See TEMPL_IDX.  */
 
-static GTY(()) VEC (mem_addr_template, gc) *mem_addr_template_list;
+static GTY(()) vec<mem_addr_template, va_gc> *mem_addr_template_list;
 
 #define TEMPL_IDX(AS, SYMBOL, BASE, INDEX, STEP, OFFSET) \
   (((int) (AS) << 5) \
@@ -176,6 +185,13 @@ gen_addr_rtx (enum machine_mode address_mode,
     *addr = const0_rtx;
 }
 
+/* Description of a memory address.  */
+
+struct mem_address
+{
+  tree symbol, base, index, step, offset;
+};
+
 /* Returns address for TARGET_MEM_REF with parameters given by ADDR
    in address space AS.
    If REALLY_EXPAND is false, just make fake registers instead
@@ -209,14 +225,11 @@ addr_for_mem_ref (struct mem_address *addr, addr_space_t as,
       unsigned int templ_index
 	= TEMPL_IDX (as, addr->symbol, addr->base, addr->index, st, off);
 
-      if (templ_index
-	  >= VEC_length (mem_addr_template, mem_addr_template_list))
-	VEC_safe_grow_cleared (mem_addr_template, gc, mem_addr_template_list,
-			       templ_index + 1);
+      if (templ_index >= vec_safe_length (mem_addr_template_list))
+	vec_safe_grow_cleared (mem_addr_template_list, templ_index + 1);
 
       /* Reuse the templates for addresses, so that we do not waste memory.  */
-      templ = &VEC_index (mem_addr_template, mem_addr_template_list,
-			  templ_index);
+      templ = &(*mem_addr_template_list)[templ_index];
       if (!templ->ref)
 	{
 	  sym = (addr->symbol ?
@@ -260,6 +273,17 @@ addr_for_mem_ref (struct mem_address *addr, addr_space_t as,
   if (pointer_mode != address_mode)
     address = convert_memory_address (address_mode, address);
   return address;
+}
+
+/* implement addr_for_mem_ref() directly from a tree, which avoids exporting
+   the mem_address structure.  */
+
+rtx
+addr_for_mem_ref (tree exp, addr_space_t as, bool really_expand)
+{
+  struct mem_address addr;
+  get_address_description (exp, &addr);
+  return addr_for_mem_ref (&addr, as, really_expand);
 }
 
 /* Returns address of MEM_REF in TYPE.  */

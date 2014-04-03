@@ -1,6 +1,5 @@
 /* Parse C expressions for cpplib.
-   Copyright (C) 1987, 1992, 1994, 1995, 1997, 1998, 1999, 2000, 2001,
-   2002, 2004, 2008, 2009, 2010, 2011 Free Software Foundation.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
    Contributed by Per Bothner, 1994.
 
 This program is free software; you can redistribute it and/or modify it
@@ -61,8 +60,8 @@ static cpp_num append_digit (cpp_num, int, int, size_t);
 static cpp_num parse_defined (cpp_reader *);
 static cpp_num eval_token (cpp_reader *, const cpp_token *, source_location);
 static struct op *reduce (cpp_reader *, struct op *, enum cpp_ttype);
-static unsigned int interpret_float_suffix (const uchar *, size_t);
-static unsigned int interpret_int_suffix (const uchar *, size_t);
+static unsigned int interpret_float_suffix (cpp_reader *, const uchar *, size_t);
+static unsigned int interpret_int_suffix (cpp_reader *, const uchar *, size_t);
 static void check_promotion (cpp_reader *, const struct op *);
 
 /* Token type abuse to create unary plus and minus operators.  */
@@ -87,7 +86,7 @@ static void check_promotion (cpp_reader *, const struct op *);
    length LEN, possibly zero.  Returns 0 for an invalid suffix, or a
    flag vector describing the suffix.  */
 static unsigned int
-interpret_float_suffix (const uchar *s, size_t len)
+interpret_float_suffix (cpp_reader *pfile, const uchar *s, size_t len)
 {
   size_t flags;
   size_t f, d, l, w, q, i;
@@ -115,55 +114,58 @@ interpret_float_suffix (const uchar *s, size_t len)
       }
     }
 
-  /* Recognize a fixed-point suffix.  */
-  if (len != 0)
-    switch (s[len-1])
-      {
-      case 'k': case 'K': flags = CPP_N_ACCUM; break;
-      case 'r': case 'R': flags = CPP_N_FRACT; break;
-      default: break;
-      }
-
-  /* Continue processing a fixed-point suffix.  The suffix is case
-     insensitive except for ll or LL.  Order is significant.  */
-  if (flags)
+  if (CPP_OPTION (pfile, ext_numeric_literals))
     {
-      if (len == 1)
-	return flags;
-      len--;
+      /* Recognize a fixed-point suffix.  */
+      if (len != 0)
+	switch (s[len-1])
+	  {
+	  case 'k': case 'K': flags = CPP_N_ACCUM; break;
+	  case 'r': case 'R': flags = CPP_N_FRACT; break;
+	  default: break;
+	  }
 
-      if (*s == 'u' || *s == 'U')
+      /* Continue processing a fixed-point suffix.  The suffix is case
+	 insensitive except for ll or LL.  Order is significant.  */
+      if (flags)
 	{
-	  flags |= CPP_N_UNSIGNED;
 	  if (len == 1)
 	    return flags;
 	  len--;
-	  s++;
-        }
 
-      switch (*s)
-      {
-      case 'h': case 'H':
-	if (len == 1)
-	  return flags |= CPP_N_SMALL;
-	break;
-      case 'l':
-	if (len == 1)
-	  return flags |= CPP_N_MEDIUM;
-	if (len == 2 && s[1] == 'l')
-	  return flags |= CPP_N_LARGE;
-	break;
-      case 'L':
-	if (len == 1)
-	  return flags |= CPP_N_MEDIUM;
-	if (len == 2 && s[1] == 'L')
-	  return flags |= CPP_N_LARGE;
-	break;
-      default:
-	break;
-      }
-      /* Anything left at this point is invalid.  */
-      return 0;
+	  if (*s == 'u' || *s == 'U')
+	    {
+	      flags |= CPP_N_UNSIGNED;
+	      if (len == 1)
+		return flags;
+	      len--;
+	      s++;
+            }
+
+	  switch (*s)
+	  {
+	  case 'h': case 'H':
+	    if (len == 1)
+	      return flags |= CPP_N_SMALL;
+	    break;
+	  case 'l':
+	    if (len == 1)
+	      return flags |= CPP_N_MEDIUM;
+	    if (len == 2 && s[1] == 'l')
+	      return flags |= CPP_N_LARGE;
+	    break;
+	  case 'L':
+	    if (len == 1)
+	      return flags |= CPP_N_MEDIUM;
+	    if (len == 2 && s[1] == 'L')
+	      return flags |= CPP_N_LARGE;
+	    break;
+	  default:
+	    break;
+	  }
+	  /* Anything left at this point is invalid.  */
+	  return 0;
+	}
     }
 
   /* In any remaining valid suffix, the case and order don't matter.  */
@@ -184,6 +186,12 @@ interpret_float_suffix (const uchar *s, size_t len)
   if (f + d + l + w + q > 1 || i > 1)
     return 0;
 
+  if (i && !CPP_OPTION (pfile, ext_numeric_literals))
+    return 0;
+
+  if ((w || q) && !CPP_OPTION (pfile, ext_numeric_literals))
+    return 0;
+
   return ((i ? CPP_N_IMAGINARY : 0)
 	  | (f ? CPP_N_SMALL :
 	     d ? CPP_N_MEDIUM :
@@ -194,16 +202,16 @@ interpret_float_suffix (const uchar *s, size_t len)
 
 /* Return the classification flags for a float suffix.  */
 unsigned int
-cpp_interpret_float_suffix (const char *s, size_t len)
+cpp_interpret_float_suffix (cpp_reader *pfile, const char *s, size_t len)
 {
-  return interpret_float_suffix ((const unsigned char *)s, len);
+  return interpret_float_suffix (pfile, (const unsigned char *)s, len);
 }
 
 /* Subroutine of cpp_classify_number.  S points to an integer suffix
    of length LEN, possibly zero. Returns 0 for an invalid suffix, or a
    flag vector describing the suffix.  */
 static unsigned int
-interpret_int_suffix (const uchar *s, size_t len)
+interpret_int_suffix (cpp_reader *pfile, const uchar *s, size_t len)
 {
   size_t u, l, i;
 
@@ -227,6 +235,9 @@ interpret_int_suffix (const uchar *s, size_t len)
   if (l > 2 || u > 1 || i > 1)
     return 0;
 
+  if (i && !CPP_OPTION (pfile, ext_numeric_literals))
+    return 0;
+
   return ((i ? CPP_N_IMAGINARY : 0)
 	  | (u ? CPP_N_UNSIGNED : 0)
 	  | ((l == 0) ? CPP_N_SMALL
@@ -235,9 +246,9 @@ interpret_int_suffix (const uchar *s, size_t len)
 
 /* Return the classification flags for an int suffix.  */
 unsigned int
-cpp_interpret_int_suffix (const char *s, size_t len)
+cpp_interpret_int_suffix (cpp_reader *pfile, const char *s, size_t len)
 {
-  return interpret_int_suffix ((const unsigned char *)s, len);
+  return interpret_int_suffix (pfile, (const unsigned char *)s, len);
 }
 
 /* Return the string type corresponding to the the input user-defined string
@@ -383,6 +394,7 @@ cpp_classify_number (cpp_reader *pfile, const cpp_token *token,
   unsigned int max_digit, result, radix;
   enum {NOT_FLOAT = 0, AFTER_POINT, AFTER_EXPON} float_flag;
   bool seen_digit;
+  bool seen_digit_sep;
 
   if (ud_suffix)
     *ud_suffix = NULL;
@@ -397,6 +409,7 @@ cpp_classify_number (cpp_reader *pfile, const cpp_token *token,
   max_digit = 0;
   radix = 10;
   seen_digit = false;
+  seen_digit_sep = false;
 
   /* First, interpret the radix.  */
   if (*str == '0')
@@ -405,16 +418,27 @@ cpp_classify_number (cpp_reader *pfile, const cpp_token *token,
       str++;
 
       /* Require at least one hex digit to classify it as hex.  */
-      if ((*str == 'x' || *str == 'X')
-	  && (str[1] == '.' || ISXDIGIT (str[1])))
+      if (*str == 'x' || *str == 'X')
 	{
-	  radix = 16;
-	  str++;
+	  if (str[1] == '.' || ISXDIGIT (str[1]))
+	    {
+	      radix = 16;
+	      str++;
+	    }
+	  else if (DIGIT_SEP (str[1]))
+	    SYNTAX_ERROR_AT (virtual_location,
+			     "digit separator after base indicator");
 	}
-      else if ((*str == 'b' || *str == 'B') && (str[1] == '0' || str[1] == '1'))
+      else if (*str == 'b' || *str == 'B')
 	{
-	  radix = 2;
-	  str++;
+	  if (str[1] == '0' || str[1] == '1')
+	    {
+	      radix = 2;
+	      str++;
+	    }
+	  else if (DIGIT_SEP (str[1]))
+	    SYNTAX_ERROR_AT (virtual_location,
+			     "digit separator after base indicator");
 	}
     }
 
@@ -425,13 +449,24 @@ cpp_classify_number (cpp_reader *pfile, const cpp_token *token,
 
       if (ISDIGIT (c) || (ISXDIGIT (c) && radix == 16))
 	{
+	  seen_digit_sep = false;
 	  seen_digit = true;
 	  c = hex_value (c);
 	  if (c > max_digit)
 	    max_digit = c;
 	}
+      else if (DIGIT_SEP (c))
+	{
+	  if (seen_digit_sep)
+	    SYNTAX_ERROR_AT (virtual_location, "adjacent digit separators");
+	  seen_digit_sep = true;
+	}
       else if (c == '.')
 	{
+	  if (seen_digit_sep || DIGIT_SEP (*str))
+	    SYNTAX_ERROR_AT (virtual_location,
+			     "digit separator adjacent to decimal point");
+	  seen_digit_sep = false;
 	  if (float_flag == NOT_FLOAT)
 	    float_flag = AFTER_POINT;
 	  else
@@ -441,6 +476,9 @@ cpp_classify_number (cpp_reader *pfile, const cpp_token *token,
       else if ((radix <= 10 && (c == 'e' || c == 'E'))
 	       || (radix == 16 && (c == 'p' || c == 'P')))
 	{
+	  if (seen_digit_sep || DIGIT_SEP (*str))
+	    SYNTAX_ERROR_AT (virtual_location,
+			     "digit separator adjacent to exponent");
 	  float_flag = AFTER_EXPON;
 	  break;
 	}
@@ -452,10 +490,14 @@ cpp_classify_number (cpp_reader *pfile, const cpp_token *token,
 	}
     }
 
+  if (seen_digit_sep && float_flag != AFTER_EXPON)
+    SYNTAX_ERROR_AT (virtual_location,
+		     "digit separator outside digit sequence");
+
   /* The suffix may be for decimal fixed-point constants without exponent.  */
   if (radix != 16 && float_flag == NOT_FLOAT)
     {
-      result = interpret_float_suffix (str, limit - str);
+      result = interpret_float_suffix (pfile, str, limit - str);
       if ((result & CPP_N_FRACT) || (result & CPP_N_ACCUM))
 	{
 	  result |= CPP_N_FLOATING;
@@ -509,17 +551,29 @@ cpp_classify_number (cpp_reader *pfile, const cpp_token *token,
 
 	  /* Exponent is decimal, even if string is a hex float.  */
 	  if (!ISDIGIT (*str))
-	    SYNTAX_ERROR_AT (virtual_location, "exponent has no digits");
-
+	    {
+	      if (DIGIT_SEP (*str))
+		SYNTAX_ERROR_AT (virtual_location,
+				 "digit separator adjacent to exponent");
+	      else
+		SYNTAX_ERROR_AT (virtual_location, "exponent has no digits");
+	    }
 	  do
-	    str++;
-	  while (ISDIGIT (*str));
+	    {
+	      seen_digit_sep = DIGIT_SEP (*str);
+	      str++;
+	    }
+	  while (ISDIGIT (*str) || DIGIT_SEP (*str));
 	}
       else if (radix == 16)
 	SYNTAX_ERROR_AT (virtual_location,
 			 "hexadecimal floating constants require an exponent");
 
-      result = interpret_float_suffix (str, limit - str);
+      if (seen_digit_sep)
+	SYNTAX_ERROR_AT (virtual_location,
+			 "digit separator outside digit sequence");
+
+      result = interpret_float_suffix (pfile, str, limit - str);
       if (result == 0)
 	{
 	  if (CPP_OPTION (pfile, user_literals))
@@ -573,7 +627,7 @@ cpp_classify_number (cpp_reader *pfile, const cpp_token *token,
     }
   else
     {
-      result = interpret_int_suffix (str, limit - str);
+      result = interpret_int_suffix (pfile, str, limit - str);
       if (result == 0)
 	{
 	  if (CPP_OPTION (pfile, user_literals))
@@ -610,7 +664,7 @@ cpp_classify_number (cpp_reader *pfile, const cpp_token *token,
 	  && CPP_OPTION (pfile, cpp_warn_long_long))
         {
           const char *message = CPP_OPTION (pfile, cplusplus) 
-		                ? N_("use of C++0x long long integer constant")
+				? N_("use of C++11 long long integer constant")
 		                : N_("use of C99 long long integer constant");
 
 	  if (CPP_OPTION (pfile, c99))
@@ -628,9 +682,14 @@ cpp_classify_number (cpp_reader *pfile, const cpp_token *token,
   if ((result & CPP_N_IMAGINARY) && CPP_PEDANTIC (pfile))
     cpp_error_with_line (pfile, CPP_DL_PEDWARN, virtual_location, 0,
 			 "imaginary constants are a GCC extension");
-  if (radix == 2 && CPP_PEDANTIC (pfile))
+  if (radix == 2
+      && !CPP_OPTION (pfile, binary_constants)
+      && CPP_PEDANTIC (pfile))
     cpp_error_with_line (pfile, CPP_DL_PEDWARN, virtual_location, 0,
-			 "binary constants are a GCC extension");
+			 CPP_OPTION (pfile, cplusplus)
+			 ? "binary constants are a C++1y feature "
+			   "or GCC extension"
+			 : "binary constants are a GCC extension");
 
   if (radix == 10)
     result |= CPP_N_DECIMAL;
@@ -707,6 +766,8 @@ cpp_interpret_integer (cpp_reader *pfile, const cpp_token *token,
 
 	  if (ISDIGIT (c) || (base == 16 && ISXDIGIT (c)))
 	    c = hex_value (c);
+	  else if (DIGIT_SEP (c))
+	    continue;
 	  else
 	    break;
 
@@ -1775,7 +1836,22 @@ num_binary_op (cpp_reader *pfile, cpp_num lhs, cpp_num rhs, enum cpp_ttype op)
 
       /* Arithmetic.  */
     case CPP_MINUS:
-      rhs = num_negate (rhs, precision);
+      result.low = lhs.low - rhs.low;
+      result.high = lhs.high - rhs.high;
+      if (result.low > lhs.low)
+	result.high--;
+      result.unsignedp = lhs.unsignedp || rhs.unsignedp;
+      result.overflow = false;
+
+      result = num_trim (result, precision);
+      if (!result.unsignedp)
+	{
+	  bool lhsp = num_positive (lhs, precision);
+	  result.overflow = (lhsp != num_positive (rhs, precision)
+			     && lhsp != num_positive (result, precision));
+	}
+      return result;
+
     case CPP_PLUS:
       result.low = lhs.low + rhs.low;
       result.high = lhs.high + rhs.high;

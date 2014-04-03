@@ -1,5 +1,5 @@
 /* Functions to support general ended bitmaps.
-   Copyright (C) 1997-2012  Free Software Foundation, Inc.
+   Copyright (C) 1997-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -24,7 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 
    This sparse set representation is suitable for sparse sets with an
    unknown (a priori) universe.  The set is represented as a double-linked
-   list of container nodes (struct bitmap_element_def).  Each node consists
+   list of container nodes (struct bitmap_element).  Each node consists
    of an index for the first member that could be held in the container,
    a small array of integers that represent the members in the container,
    and pointers to the next and previous element in the linked list.  The
@@ -149,11 +149,11 @@ typedef unsigned long BITMAP_WORD;
 #define BITMAP_ELEMENT_ALL_BITS (BITMAP_ELEMENT_WORDS * BITMAP_WORD_BITS)
 
 /* Obstack for allocating bitmaps and elements from.  */
-typedef struct GTY (()) bitmap_obstack {
-  struct bitmap_element_def *elements;
-  struct bitmap_head_def *heads;
+struct GTY (()) bitmap_obstack {
+  struct bitmap_element *elements;
+  struct bitmap_head *heads;
   struct obstack GTY ((skip)) obstack;
-} bitmap_obstack;
+};
 
 /* Bitmap set element.  We use a linked list to hold only the bits that
    are set.  This allows for use to grow the bitset dynamically without
@@ -167,28 +167,26 @@ typedef struct GTY (()) bitmap_obstack {
    bitmap_elt_clear_from to be implemented in unit time rather than
    linear in the number of elements to be freed.  */
 
-typedef struct GTY((chain_next ("%h.next"), chain_prev ("%h.prev"))) bitmap_element_def {
-  struct bitmap_element_def *next;	/* Next element.  */
-  struct bitmap_element_def *prev;	/* Previous element.  */
+struct GTY((chain_next ("%h.next"), chain_prev ("%h.prev"))) bitmap_element {
+  struct bitmap_element *next;	/* Next element.  */
+  struct bitmap_element *prev;	/* Previous element.  */
   unsigned int indx;			/* regno/BITMAP_ELEMENT_ALL_BITS.  */
   BITMAP_WORD bits[BITMAP_ELEMENT_WORDS]; /* Bits that are set.  */
-} bitmap_element;
+};
 
-struct bitmap_descriptor;
-/* Head of bitmap linked list.  gengtype ignores ifdefs, but for
-   statistics we need to add a bitmap descriptor pointer.  As it is
-   not collected, we can just GTY((skip(""))) it.  Likewise current
-   points to something already pointed to by the chain started by first,
-   no need to walk it again.  */
+/* Head of bitmap linked list.  The 'current' member points to something
+   already pointed to by the chain started by first, so GTY((skip)) it.  */
 
-typedef struct GTY(()) bitmap_head_def {
+struct GTY(()) bitmap_head {
+  unsigned int indx;			/* Index of last element looked at.  */
+  unsigned int descriptor_id;		/* Unique identifier for the allocation
+					   site of this bitmap, for detailed
+					   statistics gathering.  */
   bitmap_element *first;		/* First element in linked list.  */
   bitmap_element * GTY((skip(""))) current; /* Last element looked at.  */
-  unsigned int indx;			/* Index of last element looked at.  */
   bitmap_obstack *obstack;		/* Obstack to allocate elements from.
 					   If NULL, then use GGC allocation.  */
-  struct bitmap_descriptor GTY((skip(""))) *desc;
-} bitmap_head;
+};
 
 /* Global data */
 extern bitmap_element bitmap_zero_bits;	/* Zero bitmap element */
@@ -211,7 +209,10 @@ extern bool bitmap_intersect_p (const_bitmap, const_bitmap);
 extern bool bitmap_intersect_compl_p (const_bitmap, const_bitmap);
 
 /* True if MAP is an empty bitmap.  */
-#define bitmap_empty_p(MAP) (!(MAP)->first)
+inline bool bitmap_empty_p (const_bitmap map)
+{
+  return !map->first;
+}
 
 /* True if the bitmap has only a single bit set.  */
 extern bool bitmap_single_bit_set_p (const_bitmap);
@@ -288,13 +289,18 @@ extern bitmap bitmap_gc_alloc_stat (ALONE_MEM_STAT_DECL);
 extern void bitmap_obstack_free (bitmap);
 
 /* A few compatibility/functions macros for compatibility with sbitmaps */
-#define dump_bitmap(file, bitmap) bitmap_print (file, bitmap, "", "\n")
-#define bitmap_zero(a) bitmap_clear (a)
+inline void dump_bitmap (FILE *file, const_bitmap map)
+{
+  bitmap_print (file, map, "", "\n");
+}
+extern void debug (const bitmap_head &ref);
+extern void debug (const bitmap_head *ptr);
+
 extern unsigned bitmap_first_set_bit (const_bitmap);
 extern unsigned bitmap_last_set_bit (const_bitmap);
 
 /* Compute bitmap hash (for purposes of hashing etc.)  */
-extern hashval_t bitmap_hash(const_bitmap);
+extern hashval_t bitmap_hash (const_bitmap);
 
 /* Allocate a bitmap from a bit obstack.  */
 #define BITMAP_ALLOC(OBSTACK) bitmap_obstack_alloc (OBSTACK)
@@ -308,7 +314,7 @@ extern hashval_t bitmap_hash(const_bitmap);
 
 /* Iterator for bitmaps.  */
 
-typedef struct
+struct bitmap_iterator
 {
   /* Pointer to the current bitmap element.  */
   bitmap_element *elt1;
@@ -323,7 +329,7 @@ typedef struct
      it is shifted right, so that the actual bit is always the least
      significant bit of ACTUAL.  */
   BITMAP_WORD bits;
-} bitmap_iterator;
+};
 
 /* Initialize a single bitmap iterator.  START_BIT is the first bit to
    iterate from.  */
@@ -676,10 +682,13 @@ bmp_iter_and_compl (bitmap_iterator *bi, unsigned *bit_no)
    should be treated as a read-only variable as it contains loop
    state.  */
 
+#ifndef EXECUTE_IF_SET_IN_BITMAP
+/* See sbitmap.h for the other definition of EXECUTE_IF_SET_IN_BITMAP.  */
 #define EXECUTE_IF_SET_IN_BITMAP(BITMAP, MIN, BITNUM, ITER)		\
   for (bmp_iter_set_init (&(ITER), (BITMAP), (MIN), &(BITNUM));		\
        bmp_iter_set (&(ITER), &(BITNUM));				\
        bmp_iter_next (&(ITER), &(BITNUM)))
+#endif
 
 /* Loop over all the bits set in BITMAP1 & BITMAP2, starting with MIN
    and setting BITNUM to the bit number.  ITER is a bitmap iterator.

@@ -1,7 +1,5 @@
 /* Top level of GCC compilers (cc1, cc1plus, etc.)
-   Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-   2011 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -31,6 +29,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "line-map.h"
 #include "input.h"
 #include "tree.h"
+#include "varasm.h"
+#include "tree-inline.h"
 #include "realmpfr.h"	/* For GMP/MPFR/MPC versions, in print_version.  */
 #include "version.h"
 #include "rtl.h"
@@ -46,10 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "toplev.h"
 #include "expr.h"
-#include "basic-block.h"
 #include "intl.h"
-#include "ggc.h"
-#include "graph.h"
 #include "regs.h"
 #include "timevar.h"
 #include "diagnostic.h"
@@ -71,10 +68,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "coverage.h"
 #include "value-prof.h"
 #include "alloc-pool.h"
-#include "tree-mudflap.h"
-#include "gimple.h"
+#include "asan.h"
+#include "tsan.h"
 #include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "gimple.h"
 #include "plugin.h"
+#include "diagnostic-color.h"
+#include "context.h"
+#include "pass_manager.h"
+#include "optabs.h"
 
 #if defined(DBX_DEBUGGING_INFO) || defined(XCOFF_DEBUGGING_INFO)
 #include "dbxout.h"
@@ -257,7 +261,7 @@ init_local_tick (void)
 	struct timeval tv;
 
 	gettimeofday (&tv, NULL);
-	local_tick = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+	local_tick = (unsigned) tv.tv_sec * 1000 + tv.tv_usec / 1000;
       }
 #else
       {
@@ -387,13 +391,13 @@ wrapup_global_declaration_2 (tree decl)
 
   if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl))
     {
-      struct varpool_node *node;
+      varpool_node *node;
       bool needed = true;
       node = varpool_get_node (decl);
 
       if (!node && flag_ltrans)
 	needed = false;
-      else if (node && node->finalized)
+      else if (node && node->definition)
 	needed = false;
       else if (node && node->alias)
 	needed = false;
@@ -501,16 +505,16 @@ check_global_declaration_1 (tree decl)
 	     "%q+D defined but not used", decl);
 }
 
-/* Issue appropriate warnings for the global declarations in VEC (of
+/* Issue appropriate warnings for the global declarations in V (of
    which there are LEN).  */
 
 void
-check_global_declarations (tree *vec, int len)
+check_global_declarations (tree *v, int len)
 {
   int i;
 
   for (i = 0; i < len; i++)
-    check_global_declaration_1 (vec[i]);
+    check_global_declaration_1 (v[i]);
 }
 
 /* Emit debugging information for all global declarations in VEC.  */
@@ -566,9 +570,12 @@ compile_file (void)
      basically finished.  */
   if (in_lto_p || !flag_lto || flag_fat_lto_objects)
     {
-      /* Likewise for mudflap static object registrations.  */
-      if (flag_mudflap)
-	mudflap_finish_file ();
+      /* File-scope initialization for AddressSanitizer.  */
+      if (flag_sanitize & SANITIZE_ADDRESS)
+        asan_finish_file ();
+
+      if (flag_sanitize & SANITIZE_THREAD)
+	tsan_finish_file ();
 
       output_shared_constant_pool ();
       output_object_blocks ();
@@ -697,17 +704,19 @@ print_version (FILE *file, const char *indent)
      two string formats, "i.j.k" and "i.j" when k is zero.  As of
      gmp-4.3.0, GMP always uses the 3 number format.  */
 #define GCC_GMP_STRINGIFY_VERSION3(X) #X
-#define GCC_GMP_STRINGIFY_VERSION2(X) GCC_GMP_STRINGIFY_VERSION3(X)
+#define GCC_GMP_STRINGIFY_VERSION2(X) GCC_GMP_STRINGIFY_VERSION3 (X)
 #define GCC_GMP_VERSION_NUM(X,Y,Z) (((X) << 16L) | ((Y) << 8) | (Z))
 #define GCC_GMP_VERSION \
   GCC_GMP_VERSION_NUM(__GNU_MP_VERSION, __GNU_MP_VERSION_MINOR, __GNU_MP_VERSION_PATCHLEVEL)
 #if GCC_GMP_VERSION < GCC_GMP_VERSION_NUM(4,3,0) && __GNU_MP_VERSION_PATCHLEVEL == 0
-#define GCC_GMP_STRINGIFY_VERSION GCC_GMP_STRINGIFY_VERSION2(__GNU_MP_VERSION) "." \
-  GCC_GMP_STRINGIFY_VERSION2(__GNU_MP_VERSION_MINOR)
+#define GCC_GMP_STRINGIFY_VERSION \
+  GCC_GMP_STRINGIFY_VERSION2 (__GNU_MP_VERSION) "." \
+  GCC_GMP_STRINGIFY_VERSION2 (__GNU_MP_VERSION_MINOR)
 #else
-#define GCC_GMP_STRINGIFY_VERSION GCC_GMP_STRINGIFY_VERSION2(__GNU_MP_VERSION) "." \
-  GCC_GMP_STRINGIFY_VERSION2(__GNU_MP_VERSION_MINOR) "." \
-  GCC_GMP_STRINGIFY_VERSION2(__GNU_MP_VERSION_PATCHLEVEL)
+#define GCC_GMP_STRINGIFY_VERSION \
+  GCC_GMP_STRINGIFY_VERSION2 (__GNU_MP_VERSION) "." \
+  GCC_GMP_STRINGIFY_VERSION2 (__GNU_MP_VERSION_MINOR) "." \
+  GCC_GMP_STRINGIFY_VERSION2 (__GNU_MP_VERSION_PATCHLEVEL)
 #endif
   fprintf (file,
 	   file == stderr ? _(fmt2) : fmt2,
@@ -1008,22 +1017,35 @@ output_stack_usage (void)
     {
       expanded_location loc
 	= expand_location (DECL_SOURCE_LOCATION (current_function_decl));
-      const char *raw_id, *id;
-
-      /* Strip the scope prefix if any.  */
-      raw_id = lang_hooks.decl_printable_name (current_function_decl, 2);
-      id = strrchr (raw_id, '.');
-      if (id)
-	id++;
+      /* We don't want to print the full qualified name because it can be long,
+	 so we strip the scope prefix, but we may need to deal with the suffix
+	 created by the compiler.  */
+      const char *suffix
+	= strchr (IDENTIFIER_POINTER (DECL_NAME (current_function_decl)), '.');
+      const char *name
+	= lang_hooks.decl_printable_name (current_function_decl, 2);
+      if (suffix)
+	{
+	  const char *dot = strchr (name, '.');
+	  while (dot && strcasecmp (dot, suffix) != 0)
+	    {
+	      name = dot + 1;
+	      dot = strchr (name, '.');
+	    }
+	}
       else
-	id = raw_id;
+	{
+	  const char *dot = strrchr (name, '.');
+	  if (dot)
+	    name = dot + 1;
+	}
 
       fprintf (stack_usage_file,
 	       "%s:%d:%d:%s\t"HOST_WIDE_INT_PRINT_DEC"\t%s\n",
 	       lbasename (loc.file),
 	       loc.line,
 	       loc.column,
-	       id,
+	       name,
 	       stack_usage,
 	       stack_usage_kind_str[stack_usage_kind]);
     }
@@ -1148,8 +1170,12 @@ general_init (const char *argv0)
 
   /* This must be done after global_init_params but before argument
      processing.  */
-  init_ggc_heuristics();
-  init_optimization_passes ();
+  init_ggc_heuristics ();
+
+  /* Create the singleton holder for global state.
+     Doing so also creates the pass manager and with it the passes.  */
+  g = new gcc::context ();
+
   statistics_early_init ();
   finish_params ();
 }
@@ -1203,6 +1229,13 @@ process_options (void)
 
   maximum_field_alignment = initial_max_fld_align * BITS_PER_UNIT;
 
+  /* Default to -fdiagnostics-color=auto if GCC_COLORS is in the environment,
+     otherwise default to -fdiagnostics-color=never.  */
+  if (!global_options_set.x_flag_diagnostics_show_color
+      && getenv ("GCC_COLORS"))
+    pp_show_color (global_dc->printer)
+      = colorize_init (DIAGNOSTICS_COLOR_AUTO);
+
   /* Allow the front end to perform consistency checks and do further
      initialization based on the command line options.  This hook also
      sets the original filename if appropriate (e.g. foo.i -> foo.c)
@@ -1251,9 +1284,6 @@ process_options (void)
 	   "-floop-interchange, -floop-strip-mine, -floop-parallelize-all, "
 	   "and -ftree-loop-linear)");
 #endif
-
-  if (flag_mudflap && flag_lto)
-    sorry ("mudflap cannot be used together with link-time optimization");
 
   /* One region RA really helps to decrease the code size.  */
   if (flag_ira_region == IRA_REGION_AUTODETECT)
@@ -1416,11 +1446,14 @@ process_options (void)
   /* If the user specifically requested variable tracking with tagging
      uninitialized variables, we need to turn on variable tracking.
      (We already determined above that variable tracking is feasible.)  */
-  if (flag_var_tracking_uninit)
+  if (flag_var_tracking_uninit == 1)
     flag_var_tracking = 1;
 
   if (flag_var_tracking == AUTODETECT_VALUE)
     flag_var_tracking = optimize >= 1;
+
+  if (flag_var_tracking_uninit == AUTODETECT_VALUE)
+    flag_var_tracking_uninit = flag_var_tracking;
 
   if (flag_var_tracking_assignments == AUTODETECT_VALUE)
     flag_var_tracking_assignments = flag_var_tracking
@@ -1465,12 +1498,6 @@ process_options (void)
 	  warning (0, "-fdata-sections not supported for this target");
 	  flag_data_sections = 0;
 	}
-    }
-
-  if (flag_function_sections && profile_flag)
-    {
-      warning (0, "-ffunction-sections disabled; it makes profiling impossible");
-      flag_function_sections = 0;
     }
 
 #ifndef HAVE_prefetch
@@ -1524,16 +1551,13 @@ process_options (void)
   if (!flag_stack_protect)
     warn_stack_protect = 0;
 
-  /* ??? Unwind info is not correct around the CFG unless either a frame
-     pointer is present or A_O_A is set.  Fixing this requires rewriting
-     unwind info generation to be aware of the CFG and propagating states
-     around edges.  */
-  if (flag_unwind_tables && !ACCUMULATE_OUTGOING_ARGS
-      && flag_omit_frame_pointer)
+  /* Address Sanitizer needs porting to each target architecture.  */
+  if ((flag_sanitize & SANITIZE_ADDRESS)
+      && (targetm.asan_shadow_offset == NULL
+	  || !FRAME_GROWS_DOWNWARD))
     {
-      warning (0, "unwind tables currently require a frame pointer "
-	       "for correctness");
-      flag_omit_frame_pointer = 0;
+      warning (0, "-fsanitize=address not supported for this target");
+      flag_sanitize &= ~SANITIZE_ADDRESS;
     }
 
   /* Enable -Werror=coverage-mismatch when -Werror and -Wno-error
@@ -1546,7 +1570,7 @@ process_options (void)
                                     DK_ERROR, UNKNOWN_LOCATION);
 
   /* Save the current optimization options.  */
-  optimization_default_node = build_optimization_node ();
+  optimization_default_node = build_optimization_node (&global_options);
   optimization_current_node = optimization_default_node;
 }
 
@@ -1729,6 +1753,23 @@ target_reinit (void)
 {
   struct rtl_data saved_x_rtl;
   rtx *saved_regno_reg_rtx;
+  tree saved_optimization_current_node;
+  struct target_optabs *saved_this_fn_optabs;
+
+  /* Temporarily switch to the default optimization node, so that
+     *this_target_optabs is set to the default, not reflecting
+     whatever a previous function used for the optimize
+     attribute.  */
+  saved_optimization_current_node = optimization_current_node;
+  saved_this_fn_optabs = this_fn_optabs;
+  if (saved_optimization_current_node != optimization_default_node)
+    {
+      optimization_current_node = optimization_default_node;
+      cl_optimization_restore
+	(&global_options,
+	 TREE_OPTIMIZATION (optimization_default_node));
+    }
+  this_fn_optabs = this_target_optabs;
 
   /* Save *crtl and regno_reg_rtx around the reinitialization
      to allow target_reinit being called even after prepare_function_start.  */
@@ -1746,7 +1787,16 @@ target_reinit (void)
   /* Reinitialize lang-dependent parts.  */
   lang_dependent_init_target ();
 
-  /* And restore it at the end, as free_after_compilation from
+  /* Restore the original optimization node.  */
+  if (saved_optimization_current_node != optimization_default_node)
+    {
+      optimization_current_node = saved_optimization_current_node;
+      cl_optimization_restore (&global_options,
+			       TREE_OPTIMIZATION (optimization_current_node));
+    }
+  this_fn_optabs = saved_this_fn_optabs;
+
+  /* Restore regno_reg_rtx at the end, as free_after_compilation from
      expand_dummy_function_end clears it.  */
   if (saved_regno_reg_rtx)
     {
@@ -1805,7 +1855,7 @@ finalize (bool no_backend)
     {
       statistics_fini ();
 
-      finish_optimization_passes ();
+      g->get_passes ()->finish_optimization_passes ();
 
       ira_finish_once ();
     }
@@ -1939,16 +1989,18 @@ toplev_main (int argc, char **argv)
   if (!exit_after_options)
     do_compile ();
 
-  if (warningcount || errorcount)
+  if (warningcount || errorcount || werrorcount)
     print_ignored_options ();
-  diagnostic_finish (global_dc);
 
-  /* Invoke registered plugin callbacks if any.  */
+  /* Invoke registered plugin callbacks if any.  Some plugins could
+     emit some diagnostics here.  */
   invoke_plugin_callbacks (PLUGIN_FINISH, NULL);
+
+  diagnostic_finish (global_dc);
 
   finalize_plugins ();
   location_adhoc_data_fini (line_table);
-  if (seen_error ())
+  if (seen_error () || werrorcount)
     return (FATAL_EXIT_CODE);
 
   return (SUCCESS_EXIT_CODE);

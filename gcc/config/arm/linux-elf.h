@@ -1,7 +1,5 @@
 /* Definitions for ARM running Linux-based GNU systems using ELF
-   Copyright (C) 1993, 1994, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
-   2005, 2006, 2007, 2008, 2009, 2010, 2011
-   Free Software Foundation, Inc.
+   Copyright (C) 1993-2014 Free Software Foundation, Inc.
    Contributed by Philip Blundell <philb@gnu.org>
 
    This file is part of GCC.
@@ -46,9 +44,9 @@
 
 #define SUBTARGET_EXTRA_LINK_SPEC " -m " TARGET_LINKER_EMULATION " -p"
 
+/* We do not have any MULTILIB_OPTIONS specified, so there are no
+   MULTILIB_DEFAULTS.  */
 #undef  MULTILIB_DEFAULTS
-#define MULTILIB_DEFAULTS \
-	{ "marm", "mlittle-endian", "mfloat-abi=hard", "mno-thumb-interwork" }
 
 /* Now we define the strings used to build the spec file.  */
 #undef  LIB_SPEC

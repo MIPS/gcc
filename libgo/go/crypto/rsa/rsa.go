@@ -5,8 +5,6 @@
 // Package rsa implements RSA encryption as specified in PKCS#1.
 package rsa
 
-// TODO(agl): Add support for PSS padding.
-
 import (
 	"crypto/rand"
 	"crypto/subtle"
@@ -61,7 +59,7 @@ type PrivateKey struct {
 }
 
 type PrecomputedValues struct {
-	Dp, Dq *big.Int // D mod (P-1) (or mod Q-1) 
+	Dp, Dq *big.Int // D mod (P-1) (or mod Q-1)
 	Qinv   *big.Int // Q^-1 mod Q
 
 	// CRTValues is used for the 3rd and subsequent primes. Due to a
@@ -150,6 +148,20 @@ func GenerateMultiPrimeKey(random io.Reader, nprimes int, bits int) (priv *Priva
 NextSetOfPrimes:
 	for {
 		todo := bits
+		// crypto/rand should set the top two bits in each prime.
+		// Thus each prime has the form
+		//   p_i = 2^bitlen(p_i) × 0.11... (in base 2).
+		// And the product is:
+		//   P = 2^todo × α
+		// where α is the product of nprimes numbers of the form 0.11...
+		//
+		// If α < 1/2 (which can happen for nprimes > 2), we need to
+		// shift todo to compensate for lost bits: the mean value of 0.11...
+		// is 7/8, so todo + shift - nprimes * log2(7/8) ~= bits - 1/2
+		// will give good results.
+		if nprimes >= 7 {
+			todo += (nprimes - 2) / 5
+		}
 		for i := 0; i < nprimes; i++ {
 			primes[i], err = rand.Prime(random, todo/(nprimes-i))
 			if err != nil {
@@ -175,6 +187,12 @@ NextSetOfPrimes:
 			pminus1.Sub(prime, bigOne)
 			totient.Mul(totient, pminus1)
 		}
+		if n.BitLen() != bits {
+			// This should never happen for nprimes == 2 because
+			// crypto/rand should set the top two bits in each prime.
+			// For nprimes > 2 we hope it does not happen often.
+			continue NextSetOfPrimes
+		}
 
 		g := new(big.Int)
 		priv.D = new(big.Int)
@@ -183,7 +201,9 @@ NextSetOfPrimes:
 		g.GCD(priv.D, y, e, totient)
 
 		if g.Cmp(bigOne) == 0 {
-			priv.D.Add(priv.D, totient)
+			if priv.D.Sign() < 0 {
+				priv.D.Add(priv.D, totient)
+			}
 			priv.Primes = primes
 			priv.N = n
 

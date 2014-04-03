@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -1062,9 +1062,9 @@ package body Sem_Ch9 is
         and then Nkind (First (Else_Statements (N))) in N_Delay_Statement
       then
          Error_Msg_N
-           ("suspicious form of conditional entry call?!", N);
+           ("suspicious form of conditional entry call??!", N);
          Error_Msg_N
-           ("\`SELECT OR` may be intended rather than `SELECT ELSE`!", N);
+           ("\`SELECT OR` may be intended rather than `SELECT ELSE`??!", N);
       end if;
 
       --  Postpone the analysis of the statements till expansion. Analyze only
@@ -1326,7 +1326,7 @@ package body Sem_Ch9 is
       --  for the discriminals and privals and finally a declaration for the
       --  entry family index (if applicable).
 
-      if Full_Expander_Active
+      if Expander_Active
         and then Is_Protected_Type (P_Type)
       then
          Install_Private_Data_Declarations
@@ -1469,6 +1469,15 @@ package body Sem_Ch9 is
       end if;
 
       Analyze (Call);
+
+      --  An indirect call in this context is illegal. A procedure call that
+      --  does not involve a renaming of an entry is illegal as well, but this
+      --  and other semantic errors are caught during resolution.
+
+      if Nkind (Call) = N_Explicit_Dereference then
+         Error_Msg_N
+           ("entry call or dispatching primitive of interface required ", N);
+      end if;
 
       if Is_Non_Empty_List (Statements (N)) then
          Analyze_Statements (Statements (N));
@@ -1725,6 +1734,22 @@ package body Sem_Ch9 is
       Set_Ekind (Body_Id, E_Protected_Body);
       Spec_Id := Find_Concurrent_Spec (Body_Id);
 
+      --  Protected bodies are currently removed by the expander. Since there
+      --  are no language-defined aspects that apply to a protected body, it is
+      --  not worth changing the whole expansion to accomodate implementation-
+      --  defined aspects. Plus we cannot possibly known the semantics of such
+      --  future implementation defined aspects in order to plan ahead.
+
+      if Has_Aspects (N) then
+         Error_Msg_N
+           ("aspects on protected bodies are not allowed",
+            First (Aspect_Specifications (N)));
+
+         --  Remove illegal aspects to prevent cascaded errors later on
+
+         Remove_Aspects (N);
+      end if;
+
       if Present (Spec_Id)
         and then Ekind (Spec_Id) = E_Protected_Type
       then
@@ -1978,11 +2003,11 @@ package body Sem_Ch9 is
          if Error_Msg_Sloc = No_Location then
             Error_Msg_N
               ("objects of this type will violate " &
-               "`No_Local_Protected_Objects`?", N);
+               "`No_Local_Protected_Objects`??", N);
          else
             Error_Msg_N
               ("objects of this type will violate " &
-               "`No_Local_Protected_Objects`?#", N);
+               "`No_Local_Protected_Objects`#??", N);
          end if;
       end if;
 
@@ -2027,16 +2052,12 @@ package body Sem_Ch9 is
          --  by an aspect/pragma.
 
          declare
-            Id : constant Entity_Id :=
-                   Defining_Identifier (Original_Node (N));
+            Id : constant Entity_Id := Defining_Identifier (Original_Node (N));
             --  The warning must be issued on the original identifier in order
             --  to deal properly with the case of a single protected object.
 
             Prio_Item : constant Node_Id :=
-                          Get_Rep_Item
-                            (Defining_Identifier (N),
-                             Name_Priority,
-                             Check_Parents => False);
+                          Get_Rep_Item (Def_Id, Name_Priority, False);
 
          begin
             if Present (Prio_Item) then
@@ -2047,15 +2068,15 @@ package body Sem_Ch9 is
                  or else From_Aspect_Specification (Prio_Item)
                then
                   Error_Msg_Name_1 := Chars (Identifier (Prio_Item));
-                  Error_Msg_NE ("?aspect% for & has no effect when Lock_Free" &
-                                " given", Prio_Item, Id);
+                  Error_Msg_NE ("aspect% for & has no effect when Lock_Free" &
+                                " given??", Prio_Item, Id);
 
                --  Pragma case
 
                else
                   Error_Msg_Name_1 := Pragma_Name (Prio_Item);
-                  Error_Msg_NE ("?pragma% for & has no effect when Lock_Free" &
-                                " given", Prio_Item, Id);
+                  Error_Msg_NE ("pragma% for & has no effect when Lock_Free" &
+                                " given??", Prio_Item, Id);
                end if;
             end if;
          end;
@@ -2065,11 +2086,44 @@ package body Sem_Ch9 is
          end if;
       end if;
 
+      --  If the Attach_Handler aspect is specified or the Interrupt_Handler
+      --  aspect is True, then the initial ceiling priority must be in the
+      --  range of System.Interrupt_Priority. It is therefore recommanded
+      --  to use the Interrupt_Priority aspect instead of the Priority aspect.
+
+      if Has_Interrupt_Handler (T) or else Has_Attach_Handler (T) then
+         declare
+            Prio_Item : constant Node_Id :=
+                          Get_Rep_Item (Def_Id, Name_Priority, False);
+
+         begin
+            if Present (Prio_Item) then
+
+               --  Aspect case
+
+               if (Nkind (Prio_Item) = N_Aspect_Specification
+                    or else From_Aspect_Specification (Prio_Item))
+                 and then Chars (Identifier (Prio_Item)) = Name_Priority
+               then
+                  Error_Msg_N ("aspect Interrupt_Priority is preferred "
+                               & "in presence of handlers??", Prio_Item);
+
+               --  Pragma case
+
+               elsif Nkind (Prio_Item) = N_Pragma
+                 and then Pragma_Name (Prio_Item) = Name_Priority
+               then
+                  Error_Msg_N ("pragma Interrupt_Priority is preferred "
+                               & "in presence of handlers??", Prio_Item);
+               end if;
+            end if;
+         end;
+      end if;
+
       --  Case of a completion of a private declaration
 
-      if T /= Def_Id
-        and then Is_Private_Type (Def_Id)
-      then
+      if T /= Def_Id and then Is_Private_Type (Def_Id) then
+
          --  Deal with preelaborable initialization. Note that this processing
          --  is done by Process_Full_View, but as can be seen below, in this
          --  case the call to Process_Full_View is skipped if any serious
@@ -2088,7 +2142,7 @@ package body Sem_Ch9 is
 
            --  Also skip if expander is not active
 
-           and then Full_Expander_Active
+           and then Expander_Active
          then
             Expand_N_Protected_Type_Declaration (N);
             Process_Full_View (N, T, Def_Id);
@@ -2317,9 +2371,7 @@ package body Sem_Ch9 is
             --  the first parameter of Entry_Id since it is the interface
             --  controlling formal.
 
-            if Ada_Version >= Ada_2012
-              and then Is_Disp_Req
-            then
+            if Ada_Version >= Ada_2012 and then Is_Disp_Req then
                declare
                   Enclosing_Formal : Entity_Id;
                   Target_Formal    : Entity_Id;
@@ -2480,7 +2532,7 @@ package body Sem_Ch9 is
                               if Entity (EDN1) = Ent then
                                  Error_Msg_Sloc := Sloc (Stm1);
                                  Error_Msg_N
-                                   ("?accept duplicates one on line#", Stm);
+                                   ("accept duplicates one on line#??", Stm);
                                  exit;
                               end if;
                            end if;
@@ -2570,6 +2622,10 @@ package body Sem_Ch9 is
       --  disastrous result.
 
       Analyze_Protected_Type_Declaration (N);
+
+      if Has_Aspects (N) then
+         Analyze_Aspect_Specifications (N, Id);
+      end if;
    end Analyze_Single_Protected_Declaration;
 
    -------------------------------------
@@ -2659,13 +2715,29 @@ package body Sem_Ch9 is
       Ref_Id : Entity_Id;
       --  This is the entity of the task or task type, and is the entity used
       --  for cross-reference purposes (it differs from Spec_Id in the case of
-      --  a single task, since Spec_Id is set to the task type)
+      --  a single task, since Spec_Id is set to the task type).
 
    begin
       Tasking_Used := True;
       Set_Ekind (Body_Id, E_Task_Body);
       Set_Scope (Body_Id, Current_Scope);
       Spec_Id := Find_Concurrent_Spec (Body_Id);
+
+      --  Task bodies are transformed into a subprogram spec and body pair by
+      --  the expander. Since there are no language-defined aspects that apply
+      --  to a task body, it is not worth changing the whole expansion to
+      --  accomodate implementation-defined aspects. Plus we cannot possibly
+      --  know semantics of such aspects in order to plan ahead.
+
+      if Has_Aspects (N) then
+         Error_Msg_N
+           ("aspects on task bodies are not allowed",
+            First (Aspect_Specifications (N)));
+
+         --  Remove illegal aspects to prevent cascaded errors later on
+
+         Remove_Aspects (N);
+      end if;
 
       --  The spec is either a task type declaration, or a single task
       --  declaration for which we have created an anonymous type.
@@ -2691,7 +2763,6 @@ package body Sem_Ch9 is
       then
          if Nkind (Parent (Spec_Id)) = N_Task_Type_Declaration then
             Error_Msg_NE ("duplicate body for task type&", N, Spec_Id);
-
          else
             Error_Msg_NE ("duplicate body for task&", N, Spec_Id);
          end if;
@@ -2763,7 +2834,7 @@ package body Sem_Ch9 is
               and then not Entry_Accepted (Ent)
               and then Comes_From_Source (Ent)
             then
-               Error_Msg_NE ("no accept for entry &?", N, Ent);
+               Error_Msg_NE ("no accept for entry &??", N, Ent);
             end if;
 
             Next_Entity (Ent);
@@ -2887,10 +2958,10 @@ package body Sem_Ch9 is
 
          if Error_Msg_Sloc = No_Location then
             Error_Msg_N
-              ("objects of this type will violate `No_Task_Hierarchy`?", N);
+              ("objects of this type will violate `No_Task_Hierarchy`??", N);
          else
             Error_Msg_N
-              ("objects of this type will violate `No_Task_Hierarchy`?#", N);
+              ("objects of this type will violate `No_Task_Hierarchy`#??", N);
          end if;
       end if;
 
@@ -2919,7 +2990,7 @@ package body Sem_Ch9 is
 
            --  Also skip if expander is not active
 
-           and then Full_Expander_Active
+           and then Expander_Active
          then
             Expand_N_Task_Type_Declaration (N);
             Process_Full_View (N, T, Def_Id);
@@ -3017,8 +3088,9 @@ package body Sem_Ch9 is
            and then not Is_Controlling_Limited_Procedure
                           (Entity (Name (Trigger)))
          then
-            Error_Msg_N ("triggering statement must be delay, procedure " &
-                         "or entry call", Trigger);
+            Error_Msg_N
+              ("triggering statement must be procedure or entry call " &
+               "or delay statement", Trigger);
          end if;
       end if;
 
@@ -3304,6 +3376,11 @@ package body Sem_Ch9 is
                  ("dispatching operation of limited or synchronized " &
                   "interface required (RM 9.7.2(3))!", Error_Node);
             end if;
+
+         elsif Nkind (Trigger) = N_Explicit_Dereference then
+            Error_Msg_N
+              ("entry call or dispatching primitive of interface required ",
+                Trigger);
          end if;
       end if;
    end Check_Triggering_Statement;

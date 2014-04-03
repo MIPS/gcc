@@ -1,6 +1,5 @@
 ;; Iterator definitions for GCC SH machine description files.
-;; Copyright (C) 2012
-;; Free Software Foundation, Inc.
+;; Copyright (C) 2012-2014 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -22,6 +21,7 @@
 (define_mode_iterator QIHISI [QI HI SI])
 (define_mode_iterator QIHI [QI HI])
 (define_mode_iterator HISI [HI SI])
+(define_mode_iterator SIDI [SI DI])
 
 ;; Mode attributes that can be used as the instruction suffix for mode
 ;; variant instructions.
@@ -38,3 +38,9 @@
 ;; Return codes.
 (define_code_iterator any_return [return simple_return])
 
+;; Lowpart subreg byte position code attributes for big and little endian.
+(define_mode_attr lowpart_be [(QI "3") (HI "2")])
+(define_mode_attr lowpart_le [(QI "0") (HI "0")])
+
+;; Signed minimum/maximum code iterator.
+(define_code_iterator SMIN_SMAX [smin smax])

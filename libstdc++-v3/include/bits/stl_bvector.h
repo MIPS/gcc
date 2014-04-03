@@ -1,7 +1,6 @@
 // vector<bool> specialization -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-// 2011, 2012 Free Software Foundation, Inc.
+// Copyright (C) 2001-2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -57,7 +56,7 @@
 #ifndef _STL_BVECTOR_H
 #define _STL_BVECTOR_H 1
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
 #include <initializer_list>
 #endif
 
@@ -108,7 +107,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
     { *_M_p ^= _M_mask; }
   };
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
   inline void
   swap(_Bit_reference __x, _Bit_reference __y) noexcept
   {
@@ -223,6 +222,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
     _Bit_iterator(_Bit_type * __x, unsigned int __y)
     : _Bit_iterator_base(__x, __y) { }
 
+    iterator
+    _M_const_cast() const
+    { return *this; }
+
     reference
     operator*() const
     { return reference(_M_p, 1UL << _M_offset); }
@@ -308,6 +311,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 
     _Bit_const_iterator(const _Bit_iterator& __x)
     : _Bit_iterator_base(__x._M_p, __x._M_offset) { }
+
+    _Bit_iterator
+    _M_const_cast() const
+    { return _Bit_iterator(_M_p, _M_offset); }
 
     const_reference
     operator*() const
@@ -421,7 +428,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 	: _Bit_alloc_type(__a), _M_start(), _M_finish(), _M_end_of_storage(0)
 	{ }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
 	_Bvector_impl(_Bit_alloc_type&& __a)
 	: _Bit_alloc_type(std::move(__a)), _M_start(), _M_finish(),
 	  _M_end_of_storage(0)
@@ -450,7 +457,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       _Bvector_base(const allocator_type& __a)
       : _M_impl(__a) { }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       _Bvector_base(_Bvector_base&& __x) noexcept
       : _M_impl(std::move(__x._M_get_Bit_allocator()))
       {
@@ -520,8 +527,8 @@ template<typename _Alloc>
   {
     typedef _Bvector_base<_Alloc>			 _Base;
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
-    template<typename> friend class hash;
+#if __cplusplus >= 201103L
+    template<typename> friend struct hash;
 #endif
 
   public:
@@ -555,6 +562,21 @@ template<typename _Alloc>
     vector(const allocator_type& __a)
     : _Base(__a) { }
 
+#if __cplusplus >= 201103L
+    explicit
+    vector(size_type __n, const allocator_type& __a = allocator_type())
+    : vector(__n, false, __a)
+    { }
+
+    vector(size_type __n, const bool& __value, 
+	   const allocator_type& __a = allocator_type())
+    : _Base(__a)
+    {
+      _M_initialize(__n);
+      std::fill(this->_M_impl._M_start._M_p, this->_M_impl._M_end_of_storage, 
+		__value ? ~0 : 0);
+    }
+#else
     explicit
     vector(size_type __n, const bool& __value = bool(), 
 	   const allocator_type& __a = allocator_type())
@@ -564,6 +586,7 @@ template<typename _Alloc>
       std::fill(this->_M_impl._M_start._M_p, this->_M_impl._M_end_of_storage, 
 		__value ? ~0 : 0);
     }
+#endif
 
     vector(const vector& __x)
     : _Base(__x._M_get_Bit_allocator())
@@ -572,7 +595,7 @@ template<typename _Alloc>
       _M_copy_aligned(__x.begin(), __x.end(), this->_M_impl._M_start);
     }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
     vector(vector&& __x) noexcept
     : _Base(std::move(__x)) { }
 
@@ -585,7 +608,7 @@ template<typename _Alloc>
     }
 #endif
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
     template<typename _InputIterator,
 	     typename = std::_RequireInputIter<_InputIterator>>
       vector(_InputIterator __first, _InputIterator __last,
@@ -620,7 +643,7 @@ template<typename _Alloc>
       return *this;
     }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
     vector&
     operator=(vector&& __x)
     {
@@ -647,7 +670,7 @@ template<typename _Alloc>
     assign(size_type __n, const bool& __x)
     { _M_fill_assign(__n, __x); }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
     template<typename _InputIterator,
 	     typename = std::_RequireInputIter<_InputIterator>>
       void
@@ -663,7 +686,7 @@ template<typename _Alloc>
       }
 #endif
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
     void
     assign(initializer_list<bool> __l)
     { this->assign(__l.begin(), __l.end()); }
@@ -701,7 +724,7 @@ template<typename _Alloc>
     rend() const _GLIBCXX_NOEXCEPT
     { return const_reverse_iterator(begin()); }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
     const_iterator
     cbegin() const noexcept
     { return this->_M_impl._M_start; }
@@ -762,7 +785,10 @@ template<typename _Alloc>
     _M_range_check(size_type __n) const
     {
       if (__n >= this->size())
-        __throw_out_of_range(__N("vector<bool>::_M_range_check"));
+	__throw_out_of_range_fmt(__N("vector<bool>::_M_range_check: __n "
+				     "(which is %zu) >= this->size() "
+				     "(which is %zu)"),
+				 __n, this->size());
     }
 
   public:
@@ -840,24 +866,33 @@ template<typename _Alloc>
     }
 
     iterator
+#if __cplusplus >= 201103L
+    insert(const_iterator __position, const bool& __x = bool())
+#else
     insert(iterator __position, const bool& __x = bool())
+#endif
     {
       const difference_type __n = __position - begin();
       if (this->_M_impl._M_finish._M_p != this->_M_impl._M_end_of_storage
 	  && __position == end())
         *this->_M_impl._M_finish++ = __x;
       else
-        _M_insert_aux(__position, __x);
+        _M_insert_aux(__position._M_const_cast(), __x);
       return begin() + __n;
     }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
     template<typename _InputIterator,
 	     typename = std::_RequireInputIter<_InputIterator>>
-      void
-      insert(iterator __position,
+      iterator
+      insert(const_iterator __position,
 	     _InputIterator __first, _InputIterator __last)
-      { _M_insert_dispatch(__position, __first, __last, __false_type()); }
+      {
+	difference_type __offset = __position - cbegin();
+	_M_insert_dispatch(__position._M_const_cast(),
+			   __first, __last, __false_type());
+	return begin() + __offset;
+      }
 #else
     template<typename _InputIterator>
       void
@@ -869,13 +904,24 @@ template<typename _Alloc>
       }
 #endif
 
+#if __cplusplus >= 201103L
+    iterator
+    insert(const_iterator __position, size_type __n, const bool& __x)
+    {
+      difference_type __offset = __position - cbegin();
+      _M_fill_insert(__position._M_const_cast(), __n, __x);
+      return begin() + __offset;
+    }
+#else
     void
     insert(iterator __position, size_type __n, const bool& __x)
     { _M_fill_insert(__position, __n, __x); }
+#endif
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
-    void insert(iterator __p, initializer_list<bool> __l)
-    { this->insert(__p, __l.begin(), __l.end()); }
+#if __cplusplus >= 201103L
+    iterator
+    insert(const_iterator __p, initializer_list<bool> __l)
+    { return this->insert(__p, __l.begin(), __l.end()); }
 #endif
 
     void
@@ -883,21 +929,20 @@ template<typename _Alloc>
     { --this->_M_impl._M_finish; }
 
     iterator
+#if __cplusplus >= 201103L
+    erase(const_iterator __position)
+#else
     erase(iterator __position)
-    {
-      if (__position + 1 != end())
-        std::copy(__position + 1, end(), __position);
-      --this->_M_impl._M_finish;
-      return __position;
-    }
+#endif
+    { return _M_erase(__position._M_const_cast()); }
 
     iterator
+#if __cplusplus >= 201103L
+    erase(const_iterator __first, const_iterator __last)
+#else
     erase(iterator __first, iterator __last)
-    {
-      if (__first != __last)
-	_M_erase_at_end(std::copy(__last, end(), __first));
-      return __first;
-    }
+#endif
+    { return _M_erase(__first._M_const_cast(), __last._M_const_cast()); }
 
     void
     resize(size_type __new_size, bool __x = bool())
@@ -908,7 +953,7 @@ template<typename _Alloc>
         insert(end(), __new_size - size(), __x);
     }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
     void
     shrink_to_fit()
     { _M_shrink_to_fit(); }
@@ -926,7 +971,18 @@ template<typename _Alloc>
     clear() _GLIBCXX_NOEXCEPT
     { _M_erase_at_end(begin()); }
 
-   
+#if __cplusplus >= 201103L
+    template<typename... _Args>
+      void
+      emplace_back(_Args&&... __args)
+      { push_back(bool(__args...)); }
+
+    template<typename... _Args>
+      iterator
+      emplace(const_iterator __pos, _Args&&... __args)
+      { return insert(__pos, bool(__args...)); }
+#endif
+
   protected:
     // Precondition: __first._M_offset == 0 && __result._M_offset == 0.
     iterator
@@ -950,7 +1006,7 @@ template<typename _Alloc>
     void
     _M_reallocate(size_type __n);
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
     bool
     _M_shrink_to_fit();
 #endif
@@ -1109,12 +1165,18 @@ template<typename _Alloc>
     void
     _M_erase_at_end(iterator __pos)
     { this->_M_impl._M_finish = __pos; }
+
+    iterator
+    _M_erase(iterator __pos);
+
+    iterator
+    _M_erase(iterator __first, iterator __last);
   };
 
 _GLIBCXX_END_NAMESPACE_CONTAINER
 } // namespace std
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
 
 #include <bits/functional_hash.h>
 
@@ -1135,6 +1197,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 _GLIBCXX_END_NAMESPACE_VERSION
 }// namespace std
 
-#endif // __GXX_EXPERIMENTAL_CXX0X__
+#endif // C++11
 
 #endif

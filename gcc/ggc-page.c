@@ -1,6 +1,5 @@
 /* "Bag-of-pages" garbage collector for the GNU compiler.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009,
-   2010, 2011 Free Software Foundation, Inc.
+   Copyright (C) 1999-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -31,7 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc-internal.h"
 #include "timevar.h"
 #include "params.h"
-#include "tree-flow.h"
+#include "cgraph.h"
 #include "cfgloop.h"
 #include "plugin.h"
 
@@ -463,7 +462,7 @@ static struct globals
 /* The size in bytes required to maintain a bitmap for the objects
    on a page-entry.  */
 #define BITMAP_SIZE(Num_objects) \
-  (CEIL ((Num_objects), HOST_BITS_PER_LONG) * sizeof(long))
+  (CEIL ((Num_objects), HOST_BITS_PER_LONG) * sizeof (long))
 
 /* Allocate pages in chunks of this size, to throttle calls to memory
    allocation routines.  The first page is used, the rest go onto the
@@ -786,7 +785,7 @@ alloc_page (unsigned order)
       page = alloc_anon (NULL, G.pagesize * GGC_QUIRE_SIZE, false);
       if (page == NULL)
      	{
-	  page = alloc_anon(NULL, G.pagesize, true);
+	  page = alloc_anon (NULL, G.pagesize, true);
           entries = 1;
 	}
 
@@ -1198,15 +1197,6 @@ ggc_round_alloc_size (size_t requested_size)
   
   ggc_round_alloc_size_1 (requested_size, NULL, &size);
   return size;
-}
-
-/* Typed allocation function.  Does nothing special in this collector.  */
-
-void *
-ggc_alloc_typed_stat (enum gt_types_enum type ATTRIBUTE_UNUSED, size_t size
-		      MEM_STAT_DECL)
-{
-  return ggc_internal_alloc_stat (size PASS_MEM_STAT);
 }
 
 /* Allocate a chunk of memory of SIZE bytes.  Its contents are undefined.  */
@@ -1654,7 +1644,7 @@ init_ggc (void)
 {
   unsigned order;
 
-  G.pagesize = getpagesize();
+  G.pagesize = getpagesize ();
   G.lg_pagesize = exact_log2 (G.pagesize);
 
 #ifdef HAVE_MMAP_DEV_ZERO
@@ -2173,38 +2163,38 @@ ggc_print_statistics (void)
     }
   fprintf (stderr, "%-5s %10lu%c %10lu%c %10lu%c\n", "Total",
 	   SCALE (G.bytes_mapped), STAT_LABEL (G.bytes_mapped),
-	   SCALE (G.allocated), STAT_LABEL(G.allocated),
+	   SCALE (G.allocated), STAT_LABEL (G.allocated),
 	   SCALE (total_overhead), STAT_LABEL (total_overhead));
 
   if (GATHER_STATISTICS)
     {
       fprintf (stderr, "\nTotal allocations and overheads during the compilation process\n");
 
-      fprintf (stderr, "Total Overhead:                        %10lld\n",
+      fprintf (stderr, "Total Overhead:                        %10" HOST_LONG_LONG_FORMAT "d\n",
 	       G.stats.total_overhead);
-      fprintf (stderr, "Total Allocated:                       %10lld\n",
+      fprintf (stderr, "Total Allocated:                       %10" HOST_LONG_LONG_FORMAT "d\n",
 	       G.stats.total_allocated);
 
-      fprintf (stderr, "Total Overhead  under  32B:            %10lld\n",
+      fprintf (stderr, "Total Overhead  under  32B:            %10" HOST_LONG_LONG_FORMAT "d\n",
 	       G.stats.total_overhead_under32);
-      fprintf (stderr, "Total Allocated under  32B:            %10lld\n",
+      fprintf (stderr, "Total Allocated under  32B:            %10" HOST_LONG_LONG_FORMAT "d\n",
 	       G.stats.total_allocated_under32);
-      fprintf (stderr, "Total Overhead  under  64B:            %10lld\n",
+      fprintf (stderr, "Total Overhead  under  64B:            %10" HOST_LONG_LONG_FORMAT "d\n",
 	       G.stats.total_overhead_under64);
-      fprintf (stderr, "Total Allocated under  64B:            %10lld\n",
+      fprintf (stderr, "Total Allocated under  64B:            %10" HOST_LONG_LONG_FORMAT "d\n",
 	       G.stats.total_allocated_under64);
-      fprintf (stderr, "Total Overhead  under 128B:            %10lld\n",
+      fprintf (stderr, "Total Overhead  under 128B:            %10" HOST_LONG_LONG_FORMAT "d\n",
 	       G.stats.total_overhead_under128);
-      fprintf (stderr, "Total Allocated under 128B:            %10lld\n",
+      fprintf (stderr, "Total Allocated under 128B:            %10" HOST_LONG_LONG_FORMAT "d\n",
 	       G.stats.total_allocated_under128);
 
       for (i = 0; i < NUM_ORDERS; i++)
 	if (G.stats.total_allocated_per_order[i])
 	  {
-	    fprintf (stderr, "Total Overhead  page size %7lu:     %10lld\n",
+	    fprintf (stderr, "Total Overhead  page size %7lu:     %10" HOST_LONG_LONG_FORMAT "d\n",
 		     (unsigned long) OBJECT_SIZE (i),
 		     G.stats.total_overhead_per_order[i]);
-	    fprintf (stderr, "Total Allocated page size %7lu:     %10lld\n",
+	    fprintf (stderr, "Total Allocated page size %7lu:     %10" HOST_LONG_LONG_FORMAT "d\n",
 		     (unsigned long) OBJECT_SIZE (i),
 		     G.stats.total_allocated_per_order[i]);
 	  }
@@ -2231,8 +2221,7 @@ init_ggc_pch (void)
 
 void
 ggc_pch_count_object (struct ggc_pch_data *d, void *x ATTRIBUTE_UNUSED,
-		      size_t size, bool is_string ATTRIBUTE_UNUSED,
-		      enum gt_types_enum type ATTRIBUTE_UNUSED)
+		      size_t size, bool is_string ATTRIBUTE_UNUSED)
 {
   unsigned order;
 
@@ -2275,8 +2264,7 @@ ggc_pch_this_base (struct ggc_pch_data *d, void *base)
 
 char *
 ggc_pch_alloc_object (struct ggc_pch_data *d, void *x ATTRIBUTE_UNUSED,
-		      size_t size, bool is_string ATTRIBUTE_UNUSED,
-		      enum gt_types_enum type ATTRIBUTE_UNUSED)
+		      size_t size, bool is_string ATTRIBUTE_UNUSED)
 {
   unsigned order;
   char *result;
@@ -2303,7 +2291,7 @@ ggc_pch_prepare_write (struct ggc_pch_data *d ATTRIBUTE_UNUSED,
 }
 
 void
-ggc_pch_write_object (struct ggc_pch_data *d ATTRIBUTE_UNUSED,
+ggc_pch_write_object (struct ggc_pch_data *d,
 		      FILE *f, void *x, void *newx ATTRIBUTE_UNUSED,
 		      size_t size, bool is_string ATTRIBUTE_UNUSED)
 {
@@ -2327,13 +2315,13 @@ ggc_pch_write_object (struct ggc_pch_data *d ATTRIBUTE_UNUSED,
 
   if (size != OBJECT_SIZE (order))
     {
-      unsigned padding = OBJECT_SIZE(order) - size;
+      unsigned padding = OBJECT_SIZE (order) - size;
 
       /* To speed small writes, we use a nulled-out array that's larger
          than most padding requests as the source for our null bytes.  This
          permits us to do the padding with fwrite() rather than fseek(), and
          limits the chance the OS may try to flush any outstanding writes.  */
-      if (padding <= sizeof(emptyBytes))
+      if (padding <= sizeof (emptyBytes))
         {
           if (fwrite (emptyBytes, 1, padding, f) != padding)
             fatal_error ("can%'t write PCH file");
@@ -2431,7 +2419,7 @@ ggc_pch_read (FILE *f, void *addr)
 #endif
   /* Since we free all the allocated objects, the free list becomes
      useless.  Validate it now, which will also clear it.  */
-  validate_free_objects();
+  validate_free_objects ();
 
   /* No object read from a PCH file should ever be freed.  So, set the
      context depth to 1, and set the depth of all the currently-allocated
@@ -2508,12 +2496,3 @@ ggc_pch_read (FILE *f, void *addr)
   /* Update the statistics.  */
   G.allocated = G.allocated_last_gc = offs - (char *)addr;
 }
-
-struct alloc_zone
-{
-  int dummy;
-};
-
-struct alloc_zone rtl_zone;
-struct alloc_zone tree_zone;
-struct alloc_zone tree_id_zone;

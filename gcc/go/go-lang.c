@@ -1,5 +1,5 @@
 /* go-lang.c -- Go frontend gcc interface.
-   Copyright (C) 2009, 2010, 2011, 2012 Free Software Foundation, Inc.
+   Copyright (C) 2009-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -23,8 +23,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "opts.h"
 #include "tree.h"
-#include "gimple.h"
-#include "ggc.h"
+#include "basic-block.h"
+#include "gimple-expr.h"
+#include "gimplify.h"
+#include "stor-layout.h"
 #include "toplev.h"
 #include "debug.h"
 #include "options.h"
@@ -33,7 +35,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic.h"
 #include "langhooks.h"
 #include "langhooks-def.h"
-#include "except.h"
 #include "target.h"
 #include "common/common-target.h"
 
@@ -85,6 +86,7 @@ struct GTY(()) language_function
 
 static const char *go_pkgpath = NULL;
 static const char *go_prefix = NULL;
+static const char *go_relative_import_path = NULL;
 
 /* Language hooks.  */
 
@@ -101,7 +103,8 @@ go_langhook_init (void)
      to, e.g., unsigned_char_type_node) but before calling
      build_common_builtin_nodes (because it calls, indirectly,
      go_type_for_size).  */
-  go_create_gogo (INT_TYPE_SIZE, POINTER_SIZE, go_pkgpath, go_prefix);
+  go_create_gogo (INT_TYPE_SIZE, POINTER_SIZE, go_pkgpath, go_prefix,
+		  go_relative_import_path);
 
   build_common_builtin_nodes ();
 
@@ -155,16 +158,14 @@ go_langhook_init_options_struct (struct gcc_options *opts)
   opts->x_flag_non_call_exceptions = 1;
 }
 
-/* Infrastructure for a VEC of char * pointers.  */
+/* Infrastructure for a vector of char * pointers.  */
 
 typedef const char *go_char_p;
-DEF_VEC_P(go_char_p);
-DEF_VEC_ALLOC_P(go_char_p, heap);
 
 /* The list of directories to search after all the Go specific
    directories have been searched.  */
 
-static VEC(go_char_p, heap) *go_search_dirs;
+static vec<go_char_p> go_search_dirs;
 
 /* Handle Go specific options.  Return 0 if we didn't do anything.  */
 
@@ -220,7 +221,7 @@ go_langhook_handle_option (
 
 	/* Search ARG too, but only after we've searched to Go
 	   specific directories for all -L arguments.  */
-	VEC_safe_push (go_char_p, heap, go_search_dirs, arg);
+	go_search_dirs.safe_push (arg);
       }
       break;
 
@@ -238,6 +239,10 @@ go_langhook_handle_option (
 
     case OPT_fgo_prefix_:
       go_prefix = arg;
+      break;
+
+    case OPT_fgo_relative_import_path_:
+      go_relative_import_path = arg;
       break;
 
     default:
@@ -258,13 +263,16 @@ go_langhook_post_options (const char **pfilename ATTRIBUTE_UNUSED)
 
   gcc_assert (num_in_fnames > 0);
 
-  FOR_EACH_VEC_ELT (go_char_p, go_search_dirs, ix, dir)
+  FOR_EACH_VEC_ELT (go_search_dirs, ix, dir)
     go_add_search_path (dir);
-  VEC_free (go_char_p, heap, go_search_dirs);
-  go_search_dirs = NULL;
+  go_search_dirs.release ();
 
   if (flag_excess_precision_cmdline == EXCESS_PRECISION_DEFAULT)
     flag_excess_precision_cmdline = EXCESS_PRECISION_STANDARD;
+
+  /* Tail call optimizations can confuse uses of runtime.Callers.  */
+  if (!global_options_set.x_flag_optimize_sibling_calls)
+    global_options.x_flag_optimize_sibling_calls = 0;
 
   /* Returning false means that the backend should be used.  */
   return false;

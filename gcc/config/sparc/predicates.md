@@ -1,5 +1,5 @@
 ;; Predicate definitions for SPARC.
-;; Copyright (C) 2005, 2007, 2008, 2010, 2012 Free Software Foundation, Inc.
+;; Copyright (C) 2005-2014 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -265,6 +265,11 @@
   (ior (match_test "register_operand (op, SImode)")
        (match_test "TARGET_ARCH64 && register_operand (op, DImode)")))
 
+;; Return true if OP is an integer register of the appropriate mode
+;; for a cstore result.
+(define_special_predicate "cstore_result_operand"
+  (match_test "register_operand (op, TARGET_ARCH64 ? DImode : SImode)"))
+
 ;; Return true if OP is a floating point condition code register.
 (define_predicate "fcc_register_operand"
   (match_code "reg")
@@ -390,6 +395,14 @@
 (define_predicate "uns_arith_operand"
   (ior (match_operand 0 "register_operand")
        (match_operand 0 "uns_small_int_operand")))
+
+;; Return true if OP is a register, or is a CONST_INT that can fit in a
+;; signed 5-bit immediate field.  This is an acceptable second operand for
+;; the cbcond instructions.
+(define_predicate "arith5_operand"
+  (ior (match_operand 0 "register_operand")
+       (and (match_code "const_int")
+            (match_test "SPARC_SIMM5_P (INTVAL (op))"))))
 
 
 ;; Predicates for miscellaneous instructions.

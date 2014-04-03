@@ -29,7 +29,7 @@ type Element struct {
 
 // Next returns the next list element or nil.
 func (e *Element) Next() *Element {
-	if p := e.next; p != &e.list.root {
+	if p := e.next; e.list != nil && p != &e.list.root {
 		return p
 	}
 	return nil
@@ -37,7 +37,7 @@ func (e *Element) Next() *Element {
 
 // Prev returns the previous list element or nil.
 func (e *Element) Prev() *Element {
-	if p := e.prev; p != &e.list.root {
+	if p := e.prev; e.list != nil && p != &e.list.root {
 		return p
 	}
 	return nil
@@ -62,6 +62,7 @@ func (l *List) Init() *List {
 func New() *List { return new(List).Init() }
 
 // Len returns the number of elements of list l.
+// The complexity is O(1).
 func (l *List) Len() int { return l.len }
 
 // Front returns the first element of list l or nil
@@ -108,6 +109,8 @@ func (l *List) insertValue(v interface{}, at *Element) *Element {
 func (l *List) remove(e *Element) *Element {
 	e.prev.next = e.next
 	e.next.prev = e.prev
+	e.next = nil // avoid memory leaks
+	e.prev = nil // avoid memory leaks
 	e.list = nil
 	l.len--
 	return e
@@ -124,7 +127,7 @@ func (l *List) Remove(e *Element) interface{} {
 	return e.Value
 }
 
-// Pushfront inserts a new element e with value v at the front of list l and returns e.
+// PushFront inserts a new element e with value v at the front of list l and returns e.
 func (l *List) PushFront(v interface{}) *Element {
 	l.lazyInit()
 	return l.insertValue(v, &l.root)
@@ -176,7 +179,25 @@ func (l *List) MoveToBack(e *Element) {
 	l.insert(l.remove(e), l.root.prev)
 }
 
-// PuchBackList inserts a copy of an other list at the back of list l.
+// MoveBefore moves element e to its new position before mark.
+// If e is not an element of l, or e == mark, the list is not modified.
+func (l *List) MoveBefore(e, mark *Element) {
+	if e.list != l || e == mark {
+		return
+	}
+	l.insert(l.remove(e), mark.prev)
+}
+
+// MoveAfter moves element e to its new position after mark.
+// If e is not an element of l, or e == mark, the list is not modified.
+func (l *List) MoveAfter(e, mark *Element) {
+	if e.list != l || e == mark {
+		return
+	}
+	l.insert(l.remove(e), mark)
+}
+
+// PushBackList inserts a copy of an other list at the back of list l.
 // The lists l and other may be the same.
 func (l *List) PushBackList(other *List) {
 	l.lazyInit()

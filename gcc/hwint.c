@@ -1,7 +1,5 @@
 /* Operations on HOST_WIDE_INT.
-   Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -95,7 +93,7 @@ ctz_hwi (unsigned HOST_WIDE_INT x)
 int
 clz_hwi (unsigned HOST_WIDE_INT x)
 {
-  return HOST_BITS_PER_WIDE_INT - 1 - floor_log2(x);
+  return HOST_BITS_PER_WIDE_INT - 1 - floor_log2 (x);
 }
 
 /* Similar to ctz_hwi, except that the least significant bit is numbered

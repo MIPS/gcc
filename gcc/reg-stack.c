@@ -1,7 +1,5 @@
 /* Register to Stack convert for GNU compiler.
-   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 1992-2014 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -156,6 +154,7 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "varasm.h"
 #include "rtl-error.h"
 #include "tm_p.h"
 #include "function.h"
@@ -170,7 +169,6 @@
 #include "tree-pass.h"
 #include "target.h"
 #include "df.h"
-#include "vecprim.h"
 #include "emit-rtl.h"  /* FIXME: Can go away once crtl is moved to rtl.h.  */
 
 #ifdef STACK_REGS
@@ -181,7 +179,7 @@
    Indexed by insn UIDs.  A value of zero is uninitialized, one indicates
    the insn uses stack registers, two indicates the insn does not use
    stack registers.  */
-static VEC(char,heap) *stack_regs_mentioned_data;
+static vec<char> stack_regs_mentioned_data;
 
 #define REG_STACK_SIZE (LAST_STACK_REG - FIRST_STACK_REG + 1)
 
@@ -256,7 +254,7 @@ static void replace_reg (rtx *, int);
 static void remove_regno_note (rtx, enum reg_note, unsigned int);
 static int get_hard_regnum (stack_ptr, rtx);
 static rtx emit_pop_insn (rtx, stack_ptr, rtx, enum emit_where);
-static void swap_to_top(rtx, stack_ptr, rtx, rtx);
+static void swap_to_top (rtx, stack_ptr, rtx, rtx);
 static bool move_for_stack_reg (rtx, stack_ptr, rtx);
 static bool move_nan_for_stack_reg (rtx, stack_ptr, rtx);
 static int swap_rtx_condition_1 (rtx);
@@ -306,25 +304,25 @@ stack_regs_mentioned (const_rtx insn)
   unsigned int uid, max;
   int test;
 
-  if (! INSN_P (insn) || !stack_regs_mentioned_data)
+  if (! INSN_P (insn) || !stack_regs_mentioned_data.exists ())
     return 0;
 
   uid = INSN_UID (insn);
-  max = VEC_length (char, stack_regs_mentioned_data);
+  max = stack_regs_mentioned_data.length ();
   if (uid >= max)
     {
       /* Allocate some extra size to avoid too many reallocs, but
 	 do not grow too quickly.  */
       max = uid + uid / 20 + 1;
-      VEC_safe_grow_cleared (char, heap, stack_regs_mentioned_data, max);
+      stack_regs_mentioned_data.safe_grow_cleared (max);
     }
 
-  test = VEC_index (char, stack_regs_mentioned_data, uid);
+  test = stack_regs_mentioned_data[uid];
   if (test == 0)
     {
       /* This insn has yet to be examined.  Do so now.  */
       test = stack_regs_mentioned_p (PATTERN (insn)) ? 1 : 2;
-      VEC_replace (char, stack_regs_mentioned_data, uid, test);
+      stack_regs_mentioned_data[uid] = test;
     }
 
   return test == 1;
@@ -1303,11 +1301,7 @@ compare_for_stack_reg (rtx insn, stack_ptr regstack, rtx pat_src)
 	  /* The 386 can only represent death of the first operand in
 	     the case handled above.  In all other cases, emit a separate
 	     pop and remove the death note from here.  */
-
-	  /* link_cc0_insns (insn); */
-
 	  remove_regno_note (insn, REG_DEAD, REGNO (XEXP (src2_note, 0)));
-
 	  emit_pop_insn (insn, regstack, XEXP (src2_note, 0),
 			 EMIT_AFTER);
 	}
@@ -2065,6 +2059,8 @@ subst_asm_stack_regs (rtx insn, stack_ptr regstack)
   n_notes = 0;
   for (note = REG_NOTES (insn); note; note = XEXP (note, 1))
     {
+      if (GET_CODE (note) != EXPR_LIST)
+	continue;
       rtx reg = XEXP (note, 0);
       rtx *loc = & XEXP (note, 0);
 
@@ -2653,7 +2649,7 @@ convert_regs_entry (void)
      Note that we are inserting converted code here.  This code is
      never seen by the convert_regs pass.  */
 
-  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
+  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR_FOR_FN (cfun)->succs)
     {
       basic_block block = e->dest;
       block_info bi = BLOCK_INFO (block);
@@ -2697,7 +2693,7 @@ convert_regs_exit (void)
       value_reg_high = END_HARD_REGNO (retvalue) - 1;
     }
 
-  output_stack = &BLOCK_INFO (EXIT_BLOCK_PTR)->stack_in;
+  output_stack = &BLOCK_INFO (EXIT_BLOCK_PTR_FOR_FN (cfun))->stack_in;
   if (value_reg_low == -1)
     output_stack->top = -1;
   else
@@ -2850,8 +2846,8 @@ compensate_edges (void)
 
   starting_stack_p = false;
 
-  FOR_EACH_BB (bb)
-    if (bb != ENTRY_BLOCK_PTR)
+  FOR_EACH_BB_FN (bb, cfun)
+    if (bb != ENTRY_BLOCK_PTR_FOR_FN (cfun))
       {
         edge e;
         edge_iterator ei;
@@ -3085,7 +3081,7 @@ convert_regs_2 (basic_block block)
      is only processed after all its predecessors.  The number of predecessors
      of every block has already been computed.  */
 
-  stack = XNEWVEC (basic_block, n_basic_blocks);
+  stack = XNEWVEC (basic_block, n_basic_blocks_for_fn (cfun));
   sp = stack;
 
   *sp++ = block;
@@ -3145,19 +3141,19 @@ convert_regs (void)
 
   /* Construct the desired stack for function exit.  */
   convert_regs_exit ();
-  BLOCK_INFO (EXIT_BLOCK_PTR)->done = 1;
+  BLOCK_INFO (EXIT_BLOCK_PTR_FOR_FN (cfun))->done = 1;
 
   /* ??? Future: process inner loops first, and give them arbitrary
      initial stacks which emit_swap_insn can modify.  This ought to
      prevent double fxch that often appears at the head of a loop.  */
 
   /* Process all blocks reachable from all entry points.  */
-  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
+  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR_FOR_FN (cfun)->succs)
     cfg_altered |= convert_regs_2 (e->dest);
 
   /* ??? Process all unreachable blocks.  Though there's no excuse
      for keeping these even when not optimizing.  */
-  FOR_EACH_BB (b)
+  FOR_EACH_BB_FN (b, cfun)
     {
       block_info bi = BLOCK_INFO (b);
 
@@ -3199,8 +3195,7 @@ reg_to_stack (void)
   int max_uid;
 
   /* Clean up previous run.  */
-  if (stack_regs_mentioned_data != NULL)
-    VEC_free (char, heap, stack_regs_mentioned_data);
+  stack_regs_mentioned_data.release ();
 
   /* See if there is something to do.  Flow analysis is quite
      expensive so we might save some compilation time.  */
@@ -3217,7 +3212,7 @@ reg_to_stack (void)
 
   /* Set up block info for each basic block.  */
   alloc_aux_for_blocks (sizeof (struct block_info_def));
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       block_info bi = BLOCK_INFO (bb);
       edge_iterator ei;
@@ -3226,7 +3221,7 @@ reg_to_stack (void)
 
       FOR_EACH_EDGE (e, ei, bb->preds)
 	if (!(e->flags & EDGE_DFS_BACK)
-	    && e->src != ENTRY_BLOCK_PTR)
+	    && e->src != ENTRY_BLOCK_PTR_FOR_FN (cfun))
 	  bi->predecessors++;
 
       /* Set current register status at last instruction `uninitialized'.  */
@@ -3279,8 +3274,8 @@ reg_to_stack (void)
 
   /* Allocate a cache for stack_regs_mentioned.  */
   max_uid = get_max_uid ();
-  stack_regs_mentioned_data = VEC_alloc (char, heap, max_uid + 1);
-  memset (VEC_address (char, stack_regs_mentioned_data),
+  stack_regs_mentioned_data.create (max_uid + 1);
+  memset (stack_regs_mentioned_data.address (),
 	  0, sizeof (char) * (max_uid + 1));
 
   convert_regs ();
@@ -3300,24 +3295,42 @@ gate_handle_stack_regs (void)
 #endif
 }
 
-struct rtl_opt_pass pass_stack_regs =
+namespace {
+
+const pass_data pass_data_stack_regs =
 {
- {
-  RTL_PASS,
-  "*stack_regs",                        /* name */
-  gate_handle_stack_regs,               /* gate */
-  NULL,					/* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_REG_STACK,                         /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  0                                     /* todo_flags_finish */
- }
+  RTL_PASS, /* type */
+  "*stack_regs", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  false, /* has_execute */
+  TV_REG_STACK, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
 };
+
+class pass_stack_regs : public rtl_opt_pass
+{
+public:
+  pass_stack_regs (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_stack_regs, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_handle_stack_regs (); }
+
+}; // class pass_stack_regs
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_stack_regs (gcc::context *ctxt)
+{
+  return new pass_stack_regs (ctxt);
+}
 
 /* Convert register usage from flat register file usage to a stack
    register file.  */
@@ -3331,22 +3344,39 @@ rest_of_handle_stack_regs (void)
   return 0;
 }
 
-struct rtl_opt_pass pass_stack_regs_run =
+namespace {
+
+const pass_data pass_data_stack_regs_run =
 {
- {
-  RTL_PASS,
-  "stack",                              /* name */
-  NULL,                                 /* gate */
-  rest_of_handle_stack_regs,            /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_REG_STACK,                         /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_ggc_collect                      /* todo_flags_finish */
- }
+  RTL_PASS, /* type */
+  "stack", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  false, /* has_gate */
+  true, /* has_execute */
+  TV_REG_STACK, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  ( TODO_df_finish | TODO_verify_rtl_sharing ), /* todo_flags_finish */
 };
+
+class pass_stack_regs_run : public rtl_opt_pass
+{
+public:
+  pass_stack_regs_run (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_stack_regs_run, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  unsigned int execute () { return rest_of_handle_stack_regs (); }
+
+}; // class pass_stack_regs_run
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_stack_regs_run (gcc::context *ctxt)
+{
+  return new pass_stack_regs_run (ctxt);
+}

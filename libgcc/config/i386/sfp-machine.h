@@ -15,6 +15,7 @@ typedef int __gcc_CMPtype __attribute__ ((mode (__libgcc_cmp_return__)));
 #endif
 
 #define _FP_KEEPNANFRACP	1
+#define _FP_QNANNEGATEDP 0
 
 #define _FP_NANSIGN_S		1
 #define _FP_NANSIGN_D		1
@@ -40,12 +41,16 @@ typedef int __gcc_CMPtype __attribute__ ((mode (__libgcc_cmp_return__)));
     R##_c = FP_CLS_NAN;						\
   } while (0)
 
+#ifndef _SOFT_FLOAT
 #define FP_EX_INVALID		0x01
 #define FP_EX_DENORM		0x02
 #define FP_EX_DIVZERO		0x04
 #define FP_EX_OVERFLOW		0x08
 #define FP_EX_UNDERFLOW		0x10
 #define FP_EX_INEXACT		0x20
+#define FP_EX_ALL \
+	(FP_EX_INVALID | FP_EX_DENORM | FP_EX_DIVZERO | FP_EX_OVERFLOW \
+	 | FP_EX_UNDERFLOW | FP_EX_INEXACT)
 
 void __sfp_handle_exceptions (int);
 
@@ -55,7 +60,12 @@ void __sfp_handle_exceptions (int);
       __sfp_handle_exceptions (_fex);		\
   } while (0);
 
+#define FP_TRAPPING_EXCEPTIONS ((_fcw >> FP_EX_SHIFT) & FP_EX_ALL)
+
 #define FP_ROUNDMODE		(_fcw & FP_RND_MASK)
+#endif
+
+#define _FP_TININESS_AFTER_ROUNDING 1
 
 #define	__LITTLE_ENDIAN	1234
 #define	__BIG_ENDIAN	4321

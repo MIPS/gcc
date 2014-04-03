@@ -1,5 +1,5 @@
 /* Target Code for TI C6X
-   Copyright (C) 2010, 2011, 2012 Free Software Foundation, Inc.
+   Copyright (C) 2010-2014 Free Software Foundation, Inc.
    Contributed by Andrew Jenner <andrew@codesourcery.com>
    Contributed by Bernd Schmidt <bernds@codesourcery.com>
 
@@ -25,6 +25,10 @@
 #include "tm.h"
 #include "rtl.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "varasm.h"
+#include "calls.h"
+#include "stringpool.h"
 #include "insn-flags.h"
 #include "output.h"
 #include "insn-attr.h"
@@ -52,6 +56,7 @@
 #include "hw-doloop.h"
 #include "regrename.h"
 #include "dumpfile.h"
+#include "gimple-expr.h"
 
 /* Table of supported architecture variants.  */
 typedef struct
@@ -119,14 +124,12 @@ typedef struct
   unsigned int unit_mask;
 } c6x_sched_insn_info;
 
-DEF_VEC_O(c6x_sched_insn_info);
-DEF_VEC_ALLOC_O(c6x_sched_insn_info, heap);
 
 /* Record a c6x_sched_insn_info structure for every insn in the function.  */
-static VEC(c6x_sched_insn_info, heap) *insn_info;
+static vec<c6x_sched_insn_info> insn_info;
 
-#define INSN_INFO_LENGTH (VEC_length (c6x_sched_insn_info, insn_info))
-#define INSN_INFO_ENTRY(N) (VEC_index (c6x_sched_insn_info, insn_info, (N)))
+#define INSN_INFO_LENGTH (insn_info).length ()
+#define INSN_INFO_ENTRY(N) (insn_info[(N)])
 
 static bool done_cfi_sections;
 
@@ -185,7 +188,7 @@ typedef int unit_req_table[2][UNIT_REQ_MAX];
 static unit_req_table unit_reqs;
 
 /* Register map for debugging.  */
-int const dbx_register_map[FIRST_PSEUDO_REGISTER] =
+unsigned const dbx_register_map[FIRST_PSEUDO_REGISTER] =
 {
   0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,	/* A0 - A15.  */
   37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49,	/* A16 - A32.  */
@@ -1971,7 +1974,7 @@ c6x_get_unit_specifier (rtx insn)
 {
   enum attr_units units;
 
-  if (insn_info)
+  if (insn_info.exists ())
     {
       int unit = INSN_INFO_ENTRY (INSN_UID (insn)).reservation;
       return c6x_unit_names[unit][0];
@@ -2023,7 +2026,7 @@ c6x_print_unit_specifier_field (FILE *file, rtx insn)
       return;
     }
 
-  if (insn_info)
+  if (insn_info.exists ())
     {
       int unit = INSN_INFO_ENTRY (INSN_UID (insn)).reservation;
       fputs (".", file);
@@ -3422,7 +3425,7 @@ try_rename_operands (rtx head, rtx tail, unit_req_table reqs, rtx insn,
   int i;
   unsigned tmp_mask;
   int best_reg, old_reg;
-  VEC (du_head_p, heap) *involved_chains = NULL;
+  vec<du_head_p> involved_chains = vNULL;
   unit_req_table new_reqs;
 
   for (i = 0, tmp_mask = op_mask; tmp_mask; i++)
@@ -3433,14 +3436,14 @@ try_rename_operands (rtx head, rtx tail, unit_req_table reqs, rtx insn,
       if (info->op_info[i].n_chains != 1)
 	goto out_fail;
       op_chain = regrename_chain_from_id (info->op_info[i].heads[0]->id);
-      VEC_safe_push (du_head_p, heap, involved_chains, op_chain);
+      involved_chains.safe_push (op_chain);
       tmp_mask &= ~(1 << i);
     }
 
-  if (VEC_length (du_head_p, involved_chains) > 1)
+  if (involved_chains.length () > 1)
     goto out_fail;
 
-  this_head = VEC_index (du_head_p, involved_chains, 0);
+  this_head = involved_chains[0];
   if (this_head->cannot_rename)
     goto out_fail;
 
@@ -3448,8 +3451,7 @@ try_rename_operands (rtx head, rtx tail, unit_req_table reqs, rtx insn,
     {
       unsigned int mask1, mask2, mask_changed;
       int count, side1, side2, req1, req2;
-      insn_rr_info *this_rr = &VEC_index (insn_rr_info, insn_rr,
-					  INSN_UID (chain->insn));
+      insn_rr_info *this_rr = &insn_rr[INSN_UID (chain->insn)];
 
       count = get_unit_reqs (chain->insn, &req1, &side1, &req2, &side2);
 
@@ -3508,7 +3510,7 @@ try_rename_operands (rtx head, rtx tail, unit_req_table reqs, rtx insn,
     memcpy (reqs, new_reqs, sizeof (unit_req_table));
 
  out_fail:
-  VEC_free (du_head_p, heap, involved_chains);
+  involved_chains.release ();
 }
 
 /* Find insns in LOOP which would, if shifted to the other side
@@ -3555,7 +3557,7 @@ reshuffle_units (basic_block loop)
       if (!get_unit_operand_masks (insn, &mask1, &mask2))
 	continue;
 
-      info = &VEC_index (insn_rr_info, insn_rr, INSN_UID (insn));
+      info = &insn_rr[INSN_UID (insn)];
       if (info->op_info == NULL)
 	continue;
 
@@ -3707,7 +3709,7 @@ insn_set_clock (rtx insn, int cycle)
   unsigned uid = INSN_UID (insn);
 
   if (uid >= INSN_INFO_LENGTH)
-    VEC_safe_grow (c6x_sched_insn_info, heap, insn_info, uid * 5 / 4 + 10);
+    insn_info.safe_grow (uid * 5 / 4 + 10);
 
   INSN_INFO_ENTRY (uid).clock = cycle;
   INSN_INFO_ENTRY (uid).new_cond = NULL;
@@ -4361,7 +4363,7 @@ c6x_variable_issue (FILE *dump ATTRIBUTE_UNUSED,
     ss.last_scheduled_iter0 = insn;
   if (GET_CODE (PATTERN (insn)) != USE && GET_CODE (PATTERN (insn)) != CLOBBER)
     ss.issued_this_cycle++;
-  if (insn_info)
+  if (insn_info.exists ())
     {
       state_t st_after = alloca (dfa_state_size);
       int curr_clock = ss.curr_sched_clock;
@@ -4627,7 +4629,7 @@ c6x_gen_bundles (void)
   basic_block bb;
   rtx insn, next, last_call;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       rtx insn, next;
       /* The machine is eight insns wide.  We can have up to six shadow
@@ -4851,7 +4853,7 @@ reorg_split_calls (rtx *call_labels)
 {
   unsigned int reservation_mask = 0;
   rtx insn = get_insns ();
-  gcc_assert (GET_CODE (insn) == NOTE);
+  gcc_assert (NOTE_P (insn));
   insn = next_real_insn (insn);
   while (insn)
     {
@@ -5055,9 +5057,7 @@ reorg_emit_nops (rtx *call_labels)
 	  || GET_CODE (PATTERN (insn)) == USE
 	  || GET_CODE (PATTERN (insn)) == CLOBBER
 	  || shadow_or_blockage_p (insn)
-	  || (JUMP_P (insn)
-	      && (GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC
-		  || GET_CODE (PATTERN (insn)) == ADDR_VEC)))
+	  || JUMP_TABLE_DATA_P (insn))
 	goto next_insn;
 
       if (!c6x_flag_schedule_insns2)
@@ -5383,7 +5383,7 @@ conditionalize_after_sched (void)
 {
   basic_block bb;
   rtx insn;
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     FOR_BB_INSNS (bb, insn)
       {
 	unsigned uid = INSN_UID (insn);
@@ -5537,7 +5537,7 @@ hwloop_optimize (hwloop_info loop)
   gcc_assert (loop->incoming_dest == loop->head);
 
   entry_edge = NULL;
-  FOR_EACH_VEC_ELT (edge, loop->incoming, i, entry_edge)
+  FOR_EACH_VEC_SAFE_ELT (loop->incoming, i, entry_edge)
     if (entry_edge->flags & EDGE_FALLTHRU)
       break;
   if (entry_edge == NULL)
@@ -5777,7 +5777,7 @@ hwloop_optimize (hwloop_info loop)
 
   seq = get_insns ();
 
-  if (!single_succ_p (entry_bb) || VEC_length (edge, loop->incoming) > 1)
+  if (!single_succ_p (entry_bb) || vec_safe_length (loop->incoming) > 1)
     {
       basic_block new_bb;
       edge e;
@@ -5809,7 +5809,7 @@ hwloop_optimize (hwloop_info loop)
   end_sequence ();
 
   /* Make sure we don't try to schedule this loop again.  */
-  for (ix = 0; VEC_iterate (basic_block, loop->blocks, ix, bb); ix++)
+  for (ix = 0; loop->blocks.iterate (ix, &bb); ix++)
     bb->flags |= BB_DISABLE_SCHEDULE;
 
   return true;
@@ -5928,7 +5928,7 @@ c6x_reorg (void)
     {
       int sz = get_max_uid () * 3 / 2 + 1;
 
-      insn_info = VEC_alloc (c6x_sched_insn_info, heap, sz);
+      insn_info.create (sz);
     }
 
   /* Make sure the real-jump insns we create are not deleted.  When modulo-
@@ -5959,7 +5959,7 @@ c6x_reorg (void)
 
   if (c6x_flag_schedule_insns2)
     {
-      FOR_EACH_BB (bb)
+      FOR_EACH_BB_FN (bb, cfun)
 	if ((bb->flags & BB_DISABLE_SCHEDULE) == 0)
 	  assign_reservations (BB_HEAD (bb), BB_END (bb));
     }
@@ -5993,9 +5993,7 @@ c6x_function_end (FILE *file, const char *fname)
 {
   c6x_output_fn_unwind (file);
 
-  if (insn_info)
-    VEC_free (c6x_sched_insn_info, heap, insn_info);
-  insn_info = NULL;
+  insn_info.release ();
 
   if (!flag_inhibit_size_directive)
     ASM_OUTPUT_MEASURED_SIZE (file, fname);

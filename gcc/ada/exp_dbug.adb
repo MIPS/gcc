@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1996-2011, Free Software Foundation, Inc.         --
+--          Copyright (C) 1996-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -411,7 +411,6 @@ package body Exp_Dbug is
                Ren := Prefix (Ren);
 
             when N_Explicit_Dereference =>
-               Set_Materialize_Entity (Ent);
                Prepend_String_To_Buffer ("XA");
                Ren := Prefix (Ren);
 
@@ -473,7 +472,7 @@ package body Exp_Dbug is
       Res :=
         Make_Object_Declaration (Loc,
           Defining_Identifier => Obj,
-          Object_Definition   => New_Reference_To
+          Object_Definition   => New_Occurrence_Of
                                    (Standard_Debug_Renaming_Type, Loc));
 
       Set_Debug_Renaming_Link (Obj, Entity (Ren));
@@ -489,7 +488,7 @@ package body Exp_Dbug is
 
    --  If we get an exception, just figure it is a case that we cannot
    --  successfully handle using our current approach, since this is
-   --  only for debugging, no need to take the compilation with us!
+   --  only for debugging, no need to take the compilation with us.
 
    exception
       when others =>
@@ -902,6 +901,39 @@ package body Exp_Dbug is
       end if;
    end Get_Variant_Encoding;
 
+   -----------------------------------------
+   -- Build_Subprogram_Instance_Renamings --
+   -----------------------------------------
+
+   procedure Build_Subprogram_Instance_Renamings
+     (N       : Node_Id;
+      Wrapper : Entity_Id)
+   is
+      Loc  : Source_Ptr;
+      Decl : Node_Id;
+      E    : Entity_Id;
+
+   begin
+      E := First_Entity (Wrapper);
+      while Present (E) loop
+         if Nkind (Parent (E)) = N_Object_Declaration
+           and then Is_Elementary_Type (Etype (E))
+         then
+            Loc := Sloc (Expression (Parent (E)));
+            Decl := Make_Object_Renaming_Declaration (Loc,
+               Defining_Identifier =>
+                 Make_Defining_Identifier (Loc, Chars (E)),
+               Subtype_Mark        => New_Occurrence_Of (Etype (E), Loc),
+               Name                => New_Occurrence_Of (E, Loc));
+
+            Append (Decl, Declarations (N));
+            Set_Needs_Debug_Info (Defining_Identifier (Decl));
+         end if;
+
+         Next_Entity (E);
+      end loop;
+   end Build_Subprogram_Instance_Renamings;
+
    ------------------------------------
    -- Get_Secondary_DT_External_Name --
    ------------------------------------
@@ -1167,9 +1199,7 @@ package body Exp_Dbug is
 
       function Is_BNPE (S : Entity_Id) return Boolean is
       begin
-         return
-           Ekind (S) = E_Package
-             and then Is_Package_Body_Entity (S);
+         return Ekind (S) = E_Package and then Is_Package_Body_Entity (S);
       end Is_BNPE;
 
       --------------------
@@ -1180,7 +1210,7 @@ package body Exp_Dbug is
       begin
          --  If we got all the way to Standard, then we have certainly
          --  fully qualified the name, so set the flag appropriately,
-         --  and then return False, since we are most certainly done!
+         --  and then return False, since we are most certainly done.
 
          if S = Standard_Standard then
             Set_Has_Fully_Qualified_Name (Ent, True);
@@ -1189,13 +1219,10 @@ package body Exp_Dbug is
          --  Otherwise figure out if further qualification is required
 
          else
-            return
-              Is_Subprogram (Ent)
-                or else
-              Ekind (Ent) = E_Subprogram_Body
-                or else
-                  (Ekind (S) /= E_Block
-                    and then not Is_Dynamic_Scope (S));
+            return Is_Subprogram (Ent)
+              or else Ekind (Ent) = E_Subprogram_Body
+              or else (Ekind (S) /= E_Block
+                        and then not Is_Dynamic_Scope (S));
          end if;
       end Qualify_Needed;
 
@@ -1272,6 +1299,25 @@ package body Exp_Dbug is
 
    begin
       if Has_Qualified_Name (Ent) then
+         return;
+
+      --  In formal verification mode, simply append a suffix for homonyms.
+      --  We used to qualify entity names as full expansion does, but this was
+      --  removed as this prevents the verification back-end from using a short
+      --  name for debugging and user interaction. The verification back-end
+      --  already takes care of qualifying names when needed. Still mark the
+      --  name as being qualified, as Qualify_Entity_Name may be called more
+      --  than once on the same entity.
+
+      elsif GNATprove_Mode then
+         if Has_Homonym (Ent) then
+            Get_Name_String (Chars (Ent));
+            Append_Homonym_Number (Ent);
+            Output_Homonym_Numbers_Suffix;
+            Set_Chars (Ent, Name_Enter);
+         end if;
+
+         Set_Has_Qualified_Name (Ent);
          return;
 
       --  If the entity is a variable encoding the debug name for an object

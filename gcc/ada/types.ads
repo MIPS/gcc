@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -43,7 +43,7 @@
 --  Note: the declarations in this package reflect an expectation that the host
 --  machine has an efficient integer base type with a range at least 32 bits
 --  2s-complement. If there are any machines for which this is not a correct
---  assumption, a significant number of changes will be required!
+--  assumption, a significant number of changes will be required.
 
 with System;
 with Unchecked_Conversion;
@@ -102,8 +102,8 @@ package Types is
    --  Graphic characters, as defined in ARM
 
    subtype Line_Terminator is Character range ASCII.LF .. ASCII.CR;
-   --  Line terminator characters (LF, VT, FF, CR). For further details,
-   --  see the extensive discussion of line termination in the Sinput spec.
+   --  Line terminator characters (LF, VT, FF, CR). For further details, see
+   --  the extensive discussion of line termination in the Sinput spec.
 
    subtype Upper_Half_Character is
      Character range Character'Val (16#80#) .. Character'Val (16#FF#);
@@ -172,7 +172,7 @@ package Types is
    for Physical_Line_Number'Size use 32;
    --  Line number type, used for storing physical line numbers (i.e. line
    --  numbers in the physical file being compiled, unaffected by the presence
-   --  of source reference pragmas.
+   --  of source reference pragmas).
 
    type Column_Number is range 0 .. 32767;
    for Column_Number'Size use 16;
@@ -183,11 +183,17 @@ package Types is
    No_Column_Number : constant Column_Number := 0;
    --  Special value used to indicate no column number
 
+   Source_Align : constant := 2 ** 12;
+   --  Alignment requirement for source buffers (by keeping source buffers
+   --  aligned, we can optimize the implementation of Get_Source_File_Index.
+   --  See this routine in Sinput for details.
+
    subtype Source_Buffer is Text_Buffer;
    --  Type used to store text of a source file. The buffer for the main
    --  source (the source specified on the command line) has a lower bound
    --  starting at zero. Subsequent subsidiary sources have lower bounds
-   --  which are one greater than the previous upper bound.
+   --  which are one greater than the previous upper bound, rounded up to
+   --  a multiple of Source_Align.
 
    subtype Big_Source_Buffer is Text_Buffer (0 .. Text_Ptr'Last);
    --  This is a virtual type used as the designated type of the access type
@@ -257,12 +263,12 @@ package Types is
    --  possible values for each of the above types is disjoint so that this
    --  distinction is possible.
 
-   type Union_Id is new Int;
-   --  The type in the tree for a union of possible ID values
-
    --  Note: it is also helpful for debugging purposes to make these ranges
    --  distinct. If a bug leads to misidentification of a value, then it will
    --  typically result in an out of range value and a Constraint_Error.
+
+   type Union_Id is new Int;
+   --  The type in the tree for a union of possible ID values
 
    List_Low_Bound : constant := -100_000_000;
    --  The List_Id values are subscripts into an array of list headers which
@@ -577,7 +583,7 @@ package Types is
    --  the source file (we assume that the host system has the concept of a
    --  file time stamp which is modified when a file is modified). These
    --  time stamps are used to ensure consistency of the set of units that
-   --  constitutes a library. Time stamps are 12 character strings with
+   --  constitutes a library. Time stamps are 14-character strings with
    --  with the following format:
 
    --     YYYYMMDDHHMMSS
@@ -666,15 +672,16 @@ package Types is
    Index_Check            : constant :=  8;
    Length_Check           : constant :=  9;
    Overflow_Check         : constant := 10;
-   Range_Check            : constant := 11;
-   Storage_Check          : constant := 12;
-   Tag_Check              : constant := 13;
-   Validity_Check         : constant := 14;
+   Predicate_Check        : constant := 11;
+   Range_Check            : constant := 12;
+   Storage_Check          : constant := 13;
+   Tag_Check              : constant := 14;
+   Validity_Check         : constant := 15;
    --  Values used to represent individual predefined checks (including the
    --  setting of Atomic_Synchronization, which is implemented internally using
-   --  a "check" whose name is Atomic_Synchronization.
+   --  a "check" whose name is Atomic_Synchronization).
 
-   All_Checks : constant := 15;
+   All_Checks : constant := 16;
    --  Value used to represent All_Checks value
 
    subtype Predefined_Check_Id is Check_Id range 1 .. All_Checks;
@@ -703,67 +710,58 @@ package Types is
    --    4.  Add a new Do_xxx_Check flag to Sinfo (if required)
    --    5.  Add appropriate checks for the new test
 
-   --  The following provides precise details on the mode used to check
-   --  intermediate overflows in expressions for signed integer arithmetic.
+   --  The following provides precise details on the mode used to generate
+   --  code for intermediate operations in expressions for signed integer
+   --  arithmetic (and how to generate overflow checks if enabled). Note
+   --  that this only affects handling of intermediate results. The final
+   --  result must always fit within the target range, and if overflow
+   --  checking is enabled, the check on the final result is against this
+   --  target range.
 
-   type Overflow_Check_Type is (
+   type Overflow_Mode_Type is (
       Not_Set,
       --  Dummy value used during initialization process to show that the
       --  corresponding value has not yet been initialized.
 
-      Suppressed,
-      --  Overflow checking is suppressed. If an arithmetic operation creates
-      --  an overflow, no exception is raised, and the program is erroneous.
-
-      Checked,
-      --  All operations, including all intermediate operations are checked.
-      --  If the result of any arithmetic operation gives a result outside the
-      --  range of the base type, then a Constraint_Error exception is raised.
+      Strict,
+      --  Operations are done in the base type of the subexpression. If
+      --  overflow checks are enabled, then the check is against the range
+      --  of this base type.
 
       Minimized,
-      --  Where appropriate, arithmetic operations are performed with an
-      --  extended range, using Long_Long_Integer if necessary. As long as the
-      --  result fits in this extended range, then no exception is raised and
-      --  computation continues with the extended result. The final value of an
-      --  expression must fit in the base type of the whole expression. If an
-      --  intermediate result is outside the range of Long_Long_Integer then a
-      --  Constraint_Error exception is raised.
+      --  Where appropriate, intermediate arithmetic operations are performed
+      --  with an extended range, using Long_Long_Integer if necessary. If
+      --  overflow checking is enabled, then the check is against the range
+      --  of Long_Long_Integer.
 
       Eliminated);
       --  In this mode arbitrary precision arithmetic is used as needed to
       --  ensure that it is impossible for intermediate arithmetic to cause an
-      --  overflow. Again the final value of an expression must fit in the base
-      --  type of the whole expression.
+      --  overflow. In this mode, intermediate expressions are not affected by
+      --  the overflow checking mode, since overflows are eliminated.
 
    subtype Minimized_Or_Eliminated is
-     Overflow_Check_Type range Minimized .. Eliminated;
-   subtype Suppressed_Or_Checked is
-     Overflow_Check_Type range Suppressed .. Checked;
-   --  Define subtypes so that clients don't need to know ordering. Note that
-   --  Overflow_Check_Type is not marked as an ordered enumeration type.
+     Overflow_Mode_Type range Minimized .. Eliminated;
+   --  Define subtype so that clients don't need to know ordering. Note that
+   --  Overflow_Mode_Type is not marked as an ordered enumeration type.
 
    --  The following structure captures the state of check suppression or
    --  activation at a particular point in the program execution.
 
    type Suppress_Record is record
       Suppress : Suppress_Array;
-      --  Indicates suppression status of each possible check. Note: there
-      --  is an entry for Overflow_Check in this array, but it is never used.
-      --  Instead we use the more detailed information in the two components
-      --  that follow this one (Overflow_Checks_General/Assertions).
+      --  Indicates suppression status of each possible check
 
-      Overflow_Checks_General : Overflow_Check_Type;
-      --  This field indicates the mode of overflow checking to be applied to
-      --  general expressions outside assertions.
+      Overflow_Mode_General : Overflow_Mode_Type;
+      --  This field indicates the mode for handling code generation and
+      --  overflow checking (if enabled) for intermediate expression values.
+      --  This applies to general expressions outside assertions.
 
-      Overflow_Checks_Assertions : Overflow_Check_Type;
-      --  This field indicates the mode of overflow checking to be applied to
-      --  any expression occuring inside assertions.
+      Overflow_Mode_Assertions : Overflow_Mode_Type;
+      --  This field indicates the mode for handling code generation and
+      --  overflow checking (if enabled) for intermediate expression values.
+      --  This applies to any expression occuring inside assertions.
    end record;
-
-   Suppress_All : constant Suppress_Record :=
-                    ((others => True), Suppressed, Suppressed);
-   --  Constant used to initialize Suppress_Record value to all suppressed.
 
    -----------------------------------
    -- Global Exception Declarations --
@@ -851,25 +849,26 @@ package Types is
       PE_Access_Before_Elaboration,      -- 14
       PE_Accessibility_Check_Failed,     -- 15
       PE_Address_Of_Intrinsic,           -- 16
-      PE_All_Guards_Closed,              -- 17
-      PE_Bad_Predicated_Generic_Type,    -- 18
-      PE_Current_Task_In_Entry_Body,     -- 19
-      PE_Duplicated_Entry_Address,       -- 20
-      PE_Explicit_Raise,                 -- 21
-      PE_Finalize_Raised_Exception,      -- 22
-      PE_Implicit_Return,                -- 23
-      PE_Misaligned_Address_Value,       -- 24
-      PE_Missing_Return,                 -- 25
-      PE_Overlaid_Controlled_Object,     -- 26
-      PE_Potentially_Blocking_Operation, -- 27
-      PE_Stubbed_Subprogram_Called,      -- 28
-      PE_Unchecked_Union_Restriction,    -- 29
-      PE_Non_Transportable_Actual,       -- 30
+      PE_Aliased_Parameters,             -- 17
+      PE_All_Guards_Closed,              -- 18
+      PE_Bad_Predicated_Generic_Type,    -- 19
+      PE_Current_Task_In_Entry_Body,     -- 20
+      PE_Duplicated_Entry_Address,       -- 21
+      PE_Explicit_Raise,                 -- 22
+      PE_Finalize_Raised_Exception,      -- 23
+      PE_Implicit_Return,                -- 24
+      PE_Misaligned_Address_Value,       -- 25
+      PE_Missing_Return,                 -- 26
+      PE_Overlaid_Controlled_Object,     -- 27
+      PE_Potentially_Blocking_Operation, -- 28
+      PE_Stubbed_Subprogram_Called,      -- 29
+      PE_Unchecked_Union_Restriction,    -- 30
+      PE_Non_Transportable_Actual,       -- 31
 
-      SE_Empty_Storage_Pool,             -- 31
-      SE_Explicit_Raise,                 -- 32
-      SE_Infinite_Recursion,             -- 33
-      SE_Object_Too_Large);              -- 34
+      SE_Empty_Storage_Pool,             -- 32
+      SE_Explicit_Raise,                 -- 33
+      SE_Infinite_Recursion,             -- 34
+      SE_Object_Too_Large);              -- 35
 
    subtype RT_CE_Exceptions is RT_Exception_Code range
      CE_Access_Check_Failed ..

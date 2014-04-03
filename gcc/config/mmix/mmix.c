@@ -1,7 +1,5 @@
 /* Definitions of target machine for GNU compiler, for MMIX.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
-   2010, 2011
-   Free Software Foundation, Inc.
+   Copyright (C) 2000-2014 Free Software Foundation, Inc.
    Contributed by Hans-Peter Nilsson (hp@bitrange.com)
 
 This file is part of GCC.
@@ -33,6 +31,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "flags.h"
 #include "tree.h"
+#include "varasm.h"
+#include "stor-layout.h"
+#include "calls.h"
 #include "function.h"
 #include "expr.h"
 #include "diagnostic-core.h"
@@ -315,7 +316,7 @@ mmix_init_machine_status (void)
   return ggc_alloc_cleared_machine_function ();
 }
 
-/* DATA_ALIGNMENT.
+/* DATA_ABI_ALIGNMENT.
    We have trouble getting the address of stuff that is located at other
    than 32-bit alignments (GETA requirements), so try to give everything
    at least 32-bit alignment.  */
@@ -754,7 +755,7 @@ mmix_function_value (const_tree valtype,
 			 gen_rtx_REG (cmode, first_val_regnum + nregs - 1),
 			 const0_rtx);
 
-  return gen_rtx_PARALLEL (VOIDmode, gen_rtvec_v (nregs, vec));
+  return gen_rtx_PARALLEL (mode, gen_rtvec_v (nregs, vec));
 }
 
 /* Implements TARGET_LIBCALL_VALUE.  */
@@ -1533,7 +1534,7 @@ mmix_print_operand (FILE *stream, rtx x, int code)
       if (TARGET_BRANCH_PREDICT)
 	{
 	  x = find_reg_note (current_output_insn, REG_BR_PROB, 0);
-	  if (x && INTVAL (XEXP (x, 0)) > REG_BR_PROB_BASE / 2)
+	  if (x && XINT (x, 0) > REG_BR_PROB_BASE / 2)
 	    putc ('P', stream);
 	}
       return;
@@ -1730,7 +1731,7 @@ mmix_print_operand (FILE *stream, rtx x, int code)
       if (CONSTANT_P (modified_x)
 	  /* Strangely enough, this is not included in CONSTANT_P.
 	     FIXME: Ask/check about sanity here.  */
-	  || GET_CODE (modified_x) == CODE_LABEL)
+	  || LABEL_P (modified_x))
 	{
 	  output_addr_const (stream, modified_x);
 	  return;

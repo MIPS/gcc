@@ -1,7 +1,5 @@
 /* Target definitions for Darwin (Mac OS X) systems.
-   Copyright (C) 1989, 1990, 1991, 1992, 1993, 2000, 2001, 2002, 2003, 2004,
-   2005, 2006, 2007, 2008, 2009, 2010, 2011
-   Free Software Foundation, Inc.
+   Copyright (C) 1989-2014 Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
 This file is part of GCC.
@@ -183,6 +181,8 @@ extern GTY(()) int darwin_ms_struct;
     %{fgnu-tm: \
       %{static|static-libgcc|static-libstdc++|static-libgfortran: libitm.a%s; : -litm } } \
     %{!nostdlib:%{!nodefaultlibs:\
+      %{%:sanitize(address): -lasan } \
+      %{%:sanitize(undefined): -lubsan } \
       %(link_ssp) %(link_gcc_c_sequence)\
     }}\
     %{!nostdlib:%{!nostartfiles:%E}} %{T*} %{F*} }}}}}}}"
@@ -364,7 +364,8 @@ extern GTY(()) int darwin_ms_struct;
   %{shared-libgcc:%:version-compare(< 10.5 mmacosx-version-min= crt3.o%s)}"
 
 /* We want a destructor last in the list.  */
-#define ENDFILE_SPEC "%{fgnu-tm: -lcrttme.o}"
+#define TM_DESTRUCTOR "%{fgnu-tm: -lcrttme.o}"
+#define ENDFILE_SPEC TM_DESTRUCTOR
 
 #define DARWIN_EXTRA_SPECS						\
   { "darwin_crt1", DARWIN_CRT1_SPEC },					\
@@ -873,10 +874,6 @@ void add_framework_path (char *);
 #define TARGET_OPTF add_framework_path
 
 #define TARGET_POSIX_IO
-
-/* All new versions of Darwin have C99 functions.  */
-
-#define TARGET_C99_FUNCTIONS 1
 
 #define WINT_TYPE "int"
 

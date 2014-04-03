@@ -2,11 +2,27 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build darwin freebsd linux netbsd openbsd windows
+// +build darwin dragonfly freebsd linux netbsd openbsd windows
+
+// Internet protocol family sockets for POSIX
 
 package net
 
-import "syscall"
+import (
+	"syscall"
+	"time"
+)
+
+func probeIPv4Stack() bool {
+	s, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM, syscall.IPPROTO_TCP)
+	switch err {
+	case syscall.EAFNOSUPPORT, syscall.EPROTONOSUPPORT:
+		return false
+	case nil:
+		closesocket(s)
+	}
+	return true
+}
 
 // Should we try to use the IPv4 socket interface if we're
 // only dealing with IPv4 sockets?  As long as the host system
@@ -23,8 +39,8 @@ import "syscall"
 // boolean value is true, kernel supports IPv6 IPv4-mapping.
 func probeIPv6Stack() (supportsIPv6, supportsIPv4map bool) {
 	var probes = []struct {
-		la TCPAddr
-		ok bool
+		laddr TCPAddr
+		ok    bool
 	}{
 		// IPv6 communication capability
 		{TCPAddr{IP: ParseIP("::1")}, false},
@@ -39,12 +55,11 @@ func probeIPv6Stack() (supportsIPv6, supportsIPv4map bool) {
 		}
 		defer closesocket(s)
 		syscall.SetsockoptInt(s, syscall.IPPROTO_IPV6, syscall.IPV6_V6ONLY, 0)
-		sa, err := probes[i].la.toAddr().sockaddr(syscall.AF_INET6)
+		sa, err := probes[i].laddr.sockaddr(syscall.AF_INET6)
 		if err != nil {
 			continue
 		}
-		err = syscall.Bind(s, sa)
-		if err != nil {
+		if err := syscall.Bind(s, sa); err != nil {
 			continue
 		}
 		probes[i].ok = true
@@ -116,43 +131,12 @@ func favoriteAddrFamily(net string, laddr, raddr sockaddr, mode string) (family 
 
 // Internet sockets (TCP, UDP, IP)
 
-// A sockaddr represents a TCP, UDP or IP network address that can
-// be converted into a syscall.Sockaddr.
-type sockaddr interface {
-	Addr
-	family() int
-	isWildcard() bool
-	sockaddr(family int) (syscall.Sockaddr, error)
-}
-
-func internetSocket(net string, laddr, raddr sockaddr, sotype, proto int, mode string, toAddr func(syscall.Sockaddr) Addr) (fd *netFD, err error) {
-	var la, ra syscall.Sockaddr
+func internetSocket(net string, laddr, raddr sockaddr, deadline time.Time, sotype, proto int, mode string, toAddr func(syscall.Sockaddr) Addr) (fd *netFD, err error) {
 	family, ipv6only := favoriteAddrFamily(net, laddr, raddr, mode)
-	if laddr != nil {
-		if la, err = laddr.sockaddr(family); err != nil {
-			goto Error
-		}
-	}
-	if raddr != nil {
-		if ra, err = raddr.sockaddr(family); err != nil {
-			goto Error
-		}
-	}
-	fd, err = socket(net, family, sotype, proto, ipv6only, la, ra, toAddr)
-	if err != nil {
-		goto Error
-	}
-	return fd, nil
-
-Error:
-	addr := raddr
-	if mode == "listen" {
-		addr = laddr
-	}
-	return nil, &OpError{mode, net, addr, err}
+	return socket(net, family, sotype, proto, ipv6only, laddr, raddr, deadline, toAddr)
 }
 
-func ipToSockaddr(family int, ip IP, port int) (syscall.Sockaddr, error) {
+func ipToSockaddr(family int, ip IP, port int, zone string) (syscall.Sockaddr, error) {
 	switch family {
 	case syscall.AF_INET:
 		if len(ip) == 0 {
@@ -161,12 +145,12 @@ func ipToSockaddr(family int, ip IP, port int) (syscall.Sockaddr, error) {
 		if ip = ip.To4(); ip == nil {
 			return nil, InvalidAddrError("non-IPv4 address")
 		}
-		s := new(syscall.SockaddrInet4)
+		sa := new(syscall.SockaddrInet4)
 		for i := 0; i < IPv4len; i++ {
-			s.Addr[i] = ip[i]
+			sa.Addr[i] = ip[i]
 		}
-		s.Port = port
-		return s, nil
+		sa.Port = port
+		return sa, nil
 	case syscall.AF_INET6:
 		if len(ip) == 0 {
 			ip = IPv6zero
@@ -180,12 +164,13 @@ func ipToSockaddr(family int, ip IP, port int) (syscall.Sockaddr, error) {
 		if ip = ip.To16(); ip == nil {
 			return nil, InvalidAddrError("non-IPv6 address")
 		}
-		s := new(syscall.SockaddrInet6)
+		sa := new(syscall.SockaddrInet6)
 		for i := 0; i < IPv6len; i++ {
-			s.Addr[i] = ip[i]
+			sa.Addr[i] = ip[i]
 		}
-		s.Port = port
-		return s, nil
+		sa.Port = port
+		sa.ZoneId = uint32(zoneToInt(zone))
+		return sa, nil
 	}
 	return nil, InvalidAddrError("unexpected socket family")
 }

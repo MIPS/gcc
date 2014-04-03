@@ -24,6 +24,8 @@ _GCC_TOPLEV_NONCANONICAL_TARGET
 
 AC_SUBST(target_noncanonical)
 
+GCC_LIBSTDCXX_RAW_CXX_FLAGS
+
 # This works around the fact that libtool configuration may change LD
 # for this particular configuration, but some shells, instead of
 # keeping the changes in LD private, export them just because LD is
@@ -1594,15 +1596,7 @@ AC_DEFINE_UNQUOTED(GCJVERSION, "$GCJVERSION", [Short GCJ version ID])
 # Determine where the standard .db file and GNU Classpath JNI
 # libraries are found.
 gcjsubdir=gcj-$gcjversion-$libgcj_soversion
-multi_os_directory=`$CC -print-multi-os-directory`
-case $multi_os_directory in
-  .)
-   dbexecdir='$(libdir)/'$gcjsubdir # Avoid /.
-   ;;
-  *)
-   dbexecdir='$(libdir)/'$multi_os_directory/$gcjsubdir
-   ;;
-esac
+dbexecdir='$(toolexeclibdir)/'$gcjsubdir
 AC_SUBST(dbexecdir)
 AC_SUBST(gcjsubdir)
 

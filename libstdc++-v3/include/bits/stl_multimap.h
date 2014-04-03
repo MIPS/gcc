@@ -1,7 +1,6 @@
 // Multimap implementation -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-// 2011, 2012 Free Software Foundation, Inc.
+// Copyright (C) 2001-2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -58,7 +57,7 @@
 #define _STL_MULTIMAP_H 1
 
 #include <bits/concept_check.h>
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
 #include <initializer_list>
 #endif
 
@@ -128,21 +127,23 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 
     private:
       /// This turns a red-black tree into a [multi]map.
-      typedef typename _Alloc::template rebind<value_type>::other 
-        _Pair_alloc_type;
+      typedef typename __gnu_cxx::__alloc_traits<_Alloc>::template
+	rebind<value_type>::other _Pair_alloc_type;
 
       typedef _Rb_tree<key_type, value_type, _Select1st<value_type>,
 		       key_compare, _Pair_alloc_type> _Rep_type;
       /// The actual tree structure.
       _Rep_type _M_t;
 
+      typedef __gnu_cxx::__alloc_traits<_Pair_alloc_type> _Alloc_traits;
+
     public:
       // many of these are specified differently in ISO, but the following are
       // "functionally equivalent"
-      typedef typename _Pair_alloc_type::pointer         pointer;
-      typedef typename _Pair_alloc_type::const_pointer   const_pointer;
-      typedef typename _Pair_alloc_type::reference       reference;
-      typedef typename _Pair_alloc_type::const_reference const_reference;
+      typedef typename _Alloc_traits::pointer            pointer;
+      typedef typename _Alloc_traits::const_pointer      const_pointer;
+      typedef typename _Alloc_traits::reference          reference;
+      typedef typename _Alloc_traits::const_reference    const_reference;
       typedef typename _Rep_type::iterator               iterator;
       typedef typename _Rep_type::const_iterator         const_iterator;
       typedef typename _Rep_type::size_type              size_type;
@@ -152,6 +153,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 
       // [23.3.2] construct/copy/destroy
       // (get_allocator() is also listed in this section)
+
       /**
        *  @brief  Default constructor creates no elements.
        */
@@ -178,7 +180,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       multimap(const multimap& __x)
       : _M_t(__x._M_t) { }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       /**
        *  @brief  %Multimap move constructor.
        *  @param   __x  A %multimap of identical element and allocator types.
@@ -205,6 +207,33 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 	       const allocator_type& __a = allocator_type())
       : _M_t(__comp, _Pair_alloc_type(__a))
       { _M_t._M_insert_equal(__l.begin(), __l.end()); }
+
+      /// Allocator-extended default constructor.
+      explicit
+      multimap(const allocator_type& __a)
+      : _M_t(_Compare(), _Pair_alloc_type(__a)) { }
+
+      /// Allocator-extended copy constructor.
+      multimap(const multimap& __m, const allocator_type& __a)
+      : _M_t(__m._M_t, _Pair_alloc_type(__a)) { }
+
+      /// Allocator-extended move constructor.
+      multimap(multimap&& __m, const allocator_type& __a)
+      noexcept(is_nothrow_copy_constructible<_Compare>::value
+	       && _Alloc_traits::_S_always_equal())
+      : _M_t(std::move(__m._M_t), _Pair_alloc_type(__a)) { }
+
+      /// Allocator-extended initialier-list constructor.
+      multimap(initializer_list<value_type> __l, const allocator_type& __a)
+      : _M_t(_Compare(), _Pair_alloc_type(__a))
+      { _M_t._M_insert_equal(__l.begin(), __l.end()); }
+
+      /// Allocator-extended range constructor.
+      template<typename _InputIterator>
+        multimap(_InputIterator __first, _InputIterator __last,
+		 const allocator_type& __a)
+	: _M_t(_Compare(), _Pair_alloc_type(__a))
+        { _M_t._M_insert_equal(__first, __last); }
 #endif
 
       /**
@@ -262,21 +291,27 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 	return *this;
       }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       /**
        *  @brief  %Multimap move assignment operator.
        *  @param  __x  A %multimap of identical element and allocator types.
        *
-       *  The contents of @a __x are moved into this multimap (without copying).
-       *  @a __x is a valid, but unspecified multimap.
+       *  The contents of @a __x are moved into this multimap (without copying
+       *  if the allocators compare equal or get moved on assignment).
+       *  Afterwards @a __x is in a valid, but unspecified state.
        */
       multimap&
-      operator=(multimap&& __x)
+      operator=(multimap&& __x) noexcept(_Alloc_traits::_S_nothrow_move())
       {
-	// NB: DR 1204.
-	// NB: DR 675.
-	this->clear();
-	this->swap(__x);
+	if (!_M_t._M_move_assign(__x._M_t))
+	  {
+	    // The rvalue's allocator cannot be moved and is not equal,
+	    // so we need to individually move each element.
+	    clear();
+	    insert(std::__make_move_if_noexcept_iterator(__x.begin()),
+		   std::__make_move_if_noexcept_iterator(__x.end()));
+	    __x.clear();
+	  }
 	return *this;
       }
 
@@ -378,7 +413,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       rend() const _GLIBCXX_NOEXCEPT
       { return _M_t.rend(); }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       /**
        *  Returns a read-only (constant) iterator that points to the first pair
        *  in the %multimap.  Iteration is done in ascending order according to
@@ -433,7 +468,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       { return _M_t.max_size(); }
 
       // modifiers
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       /**
        *  @brief Build and insert a std::pair into the %multimap.
        *
@@ -502,7 +537,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       insert(const value_type& __x)
       { return _M_t._M_insert_equal(__x); }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       template<typename _Pair, typename = typename
 	       std::enable_if<std::is_constructible<value_type,
 						    _Pair&&>::value>::type>
@@ -532,14 +567,14 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        *  Insertion requires logarithmic time (if the hint is not taken).
        */
       iterator
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       insert(const_iterator __position, const value_type& __x)
 #else
       insert(iterator __position, const value_type& __x)
 #endif
       { return _M_t._M_insert_equal_(__position, __x); }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       template<typename _Pair, typename = typename
 	       std::enable_if<std::is_constructible<value_type,
 						    _Pair&&>::value>::type>
@@ -563,7 +598,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
         insert(_InputIterator __first, _InputIterator __last)
         { _M_t._M_insert_equal(__first, __last); }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       /**
        *  @brief Attempts to insert a list of std::pairs into the %multimap.
        *  @param  __l  A std::initializer_list<value_type> of pairs to be
@@ -576,7 +611,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       { this->insert(__l.begin(), __l.end()); }
 #endif
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // DR 130. Associative erase should return an iterator.
       /**
@@ -597,6 +632,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       { return _M_t.erase(__position); }
 
       // LWG 2059.
+      _GLIBCXX_ABI_TAG_CXX11
       iterator
       erase(iterator __position)
       { return _M_t.erase(__position); }
@@ -631,7 +667,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       erase(const key_type& __x)
       { return _M_t.erase(__x); }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // DR 130. Associative erase should return an iterator.
       /**
@@ -685,6 +721,9 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        */
       void
       swap(multimap& __x)
+#if __cplusplus >= 201103L
+      noexcept(_Alloc_traits::_S_nothrow_swap())
+#endif
       { _M_t.swap(__x._M_t); }
 
       /**

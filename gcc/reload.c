@@ -1,7 +1,5 @@
 /* Search an insn for pseudo regs that must be in hard regs and are not.
-   Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -682,8 +680,8 @@ find_valid_class (enum machine_mode outer ATTRIBUTE_UNUSED,
 	    if (HARD_REGNO_MODE_OK (regno, inner))
 	      {
 		good = 1;
-		if (! TEST_HARD_REG_BIT (reg_class_contents[rclass], regno + n)
-		    || ! HARD_REGNO_MODE_OK (regno + n, outer))
+		if (TEST_HARD_REG_BIT (reg_class_contents[rclass], regno + n)
+		    && ! HARD_REGNO_MODE_OK (regno + n, outer))
 		  bad = 1;
 	      }
 	  }
@@ -709,7 +707,7 @@ find_valid_class (enum machine_mode outer ATTRIBUTE_UNUSED,
 }
 
 /* We are trying to reload a subreg of something that is not a register.
-   Find the largest class which has at least one register valid in
+   Find the largest class which contains only registers valid in
    mode MODE.  OUTER is the mode of the subreg, DEST_CLASS the class in
    which we would eventually like to obtain the object.  */
 
@@ -729,10 +727,12 @@ find_valid_class_1 (enum machine_mode outer ATTRIBUTE_UNUSED,
     {
       int bad = 0;
       for (regno = 0; regno < FIRST_PSEUDO_REGISTER && !bad; regno++)
-	if (TEST_HARD_REG_BIT (reg_class_contents[rclass], regno)
-	    && !HARD_REGNO_MODE_OK (regno, mode))
-	  bad = 1;
-
+	{
+	  if (in_hard_reg_set_p (reg_class_contents[rclass], mode, regno)
+	      && !HARD_REGNO_MODE_OK (regno, mode))
+	    bad = 1;
+	}
+      
       if (bad)
 	continue;
 
@@ -895,7 +895,7 @@ can_reload_into (rtx in, int regno, enum machine_mode mode)
 {
   rtx dst, test_insn;
   int r = 0;
-  struct recog_data save_recog_data;
+  struct recog_data_d save_recog_data;
 
   /* For matching constraints, we often get notional input reloads where
      we want to use the original register as the reload register.  I.e.
@@ -1615,7 +1615,7 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 	    && reg_mentioned_p (XEXP (note, 0), in)
 	    /* Check that a former pseudo is valid; see find_dummy_reload.  */
 	    && (ORIGINAL_REGNO (XEXP (note, 0)) < FIRST_PSEUDO_REGISTER
-		|| (! bitmap_bit_p (DF_LR_OUT (ENTRY_BLOCK_PTR),
+		|| (! bitmap_bit_p (DF_LR_OUT (ENTRY_BLOCK_PTR_FOR_FN (cfun)),
 				    ORIGINAL_REGNO (XEXP (note, 0)))
 		    && hard_regno_nregs[regno][GET_MODE (XEXP (note, 0))] == 1))
 	    && ! refers_to_regno_for_reload_p (regno,
@@ -1939,7 +1939,7 @@ combine_reloads (void)
 	&& !fixed_regs[regno]
 	/* Check that a former pseudo is valid; see find_dummy_reload.  */
 	&& (ORIGINAL_REGNO (XEXP (note, 0)) < FIRST_PSEUDO_REGISTER
-	    || (!bitmap_bit_p (DF_LR_OUT (ENTRY_BLOCK_PTR),
+	    || (!bitmap_bit_p (DF_LR_OUT (ENTRY_BLOCK_PTR_FOR_FN (cfun)),
 			       ORIGINAL_REGNO (XEXP (note, 0)))
 		&& hard_regno_nregs[regno][GET_MODE (XEXP (note, 0))] == 1)))
       {
@@ -2098,7 +2098,7 @@ find_dummy_reload (rtx real_in, rtx real_out, rtx *inloc, rtx *outloc,
 	     can ignore the conflict).  We must never introduce writes
 	     to such hardregs, as they would clobber the other live
 	     pseudo.  See PR 20973.  */
-          || (!bitmap_bit_p (DF_LR_OUT (ENTRY_BLOCK_PTR),
+	  || (!bitmap_bit_p (DF_LR_OUT (ENTRY_BLOCK_PTR_FOR_FN (cfun)),
 			     ORIGINAL_REGNO (in))
 	      /* Similarly, only do this if we can be sure that the death
 		 note is still valid.  global can assign some hardreg to
@@ -3324,7 +3324,10 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 		      for (j = 0; j < i; j++)
 			if (this_alternative_matches[j]
 			    == this_alternative_matches[i])
-			  badop = 1;
+			  {
+			    badop = 1;
+			    break;
+			  }
 		    break;
 
 		  case 'p':
@@ -3437,7 +3440,7 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 		    break;
 
 		  case 's':
-		    if (CONST_INT_P (operand) || CONST_DOUBLE_AS_INT_P (operand))
+		    if (CONST_SCALAR_INT_P (operand))
 		      break;
 		  case 'i':
 		    if (CONSTANT_P (operand)
@@ -3446,7 +3449,7 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 		    break;
 
 		  case 'n':
-		    if (CONST_INT_P (operand) || CONST_DOUBLE_AS_INT_P (operand))
+		    if (CONST_SCALAR_INT_P (operand))
 		      win = 1;
 		    break;
 
@@ -4640,7 +4643,10 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 
 	    for (nri = 1; nri < nr; nri ++)
 	      if (! TEST_HARD_REG_BIT (reg_class_contents[rld[i].rclass], regno + nri))
-		ok = 0;
+		{
+		  ok = 0;
+		  break;
+		}
 
 	    if (ok)
 	      rld[i].reg_rtx = dest;
@@ -5557,6 +5563,7 @@ find_reloads_address_1 (enum machine_mode mode, addr_space_t as,
 
   enum reg_class context_reg_class;
   RTX_CODE code = GET_CODE (x);
+  bool reloaded_inner_of_autoinc = false;
 
   if (context == 1)
     context_reg_class = INDEX_REG_CLASS;
@@ -5844,6 +5851,7 @@ find_reloads_address_1 (enum machine_mode mode, addr_space_t as,
 		  find_reloads_address (GET_MODE (tem), &tem, XEXP (tem, 0),
 					&XEXP (tem, 0), opnum, type,
 					ind_levels, insn);
+		  reloaded_inner_of_autoinc = true;
 		  if (!rtx_equal_p (tem, orig))
 		    push_reg_equiv_alt_mem (regno, tem);
 		  /* Put this inside a new increment-expression.  */
@@ -5892,7 +5900,10 @@ find_reloads_address_1 (enum machine_mode mode, addr_space_t as,
 #endif
 		  && ! (icode != CODE_FOR_nothing
 			&& insn_operand_matches (icode, 0, equiv)
-			&& insn_operand_matches (icode, 1, equiv)))
+			&& insn_operand_matches (icode, 1, equiv))
+		  /* Using RELOAD_OTHER means we emit this and the reload we
+		     made earlier in the wrong order.  */
+		  && !reloaded_inner_of_autoinc)
 		{
 		  /* We use the original pseudo for loc, so that
 		     emit_reload_insns() knows which pseudo this
@@ -6313,14 +6324,14 @@ subst_reloads (rtx insn)
 	  for (check_regno = 0; check_regno < max_regno; check_regno++)
 	    {
 #define CHECK_MODF(ARRAY)						\
-	      gcc_assert (!VEC_index (reg_equivs_t, reg_equivs, check_regno).ARRAY		\
+	      gcc_assert (!(*reg_equivs)[check_regno].ARRAY		\
 			  || !loc_mentioned_in_p (r->where,		\
-						  VEC_index (reg_equivs_t, reg_equivs, check_regno).ARRAY))
+						  (*reg_equivs)[check_regno].ARRAY))
 
-	      CHECK_MODF (equiv_constant);
-	      CHECK_MODF (equiv_memory_loc);
-	      CHECK_MODF (equiv_address);
-	      CHECK_MODF (equiv_mem);
+	      CHECK_MODF (constant);
+	      CHECK_MODF (memory_loc);
+	      CHECK_MODF (address);
+	      CHECK_MODF (mem);
 #undef CHECK_MODF
 	    }
 #endif /* DEBUG_RELOAD */

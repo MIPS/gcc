@@ -1,6 +1,5 @@
 /* Default language-specific hooks.
-   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 2001-2014 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -26,15 +25,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "toplev.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "attribs.h"
 #include "tree-inline.h"
-#include "gimple.h"
+#include "gimplify.h"
 #include "rtl.h"
 #include "insn-config.h"
 #include "flags.h"
 #include "langhooks.h"
 #include "target.h"
 #include "langhooks-def.h"
-#include "ggc.h"
 #include "diagnostic.h"
 #include "tree-diagnostic.h"
 #include "cgraph.h"
@@ -373,7 +373,7 @@ lhd_print_error_function (diagnostic_context *context, const char *file,
       const char *old_prefix = context->printer->prefix;
       tree abstract_origin = diagnostic_abstract_origin (diagnostic);
       char *new_prefix = (file && abstract_origin == NULL)
-			 ? file_name_as_prefix (file) : NULL;
+			 ? file_name_as_prefix (context, file) : NULL;
 
       pp_set_prefix (context->printer, new_prefix);
 
@@ -447,20 +447,20 @@ lhd_print_error_function (diagnostic_context *context, const char *file,
 	      if (fndecl)
 		{
 		  expanded_location s = expand_location (*locus);
-		  pp_character (context->printer, ',');
+		  pp_comma (context->printer);
 		  pp_newline (context->printer);
 		  if (s.file != NULL)
 		    {
 		      if (context->show_column)
 			pp_printf (context->printer,
-				   _("    inlined from %qs at %s:%d:%d"),
+				   _("    inlined from %qs at %r%s:%d:%d%R"),
 				   identifier_to_locale (lang_hooks.decl_printable_name (fndecl, 2)),
-				   s.file, s.line, s.column);
+				   "locus", s.file, s.line, s.column);
 		      else
 			pp_printf (context->printer,
-				   _("    inlined from %qs at %s:%d"),
+				   _("    inlined from %qs at %r%s:%d%R"),
 				   identifier_to_locale (lang_hooks.decl_printable_name (fndecl, 2)),
-				   s.file, s.line);
+				   "locus", s.file, s.line);
 
 		    }
 		  else
@@ -468,7 +468,7 @@ lhd_print_error_function (diagnostic_context *context, const char *file,
 			       identifier_to_locale (lang_hooks.decl_printable_name (fndecl, 2)));
 		}
 	    }
-	  pp_character (context->printer, ':');
+	  pp_colon (context->printer);
 	}
 
       diagnostic_set_last_function (context, diagnostic);
@@ -522,6 +522,17 @@ void
 lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *c ATTRIBUTE_UNUSED,
 				   tree t ATTRIBUTE_UNUSED)
 {
+}
+
+/* Return true if TYPE is an OpenMP mappable type.  */
+
+bool
+lhd_omp_mappable_type (tree type)
+{
+  /* Mappable type has to be complete.  */
+  if (type == error_mark_node || !COMPLETE_TYPE_P (type))
+    return false;
+  return true;
 }
 
 /* Common function for add_builtin_function and

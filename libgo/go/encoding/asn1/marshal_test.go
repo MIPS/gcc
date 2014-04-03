@@ -82,11 +82,12 @@ var marshalTests = []marshalTest{
 	{explicitTagTest{64}, "3005a503020140"},
 	{time.Unix(0, 0).UTC(), "170d3730303130313030303030305a"},
 	{time.Unix(1258325776, 0).UTC(), "170d3039313131353232353631365a"},
-	{time.Unix(1258325776, 0).In(PST), "17113039313131353232353631362d30383030"},
+	{time.Unix(1258325776, 0).In(PST), "17113039313131353134353631362d30383030"},
 	{BitString{[]byte{0x80}, 1}, "03020780"},
 	{BitString{[]byte{0x81, 0xf0}, 12}, "03030481f0"},
 	{ObjectIdentifier([]int{1, 2, 3, 4}), "06032a0304"},
 	{ObjectIdentifier([]int{1, 2, 840, 133549, 1, 1, 5}), "06092a864888932d010105"},
+	{ObjectIdentifier([]int{2, 100, 3}), "0603813403"},
 	{"test", "130474657374"},
 	{
 		"" +
@@ -132,7 +133,7 @@ func TestMarshal(t *testing.T) {
 			t.Errorf("#%d failed: %s", i, err)
 		}
 		out, _ := hex.DecodeString(test.out)
-		if bytes.Compare(out, data) != 0 {
+		if !bytes.Equal(out, data) {
 			t.Errorf("#%d got: %x want %x\n\t%q\n\t%q", i, data, out, data, out)
 
 		}

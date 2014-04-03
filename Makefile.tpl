@@ -169,7 +169,7 @@ BUILD_EXPORTS = \
 	WINDMC="$(WINDMC_FOR_BUILD)"; export WINDMC;
 
 # These variables must be set on the make command line for directories
-# built for the build system to override those in BASE_FLAGS_TO_PASSS.
+# built for the build system to override those in BASE_FLAGS_TO_PASS.
 EXTRA_BUILD_FLAGS = \
 	CFLAGS="$(CFLAGS_FOR_BUILD)" \
 	LDFLAGS="$(LDFLAGS_FOR_BUILD)"
@@ -238,13 +238,13 @@ POSTSTAGE1_CXX_EXPORT = \
 @if target-libstdc++-v3-bootstrap
 # Override the above if we're bootstrapping C++.
 POSTSTAGE1_CXX_EXPORT = \
-	CXX="$(STAGE_CC_WRAPPER) $$r/$(HOST_SUBDIR)/prev-gcc/g++$(exeext) \
+	CXX="$(STAGE_CC_WRAPPER) $$r/$(HOST_SUBDIR)/prev-gcc/xg++$(exeext) \
 	  -B$$r/$(HOST_SUBDIR)/prev-gcc/ -B$(build_tooldir)/bin/ -nostdinc++ \
 	  -B$$r/prev-$(TARGET_SUBDIR)/libstdc++-v3/src/.libs \
 	  -B$$r/prev-$(TARGET_SUBDIR)/libstdc++-v3/libsupc++/.libs \
-	  -I$$r/prev-$(TARGET_SUBDIR)/libstdc++-v3/include/$(TARGET_SUBDIR) \
-	  -I$$r/prev-$(TARGET_SUBDIR)/libstdc++-v3/include \
-	  -I$$s/libstdc++-v3/libsupc++ \
+	  `if $(LEAN); then echo ' -isystem '; else echo ' -I'; fi`$$r/prev-$(TARGET_SUBDIR)/libstdc++-v3/include/$(TARGET_SUBDIR) \
+	  `if $(LEAN); then echo ' -isystem '; else echo ' -I'; fi`$$r/prev-$(TARGET_SUBDIR)/libstdc++-v3/include \
+	  `if $(LEAN); then echo ' -isystem '; else echo ' -I'; fi`$$s/libstdc++-v3/libsupc++ \
 	  -L$$r/prev-$(TARGET_SUBDIR)/libstdc++-v3/src/.libs \
 	  -L$$r/prev-$(TARGET_SUBDIR)/libstdc++-v3/libsupc++/.libs"; \
 	  export CXX; \
@@ -367,7 +367,7 @@ BUILD_PREFIX_1 = @BUILD_PREFIX_1@
 # here so that they can be overridden by Makefile fragments.
 BOOT_CFLAGS= -g -O2
 BOOT_LDFLAGS=
-BOOT_ADAFLAGS=-gnatpg -gnata
+BOOT_ADAFLAGS= -gnatpg
 
 AWK = @AWK@
 SED = @SED@
@@ -451,8 +451,10 @@ STAGE1_LANGUAGES = @stage1_languages@
 #   the last argument when conflicting --enable arguments are passed.
 # * Likewise, we force-disable coverage flags, since the installed
 #   compiler probably has never heard of them.
+# * We also disable -Wformat, since older GCCs don't understand newer %s.
 STAGE1_CONFIGURE_FLAGS = --disable-intermodule $(STAGE1_CHECKING) \
-	  --disable-coverage --enable-languages="$(STAGE1_LANGUAGES)"
+	  --disable-coverage --enable-languages="$(STAGE1_LANGUAGES)" \
+	  --disable-build-format-warnings
 
 STAGEprofile_CFLAGS = $(STAGE2_CFLAGS) -fprofile-generate
 STAGEprofile_TFLAGS = $(STAGE2_TFLAGS)
@@ -1403,13 +1405,6 @@ ENDIF raw_cxx +]
 @endif target-[+module+]
 [+ ENDFOR recursive_targets +]
 [+ ENDFOR target_modules +]
-
-@if target-libmudflap
-.PHONY: check-target-libmudflap-c++
-check-target-libmudflap-c++:
-	$(MAKE) RUNTESTFLAGS="$(RUNTESTFLAGS) c++frags.exp" check-target-libmudflap
-
-@endif target-libmudflap
 
 @if target-libgomp
 .PHONY: check-target-libgomp-c++

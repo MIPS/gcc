@@ -199,9 +199,9 @@
 #endif
 
 
-/* Define if the zone collector is in use */
+/* Define to 1 if `TIOCGWINSZ' requires <sys/ioctl.h>. */
 #ifndef USED_FOR_TARGET
-#undef GGC_ZONE
+#undef GWINSZ_IN_SYS_IOCTL
 #endif
 
 
@@ -333,6 +333,12 @@
 #endif
 
 
+/* Define if your assembler supports interunit movq mnemonic. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_IX86_INTERUNIT_MOVQ
+#endif
+
+
 /* Define if your assembler supports the .quad directive. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_IX86_QUAD
@@ -363,9 +369,21 @@
 #endif
 
 
-/* Define if your assembler and linker support @tlsldmplt. */
+/* Define to 1 if your assembler and linker support @tlsldm. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_IX86_TLSLDM
+#endif
+
+
+/* Define to 1 if your assembler and linker support @tlsldmplt. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_IX86_TLSLDMPLT
+#endif
+
+
+/* Define if your assembler supports the 'ud2' mnemonic. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_IX86_UD2
 #endif
 
 
@@ -378,6 +396,12 @@
 /* Define if your assembler supports .sleb128 and .uleb128. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_LEB128
+#endif
+
+
+/* Define if your assembler supports LEON instructions. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_LEON
 #endif
 
 
@@ -399,6 +423,12 @@
 #endif
 
 
+/* Define if your assembler supports the -mabi option. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_MABI_OPTION
+#endif
+
+
 /* Define if your assembler supports mfcr field. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_MFCRF
@@ -408,6 +438,12 @@
 /* Define if your assembler supports mffgpr and mftgpr. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_MFPGPR
+#endif
+
+
+/* Define if the assembler understands -mnan=. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_NAN
 #endif
 
 
@@ -441,6 +477,12 @@
 #endif
 
 
+/* Define if your assembler supports POWER8 instructions. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_POWER8
+#endif
+
+
 /* Define if your assembler supports .ref */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_REF
@@ -465,9 +507,21 @@
 #endif
 
 
+/* Define if your assembler supports SPARC4 instructions. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_SPARC4
+#endif
+
+
 /* Define if your assembler and linker support GOTDATA_OP relocs. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_SPARC_GOTDATA_OP
+#endif
+
+
+/* Define to 1 if your assembler supports #nobits, 0 otherwise. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_SPARC_NOBITS
 #endif
 
 
@@ -1022,6 +1076,12 @@
 #endif
 
 
+/* Define if your assembler supports the .set micromips directive */
+#ifndef USED_FOR_TARGET
+#undef HAVE_GAS_MICROMIPS
+#endif
+
+
 /* Define if your assembler supports .nsubspa comdat option. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_GAS_NSUBSPA_COMDAT
@@ -1181,7 +1241,8 @@
 #endif
 
 
-/* Define if your linker supports --as-needed and --no-as-needed options. */
+/* Define if your linker supports --as-needed/--no-as-needed or equivalent
+   options. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_LD_AS_NEEDED
 #endif
@@ -1196,6 +1257,12 @@
 /* Define if your linker supports --demangle option. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_LD_DEMANGLE
+#endif
+
+
+/* Define 0/1 if your linker supports CIE v3 in .eh_frame. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_LD_EH_FRAME_CIEV3
 #endif
 
 
@@ -1263,12 +1330,6 @@
 /* Define if your linker supports --sysroot. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_LD_SYSROOT
-#endif
-
-
-/* Define to 1 if you have the <libintl.h> header file. */
-#ifndef USED_FOR_TARGET
-#undef HAVE_LIBINTL_H
 #endif
 
 
@@ -1612,9 +1673,21 @@
 #endif
 
 
+/* Define to the linker option to ignore unused dependencies. */
+#ifndef USED_FOR_TARGET
+#undef LD_AS_NEEDED_OPTION
+#endif
+
+
 /* Define to the linker option to enable use of shared objects. */
 #ifndef USED_FOR_TARGET
 #undef LD_DYNAMIC_OPTION
+#endif
+
+
+/* Define to the linker option to keep unused dependencies. */
+#ifndef USED_FOR_TARGET
+#undef LD_NO_AS_NEEDED_OPTION
 #endif
 
 
@@ -1659,12 +1732,6 @@
 /* Define to 1 if HOST_WIDE_INT must be 64 bits wide (see hwint.h). */
 #ifndef USED_FOR_TARGET
 #undef NEED_64BIT_HOST_WIDE_INT
-#endif
-
-
-/* Define to 1 if your C compiler doesn't accept -c and -o together. */
-#ifndef USED_FOR_TARGET
-#undef NO_MINUS_C_MINUS_O
 #endif
 
 

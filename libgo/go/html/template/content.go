@@ -30,7 +30,7 @@ type (
 	HTMLAttr string
 
 	// JS encapsulates a known safe EcmaScript5 Expression, for example,
-	// `(x + y * z())`. 
+	// `(x + y * z())`.
 	// Template authors are responsible for ensuring that typed expressions
 	// do not break the intended precedence and that there is no
 	// statement/expression ambiguity as when passing an expression like
@@ -74,6 +74,9 @@ const (
 // indirect returns the value, after dereferencing as many times
 // as necessary to reach the base type (or nil).
 func indirect(a interface{}) interface{} {
+	if a == nil {
+		return nil
+	}
 	if t := reflect.TypeOf(a); t.Kind() != reflect.Ptr {
 		// Avoid creating a reflect.Value if it's not a pointer.
 		return a
@@ -94,6 +97,9 @@ var (
 // as necessary to reach the base type (or nil) or an implementation of fmt.Stringer
 // or error,
 func indirectToStringerOrError(a interface{}) interface{} {
+	if a == nil {
+		return nil
+	}
 	v := reflect.ValueOf(a)
 	for !v.Type().Implements(fmtStringerType) && !v.Type().Implements(errorType) && v.Kind() == reflect.Ptr && !v.IsNil() {
 		v = v.Elem()

@@ -26,8 +26,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "timevar.h"
 #include "tree.h"
+#include "is-a.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "predict.h"
+#include "function.h"
+#include "basic-block.h"
+#include "gimple-expr.h"
 #include "gimple.h"
 #include "parser.h"
+#include "stringpool.h"
+#include "stor-layout.h"
 #include "hashtab.h"
 #include "ggc.h"
 
@@ -164,7 +173,7 @@ gimple_register_var_decl_in_symtab (const gimple_token *name_token)
 static bool
 gl_at_eof (gimple_lexer *lexer)
 {
-  return lexer->cur_token_ix >= VEC_length (gimple_token, lexer->tokens);
+  return lexer->cur_token_ix >= vec_safe_length (lexer->tokens);
 }
 
 
@@ -175,7 +184,7 @@ gl_peek_token (gimple_lexer *lexer)
 {
   if (gl_at_eof (lexer))
     return &gl_eof_token;
-  return &VEC_index (gimple_token, lexer->tokens, lexer->cur_token_ix);
+  return &(*lexer->tokens)[lexer->cur_token_ix];
 }
 
 
@@ -202,7 +211,7 @@ gl_tree_code_for_token (const gimple_token *token)
   /* FIXME.  Expensive linear scan, convert into a string->code map.  */
   s = gl_token_as_text (token);
   for (code = ERROR_MARK; code < LAST_AND_UNUSED_TREE_CODE; code++)
-    if (strcasecmp (s, tree_code_name[code]) == 0)
+    if (strcasecmp (s, get_tree_code_name ((tree_code)code)) == 0)
       break;
 
   return (enum tree_code) code;
@@ -274,23 +283,25 @@ gl_dump_token (FILE *file, gimple_token *token)
 void
 gl_dump (FILE *file, gimple_lexer *lexer)
 {
-  unsigned i;
-  gimple_token *token;
-
   if (file == NULL)
     file = stderr;
 
   fprintf (file, "%s: %u tokens, current token index: %u\n",
-	   lexer->filename, VEC_length (gimple_token, lexer->tokens),
+	   lexer->filename, vec_safe_length (lexer->tokens),
 	   lexer->cur_token_ix);
 
-  for (i = 0; VEC_iterate (gimple_token, lexer->tokens, i, token); i++)
+  if (lexer->tokens)
     {
-      if (i == lexer->cur_token_ix)
-	fprintf (file, "[[[ ");
-      gl_dump_token (file, token);
-      if (i == lexer->cur_token_ix)
-	fprintf (file, "]]]");
+      unsigned int length = lexer->tokens->length ();
+      for (unsigned int i = 0; i < length; i++)
+	{
+	  gimple_token &token = (*lexer->tokens)[i];
+	  if (i == lexer->cur_token_ix)
+	    fprintf (file, "[[[ ");
+	  gl_dump_token (file, &token);
+	  if (i == lexer->cur_token_ix)
+	    fprintf (file, "]]]");
+	}
     }
 
   fprintf (file, "\n");
@@ -429,7 +440,7 @@ gp_parse_assign_stmt (gimple_parser *parser)
     {
       case GIMPLE_INVALID_RHS:
 	error_at (optoken->location, "Invalid RHS for "
-		  "gimple assignment: %s", tree_code_name[opcode]);
+		  "gimple assignment: %s", get_tree_code_name (opcode));
 	break;
 
       case GIMPLE_SINGLE_RHS:
@@ -1554,11 +1565,11 @@ gl_lex (gimple_lexer *lexer)
 	  || gl_token_is_of_type (&token,CPP_RSHIFT))
 	{
 	  gl_split_token (&token, &first_token, &second_token);
-	  VEC_safe_push (gimple_token, gc, lexer->tokens, first_token);
-	  VEC_safe_push (gimple_token, gc, lexer->tokens, second_token);
+	  vec_safe_push (lexer->tokens, first_token);
+	  vec_safe_push (lexer->tokens, second_token);
         }
       else 
-	VEC_safe_push (gimple_token, gc, lexer->tokens, token);
+	vec_safe_push (lexer->tokens, token);
     }
 
   timevar_pop (TV_CPP);

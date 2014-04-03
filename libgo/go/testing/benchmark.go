@@ -34,11 +34,12 @@ type InternalBenchmark struct {
 // timing and to specify the number of iterations to run.
 type B struct {
 	common
-	N         int
-	benchmark InternalBenchmark
-	bytes     int64
-	timerOn   bool
-	result    BenchmarkResult
+	N               int
+	benchmark       InternalBenchmark
+	bytes           int64
+	timerOn         bool
+	showAllocResult bool
+	result          BenchmarkResult
 	// The initial states of memStats.Mallocs and memStats.TotalAlloc.
 	startAllocs uint64
 	startBytes  uint64
@@ -91,6 +92,13 @@ func (b *B) ResetTimer() {
 // If this is called, the benchmark will report ns/op and MB/s.
 func (b *B) SetBytes(n int64) { b.bytes = n }
 
+// ReportAllocs enables malloc statistics for this benchmark.
+// It is equivalent to setting -test.benchmem, but it only affects the
+// benchmark function that calls ReportAllocs.
+func (b *B) ReportAllocs() {
+	b.showAllocResult = true
+}
+
 func (b *B) nsPerOp() int64 {
 	if b.N <= 0 {
 		return 0
@@ -130,7 +138,7 @@ func max(x, y int) int {
 func roundDown10(n int) int {
 	var tens = 0
 	// tens = floor(log_10(n))
-	for n > 10 {
+	for n >= 10 {
 		n = n / 10
 		tens++
 	}
@@ -145,13 +153,16 @@ func roundDown10(n int) int {
 // roundUp rounds x up to a number of the form [1eX, 2eX, 5eX].
 func roundUp(n int) int {
 	base := roundDown10(n)
-	if n < (2 * base) {
+	switch {
+	case n <= base:
+		return base
+	case n <= (2 * base):
 		return 2 * base
-	}
-	if n < (5 * base) {
+	case n <= (5 * base):
 		return 5 * base
+	default:
+		return 10 * base
 	}
-	return 10 * base
 }
 
 // run times the benchmark function in a separate goroutine.
@@ -298,7 +309,7 @@ func RunBenchmarks(matchString func(pat, str string) (bool, error), benchmarks [
 				continue
 			}
 			results := r.String()
-			if *benchmarkMemory {
+			if *benchmarkMemory || b.showAllocResult {
 				results += "\t" + r.MemString()
 			}
 			fmt.Println(results)

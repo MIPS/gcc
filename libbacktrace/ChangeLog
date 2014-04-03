@@ -1,3 +1,253 @@
+2014-03-07  Ian Lance Taylor  <iant@google.com>
+
+	* sort.c (backtrace_qsort): Use middle element as pivot.
+
+2014-03-06  Ian Lance Taylor  <iant@google.com>
+
+	* sort.c: New file.
+	* stest.c: New file.
+	* internal.h (backtrace_qsort): Declare.
+	* dwarf.c (read_abbrevs): Call backtrace_qsort instead of qsort.
+	(read_line_info, read_function_entry): Likewise.
+	(read_function_info, build_dwarf_data): Likewise.
+	* elf.c (elf_initialize_syminfo): Likewise.
+	* Makefile.am (libbacktrace_la_SOURCES): Add sort.c.
+	(stest_SOURCES, stest_LDADD): Define.
+	(check_PROGRAMS): Add stest.
+
+2014-02-07  Misty De Meo  <misty@brew.sh>
+
+	PR target/58710
+	* configure.ac: Use AC_LINK_IFELSE in check for
+	_Unwind_GetIPInfo.
+	* configure: Regenerate.
+
+2014-01-02  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	Update copyright years
+
+2013-12-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* elf.c (ET_DYN): Undefine and define again.
+	(elf_add): Add exe argument, if true and ehdr.e_type is ET_DYN,
+	return early -1 without closing the descriptor.
+	(struct phdr_data): Add exe_descriptor.
+	(phdr_callback): If pd->exe_descriptor is not -1, for very first
+	call if dlpi_name is NULL just call elf_add with the exe_descriptor,
+	otherwise backtrace_close the exe_descriptor if not -1.  Adjust
+	call to elf_add.
+	(backtrace_initialize): Adjust call to elf_add.  If it returns
+	-1, set pd.exe_descriptor to descriptor, otherwise set it to -1.
+
+2013-12-05  Ian Lance Taylor  <iant@google.com>
+
+	* alloc.c (backtrace_vector_finish): Add error_callback and data
+	parameters.  Call backtrace_vector_release.  Return address base.
+	* mmap.c (backtrace_vector_finish): Add error_callback and data
+	parameters.  Return address base.
+	* dwarf.c (read_function_info): Get new address base from
+	backtrace_vector_finish.
+	* internal.h (backtrace_vector_finish): Update declaration.
+
+2013-11-27  Ian Lance Taylor  <iant@google.com>
+
+	* dwarf.c (find_address_ranges): New static function, broken out
+	of build_address_map.
+	(build_address_map): Call it.
+	* btest.c (check): Check for missing filename or function, rather
+	than crashing.
+	(f3): Check that enough frames were returned.
+
+2013-11-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* backtrace.h (backtrace_syminfo_callback): Add symsize argument.
+	* elf.c (elf_syminfo): Pass 0 or sym->size to the callback as
+	last argument.
+	* btest.c (struct symdata): Add size field.
+	(callback_three): Add symsize argument.  Copy it to the data->size
+	field.
+	(f23): Set symdata.size to 0.
+	(test5): Likewise.  If sizeof (int) > 1, lookup address of
+	((uintptr_t) &global) + 1.  Verify symdata.val and symdata.size
+	values.
+
+	* atomic.c: Include sys/types.h.
+
+2013-11-18  Ian Lance Taylor  <iant@google.com>
+
+	* configure.ac: Check for support of __atomic extensions.
+	* internal.h: Declare or #define atomic functions for use in
+	backtrace code.
+	* atomic.c: New file.
+	* dwarf.c (dwarf_lookup_pc): Use atomic functions.
+	(dwarf_fileline, backtrace_dwarf_add): Likewise.
+	* elf.c (elf_add_syminfo_data, elf_syminfo): Likewise.
+	(backtrace_initialize): Likewise.
+	* fileline.c (fileline_initialize): Likewise.
+	* Makefile.am (libbacktrace_la_SOURCES): Add atomic.c.
+	* configure, config.h.in, Makefile.in: Rebuild.
+
+2013-11-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* elf.c (SHN_UNDEF): Define.
+	(elf_initialize_syminfo): Add base_address argument.  Ignore symbols
+	with st_shndx == SHN_UNDEF.  Add base_address to address fields.
+	(elf_add): Adjust caller.
+
+	* elf.c (phdr_callback): Process info->dlpi_addr == 0 normally.
+
+2013-11-16  Ian Lance Taylor  <iant@google.com>
+
+	* backtrace.h (backtrace_create_state): Correct comment about
+	threading.
+
+2013-11-15  Ian Lance Taylor  <iant@google.com>
+
+	* backtrace.h (backtrace_syminfo): Update comment and parameter
+	name to take any address, not just a PC value.
+	* elf.c (STT_OBJECT): Define.
+	(elf_nosyms): Rename parameter pc to addr.
+	(elf_symbol_search): Rename local variable pc to addr.
+	(elf_initialize_syminfo): Add STT_OBJECT symbols to elf_symbols.
+	(elf_syminfo): Rename parameter pc to addr.
+	* btest.c (global): New global variable.
+	(test5): New test.
+	(main): Call test5.
+
+2013-10-17  Ian Lance Taylor  <iant@google.com>
+
+	* elf.c (elf_add): Don't get the wrong offsets if a debug section
+	is missing.
+
+2013-10-15  David Malcolm  <dmalcolm@redhat.com>
+
+	* configure.ac: Add --enable-host-shared, setting up
+	pre-existing PIC_FLAG variable within Makefile.am et al.
+	* configure: Regenerate.
+
+2013-09-20  Alan Modra  <amodra@gmail.com>
+
+	* configure: Regenerate.
+
+2013-07-23  Alexander Monakov  <amonakov@ispras.ru>
+
+	* elf.c (elf_syminfo): Loop over the elf_syminfo_data chain.
+
+2013-07-23  Alexander Monakov  <amonakov@ispras.ru>
+
+	* elf.c (backtrace_initialize): Pass elf_fileline_fn to
+	dl_iterate_phdr callbacks.
+
+2013-03-25  Ian Lance Taylor  <iant@google.com>
+
+	* alloc.c: #include <sys/types.h>.
+	* mmap.c: Likewise.
+
+2013-01-31  Ian Lance Taylor  <iant@google.com>
+
+	* dwarf.c (read_function_info): Permit fvec parameter to be NULL.
+	(dwarf_lookup_pc): Don't use ddata->fvec if threaded.
+
+2013-01-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR other/56076
+	* dwarf.c (read_line_header): Don't crash if DW_AT_comp_dir
+	attribute was not seen.
+
+2013-01-16  Ian Lance Taylor  <iant@google.com>
+
+	* dwarf.c (struct unit): Add filename and abs_filename fields.
+	(build_address_map): Set new fields when reading unit.
+	(dwarf_lookup_pc): If we don't find an entry in the line table,
+	just return the main file name.
+
+2013-01-14  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	Update copyright years.
+
+2013-01-01  Ian Lance Taylor  <iant@google.com>
+
+	PR bootstrap/54834
+	* Makefile.am (AM_CPPFLAGS): Remove -I ../gcc/include and -I
+	$(MULTIBUILDTOP)/../../gcc/include.
+	* Makefile.in: Rebuild.
+
+2013-01-01  Ian Lance Taylor  <iant@google.com>
+
+	PR other/55536
+	* mmap.c (backtrace_alloc): Don't call sync functions if not
+	threaded.
+	(backtrace_free): Likewise.
+
+2012-12-12  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* mmapio.c: Define MAP_FAILED if not defined.
+
+2012-12-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/54926
+	* Makefile.am (AM_CFLAGS): Remove -frandom-seed=$@.
+	* configure.ac: If --with-target-subdir, add -frandom-seed=$@
+	to EXTRA_FLAGS unconditionally, otherwise check whether the compiler
+	accepts it.
+	* Makefile.in: Regenerated.
+	* configure: Regenerated.
+
+2012-12-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/54926
+	* Makefile.am (AM_CFLAGS): Add -frandom-seed=$@.
+	* Makefile.in: Regenerated.
+
+2012-11-20  Ian Lance Taylor  <iant@google.com>
+
+	* dwarf.c (read_attribute): Always clear val.
+
+2012-11-13  Ian Lance Taylor  <iant@google.com>
+
+	PR other/55312
+	* configure.ac: Only add -Werror if building a target library.
+	* configure: Rebuild.
+
+2012-11-12  Ian Lance Taylor  <iant@google.com>
+	    Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+	    Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* configure.ac: Check for getexecname.
+	* fileline.c: #include <errno.h>.  Define getexecname if not
+	available.
+	(fileline_initialize): Try to find the executable in a few
+	different ways.
+	* print.c (error_callback): Only print the filename if it came
+	from the backtrace state.
+	* configure, config.h.in: Rebuild.
+
+2012-10-29  Ian Lance Taylor  <iant@google.com>
+
+	* mmap.c (backtrace_vector_release): Correct last patch: add
+	aligned, not size.
+
+2012-10-29  Ian Lance Taylor  <iant@google.com>
+
+	* mmap.c (backtrace_vector_release): Make sure freed block is
+	aligned on 8-byte boundary.
+
+2012-10-26  Ian Lance Taylor  <iant@google.com>
+
+	PR other/55087
+	* posix.c (backtrace_open): Add does_not_exist parameter.
+	* elf.c (phdr_callback): Do not warn if shared library could not
+	be opened.
+	* fileline.c (fileline_initialize): Update calls to
+	backtrace_open.
+	* internal.h (backtrace_open): Update declaration.
+
+2012-10-26  Jack Howarth  <howarth@bromo.med.uc.edu>
+
+	PR target/55061
+	* configure.ac: Check for _Unwind_GetIPInfo function declaration.
+	* configure: Regenerate.
+
 2012-10-24  Ian Lance Taylor  <iant@google.com>
 
 	PR target/55061

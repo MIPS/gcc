@@ -18,15 +18,20 @@ import (
 	"unicode/utf8"
 )
 
+// An Example represents an example function found in a source files.
 type Example struct {
-	Name     string // name of the item being exemplified
-	Doc      string // example function doc string
-	Code     ast.Node
-	Play     *ast.File // a whole program version of the example
-	Comments []*ast.CommentGroup
-	Output   string // expected output
+	Name        string // name of the item being exemplified
+	Doc         string // example function doc string
+	Code        ast.Node
+	Play        *ast.File // a whole program version of the example
+	Comments    []*ast.CommentGroup
+	Output      string // expected output
+	EmptyOutput bool   // expect empty output
+	Order       int    // original source code order
 }
 
+// Examples returns the examples found in the files, sorted by Name field.
+// The Order fields record the order in which the examples were encountered.
 func Examples(files ...*ast.File) []*Example {
 	var list []*Example
 	for _, file := range files {
@@ -55,13 +60,16 @@ func Examples(files ...*ast.File) []*Example {
 			if f.Doc != nil {
 				doc = f.Doc.Text()
 			}
+			output, hasOutput := exampleOutput(f.Body, file.Comments)
 			flist = append(flist, &Example{
-				Name:     name[len("Example"):],
-				Doc:      doc,
-				Code:     f.Body,
-				Play:     playExample(file, f.Body),
-				Comments: file.Comments,
-				Output:   exampleOutput(f.Body, file.Comments),
+				Name:        name[len("Example"):],
+				Doc:         doc,
+				Code:        f.Body,
+				Play:        playExample(file, f.Body),
+				Comments:    file.Comments,
+				Output:      output,
+				EmptyOutput: output == "" && hasOutput,
+				Order:       len(flist),
 			})
 		}
 		if !hasTests && numDecl > 1 && len(flist) == 1 {
@@ -79,15 +87,22 @@ func Examples(files ...*ast.File) []*Example {
 
 var outputPrefix = regexp.MustCompile(`(?i)^[[:space:]]*output:`)
 
-func exampleOutput(b *ast.BlockStmt, comments []*ast.CommentGroup) string {
+// Extracts the expected output and whether there was a valid output comment
+func exampleOutput(b *ast.BlockStmt, comments []*ast.CommentGroup) (output string, ok bool) {
 	if _, last := lastComment(b, comments); last != nil {
 		// test that it begins with the correct prefix
 		text := last.Text()
 		if loc := outputPrefix.FindStringIndex(text); loc != nil {
-			return strings.TrimSpace(text[loc[1]:])
+			text = text[loc[1]:]
+			// Strip zero or more spaces followed by \n or a single space.
+			text = strings.TrimLeft(text, " ")
+			if len(text) > 0 && text[0] == '\n' {
+				text = text[1:]
+			}
+			return text, true
 		}
 	}
-	return "" // no suitable comment found
+	return "", false // no suitable comment found
 }
 
 // isTest tells whether name looks like a test, example, or benchmark.
@@ -119,22 +134,59 @@ func playExample(file *ast.File, body *ast.BlockStmt) *ast.File {
 		return nil
 	}
 
-	// Find unresolved identifiers 
-	unresolved := make(map[string]bool)
-	ast.Inspect(body, func(n ast.Node) bool {
-		// For an expression like fmt.Println, only add "fmt" to the
-		// set of unresolved names.
-		if e, ok := n.(*ast.SelectorExpr); ok {
-			if id, ok := e.X.(*ast.Ident); ok && id.Obj == nil {
-				unresolved[id.Name] = true
+	// Find top-level declarations in the file.
+	topDecls := make(map[*ast.Object]bool)
+	for _, decl := range file.Decls {
+		switch d := decl.(type) {
+		case *ast.FuncDecl:
+			topDecls[d.Name.Obj] = true
+		case *ast.GenDecl:
+			for _, spec := range d.Specs {
+				switch s := spec.(type) {
+				case *ast.TypeSpec:
+					topDecls[s.Name.Obj] = true
+				case *ast.ValueSpec:
+					for _, id := range s.Names {
+						topDecls[id.Obj] = true
+					}
+				}
 			}
+		}
+	}
+
+	// Find unresolved identifiers and uses of top-level declarations.
+	unresolved := make(map[string]bool)
+	usesTopDecl := false
+	var inspectFunc func(ast.Node) bool
+	inspectFunc = func(n ast.Node) bool {
+		// For selector expressions, only inspect the left hand side.
+		// (For an expression like fmt.Println, only add "fmt" to the
+		// set of unresolved names, not "Println".)
+		if e, ok := n.(*ast.SelectorExpr); ok {
+			ast.Inspect(e.X, inspectFunc)
 			return false
 		}
-		if id, ok := n.(*ast.Ident); ok && id.Obj == nil {
-			unresolved[id.Name] = true
+		// For key value expressions, only inspect the value
+		// as the key should be resolved by the type of the
+		// composite literal.
+		if e, ok := n.(*ast.KeyValueExpr); ok {
+			ast.Inspect(e.Value, inspectFunc)
+			return false
+		}
+		if id, ok := n.(*ast.Ident); ok {
+			if id.Obj == nil {
+				unresolved[id.Name] = true
+			} else if topDecls[id.Obj] {
+				usesTopDecl = true
+			}
 		}
 		return true
-	})
+	}
+	ast.Inspect(body, inspectFunc)
+	if usesTopDecl {
+		// We don't support examples that are not self-contained (yet).
+		return nil
+	}
 
 	// Remove predeclared identifiers from unresolved list.
 	for n := range unresolved {
@@ -145,8 +197,9 @@ func playExample(file *ast.File, body *ast.BlockStmt) *ast.File {
 
 	// Use unresolved identifiers to determine the imports used by this
 	// example. The heuristic assumes package names match base import
-	// paths. (Should be good enough most of the time.)
-	imports := make(map[string]string) // [name]path
+	// paths for imports w/o renames (should be good enough most of the time).
+	namedImports := make(map[string]string) // [name]path
+	var blankImports []ast.Spec             // _ imports
 	for _, s := range file.Imports {
 		p, err := strconv.Unquote(s.Path.Value)
 		if err != nil {
@@ -154,14 +207,18 @@ func playExample(file *ast.File, body *ast.BlockStmt) *ast.File {
 		}
 		n := path.Base(p)
 		if s.Name != nil {
-			if s.Name.Name == "." {
+			n = s.Name.Name
+			switch n {
+			case "_":
+				blankImports = append(blankImports, s)
+				continue
+			case ".":
 				// We can't resolve dot imports (yet).
 				return nil
 			}
-			n = s.Name.Name
 		}
 		if unresolved[n] {
-			imports[n] = p
+			namedImports[n] = p
 			delete(unresolved, n)
 		}
 	}
@@ -172,13 +229,19 @@ func playExample(file *ast.File, body *ast.BlockStmt) *ast.File {
 		return nil
 	}
 
-	// Filter out comments that are outside the function body.
+	// Include documentation belonging to blank imports.
 	var comments []*ast.CommentGroup
-	for _, c := range file.Comments {
-		if c.Pos() < body.Pos() || c.Pos() >= body.End() {
-			continue
+	for _, s := range blankImports {
+		if c := s.(*ast.ImportSpec).Doc; c != nil {
+			comments = append(comments, c)
 		}
-		comments = append(comments, c)
+	}
+
+	// Include comments that are inside the function body.
+	for _, c := range file.Comments {
+		if body.Pos() <= c.Pos() && c.End() <= body.End() {
+			comments = append(comments, c)
+		}
 	}
 
 	// Strip "Output:" commment and adjust body end position.
@@ -190,18 +253,19 @@ func playExample(file *ast.File, body *ast.BlockStmt) *ast.File {
 		Lparen: 1, // Need non-zero Lparen and Rparen so that printer
 		Rparen: 1, // treats this as a factored import.
 	}
-	for n, p := range imports {
+	for n, p := range namedImports {
 		s := &ast.ImportSpec{Path: &ast.BasicLit{Value: strconv.Quote(p)}}
 		if path.Base(p) != n {
 			s.Name = ast.NewIdent(n)
 		}
 		importDecl.Specs = append(importDecl.Specs, s)
 	}
+	importDecl.Specs = append(importDecl.Specs, blankImports...)
 
 	// Synthesize main function.
 	funcDecl := &ast.FuncDecl{
 		Name: ast.NewIdent("main"),
-		Type: &ast.FuncType{},
+		Type: &ast.FuncType{Params: &ast.FieldList{}}, // FuncType.Params must be non-nil
 		Body: body,
 	}
 
@@ -213,7 +277,7 @@ func playExample(file *ast.File, body *ast.BlockStmt) *ast.File {
 	}
 }
 
-// playExample takes a whole file example and synthesizes a new *ast.File
+// playExampleFile takes a whole file example and synthesizes a new *ast.File
 // such that the example is function main in package main.
 func playExampleFile(file *ast.File) *ast.File {
 	// Strip copyright comment if present.
@@ -243,7 +307,7 @@ func playExampleFile(file *ast.File) *ast.File {
 	return &f
 }
 
-// stripOutputComment finds and removes an "Output:" commment from body 
+// stripOutputComment finds and removes an "Output:" commment from body
 // and comments, and adjusts the body block's end position.
 func stripOutputComment(body *ast.BlockStmt, comments []*ast.CommentGroup) (*ast.BlockStmt, []*ast.CommentGroup) {
 	// Do nothing if no "Output:" comment found.

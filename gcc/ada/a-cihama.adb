@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -44,20 +44,6 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
 
    procedure Free_Element is
       new Ada.Unchecked_Deallocation (Element_Type, Element_Access);
-
-   type Iterator is new Limited_Controlled and
-     Map_Iterator_Interfaces.Forward_Iterator with
-   record
-      Container : Map_Access;
-   end record;
-
-   overriding procedure Finalize (Object : in out Iterator);
-
-   overriding function First (Object : Iterator) return Cursor;
-
-   overriding function Next
-     (Object   : Iterator;
-      Position : Cursor) return Cursor;
 
    -----------------------
    -- Local Subprograms --
@@ -183,7 +169,7 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
          Target.Reserve_Capacity (Source.Length);
       end if;
 
-      Insert_Items (Target.HT);
+      Insert_Items (Source.HT);
    end Assign;
 
    --------------
@@ -252,7 +238,8 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
      (Container : aliased Map;
       Key       : Key_Type) return Constant_Reference_Type
    is
-      Node : constant Node_Access := Key_Ops.Find (Container.HT, Key);
+      HT   : Hash_Table_Type renames Container'Unrestricted_Access.HT;
+      Node : constant Node_Access := Key_Ops.Find (HT, Key);
 
    begin
       if Node = null then
@@ -264,8 +251,6 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
       end if;
 
       declare
-         M : Map renames Container'Unrestricted_Access.all;
-         HT : Hash_Table_Type renames M.HT'Unrestricted_Access.all;
          B : Natural renames HT.Busy;
          L : Natural renames HT.Lock;
       begin
@@ -323,11 +308,9 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
    function Copy_Node (Node : Node_Access) return Node_Access is
       K : Key_Access := new Key_Type'(Node.Key.all);
       E : Element_Access;
-
    begin
       E := new Element_Type'(Node.Element.all);
       return new Node_Type'(K, E, null);
-
    exception
       when others =>
          Free_Key (K);
@@ -382,7 +365,8 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
    -------------
 
    function Element (Container : Map; Key : Key_Type) return Element_Type is
-      Node : constant Node_Access := Key_Ops.Find (Container.HT, Key);
+      HT   : Hash_Table_Type renames Container'Unrestricted_Access.HT;
+      Node : constant Node_Access := Key_Ops.Find (HT, Key);
 
    begin
       if Node = null then
@@ -547,7 +531,8 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
    ----------
 
    function Find (Container : Map; Key : Key_Type) return Cursor is
-      Node : constant Node_Access := Key_Ops.Find (Container.HT, Key);
+      HT   : Hash_Table_Type renames Container'Unrestricted_Access.HT;
+      Node : constant Node_Access := Key_Ops.Find (HT, Key);
 
    begin
       if Node = null then
@@ -616,6 +601,7 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
 
       begin
          Free_Key (X.Key);
+
       exception
          when others =>
             X.Key := null;
@@ -636,7 +622,6 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
       exception
          when others =>
             X.Element := null;
-
             Deallocate (X);
             raise;
       end;
@@ -992,10 +977,12 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
 
          begin
             Process (K, E);
+
          exception
             when others =>
                L := L - 1;
                B := B - 1;
+
                raise;
          end;
 
@@ -1120,7 +1107,8 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
      (Container : aliased in out Map;
       Key       : Key_Type) return Reference_Type
    is
-      Node : constant Node_Access := Key_Ops.Find (Container.HT, Key);
+      HT   : Hash_Table_Type renames Container.HT;
+      Node : constant Node_Access := Key_Ops.Find (HT, Key);
 
    begin
       if Node = null then
@@ -1132,8 +1120,6 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
       end if;
 
       declare
-         M : Map renames Container'Unrestricted_Access.all;
-         HT : Hash_Table_Type renames M.HT'Unrestricted_Access.all;
          B : Natural renames HT.Busy;
          L : Natural renames HT.Lock;
       begin
@@ -1367,7 +1353,7 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
             return False;
          end if;
 
-         X := HT.Buckets (Key_Ops.Index (HT, Position.Node.Key.all));
+         X := HT.Buckets (Key_Ops.Checked_Index (HT, Position.Node.Key.all));
 
          for J in 1 .. HT.Length loop
             if X = Position.Node then

@@ -1,6 +1,5 @@
 /* Decompose multiword subregs.
-   Copyright (C) 2007, 2008, 2009, 2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 2007-2014 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>
 		  Ian Lance Taylor <iant@google.com>
 
@@ -25,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "machmode.h"
 #include "tm.h"
+#include "tree.h"
 #include "rtl.h"
 #include "tm_p.h"
 #include "flags.h"
@@ -48,8 +48,6 @@ along with GCC; see the file COPYING3.  If not see
 # define STACK_GROWS_DOWNWARD 0
 #endif
 
-DEF_VEC_P (bitmap);
-DEF_VEC_ALLOC_P (bitmap,heap);
 
 /* Decompose multi-word pseudo-registers into individual
    pseudo-registers when possible and profitable.  This is possible
@@ -60,9 +58,9 @@ DEF_VEC_ALLOC_P (bitmap,heap);
    to do this.
 
    This pass only splits moves with modes that are wider than
-   word_mode and ASHIFTs, LSHIFTRTs and ZERO_EXTENDs with integer
-   modes that are twice the width of word_mode.  The latter could be
-   generalized if there was a need to do this, but the trend in
+   word_mode and ASHIFTs, LSHIFTRTs, ASHIFTRTs and ZERO_EXTENDs with
+   integer modes that are twice the width of word_mode.  The latter
+   could be generalized if there was a need to do this, but the trend in
    architectures is to not need this.
 
    There are two useful preprocessor defines for use by maintainers:
@@ -98,7 +96,7 @@ static bitmap subreg_context;
 
 /* Bit N in the bitmap in element M of this array is set if there is a
    copy from reg M to reg N.  */
-static VEC(bitmap,heap) *reg_copy_graph;
+static vec<bitmap> reg_copy_graph;
 
 struct target_lower_subreg default_target_lower_subreg;
 #if SWITCHABLE_TARGET
@@ -155,7 +153,7 @@ compute_splitting_shift (bool speed_p, struct cost_rtxes *rtxes,
 			 bool *splitting, enum rtx_code code,
 			 int word_move_zero_cost, int word_move_cost)
 {
-  int wide_cost, narrow_cost, i;
+  int wide_cost, narrow_cost, upper_cost, i;
 
   for (i = 0; i < BITS_PER_WORD; i++)
     {
@@ -166,13 +164,20 @@ compute_splitting_shift (bool speed_p, struct cost_rtxes *rtxes,
       else
 	narrow_cost = shift_cost (speed_p, rtxes, code, word_mode, i);
 
+      if (code != ASHIFTRT)
+	upper_cost = word_move_zero_cost;
+      else if (i == BITS_PER_WORD - 1)
+	upper_cost = word_move_cost;
+      else
+	upper_cost = shift_cost (speed_p, rtxes, code, word_mode,
+				 BITS_PER_WORD - 1);
+
       if (LOG_COSTS)
 	fprintf (stderr, "%s %s by %d: original cost %d, split cost %d + %d\n",
 		 GET_MODE_NAME (twice_word_mode), GET_RTX_NAME (code),
-		 i + BITS_PER_WORD, wide_cost, narrow_cost,
-		 word_move_zero_cost);
+		 i + BITS_PER_WORD, wide_cost, narrow_cost, upper_cost);
 
-      if (FORCE_LOWERING || wide_cost >= narrow_cost + word_move_zero_cost)
+      if (FORCE_LOWERING || wide_cost >= narrow_cost + upper_cost)
 	splitting[i] = true;
     }
 }
@@ -250,6 +255,9 @@ compute_costs (bool speed_p, struct cost_rtxes *rtxes)
 			       word_move_zero_cost, word_move_cost);
       compute_splitting_shift (speed_p, rtxes,
 			       choices[speed_p].splitting_lshiftrt, LSHIFTRT,
+			       word_move_zero_cost, word_move_cost);
+      compute_splitting_shift (speed_p, rtxes,
+			       choices[speed_p].splitting_ashiftrt, ASHIFTRT,
 			       word_move_zero_cost, word_move_cost);
     }
 }
@@ -346,7 +354,7 @@ simple_move (rtx insn, bool speed_p)
      registers.  That means that we can't decompose if this is a
      non-integer mode for which there is no integer mode of the same
      size.  */
-  mode = GET_MODE (SET_SRC (set));
+  mode = GET_MODE (SET_DEST (set));
   if (!SCALAR_INT_MODE_P (mode)
       && (mode_for_size (GET_MODE_SIZE (mode) * BITS_PER_UNIT, MODE_INT, 0)
 	  == BLKmode))
@@ -383,11 +391,11 @@ find_pseudo_copy (rtx set)
   if (HARD_REGISTER_NUM_P (rd) || HARD_REGISTER_NUM_P (rs))
     return false;
 
-  b = VEC_index (bitmap, reg_copy_graph, rs);
+  b = reg_copy_graph[rs];
   if (b == NULL)
     {
       b = BITMAP_ALLOC (NULL);
-      VEC_replace (bitmap, reg_copy_graph, rs, b);
+      reg_copy_graph[rs] = b;
     }
 
   bitmap_set_bit (b, rd);
@@ -419,7 +427,7 @@ propagate_pseudo_copies (void)
 
       EXECUTE_IF_SET_IN_BITMAP (queue, 0, i, iter)
 	{
-	  bitmap b = VEC_index (bitmap, reg_copy_graph, i);
+	  bitmap b = reg_copy_graph[i];
 	  if (b)
 	    bitmap_ior_and_compl_into (propagate, b, non_decomposable_context);
 	}
@@ -959,7 +967,20 @@ resolve_simple_move (rtx set, rtx insn)
       rtx reg;
 
       reg = gen_reg_rtx (orig_mode);
+
+#ifdef AUTO_INC_DEC
+      {
+	rtx move = emit_move_insn (reg, src);
+	if (MEM_P (src))
+	  {
+	    rtx note = find_reg_note (insn, REG_INC, NULL_RTX);
+	    if (note)
+	      add_reg_note (move, REG_INC, XEXP (note, 0));
+	  }
+      }
+#else
       emit_move_insn (reg, src);
+#endif
       src = reg;
     }
 
@@ -1049,6 +1070,16 @@ resolve_simple_move (rtx set, rtx insn)
 	mdest = simplify_gen_subreg (orig_mode, dest, GET_MODE (dest), 0);
       minsn = emit_move_insn (real_dest, mdest);
 
+#ifdef AUTO_INC_DEC
+  if (MEM_P (real_dest)
+      && !(resolve_reg_p (real_dest) || resolve_subreg_p (real_dest)))
+    {
+      rtx note = find_reg_note (insn, REG_INC, NULL_RTX);
+      if (note)
+	add_reg_note (minsn, REG_INC, XEXP (note, 0));
+    }
+#endif
+
       smove = single_set (minsn);
       gcc_assert (smove != NULL_RTX);
 
@@ -1062,7 +1093,13 @@ resolve_simple_move (rtx set, rtx insn)
 
   emit_insn_before (insns, insn);
 
-  delete_insn (insn);
+  /* If we get here via self-recursion, then INSN is not yet in the insns
+     chain and delete_insn will fail.  We only want to remove INSN from the
+     current sequence.  See PR56738.  */
+  if (in_sequence_p ())
+    remove_insn (insn);
+  else
+    delete_insn (insn);
 
   return insns;
 }
@@ -1156,6 +1193,7 @@ find_decomposable_shift_zext (rtx insn, bool speed_p)
   op = SET_SRC (set);
   if (GET_CODE (op) != ASHIFT
       && GET_CODE (op) != LSHIFTRT
+      && GET_CODE (op) != ASHIFTRT
       && GET_CODE (op) != ZERO_EXTEND)
     return false;
 
@@ -1176,6 +1214,8 @@ find_decomposable_shift_zext (rtx insn, bool speed_p)
     {
       bool *splitting = (GET_CODE (op) == ASHIFT
 			 ? choices[speed_p].splitting_ashift
+			 : GET_CODE (op) == ASHIFTRT
+			 ? choices[speed_p].splitting_ashiftrt
 			 : choices[speed_p].splitting_lshiftrt);
       if (!CONST_INT_P (XEXP (op, 1))
 	  || !IN_RANGE (INTVAL (XEXP (op, 1)), BITS_PER_WORD,
@@ -1203,7 +1243,7 @@ resolve_shift_zext (rtx insn)
   rtx op;
   rtx op_operand;
   rtx insns;
-  rtx src_reg, dest_reg, dest_zero;
+  rtx src_reg, dest_reg, dest_upper, upper_src = NULL_RTX;
   int src_reg_num, dest_reg_num, offset1, offset2, src_offset;
 
   set = single_set (insn);
@@ -1213,6 +1253,7 @@ resolve_shift_zext (rtx insn)
   op = SET_SRC (set);
   if (GET_CODE (op) != ASHIFT
       && GET_CODE (op) != LSHIFTRT
+      && GET_CODE (op) != ASHIFTRT
       && GET_CODE (op) != ZERO_EXTEND)
     return NULL_RTX;
 
@@ -1226,7 +1267,8 @@ resolve_shift_zext (rtx insn)
   /* src_reg_num is the number of the word mode register which we
      are operating on.  For a left shift and a zero_extend on little
      endian machines this is register 0.  */
-  src_reg_num = GET_CODE (op) == LSHIFTRT ? 1 : 0;
+  src_reg_num = (GET_CODE (op) == LSHIFTRT || GET_CODE (op) == ASHIFTRT)
+		? 1 : 0;
 
   if (WORDS_BIG_ENDIAN
       && GET_MODE_SIZE (GET_MODE (op_operand)) > UNITS_PER_WORD)
@@ -1246,12 +1288,17 @@ resolve_shift_zext (rtx insn)
   dest_reg = simplify_gen_subreg_concatn (word_mode, SET_DEST (set),
                                           GET_MODE (SET_DEST (set)),
                                           offset1);
-  dest_zero = simplify_gen_subreg_concatn (word_mode, SET_DEST (set),
-                                           GET_MODE (SET_DEST (set)),
-                                           offset2);
+  dest_upper = simplify_gen_subreg_concatn (word_mode, SET_DEST (set),
+					    GET_MODE (SET_DEST (set)),
+					    offset2);
   src_reg = simplify_gen_subreg_concatn (word_mode, op_operand,
                                          GET_MODE (op_operand),
                                          src_offset);
+  if (GET_CODE (op) == ASHIFTRT
+      && INTVAL (XEXP (op, 1)) != 2 * BITS_PER_WORD - 1)
+    upper_src = expand_shift (RSHIFT_EXPR, word_mode, copy_rtx (src_reg),
+			      BITS_PER_WORD - 1, NULL_RTX, 0);
+
   if (GET_CODE (op) != ZERO_EXTEND)
     {
       int shift_count = INTVAL (XEXP (op, 1));
@@ -1260,12 +1307,17 @@ resolve_shift_zext (rtx insn)
 				LSHIFT_EXPR : RSHIFT_EXPR,
 				word_mode, src_reg,
 				shift_count - BITS_PER_WORD,
-				dest_reg, 1);
+				dest_reg, GET_CODE (op) != ASHIFTRT);
     }
 
   if (dest_reg != src_reg)
     emit_move_insn (dest_reg, src_reg);
-  emit_move_insn (dest_zero, CONST0_RTX (word_mode));
+  if (GET_CODE (op) != ASHIFTRT)
+    emit_move_insn (dest_upper, CONST0_RTX (word_mode));
+  else if (INTVAL (XEXP (op, 1)) == 2 * BITS_PER_WORD - 1)
+    emit_move_insn (dest_upper, copy_rtx (src_reg));
+  else
+    emit_move_insn (dest_upper, upper_src);
   insns = get_insns ();
 
   end_sequence ();
@@ -1331,7 +1383,8 @@ dump_choices (bool speed_p, const char *description)
 	   GET_MODE_NAME (twice_word_mode));
 
   dump_shift_choices (ASHIFT, choices[speed_p].splitting_ashift);
-  dump_shift_choices (LSHIFTRT, choices[speed_p].splitting_ashift);
+  dump_shift_choices (LSHIFTRT, choices[speed_p].splitting_lshiftrt);
+  dump_shift_choices (ASHIFTRT, choices[speed_p].splitting_ashiftrt);
   fprintf (dump_file, "\n");
 }
 
@@ -1405,12 +1458,12 @@ decompose_multiword_subregs (bool decompose_copies)
   non_decomposable_context = BITMAP_ALLOC (NULL);
   subreg_context = BITMAP_ALLOC (NULL);
 
-  reg_copy_graph = VEC_alloc (bitmap, heap, max);
-  VEC_safe_grow (bitmap, heap, reg_copy_graph, max);
-  memset (VEC_address (bitmap, reg_copy_graph), 0, sizeof (bitmap) * max);
+  reg_copy_graph.create (max);
+  reg_copy_graph.safe_grow_cleared (max);
+  memset (reg_copy_graph.address (), 0, sizeof (bitmap) * max);
 
   speed_p = optimize_function_for_speed_p (cfun);
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       rtx insn;
 
@@ -1484,13 +1537,13 @@ decompose_multiword_subregs (bool decompose_copies)
 
       propagate_pseudo_copies ();
 
-      sub_blocks = sbitmap_alloc (last_basic_block);
-      sbitmap_zero (sub_blocks);
+      sub_blocks = sbitmap_alloc (last_basic_block_for_fn (cfun));
+      bitmap_clear (sub_blocks);
 
       EXECUTE_IF_SET_IN_BITMAP (decomposable_context, 0, regno, iter)
 	decompose_register (regno);
 
-      FOR_EACH_BB (bb)
+      FOR_EACH_BB_FN (bb, cfun)
 	{
 	  rtx insn;
 
@@ -1544,7 +1597,7 @@ decompose_multiword_subregs (bool decompose_copies)
 			  extract_insn (insn);
 
 			  if (cfi)
-			    SET_BIT (sub_blocks, bb->index);
+			    bitmap_set_bit (sub_blocks, bb->index);
 			}
 		    }
 		  else
@@ -1589,12 +1642,12 @@ decompose_multiword_subregs (bool decompose_copies)
 	 of a basic block, split those blocks now.  Note that we only handle
 	 the case where splitting a load has caused multiple possibly trapping
 	 loads to appear.  */
-      EXECUTE_IF_SET_IN_SBITMAP (sub_blocks, 0, i, sbi)
+      EXECUTE_IF_SET_IN_BITMAP (sub_blocks, 0, i, sbi)
 	{
 	  rtx insn, end;
 	  edge fallthru;
 
-	  bb = BASIC_BLOCK (i);
+	  bb = BASIC_BLOCK_FOR_FN (cfun, i);
 	  insn = BB_HEAD (bb);
 	  end = BB_END (bb);
 
@@ -1622,12 +1675,12 @@ decompose_multiword_subregs (bool decompose_copies)
     unsigned int i;
     bitmap b;
 
-    FOR_EACH_VEC_ELT (bitmap, reg_copy_graph, i, b)
+    FOR_EACH_VEC_ELT (reg_copy_graph, i, b)
       if (b)
 	BITMAP_FREE (b);
   }
 
-  VEC_free (bitmap, heap, reg_copy_graph);
+  reg_copy_graph.release ();
 
   BITMAP_FREE (decomposable_context);
   BITMAP_FREE (non_decomposable_context);
@@ -1660,43 +1713,79 @@ rest_of_handle_lower_subreg2 (void)
   return 0;
 }
 
-struct rtl_opt_pass pass_lower_subreg =
+namespace {
+
+const pass_data pass_data_lower_subreg =
 {
- {
-  RTL_PASS,
-  "subreg1",	                        /* name */
-  gate_handle_lower_subreg,             /* gate */
-  rest_of_handle_lower_subreg,          /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_LOWER_SUBREG,                      /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_ggc_collect |
-  TODO_verify_flow                      /* todo_flags_finish */
- }
+  RTL_PASS, /* type */
+  "subreg1", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_LOWER_SUBREG, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  TODO_verify_flow, /* todo_flags_finish */
 };
 
-struct rtl_opt_pass pass_lower_subreg2 =
+class pass_lower_subreg : public rtl_opt_pass
 {
- {
-  RTL_PASS,
-  "subreg2",	                        /* name */
-  gate_handle_lower_subreg,             /* gate */
-  rest_of_handle_lower_subreg2,          /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_LOWER_SUBREG,                      /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_ggc_collect |
-  TODO_verify_flow                      /* todo_flags_finish */
- }
+public:
+  pass_lower_subreg (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_lower_subreg, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_handle_lower_subreg (); }
+  unsigned int execute () { return rest_of_handle_lower_subreg (); }
+
+}; // class pass_lower_subreg
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_lower_subreg (gcc::context *ctxt)
+{
+  return new pass_lower_subreg (ctxt);
+}
+
+namespace {
+
+const pass_data pass_data_lower_subreg2 =
+{
+  RTL_PASS, /* type */
+  "subreg2", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_LOWER_SUBREG, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  ( TODO_df_finish | TODO_verify_rtl_sharing
+    | TODO_verify_flow ), /* todo_flags_finish */
 };
+
+class pass_lower_subreg2 : public rtl_opt_pass
+{
+public:
+  pass_lower_subreg2 (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_lower_subreg2, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_handle_lower_subreg (); }
+  unsigned int execute () { return rest_of_handle_lower_subreg2 (); }
+
+}; // class pass_lower_subreg2
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_lower_subreg2 (gcc::context *ctxt)
+{
+  return new pass_lower_subreg2 (ctxt);
+}

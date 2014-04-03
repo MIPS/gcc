@@ -160,6 +160,9 @@ cat > sysinfo.c <<EOF
 #if defined(HAVE_SYS_INOTIFY_H)
 #include <sys/inotify.h>
 #endif
+#if defined(HAVE_NETINET_ICMP6_H)
+#include <netinet/icmp6.h>
+#endif
 
 /* Constants that may only be defined as expressions on some systems,
    expressions too complex for -fdump-go-spec to handle.  These are
@@ -167,6 +170,12 @@ cat > sysinfo.c <<EOF
 enum {
 #ifdef TIOCGWINSZ
   TIOCGWINSZ_val = TIOCGWINSZ,
+#endif
+#ifdef TIOCNOTTY
+  TIOCNOTTY_val = TIOCNOTTY,
+#endif
+#ifdef TIOCSCTTY
+  TIOCSCTTY_val = TIOCSCTTY,
 #endif
 };
 EOF
@@ -209,6 +218,11 @@ if ! grep '^const O_ASYNC' ${OUT} >/dev/null 2>&1; then
 fi
 if ! grep '^const O_CLOEXEC' ${OUT} >/dev/null 2>&1; then
   echo "const O_CLOEXEC = 0" >> ${OUT}
+fi
+
+# The os package requires F_DUPFD_CLOEXEC to be defined.
+if ! grep '^const F_DUPFD_CLOEXEC' ${OUT} >/dev/null 2>&1; then
+  echo "const F_DUPFD_CLOEXEC = 0" >> ${OUT}
 fi
 
 # These flags can be lost on i386 GNU/Linux when using
@@ -297,6 +311,18 @@ for m in IP_PKTINFO IPV6_V6ONLY IPPROTO_IPV6 IPV6_JOIN_GROUP IPV6_LEAVE_GROUP IP
     echo "const $m = 0" >> ${OUT}
   fi
 done
+for m in SOCK_CLOEXEC SOCK_NONBLOCK; do
+  if ! grep "^const $m " ${OUT} >/dev/null 2>&1; then
+    echo "const $m = -1" >> ${OUT}
+  fi
+done
+
+# The syscall package requires AF_LOCAL.
+if ! grep '^const AF_LOCAL ' ${OUT} >/dev/null 2>&1; then
+  if grep '^const AF_UNIX ' ${OUT} >/dev/null 2>&1; then
+    echo "const AF_LOCAL = AF_UNIX" >> ${OUT}
+  fi
+fi
 
 # pathconf constants.
 grep '^const __PC' gen-sysinfo.go |
@@ -414,7 +440,20 @@ echo "type Uid_t _uid_t" >> ${OUT}
 echo "type Gid_t _gid_t" >> ${OUT}
 echo "type Socklen_t _socklen_t" >> ${OUT}
 
-# The long type, needed because that is the type that ptrace returns.
+# The C int type.
+sizeof_int=`grep '^const ___SIZEOF_INT__ = ' gen-sysinfo.go | sed -e 's/.*= //'`
+if test "$sizeof_int" = "4"; then
+  echo "type _C_int int32" >> ${OUT}
+  echo "type _C_uint uint32" >> ${OUT}
+elif test "$sizeof_int" = "8"; then
+  echo "type _C_int int64" >> ${OUT}
+  echo "type _C_uint uint64" >> ${OUT}
+else
+  echo 1>&2 "mksysinfo.sh: could not determine size of int (got $sizeof_int)"
+  exit 1
+fi
+
+# The C long type, needed because that is the type that ptrace returns.
 sizeof_long=`grep '^const ___SIZEOF_LONG__ = ' gen-sysinfo.go | sed -e 's/.*= //'`
 if test "$sizeof_long" = "4"; then
   echo "type _C_long int32" >> ${OUT}
@@ -678,6 +717,18 @@ if ! grep 'type IPMreqn ' ${OUT} >/dev/null 2>&1; then
   echo 'type IPMreqn struct { Multiaddr [4]byte; Interface [4]byte; Ifindex int32 }' >> ${OUT}
 fi
 
+# The icmp6_filter struct.
+grep '^type _icmp6_filter ' gen-sysinfo.go | \
+    sed -e 's/_icmp6_filter/ICMPv6Filter/' \
+      -e 's/data/Data/' \
+      -e 's/filt/Filt/' \
+    >> ${OUT}
+
+# We need ICMPv6Filter to compile the syscall package.
+if ! grep 'type ICMPv6Filter ' ${OUT} > /dev/null 2>&1; then
+  echo 'type ICMPv6Filter struct { Data [8]uint32 }' >> ${OUT}
+fi
+
 # Try to guess the type to use for fd_set.
 fd_set=`grep '^type _fd_set ' gen-sysinfo.go || true`
 fds_bits_type="_C_long"
@@ -712,6 +763,16 @@ grep '^const _TIOC' gen-sysinfo.go | \
 if ! grep '^const TIOCGWINSZ' ${OUT} >/dev/null 2>&1; then
   if grep '^const _TIOCGWINSZ_val' ${OUT} >/dev/null 2>&1; then
     echo 'const TIOCGWINSZ = _TIOCGWINSZ_val' >> ${OUT}
+  fi
+fi
+if ! grep '^const TIOCNOTTY' ${OUT} >/dev/null 2>&1; then
+  if grep '^const _TIOCNOTTY_val' ${OUT} >/dev/null 2>&1; then
+    echo 'const TIOCNOTTY = _TIOCNOTTY_val' >> ${OUT}
+  fi
+fi
+if ! grep '^const TIOCSCTTY' ${OUT} >/dev/null 2>&1; then
+  if grep '^const _TIOCSCTTY_val' ${OUT} >/dev/null 2>&1; then
+    echo 'const TIOCSCTTY = _TIOCSCTTY_val' >> ${OUT}
   fi
 fi
 
@@ -994,6 +1055,10 @@ grep '^type _utimbuf ' gen-sysinfo.go | \
 grep '^const _LOCK_' gen-sysinfo.go |
     sed -e 's/^\(const \)_\(LOCK_[^= ]*\)\(.*\)$/\1\2 = _\2/' >> ${OUT}
 
+# The PRIO constants.
+grep '^const _PRIO_' gen-sysinfo.go | \
+  sed -e 's/^\(const \)_\(PRIO_[^= ]*\)\(.*\)$/\1\2 = _\2/' >> ${OUT}
+
 # The GNU/Linux LINUX_REBOOT flags.
 grep '^const _LINUX_REBOOT_' gen-sysinfo.go |
     sed -e 's/^\(const \)_\(LINUX_REBOOT_[^= ]*\)\(.*\)$/\1\2 = _\2/' >> ${OUT}
@@ -1076,7 +1141,8 @@ set cmsghdr Cmsghdr ip_mreq IPMreq ip_mreqn IPMreqn ipv6_mreq IPv6Mreq \
     in6_pktinfo Inet6Pktinfo inotify_event InotifyEvent linger Linger \
     msghdr Msghdr nlattr NlAttr nlmsgerr NlMsgerr nlmsghdr NlMsghdr \
     rtattr RtAttr rtgenmsg RtGenmsg rtmsg RtMsg rtnexthop RtNexthop \
-    sock_filter SockFilter sock_fprog SockFprog ucred Ucred
+    sock_filter SockFilter sock_fprog SockFprog ucred Ucred \
+    icmp6_filter ICMPv6Filter
 while test $# != 0; do
     nc=$1
     ngo=$2
@@ -1097,6 +1163,9 @@ if ! grep 'const SizeofIPv6Mreq ' ${OUT} >/dev/null 2>&1; then
 fi
 if ! grep 'const SizeofIPMreqn ' ${OUT} >/dev/null 2>&1; then
     echo 'const SizeofIPMreqn = 12' >> ${OUT}
+fi
+if ! grep 'const SizeofICMPv6Filter ' ${OUT} >/dev/null 2>&1; then
+    echo 'const SizeofICMPv6Filter = 32' >> ${OUT}
 fi
 
 exit $?

@@ -1,5 +1,4 @@
-#  Copyright (C) 2003,2004,2005,2006,2007,2008, 2010, 2011, 2012
-#  Free Software Foundation, Inc.
+#  Copyright (C) 2003-2014 Free Software Foundation, Inc.
 #  Contributed by Kelley Cook, June 2004.
 #  Original code from Neil Booth, May 2003.
 #
@@ -382,6 +381,8 @@ for (i = 0; i < n_opts; i++) {
 			extra_mask_macros[name] = 1
 		}
 		print "#define TARGET_" name \
+		      " ((" vname " & " mask name ") != 0)"
+		print "#define TARGET_" name "_P(" vname ")" \
 		      " ((" vname " & " mask name ") != 0)"
 	}
 }

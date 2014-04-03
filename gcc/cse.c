@@ -1,7 +1,5 @@
 /* Common subexpression elimination for GNU compiler.
-   Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-   2011 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -470,7 +468,7 @@ struct table_elt
    a cost of 2.  Aside from these special cases, call `rtx_cost'.  */
 
 #define CHEAP_REGNO(N)							\
-  (REGNO_PTR_FRAME_P(N)							\
+  (REGNO_PTR_FRAME_P (N)						\
    || (HARD_REGISTER_NUM_P (N)						\
        && FIXED_REGNO_P (N) && REGNO_REG_CLASS (N) != NO_REGS))
 
@@ -1356,6 +1354,11 @@ try_const_anchors (rtx src_const, enum machine_mode mode)
   rtx lower_exp = NULL_RTX, upper_exp = NULL_RTX;
   unsigned lower_old, upper_old;
 
+  /* CONST_INT is used for CC modes, but we should leave those alone.  */
+  if (GET_MODE_CLASS (mode) == MODE_CC)
+    return NULL_RTX;
+
+  gcc_assert (SCALAR_INT_MODE_P (mode));
   if (!compute_const_anchors (src_const, &lower_base, &lower_offs,
 			      &upper_base, &upper_offs))
     return NULL_RTX;
@@ -1826,7 +1829,7 @@ flush_hash_table (void)
       }
 }
 
-/* Function called for each rtx to check whether true dependence exist.  */
+/* Function called for each rtx to check whether an anti dependence exist.  */
 struct check_dependence_data
 {
   enum machine_mode mode;
@@ -1839,7 +1842,7 @@ check_dependence (rtx *x, void *data)
 {
   struct check_dependence_data *d = (struct check_dependence_data *) data;
   if (*x && MEM_P (*x))
-    return canon_true_dependence (d->exp, d->mode, d->addr, *x, NULL_RTX);
+    return canon_anti_dependence (*x, true, d->exp, d->mode, d->addr);
   else
     return 0;
 }
@@ -2547,7 +2550,7 @@ hash_rtx_cb (const_rtx x, enum machine_mode mode,
    Store 1 in DO_NOT_RECORD_P if any subexpression is volatile.
 
    If HASH_ARG_IN_MEMORY_P is not NULL, store 1 in it if X contains
-   a MEM rtx which does not have the RTX_UNCHANGING_P bit set.
+   a MEM rtx which does not have the MEM_READONLY_P flag set.
 
    Note that cse_insn knows that the hash code of a MEM expression
    is just (int) MEM plus the hash code of the address.  */
@@ -2563,7 +2566,7 @@ hash_rtx (const_rtx x, enum machine_mode mode, int *do_not_record_p,
 /* Hash an rtx X for cse via hash_rtx.
    Stores 1 in do_not_record if any subexpression is volatile.
    Stores 1 in hash_arg_in_memory if X contains a mem rtx which
-   does not have the RTX_UNCHANGING_P bit set.  */
+   does not have the MEM_READONLY_P flag set.  */
 
 static inline unsigned
 canon_hash (rtx x, enum machine_mode mode)
@@ -3196,9 +3199,27 @@ fold_rtx (rtx x, rtx insn)
 
 #ifdef HAVE_cc0
 	  case CC0:
-	    folded_arg = prev_insn_cc0;
-	    mode_arg = prev_insn_cc0_mode;
-	    const_arg = equiv_constant (folded_arg);
+	    /* The cc0-user and cc0-setter may be in different blocks if
+	       the cc0-setter potentially traps.  In that case PREV_INSN_CC0
+	       will have been cleared as we exited the block with the
+	       setter.
+
+	       While we could potentially track cc0 in this case, it just
+	       doesn't seem to be worth it given that cc0 targets are not
+	       terribly common or important these days and trapping math
+	       is rarely used.  The combination of those two conditions
+	       necessary to trip this situation is exceedingly rare in the
+	       real world.  */
+	    if (!prev_insn_cc0)
+	      {
+		const_arg = NULL_RTX;
+	      }
+	    else
+	      {
+		folded_arg = prev_insn_cc0;
+		mode_arg = prev_insn_cc0_mode;
+		const_arg = equiv_constant (folded_arg);
+	      }
 	    break;
 #endif
 
@@ -3285,8 +3306,8 @@ fold_rtx (rtx x, rtx insn)
 	  break;
 
 	new_rtx = simplify_unary_operation (code, mode,
-					const_arg0 ? const_arg0 : folded_arg0,
-					mode_arg0);
+					    const_arg0 ? const_arg0 : folded_arg0,
+					    mode_arg0);
       }
       break;
 
@@ -4836,7 +4857,7 @@ cse_insn (rtx insn)
 
 	  /* Set what we are trying to extend and the operation it might
 	     have been extended with.  */
-	  memset (memory_extend_rtx, 0, sizeof(*memory_extend_rtx));
+	  memset (memory_extend_rtx, 0, sizeof (*memory_extend_rtx));
 	  PUT_CODE (memory_extend_rtx, LOAD_EXTEND_OP (mode));
 	  XEXP (memory_extend_rtx, 0) = src;
 
@@ -5313,33 +5334,33 @@ cse_insn (rtx insn)
 	}
 
       /* If this is a single SET, we are setting a register, and we have an
-	 equivalent constant, we want to add a REG_NOTE.   We don't want
-	 to write a REG_EQUAL note for a constant pseudo since verifying that
-	 that pseudo hasn't been eliminated is a pain.  Such a note also
-	 won't help anything.
+	 equivalent constant, we want to add a REG_EQUAL note if the constant
+	 is different from the source.  We don't want to do it for a constant
+	 pseudo since verifying that this pseudo hasn't been eliminated is a
+	 pain; moreover such a note won't help anything.
 
 	 Avoid a REG_EQUAL note for (CONST (MINUS (LABEL_REF) (LABEL_REF)))
 	 which can be created for a reference to a compile time computable
 	 entry in a jump table.  */
-
-      if (n_sets == 1 && src_const && REG_P (dest)
+      if (n_sets == 1
+	  && REG_P (dest)
+	  && src_const
 	  && !REG_P (src_const)
-	  && ! (GET_CODE (src_const) == CONST
-		&& GET_CODE (XEXP (src_const, 0)) == MINUS
-		&& GET_CODE (XEXP (XEXP (src_const, 0), 0)) == LABEL_REF
-		&& GET_CODE (XEXP (XEXP (src_const, 0), 1)) == LABEL_REF))
+	  && !(GET_CODE (src_const) == SUBREG
+	       && REG_P (SUBREG_REG (src_const)))
+	  && !(GET_CODE (src_const) == CONST
+	       && GET_CODE (XEXP (src_const, 0)) == MINUS
+	       && GET_CODE (XEXP (XEXP (src_const, 0), 0)) == LABEL_REF
+	       && GET_CODE (XEXP (XEXP (src_const, 0), 1)) == LABEL_REF)
+	  && !rtx_equal_p (src, src_const))
 	{
-	  /* We only want a REG_EQUAL note if src_const != src.  */
-	  if (! rtx_equal_p (src, src_const))
-	    {
-	      /* Make sure that the rtx is not shared.  */
-	      src_const = copy_rtx (src_const);
+	  /* Make sure that the rtx is not shared.  */
+	  src_const = copy_rtx (src_const);
 
-	      /* Record the actual constant value in a REG_EQUAL note,
-		 making a new one if one does not already exist.  */
-	      set_unique_reg_note (insn, REG_EQUAL, src_const);
-	      df_notes_rescan (insn);
-	    }
+	  /* Record the actual constant value in a REG_EQUAL note,
+	     making a new one if one does not already exist.  */
+	  set_unique_reg_note (insn, REG_EQUAL, src_const);
+	  df_notes_rescan (insn);
 	}
 
       /* Now deal with the destination.  */
@@ -5383,7 +5404,7 @@ cse_insn (rtx insn)
 	      && CONST_INT_P (width)
 	      && INTVAL (width) < HOST_BITS_PER_WIDE_INT
 	      && ! (INTVAL (src_const)
-		    & ((HOST_WIDE_INT) (-1) << INTVAL (width))))
+		    & (HOST_WIDE_INT_M1U << INTVAL (width))))
 	    /* Exception: if the value is constant,
 	       and it won't be truncated, record it.  */
 	    ;
@@ -5660,12 +5681,6 @@ cse_insn (rtx insn)
 		 || GET_CODE (dest) == ZERO_EXTRACT)
 	  invalidate (XEXP (dest, 0), GET_MODE (dest));
       }
-
-  /* A volatile ASM invalidates everything.  */
-  if (NONJUMP_INSN_P (insn)
-      && GET_CODE (PATTERN (insn)) == ASM_OPERANDS
-      && MEM_VOLATILE_P (PATTERN (insn)))
-    flush_hash_table ();
 
   /* Don't cse over a call to setjmp; on some machines (eg VAX)
      the regs restored by the longjmp come from a later time
@@ -6066,9 +6081,12 @@ cse_process_notes_1 (rtx x, rtx object, bool *changed)
       return x;
 
     case EXPR_LIST:
-    case INSN_LIST:
       if (REG_NOTE_KIND (x) == REG_EQUAL)
 	XEXP (x, 0) = cse_process_notes (XEXP (x, 0), NULL_RTX, changed);
+      /* Fall through.  */
+
+    case INSN_LIST:
+    case INT_LIST:
       if (XEXP (x, 1))
 	XEXP (x, 1) = cse_process_notes (XEXP (x, 1), NULL_RTX, changed);
       return x;
@@ -6081,6 +6099,18 @@ cse_process_notes_1 (rtx x, rtx object, bool *changed)
 	/* We don't substitute VOIDmode constants into these rtx,
 	   since they would impede folding.  */
 	if (GET_MODE (new_rtx) != VOIDmode)
+	  validate_change (object, &XEXP (x, 0), new_rtx, 0);
+	return x;
+      }
+
+    case UNSIGNED_FLOAT:
+      {
+	rtx new_rtx = cse_process_notes (XEXP (x, 0), object, changed);
+	/* We don't substitute negative VOIDmode constants into these rtx,
+	   since they would impede folding.  */
+	if (GET_MODE (new_rtx) != VOIDmode
+	    || (CONST_INT_P (new_rtx) && INTVAL (new_rtx) >= 0)
+	    || (CONST_DOUBLE_P (new_rtx) && CONST_DOUBLE_HIGH (new_rtx) >= 0))
 	  validate_change (object, &XEXP (x, 0), new_rtx, 0);
 	return x;
       }
@@ -6151,7 +6181,7 @@ cse_find_path (basic_block first_bb, struct cse_basic_block_data *data,
   edge e;
   int path_size;
 
-  SET_BIT (cse_visited_basic_blocks, first_bb->index);
+  bitmap_set_bit (cse_visited_basic_blocks, first_bb->index);
 
   /* See if there is a previous path.  */
   path_size = data->path_size;
@@ -6195,7 +6225,7 @@ cse_find_path (basic_block first_bb, struct cse_basic_block_data *data,
 	      && e == BRANCH_EDGE (previous_bb_in_path))
 	    {
 	      bb = FALLTHRU_EDGE (previous_bb_in_path)->dest;
-	      if (bb != EXIT_BLOCK_PTR
+	      if (bb != EXIT_BLOCK_PTR_FOR_FN (cfun)
 		  && single_pred_p (bb)
 		  /* We used to assert here that we would only see blocks
 		     that we have not visited yet.  But we may end up
@@ -6208,9 +6238,9 @@ cse_find_path (basic_block first_bb, struct cse_basic_block_data *data,
 
 		     We still want to visit each basic block only once, so
 		     halt the path here if we have already visited BB.  */
-		  && !TEST_BIT (cse_visited_basic_blocks, bb->index))
+		  && !bitmap_bit_p (cse_visited_basic_blocks, bb->index))
 		{
-		  SET_BIT (cse_visited_basic_blocks, bb->index);
+		  bitmap_set_bit (cse_visited_basic_blocks, bb->index);
 		  data->path[path_size++].bb = bb;
 		  break;
 		}
@@ -6249,14 +6279,14 @@ cse_find_path (basic_block first_bb, struct cse_basic_block_data *data,
 
 	  if (e
 	      && !((e->flags & EDGE_ABNORMAL_CALL) && cfun->has_nonlocal_label)
-	      && e->dest != EXIT_BLOCK_PTR
+	      && e->dest != EXIT_BLOCK_PTR_FOR_FN (cfun)
 	      && single_pred_p (e->dest)
 	      /* Avoid visiting basic blocks twice.  The large comment
 		 above explains why this can happen.  */
-	      && !TEST_BIT (cse_visited_basic_blocks, e->dest->index))
+	      && !bitmap_bit_p (cse_visited_basic_blocks, e->dest->index))
 	    {
 	      basic_block bb2 = e->dest;
-	      SET_BIT (cse_visited_basic_blocks, bb2->index);
+	      bitmap_set_bit (cse_visited_basic_blocks, bb2->index);
 	      data->path[path_size++].bb = bb2;
 	      bb = bb2;
 	    }
@@ -6468,7 +6498,7 @@ cse_extended_basic_block (struct cse_basic_block_data *ebb_data)
 		  /* If we truncate the path, we must also reset the
 		     visited bit on the remaining blocks in the path,
 		     or we will never visit them at all.  */
-		  RESET_BIT (cse_visited_basic_blocks,
+		  bitmap_clear_bit (cse_visited_basic_blocks,
 			     ebb_data->path[path_size].bb->index);
 		  ebb_data->path[path_size].bb = NULL;
 		}
@@ -6517,10 +6547,11 @@ cse_main (rtx f ATTRIBUTE_UNUSED, int nregs)
 {
   struct cse_basic_block_data ebb_data;
   basic_block bb;
-  int *rc_order = XNEWVEC (int, last_basic_block);
+  int *rc_order = XNEWVEC (int, last_basic_block_for_fn (cfun));
   int i, n_blocks;
 
   df_set_flags (DF_LR_RUN_DCE);
+  df_note_add_problem ();
   df_analyze ();
   df_set_flags (DF_DEFER_INSN_RESCAN);
 
@@ -6545,8 +6576,8 @@ cse_main (rtx f ATTRIBUTE_UNUSED, int nregs)
   reg_eqv_table = XNEWVEC (struct reg_eqv_elem, nregs);
 
   /* Set up the table of already visited basic blocks.  */
-  cse_visited_basic_blocks = sbitmap_alloc (last_basic_block);
-  sbitmap_zero (cse_visited_basic_blocks);
+  cse_visited_basic_blocks = sbitmap_alloc (last_basic_block_for_fn (cfun));
+  bitmap_clear (cse_visited_basic_blocks);
 
   /* Loop over basic blocks in reverse completion order (RPO),
      excluding the ENTRY and EXIT blocks.  */
@@ -6558,9 +6589,9 @@ cse_main (rtx f ATTRIBUTE_UNUSED, int nregs)
 	 processed before.  */
       do
 	{
-	  bb = BASIC_BLOCK (rc_order[i++]);
+	  bb = BASIC_BLOCK_FOR_FN (cfun, rc_order[i++]);
 	}
-      while (TEST_BIT (cse_visited_basic_blocks, bb->index)
+      while (bitmap_bit_p (cse_visited_basic_blocks, bb->index)
 	     && i < n_blocks);
 
       /* Find all paths starting with BB, and process them.  */
@@ -6733,6 +6764,7 @@ count_reg_usage (rtx x, int *counts, rtx dest, int incr)
       return;
 
     case INSN_LIST:
+    case INT_LIST:
       gcc_unreachable ();
 
     default:
@@ -7159,7 +7191,7 @@ cse_cc_succs (basic_block bb, basic_block orig_bb, rtx cc_reg, rtx cc_src,
 	continue;
 
       if (EDGE_COUNT (e->dest->preds) != 1
-	  || e->dest == EXIT_BLOCK_PTR
+	  || e->dest == EXIT_BLOCK_PTR_FOR_FN (cfun)
 	  /* Avoid endless recursion on unreachable blocks.  */
 	  || e->dest == orig_bb)
 	continue;
@@ -7328,7 +7360,7 @@ cse_condition_code_reg (void)
   else
     cc_reg_2 = NULL_RTX;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       rtx last_insn;
       rtx cc_reg;
@@ -7451,26 +7483,44 @@ rest_of_handle_cse (void)
   return 0;
 }
 
-struct rtl_opt_pass pass_cse =
+namespace {
+
+const pass_data pass_data_cse =
 {
- {
-  RTL_PASS,
-  "cse1",                               /* name */
-  gate_handle_cse,                      /* gate */
-  rest_of_handle_cse,			/* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_CSE,                               /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_ggc_collect |
-  TODO_verify_flow,                     /* todo_flags_finish */
- }
+  RTL_PASS, /* type */
+  "cse1", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_CSE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  ( TODO_df_finish | TODO_verify_rtl_sharing
+    | TODO_verify_flow ), /* todo_flags_finish */
 };
+
+class pass_cse : public rtl_opt_pass
+{
+public:
+  pass_cse (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_cse, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_handle_cse (); }
+  unsigned int execute () { return rest_of_handle_cse (); }
+
+}; // class pass_cse
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_cse (gcc::context *ctxt)
+{
+  return new pass_cse (ctxt);
+}
 
 
 static bool
@@ -7513,26 +7563,44 @@ rest_of_handle_cse2 (void)
 }
 
 
-struct rtl_opt_pass pass_cse2 =
+namespace {
+
+const pass_data pass_data_cse2 =
 {
- {
-  RTL_PASS,
-  "cse2",                               /* name */
-  gate_handle_cse2,                     /* gate */
-  rest_of_handle_cse2,			/* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_CSE2,                              /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_ggc_collect |
-  TODO_verify_flow                      /* todo_flags_finish */
- }
+  RTL_PASS, /* type */
+  "cse2", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_CSE2, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  ( TODO_df_finish | TODO_verify_rtl_sharing
+    | TODO_verify_flow ), /* todo_flags_finish */
 };
+
+class pass_cse2 : public rtl_opt_pass
+{
+public:
+  pass_cse2 (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_cse2, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_handle_cse2 (); }
+  unsigned int execute () { return rest_of_handle_cse2 (); }
+
+}; // class pass_cse2
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_cse2 (gcc::context *ctxt)
+{
+  return new pass_cse2 (ctxt);
+}
 
 static bool
 gate_handle_cse_after_global_opts (void)
@@ -7573,23 +7641,43 @@ rest_of_handle_cse_after_global_opts (void)
   return 0;
 }
 
-struct rtl_opt_pass pass_cse_after_global_opts =
+namespace {
+
+const pass_data pass_data_cse_after_global_opts =
 {
- {
-  RTL_PASS,
-  "cse_local",                          /* name */
-  gate_handle_cse_after_global_opts,    /* gate */
-  rest_of_handle_cse_after_global_opts, /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_CSE,                               /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_ggc_collect |
-  TODO_verify_flow                      /* todo_flags_finish */
- }
+  RTL_PASS, /* type */
+  "cse_local", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_CSE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  ( TODO_df_finish | TODO_verify_rtl_sharing
+    | TODO_verify_flow ), /* todo_flags_finish */
 };
+
+class pass_cse_after_global_opts : public rtl_opt_pass
+{
+public:
+  pass_cse_after_global_opts (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_cse_after_global_opts, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_handle_cse_after_global_opts (); }
+  unsigned int execute () {
+    return rest_of_handle_cse_after_global_opts ();
+  }
+
+}; // class pass_cse_after_global_opts
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_cse_after_global_opts (gcc::context *ctxt)
+{
+  return new pass_cse_after_global_opts (ctxt);
+}

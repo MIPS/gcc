@@ -1,7 +1,5 @@
 /* Generate code from machine description to compute values of attributes.
-   Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 1991-2014 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GCC.
@@ -92,9 +90,9 @@ along with GCC; see the file COPYING3.  If not see
    `return_val' (ATTR_PERMANENT_P): This rtx is permanent and unique
       (see attr_rtx).  */
 
-#define ATTR_IND_SIMPLIFIED_P(RTX) (RTX_FLAG((RTX), unchanging))
-#define ATTR_CURR_SIMPLIFIED_P(RTX) (RTX_FLAG((RTX), in_struct))
-#define ATTR_PERMANENT_P(RTX) (RTX_FLAG((RTX), return_val))
+#define ATTR_IND_SIMPLIFIED_P(RTX) (RTX_FLAG ((RTX), unchanging))
+#define ATTR_CURR_SIMPLIFIED_P(RTX) (RTX_FLAG ((RTX), in_struct))
+#define ATTR_PERMANENT_P(RTX) (RTX_FLAG ((RTX), return_val))
 
 #if 0
 #define strcmp_check(S1, S2) ((S1) == (S2)		\
@@ -113,7 +111,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "errors.h"
 #include "read-md.h"
 #include "gensupport.h"
-#include "vecprim.h"
 #include "fnmatch.h"
 
 #define DEBUG 0
@@ -323,7 +320,7 @@ static FILE *attr_file, *dfa_file, *latency_file;
 struct attr_hash
 {
   struct attr_hash *next;	/* Next structure in the bucket.  */
-  int hashcode;			/* Hash code of this rtx or string.  */
+  unsigned int hashcode;	/* Hash code of this rtx or string.  */
   union
     {
       char *str;		/* The string (negative hash codes) */
@@ -348,7 +345,7 @@ static struct attr_hash *attr_hash_table[RTL_HASH_SIZE];
 /* Add an entry to the hash table for RTL with hash code HASHCODE.  */
 
 static void
-attr_hash_add_rtx (int hashcode, rtx rtl)
+attr_hash_add_rtx (unsigned int hashcode, rtx rtl)
 {
   struct attr_hash *h;
 
@@ -362,7 +359,7 @@ attr_hash_add_rtx (int hashcode, rtx rtl)
 /* Add an entry to the hash table for STRING with hash code HASHCODE.  */
 
 static void
-attr_hash_add_string (int hashcode, char *str)
+attr_hash_add_string (unsigned int hashcode, char *str)
 {
   struct attr_hash *h;
 
@@ -387,7 +384,7 @@ static rtx
 attr_rtx_1 (enum rtx_code code, va_list p)
 {
   rtx rt_val = NULL_RTX;/* RTX to return to caller...		*/
-  int hashcode;
+  unsigned int hashcode;
   struct attr_hash *h;
   struct obstack *old_obstack = rtl_obstack;
 
@@ -615,15 +612,15 @@ static char *
 attr_string (const char *str, int len)
 {
   struct attr_hash *h;
-  int hashcode;
+  unsigned int hashcode;
   int i;
   char *new_str;
 
   /* Compute the hash code.  */
-  hashcode = (len + 1) * 613 + (unsigned) str[0];
+  hashcode = (len + 1) * 613U + (unsigned) str[0];
   for (i = 1; i < len; i += 2)
     hashcode = ((hashcode * 613) + (unsigned) str[i]);
-  if (hashcode < 0)
+  if ((int) hashcode < 0)
     hashcode = -hashcode;
 
   /* Search the table for the string.  */
@@ -1636,14 +1633,15 @@ write_length_unit_log (FILE *outf)
   unsigned int length_unit_log, length_or;
   int unknown = 0;
 
-  if (length_attr == 0)
-    return;
-  length_or = or_attr_value (length_attr->default_val->value, &unknown);
-  for (av = length_attr->first_value; av; av = av->next)
-    for (ie = av->first_insn; ie; ie = ie->next)
-      length_or |= or_attr_value (av->value, &unknown);
+  if (length_attr)
+    {
+      length_or = or_attr_value (length_attr->default_val->value, &unknown);
+      for (av = length_attr->first_value; av; av = av->next)
+	for (ie = av->first_insn; ie; ie = ie->next)
+	  length_or |= or_attr_value (av->value, &unknown);
+    }
 
-  if (unknown)
+  if (length_attr == NULL || unknown)
     length_unit_log = 0;
   else
     {
@@ -2817,7 +2815,7 @@ simplify_test_exp (rtx exp, int insn_code, int insn_index)
 	      x = evaluate_eq_attr (exp, attr, av->value,
 				    insn_code, insn_index);
 	      x = SIMPLIFY_TEST_EXP (x, insn_code, insn_index);
-	      if (attr_rtx_cost(x) < 7)
+	      if (attr_rtx_cost (x) < 7)
 		return x;
 	    }
 	}
@@ -4405,7 +4403,7 @@ write_upcase (FILE *outf, const char *str)
   while (*str)
     {
       /* The argument of TOUPPER should not have side effects.  */
-      fputc (TOUPPER(*str), outf);
+      fputc (TOUPPER (*str), outf);
       str++;
     }
 }
@@ -5102,6 +5100,10 @@ write_header (FILE *outf)
   fprintf (outf, "#include \"system.h\"\n");
   fprintf (outf, "#include \"coretypes.h\"\n");
   fprintf (outf, "#include \"tm.h\"\n");
+  fprintf (outf, "#include \"tree.h\"\n");
+  fprintf (outf, "#include \"varasm.h\"\n");
+  fprintf (outf, "#include \"stor-layout.h\"\n");
+  fprintf (outf, "#include \"calls.h\"\n");
   fprintf (outf, "#include \"rtl.h\"\n");
   fprintf (outf, "#include \"insn-attr.h\"\n");
   fprintf (outf, "#include \"tm_p.h\"\n");
@@ -5287,7 +5289,7 @@ main (int argc, char **argv)
       {
         FILE *outf;
 
-#define IS_ATTR_GROUP(X) (!strncmp(attr->name,X,strlen(X)))
+#define IS_ATTR_GROUP(X) (!strncmp (attr->name, X, strlen (X)))
 	if (IS_ATTR_GROUP ("*internal_dfa_insn_code"))
 	  outf = dfa_file;
 	else if (IS_ATTR_GROUP ("*insn_default_latency"))

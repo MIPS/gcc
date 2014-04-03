@@ -24,6 +24,7 @@
 GIMPLE_EXE = gimple1$(exeext)
 # The GIMPLE-specific object files inclued in $(GIMPLE_EXE).
 GIMPLE_OBJS = gimple/gimple-lang.o gimple/parser.o attribs.o
+gimple_OBJS = $(GIMPLE_OBJS)
 GIMPLE_PARSER_H = gimple/parser.h $(CPPLIB_H) $(VEC_H)
 GIMPLE_TREE_H = gimple/gimple-tree.h
 

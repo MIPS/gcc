@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file.
 
 // HTTP client. See RFC 2616.
-// 
+//
 // This is the high-level Client interface.
 // The low-level implementation is in transport.go.
 
@@ -19,12 +19,16 @@ import (
 	"strings"
 )
 
-// A Client is an HTTP client. Its zero value (DefaultClient) is a usable client
-// that uses DefaultTransport.
+// A Client is an HTTP client. Its zero value (DefaultClient) is a
+// usable client that uses DefaultTransport.
 //
-// The Client's Transport typically has internal state (cached
-// TCP connections), so Clients should be reused instead of created as
+// The Client's Transport typically has internal state (cached TCP
+// connections), so Clients should be reused instead of created as
 // needed. Clients are safe for concurrent use by multiple goroutines.
+//
+// A Client is higher-level than a RoundTripper (such as Transport)
+// and additionally handles HTTP details such as cookies and
+// redirects.
 type Client struct {
 	// Transport specifies the mechanism by which individual
 	// HTTP requests are made.
@@ -44,8 +48,8 @@ type Client struct {
 	// which is to stop after 10 consecutive requests.
 	CheckRedirect func(req *Request, via []*Request) error
 
-	// Jar specifies the cookie jar. 
-	// If Jar is nil, cookies are not sent in requests and ignored 
+	// Jar specifies the cookie jar.
+	// If Jar is nil, cookies are not sent in requests and ignored
 	// in responses.
 	Jar CookieJar
 }
@@ -70,8 +74,8 @@ type RoundTripper interface {
 	// authentication, or cookies.
 	//
 	// RoundTrip should not modify the request, except for
-	// consuming the Body.  The request's URL and Header fields
-	// are guaranteed to be initialized.
+	// consuming and closing the Body. The request's URL and
+	// Header fields are guaranteed to be initialized.
 	RoundTrip(*Request) (*Response, error)
 }
 
@@ -85,6 +89,24 @@ func hasPort(s string) bool { return strings.LastIndex(s, ":") > strings.LastInd
 type readClose struct {
 	io.Reader
 	io.Closer
+}
+
+func (c *Client) send(req *Request) (*Response, error) {
+	if c.Jar != nil {
+		for _, cookie := range c.Jar.Cookies(req.URL) {
+			req.AddCookie(cookie)
+		}
+	}
+	resp, err := send(req, c.Transport)
+	if err != nil {
+		return nil, err
+	}
+	if c.Jar != nil {
+		if rc := resp.Cookies(); len(rc) > 0 {
+			c.Jar.SetCookies(req.URL, rc)
+		}
+	}
+	return resp, err
 }
 
 // Do sends an HTTP request and returns an HTTP response, following
@@ -104,9 +126,12 @@ type readClose struct {
 // Generally Get, Post, or PostForm will be used instead of Do.
 func (c *Client) Do(req *Request) (resp *Response, err error) {
 	if req.Method == "GET" || req.Method == "HEAD" {
-		return c.doFollowingRedirects(req)
+		return c.doFollowingRedirects(req, shouldRedirectGet)
 	}
-	return send(req, c.Transport)
+	if req.Method == "POST" || req.Method == "PUT" {
+		return c.doFollowingRedirects(req, shouldRedirectPost)
+	}
+	return c.send(req)
 }
 
 // send issues an HTTP request.
@@ -136,7 +161,9 @@ func send(req *Request, t RoundTripper) (resp *Response, err error) {
 	}
 
 	if u := req.URL.User; u != nil {
-		req.Header.Set("Authorization", "Basic "+base64.URLEncoding.EncodeToString([]byte(u.String())))
+		username := u.Username()
+		password, _ := u.Password()
+		req.Header.Set("Authorization", "Basic "+basicAuth(username, password))
 	}
 	resp, err = t.RoundTrip(req)
 	if err != nil {
@@ -148,11 +175,31 @@ func send(req *Request, t RoundTripper) (resp *Response, err error) {
 	return resp, nil
 }
 
+// See 2 (end of page 4) http://www.ietf.org/rfc/rfc2617.txt
+// "To receive authorization, the client sends the userid and password,
+// separated by a single colon (":") character, within a base64
+// encoded string in the credentials."
+// It is not meant to be urlencoded.
+func basicAuth(username, password string) string {
+	auth := username + ":" + password
+	return base64.StdEncoding.EncodeToString([]byte(auth))
+}
+
 // True if the specified HTTP status code is one for which the Get utility should
 // automatically redirect.
-func shouldRedirect(statusCode int) bool {
+func shouldRedirectGet(statusCode int) bool {
 	switch statusCode {
 	case StatusMovedPermanently, StatusFound, StatusSeeOther, StatusTemporaryRedirect:
+		return true
+	}
+	return false
+}
+
+// True if the specified HTTP status code is one for which the Post utility should
+// automatically redirect.
+func shouldRedirectPost(statusCode int) bool {
+	switch statusCode {
+	case StatusFound, StatusSeeOther:
 		return true
 	}
 	return false
@@ -198,12 +245,10 @@ func (c *Client) Get(url string) (resp *Response, err error) {
 	if err != nil {
 		return nil, err
 	}
-	return c.doFollowingRedirects(req)
+	return c.doFollowingRedirects(req, shouldRedirectGet)
 }
 
-func (c *Client) doFollowingRedirects(ireq *Request) (resp *Response, err error) {
-	// TODO: if/when we add cookie support, the redirected request shouldn't
-	// necessarily supply the same cookies as the original.
+func (c *Client) doFollowingRedirects(ireq *Request, shouldRedirect func(int) bool) (resp *Response, err error) {
 	var base *url.URL
 	redirectChecker := c.CheckRedirect
 	if redirectChecker == nil {
@@ -215,11 +260,6 @@ func (c *Client) doFollowingRedirects(ireq *Request) (resp *Response, err error)
 		return nil, errors.New("http: nil Request.URL")
 	}
 
-	jar := c.Jar
-	if jar == nil {
-		jar = blackHoleJar{}
-	}
-
 	req := ireq
 	urlStr := "" // next relative or absolute URL to fetch (after first request)
 	redirectFailed := false
@@ -227,6 +267,9 @@ func (c *Client) doFollowingRedirects(ireq *Request) (resp *Response, err error)
 		if redirect != 0 {
 			req = new(Request)
 			req.Method = ireq.Method
+			if ireq.Method == "POST" || ireq.Method == "PUT" {
+				req.Method = "GET"
+			}
 			req.Header = make(Header)
 			req.URL, err = base.Parse(urlStr)
 			if err != nil {
@@ -247,15 +290,9 @@ func (c *Client) doFollowingRedirects(ireq *Request) (resp *Response, err error)
 			}
 		}
 
-		for _, cookie := range jar.Cookies(req.URL) {
-			req.AddCookie(cookie)
-		}
 		urlStr = req.URL.String()
-		if resp, err = send(req, c.Transport); err != nil {
+		if resp, err = c.send(req); err != nil {
 			break
-		}
-		if c := resp.Cookies(); len(c) > 0 {
-			jar.SetCookies(req.URL, c)
 		}
 
 		if shouldRedirect(resp.StatusCode) {
@@ -310,22 +347,16 @@ func Post(url string, bodyType string, body io.Reader) (resp *Response, err erro
 // Post issues a POST to the specified URL.
 //
 // Caller should close resp.Body when done reading from it.
+//
+// If the provided body is also an io.Closer, it is closed after the
+// body is successfully written to the server.
 func (c *Client) Post(url string, bodyType string, body io.Reader) (resp *Response, err error) {
 	req, err := NewRequest("POST", url, body)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", bodyType)
-	if c.Jar != nil {
-		for _, cookie := range c.Jar.Cookies(req.URL) {
-			req.AddCookie(cookie)
-		}
-	}
-	resp, err = send(req, c.Transport)
-	if err == nil && c.Jar != nil {
-		c.Jar.SetCookies(req.URL, resp.Cookies())
-	}
-	return
+	return c.doFollowingRedirects(req, shouldRedirectPost)
 }
 
 // PostForm issues a POST to the specified URL, with data's keys and
@@ -339,7 +370,7 @@ func PostForm(url string, data url.Values) (resp *Response, err error) {
 	return DefaultClient.PostForm(url, data)
 }
 
-// PostForm issues a POST to the specified URL, 
+// PostForm issues a POST to the specified URL,
 // with data's keys and values urlencoded as the request body.
 //
 // When err is nil, resp always contains a non-nil resp.Body.
@@ -375,5 +406,5 @@ func (c *Client) Head(url string) (resp *Response, err error) {
 	if err != nil {
 		return nil, err
 	}
-	return c.doFollowingRedirects(req)
+	return c.doFollowingRedirects(req, shouldRedirectGet)
 }

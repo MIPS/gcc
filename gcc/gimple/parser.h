@@ -56,9 +56,6 @@ typedef struct GTY(()) gimple_token {
   tree value;
 } gimple_token;
 
-DEF_VEC_O (gimple_token);
-DEF_VEC_ALLOC_O (gimple_token, gc);
-
 struct gimple_parser;
 
 /* The GIMPLE lexer.  */
@@ -74,7 +71,7 @@ typedef struct GTY(()) gimple_lexer {
   struct GTY((skip)) cpp_reader *reader;
 
   /* The array of tokens read by the lexer.  */
-  VEC(gimple_token, gc) *tokens;
+  vec<gimple_token, va_gc> *tokens;
 
   /* Token to be consumed by the parser.  */
   unsigned cur_token_ix;
