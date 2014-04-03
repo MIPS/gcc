@@ -834,6 +834,8 @@
 	   jcntipa_nbfunctions
 	   jcntipa_nbbasicblocks
 	   jcntipa_nbgimples
+	   jcntipa_bucketbblist		;bucket of basic block lists of equal size
+	   jcntipa_edgemap		;map of edges
 	   ))
 ;; no gate functions in simple IPA passes
 
@@ -854,6 +856,8 @@
 	  (jcnbfun (get_field :jcntipa_nbfunctions jcdata))
 	  (jcnbbb (get_field :jcntipa_nbbasicblocks jcdata))
 	  (jcnbgimp (get_field :jcntipa_nbgimples jcdata))
+	  (jcbuckbb (get_field :jcntipa_bucketbblist jcdata))
+	  (jcedgemap (get_field :jcntipa_edgemap jcdata))
 	  )
       (assert_msg "check jcnbfun" (is_integerbox jcnbfun) jcnbfun)
       (assert_msg "check jcnbbb" (is_integerbox jcnbbb) jcnbbb)
@@ -876,23 +880,56 @@
 	  (debug "justcountipa_exec curbbv=" curbbv " bbix=" bbix)
 	  (assert_msg "check curbbv" (is_basicblock curbbv) curbbv)
 	  (let ( (:basic_block rawbb (basicblock_content curbbv))
+		 (:long startnbgimp nbgimp)
 		 )
 	    (debug "justcountipa_exec rawbb=" rawbb)
 	    (assert_msg "check rawbb" rawbb)
+	    (foreach_edge_bb_succs
+	     (rawbb)
+	     (:edge edg)
+	     (unless (mapedge_get jcedgemap edg)
+	       (mapedge_put jcedgemap edg (constant_box edg))
+	       )
+	     )
 	    (eachgimple_in_basicblock
 	     (rawbb)
 	     (:gimple g)
 	     (debug "justcountipa_exec g=" g)
 	     (assert_msg "check gimple g" g)
 	     (setq nbgimp (+i nbgimp 1))
-	     )))
-	 (debug "justcountipa_exec nbgimp=" nbgimp " in vfundecl=" vfundecl)
-	 (put_int jcnbgimp (+i (get_int jcnbgimp) nbgimp))
-	 (inform_at vfundecl "just counted $1 basic blocks and $2 gimple-s in function $3"
-		    nbbb nbgimp fundecl)
-	 ))
-      (inform_at () "just counted $1 functions, cumulating $2 basic blocks and $3 gimples"
-		 (get_int jcnbfun) (get_int jcnbbb) (get_int jcnbgimp))
+	     )
+	    (let ( (:long bblength (-i nbgimp startnbgimp))
+		   (curbblist (bucketlong_get jcbuckbb bblength))
+		   )
+	      (debug "justcountipa_exec bblength=" bblength)
+	      (unless curbblist
+		(setq curbblist (list))
+		(setq jcbuckbb (bucketlong_put  jcbuckbb bblength curbblist))
+		(put_fields jcdata  :jcntipa_bucketbblist  jcbuckbb))
+	      (list_append curbblist curbbv)
+	      ))
+	  (debug "justcountipa_exec nbgimp=" nbgimp " in vfundecl=" vfundecl)
+	  (put_int jcnbgimp (+i (get_int jcnbgimp) nbgimp))
+	  (inform_at vfundecl "just counted $1 basic blocks and $2 gimple-s in function $3"
+		     nbbb nbgimp fundecl)
+	  ))
+       (inform_at () "just counted $1 functions, cumulating $2 basic blocks (of $3 various sizes) $4 gimples, $5 edges"
+		  (get_int jcnbfun) (get_int jcnbbb) (bucketlong_count jcbuckbb) (get_int jcnbgimp) (mapedge_count jcedgemap))
+       (let ((:long cumulbbsize 0)
+	     )
+	 (foreach_in_bucketlong
+	  (jcbuckbb)
+	  (:long curbbsize :value curbblist)
+	  (debug "justcountipa_exec curbbsiz=" curbbsize " cumulbbsize=" cumulbbsize " curbblist=" curbblist)
+	  (let ( (nbcurbb (list_length curbblist))
+		 )	
+	    (setq cumulbbsize (+i cumulbbsize nbcurbb))
+	    (inform_at () "$1 basic blocks of size $2, cumulated $3"
+		       nbcurbb curbbsize cumulbbsize)
+	    )
+	  )
+	 )
+       )
       (return :true)
       )))
 
@@ -903,7 +940,10 @@
 			  :jcntipa_data ()
 			  :jcntipa_nbfunctions (box 0)
 			  :jcntipa_nbbasicblocks (box 0)
-			  :jcntipa_nbgimples (box 0)))
+			  :jcntipa_nbgimples (box 0)
+			  :jcntipa_bucketbblist (make_bucketlong discr_bucket_longs 25)
+			  :jcntipa_edgemap (make_mapedge discr_map_edges 103))
+		)
 	(ipass (instance class_gcc_simple_ipa_pass
 			  :named_name '"melt_justcountipa"
 			  :gccpass_exec justcountipa_exec

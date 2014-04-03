@@ -1,6 +1,13 @@
 
 2014-04-03  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/xtramelt-ana-simple.melt (class_justcountipa_data): Add
+	jcntipa_bucketbblist & jcntipa_edgemap fields.
+	(justcountipa_exec): Use them, to count basic block size
+	distributions and edges.
+
+2014-04-03  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/generated/*: Regenerate all.
 
 2014-04-03  Basile Starynkevitch  <basile@starynkevitch.net>
