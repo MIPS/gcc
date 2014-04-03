@@ -1,3 +1,103 @@
+2014-04-03  Martin Jambor  <mjambor@suse.cz>
+
+	* ipa-cp.c (ipcp_verify_propagated_values): Also dump symtab and
+	mention gcc_unreachable before failing.
+	* ipa.c (symtab_remove_unreachable_nodes): Also print order of
+	removed symbols.
+
+2014-04-02  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/60659
+	* ipa-devirt.c (get_polymorphic_call_info): Do not ICE on type inconsistent
+	code and instead mark the context inconsistent.
+	(possible_polymorphic_call_targets): For inconsistent contexts
+	return empty complete list.
+
+2014-04-02  Anthony Green  <green@moxielogic.com>
+
+	* config/moxie/moxie.md (zero_extendqisi2, zero_extendhisi2)
+	(extendqisi2, extendhisi2): Define.
+	* config/moxie/moxie.h (DEFAULT_SIGNED_CHAR): Change to 0.
+	(WCHAR_TYPE): Change to unsigned int.
+
+2014-04-02  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR tree-optimization/60733
+	* gimple-ssa-strength-reduction.c (ncd_with_phi): Change required
+	insertion point for PHI candidates to be the end of the feeding
+	block for the PHI argument.
+
+2014-04-02  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/60650
+	* lra-constraints.c (process_alt_operands): Decrease reject for
+	earlyclobber matching.
+
+2014-04-02  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.c (s390_expand_insv): Use GET_MODE_BITSIZE.
+
+2014-04-02  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu/spu.c (pad_bb): Do not crash when the last
+	insn is CODE_FOR_blockage.
+
+2014-04-02  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu/spu.md ("insv"): Fail if bitoffset+bitsize
+	lies outside the target mode.
+
+2014-04-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/60735
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): If we have
+	software floating point or no floating point registers, do not
+	allow any type in the FPRs.  Eliminate a test for SPE SIMD types
+	in GPRs that occurs after we tested for GPRs that would never be
+	true.
+
+	* config/rs6000/rs6000.md (mov<mode>_softfloat32, FMOVE64):
+	Rewrite tests to use TARGET_DOUBLE_FLOAT and TARGET_E500_DOUBLE,
+	since the FMOVE64 type is DFmode/DDmode.  If TARGET_E500_DOUBLE,
+	specifically allow DDmode, since that does not use the SPE SIMD
+	instructions.
+
+2014-04-02  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/60729
+	* optabs.c (expand_abs_nojump): Honor flag_trapv only for
+	MODE_INTs.  Properly use negv_optab.
+	(expand_abs): Likewise.
+
+2014-04-02  Richard Biener  <rguenther@suse.de>
+
+	PR bootstrap/60719
+	* Makefile.in (install-driver): Guard extra installs with special
+	names properly.
+
+2014-04-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* doc/extend.texi (PowerPC AltiVec/VSX Built-in Functions):
+	Document vec_vgbbd.
+
+2014-04-01  Richard Henderson  <rth@redhat.com>
+
+	PR target/60704
+	* config/i386/i386.md (*float<SWI48><MODEF>2_sse): Leave the second
+	alternative enabled before register allocation.
+
+2014-04-01  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* config/nios2/nios2.md (unspec): Remove UNSPEC_TLS, UNSPEC_TLS_LDM.
+	* config/nios2/nios2.c (nios2_function_profiler): Fix addi operand
+	typo.
+	(nios2_large_got_address): Remove unneeded 'sym' parameter.
+	(nios2_got_address): Update nios2_large_got_address call site.
+	(nios2_delegitimize_address): New function.
+	(TARGET_DELEGITIMIZE_ADDRESS): Define to nios2_delegitimize_address.
+	* config/nios2/linux.h (GLIBC_DYNAMIC_LINKER): Define.
+	(LINK_SPEC): Specify dynamic linker using GNU_USER_DYNAMIC_LINKER.
+
 2014-04-01  Martin Husemann  <martin@duskware.de>
 
 	* config/mips/netbsd.h (TARGET_OS_CPP_BUILTINS): Define __mips_o32
@@ -215,7 +315,7 @@
 2014-03-27  Vladimir Makarov  <vmakarov@redhat.com>
 
 	PR rtl-optimization/60650
-	* lra-asign.c (find_hard_regno_for, spill_for): Add parameter
+	* lra-assign.c (find_hard_regno_for, spill_for): Add parameter
 	first_p.  Use it.
 	(find_spills_for): New.
 	(assign_by_spills): Pass the new parameter to find_hard_regno_for.
