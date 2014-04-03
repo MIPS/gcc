@@ -1,3 +1,12 @@
+2014-04-03  Tobias Burnus  <burnus@net-b.de>
+
+	* trans.h (gfor_fndecl_caf_send_desc,
+	gfor_fndecl_caf_send_desc_scalar): Declare variables.
+	* trans-decl.c (gfor_fndecl_caf_send_desc,
+	gfor_fndecl_caf_send_desc_scalar): Define them.
+	(gfc_build_builtin_function_decls): Initialize them.
+	* trans-intrinsic.c (conv_caf_send): Handle arrays.
+
 2014-03-28  Tobias Burnus  <burnus@net-b.de>
 
 	* trans-intrinsic.c (conv_caf_send): Fix offset calculation.

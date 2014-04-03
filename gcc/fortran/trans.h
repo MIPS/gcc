@@ -701,6 +701,8 @@ extern GTY(()) tree gfor_fndecl_caf_num_images;
 extern GTY(()) tree gfor_fndecl_caf_register;
 extern GTY(()) tree gfor_fndecl_caf_deregister;
 extern GTY(()) tree gfor_fndecl_caf_send;
+extern GTY(()) tree gfor_fndecl_caf_send_desc;
+extern GTY(()) tree gfor_fndecl_caf_send_desc_scalar;
 extern GTY(()) tree gfor_fndecl_caf_critical;
 extern GTY(()) tree gfor_fndecl_caf_end_critical;
 extern GTY(()) tree gfor_fndecl_caf_sync_all;

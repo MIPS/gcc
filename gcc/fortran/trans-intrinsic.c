@@ -7867,8 +7867,8 @@ conv_caf_send (gfc_code *code) {
   gfc_expr *lhs_expr, *rhs_expr, *async_expr;
   gfc_se lhs_se, rhs_se, async_se;
   stmtblock_t block;
-  tree caf_decl, token, offset, image_index, tmp;
- 
+  tree caf_decl, token, offset, image_index, tmp, size;
+
   gcc_assert (gfc_option.coarray == GFC_FCOARRAY_LIB);
 
   lhs_expr = code->ext.actual->expr; 
@@ -7878,11 +7878,9 @@ conv_caf_send (gfc_code *code) {
 
   /* LHS: The coarray.  */
 
-  if (lhs_expr->rank)
-    gfc_fatal_error ("Remote coarray access at %L for array sections not yet "
-		     " implemented", &lhs_expr->where);
-
   gfc_init_se (&lhs_se, NULL);
+  if (lhs_expr->rank)
+    lhs_se.descriptor_only = 1;
   gfc_conv_expr_reference (&lhs_se, lhs_expr);
 
   caf_decl = gfc_get_tree_for_caf_expr (lhs_expr);
@@ -7948,6 +7946,8 @@ conv_caf_send (gfc_code *code) {
   /* RHS - a noncoarray.  */
 
   gfc_init_se (&rhs_se, NULL);
+  if (rhs_expr->rank)
+    rhs_se.descriptor_only = 1;
   rhs_se.want_pointer = 1;
   gfc_conv_expr_reference (&rhs_se, rhs_expr);
   gfc_add_block_to_block (&block, &rhs_se.pre);
@@ -7955,10 +7955,24 @@ conv_caf_send (gfc_code *code) {
   gfc_init_se (&async_se, NULL);
   gfc_conv_expr (&async_se, async_expr);
 
-  tree size = size_in_bytes (TREE_TYPE (TREE_TYPE (rhs_se.expr)));
-  tmp = build_call_expr_loc (input_location, gfor_fndecl_caf_send, 6,
-			     token, offset, image_index, rhs_se.expr, size,
-			     fold_convert (boolean_type_node, async_se.expr));
+  if (rhs_expr->rank)
+    size = size_in_bytes (gfc_get_element_type (TREE_TYPE (rhs_se.expr)));
+  else
+    size = size_in_bytes (TREE_TYPE (TREE_TYPE (rhs_se.expr)));
+  if (lhs_expr->rank && rhs_expr->rank)
+    tmp = build_call_expr_loc (input_location, gfor_fndecl_caf_send_desc, 6,
+			       token, offset, image_index, lhs_se.expr,
+			       rhs_se.expr, 
+			       fold_convert (boolean_type_node, async_se.expr));
+  else if (lhs_expr->rank)
+    tmp = build_call_expr_loc (input_location, gfor_fndecl_caf_send_desc_scalar,
+			       6, token, offset, image_index, lhs_se.expr,
+			       rhs_se.expr,
+			       fold_convert (boolean_type_node, async_se.expr));
+  else
+    tmp = build_call_expr_loc (input_location, gfor_fndecl_caf_send, 6,
+			       token, offset, image_index, rhs_se.expr, size,
+			       fold_convert (boolean_type_node, async_se.expr));
   gfc_add_expr_to_block (&block, tmp);
   gfc_add_block_to_block (&block, &rhs_se.post);
   return gfc_finish_block (&block);

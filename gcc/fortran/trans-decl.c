@@ -126,6 +126,8 @@ tree gfor_fndecl_caf_num_images;
 tree gfor_fndecl_caf_register;
 tree gfor_fndecl_caf_deregister;
 tree gfor_fndecl_caf_send;
+tree gfor_fndecl_caf_send_desc;
+tree gfor_fndecl_caf_send_desc_scalar;
 tree gfor_fndecl_caf_critical;
 tree gfor_fndecl_caf_end_critical;
 tree gfor_fndecl_caf_sync_all;
@@ -3264,8 +3266,19 @@ gfc_build_builtin_function_decls (void)
 
       gfor_fndecl_caf_send = gfc_build_library_function_decl_with_spec (
 	get_identifier (PREFIX("caf_send")), "R..R..", void_type_node, 6,
-        ppvoid_type_node, size_type_node, integer_type_node, pvoid_type_node,
+        pvoid_type_node, size_type_node, integer_type_node, pvoid_type_node,
 	size_type_node, boolean_type_node);
+
+      gfor_fndecl_caf_send_desc = gfc_build_library_function_decl_with_spec (
+	get_identifier (PREFIX("caf_send_desc")), "R..RR.", void_type_node, 6,
+        pvoid_type_node, size_type_node, integer_type_node, pvoid_type_node,
+	pvoid_type_node, boolean_type_node);
+
+      gfor_fndecl_caf_send_desc_scalar
+	= gfc_build_library_function_decl_with_spec (
+	get_identifier (PREFIX("caf_send_desc_scalar")), "R..RR..", void_type_node, 6,
+        pvoid_type_node, size_type_node, integer_type_node, pvoid_type_node,
+	pvoid_type_node, boolean_type_node);
 
       gfor_fndecl_caf_critical = gfc_build_library_function_decl (
 	get_identifier (PREFIX("caf_critical")), void_type_node, 0);
