@@ -1747,12 +1747,27 @@ process_alt_operands (int only_alternative)
 				  [GET_MODE (*curr_id->operand_loc[m])]);
 			  }
 
-			/* We prefer no matching alternatives because
-			   it gives more freedom in RA.	 */
-			if (operand_reg[nop] == NULL_RTX
-			    || (find_regno_note (curr_insn, REG_DEAD,
-						 REGNO (operand_reg[nop]))
-				 == NULL_RTX))
+			/* Prefer matching earlyclobber alternative as
+			   it results in less hard regs required for
+			   the insn than a non-matching earlyclobber
+			   alternative.  */
+			if (curr_static_id->operand[m].early_clobber)
+			  {
+			    if (lra_dump_file != NULL)
+			      fprintf
+				(lra_dump_file,
+				 "            %d Matching earlyclobber alt:"
+				 " reject--\n",
+				 nop);
+			    reject--;
+			  }
+			/* Otherwise we prefer no matching
+			   alternatives because it gives more freedom
+			   in RA.  */
+			else if (operand_reg[nop] == NULL_RTX
+				 || (find_regno_note (curr_insn, REG_DEAD,
+						      REGNO (operand_reg[nop]))
+				     == NULL_RTX))
 			  {
 			    if (lra_dump_file != NULL)
 			      fprintf
@@ -2143,7 +2158,7 @@ process_alt_operands (int only_alternative)
 		}
 	      /* If the operand is dying, has a matching constraint,
 		 and satisfies constraints of the matched operand
-		 which failed to satisfy the own constraints, probably
+		 which failed to satisfy the own constraints, most probably
 		 the reload for this operand will be gone.  */
 	      if (this_alternative_matches >= 0
 		  && !curr_alt_win[this_alternative_matches]
@@ -2631,6 +2646,20 @@ base_plus_disp_to_reg (struct address_info *ad)
   return new_reg;
 }
 
+/* Make reload of index part of address AD.  Return the new
+   pseudo.  */
+static rtx
+index_part_to_reg (struct address_info *ad)
+{
+  rtx new_reg;
+
+  new_reg = lra_create_new_reg (GET_MODE (*ad->index), NULL_RTX,
+				INDEX_REG_CLASS, "index term");
+  expand_mult (GET_MODE (*ad->index), *ad->index_term,
+	       GEN_INT (get_index_scale (ad)), new_reg, 1);
+  return new_reg;
+}
+
 /* Return true if we can add a displacement to address AD, even if that
    makes the address invalid.  The fix-up code requires any new address
    to be the sum of the BASE_TERM, INDEX and DISP_TERM fields.  */
@@ -2935,13 +2964,25 @@ process_address (int nop, rtx *before, rtx *after)
       emit_insn (insns);
       *ad.inner = new_reg;
     }
-  else
+  else if (ad.disp_term != NULL)
     {
       /* base + scale * index + disp => new base + scale * index,
 	 case (1) above.  */
       new_reg = base_plus_disp_to_reg (&ad);
       *ad.inner = simplify_gen_binary (PLUS, GET_MODE (new_reg),
 				       new_reg, *ad.index);
+    }
+  else
+    {
+      /* base + scale * index => base + new_reg,
+	 case (1) above.
+      Index part of address may become invalid.  For example, we
+      changed pseudo on the equivalent memory and a subreg of the
+      pseudo onto the memory of different mode for which the scale is
+      prohibitted.  */
+      new_reg = index_part_to_reg (&ad);
+      *ad.inner = simplify_gen_binary (PLUS, GET_MODE (new_reg),
+				       *ad.base_term, new_reg);
     }
   *before = get_insns ();
   end_sequence ();
