@@ -227,11 +227,11 @@
 
 (definstance justscan_mode
   class_melt_mode
-  :named_name '"justscan"
   :meltmode_help '"install a pass scanning all the code"
   :meltmode_fun justscan_docmd
-)
-(install_melt_mode justscan_mode)
+  )
+;; melt-build-script.sh requires this mode installation on a single line
+(install_melt_mode justscan_mode "justscan")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; a pass to help write MELT code in C.
@@ -513,11 +513,11 @@
 
 (definstance meltframe_mode
   class_melt_mode
-  :named_name '"meltframe"
   :meltmode_help '"install a pass checking MELT frame accesses"
   :meltmode_fun meltframe_docmd
 )
-(install_melt_mode meltframe_mode)
+;; melt-build-script.sh requires this mode installation on a single line
+(install_melt_mode meltframe_mode "meltframe")
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -783,7 +783,6 @@
 
 (definstance findgimple_mode
   class_melt_mode
-  :named_name '"findgimple"
   :meltmode_help '"find and count all the gimples matching the given
  gimple pattern in all functions whose declaration matches a given
  function pattern; The gimple pattern is given with -fplugin-arg-melt-gimple-pattern= ...
@@ -793,7 +792,8 @@
  the name of the generated module, to be able to repeat that same search
  using gofindgimple mode."
   :meltmode_fun findgimple_docmd)
-(install_melt_mode findgimple_mode)
+;; melt-build-script.sh requires this mode installation on a single line
+(install_melt_mode findgimple_mode "findgimple")
 
 (defun gofindgimple_docmd (cmd moduldata)
   (debug "gofindgimple_docmd cmd=" cmd " moduldata=" moduldata 
@@ -818,10 +818,10 @@
   
 (definstance gofindgimple_mode
   class_melt_mode
-  :named_name '"gofindgimple"
   :meltmode_help '"after having loaded an extra module built with findgimple, run that module to find the compiled Gimple patterns."
   :meltmode_fun gofindgimple_docmd)
-(install_melt_mode gofindgimple_mode)
+;; melt-build-script.sh requires this mode installation on a single line
+(install_melt_mode gofindgimple_mode "gofindgimple")
 
 
 
@@ -917,10 +917,10 @@
 
 (definstance justcountipa_mode
   class_melt_mode
-  :named_name '"justcountipa"
   :meltmode_help '"count GIMPLE in IPA [interprocedural analysis] pass"
   :meltmode_fun justcountipa_docmd)
-(install_melt_mode justcountipa_mode)
+;; melt-build-script.sh requires this mode installation on a single line
+(install_melt_mode justcountipa_mode "justcountipa")
 
 ;;;;;;;;;;;;;;;;
 
@@ -938,10 +938,10 @@
 
 (definstance justshowpasses_mode
   class_melt_mode
-  :named_name '"justshowpasses"
   :meltmode_help '"show all the executed passes"
   :meltmode_fun justshowpasses_docmd)
-(install_melt_mode justshowpasses_mode)
+;; melt-build-script.sh requires this mode installation on a single line
+(install_melt_mode justshowpasses_mode "justshowpasses")
 
 
 ;;**************** eof xtramelt-ana-simple.melt

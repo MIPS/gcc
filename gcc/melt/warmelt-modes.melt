@@ -37,12 +37,16 @@
 
 
 
-(defun install_melt_mode (mode)
-  :doc #{$INSTALL_MELT_MODE installs a new MELT mode, ie an instance of $CLASS_MELT_MODE.}#
+(defun install_melt_mode (mode :cstring modename)
+  :doc #{$INSTALL_MELT_MODE installs a new MELT mode, ie an instance of $CLASS_MELT_MODE. If $MODE has no :named_name use $MODENAME.}#
+  (debug "install_melt_mode mode=" mode "\n.. modename=" modename)
   (assert_msg "check mode" (is_a mode class_melt_mode) mode)
   (let ( (cmdict (get_field :sysdata_mode_dict initial_system_data))
 	 (cnam (get_field :named_name mode))
 	 )
+    (when (null cnam)
+      (setq cnam (make_stringconst discr_string modename))
+      (put_fields mode :named_name cnam))
     (if (mapstring_getstr cmdict cnam)
 	(warningmsg_strv "installing an existing mode" cnam))
     (code_chunk
@@ -118,13 +122,12 @@
 ;;;;
 (definstance runfile_mode
   class_melt_mode
-  :named_name '"runfile"
   :meltmode_help '"translate and run a .melt file.\n \t ARGUMENT=
 input file; [OUTPUT=generated C]. The module is quickly compiled and
 has basic debug support thru DEBUG, ASSERT_MSG..."
   :meltmode_fun runfile_docmd
 )
-(install_melt_mode runfile_mode)
+(install_melt_mode runfile_mode "runfile")
 
 ;;;;;;;;;;;;;;;;
 ;;;;;
@@ -183,12 +186,11 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 ;;;;
 (definstance rundebug_mode
   class_melt_mode
-  :named_name '"rundebug"
   :meltmode_help '"translate and run a .melt file for debug;\n
 \t ARGUMENT= input file;  [OUTPUT=generated C]"
   :meltmode_fun rundebug_docmd
 )
-(install_melt_mode rundebug_mode)
+(install_melt_mode rundebug_mode "rundebug")
 
 
 ;;;;;;;;;;;;;; evaluate a sequence of expressions
@@ -234,12 +236,11 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 
 (definstance eval_mode
   class_melt_mode
-  :named_name '"eval"
   :meltmode_help '"translate and run, i.e. evaluate, MELT expressions, displaying the last evaluated result;\n
 \t ARGUMENT= expressions to evaluate"
   :meltmode_fun eval_docmd
 )
-(install_melt_mode eval_mode)
+(install_melt_mode eval_mode "eval")
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -287,12 +288,11 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 
 (definstance evalfile_mode
   class_melt_mode
-  :named_name '"evalfile"
   :meltmode_help '"translate and run, i.e. evaluate, MELT expressions from a file, displaying the last evaluated result;\n
 \t ARGUMENT= file name, or - for stdin"
   :meltmode_fun evalfile_docmd
 )
-(install_melt_mode evalfile_mode)
+(install_melt_mode evalfile_mode "evalfile")
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -467,11 +467,10 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 
 (definstance repl_mode
   class_melt_mode
-  :named_name '"repl"
   :meltmode_help '"interactive Read Eval Print Loop mode"
   :meltmode_fun repl_docmd
 )
-(install_melt_mode repl_mode)
+(install_melt_mode repl_mode "repl")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; makedoc mode
@@ -1870,12 +1869,11 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 ;;;
 (definstance makedoc_mode
   class_melt_mode
-  :named_name '"makedoc"
   :meltmode_help '"generate .texi documentation from .melt source files;\n
 \t ARGLIST= input file, ...; OUTPUT= generated file"
   :meltmode_fun makedoc_docmd
 )
-(install_melt_mode makedoc_mode)
+(install_melt_mode makedoc_mode "makedoc")
 
 (export_class class_makedoc_module_context)
 
@@ -1961,11 +1959,10 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 
 (definstance help_mode
   class_melt_mode
-  :named_name '"help"
   :meltmode_help '"MELT help about available modes."
   :meltmode_fun help_docmd
 )
-(install_melt_mode help_mode)
+(install_melt_mode help_mode "help")
 
 
 (defun nop_docmd  (cmd moduldata)
@@ -1975,11 +1972,10 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 
 (definstance nop_mode
   class_melt_mode
-  :named_name '"nop"
   :meltmode_help '"a mode doing nothing."
   :meltmode_fun nop_docmd
 )
-(install_melt_mode nop_mode)
+(install_melt_mode nop_mode "nop")
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -4289,12 +4285,11 @@ melt_scanning (melt_ptr_t p)
 ;;;;;;;;;;;;;;;;
 (definstance runtypesupport_mode
   class_melt_mode
-  :named_name '"runtypesupport"
   :meltmode_help '"generate runtime support for our GTY types (ctypes, values);\n
 \t OUTPUT=generated file prefix"
   :meltmode_fun runtypesupport_docmd
 )
-(install_melt_mode runtypesupport_mode)
+(install_melt_mode runtypesupport_mode "runtypesupport")
 
 
 ;;;;;;;;;;;;;;;;
@@ -4368,12 +4363,11 @@ melt_scanning (melt_ptr_t p)
 
 (definstance translatetomodule_mode
   class_melt_mode
-  :named_name '"translatetomodule"
   :meltmode_help '"translate a .melt file to MELT_DYNLOADED_SUFFIX modules in quicklybuilt, optimized, debugnoline flavors;\n
 \t ARGUMENT= input file; OUTPUT= generated module with MELT_DYNLOADED_SUFFIX; OUTPUTC= generated *.cc file."
   :meltmode_fun translatetomodule_docmd
 )
-(install_melt_mode translatetomodule_mode)
+(install_melt_mode translatetomodule_mode "translatetomodule")
 
 ;;;;;;;;;;;;;;;;
 
@@ -4394,7 +4388,6 @@ melt_scanning (melt_ptr_t p)
 
 (definstance translatedebug_mode
   class_melt_mode
-  :named_name '"translatedebug"
   :meltmode_help '"translate a .melt file to .debugnoline module for low-level
 debug, including gdb;\n
 \t ARGUMENT= input file; OUTPUT= generated module with MELT_DYNLOADED_SUFFIX; COUTPUT= generated *.cc file\n
@@ -4403,7 +4396,7 @@ debug, including gdb;\n
 ASSERT_MSG) is enabled"
   :meltmode_fun translatedebug_docmd
 )
-(install_melt_mode translatedebug_mode)
+(install_melt_mode translatedebug_mode "translatedebug")
 
 ;;;;;;;;;;;;;;;;
 (defun translatequickly_docmd (cmd moduldata)
@@ -4425,12 +4418,11 @@ ASSERT_MSG) is enabled"
 
 (definstance translatequickly_mode
   class_melt_mode
-  :named_name '"translatequickly"
   :meltmode_help '"translate quickly a .melt file to .quicklybuilt module with MELT debugging enabled (DEBUG, ASSERT_MSG...);\n
 \t ARGUMENT= input file; OUTPUT= generated module with MELT_DYNLOADED_SUFFIX; COUTPUT= generated *.cc file\n."
   :meltmode_fun translatequickly_docmd
 )
-(install_melt_mode translatequickly_mode)
+(install_melt_mode translatequickly_mode "translatequickly")
 
 
 ;;;;;;;;;;;;;;;;
@@ -4453,12 +4445,11 @@ ASSERT_MSG) is enabled"
 
 (definstance translateoptimized_mode
   class_melt_mode
-  :named_name '"translateoptimized"
   :meltmode_help '"translate  a .melt file to an .optimized module without MELT debugging\n
 \t ARGUMENT= input file; OUTPUT= generated module with MELT_DYNLOADED_SUFFIX; COUTPUT= generated *.cc file\n."
   :meltmode_fun translateoptimized_docmd
 )
-(install_melt_mode translateoptimized_mode)
+(install_melt_mode translateoptimized_mode "translateoptimized")
 
 
 ;;;;;;;;;;;;;;;;
@@ -4508,12 +4499,11 @@ ASSERT_MSG) is enabled"
 
 (definstance translatefile_mode
   class_melt_mode
-  :named_name '"translatefile"
   :meltmode_help '"translate a .melt file to .cc;\n
 \t ARGUMENT= input file; OUTPUT= generated C++ file"
   :meltmode_fun translatefile_docmd
 )
-(install_melt_mode translatefile_mode)
+(install_melt_mode translatefile_mode "translatefile")
 
 
 
@@ -4583,12 +4573,11 @@ ASSERT_MSG) is enabled"
 ;;;
 (definstance translateinit_mode
   class_melt_mode
-  :named_name '"translateinit"
   :meltmode_help '"translate the very first (warmelt-first.melt) file for bootstrapping;\n
 \t useful only at MELT installation! ARGUMENT= input file; OUTPUT= generated file."
   :meltmode_fun translateinit_docmd
 )
-(install_melt_mode translateinit_mode)
+(install_melt_mode translateinit_mode "translateinit")
 
 
 
@@ -4695,12 +4684,11 @@ ASSERT_MSG) is enabled"
 ;;;
 (definstance translateinitmodule_mode
   class_melt_mode
-  :named_name '"translateinitmodule"
   :meltmode_help '"translate the very first *.melt file into quicklybuilt, optimized, debugnoline falvors of modules;\n
 \t useful only at MELT installation! ARGUMENT= input file; OUTPUT= generated module base."
   :meltmode_fun translateinitmodule_docmd
 )
-(install_melt_mode translateinitmodule_mode)
+(install_melt_mode translateinitmodule_mode "translateinitmodule")
 
 
 ;; translate the initial module quicklybuilt: 
@@ -4713,12 +4701,11 @@ ASSERT_MSG) is enabled"
 ;;;
 (definstance translateinitmodulequicklybuilt_mode
   class_melt_mode
-  :named_name '"translateinitmodulequicklybuilt"
   :meltmode_help '"translate the very first *.melt file into quicklybuilt module;\n
 \t useful only at MELT installation! ARGUMENT= input file; OUTPUT= generated module base."
   :meltmode_fun translateinitmodulequicklybuilt_docmd
 )
-(install_melt_mode translateinitmodulequicklybuilt_mode)
+(install_melt_mode translateinitmodulequicklybuilt_mode "translateinitmodulequicklybuilt")
 
 
 ;; translate the initial module debugnoline: 
@@ -4731,12 +4718,11 @@ ASSERT_MSG) is enabled"
 ;;;
 (definstance translateinitmoduledebugnoline_mode
   class_melt_mode
-  :named_name '"translateinitmoduledebugnoline"
   :meltmode_help '"translate the very first *.melt file into debugnoline module;\n
 \t useful only at MELT installation! ARGUMENT= input file; OUTPUT= generated module base."
   :meltmode_fun translateinitmoduledebugnoline_docmd
 )
-(install_melt_mode translateinitmoduledebugnoline_mode)
+(install_melt_mode translateinitmoduledebugnoline_mode "translateinitmoduledebugnoline")
 
 
 ;; translate the initial module optimized: 
@@ -4749,12 +4735,11 @@ ASSERT_MSG) is enabled"
 ;;;
 (definstance translateinitmoduleoptimized_mode
   class_melt_mode
-  :named_name '"translateinitmoduleoptimized"
   :meltmode_help '"translate the very first *.melt file into optimized module;\n
 \t useful only at MELT installation! ARGUMENT= input file; OUTPUT= generated module base."
   :meltmode_fun translateinitmoduleoptimized_docmd
 )
-(install_melt_mode translateinitmoduleoptimized_mode)
+(install_melt_mode translateinitmoduleoptimized_mode "translateinitmoduleoptimized")
 
 
 

@@ -1,5 +1,16 @@
 
 2014-04-03  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{generated melt-default-modules*modlis contains mode-conditioned extra modules}}
+	* melt-build-script.tpl: Emit mode-conditioned extra modules using awk.
+	* melt-build-script.sh: Regenerate.
+
+	* melt/warmelt-modes.melt (install_melt_mode): Handle the second
+	modename string.
+
+	* melt/xtramelt-ana-simple.melt: Add name for each mode.
+	* melt/xtramelt-probe.melt: Likewise.
+
+2014-04-03  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{New feature: mode-conditional module component in module list, stabilizing}}
 
 	* melt-build-script.tpl: Add call to meltbuild_do_extras.

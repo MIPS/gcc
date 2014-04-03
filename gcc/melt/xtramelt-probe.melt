@@ -911,11 +911,11 @@
 
 (definstance probe_mode
   class_melt_mode
-  :named_name '"probe"
   :meltmode_help '"enable the simple interactive probe; see also the @code{-f[plugin-arg-]melt-probe} argument"
   :meltmode_fun probe_docmd
 )
-(install_melt_mode probe_mode)
+;; melt-build-script.sh requires this mode installation on a single line
+(install_melt_mode probe_mode "probe")
 ;;;;;;;;;;;;;;;;
 
 

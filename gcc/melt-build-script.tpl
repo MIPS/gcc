@@ -770,14 +770,21 @@ if [ ! -f "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.[+flavor+].modlis" \
   melt_modlis_temp="meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.[+flavor+].modlis-tmp$$"
   echo "# MELT module list file $MELTGCCBUILTIN_DEFAULT_MODLIS.[+flavor+].modlis" >> $melt_modlis_temp
   echo "# MELT translator modules:" >> $melt_modlis_temp
+  #  [+ (. (fromline))+] module list [+flavor+] translator
  [+FOR melt_translator_file+] 
   echo [+base+].[+flavor+] >> $melt_modlis_temp
  [+ENDFOR melt_translator_file+]
-  #@  [+ (. (fromline))+]
+  #  [+ (. (fromline))+] module list [+flavor+] library
   echo "# MELT library modules:" >> $melt_modlis_temp
  [+FOR melt_library_file+]
   echo [+base+].[+flavor+] >> $melt_modlis_temp
  [+ENDFOR melt_library_file+]
+  #  [+ (. (fromline))+] module list [+flavor+] extra, with mode condition
+ echo "# MELT extra modules with mode condition:" >> $melt_modlis_temp
+ [+FOR melt_extra_file+]
+ printf '#xtra [+base+]\n' >> $melt_modlis_temp
+ awk -F\" '/\(install_melt_mode /{if (length($2)>1) printf("?%s [+base+].[+flavor+]\n", $2);}' meltbuild-sources/[+base+].melt | sort -u >> $melt_modlis_temp
+ [+ENDFOR melt_extra_file+]
   $GCCMELT_MOVE_IF_CHANGE $melt_modlis_temp  "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.[+flavor+].modlis"
 else
   meltbuild_info  [+(.(fromline))+] keeping module list  "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.[+flavor+].modlis"  
