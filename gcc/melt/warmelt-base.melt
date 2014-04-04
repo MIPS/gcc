@@ -2618,9 +2618,9 @@ typedef struct melthook_st *melthook_ptr_t;
     dst->jsob_entab[ix] = src->jsob_entab[ix];
    /* end cloning chunk VALDESC_JSONOBJECT */
   }#
-  :valdesc_forwchunk #{$' /* forwarding chunk from VALDESC_BUCKETLONGS in warmelt-base.melt */
+  :valdesc_forwchunk #{$' /* forwarding chunk from VALDESC_JSONOBJECT in warmelt-base.melt */
   unsigned srcsize = src->jsob_size;
-  MELT_FOWARDED(src->jsob_aux);
+  MELT_FORWARDED(src->jsob_aux);
   for (unsigned ix = 0; 
        ix < srcsize; 
        ix++) {

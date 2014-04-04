@@ -1,5 +1,8 @@
 
 2014-04-05  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-base.melt (valdesc_jsonobject): Typo in forwarding.
+
+2014-04-05  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-runtime.h (struct melt_jsonobentry_st): New.
 
