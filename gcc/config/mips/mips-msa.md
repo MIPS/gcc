@@ -1404,7 +1404,7 @@
 		  (and:IMSA (match_dup 0)
 			    (match_operand:IMSA 3 "register_operand" "f"))))]
   "ISA_HAS_MSA"
-  "bsel.v\t%w0,%w1,%w3";
+  "bsel.v\t%w0,%w1,%w3"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")])
 
@@ -1416,7 +1416,7 @@
 		  (and:IMSA (match_dup 1)
 			    (match_operand:IMSA 3 "register_operand" "f"))))]
   "ISA_HAS_MSA"
-  "bmnz.v\t%w0,%w3,%w1";
+  "bmnz.v\t%w0,%w3,%w1"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
    (set_attr "msa_execunit" "msa_eu_logic_l")])
@@ -1429,7 +1429,7 @@
 		  (and:IMSA (match_dup 1)
 			    (match_dup 0))))]
   "ISA_HAS_MSA"
-  "bmz.v\t%w0,%w1,%w2";
+  "bmz.v\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
    (set_attr "msa_execunit" "msa_eu_logic_l")])
@@ -2504,7 +2504,7 @@
   [(set (match_operand:IMSA 0 "register_operand" "=f")
 	(unspec:IMSA [(match_operand:IMSA 1 "register_operand" "f")
 		      (match_operand 2 "const_uimm8_operand" "")]
-		       UNSPEC_MSA_SHF))]
+		     UNSPEC_MSA_SHF))]
   "ISA_HAS_MSA"
   "shf.<msafmt>\t%w0,%w1,%2"
   [(set_attr "type"	"arith")
