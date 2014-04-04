@@ -2,6 +2,12 @@
 
 	* crtstuff.c [!ENABLE_OFFLOADING] (__OPENMP_TARGET__): Define to
 	NULL.
+
+2014-03-20  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* crtstuff.c (_omp_func_table, _omp_var_table, _omp_funcs_end,
+	_omp_vars_end): New array fragments.
+	(__OPENMP_TARGET__): New variable.
 
 Copyright (C) 2014 Free Software Foundation, Inc.
 

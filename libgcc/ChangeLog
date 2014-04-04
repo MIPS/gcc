@@ -1,9 +1,3 @@
-2014-03-20  Bernd Schmidt  <bernds@codesourcery.com>
-
-	* crtstuff.c (_omp_func_table, _omp_var_table, _omp_funcs_end,
-	_omp_vars_end): New array fragments.
-	(__OPENMP_TARGET__): New variable.
-
 2014-02-28  Joey Ye  <joey.ye@arm.com>
 
 	PR libgcc/60166

@@ -1,15 +1,3 @@
-2014-03-20  Bernd Schmidt  <bernds@codesourcery.com>
-
-	From Michael Zolotukhin.
-	* lto-object.c (lto_obj_add_section): Compare against the
-	section_name_prefix variable.
-	* lto.c (lto_section_with_id): Likewise.
-	(read_cgraph_and_symbols): Change it if ACCEL_COMPILER.
-
-	* lto-object.c: Include "lto-section-names.h".
-	(LTO_SEGMENT_NAME): Don't define.
-	* lto.c: Include "lto-section-names.h".
-
 2014-02-14  Jan Hubicka  <hubicka@ucw.cz>
 
 	PR lto/60295
