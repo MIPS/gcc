@@ -1,0 +1,9 @@
+2014-03-20  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* acx.m4 (ACX_CANONICAL_ACCEL_TARGET): New macro.
+
+Copyright (C) 2014 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.

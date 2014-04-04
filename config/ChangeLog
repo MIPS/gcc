@@ -1,7 +1,3 @@
-2014-03-20  Bernd Schmidt  <bernds@codesourcery.com>
-
-	* acx.m4 (ACX_CANONICAL_ACCEL_TARGET): New macro.
-
 2013-11-29  Marek Polacek  <polacek@redhat.com>
 
 	* bootstrap-ubsan.mk (POSTSTAGE1_LDFLAGS): Remove -lpthread -ldl.
