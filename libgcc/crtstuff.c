@@ -311,15 +311,6 @@ register_tm_clones (void)
 }
 #endif /* USE_TM_CLONE_REGISTRY */
 
-#if defined(HAVE_GAS_HIDDEN) && defined(ENABLE_OFFLOADING)
-void *_omp_func_table[0]
-  __attribute__ ((__used__, visibility ("protected"),
-		  section (".offload_func_table_section"))) = { };
-void *_omp_var_table[0]
-  __attribute__ ((__used__, visibility ("protected"),
-		  section (".offload_var_table_section"))) = { };
-#endif
-
 #if defined(INIT_SECTION_ASM_OP) || defined(INIT_ARRAY_SECTION_ASM_OP)
 
 #ifdef OBJECT_FORMAT_ELF
@@ -759,22 +750,6 @@ __do_global_ctors (void)
 
 #else /* ! INIT_SECTION_ASM_OP && ! HAS_INIT_SECTION */
 #error "What are you doing with crtstuff.c, then?"
-#endif
-
-#if defined(HAVE_GAS_HIDDEN) && defined(ENABLE_OFFLOADING)
-void *_omp_funcs_end[0]
-  __attribute__ ((__used__, visibility ("protected"),
-		  section (".offload_func_table_section"))) = { };
-void *_omp_vars_end[0]
-  __attribute__ ((__used__, visibility ("protected"),
-		  section (".offload_var_table_section"))) = { };
-extern void *_omp_func_table[];
-extern void *_omp_var_table[];
-void *__OPENMP_TARGET__[] __attribute__ ((__visibility__ ("protected"))) =
-{
-  &_omp_func_table, &_omp_funcs_end,
-  &_omp_var_table, &_omp_vars_end
-};
 #endif
 
 

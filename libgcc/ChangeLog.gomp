@@ -1,6 +1,16 @@
 2014-04-04  Bernd Schmidt  <bernds@codesourcery.com>
 
-	* crtstuff.c (__OPENMP_TARGET__): Revert previous change.
+	* Makefile.in (crtompend$(objext)): New rule.
+	* configure.ac (--enable-accelerator, --enable-offload-targets):
+	Handle options.
+	(offload_targets): Compute list.
+	(extra_parts): Add crtompend.o if offload_targets is not empty.
+	* configure: Regenerate.
+	* crtstuff.c (_omp_func_table, _omp_var_table, _omp_funcs_end)
+	_omp_vars_end, __OPENMP_TARGET__): Remove.
+	* ompstuff.c: New file.
+
+	(* crtstuff.c (__OPENMP_TARGET__): Revert previous change.
 
 2014-04-02  Thomas Schwinge  <thomas@codesourcery.com>
 

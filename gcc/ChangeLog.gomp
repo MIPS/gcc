@@ -1,5 +1,15 @@
 2014-04-04  Bernd Schmidt  <bernds@codesourcery.com>
 
+	* lto-section-names.h (OFFLOAD_VAR_TABLE_SECTION_NAME,
+	OFFLOAD_FUNC_TABLE_SECTION_NAME): Define.
+	* lto-wrapper.c (OFFLOAD_FUNC_TABLE_SECTION_NAME): Don't define.
+	(ompend): New static variable.
+	(copy_file, find_ompend): New static functions.
+	(run_gcc): Call find_ompend if we have offload images.  Add its
+	return value to the output.
+	* omp-low.c: Include "lto-section-names.h".
+	(omp_finish_file): Initialize section names from macros defined there.
+
 	* omp-low.c (offload_symbol_decl): New static variable.
 	(get_offload_symbol_decl): New static function.
 	(expand_oacc_offload, expand_omp_target): Use it.
