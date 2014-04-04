@@ -418,24 +418,6 @@ prepare_target_image (const char *target, const char *compiler_path,
 }
 
 
-/* Replace all special characters in array of strings with '_'.
-   This is needed, e.g., when we want to use a string for a symbol name.  */
-static void
-replace_special_characters (char **ptr, unsigned n)
-{
-  unsigned i, j;
-  const char *special_chars = "-+=/\\~`!@#$%^&*()[]{},;.:\"'";
-  for (i = 0; i < n; i++)
-    {
-      char *str = ptr[i];
-      for (j = 0; j < strlen (str); j++)
-	{
-	  if (strchr (special_chars, str[j]))
-	    str[j] = '_';
-	}
-    }
-}
-
 /* The main routine dealing with openmp offloading.
    The routine builds a target image for each offloading target.
    IN_ARGC and IN_ARGV specify input files.  As all of them could contain
@@ -458,7 +440,6 @@ compile_images_for_openmp_targets (unsigned in_argc, char *in_argv[])
     return;
 
   num_targets = parse_env_var (target_names, &names, NULL);
-  replace_special_characters (names, num_targets);
 
   const char *compiler_path = getenv ("COMPILER_PATH");
   if (compiler_path == NULL)

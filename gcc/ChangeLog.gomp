@@ -1,5 +1,8 @@
 2014-04-04  Bernd Schmidt  <bernds@codesourcery.com>
 
+	* lto-wrapper.c (replace_special_characters): Remove functions and
+	all calls to it.
+
 	* lto-section-names.h (OFFLOAD_VAR_TABLE_SECTION_NAME,
 	OFFLOAD_FUNC_TABLE_SECTION_NAME): Define.
 	* lto-wrapper.c (OFFLOAD_FUNC_TABLE_SECTION_NAME): Don't define.
