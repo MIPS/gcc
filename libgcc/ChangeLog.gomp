@@ -1,3 +1,7 @@
+2014-04-04  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* crtstuff.c (__OPENMP_TARGET__): Revert previous change.
+
 2014-04-02  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* crtstuff.c [!ENABLE_OFFLOADING] (__OPENMP_TARGET__): Define to

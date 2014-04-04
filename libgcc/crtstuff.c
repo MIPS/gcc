@@ -775,8 +775,6 @@ void *__OPENMP_TARGET__[] __attribute__ ((__visibility__ ("protected"))) =
   &_omp_func_table, &_omp_funcs_end,
   &_omp_var_table, &_omp_vars_end
 };
-#else
-void **__OPENMP_TARGET__ __attribute__ ((__visibility__ ("protected"))) = NULL;
 #endif
 
 
