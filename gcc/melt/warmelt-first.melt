@@ -2318,6 +2318,14 @@ non-nil value.}#
   :disc_super discr_any_receiver
   :named_name '"DISCR_MAP_OBJECTS")
 
+;;; the discriminant for JSON objects
+(definstance discr_jsonobject class_discriminant
+  :doc #{The $DISCR_JSONOBJECT is the discriminant of JSON objects.}#
+  :predef DISCR_JSONOBJECT
+ ; :obj_num MELTOBMAG_JSONOBJECT
+  :disc_super discr_any_receiver
+  :named_name '"DISCR_JSONOBJECT")
+
 ;;; the discriminant for maps of strings
 (definstance discr_map_strings class_discriminant
   :doc #{The $DISCR_MAP_STRINGS is the discriminant of hash-map values associating raw strings to 

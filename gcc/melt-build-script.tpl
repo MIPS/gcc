@@ -117,13 +117,14 @@ GCCMELT_RUNTIME_DEPENDENCY_MD5SUM=$($MD5SUM "$GCCMELT_RUNTIME_DEPENDENCY"  | cut
 
 case $melt_overall_goal in
     translator) ;;
+    library) ;;
     applications) ;;
     modlists) ;;
     checkruntime) ;;
     gendoc) ;;
     regenerate) ;;
     *) meltbuild_error  [+(.(fromline))+] bad MELT overall goal "$melt_overall_goal:" \
-        expecting translator, applications, modlists, checkruntime or gendoc or regenerate
+        expecting translator, library, applications, modlists, checkruntime, gendoc or regenerate
 esac
 
 ################################################################
@@ -661,20 +662,20 @@ fi
 ################################################################
 meltbuild_info [+(.(fromline))+] before library GCCMELT_SKIPEMITC=$GCCMELT_SKIPEMITC.
 
-meltbuild_info [+(.(fromline))+] times before libraries at `date '+%x %H:%M:%S'`: ;  times >&2
+meltbuild_info [+(.(fromline))+] times before library at `date '+%x %H:%M:%S'`: ;  times >&2
  
 melt_final_library_stamp=meltbuild-final-library.stamp
 
-function meltbuild_do_libraries () {
-  meltbuild_notice 'start doing libraries'  [+(.(fromline))+] doing libraries 
+function meltbuild_do_library () {
+  meltbuild_notice 'start doing library'  [+(.(fromline))+] doing library 
   [+FOR melt_library_file+]
   [+ (define apbase (get "base")) (define apindex (for-index)) +]
-    ## meltbuild_do_libraries [+base+] [+(.(fromline))+]
+    ## meltbuild_do_library [+base+] [+(.(fromline))+]
     meltbuild_info [+(.(fromline))+] doing library [+base+]
     if [ ! -f meltbuild-sources/[+base+].melt ]; then
         meltbuild_symlink $GCCMELT_MELTSOURCEDIR/[+base+].melt meltbuild-sources/[+base+].melt
     fi
-    ## meltbuild_do_libraries [+base+] [+(.(fromline))+]
+    ## meltbuild_do_library [+base+] [+(.(fromline))+]
     if [ ! -f meltbuild-sources/[+base+].cc -o  ! -f meltbuild-sources/[+base+]+meltdesc.c \
          -o meltbuild-sources/[+base+]+meltdesc.c -ot meltbuild-final-translator.stamp \
          -o meltbuild-sources/[+base+]+meltdesc.c -ot meltbuild-sources/[+base+].melt \
@@ -723,7 +724,7 @@ function meltbuild_do_libraries () {
     fi
    [+ENDFOR flavor+]
   [+ENDFOR melt_library_file+]
-    ## meltbuild_do_libraries [+base+] [+(.(fromline))+]
+    ## meltbuild_do_library [+base+] [+(.(fromline))+]
     local meltlibstamptemp=$melt_final_library_stamp-tmp$$
     echo "///MELT library time stamp $melt_final_library_stamp" > $meltlibstamptemp
     echo $GCCMELT_RUNTIME_DEPENDENCY_MD5SUM $GCCMELT_RUNTIME_DEPENDENCY >>  $meltlibstamptemp
@@ -736,25 +737,25 @@ function meltbuild_do_libraries () {
   [+ENDFOR melt_library_file+]
     echo "///end stamp $melt_final_library_stamp"  >> $meltlibstamptemp
     $GCCMELT_MOVE_IF_CHANGE $meltlibstamptemp  $melt_final_library_stamp
-  meltbuild_info [+(.(fromline))+] times after libraries at `date '+%x %H:%M:%S'`: ;  times >&2
-} ## end function meltbuild_do_libraries  [+(.(fromline))+]
+  meltbuild_info [+(.(fromline))+] times after library at `date '+%x %H:%M:%S'`: ;  times >&2
+} ## end function meltbuild_do_library  [+(.(fromline))+]
 
 
 if [ ! -f  "$melt_final_library_stamp" \
      -o "$melt_final_library_stamp" -ot "$melt_final_translator_stamp" \
 [+FOR melt_library_file+] -o "$melt_final_library_stamp" -ot "$GCCMELT_MELTSOURCEDIR/[+base+].melt" \
 [+ENDFOR melt_library_file+] ]; then
-    meltbuild_info [+(.(fromline))+] building MELT libraries
-    meltbuild_do_libraries
+    meltbuild_info [+(.(fromline))+] building MELT library
+    meltbuild_do_library
 else
-    meltbuild_info [+(.(fromline))+] not building MELT libraries because of libstamp  "$melt_final_library_stamp"
+    meltbuild_info [+(.(fromline))+] not building MELT library because of libstamp  "$melt_final_library_stamp"
 fi
 
 ################################################################
 #@ [+(.(fromline))+]
-if [ "$melt_overall_goal" = "libraries" ]; then
-    meltbuild_info [+(.(fromline))+] done libraries overall goal with stamp  $melt_final_translator_stamp
-    meltbuild_notice 'Done libraries' [+(.(fromline))+] libraries overall goal 
+if [ "$melt_overall_goal" = "library" ]; then
+    meltbuild_info [+(.(fromline))+] done library overall goal with stamp  $melt_final_translator_stamp
+    meltbuild_notice 'Done library' [+(.(fromline))+] library overall goal 
     exit 0
 fi
 
@@ -783,7 +784,7 @@ if [ ! -f "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.[+flavor+].modlis" \
  echo "# MELT extra modules with mode condition:" >> $melt_modlis_temp
  [+FOR melt_extra_file+]
  printf '#xtra [+base+]\n' >> $melt_modlis_temp
- awk -F\" '/\(install_melt_mode /{if (length($2)>1) printf("?%s [+base+].[+flavor+]\n", $2);}' meltbuild-sources/[+base+].melt | sort -u >> $melt_modlis_temp
+ $GAWK -F\" '/\(install_melt_mode /{if (length($2)>1) printf("?%s [+base+].[+flavor+]\n", $2);}' meltbuild-sources/[+base+].melt | sort -u >> $melt_modlis_temp
  [+ENDFOR melt_extra_file+]
   $GCCMELT_MOVE_IF_CHANGE $melt_modlis_temp  "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.[+flavor+].modlis"
 else
@@ -999,6 +1000,13 @@ fi
 
 if [ "$melt_overall_goal" = "checkruntime" ]; then
     meltbuild_info [+(.(fromline))+] done checkruntime overall goal with stamp  $meltcheckruntime_stamp
+    exit 0
+fi
+
+################################################################
+#@ [+(.(fromline))+]
+if [ "$melt_overall_goal" = "applications" ]; then
+    meltbuild_info [+(.(fromline))+] done applications overall goal with stamp  $meltcheckruntime_stamp
     exit 0
 fi
 

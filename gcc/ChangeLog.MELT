@@ -1,4 +1,18 @@
 
+2014-04-05  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.h (struct melt_jsonobentry_st): New.
+
+	* melt-predef.list (DISCR_JSONOBJECT): New.
+
+	* melt/warmelt-first.melt (DISCR_JSONOBJECT): New, but not yet complete.
+
+	* melt/warmelt-base.melt (valdesc_jsonobject): New.
+
+	* melt-build-script.tpl: library is a new overall goal which could
+	also be applications.
+	* melt-build-script.sh: Regenerate.
+
 2014-04-03  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/xtramelt-ana-simple.melt (class_justcountipa_data): Add

@@ -2563,6 +2563,76 @@ typedef struct melthook_st *melthook_ptr_t;
 (install_value_descriptor valdesc_bucketlongs)
 
 
+;;;;;;;;;;;;;;;; JSONobject value
+(definstance valdesc_jsonobject class_value_descriptor
+  :doc #{$VALDESC_JSONOBJECT describes JSON object values. See
+  http://json.org/ or RFC7159 for more. Internally represented as a
+  sorted array of JSON name->value pairs. A JSON name is either an
+  instance of CLASS_NAMED -whose immutable :NAMED_NAME is a string
+  value- or a string value. Chaos could happen with instances of
+  CLASS_NAMED whose :NAMED_NAME is changing or is not a fixed
+  string.}#
+  :named_name '"VALDESC_JSONOBJECT"
+  :valdesc_objmagic '"MELTOBMAG_JSONOBJECT"
+  :valdesc_struct '"meltjsonobject_st"
+  :valdesc_unionmem '"u_jsonobject"
+  ;;;
+  :valdesc_membchunk #{$' /* from VALDESC_JSONOBJECT in warmelt-base.melt */ 
+    melt_ptr_t jsob_aux;  /* auxiliary data */
+    unsigned jsob_size;   /* size of jsob_entab below */
+    struct melt_jsonobentry_st GTY ((length(%h.jsob_size)))
+       jsob_entab[MELT_FLEXIBLE_DIM];	/* sorted alphanumerically by names */
+  }#
+  ;;;
+  :valdesc_declchunk #{$' /* decl VALDESC_JSONOBJECT in warmelt-base.melt */
+  typedef struct meltjsonobject_st* meltjsonobject_ptr_t;
+#ifndef ggc_alloc_meltjsonobject_st
+#define ggc_alloc_meltjsonobject_st(SIZE) ((struct meltjsonobject_st *)(ggc_internal_alloc_stat (SIZE MEM_STAT_INFO)))
+#endif
+  }#
+  ;;;
+  :valdesc_copychunk #{$' /* copy chunk from  VALDESC_JSONOBJECT in warmelt-base.melt */
+  /* ggc_alloc_meltjsonobject_st should be gengtype generated for VALDESC_JSONOBJECT */
+  unsigned srcsize = src->jsob_size;
+  size_t sz = srcsize * sizeof(melt_jsonobentry_st)
+     + offsetof(struct meltjsonobject_st, jsob_entab);
+  dst = /* Don't need a cleared allocation! */
+     ggc_alloc_meltjsonobject_st (sz);
+  melt_forwarded_copy_byte_count += sz;
+  dst->discr = src->discr;
+  dst->jsob_aux = src->jsob_aux;
+  dst->jsob_size = srcsize;
+  for (unsigned ix = 0; 
+       ix < srcsize; 
+       ix++) 
+    dst->jsob_entab[ix] = src->jsob_entab[ix];
+   /* end copy chunk VALDESC_JSONOBJECT */
+  }#
+  :valdesc_clonechunk #{$' /* cloning chunk from VALDESC_JSONOBJECT in warmelt-base.melt */
+  unsigned srcsize = src->jsob_size;
+  dst = (struct meltjsonobject_st*)meltgc_allocate(sizeof(struct meltjsonobject_st), 
+                                                   srcsize*sizeof(melt_jsonobentry_st));
+  dst->discr = (meltobject_ptr_t)newdiscrv;
+  dst->jsob_aux = src->jsob_aux;
+  for (unsigned ix=0; ix<srcsize; ix++)
+    dst->jsob_entab[ix] = src->jsob_entab[ix];
+   /* end cloning chunk VALDESC_JSONOBJECT */
+  }#
+  :valdesc_forwchunk #{$' /* forwarding chunk from VALDESC_BUCKETLONGS in warmelt-base.melt */
+  unsigned srcsize = src->jsob_size;
+  MELT_FOWARDED(src->jsob_aux);
+  for (unsigned ix = 0; 
+       ix < srcsize; 
+       ix++) {
+    MELT_FORWARDED(src->jsob_entab[ix].jsonob_name);
+    MELT_FORWARDED(src->jsob_entab[ix].jsonob_val);
+  };
+   /* end forwarding chunk VALDESC_JSONOBJECT */
+  }#
+)
+(install_value_descriptor valdesc_jsonobject)
+
+
 ;;;;;;;;;;;;;;;; string value
 (definstance valdesc_string class_varisized_value_descriptor
   :doc #{$VALDESC_STRING describes string values.}#
@@ -3678,6 +3748,7 @@ given object map $MAPO}#
  valdesc_decay
  valdesc_hook
  valdesc_int
+ valdesc_jsonobject
  valdesc_list
  valdesc_mapobjects
  valdesc_mapstrings

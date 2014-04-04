@@ -449,6 +449,13 @@ melt_bucketlongentry_st
 };
 
 
+struct
+GTY (())			// entry of JSONobjects 
+  melt_jsonobentry_st {
+  melt_ptr_t jsonob_name;
+  melt_ptr_t jsonob_val;
+};
+
 /* We don't want to use GCC vectors from vec.h because GCC 4.7 & 4.8
    are source incompatible....  */
 struct
