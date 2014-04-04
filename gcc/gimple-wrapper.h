@@ -66,9 +66,9 @@ class _ptr
     inline _ptr& operator= (const gimple_null& g ATTRIBUTE_UNUSED)
 				    { Tree = NULL; return *this;}
     inline _ptr& operator= (const tree t) 
-			      { set_ptr (t); check_contents (); return *this;}
+			    { set_ptr (t); check_contents (); return *this;}
     inline _ptr& operator= (const_tree t)
-			      { set_ptr (t); check_contents (); return *this;}
+			    { set_ptr (t); check_contents (); return *this;}
     inline _ptr& operator= (const T *v) { set_ptr (v); return *this;}
     inline _ptr& operator= (int x ATTRIBUTE_UNUSED) 
 			  { gcc_assert (!x); set_ptr (NULL); return *this; }
@@ -80,9 +80,6 @@ class _ptr
     inline const T * operator->() const { return ptr (); }
     inline T& operator*() { return *ptr (); }
     inline const T& operator*() const { return *ptr (); }
-
-    friend bool is_same(const _ptr a, _ptr b)
-				    { return a->code () == b->code (); }
 
     template <typename TT>
     friend bool operator== (const _ptr<TT>&, const _ptr<TT>&);
@@ -124,51 +121,48 @@ template<typename pT, typename dT>
 class _dptr : public dT
 {
   protected:
+    pT *ptr() const { return static_cast<pT *>(dT::Tree); }
+    void set_ptr(const void *p) 
+	    { dT::Tree = reinterpret_cast<tree_desc *>(const_cast<void *>(p)); }
     static inline bool Test (const dT &);
     inline void check_contents () const;
     static inline _dptr create ();
     inline _dptr copy () const;
     static inline bool is_a(const dT &d) { return Test (d); }
-    static inline  pT * as_a(dT &d)
-			    { return static_cast<pT *>(d.operator->()); }
+    static inline  pT * as_a(dT &d) { return static_cast<pT *>(d.Tree); }
     static inline  const pT * as_a(const dT &d)
-			    { return static_cast<const pT *>(d.operator->()); }
+				    { return static_cast<const pT *>(d.Tree); }
     static inline pT * dyn_cast(dT &d) 
-	      { return (Test (d)) ? static_cast<pT *>(d.operator->()) : NULL; }
+		      { return (Test (d)) ? static_cast<pT *>(d.Tree) : NULL; }
     static inline const pT * dyn_cast(const dT &d) 
-	{ return (Test (d)) ? static_cast<const pT *>(d.operator->()) : NULL; }
+		{ return (Test (d)) ? static_cast<const pT *>(d.Tree) : NULL; }
 
-    pT *ptr() const { return static_cast<pT *>(dT::Tree); }
-    void set_ptr(const void *p) 
-	    { dT::Tree = reinterpret_cast<tree_desc *>(const_cast<void *>(p)); }
   public:
 
     inline _dptr () : dT () { }
     inline _dptr (const gimple_null& g ATTRIBUTE_UNUSED) : dT() { }
     inline _dptr (const tree t) : dT (t) { check_contents(); }
     inline _dptr (const_tree t) : dT (t) { check_contents(); }
-    inline _dptr (const dT& d) : dT () { if (d) dT::operator= (dyn_cast (d)); }
+    inline _dptr (const dT& d) : dT () { if (d) set_ptr ((dyn_cast (d))); }
     inline _dptr (const pT *n) : dT () {  dT::set_ptr (n); }
     inline _dptr (int x ATTRIBUTE_UNUSED) : dT () { gcc_assert (!x); }
 
     inline _dptr& operator= (const tree t) 
-			  { dT::operator= (t); check_contents(); return *this; }
+				{ set_ptr (t); check_contents(); return *this; }
     inline _dptr& operator= (const_tree t) 
-			  { dT::operator= (t); check_contents(); return *this; }
+				{ set_ptr (t); check_contents(); return *this; }
     inline _dptr& operator= (const dT& d) 
-			  { if (d) dT::operator= (dyn_cast (d)); else dT::set_ptr (NULL); return *this; }
-    inline _dptr& operator= (const pT *p) { dT::set_ptr (p); return *this; }
+	   { if (d) set_ptr (dyn_cast (d)); else set_ptr (NULL); return *this; }
+    inline _dptr& operator= (const pT *p) { set_ptr (p); return *this; }
     inline _dptr& operator= (const gimple_null& g ATTRIBUTE_UNUSED)
-					    { dT::set_ptr (NULL); return *this;}
+						{ set_ptr (NULL); return *this;}
     inline _dptr& operator= (int x ATTRIBUTE_UNUSED) 
-		      { gcc_assert (!x); dT::set_ptr (NULL); return *this; }
+			    { gcc_assert (!x); set_ptr (NULL); return *this; }
 
-    inline pT * operator->() { return static_cast<pT *>(dT::ptr()); }
-    inline const pT * operator->() const 
-				  { return static_cast<const pT *>(dT::ptr()); }
-    inline pT& operator*() { return *static_cast<pT *>(dT::ptr()); }
-    inline const pT& operator*() const
-				{ return *static_cast<const pT *>(dT::ptr()); }
+    inline pT * operator->() { return ptr(); }
+    inline const pT * operator->() const { return ptr(); }
+    inline pT& operator*() { return *ptr(); }
+    inline const pT& operator*() const { return *ptr(); }
 
     template <typename T1, typename T2>
     friend bool operator== (const _dptr<T1,T2>& a, const T1 *b);

@@ -225,7 +225,7 @@ useless_type_conversion_p (Gimple::type outer_type, Gimple::type inner_type)
     }
 
   else if ((inner_func = inner_type) && (outer_func = outer_type)
-	   && is_same (inner_type, outer_type))
+	   && (inner_type->code () == outer_type->code ()))
     {
       Gimple::type_list outer_parm, inner_parm;
 
@@ -273,7 +273,8 @@ useless_type_conversion_p (Gimple::type outer_type, Gimple::type inner_type)
   /* For aggregates we rely on TYPE_CANONICAL exclusively and require
      explicit conversions for types involving to be structurally
      compared types.  */
-  else if (inner_type->aggregate_type_p () && is_same (inner_type, outer_type))
+  else if (inner_type->aggregate_type_p ()
+	   && inner_type->code () ==  outer_type->code ())
     return false;
 
   return false;
