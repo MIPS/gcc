@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -mgp64 -march=octeon" } */
+/* { dg-options "-mgp64 -march=octeon" } */
 /* { dg-final { scan-assembler-times "\tsra\t" 1 } } */
 /* { dg-final { scan-assembler-times "\tdsra\t" 1 } } */
 /* { dg-final { scan-assembler-not "\tmflo\t" } } */
