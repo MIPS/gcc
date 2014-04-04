@@ -2580,7 +2580,7 @@ typedef struct melthook_st *melthook_ptr_t;
   :valdesc_membchunk #{$' /* from VALDESC_JSONOBJECT in warmelt-base.melt */ 
     melt_ptr_t jsob_aux;  /* auxiliary data */
     unsigned jsob_size;   /* size of jsob_entab below */
-    struct melt_jsonobentry_st GTY ((length(%h.jsob_size)))
+    struct melt_jsonobentry_st GTY ((length("%h.jsob_size")))
        jsob_entab[MELT_FLEXIBLE_DIM];	/* sorted alphanumerically by names */
   }#
   ;;;
