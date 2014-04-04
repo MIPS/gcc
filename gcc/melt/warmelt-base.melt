@@ -2564,7 +2564,7 @@ typedef struct melthook_st *melthook_ptr_t;
 
 
 ;;;;;;;;;;;;;;;; JSONobject value
-(definstance valdesc_jsonobject class_value_descriptor
+(definstance valdesc_jsonobject class_varisized_value_descriptor
   :doc #{$VALDESC_JSONOBJECT describes JSON object values. See
   http://json.org/ or RFC7159 for more. Internally represented as a
   sorted array of JSON name->value pairs. A JSON name is either an

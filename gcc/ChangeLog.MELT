@@ -1,5 +1,9 @@
 
 2014-04-05  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-base.melt (valdesc_jsonobject): Instance of
+	class_varisized_value_descriptor...
+
+2014-04-05  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-base.melt (valdesc_jsonobject): Typo in struct.
 
 2014-04-05  Basile Starynkevitch  <basile@starynkevitch.net>
