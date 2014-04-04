@@ -2322,7 +2322,7 @@ non-nil value.}#
 (definstance discr_jsonobject class_discriminant
   :doc #{The $DISCR_JSONOBJECT is the discriminant of JSON objects.}#
   :predef DISCR_JSONOBJECT
- ; :obj_num MELTOBMAG_JSONOBJECT
+  :obj_num MELTOBMAG_JSONOBJECT
   :disc_super discr_any_receiver
   :named_name '"DISCR_JSONOBJECT")
 
@@ -4148,7 +4148,8 @@ $MELT_MAKE_FRESH_ENVIRONMENT_REFERENCE primitive. For gurus and MELT itself.}#
  discr_gimple
  discr_gimple_seq
  discr_hook
- discr_integer                        
+ discr_integer
+ discr_jsonobject
  discr_list    
  discr_loop
  discr_macro_closure

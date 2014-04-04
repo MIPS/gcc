@@ -1,6 +1,12 @@
 
 2014-04-05  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-first.melt (discr_jsonobject): Export it.
+
+	* melt/warmelt-base.melt (melt_make_jsonobject, make_jsonobject): New stub.
+
+2014-04-05  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/generated/*: Regenerate all.
 
 2014-04-05  Basile Starynkevitch  <basile@starynkevitch.net>

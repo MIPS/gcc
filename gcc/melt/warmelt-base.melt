@@ -3314,6 +3314,24 @@ typedef struct melthook_st *melthook_ptr_t;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
+(defun melt_make_jsonobject (dis :rest)   
+  :doc #{Dynamically build a JSON object of discriminant $DIS.}#
+  (if (null dis) (setq dis discr_jsonobject))
+  (when (is_not_a dis class_discriminant)
+    (return ()))
+  (when (expr_chunk testdis_chk :long #{/*melt_make_jsonobject $TESTDIS_CHK*/
+		    !$DIS || ((meltobject_ptr_t)$DIS)->meltobj_magic != MELTOBMAG_JSONOBJECT}#)
+    (return ()))
+  (let ( (lisnames (make_list discr_list))
+	 (lisvalues (make_list discr_list))
+	 )
+    ;;; @@@incomplete
+    (assert_msg "@$@incomplete melt_make_jsonobject")
+  )
+)
+
+(export_values melt_make_jsonobject)
+(export_synonym make_jsonobject melt_make_jsonobject)
 
 (defhook hook_sort_compare_less
   (:value left right cmp)
