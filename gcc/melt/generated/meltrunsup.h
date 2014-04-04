@@ -43,79 +43,82 @@ enum meltobmag_en /*generated*/
     /*valdesc #5 VALDESC_INT*/
     MELTOBMAG_INT /*valmagic*/ =20004,
 
-    /*valdesc #6 VALDESC_LIST*/
-    MELTOBMAG_LIST /*valmagic*/ =20005,
+    /*valdesc #6 VALDESC_JSONOBJECT*/
+    MELTOBMAG_JSONOBJECT /*valmagic*/ =20005,
 
-    /*valdesc #7 VALDESC_MAPOBJECTS*/
-    MELTOBMAG_MAPOBJECTS /*valmagic*/ =20006,
+    /*valdesc #7 VALDESC_LIST*/
+    MELTOBMAG_LIST /*valmagic*/ =20006,
 
-    /*valdesc #8 VALDESC_MAPSTRINGS*/
-    MELTOBMAG_MAPSTRINGS /*valmagic*/ =20007,
+    /*valdesc #8 VALDESC_MAPOBJECTS*/
+    MELTOBMAG_MAPOBJECTS /*valmagic*/ =20007,
 
-    /*valdesc #9 VALDESC_MIXBIGINT*/
-    MELTOBMAG_MIXBIGINT /*valmagic*/ =20008,
+    /*valdesc #9 VALDESC_MAPSTRINGS*/
+    MELTOBMAG_MAPSTRINGS /*valmagic*/ =20008,
 
-    /*valdesc #10 VALDESC_MIXINT*/
-    MELTOBMAG_MIXINT /*valmagic*/ =20009,
+    /*valdesc #10 VALDESC_MIXBIGINT*/
+    MELTOBMAG_MIXBIGINT /*valmagic*/ =20009,
 
-    /*valdesc #11 VALDESC_MIXLOC*/
-    MELTOBMAG_MIXLOC /*valmagic*/ =20010,
+    /*valdesc #11 VALDESC_MIXINT*/
+    MELTOBMAG_MIXINT /*valmagic*/ =20010,
 
-    /*valdesc #12 VALDESC_MULTIPLE*/
-    MELTOBMAG_MULTIPLE /*valmagic*/ =20011,
+    /*valdesc #12 VALDESC_MIXLOC*/
+    MELTOBMAG_MIXLOC /*valmagic*/ =20011,
 
-    /*valdesc #13 VALDESC_OBJECT*/
-    MELTOBMAG_OBJECT /*valmagic*/ =20012,
+    /*valdesc #13 VALDESC_MULTIPLE*/
+    MELTOBMAG_MULTIPLE /*valmagic*/ =20012,
 
-    /*valdesc #14 VALDESC_PAIR*/
-    MELTOBMAG_PAIR /*valmagic*/ =20013,
+    /*valdesc #14 VALDESC_OBJECT*/
+    MELTOBMAG_OBJECT /*valmagic*/ =20013,
 
-    /*valdesc #15 VALDESC_REAL*/
-    MELTOBMAG_REAL /*valmagic*/ =20014,
+    /*valdesc #15 VALDESC_PAIR*/
+    MELTOBMAG_PAIR /*valmagic*/ =20014,
 
-    /*valdesc #16 VALDESC_ROUTINE*/
-    MELTOBMAG_ROUTINE /*valmagic*/ =20015,
+    /*valdesc #16 VALDESC_REAL*/
+    MELTOBMAG_REAL /*valmagic*/ =20015,
 
-    /*valdesc #17 VALDESC_SPECIAL_DATA*/
-    MELTOBMAG_SPECIAL_DATA /*valmagic*/ =20016,
+    /*valdesc #17 VALDESC_ROUTINE*/
+    MELTOBMAG_ROUTINE /*valmagic*/ =20016,
 
-    /*valdesc #18 VALDESC_STRBUF*/
-    MELTOBMAG_STRBUF /*valmagic*/ =20017,
+    /*valdesc #18 VALDESC_SPECIAL_DATA*/
+    MELTOBMAG_SPECIAL_DATA /*valmagic*/ =20017,
 
-    /*valdesc #19 VALDESC_STRING*/
-    MELTOBMAG_STRING /*valmagic*/ =20018,
+    /*valdesc #19 VALDESC_STRBUF*/
+    MELTOBMAG_STRBUF /*valmagic*/ =20018,
+
+    /*valdesc #20 VALDESC_STRING*/
+    MELTOBMAG_STRING /*valmagic*/ =20019,
 
     /* ctype gty object magic */
     /*gtyctype magic #1 CTYPE_BASIC_BLOCK*/
-    MELTOBMAG_BASICBLOCK /*boxedmagic*/ =20019,
-    MELTOBMAG_MAPBASICBLOCKS /*mapmagic*/ =20020,
+    MELTOBMAG_BASICBLOCK /*boxedmagic*/ =20020,
+    MELTOBMAG_MAPBASICBLOCKS /*mapmagic*/ =20021,
     /*gtyctype magic #2 CTYPE_BITMAP*/
-    MELTOBMAG_BITMAP /*boxedmagic*/ =20021,
-    MELTOBMAG_MAPBITMAPS /*mapmagic*/ =20022,
+    MELTOBMAG_BITMAP /*boxedmagic*/ =20022,
+    MELTOBMAG_MAPBITMAPS /*mapmagic*/ =20023,
     /*gtyctype magic #3 CTYPE_EDGE*/
-    MELTOBMAG_EDGE /*boxedmagic*/ =20023,
-    MELTOBMAG_MAPEDGES /*mapmagic*/ =20024,
+    MELTOBMAG_EDGE /*boxedmagic*/ =20024,
+    MELTOBMAG_MAPEDGES /*mapmagic*/ =20025,
     /*gtyctype magic #4 CTYPE_GIMPLE*/
-    MELTOBMAG_GIMPLE /*boxedmagic*/ =20025,
-    MELTOBMAG_MAPGIMPLES /*mapmagic*/ =20026,
+    MELTOBMAG_GIMPLE /*boxedmagic*/ =20026,
+    MELTOBMAG_MAPGIMPLES /*mapmagic*/ =20027,
     /*gtyctype magic #5 CTYPE_GIMPLE_SEQ*/
-    MELTOBMAG_GIMPLESEQ /*boxedmagic*/ =20027,
-    MELTOBMAG_MAPGIMPLESEQS /*mapmagic*/ =20028,
+    MELTOBMAG_GIMPLESEQ /*boxedmagic*/ =20028,
+    MELTOBMAG_MAPGIMPLESEQS /*mapmagic*/ =20029,
     /*gtyctype magic #6 CTYPE_LOOP*/
-    MELTOBMAG_LOOP /*boxedmagic*/ =20029,
-    MELTOBMAG_MAPLOOPS /*mapmagic*/ =20030,
+    MELTOBMAG_LOOP /*boxedmagic*/ =20030,
+    MELTOBMAG_MAPLOOPS /*mapmagic*/ =20031,
     /*gtyctype magic #7 CTYPE_RTVEC*/
-    MELTOBMAG_RTVEC /*boxedmagic*/ =20031,
-    MELTOBMAG_MAPRTVECS /*mapmagic*/ =20032,
+    MELTOBMAG_RTVEC /*boxedmagic*/ =20032,
+    MELTOBMAG_MAPRTVECS /*mapmagic*/ =20033,
     /*gtyctype magic #8 CTYPE_RTX*/
-    MELTOBMAG_RTX /*boxedmagic*/ =20033,
-    MELTOBMAG_MAPRTXS /*mapmagic*/ =20034,
+    MELTOBMAG_RTX /*boxedmagic*/ =20034,
+    MELTOBMAG_MAPRTXS /*mapmagic*/ =20035,
     /*gtyctype magic #9 CTYPE_TREE*/
-    MELTOBMAG_TREE /*boxedmagic*/ =20035,
-    MELTOBMAG_MAPTREES /*mapmagic*/ =20036,
+    MELTOBMAG_TREE /*boxedmagic*/ =20036,
+    MELTOBMAG_MAPTREES /*mapmagic*/ =20037,
     MELTOBMAG__LAST
 }; /* end generated enum meltobmag_en */
-#define MELT_COUNT_GENERATED_OBJMAGIC 28
+#define MELT_COUNT_GENERATED_OBJMAGIC 29
 /*** end from generate_runtypesupport_enum_objmagic **/
 
 
@@ -535,7 +538,28 @@ static inline long melt_boxed_int_value(melt_ptr_t v)
 
 
 
-/*gtyvaldesc #6 VALDESC_LIST*/
+/*gtyvaldesc #6 VALDESC_JSONOBJECT*/
+struct GTY((variable_size)) meltjsonobject_st /* when MELTOBMAG_JSONOBJECT */
+{
+    meltobject_ptr_t discr;
+    /* from VALDESC_JSONOBJECT in warmelt-base.melt */
+    melt_ptr_t jsob_aux;  /* auxiliary data */
+    unsigned jsob_size;   /* size of jsob_entab below */
+    struct melt_jsonobentry_st GTY ((length("%h.jsob_size")))
+    jsob_entab[MELT_FLEXIBLE_DIM];	/* sorted alphanumerically by names */
+
+}; /* end meltjsonobject_st */
+/* decl. chunk */
+/* decl VALDESC_JSONOBJECT in warmelt-base.melt */
+typedef struct meltjsonobject_st* meltjsonobject_ptr_t;
+#ifndef ggc_alloc_meltjsonobject_st
+#define ggc_alloc_meltjsonobject_st(SIZE) ((struct meltjsonobject_st *)(ggc_internal_alloc_stat (SIZE MEM_STAT_INFO)))
+#endif
+
+
+
+
+/*gtyvaldesc #7 VALDESC_LIST*/
 struct GTY(()) meltlist_st /* when MELTOBMAG_LIST */
 {
     meltobject_ptr_t discr;
@@ -551,7 +575,7 @@ typedef struct meltlist_st *meltlist_ptr_t;
 
 
 
-/*gtyvaldesc #7 VALDESC_MAPOBJECTS*/
+/*gtyvaldesc #8 VALDESC_MAPOBJECTS*/
 struct GTY(()) meltmapobjects_st /* when MELTOBMAG_MAPOBJECTS */
 {
     meltobject_ptr_t discr;
@@ -574,7 +598,7 @@ typedef struct meltmapobjects_st* meltmapobjects_ptr_t;
 
 
 
-/*gtyvaldesc #8 VALDESC_MAPSTRINGS*/
+/*gtyvaldesc #9 VALDESC_MAPSTRINGS*/
 struct GTY(()) meltmapstrings_st /* when MELTOBMAG_MAPSTRINGS */
 {
     meltobject_ptr_t discr;
@@ -589,7 +613,7 @@ struct GTY(()) meltmapstrings_st /* when MELTOBMAG_MAPSTRINGS */
 /* no decl. chunk */
 
 
-/*gtyvaldesc #9 VALDESC_MIXBIGINT*/
+/*gtyvaldesc #10 VALDESC_MIXBIGINT*/
 struct GTY((variable_size)) meltmixbigint_st /* when MELTOBMAG_MIXBIGINT */
 {
     meltobject_ptr_t discr;
@@ -607,7 +631,7 @@ struct GTY((variable_size)) meltmixbigint_st /* when MELTOBMAG_MIXBIGINT */
 /* no decl. chunk */
 
 
-/*gtyvaldesc #10 VALDESC_MIXINT*/
+/*gtyvaldesc #11 VALDESC_MIXINT*/
 struct GTY(()) meltmixint_st /* when MELTOBMAG_MIXINT */
 {
     meltobject_ptr_t discr;
@@ -619,7 +643,7 @@ struct GTY(()) meltmixint_st /* when MELTOBMAG_MIXINT */
 /* no decl. chunk */
 
 
-/*gtyvaldesc #11 VALDESC_MIXLOC*/
+/*gtyvaldesc #12 VALDESC_MIXLOC*/
 struct GTY(()) meltmixloc_st /* when MELTOBMAG_MIXLOC */
 {
     meltobject_ptr_t discr;
@@ -632,7 +656,7 @@ struct GTY(()) meltmixloc_st /* when MELTOBMAG_MIXLOC */
 /* no decl. chunk */
 
 
-/*gtyvaldesc #12 VALDESC_MULTIPLE*/
+/*gtyvaldesc #13 VALDESC_MULTIPLE*/
 struct GTY((variable_size)) meltmultiple_st /* when MELTOBMAG_MULTIPLE */
 {
     meltobject_ptr_t discr;
@@ -652,7 +676,7 @@ typedef struct meltmultiple_st* meltmultiple_ptr_t;
 
 
 
-/*gtyvaldesc #13 VALDESC_OBJECT*/
+/*gtyvaldesc #14 VALDESC_OBJECT*/
 struct GTY((variable_size)) meltobject_st /* when MELTOBMAG_OBJECT */
 {
     meltobject_ptr_t discr;
@@ -678,7 +702,7 @@ struct GTY((variable_size)) meltobject_st /* when MELTOBMAG_OBJECT */
 
 
 
-/*gtyvaldesc #14 VALDESC_PAIR*/
+/*gtyvaldesc #15 VALDESC_PAIR*/
 struct GTY(( chain_next ("%h.tl"))) meltpair_st /* when MELTOBMAG_PAIR */
 {
     meltobject_ptr_t discr;
@@ -694,7 +718,7 @@ typedef struct meltpair_st *meltpair_ptr_t;
 
 
 
-/*gtyvaldesc #15 VALDESC_REAL*/
+/*gtyvaldesc #16 VALDESC_REAL*/
 struct GTY(()) meltreal_st /* when MELTOBMAG_REAL */
 {
     meltobject_ptr_t discr;
@@ -705,7 +729,7 @@ struct GTY(()) meltreal_st /* when MELTOBMAG_REAL */
 /* no decl. chunk */
 
 
-/*gtyvaldesc #16 VALDESC_ROUTINE*/
+/*gtyvaldesc #17 VALDESC_ROUTINE*/
 struct GTY((variable_size)) meltroutine_st /* when MELTOBMAG_ROUTINE */
 {
     meltobject_ptr_t discr;
@@ -742,7 +766,7 @@ typedef struct meltroutine_st *meltroutine_ptr_t;
 
 
 
-/*gtyvaldesc #17 VALDESC_SPECIAL_DATA*/
+/*gtyvaldesc #18 VALDESC_SPECIAL_DATA*/
 struct GTY(( mark_hook ("melt_mark_specialdata"))) meltspecialdata_st /* when MELTOBMAG_SPECIAL_DATA */
 {
     meltobject_ptr_t discr;
@@ -757,7 +781,7 @@ struct GTY(( mark_hook ("melt_mark_specialdata"))) meltspecialdata_st /* when ME
 /* no decl. chunk */
 
 
-/*gtyvaldesc #18 VALDESC_STRBUF*/
+/*gtyvaldesc #19 VALDESC_STRBUF*/
 struct GTY(()) meltstrbuf_st /* when MELTOBMAG_STRBUF */
 {
     meltobject_ptr_t discr;
@@ -777,7 +801,7 @@ struct GTY(()) meltstrbuf_st /* when MELTOBMAG_STRBUF */
 /* no decl. chunk */
 
 
-/*gtyvaldesc #19 VALDESC_STRING*/
+/*gtyvaldesc #20 VALDESC_STRING*/
 struct GTY((variable_size)) meltstring_st /* when MELTOBMAG_STRING */
 {
     meltobject_ptr_t discr;
@@ -856,46 +880,49 @@ typedef union
     /*union.valdesc #5 VALDESC_INT*/
     struct meltint_st GTY ((tag("MELTOBMAG_INT"))) u_int; /* generated value union member */
 
-    /*union.valdesc #6 VALDESC_LIST*/
+    /*union.valdesc #6 VALDESC_JSONOBJECT*/
+    struct meltjsonobject_st GTY ((tag("MELTOBMAG_JSONOBJECT"))) u_jsonobject; /* generated value union member */
+
+    /*union.valdesc #7 VALDESC_LIST*/
     struct meltlist_st GTY ((tag("MELTOBMAG_LIST"))) u_list; /* generated value union member */
 
-    /*union.valdesc #7 VALDESC_MAPOBJECTS*/
+    /*union.valdesc #8 VALDESC_MAPOBJECTS*/
     struct meltmapobjects_st GTY ((tag("MELTOBMAG_MAPOBJECTS"))) u_mapobjects; /* generated value union member */
 
-    /*union.valdesc #8 VALDESC_MAPSTRINGS*/
+    /*union.valdesc #9 VALDESC_MAPSTRINGS*/
     struct meltmapstrings_st GTY ((tag("MELTOBMAG_MAPSTRINGS"))) u_mapstrings; /* generated value union member */
 
-    /*union.valdesc #9 VALDESC_MIXBIGINT*/
+    /*union.valdesc #10 VALDESC_MIXBIGINT*/
     struct meltmixbigint_st GTY ((tag("MELTOBMAG_MIXBIGINT"))) u_mixbigint; /* generated value union member */
 
-    /*union.valdesc #10 VALDESC_MIXINT*/
+    /*union.valdesc #11 VALDESC_MIXINT*/
     struct meltmixint_st GTY ((tag("MELTOBMAG_MIXINT"))) u_mixint; /* generated value union member */
 
-    /*union.valdesc #11 VALDESC_MIXLOC*/
+    /*union.valdesc #12 VALDESC_MIXLOC*/
     struct meltmixloc_st GTY ((tag("MELTOBMAG_MIXLOC"))) u_mixloc; /* generated value union member */
 
-    /*union.valdesc #12 VALDESC_MULTIPLE*/
+    /*union.valdesc #13 VALDESC_MULTIPLE*/
     struct meltmultiple_st GTY ((tag("MELTOBMAG_MULTIPLE"))) u_multiple; /* generated value union member */
 
-    /*union.valdesc #13 VALDESC_OBJECT*/
+    /*union.valdesc #14 VALDESC_OBJECT*/
     struct meltobject_st GTY ((tag("MELTOBMAG_OBJECT"))) u_object; /* generated value union member */
 
-    /*union.valdesc #14 VALDESC_PAIR*/
+    /*union.valdesc #15 VALDESC_PAIR*/
     struct meltpair_st GTY ((tag("MELTOBMAG_PAIR"))) u_pair; /* generated value union member */
 
-    /*union.valdesc #15 VALDESC_REAL*/
+    /*union.valdesc #16 VALDESC_REAL*/
     struct meltreal_st GTY ((tag("MELTOBMAG_REAL"))) u_real; /* generated value union member */
 
-    /*union.valdesc #16 VALDESC_ROUTINE*/
+    /*union.valdesc #17 VALDESC_ROUTINE*/
     struct meltroutine_st GTY ((tag("MELTOBMAG_ROUTINE"))) u_routine; /* generated value union member */
 
-    /*union.valdesc #17 VALDESC_SPECIAL_DATA*/
+    /*union.valdesc #18 VALDESC_SPECIAL_DATA*/
     struct meltspecialdata_st GTY ((tag("MELTOBMAG_SPECIAL_DATA"))) u_special_data; /* generated value union member */
 
-    /*union.valdesc #18 VALDESC_STRBUF*/
+    /*union.valdesc #19 VALDESC_STRBUF*/
     struct meltstrbuf_st GTY ((tag("MELTOBMAG_STRBUF"))) u_strbuf; /* generated value union member */
 
-    /*union.valdesc #19 VALDESC_STRING*/
+    /*union.valdesc #20 VALDESC_STRING*/
     struct meltstring_st GTY ((tag("MELTOBMAG_STRING"))) u_string; /* generated value union member */
 
 } melt_un_t /*end generated melt_un*/;
@@ -957,7 +984,18 @@ static inline struct meltint_st* meltcast_meltint_st(melt_ptr_t p)
 
 
 
-/* cast.valdesc #6 meltlist_st*/
+/* cast.valdesc #6 meltjsonobject_st*/
+static inline struct meltjsonobject_st* meltcast_meltjsonobject_st(melt_ptr_t p)
+{
+    if (p && melt_magic_discr(p) == MELTOBMAG_JSONOBJECT)
+        return (struct meltjsonobject_st*) p;
+    return NULL;
+} /* end meltcast_meltjsonobject_st*/
+
+
+
+
+/* cast.valdesc #7 meltlist_st*/
 static inline struct meltlist_st* meltcast_meltlist_st(melt_ptr_t p)
 {
     if (p && melt_magic_discr(p) == MELTOBMAG_LIST)
@@ -968,7 +1006,7 @@ static inline struct meltlist_st* meltcast_meltlist_st(melt_ptr_t p)
 
 
 
-/* cast.valdesc #7 meltmapobjects_st*/
+/* cast.valdesc #8 meltmapobjects_st*/
 static inline struct meltmapobjects_st* meltcast_meltmapobjects_st(melt_ptr_t p)
 {
     if (p && melt_magic_discr(p) == MELTOBMAG_MAPOBJECTS)
@@ -979,7 +1017,7 @@ static inline struct meltmapobjects_st* meltcast_meltmapobjects_st(melt_ptr_t p)
 
 
 
-/* cast.valdesc #8 meltmapstrings_st*/
+/* cast.valdesc #9 meltmapstrings_st*/
 static inline struct meltmapstrings_st* meltcast_meltmapstrings_st(melt_ptr_t p)
 {
     if (p && melt_magic_discr(p) == MELTOBMAG_MAPSTRINGS)
@@ -990,7 +1028,7 @@ static inline struct meltmapstrings_st* meltcast_meltmapstrings_st(melt_ptr_t p)
 
 
 
-/* cast.valdesc #9 meltmixbigint_st*/
+/* cast.valdesc #10 meltmixbigint_st*/
 static inline struct meltmixbigint_st* meltcast_meltmixbigint_st(melt_ptr_t p)
 {
     if (p && melt_magic_discr(p) == MELTOBMAG_MIXBIGINT)
@@ -1001,7 +1039,7 @@ static inline struct meltmixbigint_st* meltcast_meltmixbigint_st(melt_ptr_t p)
 
 
 
-/* cast.valdesc #10 meltmixint_st*/
+/* cast.valdesc #11 meltmixint_st*/
 static inline struct meltmixint_st* meltcast_meltmixint_st(melt_ptr_t p)
 {
     if (p && melt_magic_discr(p) == MELTOBMAG_MIXINT)
@@ -1012,7 +1050,7 @@ static inline struct meltmixint_st* meltcast_meltmixint_st(melt_ptr_t p)
 
 
 
-/* cast.valdesc #11 meltmixloc_st*/
+/* cast.valdesc #12 meltmixloc_st*/
 static inline struct meltmixloc_st* meltcast_meltmixloc_st(melt_ptr_t p)
 {
     if (p && melt_magic_discr(p) == MELTOBMAG_MIXLOC)
@@ -1023,7 +1061,7 @@ static inline struct meltmixloc_st* meltcast_meltmixloc_st(melt_ptr_t p)
 
 
 
-/* cast.valdesc #12 meltmultiple_st*/
+/* cast.valdesc #13 meltmultiple_st*/
 static inline struct meltmultiple_st* meltcast_meltmultiple_st(melt_ptr_t p)
 {
     if (p && melt_magic_discr(p) == MELTOBMAG_MULTIPLE)
@@ -1034,7 +1072,7 @@ static inline struct meltmultiple_st* meltcast_meltmultiple_st(melt_ptr_t p)
 
 
 
-/* cast.valdesc #13 meltobject_st*/
+/* cast.valdesc #14 meltobject_st*/
 static inline struct meltobject_st* meltcast_meltobject_st(melt_ptr_t p)
 {
     if (p && melt_magic_discr(p) == MELTOBMAG_OBJECT)
@@ -1045,7 +1083,7 @@ static inline struct meltobject_st* meltcast_meltobject_st(melt_ptr_t p)
 
 
 
-/* cast.valdesc #14 meltpair_st*/
+/* cast.valdesc #15 meltpair_st*/
 static inline struct meltpair_st* meltcast_meltpair_st(melt_ptr_t p)
 {
     if (p && melt_magic_discr(p) == MELTOBMAG_PAIR)
@@ -1056,7 +1094,7 @@ static inline struct meltpair_st* meltcast_meltpair_st(melt_ptr_t p)
 
 
 
-/* cast.valdesc #15 meltreal_st*/
+/* cast.valdesc #16 meltreal_st*/
 static inline struct meltreal_st* meltcast_meltreal_st(melt_ptr_t p)
 {
     if (p && melt_magic_discr(p) == MELTOBMAG_REAL)
@@ -1067,7 +1105,7 @@ static inline struct meltreal_st* meltcast_meltreal_st(melt_ptr_t p)
 
 
 
-/* cast.valdesc #16 meltroutine_st*/
+/* cast.valdesc #17 meltroutine_st*/
 static inline struct meltroutine_st* meltcast_meltroutine_st(melt_ptr_t p)
 {
     if (p && melt_magic_discr(p) == MELTOBMAG_ROUTINE)
@@ -1078,7 +1116,7 @@ static inline struct meltroutine_st* meltcast_meltroutine_st(melt_ptr_t p)
 
 
 
-/* cast.valdesc #17 meltspecialdata_st*/
+/* cast.valdesc #18 meltspecialdata_st*/
 static inline struct meltspecialdata_st* meltcast_meltspecialdata_st(melt_ptr_t p)
 {
     if (p && melt_magic_discr(p) == MELTOBMAG_SPECIAL_DATA)
@@ -1089,7 +1127,7 @@ static inline struct meltspecialdata_st* meltcast_meltspecialdata_st(melt_ptr_t 
 
 
 
-/* cast.valdesc #18 meltstrbuf_st*/
+/* cast.valdesc #19 meltstrbuf_st*/
 static inline struct meltstrbuf_st* meltcast_meltstrbuf_st(melt_ptr_t p)
 {
     if (p && melt_magic_discr(p) == MELTOBMAG_STRBUF)
@@ -1100,7 +1138,7 @@ static inline struct meltstrbuf_st* meltcast_meltstrbuf_st(melt_ptr_t p)
 
 
 
-/* cast.valdesc #19 meltstring_st*/
+/* cast.valdesc #20 meltstring_st*/
 static inline struct meltstring_st* meltcast_meltstring_st(melt_ptr_t p)
 {
     if (p && melt_magic_discr(p) == MELTOBMAG_STRING)
@@ -2446,131 +2484,131 @@ static inline melt_ptr_t melt_auxput_maptrees (melt_ptr_t map_p, melt_ptr_t val_
 /** end of code generated by generate_runtypesupport_predef_fields **/
 
 
-/* declarations generated by generate_runtypesupport_predefined_hooks for 153 predefined */
+/* declarations generated by generate_runtypesupport_predefined_hooks for 154 predefined */
 
-/*predefined hook declaration HOOK_ALL_IPA_PASSES_END #107*/
+/*predefined hook declaration HOOK_ALL_IPA_PASSES_END #108*/
 MELT_EXTERN void melthookproc_HOOK_ALL_IPA_PASSES_END();
 
-/*predefined hook declaration HOOK_ALL_IPA_PASSES_START #108*/
+/*predefined hook declaration HOOK_ALL_IPA_PASSES_START #109*/
 MELT_EXTERN void melthookproc_HOOK_ALL_IPA_PASSES_START();
 
-/*predefined hook declaration HOOK_ALL_PASSES_END #109*/
+/*predefined hook declaration HOOK_ALL_PASSES_END #110*/
 MELT_EXTERN void melthookproc_HOOK_ALL_PASSES_END();
 
-/*predefined hook declaration HOOK_ALL_PASSES_START #110*/
+/*predefined hook declaration HOOK_ALL_PASSES_START #111*/
 MELT_EXTERN void melthookproc_HOOK_ALL_PASSES_START();
 
-/*predefined hook declaration HOOK_EARLY_GIMPLE_PASSES_END #111*/
+/*predefined hook declaration HOOK_EARLY_GIMPLE_PASSES_END #112*/
 MELT_EXTERN void melthookproc_HOOK_EARLY_GIMPLE_PASSES_END();
 
-/*predefined hook declaration HOOK_EARLY_GIMPLE_PASSES_START #112*/
+/*predefined hook declaration HOOK_EARLY_GIMPLE_PASSES_START #113*/
 MELT_EXTERN void melthookproc_HOOK_EARLY_GIMPLE_PASSES_START();
 
-/*predefined hook declaration HOOK_EXIT_FINALIZER #113*/
+/*predefined hook declaration HOOK_EXIT_FINALIZER #114*/
 MELT_EXTERN void melthookproc_HOOK_EXIT_FINALIZER();
 
-/*predefined hook declaration HOOK_FINISH_DECL #114*/
+/*predefined hook declaration HOOK_FINISH_DECL #115*/
 MELT_EXTERN void melthookproc_HOOK_FINISH_DECL(tree meltin_TFNDECL_p0);
 
-/*predefined hook declaration HOOK_FINISH_TYPE #115*/
+/*predefined hook declaration HOOK_FINISH_TYPE #116*/
 MELT_EXTERN void melthookproc_HOOK_FINISH_TYPE(tree meltin_TFNDECL_p0);
 
-/*predefined hook declaration HOOK_FINISH_UNIT #116*/
+/*predefined hook declaration HOOK_FINISH_UNIT #117*/
 MELT_EXTERN void melthookproc_HOOK_FINISH_UNIT();
 
-/*predefined hook declaration HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER #117*/
+/*predefined hook declaration HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER #118*/
 MELT_EXTERN melt_ptr_t melthookproc_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER(melt_ptr_t meltin_PREVENV_p0, const char* meltin_MODULNAME_p1);
 
-/*predefined hook declaration HOOK_GIMPLE_EXECUTE #118*/
+/*predefined hook declaration HOOK_GIMPLE_EXECUTE #119*/
 MELT_EXTERN long melthookproc_HOOK_GIMPLE_EXECUTE();
 
-/*predefined hook declaration HOOK_GIMPLE_GATE #119*/
+/*predefined hook declaration HOOK_GIMPLE_GATE #120*/
 MELT_EXTERN long melthookproc_HOOK_GIMPLE_GATE();
 
-/*predefined hook declaration HOOK_HANDLE_SIGALRM #120*/
+/*predefined hook declaration HOOK_HANDLE_SIGALRM #121*/
 MELT_EXTERN void melthookproc_HOOK_HANDLE_SIGALRM();
 
-/*predefined hook declaration HOOK_HANDLE_SIGCHLD #121*/
+/*predefined hook declaration HOOK_HANDLE_SIGCHLD #122*/
 MELT_EXTERN void melthookproc_HOOK_HANDLE_SIGCHLD();
 
-/*predefined hook declaration HOOK_HANDLE_SIGIO #122*/
+/*predefined hook declaration HOOK_HANDLE_SIGIO #123*/
 MELT_EXTERN void melthookproc_HOOK_HANDLE_SIGIO();
 
-/*predefined hook declaration HOOK_INTERN_KEYWORD #123*/
+/*predefined hook declaration HOOK_INTERN_KEYWORD #124*/
 MELT_EXTERN melt_ptr_t melthookproc_HOOK_INTERN_KEYWORD(melt_ptr_t meltin_KEYWV_p0);
 
-/*predefined hook declaration HOOK_INTERN_SYMBOL #124*/
+/*predefined hook declaration HOOK_INTERN_SYMBOL #125*/
 MELT_EXTERN melt_ptr_t melthookproc_HOOK_INTERN_SYMBOL(melt_ptr_t meltin_SYMBV_p0);
 
-/*predefined hook declaration HOOK_LOW_DEBUG_VALUE_AT #125*/
+/*predefined hook declaration HOOK_LOW_DEBUG_VALUE_AT #126*/
 MELT_EXTERN void melthookproc_HOOK_LOW_DEBUG_VALUE_AT(melt_ptr_t meltin_VAL_p0, const char* meltin_FILENAME_p1, long meltin_LINENO_p2, const char* meltin_MSG_p3, long meltin_COUNT_p4);
 
-/*predefined hook declaration HOOK_LOW_STDERR_VALUE_AT #126*/
+/*predefined hook declaration HOOK_LOW_STDERR_VALUE_AT #127*/
 MELT_EXTERN void melthookproc_HOOK_LOW_STDERR_VALUE_AT(melt_ptr_t meltin_VAL_p0, const char* meltin_FILENAME_p1, long meltin_LINENO_p2, const char* meltin_MSG_p3, long meltin_COUNT_p4);
 
-/*predefined hook declaration HOOK_MACRO_EXPORTER #127*/
+/*predefined hook declaration HOOK_MACRO_EXPORTER #128*/
 MELT_EXTERN void melthookproc_HOOK_MACRO_EXPORTER(melt_ptr_t meltin_SYM_p0, melt_ptr_t meltin_VAL_p1, melt_ptr_t meltin_CONTENV_p2);
 
-/*predefined hook declaration HOOK_MACRO_INSTALLER #128*/
+/*predefined hook declaration HOOK_MACRO_INSTALLER #129*/
 MELT_EXTERN void melthookproc_HOOK_MACRO_INSTALLER(melt_ptr_t meltin_MBIND_p0, melt_ptr_t meltin_MEXPCLOS_p1);
 
-/*predefined hook declaration HOOK_MELT_ATTRIBUTE_DEFINER #129*/
+/*predefined hook declaration HOOK_MELT_ATTRIBUTE_DEFINER #130*/
 MELT_EXTERN void melthookproc_HOOK_MELT_ATTRIBUTE_DEFINER(tree meltin_DECL_p0, tree meltin_NAME_p1, melt_ptr_t meltin_ATTRSEQ_p2, const char* meltin_FILELOC_p3, long meltin_LINENO_p4);
 
-/*predefined hook declaration HOOK_MELT_DO_INITIAL_MODE #130*/
+/*predefined hook declaration HOOK_MELT_DO_INITIAL_MODE #131*/
 MELT_EXTERN void melthookproc_HOOK_MELT_DO_INITIAL_MODE(melt_ptr_t meltin_MODATA_p0, const char* meltin_MODSTR_p1);
 
-/*predefined hook declaration HOOK_MELT_MAKE_LOCATION #131*/
+/*predefined hook declaration HOOK_MELT_MAKE_LOCATION #132*/
 MELT_EXTERN melt_ptr_t melthookproc_HOOK_MELT_MAKE_LOCATION(const char* meltin_FILENAME_p0, long meltin_LINENO_p1);
 
-/*predefined hook declaration HOOK_NAMED_KEYWORD #132*/
+/*predefined hook declaration HOOK_NAMED_KEYWORD #133*/
 MELT_EXTERN melt_ptr_t melthookproc_HOOK_NAMED_KEYWORD(const char* meltin_NAM_p0, long meltin_CREATE_p1);
 
-/*predefined hook declaration HOOK_NAMED_SYMBOL #133*/
+/*predefined hook declaration HOOK_NAMED_SYMBOL #134*/
 MELT_EXTERN melt_ptr_t melthookproc_HOOK_NAMED_SYMBOL(const char* meltin_NAM_p0, long meltin_CREATE_p1);
 
-/*predefined hook declaration HOOK_OVERRIDE_GATE #134*/
+/*predefined hook declaration HOOK_OVERRIDE_GATE #135*/
 MELT_EXTERN void melthookproc_HOOK_OVERRIDE_GATE(long meltin_BEFOREGATE_p0, long* meltout_AFTERGATE_o0);
 
-/*predefined hook declaration HOOK_PASS_EXECUTION #135*/
+/*predefined hook declaration HOOK_PASS_EXECUTION #136*/
 MELT_EXTERN void melthookproc_HOOK_PASS_EXECUTION(const char* meltin_PASSNAME_p0, long meltin_PASSNUM_p1, long meltin_TYPENUM_p2);
 
-/*predefined hook declaration HOOK_PATMACRO_EXPORTER #136*/
+/*predefined hook declaration HOOK_PATMACRO_EXPORTER #137*/
 MELT_EXTERN void melthookproc_HOOK_PATMACRO_EXPORTER(melt_ptr_t meltin_SYM_p0, melt_ptr_t meltin_MACVAL_p1, melt_ptr_t meltin_PATVAL_p2, melt_ptr_t meltin_CONTENV_p3);
 
-/*predefined hook declaration HOOK_POLL_INPUTS #137*/
+/*predefined hook declaration HOOK_POLL_INPUTS #138*/
 MELT_EXTERN void melthookproc_HOOK_POLL_INPUTS(long meltin_DELAYMS_p0);
 
-/*predefined hook declaration HOOK_PRE_GENERICIZE #138*/
+/*predefined hook declaration HOOK_PRE_GENERICIZE #139*/
 MELT_EXTERN void melthookproc_HOOK_PRE_GENERICIZE(tree meltin_TFNDECL_p0);
 
-/*predefined hook declaration HOOK_PROCESS_PRAGMA #139*/
+/*predefined hook declaration HOOK_PROCESS_PRAGMA #140*/
 MELT_EXTERN void melthookproc_HOOK_PROCESS_PRAGMA(long meltin_LIX_p0);
 
-/*predefined hook declaration HOOK_REGISTER_PRAGMAS #140*/
+/*predefined hook declaration HOOK_REGISTER_PRAGMAS #141*/
 MELT_EXTERN void melthookproc_HOOK_REGISTER_PRAGMAS();
 
-/*predefined hook declaration HOOK_RTL_EXECUTE #141*/
+/*predefined hook declaration HOOK_RTL_EXECUTE #142*/
 MELT_EXTERN long melthookproc_HOOK_RTL_EXECUTE();
 
-/*predefined hook declaration HOOK_RTL_GATE #142*/
+/*predefined hook declaration HOOK_RTL_GATE #143*/
 MELT_EXTERN long melthookproc_HOOK_RTL_GATE();
 
-/*predefined hook declaration HOOK_SIMPLE_IPA_EXECUTE #143*/
+/*predefined hook declaration HOOK_SIMPLE_IPA_EXECUTE #144*/
 MELT_EXTERN long melthookproc_HOOK_SIMPLE_IPA_EXECUTE();
 
-/*predefined hook declaration HOOK_SORT_COMPARE_LESS #144*/
+/*predefined hook declaration HOOK_SORT_COMPARE_LESS #145*/
 MELT_EXTERN long melthookproc_HOOK_SORT_COMPARE_LESS(melt_ptr_t meltin_LEFT_p0, melt_ptr_t meltin_RIGHT_p1, melt_ptr_t meltin_CMP_p2);
 
-/*predefined hook declaration HOOK_START_UNIT #145*/
+/*predefined hook declaration HOOK_START_UNIT #146*/
 MELT_EXTERN void melthookproc_HOOK_START_UNIT();
 
-/*predefined hook declaration HOOK_SYMBOL_IMPORTER #146*/
+/*predefined hook declaration HOOK_SYMBOL_IMPORTER #147*/
 MELT_EXTERN melt_ptr_t melthookproc_HOOK_SYMBOL_IMPORTER(const char* meltin_SYMNAMESTR_p0, const char* meltin_MODULENAMESTR_p1, melt_ptr_t meltin_PARENV_p2);
 
-/*predefined hook declaration HOOK_VALUE_EXPORTER #147*/
+/*predefined hook declaration HOOK_VALUE_EXPORTER #148*/
 MELT_EXTERN void melthookproc_HOOK_VALUE_EXPORTER(melt_ptr_t meltin_SYM_p0, melt_ptr_t meltin_VAL_p1, melt_ptr_t meltin_CONTENV_p2);
-/* end of declarations generated by generate_runtypesupport_predefined_hooks for 153 predefined */
+/* end of declarations generated by generate_runtypesupport_predefined_hooks for 154 predefined */
 
-/*** End of declaration file meltbuild-sources/generated/meltrunsup.h generated on 2014 Apr 03
- * by GCC MELT 4.9.0 20140401 (experimental) [melt-branch revision 208985] MELT_1.1-pre . ***/
+/*** End of declaration file meltbuild-sources/generated/meltrunsup.h generated on 2014 Apr 04
+ * by GCC MELT 4.9.0 20140403 (experimental) [melt-branch revision 209054] MELT_1.1-pre . ***/

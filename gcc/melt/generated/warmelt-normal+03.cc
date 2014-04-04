@@ -39,8 +39,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f3[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiNORMAL_h4672794; // forward declaration fromline 6566
-typedef Melt_InitialClassyFrame_WARMELTmiNORMAL_h4672794 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiNORMAL_h650633304; // forward declaration fromline 6566
+typedef Melt_InitialClassyFrame_WARMELTmiNORMAL_h650633304 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
 /*** 3 MELT called hook declarations ***/
@@ -880,7 +880,7 @@ MELT_EXTERN const char melt_module_is_gpl_compatible[];
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiNORMAL_h4672794 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiNORMAL_h650633304 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -39148,7 +39148,7 @@ meltlab_endgetargs:
             ;
             /*^putpairtail*/
             /*putpairtail*/
-            melt_assertmsg("putpairtail /2df0613c checkpair", melt_magic_discr((melt_ptr_t)(/*_.CLOBIND__V95*/ meltfptr[94]))== MELTOBMAG_PAIR);
+            melt_assertmsg("putpairtail /1ebdf47c checkpair", melt_magic_discr((melt_ptr_t)(/*_.CLOBIND__V95*/ meltfptr[94]))== MELTOBMAG_PAIR);
             ((meltpair_ptr_t)(/*_.CLOBIND__V95*/ meltfptr[94]))->tl = (meltpair_ptr_t) (/*_.CBIND__V96*/ meltfptr[95]);
             ;
             /*^touch*/
