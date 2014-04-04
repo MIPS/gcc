@@ -29561,7 +29561,7 @@ arm_issue_rate (void)
 static int
 arm_first_cycle_multipass_dfa_lookahead (void)
 {
-  return arm_issue_rate () + 1;
+  return arm_issue_rate () - 1;
 }
 
 /* A table and a function to perform ARM-specific name mangling for
