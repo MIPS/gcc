@@ -97,7 +97,7 @@ symbols to arbitrary value.}# )
   :fields (named_name) 
   :predef CLASS_NAMED
   :doc #{The $CLASS_NAMED is the super-class of every named object. The
-$NAMED_NAME field is conventionally a string.}# )
+$NAMED_NAME field is conventionally a string and should not change.}# )
 
 ;; class of discriminants
 (defclass class_discriminant 
