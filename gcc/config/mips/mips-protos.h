@@ -287,7 +287,9 @@ extern enum reg_class mips_secondary_reload_class (enum reg_class,
 						   enum machine_mode,
 						   rtx, bool);
 extern int mips_class_max_nregs (enum reg_class, enum machine_mode);
-
+extern enum machine_mode mips_hard_regno_caller_save_mode (unsigned int,
+							   unsigned int,
+							   enum machine_mode);
 extern int mips_adjust_insn_length (rtx, int);
 extern void mips_output_load_label (rtx);
 extern const char *mips_output_conditional_branch (rtx, rtx *, const char *,
