@@ -143,12 +143,6 @@ tree_desc::test_node (enum tree_code t1, enum tree_code t2, enum tree_code t3,
   return false;
 }
 
-inline bool
-tree_desc::test_node (enum gimple_rhs_class c) const
-{
-  return ((enum gimple_rhs_class) gimple_rhs_class_table[(int) code ()] != c);
-}
-
 inline void
 tree_desc::check_node (void) const
 {
@@ -215,16 +209,6 @@ tree_desc::check_node (enum tree_code t1, enum tree_code t2, enum tree_code t3,
 		       __FUNCTION__, t1, t2, t3, t4, t5, 0);
 #endif
 }
-
-inline void
-tree_desc::check_node (enum gimple_rhs_class c) const
-{
-#if GIMPLE_CHECKING_ON
-  if (!test_node (c))
-    gcc_unreachable ();
-#endif
-}
-
 
 
 // class type_desc
@@ -498,37 +482,16 @@ value_desc::expr_location() const
     return UNKNOWN_LOCATION;
 }
 
-inline enum gimple_rhs_class
-expr_desc::rhs_class () const
+inline int
+value_ops_desc::op_len () const
 {
-  return (enum gimple_rhs_class) gimple_rhs_class_table[(int) code ()];
+  return value_desc::op_len ();
 }
 
-inline Gimple::value
-expr_desc::op1 () const
+inline value
+value_ops_desc::op(const int i) const
 {
-  if (rhs_class () == GIMPLE_SINGLE_RHS)
-    return this;
-  else
-    return op(0);
-}
-
-inline Gimple::value
-expr_desc::op2 () const
-{
-  if (rhs_class () == GIMPLE_BINARY_RHS || rhs_class () == GIMPLE_TERNARY_RHS)
-    return op(1);
-  else
-    return Gimple::value ();
-}
-
-inline Gimple::value
-expr_desc::op3 () const
-{
-  if (rhs_class () == GIMPLE_TERNARY_RHS)
-    return op(2);
-  else
-    return Gimple::value ();
+  return value_desc::op(i);
 }
 
 inline Gimple::value
@@ -856,7 +819,7 @@ decl_with_viz_desc::assembler_name_set_p() const
 inline Gimple::identifier
 decl_desc::assembler_name() const
 {
-  decl_with_viz viz(this);
+  decl_with_viz viz(&node);
   return decl_assembler_name (viz);
 }
 

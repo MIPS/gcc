@@ -426,7 +426,7 @@ is_gimple_mem_rhs (Gimple::value t)
 static bool
 is_gimple_reg_rhs_or_call (Gimple::value t)
 {
-  return (is_a<Gimple::expr> (t) || is_a<Gimple::call_expr> (t));
+  return (is_gimple_reg_rhs (t) || is_a<Gimple::call_expr> (t));
 }
 
 /* Return true if T is a valid memory RHS or a CALL_EXPR.  Note that

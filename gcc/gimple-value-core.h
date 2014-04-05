@@ -4,21 +4,6 @@
 #include "tree-core.h"
 #include "stor-layout.h"  // for vector_type_mode
 
-
-extern const unsigned char gimple_rhs_class_table[];
-
-/* Class of GIMPLE expressions suitable for the RHS of assignments.  See 
- *    get_gimple_rhs_class.  */ 
-enum gimple_rhs_class 
-{ 
-  GIMPLE_INVALID_RHS,   /* The expression cannot be used on the RHS.  */ 
-  GIMPLE_TERNARY_RHS,   /* The expression is a ternary operation.  */ 
-  GIMPLE_BINARY_RHS,    /* The expression is a binary operation.  */ 
-  GIMPLE_UNARY_RHS,     /* The expression is a unary operation.  */ 
-  GIMPLE_SINGLE_RHS     /* The expression is a single object (an SSA 
-                           name, a _DECL, a _REF, etc.  */ 
-}; 
-
 namespace Gimple {
 
 template<typename T> class _ptr;
@@ -29,7 +14,7 @@ template<typename T> class _addr;
 #define FWD_DECL(NAME, BASE)	typedef _dptr<class NAME ## _desc, BASE> NAME
 #define FWD_DECL_PTR(NAME)	typedef _addr<NAME> NAME ## _ptr
 
-FWD_DECL_BASE (value);
+typedef _ptr<class value_ops_desc> value;
 FWD_DECL_BASE (type);
 FWD_DECL_BASE (block);
 
@@ -128,7 +113,6 @@ class tree_desc {
     bool test_node (enum tree_code, enum tree_code,
                enum tree_code, enum tree_code,
                enum tree_code) const;
-    bool test_node (enum gimple_rhs_class) const;
 
     void check_node (void) const;
     void check_node (enum tree_code_class) const;
@@ -139,7 +123,6 @@ class tree_desc {
     void check_node (enum tree_code, enum tree_code,
                 enum tree_code, enum tree_code,
                 enum tree_code) const;
-    void check_node (enum gimple_rhs_class) const;
   public:
     enum tree_code code () const;
     bool addressable () const;
@@ -255,15 +238,13 @@ class value_desc : public tree_desc
     bool clobber_p () const;
 };
 
-class expr_desc : public value_desc
+class value_ops_desc : public value_desc
 {
-  protected:
-    enum gimple_rhs_class rhs_class() const;
   public:
-    value op1 () const;
-    value op2 () const;
-    value op3 () const;
+    inline value op (const int i) const;
+    int op_len () const;
 };
+
 
 class unary_desc : public value_desc
 {

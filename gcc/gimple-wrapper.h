@@ -323,7 +323,7 @@ create ()
 
 
 
-typedef _ptr<value_desc>		value;
+typedef _ptr<value_ops_desc>		value;
 typedef _addr<value>			value_ptr;
 
 typedef _ptr<type_desc>			type;
@@ -331,13 +331,13 @@ typedef _ptr<block_desc>		block;
 
 template<>
 inline void 
-_ptr<value_desc>::check_contents() const
+_ptr<value_ops_desc>::check_contents() const
 {
 }
 
 template<>
-inline _ptr<value_desc> 
-_ptr<value_desc>::create()
+inline _ptr<value_ops_desc> 
+_ptr<value_ops_desc>::create()
 {
   gcc_unreachable ();
 }
@@ -414,7 +414,6 @@ _dptr<LAB ## _desc, DT>::create ()			\
 
 DERIVED_PTR (decl, tcc_declaration, value)
 DERIVED_PTR (constant, tcc_constant, value)
-DERIVED_PTR (expr, GIMPLE_INVALID_RHS, value)
 DERIVED_PTR (comparison, tcc_comparison, value)
 DERIVED_PTR (unary, tcc_unary, value)
 DERIVED_PTR (binary, tcc_binary, value)

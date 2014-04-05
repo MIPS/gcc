@@ -26,7 +26,7 @@ inline bool
 is_empty_stmt (Gimple::value v)
 {
   return (is_a<Gimple::nop_expr> (v) && void_type_p (v->type ())
-	  && integer_zerop (as_a<Gimple::unary> (v)->op1 ()));
+	  && integer_zerop (v->op (0)));
 }
 
 inline Gimple::constant 

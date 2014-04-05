@@ -31,6 +31,7 @@ enum gimple_code {
 };
 
 extern const char *const gimple_code_name[];
+extern const unsigned char gimple_rhs_class_table[];
 
 /* Error out if a gimple tuple is addressed incorrectly.  */
 #if defined ENABLE_GIMPLE_CHECKING
@@ -50,6 +51,18 @@ extern void gimple_check_failed (const_gimple, const char *, int,          \
 #define gcc_gimple_checking_assert(EXPR) ((void)(0 && (EXPR)))
 #define GIMPLE_CHECK(GS, CODE)			(void)0
 #endif
+
+/* Class of GIMPLE expressions suitable for the RHS of assignments.  See 
+ *    get_gimple_rhs_class.  */ 
+enum gimple_rhs_class 
+{ 
+  GIMPLE_INVALID_RHS,   /* The expression cannot be used on the RHS.  */ 
+  GIMPLE_TERNARY_RHS,   /* The expression is a ternary operation.  */ 
+  GIMPLE_BINARY_RHS,    /* The expression is a binary operation.  */ 
+  GIMPLE_UNARY_RHS,     /* The expression is a unary operation.  */ 
+  GIMPLE_SINGLE_RHS     /* The expression is a single object (an SSA 
+                           name, a _DECL, a _REF, etc.  */ 
+}; 
 
 /* Specific flags for individual GIMPLE statements.  These flags are
    always stored in gimple_statement_base.subcode and they may only be
@@ -2102,6 +2115,12 @@ static inline enum gimple_rhs_class
 get_gimple_rhs_class (enum tree_code code)
 {
   return (enum gimple_rhs_class) gimple_rhs_class_table[(int) code];
+}
+
+static inline enum gimple_rhs_class
+get_gimple_rhs_class (Gimple::value v)
+{
+  return (enum gimple_rhs_class) gimple_rhs_class_table[(int)(v->code())];
 }
 
 /* Return the LHS of assignment statement GS.  */

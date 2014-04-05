@@ -39,7 +39,7 @@ extern Gimple::var_decl create_tmp_var (Gimple::type, const char *);
 extern Gimple::var_decl create_tmp_reg (Gimple::type, const char *);
 
 
-extern void extract_ops_from_tree_1 (Gimple::expr, enum tree_code *, Gimple::value_ptr, Gimple::value_ptr, Gimple::value_ptr);
+extern void extract_ops_from_tree_1 (Gimple::value, enum tree_code *, Gimple::value_ptr, Gimple::value_ptr, Gimple::value_ptr);
 extern void gimple_cond_get_ops_from_tree (Gimple::value , enum tree_code *,
 					   Gimple::value_ptr,
 					   Gimple::value_ptr);

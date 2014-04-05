@@ -530,15 +530,39 @@ create_tmp_reg (Gimple::type type, const char *prefix)
    *OP1_P, *OP2_P and *OP3_P respectively.  */
 
 void
-extract_ops_from_tree_1 (Gimple::expr expr, enum tree_code *subcode_p,
+extract_ops_from_tree_1 (Gimple::value expr, enum tree_code *subcode_p,
 			 Gimple::value_ptr op1_p,
 			 Gimple::value_ptr op2_p, Gimple::value_ptr op3_p)
 {
-
+  enum gimple_rhs_class grhs_class = get_gimple_rhs_class (expr);
   *subcode_p = expr->code ();
-  *op1_p = expr->op1 ();
-  *op2_p = expr->op2 ();
-  *op3_p = expr->op3 ();
+
+  if (grhs_class == GIMPLE_TERNARY_RHS)
+    {
+      *op1_p = expr->op (0);
+      *op2_p = expr->op (1);
+      *op3_p = expr->op (2);
+    }
+  else if (grhs_class == GIMPLE_BINARY_RHS)
+    {
+      *op1_p = expr->op (0);
+      *op2_p = expr->op (1);
+      *op3_p = NULL_GIMPLE;
+    }
+  else if (grhs_class == GIMPLE_UNARY_RHS)
+    {
+      *op1_p = expr->op (0);
+      *op2_p = NULL_GIMPLE;
+      *op3_p = NULL_GIMPLE;
+    }
+  else if (grhs_class == GIMPLE_SINGLE_RHS)
+    {
+      *op1_p = expr;
+      *op2_p = NULL_GIMPLE;
+      *op3_p = NULL_GIMPLE;
+    }
+  else
+    gcc_unreachable ();
 }
 
 /* Extract operands for a GIMPLE_COND statement out of COND_EXPR tree COND.  */
@@ -613,10 +637,10 @@ is_gimple_address (Gimple::value t)
   while (handled_component_p (op))
     {
       if ((is_a<Gimple::array_ref> (op) || is_a<Gimple::array_range_ref> (op))
-	  && !is_gimple_val (as_a<Gimple::binary> (op)->op2 ()))
+	  && !is_gimple_val (op->op (1)))
 	    return false;
 
-      op = as_a<Gimple::unary> (op)->op1 ();
+      op = op->op(0);
     }
 
   if (is_a<Gimple::constant> (op) || is_a<Gimple::mem_ref> (op))
@@ -833,7 +857,7 @@ void
 mark_addressable (Gimple::value x)
 {
   while (handled_component_p (x))
-    x = as_a<Gimple::unary> (x)->op1 ();
+    x = x->op(0);
 
   Gimple::mem_ref mem = x;
   if (mem && is_a<Gimple::addr_expr> (mem->base ()))
@@ -863,7 +887,7 @@ mark_addressable (Gimple::value x)
 bool
 is_gimple_reg_rhs (Gimple::value t)
 {
-  return is_a<Gimple::expr> (t);
+  return get_gimple_rhs_class (t) != GIMPLE_INVALID_RHS;
 }
 
 #include "gt-gimple-expr.h"
