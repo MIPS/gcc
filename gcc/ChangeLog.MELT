@@ -2,6 +2,22 @@
 
 2014-04-05  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.cc (melt_really_initialize): Initialize modstr
+	earlier.
+	* melt/warmelt-base.melt (jsonobject_aux,
+	(jsonobject_auxput, jsonobject_size, jsonobject_nth_name)
+	(jsonobject_nth_value,	json_name_less, json_name_equal)
+	(foreach_entry_in_jsonobject, jsonobject_get_named): New.
+
+
+2014-04-05  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-base.melt (make_jsonobject): Compiles ok.
+	(jsonobject_aux, jsonobject_auxput, jsonobject_size)
+	(jsonobject_nth_name, jsonobject_nth_value): New primitives.
+
+2014-04-05  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-base.melt (valdesc_jsonobject): cast C++
 	functions.
 

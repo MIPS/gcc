@@ -3556,7 +3556,15 @@ given object map $MAPO}#
 	 (rname (cond ((is_string rv) rv) 
 		      ((is_a rv class_named) (get_field :named_name rv))))
 	 )
-    (string< lname rname)))
+    (if (string< lname rname) :true)))
+
+(defun json_name_equal (lv rv)
+  (let ( (lname (cond ((is_string lv) lv) 
+		      ((is_a lv class_named) (get_field :named_name lv))))
+	 (rname (cond ((is_string rv) rv) 
+		      ((is_a rv class_named) (get_field :named_name rv))))
+	 )
+    (if (==s lname rname) :true)))
 
 (defun make_jsonobject (dis :rest)   
   :doc #{Dynamically build a JSON object of discriminant
@@ -3570,7 +3578,6 @@ given object map $MAPO}#
   (when (expr_chunk testdis_chk :long #{/*melt_make_jsonobject $TESTDIS_CHK*/
 		    !$DIS || ((meltobject_ptr_t)$DIS)->meltobj_magic != MELTOBMAG_JSONOBJECT}#)
     (return ()))
-#|
   (let ( (listentries (make_list discr_list))
 	 )
     (forever 
@@ -3582,13 +3589,13 @@ given object map $MAPO}#
 	    )
        (variadic 
 	( () (exit argloop))
-	( (:cstring cs) (setq curname (make_stringconst discr_string cs)) (void))
-	( (:long l) (setq curname (string4out discr_string l)))
-	( (:value v)
-	  (cond ( (is_a v class_named) (setq curname v))
-		( (is_string v) (setq curname v))
-		( (is_multiple v) (setq nametup v))
-		( (is_list v) (setq nametup (list_to_multiple v)))
+	( (:cstring csname) (setq curname (make_stringconst discr_string csname)) (void))
+	( (:long lname) (setq curname (string4out discr_string lname)))
+	( (:value vname)
+	  (cond ( (is_a vname class_named) (setq curname vname))
+		( (is_string vname) (setq curname vname))
+		( (is_multiple vname) (setq nametup vname))
+		( (is_list vname) (setq nametup (list_to_multiple vname)))
 		(:else (void)))
 	  )
 	(:else (void)))
@@ -3642,11 +3649,14 @@ given object map $MAPO}#
       (code_chunk makejson_chk 
 		  #{ /* melt_make_jsonobject $MAKEJSON_CHK */
 		  // the only place where jsonobjects are allocated
-		  $RESJ = meltgc_allocate (sizeof (struct meltjsonobject_st),
-					   $NBUNIQENTRIES * sizeof(struct meltjsonentry_st)); 
-		  ((struct meltjsonobject_st*)$RESJ)->discr = $DIS; 
-		  ((struct meltjsonobject_st*)$RESJ)->jsob_aux = NULL; 
-		  ((struct meltjsonobject_st*)$RESJ)->jsob_size = $NBUNIQENTRIES; 
+                  struct meltjsonobject_st* mj_$MAKEJSON_CHK 
+			  = (struct meltjsonobject_st*) meltgc_allocate (sizeof (struct meltjsonobject_st),
+					   $NBUNIQENTRIES * sizeof(struct melt_jsonobentry_st)); 
+		  mj_$MAKEJSON_CHK->discr = (meltobject_ptr_t) $DIS; 
+		  mj_$MAKEJSON_CHK->jsob_aux = NULL; 
+		  mj_$MAKEJSON_CHK->jsob_size = $NBUNIQENTRIES;
+		  $RESJ = (melt_ptr_t) mj_$MAKEJSON_CHK;
+		  mj_$MAKEJSON_CHK = NULL;
 		  }#)
       (foreach_in_multiple
        (uniqlistentries)
@@ -3658,9 +3668,9 @@ given object map $MAPO}#
 	 (code_chunk filljson_chk 
 		     #{ /* melt_make_jsonobject $FILLJSON_CHK */
 		     // the only place where jsonobjects are filled
-		     ((struct meltjsonobject_st*)$RESJ)->jsob_ent[$IX].jsob_name = $CURNAM; 
+		     ((struct meltjsonobject_st*)$RESJ)->jsob_entab[$IX].jsonob_name = $CURNAM; 
 		     meltgc_touch_dest ($RESJ, $CURNAM); 
-		     ((struct meltjsonobject_st*)$RESJ)->jsob_ent[$IX].jsob_val = $CURVAL; 
+		     ((struct meltjsonobject_st*)$RESJ)->jsob_entab[$IX].jsonob_val = $CURVAL; 
 		     meltgc_touch_dest ($RESJ, $CURVAL); 
 		     // done melt_make_jsonobject $FILLJSON_CHK 
 		     }#)
@@ -3668,13 +3678,11 @@ given object map $MAPO}#
       (return resj)
       )
   )
-  |#
   )
 
-#|
 (defprimitive jsonobject_aux (:value vj) :value 
-  :doc #{retrieve the auxiliary value in a JSONobject $VJ or else null. */
-  #{ /* jsonobject_aux */melt_jsonobject_aux($VJ) }#)
+  :doc #{retrieve the auxiliary value in a JSONobject $VJ or else null.}#
+  #{ /* jsonobject_aux */ melt_jsonobject_aux($VJ) }#)
 
 (defprimitive jsonobject_auxput (:value vj aux) :void
   :doc #{In JSONobject $VJ safely put the auxiliary data $AUX.}#
@@ -3684,12 +3692,81 @@ given object map $MAPO}#
 (defprimitive jsonobject_size (:value vj) :long
   :doc #{size of JSONobject $VJ or else 0.}#
   #{ /* jsonobject_size */ melt_jsonobject_size($VJ) }#)
-|#
+
+(defprimitive jsonobject_nth_name (:value vj :long rk) :value
+  :doc #{in JSONobject $VJ retrieve the name of rank $RK - starting from end if $RK is negative - or else nil.}#
+  #{ /* jsonobject_nth_name */ melt_jsonobject_nth_name ($VJ, (int)$RK) }#)
+
+(defprimitive jsonobject_nth_value (:value vj :long rk) :value
+  :doc #{in JSONobject $VJ retrieve the value of rank $RK - starting from end if $RK is negative - or else nil.}#
+  #{ /* jsonobject_nth_value */ melt_jsonobject_nth_value ($VJ, (int)$RK) }#)
+
+
+(defun jsonobject_get_named (:value vj name)
+:doc #{Dichotomically get in JSONobject $VJ the value associated to name $NAME 
+which should be a string or an instance of $CLASS_NAMED, or else nil.}#
+  (if (not (is_jsonobject vj)) (return ()))
+  (let ( (vname (cond 
+		 ((is_string name) name)
+		 ((is_a name class_named) (unsafe_get_field :named_name name))
+		 (:else ())))
+	 (:long sz (jsonobject_size vj))
+	 (:long lo 0)
+	 (:long hi (-i sz 1))
+	 )
+    (if (not (is_string vname)) (return ()))
+    (forever 
+     getloop
+     (if (>i (+i lo 2) hi) (exit getloop))
+     (let ( (:long mi (/iraw (+i lo hi) 2))
+	    (midname (jsonobject_nth_name vj mi))
+	    )
+       (if (json_name_less vname midname)
+	   (setq hi mi)
+	 (setq lo mi))))
+    (foreach_long_upto 
+     (lo hi)
+     (:long ix)
+     (let ( (curname (jsonobject_nth_name vj ix))
+	    )
+       (if (json_name_equal name vname)
+	   (return (jsonobject_nth_value vj ix)))
+       )
+     )
+    )
+  )
+
+(defciterator foreach_entry_in_jsonobject 
+  (:value vj)
+  eachjson
+  (:value curname curval :long ix)
+  :doc #{Iterate inside JSONobject $VJ with current name $CURNAME value $CURVAL and index $IX.}#
+  #{ /* foreach_entry_in_jsonobject start $EACHJSON */
+    unsigned sz_$EACHJSON =  melt_jsonobject_size($VJ);
+    for ($IX = 0L; 
+	 $IX < (long) sz_$EACHJSON && $VJ;
+         $IX++) {
+      $CURNAME = melt_jsonobject_nth_name ($VJ, $IX);
+      if (!$CURNAME) continue;
+      $CURVAL = melt_jsonobject_nth_value ($VJ, $IX);
+    /* begin inside foreach_entry_in_jsonobject $EACHJSON */ 
+  }#
+  #{ /* foreach_entry_in_jsonobject end $EACHJSON */
+     $CURNAME = NULL;
+     $CURVAL = NULL;
+  } }#
+)
 
 (export_values make_jsonobject 
-	       ; jsonobject_aux 
-	       ; jsonobject_auxput 
-	       ; jsonobject_size
+	       jsonobject_aux 
+	       jsonobject_auxput 
+	       jsonobject_size
+	       jsonobject_nth_name
+	       jsonobject_nth_value
+	       json_name_less
+	       json_name_equal
+	       foreach_entry_in_jsonobject
+	       jsonobject_get_named
 	       )
 
 ;;;;;;;;;;;;;;;;

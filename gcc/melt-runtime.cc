@@ -10522,6 +10522,7 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
   struct stat mystat;
   if (inited)
     return;
+  modstr = melt_argument ("mode");
   melt_plugin_gcc_version =  &gcc_version; /* from plugin-version.h */
   debugeprintf ("melt_really_initialize pluginame '%s' versionstr '%s'", pluginame, versionstr);
   debugeprintf ("melt_really_initialize update_path(\"plugins\", \"GCC\")=%s",
@@ -10661,7 +10662,6 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
   melt_gccversionstr = concat (versionstr, " MELT_",
                                MELT_VERSION_STRING, NULL);
   melt_plugin_name = xstrdup (pluginame);
-  modstr = melt_argument ("mode");
   inistr = melt_argument ("init");
   countdbgstr = melt_argument ("debugskip");
   ///////
