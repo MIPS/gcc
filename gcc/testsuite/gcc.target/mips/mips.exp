@@ -270,6 +270,7 @@ foreach option {
     synci
     relax-pic-calls
     mcount-ra-address
+    odd-spreg
 } {
     lappend mips_option_groups $option "-m(no-|)$option"
 }
@@ -755,6 +756,12 @@ proc mips-dg-init {} {
 	    "-mno-paired-single",
 	    #endif
 
+	    #if _MIPS_SPFPSET == 32
+	    "-modd-spreg",
+	    #else
+	    "-mno-odd-spreg",
+	    #endif
+
 	    #if __mips_abicalls
 	    "-mabicalls",
 	    #else
@@ -839,6 +846,8 @@ proc mips-dg-finish {} {
 #         -mpaired-single             -mno-paired-single
 #            |                           |
 #         -mfp64                      -mfp32
+#            |                           |
+#         -modd-spreg                 -mno-odd-spreg
 #            |                           |
 #         -mabs=2008/-mabs=legacy     <no option>
 #            |                           |
@@ -929,6 +938,7 @@ proc mips-dg-options { args } {
     mips_option_dependency options "-mips3d" "-mpaired-single"
     mips_option_dependency options "-mpaired-single" "-mfp64"
     mips_option_dependency options "-mfp64" "-mhard-float"
+    mips_option_dependency options "-mfp64" "-modd-spreg"
     mips_option_dependency options "-mabs=2008" "-mhard-float"
     mips_option_dependency options "-mabs=legacy" "-mhard-float"
     mips_option_dependency options "-mrelax-pic-calls" "-mno-plt"
@@ -1045,10 +1055,13 @@ proc mips-dg-options { args } {
         # We need a MIPS32 or MIPS64 ISA for:
 	#
         #   - paired-single instructions(*)
+        #   - odd numbered single precision registers
         #
 	# (*) Note that we don't support MIPS V at the moment.
 	} elseif { $isa_rev < 1
-		   && [mips_have_test_option_p options "-mpaired-single"] } {
+		   && ([mips_have_test_option_p options "-mpaired-single"]
+		       || ([mips_have_test_option_p options "-modd-spreg"]
+			   && ![mips_have_test_option_p options "-mfp64"]))} {
 	    if { $gp_size == 32 } {
 		mips_make_test_option options "-mips32"
 	    } else {
@@ -1192,6 +1205,7 @@ proc mips-dg-options { args } {
 	}
 	if { $isa_rev < 1 } {
 	    mips_make_test_option options "-mno-paired-single"
+	    mips_make_test_option options "-mno-odd-spreg"
 	}
 	if { $isa_rev < 2 } {
 	    if { $gp_size == 32 } {
