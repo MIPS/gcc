@@ -1,3 +1,8 @@
+2014-04-05  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/60283
+	* parse.c (decode_oacc_directive): Use gfc_unset_implicit_pure.
+
 2014-03-18  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* f95-lang.c (DEF_FUNCTION_TYPE_10): Define.
