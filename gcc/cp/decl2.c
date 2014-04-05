@@ -1169,8 +1169,9 @@ is_late_template_attribute (tree attr, tree decl)
       /* Also defer most attributes on dependent types.  This is not
 	 necessary in all cases, but is the better default.  */
       else if (dependent_type_p (type)
-	       /* But attribute visibility specifically works on
-		  templates.  */
+	       /* But attributes abi_tag and visibility specifically apply
+		  to templates.  */
+	       && !is_attribute_p ("abi_tag", name)
 	       && !is_attribute_p ("visibility", name))
 	return true;
       else
@@ -2564,7 +2565,8 @@ tentative_decl_linkage (tree decl)
        be handled.  */;
   else if (vague_linkage_p (decl))
     {
-      if (TREE_CODE (decl) == FUNCTION_DECL)
+      if (TREE_CODE (decl) == FUNCTION_DECL
+	  && decl_defined_p (decl))
 	{
 	  DECL_EXTERNAL (decl) = 1;
 	  DECL_NOT_REALLY_EXTERN (decl) = 1;
@@ -2586,11 +2588,8 @@ tentative_decl_linkage (tree decl)
 	      DECL_INTERFACE_KNOWN (decl) = 1;
 	    }
 	}
-      else
-	{
-	  gcc_assert (TREE_CODE (decl) == VAR_DECL);
-	  maybe_commonize_var (decl);
-	}
+      else if (TREE_CODE (decl) == VAR_DECL)
+	maybe_commonize_var (decl);
     }
 }
 
