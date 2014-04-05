@@ -1,6 +1,14 @@
 
 2014-04-05  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-first.melt (is_jsonobject): New primitive.
+
+	* melt/warmelt-base.melt (valdesc_jsonobject): Add small C++
+	function declarations.
+	(melt_make_jsonobject): Incomplete.
+
+2014-04-05  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-first.melt (class_named): Mention that named_name
 	field should be an immutable string.
 

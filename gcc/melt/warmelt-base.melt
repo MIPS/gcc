@@ -2589,6 +2589,53 @@ typedef struct melthook_st *melthook_ptr_t;
 #ifndef ggc_alloc_meltjsonobject_st
 #define ggc_alloc_meltjsonobject_st(SIZE) ((struct meltjsonobject_st *)(ggc_internal_alloc_stat (SIZE MEM_STAT_INFO)))
 #endif
+
+  // small functions from VALDESC_JSONOBJECT in warmelt-base.melt
+  static inline melt_ptr_t 
+  melt_jsonobject_aux (melt_ptr_t vjob) { // from VALDESC_JSONOBJECT
+    if (melt_magic_discr(vjob) == MELTOBMAG_JSONOBJECT)
+      return ((struct meltjsonobject_st*)vjob)->jsob_aux;
+    return NULL;
+  }
+
+  static inline void 
+  melt_jsonobject_putaux (melt_ptr_t vjob, melt_ptr_t vaux) { // from VALDESC_JSONOBJECT
+    if (melt_magic_discr(vjob) == MELTOBMAG_JSONOBJECT) {
+      ((struct meltjsonobject_st*)vjob)->jsob_aux = vaux;
+      meltgc_touch_dest (vjob, vaux);
+    }
+  }
+
+  static inline unsigned
+  melt_jsonobject_size  (melt_ptr_t vjob) { // from VALDESC_JSONOBJECT
+    if (melt_magic_discr(vjob) == MELTOBMAG_JSONOBJECT)
+      return ((struct meltjsonobject_st*)vjob)->jsob_size;
+    return 0;
+  }
+
+  static inline melt_ptr_t
+  melt_jsonobject_nth_name (melt_ptr_t vjob, int rk) 
+  {
+    if (melt_magic_discr(vjob) == MELTOBMAG_JSONOBJECT) {
+      unsigned sz = ((struct meltjsonobject_st*)vjob)->jsob_size;
+      if (rk<0) rk += sz;
+      if (rk>=0 && rk < sz) return ((struct meltjsonobject_st*)vj)->jsob_entab[rk].jsonob_name;
+    };
+    return NULL;
+  }
+
+  static inline melt_ptr_t
+  melt_jsonobject_nth_value (melt_ptr_t vjob, int rk) 
+  {
+    if (melt_magic_discr(vjob) == MELTOBMAG_JSONOBJECT) {
+      unsigned sz = ((struct meltjsonobject_st*)vjob)->jsob_size;
+      if (rk<0) rk += sz;
+      if (rk>=0 && rk < sz) return ((struct meltjsonobject_st*)vj)->jsob_entab[rk].jsonob_val;
+    };
+    return NULL;
+  }
+
+  // end of small functions in VALDESC_JSONOBJECT from warmelt-base.melt
   }#
   ;;;
   :valdesc_copychunk #{$' /* copy chunk from  VALDESC_JSONOBJECT in warmelt-base.melt */
@@ -3311,28 +3358,8 @@ typedef struct melthook_st *melthook_ptr_t;
 ;; it is also called make_sexpr for simplicity
 (export_values melt_make_sexpr)
 (export_synonym make_sexpr melt_make_sexpr)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-
-(defun melt_make_jsonobject (dis :rest)   
-  :doc #{Dynamically build a JSON object of discriminant $DIS.}#
-  (if (null dis) (setq dis discr_jsonobject))
-  (when (is_not_a dis class_discriminant)
-    (return ()))
-  (when (expr_chunk testdis_chk :long #{/*melt_make_jsonobject $TESTDIS_CHK*/
-		    !$DIS || ((meltobject_ptr_t)$DIS)->meltobj_magic != MELTOBMAG_JSONOBJECT}#)
-    (return ()))
-  (let ( (lisnames (make_list discr_list))
-	 (lisvalues (make_list discr_list))
-	 )
-    ;;; @@@incomplete
-    (assert_msg "@$@incomplete melt_make_jsonobject")
-  )
-)
-
-(export_values melt_make_jsonobject)
-(export_synonym make_jsonobject melt_make_jsonobject)
-
 (defhook hook_sort_compare_less
   (:value left right cmp)
   ()
@@ -3520,6 +3547,150 @@ given object map $MAPO}#
       )
     )
   )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun json_name_less (lv rv)
+  (let ( (lname (cond ((is_string lv) lv) 
+		      ((is_a lv class_named) (get_field :named_name lv))))
+	 (rname (cond ((is_string rv) rv) 
+		      ((is_a rv class_named) (get_field :named_name rv))))
+	 )
+    (string< lname rname)))
+
+(defun make_jsonobject (dis :rest)   
+  :doc #{Dynamically build a JSON object of discriminant
+  $DIS. Variadic arguments are alternatively name and value entries; a
+  name entry is a named object or a string value or a list or tuple of
+  named objects or strings; a value entry is a named object, a string,
+  null, or a list or tuple.}#
+  (if (null dis) (setq dis discr_jsonobject))
+  (when (is_not_a dis class_discriminant)
+    (return ()))
+  (when (expr_chunk testdis_chk :long #{/*melt_make_jsonobject $TESTDIS_CHK*/
+		    !$DIS || ((meltobject_ptr_t)$DIS)->meltobj_magic != MELTOBMAG_JSONOBJECT}#)
+    (return ()))
+#|
+  (let ( (listentries (make_list discr_list))
+	 )
+    (forever 
+     argloop
+     (let ( (curname ())
+	    (curval ())
+	    (nametup ())
+	    (valtup ())
+	    )
+       (variadic 
+	( () (exit argloop))
+	( (:cstring cs) (setq curname (make_stringconst discr_string cs)) (void))
+	( (:long l) (setq curname (string4out discr_string l)))
+	( (:value v)
+	  (cond ( (is_a v class_named) (setq curname v))
+		( (is_string v) (setq curname v))
+		( (is_multiple v) (setq nametup v))
+		( (is_list v) (setq nametup (list_to_multiple v)))
+		(:else (void)))
+	  )
+	(:else (void)))
+       (variadic 
+	( () (exit argloop)
+	  )
+	( (:cstring cs) (setq curval (constant_box cs)) (void))
+	( (:long l) (setq curval (constant_box l)))
+	( (:value v)
+	  (cond ( (is_a v class_named) (setq curval v))
+		( (is_string v) (setq curval v))
+		( (is_integerbox v) (setq curval v))
+		( (is_jsonobject v) (setq curval v))
+		( (is_multiple v) (if nametup (setq valtup v) (setq curval v)))
+		( (is_list v) (let ( (vtup (list_to_multiple v)) )
+				(if nametup (setq valtup v) (setq curval v))))
+		(:else (void))))
+	(:else (void))
+	)
+       (cond (curname 
+	      (list_append listentries (tuple curname curval)))
+	     (nametup 
+	      (foreach_in_multiple 
+	       (nametup)
+	       (curnamelem :long nix)
+	       (let ( (curvalelem (multiple_nth valtup nix)) )
+		 (if (or (is_string curnamelem) (is_a curnamelem class_named))
+		     (list_append listentries (tuple curnamelem curvalelem)))))))
+       )
+     )
+    (let ( (tupentries (list_to_multiple listentries))
+	   (sortedtupentries 
+	    (multiple_sort tupentries 
+			   (lambda (e1 e2) (json_name_less (multiple_nth e1 0) (multiple_nth e2 0)))
+			   discr_multiple))
+	   (uniqlistentries 
+	    (let ( (ul (make_list discr_list))
+		   )
+	      (foreach_in_multiple
+	       (sortedtupentries)
+	       (curent :long ix)
+	       (let ( (nextent (multiple_nth sortedtupentries (+i ix 1)))
+		      )
+		 (if (json_name_less (multiple_nth curent 0) (multiple_nth nextent 0))
+		     (list_append ul curent))))
+	      (list_to_multiple ul)))
+	   (:long nbuniqentries (multiple_length uniqlistentries))
+	   (resj ())			        
+	   )
+      ;; this is the only place where jsonobject are allocated! ;
+      (code_chunk makejson_chk 
+		  #{ /* melt_make_jsonobject $MAKEJSON_CHK */
+		  // the only place where jsonobjects are allocated
+		  $RESJ = meltgc_allocate (sizeof (struct meltjsonobject_st),
+					   $NBUNIQENTRIES * sizeof(struct meltjsonentry_st)); 
+		  ((struct meltjsonobject_st*)$RESJ)->discr = $DIS; 
+		  ((struct meltjsonobject_st*)$RESJ)->jsob_aux = NULL; 
+		  ((struct meltjsonobject_st*)$RESJ)->jsob_size = $NBUNIQENTRIES; 
+		  }#)
+      (foreach_in_multiple
+       (uniqlistentries)
+       (curent :long ix)
+       (let ( (curnam (multiple_nth curent 0))
+	      (curval (multiple_nth curent 1))
+	      )
+	 (assert_msg "check curnam" (or (is_string curnam) (is_a curnam class_named)) curnam curent)
+	 (code_chunk filljson_chk 
+		     #{ /* melt_make_jsonobject $FILLJSON_CHK */
+		     // the only place where jsonobjects are filled
+		     ((struct meltjsonobject_st*)$RESJ)->jsob_ent[$IX].jsob_name = $CURNAM; 
+		     meltgc_touch_dest ($RESJ, $CURNAM); 
+		     ((struct meltjsonobject_st*)$RESJ)->jsob_ent[$IX].jsob_val = $CURVAL; 
+		     meltgc_touch_dest ($RESJ, $CURVAL); 
+		     // done melt_make_jsonobject $FILLJSON_CHK 
+		     }#)
+	 ))
+      (return resj)
+      )
+  )
+  |#
+  )
+
+#|
+(defprimitive jsonobject_aux (:value vj) :value 
+  :doc #{retrieve the auxiliary value in a JSONobject $VJ or else null. */
+  #{ /* jsonobject_aux */melt_jsonobject_aux($VJ) }#)
+
+(defprimitive jsonobject_auxput (:value vj aux) :void
+  :doc #{In JSONobject $VJ safely put the auxiliary data $AUX.}#
+  #{ /* jsonobject_auxput */
+   melt_jsonobject_putaux ($VJ, $AUX); }#) 
+
+(defprimitive jsonobject_size (:value vj) :long
+  :doc #{size of JSONobject $VJ or else 0.}#
+  #{ /* jsonobject_size */ melt_jsonobject_size($VJ) }#)
+|#
+
+(export_values make_jsonobject 
+	       ; jsonobject_aux 
+	       ; jsonobject_auxput 
+	       ; jsonobject_size
+	       )
 
 ;;;;;;;;;;;;;;;;
 

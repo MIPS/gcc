@@ -1828,6 +1828,13 @@ make a $CURAT string.}#
   #{(meltgc_new_list((meltobject_ptr_t)($discr)))}#)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;; JSONobject primitives
+;; test
+(defprimitive is_jsonobject (vj) :long
+  :doc #{Test if value $VJ is a JSONobject value.}#
+  #{(melt_magic_discr((melt_ptr_t)($VJ)) == MELTOBMAG_JSONOBJECT)}#)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; PAIR primitives
 ;; test
 (defprimitive is_pair (pa) :long
@@ -4043,6 +4050,7 @@ $MELT_MAKE_FRESH_ENVIRONMENT_REFERENCE primitive. For gurus and MELT itself.}#
  is_closure
  is_hook
  is_integerbox
+ is_jsonobject
  is_list
  is_list_or_null
  is_mapobject
