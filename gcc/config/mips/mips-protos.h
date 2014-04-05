@@ -354,6 +354,10 @@ extern void mips_final_prescan_insn (rtx, rtx *, int);
 extern int mips_trampoline_code_size (void);
 extern void mips_function_profiler (FILE *);
 
+extern enum machine_mode mips_hard_regno_caller_save_mode (unsigned int,
+							   unsigned int,
+							   enum machine_mode);
+
 typedef rtx (*mulsidi3_gen_fn) (rtx, rtx, rtx);
 #ifdef RTX_CODE
 extern mulsidi3_gen_fn mips_mulsidi3_gen_fn (enum rtx_code);
