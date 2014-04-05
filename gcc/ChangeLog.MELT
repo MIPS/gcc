@@ -2,6 +2,11 @@
 
 2014-04-05  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-debug.melt (dbgout_jsonobject_method): New method
+	for dbg_output on discr_jsonobject.
+
+2014-04-05  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/generated/*: Regenerate all.
 
 2014-04-05  Basile Starynkevitch  <basile@starynkevitch.net>

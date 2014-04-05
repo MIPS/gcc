@@ -1173,6 +1173,35 @@ $TORANK}#
 (install_method discr_bucket_longs dbg_output dbgout_bucketlong_method)
 
 
+;;; jsonobject debug output
+(defun dbgout_jsonobject_method (self dbgi :long depth)
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
+  (assert_msg "check self" (is_jsonobject self) self)
+  (let ( (dis (discrim self)) 
+	 (:long nextdepth  (+i 2 depth))
+	 (sbuf (unsafe_get_field :dbgi_out dbgi))
+	 (aux (jsonobject_aux self))
+	 (:long size (jsonobject_size self))
+	 )
+    (add2out sbuf ".jsonobj/" (get_field :named_name dis) "<{")
+    (when (or (<=i depth 0) (notnull aux))
+      (add2sbuf_indentnl sbuf nextdepth)
+      (add2out sbuf "*aux= ")
+      (dbg_out aux dbgi (+i nextdepth 2))
+      )
+    (foreach_entry_in_jsonobject
+     (self)
+     (jname jval :long jix)
+      (add2sbuf_indentnl sbuf nextdepth)
+      (add2out sbuf "* " jname "= ")
+      (dbg_out jval dbgi nextdepth)
+     )
+    (if size 
+      (add2sbuf_indentnl sbuf (+i 1 depth)))
+    (add2out sbuf "}>")
+    ))
+(install_method discr_jsonobject dbg_output dbgout_jsonobject_method)
+
 ;;;; generic object debug
 (defun dbgout_anyobject_method (self dbgi :long depth)
   (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
