@@ -354,7 +354,8 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	node->aux = (void *)2;
       else
 	{
-	  if (DECL_ABSTRACT_ORIGIN (node->decl))
+	  if (TREE_CODE (node->decl) == FUNCTION_DECL
+	      && DECL_ABSTRACT_ORIGIN (node->decl))
 	    {
 	      struct cgraph_node *origin_node
 	      = cgraph_get_create_node (DECL_ABSTRACT_ORIGIN (node->decl));
@@ -468,7 +469,7 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
       if (!node->aux)
 	{
 	  if (file)
-	    fprintf (file, " %s", node->name ());
+	    fprintf (file, " %s/%i", node->name (), node->order);
 	  cgraph_remove_node (node);
 	  changed = true;
 	}
@@ -482,11 +483,13 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	  if (node->definition)
 	    {
 	      if (file)
-		fprintf (file, " %s", node->name ());
+		fprintf (file, " %s/%i", node->name (), node->order);
+	      node->body_removed = true;
 	      node->analyzed = false;
 	      node->definition = false;
 	      node->cpp_implicit_alias = false;
 	      node->alias = false;
+	      node->thunk.thunk_p = false;
 	      node->weakref = false;
 	      if (!node->in_other_partition)
 		node->local.local = false;
@@ -528,7 +531,7 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	  && (!flag_ltrans || !DECL_EXTERNAL (vnode->decl)))
 	{
 	  if (file)
-	    fprintf (file, " %s", vnode->name ());
+	    fprintf (file, " %s/%i", vnode->name (), vnode->order);
 	  varpool_remove_node (vnode);
 	  changed = true;
 	}
@@ -541,6 +544,7 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 		fprintf (file, " %s", vnode->name ());
 	      changed = true;
 	    }
+	  vnode->body_removed = true;
 	  vnode->definition = false;
 	  vnode->analyzed = false;
 	  vnode->aux = NULL;

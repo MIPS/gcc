@@ -2477,7 +2477,10 @@ wait_for_child ()
   int status;
   do
     {
-      int w = waitpid(0, &status, WUNTRACED | WCONTINUED);
+#ifndef WCONTINUED
+#define WCONTINUED 0
+#endif
+      int w = waitpid (0, &status, WUNTRACED | WCONTINUED);
       if (w == -1)
 	fatal_error ("waitpid failed");
 
@@ -2486,7 +2489,7 @@ wait_for_child ()
       else if (WIFSIGNALED (status))
 	fatal_error ("streaming subprocess was killed by signal");
     }
-  while (!WIFEXITED(status) && !WIFSIGNALED(status));
+  while (!WIFEXITED (status) && !WIFSIGNALED (status));
 }
 #endif
 
@@ -2565,11 +2568,6 @@ lto_wpa_write_files (void)
 
   FOR_EACH_VEC_ELT (ltrans_partitions, i, part)
     lto_stats.num_output_symtab_nodes += lto_symtab_encoder_size (part->encoder);
-
-  /* Find out statics that need to be promoted
-     to globals with hidden visibility because they are accessed from multiple
-     partitions.  */
-  lto_promote_cross_file_statics ();
 
   timevar_pop (TV_WHOPR_WPA);
 
@@ -3286,11 +3284,21 @@ do_whole_program_analysis (void)
     node->aux = NULL;
 
   lto_stats.num_cgraph_partitions += ltrans_partitions.length ();
+
+  /* Find out statics that need to be promoted
+     to globals with hidden visibility because they are accessed from multiple
+     partitions.  */
+  lto_promote_cross_file_statics ();
   timevar_pop (TV_WHOPR_PARTITIONING);
 
   timevar_stop (TV_PHASE_OPT_GEN);
-  timevar_start (TV_PHASE_STREAM_OUT);
 
+  /* Collect a last time - in lto_wpa_write_files we may end up forking
+     with the idea that this doesn't increase memory usage.  So we
+     absoultely do not want to collect after that.  */
+  ggc_collect ();
+
+  timevar_start (TV_PHASE_STREAM_OUT);
   if (!quiet_flag)
     {
       fprintf (stderr, "\nStreaming out");
@@ -3299,10 +3307,8 @@ do_whole_program_analysis (void)
   lto_wpa_write_files ();
   if (!quiet_flag)
     fprintf (stderr, "\n");
-
   timevar_stop (TV_PHASE_STREAM_OUT);
 
-  ggc_collect ();
   if (post_ipa_mem_report)
     {
       fprintf (stderr, "Memory consumption after IPA\n");

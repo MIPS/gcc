@@ -101,20 +101,19 @@ static void
 streamer_tree_cache_add_to_node_array (struct streamer_tree_cache_d *cache,
 				       unsigned ix, tree t, hashval_t hash)
 {
-  /* Make sure we're either replacing an old element or
-     appending consecutively.  */
-  gcc_assert (ix <= cache->nodes.length ());
-
-  if (ix == cache->nodes.length ())
+  /* We're either replacing an old element or appending consecutively.  */
+  if (cache->nodes.exists ())
     {
-      cache->nodes.safe_push (t);
-      if (cache->hashes.exists ())
-	cache->hashes.safe_push (hash);
+      if (cache->nodes.length () == ix)
+	cache->nodes.safe_push (t);
+      else
+	cache->nodes[ix] = t;
     }
-  else
+  if (cache->hashes.exists ())
     {
-      cache->nodes[ix] = t;
-      if (cache->hashes.exists ())
+      if (cache->hashes.length () == ix)
+	cache->hashes.safe_push (hash);
+      else
 	cache->hashes[ix] = hash;
     }
 }
@@ -146,7 +145,7 @@ streamer_tree_cache_insert_1 (struct streamer_tree_cache_d *cache,
     {
       /* Determine the next slot to use in the cache.  */
       if (insert_at_next_slot_p)
-	ix = cache->nodes.length ();
+	ix = cache->next_idx++;
       else
 	ix = *ix_p;
        *slot = ix;
@@ -211,7 +210,7 @@ void
 streamer_tree_cache_append (struct streamer_tree_cache_d *cache,
 			    tree t, hashval_t hash)
 {
-  unsigned ix = cache->nodes.length ();
+  unsigned ix = cache->next_idx++;
   if (!cache->node_map)
     streamer_tree_cache_add_to_node_array (cache, ix, t, hash);
   else
@@ -264,8 +263,7 @@ record_common_node (struct streamer_tree_cache_d *cache, tree node)
 
   gcc_checking_assert (node != boolean_type_node
 		       && node != boolean_true_node
-		       && node != boolean_false_node
-		       && node != double_type_node);
+		       && node != boolean_false_node);
 
   /* We have to make sure to fill exactly the same number of
      elements for all frontends.  That can include NULL trees.
@@ -316,14 +314,10 @@ preload_common_nodes (struct streamer_tree_cache_d *cache)
     record_common_node (cache, sizetype_tab[i]);
 
   for (i = 0; i < TI_MAX; i++)
-    /* Skip boolean type and constants. They are frontend dependent.
-       Skip double type, frontend dependent due to -fshort-double.  */
+    /* Skip boolean type and constants, they are frontend dependent.  */
     if (i != TI_BOOLEAN_TYPE
 	&& i != TI_BOOLEAN_FALSE
-	&& i != TI_BOOLEAN_TRUE
-	&& i != TI_DOUBLE_TYPE
-	&& i != TI_COMPLEX_DOUBLE_TYPE
-	&& i != TI_DOUBLE_PTR_TYPE)
+	&& i != TI_BOOLEAN_TRUE)
       record_common_node (cache, global_trees[i]);
 }
 
@@ -331,7 +325,7 @@ preload_common_nodes (struct streamer_tree_cache_d *cache)
 /* Create a cache of pickled nodes.  */
 
 struct streamer_tree_cache_d *
-streamer_tree_cache_create (bool with_hashes, bool with_map)
+streamer_tree_cache_create (bool with_hashes, bool with_map, bool with_vec)
 {
   struct streamer_tree_cache_d *cache;
 
@@ -339,7 +333,9 @@ streamer_tree_cache_create (bool with_hashes, bool with_map)
 
   if (with_map)
     cache->node_map = new pointer_map<unsigned>;
-  cache->nodes.create (165);
+  cache->next_idx = 0;
+  if (with_vec)
+    cache->nodes.create (165);
   if (with_hashes)
     cache->hashes.create (165);
 

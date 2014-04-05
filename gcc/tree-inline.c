@@ -2365,6 +2365,7 @@ copy_loops (copy_body_data *id,
 	      dest_loop->force_vect = true;
 	      cfun->has_force_vect_loops = true;
 	    }
+	  dest_loop->safelen = src_loop->safelen;
 
 	  /* Recurse.  */
 	  copy_loops (id, dest_loop, src_loop);

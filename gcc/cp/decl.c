@@ -1737,9 +1737,9 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 			if (permerror (input_location,
 				       "default argument given for parameter "
 				       "%d of %q#D", i, newdecl))
-			  permerror (DECL_SOURCE_LOCATION (olddecl),
-				     "previous specification in %q#D here",
-				     olddecl);
+			  inform (DECL_SOURCE_LOCATION (olddecl),
+				  "previous specification in %q#D here",
+				  olddecl);
 		      }
 		    else
 		      {
@@ -5603,7 +5603,6 @@ check_initializer (tree decl, tree init, int flags, vec<tree, va_gc> **cleanups)
 {
   tree type = TREE_TYPE (decl);
   tree init_code = NULL;
-  tree extra_init = NULL_TREE;
   tree core_type;
 
   /* Things that are going to be initialized need to have complete
@@ -5799,9 +5798,6 @@ check_initializer (tree decl, tree init, int flags, vec<tree, va_gc> **cleanups)
   if (init && init != error_mark_node)
     init_code = build2 (INIT_EXPR, type, decl, init);
 
-  if (extra_init)
-    init_code = add_stmt_to_compound (extra_init, init_code);
-
   if (init_code && DECL_IN_AGGR_P (decl))
     {
       static int explained = 0;
@@ -5813,9 +5809,11 @@ check_initializer (tree decl, tree init, int flags, vec<tree, va_gc> **cleanups)
 	       "member %qD", decl);
       if (!explained)
 	{
-	  error ("(an out of class initialization is required)");
+	  inform (input_location,
+		  "(an out of class initialization is required)");
 	  explained = 1;
 	}
+      return NULL_TREE;
     }
 
   return init_code;
@@ -8532,8 +8530,17 @@ create_array_type_for_decl (tree name, tree type, tree size)
       return error_mark_node;
     }
 
-  if (cxx_dialect >= cxx1y && array_of_runtime_bound_p (type))
+  if (cxx_dialect >= cxx1y && array_of_runtime_bound_p (type)
+      && (flag_iso || warn_vla > 0))
     pedwarn (input_location, OPT_Wvla, "array of array of runtime bound");
+
+  /* 8.3.4p1: ...if the type of the identifier of D contains the auto
+     type-specifier, the program is ill-formed.  */
+  if (type_uses_auto (type))
+    {
+      error ("%qD declared as array of %qT", name, type);
+      return error_mark_node;
+    }
 
   /* Figure out the index type for the array.  */
   if (size)
@@ -9554,8 +9561,8 @@ grokdeclarator (const cp_declarator *declarator,
 				    "-std=gnu++1y");
 			  }
 			else if (virtualp)
-			  permerror (input_location, "virtual function cannot "
-				     "have deduced return type");
+			  error ("virtual function cannot "
+				 "have deduced return type");
 		      }
 		    else if (!is_auto (type))
 		      {
@@ -9764,7 +9771,8 @@ grokdeclarator (const cp_declarator *declarator,
                    : G_("cannot declare pointer to qualified function type %qT"),
 		   type);
 
-	  if (cxx_dialect >= cxx1y && array_of_runtime_bound_p (type))
+	  if (cxx_dialect >= cxx1y && array_of_runtime_bound_p (type)
+	      && (flag_iso || warn_vla > 0))
 	    pedwarn (input_location, OPT_Wvla,
 		     declarator->kind == cdk_reference
 		     ? G_("reference to array of runtime bound")
@@ -10112,7 +10120,8 @@ grokdeclarator (const cp_declarator *declarator,
 	  type = error_mark_node;
 	}
 
-      if (cxx_dialect >= cxx1y && array_of_runtime_bound_p (type))
+      if (cxx_dialect >= cxx1y && array_of_runtime_bound_p (type)
+	  && (flag_iso || warn_vla > 0))
 	pedwarn (input_location, OPT_Wvla,
 		 "typedef naming array of runtime bound");
 

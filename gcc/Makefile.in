@@ -1847,7 +1847,7 @@ s-mlib: $(srcdir)/genmultilib Makefile
 	    "$(MULTILIB_EXCLUSIONS)" \
 	    "$(MULTILIB_OSDIRNAMES)" \
 	    "$(MULTILIB_REQUIRED)" \
-	    "$(MULTIARCH_DIRNAME)" \
+	    "$(if $(MULTILIB_OSDIRNAMES),,$(MULTIARCH_DIRNAME))" \
 	    "$(MULTILIB_REUSE)" \
 	    "@enable_multilib@" \
 	    > tmp-mlib.h; \
@@ -2666,7 +2666,7 @@ install-gcc-tooldir:
 	$(mkinstalldirs) $(DESTDIR)$(gcc_tooldir)
 
 macro_list: s-macro_list; @true
-s-macro_list : $(GCC_PASSES)
+s-macro_list : $(GCC_PASSES) cc1$(exeext)
 	echo | $(GCC_FOR_TARGET) -E -dM - | \
 	  sed -n -e 's/^#define \([^_][a-zA-Z0-9_]*\).*/\1/p' \
 		 -e 's/^#define \(_[^_A-Z][a-zA-Z0-9_]*\).*/\1/p' | \
@@ -3223,12 +3223,15 @@ install-driver: installdirs xgcc$(exeext)
 	rm -f $(DESTDIR)$(bindir)/$${install_name}$(exeext); \
 	$(INSTALL_PROGRAM) xgcc$(exeext) $(DESTDIR)$(bindir)/$${install_name}$(exeext)
 	-if test "@enable_as_accelerator@" != "yes" ; then \
-	  rm -f $(DESTDIR)$(bindir)/$(tool_prefix)-gcc-$(version)$(exeext); \
-	  ( cd $(DESTDIR)$(bindir) && \
-	    $(LN) $(GCC_INSTALL_NAME)$(exeext) $(tool_prefix)-gcc-$(version)$(exeext) ); \
-	  if [ ! -f gcc-cross$(exeext) ] ; then \
+	  if [ "$(GCC_INSTALL_NAME)" != "$(tool_prefix)-gcc-$(version)" ]; then \
+	    rm -f $(DESTDIR)$(bindir)/$(tool_prefix)-gcc-$(version)$(exeext); \
+	    ( cd $(DESTDIR)$(bindir) && \
+	      $(LN) $(GCC_INSTALL_NAME)$(exeext) $(tool_prefix)-gcc-$(version)$(exeext) ); \
+	  fi; \
+	  if [ ! -f gcc-cross$(exeext) ] \
+	     && [ "$(GCC_INSTALL_NAME)" != "$(GCC_TARGET_INSTALL_NAME)" ]; then \
 	    rm -f $(DESTDIR)$(bindir)/$(tool_prefix)-gcc-tmp$(exeext); \
-	      ( cd $(DESTDIR)$(bindir) && \
+	    ( cd $(DESTDIR)$(bindir) && \
 	      $(LN) $(GCC_INSTALL_NAME)$(exeext) $(tool_prefix)-gcc-tmp$(exeext) && \
 	      mv -f $(tool_prefix)-gcc-tmp$(exeext) $(GCC_TARGET_INSTALL_NAME)$(exeext) ); \
 	  fi; \
