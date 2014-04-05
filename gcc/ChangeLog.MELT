@@ -2,6 +2,10 @@
 
 2014-04-05  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/generated/*: Regenerate all.
+
+2014-04-05  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.cc (melt_really_initialize): Initialize modstr
 	earlier.
 	* melt/warmelt-base.melt (jsonobject_aux,

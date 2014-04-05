@@ -590,7 +590,7 @@ melt_jsonobject_nth_name (melt_ptr_t vjob, int rk)
         {
             unsigned sz = ((struct meltjsonobject_st*)vjob)->jsob_size;
             if (rk<0) rk += sz;
-            if (rk>=0 && rk < sz) return ((struct meltjsonobject_st*)vjob)->jsob_entab[rk].jsonob_name;
+            if (rk>=0 && rk < (int) sz) return ((struct meltjsonobject_st*)vjob)->jsob_entab[rk].jsonob_name;
         };
     return NULL;
 }
@@ -602,7 +602,7 @@ melt_jsonobject_nth_value (melt_ptr_t vjob, int rk)
         {
             unsigned sz = ((struct meltjsonobject_st*)vjob)->jsob_size;
             if (rk<0) rk += sz;
-            if (rk>=0 && rk < sz) return ((struct meltjsonobject_st*)vjob)->jsob_entab[rk].jsonob_val;
+            if (rk>=0 && rk < (int) sz) return ((struct meltjsonobject_st*)vjob)->jsob_entab[rk].jsonob_val;
         };
     return NULL;
 }

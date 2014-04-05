@@ -30,7 +30,7 @@ const char melt_genversionstr[]="4.9.0 20140403 (experimental) [melt-branch revi
 	     #endif
 					;
 	     
-const char melt_versionmeltstr[]="1.1-pre [melt-branch_revision_209101]";
+const char melt_versionmeltstr[]="1.1-pre [melt-branch_revision_209145]";
 
 /* source name & real path of the module */
 /*MELTMODULENAME meltbuild-sources/warmelt-first */
@@ -39,15 +39,15 @@ const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-unknown-linux-gn
 /1.1-pre/warmelt-first";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="e2ab3fd2352071c1c741743035720984";
+const char melt_prepromd5meltrun[]="82eb1826fbf541c67dd0b105c63456fd";
 /* hexmd5checksum of primary C++ file */
-const char melt_primaryhexmd5[]="2370a3cc04b53e3559fdfcbd78f83403";
+const char melt_primaryhexmd5[]="d80fbe6b47472cef8d6ee5f11992834e";
 
 /* hexmd5checksum of secondary C++ files */
 const char* const melt_secondaryhexmd5tab[]={
  /*nosecfile*/ (const char*)0,
- /*sechexmd5checksum meltbuild-sources/warmelt-first+01.cc #1 */ "0be4c63cc6f542557fb3851870c663eb",
- /*sechexmd5checksum meltbuild-sources/warmelt-first+02.cc #2 */ "21f454ca9fa619aa8b6f15a311ea30f8",
+ /*sechexmd5checksum meltbuild-sources/warmelt-first+01.cc #1 */ "9d3b61a3028bf6b35264e5a27a2e564c",
+ /*sechexmd5checksum meltbuild-sources/warmelt-first+02.cc #2 */ "2e37927aeaae5c17ecf021eba136facc",
  /*nosecfile*/ (const char*)0,
  (const char*)0 };
 
@@ -55,13 +55,13 @@ const char* const melt_secondaryhexmd5tab[]={
 const int melt_lastsecfileindex=2;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="2c8bdee2c5a32af46ae21f059c79f72b" ;
+const char melt_cumulated_hexmd5[]="eb54a1f44ee853188864d7e08fbfd8a7" ;
 
 /* number of module variables */
 const int melt_module_nb_module_vars= 0;
 
 /* include the timestamp file */
-#define meltmod_WARMELTmiFIRST_mds__2C8BDEE2C5A32AF46AE21F059C79F72B 1
+#define meltmod_WARMELTmiFIRST_mds__EB54A1F44EE853188864D7E08FBFD8A7 1
 #include "warmelt-first+melttime.h"
 	 
 
