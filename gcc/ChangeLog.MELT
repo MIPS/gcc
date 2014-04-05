@@ -1,4 +1,12 @@
 
+
+2014-04-05  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-base.melt (valdesc_jsonobject): cast C++
+	functions.
+
+	* melt/generated/*: Regenerate all.
+
 2014-04-05  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-base.melt (valdesc_jsonobject): Typo in small C++

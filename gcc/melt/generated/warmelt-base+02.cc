@@ -40,8 +40,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f2[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiBASE_h676043220; // forward declaration fromline 6566
-typedef Melt_InitialClassyFrame_WARMELTmiBASE_h676043220 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiBASE_h112543422; // forward declaration fromline 6566
+typedef Melt_InitialClassyFrame_WARMELTmiBASE_h112543422 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
 /*** 3 MELT called hook declarations ***/
@@ -60,7 +60,7 @@ MELT_EXTERN void melthook_HOOK_VALUE_EXPORTER (melt_ptr_t melthookdatap, melt_pt
 /*** 2 extra MELT c-headers ***/
 
 
-/** MELT extra c-header 1 : h1037171668 **/
+/** MELT extra c-header 1 : h450837460 **/
 
 
 /* C++ standard headers for multiple_sort */
@@ -70,7 +70,7 @@ MELT_EXTERN void melthook_HOOK_VALUE_EXPORTER (melt_ptr_t melthookdatap, melt_pt
 
 
 
-/** MELT extra c-header 2 : h886595437 **/
+/** MELT extra c-header 2 : h505295784 **/
 
 
 /* A compare structure used in multiple_sort for std::stable_sort;
@@ -315,13 +315,23 @@ MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_37_WARMELTmiBASE_LAMBDA_c
 MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_38_WARMELTmiBASE_LAMBDA_cl3(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
 
 
+
+
+MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_39_WARMELTmiBASE_JSON_NAME_LESS(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
+
+
+
+
+MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_40_WARMELTmiBASE_MAKE_JSONOBJECT(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
+
+
 MELT_EXTERN void* melt_start_this_module (void*); /*mandatory start of module*/
 
 MELT_EXTERN const char melt_module_is_gpl_compatible[];
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiBASE_h676043220 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiBASE_h112543422 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -463,8 +473,7 @@ meltrout_29_WARMELTmiBASE_COMPLETE_SEQUENCE_AS_LIST(meltclosure_ptr_t meltclosp_
 
     /* end of frame for routine meltrout_29_WARMELTmiBASE_COMPLETE_SEQUENCE_AS_LIST fromline 1719 */
 
-    /* classy proc frame meltrout_29_WARMELTmiBASE_COMPLETE_SEQUENCE_AS_LIST */
-    MeltFrame_meltrout_29_WARMELTmiBASE_COMPLETE_SEQUENCE_AS_LIST
+    /* classy proc frame meltrout_29_WARMELTmiBASE_COMPLETE_SEQUENCE_AS_LIST */ MeltFrame_meltrout_29_WARMELTmiBASE_COMPLETE_SEQUENCE_AS_LIST
     meltfram__ /*declfrastruct fromline 1743*/
     /*classyprocarg meltrout_29_WARMELTmiBASE_COMPLETE_SEQUENCE_AS_LIST fromline 1748*/
 #if ENABLE_CHECKING
@@ -477,8 +486,7 @@ meltrout_29_WARMELTmiBASE_COMPLETE_SEQUENCE_AS_LIST(meltclosure_ptr_t meltclosp_
 #define meltframe meltfram__
 
     melt_trace_start("COMPLETE_SEQUENCE_AS_LIST", meltcallcount);
-    /*use arguments*/
-    (void) meltclosp_;
+    /*use arguments*/ (void) meltclosp_;
     (void)meltfirstargp_;
     (void)meltxargdescr_;
     (void)meltxargtab_;
@@ -487,9 +495,8 @@ meltrout_29_WARMELTmiBASE_COMPLETE_SEQUENCE_AS_LIST(meltclosure_ptr_t meltclosp_
     /*getargs*/
 
     /*getarg#0*/
-    MELT_LOCATION("warmelt-base.melt:3093:/ getarg");
-    /*_.SRC__V2*/
-    meltfptr[1] = (melt_ptr_t) meltfirstargp_;
+    MELT_LOCATION("warmelt-base.melt:3140:/ getarg");
+    /*_.SRC__V2*/ meltfptr[1] = (melt_ptr_t) meltfirstargp_;
     ;
     goto meltlab_endgetargs;
 meltlab_endgetargs:
@@ -499,22 +506,19 @@ meltlab_endgetargs:
     /*anyblock*/
     {
 
-        MELT_LOCATION("warmelt-base.melt:3097:/ quasiblock");
+        MELT_LOCATION("warmelt-base.melt:3144:/ quasiblock");
 
 
-        /*_.NEWLIST__V4*/
-        meltfptr[3] =
+        /*_.NEWLIST__V4*/ meltfptr[3] =
             (meltgc_new_list((meltobject_ptr_t)((/*!DISCR_LIST*/ meltfrout->tabval[0]))));;
 
         MELT_CHECK_SIGNAL();
         ;
         /*^compute*/
-        /*_#IS_MULTIPLE__L1*/
-        meltfnum[0] =
+        /*_#IS_MULTIPLE__L1*/ meltfnum[0] =
             (melt_magic_discr((melt_ptr_t)(/*_.SRC__V2*/ meltfptr[1])) == MELTOBMAG_MULTIPLE);;
-        MELT_LOCATION("warmelt-base.melt:3099:/ cond");
-        /*cond*/
-        if (/*_#IS_MULTIPLE__L1*/ meltfnum[0]) /*then*/
+        MELT_LOCATION("warmelt-base.melt:3146:/ cond");
+        /*cond*/ if (/*_#IS_MULTIPLE__L1*/ meltfnum[0]) /*then*/
             {
                 /*^cond.then*/
                 /*^block*/
@@ -535,7 +539,7 @@ meltlab_endgetargs:
 
 
                                 {
-                                    MELT_LOCATION("warmelt-base.melt:3103:/ locexp");
+                                    MELT_LOCATION("warmelt-base.melt:3150:/ locexp");
                                     meltgc_append_list((melt_ptr_t)(/*_.NEWLIST__V4*/ meltfptr[3]), (melt_ptr_t)(/*_.COMP__V5*/ meltfptr[4]));
                                 }
                                 ;
@@ -544,12 +548,10 @@ meltlab_endgetargs:
 
                         /*citerepilog*/
 
-                        MELT_LOCATION("warmelt-base.melt:3100:/ clear");
-                        /*clear*/ /*_.COMP__V5*/
-                        meltfptr[4] = 0 ;
+                        MELT_LOCATION("warmelt-base.melt:3147:/ clear");
+                        /*clear*/ /*_.COMP__V5*/ meltfptr[4] = 0 ;
                         /*^clear*/
-                        /*clear*/ /*_#IX__L2*/
-                        meltfnum[1] = 0 ;
+                        /*clear*/ /*_#IX__L2*/ meltfnum[1] = 0 ;
                     } /*endciterblock FOREACH_IN_MULTIPLE*/
                     ;
                     /*epilog*/
@@ -558,7 +560,7 @@ meltlab_endgetargs:
             }
         else
             {
-                MELT_LOCATION("warmelt-base.melt:3099:/ cond.else");
+                MELT_LOCATION("warmelt-base.melt:3146:/ cond.else");
 
                 /*^block*/
                 /*anyblock*/
@@ -567,12 +569,10 @@ meltlab_endgetargs:
 
                     MELT_CHECK_SIGNAL();
                     ;
-                    /*_#IS_LIST__L3*/
-                    meltfnum[2] =
+                    /*_#IS_LIST__L3*/ meltfnum[2] =
                         (melt_magic_discr((melt_ptr_t)(/*_.SRC__V2*/ meltfptr[1])) == MELTOBMAG_LIST);;
-                    MELT_LOCATION("warmelt-base.melt:3105:/ cond");
-                    /*cond*/
-                    if (/*_#IS_LIST__L3*/ meltfnum[2]) /*then*/
+                    MELT_LOCATION("warmelt-base.melt:3152:/ cond");
+                    /*cond*/ if (/*_#IS_LIST__L3*/ meltfnum[2]) /*then*/
                         {
                             /*^cond.then*/
                             /*^block*/
@@ -591,24 +591,21 @@ meltlab_endgetargs:
 
 
                                             {
-                                                MELT_LOCATION("warmelt-base.melt:3109:/ locexp");
+                                                MELT_LOCATION("warmelt-base.melt:3156:/ locexp");
                                                 meltgc_append_list((melt_ptr_t)(/*_.NEWLIST__V4*/ meltfptr[3]), (melt_ptr_t)(/*_.CURCOMP__V7*/ meltfptr[6]));
                                             }
                                             ;
                                         } /* end foreach_pair_component_in_list meltcit2__EACHLIST */
                                     /*_.CURPAIR__V6*/ meltfptr[5] = NULL;
-                                    /*_.CURCOMP__V7*/
-                                    meltfptr[6] = NULL;
+                                    /*_.CURCOMP__V7*/ meltfptr[6] = NULL;
 
 
                                     /*citerepilog*/
 
-                                    MELT_LOCATION("warmelt-base.melt:3106:/ clear");
-                                    /*clear*/ /*_.CURPAIR__V6*/
-                                    meltfptr[5] = 0 ;
+                                    MELT_LOCATION("warmelt-base.melt:3153:/ clear");
+                                    /*clear*/ /*_.CURPAIR__V6*/ meltfptr[5] = 0 ;
                                     /*^clear*/
-                                    /*clear*/ /*_.CURCOMP__V7*/
-                                    meltfptr[6] = 0 ;
+                                    /*clear*/ /*_.CURCOMP__V7*/ meltfptr[6] = 0 ;
                                 } /*endciterblock FOREACH_PAIR_COMPONENT_IN_LIST*/
                                 ;
                                 /*epilog*/
@@ -617,7 +614,7 @@ meltlab_endgetargs:
                         }
                     else
                         {
-                            MELT_LOCATION("warmelt-base.melt:3105:/ cond.else");
+                            MELT_LOCATION("warmelt-base.melt:3152:/ cond.else");
 
                             /*^block*/
                             /*anyblock*/
@@ -625,11 +622,11 @@ meltlab_endgetargs:
 
 
                                 {
-                                    MELT_LOCATION("warmelt-base.melt:3112:/ locexp");
+                                    MELT_LOCATION("warmelt-base.melt:3159:/ locexp");
                                     meltgc_append_list((melt_ptr_t)(/*_.NEWLIST__V4*/ meltfptr[3]), (melt_ptr_t)(/*_.SRC__V2*/ meltfptr[1]));
                                 }
                                 ;
-                                MELT_LOCATION("warmelt-base.melt:3111:/ quasiblock");
+                                MELT_LOCATION("warmelt-base.melt:3158:/ quasiblock");
 
 
                                 /*epilog*/
@@ -639,14 +636,13 @@ meltlab_endgetargs:
                     ;
                     /*epilog*/
 
-                    MELT_LOCATION("warmelt-base.melt:3099:/ clear");
-                    /*clear*/ /*_#IS_LIST__L3*/
-                    meltfnum[2] = 0 ;
+                    MELT_LOCATION("warmelt-base.melt:3146:/ clear");
+                    /*clear*/ /*_#IS_LIST__L3*/ meltfnum[2] = 0 ;
                 }
                 ;
             }
         ;
-        MELT_LOCATION("warmelt-base.melt:3113:/ loop");
+        MELT_LOCATION("warmelt-base.melt:3160:/ loop");
         /*loop*/
         {
 meltlabloop_ARGLOOP_4:;/*^loopbody*/
@@ -658,9 +654,8 @@ meltlabloop_ARGLOOP_4:;/*^loopbody*/
 
                 MELT_CHECK_SIGNAL();
                 ;
-                MELT_LOCATION("warmelt-base.melt:3115:/ cond");
-                /*cond*/
-                if (/*ifvariadic nomore*/ variad_COMPLETE_SEQUENCE_AS_LIST_ix == variad_COMPLETE_SEQUENCE_AS_LIST_len) /*then*/
+                MELT_LOCATION("warmelt-base.melt:3162:/ cond");
+                /*cond*/ if (/*ifvariadic nomore*/ variad_COMPLETE_SEQUENCE_AS_LIST_ix == variad_COMPLETE_SEQUENCE_AS_LIST_len) /*then*/
                     {
                         /*^cond.then*/
                         /*^block*/
@@ -670,12 +665,11 @@ meltlabloop_ARGLOOP_4:;/*^loopbody*/
                             /*^compute*/
 
                             /*consume variadic  !*/ variad_COMPLETE_SEQUENCE_AS_LIST_ix += 0;;
-                            MELT_LOCATION("warmelt-base.melt:3117:/ quasiblock");
+                            MELT_LOCATION("warmelt-base.melt:3164:/ quasiblock");
 
 
                             /*^compute*/
-                            /*_.ARGLOOP__V9*/
-                            meltfptr[8] =  /*reallynil*/ NULL ;;
+                            /*_.ARGLOOP__V9*/ meltfptr[8] =  /*reallynil*/ NULL ;;
 
                             /*^exit*/
                             /*exit*/
@@ -689,7 +683,7 @@ meltlabloop_ARGLOOP_4:;/*^loopbody*/
                     }
                 else
                     {
-                        MELT_LOCATION("warmelt-base.melt:3115:/ cond.else");
+                        MELT_LOCATION("warmelt-base.melt:3162:/ cond.else");
 
                         /*^block*/
                         /*anyblock*/
@@ -708,19 +702,17 @@ meltlabloop_ARGLOOP_4:;/*^loopbody*/
                                             /*variadic argument value*/ ((meltxargtab_[variad_COMPLETE_SEQUENCE_AS_LIST_ix + 0].meltbp_aptr) ? (*(meltxargtab_[variad_COMPLETE_SEQUENCE_AS_LIST_ix + 0].meltbp_aptr)) : NULL);;
                                         /*^compute*/
 
-                                        /*consume variadic Value !*/
-                                        variad_COMPLETE_SEQUENCE_AS_LIST_ix += 1;;
+                                        /*consume variadic Value !*/ variad_COMPLETE_SEQUENCE_AS_LIST_ix += 1;;
 
                                         {
-                                            MELT_LOCATION("warmelt-base.melt:3119:/ locexp");
+                                            MELT_LOCATION("warmelt-base.melt:3166:/ locexp");
                                             meltgc_append_list((melt_ptr_t)(/*_.NEWLIST__V4*/ meltfptr[3]), (melt_ptr_t)(/*_.V__V10*/ meltfptr[9]));
                                         }
                                         ;
                                         /*epilog*/
 
-                                        MELT_LOCATION("warmelt-base.melt:3115:/ clear");
-                                        /*clear*/ /*_.V__V10*/
-                                        meltfptr[9] = 0 ;
+                                        MELT_LOCATION("warmelt-base.melt:3162:/ clear");
+                                        /*clear*/ /*_.V__V10*/ meltfptr[9] = 0 ;
                                     }
                                     ;
                                 }
@@ -731,11 +723,10 @@ meltlabloop_ARGLOOP_4:;/*^loopbody*/
                                     /*anyblock*/
                                     {
 
-                                        MELT_LOCATION("warmelt-base.melt:3121:/ quasiblock");
+                                        MELT_LOCATION("warmelt-base.melt:3168:/ quasiblock");
 
 
-                                        /*_.VCTY__V12*/
-                                        meltfptr[11] =
+                                        /*_.VCTY__V12*/ meltfptr[11] =
                                             /*variadic_type_code*/
 #ifdef melt_variadic_index
                                             (((melt_variadic_index + 0) >= 0
@@ -747,9 +738,8 @@ meltlabloop_ARGLOOP_4:;/*^loopbody*/
                                             NULL /* no variadic_ctype outside of variadic functions */
 #endif /*melt_variadic_index*/
                                             ;;
-                                        MELT_LOCATION("warmelt-base.melt:3124:/ cond");
-                                        /*cond*/
-                                        if (
+                                        MELT_LOCATION("warmelt-base.melt:3171:/ cond");
+                                        /*cond*/ if (
                                             /*ifisa*/ melt_is_instance_of((melt_ptr_t)(/*_.VCTY__V12*/ meltfptr[11]),
                                                                           (melt_ptr_t)((/*!CLASS_NAMED*/ meltfrout->tabval[1])))
                                         ) /*then*/
@@ -760,8 +750,7 @@ meltlabloop_ARGLOOP_4:;/*^loopbody*/
                                                     melt_ptr_t slot=NULL, obj=NULL;
                                                     obj = (melt_ptr_t)(/*_.VCTY__V12*/ meltfptr[11]) /*=obj*/;
                                                     melt_object_get_field(slot,obj, 1, "NAMED_NAME");
-                                                    /*_.NAMED_NAME__V13*/
-                                                    meltfptr[12] = slot;
+                                                    /*_.NAMED_NAME__V13*/ meltfptr[12] = slot;
                                                 };
                                                 ;
                                             }
@@ -773,14 +762,14 @@ meltlabloop_ARGLOOP_4:;/*^loopbody*/
                                         ;
 
                                         {
-                                            MELT_LOCATION("warmelt-base.melt:3123:/ locexp");
+                                            MELT_LOCATION("warmelt-base.melt:3170:/ locexp");
                                             error ("MELT ERROR MSG [#%ld]::: %s - %s", melt_dbgcounter, ( "COMPLETE_SEQUENCE_AS_LIST with unsupported ctype"),
                                                    melt_string_str((melt_ptr_t)(/*_.NAMED_NAME__V13*/ meltfptr[12])));
                                         }
                                         ;
 
 #if MELT_HAVE_DEBUG
-                                        MELT_LOCATION("warmelt-base.melt:3125:/ cppif.then");
+                                        MELT_LOCATION("warmelt-base.melt:3172:/ cppif.then");
                                         /*^block*/
                                         /*anyblock*/
                                         {
@@ -789,15 +778,14 @@ meltlabloop_ARGLOOP_4:;/*^loopbody*/
                                             MELT_CHECK_SIGNAL();
                                             ;
                                             /*^cond*/
-                                            /*cond*/
-                                            if ((/*nil*/NULL)) /*then*/
+                                            /*cond*/ if ((/*nil*/NULL)) /*then*/
                                                 {
                                                     /*^cond.then*/
                                                     /*_._IFELSE___V15*/ meltfptr[14] = (/*nil*/NULL);;
                                                 }
                                             else
                                                 {
-                                                    MELT_LOCATION("warmelt-base.melt:3125:/ cond.else");
+                                                    MELT_LOCATION("warmelt-base.melt:3172:/ cond.else");
 
                                                     /*^block*/
                                                     /*anyblock*/
@@ -816,31 +804,26 @@ meltlabloop_ARGLOOP_4:;/*^loopbody*/
                                                             /*^apply.arg*/
                                                             argtab[1].meltbp_cstring =  "warmelt-base.melt";
                                                             /*^apply.arg*/
-                                                            argtab[2].meltbp_long = 3125;
+                                                            argtab[2].meltbp_long = 3172;
                                                             /*^apply.arg*/
                                                             argtab[3].meltbp_aptr = (melt_ptr_t*) &/*_.VCTY__V12*/ meltfptr[11];
-                                                            /*_.MELT_ASSERT_FAILURE_FUN__V16*/
-                                                            meltfptr[15] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_ASSERT_FAILURE_FUN*/ meltfrout->tabval[2])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
+                                                            /*_.MELT_ASSERT_FAILURE_FUN__V16*/ meltfptr[15] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_ASSERT_FAILURE_FUN*/ meltfrout->tabval[2])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
                                                         }
                                                         ;
-                                                        /*_._IFELSE___V15*/
-                                                        meltfptr[14] = /*_.MELT_ASSERT_FAILURE_FUN__V16*/ meltfptr[15];;
+                                                        /*_._IFELSE___V15*/ meltfptr[14] = /*_.MELT_ASSERT_FAILURE_FUN__V16*/ meltfptr[15];;
                                                         /*epilog*/
 
-                                                        MELT_LOCATION("warmelt-base.melt:3125:/ clear");
-                                                        /*clear*/ /*_.MELT_ASSERT_FAILURE_FUN__V16*/
-                                                        meltfptr[15] = 0 ;
+                                                        MELT_LOCATION("warmelt-base.melt:3172:/ clear");
+                                                        /*clear*/ /*_.MELT_ASSERT_FAILURE_FUN__V16*/ meltfptr[15] = 0 ;
                                                     }
                                                     ;
                                                 }
                                             ;
-                                            /*_.IFCPP___V14*/
-                                            meltfptr[13] = /*_._IFELSE___V15*/ meltfptr[14];;
+                                            /*_.IFCPP___V14*/ meltfptr[13] = /*_._IFELSE___V15*/ meltfptr[14];;
                                             /*epilog*/
 
-                                            MELT_LOCATION("warmelt-base.melt:3125:/ clear");
-                                            /*clear*/ /*_._IFELSE___V15*/
-                                            meltfptr[14] = 0 ;
+                                            MELT_LOCATION("warmelt-base.melt:3172:/ clear");
+                                            /*clear*/ /*_._IFELSE___V15*/ meltfptr[14] = 0 ;
                                         }
 
 #else /*MELT_HAVE_DEBUG*/
@@ -849,23 +832,18 @@ meltlabloop_ARGLOOP_4:;/*^loopbody*/
 #endif /*MELT_HAVE_DEBUG*/
                                         ;
                                         /*^compute*/
-                                        /*_.LET___V11*/
-                                        meltfptr[9] = /*_.IFCPP___V14*/ meltfptr[13];;
+                                        /*_.LET___V11*/ meltfptr[9] = /*_.IFCPP___V14*/ meltfptr[13];;
 
-                                        MELT_LOCATION("warmelt-base.melt:3121:/ clear");
-                                        /*clear*/ /*_.VCTY__V12*/
-                                        meltfptr[11] = 0 ;
+                                        MELT_LOCATION("warmelt-base.melt:3168:/ clear");
+                                        /*clear*/ /*_.VCTY__V12*/ meltfptr[11] = 0 ;
                                         /*^clear*/
-                                        /*clear*/ /*_.NAMED_NAME__V13*/
-                                        meltfptr[12] = 0 ;
+                                        /*clear*/ /*_.NAMED_NAME__V13*/ meltfptr[12] = 0 ;
                                         /*^clear*/
-                                        /*clear*/ /*_.IFCPP___V14*/
-                                        meltfptr[13] = 0 ;
+                                        /*clear*/ /*_.IFCPP___V14*/ meltfptr[13] = 0 ;
                                         /*epilog*/
 
-                                        MELT_LOCATION("warmelt-base.melt:3115:/ clear");
-                                        /*clear*/ /*_.LET___V11*/
-                                        meltfptr[9] = 0 ;
+                                        MELT_LOCATION("warmelt-base.melt:3162:/ clear");
+                                        /*clear*/ /*_.LET___V11*/ meltfptr[9] = 0 ;
                                     }
                                     ;
                                 }
@@ -882,23 +860,21 @@ meltlabloop_ARGLOOP_4:;/*^loopbody*/
             goto meltlabloop_ARGLOOP_4;
 meltlabexit_ARGLOOP_4:
             ;
-            MELT_LOCATION("warmelt-base.melt:3113:/ loopepilog");
+            MELT_LOCATION("warmelt-base.melt:3160:/ loopepilog");
             /*loopepilog*/
-            /*_.FOREVER___V8*/
-            meltfptr[7] = /*_.ARGLOOP__V9*/ meltfptr[8];;
+            /*_.FOREVER___V8*/ meltfptr[7] = /*_.ARGLOOP__V9*/ meltfptr[8];;
         }
         ;
 
         MELT_CHECK_SIGNAL();
         ;
-        MELT_LOCATION("warmelt-base.melt:3127:/ quasiblock");
+        MELT_LOCATION("warmelt-base.melt:3174:/ quasiblock");
 
 
-        /*_._RETVAL___V1*/
-        meltfptr[0] = /*_.NEWLIST__V4*/ meltfptr[3];;
+        /*_._RETVAL___V1*/ meltfptr[0] = /*_.NEWLIST__V4*/ meltfptr[3];;
 
         {
-            MELT_LOCATION("warmelt-base.melt:3127:/ locexp");
+            MELT_LOCATION("warmelt-base.melt:3174:/ locexp");
             /*ochecknores compilobj_nrep_return*/
 #if MELT_HAVE_DEBUG
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
@@ -910,31 +886,24 @@ meltlabexit_ARGLOOP_4:
         ;
         /*^finalreturn*/
         ;
-        /*finalret*/
-        goto meltlabend_rout ;
-        /*_.LET___V3*/
-        meltfptr[2] = /*_.RETURN___V17*/ meltfptr[15];;
+        /*finalret*/ goto meltlabend_rout ;
+        /*_.LET___V3*/ meltfptr[2] = /*_.RETURN___V17*/ meltfptr[15];;
 
-        MELT_LOCATION("warmelt-base.melt:3097:/ clear");
-        /*clear*/ /*_.NEWLIST__V4*/
-        meltfptr[3] = 0 ;
+        MELT_LOCATION("warmelt-base.melt:3144:/ clear");
+        /*clear*/ /*_.NEWLIST__V4*/ meltfptr[3] = 0 ;
         /*^clear*/
-        /*clear*/ /*_#IS_MULTIPLE__L1*/
-        meltfnum[0] = 0 ;
+        /*clear*/ /*_#IS_MULTIPLE__L1*/ meltfnum[0] = 0 ;
         /*^clear*/
-        /*clear*/ /*_.FOREVER___V8*/
-        meltfptr[7] = 0 ;
+        /*clear*/ /*_.FOREVER___V8*/ meltfptr[7] = 0 ;
         /*^clear*/
-        /*clear*/ /*_.RETURN___V17*/
-        meltfptr[15] = 0 ;
-        MELT_LOCATION("warmelt-base.melt:3093:/ quasiblock");
+        /*clear*/ /*_.RETURN___V17*/ meltfptr[15] = 0 ;
+        MELT_LOCATION("warmelt-base.melt:3140:/ quasiblock");
 
 
-        /*_._RETVAL___V1*/
-        meltfptr[0] = /*_.LET___V3*/ meltfptr[2];;
+        /*_._RETVAL___V1*/ meltfptr[0] = /*_.LET___V3*/ meltfptr[2];;
 
         {
-            MELT_LOCATION("warmelt-base.melt:3093:/ locexp");
+            MELT_LOCATION("warmelt-base.melt:3140:/ locexp");
             /*ochecknores compilobj_nrep_return*/
 #if MELT_HAVE_DEBUG
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
@@ -946,13 +915,11 @@ meltlabexit_ARGLOOP_4:
         ;
         /*^finalreturn*/
         ;
-        /*finalret*/
-        goto meltlabend_rout ;
+        /*finalret*/ goto meltlabend_rout ;
         /*epilog*/
 
         /*^clear*/
-        /*clear*/ /*_.LET___V3*/
-        meltfptr[2] = 0 ;
+        /*clear*/ /*_.LET___V3*/ meltfptr[2] = 0 ;
     }
 
     ;
@@ -1036,8 +1003,7 @@ meltrout_30_WARMELTmiBASE_MELT_PREDEFINED_GET(meltclosure_ptr_t meltclosp_, melt
 
     /* end of frame for routine meltrout_30_WARMELTmiBASE_MELT_PREDEFINED_GET fromline 1719 */
 
-    /* classy proc frame meltrout_30_WARMELTmiBASE_MELT_PREDEFINED_GET */
-    MeltFrame_meltrout_30_WARMELTmiBASE_MELT_PREDEFINED_GET
+    /* classy proc frame meltrout_30_WARMELTmiBASE_MELT_PREDEFINED_GET */ MeltFrame_meltrout_30_WARMELTmiBASE_MELT_PREDEFINED_GET
     meltfram__ /*declfrastruct fromline 1743*/
     /*classyprocarg meltrout_30_WARMELTmiBASE_MELT_PREDEFINED_GET fromline 1748*/
 #if ENABLE_CHECKING
@@ -1050,8 +1016,7 @@ meltrout_30_WARMELTmiBASE_MELT_PREDEFINED_GET(meltclosure_ptr_t meltclosp_, melt
 #define meltframe meltfram__
 
     melt_trace_start("MELT_PREDEFINED_GET", meltcallcount);
-    /*use arguments*/
-    (void) meltclosp_;
+    /*use arguments*/ (void) meltclosp_;
     (void)meltfirstargp_;
     (void)meltxargdescr_;
     (void)meltxargtab_;
@@ -1060,9 +1025,8 @@ meltrout_30_WARMELTmiBASE_MELT_PREDEFINED_GET(meltclosure_ptr_t meltclosp_, melt
     /*getargs*/
 
     /*getarg#0*/
-    MELT_LOCATION("warmelt-base.melt:3154:/ getarg");
-    /*_.NAMV__V2*/
-    meltfptr[1] = (melt_ptr_t) meltfirstargp_;
+    MELT_LOCATION("warmelt-base.melt:3201:/ getarg");
+    /*_.NAMV__V2*/ meltfptr[1] = (melt_ptr_t) meltfirstargp_;
     ;
     goto meltlab_endgetargs;
 meltlab_endgetargs:
@@ -1075,12 +1039,10 @@ meltlab_endgetargs:
 
         MELT_CHECK_SIGNAL();
         ;
-        /*_#IS_STRING__L1*/
-        meltfnum[0] =
+        /*_#IS_STRING__L1*/ meltfnum[0] =
             (melt_magic_discr((melt_ptr_t)(/*_.NAMV__V2*/ meltfptr[1])) == MELTOBMAG_STRING);;
-        MELT_LOCATION("warmelt-base.melt:3156:/ cond");
-        /*cond*/
-        if (/*_#IS_STRING__L1*/ meltfnum[0]) /*then*/
+        MELT_LOCATION("warmelt-base.melt:3203:/ cond");
+        /*cond*/ if (/*_#IS_STRING__L1*/ meltfnum[0]) /*then*/
             {
                 /*^cond.then*/
                 /*^block*/
@@ -1091,13 +1053,11 @@ meltlab_endgetargs:
                         /*melt_predefined_get PREDEFSTR_CHK__1 */
                         melt_fetch_predefined (melt_predefined_index_by_name (melt_string_str ((melt_ptr_t)(/*_.NAMV__V2*/ meltfptr[1])))) ;;
                     /*^compute*/
-                    /*_._IFELSE___V3*/
-                    meltfptr[2] = /*_.PREDEFSTR_CHK__V4*/ meltfptr[3];;
+                    /*_._IFELSE___V3*/ meltfptr[2] = /*_.PREDEFSTR_CHK__V4*/ meltfptr[3];;
                     /*epilog*/
 
-                    MELT_LOCATION("warmelt-base.melt:3156:/ clear");
-                    /*clear*/ /*_.PREDEFSTR_CHK__V4*/
-                    meltfptr[3] = 0 ;
+                    MELT_LOCATION("warmelt-base.melt:3203:/ clear");
+                    /*clear*/ /*_.PREDEFSTR_CHK__V4*/ meltfptr[3] = 0 ;
                 }
                 ;
             }
@@ -1111,24 +1071,21 @@ meltlab_endgetargs:
 
                     MELT_CHECK_SIGNAL();
                     ;
-                    /*_#IS_A__L2*/
-                    meltfnum[1] =
+                    /*_#IS_A__L2*/ meltfnum[1] =
                         melt_is_instance_of((melt_ptr_t)(/*_.NAMV__V2*/ meltfptr[1]), (melt_ptr_t)((/*!CLASS_NAMED*/ meltfrout->tabval[0])));;
-                    MELT_LOCATION("warmelt-base.melt:3159:/ cond");
-                    /*cond*/
-                    if (/*_#IS_A__L2*/ meltfnum[1]) /*then*/
+                    MELT_LOCATION("warmelt-base.melt:3206:/ cond");
+                    /*cond*/ if (/*_#IS_A__L2*/ meltfnum[1]) /*then*/
                         {
                             /*^cond.then*/
                             /*^block*/
                             /*anyblock*/
                             {
 
-                                MELT_LOCATION("warmelt-base.melt:3160:/ quasiblock");
+                                MELT_LOCATION("warmelt-base.melt:3207:/ quasiblock");
 
 
                                 /*^cond*/
-                                /*cond*/
-                                if (
+                                /*cond*/ if (
                                     /*ifisa*/ melt_is_instance_of((melt_ptr_t)(/*_.NAMV__V2*/ meltfptr[1]),
                                                                   (melt_ptr_t)((/*!CLASS_NAMED*/ meltfrout->tabval[0])))
                                 ) /*then*/
@@ -1139,8 +1096,7 @@ meltlab_endgetargs:
                                             melt_ptr_t slot=NULL, obj=NULL;
                                             obj = (melt_ptr_t)(/*_.NAMV__V2*/ meltfptr[1]) /*=obj*/;
                                             melt_object_get_field(slot,obj, 1, "NAMED_NAME");
-                                            /*_.NAMSTR__V7*/
-                                            meltfptr[6] = slot;
+                                            /*_.NAMSTR__V7*/ meltfptr[6] = slot;
                                         };
                                         ;
                                     }
@@ -1151,27 +1107,21 @@ meltlab_endgetargs:
                                     }
                                 ;
                                 /*^compute*/
-                                /*_.PREDEFNAM_CHK__V8*/
-                                meltfptr[7] =
+                                /*_.PREDEFNAM_CHK__V8*/ meltfptr[7] =
                                     /*melt_predefined_get PREDEFNAM_CHK__1 */
                                     melt_fetch_predefined (melt_predefined_index_by_name (melt_string_str ((melt_ptr_t)(/*_.NAMSTR__V7*/ meltfptr[6])))) ;;
                                 /*^compute*/
-                                /*_.LET___V6*/
-                                meltfptr[5] = /*_.PREDEFNAM_CHK__V8*/ meltfptr[7];;
+                                /*_.LET___V6*/ meltfptr[5] = /*_.PREDEFNAM_CHK__V8*/ meltfptr[7];;
 
-                                MELT_LOCATION("warmelt-base.melt:3160:/ clear");
-                                /*clear*/ /*_.NAMSTR__V7*/
-                                meltfptr[6] = 0 ;
+                                MELT_LOCATION("warmelt-base.melt:3207:/ clear");
+                                /*clear*/ /*_.NAMSTR__V7*/ meltfptr[6] = 0 ;
                                 /*^clear*/
-                                /*clear*/ /*_.PREDEFNAM_CHK__V8*/
-                                meltfptr[7] = 0 ;
-                                /*_._IFELSE___V5*/
-                                meltfptr[3] = /*_.LET___V6*/ meltfptr[5];;
+                                /*clear*/ /*_.PREDEFNAM_CHK__V8*/ meltfptr[7] = 0 ;
+                                /*_._IFELSE___V5*/ meltfptr[3] = /*_.LET___V6*/ meltfptr[5];;
                                 /*epilog*/
 
-                                MELT_LOCATION("warmelt-base.melt:3159:/ clear");
-                                /*clear*/ /*_.LET___V6*/
-                                meltfptr[5] = 0 ;
+                                MELT_LOCATION("warmelt-base.melt:3206:/ clear");
+                                /*clear*/ /*_.LET___V6*/ meltfptr[5] = 0 ;
                             }
                             ;
                         }
@@ -1185,46 +1135,37 @@ meltlab_endgetargs:
 
                                 MELT_CHECK_SIGNAL();
                                 ;
-                                /*_#IS_INTEGERBOX__L3*/
-                                meltfnum[2] =
+                                /*_#IS_INTEGERBOX__L3*/ meltfnum[2] =
                                     (melt_magic_discr((melt_ptr_t)(/*_.NAMV__V2*/ meltfptr[1])) == MELTOBMAG_INT);;
-                                MELT_LOCATION("warmelt-base.melt:3165:/ cond");
-                                /*cond*/
-                                if (/*_#IS_INTEGERBOX__L3*/ meltfnum[2]) /*then*/
+                                MELT_LOCATION("warmelt-base.melt:3212:/ cond");
+                                /*cond*/ if (/*_#IS_INTEGERBOX__L3*/ meltfnum[2]) /*then*/
                                     {
                                         /*^cond.then*/
                                         /*^block*/
                                         /*anyblock*/
                                         {
 
-                                            MELT_LOCATION("warmelt-base.melt:3166:/ quasiblock");
+                                            MELT_LOCATION("warmelt-base.melt:3213:/ quasiblock");
 
 
-                                            /*_#NUM__L4*/
-                                            meltfnum[3] =
+                                            /*_#NUM__L4*/ meltfnum[3] =
                                                 (melt_get_int((melt_ptr_t)(/*_.NAMV__V2*/ meltfptr[1])));;
                                             /*^compute*/
-                                            /*_.PREDEFNAM_CHK__V11*/
-                                            meltfptr[5] =
+                                            /*_.PREDEFNAM_CHK__V11*/ meltfptr[5] =
                                                 /*melt_predefined_get PREDEFNAM_CHK__2 */
                                                 melt_fetch_predefined (/*_#NUM__L4*/ meltfnum[3]) ;;
                                             /*^compute*/
-                                            /*_.LET___V10*/
-                                            meltfptr[7] = /*_.PREDEFNAM_CHK__V11*/ meltfptr[5];;
+                                            /*_.LET___V10*/ meltfptr[7] = /*_.PREDEFNAM_CHK__V11*/ meltfptr[5];;
 
-                                            MELT_LOCATION("warmelt-base.melt:3166:/ clear");
-                                            /*clear*/ /*_#NUM__L4*/
-                                            meltfnum[3] = 0 ;
+                                            MELT_LOCATION("warmelt-base.melt:3213:/ clear");
+                                            /*clear*/ /*_#NUM__L4*/ meltfnum[3] = 0 ;
                                             /*^clear*/
-                                            /*clear*/ /*_.PREDEFNAM_CHK__V11*/
-                                            meltfptr[5] = 0 ;
-                                            /*_._IFELSE___V9*/
-                                            meltfptr[6] = /*_.LET___V10*/ meltfptr[7];;
+                                            /*clear*/ /*_.PREDEFNAM_CHK__V11*/ meltfptr[5] = 0 ;
+                                            /*_._IFELSE___V9*/ meltfptr[6] = /*_.LET___V10*/ meltfptr[7];;
                                             /*epilog*/
 
-                                            MELT_LOCATION("warmelt-base.melt:3165:/ clear");
-                                            /*clear*/ /*_.LET___V10*/
-                                            meltfptr[7] = 0 ;
+                                            MELT_LOCATION("warmelt-base.melt:3212:/ clear");
+                                            /*clear*/ /*_.LET___V10*/ meltfptr[7] = 0 ;
                                         }
                                         ;
                                     }
@@ -1235,59 +1176,49 @@ meltlab_endgetargs:
                                         /*anyblock*/
                                         {
 
-                                            MELT_LOCATION("warmelt-base.melt:3170:/ quasiblock");
+                                            MELT_LOCATION("warmelt-base.melt:3217:/ quasiblock");
 
 
-                                            /*_.PROGN___V12*/
-                                            meltfptr[5] = (/*nil*/NULL);;
+                                            /*_.PROGN___V12*/ meltfptr[5] = (/*nil*/NULL);;
                                             /*^compute*/
-                                            /*_._IFELSE___V9*/
-                                            meltfptr[6] = /*_.PROGN___V12*/ meltfptr[5];;
+                                            /*_._IFELSE___V9*/ meltfptr[6] = /*_.PROGN___V12*/ meltfptr[5];;
                                             /*epilog*/
 
-                                            MELT_LOCATION("warmelt-base.melt:3165:/ clear");
-                                            /*clear*/ /*_.PROGN___V12*/
-                                            meltfptr[5] = 0 ;
+                                            MELT_LOCATION("warmelt-base.melt:3212:/ clear");
+                                            /*clear*/ /*_.PROGN___V12*/ meltfptr[5] = 0 ;
                                         }
                                         ;
                                     }
                                 ;
-                                /*_._IFELSE___V5*/
-                                meltfptr[3] = /*_._IFELSE___V9*/ meltfptr[6];;
+                                /*_._IFELSE___V5*/ meltfptr[3] = /*_._IFELSE___V9*/ meltfptr[6];;
                                 /*epilog*/
 
-                                MELT_LOCATION("warmelt-base.melt:3159:/ clear");
-                                /*clear*/ /*_#IS_INTEGERBOX__L3*/
-                                meltfnum[2] = 0 ;
+                                MELT_LOCATION("warmelt-base.melt:3206:/ clear");
+                                /*clear*/ /*_#IS_INTEGERBOX__L3*/ meltfnum[2] = 0 ;
                                 /*^clear*/
-                                /*clear*/ /*_._IFELSE___V9*/
-                                meltfptr[6] = 0 ;
+                                /*clear*/ /*_._IFELSE___V9*/ meltfptr[6] = 0 ;
                             }
                             ;
                         }
                     ;
-                    /*_._IFELSE___V3*/
-                    meltfptr[2] = /*_._IFELSE___V5*/ meltfptr[3];;
+                    /*_._IFELSE___V3*/ meltfptr[2] = /*_._IFELSE___V5*/ meltfptr[3];;
                     /*epilog*/
 
-                    MELT_LOCATION("warmelt-base.melt:3156:/ clear");
-                    /*clear*/ /*_#IS_A__L2*/
-                    meltfnum[1] = 0 ;
+                    MELT_LOCATION("warmelt-base.melt:3203:/ clear");
+                    /*clear*/ /*_#IS_A__L2*/ meltfnum[1] = 0 ;
                     /*^clear*/
-                    /*clear*/ /*_._IFELSE___V5*/
-                    meltfptr[3] = 0 ;
+                    /*clear*/ /*_._IFELSE___V5*/ meltfptr[3] = 0 ;
                 }
                 ;
             }
         ;
-        MELT_LOCATION("warmelt-base.melt:3154:/ quasiblock");
+        MELT_LOCATION("warmelt-base.melt:3201:/ quasiblock");
 
 
-        /*_._RETVAL___V1*/
-        meltfptr[0] = /*_._IFELSE___V3*/ meltfptr[2];;
+        /*_._RETVAL___V1*/ meltfptr[0] = /*_._IFELSE___V3*/ meltfptr[2];;
 
         {
-            MELT_LOCATION("warmelt-base.melt:3154:/ locexp");
+            MELT_LOCATION("warmelt-base.melt:3201:/ locexp");
             /*ochecknores compilobj_nrep_return*/
 #if MELT_HAVE_DEBUG
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
@@ -1299,16 +1230,13 @@ meltlab_endgetargs:
         ;
         /*^finalreturn*/
         ;
-        /*finalret*/
-        goto meltlabend_rout ;
+        /*finalret*/ goto meltlabend_rout ;
         /*epilog*/
 
         /*^clear*/
-        /*clear*/ /*_#IS_STRING__L1*/
-        meltfnum[0] = 0 ;
+        /*clear*/ /*_#IS_STRING__L1*/ meltfnum[0] = 0 ;
         /*^clear*/
-        /*clear*/ /*_._IFELSE___V3*/
-        meltfptr[2] = 0 ;
+        /*clear*/ /*_._IFELSE___V3*/ meltfptr[2] = 0 ;
     }
 
     ;
@@ -1389,8 +1317,7 @@ meltrout_31_WARMELTmiBASE_SYMBOL_CNAME(meltclosure_ptr_t meltclosp_, melt_ptr_t 
 
     /* end of frame for routine meltrout_31_WARMELTmiBASE_SYMBOL_CNAME fromline 1719 */
 
-    /* classy proc frame meltrout_31_WARMELTmiBASE_SYMBOL_CNAME */
-    MeltFrame_meltrout_31_WARMELTmiBASE_SYMBOL_CNAME
+    /* classy proc frame meltrout_31_WARMELTmiBASE_SYMBOL_CNAME */ MeltFrame_meltrout_31_WARMELTmiBASE_SYMBOL_CNAME
     meltfram__ /*declfrastruct fromline 1743*/
     /*classyprocarg meltrout_31_WARMELTmiBASE_SYMBOL_CNAME fromline 1748*/
 #if ENABLE_CHECKING
@@ -1403,8 +1330,7 @@ meltrout_31_WARMELTmiBASE_SYMBOL_CNAME(meltclosure_ptr_t meltclosp_, melt_ptr_t 
 #define meltframe meltfram__
 
     melt_trace_start("SYMBOL_CNAME", meltcallcount);
-    /*use arguments*/
-    (void) meltclosp_;
+    /*use arguments*/ (void) meltclosp_;
     (void)meltfirstargp_;
     (void)meltxargdescr_;
     (void)meltxargtab_;
@@ -1413,9 +1339,8 @@ meltrout_31_WARMELTmiBASE_SYMBOL_CNAME(meltclosure_ptr_t meltclosp_, melt_ptr_t 
     /*getargs*/
 
     /*getarg#0*/
-    MELT_LOCATION("warmelt-base.melt:3174:/ getarg");
-    /*_.SY__V2*/
-    meltfptr[1] = (melt_ptr_t) meltfirstargp_;
+    MELT_LOCATION("warmelt-base.melt:3221:/ getarg");
+    /*_.SY__V2*/ meltfptr[1] = (melt_ptr_t) meltfirstargp_;
     ;
     goto meltlab_endgetargs;
 meltlab_endgetargs:
@@ -1428,27 +1353,23 @@ meltlab_endgetargs:
 
         MELT_CHECK_SIGNAL();
         ;
-        /*_#IS_A__L1*/
-        meltfnum[0] =
+        /*_#IS_A__L1*/ meltfnum[0] =
             melt_is_instance_of((melt_ptr_t)(/*_.SY__V2*/ meltfptr[1]), (melt_ptr_t)((/*!CLASS_CLONED_SYMBOL*/ meltfrout->tabval[0])));;
-        MELT_LOCATION("warmelt-base.melt:3176:/ cond");
-        /*cond*/
-        if (/*_#IS_A__L1*/ meltfnum[0]) /*then*/
+        MELT_LOCATION("warmelt-base.melt:3223:/ cond");
+        /*cond*/ if (/*_#IS_A__L1*/ meltfnum[0]) /*then*/
             {
                 /*^cond.then*/
                 /*^block*/
                 /*anyblock*/
                 {
 
-                    MELT_LOCATION("warmelt-base.melt:3177:/ quasiblock");
+                    MELT_LOCATION("warmelt-base.melt:3224:/ quasiblock");
 
 
-                    /*_.SBUF__V5*/
-                    meltfptr[4] =
+                    /*_.SBUF__V5*/ meltfptr[4] =
                         (melt_ptr_t) meltgc_new_strbuf((meltobject_ptr_t)((/*!DISCR_STRBUF*/ meltfrout->tabval[1])), (const char*)0);;
-                    MELT_LOCATION("warmelt-base.melt:3178:/ cond");
-                    /*cond*/
-                    if (
+                    MELT_LOCATION("warmelt-base.melt:3225:/ cond");
+                    /*cond*/ if (
                         /*ifisa*/ melt_is_instance_of((melt_ptr_t)(/*_.SY__V2*/ meltfptr[1]),
                                                       (melt_ptr_t)((/*!CLASS_NAMED*/ meltfrout->tabval[2])))
                     ) /*then*/
@@ -1459,8 +1380,7 @@ meltlab_endgetargs:
                                 melt_ptr_t slot=NULL, obj=NULL;
                                 obj = (melt_ptr_t)(/*_.SY__V2*/ meltfptr[1]) /*=obj*/;
                                 melt_object_get_field(slot,obj, 1, "NAMED_NAME");
-                                /*_.NAMED_NAME__V6*/
-                                meltfptr[5] = slot;
+                                /*_.NAMED_NAME__V6*/ meltfptr[5] = slot;
                             };
                             ;
                         }
@@ -1472,14 +1392,13 @@ meltlab_endgetargs:
                     ;
 
                     {
-                        MELT_LOCATION("warmelt-base.melt:3178:/ locexp");
+                        MELT_LOCATION("warmelt-base.melt:3225:/ locexp");
                         meltgc_add_strbuf_cident((melt_ptr_t)(/*_.SBUF__V5*/ meltfptr[4]),
                                                  melt_string_str((melt_ptr_t)(/*_.NAMED_NAME__V6*/ meltfptr[5])));
                     }
                     ;
-                    MELT_LOCATION("warmelt-base.melt:3179:/ cond");
-                    /*cond*/
-                    if (
+                    MELT_LOCATION("warmelt-base.melt:3226:/ cond");
+                    /*cond*/ if (
                         /*ifisa*/ melt_is_instance_of((melt_ptr_t)(/*_.SY__V2*/ meltfptr[1]),
                                                       (melt_ptr_t)((/*!CLASS_CLONED_SYMBOL*/ meltfrout->tabval[0])))
                     ) /*then*/
@@ -1490,8 +1409,7 @@ meltlab_endgetargs:
                                 melt_ptr_t slot=NULL, obj=NULL;
                                 obj = (melt_ptr_t)(/*_.SY__V2*/ meltfptr[1]) /*=obj*/;
                                 melt_object_get_field(slot,obj, 3, "CSYM_URANK");
-                                /*_.CSYM_URANK__V7*/
-                                meltfptr[6] = slot;
+                                /*_.CSYM_URANK__V7*/ meltfptr[6] = slot;
                             };
                             ;
                         }
@@ -1504,7 +1422,7 @@ meltlab_endgetargs:
 
                     MELT_CHECK_SIGNAL();
                     ;
-                    MELT_LOCATION("warmelt-base.melt:3179:/ apply");
+                    MELT_LOCATION("warmelt-base.melt:3226:/ apply");
                     /*apply*/
                     {
                         union meltparam_un argtab[2];
@@ -1513,39 +1431,29 @@ meltlab_endgetargs:
                         argtab[0].meltbp_cstring =  "cl";
                         /*^apply.arg*/
                         argtab[1].meltbp_aptr = (melt_ptr_t*) &/*_.CSYM_URANK__V7*/ meltfptr[6];
-                        /*_.ADD2OUT__V8*/
-                        meltfptr[7] =  melt_apply ((meltclosure_ptr_t)((/*!ADD2OUT*/ meltfrout->tabval[3])), (melt_ptr_t)(/*_.SBUF__V5*/ meltfptr[4]), (MELTBPARSTR_CSTRING MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
+                        /*_.ADD2OUT__V8*/ meltfptr[7] =  melt_apply ((meltclosure_ptr_t)((/*!ADD2OUT*/ meltfrout->tabval[3])), (melt_ptr_t)(/*_.SBUF__V5*/ meltfptr[4]), (MELTBPARSTR_CSTRING MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
                     }
                     ;
-                    /*_.STRBUF2STRING__V9*/
-                    meltfptr[8] =
+                    /*_.STRBUF2STRING__V9*/ meltfptr[8] =
                         (meltgc_new_stringdup((meltobject_ptr_t)((/*!DISCR_VERBATIM_STRING*/ meltfrout->tabval[4])), melt_strbuf_str((melt_ptr_t)(/*_.SBUF__V5*/ meltfptr[4]))));;
                     /*^compute*/
-                    /*_.LET___V4*/
-                    meltfptr[3] = /*_.STRBUF2STRING__V9*/ meltfptr[8];;
+                    /*_.LET___V4*/ meltfptr[3] = /*_.STRBUF2STRING__V9*/ meltfptr[8];;
 
-                    MELT_LOCATION("warmelt-base.melt:3177:/ clear");
-                    /*clear*/ /*_.SBUF__V5*/
-                    meltfptr[4] = 0 ;
+                    MELT_LOCATION("warmelt-base.melt:3224:/ clear");
+                    /*clear*/ /*_.SBUF__V5*/ meltfptr[4] = 0 ;
                     /*^clear*/
-                    /*clear*/ /*_.NAMED_NAME__V6*/
-                    meltfptr[5] = 0 ;
+                    /*clear*/ /*_.NAMED_NAME__V6*/ meltfptr[5] = 0 ;
                     /*^clear*/
-                    /*clear*/ /*_.CSYM_URANK__V7*/
-                    meltfptr[6] = 0 ;
+                    /*clear*/ /*_.CSYM_URANK__V7*/ meltfptr[6] = 0 ;
                     /*^clear*/
-                    /*clear*/ /*_.ADD2OUT__V8*/
-                    meltfptr[7] = 0 ;
+                    /*clear*/ /*_.ADD2OUT__V8*/ meltfptr[7] = 0 ;
                     /*^clear*/
-                    /*clear*/ /*_.STRBUF2STRING__V9*/
-                    meltfptr[8] = 0 ;
-                    /*_._IFELSE___V3*/
-                    meltfptr[2] = /*_.LET___V4*/ meltfptr[3];;
+                    /*clear*/ /*_.STRBUF2STRING__V9*/ meltfptr[8] = 0 ;
+                    /*_._IFELSE___V3*/ meltfptr[2] = /*_.LET___V4*/ meltfptr[3];;
                     /*epilog*/
 
-                    MELT_LOCATION("warmelt-base.melt:3176:/ clear");
-                    /*clear*/ /*_.LET___V4*/
-                    meltfptr[3] = 0 ;
+                    MELT_LOCATION("warmelt-base.melt:3223:/ clear");
+                    /*clear*/ /*_.LET___V4*/ meltfptr[3] = 0 ;
                 }
                 ;
             }
@@ -1559,27 +1467,23 @@ meltlab_endgetargs:
 
                     MELT_CHECK_SIGNAL();
                     ;
-                    /*_#IS_A__L2*/
-                    meltfnum[1] =
+                    /*_#IS_A__L2*/ meltfnum[1] =
                         melt_is_instance_of((melt_ptr_t)(/*_.SY__V2*/ meltfptr[1]), (melt_ptr_t)((/*!CLASS_KEYWORD*/ meltfrout->tabval[5])));;
-                    MELT_LOCATION("warmelt-base.melt:3182:/ cond");
-                    /*cond*/
-                    if (/*_#IS_A__L2*/ meltfnum[1]) /*then*/
+                    MELT_LOCATION("warmelt-base.melt:3229:/ cond");
+                    /*cond*/ if (/*_#IS_A__L2*/ meltfnum[1]) /*then*/
                         {
                             /*^cond.then*/
                             /*^block*/
                             /*anyblock*/
                             {
 
-                                MELT_LOCATION("warmelt-base.melt:3183:/ quasiblock");
+                                MELT_LOCATION("warmelt-base.melt:3230:/ quasiblock");
 
 
-                                /*_.SBUF__V12*/
-                                meltfptr[6] =
+                                /*_.SBUF__V12*/ meltfptr[6] =
                                     (melt_ptr_t) meltgc_new_strbuf((meltobject_ptr_t)((/*!DISCR_STRBUF*/ meltfrout->tabval[1])), (const char*)0);;
-                                MELT_LOCATION("warmelt-base.melt:3184:/ cond");
-                                /*cond*/
-                                if (
+                                MELT_LOCATION("warmelt-base.melt:3231:/ cond");
+                                /*cond*/ if (
                                     /*ifisa*/ melt_is_instance_of((melt_ptr_t)(/*_.SY__V2*/ meltfptr[1]),
                                                                   (melt_ptr_t)((/*!CLASS_NAMED*/ meltfrout->tabval[2])))
                                 ) /*then*/
@@ -1590,8 +1494,7 @@ meltlab_endgetargs:
                                             melt_ptr_t slot=NULL, obj=NULL;
                                             obj = (melt_ptr_t)(/*_.SY__V2*/ meltfptr[1]) /*=obj*/;
                                             melt_object_get_field(slot,obj, 1, "NAMED_NAME");
-                                            /*_.NAMED_NAME__V13*/
-                                            meltfptr[7] = slot;
+                                            /*_.NAMED_NAME__V13*/ meltfptr[7] = slot;
                                         };
                                         ;
                                     }
@@ -1603,41 +1506,33 @@ meltlab_endgetargs:
                                 ;
 
                                 {
-                                    MELT_LOCATION("warmelt-base.melt:3184:/ locexp");
+                                    MELT_LOCATION("warmelt-base.melt:3231:/ locexp");
                                     meltgc_add_strbuf_cident((melt_ptr_t)(/*_.SBUF__V12*/ meltfptr[6]),
                                                              melt_string_str((melt_ptr_t)(/*_.NAMED_NAME__V13*/ meltfptr[7])));
                                 }
                                 ;
 
                                 {
-                                    MELT_LOCATION("warmelt-base.melt:3185:/ locexp");
-                                    /*add2sbuf_strconst*/
-                                    meltgc_add_strbuf((melt_ptr_t)(/*_.SBUF__V12*/ meltfptr[6]), ( "kw"));
+                                    MELT_LOCATION("warmelt-base.melt:3232:/ locexp");
+                                    /*add2sbuf_strconst*/ meltgc_add_strbuf((melt_ptr_t)(/*_.SBUF__V12*/ meltfptr[6]), ( "kw"));
                                 }
                                 ;
-                                /*_.STRBUF2STRING__V14*/
-                                meltfptr[8] =
+                                /*_.STRBUF2STRING__V14*/ meltfptr[8] =
                                     (meltgc_new_stringdup((meltobject_ptr_t)((/*!DISCR_VERBATIM_STRING*/ meltfrout->tabval[4])), melt_strbuf_str((melt_ptr_t)(/*_.SBUF__V12*/ meltfptr[6]))));;
                                 /*^compute*/
-                                /*_.LET___V11*/
-                                meltfptr[5] = /*_.STRBUF2STRING__V14*/ meltfptr[8];;
+                                /*_.LET___V11*/ meltfptr[5] = /*_.STRBUF2STRING__V14*/ meltfptr[8];;
 
-                                MELT_LOCATION("warmelt-base.melt:3183:/ clear");
-                                /*clear*/ /*_.SBUF__V12*/
-                                meltfptr[6] = 0 ;
+                                MELT_LOCATION("warmelt-base.melt:3230:/ clear");
+                                /*clear*/ /*_.SBUF__V12*/ meltfptr[6] = 0 ;
                                 /*^clear*/
-                                /*clear*/ /*_.NAMED_NAME__V13*/
-                                meltfptr[7] = 0 ;
+                                /*clear*/ /*_.NAMED_NAME__V13*/ meltfptr[7] = 0 ;
                                 /*^clear*/
-                                /*clear*/ /*_.STRBUF2STRING__V14*/
-                                meltfptr[8] = 0 ;
-                                /*_._IFELSE___V10*/
-                                meltfptr[4] = /*_.LET___V11*/ meltfptr[5];;
+                                /*clear*/ /*_.STRBUF2STRING__V14*/ meltfptr[8] = 0 ;
+                                /*_._IFELSE___V10*/ meltfptr[4] = /*_.LET___V11*/ meltfptr[5];;
                                 /*epilog*/
 
-                                MELT_LOCATION("warmelt-base.melt:3182:/ clear");
-                                /*clear*/ /*_.LET___V11*/
-                                meltfptr[5] = 0 ;
+                                MELT_LOCATION("warmelt-base.melt:3229:/ clear");
+                                /*clear*/ /*_.LET___V11*/ meltfptr[5] = 0 ;
                             }
                             ;
                         }
@@ -1651,27 +1546,23 @@ meltlab_endgetargs:
 
                                 MELT_CHECK_SIGNAL();
                                 ;
-                                /*_#IS_A__L3*/
-                                meltfnum[2] =
+                                /*_#IS_A__L3*/ meltfnum[2] =
                                     melt_is_instance_of((melt_ptr_t)(/*_.SY__V2*/ meltfptr[1]), (melt_ptr_t)((/*!CLASS_SYMBOL*/ meltfrout->tabval[6])));;
-                                MELT_LOCATION("warmelt-base.melt:3188:/ cond");
-                                /*cond*/
-                                if (/*_#IS_A__L3*/ meltfnum[2]) /*then*/
+                                MELT_LOCATION("warmelt-base.melt:3235:/ cond");
+                                /*cond*/ if (/*_#IS_A__L3*/ meltfnum[2]) /*then*/
                                     {
                                         /*^cond.then*/
                                         /*^block*/
                                         /*anyblock*/
                                         {
 
-                                            MELT_LOCATION("warmelt-base.melt:3189:/ quasiblock");
+                                            MELT_LOCATION("warmelt-base.melt:3236:/ quasiblock");
 
 
-                                            /*_.SBUF__V17*/
-                                            meltfptr[7] =
+                                            /*_.SBUF__V17*/ meltfptr[7] =
                                                 (melt_ptr_t) meltgc_new_strbuf((meltobject_ptr_t)((/*!DISCR_STRBUF*/ meltfrout->tabval[1])), (const char*)0);;
-                                            MELT_LOCATION("warmelt-base.melt:3190:/ cond");
-                                            /*cond*/
-                                            if (
+                                            MELT_LOCATION("warmelt-base.melt:3237:/ cond");
+                                            /*cond*/ if (
                                                 /*ifisa*/ melt_is_instance_of((melt_ptr_t)(/*_.SY__V2*/ meltfptr[1]),
                                                                               (melt_ptr_t)((/*!CLASS_NAMED*/ meltfrout->tabval[2])))
                                             ) /*then*/
@@ -1682,8 +1573,7 @@ meltlab_endgetargs:
                                                         melt_ptr_t slot=NULL, obj=NULL;
                                                         obj = (melt_ptr_t)(/*_.SY__V2*/ meltfptr[1]) /*=obj*/;
                                                         melt_object_get_field(slot,obj, 1, "NAMED_NAME");
-                                                        /*_.NAMED_NAME__V18*/
-                                                        meltfptr[8] = slot;
+                                                        /*_.NAMED_NAME__V18*/ meltfptr[8] = slot;
                                                     };
                                                     ;
                                                 }
@@ -1695,34 +1585,27 @@ meltlab_endgetargs:
                                             ;
 
                                             {
-                                                MELT_LOCATION("warmelt-base.melt:3190:/ locexp");
+                                                MELT_LOCATION("warmelt-base.melt:3237:/ locexp");
                                                 meltgc_add_strbuf_cident((melt_ptr_t)(/*_.SBUF__V17*/ meltfptr[7]),
                                                                          melt_string_str((melt_ptr_t)(/*_.NAMED_NAME__V18*/ meltfptr[8])));
                                             }
                                             ;
-                                            /*_.STRBUF2STRING__V19*/
-                                            meltfptr[5] =
+                                            /*_.STRBUF2STRING__V19*/ meltfptr[5] =
                                                 (meltgc_new_stringdup((meltobject_ptr_t)((/*!DISCR_VERBATIM_STRING*/ meltfrout->tabval[4])), melt_strbuf_str((melt_ptr_t)(/*_.SBUF__V17*/ meltfptr[7]))));;
                                             /*^compute*/
-                                            /*_.LET___V16*/
-                                            meltfptr[6] = /*_.STRBUF2STRING__V19*/ meltfptr[5];;
+                                            /*_.LET___V16*/ meltfptr[6] = /*_.STRBUF2STRING__V19*/ meltfptr[5];;
 
-                                            MELT_LOCATION("warmelt-base.melt:3189:/ clear");
-                                            /*clear*/ /*_.SBUF__V17*/
-                                            meltfptr[7] = 0 ;
+                                            MELT_LOCATION("warmelt-base.melt:3236:/ clear");
+                                            /*clear*/ /*_.SBUF__V17*/ meltfptr[7] = 0 ;
                                             /*^clear*/
-                                            /*clear*/ /*_.NAMED_NAME__V18*/
-                                            meltfptr[8] = 0 ;
+                                            /*clear*/ /*_.NAMED_NAME__V18*/ meltfptr[8] = 0 ;
                                             /*^clear*/
-                                            /*clear*/ /*_.STRBUF2STRING__V19*/
-                                            meltfptr[5] = 0 ;
-                                            /*_._IFELSE___V15*/
-                                            meltfptr[3] = /*_.LET___V16*/ meltfptr[6];;
+                                            /*clear*/ /*_.STRBUF2STRING__V19*/ meltfptr[5] = 0 ;
+                                            /*_._IFELSE___V15*/ meltfptr[3] = /*_.LET___V16*/ meltfptr[6];;
                                             /*epilog*/
 
-                                            MELT_LOCATION("warmelt-base.melt:3188:/ clear");
-                                            /*clear*/ /*_.LET___V16*/
-                                            meltfptr[6] = 0 ;
+                                            MELT_LOCATION("warmelt-base.melt:3235:/ clear");
+                                            /*clear*/ /*_.LET___V16*/ meltfptr[6] = 0 ;
                                         }
                                         ;
                                     }
@@ -1733,59 +1616,49 @@ meltlab_endgetargs:
                                         /*anyblock*/
                                         {
 
-                                            MELT_LOCATION("warmelt-base.melt:3193:/ quasiblock");
+                                            MELT_LOCATION("warmelt-base.melt:3240:/ quasiblock");
 
 
-                                            /*_.PROGN___V20*/
-                                            meltfptr[7] = (/*nil*/NULL);;
+                                            /*_.PROGN___V20*/ meltfptr[7] = (/*nil*/NULL);;
                                             /*^compute*/
-                                            /*_._IFELSE___V15*/
-                                            meltfptr[3] = /*_.PROGN___V20*/ meltfptr[7];;
+                                            /*_._IFELSE___V15*/ meltfptr[3] = /*_.PROGN___V20*/ meltfptr[7];;
                                             /*epilog*/
 
-                                            MELT_LOCATION("warmelt-base.melt:3188:/ clear");
-                                            /*clear*/ /*_.PROGN___V20*/
-                                            meltfptr[7] = 0 ;
+                                            MELT_LOCATION("warmelt-base.melt:3235:/ clear");
+                                            /*clear*/ /*_.PROGN___V20*/ meltfptr[7] = 0 ;
                                         }
                                         ;
                                     }
                                 ;
-                                /*_._IFELSE___V10*/
-                                meltfptr[4] = /*_._IFELSE___V15*/ meltfptr[3];;
+                                /*_._IFELSE___V10*/ meltfptr[4] = /*_._IFELSE___V15*/ meltfptr[3];;
                                 /*epilog*/
 
-                                MELT_LOCATION("warmelt-base.melt:3182:/ clear");
-                                /*clear*/ /*_#IS_A__L3*/
-                                meltfnum[2] = 0 ;
+                                MELT_LOCATION("warmelt-base.melt:3229:/ clear");
+                                /*clear*/ /*_#IS_A__L3*/ meltfnum[2] = 0 ;
                                 /*^clear*/
-                                /*clear*/ /*_._IFELSE___V15*/
-                                meltfptr[3] = 0 ;
+                                /*clear*/ /*_._IFELSE___V15*/ meltfptr[3] = 0 ;
                             }
                             ;
                         }
                     ;
-                    /*_._IFELSE___V3*/
-                    meltfptr[2] = /*_._IFELSE___V10*/ meltfptr[4];;
+                    /*_._IFELSE___V3*/ meltfptr[2] = /*_._IFELSE___V10*/ meltfptr[4];;
                     /*epilog*/
 
-                    MELT_LOCATION("warmelt-base.melt:3176:/ clear");
-                    /*clear*/ /*_#IS_A__L2*/
-                    meltfnum[1] = 0 ;
+                    MELT_LOCATION("warmelt-base.melt:3223:/ clear");
+                    /*clear*/ /*_#IS_A__L2*/ meltfnum[1] = 0 ;
                     /*^clear*/
-                    /*clear*/ /*_._IFELSE___V10*/
-                    meltfptr[4] = 0 ;
+                    /*clear*/ /*_._IFELSE___V10*/ meltfptr[4] = 0 ;
                 }
                 ;
             }
         ;
-        MELT_LOCATION("warmelt-base.melt:3174:/ quasiblock");
+        MELT_LOCATION("warmelt-base.melt:3221:/ quasiblock");
 
 
-        /*_._RETVAL___V1*/
-        meltfptr[0] = /*_._IFELSE___V3*/ meltfptr[2];;
+        /*_._RETVAL___V1*/ meltfptr[0] = /*_._IFELSE___V3*/ meltfptr[2];;
 
         {
-            MELT_LOCATION("warmelt-base.melt:3174:/ locexp");
+            MELT_LOCATION("warmelt-base.melt:3221:/ locexp");
             /*ochecknores compilobj_nrep_return*/
 #if MELT_HAVE_DEBUG
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
@@ -1797,16 +1670,13 @@ meltlab_endgetargs:
         ;
         /*^finalreturn*/
         ;
-        /*finalret*/
-        goto meltlabend_rout ;
+        /*finalret*/ goto meltlabend_rout ;
         /*epilog*/
 
         /*^clear*/
-        /*clear*/ /*_#IS_A__L1*/
-        meltfnum[0] = 0 ;
+        /*clear*/ /*_#IS_A__L1*/ meltfnum[0] = 0 ;
         /*^clear*/
-        /*clear*/ /*_._IFELSE___V3*/
-        meltfptr[2] = 0 ;
+        /*clear*/ /*_._IFELSE___V3*/ meltfptr[2] = 0 ;
     }
 
     ;
@@ -1893,8 +1763,7 @@ meltrout_32_WARMELTmiBASE_MELT_MAKE_SEXPR(meltclosure_ptr_t meltclosp_, melt_ptr
 
     /* end of frame for routine meltrout_32_WARMELTmiBASE_MELT_MAKE_SEXPR fromline 1719 */
 
-    /* classy proc frame meltrout_32_WARMELTmiBASE_MELT_MAKE_SEXPR */
-    MeltFrame_meltrout_32_WARMELTmiBASE_MELT_MAKE_SEXPR
+    /* classy proc frame meltrout_32_WARMELTmiBASE_MELT_MAKE_SEXPR */ MeltFrame_meltrout_32_WARMELTmiBASE_MELT_MAKE_SEXPR
     meltfram__ /*declfrastruct fromline 1743*/
     /*classyprocarg meltrout_32_WARMELTmiBASE_MELT_MAKE_SEXPR fromline 1748*/
 #if ENABLE_CHECKING
@@ -1907,8 +1776,7 @@ meltrout_32_WARMELTmiBASE_MELT_MAKE_SEXPR(meltclosure_ptr_t meltclosp_, melt_ptr
 #define meltframe meltfram__
 
     melt_trace_start("MELT_MAKE_SEXPR", meltcallcount);
-    /*use arguments*/
-    (void) meltclosp_;
+    /*use arguments*/ (void) meltclosp_;
     (void)meltfirstargp_;
     (void)meltxargdescr_;
     (void)meltxargtab_;
@@ -1917,9 +1785,8 @@ meltrout_32_WARMELTmiBASE_MELT_MAKE_SEXPR(meltclosure_ptr_t meltclosp_, melt_ptr
     /*getargs*/
 
     /*getarg#0*/
-    MELT_LOCATION("warmelt-base.melt:3205:/ getarg");
-    /*_.LOC__V2*/
-    meltfptr[1] = (melt_ptr_t) meltfirstargp_;
+    MELT_LOCATION("warmelt-base.melt:3252:/ getarg");
+    /*_.LOC__V2*/ meltfptr[1] = (melt_ptr_t) meltfirstargp_;
     ;
     goto meltlab_endgetargs;
 meltlab_endgetargs:
@@ -1929,29 +1796,26 @@ meltlab_endgetargs:
     /*anyblock*/
     {
 
-        MELT_LOCATION("warmelt-base.melt:3209:/ quasiblock");
+        MELT_LOCATION("warmelt-base.melt:3256:/ quasiblock");
 
 
-        /*_.CONT__V4*/
-        meltfptr[3] =
+        /*_.CONT__V4*/ meltfptr[3] =
             (meltgc_new_list((meltobject_ptr_t)((/*!DISCR_LIST*/ meltfrout->tabval[0]))));;
 
         MELT_CHECK_SIGNAL();
         ;
         /*^compute*/
-        /*_#IS_MIXINT__L1*/
-        meltfnum[0] =
+        /*_#IS_MIXINT__L1*/ meltfnum[0] =
             (melt_magic_discr((melt_ptr_t)(/*_.LOC__V2*/ meltfptr[1])) == MELTOBMAG_MIXINT);;
-        MELT_LOCATION("warmelt-base.melt:3210:/ cond");
-        /*cond*/
-        if (/*_#IS_MIXINT__L1*/ meltfnum[0]) /*then*/
+        MELT_LOCATION("warmelt-base.melt:3257:/ cond");
+        /*cond*/ if (/*_#IS_MIXINT__L1*/ meltfnum[0]) /*then*/
             {
                 /*^cond.then*/
                 /*_.VLOC__V5*/ meltfptr[4] = /*_.LOC__V2*/ meltfptr[1];;
             }
         else
             {
-                MELT_LOCATION("warmelt-base.melt:3210:/ cond.else");
+                MELT_LOCATION("warmelt-base.melt:3257:/ cond.else");
 
                 /*^block*/
                 /*anyblock*/
@@ -1960,19 +1824,17 @@ meltlab_endgetargs:
 
                     MELT_CHECK_SIGNAL();
                     ;
-                    /*_#IS_MIXLOC__L2*/
-                    meltfnum[1] =
+                    /*_#IS_MIXLOC__L2*/ meltfnum[1] =
                         (melt_magic_discr((melt_ptr_t)(/*_.LOC__V2*/ meltfptr[1])) == MELTOBMAG_MIXLOC);;
-                    MELT_LOCATION("warmelt-base.melt:3213:/ cond");
-                    /*cond*/
-                    if (/*_#IS_MIXLOC__L2*/ meltfnum[1]) /*then*/
+                    MELT_LOCATION("warmelt-base.melt:3260:/ cond");
+                    /*cond*/ if (/*_#IS_MIXLOC__L2*/ meltfnum[1]) /*then*/
                         {
                             /*^cond.then*/
                             /*_._IFELSE___V6*/ meltfptr[5] = /*_.LOC__V2*/ meltfptr[1];;
                         }
                     else
                         {
-                            MELT_LOCATION("warmelt-base.melt:3213:/ cond.else");
+                            MELT_LOCATION("warmelt-base.melt:3260:/ cond.else");
 
                             /*^block*/
                             /*anyblock*/
@@ -1981,34 +1843,29 @@ meltlab_endgetargs:
 
                                 MELT_CHECK_SIGNAL();
                                 ;
-                                /*_#IS_A__L3*/
-                                meltfnum[2] =
+                                /*_#IS_A__L3*/ meltfnum[2] =
                                     melt_is_instance_of((melt_ptr_t)(/*_.LOC__V2*/ meltfptr[1]), (melt_ptr_t)((/*!CLASS_LOCATED*/ meltfrout->tabval[1])));;
-                                MELT_LOCATION("warmelt-base.melt:3215:/ cond");
-                                /*cond*/
-                                if (/*_#IS_A__L3*/ meltfnum[2]) /*then*/
+                                MELT_LOCATION("warmelt-base.melt:3262:/ cond");
+                                /*cond*/ if (/*_#IS_A__L3*/ meltfnum[2]) /*then*/
                                     {
                                         /*^cond.then*/
                                         /*^block*/
                                         /*anyblock*/
                                         {
 
-                                            MELT_LOCATION("warmelt-base.melt:3216:/ getslot");
+                                            MELT_LOCATION("warmelt-base.melt:3263:/ getslot");
                                             {
                                                 melt_ptr_t slot=NULL, obj=NULL;
                                                 obj = (melt_ptr_t)(/*_.LOC__V2*/ meltfptr[1]) /*=obj*/;
                                                 melt_object_get_field(slot,obj, 1, "LOCA_LOCATION");
-                                                /*_.LOCA_LOCATION__V8*/
-                                                meltfptr[7] = slot;
+                                                /*_.LOCA_LOCATION__V8*/ meltfptr[7] = slot;
                                             };
                                             ;
-                                            /*_._IFELSE___V7*/
-                                            meltfptr[6] = /*_.LOCA_LOCATION__V8*/ meltfptr[7];;
+                                            /*_._IFELSE___V7*/ meltfptr[6] = /*_.LOCA_LOCATION__V8*/ meltfptr[7];;
                                             /*epilog*/
 
-                                            MELT_LOCATION("warmelt-base.melt:3215:/ clear");
-                                            /*clear*/ /*_.LOCA_LOCATION__V8*/
-                                            meltfptr[7] = 0 ;
+                                            MELT_LOCATION("warmelt-base.melt:3262:/ clear");
+                                            /*clear*/ /*_.LOCA_LOCATION__V8*/ meltfptr[7] = 0 ;
                                         }
                                         ;
                                     }
@@ -2019,47 +1876,38 @@ meltlab_endgetargs:
                                         /*anyblock*/
                                         {
 
-                                            MELT_LOCATION("warmelt-base.melt:3217:/ quasiblock");
+                                            MELT_LOCATION("warmelt-base.melt:3264:/ quasiblock");
 
 
-                                            /*_.PROGN___V9*/
-                                            meltfptr[7] = (/*nil*/NULL);;
+                                            /*_.PROGN___V9*/ meltfptr[7] = (/*nil*/NULL);;
                                             /*^compute*/
-                                            /*_._IFELSE___V7*/
-                                            meltfptr[6] = /*_.PROGN___V9*/ meltfptr[7];;
+                                            /*_._IFELSE___V7*/ meltfptr[6] = /*_.PROGN___V9*/ meltfptr[7];;
                                             /*epilog*/
 
-                                            MELT_LOCATION("warmelt-base.melt:3215:/ clear");
-                                            /*clear*/ /*_.PROGN___V9*/
-                                            meltfptr[7] = 0 ;
+                                            MELT_LOCATION("warmelt-base.melt:3262:/ clear");
+                                            /*clear*/ /*_.PROGN___V9*/ meltfptr[7] = 0 ;
                                         }
                                         ;
                                     }
                                 ;
-                                /*_._IFELSE___V6*/
-                                meltfptr[5] = /*_._IFELSE___V7*/ meltfptr[6];;
+                                /*_._IFELSE___V6*/ meltfptr[5] = /*_._IFELSE___V7*/ meltfptr[6];;
                                 /*epilog*/
 
-                                MELT_LOCATION("warmelt-base.melt:3213:/ clear");
-                                /*clear*/ /*_#IS_A__L3*/
-                                meltfnum[2] = 0 ;
+                                MELT_LOCATION("warmelt-base.melt:3260:/ clear");
+                                /*clear*/ /*_#IS_A__L3*/ meltfnum[2] = 0 ;
                                 /*^clear*/
-                                /*clear*/ /*_._IFELSE___V7*/
-                                meltfptr[6] = 0 ;
+                                /*clear*/ /*_._IFELSE___V7*/ meltfptr[6] = 0 ;
                             }
                             ;
                         }
                     ;
-                    /*_.VLOC__V5*/
-                    meltfptr[4] = /*_._IFELSE___V6*/ meltfptr[5];;
+                    /*_.VLOC__V5*/ meltfptr[4] = /*_._IFELSE___V6*/ meltfptr[5];;
                     /*epilog*/
 
-                    MELT_LOCATION("warmelt-base.melt:3210:/ clear");
-                    /*clear*/ /*_#IS_MIXLOC__L2*/
-                    meltfnum[1] = 0 ;
+                    MELT_LOCATION("warmelt-base.melt:3257:/ clear");
+                    /*clear*/ /*_#IS_MIXLOC__L2*/ meltfnum[1] = 0 ;
                     /*^clear*/
-                    /*clear*/ /*_._IFELSE___V6*/
-                    meltfptr[5] = 0 ;
+                    /*clear*/ /*_._IFELSE___V6*/ meltfptr[5] = 0 ;
                 }
                 ;
             }
@@ -2067,7 +1915,7 @@ meltlab_endgetargs:
 
         MELT_CHECK_SIGNAL();
         ;
-        MELT_LOCATION("warmelt-base.melt:3218:/ quasiblock");
+        MELT_LOCATION("warmelt-base.melt:3265:/ quasiblock");
 
 
         /*^rawallocobj*/
@@ -2075,8 +1923,7 @@ meltlab_endgetargs:
         {
             melt_ptr_t newobj = 0;
             melt_raw_object_create(newobj,(melt_ptr_t)((/*!CLASS_SEXPR*/ meltfrout->tabval[2])), (3), "CLASS_SEXPR");
-            /*_.INST__V11*/
-            meltfptr[6] =
+            /*_.INST__V11*/ meltfptr[6] =
                 newobj;
         };
         ;
@@ -2094,9 +1941,8 @@ meltlab_endgetargs:
 
         melt_dbgtrace_written_object (/*_.INST__V11*/ meltfptr[6], "newly made instance");
         ;
-        /*_.SEXPR__V10*/
-        meltfptr[7] = /*_.INST__V11*/ meltfptr[6];;
-        MELT_LOCATION("warmelt-base.melt:3222:/ loop");
+        /*_.SEXPR__V10*/ meltfptr[7] = /*_.INST__V11*/ meltfptr[6];;
+        MELT_LOCATION("warmelt-base.melt:3269:/ loop");
         /*loop*/
         {
 meltlabloop_ARGLOOP_5:;/*^loopbody*/
@@ -2108,9 +1954,8 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
 
                 MELT_CHECK_SIGNAL();
                 ;
-                MELT_LOCATION("warmelt-base.melt:3224:/ cond");
-                /*cond*/
-                if (/*ifvariadic nomore*/ variad_MELT_MAKE_SEXPR_ix == variad_MELT_MAKE_SEXPR_len) /*then*/
+                MELT_LOCATION("warmelt-base.melt:3271:/ cond");
+                /*cond*/ if (/*ifvariadic nomore*/ variad_MELT_MAKE_SEXPR_ix == variad_MELT_MAKE_SEXPR_len) /*then*/
                     {
                         /*^cond.then*/
                         /*^block*/
@@ -2120,12 +1965,11 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
                             /*^compute*/
 
                             /*consume variadic  !*/ variad_MELT_MAKE_SEXPR_ix += 0;;
-                            MELT_LOCATION("warmelt-base.melt:3226:/ quasiblock");
+                            MELT_LOCATION("warmelt-base.melt:3273:/ quasiblock");
 
 
                             /*^compute*/
-                            /*_.ARGLOOP__V13*/
-                            meltfptr[12] =  /*reallynil*/ NULL ;;
+                            /*_.ARGLOOP__V13*/ meltfptr[12] =  /*reallynil*/ NULL ;;
 
                             /*^exit*/
                             /*exit*/
@@ -2139,7 +1983,7 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
                     }
                 else
                     {
-                        MELT_LOCATION("warmelt-base.melt:3224:/ cond.else");
+                        MELT_LOCATION("warmelt-base.melt:3271:/ cond.else");
 
                         /*^block*/
                         /*anyblock*/
@@ -2158,29 +2002,25 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
                                             /*variadic argument stuff*/ meltxargtab_[variad_MELT_MAKE_SEXPR_ix + 0].meltbp_cstring;;
                                         /*^compute*/
 
-                                        /*consume variadic CSTRING !*/
-                                        variad_MELT_MAKE_SEXPR_ix += 1;;
-                                        MELT_LOCATION("warmelt-base.melt:3228:/ quasiblock");
+                                        /*consume variadic CSTRING !*/ variad_MELT_MAKE_SEXPR_ix += 1;;
+                                        MELT_LOCATION("warmelt-base.melt:3275:/ quasiblock");
 
 
-                                        /*_.BS__V14*/
-                                        meltfptr[13] =
+                                        /*_.BS__V14*/ meltfptr[13] =
                                             /*full constboxing*/ /*ctype_cstring boxing*/ meltgc_new_stringdup((meltobject_ptr_t) (((melt_ptr_t)(MELT_PREDEF(DISCR_STRING)))), (/*_?*/ meltfram__.loc_CSTRING__o0));;
 
                                         {
-                                            MELT_LOCATION("warmelt-base.melt:3230:/ locexp");
+                                            MELT_LOCATION("warmelt-base.melt:3277:/ locexp");
                                             meltgc_append_list((melt_ptr_t)(/*_.CONT__V4*/ meltfptr[3]), (melt_ptr_t)(/*_.BS__V14*/ meltfptr[13]));
                                         }
                                         ;
 
-                                        MELT_LOCATION("warmelt-base.melt:3228:/ clear");
-                                        /*clear*/ /*_.BS__V14*/
-                                        meltfptr[13] = 0 ;
+                                        MELT_LOCATION("warmelt-base.melt:3275:/ clear");
+                                        /*clear*/ /*_.BS__V14*/ meltfptr[13] = 0 ;
                                         /*epilog*/
 
-                                        MELT_LOCATION("warmelt-base.melt:3224:/ clear");
-                                        /*clear*/ /*_?*/
-                                        meltfram__.loc_CSTRING__o0 = 0 ;
+                                        MELT_LOCATION("warmelt-base.melt:3271:/ clear");
+                                        /*clear*/ /*_?*/ meltfram__.loc_CSTRING__o0 = 0 ;
                                     }
                                     ;
                                 }
@@ -2204,29 +2044,25 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
                                                         /*variadic argument stuff*/ meltxargtab_[variad_MELT_MAKE_SEXPR_ix + 0].meltbp_long;;
                                                     /*^compute*/
 
-                                                    /*consume variadic LONG !*/
-                                                    variad_MELT_MAKE_SEXPR_ix += 1;;
-                                                    MELT_LOCATION("warmelt-base.melt:3232:/ quasiblock");
+                                                    /*consume variadic LONG !*/ variad_MELT_MAKE_SEXPR_ix += 1;;
+                                                    MELT_LOCATION("warmelt-base.melt:3279:/ quasiblock");
 
 
-                                                    /*_.BS__V15*/
-                                                    meltfptr[13] =
+                                                    /*_.BS__V15*/ meltfptr[13] =
                                                         /*full constboxing*/ /*boxing ctype_long*/ meltgc_new_int((meltobject_ptr_t) (((melt_ptr_t)(MELT_PREDEF(DISCR_CONSTANT_INTEGER)))), (/*_#NUM__L4*/ meltfnum[2]));;
 
                                                     {
-                                                        MELT_LOCATION("warmelt-base.melt:3234:/ locexp");
+                                                        MELT_LOCATION("warmelt-base.melt:3281:/ locexp");
                                                         meltgc_append_list((melt_ptr_t)(/*_.CONT__V4*/ meltfptr[3]), (melt_ptr_t)(/*_.BS__V15*/ meltfptr[13]));
                                                     }
                                                     ;
 
-                                                    MELT_LOCATION("warmelt-base.melt:3232:/ clear");
-                                                    /*clear*/ /*_.BS__V15*/
-                                                    meltfptr[13] = 0 ;
+                                                    MELT_LOCATION("warmelt-base.melt:3279:/ clear");
+                                                    /*clear*/ /*_.BS__V15*/ meltfptr[13] = 0 ;
                                                     /*epilog*/
 
-                                                    MELT_LOCATION("warmelt-base.melt:3224:/ clear");
-                                                    /*clear*/ /*_#NUM__L4*/
-                                                    meltfnum[2] = 0 ;
+                                                    MELT_LOCATION("warmelt-base.melt:3271:/ clear");
+                                                    /*clear*/ /*_#NUM__L4*/ meltfnum[2] = 0 ;
                                                 }
                                                 ;
                                             }
@@ -2250,17 +2086,14 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
                                                                     /*variadic argument value*/ ((meltxargtab_[variad_MELT_MAKE_SEXPR_ix + 0].meltbp_aptr) ? (*(meltxargtab_[variad_MELT_MAKE_SEXPR_ix + 0].meltbp_aptr)) : NULL);;
                                                                 /*^compute*/
 
-                                                                /*consume variadic Value !*/
-                                                                variad_MELT_MAKE_SEXPR_ix += 1;;
+                                                                /*consume variadic Value !*/ variad_MELT_MAKE_SEXPR_ix += 1;;
 
                                                                 MELT_CHECK_SIGNAL();
                                                                 ;
-                                                                /*_#NULL__L5*/
-                                                                meltfnum[1] =
+                                                                /*_#NULL__L5*/ meltfnum[1] =
                                                                     ((/*_.V__V16*/ meltfptr[13]) == NULL);;
-                                                                MELT_LOCATION("warmelt-base.melt:3236:/ cond");
-                                                                /*cond*/
-                                                                if (/*_#NULL__L5*/ meltfnum[1]) /*then*/
+                                                                MELT_LOCATION("warmelt-base.melt:3283:/ cond");
+                                                                /*cond*/ if (/*_#NULL__L5*/ meltfnum[1]) /*then*/
                                                                     {
                                                                         /*^cond.then*/
                                                                         /*^block*/
@@ -2271,19 +2104,18 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
 
 
                                                                             {
-                                                                                MELT_LOCATION("warmelt-base.melt:3237:/ locexp");
+                                                                                MELT_LOCATION("warmelt-base.melt:3284:/ locexp");
                                                                                 meltgc_append_list((melt_ptr_t)(/*_.CONT__V4*/ meltfptr[3]), (melt_ptr_t)(/*_.V__V16*/ meltfptr[13]));
                                                                             }
                                                                             ;
-                                                                            /*clear*/ /*_._IFELSE___V17*/
-                                                                            meltfptr[16] = 0 ;
+                                                                            /*clear*/ /*_._IFELSE___V17*/ meltfptr[16] = 0 ;
                                                                             /*epilog*/
                                                                         }
                                                                         ;
                                                                     }
                                                                 else
                                                                     {
-                                                                        MELT_LOCATION("warmelt-base.melt:3236:/ cond.else");
+                                                                        MELT_LOCATION("warmelt-base.melt:3283:/ cond.else");
 
                                                                         /*^block*/
                                                                         /*anyblock*/
@@ -2292,12 +2124,10 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
 
                                                                             MELT_CHECK_SIGNAL();
                                                                             ;
-                                                                            /*_#IS_OBJECT__L6*/
-                                                                            meltfnum[2] =
+                                                                            /*_#IS_OBJECT__L6*/ meltfnum[2] =
                                                                                 (melt_magic_discr((melt_ptr_t)(/*_.V__V16*/ meltfptr[13])) == MELTOBMAG_OBJECT);;
-                                                                            MELT_LOCATION("warmelt-base.melt:3238:/ cond");
-                                                                            /*cond*/
-                                                                            if (/*_#IS_OBJECT__L6*/ meltfnum[2]) /*then*/
+                                                                            MELT_LOCATION("warmelt-base.melt:3285:/ cond");
+                                                                            /*cond*/ if (/*_#IS_OBJECT__L6*/ meltfnum[2]) /*then*/
                                                                                 {
                                                                                     /*^cond.then*/
                                                                                     /*^block*/
@@ -2308,19 +2138,18 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
 
 
                                                                                         {
-                                                                                            MELT_LOCATION("warmelt-base.melt:3239:/ locexp");
+                                                                                            MELT_LOCATION("warmelt-base.melt:3286:/ locexp");
                                                                                             meltgc_append_list((melt_ptr_t)(/*_.CONT__V4*/ meltfptr[3]), (melt_ptr_t)(/*_.V__V16*/ meltfptr[13]));
                                                                                         }
                                                                                         ;
-                                                                                        /*clear*/ /*_._IFELSE___V18*/
-                                                                                        meltfptr[17] = 0 ;
+                                                                                        /*clear*/ /*_._IFELSE___V18*/ meltfptr[17] = 0 ;
                                                                                         /*epilog*/
                                                                                     }
                                                                                     ;
                                                                                 }
                                                                             else
                                                                                 {
-                                                                                    MELT_LOCATION("warmelt-base.melt:3238:/ cond.else");
+                                                                                    MELT_LOCATION("warmelt-base.melt:3285:/ cond.else");
 
                                                                                     /*^block*/
                                                                                     /*anyblock*/
@@ -2329,12 +2158,10 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
 
                                                                                         MELT_CHECK_SIGNAL();
                                                                                         ;
-                                                                                        /*_#IS_INTEGERBOX__L7*/
-                                                                                        meltfnum[6] =
+                                                                                        /*_#IS_INTEGERBOX__L7*/ meltfnum[6] =
                                                                                             (melt_magic_discr((melt_ptr_t)(/*_.V__V16*/ meltfptr[13])) == MELTOBMAG_INT);;
-                                                                                        MELT_LOCATION("warmelt-base.melt:3240:/ cond");
-                                                                                        /*cond*/
-                                                                                        if (/*_#IS_INTEGERBOX__L7*/ meltfnum[6]) /*then*/
+                                                                                        MELT_LOCATION("warmelt-base.melt:3287:/ cond");
+                                                                                        /*cond*/ if (/*_#IS_INTEGERBOX__L7*/ meltfnum[6]) /*then*/
                                                                                             {
                                                                                                 /*^cond.then*/
                                                                                                 /*^block*/
@@ -2345,19 +2172,18 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
 
 
                                                                                                     {
-                                                                                                        MELT_LOCATION("warmelt-base.melt:3241:/ locexp");
+                                                                                                        MELT_LOCATION("warmelt-base.melt:3288:/ locexp");
                                                                                                         meltgc_append_list((melt_ptr_t)(/*_.CONT__V4*/ meltfptr[3]), (melt_ptr_t)(/*_.V__V16*/ meltfptr[13]));
                                                                                                     }
                                                                                                     ;
-                                                                                                    /*clear*/ /*_._IFELSE___V19*/
-                                                                                                    meltfptr[18] = 0 ;
+                                                                                                    /*clear*/ /*_._IFELSE___V19*/ meltfptr[18] = 0 ;
                                                                                                     /*epilog*/
                                                                                                 }
                                                                                                 ;
                                                                                             }
                                                                                         else
                                                                                             {
-                                                                                                MELT_LOCATION("warmelt-base.melt:3240:/ cond.else");
+                                                                                                MELT_LOCATION("warmelt-base.melt:3287:/ cond.else");
 
                                                                                                 /*^block*/
                                                                                                 /*anyblock*/
@@ -2366,12 +2192,10 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
 
                                                                                                     MELT_CHECK_SIGNAL();
                                                                                                     ;
-                                                                                                    /*_#IS_STRING__L8*/
-                                                                                                    meltfnum[7] =
+                                                                                                    /*_#IS_STRING__L8*/ meltfnum[7] =
                                                                                                         (melt_magic_discr((melt_ptr_t)(/*_.V__V16*/ meltfptr[13])) == MELTOBMAG_STRING);;
-                                                                                                    MELT_LOCATION("warmelt-base.melt:3242:/ cond");
-                                                                                                    /*cond*/
-                                                                                                    if (/*_#IS_STRING__L8*/ meltfnum[7]) /*then*/
+                                                                                                    MELT_LOCATION("warmelt-base.melt:3289:/ cond");
+                                                                                                    /*cond*/ if (/*_#IS_STRING__L8*/ meltfnum[7]) /*then*/
                                                                                                         {
                                                                                                             /*^cond.then*/
                                                                                                             /*^block*/
@@ -2382,19 +2206,18 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
 
 
                                                                                                                 {
-                                                                                                                    MELT_LOCATION("warmelt-base.melt:3243:/ locexp");
+                                                                                                                    MELT_LOCATION("warmelt-base.melt:3290:/ locexp");
                                                                                                                     meltgc_append_list((melt_ptr_t)(/*_.CONT__V4*/ meltfptr[3]), (melt_ptr_t)(/*_.V__V16*/ meltfptr[13]));
                                                                                                                 }
                                                                                                                 ;
-                                                                                                                /*clear*/ /*_._IFELSE___V20*/
-                                                                                                                meltfptr[19] = 0 ;
+                                                                                                                /*clear*/ /*_._IFELSE___V20*/ meltfptr[19] = 0 ;
                                                                                                                 /*epilog*/
                                                                                                             }
                                                                                                             ;
                                                                                                         }
                                                                                                     else
                                                                                                         {
-                                                                                                            MELT_LOCATION("warmelt-base.melt:3242:/ cond.else");
+                                                                                                            MELT_LOCATION("warmelt-base.melt:3289:/ cond.else");
 
                                                                                                             /*^block*/
                                                                                                             /*anyblock*/
@@ -2403,12 +2226,10 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
 
                                                                                                                 MELT_CHECK_SIGNAL();
                                                                                                                 ;
-                                                                                                                /*_#IS_MULTIPLE__L9*/
-                                                                                                                meltfnum[8] =
+                                                                                                                /*_#IS_MULTIPLE__L9*/ meltfnum[8] =
                                                                                                                     (melt_magic_discr((melt_ptr_t)(/*_.V__V16*/ meltfptr[13])) == MELTOBMAG_MULTIPLE);;
-                                                                                                                MELT_LOCATION("warmelt-base.melt:3244:/ cond");
-                                                                                                                /*cond*/
-                                                                                                                if (/*_#IS_MULTIPLE__L9*/ meltfnum[8]) /*then*/
+                                                                                                                MELT_LOCATION("warmelt-base.melt:3291:/ cond");
+                                                                                                                /*cond*/ if (/*_#IS_MULTIPLE__L9*/ meltfnum[8]) /*then*/
                                                                                                                     {
                                                                                                                         /*^cond.then*/
                                                                                                                         /*^block*/
@@ -2429,7 +2250,7 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
 
 
                                                                                                                                         {
-                                                                                                                                            MELT_LOCATION("warmelt-base.melt:3248:/ locexp");
+                                                                                                                                            MELT_LOCATION("warmelt-base.melt:3295:/ locexp");
                                                                                                                                             meltgc_append_list((melt_ptr_t)(/*_.CONT__V4*/ meltfptr[3]), (melt_ptr_t)(/*_.COMP__V22*/ meltfptr[21]));
                                                                                                                                         }
                                                                                                                                         ;
@@ -2438,12 +2259,10 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
 
                                                                                                                                 /*citerepilog*/
 
-                                                                                                                                MELT_LOCATION("warmelt-base.melt:3245:/ clear");
-                                                                                                                                /*clear*/ /*_.COMP__V22*/
-                                                                                                                                meltfptr[21] = 0 ;
+                                                                                                                                MELT_LOCATION("warmelt-base.melt:3292:/ clear");
+                                                                                                                                /*clear*/ /*_.COMP__V22*/ meltfptr[21] = 0 ;
                                                                                                                                 /*^clear*/
-                                                                                                                                /*clear*/ /*_#IX__L10*/
-                                                                                                                                meltfnum[9] = 0 ;
+                                                                                                                                /*clear*/ /*_#IX__L10*/ meltfnum[9] = 0 ;
                                                                                                                             } /*endciterblock FOREACH_IN_MULTIPLE*/
                                                                                                                             ;
                                                                                                                             /*epilog*/
@@ -2452,7 +2271,7 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
                                                                                                                     }
                                                                                                                 else
                                                                                                                     {
-                                                                                                                        MELT_LOCATION("warmelt-base.melt:3244:/ cond.else");
+                                                                                                                        MELT_LOCATION("warmelt-base.melt:3291:/ cond.else");
 
                                                                                                                         /*^block*/
                                                                                                                         /*anyblock*/
@@ -2461,12 +2280,10 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
 
                                                                                                                             MELT_CHECK_SIGNAL();
                                                                                                                             ;
-                                                                                                                            /*_#IS_LIST__L11*/
-                                                                                                                            meltfnum[10] =
+                                                                                                                            /*_#IS_LIST__L11*/ meltfnum[10] =
                                                                                                                                 (melt_magic_discr((melt_ptr_t)(/*_.V__V16*/ meltfptr[13])) == MELTOBMAG_LIST);;
-                                                                                                                            MELT_LOCATION("warmelt-base.melt:3249:/ cond");
-                                                                                                                            /*cond*/
-                                                                                                                            if (/*_#IS_LIST__L11*/ meltfnum[10]) /*then*/
+                                                                                                                            MELT_LOCATION("warmelt-base.melt:3296:/ cond");
+                                                                                                                            /*cond*/ if (/*_#IS_LIST__L11*/ meltfnum[10]) /*then*/
                                                                                                                                 {
                                                                                                                                     /*^cond.then*/
                                                                                                                                     /*^block*/
@@ -2485,24 +2302,21 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
 
 
                                                                                                                                                     {
-                                                                                                                                                        MELT_LOCATION("warmelt-base.melt:3253:/ locexp");
+                                                                                                                                                        MELT_LOCATION("warmelt-base.melt:3300:/ locexp");
                                                                                                                                                         meltgc_append_list((melt_ptr_t)(/*_.CONT__V4*/ meltfptr[3]), (melt_ptr_t)(/*_.CURCOMP__V25*/ meltfptr[24]));
                                                                                                                                                     }
                                                                                                                                                     ;
                                                                                                                                                 } /* end foreach_pair_component_in_list meltcit2__EACHLIST */
                                                                                                                                             /*_.CURPAIR__V24*/ meltfptr[23] = NULL;
-                                                                                                                                            /*_.CURCOMP__V25*/
-                                                                                                                                            meltfptr[24] = NULL;
+                                                                                                                                            /*_.CURCOMP__V25*/ meltfptr[24] = NULL;
 
 
                                                                                                                                             /*citerepilog*/
 
-                                                                                                                                            MELT_LOCATION("warmelt-base.melt:3250:/ clear");
-                                                                                                                                            /*clear*/ /*_.CURPAIR__V24*/
-                                                                                                                                            meltfptr[23] = 0 ;
+                                                                                                                                            MELT_LOCATION("warmelt-base.melt:3297:/ clear");
+                                                                                                                                            /*clear*/ /*_.CURPAIR__V24*/ meltfptr[23] = 0 ;
                                                                                                                                             /*^clear*/
-                                                                                                                                            /*clear*/ /*_.CURCOMP__V25*/
-                                                                                                                                            meltfptr[24] = 0 ;
+                                                                                                                                            /*clear*/ /*_.CURCOMP__V25*/ meltfptr[24] = 0 ;
                                                                                                                                         } /*endciterblock FOREACH_PAIR_COMPONENT_IN_LIST*/
                                                                                                                                         ;
                                                                                                                                         /*epilog*/
@@ -2511,7 +2325,7 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
                                                                                                                                 }
                                                                                                                             else
                                                                                                                                 {
-                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3249:/ cond.else");
+                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3296:/ cond.else");
 
                                                                                                                                     /*^block*/
                                                                                                                                     /*anyblock*/
@@ -2520,27 +2334,23 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
 
                                                                                                                                         MELT_CHECK_SIGNAL();
                                                                                                                                         ;
-                                                                                                                                        /*_#IS_MIXLOC__L12*/
-                                                                                                                                        meltfnum[11] =
+                                                                                                                                        /*_#IS_MIXLOC__L12*/ meltfnum[11] =
                                                                                                                                             (melt_magic_discr((melt_ptr_t)(/*_.V__V16*/ meltfptr[13])) == MELTOBMAG_MIXLOC);;
-                                                                                                                                        MELT_LOCATION("warmelt-base.melt:3255:/ cond");
-                                                                                                                                        /*cond*/
-                                                                                                                                        if (/*_#IS_MIXLOC__L12*/ meltfnum[11]) /*then*/
+                                                                                                                                        MELT_LOCATION("warmelt-base.melt:3302:/ cond");
+                                                                                                                                        /*cond*/ if (/*_#IS_MIXLOC__L12*/ meltfnum[11]) /*then*/
                                                                                                                                             {
                                                                                                                                                 /*^cond.then*/
                                                                                                                                                 /*^block*/
                                                                                                                                                 /*anyblock*/
                                                                                                                                                 {
 
-                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3256:/ quasiblock");
+                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3303:/ quasiblock");
 
 
-                                                                                                                                                    /*_#LOCLINE__L13*/
-                                                                                                                                                    meltfnum[12] =
+                                                                                                                                                    /*_#LOCLINE__L13*/ meltfnum[12] =
                                                                                                                                                         (LOCATION_LINE(melt_location_mixloc((melt_ptr_t)/*_.V__V16*/ meltfptr[13])));;
                                                                                                                                                     /*^compute*/
-                                                                                                                                                    /*_?*/
-                                                                                                                                                    meltfram__.loc_CSTRING__o1 =
+                                                                                                                                                    /*_?*/ meltfram__.loc_CSTRING__o1 =
                                                                                                                                                         (LOCATION_FILE(melt_location_mixloc((melt_ptr_t)/*_.V__V16*/ meltfptr[13])));;
 
                                                                                                                                                     MELT_CHECK_SIGNAL();
@@ -2549,12 +2359,10 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
                                                                                                                                                     MELT_CHECK_SIGNAL();
                                                                                                                                                     ;
                                                                                                                                                     /*^compute*/
-                                                                                                                                                    /*_#gtI__L14*/
-                                                                                                                                                    meltfnum[13] =
+                                                                                                                                                    /*_#gtI__L14*/ meltfnum[13] =
                                                                                                                                                         ((/*_#LOCLINE__L13*/ meltfnum[12]) > (0));;
-                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3259:/ cond");
-                                                                                                                                                    /*cond*/
-                                                                                                                                                    if (/*_#gtI__L14*/ meltfnum[13]) /*then*/
+                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3306:/ cond");
+                                                                                                                                                    /*cond*/ if (/*_#gtI__L14*/ meltfnum[13]) /*then*/
                                                                                                                                                         {
                                                                                                                                                             /*^cond.then*/
                                                                                                                                                             /*^block*/
@@ -2564,13 +2372,11 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
                                                                                                                                                                 /*_#CSTRING_NON_EMPTY__L16*/ meltfnum[15] =
                                                                                                                                                                     (((/*_?*/ meltfram__.loc_CSTRING__o1) != NULL) && ((const char*)(/*_?*/ meltfram__.loc_CSTRING__o1))[0] != (char)0);;
                                                                                                                                                                 /*^compute*/
-                                                                                                                                                                /*_#_IF___L15*/
-                                                                                                                                                                meltfnum[14] = /*_#CSTRING_NON_EMPTY__L16*/ meltfnum[15];;
+                                                                                                                                                                /*_#_IF___L15*/ meltfnum[14] = /*_#CSTRING_NON_EMPTY__L16*/ meltfnum[15];;
                                                                                                                                                                 /*epilog*/
 
-                                                                                                                                                                MELT_LOCATION("warmelt-base.melt:3259:/ clear");
-                                                                                                                                                                /*clear*/ /*_#CSTRING_NON_EMPTY__L16*/
-                                                                                                                                                                meltfnum[15] = 0 ;
+                                                                                                                                                                MELT_LOCATION("warmelt-base.melt:3306:/ clear");
+                                                                                                                                                                /*clear*/ /*_#CSTRING_NON_EMPTY__L16*/ meltfnum[15] = 0 ;
                                                                                                                                                             }
                                                                                                                                                             ;
                                                                                                                                                         }
@@ -2580,9 +2386,8 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
                                                                                                                                                             /*_#_IF___L15*/ meltfnum[14] = 0;;
                                                                                                                                                         }
                                                                                                                                                     ;
-                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3259:/ cond");
-                                                                                                                                                    /*cond*/
-                                                                                                                                                    if (/*_#_IF___L15*/ meltfnum[14]) /*then*/
+                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3306:/ cond");
+                                                                                                                                                    /*cond*/ if (/*_#_IF___L15*/ meltfnum[14]) /*then*/
                                                                                                                                                         {
                                                                                                                                                             /*^cond.then*/
                                                                                                                                                             /*^block*/
@@ -2592,14 +2397,12 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
 
                                                                                                                                                                 MELT_CHECK_SIGNAL();
                                                                                                                                                                 ;
-                                                                                                                                                                /*_.BOX__V27*/
-                                                                                                                                                                meltfptr[26] =
+                                                                                                                                                                /*_.BOX__V27*/ meltfptr[26] =
                                                                                                                                                                     /*full constboxing*/ /*ctype_cstring boxing*/ meltgc_new_stringdup((meltobject_ptr_t) (((melt_ptr_t)(MELT_PREDEF(DISCR_STRING)))), (/*_?*/ meltfram__.loc_CSTRING__o1));;
                                                                                                                                                                 /*^compute*/
-                                                                                                                                                                /*_.BOX__V28*/
-                                                                                                                                                                meltfptr[27] =
+                                                                                                                                                                /*_.BOX__V28*/ meltfptr[27] =
                                                                                                                                                                     /*full constboxing*/ /*boxing ctype_long*/ meltgc_new_int((meltobject_ptr_t) (((melt_ptr_t)(MELT_PREDEF(DISCR_CONSTANT_INTEGER)))), (/*_#LOCLINE__L13*/ meltfnum[12]));;
-                                                                                                                                                                MELT_LOCATION("warmelt-base.melt:3263:/ blockmultialloc");
+                                                                                                                                                                MELT_LOCATION("warmelt-base.melt:3310:/ blockmultialloc");
                                                                                                                                                                 /*multiallocblock*/
                                                                                                                                                                 {
                                                                                                                                                                     struct meltletrec_1_st
@@ -2613,23 +2416,19 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
                                                                                                                                                                     meltletrec_1_ptr = (struct meltletrec_1_st *) meltgc_allocate (sizeof (struct meltletrec_1_st), 0);
                                                                                                                                                                     /*^blockmultialloc.initfill*/
                                                                                                                                                                     /*inipair rpair_0___PAIROFLIST_x1*/
-                                                                                                                                                                    /*_._PAIROFLIST__V30*/
-                                                                                                                                                                    meltfptr[29] = (melt_ptr_t) &meltletrec_1_ptr->rpair_0___PAIROFLIST_x1;
+                                                                                                                                                                    /*_._PAIROFLIST__V30*/ meltfptr[29] = (melt_ptr_t) &meltletrec_1_ptr->rpair_0___PAIROFLIST_x1;
                                                                                                                                                                     meltletrec_1_ptr->rpair_0___PAIROFLIST_x1.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_PAIR))));
 
                                                                                                                                                                     /*inipair rpair_1___PAIROFLIST_x2*/
-                                                                                                                                                                    /*_._PAIROFLIST__V31*/
-                                                                                                                                                                    meltfptr[30] = (melt_ptr_t) &meltletrec_1_ptr->rpair_1___PAIROFLIST_x2;
+                                                                                                                                                                    /*_._PAIROFLIST__V31*/ meltfptr[30] = (melt_ptr_t) &meltletrec_1_ptr->rpair_1___PAIROFLIST_x2;
                                                                                                                                                                     meltletrec_1_ptr->rpair_1___PAIROFLIST_x2.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_PAIR))));
 
                                                                                                                                                                     /*inipair rpair_2___PAIROFLIST_x3*/
-                                                                                                                                                                    /*_._PAIROFLIST__V32*/
-                                                                                                                                                                    meltfptr[31] = (melt_ptr_t) &meltletrec_1_ptr->rpair_2___PAIROFLIST_x3;
+                                                                                                                                                                    /*_._PAIROFLIST__V32*/ meltfptr[31] = (melt_ptr_t) &meltletrec_1_ptr->rpair_2___PAIROFLIST_x3;
                                                                                                                                                                     meltletrec_1_ptr->rpair_2___PAIROFLIST_x3.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_PAIR))));
 
                                                                                                                                                                     /*inilist rlist_3__LIST_*/
-                                                                                                                                                                    /*_.LIST___V33*/
-                                                                                                                                                                    meltfptr[32] = (melt_ptr_t) &meltletrec_1_ptr->rlist_3__LIST_;
+                                                                                                                                                                    /*_.LIST___V33*/ meltfptr[32] = (melt_ptr_t) &meltletrec_1_ptr->rlist_3__LIST_;
                                                                                                                                                                     meltletrec_1_ptr->rlist_3__LIST_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_LIST))));
 
 
@@ -2641,26 +2440,26 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
                                                                                                                                                                     ;
                                                                                                                                                                     /*^putpairtail*/
                                                                                                                                                                     /*putpairtail*/
-                                                                                                                                                                    melt_assertmsg("putpairtail /2a7b75c8 checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V30*/ meltfptr[29]))== MELTOBMAG_PAIR);
+                                                                                                                                                                    melt_assertmsg("putpairtail /39a75fca checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V30*/ meltfptr[29]))== MELTOBMAG_PAIR);
                                                                                                                                                                     ((meltpair_ptr_t)(/*_._PAIROFLIST__V30*/ meltfptr[29]))->tl = (meltpair_ptr_t) (/*_._PAIROFLIST__V31*/ meltfptr[30]);
                                                                                                                                                                     ;
                                                                                                                                                                     /*^touch*/
                                                                                                                                                                     meltgc_touch(/*_._PAIROFLIST__V30*/ meltfptr[29]);
                                                                                                                                                                     ;
-                                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3264:/ putpairhead");
+                                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3311:/ putpairhead");
                                                                                                                                                                     /*putpairhead*/
                                                                                                                                                                     melt_assertmsg("putpairhead /2 checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V31*/ meltfptr[30]))== MELTOBMAG_PAIR);
                                                                                                                                                                     ((meltpair_ptr_t)(/*_._PAIROFLIST__V31*/ meltfptr[30]))->hd = (melt_ptr_t) (/*_.BOX__V27*/ meltfptr[26]);
                                                                                                                                                                     ;
                                                                                                                                                                     /*^putpairtail*/
                                                                                                                                                                     /*putpairtail*/
-                                                                                                                                                                    melt_assertmsg("putpairtail /9369250 checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V31*/ meltfptr[30]))== MELTOBMAG_PAIR);
+                                                                                                                                                                    melt_assertmsg("putpairtail /16288739 checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V31*/ meltfptr[30]))== MELTOBMAG_PAIR);
                                                                                                                                                                     ((meltpair_ptr_t)(/*_._PAIROFLIST__V31*/ meltfptr[30]))->tl = (meltpair_ptr_t) (/*_._PAIROFLIST__V32*/ meltfptr[31]);
                                                                                                                                                                     ;
                                                                                                                                                                     /*^touch*/
                                                                                                                                                                     meltgc_touch(/*_._PAIROFLIST__V31*/ meltfptr[30]);
                                                                                                                                                                     ;
-                                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3265:/ putpairhead");
+                                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3312:/ putpairhead");
                                                                                                                                                                     /*putpairhead*/
                                                                                                                                                                     melt_assertmsg("putpairhead /3 checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V32*/ meltfptr[31]))== MELTOBMAG_PAIR);
                                                                                                                                                                     ((meltpair_ptr_t)(/*_._PAIROFLIST__V32*/ meltfptr[31]))->hd = (melt_ptr_t) (/*_.BOX__V28*/ meltfptr[27]);
@@ -2668,7 +2467,7 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
                                                                                                                                                                     /*^touch*/
                                                                                                                                                                     meltgc_touch(/*_._PAIROFLIST__V32*/ meltfptr[31]);
                                                                                                                                                                     ;
-                                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3263:/ putlist");
+                                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3310:/ putlist");
                                                                                                                                                                     /*putlist*/
                                                                                                                                                                     melt_assertmsg("putlist checklist", melt_magic_discr((melt_ptr_t)(/*_.LIST___V33*/ meltfptr[32]))== MELTOBMAG_LIST);
                                                                                                                                                                     ((meltlist_ptr_t)(/*_.LIST___V33*/ meltfptr[32]))->first = (meltpair_ptr_t) (/*_._PAIROFLIST__V30*/ meltfptr[29]);
@@ -2677,37 +2476,28 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
                                                                                                                                                                     /*^touch*/
                                                                                                                                                                     meltgc_touch(/*_.LIST___V33*/ meltfptr[32]);
                                                                                                                                                                     ;
-                                                                                                                                                                    /*_.LIST___V29*/
-                                                                                                                                                                    meltfptr[28] = /*_.LIST___V33*/ meltfptr[32];;
+                                                                                                                                                                    /*_.LIST___V29*/ meltfptr[28] = /*_.LIST___V33*/ meltfptr[32];;
                                                                                                                                                                     /*epilog*/
 
-                                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3263:/ clear");
-                                                                                                                                                                    /*clear*/ /*_._PAIROFLIST__V30*/
-                                                                                                                                                                    meltfptr[29] = 0 ;
+                                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3310:/ clear");
+                                                                                                                                                                    /*clear*/ /*_._PAIROFLIST__V30*/ meltfptr[29] = 0 ;
                                                                                                                                                                     /*^clear*/
-                                                                                                                                                                    /*clear*/ /*_._PAIROFLIST__V31*/
-                                                                                                                                                                    meltfptr[30] = 0 ;
+                                                                                                                                                                    /*clear*/ /*_._PAIROFLIST__V31*/ meltfptr[30] = 0 ;
                                                                                                                                                                     /*^clear*/
-                                                                                                                                                                    /*clear*/ /*_._PAIROFLIST__V32*/
-                                                                                                                                                                    meltfptr[31] = 0 ;
+                                                                                                                                                                    /*clear*/ /*_._PAIROFLIST__V32*/ meltfptr[31] = 0 ;
                                                                                                                                                                     /*^clear*/
-                                                                                                                                                                    /*clear*/ /*_.LIST___V33*/
-                                                                                                                                                                    meltfptr[32] = 0 ;
+                                                                                                                                                                    /*clear*/ /*_.LIST___V33*/ meltfptr[32] = 0 ;
                                                                                                                                                                     /*^clear*/
-                                                                                                                                                                    /*clear*/ /*_._PAIROFLIST__V30*/
-                                                                                                                                                                    meltfptr[29] = 0 ;
+                                                                                                                                                                    /*clear*/ /*_._PAIROFLIST__V30*/ meltfptr[29] = 0 ;
                                                                                                                                                                     /*^clear*/
-                                                                                                                                                                    /*clear*/ /*_._PAIROFLIST__V31*/
-                                                                                                                                                                    meltfptr[30] = 0 ;
+                                                                                                                                                                    /*clear*/ /*_._PAIROFLIST__V31*/ meltfptr[30] = 0 ;
                                                                                                                                                                     /*^clear*/
-                                                                                                                                                                    /*clear*/ /*_._PAIROFLIST__V32*/
-                                                                                                                                                                    meltfptr[31] = 0 ;
+                                                                                                                                                                    /*clear*/ /*_._PAIROFLIST__V32*/ meltfptr[31] = 0 ;
                                                                                                                                                                     /*^clear*/
-                                                                                                                                                                    /*clear*/ /*_.LIST___V33*/
-                                                                                                                                                                    meltfptr[32] = 0 ;
+                                                                                                                                                                    /*clear*/ /*_.LIST___V33*/ meltfptr[32] = 0 ;
                                                                                                                                                                 } /*end multiallocblock*/
                                                                                                                                                                 ;
-                                                                                                                                                                MELT_LOCATION("warmelt-base.melt:3261:/ quasiblock");
+                                                                                                                                                                MELT_LOCATION("warmelt-base.melt:3308:/ quasiblock");
 
 
                                                                                                                                                                 /*^rawallocobj*/
@@ -2715,8 +2505,7 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
                                                                                                                                                                 {
                                                                                                                                                                     melt_ptr_t newobj = 0;
                                                                                                                                                                     melt_raw_object_create(newobj,(melt_ptr_t)((/*!CLASS_SEXPR*/ meltfrout->tabval[2])), (3), "CLASS_SEXPR");
-                                                                                                                                                                    /*_.INST__V35*/
-                                                                                                                                                                    meltfptr[30] =
+                                                                                                                                                                    /*_.INST__V35*/ meltfptr[30] =
                                                                                                                                                                         newobj;
                                                                                                                                                                 };
                                                                                                                                                                 ;
@@ -2734,32 +2523,26 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
 
                                                                                                                                                                 melt_dbgtrace_written_object (/*_.INST__V35*/ meltfptr[30], "newly made instance");
                                                                                                                                                                 ;
-                                                                                                                                                                /*_.INST___V34*/
-                                                                                                                                                                meltfptr[29] = /*_.INST__V35*/ meltfptr[30];;
+                                                                                                                                                                /*_.INST___V34*/ meltfptr[29] = /*_.INST__V35*/ meltfptr[30];;
 
 
 
                                                                                                                                                                 {
-                                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3261:/ locexp");
+                                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3308:/ locexp");
                                                                                                                                                                     meltgc_append_list((melt_ptr_t)(/*_.CONT__V4*/ meltfptr[3]), (melt_ptr_t)(/*_.INST___V34*/ meltfptr[29]));
                                                                                                                                                                 }
                                                                                                                                                                 ;
-                                                                                                                                                                /*clear*/ /*_._IFELSE___V26*/
-                                                                                                                                                                meltfptr[25] = 0 ;
+                                                                                                                                                                /*clear*/ /*_._IFELSE___V26*/ meltfptr[25] = 0 ;
                                                                                                                                                                 /*epilog*/
 
-                                                                                                                                                                MELT_LOCATION("warmelt-base.melt:3259:/ clear");
-                                                                                                                                                                /*clear*/ /*_.BOX__V27*/
-                                                                                                                                                                meltfptr[26] = 0 ;
+                                                                                                                                                                MELT_LOCATION("warmelt-base.melt:3306:/ clear");
+                                                                                                                                                                /*clear*/ /*_.BOX__V27*/ meltfptr[26] = 0 ;
                                                                                                                                                                 /*^clear*/
-                                                                                                                                                                /*clear*/ /*_.BOX__V28*/
-                                                                                                                                                                meltfptr[27] = 0 ;
+                                                                                                                                                                /*clear*/ /*_.BOX__V28*/ meltfptr[27] = 0 ;
                                                                                                                                                                 /*^clear*/
-                                                                                                                                                                /*clear*/ /*_.LIST___V29*/
-                                                                                                                                                                meltfptr[28] = 0 ;
+                                                                                                                                                                /*clear*/ /*_.LIST___V29*/ meltfptr[28] = 0 ;
                                                                                                                                                                 /*^clear*/
-                                                                                                                                                                /*clear*/ /*_.INST___V34*/
-                                                                                                                                                                meltfptr[29] = 0 ;
+                                                                                                                                                                /*clear*/ /*_.INST___V34*/ meltfptr[29] = 0 ;
                                                                                                                                                             }
                                                                                                                                                             ;
                                                                                                                                                         }
@@ -2774,37 +2557,32 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
 
 
                                                                                                                                                                 {
-                                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3266:/ locexp");
+                                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3313:/ locexp");
                                                                                                                                                                     meltgc_append_list((melt_ptr_t)(/*_.CONT__V4*/ meltfptr[3]), (melt_ptr_t)((/*nil*/NULL)));
                                                                                                                                                                 }
                                                                                                                                                                 ;
-                                                                                                                                                                /*clear*/ /*_._IFELSE___V26*/
-                                                                                                                                                                meltfptr[25] = 0 ;
+                                                                                                                                                                /*clear*/ /*_._IFELSE___V26*/ meltfptr[25] = 0 ;
                                                                                                                                                                 /*epilog*/
                                                                                                                                                             }
                                                                                                                                                             ;
                                                                                                                                                         }
                                                                                                                                                     ;
 
-                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3256:/ clear");
-                                                                                                                                                    /*clear*/ /*_#LOCLINE__L13*/
-                                                                                                                                                    meltfnum[12] = 0 ;
+                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3303:/ clear");
+                                                                                                                                                    /*clear*/ /*_#LOCLINE__L13*/ meltfnum[12] = 0 ;
                                                                                                                                                     /*^clear*/
-                                                                                                                                                    /*clear*/ /*_?*/
-                                                                                                                                                    meltfram__.loc_CSTRING__o1 = 0 ;
+                                                                                                                                                    /*clear*/ /*_?*/ meltfram__.loc_CSTRING__o1 = 0 ;
                                                                                                                                                     /*^clear*/
-                                                                                                                                                    /*clear*/ /*_#gtI__L14*/
-                                                                                                                                                    meltfnum[13] = 0 ;
+                                                                                                                                                    /*clear*/ /*_#gtI__L14*/ meltfnum[13] = 0 ;
                                                                                                                                                     /*^clear*/
-                                                                                                                                                    /*clear*/ /*_#_IF___L15*/
-                                                                                                                                                    meltfnum[14] = 0 ;
+                                                                                                                                                    /*clear*/ /*_#_IF___L15*/ meltfnum[14] = 0 ;
                                                                                                                                                     /*epilog*/
                                                                                                                                                 }
                                                                                                                                                 ;
                                                                                                                                             }
                                                                                                                                         else
                                                                                                                                             {
-                                                                                                                                                MELT_LOCATION("warmelt-base.melt:3255:/ cond.else");
+                                                                                                                                                MELT_LOCATION("warmelt-base.melt:3302:/ cond.else");
 
                                                                                                                                                 /*^block*/
                                                                                                                                                 /*anyblock*/
@@ -2816,12 +2594,10 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
 
                                                                                                                                                     MELT_CHECK_SIGNAL();
                                                                                                                                                     ;
-                                                                                                                                                    /*_#IS_MIXINT__L17*/
-                                                                                                                                                    meltfnum[15] =
+                                                                                                                                                    /*_#IS_MIXINT__L17*/ meltfnum[15] =
                                                                                                                                                         (melt_magic_discr((melt_ptr_t)(/*_.V__V16*/ meltfptr[13])) == MELTOBMAG_MIXINT);;
-                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3268:/ cond");
-                                                                                                                                                    /*cond*/
-                                                                                                                                                    if (/*_#IS_MIXINT__L17*/ meltfnum[15]) /*then*/
+                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3315:/ cond");
+                                                                                                                                                    /*cond*/ if (/*_#IS_MIXINT__L17*/ meltfnum[15]) /*then*/
                                                                                                                                                         {
                                                                                                                                                             /*^cond.then*/
                                                                                                                                                             /*^block*/
@@ -2831,20 +2607,16 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
                                                                                                                                                                 /*_.MIXINT_VAL__V36*/ meltfptr[31] =
                                                                                                                                                                     (melt_val_mixint((melt_ptr_t)(/*_.V__V16*/ meltfptr[13])));;
                                                                                                                                                                 /*^compute*/
-                                                                                                                                                                /*_#IS_STRING__L19*/
-                                                                                                                                                                meltfnum[13] =
+                                                                                                                                                                /*_#IS_STRING__L19*/ meltfnum[13] =
                                                                                                                                                                     (melt_magic_discr((melt_ptr_t)(/*_.MIXINT_VAL__V36*/ meltfptr[31])) == MELTOBMAG_STRING);;
                                                                                                                                                                 /*^compute*/
-                                                                                                                                                                /*_#_IF___L18*/
-                                                                                                                                                                meltfnum[12] = /*_#IS_STRING__L19*/ meltfnum[13];;
+                                                                                                                                                                /*_#_IF___L18*/ meltfnum[12] = /*_#IS_STRING__L19*/ meltfnum[13];;
                                                                                                                                                                 /*epilog*/
 
-                                                                                                                                                                MELT_LOCATION("warmelt-base.melt:3268:/ clear");
-                                                                                                                                                                /*clear*/ /*_.MIXINT_VAL__V36*/
-                                                                                                                                                                meltfptr[31] = 0 ;
+                                                                                                                                                                MELT_LOCATION("warmelt-base.melt:3315:/ clear");
+                                                                                                                                                                /*clear*/ /*_.MIXINT_VAL__V36*/ meltfptr[31] = 0 ;
                                                                                                                                                                 /*^clear*/
-                                                                                                                                                                /*clear*/ /*_#IS_STRING__L19*/
-                                                                                                                                                                meltfnum[13] = 0 ;
+                                                                                                                                                                /*clear*/ /*_#IS_STRING__L19*/ meltfnum[13] = 0 ;
                                                                                                                                                             }
                                                                                                                                                             ;
                                                                                                                                                         }
@@ -2854,33 +2626,29 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
                                                                                                                                                             /*_#_IF___L18*/ meltfnum[12] = 0;;
                                                                                                                                                         }
                                                                                                                                                     ;
-                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3268:/ cond");
-                                                                                                                                                    /*cond*/
-                                                                                                                                                    if (/*_#_IF___L18*/ meltfnum[12]) /*then*/
+                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3315:/ cond");
+                                                                                                                                                    /*cond*/ if (/*_#_IF___L18*/ meltfnum[12]) /*then*/
                                                                                                                                                         {
                                                                                                                                                             /*^cond.then*/
                                                                                                                                                             /*^block*/
                                                                                                                                                             /*anyblock*/
                                                                                                                                                             {
 
-                                                                                                                                                                MELT_LOCATION("warmelt-base.melt:3271:/ quasiblock");
+                                                                                                                                                                MELT_LOCATION("warmelt-base.melt:3318:/ quasiblock");
 
 
-                                                                                                                                                                /*_#LOCLINE__L20*/
-                                                                                                                                                                meltfnum[14] =
+                                                                                                                                                                /*_#LOCLINE__L20*/ meltfnum[14] =
                                                                                                                                                                     (melt_get_int((melt_ptr_t)(/*_.V__V16*/ meltfptr[13])));;
 
                                                                                                                                                                 MELT_CHECK_SIGNAL();
                                                                                                                                                                 ;
                                                                                                                                                                 /*^compute*/
-                                                                                                                                                                /*_.MIXINT_VAL__V38*/
-                                                                                                                                                                meltfptr[26] =
+                                                                                                                                                                /*_.MIXINT_VAL__V38*/ meltfptr[26] =
                                                                                                                                                                     (melt_val_mixint((melt_ptr_t)(/*_.V__V16*/ meltfptr[13])));;
                                                                                                                                                                 /*^compute*/
-                                                                                                                                                                /*_.BOX__V39*/
-                                                                                                                                                                meltfptr[27] =
+                                                                                                                                                                /*_.BOX__V39*/ meltfptr[27] =
                                                                                                                                                                     /*full constboxing*/ /*boxing ctype_long*/ meltgc_new_int((meltobject_ptr_t) (((melt_ptr_t)(MELT_PREDEF(DISCR_CONSTANT_INTEGER)))), (/*_#LOCLINE__L20*/ meltfnum[14]));;
-                                                                                                                                                                MELT_LOCATION("warmelt-base.melt:3275:/ blockmultialloc");
+                                                                                                                                                                MELT_LOCATION("warmelt-base.melt:3322:/ blockmultialloc");
                                                                                                                                                                 /*multiallocblock*/
                                                                                                                                                                 {
                                                                                                                                                                     struct meltletrec_2_st
@@ -2894,23 +2662,19 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
                                                                                                                                                                     meltletrec_2_ptr = (struct meltletrec_2_st *) meltgc_allocate (sizeof (struct meltletrec_2_st), 0);
                                                                                                                                                                     /*^blockmultialloc.initfill*/
                                                                                                                                                                     /*inipair rpair_0___PAIROFLIST_x4*/
-                                                                                                                                                                    /*_._PAIROFLIST__V41*/
-                                                                                                                                                                    meltfptr[29] = (melt_ptr_t) &meltletrec_2_ptr->rpair_0___PAIROFLIST_x4;
+                                                                                                                                                                    /*_._PAIROFLIST__V41*/ meltfptr[29] = (melt_ptr_t) &meltletrec_2_ptr->rpair_0___PAIROFLIST_x4;
                                                                                                                                                                     meltletrec_2_ptr->rpair_0___PAIROFLIST_x4.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_PAIR))));
 
                                                                                                                                                                     /*inipair rpair_1___PAIROFLIST_x5*/
-                                                                                                                                                                    /*_._PAIROFLIST__V42*/
-                                                                                                                                                                    meltfptr[31] = (melt_ptr_t) &meltletrec_2_ptr->rpair_1___PAIROFLIST_x5;
+                                                                                                                                                                    /*_._PAIROFLIST__V42*/ meltfptr[31] = (melt_ptr_t) &meltletrec_2_ptr->rpair_1___PAIROFLIST_x5;
                                                                                                                                                                     meltletrec_2_ptr->rpair_1___PAIROFLIST_x5.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_PAIR))));
 
                                                                                                                                                                     /*inipair rpair_2___PAIROFLIST_x6*/
-                                                                                                                                                                    /*_._PAIROFLIST__V43*/
-                                                                                                                                                                    meltfptr[42] = (melt_ptr_t) &meltletrec_2_ptr->rpair_2___PAIROFLIST_x6;
+                                                                                                                                                                    /*_._PAIROFLIST__V43*/ meltfptr[42] = (melt_ptr_t) &meltletrec_2_ptr->rpair_2___PAIROFLIST_x6;
                                                                                                                                                                     meltletrec_2_ptr->rpair_2___PAIROFLIST_x6.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_PAIR))));
 
                                                                                                                                                                     /*inilist rlist_3__LIST_*/
-                                                                                                                                                                    /*_.LIST___V44*/
-                                                                                                                                                                    meltfptr[43] = (melt_ptr_t) &meltletrec_2_ptr->rlist_3__LIST_;
+                                                                                                                                                                    /*_.LIST___V44*/ meltfptr[43] = (melt_ptr_t) &meltletrec_2_ptr->rlist_3__LIST_;
                                                                                                                                                                     meltletrec_2_ptr->rlist_3__LIST_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_LIST))));
 
 
@@ -2922,26 +2686,26 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
                                                                                                                                                                     ;
                                                                                                                                                                     /*^putpairtail*/
                                                                                                                                                                     /*putpairtail*/
-                                                                                                                                                                    melt_assertmsg("putpairtail /b5e1953 checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V41*/ meltfptr[29]))== MELTOBMAG_PAIR);
+                                                                                                                                                                    melt_assertmsg("putpairtail /301779fe checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V41*/ meltfptr[29]))== MELTOBMAG_PAIR);
                                                                                                                                                                     ((meltpair_ptr_t)(/*_._PAIROFLIST__V41*/ meltfptr[29]))->tl = (meltpair_ptr_t) (/*_._PAIROFLIST__V42*/ meltfptr[31]);
                                                                                                                                                                     ;
                                                                                                                                                                     /*^touch*/
                                                                                                                                                                     meltgc_touch(/*_._PAIROFLIST__V41*/ meltfptr[29]);
                                                                                                                                                                     ;
-                                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3276:/ putpairhead");
+                                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3323:/ putpairhead");
                                                                                                                                                                     /*putpairhead*/
                                                                                                                                                                     melt_assertmsg("putpairhead /5 checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V42*/ meltfptr[31]))== MELTOBMAG_PAIR);
                                                                                                                                                                     ((meltpair_ptr_t)(/*_._PAIROFLIST__V42*/ meltfptr[31]))->hd = (melt_ptr_t) (/*_.MIXINT_VAL__V38*/ meltfptr[26]);
                                                                                                                                                                     ;
                                                                                                                                                                     /*^putpairtail*/
                                                                                                                                                                     /*putpairtail*/
-                                                                                                                                                                    melt_assertmsg("putpairtail /2bfe6d58 checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V42*/ meltfptr[31]))== MELTOBMAG_PAIR);
+                                                                                                                                                                    melt_assertmsg("putpairtail /376b1a3d checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V42*/ meltfptr[31]))== MELTOBMAG_PAIR);
                                                                                                                                                                     ((meltpair_ptr_t)(/*_._PAIROFLIST__V42*/ meltfptr[31]))->tl = (meltpair_ptr_t) (/*_._PAIROFLIST__V43*/ meltfptr[42]);
                                                                                                                                                                     ;
                                                                                                                                                                     /*^touch*/
                                                                                                                                                                     meltgc_touch(/*_._PAIROFLIST__V42*/ meltfptr[31]);
                                                                                                                                                                     ;
-                                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3277:/ putpairhead");
+                                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3324:/ putpairhead");
                                                                                                                                                                     /*putpairhead*/
                                                                                                                                                                     melt_assertmsg("putpairhead /6 checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V43*/ meltfptr[42]))== MELTOBMAG_PAIR);
                                                                                                                                                                     ((meltpair_ptr_t)(/*_._PAIROFLIST__V43*/ meltfptr[42]))->hd = (melt_ptr_t) (/*_.BOX__V39*/ meltfptr[27]);
@@ -2949,7 +2713,7 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
                                                                                                                                                                     /*^touch*/
                                                                                                                                                                     meltgc_touch(/*_._PAIROFLIST__V43*/ meltfptr[42]);
                                                                                                                                                                     ;
-                                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3275:/ putlist");
+                                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3322:/ putlist");
                                                                                                                                                                     /*putlist*/
                                                                                                                                                                     melt_assertmsg("putlist checklist", melt_magic_discr((melt_ptr_t)(/*_.LIST___V44*/ meltfptr[43]))== MELTOBMAG_LIST);
                                                                                                                                                                     ((meltlist_ptr_t)(/*_.LIST___V44*/ meltfptr[43]))->first = (meltpair_ptr_t) (/*_._PAIROFLIST__V41*/ meltfptr[29]);
@@ -2958,37 +2722,28 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
                                                                                                                                                                     /*^touch*/
                                                                                                                                                                     meltgc_touch(/*_.LIST___V44*/ meltfptr[43]);
                                                                                                                                                                     ;
-                                                                                                                                                                    /*_.LIST___V40*/
-                                                                                                                                                                    meltfptr[28] = /*_.LIST___V44*/ meltfptr[43];;
+                                                                                                                                                                    /*_.LIST___V40*/ meltfptr[28] = /*_.LIST___V44*/ meltfptr[43];;
                                                                                                                                                                     /*epilog*/
 
-                                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3275:/ clear");
-                                                                                                                                                                    /*clear*/ /*_._PAIROFLIST__V41*/
-                                                                                                                                                                    meltfptr[29] = 0 ;
+                                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3322:/ clear");
+                                                                                                                                                                    /*clear*/ /*_._PAIROFLIST__V41*/ meltfptr[29] = 0 ;
                                                                                                                                                                     /*^clear*/
-                                                                                                                                                                    /*clear*/ /*_._PAIROFLIST__V42*/
-                                                                                                                                                                    meltfptr[31] = 0 ;
+                                                                                                                                                                    /*clear*/ /*_._PAIROFLIST__V42*/ meltfptr[31] = 0 ;
                                                                                                                                                                     /*^clear*/
-                                                                                                                                                                    /*clear*/ /*_._PAIROFLIST__V43*/
-                                                                                                                                                                    meltfptr[42] = 0 ;
+                                                                                                                                                                    /*clear*/ /*_._PAIROFLIST__V43*/ meltfptr[42] = 0 ;
                                                                                                                                                                     /*^clear*/
-                                                                                                                                                                    /*clear*/ /*_.LIST___V44*/
-                                                                                                                                                                    meltfptr[43] = 0 ;
+                                                                                                                                                                    /*clear*/ /*_.LIST___V44*/ meltfptr[43] = 0 ;
                                                                                                                                                                     /*^clear*/
-                                                                                                                                                                    /*clear*/ /*_._PAIROFLIST__V41*/
-                                                                                                                                                                    meltfptr[29] = 0 ;
+                                                                                                                                                                    /*clear*/ /*_._PAIROFLIST__V41*/ meltfptr[29] = 0 ;
                                                                                                                                                                     /*^clear*/
-                                                                                                                                                                    /*clear*/ /*_._PAIROFLIST__V42*/
-                                                                                                                                                                    meltfptr[31] = 0 ;
+                                                                                                                                                                    /*clear*/ /*_._PAIROFLIST__V42*/ meltfptr[31] = 0 ;
                                                                                                                                                                     /*^clear*/
-                                                                                                                                                                    /*clear*/ /*_._PAIROFLIST__V43*/
-                                                                                                                                                                    meltfptr[42] = 0 ;
+                                                                                                                                                                    /*clear*/ /*_._PAIROFLIST__V43*/ meltfptr[42] = 0 ;
                                                                                                                                                                     /*^clear*/
-                                                                                                                                                                    /*clear*/ /*_.LIST___V44*/
-                                                                                                                                                                    meltfptr[43] = 0 ;
+                                                                                                                                                                    /*clear*/ /*_.LIST___V44*/ meltfptr[43] = 0 ;
                                                                                                                                                                 } /*end multiallocblock*/
                                                                                                                                                                 ;
-                                                                                                                                                                MELT_LOCATION("warmelt-base.melt:3273:/ quasiblock");
+                                                                                                                                                                MELT_LOCATION("warmelt-base.melt:3320:/ quasiblock");
 
 
                                                                                                                                                                 /*^rawallocobj*/
@@ -2996,8 +2751,7 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
                                                                                                                                                                 {
                                                                                                                                                                     melt_ptr_t newobj = 0;
                                                                                                                                                                     melt_raw_object_create(newobj,(melt_ptr_t)((/*!CLASS_SEXPR*/ meltfrout->tabval[2])), (3), "CLASS_SEXPR");
-                                                                                                                                                                    /*_.INST__V46*/
-                                                                                                                                                                    meltfptr[31] =
+                                                                                                                                                                    /*_.INST__V46*/ meltfptr[31] =
                                                                                                                                                                         newobj;
                                                                                                                                                                 };
                                                                                                                                                                 ;
@@ -3015,11 +2769,10 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
 
                                                                                                                                                                 melt_dbgtrace_written_object (/*_.INST__V46*/ meltfptr[31], "newly made instance");
                                                                                                                                                                 ;
-                                                                                                                                                                /*_.INST___V45*/
-                                                                                                                                                                meltfptr[29] = /*_.INST__V46*/ meltfptr[31];;
+                                                                                                                                                                /*_.INST___V45*/ meltfptr[29] = /*_.INST__V46*/ meltfptr[31];;
 
                                                                                                                                                                 {
-                                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3273:/ locexp");
+                                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3320:/ locexp");
                                                                                                                                                                     meltgc_append_list((melt_ptr_t)(/*_.CONT__V4*/ meltfptr[3]), (melt_ptr_t)(/*_.INST___V45*/ meltfptr[29]));
                                                                                                                                                                 }
                                                                                                                                                                 ;
@@ -3027,35 +2780,29 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
 
 
                                                                                                                                                                 {
-                                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3278:/ locexp");
+                                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3325:/ locexp");
                                                                                                                                                                     meltgc_append_list((melt_ptr_t)(/*_.CONT__V4*/ meltfptr[3]), (melt_ptr_t)((/*nil*/NULL)));
                                                                                                                                                                 }
                                                                                                                                                                 ;
-                                                                                                                                                                /*clear*/ /*_._IFELSE___V37*/
-                                                                                                                                                                meltfptr[32] = 0 ;
+                                                                                                                                                                /*clear*/ /*_._IFELSE___V37*/ meltfptr[32] = 0 ;
 
-                                                                                                                                                                MELT_LOCATION("warmelt-base.melt:3271:/ clear");
-                                                                                                                                                                /*clear*/ /*_#LOCLINE__L20*/
-                                                                                                                                                                meltfnum[14] = 0 ;
+                                                                                                                                                                MELT_LOCATION("warmelt-base.melt:3318:/ clear");
+                                                                                                                                                                /*clear*/ /*_#LOCLINE__L20*/ meltfnum[14] = 0 ;
                                                                                                                                                                 /*^clear*/
-                                                                                                                                                                /*clear*/ /*_.MIXINT_VAL__V38*/
-                                                                                                                                                                meltfptr[26] = 0 ;
+                                                                                                                                                                /*clear*/ /*_.MIXINT_VAL__V38*/ meltfptr[26] = 0 ;
                                                                                                                                                                 /*^clear*/
-                                                                                                                                                                /*clear*/ /*_.BOX__V39*/
-                                                                                                                                                                meltfptr[27] = 0 ;
+                                                                                                                                                                /*clear*/ /*_.BOX__V39*/ meltfptr[27] = 0 ;
                                                                                                                                                                 /*^clear*/
-                                                                                                                                                                /*clear*/ /*_.LIST___V40*/
-                                                                                                                                                                meltfptr[28] = 0 ;
+                                                                                                                                                                /*clear*/ /*_.LIST___V40*/ meltfptr[28] = 0 ;
                                                                                                                                                                 /*^clear*/
-                                                                                                                                                                /*clear*/ /*_.INST___V45*/
-                                                                                                                                                                meltfptr[29] = 0 ;
+                                                                                                                                                                /*clear*/ /*_.INST___V45*/ meltfptr[29] = 0 ;
                                                                                                                                                                 /*epilog*/
                                                                                                                                                             }
                                                                                                                                                             ;
                                                                                                                                                         }
                                                                                                                                                     else
                                                                                                                                                         {
-                                                                                                                                                            MELT_LOCATION("warmelt-base.melt:3268:/ cond.else");
+                                                                                                                                                            MELT_LOCATION("warmelt-base.melt:3315:/ cond.else");
 
                                                                                                                                                             /*^block*/
                                                                                                                                                             /*anyblock*/
@@ -3064,12 +2811,10 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
 
                                                                                                                                                                 MELT_CHECK_SIGNAL();
                                                                                                                                                                 ;
-                                                                                                                                                                /*_#IS_CLOSURE__L21*/
-                                                                                                                                                                meltfnum[13] =
+                                                                                                                                                                /*_#IS_CLOSURE__L21*/ meltfnum[13] =
                                                                                                                                                                     (melt_magic_discr((melt_ptr_t)(/*_.V__V16*/ meltfptr[13])) == MELTOBMAG_CLOSURE);;
-                                                                                                                                                                MELT_LOCATION("warmelt-base.melt:3280:/ cond");
-                                                                                                                                                                /*cond*/
-                                                                                                                                                                if (/*_#IS_CLOSURE__L21*/ meltfnum[13]) /*then*/
+                                                                                                                                                                MELT_LOCATION("warmelt-base.melt:3327:/ cond");
+                                                                                                                                                                /*cond*/ if (/*_#IS_CLOSURE__L21*/ meltfnum[13]) /*then*/
                                                                                                                                                                     {
                                                                                                                                                                         /*^cond.then*/
                                                                                                                                                                         /*^block*/
@@ -3079,19 +2824,17 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
 
                                                                                                                                                                             MELT_CHECK_SIGNAL();
                                                                                                                                                                             ;
-                                                                                                                                                                            MELT_LOCATION("warmelt-base.melt:3281:/ apply");
+                                                                                                                                                                            MELT_LOCATION("warmelt-base.melt:3328:/ apply");
                                                                                                                                                                             /*apply*/
                                                                                                                                                                             {
                                                                                                                                                                                 /*_.V__V48*/ meltfptr[43] =  melt_apply ((meltclosure_ptr_t)(/*_.V__V16*/ meltfptr[13]), (melt_ptr_t)(/*_.CONT__V4*/ meltfptr[3]), (""), (union meltparam_un*)0, "", (union meltparam_un*)0);
                                                                                                                                                                             }
                                                                                                                                                                             ;
-                                                                                                                                                                            /*_._IFELSE___V47*/
-                                                                                                                                                                            meltfptr[42] = /*_.V__V48*/ meltfptr[43];;
+                                                                                                                                                                            /*_._IFELSE___V47*/ meltfptr[42] = /*_.V__V48*/ meltfptr[43];;
                                                                                                                                                                             /*epilog*/
 
-                                                                                                                                                                            MELT_LOCATION("warmelt-base.melt:3280:/ clear");
-                                                                                                                                                                            /*clear*/ /*_.V__V48*/
-                                                                                                                                                                            meltfptr[43] = 0 ;
+                                                                                                                                                                            MELT_LOCATION("warmelt-base.melt:3327:/ clear");
+                                                                                                                                                                            /*clear*/ /*_.V__V48*/ meltfptr[43] = 0 ;
                                                                                                                                                                         }
                                                                                                                                                                         ;
                                                                                                                                                                     }
@@ -3102,15 +2845,13 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
                                                                                                                                                                         /*anyblock*/
                                                                                                                                                                         {
 
-                                                                                                                                                                            MELT_LOCATION("warmelt-base.melt:3283:/ quasiblock");
+                                                                                                                                                                            MELT_LOCATION("warmelt-base.melt:3330:/ quasiblock");
 
 
-                                                                                                                                                                            /*_.DISCRIM__V50*/
-                                                                                                                                                                            meltfptr[27] =
+                                                                                                                                                                            /*_.DISCRIM__V50*/ meltfptr[27] =
                                                                                                                                                                                 ((melt_ptr_t) (melt_discr((melt_ptr_t)(/*_.V__V16*/ meltfptr[13]))));;
-                                                                                                                                                                            MELT_LOCATION("warmelt-base.melt:3283:/ cond");
-                                                                                                                                                                            /*cond*/
-                                                                                                                                                                            if (
+                                                                                                                                                                            MELT_LOCATION("warmelt-base.melt:3330:/ cond");
+                                                                                                                                                                            /*cond*/ if (
                                                                                                                                                                                 /*ifisa*/ melt_is_instance_of((melt_ptr_t)(/*_.DISCRIM__V50*/ meltfptr[27]),
                                                                                                                                                                                                               (melt_ptr_t)((/*!CLASS_NAMED*/ meltfrout->tabval[5])))
                                                                                                                                                                             ) /*then*/
@@ -3121,8 +2862,7 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
                                                                                                                                                                                         melt_ptr_t slot=NULL, obj=NULL;
                                                                                                                                                                                         obj = (melt_ptr_t)(/*_.DISCRIM__V50*/ meltfptr[27]) /*=obj*/;
                                                                                                                                                                                         melt_object_get_field(slot,obj, 1, "NAMED_NAME");
-                                                                                                                                                                                        /*_.DISCRNAME__V51*/
-                                                                                                                                                                                        meltfptr[28] = slot;
+                                                                                                                                                                                        /*_.DISCRNAME__V51*/ meltfptr[28] = slot;
                                                                                                                                                                                     };
                                                                                                                                                                                     ;
                                                                                                                                                                                 }
@@ -3133,8 +2873,7 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
                                                                                                                                                                                 }
                                                                                                                                                                             ;
                                                                                                                                                                             /*^compute*/
-                                                                                                                                                                            /*_#VIX__L22*/
-                                                                                                                                                                            meltfnum[14] =
+                                                                                                                                                                            /*_#VIX__L22*/ meltfnum[14] =
                                                                                                                                                                                 /*variadic_index*/
 #ifdef melt_variadic_index
                                                                                                                                                                                 (melt_variadic_index)
@@ -3144,13 +2883,13 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
                                                                                                                                                                                 ;;
 
                                                                                                                                                                             {
-                                                                                                                                                                                MELT_LOCATION("warmelt-base.melt:3287:/ locexp");
+                                                                                                                                                                                MELT_LOCATION("warmelt-base.melt:3334:/ locexp");
                                                                                                                                                                                 melt_error_str((melt_ptr_t)(/*_.VLOC__V5*/ meltfptr[4]), ( "in MELT_MAKE_SEXPR unexpected value of discriminant"), (melt_ptr_t)(/*_.DISCRNAME__V51*/ meltfptr[28]));
                                                                                                                                                                             }
                                                                                                                                                                             ;
 
                                                                                                                                                                             {
-                                                                                                                                                                                MELT_LOCATION("warmelt-base.melt:3288:/ locexp");
+                                                                                                                                                                                MELT_LOCATION("warmelt-base.melt:3335:/ locexp");
                                                                                                                                                                                 /* melt_make_sexpr ERRBADVAL_CHK__1 */
                                                                                                                                                                                 inform (UNKNOWN_LOCATION,
                                                                                                                                                                                         "unexpected value index in MELT_MAKE_SEXPR is %d", (int) /*_#VIX__L22*/ meltfnum[14]) ;
@@ -3160,14 +2899,13 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
 
                                                                                                                                                                             MELT_CHECK_SIGNAL();
                                                                                                                                                                             ;
-                                                                                                                                                                            MELT_LOCATION("warmelt-base.melt:3293:/ quasiblock");
+                                                                                                                                                                            MELT_LOCATION("warmelt-base.melt:3340:/ quasiblock");
 
 
-                                                                                                                                                                            /*_._RETVAL___V1*/
-                                                                                                                                                                            meltfptr[0] = (/*nil*/NULL);;
+                                                                                                                                                                            /*_._RETVAL___V1*/ meltfptr[0] = (/*nil*/NULL);;
 
                                                                                                                                                                             {
-                                                                                                                                                                                MELT_LOCATION("warmelt-base.melt:3293:/ locexp");
+                                                                                                                                                                                MELT_LOCATION("warmelt-base.melt:3340:/ locexp");
                                                                                                                                                                                 /*ochecknores compilobj_nrep_return*/
 #if MELT_HAVE_DEBUG
                                                                                                                                                                                 if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
@@ -3179,169 +2917,131 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
                                                                                                                                                                             ;
                                                                                                                                                                             /*^finalreturn*/
                                                                                                                                                                             ;
-                                                                                                                                                                            /*finalret*/
-                                                                                                                                                                            goto meltlabend_rout ;
-                                                                                                                                                                            /*_.LET___V49*/
-                                                                                                                                                                            meltfptr[26] = /*_.RETURN___V52*/ meltfptr[29];;
+                                                                                                                                                                            /*finalret*/ goto meltlabend_rout ;
+                                                                                                                                                                            /*_.LET___V49*/ meltfptr[26] = /*_.RETURN___V52*/ meltfptr[29];;
 
-                                                                                                                                                                            MELT_LOCATION("warmelt-base.melt:3283:/ clear");
-                                                                                                                                                                            /*clear*/ /*_.DISCRIM__V50*/
-                                                                                                                                                                            meltfptr[27] = 0 ;
+                                                                                                                                                                            MELT_LOCATION("warmelt-base.melt:3330:/ clear");
+                                                                                                                                                                            /*clear*/ /*_.DISCRIM__V50*/ meltfptr[27] = 0 ;
                                                                                                                                                                             /*^clear*/
-                                                                                                                                                                            /*clear*/ /*_.DISCRNAME__V51*/
-                                                                                                                                                                            meltfptr[28] = 0 ;
+                                                                                                                                                                            /*clear*/ /*_.DISCRNAME__V51*/ meltfptr[28] = 0 ;
                                                                                                                                                                             /*^clear*/
-                                                                                                                                                                            /*clear*/ /*_#VIX__L22*/
-                                                                                                                                                                            meltfnum[14] = 0 ;
+                                                                                                                                                                            /*clear*/ /*_#VIX__L22*/ meltfnum[14] = 0 ;
                                                                                                                                                                             /*^clear*/
-                                                                                                                                                                            /*clear*/ /*_.RETURN___V52*/
-                                                                                                                                                                            meltfptr[29] = 0 ;
-                                                                                                                                                                            MELT_LOCATION("warmelt-base.melt:3282:/ quasiblock");
+                                                                                                                                                                            /*clear*/ /*_.RETURN___V52*/ meltfptr[29] = 0 ;
+                                                                                                                                                                            MELT_LOCATION("warmelt-base.melt:3329:/ quasiblock");
 
 
-                                                                                                                                                                            /*_.PROGN___V53*/
-                                                                                                                                                                            meltfptr[43] = /*_.LET___V49*/ meltfptr[26];;
+                                                                                                                                                                            /*_.PROGN___V53*/ meltfptr[43] = /*_.LET___V49*/ meltfptr[26];;
                                                                                                                                                                             /*^compute*/
-                                                                                                                                                                            /*_._IFELSE___V47*/
-                                                                                                                                                                            meltfptr[42] = /*_.PROGN___V53*/ meltfptr[43];;
+                                                                                                                                                                            /*_._IFELSE___V47*/ meltfptr[42] = /*_.PROGN___V53*/ meltfptr[43];;
                                                                                                                                                                             /*epilog*/
 
-                                                                                                                                                                            MELT_LOCATION("warmelt-base.melt:3280:/ clear");
-                                                                                                                                                                            /*clear*/ /*_.LET___V49*/
-                                                                                                                                                                            meltfptr[26] = 0 ;
+                                                                                                                                                                            MELT_LOCATION("warmelt-base.melt:3327:/ clear");
+                                                                                                                                                                            /*clear*/ /*_.LET___V49*/ meltfptr[26] = 0 ;
                                                                                                                                                                             /*^clear*/
-                                                                                                                                                                            /*clear*/ /*_.PROGN___V53*/
-                                                                                                                                                                            meltfptr[43] = 0 ;
+                                                                                                                                                                            /*clear*/ /*_.PROGN___V53*/ meltfptr[43] = 0 ;
                                                                                                                                                                         }
                                                                                                                                                                         ;
                                                                                                                                                                     }
                                                                                                                                                                 ;
-                                                                                                                                                                /*_._IFELSE___V37*/
-                                                                                                                                                                meltfptr[32] = /*_._IFELSE___V47*/ meltfptr[42];;
+                                                                                                                                                                /*_._IFELSE___V37*/ meltfptr[32] = /*_._IFELSE___V47*/ meltfptr[42];;
                                                                                                                                                                 /*epilog*/
 
-                                                                                                                                                                MELT_LOCATION("warmelt-base.melt:3268:/ clear");
-                                                                                                                                                                /*clear*/ /*_#IS_CLOSURE__L21*/
-                                                                                                                                                                meltfnum[13] = 0 ;
+                                                                                                                                                                MELT_LOCATION("warmelt-base.melt:3315:/ clear");
+                                                                                                                                                                /*clear*/ /*_#IS_CLOSURE__L21*/ meltfnum[13] = 0 ;
                                                                                                                                                                 /*^clear*/
-                                                                                                                                                                /*clear*/ /*_._IFELSE___V47*/
-                                                                                                                                                                meltfptr[42] = 0 ;
+                                                                                                                                                                /*clear*/ /*_._IFELSE___V47*/ meltfptr[42] = 0 ;
                                                                                                                                                             }
                                                                                                                                                             ;
                                                                                                                                                         }
                                                                                                                                                     ;
-                                                                                                                                                    /*_._IFELSE___V26*/
-                                                                                                                                                    meltfptr[25] = /*_._IFELSE___V37*/ meltfptr[32];;
+                                                                                                                                                    /*_._IFELSE___V26*/ meltfptr[25] = /*_._IFELSE___V37*/ meltfptr[32];;
                                                                                                                                                     /*epilog*/
 
-                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3255:/ clear");
-                                                                                                                                                    /*clear*/ /*_#IS_MIXINT__L17*/
-                                                                                                                                                    meltfnum[15] = 0 ;
+                                                                                                                                                    MELT_LOCATION("warmelt-base.melt:3302:/ clear");
+                                                                                                                                                    /*clear*/ /*_#IS_MIXINT__L17*/ meltfnum[15] = 0 ;
                                                                                                                                                     /*^clear*/
-                                                                                                                                                    /*clear*/ /*_#_IF___L18*/
-                                                                                                                                                    meltfnum[12] = 0 ;
+                                                                                                                                                    /*clear*/ /*_#_IF___L18*/ meltfnum[12] = 0 ;
                                                                                                                                                     /*^clear*/
-                                                                                                                                                    /*clear*/ /*_._IFELSE___V37*/
-                                                                                                                                                    meltfptr[32] = 0 ;
+                                                                                                                                                    /*clear*/ /*_._IFELSE___V37*/ meltfptr[32] = 0 ;
                                                                                                                                                 }
                                                                                                                                                 ;
                                                                                                                                             }
                                                                                                                                         ;
-                                                                                                                                        /*_._IFELSE___V23*/
-                                                                                                                                        meltfptr[22] = /*_._IFELSE___V26*/ meltfptr[25];;
+                                                                                                                                        /*_._IFELSE___V23*/ meltfptr[22] = /*_._IFELSE___V26*/ meltfptr[25];;
                                                                                                                                         /*epilog*/
 
-                                                                                                                                        MELT_LOCATION("warmelt-base.melt:3249:/ clear");
-                                                                                                                                        /*clear*/ /*_#IS_MIXLOC__L12*/
-                                                                                                                                        meltfnum[11] = 0 ;
+                                                                                                                                        MELT_LOCATION("warmelt-base.melt:3296:/ clear");
+                                                                                                                                        /*clear*/ /*_#IS_MIXLOC__L12*/ meltfnum[11] = 0 ;
                                                                                                                                         /*^clear*/
-                                                                                                                                        /*clear*/ /*_._IFELSE___V26*/
-                                                                                                                                        meltfptr[25] = 0 ;
+                                                                                                                                        /*clear*/ /*_._IFELSE___V26*/ meltfptr[25] = 0 ;
                                                                                                                                     }
                                                                                                                                     ;
                                                                                                                                 }
                                                                                                                             ;
-                                                                                                                            /*_._IFELSE___V21*/
-                                                                                                                            meltfptr[20] = /*_._IFELSE___V23*/ meltfptr[22];;
+                                                                                                                            /*_._IFELSE___V21*/ meltfptr[20] = /*_._IFELSE___V23*/ meltfptr[22];;
                                                                                                                             /*epilog*/
 
-                                                                                                                            MELT_LOCATION("warmelt-base.melt:3244:/ clear");
-                                                                                                                            /*clear*/ /*_#IS_LIST__L11*/
-                                                                                                                            meltfnum[10] = 0 ;
+                                                                                                                            MELT_LOCATION("warmelt-base.melt:3291:/ clear");
+                                                                                                                            /*clear*/ /*_#IS_LIST__L11*/ meltfnum[10] = 0 ;
                                                                                                                             /*^clear*/
-                                                                                                                            /*clear*/ /*_._IFELSE___V23*/
-                                                                                                                            meltfptr[22] = 0 ;
+                                                                                                                            /*clear*/ /*_._IFELSE___V23*/ meltfptr[22] = 0 ;
                                                                                                                         }
                                                                                                                         ;
                                                                                                                     }
                                                                                                                 ;
-                                                                                                                /*_._IFELSE___V20*/
-                                                                                                                meltfptr[19] = /*_._IFELSE___V21*/ meltfptr[20];;
+                                                                                                                /*_._IFELSE___V20*/ meltfptr[19] = /*_._IFELSE___V21*/ meltfptr[20];;
                                                                                                                 /*epilog*/
 
-                                                                                                                MELT_LOCATION("warmelt-base.melt:3242:/ clear");
-                                                                                                                /*clear*/ /*_#IS_MULTIPLE__L9*/
-                                                                                                                meltfnum[8] = 0 ;
+                                                                                                                MELT_LOCATION("warmelt-base.melt:3289:/ clear");
+                                                                                                                /*clear*/ /*_#IS_MULTIPLE__L9*/ meltfnum[8] = 0 ;
                                                                                                                 /*^clear*/
-                                                                                                                /*clear*/ /*_._IFELSE___V21*/
-                                                                                                                meltfptr[20] = 0 ;
+                                                                                                                /*clear*/ /*_._IFELSE___V21*/ meltfptr[20] = 0 ;
                                                                                                             }
                                                                                                             ;
                                                                                                         }
                                                                                                     ;
-                                                                                                    /*_._IFELSE___V19*/
-                                                                                                    meltfptr[18] = /*_._IFELSE___V20*/ meltfptr[19];;
+                                                                                                    /*_._IFELSE___V19*/ meltfptr[18] = /*_._IFELSE___V20*/ meltfptr[19];;
                                                                                                     /*epilog*/
 
-                                                                                                    MELT_LOCATION("warmelt-base.melt:3240:/ clear");
-                                                                                                    /*clear*/ /*_#IS_STRING__L8*/
-                                                                                                    meltfnum[7] = 0 ;
+                                                                                                    MELT_LOCATION("warmelt-base.melt:3287:/ clear");
+                                                                                                    /*clear*/ /*_#IS_STRING__L8*/ meltfnum[7] = 0 ;
                                                                                                     /*^clear*/
-                                                                                                    /*clear*/ /*_._IFELSE___V20*/
-                                                                                                    meltfptr[19] = 0 ;
+                                                                                                    /*clear*/ /*_._IFELSE___V20*/ meltfptr[19] = 0 ;
                                                                                                 }
                                                                                                 ;
                                                                                             }
                                                                                         ;
-                                                                                        /*_._IFELSE___V18*/
-                                                                                        meltfptr[17] = /*_._IFELSE___V19*/ meltfptr[18];;
+                                                                                        /*_._IFELSE___V18*/ meltfptr[17] = /*_._IFELSE___V19*/ meltfptr[18];;
                                                                                         /*epilog*/
 
-                                                                                        MELT_LOCATION("warmelt-base.melt:3238:/ clear");
-                                                                                        /*clear*/ /*_#IS_INTEGERBOX__L7*/
-                                                                                        meltfnum[6] = 0 ;
+                                                                                        MELT_LOCATION("warmelt-base.melt:3285:/ clear");
+                                                                                        /*clear*/ /*_#IS_INTEGERBOX__L7*/ meltfnum[6] = 0 ;
                                                                                         /*^clear*/
-                                                                                        /*clear*/ /*_._IFELSE___V19*/
-                                                                                        meltfptr[18] = 0 ;
+                                                                                        /*clear*/ /*_._IFELSE___V19*/ meltfptr[18] = 0 ;
                                                                                     }
                                                                                     ;
                                                                                 }
                                                                             ;
-                                                                            /*_._IFELSE___V17*/
-                                                                            meltfptr[16] = /*_._IFELSE___V18*/ meltfptr[17];;
+                                                                            /*_._IFELSE___V17*/ meltfptr[16] = /*_._IFELSE___V18*/ meltfptr[17];;
                                                                             /*epilog*/
 
-                                                                            MELT_LOCATION("warmelt-base.melt:3236:/ clear");
-                                                                            /*clear*/ /*_#IS_OBJECT__L6*/
-                                                                            meltfnum[2] = 0 ;
+                                                                            MELT_LOCATION("warmelt-base.melt:3283:/ clear");
+                                                                            /*clear*/ /*_#IS_OBJECT__L6*/ meltfnum[2] = 0 ;
                                                                             /*^clear*/
-                                                                            /*clear*/ /*_._IFELSE___V18*/
-                                                                            meltfptr[17] = 0 ;
+                                                                            /*clear*/ /*_._IFELSE___V18*/ meltfptr[17] = 0 ;
                                                                         }
                                                                         ;
                                                                     }
                                                                 ;
                                                                 /*epilog*/
 
-                                                                MELT_LOCATION("warmelt-base.melt:3224:/ clear");
-                                                                /*clear*/ /*_.V__V16*/
-                                                                meltfptr[13] = 0 ;
+                                                                MELT_LOCATION("warmelt-base.melt:3271:/ clear");
+                                                                /*clear*/ /*_.V__V16*/ meltfptr[13] = 0 ;
                                                                 /*^clear*/
-                                                                /*clear*/ /*_#NULL__L5*/
-                                                                meltfnum[1] = 0 ;
+                                                                /*clear*/ /*_#NULL__L5*/ meltfnum[1] = 0 ;
                                                                 /*^clear*/
-                                                                /*clear*/ /*_._IFELSE___V17*/
-                                                                meltfptr[16] = 0 ;
+                                                                /*clear*/ /*_._IFELSE___V17*/ meltfptr[16] = 0 ;
                                                             }
                                                             ;
                                                         }
@@ -3352,11 +3052,10 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
                                                             /*anyblock*/
                                                             {
 
-                                                                MELT_LOCATION("warmelt-base.melt:3296:/ quasiblock");
+                                                                MELT_LOCATION("warmelt-base.melt:3343:/ quasiblock");
 
 
-                                                                /*_.VARIADIC_CTYPE__V55*/
-                                                                meltfptr[28] =
+                                                                /*_.VARIADIC_CTYPE__V55*/ meltfptr[28] =
                                                                     /*variadic_type_code*/
 #ifdef melt_variadic_index
                                                                     (((melt_variadic_index + 0) >= 0
@@ -3368,9 +3067,8 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
                                                                     NULL /* no variadic_ctype outside of variadic functions */
 #endif /*melt_variadic_index*/
                                                                     ;;
-                                                                MELT_LOCATION("warmelt-base.melt:3296:/ cond");
-                                                                /*cond*/
-                                                                if (
+                                                                MELT_LOCATION("warmelt-base.melt:3343:/ cond");
+                                                                /*cond*/ if (
                                                                     /*ifisa*/ melt_is_instance_of((melt_ptr_t)(/*_.VARIADIC_CTYPE__V55*/ meltfptr[28]),
                                                                                                   (melt_ptr_t)((/*!CLASS_NAMED*/ meltfrout->tabval[5])))
                                                                 ) /*then*/
@@ -3381,8 +3079,7 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
                                                                             melt_ptr_t slot=NULL, obj=NULL;
                                                                             obj = (melt_ptr_t)(/*_.VARIADIC_CTYPE__V55*/ meltfptr[28]) /*=obj*/;
                                                                             melt_object_get_field(slot,obj, 1, "NAMED_NAME");
-                                                                            /*_.CTYNAME__V56*/
-                                                                            meltfptr[29] = slot;
+                                                                            /*_.CTYNAME__V56*/ meltfptr[29] = slot;
                                                                         };
                                                                         ;
                                                                     }
@@ -3393,8 +3090,7 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
                                                                     }
                                                                 ;
                                                                 /*^compute*/
-                                                                /*_#VIX__L23*/
-                                                                meltfnum[14] =
+                                                                /*_#VIX__L23*/ meltfnum[14] =
                                                                     /*variadic_index*/
 #ifdef melt_variadic_index
                                                                     (melt_variadic_index)
@@ -3404,13 +3100,13 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
                                                                     ;;
 
                                                                 {
-                                                                    MELT_LOCATION("warmelt-base.melt:3299:/ locexp");
+                                                                    MELT_LOCATION("warmelt-base.melt:3346:/ locexp");
                                                                     melt_error_str((melt_ptr_t)(/*_.VLOC__V5*/ meltfptr[4]), ( "in MELT_MAKE_SEXPR unexpected thing of ctype"), (melt_ptr_t)(/*_.CTYNAME__V56*/ meltfptr[29]));
                                                                 }
                                                                 ;
 
                                                                 {
-                                                                    MELT_LOCATION("warmelt-base.melt:3300:/ locexp");
+                                                                    MELT_LOCATION("warmelt-base.melt:3347:/ locexp");
                                                                     /* melt_make_sexpr ERRBADTHING_CHK__1 */
                                                                     inform (UNKNOWN_LOCATION,
                                                                             "unexpected thing index in MELT_MAKE_SEXPR is %d", (int) /*_#VIX__L23*/ meltfnum[14]) ;
@@ -3420,14 +3116,13 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
 
                                                                 MELT_CHECK_SIGNAL();
                                                                 ;
-                                                                MELT_LOCATION("warmelt-base.melt:3305:/ quasiblock");
+                                                                MELT_LOCATION("warmelt-base.melt:3352:/ quasiblock");
 
 
-                                                                /*_._RETVAL___V1*/
-                                                                meltfptr[0] = (/*nil*/NULL);;
+                                                                /*_._RETVAL___V1*/ meltfptr[0] = (/*nil*/NULL);;
 
                                                                 {
-                                                                    MELT_LOCATION("warmelt-base.melt:3305:/ locexp");
+                                                                    MELT_LOCATION("warmelt-base.melt:3352:/ locexp");
                                                                     /*ochecknores compilobj_nrep_return*/
 #if MELT_HAVE_DEBUG
                                                                     if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
@@ -3439,28 +3134,21 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
                                                                 ;
                                                                 /*^finalreturn*/
                                                                 ;
-                                                                /*finalret*/
-                                                                goto meltlabend_rout ;
-                                                                /*_.LET___V54*/
-                                                                meltfptr[27] = /*_.RETURN___V57*/ meltfptr[26];;
+                                                                /*finalret*/ goto meltlabend_rout ;
+                                                                /*_.LET___V54*/ meltfptr[27] = /*_.RETURN___V57*/ meltfptr[26];;
 
-                                                                MELT_LOCATION("warmelt-base.melt:3296:/ clear");
-                                                                /*clear*/ /*_.VARIADIC_CTYPE__V55*/
-                                                                meltfptr[28] = 0 ;
+                                                                MELT_LOCATION("warmelt-base.melt:3343:/ clear");
+                                                                /*clear*/ /*_.VARIADIC_CTYPE__V55*/ meltfptr[28] = 0 ;
                                                                 /*^clear*/
-                                                                /*clear*/ /*_.CTYNAME__V56*/
-                                                                meltfptr[29] = 0 ;
+                                                                /*clear*/ /*_.CTYNAME__V56*/ meltfptr[29] = 0 ;
                                                                 /*^clear*/
-                                                                /*clear*/ /*_#VIX__L23*/
-                                                                meltfnum[14] = 0 ;
+                                                                /*clear*/ /*_#VIX__L23*/ meltfnum[14] = 0 ;
                                                                 /*^clear*/
-                                                                /*clear*/ /*_.RETURN___V57*/
-                                                                meltfptr[26] = 0 ;
+                                                                /*clear*/ /*_.RETURN___V57*/ meltfptr[26] = 0 ;
                                                                 /*epilog*/
 
-                                                                MELT_LOCATION("warmelt-base.melt:3224:/ clear");
-                                                                /*clear*/ /*_.LET___V54*/
-                                                                meltfptr[27] = 0 ;
+                                                                MELT_LOCATION("warmelt-base.melt:3271:/ clear");
+                                                                /*clear*/ /*_.LET___V54*/ meltfptr[27] = 0 ;
                                                             }
                                                             ;
                                                         }
@@ -3487,23 +3175,21 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
             goto meltlabloop_ARGLOOP_5;
 meltlabexit_ARGLOOP_5:
             ;
-            MELT_LOCATION("warmelt-base.melt:3222:/ loopepilog");
+            MELT_LOCATION("warmelt-base.melt:3269:/ loopepilog");
             /*loopepilog*/
-            /*_.FOREVER___V12*/
-            meltfptr[5] = /*_.ARGLOOP__V13*/ meltfptr[12];;
+            /*_.FOREVER___V12*/ meltfptr[5] = /*_.ARGLOOP__V13*/ meltfptr[12];;
         }
         ;
 
         MELT_CHECK_SIGNAL();
         ;
-        MELT_LOCATION("warmelt-base.melt:3308:/ quasiblock");
+        MELT_LOCATION("warmelt-base.melt:3355:/ quasiblock");
 
 
-        /*_._RETVAL___V1*/
-        meltfptr[0] = /*_.SEXPR__V10*/ meltfptr[7];;
+        /*_._RETVAL___V1*/ meltfptr[0] = /*_.SEXPR__V10*/ meltfptr[7];;
 
         {
-            MELT_LOCATION("warmelt-base.melt:3308:/ locexp");
+            MELT_LOCATION("warmelt-base.melt:3355:/ locexp");
             /*ochecknores compilobj_nrep_return*/
 #if MELT_HAVE_DEBUG
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
@@ -3515,37 +3201,28 @@ meltlabexit_ARGLOOP_5:
         ;
         /*^finalreturn*/
         ;
-        /*finalret*/
-        goto meltlabend_rout ;
-        /*_.LET___V3*/
-        meltfptr[2] = /*_.RETURN___V58*/ meltfptr[43];;
+        /*finalret*/ goto meltlabend_rout ;
+        /*_.LET___V3*/ meltfptr[2] = /*_.RETURN___V58*/ meltfptr[43];;
 
-        MELT_LOCATION("warmelt-base.melt:3209:/ clear");
-        /*clear*/ /*_.CONT__V4*/
-        meltfptr[3] = 0 ;
+        MELT_LOCATION("warmelt-base.melt:3256:/ clear");
+        /*clear*/ /*_.CONT__V4*/ meltfptr[3] = 0 ;
         /*^clear*/
-        /*clear*/ /*_#IS_MIXINT__L1*/
-        meltfnum[0] = 0 ;
+        /*clear*/ /*_#IS_MIXINT__L1*/ meltfnum[0] = 0 ;
         /*^clear*/
-        /*clear*/ /*_.VLOC__V5*/
-        meltfptr[4] = 0 ;
+        /*clear*/ /*_.VLOC__V5*/ meltfptr[4] = 0 ;
         /*^clear*/
-        /*clear*/ /*_.SEXPR__V10*/
-        meltfptr[7] = 0 ;
+        /*clear*/ /*_.SEXPR__V10*/ meltfptr[7] = 0 ;
         /*^clear*/
-        /*clear*/ /*_.FOREVER___V12*/
-        meltfptr[5] = 0 ;
+        /*clear*/ /*_.FOREVER___V12*/ meltfptr[5] = 0 ;
         /*^clear*/
-        /*clear*/ /*_.RETURN___V58*/
-        meltfptr[43] = 0 ;
-        MELT_LOCATION("warmelt-base.melt:3205:/ quasiblock");
+        /*clear*/ /*_.RETURN___V58*/ meltfptr[43] = 0 ;
+        MELT_LOCATION("warmelt-base.melt:3252:/ quasiblock");
 
 
-        /*_._RETVAL___V1*/
-        meltfptr[0] = /*_.LET___V3*/ meltfptr[2];;
+        /*_._RETVAL___V1*/ meltfptr[0] = /*_.LET___V3*/ meltfptr[2];;
 
         {
-            MELT_LOCATION("warmelt-base.melt:3205:/ locexp");
+            MELT_LOCATION("warmelt-base.melt:3252:/ locexp");
             /*ochecknores compilobj_nrep_return*/
 #if MELT_HAVE_DEBUG
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
@@ -3557,13 +3234,11 @@ meltlabexit_ARGLOOP_5:
         ;
         /*^finalreturn*/
         ;
-        /*finalret*/
-        goto meltlabend_rout ;
+        /*finalret*/ goto meltlabend_rout ;
         /*epilog*/
 
         /*^clear*/
-        /*clear*/ /*_.LET___V3*/
-        meltfptr[2] = 0 ;
+        /*clear*/ /*_.LET___V3*/ meltfptr[2] = 0 ;
     }
 
     ;
@@ -3647,8 +3322,7 @@ meltrout_34_WARMELTmiBASE_MULTIPLE_SORT(meltclosure_ptr_t meltclosp_, melt_ptr_t
 
     /* end of frame for routine meltrout_34_WARMELTmiBASE_MULTIPLE_SORT fromline 1719 */
 
-    /* classy proc frame meltrout_34_WARMELTmiBASE_MULTIPLE_SORT */
-    MeltFrame_meltrout_34_WARMELTmiBASE_MULTIPLE_SORT
+    /* classy proc frame meltrout_34_WARMELTmiBASE_MULTIPLE_SORT */ MeltFrame_meltrout_34_WARMELTmiBASE_MULTIPLE_SORT
     meltfram__ /*declfrastruct fromline 1743*/
     /*classyprocarg meltrout_34_WARMELTmiBASE_MULTIPLE_SORT fromline 1748*/
 #if ENABLE_CHECKING
@@ -3661,8 +3335,7 @@ meltrout_34_WARMELTmiBASE_MULTIPLE_SORT(meltclosure_ptr_t meltclosp_, melt_ptr_t
 #define meltframe meltfram__
 
     melt_trace_start("MULTIPLE_SORT", meltcallcount);
-    /*use arguments*/
-    (void) meltclosp_;
+    /*use arguments*/ (void) meltclosp_;
     (void)meltfirstargp_;
     (void)meltxargdescr_;
     (void)meltxargtab_;
@@ -3671,23 +3344,20 @@ meltrout_34_WARMELTmiBASE_MULTIPLE_SORT(meltclosure_ptr_t meltclosp_, melt_ptr_t
     /*getargs*/
 
     /*getarg#0*/
-    MELT_LOCATION("warmelt-base.melt:3379:/ getarg");
-    /*_.MUL__V2*/
-    meltfptr[1] = (melt_ptr_t) meltfirstargp_;
+    MELT_LOCATION("warmelt-base.melt:3424:/ getarg");
+    /*_.MUL__V2*/ meltfptr[1] = (melt_ptr_t) meltfirstargp_;
 
     /*getarg#1*/
     /*^getarg*/
     if (meltxargdescr_[0] != MELTBPAR_PTR) goto meltlab_endgetargs;
-    /*_.CMP__V3*/
-    meltfptr[2] = (meltxargtab_[0].meltbp_aptr) ? (*(meltxargtab_[0].meltbp_aptr)) : NULL;
+    /*_.CMP__V3*/ meltfptr[2] = (meltxargtab_[0].meltbp_aptr) ? (*(meltxargtab_[0].meltbp_aptr)) : NULL;
     gcc_assert(melt_discr((melt_ptr_t)(/*_.CMP__V3*/ meltfptr[2])) != NULL);
 
 
     /*getarg#2*/
     /*^getarg*/
     if (meltxargdescr_[1] != MELTBPAR_PTR) goto meltlab_endgetargs;
-    /*_.DIS__V4*/
-    meltfptr[3] = (meltxargtab_[1].meltbp_aptr) ? (*(meltxargtab_[1].meltbp_aptr)) : NULL;
+    /*_.DIS__V4*/ meltfptr[3] = (meltxargtab_[1].meltbp_aptr) ? (*(meltxargtab_[1].meltbp_aptr)) : NULL;
     gcc_assert(melt_discr((melt_ptr_t)(/*_.DIS__V4*/ meltfptr[3])) != NULL);
 
     ;
@@ -3702,12 +3372,10 @@ meltlab_endgetargs:
 
         MELT_CHECK_SIGNAL();
         ;
-        /*_#IS_MULTIPLE__L1*/
-        meltfnum[0] =
+        /*_#IS_MULTIPLE__L1*/ meltfnum[0] =
             (melt_magic_discr((melt_ptr_t)(/*_.MUL__V2*/ meltfptr[1])) == MELTOBMAG_MULTIPLE);;
-        MELT_LOCATION("warmelt-base.melt:3389:/ cond");
-        /*cond*/
-        if (/*_#IS_MULTIPLE__L1*/ meltfnum[0]) /*then*/
+        MELT_LOCATION("warmelt-base.melt:3434:/ cond");
+        /*cond*/ if (/*_#IS_MULTIPLE__L1*/ meltfnum[0]) /*then*/
             {
                 /*^cond.then*/
                 /*^block*/
@@ -3718,20 +3386,18 @@ meltlab_endgetargs:
 
 
                     {
-                        MELT_LOCATION("warmelt-base.melt:3390:/ locexp");
-                        /*void*/
-                        (void)0;
+                        MELT_LOCATION("warmelt-base.melt:3435:/ locexp");
+                        /*void*/(void)0;
                     }
                     ;
-                    /*clear*/ /*_._IFELSE___V5*/
-                    meltfptr[4] = 0 ;
+                    /*clear*/ /*_._IFELSE___V5*/ meltfptr[4] = 0 ;
                     /*epilog*/
                 }
                 ;
             }
         else
             {
-                MELT_LOCATION("warmelt-base.melt:3389:/ cond.else");
+                MELT_LOCATION("warmelt-base.melt:3434:/ cond.else");
 
                 /*^block*/
                 /*anyblock*/
@@ -3740,14 +3406,13 @@ meltlab_endgetargs:
 
                     MELT_CHECK_SIGNAL();
                     ;
-                    MELT_LOCATION("warmelt-base.melt:3391:/ quasiblock");
+                    MELT_LOCATION("warmelt-base.melt:3436:/ quasiblock");
 
 
-                    /*_._RETVAL___V1*/
-                    meltfptr[0] = (/*nil*/NULL);;
+                    /*_._RETVAL___V1*/ meltfptr[0] = (/*nil*/NULL);;
 
                     {
-                        MELT_LOCATION("warmelt-base.melt:3391:/ locexp");
+                        MELT_LOCATION("warmelt-base.melt:3436:/ locexp");
                         /*ochecknores compilobj_nrep_return*/
 #if MELT_HAVE_DEBUG
                         if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
@@ -3759,15 +3424,12 @@ meltlab_endgetargs:
                     ;
                     /*^finalreturn*/
                     ;
-                    /*finalret*/
-                    goto meltlabend_rout ;
-                    /*_._IFELSE___V5*/
-                    meltfptr[4] = /*_.RETURN___V6*/ meltfptr[5];;
+                    /*finalret*/ goto meltlabend_rout ;
+                    /*_._IFELSE___V5*/ meltfptr[4] = /*_.RETURN___V6*/ meltfptr[5];;
                     /*epilog*/
 
-                    MELT_LOCATION("warmelt-base.melt:3389:/ clear");
-                    /*clear*/ /*_.RETURN___V6*/
-                    meltfptr[5] = 0 ;
+                    MELT_LOCATION("warmelt-base.melt:3434:/ clear");
+                    /*clear*/ /*_.RETURN___V6*/ meltfptr[5] = 0 ;
                 }
                 ;
             }
@@ -3775,12 +3437,10 @@ meltlab_endgetargs:
 
         MELT_CHECK_SIGNAL();
         ;
-        /*_#IS_CLOSURE__L2*/
-        meltfnum[1] =
+        /*_#IS_CLOSURE__L2*/ meltfnum[1] =
             (melt_magic_discr((melt_ptr_t)(/*_.CMP__V3*/ meltfptr[2])) == MELTOBMAG_CLOSURE);;
-        MELT_LOCATION("warmelt-base.melt:3392:/ cond");
-        /*cond*/
-        if (/*_#IS_CLOSURE__L2*/ meltfnum[1]) /*then*/
+        MELT_LOCATION("warmelt-base.melt:3437:/ cond");
+        /*cond*/ if (/*_#IS_CLOSURE__L2*/ meltfnum[1]) /*then*/
             {
                 /*^cond.then*/
                 /*^block*/
@@ -3791,20 +3451,18 @@ meltlab_endgetargs:
 
 
                     {
-                        MELT_LOCATION("warmelt-base.melt:3393:/ locexp");
-                        /*void*/
-                        (void)0;
+                        MELT_LOCATION("warmelt-base.melt:3438:/ locexp");
+                        /*void*/(void)0;
                     }
                     ;
-                    /*clear*/ /*_._IFELSE___V7*/
-                    meltfptr[5] = 0 ;
+                    /*clear*/ /*_._IFELSE___V7*/ meltfptr[5] = 0 ;
                     /*epilog*/
                 }
                 ;
             }
         else
             {
-                MELT_LOCATION("warmelt-base.melt:3392:/ cond.else");
+                MELT_LOCATION("warmelt-base.melt:3437:/ cond.else");
 
                 /*^block*/
                 /*anyblock*/
@@ -3813,14 +3471,13 @@ meltlab_endgetargs:
 
                     MELT_CHECK_SIGNAL();
                     ;
-                    MELT_LOCATION("warmelt-base.melt:3394:/ quasiblock");
+                    MELT_LOCATION("warmelt-base.melt:3439:/ quasiblock");
 
 
-                    /*_._RETVAL___V1*/
-                    meltfptr[0] = (/*nil*/NULL);;
+                    /*_._RETVAL___V1*/ meltfptr[0] = (/*nil*/NULL);;
 
                     {
-                        MELT_LOCATION("warmelt-base.melt:3394:/ locexp");
+                        MELT_LOCATION("warmelt-base.melt:3439:/ locexp");
                         /*ochecknores compilobj_nrep_return*/
 #if MELT_HAVE_DEBUG
                         if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
@@ -3832,15 +3489,12 @@ meltlab_endgetargs:
                     ;
                     /*^finalreturn*/
                     ;
-                    /*finalret*/
-                    goto meltlabend_rout ;
-                    /*_._IFELSE___V7*/
-                    meltfptr[5] = /*_.RETURN___V8*/ meltfptr[7];;
+                    /*finalret*/ goto meltlabend_rout ;
+                    /*_._IFELSE___V7*/ meltfptr[5] = /*_.RETURN___V8*/ meltfptr[7];;
                     /*epilog*/
 
-                    MELT_LOCATION("warmelt-base.melt:3392:/ clear");
-                    /*clear*/ /*_.RETURN___V8*/
-                    meltfptr[7] = 0 ;
+                    MELT_LOCATION("warmelt-base.melt:3437:/ clear");
+                    /*clear*/ /*_.RETURN___V8*/ meltfptr[7] = 0 ;
                 }
                 ;
             }
@@ -3848,28 +3502,23 @@ meltlab_endgetargs:
 
         MELT_CHECK_SIGNAL();
         ;
-        /*_#NULL__L3*/
-        meltfnum[2] =
+        /*_#NULL__L3*/ meltfnum[2] =
             ((/*_.DIS__V4*/ meltfptr[3]) == NULL);;
-        MELT_LOCATION("warmelt-base.melt:3395:/ cond");
-        /*cond*/
-        if (/*_#NULL__L3*/ meltfnum[2]) /*then*/
+        MELT_LOCATION("warmelt-base.melt:3440:/ cond");
+        /*cond*/ if (/*_#NULL__L3*/ meltfnum[2]) /*then*/
             {
                 /*^cond.then*/
                 /*^block*/
                 /*anyblock*/
                 {
 
-                    MELT_LOCATION("warmelt-base.melt:3396:/ compute");
-                    /*_.DIS__V4*/
-                    meltfptr[3] = /*_.SETQ___V10*/ meltfptr[9] = (/*!DISCR_MULTIPLE*/ meltfrout->tabval[0]);;
-                    /*_._IF___V9*/
-                    meltfptr[7] = /*_.SETQ___V10*/ meltfptr[9];;
+                    MELT_LOCATION("warmelt-base.melt:3441:/ compute");
+                    /*_.DIS__V4*/ meltfptr[3] = /*_.SETQ___V10*/ meltfptr[9] = (/*!DISCR_MULTIPLE*/ meltfrout->tabval[0]);;
+                    /*_._IF___V9*/ meltfptr[7] = /*_.SETQ___V10*/ meltfptr[9];;
                     /*epilog*/
 
-                    MELT_LOCATION("warmelt-base.melt:3395:/ clear");
-                    /*clear*/ /*_.SETQ___V10*/
-                    meltfptr[9] = 0 ;
+                    MELT_LOCATION("warmelt-base.melt:3440:/ clear");
+                    /*clear*/ /*_.SETQ___V10*/ meltfptr[9] = 0 ;
                 }
                 ;
             }
@@ -3883,12 +3532,10 @@ meltlab_endgetargs:
         MELT_CHECK_SIGNAL();
         ;
         /*^compute*/
-        /*_#IS_A__L4*/
-        meltfnum[3] =
+        /*_#IS_A__L4*/ meltfnum[3] =
             melt_is_instance_of((melt_ptr_t)(/*_.DIS__V4*/ meltfptr[3]), (melt_ptr_t)((/*!CLASS_DISCRIMINANT*/ meltfrout->tabval[1])));;
-        MELT_LOCATION("warmelt-base.melt:3397:/ cond");
-        /*cond*/
-        if (/*_#IS_A__L4*/ meltfnum[3]) /*then*/
+        MELT_LOCATION("warmelt-base.melt:3442:/ cond");
+        /*cond*/ if (/*_#IS_A__L4*/ meltfnum[3]) /*then*/
             {
                 /*^cond.then*/
                 /*^block*/
@@ -3899,20 +3546,18 @@ meltlab_endgetargs:
 
 
                     {
-                        MELT_LOCATION("warmelt-base.melt:3398:/ locexp");
-                        /*void*/
-                        (void)0;
+                        MELT_LOCATION("warmelt-base.melt:3443:/ locexp");
+                        /*void*/(void)0;
                     }
                     ;
-                    /*clear*/ /*_._IFELSE___V11*/
-                    meltfptr[9] = 0 ;
+                    /*clear*/ /*_._IFELSE___V11*/ meltfptr[9] = 0 ;
                     /*epilog*/
                 }
                 ;
             }
         else
             {
-                MELT_LOCATION("warmelt-base.melt:3397:/ cond.else");
+                MELT_LOCATION("warmelt-base.melt:3442:/ cond.else");
 
                 /*^block*/
                 /*anyblock*/
@@ -3921,14 +3566,13 @@ meltlab_endgetargs:
 
                     MELT_CHECK_SIGNAL();
                     ;
-                    MELT_LOCATION("warmelt-base.melt:3399:/ quasiblock");
+                    MELT_LOCATION("warmelt-base.melt:3444:/ quasiblock");
 
 
-                    /*_._RETVAL___V1*/
-                    meltfptr[0] = (/*nil*/NULL);;
+                    /*_._RETVAL___V1*/ meltfptr[0] = (/*nil*/NULL);;
 
                     {
-                        MELT_LOCATION("warmelt-base.melt:3399:/ locexp");
+                        MELT_LOCATION("warmelt-base.melt:3444:/ locexp");
                         /*ochecknores compilobj_nrep_return*/
 #if MELT_HAVE_DEBUG
                         if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
@@ -3940,22 +3584,19 @@ meltlab_endgetargs:
                     ;
                     /*^finalreturn*/
                     ;
-                    /*finalret*/
-                    goto meltlabend_rout ;
-                    /*_._IFELSE___V11*/
-                    meltfptr[9] = /*_.RETURN___V12*/ meltfptr[11];;
+                    /*finalret*/ goto meltlabend_rout ;
+                    /*_._IFELSE___V11*/ meltfptr[9] = /*_.RETURN___V12*/ meltfptr[11];;
                     /*epilog*/
 
-                    MELT_LOCATION("warmelt-base.melt:3397:/ clear");
-                    /*clear*/ /*_.RETURN___V12*/
-                    meltfptr[11] = 0 ;
+                    MELT_LOCATION("warmelt-base.melt:3442:/ clear");
+                    /*clear*/ /*_.RETURN___V12*/ meltfptr[11] = 0 ;
                 }
                 ;
             }
         ;
 
         {
-            MELT_LOCATION("warmelt-base.melt:3400:/ locexp");
+            MELT_LOCATION("warmelt-base.melt:3445:/ locexp");
             /* multiple_sort DBGMULSORTDISCRIM_CHK__1 */
             debugeprintf ("multiple_sort DBGMULSORTDISCRIM_CHK__1 dis=%p of magic %d",
                           (void*)/*_.DIS__V4*/ meltfptr[3], melt_magic_discr(/*_.DIS__V4*/ meltfptr[3]));
@@ -3965,13 +3606,11 @@ meltlab_endgetargs:
 
         MELT_CHECK_SIGNAL();
         ;
-        /*_#CHECKMAGIC_CHK__L5*/
-        meltfnum[4] =
+        /*_#CHECKMAGIC_CHK__L5*/ meltfnum[4] =
             /* multiple_sort CHECKMAGIC_CHK__1 */
             (((meltobject_ptr_t)(/*_.DIS__V4*/ meltfptr[3]))->meltobj_magic == MELTOBMAG_MULTIPLE) ;;
-        MELT_LOCATION("warmelt-base.melt:3406:/ cond");
-        /*cond*/
-        if (/*_#CHECKMAGIC_CHK__L5*/ meltfnum[4]) /*then*/
+        MELT_LOCATION("warmelt-base.melt:3451:/ cond");
+        /*cond*/ if (/*_#CHECKMAGIC_CHK__L5*/ meltfnum[4]) /*then*/
             {
                 /*^cond.then*/
                 /*^block*/
@@ -3982,20 +3621,18 @@ meltlab_endgetargs:
 
 
                     {
-                        MELT_LOCATION("warmelt-base.melt:3409:/ locexp");
-                        /*void*/
-                        (void)0;
+                        MELT_LOCATION("warmelt-base.melt:3454:/ locexp");
+                        /*void*/(void)0;
                     }
                     ;
-                    /*clear*/ /*_._IFELSE___V13*/
-                    meltfptr[11] = 0 ;
+                    /*clear*/ /*_._IFELSE___V13*/ meltfptr[11] = 0 ;
                     /*epilog*/
                 }
                 ;
             }
         else
             {
-                MELT_LOCATION("warmelt-base.melt:3406:/ cond.else");
+                MELT_LOCATION("warmelt-base.melt:3451:/ cond.else");
 
                 /*^block*/
                 /*anyblock*/
@@ -4004,14 +3641,13 @@ meltlab_endgetargs:
 
                     MELT_CHECK_SIGNAL();
                     ;
-                    MELT_LOCATION("warmelt-base.melt:3410:/ quasiblock");
+                    MELT_LOCATION("warmelt-base.melt:3455:/ quasiblock");
 
 
-                    /*_._RETVAL___V1*/
-                    meltfptr[0] = (/*nil*/NULL);;
+                    /*_._RETVAL___V1*/ meltfptr[0] = (/*nil*/NULL);;
 
                     {
-                        MELT_LOCATION("warmelt-base.melt:3410:/ locexp");
+                        MELT_LOCATION("warmelt-base.melt:3455:/ locexp");
                         /*ochecknores compilobj_nrep_return*/
 #if MELT_HAVE_DEBUG
                         if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
@@ -4023,46 +3659,40 @@ meltlab_endgetargs:
                     ;
                     /*^finalreturn*/
                     ;
-                    /*finalret*/
-                    goto meltlabend_rout ;
-                    /*_._IFELSE___V13*/
-                    meltfptr[11] = /*_.RETURN___V14*/ meltfptr[13];;
+                    /*finalret*/ goto meltlabend_rout ;
+                    /*_._IFELSE___V13*/ meltfptr[11] = /*_.RETURN___V14*/ meltfptr[13];;
                     /*epilog*/
 
-                    MELT_LOCATION("warmelt-base.melt:3406:/ clear");
-                    /*clear*/ /*_.RETURN___V14*/
-                    meltfptr[13] = 0 ;
+                    MELT_LOCATION("warmelt-base.melt:3451:/ clear");
+                    /*clear*/ /*_.RETURN___V14*/ meltfptr[13] = 0 ;
                 }
                 ;
             }
         ;
-        MELT_LOCATION("warmelt-base.melt:3411:/ quasiblock");
+        MELT_LOCATION("warmelt-base.melt:3456:/ quasiblock");
 
 
-        /*_#TUPLEN__L6*/
-        meltfnum[5] =
+        /*_#TUPLEN__L6*/ meltfnum[5] =
             (melt_multiple_length((melt_ptr_t)(/*_.MUL__V2*/ meltfptr[1])));;
 
         {
-            MELT_LOCATION("warmelt-base.melt:3413:/ locexp");
+            MELT_LOCATION("warmelt-base.melt:3458:/ locexp");
             /* multiple_sort DBGMULSORT_CHK__1 */
             debugeprintf ("multiple_sort DBGMULSORT_CHK__1 tuplen=%ld", /*_#TUPLEN__L6*/ meltfnum[5]);
             ;
         }
         ;
-        MELT_LOCATION("warmelt-base.melt:3418:/ quasiblock");
+        MELT_LOCATION("warmelt-base.melt:3463:/ quasiblock");
 
 
-        /*_.RES__V17*/
-        meltfptr[16] =
+        /*_.RES__V17*/ meltfptr[16] =
             (meltgc_new_multiple((meltobject_ptr_t)(/*_.DIS__V4*/ meltfptr[3]), (/*_#TUPLEN__L6*/ meltfnum[5])));;
         /*^compute*/
-        /*_#RESLEN__L7*/
-        meltfnum[6] =
+        /*_#RESLEN__L7*/ meltfnum[6] =
             (melt_multiple_length((melt_ptr_t)(/*_.RES__V17*/ meltfptr[16])));;
 
         {
-            MELT_LOCATION("warmelt-base.melt:3422:/ locexp");
+            MELT_LOCATION("warmelt-base.melt:3467:/ locexp");
             /* multiple_sort SORTRES_CHK__1 start */
             melt_assertmsg ("check that MUL is multiple when starting multiple_sort",
                             melt_magic_discr (/*_.MUL__V2*/ meltfptr[1]) == MELTOBMAG_MULTIPLE) ;
@@ -4098,7 +3728,7 @@ meltlab_endgetargs:
         ;
 
 #if MELT_HAVE_DEBUG
-        MELT_LOCATION("warmelt-base.melt:3454:/ cppif.then");
+        MELT_LOCATION("warmelt-base.melt:3499:/ cppif.then");
         /*^block*/
         /*anyblock*/
         {
@@ -4106,19 +3736,17 @@ meltlab_endgetargs:
 
             MELT_CHECK_SIGNAL();
             ;
-            /*_#IS_MULTIPLE__L8*/
-            meltfnum[7] =
+            /*_#IS_MULTIPLE__L8*/ meltfnum[7] =
                 (melt_magic_discr((melt_ptr_t)(/*_.RES__V17*/ meltfptr[16])) == MELTOBMAG_MULTIPLE);;
-            MELT_LOCATION("warmelt-base.melt:3454:/ cond");
-            /*cond*/
-            if (/*_#IS_MULTIPLE__L8*/ meltfnum[7]) /*then*/
+            MELT_LOCATION("warmelt-base.melt:3499:/ cond");
+            /*cond*/ if (/*_#IS_MULTIPLE__L8*/ meltfnum[7]) /*then*/
                 {
                     /*^cond.then*/
                     /*_._IFELSE___V19*/ meltfptr[18] = (/*nil*/NULL);;
                 }
             else
                 {
-                    MELT_LOCATION("warmelt-base.melt:3454:/ cond.else");
+                    MELT_LOCATION("warmelt-base.melt:3499:/ cond.else");
 
                     /*^block*/
                     /*anyblock*/
@@ -4137,34 +3765,28 @@ meltlab_endgetargs:
                             /*^apply.arg*/
                             argtab[1].meltbp_cstring =  "warmelt-base.melt";
                             /*^apply.arg*/
-                            argtab[2].meltbp_long = 3454;
+                            argtab[2].meltbp_long = 3499;
                             /*^apply.arg*/
                             argtab[3].meltbp_aptr = (melt_ptr_t*) &/*_.RES__V17*/ meltfptr[16];
-                            /*_.MELT_ASSERT_FAILURE_FUN__V20*/
-                            meltfptr[19] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_ASSERT_FAILURE_FUN*/ meltfrout->tabval[2])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
+                            /*_.MELT_ASSERT_FAILURE_FUN__V20*/ meltfptr[19] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_ASSERT_FAILURE_FUN*/ meltfrout->tabval[2])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
                         }
                         ;
-                        /*_._IFELSE___V19*/
-                        meltfptr[18] = /*_.MELT_ASSERT_FAILURE_FUN__V20*/ meltfptr[19];;
+                        /*_._IFELSE___V19*/ meltfptr[18] = /*_.MELT_ASSERT_FAILURE_FUN__V20*/ meltfptr[19];;
                         /*epilog*/
 
-                        MELT_LOCATION("warmelt-base.melt:3454:/ clear");
-                        /*clear*/ /*_.MELT_ASSERT_FAILURE_FUN__V20*/
-                        meltfptr[19] = 0 ;
+                        MELT_LOCATION("warmelt-base.melt:3499:/ clear");
+                        /*clear*/ /*_.MELT_ASSERT_FAILURE_FUN__V20*/ meltfptr[19] = 0 ;
                     }
                     ;
                 }
             ;
-            /*_.IFCPP___V18*/
-            meltfptr[17] = /*_._IFELSE___V19*/ meltfptr[18];;
+            /*_.IFCPP___V18*/ meltfptr[17] = /*_._IFELSE___V19*/ meltfptr[18];;
             /*epilog*/
 
-            MELT_LOCATION("warmelt-base.melt:3454:/ clear");
-            /*clear*/ /*_#IS_MULTIPLE__L8*/
-            meltfnum[7] = 0 ;
+            MELT_LOCATION("warmelt-base.melt:3499:/ clear");
+            /*clear*/ /*_#IS_MULTIPLE__L8*/ meltfnum[7] = 0 ;
             /*^clear*/
-            /*clear*/ /*_._IFELSE___V19*/
-            meltfptr[18] = 0 ;
+            /*clear*/ /*_._IFELSE___V19*/ meltfptr[18] = 0 ;
         }
 
 #else /*MELT_HAVE_DEBUG*/
@@ -4175,14 +3797,13 @@ meltlab_endgetargs:
 
         MELT_CHECK_SIGNAL();
         ;
-        MELT_LOCATION("warmelt-base.melt:3456:/ quasiblock");
+        MELT_LOCATION("warmelt-base.melt:3501:/ quasiblock");
 
 
-        /*_._RETVAL___V1*/
-        meltfptr[0] = /*_.RES__V17*/ meltfptr[16];;
+        /*_._RETVAL___V1*/ meltfptr[0] = /*_.RES__V17*/ meltfptr[16];;
 
         {
-            MELT_LOCATION("warmelt-base.melt:3456:/ locexp");
+            MELT_LOCATION("warmelt-base.melt:3501:/ locexp");
             /*ochecknores compilobj_nrep_return*/
 #if MELT_HAVE_DEBUG
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
@@ -4194,43 +3815,33 @@ meltlab_endgetargs:
         ;
         /*^finalreturn*/
         ;
-        /*finalret*/
-        goto meltlabend_rout ;
-        /*_.LET___V16*/
-        meltfptr[15] = /*_.RETURN___V21*/ meltfptr[19];;
+        /*finalret*/ goto meltlabend_rout ;
+        /*_.LET___V16*/ meltfptr[15] = /*_.RETURN___V21*/ meltfptr[19];;
 
-        MELT_LOCATION("warmelt-base.melt:3418:/ clear");
-        /*clear*/ /*_.RES__V17*/
-        meltfptr[16] = 0 ;
+        MELT_LOCATION("warmelt-base.melt:3463:/ clear");
+        /*clear*/ /*_.RES__V17*/ meltfptr[16] = 0 ;
         /*^clear*/
-        /*clear*/ /*_#RESLEN__L7*/
-        meltfnum[6] = 0 ;
+        /*clear*/ /*_#RESLEN__L7*/ meltfnum[6] = 0 ;
         /*^clear*/
-        /*clear*/ /*_.IFCPP___V18*/
-        meltfptr[17] = 0 ;
+        /*clear*/ /*_.IFCPP___V18*/ meltfptr[17] = 0 ;
         /*^clear*/
-        /*clear*/ /*_.RETURN___V21*/
-        meltfptr[19] = 0 ;
-        /*_.LET___V15*/
-        meltfptr[13] = /*_.LET___V16*/ meltfptr[15];;
+        /*clear*/ /*_.RETURN___V21*/ meltfptr[19] = 0 ;
+        /*_.LET___V15*/ meltfptr[13] = /*_.LET___V16*/ meltfptr[15];;
 
-        MELT_LOCATION("warmelt-base.melt:3411:/ clear");
-        /*clear*/ /*_#TUPLEN__L6*/
-        meltfnum[5] = 0 ;
+        MELT_LOCATION("warmelt-base.melt:3456:/ clear");
+        /*clear*/ /*_#TUPLEN__L6*/ meltfnum[5] = 0 ;
         /*^clear*/
-        /*clear*/ /*_.LET___V16*/
-        meltfptr[15] = 0 ;
+        /*clear*/ /*_.LET___V16*/ meltfptr[15] = 0 ;
 
         MELT_CHECK_SIGNAL();
         ;
-        MELT_LOCATION("warmelt-base.melt:3379:/ quasiblock");
+        MELT_LOCATION("warmelt-base.melt:3424:/ quasiblock");
 
 
-        /*_._RETVAL___V1*/
-        meltfptr[0] = /*_.LET___V15*/ meltfptr[13];;
+        /*_._RETVAL___V1*/ meltfptr[0] = /*_.LET___V15*/ meltfptr[13];;
 
         {
-            MELT_LOCATION("warmelt-base.melt:3379:/ locexp");
+            MELT_LOCATION("warmelt-base.melt:3424:/ locexp");
             /*ochecknores compilobj_nrep_return*/
 #if MELT_HAVE_DEBUG
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
@@ -4242,43 +3853,31 @@ meltlab_endgetargs:
         ;
         /*^finalreturn*/
         ;
-        /*finalret*/
-        goto meltlabend_rout ;
+        /*finalret*/ goto meltlabend_rout ;
         /*epilog*/
 
         /*^clear*/
-        /*clear*/ /*_#IS_MULTIPLE__L1*/
-        meltfnum[0] = 0 ;
+        /*clear*/ /*_#IS_MULTIPLE__L1*/ meltfnum[0] = 0 ;
         /*^clear*/
-        /*clear*/ /*_._IFELSE___V5*/
-        meltfptr[4] = 0 ;
+        /*clear*/ /*_._IFELSE___V5*/ meltfptr[4] = 0 ;
         /*^clear*/
-        /*clear*/ /*_#IS_CLOSURE__L2*/
-        meltfnum[1] = 0 ;
+        /*clear*/ /*_#IS_CLOSURE__L2*/ meltfnum[1] = 0 ;
         /*^clear*/
-        /*clear*/ /*_._IFELSE___V7*/
-        meltfptr[5] = 0 ;
+        /*clear*/ /*_._IFELSE___V7*/ meltfptr[5] = 0 ;
         /*^clear*/
-        /*clear*/ /*_#NULL__L3*/
-        meltfnum[2] = 0 ;
+        /*clear*/ /*_#NULL__L3*/ meltfnum[2] = 0 ;
         /*^clear*/
-        /*clear*/ /*_._IF___V9*/
-        meltfptr[7] = 0 ;
+        /*clear*/ /*_._IF___V9*/ meltfptr[7] = 0 ;
         /*^clear*/
-        /*clear*/ /*_#IS_A__L4*/
-        meltfnum[3] = 0 ;
+        /*clear*/ /*_#IS_A__L4*/ meltfnum[3] = 0 ;
         /*^clear*/
-        /*clear*/ /*_._IFELSE___V11*/
-        meltfptr[9] = 0 ;
+        /*clear*/ /*_._IFELSE___V11*/ meltfptr[9] = 0 ;
         /*^clear*/
-        /*clear*/ /*_#CHECKMAGIC_CHK__L5*/
-        meltfnum[4] = 0 ;
+        /*clear*/ /*_#CHECKMAGIC_CHK__L5*/ meltfnum[4] = 0 ;
         /*^clear*/
-        /*clear*/ /*_._IFELSE___V13*/
-        meltfptr[11] = 0 ;
+        /*clear*/ /*_._IFELSE___V13*/ meltfptr[11] = 0 ;
         /*^clear*/
-        /*clear*/ /*_.LET___V15*/
-        meltfptr[13] = 0 ;
+        /*clear*/ /*_.LET___V15*/ meltfptr[13] = 0 ;
     }
 
     ;
@@ -4359,8 +3958,7 @@ meltrout_35_WARMELTmiBASE_MAPOBJECT_SORTED_ATTRIBUTE_TUPLE(meltclosure_ptr_t mel
 
     /* end of frame for routine meltrout_35_WARMELTmiBASE_MAPOBJECT_SORTED_ATTRIBUTE_TUPLE fromline 1719 */
 
-    /* classy proc frame meltrout_35_WARMELTmiBASE_MAPOBJECT_SORTED_ATTRIBUTE_TUPLE */
-    MeltFrame_meltrout_35_WARMELTmiBASE_MAPOBJECT_SORTED_ATTRIBUTE_TUPLE
+    /* classy proc frame meltrout_35_WARMELTmiBASE_MAPOBJECT_SORTED_ATTRIBUTE_TUPLE */ MeltFrame_meltrout_35_WARMELTmiBASE_MAPOBJECT_SORTED_ATTRIBUTE_TUPLE
     meltfram__ /*declfrastruct fromline 1743*/
     /*classyprocarg meltrout_35_WARMELTmiBASE_MAPOBJECT_SORTED_ATTRIBUTE_TUPLE fromline 1748*/
 #if ENABLE_CHECKING
@@ -4373,8 +3971,7 @@ meltrout_35_WARMELTmiBASE_MAPOBJECT_SORTED_ATTRIBUTE_TUPLE(meltclosure_ptr_t mel
 #define meltframe meltfram__
 
     melt_trace_start("MAPOBJECT_SORTED_ATTRIBUTE_TUPLE", meltcallcount);
-    /*use arguments*/
-    (void) meltclosp_;
+    /*use arguments*/ (void) meltclosp_;
     (void)meltfirstargp_;
     (void)meltxargdescr_;
     (void)meltxargtab_;
@@ -4383,9 +3980,8 @@ meltrout_35_WARMELTmiBASE_MAPOBJECT_SORTED_ATTRIBUTE_TUPLE(meltclosure_ptr_t mel
     /*getargs*/
 
     /*getarg#0*/
-    MELT_LOCATION("warmelt-base.melt:3461:/ getarg");
-    /*_.MAPO__V2*/
-    meltfptr[1] = (melt_ptr_t) meltfirstargp_;
+    MELT_LOCATION("warmelt-base.melt:3506:/ getarg");
+    /*_.MAPO__V2*/ meltfptr[1] = (melt_ptr_t) meltfirstargp_;
     ;
     goto meltlab_endgetargs;
 meltlab_endgetargs:
@@ -4395,38 +3991,31 @@ meltlab_endgetargs:
     /*anyblock*/
     {
 
-        MELT_LOCATION("warmelt-base.melt:3464:/ quasiblock");
+        MELT_LOCATION("warmelt-base.melt:3509:/ quasiblock");
 
 
-        /*_#MAPCOUNT__L1*/
-        meltfnum[0] =
+        /*_#MAPCOUNT__L1*/ meltfnum[0] =
             (melt_count_mapobjects((meltmapobjects_ptr_t)(/*_.MAPO__V2*/ meltfptr[1])));;
         /*^compute*/
-        /*_.COUNTBOX__V4*/
-        meltfptr[3] =
+        /*_.COUNTBOX__V4*/ meltfptr[3] =
             (meltgc_new_int((meltobject_ptr_t)((/*!DISCR_INTEGER*/ meltfrout->tabval[0])), (0)));;
         /*^compute*/
-        /*_.BOXEDONE__V5*/
-        meltfptr[4] =
+        /*_.BOXEDONE__V5*/ meltfptr[4] =
             (meltgc_new_int((meltobject_ptr_t)((/*!DISCR_INTEGER*/ meltfrout->tabval[0])), (1)));;
         /*^compute*/
-        /*_.BOXEDZERO__V6*/
-        meltfptr[5] =
+        /*_.BOXEDZERO__V6*/ meltfptr[5] =
             (meltgc_new_int((meltobject_ptr_t)((/*!DISCR_INTEGER*/ meltfrout->tabval[0])), (0)));;
         /*^compute*/
-        /*_.BOXEDMINUSONE__V7*/
-        meltfptr[6] =
+        /*_.BOXEDMINUSONE__V7*/ meltfptr[6] =
             (meltgc_new_int((meltobject_ptr_t)((/*!DISCR_INTEGER*/ meltfrout->tabval[0])), (-1)));;
         /*^compute*/
-        /*_.TUPL__V8*/
-        meltfptr[7] =
+        /*_.TUPL__V8*/ meltfptr[7] =
             (meltgc_new_multiple((meltobject_ptr_t)((/*!DISCR_MULTIPLE*/ meltfrout->tabval[1])), (/*_#MAPCOUNT__L1*/ meltfnum[0])));;
-        MELT_LOCATION("warmelt-base.melt:3475:/ quasiblock");
+        MELT_LOCATION("warmelt-base.melt:3520:/ quasiblock");
 
 
         /*^newclosure*/
-        /*newclosure*/ /*_.LAMBDA___V10*/
-        meltfptr[9] =
+        /*newclosure*/ /*_.LAMBDA___V10*/ meltfptr[9] =
             (melt_ptr_t) meltgc_new_closure((meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_CLOSURE)))), (meltroutine_ptr_t)((/*!konst_4*/ meltfrout->tabval[4])), (2));
         ;
         /*^putclosedv*/
@@ -4441,31 +4030,28 @@ meltlab_endgetargs:
         melt_assertmsg("putclosv checkoff", 1>= 0 && 1< melt_closure_size((melt_ptr_t) (/*_.LAMBDA___V10*/ meltfptr[9])));
         ((meltclosure_ptr_t)/*_.LAMBDA___V10*/ meltfptr[9])->tabval[1] = (melt_ptr_t)(/*_.TUPL__V8*/ meltfptr[7]);
         ;
-        /*_.LAMBDA___V9*/
-        meltfptr[8] = /*_.LAMBDA___V10*/ meltfptr[9];;
+        /*_.LAMBDA___V9*/ meltfptr[8] = /*_.LAMBDA___V10*/ meltfptr[9];;
 
         MELT_CHECK_SIGNAL();
         ;
-        MELT_LOCATION("warmelt-base.melt:3473:/ apply");
+        MELT_LOCATION("warmelt-base.melt:3518:/ apply");
         /*apply*/
         {
             union meltparam_un argtab[1];
             memset(&argtab, 0, sizeof(argtab));
             /*^apply.arg*/
             argtab[0].meltbp_aptr = (melt_ptr_t*) &/*_.LAMBDA___V9*/ meltfptr[8];
-            /*_.MAPOBJECT_EVERY__V11*/
-            meltfptr[10] =  melt_apply ((meltclosure_ptr_t)((/*!MAPOBJECT_EVERY*/ meltfrout->tabval[2])), (melt_ptr_t)(/*_.MAPO__V2*/ meltfptr[1]), (MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
+            /*_.MAPOBJECT_EVERY__V11*/ meltfptr[10] =  melt_apply ((meltclosure_ptr_t)((/*!MAPOBJECT_EVERY*/ meltfrout->tabval[2])), (melt_ptr_t)(/*_.MAPO__V2*/ meltfptr[1]), (MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
         }
         ;
-        MELT_LOCATION("warmelt-base.melt:3484:/ quasiblock");
+        MELT_LOCATION("warmelt-base.melt:3529:/ quasiblock");
 
 
-        MELT_LOCATION("warmelt-base.melt:3487:/ quasiblock");
+        MELT_LOCATION("warmelt-base.melt:3532:/ quasiblock");
 
 
         /*^newclosure*/
-        /*newclosure*/ /*_.LAMBDA___V14*/
-        meltfptr[13] =
+        /*newclosure*/ /*_.LAMBDA___V14*/ meltfptr[13] =
             (melt_ptr_t) meltgc_new_closure((meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_CLOSURE)))), (meltroutine_ptr_t)((/*!konst_7*/ meltfrout->tabval[7])), (3));
         ;
         /*^putclosedv*/
@@ -4486,12 +4072,11 @@ meltlab_endgetargs:
         melt_assertmsg("putclosv checkoff", 2>= 0 && 2< melt_closure_size((melt_ptr_t) (/*_.LAMBDA___V14*/ meltfptr[13])));
         ((meltclosure_ptr_t)/*_.LAMBDA___V14*/ meltfptr[13])->tabval[2] = (melt_ptr_t)(/*_.BOXEDONE__V5*/ meltfptr[4]);
         ;
-        /*_.LAMBDA___V13*/
-        meltfptr[12] = /*_.LAMBDA___V14*/ meltfptr[13];;
+        /*_.LAMBDA___V13*/ meltfptr[12] = /*_.LAMBDA___V14*/ meltfptr[13];;
 
         MELT_CHECK_SIGNAL();
         ;
-        MELT_LOCATION("warmelt-base.melt:3485:/ apply");
+        MELT_LOCATION("warmelt-base.melt:3530:/ apply");
         /*apply*/
         {
             union meltparam_un argtab[2];
@@ -4500,87 +4085,67 @@ meltlab_endgetargs:
             argtab[0].meltbp_aptr = (melt_ptr_t*) &/*_.LAMBDA___V13*/ meltfptr[12];
             /*^apply.arg*/
             argtab[1].meltbp_aptr = (melt_ptr_t*) &(/*!DISCR_MULTIPLE*/ meltfrout->tabval[1]);
-            /*_.SORTUPL__V15*/
-            meltfptr[14] =  melt_apply ((meltclosure_ptr_t)((/*!MULTIPLE_SORT*/ meltfrout->tabval[5])), (melt_ptr_t)(/*_.TUPL__V8*/ meltfptr[7]), (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
+            /*_.SORTUPL__V15*/ meltfptr[14] =  melt_apply ((meltclosure_ptr_t)((/*!MULTIPLE_SORT*/ meltfrout->tabval[5])), (melt_ptr_t)(/*_.TUPL__V8*/ meltfptr[7]), (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
         }
         ;
-        MELT_LOCATION("warmelt-base.melt:3501:/ quasiblock");
+        MELT_LOCATION("warmelt-base.melt:3546:/ quasiblock");
 
 
         /*^newclosure*/
-        /*newclosure*/ /*_.LAMBDA___V17*/
-        meltfptr[16] =
+        /*newclosure*/ /*_.LAMBDA___V17*/ meltfptr[16] =
             (melt_ptr_t) meltgc_new_closure((meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_CLOSURE)))), (meltroutine_ptr_t)((/*!konst_9*/ meltfrout->tabval[9])), (0));
         ;
-        /*_.LAMBDA___V16*/
-        meltfptr[15] = /*_.LAMBDA___V17*/ meltfptr[16];;
+        /*_.LAMBDA___V16*/ meltfptr[15] = /*_.LAMBDA___V17*/ meltfptr[16];;
 
         MELT_CHECK_SIGNAL();
         ;
-        MELT_LOCATION("warmelt-base.melt:3501:/ apply");
+        MELT_LOCATION("warmelt-base.melt:3546:/ apply");
         /*apply*/
         {
             union meltparam_un argtab[1];
             memset(&argtab, 0, sizeof(argtab));
             /*^apply.arg*/
             argtab[0].meltbp_aptr = (melt_ptr_t*) &/*_.LAMBDA___V16*/ meltfptr[15];
-            /*_.MULTIPLE_MAP__V18*/
-            meltfptr[17] =  melt_apply ((meltclosure_ptr_t)((/*!MULTIPLE_MAP*/ meltfrout->tabval[8])), (melt_ptr_t)(/*_.SORTUPL__V15*/ meltfptr[14]), (MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
+            /*_.MULTIPLE_MAP__V18*/ meltfptr[17] =  melt_apply ((meltclosure_ptr_t)((/*!MULTIPLE_MAP*/ meltfrout->tabval[8])), (melt_ptr_t)(/*_.SORTUPL__V15*/ meltfptr[14]), (MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
         }
         ;
-        /*_.LET___V12*/
-        meltfptr[11] = /*_.MULTIPLE_MAP__V18*/ meltfptr[17];;
+        /*_.LET___V12*/ meltfptr[11] = /*_.MULTIPLE_MAP__V18*/ meltfptr[17];;
 
-        MELT_LOCATION("warmelt-base.melt:3484:/ clear");
-        /*clear*/ /*_.LAMBDA___V13*/
-        meltfptr[12] = 0 ;
+        MELT_LOCATION("warmelt-base.melt:3529:/ clear");
+        /*clear*/ /*_.LAMBDA___V13*/ meltfptr[12] = 0 ;
         /*^clear*/
-        /*clear*/ /*_.SORTUPL__V15*/
-        meltfptr[14] = 0 ;
+        /*clear*/ /*_.SORTUPL__V15*/ meltfptr[14] = 0 ;
         /*^clear*/
-        /*clear*/ /*_.LAMBDA___V16*/
-        meltfptr[15] = 0 ;
+        /*clear*/ /*_.LAMBDA___V16*/ meltfptr[15] = 0 ;
         /*^clear*/
-        /*clear*/ /*_.MULTIPLE_MAP__V18*/
-        meltfptr[17] = 0 ;
-        /*_.LET___V3*/
-        meltfptr[2] = /*_.LET___V12*/ meltfptr[11];;
+        /*clear*/ /*_.MULTIPLE_MAP__V18*/ meltfptr[17] = 0 ;
+        /*_.LET___V3*/ meltfptr[2] = /*_.LET___V12*/ meltfptr[11];;
 
-        MELT_LOCATION("warmelt-base.melt:3464:/ clear");
-        /*clear*/ /*_#MAPCOUNT__L1*/
-        meltfnum[0] = 0 ;
+        MELT_LOCATION("warmelt-base.melt:3509:/ clear");
+        /*clear*/ /*_#MAPCOUNT__L1*/ meltfnum[0] = 0 ;
         /*^clear*/
-        /*clear*/ /*_.COUNTBOX__V4*/
-        meltfptr[3] = 0 ;
+        /*clear*/ /*_.COUNTBOX__V4*/ meltfptr[3] = 0 ;
         /*^clear*/
-        /*clear*/ /*_.BOXEDONE__V5*/
-        meltfptr[4] = 0 ;
+        /*clear*/ /*_.BOXEDONE__V5*/ meltfptr[4] = 0 ;
         /*^clear*/
-        /*clear*/ /*_.BOXEDZERO__V6*/
-        meltfptr[5] = 0 ;
+        /*clear*/ /*_.BOXEDZERO__V6*/ meltfptr[5] = 0 ;
         /*^clear*/
-        /*clear*/ /*_.BOXEDMINUSONE__V7*/
-        meltfptr[6] = 0 ;
+        /*clear*/ /*_.BOXEDMINUSONE__V7*/ meltfptr[6] = 0 ;
         /*^clear*/
-        /*clear*/ /*_.TUPL__V8*/
-        meltfptr[7] = 0 ;
+        /*clear*/ /*_.TUPL__V8*/ meltfptr[7] = 0 ;
         /*^clear*/
-        /*clear*/ /*_.LAMBDA___V9*/
-        meltfptr[8] = 0 ;
+        /*clear*/ /*_.LAMBDA___V9*/ meltfptr[8] = 0 ;
         /*^clear*/
-        /*clear*/ /*_.MAPOBJECT_EVERY__V11*/
-        meltfptr[10] = 0 ;
+        /*clear*/ /*_.MAPOBJECT_EVERY__V11*/ meltfptr[10] = 0 ;
         /*^clear*/
-        /*clear*/ /*_.LET___V12*/
-        meltfptr[11] = 0 ;
-        MELT_LOCATION("warmelt-base.melt:3461:/ quasiblock");
+        /*clear*/ /*_.LET___V12*/ meltfptr[11] = 0 ;
+        MELT_LOCATION("warmelt-base.melt:3506:/ quasiblock");
 
 
-        /*_._RETVAL___V1*/
-        meltfptr[0] = /*_.LET___V3*/ meltfptr[2];;
+        /*_._RETVAL___V1*/ meltfptr[0] = /*_.LET___V3*/ meltfptr[2];;
 
         {
-            MELT_LOCATION("warmelt-base.melt:3461:/ locexp");
+            MELT_LOCATION("warmelt-base.melt:3506:/ locexp");
             /*ochecknores compilobj_nrep_return*/
 #if MELT_HAVE_DEBUG
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
@@ -4592,13 +4157,11 @@ meltlab_endgetargs:
         ;
         /*^finalreturn*/
         ;
-        /*finalret*/
-        goto meltlabend_rout ;
+        /*finalret*/ goto meltlabend_rout ;
         /*epilog*/
 
         /*^clear*/
-        /*clear*/ /*_.LET___V3*/
-        meltfptr[2] = 0 ;
+        /*clear*/ /*_.LET___V3*/ meltfptr[2] = 0 ;
     }
 
     ;
@@ -4679,8 +4242,7 @@ meltrout_36_WARMELTmiBASE_LAMBDA_cl1(meltclosure_ptr_t meltclosp_, melt_ptr_t me
 
     /* end of frame for routine meltrout_36_WARMELTmiBASE_LAMBDA_cl1 fromline 1719 */
 
-    /* classy proc frame meltrout_36_WARMELTmiBASE_LAMBDA_cl1 */
-    MeltFrame_meltrout_36_WARMELTmiBASE_LAMBDA_cl1
+    /* classy proc frame meltrout_36_WARMELTmiBASE_LAMBDA_cl1 */ MeltFrame_meltrout_36_WARMELTmiBASE_LAMBDA_cl1
     meltfram__ /*declfrastruct fromline 1743*/
     /*classyprocarg meltrout_36_WARMELTmiBASE_LAMBDA_cl1 fromline 1748*/
 #if ENABLE_CHECKING
@@ -4693,8 +4255,7 @@ meltrout_36_WARMELTmiBASE_LAMBDA_cl1(meltclosure_ptr_t meltclosp_, melt_ptr_t me
 #define meltframe meltfram__
 
     melt_trace_start("LAMBDA_cl1", meltcallcount);
-    /*use arguments*/
-    (void) meltclosp_;
+    /*use arguments*/ (void) meltclosp_;
     (void)meltfirstargp_;
     (void)meltxargdescr_;
     (void)meltxargtab_;
@@ -4703,15 +4264,13 @@ meltrout_36_WARMELTmiBASE_LAMBDA_cl1(meltclosure_ptr_t meltclosp_, melt_ptr_t me
     /*getargs*/
 
     /*getarg#0*/
-    MELT_LOCATION("warmelt-base.melt:3475:/ getarg");
-    /*_.AT__V2*/
-    meltfptr[1] = (melt_ptr_t) meltfirstargp_;
+    MELT_LOCATION("warmelt-base.melt:3520:/ getarg");
+    /*_.AT__V2*/ meltfptr[1] = (melt_ptr_t) meltfirstargp_;
 
     /*getarg#1*/
     /*^getarg*/
     if (meltxargdescr_[0] != MELTBPAR_PTR) goto meltlab_endgetargs;
-    /*_.VA__V3*/
-    meltfptr[2] = (meltxargtab_[0].meltbp_aptr) ? (*(meltxargtab_[0].meltbp_aptr)) : NULL;
+    /*_.VA__V3*/ meltfptr[2] = (meltxargtab_[0].meltbp_aptr) ? (*(meltxargtab_[0].meltbp_aptr)) : NULL;
     gcc_assert(melt_discr((melt_ptr_t)(/*_.VA__V3*/ meltfptr[2])) != NULL);
 
     ;
@@ -4723,17 +4282,15 @@ meltlab_endgetargs:
     /*anyblock*/
     {
 
-        MELT_LOCATION("warmelt-base.melt:3476:/ quasiblock");
+        MELT_LOCATION("warmelt-base.melt:3521:/ quasiblock");
 
 
-        /*_#CURCOUNT__L1*/
-        meltfnum[0] =
+        /*_#CURCOUNT__L1*/ meltfnum[0] =
             (melt_get_int((melt_ptr_t)((/*~COUNTBOX*/ meltfclos->tabval[0]))));;
         /*^compute*/
-        /*_.MAKE_INTEGERBOX__V4*/
-        meltfptr[3] =
+        /*_.MAKE_INTEGERBOX__V4*/ meltfptr[3] =
             (meltgc_new_int((meltobject_ptr_t)((/*!DISCR_INTEGER*/ meltfrout->tabval[0])), (/*_#CURCOUNT__L1*/ meltfnum[0])));;
-        MELT_LOCATION("warmelt-base.melt:3477:/ blockmultialloc");
+        MELT_LOCATION("warmelt-base.melt:3522:/ blockmultialloc");
         /*multiallocblock*/
         {
             struct meltletrec_1_st
@@ -4744,73 +4301,64 @@ meltlab_endgetargs:
             meltletrec_1_ptr = (struct meltletrec_1_st *) meltgc_allocate (sizeof (struct meltletrec_1_st), 0);
             /*^blockmultialloc.initfill*/
             /*inimult rtup_0__TUPLREC__x1*/
-            /*_.TUPLREC___V6*/
-            meltfptr[5] = (melt_ptr_t) &meltletrec_1_ptr->rtup_0__TUPLREC__x1;
+            /*_.TUPLREC___V6*/ meltfptr[5] = (melt_ptr_t) &meltletrec_1_ptr->rtup_0__TUPLREC__x1;
             meltletrec_1_ptr->rtup_0__TUPLREC__x1.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_MULTIPLE))));
             meltletrec_1_ptr->rtup_0__TUPLREC__x1.nbval = 3;
 
 
             /*^putuple*/
             /*putupl#1*/
-            melt_assertmsg("putupl [:3477] #1 checktup", melt_magic_discr((melt_ptr_t)(/*_.TUPLREC___V6*/ meltfptr[5]))== MELTOBMAG_MULTIPLE);
-            melt_assertmsg("putupl [:3477] #1 checkoff", (0>=0 && 0< melt_multiple_length((melt_ptr_t)(/*_.TUPLREC___V6*/ meltfptr[5]))));
+            melt_assertmsg("putupl [:3522] #1 checktup", melt_magic_discr((melt_ptr_t)(/*_.TUPLREC___V6*/ meltfptr[5]))== MELTOBMAG_MULTIPLE);
+            melt_assertmsg("putupl [:3522] #1 checkoff", (0>=0 && 0< melt_multiple_length((melt_ptr_t)(/*_.TUPLREC___V6*/ meltfptr[5]))));
             ((meltmultiple_ptr_t)(/*_.TUPLREC___V6*/ meltfptr[5]))->tabval[0] = (melt_ptr_t)(/*_.AT__V2*/ meltfptr[1]);
             ;
             /*^putuple*/
             /*putupl#2*/
-            melt_assertmsg("putupl [:3477] #2 checktup", melt_magic_discr((melt_ptr_t)(/*_.TUPLREC___V6*/ meltfptr[5]))== MELTOBMAG_MULTIPLE);
-            melt_assertmsg("putupl [:3477] #2 checkoff", (1>=0 && 1< melt_multiple_length((melt_ptr_t)(/*_.TUPLREC___V6*/ meltfptr[5]))));
+            melt_assertmsg("putupl [:3522] #2 checktup", melt_magic_discr((melt_ptr_t)(/*_.TUPLREC___V6*/ meltfptr[5]))== MELTOBMAG_MULTIPLE);
+            melt_assertmsg("putupl [:3522] #2 checkoff", (1>=0 && 1< melt_multiple_length((melt_ptr_t)(/*_.TUPLREC___V6*/ meltfptr[5]))));
             ((meltmultiple_ptr_t)(/*_.TUPLREC___V6*/ meltfptr[5]))->tabval[1] = (melt_ptr_t)(/*_.VA__V3*/ meltfptr[2]);
             ;
             /*^putuple*/
             /*putupl#3*/
-            melt_assertmsg("putupl [:3477] #3 checktup", melt_magic_discr((melt_ptr_t)(/*_.TUPLREC___V6*/ meltfptr[5]))== MELTOBMAG_MULTIPLE);
-            melt_assertmsg("putupl [:3477] #3 checkoff", (2>=0 && 2< melt_multiple_length((melt_ptr_t)(/*_.TUPLREC___V6*/ meltfptr[5]))));
+            melt_assertmsg("putupl [:3522] #3 checktup", melt_magic_discr((melt_ptr_t)(/*_.TUPLREC___V6*/ meltfptr[5]))== MELTOBMAG_MULTIPLE);
+            melt_assertmsg("putupl [:3522] #3 checkoff", (2>=0 && 2< melt_multiple_length((melt_ptr_t)(/*_.TUPLREC___V6*/ meltfptr[5]))));
             ((meltmultiple_ptr_t)(/*_.TUPLREC___V6*/ meltfptr[5]))->tabval[2] = (melt_ptr_t)(/*_.MAKE_INTEGERBOX__V4*/ meltfptr[3]);
             ;
             /*^touch*/
             meltgc_touch(/*_.TUPLREC___V6*/ meltfptr[5]);
             ;
-            /*_.ENT__V5*/
-            meltfptr[4] = /*_.TUPLREC___V6*/ meltfptr[5];;
+            /*_.ENT__V5*/ meltfptr[4] = /*_.TUPLREC___V6*/ meltfptr[5];;
             /*epilog*/
 
-            MELT_LOCATION("warmelt-base.melt:3477:/ clear");
-            /*clear*/ /*_.TUPLREC___V6*/
-            meltfptr[5] = 0 ;
+            MELT_LOCATION("warmelt-base.melt:3522:/ clear");
+            /*clear*/ /*_.TUPLREC___V6*/ meltfptr[5] = 0 ;
             /*^clear*/
-            /*clear*/ /*_.TUPLREC___V6*/
-            meltfptr[5] = 0 ;
+            /*clear*/ /*_.TUPLREC___V6*/ meltfptr[5] = 0 ;
         } /*end multiallocblock*/
         ;
 
         {
-            MELT_LOCATION("warmelt-base.melt:3480:/ locexp");
+            MELT_LOCATION("warmelt-base.melt:3525:/ locexp");
             meltgc_multiple_put_nth((melt_ptr_t)((/*~TUPL*/ meltfclos->tabval[1])), (/*_#CURCOUNT__L1*/ meltfnum[0]), (melt_ptr_t)(/*_.ENT__V5*/ meltfptr[4]));
         }
         ;
-        /*_#plI__L2*/
-        meltfnum[1] =
+        /*_#plI__L2*/ meltfnum[1] =
             ((/*_#CURCOUNT__L1*/ meltfnum[0]) + (1));;
 
         {
-            MELT_LOCATION("warmelt-base.melt:3481:/ locexp");
+            MELT_LOCATION("warmelt-base.melt:3526:/ locexp");
             melt_put_int((melt_ptr_t)((/*~COUNTBOX*/ meltfclos->tabval[0])), (/*_#plI__L2*/ meltfnum[1]));
         }
         ;
 
-        MELT_LOCATION("warmelt-base.melt:3476:/ clear");
-        /*clear*/ /*_#CURCOUNT__L1*/
-        meltfnum[0] = 0 ;
+        MELT_LOCATION("warmelt-base.melt:3521:/ clear");
+        /*clear*/ /*_#CURCOUNT__L1*/ meltfnum[0] = 0 ;
         /*^clear*/
-        /*clear*/ /*_.MAKE_INTEGERBOX__V4*/
-        meltfptr[3] = 0 ;
+        /*clear*/ /*_.MAKE_INTEGERBOX__V4*/ meltfptr[3] = 0 ;
         /*^clear*/
-        /*clear*/ /*_.ENT__V5*/
-        meltfptr[4] = 0 ;
+        /*clear*/ /*_.ENT__V5*/ meltfptr[4] = 0 ;
         /*^clear*/
-        /*clear*/ /*_#plI__L2*/
-        meltfnum[1] = 0 ;
+        /*clear*/ /*_#plI__L2*/ meltfnum[1] = 0 ;
         /*epilog*/
     }
 
@@ -4892,8 +4440,7 @@ meltrout_37_WARMELTmiBASE_LAMBDA_cl2(meltclosure_ptr_t meltclosp_, melt_ptr_t me
 
     /* end of frame for routine meltrout_37_WARMELTmiBASE_LAMBDA_cl2 fromline 1719 */
 
-    /* classy proc frame meltrout_37_WARMELTmiBASE_LAMBDA_cl2 */
-    MeltFrame_meltrout_37_WARMELTmiBASE_LAMBDA_cl2
+    /* classy proc frame meltrout_37_WARMELTmiBASE_LAMBDA_cl2 */ MeltFrame_meltrout_37_WARMELTmiBASE_LAMBDA_cl2
     meltfram__ /*declfrastruct fromline 1743*/
     /*classyprocarg meltrout_37_WARMELTmiBASE_LAMBDA_cl2 fromline 1748*/
 #if ENABLE_CHECKING
@@ -4906,8 +4453,7 @@ meltrout_37_WARMELTmiBASE_LAMBDA_cl2(meltclosure_ptr_t meltclosp_, melt_ptr_t me
 #define meltframe meltfram__
 
     melt_trace_start("LAMBDA_cl2", meltcallcount);
-    /*use arguments*/
-    (void) meltclosp_;
+    /*use arguments*/ (void) meltclosp_;
     (void)meltfirstargp_;
     (void)meltxargdescr_;
     (void)meltxargtab_;
@@ -4916,15 +4462,13 @@ meltrout_37_WARMELTmiBASE_LAMBDA_cl2(meltclosure_ptr_t meltclosp_, melt_ptr_t me
     /*getargs*/
 
     /*getarg#0*/
-    MELT_LOCATION("warmelt-base.melt:3487:/ getarg");
-    /*_.E1__V2*/
-    meltfptr[1] = (melt_ptr_t) meltfirstargp_;
+    MELT_LOCATION("warmelt-base.melt:3532:/ getarg");
+    /*_.E1__V2*/ meltfptr[1] = (melt_ptr_t) meltfirstargp_;
 
     /*getarg#1*/
     /*^getarg*/
     if (meltxargdescr_[0] != MELTBPAR_PTR) goto meltlab_endgetargs;
-    /*_.E2__V3*/
-    meltfptr[2] = (meltxargtab_[0].meltbp_aptr) ? (*(meltxargtab_[0].meltbp_aptr)) : NULL;
+    /*_.E2__V3*/ meltfptr[2] = (meltxargtab_[0].meltbp_aptr) ? (*(meltxargtab_[0].meltbp_aptr)) : NULL;
     gcc_assert(melt_discr((melt_ptr_t)(/*_.E2__V3*/ meltfptr[2])) != NULL);
 
     ;
@@ -4936,36 +4480,30 @@ meltlab_endgetargs:
     /*anyblock*/
     {
 
-        MELT_LOCATION("warmelt-base.melt:3488:/ quasiblock");
+        MELT_LOCATION("warmelt-base.melt:3533:/ quasiblock");
 
 
-        /*_.E1AT__V5*/
-        meltfptr[4] =
+        /*_.E1AT__V5*/ meltfptr[4] =
             (melt_multiple_nth((melt_ptr_t)(/*_.E1__V2*/ meltfptr[1]), (0)));;
         /*^compute*/
-        /*_.E1VA__V6*/
-        meltfptr[5] =
+        /*_.E1VA__V6*/ meltfptr[5] =
             (melt_multiple_nth((melt_ptr_t)(/*_.E1__V2*/ meltfptr[1]), (1)));;
         /*^compute*/
-        /*_.E1RK__V7*/
-        meltfptr[6] =
+        /*_.E1RK__V7*/ meltfptr[6] =
             (melt_multiple_nth((melt_ptr_t)(/*_.E1__V2*/ meltfptr[1]), (2)));;
         /*^compute*/
-        /*_.E2AT__V8*/
-        meltfptr[7] =
+        /*_.E2AT__V8*/ meltfptr[7] =
             (melt_multiple_nth((melt_ptr_t)(/*_.E2__V3*/ meltfptr[2]), (0)));;
         /*^compute*/
-        /*_.E2VA__V9*/
-        meltfptr[8] =
+        /*_.E2VA__V9*/ meltfptr[8] =
             (melt_multiple_nth((melt_ptr_t)(/*_.E2__V3*/ meltfptr[2]), (1)));;
         /*^compute*/
-        /*_.E2RK__V10*/
-        meltfptr[9] =
+        /*_.E2RK__V10*/ meltfptr[9] =
             (melt_multiple_nth((melt_ptr_t)(/*_.E2__V3*/ meltfptr[2]), (2)));;
 
         MELT_CHECK_SIGNAL();
         ;
-        MELT_LOCATION("warmelt-base.melt:3496:/ apply");
+        MELT_LOCATION("warmelt-base.melt:3541:/ apply");
         /*apply*/
         {
             union meltparam_un argtab[6];
@@ -4982,62 +4520,49 @@ meltlab_endgetargs:
             argtab[4].meltbp_aptr = (melt_ptr_t*) &(/*~BOXEDZERO*/ meltfclos->tabval[1]);
             /*^apply.arg*/
             argtab[5].meltbp_aptr = (melt_ptr_t*) &(/*~BOXEDONE*/ meltfclos->tabval[2]);
-            /*_.COMPARE_OBJ_RANKED__V11*/
-            meltfptr[10] =  melt_apply ((meltclosure_ptr_t)((/*!COMPARE_OBJ_RANKED*/ meltfrout->tabval[0])), (melt_ptr_t)(/*_.E1AT__V5*/ meltfptr[4]), (MELTBPARSTR_PTR MELTBPARSTR_PTR MELTBPARSTR_PTR MELTBPARSTR_PTR MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
+            /*_.COMPARE_OBJ_RANKED__V11*/ meltfptr[10] =  melt_apply ((meltclosure_ptr_t)((/*!COMPARE_OBJ_RANKED*/ meltfrout->tabval[0])), (melt_ptr_t)(/*_.E1AT__V5*/ meltfptr[4]), (MELTBPARSTR_PTR MELTBPARSTR_PTR MELTBPARSTR_PTR MELTBPARSTR_PTR MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
         }
         ;
 
         MELT_CHECK_SIGNAL();
         ;
-        MELT_LOCATION("warmelt-base.melt:3495:/ quasiblock");
+        MELT_LOCATION("warmelt-base.melt:3540:/ quasiblock");
 
 
-        /*_._RETVAL___V1*/
-        meltfptr[0] = /*_.COMPARE_OBJ_RANKED__V11*/ meltfptr[10];;
-        MELT_LOCATION("warmelt-base.melt:3495:/ putxtraresult");
+        /*_._RETVAL___V1*/ meltfptr[0] = /*_.COMPARE_OBJ_RANKED__V11*/ meltfptr[10];;
+        MELT_LOCATION("warmelt-base.melt:3540:/ putxtraresult");
         if (!meltxrestab_ || !meltxresdescr_) goto meltlabend_rout;
         if (meltxresdescr_[0] != MELTBPAR_PTR) goto meltlabend_rout;
         if (meltxrestab_[0].meltbp_aptr) *(meltxrestab_[0].meltbp_aptr) = (melt_ptr_t) ((/*nil*/NULL));
         ;
         /*^finalreturn*/
         ;
-        /*finalret*/
-        goto meltlabend_rout ;
-        /*_.LET___V4*/
-        meltfptr[3] = /*_.RETURN___V12*/ meltfptr[11];;
+        /*finalret*/ goto meltlabend_rout ;
+        /*_.LET___V4*/ meltfptr[3] = /*_.RETURN___V12*/ meltfptr[11];;
 
-        MELT_LOCATION("warmelt-base.melt:3488:/ clear");
-        /*clear*/ /*_.E1AT__V5*/
-        meltfptr[4] = 0 ;
+        MELT_LOCATION("warmelt-base.melt:3533:/ clear");
+        /*clear*/ /*_.E1AT__V5*/ meltfptr[4] = 0 ;
         /*^clear*/
-        /*clear*/ /*_.E1VA__V6*/
-        meltfptr[5] = 0 ;
+        /*clear*/ /*_.E1VA__V6*/ meltfptr[5] = 0 ;
         /*^clear*/
-        /*clear*/ /*_.E1RK__V7*/
-        meltfptr[6] = 0 ;
+        /*clear*/ /*_.E1RK__V7*/ meltfptr[6] = 0 ;
         /*^clear*/
-        /*clear*/ /*_.E2AT__V8*/
-        meltfptr[7] = 0 ;
+        /*clear*/ /*_.E2AT__V8*/ meltfptr[7] = 0 ;
         /*^clear*/
-        /*clear*/ /*_.E2VA__V9*/
-        meltfptr[8] = 0 ;
+        /*clear*/ /*_.E2VA__V9*/ meltfptr[8] = 0 ;
         /*^clear*/
-        /*clear*/ /*_.E2RK__V10*/
-        meltfptr[9] = 0 ;
+        /*clear*/ /*_.E2RK__V10*/ meltfptr[9] = 0 ;
         /*^clear*/
-        /*clear*/ /*_.COMPARE_OBJ_RANKED__V11*/
-        meltfptr[10] = 0 ;
+        /*clear*/ /*_.COMPARE_OBJ_RANKED__V11*/ meltfptr[10] = 0 ;
         /*^clear*/
-        /*clear*/ /*_.RETURN___V12*/
-        meltfptr[11] = 0 ;
-        MELT_LOCATION("warmelt-base.melt:3487:/ quasiblock");
+        /*clear*/ /*_.RETURN___V12*/ meltfptr[11] = 0 ;
+        MELT_LOCATION("warmelt-base.melt:3532:/ quasiblock");
 
 
-        /*_._RETVAL___V1*/
-        meltfptr[0] = /*_.LET___V4*/ meltfptr[3];;
+        /*_._RETVAL___V1*/ meltfptr[0] = /*_.LET___V4*/ meltfptr[3];;
 
         {
-            MELT_LOCATION("warmelt-base.melt:3487:/ locexp");
+            MELT_LOCATION("warmelt-base.melt:3532:/ locexp");
             /*ochecknores compilobj_nrep_return*/
 #if MELT_HAVE_DEBUG
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
@@ -5049,13 +4574,11 @@ meltlab_endgetargs:
         ;
         /*^finalreturn*/
         ;
-        /*finalret*/
-        goto meltlabend_rout ;
+        /*finalret*/ goto meltlabend_rout ;
         /*epilog*/
 
         /*^clear*/
-        /*clear*/ /*_.LET___V4*/
-        meltfptr[3] = 0 ;
+        /*clear*/ /*_.LET___V4*/ meltfptr[3] = 0 ;
     }
 
     ;
@@ -5136,8 +4659,7 @@ meltrout_38_WARMELTmiBASE_LAMBDA_cl3(meltclosure_ptr_t meltclosp_, melt_ptr_t me
 
     /* end of frame for routine meltrout_38_WARMELTmiBASE_LAMBDA_cl3 fromline 1719 */
 
-    /* classy proc frame meltrout_38_WARMELTmiBASE_LAMBDA_cl3 */
-    MeltFrame_meltrout_38_WARMELTmiBASE_LAMBDA_cl3
+    /* classy proc frame meltrout_38_WARMELTmiBASE_LAMBDA_cl3 */ MeltFrame_meltrout_38_WARMELTmiBASE_LAMBDA_cl3
     meltfram__ /*declfrastruct fromline 1743*/
     /*classyprocarg meltrout_38_WARMELTmiBASE_LAMBDA_cl3 fromline 1748*/
 #if ENABLE_CHECKING
@@ -5150,8 +4672,7 @@ meltrout_38_WARMELTmiBASE_LAMBDA_cl3(meltclosure_ptr_t meltclosp_, melt_ptr_t me
 #define meltframe meltfram__
 
     melt_trace_start("LAMBDA_cl3", meltcallcount);
-    /*use arguments*/
-    (void) meltclosp_;
+    /*use arguments*/ (void) meltclosp_;
     (void)meltfirstargp_;
     (void)meltxargdescr_;
     (void)meltxargtab_;
@@ -5160,9 +4681,8 @@ meltrout_38_WARMELTmiBASE_LAMBDA_cl3(meltclosure_ptr_t meltclosp_, melt_ptr_t me
     /*getargs*/
 
     /*getarg#0*/
-    MELT_LOCATION("warmelt-base.melt:3501:/ getarg");
-    /*_.EL__V2*/
-    meltfptr[1] = (melt_ptr_t) meltfirstargp_;
+    MELT_LOCATION("warmelt-base.melt:3546:/ getarg");
+    /*_.EL__V2*/ meltfptr[1] = (melt_ptr_t) meltfirstargp_;
     ;
     goto meltlab_endgetargs;
 meltlab_endgetargs:
@@ -5174,14 +4694,13 @@ meltlab_endgetargs:
 
         /*_.MULTIPLE_NTH__V3*/ meltfptr[2] =
             (melt_multiple_nth((melt_ptr_t)(/*_.EL__V2*/ meltfptr[1]), (0)));;
-        MELT_LOCATION("warmelt-base.melt:3501:/ quasiblock");
+        MELT_LOCATION("warmelt-base.melt:3546:/ quasiblock");
 
 
-        /*_._RETVAL___V1*/
-        meltfptr[0] = /*_.MULTIPLE_NTH__V3*/ meltfptr[2];;
+        /*_._RETVAL___V1*/ meltfptr[0] = /*_.MULTIPLE_NTH__V3*/ meltfptr[2];;
 
         {
-            MELT_LOCATION("warmelt-base.melt:3501:/ locexp");
+            MELT_LOCATION("warmelt-base.melt:3546:/ locexp");
             /*ochecknores compilobj_nrep_return*/
 #if MELT_HAVE_DEBUG
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
@@ -5193,13 +4712,11 @@ meltlab_endgetargs:
         ;
         /*^finalreturn*/
         ;
-        /*finalret*/
-        goto meltlabend_rout ;
+        /*finalret*/ goto meltlabend_rout ;
         /*epilog*/
 
         /*^clear*/
-        /*clear*/ /*_.MULTIPLE_NTH__V3*/
-        meltfptr[2] = 0 ;
+        /*clear*/ /*_.MULTIPLE_NTH__V3*/ meltfptr[2] = 0 ;
     }
 
     ;
@@ -5213,6 +4730,610 @@ meltlabend_rout:
 #undef MELTFRAM_NBVARNUM
 #undef MELTFRAM_NBVARPTR
 } /*end meltrout_38_WARMELTmiBASE_LAMBDA_cl3*/
+
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_39_WARMELTmiBASE_JSON_NAME_LESS(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_,
+        const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_)
+{
+    long current_blocklevel_signals_meltrout_39_WARMELTmiBASE_JSON_NAME_LESS_melt =  melt_blocklevel_signals;
+
+#if MELT_HAVE_DEBUG
+    static long melt_call_counter__;
+    long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
+#undef meltcallcount
+#define meltcallcount melt_thiscallcounter__
+#else
+#undef meltcallcount
+#define meltcallcount 0L
+#endif
+//// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
+
+    /* start of frame for routine meltrout_39_WARMELTmiBASE_JSON_NAME_LESS fromline 1715 */
+
+    /** start of frame for meltrout_39_WARMELTmiBASE_JSON_NAME_LESS of CLASS_PROCROUTINEOBJ from 1518**/
+
+    /*curframdeclclassy*/ class MeltFrame_meltrout_39_WARMELTmiBASE_JSON_NAME_LESS// fromline 1531
+        : public Melt_CallFrameWithValues<9>
+    {
+    public: /* fromline 1535*/
+        long mcfr_varnum[6];
+        /*classy others*/
+        long _meltsparel;
+        void melt_mark_stuff (void)
+        {
+        } /*end melt_mark_stuff*/
+        virtual void melt_mark_ggc_data (void)
+        {
+            melt_mark_values ();
+            melt_mark_stuff ();
+        }; /*end melt_mark_ggc_data*/
+        MeltFrame_meltrout_39_WARMELTmiBASE_JSON_NAME_LESS(meltclosure_ptr_t clos) //the closure constructor fromline 1593
+            : Melt_CallFrameWithValues<9> (
+#if ENABLE_CHECKING /*fromline 1597*/
+                __FILE__, __LINE__,
+#endif /* ENABLE_CHECKING fromline 1601*/
+                sizeof(MeltFrame_meltrout_39_WARMELTmiBASE_JSON_NAME_LESS), clos) {};
+        MeltFrame_meltrout_39_WARMELTmiBASE_JSON_NAME_LESS() //the constructor fromline 1605
+            : Melt_CallFrameWithValues<9> (
+#if ENABLE_CHECKING /*fromline 1609*/
+                __FILE__, __LINE__,
+#endif /* ENABLE_CHECKING fromline 1613*/
+                sizeof(MeltFrame_meltrout_39_WARMELTmiBASE_JSON_NAME_LESS)) {};
+#if ENABLE_CHECKING /*fromline 1617*/
+        MeltFrame_meltrout_39_WARMELTmiBASE_JSON_NAME_LESS(const char*fil, int lin) //the constructor fromline 1619
+            : Melt_CallFrameWithValues<9> (fil,lin, sizeof(MeltFrame_meltrout_39_WARMELTmiBASE_JSON_NAME_LESS)) {};
+        MeltFrame_meltrout_39_WARMELTmiBASE_JSON_NAME_LESS(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1624
+            : Melt_CallFrameWithValues<9> (fil,lin, sizeof(MeltFrame_meltrout_39_WARMELTmiBASE_JSON_NAME_LESS), clos) {};
+#endif /* ENABLE_CHECKING fromline 1629*/
+
+    }; // end  class MeltFrame_meltrout_39_WARMELTmiBASE_JSON_NAME_LESS
+
+
+    /** end of frame for meltrout_39_WARMELTmiBASE_JSON_NAME_LESS fromline 1660**/
+
+    /* end of frame for routine meltrout_39_WARMELTmiBASE_JSON_NAME_LESS fromline 1719 */
+
+    /* classy proc frame meltrout_39_WARMELTmiBASE_JSON_NAME_LESS */ MeltFrame_meltrout_39_WARMELTmiBASE_JSON_NAME_LESS
+    meltfram__ /*declfrastruct fromline 1743*/
+    /*classyprocarg meltrout_39_WARMELTmiBASE_JSON_NAME_LESS fromline 1748*/
+#if ENABLE_CHECKING
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1752*/
+#else /*ENABLE_CHECKING */
+    (meltclosp_) /* fromline 1756*/
+#endif /*ENABLE_CHECKING */
+
+    ;
+#define meltframe meltfram__
+
+    melt_trace_start("JSON_NAME_LESS", meltcallcount);
+    /*use arguments*/ (void) meltclosp_;
+    (void)meltfirstargp_;
+    (void)meltxargdescr_;
+    (void)meltxargtab_;
+    (void)meltxresdescr_;
+    (void)meltxrestab_;
+    /*getargs*/
+
+    /*getarg#0*/
+    MELT_LOCATION("warmelt-base.melt:3553:/ getarg");
+    /*_.LV__V2*/ meltfptr[1] = (melt_ptr_t) meltfirstargp_;
+
+    /*getarg#1*/
+    /*^getarg*/
+    if (meltxargdescr_[0] != MELTBPAR_PTR) goto meltlab_endgetargs;
+    /*_.RV__V3*/ meltfptr[2] = (meltxargtab_[0].meltbp_aptr) ? (*(meltxargtab_[0].meltbp_aptr)) : NULL;
+    gcc_assert(melt_discr((melt_ptr_t)(/*_.RV__V3*/ meltfptr[2])) != NULL);
+
+    ;
+    goto meltlab_endgetargs;
+meltlab_endgetargs:
+    ;
+    /*body*/
+    /*^block*/
+    /*anyblock*/
+    {
+
+        MELT_LOCATION("warmelt-base.melt:3554:/ quasiblock");
+
+
+
+        MELT_CHECK_SIGNAL();
+        ;
+        /*_#IS_STRING__L2*/ meltfnum[1] =
+            (melt_magic_discr((melt_ptr_t)(/*_.LV__V2*/ meltfptr[1])) == MELTOBMAG_STRING);;
+        MELT_LOCATION("warmelt-base.melt:3554:/ cond");
+        /*cond*/ if (/*_#IS_STRING__L2*/ meltfnum[1]) /*then*/
+            {
+                /*^cond.then*/
+                /*_.LNAME__V4*/ meltfptr[3] = /*_.LV__V2*/ meltfptr[1];;
+            }
+        else
+            {
+                MELT_LOCATION("warmelt-base.melt:3554:/ cond.else");
+
+                /*^block*/
+                /*anyblock*/
+                {
+
+
+                    MELT_CHECK_SIGNAL();
+                    ;
+                    /*_#IS_A__L3*/ meltfnum[2] =
+                        melt_is_instance_of((melt_ptr_t)(/*_.LV__V2*/ meltfptr[1]), (melt_ptr_t)((/*!CLASS_NAMED*/ meltfrout->tabval[0])));;
+                    MELT_LOCATION("warmelt-base.melt:3555:/ cond");
+                    /*cond*/ if (/*_#IS_A__L3*/ meltfnum[2]) /*then*/
+                        {
+                            /*^cond.then*/
+                            /*^block*/
+                            /*anyblock*/
+                            {
+
+                                /*^cond*/
+                                /*cond*/ if (
+                                    /*ifisa*/ melt_is_instance_of((melt_ptr_t)(/*_.LV__V2*/ meltfptr[1]),
+                                                                  (melt_ptr_t)((/*!CLASS_NAMED*/ meltfrout->tabval[0])))
+                                ) /*then*/
+                                    {
+                                        /*^cond.then*/
+                                        /*^getslot*/
+                                        {
+                                            melt_ptr_t slot=NULL, obj=NULL;
+                                            obj = (melt_ptr_t)(/*_.LV__V2*/ meltfptr[1]) /*=obj*/;
+                                            melt_object_get_field(slot,obj, 1, "NAMED_NAME");
+                                            /*_.NAMED_NAME__V6*/ meltfptr[5] = slot;
+                                        };
+                                        ;
+                                    }
+                                else    /*^cond.else*/
+                                    {
+
+                                        /*_.NAMED_NAME__V6*/ meltfptr[5] =  /*reallynil*/ NULL ;;
+                                    }
+                                ;
+                                /*^compute*/
+                                /*_._IFELSE___V5*/ meltfptr[4] = /*_.NAMED_NAME__V6*/ meltfptr[5];;
+                                /*epilog*/
+
+                                MELT_LOCATION("warmelt-base.melt:3555:/ clear");
+                                /*clear*/ /*_.NAMED_NAME__V6*/ meltfptr[5] = 0 ;
+                            }
+                            ;
+                        }
+                    else    /*^cond.else*/
+                        {
+
+                            /*_._IFELSE___V5*/ meltfptr[4] =  /*reallynil*/ NULL ;;
+                        }
+                    ;
+                    /*^compute*/
+                    /*_.LNAME__V4*/ meltfptr[3] = /*_._IFELSE___V5*/ meltfptr[4];;
+                    /*epilog*/
+
+                    MELT_LOCATION("warmelt-base.melt:3554:/ clear");
+                    /*clear*/ /*_#IS_A__L3*/ meltfnum[2] = 0 ;
+                    /*^clear*/
+                    /*clear*/ /*_._IFELSE___V5*/ meltfptr[4] = 0 ;
+                }
+                ;
+            }
+        ;
+
+        MELT_CHECK_SIGNAL();
+        ;
+        /*_#IS_STRING__L4*/ meltfnum[2] =
+            (melt_magic_discr((melt_ptr_t)(/*_.RV__V3*/ meltfptr[2])) == MELTOBMAG_STRING);;
+        MELT_LOCATION("warmelt-base.melt:3556:/ cond");
+        /*cond*/ if (/*_#IS_STRING__L4*/ meltfnum[2]) /*then*/
+            {
+                /*^cond.then*/
+                /*_.RNAME__V7*/ meltfptr[5] = /*_.RV__V3*/ meltfptr[2];;
+            }
+        else
+            {
+                MELT_LOCATION("warmelt-base.melt:3556:/ cond.else");
+
+                /*^block*/
+                /*anyblock*/
+                {
+
+
+                    MELT_CHECK_SIGNAL();
+                    ;
+                    /*_#IS_A__L5*/ meltfnum[4] =
+                        melt_is_instance_of((melt_ptr_t)(/*_.RV__V3*/ meltfptr[2]), (melt_ptr_t)((/*!CLASS_NAMED*/ meltfrout->tabval[0])));;
+                    MELT_LOCATION("warmelt-base.melt:3557:/ cond");
+                    /*cond*/ if (/*_#IS_A__L5*/ meltfnum[4]) /*then*/
+                        {
+                            /*^cond.then*/
+                            /*^block*/
+                            /*anyblock*/
+                            {
+
+                                /*^cond*/
+                                /*cond*/ if (
+                                    /*ifisa*/ melt_is_instance_of((melt_ptr_t)(/*_.RV__V3*/ meltfptr[2]),
+                                                                  (melt_ptr_t)((/*!CLASS_NAMED*/ meltfrout->tabval[0])))
+                                ) /*then*/
+                                    {
+                                        /*^cond.then*/
+                                        /*^getslot*/
+                                        {
+                                            melt_ptr_t slot=NULL, obj=NULL;
+                                            obj = (melt_ptr_t)(/*_.RV__V3*/ meltfptr[2]) /*=obj*/;
+                                            melt_object_get_field(slot,obj, 1, "NAMED_NAME");
+                                            /*_.NAMED_NAME__V9*/ meltfptr[8] = slot;
+                                        };
+                                        ;
+                                    }
+                                else    /*^cond.else*/
+                                    {
+
+                                        /*_.NAMED_NAME__V9*/ meltfptr[8] =  /*reallynil*/ NULL ;;
+                                    }
+                                ;
+                                /*^compute*/
+                                /*_._IFELSE___V8*/ meltfptr[4] = /*_.NAMED_NAME__V9*/ meltfptr[8];;
+                                /*epilog*/
+
+                                MELT_LOCATION("warmelt-base.melt:3557:/ clear");
+                                /*clear*/ /*_.NAMED_NAME__V9*/ meltfptr[8] = 0 ;
+                            }
+                            ;
+                        }
+                    else    /*^cond.else*/
+                        {
+
+                            /*_._IFELSE___V8*/ meltfptr[4] =  /*reallynil*/ NULL ;;
+                        }
+                    ;
+                    /*^compute*/
+                    /*_.RNAME__V7*/ meltfptr[5] = /*_._IFELSE___V8*/ meltfptr[4];;
+                    /*epilog*/
+
+                    MELT_LOCATION("warmelt-base.melt:3556:/ clear");
+                    /*clear*/ /*_#IS_A__L5*/ meltfnum[4] = 0 ;
+                    /*^clear*/
+                    /*clear*/ /*_._IFELSE___V8*/ meltfptr[4] = 0 ;
+                }
+                ;
+            }
+        ;
+        /*_#STRINGlt__L6*/ meltfnum[4] =
+            melt_string_less((melt_ptr_t)(/*_.LNAME__V4*/ meltfptr[3]), (melt_ptr_t)(/*_.RNAME__V7*/ meltfptr[5]));;
+        /*^compute*/
+        /*_#LET___L1*/ meltfnum[0] = /*_#STRINGlt__L6*/ meltfnum[4];;
+
+        MELT_LOCATION("warmelt-base.melt:3554:/ clear");
+        /*clear*/ /*_#IS_STRING__L2*/ meltfnum[1] = 0 ;
+        /*^clear*/
+        /*clear*/ /*_.LNAME__V4*/ meltfptr[3] = 0 ;
+        /*^clear*/
+        /*clear*/ /*_#IS_STRING__L4*/ meltfnum[2] = 0 ;
+        /*^clear*/
+        /*clear*/ /*_.RNAME__V7*/ meltfptr[5] = 0 ;
+        /*^clear*/
+        /*clear*/ /*_#STRINGlt__L6*/ meltfnum[4] = 0 ;
+        /*epilog*/
+
+        MELT_LOCATION("warmelt-base.melt:3553:/ clear");
+        /*clear*/ /*_#LET___L1*/ meltfnum[0] = 0 ;
+    }
+
+    ;
+    goto meltlabend_rout;
+meltlabend_rout:
+    melt_trace_end("JSON_NAME_LESS", meltcallcount);
+    melt_blocklevel_signals = current_blocklevel_signals_meltrout_39_WARMELTmiBASE_JSON_NAME_LESS_melt;
+    return (melt_ptr_t)(/*noretval*/ NULL);
+#undef meltcallcount
+#undef meltfram__
+#undef MELTFRAM_NBVARNUM
+#undef MELTFRAM_NBVARPTR
+} /*end meltrout_39_WARMELTmiBASE_JSON_NAME_LESS*/
+
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_40_WARMELTmiBASE_MAKE_JSONOBJECT(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_,
+        const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_)
+{
+    /*variadic*/ int variad_MAKE_JSONOBJECT_ix = 0, variad_MAKE_JSONOBJECT_len = melt_argdescr_length (meltxargdescr_);
+#define melt_variadic_length  (0+variad_MAKE_JSONOBJECT_len)
+#define melt_variadic_index variad_MAKE_JSONOBJECT_ix
+
+    long current_blocklevel_signals_meltrout_40_WARMELTmiBASE_MAKE_JSONOBJECT_melt =  melt_blocklevel_signals;
+
+#if MELT_HAVE_DEBUG
+    static long melt_call_counter__;
+    long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
+#undef meltcallcount
+#define meltcallcount melt_thiscallcounter__
+#else
+#undef meltcallcount
+#define meltcallcount 0L
+#endif
+//// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
+
+    /* start of frame for routine meltrout_40_WARMELTmiBASE_MAKE_JSONOBJECT fromline 1715 */
+
+    /** start of frame for meltrout_40_WARMELTmiBASE_MAKE_JSONOBJECT of CLASS_PROCROUTINEOBJ from 1518**/
+
+    /*curframdeclclassy*/ class MeltFrame_meltrout_40_WARMELTmiBASE_MAKE_JSONOBJECT// fromline 1531
+        : public Melt_CallFrameWithValues<10>
+    {
+    public: /* fromline 1535*/
+        long mcfr_varnum[3];
+        /*classy others*/
+        long _meltsparel;
+        void melt_mark_stuff (void)
+        {
+        } /*end melt_mark_stuff*/
+        virtual void melt_mark_ggc_data (void)
+        {
+            melt_mark_values ();
+            melt_mark_stuff ();
+        }; /*end melt_mark_ggc_data*/
+        MeltFrame_meltrout_40_WARMELTmiBASE_MAKE_JSONOBJECT(meltclosure_ptr_t clos) //the closure constructor fromline 1593
+            : Melt_CallFrameWithValues<10> (
+#if ENABLE_CHECKING /*fromline 1597*/
+                __FILE__, __LINE__,
+#endif /* ENABLE_CHECKING fromline 1601*/
+                sizeof(MeltFrame_meltrout_40_WARMELTmiBASE_MAKE_JSONOBJECT), clos) {};
+        MeltFrame_meltrout_40_WARMELTmiBASE_MAKE_JSONOBJECT() //the constructor fromline 1605
+            : Melt_CallFrameWithValues<10> (
+#if ENABLE_CHECKING /*fromline 1609*/
+                __FILE__, __LINE__,
+#endif /* ENABLE_CHECKING fromline 1613*/
+                sizeof(MeltFrame_meltrout_40_WARMELTmiBASE_MAKE_JSONOBJECT)) {};
+#if ENABLE_CHECKING /*fromline 1617*/
+        MeltFrame_meltrout_40_WARMELTmiBASE_MAKE_JSONOBJECT(const char*fil, int lin) //the constructor fromline 1619
+            : Melt_CallFrameWithValues<10> (fil,lin, sizeof(MeltFrame_meltrout_40_WARMELTmiBASE_MAKE_JSONOBJECT)) {};
+        MeltFrame_meltrout_40_WARMELTmiBASE_MAKE_JSONOBJECT(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1624
+            : Melt_CallFrameWithValues<10> (fil,lin, sizeof(MeltFrame_meltrout_40_WARMELTmiBASE_MAKE_JSONOBJECT), clos) {};
+#endif /* ENABLE_CHECKING fromline 1629*/
+
+    }; // end  class MeltFrame_meltrout_40_WARMELTmiBASE_MAKE_JSONOBJECT
+
+
+    /** end of frame for meltrout_40_WARMELTmiBASE_MAKE_JSONOBJECT fromline 1660**/
+
+    /* end of frame for routine meltrout_40_WARMELTmiBASE_MAKE_JSONOBJECT fromline 1719 */
+
+    /* classy proc frame meltrout_40_WARMELTmiBASE_MAKE_JSONOBJECT */ MeltFrame_meltrout_40_WARMELTmiBASE_MAKE_JSONOBJECT
+    meltfram__ /*declfrastruct fromline 1743*/
+    /*classyprocarg meltrout_40_WARMELTmiBASE_MAKE_JSONOBJECT fromline 1748*/
+#if ENABLE_CHECKING
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1752*/
+#else /*ENABLE_CHECKING */
+    (meltclosp_) /* fromline 1756*/
+#endif /*ENABLE_CHECKING */
+
+    ;
+#define meltframe meltfram__
+
+    melt_trace_start("MAKE_JSONOBJECT", meltcallcount);
+    /*use arguments*/ (void) meltclosp_;
+    (void)meltfirstargp_;
+    (void)meltxargdescr_;
+    (void)meltxargtab_;
+    (void)meltxresdescr_;
+    (void)meltxrestab_;
+    /*getargs*/
+
+    /*getarg#0*/
+    MELT_LOCATION("warmelt-base.melt:3561:/ getarg");
+    /*_.DIS__V2*/ meltfptr[1] = (melt_ptr_t) meltfirstargp_;
+    ;
+    goto meltlab_endgetargs;
+meltlab_endgetargs:
+    ;
+    /*body*/
+    /*^block*/
+    /*anyblock*/
+    {
+
+
+        MELT_CHECK_SIGNAL();
+        ;
+        /*_#NULL__L1*/ meltfnum[0] =
+            ((/*_.DIS__V2*/ meltfptr[1]) == NULL);;
+        MELT_LOCATION("warmelt-base.melt:3567:/ cond");
+        /*cond*/ if (/*_#NULL__L1*/ meltfnum[0]) /*then*/
+            {
+                /*^cond.then*/
+                /*^block*/
+                /*anyblock*/
+                {
+
+                    /*^compute*/
+                    /*_.DIS__V2*/ meltfptr[1] = /*_.SETQ___V4*/ meltfptr[3] = (/*!DISCR_JSONOBJECT*/ meltfrout->tabval[0]);;
+                    /*_._IF___V3*/ meltfptr[2] = /*_.SETQ___V4*/ meltfptr[3];;
+                    /*epilog*/
+
+                    MELT_LOCATION("warmelt-base.melt:3567:/ clear");
+                    /*clear*/ /*_.SETQ___V4*/ meltfptr[3] = 0 ;
+                }
+                ;
+            }
+        else    /*^cond.else*/
+            {
+
+                /*_._IF___V3*/ meltfptr[2] =  /*reallynil*/ NULL ;;
+            }
+        ;
+
+        MELT_CHECK_SIGNAL();
+        ;
+        /*^compute*/
+        /*_#IS_NOT_A__L2*/ meltfnum[1] =
+            !melt_is_instance_of((melt_ptr_t)(/*_.DIS__V2*/ meltfptr[1]), (melt_ptr_t)((/*!CLASS_DISCRIMINANT*/ meltfrout->tabval[1])));;
+        MELT_LOCATION("warmelt-base.melt:3568:/ cond");
+        /*cond*/ if (/*_#IS_NOT_A__L2*/ meltfnum[1]) /*then*/
+            {
+                /*^cond.then*/
+                /*^block*/
+                /*anyblock*/
+                {
+
+
+                    MELT_CHECK_SIGNAL();
+                    ;
+                    MELT_LOCATION("warmelt-base.melt:3569:/ quasiblock");
+
+
+                    /*_._RETVAL___V1*/ meltfptr[0] = (/*nil*/NULL);;
+
+                    {
+                        MELT_LOCATION("warmelt-base.melt:3569:/ locexp");
+                        /*ochecknores compilobj_nrep_return*/
+#if MELT_HAVE_DEBUG
+                        if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
+                            melt_warn_for_no_expected_secondary_results();
+                        /* we warned when secondary results are expected but not returned. */
+#endif /*MELT_HAVE_DEBUG*/
+                        ;
+                    }
+                    ;
+                    /*^finalreturn*/
+                    ;
+                    /*finalret*/ goto meltlabend_rout ;
+                    MELT_LOCATION("warmelt-base.melt:3568:/ quasiblock");
+
+
+                    /*_.PROGN___V7*/ meltfptr[6] = /*_.RETURN___V6*/ meltfptr[5];;
+                    /*^compute*/
+                    /*_._IF___V5*/ meltfptr[3] = /*_.PROGN___V7*/ meltfptr[6];;
+                    /*epilog*/
+
+                    MELT_LOCATION("warmelt-base.melt:3568:/ clear");
+                    /*clear*/ /*_.RETURN___V6*/ meltfptr[5] = 0 ;
+                    /*^clear*/
+                    /*clear*/ /*_.PROGN___V7*/ meltfptr[6] = 0 ;
+                }
+                ;
+            }
+        else    /*^cond.else*/
+            {
+
+                /*_._IF___V5*/ meltfptr[3] =  /*reallynil*/ NULL ;;
+            }
+        ;
+
+        MELT_CHECK_SIGNAL();
+        ;
+        /*^compute*/
+        /*_#TESTDIS_CHK__L3*/ meltfnum[2] =
+            /*melt_make_jsonobject TESTDIS_CHK__1*/
+            !/*_.DIS__V2*/ meltfptr[1] || ((meltobject_ptr_t)/*_.DIS__V2*/ meltfptr[1])->meltobj_magic != MELTOBMAG_JSONOBJECT;;
+        MELT_LOCATION("warmelt-base.melt:3570:/ cond");
+        /*cond*/ if (/*_#TESTDIS_CHK__L3*/ meltfnum[2]) /*then*/
+            {
+                /*^cond.then*/
+                /*^block*/
+                /*anyblock*/
+                {
+
+
+                    MELT_CHECK_SIGNAL();
+                    ;
+                    MELT_LOCATION("warmelt-base.melt:3572:/ quasiblock");
+
+
+                    /*_._RETVAL___V1*/ meltfptr[0] = (/*nil*/NULL);;
+
+                    {
+                        MELT_LOCATION("warmelt-base.melt:3572:/ locexp");
+                        /*ochecknores compilobj_nrep_return*/
+#if MELT_HAVE_DEBUG
+                        if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
+                            melt_warn_for_no_expected_secondary_results();
+                        /* we warned when secondary results are expected but not returned. */
+#endif /*MELT_HAVE_DEBUG*/
+                        ;
+                    }
+                    ;
+                    /*^finalreturn*/
+                    ;
+                    /*finalret*/ goto meltlabend_rout ;
+                    MELT_LOCATION("warmelt-base.melt:3570:/ quasiblock");
+
+
+                    /*_.PROGN___V10*/ meltfptr[9] = /*_.RETURN___V9*/ meltfptr[6];;
+                    /*^compute*/
+                    /*_._IF___V8*/ meltfptr[5] = /*_.PROGN___V10*/ meltfptr[9];;
+                    /*epilog*/
+
+                    MELT_LOCATION("warmelt-base.melt:3570:/ clear");
+                    /*clear*/ /*_.RETURN___V9*/ meltfptr[6] = 0 ;
+                    /*^clear*/
+                    /*clear*/ /*_.PROGN___V10*/ meltfptr[9] = 0 ;
+                }
+                ;
+            }
+        else    /*^cond.else*/
+            {
+
+                /*_._IF___V8*/ meltfptr[5] =  /*reallynil*/ NULL ;;
+            }
+        ;
+
+        MELT_CHECK_SIGNAL();
+        ;
+        MELT_LOCATION("warmelt-base.melt:3561:/ quasiblock");
+
+
+        /*_._RETVAL___V1*/ meltfptr[0] = /*_._IF___V8*/ meltfptr[5];;
+
+        {
+            MELT_LOCATION("warmelt-base.melt:3561:/ locexp");
+            /*ochecknores compilobj_nrep_return*/
+#if MELT_HAVE_DEBUG
+            if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
+                melt_warn_for_no_expected_secondary_results();
+            /* we warned when secondary results are expected but not returned. */
+#endif /*MELT_HAVE_DEBUG*/
+            ;
+        }
+        ;
+        /*^finalreturn*/
+        ;
+        /*finalret*/ goto meltlabend_rout ;
+        /*epilog*/
+
+        /*^clear*/
+        /*clear*/ /*_#NULL__L1*/ meltfnum[0] = 0 ;
+        /*^clear*/
+        /*clear*/ /*_._IF___V3*/ meltfptr[2] = 0 ;
+        /*^clear*/
+        /*clear*/ /*_#IS_NOT_A__L2*/ meltfnum[1] = 0 ;
+        /*^clear*/
+        /*clear*/ /*_._IF___V5*/ meltfptr[3] = 0 ;
+        /*^clear*/
+        /*clear*/ /*_#TESTDIS_CHK__L3*/ meltfnum[2] = 0 ;
+        /*^clear*/
+        /*clear*/ /*_._IF___V8*/ meltfptr[5] = 0 ;
+    }
+
+    ;
+    goto meltlabend_rout;
+meltlabend_rout:
+    melt_trace_end("MAKE_JSONOBJECT", meltcallcount);
+    melt_blocklevel_signals = current_blocklevel_signals_meltrout_40_WARMELTmiBASE_MAKE_JSONOBJECT_melt;
+    return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
+#undef melt_variadic_length
+#undef melt_variadic_index
+
+#undef meltcallcount
+#undef meltfram__
+#undef MELTFRAM_NBVARNUM
+#undef MELTFRAM_NBVARPTR
+} /*end meltrout_40_WARMELTmiBASE_MAKE_JSONOBJECT*/
 
 
 

@@ -169,9 +169,9 @@ struct GTY (()) meltbasicblock_st   /* when MELTOBMAG_BASICBLOCK*/
     basic_block val;
 #ifndef MELT_BOGUS_GENGTYPE_4dot7 /* GCC 4.7 gengtype dislikes operator-s */
     operator melt_ptr_t ()
-{
-    return reinterpret_cast<melt_ptr_t>(this);
-}
+    {
+        return reinterpret_cast<melt_ptr_t>(this);
+    }
 #endif /*MELT_BOGUS_GENGTYPE_4dot7*/
 }; /* end of meltbasicblock_st */
 
@@ -198,9 +198,9 @@ struct GTY (()) meltbitmap_st   /* when MELTOBMAG_BITMAP*/
     bitmap val;
 #ifndef MELT_BOGUS_GENGTYPE_4dot7 /* GCC 4.7 gengtype dislikes operator-s */
     operator melt_ptr_t ()
-{
-    return reinterpret_cast<melt_ptr_t>(this);
-}
+    {
+        return reinterpret_cast<melt_ptr_t>(this);
+    }
 #endif /*MELT_BOGUS_GENGTYPE_4dot7*/
 }; /* end of meltbitmap_st */
 
@@ -227,9 +227,9 @@ struct GTY (()) meltedge_st   /* when MELTOBMAG_EDGE*/
     edge val;
 #ifndef MELT_BOGUS_GENGTYPE_4dot7 /* GCC 4.7 gengtype dislikes operator-s */
     operator melt_ptr_t ()
-{
-    return reinterpret_cast<melt_ptr_t>(this);
-}
+    {
+        return reinterpret_cast<melt_ptr_t>(this);
+    }
 #endif /*MELT_BOGUS_GENGTYPE_4dot7*/
 }; /* end of meltedge_st */
 
@@ -256,9 +256,9 @@ struct GTY (()) meltgimple_st   /* when MELTOBMAG_GIMPLE*/
     gimple val;
 #ifndef MELT_BOGUS_GENGTYPE_4dot7 /* GCC 4.7 gengtype dislikes operator-s */
     operator melt_ptr_t ()
-{
-    return reinterpret_cast<melt_ptr_t>(this);
-}
+    {
+        return reinterpret_cast<melt_ptr_t>(this);
+    }
 #endif /*MELT_BOGUS_GENGTYPE_4dot7*/
 }; /* end of meltgimple_st */
 
@@ -285,9 +285,9 @@ struct GTY (()) meltgimpleseq_st   /* when MELTOBMAG_GIMPLESEQ*/
     gimple_seq val;
 #ifndef MELT_BOGUS_GENGTYPE_4dot7 /* GCC 4.7 gengtype dislikes operator-s */
     operator melt_ptr_t ()
-{
-    return reinterpret_cast<melt_ptr_t>(this);
-}
+    {
+        return reinterpret_cast<melt_ptr_t>(this);
+    }
 #endif /*MELT_BOGUS_GENGTYPE_4dot7*/
 }; /* end of meltgimpleseq_st */
 
@@ -314,9 +314,9 @@ struct GTY (()) meltloop_st   /* when MELTOBMAG_LOOP*/
     loop_p val;
 #ifndef MELT_BOGUS_GENGTYPE_4dot7 /* GCC 4.7 gengtype dislikes operator-s */
     operator melt_ptr_t ()
-{
-    return reinterpret_cast<melt_ptr_t>(this);
-}
+    {
+        return reinterpret_cast<melt_ptr_t>(this);
+    }
 #endif /*MELT_BOGUS_GENGTYPE_4dot7*/
 }; /* end of meltloop_st */
 
@@ -343,9 +343,9 @@ struct GTY (()) meltrtvec_st   /* when MELTOBMAG_RTVEC*/
     rtvec val;
 #ifndef MELT_BOGUS_GENGTYPE_4dot7 /* GCC 4.7 gengtype dislikes operator-s */
     operator melt_ptr_t ()
-{
-    return reinterpret_cast<melt_ptr_t>(this);
-}
+    {
+        return reinterpret_cast<melt_ptr_t>(this);
+    }
 #endif /*MELT_BOGUS_GENGTYPE_4dot7*/
 }; /* end of meltrtvec_st */
 
@@ -372,9 +372,9 @@ struct GTY (()) meltrtx_st   /* when MELTOBMAG_RTX*/
     rtx val;
 #ifndef MELT_BOGUS_GENGTYPE_4dot7 /* GCC 4.7 gengtype dislikes operator-s */
     operator melt_ptr_t ()
-{
-    return reinterpret_cast<melt_ptr_t>(this);
-}
+    {
+        return reinterpret_cast<melt_ptr_t>(this);
+    }
 #endif /*MELT_BOGUS_GENGTYPE_4dot7*/
 }; /* end of meltrtx_st */
 
@@ -401,9 +401,9 @@ struct GTY (()) melttree_st   /* when MELTOBMAG_TREE*/
     tree val;
 #ifndef MELT_BOGUS_GENGTYPE_4dot7 /* GCC 4.7 gengtype dislikes operator-s */
     operator melt_ptr_t ()
-{
-    return reinterpret_cast<melt_ptr_t>(this);
-}
+    {
+        return reinterpret_cast<melt_ptr_t>(this);
+    }
 #endif /*MELT_BOGUS_GENGTYPE_4dot7*/
 }; /* end of melttree_st */
 
@@ -555,6 +555,59 @@ typedef struct meltjsonobject_st* meltjsonobject_ptr_t;
 #ifndef ggc_alloc_meltjsonobject_st
 #define ggc_alloc_meltjsonobject_st(SIZE) ((struct meltjsonobject_st *)(ggc_internal_alloc_stat (SIZE MEM_STAT_INFO)))
 #endif
+
+// small functions from VALDESC_JSONOBJECT in warmelt-base.melt
+static inline melt_ptr_t
+melt_jsonobject_aux (melt_ptr_t vjob)   // from VALDESC_JSONOBJECT
+{
+    if (melt_magic_discr(vjob) == MELTOBMAG_JSONOBJECT)
+        return ((struct meltjsonobject_st*)vjob)->jsob_aux;
+    return NULL;
+}
+
+static inline void
+melt_jsonobject_putaux (melt_ptr_t vjob, melt_ptr_t vaux)   // from VALDESC_JSONOBJECT
+{
+    if (melt_magic_discr(vjob) == MELTOBMAG_JSONOBJECT)
+        {
+            ((struct meltjsonobject_st*)vjob)->jsob_aux = vaux;
+            meltgc_touch_dest (vjob, vaux);
+        }
+}
+
+static inline unsigned
+melt_jsonobject_size  (melt_ptr_t vjob)   // from VALDESC_JSONOBJECT
+{
+    if (melt_magic_discr(vjob) == MELTOBMAG_JSONOBJECT)
+        return ((struct meltjsonobject_st*)vjob)->jsob_size;
+    return 0;
+}
+
+static inline melt_ptr_t
+melt_jsonobject_nth_name (melt_ptr_t vjob, int rk)
+{
+    if (melt_magic_discr(vjob) == MELTOBMAG_JSONOBJECT)
+        {
+            unsigned sz = ((struct meltjsonobject_st*)vjob)->jsob_size;
+            if (rk<0) rk += sz;
+            if (rk>=0 && rk < sz) return ((struct meltjsonobject_st*)vjob)->jsob_entab[rk].jsonob_name;
+        };
+    return NULL;
+}
+
+static inline melt_ptr_t
+melt_jsonobject_nth_value (melt_ptr_t vjob, int rk)
+{
+    if (melt_magic_discr(vjob) == MELTOBMAG_JSONOBJECT)
+        {
+            unsigned sz = ((struct meltjsonobject_st*)vjob)->jsob_size;
+            if (rk<0) rk += sz;
+            if (rk>=0 && rk < sz) return ((struct meltjsonobject_st*)vjob)->jsob_entab[rk].jsonob_val;
+        };
+    return NULL;
+}
+
+// end of small functions in VALDESC_JSONOBJECT from warmelt-base.melt
 
 
 
@@ -2610,5 +2663,5 @@ MELT_EXTERN melt_ptr_t melthookproc_HOOK_SYMBOL_IMPORTER(const char* meltin_SYMN
 MELT_EXTERN void melthookproc_HOOK_VALUE_EXPORTER(melt_ptr_t meltin_SYM_p0, melt_ptr_t meltin_VAL_p1, melt_ptr_t meltin_CONTENV_p2);
 /* end of declarations generated by generate_runtypesupport_predefined_hooks for 154 predefined */
 
-/*** End of declaration file meltbuild-sources/generated/meltrunsup.h generated on 2014 Apr 04
- * by GCC MELT 4.9.0 20140403 (experimental) [melt-branch revision 209054] MELT_1.1-pre . ***/
+/*** End of declaration file meltbuild-sources/generated/meltrunsup.h generated on 2014 Apr 05
+ * by GCC MELT 4.9.0 20140403 (experimental) [melt-branch revision 209145] MELT_1.1-pre . ***/
