@@ -1,10 +1,15 @@
 
 2014-04-05  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-base.melt (valdesc_jsonobject): Typo in small C++
+	functions.
+
+2014-04-05  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-first.melt (is_jsonobject): New primitive.
 
 	* melt/warmelt-base.melt (valdesc_jsonobject): Add small C++
-	function declarations.
+	function definitions.
 	(melt_make_jsonobject): Incomplete.
 
 2014-04-05  Basile Starynkevitch  <basile@starynkevitch.net>

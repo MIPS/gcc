@@ -2619,7 +2619,7 @@ typedef struct melthook_st *melthook_ptr_t;
     if (melt_magic_discr(vjob) == MELTOBMAG_JSONOBJECT) {
       unsigned sz = ((struct meltjsonobject_st*)vjob)->jsob_size;
       if (rk<0) rk += sz;
-      if (rk>=0 && rk < sz) return ((struct meltjsonobject_st*)vj)->jsob_entab[rk].jsonob_name;
+      if (rk>=0 && rk < sz) return ((struct meltjsonobject_st*)vjob)->jsob_entab[rk].jsonob_name;
     };
     return NULL;
   }
@@ -2630,7 +2630,7 @@ typedef struct melthook_st *melthook_ptr_t;
     if (melt_magic_discr(vjob) == MELTOBMAG_JSONOBJECT) {
       unsigned sz = ((struct meltjsonobject_st*)vjob)->jsob_size;
       if (rk<0) rk += sz;
-      if (rk>=0 && rk < sz) return ((struct meltjsonobject_st*)vj)->jsob_entab[rk].jsonob_val;
+      if (rk>=0 && rk < sz) return ((struct meltjsonobject_st*)vjob)->jsob_entab[rk].jsonob_val;
     };
     return NULL;
   }
