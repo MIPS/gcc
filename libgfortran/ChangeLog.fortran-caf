@@ -1,3 +1,12 @@
+2014-04-06  Tobias Burnus  <burnus@net-b.de>
+
+	* caf/libcaf.h (_gfortran_caf_send_desc,
+	_gfortran_caf_send_desc_scalar, _gfortran_caf_send): Renamed
+	from _gfortran_send*.
+	* caf/single.c (_gfortran_caf_send_desc,
+	_gfortran_caf_send_desc_scalar): Fix bugs and also
+	support rank > 1 arrays.
+
 2014-04-03  Tobias Burnus  <burnus@net-b.de>
 
 	* caf/libcaf.h (descriptor_dimension, gfc_descriptor_t): New

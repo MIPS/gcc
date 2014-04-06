@@ -170,30 +170,57 @@ _gfortran_caf_send_desc (caf_token_t token, size_t offset,
 			 gfc_descriptor_t *dest, gfc_descriptor_t *src,
 			 bool asyn __attribute__ ((unused)))
 {
-  fprintf (stderr, "COARRAY ERROR: Array communication "
-	   "[_gfortran_caf_send_desc] not yet implemented for rank /= 0");
-  exit (EXIT_FAILURE);
-  size_t i, j;
-  size_t size = GFC_DESCRIPTOR_SIZE (dest);
+  size_t i, size;
+  int j;
   int rank = GFC_DESCRIPTOR_RANK (dest);
 
-  if (rank != 1)
+  size = 1;
+  for (j = 0; j < rank; j++)
     {
-      fprintf (stderr, "COARRAY ERROR: Array communication "
-	       "[_gfortran_caf_send_desc] not yet implemented for rank /= 0");
-      exit (EXIT_FAILURE);
+      ptrdiff_t dimextent = dest->dim[j]._ubound - dest->dim[j].lower_bound + 1;
+      if (dimextent < 0)
+	dimextent = 0;
+      size *= dimextent;
     }
 
-  for (j = dest->dim[0].lower_bound - dest->offset,
-       i = src->dim[0].lower_bound - src->offset;
-       j <= dest->dim[0]._ubound - dest->offset
-       && i <= src->dim[0]._ubound - src->offset;
-       j += dest->dim[0]._stride,
-       i += src->dim[0]._stride)
+  if (size == 0)
+    return;
+
+  for (i = 0; i < size; i++)
     {
-      void *dst = (void *)((char *) TOKEN(token) + offset + j*size);
-      void *sr = (void *)((char *)src->base_addr + j*size);
-      memmove (dst, sr, size);
+      ptrdiff_t array_offset_dst = 0;
+      ptrdiff_t stride = 1;
+      ptrdiff_t extent = 1;
+      for (j = 0; j < rank-1; j++)
+	{
+	  array_offset_dst += ((i / (extent*stride))
+			       % (dest->dim[j]._ubound
+				  - dest->dim[j].lower_bound + 1))
+			      * dest->dim[j]._stride;
+	  extent = (dest->dim[j]._ubound - dest->dim[j].lower_bound + 1);
+          stride = dest->dim[j]._stride;
+	}
+      array_offset_dst += (i / extent) * dest->dim[rank-1]._stride;
+
+      ptrdiff_t array_offset_sr = 0;
+      stride = 1;
+      extent = 1;
+      for (j = 0; j < GFC_DESCRIPTOR_RANK (src)-1; j++)
+	{
+	  array_offset_sr += ((i / (extent*stride))
+			   % (src->dim[j]._ubound
+			      - src->dim[j].lower_bound + 1))
+			  * src->dim[j]._stride;
+	  extent = (src->dim[j]._ubound - src->dim[j].lower_bound + 1);
+          stride = src->dim[j]._stride;
+	}
+      array_offset_sr += (i / extent) * dest->dim[rank-1]._stride;
+
+      void *dst = (void *)((char *) TOKEN (token) + offset
+			   + array_offset_dst*GFC_DESCRIPTOR_SIZE (dest));
+      void *sr = (void *)((char *) src->base_addr
+			  + array_offset_sr*GFC_DESCRIPTOR_SIZE (src));
+      memmove (dst, sr, GFC_DESCRIPTOR_SIZE (dest));
     }
 }
 
@@ -206,24 +233,37 @@ _gfortran_caf_send_desc_scalar (caf_token_t token, size_t offset,
 				gfc_descriptor_t *dest, void *buffer,
 				bool asyn __attribute__ ((unused)))
 {
-  size_t j;
-  size_t size = GFC_DESCRIPTOR_SIZE (dest);
+  size_t i, size;
+  int j;
   int rank = GFC_DESCRIPTOR_RANK (dest);
 
-  if (rank != 1)
+  size = 1;
+  for (j = 0; j < rank; j++)
     {
-      fprintf (stderr, "COARRAY ERROR: Array communication "
-	       "[_gfortran_caf_send_desc_scalar] not yet implemented for "
-	       "rank /= 0");
-      exit (EXIT_FAILURE);
+      ptrdiff_t dimextent = dest->dim[j]._ubound - dest->dim[j].lower_bound + 1;
+      if (dimextent < 0)
+	dimextent = 0;
+      size *= dimextent;
     }
 
-  for (j = dest->dim[0].lower_bound - dest->offset;
-       j <= dest->dim[0]._ubound - dest->offset;
-       j += dest->dim[0]._stride)
+  for (i = 0; i < size; i++)
     {
-      void *dst = (void *)((char *) TOKEN(token) + offset + j*size);
-      memmove (dst, buffer, size);
+      ptrdiff_t array_offset = 0;
+      ptrdiff_t stride = 1;
+      ptrdiff_t extent = 1;
+      for (j = 0; j < rank-1; j++)
+	{
+	  array_offset += ((i / (extent*stride))
+			   % (dest->dim[j]._ubound
+			      - dest->dim[j].lower_bound + 1))
+			  * dest->dim[j]._stride;
+	  extent = (dest->dim[j]._ubound - dest->dim[j].lower_bound + 1);
+          stride = dest->dim[j]._stride;
+	}
+      array_offset += (i / extent) * dest->dim[rank-1]._stride;
+      void *dst = (void *)((char *) TOKEN (token) + offset
+			   + array_offset*GFC_DESCRIPTOR_SIZE (dest));
+      memmove (dst, buffer, GFC_DESCRIPTOR_SIZE (dest));
     }
 }
 

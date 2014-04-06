@@ -1,0 +1,3 @@
+2014-04-06  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/coarray/send_array.f90: New.

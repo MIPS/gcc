@@ -108,9 +108,11 @@ void *_gfortran_caf_register (size_t, caf_register_t, caf_token_t *, int *,
 			      char *, int);
 void _gfortran_caf_deregister (caf_token_t *, int *, char *, int);
 
-void _gfortran_send (caf_token_t, size_t, int, void *, size_t, bool);
-void _gfortran_send_desc (caf_token_t, size_t, int, gfc_descriptor_t*, gfc_descriptor_t*, bool);
-void _gfortran_send_desc_scalar (caf_token_t, size_t, int, gfc_descriptor_t*, void*, bool);
+void _gfortran_caf_send (caf_token_t, size_t, int, void *, size_t, bool);
+void _gfortran_caf_send_desc (caf_token_t, size_t, int, gfc_descriptor_t*,
+			      gfc_descriptor_t*, bool);
+void _gfortran_caf_send_desc_scalar (caf_token_t, size_t, int,
+				     gfc_descriptor_t*, void*, bool);
 
 void _gfortran_caf_sync_all (int *, char *, int);
 void _gfortran_caf_sync_images (int, int[], int *, char *, int);

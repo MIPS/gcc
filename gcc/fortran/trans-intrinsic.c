@@ -7871,17 +7871,25 @@ conv_caf_send (gfc_code *code) {
 
   gcc_assert (gfc_option.coarray == GFC_FCOARRAY_LIB);
 
-  lhs_expr = code->ext.actual->expr; 
-  rhs_expr = code->ext.actual->next->expr; 
-  async_expr = code->ext.actual->next->next->expr; 
+  lhs_expr = code->ext.actual->expr;
+  rhs_expr = code->ext.actual->next->expr;
+  async_expr = code->ext.actual->next->next->expr;
   gfc_init_block (&block);
 
   /* LHS: The coarray.  */
 
   gfc_init_se (&lhs_se, NULL);
   if (lhs_expr->rank)
-    lhs_se.descriptor_only = 1;
-  gfc_conv_expr_reference (&lhs_se, lhs_expr);
+    {
+      gfc_conv_expr_descriptor (&lhs_se, lhs_expr);
+      lhs_se.expr = gfc_build_addr_expr (NULL_TREE, lhs_se.expr);
+    }
+  else
+    {
+      lhs_se.want_pointer = 1;
+      gfc_conv_expr_reference (&lhs_se, lhs_expr);
+    }
+  gfc_add_block_to_block (&block, &lhs_se.pre);
 
   caf_decl = gfc_get_tree_for_caf_expr (lhs_expr);
   if (TREE_CODE (TREE_TYPE (caf_decl)) == REFERENCE_TYPE)
@@ -7947,16 +7955,25 @@ conv_caf_send (gfc_code *code) {
 
   gfc_init_se (&rhs_se, NULL);
   if (rhs_expr->rank)
-    rhs_se.descriptor_only = 1;
-  rhs_se.want_pointer = 1;
-  gfc_conv_expr_reference (&rhs_se, rhs_expr);
+    {
+      gfc_conv_expr_descriptor (&rhs_se, rhs_expr);
+      rhs_se.expr = gfc_build_addr_expr (NULL_TREE, rhs_se.expr);
+    }
+  else
+    {
+      rhs_se.want_pointer = 1;
+      gfc_conv_expr_reference (&rhs_se, rhs_expr);
+    }
   gfc_add_block_to_block (&block, &rhs_se.pre);
 
   gfc_init_se (&async_se, NULL);
   gfc_conv_expr (&async_se, async_expr);
 
   if (rhs_expr->rank)
-    size = size_in_bytes (gfc_get_element_type (TREE_TYPE (rhs_se.expr)));
+    {
+      size = TREE_TYPE (TREE_TYPE (rhs_se.expr));
+      size = size_in_bytes (gfc_get_element_type (size));
+    }
   else
     size = size_in_bytes (TREE_TYPE (TREE_TYPE (rhs_se.expr)));
   if (lhs_expr->rank && rhs_expr->rank)
@@ -7974,6 +7991,7 @@ conv_caf_send (gfc_code *code) {
 			       token, offset, image_index, rhs_se.expr, size,
 			       fold_convert (boolean_type_node, async_se.expr));
   gfc_add_expr_to_block (&block, tmp);
+  gfc_add_block_to_block (&block, &lhs_se.post);
   gfc_add_block_to_block (&block, &rhs_se.post);
   return gfc_finish_block (&block);
 }

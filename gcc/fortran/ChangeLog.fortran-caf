@@ -1,3 +1,8 @@
+2014-04-06  Tobias Burnus  <burnus@net-b.de>
+
+	* trans-intrinsic.c (conv_caf_send): Fix bugs with
+	arrays implementation.
+
 2014-04-03  Tobias Burnus  <burnus@net-b.de>
 
 	* trans.h (gfor_fndecl_caf_send_desc,
