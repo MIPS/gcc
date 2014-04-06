@@ -33,15 +33,16 @@ int f(int ciu_sum_13)
   }
   /* D34526_53 should not be considered as unitialized as ciu_sum_13 is never
      0 in this if/else statement as we check for non zero with iftmp119_15.  */
-  t[D34526_53-1] = 1; 
+  t[D34526_53-1] = 1; /* { dg-bogus "" "" } */
   return t[0];
 }
 
 /* The call to link_error should be removed by VRP. 
-   This fails on ilp32 because we get: 
+   This used to fail on ilp32 because we get: 
    D.1694_4 = ciu_sum_13_3(D) != 0;
    iftmp119_15_5 = (int) D.1694_4;
-   Which we don't handle yet (upstream handles it though).  */
+   which was not handled before.  */
+/* { dg-final { scan-tree-dump-times "link_error" 0 "optimized"  } } */
 /* { dg-final { cleanup-tree-dump "optimized" } } */
 
 

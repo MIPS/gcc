@@ -5047,6 +5047,11 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
       if (integer_zerop (val))
         {
 	  gimple def_stmt = SSA_NAME_DEF_STMT (name);
+      /* Look though casts for the compare.  */
+      while (is_gimple_assign (def_stmt)
+	     && CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (def_stmt))
+	     && TREE_CODE (gimple_assign_rhs1 (def_stmt)) == SSA_NAME)
+	def_stmt = SSA_NAME_DEF_STMT (gimple_assign_rhs1 (def_stmt));
 	  if (is_gimple_assign (def_stmt)
              && TREE_CODE_CLASS (gimple_assign_rhs_code (def_stmt)) == tcc_comparison)
            {

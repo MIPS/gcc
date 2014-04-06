@@ -66,6 +66,14 @@
 	* passes.def: Move pass_late_warn_uninitialized
 	to before the pass_late_phiopt pass.
 
+2014-04-06  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #10070
+	* testsuite/gcc.dg/tree-ssa/vrp-assert-1.c: Remove the xfail.
+	* testsuite/gcc.dg/tree-ssa/vrp-assert-2.c: New testcase.
+	* tree-vrp.c (register_edge_assert_for_2): Look through casts for
+	the comparision.
+
 2014-03-30  Andrew Pinski  <apinski@cavium.com>
 
 	* testsuite/gcc.dg/octeon/test-backtrace.h: Fix uninitialized warning.
