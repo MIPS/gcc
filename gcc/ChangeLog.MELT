@@ -2,6 +2,7 @@
 
 2014-04-07  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{failed test MSFT-8 https://sourceforge.net/p/gcc-melt/tickets/8/}}
 	* testsuite/melt/tvariadic-4.melt: New test which fails but should
 	work. Scope of variadic locals is wrong.
 
