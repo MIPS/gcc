@@ -4613,7 +4613,7 @@ source location.}#
   (assert_msg "check ifvariadic recv" (is_a recv class_source_ifvariadic) recv)
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
-  (let ( (loc (unsafe_get_field :loca_location recv))
+  (let ( (loc (or (unsafe_get_field :loca_location recv) psloc))
 	 (sargs (unsafe_get_field :sifvariadic_argbind recv))
 	 (:long nbargs (multiple_length sargs))
 	 (sthen (unsafe_get_field :sifvariadic_then recv))
@@ -4623,14 +4623,14 @@ source location.}#
 	 (nprovariadic (get_field :nrpro_variadic curpro))
 	 (newenv (fresh_env env))
 	 )
-    (debug "normexp_ifvariadic curpro" curpro)
+    (debug "normexp_ifvariadic curpro=" curpro "; loc=" loc)
     (assert_msg "normexp_ifvariadic check sthen" (is_multiple_or_null sthen) sthen)
     (assert_msg "normexp_ifvariadic check selse" (is_multiple_or_null selse) selse)
     (when (is_not_a curprocargs discr_variadic_formal_sequence)
-      (debug "normexp_ifvariadic bad curprocargs" curprocargs)
+      (debug "normexp_ifvariadic bad curprocargs=" curprocargs " loc=" loc)
       (error_at loc "(VARIADIC ...) used in non-variadic function")
       (return))
-    (debug "normexp_ifvariadic nprovariadic" nprovariadic)
+    (debug "normexp_ifvariadic nprovariadic=" nprovariadic "; loc=" loc)
     (assert_msg "normexp_ifvariadic has nprovariadic" nprovariadic nprovariadic)
     ;; we transform the sequence of formal bindings into a sequence of
     ;; normal let bindings...
@@ -4642,7 +4642,7 @@ source location.}#
       (foreach_in_multiple
        (sargs)
        (fbi :long fbix)
-       (debug "normexp_ifvariadic fbi" fbi)
+       (debug "normexp_ifvariadic fbi=" fbi)
        (assert_msg "check fbi" (is_a fbi class_formal_binding) fbi)
        (let ( (curbinder (unsafe_get_field :binder fbi))
 	      (curctype (unsafe_get_field :fbind_type fbi))
@@ -4665,15 +4665,14 @@ source location.}#
 	      )
 	 (multiple_put_nth letbindtup fbix curletbind)
 	 (list_append letbindthenlist curletbind)
-	 (debug "normexp_ifvariadic curletbind" curletbind)
+	 (debug "normexp_ifvariadic curletbind=" curletbind
+		"\n.. curlocc=" curlocc "\n.. curctype=" curctype)
 	 (multiple_put_nth locsymtup fbix curlocc)
-	 (debug "normexp_ifvariadic curlocc" curlocc)
 	 (multiple_put_nth ctyptup fbix curctype)
-	 (debug "normexp_ifvariadic curctype" curctype)
 	 (assert_msg "check curctype" (is_a curctype class_ctype) curctype)
 	 (put_env newenv curletbind)		 
 	 ))
-      (debug "normexp_ifvariadic letbindthenlist=" letbindthenlist)
+      (debug "normexp_ifvariadic letbindthenlist=" letbindthenlist "; loc=" loc)
       (let ( (cvarsym (clone_symbol 'consumvariadic_))
 	     (nconsume (instance class_nrep_consume_variadic
 				 :nrep_loc loc
@@ -4689,23 +4688,24 @@ source location.}#
 	(list_append letbindthenlist cvarbind)
 	)
       (debug "normexp_ifvariadic letbindthenlist=" letbindthenlist
-	     " letbindtup=" letbindtup
-	     " locsymtup=" locsymtup
-	     " ctyptup=" ctyptup
-	     " sthen=" sthen)
+	     "\n.. letbindtup=" letbindtup
+	     "\n.. locsymtup=" locsymtup
+	     "\n.. ctyptup=" ctyptup
+	     " sthen=" sthen "\n.. loc=" loc)
       (multicall
        (nthen nthenbindings)
        (normalize_tuple sthen newenv ncx loc)
-       (debug "normexp_ifvariadic nthen=" nthen " nthenbindings=" nthenbindings)
+       (debug "normexp_ifvariadic nthen=" nthen " nthenbindings=" nthenbindings
+	      "\n.. loc=" loc)
        (list_append2list letbindthenlist nthenbindings)
        (debug "normexp_ifvariadic updated letbindthenlist=" letbindthenlist
-	      " selse=" selse)
+	      " selse=" selse "\n.. loc=" loc)
        (multicall
 	(nelse nelsebindings)
 	;;;; we had::: (normalize_tuple selse newenv ncx loc)
 	;;; but very probably the else don't need the supplementary binding...
 	(normalize_tuple selse env ncx loc)
-	(debug "normexp_ifvariadic nelse=" nelse " nelsebindings=" nelsebindings)
+	(debug "normexp_ifvariadic nelse=" nelse " nelsebindings=" nelsebindings "\n.. loc=" loc)
 	(let ( 
 	      (csym (clone_symbol 'ifvariadic_))
 	      (cbind (instance class_normal_let_binding
@@ -4721,11 +4721,15 @@ source location.}#
 			       :nocc_bind cbind))
 	      (nthenlet 
 	       (progn
-		 (debug "normexp_ifvariadic wrapping nthen=" nthen)
+		 (debug "normexp_ifvariadic wrapping nthen=" nthen
+			"\n.. letbindthenlist=" letbindthenlist
+			"\n.. loc=" loc)
 		 (wrap_normal_letseq nthen letbindthenlist loc)))
 	      (nelselet 
 	       (progn 
-		 (debug "normexp_ifvariadic wrapping nelse=" nelse)
+		 (debug "normexp_ifvariadic wrapping nelse=" nelse
+			"\n.. nelsebindings=" nelsebindings
+			"\n.. loc=" loc)
 		 (wrap_normal_letseq nelse nelsebindings loc)))
 	      (nbindlist (list cbind))
 	      (nifv (instance class_nrep_ifvariadic
@@ -4735,7 +4739,7 @@ source location.}#
 			      :nifv_variadic nprovariadic
 			      :nifv_ctypes ctyptup))
 	      )
-	  (debug "normexp_ifvariadic nifv" nifv)
+	  (debug "normexp_ifvariadic nifv=" nifv)
 	  (put_fields cbind :letbind_expr nifv)
 	  (debug "normexp_ifvariadic result clocc=" clocc " nbindlist=" nbindlist)
 	  (return clocc nbindlist)

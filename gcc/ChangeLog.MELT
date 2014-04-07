@@ -2,7 +2,21 @@
 
 2014-04-07  Basile Starynkevitch  <basile@starynkevitch.net>
 
-	{{failed test MSFT-8 https://sourceforge.net/p/gcc-melt/tickets/8/}}
+	{{still failing MELT-SFT-8}}
+	* melt/warmelt-base.melt (multiple_sort): Remove debug print.
+
+	* melt/warmelt-macro.melt (mexpand_variadic): More debug. Location
+	update for emitted ifvariadic...
+
+	* melt/warmelt-normal.melt (normexp_ifvariadic): More debug.
+
+	* melt/warmelt-genobj.melt (compilobj_nrep_ifvariadic): More debug.
+
+	* testsuite/melt/tvariadic-4.melt: Untabify and reindent.
+
+2014-04-07  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{failed test MELT-SFT-8 https://sourceforge.net/p/gcc-melt/tickets/8/}}
 	* testsuite/melt/tvariadic-4.melt: New test which fails but should
 	work. Scope of variadic locals is wrong.
 

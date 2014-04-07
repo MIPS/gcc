@@ -3442,12 +3442,6 @@ typedef struct melthook_st *melthook_ptr_t;
   (if (is_a dis class_discriminant)
       (void)
     (return ()))
-    (code_chunk
-     dbgmulsortdiscrim_chk
-     #{ /* multiple_sort $DBGMULSORTDISCRIM_CHK */
-     debugeprintf ("multiple_sort $DBGMULSORTDISCRIM_CHK dis=%p of magic %d",
-		   (void*)$DIS, melt_magic_discr($DIS));
-     }#)
   (if (expr_chunk checkmagic_chk :long
 		  #{ /* multiple_sort $CHECKMAGIC_CHK */
 		  (((meltobject_ptr_t)($DIS))->meltobj_magic == MELTOBMAG_MULTIPLE) }#)
@@ -3455,11 +3449,6 @@ typedef struct melthook_st *melthook_ptr_t;
     (return ()))
   (let ( (:long tuplen (multiple_length mul))
 	 )
-    (code_chunk
-     dbgmulsort_chk
-     #{ /* multiple_sort $DBGMULSORT_CHK */
-     debugeprintf ("multiple_sort $DBGMULSORT_CHK tuplen=%ld", $TUPLEN);
-     }#)
     (let (
 	  (res (make_multiple dis tuplen))
 	  (:long reslen (multiple_length res))

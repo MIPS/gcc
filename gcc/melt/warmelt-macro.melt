@@ -7164,17 +7164,16 @@ applications of @code{/i} primitives.}#
 	 (rescont (reference ()))
 	 (varbindmap (make_mapobject discr_map_objects (+i 7 (*i 3 (list_length cont)))))
 	 (hookfun (lambda (x) 
-		    (debug "mexpand_variadic/hookfun rescont set to x" x)
+		    (debug "mexpand_variadic/hookfun rescont set to x" x "; loc=" loc)
 		    (set_ref rescont x)))
 	 )
     (foreach_pair
      (firstpair)
      (curpaircase curcase)
-     (debug "mexpand_variadic curcase" curcase)
-     (if (is_not_a curcase class_sexpr)
-	 (progn
+     (debug "mexpand_variadic curcase=" curcase " loc=" loc)
+     (when (is_not_a curcase class_sexpr)
 	   (error_plain loc "(VARIADIC variadic-case...) expects a list, so cannot have non-list components.")
-	   (return)))
+	   (return))
      (let (
 	   (curcaseloc (unsafe_get_field :loca_location curcase))
 	   (curcasecont (unsafe_get_field :sexp_contents curcase))
@@ -7185,17 +7184,20 @@ applications of @code{/i} primitives.}#
        (debug "mexpand_variadic casefirst=" casefirst " curcase=" curcase)
        (cond
 	((== casefirst :else)
-	 (if (pair_tail curpaircase)
-	     (progn
+	 ;; warn if not last
+	 (when (pair_tail curpaircase)
 	       (error_plain curcaseloc "case (:ELSE ...) should be last in (VARIADIC ...)")
 	       (warning_plain loc "This (VARIADIC ...) should have (:ELSE ...) case at last")
-	       (return)))
+	       (return))
+	 ;; expand the body
+	 (debug "mexpand_variadic caserest=" caserest
+		"; curcaseloc=" curcaseloc "; loc=" loc)
 	 (let (  (bodytup (pairlist_to_multiple 
 			   caserest 
 			   discr_multiple
 			   (lambda (e) (mexpander e env mexpander modctx)))) 
 		 )
-	   (debug "mexpand_variadic else bodytup before hookfun" bodytup)
+	   (debug "mexpand_variadic else bodytup before hookfun " bodytup)
 	   (debug "mexpand_variadic hookfun before" hookfun)
 	   (shortbacktrace_dbg "mexpand_variadic before calling hookfun for else" 15)
 	   (hookfun bodytup)
@@ -7227,12 +7229,12 @@ applications of @code{/i} primitives.}#
 			    caserest discr_multiple 
 			    (lambda (e) (mexpander e newenv mexpander modctx))))
 		  (sifvariadic (instance class_source_ifvariadic
-					 :loca_location loc
+					 :loca_location (or curcaseloc loc)
 					 :sifvariadic_argbind args
 					 :sifvariadic_then bodytup
 					 :sifvariadic_else ()))
 		  )
-	     (debug "mexpand_variadic bodytup" bodytup)
+	     (debug "mexpand_variadic bodytup" bodytup " sifvariadic=" sifvariadic " loc=" loc)
 	     (shortbacktrace_dbg "mexpand_variadic before calling hookfun for casefirst" 15)
 	     (hookfun sifvariadic)
 	     (setq hookfun
@@ -7252,12 +7254,12 @@ applications of @code{/i} primitives.}#
 	 )
 	)
        )
-     (debug "mexpand_variadic done curcase" curcase)
+     (debug "mexpand_variadic done curcase=" curcase)
      )
-    (debug "mexpand_variadic rescont" rescont)
+    (debug "mexpand_variadic final rescont=" rescont " loc=" loc)
     (let ( (res !rescont) 
 	   )
-      (debug "mexpand_variadic result" res)
+      (debug "mexpand_variadic result=" res " loc=" loc)
       (return res)
       )))
 (install_initial_macro 'variadic mexpand_variadic)

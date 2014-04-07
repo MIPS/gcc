@@ -4932,7 +4932,8 @@
 	 )
     (assert_msg "check nvctypes" (is_multiple_or_null nvctypes) nvctypes)
     (assert_msg "check nvariadic" (is_a nvariadic class_symbol) nvariadic)
-    (debug "compilobj_nrep_ifvariadic nthen=" nthen " nelse=" nelse " nvariadic=" nvariadic)
+    (debug "compilobj_nrep_ifvariadic nthen=" nthen "\n.. nelse=" nelse
+	   "\n.. nvariadic=" nvariadic " loc=" loc)
     (let ( 
 	  (ovariadicindex (variadic_index_idstr nvariadic))
 	  (ovariadiclength (variadic_length_idstr nvariadic))
@@ -4961,7 +4962,8 @@
 	       (foreach_in_multiple
 		(nvctypes)
 		(curctyp :long ix)
-		(debug "compilobj_nrep_ifvariadic curctyp" curctyp " ix=" ix)
+		(debug "compilobj_nrep_ifvariadic curctyp" curctyp " ix=" ix
+		       "; loc=" loc)
 		(assert_msg "check curctyp" (is_a curctyp class_ctype) curctyp)
 		(list_append ovlist (make_stringconst discr_verbatim_string " && meltxargdescr_["))
 		(list_append ovlist ovariadicindex)
@@ -4974,26 +4976,26 @@
 			     (make_string discr_verbatim_string 
 					  (get_field :ctype_parchar curctyp)))
 		)
-	       (debug "compilobj_nrep_ifvariadic ovlist=" ovlist)
+	       (debug "compilobj_nrep_ifvariadic ovlist=" ovlist"; loc=" loc)
 	       ovlist))
 	   )
 	  (otest (instance  class_objexpv
 			    :obx_cont (list_to_multiple otestchklist discr_multiple)))
 	  (othen 
 	   (progn 
-	     (debug "compilobj_nrep_ifvariadic before compiling nthen=" nthen)
+	     (debug "compilobj_nrep_ifvariadic before compiling nthen=" nthen"; loc=" loc)
 	     (let ( (objthen (compile_obj nthen gcx))
 		    )
 	       (debug "compilobj_nrep_ifvariadic after compiling nthen=" nthen 
-		      " objthen=" objthen)
+		      " objthen=" objthen"; loc=" loc)
 	       objthen)))
 	  (oelse 
 	   (progn 
-	     (debug "compilobj_nrep_ifvariadic before compiling nelse=" nelse)
+	     (debug "compilobj_nrep_ifvariadic before compiling nelse=" nelse "; loc=" loc)
 	     (let ( (objelse (compile_obj nelse gcx))
 		    )
 	       (debug "compilobj_nrep_ifvariadic after compiling nelse=" nelse
-		      " objelse=" objelse)
+		      " objelse=" objelse"; loc=" loc)
 	       objelse)))
 	  (ocond (instance class_objcond
 			   :obi_loc loc
@@ -5001,7 +5003,7 @@
 			   :obcond_then othen
 			   :obcond_else oelse))
 	  )
-      (debug "compilobj_nrep_ifvariadic ocond=" ocond)
+      (debug "compilobj_nrep_ifvariadic ocond=" ocond"; loc=" loc)
       (return ocond))))
 (install_method class_nrep_ifvariadic compile_obj compilobj_nrep_ifvariadic)
 
