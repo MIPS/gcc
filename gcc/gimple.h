@@ -2459,7 +2459,7 @@ gimple_call_internal_fn (const_gimple gs)
 
 /* Return the function type of the function called by GS.  */
 
-static inline Gimple::type
+static inline Gimple::function_or_method_type
 gimple_call_fntype (const_gimple gs)
 {
   const gimple_statement_call *call_stmt =
@@ -2538,7 +2538,7 @@ gimple_call_set_internal_fn (gimple gs, enum internal_fn fn)
    Otherwise return NULL.  This function is analogous to
    get_callee_fndecl in tree land.  */
 
-static inline Gimple::value
+static inline Gimple::function_decl
 gimple_call_fndecl (const_gimple gs)
 {
   return gimple_call_addr_fndecl (gimple_call_fn (gs));
@@ -2964,8 +2964,8 @@ gimple_cond_false_label (const_gimple gs)
 static inline void
 gimple_cond_make_false (gimple gs)
 {
-  gimple_cond_set_lhs (gs, boolean_true_node);
-  gimple_cond_set_rhs (gs, boolean_false_node);
+  gimple_cond_set_lhs (gs, gimple_boolean_true);
+  gimple_cond_set_rhs (gs, gimple_boolean_false);
   gs->subcode = EQ_EXPR;
 }
 
@@ -2975,8 +2975,8 @@ gimple_cond_make_false (gimple gs)
 static inline void
 gimple_cond_make_true (gimple gs)
 {
-  gimple_cond_set_lhs (gs, boolean_true_node);
-  gimple_cond_set_rhs (gs, boolean_true_node);
+  gimple_cond_set_lhs (gs, gimple_boolean_true);
+  gimple_cond_set_rhs (gs, gimple_boolean_true);
   gs->subcode = EQ_EXPR;
 }
 
@@ -2990,10 +2990,10 @@ gimple_cond_true_p (const_gimple gs)
   Gimple::value rhs = gimple_cond_rhs (gs);
   enum tree_code code = gimple_cond_code (gs);
 
-  if (lhs != boolean_true_node && lhs != boolean_false_node)
+  if (lhs != gimple_boolean_true && lhs != gimple_boolean_false)
     return false;
 
-  if (rhs != boolean_true_node && rhs != boolean_false_node)
+  if (rhs != gimple_boolean_true && rhs != gimple_boolean_false)
     return false;
 
   if (code == NE_EXPR && lhs != rhs)
@@ -3015,10 +3015,10 @@ gimple_cond_false_p (const_gimple gs)
   Gimple::value rhs = gimple_cond_rhs (gs);
   enum tree_code code = gimple_cond_code (gs);
 
-  if (lhs != boolean_true_node && lhs != boolean_false_node)
+  if (lhs != gimple_boolean_true && lhs != gimple_boolean_false)
     return false;
 
-  if (rhs != boolean_true_node && rhs != boolean_false_node)
+  if (rhs != gimple_boolean_true && rhs != gimple_boolean_false)
     return false;
 
   if (code == NE_EXPR && lhs == rhs)
@@ -5652,9 +5652,9 @@ gimple_expr_type (const_gimple stmt)
       return type;
     }
   else if (code == GIMPLE_COND)
-    return boolean_type_node;
+    return gimple_boolean_type;
   else
-    return void_type_node;
+    return gimple_void_type;
 }
 
 /* Enum and arrays used for allocation stats.  Keep in sync with

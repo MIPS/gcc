@@ -8,10 +8,21 @@ extern tree tree_strip_nop_conversions (tree);
 #include "gimple-value-core.h"
 #include "gimple-wrapper.h"
 
-extern Gimple::value boolean_true_node;
-extern Gimple::value boolean_false_node;
-extern Gimple::type void_type_node;
-extern Gimple::type boolean_type_node;
+extern Gimple::value_ptr boolean_true_node_ptr;
+extern Gimple::value_ptr boolean_false_node_ptr;
+extern Gimple::type_ptr void_type_node_ptr;
+extern Gimple::type_ptr char_type_node_ptr;
+extern Gimple::type_ptr boolean_type_node_ptr;
+extern Gimple::type_ptr integer_type_node_ptr;
+extern Gimple::integer_cst_ptr integer_zero_node_ptr;
+
+#define gimple_boolean_true (*boolean_true_node_ptr)
+#define gimple_boolean_false (*boolean_false_node_ptr)
+#define gimple_void_type (*void_type_node_ptr)
+#define gimple_char_type (*char_type_node_ptr)
+#define gimple_boolean_type (*boolean_type_node_ptr)
+#define gimple_integer_type (*integer_type_node_ptr)
+#define gimple_integer_zero (*integer_zero_node_ptr)
 
   extern Gimple::identifier decl_assembler_name (Gimple::decl_with_viz d);
 namespace Gimple {
@@ -211,6 +222,15 @@ tree_desc::check_node (enum tree_code t1, enum tree_code t2, enum tree_code t3,
 }
 
 
+// class block_desc
+
+inline Gimple::value
+block_desc::supercontext () const
+{
+  return node.block.supercontext;
+}
+
+
 // class type_desc
 
 
@@ -218,6 +238,12 @@ inline Gimple::type
 type_desc::type() const
 { 
   return Gimple::type (node.typed.type);
+}
+
+inline bool
+label_decl_desc::forced_label () const
+{
+  return node.base.side_effects_flag;
 }
 
 inline Gimple::value
@@ -518,6 +544,18 @@ identifier_desc::pointer () const
   return (const char *)(node.identifier.id.str);
 }
 
+inline bool
+constant_desc::overflow_p () const
+{
+  return node.base.public_flag;
+}
+
+inline void
+constant_desc::set_overflow_p (bool f)
+{
+  node.base.public_flag = f;
+}
+
 inline double_int 
 integer_cst_desc::int_cst () const
 { return node.int_cst.int_cst; }
@@ -529,6 +567,12 @@ integer_cst_desc::low () const
 inline HOST_WIDE_INT 
 integer_cst_desc::high () const
 { return node.int_cst.int_cst.high; }
+
+inline REAL_VALUE_TYPE
+real_cst_desc::real_cst () const
+{
+  return *(node.real_cst.real_cst_ptr);
+}
 
 inline value
 case_label_expr_desc::case_low () const
@@ -577,6 +621,19 @@ addr_expr_desc::expr () const
   return value_desc::op(0);
 }
 
+inline ::vec<constructor_elt, va_gc> *
+constructor_desc::elts () const
+{
+  return node.constructor.elts;
+}
+
+inline void
+constructor_desc::set_elts (::vec<constructor_elt, va_gc> *e)
+{
+  node.constructor.elts = e;
+}
+
+
 //
 // decl methods
 //
@@ -599,6 +656,37 @@ decl_desc::decl_abstract_origin () const
 {
   decl orig(node.decl_common.abstract_origin);
   return orig;
+}
+
+inline unsigned int
+decl_desc::align () const
+{
+  return node.decl_common.align;
+}
+
+inline void
+decl_desc::set_align (unsigned int a)
+{
+  node.decl_common.align = a;
+}
+
+inline bool
+decl_desc::pt_uid_set_p () const
+{
+  return node.decl_common.pt_uid != -1u;
+}
+
+inline unsigned int
+decl_desc::pt_uid () const
+{
+  return node.decl_common.pt_uid != -1u ? node.decl_minimal.uid 
+					: node.decl_common.pt_uid;
+}
+
+inline void
+decl_desc::set_pt_uid (unsigned int uid)
+{
+  node.decl_common.pt_uid = uid;
 }
 
 inline bool 
@@ -642,6 +730,30 @@ inline void
 tree_desc::set_static_p (const bool f)
 {
   node.base.static_flag = f;
+}
+
+inline bool
+tree_desc::side_effects () const
+{
+  return node.base.side_effects_flag;
+}
+
+inline void
+tree_desc::set_side_effects (const bool f)
+{
+  node.base.side_effects_flag = f;
+}
+
+inline bool
+tree_desc::constant () const
+{
+  return node.base.constant_flag;
+}
+
+inline void
+tree_desc::set_constant (const bool f)
+{
+  node.base.constant_flag = f;
 }
 
 inline location_t
@@ -855,6 +967,23 @@ function_decl_desc::function () const
 { return node.function_decl.f; }
 
 
+inline enum built_in_class  
+function_decl_desc::builtin_class () const
+{
+  return node.function_decl.built_in_class;
+}
+
+inline enum built_in_function
+function_decl_desc::function_code () const
+{
+  return node.function_decl.function_code;
+}
+
+inline bool
+function_decl_desc::builtin () const
+{
+  return builtin_class () != NOT_BUILT_IN;
+}
 
 //
 // ssa_name

@@ -790,7 +790,8 @@ gimple_divmod_fixed_value_transform (gimple_stmt_iterator *si)
   histogram_value histogram;
   enum tree_code code;
   gcov_type val, count, all;
-  tree result, value, tree_val;
+  Gimple::value value;
+  tree result, tree_val;
   gcov_type prob;
   gimple stmt;
 
@@ -944,7 +945,8 @@ gimple_mod_pow2_value_transform (gimple_stmt_iterator *si)
   histogram_value histogram;
   enum tree_code code;
   gcov_type count, wrong_values, all;
-  tree lhs_type, result, value;
+  tree lhs_type, result;
+  Gimple::value value;
   gcov_type prob;
   gimple stmt;
 

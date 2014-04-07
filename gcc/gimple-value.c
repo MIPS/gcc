@@ -27,10 +27,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-tree.h"
 #include "langhooks.h"
 
-Gimple::value boolean_true_node (global_trees[TI_BOOLEAN_TRUE]);
-Gimple::value boolean_false_node (global_trees[TI_BOOLEAN_FALSE]);
-Gimple::type void_type_node (global_trees[TI_VOID_TYPE]);
-Gimple::type boolean_type_node (global_trees[TI_BOOLEAN_TYPE]);
+
+Gimple::value_ptr boolean_true_node_ptr (&global_trees[TI_BOOLEAN_TRUE]);
+Gimple::value_ptr boolean_false_node_ptr (&global_trees[TI_BOOLEAN_FALSE]);
+Gimple::integer_cst_ptr integer_zero_node_ptr (&global_trees[TI_INTEGER_ZERO]);
+Gimple::type_ptr void_type_node_ptr (&global_trees[TI_VOID_TYPE]);
+Gimple::type_ptr boolean_type_node_ptr (&global_trees[TI_BOOLEAN_TYPE]);
+Gimple::type_ptr char_type_node_ptr (&integer_types[itk_char]);
+Gimple::type_ptr integer_type_node_ptr (&integer_types[itk_int]);
 
 location_t 
 expr_location (Gimple::value v)

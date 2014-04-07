@@ -114,6 +114,7 @@ class _ptr
     template <typename TT> friend TT create ();
 
     template<typename, typename> friend class _dptr;
+    template<typename> friend class _addr;
 };
 
 
@@ -178,6 +179,7 @@ class _dptr : public dT
     template <typename T, typename D> T friend ::dyn_cast(D);
     template <typename TT> friend TT copy (TT ptr);
     template <typename TT> friend TT create ();
+    template<typename> friend class _addr;
 };
 
 template<typename T>
@@ -297,14 +299,14 @@ template<typename T>
 inline _ptr<T> 
 _ptr<T>::copy() const
 {
-  return _ptr<T> (reinterpret_cast<tree> (gimple_copy_node (this)));
+  return _ptr<T> (reinterpret_cast<tree> (gimple_copy_node (ptr())));
 }
 
 template<typename T, typename D>
 inline _dptr<T, D> 
 _dptr<T, D>::copy() const
 {
-  return _dptr<T, D> (reinterpret_cast<tree> (gimple_copy_node (this)));
+  return _dptr<T, D> (reinterpret_cast<tree> (gimple_copy_node (ptr())));
 }
 
 template<typename T>
@@ -322,9 +324,7 @@ create ()
 }
 
 
-
 typedef _ptr<value_ops_desc>		value;
-typedef _addr<value>			value_ptr;
 
 typedef _ptr<type_desc>			type;
 typedef _ptr<block_desc>		block;
@@ -420,6 +420,7 @@ DERIVED_PTR (binary, tcc_binary, value)
 
 TERMINAL_PTR (identifier, IDENTIFIER_NODE, value) 
 TERMINAL_PTR (integer_cst, INTEGER_CST, value)
+TERMINAL_PTR (real_cst, REAL_CST, value)
 TERMINAL_PTR (var_decl, VAR_DECL, value)
 TERMINAL_PTR (parm_decl, PARM_DECL, value)
 TERMINAL_PTR (result_decl, RESULT_DECL, value)
@@ -443,6 +444,8 @@ TERMINAL_PTR (target_mem_ref, TARGET_MEM_REF, value)
 TERMINAL_PTR (array_ref, ARRAY_REF, value)
 TERMINAL_PTR (array_range_ref, ARRAY_RANGE_REF, value)
 TERMINAL_PTR (obj_type_ref, OBJ_TYPE_REF, value)
+TERMINAL_PTR (constructor, CONSTRUCTOR, value)
+TERMINAL_PTR (modify_expr, MODIFY_EXPR, value)
 
 TERMINAL_PTR (boolean_type, BOOLEAN_TYPE, type)
 TERMINAL_PTR (integer_type, INTEGER_TYPE, type)
@@ -467,6 +470,10 @@ DERIVED_PTR (numerical_type,
 DERIVED_PTR (function_or_method_type,
 	     MULTIARGS (FUNCTION_TYPE, METHOD_TYPE),
 	     type)
+
+typedef _addr<type>			type_ptr;
+typedef _addr<value>			value_ptr;
+typedef _addr<integer_cst>		integer_cst_ptr;
 
 } // namespace Gimple
 

@@ -135,6 +135,10 @@ class tree_desc {
     void set_used (const bool);
     bool static_p () const;
     void set_static_p (const bool);
+    bool side_effects () const;
+    void set_side_effects (bool);
+    bool constant () const;
+    void set_constant (bool);
 
     template<typename T> friend class _ptr;
     template<typename T, typename D> friend class _dptr;
@@ -224,6 +228,8 @@ class vector_type_desc : public type_desc
 
 class block_desc : public tree_desc
 {
+  public:
+    Gimple::value supercontext () const;
 };
 
 class value_desc : public tree_desc
@@ -257,6 +263,10 @@ class binary_desc : public value_desc
   public:
     value op1 () const;
     value op2 () const;
+};
+
+class modify_expr_desc : public binary_desc
+{
 };
 
 class comparison_desc : public binary_desc
@@ -321,6 +331,13 @@ class nop_expr_desc : public value_desc
 {
 };
 
+class constructor_desc : public value_desc
+{
+  public:
+  ::vec<constructor_elt, va_gc> *elts () const;
+  void set_elts (::vec<constructor_elt, va_gc> *);
+};
+
 class case_label_expr_desc : public value_desc
 {
   public:
@@ -332,6 +349,9 @@ class case_label_expr_desc : public value_desc
 
 class constant_desc : public value_desc
 {
+  public:
+    bool overflow_p () const;
+    void set_overflow_p (bool);
 };
 
 class integer_cst_desc : public constant_desc
@@ -342,11 +362,23 @@ class integer_cst_desc : public constant_desc
     HOST_WIDE_INT high () const;
 };
 
+class real_cst_desc : public constant_desc
+{
+  public:
+    REAL_VALUE_TYPE real_cst() const;
+};
+
 class decl_desc : public value_desc
 {
   public:
     Gimple::identifier name() const;
     decl decl_abstract_origin () const;
+    unsigned int align () const;
+    void set_align (unsigned int a);
+    bool pt_uid_set_p () const;
+    unsigned int pt_uid () const;
+    void set_pt_uid (unsigned int uid);
+
     bool decl_from_inline () const;
     bool readonly () const;
     void set_readonly (const bool);
@@ -421,6 +453,10 @@ class function_decl_desc : public decl_noncommon_desc
 {
   public:
     struct function *function () const;
+    bool builtin () const;
+    enum built_in_class builtin_class () const;
+    enum built_in_function function_code () const;
+
 };
 
 class var_decl_desc : public decl_with_viz_desc
@@ -440,6 +476,8 @@ class result_decl_desc : public decl_with_rtl_desc
 
 class label_decl_desc : public decl_with_rtl_desc
 {
+  public:
+    bool forced_label () const;
 };
 
 class value_list_desc : public value_desc
