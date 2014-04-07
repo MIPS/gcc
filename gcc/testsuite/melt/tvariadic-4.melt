@@ -1,0 +1,56 @@
+; -*- lisp -*-
+;; file tvariadic-4.melt
+
+#| run in buildir/gcc
+ ln -s $GCCMELT_SOURCE/gcc/testsuite/melt/tvariadic-4.melt
+
+ ./cc1 -fmelt-mode=runfile @meltbuild-common.args \
+    -fmelt-init=@warmelt.quicklybuilt -fmelt-arg=tvariadic-4.melt \
+     meltbuild-empty-file.c
+
+or in a MELT module
+
+gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
+    -fplugin-arg-melt-init=@warmelt.quicklybuilt -fplugin-arg-melt-arg=tvariadic-4.melt \
+     -c -O empty.c -o /dev/null
+|#
+(module_is_gpl_compatible "public domain")
+(defun badtvar4 (x :rest)
+  (debug "badtvar4 start x=" x)
+  (let ( (a1 ())
+	 (a2 ())
+	 )
+    ;; first arg
+    (variadic ((:long l)
+	       (debug "badtvar4 first l=" l)
+	       (setq a1 (constant_box l))
+	       (void))
+	      ((:cstring s)
+	       (debug "badtvar4 first s=" s)
+	       (setq a1 (constant_box s))
+	       (void))
+	      ((:value v)
+	       (debug "badtvar4 first v=" v)
+	       (setq a1 v)
+	       (void)))
+    ;; second arg
+    (variadic ((:long l)
+	       (debug "badtvar4 second l=" l)
+	       (setq a1 (constant_box l))
+	       (void))
+	      ((:cstring s)
+	       (debug "badtvar4 second s=" s)
+	       (setq a1 (constant_box s))
+	       (void))
+	      ((:value v)
+	       (debug "badtvar4 second v=" v)
+	       (setq a1 v)
+	       (void)))
+    (debug "badtvar4 end a1=" a1 " a2=" a2)))
+
+(badtvar4 '"first-try-badtvar4" 1 "ab" ())
+(badtvar4 '"second-try-badtvar4" "cd" 2 ())
+(badtvar4 '"third-try-badtvar4" 'e 'f ())
+;; eof tvariadic-4.melt
+
+

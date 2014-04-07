@@ -1,5 +1,10 @@
 
 
+2014-04-07  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* testsuite/melt/tvariadic-4.melt: New test which fails but should
+	work. Scope of variadic locals is wrong.
+
 2014-04-05  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-debug.melt (dbgout_jsonobject_method): New method
