@@ -20,7 +20,7 @@
 	     #endif /*__cplusplus */
 	     
 /* version of the GCC compiler & MELT runtime generating this */
-const char melt_genversionstr[]="4.9.0 20140403 (experimental) [melt-branch revision 209145] MELT_1\
+const char melt_genversionstr[]="4.9.0 20140408 (experimental) [melt-branch revision 209216] MELT_1\
 .1-pre"
 
 	     #ifdef __cplusplus
@@ -30,7 +30,7 @@ const char melt_genversionstr[]="4.9.0 20140403 (experimental) [melt-branch revi
 	     #endif
 					;
 	     
-const char melt_versionmeltstr[]="1.1-pre [melt-branch_revision_209145]";
+const char melt_versionmeltstr[]="1.1-pre [melt-branch_revision_209216]";
 
 /* source name & real path of the module */
 /*MELTMODULENAME meltbuild-sources/warmelt-normatch */
@@ -39,7 +39,7 @@ const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-unknown-linux-gn
 /1.1-pre/warmelt-normatch";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="82eb1826fbf541c67dd0b105c63456fd";
+const char melt_prepromd5meltrun[]="24bdccbfb9f31c334b114c1616d04276";
 /* hexmd5checksum of primary C++ file */
 const char melt_primaryhexmd5[]="5148c5545bd7555d6ef3ff4b547d7f71";
 

@@ -2,6 +2,10 @@
 
 2014-04-08  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/generated/*: Regenerate all.
+
+2014-04-08  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{fix of MELT-SFT-6 bug}}
 	* melt/warmelt-normal.melt (normexp_ifvariadic): Clean the cached
 	location map of bindings local to the then branch...
