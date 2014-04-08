@@ -944,13 +944,13 @@
 (define_insn "xorv16qi3"
   [(set (match_operand:V16QI 0 "register_operand" "=f,f")
 	(xor:V16QI (match_operand:V16QI 1 "register_operand" "f,f")
-		   (match_operand:V16QI 2 "reg_or_vector_same_uimm8_operand" "f,Uuv8")))]
+		   (match_operand:V16QI 2 "reg_or_vector_same_byte_operand" "f,Ubv8")))]
   "ISA_HAS_MSA"
   {
     if (which_alternative == 1)
       {
 	operands[2] = CONST_VECTOR_ELT (operands[2], 0);
-	return "xori.b\t%w0,%w1,%2";
+	return "xori.b\t%w0,%w1,%B2";
       }
     else
       return "xor.v\t%w0,%w1,%w2";
@@ -983,13 +983,13 @@
 (define_insn "iorv16qi3"
   [(set (match_operand:V16QI 0 "register_operand" "=f,f")
 	(ior:V16QI (match_operand:V16QI 1 "register_operand" "f,f")
-		   (match_operand:V16QI 2 "reg_or_vector_same_uimm8_operand" "f,Uuv8")))]
+		   (match_operand:V16QI 2 "reg_or_vector_same_byte_operand" "f,Ubv8")))]
   "ISA_HAS_MSA"
   {
     if (which_alternative == 1)
       {
 	operands[2] = CONST_VECTOR_ELT (operands[2], 0);
-	return "ori.b\t%w0,%w1,%2";
+	return "ori.b\t%w0,%w1,%B2";
       }
     else
       return "or.v\t%w0,%w1,%w2";
@@ -1022,16 +1022,16 @@
 (define_insn "andv16qi3"
   [(set (match_operand:V16QI 0 "register_operand" "=f,f")
 	(and:V16QI (match_operand:V16QI 1 "register_operand" "f,f")
-		   (match_operand:V16QI 2 "reg_or_vector_same_uimm8_operand" "f,Uuv8")))]
+		   (match_operand:V16QI 2 "reg_or_vector_same_byte_operand" "f,Ubv8")))]
   "ISA_HAS_MSA"
   {
-     if (which_alternative == 1)
-       {
-	  operands[2] =  CONST_VECTOR_ELT (operands[2], 0);
-	  return "andi.b\t%w0,%w0,%2";
-       }
-     else
-       return "and.v\t%w0,%w1,%w2";
+    if (which_alternative == 1)
+      {
+	operands[2] = CONST_VECTOR_ELT (operands[2], 0);
+	return "andi.b\t%w0,%w0,%B2";
+      }
+    else
+      return "and.v\t%w0,%w1,%w2";
   }
   [(set_attr "alu_type"	"and")
    (set_attr "mode"	"TI")
