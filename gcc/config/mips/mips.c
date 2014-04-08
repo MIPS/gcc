@@ -780,8 +780,8 @@ static const struct mips_rtx_cost_data mips_rtx_cost_optimize_size = {
   COSTS_N_INSNS (1),            /* int_mult_di */
   COSTS_N_INSNS (1),            /* int_div_si */
   COSTS_N_INSNS (1),            /* int_div_di */
-		   2,           /* branch_cost */
-		   4            /* memory_latency */
+		  2,            /* branch_cost */
+		  4             /* memory_latency */
 };
 
 /* Costs to use when optimizing for speed, indexed by processor.  */
@@ -1868,6 +1868,29 @@ mips_const_vector_same_val_p (rtx op, enum machine_mode mode)
     if (!rtx_equal_p (first, CONST_VECTOR_ELT (op, i)))
       return false;
 
+  return true;
+}
+
+/* Return true if OP is a constant vector with the number of units in MODE,
+   and each unit has the same value. */
+
+bool
+mips_const_vector_same_byte_p (rtx op, enum machine_mode mode)
+{
+  int i, nunits = GET_MODE_NUNITS (mode);
+  rtx first;
+
+  gcc_assert (mode == V16QImode);
+
+  if (GET_CODE (op) != CONST_VECTOR || GET_MODE (op) != mode)
+    return false;
+
+  first = CONST_VECTOR_ELT (op, 0);
+  for (i = 1; i < nunits; i++)
+    if (!rtx_equal_p (first, CONST_VECTOR_ELT (op, i)))
+      return false;
+
+  /* it's a 8-bit mode don't care if signed or unsigned */
   return true;
 }
 
@@ -8795,6 +8818,7 @@ mips_print_operand_punct_valid_p (unsigned char code)
    'x'	Print the low 16 bits of CONST_INT OP in hexadecimal format.
    'd'	Print CONST_INT OP in decimal.
    'D'	Print one element of CONST_INT in CONST_VECTOR OP in decimal.
+   'B'	Print CONST_INT as an unsigned byte [0..255].
    'm'	Print one less than CONST_INT OP in decimal.
    'h'	Print the high-part relocation associated with OP, after stripping
 	  any outermost HIGH.
@@ -8861,6 +8885,26 @@ mips_print_operand (FILE *file, rtx op, int letter)
     case 'd':
       if (CONST_INT_P (op))
 	fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (op));
+      else
+	output_operand_lossage ("invalid use of '%%%c'", letter);
+      break;
+
+    case 'B':
+      if (CONST_INT_P (op))
+	{
+	  HOST_WIDE_INT val = INTVAL (op);
+	  if (val < 0)
+	    {
+	      gcc_assert (-128 >= val);
+	      val += 256;
+	      fprintf (file, HOST_WIDE_INT_PRINT_DEC, val);
+	    }
+	  else
+	    {
+	      gcc_assert (val <= 255);
+	      fprintf (file, HOST_WIDE_INT_PRINT_DEC, val);
+	    }
+	}
       else
 	output_operand_lossage ("invalid use of '%%%c'", letter);
       break;
@@ -13768,7 +13812,11 @@ mips_msa_output_division (const char *division, rtx *operands)
 /* Return true if destination of IN_INSN is used as add source in
    OUT_INSN. Both IN_INSN and OUT_INSN are of type fmadd. Example:
    madd.s dst, x, y, z
+<<<<<<< HEAD
    madd.s a, dst, b, c  */
+=======
+   madd.s a, dst, b, c */
+>>>>>>> Fix BZ1612 generate xori.b likewise andi.b and ori.b when possible.
 
 bool
 mips_fmadd_bypass (rtx out_insn, rtx in_insn)

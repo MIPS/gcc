@@ -635,6 +635,12 @@
   return mips_const_vector_same_int_p (op, mode, 0, 255);
 })
 
+(define_predicate "const_vector_same_byte_operand"
+  (match_code "const_vector")
+{
+  return mips_const_vector_same_byte_p (op, mode);
+})
+
 (define_predicate "reg_or_vector_same_ximm5_operand"
   (ior (match_operand 0 "register_operand")
        (match_operand 0 "const_vector_same_ximm5_operand")))
@@ -695,6 +701,10 @@
   (ior (match_operand 0 "register_operand")
        (match_operand 0 "const_vector_same_uimm8_operand")))
 
+(define_predicate "reg_or_vector_same_byte_operand"
+  (ior (match_operand 0 "register_operand")
+       (match_operand 0 "const_vector_same_byte_operand")))
+
 (define_predicate "reg_or_vector_same_bitumm3_operand"
   (ior (match_operand 0 "register_operand")
        (match_operand 0 "const_vector_same_uimm3_operand")))
@@ -710,3 +720,4 @@
 (define_predicate "reg_or_vector_same_bituimm6_operand"
   (ior (match_operand 0 "register_operand")
        (match_operand 0 "const_vector_same_uimm6_operand")))
+
