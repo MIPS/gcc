@@ -1,5 +1,9 @@
 
 
+2014-04-08  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{merge using svnmerge.py with trunk GCC 4.9 svn
+	rev.209216...}}
+
 2014-04-03  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{merge using svnmerge.py with trunk GCC 4.9 svn
 	rev.209052...}}

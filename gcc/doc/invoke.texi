@@ -1070,6 +1070,7 @@ See S/390 and zSeries Options.
 -ffixed-@var{reg}  -fexceptions @gol
 -fnon-call-exceptions  -fdelete-dead-exceptions  -funwind-tables @gol
 -fasynchronous-unwind-tables @gol
+-fno-gnu-unique @gol
 -finhibit-size-directive  -finstrument-functions @gol
 -finstrument-functions-exclude-function-list=@var{sym},@var{sym},@dots{} @gol
 -finstrument-functions-exclude-file-list=@var{file},@var{file},@dots{} @gol
@@ -2674,9 +2675,10 @@ the compiler to never throw an exception.
 @opindex Wnon-virtual-dtor
 @opindex Wno-non-virtual-dtor
 Warn when a class has virtual functions and an accessible non-virtual
-destructor, in which case it is possible but unsafe to delete
-an instance of a derived class through a pointer to the base class.
-This warning is also enabled if @option{-Weffc++} is specified.
+destructor itself or in an accessible polymorphic base class, in which
+case it is possible but unsafe to delete an instance of a derived
+class through a pointer to the class itself or base class.  This
+warning is automatically enabled if @option{-Weffc++} is specified.
 
 @item -Wreorder @r{(C++ and Objective-C++ only)}
 @opindex Wreorder
@@ -2720,39 +2722,35 @@ The following @option{-W@dots{}} options are not affected by @option{-Wall}.
 @opindex Weffc++
 @opindex Wno-effc++
 Warn about violations of the following style guidelines from Scott Meyers'
-@cite{Effective C++, Second Edition} book:
+@cite{Effective C++} series of books:
 
 @itemize @bullet
 @item
-Item 11:  Define a copy constructor and an assignment operator for classes
+Define a copy constructor and an assignment operator for classes
 with dynamically-allocated memory.
 
 @item
-Item 12:  Prefer initialization to assignment in constructors.
+Prefer initialization to assignment in constructors.
 
 @item
-Item 14:  Make destructors virtual in base classes.
+Have @code{operator=} return a reference to @code{*this}.
 
 @item
-Item 15:  Have @code{operator=} return a reference to @code{*this}.
+Don't try to return a reference when you must return an object.
 
 @item
-Item 23:  Don't try to return a reference when you must return an object.
-
-@end itemize
-
-Also warn about violations of the following style guidelines from
-Scott Meyers' @cite{More Effective C++} book:
-
-@itemize @bullet
-@item
-Item 6:  Distinguish between prefix and postfix forms of increment and
+Distinguish between prefix and postfix forms of increment and
 decrement operators.
 
 @item
-Item 7:  Never overload @code{&&}, @code{||}, or @code{,}.
+Never overload @code{&&}, @code{||}, or @code{,}.
 
 @end itemize
+
+This option also enables @option{-Wnon-virtual-dtor}, which is also
+one of the effective C++ recommendations.  However, the check is
+extended to warn about the lack of virtual destructor in accessible
+non-polymorphic bases classes too.
 
 When selecting this option, be aware that the standard library
 headers do not obey all of these guidelines; use @samp{grep -v}
@@ -12993,6 +12991,9 @@ instructions because of a hardware erratum.  Skip instructions are
 The second macro is only defined if @code{__AVR_HAVE_JMP_CALL__} is also
 set.
 
+@item __AVR_ISA_RMW__
+The device has Read-Modify-Write instructions (XCH, LAC, LAS and LAT).
+
 @item __AVR_SFR_OFFSET__=@var{offset}
 Instructions that can address I/O special function registers directly
 like @code{IN}, @code{OUT}, @code{SBI}, etc.@: may use a different
@@ -22019,6 +22020,20 @@ that needs this handling enables it on your behalf.
 Generate unwind table in DWARF 2 format, if supported by target machine.  The
 table is exact at each instruction boundary, so it can be used for stack
 unwinding from asynchronous events (such as debugger or garbage collector).
+
+@item -fno-gnu-unique
+@opindex fno-gnu-unique
+On systems with recent GNU assembler and C library, the C++ compiler
+uses the @code{STB_GNU_UNIQUE} binding to make sure that definitions
+of template static data members and static local variables in inline
+functions are unique even in the presence of @code{RTLD_LOCAL}; this
+is necessary to avoid problems with a library used by two different
+@code{RTLD_LOCAL} plugins depending on a definition in one of them and
+therefore disagreeing with the other one about the binding of the
+symbol.  But this causes @code{dlclose} to be ignored for affected
+DSOs; if your program relies on reinitialization of a DSO via
+@code{dlclose} and @code{dlopen}, you can use
+@option{-fno-gnu-unique}.
 
 @item -fpcc-struct-return
 @opindex fpcc-struct-return
