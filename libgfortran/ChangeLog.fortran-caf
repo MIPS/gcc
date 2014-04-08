@@ -1,3 +1,8 @@
+2014-04-08  Tobias Burnus  <burnus@net-b.de>
+
+	* caf/libcaf.h (_gfortran_caf_get): New.
+	* caf/single.c (_gfortran_caf_get): New.
+
 2014-04-06  Tobias Burnus  <burnus@net-b.de>
 
 	* caf/libcaf.h (_gfortran_caf_send_desc,

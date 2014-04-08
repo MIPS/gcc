@@ -125,6 +125,7 @@ tree gfor_fndecl_caf_this_image;
 tree gfor_fndecl_caf_num_images;
 tree gfor_fndecl_caf_register;
 tree gfor_fndecl_caf_deregister;
+tree gfor_fndecl_caf_remote_get;
 tree gfor_fndecl_caf_send;
 tree gfor_fndecl_caf_send_desc;
 tree gfor_fndecl_caf_send_desc_scalar;
@@ -3262,22 +3263,27 @@ gfc_build_builtin_function_decls (void)
 
       gfor_fndecl_caf_deregister = gfc_build_library_function_decl_with_spec (
 	get_identifier (PREFIX("caf_deregister")), ".WWW", void_type_node, 4,
-        ppvoid_type_node, pint_type, pchar_type_node, integer_type_node);
+	ppvoid_type_node, pint_type, pchar_type_node, integer_type_node);
+
+      gfor_fndecl_caf_remote_get = gfc_build_library_function_decl_with_spec (
+	get_identifier (PREFIX("caf_get")), "R..W..", void_type_node, 6,
+	pvoid_type_node, size_type_node, integer_type_node, pvoid_type_node,
+	size_type_node, boolean_type_node);
 
       gfor_fndecl_caf_send = gfc_build_library_function_decl_with_spec (
 	get_identifier (PREFIX("caf_send")), "R..R..", void_type_node, 6,
-        pvoid_type_node, size_type_node, integer_type_node, pvoid_type_node,
+	pvoid_type_node, size_type_node, integer_type_node, pvoid_type_node,
 	size_type_node, boolean_type_node);
 
       gfor_fndecl_caf_send_desc = gfc_build_library_function_decl_with_spec (
 	get_identifier (PREFIX("caf_send_desc")), "R..RR.", void_type_node, 6,
-        pvoid_type_node, size_type_node, integer_type_node, pvoid_type_node,
+	pvoid_type_node, size_type_node, integer_type_node, pvoid_type_node,
 	pvoid_type_node, boolean_type_node);
 
       gfor_fndecl_caf_send_desc_scalar
 	= gfc_build_library_function_decl_with_spec (
 	get_identifier (PREFIX("caf_send_desc_scalar")), "R..RR..", void_type_node, 6,
-        pvoid_type_node, size_type_node, integer_type_node, pvoid_type_node,
+	pvoid_type_node, size_type_node, integer_type_node, pvoid_type_node,
 	pvoid_type_node, boolean_type_node);
 
       gfor_fndecl_caf_critical = gfc_build_library_function_decl (

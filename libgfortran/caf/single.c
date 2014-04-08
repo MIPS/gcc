@@ -149,6 +149,19 @@ _gfortran_caf_deregister (caf_token_t *token, int *stat,
     *stat = 0;
 }
 
+
+/* Get a scalar (or contiguous) data from remote image into a buffer.  */
+
+void
+_gfortran_caf_get (caf_token_t token, size_t offset,
+		   int image_id __attribute__ ((unused)),
+		   void *buffer, size_t size, bool async __attribute__ ((unused)))
+{
+    void *src = (void *) ((char *) TOKEN (token) + offset);
+    memmove (buffer, src, size);
+}
+
+
 /* Send scalar (or contiguous) data from buffer to a remote image.  */
 
 void

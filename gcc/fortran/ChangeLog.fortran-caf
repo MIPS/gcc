@@ -1,3 +1,9 @@
+2014-04-08  Tobias Burnus  <burnus@net-b.de>
+
+	* trans.h (gfor_fndecl_caf_remote_get): Declare variables.
+	* trans-decl.c (gfor_fndecl_caf_remote_get): Define it.
+	(gfc_build_builtin_function_decls): Initialize it.
+
 2014-04-06  Tobias Burnus  <burnus@net-b.de>
 
 	* trans-intrinsic.c (conv_caf_send): Fix bugs with
