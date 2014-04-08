@@ -39,15 +39,15 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
     (variadic
      ((:long l)
       (debug "badtvar4 second l=" l)
-      (setq a1 (constant_box l))
+      (setq a2 (constant_box l))
       (void))
      ((:cstring s)
       (debug "badtvar4 second s=" s)
-      (setq a1 (constant_box s))
+      (setq a2 (constant_box s))
       (void))
      ((:value v)
       (debug "badtvar4 second v=" v)
-      (setq a1 v)
+      (setq a2 v)
       (void)))
     (debug "badtvar4 secondarg a2=" a2)
     ;;

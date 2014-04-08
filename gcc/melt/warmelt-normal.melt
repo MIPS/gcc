@@ -1611,7 +1611,8 @@ source location.}#
 	 )
 	  ;; cache the result & return it
     (mapobject_put sycmap symb syocc)
-    (debug "normbind_formalbind updated sycmap=" sycmap " syocc=" syocc)
+    (debug "normbind_formalbind updated sycmap=" sycmap 
+	   "\n.. syocc=" syocc "\n.. psloc=" psloc)
     syocc
     ))
 (install_method class_formal_binding  normalize_binding normbind_formalbind)
@@ -1622,7 +1623,7 @@ source location.}#
   (assert_msg "check bind" (is_a bind class_let_binding) bind)
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
-  (let ( (sycmap  (unsafe_get_field :nctx_symbcachemap ncx))
+  (let ( (sycmap (unsafe_get_field :nctx_symbcachemap ncx))
 	 (symb (unsafe_get_field :binder bind))
 	 (syocc
 		(instance class_nrep_locsymocc
@@ -1631,9 +1632,11 @@ source location.}#
 			  :nocc_symb symb
 			  :nocc_bind bind) ) 
 	 )
-	  ;; cache the result & return it
+    ;; cache the result & return it
+    (debug "normbind_letbind bind=" bind "\n.. syocc=" syocc "\n.. psloc=" psloc)
+    (shortbacktrace_dbg "normbind_letbind" 20)
     (mapobject_put sycmap symb syocc)
-    (debug "normbind_letbind updated sycmap=" sycmap " syocc=" syocc)
+    (debug "normbind_letbind updated sycmap=" sycmap "\n.. syocc=" syocc)
     syocc
     ))
 (install_method class_let_binding  normalize_binding normbind_letbind)
@@ -1649,7 +1652,7 @@ source location.}#
 	 (symb (unsafe_get_field :binder bind))
 	 (fixdat (unsafe_get_field :fixbind_data bind))
 	 )
-    (debug "normbind_fixbind fixdat=" fixdat)
+    (debug "normbind_fixbind fixdat=" fixdat "\n.. psloc=" psloc)
     (when (null fixdat)
       (debug "normbind_fixbind strange bind=" bind)
       (error_at psloc "unresolved forward fixed reference to $1"
@@ -1659,7 +1662,7 @@ source location.}#
     (assert_msg "normbind_fixbind check fixdat" (is_a fixdat class_nrep_bound_data) fixdat)
     ;; cache the result & return it
     (mapobject_put sycmap symb fixdat)
-    (debug "normbind_fixbind updated sycmap=" sycmap " symb=" symb " fixdat=" fixdat)
+    (debug "normbind_fixbind updated sycmap=" sycmap " symb=" symb " fixdat=" fixdat "\n.. psloc=" psloc)
     fixdat))
 (install_method class_fixed_binding  normalize_binding normbind_fixbind)
 
@@ -1686,7 +1689,8 @@ source location.}#
     ;; cache the result & return it
     (mapobject_put sycmap symb syconst)
     (put_fields bind :fixbind_data syconst)
-    (debug "normbind_definedvalbind updated sycmap=" sycmap " syconst=" syconst " bind=" bind)
+    (debug "normbind_definedvalbind updated sycmap=" sycmap " syconst=" syconst 
+	   "\n.. bind=" bind "\n.. psloc=" psloc)
     (if (is_non_empty_list procs)
 	(assert_msg "normbind_definedvalbind check no procs" () procs)
     (return syconst)
@@ -4619,11 +4623,12 @@ source location.}#
 	 (sthen (unsafe_get_field :sifvariadic_then recv))
 	 (selse (unsafe_get_field :sifvariadic_else recv))
 	 (curpro (unsafe_get_field :nctx_curproc ncx))
+	 (sycmap (unsafe_get_field :nctx_symbcachemap ncx))
 	 (curprocargs (get_field :nrclop_argbindtuple curpro))
 	 (nprovariadic (get_field :nrpro_variadic curpro))
 	 (newenv (fresh_env env))
 	 )
-    (debug "normexp_ifvariadic curpro=" curpro "; loc=" loc)
+    (debug "normexp_ifvariadic curpro=" curpro "\n.. sycmap=" sycmap "\n.. loc=" loc)
     (assert_msg "normexp_ifvariadic check sthen" (is_multiple_or_null sthen) sthen)
     (assert_msg "normexp_ifvariadic check selse" (is_multiple_or_null selse) selse)
     (when (is_not_a curprocargs discr_variadic_formal_sequence)
@@ -4672,7 +4677,9 @@ source location.}#
 	 (assert_msg "check curctype" (is_a curctype class_ctype) curctype)
 	 (put_env newenv curletbind)		 
 	 ))
-      (debug "normexp_ifvariadic letbindthenlist=" letbindthenlist "; loc=" loc)
+      (debug "normexp_ifvariadic letbindthenlist=" letbindthenlist "\n.. letbindtup=" letbindtup 
+	     "\n.. sycmap=" sycmap
+	     "\n.. loc=" loc)
       (let ( (cvarsym (clone_symbol 'consumvariadic_))
 	     (nconsume (instance class_nrep_consume_variadic
 				 :nrep_loc loc
@@ -4699,11 +4706,26 @@ source location.}#
 	      "\n.. loc=" loc)
        (list_append2list letbindthenlist nthenbindings)
        (debug "normexp_ifvariadic updated letbindthenlist=" letbindthenlist
-	      " selse=" selse "\n.. loc=" loc)
+	      " selse=" selse "\n.. sycmap=" sycmap "\n.. loc=" loc)
+       ;; forget every symbol in letbindtup from the sycmap, to fix MELT-SFT-8
+       (foreach_in_multiple 
+	(letbindtup)
+	(curbind :long bix)
+	(debug "normexp_ifvariadic curbind=" curbind "\n.. bix=" bix "\n.. loc=" loc)
+	(let ( (cursym (get_field :binder curbind))
+	       (cachlocc (mapobject_get sycmap cursym))
+	       )
+	  (when cachlocc
+	    (assert_msg "check cachlocc" (is_a cachlocc class_nrep_locsymocc) cachlocc)
+	    (debug "normexp_ifvariadic forgetting cachlocc=" cachlocc "\n.. cursym=" cursym)
+	    (mapobject_remove sycmap cursym)))
+	)
+       (debug "normexp_ifvariadic cleaned sycmap=" sycmap "\n.. loc=" loc)
+       ;;
        (multicall
 	(nelse nelsebindings)
-	;;;; we had::: (normalize_tuple selse newenv ncx loc)
-	;;; but very probably the else don't need the supplementary binding...
+;;;; we had::: (normalize_tuple selse newenv ncx loc)
+;;; but very probably the else don't need the supplementary binding...
 	(normalize_tuple selse env ncx loc)
 	(debug "normexp_ifvariadic nelse=" nelse " nelsebindings=" nelsebindings "\n.. loc=" loc)
 	(let ( 

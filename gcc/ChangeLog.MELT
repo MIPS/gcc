@@ -1,5 +1,15 @@
 
 
+2014-04-08  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{fix of MELT-SFT-6 bug}}
+	* melt/warmelt-normal.melt (normexp_ifvariadic): Clean the cached
+	location map of bindings local to the then branch...
+
+	* melt/warmelt-genobj.melt (compilobj_nrep_let): More debug.
+
+	* testsuite/melt/tvariadic-4.melt: Improve.
+
 2014-04-07  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{still failing MELT-SFT-8}}

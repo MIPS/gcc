@@ -2403,14 +2403,13 @@
 	  (oldloc (mapobject_get locmap bnd)) 
 	  )
      (debug "dispose_bnd_obj oldloc=" oldloc)
-     (if (null oldloc)
-	 (progn
+     (when (null oldloc)
 	   ;; special hack to dispose a void let binding - return immediately in that case
 	   (and (is_a bnd class_let_binding)
 		(== (unsafe_get_field :letbind_type bnd) ctype_void)
 		(return))
 	   (debug "dispose_bnd_obj nulloldloc bnd=" bnd)
-	   ))
+	   )
      (assert_msg "check oldloc" (is_a oldloc class_objlocv) oldloc)
      (dispose_objloc oldloc gcx)
      (mapobject_remove locmap bnd)
@@ -2955,6 +2954,7 @@
      (debug "compilobj_nrep_let initial loc=" loc "\n.. bnds=" bnds 
 	    "\n.. bdy=" bdy
 	    "\n.. locmap=" locmap)
+     (shortbacktrace_dbg "compilobj_nrep_let" 9)
      ;; for each normalexp in the bnds tuple
      ;; add the binding and the setting in the body and the clear in the epilogue
      (assert_msg "compilobj_nrep_let check bnds multiple" (is_multiple_or_null bnds) bnds)
@@ -3024,7 +3024,8 @@
      (debug "compilobj_nrep_let after iterate body loc=" loc)
      ;;
      ;; dispose each binding
-     (debug "compilobj_nrep_let disposing bnds=" bnds "\n.. with bdy=" bdy "\n.. obodl=" obodl)
+     (debug "compilobj_nrep_let disposing bnds=" bnds "\n.. with bdy=" bdy
+	    "\n.. obodl=" obodl "\n.. locmap=" locmap "\n... loc=" loc)
      ;; @@@??? perhaps we should avoid disposing the binding of the
      ;; last component of tuple bdy, if it is its locsymocc...
      (foreach_in_multiple
@@ -3032,7 +3033,7 @@
       (obnd :long ix)
       (debug "compilobj_nrep_let dispose loc=" loc " obnd=" obnd " ix=" ix)
       (dispose_bnd_obj obnd gcx))
-     (debug "compilobj_nrep_let done disposal bnds=" bnds)
+     (debug "compilobj_nrep_let done disposal bnds=" bnds "\n.. locmap=" locmap "\n... loc=" loc)
      (debug "compilobj_nrep_let final loc=" loc " locmap=" locmap " oblock=" oblock)
      (return oblock)			;return it
      ))
