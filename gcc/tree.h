@@ -21,8 +21,6 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_TREE_H
 
 #include "tree-core.h"
-#include "gimple-value.h"
-#include "gimple-tree.h"
 
 /* These includes are required here because they provide declarations
    used by inline functions in this file.
