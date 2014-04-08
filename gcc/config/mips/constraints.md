@@ -350,6 +350,12 @@
   (and (match_code "const_vector")
        (match_test "mips_const_vector_same_int_p (op, mode, 0, 255)")))
 
+(define_constraint "Ubv8"
+  "@internal
+   A replicated vector const in which the replicated value is a 8-bit byte"
+  (and (match_code "const_vector")
+       (match_test "mips_const_vector_same_byte_p (op, mode)")))
+
 (define_memory_constraint "ZC"
   "When compiling microMIPS code, this constraint matches a memory operand
    whose address is formed from a base register and a 12-bit offset.  These
