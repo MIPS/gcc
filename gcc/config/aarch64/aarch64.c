@@ -8522,6 +8522,10 @@ aarch64_mems_ok_for_pair_peep (rtx op0, rtx op1)
   if (!MEM_P (op0) || !MEM_P (op1))
     return false;
 
+  /* The mems cannot be volatile.  */
+  if (MEM_VOLATILE_P (op0) || MEM_VOLATILE_P (op1))
+    return false;
+
   addr0 = XEXP (op0, 0);
   addr1 = XEXP (op1, 0);
   
