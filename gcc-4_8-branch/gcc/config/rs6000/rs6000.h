@@ -617,6 +617,25 @@ extern int rs6000_vector_align[];
 			  || rs6000_cpu == PROCESSOR_PPC8548)
 
 
+/* Whether SF/DF operations are supported on the E500.  */
+#define TARGET_SF_SPE	(TARGET_HARD_FLOAT && TARGET_SINGLE_FLOAT	\
+			 && !TARGET_FPRS)
+
+#define TARGET_DF_SPE	(TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT	\
+			 && !TARGET_FPRS && TARGET_E500_DOUBLE)
+
+/* Whether SF/DF operations are supported by by the normal floating point unit
+   (or the vector/scalar unit).  */
+#define TARGET_SF_FPR	(TARGET_HARD_FLOAT && TARGET_FPRS		\
+			 && TARGET_SINGLE_FLOAT)
+
+#define TARGET_DF_FPR	(TARGET_HARD_FLOAT && TARGET_FPRS		\
+			 && TARGET_DOUBLE_FLOAT)
+
+/* Whether SF/DF operations are supported by any hardware.  */
+#define TARGET_SF_INSN	(TARGET_SF_FPR || TARGET_SF_SPE)
+#define TARGET_DF_INSN	(TARGET_DF_FPR || TARGET_DF_SPE)
+
 /* Which machine supports the various reciprocal estimate instructions.  */
 #define TARGET_FRES	(TARGET_HARD_FLOAT && TARGET_PPC_GFXOPT \
 			 && TARGET_FPRS && TARGET_SINGLE_FLOAT)
@@ -1130,14 +1149,11 @@ extern unsigned rs6000_pointer_size;
 #define VINT_REGNO_P(N) ALTIVEC_REGNO_P (N)
 
 /* Alternate name for any vector register supporting logical operations, no
-   matter which instruction set(s) are available.  For 64-bit mode, we also
-   allow logical operations in the GPRS.  This is to allow atomic quad word
-   builtins not to need the VSX registers for lqarx/stqcx.  It also helps with
-   __int128_t arguments that are passed in GPRs.  */
+   matter which instruction set(s) are available.  Allow GPRs as well as the
+   vector registers.  */
 #define VLOGICAL_REGNO_P(N)						\
-  (ALTIVEC_REGNO_P (N)							\
-   || (TARGET_VSX && FP_REGNO_P (N))					\
-   || (TARGET_VSX && TARGET_POWERPC64 && INT_REGNO_P (N)))
+  (INT_REGNO_P (N) || ALTIVEC_REGNO_P (N)				\
+   || (TARGET_VSX && FP_REGNO_P (N)))					\
 
 /* Return number of consecutive hard regs needed starting at reg REGNO
    to hold something of mode MODE.  */
@@ -1415,15 +1431,18 @@ enum r6000_reg_class_enum {
   RS6000_CONSTRAINT_v,		/* Altivec registers */
   RS6000_CONSTRAINT_wa,		/* Any VSX register */
   RS6000_CONSTRAINT_wd,		/* VSX register for V2DF */
-  RS6000_CONSTRAINT_wg,		/* FPR register for -mmfpgpr */
   RS6000_CONSTRAINT_wf,		/* VSX register for V4SF */
+  RS6000_CONSTRAINT_wg,		/* FPR register for -mmfpgpr */
   RS6000_CONSTRAINT_wl,		/* FPR register for LFIWAX */
   RS6000_CONSTRAINT_wm,		/* VSX register for direct move */
   RS6000_CONSTRAINT_wr,		/* GPR register if 64-bit  */
   RS6000_CONSTRAINT_ws,		/* VSX register for DF */
   RS6000_CONSTRAINT_wt,		/* VSX register for TImode */
-  RS6000_CONSTRAINT_wv,		/* Altivec register for power8 vector */
+  RS6000_CONSTRAINT_wu,		/* Altivec register for float load/stores.  */
+  RS6000_CONSTRAINT_wv,		/* Altivec register for double load/stores.  */
+  RS6000_CONSTRAINT_ww,		/* FP or VSX register for vsx float ops.  */
   RS6000_CONSTRAINT_wx,		/* FPR register for STFIWX */
+  RS6000_CONSTRAINT_wy,		/* VSX register for SF */
   RS6000_CONSTRAINT_wz,		/* FPR register for LFIWZX */
   RS6000_CONSTRAINT_MAX
 };
