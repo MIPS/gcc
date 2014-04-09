@@ -7988,8 +7988,8 @@ is called and the @var{flag} argument passed to it.
 
 GCC provides a set of built-in functions to control Pointer Bounds Checker
 instrumentation.  Note that all Pointer Bounds Checker builtins are allowed
-to use even if you compile with Pointer Bounds Checker off.  But functions
-behavior may differ in such case.
+to use even if you compile with Pointer Bounds Checker off.  The builtins
+behavior may differ in such case as documented below.
 
 @deftypefn {Built-in Function} void * __builtin___bnd_set_ptr_bounds (const void * @var{q}, size_t @var{size})
 
