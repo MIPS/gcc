@@ -1,3 +1,1536 @@
+2014-04-08  Pat Haugen  <pthaugen@us.ibm.com>
+
+	Backport from mainline
+	2014-04-08  Pat Haugen  <pthaugen@us.ibm.com>
+
+	* config/rs6000/sync.md (AINT mode_iterator): Move definition.
+	(loadsync_<mode>): Change mode.
+	(load_quadpti, store_quadpti): New.
+	(atomic_load<mode>, atomic_store<mode>): Add support for TI mode.
+	* config/rs6000/rs6000.md (unspec enum): Add UNSPEC_LSQ.
+
+2014-04-07  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/60640
+	* ipa-cp.c (propagate_constants_accross_call): Do not propagate
+	accross thunks.
+
+2014-04-07  Dominique d'Humieres <dominiq@lps.ens.fr>
+
+	Backport from mainline
+	2013-09-14  Iain Sandoe <iains@gcc.gnu.org>
+
+	PR target/48094
+	* config/darwin.c (darwin_objc2_section): Note if ObjC Metadata
+	is seen.
+	(darwin_objc1_section): Likewise.
+	(darwin_file_end): Emit Image Info section when required.
+
+2014-04-05  Alan Modra  <amodra@gmail.com>
+
+	Apply from mainline
+	2014-01-28  Alan Modra  <amodra@gmail.com>
+	* Makefile.in (BUILD_CPPFLAGS): Do not use ALL_CPPFLAGS.
+	* configure.ac <recursive call for build != host>: Define
+	GENERATOR_FILE.  Comment.  Use CXX_FOR_BUILD, CXXFLAGS_FOR_BUILD
+	and LD_FOR_BUILD too.
+	* configure: Regenerate.
+
+2014-04-04  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	Backport from mainline r208895:
+	2014-03-28  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/rs6000/rs6000.c (fusion_gpr_load_p): Refuse optimization
+	if it would clobber the stack pointer, even temporarily.
+
+2014-04-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Back port from main line:
+	2014-04-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* doc/extend.texi (PowerPC AltiVec/VSX Built-in Functions):
+	Document vec_vgbbd.
+
+2014-04-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Back port mainline subversion id 209025.
+	2014-04-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/60735
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): If we have
+	software floating point or no floating point registers, do not
+	allow any type in the FPRs.  Eliminate a test for SPE SIMD types
+	in GPRs that occurs after we tested for GPRs that would never be
+	true.
+
+	* config/rs6000/rs6000.md (mov<mode>_softfloat32, FMOVE64):
+	Rewrite tests to use TARGET_DOUBLE_FLOAT and TARGET_E500_DOUBLE,
+	since the FMOVE64 type is DFmode/DDmode.  If TARGET_E500_DOUBLE,
+	specifically allow DDmode, since that does not use the SPE SIMD
+	instructions.
+
+2014-04-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline r205308
+	2013-11-23  David Edelsohn  <dje.gcc@gmail.com>
+
+	* config/rs6000/rs6000.c (IN_NAMED_SECTION): New macro.
+	(rs6000_xcoff_select_section): Place decls with stricter alignment
+	into named sections.
+	(rs6000_xcoff_unique_section): Allow unique sections for
+	uninitialized data with strict alignment.
+
+2014-04-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Back port from trunk
+	2013-04-25  Alan Modra  <amodra@gmail.com>
+
+	PR target/57052
+	* config/rs6000/rs6000.md (rotlsi3_internal7): Rename to
+	rotlsi3_internal7le and condition on !BYTES_BIG_ENDIAN.
+	(rotlsi3_internal8be): New BYTES_BIG_ENDIAN insn.
+	Repeat for many other rotate/shift and mask patterns using subregs.
+	Name lshiftrt insns.
+	(ashrdisi3_noppc64): Rename to ashrdisi3_noppc64be and condition
+	on WORDS_BIG_ENDIAN.
+
+	2013-06-07  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Don't
+	override user -mfp-in-toc.
+	(offsettable_ok_by_alignment): Consider just the current access
+	rather than the whole object, unless BLKmode.  Handle
+	CONSTANT_POOL_ADDRESS_P constants that lack a decl too.
+	(use_toc_relative_ref): Allow CONSTANT_POOL_ADDRESS_P constants
+	for -mcmodel=medium.
+	* config/rs6000/linux64.h (SUBSUBTARGET_OVERRIDE_OPTIONS): Don't
+	override user -mfp-in-toc or -msum-in-toc.  Default to
+	-mno-fp-in-toc for -mcmodel=medium.
+
+	2013-06-18  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.h (enum data_align): New.
+	(LOCAL_ALIGNMENT, DATA_ALIGNMENT): Use rs6000_data_alignment.
+	(DATA_ABI_ALIGNMENT): Define.
+	(CONSTANT_ALIGNMENT): Correct comment.
+	* config/rs6000/rs6000-protos.h (rs6000_data_alignment): Declare.
+	* config/rs6000/rs6000.c (rs6000_data_alignment): New function.
+
+	2013-07-11  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/rs6000/rs6000.md (""*tls_gd_low<TLSmode:tls_abi_suffix>"):
+	Require GOT register as additional operand in UNSPEC.
+	("*tls_ld_low<TLSmode:tls_abi_suffix>"): Likewise.
+	("*tls_got_dtprel_low<TLSmode:tls_abi_suffix>"): Likewise.
+	("*tls_got_tprel_low<TLSmode:tls_abi_suffix>"): Likewise.
+	("*tls_gd<TLSmode:tls_abi_suffix>"): Update splitter.
+	("*tls_ld<TLSmode:tls_abi_suffix>"): Likewise.
+	("tls_got_dtprel_<TLSmode:tls_abi_suffix>"): Likewise.
+	("tls_got_tprel_<TLSmode:tls_abi_suffix>"): Likewise.
+
+	2014-01-23  Pat Haugen  <pthaugen@us.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Don't
+	force flag_ira_loop_pressure if set via command line.
+
+	2014-02-06  Alan Modra  <amodra@gmail.com>
+
+	PR target/60032
+	* config/rs6000/rs6000.c (rs6000_secondary_memory_needed_mode): Only
+	change SDmode to DDmode when lra_in_progress.
+
+2014-04-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	V1TImode Support
+	Back port from trunk
+	2014-03-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (VEC_L): Add V1TI mode to vector types.
+	(VEC_M): Likewise.
+	(VEC_N): Likewise.
+	(VEC_R): Likewise.
+	(VEC_base): Likewise.
+	(mov<MODE>, VEC_M modes): If we are loading TImode into VSX
+	registers, we need to swap double words in little endian mode.
+
+	* config/rs6000/rs6000-modes.def (V1TImode): Add new vector mode
+	to be a container mode for 128-bit integer operations added in ISA
+	2.07.  Unlike TImode and PTImode, the preferred register set is
+	the Altivec/VMX registers for the 128-bit operations.
+
+	* config/rs6000/rs6000-protos.h (rs6000_move_128bit_ok_p): Add
+	declarations.
+	(rs6000_split_128bit_ok_p): Likewise.
+
+	* config/rs6000/rs6000-builtin.def (BU_P8V_AV_3): Add new support
+	macros for creating ISA 2.07 normal and overloaded builtin
+	functions with 3 arguments.
+	(BU_P8V_OVERLOAD_3): Likewise.
+	(VPERM_1T): Add support for V1TImode in 128-bit vector operations
+	for use as overloaded functions.
+	(VPERM_1TI_UNS): Likewise.
+	(VSEL_1TI): Likewise.
+	(VSEL_1TI_UNS): Likewise.
+	(ST_INTERNAL_1ti): Likewise.
+	(LD_INTERNAL_1ti): Likewise.
+	(XXSEL_1TI): Likewise.
+	(XXSEL_1TI_UNS): Likewise.
+	(VPERM_1TI): Likewise.
+	(VPERM_1TI_UNS): Likewise.
+	(XXPERMDI_1TI): Likewise.
+	(SET_1TI): Likewise.
+	(LXVD2X_V1TI): Likewise.
+	(STXVD2X_V1TI): Likewise.
+	(VEC_INIT_V1TI): Likewise.
+	(VEC_SET_V1TI): Likewise.
+	(VEC_EXT_V1TI): Likewise.
+	(EQV_V1TI): Likewise.
+	(NAND_V1TI): Likewise.
+	(ORC_V1TI): Likewise.
+	(VADDCUQ): Add support for 128-bit integer arithmetic instructions
+	added in ISA 2.07.  Add both normal 'altivec' builtins, and the
+	overloaded builtin.
+	(VADDUQM): Likewise.
+	(VSUBCUQ): Likewise.
+	(VADDEUQM): Likewise.
+	(VADDECUQ): Likewise.
+	(VSUBEUQM): Likewise.
+	(VSUBECUQ): Likewise.
+
+	* config/rs6000/rs6000-c.c (__int128_type): New static to hold
+	__int128_t and __uint128_t types.
+	(__uint128_type): Likewise.
+	(altivec_categorize_keyword): Add support for vector __int128_t,
+	vector __uint128_t, vector __int128, and vector unsigned __int128
+	as a container type for TImode operations that need to be done in
+	VSX/Altivec registers.
+	(rs6000_macro_to_expand): Likewise.
+	(altivec_overloaded_builtins): Add ISA 2.07 overloaded functions
+	to support 128-bit integer instructions vaddcuq, vadduqm,
+	vaddecuq, vaddeuqm, vsubcuq, vsubuqm, vsubecuq, vsubeuqm.
+	(altivec_resolve_overloaded_builtin): Add support for V1TImode.
+
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): Add support
+	for V1TImode, and set up preferences to use VSX/Altivec
+	registers.  Setup VSX reload handlers.
+	(rs6000_debug_reg_global): Likewise.
+	(rs6000_init_hard_regno_mode_ok): Likewise.
+	(rs6000_preferred_simd_mode): Likewise.
+	(vspltis_constant): Do not allow V1TImode as easy altivec
+	constants.
+	(easy_altivec_constant): Likewise.
+	(output_vec_const_move): Likewise.
+	(rs6000_expand_vector_set): Convert V1TImode set and extract to
+	simple move.
+	(rs6000_expand_vector_extract): Likewise.
+	(reg_offset_addressing_ok_p): Setup V1TImode to use VSX reg+reg
+	addressing.
+	(rs6000_const_vec): Add support for V1TImode.
+	(rs6000_emit_le_vsx_load): Swap double words when loading or
+	storing TImode/V1TImode.
+	(rs6000_emit_le_vsx_store): Likewise.
+	(rs6000_emit_le_vsx_move): Likewise.
+	(rs6000_emit_move): Add support for V1TImode.
+	(altivec_expand_ld_builtin): Likewise.
+	(altivec_expand_st_builtin): Likewise.
+	(altivec_expand_vec_init_builtin): Likewise.
+	(altivec_expand_builtin): Likewise.
+	(rs6000_init_builtins): Add support for V1TImode type.  Add
+	support for ISA 2.07 128-bit integer builtins.  Define type names
+	for the VSX/Altivec vector types.
+	(altivec_init_builtins): Add support for overloaded vector
+	functions with V1TImode type.
+	(rs6000_preferred_reload_class): Prefer Altivec registers for
+	V1TImode.
+	(rs6000_move_128bit_ok_p): Move 128-bit move/split validation to
+	external function.
+	(rs6000_split_128bit_ok_p): Likewise.
+	(rs6000_handle_altivec_attribute): Create V1TImode from vector
+	__int128_t and vector __uint128_t.
+
+	* config/rs6000/vsx.md (VSX_L): Add V1TImode to vector iterators
+	and mode attributes.
+	(VSX_M): Likewise.
+	(VSX_M2): Likewise.
+	(VSm): Likewise.
+	(VSs): Likewise.
+	(VSr): Likewise.
+	(VSv): Likewise.
+	(VS_scalar): Likewise.
+	(VS_double): Likewise.
+	(vsx_set_v1ti): New builtin function to create V1TImode from
+	TImode.
+
+	* config/rs6000/rs6000.h (TARGET_VADDUQM): New macro to say
+	whether we support the ISA 2.07 128-bit integer arithmetic
+	instructions.
+	(ALTIVEC_OR_VSX_VECTOR_MODE): Add V1TImode.
+	(enum rs6000_builtin_type_index): Add fields to hold V1TImode
+	and TImode types for use with the builtin functions.
+	(V1TI_type_node): Likewise.
+	(unsigned_V1TI_type_node): Likewise.
+	(intTI_type_internal_node): Likewise.
+	(uintTI_type_internal_node): Likewise.
+
+	* config/rs6000/altivec.md (UNSPEC_VADDCUQ): New unspecs for ISA
+	2.07 128-bit builtin functions.
+	(UNSPEC_VADDEUQM): Likewise.
+	(UNSPEC_VADDECUQ): Likewise.
+	(UNSPEC_VSUBCUQ): Likewise.
+	(UNSPEC_VSUBEUQM): Likewise.
+	(UNSPEC_VSUBECUQ): Likewise.
+	(VM): Add V1TImode to vector mode iterators.
+	(VM2): Likewise.
+	(VI_unit): Likewise.
+	(altivec_vadduqm): Add ISA 2.07 128-bit binary builtins.
+	(altivec_vaddcuq): Likewise.
+	(altivec_vsubuqm): Likewise.
+	(altivec_vsubcuq): Likewise.
+	(altivec_vaddeuqm): Likewise.
+	(altivec_vaddecuq): Likewise.
+	(altivec_vsubeuqm): Likewise.
+	(altivec_vsubecuq): Likewise.
+
+	* config/rs6000/rs6000.md (FMOVE128_GPR): Add V1TImode to vector
+	mode iterators.
+	(BOOL_128): Likewise.
+	(BOOL_REGS_OUTPUT): Likewise.
+	(BOOL_REGS_OP1): Likewise.
+	(BOOL_REGS_OP2): Likewise.
+	(BOOL_REGS_UNARY): Likewise.
+	(BOOL_REGS_AND_CR0): Likewise.
+
+	* config/rs6000/altivec.h (vec_vaddcuq): Add support for ISA 2.07
+	128-bit integer builtin support.
+	(vec_vadduqm): Likewise.
+	(vec_vaddecuq): Likewise.
+	(vec_vaddeuqm): Likewise.
+	(vec_vsubecuq): Likewise.
+	(vec_vsubeuqm): Likewise.
+	(vec_vsubcuq): Likewise.
+	(vec_vsubuqm): Likewise.
+
+	* doc/extend.texi (PowerPC AltiVec/VSX Built-in Functions):
+	Document vec_vaddcuq, vec_vadduqm, vec_vaddecuq, vec_vaddeuqm,
+	vec_subecuq, vec_subeuqm, vec_vsubcuq, vec_vsubeqm builtins adding
+	128-bit integer add/subtract to ISA 2.07.
+
+2014-04-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Apply mainline r207798
+	2014-02-26  Alan Modra  <amodra@gmail.com>
+	PR target/58675
+	PR target/57935
+	* config/rs6000/rs6000.c (rs6000_secondary_reload_inner): Use
+	find_replacement on parts of insn rtl that might be reloaded.
+
+	Backport from mainline r208287
+	2014-03-03  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_preferred_reload_class): Disallow
+	reload of PLUS rtx's outside of GENERAL_REGS or BASE_REGS; relax
+	constraint on constants to permit them being loaded into
+	GENERAL_REGS or BASE_REGS.
+
+2014-04-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline r207699.
+	2014-02-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/60137
+	* config/rs6000/rs6000.md (128-bit GPR splitter): Add a splitter
+	for VSX/Altivec vectors that land in GPR registers.
+
+	Backport from mainline r207808.
+	2014-02-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/60203
+	* config/rs6000/rs6000.md (rreg): Add TFmode, TDmode constraints.
+	(mov<mode>_internal, TFmode/TDmode): Split TFmode/TDmode moves
+	into 64-bit and 32-bit moves.  On 64-bit moves, add support for
+	using direct move instructions on ISA 2.07.  Also adjust
+	instruction length for 64-bit.
+	(mov<mode>_64bit, TFmode/TDmode): Likewise.
+	(mov<mode>_32bit, TFmode/TDmode): Likewise.
+
+	Backport from mainline r207868.
+	2014-02-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/60203
+	* config/rs6000/rs6000.md (mov<mode>_64bit, TF/TDmode moves):
+	Split 64-bit moves into 2 patterns.  Do not allow the use of
+	direct move for TDmode in little endian, since the decimal value
+	has little endian bytes within a word, but the 64-bit pieces are
+	ordered in a big endian fashion, and normal subreg's of TDmode are
+	not allowed.
+	(mov<mode>_64bit_dm): Likewise.
+	(movtd_64bit_nodm): Likewise.
+
+2014-04-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline r207658
+	2014-02-06  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/rs6000/sysv4.h (ENDIAN_SELECT): Do not attempt to enforce
+	big-endian mode for -mcall-aixdesc, -mcall-freebsd, -mcall-netbsd,
+	-mcall-openbsd, or -mcall-linux.
+	(CC1_ENDIAN_BIG_SPEC): Remove.
+	(CC1_ENDIAN_LITTLE_SPEC): Remove.
+	(CC1_ENDIAN_DEFAULT_SPEC): Remove.
+	(CC1_SPEC): Remove (always empty) %cc1_endian_... spec.
+	(SUBTARGET_EXTRA_SPECS): Remove %cc1_endian_big, %cc1_endian_little,
+	and %cc1_endian_default.
+	* config/rs6000/sysv4le.h (CC1_ENDIAN_DEFAULT_SPEC): Remove.
+
+2014-04-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Little Endian Vector API Support
+	Backport from mainline r206443
+	2014-01-08  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): Remove
+	two duplicate entries.
+
+	Backport from mainline r206494
+	2014-01-09  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* doc/invoke.texi: Add -maltivec={be,le} options, and document
+	default element-order behavior for -maltivec.
+	* config/rs6000/rs6000.opt: Add -maltivec={be,le} options.
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Ensure
+	that -maltivec={le,be} implies -maltivec; disallow -maltivec=le
+	when targeting big endian, at least for now.
+	* config/rs6000/rs6000.h: Add #define of VECTOR_ELT_ORDER_BIG.
+
+	Backport from mainline r206541
+	2014-01-10  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-builtin.def: Fix pasto for VPKSDUS.
+
+	Backport from mainline r206590
+	2014-01-13  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-c.c (altivec_resolve_overloaded_builtin):
+	Implement -maltivec=be for vec_insert and vec_extract.
+
+	Backport from mainline r206641
+	2014-01-15  Bill Schmidt  <wschmidt@vnet.linux.ibm.com>
+
+	* config/rs6000/altivec.md (mulv8hi3): Explicitly generate vmulesh
+	and vmulosh rather than call gen_vec_widen_smult_*.
+	(vec_widen_umult_even_v16qi): Test VECTOR_ELT_ORDER_BIG rather
+	than BYTES_BIG_ENDIAN to determine use of even or odd instruction.
+	(vec_widen_smult_even_v16qi): Likewise.
+	(vec_widen_umult_even_v8hi): Likewise.
+	(vec_widen_smult_even_v8hi): Likewise.
+	(vec_widen_umult_odd_v16qi): Likewise.
+	(vec_widen_smult_odd_v16qi): Likewise.
+	(vec_widen_umult_odd_v8hi): Likewise.
+	(vec_widen_smult_odd_v8hi): Likewise.
+	(vec_widen_umult_hi_v16qi): Explicitly generate vmuleub and
+	vmuloub rather than call gen_vec_widen_umult_*.
+	(vec_widen_umult_lo_v16qi): Likewise.
+	(vec_widen_smult_hi_v16qi): Explicitly generate vmulesb and
+	vmulosb rather than call gen_vec_widen_smult_*.
+	(vec_widen_smult_lo_v16qi): Likewise.
+	(vec_widen_umult_hi_v8hi): Explicitly generate vmuleuh and vmulouh
+	rather than call gen_vec_widen_umult_*.
+	(vec_widen_umult_lo_v8hi): Likewise.
+	(vec_widen_smult_hi_v8hi): Explicitly gnerate vmulesh and vmulosh
+	rather than call gen_vec_widen_smult_*.
+	(vec_widen_smult_lo_v8hi): Likewise.
+
+	Backport from mainline r207062
+	2014-01-24  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_expand_vec_perm_const_1): Remove
+	correction for little endian...
+	* config/rs6000/vsx.md (vsx_xxpermdi2_<mode>_1): ...and move it to
+	here.
+
+	Backport from mainline r207262
+	2014-01-29  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (altivec_expand_vec_perm_const):  Use
+	CODE_FOR_altivec_vmrg*_direct rather than CODE_FOR_altivec_vmrg*.
+	* config/rs6000/vsx.md (vsx_mergel_<mode>): Adjust for
+	-maltivec=be with LE targets.
+	(vsx_mergeh_<mode>): Likewise.
+	* config/rs6000/altivec.md (UNSPEC_VMRG[HL]_DIRECT): New
+	unspecs.
+	(mulv8hi3): Use gen_altivec_vmrg[hl]w_direct.
+	(altivec_vmrghb): Replace with define_expand and new
+	*altivec_vmrghb_internal insn; adjust for -maltivec=be with LE
+	targets.
+	(altivec_vmrghb_direct): New define_insn.
+	(altivec_vmrghh): Replace with define_expand and new
+	*altivec_vmrghh_internal insn; adjust for -maltivec=be with LE
+	targets.
+	(altivec_vmrghh_direct): New define_insn.
+	(altivec_vmrghw): Replace with define_expand and new
+	*altivec_vmrghw_internal insn; adjust for -maltivec=be with LE
+	targets.
+	(altivec_vmrghw_direct): New define_insn.
+	(*altivec_vmrghsf): Adjust for endianness.
+	(altivec_vmrglb): Replace with define_expand and new
+	*altivec_vmrglb_internal insn; adjust for -maltivec=be with LE
+	targets.
+	(altivec_vmrglb_direct): New define_insn.
+	(altivec_vmrglh): Replace with define_expand and new
+	*altivec_vmrglh_internal insn; adjust for -maltivec=be with LE
+	targets.
+	(altivec_vmrglh_direct): New define_insn.
+	(altivec_vmrglw): Replace with define_expand and new
+	*altivec_vmrglw_internal insn; adjust for -maltivec=be with LE
+	targets.
+	(altivec_vmrglw_direct): New define_insn.
+	(*altivec_vmrglsf): Adjust for endianness.
+	(vec_widen_umult_hi_v16qi): Use gen_altivec_vmrghh_direct.
+	(vec_widen_umult_lo_v16qi): Use gen_altivec_vmrglh_direct.
+	(vec_widen_smult_hi_v16qi): Use gen_altivec_vmrghh_direct.
+	(vec_widen_smult_lo_v16qi): Use gen_altivec_vmrglh_direct.
+	(vec_widen_umult_hi_v8hi): Use gen_altivec_vmrghw_direct.
+	(vec_widen_umult_lo_v8hi): Use gen_altivec_vmrglw_direct.
+	(vec_widen_smult_hi_v8hi): Use gen_altivec_vmrghw_direct.
+	(vec_widen_smult_lo_v8hi): Use gen_altivec_vmrglw_direct.
+
+	Backport from mainline r207318
+	2014-01-30  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc/config/rs6000/rs6000.c (rs6000_expand_vector_init): Use
+	gen_vsx_xxspltw_v4sf_direct instead of gen_vsx_xxspltw_v4sf;
+	remove element index adjustment for endian (now handled in vsx.md
+	and altivec.md).
+	(altivec_expand_vec_perm_const): Use
+	gen_altivec_vsplt[bhw]_direct instead of gen_altivec_vsplt[bhw].
+	* gcc/config/rs6000/vsx.md (UNSPEC_VSX_XXSPLTW): New unspec.
+	(vsx_xxspltw_<mode>): Adjust element index for little endian.
+	* gcc/config/rs6000/altivec.md (altivec_vspltb): Divide into a
+	define_expand and a new define_insn *altivec_vspltb_internal;
+	adjust for -maltivec=be on a little endian target.
+	(altivec_vspltb_direct): New.
+	(altivec_vsplth): Divide into a define_expand and a new
+	define_insn *altivec_vsplth_internal; adjust for -maltivec=be on a
+	little endian target.
+	(altivec_vsplth_direct): New.
+	(altivec_vspltw): Divide into a define_expand and a new
+	define_insn *altivec_vspltw_internal; adjust for -maltivec=be on a
+	little endian target.
+	(altivec_vspltw_direct): New.
+	(altivec_vspltsf): Divide into a define_expand and a new
+	define_insn *altivec_vspltsf_internal; adjust for -maltivec=be on
+	a little endian target.
+
+	Backport from mainline r207326
+	2014-01-30  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_expand_vector_init): Remove
+	unused variable "field".
+	* config/rs6000/vsx.md (vsx_mergel_<mode>): Add missing DONE.
+	(vsx_mergeh_<mode>): Likewise.
+	* config/rs6000/altivec.md (altivec_vmrghb): Likewise.
+	(altivec_vmrghh): Likewise.
+	(altivec_vmrghw): Likewise.
+	(altivec_vmrglb): Likewise.
+	(altivec_vmrglh): Likewise.
+	(altivec_vmrglw): Likewise.
+	(altivec_vspltb): Add missing uses.
+	(altivec_vsplth): Likewise.
+	(altivec_vspltw): Likewise.
+	(altivec_vspltsf): Likewise.
+
+	Backport from mainline r207414
+	2014-02-02  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/altivec.md (UNSPEC_VSUMSWS_DIRECT): New unspec.
+	(altivec_vsumsws): Add handling for -maltivec=be with a little
+	endian target.
+	(altivec_vsumsws_direct): New.
+	(reduc_splus_<mode>): Call gen_altivec_vsumsws_direct instead of
+	gen_altivec_vsumsws.
+
+	Backport from mainline r207415
+	2014-02-02  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (altivec_expand_vec_perm_le): Generalize
+	for vector types other than V16QImode.
+	* config/rs6000/altivec.md (altivec_vperm_<mode>): Change to a
+	define_expand, and call altivec_expand_vec_perm_le when producing
+	code with little endian element order.
+	(*altivec_vperm_<mode>_internal): New insn having previous
+	behavior of altivec_vperm_<mode>.
+	(altivec_vperm_<mode>_uns): Change to a define_expand, and call
+	altivec_expand_vec_perm_le when producing code with little endian
+	element order.
+	(*altivec_vperm_<mode>_uns_internal): New insn having previous
+	behavior of altivec_vperm_<mode>_uns.
+
+	Backport from mainline r207520
+	2014-02-05  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* altivec.md (UNSPEC_VPACK_UNS_UNS_MOD_DIRECT): New unspec.
+	(UNSPEC_VUNPACK_HI_SIGN_DIRECT): Likewise.
+	(UNSPEC_VUNPACK_LO_SIGN_DIRECT): Likewise.
+	(mulv8hi3): Use gen_altivec_vpkuwum_direct instead of
+	gen_altivec_vpkuwum.
+	(altivec_vpkpx): Test for VECTOR_ELT_ORDER_BIG instead of for
+	BYTES_BIG_ENDIAN.
+	(altivec_vpks<VI_char>ss): Likewise.
+	(altivec_vpks<VI_char>us): Likewise.
+	(altivec_vpku<VI_char>us): Likewise.
+	(altivec_vpku<VI_char>um): Likewise.
+	(altivec_vpku<VI_char>um_direct): New (copy of
+	altivec_vpku<VI_char>um that still relies on BYTES_BIG_ENDIAN, for
+	internal use).
+	(altivec_vupkhs<VU_char>): Emit vupkls* instead of vupkhs* when
+	target is little endian and -maltivec=be is not specified.
+	(*altivec_vupkhs<VU_char>_direct): New (copy of
+	altivec_vupkhs<VU_char> that always emits vupkhs*, for internal
+	use).
+	(altivec_vupkls<VU_char>): Emit vupkhs* instead of vupkls* when
+	target is little endian and -maltivec=be is not specified.
+	(*altivec_vupkls<VU_char>_direct): New (copy of
+	altivec_vupkls<VU_char> that always emits vupkls*, for internal
+	use).
+	(altivec_vupkhpx): Emit vupklpx instead of vupkhpx when target is
+	little endian and -maltivec=be is not specified.
+	(altivec_vupklpx): Emit vupkhpx instead of vupklpx when target is
+	little endian and -maltivec=be is not specified.
+
+	Backport from mainline r207521
+	2014-02-05  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/altivec.md (altivec_vsum2sws): Adjust code
+	generation for -maltivec=be.
+	(altivec_vsumsws): Simplify redundant test.
+
+	Backport from mainline r207525
+	2014-02-05  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (altivec_expand_vec_perm_const): Change
+	CODE_FOR_altivec_vpku[hw]um to
+	CODE_FOR_altivec_vpku[hw]um_direct.
+	* config/rs6000/altivec.md (vec_unpacks_hi_<VP_small_lc>): Change
+	UNSPEC_VUNPACK_HI_SIGN to UNSPEC_VUNPACK_HI_SIGN_DIRECT.
+	(vec_unpacks_lo_<VP_small_lc>): Change UNSPEC_VUNPACK_LO_SIGN to
+	UNSPEC_VUNPACK_LO_SIGN_DIRECT.
+
+	Backport from mainline r207814.
+	2014-02-16  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/vsx.md (vsx_xxpermdi_<mode>): Handle little
+	endian targets.
+
+	Backport from mainline r207815.
+	2014-02-16  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/altivec.md (p8_vmrgew): Handle little endian
+	targets.
+	(p8_vmrgow): Likewise.
+
+	Backport from mainline r207919.
+	2014-02-19  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (vspltis_constant): Fix most significant
+	bit of zero.
+
+	Backport from mainline 208019
+	2014-02-21  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/altivec.md (altivec_lvxl): Rename as
+	*altivec_lvxl_<mode>_internal and use VM2 iterator instead of
+	V4SI.
+	(altivec_lvxl_<mode>): New define_expand incorporating
+	-maltivec=be semantics where needed.
+	(altivec_lvx): Rename as *altivec_lvx_<mode>_internal.
+	(altivec_lvx_<mode>): New define_expand incorporating -maltivec=be
+	semantics where needed.
+	(altivec_stvx): Rename as *altivec_stvx_<mode>_internal.
+	(altivec_stvx_<mode>): New define_expand incorporating
+	-maltivec=be semantics where needed.
+	(altivec_stvxl): Rename as *altivec_stvxl_<mode>_internal and use
+	VM2 iterator instead of V4SI.
+	(altivec_stvxl_<mode>): New define_expand incorporating
+	-maltivec=be semantics where needed.
+	* config/rs6000/rs6000-builtin.def: Add new built-in definitions
+	LVXL_V2DF, LVXL_V2DI, LVXL_V4SF, LVXL_V4SI, LVXL_V8HI, LVXL_V16QI,
+	LVX_V2DF, LVX_V2DI, LVX_V4SF, LVX_V4SI, LVX_V8HI, LVX_V16QI,
+	STVX_V2DF, STVX_V2DI, STVX_V4SF, STVX_V4SI, STVX_V8HI, STVX_V16QI,
+	STVXL_V2DF, STVXL_V2DI, STVXL_V4SF, STVXL_V4SI, STVXL_V8HI,
+	STVXL_V16QI.
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): Replace
+	ALTIVEC_BUILTIN_LVX with ALTIVEC_BUILTIN_LVX_<MODE> throughout;
+	similarly for ALTIVEC_BUILTIN_LVXL, ALTIVEC_BUILTIN_STVX, and
+	ALTIVEC_BUILTIN_STVXL.
+	* config/rs6000/rs6000-protos.h (altivec_expand_lvx_be): New
+	prototype.
+	(altivec_expand_stvx_be): Likewise.
+	* config/rs6000/rs6000.c (swap_selector_for_mode): New function.
+	(altivec_expand_lvx_be): Likewise.
+	(altivec_expand_stvx_be): Likewise.
+	(altivec_expand_builtin): Add cases for
+	ALTIVEC_BUILTIN_STVX_<MODE>, ALTIVEC_BUILTIN_STVXL_<MODE>,
+	ALTIVEC_BUILTIN_LVXL_<MODE>, and ALTIVEC_BUILTIN_LVX_<MODE>.
+	(altivec_init_builtins): Add definitions for
+	__builtin_altivec_lvxl_<mode>, __builtin_altivec_lvx_<mode>,
+	__builtin_altivec_stvx_<mode>, and
+	__builtin_altivec_stvxl_<mode>.
+
+	Backport from mainline 208021
+	2014-02-21  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/altivec.md (altivec_vsumsws): Replace second
+	vspltw with vsldoi.
+	(reduc_uplus_v16qi): Use gen_altivec_vsumsws_direct instead of
+	gen_altivec_vsumsws.
+
+	Backport from mainline 208049
+	2014-02-23  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/altivec.md (altivec_lve<VI_char>x): Replace
+	define_insn with define_expand and new define_insn
+	*altivec_lve<VI_char>x_internal.
+	(altivec_stve<VI_char>x): Replace define_insn with define_expand
+	and new define_insn *altivec_stve<VI_char>x_internal.
+	* config/rs6000/rs6000-protos.h (altivec_expand_stvex_be): New
+	prototype.
+	* config/rs6000/rs6000.c (altivec_expand_lvx_be): Document use by
+	lve*x built-ins.
+	(altivec_expand_stvex_be): New function.
+
+	Backport from mainline
+        2014-02-23  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+	* config/rs6000/rs6000.c (rs6000_emit_le_vsx_move): Relax assert
+	to permit subregs.
+
+	Backport from mainline
+        2014-02-25  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+	* config/rs6000/vector.md (*vector_unordered<mode>): Change split
+	to use canonical form for nor<mode>3.
+
+2014-04-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline
+        2014-02-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.opt (-mlra): Add switch to enable the LRA
+	register allocator.
+
+	* config/rs6000/rs6000.c (TARGET_LRA_P): Add support for -mlra to
+	enable the LRA register allocator.  Back port the changes from the
+	trunk to enable LRA.
+	(rs6000_legitimate_offset_address_p): Likewise.
+	(legitimate_lo_sum_address_p): Likewise.
+	(use_toc_relative_ref): Likewise.
+	(rs6000_legitimate_address_p): Likewise.
+	(rs6000_emit_move): Likewise.
+	(rs6000_secondary_memory_needed_mode): Likewise.
+	(rs6000_alloc_sdmode_stack_slot): Likewise.
+	(rs6000_lra_p): Likewise.
+
+	* config/rs6000/sync.md (load_lockedti): Copy TI/PTI variables by
+	64-bit parts to force the register allocator to allocate even/odd
+	register pairs for the quad word atomic instructions.
+	(store_conditionalti): Likewise.
+
+2014-04-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Back port from mainline
+	2014-01-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/59909
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Document
+	-mquad-memory-atomic.  Update -mquad-memory documentation to say
+	it is only used for non-atomic loads/stores.
+
+	* config/rs6000/predicates.md (quad_int_reg_operand): Allow either
+	-mquad-memory or -mquad-memory-atomic switches.
+
+	* config/rs6000/rs6000-cpus.def (ISA_2_7_MASKS_SERVER): Add
+	-mquad-memory-atomic to ISA 2.07 support.
+
+	* config/rs6000/rs6000.opt (-mquad-memory-atomic): Add new switch
+	to separate support of normal quad word memory operations (ldq,
+	stq) from the atomic quad word memory operations.
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Add
+	support to separate non-atomic quad word operations from atomic
+	quad word operations.  Disable non-atomic quad word operations in
+	little endian mode so that we don't have to swap words after the
+	load and before the store.
+	(quad_load_store_p): Add comment about atomic quad word support.
+	(rs6000_opt_masks): Add -mquad-memory-atomic to the list of
+	options printed with -mdebug=reg.
+
+	* config/rs6000/rs6000.h (TARGET_SYNC_TI): Use
+	-mquad-memory-atomic as the test for whether we have quad word
+	atomic instructions.
+	(TARGET_SYNC_HI_QI): If either -mquad-memory-atomic,
+	-mquad-memory, or -mp8-vector are used, allow byte/half-word
+	atomic operations.
+
+	* config/rs6000/sync.md (load_lockedti): Insure that the address
+	is a proper indexed or indirect address for the lqarx instruction.
+	On little endian systems, swap the hi/lo registers after the lqarx
+	instruction.
+	(load_lockedpti): Use indexed_or_indirect_operand predicate to
+	insure the address is valid for the lqarx instruction.
+	(store_conditionalti): Insure that the address is a proper indexed
+	or indirect address for the stqcrx. instruction.  On little endian
+	systems, swap the hi/lo registers before doing the stqcrx.
+	instruction.
+	(store_conditionalpti): Use indexed_or_indirect_operand predicate to
+	insure the address is valid for the stqcrx. instruction.
+
+	* gcc/config/rs6000/rs6000-c.c (rs6000_target_modify_macros):
+	Define __QUAD_MEMORY__ and __QUAD_MEMORY_ATOMIC__ based on what
+	type of quad memory support is available.
+
+2014-04-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Apply mainline r202190, powerpc64le multilibs and multiarch dir
+	2013-09-03  Alan Modra  <amodra@gmail.com>
+
+	* config.gcc (powerpc*-*-linux*): Add support for little-endian
+	multilibs to big-endian target and vice versa.
+	* config/rs6000/t-linux64: Use := assignment on all vars.
+	(MULTILIB_EXTRA_OPTS): Remove fPIC.
+	(MULTILIB_OSDIRNAMES): Specify using mapping from multilib_options.
+	* config/rs6000/t-linux64le: New file.
+	* config/rs6000/t-linux64bele: New file.
+	* config/rs6000/t-linux64lebe: New file.
+
+2014-04-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Back port from mainline
+	2014-01-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/59844
+	* config/rs6000/rs6000.md (reload_vsx_from_gprsf): Add little
+	endian support, remove tests for WORDS_BIG_ENDIAN.
+	(p8_mfvsrd_3_<mode>): Likewise.
+	(reload_gpr_from_vsx<mode>): Likewise.
+	(reload_gpr_from_vsxsf): Likewise.
+	(p8_mfvsrd_4_disf): Likewise.
+
+2014-04-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2013-04-05  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/56843
+	* config/rs6000/rs6000.c (rs6000_emit_swdiv_high_precision): Remove.
+	(rs6000_emit_swdiv_low_precision): Remove.
+	(rs6000_emit_swdiv): Rewrite to handle between one and four
+	iterations of Newton-Raphson generally; modify required number of
+	iterations for some cases.
+	* config/rs6000/rs6000.h (RS6000_RECIP_HIGH_PRECISION_P): Remove.
+
+2014-04-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2013-08-19  Peter Bergner  <bergner@vnet.ibm.com>
+		    Jakub Jelinek  <jakub@redhat.com>
+
+	* builtins.def (BUILT_IN_FABSD32): New DFP ABS builtin.
+	(BUILT_IN_FABSD64): Likewise.
+	(BUILT_IN_FABSD128): Likewise.
+	* builtins.c (expand_builtin): Add support for
+	new DFP ABS builtins.
+	(fold_builtin_1): Likewise.
+	* config/rs6000/dfp.md
+	(*abstd2_fpr): Handle non-overlapping destination
+	and source operands.
+	(*nabstd2_fpr): Likewise.
+
+2014-04-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Apply mainline r205060.
+	2013-11-20  Alan Modra  <amodra@gmail.com>
+	* config/rs6000/sysv4.h (CC1_ENDIAN_LITTLE_SPEC): Define as empty.
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Default
+	to strict alignment on older processors when little-endian.
+	* config/rs6000/linux64.h (PROCESSOR_DEFAULT64): Default to power8
+	for ELFv2.
+
+2014-04-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	POWER ELFv2 ABI Support
+	Backport from mainline r204842:
+
+	2013-11-15  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* doc/invoke.texi (-mabi=elfv1, -mabi=elfv2): Document.
+
+	Backport from mainline r204809:
+
+	2013-11-14  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/rs6000/sysv4le.h (LINUX64_DEFAULT_ABI_ELFv2): Define.
+
+	Backport from mainline r204808:
+
+	2013-11-14  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+		    Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.h (RS6000_SAVE_AREA): Handle ABI_ELFv2.
+	(RS6000_SAVE_TOC): Remove.
+	(RS6000_TOC_SAVE_SLOT): New macro.
+	* config/rs6000/rs6000.c (rs6000_parm_offset): New function.
+	(rs6000_parm_start): Use it.
+	(rs6000_function_arg_advance_1): Likewise.
+	(rs6000_emit_prologue): Use RS6000_TOC_SAVE_SLOT.
+	(rs6000_emit_epilogue): Likewise.
+	(rs6000_call_aix): Likewise.
+	(rs6000_output_function_prologue): Do not save/restore r11
+	around calling _mcount for ABI_ELFv2.
+
+	2013-11-14  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+		    Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000-protos.h (rs6000_reg_parm_stack_space):
+	Add prototype.
+	* config/rs6000/rs6000.h (RS6000_REG_SAVE): Remove.
+	(REG_PARM_STACK_SPACE): Call rs6000_reg_parm_stack_space.
+	* config/rs6000/rs6000.c (rs6000_parm_needs_stack): New function.
+	(rs6000_function_parms_need_stack): Likewise.
+	(rs6000_reg_parm_stack_space): Likewise.
+	(rs6000_function_arg): Do not replace BLKmode by Pmode when
+	returning a register argument.
+
+	2013-11-14  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+		    Michael Gschwind  <mkg@us.ibm.com>
+
+	* config/rs6000/rs6000.h (FP_ARG_MAX_RETURN): New macro.
+	(ALTIVEC_ARG_MAX_RETURN): Likewise.
+	(FUNCTION_VALUE_REGNO_P): Use them.
+	* config/rs6000/rs6000.c (TARGET_RETURN_IN_MSB): Define.
+	(rs6000_return_in_msb): New function.
+	(rs6000_return_in_memory): Handle ELFv2 homogeneous aggregates.
+	Handle aggregates of up to 16 bytes for ELFv2.
+	(rs6000_function_value): Handle ELFv2 homogeneous aggregates.
+
+	2013-11-14  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+		    Michael Gschwind  <mkg@us.ibm.com>
+
+	* config/rs6000/rs6000.h (AGGR_ARG_NUM_REG): Define.
+	* config/rs6000/rs6000.c (rs6000_aggregate_candidate): New function.
+	(rs6000_discover_homogeneous_aggregate): Likewise.
+	(rs6000_function_arg_boundary): Handle homogeneous aggregates.
+	(rs6000_function_arg_advance_1): Likewise.
+	(rs6000_function_arg): Likewise.
+	(rs6000_arg_partial_bytes): Likewise.
+	(rs6000_psave_function_arg): Handle BLKmode arguments.
+
+	2013-11-14  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+		    Michael Gschwind  <mkg@us.ibm.com>
+
+	* config/rs6000/rs6000.h (AGGR_ARG_NUM_REG): Define.
+	* config/rs6000/rs6000.c (rs6000_aggregate_candidate): New function.
+	(rs6000_discover_homogeneous_aggregate): Likewise.
+	(rs6000_function_arg_boundary): Handle homogeneous aggregates.
+	(rs6000_function_arg_advance_1): Likewise.
+	(rs6000_function_arg): Likewise.
+	(rs6000_arg_partial_bytes): Likewise.
+	(rs6000_psave_function_arg): Handle BLKmode arguments.
+
+	2013-11-14  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/rs6000/rs6000.c (machine_function): New member
+	r2_setup_needed.
+	(rs6000_emit_prologue): Set r2_setup_needed if necessary.
+	(rs6000_output_mi_thunk): Set r2_setup_needed.
+	(rs6000_output_function_prologue): Output global entry point
+	prologue and local entry point marker if needed for ABI_ELFv2.
+	Output -mprofile-kernel code here.
+	(output_function_profiler): Do not output -mprofile-kernel
+	code here; moved to rs6000_output_function_prologue.
+	(rs6000_file_start): Output ".abiversion 2" for ABI_ELFv2.
+
+	(rs6000_emit_move): Do not handle dot symbols for ABI_ELFv2.
+	(rs6000_output_function_entry): Likewise.
+	(rs6000_assemble_integer): Likewise.
+	(rs6000_elf_encode_section_info): Likewise.
+	(rs6000_elf_declare_function_name): Do not create dot symbols
+	or .opd section for ABI_ELFv2.
+
+	(rs6000_trampoline_size): Update for ABI_ELFv2 trampolines.
+	(rs6000_trampoline_init): Likewise.
+	(rs6000_elf_file_end): Call file_end_indicate_exec_stack
+	for ABI_ELFv2.
+
+	(rs6000_call_aix): Handle ELFv2 indirect calls.  Do not check
+	for function descriptors in ABI_ELFv2.
+
+	* config/rs6000/rs6000.md ("*call_indirect_aix<mode>"): Support
+	on ABI_AIX only, not ABI_ELFv2.
+	("*call_value_indirect_aix<mode>"): Likewise.
+	("*call_indirect_elfv2<mode>"): New pattern.
+	("*call_value_indirect_elfv2<mode>"): Likewise.
+
+	* config/rs6000/predicates.md ("symbol_ref_operand"): Do not
+	check for function descriptors in ABI_ELFv2.
+	("current_file_function_operand"): Likewise.
+
+	* config/rs6000/ppc-asm.h [__powerpc64__ && _CALL_ELF == 2]:
+	(toc): Undefine.
+	(FUNC_NAME): Define ELFv2 variant.
+	(JUMP_TARGET): Likewise.
+	(FUNC_START): Likewise.
+	(HIDDEN_FUNC): Likewise.
+	(FUNC_END): Likeiwse.
+
+	2013-11-14  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config.gcc [powerpc*-*-* | rs6000-*-*]: Support --with-abi=elfv1
+	and --with-abi=elfv2.
+	* config/rs6000/option-defaults.h (OPTION_DEFAULT_SPECS): Add "abi".
+	* config/rs6000/rs6000.opt (mabi=elfv1): New option.
+	(mabi=elfv2): Likewise.
+	* config/rs6000/rs6000-opts.h (enum rs6000_abi): Add ABI_ELFv2.
+	* config/rs6000/linux64.h (DEFAULT_ABI): Do not hard-code to AIX_ABI
+	if !RS6000_BI_ARCH.
+	(ELFv2_ABI_CHECK): New macro.
+	(SUBSUBTARGET_OVERRIDE_OPTIONS): Use it to decide whether to set
+	rs6000_current_abi to ABI_AIX or ABI_ELFv2.
+	(GLIBC_DYNAMIC_LINKER64): Support ELFv2 ld.so version.
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Predefine
+	_CALL_ELF and __STRUCT_PARM_ALIGN__ if appropriate.
+
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Handle ABI_ELFv2.
+	(debug_stack_info): Likewise.
+	(rs6000_file_start): Treat ABI_ELFv2 the same as ABI_AIX.
+	(rs6000_legitimize_tls_address): Likewise.
+	(rs6000_conditional_register_usage): Likewise.
+	(rs6000_emit_move): Likewise.
+	(init_cumulative_args): Likewise.
+	(rs6000_function_arg_advance_1): Likewise.
+	(rs6000_function_arg): Likewise.
+	(rs6000_arg_partial_bytes): Likewise.
+	(rs6000_output_function_entry): Likewise.
+	(rs6000_assemble_integer): Likewise.
+	(rs6000_savres_strategy): Likewise.
+	(rs6000_stack_info): Likewise.
+	(rs6000_function_ok_for_sibcall): Likewise.
+	(rs6000_emit_load_toc_table): Likewise.
+	(rs6000_savres_routine_name): Likewise.
+	(ptr_regno_for_savres): Likewise.
+	(rs6000_emit_prologue): Likewise.
+	(rs6000_emit_epilogue): Likewise.
+	(rs6000_output_function_epilogue): Likewise.
+	(output_profile_hook): Likewise.
+	(output_function_profiler): Likewise.
+	(rs6000_trampoline_size): Likewise.
+	(rs6000_trampoline_init): Likewise.
+	(rs6000_elf_output_toc_section_asm_op): Likewise.
+	(rs6000_elf_encode_section_info): Likewise.
+	(rs6000_elf_reloc_rw_mask): Likewise.
+	(rs6000_elf_declare_function_name): Likewise.
+	(rs6000_function_arg_boundary): Treat ABI_ELFv2 the same as ABI_AIX,
+	except that rs6000_compat_align_parm is always assumed false.
+	(rs6000_gimplify_va_arg): Likewise.
+	(rs6000_call_aix): Update comment.
+	(rs6000_sibcall_aix): Likewise.
+	* config/rs6000/rs6000.md ("tls_gd_aix<TLSmode:tls_abi_suffix>"):
+	Treat ABI_ELFv2 the same as ABI_AIX.
+	("*tls_gd_call_aix<TLSmode:tls_abi_suffix>"): Likewise.
+	("tls_ld_aix<TLSmode:tls_abi_suffix>"): Likewise.
+	("*tls_ld_call_aix<TLSmode:tls_abi_suffix>"): Likewise.
+	("load_toc_aix_si"): Likewise.
+	("load_toc_aix_di"): Likewise.
+	("call"): Likewise.
+	("call_value"): Likewise.
+	("*call_local_aix<mode>"): Likewise.
+	("*call_value_local_aix<mode>"): Likewise.
+	("*call_nonlocal_aix<mode>"): Likewise.
+	("*call_value_nonlocal_aix<mode>"): Likewise.
+	("*call_indirect_aix<mode>"): Likewise.
+	("*call_value_indirect_aix<mode>"): Likewise.
+	("sibcall"): Likewise.
+	("sibcall_value"): Likewise.
+	("*sibcall_aix<mode>"): Likewise.
+	("*sibcall_value_aix<mode>"): Likewise.
+	* config/rs6000/predicates.md ("symbol_ref_operand"): Likewise.
+	("current_file_function_operand"): Likewise.
+
+	Backport from mainline r204807:
+
+	2013-11-14  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_arg_partial_bytes): Simplify logic
+	by making use of the fact that for vector / floating point arguments
+	passed both in VRs/FPRs and in the fixed parameter area, the partial
+	bytes mechanism is in fact not used.
+
+	Backport from mainline r204806:
+
+	2013-11-14  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_psave_function_arg): New function.
+	(rs6000_finish_function_arg): Likewise.
+	(rs6000_function_arg): Use rs6000_psave_function_arg and
+	rs6000_finish_function_arg to handle both vector and floating
+	point arguments that are also passed in GPRs / the stack.
+
+	Backport from mainline r204805:
+
+	2013-11-14  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/rs6000/rs6000.c (USE_FP_FOR_ARG_P): Remove TYPE argument.
+	(USE_ALTIVEC_FOR_ARG_P): Likewise.
+	(rs6000_darwin64_record_arg_advance_recurse): Update uses.
+	(rs6000_function_arg_advance_1):Likewise.
+	(rs6000_darwin64_record_arg_recurse): Likewise.
+	(rs6000_function_arg): Likewise.
+	(rs6000_arg_partial_bytes): Likewise.
+
+	Backport from mainline r204804:
+
+	2013-11-14  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Replace
+	"DEFAULT_ABI != ABI_AIX" test by testing for ABI_V4 or ABI_DARWIN.
+	(rs6000_savres_strategy): Likewise.
+	(rs6000_return_addr): Likewise.
+	(rs6000_emit_load_toc_table): Replace "DEFAULT_ABI != ABI_AIX" by
+	testing for ABI_V4 (since ABI_DARWIN is impossible here).
+	(rs6000_emit_prologue): Likewise.
+	(legitimate_lo_sum_address_p): Simplify DEFAULT_ABI test.
+	(rs6000_elf_declare_function_name): Remove duplicated test.
+	* config/rs6000/rs6000.md ("load_toc_v4_PIC_1"): Explicitly test
+	for ABI_V4 (instead of "DEFAULT_ABI != ABI_AIX" test).
+	("load_toc_v4_PIC_1_normal"): Likewise.
+	("load_toc_v4_PIC_1_476"): Likewise.
+	("load_toc_v4_PIC_1b"): Likewise.
+	("load_toc_v4_PIC_1b_normal"): Likewise.
+	("load_toc_v4_PIC_1b_476"): Likewise.
+	("load_toc_v4_PIC_2"): Likewise.
+	("load_toc_v4_PIC_3b"): Likewise.
+	("load_toc_v4_PIC_3c"): Likewise.
+	* config/rs6000/rs6000.h (RS6000_REG_SAVE): Simplify DEFAULT_ABI test.
+	(RS6000_SAVE_AREA): Likewise.
+	(FP_ARG_MAX_REG): Likewise.
+	(RETURN_ADDRESS_OFFSET): Likewise.
+	* config/rs6000/sysv.h (TARGET_TOC): Test for ABI_V4 instead
+	of ABI_AIX.
+	(SUBTARGET_OVERRIDE_OPTIONS): Likewise.
+	(MINIMAL_TOC_SECTION_ASM_OP): Likewise.
+
+	Backport from mainline r204803:
+
+	2013-11-14  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_call_indirect_aix): Rename to ...
+	(rs6000_call_aix): ... this.  Handle both direct and indirect calls.
+	Create call insn directly instead of via various gen_... routines.
+	Mention special registers used by the call in CALL_INSN_FUNCTION_USAGE.
+	(rs6000_sibcall_aix): New function.
+	* config/rs6000/rs6000.md (TOC_SAVE_OFFSET_32BIT): Remove.
+	(TOC_SAVE_OFFSET_64BIT): Likewise.
+	(AIX_FUNC_DESC_TOC_32BIT): Likewise.
+	(AIX_FUNC_DESC_TOC_64BIT): Likewise.
+	(AIX_FUNC_DESC_SC_32BIT): Likewise.
+	(AIX_FUNC_DESC_SC_64BIT): Likewise.
+	("call" expander): Call rs6000_call_aix.
+	("call_value" expander): Likewise.
+	("call_indirect_aix<ptrsize>"): Replace this pattern ...
+	("call_indirect_aix<ptrsize>_nor11"): ... and this pattern ...
+	("*call_indirect_aix<mode>"): ... by this insn pattern.
+	("call_value_indirect_aix<ptrsize>"): Replace this pattern ...
+	("call_value_indirect_aix<ptrsize>_nor11"): ... and this pattern ...
+	("*call_value_indirect_aix<mode>"): ... by this insn pattern.
+	("*call_nonlocal_aix32", "*call_nonlocal_aix64"): Replace by ...
+	("*call_nonlocal_aix<mode>"): ... this pattern.
+	("*call_value_nonlocal_aix32", "*call_value_nonlocal_aix64"): Replace
+	("*call_value_nonlocal_aix<mode>"): ... by this pattern.
+	("*call_local_aix<mode>"): New insn pattern.
+	("*call_value_local_aix<mode>"): Likewise.
+	("sibcall" expander): Call rs6000_sibcall_aix.
+	("sibcall_value" expander): Likewise.  Move earlier in file.
+	("*sibcall_nonlocal_aix<mode>"): Replace by ...
+	("*sibcall_aix<mode>"): ... this pattern.
+	("*sibcall_value_nonlocal_aix<mode>"): Replace by ...
+	("*sibcall_value_aix<mode>"): ... this pattern.
+	* config/rs6000/rs6000-protos.h (rs6000_call_indirect_aix): Remove.
+	(rs6000_call_aix): Add prototype.
+	(rs6000_sibcall_aix): Likewise.
+
+	Backport from mainline r204799:
+
+	2013-11-14  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_emit_prologue): Do not place a
+	RTX_FRAME_RELATED_P marker on the UNSPEC_MOVESI_FROM_CR insn.
+	Instead, add USEs of all modified call-saved CR fields to the
+	insn storing the result to the stack slot, and provide an
+	appropriate REG_FRAME_RELATED_EXPR for that insn.
+	* config/rs6000/rs6000.md ("*crsave"): New insn pattern.
+	* config/rs6000/predicates.md ("crsave_operation"): New predicate.
+
+2014-04-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	ELFv2 ABI Call Support
+	Backport from mainline r204798:
+
+	2013-11-14  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+		    Alan Modra  <amodra@gmail.com>
+
+	* function.c (assign_parms): Use all.reg_parm_stack_space instead
+	of re-evaluating REG_PARM_STACK_SPACE target macro.
+	(locate_and_pad_parm): New parameter REG_PARM_STACK_SPACE.  Use it
+	instead of evaluating target macro REG_PARM_STACK_SPACE every time.
+	(assign_parm_find_entry_rtl): Update call.
+	* calls.c (initialize_argument_information): Update call.
+	(emit_library_call_value_1): Likewise.
+	* expr.h (locate_and_pad_parm): Update prototype.
+
+	Backport from mainline r204797:
+
+	2013-11-14  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* calls.c (store_unaligned_arguments_into_pseudos): Skip PARALLEL
+	arguments.
+
+	Backport from mainline r197003:
+
+	2013-03-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* calls.c (expand_call): Add missing guard to code handling return
+	of non-BLKmode structures in MSB.
+	* function.c (expand_function_end): Likewise.
+
+2014-04-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline r201750.
+	Note: Default setting of -mcompat-align-parm inverted!
+
+	2013-08-14  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/57949
+	* doc/invoke.texi: Add documentation of mcompat-align-parm
+	option.
+	* config/rs6000/rs6000.opt: Add mcompat-align-parm option.
+	* config/rs6000/rs6000.c (rs6000_function_arg_boundary): For AIX
+	and Linux, correct BLKmode alignment when 128-bit alignment is
+	required and compatibility flag is not set.
+	(rs6000_gimplify_va_arg): For AIX and Linux, honor specified
+	alignment for zero-size arguments when compatibility flag is not
+	set.
+
+2014-04-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Little Endian Vector Support
+	Backport from mainline r205333
+	2013-11-24  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_expand_vec_perm_const_1): Correct
+	for little endian.
+
+	Backport from mainline r205241
+	2013-11-21  Bill Schmidt  <wschmidt@vnet.ibm.com>
+
+	* config/rs6000/vector.md (vec_pack_trunc_v2df): Revert previous
+	little endian change.
+	(vec_pack_sfix_trunc_v2df): Likewise.
+	(vec_pack_ufix_trunc_v2df): Likewise.
+	* config/rs6000/rs6000.c (rs6000_expand_interleave): Correct
+	double checking of endianness.
+
+	Backport from mainline r205146
+	2013-11-20  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/vsx.md (vsx_set_<mode>): Adjust for little endian.
+	(vsx_extract_<mode>): Likewise.
+	(*vsx_extract_<mode>_one_le): New LE variant on
+	*vsx_extract_<mode>_zero.
+	(vsx_extract_v4sf): Adjust for little endian.
+
+	Backport from mainline r205080
+	2013-11-19  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (altivec_expand_vec_perm_const): Adjust
+	V16QI vector splat case for little endian.
+
+	Backport from mainline r205045:
+
+	2013-11-19  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/rs6000/vector.md ("mov<mode>"): Do not call
+	rs6000_emit_le_vsx_move to move into or out of GPRs.
+	* config/rs6000/rs6000.c (rs6000_emit_le_vsx_move): Assert
+	source and destination are not GPR hard regs.
+
+	Backport from mainline r204920
+	2011-11-17  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_frame_related): Add split_reg
+	parameter and use it in REG_FRAME_RELATED_EXPR note.
+	(emit_frame_save): Call rs6000_frame_related with extra NULL_RTX
+	parameter.
+	(rs6000_emit_prologue): Likewise, but for little endian VSX
+	stores, pass the source register of the store instead.
+
+	Backport from mainline r204862
+	2013-11-15  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/altivec.md (UNSPEC_VPERM_X, UNSPEC_VPERM_UNS_X):
+	Remove.
+	(altivec_vperm_<mode>): Revert earlier little endian change.
+	(*altivec_vperm_<mode>_internal): Remove.
+	(altivec_vperm_<mode>_uns): Revert earlier little endian change.
+	(*altivec_vperm_<mode>_uns_internal): Remove.
+	* config/rs6000/vector.md (vec_realign_load_<mode>): Revise
+	commentary.
+
+	Backport from mainline r204441
+	2013-11-05  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal):
+	Remove restriction against use of VSX instructions when generating
+	code for little endian mode.
+
+	Backport from mainline r204440
+	2013-11-05  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/altivec.md (mulv4si3): Ensure we generate vmulouh
+	for both big and little endian.
+	(mulv8hi3): Swap input operands for merge high and merge low
+	instructions for little endian.
+
+	Backport from mainline r204439
+	2013-11-05  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/altivec.md (vec_widen_umult_even_v16qi): Change
+	define_insn to define_expand that uses even patterns for big
+	endian and odd patterns for little endian.
+	(vec_widen_smult_even_v16qi): Likewise.
+	(vec_widen_umult_even_v8hi): Likewise.
+	(vec_widen_smult_even_v8hi): Likewise.
+	(vec_widen_umult_odd_v16qi): Likewise.
+	(vec_widen_smult_odd_v16qi): Likewise.
+	(vec_widen_umult_odd_v8hi): Likewise.
+	(vec_widen_smult_odd_v8hi): Likewise.
+	(altivec_vmuleub): New define_insn.
+	(altivec_vmuloub): Likewise.
+	(altivec_vmulesb): Likewise.
+	(altivec_vmulosb): Likewise.
+	(altivec_vmuleuh): Likewise.
+	(altivec_vmulouh): Likewise.
+	(altivec_vmulesh): Likewise.
+	(altivec_vmulosh): Likewise.
+
+	Backport from mainline r204395
+	2013-11-05  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (vec_pack_sfix_trunc_v2df): Adjust for
+	little endian.
+	(vec_pack_ufix_trunc_v2df): Likewise.
+
+	Backport from mainline r204363
+	2013-11-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/altivec.md (vec_widen_umult_hi_v16qi): Swap
+	arguments to merge instruction for little endian.
+	(vec_widen_umult_lo_v16qi): Likewise.
+	(vec_widen_smult_hi_v16qi): Likewise.
+	(vec_widen_smult_lo_v16qi): Likewise.
+	(vec_widen_umult_hi_v8hi): Likewise.
+	(vec_widen_umult_lo_v8hi): Likewise.
+	(vec_widen_smult_hi_v8hi): Likewise.
+	(vec_widen_smult_lo_v8hi): Likewise.
+
+	Backport from mainline r204350
+	2013-11-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/vsx.md (*vsx_le_perm_store_<mode> for VSX_D):
+	Replace the define_insn_and_split with a define_insn and two
+	define_splits, with the split after reload re-permuting the source
+	register to its original value.
+	(*vsx_le_perm_store_<mode> for VSX_W): Likewise.
+	(*vsx_le_perm_store_v8hi): Likewise.
+	(*vsx_le_perm_store_v16qi): Likewise.
+
+	Backport from mainline r204321
+	2013-11-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (vec_pack_trunc_v2df):  Adjust for
+	little endian.
+
+	Backport from mainline r204321
+	2013-11-02  Bill Schmidt  <wschmidt@vnet.linux.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_expand_vector_set): Adjust for
+	little endian.
+
+	Backport from mainline r203980
+	2013-10-23  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/altivec.md (mulv8hi3): Adjust for little endian.
+
+	Backport from mainline r203930
+	2013-10-22  Bill Schmidt  <wschmidt@vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (altivec_expand_vec_perm_const): Reverse
+	meaning of merge-high and merge-low masks for little endian; avoid
+	use of vector-pack masks for little endian for mismatched modes.
+
+	Backport from mainline r203877
+	2013-10-20  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/altivec.md (vec_unpacku_hi_v16qi): Adjust for
+	little endian.
+	(vec_unpacku_hi_v8hi): Likewise.
+	(vec_unpacku_lo_v16qi): Likewise.
+	(vec_unpacku_lo_v8hi): Likewise.
+
+	Backport from mainline r203863
+	2013-10-19  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (vspltis_constant): Make sure we check
+	all elements for both endian flavors.
+
+	Backport from mainline r203714
+	2013-10-16  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc/config/rs6000/vector.md (vec_unpacks_hi_v4sf): Correct for
+	endianness.
+	(vec_unpacks_lo_v4sf): Likewise.
+	(vec_unpacks_float_hi_v4si): Likewise.
+	(vec_unpacks_float_lo_v4si): Likewise.
+	(vec_unpacku_float_hi_v4si): Likewise.
+	(vec_unpacku_float_lo_v4si): Likewise.
+
+	Backport from mainline r203713
+	2013-10-16  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/vsx.md (vsx_concat_<mode>): Adjust output for LE.
+	(vsx_concat_v2sf): Likewise.
+
+	Backport from mainline r203458
+	2013-10-11  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/vsx.md (*vsx_le_perm_load_v2di): Generalize to
+	handle vector float as well.
+	(*vsx_le_perm_load_v4si): Likewise.
+	(*vsx_le_perm_store_v2di): Likewise.
+	(*vsx_le_perm_store_v4si): Likewise.
+
+	Backport from mainline r203457
+	2013-10-11  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (vec_realign_load<mode>): Generate vperm
+	directly to circumvent subtract from splat{31} workaround.
+	* config/rs6000/rs6000-protos.h (altivec_expand_vec_perm_le): New
+	prototype.
+	* config/rs6000/rs6000.c (altivec_expand_vec_perm_le): New.
+	* config/rs6000/altivec.md (define_c_enum "unspec"): Add
+	UNSPEC_VPERM_X and UNSPEC_VPERM_UNS_X.
+	(altivec_vperm_<mode>): Convert to define_insn_and_split to
+	separate big and little endian logic.
+	(*altivec_vperm_<mode>_internal): New define_insn.
+	(altivec_vperm_<mode>_uns): Convert to define_insn_and_split to
+	separate big and little endian logic.
+	(*altivec_vperm_<mode>_uns_internal): New define_insn.
+	(vec_permv16qi): Add little endian logic.
+
+	Backport from mainline r203247
+	2013-10-07  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (altivec_expand_vec_perm_const_le): New.
+	(altivec_expand_vec_perm_const): Call it.
+
+	Backport from mainline r203246
+	2013-10-07  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (mov<mode>): Emit permuted move
+	sequences for LE VSX loads and stores at expand time.
+	* config/rs6000/rs6000-protos.h (rs6000_emit_le_vsx_move): New
+	prototype.
+	* config/rs6000/rs6000.c (rs6000_const_vec): New.
+	(rs6000_gen_le_vsx_permute): New.
+	(rs6000_gen_le_vsx_load): New.
+	(rs6000_gen_le_vsx_store): New.
+	(rs6000_gen_le_vsx_move): New.
+	* config/rs6000/vsx.md (*vsx_le_perm_load_v2di): New.
+	(*vsx_le_perm_load_v4si): New.
+	(*vsx_le_perm_load_v8hi): New.
+	(*vsx_le_perm_load_v16qi): New.
+	(*vsx_le_perm_store_v2di): New.
+	(*vsx_le_perm_store_v4si): New.
+	(*vsx_le_perm_store_v8hi): New.
+	(*vsx_le_perm_store_v16qi): New.
+	(*vsx_xxpermdi2_le_<mode>): New.
+	(*vsx_xxpermdi4_le_<mode>): New.
+	(*vsx_xxpermdi8_le_V8HI): New.
+	(*vsx_xxpermdi16_le_V16QI): New.
+	(*vsx_lxvd2x2_le_<mode>): New.
+	(*vsx_lxvd2x4_le_<mode>): New.
+	(*vsx_lxvd2x8_le_V8HI): New.
+	(*vsx_lxvd2x16_le_V16QI): New.
+	(*vsx_stxvd2x2_le_<mode>): New.
+	(*vsx_stxvd2x4_le_<mode>): New.
+	(*vsx_stxvd2x8_le_V8HI): New.
+	(*vsx_stxvd2x16_le_V16QI): New.
+
+	Backport from mainline r201235
+	2013-07-24  Bill Schmidt  <wschmidt@linux.ibm.com>
+	            Anton Blanchard <anton@au1.ibm.com>
+
+	* config/rs6000/altivec.md (altivec_vpkpx): Handle little endian.
+	(altivec_vpks<VI_char>ss): Likewise.
+	(altivec_vpks<VI_char>us): Likewise.
+	(altivec_vpku<VI_char>us): Likewise.
+	(altivec_vpku<VI_char>um): Likewise.
+
+	Backport from mainline r201208
+	2013-07-24  Bill Schmidt  <wschmidt@vnet.linux.ibm.com>
+	            Anton Blanchard <anton@au1.ibm.com>
+
+	* config/rs6000/vector.md (vec_realign_load_<mode>): Reorder input
+	operands to vperm for little endian.
+	* config/rs6000/rs6000.c (rs6000_expand_builtin): Use lvsr instead
+	of lvsl to create the control mask for a vperm for little endian.
+
+	Backport from mainline r201195
+	2013-07-23  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+	            Anton Blanchard <anton@au1.ibm.com>
+
+	* config/rs6000/rs6000.c (altivec_expand_vec_perm_const): Reverse
+	two operands for little-endian.
+
+	Backport from mainline r201193
+	2013-07-23  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+	            Anton Blanchard <anton@au1.ibm.com>
+
+	* config/rs6000/rs6000.c (altivec_expand_vec_perm_const): Correct
+	selection of field for vector splat in little endian mode.
+
+	Backport from mainline r201149
+	2013-07-22  Bill Schmidt  <wschmidt@vnet.linux.ibm.com>
+	            Anton Blanchard <anton@au1.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_expand_vector_init): Fix
+	endianness when selecting field to splat.
+
+2014-04-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline r205123:
+
+	2013-11-20  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_cannot_change_mode_class): Do not
+	allow subregs of TDmode in FPRs of smaller size in little-endian.
+	(rs6000_split_multireg_move): When splitting an access to TDmode
+	in FPRs, do not use simplify_gen_subreg.
+
+	Backport from mainline r204927:
+
+	2013-11-17  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_emit_move): Use low word of
+	sdmode_stack_slot also in little-endian mode.
+
 2014-04-04  Bill Schmidt <wschmidt@linux.vnet.ibm.com>
 
 	Power8 HTM Support

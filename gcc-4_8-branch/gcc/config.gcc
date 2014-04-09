@@ -2081,7 +2081,7 @@ powerpc*-*-linux*)
 	tmake_file="rs6000/t-fprules rs6000/t-ppcos ${tmake_file} rs6000/t-ppccomm"
 	case ${target} in
 	    powerpc*le-*-*)
-	    tm_file="${tm_file} rs6000/sysv4le.h" ;;
+		tm_file="${tm_file} rs6000/sysv4le.h" ;;
 	esac
 	maybe_biarch=yes
 	case ${target} in
@@ -2104,6 +2104,19 @@ powerpc*-*-linux*)
 		fi
 		tm_file="rs6000/biarch64.h ${tm_file} rs6000/linux64.h glibc-stdint.h"
 		tmake_file="$tmake_file rs6000/t-linux64"
+		case ${target} in
+		    powerpc*le-*-*)
+			tmake_file="$tmake_file rs6000/t-linux64le"
+			case ${enable_targets} in
+			    all | *powerpc64-* | *powerpc-*)
+				tmake_file="$tmake_file rs6000/t-linux64lebe" ;;
+			esac ;;
+		    *)
+			case ${enable_targets} in
+			    all | *powerpc64le-* | *powerpcle-*)
+				tmake_file="$tmake_file rs6000/t-linux64bele" ;;
+			esac ;;
+		esac
 		extra_options="${extra_options} rs6000/linux64.opt"
 		;;
 	    *)
@@ -3517,7 +3530,7 @@ case "${target}" in
 		;;
 
 	powerpc*-*-* | rs6000-*-*)
-		supported_defaults="cpu cpu_32 cpu_64 float tune tune_32 tune_64"
+		supported_defaults="abi cpu cpu_32 cpu_64 float tune tune_32 tune_64"
 
 		for which in cpu cpu_32 cpu_64 tune tune_32 tune_64; do
 			eval "val=\$with_$which"
@@ -3554,6 +3567,16 @@ case "${target}" in
 				;;
 			esac
 		done
+
+		case "$with_abi" in
+		"" | elfv1 | elfv2 )
+			#OK
+			;;
+		*)
+			echo "Unknown ABI used in --with-abi=$with_abi"
+			exit 1
+			;;
+		esac
 		;;
 
 	s390*-*-*)
