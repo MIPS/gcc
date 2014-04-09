@@ -2,7 +2,6 @@
 #define GIMPLE_VALUE_CORE_H
 
 #include "tree-core.h"
-#include "stor-layout.h"  // for vector_type_mode
 
 namespace Gimple {
 

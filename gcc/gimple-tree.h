@@ -1,7 +1,7 @@
 #ifndef GIMPLE_TREE
 #define GIMPLE_TREE
 
-#include "langhooks.h"
+#include "gimple-value.h"
 
 #define MAY_HAVE_DEBUG_STMTS    (flag_var_tracking_assignments)
 

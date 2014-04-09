@@ -7,6 +7,7 @@ extern tree tree_strip_nop_conversions (tree);
 
 #include "gimple-value-core.h"
 #include "gimple-wrapper.h"
+#include "stor-layout.h"  /* For vector_type_mode.  */
 
 extern Gimple::value_ptr boolean_true_node_ptr;
 extern Gimple::value_ptr boolean_false_node_ptr;
@@ -24,7 +25,8 @@ extern Gimple::integer_cst_ptr integer_zero_node_ptr;
 #define gimple_integer_type (*integer_type_node_ptr)
 #define gimple_integer_zero (*integer_zero_node_ptr)
 
-  extern Gimple::identifier decl_assembler_name (Gimple::decl_with_viz d);
+extern Gimple::identifier decl_assembler_name (Gimple::decl_with_viz d);
+
 namespace Gimple {
 
 // class tree_desc

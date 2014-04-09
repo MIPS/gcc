@@ -22,7 +22,6 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "gimple-value.h"
 
-
 extern bool useless_type_conversion_p (Gimple::type, Gimple::type);
 
 
