@@ -444,6 +444,9 @@ determine_versionability (struct cgraph_node *node)
     reason = "not a tree_versionable_function";
   else if (cgraph_function_body_availability (node) <= AVAIL_OVERWRITABLE)
     reason = "insufficient body availability";
+  else if (!opt_for_fn (node->symbol.decl, optimize)
+	   || !opt_for_fn (node->symbol.decl, flag_ipa_cp))
+    reason = "non-optimized function";
 
   if (reason && dump_file && !node->alias && !node->thunk.thunk_p)
     fprintf (dump_file, "Function %s/%i is not versionable, reason: %s.\n",
@@ -3119,6 +3122,7 @@ cgraph_edge_brings_all_agg_vals_for_node (struct cgraph_edge *cs,
 					  struct cgraph_node *node)
 {
   struct ipa_node_params *orig_caller_info = IPA_NODE_REF (cs->caller);
+  struct ipa_node_params *orig_node_info;
   struct ipa_agg_replacement_value *aggval;
   int i, ec, count;
 
@@ -3133,6 +3137,7 @@ cgraph_edge_brings_all_agg_vals_for_node (struct cgraph_edge *cs,
       if (aggval->index >= ec)
 	return false;
 
+  orig_node_info = IPA_NODE_REF (IPA_NODE_REF (node)->ipcp_orig_node);
   if (orig_caller_info->ipcp_orig_node)
     orig_caller_info = IPA_NODE_REF (orig_caller_info->ipcp_orig_node);
 
@@ -3150,7 +3155,7 @@ cgraph_edge_brings_all_agg_vals_for_node (struct cgraph_edge *cs,
       if (!interesting)
 	continue;
 
-      plats = ipa_get_parm_lattices (orig_caller_info, aggval->index);
+      plats = ipa_get_parm_lattices (orig_node_info, aggval->index);
       if (plats->aggs_bottom)
 	return false;
 

@@ -1259,9 +1259,10 @@ resolve_structure_cons (gfc_expr *expr, int init)
 	}
 
       /* F2003, C1272 (3).  */
-      if (gfc_pure (NULL) && cons->expr->expr_type == EXPR_VARIABLE
-	  && (gfc_impure_variable (cons->expr->symtree->n.sym)
-	      || gfc_is_coindexed (cons->expr)))
+      bool impure = cons->expr->expr_type == EXPR_VARIABLE
+		    && (gfc_impure_variable (cons->expr->symtree->n.sym)
+			|| gfc_is_coindexed (cons->expr));
+      if (impure && gfc_pure (NULL))
 	{
 	  t = FAILURE;
 	  gfc_error ("Invalid expression in the structure constructor for "
@@ -1269,12 +1270,8 @@ resolve_structure_cons (gfc_expr *expr, int init)
 		     comp->name, &cons->expr->where);
 	}
 
-      if (gfc_implicit_pure (NULL)
-	    && cons->expr->expr_type == EXPR_VARIABLE
-	    && (gfc_impure_variable (cons->expr->symtree->n.sym)
-		|| gfc_is_coindexed (cons->expr)))
-	gfc_current_ns->proc_name->attr.implicit_pure = 0;
-
+      if (impure)
+	gfc_unset_implicit_pure (NULL);
     }
 
   return t;
@@ -3295,8 +3292,7 @@ resolve_function (gfc_expr *expr)
 	  t = FAILURE;
 	}
 
-      if (gfc_implicit_pure (NULL))
-	gfc_current_ns->proc_name->attr.implicit_pure = 0;
+      gfc_unset_implicit_pure (NULL);
     }
 
   /* Functions without the RECURSIVE attribution are not allowed to
@@ -3361,8 +3357,7 @@ pure_subroutine (gfc_code *c, gfc_symbol *sym)
     gfc_error ("Subroutine call to '%s' at %L is not PURE", sym->name,
 	       &c->loc);
 
-  if (gfc_implicit_pure (NULL))
-    gfc_current_ns->proc_name->attr.implicit_pure = 0;
+  gfc_unset_implicit_pure (NULL);
 }
 
 
@@ -9613,7 +9608,7 @@ resolve_ordinary_assign (gfc_code *code, gfc_namespace *ns)
       if (lhs->expr_type == EXPR_VARIABLE
 	    && lhs->symtree->n.sym != gfc_current_ns->proc_name
 	    && lhs->symtree->n.sym->ns != gfc_current_ns)
-	gfc_current_ns->proc_name->attr.implicit_pure = 0;
+	gfc_unset_implicit_pure (NULL);
 
       if (lhs->ts.type == BT_DERIVED
 	    && lhs->expr_type == EXPR_VARIABLE
@@ -9621,11 +9616,11 @@ resolve_ordinary_assign (gfc_code *code, gfc_namespace *ns)
 	    && rhs->expr_type == EXPR_VARIABLE
 	    && (gfc_impure_variable (rhs->symtree->n.sym)
 		|| gfc_is_coindexed (rhs)))
-	gfc_current_ns->proc_name->attr.implicit_pure = 0;
+	gfc_unset_implicit_pure (NULL);
 
       /* Fortran 2008, C1283.  */
       if (gfc_is_coindexed (lhs))
-	gfc_current_ns->proc_name->attr.implicit_pure = 0;
+	gfc_unset_implicit_pure (NULL);
     }
 
   /* F03:7.4.1.2.  */
@@ -11058,7 +11053,7 @@ build_default_init_expr (gfc_symbol *sym)
 	  init_expr = NULL;
 	}
       if (!init_expr && gfc_option.flag_init_character == GFC_INIT_CHARACTER_ON
-	  && sym->ts.u.cl->length)
+	  && sym->ts.u.cl->length && gfc_option.flag_max_stack_var_size != 0)
 	{
 	  gfc_actual_arglist *arg;
 	  init_expr = gfc_get_expr ();
@@ -11878,6 +11873,7 @@ check_generic_tbp_ambiguity (gfc_tbp_generic* t1, gfc_tbp_generic* t2,
 {
   gfc_symbol *sym1, *sym2;
   const char *pass1, *pass2;
+  gfc_formal_arglist *dummy_args;
 
   gcc_assert (t1->specific && t2->specific);
   gcc_assert (!t1->specific->is_generic);
@@ -11900,19 +11896,33 @@ check_generic_tbp_ambiguity (gfc_tbp_generic* t1, gfc_tbp_generic* t2,
       return FAILURE;
     }
 
-  /* Compare the interfaces.  */
+  /* Determine PASS arguments.  */
   if (t1->specific->nopass)
     pass1 = NULL;
   else if (t1->specific->pass_arg)
     pass1 = t1->specific->pass_arg;
   else
-    pass1 = gfc_sym_get_dummy_args (t1->specific->u.specific->n.sym)->sym->name;
+    {
+      dummy_args = gfc_sym_get_dummy_args (t1->specific->u.specific->n.sym);
+      if (dummy_args)
+	pass1 = dummy_args->sym->name;
+      else
+	pass1 = NULL;
+    }
   if (t2->specific->nopass)
     pass2 = NULL;
   else if (t2->specific->pass_arg)
     pass2 = t2->specific->pass_arg;
   else
-    pass2 = gfc_sym_get_dummy_args (t2->specific->u.specific->n.sym)->sym->name;
+    {
+      dummy_args = gfc_sym_get_dummy_args (t2->specific->u.specific->n.sym);
+      if (dummy_args)
+	pass2 = dummy_args->sym->name;
+      else
+	pass2 = NULL;
+    }
+
+  /* Compare the interfaces.  */
   if (gfc_compare_interfaces (sym1, sym2, sym2->name, !t1->is_operator, 0,
 			      NULL, 0, pass1, pass2))
     {
@@ -14372,6 +14382,33 @@ gfc_implicit_pure (gfc_symbol *sym)
 
   return sym->attr.flavor == FL_PROCEDURE && sym->attr.implicit_pure
     && !sym->attr.pure;
+}
+
+
+void
+gfc_unset_implicit_pure (gfc_symbol *sym)
+{
+  gfc_namespace *ns;
+
+  if (sym == NULL)
+    {
+      /* Check if the current procedure is implicit_pure.  Walk up
+	 the procedure list until we find a procedure.  */
+      for (ns = gfc_current_ns; ns; ns = ns->parent)
+	{
+	  sym = ns->proc_name;
+	  if (sym == NULL)
+	    return;
+
+	  if (sym->attr.flavor == FL_PROCEDURE)
+	    break;
+	}
+    }
+
+  if (sym->attr.flavor == FL_PROCEDURE)
+    sym->attr.implicit_pure = 0;
+  else
+    sym->attr.pure = 0;
 }
 
 

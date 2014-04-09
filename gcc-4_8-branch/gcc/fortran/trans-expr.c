@@ -355,7 +355,11 @@ gfc_conv_derived_to_class (gfc_se *parmse, gfc_expr *e,
 	  gfc_conv_expr_descriptor (parmse, e);
 
 	  if (e->rank != class_ts.u.derived->components->as->rank)
-	    class_array_data_assign (&block, ctree, parmse->expr, true);
+	    {
+	      gcc_assert (class_ts.u.derived->components->as->type
+			  == AS_ASSUMED_RANK);
+	      class_array_data_assign (&block, ctree, parmse->expr, false);
+	    }
 	  else
 	    {
 	      if (gfc_expr_attr (e).codimension)
@@ -6342,7 +6346,13 @@ gfc_conv_expr_reference (gfc_se * se, gfc_expr * expr)
       /* Returns a reference to the scalar evaluated outside the loop
 	 for this case.  */
       gfc_conv_expr (se, expr);
-      se->expr = gfc_build_addr_expr (NULL_TREE, se->expr);
+
+      if (expr->ts.type == BT_CHARACTER
+	  && expr->expr_type != EXPR_FUNCTION)
+	gfc_conv_string_parameter (se);
+      else
+	se->expr = gfc_build_addr_expr (NULL_TREE, se->expr);
+
       return;
     }
 
