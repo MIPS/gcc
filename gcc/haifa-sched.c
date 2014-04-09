@@ -3197,7 +3197,6 @@ static int
 model_order_p (struct model_insn_info *insn1, struct model_insn_info *insn2)
 {
   unsigned int height1, height2;
-  unsigned int priority1, priority2;
 
   /* Prefer instructions with a higher model priority.  */
   if (insn1->model_priority != insn2->model_priority)
@@ -3226,13 +3225,11 @@ model_order_p (struct model_insn_info *insn1, struct model_insn_info *insn2)
 
   /* We have no real preference between INSN1 an INSN2 as far as attempts
      to reduce pressure go.  Prefer instructions with higher priorities.  */
-  priority1 = INSN_PRIORITY (insn1->insn);
-  priority2 = INSN_PRIORITY (insn2->insn);
-  if (priority1 != priority2)
-    return priority1 > priority2;
-
-  /* Use the original rtl sequence as a tie-breaker.  */
-  return insn1 < insn2;
+  gcc_assert (sched_pressure == SCHED_PRESSURE_MODEL);
+  sched_pressure = SCHED_PRESSURE_NONE;
+  int res = rank_for_schedule (&insn2->insn, &insn1->insn) < 0;
+  sched_pressure = SCHED_PRESSURE_MODEL;
+  return res;
 }
 
 /* Add INSN to the model worklist immediately after PREV.  Add it to the
