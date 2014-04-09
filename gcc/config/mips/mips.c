@@ -19758,7 +19758,7 @@ get_used_s_regs (HARD_REG_SET *used_s_regs)
 #define S_REG_NUM 8
 
 /* Number of S registers.  */
-#define FIRST_S_REG GP_REG_FIRST + 16
+#define FIRST_S_REG (GP_REG_FIRST + 16)
 
 /* Use S registers sequentially in order to be able to use swm an lwm
    instructions.  */
