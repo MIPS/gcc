@@ -932,7 +932,7 @@
 	(match_operand:GPI 1 "aarch64_mem_pair_operand"))
    (set (match_operand:GPI 2 "register_operand")
 	(match_operand:GPI 3 "memory_operand"))]
-  "aarch64_registers_ok_for_load_pair_peep (operands[0], operands[2])
+  "0 && aarch64_registers_ok_for_load_pair_peep (operands[0], operands[2])
    && aarch64_mems_ok_for_pair_peep (operands[1], operands[3])"
   [(parallel [(set (match_dup 0) (match_dup 1))
 	      (set (match_dup 2) (match_dup 3))])]
@@ -943,7 +943,7 @@
 	(match_operand:GPI 1 "memory_operand"))
    (set (match_operand:GPI 2 "register_operand")
 	(match_operand:GPI 3 "aarch64_mem_pair_operand"))]
-  "aarch64_registers_ok_for_load_pair_peep (operands[2], operands[0])
+  "0 && aarch64_registers_ok_for_load_pair_peep (operands[2], operands[0])
    && aarch64_mems_ok_for_pair_peep (operands[3], operands[1])"
   [(parallel [(set (match_dup 2) (match_dup 3))
 	      (set (match_dup 0) (match_dup 1))])]
@@ -968,7 +968,7 @@
 	(match_operand:GPI 1 "register_operand"))
    (set (match_operand:GPI 2 "memory_operand")
 	(match_operand:GPI 3 "register_operand"))]
-  "aarch64_registers_ok_for_store_pair_peep (operands[1], operands[3])
+  "0 && aarch64_registers_ok_for_store_pair_peep (operands[1], operands[3])
    && aarch64_mems_ok_for_pair_peep (operands[0], operands[2])"
   [(parallel [(set (match_dup 0) (match_dup 1))
 	      (set (match_dup 2) (match_dup 3))])]
@@ -979,7 +979,7 @@
 	(match_operand:GPI 1 "register_operand"))
    (set (match_operand:GPI 2 "aarch64_mem_pair_operand")
 	(match_operand:GPI 3 "register_operand"))]
-  "aarch64_registers_ok_for_store_pair_peep (operands[3], operands[1])
+  "0 && aarch64_registers_ok_for_store_pair_peep (operands[3], operands[1])
    && aarch64_mems_ok_for_pair_peep (operands[2], operands[0])"
   [(parallel [(set (match_dup 2) (match_dup 3))
 	      (set (match_dup 0) (match_dup 1))])]
@@ -1002,7 +1002,7 @@
 	(match_operand:GPF 1 "aarch64_mem_pair_operand"))
    (set (match_operand:GPF 2 "register_operand")
 	(match_operand:GPF 3 "memory_operand"))]
-  "aarch64_registers_ok_for_load_pair_peep (operands[0], operands[2])
+  "0 && aarch64_registers_ok_for_load_pair_peep (operands[0], operands[2])
    && REGNO (operands[0]) >= 32 && REGNO (operands[2]) >= 32
    && aarch64_mems_ok_for_pair_peep (operands[1], operands[3])"
   [(parallel [(set (match_dup 0) (match_dup 1))
@@ -1014,7 +1014,7 @@
 	(match_operand:GPF 1 "memory_operand"))
    (set (match_operand:GPF 2 "register_operand")
 	(match_operand:GPF 3 "aarch64_mem_pair_operand"))]
-  "aarch64_registers_ok_for_load_pair_peep (operands[2], operands[0])
+  "0 && aarch64_registers_ok_for_load_pair_peep (operands[2], operands[0])
    && REGNO (operands[0]) >= 32 && REGNO (operands[2]) >= 32
    && aarch64_mems_ok_for_pair_peep (operands[3], operands[1])"
   [(parallel [(set (match_dup 2) (match_dup 3))
@@ -1038,7 +1038,7 @@
 	(match_operand:GPF 1 "register_operand"))
    (set (match_operand:GPF 2 "memory_operand")
 	(match_operand:GPF 3 "register_operand"))]
-  "aarch64_registers_ok_for_store_pair_peep (operands[1], operands[3])
+  "0 && aarch64_registers_ok_for_store_pair_peep (operands[1], operands[3])
    && REGNO (operands[1]) >= 32 && REGNO (operands[3]) >= 32
    && aarch64_mems_ok_for_pair_peep (operands[0], operands[2])"
   [(parallel [(set (match_dup 0) (match_dup 1))
@@ -1051,7 +1051,7 @@
 	(match_operand:GPF 1 "register_operand"))
    (set (match_operand:GPF 2 "aarch64_mem_pair_operand")
 	(match_operand:GPF 3 "register_operand"))]
-  "aarch64_registers_ok_for_store_pair_peep (operands[3], operands[1])
+  "0 && aarch64_registers_ok_for_store_pair_peep (operands[3], operands[1])
    && REGNO (operands[1]) >= 32 && REGNO (operands[3]) >= 32
    && aarch64_mems_ok_for_pair_peep (operands[2], operands[0])"
   [(parallel [(set (match_dup 2) (match_dup 3))

@@ -1,3 +1,14 @@
+2014-04-10  Andrew Pinski  <apinski@cavium.com>
+
+	* aarch64.md (peephole2s to generate ldp
+        instruction for 2 consecutive loads from memory): Disable for now.
+        (peephole2s to generate stp instruction for 2 consecutive
+        stores to memory in integer mode): Disable for now.
+        (peephole2s to generate ldp instruction for 2 consecutive
+        loads from memory in floating point mode): Disable for now.
+        (peephole2s to generate stp instruction for 2 consecutive
+        stores to memory in floating point mode): Disable for now.
+
 2014-04-07  Andrew Pinski  <apinski@cavium.com>
 
 	* config/aarch64/aarch64.c (aarch64_mems_ok_for_pair_peep): Reject volatile
