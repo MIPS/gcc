@@ -1396,66 +1396,17 @@
    (set_attr "mode"	"TI")
    (set_attr "msa_execunit" "msa_eu_logic_l")])
 
-(define_insn "msa_bsel_v_insn_<msafmt>"
+(define_insn "msa_bmnz_v_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
-	(ior:IMSA (and:IMSA (match_operand:IMSA 1 "register_operand" "f")
-			    (xor:IMSA (match_dup 0)
-				      (match_operand:IMSA 2 "const_m1_operand" "")))
-		  (and:IMSA (match_dup 0)
-			    (match_operand:IMSA 3 "register_operand" "f"))))]
-  "ISA_HAS_MSA"
-  "bsel.v\t%w0,%w1,%w3"
-  [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
-
-(define_insn "msa_bmnz_v_insn_<msafmt>"
-  [(set (match_operand:IMSA 0 "register_operand" "=f")
-	(ior:IMSA (and:IMSA (match_dup 0)
-			    (xor:IMSA (match_operand:IMSA 1 "register_operand" "f")
-				      (match_operand:IMSA 2 "const_m1_operand" "")))
-		  (and:IMSA (match_dup 1)
-			    (match_operand:IMSA 3 "register_operand" "f"))))]
-  "ISA_HAS_MSA"
-  "bmnz.v\t%w0,%w3,%w1"
-  [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")
-   (set_attr "msa_execunit" "msa_eu_logic_l")])
-
-(define_insn "msa_bmz_v_insn_<msafmt>"
-  [(set (match_operand:IMSA 0 "register_operand" "=f")
-    (ior:IMSA (and:IMSA (match_operand:IMSA 1 "register_operand" "f")
-			    (xor:IMSA (match_operand:IMSA 2 "register_operand" "f")
-				      (match_operand:IMSA 3 "const_m1_operand" "")))
-		  (and:IMSA (match_dup 1)
-			    (match_dup 0))))]
-  "ISA_HAS_MSA"
-  "bmz.v\t%w0,%w1,%w2"
-  [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")
-   (set_attr "msa_execunit" "msa_eu_logic_l")])
-
-;; bmnz D,S,T
-;; D=operand 0
-;; S=operand 2
-;; T=operand 3
-;; D <- (D & (T ^ -1)) | (T & S)
-(define_expand "msa_bmnz_v_<msafmt>"
-  [(set (match_operand:IMSA 0 "register_operand")
-	(unspec:IMSA [(match_operand:IMSA 1 "register_operand")
-		      (match_operand:IMSA 2 "register_operand")
-		      (match_operand:IMSA 3 "register_operand")]
+	(unspec:IMSA [(match_operand:IMSA 1 "register_operand" "0")
+		      (match_operand:IMSA 2 "register_operand" "f")
+		      (match_operand:IMSA 3 "register_operand" "f")]
 		     UNSPEC_MSA_BMNZ_V))]
   "ISA_HAS_MSA"
-  {
-    rtx m1 = CONSTM1_RTX (<MODE>mode);
-    if (REGNO (operands[0]) != REGNO (operands[1]))
-      emit_move_insn (operands[0], operands[1]);
-    emit_insn (gen_msa_bmnz_v_insn_<msafmt> (operands[0],
-					     operands[3],
-					     m1,
-					     operands[2]));
-    DONE;
-  })
+  "bmnz.v\t%w0,%w2,%w3"
+  [(set_attr "type"	"arith")
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic_l")])
 
 (define_insn "msa_bmnzi_b"
   [(set (match_operand:V16QI 0 "register_operand" "=f")
@@ -1469,28 +1420,17 @@
    (set_attr "mode"	"TI")
    (set_attr "msa_execunit" "msa_eu_logic_l")])
 
-;; bmz D,S,T
-;; D=operand 0
-;; S=operand 2
-;; T=operand 3
-;; D <- (S & (T ^ -1)) | (T & D)
-(define_expand "msa_bmz_v_<msafmt>"
+(define_insn "msa_bmz_v_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
-	(unspec:IMSA [(match_operand:IMSA 1 "register_operand")
-		      (match_operand:IMSA 2 "register_operand")
-		      (match_operand:IMSA 3 "register_operand")]
+	(unspec:IMSA [(match_operand:IMSA 1 "register_operand" "0")
+		      (match_operand:IMSA 2 "register_operand" "f")
+		      (match_operand:IMSA 3 "register_operand" "f")]
 		     UNSPEC_MSA_BMZ_V))]
   "ISA_HAS_MSA"
-  {
-    rtx m1 = CONSTM1_RTX (<MODE>mode);
-    if (REGNO (operands[0]) != REGNO (operands[1]))
-      emit_move_insn (operands[0], operands[1]);
-    emit_insn (gen_msa_bmz_v_insn_<msafmt> (operands[0],
-					    operands[2],
-					    operands[3],
-					    m1));
-    DONE;
-  })
+  "bmz.v\t%w0,%w2,%w3"
+  [(set_attr "type"	"arith")
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic_l")])
 
 (define_insn "msa_bmzi_b"
   [(set (match_operand:V16QI 0 "register_operand" "=f")
@@ -1526,28 +1466,16 @@
    (set_attr "mode"	"TI")
    (set_attr "msa_execunit" "msa_eu_logic")])
 
-;; bsel D,S,T
-;; D=operand 0
-;; S=operand 2
-;; T=operand 3
-;; D <- (S & (D ^ -1)) | (D & T)
-(define_expand "msa_bsel_v_<msafmt>"
-  [(set (match_operand:IMSA 0 "register_operand")
-	(unspec:IMSA [(match_operand:IMSA 1 "register_operand")
-		      (match_operand:IMSA 2 "register_operand")
-		      (match_operand:IMSA 3 "register_operand")]
+(define_insn "msa_bsel_v_<msafmt>"
+  [(set (match_operand:IMSA 0 "register_operand" "=f")
+	(unspec:IMSA [(match_operand:IMSA 1 "register_operand" "0")
+		      (match_operand:IMSA 2 "register_operand" "f")
+		      (match_operand:IMSA 3 "register_operand" "f")]
 		     UNSPEC_MSA_BSEL_V))]
   "ISA_HAS_MSA"
-  {
-    rtx m1 = CONSTM1_RTX (<MODE>mode);
-    if (REGNO (operands[0]) != REGNO (operands[1]))
-      emit_move_insn (operands[0], operands[1]);
-    emit_insn (gen_msa_bsel_v_insn_<msafmt> (operands[0],
-					     operands[2],
-					     m1,
-					     operands[3]));
-    DONE;
-  })
+  "bsel.v\t%w0,%w2,%w3"
+  [(set_attr "type"	"arith")
+   (set_attr "mode"	"TI")])
 
 (define_insn "msa_bseli_b"
   [(set (match_operand:V16QI 0 "register_operand" "=f")
