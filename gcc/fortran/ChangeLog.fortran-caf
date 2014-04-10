@@ -1,5 +1,10 @@
 2014-04-10  Tobias Burnus  <burnus@net-b.de>
 
+	* trans-intrinsic.c (caf_get_image_index, conv_caf_send):
+	Move functions up in the code.
+
+2014-04-10  Tobias Burnus  <burnus@net-b.de>
+
 	* trans.h (gfor_fndecl_caf_remote_get_desc): Declare variables.
 	* trans-decl.c (gfor_fndecl_caf_remote_get_desc): Define it.
 	(gfc_build_builtin_function_decls_desc): Initialize it.
