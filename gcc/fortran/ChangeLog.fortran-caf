@@ -1,3 +1,11 @@
+2014-04-10  Tobias Burnus  <burnus@net-b.de>
+
+	* trans.h (gfor_fndecl_caf_remote_get_desc): Declare variables.
+	* trans-decl.c (gfor_fndecl_caf_remote_get_desc): Define it.
+	(gfc_build_builtin_function_decls_desc): Initialize it.
+	* gfortran.h (gfc_isym_id): Add GFC_ISYM_CAF_GET.
+	* intrinsic.c (add_functions): Add internal-only caf_get.
+
 2014-04-08  Tobias Burnus  <burnus@net-b.de>
 
 	* trans.h (gfor_fndecl_caf_remote_get): Declare variables.

@@ -2994,6 +2994,14 @@ add_functions (void)
 	     x, BT_UNKNOWN, 0, REQUIRED);
 		
   make_generic ("loc", GFC_ISYM_LOC, GFC_STD_GNU);
+
+  /* The following function is internally used for coarray libray functions.
+     "make_from_module" makes it inaccessible for external users.  */
+  add_sym_2 (GFC_PREFIX ("caf_get"), GFC_ISYM_CAF_GET, CLASS_IMPURE, ACTUAL_NO,
+             BT_REAL, dr, GFC_STD_GNU, NULL, NULL, NULL,
+	     x, BT_REAL, dr, REQUIRED,
+	     "async", BT_LOGICAL, dl,  REQUIRED);
+  make_from_module();
 }
 
 
@@ -3209,7 +3217,7 @@ add_subroutines (void)
 	      "fptr", BT_UNKNOWN, 0, REQUIRED, INTENT_OUT);
   make_from_module();
 
-  /* The following function is internally used for coarray libray functions.
+  /* The following subroutine is internally used for coarray libray functions.
      "make_from_module" makes it inaccessible for external users.  */
   add_sym_3s (GFC_PREFIX ("caf_send"), GFC_ISYM_CAF_SEND, CLASS_IMPURE,
 	      BT_UNKNOWN, 0, GFC_STD_GNU, NULL, NULL, NULL,
