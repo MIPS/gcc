@@ -2323,8 +2323,8 @@ process_alt_operands (int only_alternative)
 		  if (lra_dump_file != NULL)
 		    fprintf
 		      (lra_dump_file,
-		       "            %d Spill pseudo into memory: reject+=3\n",
-		       nop);
+		       "            %d Spill pseudo into memory(r%d): reject+=3\n",
+		       nop, REGNO(op));
 		  reject += 3;
 		  if (VECTOR_MODE_P (mode))
 		    {
