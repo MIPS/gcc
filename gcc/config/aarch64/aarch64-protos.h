@@ -275,7 +275,7 @@ void aarch64_split_compare_and_swap (rtx op[]);
 void aarch64_split_atomic_op (enum rtx_code, rtx, rtx, rtx, rtx, rtx, rtx);
 bool aarch64_registers_ok_for_load_pair_peep (rtx, rtx);
 bool aarch64_registers_ok_for_store_pair_peep (rtx, rtx);
-bool aarch64_mems_ok_for_pair_peep (rtx, rtx);
+bool aarch64_mems_ok_for_pair_peep (rtx, rtx, rtx);
 
 #endif /* RTX_CODE */
 

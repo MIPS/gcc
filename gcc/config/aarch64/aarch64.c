@@ -8513,34 +8513,114 @@ aarch64_registers_ok_for_store_pair_peep (rtx op0, rtx op1)
 	 && REGNO_REG_CLASS (REGNO (op0)) == REGNO_REG_CLASS (REGNO (op1));
 }
 
-/* Return true if the memories are ok for a pair
-   load/store instruction. */
+/* Return 1 if the addresses in mem1 and mem2 are suitable for use in
+   an ldp or sdp insn.
+
+   This can only happen when addr1 and addr2, the addresses in mem1
+   and mem2, are consecutive memory locations (addr1 + 4 == addr2).
+   addr1 must also be aligned on a 64-bit boundary.
+
+   Also iff dependent_reg_rtx is not null it should not be used to
+   compute the address for mem1, i.e. we cannot optimize a sequence
+   like:
+   	ldr x0, [x0]
+	ldr x1, [x0 + 4]
+   to
+   	ldp x0, x1, [x0]
+   nor:
+	ld x0, [x0 + 4]
+	ld x1, [x0]
+   to
+        ldp x0, x1, [x0]
+
+   But, note that the transformation from:
+	ld x1, [x0 + 4]
+        ld x0, [x0]
+   to
+	ldp x0, x1, [x0]
+   is perfectly fine.  Thus, the peephole2 patterns always pass us
+   the destination register of the first load, never the second one.
+
+   For stores we don't have a similar problem, so dependent_reg_rtx is
+   NULL_RTX.  */
 bool
-aarch64_mems_ok_for_pair_peep (rtx op0, rtx op1)
+aarch64_mems_ok_for_pair_peep (rtx mem1, rtx mem2, rtx dependent_reg_rtx)
 {
-  rtx addr0, addr1, addr0p;
-  if (!MEM_P (op0) || !MEM_P (op1))
+  rtx addr1, addr2;
+  unsigned int reg1, reg2;
+  HOST_WIDE_INT offset1, offset2;
+
+  if (!MEM_P (mem1) || !MEM_P (mem2))
     return false;
 
   /* The mems cannot be volatile.  */
-  if (MEM_VOLATILE_P (op0) || MEM_VOLATILE_P (op1))
+  if (MEM_VOLATILE_P (mem1) || MEM_VOLATILE_P (mem2))
     return false;
 
-  addr0 = XEXP (op0, 0);
-  addr1 = XEXP (op1, 0);
-  
-  if (!((GET_CODE (addr0) == PLUS
-         && REG_P (XEXP (addr0, 0))
-         && GET_CODE (XEXP (addr0, 1)) == CONST_INT)
-	|| REG_P (addr0)))
-    return false;
-  
-  addr0p = plus_constant (Pmode, addr0,
-			  GET_MODE_SIZE (GET_MODE (op0)));
-  /* Work around that plus_constant can return (plus (x) (0)) */
-  if (GET_CODE (addr0p) == PLUS && XEXP (addr0p, 1) == const0_rtx)
-    addr0p = XEXP (addr0p, 0);
-  return rtx_equal_p (addr1, addr0p);
+  addr1 = XEXP (mem1, 0);
+  addr2 = XEXP (mem2, 0);
+
+  /* Extract a register number and offset (if used) from the first addr.  */
+  if (GET_CODE (addr1) == PLUS)
+    {
+      /* If not a REG, return zero.  */
+      if (GET_CODE (XEXP (addr1, 0)) != REG)
+	return 0;
+      else
+	{
+          reg1 = REGNO (XEXP (addr1, 0));
+	  /* The offset must be constant!  */
+	  if (GET_CODE (XEXP (addr1, 1)) != CONST_INT)
+            return 0;
+          offset1 = INTVAL (XEXP (addr1, 1));
+	}
+    }
+  else if (GET_CODE (addr1) != REG)
+    return 0;
+  else
+    {
+      reg1 = REGNO (addr1);
+      /* This was a simple (mem (reg)) expression.  Offset is 0.  */
+      offset1 = 0;
+    }
+
+  /* Extract a register number and offset (if used) from the second addr.  */
+  if (GET_CODE (addr2) == PLUS)
+    {
+      /* If not a REG, return zero.  */
+      if (GET_CODE (XEXP (addr2, 0)) != REG)
+	return 0;
+      else
+	{
+          reg2 = REGNO (XEXP (addr2, 0));
+	  /* The offset must be constant!  */
+	  if (GET_CODE (XEXP (addr2, 1)) != CONST_INT)
+            return 0;
+          offset2 = INTVAL (XEXP (addr2, 1));
+	}
+    }
+  else if (GET_CODE (addr2) != REG)
+    return 0;
+  else
+    {
+      reg2 = REGNO (addr2);
+      /* This was a simple (mem (reg)) expression.  Offset is 0.  */
+      offset2 = 0;
+    }
+
+  if (reg1 != reg2)
+    return 0;
+
+  if (dependent_reg_rtx != NULL_RTX && reg1 == REGNO (dependent_reg_rtx))
+    return 0;
+
+  /* The offset for the second addr must be size offset more than the first addr.  */
+  if (offset2 != offset1 + GET_MODE_SIZE (GET_MODE (mem1)))
+    return 0;
+
+  /* All the tests passed.  addr1 and addr2 are valid for ldp and stp
+     instructions.  */
+  return 1;
 }
 
 

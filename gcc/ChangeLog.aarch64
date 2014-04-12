@@ -1,3 +1,22 @@
+2014-04-11  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #10042
+	* config/aarch64/aarch64-protos.h (aarch64_mems_ok_for_pair_peep): Add extra argument.
+	* config/aarch64/aarch64.c (aarch64_mems_ok_for_pair_peep): Add extra argument and take
+	that into account; copying from the sparc backend.
+	* aarch64.md (peephole2s to generate ldp
+        instruction for 2 consecutive loads from memory): Re-enable.
+	Update call to 	aarch64_mems_ok_for_pair_peep.
+        (peephole2s to generate stp instruction for 2 consecutive
+        stores to memory in integer mode): Re-enable.
+        Update call to 	aarch64_mems_ok_for_pair_peep.
+        (peephole2s to generate ldp instruction for 2 consecutive
+        loads from memory in floating point mode): Re-enable.
+        Update call to 	aarch64_mems_ok_for_pair_peep.
+        (peephole2s to generate stp instruction for 2 consecutive
+        stores to memory in floating point mode): Re-enable.
+        Update call to 	aarch64_mems_ok_for_pair_peep.
+
 2014-04-10  Andrew Pinski  <apinski@cavium.com>
 
 	* aarch64.md (peephole2s to generate ldp
