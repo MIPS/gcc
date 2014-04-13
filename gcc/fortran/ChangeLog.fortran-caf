@@ -1,3 +1,15 @@
+2014-04-13  Tobias Burnus  <burnus@net-b.de>
+
+	* trans-decl.c (gfc_trans_deferred_vars): Fix bug in
+	condition.
+	* trans-expr.c (gfc_get_tree_for_caf_expr): Handle polymorphism
+	and coarray components of derived types.
+	* resolve.c (add_caf_get_intrinsic, remove_caf_get_intrinsic): New.
+	(resolve_variable, resolve_allocate_expr, resolve_code): Use it;
+	currently disabled.
+	(gfc_resolve_expr): Moved expression_rank call into
+	resolve_variable.
+
 2014-04-10  Tobias Burnus  <burnus@net-b.de>
 
 	* trans-intrinsic.c (caf_get_image_index, conv_caf_send):

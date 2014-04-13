@@ -4728,6 +4728,40 @@ done:
 }
 
 
+static void
+add_caf_get_intrinsic (gfc_expr *e)
+{
+  gfc_expr *wrapper, *tmp_expr;
+  gfc_expr *async = gfc_get_logical_expr (gfc_default_logical_kind, NULL,
+					  false);
+  tmp_expr = XCNEW (gfc_expr);
+  *tmp_expr = *e;
+  wrapper = gfc_build_intrinsic_call (gfc_current_ns, GFC_ISYM_CAF_GET,
+				      "caf_get", tmp_expr->where, 2,
+				      tmp_expr, async);
+  wrapper->ts = e->ts;
+  wrapper->rank = e->rank;
+  if (e->rank)
+    wrapper->shape = gfc_copy_shape (e->shape, e->rank);
+  *e = *wrapper;
+  free (wrapper);
+}
+
+
+static void
+remove_caf_get_intrinsic (gfc_expr *e)
+{
+  gcc_assert (e->expr_type == EXPR_FUNCTION && e->value.function.isym
+	      && e->value.function.isym->id == GFC_ISYM_CAF_GET);
+  gfc_expr *e2 = e->value.function.actual->expr;
+  e->value.function.actual->expr =NULL;
+  gfc_free_actual_arglist (e->value.function.actual);
+  gfc_free_shape (&e->shape, e->rank);
+  *e = *e2;
+  free (e2);
+}
+
+
 /* Resolve a variable expression.  */
 
 static bool
@@ -5006,6 +5040,12 @@ resolve_procedure:
 	      }
 	}
     }
+
+  if (t)
+    expression_rank (e);
+
+  if (0 && t && gfc_option.coarray == GFC_FCOARRAY_LIB && gfc_is_coindexed (e))
+    add_caf_get_intrinsic(e);
 
   return t;
 }
@@ -6090,11 +6130,7 @@ gfc_resolve_expr (gfc_expr *e)
       if (check_host_association (e))
 	t = resolve_function (e);
       else
-	{
-	  t = resolve_variable (e);
-	  if (t)
-	    expression_rank (e);
-	}
+	t = resolve_variable (e);
 
       if (e->ts.type == BT_CHARACTER && e->ts.u.cl == NULL && e->ref
 	  && e->ref->type != REF_SUBSTRING)
@@ -6672,6 +6708,10 @@ resolve_allocate_expr (gfc_expr *e, gfc_code *code)
 
   if (!gfc_resolve_expr (e))
     goto failure;
+
+  if (e->expr_type == EXPR_FUNCTION && e->value.function.isym
+      && e->value.function.isym->id == GFC_ISYM_CAF_GET)
+    remove_caf_get_intrinsic (e);
 
   /* Make sure the expression is allocatable or a pointer.  If it is
      pointer, the next-to-last reference must be a pointer.  */
@@ -9866,6 +9906,11 @@ resolve_code (gfc_code *code, gfc_namespace *ns)
 	case EXEC_ASSIGN:
 	  if (!t)
 	    break;
+
+	  if (code->expr1->expr_type == EXPR_FUNCTION
+	      && code->expr1->value.function.isym
+	      && code->expr1->value.function.isym->id == GFC_ISYM_CAF_GET)
+	    remove_caf_get_intrinsic (code->expr1);
 
 	  if (!gfc_check_vardef_context (code->expr1, false, false, false, 
 					 _("assignment")))
