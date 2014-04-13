@@ -1,5 +1,11 @@
 2014-04-13  Andrew Pinski  <apinski@cavium.com>
 
+	Bug #5136
+	Bug #9940
+	* testsuite/gcc.dg/tree-ssa/pr19431.c: Allow for ?: to show up also.
+
+2014-04-13  Andrew Pinski  <apinski@cavium.com>
+
 	Bug #9939
 	* passes.def: Move pass_late_warn_uninitialized
 	to before the pass_late_phiopt pass.
