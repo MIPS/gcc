@@ -1,3 +1,9 @@
+2014-04-13  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #9939
+	* passes.def: Move pass_late_warn_uninitialized
+	to before the pass_late_phiopt pass.
+
 2014-03-25  Andrew Pinski  <apinski@cavium.com>
 
 	* config/mips/mips.c (mips_rtx_cost_data): Add
