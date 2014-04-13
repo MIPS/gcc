@@ -55,6 +55,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "optabs.h"
 #include "tree-scalar-evolution.h"
+#include "tree-cfgcleanup.h"
+#include "tree-into-ssa.h"
 
 #ifndef HAVE_conditional_move
 #define HAVE_conditional_move (0)
@@ -343,6 +345,11 @@ tree_ssa_phiopt_worker (bool late, bool do_store_elim, bool do_hoist_loads)
   unsigned n, i;
   bool cfgchanged = false;
   struct pointer_set_t *nontrap = 0;
+
+  /* PHI-opt works best with a cleaned up CFG, that is the crital edges
+     are merged back. */
+  if (cleanup_tree_cfg ())
+    update_ssa (TODO_update_ssa_only_virtuals);
 
   if (do_store_elim)
     /* Calculate the set of non-trapping memory accesses.  */
