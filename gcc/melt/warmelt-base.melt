@@ -1529,6 +1529,40 @@ output $OUT. It is called by the $ADD2OUT variadic function.}#
   (add2out_sbuf out vsbuf))
 (install_method discr_strbuf add_to_out add2out4strbuf)
 
+
+(defselector output_as_json class_selector
+  :doc #{The selector $OUTPUT_AS_JSON is outputting in JSON format the reciever $RECV on the output $OUT.
+  See http://json.org for more about JSON.}#
+  :formals (recv out))
+
+
+
+(defun output_json (out v)
+  :doc #{Output in JSON format to output channel $OUT the value $V}#
+  (cond ( (is_integerbox v)
+	  (add2out out (get_int v)))
+	( (== v :true)
+	  (add2out out "true")
+	  )
+	( (== v :json_false)
+	  (add2out out "false")
+	  )
+	( (null v)
+	  (add2out out "null")
+	  )
+	( (is_multiple v)
+	  (add2out out "[")
+	  (foreach_in_multiple
+	   (v)
+	   (curcomp :long ix)
+	   (if ix (add2out out ","))
+	   (output_json out curcomp))
+	  (add2out out "]"))
+	(:else
+	 (output_as_json v out)))
+  )
+
+
 (defun add2out4clonedsymb (vc out)
   (match vc
 	 (?(instance class_cloned_symbol
@@ -3746,7 +3780,63 @@ which should be a string or an instance of $CLASS_NAMED, or else nil.}#
   } }#
 )
 
+(defun outjson_jsonobj_method (jsob out)
+  (assert_msg "check out" (is_out out) out)
+  (assert_msg "check jsob" (is_jsonobject jsob) jsob)
+  (add2out out "{")
+  (foreach_entry_in_jsonobject
+   (jsob)
+   (curat curval :long ix)
+   (if ix (add2out out ","))
+   (cond ((is_string curat)
+	  (add2out_cencstring out curat))
+	 ((is_a curat class_named)
+	  (let ( (atnam (get_field :named_name curat))
+		 )
+	    (assert_msg "check atnam" (is_string atnam) atnam)
+	    (add2out out "\"")
+	    (code_chunk addname_chk 
+			#{ /* output_jsonobj_method $ADDNAME_CHK */
+			long namelen = strlen(melt_string_str($ATNAM));
+			for (long ix=0; 
+			     ix<namelen; 
+                             ix++) {
+			  char curc = melt_string_str($ATNAM)[ix];
+			  char buf[4];
+			  memset(buf, 0, sizeof(buf));
+			  buf[0] = tolower(curc);
+			  buf[1] = (char)0;
+			  meltgc_add_out_raw ($OUT, buf);
+			}
+			}#)
+	    (add2out out "\"")
+	    ))
+	 (:else
+	  (assert_msg "invalid JSON attr" () curat)))
+   (add2out out ":")
+   (output_json out curval)
+   )
+  (add2out out "}")
+  (return ()))
+(install_method discr_jsonobject output_as_json outjson_jsonobj_method)
+
+
+(defun outjson_multiple_method (tup out)
+  (assert_msg "check out" (is_out out) out)
+  (assert_msg "check tup" (is_multiple tup) tup)
+  (add2out out "[")
+  (foreach_in_multiple
+   (tup)
+   (curcomp :long ix)
+   (if ix (add2out out ","))
+   (output_json out curcomp))
+  (add2out out "]")
+)
+(install_method discr_multiple output_as_json outjson_multiple_method)
+
 (export_values make_jsonobject 
+	       output_as_json
+	       output_json
 	       jsonobject_aux 
 	       jsonobject_auxput 
 	       jsonobject_size

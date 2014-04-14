@@ -176,6 +176,7 @@
   HOOK_SYMBOL_IMPORTER
   HOOK_VALUE_EXPORTER
   INITIAL_SYSTEM_DATA
+  JSON_FALSE
   TRUE
 # the predefined below are for some testing, don't use them in "production"
   _ZXTRA1PREDEF

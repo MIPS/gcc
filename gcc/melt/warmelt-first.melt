@@ -4265,11 +4265,15 @@ $MELT_MAKE_FRESH_ENVIRONMENT_REFERENCE primitive. For gurus and MELT itself.}#
 		:doc #{$FOREACH_IN_LIST is obsolete for $FOREACH_PAIR_COMPONENT_IN_LIST}#)
 
 
-;; we predefine :true as the TRUE. Currently no handcoded C function
+;; we predefine :true and as the TRUE and the :json_false symbol. Currently no handcoded C function
 ;; uses it, but perhaps that could change!!
 
-(let ( ( truekeyword :true) )
-  (code_chunk storetruekeyword #{MELT_STORE_PREDEF(TRUE, (melt_ptr_t) $TRUEKEYWORD)}#))
+(let ( (true_keyword :true)
+       (json_false_keyword :json_false)
+       )
+  (code_chunk storetruekeyword #{MELT_STORE_PREDEF(TRUE, (melt_ptr_t) $TRUE_KEYWORD)}#)
+  (code_chunk storejsonfalse #{MELT_STORE_PREDEF(JSON_FALSE, (melt_ptr_t) $JSON_FALSE_KEYWORD)}#)
+  )
 
 
 ;; support for named_symbol hook

@@ -1,5 +1,18 @@
 
 
+2014-04-14  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-predef.list (JSON_FALSE): New predefined.
+
+	* melt/warmelt-first.melt: initialize it using :json_false.
+
+	* melt/warmelt-base.melt (output_as_json): New selector.
+	(output_json): New function.
+	(outjson_jsonobj_method): New method for output_as_json on
+	discr_jsonobject.
+	(outjson_multiple_method): New method for output_as_json on
+	discr_multiple.
+
 2014-04-08  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/generated/*: Regenerate all.
