@@ -1,3 +1,9 @@
+2014-04-14  Andrew Pinski  <apinski@cavium.com>
+
+	* testsuite/gcc.dg/tree-ssa/phi-opt-pass-order.c: Update for the no name ssa_name
+	variable change.
+	* testsuite/gcc.dg/tree-ssa/pr19431.c: Likewise.
+
 2014-04-13  Andrew Pinski  <apinski@cavium.com>
 
 	* tree-ssa-phiopt.c: Include tree-cfgcleanup.h and tree-into-ssa.h

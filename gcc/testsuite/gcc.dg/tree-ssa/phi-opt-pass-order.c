@@ -12,7 +12,7 @@ int bea_is_dual_infeasible( struct arc *arc, int red_cost )
 }
 
 /* There should be two == phiopt changes */
-/* { dg-final { scan-tree-dump-times "D.\[0-9\]+_. == " 2 "optimized" } } */
+/* { dg-final { scan-tree-dump-times " _\[0-9\]+ == " 2 "optimized" } } */
 /* { dg-final { scan-tree-dump-times "PHI" 1 "optimized" } } */
 /* { dg-final { cleanup-tree-dump "optimized" } } */
 

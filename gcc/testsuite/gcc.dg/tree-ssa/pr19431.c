@@ -24,6 +24,6 @@ int f(int k, int i1, int j1)
   return *f1;
 }
 
-/* { dg-final { scan-tree-dump "(i1_. = PHI <i1_\[^,\]*, j1_\[^>\]*>)|(i1_. = k_..D. == 0 . j1_..D. : i1_..D.)" "optimized" } } */
-/* { dg-final { scan-tree-dump "return i1_.;" "optimized" } } */
+/* { dg-final { scan-tree-dump "(i1_. = PHI <i1_\[^,\]*, j1_\[^>\]*>)|(_. = k_..D. != 0 . i1_..D. : j1_..D.)" "optimized" } } */
+/* { dg-final { scan-tree-dump "return _.;" "optimized" } } */
 /* { dg-final { cleanup-tree-dump "optimized" } } */
