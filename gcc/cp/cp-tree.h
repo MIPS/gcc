@@ -100,12 +100,15 @@ c-common.h, not after.
       TARGET_EXPR_DIRECT_INIT_P (in TARGET_EXPR)
       FNDECL_USED_AUTO (in FUNCTION_DECL)
       DECLTYPE_FOR_LAMBDA_PROXY (in DECLTYPE_TYPE)
+      REF_PARENTHESIZED_P (in COMPONENT_REF, SCOPE_REF)
+      AGGR_INIT_ZERO_FIRST (in AGGR_INIT_EXPR)
    3: (TREE_REFERENCE_EXPR) (in NON_LVALUE_EXPR) (commented-out).
       ICS_BAD_FLAG (in _CONV)
       FN_TRY_BLOCK_P (in TRY_BLOCK)
       IDENTIFIER_CTOR_OR_DTOR_P (in IDENTIFIER_NODE)
       BIND_EXPR_BODY_BLOCK (in BIND_EXPR)
       DECL_NON_TRIVIALLY_INITIALIZED_P (in VAR_DECL)
+      CALL_EXPR_LIST_INIT_P (in CALL_EXPR, AGGR_INIT_EXPR)
    4: TREE_HAS_CONSTRUCTOR (in INDIRECT_REF, SAVE_EXPR, CONSTRUCTOR,
 	  or FIELD_DECL).
       IDENTIFIER_TYPENAME_P (in IDENTIFIER_NODE)
@@ -3025,11 +3028,21 @@ extern void decl_shadowed_for_var_insert (tree, tree);
    should be performed at instantiation time.  */
 #define KOENIG_LOOKUP_P(NODE) TREE_LANG_FLAG_0 (CALL_EXPR_CHECK (NODE))
 
+/* True if CALL_EXPR expresses list-initialization of an object.  */
+#define CALL_EXPR_LIST_INIT_P(NODE) \
+  TREE_LANG_FLAG_3 (TREE_CHECK2 ((NODE),CALL_EXPR,AGGR_INIT_EXPR))
+
 /* Indicates whether a string literal has been parenthesized. Such
    usages are disallowed in certain circumstances.  */
 
 #define PAREN_STRING_LITERAL_P(NODE) \
   TREE_LANG_FLAG_0 (STRING_CST_CHECK (NODE))
+
+/* Indicates whether a COMPONENT_REF has been parenthesized.  Currently
+   only set some of the time in C++14 mode.  */
+
+#define REF_PARENTHESIZED_P(NODE) \
+  TREE_LANG_FLAG_2 (COMPONENT_REF_CHECK (NODE))
 
 /* Nonzero if this AGGR_INIT_EXPR provides for initialization via a
    constructor call, rather than an ordinary function call.  */
@@ -5469,6 +5482,7 @@ extern tree get_copy_ctor			(tree, tsubst_flags_t);
 extern tree get_copy_assign			(tree);
 extern tree get_default_ctor			(tree);
 extern tree get_dtor				(tree, tsubst_flags_t);
+extern tree get_inherited_ctor			(tree);
 extern tree locate_ctor				(tree);
 extern tree implicitly_declare_fn               (special_function_kind, tree,
 						 bool, tree, tree);
