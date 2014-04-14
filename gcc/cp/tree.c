@@ -453,6 +453,7 @@ build_aggr_init_expr (tree type, tree init)
       TREE_SIDE_EFFECTS (rval) = 1;
       AGGR_INIT_VIA_CTOR_P (rval) = is_ctor;
       TREE_NOTHROW (rval) = TREE_NOTHROW (init);
+      CALL_EXPR_LIST_INIT_P (rval) = CALL_EXPR_LIST_INIT_P (init);
     }
   else
     rval = init;
@@ -3362,6 +3363,18 @@ handle_abi_tag_attribute (tree* node, tree name, tree args,
 	{
 	  error ("%qE attribute applied to %qT after its definition",
 		 name, *node);
+	  goto fail;
+	}
+      else if (CLASSTYPE_TEMPLATE_INSTANTIATION (*node))
+	{
+	  warning (OPT_Wattributes, "ignoring %qE attribute applied to "
+		   "template instantiation %qT", name, *node);
+	  goto fail;
+	}
+      else if (CLASSTYPE_TEMPLATE_SPECIALIZATION (*node))
+	{
+	  warning (OPT_Wattributes, "ignoring %qE attribute applied to "
+		   "template specialization %qT", name, *node);
 	  goto fail;
 	}
 
