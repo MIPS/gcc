@@ -1,3 +1,10 @@
+2014-04-14  Andrew Pinski  <apinski@cavium.com>
+
+	* config/aarch64/aarch64.md (*aarch64_ashl_sisd_or_int_<mode>3): Use ! instead of ? to allow
+	for the vector versions to be used but only if it was already in the vector register.
+	(*aarch64_lshr_sisd_or_int_<mode>3): Discourage the vector register alternatives.
+	(*aarch64_ashr_sisd_or_int_<mode>3): Likewise.
+
 2014-04-11  Andrew Pinski  <apinski@cavium.com>
 
 	Bug #10042
