@@ -48,6 +48,13 @@
 	variable change.
 	* testsuite/gcc.dg/tree-ssa/pr19431.c: Likewise.
 
+2014-04-14  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #10070
+	* testsuite/gcc.dg/tree-ssa/vrp-assert-3.c: New testcase.
+	* tree-vrp.c (register_edge_assert_for_2): Also assert when
+	the conversion is from bool.
+
 2014-04-13  Andrew Pinski  <apinski@cavium.com>
 
 	* tree-ssa-phiopt.c: Include tree-cfgcleanup.h and tree-into-ssa.h
