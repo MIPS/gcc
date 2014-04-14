@@ -10259,6 +10259,13 @@ sync_resolve_size (tree function, vec<tree, va_gc> *params)
     }
 
   type = TREE_TYPE ((*params)[0]);
+  if (TREE_CODE (type) == ARRAY_TYPE)
+    {
+      /* Force array-to-pointer decay for C++.  */
+      gcc_assert (c_dialect_cxx());
+      (*params)[0] = default_conversion ((*params)[0]);
+      type = TREE_TYPE ((*params)[0]);
+    }
   if (TREE_CODE (type) != POINTER_TYPE)
     goto incompatible;
 
@@ -10410,6 +10417,13 @@ get_atomic_generic_size (location_t loc, tree function,
 
   /* Get type of first parameter, and determine its size.  */
   type_0 = TREE_TYPE ((*params)[0]);
+  if (TREE_CODE (type_0) == ARRAY_TYPE)
+    {
+      /* Force array-to-pointer decay for C++.  */
+      gcc_assert (c_dialect_cxx());
+      (*params)[0] = default_conversion ((*params)[0]);
+      type_0 = TREE_TYPE ((*params)[0]);
+    }
   if (TREE_CODE (type_0) != POINTER_TYPE || VOID_TYPE_P (TREE_TYPE (type_0)))
     {
       error_at (loc, "argument 1 of %qE must be a non-void pointer type",
@@ -10510,6 +10524,7 @@ add_atomic_size_parameter (unsigned n, location_t loc, tree function,
 
       len = params->length ();
       vec_alloc (v, len + 1);
+      v->quick_push (build_int_cst (size_type_node, n));
       for (z = 0; z < len; z++)
 	v->quick_push ((*params)[z]);
       f = build_function_call_vec (loc, vNULL, function, v, NULL);
