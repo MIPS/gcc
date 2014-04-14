@@ -1840,7 +1840,11 @@ asm_operand_ok (rtx op, const char *constraint, const char **constraints)
 	  break;
 
 	case 'X':
-	  result = 1;
+	  /* Still enforce memory requirements for non-constant addresses,
+	     since we can't reload MEMs with completely arbitrary addresses.  */
+	  result = (!MEM_P (op)
+		    || CONSTANT_P (XEXP (op, 0))
+		    || memory_operand (op, VOIDmode));
 	  break;
 
 	case 'g':
