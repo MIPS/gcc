@@ -2,6 +2,10 @@
 
 2014-04-14  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/generated/*: Regenerate all.
+
+2014-04-14  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-predef.list (JSON_FALSE): New predefined.
 
 	* melt/warmelt-first.melt: initialize it using :json_false.
