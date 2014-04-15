@@ -2425,6 +2425,12 @@ bool
 cgraph_can_remove_if_no_direct_calls_and_refs_p (struct cgraph_node *node)
 {
   gcc_assert (!node->global.inlined_to);
+  /* Instrumentation clones should not be removed before
+     instrumentation happens.  New callers may appear after
+     instrumentation.  */
+  if (node->instrumentation_clone
+      && !chkp_function_instrumented_p (node->decl))
+    return false;
   /* Extern inlines can always go, we will use the external definition.  */
   if (DECL_EXTERNAL (node->decl))
     return true;
