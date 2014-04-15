@@ -942,7 +942,7 @@ Generate bounds passing for calls.
 
 fchkp-instrument-marked-only
 C ObjC C++ ObjC++ LTO Report Var(flag_chkp_instrument_marked_only) Init(0)
-Instrument only funtions marked with bnd_instrument attribute.
+Instrument only functions marked with bnd_instrument attribute.
 
 fcilkplus
 C ObjC C++ ObjC++ LTO Report Var(flag_cilkplus) Init(0)
