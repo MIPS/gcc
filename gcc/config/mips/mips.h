@@ -1185,8 +1185,11 @@ struct mips_cpu_info {
 %{mdspr2} %{mno-dspr2} \
 %{mmcu} %{mno-mcu} \
 %{meva} %{mno-eva} \
+<<<<<<< HEAD
 %{mvirt} %{mno-virt} \
 %{mxpa} %{mno-xpa} \
+=======
+>>>>>>> Fix a couple error errors fallout from rebasing
 %{mmsa} %{mno-msa} \
 %{msmartmips} %{mno-smartmips} \
 %{mmt} %{mno-mt} \
