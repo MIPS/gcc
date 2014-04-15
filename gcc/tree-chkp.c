@@ -544,6 +544,10 @@ chkp_build_instrumented_fndecl (tree fndecl)
   if (!gimple_has_body_p (fndecl))
     DECL_ARGUMENTS (new_decl) = copy_list (DECL_ARGUMENTS (fndecl));
 
+  /* We are going to modify attributes list and therefore should
+     make own copy.  */
+  DECL_ATTRIBUTES (new_decl) = copy_list (DECL_ATTRIBUTES (fndecl));
+
   return new_decl;
 }
 
