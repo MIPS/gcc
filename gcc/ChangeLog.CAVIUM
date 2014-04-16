@@ -212,12 +212,6 @@
 
 	* testsuite/gcc.c-torture/compile/20120913-1.c: New testcase.
 
-2012-09-05  Andrew Pinski  <apinski@cavium.com>
-
-	FSF PR tree-opt/54494
-	* tree-ssa-strlen.c (strlen_optimize_stmt): Don't look at statements
-	which have volatile operands.
-
 2012-09-03  Andrew Pinski  <apinski@cavium.com>
 
 	Bug #4370
