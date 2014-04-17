@@ -5016,7 +5016,7 @@ mips_output_move (rtx dest, rtx src)
 
 		  gcc_assert (src == CONST0_RTX (GET_MODE (src)));
 
-		  if (MSA_SUPPORTED_INT_MODE_P (dstmode))
+		  if (MSA_SUPPORTED_MODE_P (dstmode))
 		    {
 		      if (dstmode == TImode)
 			return "ldi.b\t%w0,0";
@@ -5148,7 +5148,7 @@ mips_output_move (rtx dest, rtx src)
 
       if (dest_code == MEM)
 	{
-	  if (MSA_SUPPORTED_INT_MODE_P (mode))
+	  if (MSA_SUPPORTED_MODE_P (mode))
 	    {
 	      if (mode == TImode)
 		{
@@ -5166,7 +5166,7 @@ mips_output_move (rtx dest, rtx src)
     {
       if (src_code == MEM)
 	{
-	  if (MSA_SUPPORTED_INT_MODE_P (mode))
+	  if (MSA_SUPPORTED_MODE_P (mode))
 	    {
 	      if (mode == TImode)
 		{
