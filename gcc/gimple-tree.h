@@ -3,10 +3,29 @@
 
 #include "gimple-value.h"
 
+extern Gimple::value_ptr boolean_true_node_ptr;
+extern Gimple::value_ptr boolean_false_node_ptr;
+extern Gimple::type_ptr void_type_node_ptr;
+extern Gimple::type_ptr char_type_node_ptr;
+extern Gimple::type_ptr boolean_type_node_ptr;
+extern Gimple::type_ptr integer_type_node_ptr;
+extern Gimple::integer_cst_ptr integer_zero_node_ptr;
+
+#define gimple_boolean_true (*boolean_true_node_ptr)
+#define gimple_boolean_false (*boolean_false_node_ptr)
+#define gimple_void_type (*void_type_node_ptr)
+#define gimple_char_type (*char_type_node_ptr)
+#define gimple_boolean_type (*boolean_type_node_ptr)
+#define gimple_integer_type (*integer_type_node_ptr)
+#define gimple_integer_zero (*integer_zero_node_ptr)
+
+
 #define MAY_HAVE_DEBUG_STMTS    (flag_var_tracking_assignments)
 
+/* From gimple-tree.c.  */
 const char * gimple_tree_printable_name (tree, int);
 
+/* From tree.h, but no 'tree' in the signature.  */
 extern void clean_symbol_name (char *p);
 extern tree build_call_expr_loc(location_t, tree, int, ...);  /*builtins.c */
 
@@ -24,10 +43,10 @@ unshare_expr (Gimple::value v)
   return unshare_expr ((tree)v);
 }
 inline bool
-integer_zero_p (Gimple::value v)
+integer_zerop (Gimple::value v)
 {
-  extern int integer_zero_p (const_tree);
-  return integer_zero_p ((const_tree) v);
+  extern int integer_zerop (const_tree);
+  return integer_zerop ((const_tree) v);
 }
 
 inline bool
@@ -141,13 +160,6 @@ inline void gimple_add_tmp_var (Gimple::var_decl var)
 }
 
 // from tree.h
-
-
-inline Gimple::identifier
-decl_assembler_name (Gimple::decl_with_viz d)
-{
-  return d->assembler_name ();
-}
 
 inline bool
 prototype_p (Gimple::function_or_method_type f)

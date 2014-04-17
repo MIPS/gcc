@@ -146,6 +146,8 @@ class tree_desc {
 
 class type_desc : public tree_desc
 {
+  protected:
+    enum machine_mode vector_mode() const;
   public:
     Gimple::type type() const;
     type_list chain () const;

@@ -1,36 +1,12 @@
 #ifndef GIMPLE_VALUE_H
 #define GIMPLE_VALUE_H
 
-/* function_decls declared in tree.h that are needed.  */
-extern int integer_zerop (const_tree expr);
-extern tree tree_strip_nop_conversions (tree);
-
 #include "gimple-value-core.h"
 #include "gimple-wrapper.h"
-#include "stor-layout.h"  /* For vector_type_mode.  */
-
-extern Gimple::value_ptr boolean_true_node_ptr;
-extern Gimple::value_ptr boolean_false_node_ptr;
-extern Gimple::type_ptr void_type_node_ptr;
-extern Gimple::type_ptr char_type_node_ptr;
-extern Gimple::type_ptr boolean_type_node_ptr;
-extern Gimple::type_ptr integer_type_node_ptr;
-extern Gimple::integer_cst_ptr integer_zero_node_ptr;
-
-#define gimple_boolean_true (*boolean_true_node_ptr)
-#define gimple_boolean_false (*boolean_false_node_ptr)
-#define gimple_void_type (*void_type_node_ptr)
-#define gimple_char_type (*char_type_node_ptr)
-#define gimple_boolean_type (*boolean_type_node_ptr)
-#define gimple_integer_type (*integer_type_node_ptr)
-#define gimple_integer_zero (*integer_zero_node_ptr)
-
-extern Gimple::identifier decl_assembler_name (Gimple::decl_with_viz d);
 
 namespace Gimple {
 
-// class tree_desc
-
+/* Class tree_desc methods.  */
 
 inline enum tree_code 
 tree_desc::code () const
@@ -97,6 +73,41 @@ tree_desc::set_used(const bool f)
   node.base.used_flag = f;
 }
 
+inline bool
+tree_desc::static_p () const
+{
+  return node.base.static_flag;
+}
+
+inline void
+tree_desc::set_static_p (const bool f)
+{
+  node.base.static_flag = f;
+}
+
+inline bool
+tree_desc::side_effects () const
+{
+  return node.base.side_effects_flag;
+}
+
+inline void
+tree_desc::set_side_effects (const bool f)
+{
+  node.base.side_effects_flag = f;
+}
+
+inline bool
+tree_desc::constant () const
+{
+  return node.base.constant_flag;
+}
+
+inline void
+tree_desc::set_constant (const bool f)
+{
+  node.base.constant_flag = f;
+}
 inline bool
 tree_desc::test_node (void) const
 {
@@ -223,9 +234,6 @@ tree_desc::check_node (enum tree_code t1, enum tree_code t2, enum tree_code t3,
 #endif
 }
 
-
-// class block_desc
-
 inline Gimple::value
 block_desc::supercontext () const
 {
@@ -233,67 +241,11 @@ block_desc::supercontext () const
 }
 
 
-// class type_desc
-
-
 inline Gimple::type
 type_desc::type() const
 { 
   return Gimple::type (node.typed.type);
 }
-
-inline bool
-label_decl_desc::forced_label () const
-{
-  return node.base.side_effects_flag;
-}
-
-inline Gimple::value
-value_list_desc::value () const
-{ 
-  return Gimple::value (node.list.value);
-}
-
-inline Gimple::value_ptr
-value_list_desc::ptrto_value ()
-{ 
-  return Gimple::value_ptr (&(node.list.value));
-}
-
-
-inline value_list
-value_list_desc::chain () const
-{ 
-  return value_list (node.common.chain);
-}
-
-inline Gimple::identifier
-identifier_list_desc::value () const
-{ 
-  return Gimple::identifier (node.list.value);
-}
-
-inline identifier_list
-identifier_list_desc::chain () const
-{ 
-  return identifier_list (node.common.chain);
-}
-
-
-
-inline Gimple::type
-type_list_desc::value () const
-{ 
-  return Gimple::type (node.list.value);
-}
-
-inline type_list
-type_list_desc::chain () const
-{ 
-  return type_list (node.common.chain);
-}
-
-
 inline bool 
 type_desc::type_unsigned () const
 { return node.base.u.bits.unsigned_flag; }
@@ -302,7 +254,7 @@ inline enum machine_mode
 type_desc::mode () const
 { 
   if (code () == VECTOR_TYPE)
-    return vector_type_mode (&node);
+    return vector_mode ();
   else
     return node.type_common.mode;
 }
@@ -722,41 +674,6 @@ decl_desc::set_external(const bool f)
   node.decl_common.decl_flag_1 = f;
 }
 
-inline bool
-tree_desc::static_p () const
-{
-  return node.base.static_flag;
-}
-
-inline void
-tree_desc::set_static_p (const bool f)
-{
-  node.base.static_flag = f;
-}
-
-inline bool
-tree_desc::side_effects () const
-{
-  return node.base.side_effects_flag;
-}
-
-inline void
-tree_desc::set_side_effects (const bool f)
-{
-  node.base.side_effects_flag = f;
-}
-
-inline bool
-tree_desc::constant () const
-{
-  return node.base.constant_flag;
-}
-
-inline void
-tree_desc::set_constant (const bool f)
-{
-  node.base.constant_flag = f;
-}
 
 inline location_t
 decl_desc::source_location () const
@@ -906,6 +823,14 @@ decl_desc::assembler_name_set_p() const
 	  && node.decl_with_vis.assembler_name != (tree)0);
 }
 
+inline bool
+decl_desc::decl_public() const
+{ return node.base.public_flag; }
+
+inline bool
+decl_desc::decl_asm_written() const
+{ return node.base.asm_written_flag; }
+
 inline bool 
 decl_with_viz_desc::hard_register () const
 {
@@ -930,14 +855,6 @@ decl_with_viz_desc::assembler_name_set_p() const
   return node.decl_with_vis.assembler_name != (tree)0;
 }
 
-inline Gimple::identifier
-decl_desc::assembler_name() const
-{
-  decl_with_viz viz(&node);
-  return decl_assembler_name (viz);
-}
-
-
 
 /*
 inline bool
@@ -949,15 +866,6 @@ decl_desc::decl_comdat() const
 { return DECL_WITH_VIS_CHECK (Tree)->decl_with_vis.comdat_flag; }
 
 */
-inline bool
-decl_desc::decl_public() const
-{ return node.base.public_flag; }
-
-inline bool
-decl_desc::decl_asm_written() const
-{ return node.base.asm_written_flag; }
-
-
 inline bool 
 var_decl_desc::is_virtual_operand () const
 { 
@@ -986,6 +894,59 @@ function_decl_desc::builtin () const
 {
   return builtin_class () != NOT_BUILT_IN;
 }
+
+inline bool
+label_decl_desc::forced_label () const
+{
+  return node.base.side_effects_flag;
+}
+
+inline Gimple::value
+value_list_desc::value () const
+{ 
+  return Gimple::value (node.list.value);
+}
+
+inline Gimple::value_ptr
+value_list_desc::ptrto_value ()
+{ 
+  return Gimple::value_ptr (&(node.list.value));
+}
+
+
+inline value_list
+value_list_desc::chain () const
+{ 
+  return value_list (node.common.chain);
+}
+
+inline Gimple::identifier
+identifier_list_desc::value () const
+{ 
+  return Gimple::identifier (node.list.value);
+}
+
+inline identifier_list
+identifier_list_desc::chain () const
+{ 
+  return identifier_list (node.common.chain);
+}
+
+
+
+inline Gimple::type
+type_list_desc::value () const
+{ 
+  return Gimple::type (node.list.value);
+}
+
+inline type_list
+type_list_desc::chain () const
+{ 
+  return type_list (node.common.chain);
+}
+
+
 
 //
 // ssa_name

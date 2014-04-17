@@ -2484,8 +2484,9 @@ optimize_stdarg_builtin (gimple call)
 	return NULL_GIMPLE;
 
       lhs = build_fold_indirect_ref_loc (loc, lhs);
-      rhs = build_call_expr_loc (loc, gimple_builtin_decl_explicit (BUILT_IN_NEXT_ARG),
-                             1, gimple_integer_zero);
+      rhs = build_call_expr_loc (loc, 
+			      gimple_builtin_decl_explicit (BUILT_IN_NEXT_ARG),
+			      1, gimple_integer_zero);
       rhs = fold_convert_loc (loc, lhs->type (), rhs);
       return create<Gimple::modify_expr> (lhs->type (), lhs, rhs);
 

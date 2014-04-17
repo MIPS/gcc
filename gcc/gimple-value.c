@@ -25,15 +25,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "gimple-tree.h"
 #include "langhooks.h"
+#include "stor-layout.h"
 
-
-Gimple::value_ptr boolean_true_node_ptr (&global_trees[TI_BOOLEAN_TRUE]);
-Gimple::value_ptr boolean_false_node_ptr (&global_trees[TI_BOOLEAN_FALSE]);
-Gimple::integer_cst_ptr integer_zero_node_ptr (&global_trees[TI_INTEGER_ZERO]);
-Gimple::type_ptr void_type_node_ptr (&global_trees[TI_VOID_TYPE]);
-Gimple::type_ptr boolean_type_node_ptr (&global_trees[TI_BOOLEAN_TYPE]);
-Gimple::type_ptr char_type_node_ptr (&integer_types[itk_char]);
-Gimple::type_ptr integer_type_node_ptr (&integer_types[itk_int]);
 
 location_t 
 expr_location (Gimple::value v)
@@ -47,6 +40,7 @@ expr_location (Gimple::value v)
 void
 strip_nops (Gimple::value_ptr gv)
 { 
+  extern tree tree_strip_nop_conversions (tree);
   *gv = tree_strip_nop_conversions (CONST_CAST_TREE ((tree)(*gv)));
 }
 
@@ -75,6 +69,19 @@ decl_with_viz_desc::assembler_name()
   if (!assembler_name_set_p ())
     lang_hooks.set_decl_assembler_name (&node);
   return node.decl_with_vis.assembler_name;
+}
+
+Gimple::identifier
+decl_desc::assembler_name() const
+{
+  decl_with_viz viz(&node);
+  return viz->assembler_name ();
+}
+
+enum machine_mode
+type_desc::vector_mode() const
+{
+  return vector_type_mode(&node);
 }
 
 }  // namespace Gimple
