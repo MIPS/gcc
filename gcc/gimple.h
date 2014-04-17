@@ -25,6 +25,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-value.h"
 #include "gimple-tree.h"
 
+typedef gimple gimple_seq_node;
+
+/* For each block, the PHI nodes that need to be rewritten are stored into
+   these vectors.  */
+typedef vec<gimple> gimple_vec;
+
 enum gimple_code {
 #define DEFGSCODE(SYM, STRING, STRUCT)	SYM,
 #include "gimple.def"
@@ -54,17 +60,17 @@ extern void gimple_check_failed (const_gimple, const char *, int,          \
 #define GIMPLE_CHECK(GS, CODE)			(void)0
 #endif
 
-/* Class of GIMPLE expressions suitable for the RHS of assignments.  See 
- *    get_gimple_rhs_class.  */ 
-enum gimple_rhs_class 
-{ 
-  GIMPLE_INVALID_RHS,   /* The expression cannot be used on the RHS.  */ 
-  GIMPLE_TERNARY_RHS,   /* The expression is a ternary operation.  */ 
-  GIMPLE_BINARY_RHS,    /* The expression is a binary operation.  */ 
-  GIMPLE_UNARY_RHS,     /* The expression is a unary operation.  */ 
-  GIMPLE_SINGLE_RHS     /* The expression is a single object (an SSA 
-                           name, a _DECL, a _REF, etc.  */ 
-}; 
+/* Class of GIMPLE expressions suitable for the RHS of assignments.  See
+   get_gimple_rhs_class.  */
+enum gimple_rhs_class
+{
+  GIMPLE_INVALID_RHS,	/* The expression cannot be used on the RHS.  */
+  GIMPLE_TERNARY_RHS,	/* The expression is a ternary operation.  */
+  GIMPLE_BINARY_RHS,	/* The expression is a binary operation.  */
+  GIMPLE_UNARY_RHS,	/* The expression is a unary operation.  */
+  GIMPLE_SINGLE_RHS	/* The expression is a single object (an SSA
+			   name, a _DECL, a _REF, etc.  */
+};
 
 /* Specific flags for individual GIMPLE statements.  These flags are
    always stored in gimple_statement_base.subcode and they may only be
@@ -127,14 +133,6 @@ enum plf_mask {
     GF_PLF_1	= 1 << 0,
     GF_PLF_2	= 1 << 1
 };
-
-
-typedef gimple gimple_seq_node;
-
-/* For each block, the PHI nodes that need to be rewritten are stored into
-   these vectors.  */
-typedef vec<gimple> gimple_vec;
-
 
 /* Data structure definitions for GIMPLE tuples.  NOTE: word markers
    are for 64 bit hosts.  */
@@ -2119,6 +2117,9 @@ get_gimple_rhs_class (enum tree_code code)
   return (enum gimple_rhs_class) gimple_rhs_class_table[(int) code];
 }
 
+/* Determine if expression V is one of the valid expressions that can
+   be used on the RHS of GIMPLE assignments.  */
+
 static inline enum gimple_rhs_class
 get_gimple_rhs_class (Gimple::value v)
 {
@@ -2304,10 +2305,7 @@ gimple_assign_rhs_code (const_gimple gs)
      GIMPLE_SINGLE_RHS assigns we do not update that subcode to stay
      in sync when we rewrite stmts into SSA form or do SSA propagations.  */
   if (get_gimple_rhs_class (code) == GIMPLE_SINGLE_RHS)
-    {
-      Gimple::value ptr = gimple_assign_rhs1 (gs);
-      code = ptr->code ();
-    }
+    code = gimple_assign_rhs1 (gs)->code ();
 
   return code;
 }
@@ -2365,7 +2363,7 @@ gimple_assign_load_p (gimple gs)
   if (!gimple_assign_single_p (gs))
     return false;
   rhs = gimple_assign_rhs1 (gs);
-  if (rhs->code () == WITH_SIZE_EXPR)
+  if (is_a<Gimple::with_size_expr> (rhs))
     return true;
   rhs = get_base_address (rhs);
   return (is_a<Gimple::decl> (rhs) || is_a<Gimple::mem_ref> (rhs)
@@ -3035,7 +3033,8 @@ gimple_cond_false_p (const_gimple gs)
 /* Set the code, LHS and RHS of GIMPLE_COND STMT from CODE, LHS and RHS.  */
 
 static inline void
-gimple_cond_set_condition (gimple stmt, enum tree_code code, Gimple::value lhs, Gimple::value rhs)
+gimple_cond_set_condition (gimple stmt, enum tree_code code, Gimple::value lhs,
+			   Gimple::value rhs)
 {
   gimple_cond_set_code (stmt, code);
   gimple_cond_set_lhs (stmt, lhs);
@@ -3802,7 +3801,7 @@ gimple_phi_set_result (gimple gs, Gimple::value result)
 {
   gimple_statement_phi *phi_stmt = as_a <gimple_statement_phi> (gs);
   phi_stmt->result = result;
-  if (is_a<Gimple::ssa_name> (result))
+  if (result && is_a<Gimple::ssa_name> (result))
     as_a<Gimple::ssa_name>(result)->set_def_stmt (gs);
 }
 
@@ -3994,7 +3993,8 @@ static inline void
 gimple_switch_set_index (gimple gs, Gimple::value index)
 {
   GIMPLE_CHECK (gs, GIMPLE_SWITCH);
-  gcc_gimple_checking_assert (ssa_var_p (index) || is_a<Gimple::constant> (index));
+  gcc_gimple_checking_assert (ssa_var_p (index)
+			      || is_a<Gimple::constant> (index));
   gimple_set_op (gs, 0, index);
 }
 
@@ -4113,7 +4113,7 @@ gimple_debug_bind_set_value (gimple dbg, Gimple::value value)
 
 /* The second operand of a GIMPLE_DEBUG_BIND, when the value was
    optimized away.  */
-#define GIMPLE_DEBUG_BIND_NOVALUE Gimple::value() /* error_mark_node */
+#define GIMPLE_DEBUG_BIND_NOVALUE NULL_GIMPLE /* error_mark_node */
 
 /* Remove the value bound to the variable in a GIMPLE_DEBUG bind
    statement.  */

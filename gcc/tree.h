@@ -425,11 +425,9 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 
 /* Generate case for NOP_EXPR, CONVERT_EXPR.  */
 
-#ifndef CASE_CONVERT
 #define CASE_CONVERT						\
   case NOP_EXPR:						\
   case CONVERT_EXPR
-#endif
 
 /* Given an expression as a tree, strip any conversion that generates
    no instruction.  Accepts both tree and const_tree arguments since
