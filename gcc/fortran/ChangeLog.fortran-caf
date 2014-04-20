@@ -1,3 +1,9 @@
+2014-04-20  Tobias Burnus  <burnus@net-b.de>
+
+	* resolve.c (add_caf_get_intrinsic): Add check whether is is really
+	coindexed.
+	(resolve_allocate_expr): Remove remove_caf_get_intrinsic call.
+
 2014-04-13  Tobias Burnus  <burnus@net-b.de>
 
 	* trans-decl.c (gfc_trans_deferred_vars): Fix bug in

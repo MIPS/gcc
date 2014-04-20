@@ -4732,8 +4732,21 @@ static void
 add_caf_get_intrinsic (gfc_expr *e)
 {
   gfc_expr *wrapper, *tmp_expr;
-  gfc_expr *async = gfc_get_logical_expr (gfc_default_logical_kind, NULL,
-					  false);
+  gfc_expr *async;
+  gfc_ref *ref;
+  int n;
+
+  for (ref = e->ref; ref; ref = ref->next)
+    if (ref->type == REF_ARRAY && ref->u.ar.codimen > 0)
+      break;
+  if (ref == NULL)
+    return;
+
+  for (n = ref->u.ar.dimen; n < ref->u.ar.dimen + ref->u.ar.codimen; n++)
+    if (ref->u.ar.dimen_type[n] != DIMEN_ELEMENT)
+      return;
+
+  async = gfc_get_logical_expr (gfc_default_logical_kind, NULL, false);
   tmp_expr = XCNEW (gfc_expr);
   *tmp_expr = *e;
   wrapper = gfc_build_intrinsic_call (gfc_current_ns, GFC_ISYM_CAF_GET,
@@ -5045,7 +5058,7 @@ resolve_procedure:
     expression_rank (e);
 
   if (0 && t && gfc_option.coarray == GFC_FCOARRAY_LIB && gfc_is_coindexed (e))
-    add_caf_get_intrinsic(e);
+    add_caf_get_intrinsic (e);
 
   return t;
 }
@@ -6708,10 +6721,6 @@ resolve_allocate_expr (gfc_expr *e, gfc_code *code)
 
   if (!gfc_resolve_expr (e))
     goto failure;
-
-  if (e->expr_type == EXPR_FUNCTION && e->value.function.isym
-      && e->value.function.isym->id == GFC_ISYM_CAF_GET)
-    remove_caf_get_intrinsic (e);
 
   /* Make sure the expression is allocatable or a pointer.  If it is
      pointer, the next-to-last reference must be a pointer.  */

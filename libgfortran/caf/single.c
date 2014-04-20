@@ -345,6 +345,39 @@ _gfortran_caf_send_desc_scalar (caf_token_t token, size_t offset,
 
 
 void
+_gfortran_caf_co_sum (gfc_descriptor_t *source __attribute__ ((unused)),
+		      int result_image __attribute__ ((unused)),
+		      int *stat, char *errmsg __attribute__ ((unused)),
+		      int errmsg_len __attribute__ ((unused)))
+{
+  if (stat)
+    stat = 0;
+}
+
+void
+_gfortran_caf_co_min (gfc_descriptor_t *source __attribute__ ((unused)),
+		      int result_image __attribute__ ((unused)),
+		      int *stat, char *errmsg __attribute__ ((unused)),
+		      int src_len __attribute__ ((unused)),
+		      int errmsg_len __attribute__ ((unused)))
+{
+  if (stat)
+    stat = 0;
+}
+
+void
+_gfortran_caf_co_max (gfc_descriptor_t *source __attribute__ ((unused)),
+		      int result_image __attribute__ ((unused)),
+		      int *stat, char *errmsg __attribute__ ((unused)),
+		      int src_len __attribute__ ((unused)),
+		      int errmsg_len __attribute__ ((unused)))
+{
+  if (stat)
+    stat = 0;
+}
+
+
+void
 _gfortran_caf_sync_all (int *stat,
 			char *errmsg __attribute__ ((unused)),
 			int errmsg_len __attribute__ ((unused)))

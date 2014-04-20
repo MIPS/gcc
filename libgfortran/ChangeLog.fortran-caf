@@ -1,3 +1,10 @@
+2014-04-20  Tobias Burnus  <burnus@net-b.de>
+
+	* caf/libcaf.h (_gfortran_caf_co_sum, _gfortran_caf_co_min,
+	_gfortran_caf_co_max): New.
+	* caf/single.c (_gfortran_caf_co_sum, _gfortran_caf_co_min,
+	_gfortran_caf_co_max): New.
+
 2014-04-10  Tobias Burnus  <burnus@net-b.de>
 
 	* caf/libcaf.h (_gfortran_caf_get_desc): New.
