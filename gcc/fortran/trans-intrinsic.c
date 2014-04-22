@@ -954,8 +954,6 @@ caf_get_image_index (stmtblock_t *block, gfc_expr *e, tree desc)
 	tmp = fold_build2_loc (input_location, MINUS_EXPR,
 			       integer_type_node, se.expr,
 			       fold_convert(integer_type_node, lbound));
-	tmp = fold_build2_loc (input_location, PLUS_EXPR, integer_type_node,
-			       tmp, integer_one_node);
 	tmp = fold_build2_loc (input_location, MULT_EXPR, integer_type_node,
 			       extent, tmp);
 	img_idx = fold_build2_loc (input_location, PLUS_EXPR, integer_type_node,
@@ -977,8 +975,6 @@ caf_get_image_index (stmtblock_t *block, gfc_expr *e, tree desc)
 	lbound = fold_convert (integer_type_node, lbound);
 	tmp = fold_build2_loc (input_location, MINUS_EXPR,
 			       integer_type_node, se.expr, lbound);
-	tmp = fold_build2_loc (input_location, PLUS_EXPR, integer_type_node,
-			       tmp, integer_one_node);
 	tmp = fold_build2_loc (input_location, MULT_EXPR, integer_type_node,
 			       extent, tmp);
 	img_idx = fold_build2_loc (input_location, PLUS_EXPR, integer_type_node,
@@ -993,6 +989,8 @@ caf_get_image_index (stmtblock_t *block, gfc_expr *e, tree desc)
 				      extent, integer_one_node);
 	  }
       }
+  img_idx = fold_build2_loc (input_location, PLUS_EXPR, integer_type_node,
+			     img_idx, integer_one_node);
   return img_idx;
 }
 

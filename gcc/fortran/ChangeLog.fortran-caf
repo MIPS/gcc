@@ -1,3 +1,10 @@
+2014-04-22  Tobias Burnus  <burnus@net-b.de>
+
+	* trans-decl.c (gfc_build_builtin_function_decls): Mark
+	coarray's register function as DECL_IS_MALLOC.
+	* trans-intrinsic.c (caf_get_image_index): Fix calculation for
+	corank > 1.
+
 2014-04-20  Tobias Burnus  <burnus@net-b.de>
 
 	* resolve.c (add_caf_get_intrinsic): Add check whether is is really

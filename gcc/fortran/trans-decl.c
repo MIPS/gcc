@@ -3261,6 +3261,7 @@ gfc_build_builtin_function_decls (void)
 	get_identifier (PREFIX("caf_register")), "...WWW", pvoid_type_node, 6,
         size_type_node, integer_type_node, ppvoid_type_node, pint_type,
         pchar_type_node, integer_type_node);
+      DECL_IS_MALLOC (gfor_fndecl_caf_register) = 1;
 
       gfor_fndecl_caf_deregister = gfc_build_library_function_decl_with_spec (
 	get_identifier (PREFIX("caf_deregister")), ".WWW", void_type_node, 4,
