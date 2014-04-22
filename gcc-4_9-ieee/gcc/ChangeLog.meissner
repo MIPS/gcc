@@ -1,3 +1,8 @@
+2014-04-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 209662 (after gcc 4.9 release).
+	* REVISION: Update subversion id.
+
 2014-02-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 207860.

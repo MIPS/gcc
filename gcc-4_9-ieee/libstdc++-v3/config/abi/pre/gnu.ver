@@ -1056,12 +1056,6 @@ GLIBCXX_3.4.11 {
     _ZTISt12system_error;
     _ZTVSt12system_error;
     _ZNSt12system_errorD*Ev;
-    # Those template instantiations weren't exported on Solaris in GCC 4.6
-    # and aren't necessary for correct operation, so don't emit them now
-    # (PR libstdc++/54872).
-#if !defined(__sun__) && !defined(__svr4__)
-    _ZNSt12system_errorC*;
-#endif
 
     _ZNKSt4hashISt10error_codeEclES0_;
 
@@ -1589,6 +1583,20 @@ CXXABI_1.3.8 {
     __VLTChangePermission;
 
 } CXXABI_1.3.7;
+
+CXXABI_1.3.9 {
+
+    # typeinfo name for __int128, unsigned __int128 and __float128
+    _ZTS[gno];
+    _ZTSP[gno];
+    _ZTSPK[gno];
+
+    # typeinfo for __float128
+    _ZTIg;
+    _ZTIPg;
+    _ZTIPKg;
+
+} CXXABI_1.3.8;
 
 # Symbols in the support library (libsupc++) supporting transactional memory.
 CXXABI_TM_1 {

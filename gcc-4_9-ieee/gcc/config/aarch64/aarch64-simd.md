@@ -724,6 +724,31 @@
   DONE;
 })
 
+(define_expand "aarch64_lshr_simddi"
+  [(match_operand:DI 0 "register_operand" "=w")
+   (match_operand:DI 1 "register_operand" "w")
+   (match_operand:SI 2 "aarch64_shift_imm64_di" "")]
+  "TARGET_SIMD"
+  {
+    if (INTVAL (operands[2]) == 64)
+      emit_insn (gen_aarch64_ushr_simddi (operands[0], operands[1]));
+    else
+      emit_insn (gen_lshrdi3 (operands[0], operands[1], operands[2]));
+    DONE;
+  }
+)
+
+;; SIMD shift by 64.  This pattern is a special case as standard pattern does
+;; not handle NEON shifts by 64.
+(define_insn "aarch64_ushr_simddi"
+  [(set (match_operand:DI 0 "register_operand" "=w")
+        (unspec:DI
+          [(match_operand:DI 1 "register_operand" "w")] UNSPEC_USHR64))]
+  "TARGET_SIMD"
+  "ushr\t%d0, %d1, 64"
+  [(set_attr "type" "neon_shift_imm")]
+)
+
 (define_expand "vec_set<mode>"
   [(match_operand:VQ_S 0 "register_operand")
    (match_operand:<VEL> 1 "register_operand")
@@ -1427,7 +1452,7 @@
 )
 
 ;; Vector versions of the floating-point frint patterns.
-;; Expands to btrunc, ceil, floor, nearbyint, rint, round.
+;; Expands to btrunc, ceil, floor, nearbyint, rint, round, frintn.
 (define_insn "<frint_pattern><mode>2"
   [(set (match_operand:VDQF 0 "register_operand" "=w")
 	(unspec:VDQF [(match_operand:VDQF 1 "register_operand" "w")]
@@ -2234,6 +2259,15 @@
   DONE;
 })
 
+(define_expand "aarch64_reinterpretdf<mode>"
+  [(match_operand:DF 0 "register_operand" "")
+   (match_operand:VD_RE 1 "register_operand" "")]
+  "TARGET_SIMD"
+{
+  aarch64_simd_reinterpret (operands[0], operands[1]);
+  DONE;
+})
+
 (define_expand "aarch64_reinterpretv16qi<mode>"
   [(match_operand:V16QI 0 "register_operand" "")
    (match_operand:VQ 1 "register_operand" "")]
@@ -2585,9 +2619,9 @@
 ;; <su>q<absneg>
 
 (define_insn "aarch64_s<optab><mode>"
-  [(set (match_operand:VSDQ_I_BHSI 0 "register_operand" "=w")
-	(UNQOPS:VSDQ_I_BHSI
-	  (match_operand:VSDQ_I_BHSI 1 "register_operand" "w")))]
+  [(set (match_operand:VSDQ_I 0 "register_operand" "=w")
+	(UNQOPS:VSDQ_I
+	  (match_operand:VSDQ_I 1 "register_operand" "w")))]
   "TARGET_SIMD"
   "s<optab>\\t%<v>0<Vmtype>, %<v>1<Vmtype>"
   [(set_attr "type" "neon_<optab><q>")]
@@ -3390,24 +3424,44 @@
 	  )))
      (clobber (reg:CC CC_REGNUM))]
   "TARGET_SIMD"
-  "@
-  cm<n_optab>\t%d0, %d<cmp_1>, %d<cmp_2>
-  cm<optab>\t%d0, %d1, #0
-  #"
-  "reload_completed
-   /* We need to prevent the split from
-      happening in the 'w' constraint cases.  */
-   && GP_REGNUM_P (REGNO (operands[0]))
-   && GP_REGNUM_P (REGNO (operands[1]))"
-  [(const_int 0)]
+  "#"
+  "reload_completed"
+  [(set (match_operand:DI 0 "register_operand")
+	(neg:DI
+	  (COMPARISONS:DI
+	    (match_operand:DI 1 "register_operand")
+	    (match_operand:DI 2 "aarch64_simd_reg_or_zero")
+	  )))]
   {
-    enum machine_mode mode = SELECT_CC_MODE (<CMP>, operands[1], operands[2]);
-    rtx cc_reg = aarch64_gen_compare_reg (<CMP>, operands[1], operands[2]);
-    rtx comparison = gen_rtx_<CMP> (mode, operands[1], operands[2]);
-    emit_insn (gen_cstoredi_neg (operands[0], comparison, cc_reg));
-    DONE;
+    /* If we are in the general purpose register file,
+       we split to a sequence of comparison and store.  */
+    if (GP_REGNUM_P (REGNO (operands[0]))
+	&& GP_REGNUM_P (REGNO (operands[1])))
+      {
+	enum machine_mode mode = SELECT_CC_MODE (<CMP>, operands[1], operands[2]);
+	rtx cc_reg = aarch64_gen_compare_reg (<CMP>, operands[1], operands[2]);
+	rtx comparison = gen_rtx_<CMP> (mode, operands[1], operands[2]);
+	emit_insn (gen_cstoredi_neg (operands[0], comparison, cc_reg));
+	DONE;
+      }
+    /* Otherwise, we expand to a similar pattern which does not
+       clobber CC_REGNUM.  */
   }
   [(set_attr "type" "neon_compare, neon_compare_zero, multiple")]
+)
+
+(define_insn "*aarch64_cm<optab>di"
+  [(set (match_operand:DI 0 "register_operand" "=w,w")
+	(neg:DI
+	  (COMPARISONS:DI
+	    (match_operand:DI 1 "register_operand" "w,w")
+	    (match_operand:DI 2 "aarch64_simd_reg_or_zero" "w,ZDz")
+	  )))]
+  "TARGET_SIMD && reload_completed"
+  "@
+  cm<n_optab>\t%d0, %d<cmp_1>, %d<cmp_2>
+  cm<optab>\t%d0, %d1, #0"
+  [(set_attr "type" "neon_compare, neon_compare_zero")]
 )
 
 ;; cm(hs|hi)
@@ -3433,23 +3487,42 @@
 	  )))
     (clobber (reg:CC CC_REGNUM))]
   "TARGET_SIMD"
-  "@
-  cm<n_optab>\t%d0, %d<cmp_1>, %d<cmp_2>
-  #"
-  "reload_completed
-   /* We need to prevent the split from
-      happening in the 'w' constraint cases.  */
-   && GP_REGNUM_P (REGNO (operands[0]))
-   && GP_REGNUM_P (REGNO (operands[1]))"
-  [(const_int 0)]
+  "#"
+  "reload_completed"
+  [(set (match_operand:DI 0 "register_operand")
+	(neg:DI
+	  (UCOMPARISONS:DI
+	    (match_operand:DI 1 "register_operand")
+	    (match_operand:DI 2 "aarch64_simd_reg_or_zero")
+	  )))]
   {
-    enum machine_mode mode = CCmode;
-    rtx cc_reg = aarch64_gen_compare_reg (<CMP>, operands[1], operands[2]);
-    rtx comparison = gen_rtx_<CMP> (mode, operands[1], operands[2]);
-    emit_insn (gen_cstoredi_neg (operands[0], comparison, cc_reg));
-    DONE;
+    /* If we are in the general purpose register file,
+       we split to a sequence of comparison and store.  */
+    if (GP_REGNUM_P (REGNO (operands[0]))
+	&& GP_REGNUM_P (REGNO (operands[1])))
+      {
+	enum machine_mode mode = CCmode;
+	rtx cc_reg = aarch64_gen_compare_reg (<CMP>, operands[1], operands[2]);
+	rtx comparison = gen_rtx_<CMP> (mode, operands[1], operands[2]);
+	emit_insn (gen_cstoredi_neg (operands[0], comparison, cc_reg));
+	DONE;
+      }
+    /* Otherwise, we expand to a similar pattern which does not
+       clobber CC_REGNUM.  */
   }
-  [(set_attr "type" "neon_compare, neon_compare_zero")]
+  [(set_attr "type" "neon_compare,multiple")]
+)
+
+(define_insn "*aarch64_cm<optab>di"
+  [(set (match_operand:DI 0 "register_operand" "=w")
+	(neg:DI
+	  (UCOMPARISONS:DI
+	    (match_operand:DI 1 "register_operand" "w")
+	    (match_operand:DI 2 "aarch64_simd_reg_or_zero" "w")
+	  )))]
+  "TARGET_SIMD && reload_completed"
+  "cm<n_optab>\t%d0, %d<cmp_1>, %d<cmp_2>"
+  [(set_attr "type" "neon_compare")]
 )
 
 ;; cmtst
@@ -3477,23 +3550,44 @@
 	    (const_int 0))))
     (clobber (reg:CC CC_REGNUM))]
   "TARGET_SIMD"
-  "@
-  cmtst\t%d0, %d1, %d2
-  #"
-  "reload_completed
-   /* We need to prevent the split from
-      happening in the 'w' constraint cases.  */
-   && GP_REGNUM_P (REGNO (operands[0]))
-   && GP_REGNUM_P (REGNO (operands[1]))"
-  [(const_int 0)]
+  "#"
+  "reload_completed"
+  [(set (match_operand:DI 0 "register_operand")
+	(neg:DI
+	  (ne:DI
+	    (and:DI
+	      (match_operand:DI 1 "register_operand")
+	      (match_operand:DI 2 "register_operand"))
+	    (const_int 0))))]
   {
-    rtx and_tree = gen_rtx_AND (DImode, operands[1], operands[2]);
-    enum machine_mode mode = SELECT_CC_MODE (NE, and_tree, const0_rtx);
-    rtx cc_reg = aarch64_gen_compare_reg (NE, and_tree, const0_rtx);
-    rtx comparison = gen_rtx_NE (mode, and_tree, const0_rtx);
-    emit_insn (gen_cstoredi_neg (operands[0], comparison, cc_reg));
-    DONE;
+    /* If we are in the general purpose register file,
+       we split to a sequence of comparison and store.  */
+    if (GP_REGNUM_P (REGNO (operands[0]))
+	&& GP_REGNUM_P (REGNO (operands[1])))
+      {
+	rtx and_tree = gen_rtx_AND (DImode, operands[1], operands[2]);
+	enum machine_mode mode = SELECT_CC_MODE (NE, and_tree, const0_rtx);
+	rtx cc_reg = aarch64_gen_compare_reg (NE, and_tree, const0_rtx);
+	rtx comparison = gen_rtx_NE (mode, and_tree, const0_rtx);
+	emit_insn (gen_cstoredi_neg (operands[0], comparison, cc_reg));
+	DONE;
+      }
+    /* Otherwise, we expand to a similar pattern which does not
+       clobber CC_REGNUM.  */
   }
+  [(set_attr "type" "neon_tst,multiple")]
+)
+
+(define_insn "*aarch64_cmtstdi"
+  [(set (match_operand:DI 0 "register_operand" "=w")
+	(neg:DI
+	  (ne:DI
+	    (and:DI
+	      (match_operand:DI 1 "register_operand" "w")
+	      (match_operand:DI 2 "register_operand" "w"))
+	    (const_int 0))))]
+  "TARGET_SIMD"
+  "cmtst\t%d0, %d1, %d2"
   [(set_attr "type" "neon_tst")]
 )
 
@@ -4225,7 +4319,7 @@
          CRYPTO_AES))]
   "TARGET_SIMD && TARGET_CRYPTO"
   "aes<aes_op>\\t%0.16b, %2.16b"
-  [(set_attr "type" "crypto_aes")]
+  [(set_attr "type" "crypto_aese")]
 )
 
 (define_insn "aarch64_crypto_aes<aesmc_op>v16qi"
@@ -4234,7 +4328,7 @@
 	 CRYPTO_AESMC))]
   "TARGET_SIMD && TARGET_CRYPTO"
   "aes<aesmc_op>\\t%0.16b, %1.16b"
-  [(set_attr "type" "crypto_aes")]
+  [(set_attr "type" "crypto_aesmc")]
 )
 
 ;; sha1

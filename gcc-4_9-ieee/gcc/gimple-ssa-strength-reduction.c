@@ -3001,10 +3001,10 @@ ncd_with_phi (slsr_cand_t c, double_int incr, gimple phi,
 	    {
 	      slsr_cand_t arg_cand = base_cand_from_table (arg);
 	      double_int diff = arg_cand->index - basis->index;
+	      basic_block pred = gimple_phi_arg_edge (phi, i)->src;
 
 	      if ((incr == diff) || (!address_arithmetic_p && incr == -diff))
-		ncd = ncd_for_two_cands (ncd, gimple_bb (arg_cand->cand_stmt),
-					 *where, arg_cand, where);
+		ncd = ncd_for_two_cands (ncd, pred, *where, NULL, where);
 	    }
 	}
     }
@@ -3594,8 +3594,37 @@ analyze_candidates_and_replace (void)
     }
 }
 
-static unsigned
-execute_strength_reduction (void)
+namespace {
+
+const pass_data pass_data_strength_reduction =
+{
+  GIMPLE_PASS, /* type */
+  "slsr", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_execute */
+  TV_GIMPLE_SLSR, /* tv_id */
+  ( PROP_cfg | PROP_ssa ), /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  TODO_verify_ssa, /* todo_flags_finish */
+};
+
+class pass_strength_reduction : public gimple_opt_pass
+{
+public:
+  pass_strength_reduction (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_strength_reduction, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  virtual bool gate (function *) { return flag_tree_slsr; }
+  virtual unsigned int execute (function *);
+
+}; // class pass_strength_reduction
+
+unsigned
+pass_strength_reduction::execute (function *fun)
 {
   /* Create the obstack where candidates will reside.  */
   gcc_obstack_init (&cand_obstack);
@@ -3622,7 +3651,7 @@ execute_strength_reduction (void)
   /* Walk the CFG in predominator order looking for strength reduction
      candidates.  */
   find_candidates_dom_walker (CDI_DOMINATORS)
-    .walk (cfun->cfg->x_entry_block_ptr);
+    .walk (fun->cfg->x_entry_block_ptr);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -3645,42 +3674,6 @@ execute_strength_reduction (void)
 
   return 0;
 }
-
-static bool
-gate_strength_reduction (void)
-{
-  return flag_tree_slsr;
-}
-
-namespace {
-
-const pass_data pass_data_strength_reduction =
-{
-  GIMPLE_PASS, /* type */
-  "slsr", /* name */
-  OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
-  true, /* has_execute */
-  TV_GIMPLE_SLSR, /* tv_id */
-  ( PROP_cfg | PROP_ssa ), /* properties_required */
-  0, /* properties_provided */
-  0, /* properties_destroyed */
-  0, /* todo_flags_start */
-  TODO_verify_ssa, /* todo_flags_finish */
-};
-
-class pass_strength_reduction : public gimple_opt_pass
-{
-public:
-  pass_strength_reduction (gcc::context *ctxt)
-    : gimple_opt_pass (pass_data_strength_reduction, ctxt)
-  {}
-
-  /* opt_pass methods: */
-  bool gate () { return gate_strength_reduction (); }
-  unsigned int execute () { return execute_strength_reduction (); }
-
-}; // class pass_strength_reduction
 
 } // anon namespace
 

@@ -100,12 +100,15 @@ c-common.h, not after.
       TARGET_EXPR_DIRECT_INIT_P (in TARGET_EXPR)
       FNDECL_USED_AUTO (in FUNCTION_DECL)
       DECLTYPE_FOR_LAMBDA_PROXY (in DECLTYPE_TYPE)
+      REF_PARENTHESIZED_P (in COMPONENT_REF, SCOPE_REF)
+      AGGR_INIT_ZERO_FIRST (in AGGR_INIT_EXPR)
    3: (TREE_REFERENCE_EXPR) (in NON_LVALUE_EXPR) (commented-out).
       ICS_BAD_FLAG (in _CONV)
       FN_TRY_BLOCK_P (in TRY_BLOCK)
       IDENTIFIER_CTOR_OR_DTOR_P (in IDENTIFIER_NODE)
       BIND_EXPR_BODY_BLOCK (in BIND_EXPR)
       DECL_NON_TRIVIALLY_INITIALIZED_P (in VAR_DECL)
+      CALL_EXPR_LIST_INIT_P (in CALL_EXPR, AGGR_INIT_EXPR)
    4: TREE_HAS_CONSTRUCTOR (in INDIRECT_REF, SAVE_EXPR, CONSTRUCTOR,
 	  or FIELD_DECL).
       IDENTIFIER_TYPENAME_P (in IDENTIFIER_NODE)
@@ -1249,7 +1252,6 @@ extern bool statement_code_p[MAX_TREE_CODES];
 enum languages { lang_c, lang_cplusplus, lang_java };
 
 /* Macros to make error reporting functions' lives easier.  */
-#define TYPE_IDENTIFIER(NODE) (DECL_NAME (TYPE_NAME (NODE)))
 #define TYPE_LINKAGE_IDENTIFIER(NODE) \
   (TYPE_IDENTIFIER (TYPE_MAIN_VARIANT (NODE)))
 #define TYPE_NAME_STRING(NODE) (IDENTIFIER_POINTER (TYPE_IDENTIFIER (NODE)))
@@ -3025,11 +3027,21 @@ extern void decl_shadowed_for_var_insert (tree, tree);
    should be performed at instantiation time.  */
 #define KOENIG_LOOKUP_P(NODE) TREE_LANG_FLAG_0 (CALL_EXPR_CHECK (NODE))
 
+/* True if CALL_EXPR expresses list-initialization of an object.  */
+#define CALL_EXPR_LIST_INIT_P(NODE) \
+  TREE_LANG_FLAG_3 (TREE_CHECK2 ((NODE),CALL_EXPR,AGGR_INIT_EXPR))
+
 /* Indicates whether a string literal has been parenthesized. Such
    usages are disallowed in certain circumstances.  */
 
 #define PAREN_STRING_LITERAL_P(NODE) \
   TREE_LANG_FLAG_0 (STRING_CST_CHECK (NODE))
+
+/* Indicates whether a COMPONENT_REF has been parenthesized.  Currently
+   only set some of the time in C++14 mode.  */
+
+#define REF_PARENTHESIZED_P(NODE) \
+  TREE_LANG_FLAG_2 (COMPONENT_REF_CHECK (NODE))
 
 /* Nonzero if this AGGR_INIT_EXPR provides for initialization via a
    constructor call, rather than an ordinary function call.  */
@@ -3222,7 +3234,7 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 
 /* Nonzero if DECL was declared with '= delete'.  */
 #define DECL_DELETED_FN(DECL) \
-  (DECL_LANG_SPECIFIC (FUNCTION_DECL_CHECK (DECL))->u.base.threadprivate_or_deleted_p)
+  (LANG_DECL_FN_CHECK (DECL)->min.base.threadprivate_or_deleted_p)
 
 /* Nonzero if DECL was declared with '= default' (maybe implicitly).  */
 #define DECL_DEFAULTED_FN(DECL) \
@@ -5313,12 +5325,15 @@ extern tree coerce_delete_type			(tree);
 extern void comdat_linkage			(tree);
 extern void determine_visibility		(tree);
 extern void constrain_class_visibility		(tree);
+extern void reset_type_linkage			(tree);
+extern void tentative_decl_linkage		(tree);
 extern void import_export_decl			(tree);
 extern tree build_cleanup			(tree);
 extern tree build_offset_ref_call_from_tree	(tree, vec<tree, va_gc> **,
 						 tsubst_flags_t);
 extern bool decl_constant_var_p			(tree);
 extern bool decl_maybe_constant_var_p		(tree);
+extern void no_linkage_error			(tree);
 extern void check_default_args			(tree);
 extern bool mark_used				(tree);
 extern bool mark_used			        (tree, tsubst_flags_t);
@@ -5466,6 +5481,7 @@ extern tree get_copy_ctor			(tree, tsubst_flags_t);
 extern tree get_copy_assign			(tree);
 extern tree get_default_ctor			(tree);
 extern tree get_dtor				(tree, tsubst_flags_t);
+extern tree get_inherited_ctor			(tree);
 extern tree locate_ctor				(tree);
 extern tree implicitly_declare_fn               (special_function_kind, tree,
 						 bool, tree, tree);

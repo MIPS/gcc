@@ -431,8 +431,8 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_1_PLUS, OPT_fguess_branch_probability, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_fcprop_registers, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_fforward_propagate, NULL, 1 },
-    { OPT_LEVELS_1_PLUS, OPT_fif_conversion, NULL, 1 },
-    { OPT_LEVELS_1_PLUS, OPT_fif_conversion2, NULL, 1 },
+    { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_fif_conversion, NULL, 1 },
+    { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_fif_conversion2, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_fipa_pure_const, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_fipa_reference, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_fipa_profile, NULL, 1 },
@@ -496,7 +496,6 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_2_PLUS, OPT_fvect_cost_model_, NULL, VECT_COST_MODEL_CHEAP },
     { OPT_LEVELS_2_PLUS_SPEED_ONLY, OPT_foptimize_strlen, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fhoist_adjacent_loads, NULL, 1 },
-    { OPT_LEVELS_2_PLUS, OPT_fipa_sem_equality, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fisolate_erroneous_paths_dereference, NULL, 1 },
 
     /* -O3 optimizations.  */
@@ -645,7 +644,9 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
 {
   enum unwind_info_type ui_except;
 
-  if (opts->x_dump_base_name && ! IS_ABSOLUTE_PATH (opts->x_dump_base_name))
+  if (opts->x_dump_base_name
+      && ! IS_ABSOLUTE_PATH (opts->x_dump_base_name)
+      && ! opts->x_dump_base_name_prefixed)
     {
       /* First try to make OPTS->X_DUMP_BASE_NAME relative to the
 	 OPTS->X_DUMP_DIR_NAME directory.  Then try to make
@@ -675,6 +676,7 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
 	      opts->x_dump_base_name = new_dump_base_name;
 	    }
 	}
+	opts->x_dump_base_name_prefixed = true;
     }
 
   /* Handle related options for unit-at-a-time, toplevel-reorder, and
@@ -821,14 +823,6 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
             error_at (loc, "-fno-fat-lto-objects are supported only with linker plugin");
 	  opts->x_flag_fat_lto_objects = 1;
 	}
-    }
-  if ((opts->x_flag_lto_partition_balanced != 0) + (opts->x_flag_lto_partition_1to1 != 0)
-       + (opts->x_flag_lto_partition_none != 0) >= 1)
-    {
-      if ((opts->x_flag_lto_partition_balanced != 0)
-	   + (opts->x_flag_lto_partition_1to1 != 0)
-	   + (opts->x_flag_lto_partition_none != 0) > 1)
-	error_at (loc, "only one -flto-partition value can be specified");
     }
 
   /* We initialize opts->x_flag_split_stack to -1 so that targets can set a
@@ -1738,7 +1732,7 @@ common_handle_option (struct gcc_options *opts,
       /* FIXME: Instrumentation we insert makes ipa-reference bitmaps
 	 quadratic.  Disable the pass until better memory representation
 	 is done.  */
-      if (!opts_set->x_flag_ipa_reference && opts->x_in_lto_p)
+      if (!opts_set->x_flag_ipa_reference)
         opts->x_flag_ipa_reference = false;
       break;
 

@@ -1,7 +1,6 @@
 /* { dg-do run } */
 /* { dg-options "-fsanitize=undefined" } */
 /* { dg-shouldfail "ubsan" } */
-/* { dg-skip-if "" { *-*-* } { "-flto" } { "" } } */
 
 int
 main (void)
@@ -12,4 +11,4 @@ main (void)
   return 0;
 }
 
-/* { dg-output "store to null pointer of type 'float'(\n|\r\n|\r)" } */
+/* { dg-output "store to null pointer of type 'float'\[^\n\r]*(\n|\r\n|\r)" } */

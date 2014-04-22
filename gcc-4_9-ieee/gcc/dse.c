@@ -608,11 +608,6 @@ static bitmap kill_on_calls;
 
 /* The number of bits used in the global bitmaps.  */
 static unsigned int current_position;
-
-
-static bool gate_dse1 (void);
-static bool gate_dse2 (void);
-
 
 /*----------------------------------------------------------------------------
    Zeroth step.
@@ -2470,16 +2465,6 @@ scan_insn (bb_info_t bb_info, rtx insn)
       return;
     }
 
-  /* Cselib clears the table for this case, so we have to essentially
-     do the same.  */
-  if (NONJUMP_INSN_P (insn)
-      && volatile_insn_p (PATTERN (insn)))
-    {
-      add_wild_read (bb_info);
-      insn_info->cannot_delete = true;
-      return;
-    }
-
   /* Look at all of the uses in the insn.  */
   note_uses (&PATTERN (insn), check_mem_read_use, bb_info);
 
@@ -3722,20 +3707,6 @@ rest_of_handle_dse (void)
   return 0;
 }
 
-static bool
-gate_dse1 (void)
-{
-  return optimize > 0 && flag_dse
-    && dbg_cnt (dse1);
-}
-
-static bool
-gate_dse2 (void)
-{
-  return optimize > 0 && flag_dse
-    && dbg_cnt (dse2);
-}
-
 namespace {
 
 const pass_data pass_data_rtl_dse1 =
@@ -3743,7 +3714,6 @@ const pass_data pass_data_rtl_dse1 =
   RTL_PASS, /* type */
   "dse1", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
   true, /* has_execute */
   TV_DSE1, /* tv_id */
   0, /* properties_required */
@@ -3761,8 +3731,12 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_dse1 (); }
-  unsigned int execute () { return rest_of_handle_dse (); }
+  virtual bool gate (function *)
+    {
+      return optimize > 0 && flag_dse && dbg_cnt (dse1);
+    }
+
+  virtual unsigned int execute (function *) { return rest_of_handle_dse (); }
 
 }; // class pass_rtl_dse1
 
@@ -3781,7 +3755,6 @@ const pass_data pass_data_rtl_dse2 =
   RTL_PASS, /* type */
   "dse2", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
   true, /* has_execute */
   TV_DSE2, /* tv_id */
   0, /* properties_required */
@@ -3799,8 +3772,12 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_dse2 (); }
-  unsigned int execute () { return rest_of_handle_dse (); }
+  virtual bool gate (function *)
+    {
+      return optimize > 0 && flag_dse && dbg_cnt (dse2);
+    }
+
+  virtual unsigned int execute (function *) { return rest_of_handle_dse (); }
 
 }; // class pass_rtl_dse2
 

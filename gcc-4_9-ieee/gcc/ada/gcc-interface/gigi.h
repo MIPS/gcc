@@ -6,7 +6,7 @@
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *          Copyright (C) 1992-2013, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2014, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -209,6 +209,12 @@ extern tree create_concat_name (Entity_Id gnat_entity, const char *suffix);
    string, return a new IDENTIFIER_NODE that is the concatenation of
    the name followed by "___" and the specified suffix.  */
 extern tree concat_name (tree gnu_name, const char *suffix);
+
+/* Initialize data structures of the decl.c module.  */
+extern void init_gnat_decl (void);
+
+/* Destroy data structures of the decl.c module.  */
+extern void destroy_gnat_decl (void);
 
 /* Highest number in the front-end node table.  */
 extern int max_gnat_nodes;
@@ -1044,7 +1050,7 @@ extern Nat get_target_double_scalar_alignment (void);
 /* This function is called by the front-end to enumerate all the supported
    modes for the machine, as well as some predefined C types.  */
 extern void enumerate_modes (void (*f) (const char *, int, int, int, int, int,
-					int));
+					int, int));
 
 #ifdef __cplusplus
 }

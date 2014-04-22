@@ -3469,7 +3469,7 @@ c_common_fixed_point_type_for_size (unsigned int ibit, unsigned int fbit,
 
 /* Used for communication between c_common_type_for_mode and
    c_register_builtin_type.  */
-static GTY(()) tree registered_builtin_types;
+tree registered_builtin_types;
 
 /* Return a data type that has machine mode MODE.
    If the mode is an integer,
@@ -4218,8 +4218,7 @@ shorten_compare (location_t loc, tree *op0_ptr, tree *op1_ptr,
 	  type = c_common_unsigned_type (type);
 	}
 
-      if (TREE_CODE (primop0) != INTEGER_CST
-	  && c_inhibit_evaluation_warnings == 0)
+      if (TREE_CODE (primop0) != INTEGER_CST)
 	{
 	  if (val == truthvalue_false_node)
 	    warning_at (loc, OPT_Wtype_limits,
@@ -4299,7 +4298,6 @@ shorten_compare (location_t loc, tree *op0_ptr, tree *op1_ptr,
 	     warning.  */
 	  bool warn = 
 	    warn_type_limits && !in_system_header_at (loc)
-	    && c_inhibit_evaluation_warnings == 0
 	    && !(TREE_CODE (primop0) == INTEGER_CST
 		 && !TREE_OVERFLOW (convert (c_common_signed_type (type),
 					     primop0)))
@@ -5610,13 +5608,13 @@ c_common_nodes_and_builtins (void)
     uint8_type_node =
       TREE_TYPE (identifier_global_value (c_get_ident (UINT8_TYPE)));
   if (UINT16_TYPE)
-    c_uint16_type_node =
+    c_uint16_type_node = uint16_type_node =
       TREE_TYPE (identifier_global_value (c_get_ident (UINT16_TYPE)));
   if (UINT32_TYPE)
-    c_uint32_type_node =
+    c_uint32_type_node = uint32_type_node =
       TREE_TYPE (identifier_global_value (c_get_ident (UINT32_TYPE)));
   if (UINT64_TYPE)
-    c_uint64_type_node =
+    c_uint64_type_node = uint64_type_node =
       TREE_TYPE (identifier_global_value (c_get_ident (UINT64_TYPE)));
   if (INT_LEAST8_TYPE)
     int_least8_type_node =
@@ -10204,6 +10202,13 @@ sync_resolve_size (tree function, vec<tree, va_gc> *params)
     }
 
   type = TREE_TYPE ((*params)[0]);
+  if (TREE_CODE (type) == ARRAY_TYPE)
+    {
+      /* Force array-to-pointer decay for C++.  */
+      gcc_assert (c_dialect_cxx());
+      (*params)[0] = default_conversion ((*params)[0]);
+      type = TREE_TYPE ((*params)[0]);
+    }
   if (TREE_CODE (type) != POINTER_TYPE)
     goto incompatible;
 
@@ -10355,6 +10360,13 @@ get_atomic_generic_size (location_t loc, tree function,
 
   /* Get type of first parameter, and determine its size.  */
   type_0 = TREE_TYPE ((*params)[0]);
+  if (TREE_CODE (type_0) == ARRAY_TYPE)
+    {
+      /* Force array-to-pointer decay for C++.  */
+      gcc_assert (c_dialect_cxx());
+      (*params)[0] = default_conversion ((*params)[0]);
+      type_0 = TREE_TYPE ((*params)[0]);
+    }
   if (TREE_CODE (type_0) != POINTER_TYPE || VOID_TYPE_P (TREE_TYPE (type_0)))
     {
       error_at (loc, "argument 1 of %qE must be a non-void pointer type",
@@ -10455,6 +10467,7 @@ add_atomic_size_parameter (unsigned n, location_t loc, tree function,
 
       len = params->length ();
       vec_alloc (v, len + 1);
+      v->quick_push (build_int_cst (size_type_node, n));
       for (z = 0; z < len; z++)
 	v->quick_push ((*params)[z]);
       f = build_function_call_vec (loc, vNULL, function, v, NULL);
@@ -11771,8 +11784,21 @@ convert_vector_to_pointer_for_subscript (location_t loc,
 
       c_common_mark_addressable_vec (*vecp);
       type = build_qualified_type (TREE_TYPE (type), TYPE_QUALS (type));
-      type = build_pointer_type (type);
       type1 = build_pointer_type (TREE_TYPE (*vecp));
+      bool ref_all = TYPE_REF_CAN_ALIAS_ALL (type1);
+      if (!ref_all
+	  && !DECL_P (*vecp))
+	{
+	  /* If the original vector isn't declared may_alias and it
+	     isn't a bare vector look if the subscripting would
+	     alias the vector we subscript, and if not, force ref-all.  */
+	  alias_set_type vecset = get_alias_set (*vecp);
+	  alias_set_type sset = get_alias_set (type);
+	  if (!alias_sets_must_conflict_p (sset, vecset)
+	      && !alias_set_subset_of (sset, vecset))
+	    ref_all = true;
+	}
+      type = build_pointer_type_for_mode (type, ptr_mode, ref_all);
       *vecp = build1 (ADDR_EXPR, type1, *vecp);
       *vecp = convert (type, *vecp);
     }

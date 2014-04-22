@@ -217,7 +217,7 @@ __extension__
 #endif
 static const struct tune_params generic_tunings =
 {
-  &generic_extra_costs,
+  &cortexa57_extra_costs,
   &generic_addrcost_table,
   &generic_regmove_cost,
   &generic_vector_cost,
@@ -314,10 +314,6 @@ static GTY(()) int gty_dummy;
 
 #define AARCH64_NUM_BITMASKS  5334
 static unsigned HOST_WIDE_INT aarch64_bitmasks[AARCH64_NUM_BITMASKS];
-
-/* Did we set flag_omit_frame_pointer just so
-   aarch64_frame_pointer_required would be called? */
-static bool faked_omit_frame_pointer;
 
 typedef enum aarch64_cond_code
 {
@@ -640,22 +636,58 @@ aarch64_load_symref_appropriately (rtx dest, rtx imm,
 
     case SYMBOL_SMALL_TLSDESC:
       {
-	rtx x0 = gen_rtx_REG (Pmode, R0_REGNUM);
+	enum machine_mode mode = GET_MODE (dest);
+	rtx x0 = gen_rtx_REG (mode, R0_REGNUM);
 	rtx tp;
 
-	emit_insn (gen_tlsdesc_small (imm));
+	gcc_assert (mode == Pmode || mode == ptr_mode);
+
+	/* In ILP32, the got entry is always of SImode size.  Unlike
+	   small GOT, the dest is fixed at reg 0.  */
+	if (TARGET_ILP32)
+	  emit_insn (gen_tlsdesc_small_si (imm));
+	else
+	  emit_insn (gen_tlsdesc_small_di (imm));
 	tp = aarch64_load_tp (NULL);
-	emit_insn (gen_rtx_SET (Pmode, dest, gen_rtx_PLUS (Pmode, tp, x0)));
+
+	if (mode != Pmode)
+	  tp = gen_lowpart (mode, tp);
+
+	emit_insn (gen_rtx_SET (mode, dest, gen_rtx_PLUS (mode, tp, x0)));
 	set_unique_reg_note (get_last_insn (), REG_EQUIV, imm);
 	return;
       }
 
     case SYMBOL_SMALL_GOTTPREL:
       {
-	rtx tmp_reg = gen_reg_rtx (Pmode);
+	/* In ILP32, the mode of dest can be either SImode or DImode,
+	   while the got entry is always of SImode size.  The mode of
+	   dest depends on how dest is used: if dest is assigned to a
+	   pointer (e.g. in the memory), it has SImode; it may have
+	   DImode if dest is dereferenced to access the memeory.
+	   This is why we have to handle three different tlsie_small
+	   patterns here (two patterns for ILP32).  */
+	enum machine_mode mode = GET_MODE (dest);
+	rtx tmp_reg = gen_reg_rtx (mode);
 	rtx tp = aarch64_load_tp (NULL);
-	emit_insn (gen_tlsie_small (tmp_reg, imm));
-	emit_insn (gen_rtx_SET (Pmode, dest, gen_rtx_PLUS (Pmode, tp, tmp_reg)));
+
+	if (mode == ptr_mode)
+	  {
+	    if (mode == DImode)
+	      emit_insn (gen_tlsie_small_di (tmp_reg, imm));
+	    else
+	      {
+		emit_insn (gen_tlsie_small_si (tmp_reg, imm));
+		tp = gen_lowpart (mode, tp);
+	      }
+	  }
+	else
+	  {
+	    gcc_assert (mode == Pmode);
+	    emit_insn (gen_tlsie_small_sidi (tmp_reg, imm));
+	  }
+
+	emit_insn (gen_rtx_SET (mode, dest, gen_rtx_PLUS (mode, tp, tmp_reg)));
 	set_unique_reg_note (get_last_insn (), REG_EQUIV, imm);
 	return;
       }
@@ -1197,14 +1229,10 @@ aarch64_pass_by_reference (cumulative_args_t pcum ATTRIBUTE_UNUSED,
   size = (mode == BLKmode && type)
     ? int_size_in_bytes (type) : (int) GET_MODE_SIZE (mode);
 
-  if (type)
+  /* Aggregates are passed by reference based on their size.  */
+  if (type && AGGREGATE_TYPE_P (type))
     {
-      /* Arrays always passed by reference.  */
-      if (TREE_CODE (type) == ARRAY_TYPE)
-	return true;
-      /* Other aggregates based on their size.  */
-      if (AGGREGATE_TYPE_P (type))
-	size = int_size_in_bytes (type);
+      size = int_size_in_bytes (type);
     }
 
   /* Variable sized arguments are always returned by reference.  */
@@ -1698,17 +1726,15 @@ aarch64_frame_pointer_required (void)
   if (cfun->calls_alloca)
     return true;
 
-  /* We may have turned flag_omit_frame_pointer on in order to have this
-     function called; if we did, we also set the 'faked_omit_frame_pointer' flag
-     and we'll check it here.
-     If we really did set flag_omit_frame_pointer normally, then we return false
-     (no frame pointer required) in all cases.  */
+  /* In aarch64_override_options_after_change
+     flag_omit_leaf_frame_pointer turns off the frame pointer by
+     default.  Turn it back on now if we've not got a leaf
+     function.  */
+  if (flag_omit_leaf_frame_pointer
+      && (!crtl->is_leaf || df_regs_ever_live_p (LR_REGNUM)))
+    return true;
 
-  if (flag_omit_frame_pointer && !faked_omit_frame_pointer)
-    return false;
-  else if (flag_omit_leaf_frame_pointer)
-    return !crtl->is_leaf || df_regs_ever_live_p (LR_REGNUM);
-  return true;
+  return false;
 }
 
 /* Mark the registers that need to be saved by the callee and calculate
@@ -1722,8 +1748,6 @@ aarch64_layout_frame (void)
 
   if (reload_completed && cfun->machine->frame.laid_out)
     return;
-
-  cfun->machine->frame.fp_lr_offset = 0;
 
   /* First mark all the registers that really need to be saved...  */
   for (regno = R0_REGNUM; regno <= R30_REGNUM; regno++)
@@ -1774,14 +1798,12 @@ aarch64_layout_frame (void)
     {
       cfun->machine->frame.reg_offset[R29_REGNUM] = offset;
       offset += UNITS_PER_WORD;
-      cfun->machine->frame.fp_lr_offset = UNITS_PER_WORD;
     }
 
   if (cfun->machine->frame.reg_offset[R30_REGNUM] != -1)
     {
       cfun->machine->frame.reg_offset[R30_REGNUM] = offset;
       offset += UNITS_PER_WORD;
-      cfun->machine->frame.fp_lr_offset += UNITS_PER_WORD;
     }
 
   cfun->machine->frame.padding0 =
@@ -1998,18 +2020,21 @@ aarch64_save_or_restore_callee_save_registers (HOST_WIDE_INT offset,
 	|  callee-allocated save area   |
 	|  for register varargs         |
 	|                               |
-	+-------------------------------+
+	+-------------------------------+ <-- frame_pointer_rtx
 	|                               |
 	|  local variables              |
 	|                               |
-	+-------------------------------+ <-- frame_pointer_rtx
-	|                               |
-	|  callee-saved registers       |
-	|                               |
 	+-------------------------------+
-	|  LR'                          |
-	+-------------------------------+
-	|  FP'                          |
+	|  padding0                     | \
+	+-------------------------------+  |
+	|                               |  |
+	|                               |  |
+	|  callee-saved registers       |  | frame.saved_regs_size
+	|                               |  |
+	+-------------------------------+  |
+	|  LR'                          |  |
+	+-------------------------------+  |
+	|  FP'                          | /
       P +-------------------------------+ <-- hard_frame_pointer_rtx
 	|  dynamic allocation           |
 	+-------------------------------+
@@ -3203,6 +3228,9 @@ aarch64_classify_address (struct aarch64_address_info *info,
 		}
 	      else if (SYMBOL_REF_DECL (sym))
 		align = DECL_ALIGN (SYMBOL_REF_DECL (sym));
+	      else if (SYMBOL_REF_HAS_BLOCK_INFO_P (sym)
+		       && SYMBOL_REF_BLOCK (sym) != NULL)
+		align = SYMBOL_REF_BLOCK (sym)->alignment;
 	      else
 		align = BITS_PER_UNIT;
 
@@ -3840,34 +3868,34 @@ aarch64_print_operand_address (FILE *f, rtx x)
 	if (addr.offset == const0_rtx)
 	  asm_fprintf (f, "[%s]", reg_names [REGNO (addr.base)]);
 	else
-	  asm_fprintf (f, "[%s,%wd]", reg_names [REGNO (addr.base)],
+	  asm_fprintf (f, "[%s, %wd]", reg_names [REGNO (addr.base)],
 		       INTVAL (addr.offset));
 	return;
 
       case ADDRESS_REG_REG:
 	if (addr.shift == 0)
-	  asm_fprintf (f, "[%s,%s]", reg_names [REGNO (addr.base)],
+	  asm_fprintf (f, "[%s, %s]", reg_names [REGNO (addr.base)],
 		       reg_names [REGNO (addr.offset)]);
 	else
-	  asm_fprintf (f, "[%s,%s,lsl %u]", reg_names [REGNO (addr.base)],
+	  asm_fprintf (f, "[%s, %s, lsl %u]", reg_names [REGNO (addr.base)],
 		       reg_names [REGNO (addr.offset)], addr.shift);
 	return;
 
       case ADDRESS_REG_UXTW:
 	if (addr.shift == 0)
-	  asm_fprintf (f, "[%s,w%d,uxtw]", reg_names [REGNO (addr.base)],
+	  asm_fprintf (f, "[%s, w%d, uxtw]", reg_names [REGNO (addr.base)],
 		       REGNO (addr.offset) - R0_REGNUM);
 	else
-	  asm_fprintf (f, "[%s,w%d,uxtw %u]", reg_names [REGNO (addr.base)],
+	  asm_fprintf (f, "[%s, w%d, uxtw %u]", reg_names [REGNO (addr.base)],
 		       REGNO (addr.offset) - R0_REGNUM, addr.shift);
 	return;
 
       case ADDRESS_REG_SXTW:
 	if (addr.shift == 0)
-	  asm_fprintf (f, "[%s,w%d,sxtw]", reg_names [REGNO (addr.base)],
+	  asm_fprintf (f, "[%s, w%d, sxtw]", reg_names [REGNO (addr.base)],
 		       REGNO (addr.offset) - R0_REGNUM);
 	else
-	  asm_fprintf (f, "[%s,w%d,sxtw %u]", reg_names [REGNO (addr.base)],
+	  asm_fprintf (f, "[%s, w%d, sxtw %u]", reg_names [REGNO (addr.base)],
 		       REGNO (addr.offset) - R0_REGNUM, addr.shift);
 	return;
 
@@ -3875,27 +3903,27 @@ aarch64_print_operand_address (FILE *f, rtx x)
 	switch (GET_CODE (x))
 	  {
 	  case PRE_INC:
-	    asm_fprintf (f, "[%s,%d]!", reg_names [REGNO (addr.base)], 
+	    asm_fprintf (f, "[%s, %d]!", reg_names [REGNO (addr.base)],
 			 GET_MODE_SIZE (aarch64_memory_reference_mode));
 	    return;
 	  case POST_INC:
-	    asm_fprintf (f, "[%s],%d", reg_names [REGNO (addr.base)],
+	    asm_fprintf (f, "[%s], %d", reg_names [REGNO (addr.base)],
 			 GET_MODE_SIZE (aarch64_memory_reference_mode));
 	    return;
 	  case PRE_DEC:
-	    asm_fprintf (f, "[%s,-%d]!", reg_names [REGNO (addr.base)],
+	    asm_fprintf (f, "[%s, -%d]!", reg_names [REGNO (addr.base)],
 			 GET_MODE_SIZE (aarch64_memory_reference_mode));
 	    return;
 	  case POST_DEC:
-	    asm_fprintf (f, "[%s],-%d", reg_names [REGNO (addr.base)],
+	    asm_fprintf (f, "[%s], -%d", reg_names [REGNO (addr.base)],
 			 GET_MODE_SIZE (aarch64_memory_reference_mode));
 	    return;
 	  case PRE_MODIFY:
-	    asm_fprintf (f, "[%s,%wd]!", reg_names [REGNO (addr.base)],
+	    asm_fprintf (f, "[%s, %wd]!", reg_names [REGNO (addr.base)],
 			 INTVAL (addr.offset));
 	    return;
 	  case POST_MODIFY:
-	    asm_fprintf (f, "[%s],%wd", reg_names [REGNO (addr.base)],
+	    asm_fprintf (f, "[%s], %wd", reg_names [REGNO (addr.base)],
 			 INTVAL (addr.offset));
 	    return;
 	  default:
@@ -3904,7 +3932,7 @@ aarch64_print_operand_address (FILE *f, rtx x)
 	break;
 
       case ADDRESS_LO_SUM:
-	asm_fprintf (f, "[%s,#:lo12:", reg_names [REGNO (addr.base)]);
+	asm_fprintf (f, "[%s, #:lo12:", reg_names [REGNO (addr.base)]);
 	output_addr_const (f, addr.offset);
 	asm_fprintf (f, "]");
 	return;
@@ -4133,23 +4161,8 @@ aarch64_can_eliminate (const int from, const int to)
 	return true;
       if (from == FRAME_POINTER_REGNUM && to == HARD_FRAME_POINTER_REGNUM)
 	return true;
-    return false;
-    }
-  else
-    {
-      /* If we decided that we didn't need a leaf frame pointer but then used
-	 LR in the function, then we'll want a frame pointer after all, so
-	 prevent this elimination to ensure a frame pointer is used.
 
-	 NOTE: the original value of flag_omit_frame_pointer gets trashed
-	 IFF flag_omit_leaf_frame_pointer is true, so we check the value
-	 of faked_omit_frame_pointer here (which is true when we always
-	 wish to keep non-leaf frame pointers but only wish to keep leaf frame
-	 pointers when LR is clobbered).  */
-      if (to == STACK_POINTER_REGNUM
-	  && df_regs_ever_live_p (LR_REGNUM)
-	  && faked_omit_frame_pointer)
-	return false;
+      return false;
     }
 
   return true;
@@ -4166,32 +4179,31 @@ aarch64_initial_elimination_offset (unsigned from, unsigned to)
 		+ crtl->outgoing_args_size
 		+ cfun->machine->saved_varargs_size);
 
-   frame_size = AARCH64_ROUND_UP (frame_size, STACK_BOUNDARY / BITS_PER_UNIT);
-   offset = frame_size;
+  frame_size = AARCH64_ROUND_UP (frame_size, STACK_BOUNDARY / BITS_PER_UNIT);
+  offset = frame_size;
 
-   if (to == HARD_FRAME_POINTER_REGNUM)
-     {
-       if (from == ARG_POINTER_REGNUM)
-	 return offset - crtl->outgoing_args_size;
+  if (to == HARD_FRAME_POINTER_REGNUM)
+    {
+      if (from == ARG_POINTER_REGNUM)
+	return offset - crtl->outgoing_args_size;
 
-       if (from == FRAME_POINTER_REGNUM)
-	 return cfun->machine->frame.saved_regs_size + get_frame_size ();
-     }
+      if (from == FRAME_POINTER_REGNUM)
+	return cfun->machine->frame.saved_regs_size + get_frame_size ();
+    }
 
-   if (to == STACK_POINTER_REGNUM)
-     {
-       if (from == FRAME_POINTER_REGNUM)
-         {
-           HOST_WIDE_INT elim = crtl->outgoing_args_size
-                              + cfun->machine->frame.saved_regs_size
-                              + get_frame_size ()
-                              - cfun->machine->frame.fp_lr_offset;
-           elim = AARCH64_ROUND_UP (elim, STACK_BOUNDARY / BITS_PER_UNIT);
-           return elim;
-         }
-     }
+  if (to == STACK_POINTER_REGNUM)
+    {
+      if (from == FRAME_POINTER_REGNUM)
+	{
+	  HOST_WIDE_INT elim = crtl->outgoing_args_size
+	    + cfun->machine->frame.saved_regs_size
+	    + get_frame_size ();
+	  elim = AARCH64_ROUND_UP (elim, STACK_BOUNDARY / BITS_PER_UNIT);
+	  return elim;
+	}
+    }
 
-   return offset;
+  return offset;
 }
 
 
@@ -4866,9 +4878,11 @@ aarch64_address_cost (rtx x ATTRIBUTE_UNUSED,
 }
 
 static int
-aarch64_register_move_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
-			    reg_class_t from, reg_class_t to)
+aarch64_register_move_cost (enum machine_mode mode,
+			    reg_class_t from_i, reg_class_t to_i)
 {
+  enum reg_class from = (enum reg_class) from_i;
+  enum reg_class to = (enum reg_class) to_i;
   const struct cpu_regmove_cost *regmove_cost
     = aarch64_tune_params->regmove_cost;
 
@@ -4894,8 +4908,7 @@ aarch64_register_move_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
      secondary reload.  A general register is used as a scratch to move
      the upper DI value and the lower DI value is moved directly,
      hence the cost is the sum of three moves. */
-
-  if (! TARGET_SIMD && GET_MODE_SIZE (from) == 128 && GET_MODE_SIZE (to) == 128)
+  if (! TARGET_SIMD && GET_MODE_SIZE (mode) == 128)
     return regmove_cost->GP2FP + regmove_cost->FP2GP + regmove_cost->FP2FP;
 
   return regmove_cost->FP2FP;
@@ -5254,7 +5267,7 @@ aarch64_override_options (void)
 
   /* If the user did not specify a processor, choose the default
      one for them.  This will be the CPU set during configuration using
-     --with-cpu, otherwise it is "cortex-a53".  */
+     --with-cpu, otherwise it is "generic".  */
   if (!selected_cpu)
     {
       selected_cpu = &all_cores[TARGET_CPU_DEFAULT & 0x3f];
@@ -5279,17 +5292,10 @@ aarch64_override_options (void)
 static void
 aarch64_override_options_after_change (void)
 {
-  faked_omit_frame_pointer = false;
-
-  /* To omit leaf frame pointers, we need to turn flag_omit_frame_pointer on so
-     that aarch64_frame_pointer_required will be called.  We need to remember
-     whether flag_omit_frame_pointer was turned on normally or just faked.  */
-
-  if (flag_omit_leaf_frame_pointer && !flag_omit_frame_pointer)
-    {
-      flag_omit_frame_pointer = true;
-      faked_omit_frame_pointer = true;
-    }
+  if (flag_omit_frame_pointer)
+    flag_omit_leaf_frame_pointer = false;
+  else if (flag_omit_leaf_frame_pointer)
+    flag_omit_frame_pointer = true;
 }
 
 static struct machine_function *
@@ -6567,7 +6573,9 @@ aarch64_simd_valid_immediate (rtx op, enum machine_mode mode, bool inverse,
   /* Splat vector constant out into a byte vector.  */
   for (i = 0; i < n_elts; i++)
     {
-      rtx el = CONST_VECTOR_ELT (op, i);
+      /* The vector is provided in gcc endian-neutral fashion.  For aarch64_be,
+         it must be laid out in the vector register in reverse order.  */
+      rtx el = CONST_VECTOR_ELT (op, BYTES_BIG_ENDIAN ? (n_elts - 1 - i) : i);
       unsigned HOST_WIDE_INT elpart;
       unsigned int part, parts;
 
@@ -8539,6 +8547,9 @@ aarch64_cannot_change_mode_class (enum machine_mode from,
 
 #undef TARGET_FIXED_CONDITION_CODE_REGS
 #define TARGET_FIXED_CONDITION_CODE_REGS aarch64_fixed_condition_code_regs
+
+#undef TARGET_FLAGS_REGNUM
+#define TARGET_FLAGS_REGNUM CC_REGNUM
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

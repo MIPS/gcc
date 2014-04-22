@@ -6,7 +6,7 @@
  *                                                                          *
  *                           C Implementation File                          *
  *                                                                          *
- *          Copyright (C) 1992-2013, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2014, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -283,8 +283,8 @@ internal_error_function (diagnostic_context *context,
   text_info tinfo;
   char *buffer, *p, *loc;
   String_Template temp, temp_loc;
-  Fat_Pointer fp, fp_loc;
-  expanded_location s;
+  DECLARE_STRING_POINTER (sp, sp_loc);
+  expanded_location xloc;
 
   /* Warn if plugins present.  */
   warn_if_plugins ();
@@ -311,21 +311,21 @@ internal_error_function (diagnostic_context *context,
 
   temp.Low_Bound = 1;
   temp.High_Bound = p - buffer;
-  fp.Bounds = &temp;
-  fp.Array = buffer;
+  sp.Bounds = &temp;
+  sp.Array = buffer;
 
-  s = expand_location (input_location);
-  if (context->show_column && s.column != 0)
-    asprintf (&loc, "%s:%d:%d", s.file, s.line, s.column);
+  xloc = expand_location (input_location);
+  if (context->show_column && xloc.column != 0)
+    asprintf (&loc, "%s:%d:%d", xloc.file, xloc.line, xloc.column);
   else
-    asprintf (&loc, "%s:%d", s.file, s.line);
+    asprintf (&loc, "%s:%d", xloc.file, xloc.line);
   temp_loc.Low_Bound = 1;
   temp_loc.High_Bound = strlen (loc);
-  fp_loc.Bounds = &temp_loc;
-  fp_loc.Array = loc;
+  sp_loc.Bounds = &temp_loc;
+  sp_loc.Array = loc;
 
   Current_Error_Node = error_gnat_node;
-  Compiler_Abort (fp, -1, fp_loc);
+  Compiler_Abort (sp, -1, sp_loc);
 }
 
 /* Perform all the initialization steps that are language-specific.  */
@@ -683,7 +683,7 @@ must_pass_by_ref (tree gnu_type)
 /* This function is called by the front-end to enumerate all the supported
    modes for the machine, as well as some predefined C types.  F is a function
    which is called back with the parameters as listed below, first a string,
-   then six ints.  The name is any arbitrary null-terminated string and has
+   then seven ints.  The name is any arbitrary null-terminated string and has
    no particular significance, except for the case of predefined C types, where
    it should be the name of the C type.  For integer types, only signed types
    should be listed, unsigned versions are assumed.  The order of types should
@@ -699,11 +699,12 @@ must_pass_by_ref (tree gnu_type)
    COMPLEX_P	nonzero is this represents a complex mode
    COUNT	count of number of items, nonzero for vector mode
    FLOAT_REP	Float_Rep_Kind for FP, otherwise undefined
-   SIZE		number of bits used to store data
+   PRECISION	number of bits used to store data
+   SIZE		number of bits occupied by the mode
    ALIGN	number of bits to which mode is aligned.  */
 
 void
-enumerate_modes (void (*f) (const char *, int, int, int, int, int, int))
+enumerate_modes (void (*f) (const char *, int, int, int, int, int, int, int))
 {
   const tree c_types[]
     = { float_type_node, double_type_node, long_double_type_node };
@@ -777,28 +778,26 @@ enumerate_modes (void (*f) (const char *, int, int, int, int, int, int))
 
       /* First register any C types for this mode that the front end
 	 may need to know about, unless the mode should be skipped.  */
-
-      if (!skip_p)
+      if (!skip_p && !vector_p)
 	for (nameloop = 0; nameloop < ARRAY_SIZE (c_types); nameloop++)
 	  {
-	    tree typ = c_types[nameloop];
-	    const char *nam = c_names[nameloop];
+	    tree type = c_types[nameloop];
+	    const char *name = c_names[nameloop];
 
-	    if (TYPE_MODE (typ) == i)
+	    if (TYPE_MODE (type) == i)
 	      {
-		f (nam, digs, complex_p,
-		   vector_p ? GET_MODE_NUNITS (i) : 0, float_rep,
-		   TYPE_PRECISION (typ), TYPE_ALIGN (typ));
+		f (name, digs, complex_p, 0, float_rep, TYPE_PRECISION (type),
+		   TREE_INT_CST_LOW (TYPE_SIZE (type)), TYPE_ALIGN (type));
 		skip_p = true;
 	      }
 	  }
 
       /* If no predefined C types were found, register the mode itself.  */
-
       if (!skip_p)
 	f (GET_MODE_NAME (i), digs, complex_p,
 	   vector_p ? GET_MODE_NUNITS (i) : 0, float_rep,
-	   GET_MODE_PRECISION (i), GET_MODE_ALIGNMENT (i));
+	   GET_MODE_PRECISION (i), GET_MODE_BITSIZE (i),
+	   GET_MODE_ALIGNMENT (i));
     }
 }
 

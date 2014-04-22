@@ -49,6 +49,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "data-streamer.h"
 #include "context.h"
 #include "pass_manager.h"
+#include "ipa-inline.h"
+#include "params.h"
 
 
 /* Number of parallel tasks to run, -1 if we want to use GNU Make jobserver.  */
@@ -2476,7 +2478,10 @@ wait_for_child ()
   int status;
   do
     {
-      int w = waitpid(0, &status, WUNTRACED | WCONTINUED);
+#ifndef WCONTINUED
+#define WCONTINUED 0
+#endif
+      int w = waitpid (0, &status, WUNTRACED | WCONTINUED);
       if (w == -1)
 	fatal_error ("waitpid failed");
 
@@ -2485,7 +2490,7 @@ wait_for_child ()
       else if (WIFSIGNALED (status))
 	fatal_error ("streaming subprocess was killed by signal");
     }
-  while (!WIFEXITED(status) && !WIFSIGNALED(status));
+  while (!WIFEXITED (status) && !WIFSIGNALED (status));
 }
 #endif
 
@@ -2498,7 +2503,7 @@ stream_out (char *temp_filename, lto_symtab_encoder_t encoder, bool last)
 #ifdef HAVE_WORKING_FORK
   static int nruns;
 
-  if (!lto_parallelism || lto_parallelism == 1)
+  if (lto_parallelism <= 1)
     {
       do_stream_out (temp_filename, encoder);
       return;
@@ -2564,11 +2569,6 @@ lto_wpa_write_files (void)
 
   FOR_EACH_VEC_ELT (ltrans_partitions, i, part)
     lto_stats.num_output_symtab_nodes += lto_symtab_encoder_size (part->encoder);
-
-  /* Find out statics that need to be promoted
-     to globals with hidden visibility because they are accessed from multiple
-     partitions.  */
-  lto_promote_cross_file_statics ();
 
   timevar_pop (TV_WHOPR_WPA);
 
@@ -3268,12 +3268,20 @@ do_whole_program_analysis (void)
   timevar_pop (TV_WHOPR_WPA);
 
   timevar_push (TV_WHOPR_PARTITIONING);
-  if (flag_lto_partition_1to1)
+  if (flag_lto_partition == LTO_PARTITION_1TO1)
     lto_1_to_1_map ();
-  else if (flag_lto_partition_max)
+  else if (flag_lto_partition == LTO_PARTITION_MAX)
     lto_max_map ();
+  else if (flag_lto_partition == LTO_PARTITION_ONE)
+    lto_balanced_map (1);
+  else if (flag_lto_partition == LTO_PARTITION_BALANCED)
+    lto_balanced_map (PARAM_VALUE (PARAM_LTO_PARTITIONS));
   else
-    lto_balanced_map ();
+    gcc_unreachable ();
+
+  /* Inline summaries are needed for balanced partitioning.  Free them now so
+     the memory can be used for streamer caches.  */
+  inline_free_summary ();
 
   /* AUX pointers are used by partitioning code to bookkeep number of
      partitions symbol is in.  This is no longer needed.  */
@@ -3281,11 +3289,21 @@ do_whole_program_analysis (void)
     node->aux = NULL;
 
   lto_stats.num_cgraph_partitions += ltrans_partitions.length ();
+
+  /* Find out statics that need to be promoted
+     to globals with hidden visibility because they are accessed from multiple
+     partitions.  */
+  lto_promote_cross_file_statics ();
   timevar_pop (TV_WHOPR_PARTITIONING);
 
   timevar_stop (TV_PHASE_OPT_GEN);
-  timevar_start (TV_PHASE_STREAM_OUT);
 
+  /* Collect a last time - in lto_wpa_write_files we may end up forking
+     with the idea that this doesn't increase memory usage.  So we
+     absoultely do not want to collect after that.  */
+  ggc_collect ();
+
+  timevar_start (TV_PHASE_STREAM_OUT);
   if (!quiet_flag)
     {
       fprintf (stderr, "\nStreaming out");
@@ -3294,10 +3312,8 @@ do_whole_program_analysis (void)
   lto_wpa_write_files ();
   if (!quiet_flag)
     fprintf (stderr, "\n");
-
   timevar_stop (TV_PHASE_STREAM_OUT);
 
-  ggc_collect ();
   if (post_ipa_mem_report)
     {
       fprintf (stderr, "Memory consumption after IPA\n");

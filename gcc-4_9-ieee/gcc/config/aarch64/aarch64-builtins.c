@@ -147,7 +147,23 @@ aarch64_types_unopu_qualifiers[SIMD_MAX_BUILTIN_ARGS]
   = { qualifier_unsigned, qualifier_unsigned };
 #define TYPES_UNOPU (aarch64_types_unopu_qualifiers)
 #define TYPES_CREATE (aarch64_types_unop_qualifiers)
-#define TYPES_REINTERP (aarch64_types_unop_qualifiers)
+#define TYPES_REINTERP_SS (aarch64_types_unop_qualifiers)
+static enum aarch64_type_qualifiers
+aarch64_types_unop_su_qualifiers[SIMD_MAX_BUILTIN_ARGS]
+  = { qualifier_none, qualifier_unsigned };
+#define TYPES_REINTERP_SU (aarch64_types_unop_su_qualifiers)
+static enum aarch64_type_qualifiers
+aarch64_types_unop_sp_qualifiers[SIMD_MAX_BUILTIN_ARGS]
+  = { qualifier_none, qualifier_poly };
+#define TYPES_REINTERP_SP (aarch64_types_unop_sp_qualifiers)
+static enum aarch64_type_qualifiers
+aarch64_types_unop_us_qualifiers[SIMD_MAX_BUILTIN_ARGS]
+  = { qualifier_unsigned, qualifier_none };
+#define TYPES_REINTERP_US (aarch64_types_unop_us_qualifiers)
+static enum aarch64_type_qualifiers
+aarch64_types_unop_ps_qualifiers[SIMD_MAX_BUILTIN_ARGS]
+  = { qualifier_poly, qualifier_none };
+#define TYPES_REINTERP_PS (aarch64_types_unop_ps_qualifiers)
 static enum aarch64_type_qualifiers
 aarch64_types_binop_qualifiers[SIMD_MAX_BUILTIN_ARGS]
   = { qualifier_none, qualifier_none, qualifier_maybe_immediate };
@@ -182,6 +198,10 @@ aarch64_types_getlane_qualifiers[SIMD_MAX_BUILTIN_ARGS]
   = { qualifier_none, qualifier_none, qualifier_immediate };
 #define TYPES_GETLANE (aarch64_types_getlane_qualifiers)
 #define TYPES_SHIFTIMM (aarch64_types_getlane_qualifiers)
+static enum aarch64_type_qualifiers
+aarch64_types_unsigned_shift_qualifiers[SIMD_MAX_BUILTIN_ARGS]
+  = { qualifier_unsigned, qualifier_unsigned, qualifier_immediate };
+#define TYPES_USHIFTIMM (aarch64_types_unsigned_shift_qualifiers)
 static enum aarch64_type_qualifiers
 aarch64_types_setlane_qualifiers[SIMD_MAX_BUILTIN_ARGS]
   = { qualifier_none, qualifier_none, qualifier_none, qualifier_immediate };
@@ -307,6 +327,8 @@ aarch64_types_store1_qualifiers[SIMD_MAX_BUILTIN_ARGS]
   VAR7 (T, N, MAP, v8qi, v16qi, v4hi, v8hi, v2si, v4si, v2di)
 #define BUILTIN_VDQF(T, N, MAP) \
   VAR3 (T, N, MAP, v2sf, v4sf, v2df)
+#define BUILTIN_VDQF_DF(T, N, MAP) \
+  VAR4 (T, N, MAP, v2sf, v4sf, v2df, df)
 #define BUILTIN_VDQH(T, N, MAP) \
   VAR2 (T, N, MAP, v4hi, v8hi)
 #define BUILTIN_VDQHS(T, N, MAP) \
@@ -1034,6 +1056,8 @@ aarch64_builtin_vectorized_function (tree fndecl, tree type_out, tree type_in)
   (out_mode == N##Imode && out_n == C \
    && in_mode == N##Fmode && in_n == C)
 	case BUILT_IN_LFLOOR:
+	case BUILT_IN_LFLOORF:
+	case BUILT_IN_LLFLOOR:
 	case BUILT_IN_IFLOORF:
 	  {
 	    enum aarch64_builtins builtin;
@@ -1049,6 +1073,8 @@ aarch64_builtin_vectorized_function (tree fndecl, tree type_out, tree type_in)
 	    return aarch64_builtin_decls[builtin];
 	  }
 	case BUILT_IN_LCEIL:
+	case BUILT_IN_LCEILF:
+	case BUILT_IN_LLCEIL:
 	case BUILT_IN_ICEILF:
 	  {
 	    enum aarch64_builtins builtin;
@@ -1119,6 +1145,25 @@ aarch64_fold_builtin (tree fndecl, int n_args ATTRIBUTE_UNUSED, tree *args,
 	  return fold_build2 (NE_EXPR, type, and_node, vec_zero_node);
 	  break;
 	}
+      VAR1 (REINTERP_SS, reinterpretdi, 0, df)
+      VAR1 (REINTERP_SS, reinterpretv8qi, 0, df)
+      VAR1 (REINTERP_SS, reinterpretv4hi, 0, df)
+      VAR1 (REINTERP_SS, reinterpretv2si, 0, df)
+      VAR1 (REINTERP_SS, reinterpretv2sf, 0, df)
+      BUILTIN_VD (REINTERP_SS, reinterpretdf, 0)
+      BUILTIN_VD (REINTERP_SU, reinterpretdf, 0)
+      VAR1 (REINTERP_US, reinterpretdi, 0, df)
+      VAR1 (REINTERP_US, reinterpretv8qi, 0, df)
+      VAR1 (REINTERP_US, reinterpretv4hi, 0, df)
+      VAR1 (REINTERP_US, reinterpretv2si, 0, df)
+      VAR1 (REINTERP_US, reinterpretv2sf, 0, df)
+      BUILTIN_VD (REINTERP_SP, reinterpretdf, 0)
+      VAR1 (REINTERP_PS, reinterpretdi, 0, df)
+      VAR1 (REINTERP_PS, reinterpretv8qi, 0, df)
+      VAR1 (REINTERP_PS, reinterpretv4hi, 0, df)
+      VAR1 (REINTERP_PS, reinterpretv2si, 0, df)
+      VAR1 (REINTERP_PS, reinterpretv2sf, 0, df)
+	return fold_build1 (VIEW_CONVERT_EXPR, type, args[0]);
       VAR1 (UNOP, floatv2si, 2, v2sf)
       VAR1 (UNOP, floatv4si, 2, v4sf)
       VAR1 (UNOP, floatv2di, 2, v2df)

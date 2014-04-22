@@ -340,6 +340,8 @@ ACX_PROG_CC_WARNING_OPTS(
 ACX_PROG_CC_WARNING_OPTS(
 	m4_quote(m4_do([-Wmissing-format-attribute])), [strict_warn])
 ACX_PROG_CC_WARNING_OPTS(
+	m4_quote(m4_do([-Woverloaded-virtual])), [strict_warn])
+ACX_PROG_CC_WARNING_OPTS(
 	m4_quote(m4_do([-Wold-style-definition -Wc++-compat])), [c_strict_warn])
 ACX_PROG_CC_WARNING_ALMOST_PEDANTIC(
 	m4_quote(m4_do([-Wno-long-long -Wno-variadic-macros ], 
@@ -1249,6 +1251,10 @@ force_sjlj_exceptions=yes],
     force_sjlj_exceptions=yes
     enableval=yes
     ;;
+  lm32*-*-*)
+     force_sjlj_exceptions=yes
+     enableval=yes
+     ;;
   *)
     force_sjlj_exceptions=no
     ;;
@@ -2310,35 +2316,7 @@ gcc_GAS_CHECK_FEATURE([.nsubspa comdat], gcc_cv_as_nsubspa_comdat,
 gcc_GAS_CHECK_FEATURE([.hidden], gcc_cv_as_hidden,
  [elf,2,13,0],,
 [	.hidden foobar
-foobar:],[
-# Solaris 9/x86 as incorrectly emits an alias for a hidden symbol with
-# STV_HIDDEN, so disable .hidden support if so.
-case "${target}" in
-  i?86-*-solaris2* | x86_64-*-solaris2.1[[0-9]]*)
-    if test x$gcc_cv_as != x && test x$gcc_cv_objdump != x; then
-      cat > conftest.s <<EOF
-.globl hidden
-        .hidden hidden
-hidden:
-.globl default
-        .set    default,hidden
-EOF
-      if $gcc_cv_as -o conftest.o conftest.s > /dev/null 2>&1 \
-        && $gcc_cv_objdump -t conftest.o 2>/dev/null | \
-        grep '\.hidden default' > /dev/null; then
-        gcc_cv_as_hidden=no
-      else
-        gcc_cv_as_hidden=yes
-      fi
-    else
-      # Assume bug is present if objdump is missing.
-      gcc_cv_as_hidden=no
-    fi
-    ;;
-  *)
-    gcc_cv_as_hidden=yes
-    ;;
-esac])
+foobar:])
 case "${target}" in
   *-*-darwin*)
     # Darwin as has some visibility support, though with a different syntax.
@@ -2454,7 +2432,7 @@ else
       hppa64*-*-hpux* | ia64*-*-hpux*)
 	gcc_cv_ld_hidden=yes
 	;;
-      *-*-solaris2.9* | *-*-solaris2.1[0-9]*)
+      *-*-solaris2.1[0-9]*)
 	# Support for .hidden in Sun ld appeared in Solaris 9 FCS, but
 	# .symbolic was only added in Solaris 9 12/02.
         gcc_cv_ld_hidden=yes
@@ -2950,7 +2928,7 @@ foo:	.long	25
 	tls_first_major=2
 	tls_first_minor=17
 	;;
-  i[34567]86-*-* | x86_64-*-solaris2.1[0-9]*)
+  i[34567]86-*-* | x86_64-*-*)
     case "$target" in
       i[34567]86-*-solaris2.*)
 	on_solaris=yes
@@ -2969,6 +2947,7 @@ foo:	.long	25
 	.section .tdata,"awt",@progbits'
       tls_first_major=0
       tls_first_minor=0
+      tls_section_flag=t
 changequote([,])dnl
       AC_DEFINE(TLS_SECTION_ASM_FLAG, 't',
 [Define to the flag used to mark TLS sections if the default (`T') doesn't work.])
@@ -2978,9 +2957,12 @@ changequote(,)dnl
 	.section ".tdata","awT",@progbits'
       tls_first_major=2
       tls_first_minor=14
+      tls_section_flag=T
       tls_as_opt="--fatal-warnings"
     fi
-    conftest_s="$conftest_s
+    case "$target" in
+      i[34567]86-*-*)
+	conftest_s="$conftest_s
 foo:	.long	25
 	.text
 	movl	%gs:0, %eax
@@ -2994,22 +2976,26 @@ foo:	.long	25
 	movl	\$foo@tpoff, %eax
 	subl	\$foo@tpoff, %eax
 	leal	foo@ntpoff(%ecx), %eax"
-    ;;
-  x86_64-*-*)
-    conftest_s='
-	.section ".tdata","awT",@progbits
+	;;
+      x86_64-*-*)
+	if test x$on_solaris = xyes; then
+	  case $gas_flag in
+	    yes) tls_as_opt="$tls_as_opt --64" ;;
+	    no)	 tls_as_opt="$tls_as_opt -xarch=amd64" ;;
+	  esac	  
+	fi
+	conftest_s="$conftest_s
 foo:	.long	25
 	.text
 	movq	%fs:0, %rax
-	leaq	foo@TLSGD(%rip), %rdi
-	leaq	foo@TLSLD(%rip), %rdi
-	leaq	foo@DTPOFF(%rax), %rdx
-	movq	foo@GOTTPOFF(%rip), %rax
-	movq	$foo@TPOFF, %rax'
-	tls_first_major=2
-	tls_first_minor=14
-	tls_as_opt=--fatal-warnings
-	;;
+	leaq	foo@tlsgd(%rip), %rdi
+	leaq	foo@tlsld(%rip), %rdi
+	leaq	foo@dtpoff(%rax), %rdx
+	movq	foo@gottpoff(%rip), %rax
+	movq	\$foo@tpoff, %rax"
+        ;;
+    esac
+    ;;
   ia64-*-*)
     conftest_s='
 	.section ".tdata","awT",@progbits
@@ -3327,32 +3313,7 @@ case "$target" in
   # TLS on x86 was only introduced in Solaris 9 4/04, replacing the earlier
   # Sun style that Sun ld and GCC don't support any longer.
   *-*-solaris2.*)
-    AC_MSG_CHECKING(linker and ld.so.1 TLS support)
-    ld_tls_support=no
-    # Check ld and ld.so.1 TLS support.
-    if echo "$ld_ver" | grep GNU > /dev/null; then
-      # Assume all interesting versions of GNU ld have TLS support.
-      # FIXME: still need ld.so.1 support, i.e. ld version checks below.
-      ld_tls_support=yes
-    else
-      case "$target" in
-	# Solaris 9/x86 ld has GNU style TLS support since version 1.374.
-        i?86-*-solaris2.9)
-          min_tls_ld_vers_minor=374
-          ;;
-	# Solaris 9/SPARC and Solaris 10+ ld have TLS support since FCS.
-        sparc*-*-solaris2.9 | *-*-solaris2.1[[0-9]]*)
-	  min_tls_ld_vers_minor=343
-          ;;
-      esac
-      if test "$ld_vers_major" -gt 1 || \
-        test "$ld_vers_minor" -ge "$min_tls_ld_vers_minor"; then
- 	ld_tls_support=yes
-      else
-        set_have_as_tls=no
-      fi
-    fi
-    AC_MSG_RESULT($ld_tls_support)
+    ld_tls_support=yes
 
     save_LIBS="$LIBS"
     save_LDFLAGS="$LDFLAGS"
@@ -3364,6 +3325,7 @@ case "$target" in
     # (32-bit x86) only lived in libthread, so check for that.  Keep
     # set_have_as_tls if found, disable if not.
     AC_SEARCH_LIBS([$tga_func], [thread],, [set_have_as_tls=no])
+    ld_tls_libs="$LIBS"
     # Clear LIBS if we cannot support TLS.
     if test $set_have_as_tls = no; then
       LIBS=
@@ -3912,17 +3874,60 @@ foo:	nop
       [AC_DEFINE(HAVE_AS_IX86_TLSGDPLT, 1,
         [Define if your assembler and linker support @tlsgdplt.])])
 
+    conftest_s='
+	.section .tdata,"aw'$tls_section_flag'",@progbits
+tls_ld:
+	.section .text,"ax",@progbits
+	 call    tls_ld@tlsldmplt'
     gcc_GAS_CHECK_FEATURE([R_386_TLS_LDM_PLT reloc],
         gcc_cv_as_ix86_tlsldmplt,,,
-	[tls_ld:
-	 call    tls_ld@tlsldmplt],
+	[$conftest_s],
 	[if test x$gcc_cv_ld != x \
 	 && $gcc_cv_ld -o conftest conftest.o -G > /dev/null 2>&1; then
 	   gcc_cv_as_ix86_tlsldmplt=yes
 	 fi
-	 rm -f conftest],
-      [AC_DEFINE(HAVE_AS_IX86_TLSLDMPLT, 1,
-        [Define if your assembler and linker support @tlsldmplt.])])
+	 rm -f conftest])
+    AC_DEFINE_UNQUOTED(HAVE_AS_IX86_TLSLDMPLT,
+      [`if test $gcc_cv_as_ix86_tlsldmplt = yes; then echo 1; else echo 0; fi`],
+      [Define to 1 if your assembler and linker support @tlsldmplt.])
+
+    # Enforce 32-bit output with gas and gld.
+    if test x$gas = xyes; then
+      as_ix86_tls_ldm_opt="--32"
+    fi
+    if echo "$ld_ver" | grep GNU > /dev/null; then
+      if $gcc_cv_ld -V 2>/dev/null | grep elf_i386_sol2 > /dev/null; then
+        ld_ix86_tls_ldm_opt="-melf_i386_sol2"
+      else
+        ld_ix86_tls_ldm_opt="-melf_i386"
+      fi
+    fi
+    conftest_s='
+	.section .text,"ax",@progbits
+        .globl  _start
+        .type   _start, @function
+_start:      
+	leal	value@tlsldm(%ebx), %eax
+	call	___tls_get_addr@plt
+
+        .section .tdata,"aw'$tls_section_flag'",@progbits
+        .type	value, @object
+value:'
+    gcc_GAS_CHECK_FEATURE([R_386_TLS_LDM reloc],
+        gcc_cv_as_ix86_tlsldm,,
+	[$as_ix86_tls_ldm_opt],
+	[$conftest_s],
+	[if test x$gcc_cv_ld != x && test x$gcc_cv_objdump != x \
+	    && $gcc_cv_ld $ld_ix86_tls_ldm_opt -o conftest conftest.o $ld_tls_libs -lc > /dev/null 2>&1; then
+	   if $gcc_cv_objdump -d conftest 2>/dev/null | grep nop > /dev/null \
+	      || dis conftest 2>/dev/null | grep nop > /dev/null; then
+	     gcc_cv_as_ix86_tlsldm=yes
+	   fi
+	 fi
+	 rm -f conftest])
+    AC_DEFINE_UNQUOTED(HAVE_AS_IX86_TLSLDM,
+      [`if test $gcc_cv_as_ix86_tlsldm = yes; then echo 1; else echo 0; fi`],
+      [Define to 1 if your assembler and linker support @tlsldm.])
 
     ;;
 
@@ -4375,14 +4380,7 @@ if test x"$insn" != x; then
 
  gcc_GAS_CHECK_FEATURE([--gstabs option],
   gcc_cv_as_gstabs_flag,
-  [elf,2,11,0], [--gstabs], [$insn],
-  [# The native Solaris 9/Intel assembler doesn't understand --gstabs
-   # and warns about it, but still exits successfully.  So check for
-   # this.
-   if AC_TRY_COMMAND([$gcc_cv_as --gstabs -o conftest.o conftest.s 2>&1 | grep -i warning > /dev/null])
-   then :
-   else gcc_cv_as_gstabs_flag=yes
-   fi],
+  [elf,2,11,0], [--gstabs], [$insn],,
   [AC_DEFINE(HAVE_AS_GSTABS_DEBUG_FLAG, 1,
 [Define if your assembler supports the --gstabs option.])])
 

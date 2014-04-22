@@ -76,11 +76,14 @@ typedef Char *Str;
 /* Pointer to string of Chars */
 typedef Char *Str_Ptr;
 
-/* Types for the fat pointer used for strings and the template it
-   points to.  */
-typedef struct {int Low_Bound, High_Bound; } String_Template;
-typedef struct {const char *Array; String_Template *Bounds; }
-	__attribute ((aligned (sizeof (char *) * 2))) Fat_Pointer;
+/* Types for the fat pointer used for strings and the template it points to.
+   On most platforms the fat pointer is naturally aligned but, on the rest,
+   it is given twice the natural alignment.  For maximum portability, we do
+   not overalign the type but only the objects.  */
+typedef struct { int Low_Bound, High_Bound; } String_Template;
+typedef struct { const char *Array; String_Template *Bounds; } String_Pointer;
+#define DECLARE_STRING_POINTER(...) \
+  __attribute__ ((aligned (sizeof (char *) * 2))) String_Pointer __VA_ARGS__
 
 /* Types for Node/Entity Kinds:  */
 
@@ -271,6 +274,8 @@ SUBTYPE (Uint_Direct, Uint, Uint_Direct_First, Uint_Direct_Last)
 #define Uint_2  (Uint_Direct_Bias + 2)
 #define Uint_10 (Uint_Direct_Bias + 10)
 #define Uint_16 (Uint_Direct_Bias + 16)
+
+#define Uint_Minus_1 (Uint_Direct_Bias - 1)
 
 /* Types for Ureal_Support Package:  */
 

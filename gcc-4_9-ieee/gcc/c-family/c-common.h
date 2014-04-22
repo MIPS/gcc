@@ -928,8 +928,6 @@ extern bool vector_targets_convertible_p (const_tree t1, const_tree t2);
 extern bool vector_types_convertible_p (const_tree t1, const_tree t2, bool emit_lax_note);
 extern tree c_build_vec_perm_expr (location_t, tree, tree, tree, bool = true);
 
-extern rtx c_expand_expr (tree, rtx, enum machine_mode, int, rtx *);
-
 extern void init_c_lex (void);
 
 extern void c_cpp_builtins (cpp_reader *);
@@ -1014,6 +1012,10 @@ extern void release_tree_vector (vec<tree, va_gc> *);
 extern vec<tree, va_gc> *make_tree_vector_single (tree);
 extern vec<tree, va_gc> *make_tree_vector_from_list (tree);
 extern vec<tree, va_gc> *make_tree_vector_copy (const vec<tree, va_gc> *);
+
+/* Used for communication between c_common_type_for_mode and
+   c_register_builtin_type.  */
+extern GTY(()) tree registered_builtin_types;
 
 /* In c-gimplify.c  */
 extern void c_genericize (tree);
@@ -1389,4 +1391,5 @@ extern tree make_cilk_frame (tree);
 extern tree create_cilk_function_exit (tree, bool, bool);
 extern tree cilk_install_body_pedigree_operations (tree);
 extern void cilk_outline (tree, tree *, void *);
+extern bool contains_cilk_spawn_stmt (tree);
 #endif /* ! GCC_C_COMMON_H */

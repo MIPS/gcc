@@ -1088,11 +1088,6 @@ case "$THREADS" in
 	THREADLIBS='-lpthread -lrt'
 	THREADSPEC='-lpthread -lrt'
 	;;
-     *-*-solaris2.9)
-	# Need libthread for TLS support.
-	THREADLIBS='-lpthread -lthread'
-	THREADSPEC='-lpthread -lthread'
-	;;
      *-*-darwin*)
 	# Don't set THREADLIBS or THREADSPEC as Darwin already
 	# provides pthread via libSystem.
@@ -1596,15 +1591,7 @@ AC_DEFINE_UNQUOTED(GCJVERSION, "$GCJVERSION", [Short GCJ version ID])
 # Determine where the standard .db file and GNU Classpath JNI
 # libraries are found.
 gcjsubdir=gcj-$gcjversion-$libgcj_soversion
-multi_os_directory=`$CC -print-multi-os-directory`
-case $multi_os_directory in
-  .)
-   dbexecdir='$(toolexeclibdir)/'$gcjsubdir # Avoid /.
-   ;;
-  *)
-   dbexecdir='$(toolexeclibdir)/'$multi_os_directory/$gcjsubdir
-   ;;
-esac
+dbexecdir='$(toolexeclibdir)/'$gcjsubdir
 AC_SUBST(dbexecdir)
 AC_SUBST(gcjsubdir)
 

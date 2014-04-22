@@ -149,7 +149,8 @@ add_symbol_to_partition_1 (ltrans_partition part, symtab_node *node)
   if (cgraph_node *cnode = dyn_cast <cgraph_node> (node))
     {
       struct cgraph_edge *e;
-      part->insns += inline_summary (cnode)->self_size;
+      if (!node->alias)
+        part->insns += inline_summary (cnode)->self_size;
 
       /* Add all inline clones and callees that are duplicated.  */
       for (e = cnode->callees; e; e = e->next_callee)
@@ -244,13 +245,14 @@ undo_partition (ltrans_partition partition, unsigned int n_nodes)
     {
       symtab_node *node = lto_symtab_encoder_deref (partition->encoder,
 						   n_nodes);
+      cgraph_node *cnode;
 
       /* After UNDO we no longer know what was visited.  */
       if (partition->initializers_visited)
 	pointer_set_destroy (partition->initializers_visited);
       partition->initializers_visited = NULL;
 
-      if (cgraph_node *cnode = dyn_cast <cgraph_node> (node))
+      if (!node->alias && (cnode = dyn_cast <cgraph_node> (node)))
         partition->insns -= inline_summary (cnode)->self_size;
       lto_symtab_encoder_delete_node (partition->encoder, node);
       node->aux = (void *)((size_t)node->aux - 1);
@@ -413,7 +415,7 @@ varpool_node_cmp (const void *pa, const void *pb)
    and in-partition calls was reached.  */
 
 void
-lto_balanced_map (void)
+lto_balanced_map (int n_lto_partitions)
 {
   int n_nodes = 0;
   int n_varpool_nodes = 0, varpool_pos = 0, best_varpool_pos = 0;
@@ -439,7 +441,8 @@ lto_balanced_map (void)
     if (symtab_get_symbol_partitioning_class (node) == SYMBOL_PARTITION)
       {
 	order[n_nodes++] = node;
-	total_size += inline_summary (node)->size;
+	if (!node->alias)
+	  total_size += inline_summary (node)->size;
       }
 
   /* Streaming works best when the source units do not cross partition
@@ -469,7 +472,7 @@ lto_balanced_map (void)
     }
 
   /* Compute partition size and create the first partition.  */
-  partition_size = total_size / PARAM_VALUE (PARAM_LTO_PARTITIONS);
+  partition_size = total_size / n_lto_partitions;
   if (partition_size < PARAM_VALUE (MIN_PARTITION_SIZE))
     partition_size = PARAM_VALUE (MIN_PARTITION_SIZE);
   npartitions = 1;
@@ -495,7 +498,8 @@ lto_balanced_map (void)
 	  }
 
       add_symbol_to_partition (partition, order[i]);
-      total_size -= inline_summary (order[i])->size;
+      if (!order[i]->alias)
+        total_size -= inline_summary (order[i])->size;
 	  
 
       /* Once we added a new node to the partition, we also want to add
@@ -613,7 +617,11 @@ lto_balanced_map (void)
 
 		vnode = ipa_ref_referring_varpool_node (ref);
 		gcc_assert (vnode->definition);
+		/* It is better to couple variables with their users, because it allows them
+		   to be removed.  Coupling with objects they refer to only helps to reduce
+		   number of symbols promoted to hidden.  */
 		if (!symbol_partitioned_p (vnode) && flag_toplevel_reorder
+		    && !varpool_can_remove_if_no_refs (vnode)
 		    && symtab_get_symbol_partitioning_class (vnode) == SYMBOL_PARTITION)
 		  add_symbol_to_partition (partition, vnode);
 		index = lto_symtab_encoder_lookup (partition->encoder,
@@ -691,9 +699,8 @@ lto_balanced_map (void)
 
 	  /* Since the size of partitions is just approximate, update the size after
 	     we finished current one.  */
-	  if (npartitions < PARAM_VALUE (PARAM_LTO_PARTITIONS))
-	    partition_size = total_size
-	      / (PARAM_VALUE (PARAM_LTO_PARTITIONS) - npartitions);
+	  if (npartitions < n_lto_partitions)
+	    partition_size = total_size / (n_lto_partitions - npartitions);
 	  else
 	    partition_size = INT_MAX;
 

@@ -101,6 +101,7 @@
     UNSPEC_TLS
     UNSPEC_TLSDESC
     UNSPEC_USHL_2S
+    UNSPEC_USHR64
     UNSPEC_VSTRUCTDUMMY
 ])
 
@@ -1105,7 +1106,26 @@
    (set_attr "simd" "*,*,*,yes")]
 )
 
-(define_insn "*add<mode>3_compare0"
+(define_expand "addti3"
+  [(set (match_operand:TI 0 "register_operand" "")
+	(plus:TI (match_operand:TI 1 "register_operand" "")
+		 (match_operand:TI 2 "register_operand" "")))]
+  ""
+{
+  rtx low = gen_reg_rtx (DImode);
+  emit_insn (gen_adddi3_compare0 (low, gen_lowpart (DImode, operands[1]),
+				  gen_lowpart (DImode, operands[2])));
+
+  rtx high = gen_reg_rtx (DImode);
+  emit_insn (gen_adddi3_carryin (high, gen_highpart (DImode, operands[1]),
+				 gen_highpart (DImode, operands[2])));
+
+  emit_move_insn (gen_lowpart (DImode, operands[0]), low);
+  emit_move_insn (gen_highpart (DImode, operands[0]), high);
+  DONE;
+})
+
+(define_insn "add<mode>3_compare0"
   [(set (reg:CC_NZ CC_REGNUM)
 	(compare:CC_NZ
 	 (plus:GPI (match_operand:GPI 1 "register_operand" "%r,r,r")
@@ -1389,7 +1409,7 @@
   [(set_attr "type" "alu_ext")]
 )
 
-(define_insn "*add<mode>3_carryin"
+(define_insn "add<mode>3_carryin"
   [(set
     (match_operand:GPI 0 "register_operand" "=r")
     (plus:GPI (geu:GPI (reg:CC CC_REGNUM) (const_int 0))
@@ -1557,8 +1577,26 @@
    (set_attr "simd" "*,yes")]
 )
 
+(define_expand "subti3"
+  [(set (match_operand:TI 0 "register_operand" "")
+	(minus:TI (match_operand:TI 1 "register_operand" "")
+		  (match_operand:TI 2 "register_operand" "")))]
+  ""
+{
+  rtx low = gen_reg_rtx (DImode);
+  emit_insn (gen_subdi3_compare0 (low, gen_lowpart (DImode, operands[1]),
+				  gen_lowpart (DImode, operands[2])));
 
-(define_insn "*sub<mode>3_compare0"
+  rtx high = gen_reg_rtx (DImode);
+  emit_insn (gen_subdi3_carryin (high, gen_highpart (DImode, operands[1]),
+				 gen_highpart (DImode, operands[2])));
+
+  emit_move_insn (gen_lowpart (DImode, operands[0]), low);
+  emit_move_insn (gen_highpart (DImode, operands[0]), high);
+  DONE;
+})
+
+(define_insn "sub<mode>3_compare0"
   [(set (reg:CC_NZ CC_REGNUM)
 	(compare:CC_NZ (minus:GPI (match_operand:GPI 1 "register_operand" "r")
 				  (match_operand:GPI 2 "register_operand" "r"))
@@ -1705,7 +1743,7 @@
   [(set_attr "type" "alu_ext")]
 )
 
-(define_insn "*sub<mode>3_carryin"
+(define_insn "sub<mode>3_carryin"
   [(set
     (match_operand:GPI 0 "register_operand" "=r")
     (minus:GPI (minus:GPI
@@ -1934,7 +1972,7 @@
   [(set_attr "type" "mul")]
 )
 
-(define_insn "*madd<mode>"
+(define_insn "madd<mode>"
   [(set (match_operand:GPI 0 "register_operand" "=r")
 	(plus:GPI (mult:GPI (match_operand:GPI 1 "register_operand" "r")
 			    (match_operand:GPI 2 "register_operand" "r"))
@@ -2043,6 +2081,48 @@
   "<su>mnegl\\t%0, %w1, %w2"
   [(set_attr "type" "<su>mull")]
 )
+
+(define_expand "<su_optab>mulditi3"
+  [(set (match_operand:TI 0 "register_operand")
+	(mult:TI (ANY_EXTEND:TI (match_operand:DI 1 "register_operand"))
+		 (ANY_EXTEND:TI (match_operand:DI 2 "register_operand"))))]
+  ""
+{
+  rtx low = gen_reg_rtx (DImode);
+  emit_insn (gen_muldi3 (low, operands[1], operands[2]));
+
+  rtx high = gen_reg_rtx (DImode);
+  emit_insn (gen_<su>muldi3_highpart (high, operands[1], operands[2]));
+
+  emit_move_insn (gen_lowpart (DImode, operands[0]), low);
+  emit_move_insn (gen_highpart (DImode, operands[0]), high);
+  DONE;
+})
+
+;; The default expansion of multi3 using umuldi3_highpart will perform
+;; the additions in an order that fails to combine into two madd insns.
+(define_expand "multi3"
+  [(set (match_operand:TI 0 "register_operand")
+	(mult:TI (match_operand:TI 1 "register_operand")
+		 (match_operand:TI 2 "register_operand")))]
+  ""
+{
+  rtx l0 = gen_reg_rtx (DImode);
+  rtx l1 = gen_lowpart (DImode, operands[1]);
+  rtx l2 = gen_lowpart (DImode, operands[2]);
+  rtx h0 = gen_reg_rtx (DImode);
+  rtx h1 = gen_highpart (DImode, operands[1]);
+  rtx h2 = gen_highpart (DImode, operands[2]);
+
+  emit_insn (gen_muldi3 (l0, l1, l2));
+  emit_insn (gen_umuldi3_highpart (h0, l1, l2));
+  emit_insn (gen_madddi (h0, h1, l2, h0));
+  emit_insn (gen_madddi (h0, l1, h2, h0));
+
+  emit_move_insn (gen_lowpart (DImode, operands[0]), l0);
+  emit_move_insn (gen_highpart (DImode, operands[0]), h0);
+  DONE;
+})
 
 (define_insn "<su>muldi3_highpart"
   [(set (match_operand:DI 0 "register_operand" "=r")
@@ -3187,7 +3267,7 @@
 ;; -------------------------------------------------------------------
 
 ;; frint floating-point round to integral standard patterns.
-;; Expands to btrunc, ceil, floor, nearbyint, rint, round.
+;; Expands to btrunc, ceil, floor, nearbyint, rint, round, frintn.
 
 (define_insn "<frint_pattern><mode>2"
   [(set (match_operand:GPF 0 "register_operand" "=w")
@@ -3298,20 +3378,24 @@
   [(set_attr "type" "f_cvtf2i")]
 )
 
-(define_insn "float<GPI:mode><GPF:mode>2"
-  [(set (match_operand:GPF 0 "register_operand" "=w")
-        (float:GPF (match_operand:GPI 1 "register_operand" "r")))]
-  "TARGET_FLOAT"
-  "scvtf\\t%<GPF:s>0, %<GPI:w>1"
-  [(set_attr "type" "f_cvti2f")]
+(define_insn "<optab><fcvt_target><GPF:mode>2"
+  [(set (match_operand:GPF 0 "register_operand" "=w,w")
+        (FLOATUORS:GPF (match_operand:<FCVT_TARGET> 1 "register_operand" "w,r")))]
+  ""
+  "@
+   <su_optab>cvtf\t%<GPF:s>0, %<s>1
+   <su_optab>cvtf\t%<GPF:s>0, %<w1>1"
+  [(set_attr "simd" "yes,no")
+   (set_attr "fp" "no,yes")
+   (set_attr "type" "neon_int_to_fp_<Vetype>,f_cvti2f")]
 )
 
-(define_insn "floatuns<GPI:mode><GPF:mode>2"
+(define_insn "<optab><fcvt_iesize><GPF:mode>2"
   [(set (match_operand:GPF 0 "register_operand" "=w")
-        (unsigned_float:GPF (match_operand:GPI 1 "register_operand" "r")))]
+        (FLOATUORS:GPF (match_operand:<FCVT_IESIZE> 1 "register_operand" "r")))]
   "TARGET_FLOAT"
-  "ucvtf\\t%<GPF:s>0, %<GPI:w>1"
-  [(set_attr "type" "f_cvt")]
+  "<su_optab>cvtf\t%<GPF:s>0, %<w2>1"
+  [(set_attr "type" "f_cvti2f")]
 )
 
 ;; -------------------------------------------------------------------
@@ -3581,35 +3665,62 @@
   [(set_attr "type" "call")
    (set_attr "length" "16")])
 
-(define_insn "tlsie_small"
-  [(set (match_operand:DI 0 "register_operand" "=r")
-        (unspec:DI [(match_operand:DI 1 "aarch64_tls_ie_symref" "S")]
+(define_insn "tlsie_small_<mode>"
+  [(set (match_operand:PTR 0 "register_operand" "=r")
+        (unspec:PTR [(match_operand 1 "aarch64_tls_ie_symref" "S")]
 		   UNSPEC_GOTSMALLTLS))]
   ""
-  "adrp\\t%0, %A1\;ldr\\t%0, [%0, #%L1]"
+  "adrp\\t%0, %A1\;ldr\\t%<w>0, [%0, #%L1]"
   [(set_attr "type" "load1")
    (set_attr "length" "8")]
 )
 
-(define_insn "tlsle_small"
+(define_insn "tlsie_small_sidi"
   [(set (match_operand:DI 0 "register_operand" "=r")
-        (unspec:DI [(match_operand:DI 1 "register_operand" "r")
-                   (match_operand:DI 2 "aarch64_tls_le_symref" "S")]
+	(zero_extend:DI
+          (unspec:SI [(match_operand 1 "aarch64_tls_ie_symref" "S")]
+		      UNSPEC_GOTSMALLTLS)))]
+  ""
+  "adrp\\t%0, %A1\;ldr\\t%w0, [%0, #%L1]"
+  [(set_attr "type" "load1")
+   (set_attr "length" "8")]
+)
+
+(define_expand "tlsle_small"
+  [(set (match_operand 0 "register_operand" "=r")
+        (unspec [(match_operand 1 "register_operand" "r")
+                   (match_operand 2 "aarch64_tls_le_symref" "S")]
+                   UNSPEC_GOTSMALLTLS))]
+  ""
+{
+  enum machine_mode mode = GET_MODE (operands[0]);
+  emit_insn ((mode == DImode
+	      ? gen_tlsle_small_di
+	      : gen_tlsle_small_si) (operands[0],
+				     operands[1],
+				     operands[2]));
+  DONE;
+})
+
+(define_insn "tlsle_small_<mode>"
+  [(set (match_operand:P 0 "register_operand" "=r")
+        (unspec:P [(match_operand:P 1 "register_operand" "r")
+                   (match_operand 2 "aarch64_tls_le_symref" "S")]
 		   UNSPEC_GOTSMALLTLS))]
   ""
-  "add\\t%0, %1, #%G2\;add\\t%0, %0, #%L2"
+  "add\\t%<w>0, %<w>1, #%G2\;add\\t%<w>0, %<w>0, #%L2"
   [(set_attr "type" "alu_reg")
    (set_attr "length" "8")]
 )
 
-(define_insn "tlsdesc_small"
-  [(set (reg:DI R0_REGNUM)
-        (unspec:DI [(match_operand:DI 0 "aarch64_valid_symref" "S")]
+(define_insn "tlsdesc_small_<mode>"
+  [(set (reg:PTR R0_REGNUM)
+        (unspec:PTR [(match_operand 0 "aarch64_valid_symref" "S")]
 		   UNSPEC_TLSDESC))
    (clobber (reg:DI LR_REGNUM))
    (clobber (match_scratch:DI 1 "=r"))]
   "TARGET_TLS_DESC"
-  "adrp\\tx0, %A0\;ldr\\t%1, [x0, #%L0]\;add\\tx0, x0, %L0\;.tlsdesccall\\t%0\;blr\\t%1"
+  "adrp\\tx0, %A0\;ldr\\t%<w>1, [x0, #%L0]\;add\\t<w>0, <w>0, %L0\;.tlsdesccall\\t%0\;blr\\t%1"
   [(set_attr "type" "call")
    (set_attr "length" "16")])
 

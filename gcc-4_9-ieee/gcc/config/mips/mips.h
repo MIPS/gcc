@@ -701,8 +701,8 @@ struct mips_cpu_info {
      %{march=mips32r2|march=m4k|march=4ke*|march=4ksd|march=24k* \
        |march=34k*|march=74k*|march=m14k*|march=1004k*: -mips32r2} \
      %{march=mips64|march=5k*|march=20k*|march=sb1*|march=sr71000 \
-       |march=xlr|march=loongson3a: -mips64} \
-     %{march=mips64r2|march=octeon|march=xlp: -mips64r2} \
+       |march=xlr: -mips64} \
+     %{march=mips64r2|march=loongson3a|march=octeon|march=xlp: -mips64r2} \
      %{!march=*: -" MULTILIB_ISA_DEFAULT "}}"
 
 /* A spec that infers a -mhard-float or -msoft-float setting from an
@@ -1175,6 +1175,7 @@ struct mips_cpu_info {
 %{mdspr2} %{mno-dspr2} \
 %{mmcu} %{mno-mcu} \
 %{meva} %{mno-eva} \
+%{mvirt} %{mno-virt} \
 %{msmartmips} %{mno-smartmips} \
 %{mmt} %{mno-mt} \
 %{mfix-rm7000} %{mno-fix-rm7000} \
@@ -1869,6 +1870,7 @@ struct mips_cpu_info {
 enum reg_class
 {
   NO_REGS,			/* no registers in set */
+  M16_STORE_REGS,		/* microMIPS store registers  */
   M16_REGS,			/* mips16 directly accessible registers */
   T_REG,			/* mips16 T register ($24) */
   M16_T_REGS,			/* mips16 registers plus T register */
@@ -1906,6 +1908,7 @@ enum reg_class
 #define REG_CLASS_NAMES							\
 {									\
   "NO_REGS",								\
+  "M16_STORE_REGS",							\
   "M16_REGS",								\
   "T_REG",								\
   "M16_T_REGS",								\
@@ -1946,6 +1949,7 @@ enum reg_class
 #define REG_CLASS_CONTENTS						                                \
 {									                                \
   { 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* NO_REGS */		\
+  { 0x000200fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_STORE_REGS */	\
   { 0x000300fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_REGS */		\
   { 0x01000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* T_REG */		\
   { 0x010300fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_T_REGS */	\

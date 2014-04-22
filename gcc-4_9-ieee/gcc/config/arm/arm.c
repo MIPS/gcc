@@ -72,6 +72,7 @@ struct four_ints
 };
 
 /* Forward function declarations.  */
+static bool arm_const_not_ok_for_debug_p (rtx);
 static bool arm_lra_p (void);
 static bool arm_needs_doubleword_align (enum machine_mode, const_tree);
 static int arm_compute_static_chain_stack_bytes (void);
@@ -235,7 +236,6 @@ static tree arm_gimplify_va_arg_expr (tree, tree, gimple_seq *, gimple_seq *);
 static void arm_option_override (void);
 static unsigned HOST_WIDE_INT arm_shift_truncation_mask (enum machine_mode);
 static bool arm_cannot_copy_insn_p (rtx);
-static bool arm_tls_symbol_p (rtx x);
 static int arm_issue_rate (void);
 static void arm_output_dwarf_dtprel (FILE *, int, rtx) ATTRIBUTE_UNUSED;
 static bool arm_output_addr_const_extra (FILE *, rtx);
@@ -674,6 +674,9 @@ static const struct attribute_spec arm_attribute_table[] =
 
 #undef TARGET_CAN_USE_DOLOOP_P
 #define TARGET_CAN_USE_DOLOOP_P can_use_doloop_if_innermost
+
+#undef TARGET_CONST_NOT_OK_FOR_DEBUG_P
+#define TARGET_CONST_NOT_OK_FOR_DEBUG_P arm_const_not_ok_for_debug_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1481,7 +1484,8 @@ const struct tune_params arm_slowmul_tune =
   false,					/* Prefer LDRD/STRD.  */
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
-  false                                         /* Prefer Neon for 64-bits bitops.  */
+  false,                                        /* Prefer Neon for 64-bits bitops.  */
+  false, false                                  /* Prefer 32-bit encodings.  */
 };
 
 const struct tune_params arm_fastmul_tune =
@@ -1497,7 +1501,8 @@ const struct tune_params arm_fastmul_tune =
   false,					/* Prefer LDRD/STRD.  */
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
-  false                                         /* Prefer Neon for 64-bits bitops.  */
+  false,                                        /* Prefer Neon for 64-bits bitops.  */
+  false, false                                  /* Prefer 32-bit encodings.  */
 };
 
 /* StrongARM has early execution of branches, so a sequence that is worth
@@ -1516,7 +1521,8 @@ const struct tune_params arm_strongarm_tune =
   false,					/* Prefer LDRD/STRD.  */
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
-  false                                         /* Prefer Neon for 64-bits bitops.  */
+  false,                                        /* Prefer Neon for 64-bits bitops.  */
+  false, false                                  /* Prefer 32-bit encodings.  */
 };
 
 const struct tune_params arm_xscale_tune =
@@ -1532,7 +1538,8 @@ const struct tune_params arm_xscale_tune =
   false,					/* Prefer LDRD/STRD.  */
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
-  false                                         /* Prefer Neon for 64-bits bitops.  */
+  false,                                        /* Prefer Neon for 64-bits bitops.  */
+  false, false                                  /* Prefer 32-bit encodings.  */
 };
 
 const struct tune_params arm_9e_tune =
@@ -1548,7 +1555,8 @@ const struct tune_params arm_9e_tune =
   false,					/* Prefer LDRD/STRD.  */
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
-  false                                         /* Prefer Neon for 64-bits bitops.  */
+  false,                                        /* Prefer Neon for 64-bits bitops.  */
+  false, false                                  /* Prefer 32-bit encodings.  */
 };
 
 const struct tune_params arm_v6t2_tune =
@@ -1564,7 +1572,8 @@ const struct tune_params arm_v6t2_tune =
   false,					/* Prefer LDRD/STRD.  */
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
-  false                                         /* Prefer Neon for 64-bits bitops.  */
+  false,                                        /* Prefer Neon for 64-bits bitops.  */
+  false, false                                  /* Prefer 32-bit encodings.  */
 };
 
 /* Generic Cortex tuning.  Use more specific tunings if appropriate.  */
@@ -1581,7 +1590,8 @@ const struct tune_params arm_cortex_tune =
   false,					/* Prefer LDRD/STRD.  */
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
-  false                                         /* Prefer Neon for 64-bits bitops.  */
+  false,                                        /* Prefer Neon for 64-bits bitops.  */
+  false, false                                  /* Prefer 32-bit encodings.  */
 };
 
 const struct tune_params arm_cortex_a7_tune =
@@ -1597,7 +1607,8 @@ const struct tune_params arm_cortex_a7_tune =
   false,					/* Prefer LDRD/STRD.  */
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,			/* Vectorizer costs.  */
-  false						/* Prefer Neon for 64-bits bitops.  */
+  false,					/* Prefer Neon for 64-bits bitops.  */
+  false, false                                  /* Prefer 32-bit encodings.  */
 };
 
 const struct tune_params arm_cortex_a15_tune =
@@ -1613,7 +1624,8 @@ const struct tune_params arm_cortex_a15_tune =
   true,						/* Prefer LDRD/STRD.  */
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
-  false                                         /* Prefer Neon for 64-bits bitops.  */
+  false,                                        /* Prefer Neon for 64-bits bitops.  */
+  true, true                                    /* Prefer 32-bit encodings.  */
 };
 
 const struct tune_params arm_cortex_a53_tune =
@@ -1629,7 +1641,8 @@ const struct tune_params arm_cortex_a53_tune =
   false,					/* Prefer LDRD/STRD.  */
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,			/* Vectorizer costs.  */
-  false						/* Prefer Neon for 64-bits bitops.  */
+  false,					/* Prefer Neon for 64-bits bitops.  */
+  false, false                                  /* Prefer 32-bit encodings.  */
 };
 
 const struct tune_params arm_cortex_a57_tune =
@@ -1664,7 +1677,8 @@ const struct tune_params arm_cortex_a5_tune =
   false,					/* Prefer LDRD/STRD.  */
   {false, false},				/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
-  false                                         /* Prefer Neon for 64-bits bitops.  */
+  false,                                        /* Prefer Neon for 64-bits bitops.  */
+  false, false                                  /* Prefer 32-bit encodings.  */
 };
 
 const struct tune_params arm_cortex_a9_tune =
@@ -1680,7 +1694,8 @@ const struct tune_params arm_cortex_a9_tune =
   false,					/* Prefer LDRD/STRD.  */
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
-  false                                         /* Prefer Neon for 64-bits bitops.  */
+  false,                                        /* Prefer Neon for 64-bits bitops.  */
+  false, false                                  /* Prefer 32-bit encodings.  */
 };
 
 const struct tune_params arm_cortex_a12_tune =
@@ -1719,7 +1734,8 @@ const struct tune_params arm_v7m_tune =
   false,					/* Prefer LDRD/STRD.  */
   {false, false},				/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
-  false                                         /* Prefer Neon for 64-bits bitops.  */
+  false,                                        /* Prefer Neon for 64-bits bitops.  */
+  false, false                                  /* Prefer 32-bit encodings.  */
 };
 
 /* The arm_v6m_tune is duplicated from arm_cortex_tune, rather than
@@ -1737,7 +1753,8 @@ const struct tune_params arm_v6m_tune =
   false,					/* Prefer LDRD/STRD.  */
   {false, false},				/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
-  false                                         /* Prefer Neon for 64-bits bitops.  */
+  false,                                        /* Prefer Neon for 64-bits bitops.  */
+  false, false                                  /* Prefer 32-bit encodings.  */
 };
 
 const struct tune_params arm_fa726te_tune =
@@ -1753,7 +1770,8 @@ const struct tune_params arm_fa726te_tune =
   false,					/* Prefer LDRD/STRD.  */
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
-  false                                         /* Prefer Neon for 64-bits bitops.  */
+  false,                                        /* Prefer Neon for 64-bits bitops.  */
+  false, false                                  /* Prefer 32-bit encodings.  */
 };
 
 
@@ -7336,6 +7354,32 @@ legitimize_tls_address (rtx x, rtx reg)
 rtx
 arm_legitimize_address (rtx x, rtx orig_x, enum machine_mode mode)
 {
+  if (arm_tls_referenced_p (x))
+    {
+      rtx addend = NULL;
+
+      if (GET_CODE (x) == CONST && GET_CODE (XEXP (x, 0)) == PLUS)
+	{
+	  addend = XEXP (XEXP (x, 0), 1);
+	  x = XEXP (XEXP (x, 0), 0);
+	}
+
+      if (GET_CODE (x) != SYMBOL_REF)
+	return x;
+
+      gcc_assert (SYMBOL_REF_TLS_MODEL (x) != 0);
+
+      x = legitimize_tls_address (x, NULL_RTX);
+
+      if (addend)
+	{
+	  x = gen_rtx_PLUS (SImode, x, addend);
+	  orig_x = x;
+	}
+      else
+	return x;
+    }
+
   if (!TARGET_ARM)
     {
       /* TODO: legitimize_address for Thumb2.  */
@@ -7343,9 +7387,6 @@ arm_legitimize_address (rtx x, rtx orig_x, enum machine_mode mode)
         return x;
       return thumb_legitimize_address (x, orig_x, mode);
     }
-
-  if (arm_tls_symbol_p (x))
-    return legitimize_tls_address (x, NULL_RTX);
 
   if (GET_CODE (x) == PLUS)
     {
@@ -7459,9 +7500,6 @@ arm_legitimize_address (rtx x, rtx orig_x, enum machine_mode mode)
 rtx
 thumb_legitimize_address (rtx x, rtx orig_x, enum machine_mode mode)
 {
-  if (arm_tls_symbol_p (x))
-    return legitimize_tls_address (x, NULL_RTX);
-
   if (GET_CODE (x) == PLUS
       && CONST_INT_P (XEXP (x, 1))
       && (INTVAL (XEXP (x, 1)) >= 32 * GET_MODE_SIZE (mode)
@@ -7755,20 +7793,6 @@ thumb_legitimize_reload_address (rtx *x_p,
 }
 
 /* Test for various thread-local symbols.  */
-
-/* Return TRUE if X is a thread-local symbol.  */
-
-static bool
-arm_tls_symbol_p (rtx x)
-{
-  if (! TARGET_HAVE_TLS)
-    return false;
-
-  if (GET_CODE (x) != SYMBOL_REF)
-    return false;
-
-  return SYMBOL_REF_TLS_MODEL (x) != 0;
-}
 
 /* Helper for arm_tls_referenced_p.  */
 
@@ -9589,7 +9613,7 @@ arm_new_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer_code,
 	    {
 	      /* UXTA[BH] or SXTA[BH].  */
 	      if (speed_p)
-		*cost += extra_cost->alu.extnd_arith;
+		*cost += extra_cost->alu.extend_arith;
 	      *cost += (rtx_cost (XEXP (XEXP (x, 0), 0), ZERO_EXTEND, 0,
 				  speed_p)
 			+ rtx_cost (XEXP (x, 1), PLUS, 0, speed_p));
@@ -10306,7 +10330,7 @@ arm_new_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer_code,
 	  *cost = COSTS_N_INSNS (1);
 	  *cost += rtx_cost (XEXP (x, 0), code, 0, speed_p);
 	  if (speed_p)
-	    *cost += extra_cost->alu.extnd;
+	    *cost += extra_cost->alu.extend;
 	}
       else if (GET_MODE (XEXP (x, 0)) != SImode)
 	{
@@ -10359,7 +10383,7 @@ arm_new_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer_code,
 	  *cost = COSTS_N_INSNS (1);
 	  *cost += rtx_cost (XEXP (x, 0), code, 0, speed_p);
 	  if (speed_p)
-	    *cost += extra_cost->alu.extnd;
+	    *cost += extra_cost->alu.extend;
 	}
       else if (GET_MODE (XEXP (x, 0)) != SImode)
 	{
@@ -10661,10 +10685,16 @@ arm_new_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer_code,
       return true;
 
     case ASM_OPERANDS:
-      /* Just a guess.  Cost one insn per input.  */
-      *cost = COSTS_N_INSNS (ASM_OPERANDS_INPUT_LENGTH (x));
-      return true;
+      {
+      /* Just a guess.  Guess number of instructions in the asm
+         plus one insn per input.  Always a minimum of COSTS_N_INSNS (1)
+         though (see PR60663).  */
+        int asm_length = MAX (1, asm_str_count (ASM_OPERANDS_TEMPLATE (x)));
+        int num_operands = ASM_OPERANDS_INPUT_LENGTH (x);
 
+        *cost = COSTS_N_INSNS (asm_length + num_operands);
+        return true;
+      }
     default:
       if (mode != VOIDmode)
 	*cost = COSTS_N_INSNS (ARM_NUM_REGS (mode));
@@ -16778,9 +16808,20 @@ thumb2_reorg (void)
   compute_bb_for_insn ();
   df_analyze ();
 
+  enum Convert_Action {SKIP, CONV, SWAP_CONV};
+
   FOR_EACH_BB_FN (bb, cfun)
     {
+      if (current_tune->disparage_flag_setting_t16_encodings
+	  && optimize_bb_for_speed_p (bb))
+	continue;
+
       rtx insn;
+      Convert_Action action = SKIP;
+      Convert_Action action_for_partial_flag_setting
+	= (current_tune->disparage_partial_flag_setting_t16_encodings
+	   && optimize_bb_for_speed_p (bb))
+	  ? SKIP : CONV;
 
       COPY_REG_SET (&live, DF_LR_OUT (bb));
       df_simulate_initialize_backwards (bb, &live);
@@ -16790,7 +16831,7 @@ thumb2_reorg (void)
 	      && !REGNO_REG_SET_P (&live, CC_REGNUM)
 	      && GET_CODE (PATTERN (insn)) == SET)
 	    {
-	      enum {SKIP, CONV, SWAP_CONV} action = SKIP;
+	      action = SKIP;
 	      rtx pat = PATTERN (insn);
 	      rtx dst = XEXP (pat, 0);
 	      rtx src = XEXP (pat, 1);
@@ -16871,10 +16912,11 @@ thumb2_reorg (void)
 		      /* ANDS <Rdn>,<Rm>  */
 		      if (rtx_equal_p (dst, op0)
 			  && low_register_operand (op1, SImode))
-			action = CONV;
+			action = action_for_partial_flag_setting;
 		      else if (rtx_equal_p (dst, op1)
 			       && low_register_operand (op0, SImode))
-			action = SWAP_CONV;
+			action = action_for_partial_flag_setting == SKIP
+				 ? SKIP : SWAP_CONV;
 		      break;
 
 		    case ASHIFTRT:
@@ -16885,26 +16927,30 @@ thumb2_reorg (void)
 		      /* LSLS <Rdn>,<Rm> */
 		      if (rtx_equal_p (dst, op0)
 			  && low_register_operand (op1, SImode))
-			action = CONV;
+			action = action_for_partial_flag_setting;
 		      /* ASRS <Rd>,<Rm>,#<imm5> */
 		      /* LSRS <Rd>,<Rm>,#<imm5> */
 		      /* LSLS <Rd>,<Rm>,#<imm5> */
 		      else if (low_register_operand (op0, SImode)
 			       && CONST_INT_P (op1)
 			       && IN_RANGE (INTVAL (op1), 0, 31))
-			action = CONV;
+			action = action_for_partial_flag_setting;
 		      break;
 
 		    case ROTATERT:
 		      /* RORS <Rdn>,<Rm>  */
 		      if (rtx_equal_p (dst, op0)
 			  && low_register_operand (op1, SImode))
-			action = CONV;
+			action = action_for_partial_flag_setting;
 		      break;
 
 		    case NOT:
-		    case NEG:
 		      /* MVNS <Rd>,<Rm>  */
+		      if (low_register_operand (op0, SImode))
+			action = action_for_partial_flag_setting;
+		      break;
+
+		    case NEG:
 		      /* NEGS <Rd>,<Rm>  (a.k.a RSBS)  */
 		      if (low_register_operand (op0, SImode))
 			action = CONV;
@@ -16914,7 +16960,7 @@ thumb2_reorg (void)
 		      /* MOVS <Rd>,#<imm8>  */
 		      if (CONST_INT_P (src)
 			  && IN_RANGE (INTVAL (src), 0, 255))
-			action = CONV;
+			action = action_for_partial_flag_setting;
 		      break;
 
 		    case REG:
@@ -19909,8 +19955,15 @@ arm_emit_vfp_multi_reg_pop (int first_reg, int num_regs, rtx base_reg)
   par = emit_insn (par);
   REG_NOTES (par) = dwarf;
 
-  arm_add_cfa_adjust_cfa_note (par, 2 * UNITS_PER_WORD * num_regs,
-			       base_reg, base_reg);
+  /* Make sure cfa doesn't leave with IP_REGNUM to allow unwinding fron FP.  */
+  if (TARGET_VFP && REGNO (base_reg) == IP_REGNUM)
+    {
+      RTX_FRAME_RELATED_P (par) = 1;
+      add_reg_note (par, REG_CFA_DEF_CFA, hard_frame_pointer_rtx);
+    }
+  else
+    arm_add_cfa_adjust_cfa_note (par, 2 * UNITS_PER_WORD * num_regs,
+				 base_reg, base_reg);
 }
 
 /* Generate and emit a pattern that will be recognized as LDRD pattern.  If even
@@ -21405,7 +21458,7 @@ arm_print_operand (FILE *stream, rtx x, int code)
        register.  */
     case 'p':
       {
-        int mode = GET_MODE (x);
+        enum machine_mode mode = GET_MODE (x);
         int regno;
 
         if (GET_MODE_SIZE (mode) != 8 || !REG_P (x))
@@ -21429,7 +21482,7 @@ arm_print_operand (FILE *stream, rtx x, int code)
     case 'P':
     case 'q':
       {
-	int mode = GET_MODE (x);
+	enum machine_mode mode = GET_MODE (x);
 	int is_quad = (code == 'q');
 	int regno;
 
@@ -21465,7 +21518,7 @@ arm_print_operand (FILE *stream, rtx x, int code)
     case 'e':
     case 'f':
       {
-        int mode = GET_MODE (x);
+        enum machine_mode mode = GET_MODE (x);
         int regno;
 
         if ((GET_MODE_SIZE (mode) != 16
@@ -21598,7 +21651,7 @@ arm_print_operand (FILE *stream, rtx x, int code)
     /* Translate an S register number into a D register number and element index.  */
     case 'y':
       {
-        int mode = GET_MODE (x);
+        enum machine_mode mode = GET_MODE (x);
         int regno;
 
         if (GET_MODE_SIZE (mode) != 4 || !REG_P (x))
@@ -21632,7 +21685,7 @@ arm_print_operand (FILE *stream, rtx x, int code)
        number into a D register number and element index.  */
     case 'z':
       {
-        int mode = GET_MODE (x);
+        enum machine_mode mode = GET_MODE (x);
         int regno;
 
         if (GET_MODE_SIZE (mode) != 2 || !REG_P (x))
@@ -22593,12 +22646,19 @@ arm_hard_regno_mode_ok (unsigned int regno, enum machine_mode mode)
     }
 
   /* We allow almost any value to be stored in the general registers.
-     Restrict doubleword quantities to even register pairs so that we can
-     use ldrd.  Do not allow very large Neon structure opaque modes in
-     general registers; they would use too many.  */
+     Restrict doubleword quantities to even register pairs in ARM state
+     so that we can use ldrd.  Do not allow very large Neon structure
+     opaque modes in general registers; they would use too many.  */
   if (regno <= LAST_ARM_REGNUM)
-    return !(TARGET_LDRD && GET_MODE_SIZE (mode) > 4 && (regno & 1) != 0)
-      && ARM_NUM_REGS (mode) <= 4;
+    {
+      if (ARM_NUM_REGS (mode) > 4)
+	  return FALSE;
+
+      if (TARGET_THUMB2)
+	return TRUE;
+
+      return !(TARGET_LDRD && GET_MODE_SIZE (mode) > 4 && (regno & 1) != 0);
+    }
 
   if (regno == FRAME_POINTER_REGNUM
       || regno == ARG_POINTER_REGNUM)
@@ -25872,7 +25932,7 @@ thumb_exit (FILE *f, int reg_containing_return_addr)
   int pops_needed;
   unsigned available;
   unsigned required;
-  int mode;
+  enum machine_mode mode;
   int size;
   int restore_a4 = FALSE;
 
@@ -26254,6 +26314,11 @@ thumb_far_jump_used_p (void)
       else if (!cfun->machine->arg_pointer_live)
 	return 0;
     }
+
+  /* We should not change far_jump_used during or after reload, as there is
+     no chance to change stack frame layout.  */
+  if (reload_in_progress || reload_completed)
+    return 0;
 
   /* Check to see if the function contains a branch
      insn with the far jump attribute set.  */
@@ -27098,15 +27163,19 @@ arm_expand_epilogue_apcs_frame (bool really_return)
   if (TARGET_HARD_FLOAT && TARGET_VFP)
     {
       int start_reg;
+      rtx ip_rtx = gen_rtx_REG (SImode, IP_REGNUM);
 
       /* The offset is from IP_REGNUM.  */
       int saved_size = arm_get_vfp_saved_size ();
       if (saved_size > 0)
         {
+	  rtx insn;
           floats_from_frame += saved_size;
-          emit_insn (gen_addsi3 (gen_rtx_REG (SImode, IP_REGNUM),
-                                 hard_frame_pointer_rtx,
-                                 GEN_INT (-floats_from_frame)));
+          insn = emit_insn (gen_addsi3 (ip_rtx,
+					hard_frame_pointer_rtx,
+					GEN_INT (-floats_from_frame)));
+	  arm_add_cfa_adjust_cfa_note (insn, -floats_from_frame,
+				       ip_rtx, hard_frame_pointer_rtx);
         }
 
       /* Generate VFP register multi-pop.  */
@@ -27179,11 +27248,15 @@ arm_expand_epilogue_apcs_frame (bool really_return)
   num_regs = bit_count (saved_regs_mask);
   if ((offsets->outgoing_args != (1 + num_regs)) || cfun->calls_alloca)
     {
+      rtx insn;
       emit_insn (gen_blockage ());
       /* Unwind the stack to just below the saved registers.  */
-      emit_insn (gen_addsi3 (stack_pointer_rtx,
-                             hard_frame_pointer_rtx,
-                             GEN_INT (- 4 * num_regs)));
+      insn = emit_insn (gen_addsi3 (stack_pointer_rtx,
+				    hard_frame_pointer_rtx,
+				    GEN_INT (- 4 * num_regs)));
+
+      arm_add_cfa_adjust_cfa_note (insn, - 4 * num_regs,
+				   stack_pointer_rtx, hard_frame_pointer_rtx);
     }
 
   arm_emit_multi_reg_pop (saved_regs_mask);
@@ -28667,7 +28740,7 @@ arm_dwarf_register_span (rtx rtl)
 {
   enum machine_mode mode;
   unsigned regno;
-  rtx parts[8];
+  rtx parts[16];
   int nregs;
   int i;
 
@@ -28975,11 +29048,11 @@ arm_unwind_emit (FILE * asm_out_file, rtx insn)
 	   emit unwind information for it because these are used either for
 	   pretend arguments or notes to adjust sp and restore registers from
 	   stack.  */
+	case REG_CFA_DEF_CFA:
 	case REG_CFA_ADJUST_CFA:
 	case REG_CFA_RESTORE:
 	  return;
 
-	case REG_CFA_DEF_CFA:
 	case REG_CFA_EXPRESSION:
 	case REG_CFA_OFFSET:
 	  /* ??? Only handling here what we actually emit.  */
@@ -31089,6 +31162,48 @@ static unsigned HOST_WIDE_INT
 arm_asan_shadow_offset (void)
 {
   return (unsigned HOST_WIDE_INT) 1 << 29;
+}
+
+
+/* This is a temporary fix for PR60655.  Ideally we need
+   to handle most of these cases in the generic part but
+   currently we reject minus (..) (sym_ref).  We try to 
+   ameliorate the case with minus (sym_ref1) (sym_ref2)
+   where they are in the same section.  */
+
+static bool
+arm_const_not_ok_for_debug_p (rtx p)
+{
+  tree decl_op0 = NULL;
+  tree decl_op1 = NULL;
+
+  if (GET_CODE (p) == MINUS)
+    {
+      if (GET_CODE (XEXP (p, 1)) == SYMBOL_REF)
+	{
+	  decl_op1 = SYMBOL_REF_DECL (XEXP (p, 1));
+	  if (decl_op1
+	      && GET_CODE (XEXP (p, 0)) == SYMBOL_REF
+	      && (decl_op0 = SYMBOL_REF_DECL (XEXP (p, 0))))
+	    {
+	      if ((TREE_CODE (decl_op1) == VAR_DECL
+		   || TREE_CODE (decl_op1) == CONST_DECL)
+		  && (TREE_CODE (decl_op0) == VAR_DECL
+		      || TREE_CODE (decl_op0) == CONST_DECL))
+		return (get_variable_section (decl_op1, false)
+			!= get_variable_section (decl_op0, false));
+
+	      if (TREE_CODE (decl_op1) == LABEL_DECL
+		  && TREE_CODE (decl_op0) == LABEL_DECL)
+		return (DECL_CONTEXT (decl_op1)
+			!= DECL_CONTEXT (decl_op0));
+	    }
+
+	  return true;
+	}
+    }
+
+  return false;
 }
 
 #include "gt-arm.h"
