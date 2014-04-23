@@ -103,6 +103,8 @@
     UNSPEC_USHL_2S
     UNSPEC_USHR64
     UNSPEC_VSTRUCTDUMMY
+    UNSPEC_SP_SET
+    UNSPEC_SP_TEST
 ])
 
 (define_c_enum "unspecv" [
@@ -2565,7 +2567,18 @@
   [(set_attr "type" "logic_shift_imm")]
 )
 
-;; zero_extend version of above
+(define_insn "*<optab>_rol<mode>3"
+  [(set (match_operand:GPI 0 "register_operand" "=r")
+	(LOGICAL:GPI (rotate:GPI
+		      (match_operand:GPI 1 "register_operand" "r")
+		      (match_operand:QI 2 "aarch64_shift_imm_<mode>" "n"))
+		     (match_operand:GPI 3 "register_operand" "r")))]
+  ""
+  "<logical>\\t%<w>0, %<w>3, %<w>1, ror (<sizen> - %2)"
+  [(set_attr "type" "logic_shift_imm")]
+)
+
+;; zero_extend versions of above
 (define_insn "*<LOGICAL:optab>_<SHIFT:optab>si3_uxtw"
   [(set (match_operand:DI 0 "register_operand" "=r")
 	(zero_extend:DI
@@ -2575,6 +2588,18 @@
 		     (match_operand:SI 3 "register_operand" "r"))))]
   ""
   "<LOGICAL:logical>\\t%w0, %w3, %w1, <SHIFT:shift> %2"
+  [(set_attr "type" "logic_shift_imm")]
+)
+
+(define_insn "*<optab>_rolsi3_uxtw"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(zero_extend:DI
+	 (LOGICAL:SI (rotate:SI
+		      (match_operand:SI 1 "register_operand" "r")
+		      (match_operand:QI 2 "aarch64_shift_imm_si" "n"))
+		     (match_operand:SI 3 "register_operand" "r"))))]
+  ""
+  "<logical>\\t%w0, %w3, %w1, ror (32 - %2)"
   [(set_attr "type" "logic_shift_imm")]
 )
 
@@ -3253,6 +3278,38 @@
   [(set_attr "type" "rev")]
 )
 
+;; There are no canonicalisation rules for the position of the lshiftrt, ashift
+;; operations within an IOR/AND RTX, therefore we have two patterns matching
+;; each valid permutation.
+
+(define_insn "rev16<mode>2"
+  [(set (match_operand:GPI 0 "register_operand" "=r")
+        (ior:GPI (and:GPI (ashift:GPI (match_operand:GPI 1 "register_operand" "r")
+                                      (const_int 8))
+                          (match_operand:GPI 3 "const_int_operand" "n"))
+                 (and:GPI (lshiftrt:GPI (match_dup 1)
+                                        (const_int 8))
+                          (match_operand:GPI 2 "const_int_operand" "n"))))]
+  "aarch_rev16_shleft_mask_imm_p (operands[3], <MODE>mode)
+   && aarch_rev16_shright_mask_imm_p (operands[2], <MODE>mode)"
+  "rev16\\t%<w>0, %<w>1"
+  [(set_attr "type" "rev")]
+)
+
+(define_insn "rev16<mode>2_alt"
+  [(set (match_operand:GPI 0 "register_operand" "=r")
+        (ior:GPI (and:GPI (lshiftrt:GPI (match_operand:GPI 1 "register_operand" "r")
+                                        (const_int 8))
+                          (match_operand:GPI 2 "const_int_operand" "n"))
+                 (and:GPI (ashift:GPI (match_dup 1)
+                                      (const_int 8))
+                          (match_operand:GPI 3 "const_int_operand" "n"))))]
+  "aarch_rev16_shleft_mask_imm_p (operands[3], <MODE>mode)
+   && aarch_rev16_shright_mask_imm_p (operands[2], <MODE>mode)"
+  "rev16\\t%<w>0, %<w>1"
+  [(set_attr "type" "rev")]
+)
+
 ;; zero_extend version of above
 (define_insn "*bswapsi2_uxtw"
   [(set (match_operand:DI 0 "register_operand" "=r")
@@ -3744,6 +3801,67 @@
     emit_move_insn (operands[0], tmp);
   DONE;
 })
+
+;; Named patterns for stack smashing protection.
+(define_expand "stack_protect_set"
+  [(match_operand 0 "memory_operand")
+   (match_operand 1 "memory_operand")]
+  ""
+{
+  enum machine_mode mode = GET_MODE (operands[0]);
+
+  emit_insn ((mode == DImode
+	      ? gen_stack_protect_set_di
+	      : gen_stack_protect_set_si) (operands[0], operands[1]));
+  DONE;
+})
+
+(define_insn "stack_protect_set_<mode>"
+  [(set (match_operand:PTR 0 "memory_operand" "=m")
+	(unspec:PTR [(match_operand:PTR 1 "memory_operand" "m")]
+	 UNSPEC_SP_SET))
+   (set (match_scratch:PTR 2 "=&r") (const_int 0))]
+  ""
+  "ldr\\t%x2, %1\;str\\t%x2, %0\;mov\t%x2,0"
+  [(set_attr "length" "12")
+   (set_attr "type" "multiple")])
+
+(define_expand "stack_protect_test"
+  [(match_operand 0 "memory_operand")
+   (match_operand 1 "memory_operand")
+   (match_operand 2)]
+  ""
+{
+
+  rtx result = gen_reg_rtx (Pmode);
+
+  enum machine_mode mode = GET_MODE (operands[0]);
+
+  emit_insn ((mode == DImode
+	      ? gen_stack_protect_test_di
+	      : gen_stack_protect_test_si) (result,
+					    operands[0],
+					    operands[1]));
+
+  if (mode == DImode)
+    emit_jump_insn (gen_cbranchdi4 (gen_rtx_EQ (VOIDmode, result, const0_rtx),
+				    result, const0_rtx, operands[2]));
+  else
+    emit_jump_insn (gen_cbranchsi4 (gen_rtx_EQ (VOIDmode, result, const0_rtx),
+				    result, const0_rtx, operands[2]));
+  DONE;
+})
+
+(define_insn "stack_protect_test_<mode>"
+  [(set (match_operand:PTR 0 "register_operand")
+	(unspec:PTR [(match_operand:PTR 1 "memory_operand" "m")
+		     (match_operand:PTR 2 "memory_operand" "m")]
+	 UNSPEC_SP_TEST))
+   (clobber (match_scratch:PTR 3 "=&r"))]
+  ""
+  "ldr\t%x3, %x1\;ldr\t%x0, %x2\;eor\t%x0, %x3, %x0"
+  [(set_attr "length" "12")
+   (set_attr "type" "multiple")])
 
 ;; AdvSIMD Stuff
 (include "aarch64-simd.md")

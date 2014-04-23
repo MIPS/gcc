@@ -4471,9 +4471,13 @@ aarch64_strip_shift (rtx x)
 {
   rtx op = x;
 
+  /* We accept both ROTATERT and ROTATE: since the RHS must be a constant
+     we can convert both to ROR during final output.  */
   if ((GET_CODE (op) == ASHIFT
        || GET_CODE (op) == ASHIFTRT
-       || GET_CODE (op) == LSHIFTRT)
+       || GET_CODE (op) == LSHIFTRT
+       || GET_CODE (op) == ROTATERT
+       || GET_CODE (op) == ROTATE)
       && CONST_INT_P (XEXP (op, 1)))
     return XEXP (op, 0);
 
@@ -4694,7 +4698,25 @@ aarch64_rtx_costs (rtx x, int code, int outer ATTRIBUTE_UNUSED,
 
       return false;
 
+    case BSWAP:
+      *cost = COSTS_N_INSNS (1);
+
+      if (speed)
+        *cost += extra_cost->alu.rev;
+
+      return false;
+
     case IOR:
+      if (aarch_rev16_p (x))
+        {
+          *cost = COSTS_N_INSNS (1);
+
+          if (speed)
+            *cost += extra_cost->alu.rev;
+
+          return true;
+        }
+    /* Fall through.  */
     case XOR:
     case AND:
     cost_logic:
