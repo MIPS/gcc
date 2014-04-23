@@ -2800,21 +2800,21 @@
   (set_attr "mode"	"TI")
   (set_attr "msa_execunit" "msa_eu_store4")])
 
-(define_expand "msa_bnz_<msafmt_f>"
+(define_expand "msa_bnz_<msafmt>"
   [(set (match_operand:SI 0 "register_operand" "=d")
-	(unspec:SI [(match_operand:MSA 1 "register_operand" "f")]
+	(unspec:SI [(match_operand:IMSA 1 "register_operand" "f")]
 		   UNSPEC_MSA_TSTNZ))]
   "ISA_HAS_MSA"
   {
-    mips_expand_msa_branch (operands, gen_msa_branchnz_<MSA:msafmt_f>);
+    mips_expand_msa_branch (operands, gen_msa_branchnz_<IMSA:msafmt>);
     DONE;
   })
 
-(define_insn "msa_branchz_<msafmt_f>"
+(define_insn "msa_branchz_<msafmt>"
  [(set (pc) (if_then_else
-	      (eq (unspec:SI [(match_operand:MSA 1 "register_operand" "f")]
+	      (eq (unspec:SI [(match_operand:IMSA 1 "register_operand" "f")]
 			      UNSPEC_MSA_BZ)
-		   (match_operand:MSA 2 "const_0_operand"))
+		   (match_operand:IMSA 2 "const_0_operand"))
 		  (label_ref (match_operand 0))
 		  (pc)))]
  "ISA_HAS_MSA"
@@ -2827,13 +2827,13 @@
   (set_attr "mode"	"TI")
   (set_attr "msa_execunit" "msa_eu_store4")])
 
-(define_expand "msa_bz_<msafmt_f>"
+(define_expand "msa_bz_<msafmt>"
   [(set (match_operand:SI 0 "register_operand" "=d")
-	(unspec:SI [(match_operand:MSA 1 "register_operand" "f")]
+	(unspec:SI [(match_operand:IMSA 1 "register_operand" "f")]
 		   UNSPEC_MSA_TSTZ))]
   "ISA_HAS_MSA"
   {
-    mips_expand_msa_branch (operands, gen_msa_branchz_<MSA:msafmt_f>);
+    mips_expand_msa_branch (operands, gen_msa_branchz_<IMSA:msafmt>);
     DONE;
   })
 
