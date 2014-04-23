@@ -781,7 +781,7 @@ Objective-C and Objective-C++ Dialects}.
 -meva -mno-eva @gol
 -mvirt -mno-virt @gol
 -mmicromips -mno-micromips @gol
--msa -mno-msa @gol
+-mmsa -mno-msa @gol
 -mfpu=@var{fpu-type} @gol
 -msmartmips  -mno-smartmips @gol
 -mpaired-single  -mno-paired-single  -mdmx  -mno-mdmx @gol
