@@ -805,7 +805,15 @@ an integer $I if $I is lower than $N.}#
 
 (defprimitive strbuf_usedlength (sbuf) :long
   :doc #{Give the used length of given $SBUF string buffer or else 0.}#
-  #{melt_strbuf_usedlength((melt_ptr_t)($sbuf))}#)
+  #{melt_strbuf_usedlength((melt_ptr_t)($SBUF))}#)
+
+(defprimitive strbuf_peek (sbuf :long off) :long
+  :doc #{Peek without consuming it in stringbuffer $SBUF the character at offset $OFF or else -1}#
+  #{/*strbuf_peek*/ melt_strbuf_peek ((melt_ptr_t)($SBUF), (int)($OFF)) }#)
+
+(defprimitive strbuf_consume  (sbuf :long count) :void
+:doc #{Consume in stringbuffer $SBUF uto to $COUNT bytes.}#
+#{/*strbuf_consume*/ melt_strbuf_consume((melt_ptr_t)($SBUF), (int)($COUNT))}#)
 
 (defprimitive output_length (out) :long
   :doc #{Return the length of a given output $OUT (i.e. the used length if it is a string buffer, the file position if it is a file) or else 0.}#
@@ -4069,6 +4077,8 @@ which should be a string or an instance of $CLASS_NAMED, or else nil.}#
  split_string_space 
  start_melt_module_of_flavor 
  strbuf2string
+ strbuf_consume
+ strbuf_peek
  strbuf_reserve
  strbuf_usedlength
  string4out

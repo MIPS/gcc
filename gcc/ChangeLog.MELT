@@ -2,6 +2,11 @@
 
 2014-04-23  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-base.melt (strbuf_consume, strbuf_peek): New
+	primitives.
+
+2014-04-23  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.h (melt_strbuf_peek): New function.
 	* melt/warmelt-hooks.melt (json_name_dict): New variable.
 	(json_lexer): New function stub.
