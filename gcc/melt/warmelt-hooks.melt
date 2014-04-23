@@ -2883,6 +2883,24 @@ exit, in last place.}#
 	   )
   )
 
+(defvar json_name_dict)
+(let ( (jsondict (make_mapstring discr_map_strings 71))
+       )
+  (mapstring_putstr jsondict '"null" :json_nil)
+  (mapstring_putstr jsondict '"true" :true)
+  (mapstring_putstr jsondict '"false" :json_false)
+  (setq json_name_dict jsondict)
+  (void))
+
+;; internal function to lexer a json sbuf
+(defun json_lexer (sbuf)
+  (assert_msg "check sbuf" (is_strbuf sbuf) sbuf)
+  (forever
+   lexloop
+   (assert_msg "@$@incomplete json_lexer")
+   )
+  )
+
 (defun json_parser_input_processor (inch sbuf)
   (debug "json_parser_input_processor inch=" inch "\n.. sbuf=" sbuf)
   (let ( (jparser (get_field :inch_data inch))

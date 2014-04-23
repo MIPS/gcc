@@ -1876,6 +1876,23 @@ melt_strbuf_usedlength(melt_ptr_t v)
 }
 
 
+/* peek the character in a stringbuffer at given offset or else -1 (which is EOF) */
+static inline int
+melt_strbuf_peek (melt_ptr_t v, int ioff)
+{
+  if (melt_magic_discr (v) == MELTOBMAG_STRBUF)
+    {
+      struct meltstrbuf_st *sbu = (struct meltstrbuf_st *) v;
+      int slen = (sbu->bufend) - (sbu->bufstart);
+      if (ioff < 0)
+	ioff += slen;
+      if (ioff >= 0 && ioff < slen)
+	return (int)(sbu->bufzn[sbu->bufstart+ioff]);
+    }
+  return -1;
+}
+
+
 static inline void
 melt_strbuf_consume (melt_ptr_t v, int cnt)
 {

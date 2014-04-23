@@ -1,6 +1,12 @@
 
 
-2014-04-14  Basile Starynkevitch  <basile@starynkevitch.net>
+2014-04-23  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.h (melt_strbuf_peek): New function.
+	* melt/warmelt-hooks.melt (json_name_dict): New variable.
+	(json_lexer): New function stub.
+
+2014-04-23  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/generated/*: Regenerate all.
 
