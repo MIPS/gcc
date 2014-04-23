@@ -678,7 +678,7 @@
 		:probedata_cmdtoprobefd (make_integerbox discr_constant_integer toprobenumfd)
 		:probedata_reqfromprobefd (make_integerbox discr_constant_integer fromprobenumfd))
     (set_ref probe_data_ref probedata)
-    (register_input_channel_handler probe_request_processor probedata fromprobenumfd)
+    (register_paragraph_input_channel_handler probe_request_processor probedata fromprobenumfd)
     (probe_register_request_verb 'VERSION_prq  show_version_probe)
     (probe_register_request_verb 'INFOLOCATION_prq info_location_probe)
     (debug "start_probe registered probe_request_processor=" probe_request_processor 

@@ -427,7 +427,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
     (put_env newenv contvalbind)
     (put_env newenv waitreplbind)
     (debug "repl_docmd newenv=" newenv " repldata=" repldata)
-    (register_input_channel_handler repl_processor repldata 0)
+    (register_paragraph_input_channel_handler repl_processor repldata 0)
     ;; register waiting REPL after all passes
     (register_all_passes_end_first
      (lambda (endp)

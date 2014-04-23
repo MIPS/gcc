@@ -1,5 +1,22 @@
 
 
+2014-04-23  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{should add JSON asynchronous parsing}}
+	* melt/warmelt-hooks.melt (class_paragraph_input_channel_handler)
+	(class_raw_input_channel_handler): New classes.
+	(register_paragraph_input_channel_handler)
+	(register_raw_input_channel_handler): New functions.
+	(register_input_channel_handler): Deprecated synonym of
+	register_paragraph_input_channel_handler.
+	(class_json_parser): New incomplete class.
+	(json_parser_input_processor): New function stub.
+
+	* melt/warmelt-modes.melt (repl_docmd): Call
+	register_paragraph_input_channel_handler.
+
+	* melt/xtramelt-probe.melt (start_probe): Likewise.
+
 2014-04-14  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/generated/*: Regenerate all.

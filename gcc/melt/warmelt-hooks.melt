@@ -2483,6 +2483,22 @@ exit, in last place.}#
 
 (defvar melt_inpchanbuck) ;;contain bucket of longs for input handling
 
+(defclass class_paragraph_input_channel_handler
+  :doc #{$CLASS_PARAGRAPH_INPUT_CHANNEL_HANDLER is for input channel
+  handlers which are accepting paragraphs terminated by two
+  newlines. See also $CLASS_RAW_INPUT_CHANNEL_HANDLER}#
+  :super class_input_channel_handler
+  :fields ())
+
+(defclass class_raw_input_channel_handler
+  :doc #{$CLASS_RAW_INPUT_CHANNEL_HANDLER is for input channel
+  handlers which are accepting raw input data, without paragraph
+  separation. See also $CLASS_PARAGRAPH_INPUT_CHANNEL_HANDLER.}#
+  :super class_input_channel_handler
+  :fields ())
+
+(export_class class_raw_input_channel_handler class_paragraph_input_channel_handler)
+  
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; internal utility to read input and invoke the callbacks
@@ -2514,11 +2530,11 @@ exit, in last place.}#
 	      (code_chunk 
 	       read_chk
 	       #{ /* melt_invoke_input_callbacks $READ_CHK */
-	       static char rdbuf[MELT_BUFSIZE] ;
-	       memset (&rdbuf, 0, sizeof (rdbuf)) ;
+	       static char rdbuf[MELT_BUFSIZE]		      ;
+	       memset (&rdbuf, 0, sizeof (rdbuf))	      ;
 	       $READCNT = read ($CURFD, rdbuf, sizeof(rdbuf)) ;
 	       if ($READCNT > 0)
-	         meltgc_add_out_raw_len ((melt_ptr_t) $SBUF, rdbuf, $READCNT) ;
+	       meltgc_add_out_raw_len ((melt_ptr_t) $SBUF, rdbuf, $READCNT) ;
 	       }#)
 	      (when (==i readcnt 0)
 		(list_append removelist curinch)
@@ -2528,50 +2544,57 @@ exit, in last place.}#
 	  (progn ;; should callback for eof close and remove from bucks
 	    (list_append removelist curinch)
 	    ))
-	;; loop to handle every 2-newline ended paragraph in the sbuf
-	(forever 
-	 scanloop
-	 (let ( (:long stop 0)
-		(seqv ())
+	(cond ( (is_a curinch class_paragraph_input_channel_handler)
+		;; loop to handle every 2-newline ended paragraph in the sbuf
+		(forever 
+		 scanloop
+		 (let ( (:long stop 0)
+			(seqv ())
+			)
+		   (code_chunk 
+		    eat_chk
+		    #{ /* melt_invoke_input_callbacks $EAT_CHK */
+		    const char* bufdata = melt_strbuf_str ((melt_ptr_t) $SBUF) ;
+		    char* buf2nl = bufdata
+		        ? CONST_CAST (char*, strstr(bufdata,"\n\n")) 
+		        : NULL ;
+		    if (buf2nl)  {
+		      int paralen = buf2nl - bufdata + 2 ;
+		      ((char*) buf2nl)[1] = '\0' ;
+		      $SEQV =  meltgc_read_from_rawstring (bufdata, NULL, 
+		      						  UNKNOWN_LOCATION) ;
+		      melt_strbuf_consume ((melt_ptr_t) $SBUF, paralen) ;
+		    }
+		    else   {
+		      $STOP = 1;
+		      if (!$CURSTATE && bufdata) {
+		        int buflen = strlen (bufdata) ;
+		        $SEQV = meltgc_read_from_rawstring (bufdata, NULL, 
+		        				    UNKNOWN_LOCATION) ;
+		        melt_strbuf_consume ((melt_ptr_t) $SBUF, buflen) ;
+		      }
+		    }
+		    }#)
+		   (when seqv
+		     (debug "melt_invoke_input_callbacks paragraph seqv=" seqv "\n curinch=" curinch)
+		     (clos curinch seqv))
+		   (if stop (exit scanloop))
+		   )
+		 )			;end scanloop
 		)
-	   (code_chunk 
-	    eat_chk
-	    #{ /* melt_invoke_input_callbacks $EAT_CHK */
-	    const char* bufdata = melt_strbuf_str ((melt_ptr_t) $SBUF);
-	    char* buf2nl = bufdata
-		          ? CONST_CAST (char*, strstr(bufdata,"\n\n")) 
-		          : NULL;
-            if (buf2nl) 
-              {
-	        int paralen = buf2nl - bufdata + 2;
-		((char*) buf2nl)[1] = '\0';
-		$SEQV =  meltgc_read_from_rawstring (bufdata, NULL, 
-		     			  	     UNKNOWN_LOCATION);
-		melt_strbuf_consume ((melt_ptr_t) $SBUF, paralen);
-	      }
-	    else 
-              {
-	        $STOP = 1;
-		if (!$CURSTATE && bufdata) {
-		  int buflen = strlen (bufdata);
-		  $SEQV = meltgc_read_from_rawstring (bufdata, NULL, 
-		     			  	     UNKNOWN_LOCATION);
-		  melt_strbuf_consume ((melt_ptr_t) $SBUF, buflen);
-		}
-              }
-	    }#)
-	   (when seqv
-	     (debug "melt_invoke_input_callbacks seqv=" seqv "\n curinch=" curinch)
-	     (clos curinch seqv))
-	   (if stop (exit scanloop))
-	   )
-	 )				;end scanloop
+	      ( (is_a curinch class_raw_input_channel_handler)
+	       (debug "melt_invoke_input_callbacks raw sbuf=" sbuf)
+	       (clos curinch sbuf)
+	       )
+	      (:else
+	       (assert_msg "melt_invoke_input_callbacks invalid curinch" () curinch))
+	      )
 	(when (null curstate)
 	  (debug "melt_invoke_input_callbacks eof curinch=" curinch)
 	  (clos curinch ())
+	  )
 	)
-      )
-     ) 					;end for ix
+      )					;end for ix
      (debug "melt_invoke_input_callbacks removelist=" removelist)
      (foreach_pair_component_in_list
       (removelist)
@@ -2580,9 +2603,9 @@ exit, in last place.}#
       (setq buck (bucketlong_remove buck (get_int curemove)))
       )
      (setq melt_inpchanbuck buck)
+     )
    )
-  )
-)					;end melt_invoke_input_callbacks 
+  )				     ;end melt_invoke_input_callbacks 
 
 
 
@@ -2742,9 +2765,9 @@ exit, in last place.}#
   ))
 
 ;;;;;;;;;;;;;;;;
-(defun register_input_channel_handler (clos data :long inchfd)
-  :doc #{$REGISTER_INPUT_CHANNEL_HANDLER registers an asynchronous
-  input channel handler, such as for the graphical user interface
+(defun register_paragraph_input_channel_handler (clos data :long inchfd)
+  :doc #{$REGISTER_PARAGRAPH_INPUT_CHANNEL_HANDLER registers an asynchronous
+  paragraph input channel handler, such as for the graphical user interface
   probe. $CLOS is the registered closure, $DATA is some client data,
   $INCHFD is the input Unix file descriptor. When an entire
   message (double-newline ended sequence of MELT values in MELT
@@ -2753,18 +2776,18 @@ exit, in last place.}#
   a read-only instance of $CLASS_INPUT_CHANNEL_HANDLER, and to the
   read list. When end-of-file is obtained on $INCHFD, the closure is
   similarily applied with a null value instead of the read list.}#
-  (debug "register_input_channel_handler clos=" clos " data=" data 
+  (debug "register_paragraph_input_channel_handler clos=" clos " data=" data 
 	 " inchfd=" inchfd)
   (let ( (:long goodinchfd 0) )
     (if (and (is_closure clos)
 	     (>=i inchfd 0))
 	(code_chunk
 	 statinchfdchk
-	 #{ /*register_input_channel_handler $STATINCHFDCHK */ {
+	 #{ /*register_paragraph_input_channel_handler $STATINCHFDCHK */ {
          struct stat $STATINCHFDCHK#_stat;
 	 memset (& $STATINCHFDCHK#_stat, 0, sizeof(struct stat));
 	 if (fstat ($INCHFD, & $STATINCHFDCHK#_stat))
-	 warning(0, "MELT bad registered input channel fd#%d - %s",
+	 warning(0, "MELT bad registered paragraph input channel fd#%d - %s",
 		    (int) $INCHFD, xstrerror (errno));
 	 else
 	 $GOODINCHFD = 1; 
@@ -2772,7 +2795,7 @@ exit, in last place.}#
       )
     (if (not goodinchfd) (return)))
   (let ( (insbuf (make_strbuf discr_strbuf)) 
-	 (inchdlr (instance class_input_channel_handler 
+	 (inchdlr (instance class_paragraph_input_channel_handler 
 			    :inch_sbuf insbuf
 			    :inch_clos clos
 			    :inch_data data))
@@ -2788,15 +2811,87 @@ exit, in last place.}#
       (setq melt_inpchanbuck updatedinbuck)
       (code_chunk 
        fcntlinchfdchk
-       #{ /* $FCNTLINCHFDCHK start */
+       #{ /* register_paragraph_input_channel_handler $FCNTLINCHFDCHK start */
 	  if (fcntl ($INCHFD, F_SETOWN, getpid()))
 	  melt_fatal_error("MELT failed to set ownership (F_SETOWN) fd #%d - %s",
 			   (int) $INCHFD, xstrerror (errno));
-          /* end  $FCNTLINCHFDCHK */
+          /* end  $FCNTLINCHFDCHK register_paragraph_input_channel_handler */
 	  }#)
       )))
 
+;;;;;;;;;;;;;;;;
+(defun register_raw_input_channel_handler (clos data :long inchfd)
+  :doc #{$REGISTER_RAW_INPUT_CHANNEL_HANDLER registers an asynchronous
+  raw input channel handler, such as for the graphical user interface
+  probe. $CLOS is the registered closure, $DATA is some client data,
+  $INCHFD is the input Unix file descriptor. When an entire
+  message (double-newline ended sequence of MELT values in MELT
+  syntax) is recieved from the $INCHFD, the $CLOS is applied to the
+  input channel handler -containing the data as its $INCH_DATA field-,
+  a read-only instance of $CLASS_INPUT_CHANNEL_HANDLER, and to the
+  read list. When end-of-file is obtained on $INCHFD, the closure is
+  similarily applied with a null value instead of the read list.}#
+  (debug "register_raw_input_channel_handler clos=" clos " data=" data 
+	 " inchfd=" inchfd)
+  (let ( (:long goodinchfd 0) )
+    (if (and (is_closure clos)
+	     (>=i inchfd 0))
+	(code_chunk
+	 statinchfdchk
+	 #{ /*register_raw_input_channel_handler $STATINCHFDCHK */ {
+         struct stat $STATINCHFDCHK#_stat;
+	 memset (& $STATINCHFDCHK#_stat, 0, sizeof(struct stat));
+	 if (fstat ($INCHFD, & $STATINCHFDCHK#_stat))
+	 warning(0, "MELT bad registered raw input channel fd#%d - %s",
+		    (int) $INCHFD, xstrerror (errno));
+	 else
+	 $GOODINCHFD = 1; 
+	 } /* end $STATINCHFDCHK */ }#)
+      )
+    (if (not goodinchfd) (return)))
+  (let ( (insbuf (make_strbuf discr_strbuf)) 
+	 (inchdlr (instance class_raw_input_channel_handler 
+			    :inch_sbuf insbuf
+			    :inch_clos clos
+			    :inch_data data))
+	 (inbuck melt_inpchanbuck)
+	 )
+    (put_int inchdlr inchfd)
+    (if (not (is_bucketlong inbuck))
+	(let ( (newinbuck (make_bucketlong discr_bucket_longs 50))
+	       )
+	  (setq inbuck newinbuck)))
+    (let ( (updatedinbuck (bucketlong_put inbuck inchfd inchdlr))
+	   )
+      (setq melt_inpchanbuck updatedinbuck)
+      (code_chunk 
+       fcntlinchfdchk
+       #{ /* register_raw_input_channel_handler $FCNTLINCHFDCHK start */
+	  if (fcntl ($INCHFD, F_SETOWN, getpid()))
+	  melt_fatal_error("MELT failed to set ownership (F_SETOWN) fd #%d - %s",
+			   (int) $INCHFD, xstrerror (errno));
+          /* end  $FCNTLINCHFDCHK register_raw_input_channel_handler */
+	  }#)
+      )))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; asynchronous JSON parsing
+(defclass class_json_parser
+  :super class_proped
+  :doc #{The $CLASS_JSON_PARSER is the internal class for asynchronous JSON parsing}#
+  :fields (jsonparse_jdata
+	   )
+  )
+
+(defun json_parser_input_processor (inch sbuf)
+  (debug "json_parser_input_processor inch=" inch "\n.. sbuf=" sbuf)
+  (let ( (jparser (get_field :inch_data inch))
+	 )
+    (assert_msg "check jparser" (is_a jparser class_json_parser) jparser inch)
+    (assert_msg "check inch" (is_a inch class_raw_input_channel_handler))
+    (assert_msg "check sbuf" (is_strbuf sbuf))
+    (assert_msg "@$@unimplemented json_parser_input_processor")
+  ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; the sigio handler, called from safe places
@@ -3110,8 +3205,12 @@ exit, in last place.}#
 (export_values 
  register_alarm_timer
  register_child_process_handler
- register_input_channel_handler 
+ register_paragraph_input_channel_handler
+ register_raw_input_channel_handler 
  unregister_alarm_timer 
  unregister_child_process_handler
-)
+ )
+
+(export_synonym register_input_channel_handler register_paragraph_input_channel_handler)
+
 ;; eof warmelt-hooks.melt
