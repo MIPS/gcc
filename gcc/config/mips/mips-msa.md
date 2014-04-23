@@ -322,30 +322,24 @@
   "ISA_HAS_MSA"
 {
   rtx temp;
-  gcc_assert (UINTVAL (operands[2]) < GET_MODE_NUNITS (<MODE>mode));
+  HOST_WIDE_INT val = UINTVAL (operands[2]);
 
-  if (INTVAL (operands[2]) == 0)
+  gcc_assert (val < GET_MODE_NUNITS (<MODE>mode));
+
+  if (val == 0)
     temp = operands[1];
   else
     {
       /* We need to do the SLDI operation in V16QImode and adjust
        * operand[2] accordingly.  */
-      if (<MODE>mode == V16QImode)
-	{
-	  rtx tempb = gen_reg_rtx (V16QImode);
-	  rtx op1b  = gen_reg_rtx (V16QImode);
-	  rtx op2b  = GEN_INT (UINTVAL (operands[2]) * GET_MODE_SIZE (<MODE>mode));
-	  gcc_assert (UINTVAL (op2b) < GET_MODE_NUNITS (V16QImode));
-	  emit_move_insn (op1b, operands[1]);
-	  emit_insn (gen_msa_sldi_b (tempb, op1b, op1b, op2b));
-	  temp = gen_reg_rtx (<MODE>mode);
-	  emit_move_insn (temp, tempb);
-	}
-      else
-	{
-	  temp = gen_reg_rtx (<MODE>mode);
-	  emit_insn (gen_msa_sldi_b (temp, operands[1], operands[1], operands[2]));
-	}
+      rtx tempb = gen_reg_rtx (V16QImode);
+      rtx op1b = gen_reg_rtx (V16QImode);
+      emit_move_insn (op1b, gen_rtx_SUBREG (V16QImode, operands[1], 0));
+      rtx op2b  = GEN_INT (val * GET_MODE_SIZE (<UNITMODE>mode));
+      gcc_assert (UINTVAL (op2b) < GET_MODE_NUNITS (V16QImode));
+      emit_insn (gen_msa_sldi_b (tempb, op1b, op1b, op2b));
+      temp = gen_reg_rtx (<MODE>mode);
+      emit_move_insn (temp, gen_rtx_SUBREG (<MODE>mode, tempb, 0));
     }
   emit_insn (gen_msa_cast_to_scalar_<msafmt_f> (operands[0], temp));
   DONE;
