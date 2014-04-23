@@ -1906,6 +1906,11 @@ extern void protected_set_expr_location (tree, location_t);
    It is an IDENTIFIER_NODE.  */
 #define DECL_NAME(NODE) (DECL_MINIMAL_CHECK (NODE)->decl_minimal.name)
 
+/* The IDENTIFIER_NODE associated with the TYPE_NAME field.  */
+#define TYPE_IDENTIFIER(NODE) \
+  (TYPE_NAME (NODE) && DECL_P (TYPE_NAME (NODE)) \
+   ? DECL_NAME (TYPE_NAME (NODE)) : TYPE_NAME (NODE))
+
 /* Every ..._DECL node gets a unique number.  */
 #define DECL_UID(NODE) (DECL_MINIMAL_CHECK (NODE)->decl_minimal.uid)
 
@@ -2440,6 +2445,10 @@ extern void decl_fini_priority_insert (tree, priority_type);
 /* In a VAR_DECL, nonzero if this is a non-local frame structure.  */
 #define DECL_NONLOCAL_FRAME(NODE)  \
   (VAR_DECL_CHECK (NODE)->base.default_def_flag)
+
+/* In a VAR_DECL, nonzero if this variable is not aliased by any pointer.  */
+#define DECL_NONALIASED(NODE) \
+  (VAR_DECL_CHECK (NODE)->base.nothrow_flag)
 
 /* This field is used to reference anything in decl.result and is meant only
    for use by the garbage collector.  */
@@ -4183,7 +4192,7 @@ static inline tree
 fold_build_pointer_plus_loc (location_t loc, tree ptr, tree off)
 {
   return fold_build2_loc (loc, POINTER_PLUS_EXPR, TREE_TYPE (ptr),
-			  ptr, fold_convert_loc (loc, sizetype, off));
+			  ptr, convert_to_ptrofftype_loc (loc, off));
 }
 #define fold_build_pointer_plus(p,o) \
 	fold_build_pointer_plus_loc (UNKNOWN_LOCATION, p, o)
@@ -4462,12 +4471,14 @@ static inline bool
 may_be_aliased (const_tree var)
 {
   return (TREE_CODE (var) != CONST_DECL
-	  && !((TREE_STATIC (var) || TREE_PUBLIC (var) || DECL_EXTERNAL (var))
-	       && TREE_READONLY (var)
-	       && !TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (var)))
 	  && (TREE_PUBLIC (var)
 	      || DECL_EXTERNAL (var)
-	      || TREE_ADDRESSABLE (var)));
+	      || TREE_ADDRESSABLE (var))
+	  && !((TREE_STATIC (var) || TREE_PUBLIC (var) || DECL_EXTERNAL (var))
+	       && ((TREE_READONLY (var)
+		    && !TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (var)))
+		   || (TREE_CODE (var) == VAR_DECL
+		       && DECL_NONALIASED (var)))));
 }
 
 /* Return pointer to optimization flags of FNDECL.  */
@@ -4548,6 +4559,7 @@ extern tree fold_builtin_stxcpy_chk (location_t, tree, tree, tree, tree, tree, b
 				     enum built_in_function);
 extern tree fold_builtin_stxncpy_chk (location_t, tree, tree, tree, tree, tree, bool,
 				      enum built_in_function);
+extern tree fold_builtin_expect (location_t, tree, tree, tree);
 extern bool fold_builtin_next_arg (tree, bool);
 extern enum built_in_function builtin_mathfn_code (const_tree);
 extern tree fold_builtin_call_array (location_t, tree, tree, int, tree *);

@@ -1,7 +1,6 @@
 /* { dg-do run } */
 /* { dg-require-effective-target int128 } */
 /* { dg-options "-fsanitize=signed-integer-overflow" } */
-/* { dg-skip-if "" { *-*-* } { "-flto" } { "" } } */
 
 /* 2^127 - 1 */
 #define INT128_MAX (__int128) (((unsigned __int128) 1 << ((__SIZEOF_INT128__ * __CHAR_BIT__) - 1)) - 1)
@@ -45,4 +44,4 @@ main (void)
 /* { dg-output "\[^\n\r]*signed integer overflow: 0x80000000000000000000000000000000 \\+ -1 cannot be represented in type '__int128'(\n|\r\n|\r)" } */
 /* { dg-output "\[^\n\r]*signed integer overflow: 0x80000000000000000000000000000064 \\+ -1024 cannot be represented in type '__int128'(\n|\r\n|\r)" } */
 /* { dg-output "\[^\n\r]*signed integer overflow: 0x7fffffffffffffffffffffffffffffff \\* 2 cannot be represented in type '__int128'(\n|\r\n|\r)" } */
-/* { dg-output "\[^\n\r]*negation of 0x80000000000000000000000000000000 cannot be represented in type '__int128'; cast to an unsigned type to negate this value to itself(\n|\r\n|\r)" } */
+/* { dg-output "\[^\n\r]*negation of 0x80000000000000000000000000000000 cannot be represented in type '__int128'; cast to an unsigned type to negate this value to itself\[^\n\r]*(\n|\r\n|\r)" } */

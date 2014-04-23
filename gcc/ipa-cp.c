@@ -884,8 +884,9 @@ ipcp_verify_propagated_values (void)
 	    {
 	      if (dump_file)
 		{
+		  dump_symtab (dump_file);
 		  fprintf (dump_file, "\nIPA lattices after constant "
-			   "propagation:\n");
+			   "propagation, before gcc_unreachable:\n");
 		  print_all_lattices (dump_file, true, false);
 		}
 
@@ -1639,11 +1640,18 @@ ipa_get_indirect_edge_target_1 (struct cgraph_edge *ie,
 	return NULL_TREE;
       target = gimple_get_virt_method_for_binfo (token, binfo);
     }
-#ifdef ENABLE_CHECKING
-  if (target)
-    gcc_assert (possible_polymorphic_call_target_p
-		 (ie, cgraph_get_node (target)));
-#endif
+
+  if (target && !possible_polymorphic_call_target_p (ie,
+						     cgraph_get_node (target)))
+    {
+      if (dump_file)
+	fprintf (dump_file,
+		 "Type inconsident devirtualization: %s/%i->%s\n",
+		 ie->caller->name (), ie->caller->order,
+		 IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (target)));
+      target = builtin_decl_implicit (BUILT_IN_UNREACHABLE);
+      cgraph_get_create_node (target);
+    }
 
   return target;
 }
@@ -2804,9 +2812,7 @@ create_specialized_node (struct cgraph_node *node,
       if (aggvals)
 	ipa_dump_agg_replacement_values (dump_file, aggvals);
     }
-  gcc_checking_assert (ipa_node_params_vector.exists ()
-		       && (ipa_node_params_vector.length ()
-			   > (unsigned) cgraph_max_uid));
+  ipa_check_create_node_params ();
   update_profiling_info (node, new_node);
   new_info = IPA_NODE_REF (new_node);
   new_info->ipcp_orig_node = node;
@@ -3756,16 +3762,6 @@ ipcp_read_summary (void)
   ipa_prop_read_jump_functions ();
 }
 
-/* Gate for IPCP optimization.  */
-
-static bool
-cgraph_gate_cp (void)
-{
-  /* FIXME: We should remove the optimize check after we ensure we never run
-     IPA passes when not optimizing.  */
-  return flag_ipa_cp && optimize;
-}
-
 namespace {
 
 const pass_data pass_data_ipa_cp =
@@ -3773,7 +3769,6 @@ const pass_data pass_data_ipa_cp =
   IPA_PASS, /* type */
   "cp", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
   true, /* has_execute */
   TV_IPA_CONSTANT_PROP, /* tv_id */
   0, /* properties_required */
@@ -3802,8 +3797,14 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return cgraph_gate_cp (); }
-  unsigned int execute () { return ipcp_driver (); }
+  virtual bool gate (function *)
+    {
+      /* FIXME: We should remove the optimize check after we ensure we never run
+	 IPA passes when not optimizing.  */
+      return flag_ipa_cp && optimize;
+    }
+
+  virtual unsigned int execute (function *) { return ipcp_driver (); }
 
 }; // class pass_ipa_cp
 

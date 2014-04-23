@@ -386,6 +386,9 @@ add_stmt (tree t)
       STMT_IS_FULL_EXPR_P (t) = stmts_are_full_exprs_p ();
     }
 
+  if (code == LABEL_EXPR || code == CASE_LABEL_EXPR)
+    STATEMENT_LIST_HAS_LABEL (cur_stmt_list) = 1;
+
   /* Add T to the statement-tree.  Non-side-effect statements need to be
      recorded during statement expressions.  */
   gcc_checking_assert (!stmt_list_stack->is_empty ());
@@ -2777,6 +2780,7 @@ begin_class_definition (tree t)
   maybe_process_partial_specialization (t);
   pushclass (t);
   TYPE_BEING_DEFINED (t) = 1;
+  class_binding_level->defining_class_p = 1;
 
   if (flag_pack_struct)
     {
@@ -3863,6 +3867,7 @@ simplify_aggr_init_expr (tree *tp)
 				    aggr_init_expr_nargs (aggr_init_expr),
 				    AGGR_INIT_EXPR_ARGP (aggr_init_expr));
   TREE_NOTHROW (call_expr) = TREE_NOTHROW (aggr_init_expr);
+  tree ret = call_expr;
 
   if (style == ctor)
     {
@@ -3878,7 +3883,7 @@ simplify_aggr_init_expr (tree *tp)
 	 expand_call{,_inline}.  */
       cxx_mark_addressable (slot);
       CALL_EXPR_RETURN_SLOT_OPT (call_expr) = true;
-      call_expr = build2 (INIT_EXPR, TREE_TYPE (call_expr), slot, call_expr);
+      ret = build2 (INIT_EXPR, TREE_TYPE (ret), slot, ret);
     }
   else if (style == pcc)
     {
@@ -3886,11 +3891,25 @@ simplify_aggr_init_expr (tree *tp)
 	 need to copy the returned value out of the static buffer into the
 	 SLOT.  */
       push_deferring_access_checks (dk_no_check);
-      call_expr = build_aggr_init (slot, call_expr,
-				   DIRECT_BIND | LOOKUP_ONLYCONVERTING,
-                                   tf_warning_or_error);
+      ret = build_aggr_init (slot, ret,
+			     DIRECT_BIND | LOOKUP_ONLYCONVERTING,
+			     tf_warning_or_error);
       pop_deferring_access_checks ();
-      call_expr = build2 (COMPOUND_EXPR, TREE_TYPE (slot), call_expr, slot);
+      ret = build2 (COMPOUND_EXPR, TREE_TYPE (slot), ret, slot);
+    }
+
+  /* DR 1030 says that we need to evaluate the elements of an
+     initializer-list in forward order even when it's used as arguments to
+     a constructor.  So if the target wants to evaluate them in reverse
+     order and there's more than one argument other than 'this', force
+     pre-evaluation.  */
+  if (PUSH_ARGS_REVERSED && CALL_EXPR_LIST_INIT_P (aggr_init_expr)
+      && aggr_init_expr_nargs (aggr_init_expr) > 2)
+    {
+      tree preinit;
+      stabilize_call (call_expr, &preinit);
+      if (preinit)
+	ret = build2 (COMPOUND_EXPR, TREE_TYPE (ret), preinit, ret);
     }
 
   if (AGGR_INIT_ZERO_FIRST (aggr_init_expr))
@@ -3898,11 +3917,10 @@ simplify_aggr_init_expr (tree *tp)
       tree init = build_zero_init (type, NULL_TREE,
 				   /*static_storage_p=*/false);
       init = build2 (INIT_EXPR, void_type_node, slot, init);
-      call_expr = build2 (COMPOUND_EXPR, TREE_TYPE (call_expr),
-			  init, call_expr);
+      ret = build2 (COMPOUND_EXPR, TREE_TYPE (ret), init, ret);
     }
 
-  *tp = call_expr;
+  *tp = ret;
 }
 
 /* Emit all thunks to FN that should be emitted when FN is emitted.  */
@@ -6860,7 +6878,8 @@ finish_static_assert (tree condition, tree message, location_t location,
       else if (condition && condition != error_mark_node)
 	{
 	  error ("non-constant condition for static assertion");
-	  cxx_constant_value (condition);
+	  if (require_potential_rvalue_constant_expression (condition))
+	    cxx_constant_value (condition);
 	}
       input_location = saved_loc;
     }
@@ -7438,19 +7457,31 @@ retrieve_constexpr_fundef (tree fun)
 static bool
 is_valid_constexpr_fn (tree fun, bool complain)
 {
-  tree parm = FUNCTION_FIRST_USER_PARM (fun);
   bool ret = true;
-  for (; parm != NULL; parm = TREE_CHAIN (parm))
-    if (!literal_type_p (TREE_TYPE (parm)))
-      {
-	ret = false;
-	if (complain)
+
+  if (DECL_INHERITED_CTOR_BASE (fun)
+      && TREE_CODE (fun) == TEMPLATE_DECL)
+    {
+      ret = false;
+      if (complain)
+	error ("inherited constructor %qD is not constexpr",
+	       get_inherited_ctor (fun));
+    }
+  else
+    {
+      for (tree parm = FUNCTION_FIRST_USER_PARM (fun);
+	   parm != NULL_TREE; parm = TREE_CHAIN (parm))
+	if (!literal_type_p (TREE_TYPE (parm)))
 	  {
-	    error ("invalid type for parameter %d of constexpr "
-		   "function %q+#D", DECL_PARM_INDEX (parm), fun);
-	    explain_non_literal_class (TREE_TYPE (parm));
+	    ret = false;
+	    if (complain)
+	      {
+		error ("invalid type for parameter %d of constexpr "
+		       "function %q+#D", DECL_PARM_INDEX (parm), fun);
+		explain_non_literal_class (TREE_TYPE (parm));
+	      }
 	  }
-      }
+    }
 
   if (!DECL_CONSTRUCTOR_P (fun))
     {
@@ -7703,8 +7734,8 @@ sort_constexpr_mem_initializers (tree type, vec<constructor_elt, va_gc> *v)
 {
   tree pri = CLASSTYPE_PRIMARY_BINFO (type);
   tree field_type;
-  constructor_elt elt;
-  int i;
+  unsigned i;
+  constructor_elt *ce;
 
   if (pri)
     field_type = BINFO_TYPE (pri);
@@ -7715,14 +7746,14 @@ sort_constexpr_mem_initializers (tree type, vec<constructor_elt, va_gc> *v)
 
   /* Find the element for the primary base or vptr and move it to the
      beginning of the vec.  */
-  vec<constructor_elt, va_gc> &vref = *v;
-  for (i = 0; ; ++i)
-    if (TREE_TYPE (vref[i].index) == field_type)
+  for (i = 0; vec_safe_iterate (v, i, &ce); ++i)
+    if (TREE_TYPE (ce->index) == field_type)
       break;
 
-  if (i > 0)
+  if (i > 0 && i < vec_safe_length (v))
     {
-      elt = vref[i];
+      vec<constructor_elt, va_gc> &vref = *v;
+      constructor_elt elt = vref[i];
       for (; i > 0; --i)
 	vref[i] = vref[i-1];
       vref[0] = elt;
@@ -10240,6 +10271,7 @@ potential_constant_expression_1 (tree t, bool want_rval, tsubst_flags_t flags)
     case DO_STMT:
     case FOR_STMT:
     case WHILE_STMT:
+    case DECL_EXPR:
       if (flags & tf_error)
         error ("expression %qE is not a constant-expression", t);
       return false;

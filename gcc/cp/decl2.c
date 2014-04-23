@@ -1169,8 +1169,9 @@ is_late_template_attribute (tree attr, tree decl)
       /* Also defer most attributes on dependent types.  This is not
 	 necessary in all cases, but is the better default.  */
       else if (dependent_type_p (type)
-	       /* But attribute visibility specifically works on
-		  templates.  */
+	       /* But attributes abi_tag and visibility specifically apply
+		  to templates.  */
+	       && !is_attribute_p ("abi_tag", name)
 	       && !is_attribute_p ("visibility", name))
 	return true;
       else
@@ -1426,7 +1427,15 @@ cplus_decl_attributes (tree *decl, tree attributes, int flags)
   if (TREE_CODE (*decl) == TEMPLATE_DECL)
     decl = &DECL_TEMPLATE_RESULT (*decl);
 
-  decl_attributes (decl, attributes, flags);
+  if (TREE_TYPE (*decl) && TYPE_PTRMEMFUNC_P (TREE_TYPE (*decl)))
+    {
+      attributes
+	= decl_attributes (decl, attributes, flags | ATTR_FLAG_FUNCTION_NEXT);
+      decl_attributes (&TYPE_PTRMEMFUNC_FN_TYPE (TREE_TYPE (*decl)),
+		       attributes, flags);
+    }
+  else
+    decl_attributes (decl, attributes, flags);
 
   if (TREE_CODE (*decl) == TYPE_DECL)
     SET_IDENTIFIER_TYPE_VALUE (DECL_NAME (*decl), TREE_TYPE (*decl));

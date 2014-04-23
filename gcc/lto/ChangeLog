@@ -1,7 +1,52 @@
+2014-04-15  Richard Biener  <rguenther@suse.de>
+
+	* lto.c: Include params.h.
+	(do_whole_program_analysis): Switch on flag_lto_partition value,
+	add support for LTO_PARTITION_ONE.
+	* lto-partition.h (lto_balanced_map): Adjust.
+	* lto-partition.c (lto_balanced_map): Get number of desired
+	partitions as argument to support -flto-partition=one.
+
+2014-04-14  Jan Hubicka  <hubicka@ucw.cz>
+
+	* lto/lto-symtab.c (lto_cgraph_replace_node): Don't re-merge
+	tp_first_run.
+
+2014-03-19  Jan Hubicka  <hubicka@ucw.cz>
+
+	* lto.c: Include ipa-inline.h
+	(do_whole_program_analysis): Free inline summary after partitioning.
+
+2014-03-19  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/60553
+	* lto-tree.h (lang_tree_node): For types use TYPE_NEXT_VARIANT 
+	instead of TREE_CHAIN as chain_next.
+
+2014-03-19  Richard Biener  <rguenther@suse.de>
+
+	* lto.c (lto_wpa_write_files): Move call to
+	lto_promote_cross_file_statics ...
+	(do_whole_program_analysis): ... here, into the partitioning
+	block.  Do not ggc_collect after lto_wpa_write_files but
+	for a last time before it.
+
+2014-03-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR lto/60571
+	* lto.c (wait_for_child): Define WCONTINUED if not defined to 0.
+	Fix formatting.
+
+2014-03-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/60535
+	* lto-lang.c (lto_init): Add NAME_TYPE for int128_integer_type_node
+	and complex_{float,{,long_}double}_type_node.
+
 2014-03-08  Paulo Matos  <paulo@matos-sorge.com>
 
-    * lto-lang.c (lto_init): Pass flag_short_double to
-    build_common_tree_nodes.
+	* lto-lang.c (lto_init): Pass flag_short_double to
+	build_common_tree_nodes.
 
 2014-02-14  Jan Hubicka  <hubicka@ucw.cz>
 

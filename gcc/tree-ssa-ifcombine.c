@@ -135,6 +135,16 @@ bb_no_side_effects_p (basic_block bb)
   return true;
 }
 
+/* Return true if BB is an empty forwarder block to TO_BB.  */
+
+static bool
+forwarder_block_to (basic_block bb, basic_block to_bb)
+{
+  return empty_block_p (bb)
+	 && single_succ_p (bb)
+	 && single_succ (bb) == to_bb;
+}
+
 /* Verify if all PHI node arguments in DEST for edges from BB1 or
    BB2 to DEST are the same.  This makes the CFG merge point
    free from side-effects.  Return true in this case, else false.  */
@@ -561,6 +571,99 @@ ifcombine_ifandif (basic_block inner_cond_bb, bool inner_inv,
   return false;
 }
 
+/* Helper function for tree_ssa_ifcombine_bb.  Recognize a CFG pattern and
+   dispatch to the appropriate if-conversion helper for a particular
+   set of INNER_COND_BB, OUTER_COND_BB, THEN_BB and ELSE_BB.
+   PHI_PRED_BB should be one of INNER_COND_BB, THEN_BB or ELSE_BB.  */
+
+static bool
+tree_ssa_ifcombine_bb_1 (basic_block inner_cond_bb, basic_block outer_cond_bb,
+			 basic_block then_bb, basic_block else_bb,
+			 basic_block phi_pred_bb)
+{
+  /* The && form is characterized by a common else_bb with
+     the two edges leading to it mergable.  The latter is
+     guaranteed by matching PHI arguments in the else_bb and
+     the inner cond_bb having no side-effects.  */
+  if (phi_pred_bb != else_bb
+      && recognize_if_then_else (outer_cond_bb, &inner_cond_bb, &else_bb)
+      && same_phi_args_p (outer_cond_bb, phi_pred_bb, else_bb)
+      && bb_no_side_effects_p (inner_cond_bb))
+    {
+      /* We have
+	   <outer_cond_bb>
+	     if (q) goto inner_cond_bb; else goto else_bb;
+	   <inner_cond_bb>
+	     if (p) goto ...; else goto else_bb;
+	     ...
+	   <else_bb>
+	     ...
+       */
+      return ifcombine_ifandif (inner_cond_bb, false, outer_cond_bb, false,
+				false);
+    }
+
+  /* And a version where the outer condition is negated.  */
+  if (phi_pred_bb != else_bb
+      && recognize_if_then_else (outer_cond_bb, &else_bb, &inner_cond_bb)
+      && same_phi_args_p (outer_cond_bb, phi_pred_bb, else_bb)
+      && bb_no_side_effects_p (inner_cond_bb))
+    {
+      /* We have
+	   <outer_cond_bb>
+	     if (q) goto else_bb; else goto inner_cond_bb;
+	   <inner_cond_bb>
+	     if (p) goto ...; else goto else_bb;
+	     ...
+	   <else_bb>
+	     ...
+       */
+      return ifcombine_ifandif (inner_cond_bb, false, outer_cond_bb, true,
+				false);
+    }
+
+  /* The || form is characterized by a common then_bb with the
+     two edges leading to it mergable.  The latter is guaranteed
+     by matching PHI arguments in the then_bb and the inner cond_bb
+     having no side-effects.  */
+  if (phi_pred_bb != then_bb
+      && recognize_if_then_else (outer_cond_bb, &then_bb, &inner_cond_bb)
+      && same_phi_args_p (outer_cond_bb, phi_pred_bb, then_bb)
+      && bb_no_side_effects_p (inner_cond_bb))
+    {
+      /* We have
+	   <outer_cond_bb>
+	     if (q) goto then_bb; else goto inner_cond_bb;
+	   <inner_cond_bb>
+	     if (q) goto then_bb; else goto ...;
+	   <then_bb>
+	     ...
+       */
+      return ifcombine_ifandif (inner_cond_bb, true, outer_cond_bb, true,
+				true);
+    }
+
+  /* And a version where the outer condition is negated.  */
+  if (phi_pred_bb != then_bb
+      && recognize_if_then_else (outer_cond_bb, &inner_cond_bb, &then_bb)
+      && same_phi_args_p (outer_cond_bb, phi_pred_bb, then_bb)
+      && bb_no_side_effects_p (inner_cond_bb))
+    {
+      /* We have
+	   <outer_cond_bb>
+	     if (q) goto inner_cond_bb; else goto then_bb;
+	   <inner_cond_bb>
+	     if (q) goto then_bb; else goto ...;
+	   <then_bb>
+	     ...
+       */
+      return ifcombine_ifandif (inner_cond_bb, true, outer_cond_bb, false,
+				true);
+    }
+
+  return false;
+}
+
 /* Recognize a CFG pattern and dispatch to the appropriate
    if-conversion helper.  We start with BB as the innermost
    worker basic-block.  Returns true if a transformation was done.  */
@@ -585,80 +688,33 @@ tree_ssa_ifcombine_bb (basic_block inner_cond_bb)
     {
       basic_block outer_cond_bb = single_pred (inner_cond_bb);
 
-      /* The && form is characterized by a common else_bb with
-	 the two edges leading to it mergable.  The latter is
-	 guaranteed by matching PHI arguments in the else_bb and
-	 the inner cond_bb having no side-effects.  */
-      if (recognize_if_then_else (outer_cond_bb, &inner_cond_bb, &else_bb)
-	  && same_phi_args_p (outer_cond_bb, inner_cond_bb, else_bb)
-	  && bb_no_side_effects_p (inner_cond_bb))
-	{
-	  /* We have
-	       <outer_cond_bb>
-		 if (q) goto inner_cond_bb; else goto else_bb;
-	       <inner_cond_bb>
-		 if (p) goto ...; else goto else_bb;
-		 ...
-	       <else_bb>
-		 ...
-	   */
-	  return ifcombine_ifandif (inner_cond_bb, false, outer_cond_bb, false,
-				    false);
-	}
+      if (tree_ssa_ifcombine_bb_1 (inner_cond_bb, outer_cond_bb,
+				   then_bb, else_bb, inner_cond_bb))
+	return true;
 
-      /* And a version where the outer condition is negated.  */
-      if (recognize_if_then_else (outer_cond_bb, &else_bb, &inner_cond_bb)
-	  && same_phi_args_p (outer_cond_bb, inner_cond_bb, else_bb)
-	  && bb_no_side_effects_p (inner_cond_bb))
+      if (forwarder_block_to (else_bb, then_bb))
 	{
-	  /* We have
-	       <outer_cond_bb>
-		 if (q) goto else_bb; else goto inner_cond_bb;
-	       <inner_cond_bb>
-		 if (p) goto ...; else goto else_bb;
-		 ...
-	       <else_bb>
-		 ...
-	   */
-	  return ifcombine_ifandif (inner_cond_bb, false, outer_cond_bb, true,
-				    false);
+	  /* Other possibilities for the && form, if else_bb is
+	     empty forwarder block to then_bb.  Compared to the above simpler
+	     forms this can be treated as if then_bb and else_bb were swapped,
+	     and the corresponding inner_cond_bb not inverted because of that.
+	     For same_phi_args_p we look at equality of arguments between
+	     edge from outer_cond_bb and the forwarder block.  */
+	  if (tree_ssa_ifcombine_bb_1 (inner_cond_bb, outer_cond_bb, else_bb,
+				       then_bb, else_bb))
+	    return true;
 	}
-
-      /* The || form is characterized by a common then_bb with the
-	 two edges leading to it mergable.  The latter is guaranteed
-         by matching PHI arguments in the then_bb and the inner cond_bb
-	 having no side-effects.  */
-      if (recognize_if_then_else (outer_cond_bb, &then_bb, &inner_cond_bb)
-	  && same_phi_args_p (outer_cond_bb, inner_cond_bb, then_bb)
-	  && bb_no_side_effects_p (inner_cond_bb))
+      else if (forwarder_block_to (then_bb, else_bb))
 	{
-	  /* We have
-	       <outer_cond_bb>
-		 if (q) goto then_bb; else goto inner_cond_bb;
-	       <inner_cond_bb>
-		 if (q) goto then_bb; else goto ...;
-	       <then_bb>
-		 ...
-	   */
-	  return ifcombine_ifandif (inner_cond_bb, true, outer_cond_bb, true,
-				    true);
-	}
-
-      /* And a version where the outer condition is negated.  */
-      if (recognize_if_then_else (outer_cond_bb, &inner_cond_bb, &then_bb)
-	  && same_phi_args_p (outer_cond_bb, inner_cond_bb, then_bb)
-	  && bb_no_side_effects_p (inner_cond_bb))
-	{
-	  /* We have
-	       <outer_cond_bb>
-		 if (q) goto inner_cond_bb; else goto then_bb;
-	       <inner_cond_bb>
-		 if (q) goto then_bb; else goto ...;
-	       <then_bb>
-		 ...
-	   */
-	  return ifcombine_ifandif (inner_cond_bb, true, outer_cond_bb, false,
-				    true);
+	  /* Other possibilities for the || form, if then_bb is
+	     empty forwarder block to else_bb.  Compared to the above simpler
+	     forms this can be treated as if then_bb and else_bb were swapped,
+	     and the corresponding inner_cond_bb not inverted because of that.
+	     For same_phi_args_p we look at equality of arguments between
+	     edge from outer_cond_bb and the forwarder block.  */
+	  if (tree_ssa_ifcombine_bb_1 (inner_cond_bb, outer_cond_bb, else_bb,
+				       then_bb, then_bb))
+	    return true;
 	}
     }
 
@@ -667,45 +723,6 @@ tree_ssa_ifcombine_bb (basic_block inner_cond_bb)
 
 /* Main entry for the tree if-conversion pass.  */
 
-static unsigned int
-tree_ssa_ifcombine (void)
-{
-  basic_block *bbs;
-  bool cfg_changed = false;
-  int i;
-
-  bbs = single_pred_before_succ_order ();
-  calculate_dominance_info (CDI_DOMINATORS);
-
-  /* Search every basic block for COND_EXPR we may be able to optimize.
-
-     We walk the blocks in order that guarantees that a block with
-     a single predecessor is processed after the predecessor.
-     This ensures that we collapse outter ifs before visiting the
-     inner ones, and also that we do not try to visit a removed
-     block.  This is opposite of PHI-OPT, because we cascade the
-     combining rather than cascading PHIs. */
-  for (i = n_basic_blocks_for_fn (cfun) - NUM_FIXED_BLOCKS - 1; i >= 0; i--)
-    {
-      basic_block bb = bbs[i];
-      gimple stmt = last_stmt (bb);
-
-      if (stmt
-	  && gimple_code (stmt) == GIMPLE_COND)
-	cfg_changed |= tree_ssa_ifcombine_bb (bb);
-    }
-
-  free (bbs);
-
-  return cfg_changed ? TODO_cleanup_cfg : 0;
-}
-
-static bool
-gate_ifcombine (void)
-{
-  return 1;
-}
-
 namespace {
 
 const pass_data pass_data_tree_ifcombine =
@@ -713,7 +730,6 @@ const pass_data pass_data_tree_ifcombine =
   GIMPLE_PASS, /* type */
   "ifcombine", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
   true, /* has_execute */
   TV_TREE_IFCOMBINE, /* tv_id */
   ( PROP_cfg | PROP_ssa ), /* properties_required */
@@ -731,10 +747,42 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_ifcombine (); }
-  unsigned int execute () { return tree_ssa_ifcombine (); }
+  virtual unsigned int execute (function *);
 
 }; // class pass_tree_ifcombine
+
+unsigned int
+pass_tree_ifcombine::execute (function *fun)
+{
+  basic_block *bbs;
+  bool cfg_changed = false;
+  int i;
+
+  bbs = single_pred_before_succ_order ();
+  calculate_dominance_info (CDI_DOMINATORS);
+
+  /* Search every basic block for COND_EXPR we may be able to optimize.
+
+     We walk the blocks in order that guarantees that a block with
+     a single predecessor is processed after the predecessor.
+     This ensures that we collapse outter ifs before visiting the
+     inner ones, and also that we do not try to visit a removed
+     block.  This is opposite of PHI-OPT, because we cascade the
+     combining rather than cascading PHIs. */
+  for (i = n_basic_blocks_for_fn (fun) - NUM_FIXED_BLOCKS - 1; i >= 0; i--)
+    {
+      basic_block bb = bbs[i];
+      gimple stmt = last_stmt (bb);
+
+      if (stmt
+	  && gimple_code (stmt) == GIMPLE_COND)
+	cfg_changed |= tree_ssa_ifcombine_bb (bb);
+    }
+
+  free (bbs);
+
+  return cfg_changed ? TODO_cleanup_cfg : 0;
+}
 
 } // anon namespace
 

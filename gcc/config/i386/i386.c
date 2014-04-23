@@ -81,6 +81,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "context.h"
 #include "pass_manager.h"
 #include "target-globals.h"
+#include "tree-vectorizer.h"
 
 static rtx legitimize_dllimport_symbol (rtx, bool);
 static rtx legitimize_pe_coff_extern_decl (rtx, bool);
@@ -1738,7 +1739,7 @@ struct processor_costs slm_cost = {
   1,					/* scalar load_cost.  */
   1,					/* scalar_store_cost.  */
   1,					/* vec_stmt_cost.  */
-  1,					/* vec_to_scalar_cost.  */
+  4,					/* vec_to_scalar_cost.  */
   1,					/* scalar_to_vec_cost.  */
   1,					/* vec_align_load_cost.  */
   2,					/* vec_unalign_load_cost.  */
@@ -1815,7 +1816,7 @@ struct processor_costs intel_cost = {
   1,					/* scalar load_cost.  */
   1,					/* scalar_store_cost.  */
   1,					/* vec_stmt_cost.  */
-  1,					/* vec_to_scalar_cost.  */
+  4,					/* vec_to_scalar_cost.  */
   1,					/* scalar_to_vec_cost.  */
   1,					/* vec_align_load_cost.  */
   2,					/* vec_unalign_load_cost.  */
@@ -2493,12 +2494,6 @@ static const struct ptt processor_target_table[PROCESSOR_max] =
   {"btver2", &btver2_cost, 16, 10, 16, 7, 11}
 };
 
-static bool
-gate_insert_vzeroupper (void)
-{
-  return TARGET_AVX && !TARGET_AVX512F && TARGET_VZEROUPPER;
-}
-
 static unsigned int
 rest_of_handle_insert_vzeroupper (void)
 {
@@ -2525,7 +2520,6 @@ const pass_data pass_data_insert_vzeroupper =
   RTL_PASS, /* type */
   "vzeroupper", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
   true, /* has_execute */
   TV_NONE, /* tv_id */
   0, /* properties_required */
@@ -2543,8 +2537,15 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_insert_vzeroupper (); }
-  unsigned int execute () { return rest_of_handle_insert_vzeroupper (); }
+  virtual bool gate (function *)
+    {
+      return TARGET_AVX && !TARGET_AVX512F && TARGET_VZEROUPPER;
+    }
+
+  virtual unsigned int execute (function *)
+    {
+      return rest_of_handle_insert_vzeroupper ();
+    }
 
 }; // class pass_insert_vzeroupper
 
@@ -6806,8 +6807,9 @@ classify_argument (enum machine_mode mode, const_tree type,
 }
 
 /* Examine the argument and return set number of register required in each
-   class.  Return 0 iff parameter should be passed in memory.  */
-static int
+   class.  Return true iff parameter should be passed in memory.  */
+
+static bool
 examine_argument (enum machine_mode mode, const_tree type, int in_return,
 		  int *int_nregs, int *sse_nregs)
 {
@@ -6816,8 +6818,9 @@ examine_argument (enum machine_mode mode, const_tree type, int in_return,
 
   *int_nregs = 0;
   *sse_nregs = 0;
+
   if (!n)
-    return 0;
+    return true;
   for (n--; n >= 0; n--)
     switch (regclass[n])
       {
@@ -6835,15 +6838,15 @@ examine_argument (enum machine_mode mode, const_tree type, int in_return,
 	break;
       case X86_64_X87_CLASS:
       case X86_64_X87UP_CLASS:
-	if (!in_return)
-	  return 0;
-	break;
       case X86_64_COMPLEX_X87_CLASS:
-	return in_return ? 2 : 0;
+	if (!in_return)
+	  return true;
+	break;
       case X86_64_MEMORY_CLASS:
 	gcc_unreachable ();
       }
-  return 1;
+
+  return false;
 }
 
 /* Construct container for the argument used by GCC interface.  See
@@ -6873,8 +6876,8 @@ construct_container (enum machine_mode mode, enum machine_mode orig_mode,
   n = classify_argument (mode, type, regclass, 0);
   if (!n)
     return NULL;
-  if (!examine_argument (mode, type, in_return, &needed_intregs,
-			 &needed_sseregs))
+  if (examine_argument (mode, type, in_return, &needed_intregs,
+			&needed_sseregs))
     return NULL;
   if (needed_intregs > nintregs || needed_sseregs > nsseregs)
     return NULL;
@@ -7193,7 +7196,7 @@ function_arg_advance_64 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 		 || VALID_AVX256_REG_MODE (mode)))
     return;
 
-  if (examine_argument (mode, type, 0, &int_nregs, &sse_nregs)
+  if (!examine_argument (mode, type, 0, &int_nregs, &sse_nregs)
       && sse_nregs <= cum->sse_nregs && int_nregs <= cum->nregs)
     {
       cum->nregs -= int_nregs;
@@ -7988,78 +7991,6 @@ ix86_libcall_value (enum machine_mode mode)
 
 /* Return true iff type is returned in memory.  */
 
-static bool ATTRIBUTE_UNUSED
-return_in_memory_32 (const_tree type, enum machine_mode mode)
-{
-  HOST_WIDE_INT size;
-
-  if (mode == BLKmode)
-    return true;
-
-  size = int_size_in_bytes (type);
-
-  if (MS_AGGREGATE_RETURN && AGGREGATE_TYPE_P (type) && size <= 8)
-    return false;
-
-  if (VECTOR_MODE_P (mode) || mode == TImode)
-    {
-      /* User-created vectors small enough to fit in EAX.  */
-      if (size < 8)
-	return false;
-
-      /* MMX/3dNow values are returned in MM0,
-	 except when it doesn't exits or the ABI prescribes otherwise.  */
-      if (size == 8)
-	return !TARGET_MMX || TARGET_VECT8_RETURNS;
-
-      /* SSE values are returned in XMM0, except when it doesn't exist.  */
-      if (size == 16)
-	return !TARGET_SSE;
-
-      /* AVX values are returned in YMM0, except when it doesn't exist.  */
-      if (size == 32)
-	return !TARGET_AVX;
-
-      /* AVX512F values are returned in ZMM0, except when it doesn't exist.  */
-      if (size == 64)
-	return !TARGET_AVX512F;
-    }
-
-  if (mode == XFmode)
-    return false;
-
-  if (size > 12)
-    return true;
-
-  /* OImode shouldn't be used directly.  */
-  gcc_assert (mode != OImode);
-
-  return false;
-}
-
-static bool ATTRIBUTE_UNUSED
-return_in_memory_64 (const_tree type, enum machine_mode mode)
-{
-  int needed_intregs, needed_sseregs;
-  return !examine_argument (mode, type, 1, &needed_intregs, &needed_sseregs);
-}
-
-static bool ATTRIBUTE_UNUSED
-return_in_memory_ms_64 (const_tree type, enum machine_mode mode)
-{
-  HOST_WIDE_INT size = int_size_in_bytes (type);
-
-  /* __m128 is returned in xmm0.  */
-  if ((!type || VECTOR_INTEGER_TYPE_P (type) || INTEGRAL_TYPE_P (type)
-       || VECTOR_FLOAT_TYPE_P (type))
-      && (SCALAR_INT_MODE_P (mode) || VECTOR_MODE_P (mode))
-      && !COMPLEX_MODE_P (mode) && (GET_MODE_SIZE (mode) == 16 || size == 16))
-    return false;
-
-  /* Otherwise, the size must be exactly in [1248]. */
-  return size != 1 && size != 2 && size != 4 && size != 8;
-}
-
 static bool
 ix86_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 {
@@ -8067,16 +7998,80 @@ ix86_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
   return SUBTARGET_RETURN_IN_MEMORY (type, fntype);
 #else
   const enum machine_mode mode = type_natural_mode (type, NULL, true);
+  HOST_WIDE_INT size;
 
   if (TARGET_64BIT)
     {
       if (ix86_function_type_abi (fntype) == MS_ABI)
-	return return_in_memory_ms_64 (type, mode);
+	{
+	  size = int_size_in_bytes (type);
+
+	  /* __m128 is returned in xmm0.  */
+	  if ((!type || VECTOR_INTEGER_TYPE_P (type)
+	       || INTEGRAL_TYPE_P (type)
+	       || VECTOR_FLOAT_TYPE_P (type))
+	      && (SCALAR_INT_MODE_P (mode) || VECTOR_MODE_P (mode))
+	      && !COMPLEX_MODE_P (mode)
+	      && (GET_MODE_SIZE (mode) == 16 || size == 16))
+	    return false;
+
+	  /* Otherwise, the size must be exactly in [1248]. */
+	  return size != 1 && size != 2 && size != 4 && size != 8;
+	}
       else
-	return return_in_memory_64 (type, mode);
+	{
+	  int needed_intregs, needed_sseregs;
+
+	  return examine_argument (mode, type, 1,
+				   &needed_intregs, &needed_sseregs);
+	}
     }
   else
-    return return_in_memory_32 (type, mode);
+    {
+      if (mode == BLKmode)
+	return true;
+
+      size = int_size_in_bytes (type);
+
+      if (MS_AGGREGATE_RETURN && AGGREGATE_TYPE_P (type) && size <= 8)
+	return false;
+
+      if (VECTOR_MODE_P (mode) || mode == TImode)
+	{
+	  /* User-created vectors small enough to fit in EAX.  */
+	  if (size < 8)
+	    return false;
+
+	  /* Unless ABI prescibes otherwise,
+	     MMX/3dNow values are returned in MM0 if available.  */
+	     
+	  if (size == 8)
+	    return TARGET_VECT8_RETURNS || !TARGET_MMX;
+
+	  /* SSE values are returned in XMM0 if available.  */
+	  if (size == 16)
+	    return !TARGET_SSE;
+
+	  /* AVX values are returned in YMM0 if available.  */
+	  if (size == 32)
+	    return !TARGET_AVX;
+
+	  /* AVX512F values are returned in ZMM0 if available.  */
+	  if (size == 64)
+	    return !TARGET_AVX512F;
+	}
+
+      if (mode == XFmode)
+	return false;
+
+      if (size > 12)
+	return true;
+
+      /* OImode shouldn't be used directly.  */
+      gcc_assert (mode != OImode);
+
+      return false;
+    }
 #endif
 }
 
@@ -11708,8 +11703,9 @@ ix86_expand_epilogue (int style)
 	  m->fs.cfa_offset -= UNITS_PER_WORD;
 	  m->fs.sp_offset -= UNITS_PER_WORD;
 
-	  add_reg_note (insn, REG_CFA_ADJUST_CFA,
-			copy_rtx (XVECEXP (PATTERN (insn), 0, 1)));
+	  rtx x = plus_constant (Pmode, stack_pointer_rtx, UNITS_PER_WORD);
+	  x = gen_rtx_SET (VOIDmode, stack_pointer_rtx, x);
+	  add_reg_note (insn, REG_CFA_ADJUST_CFA, x);
 	  add_reg_note (insn, REG_CFA_REGISTER,
 			gen_rtx_SET (VOIDmode, ecx, pc_rtx));
 	  RTX_FRAME_RELATED_P (insn) = 1;
@@ -13924,13 +13920,13 @@ ix86_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
       if (GET_CODE (XEXP (x, 0)) == MULT)
 	{
 	  changed = 1;
-	  XEXP (x, 0) = force_operand (XEXP (x, 0), 0);
+	  XEXP (x, 0) = copy_addr_to_reg (XEXP (x, 0));
 	}
 
       if (GET_CODE (XEXP (x, 1)) == MULT)
 	{
 	  changed = 1;
-	  XEXP (x, 1) = force_operand (XEXP (x, 1), 0);
+	  XEXP (x, 1) = copy_addr_to_reg (XEXP (x, 1));
 	}
 
       if (changed
@@ -16672,8 +16668,7 @@ ix86_expand_clear (rtx dest)
     dest = gen_rtx_REG (SImode, REGNO (dest));
   tmp = gen_rtx_SET (VOIDmode, dest, const0_rtx);
 
-  /* This predicate should match that for movsi_xor and movdi_xor_rex64.  */
-  if (!TARGET_USE_MOV0 || optimize_insn_for_speed_p ())
+  if (!TARGET_USE_MOV0 || optimize_insn_for_size_p ())
     {
       rtx clob = gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (CCmode, FLAGS_REG));
       tmp = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, tmp, clob));
@@ -19993,7 +19988,7 @@ ix86_expand_branch (enum rtx_code code, rtx op0, rtx op1, rtx label)
 /* Split branch based on floating point condition.  */
 void
 ix86_split_fp_branch (enum rtx_code code, rtx op1, rtx op2,
-		      rtx target1, rtx target2, rtx tmp, rtx pushed)
+		      rtx target1, rtx target2, rtx tmp)
 {
   rtx condition;
   rtx i;
@@ -20008,10 +20003,6 @@ ix86_split_fp_branch (enum rtx_code code, rtx op1, rtx op2,
 
   condition = ix86_expand_fp_compare (code, op1, op2,
 				      tmp);
-
-  /* Remove pushed operand from stack.  */
-  if (pushed)
-    ix86_free_from_memory (GET_MODE (pushed));
 
   i = emit_jump_insn (gen_rtx_SET
 		      (VOIDmode, pc_rtx,
@@ -22758,7 +22749,7 @@ counter_mode (rtx count_exp)
 static rtx
 ix86_copy_addr_to_reg (rtx addr)
 {
-  if (GET_MODE (addr) == Pmode)
+  if (GET_MODE (addr) == Pmode || GET_MODE (addr) == VOIDmode)
     return copy_addr_to_reg (addr);
   else
     {
@@ -35409,7 +35400,8 @@ rdrand_step:
       else
 	op2 = gen_rtx_SUBREG (SImode, op0, 0);
 
-      if (target == 0)
+      if (target == 0
+	  || !register_operand (target, SImode))
 	target = gen_reg_rtx (SImode);
 
       pat = gen_rtx_GEU (VOIDmode, gen_rtx_REG (CCCmode, FLAGS_REG),
@@ -35451,7 +35443,8 @@ rdseed_step:
                          const0_rtx);
       emit_insn (gen_rtx_SET (VOIDmode, op2, pat));
 
-      if (target == 0)
+      if (target == 0
+	  || !register_operand (target, SImode))
         target = gen_reg_rtx (SImode);
 
       emit_insn (gen_zero_extendqisi2 (target, op2));
@@ -36994,105 +36987,6 @@ avx_vperm2f128_parallel (rtx par, enum machine_mode mode)
   return mask + 1;
 }
 
-/* Store OPERAND to the memory after reload is completed.  This means
-   that we can't easily use assign_stack_local.  */
-rtx
-ix86_force_to_memory (enum machine_mode mode, rtx operand)
-{
-  rtx result;
-
-  gcc_assert (reload_completed);
-  if (ix86_using_red_zone ())
-    {
-      result = gen_rtx_MEM (mode,
-			    gen_rtx_PLUS (Pmode,
-					  stack_pointer_rtx,
-					  GEN_INT (-RED_ZONE_SIZE)));
-      emit_move_insn (result, operand);
-    }
-  else if (TARGET_64BIT)
-    {
-      switch (mode)
-	{
-	case HImode:
-	case SImode:
-	  operand = gen_lowpart (DImode, operand);
-	  /* FALLTHRU */
-	case DImode:
-	  emit_insn (
-		      gen_rtx_SET (VOIDmode,
-				   gen_rtx_MEM (DImode,
-						gen_rtx_PRE_DEC (DImode,
-							stack_pointer_rtx)),
-				   operand));
-	  break;
-	default:
-	  gcc_unreachable ();
-	}
-      result = gen_rtx_MEM (mode, stack_pointer_rtx);
-    }
-  else
-    {
-      switch (mode)
-	{
-	case DImode:
-	  {
-	    rtx operands[2];
-	    split_double_mode (mode, &operand, 1, operands, operands + 1);
-	    emit_insn (
-			gen_rtx_SET (VOIDmode,
-				     gen_rtx_MEM (SImode,
-						  gen_rtx_PRE_DEC (Pmode,
-							stack_pointer_rtx)),
-				     operands[1]));
-	    emit_insn (
-			gen_rtx_SET (VOIDmode,
-				     gen_rtx_MEM (SImode,
-						  gen_rtx_PRE_DEC (Pmode,
-							stack_pointer_rtx)),
-				     operands[0]));
-	  }
-	  break;
-	case HImode:
-	  /* Store HImodes as SImodes.  */
-	  operand = gen_lowpart (SImode, operand);
-	  /* FALLTHRU */
-	case SImode:
-	  emit_insn (
-		      gen_rtx_SET (VOIDmode,
-				   gen_rtx_MEM (GET_MODE (operand),
-						gen_rtx_PRE_DEC (SImode,
-							stack_pointer_rtx)),
-				   operand));
-	  break;
-	default:
-	  gcc_unreachable ();
-	}
-      result = gen_rtx_MEM (mode, stack_pointer_rtx);
-    }
-  return result;
-}
-
-/* Free operand from the memory.  */
-void
-ix86_free_from_memory (enum machine_mode mode)
-{
-  if (!ix86_using_red_zone ())
-    {
-      int size;
-
-      if (mode == DImode || TARGET_64BIT)
-	size = 8;
-      else
-	size = 4;
-      /* Use LEA to deallocate stack space.  In peephole2 it will be converted
-         to pop or add instruction if registers are available.  */
-      emit_insn (gen_rtx_SET (VOIDmode, stack_pointer_rtx,
-			      gen_rtx_PLUS (Pmode, stack_pointer_rtx,
-					    GEN_INT (size))));
-    }
-}
-
 /* Return a register priority for hard reg REGNO.  */
 static int
 ix86_register_priority (int hard_regno)
@@ -38855,7 +38749,7 @@ x86_output_mi_thunk (FILE *file,
 	{
 	  tmp = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, fnaddr), UNSPEC_GOTPCREL);
 	  tmp = gen_rtx_CONST (Pmode, tmp);
-	  fnaddr = gen_rtx_MEM (Pmode, tmp);
+	  fnaddr = gen_const_mem (Pmode, tmp);
 	}
     }
   else
@@ -38875,8 +38769,9 @@ x86_output_mi_thunk (FILE *file,
 	  output_set_got (tmp, NULL_RTX);
 
 	  fnaddr = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, fnaddr), UNSPEC_GOT);
-	  fnaddr = gen_rtx_PLUS (Pmode, fnaddr, tmp);
-	  fnaddr = gen_rtx_MEM (Pmode, fnaddr);
+	  fnaddr = gen_rtx_CONST (Pmode, fnaddr);
+	  fnaddr = gen_rtx_PLUS (Pmode, tmp, fnaddr);
+	  fnaddr = gen_const_mem (Pmode, fnaddr);
 	}
     }
 
@@ -44133,7 +44028,7 @@ expand_vec_perm_even_odd_1 (struct expand_vec_perm_d *d, unsigned odd)
       gcc_unreachable ();
 
     case V8HImode:
-      if (TARGET_SSSE3)
+      if (TARGET_SSSE3 && !TARGET_SLOW_PSHUFB)
 	return expand_vec_perm_pshufb2 (d);
       else
 	{
@@ -44156,7 +44051,7 @@ expand_vec_perm_even_odd_1 (struct expand_vec_perm_d *d, unsigned odd)
       break;
 
     case V16QImode:
-      if (TARGET_SSSE3)
+      if (TARGET_SSSE3 && !TARGET_SLOW_PSHUFB)
 	return expand_vec_perm_pshufb2 (d);
       else
 	{
@@ -46436,6 +46331,18 @@ ix86_add_stmt_cost (void *data, int count, enum vect_cost_for_stmt kind,
     count *= 50;  /* FIXME.  */
 
   retval = (unsigned) (count * stmt_cost);
+
+  /* We need to multiply all vector stmt cost by 1.7 (estimated cost)
+     for Silvermont as it has out of order integer pipeline and can execute
+     2 scalar instruction per tick, but has in order SIMD pipeline.  */
+  if (TARGET_SILVERMONT || TARGET_INTEL)
+    if (stmt_info && stmt_info->stmt)
+      {
+	tree lhs_op = gimple_get_lhs (stmt_info->stmt);
+	if (lhs_op && TREE_CODE (TREE_TYPE (lhs_op)) == INTEGER_TYPE)
+	  retval = (retval * 17) / 10;
+      }
+
   cost[where] += retval;
 
   return retval;

@@ -1,6 +1,5 @@
 /* { dg-do run } */
 /* { dg-options "-fsanitize=undefined" } */
-/* { dg-skip-if "" { *-*-* } { "-flto" } { "" } } */
 
 long long int __attribute__ ((noinline, noclone))
 foo (long long int i, long long int j)
@@ -16,4 +15,4 @@ main (void)
   return 0;
 }
 
-/* { dg-output "signed integer overflow: 2 \\+ 9223372036854775807 cannot be represented in type 'long long int'" } */
+/* { dg-output "signed integer overflow: 2 \\+ 9223372036854775807 cannot be represented in type 'long long int'\[^\n\r]*" } */

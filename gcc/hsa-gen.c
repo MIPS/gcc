@@ -1999,7 +1999,6 @@ const pass_data pass_data_gen_hsail =
   GIMPLE_PASS,
   "hsagen",	 			/* name */
   OPTGROUP_NONE,                        /* optinfo_flags */
-  true,					/* has_gate */
   true,					/* has_execute */
   TV_NONE,				/* tv_id */
   PROP_cfg | PROP_ssa,                  /* properties_required */
@@ -2017,21 +2016,21 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate ();
-  unsigned int execute ();
+  bool gate (function *);
+  unsigned int execute (function *);
 
 }; // class pass_sra
 
 /* Determine wheter or not to run generation of HSAIL.  */
 
 bool
-pass_gen_hsail::gate ()
+pass_gen_hsail::gate (function *)
 {
   return true;
 }
 
 unsigned int
-pass_gen_hsail::execute ()
+pass_gen_hsail::execute (function *)
 {
   if (lookup_attribute ("hsa",
 			DECL_ATTRIBUTES (current_function_decl)))

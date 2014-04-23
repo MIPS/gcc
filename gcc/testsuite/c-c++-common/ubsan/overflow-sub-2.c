@@ -1,6 +1,5 @@
 /* { dg-do run } */
 /* { dg-options "-fsanitize=signed-integer-overflow -Wno-unused-variable" } */
-/* { dg-skip-if "" { *-*-* } { "-flto" } { "" } } */
 
 #define INT_MAX __INT_MAX__
 #define INT_MIN (-__INT_MAX__ - 1)
@@ -43,13 +42,13 @@ main (void)
   return 0;
 }
 
-/* { dg-output "signed integer overflow: -2147483648 - 1 cannot be represented in type 'int'(\n|\r\n|\r)" } */
-/* { dg-output "\[^\n\r]*signed integer overflow: -2147483648 \\+ -1 cannot be represented in type 'int'(\n|\r\n|\r)" } */
-/* { dg-output "\[^\n\r]*signed integer overflow: -2147483548 \\+ -1024 cannot be represented in type 'int'(\n|\r\n|\r)" } */
-/* { dg-output "\[^\n\r]*signed integer overflow: -2147483648 \\+ -1 cannot be represented in type 'int'(\n|\r\n|\r)" } */
-/* { dg-output "\[^\n\r]*signed integer overflow: -2147482648 \\+ -1048576 cannot be represented in type 'int'(\n|\r\n|\r)" } */
-/* { dg-output "\[^\n\r]*signed integer overflow: -\[^\n\r]* - 1 cannot be represented in type 'long int'(\n|\r\n|\r)" } */
-/* { dg-output "\[^\n\r]*signed integer overflow: -\[^\n\r]* \\+ -1 cannot be represented in type 'long int'(\n|\r\n|\r)" } */
-/* { dg-output "\[^\n\r]*signed integer overflow: -\[^\n\r]* \\+ -1024 cannot be represented in type 'long int'(\n|\r\n|\r)" } */
-/* { dg-output "\[^\n\r]*signed integer overflow: -\[^\n\r]* \\+ -1 cannot be represented in type 'long int'(\n|\r\n|\r)" } */
-/* { dg-output "\[^\n\r]*signed integer overflow: -\[^\n\r]* \\+ -1048576 cannot be represented in type 'long int'" } */
+/* { dg-output "signed integer overflow: -2147483648 - 1 cannot be represented in type 'int'\[^\n\r]*(\n|\r\n|\r)" } */
+/* { dg-output "\[^\n\r]*signed integer overflow: -2147483648 \\+ -1 cannot be represented in type 'int'\[^\n\r]*(\n|\r\n|\r)" } */
+/* { dg-output "\[^\n\r]*signed integer overflow: -2147483548 \\+ -1024 cannot be represented in type 'int'\[^\n\r]*(\n|\r\n|\r)" } */
+/* { dg-output "\[^\n\r]*signed integer overflow: -2147483648 \\+ -1 cannot be represented in type 'int'\[^\n\r]*(\n|\r\n|\r)" } */
+/* { dg-output "\[^\n\r]*signed integer overflow: -2147482648 \\+ -1048576 cannot be represented in type 'int'\[^\n\r]*(\n|\r\n|\r)" } */
+/* { dg-output "\[^\n\r]*signed integer overflow: -\[^\n\r]* - 1 cannot be represented in type 'long int'\[^\n\r]*(\n|\r\n|\r)" } */
+/* { dg-output "\[^\n\r]*signed integer overflow: -\[^\n\r]* \\+ -1 cannot be represented in type 'long int'\[^\n\r]*(\n|\r\n|\r)" } */
+/* { dg-output "\[^\n\r]*signed integer overflow: -\[^\n\r]* \\+ -1024 cannot be represented in type 'long int'\[^\n\r]*(\n|\r\n|\r)" } */
+/* { dg-output "\[^\n\r]*signed integer overflow: -\[^\n\r]* \\+ -1 cannot be represented in type 'long int'\[^\n\r]*(\n|\r\n|\r)" } */
+/* { dg-output "\[^\n\r]*signed integer overflow: -\[^\n\r]* \\+ -1048576 cannot be represented in type 'long int'\[^\n\r]*" } */

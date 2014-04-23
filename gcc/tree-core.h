@@ -657,7 +657,10 @@ enum tree_node_kind {
 };
 
 enum annot_expr_kind {
-  annot_expr_ivdep_kind
+  annot_expr_ivdep_kind,
+  annot_expr_no_vector_kind,
+  annot_expr_vector_kind,
+  annot_expr_kind_last
 };
 
 
@@ -987,6 +990,9 @@ struct GTY(()) tree_base {
        SSA_NAME_IN_FREELIST in
           SSA_NAME
 
+       VAR_DECL_NONALIASED in
+	  VAR_DECL
+
    deprecated_flag:
 
        TREE_DEPRECATED in
@@ -1265,11 +1271,11 @@ struct GTY(()) tree_type_common {
     const char * GTY ((tag ("TYPE_SYMTAB_IS_POINTER"))) pointer;
     struct die_struct * GTY ((tag ("TYPE_SYMTAB_IS_DIE"))) die;
   } GTY ((desc ("debug_hooks->tree_type_symtab_field"))) symtab;
-  tree name;
+  tree canonical;
   tree next_variant;
   tree main_variant;
   tree context;
-  tree canonical;
+  tree name;
 };
 
 struct GTY(()) tree_type_with_lang_specific {
