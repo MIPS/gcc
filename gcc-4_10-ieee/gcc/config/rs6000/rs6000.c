@@ -13865,7 +13865,7 @@ rs6000_init_builtins (void)
      JFmode is the IBM 128-bit floating point format that uses a pair of
      doubles to represent the extended value.  TFmode will be either XFmode or
      JFmode, depending on the switches and defaults.  Only enable the
-     __float182 or __ibm128 keywords on VSX systems.  */
+     __float128 or __ibm128 keywords on VSX systems.  */
   ieee128_mode = (TARGET_IEEEQUAD) ? TFmode : XFmode;
   ieee128_float_type_node = make_node (REAL_TYPE);
   TYPE_PRECISION (ieee128_float_type_node) = 128;
@@ -28257,9 +28257,23 @@ rs6000_mangle_type (const_tree type)
   if (type == bool_int_type_node) return "U6__booli";
   if (type == bool_long_type_node) return "U6__booll";
 
-  /* Mangle IBM extended float long double as `g' (__float128) on
-     powerpc*-linux where long-double-64 previously was the default.  */
-  if (TYPE_MAIN_VARIANT (type) == long_double_type_node
+  /* For VSX systems, we are transitioning to supporting IEEE 128-bit floating
+     point.  Initially, users will have to use __float128 to get access to the
+     IEEE 128-bit floating point, and long double will remain the IBM
+     double-double format (same as the __ibm128 type).  At some point in the
+     future, long double may become the same as __float128.
+
+     AIX and really old powerpc*-linux systems default to 64-bit for the
+     long double type, and we will use the normal C++ mangling in this
+     case.  */
+
+  if (type == ibm128_float_type_node)
+    return "g";
+
+  if (type == ieee128_float_type_node)
+    return "e";
+
+  if (type == long_double_type_node
       && TARGET_ELF
       && TARGET_LONG_DOUBLE_128
       && !TARGET_IEEEQUAD)

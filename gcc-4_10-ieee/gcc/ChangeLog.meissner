@@ -1,3 +1,12 @@
+2014-04-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_mangle_type): Add support for
+	manging __float128 and __ibm128 types.
+
+	* config/rs6000/rs6000.md (FMOVE128): Merge in recent trunk
+	changes.
+	(mov<mode>_64bit): Add test for the type being paired.
+
 2014-04-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 209717.
