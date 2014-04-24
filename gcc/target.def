@@ -5153,6 +5153,22 @@ FRAME_POINTER_REGNUM, ARG_POINTER_REGNUM, and the PIC_OFFSET_TABLE_REGNUM.",
  void, (bitmap regs),
  hook_void_bitmap)
 
+/* Targets should define this target hook to mark that non-callee clobbers are
+   present in CALL_INSN_FUNCTION_USAGE for all the calls that bind to a local
+   definition.  */
+DEFHOOKPOD
+(call_fusage_contains_non_callee_clobbers,
+ "Set to true if each call that binds to a local definition explicitly\n\
+clobbers or sets all non-fixed registers modified by performing the call.\n\
+That is, by the call pattern itself, or by code that might be inserted by the\n\
+linker (e.g. stubs, veneers, branch islands), but not including those\n\
+modifiable by the callee.  The affected registers may be mentioned explicitly\n\
+in the call pattern, or included as clobbers in CALL_INSN_FUNCTION_USAGE.\n\
+The default version of this hook is set to false.  The purpose of this hook\n\
+is to enable the fuse-caller-save optimization.",
+ bool,
+ false)
+
 /* Fill in additional registers set up by prologue into a regset.  */
 DEFHOOK
 (set_up_by_prologue,
