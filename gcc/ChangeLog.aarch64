@@ -1,3 +1,7 @@
+2014-04-25  Joel Jones  <jjones@caviumnetworks.com>
+    * config/aarch64/aarch64.md (*add_mul_imm_si_uxtw): Avoid generating 
+    extraneous zero-extend for Add (extended register)
+
 2014-04-14  Andrew Pinski  <apinski@cavium.com>
 
 	* config/aarch64/aarch64.md (*aarch64_ashl_sisd_or_int_<mode>3): Use ! instead of ? to allow
