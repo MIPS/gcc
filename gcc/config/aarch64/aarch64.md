@@ -1430,6 +1430,17 @@
   [(set_attr "type" "alu_shift_imm")]
 )
 
+(define_insn "*add_mul_imm_si_uxtw"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+        (zero_extend:DI
+	 (plus:SI (mult:SI (match_operand:SI 1 "register_operand" "r")
+                           (match_operand:QI 2 "aarch64_pwr_2_si" "n"))
+		  (match_operand:SI 3 "register_operand" "r"))))]
+  ""
+  "add\\t%w0, %w3, %w1, lsl %p2"
+  [(set_attr "type" "alu_shift_imm")]
+)
+
 (define_insn "*add_<optab><ALLX:mode>_<GPI:mode>"
   [(set (match_operand:GPI 0 "register_operand" "=rk")
 	(plus:GPI (ANY_EXTEND:GPI (match_operand:ALLX 1 "register_operand" "r"))
