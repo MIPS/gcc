@@ -1,3 +1,10 @@
+2014-04-25  David Malcolm  <dmalcolm@redhat.com>
+
+	* internal-api.c (gcc::jit::playback::context::compile): Put
+	any output of dlerror through the add_error method, rather
+	than merely printing it to stderr, so that the error is also
+	recorded on the context.
+
 2014-03-19  Tom Tromey  <tromey@redhat.com>
 
 	* internal-api.c (compile): Use auto_timevar.

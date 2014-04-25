@@ -3771,7 +3771,7 @@ compile ()
 
     handle = dlopen (m_path_so_file, RTLD_NOW | RTLD_LOCAL);
     if ((error = dlerror()) != NULL)  {
-      fprintf(stderr, "%s\n", error);
+      add_error (NULL, "%s", error);
     }
     if (handle)
       result_obj = new result (handle);
