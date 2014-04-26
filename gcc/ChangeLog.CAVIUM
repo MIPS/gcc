@@ -268,28 +268,6 @@
 
 2012-11-06  Andrew Pinski  <apinski@cavium.com>
 
-	* testsuite/gcc.c-torture/execute/builtins/20010124-1.c: Disable
--fno-fat-lto-objects
-	for *-elf* (bare metal) targets.
-	* testsuite/gcc.c-torture/execute/builtins/memchr.c: Likewise.
-	* testsuite/gcc.c-torture/execute/builtins/memmove-2.c: Likewise.
-	* testsuite/gcc.c-torture/execute/builtins/memmove.c: Likewise.
-	* testsuite/gcc.c-torture/execute/builtins/memops-asm.c: Likewise.
-	* testsuite/gcc.c-torture/execute/builtins/memset.c: Likewise.
-	* testsuite/gcc.c-torture/execute/builtins/pr22237.c: Likewise.
-	* testsuite/gcc.c-torture/execute/builtins/pr23484-chk.c: Likewise.
-	* testsuite/gcc.c-torture/execute/builtins/printf.c: Likewise.
-	* testsuite/gcc.c-torture/execute/builtins/sprintf.c: Likewise.
-	* testsuite/gcc.c-torture/execute/builtins/strcmp.c: Likewise.
-	* testsuite/gcc.c-torture/execute/builtins/strlen-2.c: Likewise.
-	* testsuite/gcc.c-torture/execute/builtins/strlen-3.c: Likewise.
-	* testsuite/gcc.c-torture/execute/builtins/strlen.c: Likewise.
-	* testsuite/gcc.c-torture/execute/builtins/strncmp-2.c: Likewise.
-	* testsuite/gcc.c-torture/execute/builtins/strncmp.c: Likewise.
-	* testsuite/gcc.c-torture/execute/builtins/strncpy.c: Likewise.
-
-2012-11-06  Andrew Pinski  <apinski@cavium.com>
-
 	* testsuite/gcc.target/mips/inter/mips16-inter.exp: Skip for mipsisa*-octeon-elf*.
 
 2012-11-04  Andrew Pinski  <apinski@cavium.com>
