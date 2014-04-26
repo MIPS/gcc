@@ -1,4 +1,5 @@
 /* { dg-options "-mgp64" } */
+/* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 /* We should only have one shift here. */
 /* { dg-final { scan-assembler-times "sll\t" 1 } } */
 

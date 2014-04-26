@@ -1,4 +1,5 @@
 /* { dg-do compile } */
+/* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 /* { dg-options "-mgp64 -march=octeon" } */
 /* { dg-final { scan-assembler-times "\tsra\t" 1 } } */
 /* { dg-final { scan-assembler-times "\tdsra\t" 1 } } */

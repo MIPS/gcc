@@ -1,4 +1,5 @@
-/* { dg-options "-mgp64 isa_rev>=2" } */
+/* { dg-options "(-mips16) -mgp64 isa_rev>=2" } */
+/* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 /* { dg-final { scan-assembler-not "and" } } */
 
 struct s

@@ -1,4 +1,6 @@
 /* { dg-options "-mgp64" } */
+/* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
+
 /* There should only be one sll as the truncation and the shift should have
    been combined. */
 /* { dg-final { scan-assembler-times "sll\t" 1 } } */

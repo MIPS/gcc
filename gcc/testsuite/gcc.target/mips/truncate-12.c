@@ -1,5 +1,6 @@
 /* The second shift can be performed on 32-bit operands.  */
 /* { dg-options "-mgp64" } */
+/* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 /* { dg-final { scan-assembler-not "dext" } } */
 /* { dg-final { scan-assembler-not "and" } } */
 /* { dg-final { scan-assembler-not "\tsll\t.*,0" } } */

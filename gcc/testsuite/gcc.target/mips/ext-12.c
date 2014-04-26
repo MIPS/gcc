@@ -1,4 +1,5 @@
-/* { dg-options "-mgp64 isa_rev>=2" } */
+/* { dg-options "(-mips16) -mgp64 isa_rev>=2" } */
+/* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 /* { dg-final { scan-assembler-times "ext\\t" 5 } } */
 /* { dg-final { scan-assembler-times "dsll" 2 } } */
 /* { dg-final { scan-assembler-times "\\tsll" 1 } } */

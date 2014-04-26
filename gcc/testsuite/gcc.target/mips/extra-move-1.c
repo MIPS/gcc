@@ -1,4 +1,5 @@
-/* { dg-options "-mgp64" } */
+/* { dg-options "(-mips16) -mgp64" } */
+/* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 /* The sign extend to be able to store into d should be free,
    there should be no sll or move here. */
 /* { dg-final { scan-assembler-not "\tsll\t" } } */

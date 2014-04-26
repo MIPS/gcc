@@ -1,3 +1,16 @@
+2014-04-25  Andrew Pinski  <apinski@cavium.com>
+
+	* testsuite/gcc.target/mips/ext-12.c: Disable for -O0.
+	* testsuite/gcc.target/mips/ext-9.c: Likewise.
+	* testsuite/gcc.target/mips/extra-move-1.c: Likewise.
+	* testsuite/gcc.target/mips/ins-9.c: Likewise.
+	* testsuite/gcc.target/mips/octeon-dmul-4.c: Likewise.
+	* testsuite/gcc.target/mips/truncate-10.c: Likewise.
+	* testsuite/gcc.target/mips/truncate-11.c: Likewise.
+	* testsuite/gcc.target/mips/truncate-12.c: Likewise.
+	* testsuite/gcc.target/mips/truncate-13.c: Likewise.
+	* testsuite/gcc.target/mips/truncate-9.c: Likewise.
+
 2014-02-12  Andrew Pinski  <apinski@cavium.com>
 
 	* optabs.c (emit_conditional_move): Fix bug with the

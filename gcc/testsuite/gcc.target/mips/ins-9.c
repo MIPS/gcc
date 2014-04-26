@@ -1,4 +1,5 @@
 /* { dg-options "isa_rev>=2 -mgp64" } */
+/* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 /* { dg-final { scan-assembler-times "dins" 1 } } */
 /* { dg-final { scan-assembler "dsll" } } */
 /* { dg-final { scan-assembler-not "move" } } */
