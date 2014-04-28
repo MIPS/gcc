@@ -371,6 +371,9 @@ rs6000_target_modify_macros (bool define_p, HOST_WIDE_INT flags,
 	rs6000_define_or_undefine_macro (define_p, "__LONG_DOUBLE_IBM128__");
     }
 
+  if ((flags & OPTION_MASK_FLOAT128) != 0)
+    rs6000_define_or_undefine_macro (define_p, "__FLOAT128__");
+
   /* options from the builtin masks.  */
   if ((bu_mask & RS6000_BTM_SPE) != 0)
     rs6000_define_or_undefine_macro (define_p, "__SPE__");

@@ -424,6 +424,11 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
    || ((MODE) == TDmode)						\
    || (!TARGET_VSX && FLOAT128_IEEE_P (MODE)))
 
+/* Option masks relating to 128-bit/long double floating point.  */
+#define OPTION_MASK_FP128_OPTIONS	(OPTION_MASK_IEEEQUAD		\
+					 | OPTION_MASK_LONG_DOUBLE_128	\
+					 | OPTION_MASK_FLOAT128)
+
 /* Describe the vector unit used for arithmetic operations.  */
 extern enum rs6000_vector rs6000_vector_unit[];
 

@@ -1,0 +1,14 @@
+2014-04-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config.host (powerpc*-*-linux*): Add support to build __float128
+	on PowerPC systems.
+
+	* soft-fp/quad.h (TFtype): On PowerPC systems with the __float128
+	keyword, use __float128 instead of attribute((mode(TF))).
+
+	* config/rs6000/float128-vsx.h: New file to allow building IEEE
+	128-bit floating point support on PowerPC, supporting two
+	different ABI's, one using the VSX extensions, and the other not
+	using VSX.
+	* config/rs6000/float128-novsx.h: Likewise.
+	* config/rs6000/t-float128: Likewise.
