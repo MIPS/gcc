@@ -1193,12 +1193,12 @@ enum data_align { align_abi, align_opt, align_both };
 /* When setting up caller-save slots (MODE == VOIDmode) ensure we allocate
    enough space to account for vectors in FP regs.  However, TFmode/TDmode
    should not use VSX instructions to do a caller save. */
-#define _REGNO_CALLER_SAVE_MODE(REGNO, NREGS, MODE)			\
+#define HARD_REGNO_CALLER_SAVE_MODE(REGNO, NREGS, MODE)			\
   (TARGET_VSX								\
    && ((MODE) == VOIDmode || ALTIVEC_OR_VSX_VECTOR_MODE (MODE))		\
    && FP_REGNO_P (REGNO)						\
    ? V2DFmode								\
-   : (FLOAT128_IBM_P(MODE) && FP_REGNO_P (REGNO))			\
+   : (FLOAT128_PAIRED_P (MODE) && FP_REGNO_P (REGNO))			\
    ? DFmode								\
    : ((MODE) == TDmode && FP_REGNO_P (REGNO))				\
    ? DImode								\
@@ -1249,11 +1249,18 @@ enum data_align { align_abi, align_opt, align_both };
 
    PTImode cannot tie with other modes because PTImode is restricted to even
    GPR registers, and TImode can go in any GPR as well as VSX registers (PR
-   57744).  */
+   57744).
+
+   Altivec/VSX vector tests moved ahead of scalar float mode, so that IEEE
+   128-bit floating point on VSX systems ties with other vectors.  */
 #define MODES_TIEABLE_P(MODE1, MODE2)		\
   ((MODE1) == PTImode				\
    ? (MODE2) == PTImode				\
    : (MODE2) == PTImode				\
+   ? 0						\
+   : ALTIVEC_OR_VSX_VECTOR_MODE (MODE1)		\
+   ? ALTIVEC_OR_VSX_VECTOR_MODE (MODE2)		\
+   : ALTIVEC_OR_VSX_VECTOR_MODE (MODE2)		\
    ? 0						\
    : SCALAR_FLOAT_MODE_P (MODE1)		\
    ? SCALAR_FLOAT_MODE_P (MODE2)		\
@@ -1266,10 +1273,6 @@ enum data_align { align_abi, align_opt, align_both };
    : SPE_VECTOR_MODE (MODE1)			\
    ? SPE_VECTOR_MODE (MODE2)			\
    : SPE_VECTOR_MODE (MODE2)			\
-   ? 0						\
-   : ALTIVEC_OR_VSX_VECTOR_MODE (MODE1)		\
-   ? ALTIVEC_OR_VSX_VECTOR_MODE (MODE2)		\
-   : ALTIVEC_OR_VSX_VECTOR_MODE (MODE2)		\
    ? 0						\
    : 1)
 
