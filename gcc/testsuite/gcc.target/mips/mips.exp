@@ -368,6 +368,10 @@ set mips_option_tests(-mdspr2) {
     .set dspr2
     prepend $2,$3,11
 }
+set mips_option_tests(-mhard-float) {
+    .set mips64
+    mov.s $f2,$f1
+}
 
 # Canonicalize command-line option OPTION.
 proc mips_canonicalize_option { option } {
@@ -1256,6 +1260,13 @@ proc mips-dg-options { args } {
 	    break
 	}
     }
+	set old_option [mips_original_option float]
+	set new_option [mips_option options float]
+	if { ![mips_same_option_p $old_option $new_option] } {
+	    set do_what [list [lindex $do_what 0] "N" "P"]
+	    verbose -log "Cannot compile -mhard-float"
+	    return
+	}
 
     # Add all options to the dg variable.
     set options(explicit_p,addressing) 0
