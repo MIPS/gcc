@@ -1,5 +1,13 @@
 2014-04-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/aix53.h: Undo long double size changes.
+	* config/rs6000/aix43.h: Likewise.
+	* config/rs6000/aix52.h: Likewise.
+	* config/rs6000/aix61.h: Likewise.
+
+	* config/rs6000/rs6000.h (OPTION_MASK_FP128_OPTIONS): Delete, no
+	longer used.
+
 	* config/rs6000/rs6000-cpus.def (ISA_2_7_MASKS_SERVER): Add
 	OPTION_MASK_FLOAT128.  Delete IEEEQUAD, long double 128-bit
 	masks.

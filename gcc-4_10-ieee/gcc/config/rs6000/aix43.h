@@ -31,8 +31,8 @@ do {									\
     }									\
   if (TARGET_SOFT_FLOAT && TARGET_LONG_DOUBLE_128)			\
     {									\
-      rs6000_isa_flags &= ~OPTION_MASK_LONG_DOUBLE_128;			\
-      if ((rs6000_isa_flags_explicit & OPTION_MASK_LONG_DOUBLE_128) != 0) \
+      rs6000_long_double_type_size = 64;				\
+      if (global_options_set.x_rs6000_long_double_type_size)		\
 	warning (0, "soft-float and long-double-128 are incompatible");	\
     }									\
   if (TARGET_POWERPC64 && ! TARGET_64BIT)				\
