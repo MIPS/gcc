@@ -1692,7 +1692,7 @@ rs6000_hard_regno_nregs_internal (int regno, enum machine_mode mode)
   /* 128-bit floating point usually takes 2 registers, unless it is IEEE
      128-bit floating point that can go in vector registers.  */
   if (FP_REGNO_P (regno))
-    reg_size = ((VECTOR_MEM_VSX_P (mode) && !FLOAT128_PAIRED_P (mode))
+    reg_size = ((VECTOR_MEM_VSX_P (mode) && !FLOAT128_2REG_P (mode))
 		? UNITS_PER_VSX_WORD
 		: UNITS_PER_FP_WORD);
 
@@ -2878,7 +2878,7 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 
 	  /* TDmode & IBM 128-bit floating point always takes 2 registers, even
 	     in VSX.  */
-	  if (TARGET_VSX && VSX_REG_CLASS_P (c) && FLOAT128_PAIRED_P (m))
+	  if (TARGET_VSX && VSX_REG_CLASS_P (c) && FLOAT128_2REG_P (m))
 	    reg_size2 = UNITS_PER_FP_WORD;
 
 	  rs6000_class_max_nregs[m][c]
@@ -7630,7 +7630,7 @@ rs6000_legitimate_address_p (enum machine_mode mode, rtx x, bool reg_ok_strict)
     return 1;
   if (rs6000_legitimate_offset_address_p (mode, x, reg_ok_strict, false))
     return 1;
-  if (!FLOAT128_PAIRED_P (mode)
+  if (!FLOAT128_2REG_P (mode)
       && ((TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT)
 	  || TARGET_POWERPC64
 	  || (mode != DFmode && mode != DDmode)
@@ -8453,7 +8453,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
     case TDmode:
     case XFmode:
     case JFmode:
-      if (FLOAT128_PAIRED_P (mode))
+      if (FLOAT128_2REG_P (mode))
 	rs6000_eliminate_indexed_memrefs (operands);
       /* fall through */
 
@@ -9238,11 +9238,11 @@ rs6000_function_arg_boundary (enum machine_mode mode, const_tree type)
       && (GET_MODE_SIZE (mode) == 8
 	  || (TARGET_HARD_FLOAT
 	      && TARGET_FPRS
-	      && FLOAT128_PAIRED_P (mode))))
+	      && FLOAT128_2REG_P (mode))))
     return 64;
   else if (FLOAT128_VECTOR_P (mode))
     return 128;
-  else if (FLOAT128_PAIRED_P (mode))
+  else if (FLOAT128_2REG_P (mode))
     return 64;
   else if (SPE_VECTOR_MODE (mode)
 	   || (type && TREE_CODE (type) == VECTOR_TYPE
@@ -9588,7 +9588,7 @@ rs6000_function_arg_advance_1 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
       if (TARGET_HARD_FLOAT && TARGET_FPRS
 	  && ((TARGET_SINGLE_FLOAT && mode == SFmode)
 	      || (TARGET_DOUBLE_FLOAT && mode == DFmode)
-	      || FLOAT128_PAIRED_P (mode)
+	      || FLOAT128_2REG_P (mode)
 	      || mode == SDmode || mode == DDmode || mode == TDmode))
 	{
 	  /* _Decimal128 must use an even/odd register pair.  This assumes
@@ -9596,13 +9596,13 @@ rs6000_function_arg_advance_1 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	  if (mode == TDmode && (cum->fregno % 2) == 1)
 	    cum->fregno++;
 
-	  if (cum->fregno + (FLOAT128_PAIRED_P (mode) ? 1 : 0)
+	  if (cum->fregno + (FLOAT128_2REG_P (mode) ? 1 : 0)
 	      <= FP_ARG_V4_MAX_REG)
 	    cum->fregno += (GET_MODE_SIZE (mode) + 7) >> 3;
 	  else
 	    {
 	      cum->fregno = FP_ARG_V4_MAX_REG + 1;
-	      if (mode == DFmode || FLOAT128_PAIRED_P (mode)
+	      if (mode == DFmode || FLOAT128_2REG_P (mode)
 		  || mode == DDmode || mode == TDmode)
 		cum->words += cum->words & 1;
 	      cum->words += rs6000_arg_size (mode, type);
@@ -10250,7 +10250,7 @@ rs6000_function_arg (cumulative_args_t cum_v, enum machine_mode mode,
       if (TARGET_HARD_FLOAT && TARGET_FPRS
 	  && ((TARGET_SINGLE_FLOAT && mode == SFmode)
 	      || (TARGET_DOUBLE_FLOAT && mode == DFmode)
-	      || FLOAT128_PAIRED_P (mode)
+	      || FLOAT128_2REG_P (mode)
 	      || mode == SDmode || mode == DDmode || mode == TDmode))
 	{
 	  /* _Decimal128 must use an even/odd register pair.  This assumes
@@ -10258,7 +10258,7 @@ rs6000_function_arg (cumulative_args_t cum_v, enum machine_mode mode,
 	  if (mode == TDmode && (cum->fregno % 2) == 1)
 	    cum->fregno++;
 
-	  if (cum->fregno + (FLOAT128_PAIRED_P (mode) ? 1 : 0)
+	  if (cum->fregno + (FLOAT128_2REG_P (mode) ? 1 : 0)
 	      <= FP_ARG_V4_MAX_REG)
 	    return gen_rtx_REG (mode, cum->fregno);
 	  else
@@ -10319,7 +10319,7 @@ rs6000_function_arg (cumulative_args_t cum_v, enum machine_mode mode,
 	      enum machine_mode fmode = elt_mode;
 	      if (cum->fregno + (i + 1) * n_fpreg > FP_ARG_MAX_REG + 1)
 		{
-		  gcc_assert (FLOAT128_PAIRED_P (fmode));
+		  gcc_assert (FLOAT128_2REG_P (fmode));
 		  fmode = DECIMAL_FLOAT_MODE_P (fmode) ? DDmode : DFmode;
 		}
 
@@ -17425,7 +17425,7 @@ rs6000_cannot_change_mode_class (enum machine_mode from,
 	     to match ISA requirements.  In little-endian mode, this does not
 	     match subreg numbering, so we cannot allow subregs.  */
 	  if (!BYTES_BIG_ENDIAN
-	      && (FLOAT128_PAIRED_P (to) || FLOAT128_PAIRED_P (from)))
+	      && (FLOAT128_2REG_P (to) || FLOAT128_2REG_P (from)))
 	    return true;
 
 	  if (from_size < 8 || to_size < 8)
@@ -18444,7 +18444,7 @@ print_operand (FILE *file, rtx x, int code)
 	/* Ugly hack because %y is overloaded.  */
 	if ((TARGET_SPE || TARGET_E500_DOUBLE)
 	    && (GET_MODE_SIZE (GET_MODE (x)) == 8
-		|| FLOAT128_PAIRED_P (GET_MODE (x))
+		|| FLOAT128_2REG_P (GET_MODE (x))
 		|| GET_MODE (x) == TImode
 		|| GET_MODE (x) == PTImode))
 	  {
@@ -20396,7 +20396,7 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 	((TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT) ? DFmode : SFmode);
   else if (ALTIVEC_REGNO_P (reg))
     reg_mode = V16QImode;
-  else if (TARGET_E500_DOUBLE && FLOAT128_PAIRED_P (mode))
+  else if (TARGET_E500_DOUBLE && FLOAT128_2REG_P (mode))
     reg_mode = DFmode;
   else
     reg_mode = word_mode;
@@ -21496,7 +21496,7 @@ spe_func_has_64bit_regs_p (void)
 	      if (SPE_VECTOR_MODE (mode))
 		return true;
 	      if (TARGET_E500_DOUBLE
-		  && (mode == DFmode || FLOAT128_PAIRED_P (mode)))
+		  && (mode == DFmode || FLOAT128_2REG_P (mode)))
 		return true;
 	    }
 	}
@@ -29990,7 +29990,7 @@ rs6000_register_move_cost (enum machine_mode mode,
 
   /* Moving between two similar registers is just one instruction.  */
   else if (reg_classes_intersect_p (to, from))
-    ret = (FLOAT128_PAIRED_P (mode)) ? 4 : 2;
+    ret = (FLOAT128_2REG_P (mode)) ? 4 : 2;
 
   /* Everything else has to go through GENERAL_REGS.  */
   else

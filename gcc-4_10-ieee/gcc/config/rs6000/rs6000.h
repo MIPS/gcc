@@ -419,7 +419,7 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
    single vector register, or whether it needs paired scalar values.  */
 #define FLOAT128_VECTOR_P(MODE) (TARGET_VSX && FLOAT128_IEEE_P (MODE))
 
-#define FLOAT128_PAIRED_P(MODE)						\
+#define FLOAT128_2REG_P(MODE)						\
   (FLOAT128_IBM_P (MODE)						\
    || ((MODE) == TDmode)						\
    || (!TARGET_VSX && FLOAT128_IEEE_P (MODE)))
@@ -1198,7 +1198,7 @@ enum data_align { align_abi, align_opt, align_both };
    && ((MODE) == VOIDmode || ALTIVEC_OR_VSX_VECTOR_MODE (MODE))		\
    && FP_REGNO_P (REGNO)						\
    ? V2DFmode								\
-   : (FLOAT128_PAIRED_P (MODE) && FP_REGNO_P (REGNO))			\
+   : (FLOAT128_2REG_P (MODE) && FP_REGNO_P (REGNO))			\
    ? DFmode								\
    : ((MODE) == TDmode && FP_REGNO_P (REGNO))				\
    ? DImode								\
