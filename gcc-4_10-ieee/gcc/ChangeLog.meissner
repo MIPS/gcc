@@ -1,3 +1,8 @@
+2014-04-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 209899.
+	* REVISION: Update subversion id.
+
 2014-04-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.h (HARD_REGNO_CALLER_SAVE_MODE): Fix typo.

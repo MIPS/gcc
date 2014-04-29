@@ -8143,11 +8143,6 @@ aarch64_evpc_tbl (struct expand_vec_perm_d *d)
   enum machine_mode vmode = d->vmode;
   unsigned int i, nelt = d->nelt;
 
-  /* TODO: ARM's TBL indexing is little-endian.  In order to handle GCC's
-     numbering of elements for big-endian, we must reverse the order.  */
-  if (BYTES_BIG_ENDIAN)
-    return false;
-
   if (d->testing_p)
     return true;
 
@@ -8158,7 +8153,15 @@ aarch64_evpc_tbl (struct expand_vec_perm_d *d)
     return false;
 
   for (i = 0; i < nelt; ++i)
-    rperm[i] = GEN_INT (d->perm[i]);
+    {
+      int nunits = GET_MODE_NUNITS (vmode);
+
+      /* If big-endian and two vectors we end up with a weird mixed-endian
+	 mode on NEON.  Reverse the index within each word but not the word
+	 itself.  */
+      rperm[i] = GEN_INT (BYTES_BIG_ENDIAN ? d->perm[i] ^ (nunits - 1)
+					   : d->perm[i]);
+    }
   sel = gen_rtx_CONST_VECTOR (vmode, gen_rtvec_v (nelt, rperm));
   sel = force_reg (vmode, sel);
 
@@ -8313,7 +8316,8 @@ aarch64_cannot_change_mode_class (enum machine_mode from,
   /* Limited combinations of subregs are safe on FPREGs.  Particularly,
      1. Vector Mode to Scalar mode where 1 unit of the vector is accessed.
      2. Scalar to Scalar for integer modes or same size float modes.
-     3. Vector to Vector modes.  */
+     3. Vector to Vector modes.
+     4. On little-endian only, Vector-Structure to Vector modes.  */
   if (GET_MODE_SIZE (from) > GET_MODE_SIZE (to))
     {
       if (aarch64_vector_mode_supported_p (from)
@@ -8329,9 +8333,39 @@ aarch64_cannot_change_mode_class (enum machine_mode from,
       if (aarch64_vector_mode_supported_p (from)
 	  && aarch64_vector_mode_supported_p (to))
 	return false;
+
+      /* Within an vector structure straddling multiple vector registers
+	 we are in a mixed-endian representation.  As such, we can't
+	 easily change modes for BYTES_BIG_ENDIAN.  Otherwise, we can
+	 switch between vectors and vector structures cheaply.  */
+      if (!BYTES_BIG_ENDIAN)
+	if ((aarch64_vector_mode_supported_p (from)
+	      && aarch64_vect_struct_mode_p (to))
+	    || (aarch64_vector_mode_supported_p (to)
+	      && aarch64_vect_struct_mode_p (from)))
+	  return false;
     }
 
   return true;
+}
+
+/* Implement MODES_TIEABLE_P.  */
+
+bool
+aarch64_modes_tieable_p (enum machine_mode mode1, enum machine_mode mode2)
+{
+  if (GET_MODE_CLASS (mode1) == GET_MODE_CLASS (mode2))
+    return true;
+
+  /* We specifically want to allow elements of "structure" modes to
+     be tieable to the structure.  This more general condition allows
+     other rarer situations too.  */
+  if (TARGET_SIMD
+      && aarch64_vector_mode_p (mode1)
+      && aarch64_vector_mode_p (mode2))
+    return true;
+
+  return false;
 }
 
 #undef TARGET_ADDRESS_COST
