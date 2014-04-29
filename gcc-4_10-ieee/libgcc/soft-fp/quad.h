@@ -66,12 +66,11 @@
 #define _FP_HIGHBIT_DW_Q	\
   ((_FP_W_TYPE) 1 << (_FP_WFRACBITS_DW_Q - 1) % _FP_W_TYPE_SIZE)
 
-/* PowerPC long double historically used a pair of doubles on Linux/BSD
+/* Allow machine to override the name of the 128-bit floating point type.
+   PowerPC long double historically used a pair of doubles on Linux/BSD
    systems, so use the __float128 type if it is available, instead of
    TFmode.  */
-#if defined(_ARCH_PPC) && defined(__FLOAT128__)
-typedef __float128 TFtype;
-#else
+#ifndef TFtype
 typedef float TFtype __attribute__ ((mode (TF)));
 #endif
 

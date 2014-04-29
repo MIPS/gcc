@@ -525,6 +525,8 @@ extern int rs6000_vector_align[];
 #define TARGET_ALIGN_NATURAL 0
 #endif
 
+#define TARGET_LONG_DOUBLE_128 (rs6000_long_double_type_size == 128)
+#define TARGET_IEEEQUAD rs6000_ieeequad
 #define TARGET_ALTIVEC_ABI rs6000_altivec_abi
 #define TARGET_LDBRX (TARGET_POPCNTD || rs6000_cpu == PROCESSOR_CELL)
 
@@ -584,6 +586,7 @@ extern int rs6000_vector_align[];
 #define MASK_DIRECT_MOVE		OPTION_MASK_DIRECT_MOVE
 #define MASK_DLMZB			OPTION_MASK_DLMZB
 #define MASK_EABI			OPTION_MASK_EABI
+#define MASK_FLOAT128			OPTION_MASK_FLOAT128
 #define MASK_FPRND			OPTION_MASK_FPRND
 #define MASK_P8_FUSION			OPTION_MASK_P8_FUSION
 #define MASK_HARD_FLOAT			OPTION_MASK_HARD_FLOAT
@@ -842,7 +845,7 @@ extern unsigned char rs6000_recip_bits[];
 /* A C expression for the size in bits of the type `long double' on
    the target machine.  If you don't define this, the default is two
    words.  */
-#define LONG_DOUBLE_TYPE_SIZE ((TARGET_LONG_DOUBLE_128) ? 128 : 64)
+#define LONG_DOUBLE_TYPE_SIZE rs6000_long_double_type_size
 
 /* Define this to set long double type size to use in libgcc2.c, which can
    not depend on target_flags.  */

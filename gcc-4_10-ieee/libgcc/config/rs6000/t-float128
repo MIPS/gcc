@@ -30,7 +30,9 @@ $(fp128_novsx_src_list):
 	echo '#include "config/rs6000/float128-novsx.h"' > $@; \
 	echo '#include "soft-fp/'$${tf}'"' >> $@
 
-FP128_COMMON_CFLAGS	= -Wno-missing-prototypes -Wno-type-limits -mfloat128
+FP128_COMMON_CFLAGS	= -Wno-missing-prototypes -Wno-type-limits \
+			  -DTFtype=__float128 -mfloat128
+
 FP128_VSX_CFLAGS	= $(FP128_COMMON_CFLAGS) -mvsx
 FP128_NOVSX_CFLAGS	= $(FP128_COMMON_CFLAGS) -mno-vsx -mno-altivec \
 			  -mno-power8-vector

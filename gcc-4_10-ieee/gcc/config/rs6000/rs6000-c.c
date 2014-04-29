@@ -362,15 +362,6 @@ rs6000_target_modify_macros (bool define_p, HOST_WIDE_INT flags,
     rs6000_define_or_undefine_macro (define_p, "__QUAD_MEMORY_ATOMIC__");
   if ((flags & OPTION_MASK_CRYPTO) != 0)
     rs6000_define_or_undefine_macro (define_p, "__CRYPTO__");
-
-  if ((flags & OPTION_MASK_LONG_DOUBLE_128) != 0)
-    {
-      if ((flags & OPTION_MASK_IEEEQUAD) != 0)
-	rs6000_define_or_undefine_macro (define_p, "__LONG_DOUBLE_IEEE128__");
-      else
-	rs6000_define_or_undefine_macro (define_p, "__LONG_DOUBLE_IBM128__");
-    }
-
   if ((flags & OPTION_MASK_FLOAT128) != 0)
     rs6000_define_or_undefine_macro (define_p, "__FLOAT128__");
 

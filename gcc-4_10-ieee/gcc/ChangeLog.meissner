@@ -1,5 +1,41 @@
 2014-04-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000-cpus.def (ISA_2_7_MASKS_SERVER): Add
+	OPTION_MASK_FLOAT128.  Delete IEEEQUAD, long double 128-bit
+	masks.
+	(POWERPC_MASKS): Likewise.
+
+	* config/rs6000/rs6000-c.c (rs6000_target_modify_macros): Delete
+	code to print what long double becomes.
+
+	* config/rs6000/rs6000.opt (-mabi=ieeelongdouble): Go back to
+	trunk method of changing long double size and whether long double
+	is IEEE 128-bit or IBM double double.
+	(-mabi=ibmlongdouble): Likewise.
+	(-mlong-double-128): Likewise.
+	(-mlong-double-64): Likewise.
+	(-mlong-double-ieee128): Likewise.
+	(-mlong-double-ibm128): Likewise.
+
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Go back to
+	trunk method of changing long double size and whether long double
+	is IEEE 128-bit or IBM double double.  Disallow -mfloat128 if
+	-mlong-double-64.
+	(rs6000_option_override_internal): Likewise.
+	(rs6000_init_builtins): Likewise.
+	(rs6000_opt_masks): Likewise.
+	(init_float128_ieee): Use <op>_vector for -mfloat128 support
+	functions on VSX systems, use <op>_fpr for -mfloat128 support
+	functions without VSX support, and use the historical names
+	without -mfloat128.
+
+	* config/rs6000/rs6000.h (TARGET_LONG_DOUBLE_128): Go back to
+	trunk method of changing long double size and whether long double
+	is IEEE 128-bit or IBM double double.
+	(TARGET_IEEEQUAD): Likewise.
+	(LONG_DOUBLE_TYPE_SIZE): Likewise.
+	(MASK_FLOAT128): Define shortcut as OPTION_MASK_FLOAT128.
+
 	* config/rs6000/rs6000.c (rs6000_option_override_internal): Remove
 	changes complaining about long double size changes in target
 	attribute, since it is buggy.
