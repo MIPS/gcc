@@ -3566,19 +3566,6 @@ rs6000_option_override_internal (bool global_init_p)
       && (TARGET_VSX | TARGET_IEEEQUAD))
     rs6000_isa_flags |= OPTION_MASK_FLOAT128;
 
-  /* Don't allow long double/float128/etc. options to change with target
-     attributes.  */
-  if (main_target_opt != NULL)
-    {
-      HOST_WIDE_INT orig_fp128
-	= (main_target_opt->x_rs6000_isa_flags & OPTION_MASK_FP128_OPTIONS);
-      HOST_WIDE_INT new_fp128 = (rs6000_isa_flags & OPTION_MASK_FP128_OPTIONS);
-
-      if (orig_fp128 != new_fp128)
-	error ("target attribute or pragma changes long double/float128"
-	       " characteristics");
-    }
-
   /* Disable VSX and Altivec silently if the user switched cpus to power7 in a
      target attribute or pragma which automatically enables both options,
      unless the altivec ABI was set.  This is set by default for 64-bit, but
