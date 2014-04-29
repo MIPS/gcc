@@ -4,6 +4,7 @@
 	* config/rs6000/aix43.h: Likewise.
 	* config/rs6000/aix52.h: Likewise.
 	* config/rs6000/aix61.h: Likewise.
+	* doc/invoke.texi: Likewise.
 
 	* config/rs6000/rs6000.h (OPTION_MASK_FP128_OPTIONS): Delete, no
 	longer used.

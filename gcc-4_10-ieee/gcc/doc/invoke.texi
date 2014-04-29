@@ -924,7 +924,6 @@ See RS/6000 and PowerPC Options.
 -mquad-memory -mno-quad-memory @gol
 -mquad-memory-atomic -mno-quad-memory-atomic @gol
 -mcompat-align-parm -mno-compat-align-parm @gol
--mlong-double-64 -mlong-double-128 -mlong-doubleiee128 -mlong-double-ibm128 @gol
 -mfloat128 -mno-float128}
 
 @emph{RX Options}
@@ -19916,39 +19915,9 @@ The @option{-mno-compat-align-parm} option is the default.
 @item -mfloat128
 @itemx -mno-float128
 @opindex mfloat128
-@opindex mno-float128
-Enable (disable) the @code{__float128} type to specify IEEE 128-bit
-floating point and the @code{__ibm128} type to specify IBM 128-bit
-floating point using two doubles.  The @option{-mlong-double-64} must
-not be used with @option{-mfloat128}.
-
-@item -mlong-double-64
-@itemx -mlong-double-128
-@itemx -mlong-double-ieee128
-@itemx -mlong-double-ibm128
-@opindex mlong-double-64
-@opindex mlong-double-128
-@opindex mlong-double-ieee128
-@opindex mlong-double-ibm128
-These switches control the size and format of @code{long double}
-type.  In general, you should not use these options if they would
-change the system defaults.
-
-The option @option{-mlong-double-64} makes the @code{long double} type
-equivalent to the @code{double} type.
-
-The option @option{-mlong-double-128} makes the @code{long double}
-type use 128 bits.  On 32-bit System V.4 systems, the default is to
-use the IEEE extended format.  On Linux, Freebsd, and Darwin systems,
-the default is to use a pair of @code{double} values to hold the
-extended precision.
-
-The option @option{-mlong-double-ieee128} makes the @code{long double}
-type use the IEEE extended format for @code{long double}.
-
-The option @option{-mlong-double-ibm128} makes the @code{long double}
-type use two @code{double} values to hold the extended precision for
-@code{long double}.
+Enable (do not enable) the types @code{__float128} and @code{__ibm128}
+which given explicit access to IEEE 128-bit and IBM double-double
+128-bit floating point types.
 @end table
 
 @node RX Options
