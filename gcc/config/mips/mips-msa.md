@@ -1521,12 +1521,29 @@
      (lt  "lti_s")
      (ltu "lti_u")])
 
+(define_code_attr cmpi
+    [(eq   "s")
+     (le   "s")
+     (leu  "u")
+     (lt   "s")
+     (ltu  "u")])
+
 (define_insn "msa_c<ICC:icc>_<IMSA:msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
 	(ICC:IMSA (match_operand:IMSA 1 "register_operand" "f")
 		  (match_operand:IMSA 2 "register_operand" "f")))]
   "ISA_HAS_MSA"
   "c<ICC:icc>.<IMSA:msafmt>\t%w0,%w1,%w2"
+  [(set_attr "type"	"arith")
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit"	"msa_eu_int_add")])
+
+(define_insn "msa_c<ICC:icci>i_<IMSA:msafmt>"
+  [(set (match_operand:IMSA 0 "register_operand" "=f")
+	(ICC:IMSA (match_operand:IMSA 1 "register_operand" "f")
+		  (match_operand:IMSA 2 "const_vector_same_cmp<ICC:cmpi>imm4_operand" "")))]
+  "ISA_HAS_MSA"
+  "c<ICC:icci>.<IMSA:msafmt>\t%w0,%w1,%D2"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
    (set_attr "msa_execunit"	"msa_eu_int_add")])
