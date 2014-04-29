@@ -563,6 +563,18 @@
   return mips_const_vector_bitimm_clr_p (op, mode);
 })
 
+(define_predicate "const_vector_same_cmpsimm4_operand"
+  (match_code "const_vector")
+{
+  return mips_const_vector_same_int_p (op, mode, -16, 15);
+})
+
+(define_predicate "const_vector_same_cmpuimm4_operand"
+  (match_code "const_vector")
+{
+  return mips_const_vector_same_int_p (op, mode, 0, 31);
+})
+
 (define_predicate "const_vector_same_uimm4_operand"
   (match_code "const_vector")
 {
