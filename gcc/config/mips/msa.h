@@ -777,9 +777,9 @@ extern v8i16 __builtin_msa_shf_h(v8i16 a, unsigned char b);
 extern v4i32 __builtin_msa_shf_w(v4i32 a, unsigned char b);
 #define shf_w __builtin_msa_shf_w
 extern int __builtin_msa_bnz_v(v16u8 a);
-#define bnz_v __builtin_msa_bnz_v
+#define test_bnz_v __builtin_msa_bnz_v
 extern int __builtin_msa_bz_v(v16u8 a);
-#define bz_v __builtin_msa_bz_v
+#define test_bz_v __builtin_msa_bz_v
 extern v16i8 __builtin_msa_fill_b(int a);
 #define fill_b __builtin_msa_fill_b
 extern v8i16 __builtin_msa_fill_h(int a);
@@ -845,21 +845,21 @@ extern v4i32 __builtin_msa_insve_w(v4i32 a, unsigned char b, v4i32 c);
 extern v2i64 __builtin_msa_insve_d(v2i64 a, unsigned char b, v2i64 c);
 #define insve_d __builtin_msa_insve_d
 extern int __builtin_msa_bnz_b(v16u8 a);
-#define bnz_b __builtin_msa_bnz_b
+#define test_bnz_b __builtin_msa_bnz_b
 extern int __builtin_msa_bnz_h(v8u16 a);
-#define bnz_h __builtin_msa_bnz_h
+#define test_bnz_h __builtin_msa_bnz_h
 extern int __builtin_msa_bnz_w(v4u32 a);
-#define bnz_w __builtin_msa_bnz_w
+#define test_bnz_w __builtin_msa_bnz_w
 extern int __builtin_msa_bnz_d(v2u64 a);
-#define bnz_d __builtin_msa_bnz_d
+#define test_bnz_d __builtin_msa_bnz_d
 extern int __builtin_msa_bz_b(v16u8 a);
-#define bz_b __builtin_msa_bz_b
+#define test_bz_b __builtin_msa_bz_b
 extern int __builtin_msa_bz_h(v8u16 a);
-#define bz_h __builtin_msa_bz_h
+#define test_bz_h __builtin_msa_bz_h
 extern int __builtin_msa_bz_w(v4u32 a);
-#define bz_w __builtin_msa_bz_w
+#define test_bz_w __builtin_msa_bz_w
 extern int __builtin_msa_bz_d(v2u64 a);
-#define bz_d __builtin_msa_bz_d
+#define test_bz_d __builtin_msa_bz_d
 extern v16i8 __builtin_msa_ldi_b(short a);
 #define ldi_b __builtin_msa_ldi_b
 extern v8i16 __builtin_msa_ldi_h(short a);
