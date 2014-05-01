@@ -362,8 +362,6 @@ rs6000_target_modify_macros (bool define_p, HOST_WIDE_INT flags,
     rs6000_define_or_undefine_macro (define_p, "__QUAD_MEMORY_ATOMIC__");
   if ((flags & OPTION_MASK_CRYPTO) != 0)
     rs6000_define_or_undefine_macro (define_p, "__CRYPTO__");
-  if ((flags & OPTION_MASK_FLOAT128) != 0)
-    rs6000_define_or_undefine_macro (define_p, "__FLOAT128__");
 
   /* options from the builtin masks.  */
   if ((bu_mask & RS6000_BTM_SPE) != 0)
@@ -462,6 +460,17 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
     {
       builtin_define ("__LONG_DOUBLE_128__");
       builtin_define ("__LONGDOUBLE128");
+
+      if (TARGET_IEEEQUAD)
+	builtin_define ("__LONG_DOUBLE_IEEE128__");
+    }
+  else
+    builtin_define ("__LONG_DOUBLE_64__");	/* x86 compatibility.  */
+
+  if (TARGET_FLOAT128)
+    {
+      builtin_define ("__FLOAT128__");
+      builtin_define ("__SIZEOF_FLOAT128__=16"); /* x86 compatibility.  */
     }
 
   switch (TARGET_CMODEL)
