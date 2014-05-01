@@ -1,3 +1,136 @@
+2014-05-01  Jan-Benedict Glaw  <jbglaw@lug-owl.de>
+
+	* config/arc/arc.c (TARGET_LRA_P): Undef before redefine.
+
+2014-05-01  Jan-Benedict Glaw  <jbglaw@lug-owl.de>
+
+	* config/arc/arc.c (arc_select_cc_mode): Fix typo.
+
+2014-05-01  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	* tree-if-conv.c (is_cond_scalar_reduction): New function.
+	(convert_scalar_cond_reduction): Likewise.
+	(predicate_scalar_phi): Add recognition and transformation
+	of simple conditioanl reduction to be vectorizable.
+
+2014-05-01  Marek Polacek  <polacek@redhat.com>
+
+	PR c/43245
+	* doc/invoke.texi: Document -Wdiscarded-qualifiers.
+
+2014-04-30  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/aarch64/arm_neon.h (vuzp1_f32, vuzp1_p8, vuzp1_p16, vuzp1_s8,
+	vuzp1_s16, vuzp1_s32, vuzp1_u8, vuzp1_u16, vuzp1_u32, vuzp1q_f32,
+	vuzp1q_f64, vuzp1q_p8, vuzp1q_p16, vuzp1q_s8, vuzp1q_s16, vuzp1q_s32,
+	vuzp1q_s64, vuzp1q_u8, vuzp1q_u16, vuzp1q_u32, vuzp1q_u64, vuzp2_f32,
+	vuzp2_p8, vuzp2_p16, vuzp2_s8, vuzp2_s16, vuzp2_s32, vuzp2_u8,
+	vuzp2_u16, vuzp2_u32, vuzp2q_f32, vuzp2q_f64, vuzp2q_p8, vuzp2q_p16,
+	vuzp2q_s8, vuzp2q_s16, vuzp2q_s32, vuzp2q_s64, vuzp2q_u8, vuzp2q_u16,
+	vuzp2q_u32, vuzp2q_u64): Replace temporary asm with __builtin_shuffle.
+
+2014-04-30  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* config/arc/arc.opt (mlra): Move comment above option name
+	to avoid mis-parsing as language options.
+
+2014-04-30  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config/sol2-10.h (TARGET_LIBC_HAS_FUNCTION): Move ...
+	* config/sol2.h: ... here.
+	* config/sol2-10.h: Remove.
+
+	* config/sol2-bi.h (WCHAR_TYPE, WCHAR_TYPE_SIZE, WINT_TYPE)
+	(WINT_TYPE_SIZE, MULTILIB_DEFAULTS, DEF_ARCH32_SPEC)
+	(DEF_ARCH64_SPEC, ASM_CPU_DEFAULT_SPEC, LINK_ARCH64_SPEC_BASE)
+	(LINK_ARCH64_SPEC, ARCH_DEFAULT_EMULATION, TARGET_LD_EMULATION)
+	(LINK_ARCH_SPEC, SUBTARGET_EXTRA_SPECS): Move ...
+	* config/sol2.h: ... here.
+	(SECTION_NAME_FORMAT): Don't redefine.
+	(STARTFILE_ARCH32_SPEC): Rename to ...
+	(STARTFILE_ARCH_SPEC): ... this.
+	(ASM_OUTPUT_ALIGNED_COMMON): Move ...
+	* config/sparc/sol2.h: ... here.
+	(SECTION_NAME_FORMAT): Don't undef.
+	* config/i386/sol2.h (ASM_CPU_DEFAULT_SPEC)
+	(SUBTARGET_EXTRA_SPECS): Remove.
+	* config/sparc/sol2.h (ASM_CPU_DEFAULT_SPEC): Remove.
+
+	* config/i386/sol2-bi.h (TARGET_SUBTARGET_DEFAULT)
+	(MD_STARTFILE_PREFIX): Remove.
+	(SUBTARGET_OPTIMIZATION_OPTIONS, ASM_CPU32_DEFAULT_SPEC)
+	(ASM_CPU64_DEFAULT_SPEC, ASM_CPU_SPEC, ASM_SPEC, DEFAULT_ARCH32_P)
+	(ARCH64_SUBDIR, ARCH32_EMULATION, ARCH64_EMULATION)
+	(ASM_COMMENT_START, JUMP_TABLES_IN_TEXT_SECTION)
+	(ASM_OUTPUT_DWARF_PCREL, ASM_OUTPUT_ALIGNED_COMMON)
+	(USE_IX86_FRAME_POINTER, USE_X86_64_FRAME_POINTER): Move ...
+	* config/i386/sol2.h: ... here.
+	(TARGET_SUBTARGET_DEFAULT, SIZE_TYPE, PTRDIFF_TYPE): Remove.
+	* config/i386/sol2-bi.h: Remove.
+	* config/sol2.h (MD_STARTFILE_PREFIX): Remove.
+	(LINK_ARCH32_SPEC_BASE): Remove /usr/ccs/lib/libp, /usr/ccs/lib.
+
+	* config/i386/t-sol2-64: Rename to ...
+	* config/i386/t-sol2: ... this.
+	* config/sparc/t-sol2-64: Rename to ...
+	* config/sparc/t-sol2: ... this.
+
+	* config.gcc (*-*-solaris2*): Split sol2_tm_file into
+	sol2_tm_file_head, sol2_tm_file_tail.
+	Include ${cpu_type}/sol2.h before sol2.h.
+	Remove sol2-10.h.
+	(i[34567]86-*-solaris2* | x86_64-*-solaris2.1[0-9]*): Include
+	i386/x86-64.h between sol2_tm_file_head and sol2_tm_file_tail.
+	Remove i386/sol2-bi.h, sol2-bi.h from tm_file.
+	Reflect i386/t-sol2-64 renaming.
+	(sparc*-*-solaris2*): Remove sol2-bi.h from tm_file.
+	Reflect sparc/t-sol2-64 renaming.
+
+2014-04-30  Richard Biener  <rguenther@suse.de>
+
+	* passes.c (execute_function_todo): Move TODO_verify_stmts
+	and TODO_verify_ssa under the TODO_verify_il umbrella.
+	* tree-ssa.h (verify_ssa): Adjust prototype.
+	* tree-ssa.c (verify_ssa): Add parameter to tell whether
+	we should verify SSA operands.
+	* tree-cfg.h (verify_gimple_in_cfg): Adjust prototype.
+	* tree-cfg.c (verify_gimple_in_cfg): Add parameter to tell
+	whether we should verify whether not throwing stmts have EH info.
+	* graphite-scop-detection.c (create_sese_edges): Adjust.
+	* tree-ssa-loop-manip.c (verify_loop_closed_ssa): Likewise.
+	* tree-eh.c (lower_try_finally_switch): Do not add the
+	default case label twice.
+
+2014-04-30  Marek Polacek  <polacek@redhat.com>
+
+	* gcc.c (sanitize_spec_function): Handle SANITIZE_FLOAT_DIVIDE.
+	* builtins.def: Initialize builtins even for SANITIZE_FLOAT_DIVIDE.
+	* flag-types.h (enum sanitize_code): Add SANITIZE_FLOAT_DIVIDE.
+	* opts.c (common_handle_option): Add -fsanitize=float-divide-by-zero.
+
+2014-04-29  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/aarch64/arm_neon.h (vzip1_f32, vzip1_p8, vzip1_p16, vzip1_s8,
+	vzip1_s16, vzip1_s32, vzip1_u8, vzip1_u16, vzip1_u32, vzip1q_f32,
+	vzip1q_f64, vzip1q_p8, vzip1q_p16, vzip1q_s8, vzip1q_s16, vzip1q_s32,
+	vzip1q_s64, vzip1q_u8, vzip1q_u16, vzip1q_u32, vzip1q_u64, vzip2_f32,
+	vzip2_p8, vzip2_p16, vzip2_s8, vzip2_s16, vzip2_s32, vzip2_u8,
+	vzip2_u16, vzip2_u32, vzip2q_f32, vzip2q_f64, vzip2q_p8, vzip2q_p16,
+	vzip2q_s8, vzip2q_s16, vzip2q_s32, vzip2q_s64, vzip2q_u8, vzip2q_u16,
+	vzip2q_u32, vzip2q_u64): Replace inline __asm__ with __builtin_shuffle.
+
+2014-04-29  David Malcolm  <dmalcolm@redhat.com>
+
+	* tree-cfg.c (dump_function_to_file): Dump the return type of
+	functions, in a line to itself before the function body, mimicking
+	the layout of a C function.
+
+2014-04-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/60971
+	* tree-tailcall.c (process_assignment): Reject conversions which
+	reduce precision.
+
 2014-04-29  James Greenhalgh  <james.greenhalgh@arm.com>
 
 	* calls.c (initialize_argument_information): Always treat

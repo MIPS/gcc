@@ -100,14 +100,15 @@ static void push_string (const char *);
 static void push_member_name (tree);
 static int spelling_length (void);
 static char *print_spelling (char *);
-static void warning_init (int, const char *);
+static void warning_init (location_t, int, const char *);
 static tree digest_init (location_t, tree, tree, tree, bool, bool, int);
 static void output_init_element (location_t, tree, tree, bool, tree, tree, int,
 				 bool, struct obstack *);
 static void output_pending_init_elements (int, struct obstack *);
 static int set_designator (int, struct obstack *);
 static void push_range_stack (tree, struct obstack *);
-static void add_pending_init (tree, tree, tree, bool, struct obstack *);
+static void add_pending_init (location_t, tree, tree, tree, bool,
+			      struct obstack *);
 static void set_nonincremental_init (struct obstack *);
 static void set_nonincremental_init_from_string (tree, struct obstack *);
 static tree find_init_member (tree, struct obstack *);
@@ -2107,7 +2108,8 @@ default_conversion (tree exp)
 
   if (code == VOID_TYPE)
     {
-      error ("void value not ignored as it ought to be");
+      error_at (EXPR_LOC_OR_LOC (exp, input_location),
+		"void value not ignored as it ought to be");
       return error_mark_node;
     }
 
@@ -5851,7 +5853,7 @@ convert_for_assignment (location_t location, location_t expr_loc, tree type,
 		     vice-versa.  */
 		  if (TYPE_QUALS_NO_ADDR_SPACE (ttl)
 		      & ~TYPE_QUALS_NO_ADDR_SPACE (ttr))
-		    WARN_FOR_QUALIFIERS (location, 0,
+		    WARN_FOR_QUALIFIERS (location, OPT_Wdiscarded_qualifiers,
 					 G_("passing argument %d of %qE "
 					    "makes %q#v qualified function "
 					    "pointer from unqualified"),
@@ -5867,7 +5869,7 @@ convert_for_assignment (location_t location, location_t expr_loc, tree type,
 		}
 	      else if (TYPE_QUALS_NO_ADDR_SPACE (ttr)
 		       & ~TYPE_QUALS_NO_ADDR_SPACE (ttl))
-		WARN_FOR_QUALIFIERS (location, 0,
+		WARN_FOR_QUALIFIERS (location, OPT_Wdiscarded_qualifiers,
 				     G_("passing argument %d of %qE discards "
 					"%qv qualifier from pointer target type"),
 				     G_("assignment discards %qv qualifier "
@@ -6048,7 +6050,7 @@ convert_for_assignment (location_t location, location_t expr_loc, tree type,
 	      if (TYPE_QUALS_NO_ADDR_SPACE_NO_ATOMIC (ttr)
 		  & ~TYPE_QUALS_NO_ADDR_SPACE_NO_ATOMIC (ttl))
 		{
-		  WARN_FOR_QUALIFIERS (location, 0,
+		  WARN_FOR_QUALIFIERS (location, OPT_Wdiscarded_qualifiers,
 				       G_("passing argument %d of %qE discards "
 					  "%qv qualifier from pointer target type"),
 				       G_("assignment discards %qv qualifier "
@@ -6085,7 +6087,7 @@ convert_for_assignment (location_t location, location_t expr_loc, tree type,
 		 where an ordinary one is wanted, but not vice-versa.  */
 	      if (TYPE_QUALS_NO_ADDR_SPACE (ttl)
 		  & ~TYPE_QUALS_NO_ADDR_SPACE (ttr))
-		WARN_FOR_QUALIFIERS (location, 0,
+		WARN_FOR_QUALIFIERS (location, OPT_Wdiscarded_qualifiers,
 				     G_("passing argument %d of %qE makes "
 					"%q#v qualified function pointer "
 					"from unqualified"),
@@ -6445,15 +6447,15 @@ pedwarn_init (location_t location, int opt, const char *gmsgid)
    component name is taken from the spelling stack.  */
 
 static void
-warning_init (int opt, const char *gmsgid)
+warning_init (location_t loc, int opt, const char *gmsgid)
 {
   char *ofwhat;
 
   /* The gmsgid may be a format string with %< and %>. */
-  warning (opt, gmsgid);
+  warning_at (loc, opt, gmsgid);
   ofwhat = print_spelling ((char *) alloca (spelling_length () + 1));
   if (*ofwhat)
-    warning (opt, "(near initialization for %qs)", ofwhat);
+    warning_at (loc, opt, "(near initialization for %qs)", ofwhat);
 }
 
 /* If TYPE is an array type and EXPR is a parenthesized string
@@ -7299,7 +7301,8 @@ push_init_level (int implicit, struct obstack * braced_init_obstack)
   if (implicit == 1 && warn_missing_braces && !missing_braces_mentioned)
     {
       missing_braces_mentioned = 1;
-      warning_init (OPT_Wmissing_braces, "missing braces around initializer");
+      warning_init (input_location, OPT_Wmissing_braces,
+		    "missing braces around initializer");
     }
 
   if (TREE_CODE (constructor_type) == RECORD_TYPE
@@ -7360,7 +7363,7 @@ push_init_level (int implicit, struct obstack * braced_init_obstack)
   else
     {
       if (constructor_type != error_mark_node)
-	warning_init (0, "braces around scalar initializer");
+	warning_init (input_location, 0, "braces around scalar initializer");
       constructor_fields = constructor_type;
       constructor_unfilled_fields = constructor_type;
     }
@@ -7775,8 +7778,8 @@ set_init_label (tree fieldname, struct obstack * braced_init_obstack)
    existing initializer.  */
 
 static void
-add_pending_init (tree purpose, tree value, tree origtype, bool implicit,
-		  struct obstack * braced_init_obstack)
+add_pending_init (location_t loc, tree purpose, tree value, tree origtype,
+		  bool implicit, struct obstack *braced_init_obstack)
 {
   struct init_node *p, **q, *r;
 
@@ -7797,9 +7800,12 @@ add_pending_init (tree purpose, tree value, tree origtype, bool implicit,
 	      if (!implicit)
 		{
 		  if (TREE_SIDE_EFFECTS (p->value))
-		    warning_init (0, "initialized field with side-effects overwritten");
+		    warning_init (loc, 0,
+				  "initialized field with side-effects "
+				  "overwritten");
 		  else if (warn_override_init)
-		    warning_init (OPT_Woverride_init, "initialized field overwritten");
+		    warning_init (loc, OPT_Woverride_init,
+				  "initialized field overwritten");
 		}
 	      p->value = value;
 	      p->origtype = origtype;
@@ -7824,9 +7830,12 @@ add_pending_init (tree purpose, tree value, tree origtype, bool implicit,
 	      if (!implicit)
 		{
 		  if (TREE_SIDE_EFFECTS (p->value))
-		    warning_init (0, "initialized field with side-effects overwritten");
+		    warning_init (loc, 0,
+				  "initialized field with side-effects "
+				  "overwritten");
 		  else if (warn_override_init)
-		    warning_init (OPT_Woverride_init, "initialized field overwritten");
+		    warning_init (loc, OPT_Woverride_init,
+				  "initialized field overwritten");
 		}
 	      p->value = value;
 	      p->origtype = origtype;
@@ -8015,10 +8024,8 @@ set_nonincremental_init (struct obstack * braced_init_obstack)
     return;
 
   FOR_EACH_CONSTRUCTOR_ELT (constructor_elements, ix, index, value)
-    {
-      add_pending_init (index, value, NULL_TREE, true,
-			braced_init_obstack);
-    }
+    add_pending_init (input_location, index, value, NULL_TREE, true,
+		      braced_init_obstack);
   constructor_elements = NULL;
   if (TREE_CODE (constructor_type) == RECORD_TYPE)
     {
@@ -8111,7 +8118,7 @@ set_nonincremental_init_from_string (tree str,
 	}
 
       value = build_int_cst_wide (type, val[1], val[0]);
-      add_pending_init (purpose, value, NULL_TREE, true,
+      add_pending_init (input_location, purpose, value, NULL_TREE, true,
                         braced_init_obstack);
     }
 
@@ -8255,12 +8262,12 @@ output_init_element (location_t loc, tree value, tree origtype,
 	  value = error_mark_node;
 	}
       else if (require_constant_elements)
-	pedwarn (input_location, 0,
+	pedwarn (loc, OPT_Wpedantic,
 		 "initializer element is not computable at load time");
     }
   else if (!maybe_const
 	   && (require_constant_value || require_constant_elements))
-    pedwarn_init (input_location, 0,
+    pedwarn_init (loc, OPT_Wpedantic,
 		  "initializer element is not a constant expression");
 
   /* Issue -Wc++-compat warnings about initializing a bitfield with
@@ -8277,7 +8284,7 @@ output_init_element (location_t loc, tree value, tree origtype,
       if (checktype != error_mark_node
 	  && (TYPE_MAIN_VARIANT (checktype)
 	      != TYPE_MAIN_VARIANT (DECL_BIT_FIELD_TYPE (field))))
-	warning_init (OPT_Wc___compat,
+	warning_init (loc, OPT_Wc___compat,
 		      "enum conversion in initialization is invalid in C++");
     }
 
@@ -8313,7 +8320,7 @@ output_init_element (location_t loc, tree value, tree origtype,
 	  && tree_int_cst_lt (field, constructor_unfilled_index))
 	set_nonincremental_init (braced_init_obstack);
 
-      add_pending_init (field, value, origtype, implicit,
+      add_pending_init (loc, field, value, origtype, implicit,
 			braced_init_obstack);
       return;
     }
@@ -8340,7 +8347,7 @@ output_init_element (location_t loc, tree value, tree origtype,
 	    }
 	}
 
-      add_pending_init (field, value, origtype, implicit,
+      add_pending_init (loc, field, value, origtype, implicit,
 			braced_init_obstack);
       return;
     }
@@ -8350,10 +8357,11 @@ output_init_element (location_t loc, tree value, tree origtype,
       if (!implicit)
 	{
 	  if (TREE_SIDE_EFFECTS (constructor_elements->last ().value))
-	    warning_init (0,
+	    warning_init (loc, 0,
 			  "initialized field with side-effects overwritten");
 	  else if (warn_override_init)
-	    warning_init (OPT_Woverride_init, "initialized field overwritten");
+	    warning_init (loc, OPT_Woverride_init,
+			  "initialized field overwritten");
 	}
 
       /* We can have just one union field set.  */
@@ -9264,7 +9272,8 @@ c_finish_return (location_t loc, tree retval, tree origtype)
 		  && DECL_CONTEXT (inner) == current_function_decl)
 		warning_at (loc,
 			    OPT_Wreturn_local_addr, "function returns address "
-			    "of local variable");
+			    "of %s", TREE_CODE (inner) == LABEL_DECL
+				     ? "label" : "local variable");
 	      break;
 
 	    default:
@@ -10402,7 +10411,7 @@ build_binary_op (location_t location, enum tree_code code,
 		{
 		  int_const = false;
 		  if (c_inhibit_evaluation_warnings == 0)
-		    warning (0, "right shift count is negative");
+		    warning_at (location, 0, "right shift count is negative");
 		}
 	      else
 		{
@@ -10413,7 +10422,8 @@ build_binary_op (location_t location, enum tree_code code,
 		    {
 		      int_const = false;
 		      if (c_inhibit_evaluation_warnings == 0)
-			warning (0, "right shift count >= width of type");
+			warning_at (location, 0, "right shift count >= width "
+				    "of type");
 		    }
 		}
 	    }
@@ -10455,14 +10465,15 @@ build_binary_op (location_t location, enum tree_code code,
 		{
 		  int_const = false;
 		  if (c_inhibit_evaluation_warnings == 0)
-		    warning (0, "left shift count is negative");
+		    warning_at (location, 0, "left shift count is negative");
 		}
 
 	      else if (compare_tree_int (op1, TYPE_PRECISION (type0)) >= 0)
 		{
 		  int_const = false;
 		  if (c_inhibit_evaluation_warnings == 0)
-		    warning (0, "left shift count >= width of type");
+		    warning_at (location, 0, "left shift count >= width of "
+				"type");
 		}
 	    }
 
@@ -10995,7 +11006,8 @@ build_binary_op (location_t location, enum tree_code code,
 	return error_mark_node;
     }
 
-  if ((flag_sanitize & (SANITIZE_SHIFT | SANITIZE_DIVIDE))
+  if ((flag_sanitize & (SANITIZE_SHIFT | SANITIZE_DIVIDE
+			| SANITIZE_FLOAT_DIVIDE))
       && current_function_decl != 0
       && !lookup_attribute ("no_sanitize_undefined",
 			    DECL_ATTRIBUTES (current_function_decl))
@@ -11006,7 +11018,8 @@ build_binary_op (location_t location, enum tree_code code,
       op1 = c_save_expr (op1);
       op0 = c_fully_fold (op0, false, NULL);
       op1 = c_fully_fold (op1, false, NULL);
-      if (doing_div_or_mod && (flag_sanitize & SANITIZE_DIVIDE))
+      if (doing_div_or_mod && (flag_sanitize & (SANITIZE_DIVIDE
+						| SANITIZE_FLOAT_DIVIDE)))
 	instrument_expr = ubsan_instrument_division (location, op0, op1);
       else if (doing_shift && (flag_sanitize & SANITIZE_SHIFT))
 	instrument_expr = ubsan_instrument_shift (location, code, op0, op1);
