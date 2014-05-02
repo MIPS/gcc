@@ -1310,6 +1310,9 @@ proc mips-dg-options { args } {
 
     # Use our version of gcc-dg-test for this test.
     if { ![string equal [info procs "mips-gcc-dg-test"] ""] } {
+	if { ![string equal [info procs "mips-old-gcc-dg-test"] ""] } {
+	    rename mips-old-gcc-dg-test ""
+	}
 	rename gcc-dg-test mips-old-gcc-dg-test
 	rename mips-gcc-dg-test gcc-dg-test
     }
