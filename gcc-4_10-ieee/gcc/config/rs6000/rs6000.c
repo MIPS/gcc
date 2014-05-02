@@ -8293,14 +8293,30 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
      loaded as two parts.  */
   if (FLOAT128_IBM_P (mode) && GET_CODE (operands[1]) == CONST_DOUBLE)
     {
-      rs6000_emit_move (simplify_gen_subreg (DFmode, operands[0], mode, 0),
-			simplify_gen_subreg (DFmode, operands[1], mode, 0),
-			DFmode);
-      rs6000_emit_move (simplify_gen_subreg (DFmode, operands[0], mode,
-					     GET_MODE_SIZE (DFmode)),
-			simplify_gen_subreg (DFmode, operands[1], mode,
-					     GET_MODE_SIZE (DFmode)),
-			DFmode);
+      rtx dest = operands[0];
+      rtx src = operands[1];
+      HOST_WIDE_INT r = REGNO (dest);
+      unsigned offset = GET_MODE_SIZE (DFmode);
+      rtx dest_hi, dest_lo;
+      rtx src_hi = simplify_gen_subreg (DFmode, src, mode, 0);
+      rtx src_lo = simplify_gen_subreg (DFmode, src, mode, offset);
+
+      /* Simplify_gen_subreg doesn't work on little endian systems, when the
+	 register is a hard register, since we don't allow subregs in this
+	 case.  */
+      if (r < FIRST_PSEUDO_REGISTER)
+	{
+	  dest_hi = gen_rtx_REG (DFmode, r);
+	  dest_lo = gen_rtx_REG (DFmode, r+1);
+	}
+      else
+	{
+	  dest_hi = simplify_gen_subreg (DFmode, operands[0], mode, 0);
+	  dest_lo = simplify_gen_subreg (DFmode, operands[0], mode, offset);
+	}
+
+      rs6000_emit_move (dest_hi, src_hi, DFmode);
+      rs6000_emit_move (dest_lo, src_lo, DFmode);
       return;
     }
 
@@ -17440,8 +17456,7 @@ rs6000_cannot_change_mode_class (enum machine_mode from,
 	     pair with the most significant word in the even-numbered register
 	     to match ISA requirements.  In little-endian mode, this does not
 	     match subreg numbering, so we cannot allow subregs.  */
-	  if (!BYTES_BIG_ENDIAN
-	      && (FLOAT128_2REG_P (to) || FLOAT128_2REG_P (from)))
+	  if (!BYTES_BIG_ENDIAN && (to == TDmode || from == TDmode))
 	    return true;
 
 	  if (from_size < 8 || to_size < 8)
