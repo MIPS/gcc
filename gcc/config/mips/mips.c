@@ -17128,6 +17128,23 @@ mips_option_override (void)
     warning (0, "the %qs architecture does not support madd or msub"
 	     " instructions", mips_arch_info->name);
 
+  /* If neither -modd-spreg nor -mno-odd-spreg was given on the command
+     line, set MASK_ODD_SPREG bsaed on the target architecture, ABI.  */
+  if ((target_flags_explicit & MASK_ODD_SPREG) == 0)
+    {
+      /* Disable TARGET_ODD_SPREG for generic architectures to make them
+	 compatible with those implementations which are
+	 !ISA_HAS_ODD_SPREG.  */
+      if (ISA_HAS_ODD_SPREG
+	  && (strncmp (mips_arch_info->name, "mips", 4) != 0))
+	target_flags |= MASK_ODD_SPREG;
+      else
+	target_flags &= ~MASK_ODD_SPREG;
+    }
+  else if (TARGET_ODD_SPREG && !ISA_HAS_ODD_SPREG)
+    warning (0, "the %qs architecture does not support odd single-precision"
+	     " registers", mips_arch_info->name);
+
   /* The effect of -mabicalls isn't defined for the EABI.  */
   if (mips_abi == ABI_EABI && TARGET_ABICALLS)
     {
