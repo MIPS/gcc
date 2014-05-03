@@ -101,8 +101,8 @@ _gfortran_caf_finalize (void)
     {
       caf_static_t *tmp = caf_static_list->prev;
 
-      free (TOKEN(caf_static_list->token)[caf_this_image-1]);
-      free (TOKEN(caf_static_list->token));
+      free (TOKEN (caf_static_list->token)[caf_this_image-1]);
+      free (TOKEN (caf_static_list->token));
       free (caf_static_list);
       caf_static_list = tmp;
     }
@@ -151,7 +151,7 @@ _gfortran_caf_register (size_t size, caf_register_t type, caf_token_t *token,
     goto error;
 
   /* token[img-1] is the address of the token in image "img".  */
-  err = MPI_Allgather (&local, sizeof (void*), MPI_BYTE, TOKEN(*token),
+  err = MPI_Allgather (&local, sizeof (void*), MPI_BYTE, TOKEN (*token),
 		       sizeof (void*), MPI_BYTE, MPI_COMM_WORLD);
 
   if (unlikely (err))
@@ -232,7 +232,7 @@ _gfortran_caf_deregister (caf_token_t *token, int *stat, char *errmsg, int errms
   if (stat)
     *stat = 0;
 
-  free (TOKEN(*token)[caf_this_image-1]);
+  free (TOKEN (*token)[caf_this_image-1]);
   free (*token);
 }
 

@@ -26,9 +26,9 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #ifndef LIBCAF_H
 #define LIBCAF_H
 
-#include <stdint.h>	/* For int32_t.  */
-#include <stddef.h>	/* For size_t.  */
 #include <stdbool.h>
+#include <stddef.h>	/* For size_t.  */
+#include <stdint.h>	/* For int32_t.  */
 
 #ifndef __GNUC__
 #define __attribute__(x)
@@ -58,7 +58,6 @@ caf_register_t;
 
 typedef void* caf_token_t;
 
-
 /* GNU Fortran's array descriptor.  Keep in sync with libgfortran.h.  */
 
 typedef struct descriptor_dimension
@@ -87,7 +86,6 @@ typedef struct gfc_descriptor_t {
 #define GFC_DESCRIPTOR_TYPE(desc) (((desc)->dtype & GFC_DTYPE_TYPE_MASK) \
                                    >> GFC_DTYPE_TYPE_SHIFT)
 #define GFC_DESCRIPTOR_SIZE(desc) ((desc)->dtype >> GFC_DTYPE_SIZE_SHIFT)
-
 
 
 /* Linked list of static coarrays registered.  */
