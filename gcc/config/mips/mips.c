@@ -20868,21 +20868,6 @@ mips_expand_msa_vcond (rtx dest, rtx true_src, rtx false_src,
 	      && (false_src == CONST0_RTX (dest_mode)));
 }
 
-/* Implement HARD_REGNO_CALLER_SAVE_MODE.  */
-
-enum machine_mode
-mips_hard_regno_caller_save_mode (unsigned int regno,
-				  unsigned int nregs,
-				  enum machine_mode mode)
-{
-  /* For performance, to avoid saving/restoring upper parts of a register,
-     we return MODE as save mode when MODE is not VOIDmode.  */
-  if (mode == VOIDmode)
-    return choose_hard_reg_mode (regno, nregs, false);
-  else
-    return mode;
-}
-
 /* Implement TARGET_CASE_VALUES_THRESHOLD.  */
 
 unsigned int

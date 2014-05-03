@@ -1826,18 +1826,16 @@ struct mips_cpu_info {
 #define HARD_REGNO_CALLER_SAVE_MODE(REGNO, NREGS, MODE) \
   mips_hard_regno_caller_save_mode (REGNO, NREGS, MODE)
 
-/* MIPS ABIs can only save 32-bit/64-bit (single/double) FP registers.
+/* Odd numbered single precision registers are not considered call saved
+   for O32 FPXX as they will be clobbered when run on an FR=1 FPU.
+   Also MIPS ABIs can only save 32-bit/64-bit (single/double) FP registers.
    Thus, MSA vector registers with MODE > 64 bits are part clobbered. */
-#define HARD_REGNO_CALL_PART_CLOBBERED(REGNO, MODE)	\
-  (TARGET_MSA && FP_REG_P (REGNO) && GET_MODE_SIZE (MODE) > 8)
+#define HARD_REGNO_CALL_PART_CLOBBERED(REGNO, MODE)			\
+  ((TARGET_FLOATXX && ((MODE) == SFmode || (MODE) == SImode)		\
+    && FP_REG_P (REGNO) && (REGNO & 1))					\
+   || (TARGET_MSA && FP_REG_P (REGNO) && GET_MODE_SIZE (MODE) > 8))
 
 #define MODES_TIEABLE_P mips_modes_tieable_p
-
-/* Odd numbered single precision registers are not considered call saved
-   for O32 FPXX as they will be clobbered when run on an FR=1 FPU.  */
-#define HARD_REGNO_CALL_PART_CLOBBERED(REGNO, MODE)			\
-  (TARGET_FLOATXX && ((MODE) == SFmode || (MODE) == SImode)		\
-   && FP_REG_P (REGNO) && (REGNO & 1))
 
 #define HARD_REGNO_CALLER_SAVE_MODE(REGNO, NREGS, MODE)			\
   mips_hard_regno_caller_save_mode (REGNO, NREGS, MODE)
