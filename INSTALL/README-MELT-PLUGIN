@@ -281,7 +281,7 @@ for example
 
  ***
 
-   Remove old option handling, REGSITER_OPTION is removed.
+   Remove old option handling, REGISTER_OPTION is removed.
    
   
 ################################################################
