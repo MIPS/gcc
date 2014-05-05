@@ -1,4 +1,7 @@
 
+2014-05-05  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{MELT 1.1-rc0}}
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.1-rc0
 
 2014-04-23  Basile Starynkevitch  <basile@starynkevitch.net>
 
@@ -55,7 +58,7 @@
 
 2014-04-08  Basile Starynkevitch  <basile@starynkevitch.net>
 
-	{{fix of MELT-SFT-6 bug}}
+	{{fix of MELT-SFT-8 bug}}
 	* melt/warmelt-normal.melt (normexp_ifvariadic): Clean the cached
 	location map of bindings local to the then branch...
 

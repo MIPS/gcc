@@ -1,5 +1,5 @@
 Short installation instructions for MELT as a plugin to an installed
-gcc-4.7 or gcc-4.8 (or future gcc-4.9) enabled for plugins.
+gcc-4.7 or gcc-4.8 (or gcc-4.9) enabled for plugins.
 
 See also http://gcc-melt.org/
 
@@ -18,18 +18,18 @@ relevant):
 ################ quick steps for Debian/Unstable or Ubuntu or derived distributions ####
 
 ## Run as root (e.g. with sudo):
-  apt-get install gcc-4.7 g++-4.7 build-essential make \
+  apt-get install gcc-4.8 g++-4.8 build-essential make \
            texinfo texi2html autogen gawk unifdef astyle
-  apt-get build-dep gcc-4.7
-  apt-get install libppl-dev libppl-c-dev gcc-4.7-plugin-dev 
+  apt-get build-dep gcc-4.8
+  apt-get install libppl-dev libppl-c-dev gcc-4.8-plugin-dev 
 
 ## then retrieve the MELT plugin release, and cd into it, then
   make all
   make install DESTDIR=/tmp/meltinstall
 
 ## You might explicit the compiler you want to extend and to use:
-  make all CC=/usr/bin/gcc-4.7 CXX=/usr/bin/g++-4.7
-  make install CC=/usr/bin/gcc-4.7 CXX=/usr/bin/g++-4.7 DESTDIR=/tmp/meltinstall
+  make all CC=/usr/bin/gcc-4.8 CXX=/usr/bin/g++-4.8
+  make install CC=/usr/bin/gcc-4.8 CXX=/usr/bin/g++-4.8 DESTDIR=/tmp/meltinstall
 
 ## The first "make all" needs 15 minutes, less than 1Gb disk, 4Gb RAM, and
 ## *cannot be* a parallel "make -j all"
@@ -41,7 +41,7 @@ relevant):
 ## dependencies even to run it..
 
 ## You need to rebuild & reinstall MELT even for minor GCC release
-##   upgrades (ie. from GCC 4.7.2 to 4.7.3).
+##   upgrades (ie. from GCC 4.8.2 to 4.8.3).
 
 
 #########################################################################
@@ -195,6 +195,95 @@ the subject line] and to <gcc-melt@googlegroups.com>
 
 
 
+################################################################
+NEWS for 1.1 MELT plugin for GCC 4.8 & 4.9
+[[may 2014]]
+This is a major release (with perhaps some small incompatibilities
+with previous MELT plugin releases).
+
+   End-user improvements
+   =====================
+
+ ***
+
+   The module list files *.modlis accept conditioned extra
+   modules. Within them, a line like
+   
+       ?findgimple xtramelt-ana-simple.optimized
+
+   means that: if the mode is findgimple, load the xtramelt-ana-simple
+   module in its optimized flavour.
+
+   The predefined modules now are named libmelt*.melt for standard
+   library modules and xtramelt*.melt for extra modules.
+
+   Language improvements
+   =====================
+
+   Add support for JSON.
+   
+ ***
+
+  Several bug fixes, notably MELT-SFT-8. Better variadic binding.
+
+ ***
+
+  The MODULE_IS_GPL_COMPATIBLE directive is now required to avoid
+  warnings. Your modules should be GPL compatible, and state that with
+  a directive like
+ 
+     (MODULE_IS_GPL_COMPATIBLE <reason-string>)
+
+for example
+     (MODULE_IS_GPL_COMPATIBLE "GPLv3")
+  
+
+  
+   Runtime improvements
+   ====================
+
+ ***
+
+   The old GTKmm (or Qt/Python) probe is becoming deprecated.  A
+   partial support for JSON & JsonRpc service is coming.  A web-based
+   MELT monitor is in the works, but not yet released.
+
+ ***
+
+   Input channel handlers can be either paragraph oriented (like in
+   previous MELT releases) or raw input.
+
+ ***
+
+   We don't use setjmp but C++ exceptions
+   
+ ***
+
+   melt_walk_use_def_chains adapted for GCC 4.9, and compatibility with GCC 4.9
+
+ ***
+
+   The successful modes list is printed.
+
+ ***
+
+   Nearly systematic use of hooks.
+
+ ***
+
+   Improved support of pragmas, with both REGISTER_EXPANDED_PRAGMA &
+   REGISTER_PLAIN_PRAGMA function.
+
+ ***
+
+   Sorting primitives like multiple_sort are fully reentrant, so their
+   compare routine might do a sort itself!
+
+ ***
+
+   Remove old option handling, REGSITER_OPTION is removed.
+   
+  
 ################################################################
 NEWS for 1.0.2 MELT plugin for GCC 4.7 & 4.8 [and future 4.9?]
 [[december 18th, 2013]]
