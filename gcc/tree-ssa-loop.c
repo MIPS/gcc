@@ -163,8 +163,6 @@ public:
   /* opt_pass methods: */
   virtual bool gate (function *fun)
     {
-      if (lookup_attribute ("hsa", DECL_ATTRIBUTES (fun->decl)))
-	return false;
       return flag_tree_loop_vectorize || fun->has_force_vectorize_loops;
     }
 

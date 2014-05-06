@@ -370,6 +370,52 @@ hsa_type_for_scalar_tree_type (const_tree type, bool for_operand)
 
 }
 
+/* Returns the BRIG type we need to load/store entities of TYPE.  */
+
+static BrigType16_t
+mem_type_for_type (BrigType16_t type)
+{
+  /* HSA has non-intuitive constraints on load/store types.  If it's
+     a bit-type it _must_ be B128, if it's not a bit-type it must be
+     64bit max.  So for loading entities of 128 bits (e.g. vectors)
+     we have to to B128, while for loading the rest we have to use the
+     input type (??? or maybe also flattened to a equally sized non-vector
+     unsigned type?).  */
+  if ((type & BRIG_TYPE_PACK_MASK) == BRIG_TYPE_PACK_128)
+    return BRIG_TYPE_B128;
+  return type;
+}
+
+static bool
+hsa_type_float_p (BrigType16_t type)
+{
+  switch (type & BRIG_TYPE_BASE_MASK)
+    {
+    case BRIG_TYPE_F16:
+    case BRIG_TYPE_F32:
+    case BRIG_TYPE_F64:
+      return true;
+    default:
+      return false;
+    }
+}
+
+/* Returns true if converting from STYPE into DTYPE needs the _CVT
+   opcode.  If false a normal _MOV is enough.  */
+
+static bool
+hsa_needs_cvt (BrigType16_t dtype, BrigType16_t stype)
+{
+  /* float <-> int conversions are real converts.  */
+  if (hsa_type_float_p (dtype) != hsa_type_float_p (stype))
+    return true;
+  /* When both types have different size (equivalent to different
+     underlying bit types), then we need CVT as well.  */
+  if (bittype_for_type (dtype) != bittype_for_type (stype))
+    return true;
+  return false;
+}
+
 /* Return HSA type for tree TYPE.  If it cannot fit into BrigType16_t, some
    kind of array will be generated, setting DIMLO and DIMHI appropriately.
    Otherwise, they will be set to zero.  */
@@ -823,12 +869,17 @@ gen_hsa_addr (tree ref, hsa_bb *hbb, vec <hsa_op_reg_p> ssa_map)
 		    }
 		  if (CONVERT_EXPR_P (op1))
 		    {
+		      hsa_op_reg *src;
+		      op1 = TREE_OPERAND (op1, 0);
 		      insn = hsa_alloc_basic_insn ();
-		      insn->opcode = BRIG_OPCODE_CVT;
 		      insn->operands[0] = tmp2;
 		      insn->type = tmp2->type;
-		      op1 = TREE_OPERAND (op1, 0);
-		      insn->operands[1] = hsa_reg_for_gimple_ssa (op1, ssa_map);
+		      src = hsa_reg_for_gimple_ssa (op1, ssa_map);
+		      insn->operands[1] = src;
+		      if (hsa_needs_cvt (tmp2->type, src->type))
+			insn->opcode = BRIG_OPCODE_CVT;
+		      else
+			insn->opcode = BRIG_OPCODE_MOV;
 		      hsa_append_insn (hbb, insn);
 		      reg = tmp2;
 		    }
@@ -1041,7 +1092,7 @@ gen_hsa_insns_for_load (hsa_op_reg *dest, tree rhs, tree type, hsa_bb *hbb,
       addr = gen_hsa_addr (rhs, hbb, ssa_map);
       mem->opcode = BRIG_OPCODE_LD;
       /* Not dest->type, that's possibly extended.  */
-      mem->type = hsa_type_for_scalar_tree_type (type, false);
+      mem->type = mem_type_for_type (hsa_type_for_scalar_tree_type (type, false));
       mem->operands[0] = dest;
       mem->operands[1] = addr;
       set_reg_def (dest, mem);
@@ -1067,7 +1118,7 @@ gen_hsa_insns_for_store (tree lhs, hsa_op_base *src, hsa_bb *hbb,
   mem->opcode = BRIG_OPCODE_ST;
   if (hsa_op_reg *reg = dyn_cast <hsa_op_reg> (src))
     reg->uses.safe_push (mem);
-  mem->type = hsa_type_for_scalar_tree_type (TREE_TYPE (lhs), false);
+  mem->type = mem_type_for_type (hsa_type_for_scalar_tree_type (TREE_TYPE (lhs), false));
 
   /* XXX The HSAIL disasm has another constraint: if the source
      is an immediate then it must match the destination type.  If
@@ -1428,6 +1479,9 @@ gen_hsa_insns_for_operation_assignment (gimple assign, hsa_bb *hbb,
     case GIMPLE_BINARY_RHS:
       {
 	tree top = gimple_assign_rhs2 (assign);
+	if ((opcode == BRIG_OPCODE_SHL || opcode == BRIG_OPCODE_SHR)
+	    && TREE_CODE (top) != SSA_NAME)
+	  top = build_int_cstu (unsigned_type_node, TREE_INT_CST_LOW (top));
 	insn->operands[2] = hsa_reg_or_immed_for_gimple_op (top, hbb, ssa_map,
 							    insn);
       }
@@ -1435,6 +1489,14 @@ gen_hsa_insns_for_operation_assignment (gimple assign, hsa_bb *hbb,
     case GIMPLE_UNARY_RHS:
       {
 	tree top = gimple_assign_rhs1 (assign);
+	if (opcode == BRIG_OPCODE_ABS || opcode == BRIG_OPCODE_NEG)
+	  {
+	    /* ABS and NEG only exist in _s form :-/  */
+	    if (insn->type == BRIG_TYPE_U32)
+	      insn->type = BRIG_TYPE_S32;
+	    else if (insn->type == BRIG_TYPE_U64)
+	      insn->type = BRIG_TYPE_S64;
+	  }
 	insn->operands[1] = hsa_reg_or_immed_for_gimple_op (top, hbb, ssa_map,
 							    insn);
       }
@@ -1553,7 +1615,7 @@ specialop:
 	dest = hsa_reg_for_gimple_ssa (lhs, ssa_map);
 
 	meminsn->opcode = BRIG_OPCODE_LD;
-	meminsn->type = hsa_type_for_scalar_tree_type (TREE_TYPE (lhs), false);
+	meminsn->type = mem_type_for_type (hsa_type_for_scalar_tree_type (TREE_TYPE (lhs), false));
 	meminsn->operands[0] = dest;
 	meminsn->operands[1] = addr;
 	meminsn->semantic = BRIG_SEMANTIC_ACQUIRE;
@@ -1787,7 +1849,7 @@ gen_function_parameters (vec <hsa_op_reg_p> ssa_map)
 
 	      addr = gen_hsa_addr (parm, &hsa_cfun.prologue, ssa_map);
 	      mem->opcode = BRIG_OPCODE_LD;
-	      mem->type = hsa_type_for_scalar_tree_type (TREE_TYPE (ddef), false);
+	      mem->type = mem_type_for_type (hsa_type_for_scalar_tree_type (TREE_TYPE (ddef), false));
 	      mem->operands[0] = dest;
 	      mem->operands[1] = addr;
 	      set_reg_def (dest, mem);

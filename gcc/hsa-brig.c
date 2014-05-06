@@ -515,8 +515,8 @@ bittype_for_type (BrigType16_t t)
 {
   switch (t)
     {
-      case BRIG_TYPE_B1:
-	return BRIG_TYPE_B1;
+    case BRIG_TYPE_B1:
+      return BRIG_TYPE_B1;
 
     case BRIG_TYPE_U8:
     case BRIG_TYPE_S8:
@@ -581,8 +581,8 @@ regtype_for_type (BrigType16_t t)
 {
   switch (t)
     {
-      case BRIG_TYPE_B1:
-	return BRIG_TYPE_B1;
+    case BRIG_TYPE_B1:
+      return BRIG_TYPE_B1;
 
     case BRIG_TYPE_U8:
     case BRIG_TYPE_U16:
@@ -890,11 +890,11 @@ emit_address_operand (hsa_op_address *addr)
     ? htole32 (emit_symbol_directive (addr->symbol)) : 0;
   out.reg = addr->reg ? htole32 (emit_register_name (addr->reg)) : 0;
 
-  /* FIXME: This is very clmusy.  */
-  if (sizeof (addr->imm_offset) == 64)
+  /* FIXME: This is very clumsy.  */
+  if (sizeof (addr->imm_offset) == 8)
     {
-      out.offsetLo = htole32 (addr->imm_offset & ((2^32)-1));
-      out.offsetHi = htole32 ((long long) addr->imm_offset >> 32);
+      out.offsetLo = htole32 ((uint32_t)addr->imm_offset);
+      out.offsetHi = htole32 (((long long) addr->imm_offset) >> 32);
     }
   else
     {
@@ -950,7 +950,7 @@ emit_queued_operands (void)
     }
 }
 
-/* Emit an HSA memory instruction and all nececcary directives, schedule
+/* Emit an HSA memory instruction and all necessary directives, schedule
    necessary operands for writing .  */
 
 static void
@@ -1194,7 +1194,9 @@ emit_cvt_insn (hsa_insn_basic *insn)
 static void
 emit_basic_insn (hsa_insn_basic *insn)
 {
-  struct BrigInstBasic repr;
+  /* We assume that BrigInstMod has a BrigInstBasic prefix.  */
+  struct BrigInstMod repr;
+  BrigType16_t type;
 
   if (insn->opcode == BRIG_OPCODE_CVT)
     {
@@ -1202,21 +1204,51 @@ emit_basic_insn (hsa_insn_basic *insn)
       return;
     }
 
-  repr.size = htole16 (sizeof (repr));
+  repr.size = htole16 (sizeof (BrigInstBasic));
   repr.kind = htole16 (BRIG_INST_BASIC);
   repr.opcode = htole16 (insn->opcode);
-  /* XXX The spec says mov can take all types.  But the LLVM based
-     simulator cries about "Mov_s32" not being defined.  */
-  if (insn->opcode == BRIG_OPCODE_MOV)
-    repr.type = htole16 (regtype_for_type (insn->type));
-  else
-    repr.type = htole16 (insn->type);
+  switch (insn->opcode)
+    {
+      /* XXX The spec says mov can take all types.  But the LLVM based
+	 simulator cries about "Mov_s32" not being defined.  */
+      case BRIG_OPCODE_MOV:
+      /* And the bit-logical operations need bit types and whine about
+         arithmetic types :-/  */
+      case BRIG_OPCODE_AND:
+      case BRIG_OPCODE_OR:
+      case BRIG_OPCODE_XOR:
+      case BRIG_OPCODE_NOT:
+	type = regtype_for_type (insn->type);
+	break;
+      default:
+	type = insn->type;
+	break;
+    }
+  repr.type = htole16 (type);
   for (int i = 0; i < HSA_OPERANDS_PER_INSN; i++)
     if (insn->operands[i])
       repr.operands[i] = htole32 (enqueue_op (insn->operands[i]));
     else
       repr.operands[i] = 0;
-  brig_code.add (&repr, sizeof (repr));
+  if ((type & BRIG_TYPE_PACK_MASK) != BRIG_TYPE_PACK_NONE)
+    {
+      if (float_type_p (type))
+	repr.modifier = BRIG_ROUND_FLOAT_NEAR_EVEN;
+      else
+	repr.modifier = 0;
+      /* We assume that destination and sources agree in packing
+         layout.  */
+      if (insn->operands[2])
+	repr.pack = BRIG_PACK_PP;
+      else
+	repr.pack = BRIG_PACK_P;
+      repr.reserved = 0;
+      repr.size = htole16 (sizeof (BrigInstMod));
+      repr.kind = htole16 (BRIG_INST_MOD);
+      brig_code.add (&repr, sizeof (struct BrigInstMod));
+    }
+  else
+    brig_code.add (&repr, sizeof (struct BrigInstBasic));
   brig_insn_count++;
 }
 

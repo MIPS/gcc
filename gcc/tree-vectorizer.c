@@ -613,8 +613,6 @@ public:
   /* opt_pass methods: */
   virtual bool gate (function *fun)
     { 
-      if (lookup_attribute ("hsa", DECL_ATTRIBUTES (fun->decl)))
-	return false;
       return flag_tree_slp_vectorize != 0;
     }
   virtual unsigned int execute (function *);
