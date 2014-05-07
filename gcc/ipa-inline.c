@@ -122,6 +122,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-utils.h"
 #include "sreal.h"
 #include "cilk.h"
+#include "domwalk.h"
+#include "tree-dump.h"
+#include "gimple-iterator.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
 
 /* Statistics we collect about inlining algorithm.  */
 static int overall_size;
@@ -814,6 +819,388 @@ has_caller_p (struct cgraph_node *node, void *data ATTRIBUTE_UNUSED)
   return false;
 }
 
+
+/* 
+ * liveness pressure calculations
+ */
+
+static struct {
+    bitmap_obstack obstack;
+    vec<bitmap> bb_gen;
+    vec<bitmap> bb_kill;
+    vec<bitmap> bb_live_in;
+    vec<bitmap> bb_live_out;
+    bitmap live_in_temp;
+    int current_lhs_vno;
+    int bb_index;
+    int touched;
+} pressure_info;
+
+class pressure_dom_walker : public dom_walker
+{
+public:
+  pressure_dom_walker (cdi_direction direction) : dom_walker (direction) {}
+
+  virtual void before_dom_children (basic_block);
+  virtual void after_dom_children (basic_block) {}
+};
+
+void
+pressure_dom_walker::before_dom_children (basic_block bb)
+{
+    edge e;
+    edge_iterator ei;
+    
+    /*
+     * compute union of live_in over all successor blocks for new live_out
+     */
+    FOR_EACH_EDGE (e, ei, bb->succs) 
+	{
+	    int dest_ix;
+	    bool changed;
+	    gcc_assert (e->src == bb);
+
+	    dest_ix = e->dest->index;
+	    changed = bitmap_ior_into(pressure_info.bb_live_out[bb->index],pressure_info.bb_live_in[dest_ix]);
+	    if ( changed ) pressure_info.touched++;
+	}
+	    
+    /* compute gen U (Live_out - kill) */
+    bitmap_clear(pressure_info.live_in_temp);
+    bitmap_copy(pressure_info.live_in_temp, pressure_info.bb_live_out[bb->index]);
+    bitmap_and_compl_into(pressure_info.live_in_temp, pressure_info.bb_kill[bb->index]); 
+    bitmap_ior_into(pressure_info.live_in_temp, pressure_info.bb_gen[bb->index]); 
+    if ( !bitmap_equal_p(pressure_info.live_in_temp, pressure_info.bb_live_in[bb->index]) ) {
+	pressure_info.touched++;
+	bitmap_copy(pressure_info.bb_live_in[bb->index], pressure_info.live_in_temp);
+    }
+}
+
+static void alloc_pressure_info()
+{
+    int ix;
+    int nblocks=last_basic_block_for_fn (cfun);
+    pressure_info.current_lhs_vno = -1;
+
+    bitmap_obstack_initialize (&pressure_info.obstack);
+
+    pressure_info.bb_gen.create (nblocks);
+    pressure_info.bb_kill.create (nblocks);
+    pressure_info.bb_live_in.create (nblocks);
+    pressure_info.bb_live_out.create (nblocks);
+
+    pressure_info.live_in_temp = BITMAP_ALLOC (&pressure_info.obstack);
+    bitmap_clear(pressure_info.live_in_temp);
+    
+    for (ix = 0; ix < nblocks; ix++)
+	{
+	    bitmap empty;
+	    empty = BITMAP_ALLOC (&pressure_info.obstack);
+	    bitmap_clear(empty);
+	    pressure_info.bb_gen.quick_push(empty);
+	    empty = BITMAP_ALLOC (&pressure_info.obstack);
+	    bitmap_clear(empty);
+	    pressure_info.bb_kill.quick_push(empty);
+	    empty = BITMAP_ALLOC (&pressure_info.obstack);
+	    bitmap_clear(empty);
+	    pressure_info.bb_live_in.quick_push(empty);
+	    empty = BITMAP_ALLOC (&pressure_info.obstack);
+	    bitmap_clear(empty);
+	    pressure_info.bb_live_out.quick_push(empty);
+	}
+
+}
+
+static void free_pressure_info()
+{
+    pressure_info.current_lhs_vno = -1;
+    pressure_info.bb_gen.release ();
+    pressure_info.bb_kill.release ();
+    pressure_info.bb_live_in.release ();
+    pressure_info.bb_live_out.release ();
+    bitmap_obstack_release (&pressure_info.obstack);
+}
+
+
+static inline void mark_all_refs_gen (tree *expr_p);
+static inline bool
+set_is_gen (tree t)
+{
+    if (TREE_CODE (t) == SSA_NAME) {
+	int vno = SSA_NAME_VERSION(t);
+	/* if ( dump_file ) fprintf(dump_file,"   Pressure: bb %d set_is_gen %d\n",pressure_info.bb_index,vno); */
+	if ( (vno != pressure_info.current_lhs_vno) && 
+	     !bitmap_bit_p(pressure_info.bb_kill[pressure_info.bb_index], vno) ) 
+	    {
+		/* if ( dump_file ) fprintf(dump_file,"   Pressure: GEN[%d][_%d] set\n",pressure_info.bb_index,vno); */
+		return bitmap_set_bit(pressure_info.bb_gen[pressure_info.bb_index], vno);
+	    }
+    }
+    return 0;
+}
+
+static tree
+mark_all_refs_gen_1(tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
+{
+  tree t = *tp;
+
+  if (TREE_CODE (t) == SSA_NAME)
+    {
+	set_is_gen(t);
+	t = SSA_NAME_VAR (t);
+	if (!t)
+	    return NULL;
+    }
+
+
+  if (TREE_CODE (t) == TARGET_MEM_REF)
+    {
+      mark_all_refs_gen (&TMR_BASE (t));
+      mark_all_refs_gen (&TMR_OFFSET (t));
+      mark_all_refs_gen (&TMR_INDEX (t));
+      mark_all_refs_gen (&TMR_STEP (t));
+      mark_all_refs_gen (&TMR_INDEX2 (t));
+      *walk_subtrees = 0;
+      return NULL;
+    }
+
+  /* Don't need to do anything with decls, so do not traverse them. */
+  if (IS_TYPE_OR_DECL_P (t))
+    *walk_subtrees = 0;
+
+  return NULL;
+}
+
+static inline void
+mark_all_refs_gen (tree *expr_p)
+{
+    walk_tree (expr_p, mark_all_refs_gen_1, NULL, NULL);
+}
+
+/*
+ * Perform liveness width ("pressure") computation
+ *
+ * This performs a liveness analysis on the SSA names
+ * and then determines the maximum number of SSA names
+ * live at entry or exit of any basic block.
+ *
+ * This could be improved by walking the statements in
+ * each block so that we can compute the maximum width/pressure
+ * at any statement. This value could also be noted at function
+ * call sites so we could later look at the combination of width
+ * at caller and callee, to get an idea of the total pressure that
+ * might be created if that call were inlined.
+ */
+static void 
+update_liveness_pressure(struct cgraph_node *node)
+{
+  struct function *func;
+  basic_block bb;
+  use_operand_p arg_p;
+  unsigned int ix;
+  if ( node->local.liveness_pressure_computed) return;
+  func = DECL_STRUCT_FUNCTION (node->decl);
+  /*
+  if (dump_file) {
+    fprintf (dump_file, "    Pressure analysis for node=%p %s func=%p\n",
+	     node, node->name(), func);
+    dump_function_to_file (node->symbol.decl , dump_file, TDF_IPA|TDF_VERBOSE|TDF_DETAILS|TDF_LINENO|TDF_UID|TDF_ALIAS|TDF_VOPS); 
+  }
+  */
+
+  if ( func == NULL || func->cfg == NULL )  {
+    /* bail on this function if we don't have enough info to proceed */
+    node->local.liveness_pressure_computed=1;
+    node->local.liveness_pressure=0;
+    return; 
+  }
+
+  push_cfun(func);
+  alloc_pressure_info();
+
+  // compute gen/kill for each bb
+  FOR_EACH_BB_FN (bb, func)
+    {
+      gimple_stmt_iterator gsi;
+      bitmap bb_gen = pressure_info.bb_gen[bb->index];
+      bitmap bb_live_in = pressure_info.bb_live_in[bb->index];
+      pressure_info.bb_index = bb->index;
+
+      for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
+	   gsi_next (&gsi))
+	{
+	  gimple phi = gsi_stmt (gsi);
+	  ssa_op_iter i;
+
+	  tree def = gimple_phi_result (phi);
+	  const char *dname = get_name(def);
+	  if ( dname == NULL ) dname = "";
+	  int def_vno = SSA_NAME_VERSION(def);
+	  pressure_info.current_lhs_vno = def_vno;
+		    
+	  /*
+	    if ( dump_file )  {
+	    fprintf(dump_file,"     Pressure: bb %d phi def %s_%d\n",bb->index,dname,def_vno);
+	    print_gimple_stmt (dump_file, phi, 0, TDF_LINENO|TDF_DETAILS|TDF_VERBOSE|TDF_ALIAS|TDF_VOPS);
+	    }
+	  */
+
+	  /* Phi definition is a kill */
+	  bitmap_set_bit(pressure_info.bb_kill[bb->index], def_vno);
+	  /*
+	    if ( dump_file ) fprintf(dump_file,"   Pressure: KILL[%d][_%d] set to %d\n",
+	    bb->index,def_vno,bitmap_bit_p (pressure_info.bb_kill[pressure_info.bb_index], def_vno) );
+
+	  */
+		    
+	  /* 
+	   * Because of the way SSA is defined, all the phi
+	   * args could also be marked kill because the phi
+	   * def is the only thing that should be live after
+	   * the phi. This shoudn't be necessary because
+	   * only uses of def_vno should be reachable from
+	   * this point.
+	   */
+	  FOR_EACH_PHI_ARG (arg_p, phi, i, SSA_OP_ALL_USES)
+	    {
+	      tree arg = USE_FROM_PTR (arg_p);
+	      /*
+		if ( dump_file )  {
+	          int index = PHI_ARG_INDEX_FROM_USE (arg_p);
+	          int use_vno = SSA_NAME_VERSION(arg);
+	          const char *uname = get_name(arg);
+		  fprintf(dump_file,"     Pressure: bb %d phi arg %d v %s_%d\n",bb->index,index,uname,use_vno);
+		  print_generic_stmt (dump_file, arg, TDF_DETAILS|TDF_VERBOSE|TDF_ALIAS|TDF_VOPS);
+		}
+	      */
+	      if ( CONSTANT_CLASS_P(arg) ) {
+		/* ignore const phi arg */
+		/* if(dump_file) fprintf(dump_file,"      ignored const phi arg\n"); */
+	      } else {
+		set_is_gen(arg);
+	      }
+	    }
+	}
+	    
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+	{
+	  gimple stmt = gsi_stmt (gsi);
+	  enum gimple_code code = gimple_code (stmt);
+	  int lhs_vno = -1;
+	  /*
+	    if ( dump_file ) {
+	    fprintf(dump_file,"  gsi stmt:\n");
+	    print_gimple_stmt (dump_file, stmt, 0, TDF_LINENO|TDF_DETAILS|TDF_VERBOSE);
+	    }
+	  */
+		    
+	  if (is_gimple_debug (stmt))
+	    continue;
+
+	  if (code == GIMPLE_ASSIGN || code == GIMPLE_CALL)
+	    {
+	      tree lhs = gimple_get_lhs (stmt);
+	      if (lhs && TREE_CODE (lhs) == SSA_NAME) 
+		{
+		  lhs_vno = SSA_NAME_VERSION(lhs);
+		  bitmap_set_bit(pressure_info.bb_kill[bb->index], lhs_vno);
+		  /*
+		    if ( dump_file ) fprintf(dump_file,"   Pressure: KILL[%d][_%d] set to %d\n",
+		    bb->index,lhs_vno,bitmap_bit_p (pressure_info.bb_kill[pressure_info.bb_index], lhs_vno) );
+		  */
+		}
+	    }
+
+	  pressure_info.current_lhs_vno = lhs_vno;
+
+	  for (ix = 0; ix < gimple_num_ops (stmt); ix++)
+	    mark_all_refs_gen (gimple_op_ptr (stmt, ix));
+	}
+	    
+      /* initial live_in that gets updated by cfg walk below */
+      bitmap_copy(bb_live_in,bb_gen);
+    }
+
+  /* now, iterate on cfg until live in/out don't change */
+
+  /* Now initialize the dominator walker.  */
+  calculate_dominance_info (CDI_POST_DOMINATORS);
+      
+  /* Recursively walk the dominator tree propagating liveness,
+   * terminating when we do not make any further changes.
+   */
+  int iters=0;
+  do {
+    pressure_info.touched = 0;
+    iters++;
+    pressure_dom_walker (CDI_POST_DOMINATORS).walk (EXIT_BLOCK_PTR_FOR_FN(cfun));
+    /*
+    if ( dump_file ) fprintf(dump_file, "   Pressure dom walk iter %d touched %d\n",iters,pressure_info.touched);
+    */
+  } while ( pressure_info.touched );
+	  
+  /* And finalize the dominator walker.  */
+  free_dominance_info (CDI_POST_DOMINATORS);
+
+  /*
+   * Find the maximum live in/out set for any block,
+   * that is defined as the width or pressure of the function.
+   */
+  unsigned long max_live_in_out=0;
+  FOR_EACH_BB_FN (bb, func)
+    {
+      unsigned long in,out;
+      /*
+      unsigned long gen,kill;
+      kill = bitmap_count_bits(pressure_info.bb_kill[bb->index]);
+      gen = bitmap_count_bits(pressure_info.bb_gen[bb->index]);
+      */
+      in = bitmap_count_bits(pressure_info.bb_live_in[bb->index]);
+      out = bitmap_count_bits(pressure_info.bb_live_out[bb->index]);
+      if ( in > max_live_in_out ) max_live_in_out=in;
+      if ( out > max_live_in_out ) max_live_in_out=out;
+
+
+      /*
+	if ( dump_file ) 
+	{
+	fprintf(dump_file, "  Pressure %s bb %d gen ", node->name(),bb->index);
+	bitmap_print (dump_file, pressure_info.bb_gen[bb->index], "", "\n");
+	fprintf(dump_file, "  Pressure %s bb %d kill ", node->name(),bb->index);
+	bitmap_print (dump_file, pressure_info.bb_kill[bb->index], "", "\n");
+	fprintf(dump_file, "  Pressure %s bb %d live_in ", node->name(),bb->index);
+	bitmap_print (dump_file, pressure_info.bb_live_in[bb->index], "", "\n");
+	fprintf(dump_file, "  Pressure %s bb %d live_out ", node->name(),bb->index);
+	bitmap_print (dump_file, pressure_info.bb_live_out[bb->index], "", "\n");
+	fprintf(dump_file,"   Pressure %s bb %d summary gen %d kill %d in %d out %d\n",
+	node->name(),bb->index,gen,kill,in,out);
+
+	}
+      */
+    }
+
+  node->local.liveness_pressure_computed=1;
+  node->local.liveness_pressure=max_live_in_out;
+
+  if (dump_file) {
+    fprintf (dump_file, "    Pressure for node %s is %ld\n", 
+	     node->name(), max_live_in_out);
+  }
+
+  free_pressure_info();
+  pop_cfun();
+}
+
+static int
+get_function_liveness_pressure(struct cgraph_node *node)
+{
+    if ( !node->local.liveness_pressure_computed ) {
+	update_liveness_pressure(node);
+    }
+    
+    return node->local.liveness_pressure;
+}
+
 /* Decide if inlining NODE would reduce unit size by eliminating
    the offline copy of function.  
    When COLD is true the cold calls are considered, too.  */
@@ -840,6 +1227,18 @@ want_inline_function_to_all_callers_p (struct cgraph_node *node, bool cold)
      return false;
    if (!cold && !has_hot_call)
      return false;
+
+   if ( PARAM_VALUE(PARAM_ENABLE_INLINE_PRESSURE_CHECK) ) {
+       int press = get_function_liveness_pressure(node);
+       if (dump_file) {
+	   fprintf(dump_file," want_inline_function_to_all_callers_p %s press=%d limit=%d\n",
+		   node->name(),press,PARAM_VALUE(PARAM_INLINE_CALLEE_PRESSURE_LIMIT));
+       }
+       
+       
+       if ( press > PARAM_VALUE(PARAM_INLINE_CALLEE_PRESSURE_LIMIT) ) return false;
+   }
+
    return true;
 }
 
@@ -922,6 +1321,9 @@ edge_badness (struct cgraph_edge *edge, bool dump)
       dump_inline_hints (dump_file, hints);
       if (big_speedup_p (edge))
 	fprintf (dump_file, " big_speedup");
+      int press = get_function_liveness_pressure(callee);
+      if ( press > 0 )
+	fprintf(dump_file, " pressure %d", press);
       fprintf (dump_file, "\n");
     }
 
@@ -1048,6 +1450,13 @@ edge_badness (struct cgraph_edge *edge, bool dump)
 	fprintf (dump_file, "      %i: no profile. nest %i\n", (int) badness,
 		 nest);
     }
+
+   if ( PARAM_VALUE(PARAM_ENABLE_INLINE_PRESSURE_CHECK) ) {
+       int press = get_function_liveness_pressure(callee);
+       badness += PARAM_VALUE(PARAM_INLINE_CALLEE_PRESSURE_BADNESS_FACTOR) * press;
+       
+       if ( press > PARAM_VALUE(PARAM_INLINE_CALLEE_PRESSURE_LIMIT) ) return false;
+   }
 
   /* Ensure that we did not overflow in all the fixed point math above.  */
   gcc_assert (badness >= INT_MIN);

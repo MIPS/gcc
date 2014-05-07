@@ -216,6 +216,12 @@ struct GTY(()) cgraph_local_info {
 
   /* True if the function may enter serial irrevocable mode.  */
   unsigned tm_may_enter_irr : 1;
+
+  /* have we computed liveness pressure for inlining decisions */
+  unsigned liveness_pressure_computed : 1;
+
+  /* what is the liveness pressure value */
+  unsigned liveness_pressure;
 };
 
 /* Information about the function that needs to be computed globally

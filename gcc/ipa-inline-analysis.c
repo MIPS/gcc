@@ -1410,6 +1410,8 @@ dump_inline_summary (FILE *f, struct cgraph_node *node)
 	fprintf (f, "  estimated growth:%i\n", (int) s->growth);
       if (s->scc_no)
 	fprintf (f, "  In SCC:          %i\n", (int) s->scc_no);
+      if ( node->local.liveness_pressure_computed )
+	fprintf (f, "  liveness press   %i\n", node->local.liveness_pressure);
       for (i = 0; vec_safe_iterate (s->entry, i, &e); i++)
 	{
 	  fprintf (f, "    size:%f, time:%f, predicate:",

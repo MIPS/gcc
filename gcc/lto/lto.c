@@ -210,6 +210,16 @@ lto_materialize_function (struct cgraph_node *node)
       /* Clones don't need to be read.  */
       if (node->clone_of)
 	return;
+
+      if ( PARAM_VALUE(PARAM_ENABLE_INLINE_PRESSURE_CHECK) ) {
+	/*
+	 * For now, get the whole body so we can compute pressure at
+	 * LTO time. Eventually, the pressure should be computed at 
+	 * compile time and included in the LTO stream.
+	 */
+	cgraph_get_body (node);
+      }
+
       if (DECL_FUNCTION_PERSONALITY (decl) && !first_personality_decl)
 	first_personality_decl = DECL_FUNCTION_PERSONALITY (decl);
     }

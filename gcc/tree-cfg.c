@@ -3243,8 +3243,10 @@ verify_gimple_call (gimple stmt)
 
   if (gimple_call_lhs (stmt) && gimple_call_noreturn_p (stmt))
     {
-      error ("LHS in noreturn call");
-      return true;
+      // error ("LHS in noreturn call");
+      // return true;
+      inform (gimple_location (stmt), "LHS in noreturn call");
+      return false;
     }
 
   fntype = gimple_call_fntype (stmt);
