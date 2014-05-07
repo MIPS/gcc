@@ -1,3 +1,19 @@
+2014-05-07  David Malcolm  <dmalcolm@redhat.com>
+
+	* Make-lang.in (LIBGCCJIT_LINKER_NAME): New.
+	(LIBGCCJIT_VERSION_NUM): New.
+	(LIBGCCJIT_MINOR_NUM): New.
+	(LIBGCCJIT_RELEASE_NUM): New.
+	(LIBGCCJIT_SONAME): New.
+	(LIBGCCJIT_FILENAME): New.
+	(LIBGCCJIT_LINKER_NAME_SYMLINK): New.
+	(LIBGCCJIT_SONAME_SYMLINK): New.
+	(jit): Add symlink targets.
+	(libgccjit.so): Convert to...
+	(LIBGCCJIT_FILENAME): ...and add a soname.
+	(jit.install-common): Install the library with a soname, and
+	symlinks.  Install libgccjit++.h.
+
 2014-04-25  David Malcolm  <dmalcolm@redhat.com>
 
 	* internal-api.c (gcc::jit::playback::context::compile): Put
