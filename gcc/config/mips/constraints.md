@@ -311,48 +311,48 @@
 (define_constraint "YC"
   "@internal
    A replicated vector const in which the replicated value has a single
-   bit set"
+   bit set."
   (and (match_code "const_vector")
        (match_test "mips_const_vector_bitimm_set_p (op, mode)")))
 
 (define_constraint "YZ"
   "@internal
    A replicated vector const in which the replicated value has a single
-   bit clear"
+   bit clear."
   (and (match_code "const_vector")
        (match_test "mips_const_vector_bitimm_clr_p (op, mode)")))
 
 (define_constraint "Un31"
   "@internal
    A replicated vector const in which the replicated value is negative
-   integer number in range [-31,0]"
+   integer number in range [-31,0]."
   (and (match_code "const_vector")
        (match_test "mips_const_vector_same_int_p (op, mode, -31, 0)")))
 
 (define_constraint "Up31"
   "@internal
    A replicated vector const in which the replicated value is positive
-   integer number in range [0,31]"
+   integer number in range [0,31]."
   (and (match_code "const_vector")
        (match_test "mips_const_vector_same_int_p (op, mode, 0, 31)")))
 
 (define_constraint "Uuv6"
   "@internal
    A replicated vector const in which the replicated value is a unsigned
-   6-bit integer number"
+   6-bit integer number."
   (and (match_code "const_vector")
        (match_test "mips_const_vector_same_int_p (op, mode, 0, 63)")))
 
 (define_constraint "Uuv8"
   "@internal
    A replicated vector const in which the replicated value is a unsigned
-   8-bit integer number"
+   8-bit integer number."
   (and (match_code "const_vector")
        (match_test "mips_const_vector_same_int_p (op, mode, 0, 255)")))
 
 (define_constraint "Ubv8"
   "@internal
-   A replicated vector const in which the replicated value is a 8-bit byte"
+   A replicated vector const in which the replicated value is a 8-bit byte."
   (and (match_code "const_vector")
        (match_test "mips_const_vector_same_byte_p (op, mode)")))
 
