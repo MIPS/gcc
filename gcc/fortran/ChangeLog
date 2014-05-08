@@ -1,3 +1,73 @@
+2014-05-08  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.h (gfc_isym_id): Add GFC_ISYM_CAF_GET
+	and GFC_ISYM_CAF_SEND.
+	* intrinsic.c (add_functions): Add only internally
+	accessible caf_get and caf_send functions.
+	* resolve.c (add_caf_get_intrinsic,
+	remove_caf_get_intrinsic): New functions.
+	(resolve_variable): Resolve expression rank and
+	prepare for add_caf_get_intrinsic call.
+	(gfc_resolve_expr): For variables, remove rank
+	resolution.
+	(resolve_ordinary_assign): Prepare call to
+	GFC_ISYM_CAF_SEND.
+	(resolve_code): Avoid call to GFC_ISYM_CAF_GET for
+	the LHS of an assignment.
+
+2014-05-08  Tobias Burnus  <burnus@net-b.de>
+
+	* trans-intrinsic.c (conv_co_minmaxsum): Change condition style.
+
+2014-05-08  Tobias Burnus  <burnus@net-b.de>
+
+	* check.c (check_co_minmaxsum, gfc_check_co_minmax,
+	gfc_check_co_sum): New.
+	* error.c (gfc_notify_std): Update -std=f2008ts.
+	* gfortran.h (gfc_isym_id): Add GFC_ISYM_CO_MAX,
+	GFC_ISYM_CO_MIN, GFC_ISYM_CO_SUM.
+	* intrinsic.h (gfc_check_co_minmax,
+	gfc_check_co_sum): Declare.
+	* intrinsic.c (add_subroutines): Add co_min, co_max
+	and co_sum.
+	(gfc_check_intrinsic_standard): Update text for
+	-std=f2008ts.
+	* intrinsic.texi (CO_MIN, CO_MAX, CO_SUM): Document
+	them.
+	* invoke.texi (-std=f2008ts): Update wording.
+	* trans.h (gfor_fndecl_co_max,
+	gfor_fndecl_co_min, gfor_fndecl_co_sum): Define.
+	* trans-decl.c (gfor_fndecl_co_max,
+	gfor_fndecl_co_min, gfor_fndecl_co_sum): Define.
+	(gfc_build_builtin_function_decls): Assign to it.
+	* trans-intrinsic.c (conv_co_minmaxsum): New.
+	(gfc_conv_intrinsic_subroutine): Call it.
+
+2014-05-06  Kenneth Zadeck  <zadeck@naturalbridge.com>
+	    Mike Stump  <mikestump@comcast.net>
+	    Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* target-memory.c: Include wide-int.h.
+	(gfc_interpret_logical): Use wide-int interfaces.
+	* trans-array.c: Include wide-int.h.
+	(gfc_conv_array_initializer): Use wide-int interfaces.
+	* trans-const.c: Include wide-int.h.
+	(gfc_conv_string_init): Use wide-int interfaces.
+	(gfc_conv_mpz_to_tree): Likewise.
+	(gfc_conv_tree_to_mpz): Likewise.
+	* trans-decl.c (gfc_can_put_var_on_stack): Use tree_fits_uhwi_p.
+	* trans-expr.c: Include wide-int.h.
+	(gfc_conv_cst_int_power): Use wide-int interfaces.
+	(gfc_string_to_single_character): Likewise.
+	(gfc_optimize_len_trim): Likewise.
+	* trans-intrinsic.c: Include wide-int.h.
+	(trans_this_image): Use wide-int interfaces.
+	(gfc_conv_intrinsic_bound): Likewise.
+	(conv_intrinsic_cobound): Likewise.
+	* trans-types.c (gfc_init_types): Likewise.
+	(gfc_get_array_type_bounds): Pass an integer of the correct type
+	instead of using integer_one_node.
+
 2014-04-30  Tobias Burnus  <burnus@net-b.de>
 
 	* trans-decl.c (create_function_arglist): Add hidden coarray arguments

@@ -136,6 +136,9 @@ tree gfor_fndecl_caf_sync_all;
 tree gfor_fndecl_caf_sync_images;
 tree gfor_fndecl_caf_error_stop;
 tree gfor_fndecl_caf_error_stop_str;
+tree gfor_fndecl_co_max;
+tree gfor_fndecl_co_min;
+tree gfor_fndecl_co_sum;
 
 
 /* Math functions.  Many other math functions are handled in
@@ -411,7 +414,7 @@ gfc_can_put_var_on_stack (tree size)
   if (gfc_option.flag_max_stack_var_size < 0)
     return 1;
 
-  if (TREE_INT_CST_HIGH (size) != 0)
+  if (!tree_fits_uhwi_p (size))
     return 0;
 
   low = TREE_INT_CST_LOW (size);
@@ -3313,12 +3316,12 @@ gfc_build_builtin_function_decls (void)
 
       gfor_fndecl_caf_sync_all = gfc_build_library_function_decl_with_spec (
 	get_identifier (PREFIX("caf_sync_all")), ".WW", void_type_node,
-	3, pint_type, build_pointer_type (pchar_type_node), integer_type_node);
+	3, pint_type, pchar_type_node, integer_type_node);
 
       gfor_fndecl_caf_sync_images = gfc_build_library_function_decl_with_spec (
 	get_identifier (PREFIX("caf_sync_images")), ".RRWW", void_type_node,
 	5, integer_type_node, pint_type, pint_type,
-	build_pointer_type (pchar_type_node), integer_type_node);
+	pchar_type_node, integer_type_node);
 
       gfor_fndecl_caf_error_stop = gfc_build_library_function_decl (
 	get_identifier (PREFIX("caf_error_stop")),
@@ -3331,6 +3334,21 @@ gfc_build_builtin_function_decls (void)
 	void_type_node, 2, pchar_type_node, gfc_int4_type_node);
       /* CAF's ERROR STOP doesn't return.  */
       TREE_THIS_VOLATILE (gfor_fndecl_caf_error_stop_str) = 1;
+
+      gfor_fndecl_co_max = gfc_build_library_function_decl_with_spec (
+	get_identifier (PREFIX("caf_co_max")), "WR.WW",
+	void_type_node, 7, pvoid_type_node, pvoid_type_node, integer_type_node,
+	pint_type, pchar_type_node, integer_type_node, integer_type_node);
+
+      gfor_fndecl_co_min = gfc_build_library_function_decl_with_spec (
+	get_identifier (PREFIX("caf_co_min")), "WR.WW",
+	void_type_node, 7, pvoid_type_node, pvoid_type_node, integer_type_node,
+	pint_type, pchar_type_node, integer_type_node, integer_type_node);
+
+      gfor_fndecl_co_sum = gfc_build_library_function_decl_with_spec (
+	get_identifier (PREFIX("caf_co_sum")), "WR.WW",
+	void_type_node, 6, pvoid_type_node, pvoid_type_node, integer_type_node,
+	pint_type, pchar_type_node, integer_type_node);
     }
 
   gfc_build_intrinsic_function_decls ();

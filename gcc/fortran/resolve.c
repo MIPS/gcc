@@ -4734,7 +4734,6 @@ static void
 add_caf_get_intrinsic (gfc_expr *e)
 {
   gfc_expr *wrapper, *tmp_expr;
-  gfc_expr *async;
   gfc_ref *ref;
   int n;
 
@@ -4748,12 +4747,10 @@ add_caf_get_intrinsic (gfc_expr *e)
     if (ref->u.ar.dimen_type[n] != DIMEN_ELEMENT)
       return;
 
-  async = gfc_get_logical_expr (gfc_default_logical_kind, NULL, false);
   tmp_expr = XCNEW (gfc_expr);
   *tmp_expr = *e;
   wrapper = gfc_build_intrinsic_call (gfc_current_ns, GFC_ISYM_CAF_GET,
-				      "caf_get", tmp_expr->where, 2,
-				      tmp_expr, async);
+				      "caf_get", tmp_expr->where, 1, tmp_expr);
   wrapper->ts = e->ts;
   wrapper->rank = e->rank;
   if (e->rank)
@@ -5059,7 +5056,7 @@ resolve_procedure:
   if (t)
     expression_rank (e);
 
-  if (0 && t && gfc_option.coarray == GFC_FCOARRAY_LIB && gfc_is_coindexed (e))
+  if (t && gfc_option.coarray == GFC_FCOARRAY_LIB && gfc_is_coindexed (e))
     add_caf_get_intrinsic (e);
 
   return t;
@@ -9289,9 +9286,6 @@ resolve_ordinary_assign (gfc_code *code, gfc_namespace *ns)
       code->ext.actual->expr = lhs;
       code->ext.actual->next = gfc_get_actual_arglist ();
       code->ext.actual->next->expr = rhs;
-      code->ext.actual->next->next = gfc_get_actual_arglist ();
-      code->ext.actual->next->next->expr =
-		gfc_get_logical_expr (gfc_default_logical_kind, NULL, false);
       code->expr1 = NULL;
       code->expr2 = NULL;
     }
