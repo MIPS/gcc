@@ -1,5 +1,1 @@
-lto-pressure 
-
-For investigation of whether being aware of register/value pressure in functions can help 
-inlining make better decisions, especially with LTO.
-
+lto-pressure -- investigate using register/value pressure in inlining decisions 

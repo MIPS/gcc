@@ -6529,29 +6529,30 @@ c_parser_sizeof_expression (c_parser *parser)
 	  return ret;
 	}
       if (c_parser_next_token_is (parser, CPP_OPEN_BRACE))
-	expr = c_parser_postfix_expression_after_paren_type (parser,
-							     type_name,
-							     expr_loc);
-      else
 	{
-	  /* sizeof ( type-name ).  */
-	  c_inhibit_evaluation_warnings--;
-	  in_sizeof--;
-	  return c_expr_sizeof_type (expr_loc, type_name);
+	  expr = c_parser_postfix_expression_after_paren_type (parser,
+							       type_name,
+							       expr_loc);
+	  goto sizeof_expr;
 	}
+      /* sizeof ( type-name ).  */
+      c_inhibit_evaluation_warnings--;
+      in_sizeof--;
+      return c_expr_sizeof_type (expr_loc, type_name);
     }
   else
     {
       expr_loc = c_parser_peek_token (parser)->location;
       expr = c_parser_unary_expression (parser);
+    sizeof_expr:
+      c_inhibit_evaluation_warnings--;
+      in_sizeof--;
+      mark_exp_read (expr.value);
+      if (TREE_CODE (expr.value) == COMPONENT_REF
+	  && DECL_C_BIT_FIELD (TREE_OPERAND (expr.value, 1)))
+	error_at (expr_loc, "%<sizeof%> applied to a bit-field");
+      return c_expr_sizeof_expr (expr_loc, expr);
     }
-  c_inhibit_evaluation_warnings--;
-  in_sizeof--;
-  mark_exp_read (expr.value);
-  if (TREE_CODE (expr.value) == COMPONENT_REF
-      && DECL_C_BIT_FIELD (TREE_OPERAND (expr.value, 1)))
-    error_at (expr_loc, "%<sizeof%> applied to a bit-field");
-  return c_expr_sizeof_expr (expr_loc, expr);
 }
 
 /* Parse an alignof expression.  */
@@ -13615,7 +13616,7 @@ c_parser_cilk_clause_vectorlength (c_parser *parser, tree clauses,
 	   || !INTEGRAL_TYPE_P (TREE_TYPE (expr)))
   
     error_at (loc, "vectorlength must be an integer constant");  
-  else if (exact_log2 (TREE_INT_CST_LOW (expr)) == -1)
+  else if (wi::exact_log2 (expr) == -1)
     error_at (loc, "vectorlength must be a power of 2");
   else
     {

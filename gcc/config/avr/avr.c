@@ -742,7 +742,7 @@ avr_allocate_stack_slots_for_args (void)
 /* Return true if register FROM can be eliminated via register TO.  */
 
 static bool
-avr_can_eliminate (const int from, const int to)
+avr_can_eliminate (const int from ATTRIBUTE_UNUSED, const int to)
 {
   return ((frame_pointer_needed && to == FRAME_POINTER_REGNUM)
           || !frame_pointer_needed);
@@ -7566,6 +7566,8 @@ avr_out_round (rtx insn ATTRIBUTE_UNUSED, rtx *xop, int *plen)
   // The smallest fractional bit not cleared by the rounding is 2^(-RP).
   int fbit = (int) GET_MODE_FBIT (mode);
   double_int i_add = double_int_zero.set_bit (fbit-1 - INTVAL (xop[2]));
+  wide_int wi_add = wi::set_bit_in_zero (fbit-1 - INTVAL (xop[2]),
+					 GET_MODE_PRECISION (imode));
   // Lengths of PLUS and AND parts.
   int len_add = 0, *plen_add = plen ? &len_add : NULL;
   int len_and = 0, *plen_and = plen ? &len_and : NULL;
@@ -7595,7 +7597,7 @@ avr_out_round (rtx insn ATTRIBUTE_UNUSED, rtx *xop, int *plen)
   // Rounding point                           ^^^^^^^
   // Added above                                      ^^^^^^^^^
   rtx xreg = simplify_gen_subreg (imode, xop[0], mode, 0);
-  rtx xmask = immed_double_int_const (-i_add - i_add, imode);
+  rtx xmask = immed_wide_int_const (-wi_add - wi_add, imode);
 
   xpattern = gen_rtx_SET (VOIDmode, xreg, gen_rtx_AND (imode, xreg, xmask));
 
@@ -7776,8 +7778,8 @@ avr_adjust_insn_length (rtx insn, int len)
      the length need not/must not be adjusted for these insns.
      It is easier to state this in an insn attribute "adjust_len" than
      to clutter up code here...  */
-
-  if (-1 == recog_memoized (insn))
+  
+  if (JUMP_TABLE_DATA_P (insn) || recog_memoized (insn) == -1)
     {
       return len;
     }
@@ -12246,7 +12248,7 @@ avr_fold_builtin (tree fndecl, int n_args ATTRIBUTE_UNUSED, tree *arg,
             break;
           }
 
-        tmap = double_int_to_tree (map_type, tree_to_double_int (arg[0]));
+        tmap = wide_int_to_tree (map_type, arg[0]);
         map = TREE_INT_CST_LOW (tmap);
 
         if (TREE_CODE (tval) != INTEGER_CST
@@ -12351,8 +12353,7 @@ avr_fold_builtin (tree fndecl, int n_args ATTRIBUTE_UNUSED, tree *arg,
 
         /* Use map o G^-1 instead of original map to undo the effect of G.  */
 
-        tmap = double_int_to_tree (map_type,
-				   double_int::from_uhwi (best_g.map));
+        tmap = wide_int_to_tree (map_type, best_g.map);
 
         return build_call_expr (fndecl, 3, tmap, tbits, tval);
       } /* AVR_BUILTIN_INSERT_BITS */

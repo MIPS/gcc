@@ -3,3 +3,6 @@
 
 2014-05-07  Aaron Sawdey  <sawdey@linux.vnet.ibm.com>
 	* Initial working prototype version of lto-pressure changes, before merge to catch up to trunk.
+
+2014-05-08  Aaron Sawdey  <sawdey@linux.vnet.ibm.com>
+	* update to 210164 -- bootstrap and regtest pass

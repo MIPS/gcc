@@ -1,3 +1,49 @@
+2014-05-06  Kenneth Zadeck  <zadeck@naturalbridge.com>
+	    Mike Stump  <mikestump@comcast.net>
+	    Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* c-decl.c (check_bitfield_type_and_width): Use TYPE_SIGN.
+	(finish_enum): Use wide-int interfaces.
+	* c-parser.c (c_parser_cilk_clause_vectorlength): Likewise.
+	* c-typeck.c (build_c_cast): Likewise.
+	(set_nonincremental_init_from_string): Likewise.
+	(c_tree_equal): Likewise.
+
+2014-05-02  Marek Polacek  <polacek@redhat.com>
+
+	PR c/25801
+	* c-typeck.c (c_size_in_bytes): Update comment.  Don't call error.
+	Return size_one_node when the type is not complete.
+	(pointer_diff): Remove comment.
+	(build_unary_op): Improve error messages.
+
+2014-05-02  Marek Polacek  <polacek@redhat.com>
+
+	* c-typeck.c (c_finish_return): Separate warning_at calls.
+
+2014-05-02  Marek Polacek  <polacek@redhat.com>
+
+	* c-tree.h (error_init): Remove declaration.
+	(pedwarn_init): Likewise.
+	* c-typeck.c (error_init): Make static and move above.
+	(pedwarn_init): Likewise.
+	(warning_init): Move above.
+	(maybe_warn_string_init): Likewise.
+
+2014-05-01  Jeff Law  <law@redhat.com>
+
+	Revert:
+
+	2014-04-24  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+	* c-parser.c (c_parser_sizeof_expression): Reorganize slightly to
+	avoid goto.
+
+2014-05-02  Marek Polacek  <polacek@redhat.com>
+
+	PR c/60784
+	* c-typeck.c (push_init_level): Set constructor_designated to
+	p->designated for structures.
+
 2014-05-01  Marek Polacek  <polacek@redhat.com>
 
 	PR c/60915
@@ -81,11 +127,6 @@
 	output_init_element.
 	(process_init_element): Add location_t parameter.  Pass loc to
 	output_init_element.
-
-2014-04-24  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
-
-	* c-parser.c (c_parser_sizeof_expression): Reorganize slightly to
-	avoid goto.
 
 2014-04-24  Jakub Jelinek  <jakub@redhat.com>
 

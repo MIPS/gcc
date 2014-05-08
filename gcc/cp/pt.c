@@ -462,9 +462,13 @@ maybe_begin_member_template_processing (tree decl)
   bool nsdmi = TREE_CODE (decl) == FIELD_DECL;
 
   if (nsdmi)
-    decl = (CLASSTYPE_TEMPLATE_INFO (DECL_CONTEXT (decl))
-	    ? CLASSTYPE_TI_TEMPLATE (DECL_CONTEXT (decl))
-	    : NULL_TREE);
+    {
+      tree ctx = DECL_CONTEXT (decl);
+      decl = (CLASSTYPE_TEMPLATE_INFO (ctx)
+	      /* Disregard full specializations (c++/60999).  */
+	      && uses_template_parms (ctx)
+	      ? CLASSTYPE_TI_TEMPLATE (ctx) : NULL_TREE);
+    }
 
   if (inline_needs_template_parms (decl, nsdmi))
     {
@@ -12629,13 +12633,17 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 		}
 	      else
 		{
-		  /* This can happen for a variable used in a late-specified
-		     return type of a local lambda.  Just make a dummy decl
-		     since it's only used for its type.  */
-		  if (cp_unevaluated_operand)
-		    return tsubst_decl (t, args, complain);
-		  gcc_assert (errorcount || sorrycount);
-		  return error_mark_node;
+		  /* This can happen for a variable used in a
+		     late-specified return type of a local lambda, or for a
+		     local static or constant.  Building a new VAR_DECL
+		     should be OK in all those cases.  */
+		  r = tsubst_decl (t, args, complain);
+		  if (decl_constant_var_p (r))
+		    /* A use of a local constant must decay to its value.  */
+		    return integral_constant_value (r);
+		  gcc_assert (cp_unevaluated_operand || TREE_STATIC (r)
+			      || errorcount || sorrycount);
+		  return r;
 		}
 	    }
 	}
@@ -19534,6 +19542,7 @@ instantiate_decl (tree d, int defer_ok,
   int saved_unevaluated_operand = cp_unevaluated_operand;
   int saved_inhibit_evaluation_warnings = c_inhibit_evaluation_warnings;
   bool external_p;
+  bool deleted_p;
   tree fn_context;
   bool nested;
 
@@ -19615,10 +19624,17 @@ instantiate_decl (tree d, int defer_ok,
     args = gen_args;
 
   if (TREE_CODE (d) == FUNCTION_DECL)
-    pattern_defined = (DECL_SAVED_TREE (code_pattern) != NULL_TREE
-		       || DECL_DEFAULTED_OUTSIDE_CLASS_P (code_pattern));
+    {
+      deleted_p = DECL_DELETED_FN (code_pattern);
+      pattern_defined = (DECL_SAVED_TREE (code_pattern) != NULL_TREE
+			 || DECL_DEFAULTED_OUTSIDE_CLASS_P (code_pattern)
+			 || deleted_p);
+    }
   else
-    pattern_defined = ! DECL_IN_AGGR_P (code_pattern);
+    {
+      deleted_p = false;
+      pattern_defined = ! DECL_IN_AGGR_P (code_pattern);
+    }
 
   /* We may be in the middle of deferred access check.  Disable it now.  */
   push_deferring_access_checks (dk_no_deferred);
@@ -19662,7 +19678,10 @@ instantiate_decl (tree d, int defer_ok,
 	 elsewhere, we don't want to instantiate the entire data
 	 member, but we do want to instantiate the initializer so that
 	 we can substitute that elsewhere.  */
-      || (external_p && VAR_P (d)))
+      || (external_p && VAR_P (d))
+      /* Handle here a deleted function too, avoid generating
+	 its body (c++/61080).  */
+      || deleted_p)
     {
       /* The definition of the static data member is now required so
 	 we must substitute the initializer.  */

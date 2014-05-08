@@ -50,6 +50,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-family/c-common.h"
 #include "c-family/c-ubsan.h"
 #include "cilk.h"
+#include "wide-int.h"
 
 /* Possible cases of implicit bad conversions.  Used to select
    diagnostic messages in convert_for_assignment.  */
@@ -1754,21 +1755,19 @@ type_lists_compatible_p (const_tree args1, const_tree args2,
     }
 }
 
-/* Compute the size to increment a pointer by.  */
+/* Compute the size to increment a pointer by.  When a function type or void
+   type or incomplete type is passed, size_one_node is returned.
+   This function does not emit any diagnostics; the caller is responsible
+   for that.  */
 
 static tree
 c_size_in_bytes (const_tree type)
 {
   enum tree_code code = TREE_CODE (type);
 
-  if (code == FUNCTION_TYPE || code == VOID_TYPE || code == ERROR_MARK)
+  if (code == FUNCTION_TYPE || code == VOID_TYPE || code == ERROR_MARK
+      || !COMPLETE_TYPE_P (type))
     return size_one_node;
-
-  if (!COMPLETE_OR_VOID_TYPE_P (type))
-    {
-      error ("arithmetic on pointer to an incomplete type");
-      return size_one_node;
-    }
 
   /* Convert in case a char is more than one unit.  */
   return size_binop_loc (input_location, CEIL_DIV_EXPR, TYPE_SIZE_UNIT (type),
@@ -3530,7 +3529,6 @@ pointer_diff (location_t loc, tree op0, tree op1)
   if (!COMPLETE_OR_VOID_TYPE_P (TREE_TYPE (TREE_TYPE (orig_op1))))
     error_at (loc, "arithmetic on pointer to an incomplete type");
 
-  /* This generates an error if op0 is pointer to incomplete type.  */
   op1 = c_size_in_bytes (target_type);
 
   if (pointer_to_zero_sized_aggr_p (TREE_TYPE (orig_op1)))
@@ -4004,16 +4002,18 @@ build_unary_op (location_t location,
 
 	if (typecode == POINTER_TYPE)
 	  {
-	    /* If pointer target is an undefined struct,
+	    /* If pointer target is an incomplete type,
 	       we just cannot know how to do the arithmetic.  */
 	    if (!COMPLETE_OR_VOID_TYPE_P (TREE_TYPE (argtype)))
 	      {
 		if (code == PREINCREMENT_EXPR || code == POSTINCREMENT_EXPR)
 		  error_at (location,
-			    "increment of pointer to unknown structure");
+			    "increment of pointer to an incomplete type %qT",
+			    TREE_TYPE (argtype));
 		else
 		  error_at (location,
-			    "decrement of pointer to unknown structure");
+			    "decrement of pointer to an incomplete type %qT",
+			    TREE_TYPE (argtype));
 	      }
 	    else if (TREE_CODE (TREE_TYPE (argtype)) == FUNCTION_TYPE
 		     || TREE_CODE (TREE_TYPE (argtype)) == VOID_TYPE)
@@ -5127,9 +5127,7 @@ build_c_cast (location_t loc, tree type, tree expr)
 	    }
 	  else if (TREE_OVERFLOW (value))
 	    /* Reset VALUE's overflow flags, ensuring constant sharing.  */
-	    value = build_int_cst_wide (TREE_TYPE (value),
-					TREE_INT_CST_LOW (value),
-					TREE_INT_CST_HIGH (value));
+	    value = wide_int_to_tree (TREE_TYPE (value), value);
 	}
     }
 
@@ -5540,6 +5538,72 @@ convert_to_anonymous_field (location_t location, tree type, tree rhs)
     }
 
   return ret;
+}
+
+/* Issue an error message for a bad initializer component.
+   GMSGID identifies the message.
+   The component name is taken from the spelling stack.  */
+
+static void
+error_init (const char *gmsgid)
+{
+  char *ofwhat;
+
+  /* The gmsgid may be a format string with %< and %>. */
+  error (gmsgid);
+  ofwhat = print_spelling ((char *) alloca (spelling_length () + 1));
+  if (*ofwhat)
+    error ("(near initialization for %qs)", ofwhat);
+}
+
+/* Issue a pedantic warning for a bad initializer component.  OPT is
+   the option OPT_* (from options.h) controlling this warning or 0 if
+   it is unconditionally given.  GMSGID identifies the message.  The
+   component name is taken from the spelling stack.  */
+
+static void
+pedwarn_init (location_t location, int opt, const char *gmsgid)
+{
+  char *ofwhat;
+
+  /* The gmsgid may be a format string with %< and %>. */
+  pedwarn (location, opt, gmsgid);
+  ofwhat = print_spelling ((char *) alloca (spelling_length () + 1));
+  if (*ofwhat)
+    pedwarn (location, opt, "(near initialization for %qs)", ofwhat);
+}
+
+/* Issue a warning for a bad initializer component.
+
+   OPT is the OPT_W* value corresponding to the warning option that
+   controls this warning.  GMSGID identifies the message.  The
+   component name is taken from the spelling stack.  */
+
+static void
+warning_init (location_t loc, int opt, const char *gmsgid)
+{
+  char *ofwhat;
+
+  /* The gmsgid may be a format string with %< and %>. */
+  warning_at (loc, opt, gmsgid);
+  ofwhat = print_spelling ((char *) alloca (spelling_length () + 1));
+  if (*ofwhat)
+    warning_at (loc, opt, "(near initialization for %qs)", ofwhat);
+}
+
+/* If TYPE is an array type and EXPR is a parenthesized string
+   constant, warn if pedantic that EXPR is being used to initialize an
+   object of type TYPE.  */
+
+void
+maybe_warn_string_init (tree type, struct c_expr expr)
+{
+  if (pedantic
+      && TREE_CODE (type) == ARRAY_TYPE
+      && TREE_CODE (expr.value) == STRING_CST
+      && expr.original_code != STRING_CST)
+    pedwarn_init (input_location, OPT_Wpedantic,
+		  "array initialized from parenthesized string constant");
 }
 
 /* Convert value RHS to type TYPE as preparation for an assignment to
@@ -6407,72 +6471,6 @@ print_spelling (char *buffer)
   return buffer;
 }
 
-/* Issue an error message for a bad initializer component.
-   GMSGID identifies the message.
-   The component name is taken from the spelling stack.  */
-
-void
-error_init (const char *gmsgid)
-{
-  char *ofwhat;
-
-  /* The gmsgid may be a format string with %< and %>. */
-  error (gmsgid);
-  ofwhat = print_spelling ((char *) alloca (spelling_length () + 1));
-  if (*ofwhat)
-    error ("(near initialization for %qs)", ofwhat);
-}
-
-/* Issue a pedantic warning for a bad initializer component.  OPT is
-   the option OPT_* (from options.h) controlling this warning or 0 if
-   it is unconditionally given.  GMSGID identifies the message.  The
-   component name is taken from the spelling stack.  */
-
-void
-pedwarn_init (location_t location, int opt, const char *gmsgid)
-{
-  char *ofwhat;
-
-  /* The gmsgid may be a format string with %< and %>. */
-  pedwarn (location, opt, gmsgid);
-  ofwhat = print_spelling ((char *) alloca (spelling_length () + 1));
-  if (*ofwhat)
-    pedwarn (location, opt, "(near initialization for %qs)", ofwhat);
-}
-
-/* Issue a warning for a bad initializer component.
-
-   OPT is the OPT_W* value corresponding to the warning option that
-   controls this warning.  GMSGID identifies the message.  The
-   component name is taken from the spelling stack.  */
-
-static void
-warning_init (location_t loc, int opt, const char *gmsgid)
-{
-  char *ofwhat;
-
-  /* The gmsgid may be a format string with %< and %>. */
-  warning_at (loc, opt, gmsgid);
-  ofwhat = print_spelling ((char *) alloca (spelling_length () + 1));
-  if (*ofwhat)
-    warning_at (loc, opt, "(near initialization for %qs)", ofwhat);
-}
-
-/* If TYPE is an array type and EXPR is a parenthesized string
-   constant, warn if pedantic that EXPR is being used to initialize an
-   object of type TYPE.  */
-
-void
-maybe_warn_string_init (tree type, struct c_expr expr)
-{
-  if (pedantic
-      && TREE_CODE (type) == ARRAY_TYPE
-      && TREE_CODE (expr.value) == STRING_CST
-      && expr.original_code != STRING_CST)
-    pedwarn_init (input_location, OPT_Wpedantic,
-		  "array initialized from parenthesized string constant");
-}
-
 /* Digest the parser output INIT as an initializer for type TYPE.
    Return a C expression of type TYPE to represent the initial value.
 
@@ -7270,6 +7268,9 @@ push_init_level (int implicit, struct obstack * braced_init_obstack)
 	  push_member_name (constructor_fields);
 	  constructor_depth++;
 	}
+      /* If upper initializer is designated, then mark this as
+	 designated too to prevent bogus warnings.  */
+      constructor_designated = p->designated;
     }
   else if (TREE_CODE (constructor_type) == ARRAY_TYPE)
     {
@@ -8076,20 +8077,20 @@ set_nonincremental_init_from_string (tree str,
     {
       if (wchar_bytes == 1)
 	{
-	  val[1] = (unsigned char) *p++;
-	  val[0] = 0;
+	  val[0] = (unsigned char) *p++;
+	  val[1] = 0;
 	}
       else
 	{
-	  val[0] = 0;
 	  val[1] = 0;
+	  val[0] = 0;
 	  for (byte = 0; byte < wchar_bytes; byte++)
 	    {
 	      if (BYTES_BIG_ENDIAN)
 		bitpos = (wchar_bytes - byte - 1) * charwidth;
 	      else
 		bitpos = byte * charwidth;
-	      val[bitpos < HOST_BITS_PER_WIDE_INT]
+	      val[bitpos % HOST_BITS_PER_WIDE_INT]
 		|= ((unsigned HOST_WIDE_INT) ((unsigned char) *p++))
 		   << (bitpos % HOST_BITS_PER_WIDE_INT);
 	    }
@@ -8100,24 +8101,26 @@ set_nonincremental_init_from_string (tree str,
 	  bitpos = ((wchar_bytes - 1) * charwidth) + HOST_BITS_PER_CHAR;
 	  if (bitpos < HOST_BITS_PER_WIDE_INT)
 	    {
-	      if (val[1] & (((HOST_WIDE_INT) 1) << (bitpos - 1)))
+	      if (val[0] & (((HOST_WIDE_INT) 1) << (bitpos - 1)))
 		{
-		  val[1] |= ((HOST_WIDE_INT) -1) << bitpos;
-		  val[0] = -1;
+		  val[0] |= ((HOST_WIDE_INT) -1) << bitpos;
+		  val[1] = -1;
 		}
 	    }
 	  else if (bitpos == HOST_BITS_PER_WIDE_INT)
 	    {
-	      if (val[1] < 0)
-		val[0] = -1;
+	      if (val[0] < 0)
+		val[1] = -1;
 	    }
-	  else if (val[0] & (((HOST_WIDE_INT) 1)
+	  else if (val[1] & (((HOST_WIDE_INT) 1)
 			     << (bitpos - 1 - HOST_BITS_PER_WIDE_INT)))
-	    val[0] |= ((HOST_WIDE_INT) -1)
+	    val[1] |= ((HOST_WIDE_INT) -1)
 		      << (bitpos - HOST_BITS_PER_WIDE_INT);
 	}
 
-      value = build_int_cst_wide (type, val[1], val[0]);
+      value = wide_int_to_tree (type,
+				wide_int::from_array (val, 2,
+						      HOST_BITS_PER_WIDE_INT * 2));
       add_pending_init (input_location, purpose, value, NULL_TREE, true,
                         braced_init_obstack);
     }
@@ -9270,10 +9273,14 @@ c_finish_return (location_t loc, tree retval, tree origtype)
 		  && !DECL_EXTERNAL (inner)
 		  && !TREE_STATIC (inner)
 		  && DECL_CONTEXT (inner) == current_function_decl)
-		warning_at (loc,
-			    OPT_Wreturn_local_addr, "function returns address "
-			    "of %s", TREE_CODE (inner) == LABEL_DECL
-				     ? "label" : "local variable");
+		{
+		  if (TREE_CODE (inner) == LABEL_DECL)
+		    warning_at (loc, OPT_Wreturn_local_addr,
+				"function returns address of label");
+		  else
+		    warning_at (loc, OPT_Wreturn_local_addr,
+				"function returns address of local variable");
+		}
 	      break;
 
 	    default:
@@ -12359,8 +12366,7 @@ c_tree_equal (tree t1, tree t2)
   switch (code1)
     {
     case INTEGER_CST:
-      return TREE_INT_CST_LOW (t1) == TREE_INT_CST_LOW (t2)
-	&& TREE_INT_CST_HIGH (t1) == TREE_INT_CST_HIGH (t2);
+      return wi::eq_p (t1, t2);
 
     case REAL_CST:
       return REAL_VALUES_EQUAL (TREE_REAL_CST (t1), TREE_REAL_CST (t2));
