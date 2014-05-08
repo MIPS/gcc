@@ -1,3 +1,14 @@
+2014-05-08  David Malcolm  <dmalcolm@redhat.com>
+
+	* params.c (global_init_params): Require that params_finished be
+	false, rather than being idempotent, in favor of purging all state
+	between toplev invocations, since in a release build
+	init_ggc_heuristics calls set_param_value_internal, and the
+	latter assumes that params_finished is true.
+	(params_c_finalize): New.
+	* params.h (params_c_finalize): New.
+	* toplev.c (toplev::finalize): Call params_c_finalize.
+
 2014-03-24  Tom Tromey  <tromey@redhat.com>
 
 	* toplev.c (general_init): Initialize input_location.

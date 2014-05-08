@@ -2015,6 +2015,7 @@ toplev::finalize (void)
   gcse_c_finalize ();
   ipa_c_finalize ();
   ipa_reference_c_finalize ();
+  params_c_finalize ();
   predict_c_finalize ();
   symtab_c_finalize ();
   varpool_c_finalize ();
