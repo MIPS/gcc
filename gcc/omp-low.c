@@ -233,6 +233,7 @@ get_offload_symbol_decl (void)
       tree decl = build_decl (UNKNOWN_LOCATION, VAR_DECL,
 			      get_identifier ("__OPENMP_TARGET__"),
 			      ptr_type_node);
+      TREE_ADDRESSABLE (decl) = 1;
       TREE_PUBLIC (decl) = 1;
       DECL_EXTERNAL (decl) = 1;
       DECL_WEAK (decl) = 1;
