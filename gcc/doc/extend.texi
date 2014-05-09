@@ -13009,7 +13009,8 @@ int8x8_t punpcklbh_s (int8x8_t s, int8x8_t t);
 @subsection MIPS SIMD Architecture Functions
 
 GCC provides intrinsics to access the SIMD instructions provided by the
-MSA MIPS SIMD Architecture.  These intrinsics are available.
+MSA MIPS SIMD Architecture.  The interface is made available by
+including @code{<msa.h>} and using @option{-mmsa -mhart-float -mfp64 -mnan=2008}
 
 @itemize
 @item @code{v16i8}, a vector of sixteen signed 8-bit integers;
