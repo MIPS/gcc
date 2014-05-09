@@ -792,7 +792,7 @@ proc mips-dg-init {} {
 	    #endif
 
 	    #ifdef __mips_msa
-	    "-msa"
+	    "-mmsa"
 	    #else
 	    "-mno-msa"
 	    #endif
