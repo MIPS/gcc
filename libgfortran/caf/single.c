@@ -345,39 +345,6 @@ _gfortran_caf_send_desc_scalar (caf_token_t token, size_t offset,
 
 
 void
-_gfortran_caf_co_sum (gfc_descriptor_t *source __attribute__ ((unused)),
-		      int result_image __attribute__ ((unused)),
-		      int *stat, char *errmsg __attribute__ ((unused)),
-		      int errmsg_len __attribute__ ((unused)))
-{
-  if (stat)
-    stat = 0;
-}
-
-void
-_gfortran_caf_co_min (gfc_descriptor_t *source __attribute__ ((unused)),
-		      int result_image __attribute__ ((unused)),
-		      int *stat, char *errmsg __attribute__ ((unused)),
-		      int src_len __attribute__ ((unused)),
-		      int errmsg_len __attribute__ ((unused)))
-{
-  if (stat)
-    stat = 0;
-}
-
-void
-_gfortran_caf_co_max (gfc_descriptor_t *source __attribute__ ((unused)),
-		      int result_image __attribute__ ((unused)),
-		      int *stat, char *errmsg __attribute__ ((unused)),
-		      int src_len __attribute__ ((unused)),
-		      int errmsg_len __attribute__ ((unused)))
-{
-  if (stat)
-    stat = 0;
-}
-
-
-void
 _gfortran_caf_sync_all (int *stat,
 			char *errmsg __attribute__ ((unused)),
 			int errmsg_len __attribute__ ((unused)))
@@ -432,7 +399,7 @@ _gfortran_caf_error_stop (int32_t error)
 
 
 void
-_gfortran_caf_co_sum (void *a __attribute__ ((unused)),
+_gfortran_caf_co_sum (gfc_descriptor_t *a __attribute__ ((unused)),
 		      caf_vector_t vector[] __attribute__ ((unused)),
 		      int result_image __attribute__ ((unused)),
 		      int *stat, char *errmsg __attribute__ ((unused)),
@@ -443,7 +410,7 @@ _gfortran_caf_co_sum (void *a __attribute__ ((unused)),
 }
 
 void
-_gfortran_caf_co_min (void *a __attribute__ ((unused)),
+_gfortran_caf_co_min (gfc_descriptor_t *a __attribute__ ((unused)),
 		      caf_vector_t vector[] __attribute__ ((unused)),
 		      int result_image __attribute__ ((unused)),
 		      int *stat, char *errmsg __attribute__ ((unused)),
@@ -455,7 +422,7 @@ _gfortran_caf_co_min (void *a __attribute__ ((unused)),
 }
 
 void
-_gfortran_caf_co_max (void *a __attribute__ ((unused)),
+_gfortran_caf_co_max (gfc_descriptor_t *a __attribute__ ((unused)),
 		      caf_vector_t vector[] __attribute__ ((unused)),
 		      int result_image __attribute__ ((unused)),
 		      int *stat, char *errmsg __attribute__ ((unused)),
