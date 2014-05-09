@@ -13269,6 +13269,7 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2, rtx elim_i2,
 	case REG_NORETURN:
 	case REG_SETJMP:
 	case REG_TM:
+	case REG_CALL_DECL:
 	  /* These notes must remain with the call.  It should not be
 	     possible for both I2 and I3 to be a call.  */
 	  if (CALL_P (i3))
@@ -13854,12 +13855,6 @@ dump_combine_total_stats (FILE *file)
      total_attempts, total_merges, total_extras, total_successes);
 }
 
-static bool
-gate_handle_combine (void)
-{
-  return (optimize > 0);
-}
-
 /* Try combining insns through substitution.  */
 static unsigned int
 rest_of_handle_combine (void)
@@ -13897,7 +13892,6 @@ const pass_data pass_data_combine =
   RTL_PASS, /* type */
   "combine", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
   true, /* has_execute */
   TV_COMBINE, /* tv_id */
   PROP_cfglayout, /* properties_required */
@@ -13915,8 +13909,11 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_handle_combine (); }
-  unsigned int execute () { return rest_of_handle_combine (); }
+  virtual bool gate (function *) { return (optimize > 0); }
+  virtual unsigned int execute (function *)
+    {
+      return rest_of_handle_combine ();
+    }
 
 }; // class pass_combine
 

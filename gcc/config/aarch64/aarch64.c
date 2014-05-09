@@ -636,22 +636,58 @@ aarch64_load_symref_appropriately (rtx dest, rtx imm,
 
     case SYMBOL_SMALL_TLSDESC:
       {
-	rtx x0 = gen_rtx_REG (Pmode, R0_REGNUM);
+	enum machine_mode mode = GET_MODE (dest);
+	rtx x0 = gen_rtx_REG (mode, R0_REGNUM);
 	rtx tp;
 
-	emit_insn (gen_tlsdesc_small (imm));
+	gcc_assert (mode == Pmode || mode == ptr_mode);
+
+	/* In ILP32, the got entry is always of SImode size.  Unlike
+	   small GOT, the dest is fixed at reg 0.  */
+	if (TARGET_ILP32)
+	  emit_insn (gen_tlsdesc_small_si (imm));
+	else
+	  emit_insn (gen_tlsdesc_small_di (imm));
 	tp = aarch64_load_tp (NULL);
-	emit_insn (gen_rtx_SET (Pmode, dest, gen_rtx_PLUS (Pmode, tp, x0)));
+
+	if (mode != Pmode)
+	  tp = gen_lowpart (mode, tp);
+
+	emit_insn (gen_rtx_SET (mode, dest, gen_rtx_PLUS (mode, tp, x0)));
 	set_unique_reg_note (get_last_insn (), REG_EQUIV, imm);
 	return;
       }
 
     case SYMBOL_SMALL_GOTTPREL:
       {
-	rtx tmp_reg = gen_reg_rtx (Pmode);
+	/* In ILP32, the mode of dest can be either SImode or DImode,
+	   while the got entry is always of SImode size.  The mode of
+	   dest depends on how dest is used: if dest is assigned to a
+	   pointer (e.g. in the memory), it has SImode; it may have
+	   DImode if dest is dereferenced to access the memeory.
+	   This is why we have to handle three different tlsie_small
+	   patterns here (two patterns for ILP32).  */
+	enum machine_mode mode = GET_MODE (dest);
+	rtx tmp_reg = gen_reg_rtx (mode);
 	rtx tp = aarch64_load_tp (NULL);
-	emit_insn (gen_tlsie_small (tmp_reg, imm));
-	emit_insn (gen_rtx_SET (Pmode, dest, gen_rtx_PLUS (Pmode, tp, tmp_reg)));
+
+	if (mode == ptr_mode)
+	  {
+	    if (mode == DImode)
+	      emit_insn (gen_tlsie_small_di (tmp_reg, imm));
+	    else
+	      {
+		emit_insn (gen_tlsie_small_si (tmp_reg, imm));
+		tp = gen_lowpart (mode, tp);
+	      }
+	  }
+	else
+	  {
+	    gcc_assert (mode == Pmode);
+	    emit_insn (gen_tlsie_small_sidi (tmp_reg, imm));
+	  }
+
+	emit_insn (gen_rtx_SET (mode, dest, gen_rtx_PLUS (mode, tp, tmp_reg)));
 	set_unique_reg_note (get_last_insn (), REG_EQUIV, imm);
 	return;
       }
@@ -1713,8 +1749,6 @@ aarch64_layout_frame (void)
   if (reload_completed && cfun->machine->frame.laid_out)
     return;
 
-  cfun->machine->frame.fp_lr_offset = 0;
-
   /* First mark all the registers that really need to be saved...  */
   for (regno = R0_REGNUM; regno <= R30_REGNUM; regno++)
     cfun->machine->frame.reg_offset[regno] = -1;
@@ -1764,14 +1798,12 @@ aarch64_layout_frame (void)
     {
       cfun->machine->frame.reg_offset[R29_REGNUM] = offset;
       offset += UNITS_PER_WORD;
-      cfun->machine->frame.fp_lr_offset = UNITS_PER_WORD;
     }
 
   if (cfun->machine->frame.reg_offset[R30_REGNUM] != -1)
     {
       cfun->machine->frame.reg_offset[R30_REGNUM] = offset;
       offset += UNITS_PER_WORD;
-      cfun->machine->frame.fp_lr_offset += UNITS_PER_WORD;
     }
 
   cfun->machine->frame.padding0 =
@@ -3836,34 +3868,34 @@ aarch64_print_operand_address (FILE *f, rtx x)
 	if (addr.offset == const0_rtx)
 	  asm_fprintf (f, "[%s]", reg_names [REGNO (addr.base)]);
 	else
-	  asm_fprintf (f, "[%s,%wd]", reg_names [REGNO (addr.base)],
+	  asm_fprintf (f, "[%s, %wd]", reg_names [REGNO (addr.base)],
 		       INTVAL (addr.offset));
 	return;
 
       case ADDRESS_REG_REG:
 	if (addr.shift == 0)
-	  asm_fprintf (f, "[%s,%s]", reg_names [REGNO (addr.base)],
+	  asm_fprintf (f, "[%s, %s]", reg_names [REGNO (addr.base)],
 		       reg_names [REGNO (addr.offset)]);
 	else
-	  asm_fprintf (f, "[%s,%s,lsl %u]", reg_names [REGNO (addr.base)],
+	  asm_fprintf (f, "[%s, %s, lsl %u]", reg_names [REGNO (addr.base)],
 		       reg_names [REGNO (addr.offset)], addr.shift);
 	return;
 
       case ADDRESS_REG_UXTW:
 	if (addr.shift == 0)
-	  asm_fprintf (f, "[%s,w%d,uxtw]", reg_names [REGNO (addr.base)],
+	  asm_fprintf (f, "[%s, w%d, uxtw]", reg_names [REGNO (addr.base)],
 		       REGNO (addr.offset) - R0_REGNUM);
 	else
-	  asm_fprintf (f, "[%s,w%d,uxtw %u]", reg_names [REGNO (addr.base)],
+	  asm_fprintf (f, "[%s, w%d, uxtw %u]", reg_names [REGNO (addr.base)],
 		       REGNO (addr.offset) - R0_REGNUM, addr.shift);
 	return;
 
       case ADDRESS_REG_SXTW:
 	if (addr.shift == 0)
-	  asm_fprintf (f, "[%s,w%d,sxtw]", reg_names [REGNO (addr.base)],
+	  asm_fprintf (f, "[%s, w%d, sxtw]", reg_names [REGNO (addr.base)],
 		       REGNO (addr.offset) - R0_REGNUM);
 	else
-	  asm_fprintf (f, "[%s,w%d,sxtw %u]", reg_names [REGNO (addr.base)],
+	  asm_fprintf (f, "[%s, w%d, sxtw %u]", reg_names [REGNO (addr.base)],
 		       REGNO (addr.offset) - R0_REGNUM, addr.shift);
 	return;
 
@@ -3871,27 +3903,27 @@ aarch64_print_operand_address (FILE *f, rtx x)
 	switch (GET_CODE (x))
 	  {
 	  case PRE_INC:
-	    asm_fprintf (f, "[%s,%d]!", reg_names [REGNO (addr.base)], 
+	    asm_fprintf (f, "[%s, %d]!", reg_names [REGNO (addr.base)],
 			 GET_MODE_SIZE (aarch64_memory_reference_mode));
 	    return;
 	  case POST_INC:
-	    asm_fprintf (f, "[%s],%d", reg_names [REGNO (addr.base)],
+	    asm_fprintf (f, "[%s], %d", reg_names [REGNO (addr.base)],
 			 GET_MODE_SIZE (aarch64_memory_reference_mode));
 	    return;
 	  case PRE_DEC:
-	    asm_fprintf (f, "[%s,-%d]!", reg_names [REGNO (addr.base)],
+	    asm_fprintf (f, "[%s, -%d]!", reg_names [REGNO (addr.base)],
 			 GET_MODE_SIZE (aarch64_memory_reference_mode));
 	    return;
 	  case POST_DEC:
-	    asm_fprintf (f, "[%s],-%d", reg_names [REGNO (addr.base)],
+	    asm_fprintf (f, "[%s], -%d", reg_names [REGNO (addr.base)],
 			 GET_MODE_SIZE (aarch64_memory_reference_mode));
 	    return;
 	  case PRE_MODIFY:
-	    asm_fprintf (f, "[%s,%wd]!", reg_names [REGNO (addr.base)],
+	    asm_fprintf (f, "[%s, %wd]!", reg_names [REGNO (addr.base)],
 			 INTVAL (addr.offset));
 	    return;
 	  case POST_MODIFY:
-	    asm_fprintf (f, "[%s],%wd", reg_names [REGNO (addr.base)],
+	    asm_fprintf (f, "[%s], %wd", reg_names [REGNO (addr.base)],
 			 INTVAL (addr.offset));
 	    return;
 	  default:
@@ -3900,7 +3932,7 @@ aarch64_print_operand_address (FILE *f, rtx x)
 	break;
 
       case ADDRESS_LO_SUM:
-	asm_fprintf (f, "[%s,#:lo12:", reg_names [REGNO (addr.base)]);
+	asm_fprintf (f, "[%s, #:lo12:", reg_names [REGNO (addr.base)]);
 	output_addr_const (f, addr.offset);
 	asm_fprintf (f, "]");
 	return;
@@ -4147,32 +4179,31 @@ aarch64_initial_elimination_offset (unsigned from, unsigned to)
 		+ crtl->outgoing_args_size
 		+ cfun->machine->saved_varargs_size);
 
-   frame_size = AARCH64_ROUND_UP (frame_size, STACK_BOUNDARY / BITS_PER_UNIT);
-   offset = frame_size;
+  frame_size = AARCH64_ROUND_UP (frame_size, STACK_BOUNDARY / BITS_PER_UNIT);
+  offset = frame_size;
 
-   if (to == HARD_FRAME_POINTER_REGNUM)
-     {
-       if (from == ARG_POINTER_REGNUM)
-	 return offset - crtl->outgoing_args_size;
+  if (to == HARD_FRAME_POINTER_REGNUM)
+    {
+      if (from == ARG_POINTER_REGNUM)
+	return offset - crtl->outgoing_args_size;
 
-       if (from == FRAME_POINTER_REGNUM)
-	 return cfun->machine->frame.saved_regs_size + get_frame_size ();
-     }
+      if (from == FRAME_POINTER_REGNUM)
+	return cfun->machine->frame.saved_regs_size + get_frame_size ();
+    }
 
-   if (to == STACK_POINTER_REGNUM)
-     {
-       if (from == FRAME_POINTER_REGNUM)
-         {
-           HOST_WIDE_INT elim = crtl->outgoing_args_size
-                              + cfun->machine->frame.saved_regs_size
-                              + get_frame_size ()
-                              - cfun->machine->frame.fp_lr_offset;
-           elim = AARCH64_ROUND_UP (elim, STACK_BOUNDARY / BITS_PER_UNIT);
-           return elim;
-         }
-     }
+  if (to == STACK_POINTER_REGNUM)
+    {
+      if (from == FRAME_POINTER_REGNUM)
+	{
+	  HOST_WIDE_INT elim = crtl->outgoing_args_size
+	    + cfun->machine->frame.saved_regs_size
+	    + get_frame_size ();
+	  elim = AARCH64_ROUND_UP (elim, STACK_BOUNDARY / BITS_PER_UNIT);
+	  return elim;
+	}
+    }
 
-   return offset;
+  return offset;
 }
 
 
@@ -4440,9 +4471,13 @@ aarch64_strip_shift (rtx x)
 {
   rtx op = x;
 
+  /* We accept both ROTATERT and ROTATE: since the RHS must be a constant
+     we can convert both to ROR during final output.  */
   if ((GET_CODE (op) == ASHIFT
        || GET_CODE (op) == ASHIFTRT
-       || GET_CODE (op) == LSHIFTRT)
+       || GET_CODE (op) == LSHIFTRT
+       || GET_CODE (op) == ROTATERT
+       || GET_CODE (op) == ROTATE)
       && CONST_INT_P (XEXP (op, 1)))
     return XEXP (op, 0);
 
@@ -4663,7 +4698,25 @@ aarch64_rtx_costs (rtx x, int code, int outer ATTRIBUTE_UNUSED,
 
       return false;
 
+    case BSWAP:
+      *cost = COSTS_N_INSNS (1);
+
+      if (speed)
+        *cost += extra_cost->alu.rev;
+
+      return false;
+
     case IOR:
+      if (aarch_rev16_p (x))
+        {
+          *cost = COSTS_N_INSNS (1);
+
+          if (speed)
+            *cost += extra_cost->alu.rev;
+
+          return true;
+        }
+    /* Fall through.  */
     case XOR:
     case AND:
     cost_logic:
@@ -4847,9 +4900,11 @@ aarch64_address_cost (rtx x ATTRIBUTE_UNUSED,
 }
 
 static int
-aarch64_register_move_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
-			    reg_class_t from, reg_class_t to)
+aarch64_register_move_cost (enum machine_mode mode,
+			    reg_class_t from_i, reg_class_t to_i)
 {
+  enum reg_class from = (enum reg_class) from_i;
+  enum reg_class to = (enum reg_class) to_i;
   const struct cpu_regmove_cost *regmove_cost
     = aarch64_tune_params->regmove_cost;
 
@@ -4875,8 +4930,7 @@ aarch64_register_move_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
      secondary reload.  A general register is used as a scratch to move
      the upper DI value and the lower DI value is moved directly,
      hence the cost is the sum of three moves. */
-
-  if (! TARGET_SIMD && GET_MODE_SIZE (from) == 128 && GET_MODE_SIZE (to) == 128)
+  if (! TARGET_SIMD && GET_MODE_SIZE (mode) == 128)
     return regmove_cost->GP2FP + regmove_cost->FP2GP + regmove_cost->FP2FP;
 
   return regmove_cost->FP2FP;
@@ -8089,11 +8143,6 @@ aarch64_evpc_tbl (struct expand_vec_perm_d *d)
   enum machine_mode vmode = d->vmode;
   unsigned int i, nelt = d->nelt;
 
-  /* TODO: ARM's TBL indexing is little-endian.  In order to handle GCC's
-     numbering of elements for big-endian, we must reverse the order.  */
-  if (BYTES_BIG_ENDIAN)
-    return false;
-
   if (d->testing_p)
     return true;
 
@@ -8104,7 +8153,15 @@ aarch64_evpc_tbl (struct expand_vec_perm_d *d)
     return false;
 
   for (i = 0; i < nelt; ++i)
-    rperm[i] = GEN_INT (d->perm[i]);
+    {
+      int nunits = GET_MODE_NUNITS (vmode);
+
+      /* If big-endian and two vectors we end up with a weird mixed-endian
+	 mode on NEON.  Reverse the index within each word but not the word
+	 itself.  */
+      rperm[i] = GEN_INT (BYTES_BIG_ENDIAN ? d->perm[i] ^ (nunits - 1)
+					   : d->perm[i]);
+    }
   sel = gen_rtx_CONST_VECTOR (vmode, gen_rtvec_v (nelt, rperm));
   sel = force_reg (vmode, sel);
 
@@ -8123,8 +8180,9 @@ aarch64_expand_vec_perm_const_1 (struct expand_vec_perm_d *d)
       unsigned i, nelt = d->nelt;
       rtx x;
 
+      gcc_assert (nelt == (nelt & -nelt));
       for (i = 0; i < nelt; ++i)
-	d->perm[i] = (d->perm[i] + nelt) & (2 * nelt - 1);
+	d->perm[i] ^= nelt; /* Keep the same index, but in the other vector.  */
 
       x = d->op0;
       d->op0 = d->op1;
@@ -8259,7 +8317,8 @@ aarch64_cannot_change_mode_class (enum machine_mode from,
   /* Limited combinations of subregs are safe on FPREGs.  Particularly,
      1. Vector Mode to Scalar mode where 1 unit of the vector is accessed.
      2. Scalar to Scalar for integer modes or same size float modes.
-     3. Vector to Vector modes.  */
+     3. Vector to Vector modes.
+     4. On little-endian only, Vector-Structure to Vector modes.  */
   if (GET_MODE_SIZE (from) > GET_MODE_SIZE (to))
     {
       if (aarch64_vector_mode_supported_p (from)
@@ -8275,9 +8334,39 @@ aarch64_cannot_change_mode_class (enum machine_mode from,
       if (aarch64_vector_mode_supported_p (from)
 	  && aarch64_vector_mode_supported_p (to))
 	return false;
+
+      /* Within an vector structure straddling multiple vector registers
+	 we are in a mixed-endian representation.  As such, we can't
+	 easily change modes for BYTES_BIG_ENDIAN.  Otherwise, we can
+	 switch between vectors and vector structures cheaply.  */
+      if (!BYTES_BIG_ENDIAN)
+	if ((aarch64_vector_mode_supported_p (from)
+	      && aarch64_vect_struct_mode_p (to))
+	    || (aarch64_vector_mode_supported_p (to)
+	      && aarch64_vect_struct_mode_p (from)))
+	  return false;
     }
 
   return true;
+}
+
+/* Implement MODES_TIEABLE_P.  */
+
+bool
+aarch64_modes_tieable_p (enum machine_mode mode1, enum machine_mode mode2)
+{
+  if (GET_MODE_CLASS (mode1) == GET_MODE_CLASS (mode2))
+    return true;
+
+  /* We specifically want to allow elements of "structure" modes to
+     be tieable to the structure.  This more general condition allows
+     other rarer situations too.  */
+  if (TARGET_SIMD
+      && aarch64_vector_mode_p (mode1)
+      && aarch64_vector_mode_p (mode2))
+    return true;
+
+  return false;
 }
 
 #undef TARGET_ADDRESS_COST
@@ -8515,6 +8604,9 @@ aarch64_cannot_change_mode_class (enum machine_mode from,
 
 #undef TARGET_FIXED_CONDITION_CODE_REGS
 #define TARGET_FIXED_CONDITION_CODE_REGS aarch64_fixed_condition_code_regs
+
+#undef TARGET_FLAGS_REGNUM
+#define TARGET_FLAGS_REGNUM CC_REGNUM
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

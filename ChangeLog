@@ -1,3 +1,36 @@
+2014-05-01  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config.sub, config.guess: Import from upstream.
+
+2014-04-29  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* MAINTAINERS (Write After Approval): Put myself in correct order.
+
+2014-04-29  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2014-04-24  Laurynas Biveinis  <laurynas.biveinis@gmail.com>
+
+	* MAINTAINERS: Move myself from Reviewers to Write After Approval
+	section.
+
+2014-04-21 Rafael Ávila de Espíndola <rafael.espindola@gmail.com>
+
+	* MAINTAINERS (Write After Approval): Delete myself.
+
+2014-04-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/56781
+	* libtool-ldflags: Also prefix -static-lib*, -shared-lib*
+	and -B* options with -Xcompiler.
+
+2014-04-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR bootstrap/60620
+	* Makefile.def (dependencies): Make gnattools depend on libstdc++-v3. 
+	* Makefile.in: Regenerate.
+
 2014-03-28  Yaakov Selkowitz  <yselkowitz@users.sourceforge.net>
 
 	* Makefile.def (dependencies): Make all-ld depend on all-binutils

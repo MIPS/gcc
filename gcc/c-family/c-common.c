@@ -2228,6 +2228,10 @@ check_main_parameter_types (tree decl)
   if (argct > 0 && (argct < 2 || argct > 3))
     pedwarn (input_location, OPT_Wmain,
 	     "%q+D takes only zero or two arguments", decl);
+
+  if (stdarg_p (TREE_TYPE (decl)))
+    pedwarn (input_location, OPT_Wmain,
+	     "%q+D declared as variadic function", decl);
 }
 
 /* vector_targets_convertible_p is used for vector pointer types.  The
@@ -3469,7 +3473,7 @@ c_common_fixed_point_type_for_size (unsigned int ibit, unsigned int fbit,
 
 /* Used for communication between c_common_type_for_mode and
    c_register_builtin_type.  */
-static GTY(()) tree registered_builtin_types;
+tree registered_builtin_types;
 
 /* Return a data type that has machine mode MODE.
    If the mode is an integer,
@@ -6571,8 +6575,8 @@ handle_hot_attribute (tree *node, tree name, tree ARG_UNUSED (args),
     {
       if (lookup_attribute ("cold", DECL_ATTRIBUTES (*node)) != NULL)
 	{
-	  warning (OPT_Wattributes, "%qE attribute conflicts with attribute %s",
-		   name, "cold");
+	  warning (OPT_Wattributes, "%qE attribute ignored due to conflict "
+		   "with attribute %qs", name, "cold");
 	  *no_add_attrs = true;
 	}
       /* Most of the rest of the hot processing is done later with
@@ -6599,8 +6603,8 @@ handle_cold_attribute (tree *node, tree name, tree ARG_UNUSED (args),
     {
       if (lookup_attribute ("hot", DECL_ATTRIBUTES (*node)) != NULL)
 	{
-	  warning (OPT_Wattributes, "%qE attribute conflicts with attribute %s",
-		   name, "hot");
+	  warning (OPT_Wattributes, "%qE attribute ignored due to conflict "
+		   "with attribute %qs", name, "hot");
 	  *no_add_attrs = true;
 	}
       /* Most of the rest of the cold processing is done later with
@@ -6673,7 +6677,16 @@ handle_noinline_attribute (tree *node, tree name,
 			   int ARG_UNUSED (flags), bool *no_add_attrs)
 {
   if (TREE_CODE (*node) == FUNCTION_DECL)
-    DECL_UNINLINABLE (*node) = 1;
+    {
+      if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (*node)))
+	{
+	  warning (OPT_Wattributes, "%qE attribute ignored due to conflict "
+		   "with attribute %qs", name, "always_inline");
+	  *no_add_attrs = true;
+	}
+      else
+	DECL_UNINLINABLE (*node) = 1;
+    }
   else
     {
       warning (OPT_Wattributes, "%qE attribute ignored", name);
@@ -6711,9 +6724,16 @@ handle_always_inline_attribute (tree *node, tree name,
 {
   if (TREE_CODE (*node) == FUNCTION_DECL)
     {
-      /* Set the attribute and mark it for disregarding inline
-	 limits.  */
-      DECL_DISREGARD_INLINE_LIMITS (*node) = 1;
+      if (lookup_attribute ("noinline", DECL_ATTRIBUTES (*node)))
+	{
+	  warning (OPT_Wattributes, "%qE attribute ignored due to conflict "
+		   "with %qs attribute", name, "noinline");
+	  *no_add_attrs = true;
+	}
+      else
+	/* Set the attribute and mark it for disregarding inline
+	   limits.  */
+	DECL_DISREGARD_INLINE_LIMITS (*node) = 1;
     }
   else
     {
@@ -8428,7 +8448,7 @@ handle_tm_wrap_attribute (tree *node, tree name, tree args,
 		error ("%qD is not compatible with %qD", wrap_decl, decl);
 	    }
 	  else
-	    error ("transaction_wrap argument is not a function");
+	    error ("%qE argument is not a function", name);
 	}
     }
 
@@ -10209,6 +10229,13 @@ sync_resolve_size (tree function, vec<tree, va_gc> *params)
     }
 
   type = TREE_TYPE ((*params)[0]);
+  if (TREE_CODE (type) == ARRAY_TYPE)
+    {
+      /* Force array-to-pointer decay for C++.  */
+      gcc_assert (c_dialect_cxx());
+      (*params)[0] = default_conversion ((*params)[0]);
+      type = TREE_TYPE ((*params)[0]);
+    }
   if (TREE_CODE (type) != POINTER_TYPE)
     goto incompatible;
 
@@ -10360,6 +10387,13 @@ get_atomic_generic_size (location_t loc, tree function,
 
   /* Get type of first parameter, and determine its size.  */
   type_0 = TREE_TYPE ((*params)[0]);
+  if (TREE_CODE (type_0) == ARRAY_TYPE)
+    {
+      /* Force array-to-pointer decay for C++.  */
+      gcc_assert (c_dialect_cxx());
+      (*params)[0] = default_conversion ((*params)[0]);
+      type_0 = TREE_TYPE ((*params)[0]);
+    }
   if (TREE_CODE (type_0) != POINTER_TYPE || VOID_TYPE_P (TREE_TYPE (type_0)))
     {
       error_at (loc, "argument 1 of %qE must be a non-void pointer type",
@@ -11777,8 +11811,21 @@ convert_vector_to_pointer_for_subscript (location_t loc,
 
       c_common_mark_addressable_vec (*vecp);
       type = build_qualified_type (TREE_TYPE (type), TYPE_QUALS (type));
-      type = build_pointer_type (type);
       type1 = build_pointer_type (TREE_TYPE (*vecp));
+      bool ref_all = TYPE_REF_CAN_ALIAS_ALL (type1);
+      if (!ref_all
+	  && !DECL_P (*vecp))
+	{
+	  /* If the original vector isn't declared may_alias and it
+	     isn't a bare vector look if the subscripting would
+	     alias the vector we subscript, and if not, force ref-all.  */
+	  alias_set_type vecset = get_alias_set (*vecp);
+	  alias_set_type sset = get_alias_set (type);
+	  if (!alias_sets_must_conflict_p (sset, vecset)
+	      && !alias_set_subset_of (sset, vecset))
+	    ref_all = true;
+	}
+      type = build_pointer_type_for_mode (type, ptr_mode, ref_all);
       *vecp = build1 (ADDR_EXPR, type1, *vecp);
       *vecp = convert (type, *vecp);
     }

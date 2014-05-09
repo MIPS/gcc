@@ -13444,7 +13444,7 @@ else
   nover_glibgo_toolexecdir='${libdir}/gcc/${host_alias}'
   nover_glibgo_toolexeclibdir='${libdir}'
 fi
-multi_os_directory=`$CC -print-multi-os-directory`
+multi_os_directory=`$GOC -print-multi-os-directory`
 case $multi_os_directory in
   .) ;; # Avoid trailing /.
   *) nover_glibgo_toolexeclibdir=${nover_glibgo_toolexeclibdir}/${multi_os_directory} ;;
@@ -13888,11 +13888,6 @@ case "$target" in
 	# IRIX 6 needs _XOPEN_SOURCE=500 for the XPG5 version of struct
 	# msghdr in <sys/socket.h>.
 	OSCFLAGS="$OSCFLAGS -D_XOPEN_SOURCE=500"
-	;;
-    *-*-solaris2.[89])
-	# Solaris 8/9 need this so struct msghdr gets the msg_control
-	# etc. fields in <sys/socket.h> (_XPG4_2).
-	OSCFLAGS="$OSCFLAGS -D_XOPEN_SOURCE=500 -D_XOPEN_SOURCE_EXTENDED -D__EXTENSIONS__"
 	;;
     *-*-solaris2.1[01])
 	# Solaris 10+ needs this so struct msghdr gets the msg_control
@@ -15050,20 +15045,6 @@ fi
 if test "$libgo_has_struct_exception" = "yes"; then
 
 $as_echo "#define HAVE_STRUCT_EXCEPTION 1" >>confdefs.h
-
-fi
-
-case "$target" in
-  sparc*-*-solaris2.[89]*)
-    libgo_cv_lib_makecontext_stack_top=yes
-    ;;
-  *)
-    libgo_cv_lib_makecontext_stack_top=no
-    ;;
-esac
-if test "$libgo_cv_lib_makecontext_stack_top" = "yes"; then
-
-$as_echo "#define MAKECONTEXT_STACK_TOP 1" >>confdefs.h
 
 fi
 

@@ -264,8 +264,7 @@ Variable_declaration_statement::do_get_backend(Translate_context* context)
   Variable* var = this->var_->var_value();
   Bvariable* bvar = this->var_->get_backend_variable(context->gogo(),
 						     context->function());
-  tree init = var->get_init_tree(context->gogo(), context->function());
-  Bexpression* binit = init == NULL ? NULL : tree_to_expr(init);
+  Bexpression* binit = var->get_init(context->gogo(), context->function());
 
   if (!var->is_in_heap())
     {
@@ -435,15 +434,9 @@ Temporary_statement::do_get_backend(Translate_context* context)
 {
   go_assert(this->bvariable_ == NULL);
 
-  // FIXME: Permitting FUNCTION to be NULL here is a temporary measure
-  // until we have a better representation of the init function.
   Named_object* function = context->function();
-  Bfunction* bfunction;
-  if (function == NULL)
-    bfunction = NULL;
-  else
-    bfunction = tree_to_function(function->func_value()->get_decl());
-
+  go_assert(function != NULL);
+  Bfunction* bfunction = function->func_value()->get_decl();
   Btype* btype = this->type()->get_backend(context->gogo());
 
   Bexpression* binit;
@@ -638,13 +631,17 @@ Assignment_statement::do_check_types(Gogo*)
 Bstatement*
 Assignment_statement::do_get_backend(Translate_context* context)
 {
-  tree rhs_tree = this->rhs_->get_tree(context);
   if (this->lhs_->is_sink_expression())
-    return context->backend()->expression_statement(tree_to_expr(rhs_tree));
+    {
+      tree rhs_tree = this->rhs_->get_tree(context);
+      return context->backend()->expression_statement(tree_to_expr(rhs_tree));
+    }
+
   tree lhs_tree = this->lhs_->get_tree(context);
-  rhs_tree = Expression::convert_for_assignment(context, this->lhs_->type(),
-						this->rhs_->type(), rhs_tree,
-						this->location());
+  Expression* rhs =
+      Expression::convert_for_assignment(context->gogo(), this->lhs_->type(),
+                                         this->rhs_, this->location());
+  tree rhs_tree = rhs->get_tree(context);
   return context->backend()->assignment_statement(tree_to_expr(lhs_tree),
 						  tree_to_expr(rhs_tree),
 						  this->location());
@@ -2187,7 +2184,7 @@ Thunk_statement::simplify_statement(Gogo* gogo, Named_object* function,
 					      location);
 
   // Allocate the initialized struct on the heap.
-  constructor = Expression::make_heap_composite(constructor, location);
+  constructor = Expression::make_heap_expression(constructor, location);
 
   // Look up the thunk.
   Named_object* named_thunk = gogo->lookup(thunk_name, NULL);
@@ -2778,8 +2775,6 @@ Return_statement::do_get_backend(Translate_context* context)
   Location loc = this->location();
 
   Function* function = context->function()->func_value();
-  tree fndecl = function->get_decl();
-
   Function::Results* results = function->result_variables();
   std::vector<Bexpression*> retvals;
   if (results != NULL && !results->empty())
@@ -2794,7 +2789,7 @@ Return_statement::do_get_backend(Translate_context* context)
 	}
     }
 
-  return context->backend()->return_statement(tree_to_function(fndecl),
+  return context->backend()->return_statement(function->get_decl(),
 					      retvals, loc);
 }
 
@@ -3800,8 +3795,10 @@ Constant_switch_statement::do_get_backend(Translate_context* context)
   this->clauses_->get_backend(context, break_label, &all_cases,
 			      &all_statements);
 
+  Bfunction* bfunction = context->function()->func_value()->get_decl();
   Bstatement* switch_statement;
-  switch_statement = context->backend()->switch_statement(switch_val_expr,
+  switch_statement = context->backend()->switch_statement(bfunction,
+							  switch_val_expr,
 							  all_cases,
 							  all_statements,
 							  this->location());
@@ -4977,7 +4974,9 @@ Select_clauses::get_backend(Translate_context* context,
   std::vector<Bstatement*> statements;
   statements.reserve(2);
 
-  Bstatement* switch_stmt = context->backend()->switch_statement(bcall,
+  Bfunction* bfunction = context->function()->func_value()->get_decl();
+  Bstatement* switch_stmt = context->backend()->switch_statement(bfunction,
+								 bcall,
 								 cases,
 								 clauses,
 								 location);

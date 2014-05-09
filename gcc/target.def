@@ -2666,6 +2666,18 @@ The default version of this hook use the target macro\n\
  bool, (void),
  default_profile_before_prologue)
 
+/* Return true if a leaf function should stay leaf even with profiling
+   enabled.  */
+DEFHOOK
+(keep_leaf_when_profiled,
+ "This target hook returns true if the target wants the leaf flag for\
+ the current function to stay true even if it calls mcount.  This might\
+ make sense for targets using the leaf flag only to determine whether a\
+ stack frame needs to be generated or not and for which the call to\
+ mcount is generated before the function prologue.",
+ bool, (void),
+ default_keep_leaf_when_profiled)
+
 /* Modify and return the identifier of a DECL's external name,
    originally identified by ID, as required by the target,
    (eg, append @nn to windows32 stdcall function names).
@@ -5137,6 +5149,22 @@ TARGET_STRUCT_VALUE_RTX, FRAME_POINTER_REGNUM, EH_USES,\n\
 FRAME_POINTER_REGNUM, ARG_POINTER_REGNUM, and the PIC_OFFSET_TABLE_REGNUM.",
  void, (bitmap regs),
  hook_void_bitmap)
+
+/* Targets should define this target hook to mark that non-callee clobbers are
+   present in CALL_INSN_FUNCTION_USAGE for all the calls in the current
+   function.  */
+DEFHOOKPOD
+(call_fusage_contains_non_callee_clobbers,
+ "set to true if all the calls in the current function contain clobbers in\n\
+CALL_INSN_FUNCTION_USAGE for the registers that are clobbered by the call\n\
+rather than by the callee, and are not already set or clobbered in the call\n\
+pattern.  Examples of such registers are registers used in PLTs and stubs,\n\
+and temporary registers used in the call instruction but not present in the\n\
+rtl pattern.  Another way to formulate it is the registers not present in the\n\
+rtl pattern that are clobbered by the call assuming the callee does not\n\
+clobber any register.  The default version of this hook is set to false.",
+ bool, 
+ false)
 
 /* Fill in additional registers set up by prologue into a regset.  */
 DEFHOOK

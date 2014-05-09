@@ -87,6 +87,10 @@ typedef struct gfc_se
      args alias.  */
   unsigned force_tmp:1;
 
+  /* Unconditionally calculate offset for array segments and constant
+     arrays in gfc_conv_expr_descriptor.  */
+  unsigned use_offset:1;
+
   unsigned want_coarray:1;
 
   /* Scalarization parameters.  */
@@ -99,7 +103,7 @@ gfc_se;
 
 /* Denotes different types of coarray.
    Please keep in sync with libgfortran/caf/libcaf.h.  */
-typedef enum 
+typedef enum
 {
   GFC_CAF_COARRAY_STATIC,
   GFC_CAF_COARRAY_ALLOC,
@@ -178,7 +182,7 @@ typedef enum
   /* An intrinsic function call.  Many intrinsic functions which map directly
      to library calls are created as GFC_SS_FUNCTION nodes.  */
   GFC_SS_INTRINSIC,
-  
+
   /* A component of a derived type.  */
   GFC_SS_COMPONENT
 }
@@ -695,6 +699,8 @@ extern GTY(()) tree gfor_fndecl_associated;
 /* Coarray run-time library function decls.  */
 extern GTY(()) tree gfor_fndecl_caf_init;
 extern GTY(()) tree gfor_fndecl_caf_finalize;
+extern GTY(()) tree gfor_fndecl_caf_this_image;
+extern GTY(()) tree gfor_fndecl_caf_num_images;
 extern GTY(()) tree gfor_fndecl_caf_register;
 extern GTY(()) tree gfor_fndecl_caf_deregister;
 extern GTY(()) tree gfor_fndecl_caf_critical;
@@ -703,10 +709,6 @@ extern GTY(()) tree gfor_fndecl_caf_sync_all;
 extern GTY(()) tree gfor_fndecl_caf_sync_images;
 extern GTY(()) tree gfor_fndecl_caf_error_stop;
 extern GTY(()) tree gfor_fndecl_caf_error_stop_str;
-
-/* Coarray global variables for num_images/this_image.  */
-extern GTY(()) tree gfort_gvar_caf_num_images;
-extern GTY(()) tree gfort_gvar_caf_this_image;
 
 
 /* Math functions.  Many other math functions are handled in

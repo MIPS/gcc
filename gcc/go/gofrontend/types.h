@@ -1019,14 +1019,14 @@ class Type
 
   // A mapping from interfaces to the associated interface method
   // tables for this type.  This maps to a decl.
-  typedef Unordered_map_hash(const Interface_type*, tree, Type_hash_identical,
+  typedef Unordered_map_hash(Interface_type*, Expression*, Type_hash_identical,
 			     Type_identical) Interface_method_tables;
 
   // Return a pointer to the interface method table for TYPE for the
   // interface INTERFACE.
-  static tree
-  interface_method_table(Gogo* gogo, Type* type,
-			 const Interface_type *interface, bool is_pointer,
+  static Expression*
+  interface_method_table(Type* type,
+			 Interface_type *interface, bool is_pointer,
 			 Interface_method_tables** method_tables,
 			 Interface_method_tables** pointer_tables);
 
@@ -1171,14 +1171,11 @@ class Type
   static tree
   build_receive_return_type(tree type);
 
-  // A hash table we use to avoid infinite recursion.
-  typedef Unordered_set_hash(const Named_type*, Type_hash_identical,
-			     Type_identical) Types_seen;
-
   // Add all methods for TYPE to the list of methods for THIS.
   static void
   add_methods_for_type(const Type* type, const Method::Field_indexes*,
-		       unsigned int depth, bool, bool, Types_seen*,
+		       unsigned int depth, bool, bool,
+		       std::vector<const Named_type*>*,
 		       Methods**);
 
   static void
@@ -1189,7 +1186,8 @@ class Type
   static void
   add_embedded_methods_for_type(const Type* type,
 				const Method::Field_indexes*,
-				unsigned int depth, bool, bool, Types_seen*,
+				unsigned int depth, bool, bool,
+				std::vector<const Named_type*>*,
 				Methods**);
 
   static void
@@ -1687,14 +1685,6 @@ class String_type : public Type
   String_type()
     : Type(TYPE_STRING)
   { }
-
-  // Return a tree for the length of STRING.
-  static tree
-  length_tree(Gogo*, tree string);
-
-  // Return a tree which points to the bytes of STRING.
-  static tree
-  bytes_tree(Gogo*, tree string);
 
  protected:
   bool
@@ -2205,9 +2195,8 @@ class Struct_type : public Type
   // the interface INTERFACE.  If IS_POINTER is true, set the type
   // descriptor to a pointer to this type, otherwise set it to this
   // type.
-  tree
-  interface_method_table(Gogo*, const Interface_type* interface,
-			 bool is_pointer);
+  Expression*
+  interface_method_table(Interface_type* interface, bool is_pointer);
 
   // Traverse just the field types of a struct type.
   int
@@ -2314,7 +2303,7 @@ class Array_type : public Type
  public:
   Array_type(Type* element_type, Expression* length)
     : Type(TYPE_ARRAY),
-      element_type_(element_type), length_(length), length_tree_(NULL)
+      element_type_(element_type), length_(length), blength_(NULL)
   { }
 
   // Return the element type.
@@ -2322,7 +2311,7 @@ class Array_type : public Type
   element_type() const
   { return this->element_type_; }
 
-  // Return the length.  This will return NULL for an open array.
+  // Return the length.  This will return NULL for a slice.
   Expression*
   length() const
   { return this->length_; }
@@ -2416,9 +2405,6 @@ class Array_type : public Type
   bool
   verify_length();
 
-  tree
-  get_length_tree(Gogo*);
-
   Expression*
   array_type_descriptor(Gogo*, Named_type*);
 
@@ -2429,8 +2415,9 @@ class Array_type : public Type
   Type* element_type_;
   // The number of elements.  This may be NULL.
   Expression* length_;
-  // The length as a tree.  We only want to compute this once.
-  tree length_tree_;
+  // The backend representation of the length.
+  // We only want to compute this once.
+  Bexpression* blength_;
 };
 
 // The type of a map.
@@ -2946,9 +2933,8 @@ class Named_type : public Type
   // the interface INTERFACE.  If IS_POINTER is true, set the type
   // descriptor to a pointer to this type, otherwise set it to this
   // type.
-  tree
-  interface_method_table(Gogo*, const Interface_type* interface,
-			 bool is_pointer);
+  Expression*
+  interface_method_table(Interface_type* interface, bool is_pointer);
 
   // Whether this type has any hidden fields.
   bool

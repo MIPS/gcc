@@ -6830,14 +6830,13 @@ should_move_die_to_comdat (dw_die_ref die)
     case DW_TAG_structure_type:
     case DW_TAG_enumeration_type:
     case DW_TAG_union_type:
-      /* Don't move declarations, inlined instances, or types nested in a
-	 subprogram.  */
+      /* Don't move declarations, inlined instances, types nested in a
+	 subprogram, or types that contain subprogram definitions.  */
       if (is_declaration_die (die)
           || get_AT (die, DW_AT_abstract_origin)
-          || is_nested_in_subprogram (die))
+          || is_nested_in_subprogram (die)
+          || contains_subprogram_definition (die))
         return 0;
-      /* A type definition should never contain a subprogram definition.  */
-      gcc_assert (!contains_subprogram_definition (die));
       return 1;
     case DW_TAG_array_type:
     case DW_TAG_interface_type:
@@ -6926,6 +6925,7 @@ clone_as_declaration (dw_die_ref die)
 
       switch (a->dw_attr)
         {
+        case DW_AT_abstract_origin:
         case DW_AT_artificial:
         case DW_AT_containing_type:
         case DW_AT_external:
@@ -7158,6 +7158,12 @@ generate_skeleton_bottom_up (skeleton_chain_node *parent)
 	    dw_die_ref clone = clone_die (c);
 	    move_all_children (c, clone);
 
+	    /* If the original has a DW_AT_object_pointer attribute,
+	       it would now point to a child DIE just moved to the
+	       cloned tree, so we need to remove that attribute from
+	       the original.  */
+	    remove_AT (c, DW_AT_object_pointer);
+
 	    replace_child (c, clone, prev);
 	    generate_skeleton_ancestor_tree (parent);
 	    add_child_die (parent->new_die, c);
@@ -7299,28 +7305,38 @@ break_out_comdat_types (dw_die_ref die)
   } while (next != NULL);
 }
 
-/* Like clone_tree, but additionally enter all the children into
-   the hash table decl_table.  */
+/* Like clone_tree, but copy DW_TAG_subprogram DIEs as declarations.
+   Enter all the cloned children into the hash table decl_table.  */
 
 static dw_die_ref
-clone_tree_hash (dw_die_ref die, decl_hash_type decl_table)
+clone_tree_partial (dw_die_ref die, decl_hash_type decl_table)
 {
   dw_die_ref c;
-  dw_die_ref clone = clone_die (die);
+  dw_die_ref clone;
   struct decl_table_entry *entry;
-  decl_table_entry **slot = decl_table.find_slot_with_hash (die,
-					  htab_hash_pointer (die), INSERT);
+  decl_table_entry **slot;
+
+  if (die->die_tag == DW_TAG_subprogram)
+    clone = clone_as_declaration (die);
+  else
+    clone = clone_die (die);
+
+  slot = decl_table.find_slot_with_hash (die,
+					 htab_hash_pointer (die), INSERT);
+
   /* Assert that DIE isn't in the hash table yet.  If it would be there
      before, the ancestors would be necessarily there as well, therefore
-     clone_tree_hash wouldn't be called.  */
+     clone_tree_partial wouldn't be called.  */
   gcc_assert (*slot == HTAB_EMPTY_ENTRY);
+
   entry = XCNEW (struct decl_table_entry);
   entry->orig = die;
   entry->copy = clone;
   *slot = entry;
 
-  FOR_EACH_CHILD (die, c,
-		  add_child_die (clone, clone_tree_hash (c, decl_table)));
+  if (die->die_tag != DW_TAG_subprogram)
+    FOR_EACH_CHILD (die, c,
+		    add_child_die (clone, clone_tree_partial (c, decl_table)));
 
   return clone;
 }
@@ -7371,9 +7387,15 @@ copy_decls_walk (dw_die_ref unit, dw_die_ref die, decl_hash_type decl_table)
               entry->copy = copy;
               *slot = entry;
 
-	      FOR_EACH_CHILD (targ, c,
-			      add_child_die (copy,
-					     clone_tree_hash (c, decl_table)));
+	      /* If TARG is not a declaration DIE, we need to copy its
+	         children.  */
+	      if (!is_declaration_die (targ))
+		{
+		  FOR_EACH_CHILD (
+		      targ, c,
+		      add_child_die (copy,
+				     clone_tree_partial (c, decl_table)));
+		}
 
               /* Make sure the cloned tree is marked as part of the
                  type unit.  */
@@ -10230,9 +10252,7 @@ is_cxx_auto (tree type)
 {
   if (is_cxx ())
     {
-      tree name = TYPE_NAME (type);
-      if (TREE_CODE (name) == TYPE_DECL)
-	name = DECL_NAME (name);
+      tree name = TYPE_IDENTIFIER (type);
       if (name == get_identifier ("auto")
 	  || name == get_identifier ("decltype(auto)"))
 	return true;
@@ -10509,10 +10529,7 @@ modified_type_die (tree type, int is_const_type, int is_volatile_type,
   /* This probably indicates a bug.  */
   else if (mod_type_die && mod_type_die->die_tag == DW_TAG_base_type)
     {
-      name = TYPE_NAME (type);
-      if (name
-	  && TREE_CODE (name) == TYPE_DECL)
-	name = DECL_NAME (name);
+      name = TYPE_IDENTIFIER (type);
       add_name_attribute (mod_type_die,
 			  name ? IDENTIFIER_POINTER (name) : "__unknown__");
     }
@@ -11325,8 +11342,18 @@ const_ok_for_output_1 (rtx *rtlp, void *data ATTRIBUTE_UNUSED)
       return 1;
     }
 
+  /* FIXME: Refer to PR60655. It is possible for simplification
+     of rtl expressions in var tracking to produce such expressions.
+     We should really identify / validate expressions
+     enclosed in CONST that can be handled by assemblers on various
+     targets and only handle legitimate cases here.  */
   if (GET_CODE (rtl) != SYMBOL_REF)
-    return 0;
+    {
+      if (GET_CODE (rtl) == NOT)
+	  return 1;
+
+      return 0;
+    }
 
   if (CONSTANT_POOL_ADDRESS_P (rtl))
     {
@@ -16198,21 +16225,31 @@ add_bound_info (dw_die_ref subrange_die, enum dwarf_attribute bound_attr, tree b
 	    && tree_to_shwi (bound) == dflt)
 	  ;
 
-	/* Otherwise represent the bound as an unsigned value with the
-	   precision of its type.  The precision and signedness of the
-	   type will be necessary to re-interpret it unambiguously.  */
-	else if (prec < HOST_BITS_PER_WIDE_INT)
-	  {
-	    unsigned HOST_WIDE_INT mask
-	      = ((unsigned HOST_WIDE_INT) 1 << prec) - 1;
-	    add_AT_unsigned (subrange_die, bound_attr,
-		  	     TREE_INT_CST_LOW (bound) & mask);
-	  }
-	else if (prec == HOST_BITS_PER_WIDE_INT
+	/* If HOST_WIDE_INT is big enough then represent the bound as
+	   a constant value.  We need to choose a form based on
+	   whether the type is signed or unsigned.  We cannot just
+	   call add_AT_unsigned if the value itself is positive
+	   (add_AT_unsigned might add the unsigned value encoded as
+	   DW_FORM_data[1248]).  Some DWARF consumers will lookup the
+	   bounds type and then sign extend any unsigned values found
+	   for signed types.  This is needed only for
+	   DW_AT_{lower,upper}_bound, since for most other attributes,
+	   consumers will treat DW_FORM_data[1248] as unsigned values,
+	   regardless of the underlying type.  */
+	else if (prec <= HOST_BITS_PER_WIDE_INT
 		 || TREE_INT_CST_HIGH (bound) == 0)
-	  add_AT_unsigned (subrange_die, bound_attr,
-		  	   TREE_INT_CST_LOW (bound));
+	  {
+	    if (TYPE_UNSIGNED (TREE_TYPE (bound)))
+	      add_AT_unsigned (subrange_die, bound_attr,
+			       TREE_INT_CST_LOW (bound));
+	    else
+	      add_AT_int (subrange_die, bound_attr, TREE_INT_CST_LOW (bound));
+	  }
 	else
+	  /* Otherwise represent the bound as an unsigned value with
+	     the precision of its type.  The precision and signedness
+	     of the type will be necessary to re-interpret it
+	     unambiguously.  */
 	  add_AT_double (subrange_die, bound_attr, TREE_INT_CST_HIGH (bound),
 		         TREE_INT_CST_LOW (bound));
       }
@@ -17356,22 +17393,23 @@ gen_enumeration_type_die (tree type, dw_die_ref context_die)
 
 	  if (simple_type_size_in_bits (TREE_TYPE (value))
 	      <= HOST_BITS_PER_WIDE_INT || tree_fits_shwi_p (value))
-	    /* DWARF2 does not provide a way of indicating whether or
-	       not enumeration constants are signed or unsigned.  GDB
-	       always assumes the values are signed, so we output all
-	       values as if they were signed.  That means that
-	       enumeration constants with very large unsigned values
-	       will appear to have negative values in the debugger.
-
-	       TODO: the above comment is wrong, DWARF2 does provide
-	       DW_FORM_sdata/DW_FORM_udata to represent signed/unsigned data.
-	       This should be re-worked to use correct signed/unsigned
-	       int/double tags for all cases, instead of always treating as
-	       signed.  */
-	    add_AT_int (enum_die, DW_AT_const_value, TREE_INT_CST_LOW (value));
+	    {
+	      /* For constant forms created by add_AT_unsigned DWARF
+		 consumers (GDB, elfutils, etc.) always zero extend
+		 the value.  Only when the actual value is negative
+		 do we need to use add_AT_int to generate a constant
+		 form that can represent negative values.  */
+	      HOST_WIDE_INT val = TREE_INT_CST_LOW (value);
+	      if (TYPE_UNSIGNED (TREE_TYPE (value)) || val >= 0)
+		add_AT_unsigned (enum_die, DW_AT_const_value,
+				 (unsigned HOST_WIDE_INT) val);
+	      else
+		add_AT_int (enum_die, DW_AT_const_value, val);
+	    }
 	  else
 	    /* Enumeration constants may be wider than HOST_WIDE_INT.  Handle
-	       that here.  */
+	       that here.  TODO: This should be re-worked to use correct
+	       signed/unsigned double tags for all cases.  */
 	    add_AT_double (enum_die, DW_AT_const_value,
 			   TREE_INT_CST_HIGH (value), TREE_INT_CST_LOW (value));
 	}
@@ -19846,10 +19884,9 @@ gen_type_die_with_usage (tree type, dw_die_ref context_die,
         dw_die_ref type_die = lookup_type_die (type);
         if (type_die == NULL)
           {
-	    tree name = TYPE_NAME (type);
-	    if (TREE_CODE (name) == TYPE_DECL)
-	      name = DECL_NAME (name);
-            type_die = new_die (DW_TAG_unspecified_type, comp_unit_die (), type);
+	    tree name = TYPE_IDENTIFIER (type);
+            type_die = new_die (DW_TAG_unspecified_type, comp_unit_die (),
+				type);
             add_name_attribute (type_die, IDENTIFIER_POINTER (name));
             equate_type_number_to_die (type, type_die);
           }
@@ -19859,9 +19896,7 @@ gen_type_die_with_usage (tree type, dw_die_ref context_die,
     default:
       if (is_cxx_auto (type))
 	{
-	  tree name = TYPE_NAME (type);
-	  if (TREE_CODE (name) == TYPE_DECL)
-	    name = DECL_NAME (name);
+	  tree name = TYPE_IDENTIFIER (type);
 	  dw_die_ref *die = (name == get_identifier ("auto")
 			     ? &auto_die : &decltype_auto_die);
 	  if (!*die)

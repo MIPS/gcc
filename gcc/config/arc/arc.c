@@ -550,6 +550,7 @@ static void arc_finalize_pic (void);
 
 #define TARGET_INSN_LENGTH_PARAMETERS arc_insn_length_parameters
 
+#undef TARGET_LRA_P
 #define TARGET_LRA_P arc_lra_p
 #define TARGET_REGISTER_PRIORITY arc_register_priority
 /* Stores with scaled offsets have different displacement ranges.  */
@@ -605,7 +606,6 @@ const pass_data pass_data_arc_ifcvt =
   RTL_PASS,
   "arc_ifcvt",				/* name */
   OPTGROUP_NONE,			/* optinfo_flags */
-  false,				/* has_gate */
   true,					/* has_execute */
   TV_IFCVT2,				/* tv_id */
   0,					/* properties_required */
@@ -624,7 +624,7 @@ public:
 
   /* opt_pass methods: */
   opt_pass * clone () { return new pass_arc_ifcvt (m_ctxt); }
-  unsigned int execute () { return arc_ifcvt (); }
+  virtual unsigned int execute (function *) { return arc_ifcvt (); }
 };
 
 } // anon namespace
@@ -644,7 +644,6 @@ const pass_data pass_data_arc_predicate_delay_insns =
   RTL_PASS,
   "arc_predicate_delay_insns",		/* name */
   OPTGROUP_NONE,			/* optinfo_flags */
-  false,				/* has_gate */
   true,					/* has_execute */
   TV_IFCVT2,				/* tv_id */
   0,					/* properties_required */
@@ -662,7 +661,10 @@ public:
   {}
 
   /* opt_pass methods: */
-  unsigned int execute () { return arc_predicate_delay_insns (); }
+  virtual unsigned int execute (function *)
+    {
+      return arc_predicate_delay_insns ();
+    }
 };
 
 } // anon namespace
@@ -993,7 +995,7 @@ arc_select_cc_mode (enum rtx_code op, rtx x, rtx y)
   if (GET_MODE_CLASS (mode) == MODE_INT
       && y == const0_rtx
       && (op == EQ || op == NE
-	  || ((op == LT || op == GE) && GET_MODE_SIZE (GET_MODE (x) <= 4))))
+	  || ((op == LT || op == GE) && GET_MODE_SIZE (GET_MODE (x)) <= 4)))
     return CC_ZNmode;
 
   /* add.f for if (a+b) */
@@ -1132,31 +1134,33 @@ arc_init_reg_tables (void)
 
   for (i = 0; i < NUM_MACHINE_MODES; i++)
     {
-      switch (GET_MODE_CLASS (i))
+      enum machine_mode m = (enum machine_mode) i;
+
+      switch (GET_MODE_CLASS (m))
 	{
 	case MODE_INT:
 	case MODE_PARTIAL_INT:
 	case MODE_COMPLEX_INT:
-	  if (GET_MODE_SIZE (i) <= 4)
+	  if (GET_MODE_SIZE (m) <= 4)
 	    arc_mode_class[i] = 1 << (int) S_MODE;
-	  else if (GET_MODE_SIZE (i) == 8)
+	  else if (GET_MODE_SIZE (m) == 8)
 	    arc_mode_class[i] = 1 << (int) D_MODE;
-	  else if (GET_MODE_SIZE (i) == 16)
+	  else if (GET_MODE_SIZE (m) == 16)
 	    arc_mode_class[i] = 1 << (int) T_MODE;
-	  else if (GET_MODE_SIZE (i) == 32)
+	  else if (GET_MODE_SIZE (m) == 32)
 	    arc_mode_class[i] = 1 << (int) O_MODE;
 	  else
 	    arc_mode_class[i] = 0;
 	  break;
 	case MODE_FLOAT:
 	case MODE_COMPLEX_FLOAT:
-	  if (GET_MODE_SIZE (i) <= 4)
+	  if (GET_MODE_SIZE (m) <= 4)
 	    arc_mode_class[i] = 1 << (int) SF_MODE;
-	  else if (GET_MODE_SIZE (i) == 8)
+	  else if (GET_MODE_SIZE (m) == 8)
 	    arc_mode_class[i] = 1 << (int) DF_MODE;
-	  else if (GET_MODE_SIZE (i) == 16)
+	  else if (GET_MODE_SIZE (m) == 16)
 	    arc_mode_class[i] = 1 << (int) TF_MODE;
-	  else if (GET_MODE_SIZE (i) == 32)
+	  else if (GET_MODE_SIZE (m) == 32)
 	    arc_mode_class[i] = 1 << (int) OF_MODE;
 	  else
 	    arc_mode_class[i] = 0;
@@ -2132,7 +2136,7 @@ arc_save_restore (rtx base_reg,
 	  if (*first_offset)
 	    {
 	      /* "reg_size" won't be more than 127 .  */
-	      gcc_assert (epilogue_p || abs (*first_offset <= 127));
+	      gcc_assert (epilogue_p || abs (*first_offset) <= 127);
 	      frame_add (base_reg, *first_offset);
 	      *first_offset = 0;
 	    }

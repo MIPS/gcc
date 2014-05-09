@@ -937,13 +937,13 @@ extern int arm_arch_crc;
 
 #ifndef ARM_TARGET2_DWARF_FORMAT
 #define ARM_TARGET2_DWARF_FORMAT DW_EH_PE_pcrel
+#endif
 
 /* ttype entries (the only interesting data references used)
    use TARGET2 relocations.  */
 #define ASM_PREFERRED_EH_DATA_FORMAT(code, data) \
   (((code) == 0 && (data) == 1 && ARM_UNWIND_INFO) ? ARM_TARGET2_DWARF_FORMAT \
 			       : DW_EH_PE_absptr)
-#endif
 
 /* The native (Norcroft) Pascal compiler for the ARM passes the static chain
    as an invisible last argument (possible since varargs don't exist in
@@ -1152,7 +1152,7 @@ extern int arm_regs_in_sequence[];
 
 /* Tell IRA to use the order we define rather than messing it up with its
    own cost calculations.  */
-#define HONOR_REG_ALLOC_ORDER
+#define HONOR_REG_ALLOC_ORDER 1
 
 /* Interrupt functions can only use registers that have already been
    saved by the prologue, even if they would normally be
@@ -1543,6 +1543,8 @@ typedef struct GTY(()) machine_function
   rtx thumb1_cc_op1;
   /* Also record the CC mode that is supported.  */
   enum machine_mode thumb1_cc_mode;
+  /* Set to 1 after arm_reorg has started.  */
+  int after_arm_reorg;
 }
 machine_function;
 #endif
@@ -2141,8 +2143,7 @@ extern int making_const_table;
   do { cfun->machine->thumb1_cc_insn = NULL_RTX; } while (0)
 
 #undef  ASM_APP_OFF
-#define ASM_APP_OFF (TARGET_THUMB1 ? "\t.code\t16\n" : \
-		     TARGET_THUMB2 ? "\t.thumb\n" : "")
+#define ASM_APP_OFF (TARGET_ARM ? "" : "\t.thumb\n")
 
 /* Output a push or a pop instruction (only used when profiling).
    We can't push STATIC_CHAIN_REGNUM (r12) directly with Thumb-1.  We know
@@ -2194,14 +2195,9 @@ extern int making_const_table;
 #undef ASM_OUTPUT_BEFORE_CASE_LABEL
 #define ASM_OUTPUT_BEFORE_CASE_LABEL(FILE, PREFIX, NUM, TABLE) /* Empty.  */
 
-/* Make sure subsequent insns are aligned after a TBB.  */
-#define ASM_OUTPUT_CASE_END(FILE, NUM, JUMPTABLE)	\
-  do							\
-    {							\
-      if (GET_MODE (PATTERN (JUMPTABLE)) == QImode)	\
-	ASM_OUTPUT_ALIGN (FILE, 1);			\
-    }							\
-  while (0)
+#define LABEL_ALIGN_AFTER_BARRIER(LABEL)                \
+   (GET_CODE (PATTERN (prev_active_insn (LABEL))) == ADDR_DIFF_VEC \
+   ? 1 : 0)
 
 #define ARM_DECLARE_FUNCTION_NAME(STREAM, NAME, DECL) 	\
   do							\

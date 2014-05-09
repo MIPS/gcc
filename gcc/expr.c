@@ -68,22 +68,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-address.h"
 #include "cfgexpand.h"
 
-/* Decide whether a function's arguments should be processed
-   from first to last or from last to first.
-
-   They should if the stack and args grow in opposite directions, but
-   only if we have push insns.  */
-
-#ifdef PUSH_ROUNDING
-
-#ifndef PUSH_ARGS_REVERSED
-#if defined (STACK_GROWS_DOWNWARD) != defined (ARGS_GROW_DOWNWARD)
-#define PUSH_ARGS_REVERSED	/* If it's last to first.  */
-#endif
-#endif
-
-#endif
-
 #ifndef STACK_PUSH_CODE
 #ifdef STACK_GROWS_DOWNWARD
 #define STACK_PUSH_CODE PRE_DEC
@@ -551,9 +535,9 @@ convert_move (rtx to, rtx from, int unsignedp)
       if (unsignedp)
 	fill_value = const0_rtx;
       else
-	fill_value = emit_store_flag (gen_reg_rtx (word_mode),
-				      LT, lowfrom, const0_rtx,
-				      VOIDmode, 0, -1);
+	fill_value = emit_store_flag_force (gen_reg_rtx (word_mode),
+					    LT, lowfrom, const0_rtx,
+					    lowpart_mode, 0, -1);
 
       /* Fill the remaining words.  */
       for (i = GET_MODE_SIZE (lowpart_mode) / UNITS_PER_WORD; i < nwords; i++)
@@ -2394,6 +2378,18 @@ use_reg_mode (rtx *call_fusage, rtx reg, enum machine_mode mode)
 
   *call_fusage
     = gen_rtx_EXPR_LIST (mode, gen_rtx_USE (VOIDmode, reg), *call_fusage);
+}
+
+/* Add a CLOBBER expression for REG to the (possibly empty) list pointed
+   to by CALL_FUSAGE.  REG must denote a hard register.  */
+
+void
+clobber_reg_mode (rtx *call_fusage, rtx reg, enum machine_mode mode)
+{
+  gcc_assert (REG_P (reg) && REGNO (reg) < FIRST_PSEUDO_REGISTER);
+
+  *call_fusage
+    = gen_rtx_EXPR_LIST (mode, gen_rtx_CLOBBER (VOIDmode, reg), *call_fusage);
 }
 
 /* Add USE expressions to *CALL_FUSAGE for each of NREGS consecutive regs,
@@ -4353,11 +4349,7 @@ emit_push_insn (rtx x, enum machine_mode mode, tree type, rtx size,
       /* Loop over all the words allocated on the stack for this arg.  */
       /* We can do it by words, because any scalar bigger than a word
 	 has a size a multiple of a word.  */
-#ifndef PUSH_ARGS_REVERSED
-      for (i = not_stack; i < size; i++)
-#else
       for (i = size - 1; i >= not_stack; i--)
-#endif
 	if (i >= not_stack + offset)
 	  emit_push_insn (operand_subword_force (x, i, mode),
 			  word_mode, NULL_TREE, NULL_RTX, align, 0, NULL_RTX,
@@ -9395,12 +9387,33 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       if (g)
 	{
 	  rtx r;
-	  location_t saved_loc = curr_insn_location ();
-
-	  set_curr_insn_location (gimple_location (g));
-	  r = expand_expr_real (gimple_assign_rhs_to_tree (g), target,
-				tmode, modifier, NULL, inner_reference_p);
-	  set_curr_insn_location (saved_loc);
+	  ops.code = gimple_assign_rhs_code (g);
+          switch (get_gimple_rhs_class (ops.code))
+	    {
+	    case GIMPLE_TERNARY_RHS:
+	      ops.op2 = gimple_assign_rhs3 (g);
+	      /* Fallthru */
+	    case GIMPLE_BINARY_RHS:
+	      ops.op1 = gimple_assign_rhs2 (g);
+	      /* Fallthru */
+	    case GIMPLE_UNARY_RHS:
+	      ops.op0 = gimple_assign_rhs1 (g);
+	      ops.type = TREE_TYPE (gimple_assign_lhs (g));
+	      ops.location = gimple_location (g);
+	      r = expand_expr_real_2 (&ops, target, tmode, modifier);
+	      break;
+	    case GIMPLE_SINGLE_RHS:
+	      {
+		location_t saved_loc = curr_insn_location ();
+		set_curr_insn_location (gimple_location (g));
+		r = expand_expr_real (gimple_assign_rhs1 (g), target,
+				      tmode, modifier, NULL, inner_reference_p);
+		set_curr_insn_location (saved_loc);
+		break;
+	      }
+	    default:
+	      gcc_unreachable ();
+	    }
 	  if (REG_P (r) && !REG_EXPR (r))
 	    set_reg_attrs_for_decl_rtl (SSA_NAME_VAR (exp), r);
 	  return r;

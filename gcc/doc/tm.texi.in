@@ -1849,8 +1849,8 @@ Normally, IRA tries to estimate the costs for saving a register in the
 prologue and restoring it in the epilogue.  This discourages it from
 using call-saved registers.  If a machine wants to ensure that IRA
 allocates registers in the order given by REG_ALLOC_ORDER even if some
-call-saved registers appear earlier than call-used ones, this macro
-should be defined.
+call-saved registers appear earlier than call-used ones, then define this
+macro as a C expression to nonzero. Default is 0.
 @end defmac
 
 @defmac IRA_HARD_REGNO_ADD_COST_MULTIPLIER (@var{regno})
@@ -2720,6 +2720,7 @@ This describes the stack layout and calling conventions.
 * Profiling::
 * Tail Calls::
 * Stack Smashing Protection::
+* Miscellaneous Register Hooks::
 @end menu
 
 @node Frame Layout
@@ -3963,6 +3964,8 @@ Define this macro if the code for function profiling should come before
 the function prologue.  Normally, the profiling code comes after.
 @end defmac
 
+@hook TARGET_KEEP_LEAF_WHEN_PROFILED
+
 @node Tail Calls
 @subsection Permitting tail calls
 @cindex tail calls
@@ -3984,6 +3987,12 @@ the function prologue.  Normally, the profiling code comes after.
 @hook TARGET_STACK_PROTECT_FAIL
 
 @hook TARGET_SUPPORTS_SPLIT_STACK
+
+@node Miscellaneous Register Hooks
+@subsection Miscellaneous register hooks
+@cindex miscellaneous register hooks
+
+@hook TARGET_CALL_FUSAGE_CONTAINS_NON_CALLEE_CLOBBERS
 
 @node Varargs
 @section Implementing the Varargs Macros
@@ -7447,6 +7456,8 @@ for @var{entity}.  For any fixed @var{entity}, @code{mode_priority_to_mode}
 Generate one or more insns to set @var{entity} to @var{mode}.
 @var{hard_reg_live} is the set of hard registers live at the point where
 the insn(s) are to be inserted.
+Sets of a lower numbered entity will be emitted before sets of a higher
+numbered entity to a mode of the same or lower priority.
 @end defmac
 
 @node Target Attributes

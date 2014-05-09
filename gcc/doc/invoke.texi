@@ -242,11 +242,12 @@ Objective-C and Objective-C++ Dialects}.
 -Wchar-subscripts -Wclobbered  -Wcomment -Wconditionally-supported  @gol
 -Wconversion -Wcoverage-mismatch -Wdate-time -Wdelete-incomplete -Wno-cpp  @gol
 -Wno-deprecated -Wno-deprecated-declarations -Wdisabled-optimization  @gol
+-Wno-discarded-qualifiers @gol
 -Wno-div-by-zero -Wdouble-promotion -Wempty-body  -Wenum-compare @gol
 -Wno-endif-labels -Werror  -Werror=* @gol
 -Wfatal-errors  -Wfloat-equal  -Wformat  -Wformat=2 @gol
 -Wno-format-contains-nul -Wno-format-extra-args -Wformat-nonliteral @gol
--Wformat-security  -Wformat-y2k @gol
+-Wformat-security  -Wformat-signedness  -Wformat-y2k @gol
 -Wframe-larger-than=@var{len} -Wno-free-nonheap-object -Wjump-misses-init @gol
 -Wignored-qualifiers @gol
 -Wimplicit  -Wimplicit-function-declaration  -Wimplicit-int @gol
@@ -288,7 +289,8 @@ Objective-C and Objective-C++ Dialects}.
 @item Debugging Options
 @xref{Debugging Options,,Options for Debugging Your Program or GCC}.
 @gccoptlist{-d@var{letters}  -dumpspecs  -dumpmachine  -dumpversion @gol
--fsanitize=@var{style} @gol
+-fsanitize=@var{style} -fsanitize-recover @gol
+-fsanitize-undefined-trap-on-error @gol
 -fdbg-cnt-list -fdbg-cnt=@var{counter-value-list} @gol
 -fdisable-ipa-@var{pass_name} @gol
 -fdisable-rtl-@var{pass_name} @gol
@@ -825,7 +827,8 @@ Objective-C and Objective-C++ Dialects}.
 @gccoptlist{-meb -mel -mno-crt0}
 
 @emph{MSP430 Options}
-@gccoptlist{-msim -masm-hex -mmcu= -mcpu= -mlarge -msmall -mrelax}
+@gccoptlist{-msim -masm-hex -mmcu= -mcpu= -mlarge -msmall -mrelax @gol
+-mhwmult=}
 
 @emph{NDS32 Options}
 @gccoptlist{-mbig-endian -mlittle-endian @gol
@@ -991,6 +994,7 @@ See RS/6000 and PowerPC Options.
 -mhard-quad-float  -msoft-quad-float @gol
 -mstack-bias  -mno-stack-bias @gol
 -munaligned-doubles  -mno-unaligned-doubles @gol
+-muser-mode  -mno-user-mode @gol
 -mv8plus  -mno-v8plus  -mvis  -mno-vis @gol
 -mvis2  -mno-vis2  -mvis3  -mno-vis3 @gol
 -mcbcond -mno-cbcond @gol
@@ -1070,6 +1074,7 @@ See S/390 and zSeries Options.
 -ffixed-@var{reg}  -fexceptions @gol
 -fnon-call-exceptions  -fdelete-dead-exceptions  -funwind-tables @gol
 -fasynchronous-unwind-tables @gol
+-fno-gnu-unique @gol
 -finhibit-size-directive  -finstrument-functions @gol
 -finstrument-functions-exclude-function-list=@var{sym},@var{sym},@dots{} @gol
 -finstrument-functions-exclude-file-list=@var{file},@var{file},@dots{} @gol
@@ -1088,28 +1093,6 @@ See S/390 and zSeries Options.
 -fvisibility -fstrict-volatile-bitfields -fsync-libcalls}
 @end table
 
-@menu
-* Overall Options::     Controlling the kind of output:
-                        an executable, object files, assembler files,
-                        or preprocessed source.
-* C Dialect Options::   Controlling the variant of C language compiled.
-* C++ Dialect Options:: Variations on C++.
-* Objective-C and Objective-C++ Dialect Options:: Variations on Objective-C
-                        and Objective-C++.
-* Language Independent Options:: Controlling how diagnostics should be
-                        formatted.
-* Warning Options::     How picky should the compiler be?
-* Debugging Options::   Symbol tables, measurements, and debugging dumps.
-* Optimize Options::    How much optimization?
-* Preprocessor Options:: Controlling header files and macro definitions.
-                         Also, getting dependency information for Make.
-* Assembler Options::   Passing options to the assembler.
-* Link Options::        Specifying libraries and so on.
-* Directory Options::   Where to find header files and libraries.
-                        Where to find the compiler executable files.
-* Spec Files::          How to pass switches to sub-processes.
-* Target Options::      Running a cross-compiler, or an old version of GCC.
-@end menu
 
 @node Overall Options
 @section Options Controlling the Kind of Output
@@ -2680,10 +2663,10 @@ the compiler to never throw an exception.
 @opindex Wnon-virtual-dtor
 @opindex Wno-non-virtual-dtor
 Warn when a class has virtual functions and an accessible non-virtual
-destructor itself or in a base class, or has in which case it is
-possible but unsafe to delete an instance of a derived class through a
-pointer to the base class.  This warning is automatically enabled if
-@option{-Weffc++} is specified.
+destructor itself or in an accessible polymorphic base class, in which
+case it is possible but unsafe to delete an instance of a derived
+class through a pointer to the class itself or base class.  This
+warning is automatically enabled if @option{-Weffc++} is specified.
 
 @item -Wreorder @r{(C++ and Objective-C++ only)}
 @opindex Wreorder
@@ -2753,7 +2736,9 @@ Never overload @code{&&}, @code{||}, or @code{,}.
 @end itemize
 
 This option also enables @option{-Wnon-virtual-dtor}, which is also
-one of the effective C++ recommendations.
+one of the effective C++ recommendations.  However, the check is
+extended to warn about the lack of virtual destructor in accessible
+non-polymorphic bases classes too.
 
 When selecting this option, be aware that the standard library
 headers do not obey all of these guidelines; use @samp{grep -v}
@@ -3568,7 +3553,7 @@ The C standard specifies that zero-length formats are allowed.
 @opindex Wformat=2
 Enable @option{-Wformat} plus additional format checks.  Currently
 equivalent to @option{-Wformat -Wformat-nonliteral -Wformat-security
--Wformat-y2k}.
+-Wformat-signedness -Wformat-y2k}.
 
 @item -Wformat-nonliteral
 @opindex Wformat-nonliteral
@@ -3589,6 +3574,12 @@ string came from untrusted input and contains @samp{%n}.  (This is
 currently a subset of what @option{-Wformat-nonliteral} warns about, but
 in future warnings may be added to @option{-Wformat-security} that are not
 included in @option{-Wformat-nonliteral}.)
+
+@item -Wformat-signedness
+@opindex Wformat-signedness
+@opindex Wno-format-signedness
+If @option{-Wformat} is specified, also warn if the format string
+requires an unsigned argument and the argument is signed and vice versa.
 
 @item -Wformat-y2k
 @opindex Wformat-y2k
@@ -4202,6 +4193,15 @@ This option is only active when @option{-ftree-vrp} is active
 (default for @option{-O2} and above). It warns about subscripts to arrays
 that are always out of bounds. This warning is enabled by @option{-Wall}.
 
+@item -Wno-discarded-qualifiers
+@opindex Wno-discarded-qualifiers
+@opindex Wdiscarded-qualifiers
+Do not warn if type qualifiers on pointers are being discarded.
+Typically, the compiler will warn if a @code{const char *} variable is
+passed to a function that takes @code{char *} parameter.  This option
+can be used to suppress such a warning.  This warning is only supported
+for C.
+
 @item -Wno-div-by-zero
 @opindex Wno-div-by-zero
 @opindex Wdiv-by-zero
@@ -4752,7 +4752,7 @@ Warn if a global function is defined without a previous declaration.
 Do so even if the definition itself provides a prototype.
 Use this option to detect global functions that are not declared in
 header files.  In C, no warnings are issued for functions with previous
-non-prototype declarations; use @option{-Wmissing-prototype} to detect
+non-prototype declarations; use @option{-Wmissing-prototypes} to detect
 missing prototypes.  In C++, no warnings are issued for function templates,
 or for inline functions, or for functions in anonymous namespaces.
 
@@ -5402,6 +5402,34 @@ a++;
 While @option{-ftrapv} causes traps for signed overflows to be emitted,
 @option{-fsanitize=undefined} gives a diagnostic message.
 This currently works only for the C family of languages.
+
+@item -fsanitize=float-divide-by-zero
+@opindex fsanitize=float-divide-by-zero
+
+Detect floating-point division by zero.  Unlike other similar options,
+@option{-fsanitize=float-divide-by-zero} is not enabled by
+@option{-fsanitize=undefined}, since floating-point division by zero can
+be a legitimate way of obtaining infinities and NaNs.
+
+@item -fsanitize-recover
+@opindex fsanitize-recover
+By default @option{-fsanitize=undefined} sanitization (and its suboptions
+except for @option{-fsanitize=unreachable} and @option{-fsanitize=return})
+after reporting undefined behavior attempts to continue running the
+program as if no undefined behavior happened.  This means multiple undefined
+behavior runtime errors can be reported in a single program run, and the exit
+code of the program may indicate success even when undefined behavior
+has been reported.  The @option{-fno-sanitize-recover} can be used to alter
+this behavior, only the first detected undefined behavior will be reported
+and program will exit after that with non-zero exit code.
+
+@item -fsanitize-undefined-trap-on-error
+@opindex fsanitize-undefined-trap-on-error
+The @option{-fsanitize-undefined-trap-on-error} instructs the compiler to
+report undefined behavior using @code{__builtin_trap ()} rather than
+a @code{libubsan} library routine.  The advantage of this is that the
+@code{libubsan} library is not needed and will not be linked in, so this
+is usable even for use in freestanding environments.
 
 @item -fdump-final-insns@r{[}=@var{file}@r{]}
 @opindex fdump-final-insns
@@ -7419,7 +7447,7 @@ Attempt to remove redundant extension instructions.  This is especially
 helpful for the x86-64 architecture, which implicitly zero-extends in 64-bit
 registers after writing to their lower 32-bit half.
 
-Enabled for x86 at levels @option{-O2}, @option{-O3}.
+Enabled for AArch64 and x86 at levels @option{-O2}, @option{-O3}.
 
 @item -flive-range-shrinkage
 @opindex flive-range-shrinkage
@@ -9432,7 +9460,8 @@ before applying @option{--param inline-unit-growth}.  The default is 10000.
 @item inline-unit-growth
 Specifies maximal overall growth of the compilation unit caused by inlining.
 The default value is 30 which limits unit growth to 1.3 times the original
-size.
+size. Cold functions (either marked cold via an attribibute or by profile
+feedback) are not accounted into the unit size.
 
 @item ipcp-unit-growth
 Specifies maximal overall growth of the compilation unit caused by
@@ -12992,6 +13021,9 @@ instructions because of a hardware erratum.  Skip instructions are
 @code{SBRS}, @code{SBRC}, @code{SBIS}, @code{SBIC} and @code{CPSE}.
 The second macro is only defined if @code{__AVR_HAVE_JMP_CALL__} is also
 set.
+
+@item __AVR_ISA_RMW__
+The device has Read-Modify-Write instructions (XCH, LAC, LAS and LAT).
 
 @item __AVR_SFR_OFFSET__=@var{offset}
 Instructions that can address I/O special function registers directly
@@ -18240,6 +18272,28 @@ This option is passed to the assembler and linker, and allows the
 linker to perform certain optimizations that cannot be done until
 the final link.
 
+@item mhwmult=
+@opindex mhwmult=
+Describes the type of hardware multiply supported by the target.
+Accepted values are @code{none} for no hardware multiply, @code{16bit}
+for the original 16-bit-only multiply supported by early MCUs.
+@code{32bit} for the 16/32-bit multiply supported by later MCUs and
+@code{f5series} for the 16/32-bit multiply supported by F5-series MCUs.
+A value of @code{auto} can also be given.  This tells GCC to deduce
+the hardware multiply support based upon the MCU name provided by the
+@option{-mmcu} option.  If no @option{-mmcu} option is specified then
+@code{32bit} hardware multiply support is assumed.  @code{auto} is the
+default setting.
+
+Hardware multiplies are normally performed by calling a library
+routine.  This saves space in the generated code.  When compiling at
+@code{-O3} or higher however the hardware multiplier is invoked
+inline.  This makes for bigger, but faster code.
+
+The hardware multiply routines disable interrupts whilst running and
+restore the previous interrupt state when they finish.  This makes
+them safe to use inside interrupt handlers as well as in normal code.
+
 @end table
 
 @node NDS32 Options
@@ -18503,6 +18557,12 @@ Conversion from double precision to single precision.
 @item @samp{fixsi}, @samp{fixsu}, @samp{fixdi}, @samp{fixdu}
 Conversion from floating point to signed or unsigned integer types, with
 truncation towards zero.
+
+@item @samp{round}
+Conversion from single-precision floating point to signed integer,
+rounding to the nearest integer and ties away from zero.
+This corresponds to the @code{__builtin_lroundf} function when
+@option{-fno-math-errno} is used.
 
 @item @samp{floatis}, @samp{floatus}, @samp{floatid}, @samp{floatud}
 Conversion from signed or unsigned integer types to floating-point types.
@@ -20930,6 +20990,14 @@ Specifying this option avoids some rare compatibility problems with code
 generated by other compilers.  It is not the default because it results
 in a performance loss, especially for floating-point code.
 
+@item -muser-mode
+@itemx -mno-user-mode
+@opindex muser-mode
+@opindex mno-user-mode
+Do not generate code that can only run in supervisor mode.  This is relevant
+only for the @code{casa} instruction emitted for the LEON3 processor.  The
+default is @option{-mno-user-mode}.
+
 @item -mno-faster-structs
 @itemx -mfaster-structs
 @opindex mno-faster-structs
@@ -22019,6 +22087,20 @@ that needs this handling enables it on your behalf.
 Generate unwind table in DWARF 2 format, if supported by target machine.  The
 table is exact at each instruction boundary, so it can be used for stack
 unwinding from asynchronous events (such as debugger or garbage collector).
+
+@item -fno-gnu-unique
+@opindex fno-gnu-unique
+On systems with recent GNU assembler and C library, the C++ compiler
+uses the @code{STB_GNU_UNIQUE} binding to make sure that definitions
+of template static data members and static local variables in inline
+functions are unique even in the presence of @code{RTLD_LOCAL}; this
+is necessary to avoid problems with a library used by two different
+@code{RTLD_LOCAL} plugins depending on a definition in one of them and
+therefore disagreeing with the other one about the binding of the
+symbol.  But this causes @code{dlclose} to be ignored for affected
+DSOs; if your program relies on reinitialization of a DSO via
+@code{dlclose} and @code{dlopen}, you can use
+@option{-fno-gnu-unique}.
 
 @item -fpcc-struct-return
 @opindex fpcc-struct-return

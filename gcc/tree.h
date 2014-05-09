@@ -1403,6 +1403,9 @@ extern void protected_set_expr_location (tree, location_t);
 #define OMP_CLAUSE_LINEAR_STEP(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_LINEAR), 1)
 
+#define OMP_CLAUSE_LINEAR_GIMPLE_SEQ(NODE) \
+  (OMP_CLAUSE_CHECK (NODE))->omp_clause.gimple_reduction_init
+
 #define OMP_CLAUSE_ALIGNED_ALIGNMENT(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_ALIGNED), 1)
 
@@ -1978,6 +1981,11 @@ extern void protected_set_expr_location (tree, location_t);
 /* This is the name of the object as written by the user.
    It is an IDENTIFIER_NODE.  */
 #define DECL_NAME(NODE) (DECL_MINIMAL_CHECK (NODE)->decl_minimal.name)
+
+/* The IDENTIFIER_NODE associated with the TYPE_NAME field.  */
+#define TYPE_IDENTIFIER(NODE) \
+  (TYPE_NAME (NODE) && DECL_P (TYPE_NAME (NODE)) \
+   ? DECL_NAME (TYPE_NAME (NODE)) : TYPE_NAME (NODE))
 
 /* Every ..._DECL node gets a unique number.  */
 #define DECL_UID(NODE) (DECL_MINIMAL_CHECK (NODE)->decl_minimal.uid)
@@ -4260,7 +4268,7 @@ static inline tree
 fold_build_pointer_plus_loc (location_t loc, tree ptr, tree off)
 {
   return fold_build2_loc (loc, POINTER_PLUS_EXPR, TREE_TYPE (ptr),
-			  ptr, fold_convert_loc (loc, sizetype, off));
+			  ptr, convert_to_ptrofftype_loc (loc, off));
 }
 #define fold_build_pointer_plus(p,o) \
 	fold_build_pointer_plus_loc (UNKNOWN_LOCATION, p, o)

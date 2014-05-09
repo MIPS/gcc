@@ -1385,19 +1385,21 @@ find_abi_tags_r (tree *tp, int *walk_subtrees, void *data)
 	      /* Otherwise we're diagnosing missing tags.  */
 	      else if (TYPE_P (p->subob))
 		{
-		  warning (OPT_Wabi_tag, "%qT does not have the %E abi tag "
-			   "that base %qT has", p->t, tag, p->subob);
-		  inform (location_of (p->subob), "%qT declared here",
-			  p->subob);
+		  if (warning (OPT_Wabi_tag, "%qT does not have the %E abi tag "
+			       "that base %qT has", p->t, tag, p->subob))
+		    inform (location_of (p->subob), "%qT declared here",
+			    p->subob);
 		}
 	      else
 		{
-		  warning (OPT_Wabi_tag, "%qT does not have the %E abi tag "
-			   "that %qT (used in the type of %qD) has",
-			   p->t, tag, *tp, p->subob);
-		  inform (location_of (p->subob), "%qD declared here",
-			  p->subob);
-		  inform (location_of (*tp), "%qT declared here", *tp);
+		  if (warning (OPT_Wabi_tag, "%qT does not have the %E abi tag "
+			       "that %qT (used in the type of %qD) has",
+			       p->t, tag, *tp, p->subob))
+		    {
+		      inform (location_of (p->subob), "%qD declared here",
+			      p->subob);
+		      inform (location_of (*tp), "%qT declared here", *tp);
+		    }
 		}
 	    }
 	}
@@ -3083,9 +3085,9 @@ one_inherited_ctor (tree ctor, tree t)
   one_inheriting_sig (t, ctor, new_parms, i);
   if (parms == NULL_TREE)
     {
-      warning (OPT_Winherited_variadic_ctor,
-	       "the ellipsis in %qD is not inherited", ctor);
-      inform (DECL_SOURCE_LOCATION (ctor), "%qD declared here", ctor);
+      if (warning (OPT_Winherited_variadic_ctor,
+		   "the ellipsis in %qD is not inherited", ctor))
+	inform (DECL_SOURCE_LOCATION (ctor), "%qD declared here", ctor);
     }
 }
 
@@ -4723,11 +4725,7 @@ deduce_noexcept_on_destructor (tree dtor)
 {
   if (!TYPE_RAISES_EXCEPTIONS (TREE_TYPE (dtor)))
     {
-      tree ctx = DECL_CONTEXT (dtor);
-      tree implicit_fn = implicitly_declare_fn (sfk_destructor, ctx,
-						/*const_p=*/false,
-						NULL, NULL);
-      tree eh_spec = TYPE_RAISES_EXCEPTIONS (TREE_TYPE (implicit_fn));
+      tree eh_spec = unevaluated_noexcept_spec ();
       TREE_TYPE (dtor) = build_exception_variant (TREE_TYPE (dtor), eh_spec);
     }
 }
@@ -5568,21 +5566,24 @@ check_bases_and_members (tree t)
   TYPE_HAS_COMPLEX_MOVE_ASSIGN (t) |= TYPE_CONTAINS_VPTR_P (t);
   TYPE_HAS_COMPLEX_DFLT (t) |= TYPE_CONTAINS_VPTR_P (t);
 
-  /* Warn if a base of a polymorphic type has an accessible
+  /* Warn if a public base of a polymorphic type has an accessible
      non-virtual destructor.  It is only now that we know the class is
      polymorphic.  Although a polymorphic base will have a already
      been diagnosed during its definition, we warn on use too.  */
   if (TYPE_POLYMORPHIC_P (t) && warn_nonvdtor)
     {
-      tree binfo, base_binfo;
+      tree binfo = TYPE_BINFO (t);
+      vec<tree, va_gc> *accesses = BINFO_BASE_ACCESSES (binfo);
+      tree base_binfo;
       unsigned i;
       
-      for (binfo = TYPE_BINFO (t), i = 0;
-	   BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
+      for (i = 0; BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
 	{
 	  tree basetype = TREE_TYPE (base_binfo);
 
-	  if (accessible_nvdtor_p (basetype))
+	  if ((*accesses)[i] == access_public_node
+	      && (TYPE_POLYMORPHIC_P (basetype) || warn_ecpp)
+	      && accessible_nvdtor_p (basetype))
 	    warning (OPT_Wnon_virtual_dtor,
 		     "base class %q#T has accessible non-virtual destructor",
 		     basetype);

@@ -762,6 +762,7 @@ cp_lexer_get_preprocessor_token (cp_lexer *lexer, cp_token *token)
   token->keyword = RID_MAX;
   token->pragma_kind = PRAGMA_NONE;
   token->purged_p = false;
+  token->error_reported = false;
 
   /* On some systems, some header files are surrounded by an
      implicit extern "C" block.  Set a flag in the token if it
@@ -797,7 +798,6 @@ cp_lexer_get_preprocessor_token (cp_lexer *lexer, cp_token *token)
               C_SET_RID_CODE (token->u.value, RID_MAX);
             }
 
-	  token->ambiguous_p = false;
 	  token->keyword = RID_MAX;
 	}
     }
@@ -1848,11 +1848,13 @@ cp_parser_context_new (cp_parser_context* next)
   parser->unparsed_queues->last ().funs_with_definitions
 #define unparsed_nsdmis \
   parser->unparsed_queues->last ().nsdmis
+#define unparsed_classes \
+  parser->unparsed_queues->last ().classes
 
 static void
 push_unparsed_function_queues (cp_parser *parser)
 {
-  cp_unparsed_functions_entry e = {NULL, make_tree_vector (), NULL};
+  cp_unparsed_functions_entry e = {NULL, make_tree_vector (), NULL, NULL};
   vec_safe_push (parser->unparsed_queues, e);
 }
 
@@ -3011,7 +3013,7 @@ cp_parser_parse_and_diagnose_invalid_type_name (cp_parser *parser)
   if (token->type == CPP_NESTED_NAME_SPECIFIER)
     {
       cp_token *next = cp_lexer_peek_nth_token (parser->lexer, 2);
-      if (next->type == CPP_NAME && next->ambiguous_p)
+      if (next->type == CPP_NAME && next->error_reported)
 	goto out;
     }
 
@@ -4535,7 +4537,7 @@ cp_parser_primary_expression (cp_parser *parser,
 	       we've already issued an error message; there's no reason
 	       to check again.  */
 	    if (id_expr_token->type == CPP_NAME
-		&& id_expr_token->ambiguous_p)
+		&& id_expr_token->error_reported)
 	      {
 		cp_parser_simulate_error (parser);
 		return error_mark_node;
@@ -5313,7 +5315,7 @@ cp_parser_nested_name_specifier_opt (cp_parser *parser,
 	      token = cp_lexer_consume_token (parser->lexer);
 	      if (!error_p)
 		{
-		  if (!token->ambiguous_p)
+		  if (!token->error_reported)
 		    {
 		      tree decl;
 		      tree ambiguous_decls;
@@ -8719,14 +8721,18 @@ cp_parser_lambda_expression (cp_parser* parser)
   tree lambda_expr = build_lambda_expr ();
   tree type;
   bool ok = true;
+  cp_token *token = cp_lexer_peek_token (parser->lexer);
 
-  LAMBDA_EXPR_LOCATION (lambda_expr)
-    = cp_lexer_peek_token (parser->lexer)->location;
+  LAMBDA_EXPR_LOCATION (lambda_expr) = token->location;
 
   if (cp_unevaluated_operand)
     {
-      error_at (LAMBDA_EXPR_LOCATION (lambda_expr),
-		"lambda-expression in unevaluated context");
+      if (!token->error_reported)
+	{
+	  error_at (LAMBDA_EXPR_LOCATION (lambda_expr),
+		    "lambda-expression in unevaluated context");
+	  token->error_reported = true;
+	}
       ok = false;
     }
 
@@ -8961,10 +8967,10 @@ cp_parser_lambda_introducer (cp_parser* parser, tree lambda_expr)
 	  if (VAR_P (capture_init_expr)
 	      && decl_storage_duration (capture_init_expr) != dk_auto)
 	    {
-	      pedwarn (capture_token->location, 0, "capture of variable "
-		       "%qD with non-automatic storage duration",
-		       capture_init_expr);
-	      inform (0, "%q+#D declared here", capture_init_expr);
+	      if (pedwarn (capture_token->location, 0, "capture of variable "
+			   "%qD with non-automatic storage duration",
+			   capture_init_expr))
+		inform (0, "%q+#D declared here", capture_init_expr);
 	      continue;
 	    }
 
@@ -16138,15 +16144,8 @@ cp_parser_alias_declaration (cp_parser* parser)
   if (parser->num_template_parameter_lists)
     parser->type_definition_forbidden_message = saved_message;
 
-  if (type == error_mark_node)
-    {
-      cp_parser_skip_to_end_of_block_or_statement (parser);
-      return error_mark_node;
-    }
-
-  cp_parser_require (parser, CPP_SEMICOLON, RT_SEMICOLON);
-
-  if (cp_parser_error_occurred (parser))
+  if (type == error_mark_node
+      || !cp_parser_require (parser, CPP_SEMICOLON, RT_SEMICOLON))
     {
       cp_parser_skip_to_end_of_block_or_statement (parser);
       return error_mark_node;
@@ -17837,7 +17836,7 @@ cp_parser_virt_specifier_seq_opt (cp_parser* parser)
 /* Used by handling of trailing-return-types and NSDMI, in which 'this'
    is in scope even though it isn't real.  */
 
-static void
+void
 inject_this_parameter (tree ctype, cp_cv_quals quals)
 {
   tree this_parm;
@@ -19129,7 +19128,7 @@ cp_parser_class_name (cp_parser *parser,
 
       /* Look for the identifier.  */
       identifier_token = cp_lexer_peek_token (parser->lexer);
-      ambiguous_p = identifier_token->ambiguous_p;
+      ambiguous_p = identifier_token->error_reported;
       identifier = cp_parser_identifier (parser);
       /* If the next token isn't an identifier, we are certainly not
 	 looking at a class-name.  */
@@ -19508,6 +19507,13 @@ cp_parser_class_specifier_1 (cp_parser* parser)
       current_class_ref = save_ccr;
       if (pushed_scope)
 	pop_scope (pushed_scope);
+
+      /* Now do some post-NSDMI bookkeeping.  */
+      FOR_EACH_VEC_SAFE_ELT (unparsed_classes, ix, class_type)
+	after_nsdmi_defaulted_late_checks (class_type);
+      vec_safe_truncate (unparsed_classes, 0);
+      after_nsdmi_defaulted_late_checks (type);
+
       /* Now parse the body of the functions.  */
       if (flag_openmp)
 	{
@@ -19524,6 +19530,8 @@ cp_parser_class_specifier_1 (cp_parser* parser)
 	  cp_parser_late_parsing_for_member (parser, decl);
       vec_safe_truncate (unparsed_funs_with_definitions, 0);
     }
+  else
+    vec_safe_push (unparsed_classes, type);
 
   /* Put back any saved access checks.  */
   pop_deferring_access_checks ();
@@ -28530,6 +28538,20 @@ cp_parser_omp_atomic (cp_parser *parser, cp_token *pragma_tok)
       tree id = cp_lexer_peek_token (parser->lexer)->u.value;
       const char *p = IDENTIFIER_POINTER (id);
 
+      if (!strcmp (p, "seq_cst"))
+	{
+	  seq_cst = true;
+	  cp_lexer_consume_token (parser->lexer);
+	  if (cp_lexer_next_token_is (parser->lexer, CPP_COMMA)
+	      && cp_lexer_peek_nth_token (parser->lexer, 2)->type == CPP_NAME)
+	    cp_lexer_consume_token (parser->lexer);
+	}
+    }
+  if (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
+    {
+      tree id = cp_lexer_peek_token (parser->lexer)->u.value;
+      const char *p = IDENTIFIER_POINTER (id);
+
       if (!strcmp (p, "read"))
 	code = OMP_ATOMIC_READ;
       else if (!strcmp (p, "write"))
@@ -28543,16 +28565,22 @@ cp_parser_omp_atomic (cp_parser *parser, cp_token *pragma_tok)
       if (p)
 	cp_lexer_consume_token (parser->lexer);
     }
-
-  if (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
+  if (!seq_cst)
     {
-      tree id = cp_lexer_peek_token (parser->lexer)->u.value;
-      const char *p = IDENTIFIER_POINTER (id);
+      if (cp_lexer_next_token_is (parser->lexer, CPP_COMMA)
+	  && cp_lexer_peek_nth_token (parser->lexer, 2)->type == CPP_NAME)
+	cp_lexer_consume_token (parser->lexer);
 
-      if (!strcmp (p, "seq_cst"))
+      if (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
 	{
-	  seq_cst = true;
-	  cp_lexer_consume_token (parser->lexer);
+	  tree id = cp_lexer_peek_token (parser->lexer)->u.value;
+	  const char *p = IDENTIFIER_POINTER (id);
+
+	  if (!strcmp (p, "seq_cst"))
+	    {
+	      seq_cst = true;
+	      cp_lexer_consume_token (parser->lexer);
+	    }
 	}
     }
   cp_parser_require_pragma_eol (parser, pragma_tok);
@@ -29825,10 +29853,12 @@ cp_parser_omp_parallel (cp_parser *parser, cp_token *pragma_tok,
 	return cp_parser_omp_for (parser, pragma_tok, p_name, mask, cclauses);
       block = begin_omp_parallel ();
       save = cp_parser_begin_omp_structured_block (parser);
-      cp_parser_omp_for (parser, pragma_tok, p_name, mask, cclauses);
+      tree ret = cp_parser_omp_for (parser, pragma_tok, p_name, mask, cclauses);
       cp_parser_end_omp_structured_block (parser, save);
       stmt = finish_omp_parallel (cclauses[C_OMP_CLAUSE_SPLIT_PARALLEL],
 				  block);
+      if (ret == NULL_TREE)
+	return ret;
       OMP_PARALLEL_COMBINED (stmt) = 1;
       return stmt;
     }

@@ -585,6 +585,10 @@ const struct mips_cpu_info *mips_tune_info;
 /* The ISA level associated with mips_arch.  */
 int mips_isa;
 
+/* The ISA revision level.  This is 0 for MIPS I to V and N for
+   MIPS{32,64}rN.  */
+int mips_isa_rev;
+
 /* The architecture selected by -mipsN, or null if -mipsN wasn't used.  */
 static const struct mips_cpu_info *mips_isa_option_info;
 
@@ -648,14 +652,15 @@ static mips_one_only_stub *mips16_set_fcsr_stub;
 
 /* Index R is the smallest register class that contains register R.  */
 const enum reg_class mips_regno_to_class[FIRST_PSEUDO_REGISTER] = {
-  LEA_REGS,	LEA_REGS,	M16_REGS,	V1_REG,
-  M16_REGS,	M16_REGS,	M16_REGS,	M16_REGS,
-  LEA_REGS,	LEA_REGS,	LEA_REGS,	LEA_REGS,
-  LEA_REGS,	LEA_REGS,	LEA_REGS,	LEA_REGS,
-  M16_REGS,	M16_REGS,	LEA_REGS,	LEA_REGS,
-  LEA_REGS,	LEA_REGS,	LEA_REGS,	LEA_REGS,
-  T_REG,	PIC_FN_ADDR_REG, LEA_REGS,	LEA_REGS,
-  LEA_REGS,	LEA_REGS,	LEA_REGS,	LEA_REGS,
+  LEA_REGS,        LEA_REGS,        M16_STORE_REGS,  V1_REG,
+  M16_STORE_REGS,  M16_STORE_REGS,  M16_STORE_REGS,  M16_STORE_REGS,
+  LEA_REGS,        LEA_REGS,        LEA_REGS,        LEA_REGS,
+  LEA_REGS,        LEA_REGS,        LEA_REGS,        LEA_REGS,
+  M16_REGS,        M16_STORE_REGS,  LEA_REGS,        LEA_REGS,
+  LEA_REGS,        LEA_REGS,        LEA_REGS,        LEA_REGS,
+  T_REG,           PIC_FN_ADDR_REG, LEA_REGS,        LEA_REGS,
+  LEA_REGS,        LEA_REGS,        LEA_REGS,        LEA_REGS,
+
   FP_REGS,	FP_REGS,	FP_REGS,	FP_REGS,
   FP_REGS,	FP_REGS,	FP_REGS,	FP_REGS,
   FP_REGS,	FP_REGS,	FP_REGS,	FP_REGS,
@@ -16532,7 +16537,6 @@ const pass_data pass_data_mips_machine_reorg2 =
   RTL_PASS, /* type */
   "mach2", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  false, /* has_gate */
   true, /* has_execute */
   TV_MACH_DEP, /* tv_id */
   0, /* properties_required */
@@ -16550,7 +16554,7 @@ public:
   {}
 
   /* opt_pass methods: */
-  unsigned int execute () { return mips_machine_reorg2 (); }
+  virtual unsigned int execute (function *) { return mips_machine_reorg2 (); }
 
 }; // class pass_mips_machine_reorg2
 
@@ -16900,6 +16904,10 @@ mips_set_architecture (const struct mips_cpu_info *info)
       mips_arch_info = info;
       mips_arch = info->cpu;
       mips_isa = info->isa;
+      if (mips_isa < 32)
+	mips_isa_rev = 0;
+      else
+	mips_isa_rev = (mips_isa & 31) + 1;
     }
 }
 

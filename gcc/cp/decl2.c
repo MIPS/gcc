@@ -1427,7 +1427,15 @@ cplus_decl_attributes (tree *decl, tree attributes, int flags)
   if (TREE_CODE (*decl) == TEMPLATE_DECL)
     decl = &DECL_TEMPLATE_RESULT (*decl);
 
-  decl_attributes (decl, attributes, flags);
+  if (TREE_TYPE (*decl) && TYPE_PTRMEMFUNC_P (TREE_TYPE (*decl)))
+    {
+      attributes
+	= decl_attributes (decl, attributes, flags | ATTR_FLAG_FUNCTION_NEXT);
+      decl_attributes (&TYPE_PTRMEMFUNC_FN_TYPE (TREE_TYPE (*decl)),
+		       attributes, flags);
+    }
+  else
+    decl_attributes (decl, attributes, flags);
 
   if (TREE_CODE (*decl) == TYPE_DECL)
     SET_IDENTIFIER_TYPE_VALUE (DECL_NAME (*decl), TREE_TYPE (*decl));
@@ -1796,12 +1804,19 @@ vague_linkage_p (tree decl)
   /* Unfortunately, import_export_decl has not always been called
      before the function is processed, so we cannot simply check
      DECL_COMDAT.  */
-  return (DECL_COMDAT (decl)
-	  || (((TREE_CODE (decl) == FUNCTION_DECL
-		&& DECL_DECLARED_INLINE_P (decl))
-	       || (DECL_LANG_SPECIFIC (decl)
-		   && DECL_TEMPLATE_INSTANTIATION (decl)))
-	      && TREE_PUBLIC (decl)));
+  if (DECL_COMDAT (decl)
+      || (((TREE_CODE (decl) == FUNCTION_DECL
+	    && DECL_DECLARED_INLINE_P (decl))
+	   || (DECL_LANG_SPECIFIC (decl)
+	       && DECL_TEMPLATE_INSTANTIATION (decl)))
+	  && TREE_PUBLIC (decl)))
+    return true;
+  else if (DECL_FUNCTION_SCOPE_P (decl))
+    /* A local static in an inline effectively has vague linkage.  */
+    return (TREE_STATIC (decl)
+	    && vague_linkage_p (DECL_CONTEXT (decl)));
+  else
+    return false;
 }
 
 /* Determine whether or not we want to specifically import or export CTYPE,
@@ -4798,6 +4813,9 @@ mark_used (tree decl, tsubst_flags_t complain)
   if (TREE_CODE (decl) == CONST_DECL)
     used_types_insert (DECL_CONTEXT (decl));
 
+  if (TREE_CODE (decl) == FUNCTION_DECL)
+    maybe_instantiate_noexcept (decl);
+
   if (TREE_CODE (decl) == FUNCTION_DECL
       && DECL_DELETED_FN (decl))
     {
@@ -4851,9 +4869,6 @@ mark_used (tree decl, tsubst_flags_t complain)
       vec_safe_push (deferred_mark_used_calls, decl);
       return true;
     }
-
-  if (TREE_CODE (decl) == FUNCTION_DECL)
-    maybe_instantiate_noexcept (decl);
 
   /* Normally, we can wait until instantiation-time to synthesize DECL.
      However, if DECL is a static data member initialized with a constant

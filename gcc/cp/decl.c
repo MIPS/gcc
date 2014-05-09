@@ -1167,15 +1167,18 @@ static void
 check_redeclaration_exception_specification (tree new_decl,
 					     tree old_decl)
 {
-  tree new_type;
-  tree old_type;
-  tree new_exceptions;
-  tree old_exceptions;
+  tree new_exceptions = TYPE_RAISES_EXCEPTIONS (TREE_TYPE (new_decl));
+  tree old_exceptions = TYPE_RAISES_EXCEPTIONS (TREE_TYPE (old_decl));
 
-  new_type = TREE_TYPE (new_decl);
-  new_exceptions = TYPE_RAISES_EXCEPTIONS (new_type);
-  old_type = TREE_TYPE (old_decl);
-  old_exceptions = TYPE_RAISES_EXCEPTIONS (old_type);
+  /* Two default specs are equivalent, don't force evaluation.  */
+  if (UNEVALUATED_NOEXCEPT_SPEC_P (new_exceptions)
+      && UNEVALUATED_NOEXCEPT_SPEC_P (old_exceptions))
+    return;
+
+  maybe_instantiate_noexcept (new_decl);
+  maybe_instantiate_noexcept (old_decl);
+  new_exceptions = TYPE_RAISES_EXCEPTIONS (TREE_TYPE (new_decl));
+  old_exceptions = TYPE_RAISES_EXCEPTIONS (TREE_TYPE (old_decl));
 
   /* [except.spec]
 
@@ -1380,7 +1383,6 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 		    tree t = TREE_VALUE (t1);
 
 		    if (TYPE_PTR_P (t)
-			&& TYPE_NAME (TREE_TYPE (t))
 			&& TYPE_IDENTIFIER (TREE_TYPE (t))
 			   == get_identifier ("FILE")
 			&& compparms (TREE_CHAIN (t1), TREE_CHAIN (t2)))
@@ -1648,10 +1650,10 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	       && prototype_p (TREE_TYPE (newdecl)))
 	{
 	  /* Prototype decl follows defn w/o prototype.  */
-	  warning_at (DECL_SOURCE_LOCATION (newdecl), 0,
-		      "prototype specified for %q#D", newdecl);
-	  inform (DECL_SOURCE_LOCATION (olddecl),
-		  "previous non-prototype definition here");
+	  if (warning_at (DECL_SOURCE_LOCATION (newdecl), 0,
+			  "prototype specified for %q#D", newdecl))
+	    inform (DECL_SOURCE_LOCATION (olddecl),
+		    "previous non-prototype definition here");
 	}
       else if (VAR_OR_FUNCTION_DECL_P (olddecl)
 	       && DECL_LANGUAGE (newdecl) != DECL_LANGUAGE (olddecl))
@@ -1916,12 +1918,12 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 
   if (types_match)
     {
+      if (TREE_CODE (newdecl) == FUNCTION_DECL)
+	check_redeclaration_exception_specification (newdecl, olddecl);
+
       /* Automatically handles default parameters.  */
       tree oldtype = TREE_TYPE (olddecl);
       tree newtype;
-
-      if (TREE_CODE (newdecl) == FUNCTION_DECL)
-	maybe_instantiate_noexcept (olddecl);
 
       /* For typedefs use the old type, as the new type's DECL_NAME points
 	 at newdecl, which will be ggc_freed.  */
@@ -1953,10 +1955,6 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	    }
 	}
 
-      /* Do this after calling `merge_types' so that default
-	 parameters don't confuse us.  */
-      else if (TREE_CODE (newdecl) == FUNCTION_DECL)
-	check_redeclaration_exception_specification (newdecl, olddecl);
       TREE_TYPE (newdecl) = TREE_TYPE (olddecl) = newtype;
 
       if (TREE_CODE (newdecl) == FUNCTION_DECL)
@@ -2785,12 +2783,11 @@ decl_jump_unsafe (tree decl)
       || type == error_mark_node)
     return 0;
 
-  type = strip_array_types (type);
-
-  if (DECL_NONTRIVIALLY_INITIALIZED_P (decl))
+  if (DECL_NONTRIVIALLY_INITIALIZED_P (decl)
+      || variably_modified_type_p (type, NULL_TREE))
     return 2;
 
-  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TREE_TYPE (decl)))
+  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type))
     return 1;
 
   return 0;
@@ -3848,8 +3845,12 @@ cxx_init_decl_processing (void)
     newtype = build_exception_variant (newtype, new_eh_spec);
     deltype = cp_build_type_attribute_variant (void_ftype_ptr, extvisattr);
     deltype = build_exception_variant (deltype, empty_except_spec);
-    DECL_IS_OPERATOR_NEW (push_cp_library_fn (NEW_EXPR, newtype, 0)) = 1;
-    DECL_IS_OPERATOR_NEW (push_cp_library_fn (VEC_NEW_EXPR, newtype, 0)) = 1;
+    tree opnew = push_cp_library_fn (NEW_EXPR, newtype, 0);
+    DECL_IS_MALLOC (opnew) = 1;
+    DECL_IS_OPERATOR_NEW (opnew) = 1;
+    opnew = push_cp_library_fn (VEC_NEW_EXPR, newtype, 0);
+    DECL_IS_MALLOC (opnew) = 1;
+    DECL_IS_OPERATOR_NEW (opnew) = 1;
     global_delete_fndecl = push_cp_library_fn (DELETE_EXPR, deltype, ECF_NOTHROW);
     push_cp_library_fn (VEC_DELETE_EXPR, deltype, ECF_NOTHROW);
 
@@ -4242,12 +4243,12 @@ warn_misplaced_attr_for_class_type (source_location location,
 {
   gcc_assert (OVERLOAD_TYPE_P (class_type));
 
-  warning_at (location, OPT_Wattributes,
-	      "attribute ignored in declaration "
-	      "of %q#T", class_type);
-  inform (location,
-	  "attribute for %q#T must follow the %qs keyword",
-	  class_type, class_key_or_enum_as_string (class_type));
+  if (warning_at (location, OPT_Wattributes,
+		  "attribute ignored in declaration "
+		  "of %q#T", class_type))
+    inform (location,
+	    "attribute for %q#T must follow the %qs keyword",
+	    class_type, class_key_or_enum_as_string (class_type));
 }
 
 /* Make sure that a declaration with no declarator is well-formed, i.e.
@@ -4374,12 +4375,12 @@ check_tag_decl (cp_decl_specifier_seq *declspecs,
 	       No attribute-specifier-seq shall appertain to an explicit
 	       instantiation.  */
 	{
-	  warning_at (loc, OPT_Wattributes,
-		      "attribute ignored in explicit instantiation %q#T",
-		      declared_type);
-	  inform (loc,
-		  "no attribute can be applied to "
-		  "an explicit instantiation");
+	  if (warning_at (loc, OPT_Wattributes,
+			  "attribute ignored in explicit instantiation %q#T",
+			  declared_type))
+	    inform (loc,
+		    "no attribute can be applied to "
+		    "an explicit instantiation");
 	}
       else
 	warn_misplaced_attr_for_class_type (loc, declared_type);
@@ -5398,6 +5399,18 @@ reshape_init_r (tree type, reshape_iter *d, bool first_initializer_p,
 	    maybe_warn_cpp0x (CPP0X_INITIALIZER_LISTS);
 	}
 
+      d->cur++;
+      return init;
+    }
+
+  /* "If T is a class type and the initializer list has a single element of
+     type cv U, where U is T or a class derived from T, the object is
+     initialized from that element."  Even if T is an aggregate.  */
+  if (cxx_dialect >= cxx11 && (CLASS_TYPE_P (type) || VECTOR_TYPE_P (type))
+      && first_initializer_p
+      && d->end - d->cur == 1
+      && reference_related_p (type, TREE_TYPE (init)))
+    {
       d->cur++;
       return init;
     }
@@ -6441,7 +6454,24 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
      after the call to check_initializer so that the DECL_EXPR for a
      reference temp is added before the DECL_EXPR for the reference itself.  */
   if (DECL_FUNCTION_SCOPE_P (decl))
-    add_decl_expr (decl);
+    {
+      /* If we're building a variable sized type, and we might be
+	 reachable other than via the top of the current binding
+	 level, then create a new BIND_EXPR so that we deallocate
+	 the object at the right time.  */
+      if (VAR_P (decl)
+	  && DECL_SIZE (decl)
+	  && !TREE_CONSTANT (DECL_SIZE (decl))
+	  && STATEMENT_LIST_HAS_LABEL (cur_stmt_list))
+	{
+	  tree bind;
+	  bind = build3 (BIND_EXPR, void_type_node, NULL, NULL, NULL);
+	  TREE_SIDE_EFFECTS (bind) = 1;
+	  add_stmt (bind);
+	  BIND_EXPR_BODY (bind) = push_stmt_list ();
+	}
+      add_decl_expr (decl);
+    }
 
   /* Let the middle end know about variables and functions -- but not
      static data members in uninstantiated class templates.  */
@@ -7792,6 +7822,8 @@ grokfndecl (tree ctype,
 		     decl, ctype);
 	      return NULL_TREE;
 	    }
+	  if (ok == error_mark_node)
+	    return NULL_TREE;
 	  return old_decl;
 	}
     }
@@ -13403,6 +13435,9 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
      linkage is set.  */
   if (!DECL_CLONED_FUNCTION_P (decl1))
     determine_visibility (decl1);
+
+  if (!processing_template_decl)
+    maybe_instantiate_noexcept (decl1);
 
   begin_scope (sk_function_parms, decl1);
 

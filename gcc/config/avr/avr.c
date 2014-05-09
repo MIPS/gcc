@@ -290,6 +290,12 @@ avr_to_int_mode (rtx x)
 static void
 avr_option_override (void)
 {
+  /* Disable -fdelete-null-pointer-checks option for AVR target.
+     This option compiler assumes that dereferencing of a null pointer
+     would halt the program.  For AVR this assumption is not true and
+     programs can safely dereference null pointers.  Changes made by this
+     option may not work properly for AVR.  So disable this option. */
+
   flag_delete_null_pointer_checks = 0;
 
   /* caller-save.c looks for call-clobbered hard registers that are assigned
@@ -7770,8 +7776,8 @@ avr_adjust_insn_length (rtx insn, int len)
      the length need not/must not be adjusted for these insns.
      It is easier to state this in an insn attribute "adjust_len" than
      to clutter up code here...  */
-
-  if (-1 == recog_memoized (insn))
+  
+  if (JUMP_TABLE_DATA_P (insn) || recog_memoized (insn) == -1)
     {
       return len;
     }
@@ -10120,7 +10126,7 @@ test_hard_reg_class (enum reg_class rclass, rtx x)
 static bool
 avr_2word_insn_p (rtx insn)
 {
-  if (avr_current_device->errata_skip
+  if ((avr_current_device->dev_attribute & AVR_ERRATA_SKIP)
       || !insn
       || 2 != get_attr_length (insn))
     {

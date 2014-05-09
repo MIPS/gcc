@@ -50,6 +50,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "data-streamer.h"
 #include "context.h"
 #include "pass_manager.h"
+#include "ipa-inline.h"
+#include "params.h"
 
 
 /* Number of parallel tasks to run, -1 if we want to use GNU Make jobserver.  */
@@ -2624,13 +2626,13 @@ lto_wpa_write_files (void)
 	      if (!lto_symtab_encoder_in_partition_p (part->encoder, node))
 		{
 	          fprintf (cgraph_dump_file, "%s ", node->asm_name ());
-		  cgraph_node *cnode = dyn_cast <cgraph_node> (node);
+		  cgraph_node *cnode = dyn_cast <cgraph_node *> (node);
 		  if (cnode
 		      && lto_symtab_encoder_encode_body_p (part->encoder, cnode))
 		    fprintf (cgraph_dump_file, "(body included)");
 		  else
 		    {
-		      varpool_node *vnode = dyn_cast <varpool_node> (node);
+		      varpool_node *vnode = dyn_cast <varpool_node *> (node);
 		      if (vnode
 			  && lto_symtab_encoder_encode_initializer_p (part->encoder, vnode))
 			fprintf (cgraph_dump_file, "(initializer included)");
@@ -3271,12 +3273,20 @@ do_whole_program_analysis (void)
   timevar_pop (TV_WHOPR_WPA);
 
   timevar_push (TV_WHOPR_PARTITIONING);
-  if (flag_lto_partition_1to1)
+  if (flag_lto_partition == LTO_PARTITION_1TO1)
     lto_1_to_1_map ();
-  else if (flag_lto_partition_max)
+  else if (flag_lto_partition == LTO_PARTITION_MAX)
     lto_max_map ();
+  else if (flag_lto_partition == LTO_PARTITION_ONE)
+    lto_balanced_map (1);
+  else if (flag_lto_partition == LTO_PARTITION_BALANCED)
+    lto_balanced_map (PARAM_VALUE (PARAM_LTO_PARTITIONS));
   else
-    lto_balanced_map ();
+    gcc_unreachable ();
+
+  /* Inline summaries are needed for balanced partitioning.  Free them now so
+     the memory can be used for streamer caches.  */
+  inline_free_summary ();
 
   /* AUX pointers are used by partitioning code to bookkeep number of
      partitions symbol is in.  This is no longer needed.  */

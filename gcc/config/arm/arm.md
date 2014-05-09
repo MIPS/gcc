@@ -2784,8 +2784,8 @@
 
 (define_insn "insv_zero"
   [(set (zero_extract:SI (match_operand:SI 0 "s_register_operand" "+r")
-                         (match_operand:SI 1 "const_int_operand" "M")
-                         (match_operand:SI 2 "const_int_operand" "M"))
+                         (match_operand:SI 1 "const_int_M_operand" "M")
+                         (match_operand:SI 2 "const_int_M_operand" "M"))
         (const_int 0))]
   "arm_arch_thumb2"
   "bfc%?\t%0, %2, %1"
@@ -2797,8 +2797,8 @@
 
 (define_insn "insv_t2"
   [(set (zero_extract:SI (match_operand:SI 0 "s_register_operand" "+r")
-                         (match_operand:SI 1 "const_int_operand" "M")
-                         (match_operand:SI 2 "const_int_operand" "M"))
+                         (match_operand:SI 1 "const_int_M_operand" "M")
+                         (match_operand:SI 2 "const_int_M_operand" "M"))
         (match_operand:SI 3 "s_register_operand" "r"))]
   "arm_arch_thumb2"
   "bfi%?\t%0, %3, %2, %1"
@@ -2858,6 +2858,28 @@
     operands[1] = gen_lowpart (SImode, operands[1]);
   }"
   [(set_attr "length" "4,8")
+   (set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
+   (set_attr "type" "multiple")]
+)
+
+(define_insn_and_split "*anddi_notdi_zesidi"
+  [(set (match_operand:DI 0 "s_register_operand" "=r")
+        (and:DI (not:DI (match_operand:DI 2 "s_register_operand" "r"))
+                (zero_extend:DI
+                 (match_operand:SI 1 "s_register_operand" "r"))))]
+  "TARGET_32BIT"
+  "#"
+  "TARGET_32BIT && reload_completed"
+  [(set (match_dup 0) (and:SI (not:SI (match_dup 2)) (match_dup 1)))
+   (set (match_dup 3) (const_int 0))]
+  "
+  {
+    operands[3] = gen_highpart (SImode, operands[0]);
+    operands[0] = gen_lowpart (SImode, operands[0]);
+    operands[2] = gen_lowpart (SImode, operands[2]);
+  }"
+  [(set_attr "length" "8")
    (set_attr "predicable" "yes")
    (set_attr "predicable_short_it" "no")
    (set_attr "type" "multiple")]
@@ -4480,8 +4502,8 @@
 (define_insn "*extv_reg"
   [(set (match_operand:SI 0 "s_register_operand" "=r")
 	(sign_extract:SI (match_operand:SI 1 "s_register_operand" "r")
-                         (match_operand:SI 2 "const_int_operand" "M")
-                         (match_operand:SI 3 "const_int_operand" "M")))]
+                         (match_operand:SI 2 "const_int_M_operand" "M")
+                         (match_operand:SI 3 "const_int_M_operand" "M")))]
   "arm_arch_thumb2"
   "sbfx%?\t%0, %1, %3, %2"
   [(set_attr "length" "4")
@@ -4493,8 +4515,8 @@
 (define_insn "extzv_t2"
   [(set (match_operand:SI 0 "s_register_operand" "=r")
 	(zero_extract:SI (match_operand:SI 1 "s_register_operand" "r")
-                         (match_operand:SI 2 "const_int_operand" "M")
-                         (match_operand:SI 3 "const_int_operand" "M")))]
+                         (match_operand:SI 2 "const_int_M_operand" "M")
+                         (match_operand:SI 3 "const_int_M_operand" "M")))]
   "arm_arch_thumb2"
   "ubfx%?\t%0, %1, %3, %2"
   [(set_attr "length" "4")
@@ -9345,8 +9367,10 @@
   "TARGET_32BIT"
   "
   {
-    if (!REG_P (XEXP (operands[0], 0))
-       && (GET_CODE (XEXP (operands[0], 0)) != SYMBOL_REF))
+    if ((!REG_P (XEXP (operands[0], 0))
+	 && GET_CODE (XEXP (operands[0], 0)) != SYMBOL_REF)
+	|| (GET_CODE (XEXP (operands[0], 0)) == SYMBOL_REF
+	    && arm_is_long_call_p (SYMBOL_REF_DECL (XEXP (operands[0], 0)))))
      XEXP (operands[0], 0) = force_reg (SImode, XEXP (operands[0], 0));
 
     if (operands[2] == NULL_RTX)
@@ -9363,8 +9387,10 @@
   "TARGET_32BIT"
   "
   {
-    if (!REG_P (XEXP (operands[1], 0)) &&
-       (GET_CODE (XEXP (operands[1],0)) != SYMBOL_REF))
+    if ((!REG_P (XEXP (operands[1], 0))
+	 && GET_CODE (XEXP (operands[1], 0)) != SYMBOL_REF)
+	|| (GET_CODE (XEXP (operands[1], 0)) == SYMBOL_REF
+	    && arm_is_long_call_p (SYMBOL_REF_DECL (XEXP (operands[1], 0)))))
      XEXP (operands[1], 0) = force_reg (SImode, XEXP (operands[1], 0));
 
     if (operands[3] == NULL_RTX)
@@ -12073,7 +12099,7 @@
   [(match_parallel 0 "load_multiple_operation"
     [(set (match_operand:SI 1 "s_register_operand" "+rk")
           (plus:SI (match_dup 1)
-                   (match_operand:SI 2 "const_int_operand" "I")))
+                   (match_operand:SI 2 "const_int_I_operand" "I")))
      (set (match_operand:SI 3 "s_register_operand" "=rk")
           (mem:SI (match_dup 1)))
         ])]
@@ -12102,7 +12128,7 @@
     [(return)
      (set (match_operand:SI 1 "s_register_operand" "+rk")
           (plus:SI (match_dup 1)
-                   (match_operand:SI 2 "const_int_operand" "I")))
+                   (match_operand:SI 2 "const_int_I_operand" "I")))
      (set (match_operand:SI 3 "s_register_operand" "=rk")
           (mem:SI (match_dup 1)))
         ])]
@@ -12155,7 +12181,7 @@
   [(match_parallel 0 "pop_multiple_fp"
     [(set (match_operand:SI 1 "s_register_operand" "+rk")
           (plus:SI (match_dup 1)
-                   (match_operand:SI 2 "const_int_operand" "I")))
+                   (match_operand:SI 2 "const_int_I_operand" "I")))
      (set (match_operand:DF 3 "vfp_hard_register_operand" "")
           (mem:DF (match_dup 1)))])]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP"
@@ -12663,6 +12689,44 @@
    rev16\t%0, %1
    rev16%?\t%0, %1
    rev16%?\t%0, %1"
+  [(set_attr "arch" "t1,t2,32")
+   (set_attr "length" "2,2,4")
+   (set_attr "type" "rev")]
+)
+
+;; There are no canonicalisation rules for the position of the lshiftrt, ashift
+;; operations within an IOR/AND RTX, therefore we have two patterns matching
+;; each valid permutation.
+
+(define_insn "arm_rev16si2"
+  [(set (match_operand:SI 0 "register_operand" "=l,l,r")
+        (ior:SI (and:SI (ashift:SI (match_operand:SI 1 "register_operand" "l,l,r")
+                                   (const_int 8))
+                        (match_operand:SI 3 "const_int_operand" "n,n,n"))
+                (and:SI (lshiftrt:SI (match_dup 1)
+                                     (const_int 8))
+                        (match_operand:SI 2 "const_int_operand" "n,n,n"))))]
+  "arm_arch6
+   && aarch_rev16_shleft_mask_imm_p (operands[3], SImode)
+   && aarch_rev16_shright_mask_imm_p (operands[2], SImode)"
+  "rev16\\t%0, %1"
+  [(set_attr "arch" "t1,t2,32")
+   (set_attr "length" "2,2,4")
+   (set_attr "type" "rev")]
+)
+
+(define_insn "arm_rev16si2_alt"
+  [(set (match_operand:SI 0 "register_operand" "=l,l,r")
+        (ior:SI (and:SI (lshiftrt:SI (match_operand:SI 1 "register_operand" "l,l,r")
+                                     (const_int 8))
+                        (match_operand:SI 2 "const_int_operand" "n,n,n"))
+                (and:SI (ashift:SI (match_dup 1)
+                                   (const_int 8))
+                        (match_operand:SI 3 "const_int_operand" "n,n,n"))))]
+  "arm_arch6
+   && aarch_rev16_shleft_mask_imm_p (operands[3], SImode)
+   && aarch_rev16_shright_mask_imm_p (operands[2], SImode)"
+  "rev16\\t%0, %1"
   [(set_attr "arch" "t1,t2,32")
    (set_attr "length" "2,2,4")
    (set_attr "type" "rev")]
