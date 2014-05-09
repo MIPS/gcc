@@ -1,5 +1,13 @@
 2014-05-08  Andrew Pinski  <apinski@cavium.com>
 
+	* testsuite/gcc.target/mips/ins-3.c: Disable for -O0.
+	* testsuite/gcc.target/mips/ins-4.c: Disable for -O0.
+	* testsuite/gcc.target/mips/ins-6.c: Disable for -O0.
+	* testsuite/gcc.target/mips/ins-7.c: Disable for -O0.
+	* testsuite/gcc.target/mips/ins-8.c: Disable for -O0.
+
+2014-05-08  Andrew Pinski  <apinski@cavium.com>
+
 	* testsuite/gcc.target/mips/unaligned-3.c: Disable loop unrolling.
 
 2014-05-08  Andrew Pinski  <apinski@cavium.com>

@@ -1,4 +1,5 @@
 /* { dg-options "-mgp64 isa_rev>=2" } */
+/* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 /* { dg-final { scan-assembler-not "andi\t" } } */
 /* { dg-final { scan-assembler-times "or\t" 1 } } */
 /* { dg-final { scan-assembler-times "ins\t" 1 } } */

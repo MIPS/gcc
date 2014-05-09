@@ -1,4 +1,5 @@
 /* { dg-options "isa_rev>=2 -mgp64" } */
+/* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 /* { dg-final { scan-assembler-times "\\tli\[^\\n\]+,-1" 4 } } */
 /* { dg-final { scan-assembler-times "dins" 4 } } */
 /* { dg-final { scan-assembler-times "\\tins" 1 } } */
