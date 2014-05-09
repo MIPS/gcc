@@ -2232,14 +2232,14 @@ enum reg_class
 #define OUTGOING_REG_PARM_STACK_SPACE(FNTYPE) 1
 
 /* Define this if STACK_BOUNDRAY and MIPS_STACK_ALIGN should be
- * compatible with -msa code.
+ * compatible with -mmsa code.
  */
 #define MSA_COMPATIBLE \
   ((TARGET_NEWABI || TARGET_MSA) || (TARGET_MSA_COMPAT && TARGET_FLOAT64))
 
 /* Because we want to allow MSA functions and non-MSA functions to
    call + each other and MSA always requires -mfp64, we set stack
-   boundary to + 128 bits when newabi, -mmsa or -mmsa-compat and -mfp64.  */
+   boundary to 128 if -mmsa or -msa_compat and -mfp64 bits otherwise 64. */
 #define STACK_BOUNDARY \
   (MSA_COMPATIBLE ? 128 : 64)
 
