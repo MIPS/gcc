@@ -1,5 +1,9 @@
 2014-05-08  Andrew Pinski  <apinski@cavium.com>
 
+	* testsuite/gcc.target/mips/unaligned-3.c: Disable loop unrolling.
+
+2014-05-08  Andrew Pinski  <apinski@cavium.com>
+
 	* testsuite/gcc.target/mips/unaligned-1.c: Add -mno-octeon-useun.
 	* testsuite/gcc.target/mips/unaligned-2.c: Skip -O0.
 

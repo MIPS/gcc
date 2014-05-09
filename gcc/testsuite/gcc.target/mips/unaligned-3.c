@@ -1,4 +1,4 @@
-/* { dg-options "-mgp64" } */
+/* { dg-options "-mgp64 -fno-unroll-loops" } */
 /* Make sure that IV-OPTS does not produce a non unaligned
    access to p[i].s. */
 /* { dg-final { scan-assembler-times "uld\\t|ldr\\t" 3 } } */
