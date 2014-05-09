@@ -1,4 +1,4 @@
-/* { dg-options "-mgp64" } */
+/* { dg-options "-mgp64 -mno-octeon-useun" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 /* { dg-final { scan-assembler-times "\tsdl\t" 1 } } */
 /* { dg-final { scan-assembler-times "\tsdr\t" 1 } } */

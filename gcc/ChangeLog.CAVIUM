@@ -1,3 +1,8 @@
+2014-05-08  Andrew Pinski  <apinski@cavium.com>
+
+	* testsuite/gcc.target/mips/unaligned-1.c: Add -mno-octeon-useun.
+	* testsuite/gcc.target/mips/unaligned-2.c: Skip -O0.
+
 2012-07-19  Andrew Pinski  <apinski@cavium.com>
 
         * testsuite/gcc.target/mips/mips.exp (mips_option_tests): New test.

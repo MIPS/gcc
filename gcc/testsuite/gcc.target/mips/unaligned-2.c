@@ -1,5 +1,6 @@
 /* { dg-do compile } */
 /* { dg-options "isa_rev>=2" } */
+/* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 /* Load from an unaligned short, should only produce an ins and
    no other sign or zero extend instructions. */
 /* { dg-final { scan-assembler "ins\t" } } */
