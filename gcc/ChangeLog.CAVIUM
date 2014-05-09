@@ -1,3 +1,9 @@
+2014-05-09  Andrew Pinski  <apinski@cavium.com>
+
+	* testsuite/gcc.target/mips/shift-1.c: Disable for -O0.
+	* testsuite/gcc.target/mips/movcc-4.c: Disable for -O0
+	* testsuite/gcc.target/mips/ext-14.c: Disable for -O0.
+
 2014-05-08  Andrew Pinski  <apinski@cavium.com>
 
 	* testsuite/gcc.target/mips/ins-3.c: Disable for -O0.

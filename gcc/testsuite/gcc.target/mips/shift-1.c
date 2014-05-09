@@ -1,5 +1,6 @@
 /* { dg-do compile } */
 /* { dg-options "-mgp64" } */
+/* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 /* { dg-final { scan-assembler-not "\tsra\t" } } */
 /* { dg-final { scan-assembler-times "\tdsra\t" 3 } } */
 int f(long long a)

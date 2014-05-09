@@ -1,5 +1,6 @@
 /* None of these extractions need shifting later.  */
 /* { dg-options "isa_rev>=2" } */
+/* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 /* { dg-final { scan-assembler-not "sll" } } */
 /* { dg-final { scan-assembler-times "ext\\t" 5 } } */
 
