@@ -1,3 +1,8 @@
+2014-05-11  Tobias Burnus  <burnus@net-b.de>
+
+	* caf/single.c (_gfortran_caf_get_desc,
+	 _gfortran_caf_send_desc): Fix stride calculation.
+
 2014-04-20  Tobias Burnus  <burnus@net-b.de>
 
 	* caf/libcaf.h (_gfortran_caf_co_sum, _gfortran_caf_co_min,
