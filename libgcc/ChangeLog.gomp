@@ -1,6 +1,8 @@
 2014-05-12  Bernd Schmidt  <bernds@codesourcery.com>
 
-	libgcc/
+	* ompstuff.c (_omp_func_table, _omp_var_table, _omp_funcs_end,
+	_omp_vars_end): Fix section names to match gcc.
+
 	* Makefile.in (crtompbegin$(objext)): New rule.
 	* configure.ac (extra_parts): Also include crtompbegin.o if we have
 	offload targets.

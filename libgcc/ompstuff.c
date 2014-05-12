@@ -44,10 +44,10 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #if defined(HAVE_GAS_HIDDEN) && defined(ENABLE_OFFLOADING)
 void *_omp_func_table[0]
   __attribute__ ((__used__, visibility ("hidden"),
-		  section (".offload_func_table_section"))) = { };
+		  section ("__gnu_offload_funcs"))) = { };
 void *_omp_var_table[0]
   __attribute__ ((__used__, visibility ("hidden"),
-		  section (".offload_var_table_section"))) = { };
+		  section ("__gnu_offload_vars"))) = { };
 #endif
 
 #elif defined CRT_END
@@ -55,10 +55,10 @@ void *_omp_var_table[0]
 #if defined(HAVE_GAS_HIDDEN) && defined(ENABLE_OFFLOADING)
 void *_omp_funcs_end[0]
   __attribute__ ((__used__, visibility ("hidden"),
-		  section (".offload_func_table_section"))) = { };
+		  section ("__gnu_offload_funcs"))) = { };
 void *_omp_vars_end[0]
   __attribute__ ((__used__, visibility ("hidden"),
-		  section (".offload_var_table_section"))) = { };
+		  section ("__gnu_offload_vars"))) = { };
 extern void *_omp_func_table[];
 extern void *_omp_var_table[];
 void *__OPENMP_TARGET__[] __attribute__ ((__visibility__ ("hidden"))) =
