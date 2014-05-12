@@ -1,3 +1,16 @@
+2014-05-12  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Reapply the old IBM 4.8 branch patches that are not upstream.
+
+	Back port from mainline
+	2013-08-01  Fabien Chêne  <fabien@gcc.gnu.org>
+		    Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR c++/54537
+	* g++.dg/overload/using3.C: New.
+	* g++.dg/overload/using2.C: Adjust.
+	* g++.dg/lookup/using9.C: Likewise.
+
 2014-05-05  Peter Bergner  <bergner@vnet.ibm.com>
 
 	Merge up to 210069.

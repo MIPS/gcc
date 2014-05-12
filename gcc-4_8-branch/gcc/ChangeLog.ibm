@@ -1,3 +1,67 @@
+2014-05-12  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Reapply the old IBM 4.8 branch patches that are not upstream.
+
+	Back port mainline subversion id 209025.
+	2014-04-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/60735
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): If we have
+	software floating point or no floating point registers, do not
+	allow any type in the FPRs.  Eliminate a test for SPE SIMD types
+	in GPRs that occurs after we tested for GPRs that would never be
+	true.
+
+	Back port from main line:
+	2014-03-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/constraints.md (wD constraint): New constraint to
+	match the constant integer to get the top DImode/DFmode out of a
+	vector in a VSX register.
+
+	* config/rs6000/predicates.md (vsx_scalar_64bit): New predicate to
+	match the constant integer to get the top DImode/DFmode out of a
+	vector in a VSX register.
+
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): If
+	-mdebug=reg, print value of VECTOR_ELEMENT_SCALAR_64BIT.
+
+	* config/rs6000/rs6000.h (VECTOR_ELEMENT_SCALAR_64BIT): Macro to
+	define the top 64-bit vector element.
+
+	* config/rs6000/vsx.md (vsx_extract_<mode>, V2DI/V2DF modes):
+	Optimize vec_extract of 64-bit values, where the value being
+	extracted is in the top word, where we can use scalar
+	instructions.  Add direct move and store support.  Combine the big
+	endian/little endian vector select load support into a single insn.
+	(vsx_extract_<mode>_internal1): Likewise.
+	(vsx_extract_<mode>_internal2): Likewise.
+	(vsx_extract_<mode>_load): Likewise.
+	(vsx_extract_<mode>_store): Likewise.
+	(vsx_extract_<mode>_zero): Delete, big and little endian insns are
+	combined into vsx_extract_<mode>_load.
+	(vsx_extract_<mode>_one_le): Likewise.
+
+	* doc/md.texi (PowerPC and IBM RS6000 constraints): Document wD
+	constraint.
+
+	* gcc.target/powerpc/vsx-extract-1.c: New test to test VSX
+	vec_select optimizations.
+	* gcc.target/powerpc/vsx-extract-2.c: Likewise.
+	* gcc.target/powerpc/vsx-extract-3.c: Likewise.
+
+	PR target/60672
+	* gcc.target/powerpc/pr60676.c: New file, make sure xxsldwi and
+	xxpermdi builtins are supported.
+
+	Backport from mainline
+	2013-08-01  Fabien Chêne  <fabien@gcc.gnu.org>
+
+	PR c++/54537
+	* include/tr1/cmath: Remove pow(double,double) overload, remove a
+	duplicated comment about DR 550. Add a comment to explain the issue.
+	* testsuite/tr1/8_c_compatibility/cmath/pow_cmath.cc: New.
+
 2014-05-05  Peter Bergner  <bergner@vnet.ibm.com>
 
 	Merge up to 210069.

@@ -1,0 +1,11 @@
+2014-05-12  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Reapply the old IBM 4.8 branch patches that are not upstream.
+
+	* config/rs6000/ibm-ldouble.c (pack_ldouble): New function.
+	(__gcc_qadd): Use it.
+	(__gcc_qmul): Likewise.
+	(__gcc_qdiv): Likewise.
+	(__gcc_qneg): Likewise.
+	(__gcc_stoq): Likewise.
+	(__gcc_dtoq): Likewise.
