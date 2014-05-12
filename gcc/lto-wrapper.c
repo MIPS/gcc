@@ -66,7 +66,7 @@ static unsigned int nr;
 static char **input_names;
 static char **output_names;
 static char **offload_names;
-static const char *ompend;
+static const char *ompbegin, *ompend;
 static char *makefile;
 
 const char tool_name[] = "lto-wrapper";
@@ -554,30 +554,40 @@ copy_file (const char *dest, const char *src)
     }
 }
 
-/* Find the crtompend.o file in LIBRARY_PATH, make a copy and store
-   the name of the copy in ompend.  */
+/* Find the omp_begin.o and omp_end.o files in LIBRARY_PATH, make copies
+   and store the names of the copies in ompbegin and ompend.  */
 
 static void
-find_ompend (void)
+find_ompbeginend (void)
 {
   char **paths;
   const char *library_path = getenv ("LIBRARY_PATH");
   if (library_path == NULL)
     return;
-  int n_paths = parse_env_var (library_path, &paths, "/crtompend.o");
+  int n_paths = parse_env_var (library_path, &paths, "/crtompbegin.o");
 
-  for (int i = 0; i < n_paths; i++)
+  int i;
+  for (i = 0; i < n_paths; i++)
     if (access_check (paths[i], R_OK) == 0)
       {
+	size_t len = strlen (paths[i]);
+	char *tmp = xstrdup (paths[i]);
+	strcpy (paths[i] + len - 7, "end.o");
+	if (access_check (paths[i], R_OK) != 0)
+	  fatal ("installation error, can't find crtompend.o");
 	/* The linker will delete the filenames we give it, so make
 	   copies.  */
-	const char *omptmp = make_temp_file (".o");
-	copy_file (omptmp, paths[i]);
-	ompend = omptmp;
+	const char *omptmp1 = make_temp_file (".o");
+	const char *omptmp2 = make_temp_file (".o");
+	copy_file (omptmp1, tmp);
+	ompbegin = omptmp1;
+	copy_file (omptmp2, paths[i]);
+	ompend = omptmp2;
+	free (tmp);
 	break;
       }
-  if (ompend == 0)
-    fatal ("installation error, can't find crtompend.o");
+  if (i == n_paths)
+    fatal ("installation error, can't find crtompbegin.o");
 
   free_array_of_ptrs ((void**) paths, n_paths);
 }
@@ -1072,7 +1082,7 @@ cont:
 	  compile_images_for_openmp_targets (argc, argv);
 	  if (offload_names)
 	    {
-	      find_ompend ();
+	      find_ompbeginend ();
 	      for (i = 0; offload_names[i]; i++)
 		{
 		  fputs (offload_names[i], stdout);
@@ -1080,6 +1090,11 @@ cont:
 		}
 	      free_array_of_ptrs ((void **)offload_names, i);
 	    }
+	}
+      if (ompbegin)
+	{
+	  fputs (ompbegin, stdout);
+	  putc ('\n', stdout);
 	}
 
       for (i = 0; i < nr; ++i)

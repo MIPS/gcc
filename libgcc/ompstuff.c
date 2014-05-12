@@ -39,14 +39,35 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #include "tm.h"
 #include "libgcc_tm.h"
 
+#ifdef CRT_BEGIN
+
 #if defined(HAVE_GAS_HIDDEN) && defined(ENABLE_OFFLOADING)
-extern void __start___gnu_offload_funcs;
-extern void __stop___gnu_offload_funcs;
-extern void __start___gnu_offload_vars;
-extern void __stop___gnu_offload_vars;
+void *_omp_func_table[0]
+  __attribute__ ((__used__, visibility ("hidden"),
+		  section (".offload_func_table_section"))) = { };
+void *_omp_var_table[0]
+  __attribute__ ((__used__, visibility ("hidden"),
+		  section (".offload_var_table_section"))) = { };
+#endif
+
+#elif defined CRT_END
+
+#if defined(HAVE_GAS_HIDDEN) && defined(ENABLE_OFFLOADING)
+void *_omp_funcs_end[0]
+  __attribute__ ((__used__, visibility ("hidden"),
+		  section (".offload_func_table_section"))) = { };
+void *_omp_vars_end[0]
+  __attribute__ ((__used__, visibility ("hidden"),
+		  section (".offload_var_table_section"))) = { };
+extern void *_omp_func_table[];
+extern void *_omp_var_table[];
 void *__OPENMP_TARGET__[] __attribute__ ((__visibility__ ("hidden"))) =
 {
-  &__start___gnu_offload_funcs, &__stop___gnu_offload_funcs,
-  &__start___gnu_offload_vars, &__stop___gnu_offload_vars
+  &_omp_func_table, &_omp_funcs_end,
+  &_omp_var_table, &_omp_vars_end
 };
+#endif
+
+#else /* ! CRT_BEGIN && ! CRT_END */
+#error "One of CRT_BEGIN or CRT_END must be defined."
 #endif

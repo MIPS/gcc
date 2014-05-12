@@ -336,7 +336,7 @@ AC_ARG_ENABLE(offload-targets,
 ], [enable_accelerator=no])
 AC_SUBST(enable_accelerator)
 if test x$offload_targets != x; then
-  extra_parts="${extra_parts} crtompend.o"
+  extra_parts="${extra_parts} crtompbegin.o crtompend.o"
 fi
 
 # Check if Solaris/x86 linker supports ZERO terminator unwind entries.

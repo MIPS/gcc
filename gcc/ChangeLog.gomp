@@ -1,3 +1,10 @@
+2014-05-12  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* lto-wrapper.c (ompbegin): New static variable.
+	(find_ompbeginend): Renamed from find_ompend.  Also look for
+	crtompbegin.o.
+	(run_gcc): Also use ompbegin.
+
 2014-05-08  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* omp-low.c (get_offload_symbol_decl): Mark __OPENMP_TARGET__ as

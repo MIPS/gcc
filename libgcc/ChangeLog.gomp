@@ -1,3 +1,17 @@
+2014-05-12  Bernd Schmidt  <bernds@codesourcery.com>
+
+	libgcc/
+	* Makefile.in (crtompbegin$(objext)): New rule.
+	* configure.ac (extra_parts): Also include crtompbegin.o if we have
+	offload targets.
+	* configure: Regenerate.
+	* ompstuff.c (__start___gnu_offload_funcs,
+	__stop___gnu_offload_funcs, __start___gnu_offload_vars,
+	__stop___gnu_offload_vars): Delete.
+	(_omp_func_table, _omp_var_table, _omp_funcs_end, _omp_vars_end):
+	Declare.
+	(__OPENMP_TARGET__): Use them.
+
 2014-04-04  Bernd Schmidt  <bernds@codesourcery.com>
 
 	* Makefile.in (crtompend$(objext)): New rule.
