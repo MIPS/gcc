@@ -5259,13 +5259,6 @@ DEFHOOK
  void, (tree *hold, tree *clear, tree *update),
  default_atomic_assign_expand_fenv)
 
-/* Returns a list to the modes to try for doing a bitfield insertation. */
-DEFHOOK
-(mode_for_extraction_insv,
- "",
- enum machine_mode *, (void),
- NULL)
-
 /* Leave the boolean fields at the end.  */
 
 /* True if we can create zeroed data by switching to a BSS section
