@@ -1,5 +1,5 @@
 /* String length optimization
-   Copyright (C) 2011-2013 Free Software Foundation, Inc.
+   Copyright (C) 2011-2014 Free Software Foundation, Inc.
    Contributed by Jakub Jelinek <jakub@redhat.com>
 
 This file is part of GCC.
@@ -21,8 +21,28 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "tree.h"
+#include "stor-layout.h"
 #include "hash-table.h"
-#include "tree-ssa.h"
+#include "bitmap.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
+#include "gimple-ssa.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
+#include "expr.h"
+#include "tree-dfa.h"
 #include "tree-pass.h"
 #include "domwalk.h"
 #include "alloc-pool.h"
@@ -205,10 +225,10 @@ get_stridx (tree exp)
 
   s = string_constant (exp, &o);
   if (s != NULL_TREE
-      && (o == NULL_TREE || host_integerp (o, 0))
+      && (o == NULL_TREE || tree_fits_shwi_p (o))
       && TREE_STRING_LENGTH (s) > 0)
     {
-      HOST_WIDE_INT offset = o ? tree_low_cst (o, 0) : 0;
+      HOST_WIDE_INT offset = o ? tree_to_shwi (o) : 0;
       const char *p = TREE_STRING_POINTER (s);
       int max = TREE_STRING_LENGTH (s) - 1;
 
@@ -428,17 +448,13 @@ get_string_length (strinfo si)
 	  gsi = gsi_for_stmt (stmt);
 	  fn = builtin_decl_implicit (BUILT_IN_STRLEN);
 	  gcc_assert (lhs == NULL_TREE);
-	  tem = unshare_expr (gimple_call_nobnd_arg (stmt, 0));
-	  if (flag_check_pointers && BOUND_P (gimple_call_arg (stmt, 1)))
-	    lenstmt = gimple_build_call (fn, 2, tem,
-					 gimple_call_arg (stmt, 1));
-	  else
-	    lenstmt = gimple_build_call (fn, 1, tem);
+	  tem = unshare_expr (gimple_call_arg (stmt, 0));
+	  lenstmt = gimple_build_call (fn, 1, tem);
 	  lhs = make_ssa_name (TREE_TYPE (TREE_TYPE (fn)), lenstmt);
 	  gimple_call_set_lhs (lenstmt, lhs);
 	  gimple_set_vuse (lenstmt, gimple_vuse (stmt));
 	  gsi_insert_before (&gsi, lenstmt, GSI_SAME_STMT);
-	  tem = gimple_call_nobnd_arg (stmt, 0);
+	  tem = gimple_call_arg (stmt, 0);
           if (!ptrofftype_p (TREE_TYPE (lhs)))
             {
               lhs = convert_to_ptrofftype (lhs);
@@ -448,8 +464,7 @@ get_string_length (strinfo si)
 	  lenstmt
 	    = gimple_build_assign_with_ops
 	        (POINTER_PLUS_EXPR,
-		 make_ssa_name (TREE_TYPE (gimple_call_nobnd_arg (stmt, 0)),
-				NULL),
+		 make_ssa_name (TREE_TYPE (gimple_call_arg (stmt, 0)), NULL),
 		 tem, lhs);
 	  gsi_insert_before (&gsi, lenstmt, GSI_SAME_STMT);
 	  gimple_call_set_arg (stmt, 0, gimple_assign_lhs (lenstmt));
@@ -457,7 +472,7 @@ get_string_length (strinfo si)
 	  /* FALLTHRU */
 	case BUILT_IN_STRCPY:
 	case BUILT_IN_STRCPY_CHK:
-	  if (gimple_call_num_nobnd_args (stmt) == 2)
+	  if (gimple_call_num_args (stmt) == 2)
 	    fn = builtin_decl_implicit (BUILT_IN_STPCPY);
 	  else
 	    fn = builtin_decl_explicit (BUILT_IN_STPCPY_CHK);
@@ -840,17 +855,16 @@ adjust_last_stmt (strinfo si, gimple stmt, bool is_strcat)
       return;
     }
 
-  len = gimple_call_nobnd_arg (last.stmt, 2);
-  if (host_integerp (len, 1))
+  len = gimple_call_arg (last.stmt, 2);
+  if (tree_fits_uhwi_p (len))
     {
-      if (!host_integerp (last.len, 1)
+      if (!tree_fits_uhwi_p (last.len)
 	  || integer_zerop (len)
-	  || (unsigned HOST_WIDE_INT) tree_low_cst (len, 1)
-	     != (unsigned HOST_WIDE_INT) tree_low_cst (last.len, 1) + 1)
+	  || tree_to_uhwi (len) != tree_to_uhwi (last.len) + 1)
 	return;
       /* Don't adjust the length if it is divisible by 4, it is more efficient
 	 to store the extra '\0' in that case.  */
-      if ((((unsigned HOST_WIDE_INT) tree_low_cst (len, 1)) & 3) == 0)
+      if ((tree_to_uhwi (len) & 3) == 0)
 	return;
     }
   else if (TREE_CODE (len) == SSA_NAME)
@@ -865,9 +879,7 @@ adjust_last_stmt (strinfo si, gimple stmt, bool is_strcat)
   else
     return;
 
-  gimple_call_set_arg (last.stmt,
-		       gimple_call_get_nobnd_arg_index (last.stmt, 2),
-		       last.len);
+  gimple_call_set_arg (last.stmt, 2, last.len);
   update_stmt (last.stmt);
 }
 
@@ -886,7 +898,7 @@ handle_builtin_strlen (gimple_stmt_iterator *gsi)
   if (lhs == NULL_TREE)
     return;
 
-  src = gimple_call_nobnd_arg (stmt, 0);
+  src = gimple_call_arg (stmt, 0);
   idx = get_stridx (src);
   if (idx)
     {
@@ -962,10 +974,10 @@ handle_builtin_strchr (gimple_stmt_iterator *gsi)
   if (lhs == NULL_TREE)
     return;
 
-  if (!integer_zerop (gimple_call_nobnd_arg (stmt, 1)))
+  if (!integer_zerop (gimple_call_arg (stmt, 1)))
     return;
 
-  src = gimple_call_nobnd_arg (stmt, 0);
+  src = gimple_call_arg (stmt, 0);
   idx = get_stridx (src);
   if (idx)
     {
@@ -1070,8 +1082,8 @@ handle_builtin_strcpy (enum built_in_function bcode, gimple_stmt_iterator *gsi)
   strinfo si, dsi, olddsi, zsi;
   location_t loc;
 
-  src = gimple_call_nobnd_arg (stmt, 1);
-  dst = gimple_call_nobnd_arg (stmt, 0);
+  src = gimple_call_arg (stmt, 1);
+  dst = gimple_call_arg (stmt, 0);
   lhs = gimple_call_lhs (stmt);
   idx = get_stridx (src);
   si = NULL;
@@ -1256,20 +1268,11 @@ handle_builtin_strcpy (enum built_in_function bcode, gimple_stmt_iterator *gsi)
       fprintf (dump_file, "Optimizing: ");
       print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
     }
-  if (gimple_call_num_nobnd_args (stmt) == 2)
-    if (flag_check_pointers && gimple_call_num_args (stmt) == 4)
-      success = update_gimple_call (gsi, fn, 5, dst, gimple_call_arg (stmt, 1),
-				    src, gimple_call_arg (stmt, 3), len);
-    else
-      success = update_gimple_call (gsi, fn, 3, dst, src, len);
+  if (gimple_call_num_args (stmt) == 2)
+    success = update_gimple_call (gsi, fn, 3, dst, src, len);
   else
-    if (flag_check_pointers && gimple_call_num_args (stmt) == 5)
-      success = update_gimple_call (gsi, fn, 5, dst, gimple_call_arg (stmt, 1),
-				    src, gimple_call_arg (stmt, 3), len,
-				    gimple_call_arg (stmt, 4));
-    else
-      success = update_gimple_call (gsi, fn, 4, dst, src, len,
-				    gimple_call_nobnd_arg (stmt, 2));
+    success = update_gimple_call (gsi, fn, 4, dst, src, len,
+				  gimple_call_arg (stmt, 2));
   if (success)
     {
       stmt = gsi_stmt (*gsi);
@@ -1301,9 +1304,9 @@ handle_builtin_memcpy (enum built_in_function bcode, gimple_stmt_iterator *gsi)
   gimple stmt = gsi_stmt (*gsi);
   strinfo si, dsi, olddsi;
 
-  len = gimple_call_nobnd_arg (stmt, 2);
-  src = gimple_call_nobnd_arg (stmt, 1);
-  dst = gimple_call_nobnd_arg (stmt, 0);
+  len = gimple_call_arg (stmt, 2);
+  src = gimple_call_arg (stmt, 1);
+  dst = gimple_call_arg (stmt, 0);
   idx = get_stridx (src);
   if (idx == 0)
     return;
@@ -1316,7 +1319,7 @@ handle_builtin_memcpy (enum built_in_function bcode, gimple_stmt_iterator *gsi)
     return;
 
   if (olddsi != NULL
-      && host_integerp (len, 1)
+      && tree_fits_uhwi_p (len)
       && !integer_zerop (len))
     adjust_last_stmt (olddsi, stmt, false);
 
@@ -1342,9 +1345,8 @@ handle_builtin_memcpy (enum built_in_function bcode, gimple_stmt_iterator *gsi)
       si = NULL;
       /* Handle memcpy (x, "abcd", 5) or
 	 memcpy (x, "abc\0uvw", 7).  */
-      if (!host_integerp (len, 1)
-	  || (unsigned HOST_WIDE_INT) tree_low_cst (len, 1)
-	     <= (unsigned HOST_WIDE_INT) ~idx)
+      if (!tree_fits_uhwi_p (len)
+	  || tree_to_uhwi (len) <= (unsigned HOST_WIDE_INT) ~idx)
 	return;
     }
 
@@ -1441,8 +1443,8 @@ handle_builtin_strcat (enum built_in_function bcode, gimple_stmt_iterator *gsi)
   strinfo si, dsi;
   location_t loc;
 
-  src = gimple_call_nobnd_arg (stmt, 1);
-  dst = gimple_call_nobnd_arg (stmt, 0);
+  src = gimple_call_arg (stmt, 1);
+  dst = gimple_call_arg (stmt, 0);
   lhs = gimple_call_lhs (stmt);
 
   didx = get_stridx (dst);
@@ -1547,7 +1549,7 @@ handle_builtin_strcat (enum built_in_function bcode, gimple_stmt_iterator *gsi)
 	fn = builtin_decl_explicit (BUILT_IN_MEMCPY_CHK);
       else
 	fn = builtin_decl_explicit (BUILT_IN_STRCPY_CHK);
-      objsz = gimple_call_nobnd_arg (stmt, 2);
+      objsz = gimple_call_arg (stmt, 2);
       break;
     default:
       gcc_unreachable ();
@@ -1583,23 +1585,11 @@ handle_builtin_strcat (enum built_in_function bcode, gimple_stmt_iterator *gsi)
       print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
     }
   if (srclen != NULL_TREE)
-    if (flag_check_pointers && BOUND_P (gimple_call_arg (stmt, 1)))
-      success = update_gimple_call (gsi, fn, 5 + (objsz != NULL_TREE),
-				    dst, gimple_call_arg (stmt, 1),
-				    src, gimple_call_arg (stmt, 3),
-				    len, objsz);
-    else
-      success = update_gimple_call (gsi, fn, 3 + (objsz != NULL_TREE),
-				    dst, src, len, objsz);
+    success = update_gimple_call (gsi, fn, 3 + (objsz != NULL_TREE),
+				  dst, src, len, objsz);
   else
-    if (flag_check_pointers && BOUND_P (gimple_call_arg (stmt, 1)))
-      success = update_gimple_call (gsi, fn, 4 + (objsz != NULL_TREE),
-				    dst, gimple_call_arg (stmt, 1),
-				    src, gimple_call_arg (stmt, 3),
-				    objsz);
-    else
-      success = update_gimple_call (gsi, fn, 2 + (objsz != NULL_TREE),
-				    dst, src, objsz);
+    success = update_gimple_call (gsi, fn, 2 + (objsz != NULL_TREE),
+				  dst, src, objsz);
   if (success)
     {
       stmt = gsi_stmt (*gsi);
@@ -1644,11 +1634,10 @@ handle_pointer_plus (gimple_stmt_iterator *gsi)
   if (idx < 0)
     {
       tree off = gimple_assign_rhs2 (stmt);
-      if (host_integerp (off, 1)
-	  && (unsigned HOST_WIDE_INT) tree_low_cst (off, 1)
-	     <= (unsigned HOST_WIDE_INT) ~idx)
+      if (tree_fits_uhwi_p (off)
+	  && tree_to_uhwi (off) <= (unsigned HOST_WIDE_INT) ~idx)
 	ssa_ver_to_stridx[SSA_NAME_VERSION (lhs)]
-	    = ~(~idx - (int) tree_low_cst (off, 1));
+	    = ~(~idx - (int) tree_to_uhwi (off));
       return;
     }
 
@@ -1835,7 +1824,9 @@ strlen_optimize_stmt (gimple_stmt_iterator *gsi)
 {
   gimple stmt = gsi_stmt (*gsi);
 
-  if (is_gimple_call (stmt))
+  if (is_gimple_call (stmt)
+      /* No instrumented calls support yet.  */
+      && !gimple_call_with_bounds_p (stmt))
     {
       tree callee = gimple_call_fndecl (stmt);
       if (gimple_call_builtin_p (stmt, BUILT_IN_NORMAL))

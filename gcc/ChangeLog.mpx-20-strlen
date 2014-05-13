@@ -1,0 +1,3 @@
+2013-11-13  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* tree-ssa-strlen.c (strlen_optimize_stmt): Skip calls with bounds.

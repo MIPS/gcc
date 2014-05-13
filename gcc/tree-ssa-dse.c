@@ -1,5 +1,5 @@
 /* Dead store elimination
-   Copyright (C) 2004-2013 Free Software Foundation, Inc.
+   Copyright (C) 2004-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -21,16 +21,30 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "ggc.h"
 #include "tree.h"
 #include "tm_p.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
-#include "tree-ssa.h"
+#include "bitmap.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
+#include "expr.h"
+#include "tree-dfa.h"
 #include "tree-pass.h"
 #include "domwalk.h"
 #include "flags.h"
 #include "langhooks.h"
+#include "tree-cfgcleanup.h"
 
 /* This file implements dead store elimination.
 
@@ -380,7 +394,7 @@ public:
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_dse (ctxt_); }
+  opt_pass * clone () { return new pass_dse (m_ctxt); }
   bool gate () { return gate_dse (); }
   unsigned int execute () { return tree_ssa_dse (); }
 

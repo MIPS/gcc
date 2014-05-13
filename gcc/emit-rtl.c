@@ -1,5 +1,5 @@
 /* Emit RTL for the GCC expander.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -38,9 +38,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "rtl.h"
 #include "tree.h"
+#include "varasm.h"
+#include "basic-block.h"
+#include "tree-eh.h"
 #include "tm_p.h"
 #include "flags.h"
 #include "function.h"
+#include "stringpool.h"
 #include "expr.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -48,8 +52,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-config.h"
 #include "recog.h"
 #include "bitmap.h"
-#include "basic-block.h"
-#include "ggc.h"
 #include "debug.h"
 #include "langhooks.h"
 #include "df.h"
@@ -124,10 +126,6 @@ rtx cc0_rtx;
 static GTY ((if_marked ("ggc_marked_p"), param_is (struct rtx_def)))
      htab_t const_int_htab;
 
-/* A hash table storing memory attribute structures.  */
-static GTY ((if_marked ("ggc_marked_p"), param_is (struct mem_attrs)))
-     htab_t mem_attrs_htab;
-
 /* A hash table storing register attribute structures.  */
 static GTY ((if_marked ("ggc_marked_p"), param_is (struct reg_attrs)))
      htab_t reg_attrs_htab;
@@ -155,8 +153,6 @@ static rtx lookup_const_double (rtx);
 static hashval_t const_fixed_htab_hash (const void *);
 static int const_fixed_htab_eq (const void *, const void *);
 static rtx lookup_const_fixed (rtx);
-static hashval_t mem_attrs_htab_hash (const void *);
-static int mem_attrs_htab_eq (const void *, const void *);
 static hashval_t reg_attrs_htab_hash (const void *);
 static int reg_attrs_htab_eq (const void *, const void *);
 static reg_attrs *get_reg_attrs (tree, int);
@@ -247,20 +243,6 @@ const_fixed_htab_eq (const void *x, const void *y)
   return fixed_identical (CONST_FIXED_VALUE (a), CONST_FIXED_VALUE (b));
 }
 
-/* Returns a hash code for X (which is a really a mem_attrs *).  */
-
-static hashval_t
-mem_attrs_htab_hash (const void *x)
-{
-  const mem_attrs *const p = (const mem_attrs *) x;
-
-  return (p->alias ^ (p->align * 1000)
-	  ^ (p->addrspace * 4000)
-	  ^ ((p->offset_known_p ? p->offset : 0) * 50000)
-	  ^ ((p->size_known_p ? p->size : 0) * 2500000)
-	  ^ (size_t) iterative_hash_expr (p->expr, 0));
-}
-
 /* Return true if the given memory attributes are equal.  */
 
 static bool
@@ -278,23 +260,11 @@ mem_attrs_eq_p (const struct mem_attrs *p, const struct mem_attrs *q)
 		  && operand_equal_p (p->expr, q->expr, 0))));
 }
 
-/* Returns nonzero if the value represented by X (which is really a
-   mem_attrs *) is the same as that given by Y (which is also really a
-   mem_attrs *).  */
-
-static int
-mem_attrs_htab_eq (const void *x, const void *y)
-{
-  return mem_attrs_eq_p ((const mem_attrs *) x, (const mem_attrs *) y);
-}
-
 /* Set MEM's memory attributes so that they are the same as ATTRS.  */
 
 static void
 set_mem_attrs (rtx mem, mem_attrs *attrs)
 {
-  void **slot;
-
   /* If everything is the default, we can just clear the attributes.  */
   if (mem_attrs_eq_p (attrs, mode_mem_attrs[(int) GET_MODE (mem)]))
     {
@@ -302,14 +272,12 @@ set_mem_attrs (rtx mem, mem_attrs *attrs)
       return;
     }
 
-  slot = htab_find_slot (mem_attrs_htab, attrs, INSERT);
-  if (*slot == 0)
+  if (!MEM_ATTRS (mem)
+      || !mem_attrs_eq_p (attrs, MEM_ATTRS (mem)))
     {
-      *slot = ggc_alloc_mem_attrs ();
-      memcpy (*slot, attrs, sizeof (mem_attrs));
+      MEM_ATTRS (mem) = ggc_alloc_mem_attrs ();
+      memcpy (MEM_ATTRS (mem), attrs, sizeof (mem_attrs));
     }
-
-  MEM_ATTRS (mem) = (mem_attrs *) *slot;
 }
 
 /* Returns a hash code for X (which is a really a reg_attrs *).  */
@@ -538,7 +506,7 @@ immed_double_const (HOST_WIDE_INT i0, HOST_WIDE_INT i1, enum machine_mode mode)
 		  /* We can get a 0 for an error mark.  */
 		  || GET_MODE_CLASS (mode) == MODE_VECTOR_INT
 		  || GET_MODE_CLASS (mode) == MODE_VECTOR_FLOAT
-		  || GET_MODE_CLASS (mode) == MODE_BOUND);
+		  || GET_MODE_CLASS (mode) == MODE_POINTER_BOUNDS);
 
       if (GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT)
 	return gen_int_mode (i0, mode);
@@ -894,6 +862,9 @@ gen_reg_rtx (enum machine_mode mode)
       imagpart = gen_reg_rtx (partmode);
       return gen_rtx_CONCAT (mode, realpart, imagpart);
     }
+
+  /* Do not call gen_reg_rtx with uninitialized crtl.  */
+  gcc_assert (crtl->emit.regno_pointer_align_length);
 
   /* Make sure regno_pointer_align, and regno_reg_rtx are large
      enough to have an element for this pseudo reg number.  */
@@ -1541,12 +1512,12 @@ get_mem_align_offset (rtx mem, unsigned int align)
 	  tree bit_offset = DECL_FIELD_BIT_OFFSET (field);
 
 	  if (!byte_offset
-	      || !host_integerp (byte_offset, 1)
-	      || !host_integerp (bit_offset, 1))
+	      || !tree_fits_uhwi_p (byte_offset)
+	      || !tree_fits_uhwi_p (bit_offset))
 	    return -1;
 
-	  offset += tree_low_cst (byte_offset, 1);
-	  offset += tree_low_cst (bit_offset, 1) / BITS_PER_UNIT;
+	  offset += tree_to_uhwi (byte_offset);
+	  offset += tree_to_uhwi (bit_offset) / BITS_PER_UNIT;
 
 	  if (inner == NULL_TREE)
 	    {
@@ -1770,10 +1741,10 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 	    {
 	      attrs.expr = t2;
 	      attrs.offset_known_p = false;
-	      if (host_integerp (off_tree, 1))
+	      if (tree_fits_uhwi_p (off_tree))
 		{
 		  attrs.offset_known_p = true;
-		  attrs.offset = tree_low_cst (off_tree, 1);
+		  attrs.offset = tree_to_uhwi (off_tree);
 		  apply_bitpos = bitpos;
 		}
 	    }
@@ -1800,10 +1771,10 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
       attrs.align = MAX (attrs.align, obj_align);
     }
 
-  if (host_integerp (new_size, 1))
+  if (tree_fits_uhwi_p (new_size))
     {
       attrs.size_known_p = true;
-      attrs.size = tree_low_cst (new_size, 1);
+      attrs.size = tree_to_uhwi (new_size);
     }
 
   /* If we modified OFFSET based on T, then subtract the outstanding
@@ -1950,7 +1921,9 @@ change_address_1 (rtx memref, enum machine_mode mode, rtx addr, int validate)
       && (!validate || memory_address_addr_space_p (mode, addr, as)))
     return memref;
 
-  if (validate)
+  /* Don't validate address for LRA.  LRA can make the address valid
+     by itself in most efficient way.  */
+  if (validate && !lra_in_progress)
     {
       if (reload_in_progress || reload_completed)
 	gcc_assert (memory_address_addr_space_p (mode, addr, as));
@@ -2273,15 +2246,15 @@ widen_memory_access (rtx memref, enum machine_mode mode, HOST_WIDE_INT offset)
 	      && attrs.offset >= 0)
 	    break;
 
-	  if (! host_integerp (offset, 1))
+	  if (! tree_fits_uhwi_p (offset))
 	    {
 	      attrs.expr = NULL_TREE;
 	      break;
 	    }
 
 	  attrs.expr = TREE_OPERAND (attrs.expr, 0);
-	  attrs.offset += tree_low_cst (offset, 1);
-	  attrs.offset += (tree_low_cst (DECL_FIELD_BIT_OFFSET (field), 1)
+	  attrs.offset += tree_to_uhwi (offset);
+	  attrs.offset += (tree_to_uhwi (DECL_FIELD_BIT_OFFSET (field))
 			   / BITS_PER_UNIT);
 	}
       /* Similarly for the decl.  */
@@ -5659,8 +5632,6 @@ init_emit_once (void)
   const_fixed_htab = htab_create_ggc (37, const_fixed_htab_hash,
 				      const_fixed_htab_eq, NULL);
 
-  mem_attrs_htab = htab_create_ggc (37, mem_attrs_htab_hash,
-				    mem_attrs_htab_eq, NULL);
   reg_attrs_htab = htab_create_ggc (37, reg_attrs_htab_hash,
 				    reg_attrs_htab_eq, NULL);
 
@@ -5904,6 +5875,11 @@ init_emit_once (void)
   const_tiny_rtx[0][(int) BImode] = const0_rtx;
   if (STORE_FLAG_VALUE == 1)
     const_tiny_rtx[1][(int) BImode] = const1_rtx;
+
+  for (mode = GET_CLASS_NARROWEST_MODE (MODE_POINTER_BOUNDS);
+       mode != VOIDmode;
+       mode = GET_MODE_WIDER_MODE (mode))
+    const_tiny_rtx[0][mode] = immed_double_const (0, 0, mode);
 
   pc_rtx = gen_rtx_fmt_ (PC, VOIDmode);
   ret_rtx = gen_rtx_fmt_ (RETURN, VOIDmode);

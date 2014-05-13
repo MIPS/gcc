@@ -1,0 +1,36 @@
+2013-10-29  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* tree-core.h (tree_index): Add TI_POINTER_BOUNDS_TYPE.
+	* tree.h (pointer_bounds_type_node): New.
+	* tree.c (build_common_tree_nodes): Initialize
+	pointer_bounds_type_node.
+	* builtin-types.def (BT_BND): New.
+	(BT_FN_PTR_CONST_PTR): New.
+	(BT_FN_CONST_PTR_CONST_PTR): New.
+	(BT_FN_BND_CONST_PTR): New.
+	(BT_FN_CONST_PTR_BND): New.
+	(BT_FN_PTR_CONST_PTR_SIZE): New.
+	(BT_FN_PTR_CONST_PTR_CONST_PTR): New.
+	(BT_FN_VOID_PTRPTR_CONST_PTR): New.
+	(BT_FN_VOID_CONST_PTR_SIZE): New.
+	(BT_FN_VOID_PTR_BND): New.
+	(BT_FN_CONST_PTR_CONST_PTR_CONST_PTR): New.
+	(BT_FN_BND_CONST_PTR_SIZE): New.
+	(BT_FN_PTR_CONST_PTR_CONST_PTR_SIZE): New.
+	(BT_FN_VOID_CONST_PTR_BND_CONST_PTR): New.
+	* chkp-builtins.def: New.
+	* builtins.def: include chkp-builtins.def.
+	(DEF_CHKP_BUILTIN): New.
+	* builtins.c (expand_builtin): Support BUILT_IN_CHKP_INIT_PTR_BOUNDS,
+	BUILT_IN_CHKP_NULL_PTR_BOUNDS, BUILT_IN_CHKP_COPY_PTR_BOUNDS,
+	BUILT_IN_CHKP_CHECK_PTR_LBOUNDS, BUILT_IN_CHKP_CHECK_PTR_UBOUNDS,
+	BUILT_IN_CHKP_CHECK_PTR_BOUNDS, BUILT_IN_CHKP_SET_PTR_BOUNDS,
+	BUILT_IN_CHKP_NARROW_PTR_BOUNDS, BUILT_IN_CHKP_STORE_PTR_BOUNDS,
+	BUILT_IN_CHKP_GET_PTR_LBOUND, BUILT_IN_CHKP_GET_PTR_UBOUND,
+	BUILT_IN_CHKP_BNDMK, BUILT_IN_CHKP_BNDSTX, BUILT_IN_CHKP_BNDCL,
+	BUILT_IN_CHKP_BNDCU, BUILT_IN_CHKP_BNDLDX, BUILT_IN_CHKP_BNDRET,
+	BUILT_IN_CHKP_INTERSECT, BUILT_IN_CHKP_NARROW,
+	BUILT_IN_CHKP_EXTRACT_LOWER, BUILT_IN_CHKP_EXTRACT_UPPER.
+	* c-family/c.opt (fcheck-pointer-bounds): New.
+	* toplev.c (process_options): Check Pointer Bounds Checker is supported.
+	* doc/extend.texi: Document Pointer Bounds Checker built-in functions.

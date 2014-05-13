@@ -1,5 +1,5 @@
 /* Implementation of Fortran 2003 Polymorphism.
-   Copyright (C) 2009-2013 Free Software Foundation, Inc.
+   Copyright (C) 2009-2014 Free Software Foundation, Inc.
    Contributed by Paul Richard Thomas <pault@gcc.gnu.org>
    and Janus Weil <janus@gcc.gnu.org>
 
@@ -53,6 +53,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "gfortran.h"
 #include "constructor.h"
+#include "target-memory.h"
 
 /* Inserts a derived type component reference in a data reference chain.
     TS: base type of the ref chain so far, in which we will pick the component
@@ -216,6 +217,14 @@ gfc_add_component_ref (gfc_expr *e, const char *name)
       if ((*tail)->type == REF_ARRAY && (*tail)->next == NULL)
 	break;
       tail = &((*tail)->next);
+    }
+  if (derived->components->next->ts.type == BT_DERIVED &&
+      derived->components->next->ts.u.derived == NULL)
+    {
+      /* Fix up missing vtype.  */
+      gfc_symbol *vtab = gfc_find_derived_vtab (derived->components->ts.u.derived);
+      gcc_assert (vtab);
+      derived->components->next->ts.u.derived = vtab->ts.u.derived;
     }
   if (*tail != NULL && strcmp (name, "_data") == 0)
     next = *tail;
@@ -422,18 +431,11 @@ gfc_class_initializer (gfc_typespec *ts, gfc_expr *init_expr)
   gfc_expr *init;
   gfc_component *comp;
   gfc_symbol *vtab = NULL;
-  bool is_unlimited_polymorphic;
 
-  is_unlimited_polymorphic = ts->u.derived
-      && ts->u.derived->components->ts.u.derived
-      && ts->u.derived->components->ts.u.derived->attr.unlimited_polymorphic;
-
-  if (is_unlimited_polymorphic && init_expr)
-    vtab = gfc_find_intrinsic_vtab (&ts->u.derived->components->ts);
-  else if (init_expr && init_expr->expr_type != EXPR_NULL)
-    vtab = gfc_find_derived_vtab (init_expr->ts.u.derived);
+  if (init_expr && init_expr->expr_type != EXPR_NULL)
+    vtab = gfc_find_vtab (&init_expr->ts);
   else
-    vtab = gfc_find_derived_vtab (ts->u.derived);
+    vtab = gfc_find_vtab (ts);
 
   init = gfc_get_structure_constructor_expr (ts->type, ts->kind,
 					     &ts->u.derived->declared_at);
@@ -549,7 +551,7 @@ gfc_intrinsic_hash_value (gfc_typespec *ts)
 
 bool
 gfc_build_class_symbol (gfc_typespec *ts, symbol_attribute *attr,
-			gfc_array_spec **as, bool delayed_vtab)
+			gfc_array_spec **as)
 {
   char name[GFC_MAX_SYMBOL_LEN+1], tname[GFC_MAX_SYMBOL_LEN+1];
   gfc_symbol *fclass;
@@ -586,13 +588,13 @@ gfc_build_class_symbol (gfc_typespec *ts, symbol_attribute *attr,
   else if ((*as) && attr->pointer)
     sprintf (name, "__class_%s_%d_%dp", tname, rank, (*as)->corank);
   else if ((*as))
-    sprintf (name, "__class_%s_%d_%d", tname, rank, (*as)->corank);
+    sprintf (name, "__class_%s_%d_%dt", tname, rank, (*as)->corank);
   else if (attr->pointer)
     sprintf (name, "__class_%s_p", tname);
   else if (attr->allocatable)
     sprintf (name, "__class_%s_a", tname);
   else
-    sprintf (name, "__class_%s", tname);
+    sprintf (name, "__class_%s_t", tname);
 
   if (ts->u.derived->attr.unlimited_polymorphic)
     {
@@ -618,7 +620,7 @@ gfc_build_class_symbol (gfc_typespec *ts, symbol_attribute *attr,
       if (!ts->u.derived->attr.unlimited_polymorphic)
 	fclass->attr.abstract = ts->u.derived->attr.abstract;
       fclass->f2k_derived = gfc_get_namespace (NULL, 0);
-      if (!gfc_add_flavor (&fclass->attr, FL_DERIVED, NULL, 
+      if (!gfc_add_flavor (&fclass->attr, FL_DERIVED, NULL,
 			   &gfc_current_locus))
 	return false;
 
@@ -643,16 +645,17 @@ gfc_build_class_symbol (gfc_typespec *ts, symbol_attribute *attr,
       if (!gfc_add_component (fclass, "_vptr", &c))
 	return false;
       c->ts.type = BT_DERIVED;
-      if (delayed_vtab
-	  || (ts->u.derived->f2k_derived
-	      && ts->u.derived->f2k_derived->finalizers))
-	c->ts.u.derived = NULL;
-      else
+
+      if (ts->u.derived->attr.unlimited_polymorphic)
 	{
 	  vtab = gfc_find_derived_vtab (ts->u.derived);
 	  gcc_assert (vtab);
 	  c->ts.u.derived = vtab->ts.u.derived;
 	}
+      else
+	/* Build vtab later.  */
+	c->ts.u.derived = NULL;
+
       c->attr.access = ACCESS_PRIVATE;
       c->attr.pointer = 1;
     }
@@ -720,9 +723,11 @@ add_proc_comp (gfc_symbol *vtype, const char *name, gfc_typebound_proc *tb)
 
   if (tb->u.specific)
     {
-      c->ts.interface = tb->u.specific->n.sym;
+      gfc_symbol *ifc = tb->u.specific->n.sym;
+      c->ts.interface = ifc;
       if (!tb->deferred)
 	c->initializer = gfc_get_variable_expr (tb->u.specific);
+      c->attr.pure = ifc->attr.pure;
     }
 }
 
@@ -791,6 +796,27 @@ has_finalizer_component (gfc_symbol *derived)
 }
 
 
+static bool
+comp_is_finalizable (gfc_component *comp)
+{
+  if (comp->attr.proc_pointer)
+    return false;
+  else if (comp->attr.allocatable && comp->ts.type != BT_CLASS)
+    return true;
+  else if (comp->ts.type == BT_DERIVED && !comp->attr.pointer
+	   && (comp->ts.u.derived->attr.alloc_comp
+	       || has_finalizer_component (comp->ts.u.derived)
+	       || (comp->ts.u.derived->f2k_derived
+		   && comp->ts.u.derived->f2k_derived->finalizers)))
+    return true;
+  else if (comp->ts.type == BT_CLASS && CLASS_DATA (comp)
+	    && CLASS_DATA (comp)->attr.allocatable)
+    return true;
+  else
+    return false;
+}
+
+
 /* Call DEALLOCATE for the passed component if it is allocatable, if it is
    neither allocatable nor a pointer but has a finalizer, call it. If it
    is a nonpointer component with allocatable components or has finalizers, walk
@@ -807,19 +833,7 @@ finalize_component (gfc_expr *expr, gfc_symbol *derived, gfc_component *comp,
   gfc_expr *e;
   gfc_ref *ref;
 
-  if (comp->ts.type != BT_DERIVED && comp->ts.type != BT_CLASS
-      && !comp->attr.allocatable)
-    return;
-
-  if ((comp->ts.type == BT_DERIVED && comp->attr.pointer)
-      || (comp->ts.type == BT_CLASS && CLASS_DATA (comp)
-	  && CLASS_DATA (comp)->attr.pointer))
-    return;
-
-  if (comp->ts.type == BT_DERIVED && !comp->attr.allocatable
-      && (comp->ts.u.derived->f2k_derived == NULL
-	  || comp->ts.u.derived->f2k_derived->finalizers == NULL)
-      && !has_finalizer_component (comp->ts.u.derived))
+  if (!comp_is_finalizable (comp))
     return;
 
   e = gfc_copy_expr (expr);
@@ -1466,17 +1480,7 @@ generate_finalization_wrapper (gfc_symbol *derived, gfc_namespace *ns,
 	    && ancestor_wrapper && ancestor_wrapper->expr_type != EXPR_NULL)
 	continue;
 
-	if (comp->ts.type != BT_CLASS && !comp->attr.pointer
-	    && (comp->attr.allocatable
-		|| (comp->ts.type == BT_DERIVED
-		    && (comp->ts.u.derived->attr.alloc_comp
-			|| has_finalizer_component (comp->ts.u.derived)
-			|| (comp->ts.u.derived->f2k_derived
-			    && comp->ts.u.derived->f2k_derived->finalizers)))))
-	  finalizable_comp = true;
-	else if (comp->ts.type == BT_CLASS && CLASS_DATA (comp)
-		 && CLASS_DATA (comp)->attr.allocatable)
-	  finalizable_comp = true;
+	finalizable_comp |= comp_is_finalizable (comp);
       }
 
   /* If there is no new finalizer and no new allocatable, return with
@@ -1887,8 +1891,7 @@ generate_finalization_wrapper (gfc_symbol *derived, gfc_namespace *ns,
 
       for (fini = derived->f2k_derived->finalizers; fini; fini = fini->next)
 	{
-	  if (!fini->proc_tree)
-	    fini->proc_tree = gfc_find_sym_in_symtree (fini->proc_sym);
+	  gcc_assert (fini->proc_tree);   /* Should have been set in gfc_resolve_finalizers.  */
 	  if (fini->proc_tree->n.sym->attr.elemental)
 	    {
 	      fini_elem = fini;
@@ -2135,7 +2138,7 @@ gfc_find_derived_vtab (gfc_symbol *derived)
 	{
 	  gfc_get_symbol (name, ns, &vtab);
 	  vtab->ts.type = BT_DERIVED;
-	  if (!gfc_add_flavor (&vtab->attr, FL_VARIABLE, NULL, 
+	  if (!gfc_add_flavor (&vtab->attr, FL_VARIABLE, NULL,
 			       &gfc_current_locus))
 	    goto cleanup;
 	  vtab->attr.target = 1;
@@ -2152,7 +2155,7 @@ gfc_find_derived_vtab (gfc_symbol *derived)
 	      gfc_symbol *parent = NULL, *parent_vtab = NULL;
 
 	      gfc_get_symbol (name, ns, &vtype);
-	      if (!gfc_add_flavor (&vtype->attr, FL_DERIVED, NULL, 
+	      if (!gfc_add_flavor (&vtype->attr, FL_DERIVED, NULL,
 				   &gfc_current_locus))
 		goto cleanup;
 	      vtype->attr.access = ACCESS_PUBLIC;
@@ -2402,38 +2405,33 @@ yes:
 
 
 /* Find (or generate) the symbol for an intrinsic type's vtab.  This is
-   need to support unlimited polymorphism.  */
+   needed to support unlimited polymorphism.  */
 
-gfc_symbol *
-gfc_find_intrinsic_vtab (gfc_typespec *ts)
+static gfc_symbol *
+find_intrinsic_vtab (gfc_typespec *ts)
 {
   gfc_namespace *ns;
   gfc_symbol *vtab = NULL, *vtype = NULL, *found_sym = NULL;
   gfc_symbol *copy = NULL, *src = NULL, *dst = NULL;
   int charlen = 0;
 
-  if (ts->type == BT_CHARACTER && ts->deferred)
+  if (ts->type == BT_CHARACTER)
     {
-      gfc_error ("TODO: Deferred character length variable at %C cannot "
-		 "yet be associated with unlimited polymorphic entities");
-      return NULL;
+      if (ts->deferred)
+	{
+	  gfc_error ("TODO: Deferred character length variable at %C cannot "
+		     "yet be associated with unlimited polymorphic entities");
+	  return NULL;
+	}
+      else if (ts->u.cl && ts->u.cl->length
+	       && ts->u.cl->length->expr_type == EXPR_CONSTANT)
+	charlen = mpz_get_si (ts->u.cl->length->value.integer);
     }
-
-  if (ts->type == BT_UNKNOWN)
-    return NULL;
-
-  /* Sometimes the typespec is passed from a single call.  */
-  if (ts->type == BT_DERIVED)
-    return gfc_find_derived_vtab (ts->u.derived);
 
   /* Find the top-level namespace.  */
   for (ns = gfc_current_ns; ns; ns = ns->parent)
     if (!ns->parent)
       break;
-
-  if (ts->type == BT_CHARACTER && ts->u.cl && ts->u.cl->length
-      && ts->u.cl->length->expr_type == EXPR_CONSTANT)
-    charlen = mpz_get_si (ts->u.cl->length->value.integer);
 
   if (ns)
     {
@@ -2456,7 +2454,7 @@ gfc_find_intrinsic_vtab (gfc_typespec *ts)
 	{
 	  gfc_get_symbol (name, ns, &vtab);
 	  vtab->ts.type = BT_DERIVED;
-	  if (!gfc_add_flavor (&vtab->attr, FL_VARIABLE, NULL, 
+	  if (!gfc_add_flavor (&vtab->attr, FL_VARIABLE, NULL,
 			       &gfc_current_locus))
 	    goto cleanup;
 	  vtab->attr.target = 1;
@@ -2473,9 +2471,10 @@ gfc_find_intrinsic_vtab (gfc_typespec *ts)
 	      int hash;
 	      gfc_namespace *sub_ns;
 	      gfc_namespace *contained;
+	      gfc_expr *e;
 
 	      gfc_get_symbol (name, ns, &vtype);
-	      if (!gfc_add_flavor (&vtype->attr, FL_DERIVED, NULL, 
+	      if (!gfc_add_flavor (&vtype->attr, FL_DERIVED, NULL,
 				   &gfc_current_locus))
 		goto cleanup;
 	      vtype->attr.access = ACCESS_PUBLIC;
@@ -2498,12 +2497,16 @@ gfc_find_intrinsic_vtab (gfc_typespec *ts)
 	      c->ts.type = BT_INTEGER;
 	      c->ts.kind = 4;
 	      c->attr.access = ACCESS_PRIVATE;
-	      if (ts->type == BT_CHARACTER)
-		c->initializer = gfc_get_int_expr (gfc_default_integer_kind,
-						   NULL, charlen*ts->kind);
-	      else
-		c->initializer = gfc_get_int_expr (gfc_default_integer_kind,
-						   NULL, ts->kind);
+
+	      /* Build a minimal expression to make use of
+		 target-memory.c/gfc_element_size for 'size'. */
+	      e = gfc_get_expr ();
+	      e->ts = *ts;
+	      e->expr_type = EXPR_VARIABLE;
+	      c->initializer = gfc_get_int_expr (gfc_default_integer_kind,
+						 NULL,
+						 (int)gfc_element_size (e));
+	      gfc_free_expr (e);
 
 	      /* Add component _extends.  */
 	      if (!gfc_add_component (vtype, "_extends", &c))
@@ -2529,17 +2532,22 @@ gfc_find_intrinsic_vtab (gfc_typespec *ts)
 	      c->tb = XCNEW (gfc_typebound_proc);
 	      c->tb->ppc = 1;
 
-	      /* Check to see if copy function already exists.  Note
-		 that this is only used for characters of different
-		 lengths.  */
-	      contained = ns->contained;
-	      for (; contained; contained = contained->sibling)
-		if (contained->proc_name
-		    && strcmp (name, contained->proc_name->name) == 0)
-		  {
-		    copy = contained->proc_name;
-		    goto got_char_copy;
-		  }
+	      if (ts->type != BT_CHARACTER)
+		sprintf (name, "__copy_%s", tname);
+	      else
+		{
+		  /* __copy is always the same for characters.
+		     Check to see if copy function already exists.  */
+		  sprintf (name, "__copy_character_%d", ts->kind);
+		  contained = ns->contained;
+		  for (; contained; contained = contained->sibling)
+		    if (contained->proc_name
+			&& strcmp (name, contained->proc_name->name) == 0)
+		      {
+			copy = contained->proc_name;
+			goto got_char_copy;
+		      }
+		}
 
 	      /* Set up namespace.  */
 	      sub_ns = gfc_get_namespace (ns, 0);
@@ -2547,11 +2555,6 @@ gfc_find_intrinsic_vtab (gfc_typespec *ts)
 	      ns->contained = sub_ns;
 	      sub_ns->resolved = 1;
 	      /* Set up procedure symbol.  */
-	      if (ts->type != BT_CHARACTER)
-		sprintf (name, "__copy_%s", tname);
-	      else
-		/* __copy is always the same for characters.  */
-		sprintf (name, "__copy_character_%d", ts->kind);
 	      gfc_get_symbol (name, sub_ns, &copy);
 	      sub_ns->proc_name = copy;
 	      copy->attr.flavor = FL_PROCEDURE;
@@ -2627,6 +2630,25 @@ cleanup:
     gfc_undo_symbols ();
 
   return found_sym;
+}
+
+
+/*  Find (or generate) a vtab for an arbitrary type (derived or intrinsic).  */
+
+gfc_symbol *
+gfc_find_vtab (gfc_typespec *ts)
+{
+  switch (ts->type)
+    {
+    case BT_UNKNOWN:
+      return NULL;
+    case BT_DERIVED:
+      return gfc_find_derived_vtab (ts->u.derived);
+    case BT_CLASS:
+      return gfc_find_derived_vtab (ts->u.derived->components->ts.u.derived);
+    default:
+      return find_intrinsic_vtab (ts);
+    }
 }
 
 

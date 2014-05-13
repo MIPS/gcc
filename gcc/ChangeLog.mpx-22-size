@@ -1,0 +1,6 @@
+2013-11-19  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* config/i386/i386.md (UNSPEC_SIZEOF): New.
+	(move_size_reloc_si): New.
+	(move_size_reloc_di): New.
+	* config/i386/predicates.md (symbol_operand): New.

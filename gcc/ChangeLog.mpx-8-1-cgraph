@@ -1,0 +1,38 @@
+2013-11-19  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* cgraph.h (cgraph_thunk_info): Add add_pointer_bounds_args
+	field.
+	(cgraph_node): Add instrumented_version, orig_decl and
+	instrumentation_clone fields.
+	(symtab_alias_target): Allow IPA_REF_CHKP reference.
+	* cgraph.c (cgraph_remove_node): Fix instrumented_version
+	of the referenced node if any.
+	(dump_cgraph_node): Dump instrumentation_clone and
+	instrumented_version fields.
+	(verify_cgraph_node): Check correctness of IPA_REF_CHKP
+	references and instrumentation thunks.
+	* cgraphbuild.c (rebuild_cgraph_edges): Rebuild IPA_REF_CHKP
+	reference.
+	(cgraph_rebuild_references): Likewise.
+	* cgraphunit.c (assemble_thunks_and_aliases): Skip thunks
+	calling instrumneted function version.
+	* ipa-ref.h (ipa_ref_use): Add IPA_REF_CHKP.
+	(ipa_ref): increase size of use field.
+	* ipa-ref.c (ipa_ref_use_name): Add element for IPA_REF_CHKP.
+	* lto-cgraph.c (lto_output_node): Output instrumentation_clone,
+	thunk.add_pointer_bounds_args and orig_decl field.
+	(lto_output_ref): Adjust to new ipa_ref::use field size.
+	(input_overwrite_node): Read instrumentation_clone field.
+	(input_node): Read thunk.add_pointer_bounds_args and orig_decl
+	fields.
+	(input_ref): Adjust to new ipa_ref::use field size.
+	(input_cgraph_1): Compute instrumented_version fields and restore
+	IDENTIFIER_TRANSPARENT_ALIAS chains.
+	* lto-streamer.h (LTO_minor_version): Change minor version from
+	0 to 1.
+	* ipa.c (symtab_remove_unreachable_nodes): Consider instrumented
+	clone as address taken if the original one is address taken.
+	(cgraph_externally_visible_p): Mark instrumented 'main' as
+	externally visible.
+	(function_and_variable_visibility): Filter instrumentation
+	thunks.

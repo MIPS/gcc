@@ -1,5 +1,5 @@
 ;;  Machine Description for Renesas RL78 processors
-;;  Copyright (C) 2011-2013 Free Software Foundation, Inc.
+;;  Copyright (C) 2011-2014 Free Software Foundation, Inc.
 ;;  Contributed by Red Hat.
 
 ;; This file is part of GCC.
@@ -320,7 +320,7 @@
               (label_ref (match_operand 3 "" ""))
 	      (pc)))]
   "rl78_virt_insns_ok ()"
-  "v.cmp\t%1, %2\\n\tv.b%c0\t%3"
+  "v.cmp\t%1, %2\\n\tv.b%C0\t%3"
   [(set_attr "valloc" "cmp")]
   )
 
@@ -332,7 +332,7 @@
               (label_ref (match_operand 3 "" ""))
 	      (pc)))]
   "rl78_virt_insns_ok ()"
-  "v.cmp\t%1, %2\\n\tv.b%c0\t%3"
+  "v.cmp\t%1, %2\\n\tv.b%C0\t%3"
   [(set_attr "valloc" "cmp")]
   )
 
@@ -344,7 +344,7 @@
               (label_ref (match_operand 3 "" ""))
 	      (pc)))]
   "rl78_virt_insns_ok ()"
-  "v.cmpw\t%1, %2\\n\tv.b%c0\t%3"
+  "v.cmpw\t%1, %2\\n\tv.b%C0\t%3"
   [(set_attr "valloc" "cmp")]
   )
 
@@ -356,7 +356,7 @@
               (label_ref (match_operand 3 "" ""))
 	      (pc)))]
   "rl78_virt_insns_ok ()"
-  "v.cmpw\t%1, %2\\n\tv.b%c0\t%3"
+  "v.cmpw\t%1, %2\\n\tv.b%C0\t%3"
   [(set_attr "valloc" "cmp")]
   )
 
@@ -370,7 +370,7 @@
    (clobber (reg:HI AX_REG))
    ]
   "rl78_virt_insns_ok ()"
-  "v.cmpd\t%1, %2\\n\tv.b%c0\t%3"
+  "v.cmpd\t%1, %2\\n\tv.b%C0\t%3"
   [(set_attr "valloc" "macax")]
   )
 
@@ -405,3 +405,12 @@
    ]
   "rl78_setup_peep_movhi (operands);"
   )
+
+(define_insn "*negandhi3_virt"
+  [(set (match_operand:HI                 0 "register_operand" "=v")
+	(and:HI (neg:HI (match_operand:HI 1 "register_operand"  "0"))
+ 		(match_operand:HI         2 "immediate_operand" "n")))
+   ]
+  "rl78_virt_insns_ok ()"
+  "v.nand\t%0, %1, %2"
+)

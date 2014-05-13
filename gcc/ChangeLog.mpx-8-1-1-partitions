@@ -1,0 +1,5 @@
+2013-11-19  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* lto/lto-partition.c (add_symbol_to_partition_1): Keep original
+	and instrumented versions together.
+	(privatize_symbol_name): Restore transparent alias chain if required.

@@ -1,5 +1,5 @@
 /* Inlining decision heuristics.
-   Copyright (C) 2003-2013 Free Software Foundation, Inc.
+   Copyright (C) 2003-2014 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -27,21 +27,21 @@ along with GCC; see the file COPYING3.  If not see
    vector.  They are of simple for  function_param OP VAL, where VAL is
    IPA invariant.  The conditions are then referred by predicates.  */
 
-typedef struct GTY(()) condition
-  {
-    /* If agg_contents is set, this is the offset from which the used data was
-       loaded.  */
-    HOST_WIDE_INT offset;
-    tree val;
-    int operand_num;
-    ENUM_BITFIELD(tree_code) code : 16;
-    /* Set if the used data were loaded from an aggregate parameter or from
-       data received by reference.  */
-    unsigned agg_contents : 1;
-    /* If agg_contents is set, this differentiates between loads from data
-       passed by reference and by value.  */
-    unsigned by_ref : 1;
-  } condition;
+struct GTY(()) condition
+{
+  /* If agg_contents is set, this is the offset from which the used data was
+     loaded.  */
+  HOST_WIDE_INT offset;
+  tree val;
+  int operand_num;
+  ENUM_BITFIELD(tree_code) code : 16;
+  /* Set if the used data were loaded from an aggregate parameter or from
+     data received by reference.  */
+  unsigned agg_contents : 1;
+  /* If agg_contents is set, this differentiates between loads from data
+     passed by reference and by value.  */
+  unsigned by_ref : 1;
+};
 
 /* Inline hints are reasons why inline heuristics should preffer inlining given
    function.  They are represtented as bitmap of the following values.  */
@@ -99,12 +99,12 @@ struct GTY(()) predicate
    accounted.  */
 #define INLINE_SIZE_SCALE 2
 #define INLINE_TIME_SCALE (CGRAPH_FREQ_BASE * 2)
-typedef struct GTY(()) size_time_entry
+struct GTY(()) size_time_entry
 {
   struct predicate predicate;
   int size;
   int time;
-} size_time_entry;
+};
 
 /* Function inlining information.  */
 struct GTY(()) inline_summary
@@ -117,6 +117,8 @@ struct GTY(()) inline_summary
   int self_size;
   /* Time of the function body.  */
   int self_time;
+  /* Minimal size increase after inlining.  */
+  int min_size;
 
   /* False when there something makes inlining impossible (such as va_arg).  */
   unsigned inlinable : 1;
@@ -156,7 +158,8 @@ struct GTY(()) inline_summary
   int scc_no;
 };
 
-
+/* Need a typedef for inline_summary because of inline function
+   'inline_summary' below.  */
 typedef struct inline_summary inline_summary_t;
 extern GTY(()) vec<inline_summary_t, va_gc> *inline_summary_vec;
 
@@ -172,7 +175,6 @@ struct inline_param_summary
      Value 0 is reserved for compile time invariants. */
   int change_prob;
 };
-typedef struct inline_param_summary inline_param_summary_t;
 
 /* Information kept about callgraph edges.  */
 struct inline_edge_summary
@@ -186,17 +188,19 @@ struct inline_edge_summary
   /* Array indexed by parameters.
      0 means that parameter change all the time, REG_BR_PROB_BASE means
      that parameter is constant.  */
-  vec<inline_param_summary_t> param;
+  vec<inline_param_summary> param;
 };
 
+/* Need a typedef for inline_edge_summary because of inline function
+   'inline_edge_summary' below.  */
 typedef struct inline_edge_summary inline_edge_summary_t;
 extern vec<inline_edge_summary_t> inline_edge_summary_vec;
 
-typedef struct edge_growth_cache_entry
+struct edge_growth_cache_entry
 {
   int time, size;
   inline_hints hints;
-} edge_growth_cache_entry;
+};
 
 extern vec<int> node_growth_cache;
 extern vec<edge_growth_cache_entry> edge_growth_cache;
@@ -218,6 +222,7 @@ void estimate_ipcp_clone_size_and_time (struct cgraph_node *,
 					vec<ipa_agg_jump_function_p>,
 					int *, int *, inline_hints *);
 int do_estimate_growth (struct cgraph_node *);
+bool growth_likely_positive (struct cgraph_node *, int);
 void inline_merge_summary (struct cgraph_edge *edge);
 void inline_update_overall_summary (struct cgraph_node *node);
 int do_estimate_edge_size (struct cgraph_edge *edge);
@@ -231,7 +236,8 @@ bool speculation_useful_p (struct cgraph_edge *e, bool anticipate_inlining);
 /* In ipa-inline-transform.c  */
 bool inline_call (struct cgraph_edge *, bool, vec<cgraph_edge_p> *, int *, bool);
 unsigned int inline_transform (struct cgraph_node *);
-void clone_inlined_nodes (struct cgraph_edge *e, bool, bool, int *);
+void clone_inlined_nodes (struct cgraph_edge *e, bool, bool, int *,
+			  int freq_scale);
 
 extern int ncalls_inlined;
 extern int nfunctions_inlined;
@@ -282,7 +288,8 @@ static inline int
 estimate_edge_growth (struct cgraph_edge *edge)
 {
 #ifdef ENABLE_CHECKING
-  gcc_checking_assert (inline_edge_summary (edge)->call_stmt_size);
+  gcc_checking_assert (inline_edge_summary (edge)->call_stmt_size
+		       || !edge->callee->analyzed);
 #endif
   return (estimate_edge_size (edge)
 	  - inline_edge_summary (edge)->call_stmt_size);

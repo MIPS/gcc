@@ -1,5 +1,5 @@
 /* Definitions of target machine for GCC for IA-32.
-   Copyright (C) 1988-2013 Free Software Foundation, Inc.
+   Copyright (C) 1988-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -40,54 +40,107 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 /* Redefines for option macros.  */
 
 #define TARGET_64BIT	TARGET_ISA_64BIT
+#define TARGET_64BIT_P(x)	TARGET_ISA_64BIT_P(x)
 #define TARGET_MMX	TARGET_ISA_MMX
+#define TARGET_MMX_P(x)	TARGET_ISA_MMX_P(x)
 #define TARGET_3DNOW	TARGET_ISA_3DNOW
+#define TARGET_3DNOW_P(x)	TARGET_ISA_3DNOW_P(x)
 #define TARGET_3DNOW_A	TARGET_ISA_3DNOW_A
+#define TARGET_3DNOW_A_P(x)	TARGET_ISA_3DNOW_A_P(x)
 #define TARGET_SSE	TARGET_ISA_SSE
+#define TARGET_SSE_P(x)	TARGET_ISA_SSE_P(x)
 #define TARGET_SSE2	TARGET_ISA_SSE2
+#define TARGET_SSE2_P(x)	TARGET_ISA_SSE2_P(x)
 #define TARGET_SSE3	TARGET_ISA_SSE3
+#define TARGET_SSE3_P(x)	TARGET_ISA_SSE3_P(x)
 #define TARGET_SSSE3	TARGET_ISA_SSSE3
+#define TARGET_SSSE3_P(x)	TARGET_ISA_SSSE3_P(x)
 #define TARGET_SSE4_1	TARGET_ISA_SSE4_1
+#define TARGET_SSE4_1_P(x)	TARGET_ISA_SSE4_1_P(x)
 #define TARGET_SSE4_2	TARGET_ISA_SSE4_2
+#define TARGET_SSE4_2_P(x)	TARGET_ISA_SSE4_2_P(x)
 #define TARGET_AVX	TARGET_ISA_AVX
+#define TARGET_AVX_P(x)	TARGET_ISA_AVX_P(x)
 #define TARGET_AVX2	TARGET_ISA_AVX2
-#define TARGET_AVX512F  TARGET_ISA_AVX512F
-#define TARGET_AVX512PF TARGET_ISA_AVX512PF
-#define TARGET_AVX512ER TARGET_ISA_AVX512ER
-#define TARGET_AVX512CD TARGET_ISA_AVX512CD
+#define TARGET_AVX2_P(x)	TARGET_ISA_AVX2_P(x)
+#define TARGET_AVX512F	TARGET_ISA_AVX512F
+#define TARGET_AVX512F_P(x)	TARGET_ISA_AVX512F_P(x)
+#define TARGET_AVX512PF	TARGET_ISA_AVX512PF
+#define TARGET_AVX512PF_P(x)	TARGET_ISA_AVX512PF_P(x)
+#define TARGET_AVX512ER	TARGET_ISA_AVX512ER
+#define TARGET_AVX512ER_P(x)	TARGET_ISA_AVX512ER_P(x)
+#define TARGET_AVX512CD	TARGET_ISA_AVX512CD
+#define TARGET_AVX512CD_P(x)	TARGET_ISA_AVX512CD_P(x)
 #define TARGET_FMA	TARGET_ISA_FMA
+#define TARGET_FMA_P(x)	TARGET_ISA_FMA_P(x)
 #define TARGET_SSE4A	TARGET_ISA_SSE4A
+#define TARGET_SSE4A_P(x)	TARGET_ISA_SSE4A_P(x)
 #define TARGET_FMA4	TARGET_ISA_FMA4
+#define TARGET_FMA4_P(x)	TARGET_ISA_FMA4_P(x)
 #define TARGET_XOP	TARGET_ISA_XOP
+#define TARGET_XOP_P(x)	TARGET_ISA_XOP_P(x)
 #define TARGET_LWP	TARGET_ISA_LWP
+#define TARGET_LWP_P(x)	TARGET_ISA_LWP_P(x)
 #define TARGET_ROUND	TARGET_ISA_ROUND
 #define TARGET_ABM	TARGET_ISA_ABM
+#define TARGET_ABM_P(x)	TARGET_ISA_ABM_P(x)
 #define TARGET_BMI	TARGET_ISA_BMI
+#define TARGET_BMI_P(x)	TARGET_ISA_BMI_P(x)
 #define TARGET_BMI2	TARGET_ISA_BMI2
+#define TARGET_BMI2_P(x)	TARGET_ISA_BMI2_P(x)
 #define TARGET_LZCNT	TARGET_ISA_LZCNT
+#define TARGET_LZCNT_P(x)	TARGET_ISA_LZCNT_P(x)
 #define TARGET_TBM	TARGET_ISA_TBM
+#define TARGET_TBM_P(x)	TARGET_ISA_TBM_P(x)
 #define TARGET_POPCNT	TARGET_ISA_POPCNT
+#define TARGET_POPCNT_P(x)	TARGET_ISA_POPCNT_P(x)
 #define TARGET_SAHF	TARGET_ISA_SAHF
+#define TARGET_SAHF_P(x)	TARGET_ISA_SAHF_P(x)
 #define TARGET_MOVBE	TARGET_ISA_MOVBE
+#define TARGET_MOVBE_P(x)	TARGET_ISA_MOVBE_P(x)
 #define TARGET_CRC32	TARGET_ISA_CRC32
+#define TARGET_CRC32_P(x)	TARGET_ISA_CRC32_P(x)
 #define TARGET_AES	TARGET_ISA_AES
+#define TARGET_AES_P(x)	TARGET_ISA_AES_P(x)
+#define TARGET_SHA	TARGET_ISA_SHA
+#define TARGET_SHA_P(x)	TARGET_ISA_SHA_P(x)
 #define TARGET_PCLMUL	TARGET_ISA_PCLMUL
-#define TARGET_CMPXCHG16B TARGET_ISA_CX16
+#define TARGET_PCLMUL_P(x)	TARGET_ISA_PCLMUL_P(x)
+#define TARGET_CMPXCHG16B	TARGET_ISA_CX16
+#define TARGET_CMPXCHG16B_P(x)	TARGET_ISA_CX16_P(x)
 #define TARGET_FSGSBASE	TARGET_ISA_FSGSBASE
+#define TARGET_FSGSBASE_P(x)	TARGET_ISA_FSGSBASE_P(x)
 #define TARGET_RDRND	TARGET_ISA_RDRND
+#define TARGET_RDRND_P(x)	TARGET_ISA_RDRND_P(x)
 #define TARGET_F16C	TARGET_ISA_F16C
-#define TARGET_RTM      TARGET_ISA_RTM
+#define TARGET_F16C_P(x)	TARGET_ISA_F16C_P(x)
+#define TARGET_RTM	TARGET_ISA_RTM
+#define TARGET_RTM_P(x)	TARGET_ISA_RTM_P(x)
 #define TARGET_HLE	TARGET_ISA_HLE
+#define TARGET_HLE_P(x)	TARGET_ISA_HLE_P(x)
 #define TARGET_RDSEED	TARGET_ISA_RDSEED
+#define TARGET_RDSEED_P(x)	TARGET_ISA_RDSEED_P(x)
 #define TARGET_PRFCHW	TARGET_ISA_PRFCHW
+#define TARGET_PRFCHW_P(x)	TARGET_ISA_PRFCHW_P(x)
 #define TARGET_ADX	TARGET_ISA_ADX
+#define TARGET_ADX_P(x)	TARGET_ISA_ADX_P(x)
 #define TARGET_FXSR	TARGET_ISA_FXSR
+#define TARGET_FXSR_P(x)	TARGET_ISA_FXSR_P(x)
 #define TARGET_XSAVE	TARGET_ISA_XSAVE
+#define TARGET_XSAVE_P(x)	TARGET_ISA_XSAVE_P(x)
 #define TARGET_XSAVEOPT	TARGET_ISA_XSAVEOPT
-#define TARGET_MPX      TARGET_ISA_MPX
+#define TARGET_XSAVEOPT_P(x)	TARGET_ISA_XSAVEOPT_P(x)
+#define TARGET_PREFETCHWT1	TARGET_ISA_PREFETCHWT1
+#define TARGET_PREFETCHWT1_P(x)	TARGET_ISA_PREFETCHWT1_P(x)
+#define TARGET_MPX	TARGET_ISA_MPX
+#define TARGET_MPX_P(x)	TARGET_ISA_MPX_P(x)
 
 #define TARGET_LP64	TARGET_ABI_64
+#define TARGET_LP64_P(x)	TARGET_ABI_64_P(x)
 #define TARGET_X32	TARGET_ABI_X32
+#define TARGET_X32_P(x)	TARGET_ABI_X32_P(x)
+#define TARGET_16BIT	TARGET_CODE16
+#define TARGET_16BIT_P(x)	TARGET_CODE16_P(x)
 
 /* SSE4.1 defines round instructions */
 #define	OPTION_MASK_ISA_ROUND	OPTION_MASK_ISA_SSE4_1
@@ -202,10 +255,10 @@ extern const struct processor_costs ix86_size_cost;
 
 /* Macros used in the machine description to test the flags.  */
 
-/* configure can arrange to make this 2, to force a 486.  */
+/* configure can arrange to change it.  */
 
 #ifndef TARGET_CPU_DEFAULT
-#define TARGET_CPU_DEFAULT TARGET_CPU_DEFAULT_generic
+#define TARGET_CPU_DEFAULT PROCESSOR_GENERIC
 #endif
 
 #ifndef TARGET_FPMATH_DEFAULT
@@ -213,7 +266,13 @@ extern const struct processor_costs ix86_size_cost;
   (TARGET_64BIT && TARGET_SSE ? FPMATH_SSE : FPMATH_387)
 #endif
 
+#ifndef TARGET_FPMATH_DEFAULT_P
+#define TARGET_FPMATH_DEFAULT_P(x) \
+  (TARGET_64BIT_P(x) && TARGET_SSE_P(x) ? FPMATH_SSE : FPMATH_387)
+#endif
+
 #define TARGET_FLOAT_RETURNS_IN_80387 TARGET_FLOAT_RETURNS
+#define TARGET_FLOAT_RETURNS_IN_80387_P(x) TARGET_FLOAT_RETURNS_P(x)
 
 /* 64bit Sledgehammer mode.  For libgcc2 we make sure this is a
    compile-time constant.  */
@@ -227,10 +286,13 @@ extern const struct processor_costs ix86_size_cost;
 #else
 #ifndef TARGET_BI_ARCH
 #undef TARGET_64BIT
+#undef TARGET_64BIT_P
 #if TARGET_64BIT_DEFAULT
 #define TARGET_64BIT 1
+#define TARGET_64BIT_P(x) 1
 #else
 #define TARGET_64BIT 0
+#define TARGET_64BIT_P(x) 0
 #endif
 #endif
 #endif
@@ -250,17 +312,20 @@ extern const struct processor_costs ix86_size_cost;
 #define TARGET_ATHLON_K8 (TARGET_K8 || TARGET_ATHLON)
 #define TARGET_NOCONA (ix86_tune == PROCESSOR_NOCONA)
 #define TARGET_CORE2 (ix86_tune == PROCESSOR_CORE2)
-#define TARGET_COREI7 (ix86_tune == PROCESSOR_COREI7)
+#define TARGET_NEHALEM (ix86_tune == PROCESSOR_NEHALEM)
+#define TARGET_SANDYBRIDGE (ix86_tune == PROCESSOR_SANDYBRIDGE)
 #define TARGET_HASWELL (ix86_tune == PROCESSOR_HASWELL)
+#define TARGET_BONNELL (ix86_tune == PROCESSOR_BONNELL)
+#define TARGET_SILVERMONT (ix86_tune == PROCESSOR_SILVERMONT)
+#define TARGET_INTEL (ix86_tune == PROCESSOR_INTEL)
 #define TARGET_GENERIC (ix86_tune == PROCESSOR_GENERIC)
 #define TARGET_AMDFAM10 (ix86_tune == PROCESSOR_AMDFAM10)
 #define TARGET_BDVER1 (ix86_tune == PROCESSOR_BDVER1)
 #define TARGET_BDVER2 (ix86_tune == PROCESSOR_BDVER2)
 #define TARGET_BDVER3 (ix86_tune == PROCESSOR_BDVER3)
+#define TARGET_BDVER4 (ix86_tune == PROCESSOR_BDVER4)
 #define TARGET_BTVER1 (ix86_tune == PROCESSOR_BTVER1)
 #define TARGET_BTVER2 (ix86_tune == PROCESSOR_BTVER2)
-#define TARGET_ATOM (ix86_tune == PROCESSOR_ATOM)
-#define TARGET_SLM (ix86_tune == PROCESSOR_SLM)
 
 /* Feature tests against the various tunings.  */
 enum ix86_tune_indices {
@@ -299,6 +364,8 @@ extern unsigned char ix86_tune_features[X86_TUNE_LAST];
 #define TARGET_PROMOTE_QImode	ix86_tune_features[X86_TUNE_PROMOTE_QIMODE]
 #define TARGET_FAST_PREFIX	ix86_tune_features[X86_TUNE_FAST_PREFIX]
 #define TARGET_SINGLE_STRINGOP	ix86_tune_features[X86_TUNE_SINGLE_STRINGOP]
+#define TARGET_MISALIGNED_MOVE_STRING_PRO_EPILOGUES \
+	ix86_tune_features[X86_TUNE_MISALIGNED_MOVE_STRING_PRO_EPILOGUES]
 #define TARGET_QIMODE_MATH	ix86_tune_features[X86_TUNE_QIMODE_MATH]
 #define TARGET_HIMODE_MATH	ix86_tune_features[X86_TUNE_HIMODE_MATH]
 #define TARGET_PROMOTE_QI_REGS	ix86_tune_features[X86_TUNE_PROMOTE_QI_REGS]
@@ -360,9 +427,20 @@ extern unsigned char ix86_tune_features[X86_TUNE_LAST];
 	ix86_tune_features[X86_TUNE_USE_VECTOR_FP_CONVERTS]
 #define TARGET_USE_VECTOR_CONVERTS \
 	ix86_tune_features[X86_TUNE_USE_VECTOR_CONVERTS]
+#define TARGET_FUSE_CMP_AND_BRANCH_32 \
+	ix86_tune_features[X86_TUNE_FUSE_CMP_AND_BRANCH_32]
+#define TARGET_FUSE_CMP_AND_BRANCH_64 \
+	ix86_tune_features[X86_TUNE_FUSE_CMP_AND_BRANCH_64]
 #define TARGET_FUSE_CMP_AND_BRANCH \
-	ix86_tune_features[X86_TUNE_FUSE_CMP_AND_BRANCH]
+	(TARGET_64BIT ? TARGET_FUSE_CMP_AND_BRANCH_64 \
+	 : TARGET_FUSE_CMP_AND_BRANCH_32)
+#define TARGET_FUSE_CMP_AND_BRANCH_SOFLAGS \
+	ix86_tune_features[X86_TUNE_FUSE_CMP_AND_BRANCH_SOFLAGS]
+#define TARGET_FUSE_ALU_AND_BRANCH \
+	ix86_tune_features[X86_TUNE_FUSE_ALU_AND_BRANCH]
 #define TARGET_OPT_AGU ix86_tune_features[X86_TUNE_OPT_AGU]
+#define TARGET_AVOID_LEA_FOR_ADDR \
+	ix86_tune_features[X86_TUNE_AVOID_LEA_FOR_ADDR]
 #define TARGET_VECTORIZE_DOUBLE \
 	ix86_tune_features[X86_TUNE_VECTORIZE_DOUBLE]
 #define TARGET_SOFTWARE_PREFETCHING_BENEFICIAL \
@@ -379,6 +457,8 @@ extern unsigned char ix86_tune_features[X86_TUNE_LAST];
 	ix86_tune_features[X86_TUNE_AVOID_MEM_OPND_FOR_CMOVE]
 #define TARGET_SPLIT_MEM_OPND_FOR_FP_CONVERTS \
 	ix86_tune_features[X86_TUNE_SPLIT_MEM_OPND_FOR_FP_CONVERTS]
+#define TARGET_ADJUST_UNROLL \
+    ix86_tune_features[X86_TUNE_ADJUST_UNROLL]
 
 /* Feature tests against the various architecture variations.  */
 enum ix86_arch_indices {
@@ -541,44 +621,6 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 /* Target Pragmas.  */
 #define REGISTER_TARGET_PRAGMAS() ix86_register_pragmas ()
 
-enum target_cpu_default
-{
-  TARGET_CPU_DEFAULT_generic = 0,
-
-  TARGET_CPU_DEFAULT_i386,
-  TARGET_CPU_DEFAULT_i486,
-  TARGET_CPU_DEFAULT_pentium,
-  TARGET_CPU_DEFAULT_pentium_mmx,
-  TARGET_CPU_DEFAULT_pentiumpro,
-  TARGET_CPU_DEFAULT_pentium2,
-  TARGET_CPU_DEFAULT_pentium3,
-  TARGET_CPU_DEFAULT_pentium4,
-  TARGET_CPU_DEFAULT_pentium_m,
-  TARGET_CPU_DEFAULT_prescott,
-  TARGET_CPU_DEFAULT_nocona,
-  TARGET_CPU_DEFAULT_core2,
-  TARGET_CPU_DEFAULT_corei7,
-  TARGET_CPU_DEFAULT_haswell,
-  TARGET_CPU_DEFAULT_atom,
-  TARGET_CPU_DEFAULT_slm,
-
-  TARGET_CPU_DEFAULT_geode,
-  TARGET_CPU_DEFAULT_k6,
-  TARGET_CPU_DEFAULT_k6_2,
-  TARGET_CPU_DEFAULT_k6_3,
-  TARGET_CPU_DEFAULT_athlon,
-  TARGET_CPU_DEFAULT_athlon_sse,
-  TARGET_CPU_DEFAULT_k8,
-  TARGET_CPU_DEFAULT_amdfam10,
-  TARGET_CPU_DEFAULT_bdver1,
-  TARGET_CPU_DEFAULT_bdver2,
-  TARGET_CPU_DEFAULT_bdver3,
-  TARGET_CPU_DEFAULT_btver1,
-  TARGET_CPU_DEFAULT_btver2,
-
-  TARGET_CPU_DEFAULT_max
-};
-
 #ifndef CC1_SPEC
 #define CC1_SPEC "%(cc1_cpu) "
 #endif
@@ -633,12 +675,15 @@ enum target_cpu_default
 #define LONG_LONG_TYPE_SIZE 64
 #define FLOAT_TYPE_SIZE 32
 #define DOUBLE_TYPE_SIZE 64
-#define LONG_DOUBLE_TYPE_SIZE (TARGET_LONG_DOUBLE_64 ? 64 : 80)
+#define LONG_DOUBLE_TYPE_SIZE \
+  (TARGET_LONG_DOUBLE_64 ? 64 : (TARGET_LONG_DOUBLE_128 ? 128 : 80))
 
 /* Define this to set long double type size to use in libgcc2.c, which can
    not depend on target_flags.  */
 #ifdef __LONG_DOUBLE_64__
 #define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 64
+#elif defined (__LONG_DOUBLE_128__)
+#define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 128
 #else
 #define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 80
 #endif
@@ -1023,7 +1068,7 @@ enum target_cpu_default
    || (MODE) == V4DImode || (MODE) == V2TImode || (MODE) == V8SFmode	\
    || (MODE) == V4DFmode)
 
-#define VALID_AVX256_REG_OR_OI_MODE(MODE)					\
+#define VALID_AVX256_REG_OR_OI_MODE(MODE)		\
   (VALID_AVX256_REG_MODE (MODE) || (MODE) == OImode)
 
 #define VALID_AVX512F_SCALAR_MODE(MODE)					\
@@ -1511,13 +1556,26 @@ enum reg_class
    will be computed and placed into the variable `crtl->outgoing_args_size'.
    No space will be pushed onto the stack for each call; instead, the
    function prologue should increase the stack frame size by this amount.  
-   
-   64-bit MS ABI seem to require 16 byte alignment everywhere except for
-   function prologue and apilogue.  This is not possible without
-   ACCUMULATE_OUTGOING_ARGS.  */
+
+   In 32bit mode enabling argument accumulation results in about 5% code size
+   growth becuase move instructions are less compact than push.  In 64bit
+   mode the difference is less drastic but visible.  
+
+   FIXME: Unlike earlier implementations, the size of unwind info seems to
+   actually grow with accumulation.  Is that because accumulated args
+   unwind info became unnecesarily bloated?
+
+   With the 64-bit MS ABI, we can generate correct code with or without
+   accumulated args, but because of OUTGOING_REG_PARM_STACK_SPACE the code
+   generated without accumulated args is terrible.
+
+   If stack probes are required, the space used for large function
+   arguments on the stack must also be probed, so enable
+   -maccumulate-outgoing-args so this happens in the prologue.  */
 
 #define ACCUMULATE_OUTGOING_ARGS \
-  (TARGET_ACCUMULATE_OUTGOING_ARGS || TARGET_64BIT_MS_ABI)
+  ((TARGET_ACCUMULATE_OUTGOING_ARGS && optimize_function_for_speed_p (cfun)) \
+   || TARGET_STACK_PROBE || TARGET_64BIT_MS_ABI)
 
 /* If defined, a C expression whose value is nonzero when we want to use PUSH
    instructions to pass outgoing arguments.  */
@@ -1573,6 +1631,8 @@ typedef struct ix86_args {
 				   is used */
   int sse_words;		/* # sse words passed so far */
   int sse_nregs;		/* # sse registers available for passing */
+  int warn_avx512f;		/* True when we want to warn
+				   about AVX512F ABI.  */
   int warn_avx;			/* True when we want to warn about AVX ABI.  */
   int warn_sse;			/* True when we want to warn about SSE ABI.  */
   int warn_mmx;			/* True when we want to warn about MMX ABI.  */
@@ -1585,8 +1645,9 @@ typedef struct ix86_args {
   int float_in_sse;		/* Set to 1 or 2 for 32bit targets if
 				   SFmode/DFmode arguments should be passed
 				   in SSE registers.  Otherwise 0.  */
-  int bnd_nregs;                /* # bnd registers available for passing */
   int bnd_regno;                /* next available bnd register number */
+  int bnds_in_bt;               /* number of bounds expected in BT.  */
+  int force_bnd_pass;           /* number of bounds expected for stdarg arg.  */
   int stdarg;                   /* Set to 1 if function is stdarg.  */
   enum calling_abi call_abi;	/* Set to SYSV_ABI for sysv abi. Otherwise
  				   MS_ABI for ms abi.  */
@@ -1801,8 +1862,6 @@ do {									\
    : X86_32_SSE_REGPARM_MAX)
 
 #define MMX_REGPARM_MAX (TARGET_64BIT ? 0 : (TARGET_MMX ? 3 : 0))
-
-#define X86_64_BND_REGPARM_MAX 4
 
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */
@@ -1988,12 +2047,28 @@ do {							\
 /* Table of additional register names to use in user input.  */
 
 #define ADDITIONAL_REGISTER_NAMES \
-{ { "eax", 0 }, { "edx", 1 }, { "ecx", 2 }, { "ebx", 3 },	\
-  { "esi", 4 }, { "edi", 5 }, { "ebp", 6 }, { "esp", 7 },	\
-  { "rax", 0 }, { "rdx", 1 }, { "rcx", 2 }, { "rbx", 3 },	\
-  { "rsi", 4 }, { "rdi", 5 }, { "rbp", 6 }, { "rsp", 7 },	\
-  { "al", 0 }, { "dl", 1 }, { "cl", 2 }, { "bl", 3 },		\
-  { "ah", 0 }, { "dh", 1 }, { "ch", 2 }, { "bh", 3 } }
+{ { "eax", 0 }, { "edx", 1 }, { "ecx", 2 }, { "ebx", 3 },		\
+  { "esi", 4 }, { "edi", 5 }, { "ebp", 6 }, { "esp", 7 },		\
+  { "rax", 0 }, { "rdx", 1 }, { "rcx", 2 }, { "rbx", 3 },		\
+  { "rsi", 4 }, { "rdi", 5 }, { "rbp", 6 }, { "rsp", 7 },		\
+  { "al", 0 }, { "dl", 1 }, { "cl", 2 }, { "bl", 3 },			\
+  { "ah", 0 }, { "dh", 1 }, { "ch", 2 }, { "bh", 3 },			\
+  { "ymm0", 21}, { "ymm1", 22}, { "ymm2", 23}, { "ymm3", 24},		\
+  { "ymm4", 25}, { "ymm5", 26}, { "ymm6", 27}, { "ymm7", 28},		\
+  { "ymm8", 45}, { "ymm9", 46}, { "ymm10", 47}, { "ymm11", 48},		\
+  { "ymm12", 49}, { "ymm13", 50}, { "ymm14", 51}, { "ymm15", 52},	\
+  { "ymm16", 53}, { "ymm17", 54}, { "ymm18", 55}, { "ymm19", 56},	\
+  { "ymm20", 57}, { "ymm21", 58}, { "ymm22", 59}, { "ymm23", 60},	\
+  { "ymm24", 61}, { "ymm25", 62}, { "ymm26", 63}, { "ymm27", 64},	\
+  { "ymm28", 65}, { "ymm29", 66}, { "ymm30", 67}, { "ymm31", 68},	\
+  { "zmm0", 21}, { "zmm1", 22}, { "zmm2", 23}, { "zmm3", 24},		\
+  { "zmm4", 25}, { "zmm5", 26}, { "zmm6", 27}, { "zmm7", 28},		\
+  { "zmm8", 45}, { "zmm9", 46}, { "zmm10", 47}, { "zmm11", 48},		\
+  { "zmm12", 49}, { "zmm13", 50}, { "zmm14", 51}, { "zmm15", 52},	\
+  { "zmm16", 53}, { "zmm17", 54}, { "zmm18", 55}, { "zmm19", 56},	\
+  { "zmm20", 57}, { "zmm21", 58}, { "zmm22", 59}, { "zmm23", 60},	\
+  { "zmm24", 61}, { "zmm25", 62}, { "zmm26", 63}, { "zmm27", 64},	\
+  { "zmm28", 65}, { "zmm29", 66}, { "zmm30", 67}, { "zmm31", 68} }
 
 /* Note we are omitting these since currently I don't know how
 to get gcc to use these, since they want the same but different
@@ -2150,32 +2225,36 @@ do {									\
    with x86-64 medium memory model */
 #define DEFAULT_LARGE_SECTION_THRESHOLD 65536
 
-/* Which processor to tune code generation for.  */
+/* Which processor to tune code generation for.  These must be in sync
+   with processor_target_table in i386.c.  */ 
 
 enum processor_type
 {
-  PROCESSOR_I386 = 0,			/* 80386 */
+  PROCESSOR_GENERIC = 0,
+  PROCESSOR_I386,			/* 80386 */
   PROCESSOR_I486,			/* 80486DX, 80486SX, 80486DX[24] */
   PROCESSOR_PENTIUM,
   PROCESSOR_PENTIUMPRO,
+  PROCESSOR_PENTIUM4,
+  PROCESSOR_NOCONA,
+  PROCESSOR_CORE2,
+  PROCESSOR_NEHALEM,
+  PROCESSOR_SANDYBRIDGE,
+  PROCESSOR_HASWELL,
+  PROCESSOR_BONNELL,
+  PROCESSOR_SILVERMONT,
+  PROCESSOR_INTEL,
   PROCESSOR_GEODE,
   PROCESSOR_K6,
   PROCESSOR_ATHLON,
-  PROCESSOR_PENTIUM4,
   PROCESSOR_K8,
-  PROCESSOR_NOCONA,
-  PROCESSOR_CORE2,
-  PROCESSOR_COREI7,
-  PROCESSOR_HASWELL,
-  PROCESSOR_GENERIC,
   PROCESSOR_AMDFAM10,
   PROCESSOR_BDVER1,
   PROCESSOR_BDVER2,
   PROCESSOR_BDVER3,
+  PROCESSOR_BDVER4,
   PROCESSOR_BTVER1,
   PROCESSOR_BTVER2,
-  PROCESSOR_ATOM,
-  PROCESSOR_SLM,
   PROCESSOR_max
 };
 
@@ -2400,6 +2479,9 @@ struct GTY(()) machine_function {
      stack below the return address.  */
   BOOL_BITFIELD static_chain_on_stack : 1;
 
+  /* If true, it is safe to not save/restore DRAP register.  */
+  BOOL_BITFIELD no_drap_save_restore : 1;
+
   /* During prologue/epilogue generation, the current frame state.
      Otherwise, the frame state at the end of the prologue.  */
   struct machine_frame_state fs;
@@ -2487,6 +2569,9 @@ extern void debug_dispatch_window (int);
 
 #define IX86_HLE_ACQUIRE (1 << 16)
 #define IX86_HLE_RELEASE (1 << 17)
+
+/* For switching between functions with different target attributes.  */
+#define SWITCHABLE_TARGET 1
 
 /*
 Local variables:

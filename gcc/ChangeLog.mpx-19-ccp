@@ -1,0 +1,4 @@
+2013-10-29  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* tree-ssa-ccp.c (insert_clobber_before_stack_restore): Handle
+	BUILT_IN_CHKP_BNDRET calls.

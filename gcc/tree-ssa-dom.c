@@ -1,5 +1,5 @@
 /* SSA Dominator optimizations for trees
-   Copyright (C) 2001-2013 Free Software Foundation, Inc.
+   Copyright (C) 2001-2014 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -24,19 +24,36 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-table.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "flags.h"
 #include "tm_p.h"
 #include "basic-block.h"
 #include "cfgloop.h"
 #include "function.h"
 #include "gimple-pretty-print.h"
-#include "tree-ssa.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
+#include "tree-into-ssa.h"
 #include "domwalk.h"
 #include "tree-pass.h"
 #include "tree-ssa-propagate.h"
 #include "tree-ssa-threadupdate.h"
 #include "langhooks.h"
 #include "params.h"
+#include "tree-ssa-threadedge.h"
+#include "tree-ssa-dom.h"
 
 /* This file implements optimizations on the dominator tree.  */
 
@@ -528,6 +545,29 @@ hashable_expr_equal_p (const struct hashable_expr *expr0,
     }
 }
 
+/* Generate a hash value for a pair of expressions.  This can be used
+   iteratively by passing a previous result as the VAL argument.
+
+   The same hash value is always returned for a given pair of expressions,
+   regardless of the order in which they are presented.  This is useful in
+   hashing the operands of commutative functions.  */
+
+static hashval_t
+iterative_hash_exprs_commutative (const_tree t1,
+                                  const_tree t2, hashval_t val)
+{
+  hashval_t one = iterative_hash_expr (t1, 0);
+  hashval_t two = iterative_hash_expr (t2, 0);
+  hashval_t t;
+
+  if (one > two)
+    t = one, one = two, two = t;
+  val = iterative_hash_hashval_t (one, val);
+  val = iterative_hash_hashval_t (two, val);
+
+  return val;
+}
+
 /* Compute a hash value for a hashable_expr value EXPR and a
    previously accumulated hash value VAL.  If two hashable_expr
    values compare equal with hashable_expr_equal_p, they must
@@ -639,18 +679,18 @@ print_expr_hash_elt (FILE * stream, const struct expr_hash_elt *element)
         break;
 
       case EXPR_UNARY:
-        fprintf (stream, "%s ", tree_code_name[element->expr.ops.unary.op]);
+	fprintf (stream, "%s ", get_tree_code_name (element->expr.ops.unary.op));
         print_generic_expr (stream, element->expr.ops.unary.opnd, 0);
         break;
 
       case EXPR_BINARY:
         print_generic_expr (stream, element->expr.ops.binary.opnd0, 0);
-        fprintf (stream, " %s ", tree_code_name[element->expr.ops.binary.op]);
+	fprintf (stream, " %s ", get_tree_code_name (element->expr.ops.binary.op));
         print_generic_expr (stream, element->expr.ops.binary.opnd1, 0);
         break;
 
       case EXPR_TERNARY:
-        fprintf (stream, " %s <", tree_code_name[element->expr.ops.ternary.op]);
+	fprintf (stream, " %s <", get_tree_code_name (element->expr.ops.ternary.op));
         print_generic_expr (stream, element->expr.ops.ternary.opnd0, 0);
 	fputs (", ", stream);
         print_generic_expr (stream, element->expr.ops.ternary.opnd1, 0);
@@ -755,7 +795,7 @@ free_all_edge_infos (void)
   edge_iterator ei;
   edge e;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       FOR_EACH_EDGE (e, ei, bb->preds)
         {
@@ -775,7 +815,7 @@ class dom_opt_dom_walker : public dom_walker
 {
 public:
   dom_opt_dom_walker (cdi_direction direction)
-    : dom_walker (direction), dummy_cond_ (NULL) {}
+    : dom_walker (direction), m_dummy_cond (NULL) {}
 
   virtual void before_dom_children (basic_block);
   virtual void after_dom_children (basic_block);
@@ -783,7 +823,7 @@ public:
 private:
   void thread_across_edge (edge);
 
-  gimple dummy_cond_;
+  gimple m_dummy_cond;
 };
 
 /* Jump threading, redundancy elimination and const/copy propagation.
@@ -809,8 +849,14 @@ tree_ssa_dominator_optimize (void)
   /* We need to know loop structures in order to avoid destroying them
      in jump threading.  Note that we still can e.g. thread through loop
      headers to an exit edge, or through loop header to the loop body, assuming
-     that we update the loop info.  */
-  loop_optimizer_init (LOOPS_HAVE_SIMPLE_LATCHES);
+     that we update the loop info.
+
+     TODO: We don't need to set LOOPS_HAVE_PREHEADERS generally, but due
+     to several overly conservative bail-outs in jump threading, case
+     gcc.dg/tree-ssa/pr21417.c can't be threaded if loop preheader is
+     missing.  We should improve jump threading in future then
+     LOOPS_HAVE_PREHEADERS won't be needed here.  */
+  loop_optimizer_init (LOOPS_HAVE_PREHEADERS | LOOPS_HAVE_SIMPLE_LATCHES);
 
   /* Initialize the value-handle array.  */
   threadedge_initialize_values ();
@@ -826,7 +872,7 @@ tree_ssa_dominator_optimize (void)
   {
     gimple_stmt_iterator gsi;
     basic_block bb;
-    FOR_EACH_BB (bb)
+    FOR_EACH_BB_FN (bb, cfun)
       {
 	for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	  update_stmt_if_modified (gsi_stmt (gsi));
@@ -862,13 +908,13 @@ tree_ssa_dominator_optimize (void)
 	 iterator.  */
       EXECUTE_IF_SET_IN_BITMAP (need_eh_cleanup, 0, i, bi)
 	{
-	  basic_block bb = BASIC_BLOCK (i);
+	  basic_block bb = BASIC_BLOCK_FOR_FN (cfun, i);
 	  if (bb == NULL)
 	    continue;
 	  while (single_succ_p (bb)
 		 && (single_succ_edge (bb)->flags & EDGE_EH) == 0)
 	    bb = single_succ (bb);
-	  if (bb == EXIT_BLOCK_PTR)
+	  if (bb == EXIT_BLOCK_PTR_FOR_FN (cfun))
 	    continue;
 	  if ((unsigned) bb->index != i)
 	    bitmap_set_bit (need_eh_cleanup, bb->index);
@@ -902,7 +948,6 @@ tree_ssa_dominator_optimize (void)
 
   /* Free the value-handle array.  */
   threadedge_finalize_values ();
-  ssa_name_values.release ();
 
   return 0;
 }
@@ -940,7 +985,7 @@ public:
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_dominator (ctxt_); }
+  opt_pass * clone () { return new pass_dominator (m_ctxt); }
   bool gate () { return gate_dominator (); }
   unsigned int execute () { return tree_ssa_dominator_optimize (); }
 
@@ -1107,8 +1152,8 @@ record_temporary_equivalences (edge e)
 void
 dom_opt_dom_walker::thread_across_edge (edge e)
 {
-  if (! dummy_cond_)
-    dummy_cond_ =
+  if (! m_dummy_cond)
+    m_dummy_cond =
         gimple_build_cond (NE_EXPR,
                            integer_zero_node, integer_zero_node,
                            NULL, NULL);
@@ -1123,7 +1168,7 @@ dom_opt_dom_walker::thread_across_edge (edge e)
 
   /* With all the edge equivalences in the tables, go ahead and attempt
      to thread through E->dest.  */
-  ::thread_across_edge (dummy_cond_, e, false,
+  ::thread_across_edge (m_dummy_cond, e, false,
 		        &const_and_copies_stack,
 		        simplify_stmt_for_jump_threading);
 
@@ -1754,7 +1799,7 @@ record_edge_info (basic_block bb)
 	    {
 	      int i;
               int n_labels = gimple_switch_num_labels (stmt);
-	      tree *info = XCNEWVEC (tree, last_basic_block);
+	      tree *info = XCNEWVEC (tree, last_basic_block_for_fn (cfun));
 	      edge e;
 	      edge_iterator ei;
 
@@ -2589,42 +2634,6 @@ avail_expr_hash (const void *p)
 /* PHI-ONLY copy and constant propagation.  This pass is meant to clean
    up degenerate PHIs created by or exposed by jump threading.  */
 
-/* Given PHI, return its RHS if the PHI is a degenerate, otherwise return
-   NULL.  */
-
-tree
-degenerate_phi_result (gimple phi)
-{
-  tree lhs = gimple_phi_result (phi);
-  tree val = NULL;
-  size_t i;
-
-  /* Ignoring arguments which are the same as LHS, if all the remaining
-     arguments are the same, then the PHI is a degenerate and has the
-     value of that common argument.  */
-  for (i = 0; i < gimple_phi_num_args (phi); i++)
-    {
-      tree arg = gimple_phi_arg_def (phi, i);
-
-      if (arg == lhs)
-	continue;
-      else if (!arg)
-	break;
-      else if (!val)
-	val = arg;
-      else if (arg == val)
-	continue;
-      /* We bring in some of operand_equal_p not only to speed things
-	 up, but also to avoid crashing when dereferencing the type of
-	 a released SSA name.  */
-      else if (TREE_CODE (val) != TREE_CODE (arg)
-	       || TREE_CODE (val) == SSA_NAME
-	       || !operand_equal_p (arg, val, 0))
-	break;
-    }
-  return (i == gimple_phi_num_args (phi) ? val : NULL);
-}
-
 /* Given a statement STMT, which is either a PHI node or an assignment,
    remove it from the IL.  */
 
@@ -3057,7 +3066,8 @@ eliminate_degenerate_phis (void)
      phase in dominator order.  Presumably this is because walking
      in dominator order leaves fewer PHIs for later examination
      by the worklist phase.  */
-  eliminate_degenerate_phis_1 (ENTRY_BLOCK_PTR, interesting_names);
+  eliminate_degenerate_phis_1 (ENTRY_BLOCK_PTR_FOR_FN (cfun),
+			       interesting_names);
 
   /* Second phase.  Eliminate second order degenerate PHIs as well
      as trivial copies or constant initializations identified by
@@ -3133,7 +3143,7 @@ public:
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_phi_only_cprop (ctxt_); }
+  opt_pass * clone () { return new pass_phi_only_cprop (m_ctxt); }
   bool gate () { return gate_dominator (); }
   unsigned int execute () { return eliminate_degenerate_phis (); }
 

@@ -1,5 +1,5 @@
 /* Default target hook functions.
-   Copyright (C) 2003-2013 Free Software Foundation, Inc.
+   Copyright (C) 2003-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -69,6 +69,7 @@ extern tree default_mangle_assembler_name (const char *);
 extern bool default_scalar_mode_supported_p (enum machine_mode);
 extern bool targhook_words_big_endian (void);
 extern bool targhook_float_words_big_endian (void);
+extern bool default_float_exceptions_rounding_supported_p (void);
 extern bool default_decimal_float_supported_p (void);
 extern bool default_fixed_point_supported_p (void);
 
@@ -152,7 +153,7 @@ extern bool default_target_option_valid_attribute_p (tree, tree, tree, int);
 extern bool default_target_option_pragma_parse (tree, tree);
 extern bool default_target_can_inline_p (tree, tree);
 extern bool default_valid_pointer_mode (enum machine_mode);
-extern bool default_ref_may_alias_errno (struct ao_ref_s *);
+extern bool default_ref_may_alias_errno (struct ao_ref *);
 extern enum machine_mode default_addr_space_pointer_mode (addr_space_t);
 extern enum machine_mode default_addr_space_address_mode (addr_space_t);
 extern bool default_addr_space_valid_pointer_mode (enum machine_mode,
@@ -202,11 +203,26 @@ extern void default_asm_output_ident_directive (const char*);
 
 extern enum machine_mode default_cstore_mode (enum insn_code);
 extern bool default_member_type_forces_blk (const_tree, enum machine_mode);
+extern void default_atomic_assign_expand_fenv (tree *, tree *, tree *);
+extern tree build_va_arg_indirect_ref (tree);
+extern tree std_gimplify_va_arg_expr (tree, tree, gimple_seq *, gimple_seq *);
 
 extern rtx default_load_bounds_for_arg (rtx, rtx, rtx);
 extern void default_store_bounds_for_arg (rtx, rtx, rtx, rtx);
+extern rtx default_load_returned_bounds (rtx);
+extern void default_store_returned_bounds (rtx,rtx);
 extern tree default_fn_abi_va_list_bounds_size (tree);
-extern void default_init_returned_bounds (tree);
 extern tree default_chkp_bound_type (void);
 extern enum machine_mode default_chkp_bound_mode (void);
 extern tree default_builtin_chkp_function (unsigned int);
+extern rtx default_chkp_function_value_bounds (const_tree, const_tree, bool);
+extern tree default_chkp_make_bounds_constant (HOST_WIDE_INT lb, HOST_WIDE_INT ub);
+extern int default_chkp_initialize_bounds (tree var, tree lb, tree ub,
+					   tree *stmts);
+extern void default_setup_incoming_vararg_bounds (cumulative_args_t ca ATTRIBUTE_UNUSED,
+						  enum machine_mode mode ATTRIBUTE_UNUSED,
+						  tree type ATTRIBUTE_UNUSED,
+						  int *pretend_arg_size ATTRIBUTE_UNUSED,
+						  int second_time ATTRIBUTE_UNUSED);
+extern bool can_use_doloop_if_innermost (double_int, double_int,
+					 unsigned int, bool);

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for ATMEL AVR at90s8515, ATmega103/103L, ATmega603/603L microcontrollers.
-   Copyright (C) 1998-2013 Free Software Foundation, Inc.
+   Copyright (C) 1998-2014 Free Software Foundation, Inc.
    Contributed by Denis Chertykov (chertykov@gmail.com)
 
 This file is part of GCC.
@@ -88,8 +88,9 @@ enum
    __AVR_HAVE_8BIT_SP__ and __AVR_HAVE_16BIT_SP__.  During multilib generation
    there is always __AVR_SP8__ == __AVR_HAVE_8BIT_SP__.  */
 
-#define AVR_HAVE_8BIT_SP                                                \
-  (avr_current_device->short_sp || TARGET_TINY_STACK || avr_sp8)
+#define AVR_HAVE_8BIT_SP                                 \
+  ((avr_current_device->dev_attribute & AVR_SHORT_SP) || \
+   TARGET_TINY_STACK || avr_sp8)
 
 #define AVR_HAVE_SPH (!avr_sp8)
 
@@ -306,6 +307,7 @@ enum reg_class {
 #define STATIC_CHAIN_REGNUM 2
 
 #define ELIMINABLE_REGS {					\
+      {ARG_POINTER_REGNUM, STACK_POINTER_REGNUM},		\
       {ARG_POINTER_REGNUM, FRAME_POINTER_REGNUM},		\
 	{FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM}		\
        ,{FRAME_POINTER_REGNUM+1,STACK_POINTER_REGNUM+1}}
@@ -522,7 +524,8 @@ extern const char *avr_device_to_sp8 (int argc, const char **argv);
                                mmcu=at90can64*|\
                                mmcu=at90usb64*:--pmem-wrap-around=64k}}}\
 %:device_to_ld(%{mmcu=*:%*})\
-%:device_to_data_start(%{mmcu=*:%*})"
+%:device_to_data_start(%{mmcu=*:%*})\
+%{shared:%eshared is not supported}"
 
 #define LIB_SPEC \
   "%{!mmcu=at90s1*:%{!mmcu=attiny11:%{!mmcu=attiny12:%{!mmcu=attiny15:%{!mmcu=attiny28: -lc }}}}}"

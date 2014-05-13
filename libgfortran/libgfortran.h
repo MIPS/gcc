@@ -1,5 +1,5 @@
 /* Common declarations for all of libgfortran.
-   Copyright (C) 2002-2013 Free Software Foundation, Inc.
+   Copyright (C) 2002-2014 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>, and
    Andy Vaught <andy@xena.eas.asu.edu>
 
@@ -96,6 +96,16 @@ typedef off_t gfc_offset;
 #ifndef NULL
 #define NULL (void *) 0
 #endif
+
+
+/* The following macros can be used to annotate conditions which are likely or
+   unlikely to be true.  Avoid using them when a condition is only slightly
+   more likely/less unlikely than average to avoid the performance penalties of
+   branch misprediction. In addition, as __builtin_expect overrides the compiler
+   heuristic, do not use in conditions where one of the branches ends with a
+   call to a function with __attribute__((noreturn)): the compiler internal
+   heuristic will mark this branch as much less likely as unlikely() would
+   do.  */
 
 #ifndef __GNUC__
 #define __attribute__(x)

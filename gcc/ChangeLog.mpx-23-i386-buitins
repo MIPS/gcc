@@ -1,0 +1,37 @@
+2013-10-23  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* config/i386/i386-builtin-types.def (BND): New.
+	(ULONG): New.
+	(BND_FTYPE_PCVOID_ULONG): New.
+	(VOID_FTYPE_BND_PCVOID): New.
+	(VOID_FTYPE_PCVOID_PCVOID_BND): New.
+	(BND_FTYPE_PCVOID_PCVOID): New.
+	(BND_FTYPE_PCVOID): New.
+	(BND_FTYPE_BND_BND): New.
+	(PVOID_FTYPE_PVOID_PVOID_ULONG): New.
+	(PVOID_FTYPE_PCVOID_BND_ULONG): New.
+	(ULONG_FTYPE_VOID): New.
+	(PVOID_FTYPE_BND): New.
+	* config/i386/i386.c: Include tree-chkp.h, rtl-chkp.h.
+	(ix86_builtins): Add
+	IX86_BUILTIN_BNDMK, IX86_BUILTIN_BNDSTX,
+	IX86_BUILTIN_BNDLDX, IX86_BUILTIN_BNDCL,
+	IX86_BUILTIN_BNDCU, IX86_BUILTIN_BNDRET,
+	IX86_BUILTIN_BNDNARROW, IX86_BUILTIN_BNDINT,
+	IX86_BUILTIN_SIZEOF, IX86_BUILTIN_BNDLOWER,
+	IX86_BUILTIN_BNDUPPER.
+	(builtin_isa): Add leaf_p and nothrow_p fields.
+	(def_builtin): Initialize leaf_p and nothrow_p.
+	(ix86_add_new_builtins): Handle leaf_p and nothrow_p
+	flags.
+	(bdesc_mpx): New.
+	(bdesc_mpx_const): New.
+	(ix86_init_mpx_builtins): New.
+	(ix86_init_builtins): Call ix86_init_mpx_builtins.
+	(ix86_emit_move_max): New.
+	(ix86_expand_builtin): Expand IX86_BUILTIN_BNDMK,
+	IX86_BUILTIN_BNDSTX, IX86_BUILTIN_BNDLDX,
+	IX86_BUILTIN_BNDCL, IX86_BUILTIN_BNDCU,
+	IX86_BUILTIN_BNDRET, IX86_BUILTIN_BNDNARROW,
+	IX86_BUILTIN_BNDINT, IX86_BUILTIN_SIZEOF,
+	IX86_BUILTIN_BNDLOWER, IX86_BUILTIN_BNDUPPER.

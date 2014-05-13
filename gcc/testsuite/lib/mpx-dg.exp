@@ -20,6 +20,5 @@
 proc check_effective_target_mpx {} {
     return [check_no_compiler_messages mpx object {
 	int *foo (int *arg) { return arg; }
-    } "-fcheck-pointers -mmpx"]
+    } "-fcheck-pointer-bounds -mmpx"]
 }
-

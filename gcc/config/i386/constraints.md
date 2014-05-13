@@ -1,5 +1,5 @@
 ;; Constraint definitions for IA-32 and x86-64.
-;; Copyright (C) 2006-2013 Free Software Foundation, Inc.
+;; Copyright (C) 2006-2014 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -78,10 +78,10 @@
  "TARGET_80387 || TARGET_FLOAT_RETURNS_IN_80387 ? FP_SECOND_REG : NO_REGS"
  "Second from top of 80387 floating-point stack (@code{%st(1)}).")
 
-(define_register_constraint "k" "TARGET_AVX512F ? MASK_EVEX_REGS : NO_REGS"
+(define_register_constraint "Yk" "TARGET_AVX512F ? MASK_EVEX_REGS : NO_REGS"
 "@internal Any mask register that can be used as predicate, i.e. k1-k7.")
 
-(define_register_constraint "Yk" "TARGET_AVX512F ? MASK_REGS : NO_REGS"
+(define_register_constraint "k" "TARGET_AVX512F ? MASK_REGS : NO_REGS"
 "@internal Any mask register.")
 
 ;; Vector registers (also used for plain floating point nowadays).
@@ -223,6 +223,13 @@
 ;; We use W prefix to denote any number of
 ;; constant-or-symbol-reference constraints
 
+(define_constraint "We"
+  "32-bit signed integer constant, or a symbolic reference known
+   to fit that range (for sign-extending conversion operations that
+   require non-VOIDmode immediate operands)."
+  (and (match_operand 0 "x86_64_immediate_operand")
+       (match_test "GET_MODE (op) != VOIDmode")))
+
 (define_constraint "Wz"
   "32-bit unsigned integer constant, or a symbolic reference known
    to fit that range (for zero-extending conversion operations that
@@ -237,8 +244,18 @@
   (match_operand 0 "x86_64_zext_immediate_operand"))
 
 ;; T prefix is used for different address constraints
+;;   v - VSIB address
+;;   s - address with no segment register
 ;;   i - address with no index and no rip
 ;;   b - address with no base and no rip
+
+(define_address_constraint "Tv"
+  "VSIB address operand"
+  (match_operand 0 "vsib_address_operand"))
+
+(define_address_constraint "Ts"
+  "Address operand without segment register"
+  (match_operand 0 "address_no_seg_operand"))
 
 (define_address_constraint "Ti"
   "MPX address operand without index"

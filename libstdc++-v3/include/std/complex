@@ -1,6 +1,6 @@
 // The template and inlines for the -*- C++ -*- complex number classes.
 
-// Copyright (C) 1997-2013 Free Software Foundation, Inc.
+// Copyright (C) 1997-2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -735,7 +735,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template<typename _Tp>
     inline complex<_Tp>
     __complex_exp(const complex<_Tp>& __z)
-    { return std::polar(exp(__z.real()), __z.imag()); }
+    { return std::polar<_Tp>(exp(__z.real()), __z.imag()); }
 
 #if _GLIBCXX_USE_C99_COMPLEX
   inline __complex__ float
@@ -995,7 +995,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
         return pow(__x.real(), __y);
 
       complex<_Tp> __t = std::log(__x);
-      return std::polar(exp(__y * __t.real()), __y * __t.imag());
+      return std::polar<_Tp>(exp(__y * __t.real()), __y * __t.imag());
     }
 
   template<typename _Tp>
@@ -1032,8 +1032,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     inline complex<_Tp>
     pow(const _Tp& __x, const complex<_Tp>& __y)
     {
-      return __x > _Tp() ? std::polar(pow(__x, __y.real()),
-				      __y.imag() * log(__x))
+      return __x > _Tp() ? std::polar<_Tp>(pow(__x, __y.real()),
+					   __y.imag() * log(__x))
 	                 : std::pow(complex<_Tp>(__x), __y);
     }
 
@@ -1923,6 +1923,40 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     inline typename __gnu_cxx::__promote<_Tp>::__type
     conj(_Tp __x)
     { return __x; }
+
+#if __cplusplus > 201103L
+
+inline namespace literals {
+inline namespace complex_literals {
+
+  constexpr std::complex<float>
+  operator""if(long double __num)
+  { return std::complex<float>{0.0F, static_cast<float>(__num)}; }
+
+  constexpr std::complex<float>
+  operator""if(unsigned long long __num)
+  { return std::complex<float>{0.0F, static_cast<float>(__num)}; }
+
+  constexpr std::complex<double>
+  operator""i(long double __num)
+  { return std::complex<double>{0.0, static_cast<double>(__num)}; }
+
+  constexpr std::complex<double>
+  operator""i(unsigned long long __num)
+  { return std::complex<double>{0.0, static_cast<double>(__num)}; }
+
+  constexpr std::complex<long double>
+  operator""il(long double __num)
+  { return std::complex<long double>{0.0L, __num}; }
+
+  constexpr std::complex<long double>
+  operator""il(unsigned long long __num)
+  { return std::complex<long double>{0.0L, static_cast<long double>(__num)}; }
+
+} // inline namespace complex_literals
+} // inline namespace literals
+
+#endif // C++14
 
 _GLIBCXX_END_NAMESPACE_VERSION
 } // namespace

@@ -1,5 +1,5 @@
 ;; VSX patterns.
-;; Copyright (C) 2009-2013 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2014 Free Software Foundation, Inc.
 ;; Contributed by Michael Meissner <meissner@linux.vnet.ibm.com>
 
 ;; This file is part of GCC.
@@ -34,11 +34,11 @@
 (define_mode_iterator VSX_F [V4SF V2DF])
 
 ;; Iterator for logical types supported by VSX
-(define_mode_iterator VSX_L [V16QI V8HI V4SI V2DI V4SF V2DF TI])
+(define_mode_iterator VSX_L [V16QI V8HI V4SI V2DI V4SF V2DF V1TI TI])
 
 ;; Iterator for memory move.  Handle TImode specially to allow
 ;; it to use gprs as well as vsx registers.
-(define_mode_iterator VSX_M [V16QI V8HI V4SI V2DI V4SF V2DF])
+(define_mode_iterator VSX_M [V16QI V8HI V4SI V2DI V4SF V2DF V1TI])
 
 (define_mode_iterator VSX_M2 [V16QI
 			      V8HI
@@ -46,6 +46,7 @@
 			      V2DI
 			      V4SF
 			      V2DF
+			      V1TI
 			      (TI	"TARGET_VSX_TIMODE")])
 
 ;; Map into the appropriate load/store name based on the type
@@ -56,6 +57,7 @@
 			(V2DF  "vd2")
 			(V2DI  "vd2")
 			(DF    "d")
+			(V1TI  "vd2")
 			(TI    "vd2")])
 
 ;; Map into the appropriate suffix based on the type
@@ -67,6 +69,7 @@
 			 (V2DI  "dp")
 			 (DF    "dp")
 			 (SF	"sp")
+			 (V1TI  "dp")
 			 (TI    "dp")])
 
 ;; Map the register class used
@@ -78,6 +81,7 @@
 			 (V2DF  "wd")
 			 (DF    "ws")
 			 (SF	"d")
+			 (V1TI  "v")
 			 (TI    "wt")])
 
 ;; Map the register class used for float<->int conversions
@@ -123,6 +127,7 @@
 			 (V4SF  "v")
 			 (V2DI  "v")
 			 (V2DF  "v")
+			 (V1TI  "v")
 			 (DF    "s")])
 
 ;; Appropriate type for add ops (and other simple FP ops)
@@ -180,7 +185,8 @@
 				(V2DF	"vecdouble")])
 
 ;; Map the scalar mode for a vector type
-(define_mode_attr VS_scalar [(V2DF	"DF")
+(define_mode_attr VS_scalar [(V1TI	"TI")
+			     (V2DF	"DF")
 			     (V2DI	"DI")
 			     (V4SF	"SF")
 			     (V4SI	"SI")
@@ -191,7 +197,8 @@
 (define_mode_attr VS_double [(V4SI	"V8SI")
 			     (V4SF	"V8SF")
 			     (V2DI	"V4DI")
-			     (V2DF	"V4DF")])
+			     (V2DF	"V4DF")
+			     (V1TI	"V2TI")])
 
 ;; Constants for creating unspecs
 (define_c_enum "unspec"
@@ -213,9 +220,363 @@
    UNSPEC_VSX_ROUND_I
    UNSPEC_VSX_ROUND_IC
    UNSPEC_VSX_SLDWI
+   UNSPEC_VSX_XXSPLTW
   ])
 
 ;; VSX moves
+
+;; The patterns for LE permuted loads and stores come before the general
+;; VSX moves so they match first.
+(define_insn_and_split "*vsx_le_perm_load_<mode>"
+  [(set (match_operand:VSX_D 0 "vsx_register_operand" "=wa")
+        (match_operand:VSX_D 1 "memory_operand" "Z"))]
+  "!BYTES_BIG_ENDIAN && TARGET_VSX"
+  "#"
+  "!BYTES_BIG_ENDIAN && TARGET_VSX"
+  [(set (match_dup 2)
+        (vec_select:<MODE>
+          (match_dup 1)
+          (parallel [(const_int 1) (const_int 0)])))
+   (set (match_dup 0)
+        (vec_select:<MODE>
+          (match_dup 2)
+          (parallel [(const_int 1) (const_int 0)])))]
+  "
+{
+  operands[2] = can_create_pseudo_p () ? gen_reg_rtx_and_attrs (operands[0])
+                                       : operands[0];
+}
+  "
+  [(set_attr "type" "vecload")
+   (set_attr "length" "8")])
+
+(define_insn_and_split "*vsx_le_perm_load_<mode>"
+  [(set (match_operand:VSX_W 0 "vsx_register_operand" "=wa")
+        (match_operand:VSX_W 1 "memory_operand" "Z"))]
+  "!BYTES_BIG_ENDIAN && TARGET_VSX"
+  "#"
+  "!BYTES_BIG_ENDIAN && TARGET_VSX"
+  [(set (match_dup 2)
+        (vec_select:<MODE>
+          (match_dup 1)
+          (parallel [(const_int 2) (const_int 3)
+                     (const_int 0) (const_int 1)])))
+   (set (match_dup 0)
+        (vec_select:<MODE>
+          (match_dup 2)
+          (parallel [(const_int 2) (const_int 3)
+                     (const_int 0) (const_int 1)])))]
+  "
+{
+  operands[2] = can_create_pseudo_p () ? gen_reg_rtx_and_attrs (operands[0])
+                                       : operands[0];
+}
+  "
+  [(set_attr "type" "vecload")
+   (set_attr "length" "8")])
+
+(define_insn_and_split "*vsx_le_perm_load_v8hi"
+  [(set (match_operand:V8HI 0 "vsx_register_operand" "=wa")
+        (match_operand:V8HI 1 "memory_operand" "Z"))]
+  "!BYTES_BIG_ENDIAN && TARGET_VSX"
+  "#"
+  "!BYTES_BIG_ENDIAN && TARGET_VSX"
+  [(set (match_dup 2)
+        (vec_select:V8HI
+          (match_dup 1)
+          (parallel [(const_int 4) (const_int 5)
+                     (const_int 6) (const_int 7)
+                     (const_int 0) (const_int 1)
+                     (const_int 2) (const_int 3)])))
+   (set (match_dup 0)
+        (vec_select:V8HI
+          (match_dup 2)
+          (parallel [(const_int 4) (const_int 5)
+                     (const_int 6) (const_int 7)
+                     (const_int 0) (const_int 1)
+                     (const_int 2) (const_int 3)])))]
+  "
+{
+  operands[2] = can_create_pseudo_p () ? gen_reg_rtx_and_attrs (operands[0])
+                                       : operands[0];
+}
+  "
+  [(set_attr "type" "vecload")
+   (set_attr "length" "8")])
+
+(define_insn_and_split "*vsx_le_perm_load_v16qi"
+  [(set (match_operand:V16QI 0 "vsx_register_operand" "=wa")
+        (match_operand:V16QI 1 "memory_operand" "Z"))]
+  "!BYTES_BIG_ENDIAN && TARGET_VSX"
+  "#"
+  "!BYTES_BIG_ENDIAN && TARGET_VSX"
+  [(set (match_dup 2)
+        (vec_select:V16QI
+          (match_dup 1)
+          (parallel [(const_int 8) (const_int 9)
+                     (const_int 10) (const_int 11)
+                     (const_int 12) (const_int 13)
+                     (const_int 14) (const_int 15)
+                     (const_int 0) (const_int 1)
+                     (const_int 2) (const_int 3)
+                     (const_int 4) (const_int 5)
+                     (const_int 6) (const_int 7)])))
+   (set (match_dup 0)
+        (vec_select:V16QI
+          (match_dup 2)
+          (parallel [(const_int 8) (const_int 9)
+                     (const_int 10) (const_int 11)
+                     (const_int 12) (const_int 13)
+                     (const_int 14) (const_int 15)
+                     (const_int 0) (const_int 1)
+                     (const_int 2) (const_int 3)
+                     (const_int 4) (const_int 5)
+                     (const_int 6) (const_int 7)])))]
+  "
+{
+  operands[2] = can_create_pseudo_p () ? gen_reg_rtx_and_attrs (operands[0])
+                                       : operands[0];
+}
+  "
+  [(set_attr "type" "vecload")
+   (set_attr "length" "8")])
+
+(define_insn "*vsx_le_perm_store_<mode>"
+  [(set (match_operand:VSX_D 0 "memory_operand" "=Z")
+        (match_operand:VSX_D 1 "vsx_register_operand" "+wa"))]
+  "!BYTES_BIG_ENDIAN && TARGET_VSX"
+  "#"
+  [(set_attr "type" "vecstore")
+   (set_attr "length" "12")])
+
+(define_split
+  [(set (match_operand:VSX_D 0 "memory_operand" "")
+        (match_operand:VSX_D 1 "vsx_register_operand" ""))]
+  "!BYTES_BIG_ENDIAN && TARGET_VSX && !reload_completed"
+  [(set (match_dup 2)
+        (vec_select:<MODE>
+          (match_dup 1)
+          (parallel [(const_int 1) (const_int 0)])))
+   (set (match_dup 0)
+        (vec_select:<MODE>
+          (match_dup 2)
+          (parallel [(const_int 1) (const_int 0)])))]
+{
+  operands[2] = can_create_pseudo_p () ? gen_reg_rtx_and_attrs (operands[1]) 
+                                       : operands[1];
+})
+
+;; The post-reload split requires that we re-permute the source
+;; register in case it is still live.
+(define_split
+  [(set (match_operand:VSX_D 0 "memory_operand" "")
+        (match_operand:VSX_D 1 "vsx_register_operand" ""))]
+  "!BYTES_BIG_ENDIAN && TARGET_VSX && reload_completed"
+  [(set (match_dup 1)
+        (vec_select:<MODE>
+          (match_dup 1)
+          (parallel [(const_int 1) (const_int 0)])))
+   (set (match_dup 0)
+        (vec_select:<MODE>
+          (match_dup 1)
+          (parallel [(const_int 1) (const_int 0)])))
+   (set (match_dup 1)
+        (vec_select:<MODE>
+          (match_dup 1)
+          (parallel [(const_int 1) (const_int 0)])))]
+  "")
+
+(define_insn "*vsx_le_perm_store_<mode>"
+  [(set (match_operand:VSX_W 0 "memory_operand" "=Z")
+        (match_operand:VSX_W 1 "vsx_register_operand" "+wa"))]
+  "!BYTES_BIG_ENDIAN && TARGET_VSX"
+  "#"
+  [(set_attr "type" "vecstore")
+   (set_attr "length" "12")])
+
+(define_split
+  [(set (match_operand:VSX_W 0 "memory_operand" "")
+        (match_operand:VSX_W 1 "vsx_register_operand" ""))]
+  "!BYTES_BIG_ENDIAN && TARGET_VSX && !reload_completed"
+  [(set (match_dup 2)
+        (vec_select:<MODE>
+          (match_dup 1)
+          (parallel [(const_int 2) (const_int 3)
+	             (const_int 0) (const_int 1)])))
+   (set (match_dup 0)
+        (vec_select:<MODE>
+          (match_dup 2)
+          (parallel [(const_int 2) (const_int 3)
+	             (const_int 0) (const_int 1)])))]
+{
+  operands[2] = can_create_pseudo_p () ? gen_reg_rtx_and_attrs (operands[1]) 
+                                       : operands[1];
+})
+
+;; The post-reload split requires that we re-permute the source
+;; register in case it is still live.
+(define_split
+  [(set (match_operand:VSX_W 0 "memory_operand" "")
+        (match_operand:VSX_W 1 "vsx_register_operand" ""))]
+  "!BYTES_BIG_ENDIAN && TARGET_VSX && reload_completed"
+  [(set (match_dup 1)
+        (vec_select:<MODE>
+          (match_dup 1)
+          (parallel [(const_int 2) (const_int 3)
+	             (const_int 0) (const_int 1)])))
+   (set (match_dup 0)
+        (vec_select:<MODE>
+          (match_dup 1)
+          (parallel [(const_int 2) (const_int 3)
+	             (const_int 0) (const_int 1)])))
+   (set (match_dup 1)
+        (vec_select:<MODE>
+          (match_dup 1)
+          (parallel [(const_int 2) (const_int 3)
+	             (const_int 0) (const_int 1)])))]
+  "")
+
+(define_insn "*vsx_le_perm_store_v8hi"
+  [(set (match_operand:V8HI 0 "memory_operand" "=Z")
+        (match_operand:V8HI 1 "vsx_register_operand" "+wa"))]
+  "!BYTES_BIG_ENDIAN && TARGET_VSX"
+  "#"
+  [(set_attr "type" "vecstore")
+   (set_attr "length" "12")])
+
+(define_split
+  [(set (match_operand:V8HI 0 "memory_operand" "")
+        (match_operand:V8HI 1 "vsx_register_operand" ""))]
+  "!BYTES_BIG_ENDIAN && TARGET_VSX && !reload_completed"
+  [(set (match_dup 2)
+        (vec_select:V8HI
+          (match_dup 1)
+          (parallel [(const_int 4) (const_int 5)
+                     (const_int 6) (const_int 7)
+                     (const_int 0) (const_int 1)
+                     (const_int 2) (const_int 3)])))
+   (set (match_dup 0)
+        (vec_select:V8HI
+          (match_dup 2)
+          (parallel [(const_int 4) (const_int 5)
+                     (const_int 6) (const_int 7)
+                     (const_int 0) (const_int 1)
+                     (const_int 2) (const_int 3)])))]
+{
+  operands[2] = can_create_pseudo_p () ? gen_reg_rtx_and_attrs (operands[1]) 
+                                       : operands[1];
+})
+
+;; The post-reload split requires that we re-permute the source
+;; register in case it is still live.
+(define_split
+  [(set (match_operand:V8HI 0 "memory_operand" "")
+        (match_operand:V8HI 1 "vsx_register_operand" ""))]
+  "!BYTES_BIG_ENDIAN && TARGET_VSX && reload_completed"
+  [(set (match_dup 1)
+        (vec_select:V8HI
+          (match_dup 1)
+          (parallel [(const_int 4) (const_int 5)
+                     (const_int 6) (const_int 7)
+                     (const_int 0) (const_int 1)
+                     (const_int 2) (const_int 3)])))
+   (set (match_dup 0)
+        (vec_select:V8HI
+          (match_dup 1)
+          (parallel [(const_int 4) (const_int 5)
+                     (const_int 6) (const_int 7)
+                     (const_int 0) (const_int 1)
+                     (const_int 2) (const_int 3)])))
+   (set (match_dup 1)
+        (vec_select:V8HI
+          (match_dup 1)
+          (parallel [(const_int 4) (const_int 5)
+                     (const_int 6) (const_int 7)
+                     (const_int 0) (const_int 1)
+                     (const_int 2) (const_int 3)])))]
+  "")
+
+(define_insn "*vsx_le_perm_store_v16qi"
+  [(set (match_operand:V16QI 0 "memory_operand" "=Z")
+        (match_operand:V16QI 1 "vsx_register_operand" "+wa"))]
+  "!BYTES_BIG_ENDIAN && TARGET_VSX"
+  "#"
+  [(set_attr "type" "vecstore")
+   (set_attr "length" "12")])
+
+(define_split
+  [(set (match_operand:V16QI 0 "memory_operand" "")
+        (match_operand:V16QI 1 "vsx_register_operand" ""))]
+  "!BYTES_BIG_ENDIAN && TARGET_VSX && !reload_completed"
+  [(set (match_dup 2)
+        (vec_select:V16QI
+          (match_dup 1)
+          (parallel [(const_int 8) (const_int 9)
+                     (const_int 10) (const_int 11)
+                     (const_int 12) (const_int 13)
+                     (const_int 14) (const_int 15)
+                     (const_int 0) (const_int 1)
+                     (const_int 2) (const_int 3)
+                     (const_int 4) (const_int 5)
+                     (const_int 6) (const_int 7)])))
+   (set (match_dup 0)
+        (vec_select:V16QI
+          (match_dup 2)
+          (parallel [(const_int 8) (const_int 9)
+                     (const_int 10) (const_int 11)
+                     (const_int 12) (const_int 13)
+                     (const_int 14) (const_int 15)
+                     (const_int 0) (const_int 1)
+                     (const_int 2) (const_int 3)
+                     (const_int 4) (const_int 5)
+                     (const_int 6) (const_int 7)])))]
+{
+  operands[2] = can_create_pseudo_p () ? gen_reg_rtx_and_attrs (operands[1]) 
+                                       : operands[1];
+})
+
+;; The post-reload split requires that we re-permute the source
+;; register in case it is still live.
+(define_split
+  [(set (match_operand:V16QI 0 "memory_operand" "")
+        (match_operand:V16QI 1 "vsx_register_operand" ""))]
+  "!BYTES_BIG_ENDIAN && TARGET_VSX && reload_completed"
+  [(set (match_dup 1)
+        (vec_select:V16QI
+          (match_dup 1)
+          (parallel [(const_int 8) (const_int 9)
+                     (const_int 10) (const_int 11)
+                     (const_int 12) (const_int 13)
+                     (const_int 14) (const_int 15)
+                     (const_int 0) (const_int 1)
+                     (const_int 2) (const_int 3)
+                     (const_int 4) (const_int 5)
+                     (const_int 6) (const_int 7)])))
+   (set (match_dup 0)
+        (vec_select:V16QI
+          (match_dup 1)
+          (parallel [(const_int 8) (const_int 9)
+                     (const_int 10) (const_int 11)
+                     (const_int 12) (const_int 13)
+                     (const_int 14) (const_int 15)
+                     (const_int 0) (const_int 1)
+                     (const_int 2) (const_int 3)
+                     (const_int 4) (const_int 5)
+                     (const_int 6) (const_int 7)])))
+   (set (match_dup 1)
+        (vec_select:V16QI
+          (match_dup 1)
+          (parallel [(const_int 8) (const_int 9)
+                     (const_int 10) (const_int 11)
+                     (const_int 12) (const_int 13)
+                     (const_int 14) (const_int 15)
+                     (const_int 0) (const_int 1)
+                     (const_int 2) (const_int 3)
+                     (const_int 4) (const_int 5)
+                     (const_int 6) (const_int 7)])))]
+  "")
+
+
 (define_insn "*vsx_mov<mode>"
   [(set (match_operand:VSX_M 0 "nonimmediate_operand" "=Z,<VSr>,<VSr>,?Z,?wa,?wa,wQ,?&r,??Y,??r,??r,<VSr>,?wa,*r,v,wZ, v")
 	(match_operand:VSX_M 1 "input_operand" "<VSr>,Z,<VSr>,wa,Z,wa,r,wQ,r,Y,r,j,j,j,W,v,wZ"))]
@@ -316,40 +677,42 @@
   "")
 
 
-;; VSX scalar and vector floating point arithmetic instructions
+;; VSX vector floating point arithmetic instructions.  The VSX scalar
+;; instructions are now combined with the insn for the traditional floating
+;; point unit.
 (define_insn "*vsx_add<mode>3"
-  [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr>,?wa")
-        (plus:VSX_B (match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa")
-		    (match_operand:VSX_B 2 "vsx_register_operand" "<VSr>,wa")))]
+  [(set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>,?wa")
+        (plus:VSX_F (match_operand:VSX_F 1 "vsx_register_operand" "<VSr>,wa")
+		    (match_operand:VSX_F 2 "vsx_register_operand" "<VSr>,wa")))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
-  "x<VSv>add<VSs> %x0,%x1,%x2"
+  "xvadd<VSs> %x0,%x1,%x2"
   [(set_attr "type" "<VStype_simple>")
    (set_attr "fp_type" "<VSfptype_simple>")])
 
 (define_insn "*vsx_sub<mode>3"
-  [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr>,?wa")
-        (minus:VSX_B (match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa")
-		     (match_operand:VSX_B 2 "vsx_register_operand" "<VSr>,wa")))]
+  [(set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>,?wa")
+        (minus:VSX_F (match_operand:VSX_F 1 "vsx_register_operand" "<VSr>,wa")
+		     (match_operand:VSX_F 2 "vsx_register_operand" "<VSr>,wa")))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
-  "x<VSv>sub<VSs> %x0,%x1,%x2"
+  "xvsub<VSs> %x0,%x1,%x2"
   [(set_attr "type" "<VStype_simple>")
    (set_attr "fp_type" "<VSfptype_simple>")])
 
 (define_insn "*vsx_mul<mode>3"
-  [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr>,?wa")
-        (mult:VSX_B (match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa")
-		    (match_operand:VSX_B 2 "vsx_register_operand" "<VSr>,wa")))]
+  [(set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>,?wa")
+        (mult:VSX_F (match_operand:VSX_F 1 "vsx_register_operand" "<VSr>,wa")
+		    (match_operand:VSX_F 2 "vsx_register_operand" "<VSr>,wa")))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
-  "x<VSv>mul<VSs> %x0,%x1,%x2"
-  [(set_attr "type" "<VStype_mul>")
+  "xvmul<VSs> %x0,%x1,%x2"
+  [(set_attr "type" "<VStype_simple>")
    (set_attr "fp_type" "<VSfptype_mul>")])
 
 (define_insn "*vsx_div<mode>3"
-  [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr>,?wa")
-        (div:VSX_B (match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa")
-		   (match_operand:VSX_B 2 "vsx_register_operand" "<VSr>,wa")))]
+  [(set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>,?wa")
+        (div:VSX_F (match_operand:VSX_F 1 "vsx_register_operand" "<VSr>,wa")
+		   (match_operand:VSX_F 2 "vsx_register_operand" "<VSr>,wa")))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
-  "x<VSv>div<VSs> %x0,%x1,%x2"
+  "xvdiv<VSs> %x0,%x1,%x2"
   [(set_attr "type" "<VStype_div>")
    (set_attr "fp_type" "<VSfptype_div>")])
 
@@ -392,94 +755,72 @@
    (set_attr "fp_type" "<VSfptype_simple>")])
 
 (define_insn "vsx_fre<mode>2"
-  [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr>,?wa")
-	(unspec:VSX_B [(match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa")]
+  [(set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>,?wa")
+	(unspec:VSX_F [(match_operand:VSX_F 1 "vsx_register_operand" "<VSr>,wa")]
 		      UNSPEC_FRES))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
-  "x<VSv>re<VSs> %x0,%x1"
+  "xvre<VSs> %x0,%x1"
   [(set_attr "type" "<VStype_simple>")
    (set_attr "fp_type" "<VSfptype_simple>")])
 
 (define_insn "*vsx_neg<mode>2"
-  [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr>,?wa")
-        (neg:VSX_B (match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa")))]
+  [(set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>,?wa")
+        (neg:VSX_F (match_operand:VSX_F 1 "vsx_register_operand" "<VSr>,wa")))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
-  "x<VSv>neg<VSs> %x0,%x1"
+  "xvneg<VSs> %x0,%x1"
   [(set_attr "type" "<VStype_simple>")
    (set_attr "fp_type" "<VSfptype_simple>")])
 
 (define_insn "*vsx_abs<mode>2"
-  [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr>,?wa")
-        (abs:VSX_B (match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa")))]
+  [(set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>,?wa")
+        (abs:VSX_F (match_operand:VSX_F 1 "vsx_register_operand" "<VSr>,wa")))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
-  "x<VSv>abs<VSs> %x0,%x1"
+  "xvabs<VSs> %x0,%x1"
   [(set_attr "type" "<VStype_simple>")
    (set_attr "fp_type" "<VSfptype_simple>")])
 
 (define_insn "vsx_nabs<mode>2"
-  [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr>,?wa")
-        (neg:VSX_B
-	 (abs:VSX_B
-	  (match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa"))))]
+  [(set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>,?wa")
+        (neg:VSX_F
+	 (abs:VSX_F
+	  (match_operand:VSX_F 1 "vsx_register_operand" "<VSr>,wa"))))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
-  "x<VSv>nabs<VSs> %x0,%x1"
+  "xvnabs<VSs> %x0,%x1"
   [(set_attr "type" "<VStype_simple>")
    (set_attr "fp_type" "<VSfptype_simple>")])
 
 (define_insn "vsx_smax<mode>3"
-  [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr>,?wa")
-        (smax:VSX_B (match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa")
-		    (match_operand:VSX_B 2 "vsx_register_operand" "<VSr>,wa")))]
+  [(set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>,?wa")
+        (smax:VSX_F (match_operand:VSX_F 1 "vsx_register_operand" "<VSr>,wa")
+		    (match_operand:VSX_F 2 "vsx_register_operand" "<VSr>,wa")))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
-  "x<VSv>max<VSs> %x0,%x1,%x2"
+  "xvmax<VSs> %x0,%x1,%x2"
   [(set_attr "type" "<VStype_simple>")
    (set_attr "fp_type" "<VSfptype_simple>")])
 
 (define_insn "*vsx_smin<mode>3"
-  [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr>,?wa")
-        (smin:VSX_B (match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa")
-		    (match_operand:VSX_B 2 "vsx_register_operand" "<VSr>,wa")))]
+  [(set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>,?wa")
+        (smin:VSX_F (match_operand:VSX_F 1 "vsx_register_operand" "<VSr>,wa")
+		    (match_operand:VSX_F 2 "vsx_register_operand" "<VSr>,wa")))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
-  "x<VSv>min<VSs> %x0,%x1,%x2"
+  "xvmin<VSs> %x0,%x1,%x2"
   [(set_attr "type" "<VStype_simple>")
    (set_attr "fp_type" "<VSfptype_simple>")])
 
-;; Special VSX version of smin/smax for single precision floating point.  Since
-;; both numbers are rounded to single precision, we can just use the DP version
-;; of the instruction.
-
-(define_insn "*vsx_smaxsf3"
-  [(set (match_operand:SF 0 "vsx_register_operand" "=f")
-        (smax:SF (match_operand:SF 1 "vsx_register_operand" "f")
-		 (match_operand:SF 2 "vsx_register_operand" "f")))]
-  "VECTOR_UNIT_VSX_P (DFmode)"
-  "xsmaxdp %x0,%x1,%x2"
-  [(set_attr "type" "fp")
-   (set_attr "fp_type" "fp_addsub_d")])
-
-(define_insn "*vsx_sminsf3"
-  [(set (match_operand:SF 0 "vsx_register_operand" "=f")
-        (smin:SF (match_operand:SF 1 "vsx_register_operand" "f")
-		 (match_operand:SF 2 "vsx_register_operand" "f")))]
-  "VECTOR_UNIT_VSX_P (DFmode)"
-  "xsmindp %x0,%x1,%x2"
-  [(set_attr "type" "fp")
-   (set_attr "fp_type" "fp_addsub_d")])
-
 (define_insn "*vsx_sqrt<mode>2"
-  [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr>,?wa")
-        (sqrt:VSX_B (match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa")))]
+  [(set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>,?wa")
+        (sqrt:VSX_F (match_operand:VSX_F 1 "vsx_register_operand" "<VSr>,wa")))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
-  "x<VSv>sqrt<VSs> %x0,%x1"
+  "xvsqrt<VSs> %x0,%x1"
   [(set_attr "type" "<VStype_sqrt>")
    (set_attr "fp_type" "<VSfptype_sqrt>")])
 
 (define_insn "*vsx_rsqrte<mode>2"
-  [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr>,?wa")
-	(unspec:VSX_B [(match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa")]
+  [(set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>,?wa")
+	(unspec:VSX_F [(match_operand:VSX_F 1 "vsx_register_operand" "<VSr>,wa")]
 		      UNSPEC_RSQRT))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
-  "x<VSv>rsqrte<VSs> %x0,%x1"
+  "xvrsqrte<VSs> %x0,%x1"
   [(set_attr "type" "<VStype_simple>")
    (set_attr "fp_type" "<VSfptype_simple>")])
 
@@ -518,26 +859,10 @@
   [(set_attr "type" "<VStype_simple>")
    (set_attr "fp_type" "<VSfptype_simple>")])
 
-;; Fused vector multiply/add instructions Support the classical DF versions of
-;; fma, which allows the target to be a separate register from the 3 inputs.
-;; Under VSX, the target must be either the addend or the first multiply.
-;; Where we can, also do the same for the Altivec V4SF fmas.
-
-(define_insn "*vsx_fmadf4"
-  [(set (match_operand:DF 0 "vsx_register_operand" "=ws,ws,?wa,?wa,d")
-	(fma:DF
-	  (match_operand:DF 1 "vsx_register_operand" "%ws,ws,wa,wa,d")
-	  (match_operand:DF 2 "vsx_register_operand" "ws,0,wa,0,d")
-	  (match_operand:DF 3 "vsx_register_operand" "0,ws,0,wa,d")))]
-  "VECTOR_UNIT_VSX_P (DFmode)"
-  "@
-   xsmaddadp %x0,%x1,%x2
-   xsmaddmdp %x0,%x1,%x3
-   xsmaddadp %x0,%x1,%x2
-   xsmaddmdp %x0,%x1,%x3
-   fmadd %0,%1,%2,%3"
-  [(set_attr "type" "fp")
-   (set_attr "fp_type" "fp_maddsub_d")])
+;; Fused vector multiply/add instructions. Support the classical Altivec
+;; versions of fma, which allows the target to be a separate register from the
+;; 3 inputs.  Under VSX, the target must be either the addend or the first
+;; multiply.
 
 (define_insn "*vsx_fmav4sf4"
   [(set (match_operand:V4SF 0 "vsx_register_operand" "=ws,ws,?wa,?wa,v")
@@ -568,23 +893,6 @@
    xvmaddmdp %x0,%x1,%x3"
   [(set_attr "type" "vecdouble")])
 
-(define_insn "*vsx_fmsdf4"
-  [(set (match_operand:DF 0 "vsx_register_operand" "=ws,ws,?wa,?wa,d")
-	(fma:DF
-	  (match_operand:DF 1 "vsx_register_operand" "%ws,ws,wa,wa,d")
-	  (match_operand:DF 2 "vsx_register_operand" "ws,0,wa,0,d")
-	  (neg:DF
-	    (match_operand:DF 3 "vsx_register_operand" "0,ws,0,wa,d"))))]
-  "VECTOR_UNIT_VSX_P (DFmode)"
-  "@
-   xsmsubadp %x0,%x1,%x2
-   xsmsubmdp %x0,%x1,%x3
-   xsmsubadp %x0,%x1,%x2
-   xsmsubmdp %x0,%x1,%x3
-   fmsub %0,%1,%2,%3"
-  [(set_attr "type" "fp")
-   (set_attr "fp_type" "fp_maddsub_d")])
-
 (define_insn "*vsx_fms<mode>4"
   [(set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>,<VSr>,?wa,?wa")
 	(fma:VSX_F
@@ -594,28 +902,11 @@
 	    (match_operand:VSX_F 3 "vsx_register_operand" "0,<VSr>,0,wa"))))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
   "@
-   x<VSv>msuba<VSs> %x0,%x1,%x2
-   x<VSv>msubm<VSs> %x0,%x1,%x3
-   x<VSv>msuba<VSs> %x0,%x1,%x2
-   x<VSv>msubm<VSs> %x0,%x1,%x3"
+   xvmsuba<VSs> %x0,%x1,%x2
+   xvmsubm<VSs> %x0,%x1,%x3
+   xvmsuba<VSs> %x0,%x1,%x2
+   xvmsubm<VSs> %x0,%x1,%x3"
   [(set_attr "type" "<VStype_mul>")])
-
-(define_insn "*vsx_nfmadf4"
-  [(set (match_operand:DF 0 "vsx_register_operand" "=ws,ws,?wa,?wa,d")
-	(neg:DF
-	 (fma:DF
-	  (match_operand:DF 1 "vsx_register_operand" "ws,ws,wa,wa,d")
-	  (match_operand:DF 2 "vsx_register_operand" "ws,0,wa,0,d")
-	  (match_operand:DF 3 "vsx_register_operand" "0,ws,0,wa,d"))))]
-  "VECTOR_UNIT_VSX_P (DFmode)"
-  "@
-   xsnmaddadp %x0,%x1,%x2
-   xsnmaddmdp %x0,%x1,%x3
-   xsnmaddadp %x0,%x1,%x2
-   xsnmaddmdp %x0,%x1,%x3
-   fnmadd %0,%1,%2,%3"
-  [(set_attr "type" "fp")
-   (set_attr "fp_type" "fp_maddsub_d")])
 
 (define_insn "*vsx_nfma<mode>4"
   [(set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>,<VSr>,?wa,?wa")
@@ -626,30 +917,12 @@
 	  (match_operand:VSX_F 3 "vsx_register_operand" "0,<VSr>,0,wa"))))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
   "@
-   x<VSv>nmadda<VSs> %x0,%x1,%x2
-   x<VSv>nmaddm<VSs> %x0,%x1,%x3
-   x<VSv>nmadda<VSs> %x0,%x1,%x2
-   x<VSv>nmaddm<VSs> %x0,%x1,%x3"
+   xvnmadda<VSs> %x0,%x1,%x2
+   xvnmaddm<VSs> %x0,%x1,%x3
+   xvnmadda<VSs> %x0,%x1,%x2
+   xvnmaddm<VSs> %x0,%x1,%x3"
   [(set_attr "type" "<VStype_mul>")
    (set_attr "fp_type" "<VSfptype_mul>")])
-
-(define_insn "*vsx_nfmsdf4"
-  [(set (match_operand:DF 0 "vsx_register_operand" "=ws,ws,?wa,?wa,d")
-	(neg:DF
-	 (fma:DF
-	   (match_operand:DF 1 "vsx_register_operand" "%ws,ws,wa,wa,d")
-	   (match_operand:DF 2 "vsx_register_operand" "ws,0,wa,0,d")
-	   (neg:DF
-	     (match_operand:DF 3 "vsx_register_operand" "0,ws,0,wa,d")))))]
-  "VECTOR_UNIT_VSX_P (DFmode)"
-  "@
-   xsnmsubadp %x0,%x1,%x2
-   xsnmsubmdp %x0,%x1,%x3
-   xsnmsubadp %x0,%x1,%x2
-   xsnmsubmdp %x0,%x1,%x3
-   fnmsub %0,%1,%2,%3"
-  [(set_attr "type" "fp")
-   (set_attr "fp_type" "fp_maddsub_d")])
 
 (define_insn "*vsx_nfmsv4sf4"
   [(set (match_operand:V4SF 0 "vsx_register_operand" "=wf,wf,?wa,?wa,v")
@@ -711,16 +984,6 @@
   "xvcmpge<VSs> %x0,%x1,%x2"
   [(set_attr "type" "<VStype_simple>")
    (set_attr "fp_type" "<VSfptype_simple>")])
-
-;; Floating point scalar compare
-(define_insn "*vsx_cmpdf_internal1"
-  [(set (match_operand:CCFP 0 "cc_reg_operand" "=y,?y")
-	(compare:CCFP (match_operand:DF 1 "gpc_reg_operand" "ws,wa")
-		      (match_operand:DF 2 "gpc_reg_operand" "ws,wa")))]
-  "TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT
-   && VECTOR_UNIT_VSX_P (DFmode)"
-  "xscmpudp %0,%x1,%x2"
-  [(set_attr "type" "fpcompare")])
 
 ;; Compare vectors producing a vector result and a predicate, setting CR6 to
 ;; indicate a combined status
@@ -788,13 +1051,13 @@
 
 ;; Copy sign
 (define_insn "vsx_copysign<mode>3"
-  [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr>,?wa")
-	(unspec:VSX_B
-	 [(match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa")
-	  (match_operand:VSX_B 2 "vsx_register_operand" "<VSr>,wa")]
+  [(set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>,?wa")
+	(unspec:VSX_F
+	 [(match_operand:VSX_F 1 "vsx_register_operand" "<VSr>,wa")
+	  (match_operand:VSX_F 2 "vsx_register_operand" "<VSr>,wa")]
 	 UNSPEC_COPYSIGN))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
-  "x<VSv>cpsgn<VSs> %x0,%x2,%x1"
+  "xvcpsgn<VSs> %x0,%x2,%x1"
   [(set_attr "type" "<VStype_simple>")
    (set_attr "fp_type" "<VSfptype_simple>")])
 
@@ -855,10 +1118,10 @@
    (set_attr "fp_type" "<VSfptype_simple>")])
 
 (define_insn "vsx_btrunc<mode>2"
-  [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr>,?wa")
-	(fix:VSX_B (match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa")))]
+  [(set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>,?wa")
+	(fix:VSX_F (match_operand:VSX_F 1 "vsx_register_operand" "<VSr>,wa")))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
-  "x<VSv>r<VSs>iz %x0,%x1"
+  "xvr<VSs>iz %x0,%x1"
   [(set_attr "type" "<VStype_simple>")
    (set_attr "fp_type" "<VSfptype_simple>")])
 
@@ -872,20 +1135,20 @@
    (set_attr "fp_type" "<VSfptype_simple>")])
 
 (define_insn "vsx_floor<mode>2"
-  [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr>,?wa")
-	(unspec:VSX_B [(match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa")]
+  [(set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>,?wa")
+	(unspec:VSX_F [(match_operand:VSX_F 1 "vsx_register_operand" "<VSr>,wa")]
 		      UNSPEC_FRIM))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
-  "x<VSv>r<VSs>im %x0,%x1"
+  "xvr<VSs>im %x0,%x1"
   [(set_attr "type" "<VStype_simple>")
    (set_attr "fp_type" "<VSfptype_simple>")])
 
 (define_insn "vsx_ceil<mode>2"
-  [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr>,?wa")
-	(unspec:VSX_B [(match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa")]
+  [(set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>,?wa")
+	(unspec:VSX_F [(match_operand:VSX_F 1 "vsx_register_operand" "<VSr>,wa")]
 		      UNSPEC_FRIP))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
-  "x<VSv>r<VSs>ip %x0,%x1"
+  "xvr<VSs>ip %x0,%x1"
   [(set_attr "type" "<VStype_simple>")
    (set_attr "fp_type" "<VSfptype_simple>")])
 
@@ -960,7 +1223,7 @@
 ;; Used by direct move to move a SFmode value from GPR to VSX register
 (define_insn "vsx_xscvspdpn_directmove"
   [(set (match_operand:SF 0 "vsx_register_operand" "=wa")
-	(unspec:SF [(match_operand:SF 1 "vsx_register_operand" "wa")]
+	(unspec:SF [(match_operand:DI 1 "vsx_register_operand" "wa")]
 		   UNSPEC_VSX_CVSPDPN))]
   "TARGET_XSCVSPDPN"
   "xscvspdpn %x0,%x1"
@@ -1060,7 +1323,12 @@
 	 (match_operand:<VS_scalar> 1 "vsx_register_operand" "ws,wa")
 	 (match_operand:<VS_scalar> 2 "vsx_register_operand" "ws,wa")))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
-  "xxpermdi %x0,%x1,%x2,0"
+{
+  if (BYTES_BIG_ENDIAN)
+    return "xxpermdi %x0,%x1,%x2,0";
+  else
+    return "xxpermdi %x0,%x2,%x1,0";
+}
   [(set_attr "type" "vecperm")])
 
 ;; Special purpose concat using xxpermdi to glue two single precision values
@@ -1073,8 +1341,175 @@
 	  (match_operand:SF 2 "vsx_register_operand" "f,f")]
 	 UNSPEC_VSX_CONCAT))]
   "VECTOR_MEM_VSX_P (V2DFmode)"
-  "xxpermdi %x0,%x1,%x2,0"
+{
+  if (BYTES_BIG_ENDIAN)
+    return "xxpermdi %x0,%x1,%x2,0";
+  else
+    return "xxpermdi %x0,%x2,%x1,0";
+}
   [(set_attr "type" "vecperm")])
+
+;; xxpermdi for little endian loads and stores.  We need several of
+;; these since the form of the PARALLEL differs by mode.
+(define_insn "*vsx_xxpermdi2_le_<mode>"
+  [(set (match_operand:VSX_D 0 "vsx_register_operand" "=wa")
+        (vec_select:VSX_D
+          (match_operand:VSX_D 1 "vsx_register_operand" "wa")
+          (parallel [(const_int 1) (const_int 0)])))]
+  "!BYTES_BIG_ENDIAN && VECTOR_MEM_VSX_P (<MODE>mode)"
+  "xxpermdi %x0,%x1,%x1,2"
+  [(set_attr "type" "vecperm")])
+
+(define_insn "*vsx_xxpermdi4_le_<mode>"
+  [(set (match_operand:VSX_W 0 "vsx_register_operand" "=wa")
+        (vec_select:VSX_W
+          (match_operand:VSX_W 1 "vsx_register_operand" "wa")
+          (parallel [(const_int 2) (const_int 3)
+                     (const_int 0) (const_int 1)])))]
+  "!BYTES_BIG_ENDIAN && VECTOR_MEM_VSX_P (<MODE>mode)"
+  "xxpermdi %x0,%x1,%x1,2"
+  [(set_attr "type" "vecperm")])
+
+(define_insn "*vsx_xxpermdi8_le_V8HI"
+  [(set (match_operand:V8HI 0 "vsx_register_operand" "=wa")
+        (vec_select:V8HI
+          (match_operand:V8HI 1 "vsx_register_operand" "wa")
+          (parallel [(const_int 4) (const_int 5)
+                     (const_int 6) (const_int 7)
+                     (const_int 0) (const_int 1)
+                     (const_int 2) (const_int 3)])))]
+  "!BYTES_BIG_ENDIAN && VECTOR_MEM_VSX_P (V8HImode)"
+  "xxpermdi %x0,%x1,%x1,2"
+  [(set_attr "type" "vecperm")])
+
+(define_insn "*vsx_xxpermdi16_le_V16QI"
+  [(set (match_operand:V16QI 0 "vsx_register_operand" "=wa")
+        (vec_select:V16QI
+          (match_operand:V16QI 1 "vsx_register_operand" "wa")
+          (parallel [(const_int 8) (const_int 9)
+                     (const_int 10) (const_int 11)
+                     (const_int 12) (const_int 13)
+                     (const_int 14) (const_int 15)
+                     (const_int 0) (const_int 1)
+                     (const_int 2) (const_int 3)
+                     (const_int 4) (const_int 5)
+                     (const_int 6) (const_int 7)])))]
+  "!BYTES_BIG_ENDIAN && VECTOR_MEM_VSX_P (V16QImode)"
+  "xxpermdi %x0,%x1,%x1,2"
+  [(set_attr "type" "vecperm")])
+
+;; lxvd2x for little endian loads.  We need several of
+;; these since the form of the PARALLEL differs by mode.
+(define_insn "*vsx_lxvd2x2_le_<mode>"
+  [(set (match_operand:VSX_D 0 "vsx_register_operand" "=wa")
+        (vec_select:VSX_D
+          (match_operand:VSX_D 1 "memory_operand" "Z")
+          (parallel [(const_int 1) (const_int 0)])))]
+  "!BYTES_BIG_ENDIAN && VECTOR_MEM_VSX_P (<MODE>mode)"
+  "lxvd2x %x0,%y1"
+  [(set_attr "type" "vecload")])
+
+(define_insn "*vsx_lxvd2x4_le_<mode>"
+  [(set (match_operand:VSX_W 0 "vsx_register_operand" "=wa")
+        (vec_select:VSX_W
+          (match_operand:VSX_W 1 "memory_operand" "Z")
+          (parallel [(const_int 2) (const_int 3)
+                     (const_int 0) (const_int 1)])))]
+  "!BYTES_BIG_ENDIAN && VECTOR_MEM_VSX_P (<MODE>mode)"
+  "lxvd2x %x0,%y1"
+  [(set_attr "type" "vecload")])
+
+(define_insn "*vsx_lxvd2x8_le_V8HI"
+  [(set (match_operand:V8HI 0 "vsx_register_operand" "=wa")
+        (vec_select:V8HI
+          (match_operand:V8HI 1 "memory_operand" "Z")
+          (parallel [(const_int 4) (const_int 5)
+                     (const_int 6) (const_int 7)
+                     (const_int 0) (const_int 1)
+                     (const_int 2) (const_int 3)])))]
+  "!BYTES_BIG_ENDIAN && VECTOR_MEM_VSX_P (V8HImode)"
+  "lxvd2x %x0,%y1"
+  [(set_attr "type" "vecload")])
+
+(define_insn "*vsx_lxvd2x16_le_V16QI"
+  [(set (match_operand:V16QI 0 "vsx_register_operand" "=wa")
+        (vec_select:V16QI
+          (match_operand:V16QI 1 "memory_operand" "Z")
+          (parallel [(const_int 8) (const_int 9)
+                     (const_int 10) (const_int 11)
+                     (const_int 12) (const_int 13)
+                     (const_int 14) (const_int 15)
+                     (const_int 0) (const_int 1)
+                     (const_int 2) (const_int 3)
+                     (const_int 4) (const_int 5)
+                     (const_int 6) (const_int 7)])))]
+  "!BYTES_BIG_ENDIAN && VECTOR_MEM_VSX_P (V16QImode)"
+  "lxvd2x %x0,%y1"
+  [(set_attr "type" "vecload")])
+
+;; stxvd2x for little endian stores.  We need several of
+;; these since the form of the PARALLEL differs by mode.
+(define_insn "*vsx_stxvd2x2_le_<mode>"
+  [(set (match_operand:VSX_D 0 "memory_operand" "=Z")
+        (vec_select:VSX_D
+          (match_operand:VSX_D 1 "vsx_register_operand" "wa")
+          (parallel [(const_int 1) (const_int 0)])))]
+  "!BYTES_BIG_ENDIAN && VECTOR_MEM_VSX_P (<MODE>mode)"
+  "stxvd2x %x1,%y0"
+  [(set_attr "type" "vecstore")])
+
+(define_insn "*vsx_stxvd2x4_le_<mode>"
+  [(set (match_operand:VSX_W 0 "memory_operand" "=Z")
+        (vec_select:VSX_W
+          (match_operand:VSX_W 1 "vsx_register_operand" "wa")
+          (parallel [(const_int 2) (const_int 3)
+                     (const_int 0) (const_int 1)])))]
+  "!BYTES_BIG_ENDIAN && VECTOR_MEM_VSX_P (<MODE>mode)"
+  "stxvd2x %x1,%y0"
+  [(set_attr "type" "vecstore")])
+
+(define_insn "*vsx_stxvd2x8_le_V8HI"
+  [(set (match_operand:V8HI 0 "memory_operand" "=Z")
+        (vec_select:V8HI
+          (match_operand:V8HI 1 "vsx_register_operand" "wa")
+          (parallel [(const_int 4) (const_int 5)
+                     (const_int 6) (const_int 7)
+                     (const_int 0) (const_int 1)
+                     (const_int 2) (const_int 3)])))]
+  "!BYTES_BIG_ENDIAN && VECTOR_MEM_VSX_P (V8HImode)"
+  "stxvd2x %x1,%y0"
+  [(set_attr "type" "vecstore")])
+
+(define_insn "*vsx_stxvd2x16_le_V16QI"
+  [(set (match_operand:V16QI 0 "memory_operand" "=Z")
+        (vec_select:V16QI
+          (match_operand:V16QI 1 "vsx_register_operand" "wa")
+          (parallel [(const_int 8) (const_int 9)
+                     (const_int 10) (const_int 11)
+                     (const_int 12) (const_int 13)
+                     (const_int 14) (const_int 15)
+                     (const_int 0) (const_int 1)
+                     (const_int 2) (const_int 3)
+                     (const_int 4) (const_int 5)
+                     (const_int 6) (const_int 7)])))]
+  "!BYTES_BIG_ENDIAN && VECTOR_MEM_VSX_P (V16QImode)"
+  "stxvd2x %x1,%y0"
+  [(set_attr "type" "vecstore")])
+
+;; Convert a TImode value into V1TImode
+(define_expand "vsx_set_v1ti"
+  [(match_operand:V1TI 0 "nonimmediate_operand" "")
+   (match_operand:V1TI 1 "nonimmediate_operand" "")
+   (match_operand:TI 2 "input_operand" "")
+   (match_operand:QI 3 "u5bit_cint_operand" "")]
+  "VECTOR_MEM_VSX_P (V1TImode)"
+{
+  if (operands[3] != const0_rtx)
+    gcc_unreachable ();
+
+  emit_move_insn (operands[0], gen_lowpart (V1TImode, operands[1]));
+  DONE;
+})
 
 ;; Set the element of a V2DI/VD2F mode
 (define_insn "vsx_set_<mode>"
@@ -1085,9 +1520,10 @@
 		      UNSPEC_VSX_SET))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
 {
-  if (INTVAL (operands[3]) == 0)
+  int idx_first = BYTES_BIG_ENDIAN ? 0 : 1;
+  if (INTVAL (operands[3]) == idx_first)
     return \"xxpermdi %x0,%x2,%x1,1\";
-  else if (INTVAL (operands[3]) == 1)
+  else if (INTVAL (operands[3]) == 1 - idx_first)
     return \"xxpermdi %x0,%x1,%x2,0\";
   else
     gcc_unreachable ();
@@ -1095,33 +1531,129 @@
   [(set_attr "type" "vecperm")])
 
 ;; Extract a DF/DI element from V2DF/V2DI
-(define_insn "vsx_extract_<mode>"
-  [(set (match_operand:<VS_scalar> 0 "vsx_register_operand" "=ws,d,?wa")
-	(vec_select:<VS_scalar> (match_operand:VSX_D 1 "vsx_register_operand" "wd,wd,wa")
+(define_expand "vsx_extract_<mode>"
+  [(set (match_operand:<VS_scalar> 0 "register_operand" "")
+	(vec_select:<VS_scalar> (match_operand:VSX_D 1 "register_operand" "")
 		       (parallel
-			[(match_operand:QI 2 "u5bit_cint_operand" "i,i,i")])))]
+			[(match_operand:QI 2 "u5bit_cint_operand" "")])))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
-{
-  gcc_assert (UINTVAL (operands[2]) <= 1);
-  operands[3] = GEN_INT (INTVAL (operands[2]) << 1);
-  return \"xxpermdi %x0,%x1,%x1,%3\";
-}
-  [(set_attr "type" "vecperm")])
+  "")
 
-;; Optimize extracting element 0 from memory
-(define_insn "*vsx_extract_<mode>_zero"
-  [(set (match_operand:<VS_scalar> 0 "vsx_register_operand" "=ws,d,?wa")
+;; Optimize cases were we can do a simple or direct move.
+;; Or see if we can avoid doing the move at all
+(define_insn "*vsx_extract_<mode>_internal1"
+  [(set (match_operand:<VS_scalar> 0 "register_operand" "=d,ws,?wa,r")
 	(vec_select:<VS_scalar>
-	 (match_operand:VSX_D 1 "indexed_or_indirect_operand" "Z,Z,Z")
-	 (parallel [(const_int 0)])))]
-  "VECTOR_MEM_VSX_P (<MODE>mode) && WORDS_BIG_ENDIAN"
-  "lxsd%U1x %x0,%y1"
-  [(set (attr "type")
-      (if_then_else
-	(match_test "update_indexed_address_mem (operands[1], VOIDmode)")
-	(const_string "fpload_ux")
-	(const_string "fpload")))
-   (set_attr "length" "4")])  
+	 (match_operand:VSX_D 1 "register_operand" "d,wd,wa,wm")
+	 (parallel
+	  [(match_operand:QI 2 "vsx_scalar_64bit" "wD,wD,wD,wD")])))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_POWERPC64 && TARGET_DIRECT_MOVE"
+{
+  int op0_regno = REGNO (operands[0]);
+  int op1_regno = REGNO (operands[1]);
+
+  if (op0_regno == op1_regno)
+    return "nop";
+
+  if (INT_REGNO_P (op0_regno))
+    return "mfvsrd %0,%x1";
+
+  if (FP_REGNO_P (op0_regno) && FP_REGNO_P (op1_regno))
+    return "fmr %0,%1";
+
+  return "xxlor %x0,%x1,%x1";
+}
+  [(set_attr "type" "fp,vecsimple,vecsimple,mftgpr")
+   (set_attr "length" "4")])
+
+(define_insn "*vsx_extract_<mode>_internal2"
+  [(set (match_operand:<VS_scalar> 0 "vsx_register_operand" "=d,ws,ws,?wa")
+	(vec_select:<VS_scalar>
+	 (match_operand:VSX_D 1 "vsx_register_operand" "d,wd,wd,wa")
+	 (parallel [(match_operand:QI 2 "u5bit_cint_operand" "wD,wD,i,i")])))]
+  "VECTOR_MEM_VSX_P (<MODE>mode)
+   && (!TARGET_POWERPC64 || !TARGET_DIRECT_MOVE
+       || INTVAL (operands[2]) != VECTOR_ELEMENT_SCALAR_64BIT)"
+{
+  int fldDM;
+  gcc_assert (UINTVAL (operands[2]) <= 1);
+
+  if (INTVAL (operands[2]) == VECTOR_ELEMENT_SCALAR_64BIT)
+    {
+      int op0_regno = REGNO (operands[0]);
+      int op1_regno = REGNO (operands[1]);
+
+      if (op0_regno == op1_regno)
+	return "nop";
+
+      if (FP_REGNO_P (op0_regno) && FP_REGNO_P (op1_regno))
+	return "fmr %0,%1";
+
+      return "xxlor %x0,%x1,%x1";
+    }
+
+  fldDM = INTVAL (operands[2]) << 1;
+  if (!BYTES_BIG_ENDIAN)
+    fldDM = 3 - fldDM;
+  operands[3] = GEN_INT (fldDM);
+  return "xxpermdi %x0,%x1,%x1,%3";
+}
+  [(set_attr "type" "fp,vecsimple,vecperm,vecperm")
+   (set_attr "length" "4")])
+
+;; Optimize extracting a single scalar element from memory if the scalar is in
+;; the correct location to use a single load.
+(define_insn "*vsx_extract_<mode>_load"
+  [(set (match_operand:<VS_scalar> 0 "register_operand" "=d,wv,wr")
+	(vec_select:<VS_scalar>
+	 (match_operand:VSX_D 1 "memory_operand" "m,Z,m")
+	 (parallel [(match_operand:QI 2 "vsx_scalar_64bit" "wD,wD,wD")])))]
+  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "@
+   lfd%U1%X1 %0,%1
+   lxsd%U1x %x0,%y1
+   ld%U1%X1 %0,%1"
+  [(set_attr_alternative "type"
+      [(if_then_else
+	 (match_test "update_indexed_address_mem (operands[1], VOIDmode)")
+	 (const_string "fpload_ux")
+	 (if_then_else
+	   (match_test "update_address_mem (operands[1], VOIDmode)")
+	   (const_string "fpload_u")
+	   (const_string "fpload")))
+       (const_string "fpload")
+       (if_then_else
+	 (match_test "update_indexed_address_mem (operands[1], VOIDmode)")
+	 (const_string "load_ux")
+	 (if_then_else
+	   (match_test "update_address_mem (operands[1], VOIDmode)")
+	   (const_string "load_u")
+	   (const_string "load")))])
+   (set_attr "length" "4")])
+
+;; Optimize storing a single scalar element that is the right location to
+;; memory
+(define_insn "*vsx_extract_<mode>_store"
+  [(set (match_operand:<VS_scalar> 0 "memory_operand" "=m,Z,?Z")
+	(vec_select:<VS_scalar>
+	 (match_operand:VSX_D 1 "register_operand" "d,wd,wa")
+	 (parallel [(match_operand:QI 2 "vsx_scalar_64bit" "wD,wD,wD")])))]
+  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "@
+   stfd%U0%X0 %1,%0
+   stxsd%U0x %x1,%y0
+   stxsd%U0x %x1,%y0"
+  [(set_attr_alternative "type"
+      [(if_then_else
+	 (match_test "update_indexed_address_mem (operands[0], VOIDmode)")
+	 (const_string "fpstore_ux")
+	 (if_then_else
+	   (match_test "update_address_mem (operands[0], VOIDmode)")
+	   (const_string "fpstore_u")
+	   (const_string "fpstore")))
+       (const_string "fpstore")
+       (const_string "fpstore")])
+   (set_attr "length" "4")])
 
 ;; Extract a SF element from V4SF
 (define_insn_and_split "vsx_extract_v4sf"
@@ -1143,7 +1675,7 @@
   rtx op2 = operands[2];
   rtx op3 = operands[3];
   rtx tmp;
-  HOST_WIDE_INT ele = INTVAL (op2);
+  HOST_WIDE_INT ele = BYTES_BIG_ENDIAN ? INTVAL (op2) : 3 - INTVAL (op2);
 
   if (ele == 0)
     tmp = op1;
@@ -1188,7 +1720,18 @@
 	  op1 = gen_lowpart (V2DImode, op1);
 	}
     }
-  emit_insn (gen (target, op0, op1, perm0, perm1));
+  /* In little endian mode, vsx_xxpermdi2_<mode>_1 will perform a
+     transformation we don't want; it is necessary for
+     rs6000_expand_vec_perm_const_1 but not for this use.  So we
+     prepare for that by reversing the transformation here.  */
+  if (BYTES_BIG_ENDIAN)
+    emit_insn (gen (target, op0, op1, perm0, perm1));
+  else
+    {
+      rtx p0 = GEN_INT (3 - INTVAL (perm1));
+      rtx p1 = GEN_INT (3 - INTVAL (perm0));
+      emit_insn (gen (target, op1, op0, p0, p1));
+    }
   DONE;
 })
 
@@ -1202,9 +1745,32 @@
 		     (match_operand 4 "const_2_to_3_operand" "")])))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
 {
-  int mask = (INTVAL (operands[3]) << 1) | (INTVAL (operands[4]) - 2);
+  int op3, op4, mask;
+
+  /* For little endian, swap operands and invert/swap selectors
+     to get the correct xxpermdi.  The operand swap sets up the
+     inputs as a little endian array.  The selectors are swapped
+     because they are defined to use big endian ordering.  The
+     selectors are inverted to get the correct doublewords for
+     little endian ordering.  */
+  if (BYTES_BIG_ENDIAN)
+    {
+      op3 = INTVAL (operands[3]);
+      op4 = INTVAL (operands[4]);
+    }
+  else
+    {
+      op3 = 3 - INTVAL (operands[4]);
+      op4 = 3 - INTVAL (operands[3]);
+    }
+
+  mask = (op3 << 1) | (op4 - 2);
   operands[3] = GEN_INT (mask);
-  return "xxpermdi %x0,%x1,%x2,%3";
+
+  if (BYTES_BIG_ENDIAN)
+    return "xxpermdi %x0,%x1,%x2,%3";
+  else
+    return "xxpermdi %x0,%x2,%x1,%3";
 }
   [(set_attr "type" "vecperm")])
 
@@ -1223,24 +1789,56 @@
 
 ;; Expanders for builtins
 (define_expand "vsx_mergel_<mode>"
-  [(set (match_operand:VSX_D 0 "vsx_register_operand" "")
-	(vec_select:VSX_D
-	  (vec_concat:<VS_double>
-	    (match_operand:VSX_D 1 "vsx_register_operand" "")
-	    (match_operand:VSX_D 2 "vsx_register_operand" ""))
-	  (parallel [(const_int 1) (const_int 3)])))]
+  [(use (match_operand:VSX_D 0 "vsx_register_operand" ""))
+   (use (match_operand:VSX_D 1 "vsx_register_operand" ""))
+   (use (match_operand:VSX_D 2 "vsx_register_operand" ""))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
-  "")
+{
+  rtvec v;
+  rtx x;
+
+  /* Special handling for LE with -maltivec=be.  */
+  if (!BYTES_BIG_ENDIAN && VECTOR_ELT_ORDER_BIG)
+    {
+      v = gen_rtvec (2, GEN_INT (0), GEN_INT (2));
+      x = gen_rtx_VEC_CONCAT (<VS_double>mode, operands[2], operands[1]);
+    }
+  else
+    {
+      v = gen_rtvec (2, GEN_INT (1), GEN_INT (3));
+      x = gen_rtx_VEC_CONCAT (<VS_double>mode, operands[1], operands[2]);
+    }
+
+  x = gen_rtx_VEC_SELECT (<MODE>mode, x, gen_rtx_PARALLEL (VOIDmode, v));
+  emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+  DONE;
+})
 
 (define_expand "vsx_mergeh_<mode>"
-  [(set (match_operand:VSX_D 0 "vsx_register_operand" "")
-	(vec_select:VSX_D
-	  (vec_concat:<VS_double>
-	    (match_operand:VSX_D 1 "vsx_register_operand" "")
-	    (match_operand:VSX_D 2 "vsx_register_operand" ""))
-	  (parallel [(const_int 0) (const_int 2)])))]
+  [(use (match_operand:VSX_D 0 "vsx_register_operand" ""))
+   (use (match_operand:VSX_D 1 "vsx_register_operand" ""))
+   (use (match_operand:VSX_D 2 "vsx_register_operand" ""))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
-  "")
+{
+  rtvec v;
+  rtx x;
+
+  /* Special handling for LE with -maltivec=be.  */
+  if (!BYTES_BIG_ENDIAN && VECTOR_ELT_ORDER_BIG)
+    {
+      v = gen_rtvec (2, GEN_INT (1), GEN_INT (3));
+      x = gen_rtx_VEC_CONCAT (<VS_double>mode, operands[2], operands[1]);
+    }
+  else
+    {
+      v = gen_rtvec (2, GEN_INT (0), GEN_INT (2));
+      x = gen_rtx_VEC_CONCAT (<VS_double>mode, operands[1], operands[2]);
+    }
+
+  x = gen_rtx_VEC_SELECT (<MODE>mode, x, gen_rtx_PARALLEL (VOIDmode, v));
+  emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+  DONE;
+})
 
 ;; V2DF/V2DI splat
 (define_insn "vsx_splat_<mode>"
@@ -1265,6 +1863,20 @@
 	  (match_operand:VSX_W 1 "vsx_register_operand" "wf,wa")
 	  (parallel
 	   [(match_operand:QI 2 "u5bit_cint_operand" "i,i")]))))]
+  "VECTOR_MEM_VSX_P (<MODE>mode)"
+{
+  if (!BYTES_BIG_ENDIAN)
+    operands[2] = GEN_INT (3 - INTVAL (operands[2]));
+
+  return "xxspltw %x0,%x1,%2";
+}
+  [(set_attr "type" "vecperm")])
+
+(define_insn "vsx_xxspltw_<mode>_direct"
+  [(set (match_operand:VSX_W 0 "vsx_register_operand" "=wf,?wa")
+        (unspec:VSX_W [(match_operand:VSX_W 1 "vsx_register_operand" "wf,wa")
+                       (match_operand:QI 2 "u5bit_cint_operand" "i,i")]
+                      UNSPEC_VSX_XXSPLTW))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
   "xxspltw %x0,%x1,%2"
   [(set_attr "type" "vecperm")])
@@ -1463,7 +2075,7 @@
    (set (match_operand:VSX_M2 2 "vsx_register_operand" "")
 	(mem:VSX_M2 (plus:P (match_dup 0)
 			    (match_operand:P 3 "int_reg_operand" ""))))]
-  "TARGET_P8_FUSION"
+  "TARGET_VSX && TARGET_P8_FUSION"
   "li %0,%1\t\t\t# vector load fusion\;lx<VSX_M2:VSm>x %x2,%0,%3"  
   [(set_attr "length" "8")
    (set_attr "type" "vecload")])
@@ -1474,7 +2086,7 @@
    (set (match_operand:VSX_M2 2 "vsx_register_operand" "")
 	(mem:VSX_M2 (plus:P (match_operand:P 3 "int_reg_operand" "")
 			    (match_dup 0))))]
-  "TARGET_P8_FUSION"
+  "TARGET_VSX && TARGET_P8_FUSION"
   "li %0,%1\t\t\t# vector load fusion\;lx<VSX_M2:VSm>x %x2,%0,%3"  
   [(set_attr "length" "8")
    (set_attr "type" "vecload")])

@@ -1,5 +1,5 @@
 /* gfortran header file
-   Copyright (C) 2000-2013 Free Software Foundation, Inc.
+   Copyright (C) 2000-2014 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -810,6 +810,9 @@ typedef struct
 
   /* Attributes set by compiler extensions (!GCC$ ATTRIBUTES).  */
   unsigned ext_attr:EXT_ATTR_NUM;
+
+  /* Is a parameter associated with a deferred type component.  */
+  unsigned deferred_parameter:1;
 
   /* The namespace where the attribute has been set.  */
   struct gfc_namespace *volatile_ns, *asynchronous_ns;
@@ -2286,6 +2289,7 @@ typedef struct
   int flag_cray_pointer;
   int flag_d_lines;
   int gfc_flag_openmp;
+  int gfc_flag_openmp_simd;
   int flag_sign_zero;
   int flag_stack_arrays;
   int flag_module_private;
@@ -2396,7 +2400,6 @@ void gfc_add_include_path (const char *, bool, bool, bool);
 void gfc_add_intrinsic_modules_path (const char *);
 void gfc_release_include_path (void);
 FILE *gfc_open_included_file (const char *, bool, bool);
-FILE *gfc_open_intrinsic_module (const char *);
 
 int gfc_at_end (void);
 int gfc_at_eof (void);
@@ -2834,6 +2837,7 @@ void gfc_resolve_blocks (gfc_code *, gfc_namespace *);
 int gfc_impure_variable (gfc_symbol *);
 int gfc_pure (gfc_symbol *);
 int gfc_implicit_pure (gfc_symbol *);
+void gfc_unset_implicit_pure (gfc_symbol *);
 int gfc_elemental (gfc_symbol *);
 bool gfc_resolve_iterator (gfc_iterator *, bool, bool);
 bool find_forall_index (gfc_expr *, gfc_symbol *, int);
@@ -2988,9 +2992,9 @@ bool gfc_is_class_container_ref (gfc_expr *e);
 gfc_expr *gfc_class_initializer (gfc_typespec *, gfc_expr *);
 unsigned int gfc_hash_value (gfc_symbol *);
 bool gfc_build_class_symbol (gfc_typespec *, symbol_attribute *,
-				gfc_array_spec **, bool);
+			     gfc_array_spec **);
 gfc_symbol *gfc_find_derived_vtab (gfc_symbol *);
-gfc_symbol *gfc_find_intrinsic_vtab (gfc_typespec *);
+gfc_symbol *gfc_find_vtab (gfc_typespec *);
 gfc_symtree* gfc_find_typebound_proc (gfc_symbol*, bool*,
 				      const char*, bool, locus*);
 gfc_symtree* gfc_find_typebound_user_op (gfc_symbol*, bool*,

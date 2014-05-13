@@ -1,0 +1,51 @@
+2013-10-29  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* target.def (builtin_chkp_function): New.
+	(chkp_bound_type): New.
+	(chkp_bound_mode): New.
+	(chkp_make_bounds_constant): New.
+	(chkp_initialize_bounds): New.
+	(fn_abi_va_list_bounds_size): New.
+	(load_bounds_for_arg): New.
+	(store_bounds_for_arg): New.
+	(load_returned_bounds): New.
+	(store_returned_bounds): New.
+	(chkp_function_value_bounds): New.
+	(setup_incoming_vararg_bounds): New.
+	* targhooks.h (default_load_bounds_for_arg): New.
+	(default_store_bounds_for_arg): New.
+	(default_load_returned_bounds): New.
+	(default_store_returned_bounds): New.
+	(default_fn_abi_va_list_bounds_size): New.
+	(default_chkp_bound_type): New.
+	(default_chkp_bound_mode): New.
+	(default_builtin_chkp_function): New.
+	(default_chkp_function_value_bounds): New.
+	(default_chkp_make_bounds_constant): New.
+	(default_chkp_initialize_bounds): New.
+	(default_setup_incoming_vararg_bounds): New.
+	* targhooks.c (default_load_bounds_for_arg): New.
+	(default_store_bounds_for_arg): New.
+	(default_load_returned_bounds): New.
+	(default_store_returned_bounds): New.
+	(default_fn_abi_va_list_bounds_size): New.
+	(default_chkp_bound_type): New.
+	(default_chkp_bound_mode); New.
+	(default_builtin_chkp_function): New.
+	(default_chkp_function_value_bounds): New.
+	(default_chkp_make_bounds_constant): New.
+	(default_chkp_initialize_bounds): New.
+	(default_setup_incoming_vararg_bounds): New.
+	* doc/tm.texi.in (TARGET_FN_ABI_VA_LIST_BOUNDS_SIZE): New.
+	(TARGET_LOAD_BOUNDS_FOR_ARG): New.
+	(TARGET_STORE_BOUNDS_FOR_ARG): New.
+	(TARGET_LOAD_RETURNED_BOUNDS): New.
+	(TARGET_STORE_RETURNED_BOUNDS): New.
+	(TARGET_CHKP_FUNCTION_VALUE_BOUNDS): New.
+	(TARGET_SETUP_INCOMING_VARARG_BOUNDS): New.
+	(TARGET_BUILTIN_CHKP_FUNCTION): New.
+	(TARGET_CHKP_BOUND_TYPE): New.
+	(TARGET_CHKP_BOUND_MODE): New.
+	(TARGET_CHKP_MAKE_BOUNDS_CONSTANT): New.
+	(TARGET_CHKP_INITIALIZE_BOUNDS): New.
+	* doc/tm.texi: Regenerated.

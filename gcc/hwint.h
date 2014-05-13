@@ -1,5 +1,5 @@
 /* HOST_WIDE_INT definitions for the GNU compiler.
-   Copyright (C) 1998-2013 Free Software Foundation, Inc.
+   Copyright (C) 1998-2014 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -322,9 +322,6 @@ extern HOST_WIDE_INT least_common_multiple (HOST_WIDE_INT, HOST_WIDE_INT);
 
 /* Sign extend SRC starting from PREC.  */
 
-#ifdef ENABLE_CHECKING
-extern HOST_WIDE_INT sext_hwi (HOST_WIDE_INT, unsigned int);
-#else
 static inline HOST_WIDE_INT
 sext_hwi (HOST_WIDE_INT src, unsigned int prec)
 {
@@ -332,24 +329,23 @@ sext_hwi (HOST_WIDE_INT src, unsigned int prec)
     return src;
   else
     {
+      gcc_checking_assert (prec < HOST_BITS_PER_WIDE_INT);
       int shift = HOST_BITS_PER_WIDE_INT - prec;
       return (src << shift) >> shift;
     }
 }
-#endif
 
 /* Zero extend SRC starting from PREC.  */
-#ifdef ENABLE_CHECKING
-extern unsigned HOST_WIDE_INT zext_hwi (unsigned HOST_WIDE_INT, unsigned int);
-#else
 static inline unsigned HOST_WIDE_INT
 zext_hwi (unsigned HOST_WIDE_INT src, unsigned int prec)
 {
   if (prec == HOST_BITS_PER_WIDE_INT)
     return src;
   else
-    return src & (((HOST_WIDE_INT)1 << prec) - 1);
+    {
+      gcc_checking_assert (prec < HOST_BITS_PER_WIDE_INT);
+      return src & (((HOST_WIDE_INT) 1 << prec) - 1);
+    }
 }
-#endif
 
 #endif /* ! GCC_HWINT_H */

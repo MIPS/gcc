@@ -1,5 +1,5 @@
 /* Compute different info about registers.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -30,6 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "hard-reg-set.h"
+#include "tree.h"
 #include "rtl.h"
 #include "expr.h"
 #include "tm_p.h"
@@ -85,7 +86,7 @@ static const char initial_call_really_used_regs[] = CALL_REALLY_USED_REGISTERS;
 char global_regs[FIRST_PSEUDO_REGISTER];
 
 /* Declaration for the global register. */
-static tree GTY(()) global_regs_decl[FIRST_PSEUDO_REGISTER];
+tree global_regs_decl[FIRST_PSEUDO_REGISTER];
 
 /* Same information as REGS_INVALIDATED_BY_CALL but in regset form to be used
    in dataflow more conveniently.  */
@@ -1265,7 +1266,7 @@ init_subregs_of_mode (void)
   bitmap_obstack_initialize (&srom_obstack);
   subregs_of_mode = BITMAP_ALLOC (&srom_obstack);
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     FOR_BB_INSNS (bb, insn)
       if (NONDEBUG_INSN_P (insn))
         find_subregs_of_mode (PATTERN (insn), subregs_of_mode);

@@ -1,5 +1,5 @@
 /* Language-specific hook definitions for C front end.
-   Copyright (C) 1991-2013 Free Software Foundation, Inc.
+   Copyright (C) 1991-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "fold-const.h"
 #include "c-tree.h"
 #include "c-family/c-common.h"
 #include "langhooks.h"
@@ -43,8 +44,6 @@ enum c_language_kind c_language = clk_c;
 #define LANG_HOOKS_INIT c_objc_common_init
 #undef LANG_HOOKS_INIT_TS
 #define LANG_HOOKS_INIT_TS c_common_init_ts
-#undef LANG_HOOKS_CHKP_SUPPORTED
-#define LANG_HOOKS_CHKP_SUPPORTED true
 
 /* Each front end provides its own lang hook initializer.  */
 struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;

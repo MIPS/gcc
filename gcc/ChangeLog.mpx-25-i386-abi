@@ -1,0 +1,31 @@
+2013-11-13  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* config/i386/i386.c (ix86_option_override_internal): Do not
+	support x32 with MPX.
+	is not available.
+	(init_cumulative_args): Init stdarg, bnd_regno, bnds_in_bt
+	and force_bnd_pass.
+	(function_arg_advance_32): Return number of used integer
+	registers.
+	(function_arg_advance_64): Likewise.
+	(function_arg_advance_ms_64): Likewise.
+	(ix86_function_arg_advance): Handle pointer bounds.
+	(ix86_function_arg): Likewise.
+	(ix86_function_value_regno_p): Mark fisrt bounds registers as
+	possible function value.
+	(ix86_function_value_1): Handle pointer bounds type/mode
+	(ix86_return_in_memory): Likewise.
+	(ix86_print_operand): Analyse insn to decide abounf"bnd" prefix.
+	(ix86_expand_call): Generate returned bounds.
+	(ix86_bnd_prefixed_insn_p): Check if we have instrumented call
+	or function.
+	* config/i386/i386.h (ix86_args): Add bnd_regno, bnds_in_bt,
+	force_bnd_pass and stdarg fields.
+	* config/i386/i386.md (UNSPEC_BNDRET): New.
+	(*call_value): Add returned bounds.
+	(*sibcall_value): Likewise.
+	(*call_value_rex64_ms_sysv): Likewise.
+	(*call_value_pop): Likewise.
+	(*sibcall_value_pop): Likewise.
+	* config/i386/predicates.md (call_rex64_ms_sysv_operation): Adjust
+	to changed call patterns.

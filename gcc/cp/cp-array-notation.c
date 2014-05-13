@@ -1,7 +1,7 @@
 /* This file is part of the Intel(R) Cilk(TM) Plus support
    It contains routines to handle Array Notation expression
    handling routines in the C++ Compiler.
-   Copyright (C) 2013  Free Software Foundation, Inc.
+   Copyright (C) 2013-2014 Free Software Foundation, Inc.
    Contributed by Balaji V. Iyer <balaji.v.iyer@intel.com>,
                   Intel Corporation
 
@@ -71,7 +71,7 @@ create_an_loop (tree init, tree cond, tree incr, tree body)
   finish_expr_stmt (init);
   for_stmt = begin_for_stmt (NULL_TREE, NULL_TREE);
   finish_for_init_stmt (for_stmt);
-  finish_for_cond (cond, for_stmt);
+  finish_for_cond (cond, for_stmt, false);
   finish_for_expr (incr, for_stmt);
   finish_expr_stmt (body);
   finish_for_stmt (for_stmt);
@@ -1193,6 +1193,7 @@ expand_array_notation_exprs (tree t)
     case OMP_SECTION:
     case OMP_SECTIONS:
     case OMP_MASTER:
+    case OMP_TASKGROUP:
     case OMP_ORDERED:
     case OMP_CRITICAL:
     case OMP_ATOMIC:

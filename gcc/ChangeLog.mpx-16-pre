@@ -1,0 +1,6 @@
+2013-11-13  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* tree-ssa-pre.c (create_component_ref_by_pieces_1): Store
+	CALL_WITH_BOUNDS_P for calls.
+	(copy_reference_ops_from_call): Restore CALL_WITH_BOUNDS_P
+	flag.

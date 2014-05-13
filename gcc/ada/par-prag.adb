@@ -407,7 +407,7 @@ begin
 
          --  We unconditionally make a List_On entry for the pragma, so that
          --  in the List (Off) case, the pragma will print even in a region
-         --  of code with listing turned off (this is required!)
+         --  of code with listing turned off (this is required).
 
          List_Pragmas.Increment_Last;
          List_Pragmas.Table (List_Pragmas.Last) :=
@@ -1018,10 +1018,10 @@ begin
       -- Warnings (GNAT) --
       ---------------------
 
-      --  pragma Warnings (On | Off);
-      --  pragma Warnings (On | Off, LOCAL_NAME);
-      --  pragma Warnings (static_string_EXPRESSION);
-      --  pragma Warnings (On | Off, static_string_EXPRESSION);
+      --  pragma Warnings (On | Off [,REASON]);
+      --  pragma Warnings (On | Off, LOCAL_NAME [,REASON]);
+      --  pragma Warnings (static_string_EXPRESSION [,REASON]);
+      --  pragma Warnings (On | Off, static_string_EXPRESSION [,REASON]);
 
       --  The one argument ON/OFF case is processed by the parser, since it may
       --  control parser warnings as well as semantic warnings, and in any case
@@ -1042,12 +1042,33 @@ begin
 
             declare
                Argx : constant Node_Id := Expression (Arg1);
+
+               function Get_Reason return String_Id;
+               --  Analyzes Reason argument and returns corresponding String_Id
+               --  value, or null if there is no Reason argument, or if the
+               --  argument is not of the required form.
+
+               ----------------
+               -- Get_Reason --
+               ----------------
+
+               function Get_Reason return String_Id is
+               begin
+                  if Arg_Count = 1 then
+                     return Null_String_Id;
+                  else
+                     Start_String;
+                     Get_Reason_String (Expression (Arg2));
+                     return End_String;
+                  end if;
+               end Get_Reason;
+
             begin
                if Nkind (Argx) = N_Identifier then
                   if Chars (Argx) = Name_On then
                      Set_Warnings_Mode_On (Pragma_Sloc);
                   elsif Chars (Argx) = Name_Off then
-                     Set_Warnings_Mode_Off (Pragma_Sloc);
+                     Set_Warnings_Mode_Off (Pragma_Sloc, Get_Reason);
                   end if;
                end if;
             end;
@@ -1109,11 +1130,14 @@ begin
 
       when Pragma_Abort_Defer                    |
            Pragma_Abstract_State                 |
+           Pragma_Async_Readers                  |
+           Pragma_Async_Writers                  |
            Pragma_Assertion_Policy               |
            Pragma_Assume                         |
            Pragma_Assume_No_Invalid_Values       |
            Pragma_AST_Entry                      |
            Pragma_All_Calls_Remote               |
+           Pragma_Allow_Integer_Address          |
            Pragma_Annotate                       |
            Pragma_Assert                         |
            Pragma_Assert_And_Cut                 |
@@ -1130,6 +1154,7 @@ begin
            Pragma_Compile_Time_Error             |
            Pragma_Compile_Time_Warning           |
            Pragma_Compiler_Unit                  |
+           Pragma_Compiler_Unit_Warning          |
            Pragma_Contract_Cases                 |
            Pragma_Convention_Identifier          |
            Pragma_CPP_Class                      |
@@ -1152,6 +1177,8 @@ begin
            Pragma_Disable_Atomic_Synchronization |
            Pragma_Discard_Names                  |
            Pragma_Dispatching_Domain             |
+           Pragma_Effective_Reads                |
+           Pragma_Effective_Writes               |
            Pragma_Eliminate                      |
            Pragma_Elaborate                      |
            Pragma_Elaborate_All                  |
@@ -1185,7 +1212,9 @@ begin
            Pragma_Import_Valued_Procedure        |
            Pragma_Independent                    |
            Pragma_Independent_Components         |
+           Pragma_Initial_Condition              |
            Pragma_Initialize_Scalars             |
+           Pragma_Initializes                    |
            Pragma_Inline                         |
            Pragma_Inline_Always                  |
            Pragma_Inline_Generic                 |
@@ -1229,27 +1258,37 @@ begin
            Pragma_Overflow_Mode                  |
            Pragma_Overriding_Renamings           |
            Pragma_Pack                           |
+           Pragma_Part_Of                        |
            Pragma_Partition_Elaboration_Policy   |
            Pragma_Passive                        |
            Pragma_Preelaborable_Initialization   |
            Pragma_Polling                        |
            Pragma_Persistent_BSS                 |
+           Pragma_Post                           |
            Pragma_Postcondition                  |
+           Pragma_Post_Class                     |
+           Pragma_Pre                            |
            Pragma_Precondition                   |
            Pragma_Predicate                      |
            Pragma_Preelaborate                   |
            Pragma_Preelaborate_05                |
+           Pragma_Pre_Class                      |
            Pragma_Priority                       |
            Pragma_Priority_Specific_Dispatching  |
            Pragma_Profile                        |
            Pragma_Profile_Warnings               |
            Pragma_Propagate_Exceptions           |
+           Pragma_Provide_Shift_Operators        |
            Pragma_Psect_Object                   |
            Pragma_Pure                           |
            Pragma_Pure_05                        |
            Pragma_Pure_12                        |
            Pragma_Pure_Function                  |
            Pragma_Queuing_Policy                 |
+           Pragma_Refined_Depends                |
+           Pragma_Refined_Global                 |
+           Pragma_Refined_Post                   |
+           Pragma_Refined_State                  |
            Pragma_Relative_Deadline              |
            Pragma_Remote_Access_Type             |
            Pragma_Remote_Call_Interface          |
@@ -1283,6 +1322,8 @@ begin
            Pragma_Thread_Local_Storage           |
            Pragma_Time_Slice                     |
            Pragma_Title                          |
+           Pragma_Type_Invariant                 |
+           Pragma_Type_Invariant_Class           |
            Pragma_Unchecked_Union                |
            Pragma_Unimplemented_Unit             |
            Pragma_Universal_Aliasing             |
@@ -1295,6 +1336,7 @@ begin
            Pragma_Use_VADS_Size                  |
            Pragma_Volatile                       |
            Pragma_Volatile_Components            |
+           Pragma_Warning_As_Error               |
            Pragma_Weak_External                  |
            Pragma_Validity_Checks                =>
          null;

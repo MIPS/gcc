@@ -38,6 +38,7 @@ with Gnatvsn;  use Gnatvsn;
 with Opt;      use Opt;
 with Osint;    use Osint;
 with Osint.C;  use Osint.C;
+with Output;   use Output;
 with Par;
 with Par_SCO;  use Par_SCO;
 with Restrict; use Restrict;
@@ -281,7 +282,7 @@ package body Lib.Writ is
                   end if;
 
                else
-                  Set_From_With_Type (Cunit_Entity (Unum));
+                  Set_From_Limited_With (Cunit_Entity (Unum));
                end if;
 
                if Implicit_With (Unum) /= Yes then
@@ -615,9 +616,28 @@ package body Lib.Writ is
 
          Write_With_Lines;
 
-         --  Output linker option lines
+         --  Generate the linker option lines
 
          for J in 1 .. Linker_Option_Lines.Last loop
+
+            --  Pragma Linker_Options is not allowed in predefined generic
+            --  units. This is because they won't be read, due to the fact that
+            --  with lines for generic units lack the file name and lib name
+            --  parameters (see Lib_Writ spec for an explanation).
+
+            if Is_Generic_Unit (Cunit_Entity (Main_Unit))
+              and then
+                Is_Predefined_File_Name (Unit_File_Name (Current_Sem_Unit))
+              and then Linker_Option_Lines.Table (J).Unit = Unit_Num
+            then
+               Set_Standard_Error;
+               Write_Line
+                 ("linker options not allowed in predefined generic unit");
+               raise Unrecoverable_Error;
+            end if;
+
+            --  Output one linker option line
+
             declare
                S : Linker_Option_Entry renames Linker_Option_Lines.Table (J);
             begin
@@ -790,7 +810,7 @@ package body Lib.Writ is
                Write_Info_Initiate ('Z');
 
             elsif Ekind (Cunit_Entity (Unum)) = E_Package
-              and then From_With_Type (Cunit_Entity (Unum))
+              and then From_Limited_With (Cunit_Entity (Unum))
             then
                Write_Info_Initiate ('Y');
 
@@ -821,7 +841,7 @@ package body Lib.Writ is
               --  files, which are required to compute frame conditions
               --  of subprograms.
 
-              or else SPARK_Mode
+              or else GNATprove_Mode
             then
                Write_Info_Tab (25);
 
@@ -858,7 +878,7 @@ package body Lib.Writ is
                end if;
 
                if Ekind (Cunit_Entity (Unum)) = E_Package
-                  and then From_With_Type (Cunit_Entity (Unum))
+                  and then From_Limited_With (Cunit_Entity (Unum))
                then
                   null;
                else
@@ -940,7 +960,7 @@ package body Lib.Writ is
 
       for Unum in Units.First .. Last_Unit loop
          if Cunit_Entity (Unum) = Empty
-           or else not From_With_Type (Cunit_Entity (Unum))
+           or else not From_Limited_With (Cunit_Entity (Unum))
          then
             Num_Sdep := Num_Sdep + 1;
             Sdep_Table (Num_Sdep) := Unum;
@@ -953,9 +973,10 @@ package body Lib.Writ is
 
       --  If we are not generating code, and there is an up to date ALI file
       --  file accessible, read it, and acquire the compilation arguments from
-      --  this file.
+      --  this file. In GNATprove mode, always generate the ALI file, which
+      --  contains a special section for formal verification.
 
-      if Operating_Mode /= Generate_Code then
+      if Operating_Mode /= Generate_Code and then not GNATprove_Mode then
          if Up_To_Date_ALI_File_Exists then
             Update_Tables_From_ALI_File;
             return;
@@ -1408,7 +1429,7 @@ package body Lib.Writ is
                   Fname := Name_Find;
                end if;
 
-               Write_Info_Name (Fname);
+               Write_Info_Name_May_Be_Quoted (Fname);
                Write_Info_Tab (25);
                Write_Info_Str (String (Time_Stamp (Sind)));
                Write_Info_Char (' ');
@@ -1468,14 +1489,14 @@ package body Lib.Writ is
 
       --  Output SPARK cross-reference information if needed
 
-      if Opt.Xref_Active and then SPARK_Mode then
+      if Opt.Xref_Active and then GNATprove_Mode then
          SPARK_Specific.Collect_SPARK_Xrefs (Sdep_Table => Sdep_Table,
                                              Num_Sdep   => Num_Sdep);
          SPARK_Specific.Output_SPARK_Xrefs;
       end if;
 
       --  Output final blank line and we are done. This final blank line is
-      --  probably junk, but we don't feel like making an incompatible change!
+      --  probably junk, but we don't feel like making an incompatible change.
 
       Write_Info_Terminate;
       Close_Output_Library_Info;

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -28,8 +28,8 @@
 --  exp_dbug and the elaboration of ttypes, via the Set_Targs package.
 --  It also contains the routine for registering floating-point types.
 
---  NOTE:  Any changes in this package must be reflected in jgettarg.ads
---  and aa_getta.ads and any other versions of this package.
+--  NOTE: Any changes in this package must be reflected in aa_getta.adb
+--  and any other version in the various back ends.
 
 --  Note that all these values return sizes of C types with corresponding
 --  names. This allows GNAT to define the corresponding Ada types to have
@@ -108,6 +108,13 @@ package Get_Targ is
    --  Alignment required for Long_Long_Integer or larger integer types
    --  or 0 if no special requirement.
 
+   function Get_Short_Enums                return Int;
+   --  Returns non-zero if we are in short enums mode, where foreign convention
+   --  (in particular C and C++) enumeration types will be sized as in Ada,
+   --  using the shortest possibility from 8,16,32 bits, signed or unsigned.
+   --  A zero value means Short_Enums are not in use, and in this case all
+   --  foreign convention enumeration types are given the same size as c int.
+
    --  Other subprograms
 
    function Get_Max_Unaligned_Field return Pos;
@@ -127,6 +134,7 @@ package Get_Targ is
       Complex   : Boolean;        -- True iff type has real and imaginary parts
       Count     : Natural;        -- Number of elements in vector, 0 otherwise
       Float_Rep : Float_Rep_Kind; -- Representation used for fpt type
+      Precision : Positive;       -- Precision of representation in bits
       Size      : Positive;       -- Size of representation in bits
       Alignment : Natural);       -- Required alignment in bits
    pragma Convention (C, Register_Type_Proc);

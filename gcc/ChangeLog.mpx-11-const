@@ -1,0 +1,10 @@
+2013-10-23  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* emit-rtl.c (immed_double_const): Support MODE_POINTER_BOUNDS.
+	(init_emit_once): Build pointer bounds zero constants.
+	* explow.c (trunc_int_for_mode): Likewise.
+	* varpool.c (ctor_for_folding): Do not fold constant
+	bounds vars.
+	* varasm.c (output_constant_pool_2): Support MODE_POINTER_BOUNDS.
+	* config/i386/i386.c (ix86_legitimate_constant_p): Mark
+	bounds constant as not valid.

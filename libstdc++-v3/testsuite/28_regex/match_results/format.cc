@@ -3,7 +3,7 @@
 //
 // 2013-09-24  Tim Shen <timshen91@gmail.com>
 //
-// Copyright (C) 2013 Free Software Foundation, Inc.
+// Copyright (C) 2013-2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -25,8 +25,10 @@
 
 #include <regex>
 #include <testsuite_hooks.h>
+#include <testsuite_regex.h>
 
 using namespace std;
+using namespace __gnu_test;
 
 void
 test01()
@@ -34,8 +36,8 @@ test01()
   bool test __attribute__((unused)) = true;
 
   cmatch m;
-  VERIFY(regex_search("*** this is a string !!!", m,
-		      regex("(\\w+) (\\w+) (\\w+) (\\w+)")));
+  VERIFY(regex_search_debug("*** this is a string !!!", m,
+			    regex("(\\w+) (\\w+) (\\w+) (\\w+)")));
   VERIFY(m.format("$&|$`|$3|$4|$2|$1|$'$$$")
 	 == "this is a string|*** |a|string|is|this| !!!$$");
   VERIFY(m.format("&|\\3|\\4|\\2|\\1|\\",
@@ -43,9 +45,26 @@ test01()
 	 == "this is a string|a|string|is|this|\\");
 }
 
+void
+test02()
+{
+  bool test __attribute__((unused)) = true;
+
+  regex re("asdf");
+  cmatch m;
+  regex_match("asdf", m, re);
+  string fmt = "|&|\\0|";
+  char buff[4096] = {0};
+  string res = "|asdf|asdf|";
+  VERIFY(m.format(buff, fmt.data(), fmt.data() + fmt.size(),
+		  regex_constants::format_sed) == buff + res.size());
+  VERIFY(res == buff);
+}
+
 int
 main()
 {
   test01();
+  test02();
   return 0;
 }

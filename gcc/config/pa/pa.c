@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for HPPA.
-   Copyright (C) 1992-2013 Free Software Foundation, Inc.
+   Copyright (C) 1992-2014 Free Software Foundation, Inc.
    Contributed by Tim Moore (moore@cs.utah.edu), based on sparc.c
 
 This file is part of GCC.
@@ -30,6 +30,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-attr.h"
 #include "flags.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "stringpool.h"
+#include "varasm.h"
+#include "calls.h"
 #include "output.h"
 #include "dbxout.h"
 #include "except.h"
@@ -513,12 +517,6 @@ pa_option_override (void)
       write_symbols = NO_DEBUG;
     }
 
-#ifdef AUTO_INC_DEC
-  /* FIXME: Disable auto increment and decrement processing until reload
-     is completed.  See PR middle-end 56791.  */
-  flag_auto_inc_dec = reload_completed;
-#endif
-
   /* We only support the "big PIC" model now.  And we always generate PIC
      code when in 64bit mode.  */
   if (flag_pic == 1 || TARGET_64BIT)
@@ -912,9 +910,12 @@ static rtx
 legitimize_tls_address (rtx addr)
 {
   rtx ret, insn, tmp, t1, t2, tp;
-  enum tls_model model = SYMBOL_REF_TLS_MODEL (addr);
 
-  switch (model) 
+  /* Currently, we can't handle anything but a SYMBOL_REF.  */
+  if (GET_CODE (addr) != SYMBOL_REF)
+    return addr;
+
+  switch (SYMBOL_REF_TLS_MODEL (addr)) 
     {
       case TLS_MODEL_GLOBAL_DYNAMIC:
 	tmp = gen_reg_rtx (Pmode);
@@ -1035,7 +1036,7 @@ hppa_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
       && !REG_POINTER (XEXP (x, 1)))
     return gen_rtx_PLUS (Pmode, XEXP (x, 1), XEXP (x, 0));
 
-  if (PA_SYMBOL_REF_TLS_P (x))
+  if (pa_tls_referenced_p (x))
     return legitimize_tls_address (x);
   else if (flag_pic)
     return legitimize_pic_address (x, mode, gen_reg_rtx (Pmode));
@@ -1916,9 +1917,10 @@ pa_emit_move_sequence (rtx *operands, enum machine_mode mode, rtx scratch_reg)
      not consider them legitimate constants.  Loop optimizations can
      call the emit_move_xxx with one as a source.  */
   if ((GET_CODE (operand1) != HIGH && immediate_operand (operand1, mode))
-      || function_label_operand (operand1, VOIDmode)
       || (GET_CODE (operand1) == HIGH
-	  && symbolic_operand (XEXP (operand1, 0), mode)))
+	  && symbolic_operand (XEXP (operand1, 0), mode))
+      || function_label_operand (operand1, VOIDmode)
+      || pa_tls_referenced_p (operand1))
     {
       int ishighonly = 0;
 
@@ -2625,14 +2627,14 @@ pa_output_move_double (rtx *operands)
   if (optype0 == REGOP)
     latehalf[0] = gen_rtx_REG (SImode, REGNO (operands[0]) + 1);
   else if (optype0 == OFFSOP)
-    latehalf[0] = adjust_address (operands[0], SImode, 4);
+    latehalf[0] = adjust_address_nv (operands[0], SImode, 4);
   else
     latehalf[0] = operands[0];
 
   if (optype1 == REGOP)
     latehalf[1] = gen_rtx_REG (SImode, REGNO (operands[1]) + 1);
   else if (optype1 == OFFSOP)
-    latehalf[1] = adjust_address (operands[1], SImode, 4);
+    latehalf[1] = adjust_address_nv (operands[1], SImode, 4);
   else if (optype1 == CNSTOP)
     split_double (operands[1], &operands[1], &latehalf[1]);
   else
@@ -4185,12 +4187,16 @@ pa_output_function_epilogue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 
   if (TARGET_SOM && TARGET_GAS)
     {
-      /* We done with this subspace except possibly for some additional
+      /* We are done with this subspace except possibly for some additional
 	 debug information.  Forget that we are in this subspace to ensure
 	 that the next function is output in its own subspace.  */
       in_section = NULL;
       cfun->machine->in_nsubspa = 2;
     }
+
+  /* Thunks do their own accounting.  */
+  if (cfun->is_thunk)
+    return;
 
   if (INSN_ADDRESSES_SET_P ())
     {
@@ -7530,7 +7536,7 @@ pa_attr_length_millicode_call (rtx insn)
       if (!TARGET_LONG_CALLS && distance < MAX_PCREL17F_OFFSET)
 	return 8;
 
-      if (TARGET_LONG_ABS_CALL && !flag_pic)
+      if (!flag_pic)
 	return 12;
 
       return 24;
@@ -8095,16 +8101,17 @@ pa_attr_length_indirect_call (rtx insn)
     return 12;
 
   if (TARGET_FAST_INDIRECT_CALLS
-      || (!TARGET_PORTABLE_RUNTIME
+      || (!TARGET_LONG_CALLS
+	  && !TARGET_PORTABLE_RUNTIME
 	  && ((TARGET_PA_20 && !TARGET_SOM && distance < 7600000)
 	      || distance < MAX_PCREL17F_OFFSET)))
     return 8;
 
   if (flag_pic)
-    return 24;
+    return 20;
 
   if (TARGET_PORTABLE_RUNTIME)
-    return 20;
+    return 16;
 
   /* Out of reach, can use ble.  */
   return 12;
@@ -8149,28 +8156,28 @@ pa_output_indirect_call (rtx insn, rtx call_dest)
     return ".CALL\tARGW0=GR\n\tldil L'$$dyncall,%%r2\n\tble R'$$dyncall(%%sr4,%%r2)\n\tcopy %%r31,%%r2";
 
   /* Long millicode call for portable runtime.  */
-  if (pa_attr_length_indirect_call (insn) == 20)
-    return "ldil L'$$dyncall,%%r31\n\tldo R'$$dyncall(%%r31),%%r31\n\tblr %%r0,%%r2\n\tbv,n %%r0(%%r31)\n\tnop";
+  if (pa_attr_length_indirect_call (insn) == 16)
+    return "ldil L'$$dyncall,%%r31\n\tldo R'$$dyncall(%%r31),%%r31\n\tblr %%r0,%%r2\n\tbv,n %%r0(%%r31)";
 
   /* We need a long PIC call to $$dyncall.  */
   xoperands[0] = NULL_RTX;
-  output_asm_insn ("{bl|b,l} .+8,%%r1", xoperands);
+  output_asm_insn ("{bl|b,l} .+8,%%r2", xoperands);
   if (TARGET_SOM || !TARGET_GAS)
     {
       xoperands[0] = gen_label_rtx ();
-      output_asm_insn ("addil L'$$dyncall-%0,%%r1", xoperands);
+      output_asm_insn ("addil L'$$dyncall-%0,%%r2", xoperands);
       targetm.asm_out.internal_label (asm_out_file, "L",
 				      CODE_LABEL_NUMBER (xoperands[0]));
       output_asm_insn ("ldo R'$$dyncall-%0(%%r1),%%r1", xoperands);
     }
   else
     {
-      output_asm_insn ("addil L'$$dyncall-$PIC_pcrel$0+4,%%r1", xoperands);
+      output_asm_insn ("addil L'$$dyncall-$PIC_pcrel$0+4,%%r2", xoperands);
       output_asm_insn ("ldo R'$$dyncall-$PIC_pcrel$0+8(%%r1),%%r1",
 		       xoperands);
     }
-  output_asm_insn ("blr %%r0,%%r2", xoperands);
-  output_asm_insn ("bv,n %%r0(%%r1)\n\tnop", xoperands);
+  output_asm_insn ("bv %%r0(%%r1)", xoperands);
+  output_asm_insn ("ldo 12(%%r2),%%r2", xoperands);
   return "";
 }
 
@@ -8256,8 +8263,7 @@ pa_asm_output_mi_thunk (FILE *file, tree thunk_fndecl, HOST_WIDE_INT delta,
   xoperands[1] = XEXP (DECL_RTL (thunk_fndecl), 0);
   xoperands[2] = GEN_INT (delta);
 
-  ASM_OUTPUT_LABEL (file, XSTR (xoperands[1], 0));
-  fprintf (file, "\t.PROC\n\t.CALLINFO FRAME=0,NO_CALLS\n\t.ENTRY\n");
+  final_start_function (emit_barrier (), file, 1);
 
   /* Output the thunk.  We know that the function is in the same
      translation unit (i.e., the same space) as the thunk, and that
@@ -8463,16 +8469,7 @@ pa_asm_output_mi_thunk (FILE *file, tree thunk_fndecl, HOST_WIDE_INT delta,
 	}
     }
 
-  fprintf (file, "\t.EXIT\n\t.PROCEND\n");
-
-  if (TARGET_SOM && TARGET_GAS)
-    {
-      /* We done with this subspace except possibly for some additional
-	 debug information.  Forget that we are in this subspace to ensure
-	 that the next function is output in its own subspace.  */
-      in_section = NULL;
-      cfun->machine->in_nsubspa = 2;
-    }
+  final_end_function ();
 
   if (TARGET_SOM && flag_pic && TREE_PUBLIC (function))
     {
@@ -10295,7 +10292,7 @@ pa_legitimate_constant_p (enum machine_mode mode, rtx x)
   /* TLS_MODEL_GLOBAL_DYNAMIC and TLS_MODEL_LOCAL_DYNAMIC are not
      legitimate constants.  The other variants can't be handled by
      the move patterns after reload starts.  */
-  if (PA_SYMBOL_REF_TLS_P (x))
+  if (pa_tls_referenced_p (x))
     return false;
 
   if (TARGET_64BIT && GET_CODE (x) == CONST_DOUBLE)
@@ -10420,13 +10417,13 @@ pa_legitimate_address_p (enum machine_mode mode, rtx x, bool strict)
 
 	  /* When INT14_OK_STRICT is false, a secondary reload is needed
 	     to adjust the displacement of SImode and DImode floating point
-	     instructions.  So, we return false when STRICT is true.  We
+	     instructions but this may fail when the register also needs
+	     reloading.  So, we return false when STRICT is true.  We
 	     also reject long displacements for float mode addresses since
 	     the majority of accesses will use floating point instructions
 	     that don't support 14-bit offsets.  */
 	  if (!INT14_OK_STRICT
-	      && reload_in_progress
-	      && strict
+	      && (strict || !(reload_in_progress || reload_completed))
 	      && mode != QImode
 	      && mode != HImode)
 	    return false;
@@ -10486,8 +10483,7 @@ pa_legitimate_address_p (enum machine_mode mode, rtx x, bool strict)
 	    return true;
 
 	  if (!INT14_OK_STRICT
-	      && reload_in_progress
-	      && strict
+	      && (strict || !(reload_in_progress || reload_completed))
 	      && mode != QImode
 	      && mode != HImode)
 	    return false;

@@ -1,5 +1,5 @@
 @ignore
-Copyright (C) 2005-2013 Free Software Foundation, Inc.
+Copyright (C) 2005-2014 Free Software Foundation, Inc.
 This is part of the GNU Fortran manual.   
 For copying conditions, see the file gfortran.texi.
 
@@ -10207,11 +10207,12 @@ the @var{SIZE} argument.
 @item @emph{Example}:
 @smallexample
 subroutine init_random_seed()
+  use iso_fortran_env, only: int64
   implicit none
   integer, allocatable :: seed(:)
-  integer :: i, n, un, istat, dt(8), pid, t(2), s
-  integer(8) :: count, tms
-  
+  integer :: i, n, un, istat, dt(8), pid
+  integer(int64) :: t
+
   call random_seed(size = n)
   allocate(seed(n))
   ! First try if the OS provides a random number generator
@@ -10224,34 +10225,37 @@ subroutine init_random_seed()
      ! Fallback to XOR:ing the current time and pid. The PID is
      ! useful in case one launches multiple instances of the same
      ! program in parallel.
-     call system_clock(count)
-     if (count /= 0) then
-        t = transfer(count, t)
-     else
+     call system_clock(t)
+     if (t == 0) then
         call date_and_time(values=dt)
-        tms = (dt(1) - 1970) * 365_8 * 24 * 60 * 60 * 1000 &
-             + dt(2) * 31_8 * 24 * 60 * 60 * 1000 &
-             + dt(3) * 24 * 60 * 60 * 60 * 1000 &
+        t = (dt(1) - 1970) * 365_int64 * 24 * 60 * 60 * 1000 &
+             + dt(2) * 31_int64 * 24 * 60 * 60 * 1000 &
+             + dt(3) * 24_int64 * 60 * 60 * 1000 &
              + dt(5) * 60 * 60 * 1000 &
              + dt(6) * 60 * 1000 + dt(7) * 1000 &
              + dt(8)
-        t = transfer(tms, t)
      end if
-     s = ieor(t(1), t(2))
-     pid = getpid() + 1099279 ! Add a prime
-     s = ieor(s, pid)
-     if (n >= 3) then
-        seed(1) = t(1) + 36269
-        seed(2) = t(2) + 72551
-        seed(3) = pid
-        if (n > 3) then
-           seed(4:) = s + 37 * (/ (i, i = 0, n - 4) /)
-        end if
-     else 
-        seed = s + 37 * (/ (i, i = 0, n - 1 ) /)
-     end if
+     pid = getpid()
+     t = ieor(t, int(pid, kind(t)))
+     do i = 1, n
+        seed(i) = lcg(t)
+     end do
   end if
   call random_seed(put=seed)
+contains
+  ! This simple PRNG might not be good enough for real work, but is
+  ! sufficient for seeding a better PRNG.
+  function lcg(s)
+    integer :: lcg
+    integer(int64) :: s
+    if (s == 0) then
+       s = 104729
+    else
+       s = mod(s, 4294967296_int64)
+    end if
+    s = mod(s * 279470273_int64, 4294967291_int64)
+    lcg = int(mod(s, int(huge(0), int64)), kind(0))
+  end function lcg
 end subroutine init_random_seed
 @end smallexample
 
@@ -13177,7 +13181,7 @@ Both are equivalent to the value @code{NULL} in C.
 @section OpenMP Modules @code{OMP_LIB} and @code{OMP_LIB_KINDS}
 @table @asis
 @item @emph{Standard}:
-OpenMP Application Program Interface v3.1
+OpenMP Application Program Interface v4.0
 @end table
 
 
@@ -13190,8 +13194,8 @@ the named constants defined in the modules are listed
 below.
 
 For details refer to the actual
-@uref{http://www.openmp.org/mp-documents/spec31.pdf,
-OpenMP Application Program Interface v3.1}.
+@uref{http://www.openmp.org/mp-documents/OpenMP4.0.0.pdf,
+OpenMP Application Program Interface v4.0}.
 
 @code{OMP_LIB_KINDS} provides the following scalar default-integer
 named constants:
@@ -13199,15 +13203,17 @@ named constants:
 @table @asis
 @item @code{omp_lock_kind}
 @item @code{omp_nest_lock_kind}
+@item @code{omp_proc_bind_kind}
 @item @code{omp_sched_kind}
 @end table
 
 @code{OMP_LIB} provides the scalar default-integer
 named constant @code{openmp_version} with a value of the form
 @var{yyyymm}, where @code{yyyy} is the year and @var{mm} the month
-of the OpenMP version; for OpenMP v3.1 the value is @code{201107}.
+of the OpenMP version; for OpenMP v3.1 the value is @code{201107}
+and for OpenMP v4.0 the value is @code{201307}.
 
-And the following scalar integer named constants of the
+The following scalar integer named constants of the
 kind @code{omp_sched_kind}:
 
 @table @asis
@@ -13215,4 +13221,15 @@ kind @code{omp_sched_kind}:
 @item @code{omp_sched_dynamic}
 @item @code{omp_sched_guided}
 @item @code{omp_sched_auto}
+@end table
+
+And the following scalar integer named constants of the 
+kind @code{omp_proc_bind_kind}:
+
+@table @asis
+@item @code{omp_proc_bind_false}
+@item @code{omp_proc_bind_true}
+@item @code{omp_proc_bind_master}
+@item @code{omp_proc_bind_close}
+@item @code{omp_proc_bind_spread}
 @end table

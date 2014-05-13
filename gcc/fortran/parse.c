@@ -1,5 +1,5 @@
 /* Main parser.
-   Copyright (C) 2000-2013 Free Software Foundation, Inc.
+   Copyright (C) 2000-2014 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -550,8 +550,7 @@ decode_omp_directive (void)
       return ST_NONE;
     }
 
-  if (gfc_implicit_pure (NULL))
-    gfc_current_ns->proc_name->attr.implicit_pure = 0;
+  gfc_unset_implicit_pure (NULL);
 
   old_locus = gfc_current_locus;
 
@@ -2626,6 +2625,33 @@ loop:
 	  break;
 
 	default:
+	  break;
+      }
+  else if (gfc_current_state () == COMP_BLOCK_DATA)
+    /* Fortran 2008, C1116.  */
+    switch (st)
+      {
+        case ST_DATA_DECL:
+	case ST_COMMON:
+	case ST_DATA:
+	case ST_TYPE:
+	case ST_END_BLOCK_DATA:
+	case ST_ATTR_DECL:
+	case ST_EQUIVALENCE:
+	case ST_PARAMETER:
+	case ST_IMPLICIT:
+	case ST_IMPLICIT_NONE:
+	case ST_DERIVED_DECL:
+	case ST_USE:
+	  break;
+
+	case ST_NONE:
+	  break;
+	  
+	default:
+	  gfc_error ("%s statement is not allowed inside of BLOCK DATA at %C",
+		     gfc_ascii_statement (st));
+	  reject_statement ();
 	  break;
       }
   

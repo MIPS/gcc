@@ -1,5 +1,5 @@
 /* Subroutines for manipulating rtx's in semantically interesting ways.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "rtl.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "tm_p.h"
 #include "flags.h"
 #include "except.h"
@@ -53,7 +54,7 @@ trunc_int_for_mode (HOST_WIDE_INT c, enum machine_mode mode)
 
   /* You want to truncate to a _what_?  */
   gcc_assert (SCALAR_INT_MODE_P (mode)
-	      || BOUND_MODE_P (mode));
+	      || POINTER_BOUNDS_MODE_P (mode));
 
   /* Canonicalize BImode to 0 and STORE_FLAG_VALUE.  */
   if (mode == BImode)
@@ -110,7 +111,7 @@ plus_constant (enum machine_mode mode, rtx x, HOST_WIDE_INT c)
 	  return immed_double_int_const (v, mode);
 	}
 
-      return gen_int_mode (INTVAL (x) + c, mode);
+      return gen_int_mode (UINTVAL (x) + c, mode);
 
     case CONST_DOUBLE:
       {
@@ -236,6 +237,18 @@ eliminate_constant_term (rtx x, rtx *constptr)
   return x;
 }
 
+/* Returns a tree for the size of EXP in bytes.  */
+
+static tree
+tree_expr_size (const_tree exp)
+{
+  if (DECL_P (exp)
+      && DECL_SIZE_UNIT (exp) != 0)
+    return DECL_SIZE_UNIT (exp);
+  else
+    return size_in_bytes (TREE_TYPE (exp));
+}
+
 /* Return an rtx for the size in bytes of the value of EXP.  */
 
 rtx
@@ -271,10 +284,10 @@ int_expr_size (tree exp)
       gcc_assert (size);
     }
 
-  if (size == 0 || !host_integerp (size, 0))
+  if (size == 0 || !tree_fits_shwi_p (size))
     return -1;
 
-  return tree_low_cst (size, 0);
+  return tree_to_shwi (size);
 }
 
 /* Return a copy of X in which all memory references
@@ -1717,6 +1730,9 @@ probe_stack_range (HOST_WIDE_INT first, rtx size)
 	  emit_stack_probe (addr);
 	}
     }
+
+  /* Make sure nothing is scheduled before we are done.  */
+  emit_insn (gen_blockage ());
 }
 
 /* Adjust the stack pointer by minus SIZE (an rtx for a number of bytes)
@@ -1859,13 +1875,9 @@ rtx
 hard_function_value (const_tree valtype, const_tree func, const_tree fntype,
 		     int outgoing ATTRIBUTE_UNUSED)
 {
-  rtx val, bnd;
+  rtx val;
 
   val = targetm.calls.function_value (valtype, func ? func : fntype, outgoing);
-
-  /* Split bound registers to process non-bound values separately.
-     Join back after processing.  */
-  chkp_split_slot (val, &val, &bnd);
 
   if (REG_P (val)
       && GET_MODE (val) == BLKmode)
@@ -1891,7 +1903,7 @@ hard_function_value (const_tree valtype, const_tree func, const_tree fntype,
 
       PUT_MODE (val, tmpmode);
     }
-  return chkp_join_splitted_slot (val, bnd);
+  return val;
 }
 
 /* Return an rtx representing the register or memory location

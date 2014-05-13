@@ -1,5 +1,5 @@
 /* Pretty formatting of GENERIC trees in C syntax.
-   Copyright (C) 2001-2013 Free Software Foundation, Inc.
+   Copyright (C) 2001-2014 Free Software Foundation, Inc.
    Adapted from c-pretty-print.c by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -23,9 +23,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "expr.h"
 #include "tree-pretty-print.h"
 #include "hashtab.h"
-#include "tree-ssa.h"
+#include "pointer-set.h"
+#include "gimple-expr.h"
+#include "cgraph.h"
 #include "langhooks.h"
 #include "tree-iterator.h"
 #include "tree-chrec.h"
@@ -59,7 +63,7 @@ do_niy (pretty_printer *buffer, const_tree node)
   int i, len;
 
   pp_string (buffer, "<<< Unknown tree: ");
-  pp_string (buffer, tree_code_name[(int) TREE_CODE (node)]);
+  pp_string (buffer, get_tree_code_name (TREE_CODE (node)));
 
   if (EXPR_P (node))
     {
@@ -271,8 +275,8 @@ dump_array_domain (pretty_printer *buffer, tree domain, int spc, int flags)
 
       if (min && max
 	  && integer_zerop (min)
-	  && host_integerp (max, 0))
-	pp_wide_integer (buffer, TREE_INT_CST_LOW (max) + 1);
+	  && tree_fits_shwi_p (max))
+	pp_wide_integer (buffer, tree_to_shwi (max) + 1);
       else
 	{
 	  if (min)
@@ -319,6 +323,9 @@ dump_omp_clause (pretty_printer *buffer, tree clause, int spc, int flags)
     case OMP_CLAUSE_UNIFORM:
       name = "uniform";
       goto print_remap;
+    case OMP_CLAUSE__LOOPTEMP_:
+      name = "_looptemp_";
+      goto print_remap;
   print_remap:
       pp_string (buffer, name);
       pp_left_paren (buffer);
@@ -329,24 +336,28 @@ dump_omp_clause (pretty_printer *buffer, tree clause, int spc, int flags)
 
     case OMP_CLAUSE_REDUCTION:
       pp_string (buffer, "reduction(");
-      pp_string (buffer, op_symbol_code (OMP_CLAUSE_REDUCTION_CODE (clause)));
-      pp_colon (buffer);
+      if (OMP_CLAUSE_REDUCTION_CODE (clause) != ERROR_MARK)
+	{
+	  pp_string (buffer,
+		     op_symbol_code (OMP_CLAUSE_REDUCTION_CODE (clause)));
+	  pp_colon (buffer);
+	}
       dump_generic_node (buffer, OMP_CLAUSE_DECL (clause),
-	  spc, flags, false);
+			 spc, flags, false);
       pp_right_paren (buffer);
       break;
 
     case OMP_CLAUSE_IF:
       pp_string (buffer, "if(");
       dump_generic_node (buffer, OMP_CLAUSE_IF_EXPR (clause),
-	  spc, flags, false);
+			 spc, flags, false);
       pp_right_paren (buffer);
       break;
 
     case OMP_CLAUSE_NUM_THREADS:
       pp_string (buffer, "num_threads(");
       dump_generic_node (buffer, OMP_CLAUSE_NUM_THREADS_EXPR (clause),
-	  spc, flags, false);
+			 spc, flags, false);
       pp_right_paren (buffer);
       break;
 
@@ -385,30 +396,29 @@ dump_omp_clause (pretty_printer *buffer, tree clause, int spc, int flags)
       pp_string (buffer, "schedule(");
       switch (OMP_CLAUSE_SCHEDULE_KIND (clause))
 	{
-      case OMP_CLAUSE_SCHEDULE_STATIC:
-	pp_string (buffer, "static");
-	break;
-      case OMP_CLAUSE_SCHEDULE_DYNAMIC:
-	pp_string (buffer, "dynamic");
-	break;
-      case OMP_CLAUSE_SCHEDULE_GUIDED:
-	pp_string (buffer, "guided");
-	break;
-      case OMP_CLAUSE_SCHEDULE_RUNTIME:
-	pp_string (buffer, "runtime");
-	break;
-      case OMP_CLAUSE_SCHEDULE_AUTO:
-	pp_string (buffer, "auto");
-	break;
-      default:
-	gcc_unreachable ();
+	case OMP_CLAUSE_SCHEDULE_STATIC:
+	  pp_string (buffer, "static");
+	  break;
+	case OMP_CLAUSE_SCHEDULE_DYNAMIC:
+	  pp_string (buffer, "dynamic");
+	  break;
+	case OMP_CLAUSE_SCHEDULE_GUIDED:
+	  pp_string (buffer, "guided");
+	  break;
+	case OMP_CLAUSE_SCHEDULE_RUNTIME:
+	  pp_string (buffer, "runtime");
+	  break;
+	case OMP_CLAUSE_SCHEDULE_AUTO:
+	  pp_string (buffer, "auto");
+	  break;
+	default:
+	  gcc_unreachable ();
 	}
       if (OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (clause))
 	{
 	  pp_comma (buffer);
-	  dump_generic_node (buffer,
-	      OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (clause),
-	      spc, flags, false);
+	  dump_generic_node (buffer, OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (clause),
+			     spc, flags, false);
 	}
       pp_right_paren (buffer);
       break;
@@ -419,8 +429,7 @@ dump_omp_clause (pretty_printer *buffer, tree clause, int spc, int flags)
 
     case OMP_CLAUSE_COLLAPSE:
       pp_string (buffer, "collapse(");
-      dump_generic_node (buffer,
-			 OMP_CLAUSE_COLLAPSE_EXPR (clause),
+      dump_generic_node (buffer, OMP_CLAUSE_COLLAPSE_EXPR (clause),
 			 spc, flags, false);
       pp_right_paren (buffer);
       break;
@@ -428,7 +437,7 @@ dump_omp_clause (pretty_printer *buffer, tree clause, int spc, int flags)
     case OMP_CLAUSE_FINAL:
       pp_string (buffer, "final(");
       dump_generic_node (buffer, OMP_CLAUSE_FINAL_EXPR (clause),
-	  spc, flags, false);
+			 spc, flags, false);
       pp_right_paren (buffer);
       break;
 
@@ -440,24 +449,187 @@ dump_omp_clause (pretty_printer *buffer, tree clause, int spc, int flags)
       pp_string (buffer, "linear(");
       dump_generic_node (buffer, OMP_CLAUSE_DECL (clause),
 			 spc, flags, false);
-      pp_character (buffer, ':');
+      pp_colon (buffer);
       dump_generic_node (buffer, OMP_CLAUSE_LINEAR_STEP (clause),
 			 spc, flags, false);
-      pp_character (buffer, ')');
+      pp_right_paren (buffer);
+      break;
+
+    case OMP_CLAUSE_ALIGNED:
+      pp_string (buffer, "aligned(");
+      dump_generic_node (buffer, OMP_CLAUSE_DECL (clause),
+			 spc, flags, false);
+      if (OMP_CLAUSE_ALIGNED_ALIGNMENT (clause))
+	{
+	  pp_colon (buffer);
+	  dump_generic_node (buffer, OMP_CLAUSE_ALIGNED_ALIGNMENT (clause),
+			     spc, flags, false);
+	}
+      pp_right_paren (buffer);
+      break;
+
+    case OMP_CLAUSE_DEPEND:
+      pp_string (buffer, "depend(");
+      switch (OMP_CLAUSE_DEPEND_KIND (clause))
+	{
+	case OMP_CLAUSE_DEPEND_IN:
+	  pp_string (buffer, "in");
+	  break;
+	case OMP_CLAUSE_DEPEND_OUT:
+	  pp_string (buffer, "out");
+	  break;
+	case OMP_CLAUSE_DEPEND_INOUT:
+	  pp_string (buffer, "inout");
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+      pp_colon (buffer);
+      dump_generic_node (buffer, OMP_CLAUSE_DECL (clause),
+			 spc, flags, false);
+      pp_right_paren (buffer);
+      break;
+
+    case OMP_CLAUSE_MAP:
+      pp_string (buffer, "map(");
+      switch (OMP_CLAUSE_MAP_KIND (clause))
+	{
+	case OMP_CLAUSE_MAP_ALLOC:
+	case OMP_CLAUSE_MAP_POINTER:
+	  pp_string (buffer, "alloc");
+	  break;
+	case OMP_CLAUSE_MAP_TO:
+	  pp_string (buffer, "to");
+	  break;
+	case OMP_CLAUSE_MAP_FROM:
+	  pp_string (buffer, "from");
+	  break;
+	case OMP_CLAUSE_MAP_TOFROM:
+	  pp_string (buffer, "tofrom");
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+      pp_colon (buffer);
+      dump_generic_node (buffer, OMP_CLAUSE_DECL (clause),
+			 spc, flags, false);
+     print_clause_size:
+      if (OMP_CLAUSE_SIZE (clause))
+	{
+	  if (OMP_CLAUSE_CODE (clause) == OMP_CLAUSE_MAP
+	      && OMP_CLAUSE_MAP_KIND (clause) == OMP_CLAUSE_MAP_POINTER)
+	    pp_string (buffer, " [pointer assign, bias: ");
+	  else
+	    pp_string (buffer, " [len: ");
+	  dump_generic_node (buffer, OMP_CLAUSE_SIZE (clause),
+			     spc, flags, false);
+	  pp_right_bracket (buffer);
+	}
+      pp_right_paren (buffer);
+      break;
+
+    case OMP_CLAUSE_FROM:
+      pp_string (buffer, "from(");
+      dump_generic_node (buffer, OMP_CLAUSE_DECL (clause),
+			 spc, flags, false);
+      goto print_clause_size;
+
+    case OMP_CLAUSE_TO:
+      pp_string (buffer, "to(");
+      dump_generic_node (buffer, OMP_CLAUSE_DECL (clause),
+			 spc, flags, false);
+      goto print_clause_size;
+
+    case OMP_CLAUSE_NUM_TEAMS:
+      pp_string (buffer, "num_teams(");
+      dump_generic_node (buffer, OMP_CLAUSE_NUM_TEAMS_EXPR (clause),
+			 spc, flags, false);
+      pp_right_paren (buffer);
+      break;
+
+    case OMP_CLAUSE_THREAD_LIMIT:
+      pp_string (buffer, "thread_limit(");
+      dump_generic_node (buffer, OMP_CLAUSE_THREAD_LIMIT_EXPR (clause),
+			 spc, flags, false);
+      pp_right_paren (buffer);
+      break;
+
+    case OMP_CLAUSE_DEVICE:
+      pp_string (buffer, "device(");
+      dump_generic_node (buffer, OMP_CLAUSE_DEVICE_ID (clause),
+			 spc, flags, false);
+      pp_right_paren (buffer);
+      break;
+
+    case OMP_CLAUSE_DIST_SCHEDULE:
+      pp_string (buffer, "dist_schedule(static");
+      if (OMP_CLAUSE_DIST_SCHEDULE_CHUNK_EXPR (clause))
+	{
+	  pp_comma (buffer);
+	  dump_generic_node (buffer,
+			     OMP_CLAUSE_DIST_SCHEDULE_CHUNK_EXPR (clause),
+			     spc, flags, false);
+	}
+      pp_right_paren (buffer);
+      break;
+
+    case OMP_CLAUSE_PROC_BIND:
+      pp_string (buffer, "proc_bind(");
+      switch (OMP_CLAUSE_PROC_BIND_KIND (clause))
+	{
+	case OMP_CLAUSE_PROC_BIND_MASTER:
+	  pp_string (buffer, "master");
+	  break;
+	case OMP_CLAUSE_PROC_BIND_CLOSE:
+	  pp_string (buffer, "close");
+	  break;
+	case OMP_CLAUSE_PROC_BIND_SPREAD:
+	  pp_string (buffer, "spread");
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+      pp_right_paren (buffer);
       break;
 
     case OMP_CLAUSE_SAFELEN:
       pp_string (buffer, "safelen(");
       dump_generic_node (buffer, OMP_CLAUSE_SAFELEN_EXPR (clause),
 			 spc, flags, false);
-      pp_character (buffer, ')');
+      pp_right_paren (buffer);
+      break;
+
+    case OMP_CLAUSE_SIMDLEN:
+      pp_string (buffer, "simdlen(");
+      dump_generic_node (buffer, OMP_CLAUSE_SIMDLEN_EXPR (clause),
+			 spc, flags, false);
+      pp_right_paren (buffer);
       break;
 
     case OMP_CLAUSE__SIMDUID_:
       pp_string (buffer, "_simduid_(");
       dump_generic_node (buffer, OMP_CLAUSE__SIMDUID__DECL (clause),
 			 spc, flags, false);
-      pp_character (buffer, ')');
+      pp_right_paren (buffer);
+      break;
+
+    case OMP_CLAUSE_INBRANCH:
+      pp_string (buffer, "inbranch");
+      break;
+    case OMP_CLAUSE_NOTINBRANCH:
+      pp_string (buffer, "notinbranch");
+      break;
+    case OMP_CLAUSE_FOR:
+      pp_string (buffer, "for");
+      break;
+    case OMP_CLAUSE_PARALLEL:
+      pp_string (buffer, "parallel");
+      break;
+    case OMP_CLAUSE_SECTIONS:
+      pp_string (buffer, "sections");
+      break;
+    case OMP_CLAUSE_TASKGROUP:
+      pp_string (buffer, "taskgroup");
       break;
 
     default:
@@ -697,7 +869,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       break;
 
     case VOID_TYPE:
-    case BOUND_TYPE:
+    case POINTER_BOUNDS_TYPE:
     case INTEGER_TYPE:
     case REAL_TYPE:
     case FIXED_POINT_TYPE:
@@ -709,6 +881,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	unsigned int quals = TYPE_QUALS (node);
 	enum tree_code_class tclass;
 
+	if (quals & TYPE_QUAL_ATOMIC)
+	  pp_string (buffer, "atomic ");
 	if (quals & TYPE_QUAL_CONST)
 	  pp_string (buffer, "const ");
 	else if (quals & TYPE_QUAL_VOLATILE)
@@ -1010,6 +1184,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       {
 	unsigned int quals = TYPE_QUALS (node);
 
+	if (quals & TYPE_QUAL_ATOMIC)
+	  pp_string (buffer, "atomic ");
 	if (quals & TYPE_QUAL_CONST)
 	  pp_string (buffer, "const ");
 	if (quals & TYPE_QUAL_VOLATILE)
@@ -1066,6 +1242,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       else
 	pp_double_int (buffer, tree_to_double_int (node),
 		       TYPE_UNSIGNED (TREE_TYPE (node)));
+      if (TREE_OVERFLOW (node))
+	pp_string (buffer, "(OVF)");
       break;
 
     case REAL_CST:
@@ -1213,6 +1391,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case FIELD_DECL:
     case DEBUG_EXPR_DECL:
     case NAMESPACE_DECL:
+    case NAMELIST_DECL:
       dump_decl_name (buffer, node, flags);
       break;
 
@@ -1925,6 +2104,18 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_string (buffer, " predictor.");
       break;
 
+    case ANNOTATE_EXPR:
+      pp_string (buffer, "ANNOTATE_EXPR <");
+      switch ((enum annot_expr_kind) TREE_INT_CST_LOW (TREE_OPERAND (node, 1)))
+	{
+	case annot_expr_ivdep_kind:
+	  pp_string (buffer, "ivdep, ");
+	  break;
+	}
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_greater (buffer);
+      break;
+
     case RETURN_EXPR:
       pp_string (buffer, "return");
       op0 = TREE_OPERAND (node, 0);
@@ -2041,6 +2232,12 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_string (buffer, "OBJ_TYPE_REF(");
       dump_generic_node (buffer, OBJ_TYPE_REF_EXPR (node), spc, flags, false);
       pp_semicolon (buffer);
+      if (!(flags & TDF_SLIM) && virtual_method_call_p (node))
+	{
+	  pp_string (buffer, "(");
+	  dump_generic_node (buffer, obj_type_ref_class (node), spc, flags, false);
+	  pp_string (buffer, ")");
+	}
       dump_generic_node (buffer, OBJ_TYPE_REF_OBJECT (node), spc, flags, false);
       pp_arrow (buffer);
       dump_generic_node (buffer, OBJ_TYPE_REF_TOKEN (node), spc, flags, false);
@@ -2053,10 +2250,10 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 			   spc, flags, false);
       pp_underscore (buffer);
       pp_decimal_int (buffer, SSA_NAME_VERSION (node));
+      if (SSA_NAME_IS_DEFAULT_DEF (node))
+	pp_string (buffer, "(D)");
       if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (node))
 	pp_string (buffer, "(ab)");
-      else if (SSA_NAME_IS_DEFAULT_DEF (node))
-	pp_string (buffer, "(D)");
       break;
 
     case WITH_SIZE_EXPR:
@@ -2193,6 +2390,35 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_string (buffer, "#pragma omp simd");
       goto dump_omp_loop;
 
+    case CILK_SIMD:
+      pp_string (buffer, "#pragma simd");
+      goto dump_omp_loop;
+
+    case OMP_DISTRIBUTE:
+      pp_string (buffer, "#pragma omp distribute");
+      goto dump_omp_loop;
+
+    case OMP_TEAMS:
+      pp_string (buffer, "#pragma omp teams");
+      dump_omp_clauses (buffer, OMP_TEAMS_CLAUSES (node), spc, flags);
+      goto dump_omp_body;
+
+    case OMP_TARGET_DATA:
+      pp_string (buffer, "#pragma omp target data");
+      dump_omp_clauses (buffer, OMP_TARGET_DATA_CLAUSES (node), spc, flags);
+      goto dump_omp_body;
+
+    case OMP_TARGET:
+      pp_string (buffer, "#pragma omp target");
+      dump_omp_clauses (buffer, OMP_TARGET_CLAUSES (node), spc, flags);
+      goto dump_omp_body;
+
+    case OMP_TARGET_UPDATE:
+      pp_string (buffer, "#pragma omp target update");
+      dump_omp_clauses (buffer, OMP_TARGET_UPDATE_CLAUSES (node), spc, flags);
+      is_expr = false;
+      break;
+
     dump_omp_loop:
       dump_omp_clauses (buffer, OMP_FOR_CLAUSES (node), spc, flags);
 
@@ -2209,21 +2435,27 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	      dump_generic_node (buffer, OMP_FOR_PRE_BODY (node),
 		  spc, flags, false);
 	    }
-	  spc -= 2;
-	  for (i = 0; i < TREE_VEC_LENGTH (OMP_FOR_INIT (node)); i++)
+	  if (OMP_FOR_INIT (node))
 	    {
-	      spc += 2;
-	      newline_and_indent (buffer, spc);
-	      pp_string (buffer, "for (");
-	      dump_generic_node (buffer, TREE_VEC_ELT (OMP_FOR_INIT (node), i),
-				 spc, flags, false);
-	      pp_string (buffer, "; ");
-	      dump_generic_node (buffer, TREE_VEC_ELT (OMP_FOR_COND (node), i),
-				 spc, flags, false);
-	      pp_string (buffer, "; ");
-	      dump_generic_node (buffer, TREE_VEC_ELT (OMP_FOR_INCR (node), i),
-				 spc, flags, false);
-	      pp_right_paren (buffer);
+	      spc -= 2;
+	      for (i = 0; i < TREE_VEC_LENGTH (OMP_FOR_INIT (node)); i++)
+		{
+		  spc += 2;
+		  newline_and_indent (buffer, spc);
+		  pp_string (buffer, "for (");
+		  dump_generic_node (buffer,
+				     TREE_VEC_ELT (OMP_FOR_INIT (node), i),
+				     spc, flags, false);
+		  pp_string (buffer, "; ");
+		  dump_generic_node (buffer,
+				     TREE_VEC_ELT (OMP_FOR_COND (node), i),
+				     spc, flags, false);
+		  pp_string (buffer, "; ");
+		  dump_generic_node (buffer,
+				     TREE_VEC_ELT (OMP_FOR_INCR (node), i),
+				     spc, flags, false);
+		  pp_right_paren (buffer);
+		}
 	    }
 	  if (OMP_FOR_BODY (node))
 	    {
@@ -2235,7 +2467,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	      newline_and_indent (buffer, spc + 2);
 	      pp_right_brace (buffer);
 	    }
-	  spc -= 2 * TREE_VEC_LENGTH (OMP_FOR_INIT (node)) - 2;
+	  if (OMP_FOR_INIT (node))
+	    spc -= 2 * TREE_VEC_LENGTH (OMP_FOR_INIT (node)) - 2;
 	  if (OMP_FOR_PRE_BODY (node))
 	    {
 	      spc -= 4;
@@ -2259,6 +2492,10 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_string (buffer, "#pragma omp master");
       goto dump_omp_body;
 
+    case OMP_TASKGROUP:
+      pp_string (buffer, "#pragma omp taskgroup");
+      goto dump_omp_body;
+
     case OMP_ORDERED:
       pp_string (buffer, "#pragma omp ordered");
       goto dump_omp_body;
@@ -2277,6 +2514,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
     case OMP_ATOMIC:
       pp_string (buffer, "#pragma omp atomic");
+      if (OMP_ATOMIC_SEQ_CST (node))
+	pp_string (buffer, " seq_cst");
       newline_and_indent (buffer, spc + 2);
       dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
       pp_space (buffer);
@@ -2287,6 +2526,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
     case OMP_ATOMIC_READ:
       pp_string (buffer, "#pragma omp atomic read");
+      if (OMP_ATOMIC_SEQ_CST (node))
+	pp_string (buffer, " seq_cst");
       newline_and_indent (buffer, spc + 2);
       dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
       pp_space (buffer);
@@ -2295,6 +2536,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case OMP_ATOMIC_CAPTURE_OLD:
     case OMP_ATOMIC_CAPTURE_NEW:
       pp_string (buffer, "#pragma omp atomic capture");
+      if (OMP_ATOMIC_SEQ_CST (node))
+	pp_string (buffer, " seq_cst");
       newline_and_indent (buffer, spc + 2);
       dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
       pp_space (buffer);
@@ -2358,7 +2601,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case VEC_WIDEN_LSHIFT_HI_EXPR:
     case VEC_WIDEN_LSHIFT_LO_EXPR:
       pp_space (buffer);
-      for (str = tree_code_name [code]; *str; str++)
+      for (str = get_tree_code_name (code); *str; str++)
 	pp_character (buffer, TOUPPER (*str));
       pp_string (buffer, " < ");
       dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
@@ -2419,6 +2662,15 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       dump_block_node (buffer, node, spc, flags);
       break;
 
+    case CILK_SPAWN_STMT:
+      pp_string (buffer, "_Cilk_spawn ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      break;
+
+    case CILK_SYNC_STMT:
+      pp_string (buffer, "_Cilk_sync");
+      break;
+
     default:
       NIY;
     }
@@ -2435,6 +2687,14 @@ void
 print_declaration (pretty_printer *buffer, tree t, int spc, int flags)
 {
   INDENT (spc);
+
+  if (TREE_CODE(t) == NAMELIST_DECL)
+    {
+      pp_string(buffer, "namelist ");
+      dump_decl_name (buffer, t, flags);
+      pp_semicolon (buffer);
+      return;
+    }
 
   if (TREE_CODE (t) == TYPE_DECL)
     pp_string (buffer, "typedef ");
@@ -3106,6 +3366,25 @@ percent_K_format (text_info *text)
   gcc_assert (pp_ti_abstract_origin (text) != NULL);
   block = TREE_BLOCK (t);
   *pp_ti_abstract_origin (text) = NULL;
+
+  if (in_lto_p)
+    {
+      /* ???  LTO drops all BLOCK_ABSTRACT_ORIGINs apart from those
+         representing the outermost block of an inlined function.
+	 So walk the BLOCK tree until we hit such a scope.  */
+      while (block
+	     && TREE_CODE (block) == BLOCK)
+	{
+	  if (inlined_function_outer_scope_p (block))
+	    {
+	      *pp_ti_abstract_origin (text) = block;
+	      break;
+	    }
+	  block = BLOCK_SUPERCONTEXT (block);
+	}
+      return;
+    }
+
   while (block
 	 && TREE_CODE (block) == BLOCK
 	 && BLOCK_ABSTRACT_ORIGIN (block))
@@ -3165,7 +3444,7 @@ dump_function_header (FILE *dump_file, tree fdecl, int flags)
     fprintf (dump_file, ", decl_uid=%d", DECL_UID (fdecl));
   if (node)
     {
-      fprintf (dump_file, ", symbol_order=%d)%s\n\n", node->symbol.order,
+      fprintf (dump_file, ", symbol_order=%d)%s\n\n", node->order,
                node->frequency == NODE_FREQUENCY_HOT
                ? " (hot)"
                : node->frequency == NODE_FREQUENCY_UNLIKELY_EXECUTED
@@ -3187,6 +3466,12 @@ pp_double_int (pretty_printer *pp, double_int d, bool uns)
     pp_wide_integer (pp, d.low);
   else if (d.fits_uhwi ())
     pp_unsigned_wide_integer (pp, d.low);
+  else if (HOST_BITS_PER_DOUBLE_INT == HOST_BITS_PER_WIDEST_INT)
+    pp_scalar (pp,
+	       uns
+	       ? HOST_WIDEST_INT_PRINT_UNSIGNED : HOST_WIDEST_INT_PRINT_DEC,
+	       (HOST_WIDEST_INT) ((((unsigned HOST_WIDEST_INT) d.high << 1)
+				   << (HOST_BITS_PER_WIDE_INT - 1)) | d.low));
   else
     {
       unsigned HOST_WIDE_INT low = d.low;

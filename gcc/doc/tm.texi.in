@@ -1,4 +1,4 @@
-@c Copyright (C) 1988-2013 Free Software Foundation, Inc.
+@c Copyright (C) 1988-2014 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -744,6 +744,8 @@ Define this macro to 1 if your target needs this facility.  The default
 is 0.
 @end defmac
 
+@hook TARGET_FLOAT_EXCEPTIONS_ROUNDING_SUPPORTED_P
+
 @node Per-Function Data
 @section Defining data structures for per-function information.
 @cindex per-function data
@@ -849,11 +851,6 @@ have the value 0.  This macro need not be a constant.
 
 You need not define this macro if the ordering is the same as for
 multi-word integers.
-@end defmac
-
-@defmac BITS_PER_UNIT
-Define this macro to be the number of bits in an addressable storage
-unit (byte).  If you do not define this macro the default is 8.
 @end defmac
 
 @defmac BITS_PER_WORD
@@ -4070,7 +4067,13 @@ These machine description macros help implement varargs:
 
 @hook TARGET_STORE_BOUNDS_FOR_ARG
 
-@hook TARGET_INIT_RETURNED_BOUNDS
+@hook TARGET_LOAD_RETURNED_BOUNDS
+
+@hook TARGET_STORE_RETURNED_BOUNDS
+
+@hook TARGET_CHKP_FUNCTION_VALUE_BOUNDS
+
+@hook TARGET_SETUP_INCOMING_VARARG_BOUNDS
 
 @node Trampolines
 @section Trampolines for Nested Functions
@@ -4203,6 +4206,14 @@ and 2 to indicate that the first operand is greater than the second.
 If this macro evaluates to @code{false} the comparison functions return
 @minus{}1, 0, and 1 instead of 0, 1, and 2.  If the target uses the routines
 in @file{libgcc.a}, you do not need to define this macro.
+@end defmac
+
+@defmac TARGET_HAS_NO_HW_DIVIDE
+This macro should be defined if the target has no hardware divide
+instructions.  If this macro is defined, GCC will use an algorithm which
+make use of simple logical and arithmetic operations for 64-bit
+division.  If the macro is not defined, GCC will use an algorithm which
+make use of a 64-bit by 32-bit divide primitive.
 @end defmac
 
 @cindex @code{EDOM}, implicit usage
@@ -4422,6 +4433,12 @@ address;  but often a machine-dependent strategy can generate better code.
 
 @hook TARGET_VECTORIZE_BUILTIN_GATHER
 
+@hook TARGET_SIMD_CLONE_COMPUTE_VECSIZE_AND_SIMDLEN
+
+@hook TARGET_SIMD_CLONE_ADJUST
+
+@hook TARGET_SIMD_CLONE_USABLE
+
 @node Anchored Addresses
 @section Anchored Addresses
 @cindex anchored addresses
@@ -4481,8 +4498,13 @@ most instructions do not affect it.  The latter category includes
 most RISC machines.
 
 The implicit clobbering poses a strong restriction on the placement of
-the definition and use of the condition code, which need to be in adjacent
-insns for machines using @code{(cc0)}.  This can prevent important
+the definition and use of the condition code.  In the past the definition
+and use were always adjacent.  However, recent changes to support trapping
+arithmatic may result in the definition and user being in different blocks.
+Thus, there may be a @code{NOTE_INSN_BASIC_BLOCK} between them.  Additionally,
+the definition may be the source of exception handling edges.
+
+These restrictions can prevent important
 optimizations on some machines.  For example, on the IBM RS/6000, there
 is a delay for taken branches unless the condition code register is set
 three instructions earlier than the conditional branch.  The instruction
@@ -4937,6 +4959,10 @@ them: try the first ones in this list first.
 @hook TARGET_SCHED_REORDER
 
 @hook TARGET_SCHED_REORDER2
+
+@hook TARGET_SCHED_MACRO_FUSION_P
+
+@hook TARGET_SCHED_MACRO_FUSION_PAIR_P
 
 @hook TARGET_SCHED_DEPENDENCIES_EVALUATION_HOOK
 
@@ -7435,6 +7461,8 @@ for @var{entity}.  For any fixed @var{entity}, @code{mode_priority_to_mode}
 Generate one or more insns to set @var{entity} to @var{mode}.
 @var{hard_reg_live} is the set of hard registers live at the point where
 the insn(s) are to be inserted.
+Sets of a lower numbered entity will be emitted before sets of a higher
+numbered entity to a mode of the same or lower priority.
 @end defmac
 
 @node Target Attributes
@@ -8195,6 +8223,8 @@ to by @var{ce_info}.
 @hook TARGET_BUILTIN_CHKP_FUNCTION
 @hook TARGET_CHKP_BOUND_TYPE
 @hook TARGET_CHKP_BOUND_MODE
+@hook TARGET_CHKP_MAKE_BOUNDS_CONSTANT
+@hook TARGET_CHKP_INITIALIZE_BOUNDS
 
 @hook TARGET_RESOLVE_OVERLOADED_BUILTIN
 
@@ -8207,6 +8237,8 @@ to by @var{ce_info}.
 @hook TARGET_GET_FUNCTION_VERSIONS_DISPATCHER
 
 @hook TARGET_GENERATE_VERSION_DISPATCHER_BODY
+
+@hook TARGET_CAN_USE_DOLOOP_P
 
 @hook TARGET_INVALID_WITHIN_DOLOOP
 
@@ -8400,3 +8432,7 @@ and the associated definitions of those functions.
 @hook TARGET_ATOMIC_TEST_AND_SET_TRUEVAL
 
 @hook TARGET_HAS_IFUNC_P
+
+@hook TARGET_ATOMIC_ALIGN_FOR_MODE
+
+@hook TARGET_ATOMIC_ASSIGN_EXPAND_FENV

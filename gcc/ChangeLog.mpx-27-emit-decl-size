@@ -1,0 +1,5 @@
+2013-10-29  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* config/elfos.h (ASM_DECLARE_OBJECT_NAME): Use decl size
+	instead of type size.
+	(ASM_FINISH_DECLARE_OBJECT): Likewise.

@@ -1,5 +1,5 @@
 /* Functions related to building classes and their related objects.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -26,6 +26,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "stor-layout.h"
+#include "attribs.h"
+#include "pointer-set.h"
+#include "hash-table.h"
 #include "cp-tree.h"
 #include "flags.h"
 #include "toplev.h"
@@ -34,8 +39,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "dumpfile.h"
 #include "splay-tree.h"
-#include "pointer-set.h"
-#include "hash-table.h"
+#include "gimplify.h"
 
 /* The number of nested classes being processed.  If we are not in the
    scope of any class, this is zero.  */
@@ -145,6 +149,7 @@ static tree *build_base_field (record_layout_info, tree, splay_tree, tree *);
 static void build_base_fields (record_layout_info, splay_tree, tree *);
 static void check_methods (tree);
 static void remove_zero_width_bit_fields (tree);
+static bool accessible_nvdtor_p (tree);
 static void check_bases (tree, int *, int *);
 static void check_bases_and_members (tree);
 static tree create_vtable_ptr (tree, tree *);
@@ -427,6 +432,9 @@ build_base_path (enum tree_code code,
 	v_offset = build_vfield_ref (cp_build_indirect_ref (expr, RO_NULL,
                                                             complain),
 				     TREE_TYPE (TREE_TYPE (expr)));
+      
+      if (v_offset == error_mark_node)
+	return error_mark_node;
 
       v_offset = fold_build_pointer_plus (v_offset, BINFO_VPTR_FIELD (v_binfo));
       v_offset = build1 (NOP_EXPR,
@@ -621,7 +629,9 @@ build_vfield_ref (tree datum, tree type)
 {
   tree vfield, vcontext;
 
-  if (datum == error_mark_node)
+  if (datum == error_mark_node
+      /* Can happen in case of duplicate base types (c++/59082).  */
+      || !TYPE_VFIELD (type))
     return error_mark_node;
 
   /* First, convert to the requested type.  */
@@ -1336,13 +1346,19 @@ struct abi_tag_data
 {
   tree t;
   tree subob;
+  // error_mark_node to get diagnostics; otherwise collect missing tags here
+  tree tags;
 };
 
 static tree
-find_abi_tags_r (tree *tp, int */*walk_subtrees*/, void *data)
+find_abi_tags_r (tree *tp, int *walk_subtrees, void *data)
 {
   if (!OVERLOAD_TYPE_P (*tp))
     return NULL_TREE;
+
+  /* walk_tree shouldn't be walking into any subtrees of a RECORD_TYPE
+     anyway, but let's make sure of it.  */
+  *walk_subtrees = false;
 
   if (tree attributes = lookup_attribute ("abi_tag", TYPE_ATTRIBUTES (*tp)))
     {
@@ -1354,21 +1370,36 @@ find_abi_tags_r (tree *tp, int */*walk_subtrees*/, void *data)
 	  tree id = get_identifier (TREE_STRING_POINTER (tag));
 	  if (!IDENTIFIER_MARKED (id))
 	    {
-	      if (TYPE_P (p->subob))
+	      if (p->tags != error_mark_node)
 		{
-		  warning (OPT_Wabi_tag, "%qT does not have the %E abi tag "
-			   "that base %qT has", p->t, tag, p->subob);
-		  inform (location_of (p->subob), "%qT declared here",
-			  p->subob);
+		  /* We're collecting tags from template arguments.  */
+		  tree str = build_string (IDENTIFIER_LENGTH (id),
+					   IDENTIFIER_POINTER (id));
+		  p->tags = tree_cons (NULL_TREE, str, p->tags);
+		  ABI_TAG_IMPLICIT (p->tags) = true;
+
+		  /* Don't inherit this tag multiple times.  */
+		  IDENTIFIER_MARKED (id) = true;
+		}
+
+	      /* Otherwise we're diagnosing missing tags.  */
+	      else if (TYPE_P (p->subob))
+		{
+		  if (warning (OPT_Wabi_tag, "%qT does not have the %E abi tag "
+			       "that base %qT has", p->t, tag, p->subob))
+		    inform (location_of (p->subob), "%qT declared here",
+			    p->subob);
 		}
 	      else
 		{
-		  warning (OPT_Wabi_tag, "%qT does not have the %E abi tag "
-			   "that %qT (used in the type of %qD) has",
-			   p->t, tag, *tp, p->subob);
-		  inform (location_of (p->subob), "%qD declared here",
-			  p->subob);
-		  inform (location_of (*tp), "%qT declared here", *tp);
+		  if (warning (OPT_Wabi_tag, "%qT does not have the %E abi tag "
+			       "that %qT (used in the type of %qD) has",
+			       p->t, tag, *tp, p->subob))
+		    {
+		      inform (location_of (p->subob), "%qD declared here",
+			      p->subob);
+		      inform (location_of (*tp), "%qT declared here", *tp);
+		    }
 		}
 	    }
 	}
@@ -1393,22 +1424,6 @@ mark_type_abi_tags (tree t, bool val)
 	  IDENTIFIER_MARKED (id) = val;
 	}
     }
-
-  /* Also mark ABI tags from template arguments.  */
-  if (CLASSTYPE_TEMPLATE_INFO (t))
-    {
-      tree args = CLASSTYPE_TI_ARGS (t);
-      for (int i = 0; i < TMPL_ARGS_DEPTH (args); ++i)
-	{
-	  tree level = TMPL_ARGS_LEVEL (args, i+1);
-	  for (int j = 0; j < TREE_VEC_LENGTH (level); ++j)
-	    {
-	      tree arg = TREE_VEC_ELT (level, j);
-	      if (CLASS_TYPE_P (arg))
-		mark_type_abi_tags (arg, val);
-	    }
-	}
-    }
 }
 
 /* Check that class T has all the abi tags that subobject SUBOB has, or
@@ -1420,11 +1435,75 @@ check_abi_tags (tree t, tree subob)
   mark_type_abi_tags (t, true);
 
   tree subtype = TYPE_P (subob) ? subob : TREE_TYPE (subob);
-  struct abi_tag_data data = { t, subob };
+  struct abi_tag_data data = { t, subob, error_mark_node };
 
   cp_walk_tree_without_duplicates (&subtype, find_abi_tags_r, &data);
 
   mark_type_abi_tags (t, false);
+}
+
+void
+inherit_targ_abi_tags (tree t)
+{
+  if (CLASSTYPE_TEMPLATE_INFO (t) == NULL_TREE)
+    return;
+
+  mark_type_abi_tags (t, true);
+
+  tree args = CLASSTYPE_TI_ARGS (t);
+  struct abi_tag_data data = { t, NULL_TREE, NULL_TREE };
+  for (int i = 0; i < TMPL_ARGS_DEPTH (args); ++i)
+    {
+      tree level = TMPL_ARGS_LEVEL (args, i+1);
+      for (int j = 0; j < TREE_VEC_LENGTH (level); ++j)
+	{
+	  tree arg = TREE_VEC_ELT (level, j);
+	  data.subob = arg;
+	  cp_walk_tree_without_duplicates (&arg, find_abi_tags_r, &data);
+	}
+    }
+
+  // If we found some tags on our template arguments, add them to our
+  // abi_tag attribute.
+  if (data.tags)
+    {
+      tree attr = lookup_attribute ("abi_tag", TYPE_ATTRIBUTES (t));
+      if (attr)
+	TREE_VALUE (attr) = chainon (data.tags, TREE_VALUE (attr));
+      else
+	TYPE_ATTRIBUTES (t)
+	  = tree_cons (get_identifier ("abi_tag"), data.tags,
+		       TYPE_ATTRIBUTES (t));
+    }
+
+  mark_type_abi_tags (t, false);
+}
+
+/* Return true, iff class T has a non-virtual destructor that is
+   accessible from outside the class heirarchy (i.e. is public, or
+   there's a suitable friend.  */
+
+static bool
+accessible_nvdtor_p (tree t)
+{
+  tree dtor = CLASSTYPE_DESTRUCTORS (t);
+
+  /* An implicitly declared destructor is always public.  And,
+     if it were virtual, we would have created it by now.  */
+  if (!dtor)
+    return true;
+
+  if (DECL_VINDEX (dtor))
+    return false; /* Virtual */
+  
+  if (!TREE_PRIVATE (dtor) && !TREE_PROTECTED (dtor))
+    return true;  /* Public */
+
+  if (CLASSTYPE_FRIEND_CLASSES (t)
+      || DECL_FRIENDLIST (TYPE_MAIN_DECL (t)))
+    return true;   /* Has friends */
+
+  return false;
 }
 
 /* Run through the base classes of T, updating CANT_HAVE_CONST_CTOR_P,
@@ -1462,13 +1541,6 @@ check_bases (tree t,
       /* If any base class is non-literal, so is the derived class.  */
       if (!CLASSTYPE_LITERAL_P (basetype))
         CLASSTYPE_LITERAL_P (t) = false;
-
-      /* Effective C++ rule 14.  We only need to check TYPE_POLYMORPHIC_P
-	 here because the case of virtual functions but non-virtual
-	 dtor is handled in finish_struct_1.  */
-      if (!TYPE_POLYMORPHIC_P (basetype))
-	warning (OPT_Weffc__,
-		 "base class %q#T has a non-virtual destructor", basetype);
 
       /* If the base class doesn't have copy constructors or
 	 assignment operators that take const references, then the
@@ -1517,6 +1589,12 @@ check_bases (tree t,
 	|= CLASSTYPE_CONTAINS_EMPTY_CLASS_P (basetype);
       TYPE_HAS_COMPLEX_DFLT (t) |= (!TYPE_HAS_DEFAULT_CONSTRUCTOR (basetype)
 				    || TYPE_HAS_COMPLEX_DFLT (basetype));
+      SET_CLASSTYPE_READONLY_FIELDS_NEED_INIT
+	(t, CLASSTYPE_READONLY_FIELDS_NEED_INIT (t)
+	 | CLASSTYPE_READONLY_FIELDS_NEED_INIT (basetype));
+      SET_CLASSTYPE_REF_FIELDS_NEED_INIT
+	(t, CLASSTYPE_REF_FIELDS_NEED_INIT (t)
+	 | CLASSTYPE_REF_FIELDS_NEED_INIT (basetype));
 
       /*  A standard-layout class is a class that:
 	  ...
@@ -2796,7 +2874,9 @@ finish_struct_anon_r (tree field, bool complain)
 
       if (TREE_CODE (elt) != FIELD_DECL)
 	{
-	  if (complain)
+	  /* We already complained about static data members in
+	     finish_static_data_member_decl.  */
+	  if (complain && TREE_CODE (elt) != VAR_DECL)
 	    {
 	      if (is_union)
 		permerror (input_location,
@@ -3005,9 +3085,9 @@ one_inherited_ctor (tree ctor, tree t)
   one_inheriting_sig (t, ctor, new_parms, i);
   if (parms == NULL_TREE)
     {
-      warning (OPT_Winherited_variadic_ctor,
-	       "the ellipsis in %qD is not inherited", ctor);
-      inform (DECL_SOURCE_LOCATION (ctor), "%qD declared here", ctor);
+      if (warning (OPT_Winherited_variadic_ctor,
+		   "the ellipsis in %qD is not inherited", ctor))
+	inform (DECL_SOURCE_LOCATION (ctor), "%qD declared here", ctor);
     }
 }
 
@@ -4668,15 +4748,8 @@ deduce_noexcept_on_destructors (tree t)
   if (!CLASSTYPE_METHOD_VEC (t))
     return;
 
-  bool saved_nontrivial_dtor = TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t);
-
-  /* Avoid early exit from synthesized_method_walk (c++/57645).  */
-  TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t) = true;
-
   for (tree fns = CLASSTYPE_DESTRUCTORS (t); fns; fns = OVL_NEXT (fns))
     deduce_noexcept_on_destructor (OVL_CURRENT (fns));
-
-  TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t) = saved_nontrivial_dtor;
 }
 
 /* Subroutine of set_one_vmethod_tm_attributes.  Search base classes
@@ -4878,7 +4951,8 @@ user_provided_p (tree fn)
     return true;
   else
     return (!DECL_ARTIFICIAL (fn)
-	    && !DECL_DEFAULTED_IN_CLASS_P (fn));
+	    && !(DECL_INITIALIZED_IN_CLASS_P (fn)
+		 && (DECL_DEFAULTED_FN (fn) || DECL_DELETED_FN (fn))));
 }
 
 /* Returns true iff class T has a user-provided constructor.  */
@@ -5143,7 +5217,7 @@ type_has_user_declared_move_assign (tree t)
 }
 
 /* Nonzero if we need to build up a constructor call when initializing an
-   object of this class, either because it has a user-provided constructor
+   object of this class, either because it has a user-declared constructor
    or because it doesn't have a default constructor (so we need to give an
    error if no initializer is provided).  Use TYPE_NEEDS_CONSTRUCTING when
    what you care about is whether or not an object can be produced by a
@@ -5159,8 +5233,50 @@ type_build_ctor_call (tree t)
   if (TYPE_NEEDS_CONSTRUCTING (t))
     return true;
   inner = strip_array_types (t);
-  return (CLASS_TYPE_P (inner) && !TYPE_HAS_DEFAULT_CONSTRUCTOR (inner)
-	  && !ANON_AGGR_TYPE_P (inner));
+  if (!CLASS_TYPE_P (inner) || ANON_AGGR_TYPE_P (inner))
+    return false;
+  if (!TYPE_HAS_DEFAULT_CONSTRUCTOR (inner))
+    return true;
+  if (cxx_dialect < cxx11)
+    return false;
+  /* A user-declared constructor might be private, and a constructor might
+     be trivial but deleted.  */
+  for (tree fns = lookup_fnfields_slot (inner, complete_ctor_identifier);
+       fns; fns = OVL_NEXT (fns))
+    {
+      tree fn = OVL_CURRENT (fns);
+      if (!DECL_ARTIFICIAL (fn)
+	  || DECL_DELETED_FN (fn))
+	return true;
+    }
+  return false;
+}
+
+/* Like type_build_ctor_call, but for destructors.  */
+
+bool
+type_build_dtor_call (tree t)
+{
+  tree inner;
+  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t))
+    return true;
+  inner = strip_array_types (t);
+  if (!CLASS_TYPE_P (inner) || ANON_AGGR_TYPE_P (inner)
+      || !COMPLETE_TYPE_P (inner))
+    return false;
+  if (cxx_dialect < cxx11)
+    return false;
+  /* A user-declared destructor might be private, and a destructor might
+     be trivial but deleted.  */
+  for (tree fns = lookup_fnfields_slot (inner, complete_dtor_identifier);
+       fns; fns = OVL_NEXT (fns))
+    {
+      tree fn = OVL_CURRENT (fns);
+      if (!DECL_ARTIFICIAL (fn)
+	  || DECL_DELETED_FN (fn))
+	return true;
+    }
+  return false;
 }
 
 /* Remove all zero-width bit-fields from T.  */
@@ -5385,6 +5501,9 @@ check_bases_and_members (tree t)
   bool saved_nontrivial_dtor;
   tree fn;
 
+  /* Pick up any abi_tags from our template arguments before checking.  */
+  inherit_targ_abi_tags (t);
+
   /* By default, we use const reference arguments and generate default
      constructors.  */
   cant_have_const_ctor = 0;
@@ -5451,6 +5570,30 @@ check_bases_and_members (tree t)
   TYPE_HAS_COMPLEX_MOVE_ASSIGN (t) |= TYPE_CONTAINS_VPTR_P (t);
   TYPE_HAS_COMPLEX_DFLT (t) |= TYPE_CONTAINS_VPTR_P (t);
 
+  /* Warn if a public base of a polymorphic type has an accessible
+     non-virtual destructor.  It is only now that we know the class is
+     polymorphic.  Although a polymorphic base will have a already
+     been diagnosed during its definition, we warn on use too.  */
+  if (TYPE_POLYMORPHIC_P (t) && warn_nonvdtor)
+    {
+      tree binfo = TYPE_BINFO (t);
+      vec<tree, va_gc> *accesses = BINFO_BASE_ACCESSES (binfo);
+      tree base_binfo;
+      unsigned i;
+      
+      for (i = 0; BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
+	{
+	  tree basetype = TREE_TYPE (base_binfo);
+
+	  if ((*accesses)[i] == access_public_node
+	      && (TYPE_POLYMORPHIC_P (basetype) || warn_ecpp)
+	      && accessible_nvdtor_p (basetype))
+	    warning (OPT_Wnon_virtual_dtor,
+		     "base class %q#T has accessible non-virtual destructor",
+		     basetype);
+	}
+    }
+  
   /* If the class has no user-declared constructor, but does have
      non-static const or reference data members that can never be
      initialized, issue a warning.  */
@@ -6125,7 +6268,7 @@ layout_class_type (tree t, tree *virtuals_p)
 	{
 	  unsigned HOST_WIDE_INT width;
 	  tree ftype = TREE_TYPE (field);
-	  width = tree_low_cst (DECL_SIZE (field), /*unsignedp=*/1);
+	  width = tree_to_uhwi (DECL_SIZE (field));
 	  if (width != TYPE_PRECISION (ftype))
 	    {
 	      TREE_TYPE (field)
@@ -6501,25 +6644,11 @@ finish_struct_1 (tree t)
 
   /* This warning does not make sense for Java classes, since they
      cannot have destructors.  */
-  if (!TYPE_FOR_JAVA (t) && warn_nonvdtor && TYPE_POLYMORPHIC_P (t))
-    {
-      tree dtor;
-
-      dtor = CLASSTYPE_DESTRUCTORS (t);
-      if (/* An implicitly declared destructor is always public.  And,
-	     if it were virtual, we would have created it by now.  */
-	  !dtor
-	  || (!DECL_VINDEX (dtor)
-	      && (/* public non-virtual */
-		  (!TREE_PRIVATE (dtor) && !TREE_PROTECTED (dtor))
-		   || (/* non-public non-virtual with friends */
-		       (TREE_PRIVATE (dtor) || TREE_PROTECTED (dtor))
-			&& (CLASSTYPE_FRIEND_CLASSES (t)
-			|| DECL_FRIENDLIST (TYPE_MAIN_DECL (t)))))))
-	warning (OPT_Wnon_virtual_dtor,
-		 "%q#T has virtual functions and accessible"
-		 " non-virtual destructor", t);
-    }
+  if (!TYPE_FOR_JAVA (t) && warn_nonvdtor
+      && TYPE_POLYMORPHIC_P (t) && accessible_nvdtor_p (t))
+    warning (OPT_Wnon_virtual_dtor,
+	     "%q#T has virtual functions and accessible"
+	     " non-virtual destructor", t);
 
   complete_vars (t);
 
@@ -7429,8 +7558,6 @@ resolve_address_of_overloaded_function (tree target_type,
 	  /* See if there's a match.  */
 	  if (same_type_p (target_fn_type, static_fn_type (instantiation)))
 	    matches = tree_cons (instantiation, fn, matches);
-
-	  ggc_free (targs);
 	}
 
       /* Now, remove all but the most specialized of the matches.  */
@@ -7997,7 +8124,7 @@ dump_class_hierarchy_r (FILE *stream,
   igo = TREE_CHAIN (binfo);
 
   fprintf (stream, HOST_WIDE_INT_PRINT_DEC,
-	   tree_low_cst (BINFO_OFFSET (binfo), 0));
+	   tree_to_shwi (BINFO_OFFSET (binfo)));
   if (is_empty_class (BINFO_TYPE (binfo)))
     fprintf (stream, " empty");
   else if (CLASSTYPE_NEARLY_EMPTY_P (BINFO_TYPE (binfo)))
@@ -8073,10 +8200,10 @@ dump_class_hierarchy_1 (FILE *stream, int flags, tree t)
 {
   fprintf (stream, "Class %s\n", type_as_string (t, TFF_PLAIN_IDENTIFIER));
   fprintf (stream, "   size=%lu align=%lu\n",
-	   (unsigned long)(tree_low_cst (TYPE_SIZE (t), 0) / BITS_PER_UNIT),
+	   (unsigned long)(tree_to_shwi (TYPE_SIZE (t)) / BITS_PER_UNIT),
 	   (unsigned long)(TYPE_ALIGN (t) / BITS_PER_UNIT));
   fprintf (stream, "   base size=%lu base align=%lu\n",
-	   (unsigned long)(tree_low_cst (TYPE_SIZE (CLASSTYPE_AS_BASE (t)), 0)
+	   (unsigned long)(tree_to_shwi (TYPE_SIZE (CLASSTYPE_AS_BASE (t)))
 			   / BITS_PER_UNIT),
 	   (unsigned long)(TYPE_ALIGN (CLASSTYPE_AS_BASE (t))
 			   / BITS_PER_UNIT));
@@ -8113,7 +8240,7 @@ dump_array (FILE * stream, tree decl)
   HOST_WIDE_INT elt;
   tree size = TYPE_MAX_VALUE (TYPE_DOMAIN (TREE_TYPE (decl)));
 
-  elt = (tree_low_cst (TYPE_SIZE (TREE_TYPE (TREE_TYPE (decl))), 0)
+  elt = (tree_to_shwi (TYPE_SIZE (TREE_TYPE (TREE_TYPE (decl))))
 	 / BITS_PER_UNIT);
   fprintf (stream, "%s:", decl_as_string (decl, TFF_PLAIN_IDENTIFIER));
   fprintf (stream, " %s entries",
@@ -8202,10 +8329,10 @@ dump_thunk (FILE *stream, int indent, tree thunk)
 	/*NOP*/;
       else if (DECL_THIS_THUNK_P (thunk))
 	fprintf (stream, " vcall="  HOST_WIDE_INT_PRINT_DEC,
-		 tree_low_cst (virtual_adjust, 0));
+		 tree_to_shwi (virtual_adjust));
       else
 	fprintf (stream, " vbase=" HOST_WIDE_INT_PRINT_DEC "(%s)",
-		 tree_low_cst (BINFO_VPTR_FIELD (virtual_adjust), 0),
+		 tree_to_shwi (BINFO_VPTR_FIELD (virtual_adjust)),
 		 type_as_string (BINFO_TYPE (virtual_adjust), TFF_SCOPE));
       if (THUNK_ALIAS (thunk))
 	fprintf (stream, " alias to %p", (void *)THUNK_ALIAS (thunk));
@@ -8923,6 +9050,16 @@ build_vtbl_initializer (tree binfo,
 	      if (!TARGET_VTABLE_USES_DESCRIPTORS)
 		init = fold_convert (vfunc_ptr_type_node,
 				     build_fold_addr_expr (fn));
+	      /* Don't refer to a virtual destructor from a constructor
+		 vtable or a vtable for an abstract class, since destroying
+		 an object under construction is undefined behavior and we
+		 don't want it to be considered a candidate for speculative
+		 devirtualization.  But do create the thunk for ABI
+		 compliance.  */
+	      if (DECL_DESTRUCTOR_P (fn_original)
+		  && (CLASSTYPE_PURE_VIRTUALS (DECL_CONTEXT (fn_original))
+		      || orig_binfo != binfo))
+		init = size_zero_node;
 	    }
 	}
 

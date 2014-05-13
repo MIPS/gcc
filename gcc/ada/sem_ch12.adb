@@ -98,7 +98,7 @@ package body Sem_Ch12 is
    --  tree and the copy, in order to recognize non-local references within
    --  the generic, and propagate them to each instance (recall that name
    --  resolution is done on the generic declaration: generics are not really
-   --  macros!). This is summarized in the following diagram:
+   --  macros). This is summarized in the following diagram:
 
    --              .-----------.               .----------.
    --              |  semantic |<--------------|  generic |
@@ -244,9 +244,9 @@ package body Sem_Ch12 is
    --  This should really be reset on encountering a new main unit, but in
    --  practice we are not using multiple main units so it is not critical.
 
-   -------------------------------------------------
-   -- Formal packages and partial parametrization --
-   -------------------------------------------------
+   --------------------------------------------------
+   -- Formal packages and partial parameterization --
+   --------------------------------------------------
 
    --  When compiling a generic, a formal package is a local instantiation. If
    --  declared with a box, its generic formals are visible in the enclosing
@@ -263,7 +263,7 @@ package body Sem_Ch12 is
 
    --  In a generic, a formal package is treated like a special instantiation.
    --  Our Ada 95 compiler handled formals with and without box in different
-   --  ways. With partial parametrization, we use a single model for both.
+   --  ways. With partial parameterization, we use a single model for both.
    --  We create a package declaration that consists of the specification of
    --  the generic package, and a set of declarations that map the actuals
    --  into local renamings, just as we do for bona fide instantiations. For
@@ -951,7 +951,7 @@ package body Sem_Ch12 is
 
       Others_Present : Boolean := False;
       Others_Choice  : Node_Id := Empty;
-      --  In Ada 2005, indicates partial parametrization of a formal
+      --  In Ada 2005, indicates partial parameterization of a formal
       --  package. As usual an other association must be last in the list.
 
       procedure Check_Overloaded_Formal_Subprogram (Formal : Entity_Id);
@@ -978,7 +978,7 @@ package body Sem_Ch12 is
       --  but return Empty for the actual itself. In this case the code below
       --  creates a corresponding declaration for the formal.
 
-      function Partial_Parametrization return Boolean;
+      function Partial_Parameterization return Boolean;
       --  Ada 2005: if no match is found for a given formal, check if the
       --  association for it includes a box, or whether the associations
       --  include an Others clause.
@@ -1168,15 +1168,15 @@ package body Sem_Ch12 is
          return Act;
       end Matching_Actual;
 
-      -----------------------------
-      -- Partial_Parametrization --
-      -----------------------------
+      ------------------------------
+      -- Partial_Parameterization --
+      ------------------------------
 
-      function Partial_Parametrization return Boolean is
+      function Partial_Parameterization return Boolean is
       begin
          return Others_Present
           or else (Present (Found_Assoc) and then Box_Present (Found_Assoc));
-      end Partial_Parametrization;
+      end Partial_Parameterization;
 
       ---------------------
       -- Process_Default --
@@ -1289,7 +1289,7 @@ package body Sem_Ch12 is
 
       if Present (Actuals) then
 
-         --  Check for an Others choice, indicating a partial parametrization
+         --  Check for an Others choice, indicating a partial parameterization
          --  for a formal package.
 
          Actual := First (Actuals);
@@ -1388,7 +1388,7 @@ package body Sem_Ch12 is
                       Defining_Identifier (Formal),
                       Defining_Identifier (Analyzed_Formal));
 
-                  if No (Match) and then Partial_Parametrization then
+                  if No (Match) and then Partial_Parameterization then
                      Process_Default (Formal);
                   else
                      Append_List
@@ -1403,7 +1403,7 @@ package body Sem_Ch12 is
                       Defining_Identifier (Analyzed_Formal));
 
                   if No (Match) then
-                     if Partial_Parametrization then
+                     if Partial_Parameterization then
                         Process_Default (Formal);
 
                      else
@@ -1505,11 +1505,11 @@ package body Sem_Ch12 is
                      Check_Overloaded_Formal_Subprogram (Formal);
                   end if;
 
-                  --  If there is no corresponding actual, this may be case of
-                  --  partial parametrization, or else the formal has a default
-                  --  or a box.
+                  --  If there is no corresponding actual, this may be case
+                  --  of partial parameterization, or else the formal has a
+                  --  default or a box.
 
-                  if No (Match) and then Partial_Parametrization then
+                  if No (Match) and then Partial_Parameterization then
                      Process_Default (Formal);
 
                      if Nkind (I_Node) = N_Formal_Package_Declaration then
@@ -1571,7 +1571,7 @@ package body Sem_Ch12 is
                       Defining_Identifier (Original_Node (Analyzed_Formal)));
 
                   if No (Match) then
-                     if Partial_Parametrization then
+                     if Partial_Parameterization then
                         Process_Default (Formal);
 
                      else
@@ -1931,13 +1931,13 @@ package body Sem_Ch12 is
       Lo :=
         Make_Attribute_Reference (Loc,
           Attribute_Name => Name_First,
-          Prefix         => New_Reference_To (T, Loc));
+          Prefix         => New_Occurrence_Of (T, Loc));
       Set_Etype (Lo, T);
 
       Hi :=
         Make_Attribute_Reference (Loc,
           Attribute_Name => Name_Last,
-          Prefix         => New_Reference_To (T, Loc));
+          Prefix         => New_Occurrence_Of (T, Loc));
       Set_Etype (Hi, T);
 
       Set_Scalar_Range (T,
@@ -2143,7 +2143,7 @@ package body Sem_Ch12 is
          then
             declare
                Non_Freezing_Ref : constant Node_Id :=
-                                    New_Reference_To (Id, Sloc (Id));
+                                    New_Occurrence_Of (Id, Sloc (Id));
                Decl : Node_Id;
 
             begin
@@ -3019,8 +3019,22 @@ package body Sem_Ch12 is
       New_N := Copy_Generic_Node (N, Empty, Instantiating => False);
       Set_Parent_Spec (New_N, Save_Parent);
       Rewrite (N, New_N);
+
+      --  Once the contents of the generic copy and the template are swapped,
+      --  do the same for their respective aspect specifications.
+
+      Exchange_Aspects (N, New_N);
       Id := Defining_Entity (N);
       Generate_Definition (Id);
+
+      --  Expansion is not applied to generic units
+
+      Start_Generic;
+
+      Enter_Name (Id);
+      Set_Ekind    (Id, E_Generic_Package);
+      Set_Etype    (Id, Standard_Void_Type);
+      Set_Contract (Id, Make_Contract (Sloc (Id)));
 
       --  Analyze aspects now, so that generated pragmas appear in the
       --  declarations before building and analyzing the generic copy.
@@ -3029,13 +3043,6 @@ package body Sem_Ch12 is
          Analyze_Aspect_Specifications (N, Id);
       end if;
 
-      --  Expansion is not applied to generic units
-
-      Start_Generic;
-
-      Enter_Name (Id);
-      Set_Ekind (Id, E_Generic_Package);
-      Set_Etype (Id, Standard_Void_Type);
       Push_Scope (Id);
       Enter_Generic_Scope (Id);
       Set_Inner_Instances (Id, New_Elmt_List);
@@ -3086,7 +3093,6 @@ package body Sem_Ch12 is
             Check_References (Id);
          end if;
       end if;
-
    end Analyze_Generic_Package_Declaration;
 
    --------------------------------------------
@@ -3116,6 +3122,8 @@ package body Sem_Ch12 is
       Set_Parent_Spec (New_N, Save_Parent);
       Rewrite (N, New_N);
 
+      Check_SPARK_Mode_In_Generic (N);
+
       --  The aspect specifications are not attached to the tree, and must
       --  be copied and attached to the generic copy explicitly.
 
@@ -3124,7 +3132,7 @@ package body Sem_Ch12 is
             Aspects : constant List_Id := Aspect_Specifications (N);
          begin
             Set_Has_Aspects (N, False);
-            Move_Aspects (New_N, N);
+            Move_Aspects (New_N, To => N);
             Set_Has_Aspects (Original_Node (N), False);
             Set_Aspect_Specifications (Original_Node (N), Aspects);
          end;
@@ -3249,7 +3257,9 @@ package body Sem_Ch12 is
          begin
             Aspect := First (Aspect_Specifications (N));
             while Present (Aspect) loop
-               if Get_Aspect_Id (Aspect) /= Aspect_Warnings then
+               if Get_Aspect_Id (Aspect) /= Aspect_Warnings
+                 and then Present (Expression (Aspect))
+               then
                   Analyze (Expression (Aspect));
                end if;
 
@@ -3258,7 +3268,10 @@ package body Sem_Ch12 is
 
             Aspect := First (Aspect_Specifications (Original_Node (N)));
             while Present (Aspect) loop
-               Save_Global_References (Expression (Aspect));
+               if Present (Expression (Aspect)) then
+                  Save_Global_References (Expression (Aspect));
+               end if;
+
                Next (Aspect);
             end loop;
          end;
@@ -3475,12 +3488,12 @@ package body Sem_Ch12 is
 
          --  Ada 2005 (AI-50217): Cannot use instance in limited with_clause
 
-         if From_With_Type (Gen_Unit) then
+         if From_Limited_With (Gen_Unit) then
             Error_Msg_N
               ("cannot instantiate a limited withed package", Gen_Id);
          else
-            Error_Msg_N
-              ("expect name of generic package in instantiation", Gen_Id);
+            Error_Msg_NE
+              ("& is not the name of a generic package", Gen_Id, Gen_Unit);
          end if;
 
          Restore_Env;
@@ -3589,7 +3602,7 @@ package body Sem_Ch12 is
            Make_Package_Renaming_Declaration (Loc,
              Defining_Unit_Name =>
                Make_Defining_Identifier (Loc, Chars (Gen_Unit)),
-             Name => New_Reference_To (Act_Decl_Id, Loc));
+             Name               => New_Occurrence_Of (Act_Decl_Id, Loc));
 
          Append (Unit_Renaming, Renaming_List);
 
@@ -3607,14 +3620,21 @@ package body Sem_Ch12 is
            Make_Package_Declaration (Loc,
              Specification => Act_Spec);
 
+         --  Propagate the aspect specifications from the package declaration
+         --  template to the instantiated version of the package declaration.
+
+         if Has_Aspects (Act_Tree) then
+            Set_Aspect_Specifications (Act_Decl,
+              New_Copy_List_Tree (Aspect_Specifications (Act_Tree)));
+         end if;
+
          --  Save the instantiation node, for subsequent instantiation of the
          --  body, if there is one and we are generating code for the current
-         --  unit. Mark the unit as having a body, to avoid a premature error
-         --  message.
+         --  unit. Mark unit as having a body (avoids premature error message).
 
          --  We instantiate the body if we are generating code, if we are
          --  generating cross-reference information, or if we are building
-         --  trees for ASIS use.
+         --  trees for ASIS use or GNATprove use.
 
          declare
             Enclosing_Body_Present : Boolean := False;
@@ -3717,19 +3737,20 @@ package body Sem_Ch12 is
               (Unit_Requires_Body (Gen_Unit)
                   or else Enclosing_Body_Present
                   or else Present (Corresponding_Body (Gen_Decl)))
-                and then (Is_In_Main_Unit (N)
-                           or else Might_Inline_Subp)
+                and then (Is_In_Main_Unit (N) or else Might_Inline_Subp)
                 and then not Is_Actual_Pack
                 and then not Inline_Now
                 and then (Operating_Mode = Generate_Code
+
+                           --  Need comment for this check ???
+
                            or else (Operating_Mode = Check_Semantics
-                                     and then ASIS_Mode));
+                                     and then (ASIS_Mode or GNATprove_Mode)));
 
             --  If front_end_inlining is enabled, do not instantiate body if
             --  within a generic context.
 
-            if (Front_End_Inlining
-                 and then not Expander_Active)
+            if (Front_End_Inlining and then not Expander_Active)
               or else Is_Generic_Unit (Cunit_Entity (Main_Unit))
             then
                Needs_Body := False;
@@ -3897,7 +3918,9 @@ package body Sem_Ch12 is
                    Local_Suppress_Stack_Top => Local_Suppress_Stack_Top,
                    Version                  => Ada_Version,
                    Version_Pragma           => Ada_Version_Pragma,
-                   Warnings                 => Save_Warnings));
+                   Warnings                 => Save_Warnings,
+                   SPARK_Mode               => SPARK_Mode,
+                   SPARK_Mode_Pragma        => SPARK_Mode_Pragma));
             end if;
          end if;
 
@@ -4243,7 +4266,9 @@ package body Sem_Ch12 is
                Local_Suppress_Stack_Top => Local_Suppress_Stack_Top,
                Version                  => Ada_Version,
                Version_Pragma           => Ada_Version_Pragma,
-               Warnings                 => Save_Warnings)),
+               Warnings                 => Save_Warnings,
+               SPARK_Mode               => SPARK_Mode,
+               SPARK_Mode_Pragma        => SPARK_Mode_Pragma)),
             Inlined_Body => True);
 
          Pop_Scope;
@@ -4361,7 +4386,9 @@ package body Sem_Ch12 is
                Local_Suppress_Stack_Top => Local_Suppress_Stack_Top,
                Version                  => Ada_Version,
                Version_Pragma           => Ada_Version_Pragma,
-               Warnings                 => Save_Warnings)),
+               Warnings                 => Save_Warnings,
+               SPARK_Mode               => SPARK_Mode,
+               SPARK_Mode_Pragma        => SPARK_Mode_Pragma)),
             Inlined_Body => True);
       end if;
    end Inline_Instance_Body;
@@ -4390,17 +4417,17 @@ package body Sem_Ch12 is
            or else Is_Inlined (Subp)
            or else Is_Inlined (Alias (Subp)))
 
-        --  Must be generating code or analyzing code in ASIS mode
+        --  Must be generating code or analyzing code in ASIS/GNATprove mode
 
         and then (Operating_Mode = Generate_Code
                    or else (Operating_Mode = Check_Semantics
-                             and then ASIS_Mode))
+                             and then (ASIS_Mode or GNATprove_Mode)))
 
         --  The body is needed when generating code (full expansion), in ASIS
-        --  mode for other tools, and in SPARK mode (special expansion) for
+        --  mode for other tools, and in GNATprove mode (special expansion) for
         --  formal verification of the body itself.
 
-        and then (Expander_Active or ASIS_Mode)
+        and then (Expander_Active or ASIS_Mode or GNATprove_Mode)
 
         --  No point in inlining if ABE is inevitable
 
@@ -4419,7 +4446,9 @@ package body Sem_Ch12 is
              Local_Suppress_Stack_Top => Local_Suppress_Stack_Top,
              Version                  => Ada_Version,
              Version_Pragma           => Ada_Version_Pragma,
-             Warnings                 => Save_Warnings));
+             Warnings                 => Save_Warnings,
+             SPARK_Mode               => SPARK_Mode,
+             SPARK_Mode_Pragma        => SPARK_Mode_Pragma));
          return True;
 
       --  Here if not inlined, or we ignore the inlining
@@ -4669,33 +4698,16 @@ package body Sem_Ch12 is
       --  Verify that it is a generic subprogram of the right kind, and that
       --  it does not lead to a circular instantiation.
 
-      if not Ekind_In (Gen_Unit, E_Generic_Procedure, E_Generic_Function) then
-         Error_Msg_N ("expect generic subprogram in instantiation", Gen_Id);
+      if K = E_Procedure and then Ekind (Gen_Unit) /= E_Generic_Procedure then
+         Error_Msg_NE
+           ("& is not the name of a generic procedure", Gen_Id, Gen_Unit);
+
+      elsif K = E_Function and then Ekind (Gen_Unit) /= E_Generic_Function then
+         Error_Msg_NE
+           ("& is not the name of a generic function", Gen_Id, Gen_Unit);
 
       elsif In_Open_Scopes (Gen_Unit) then
          Error_Msg_NE ("instantiation of & within itself", N, Gen_Unit);
-
-      elsif K = E_Procedure
-        and then Ekind (Gen_Unit) /= E_Generic_Procedure
-      then
-         if Ekind (Gen_Unit) = E_Generic_Function then
-            Error_Msg_N
-              ("cannot instantiate generic function as procedure", Gen_Id);
-         else
-            Error_Msg_N
-              ("expect name of generic procedure in instantiation", Gen_Id);
-         end if;
-
-      elsif K = E_Function
-        and then Ekind (Gen_Unit) /= E_Generic_Function
-      then
-         if Ekind (Gen_Unit) = E_Generic_Procedure then
-            Error_Msg_N
-              ("cannot instantiate generic procedure as function", Gen_Id);
-         else
-            Error_Msg_N
-              ("expect name of generic function in instantiation", Gen_Id);
-         end if;
 
       else
          Set_Entity (Gen_Id, Gen_Unit);
@@ -4775,7 +4787,7 @@ package body Sem_Ch12 is
          --  pre/postconditions on the instance are analyzed below, in a
          --  separate step.
 
-         Move_Aspects (Act_Tree, Act_Decl);
+         Move_Aspects (Act_Tree, To => Act_Decl);
          Set_Categorization_From_Pragmas (Act_Decl);
 
          if Parent_Installed then
@@ -5007,7 +5019,7 @@ package body Sem_Ch12 is
           Unit           => Act_Decl,
           Aux_Decls_Node => Make_Compilation_Unit_Aux (Sloc (N)));
 
-      Set_Parent_Spec   (Act_Decl, Parent_Spec (N));
+      Set_Parent_Spec (Act_Decl, Parent_Spec (N));
 
       --  The new compilation unit is linked to its body, but both share the
       --  same file, so we do not set Body_Required on the new unit so as not
@@ -5018,6 +5030,15 @@ package body Sem_Ch12 is
       --  compilation unit of the instance, since this is the main unit.
 
       Rewrite (N, Act_Body);
+
+      --  Propagate the aspect specifications from the package body template to
+      --  the instantiated version of the package body.
+
+      if Has_Aspects (Act_Body) then
+         Set_Aspect_Specifications
+           (N, New_Copy_List_Tree (Aspect_Specifications (Act_Body)));
+      end if;
+
       Body_Cunit := Parent (N);
 
       --  The two compilation unit nodes are linked by the Library_Unit field
@@ -5681,8 +5702,7 @@ package body Sem_Ch12 is
                            (Related_Instance (Instance))));
                else
                   Gen_Id :=
-                    Generic_Parent
-                      (Specification (Unit_Declaration_Node (Instance)));
+                    Generic_Parent (Package_Specification (Instance));
                end if;
 
                Parent_Scope := Scope (Gen_Id);
@@ -6781,7 +6801,7 @@ package body Sem_Ch12 is
       --  If the node is a compilation unit, it is the subunit of a stub, which
       --  has been loaded already (see code below). In this case, the library
       --  unit field of N points to the parent unit (which is a compilation
-      --  unit) and need not (and cannot!) be copied.
+      --  unit) and need not (and cannot) be copied.
 
       --  When the proper body of the stub is analyzed, the library_unit link
       --  is used to establish the proper context (see sem_ch10).
@@ -8382,7 +8402,7 @@ package body Sem_Ch12 is
       --  of its generic parent.
 
       if Is_Generic_Instance (Par) then
-         Gen   := Generic_Parent (Specification (Unit_Declaration_Node (Par)));
+         Gen   := Generic_Parent (Package_Specification (Par));
          Gen_E := First_Entity (Gen);
       end if;
 
@@ -8466,8 +8486,7 @@ package body Sem_Ch12 is
       ------------------
 
       procedure Install_Spec (Par : Entity_Id) is
-         Spec : constant Node_Id :=
-                  Specification (Unit_Declaration_Node (Par));
+         Spec : constant Node_Id := Package_Specification (Par);
 
       begin
          --  If this parent of the child instance is a top-level unit,
@@ -8536,8 +8555,7 @@ package body Sem_Ch12 is
 
       First_Par := Inst_Par;
 
-      Gen_Par :=
-        Generic_Parent (Specification (Unit_Declaration_Node (Inst_Par)));
+      Gen_Par := Generic_Parent (Package_Specification (Inst_Par));
 
       First_Gen := Gen_Par;
 
@@ -8555,9 +8573,7 @@ package body Sem_Ch12 is
                Inst_Par := Renamed_Entity (Inst_Par);
             end if;
 
-            Gen_Par :=
-              Generic_Parent
-                (Specification (Unit_Declaration_Node (Inst_Par)));
+            Gen_Par := Generic_Parent (Package_Specification (Inst_Par));
 
             if Present (Gen_Par) then
                Prepend_Elmt (Inst_Par, Ancestors);
@@ -9026,7 +9042,7 @@ package body Sem_Ch12 is
          end if;
 
          if Nkind (Parent (Actual_Pack)) = N_Defining_Program_Unit_Name then
-            Parent_Spec := Specification (Unit_Declaration_Node (Actual_Pack));
+            Parent_Spec := Package_Specification (Actual_Pack);
          else
             Parent_Spec := Parent (Actual_Pack);
          end if;
@@ -9053,7 +9069,7 @@ package body Sem_Ch12 is
          Nod :=
            Make_Package_Renaming_Declaration (Loc,
              Defining_Unit_Name => New_Copy (Defining_Identifier (Formal)),
-             Name               => New_Reference_To (Actual_Pack, Loc));
+             Name               => New_Occurrence_Of (Actual_Pack, Loc));
 
          Set_Associated_Formal_Package (Defining_Unit_Name (Nod),
            Defining_Identifier (Formal));
@@ -9073,11 +9089,11 @@ package body Sem_Ch12 is
          --  actual parameter associations for later formals that depend on
          --  actuals declared in the formal package.
 
-         --  In Ada 2005, partial parametrization requires that we make visible
-         --  the actuals corresponding to formals that were defaulted in the
-         --  formal package. There formals are identified because they remain
-         --  formal generics within the formal package, rather than being
-         --  renamings of the actuals supplied.
+         --  In Ada 2005, partial parameterization requires that we make
+         --  visible the actuals corresponding to formals that were defaulted
+         --  in the formal package. There formals are identified because they
+         --  remain formal generics within the formal package, rather than
+         --  being renamings of the actuals supplied.
 
          declare
             Gen_Decl : constant Node_Id :=
@@ -9860,6 +9876,19 @@ package body Sem_Ch12 is
            ("actual must exclude null to match generic formal#", Actual);
       end if;
 
+      --  A volatile object cannot be used as an actual in a generic instance.
+      --  The following check is only relevant when SPARK_Mode is on as it is
+      --  not a standard Ada legality rule.
+
+      if SPARK_Mode = On
+        and then Present (Actual)
+        and then Is_SPARK_Volatile_Object (Actual)
+      then
+         Error_Msg_N
+           ("volatile object cannot act as actual in generic instantiation "
+            & "(SPARK RM 7.1.3(8))", Actual);
+      end if;
+
       return List;
    end Instantiate_Object;
 
@@ -9920,6 +9949,8 @@ package body Sem_Ch12 is
       Opt.Ada_Version          := Body_Info.Version;
       Opt.Ada_Version_Pragma   := Body_Info.Version_Pragma;
       Restore_Warnings (Body_Info.Warnings);
+      Opt.SPARK_Mode           := Body_Info.SPARK_Mode;
+      Opt.SPARK_Mode_Pragma    := Body_Info.SPARK_Mode_Pragma;
 
       if No (Gen_Body_Id) then
          Load_Parent_Of_Generic
@@ -10210,6 +10241,8 @@ package body Sem_Ch12 is
       Opt.Ada_Version          := Body_Info.Version;
       Opt.Ada_Version_Pragma   := Body_Info.Version_Pragma;
       Restore_Warnings (Body_Info.Warnings);
+      Opt.SPARK_Mode           := Body_Info.SPARK_Mode;
+      Opt.SPARK_Mode_Pragma    := Body_Info.SPARK_Mode_Pragma;
 
       if No (Gen_Body_Id) then
 
@@ -10551,23 +10584,13 @@ package body Sem_Ch12 is
          --  only mode conformance was required.
 
          --  This is a binding interpretation that applies to previous versions
-         --  of the language, but for now we retain the milder check in order
-         --  to preserve ACATS tests. These will be protested eventually ???
+         --  of the language, no need to maintain previous weaker checks.
 
-         if Ada_Version < Ada_2012 then
-            Check_Mode_Conformant
-              (Designated_Type (Act_T),
-               Designated_Type (A_Gen_T),
-               Actual,
-               Get_Inst => True);
-
-         else
-            Check_Subtype_Conformant
-              (Designated_Type (Act_T),
-               Designated_Type (A_Gen_T),
-               Actual,
-               Get_Inst => True);
-         end if;
+         Check_Subtype_Conformant
+           (Designated_Type (Act_T),
+            Designated_Type (A_Gen_T),
+            Actual,
+            Get_Inst => True);
 
          if Ekind (Base_Type (Act_T)) = E_Access_Protected_Subprogram_Type then
             if Ekind (A_Gen_T) = E_Access_Subprogram_Type then
@@ -10632,25 +10655,34 @@ package body Sem_Ch12 is
          --  with clause, in which case retrieve the non-limited view. This
          --  applies to incomplete types as well as to class-wide types.
 
-         if From_With_Type (Desig_Act) then
+         if From_Limited_With (Desig_Act) then
             Desig_Act := Available_View (Desig_Act);
          end if;
 
-         if not Subtypes_Match
-           (Desig_Type, Desig_Act) then
+         if not Subtypes_Match (Desig_Type, Desig_Act) then
             Error_Msg_NE
               ("designated type of actual does not match that of formal &",
-                 Actual, Gen_T);
+               Actual, Gen_T);
+
+            if not Predicates_Match (Desig_Type, Desig_Act) then
+               Error_Msg_N ("\predicates do not match", Actual);
+            end if;
+
             Abandon_Instantiation (Actual);
 
          elsif Is_Access_Type (Designated_Type (Act_T))
            and then Is_Constrained (Designated_Type (Designated_Type (Act_T)))
                       /=
-                  Is_Constrained (Designated_Type (Desig_Type))
+                    Is_Constrained (Designated_Type (Desig_Type))
          then
             Error_Msg_NE
               ("designated type of actual does not match that of formal &",
-                 Actual, Gen_T);
+               Actual, Gen_T);
+
+            if not Predicates_Match (Desig_Type, Desig_Act) then
+               Error_Msg_N ("\predicates do not match", Actual);
+            end if;
+
             Abandon_Instantiation (Actual);
          end if;
 
@@ -11092,7 +11124,9 @@ package body Sem_Ch12 is
                Abandon_Instantiation (Actual);
             end if;
 
-            if not Subtypes_Statically_Compatible (Act_T, Ancestor) then
+            if not Subtypes_Statically_Compatible
+                     (Act_T, Ancestor, Formal_Derived_Matching => True)
+            then
                Error_Msg_N
                  ("constraint on actual is incompatible with formal", Actual);
                Abandon_Instantiation (Actual);
@@ -11742,7 +11776,7 @@ package body Sem_Ch12 is
       Decl_Node :=
         Make_Subtype_Declaration (Loc,
           Defining_Identifier => Subt,
-          Subtype_Indication  => New_Reference_To (Act_T, Loc));
+          Subtype_Indication  => New_Occurrence_Of (Act_T, Loc));
 
       if Is_Private_Type (Act_T) then
          Set_Has_Private_View (Subtype_Indication (Decl_Node));
@@ -11805,7 +11839,7 @@ package body Sem_Ch12 is
               Make_Subtype_Declaration (Loc,
                 Defining_Identifier => New_Corr,
                 Subtype_Indication  =>
-                  New_Reference_To (Corr_Rec, Loc));
+                  New_Occurrence_Of (Corr_Rec, Loc));
             Append_To (Decl_Nodes, Corr_Decl);
 
             if Ekind (Act_T) = E_Task_Type then
@@ -12108,7 +12142,9 @@ package body Sem_Ch12 is
                                 Local_Suppress_Stack_Top,
                               Version                  => Ada_Version,
                               Version_Pragma           => Ada_Version_Pragma,
-                              Warnings                 => Save_Warnings);
+                              Warnings                 => Save_Warnings,
+                              SPARK_Mode               => SPARK_Mode,
+                              SPARK_Mode_Pragma        => SPARK_Mode_Pragma);
 
                            --  Package instance
 
@@ -12150,7 +12186,9 @@ package body Sem_Ch12 is
                          Local_Suppress_Stack_Top => Local_Suppress_Stack_Top,
                          Version                  => Ada_Version,
                          Version_Pragma           => Ada_Version_Pragma,
-                         Warnings                 => Save_Warnings)),
+                         Warnings                 => Save_Warnings,
+                         SPARK_Mode               => SPARK_Mode,
+                         SPARK_Mode_Pragma        => SPARK_Mode_Pragma)),
                      Body_Optional => Body_Optional);
                end;
             end if;
@@ -12588,8 +12626,7 @@ package body Sem_Ch12 is
             elsif S = Current_Scope and then Is_Generic_Instance (S) then
                declare
                   Par : constant Entity_Id :=
-                          Generic_Parent
-                            (Specification (Unit_Declaration_Node (S)));
+                          Generic_Parent (Package_Specification (S));
                begin
                   if Present (Par)
                     and then P = Scope (Par)
@@ -13091,14 +13128,16 @@ package body Sem_Ch12 is
                --  package, which is necessary semantically but complicates
                --  ASIS tree traversal, so we recover the original entity to
                --  expose the renaming. Take into account that the context may
-               --  be a nested generic and that the original node may itself
-               --  have an associated node.
+               --  be a nested generic, that the original node may itself have
+               --  an associated node that had better be an entity, and that
+               --  the current node is still a selected component.
 
                if Ekind (E) = E_Package
+                 and then Nkind (N) = N_Selected_Component
                  and then Nkind (Parent (N)) = N_Expanded_Name
                  and then Present (Original_Node (N2))
+                 and then Is_Entity_Name (Original_Node (N2))
                  and then Present (Entity (Original_Node (N2)))
-                 and then Is_Entity_Name (Entity (Original_Node (N2)))
                then
                   if Is_Global (Entity (Original_Node (N2))) then
                      N2 := Original_Node (N2);
@@ -13729,16 +13768,19 @@ package body Sem_Ch12 is
          end if;
 
          --  If a node has aspects, references within their expressions must
-         --  be saved separately, given that they are not directly in the
-         --  tree.
+         --  be saved separately, given they are not directly in the tree.
 
          if Has_Aspects (N) then
             declare
                Aspect : Node_Id;
+
             begin
                Aspect := First (Aspect_Specifications (N));
                while Present (Aspect) loop
-                  Save_Global_References (Expression (Aspect));
+                  if Present (Expression (Aspect)) then
+                     Save_Global_References (Expression (Aspect));
+                  end if;
+
                   Next (Aspect);
                end loop;
             end;
@@ -13815,6 +13857,10 @@ package body Sem_Ch12 is
      (Gen_Unit : Entity_Id;
       Act_Unit : Entity_Id)
    is
+      Assertion_Status       : constant Boolean := Assertions_Enabled;
+      Save_SPARK_Mode        : constant SPARK_Mode_Type := SPARK_Mode;
+      Save_SPARK_Mode_Pragma : constant Node_Id := SPARK_Mode_Pragma;
+
    begin
       --  Regardless of the current mode, predefined units are analyzed in the
       --  most current Ada mode, and earlier version Ada checks do not apply
@@ -13826,6 +13872,22 @@ package body Sem_Ch12 is
             Renamings_Included => True)
       then
          Set_Opt_Config_Switches (True, Current_Sem_Unit = Main_Unit);
+
+         --  In Ada2012 we may want to enable assertions in an instance of a
+         --  predefined unit, in which case we need to preserve the current
+         --  setting for the Assertions_Enabled flag. This will become more
+         --  critical when pre/postconditions are added to predefined units,
+         --  as is already the case for some numeric libraries.
+
+         if Ada_Version >= Ada_2012 then
+            Assertions_Enabled := Assertion_Status;
+         end if;
+
+         --  SPARK_Mode for an instance is the one applicable at the point of
+         --  instantiation.
+
+         SPARK_Mode := Save_SPARK_Mode;
+         SPARK_Mode_Pragma := Save_SPARK_Mode_Pragma;
       end if;
 
       Current_Instantiated_Parent :=

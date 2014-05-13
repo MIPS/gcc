@@ -1,5 +1,5 @@
 /* Language-dependent hooks for C++.
-   Copyright (C) 2001-2013 Free Software Foundation, Inc.
+   Copyright (C) 2001-2014 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -81,8 +81,6 @@ static tree get_template_argument_pack_elems_folded (const_tree);
 #define LANG_HOOKS_EH_PERSONALITY cp_eh_personality
 #undef LANG_HOOKS_EH_RUNTIME_TYPE
 #define LANG_HOOKS_EH_RUNTIME_TYPE build_eh_type_type
-#undef LANG_HOOKS_CHKP_SUPPORTED
-#define LANG_HOOKS_CHKP_SUPPORTED true
 
 /* Each front end provides its own lang hook initializer.  */
 struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;

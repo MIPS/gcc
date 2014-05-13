@@ -1,0 +1,6 @@
+2013-11-19  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* tree-inline.c (copy_cfg_body): Check loop tree
+	existence before accessing it.
+	(tree_function_versioning): Check DF info existence
+	before accessing it.

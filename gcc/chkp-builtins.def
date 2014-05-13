@@ -25,26 +25,25 @@ along with GCC; see the file COPYING3.  If not see
 
    See builtins.def for details.  */
 
-/* Following builtins are used by compiler for pointers checker
+/* Following builtins are used by compiler for Pointer Bounds Checker
    instrumentation.  Currently these generic builtins are not
-   inplemented and target has to provide his own version.  */
-DEF_BUILTIN_STUB (BUILT_IN_CHKP_BNDMK, "__chkp_bndmk")
-DEF_BUILTIN_STUB (BUILT_IN_CHKP_BNDSTX, "__chkp_bndstx")
-DEF_BUILTIN_STUB (BUILT_IN_CHKP_BNDCL, "__chkp_bndcl")
-DEF_BUILTIN_STUB (BUILT_IN_CHKP_BNDCU, "__chkp_bndcu")
-DEF_BUILTIN_STUB (BUILT_IN_CHKP_BNDLDX, "__chkp_bndldx")
-DEF_BUILTIN_STUB (BUILT_IN_CHKP_BNDRET, "__chkp_bndret")
+   implemented and target has to provide his own version.  See
+   builtin_chkp_function target hook documentation for more details.  */
 DEF_BUILTIN_STUB (BUILT_IN_CHKP_INTERSECT, "__chkp_intersect")
-DEF_BUILTIN_STUB (BUILT_IN_CHKP_ARG_BND, "__chkp_arg_bnd")
 DEF_BUILTIN_STUB (BUILT_IN_CHKP_SIZEOF, "__chkp_sizeof")
-DEF_BUILTIN_STUB (BUILT_IN_CHKP_EXTRACT_LOWER, "__chkp_extract_lower")
-DEF_BUILTIN_STUB (BUILT_IN_CHKP_EXTRACT_UPPER, "__chkp_extract_upper")
 DEF_BUILTIN_STUB (BUILT_IN_CHKP_NARROW, "__chkp_narrow")
+DEF_CHKP_BUILTIN (BUILT_IN_CHKP_BNDCL, "__chkp_bndcl", BT_FN_VOID_PTR_BND, ATTR_NOTHROW_LEAF_LIST)
+DEF_CHKP_BUILTIN (BUILT_IN_CHKP_BNDCU, "__chkp_bndcu", BT_FN_VOID_PTR_BND, ATTR_NOTHROW_LEAF_LIST)
+DEF_CHKP_BUILTIN (BUILT_IN_CHKP_BNDSTX, "__chkp_bndstx", BT_FN_VOID_CONST_PTR_BND_CONST_PTR, ATTR_NOTHROW_LEAF_LIST)
+DEF_CHKP_BUILTIN (BUILT_IN_CHKP_BNDLDX, "__chkp_bndldx", BT_FN_CONST_PTR_CONST_PTR_CONST_PTR, ATTR_NOTHROW_LEAF_LIST)
+DEF_CHKP_BUILTIN (BUILT_IN_CHKP_BNDRET, "__chkp_bndret", BT_FN_BND_CONST_PTR, ATTR_CONST_NOTHROW_LEAF_LIST)
+DEF_CHKP_BUILTIN (BUILT_IN_CHKP_BNDMK, "__chkp_bndmk", BT_FN_BND_CONST_PTR_SIZE, ATTR_CONST_NOTHROW_LEAF_LIST)
+DEF_CHKP_BUILTIN (BUILT_IN_CHKP_EXTRACT_LOWER, "__chkp_extract_lower", BT_FN_CONST_PTR_BND, ATTR_CONST_NOTHROW_LEAF_LIST)
+DEF_CHKP_BUILTIN (BUILT_IN_CHKP_EXTRACT_UPPER, "__chkp_extract_upper", BT_FN_CONST_PTR_BND, ATTR_CONST_NOTHROW_LEAF_LIST)
 
-/* Pointers checker builtins for users.  Only
-   BUILT_IN_CHKP_SET_PTR_BOUNDS may be redefined
-   by target.  Other builtins calls are expanded
-   in the pointers checker pass.  */
+/* Pointer Bounds Checker builtins for users.
+   All builtins calls are expanded in the
+   Pointer Bounds Checker pass.  */
 DEF_CHKP_BUILTIN (BUILT_IN_CHKP_SET_PTR_BOUNDS, "__bnd_set_ptr_bounds", BT_FN_PTR_CONST_PTR_SIZE, ATTR_CONST_NOTHROW_LEAF_LIST)
 DEF_CHKP_BUILTIN (BUILT_IN_CHKP_INIT_PTR_BOUNDS, "__bnd_init_ptr_bounds", BT_FN_PTR_CONST_PTR, ATTR_CONST_NOTHROW_LEAF_LIST)
 DEF_CHKP_BUILTIN (BUILT_IN_CHKP_NULL_PTR_BOUNDS, "__bnd_null_ptr_bounds", BT_FN_PTR_CONST_PTR, ATTR_CONST_NOTHROW_LEAF_LIST)
@@ -57,7 +56,7 @@ DEF_CHKP_BUILTIN (BUILT_IN_CHKP_CHECK_PTR_BOUNDS, "__bnd_chk_ptr_bounds", BT_FN_
 DEF_CHKP_BUILTIN (BUILT_IN_CHKP_GET_PTR_LBOUND, "__bnd_get_ptr_lbound", BT_FN_CONST_PTR_CONST_PTR, ATTR_CONST_NOTHROW_LEAF_LIST)
 DEF_CHKP_BUILTIN (BUILT_IN_CHKP_GET_PTR_UBOUND, "__bnd_get_ptr_ubound", BT_FN_CONST_PTR_CONST_PTR, ATTR_CONST_NOTHROW_LEAF_LIST)
 
-/* Pointers checker specific versions of string functions.  */
+/* Pointer Bounds Checker specific versions of string functions.  */
 DEF_CHKP_BUILTIN (BUILT_IN_CHKP_MEMCPY_NOBND, "chkp_memcpy_nobnd", BT_FN_PTR_PTR_CONST_PTR_SIZE, ATTR_RET1_NOTHROW_NONNULL_LEAF)
 DEF_CHKP_BUILTIN (BUILT_IN_CHKP_MEMCPY_NOCHK, "chkp_memcpy_nochk", BT_FN_PTR_PTR_CONST_PTR_SIZE, ATTR_RET1_NOTHROW_NONNULL_LEAF)
 DEF_CHKP_BUILTIN (BUILT_IN_CHKP_MEMCPY_NOBND_NOCHK, "chkp_memcpy_nobnd_nochk", BT_FN_PTR_PTR_CONST_PTR_SIZE, ATTR_RET1_NOTHROW_NONNULL_LEAF)

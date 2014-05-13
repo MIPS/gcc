@@ -1,0 +1,23 @@
+2013-10-04  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* config/i386/i386.c: Include tree-iterator.h.
+	(ix86_function_value_bounds): New.
+	(ix86_builtin_mpx_function): New.
+	(ix86_load_bounds): New.
+	(ix86_store_bounds): New.
+	(ix86_load_returned_bounds): New.
+	(ix86_store_returned_bounds): New.
+	(ix86_fn_abi_va_list_bounds_size): New.
+	(ix86_mpx_bound_mode): New.
+	(ix86_make_bounds_constant): New.
+	(ix86_initialize_bounds):
+	(TARGET_LOAD_BOUNDS_FOR_ARG): New.
+	(TARGET_STORE_BOUNDS_FOR_ARG): New.
+	(TARGET_LOAD_RETURNED_BOUNDS): New.
+	(TARGET_STORE_RETURNED_BOUNDS): New.
+	(TARGET_CHKP_BOUND_MODE): New.
+	(TARGET_BUILTIN_CHKP_FUNCTION): New.
+	(TARGET_FN_ABI_VA_LIST_BOUNDS_SIZE): New.
+	(TARGET_CHKP_FUNCTION_VALUE_BOUNDS): New.
+	(TARGET_CHKP_MAKE_BOUNDS_CONSTANT): New.
+	(TARGET_CHKP_INITIALIZE_BOUNDS): New.

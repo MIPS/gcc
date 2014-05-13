@@ -1,5 +1,5 @@
 /* context.c - Holder for global state
-   Copyright (C) 2013 Free Software Foundation, Inc.
+   Copyright (C) 2013-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -23,11 +23,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "context.h"
 #include "pass_manager.h"
+#include "dumpfile.h"
 
 /* The singleton holder of global state: */
 gcc::context *g;
 
 gcc::context::context ()
 {
-  passes_ = new gcc::pass_manager (this);
+  /* The pass manager's constructor uses the dump manager (to set up
+     dumps for the various passes), so the dump manager must be set up
+     before the pass manager.  */
+  m_dumps = new gcc::dump_manager ();
+  m_passes = new gcc::pass_manager (this);
 }

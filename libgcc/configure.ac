@@ -185,7 +185,14 @@ AC_SUBST(long_double_type_size)
 
 # Check for decimal float support.
 AC_CACHE_CHECK([whether decimal floating point is supported], [libgcc_cv_dfp],
-	       [AC_COMPILE_IFELSE([_Decimal32 x;], [libgcc_cv_dfp=yes],
+	       [AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <fenv.h>
+]], [[
+_Decimal32 x;
+int fe_except =
+  FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW|FE_UNDERFLOW|FE_INEXACT;
+]])],
+				  [libgcc_cv_dfp=yes],
 				  [libgcc_cv_dfp=no])])
 decimal_float=$libgcc_cv_dfp
 AC_SUBST(decimal_float)
@@ -275,9 +282,11 @@ AC_CACHE_CHECK([whether assembler supports CFI directives], [libgcc_cv_cfi],
   [libgcc_cv_cfi=yes],
   [libgcc_cv_cfi=no])])
 
-# Check 32bit or 64bit
+# Check 32bit or 64bit.  In the case of MIPS, this really determines the
+# word size rather than the address size.
 cat > conftest.c <<EOF
-#if defined(__x86_64__) || (!defined(__i386__) && defined(__LP64__))
+#if defined(__x86_64__) || (!defined(__i386__) && defined(__LP64__)) \
+    || defined(__mips64)
 host_address=64
 #else
 host_address=32
@@ -285,6 +294,18 @@ host_address=32
 EOF
 eval `${CC-cc} -E conftest.c | grep host_address=`
 rm -f conftest.c
+
+case ${host} in
+mips*-*-*)
+  AC_CACHE_CHECK([whether the target is hard-float],
+		 [libgcc_cv_mips_hard_float],
+		 [AC_COMPILE_IFELSE(
+    [#ifndef __mips_hard_float
+     #error FOO
+     #endif],
+    [libgcc_cv_mips_hard_float=yes],
+    [libgcc_cv_mips_hard_float=no])])
+esac
 
 # Collect host-machine-specific information.
 . ${srcdir}/config.host

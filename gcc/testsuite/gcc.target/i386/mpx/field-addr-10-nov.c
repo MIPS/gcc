@@ -1,6 +1,6 @@
 /* { dg-do run } */
-/* { dg-options "-fcheck-pointers -mmpx" } */
-/* { dg-skip-if "" { *-*-* } { "-flto" } { "" } } */
+/* { dg-options "-fcheck-pointer-bounds -mmpx" } */
+
 /* { dg-additional-options "-fchkp-narrow-to-innermost-array" } */
 
 #include "mpx-check.h"

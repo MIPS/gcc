@@ -1,5 +1,5 @@
 /* Definitions of target machine for GCC for IA-32.
-   Copyright (C) 1988-2013 Free Software Foundation, Inc.
+   Copyright (C) 1988-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -58,9 +58,9 @@ extern enum machine_mode ix86_cc_mode (enum rtx_code, rtx, rtx);
 extern int avx_vpermilp_parallel (rtx par, enum machine_mode mode);
 extern int avx_vperm2f128_parallel (rtx par, enum machine_mode mode);
 
-extern bool ix86_expand_movmem (rtx, rtx, rtx, rtx, rtx, rtx);
-extern bool ix86_expand_setmem (rtx, rtx, rtx, rtx, rtx, rtx);
 extern bool ix86_expand_strlen (rtx, rtx, rtx, rtx);
+extern bool ix86_expand_set_or_movmem (rtx, rtx, rtx, rtx, rtx, rtx,
+				       rtx, rtx, rtx, rtx, bool);
 
 extern bool constant_address_p (rtx);
 extern bool legitimate_pic_operand_p (rtx);
@@ -84,7 +84,6 @@ extern void ix86_expand_clear (rtx);
 extern void ix86_expand_move (enum machine_mode, rtx[]);
 extern void ix86_expand_vector_move (enum machine_mode, rtx[]);
 extern void ix86_expand_vector_move_misalign (enum machine_mode, rtx[]);
-extern void ix86_expand_push (enum machine_mode, rtx);
 extern rtx ix86_fixup_binary_operands (enum rtx_code,
 				       enum machine_mode, rtx[]);
 extern void ix86_fixup_binary_operands_no_copy (enum rtx_code,
@@ -143,6 +142,7 @@ extern void ix86_split_lshr (rtx *, rtx, enum machine_mode);
 extern rtx ix86_find_base_term (rtx);
 extern bool ix86_check_movabs (rtx, int);
 extern void ix86_split_idivmod (enum machine_mode, rtx[], bool);
+extern bool ix86_emit_cfi ();
 
 extern rtx assign_386_stack_local (enum machine_mode, enum ix86_stack_slot);
 extern int ix86_attr_length_immediate_default (rtx, bool);
@@ -154,13 +154,11 @@ extern enum machine_mode ix86_fp_compare_mode (enum rtx_code);
 extern rtx ix86_libcall_value (enum machine_mode);
 extern bool ix86_function_arg_regno_p (int);
 extern void ix86_asm_output_function_label (FILE *, const char *, tree);
-extern rtx ix86_force_to_memory (enum machine_mode, rtx);
-extern void ix86_free_from_memory (enum machine_mode);
 extern void ix86_call_abi_override (const_tree);
 extern int ix86_reg_parm_stack_space (const_tree);
 
 extern void ix86_split_fp_branch (enum rtx_code code, rtx, rtx,
-				  rtx, rtx, rtx, rtx);
+				  rtx, rtx, rtx);
 extern bool ix86_hard_regno_mode_ok (int, enum machine_mode);
 extern bool ix86_modes_tieable_p (enum machine_mode, enum machine_mode);
 extern bool ix86_secondary_memory_needed (enum reg_class, enum reg_class,
@@ -220,7 +218,9 @@ extern int ix86_constant_alignment (tree, int);
 extern tree ix86_handle_shared_attribute (tree *, tree, tree, int, bool *);
 extern tree ix86_handle_selectany_attribute (tree *, tree, tree, int, bool *);
 extern int x86_field_alignment (tree, int);
-extern tree ix86_valid_target_attribute_tree (tree);
+extern tree ix86_valid_target_attribute_tree (tree,
+					      struct gcc_options *,
+					      struct gcc_options *);
 extern unsigned int ix86_get_callcvt (const_tree);
 
 #endif
@@ -238,6 +238,7 @@ extern void ix86_expand_mul_widen_evenodd (rtx, rtx, rtx, bool, bool);
 extern void ix86_expand_mul_widen_hilo (rtx, rtx, rtx, bool, bool);
 extern void ix86_expand_sse2_mulv4si3 (rtx, rtx, rtx);
 extern void ix86_expand_sse2_mulvxdi3 (rtx, rtx, rtx);
+extern void ix86_expand_sse2_abs (rtx, rtx);
 
 extern bool ix86_bnd_prefixed_insn_p (rtx);
 

@@ -1,5 +1,5 @@
 /* Rtl-level induction variable analysis.
-   Copyright (C) 2004-2013 Free Software Foundation, Inc.
+   Copyright (C) 2004-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -278,10 +278,6 @@ clear_iv_info (void)
 void
 iv_analysis_loop_init (struct loop *loop)
 {
-  basic_block *body = get_loop_body_in_dom_order (loop), bb;
-  bitmap blocks = BITMAP_ALLOC (NULL);
-  unsigned i;
-
   current_loop = loop;
 
   /* Clear the information from the analysis of the previous loop.  */
@@ -294,11 +290,6 @@ iv_analysis_loop_init (struct loop *loop)
   else
     clear_iv_info ();
 
-  for (i = 0; i < loop->num_nodes; i++)
-    {
-      bb = body[i];
-      bitmap_set_bit (blocks, bb->index);
-    }
   /* Get rid of the ud chains before processing the rescans.  Then add
      the problem back.  */
   df_remove_problem (df_chain);
@@ -306,14 +297,11 @@ iv_analysis_loop_init (struct loop *loop)
   df_set_flags (DF_RD_PRUNE_DEAD_DEFS);
   df_chain_add_problem (DF_UD_CHAIN);
   df_note_add_problem ();
-  df_set_blocks (blocks);
-  df_analyze ();
+  df_analyze_loop (loop);
   if (dump_file)
     df_dump_region (dump_file);
 
   check_iv_ref_table_size ();
-  BITMAP_FREE (blocks);
-  free (body);
 }
 
 /* Finds the definition of REG that dominates loop latch and stores
@@ -436,7 +424,9 @@ iv_subreg (struct rtx_iv *iv, enum machine_mode mode)
       && !iv->first_special)
     {
       rtx val = get_iv_value (iv, const0_rtx);
-      val = lowpart_subreg (mode, val, iv->extend_mode);
+      val = lowpart_subreg (mode, val,
+			    iv->extend == IV_UNKNOWN_EXTEND
+			    ? iv->mode : iv->extend_mode);
 
       iv->base = val;
       iv->extend = IV_UNKNOWN_EXTEND;
@@ -476,8 +466,14 @@ iv_extend (struct rtx_iv *iv, enum iv_extend_code extend, enum machine_mode mode
       && !iv->first_special)
     {
       rtx val = get_iv_value (iv, const0_rtx);
+      if (iv->extend_mode != iv->mode
+	  && iv->extend != IV_UNKNOWN_EXTEND
+	  && iv->extend != extend)
+	val = lowpart_subreg (iv->mode, val, iv->extend_mode);
       val = simplify_gen_unary (iv_extend_to_rtx_code (extend), mode,
-				val, iv->extend_mode);
+				val,
+				iv->extend == extend
+				? iv->extend_mode : iv->mode);
       iv->base = val;
       iv->extend = IV_UNKNOWN_EXTEND;
       iv->mode = iv->extend_mode = mode;
@@ -1929,7 +1925,7 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
     return;
 
   e = loop_preheader_edge (loop);
-  if (e->src == ENTRY_BLOCK_PTR)
+  if (e->src == ENTRY_BLOCK_PTR_FOR_FN (cfun))
     return;
 
   altered = ALLOC_REG_SET (&reg_obstack);
@@ -2060,7 +2056,7 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
 	}
 
       if (!single_pred_p (e->src)
-	  || single_pred (e->src) == ENTRY_BLOCK_PTR)
+	  || single_pred (e->src) == ENTRY_BLOCK_PTR_FOR_FN (cfun))
 	break;
       e = single_pred_edge (e->src);
     }
@@ -3001,9 +2997,9 @@ find_simple_exit (struct loop *loop, struct niter_desc *desc)
       	  fprintf (dump_file, "\n");
 
 	  fprintf (dump_file, "  upper bound: %li\n",
-		   (long)max_loop_iterations_int (loop));
+		   (long)get_max_loop_iterations_int (loop));
 	  fprintf (dump_file, "  realistic bound: %li\n",
-		   (long)estimated_loop_iterations_int (loop));
+		   (long)get_estimated_loop_iterations_int (loop));
 	}
       else
 	fprintf (dump_file, "Loop %d is not simple.\n", loop->num);

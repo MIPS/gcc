@@ -1,7 +1,7 @@
 /* Streamer hooks.  Support for adding streamer-specific callbacks to
    generic streaming routines.
 
-   Copyright (C) 2011-2013 Free Software Foundation, Inc.
+   Copyright (C) 2011-2014 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@google.com>
 
 This file is part of GCC.
@@ -22,8 +22,6 @@ along with GCC; see the file COPYING3.  If not see
 
 #ifndef GCC_STREAMER_HOOKS_H
 #define GCC_STREAMER_HOOKS_H
-
-#include "tree.h"
 
 /* Forward declarations to avoid including unnecessary headers.  */
 struct output_block;

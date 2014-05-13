@@ -1,6 +1,6 @@
 ;;   Machine description for GNU compiler,
 ;;   for ATMEL AVR micro controllers.
-;;   Copyright (C) 1998-2013 Free Software Foundation, Inc.
+;;   Copyright (C) 1998-2014 Free Software Foundation, Inc.
 ;;   Contributed by Denis Chertykov (chertykov@gmail.com)
 
 ;; This file is part of GCC.
@@ -5342,7 +5342,7 @@
                       (label_ref (match_operand 0 "" ""))
                       (pc)))]
   "!AVR_HAVE_JMP_CALL
-   || !avr_current_device->errata_skip"
+   || !(avr_current_device->dev_attribute & AVR_ERRATA_SKIP)"
   {
     if (operands[2] == CONST0_RTX (<MODE>mode))
       operands[2] = zero_reg_rtx;

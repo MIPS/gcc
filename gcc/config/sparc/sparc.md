@@ -1,5 +1,5 @@
 ;; Machine description for SPARC chip for GCC
-;;  Copyright (C) 1987-2013 Free Software Foundation, Inc.
+;;  Copyright (C) 1987-2014 Free Software Foundation, Inc.
 ;;  Contributed by Michael Tiemann (tiemann@cygnus.com)
 ;;  64-bit SPARC-V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
 ;;  at Cygnus Support.
@@ -96,13 +96,19 @@
 
 (define_c_enum "unspecv" [
   UNSPECV_BLOCKAGE
-  UNSPECV_FLUSHW
-  UNSPECV_FLUSH
-  UNSPECV_SAVEW
-  UNSPECV_CAS
-  UNSPECV_SWAP
-  UNSPECV_LDSTUB
   UNSPECV_PROBE_STACK_RANGE
+
+  UNSPECV_FLUSHW
+  UNSPECV_SAVEW
+
+  UNSPECV_FLUSH
+
+  UNSPECV_LDSTUB
+  UNSPECV_SWAP
+  UNSPECV_CAS
+
+  UNSPECV_LDFSR
+  UNSPECV_STFSR
 ])
 
 (define_constants
@@ -285,7 +291,8 @@
   (const_string "none"))
 
 (define_attr "pic" "false,true"
-  (symbol_ref "(flag_pic != 0 ? PIC_TRUE : PIC_FALSE)"))
+  (symbol_ref "(flag_pic != 0
+		? PIC_TRUE : PIC_FALSE)"))
 
 (define_attr "calls_alloca" "false,true"
   (symbol_ref "(cfun->calls_alloca != 0
@@ -306,6 +313,10 @@
 (define_attr "flat" "false,true"
   (symbol_ref "(TARGET_FLAT != 0
 		? FLAT_TRUE : FLAT_FALSE)"))
+
+(define_attr "fix_ut699" "false,true"
+   (symbol_ref "(sparc_fix_ut699 != 0
+		 ? FIX_UT699_TRUE : FIX_UT699_FALSE)"))
 
 ;; Length (in # of insns).
 ;; Beware that setting a length greater or equal to 3 for conditional branches
@@ -421,32 +432,18 @@
   [(set_attr "length" "2")
    (set_attr "type" "multi")])
 
-;; Attributes for instruction and branch scheduling
-(define_attr "tls_call_delay" "false,true"
-  (symbol_ref "(tls_call_delay (insn)
-		? TLS_CALL_DELAY_TRUE : TLS_CALL_DELAY_FALSE)"))
-
+;; Attributes for branch scheduling
 (define_attr "in_call_delay" "false,true"
-  (cond [(eq_attr "type" "uncond_branch,branch,cbcond,uncond_cbcond,call,sibcall,call_no_delay_slot,multi")
-		(const_string "false")
-	 (eq_attr "type" "load,fpload,store,fpstore")
-		(if_then_else (eq_attr "length" "1")
-			      (const_string "true")
-			      (const_string "false"))]
-	 (if_then_else (and (eq_attr "length" "1")
-			    (eq_attr "tls_call_delay" "true"))
-		       (const_string "true")
-		       (const_string "false"))))
+  (symbol_ref "(eligible_for_call_delay (insn)
+		? IN_CALL_DELAY_TRUE : IN_CALL_DELAY_FALSE)"))
 
-(define_attr "eligible_for_sibcall_delay" "false,true"
+(define_attr "in_sibcall_delay" "false,true"
   (symbol_ref "(eligible_for_sibcall_delay (insn)
-		? ELIGIBLE_FOR_SIBCALL_DELAY_TRUE
-		: ELIGIBLE_FOR_SIBCALL_DELAY_FALSE)"))
+		? IN_SIBCALL_DELAY_TRUE : IN_SIBCALL_DELAY_FALSE)"))
 
-(define_attr "eligible_for_return_delay" "false,true"
+(define_attr "in_return_delay" "false,true"
   (symbol_ref "(eligible_for_return_delay (insn)
-		? ELIGIBLE_FOR_RETURN_DELAY_TRUE
-		: ELIGIBLE_FOR_RETURN_DELAY_FALSE)"))
+		? IN_RETURN_DELAY_TRUE : IN_RETURN_DELAY_FALSE)"))
 
 ;; ??? !v9: Should implement the notion of predelay slots for floating-point
 ;; branches.  This would allow us to remove the nop always inserted before
@@ -461,39 +458,32 @@
 ;; because it prevents us from moving back the final store of inner loops.
 
 (define_attr "in_branch_delay" "false,true"
-  (if_then_else (and (eq_attr "type" "!uncond_branch,branch,cbcond,uncond_cbcond,call,sibcall,call_no_delay_slot,multi")
-		     (eq_attr "length" "1"))
-		(const_string "true")
-		(const_string "false")))
-
-(define_attr "in_uncond_branch_delay" "false,true"
-  (if_then_else (and (eq_attr "type" "!uncond_branch,branch,cbcond,uncond_cbcond,call,sibcall,call_no_delay_slot,multi")
-		     (eq_attr "length" "1"))
-		(const_string "true")
-		(const_string "false")))
-
-(define_attr "in_annul_branch_delay" "false,true"
-  (if_then_else (and (eq_attr "type" "!uncond_branch,branch,cbcond,uncond_cbcond,call,sibcall,call_no_delay_slot,multi")
-		     (eq_attr "length" "1"))
-		(const_string "true")
-		(const_string "false")))
+  (cond [(eq_attr "type" "uncond_branch,branch,cbcond,uncond_cbcond,call,sibcall,call_no_delay_slot,multi")
+	   (const_string "false")
+	 (and (eq_attr "fix_ut699" "true") (eq_attr "type" "load,sload"))
+	   (const_string "false")
+	 (and (eq_attr "fix_ut699" "true")
+	      (and (eq_attr "type" "fpload,fp,fpmove,fpmul,fpdivs,fpsqrts")
+		   (eq_attr "fptype" "single")))
+	   (const_string "false")
+	 (eq_attr "length" "1")
+	   (const_string "true")
+	] (const_string "false")))
 
 (define_delay (eq_attr "type" "call")
   [(eq_attr "in_call_delay" "true") (nil) (nil)])
 
 (define_delay (eq_attr "type" "sibcall")
-  [(eq_attr "eligible_for_sibcall_delay" "true") (nil) (nil)])
-
-(define_delay (eq_attr "type" "branch")
-  [(eq_attr "in_branch_delay" "true")
-   (nil) (eq_attr "in_annul_branch_delay" "true")])
-
-(define_delay (eq_attr "type" "uncond_branch")
-  [(eq_attr "in_uncond_branch_delay" "true")
-   (nil) (nil)])
+  [(eq_attr "in_sibcall_delay" "true") (nil) (nil)])
 
 (define_delay (eq_attr "type" "return")
-  [(eq_attr "eligible_for_return_delay" "true") (nil) (nil)])
+  [(eq_attr "in_return_delay" "true") (nil) (nil)])
+
+(define_delay (eq_attr "type" "branch")
+  [(eq_attr "in_branch_delay" "true") (nil) (eq_attr "in_branch_delay" "true")])
+
+(define_delay (eq_attr "type" "uncond_branch")
+  [(eq_attr "in_branch_delay" "true") (nil) (nil)])
 
 
 ;; Include SPARC DFA schedulers
@@ -5527,7 +5517,7 @@
 		(match_operand:TF 2 "register_operand" "e")))]
   "TARGET_FPU && TARGET_HARD_QUAD"
   "fdivq\t%1, %2, %0"
-  [(set_attr "type" "fpdivd")])
+  [(set_attr "type" "fpdivs")])
 
 (define_expand "divdf3"
   [(set (match_operand:DF 0 "register_operand" "=e")
@@ -5758,7 +5748,7 @@
 	(sqrt:TF (match_operand:TF 1 "register_operand" "e")))]
   "TARGET_FPU && TARGET_HARD_QUAD"
   "fsqrtq\t%1, %0"
-  [(set_attr "type" "fpsqrtd")])
+  [(set_attr "type" "fpsqrts")])
 
 (define_expand "sqrtdf2"
   [(set (match_operand:DF 0 "register_operand" "=e")
@@ -6783,22 +6773,26 @@
 
 ;; Special pattern for the FLUSH instruction.
 
-; We do SImode and DImode versions of this to quiet down genrecog's complaints
-; of the define_insn otherwise missing a mode.  We make "flush", aka
-; gen_flush, the default one since sparc_initialize_trampoline uses
-; it on SImode mem values.
-
-(define_insn "flush"
-  [(unspec_volatile [(match_operand:SI 0 "memory_operand" "m")] UNSPECV_FLUSH)]
+(define_insn "flush<P:mode>"
+  [(unspec_volatile [(match_operand:P 0 "memory_operand" "m")] UNSPECV_FLUSH)]
   ""
   { return TARGET_V9 ? "flush\t%f0" : "iflush\t%f0"; }
   [(set_attr "type" "iflush")])
 
-(define_insn "flushdi"
-  [(unspec_volatile [(match_operand:DI 0 "memory_operand" "m")] UNSPECV_FLUSH)]
-  ""
-  { return TARGET_V9 ? "flush\t%f0" : "iflush\t%f0"; }
-  [(set_attr "type" "iflush")])
+;; Special insns to load and store the 32-bit FP Status Register.
+
+(define_insn "ldfsr"
+  [(unspec_volatile [(match_operand:SI 0 "memory_operand" "m")] UNSPECV_LDFSR)]
+  "TARGET_FPU"
+  "ld\t%0, %%fsr"
+  [(set_attr "type" "load")])
+
+(define_insn "stfsr"
+  [(set (match_operand:SI 0 "memory_operand" "=m")
+        (unspec_volatile:SI [(const_int 0)] UNSPECV_STFSR))]
+  "TARGET_FPU"
+  "st\t%%fsr, %0"
+  [(set_attr "type" "store")])
 
 
 ;; Find first set instructions.
@@ -6971,9 +6965,10 @@
       (const_int 0))]
   "TARGET_V9
    && mems_ok_for_ldd_peep (operands[0], operands[1], NULL_RTX)"
-  [(set (match_dup 0)
-       (const_int 0))]
-  "operands[0] = widen_memory_access (operands[0], DImode, 0);")
+  [(set (match_dup 0) (const_int 0))]
+{
+  operands[0] = widen_mem_for_ldd_peep (operands[0], operands[1], DImode);
+})
 
 (define_peephole2
   [(set (match_operand:SI 0 "memory_operand" "")
@@ -6982,9 +6977,10 @@
       (const_int 0))]
   "TARGET_V9
    && mems_ok_for_ldd_peep (operands[1], operands[0], NULL_RTX)"
-  [(set (match_dup 1)
-       (const_int 0))]
-  "operands[1] = widen_memory_access (operands[1], DImode, 0);")
+  [(set (match_dup 1) (const_int 0))]
+{
+  operands[1] = widen_mem_for_ldd_peep (operands[1], operands[0], DImode);
+})
 
 (define_peephole2
   [(set (match_operand:SI 0 "register_operand" "")
@@ -6993,10 +6989,11 @@
         (match_operand:SI 3 "memory_operand" ""))]
   "registers_ok_for_ldd_peep (operands[0], operands[2]) 
    && mems_ok_for_ldd_peep (operands[1], operands[3], operands[0])" 
-  [(set (match_dup 0)
-	(match_dup 1))]
-  "operands[1] = widen_memory_access (operands[1], DImode, 0);
-   operands[0] = gen_rtx_REG (DImode, REGNO (operands[0]));")
+  [(set (match_dup 0) (match_dup 1))]
+{
+  operands[1] = widen_mem_for_ldd_peep (operands[1], operands[3], DImode);
+  operands[0] = gen_rtx_REG (DImode, REGNO (operands[0]));
+})
 
 (define_peephole2
   [(set (match_operand:SI 0 "memory_operand" "")
@@ -7005,10 +7002,11 @@
         (match_operand:SI 3 "register_operand" ""))]
   "registers_ok_for_ldd_peep (operands[1], operands[3]) 
    && mems_ok_for_ldd_peep (operands[0], operands[2], NULL_RTX)"
-  [(set (match_dup 0)
-	(match_dup 1))]
-  "operands[0] = widen_memory_access (operands[0], DImode, 0);
-   operands[1] = gen_rtx_REG (DImode, REGNO (operands[1]));")
+  [(set (match_dup 0) (match_dup 1))]
+{
+  operands[0] = widen_mem_for_ldd_peep (operands[0], operands[2], DImode);
+  operands[1] = gen_rtx_REG (DImode, REGNO (operands[1]));
+})
 
 (define_peephole2
   [(set (match_operand:SF 0 "register_operand" "")
@@ -7017,10 +7015,11 @@
         (match_operand:SF 3 "memory_operand" ""))]
   "registers_ok_for_ldd_peep (operands[0], operands[2]) 
    && mems_ok_for_ldd_peep (operands[1], operands[3], operands[0])"
-  [(set (match_dup 0)
-	(match_dup 1))]
-  "operands[1] = widen_memory_access (operands[1], DFmode, 0);
-   operands[0] = gen_rtx_REG (DFmode, REGNO (operands[0]));")
+  [(set (match_dup 0) (match_dup 1))]
+{
+  operands[1] = widen_mem_for_ldd_peep (operands[1], operands[3], DFmode);
+  operands[0] = gen_rtx_REG (DFmode, REGNO (operands[0]));
+})
 
 (define_peephole2
   [(set (match_operand:SF 0 "memory_operand" "")
@@ -7029,10 +7028,11 @@
         (match_operand:SF 3 "register_operand" ""))]
   "registers_ok_for_ldd_peep (operands[1], operands[3]) 
   && mems_ok_for_ldd_peep (operands[0], operands[2], NULL_RTX)"
-  [(set (match_dup 0)
-	(match_dup 1))]
-  "operands[0] = widen_memory_access (operands[0], DFmode, 0);
-   operands[1] = gen_rtx_REG (DFmode, REGNO (operands[1]));")
+  [(set (match_dup 0) (match_dup 1))]
+{
+  operands[0] = widen_mem_for_ldd_peep (operands[0], operands[2], DFmode);
+  operands[1] = gen_rtx_REG (DFmode, REGNO (operands[1]));
+})
 
 (define_peephole2
   [(set (match_operand:SI 0 "register_operand" "")
@@ -7041,10 +7041,11 @@
         (match_operand:SI 3 "memory_operand" ""))]
   "registers_ok_for_ldd_peep (operands[2], operands[0]) 
   && mems_ok_for_ldd_peep (operands[3], operands[1], operands[0])"
-  [(set (match_dup 2)
-	(match_dup 3))]
-   "operands[3] = widen_memory_access (operands[3], DImode, 0);
-    operands[2] = gen_rtx_REG (DImode, REGNO (operands[2]));")
+  [(set (match_dup 2) (match_dup 3))]
+{
+  operands[3] = widen_mem_for_ldd_peep (operands[3], operands[1], DImode);
+  operands[2] = gen_rtx_REG (DImode, REGNO (operands[2]));
+})
 
 (define_peephole2
   [(set (match_operand:SI 0 "memory_operand" "")
@@ -7053,11 +7054,11 @@
         (match_operand:SI 3 "register_operand" ""))]
   "registers_ok_for_ldd_peep (operands[3], operands[1]) 
   && mems_ok_for_ldd_peep (operands[2], operands[0], NULL_RTX)" 
-  [(set (match_dup 2)
-	(match_dup 3))]
-  "operands[2] = widen_memory_access (operands[2], DImode, 0);
-   operands[3] = gen_rtx_REG (DImode, REGNO (operands[3]));
-   ")
+  [(set (match_dup 2) (match_dup 3))]
+{
+  operands[2] = widen_mem_for_ldd_peep (operands[2],  operands[0], DImode);
+  operands[3] = gen_rtx_REG (DImode, REGNO (operands[3]));
+})
  
 (define_peephole2
   [(set (match_operand:SF 0 "register_operand" "")
@@ -7066,10 +7067,11 @@
         (match_operand:SF 3 "memory_operand" ""))]
   "registers_ok_for_ldd_peep (operands[2], operands[0]) 
   && mems_ok_for_ldd_peep (operands[3], operands[1], operands[0])"
-  [(set (match_dup 2)
-	(match_dup 3))]
-  "operands[3] = widen_memory_access (operands[3], DFmode, 0);
-   operands[2] = gen_rtx_REG (DFmode, REGNO (operands[2]));")
+  [(set (match_dup 2) (match_dup 3))]
+{
+  operands[3] = widen_mem_for_ldd_peep (operands[3], operands[1], DFmode);
+  operands[2] = gen_rtx_REG (DFmode, REGNO (operands[2]));
+})
 
 (define_peephole2
   [(set (match_operand:SF 0 "memory_operand" "")
@@ -7078,10 +7080,11 @@
         (match_operand:SF 3 "register_operand" ""))]
   "registers_ok_for_ldd_peep (operands[3], operands[1]) 
   && mems_ok_for_ldd_peep (operands[2], operands[0], NULL_RTX)"
-  [(set (match_dup 2)
-	(match_dup 3))]
-  "operands[2] = widen_memory_access (operands[2], DFmode, 0);
-   operands[3] = gen_rtx_REG (DFmode, REGNO (operands[3]));")
+  [(set (match_dup 2) (match_dup 3))]
+{
+  operands[2] = widen_mem_for_ldd_peep (operands[2], operands[0], DFmode);
+  operands[3] = gen_rtx_REG (DFmode, REGNO (operands[3]));
+})
  
 ;; Optimize the case of following a reg-reg move with a test
 ;; of reg just moved.  Don't allow floating point regs for operand 0 or 1.

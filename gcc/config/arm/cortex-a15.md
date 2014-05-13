@@ -1,5 +1,5 @@
 ;; ARM Cortex-A15 pipeline description
-;; Copyright (C) 2011-2013 Free Software Foundation, Inc.
+;; Copyright (C) 2011-2014 Free Software Foundation, Inc.
 ;;
 ;; Written by Matthew Gretton-Dann <matthew.gretton-dann@arm.com>
 
@@ -158,7 +158,7 @@
   "ca15_issue2,ca15_ls1+ca15_ls2,ca15_str,ca15_str")
 
 ;; We include Neon.md here to ensure that the branch can block the Neon units.
-(include "cortex-a15-neon.md")
+(include "../arm/cortex-a15-neon.md")
 
 ;; We lie with calls.  They take up all issue slots, and form a block in the
 ;; pipeline.  The result however is available the next cycle.

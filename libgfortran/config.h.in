@@ -360,6 +360,9 @@
 /* Define to 1 if you have the `fabsl' function. */
 #undef HAVE_FABSL
 
+/* Define to 1 if you have the `fcntl' function. */
+#undef HAVE_FCNTL
+
 /* libm includes feenableexcept */
 #undef HAVE_FEENABLEEXCEPT
 
@@ -605,6 +608,9 @@
 
 /* Define if you have __mingw_snprintf. */
 #undef HAVE_MINGW_SNPRINTF
+
+/* Define to 1 if you have the `mkostemp' function. */
+#undef HAVE_MKOSTEMP
 
 /* Define to 1 if you have the `mkstemp' function. */
 #undef HAVE_MKSTEMP

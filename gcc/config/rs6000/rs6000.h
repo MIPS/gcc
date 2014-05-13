@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for IBM RS/6000.
-   Copyright (C) 1992-2013 Free Software Foundation, Inc.
+   Copyright (C) 1992-2014 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
    This file is part of GCC.
@@ -468,6 +468,19 @@ extern int rs6000_vector_align[];
    ? rs6000_vector_align[(MODE)]					\
    : (int)GET_MODE_BITSIZE ((MODE)))
 
+/* Determine the element order to use for vector instructions.  By
+   default we use big-endian element order when targeting big-endian,
+   and little-endian element order when targeting little-endian.  For
+   programs being ported from BE Power to LE Power, it can sometimes
+   be useful to use big-endian element order when targeting little-endian.
+   This is set via -maltivec=be, for example.  */
+#define VECTOR_ELT_ORDER_BIG                                  \
+  (BYTES_BIG_ENDIAN || (rs6000_altivec_element_order == 2))
+
+/* Element number of the 64-bit value in a 128-bit vector that can be accessed
+   with scalar instructions.  */
+#define VECTOR_ELEMENT_SCALAR_64BIT	((BYTES_BIG_ENDIAN) ? 0 : 1)
+
 /* Alignment options for fields in structures for sub-targets following
    AIX-like ABI.
    ALIGN_POWER word-aligns FP doubles (default AIX ABI).
@@ -520,12 +533,16 @@ extern int rs6000_vector_align[];
 
 #define TARGET_XSCVDPSPN	(TARGET_DIRECT_MOVE || TARGET_P8_VECTOR)
 #define TARGET_XSCVSPDPN	(TARGET_DIRECT_MOVE || TARGET_P8_VECTOR)
+#define TARGET_VADDUQM		(TARGET_P8_VECTOR && TARGET_POWERPC64)
 
 /* Byte/char syncs were added as phased in for ISA 2.06B, but are not present
    in power7, so conditionalize them on p8 features.  TImode syncs need quad
    memory support.  */
-#define TARGET_SYNC_HI_QI	(TARGET_QUAD_MEMORY || TARGET_DIRECT_MOVE)
-#define TARGET_SYNC_TI		TARGET_QUAD_MEMORY
+#define TARGET_SYNC_HI_QI	(TARGET_QUAD_MEMORY			\
+				 || TARGET_QUAD_MEMORY_ATOMIC		\
+				 || TARGET_DIRECT_MOVE)
+
+#define TARGET_SYNC_TI		TARGET_QUAD_MEMORY_ATOMIC
 
 /* Power7 has both 32-bit load and store integer for the FPRs, so we don't need
    to allocate the SDmode stack slot to get the value into the proper location
@@ -593,9 +610,6 @@ extern int rs6000_vector_align[];
 #define MASK_PROTOTYPE			OPTION_MASK_PROTOTYPE
 #endif
 
-/* Explicit ISA options that were set.  */
-#define rs6000_isa_flags_explicit	global_options_set.x_rs6000_isa_flags
-
 /* For power systems, we want to enable Altivec and VSX builtins even if the
    user did not use -maltivec or -mvsx to allow the builtins to be used inside
    of #pragma GCC target or the target attribute to change the code level for a
@@ -616,6 +630,25 @@ extern int rs6000_vector_align[];
 #define TARGET_NO_LWSYNC (rs6000_cpu == PROCESSOR_PPC8540 \
 			  || rs6000_cpu == PROCESSOR_PPC8548)
 
+
+/* Whether SF/DF operations are supported on the E500.  */
+#define TARGET_SF_SPE	(TARGET_HARD_FLOAT && TARGET_SINGLE_FLOAT	\
+			 && !TARGET_FPRS)
+
+#define TARGET_DF_SPE	(TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT	\
+			 && !TARGET_FPRS && TARGET_E500_DOUBLE)
+
+/* Whether SF/DF operations are supported by by the normal floating point unit
+   (or the vector/scalar unit).  */
+#define TARGET_SF_FPR	(TARGET_HARD_FLOAT && TARGET_FPRS		\
+			 && TARGET_SINGLE_FLOAT)
+
+#define TARGET_DF_FPR	(TARGET_HARD_FLOAT && TARGET_FPRS		\
+			 && TARGET_DOUBLE_FLOAT)
+
+/* Whether SF/DF operations are supported by any hardware.  */
+#define TARGET_SF_INSN	(TARGET_SF_FPR || TARGET_SF_SPE)
+#define TARGET_DF_INSN	(TARGET_DF_FPR || TARGET_DF_SPE)
 
 /* Which machine supports the various reciprocal estimate instructions.  */
 #define TARGET_FRES	(TARGET_HARD_FLOAT && TARGET_PPC_GFXOPT \
@@ -1166,7 +1199,7 @@ enum data_align { align_abi, align_opt, align_both };
 
 #define ALTIVEC_OR_VSX_VECTOR_MODE(MODE)				\
   (ALTIVEC_VECTOR_MODE (MODE) || VSX_VECTOR_MODE (MODE)			\
-   || (MODE) == V2DImode)
+   || (MODE) == V2DImode || (MODE) == V1TImode)
 
 #define SPE_VECTOR_MODE(MODE)		\
 	((MODE) == V4HImode          	\
@@ -1472,6 +1505,13 @@ extern enum reg_class rs6000_constraints[RS6000_CONSTRAINT_MAX];
 #define SECONDARY_MEMORY_NEEDED_RTX(MODE) \
   rs6000_secondary_memory_needed_rtx (MODE)
 
+/* Specify the mode to be used for memory when a secondary memory
+   location is needed.  For cpus that cannot load/store SDmode values
+   from the 64-bit FP registers without using a full 64-bit
+   load/store, we need a wider mode.  */
+#define SECONDARY_MEMORY_NEEDED_MODE(MODE)		\
+  rs6000_secondary_memory_needed_mode (MODE)
+
 /* Return the maximum number of consecutive registers
    needed to represent mode MODE in a register of class CLASS.
 
@@ -1504,21 +1544,14 @@ extern enum reg_class rs6000_constraints[RS6000_CONSTRAINT_MAX];
 #define FRAME_GROWS_DOWNWARD (flag_stack_protect != 0			\
 			      || (flag_sanitize & SANITIZE_ADDRESS) != 0)
 
-/* Size of the outgoing register save area */
-#define RS6000_REG_SAVE ((DEFAULT_ABI == ABI_AIX			\
-			  || DEFAULT_ABI == ABI_DARWIN)			\
-			 ? (TARGET_64BIT ? 64 : 32)			\
-			 : 0)
-
 /* Size of the fixed area on the stack */
 #define RS6000_SAVE_AREA \
-  (((DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_DARWIN) ? 24 : 8)	\
+  ((DEFAULT_ABI == ABI_V4 ? 8 : DEFAULT_ABI == ABI_ELFv2 ? 16 : 24)	\
    << (TARGET_64BIT ? 1 : 0))
 
-/* MEM representing address to save the TOC register */
-#define RS6000_SAVE_TOC gen_rtx_MEM (Pmode, \
-				     plus_constant (Pmode, stack_pointer_rtx, \
-						    (TARGET_32BIT ? 20 : 40)))
+/* Stack offset for toc save slot.  */
+#define RS6000_TOC_SAVE_SLOT \
+  ((DEFAULT_ABI == ABI_ELFv2 ? 12 : 20) << (TARGET_64BIT ? 1 : 0))
 
 /* Align an address */
 #define RS6000_ALIGN(n,a) (((n) + (a) - 1) & ~((a) - 1))
@@ -1568,7 +1601,7 @@ extern enum reg_class rs6000_constraints[RS6000_CONSTRAINT_MAX];
 /* Define this if stack space is still allocated for a parameter passed
    in a register.  The value is the number of bytes allocated to this
    area.  */
-#define REG_PARM_STACK_SPACE(FNDECL)	RS6000_REG_SAVE
+#define REG_PARM_STACK_SPACE(FNDECL) rs6000_reg_parm_stack_space((FNDECL))
 
 /* Define this if the above stack space is to be considered part of the
    space allocated by the caller.  */
@@ -1612,9 +1645,8 @@ extern enum reg_class rs6000_constraints[RS6000_CONSTRAINT_MAX];
 #define FP_ARG_MIN_REG 33
 #define	FP_ARG_AIX_MAX_REG 45
 #define	FP_ARG_V4_MAX_REG  40
-#define	FP_ARG_MAX_REG ((DEFAULT_ABI == ABI_AIX				\
-			 || DEFAULT_ABI == ABI_DARWIN)			\
-			? FP_ARG_AIX_MAX_REG : FP_ARG_V4_MAX_REG)
+#define	FP_ARG_MAX_REG (DEFAULT_ABI == ABI_V4				\
+			? FP_ARG_V4_MAX_REG : FP_ARG_AIX_MAX_REG)
 #define FP_ARG_NUM_REG (FP_ARG_MAX_REG - FP_ARG_MIN_REG + 1)
 
 /* Minimum and maximum AltiVec registers used to hold arguments.  */
@@ -1622,10 +1654,17 @@ extern enum reg_class rs6000_constraints[RS6000_CONSTRAINT_MAX];
 #define ALTIVEC_ARG_MAX_REG (ALTIVEC_ARG_MIN_REG + 11)
 #define ALTIVEC_ARG_NUM_REG (ALTIVEC_ARG_MAX_REG - ALTIVEC_ARG_MIN_REG + 1)
 
+/* Maximum number of registers per ELFv2 homogeneous aggregate argument.  */
+#define AGGR_ARG_NUM_REG 8
+
 /* Return registers */
 #define GP_ARG_RETURN GP_ARG_MIN_REG
 #define FP_ARG_RETURN FP_ARG_MIN_REG
 #define ALTIVEC_ARG_RETURN (FIRST_ALTIVEC_REGNO + 2)
+#define FP_ARG_MAX_RETURN (DEFAULT_ABI != ABI_ELFv2 ? FP_ARG_RETURN	\
+			   : (FP_ARG_RETURN + AGGR_ARG_NUM_REG - 1))
+#define ALTIVEC_ARG_MAX_RETURN (DEFAULT_ABI != ABI_ELFv2 ? ALTIVEC_ARG_RETURN \
+			        : (ALTIVEC_ARG_RETURN + AGGR_ARG_NUM_REG - 1))
 
 /* Flags for the call/call_value rtl operations set up by function_arg */
 #define CALL_NORMAL		0x00000000	/* no special processing */
@@ -1645,8 +1684,10 @@ extern enum reg_class rs6000_constraints[RS6000_CONSTRAINT_MAX];
    On RS/6000, this is r3, fp1, and v2 (for AltiVec).  */
 #define FUNCTION_VALUE_REGNO_P(N)					\
   ((N) == GP_ARG_RETURN							\
-   || ((N) == FP_ARG_RETURN && TARGET_HARD_FLOAT && TARGET_FPRS)	\
-   || ((N) == ALTIVEC_ARG_RETURN && TARGET_ALTIVEC && TARGET_ALTIVEC_ABI))
+   || ((N) >= FP_ARG_RETURN && (N) <= FP_ARG_MAX_RETURN			\
+       && TARGET_HARD_FLOAT && TARGET_FPRS)				\
+   || ((N) >= ALTIVEC_ARG_RETURN && (N) <= ALTIVEC_ARG_MAX_RETURN	\
+       && TARGET_ALTIVEC && TARGET_ALTIVEC_ABI))
 
 /* 1 if N is a possible register number for function argument passing.
    On RS/6000, these are r3-r10 and fp1-fp13.
@@ -1770,11 +1811,8 @@ typedef struct rs6000_args
 /* Number of bytes into the frame return addresses can be found.  See
    rs6000_stack_info in rs6000.c for more information on how the different
    abi's store the return address.  */
-#define RETURN_ADDRESS_OFFSET						\
- ((DEFAULT_ABI == ABI_AIX						\
-   || DEFAULT_ABI == ABI_DARWIN)	? (TARGET_32BIT ? 8 : 16) :	\
-  (DEFAULT_ABI == ABI_V4)		? 4 :				\
-  (internal_error ("RETURN_ADDRESS_OFFSET not supported"), 0))
+#define RETURN_ADDRESS_OFFSET \
+  ((DEFAULT_ABI == ABI_V4 ? 4 : 8) << (TARGET_64BIT ? 1 : 0))
 
 /* The current return address is in link register (65).  The return address
    of anything farther back is accessed normally at an offset of 8 from the
@@ -2416,6 +2454,9 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
 
 #define PRINT_OPERAND_ADDRESS(FILE, ADDR) print_operand_address (FILE, ADDR)
 
+/* For switching between functions with different target attributes.  */
+#define SWITCHABLE_TARGET 1
+
 /* uncomment for disabling the corresponding default options */
 /* #define  MACHINE_no_sched_interblock */
 /* #define  MACHINE_no_sched_speculative */
@@ -2541,6 +2582,7 @@ enum rs6000_builtin_type_index
   RS6000_BTI_opaque_p_V2SI,
   RS6000_BTI_opaque_V4SI,
   RS6000_BTI_V16QI,
+  RS6000_BTI_V1TI,
   RS6000_BTI_V2SI,
   RS6000_BTI_V2SF,
   RS6000_BTI_V2DI,
@@ -2550,6 +2592,7 @@ enum rs6000_builtin_type_index
   RS6000_BTI_V4SF,
   RS6000_BTI_V8HI,
   RS6000_BTI_unsigned_V16QI,
+  RS6000_BTI_unsigned_V1TI,
   RS6000_BTI_unsigned_V8HI,
   RS6000_BTI_unsigned_V4SI,
   RS6000_BTI_unsigned_V2DI,
@@ -2575,6 +2618,8 @@ enum rs6000_builtin_type_index
   RS6000_BTI_UINTSI,		 /* unsigned_intSI_type_node */
   RS6000_BTI_INTDI,		 /* intDI_type_node */
   RS6000_BTI_UINTDI,		 /* unsigned_intDI_type_node */
+  RS6000_BTI_INTTI,		 /* intTI_type_node */
+  RS6000_BTI_UINTTI,		 /* unsigned_intTI_type_node */
   RS6000_BTI_float,	         /* float_type_node */
   RS6000_BTI_double,	         /* double_type_node */
   RS6000_BTI_void,	         /* void_type_node */
@@ -2587,6 +2632,7 @@ enum rs6000_builtin_type_index
 #define opaque_p_V2SI_type_node       (rs6000_builtin_types[RS6000_BTI_opaque_p_V2SI])
 #define opaque_V4SI_type_node         (rs6000_builtin_types[RS6000_BTI_opaque_V4SI])
 #define V16QI_type_node               (rs6000_builtin_types[RS6000_BTI_V16QI])
+#define V1TI_type_node                (rs6000_builtin_types[RS6000_BTI_V1TI])
 #define V2DI_type_node                (rs6000_builtin_types[RS6000_BTI_V2DI])
 #define V2DF_type_node                (rs6000_builtin_types[RS6000_BTI_V2DF])
 #define V2SI_type_node                (rs6000_builtin_types[RS6000_BTI_V2SI])
@@ -2596,6 +2642,7 @@ enum rs6000_builtin_type_index
 #define V4SF_type_node                (rs6000_builtin_types[RS6000_BTI_V4SF])
 #define V8HI_type_node                (rs6000_builtin_types[RS6000_BTI_V8HI])
 #define unsigned_V16QI_type_node      (rs6000_builtin_types[RS6000_BTI_unsigned_V16QI])
+#define unsigned_V1TI_type_node       (rs6000_builtin_types[RS6000_BTI_unsigned_V1TI])
 #define unsigned_V8HI_type_node       (rs6000_builtin_types[RS6000_BTI_unsigned_V8HI])
 #define unsigned_V4SI_type_node       (rs6000_builtin_types[RS6000_BTI_unsigned_V4SI])
 #define unsigned_V2DI_type_node       (rs6000_builtin_types[RS6000_BTI_unsigned_V2DI])
@@ -2622,6 +2669,8 @@ enum rs6000_builtin_type_index
 #define uintSI_type_internal_node	 (rs6000_builtin_types[RS6000_BTI_UINTSI])
 #define intDI_type_internal_node	 (rs6000_builtin_types[RS6000_BTI_INTDI])
 #define uintDI_type_internal_node	 (rs6000_builtin_types[RS6000_BTI_UINTDI])
+#define intTI_type_internal_node	 (rs6000_builtin_types[RS6000_BTI_INTTI])
+#define uintTI_type_internal_node	 (rs6000_builtin_types[RS6000_BTI_UINTTI])
 #define float_type_internal_node	 (rs6000_builtin_types[RS6000_BTI_float])
 #define double_type_internal_node	 (rs6000_builtin_types[RS6000_BTI_double])
 #define void_type_internal_node		 (rs6000_builtin_types[RS6000_BTI_void])

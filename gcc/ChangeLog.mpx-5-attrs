@@ -1,0 +1,9 @@
+2013-10-29  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* c-family/c-common.c (handle_bnd_variable_size_attribute): New.
+	(handle_bnd_legacy): New.
+	(handle_bnd_instrument): New.
+	(c_common_attribute_table): Add bnd_variable_size, bnd_legacy
+	and bnd_instrument.
+	* doc/extend.texi: Document bnd_variable_size, bnd_legacy and
+	bnd_instrument attributes.

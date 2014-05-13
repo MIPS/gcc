@@ -1,5 +1,5 @@
 /* Routines for manipulation of expression nodes.
-   Copyright (C) 2000-2013 Free Software Foundation, Inc.
+   Copyright (C) 2000-2014 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -3581,6 +3581,16 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
 	  return false;
 	}
 
+      /* Check F2008Cor2, C729.  */
+      if (!s2->attr.intrinsic && s2->attr.if_source == IFSRC_UNKNOWN
+	  && !s2->attr.external && !s2->attr.subroutine && !s2->attr.function)
+	{
+	  gfc_error ("Procedure pointer target '%s' at %L must be either an "
+		     "intrinsic, host or use associated, referenced or have "
+		     "the EXTERNAL attribute", s2->name, &rvalue->where);
+	  return false;
+	}
+
       return true;
     }
 
@@ -3618,11 +3628,9 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
       return false;
     }
 
-    /* Make sure the vtab is present.  */
-  if (lvalue->ts.type == BT_CLASS && rvalue->ts.type == BT_DERIVED)
-    gfc_find_derived_vtab (rvalue->ts.u.derived);
-  else if (UNLIMITED_POLY (lvalue) && !UNLIMITED_POLY (rvalue))
-    gfc_find_intrinsic_vtab (&rvalue->ts);
+  /* Make sure the vtab is present.  */
+  if (lvalue->ts.type == BT_CLASS && !UNLIMITED_POLY (rvalue))
+    gfc_find_vtab (&rvalue->ts);
 
   /* Check rank remapping.  */
   if (rank_remap)
@@ -3696,8 +3704,7 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
     }
 
   if (is_implicit_pure && gfc_impure_variable (rvalue->symtree->n.sym))
-    gfc_current_ns->proc_name->attr.implicit_pure = 0;
-
+    gfc_unset_implicit_pure (gfc_current_ns->proc_name);
 
   if (gfc_has_vector_index (rvalue))
     {
@@ -3964,9 +3971,10 @@ gfc_get_variable_expr (gfc_symtree *var)
   e->symtree = var;
   e->ts = var->n.sym->ts;
 
-  if ((var->n.sym->as != NULL && var->n.sym->ts.type != BT_CLASS)
-      || (var->n.sym->ts.type == BT_CLASS && CLASS_DATA (var->n.sym)
-	  && CLASS_DATA (var->n.sym)->as))
+  if (var->n.sym->attr.flavor != FL_PROCEDURE
+      && ((var->n.sym->as != NULL && var->n.sym->ts.type != BT_CLASS)
+	   || (var->n.sym->ts.type == BT_CLASS && CLASS_DATA (var->n.sym)
+	       && CLASS_DATA (var->n.sym)->as)))
     {
       e->rank = var->n.sym->ts.type == BT_CLASS
 		? CLASS_DATA (var->n.sym)->as->rank : var->n.sym->as->rank;
@@ -4693,7 +4701,6 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
   bool is_pointer;
   bool check_intentin;
   bool ptr_component;
-  bool unlimited;
   symbol_attribute attr;
   gfc_ref* ref;
   int i;
@@ -4708,8 +4715,6 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
       gcc_assert (e->symtree);
       sym = e->value.function.esym ? e->value.function.esym : e->symtree->n.sym;
     }
-
-  unlimited = e->ts.type == BT_CLASS && UNLIMITED_POLY (sym);
 
   attr = gfc_expr_attr (e);
   if (!pointer && e->expr_type == EXPR_FUNCTION && attr.pointer)
@@ -4750,7 +4755,7 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
   /* Find out whether the expr is a pointer; this also means following
      component references to the last one.  */
   is_pointer = (attr.pointer || attr.proc_pointer);
-  if (pointer && !is_pointer && !unlimited)
+  if (pointer && !is_pointer)
     {
       if (context)
 	gfc_error ("Non-POINTER in pointer association context (%s)"

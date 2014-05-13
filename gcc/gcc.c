@@ -1,5 +1,5 @@
 /* Compiler driver program that can handle many languages.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -104,6 +104,9 @@ static int verbose_only_flag;
 /* Flag indicating how to print command line options of sub-processes.  */
 
 static int print_subprocess_help;
+
+/* Linker suffix passed to -fuse-ld=... */
+static const char *use_ld;
 
 /* Whether we should report subprocess execution times to a file.  */
 
@@ -388,7 +391,8 @@ or with constant text in a single argument.
  %2	process CC1PLUS_SPEC as a spec.
  %*	substitute the variable part of a matched option.  (See below.)
 	Note that each comma in the substituted string is replaced by
-	a single space.
+	a single space.  A space is appended after the last substition
+	unless there is more text in current sequence.
  %<S    remove all occurrences of -S from the command line.
         Note - this command is position dependent.  % commands in the
         spec string before this one will see -S, % commands in the
@@ -422,7 +426,9 @@ or with constant text in a single argument.
           once, no matter how many such switches appeared.  However,
           if %* appears somewhere in X, then X will be substituted
           once for each matching switch, with the %* replaced by the
-          part of that switch that matched the '*'.
+          part of that switch that matched the '*'.  A space will be
+	  appended after the last substition unless there is more
+	  text in current sequence.
  %{.S:X}  substitutes X, if processing a file with suffix S.
  %{!.S:X} substitutes X, if NOT processing a file with suffix S.
  %{,S:X}  substitutes X, if processing a file which will use spec S.
@@ -523,45 +529,25 @@ proper position among the other output files.  */
 #define LIB_SPEC "%{!shared:%{g*:-lg} %{!p:%{!pg:-lc}}%{p:-lc_p}%{pg:-lc_p}}"
 #endif
 
-/* mudflap specs */
-#ifndef MFWRAP_SPEC
-/* XXX: valid only for GNU ld */
-/* XXX: should exactly match hooks provided by libmudflap.a */
-#define MFWRAP_SPEC " %{static: %{fmudflap|fmudflapth: \
- --wrap=malloc --wrap=free --wrap=calloc --wrap=realloc\
- --wrap=mmap --wrap=mmap64 --wrap=munmap --wrap=alloca\
-} %{fmudflapth: --wrap=pthread_create\
-}} %{fmudflap|fmudflapth: --wrap=main}"
-#endif
-#ifndef MFLIB_SPEC
-#define MFLIB_SPEC "%{fmudflap|fmudflapth: -export-dynamic}"
-#endif
-
 /* When using -fsplit-stack we need to wrap pthread_create, in order
    to initialize the stack guard.  We always use wrapping, rather than
    shared library ordering, and we keep the wrapper function in
    libgcc.  This is not yet a real spec, though it could become one;
    it is currently just stuffed into LINK_SPEC.  FIXME: This wrapping
-   only works with GNU ld and gold.  FIXME: This is incompatible with
-   -fmudflap when linking statically, which wants to do its own
-   wrapping.  */
+   only works with GNU ld and gold.  */
 #define STACK_SPLIT_SPEC " %{fsplit-stack: --wrap=pthread_create}"
 
 #ifndef LIBASAN_SPEC
-#ifdef STATIC_LIBASAN_LIBS
-#define ADD_STATIC_LIBASAN_LIBS \
-  " %{static-libasan:" STATIC_LIBASAN_LIBS "}"
-#else
-#define ADD_STATIC_LIBASAN_LIBS
-#endif
+#define STATIC_LIBASAN_LIBS \
+  " %{static-libasan:%:include(libsanitizer.spec)%(link_libasan)}"
 #ifdef LIBASAN_EARLY_SPEC
-#define LIBASAN_SPEC ADD_STATIC_LIBASAN_LIBS
+#define LIBASAN_SPEC STATIC_LIBASAN_LIBS
 #elif defined(HAVE_LD_STATIC_DYNAMIC)
 #define LIBASAN_SPEC "%{static-libasan:" LD_STATIC_OPTION \
 		     "} -lasan %{static-libasan:" LD_DYNAMIC_OPTION "}" \
-		     ADD_STATIC_LIBASAN_LIBS
+		     STATIC_LIBASAN_LIBS
 #else
-#define LIBASAN_SPEC "-lasan" ADD_STATIC_LIBASAN_LIBS
+#define LIBASAN_SPEC "-lasan" STATIC_LIBASAN_LIBS
 #endif
 #endif
 
@@ -570,20 +556,16 @@ proper position among the other output files.  */
 #endif
 
 #ifndef LIBTSAN_SPEC
-#ifdef STATIC_LIBTSAN_LIBS
-#define ADD_STATIC_LIBTSAN_LIBS \
-  " %{static-libtsan:" STATIC_LIBTSAN_LIBS "}"
-#else
-#define ADD_STATIC_LIBTSAN_LIBS
-#endif
+#define STATIC_LIBTSAN_LIBS \
+  " %{static-libtsan:%:include(libsanitizer.spec)%(link_libtsan)}"
 #ifdef LIBTSAN_EARLY_SPEC
-#define LIBTSAN_SPEC ADD_STATIC_LIBTSAN_LIBS
+#define LIBTSAN_SPEC STATIC_LIBTSAN_LIBS
 #elif defined(HAVE_LD_STATIC_DYNAMIC)
 #define LIBTSAN_SPEC "%{static-libtsan:" LD_STATIC_OPTION \
 		     "} -ltsan %{static-libtsan:" LD_DYNAMIC_OPTION "}" \
-		     ADD_STATIC_LIBTSAN_LIBS
+		     STATIC_LIBTSAN_LIBS
 #else
-#define LIBTSAN_SPEC "-ltsan" ADD_STATIC_LIBTSAN_LIBS
+#define LIBTSAN_SPEC "-ltsan" STATIC_LIBTSAN_LIBS
 #endif
 #endif
 
@@ -591,26 +573,28 @@ proper position among the other output files.  */
 #define LIBTSAN_EARLY_SPEC ""
 #endif
 
-#ifndef LIBUBSAN_SPEC
-#ifdef STATIC_LIBUBSAN_LIBS
-#define ADD_STATIC_LIBUBSAN_LIBS \
-  " %{static-libubsan:" STATIC_LIBUBSAN_LIBS "}"
+#ifndef LIBLSAN_SPEC
+#define STATIC_LIBLSAN_LIBS \
+  " %{static-liblsan:%:include(libsanitizer.spec)%(link_liblsan)}"
+#ifdef HAVE_LD_STATIC_DYNAMIC
+#define LIBLSAN_SPEC "%{!shared:%{static-liblsan:" LD_STATIC_OPTION \
+		     "} -llsan %{static-liblsan:" LD_DYNAMIC_OPTION "}" \
+		     STATIC_LIBLSAN_LIBS "}"
 #else
-#define ADD_STATIC_LIBUBSAN_LIBS
-#endif
-#ifdef LIBUBSAN_EARLY_SPEC
-#define LIBUBSAN_SPEC ADD_STATIC_LIBUBSAN_LIBS
-#elif defined(HAVE_LD_STATIC_DYNAMIC)
-#define LIBUBSAN_SPEC "%{static-libubsan:" LD_STATIC_OPTION \
-		     "} -lubsan %{static-libubsan:" LD_DYNAMIC_OPTION "}" \
-		     ADD_STATIC_LIBUBSAN_LIBS
-#else
-#define LIBUBSAN_SPEC "-lubsan" ADD_STATIC_LIBUBSAN_LIBS
+#define LIBLSAN_SPEC "%{!shared:-llsan" STATIC_LIBLSAN_LIBS "}"
 #endif
 #endif
 
-#ifndef LIBUBSAN_EARLY_SPEC
-#define LIBUBSAN_EARLY_SPEC ""
+#ifndef LIBUBSAN_SPEC
+#define STATIC_LIBUBSAN_LIBS \
+  " %{static-libubsan:%:include(libsanitizer.spec)%(link_libubsan)}"
+#ifdef HAVE_LD_STATIC_DYNAMIC
+#define LIBUBSAN_SPEC "%{static-libubsan:" LD_STATIC_OPTION \
+		     "} -lubsan %{static-libubsan:" LD_DYNAMIC_OPTION "}" \
+		     STATIC_LIBUBSAN_LIBS
+#else
+#define LIBUBSAN_SPEC "-lubsan" STATIC_LIBUBSAN_LIBS
+#endif
 #endif
 
 /* config.h can define LIBGCC_SPEC to override how and when libgcc.a is
@@ -711,7 +695,7 @@ proper position among the other output files.  */
 #if HAVE_LTO_PLUGIN > 0
 /* The linker used has full plugin support, use LTO plugin by default.  */
 #if HAVE_LTO_PLUGIN == 2
-#define PLUGIN_COND "!fno-use-linker-plugin:%{flto|flto=*|fuse-linker-plugin"
+#define PLUGIN_COND "!fno-use-linker-plugin:%{!fno-lto"
 #define PLUGIN_COND_CLOSE "}"
 #else
 /* The linker used has limited plugin support, use LTO plugin with explicit
@@ -736,8 +720,7 @@ proper position among the other output files.  */
 #ifndef SANITIZER_EARLY_SPEC
 #define SANITIZER_EARLY_SPEC "\
 %{!nostdlib:%{!nodefaultlibs:%{%:sanitize(address):" LIBASAN_EARLY_SPEC "} \
-    %{%:sanitize(thread):" LIBTSAN_EARLY_SPEC "} \
-    %{%:sanitize(undefined):" LIBUBSAN_EARLY_SPEC "}}}"
+    %{%:sanitize(thread):" LIBTSAN_EARLY_SPEC "}}}"
 #endif
 
 /* Linker command line options for -fsanitize= late on the command line.  */
@@ -748,7 +731,8 @@ proper position among the other output files.  */
     %{%:sanitize(thread):%e-fsanitize=address is incompatible with -fsanitize=thread}}\
     %{%:sanitize(thread):" LIBTSAN_SPEC "\
     %{!pie:%{!shared:%e-fsanitize=thread linking must be done with -pie or -shared}}}\
-    %{%:sanitize(undefined):" LIBUBSAN_SPEC "}}}"
+    %{%:sanitize(undefined):" LIBUBSAN_SPEC "}\
+    %{%:sanitize(leak):" LIBLSAN_SPEC "}}}"
 #endif
 
 /*  This is the spec to use, once the code for creating the vtable
@@ -782,6 +766,7 @@ proper position among the other output files.  */
     %{s} %{t} %{u*} %{z} %{Z} %{!nostdlib:%{!nostartfiles:%S}} " VTABLE_VERIFICATION_SPEC " \
     %{static:} %{L*} %(mfwrap) %(link_libgcc) " SANITIZER_EARLY_SPEC " %o\
     %{fopenmp|ftree-parallelize-loops=*:%:include(libgomp.spec)%(link_gomp)}\
+    %{fcilkplus:%:include(libcilkrts.spec)%(link_cilkrts)}\
     %{fgnu-tm:%:include(libitm.spec)%(link_itm)}\
     %(mflib) " STACK_SPLIT_SPEC "\
     %{fprofile-arcs|fprofile-generate*|coverage:-lgcov} " SANITIZER_SPEC " \
@@ -820,8 +805,6 @@ static const char *asm_spec = ASM_SPEC;
 static const char *asm_final_spec = ASM_FINAL_SPEC;
 static const char *link_spec = LINK_SPEC;
 static const char *lib_spec = LIB_SPEC;
-static const char *mfwrap_spec = MFWRAP_SPEC;
-static const char *mflib_spec = MFLIB_SPEC;
 static const char *link_gomp_spec = "";
 static const char *libgcc_spec = LIBGCC_SPEC;
 static const char *endfile_spec = ENDFILE_SPEC;
@@ -862,8 +845,6 @@ static const char *cpp_unique_options =
  %{remap} %{g3|ggdb3|gstabs3|gcoff3|gxcoff3|gvms3:-dD}\
  %{!iplugindir*:%{fplugin*:%:find-plugindir()}}\
  %{H} %C %{D*&U*&A*} %{i*} %Z %i\
- %{fmudflap:-D_MUDFLAP -include mf-runtime.h}\
- %{fmudflapth:-D_MUDFLAP -D_MUDFLAPTH -include mf-runtime.h}\
  %{E|M|MM:%W{o*}}";
 
 /* This contains cpp options which are common with cc1_options and are passed
@@ -895,7 +876,6 @@ static const char *cc1_options =
  %{-help=*:--help=%*}\
  %{!fsyntax-only:%{S:%W{o*}%{!o*:-o %b.s}}}\
  %{fsyntax-only:-o %j} %{-param*}\
- %{fmudflap|fmudflapth:-fno-builtin -fno-merge-constants}\
  %{coverage:-fprofile-arcs -ftest-coverage}";
 
 static const char *asm_options =
@@ -909,12 +889,12 @@ static const char *asm_options =
 
 static const char *invoke_as =
 #ifdef AS_NEEDS_DASH_FOR_PIPED_INPUT
-"%{!fwpa:\
+"%{!fwpa*:\
    %{fcompare-debug=*|fdump-final-insns=*:%:compare-debug-dump-opt()}\
    %{!S:-o %|.s |\n as %(asm_options) %|.s %A }\
   }";
 #else
-"%{!fwpa:\
+"%{!fwpa*:\
    %{fcompare-debug=*|fdump-final-insns=*:%:compare-debug-dump-opt()}\
    %{!S:-o %|.s |\n as %(asm_options) %m.s %A }\
   }";
@@ -942,7 +922,7 @@ static const char *const multilib_defaults_raw[] = MULTILIB_DEFAULTS;
 #define DRIVER_SELF_SPECS ""
 #endif
 
-/* Adding -fopenmp should imply pthreads.  This is particularly important
+/* Linking to libgomp implies pthreads.  This is particularly important
    for targets that use different start files and suchlike.  */
 #ifndef GOMP_SELF_SPECS
 #define GOMP_SELF_SPECS "%{fopenmp|ftree-parallelize-loops=*: -pthread}"
@@ -953,9 +933,15 @@ static const char *const multilib_defaults_raw[] = MULTILIB_DEFAULTS;
 #define GTM_SELF_SPECS "%{fgnu-tm: -pthread}"
 #endif
 
+/* Likewise for -fcilkplus.  */
+#ifndef CILK_SELF_SPECS
+#define CILK_SELF_SPECS "%{fcilkplus: -pthread}"
+#endif
+
 static const char *const driver_self_specs[] = {
   "%{fdump-final-insns:-fdump-final-insns=.} %<fdump-final-insns",
-  DRIVER_SELF_SPECS, CONFIGURE_SPECS, GOMP_SELF_SPECS, GTM_SELF_SPECS
+  DRIVER_SELF_SPECS, CONFIGURE_SPECS, GOMP_SELF_SPECS, GTM_SELF_SPECS,
+  CILK_SELF_SPECS
 };
 
 #ifndef OPTION_DEFAULT_SPECS
@@ -1309,8 +1295,6 @@ static struct spec_list static_specs[] =
   INIT_STATIC_SPEC ("endfile",			&endfile_spec),
   INIT_STATIC_SPEC ("link",			&link_spec),
   INIT_STATIC_SPEC ("lib",			&lib_spec),
-  INIT_STATIC_SPEC ("mfwrap",			&mfwrap_spec),
-  INIT_STATIC_SPEC ("mflib",			&mflib_spec),
   INIT_STATIC_SPEC ("link_gomp",		&link_gomp_spec),
   INIT_STATIC_SPEC ("libgcc",			&libgcc_spec),
   INIT_STATIC_SPEC ("startfile",		&startfile_spec),
@@ -3406,6 +3390,14 @@ driver_handle_option (struct gcc_options *opts,
       do_save = false;
       break;
 
+    case OPT_fuse_ld_bfd:
+       use_ld = ".bfd";
+       break;
+
+    case OPT_fuse_ld_gold:
+       use_ld = ".gold";
+       break;
+
     case OPT_fcompare_debug_second:
       compare_debug_second = 1;
       break;
@@ -3664,6 +3656,10 @@ driver_handle_option (struct gcc_options *opts,
 	 first two, gfortranspec.c understands -static-libgfortran and
 	 g++spec.c understands -static-libstdc++ */
       validated = true;
+      break;
+
+    case OPT_fwpa:
+      flag_wpa = "";
       break;
 
     default:
@@ -5375,7 +5371,17 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	      {
 		if (soft_matched_part[0])
 		  do_spec_1 (soft_matched_part, 1, NULL);
-		do_spec_1 (" ", 0, NULL);
+		/* Only insert a space after the substitution if it is at the
+		   end of the current sequence.  So if:
+
+		     "%{foo=*:bar%*}%{foo=*:one%*two}"
+
+		   matches -foo=hello then it will produce:
+		   
+		     barhello onehellotwo
+		*/
+		if (*p == 0 || *p == '}')
+		  do_spec_1 (" ", 0, NULL);
 	      }
 	    else
 	      /* Catch the case where a spec string contains something like
@@ -5482,7 +5488,7 @@ eval_spec_function (const char *func, const char *args)
   const char *save_suffix_subst;
 
   int save_growing_size;
-  void *save_growing_value;
+  void *save_growing_value = NULL;
 
   sf = lookup_spec_function (func);
   if (sf == NULL)
@@ -6724,6 +6730,38 @@ main (int argc, char **argv)
 
   if (print_prog_name)
     {
+      if (use_ld != NULL && ! strcmp (print_prog_name, "ld"))
+	{
+	  /* Append USE_LD to to the default linker.  */
+#ifdef DEFAULT_LINKER
+	  char *ld;
+# ifdef HAVE_HOST_EXECUTABLE_SUFFIX
+	  int len = (sizeof (DEFAULT_LINKER)
+		     - sizeof (HOST_EXECUTABLE_SUFFIX));
+	  ld = NULL;
+	  if (len > 0)
+	    {
+	      char *default_linker = xstrdup (DEFAULT_LINKER);
+	      /* Strip HOST_EXECUTABLE_SUFFIX if DEFAULT_LINKER contains
+		 HOST_EXECUTABLE_SUFFIX.  */
+	      if (! strcmp (&default_linker[len], HOST_EXECUTABLE_SUFFIX))
+		{
+		  default_linker[len] = '\0';
+		  ld = concat (default_linker, use_ld,
+			       HOST_EXECUTABLE_SUFFIX, NULL);
+		}
+	    }
+	  if (ld == NULL)
+# endif
+	  ld = concat (DEFAULT_LINKER, use_ld, NULL);
+	  if (access (ld, X_OK) == 0)
+	    {
+	      printf ("%s\n", ld);
+	      return (0);
+	    }
+#endif
+	  print_prog_name = concat (print_prog_name, use_ld, NULL);
+	}
       char *newname = find_a_file (&exec_prefixes, print_prog_name, X_OK, 0);
       printf ("%s\n", (newname ? newname : print_prog_name));
       return (0);
@@ -6813,7 +6851,7 @@ main (int argc, char **argv)
     {
       printf (_("%s %s%s\n"), progname, pkgversion_string,
 	      version_string);
-      printf ("Copyright %s 2013 Free Software Foundation, Inc.\n",
+      printf ("Copyright %s 2014 Free Software Foundation, Inc.\n",
 	      _("(C)"));
       fputs (_("This is free software; see the source for copying conditions.  There is NO\n\
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"),
@@ -8133,7 +8171,10 @@ sanitize_spec_function (int argc, const char **argv)
     return (flag_sanitize & SANITIZE_THREAD) ? "" : NULL;
   if (strcmp (argv[0], "undefined") == 0)
     return (flag_sanitize & SANITIZE_UNDEFINED) ? "" : NULL;
-
+  if (strcmp (argv[0], "leak") == 0)
+    return ((flag_sanitize
+	     & (SANITIZE_ADDRESS | SANITIZE_LEAK | SANITIZE_THREAD))
+	    == SANITIZE_LEAK) ? "" : NULL;
   return NULL;
 }
 

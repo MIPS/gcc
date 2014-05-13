@@ -1,0 +1,7 @@
+2013-11-15  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* tree-ssa-dce.c: Include target.h.
+	(propagate_necessity): For free call fed by alloc check
+	bounds are also provided by the same alloc.
+	(eliminate_unnecessary_stmts): Handle BUILT_IN_CHKP_BNDRET
+	used by free calls.

@@ -1,5 +1,5 @@
 /* Parse and display command line options.
-   Copyright (C) 2000-2013 Free Software Foundation, Inc.
+   Copyright (C) 2000-2014 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -437,14 +437,7 @@ gfc_post_options (const char **pfilename)
 
   gfc_cpp_post_options ();
 
-/* FIXME: return gfc_cpp_preprocess_only ();
-
-   The return value of this function indicates whether the
-   backend needs to be initialized. On -E, we don't need
-   the backend. However, if we return 'true' here, an
-   ICE occurs. Initializing the backend doesn't hurt much,
-   hence, for now we can live with it as is.  */
-  return false;
+  return gfc_cpp_preprocess_only ();
 }
 
 
@@ -836,6 +829,10 @@ gfc_handle_option (size_t scode, const char *arg, int value,
       gfc_option.gfc_flag_openmp = value;
       break;
 
+    case OPT_fopenmp_simd:
+      gfc_option.gfc_flag_openmp_simd = value;
+      break;
+
     case OPT_ffree_line_length_none:
       gfc_option.free_line_length = 0;
       break;
@@ -1165,6 +1162,10 @@ gfc_get_option_string (void)
   unsigned j;
   size_t len, pos;
   char *result;
+
+  /* Allocate and return a one-character string with '\0'.  */
+  if (!save_decoded_options_count)
+    return XCNEWVEC (char, 1);
 
   /* Determine required string length.  */
 

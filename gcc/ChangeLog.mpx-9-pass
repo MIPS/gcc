@@ -1,0 +1,54 @@
+2013-11-06  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* tree-chkp.c: New.
+	* tree-chkp.h: New.
+	* rtl-chkp.c: New.
+	* rtl-chkp.h: New.
+	* Makefile.in (OBJS): Add tree-chkp.o, rtl-chkp.o.
+	(GTFILES): Add tree-chkp.c.
+	* c-family/c.opt (fchkp-check-incomplete-type): New.
+	(fchkp-zero-input-bounds-for-main): New.
+	(fchkp-first-field-has-own-bounds): New.
+	(fchkp-narrow-bounds): New.
+	(fchkp-narrow-to-innermost-array): New.
+	(fchkp-optimize): New.
+	(fchkp-use-fast-string-functions): New.
+	(fchkp-use-nochk-string-functions): New.
+	(fchkp-use-static-bounds): New.
+	(fchkp-use-static-const-bounds): New.
+	(fchkp-treat-zero-dynamic-size-as-infinite): New.
+	(fchkp-check-read): New.
+	(fchkp-check-write): New.
+	(fchkp-store-bounds): New.
+	(fchkp-instrument-calls): New.
+	(fchkp-instrument-marked-only): New.
+	* cppbuiltin.c (define_builtin_macros_for_compilation_flags): Add
+	__CHKP__ macro when Pointer Bounds Checker is on.
+	* passes.def (pass_ipa_chkp_versioning): New.
+	(pass_before_local_optimization_passes): New.
+	(pass_chkp_instrumentation_passes): New.
+	(pass_ipa_chkp_produce_thunks): New.
+	(pass_local_optimization_passes): New.
+	(pass_chkp_opt): New.
+	* toplev.c: include tree-chkp.h.
+	(compile_file): Add chkp_finish_file call.
+	* tree-pass.h (make_pass_ipa_chkp_versioning): New.
+	(make_pass_ipa_chkp_produce_thunks): New.
+	(make_pass_chkp): New.
+	(make_pass_chkp_opt): New.
+	(make_pass_before_local_optimization_passes): New.
+	(make_pass_chkp_instrumentation_passes): New.
+	(make_pass_local_optimization_passes): New.
+	* tree.h (called_as_built_in): New.
+	* builtins.c (called_as_built_in): Not static anymore.
+	* passes.c (pass_manager::execute_early_local_passes): Execute
+	early passes in three steps.
+	(pass_data_before_local_optimization_passes): New.
+	(pass_before_local_optimization_passes): New.
+	(pass_data_chkp_instrumentation_passes): New.
+	(pass_chkp_instrumentation_passes): New.
+	(pass_data_local_optimization_passes): New.
+	(pass_local_optimization_passes): New.
+	(make_pass_before_local_optimization_passes): New.
+	(make_pass_chkp_instrumentation_passes): New.
+	(make_pass_local_optimization_passes): New.

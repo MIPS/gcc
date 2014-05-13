@@ -1,0 +1,6 @@
+2013-11-13  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* ipa-cp.c (initialize_node_lattices): Check original
+	version locality for instrumentation clones.
+	(propagate_constants_accross_call): Do not propagate
+	through instrumentation thunks.

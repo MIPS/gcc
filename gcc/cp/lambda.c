@@ -3,7 +3,7 @@
    building RTL.  These routines are used both during actual parsing
    and during the instantiation of template functions.
 
-   Copyright (C) 1998-2013 Free Software Foundation, Inc.
+   Copyright (C) 1998-2014 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "stringpool.h"
 #include "cgraph.h"
 #include "tree-iterator.h"
 #include "cp-tree.h"
@@ -138,6 +139,8 @@ begin_lambda_type (tree lambda)
                      name,
                      /*scope=*/ts_lambda,
                      /*template_header_p=*/false);
+    if (type == error_mark_node)
+      return error_mark_node;
   }
 
   /* Designate it as a struct so that we can use aggregate initialization.  */
@@ -152,8 +155,6 @@ begin_lambda_type (tree lambda)
 
   /* Start the class.  */
   type = begin_class_definition (type);
-  if (type == error_mark_node)
-    return error_mark_node;
 
   return type;
 }
@@ -248,6 +249,10 @@ is_normal_capture_proxy (tree decl)
   if (!is_capture_proxy (decl))
     /* It's not a capture proxy.  */
     return false;
+
+  if (variably_modified_type_p (TREE_TYPE (decl), NULL_TREE))
+    /* VLA capture.  */
+    return true;
 
   /* It is a capture proxy, is it a normal capture?  */
   tree val = DECL_VALUE_EXPR (decl);
@@ -376,8 +381,8 @@ build_capture_proxy (tree member)
       tree ptr = build_simple_component_ref (object, field);
       field = next_initializable_field (DECL_CHAIN (field));
       tree max = build_simple_component_ref (object, field);
-      type = build_array_type (TREE_TYPE (TREE_TYPE (ptr)),
-			       build_index_type (max));
+      type = build_cplus_array_type (TREE_TYPE (TREE_TYPE (ptr)),
+				     build_index_type (max));
       type = build_reference_type (type);
       REFERENCE_VLA_OK (type) = true;
       object = convert (type, ptr);
@@ -628,7 +633,14 @@ lambda_expr_this_capture (tree lambda)
   /* In unevaluated context this isn't an odr-use, so just return the
      nearest 'this'.  */
   if (cp_unevaluated_operand)
-    return lookup_name (this_identifier);
+    {
+      /* In an NSDMI the fake 'this' pointer that we're using for
+	 parsing is in scope_chain.  */
+      if (LAMBDA_EXPR_EXTRA_SCOPE (lambda)
+	  && TREE_CODE (LAMBDA_EXPR_EXTRA_SCOPE (lambda)) == FIELD_DECL)
+	return scope_chain->x_current_class_ptr;
+      return lookup_name (this_identifier);
+    }
 
   /* Try to default capture 'this' if we can.  */
   if (!this_capture
@@ -737,6 +749,7 @@ maybe_resolve_dummy (tree object)
   if (type != current_class_type
       && current_class_type
       && LAMBDA_TYPE_P (current_class_type)
+      && lambda_function (current_class_type)
       && DERIVED_FROM_P (type, current_nonlambda_class_type ()))
     {
       /* In a lambda, need to go through 'this' capture.  */
@@ -1013,8 +1026,8 @@ maybe_add_lambda_conv_op (tree type)
     {
       /* Put the thunk in the same comdat group as the call op.  */
       symtab_add_to_same_comdat_group
-	 ((symtab_node) cgraph_get_create_node (statfn),
-          (symtab_node) cgraph_get_create_node (callop));
+	 (cgraph_get_create_node (statfn),
+          cgraph_get_create_node (callop));
     }
   tree body = begin_function_body ();
   tree compound_stmt = begin_compound_stmt (0);

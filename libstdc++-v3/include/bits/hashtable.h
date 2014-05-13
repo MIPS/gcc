@@ -1,6 +1,6 @@
 // hashtable.h header -*- C++ -*-
 
-// Copyright (C) 2007-2013 Free Software Foundation, Inc.
+// Copyright (C) 2007-2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -42,10 +42,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     using __cache_default
       =  __not_<__and_<// Do not cache for fast hasher.
 		       __is_fast_hash<_Hash>,
-		       // Mandatory to make local_iterator default
-		       // constructible and assignable.
-		       is_default_constructible<_Hash>,
-		       is_copy_assignable<_Hash>,
 		       // Mandatory to have erase not throwing.
 		       __detail::__is_noexcept_hash<_Tp, _Hash>>>;
 
@@ -260,9 +256,14 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       // Compile-time diagnostics.
 
+      // _Hash_code_base has everything protected, so use this derived type to
+      // access it.
+      struct __hash_code_base_access : __hash_code_base
+      { using __hash_code_base::_M_bucket_index; };
+
       // Getting a bucket index from a node shall not throw because it is used
       // in methods (erase, swap...) that shall not throw.
-      static_assert(noexcept(declval<const _Hashtable&>()
+      static_assert(noexcept(declval<const __hash_code_base_access&>()
 			     ._M_bucket_index((const __node_type*)nullptr,
 					      (std::size_t)0)),
 		    "Cache the hash code or qualify your functors involved"
@@ -276,25 +277,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       static_assert(__if_hash_cached<is_default_constructible<_H2>>::value,
 		    "Functor used to map hash code to bucket index"
 		    " must be default constructible");
-
-      // When hash codes are not cached local iterator inherits from
-      // __hash_code_base above to compute node bucket index so it has to be
-      // default constructible.
-      static_assert(__if_hash_not_cached<
-		    is_default_constructible<
-		      // We use _Hashtable_ebo_helper to access the protected
-		      // default constructor.
-		      __detail::_Hashtable_ebo_helper<0, __hash_code_base>>>::value,
-		    "Cache the hash code or make functors involved in hash code"
-		    " and bucket index computation default constructible");
-
-      // When hash codes are not cached local iterator inherits from
-      // __hash_code_base above to compute node bucket index so it has to be
-      // assignable.
-      static_assert(__if_hash_not_cached<
-		      is_copy_assignable<__hash_code_base>>::value,
-		    "Cache the hash code or make functors involved in hash code"
-		    " and bucket index computation copy assignable");
 
       template<typename _Keya, typename _Valuea, typename _Alloca,
 	       typename _ExtractKeya, typename _Equala,
@@ -390,9 +372,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       // Use delegating constructors.
       explicit
       _Hashtable(const allocator_type& __a)
-	: _Hashtable(10, _H1(), __detail::_Mod_range_hashing(),
-		     __detail::_Default_ranged_hash(), key_equal(),
-		     __key_extract(), __a)
+      : _Hashtable(10, _H1(), _H2(), _Hash(), key_equal(),
+		   __key_extract(), __a)
       { }
 
       explicit
@@ -400,8 +381,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		 const _H1& __hf = _H1(),
 		 const key_equal& __eql = key_equal(),
 		 const allocator_type& __a = allocator_type())
-      : _Hashtable(__n, __hf, __detail::_Mod_range_hashing(),
-		   __detail::_Default_ranged_hash(), __eql,
+      : _Hashtable(__n, __hf, _H2(), _Hash(), __eql,
 		   __key_extract(), __a)
       { }
 
@@ -411,8 +391,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		   const _H1& __hf = _H1(),
 		   const key_equal& __eql = key_equal(),
 		   const allocator_type& __a = allocator_type())
-	: _Hashtable(__f, __l, __n, __hf, __detail::_Mod_range_hashing(),
-		     __detail::_Default_ranged_hash(), __eql,
+	: _Hashtable(__f, __l, __n, __hf, _H2(), _Hash(), __eql,
 		     __key_extract(), __a)
 	{ }
 
@@ -421,9 +400,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		 const _H1& __hf = _H1(),
 		 const key_equal& __eql = key_equal(),
 		 const allocator_type& __a = allocator_type())
-      : _Hashtable(__l.begin(), __l.end(), __n, __hf,
-		   __detail::_Mod_range_hashing(),
-		   __detail::_Default_ranged_hash(), __eql,
+      : _Hashtable(__l.begin(), __l.end(), __n, __hf, _H2(), _Hash(), __eql,
 		   __key_extract(), __a)
       { }
 

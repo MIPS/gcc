@@ -1,5 +1,5 @@
 /* Language-dependent node constructors for parse phase of GNU compiler.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -23,6 +23,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "print-tree.h"
+#include "tree-iterator.h"
 #include "cp-tree.h"
 #include "flags.h"
 #include "tree-inline.h"
@@ -30,8 +33,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "convert.h"
 #include "cgraph.h"
 #include "splay-tree.h"
-#include "gimple.h" /* gimple_has_body_p */
 #include "hash-table.h"
+#include "gimple-expr.h"
+#include "gimplify.h"
 
 static tree bot_manip (tree *, int *, void *);
 static tree bot_replace (tree *, int *, void *);
@@ -449,6 +453,7 @@ build_aggr_init_expr (tree type, tree init)
       TREE_SIDE_EFFECTS (rval) = 1;
       AGGR_INIT_VIA_CTOR_P (rval) = is_ctor;
       TREE_NOTHROW (rval) = TREE_NOTHROW (init);
+      CALL_EXPR_LIST_INIT_P (rval) = CALL_EXPR_LIST_INIT_P (init);
     }
   else
     rval = init;
@@ -2166,6 +2171,7 @@ no_linkage_check (tree t, bool relaxed_p)
     case ARRAY_TYPE:
     case POINTER_TYPE:
     case REFERENCE_TYPE:
+    case VECTOR_TYPE:
       return no_linkage_check (TREE_TYPE (t), relaxed_p);
 
     case OFFSET_TYPE:
@@ -2302,7 +2308,20 @@ bot_manip (tree* tp, int* walk_subtrees, void* data)
   /* Make a copy of this node.  */
   t = copy_tree_r (tp, walk_subtrees, NULL);
   if (TREE_CODE (*tp) == CALL_EXPR)
-    set_flags_from_callee (*tp);
+    {
+      set_flags_from_callee (*tp);
+
+      /* builtin_LINE and builtin_FILE get the location where the default
+	 argument is expanded, not where the call was written.  */
+      tree callee = get_callee_fndecl (*tp);
+      if (callee && DECL_BUILT_IN (callee))
+	switch (DECL_FUNCTION_CODE (callee))
+	  {
+	  case BUILT_IN_FILE:
+	  case BUILT_IN_LINE:
+	    SET_EXPR_LOCATION (*tp, input_location);
+	  }
+    }
   return t;
 }
 
@@ -3232,6 +3251,7 @@ handle_init_priority_attribute (tree* node,
   int pri;
 
   STRIP_NOPS (initp_expr);
+  initp_expr = default_conversion (initp_expr);
 
   if (!initp_expr || TREE_CODE (initp_expr) != INTEGER_CST)
     {
@@ -3343,6 +3363,18 @@ handle_abi_tag_attribute (tree* node, tree name, tree args,
 	{
 	  error ("%qE attribute applied to %qT after its definition",
 		 name, *node);
+	  goto fail;
+	}
+      else if (CLASSTYPE_TEMPLATE_INSTANTIATION (*node))
+	{
+	  warning (OPT_Wattributes, "ignoring %qE attribute applied to "
+		   "template instantiation %qT", name, *node);
+	  goto fail;
+	}
+      else if (CLASSTYPE_TEMPLATE_SPECIALIZATION (*node))
+	{
+	  warning (OPT_Wattributes, "ignoring %qE attribute applied to "
+		   "template specialization %qT", name, *node);
 	  goto fail;
 	}
 
@@ -3983,8 +4015,8 @@ cp_fix_function_decl_p (tree decl)
 
       /* Don't fix same_body aliases.  Although they don't have their own
 	 CFG, they share it with what they alias to.  */
-      if (!node || !node->symbol.alias
-	  || !vec_safe_length (node->symbol.ref_list.references))
+      if (!node || !node->alias
+	  || !vec_safe_length (node->ref_list.references))
 	return true;
     }
 

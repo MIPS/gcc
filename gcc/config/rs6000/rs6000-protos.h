@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for IBM RS/6000.
-   Copyright (C) 2000-2013 Free Software Foundation, Inc.
+   Copyright (C) 2000-2014 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
    This file is part of GCC.
@@ -51,12 +51,18 @@ extern rtx find_addr_reg (rtx);
 extern rtx gen_easy_altivec_constant (rtx);
 extern const char *output_vec_const_move (rtx *);
 extern const char *rs6000_output_move_128bit (rtx *);
+extern bool rs6000_move_128bit_ok_p (rtx []);
+extern bool rs6000_split_128bit_ok_p (rtx []);
 extern void rs6000_expand_vector_init (rtx, rtx);
 extern void paired_expand_vector_init (rtx, rtx);
 extern void rs6000_expand_vector_set (rtx, rtx, int);
 extern void rs6000_expand_vector_extract (rtx, rtx, int);
 extern bool altivec_expand_vec_perm_const (rtx op[4]);
+extern void altivec_expand_vec_perm_le (rtx op[4]);
 extern bool rs6000_expand_vec_perm_const (rtx op[4]);
+extern void altivec_expand_lvx_be (rtx, rtx, enum machine_mode, unsigned);
+extern void altivec_expand_stvx_be (rtx, rtx, enum machine_mode, unsigned);
+extern void altivec_expand_stvex_be (rtx, rtx, enum machine_mode, unsigned);
 extern void rs6000_expand_extract_even (rtx, rtx, rtx);
 extern void rs6000_expand_interleave (rtx, rtx, rtx, bool);
 extern void build_mask64_2_operands (rtx, rtx *);
@@ -122,8 +128,11 @@ extern rtx rs6000_longcall_ref (rtx);
 extern void rs6000_fatal_bad_address (rtx);
 extern rtx create_TOC_reference (rtx, rtx);
 extern void rs6000_split_multireg_move (rtx, rtx);
+extern void rs6000_emit_le_vsx_move (rtx, rtx, enum machine_mode);
 extern void rs6000_emit_move (rtx, rtx, enum machine_mode);
 extern rtx rs6000_secondary_memory_needed_rtx (enum machine_mode);
+extern enum machine_mode rs6000_secondary_memory_needed_mode (enum
+							      machine_mode);
 extern rtx (*rs6000_legitimize_reload_address_ptr) (rtx, enum machine_mode,
 						    int, int, int, int *);
 extern bool rs6000_legitimate_offset_address_p (enum machine_mode, rtx,
@@ -154,6 +163,7 @@ extern tree altivec_resolve_overloaded_builtin (location_t, tree, void *);
 extern rtx rs6000_libcall_value (enum machine_mode);
 extern rtx rs6000_va_arg (tree, tree);
 extern int function_ok_for_sibcall (tree);
+extern int rs6000_reg_parm_stack_space (tree);
 extern void rs6000_elf_declare_function_name (FILE *, const char *, tree);
 extern bool rs6000_elf_in_small_data_p (const_tree);
 #ifdef ARGS_SIZE_RTX
@@ -178,7 +188,8 @@ extern unsigned int rs6000_dbx_register_number (unsigned int);
 extern void rs6000_emit_epilogue (int);
 extern void rs6000_emit_eh_reg_restore (rtx, rtx);
 extern const char * output_isel (rtx *);
-extern void rs6000_call_indirect_aix (rtx, rtx, rtx);
+extern void rs6000_call_aix (rtx, rtx, rtx, rtx);
+extern void rs6000_sibcall_aix (rtx, rtx, rtx, rtx);
 extern void rs6000_aix_asm_output_dwarf_table_ref (char *);
 extern void get_ppc476_thunk_name (char name[32]);
 extern bool rs6000_overloaded_builtin_p (enum rs6000_builtins);
@@ -208,4 +219,6 @@ void rs6000_final_prescan_insn (rtx, rtx *operand, int num_operands);
 extern bool rs6000_hard_regno_mode_ok_p[][FIRST_PSEUDO_REGISTER];
 extern unsigned char rs6000_class_max_nregs[][LIM_REG_CLASSES];
 extern unsigned char rs6000_hard_regno_nregs[][FIRST_PSEUDO_REGISTER];
+
+extern bool rs6000_linux_float_exceptions_rounding_supported_p (void);
 #endif  /* rs6000-protos.h */

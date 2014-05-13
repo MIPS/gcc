@@ -1,5 +1,5 @@
 ;; Predicate definitions for POWER and PowerPC.
-;; Copyright (C) 2005-2013 Free Software Foundation, Inc.
+;; Copyright (C) 2005-2014 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -270,7 +270,7 @@
 {
   HOST_WIDE_INT r;
 
-  if (!TARGET_QUAD_MEMORY)
+  if (!TARGET_QUAD_MEMORY && !TARGET_QUAD_MEMORY_ATOMIC)
     return 0;
 
   if (GET_CODE (op) == SUBREG)
@@ -624,6 +624,7 @@
        (match_test "offsettable_nonstrict_memref_p (op)")))
 
 ;; Return 1 if the operand is suitable for load/store quad memory.
+;; This predicate only checks for non-atomic loads/stores.
 (define_predicate "quad_memory_operand"
   (match_code "mem")
 {
@@ -980,6 +981,14 @@
   (ior (match_operand 0 "zero_fp_constant")
        (match_operand 0 "reg_or_mem_operand")))
 
+;; Return 1 if the operand is a CONST_INT and it is the element for 64-bit
+;; data types inside of a vector that scalar instructions operate on
+(define_predicate "vsx_scalar_64bit"
+  (match_code "const_int")
+{
+  return (INTVAL (op) == VECTOR_ELEMENT_SCALAR_64BIT);
+})
+
 ;; Return 1 if the operand is a general register or memory operand without
 ;; pre_inc or pre_dec or pre_modify, which produces invalid form of PowerPC
 ;; lwa instruction.
@@ -1050,7 +1059,8 @@
   (and (match_code "symbol_ref")
        (match_test "(DEFAULT_ABI != ABI_AIX || SYMBOL_REF_FUNCTION_P (op))
 		    && ((SYMBOL_REF_LOCAL_P (op)
-			 && (DEFAULT_ABI != ABI_AIX
+			 && ((DEFAULT_ABI != ABI_AIX
+			      && DEFAULT_ABI != ABI_ELFv2)
 			     || !SYMBOL_REF_EXTERNAL_P (op)))
 		        || (op == XEXP (DECL_RTL (current_function_decl),
 						  0)))")))
@@ -1533,6 +1543,26 @@
 	  || XVECEXP (unspec, 0, 0) != src_reg
 	  || GET_CODE (XVECEXP (unspec, 0, 1)) != CONST_INT
 	  || INTVAL (XVECEXP (unspec, 0, 1)) != maskval)
+	return 0;
+    }
+  return 1;
+})
+
+;; Return 1 if OP is valid for crsave insn, known to be a PARALLEL.
+(define_predicate "crsave_operation"
+  (match_code "parallel")
+{
+  int count = XVECLEN (op, 0);
+  int i;
+
+  for (i = 1; i < count; i++)
+    {
+      rtx exp = XVECEXP (op, 0, i);
+
+      if (GET_CODE (exp) != USE
+	  || GET_CODE (XEXP (exp, 0)) != REG
+	  || GET_MODE (XEXP (exp, 0)) != CCmode
+	  || ! CR_REGNO_P (REGNO (XEXP (exp, 0))))
 	return 0;
     }
   return 1;

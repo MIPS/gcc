@@ -1,5 +1,5 @@
 ;; Machine description of the Adaptiva epiphany cpu for GNU C compiler
-;; Copyright (C) 1994-2013 Free Software Foundation, Inc.
+;; Copyright (C) 1994-2014 Free Software Foundation, Inc.
 ;; Contributed by Embecosm on behalf of Adapteva, Inc.
 
 ;; This file is part of GCC.
@@ -1787,14 +1787,14 @@
 
 (define_peephole2
   [(parallel
-    [(set (match_operand:SI 0 "gpr_operand" "=r")
-	  (logical_op:SI (match_operand:SI 1 "gpr_operand"  "r")
-			 (match_operand:SI 2 "gpr_operand" "%r")))
+    [(set (match_operand:SI 0 "gpr_operand")
+	  (logical_op:SI (match_operand:SI 1 "gpr_operand")
+			 (match_operand:SI 2 "gpr_operand")))
      (clobber (reg:CC CC_REGNUM))])
    (parallel
     [(set (reg:CC CC_REGNUM)
 	  (compare:CC (and:SI (match_dup 0) (match_dup 0)) (const_int 0)))
-     (set (match_operand:SI 3 "gpr_operand" "=r")
+     (set (match_operand:SI 3 "gpr_operand")
 	  (and:SI (match_dup 0) (match_dup 0)))])]
   "peep2_reg_dead_p (2, operands[0])"
   [(parallel
@@ -1805,14 +1805,14 @@
 
 (define_peephole2
   [(parallel
-    [(set (match_operand:SI 0 "gpr_operand" "=r")
-	  (logical_op:SI (match_operand:SI 1 "gpr_operand"  "r")
-			 (match_operand:SI 2 "gpr_operand" "%r")))
+    [(set (match_operand:SI 0 "gpr_operand")
+	  (logical_op:SI (match_operand:SI 1 "gpr_operand")
+			 (match_operand:SI 2 "gpr_operand")))
      (clobber (reg:CC CC_REGNUM))])
    (parallel
     [(set (reg:CC CC_REGNUM)
 	  (compare:CC (and:SI (match_dup 0) (match_dup 0)) (const_int 0)))
-     (set (match_operand:SI 3 "gpr_operand" "=r")
+     (set (match_operand:SI 3 "gpr_operand")
 	  (and:SI (match_dup 0) (match_dup 0)))])]
   "peep2_reg_dead_p (2, operands[3])"
   [(parallel
@@ -1823,14 +1823,14 @@
 
 (define_peephole2
   [(parallel
-    [(set (match_operand:SI 0 "gpr_operand" "=r")
-	  (logical_op:SI (match_operand:SI 1 "gpr_operand"  "r")
-			 (match_operand:SI 2 "gpr_operand" "%r")))
+    [(set (match_operand:SI 0 "gpr_operand")
+	  (logical_op:SI (match_operand:SI 1 "gpr_operand")
+			 (match_operand:SI 2 "gpr_operand")))
      (clobber (reg:CC CC_REGNUM))])
    (parallel
     [(set (reg:CC CC_REGNUM)
 	  (compare:CC (match_dup 0) (const_int 0)))
-     (clobber (match_operand:SI 3 "gpr_operand" "=r"))])]
+     (clobber (match_operand:SI 3 "gpr_operand"))])]
   ""
   [(parallel
     [(set (reg:CC CC_REGNUM)
@@ -2380,7 +2380,7 @@
 	(plus:SI (reg:SI GPR_SP) (match_operand:SI 0 "arith_operand" "rL")))
    (clobber (reg:CC CC_REGNUM))
    (clobber (reg:SI STATUS_REGNUM))
-   (clobber (match_operand:BLK 1 "memory_operand" "=m"))]
+   (clobber (match_operand:BLK 1 "memclob_operand" "=X"))]
   "reload_completed"
   "add sp,sp,%0")
 
@@ -2396,7 +2396,7 @@
 	(match_operand 1 "any_gpr_operand" "r"))
    (set (reg:SI GPR_SP)
 	(plus:SI (reg:SI GPR_SP) (match_operand:SI 2 "nonmemory_operand" "rn")))
-   (clobber (match_operand:BLK 3 "memory_operand" "=m"))]
+   (clobber (match_operand:BLK 3 "memclob_operand" "=X"))]
   "reload_completed"
 {
   return (GET_MODE_SIZE (GET_MODE (operands[0])) <= 4

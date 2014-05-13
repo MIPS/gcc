@@ -1,5 +1,5 @@
 /* Declaration statement matcher
-   Copyright (C) 2002-2013 Free Software Foundation, Inc.
+   Copyright (C) 2002-2014 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "constructor.h"
 #include "tree.h"
+#include "stringpool.h"
 
 /* Macros to access allocate memory for gfc_data_variable,
    gfc_data_value and gfc_data.  */
@@ -509,9 +510,7 @@ match_old_style_init (const char *name)
       free (newdata);
       return MATCH_ERROR;
     }
-
-  if (gfc_implicit_pure (NULL))
-    gfc_current_ns->proc_name->attr.implicit_pure = 0;
+  gfc_unset_implicit_pure (gfc_current_ns->proc_name);
 
   /* Mark the variable as having appeared in a data statement.  */
   if (!gfc_add_data (&sym->attr, sym->name, &sym->declared_at))
@@ -570,9 +569,7 @@ gfc_match_data (void)
       gfc_error ("DATA statement at %C is not allowed in a PURE procedure");
       return MATCH_ERROR;
     }
-
-  if (gfc_implicit_pure (NULL))
-    gfc_current_ns->proc_name->attr.implicit_pure = 0;
+  gfc_unset_implicit_pure (gfc_current_ns->proc_name);
 
   return MATCH_YES;
 
@@ -1198,7 +1195,7 @@ build_sym (const char *name, gfc_charlen *cl, bool cl_deferred,
   sym->attr.implied_index = 0;
 
   if (sym->ts.type == BT_CLASS)
-    return gfc_build_class_symbol (&sym->ts, &sym->attr, &sym->as, false);
+    return gfc_build_class_symbol (&sym->ts, &sym->attr, &sym->as);
 
   return true;
 }
@@ -1655,10 +1652,7 @@ build_struct (const char *name, gfc_charlen *cl, gfc_expr **init,
 scalar:
   if (c->ts.type == BT_CLASS)
     {
-      bool delayed = (gfc_state_stack->sym == c->ts.u.derived)
-		     || (!c->ts.u.derived->components
-			 && !c->ts.u.derived->attr.zero_comp);
-      bool t2 = gfc_build_class_symbol (&c->ts, &c->attr, &c->as, delayed);
+      bool t2 = gfc_build_class_symbol (&c->ts, &c->attr, &c->as);
 
       if (t)
 	t = t2;
@@ -1741,6 +1735,7 @@ match_pointer_init (gfc_expr **init, int procptr)
 		 "a PURE procedure");
       return MATCH_ERROR;
     }
+  gfc_unset_implicit_pure (gfc_current_ns->proc_name);
 
   /* Match NULL() initialization.  */
   m = gfc_match_null (init);
@@ -2047,6 +2042,10 @@ variable_decl (int elem)
 			 "a PURE procedure");
 	      m = MATCH_ERROR;
 	    }
+
+	  if (current_attr.flavor != FL_PARAMETER
+	      && gfc_state_stack->state != COMP_DERIVED)
+	    gfc_unset_implicit_pure (gfc_current_ns->proc_name);
 
 	  if (m != MATCH_YES)
 	    goto cleanup;
@@ -4286,12 +4285,10 @@ gfc_match_data_decl (void)
 	      || current_ts.u.derived->attr.zero_comp))
 	goto ok;
 
-      /* Now we have an error, which we signal, and then fix up
-	 because the knock-on is plain and simple confusing.  */
-      gfc_error_now ("Derived type at %C has not been previously defined "
-		     "and so cannot appear in a derived type definition");
-      current_attr.pointer = 1;
-      goto ok;
+      gfc_error ("Derived type at %C has not been previously defined "
+		 "and so cannot appear in a derived type definition");
+      m = MATCH_ERROR;
+      goto cleanup;
     }
 
 ok:
@@ -5055,7 +5052,14 @@ match_ppc_decl (void)
       if (!gfc_add_proc (&c->attr, name, NULL))
 	return MATCH_ERROR;
 
-      c->tb = tb;
+      if (num == 1)
+	c->tb = tb;
+      else
+	{
+	  c->tb = XCNEW (gfc_typebound_proc);
+	  c->tb->where = gfc_current_locus;
+	  *c->tb = *tb;
+	}
 
       /* Set interface.  */
       if (proc_if != NULL)
@@ -6334,7 +6338,7 @@ attr_decl1 (void)
     }
 
   if (sym->ts.type == BT_CLASS
-      && !gfc_build_class_symbol (&sym->ts, &sym->attr, &sym->as, false))
+      && !gfc_build_class_symbol (&sym->ts, &sym->attr, &sym->as))
     {
       m = MATCH_ERROR;
       goto cleanup;

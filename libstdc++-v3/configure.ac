@@ -198,6 +198,12 @@ GLIBCXX_CHECK_S_ISREG_OR_S_IFREG
 AC_CHECK_HEADERS(sys/uio.h)
 GLIBCXX_CHECK_WRITEV
 
+# Check for fenv.h and complex.h before GLIBCXX_CHECK_C99_TR1
+# so that the check is done with the C compiler (not C++).
+# Checking with C++ can break a canadian cross build if either
+# file does not exist in C but does in C++.
+AC_CHECK_HEADERS(fenv.h complex.h)
+
 # For C99 support to TR1.
 GLIBCXX_CHECK_C99_TR1
 
@@ -209,6 +215,9 @@ GLIBCXX_CHECK_GETTIMEOFDAY
 
 # For clock_gettime, nanosleep and sched_yield support.
 GLIBCXX_ENABLE_LIBSTDCXX_TIME
+
+# Check for tmpnam which is obsolescent in POSIX.1-2008
+GLIBCXX_CHECK_TMPNAM
 
 AC_LC_MESSAGES
 

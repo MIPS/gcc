@@ -1,6 +1,6 @@
 /* { dg-do run { xfail *-*-* } } */
-/* { dg-options "-fcheck-pointers -mmpx" } */
-/* { dg-skip-if "" { *-*-* } { "-flto" } { "" } } */
+/* { dg-options "-fcheck-pointer-bounds -mmpx" } */
+
 /* { dg-additional-options "-fchkp-first-field-has-own-bounds" } */
 
 #define XFAIL

@@ -4,7 +4,7 @@
 //
 // 2013-08-29  Tim Shen <timshen91@gmail.com>
 //
-// Copyright (C) 2013 Free Software Foundation, Inc.
+// Copyright (C) 2013-2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -26,6 +26,10 @@
 
 #include <regex>
 #include <testsuite_hooks.h>
+#include <testsuite_regex.h>
+
+using namespace __gnu_test;
+using namespace std;
 
 void
 test01()
@@ -37,7 +41,7 @@ test01()
   re2.imbue(std::locale("de_DE.UTF-8"));
   re2.assign(L"[[:upper:]]*", std::regex::extended);
   std::wsmatch m2;
-  VERIFY(std::regex_match(str2, m2, re2));
+  VERIFY(regex_match_debug(str2, m2, re2));
 }
 
 int

@@ -3,7 +3,7 @@
 //
 // 2013-07-23  Tim Shen <timshen91@gmail.com>
 //
-// Copyright (C) 2013 Free Software Foundation, Inc.
+// Copyright (C) 2013-2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -24,6 +24,10 @@
 
 #include <regex>
 #include <testsuite_hooks.h>
+#include <testsuite_regex.h>
+
+using namespace __gnu_test;
+using namespace std;
 #include <iostream>
 
 // libstdc++/57173
@@ -37,7 +41,7 @@ test01()
     std::string target("/asdf/qwerty");
     std::smatch m;
 
-    VERIFY( std::regex_match(target, m, re) );
+    VERIFY( regex_match_debug(target, m, re) );
     VERIFY( m.size() == 2 );
     VERIFY( std::string(m[1].first, m[1].second) == "/qwerty");
   }
@@ -46,7 +50,7 @@ test01()
     std::string target("/asdf/qwerty");
     std::smatch m;
 
-    VERIFY( std::regex_match(target, m, re) );
+    VERIFY( regex_match_debug(target, m, re) );
     VERIFY( m.size() == 3 );
     VERIFY( std::string(m[1].first, m[1].second) == "/qwerty");
   }

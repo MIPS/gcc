@@ -246,6 +246,16 @@ Variable_declaration_statement::do_lower(Gogo* gogo, Named_object* function,
   return this;
 }
 
+// Flatten the variable's initialization expression.
+
+Statement*
+Variable_declaration_statement::do_flatten(Gogo* gogo, Named_object* function,
+                                           Block*, Statement_inserter* inserter)
+{
+  this->var_->var_value()->flatten_init_expression(gogo, function, inserter);
+  return this;
+}
+
 // Convert a variable declaration to the backend representation.
 
 Bstatement*
@@ -2461,6 +2471,7 @@ Thunk_statement::build_thunk(Gogo* gogo, const std::string& thunk_name)
   gogo->add_block(b, location);
 
   gogo->lower_block(function, b);
+  gogo->flatten_block(function, b);
 
   // We already ran the determine_types pass, so we need to run it
   // just for the call statement now.  The other types are known.
@@ -5540,7 +5551,7 @@ For_range_statement::lower_range_array(Gogo* gogo,
 
       ref = this->make_range_ref(range_object, range_temp, loc);
       Expression* ref2 = Expression::make_temporary_reference(index_temp, loc);
-      Expression* index = Expression::make_index(ref, ref2, NULL, loc);
+      Expression* index = Expression::make_index(ref, ref2, NULL, NULL, loc);
 
       tref = Expression::make_temporary_reference(value_temp, loc);
       tref->set_is_lvalue();
@@ -5641,7 +5652,7 @@ For_range_statement::lower_range_slice(Gogo* gogo,
 
       ref = Expression::make_temporary_reference(for_temp, loc);
       Expression* ref2 = Expression::make_temporary_reference(index_temp, loc);
-      Expression* index = Expression::make_index(ref, ref2, NULL, loc);
+      Expression* index = Expression::make_index(ref, ref2, NULL, NULL, loc);
 
       tref = Expression::make_temporary_reference(value_temp, loc);
       tref->set_is_lvalue();
@@ -5849,7 +5860,7 @@ For_range_statement::lower_range_map(Gogo*,
   Expression* zexpr = Expression::make_integer(&zval, NULL, loc);
   mpz_clear(zval);
 
-  Expression* index = Expression::make_index(ref, zexpr, NULL, loc);
+  Expression* index = Expression::make_index(ref, zexpr, NULL, NULL, loc);
 
   Expression* ne = Expression::make_binary(OPERATOR_NOTEQ, index,
 					   Expression::make_nil(loc),

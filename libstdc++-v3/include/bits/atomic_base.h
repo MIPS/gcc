@@ -1,6 +1,6 @@
 // -*- C++ -*- header.
 
-// Copyright (C) 2008-2013 Free Software Foundation, Inc.
+// Copyright (C) 2008-2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -255,7 +255,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *
    *  Base type is POD with data, allowing atomic_flag to derive from
    *  it and meet the standard layout type requirement. In addition to
-   *  compatibilty with a C interface, this allows different
+   *  compatibility with a C interface, this allows different
    *  implementations of atomic_flag to use the same atomic operation
    *  functions, via a standard conversion to the __atomic_flag_base
    *  argument.
@@ -768,11 +768,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       bool
       is_lock_free() const noexcept
-      { return __atomic_is_lock_free(_M_type_size(1), nullptr); }
+      { return __atomic_is_lock_free(sizeof(__pointer_type), nullptr); }
 
       bool
       is_lock_free() const volatile noexcept
-      { return __atomic_is_lock_free(_M_type_size(1), nullptr); }
+      { return __atomic_is_lock_free(sizeof(__pointer_type), nullptr); }
 
       _GLIBCXX_ALWAYS_INLINE void
       store(__pointer_type __p,

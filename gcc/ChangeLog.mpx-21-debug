@@ -1,0 +1,11 @@
+2013-11-15  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* dbxout.c (dbxout_type): Ignore POINTER_BOUNDS_TYPE.
+	* dwarf2out.c (gen_subprogram_die): Ignore bound args.
+	(gen_type_die_with_usage): Skip pointer bounds.
+	(dwarf2out_global_decl): Likewise.
+	(is_base_type): Support POINTER_BOUNDS_TYPE.
+	(gen_formal_types_die): Skip pointer bounds.
+	(gen_decl_die): Likewise.
+	* var-tracking.c (vt_add_function_parameters): Skip
+	bounds parameters.

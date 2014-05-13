@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---            Copyright (C) 2013, Free Software Foundation, Inc.            --
+--          Copyright (C) 2013-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -75,6 +75,7 @@ package Set_Targ is
    Maximum_Alignment          : Pos; -- Maximum permitted alignment
    Max_Unaligned_Field        : Pos; -- Maximum size for unaligned bit field
    Pointer_Size               : Pos; -- System.Address'Size
+   Short_Enums                : Nat; -- Foreign enums use short size?
    Short_Size                 : Pos; -- Standard.Short_Integer'Size
    Strict_Alignment           : Nat; -- Strict alignment?
    System_Allocator_Alignment : Nat; -- Alignment for malloc calls
@@ -93,6 +94,7 @@ package Set_Targ is
       NAME      : String_Ptr;     -- Name of mode (no null character at end)
       DIGS      : Natural;        -- Digits for floating-point type
       FLOAT_REP : Float_Rep_Kind; -- Float representation
+      PRECISION : Natural;        -- Precision in bits
       SIZE      : Natural;        -- Size in bits
       ALIGNMENT : Natural;        -- Alignment in bits
    end record;
@@ -129,7 +131,7 @@ package Set_Targ is
    --
    --     One line per registered mode
    --
-   --       name  digs float_rep size alignment
+   --       name  digs float_rep precision alignment
    --
    --     where name is the string name of the type (which can have single
    --     spaces embedded in the name (e.g. long double). The name is followed
@@ -137,5 +139,12 @@ package Set_Targ is
    --     for a Mode_Entry (where float_rep is I/V/A for IEEE-754-Binary,
    --     Vax_Native, AAMP), fields are separated by at least one blank, and
    --     a LF character immediately follows the alignment field.
+   --
+   --     ??? We do not write the size for backward compatibility reasons,
+   --     which means that target.atp will not be a complete description for
+   --     the very peculiar cases where the size cannot be computed from the
+   --     precision and the alignment by the formula:
+   --
+   --       size := (precision + alignment - 1) / alignment * alignment
 
 end Set_Targ;

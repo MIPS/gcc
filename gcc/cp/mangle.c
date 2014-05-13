@@ -1,5 +1,5 @@
 /* Name mangling for the 3.0 C++ ABI.
-   Copyright (C) 2000-2013 Free Software Foundation, Inc.
+   Copyright (C) 2000-2014 Free Software Foundation, Inc.
    Written by Alex Samuel <samuel@codesourcery.com>
 
    This file is part of GCC.
@@ -49,6 +49,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "stringpool.h"
 #include "tm_p.h"
 #include "cp-tree.h"
 #include "obstack.h"
@@ -69,7 +71,7 @@ along with GCC; see the file COPYING3.  If not see
   fprintf (stderr, "  %-24s: %-24s\n", (FN), (INPUT))
 # define MANGLE_TRACE_TREE(FN, NODE) \
   fprintf (stderr, "  %-24s: %-24s (%p)\n", \
-	   (FN), tree_code_name[TREE_CODE (NODE)], (void *) (NODE))
+	   (FN), get_tree_code_name (TREE_CODE (NODE)), (void *) (NODE))
 #else
 # define MANGLE_TRACE(FN, INPUT)
 # define MANGLE_TRACE_TREE(FN, NODE)
@@ -178,7 +180,7 @@ static void write_unscoped_template_name (const tree);
 static void write_nested_name (const tree);
 static void write_prefix (const tree);
 static void write_template_prefix (const tree);
-static void write_unqualified_name (const tree);
+static void write_unqualified_name (tree);
 static void write_conversion_operator_name (const tree);
 static void write_source_name (tree);
 static void write_literal_operator_name (tree);
@@ -321,7 +323,7 @@ dump_substitution_candidates (void)
       else if (TREE_CODE (el) == TREE_LIST)
 	name = IDENTIFIER_POINTER (DECL_NAME (TREE_VALUE (el)));
       else if (TYPE_NAME (el))
-	name = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (el)));
+	name = IDENTIFIER_POINTER (TYPE_IDENTIFIER (el));
       fprintf (stderr, " S%d_ = ", i - 1);
       if (TYPE_P (el) &&
 	  (CP_TYPE_RESTRICT_P (el)
@@ -329,7 +331,7 @@ dump_substitution_candidates (void)
 	   || CP_TYPE_CONST_P (el)))
 	fprintf (stderr, "CV-");
       fprintf (stderr, "%s (%s at %p)\n",
-	       name, tree_code_name[TREE_CODE (el)], (void *) el);
+	       name, get_tree_code_name (TREE_CODE (el)), (void *) el);
     }
 }
 
@@ -379,13 +381,13 @@ add_substitution (tree node)
 
   if (DEBUG_MANGLE)
     fprintf (stderr, "  ++ add_substitution (%s at %10p)\n",
-	     tree_code_name[TREE_CODE (node)], (void *) node);
+	     get_tree_code_name (TREE_CODE (node)), (void *) node);
 
   /* Get the canonicalized substitution candidate for NODE.  */
   c = canonicalize_for_substitution (node);
   if (DEBUG_MANGLE && c != node)
     fprintf (stderr, "  ++ using candidate (%s at %10p)\n",
-	     tree_code_name[TREE_CODE (node)], (void *) node);
+	     get_tree_code_name (TREE_CODE (node)), (void *) node);
   node = c;
 
 #if ENABLE_CHECKING
@@ -513,7 +515,7 @@ find_substitution (tree node)
 
   if (DEBUG_MANGLE)
     fprintf (stderr, "  ++ find_substitution (%s at %p)\n",
-	     tree_code_name[TREE_CODE (node)], (void *) node);
+	     get_tree_code_name (TREE_CODE (node)), (void *) node);
 
   /* Obtain the canonicalized substitution representation for NODE.
      This is what we'll compare against.  */
@@ -687,13 +689,6 @@ write_mangled_name (const tree decl, bool top_level)
     mangled_name:;
       write_string ("_Z");
       write_encoding (decl);
-      if (DECL_LANG_SPECIFIC (decl)
-	  && (DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (decl)
-	      || DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (decl)))
-	/* We need a distinct mangled name for these entities, but
-	   we should never actually output it.  So, we append some
-	   characters the assembler won't like.  */
-	write_string (" *INTERNAL* ");
     }
 }
 
@@ -1200,7 +1195,7 @@ write_unqualified_id (tree identifier)
 }
 
 static void
-write_unqualified_name (const tree decl)
+write_unqualified_name (tree decl)
 {
   MANGLE_TRACE_TREE ("unqualified-name", decl);
 
@@ -1236,6 +1231,9 @@ write_unqualified_name (const tree decl)
 	      fn_type = get_mostly_instantiated_function_type (decl);
 	      type = TREE_TYPE (fn_type);
 	    }
+	  else if (FNDECL_USED_AUTO (decl))
+	    type = (DECL_STRUCT_FUNCTION (decl)->language
+		    ->x_auto_return_pattern);
 	  else
 	    type = DECL_CONV_FN_TYPE (decl);
 	  write_conversion_operator_name (type);
@@ -1282,10 +1280,21 @@ write_unqualified_name (const tree decl)
         write_source_name (DECL_NAME (decl));
     }
 
-  tree attrs = (TREE_CODE (decl) == TYPE_DECL
-		? TYPE_ATTRIBUTES (TREE_TYPE (decl))
-		: DECL_ATTRIBUTES (decl));
-  write_abi_tags (lookup_attribute ("abi_tag", attrs));
+  /* We use the ABI tags from the primary template, ignoring tags on any
+     specializations.  This is necessary because C++ doesn't require a
+     specialization to be declared before it is used unless the use
+     requires a complete type, but we need to get the tags right on
+     incomplete types as well.  */
+  if (tree tmpl = most_general_template (decl))
+    decl = DECL_TEMPLATE_RESULT (tmpl);
+  /* Don't crash on an unbound class template.  */
+  if (decl)
+    {
+      tree attrs = (TREE_CODE (decl) == TYPE_DECL
+		    ? TYPE_ATTRIBUTES (TREE_TYPE (decl))
+		    : DECL_ATTRIBUTES (decl));
+      write_abi_tags (lookup_attribute ("abi_tag", attrs));
+    }
 }
 
 /* Write the unqualified-name for a conversion operator to TYPE.  */
@@ -1343,6 +1352,8 @@ write_abi_tags (tree tags)
 
   for (tree t = tags; t; t = TREE_CHAIN (t))
     {
+      if (ABI_TAG_IMPLICIT (t))
+	continue;
       tree str = TREE_VALUE (t);
       vec_safe_push (vec, str);
     }
@@ -1651,25 +1662,21 @@ write_identifier (const char *identifier)
 		    ::= C2   # base object constructor
 		    ::= C3   # complete object allocating constructor
 
-   Currently, allocating constructors are never used.
-
-   We also need to provide mangled names for the maybe-in-charge
-   constructor, so we treat it here too.  mangle_decl_string will
-   append *INTERNAL* to that, to make sure we never emit it.  */
+   Currently, allocating constructors are never used.  */
 
 static void
 write_special_name_constructor (const tree ctor)
 {
   if (DECL_BASE_CONSTRUCTOR_P (ctor))
     write_string ("C2");
+  /* This is the old-style "[unified]" constructor.
+     In some cases, we may emit this function and call
+     it from the clones in order to share code and save space.  */
+  else if (DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (ctor))
+    write_string ("C4");
   else
     {
-      gcc_assert (DECL_COMPLETE_CONSTRUCTOR_P (ctor)
-		  /* Even though we don't ever emit a definition of
-		     the old-style destructor, we still have to
-		     consider entities (like static variables) nested
-		     inside it.  */
-		  || DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (ctor));
+      gcc_assert (DECL_COMPLETE_CONSTRUCTOR_P (ctor));
       write_string ("C1");
     }
 }
@@ -1679,11 +1686,7 @@ write_special_name_constructor (const tree ctor)
 
      <special-name> ::= D0 # deleting (in-charge) destructor
 		    ::= D1 # complete object (in-charge) destructor
-		    ::= D2 # base object (not-in-charge) destructor
-
-   We also need to provide mangled names for the maybe-incharge
-   destructor, so we treat it here too.  mangle_decl_string will
-   append *INTERNAL* to that, to make sure we never emit it.  */
+		    ::= D2 # base object (not-in-charge) destructor  */
 
 static void
 write_special_name_destructor (const tree dtor)
@@ -1692,14 +1695,14 @@ write_special_name_destructor (const tree dtor)
     write_string ("D0");
   else if (DECL_BASE_DESTRUCTOR_P (dtor))
     write_string ("D2");
+  else if (DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (dtor))
+    /* This is the old-style "[unified]" destructor.
+       In some cases, we may emit this function and call
+       it from the clones in order to share code and save space.  */
+    write_string ("D4");
   else
     {
-      gcc_assert (DECL_COMPLETE_DESTRUCTOR_P (dtor)
-		  /* Even though we don't ever emit a definition of
-		     the old-style destructor, we still have to
-		     consider entities (like static variables) nested
-		     inside it.  */
-		  || DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (dtor));
+      gcc_assert (DECL_COMPLETE_DESTRUCTOR_P (dtor));
       write_string ("D1");
     }
 }
@@ -3493,6 +3496,7 @@ mangle_decl (const tree decl)
 
   if (G.need_abi_warning
       /* Don't do this for a fake symbol we aren't going to emit anyway.  */
+      && TREE_CODE (decl) != TYPE_DECL
       && !DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (decl)
       && !DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (decl))
     {
@@ -3788,7 +3792,8 @@ mangle_conv_op_name_for_type (const tree type)
 static void
 write_guarded_var_name (const tree variable)
 {
-  if (strncmp (IDENTIFIER_POINTER (DECL_NAME (variable)), "_ZGR", 4) == 0)
+  if (DECL_NAME (variable)
+      && strncmp (IDENTIFIER_POINTER (DECL_NAME (variable)), "_ZGR", 4) == 0)
     /* The name of a guard variable for a reference temporary should refer
        to the reference, not the temporary.  */
     write_string (IDENTIFIER_POINTER (DECL_NAME (variable)) + 4);

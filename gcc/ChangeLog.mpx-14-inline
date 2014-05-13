@@ -1,0 +1,20 @@
+2013-11-15  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* ipa-inline.c (early_inliner): Check edge has summary allocated.
+	* tree-inline.c: Include tree-chkp.h.
+	(declare_return_variable): Add arg holding
+	returned bounds slot.  Create and initialize returned bounds var.
+	(remap_gimple_stmt): Handle returned bounds.
+	Return sequence of statements instead of a single statement.
+	(insert_init_stmt): Add declaration.
+	(remap_gimple_seq): Adjust to new remap_gimple_stmt signature.
+	(copy_bb): Adjust to changed return type of remap_gimple_stmt.
+	(expand_call_inline): Handle returned bounds.  Add bounds copy
+	for generated mem to mem assignments.
+	* tree-inline.h (copy_body_data): Add fields retbnd and
+	assign_stmts.
+	* cgraph.c: Include tree-chkp.h.
+	(cgraph_redirect_edge_call_stmt_to_callee): Support
+	returned bounds.
+	* value-prof.c: Include tree-chkp.h.
+	(gimple_ic): Support returned bounds.

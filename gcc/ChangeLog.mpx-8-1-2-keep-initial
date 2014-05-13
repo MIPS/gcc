@@ -1,0 +1,7 @@
+2013-11-19  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* ipa.c (symtab_remove_unreachable_nodes): Kepp initial values for
+	pointer bounds to be used for checks eliminations.
+	* lto-cgraph.c (compute_ltrans_boundary): Likewise.
+	* add_references_to_partition (add_references_to_partition): Add
+	references to pointer bounds vars.

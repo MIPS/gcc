@@ -1,6 +1,6 @@
 # Makefile.in
 
-# Copyright (C) 2005-2013 Free Software Foundation, Inc.
+# Copyright (C) 2005-2014 Free Software Foundation, Inc.
 #
 # This file is part of GCC.
 #
@@ -233,7 +233,7 @@ LIBGCC2_CFLAGS = -O2 $(LIBGCC2_INCLUDES) $(GCC_CFLAGS) $(HOST_LIBGCC2_CFLAGS) \
 		 $(INHIBIT_LIBC_CFLAGS)
 
 ifeq ($(enable_mpx),yes)
-LIBGCC2_CFLAGS += -fcheck-pointers -mmpx -fno-chkp-use-static-bounds -fno-chkp-check-incomplete-type
+LIBGCC2_CFLAGS += -fcheck-pointer-bounds -mmpx -fno-chkp-use-static-bounds -fno-chkp-check-incomplete-type
 endif
 
 # Additional options to use when compiling libgcc2.a.
@@ -857,18 +857,31 @@ include $(iterator)
 
 # Build libgcov components.
 
-# Defined in libgcov.c, included only in gcov library
-LIBGCOV = _gcov _gcov_merge_add _gcov_merge_single _gcov_merge_delta \
-    _gcov_fork _gcov_execl _gcov_execlp _gcov_execle \
-    _gcov_execv _gcov_execvp _gcov_execve _gcov_reset _gcov_dump \
-    _gcov_interval_profiler _gcov_pow2_profiler _gcov_one_value_profiler \
+LIBGCOV_MERGE = _gcov_merge_add _gcov_merge_single _gcov_merge_delta _gcov_merge_ior \
+     _gcov_merge_time_profile
+LIBGCOV_PROFILER = _gcov_interval_profiler _gcov_pow2_profiler _gcov_one_value_profiler \
     _gcov_indirect_call_profiler _gcov_average_profiler _gcov_ior_profiler \
-    _gcov_merge_ior _gcov_indirect_call_profiler_v2
+    _gcov_indirect_call_profiler_v2 _gcov_time_profiler
+LIBGCOV_INTERFACE = _gcov_flush _gcov_fork _gcov_execl _gcov_execlp _gcov_execle \
+    _gcov_execv _gcov_execvp _gcov_execve _gcov_reset _gcov_dump
+LIBGCOV_DRIVER = _gcov 
 
-libgcov-objects = $(patsubst %,%$(objext),$(LIBGCOV))
+libgcov-merge-objects = $(patsubst %,%$(objext),$(LIBGCOV_MERGE))
+libgcov-profiler-objects = $(patsubst %,%$(objext),$(LIBGCOV_PROFILER))
+libgcov-interface-objects = $(patsubst %,%$(objext),$(LIBGCOV_INTERFACE))
+libgcov-driver-objects = $(patsubst %,%$(objext),$(LIBGCOV_DRIVER))
+libgcov-objects = $(libgcov-merge-objects) $(libgcov-profiler-objects) \
+                 $(libgcov-interface-objects) $(libgcov-driver-objects)
 
-$(libgcov-objects): %$(objext): $(srcdir)/libgcov.c
-	$(gcc_compile) -DL$* -c $(srcdir)/libgcov.c
+$(libgcov-merge-objects): %$(objext): $(srcdir)/libgcov-merge.c $(srcdir)/libgcov.h
+	$(gcc_compile) -DL$* -c $(srcdir)/libgcov-merge.c
+$(libgcov-profiler-objects): %$(objext): $(srcdir)/libgcov-profiler.c $(srcdir)/libgcov.h
+	$(gcc_compile) -DL$* -c $(srcdir)/libgcov-profiler.c
+$(libgcov-interface-objects): %$(objext): $(srcdir)/libgcov-interface.c $(srcdir)/libgcov.h
+	$(gcc_compile) -DL$* -c $(srcdir)/libgcov-interface.c
+$(libgcov-driver-objects): %$(objext): $(srcdir)/libgcov-driver.c \
+  $(srcdir)/libgcov-driver-system.c $(srcdir)/libgcov.h
+	$(gcc_compile) -DL$* -c $(srcdir)/libgcov-driver.c
 
 
 # Static libraries.

@@ -1,0 +1,14 @@
+2013-11-15  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* varasm.c: Include tree-chkp.h.
+	(ultimate_transparent_alias_target): Move up.
+	(make_decl_rtl): For instrumented function use
+	name of the original decl.
+	(assemble_start_function): Mark function as global
+	in case it is instrumentation clone of the global
+	function.
+	(do_assemble_alias): Follow transparent alias chain
+	for identifier.  Check if original alias is public.
+	(maybe_assemble_visibility): Use visibility of the
+	original function for instrumented version.
+	(default_unique_section): Likewise.

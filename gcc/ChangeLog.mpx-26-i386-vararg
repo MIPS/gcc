@@ -1,0 +1,5 @@
+2013-10-29  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* config/i386/i386.c (ix86_setup_incoming_varargs): New.
+	(ix86_va_start): Initialize bounds for pointers in va_list.
+	(TARGET_SETUP_INCOMING_VARARG_BOUNDS): New.

@@ -1,5 +1,5 @@
 /* Read and write coverage files, and associated functionality.
-   Copyright (C) 1990-2013 Free Software Foundation, Inc.
+   Copyright (C) 1990-2014 Free Software Foundation, Inc.
    Contributed by James E. Wilson, UC Berkeley/Cygnus Support;
    based on some ideas from Dain Samples of UC Berkeley.
    Further mangling by Bob Manson, Cygnus Support.
@@ -30,6 +30,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "rtl.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "stor-layout.h"
 #include "flags.h"
 #include "output.h"
 #include "regs.h"
@@ -554,12 +556,12 @@ unsigned
 coverage_compute_profile_id (struct cgraph_node *n)
 {
   expanded_location xloc
-    = expand_location (DECL_SOURCE_LOCATION (n->symbol.decl));
+    = expand_location (DECL_SOURCE_LOCATION (n->decl));
   unsigned chksum = xloc.line;
 
   chksum = coverage_checksum_string (chksum, xloc.file);
   chksum = coverage_checksum_string
-    (chksum, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (n->symbol.decl)));
+    (chksum, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (n->decl)));
   if (first_global_object_name)
     chksum = coverage_checksum_string
       (chksum, first_global_object_name);
@@ -584,9 +586,9 @@ unsigned
 coverage_compute_cfg_checksum (void)
 {
   basic_block bb;
-  unsigned chksum = n_basic_blocks;
+  unsigned chksum = n_basic_blocks_for_fn (cfun);
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       edge e;
       edge_iterator ei;
@@ -719,6 +721,7 @@ build_var (tree fn_decl, tree type, int counter)
   DECL_NAME (var) = get_identifier (buf);
   TREE_STATIC (var) = 1;
   TREE_ADDRESSABLE (var) = 1;
+  DECL_NONALIASED (var) = 1;
   DECL_ALIGN (var) = TYPE_ALIGN (type);
 
   return var;
@@ -830,7 +833,7 @@ build_fn_info (const struct coverage_data *data, tree type, tree key)
 
 	if (var)
 	  count
-	    = tree_low_cst (TYPE_MAX_VALUE (TYPE_DOMAIN (TREE_TYPE (var))), 0)
+	    = tree_to_shwi (TYPE_MAX_VALUE (TYPE_DOMAIN (TREE_TYPE (var))))
 	    + 1;
 
 	CONSTRUCTOR_APPEND_ELT (ctr, TYPE_FIELDS (ctr_type),
@@ -1137,7 +1140,9 @@ coverage_init (const char *filename)
   /* Since coverage_init is invoked very early, before the pass
      manager, we need to set up the dumping explicitly. This is
      similar to the handling in finish_optimization_passes.  */
-  dump_start (g->get_passes ()->get_pass_profile ()->static_pass_number, NULL);
+  int profile_pass_num =
+    g->get_passes ()->get_pass_profile ()->static_pass_number;
+  g->get_dumps ()->dump_start (profile_pass_num, NULL);
 
   if (!profile_data_prefix && !IS_ABSOLUTE_PATH (filename))
     profile_data_prefix = getpwd ();
@@ -1182,7 +1187,7 @@ coverage_init (const char *filename)
 	}
     }
 
-  dump_finish (g->get_passes ()->get_pass_profile ()->static_pass_number);
+  g->get_dumps ()->dump_finish (profile_pass_num);
 }
 
 /* Performs file-level cleanup.  Close notes file, generate coverage
@@ -1209,6 +1214,9 @@ coverage_finish (void)
 	fn_ctor = coverage_obj_fn (fn_ctor, fn->fn_decl, fn);
       coverage_obj_finish (fn_ctor);
     }
+
+  XDELETEVEC (da_file_name);
+  da_file_name = NULL;
 }
 
 #include "gt-coverage.h"

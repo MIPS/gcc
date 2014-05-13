@@ -1,3 +1,225 @@
+2014-04-11  Jerry DeLisle  <jvdelisle@gcc.gnu>
+
+	PR libfortran/60810
+	io/unit.c (is_trim_ok): If internal unit is array, do not trim.
+
+2014-03-21  Jerry DeLisle  <jvdelisle@gcc.gnu>
+
+	PR libfortran/60148
+	* io/transfer.c (data_transfer_init): If std= was specified, set
+	delim status to DELIM_NONE of no other was specified.
+
+2014-03-18  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* configure.ac: Check for presence of fcntl.
+	* configure: Regenerate.
+	* config.h.in: Regenerate.
+	* io/unix.c (set_close_on_exec): Check for HAVE_FCNTL.
+
+2014-03-17  Jerry DeLisle  <jvdelisle@gcc.gnu>
+
+	PR libfortran/48600
+	* io/list_read.c (list_formatted_read_scalar): Do not use
+	eat_separator. Explicitly set the comma and end-of-line flags.
+	Check for END condition from finish_separator.
+
+2014-03-15  Jerry DeLisle  <jvdelisle@gcc.gnu>
+
+	PR libfortran/58324
+	* io/list_read.c (finish_list_read): Read one character to check
+	for the end of the file.  If it is the end, then issue the file
+	end error message.  If not, use eat_line to reach the end
+	without giving error.  The next attempt to read will then
+	issue the error as described above.
+
+2014-03-12  Jerry DeLisle  <jvdelisle@gcc.gnu>
+
+	PR libfortran/38199
+	* io/read.c (read_decimal): Quickly skip spaces to avoid calls
+	to next_char.
+	* io/unit.c (is_trim_ok): New helper function to check various
+	conditions to see if its OK to trim the internal unit string.
+	(get_internal_unit): Use LEN_TRIM to shorten selected internal
+	unit strings for optimizing READ. Enable this optimization for
+	formatted READ.
+	* io/list_read.c (finish_list_read): Don't call eat_line for
+	internal units.
+
+2014-03-08  Jerry DeLisle  <jvdelisle@gcc.gnu>
+
+	PR libfortran/38199
+	* io/list_read.c (next_char): Mark unlikely error checks.
+	(eat_spaces): For character array reading, skip ahead over
+	spaces rather than call next_char multiple times.
+
+2014-03-08  Tobias Burnus  <burnus@net-b.de>
+
+	* libgfortran.h (unlikely, likely): Add usage comment.
+
+2014-03-08  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	PR libgfortran/60128
+	* io/write_float.def (output_float): Remove unused variable
+	nzero_real. Replace a double space with a single one.
+	(determine_en_precision): Fix wrong handling of the EN format.
+
+2014-03-03  Jerry DeLisle  <jvdelisle@gcc.gnu>
+
+	PR libfortran/60148
+	* io/inquire.c (inquire_via_unit): In the case of
+	DELIM_UNSPECIFIED set inquire return string to "NONE".
+	* io/list_read.c (read_character): In the case of DELIM_NONE and
+	namelists, complete the character read using the namelist
+	variable length.
+	* io/open.c (new_unit): Don't set delim status to none if not
+	specified so that DELIM_UNSPECIFIED can be used later.
+	* io/transfer.c (data_transfer_init): For namelist I/O, if the
+	unit delim status is unspecified set the current status to quote.
+	Otherwise, set current status to the unit status.
+	* io/unit.c (get_internel_unit, init_unit): Remember to set
+	flags_delim initially to DELIM_UNSPECIFIED so defaults come out
+	correctly.
+	* io/write.c (write_character): Add a new function argument
+	"mode" to signify that raw output is to be used vs output with
+	delimiters. If the mode is set to DELIM (1) proceed with
+	delimiters. (list_formatted_write_scalar): Write the separator
+	only if a delimiter was previously specified. Update the call to
+	write_character with the mode argument given.
+	(namelist_write_newline): Use the mode argument. (nml_write_obj):
+	Use the mode argument. Remove use of tmp_delim. Write the
+	semi-colon or comma correctly only when needed with using
+	delimiters. Cleanup whitespace.
+	(namelist_write): If delim is not specified in namelist I/O,
+	default	to using quotes. Get rid of the tmp_delim variable and
+	use the new mode argument in write_character.
+
+2014-02-21  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/60286
+	* libgfortran/io/inquire.c (yes, no): New static const char vars.
+	(inquire_via_unit): Use them. Use OPEN mode instead of using
+	POSIX's access to query about write=, read= and readwrite=.
+
+2014-01-20  Jerry DeLisle  <jvdelisle@gcc.gnu>
+	    Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	* io/write_float.def (output_float): Remove inadvertent test
+	code from previous patch.
+
+2014-01-19  Jerry DeLisle  <jvdelisle@gcc.gnu>
+	    Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	PR libfortran/59771
+	PR libfortran/59774
+	PR libfortran/59836
+	* io/write_float.def (output_float): Fix wrong handling of the
+	Fw.0 format.
+	(output_float_FMT_G_): Fixes rounding issues with -m32.
+
+2014-01-11  Jerry DeLisle  <jvdelisle@gcc.gnu>
+	    Dominique d'Humieres  <dominiq@lps.ens.fr>
+	    Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR libfortran/59700
+	PR libfortran/59764
+	* io/io.h (struct st_parameter_dt): Assign expanded_read flag to
+	unused bit. Define new variable line_buffer_pos.
+	* io/list_read.c (free_saved, next_char, l_push_char,
+	read_logical, read_real): Replace use of item_count with
+	line_buffer_pos for line_buffer look ahead.
+	(read_logical, read_integer, parse_real, read_real, check_type):
+	Adjust location of free_line to after generating error messages
+	to retain the correct item count for the message. 
+
+2014-01-02  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	Update copyright years
+
+2013-12-18  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* io/read.c (read_f): Convert assert to runtime error.
+
+2013-12-17  Andreas Tobler  <andreast@gcc.gnu.org>
+
+	* io/unix.c (tempfile_open): Only use the needed flag O_CLOEXEC.
+
+2013-12-16  Jerry DeLisle  <jvdelisle@gcc.gnu>
+
+	PR libfortran/59419
+	* io/file_pos.c (st_rewind): Do proper return after
+	generate_error.
+	* io/open.c (edit_modes): Move action code inside block that
+	checks for library ok. (new_unit): Do cleanup after error.
+	(st_open): Do proper return after error.
+	* io/transfer.c (data_transfer_init): Likewise.
+	
+2013-12-11  Tobias Burnus  <burnus@net-b.de>
+
+	* config/fpu-387.h (sigill_hdlr, get_fpu_rounding_mode): Emit SSE
+	instructions when __SSE_MATH__ is defined.
+
+2013-12-06  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* intrinsics/erfc_scaled.c (_M_2_SQRTPI): Define if missing.
+
+2013-12-01  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR libfortran/59313
+	* intrinsics/erfc_scaled.c (erfc_scaled_r16): Also provide for
+	quadruple precision long double variant.
+
+2013-11-20  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* intrinsics/erfc_scaled.c (erfc_scaled_r16): Don't define if
+	__float128 is not available.
+
+2013-11-20  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR libfortran/49024
+	* intrinsics/erfc_scaled.c (erfc_scaled_r16): New function.
+	* intrinsics/erfc_scaled_inc.c: Do not provide quadruple
+	precision variant.
+
+2013-11-18  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR libfortran/51828
+	* intrinsics/unpack_generic.c (unpack_internal): Let the compiler
+	know that dim > 0 to avoid warnings.
+
+2013-11-15  Janne Blomqvist  <jb@gcc.gnu.org>
+	    Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/59108
+	* io/unix.c (regular_file): Don't set O_CREAT when opening a file
+	read-only with unknown status. Mask out O_CREAT when falling back
+	to opening read-only if ACTION= is not set and read-write fails.
+
+2013-11-15  Steve Ellcey  <sellcey@mips.com>
+
+	* configure.ac: Do not define HAVE_STRTOLD.
+	* configure: Regenerate.
+
+2013-11-10  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* configure.ac: Check presence of mkostemp.
+	* io/unix.c (set_close_on_exec): New function.
+	(tempfile_open): Use mkostemp and O_CLOEXEC if available, fallback
+	to calling set_close_on_exec.
+	(regular_file): Add O_CLOEXEC to flags if defined.
+	(open_external): Call set_close_on_exec if O_CLOEXEC is not
+	defined.
+	* config.h.in: Regenerated.
+	* configure: Regenerated.
+	* Makefile.in: Regenerated.
+	* aclocal.m4: Regenerated.
+
+2013-10-01  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/55469
+	* io/list_read (parse_repeat, read_integer, read_character,
+	parse_real, read_real, check_type, list_formatted_read_scalar,
+	finish_list_read): Call list_free.
+
 2013-09-20  Alan Modra  <amodra@gmail.com>
 
 	* configure: Regenerate.
@@ -312,7 +534,7 @@
 	(read_character): Likewise.
 	(read_complex): Likewise.
 
-Copyright (C) 2013 Free Software Foundation, Inc.
+Copyright (C) 2013-2014 Free Software Foundation, Inc.
 
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright

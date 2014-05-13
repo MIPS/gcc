@@ -1,5 +1,5 @@
 /* Convert RTL to assembler code and output it, for GNU compiler.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -48,6 +48,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 
 #include "tree.h"
+#include "varasm.h"
 #include "rtl.h"
 #include "tm_p.h"
 #include "regs.h"
@@ -70,14 +71,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "debug.h"
 #include "expr.h"
 #include "tree-pass.h"
-#include "tree-ssa.h"
 #include "cgraph.h"
+#include "tree-ssa.h"
 #include "coverage.h"
 #include "df.h"
 #include "ggc.h"
 #include "cfgloop.h"
 #include "params.h"
 #include "tree-pretty-print.h" /* for dump_function_header */
+#include "asan.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
@@ -110,9 +112,8 @@ along with GCC; see the file COPYING3.  If not see
 #endif
 
 /* Bitflags used by final_scan_insn.  */
-#define SEEN_BB		1
-#define SEEN_NOTE	2
-#define SEEN_EMITTED	4
+#define SEEN_NOTE	1
+#define SEEN_EMITTED	2
 
 /* Last insn processed by final_scan_insn.  */
 static rtx debug_insn;
@@ -698,14 +699,14 @@ compute_alignments (void)
       flow_loops_dump (dump_file, NULL, 1);
     }
   loop_optimizer_init (AVOID_CFG_MODIFICATIONS);
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     if (bb->frequency > freq_max)
       freq_max = bb->frequency;
   freq_threshold = freq_max / PARAM_VALUE (PARAM_ALIGN_THRESHOLD);
 
   if (dump_file)
     fprintf (dump_file, "freq_max: %i\n",freq_max);
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       rtx label = BB_HEAD (bb);
       int fallthru_frequency = 0, branch_frequency = 0, has_fallthru = 0;
@@ -760,7 +761,7 @@ compute_alignments (void)
 	  && (branch_frequency > freq_threshold
 	      || (bb->frequency > bb->prev_bb->frequency * 10
 		  && (bb->prev_bb->frequency
-		      <= ENTRY_BLOCK_PTR->frequency / 2))))
+		      <= ENTRY_BLOCK_PTR_FOR_FN (cfun)->frequency / 2))))
 	{
 	  log = JUMP_ALIGN (label);
 	  if (dump_file)
@@ -829,7 +830,7 @@ void
 update_alignments (vec<rtx> &label_pairs)
 {
   unsigned int i = 0;
-  rtx iter, label;
+  rtx iter, label = NULL_RTX;
 
   if (max_labelno != max_label_num ())
     grow_label_align ();
@@ -1738,6 +1739,9 @@ final_start_function (rtx first, FILE *file,
 
   high_block_linenum = high_function_linenum = last_linenum;
 
+  if (flag_sanitize & SANITIZE_ADDRESS)
+    asan_function_start ();
+
   if (!DECL_IGNORED_P (current_function_decl))
     debug_hooks->begin_prologue (last_linenum, last_filename);
 
@@ -1991,7 +1995,7 @@ final (rtx first, FILE *file, int optimize_p)
 
       /* There is no cfg for a thunk.  */
       if (!cfun->is_thunk)
-	FOR_EACH_BB_REVERSE (bb)
+	FOR_EACH_BB_REVERSE_FN (bb, cfun)
 	  {
 	    start_to_bb[INSN_UID (BB_HEAD (bb))] = bb;
 	    end_to_bb[INSN_UID (BB_END (bb))] = bb;
@@ -2123,9 +2127,7 @@ call_from_call_insn (rtx insn)
 
    SEEN is used to track the end of the prologue, for emitting
    debug information.  We force the emission of a line note after
-   both NOTE_INSN_PROLOGUE_END and NOTE_INSN_FUNCTION_BEG, or
-   at the beginning of the second basic block, whichever comes
-   first.  */
+   both NOTE_INSN_PROLOGUE_END and NOTE_INSN_FUNCTION_BEG.  */
 
 rtx
 final_scan_insn (rtx insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
@@ -2163,6 +2165,15 @@ final_scan_insn (rtx insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	  targetm.asm_out.function_switched_text_sections (asm_out_file,
 							   current_function_decl,
 							   in_cold_section_p);
+	  /* Emit a label for the split cold section.  Form label name by
+	     suffixing "cold" to the original function's name.  */
+	  if (in_cold_section_p)
+	    {
+	      tree cold_function_name
+		= clone_function_name (current_function_decl, "cold");
+	      ASM_OUTPUT_LABEL (asm_out_file,
+				IDENTIFIER_POINTER (cold_function_name));
+	    }
 	  break;
 
 	case NOTE_INSN_BASIC_BLOCK:
@@ -2174,14 +2185,6 @@ final_scan_insn (rtx insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 
 	  if (targetm.asm_out.unwind_emit)
 	    targetm.asm_out.unwind_emit (asm_out_file, insn);
-
-	  if ((*seen & (SEEN_EMITTED | SEEN_BB)) == SEEN_BB)
-	    {
-	      *seen |= SEEN_EMITTED;
-	      force_source_line = true;
-	    }
-	  else
-	    *seen |= SEEN_BB;
 
           discriminator = NOTE_BASIC_BLOCK (insn)->discriminator;
 

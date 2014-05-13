@@ -1,5 +1,5 @@
 /* Matching subroutines in all sizes, shapes and colors.
-   Copyright (C) 2000-2013 Free Software Foundation, Inc.
+   Copyright (C) 2000-2014 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -26,6 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "match.h"
 #include "parse.h"
 #include "tree.h"
+#include "stringpool.h"
 
 int gfc_matching_ptr_assignment = 0;
 int gfc_matching_procptr_assignment = 0;
@@ -1750,8 +1751,7 @@ gfc_match_critical (void)
       return MATCH_ERROR;
     }
 
-  if (gfc_implicit_pure (NULL))
-    gfc_current_ns->proc_name->attr.implicit_pure = 0;
+  gfc_unset_implicit_pure (NULL);
 
   if (!gfc_notify_std (GFC_STD_F2008, "CRITICAL statement at %C"))
     return MATCH_ERROR;
@@ -2675,8 +2675,7 @@ gfc_match_stopcode (gfc_statement st)
       goto cleanup;
     }
 
-  if (gfc_implicit_pure (NULL))
-    gfc_current_ns->proc_name->attr.implicit_pure = 0;
+  gfc_unset_implicit_pure (NULL);
 
   if (st == ST_STOP && gfc_find_state (COMP_CRITICAL))
     {
@@ -2813,8 +2812,7 @@ lock_unlock_statement (gfc_statement st)
       return MATCH_ERROR;
     }
 
-  if (gfc_implicit_pure (NULL))
-    gfc_current_ns->proc_name->attr.implicit_pure = 0;
+  gfc_unset_implicit_pure (NULL);
 
   if (gfc_option.coarray == GFC_FCOARRAY_NONE)
     {
@@ -3007,8 +3005,7 @@ sync_statement (gfc_statement st)
       return MATCH_ERROR;
     }
 
-  if (gfc_implicit_pure (NULL))
-    gfc_current_ns->proc_name->attr.implicit_pure = 0;
+  gfc_unset_implicit_pure (NULL);
 
   if (!gfc_notify_std (GFC_STD_F2008, "SYNC statement at %C"))
     return MATCH_ERROR;
@@ -3478,15 +3475,15 @@ gfc_match_allocate (void)
       if (gfc_check_do_variable (tail->expr->symtree))
 	goto cleanup;
 
-      if (gfc_pure (NULL) && gfc_impure_variable (tail->expr->symtree->n.sym))
+      bool impure = gfc_impure_variable (tail->expr->symtree->n.sym);
+      if (impure && gfc_pure (NULL))
 	{
 	  gfc_error ("Bad allocate-object at %C for a PURE procedure");
 	  goto cleanup;
 	}
 
-      if (gfc_implicit_pure (NULL)
-	    && gfc_impure_variable (tail->expr->symtree->n.sym))
-	gfc_current_ns->proc_name->attr.implicit_pure = 0;
+      if (impure)
+	gfc_unset_implicit_pure (NULL);
 
       if (tail->expr->ts.deferred)
 	{
@@ -3867,14 +3864,15 @@ gfc_match_deallocate (void)
 
       sym = tail->expr->symtree->n.sym;
 
-      if (gfc_pure (NULL) && gfc_impure_variable (sym))
+      bool impure = gfc_impure_variable (sym);
+      if (impure && gfc_pure (NULL))
 	{
 	  gfc_error ("Illegal allocate-object at %C for a PURE procedure");
 	  goto cleanup;
 	}
 
-      if (gfc_implicit_pure (NULL) && gfc_impure_variable (sym))
-	gfc_current_ns->proc_name->attr.implicit_pure = 0;
+      if (impure)
+	gfc_unset_implicit_pure (NULL);
 
       if (gfc_is_coarray (tail->expr)
 	  && gfc_find_state (COMP_DO_CONCURRENT))
@@ -5147,8 +5145,7 @@ copy_ts_from_selector_to_associate (gfc_expr *associate, gfc_expr *selector)
       assoc_sym->ts.type = BT_CLASS;
       assoc_sym->ts.u.derived = CLASS_DATA (selector)->ts.u.derived;
       assoc_sym->attr.pointer = 1;
-      gfc_build_class_symbol (&assoc_sym->ts, &assoc_sym->attr,
-			      &assoc_sym->as, false);
+      gfc_build_class_symbol (&assoc_sym->ts, &assoc_sym->attr, &assoc_sym->as);
     }
 }
 
@@ -5272,7 +5269,7 @@ select_type_set_tmp (gfc_typespec *ts)
 
   if (ts->type == BT_CLASS)
     gfc_build_class_symbol (&tmp->n.sym->ts, &tmp->n.sym->attr,
-			    &tmp->n.sym->as, false);
+			    &tmp->n.sym->as);
     }
 
   /* Add an association for it, so the rest of the parser knows it is

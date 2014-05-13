@@ -1,0 +1,17 @@
+2013-11-18  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* gimple.h (gf_mask): Add GF_CALL_WITH_BOUNDS.
+	(gimple_call_with_bounds_p): New.
+	(gimple_call_set_with_bounds): New.
+	(gimple_return_retbnd): New.
+	(gimple_return_set_retbnd): New
+	* rtl.h (CALL_EXPR_WITH_BOUNDS_P): New.
+	* tree.h (POINTER_BOUNDS_P): New.
+	(BOUNDED_TYPE_P): New.
+	(BOUNDED_P): New.
+	(CALL_WITH_BOUNDS_P): New.
+	* gimple.c (gimple_build_return): Increase number of ops
+	for return statement.
+	(gimple_build_call_from_tree): Propagate CALL_WITH_BOUNDS_P
+	flag.
+	* gimple-pretty-print.c (dump_gimple_return): Print second op.

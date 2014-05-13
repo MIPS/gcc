@@ -1,0 +1,7 @@
+2013-11-19  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* cgraph.h (varpool_node): Add need_bounds_init field.
+	* lto-cgraph.c (lto_output_varpool_node): Output
+	need_bounds_init value.
+	(input_varpool_node): Read need_bounds_init value.
+	* varpool.c (dump_varpool_node): Dump need_bounds_init field.

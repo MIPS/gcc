@@ -6,7 +6,7 @@
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *          Copyright (C) 1992-2013, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2014, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -93,8 +93,8 @@ do {					\
     mark_visited (EXP);			\
 } while (0)
 
-/* Finalize the processing of From_With_Type incomplete types.  */
-extern void finalize_from_with_types (void);
+/* Finalize the processing of From_Limited_With incomplete types.  */
+extern void finalize_from_limited_with (void);
 
 /* Return the equivalent type to be used for GNAT_ENTITY, if it's a
    kind of type (such E_Task_Type) that has a different type which Gigi
@@ -238,10 +238,14 @@ extern "C" {
 
 /* This is the main program of the back-end.  It sets up all the table
    structures and then generates code.  */
-extern void gigi (Node_Id gnat_root, int max_gnat_node,
+extern void gigi (Node_Id gnat_root,
+	          int max_gnat_node,
                   int number_name ATTRIBUTE_UNUSED,
-                  struct Node *nodes_ptr, Node_Id *next_node_ptr,
-                  Node_Id *prev_node_ptr, struct Elist_Header *elists_ptr,
+		  struct Node *nodes_ptr,
+		  struct Flags *Flags_Ptr,
+		  Node_Id *next_node_ptr,
+		  Node_Id *prev_node_ptr,
+		  struct Elist_Header *elists_ptr,
                   struct Elmt_Item *elmts_ptr,
                   struct String_Entry *strings_ptr,
                   Char_Code *strings_chars_ptr,
@@ -411,6 +415,7 @@ enum standard_datatypes
   ADT_update_setjmp_buf_decl,
   ADT_raise_nodefer_decl,
   ADT_reraise_zcx_decl,
+  ADT_set_exception_parameter_decl,
   ADT_begin_handler_decl,
   ADT_end_handler_decl,
   ADT_unhandled_except_decl,
@@ -470,6 +475,8 @@ extern GTY(()) tree gnat_raise_decls_ext[(int) LAST_REASON_CODE + 1];
 #define update_setjmp_buf_decl gnat_std_decls[(int) ADT_update_setjmp_buf_decl]
 #define raise_nodefer_decl gnat_std_decls[(int) ADT_raise_nodefer_decl]
 #define reraise_zcx_decl gnat_std_decls[(int) ADT_reraise_zcx_decl]
+#define set_exception_parameter_decl \
+          gnat_std_decls[(int) ADT_set_exception_parameter_decl]
 #define begin_handler_decl gnat_std_decls[(int) ADT_begin_handler_decl]
 #define others_decl gnat_std_decls[(int) ADT_others_decl]
 #define all_others_decl gnat_std_decls[(int) ADT_all_others_decl]
@@ -1037,7 +1044,7 @@ extern Nat get_target_double_scalar_alignment (void);
 /* This function is called by the front-end to enumerate all the supported
    modes for the machine, as well as some predefined C types.  */
 extern void enumerate_modes (void (*f) (const char *, int, int, int, int, int,
-					int));
+					int, int));
 
 #ifdef __cplusplus
 }

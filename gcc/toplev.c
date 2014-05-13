@@ -1,5 +1,5 @@
 /* Top level of GCC compilers (cc1, cc1plus, etc.)
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -29,6 +29,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "line-map.h"
 #include "input.h"
 #include "tree.h"
+#include "varasm.h"
+#include "tree-inline.h"
 #include "realmpfr.h"	/* For GMP/MPFR/MPC versions, in print_version.  */
 #include "version.h"
 #include "rtl.h"
@@ -44,9 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "toplev.h"
 #include "expr.h"
-#include "basic-block.h"
 #include "intl.h"
-#include "ggc.h"
 #include "regs.h"
 #include "timevar.h"
 #include "diagnostic.h"
@@ -68,15 +68,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "coverage.h"
 #include "value-prof.h"
 #include "alloc-pool.h"
-#include "tree-mudflap.h"
 #include "asan.h"
 #include "tsan.h"
-#include "gimple.h"
 #include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "gimple.h"
 #include "plugin.h"
 #include "diagnostic-color.h"
 #include "context.h"
 #include "pass_manager.h"
+#include "optabs.h"
+#include "tree-chkp.h"
 
 #if defined(DBX_DEBUGGING_INFO) || defined(XCOFF_DEBUGGING_INFO)
 #include "dbxout.h"
@@ -259,7 +262,7 @@ init_local_tick (void)
 	struct timeval tv;
 
 	gettimeofday (&tv, NULL);
-	local_tick = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+	local_tick = (unsigned) tv.tv_sec * 1000 + tv.tv_usec / 1000;
       }
 #else
       {
@@ -389,21 +392,21 @@ wrapup_global_declaration_2 (tree decl)
 
   if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl))
     {
-      struct varpool_node *node;
+      varpool_node *node;
       bool needed = true;
       node = varpool_get_node (decl);
 
       if (!node && flag_ltrans)
 	needed = false;
-      else if (node && node->symbol.definition)
+      else if (node && node->definition)
 	needed = false;
-      else if (node && node->symbol.alias)
+      else if (node && node->alias)
 	needed = false;
       else if (!cgraph_global_info_ready
 	       && (TREE_USED (decl)
 		   || TREE_USED (DECL_ASSEMBLER_NAME (decl))))
 	/* needed */;
-      else if (node && node->symbol.analyzed)
+      else if (node && node->analyzed)
 	/* needed */;
       else if (DECL_COMDAT (decl))
 	needed = false;
@@ -568,10 +571,6 @@ compile_file (void)
      basically finished.  */
   if (in_lto_p || !flag_lto || flag_fat_lto_objects)
     {
-      /* Likewise for mudflap static object registrations.  */
-      if (flag_mudflap)
-	mudflap_finish_file ();
-
       /* File-scope initialization for AddressSanitizer.  */
       if (flag_sanitize & SANITIZE_ADDRESS)
         asan_finish_file ();
@@ -579,7 +578,7 @@ compile_file (void)
       if (flag_sanitize & SANITIZE_THREAD)
 	tsan_finish_file ();
 
-      if (flag_check_pointers)
+      if (flag_check_pointer_bounds)
 	chkp_finish_file ();
 
       output_shared_constant_pool ();
@@ -1290,19 +1289,10 @@ process_options (void)
 	   "and -ftree-loop-linear)");
 #endif
 
-  if (flag_mudflap && flag_lto)
-    sorry ("mudflap cannot be used together with link-time optimization");
-
-  if (flag_check_pointers)
+  if (flag_check_pointer_bounds)
     {
-      if (flag_lto)
-	sorry ("Pointers checker is not yet fully supported for link-time optimization");
-
       if (targetm.chkp_bound_mode () == VOIDmode)
-	error ("-fcheck-pointers is not supported for this target.");
-
-      if (!lang_hooks.chkp_supported)
-	flag_check_pointers = 0;
+	error ("-fcheck-pointer-bounds is not supported for this target");
     }
 
   /* One region RA really helps to decrease the code size.  */
@@ -1590,7 +1580,7 @@ process_options (void)
                                     DK_ERROR, UNKNOWN_LOCATION);
 
   /* Save the current optimization options.  */
-  optimization_default_node = build_optimization_node ();
+  optimization_default_node = build_optimization_node (&global_options);
   optimization_current_node = optimization_default_node;
 }
 
@@ -1773,6 +1763,23 @@ target_reinit (void)
 {
   struct rtl_data saved_x_rtl;
   rtx *saved_regno_reg_rtx;
+  tree saved_optimization_current_node;
+  struct target_optabs *saved_this_fn_optabs;
+
+  /* Temporarily switch to the default optimization node, so that
+     *this_target_optabs is set to the default, not reflecting
+     whatever a previous function used for the optimize
+     attribute.  */
+  saved_optimization_current_node = optimization_current_node;
+  saved_this_fn_optabs = this_fn_optabs;
+  if (saved_optimization_current_node != optimization_default_node)
+    {
+      optimization_current_node = optimization_default_node;
+      cl_optimization_restore
+	(&global_options,
+	 TREE_OPTIMIZATION (optimization_default_node));
+    }
+  this_fn_optabs = this_target_optabs;
 
   /* Save *crtl and regno_reg_rtx around the reinitialization
      to allow target_reinit being called even after prepare_function_start.  */
@@ -1790,7 +1797,16 @@ target_reinit (void)
   /* Reinitialize lang-dependent parts.  */
   lang_dependent_init_target ();
 
-  /* And restore it at the end, as free_after_compilation from
+  /* Restore the original optimization node.  */
+  if (saved_optimization_current_node != optimization_default_node)
+    {
+      optimization_current_node = saved_optimization_current_node;
+      cl_optimization_restore (&global_options,
+			       TREE_OPTIMIZATION (optimization_current_node));
+    }
+  this_fn_optabs = saved_this_fn_optabs;
+
+  /* Restore regno_reg_rtx at the end, as free_after_compilation from
      expand_dummy_function_end clears it.  */
   if (saved_regno_reg_rtx)
     {
@@ -1985,10 +2001,12 @@ toplev_main (int argc, char **argv)
 
   if (warningcount || errorcount || werrorcount)
     print_ignored_options ();
-  diagnostic_finish (global_dc);
 
-  /* Invoke registered plugin callbacks if any.  */
+  /* Invoke registered plugin callbacks if any.  Some plugins could
+     emit some diagnostics here.  */
   invoke_plugin_callbacks (PLUGIN_FINISH, NULL);
+
+  diagnostic_finish (global_dc);
 
   finalize_plugins ();
   location_adhoc_data_fini (line_table);
