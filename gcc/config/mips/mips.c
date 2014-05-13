@@ -7447,6 +7447,10 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length)
       else
 	{
 	  rtx part = adjust_address (src, BLKmode, offset);
+	  /* If the address was a REG, adjust_address rightfully returns src, 
+	     but this would destroy memref's MEM_ATTRS. */
+	  if (part == src)
+	    part = copy_rtx (part);
 	  set_mem_size (part, delta);
 	  if (!mips_expand_ext_as_unaligned_load (regs[i], part, bits, 0, 0))
 	    gcc_unreachable ();
@@ -7460,6 +7464,10 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length)
     else
       {
 	rtx part = adjust_address (dest, BLKmode, offset);
+	  /* If the address was a REG, adjust_address rightfully returns dest, 
+	     but this would destroy memref's MEM_ATTRS. */
+	  if (part == dest)
+	    part = copy_rtx (part);
 	set_mem_size (part, delta);
 	if (!mips_expand_ins_as_unaligned_store (part, regs[i], bits, 0))
 	  gcc_unreachable ();

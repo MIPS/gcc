@@ -1,3 +1,9 @@
+2014-05-13  Andrew Pinski  <apinski@cavium.com>
+
+	Bug#10636
+	* config/mips/mips.c (mips_block_move_straight) : Preserve memref's
+	MEM_ATTRS.
+
 2014-05-09  Andrew Pinski  <apinski@cavium.com>
 
 	* testsuite/gcc.target/mips/shift-1.c: Disable for -O0.
