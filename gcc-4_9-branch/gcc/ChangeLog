@@ -1,3 +1,14 @@
+2014-05-02  Marek Polacek  <polacek@redhat.com>
+
+	* doc/invoke.texi: Describe -fsanitize=float-divide-by-zero.
+
+2014-04-30  Marek Polacek  <polacek@redhat.com>
+
+	* gcc.c (sanitize_spec_function): Handle SANITIZE_FLOAT_DIVIDE.
+	* builtins.def: Initialize builtins even for SANITIZE_FLOAT_DIVIDE.
+	* flag-types.h (enum sanitize_code): Add SANITIZE_FLOAT_DIVIDE.
+	* opts.c (common_handle_option): Add -fsanitize=float-divide-by-zero.
+
 2014-05-13  Peter Bergner  <bergner@vnet.ibm.com>
 
 	* doc/sourcebuild.texi: (dfp_hw): Document.

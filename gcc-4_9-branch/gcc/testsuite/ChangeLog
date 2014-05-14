@@ -1,3 +1,8 @@
+2014-04-30  Marek Polacek  <polacek@redhat.com>
+
+	* c-c++-common/ubsan/div-by-zero-5.c: Fix formatting.
+	* c-c++-common/ubsan/float-div-by-zero-1.c: New test.
+
 2014-05-13  Peter Bergner  <bergner@vnet.ibm.com>
 
 	* lib/target-support.exp (check_dfp_hw_available): New function.
