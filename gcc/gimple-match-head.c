@@ -218,13 +218,20 @@ gimple_resimplify3 (gimple_seq *seq,
 }
 
 
+/* Push the exploded expression described by RCODE, TYPE and OPS
+   as a statement to SEQ if necessary and return a gimple value
+   denoting the value of the expression.  If RES is not NULL
+   then the result will be always RES and even gimple values are
+   pushed to SEQ.  */
+
 static tree
 maybe_push_res_to_seq (code_helper rcode, tree type, tree *ops,
 		       gimple_seq *seq, tree res = NULL_TREE)
 {
   if (rcode.is_tree_code ())
     {
-      if (TREE_CODE_LENGTH ((tree_code) rcode) == 0
+      if (!res
+	  && TREE_CODE_LENGTH ((tree_code) rcode) == 0
 	  && is_gimple_val (ops[0]))
 	return ops[0];
       if (!seq)
@@ -544,7 +551,10 @@ gimple_match_and_simplify (gimple_stmt_iterator *gsi, tree (*valueize)(tree))
       maybe_push_res_to_seq (rcode, TREE_TYPE (lhs),
 			     ops, &tail, lhs);
       gcc_assert (gimple_seq_singleton_p (tail));
-      gsi_replace (gsi, gimple_seq_first_stmt (tail), false);
+      gimple with = gimple_seq_first_stmt (tail);
+      gimple_set_vdef (with, gimple_vdef (stmt));
+      gimple_set_vuse (with, gimple_vuse (stmt));
+      gsi_replace (gsi, with, false);
     }
   else
     /* Handle for example GIMPLE_COND, etc.  */

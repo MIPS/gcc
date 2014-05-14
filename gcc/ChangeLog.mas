@@ -1,3 +1,10 @@
+2014-05-14  Richard Biener  <rguenther@suse.de>
+
+	* gimple-match-head.c (maybe_push_res_to_seq): Fix res
+	!= NULL case and add a comment.
+	(gimple_match_and_simplify): Properly handle virtual
+	operands when we replace the stmt on the gsi interface.
+
 2014-04-02  Richard Biener  <rguenther@suse.de>
 
 	Merge from trunk r208477 through r209020.
