@@ -38,6 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #define INTEGER_CST_P(node) (TREE_CODE(node) == INTEGER_CST)
 #define integral_op_p(node) INTEGRAL_TYPE_P(TREE_TYPE(node))
+#define REAL_CST_P(node) (TREE_CODE(node) == REAL_CST)
 
 
 /* Helper to transparently allow tree codes and builtin function codes
@@ -492,6 +493,27 @@ gimple_match_and_simplify (gimple stmt,
 	      }
 	    return gimple_match_and_simplify (DECL_FUNCTION_CODE (decl),
 					      type, arg1,
+					      rcode, ops,
+					      seq, valueize);
+	  }
+	case 2:
+	  {
+	    tree arg1 = gimple_call_arg (stmt, 0);
+	    if (valueize && TREE_CODE (arg1) == SSA_NAME)
+	      {
+		arg1 = valueize (arg1);
+		if (!arg1)
+		  return false;
+	      }
+	    tree arg2 = gimple_call_arg (stmt, 0);
+	    if (valueize && TREE_CODE (arg2) == SSA_NAME)
+	      {
+		arg2 = valueize (arg2);
+		if (!arg2)
+		  return false;
+	      }
+	    return gimple_match_and_simplify (DECL_FUNCTION_CODE (decl),
+					      type, arg1, arg2,
 					      rcode, ops,
 					      seq, valueize);
 	  }

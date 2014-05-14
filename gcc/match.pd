@@ -163,6 +163,10 @@ to (minus @1 @0)
 (match_and_simplify
   (mult (BUILT_IN_POW @0 @1) @0)
   (BUILT_IN_POW @0 (PLUS_EXPR @1 { build_one_cst (TREE_TYPE (@1)); })))
+(match_and_simplify
+  (BUILT_IN_POW @0 REAL_CST_P@1)
+  if (REAL_VALUES_EQUAL (TREE_REAL_CST (@1), dconsthalf))
+  (BUILT_IN_SQRT @0))
 
 /* ????s
 
