@@ -519,6 +519,11 @@
 	* config/mips/mips.c (octeon_output_shared_variable): Disable
 	if CVMX_SHARED_BSS_FLAGS is not define.
 
+2012-10-10  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #4906
+	* testsuite/gcc.c-torture/compile/20121010-1.c: New testcase.
+
 2012-10-07  Andrew Pinski  <apinski@cavium.com>
 
 	* testsuite/gcc.dg/octeon/trunc-10.c: Look for \tsll
