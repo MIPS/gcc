@@ -1,4 +1,4 @@
-/* { dg-do run } */
+/* { dg-do compile } */
 
 void free(void *ptr)
 {

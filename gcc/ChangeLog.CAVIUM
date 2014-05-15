@@ -1,3 +1,7 @@
+2014-05-15  Praveen Jonnalagadda <pjonnalagadda@caviumnetworks.com>
+
+	* gcc/testsuite/gcc.dg/torture/pr59330.c: Change to compile
+
 2014-05-13  Andrew Pinski  <apinski@cavium.com>
 
 	Bug#10636
