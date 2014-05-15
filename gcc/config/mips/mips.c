@@ -12995,12 +12995,42 @@ mips_scalar_mode_supported_p (enum machine_mode mode)
 /* Implement TARGET_VECTORIZE_PREFERRED_SIMD_MODE.  */
 
 static enum machine_mode
-mips_preferred_simd_mode (enum machine_mode mode ATTRIBUTE_UNUSED)
+mips_preferred_simd_mode (enum machine_mode mode)
 {
   if (TARGET_PAIRED_SINGLE_FLOAT
       && mode == SFmode)
     return V2SFmode;
+
+  if (! TARGET_MSA)
+    return word_mode;
+
+  switch (mode)
+    {
+    case QImode:
+      return V16QImode;
+    case HImode:
+      return V8HImode;
+    case SImode:
+      return V4SImode;
+    case DImode:
+      return V2DImode;
+
+    case SFmode:
+      return V4SFmode;
+
+    case DFmode:
+      return V2DFmode;
+
+    default:
+      break;
+    }
   return word_mode;
+}
+
+static unsigned int
+mips_autovectorize_vector_sizes (void)
+{
+  return TARGET_MSA ? 16 : 0;
 }
 
 /* Implement TARGET_INIT_LIBFUNCS.  */
@@ -20956,6 +20986,9 @@ mips_lra_p (void)
 
 #undef TARGET_VECTORIZE_PREFERRED_SIMD_MODE
 #define TARGET_VECTORIZE_PREFERRED_SIMD_MODE mips_preferred_simd_mode
+#undef TARGET_VECTORIZE_AUTOVECTORIZE_VECTOR_SIZES
+#define TARGET_VECTORIZE_AUTOVECTORIZE_VECTOR_SIZES \
+  mips_autovectorize_vector_sizes
 
 #undef TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS mips_init_builtins
