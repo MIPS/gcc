@@ -332,7 +332,8 @@ expr::gen_gimple_match (FILE *f, const char *name, const char *label)
       for (unsigned i = 0; i < ops.length (); ++i)
 	{
 	  fprintf (f, "   {\n");
-	  fprintf (f, "     tree op = TREE_OPERAND (%s, %d);\n", name, i);
+	  fprintf (f, "     tree op_ = %s;\n", name);
+	  fprintf (f, "     tree op = TREE_OPERAND (op_, %d);\n", i);
 	  fprintf (f, "     if (valueize && TREE_CODE (op) == SSA_NAME)\n");
 	  fprintf (f, "       {\n");
 	  fprintf (f, "         op = valueize (op);\n");
@@ -353,7 +354,6 @@ expr::gen_gimple_match (FILE *f, const char *name, const char *label)
       fprintf (f, "if (TREE_CODE (%s) == SSA_NAME)\n", name);
       fprintf (f, "  {\n");
       fprintf (f, "gimple def_stmt = SSA_NAME_DEF_STMT (%s);\n", name);
-      fprintf (f, "tree fndecl;\n");
       fprintf (f, "if (!gimple_call_builtin_p (def_stmt, %s)) ", op->id);
       gen_gimple_match_fail (f, label);
       for (unsigned i = 0; i < ops.length (); ++i)
