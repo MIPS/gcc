@@ -282,8 +282,12 @@ expr::gen_gimple_match (FILE *f, const char *name, const char *label)
       fprintf (f, "if (TREE_CODE (%s) == SSA_NAME)\n", name);
       fprintf (f, "  {\n");
       fprintf (f, "gimple def_stmt = SSA_NAME_DEF_STMT (%s);\n", name);
-      fprintf (f, "if (!is_gimple_assign (def_stmt)\n"
-	       "    || gimple_assign_rhs_code (def_stmt) != %s) ",  op->id);
+      fprintf (f, "if (!is_gimple_assign (def_stmt)\n");
+      if (op->code == NOP_EXPR
+	  || op->code == CONVERT_EXPR)
+	fprintf (f, "    || !CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (def_stmt))) ");
+      else
+	fprintf (f, "    || gimple_assign_rhs_code (def_stmt) != %s) ",  op->id);
       gen_gimple_match_fail (f, label);
       if (op->code == REALPART_EXPR
 	  || op->code == IMAGPART_EXPR
