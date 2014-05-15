@@ -575,6 +575,12 @@
   return mips_const_vector_same_int_p (op, mode, 0, 31);
 })
 
+(define_predicate "const_vector_same_simm10_operand"
+  (match_code "const_vector")
+{
+  return mips_const_vector_same_int_p (op, mode, -1024, 1023);
+})
+
 (define_predicate "const_vector_same_uimm4_operand"
   (match_code "const_vector")
 {
