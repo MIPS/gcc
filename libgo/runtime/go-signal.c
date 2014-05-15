@@ -369,7 +369,17 @@ sig_panic_handler (int sig)
   __builtin_unreachable ();
 }
 
-#endif /* !defined (SA_SIGINFO) */
+      if (__sync_bool_compare_and_swap (&m->mallocing, 1, 1))
+	{
+	  fprintf (stderr, "caught signal while mallocing: %s\n", msg);
+	  __go_assert (0);
+	}
+
+      /* The signal handler blocked signals; unblock them.  */
+      i = sigfillset (&clear);
+      __go_assert (i == 0);
+      i = sigprocmask (SIG_UNBLOCK, &clear, NULL);
+      __go_assert (i == 0);
 
 /* A signal handler used for signals which are not going to panic.
    This is called on the alternate signal stack so it may not split

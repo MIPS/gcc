@@ -7,15 +7,13 @@
 #include "malloc.h"
 #include "go-type.h"
 
-enum { debug = 0 };
+static Lock finlock;
 
-typedef struct Fin Fin;
-struct Fin
+void
+runtime_initfintab()
 {
-	FuncVal *fn;
-	const struct __go_func_type *ft;
-	const struct __go_ptr_type *ot;
-};
+	runtime_initlock(&finlock);
+}
 
 // Finalizer hash table.  Direct hash, linear scan, at most 3/4 full.
 // Table size is power of 3 so that hash can be key % max.

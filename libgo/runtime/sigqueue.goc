@@ -57,7 +57,7 @@ __go_sigsend(int32 s)
 		mask = sig.mask[s/32];
 		if(mask & bit)
 			break;		// signal already in queue
-		if(runtime_cas(&sig.mask[s/32], mask, mask|bit)) {
+		if(runtime_cas(&sig.mask, mask, mask|bit)) {
 			// Added to queue.
 			// Only send a wakeup if the receiver needs a kick.
 			for(;;) {
@@ -87,42 +87,9 @@ func signal_recv() (m uint32) {
 	uint32 i, old, new;
 	
 	for(;;) {
-		// Serve from local copy if there are bits left.
-		for(i=0; i<NSIG; i++) {
-			if(recv[i/32]&(1U<<(i&31))) {
-				recv[i/32] ^= 1U<<(i&31);
-				m = i;
-				goto done;
-			}
-		}
-
-		// Check and update sig.state.
-		for(;;) {
-			old = runtime_atomicload(&sig.state);
-			if(old == HASWAITER)
-				runtime_throw("inconsistent state in signal_recv");
-			if(old == HASSIGNAL)
-				new = 0;
-			else  // if(old == 0)
-				new = HASWAITER;
-			if(runtime_cas(&sig.state, old, new)) {
-				if (new == HASWAITER) {
-					runtime_notetsleepg(&sig, -1);
-					runtime_noteclear(&sig);
-				}
-				break;
-			}
-		}
-
-		// Get a new local copy.
-		for(i=0; (size_t)i<nelem(sig.mask); i++) {
-			for(;;) {
-				m = sig.mask[i];
-				if(runtime_cas(&sig.mask[i], m, 0))
-					break;
-			}
-			recv[i] = m;
-		}
+		m = sig.mask;
+		if(runtime_cas(&sig.mask, m, 0))
+			break;
 	}
 
 done:;

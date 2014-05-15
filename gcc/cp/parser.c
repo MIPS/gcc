@@ -844,6 +844,14 @@ cp_lexer_set_source_position_from_token (cp_token *token)
     }
 }
 
+/* Update the globals input_location and the input file stack from LEXER.  */
+static inline void
+cp_lexer_set_source_position (cp_lexer *lexer)
+{
+  cp_token *token = cp_lexer_peek_token (lexer);
+  cp_lexer_set_source_position_from_token (token);
+}
+
 /* Return a pointer to the next token in the token stream, but do not
    consume it.  */
 
@@ -3128,6 +3136,10 @@ cp_parser_skip_to_end_of_statement (cp_parser* parser)
 {
   unsigned nesting_depth = 0;
 
+  /* Unwind generic function template scope if necessary.  */
+  if (parser->fully_implicit_function_template_p)
+    finish_fully_implicit_template (parser, /*member_decl_opt=*/0);
+
   while (true)
     {
       cp_token *token = cp_lexer_peek_token (parser->lexer);
@@ -3212,6 +3224,10 @@ static void
 cp_parser_skip_to_end_of_block_or_statement (cp_parser* parser)
 {
   int nesting_depth = 0;
+
+  /* Unwind generic function template scope if necessary.  */
+  if (parser->fully_implicit_function_template_p)
+    finish_fully_implicit_template (parser, /*member_decl_opt=*/0);
 
   while (nesting_depth >= 0)
     {
@@ -6359,6 +6375,7 @@ cp_parser_postfix_open_square_expression (cp_parser *parser,
       if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE))
 	{
 	  bool expr_nonconst_p;
+	  cp_lexer_set_source_position (parser->lexer);
 	  maybe_warn_cpp0x (CPP0X_INITIALIZER_LISTS);
 	  index = cp_parser_braced_list (parser, &expr_nonconst_p);
 	  if (flag_cilkplus
@@ -6671,6 +6688,7 @@ cp_parser_parenthesized_expression_list (cp_parser* parser,
 	    if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE))
 	      {
 		/* A braced-init-list.  */
+		cp_lexer_set_source_position (parser->lexer);
 		maybe_warn_cpp0x (CPP0X_INITIALIZER_LISTS);
 		expr = cp_parser_braced_list (parser, &expr_non_constant_p);
 		if (non_constant_p && expr_non_constant_p)
@@ -7519,6 +7537,7 @@ cp_parser_new_initializer (cp_parser* parser)
     {
       tree t;
       bool expr_non_constant_p;
+      cp_lexer_set_source_position (parser->lexer);
       maybe_warn_cpp0x (CPP0X_INITIALIZER_LISTS);
       t = cp_parser_braced_list (parser, &expr_non_constant_p);
       CONSTRUCTOR_IS_DIRECT_INIT (t) = 1;
@@ -10675,6 +10694,7 @@ cp_parser_jump_statement (cp_parser* parser)
 
 	if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE))
 	  {
+	    cp_lexer_set_source_position (parser->lexer);
 	    maybe_warn_cpp0x (CPP0X_INITIALIZER_LISTS);
 	    expr = cp_parser_braced_list (parser, &expr_non_constant_p);
 	  }
@@ -12353,6 +12373,7 @@ cp_parser_mem_initializer (cp_parser* parser)
   if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE))
     {
       bool expr_non_constant_p;
+      cp_lexer_set_source_position (parser->lexer);
       maybe_warn_cpp0x (CPP0X_INITIALIZER_LISTS);
       expression_list = cp_parser_braced_list (parser, &expr_non_constant_p);
       CONSTRUCTOR_IS_DIRECT_INIT (expression_list) = 1;
@@ -13456,7 +13477,12 @@ cp_parser_template_id (cp_parser *parser,
      the effort required to do the parse, nor will we issue duplicate
      error messages about problems during instantiation of the
      template.  */
-  if (start_of_id)
+  if (start_of_id
+      /* Don't do this if we had a parse error in a declarator; re-parsing
+	 might succeed if a name changes meaning (60361).  */
+      && !(cp_parser_error_occurred (parser)
+	   && cp_parser_parsing_tentatively (parser)
+	   && parser->in_declarator_p))
     {
       cp_token *token = cp_lexer_token_at (parser->lexer, start_of_id);
 
@@ -15932,10 +15958,17 @@ cp_parser_using_declaration (cp_parser* parser,
   /* If we saw `typename', or didn't see `::', then there must be a
      nested-name-specifier present.  */
   if (typename_p || !global_scope_p)
-    qscope = cp_parser_nested_name_specifier (parser, typename_p,
-					      /*check_dependency_p=*/true,
-					      /*type_p=*/false,
-					      /*is_declaration=*/true);
+    {
+      qscope = cp_parser_nested_name_specifier (parser, typename_p,
+						/*check_dependency_p=*/true,
+						/*type_p=*/false,
+						/*is_declaration=*/true);
+      if (!qscope && !cp_parser_uncommitted_to_tentative_parse_p (parser))
+	{
+	  cp_parser_skip_to_end_of_block_or_statement (parser);
+	  return false;
+	}
+    }
   /* Otherwise, we could be in either of the two productions.  In that
      case, treat the nested-name-specifier as optional.  */
   else
@@ -15991,7 +16024,10 @@ cp_parser_using_declaration (cp_parser* parser,
 	    USING_DECL_TYPENAME_P (decl) = 1;
 
 	  if (check_for_bare_parameter_packs (decl))
-            return false;
+	    {
+	      cp_parser_require (parser, CPP_SEMICOLON, RT_SEMICOLON);
+	      return false;
+	    }
 	  else
 	    /* Add it to the list of members in this class.  */
 	    finish_member_declaration (decl);
@@ -16006,7 +16042,10 @@ cp_parser_using_declaration (cp_parser* parser,
 					 decl, NLE_NULL,
 					 token->location);
 	  else if (check_for_bare_parameter_packs (decl))
-	    return false;
+	    {
+	      cp_parser_require (parser, CPP_SEMICOLON, RT_SEMICOLON);
+	      return false;
+	    }
 	  else if (!at_namespace_scope_p ())
 	    do_local_using_decl (decl, qscope, identifier);
 	  else
@@ -17449,6 +17488,7 @@ cp_parser_direct_declarator (cp_parser* parser,
 		  /* But declarations with qualified-ids can't appear in a
 		     function.  */
 		  cp_parser_error (parser, "qualified-id in declaration");
+		  declarator = cp_error_declarator;
 		  break;
 		}
 	      pushed_scope = push_scope (scope);
@@ -17960,7 +18000,9 @@ cp_parser_type_id_1 (cp_parser* parser, bool is_template_arg,
     abstract_declarator = NULL;
 
   if (type_specifier_seq.type
-      && cxx_dialect < cxx1y
+      /* None of the valid uses of 'auto' in C++14 involve the type-id
+	 nonterminal, but it is valid in a trailing-return-type.  */
+      && !(cxx_dialect >= cxx1y && is_trailing_return)
       && type_uses_auto (type_specifier_seq.type))
     {
       /* A type-id with type 'auto' is only ok if the abstract declarator
@@ -18208,12 +18250,7 @@ cp_parser_parameter_declaration_clause (cp_parser* parser)
      parameter-declaration-list, then the entire
      parameter-declaration-clause is erroneous.  */
   if (is_error)
-    {
-      /* Unwind generic function template scope if necessary.  */
-      if (parser->fully_implicit_function_template_p)
-	finish_fully_implicit_template (parser, /*member_decl_opt=*/0);
-      return NULL;
-    }
+    return NULL;
 
   /* Peek at the next token.  */
   token = cp_lexer_peek_token (parser->lexer);
@@ -18793,6 +18830,7 @@ cp_parser_initializer (cp_parser* parser, bool* is_direct_init,
     }
   else if (token->type == CPP_OPEN_BRACE)
     {
+      cp_lexer_set_source_position (parser->lexer);
       maybe_warn_cpp0x (CPP0X_INITIALIZER_LISTS);
       init = cp_parser_braced_list (parser, non_constant_p);
       CONSTRUCTOR_IS_DIRECT_INIT (init) = 1;
@@ -19854,7 +19892,13 @@ cp_parser_class_head (cp_parser* parser,
       pushed_scope = push_scope (nested_name_specifier);
       /* Get the canonical version of this type.  */
       type = TYPE_MAIN_DECL (TREE_TYPE (type));
-      if (PROCESSING_REAL_TEMPLATE_DECL_P ()
+      /* Call push_template_decl if it seems like we should be defining a
+	 template either from the template headers or the type we're
+	 defining, so that we diagnose both extra and missing headers.  */
+      if ((PROCESSING_REAL_TEMPLATE_DECL_P ()
+	   || (CLASSTYPE_TEMPLATE_INFO (TREE_TYPE (type))
+	       && PRIMARY_TEMPLATE_P (CLASSTYPE_TI_TEMPLATE
+				      (TREE_TYPE (type)))))
 	  && !CLASSTYPE_TEMPLATE_SPECIALIZATION (TREE_TYPE (type)))
 	{
 	  type = push_template_decl (type);
@@ -20483,8 +20527,13 @@ cp_parser_member_declaration (cp_parser* parser)
 	      decl = grokfield (declarator, &decl_specifiers,
 				initializer, /*init_const_expr_p=*/true,
 				asm_specification, attributes);
-		if (parser->fully_implicit_function_template_p)
-		  decl = finish_fully_implicit_template (parser, decl);
+	      if (parser->fully_implicit_function_template_p)
+		{
+		  if (friend_p)
+		    finish_fully_implicit_template (parser, 0);
+		  else
+		    decl = finish_fully_implicit_template (parser, decl);
+		}
 	    }
 
 	  cp_finalize_omp_declare_simd (parser, decl);
@@ -23228,6 +23277,7 @@ cp_parser_functional_cast (cp_parser* parser, tree type)
 
   if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE))
     {
+      cp_lexer_set_source_position (parser->lexer);
       maybe_warn_cpp0x (CPP0X_INITIALIZER_LISTS);
       expression_list = cp_parser_braced_list (parser, &nonconst_p);
       CONSTRUCTOR_IS_DIRECT_INIT (expression_list) = 1;
@@ -31937,13 +31987,32 @@ synthesize_implicit_template_parm  (cp_parser *parser)
 	  parent_scope = scope;
 	  scope = scope->level_chain;
 	}
-      if (current_class_type && !LAMBDA_TYPE_P (current_class_type)
-	  && parser->num_classes_being_defined == 0)
-	while (scope->kind == sk_class)
-	  {
-	    parent_scope = scope;
-	    scope = scope->level_chain;
-	  }
+      if (current_class_type && !LAMBDA_TYPE_P (current_class_type))
+	{
+	  /* If not defining a class, then any class scope is a scope level in
+	     an out-of-line member definition.  In this case simply wind back
+	     beyond the first such scope to inject the template argument list.
+	     Otherwise wind back to the class being defined.  The latter can
+	     occur in class member friend declarations such as:
+
+	       class A {
+		 void foo (auto);
+	       };
+	       class B {
+		 friend void A::foo (auto);
+	       };
+
+	    The template argument list synthesized for the friend declaration
+	    must be injected in the scope of 'B', just beyond the scope of 'A'
+	    introduced by 'A::'.  */
+
+	  while (scope->kind == sk_class
+		 && !TYPE_BEING_DEFINED (scope->this_entity))
+	    {
+	      parent_scope = scope;
+	      scope = scope->level_chain;
+	    }
+	}
 
       current_binding_level = scope;
 

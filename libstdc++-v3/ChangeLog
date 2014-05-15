@@ -1,3 +1,111 @@
+2014-03-21  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/60587
+	* include/debug/functions.h (_Is_contiguous_sequence): Define.
+	(__foreign_iterator): Accept additional iterator. Do not dispatch on
+	iterator category.
+	(__foreign_iterator_aux2): Likewise. Add overload for iterators
+	from different types of debug container. Use _Is_contiguous_sequence
+	instead of is_lvalue_reference.
+	(__foreign_iterator_aux3): Accept additional iterator. Avoid
+	dereferencing past-the-end iterator.
+	(__foreign_iterator_aux4): Use const value_type* instead of
+	potentially user-defined const_pointer type.
+	* include/debug/macros.h (__glibcxx_check_insert_range): Fix comment
+	and pass end iterator to __gnu_debug::__foreign_iterator.
+	(__glibcxx_check_insert_range_after): Likewise.
+	(__glibcxx_check_max_load_factor): Fix comment.
+	* include/debug/vector (_Is_contiguous_sequence): Define partial
+	specializations.
+	* testsuite/23_containers/vector/debug/57779_neg.cc: Remove
+	-std=gnu++11 option and unused header.
+	* testsuite/23_containers/vector/debug/60587.cc: New.
+	* testsuite/23_containers/vector/debug/60587_neg.cc: New.
+
+2014-03-20  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* crossconfig.m4: Support spu-*-elf* targets.
+	* configure: Regenerate.
+
+2014-03-18  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/60564
+	* include/std/future (__future_base::_Task_state<>): Change
+	constructors to template functions using perfect forwarding.
+	(__create_task_state): Use decayed type as stored task.
+	(packaged_task::packaged_task(_Fn&&)): Forward instead of moving.
+	* testsuite/30_threads/packaged_task/60564.cc: New.
+
+2014-03-16  François Dumont  <fdumont@gcc.gnu.org>
+
+	* scripts/create_testsuite_files: Add testsuite/experimental in
+	the list of folders to search for tests.
+
+2014-03-15  Andreas Schwab  <schwab@linux-m68k.org>
+
+	* config/abi/post/m68k-linux-gnu/baseline_symbols.txt: New file.
+
+2014-03-15  Tim Shen  <timshen91@gmail.com>
+
+	* include/bits/regex.h: Add/modify comments.
+	* include/bits/regex_compiler.h: Likewise.
+	* include/bits/regex_executor.h: Likewise.
+	* include/bits/regex_executor.tcc: Likewise.
+	* include/bits/regex_scanner.h: Likewise.
+
+2014-03-14  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR ipa/58721
+	* config/abi/pre/gnu.ver (GLIBCXX_3.4.11): Remove unused pattern for
+	_ZNSt12system_errorC* symbols which are not exported on any target.
+
+2014-03-12  Roland McGrath  <mcgrathr@google.com>
+	    Mark Seaborn  <mseaborn@google.com>
+
+	PR libstdc++/59392
+	* libsupc++/eh_call.cc (__cxa_call_unexpected): Call __do_catch with
+	the address of a null pointer, not with a null pointer to pointer.
+	Copy comment for this case from eh_personality.cc:__cxa_call_unexpected.
+	* testsuite/18_support/bad_exception/59392.cc: New file.
+
+2014-03-11  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/60499
+	* include/debug/forward_list (forward_list::operator=(forward_list&&)):
+	Uglify name.
+	* include/debug/map (map::operator=(map&&)): Likewise.
+	* include/debug/multimap (multimap::operator=(multimap&&)): Likewise.
+	* include/debug/multiset (multiset::operator=(multiset&&)): Likewise.
+	* include/debug/set (set::operator=(set&&)): Likewise.
+	* include/debug/unordered_map
+	(unordered_map::operator=(unordered_map&&)): Likewise.
+	(unordered_multimap::operator=(unordered_multimap&&)): Likewise.
+	* include/debug/unordered_set
+	(unordered_set::operator=(unordered_set&&)): Likewise.
+	(unordered_multiset::operator=(unordered_multiset&&)): Likewise.
+	* include/debug/vector (vector::operator=(vector&&)): Likewise.
+	* testsuite/23_containers/forward_list/debug/60499.cc: New
+	* testsuite/23_containers/map/debug/60499.cc: New
+	* testsuite/23_containers/multimap/debug/60499.cc: New
+	* testsuite/23_containers/multiset/debug/60499.cc: New
+	* testsuite/23_containers/set/debug/60499.cc: New
+	* testsuite/23_containers/unordered_map/debug/60499.cc: New
+	* testsuite/23_containers/unordered_multimap/debug/60499.cc: New
+	* testsuite/23_containers/unordered_multiset/debug/60499.cc: New
+	* testsuite/23_containers/unordered_set/debug/60499.cc: New
+	* testsuite/23_containers/vector/debug/60499.cc: New
+
+2014-03-05  Ed Smith-Rowland  <3dw4rd@verizon.net>
+
+	* doc/xml/manual/status_cxx2014.xml: Add new items and latest papers
+	for filesystem and fundamentals TS work items.
+
+2014-03-04  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/60376
+	* testsuite/29_atomics/headers/atomic/types_std_c++0x_neg.cc:
+	Adjust dg-error directives.
+
 2014-02-26  Tim Shen  <timshen91@gmail.com>
 
 	* include/bits/regex.tcc (match_results<>::format,

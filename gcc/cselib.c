@@ -681,14 +681,6 @@ remove_useless_values (void)
 {
   cselib_val **p, *v;
 
-  if (n_useless_values <= MAX_USELESS_VALUES
-      /* remove_useless_values is linear in the hash table size.  Avoid
-         quadratic behavior for very large hashtables with very few
-	 useless elements.  */
-      || ((unsigned int)n_useless_values
-	  <= (cselib_hash_table.elements () - n_debug_values) / 4))
-    return;
-
   /* First pass: eliminate locations that reference the value.  That in
      turn can make more values useless.  */
   do
@@ -2653,12 +2645,10 @@ cselib_process_insn (rtx insn)
 
   cselib_current_insn = insn;
 
-  /* Forget everything at a CODE_LABEL, a volatile insn, or a setjmp.  */
+  /* Forget everything at a CODE_LABEL or a setjmp.  */
   if ((LABEL_P (insn)
        || (CALL_P (insn)
-	   && find_reg_note (insn, REG_SETJMP, NULL))
-       || (NONJUMP_INSN_P (insn)
-	   && volatile_insn_p (PATTERN (insn))))
+	   && find_reg_note (insn, REG_SETJMP, NULL)))
       && !cselib_preserve_constants)
     {
       cselib_reset_table (next_uid);
@@ -2720,7 +2710,13 @@ cselib_process_insn (rtx insn)
 
   cselib_current_insn = NULL_RTX;
 
-  remove_useless_values ();
+  if (n_useless_values > MAX_USELESS_VALUES
+      /* remove_useless_values is linear in the hash table size.  Avoid
+         quadratic behavior for very large hashtables with very few
+	 useless elements.  */
+      && ((unsigned int)n_useless_values
+	  > (cselib_hash_table.elements () - n_debug_values) / 4))
+    remove_useless_values ();
 }
 
 /* Initialize cselib for one pass.  The caller must also call

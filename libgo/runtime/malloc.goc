@@ -389,26 +389,10 @@ extern uintptr runtime_sizeof_C_MStats
 void
 runtime_mallocinit(void)
 {
-	byte *p;
-	uintptr arena_size, bitmap_size, spans_size;
-	extern byte _end[];
-	byte *want;
-	uintptr limit;
-	uint64 i;
+	runtime_initfintab();
+	runtime_Mprof_Init();
 
-	runtime_sizeof_C_MStats = sizeof(MStats);
-
-	p = nil;
-	arena_size = 0;
-	bitmap_size = 0;
-	spans_size = 0;
-
-	// for 64-bit build
-	USED(p);
-	USED(arena_size);
-	USED(bitmap_size);
-	USED(spans_size);
-
+	runtime_SysMemInit();
 	runtime_InitSizes();
 
 	// limit = runtime_memlimit();

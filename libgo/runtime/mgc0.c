@@ -128,30 +128,10 @@ struct Workbuf
 #undef SIZE
 };
 
-typedef struct Finalizer Finalizer;
-struct Finalizer
-{
-	FuncVal *fn;
-	void *arg;
-	const struct __go_func_type *ft;
-	const struct __go_ptr_type *ot;
-};
-
-typedef struct FinBlock FinBlock;
-struct FinBlock
-{
-	FinBlock *alllink;
-	FinBlock *next;
-	int32 cnt;
-	int32 cap;
-	Finalizer fin[1];
-};
-
-static G *fing;
-static FinBlock *finq; // list of finalizers that are to be executed
-static FinBlock *finc; // cache of free blocks
-static FinBlock *allfin; // list of all blocks
-static Lock finlock;
+static bool finstarted;
+static pthread_mutex_t finqlock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t finqcond = PTHREAD_COND_INITIALIZER;
+static Finalizer *finq;
 static int32 fingwait;
 
 static void runfinq(void*);
@@ -1756,11 +1736,7 @@ dumpspan(uint32 idx)
 	runtime_printf("\n");
 }
 
-// A debugging function to dump the contents of memory
-void
-runtime_memorydump(void)
-{
-	uint32 spanidx;
+static pthread_mutex_t gcsema = PTHREAD_MUTEX_INITIALIZER;
 
 	for(spanidx=0; spanidx<runtime_mheap.nspan; spanidx++) {
 		dumpspan(spanidx);
@@ -1770,6 +1746,8 @@ runtime_memorydump(void)
 void
 runtime_gchelper(void)
 {
+	uint32 nproc;
+
 	gchelperstart();
 
 	// parallel mark for over gc roots
@@ -1786,7 +1764,8 @@ runtime_gchelper(void)
 
 	runtime_parfordo(work.sweepfor);
 	bufferList[runtime_m()->helpgc].busy = 0;
-	if(runtime_xadd(&work.ndone, +1) == work.nproc-1)
+	nproc = work.nproc;  // work.nproc can change right after we increment work.ndone
+	if(runtime_xadd(&work.ndone, +1) == nproc-1)
 		runtime_notewakeup(&work.alldone);
 }
 
@@ -1970,17 +1949,10 @@ runtime_gc(int32 force)
 	if(gcpercent < 0)
 		return;
 
-	runtime_semacquire(&runtime_worldsema, false);
-	if(!force && mstats.heap_alloc < mstats.next_gc) {
-		// typically threads which lost the race to grab
-		// worldsema exit here when gc is done.
-		runtime_semrelease(&runtime_worldsema);
-		return;
-	}
-
-	// Ok, we're doing it!  Stop everybody else
-	a.start_time = runtime_nanotime();
-	m->gcing = 1;
+	pthread_mutex_lock(&finqlock);
+	pthread_mutex_lock(&gcsema);
+	m->locks++;	// disable gc during the mallocs in newproc
+	t0 = runtime_nanotime();
 	runtime_stoptheworld();
 	
 	// Run gc on the g0 stack.  We do this so that the g stack
@@ -1999,10 +1971,12 @@ runtime_gc(int32 force)
 		a.start_time = runtime_nanotime();
 	}
 
-	// all done
-	m->gcing = 0;
-	m->locks++;
-	runtime_semrelease(&runtime_worldsema);
+	t1 = runtime_nanotime();
+	mstats.numgc++;
+	mstats.pause_ns += t1 - t0;
+	if(mstats.debuggc)
+		runtime_printf("pause %llu\n", (unsigned long long)t1-t0);
+	pthread_mutex_unlock(&gcsema);
 	runtime_starttheworld();
 	m->locks--;
 
@@ -2066,100 +2040,7 @@ gc(struct gc_args *args)
 	if(work.sweepfor == nil)
 		work.sweepfor = runtime_parforalloc(MaxGcproc);
 	m->locks--;
-
-	if(itabtype == nil) {
-		// get C pointer to the Go type "itab"
-		// runtime_gc_itab_ptr(&eface);
-		// itabtype = ((PtrType*)eface.type)->elem;
-	}
-
-	work.nwait = 0;
-	work.ndone = 0;
-	work.debugmarkdone = 0;
-	work.nproc = runtime_gcprocs();
-	addroots();
-	runtime_parforsetup(work.markfor, work.nproc, work.nroot, nil, false, markroot);
-	runtime_parforsetup(work.sweepfor, work.nproc, runtime_mheap.nspan, nil, true, sweepspan);
-	if(work.nproc > 1) {
-		runtime_noteclear(&work.alldone);
-		runtime_helpgc(work.nproc);
-	}
-
-	t1 = runtime_nanotime();
-
-	gchelperstart();
-	runtime_parfordo(work.markfor);
-	scanblock(nil, nil, 0, true);
-
-	if(DebugMark) {
-		for(i=0; i<work.nroot; i++)
-			debug_scanblock(work.roots[i].p, work.roots[i].n);
-		runtime_atomicstore(&work.debugmarkdone, 1);
-	}
-	t2 = runtime_nanotime();
-
-	runtime_parfordo(work.sweepfor);
-	bufferList[m->helpgc].busy = 0;
-	t3 = runtime_nanotime();
-
-	if(work.nproc > 1)
-		runtime_notesleep(&work.alldone);
-
-	cachestats();
-	mstats.next_gc = mstats.heap_alloc+mstats.heap_alloc*gcpercent/100;
-
-	t4 = runtime_nanotime();
-	mstats.last_gc = t4;
-	mstats.pause_ns[mstats.numgc%nelem(mstats.pause_ns)] = t4 - t0;
-	mstats.pause_total_ns += t4 - t0;
-	mstats.numgc++;
-	if(mstats.debuggc)
-		runtime_printf("pause %D\n", t4-t0);
-
-	if(runtime_debug.gctrace) {
-		updatememstats(&stats);
-		heap1 = mstats.heap_alloc;
-		obj1 = mstats.nmalloc - mstats.nfree;
-
-		stats.nprocyield += work.sweepfor->nprocyield;
-		stats.nosyield += work.sweepfor->nosyield;
-		stats.nsleep += work.sweepfor->nsleep;
-
-		runtime_printf("gc%d(%d): %D+%D+%D ms, %D -> %D MB %D -> %D (%D-%D) objects,"
-				" %D(%D) handoff, %D(%D) steal, %D/%D/%D yields\n",
-			mstats.numgc, work.nproc, (t2-t1)/1000000, (t3-t2)/1000000, (t1-t0+t4-t3)/1000000,
-			heap0>>20, heap1>>20, obj0, obj1,
-			mstats.nmalloc, mstats.nfree,
-			stats.nhandoff, stats.nhandoffcnt,
-			work.sweepfor->nsteal, work.sweepfor->nstealcnt,
-			stats.nprocyield, stats.nosyield, stats.nsleep);
-		if(CollectStats) {
-			runtime_printf("scan: %D bytes, %D objects, %D untyped, %D types from MSpan\n",
-				gcstats.nbytes, gcstats.obj.cnt, gcstats.obj.notype, gcstats.obj.typelookup);
-			if(gcstats.ptr.cnt != 0)
-				runtime_printf("avg ptrbufsize: %D (%D/%D)\n",
-					gcstats.ptr.sum/gcstats.ptr.cnt, gcstats.ptr.sum, gcstats.ptr.cnt);
-			if(gcstats.obj.cnt != 0)
-				runtime_printf("avg nobj: %D (%D/%D)\n",
-					gcstats.obj.sum/gcstats.obj.cnt, gcstats.obj.sum, gcstats.obj.cnt);
-			runtime_printf("rescans: %D, %D bytes\n", gcstats.rescan, gcstats.rescanbytes);
-
-			runtime_printf("instruction counts:\n");
-			ninstr = 0;
-			for(i=0; i<nelem(gcstats.instr); i++) {
-				runtime_printf("\t%d:\t%D\n", i, gcstats.instr[i]);
-				ninstr += gcstats.instr[i];
-			}
-			runtime_printf("\ttotal:\t%D\n", ninstr);
-
-			runtime_printf("putempty: %D, getfull: %D\n", gcstats.putempty, gcstats.getfull);
-
-			runtime_printf("markonly base lookup: bit %D word %D span %D\n", gcstats.markonly.foundbit, gcstats.markonly.foundword, gcstats.markonly.foundspan);
-			runtime_printf("flushptrbuf base lookup: bit %D word %D span %D\n", gcstats.flushptrbuf.foundbit, gcstats.flushptrbuf.foundword, gcstats.flushptrbuf.foundspan);
-		}
-	}
-
-	runtime_MProf_GC();
+	pthread_mutex_unlock(&finqlock);
 }
 
 void runtime_ReadMemStats(MStats *)
@@ -2264,22 +2145,18 @@ runfinq(void* dummy __attribute__ ((unused)))
 	Iface iface;
 
 	for(;;) {
-		runtime_lock(&finlock);
-		fb = finq;
+		pthread_mutex_lock(&finqlock);
+		f = finq;
 		finq = nil;
 		if(fb == nil) {
 			fingwait = 1;
-			runtime_park(runtime_unlock, &finlock, "finalizer wait");
+			pthread_cond_wait(&finqcond, &finqlock);
+			pthread_mutex_unlock(&finqlock);
 			continue;
 		}
-		runtime_unlock(&finlock);
-		if(raceenabled)
-			runtime_racefingo();
-		for(; fb; fb=next) {
-			next = fb->next;
-			for(i=0; i<(uint32)fb->cnt; i++) {
-				const Type *fint;
-				void *param;
+		pthread_mutex_unlock(&finqlock);
+		for(; f; f=next) {
+			void *params[1];
 
 				f = &fb->fin[i];
 				fint = ((const Type**)f->ft->__in.array)[0];

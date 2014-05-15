@@ -371,48 +371,17 @@ MATH_LIBS=
 AC_CHECK_LIB([m], [sqrt], MATH_LIBS=-lm)
 AC_SUBST(MATH_LIBS)
 
-dnl Test for -lsocket and -lnsl.  Copied from libjava/configure.ac.
-AC_CACHE_CHECK([for socket libraries], libgo_cv_lib_sockets,
-  [libgo_cv_lib_sockets=
-   libgo_check_both=no
-   AC_CHECK_FUNC(connect, libgo_check_socket=no, libgo_check_socket=yes)
-   if test "$libgo_check_socket" = "yes"; then
-     unset ac_cv_func_connect
-     AC_CHECK_LIB(socket, main, libgo_cv_lib_sockets="-lsocket",
-     		  libgo_check_both=yes)
-   fi
-   if test "$libgo_check_both" = "yes"; then
-     libgo_old_libs=$LIBS
-     LIBS="$LIBS -lsocket -lnsl"
-     unset ac_cv_func_accept
-     AC_CHECK_FUNC(accept,
-		   [libgo_check_nsl=no
-		    libgo_cv_lib_sockets="-lsocket -lnsl"])
-     unset ac_cv_func_accept
-     LIBS=$libgo_old_libs
-   fi
-   unset ac_cv_func_gethostbyname
-   libgo_old_libs="$LIBS"
-   AC_CHECK_FUNC(gethostbyname, ,
-		 [AC_CHECK_LIB(nsl, main,
-		 	[libgo_cv_lib_sockets="$libgo_cv_lib_sockets -lnsl"])])
-   unset ac_cv_func_gethostbyname
-   LIBS=$libgo_old_libs
-])
-NET_LIBS="$libgo_cv_lib_sockets"
-AC_SUBST(NET_LIBS)
-
 dnl Test whether the compiler supports the -pthread option.
 AC_CACHE_CHECK([whether -pthread is supported],
-[libgo_cv_lib_pthread],
+[ac_cv_libgo_pthread_supported],
 [CFLAGS_hold=$CFLAGS
 CFLAGS="$CFLAGS -pthread"
 AC_COMPILE_IFELSE([[int i;]],
-[libgo_cv_lib_pthread=yes],
-[libgo_cv_lib_pthread=no])
+[ac_cv_libgo_pthread_supported=yes],
+[ac_cv_libgo_pthread_supported=no])
 CFLAGS=$CFLAGS_hold])
 PTHREAD_CFLAGS=
-if test "$libgo_cv_lib_pthread" = yes; then
+if test "$ac_cv_libgo_pthread_supported" = yes; then
   PTHREAD_CFLAGS=-pthread
 fi
 AC_SUBST(PTHREAD_CFLAGS)
@@ -421,10 +390,6 @@ dnl Test for the -lpthread library.
 PTHREAD_LIBS=
 AC_CHECK_LIB([pthread], [pthread_create], PTHREAD_LIBS=-lpthread)
 AC_SUBST(PTHREAD_LIBS)
-
-dnl Test if -lrt is required for sched_yield and/or nanosleep.
-AC_SEARCH_LIBS([sched_yield], [rt])
-AC_SEARCH_LIBS([nanosleep], [rt])
 
 AC_C_BIGENDIAN
 
@@ -620,6 +585,8 @@ CFLAGS=$CFLAGS_hold])
 MATH_FLAG=
 if test "$libgo_cv_c_fancymath" = yes; then
   MATH_FLAG="-mfancy-math-387 -funsafe-math-optimizations"
+else
+  MATH_FLAG="-ffp-contract=off"
 fi
 AC_SUBST(MATH_FLAG)
 

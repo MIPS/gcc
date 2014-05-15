@@ -100,7 +100,11 @@ FLAGS_TO_PASS = $(AM_MAKEFLAGS)
 toolexeclib_LTLIBRARIES = libgo.la
 toolexeclib_LIBRARIES = libgobegin.a
 
+toolexeclibgodir = $(toolexeclibdir)/go/$(gcc_version)/$(target_alias)
+
 toolexeclibgo_DATA = \
+	asn1.gox \
+	big.gox \
 	bufio.gox \
 	bytes.gox \
 	crypto.gox \
@@ -140,7 +144,6 @@ toolexeclibgoarchive_DATA = \
 toolexeclibgocompressdir = $(toolexeclibgodir)/compress
 
 toolexeclibgocompress_DATA = \
-	compress/bzip2.gox \
 	compress/flate.gox \
 	compress/gzip.gox \
 	compress/lzw.gox \
@@ -174,21 +177,6 @@ toolexeclibgocrypto_DATA = \
 	crypto/tls.gox \
 	crypto/x509.gox
 
-toolexeclibgocryptox509dir = $(toolexeclibgocryptodir)/x509
-
-toolexeclibgocryptox509_DATA = \
-	crypto/x509/pkix.gox
-
-toolexeclibgodatabasedir = $(toolexeclibgodir)/database
-
-toolexeclibgodatabase_DATA = \
-	database/sql.gox
-
-toolexeclibgodatabasesqldir = $(toolexeclibgodatabasedir)/sql
-
-toolexeclibgodatabasesql_DATA = \
-	database/sql/driver.gox
-
 toolexeclibgodebugdir = $(toolexeclibgodir)/debug
 
 toolexeclibgodebug_DATA = \
@@ -216,8 +204,9 @@ toolexeclibgoencoding_DATA = \
 toolexeclibgoexpdir = $(toolexeclibgodir)/exp
 
 toolexeclibgoexp_DATA = \
-	exp/proxy.gox \
-	exp/terminal.gox
+	exp/datafmt.gox \
+	exp/draw.gox \
+	exp/eval.gox
 
 toolexeclibgogodir = $(toolexeclibgodir)/go
 
@@ -239,24 +228,16 @@ toolexeclibgohash_DATA = \
 	hash/crc64.gox \
 	hash/fnv.gox
 
-toolexeclibgohtmldir = $(toolexeclibgodir)/html
+toolexeclibgohttpdir = $(toolexeclibgodir)/http
 
-toolexeclibgohtml_DATA = \
-	html/template.gox
+toolexeclibgohttp_DATA = \
+	http/pprof.gox
 
 toolexeclibgoimagedir = $(toolexeclibgodir)/image
 
 toolexeclibgoimage_DATA = \
-	image/color.gox \
-	image/draw.gox \
-	image/gif.gox \
 	image/jpeg.gox \
 	image/png.gox
-
-toolexeclibgoimagecolordir = $(toolexeclibgoimagedir)/color
-
-toolexeclibgoimagecolor_DATA = \
-	image/color/palette.gox
 
 toolexeclibgoindexdir = $(toolexeclibgodir)/index
 
@@ -268,18 +249,6 @@ toolexeclibgoiodir = $(toolexeclibgodir)/io
 toolexeclibgoio_DATA = \
 	io/ioutil.gox
 
-toolexeclibgologdir = $(toolexeclibgodir)/log
-
-toolexeclibgolog_DATA = \
-	log/syslog.gox
-
-toolexeclibgomathdir = $(toolexeclibgodir)/math
-
-toolexeclibgomath_DATA = \
-	math/big.gox \
-	math/cmplx.gox \
-	math/rand.gox
-
 toolexeclibgomimedir = $(toolexeclibgodir)/mime
 
 toolexeclibgomime_DATA = \
@@ -288,61 +257,23 @@ toolexeclibgomime_DATA = \
 toolexeclibgonetdir = $(toolexeclibgodir)/net
 
 toolexeclibgonet_DATA = \
-	net/http.gox \
-	net/mail.gox \
-	net/rpc.gox \
-	net/smtp.gox \
-	net/textproto.gox \
-	net/url.gox
-
-toolexeclibgonethttpdir = $(toolexeclibgonetdir)/http
-
-toolexeclibgonethttp_DATA = \
-	net/http/cgi.gox \
-	net/http/cookiejar.gox \
-	net/http/fcgi.gox \
-	net/http/httptest.gox \
-	net/http/httputil.gox \
-	net/http/pprof.gox
-
-toolexeclibgonetrpcdir = $(toolexeclibgonetdir)/rpc
-
-toolexeclibgonetrpc_DATA = \
-	net/rpc/jsonrpc.gox
-
-toolexeclibgoolddir = $(toolexeclibgodir)/old
-
-toolexeclibgoold_DATA = \
-	old/regexp.gox \
-	old/template.gox
+	net/dict.gox \
+	net/textproto.gox
 
 toolexeclibgoosdir = $(toolexeclibgodir)/os
 
 toolexeclibgoos_DATA = \
-	os/exec.gox \
-	os/signal.gox \
-	os/user.gox
+	os/signal.gox
 
-toolexeclibgopathdir = $(toolexeclibgodir)/path
+toolexeclibgorpcdir = $(toolexeclibgodir)/rpc
 
-toolexeclibgopath_DATA = \
-	path/filepath.gox
-
-toolexeclibgoregexpdir = $(toolexeclibgodir)/regexp
-
-toolexeclibgoregexp_DATA = \
-	regexp/syntax.gox
+toolexeclibgorpc_DATA = \
+	rpc/jsonrpc.gox
 
 toolexeclibgoruntimedir = $(toolexeclibgodir)/runtime
 
 toolexeclibgoruntime_DATA = \
-	runtime/debug.gox \
 	runtime/pprof.gox
-
-toolexeclibgosyncdir = $(toolexeclibgodir)/sync
-
-toolexeclibgosync_DATA = \
-	sync/atomic.gox
 
 toolexeclibgotestingdir = $(toolexeclibgodir)/testing
 
@@ -1944,8 +1875,7 @@ libgo_go_objs = \
 
 libgo_la_SOURCES = $(runtime_files)
 
-libgo_la_LDFLAGS = \
-	-version-info $(libtool_VERSION) $(PTHREAD_CFLAGS) $(AM_LDFLAGS)
+libgo_la_LIBADD = $(libgo_go_objs) $(LIBFFI) $(PTHREAD_LIBS) $(MATH_LIBS)
 
 libgo_la_LIBADD = \
 	$(libgo_go_objs) ../libbacktrace/libbacktrace.la \
@@ -1965,7 +1895,8 @@ LTGOCOMPILE = $(LIBTOOL) --tag GO --mode=compile $(GOC) $(INCLUDES) \
 	$(AM_GOCFLAGS) $(GOCFLAGS)
 
 GOLINK = $(LIBTOOL) --tag GO --mode-link $(GOC) \
-	$(OPT_LDFLAGS) $(SECTION_LDFLAGS) $(AM_GOCFLAGS) $(LTLDFLAGS) -o $@
+	$(OPT_LDFLAGS) $(SECTION_LDFLAGS) $(AM_GOCFLAGS) $(LTLDFLAGS) \
+	$(PTHREAD_LIBS) $(MATH_LIBS) -o $@
 
 # Build the dependencies for a Go package.
 BUILDDEPS = \
@@ -1977,7 +1908,9 @@ BUILDDEPS = \
 BUILDPACKAGE = \
 	$(MKDIR_P) $(@D); \
 	files=`echo $^ | sed -e 's/[^ ]*\.gox//g'`; \
-	$(LTGOCOMPILE) -I . -c -fgo-pkgpath=`echo $@ | sed -e 's/.lo$$//' -e 's/-go$$//'` -o $@ $$files
+	if $(LTGOCOMPILE) -I . -c -fgo-prefix="libgo_$(@D)" -o $@.$(OBJEXT) $$files; then \
+	  $(AR) rc $@ $@.$(OBJEXT); \
+	else exit 1; fi
 
 GOTESTFLAGS =
 

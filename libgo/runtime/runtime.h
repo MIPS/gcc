@@ -15,7 +15,6 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <semaphore.h>
-#include <ucontext.h>
 
 #ifdef HAVE_SYS_MMAN_H
 #include <sys/mman.h>
@@ -148,10 +147,8 @@ enum
  */
 struct	Lock
 {
-	// Futex-based impl treats it as uint32 key,
-	// while sema-based impl as M* waitm.
-	// Used to be a union, but unions break precise GC.
-	uintptr	key;
+	uint32 key;
+	sem_t sem;
 };
 struct	Note
 {
@@ -540,32 +537,7 @@ void	runtime_signalstack(byte*, int32);
 MCache*	runtime_allocmcache(void);
 void	runtime_freemcache(MCache*);
 void	runtime_mallocinit(void);
-void	runtime_mprofinit(void);
-#define runtime_malloc(s) __go_alloc(s)
-#define runtime_free(p) __go_free(p)
-bool	runtime_addfinalizer(void*, FuncVal *fn, const struct __go_func_type *, const struct __go_ptr_type *);
-#define runtime_getcallersp(p) __builtin_frame_address(1)
-int32	runtime_mcount(void);
-int32	runtime_gcount(void);
-void	runtime_mcall(void(*)(G*));
-uint32	runtime_fastrand1(void);
-int32	runtime_timediv(int64, int32, int32*);
-
-void runtime_setmg(M*, G*);
-void runtime_newextram(void);
-#define runtime_exit(s) exit(s)
-#define runtime_breakpoint() __builtin_trap()
-void	runtime_gosched(void);
-void	runtime_gosched0(G*);
-void	runtime_schedtrace(bool);
-void	runtime_park(void(*)(Lock*), Lock*, const char*);
-void	runtime_tsleep(int64, const char*);
-M*	runtime_newm(void);
-void	runtime_goexit(void);
-void	runtime_entersyscall(void) __asm__ (GOSYM_PREFIX "syscall.Entersyscall");
-void	runtime_entersyscallblock(void);
-void	runtime_exitsyscall(void) __asm__ (GOSYM_PREFIX "syscall.Exitsyscall");
-G*	__go_go(void (*pfn)(void*), void*);
+void	runtime_initfintab(void);
 void	siginit(void);
 bool	__go_sigsend(int32 sig);
 int32	runtime_callers(int32, Location*, int32);
@@ -605,8 +577,10 @@ extern uint32 runtime_worldsema;
  * but on the contention path they sleep in the kernel.
  * a zeroed Lock is unlocked (no need to initialize each lock).
  */
+void	runtime_initlock(Lock*);
 void	runtime_lock(Lock*);
 void	runtime_unlock(Lock*);
+void	runtime_destroylock(Lock*);
 
 /*
  * sleep and wakeup on one-time events.
@@ -675,7 +649,19 @@ void	runtime_parfordo(ParFor *desc) __asm__ (GOSYM_PREFIX "runtime.parfordo");
 #define runtime_munmap munmap
 #define runtime_madvise madvise
 #define runtime_memclr(buf, size) __builtin_memset((buf), 0, (size))
-#define runtime_getcallerpc(p) __builtin_return_address(0)
+#define runtime_strcmp(s1, s2) __builtin_strcmp((s1), (s2))
+#define runtime_getenv(s) getenv(s)
+#define runtime_atoi(s) atoi(s)
+#define runtime_mcmp(a, b, s) __builtin_memcmp((a), (b), (s))
+#define runtime_memmove(a, b, s) __builtin_memmove((a), (b), (s))
+MCache*	runtime_allocmcache(void);
+void	free(void *v);
+struct __go_func_type;
+void	runtime_addfinalizer(void*, void(*fn)(void*), const struct __go_func_type *);
+void	runtime_walkfintab(void (*fn)(void*), void (*scan)(byte *, int64));
+#define runtime_mmap mmap
+#define runtime_munmap(p, s) munmap((p), (s))
+#define runtime_cas(pval, old, new) __sync_bool_compare_and_swap (pval, old, new)
 
 #ifdef __rtems__
 void __wrap_rtems_task_variable_add(void **);

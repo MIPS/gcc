@@ -484,6 +484,7 @@ struct Obj
 	uintptr	ti;	// type info
 };
 
+void	runtime_Mprof_Init(void);
 void	runtime_MProf_Malloc(void*, uintptr);
 void	runtime_MProf_Free(void*, uintptr);
 void	runtime_MProf_GC(void);
