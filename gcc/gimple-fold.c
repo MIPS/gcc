@@ -1393,6 +1393,13 @@ fold_stmt_1 (gimple_stmt_iterator *gsi, bool inplace)
 	}
     }
 
+  /* Dispatch to pattern-based folding.
+     ???  Do this after the previous stuff as fold_stmt is used to make
+     stmts valid gimple again via maybe_fold_reference of ops.  */
+  if (!inplace
+      && gimple_match_and_simplify (gsi, NULL))
+    changed = true;
+
   return changed;
 }
 
