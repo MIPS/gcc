@@ -167,12 +167,29 @@
 
       emit_insn (gen_load_quadpti (pti_reg, op1));
 
-      if (WORDS_BIG_ENDIAN)
+      /* For 4.8 we need to do explicit dword copies, even in big endian mode,
+	 unless we are using the LRA register allocator. The 4.9 register
+	 allocator is smart enough to assign an even/odd pair. */
+      if (WORDS_BIG_ENDIAN && rs6000_lra_flag)
 	emit_move_insn (op0, gen_lowpart (TImode, pti_reg));
       else
 	{
-	  emit_move_insn (gen_lowpart (DImode, op0), gen_highpart (DImode, pti_reg));
-	  emit_move_insn (gen_highpart (DImode, op0), gen_lowpart (DImode, pti_reg));
+	  rtx op0_lo = gen_lowpart (DImode, op0);
+	  rtx op0_hi = gen_highpart (DImode, op0);
+	  rtx pti_lo = gen_lowpart (DImode, pti_reg);
+	  rtx pti_hi = gen_highpart (DImode, pti_reg);
+
+	  emit_insn (gen_rtx_CLOBBER (VOIDmode, op0));
+	  if (WORDS_BIG_ENDIAN)
+	    {
+	      emit_move_insn (op0_hi, pti_hi);
+	      emit_move_insn (op0_lo, pti_lo);
+	    }
+	  else
+	    {
+	      emit_move_insn (op0_hi, pti_lo);
+	      emit_move_insn (op0_lo, pti_hi);
+	    }
 	}
     }
 
@@ -239,12 +256,29 @@
 	  operands[0] = op0 = replace_equiv_address (op0, new_addr);
 	}
 
-      if (WORDS_BIG_ENDIAN)
+      /* For 4.8 we need to do explicit dword copies, even in big endian mode,
+	 unless we are using the LRA register allocator. The 4.9 register
+	 allocator is smart enough to assign an even/odd pair. */
+      if (WORDS_BIG_ENDIAN && rs6000_lra_flag)
 	emit_move_insn (pti_reg, gen_lowpart (PTImode, op1));
       else
 	{
-	  emit_move_insn (gen_lowpart (DImode, pti_reg), gen_highpart (DImode, op1));
-	  emit_move_insn (gen_highpart (DImode, pti_reg), gen_lowpart (DImode, op1));
+	  rtx op1_lo = gen_lowpart (DImode, op1);
+	  rtx op1_hi = gen_highpart (DImode, op1);
+	  rtx pti_lo = gen_lowpart (DImode, pti_reg);
+	  rtx pti_hi = gen_highpart (DImode, pti_reg);
+
+	  emit_insn (gen_rtx_CLOBBER (VOIDmode, pti_reg));
+	  if (WORDS_BIG_ENDIAN)
+	    {
+	      emit_move_insn (pti_hi, op1_hi);
+	      emit_move_insn (pti_lo, op1_lo);
+	    }
+	  else
+	    {
+	      emit_move_insn (pti_hi, op1_lo);
+	      emit_move_insn (pti_lo, op1_hi);
+	    }
 	}
 
       emit_insn (gen_store_quadpti (gen_lowpart (PTImode, op0), pti_reg));

@@ -140,7 +140,7 @@ s390*)
     save_CFLAGS="$CFLAGS"
     CFLAGS="$CFLAGS -march=zEC12"
     AC_TRY_COMPILE([], [asm("tbegin 0,0; tend");],
-		   [libitm_cv_as_htm=yes], [libitm_cv_as_htm=no])
+                   [libitm_cv_as_htm=yes], [libitm_cv_as_htm=no])
     CFLAGS="$save_CFLAGS"])
   if test x$libitm_cv_as_htm = xyes; then
     AC_DEFINE(HAVE_AS_HTM, 1, [Define to 1 if the assembler supports HTM.])

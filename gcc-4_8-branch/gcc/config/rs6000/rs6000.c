@@ -1733,9 +1733,6 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
      modes and DImode.  */
   if (FP_REGNO_P (regno))
     {
-      if (TARGET_SOFT_FLOAT || !TARGET_FPRS)
-	return 0;
-
       if (SCALAR_FLOAT_MODE_P (mode)
 	  && (mode != TDmode || (regno % 2) == 0)
 	  && FP_REGNO_P (last_regno))
@@ -1763,6 +1760,10 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
   if (ALTIVEC_REGNO_P (regno))
     return (VECTOR_MEM_ALTIVEC_OR_VSX_P (mode)
 	    || mode == V1TImode);
+
+  /* ...but GPRs can hold SIMD data on the SPE in one register.  */
+  if (SPE_SIMD_REGNO_P (regno) && TARGET_SPE && SPE_VECTOR_MODE (mode))
+    return 1;
 
   /* We cannot put non-VSX TImode or PTImode anywhere except general register
      and it must be able to fit within the register set.  */
@@ -2262,6 +2263,24 @@ rs6000_debug_reg_global (void)
 
   if (rs6000_float_gprs)
     fprintf (stderr, DEBUG_FMT_S, "float_gprs", "true");
+
+  fprintf (stderr, DEBUG_FMT_S, "fprs",
+	   (TARGET_FPRS ? "true" : "false"));
+
+  fprintf (stderr, DEBUG_FMT_S, "single_float",
+	   (TARGET_SINGLE_FLOAT ? "true" : "false"));
+
+  fprintf (stderr, DEBUG_FMT_S, "double_float",
+	   (TARGET_DOUBLE_FLOAT ? "true" : "false"));
+
+  fprintf (stderr, DEBUG_FMT_S, "soft_float",
+	   (TARGET_SOFT_FLOAT ? "true" : "false"));
+
+  fprintf (stderr, DEBUG_FMT_S, "e500_single",
+	   (TARGET_E500_SINGLE ? "true" : "false"));
+
+  fprintf (stderr, DEBUG_FMT_S, "e500_double",
+	   (TARGET_E500_DOUBLE ? "true" : "false"));
 
   if (TARGET_LINK_STACK)
     fprintf (stderr, DEBUG_FMT_S, "link_stack", "true");
@@ -2993,7 +3012,9 @@ rs6000_builtin_mask_calculate (void)
 	  | ((rs6000_cpu == PROCESSOR_CELL) ? RS6000_BTM_CELL      : 0)
 	  | ((TARGET_P8_VECTOR)		    ? RS6000_BTM_P8_VECTOR : 0)
 	  | ((TARGET_CRYPTO)		    ? RS6000_BTM_CRYPTO	   : 0)
-	  | ((TARGET_HTM)		    ? RS6000_BTM_HTM	   : 0));
+	  | ((TARGET_HTM)		    ? RS6000_BTM_HTM	   : 0)
+	  | ((TARGET_DFP)		    ? RS6000_BTM_DFP	   : 0)
+	  | ((TARGET_HARD_FLOAT)	    ? RS6000_BTM_HARD_FLOAT : 0));
 }
 
 /* Override command line options.  Mostly we process the processor type and
@@ -3344,6 +3365,13 @@ rs6000_option_override_internal (bool global_init_p)
       if (rs6000_isa_flags_explicit & OPTION_MASK_VSX_TIMODE)
 	error ("-mvsx-timode requires -mvsx");
       rs6000_isa_flags &= ~OPTION_MASK_VSX_TIMODE;
+    }
+
+  if (TARGET_DFP && !TARGET_HARD_FLOAT)
+    {
+      if (rs6000_isa_flags_explicit & OPTION_MASK_DFP)
+	error ("-mhard-dfp requires -mhard-float");
+      rs6000_isa_flags &= ~OPTION_MASK_DFP;
     }
 
   /* The quad memory instructions only works in 64-bit mode. In 32-bit mode,
@@ -5620,13 +5648,15 @@ rs6000_expand_vector_set (rtx target, rtx val, int elt)
 			UNSPEC_VPERM);
   else 
     {
-      /* Invert selector.  */
-      rtx splat = gen_rtx_VEC_DUPLICATE (V16QImode,
-					 gen_rtx_CONST_INT (QImode, -1));
+      /* Invert selector.  We prefer to generate VNAND on P8 so
+	 that future fusion opportunities can kick in, but must
+	 generate VNOR elsewhere.  */
+      rtx notx = gen_rtx_NOT (V16QImode, force_reg (V16QImode, x));
+      rtx iorx = (TARGET_P8_VECTOR
+		  ? gen_rtx_IOR (V16QImode, notx, notx)
+		  : gen_rtx_AND (V16QImode, notx, notx));
       rtx tmp = gen_reg_rtx (V16QImode);
-      emit_move_insn (tmp, splat);
-      x = gen_rtx_MINUS (V16QImode, tmp, force_reg (V16QImode, x));
-      emit_move_insn (tmp, x);
+      emit_insn (gen_rtx_SET (VOIDmode, tmp, iorx));
 
       /* Permute with operands reversed and adjusted selector.  */
       x = gen_rtx_UNSPEC (mode, gen_rtvec (3, reg, target, tmp),
@@ -12363,7 +12393,15 @@ rs6000_expand_ternop_builtin (enum insn_code icode, tree exp, rtx target)
 	}
     }
   else if (icode == CODE_FOR_vsx_set_v2df
-           || icode == CODE_FOR_vsx_set_v2di)
+           || icode == CODE_FOR_vsx_set_v2di
+	   || icode == CODE_FOR_bcdadd
+	   || icode == CODE_FOR_bcdadd_lt
+	   || icode == CODE_FOR_bcdadd_eq
+	   || icode == CODE_FOR_bcdadd_gt
+	   || icode == CODE_FOR_bcdsub
+	   || icode == CODE_FOR_bcdsub_lt
+	   || icode == CODE_FOR_bcdsub_eq
+	   || icode == CODE_FOR_bcdsub_gt)
     {
       /* Only allow 1-bit unsigned literals.  */
       STRIP_NOPS (arg2);
@@ -12371,6 +12409,44 @@ rs6000_expand_ternop_builtin (enum insn_code icode, tree exp, rtx target)
 	  || TREE_INT_CST_LOW (arg2) & ~0x1)
 	{
 	  error ("argument 3 must be a 1-bit unsigned literal");
+	  return const0_rtx;
+	}
+    }
+  else if (icode == CODE_FOR_dfp_ddedpd_dd
+           || icode == CODE_FOR_dfp_ddedpd_td)
+    {
+      /* Only allow 2-bit unsigned literals where the value is 0 or 2.  */
+      STRIP_NOPS (arg0);
+      if (TREE_CODE (arg0) != INTEGER_CST
+	  || TREE_INT_CST_LOW (arg2) & ~0x3)
+	{
+	  error ("argument 1 must be 0 or 2");
+	  return const0_rtx;
+	}
+    }
+  else if (icode == CODE_FOR_dfp_denbcd_dd
+	   || icode == CODE_FOR_dfp_denbcd_td)
+    {
+      /* Only allow 1-bit unsigned literals.  */
+      STRIP_NOPS (arg0);
+      if (TREE_CODE (arg0) != INTEGER_CST
+	  || TREE_INT_CST_LOW (arg0) & ~0x1)
+	{
+	  error ("argument 1 must be a 1-bit unsigned literal");
+	  return const0_rtx;
+	}
+    }
+  else if (icode == CODE_FOR_dfp_dscli_dd
+           || icode == CODE_FOR_dfp_dscli_td
+	   || icode == CODE_FOR_dfp_dscri_dd
+	   || icode == CODE_FOR_dfp_dscri_td)
+    {
+      /* Only allow 6-bit unsigned literals.  */
+      STRIP_NOPS (arg1);
+      if (TREE_CODE (arg1) != INTEGER_CST
+	  || TREE_INT_CST_LOW (arg1) & ~0x3f)
+	{
+	  error ("argument 2 must be a 6-bit unsigned literal");
 	  return const0_rtx;
 	}
     }
@@ -13465,6 +13541,16 @@ rs6000_invalid_builtin (enum rs6000_builtins fncode)
     error ("Builtin function %s requires the -mpaired option", name);
   else if ((fnmask & RS6000_BTM_SPE) != 0)
     error ("Builtin function %s requires the -mspe option", name);
+  else if ((fnmask & (RS6000_BTM_DFP | RS6000_BTM_P8_VECTOR))
+	   == (RS6000_BTM_DFP | RS6000_BTM_P8_VECTOR))
+    error ("Builtin function %s requires the -mhard-dfp and"
+	   "-mpower8-vector options", name);
+  else if ((fnmask & RS6000_BTM_DFP) != 0)
+    error ("Builtin function %s requires the -mhard-dfp option", name);
+  else if ((fnmask & RS6000_BTM_P8_VECTOR) != 0)
+    error ("Builtin function %s requires the -mpower8-vector option", name);
+  else if ((fnmask & RS6000_BTM_HARD_FLOAT) != 0)
+    error ("Builtin function %s requires the -mhard-float option", name);
   else
     error ("Builtin function %s is not supported with the current options",
 	   name);
@@ -13647,7 +13733,10 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	return ret;
     }  
 
-  gcc_assert (TARGET_ALTIVEC || TARGET_VSX || TARGET_SPE || TARGET_PAIRED_FLOAT);
+  unsigned attr = rs6000_builtin_info[uns_fcode].attr & RS6000_BTC_TYPE_MASK;
+  gcc_assert (attr == RS6000_BTC_UNARY
+	      || attr == RS6000_BTC_BINARY
+	      || attr == RS6000_BTC_TERNARY);
 
   /* Handle simple unary operations.  */
   d = bdesc_1arg;
@@ -13738,6 +13827,9 @@ rs6000_init_builtins (void)
   uintTI_type_internal_node = unsigned_intTI_type_node;
   float_type_internal_node = float_type_node;
   double_type_internal_node = double_type_node;
+  long_double_type_internal_node = long_double_type_node;
+  dfloat64_type_internal_node = dfloat64_type_node;
+  dfloat128_type_internal_node = dfloat128_type_node;
   void_type_internal_node = void_type_node;
 
   /* Initialize the modes for builtin_function_type, mapping a machine mode to
@@ -13752,6 +13844,9 @@ rs6000_init_builtins (void)
   builtin_mode_to_type[TImode][1] = unsigned_intTI_type_node;
   builtin_mode_to_type[SFmode][0] = float_type_node;
   builtin_mode_to_type[DFmode][0] = double_type_node;
+  builtin_mode_to_type[TFmode][0] = long_double_type_node;
+  builtin_mode_to_type[DDmode][0] = dfloat64_type_node;
+  builtin_mode_to_type[TDmode][0] = dfloat128_type_node;
   builtin_mode_to_type[V1TImode][0] = V1TI_type_node;
   builtin_mode_to_type[V1TImode][1] = unsigned_V1TI_type_node;
   builtin_mode_to_type[V2SImode][0] = V2SI_type_node;
@@ -14836,6 +14931,8 @@ builtin_function_type (enum machine_mode mode_ret, enum machine_mode mode_arg0,
       /* unsigned 1 argument functions.  */
     case CRYPTO_BUILTIN_VSBOX:
     case P8V_BUILTIN_VGBBD:
+    case MISC_BUILTIN_CDTBCD:
+    case MISC_BUILTIN_CBCDTD:
       h.uns_p[0] = 1;
       h.uns_p[1] = 1;
       break;
@@ -14854,6 +14951,11 @@ builtin_function_type (enum machine_mode mode_ret, enum machine_mode mode_arg0,
     case CRYPTO_BUILTIN_VPMSUMW:
     case CRYPTO_BUILTIN_VPMSUMD:
     case CRYPTO_BUILTIN_VPMSUM:
+    case MISC_BUILTIN_ADDG6S:
+    case MISC_BUILTIN_DIVWEU:
+    case MISC_BUILTIN_DIVWEUO:
+    case MISC_BUILTIN_DIVDEU:
+    case MISC_BUILTIN_DIVDEUO:
       h.uns_p[0] = 1;
       h.uns_p[1] = 1;
       h.uns_p[2] = 1;
@@ -14915,7 +15017,16 @@ builtin_function_type (enum machine_mode mode_ret, enum machine_mode mode_arg0,
       /* signed args, unsigned return.  */
     case VSX_BUILTIN_XVCVDPUXDS_UNS:
     case ALTIVEC_BUILTIN_FIXUNS_V4SF_V4SI:
+    case MISC_BUILTIN_UNPACK_TD:
+    case MISC_BUILTIN_UNPACK_V1TI:
       h.uns_p[0] = 1;
+      break;
+
+      /* unsigned arguments for 128-bit pack instructions.  */
+    case MISC_BUILTIN_PACK_TD:
+    case MISC_BUILTIN_PACK_V1TI:
+      h.uns_p[1] = 1;
+      h.uns_p[2] = 1;
       break;
 
     default:
@@ -30352,18 +30463,18 @@ altivec_expand_vec_perm_const_le (rtx operands[4])
 
 /* Similarly to altivec_expand_vec_perm_const_le, we must adjust the
    permute control vector.  But here it's not a constant, so we must
-   generate a vector splat/subtract to do the adjustment.  */
+   generate a vector NAND or NOR to do the adjustment.  */
 
 void
 altivec_expand_vec_perm_le (rtx operands[4])
 {
-  rtx splat, unspec;
+  rtx notx, iorx, unspec;
   rtx target = operands[0];
   rtx op0 = operands[1];
   rtx op1 = operands[2];
   rtx sel = operands[3];
   rtx tmp = target;
-  rtx splatreg = gen_reg_rtx (V16QImode);
+  rtx norreg = gen_reg_rtx (V16QImode);
   enum machine_mode mode = GET_MODE (target);
 
   /* Get everything in regs so the pattern matches.  */
@@ -30376,18 +30487,17 @@ altivec_expand_vec_perm_le (rtx operands[4])
   if (!REG_P (target))
     tmp = gen_reg_rtx (mode);
 
-  /* SEL = splat(31) - SEL.  */
-  /* We want to subtract from 31, but we can't vspltisb 31 since
-     it's out of range.  -1 works as well because only the low-order
-     five bits of the permute control vector elements are used.  */
-  splat = gen_rtx_VEC_DUPLICATE (V16QImode,
-				 gen_rtx_CONST_INT (QImode, -1));
-  emit_move_insn (splatreg, splat);
-  sel = gen_rtx_MINUS (V16QImode, splatreg, sel);
-  emit_move_insn (splatreg, sel);
+  /* Invert the selector with a VNAND if available, else a VNOR.
+     The VNAND is preferred for future fusion opportunities.  */
+  notx = gen_rtx_NOT (V16QImode, sel);
+  iorx = (TARGET_P8_VECTOR
+	  ? gen_rtx_IOR (V16QImode, notx, notx)
+	  : gen_rtx_AND (V16QImode, notx, notx));
+  emit_insn (gen_rtx_SET (VOIDmode, norreg, iorx));
 
   /* Permute with operands reversed and adjusted selector.  */
-  unspec = gen_rtx_UNSPEC (mode, gen_rtvec (3, op1, op0, splatreg), UNSPEC_VPERM);
+  unspec = gen_rtx_UNSPEC (mode, gen_rtvec (3, op1, op0, norreg),
+			   UNSPEC_VPERM);
 
   /* Copy into target, possibly by way of a register.  */
   if (!REG_P (target))
@@ -31318,6 +31428,8 @@ static struct rs6000_opt_mask const rs6000_builtin_mask_names[] =
   { "power8-vector",	 RS6000_BTM_P8_VECTOR,	false, false },
   { "crypto",		 RS6000_BTM_CRYPTO,	false, false },
   { "htm",		 RS6000_BTM_HTM,	false, false },
+  { "hard-dfp",		 RS6000_BTM_DFP,	false, false },
+  { "hard-float",	 RS6000_BTM_HARD_FLOAT,	false, false },
 };
 
 /* Option variables that we want to support inside attribute((target)) and
