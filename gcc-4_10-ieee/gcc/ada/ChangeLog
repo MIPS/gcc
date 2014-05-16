@@ -1,3 +1,34 @@
+2014-05-14  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* seh_init.c: Fix copyright year.
+
+2014-05-14  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* seh_init.c (__gnat_map_SEH): Compile also when __CYGWIN__ and __SEH__
+	are defined.  Move include windows.h before system.h.
+	* s-oscons-tmplt.c (DTR_CONTROL_ENABLE, RTS_CONTROL_ENABLE): Compile
+	also when __CYGWIN__ is defined.  Include windef.h before winbase.h.
+
+2014-05-14  Richard Sandiford  <r.sandiford@uk.ibm.com>
+
+	* gcc-interface/decl.c (gnat_to_gnu_entity): Convert integer_one_node
+	to the appropriate type.
+	* gcc-interface/trans.c (gnat_to_gnu): Likewise.
+	(pos_to_constructor): Likewise.
+
+2014-05-13  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/decl.c (annotate_value): Fix thinko in latest change.
+
+2014-05-06  Kenneth Zadeck  <zadeck@naturalbridge.com>
+	    Mike Stump  <mikestump@comcast.net>
+	    Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gcc-interface/cuintp.c (UI_From_gnu): Use wide-int interfaces.
+	* gcc-interface/decl.c (gnat_to_gnu_entity): Use TYPE_SIGN.
+	(annotate_value): Use wide-int interfaces.
+	* gcc-interface/utils.c (get_nonnull_operand): Use tree_fits_uhwi_p.
+
 2014-04-28  Richard Henderson  <rth@redhat.com>
 
 	* gcc-interface/Makefile.in: Support aarch64-linux.

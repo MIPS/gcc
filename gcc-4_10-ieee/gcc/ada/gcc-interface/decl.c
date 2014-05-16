@@ -1642,7 +1642,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	  TYPE_PRECISION (gnu_type) = esize;
 	  TYPE_UNSIGNED (gnu_type) = is_unsigned;
 	  set_min_and_max_values_for_integral_type (gnu_type, esize,
-						    is_unsigned);
+						    TYPE_SIGN (gnu_type));
 	  process_attributes (&gnu_type, &attr_list, true, gnat_entity);
 	  layout_type (gnu_type);
 
@@ -2840,7 +2840,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	  = build_binary_op (PLUS_EXPR, gnu_string_index_type,
 			     gnu_lower_bound,
 			     int_const_binop (MINUS_EXPR, gnu_length,
-					      integer_one_node));
+					      convert (gnu_string_index_type,
+						       integer_one_node)));
 	tree gnu_index_type
 	  = create_index_type (convert (sizetype, gnu_lower_bound),
 			       convert (sizetype, gnu_upper_bound),
@@ -7515,17 +7516,16 @@ annotate_value (tree gnu_size)
 
     case BIT_AND_EXPR:
       tcode = Bit_And_Expr;
-      /* For negative values, build NEGATE_EXPR of the opposite.  Such values
-	 appear in expressions containing aligning patterns.  Note that, since
-	 sizetype is unsigned, we have to jump through some hoops.   */
+      /* For negative values in sizetype, build NEGATE_EXPR of the opposite.
+	 Such values appear in expressions with aligning patterns.  Note that,
+	 since sizetype is unsigned, we have to jump through some hoops.   */
       if (TREE_CODE (TREE_OPERAND (gnu_size, 1)) == INTEGER_CST)
 	{
 	  tree op1 = TREE_OPERAND (gnu_size, 1);
-	  double_int signed_op1
-	    = tree_to_double_int (op1).sext (TYPE_PRECISION (sizetype));
-	  if (signed_op1.is_negative ())
+	  wide_int signed_op1 = wi::sext (op1, TYPE_PRECISION (sizetype));
+	  if (wi::neg_p (signed_op1))
 	    {
-	      op1 = double_int_to_tree (sizetype, -signed_op1);
+	      op1 = wide_int_to_tree (sizetype, wi::neg (signed_op1));
 	      pre_op1 = annotate_value (build1 (NEGATE_EXPR, sizetype, op1));
 	    }
 	}

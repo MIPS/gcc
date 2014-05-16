@@ -425,7 +425,8 @@ try_forward_edges (int mode, basic_block b)
   for (ei = ei_start (b->succs); (e = ei_safe_edge (ei)); )
     {
       basic_block target, first;
-      int counter, goto_locus;
+      location_t goto_locus;
+      int counter;
       bool threaded = false;
       int nthreaded_edges = 0;
       bool may_thread = first_pass || (b->flags & BB_MODIFIED) != 0;
@@ -477,8 +478,8 @@ try_forward_edges (int mode, basic_block b)
 		{
 		  /* When not optimizing, ensure that edges or forwarder
 		     blocks with different locus are not optimized out.  */
-		  int new_locus = single_succ_edge (target)->goto_locus;
-		  int locus = goto_locus;
+		  location_t new_locus = single_succ_edge (target)->goto_locus;
+		  location_t locus = goto_locus;
 
 		  if (new_locus != UNKNOWN_LOCATION
 		      && locus != UNKNOWN_LOCATION
@@ -3091,7 +3092,7 @@ const pass_data pass_data_jump =
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  TODO_verify_rtl_sharing, /* todo_flags_finish */
+  0, /* todo_flags_finish */
 };
 
 class pass_jump : public rtl_opt_pass
@@ -3138,7 +3139,7 @@ const pass_data pass_data_jump2 =
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  TODO_verify_rtl_sharing, /* todo_flags_finish */
+  0, /* todo_flags_finish */
 };
 
 class pass_jump2 : public rtl_opt_pass

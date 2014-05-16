@@ -1452,11 +1452,8 @@ at_least_as_qualified_p (const_tree type1, const_tree type2)
    more cv-qualified that TYPE1, and 0 otherwise.  */
 
 int
-comp_cv_qualification (const_tree type1, const_tree type2)
+comp_cv_qualification (int q1, int q2)
 {
-  int q1 = cp_type_quals (type1);
-  int q2 = cp_type_quals (type2);
-
   if (q1 == q2)
     return 0;
 
@@ -1466,6 +1463,14 @@ comp_cv_qualification (const_tree type1, const_tree type2)
     return -1;
 
   return 0;
+}
+
+int
+comp_cv_qualification (const_tree type1, const_tree type2)
+{
+  int q1 = cp_type_quals (type1);
+  int q2 = cp_type_quals (type2);
+  return comp_cv_qualification (q1, q2);
 }
 
 /* Returns 1 if the cv-qualification signature of TYPE1 is a proper
@@ -8094,6 +8099,14 @@ convert_for_assignment (tree type, tree rhs,
 		    default:
 		      gcc_unreachable();
 		  }
+	      if (TYPE_PTR_P (rhstype)
+		  && TYPE_PTR_P (type)
+		  && CLASS_TYPE_P (TREE_TYPE (rhstype))
+		  && CLASS_TYPE_P (TREE_TYPE (type))
+		  && !COMPLETE_TYPE_P (TREE_TYPE (rhstype)))
+		inform (DECL_SOURCE_LOCATION (TYPE_MAIN_DECL
+					      (TREE_TYPE (rhstype))),
+			"class type %qT is incomplete", TREE_TYPE (rhstype));
 	    }
 	  return error_mark_node;
 	}
@@ -8309,10 +8322,12 @@ maybe_warn_about_returning_address_of_local (tree retval)
       if (TREE_CODE (valtype) == REFERENCE_TYPE)
 	warning (OPT_Wreturn_local_addr, "reference to local variable %q+D returned",
 		 whats_returned);
+      else if (TREE_CODE (whats_returned) == LABEL_DECL)
+	warning (OPT_Wreturn_local_addr, "address of label %q+D returned",
+		 whats_returned);
       else
-	warning (OPT_Wreturn_local_addr, "address of %s %q+D returned",
-		 TREE_CODE (whats_returned) == LABEL_DECL
-		 ? "label" : "local variable", whats_returned);
+	warning (OPT_Wreturn_local_addr, "address of local variable %q+D "
+		 "returned", whats_returned);
       return;
     }
 }

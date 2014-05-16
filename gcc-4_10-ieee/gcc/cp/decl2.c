@@ -983,8 +983,7 @@ grokfield (const cp_declarator *declarator,
   if (attrlist)
     cplus_decl_attributes (&value, attrlist, 0);
 
-  if (init && BRACE_ENCLOSED_INITIALIZER_P (init)
-      && CONSTRUCTOR_IS_DIRECT_INIT (init))
+  if (init && DIRECT_LIST_INIT_P (init))
     flags = LOOKUP_NORMAL;
   else
     flags = LOOKUP_IMPLICIT;
@@ -1804,12 +1803,19 @@ vague_linkage_p (tree decl)
   /* Unfortunately, import_export_decl has not always been called
      before the function is processed, so we cannot simply check
      DECL_COMDAT.  */
-  return (DECL_COMDAT (decl)
-	  || (((TREE_CODE (decl) == FUNCTION_DECL
-		&& DECL_DECLARED_INLINE_P (decl))
-	       || (DECL_LANG_SPECIFIC (decl)
-		   && DECL_TEMPLATE_INSTANTIATION (decl)))
-	      && TREE_PUBLIC (decl)));
+  if (DECL_COMDAT (decl)
+      || (((TREE_CODE (decl) == FUNCTION_DECL
+	    && DECL_DECLARED_INLINE_P (decl))
+	   || (DECL_LANG_SPECIFIC (decl)
+	       && DECL_TEMPLATE_INSTANTIATION (decl)))
+	  && TREE_PUBLIC (decl)))
+    return true;
+  else if (DECL_FUNCTION_SCOPE_P (decl))
+    /* A local static in an inline effectively has vague linkage.  */
+    return (TREE_STATIC (decl)
+	    && vague_linkage_p (DECL_CONTEXT (decl)));
+  else
+    return false;
 }
 
 /* Determine whether or not we want to specifically import or export CTYPE,

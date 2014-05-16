@@ -31,6 +31,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "target.h"
 #include "gimplify.h"
+#include "wide-int.h"
 
 static bool begin_init_stmts (tree *, tree *);
 static tree finish_init_stmts (bool, tree, tree);
@@ -641,8 +642,7 @@ perform_member_init (tree member, tree init)
 		     && TREE_TYPE (init) == type)
 		    /* { } mem-initializer.  */
 		    || (TREE_CODE (init) == TREE_LIST
-			&& TREE_CODE (TREE_VALUE (init)) == CONSTRUCTOR
-			&& CONSTRUCTOR_IS_DIRECT_INIT (TREE_VALUE (init))))
+			&& DIRECT_LIST_INIT_P (TREE_VALUE (init))))
 		   && (CP_AGGREGATE_TYPE_P (type)
 		       || is_std_init_list (type)))))
     {
@@ -1514,8 +1514,7 @@ build_aggr_init (tree exp, tree init, int flags, tsubst_flags_t complain)
       && TREE_CODE (init) != TREE_LIST
       && !(TREE_CODE (init) == TARGET_EXPR
 	   && TARGET_EXPR_DIRECT_INIT_P (init))
-      && !(BRACE_ENCLOSED_INITIALIZER_P (init)
-	   && CONSTRUCTOR_IS_DIRECT_INIT (init)))
+      && !DIRECT_LIST_INIT_P (init))
     flags |= LOOKUP_ONLYCONVERTING;
 
   if (TREE_CODE (type) == ARRAY_TYPE)
@@ -1588,8 +1587,7 @@ expand_default_init (tree binfo, tree true_exp, tree exp, tree init, int flags,
   /* If we have direct-initialization from an initializer list, pull
      it out of the TREE_LIST so the code below can see it.  */
   if (init && TREE_CODE (init) == TREE_LIST
-      && BRACE_ENCLOSED_INITIALIZER_P (TREE_VALUE (init))
-      && CONSTRUCTOR_IS_DIRECT_INIT (TREE_VALUE (init)))
+      && DIRECT_LIST_INIT_P (TREE_VALUE (init)))
     {
       gcc_checking_assert ((flags & LOOKUP_ONLYCONVERTING) == 0
 			   && TREE_CHAIN (init) == NULL_TREE);
@@ -2284,10 +2282,10 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
   /* For arrays, a bounds checks on the NELTS parameter. */
   tree outer_nelts_check = NULL_TREE;
   bool outer_nelts_from_type = false;
-  double_int inner_nelts_count = double_int_one;
+  offset_int inner_nelts_count = 1;
   tree alloc_call, alloc_expr;
   /* Size of the inner array elements. */
-  double_int inner_size;
+  offset_int inner_size;
   /* The address returned by the call to "operator new".  This node is
      a VAR_DECL and is therefore reusable.  */
   tree alloc_node;
@@ -2343,9 +2341,8 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
       if (TREE_CODE (inner_nelts_cst) == INTEGER_CST)
 	{
 	  bool overflow;
-	  double_int result = TREE_INT_CST (inner_nelts_cst)
-			      .mul_with_sign (inner_nelts_count,
-					      false, &overflow);
+	  offset_int result = wi::mul (wi::to_offset (inner_nelts_cst),
+				       inner_nelts_count, SIGNED, &overflow);
 	  if (overflow)
 	    {
 	      if (complain & tf_error)
@@ -2456,42 +2453,40 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
     {
       /* Maximum available size in bytes.  Half of the address space
 	 minus the cookie size.  */
-      double_int max_size
-	= double_int_one.llshift (TYPE_PRECISION (sizetype) - 1,
-				  HOST_BITS_PER_DOUBLE_INT);
+      offset_int max_size
+	= wi::set_bit_in_zero <offset_int> (TYPE_PRECISION (sizetype) - 1);
       /* Maximum number of outer elements which can be allocated. */
-      double_int max_outer_nelts;
+      offset_int max_outer_nelts;
       tree max_outer_nelts_tree;
 
       gcc_assert (TREE_CODE (size) == INTEGER_CST);
       cookie_size = targetm.cxx.get_cookie_size (elt_type);
       gcc_assert (TREE_CODE (cookie_size) == INTEGER_CST);
-      gcc_checking_assert (TREE_INT_CST (cookie_size).ult (max_size));
+      gcc_checking_assert (wi::ltu_p (wi::to_offset (cookie_size), max_size));
       /* Unconditionally subtract the cookie size.  This decreases the
 	 maximum object size and is safe even if we choose not to use
 	 a cookie after all.  */
-      max_size -= TREE_INT_CST (cookie_size);
+      max_size -= wi::to_offset (cookie_size);
       bool overflow;
-      inner_size = TREE_INT_CST (size)
-		   .mul_with_sign (inner_nelts_count, false, &overflow);
-      if (overflow || inner_size.ugt (max_size))
+      inner_size = wi::mul (wi::to_offset (size), inner_nelts_count, SIGNED,
+			    &overflow);
+      if (overflow || wi::gtu_p (inner_size, max_size))
 	{
 	  if (complain & tf_error)
 	    error ("size of array is too large");
 	  return error_mark_node;
 	}
-      max_outer_nelts = max_size.udiv (inner_size, TRUNC_DIV_EXPR);
+
+      max_outer_nelts = wi::udiv_trunc (max_size, inner_size);
       /* Only keep the top-most seven bits, to simplify encoding the
 	 constant in the instruction stream.  */
       {
-	unsigned shift = HOST_BITS_PER_DOUBLE_INT - 7
-	  - (max_outer_nelts.high ? clz_hwi (max_outer_nelts.high)
-	     : (HOST_BITS_PER_WIDE_INT + clz_hwi (max_outer_nelts.low)));
-	max_outer_nelts
-	  = max_outer_nelts.lrshift (shift, HOST_BITS_PER_DOUBLE_INT)
-	    .llshift (shift, HOST_BITS_PER_DOUBLE_INT);
+	unsigned shift = (max_outer_nelts.get_precision ()) - 7
+	  - wi::clz (max_outer_nelts);
+	max_outer_nelts = wi::lshift (wi::lrshift (max_outer_nelts, shift),
+				      shift);
       }
-      max_outer_nelts_tree = double_int_to_tree (sizetype, max_outer_nelts);
+      max_outer_nelts_tree = wide_int_to_tree (sizetype, max_outer_nelts);
 
       size = size_binop (MULT_EXPR, size, convert (sizetype, nelts));
       outer_nelts_check = fold_build2 (LE_EXPR, boolean_type_node,
@@ -2572,7 +2567,7 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
 	      cookie_size = NULL_TREE;
 	      /* No size arithmetic necessary, so the size check is
 		 not needed. */
-	      if (outer_nelts_check != NULL && inner_size.is_one ())
+	      if (outer_nelts_check != NULL && inner_size == 1)
 		outer_nelts_check = NULL_TREE;
 	    }
 	  /* Perform the overflow check.  */
@@ -2617,7 +2612,7 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
 	      cookie_size = NULL_TREE;
 	      /* No size arithmetic necessary, so the size check is
 		 not needed. */
-	      if (outer_nelts_check != NULL && inner_size.is_one ())
+	      if (outer_nelts_check != NULL && inner_size == 1)
 		outer_nelts_check = NULL_TREE;
 	    }
 
@@ -2793,8 +2788,7 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
 	{
 	  tree vecinit = NULL_TREE;
 	  if (vec_safe_length (*init) == 1
-	      && BRACE_ENCLOSED_INITIALIZER_P ((**init)[0])
-	      && CONSTRUCTOR_IS_DIRECT_INIT ((**init)[0]))
+	      && DIRECT_LIST_INIT_P ((**init)[0]))
 	    {
 	      vecinit = (**init)[0];
 	      if (CONSTRUCTOR_NELTS (vecinit) == 0)
