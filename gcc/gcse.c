@@ -2502,6 +2502,65 @@ pre_insert_copies (void)
       }
 }
 
+struct set_data
+{
+  rtx insn;
+  const_rtx set;
+  int nsets;
+};
+
+/* Increment number of sets and record set in DATA.  */
+
+static void
+record_set_data (rtx dest, const_rtx set, void *data)
+{
+  struct set_data *s = (struct set_data *)data;
+
+  if (GET_CODE (set) == SET)
+    {
+      /* We allow insns having multiple sets, where all but one are
+	 dead as single set insns.  In the common case only a single
+	 set is present, so we want to avoid checking for REG_UNUSED
+	 notes unless necessary.  */
+      if (s->nsets == 1
+	  && find_reg_note (s->insn, REG_UNUSED, SET_DEST (s->set))
+	  && !side_effects_p (s->set))
+	s->nsets = 0;
+
+      if (!s->nsets)
+	{
+	  /* Record this set.  */
+	  s->nsets += 1;
+	  s->set = set;
+	}
+      else if (!find_reg_note (s->insn, REG_UNUSED, dest)
+	       || side_effects_p (set))
+	s->nsets += 1;
+    }
+}
+
+static const_rtx
+single_set_gcse (rtx insn)
+{
+  struct set_data s;
+  rtx pattern;
+  
+  gcc_assert (INSN_P (insn));
+
+  /* Optimize common case.  */
+  pattern = PATTERN (insn);
+  if (GET_CODE (pattern) == SET)
+    return pattern;
+
+  s.insn = insn;
+  s.nsets = 0;
+  note_stores (pattern, record_set_data, &s);
+
+  /* Considered invariant insns have exactly one set.  */
+  gcc_assert (s.nsets == 1);
+  return s.set;
+}
+
 /* Emit move from SRC to DEST noting the equivalence with expression computed
    in INSN.  */
 
@@ -2509,7 +2568,8 @@ static rtx
 gcse_emit_move_after (rtx dest, rtx src, rtx insn)
 {
   rtx new_rtx;
-  rtx set = single_set (insn), set2;
+  const_rtx set = single_set_gcse (insn);
+  rtx set2;
   rtx note;
   rtx eqv = NULL_RTX;
 
@@ -3369,13 +3429,12 @@ hoist_code (void)
 	      FOR_EACH_VEC_ELT (occrs_to_hoist, j, occr)
 		{
 		  rtx insn;
-		  rtx set;
+		  const_rtx set;
 
 		  gcc_assert (!occr->deleted_p);
 
 		  insn = occr->insn;
-		  set = single_set (insn);
-		  gcc_assert (set);
+		  set = single_set_gcse (insn);
 
 		  /* Create a pseudo-reg to store the result of reaching
 		     expressions into.  Get the mode for the new pseudo
@@ -3456,10 +3515,8 @@ get_pressure_class_and_nregs (rtx insn, int *nregs)
 {
   rtx reg;
   enum reg_class pressure_class;
-  rtx set = single_set (insn);
+  const_rtx set = single_set_gcse (insn);
 
-  /* Considered invariant insns have only one set.  */
-  gcc_assert (set != NULL_RTX);
   reg = SET_DEST (set);
   if (GET_CODE (reg) == SUBREG)
     reg = SUBREG_REG (reg);
@@ -4100,24 +4157,6 @@ is_too_expensive (const char *pass)
   return false;
 }
 
-/* All the passes implemented in this file.  Each pass has its
-   own gate and execute function, and at the end of the file a
-   pass definition for passes.c.
-
-   We do not construct an accurate cfg in functions which call
-   setjmp, so none of these passes runs if the function calls
-   setjmp.
-   FIXME: Should just handle setjmp via REG_SETJMP notes.  */
-
-static bool
-gate_rtl_pre (void)
-{
-  return optimize > 0 && flag_gcse
-    && !cfun->calls_setjmp
-    && optimize_function_for_speed_p (cfun)
-    && dbg_cnt (pre);
-}
-
 static unsigned int
 execute_rtl_pre (void)
 {
@@ -4129,18 +4168,6 @@ execute_rtl_pre (void)
   if (changed)
     cleanup_cfg (0);
   return 0;
-}
-
-static bool
-gate_rtl_hoist (void)
-{
-  return optimize > 0 && flag_gcse
-    && !cfun->calls_setjmp
-    /* It does not make sense to run code hoisting unless we are optimizing
-       for code size -- it rarely makes programs faster, and can make then
-       bigger if we did PRE (when optimizing for space, we don't run PRE).  */
-    && optimize_function_for_size_p (cfun)
-    && dbg_cnt (hoist);
 }
 
 static unsigned int
@@ -4163,15 +4190,13 @@ const pass_data pass_data_rtl_pre =
   RTL_PASS, /* type */
   "rtl pre", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
   true, /* has_execute */
   TV_PRE, /* tv_id */
   PROP_cfglayout, /* properties_required */
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  ( TODO_df_finish | TODO_verify_rtl_sharing
-    | TODO_verify_flow ), /* todo_flags_finish */
+  TODO_df_finish, /* todo_flags_finish */
 };
 
 class pass_rtl_pre : public rtl_opt_pass
@@ -4182,10 +4207,24 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_rtl_pre (); }
-  unsigned int execute () { return execute_rtl_pre (); }
+  virtual bool gate (function *);
+  virtual unsigned int execute (function *) { return execute_rtl_pre (); }
 
 }; // class pass_rtl_pre
+
+/* We do not construct an accurate cfg in functions which call
+   setjmp, so none of these passes runs if the function calls
+   setjmp.
+   FIXME: Should just handle setjmp via REG_SETJMP notes.  */
+
+bool
+pass_rtl_pre::gate (function *fun)
+{
+  return optimize > 0 && flag_gcse
+    && !fun->calls_setjmp
+    && optimize_function_for_speed_p (fun)
+    && dbg_cnt (pre);
+}
 
 } // anon namespace
 
@@ -4202,15 +4241,13 @@ const pass_data pass_data_rtl_hoist =
   RTL_PASS, /* type */
   "hoist", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
   true, /* has_execute */
   TV_HOIST, /* tv_id */
   PROP_cfglayout, /* properties_required */
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  ( TODO_df_finish | TODO_verify_rtl_sharing
-    | TODO_verify_flow ), /* todo_flags_finish */
+  TODO_df_finish, /* todo_flags_finish */
 };
 
 class pass_rtl_hoist : public rtl_opt_pass
@@ -4221,10 +4258,22 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_rtl_hoist (); }
-  unsigned int execute () { return execute_rtl_hoist (); }
+  virtual bool gate (function *);
+  virtual unsigned int execute (function *) { return execute_rtl_hoist (); }
 
 }; // class pass_rtl_hoist
+
+bool
+pass_rtl_hoist::gate (function *)
+{
+  return optimize > 0 && flag_gcse
+    && !cfun->calls_setjmp
+    /* It does not make sense to run code hoisting unless we are optimizing
+       for code size -- it rarely makes programs faster, and can make then
+       bigger if we did PRE (when optimizing for space, we don't run PRE).  */
+    && optimize_function_for_size_p (cfun)
+    && dbg_cnt (hoist);
+}
 
 } // anon namespace
 

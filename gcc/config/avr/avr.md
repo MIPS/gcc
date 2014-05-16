@@ -90,7 +90,7 @@
 (include "constraints.md")
 
 ;; Condition code settings.
-(define_attr "cc" "none,set_czn,set_zn,set_n,compare,clobber,
+(define_attr "cc" "none,set_czn,set_zn,set_vzn,set_n,compare,clobber,
                    plus,ldi"
   (const_string "none"))
 
@@ -1098,7 +1098,7 @@
 	inc %0\;inc %0
 	dec %0\;dec %0"
   [(set_attr "length" "1,1,1,1,2,2")
-   (set_attr "cc" "set_czn,set_czn,set_zn,set_zn,set_zn,set_zn")])
+   (set_attr "cc" "set_czn,set_czn,set_vzn,set_vzn,set_vzn,set_vzn")])
 
 ;; "addhi3"
 ;; "addhq3" "adduhq3"
@@ -1369,7 +1369,7 @@
 	dec %0\;dec %0
 	inc %0\;inc %0"
   [(set_attr "length" "1,1,1,1,2,2")
-   (set_attr "cc" "set_czn,set_czn,set_zn,set_zn,set_zn,set_zn")])
+   (set_attr "cc" "set_czn,set_czn,set_vzn,set_vzn,set_vzn,set_vzn")])
 
 ;; "subhi3"
 ;; "subhq3" "subuhq3"
@@ -3992,7 +3992,7 @@
   ""
   "neg %0"
   [(set_attr "length" "1")
-   (set_attr "cc" "set_zn")])
+   (set_attr "cc" "set_vzn")])
 
 (define_insn "*negqihi2"
   [(set (match_operand:HI 0 "register_operand"                        "=r")
@@ -5342,7 +5342,7 @@
                       (label_ref (match_operand 0 "" ""))
                       (pc)))]
   "!AVR_HAVE_JMP_CALL
-   || !avr_current_device->errata_skip"
+   || !(avr_current_device->dev_attribute & AVR_ERRATA_SKIP)"
   {
     if (operands[2] == CONST0_RTX (<MODE>mode))
       operands[2] = zero_reg_rtx;

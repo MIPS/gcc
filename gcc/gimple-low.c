@@ -163,7 +163,6 @@ const pass_data pass_data_lower_cf =
   GIMPLE_PASS, /* type */
   "lower", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  false, /* has_gate */
   true, /* has_execute */
   TV_NONE, /* tv_id */
   PROP_gimple_any, /* properties_required */
@@ -181,7 +180,7 @@ public:
   {}
 
   /* opt_pass methods: */
-  unsigned int execute () { return lower_function_body (); }
+  virtual unsigned int execute (function *) { return lower_function_body (); }
 
 }; // class pass_lower_cf
 
@@ -841,11 +840,6 @@ lower_builtin_posix_memalign (gimple_stmt_iterator *gsi)
 void
 record_vars_into (tree vars, tree fn)
 {
-  bool change_cfun = fn != current_function_decl;
-
-  if (change_cfun)
-    push_cfun (DECL_STRUCT_FUNCTION (fn));
-
   for (; vars; vars = DECL_CHAIN (vars))
     {
       tree var = vars;
@@ -860,11 +854,8 @@ record_vars_into (tree vars, tree fn)
 	continue;
 
       /* Record the variable.  */
-      add_local_decl (cfun, var);
+      add_local_decl (DECL_STRUCT_FUNCTION (fn), var);
     }
-
-  if (change_cfun)
-    pop_cfun ();
 }
 
 

@@ -180,10 +180,12 @@ extern void emit_libcall_block (rtx, rtx, rtx, rtx);
    Likewise for subtraction and for just copying.  */
 extern rtx gen_add2_insn (rtx, rtx);
 extern rtx gen_add3_insn (rtx, rtx, rtx);
+extern rtx gen_addptr3_insn (rtx, rtx, rtx);
 extern rtx gen_sub2_insn (rtx, rtx);
 extern rtx gen_sub3_insn (rtx, rtx, rtx);
 extern rtx gen_move_insn (rtx, rtx);
 extern int have_add2_insn (rtx, rtx);
+extern int have_addptr3_insn (rtx, rtx, rtx);
 extern int have_sub2_insn (rtx, rtx);
 
 /* Emit a pair of rtl insns to compare two rtx's and to jump
@@ -344,6 +346,7 @@ extern void copy_blkmode_from_reg (rtx, rtx, tree);
 /* Mark REG as holding a parameter for the next CALL_INSN.
    Mode is TYPE_MODE of the non-promoted parameter, or VOIDmode.  */
 extern void use_reg_mode (rtx *, rtx, enum machine_mode);
+extern void clobber_reg_mode (rtx *, rtx, enum machine_mode);
 
 extern rtx copy_blkmode_to_reg (enum machine_mode, tree);
 
@@ -352,6 +355,13 @@ static inline void
 use_reg (rtx *fusage, rtx reg)
 {
   use_reg_mode (fusage, reg, VOIDmode);
+}
+
+/* Mark REG as clobbered by the call with FUSAGE as CALL_INSN_FUNCTION_USAGE.  */
+static inline void
+clobber_reg (rtx *fusage, rtx reg)
+{
+  clobber_reg_mode (fusage, reg, VOIDmode);
 }
 
 /* Mark NREGS consecutive regs, starting at REGNO, as holding parameters

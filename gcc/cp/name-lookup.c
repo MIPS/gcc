@@ -945,7 +945,6 @@ pushdecl_maybe_friend_1 (tree x, bool is_friend)
 	    set_underlying_type (x);
 
 	  if (type != error_mark_node
-	      && TYPE_NAME (type)
 	      && TYPE_IDENTIFIER (type))
 	    set_identifier_type_value (DECL_NAME (x), x);
 
@@ -1630,10 +1629,14 @@ leave_scope (void)
       free_binding_level = scope;
     }
 
-  /* Find the innermost enclosing class scope, and reset
-     CLASS_BINDING_LEVEL appropriately.  */
   if (scope->kind == sk_class)
     {
+      /* Reset DEFINING_CLASS_P to allow for reuse of a
+	 class-defining scope in a non-defining context.  */
+      scope->defining_class_p = 0;
+
+      /* Find the innermost enclosing class scope, and reset
+	 CLASS_BINDING_LEVEL appropriately.  */
       class_binding_level = NULL;
       for (scope = current_binding_level; scope; scope = scope->level_chain)
 	if (scope->kind == sk_class)
@@ -3329,7 +3332,7 @@ do_class_using_decl (tree scope, tree name)
     }
   /* Using T::T declares inheriting ctors, even if T is a typedef.  */
   if (MAYBE_CLASS_TYPE_P (scope)
-      && ((TYPE_NAME (scope) && name == TYPE_IDENTIFIER (scope))
+      && (name == TYPE_IDENTIFIER (scope)
 	  || constructor_name_p (name, scope)))
     {
       maybe_warn_cpp0x (CPP0X_INHERITING_CTORS);
@@ -4015,13 +4018,14 @@ do_using_directive (tree name_space)
 void
 parse_using_directive (tree name_space, tree attribs)
 {
-  tree a;
-
   do_using_directive (name_space);
 
-  for (a = attribs; a; a = TREE_CHAIN (a))
+  if (attribs == error_mark_node)
+    return;
+
+  for (tree a = attribs; a; a = TREE_CHAIN (a))
     {
-      tree name = TREE_PURPOSE (a);
+      tree name = get_attribute_name (a);
       if (is_attribute_p ("strong", name))
 	{
 	  if (!toplevel_bindings_p ())

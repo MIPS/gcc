@@ -1,3 +1,86 @@
+2014-05-12  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR libfortran/61035
+	* intrinsics/getcwd.c (getcwd_i4_sub): Avoid potentially large
+	stack allocation, avoid extra copying in the common case.
+
+2014-05-12  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* configure.ac (AM_CFLAGS): Use -std=gnu11.
+	(CFLAGS): Likewise.
+	* configure: Regenerated.
+
+2014-05-11  Tobias Burnus  <burnus@net-b.de>
+
+	* caf/libcaf.h (_gfortran_caf_num_images): Change type of
+	second argument to int.
+	* caf/mpi.c (_gfortran_caf_num_images): Ditto.
+	* caf/single.c (_gfortran_caf_num_images): Ditto.
+
+2014-05-08  Tobias Burnus  <burnus@net-b.de>
+
+	* caf/libcaf.h (caf_vector_t, _gfortran_caf_co_sum,
+	_gfortran_caf_co_min, _gfortran_caf_co_max): Declare
+	* caf/single.c
+
+2014-05-06  Jerry DeLisle  <jvdelisle@gcc.gnu>
+
+	PR libfortran/61049
+	* io/list_read.c (list_formatted_read_scalar): Use eat_separator
+	and delete extraneous code.
+
+2014-04-30  Tobias Burnus  <burnus@net-b.de>
+
+	* caf/libcaf.h (_gfortran_caf_this_image, _gfortran_caf_num_images):
+	New prototypes.
+	(_gfortran_caf_init): Change prototype.
+	(mpi_token_t): New typedef.
+	(TOKEN): New define.
+	* caf/mpi.c (_gfortran_caf_this_image, _gfortran_caf_num_images):
+	New functions.
+	(_gfortran_caf_init): Update.
+	(_gfortran_caf_finalize, _gfortran_caf_register,
+	_gfortran_caf_deregister): Use mpi_token_t.
+	* caf/single.c (_gfortran_caf_this_image, _gfortran_caf_num_images):
+	New functions.
+	(_gfortran_caf_init): Update.
+	(_gfortran_caf_finalize, _gfortran_caf_register,
+	_gfortran_caf_deregister): Use mpi_token_t, simplify.
+
+2014-04-26  Jerry DeLisle  <jvdelisle@gcc.gnu>
+
+	PR libfortran/52539
+	* io/list_read.c: Add uchar typedef. (push_char4): New function
+	to save kind=4 character. (next_char_utf8): New function to read
+	a single UTF-8 encoded character value. (read_chracter): Update
+	to use the new functions for reading UTF-8 strings.
+	(list_formatted_read_scalar): Update to handle list directed
+	reads of UTF-8 strings. (nml_read_obj): Likewise update for
+	UTF-8 strings in namelists.
+	* io/write.c (nml_write_obj): Add kind=4 character support for
+	namelist writes.
+
+2014-04-24  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* configure.ac: Quote usage of ac_cv_func_clock_gettime in if test.
+	* configure: Regenerate.
+
+2014-04-22  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config/fpu-387.h [__sun__ && __svr4__]: Remove SSE execution
+	check.
+
+2014-04-11  Jerry DeLisle  <jvdelisle@gcc.gnu>
+
+	PR libfortran/60810
+	io/unit.c (is_trim_ok): If internal unit is array, do not trim.
+
+2014-03-21  Jerry DeLisle  <jvdelisle@gcc.gnu>
+
+	PR libfortran/60148
+	* io/transfer.c (data_transfer_init): If std= was specified, set
+	delim status to DELIM_NONE of no other was specified.
+
 2014-03-18  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
 	* configure.ac: Check for presence of fcntl.

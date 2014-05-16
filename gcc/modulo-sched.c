@@ -3323,17 +3323,44 @@ rotate_partial_schedule (partial_schedule_ptr ps, int start_cycle)
 
 #endif /* INSN_SCHEDULING */
 
-static bool
-gate_handle_sms (void)
+/* Run instruction scheduler.  */
+/* Perform SMS module scheduling.  */
+
+namespace {
+
+const pass_data pass_data_sms =
+{
+  RTL_PASS, /* type */
+  "sms", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_execute */
+  TV_SMS, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  TODO_df_finish, /* todo_flags_finish */
+};
+
+class pass_sms : public rtl_opt_pass
+{
+public:
+  pass_sms (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_sms, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  virtual bool gate (function *)
 {
   return (optimize > 0 && flag_modulo_sched);
 }
 
+  virtual unsigned int execute (function *);
 
-/* Run instruction scheduler.  */
-/* Perform SMS module scheduling.  */
-static unsigned int
-rest_of_handle_sms (void)
+}; // class pass_sms
+
+unsigned int
+pass_sms::execute (function *fun ATTRIBUTE_UNUSED)
 {
 #ifdef INSN_SCHEDULING
   basic_block bb;
@@ -3346,45 +3373,14 @@ rest_of_handle_sms (void)
   max_regno = max_reg_num ();
 
   /* Finalize layout changes.  */
-  FOR_EACH_BB_FN (bb, cfun)
-    if (bb->next_bb != EXIT_BLOCK_PTR_FOR_FN (cfun))
+  FOR_EACH_BB_FN (bb, fun)
+    if (bb->next_bb != EXIT_BLOCK_PTR_FOR_FN (fun))
       bb->aux = bb->next_bb;
   free_dominance_info (CDI_DOMINATORS);
   cfg_layout_finalize ();
 #endif /* INSN_SCHEDULING */
   return 0;
 }
-
-namespace {
-
-const pass_data pass_data_sms =
-{
-  RTL_PASS, /* type */
-  "sms", /* name */
-  OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
-  true, /* has_execute */
-  TV_SMS, /* tv_id */
-  0, /* properties_required */
-  0, /* properties_provided */
-  0, /* properties_destroyed */
-  0, /* todo_flags_start */
-  ( TODO_df_finish | TODO_verify_flow
-    | TODO_verify_rtl_sharing ), /* todo_flags_finish */
-};
-
-class pass_sms : public rtl_opt_pass
-{
-public:
-  pass_sms (gcc::context *ctxt)
-    : rtl_opt_pass (pass_data_sms, ctxt)
-  {}
-
-  /* opt_pass methods: */
-  bool gate () { return gate_handle_sms (); }
-  unsigned int execute () { return rest_of_handle_sms (); }
-
-}; // class pass_sms
 
 } // anon namespace
 

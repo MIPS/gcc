@@ -61,6 +61,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-inline.h"
 #include "cfgloop.h"
 #include "gimple-pretty-print.h"
+#include "expr.h"
+#include "tree-dfa.h"
 
 /* FIXME: Only for PROP_loops, but cgraph shouldn't have to know about this.  */
 #include "tree-pass.h"
@@ -648,8 +650,7 @@ cgraph_add_thunk (struct cgraph_node *decl_node ATTRIBUTE_UNUSED,
   
   node = cgraph_create_node (alias);
   gcc_checking_assert (!virtual_offset
-		       || tree_to_double_int (virtual_offset) ==
-			     double_int::from_shwi (virtual_value));
+		       || wi::eq_p (virtual_offset, virtual_value));
   node->thunk.fixed_offset = fixed_offset;
   node->thunk.this_adjusting = this_adjusting;
   node->thunk.virtual_value = virtual_value;
@@ -672,7 +673,7 @@ cgraph_node_for_asm (tree asmname)
        node;
        node = node->next_sharing_asm_name)
     {
-      cgraph_node *cn = dyn_cast <cgraph_node> (node);
+      cgraph_node *cn = dyn_cast <cgraph_node *> (node);
       if (cn && !cn->global.inlined_to)
 	return cn;
     }
@@ -1329,6 +1330,7 @@ gimple
 cgraph_redirect_edge_call_stmt_to_callee (struct cgraph_edge *e)
 {
   tree decl = gimple_call_fndecl (e->call_stmt);
+  tree lhs = gimple_call_lhs (e->call_stmt);
   gimple new_stmt;
   gimple_stmt_iterator gsi;
 #ifdef ENABLE_CHECKING
@@ -1468,6 +1470,31 @@ cgraph_redirect_edge_call_stmt_to_callee (struct cgraph_edge *e)
     {
       new_stmt = e->call_stmt;
       gimple_call_set_fndecl (new_stmt, e->callee->decl);
+      update_stmt_fn (DECL_STRUCT_FUNCTION (e->caller->decl), new_stmt);
+    }
+
+  /* If the call becomes noreturn, remove the lhs.  */
+  if (lhs && (gimple_call_flags (new_stmt) & ECF_NORETURN))
+    {
+      if (TREE_CODE (lhs) == SSA_NAME)
+	{
+	  tree var = create_tmp_reg_fn (DECL_STRUCT_FUNCTION (e->caller->decl),
+					TREE_TYPE (lhs), NULL);
+	  var = get_or_create_ssa_default_def
+		  (DECL_STRUCT_FUNCTION (e->caller->decl), var);
+	  gimple set_stmt = gimple_build_assign (lhs, var);
+          gsi = gsi_for_stmt (new_stmt);
+	  gsi_insert_before_without_update (&gsi, set_stmt, GSI_SAME_STMT);
+	  update_stmt_fn (DECL_STRUCT_FUNCTION (e->caller->decl), set_stmt);
+	}
+      gimple_call_set_lhs (new_stmt, NULL_TREE);
+      update_stmt_fn (DECL_STRUCT_FUNCTION (e->caller->decl), new_stmt);
+    }
+
+  /* If new callee has no static chain, remove it.  */
+  if (gimple_call_chain (new_stmt) && !DECL_STATIC_CHAIN (e->callee->decl))
+    {
+      gimple_call_set_chain (new_stmt, NULL);
       update_stmt_fn (DECL_STRUCT_FUNCTION (e->caller->decl), new_stmt);
     }
 
@@ -1668,8 +1695,8 @@ release_function_body (tree decl)
 	}
       if (cfun->cfg)
 	{
-	  gcc_assert (dom_computed[0] == DOM_NONE);
-	  gcc_assert (dom_computed[1] == DOM_NONE);
+	  gcc_assert (!dom_info_available_p (CDI_DOMINATORS));
+	  gcc_assert (!dom_info_available_p (CDI_POST_DOMINATORS));
 	  clear_edges ();
 	  cfun->cfg = NULL;
 	}
@@ -2516,12 +2543,34 @@ collect_callers_of_node (struct cgraph_node *node)
   return redirect_callers;
 }
 
-/* Return TRUE if NODE2 is equivalent to NODE or its clone.  */
+/* Return TRUE if NODE2 a clone of NODE or is equivalent to it.  */
+
 static bool
 clone_of_p (struct cgraph_node *node, struct cgraph_node *node2)
 {
+  bool skipped_thunk = false;
   node = cgraph_function_or_thunk_node (node, NULL);
   node2 = cgraph_function_or_thunk_node (node2, NULL);
+
+  /* There are no virtual clones of thunks so check former_clone_of or if we
+     might have skipped thunks because this adjustments are no longer
+     necessary.  */
+  while (node->thunk.thunk_p)
+    {
+      if (node2->former_clone_of == node->decl)
+	return true;
+      if (!node->thunk.this_adjusting)
+	return false;
+      node = cgraph_function_or_thunk_node (node->callees->callee, NULL);
+      skipped_thunk = true;
+    }
+
+  if (skipped_thunk
+      && (!node2->clone_of
+	  || !node2->clone.args_to_skip
+	  || !bitmap_bit_p (node2->clone.args_to_skip, 0)))
+    return false;
+
   while (node != node2 && node2)
     node2 = node2->clone_of;
   return node2 != NULL;
@@ -2612,13 +2661,17 @@ verify_edge_corresponds_to_fndecl (struct cgraph_edge *e, tree decl)
       || node->in_other_partition
       || e->callee->in_other_partition)
     return false;
+
+  /* Optimizers can redirect unreachable calls or calls triggering undefined
+     behaviour to builtin_unreachable.  */
+  if (DECL_BUILT_IN_CLASS (e->callee->decl) == BUILT_IN_NORMAL
+      && DECL_FUNCTION_CODE (e->callee->decl) == BUILT_IN_UNREACHABLE)
+    return false;
   node = cgraph_function_or_thunk_node (node, NULL);
 
   if (e->callee->former_clone_of != node->decl
-      /* IPA-CP sometimes redirect edge to clone and then back to the former
-	 function.  This ping-pong has to go, eventually.  */
       && (node != cgraph_function_or_thunk_node (e->callee, NULL))
-      && !clone_of_p (cgraph_function_or_thunk_node (node, NULL), e->callee))
+      && !clone_of_p (node, e->callee))
     return true;
   else
     return false;

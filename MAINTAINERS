@@ -174,6 +174,7 @@ libgomp			Richard Henderson	rth@redhat.com
 libgomp			Jakub Jelinek		jakub@redhat.com
 libiberty		DJ Delorie		dj@redhat.com
 libiberty		Ian Lance Taylor	ian@airs.com
+libitm			Torvald Riegel		triegel@redhat.com
 libffi testsuite	Andreas Tobler		andreast@gcc.gnu.org
 libobjc			Nicola Pero		nicola.pero@meta-innovation.com
 libobjc			Andrew Pinski		pinskia@gmail.com
@@ -280,7 +281,6 @@ Fortran			Mikael Morin		mikael.morin@sfr.fr
 Fortran			Tobias Schlüter		tobias.schlueter@physik.uni-muenchen.de
 Fortran			Paul Thomas		pault@gcc.gnu.org
 Fortran			Janus Weil		janus@gcc.gnu.org
-gengtype/GTY		Laurynas Biveinis       laurynas.biveinis@gmail.com
 Graphite		Daniel Berlin		dberlin@dberlin.org
 Graphite 		Tobias Grosser		grosser@fim.uni-passau.de
 Graphite		Sebastian Pop		sebastian.pop@amd.com
@@ -316,6 +316,7 @@ Giovanni Bajo					giovannibajo@gcc.gnu.org
 Simon Baldwin					simonb@google.com
 Scott Bambrough					scottb@netwinder.org
 Wolfgang Bangerth				bangerth@dealii.org
+Charles Baylis					charles.baylis@linaro.org
 Tejas Belagod					tejas.belagod@arm.com
 Andrey Belevantsev				abel@ispras.ru
 Jon Beniston					jon@beniston.com
@@ -323,6 +324,7 @@ Peter Bergner					bergner@vnet.ibm.com
 Jan Beulich					jbeulich@novell.com
 David Billinghurst				David.Billinghurst@riotinto.com
 Tomas Bily					tbily@suse.cz
+Laurynas Biveinis                               laurynas.biveinis@gmail.com
 Eric Blake					ericb@gcc.gnu.org
 Phil Blundell					pb@futuretv.com
 Hans Boehm					hboehm@gcc.gnu.org
@@ -366,7 +368,6 @@ Phil Edwards					pme@gcc.gnu.org
 Mohan Embar					gnustuff@thisiscool.com
 Revital Eres					eres@il.ibm.com
 Marc Espie					espie@cvs.openbsd.org
-Rafael Ávila de Espíndola			espindola@google.com
 Ansgar Esztermann				ansgar@thphy.uni-duesseldorf.de
 Doug Evans					dje@google.com
 Chris Fairles					cfairles@gcc.gnu.org
@@ -406,6 +407,7 @@ Manfred Hollstein				mh@suse.com
 Cong Hou					congh@google.com
 Falk Hueffner					falk@debian.org
 Andrew John Hughes				gnu_andrew@member.fsf.org
+Dominique d'Humieres				dominiq@lps.ens.fr
 Andy Hutchinson					hutchinsonandy@aim.com
 Naveen H.S					Naveen.Hurugalawadi@caviumnetworks.com
 Meador Inge					meadori@codesourcery.com
@@ -441,6 +443,7 @@ Rask Ingemann Lambertsen			ccc94453@vip.cybercity.dk
 Asher Langton					langton2@llnl.gov
 Chris Lattner					sabre@nondot.org
 Terry Laurenzo					tlaurenzo@gmail.com
+Alan Lawrence					alan.lawrence@arm.com
 Georg-Johann Lay				avr@gjlay.de
 Marc Lehmann					pcg@goof.com
 James Lemke					jwlemke@codesourcery.com
@@ -540,7 +543,7 @@ Gabriele Svelto					gabriele.svelto@st.com
 Sriraman Tallam					tmsriram@google.com
 Chung-Lin Tang					cltang@codesourcery.com
 Samuel Tardieu					sam@rfc1149.net
-Dinar Temirbulatov				dinar@kugelworks.com
+Dinar Temirbulatov				dtemirbulatov@gmail.com
 Kresten Krab Thorup				krab@gcc.gnu.org
 Caroline Tice					cmtice@google.com
 Kyrylo Tkachov					kyrylo.tkachov@arm.com

@@ -36,6 +36,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cp-tree.h"
 #include "flags.h"
 #include "diagnostic-core.h"
+#include "wide-int.h"
 
 static tree
 process_init_constructor (tree type, tree init, tsubst_flags_t complain);
@@ -1103,6 +1104,7 @@ digest_init_flags (tree type, tree init, int flags)
 #define PICFLAG_ERRONEOUS 1
 #define PICFLAG_NOT_ALL_CONSTANT 2
 #define PICFLAG_NOT_ALL_SIMPLE 4
+#define PICFLAG_SIDE_EFFECTS 8
 
 /* Given an initializer INIT, return the flag (PICFLAG_*) which better
    describe it.  */
@@ -1113,7 +1115,12 @@ picflag_from_initializer (tree init)
   if (init == error_mark_node)
     return PICFLAG_ERRONEOUS;
   else if (!TREE_CONSTANT (init))
-    return PICFLAG_NOT_ALL_CONSTANT;
+    {
+      if (TREE_SIDE_EFFECTS (init))
+	return PICFLAG_SIDE_EFFECTS;
+      else
+	return PICFLAG_NOT_ALL_CONSTANT;
+    }
   else if (!initializer_constant_valid_p (init, TREE_TYPE (init)))
     return PICFLAG_NOT_ALL_SIMPLE;
   return 0;
@@ -1132,7 +1139,7 @@ massage_init_elt (tree type, tree init, tsubst_flags_t complain)
   /* When we defer constant folding within a statement, we may want to
      defer this folding as well.  */
   tree t = fold_non_dependent_expr_sfinae (init, complain);
-  t = maybe_constant_value (t);
+  t = maybe_constant_init (t);
   if (TREE_CONSTANT (t))
     init = t;
   return init;
@@ -1159,12 +1166,10 @@ process_init_constructor_array (tree type, tree init,
     {
       tree domain = TYPE_DOMAIN (type);
       if (domain && TREE_CONSTANT (TYPE_MAX_VALUE (domain)))
-	len = (tree_to_double_int (TYPE_MAX_VALUE (domain))
-	       - tree_to_double_int (TYPE_MIN_VALUE (domain))
-	       + double_int_one)
-	      .ext (TYPE_PRECISION (TREE_TYPE (domain)),
-		    TYPE_UNSIGNED (TREE_TYPE (domain)))
-	      .low;
+	len = wi::ext (wi::to_offset (TYPE_MAX_VALUE (domain))
+		       - wi::to_offset (TYPE_MIN_VALUE (domain)) + 1,
+		       TYPE_PRECISION (TREE_TYPE (domain)),
+		       TYPE_SIGN (TREE_TYPE (domain))).to_uhwi ();
       else
 	unbounded = true;  /* Take as many as there are.  */
     }
@@ -1493,7 +1498,12 @@ process_init_constructor (tree type, tree init, tsubst_flags_t complain)
   TREE_TYPE (init) = type;
   if (TREE_CODE (type) == ARRAY_TYPE && TYPE_DOMAIN (type) == NULL_TREE)
     cp_complete_array_type (&TREE_TYPE (init), init, /*do_default=*/0);
-  if (flags & PICFLAG_NOT_ALL_CONSTANT)
+  if (flags & PICFLAG_SIDE_EFFECTS)
+    {
+      TREE_CONSTANT (init) = false;
+      TREE_SIDE_EFFECTS (init) = true;
+    }
+  else if (flags & PICFLAG_NOT_ALL_CONSTANT)
     /* Make sure TREE_CONSTANT isn't set from build_constructor.  */
     TREE_CONSTANT (init) = false;
   else
@@ -1978,10 +1988,10 @@ nothrow_spec_p_uninst (const_tree spec)
 }
 
 /* Combine the two exceptions specifier lists LIST and ADD, and return
-   their union.  If FN is non-null, it's the source of ADD.  */
+   their union.  */
 
 tree
-merge_exception_specifiers (tree list, tree add, tree fn)
+merge_exception_specifiers (tree list, tree add)
 {
   tree noex, orig_list;
 
@@ -1997,22 +2007,18 @@ merge_exception_specifiers (tree list, tree add, tree fn)
   if (nothrow_spec_p_uninst (add))
     return list;
 
-  noex = TREE_PURPOSE (list);
-  if (DEFERRED_NOEXCEPT_SPEC_P (add))
-    {
-      /* If ADD is a deferred noexcept, we must have been called from
-	 process_subob_fn.  For implicitly declared functions, we build up
-	 a list of functions to consider at instantiation time.  */
-      if (noex && operand_equal_p (noex, boolean_true_node, 0))
-	noex = NULL_TREE;
-      gcc_assert (fn && (!noex || is_overloaded_fn (noex)));
-      noex = build_overload (fn, noex);
-    }
-  else if (nothrow_spec_p_uninst (list))
+  /* Two implicit noexcept specs (e.g. on a destructor) are equivalent.  */
+  if (UNEVALUATED_NOEXCEPT_SPEC_P (add)
+      && UNEVALUATED_NOEXCEPT_SPEC_P (list))
+    return list;
+  /* We should have instantiated other deferred noexcept specs by now.  */
+  gcc_assert (!DEFERRED_NOEXCEPT_SPEC_P (add));
+
+  if (nothrow_spec_p_uninst (list))
     return add;
-  else
-    gcc_checking_assert (!TREE_PURPOSE (add)
-			 || cp_tree_equal (noex, TREE_PURPOSE (add)));
+  noex = TREE_PURPOSE (list);
+  gcc_checking_assert (!TREE_PURPOSE (add)
+		       || cp_tree_equal (noex, TREE_PURPOSE (add)));
 
   /* Combine the dynamic-exception-specifiers, if any.  */
   orig_list = list;

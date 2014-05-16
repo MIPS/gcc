@@ -373,7 +373,7 @@ gfc_init_kinds (void)
       /* The middle end doesn't support constants larger than 2*HWI.
 	 Perhaps the target hook shouldn't have accepted these either,
 	 but just to be safe...  */
-      bitsize = GET_MODE_BITSIZE (mode);
+      bitsize = GET_MODE_BITSIZE ((enum machine_mode) mode);
       if (bitsize > 2*HOST_BITS_PER_WIDE_INT)
 	continue;
 
@@ -1291,7 +1291,14 @@ gfc_build_array_type (tree type, gfc_array_spec * as,
 {
   tree lbound[GFC_MAX_DIMENSIONS];
   tree ubound[GFC_MAX_DIMENSIONS];
-  int n;
+  int n, corank;
+
+  /* Assumed-shape arrays do not have codimension information stored in the
+     descriptor.  */
+  corank = as->corank;
+  if (as->type == AS_ASSUMED_SHAPE ||
+      (as->type == AS_ASSUMED_RANK && akind == GFC_ARRAY_ALLOCATABLE))
+    corank = 0;
 
   if (as->type == AS_ASSUMED_RANK)
     for (n = 0; n < GFC_MAX_DIMENSIONS; n++)
@@ -1310,14 +1317,14 @@ gfc_build_array_type (tree type, gfc_array_spec * as,
       ubound[n] = gfc_conv_array_bound (as->upper[n]);
     }
 
-  for (n = as->rank; n < as->rank + as->corank; n++)
+  for (n = as->rank; n < as->rank + corank; n++)
     {
       if (as->type != AS_DEFERRED && as->lower[n] == NULL)
         lbound[n] = gfc_index_one_node;
       else
         lbound[n] = gfc_conv_array_bound (as->lower[n]);
 
-      if (n < as->rank + as->corank - 1)
+      if (n < as->rank + corank - 1)
 	ubound[n] = gfc_conv_array_bound (as->upper[n]);
     }
 
@@ -1329,7 +1336,7 @@ gfc_build_array_type (tree type, gfc_array_spec * as,
 		       : GFC_ARRAY_ASSUMED_RANK;
   return gfc_get_array_type_bounds (type, as->rank == -1
 					  ? GFC_MAX_DIMENSIONS : as->rank,
-				    as->corank, lbound,
+				    corank, lbound,
 				    ubound, 0, akind, restricted);
 }
 
@@ -1868,7 +1875,7 @@ gfc_get_array_type_bounds (tree etype, int dimen, int codimen, tree * lbound,
   if (stride)
     rtype = build_range_type (gfc_array_index_type, gfc_index_zero_node,
 			      int_const_binop (MINUS_EXPR, stride,
-					       integer_one_node));
+					       build_int_cst (TREE_TYPE (stride), 1)));
   else
     rtype = gfc_array_range_type;
   arraytype = build_array_type (etype, rtype);
@@ -2687,11 +2694,11 @@ tree
 gfc_get_function_type (gfc_symbol * sym)
 {
   tree type;
-  vec<tree, va_gc> *typelist;
+  vec<tree, va_gc> *typelist = NULL;
   gfc_formal_arglist *f;
   gfc_symbol *arg;
-  int alternate_return;
-  bool is_varargs = true, recursive_type = false;
+  int alternate_return = 0;
+  bool is_varargs = true;
 
   /* Make sure this symbol is a function, a subroutine or the main
      program.  */
@@ -2703,14 +2710,11 @@ gfc_get_function_type (gfc_symbol * sym)
   if (sym->backend_decl == NULL)
     sym->backend_decl = error_mark_node;
   else if (sym->backend_decl == error_mark_node)
-    recursive_type = true;
+    goto arg_type_list_done;
   else if (sym->attr.proc_pointer)
     return TREE_TYPE (TREE_TYPE (sym->backend_decl));
   else
     return TREE_TYPE (sym->backend_decl);
-
-  alternate_return = 0;
-  typelist = NULL;
 
   if (sym->attr.entry_master)
     /* Additional parameter for selecting an entry point.  */
@@ -2759,13 +2763,6 @@ gfc_get_function_type (gfc_symbol * sym)
 
 	  if (arg->attr.flavor == FL_PROCEDURE)
 	    {
-	      /* We don't know in the general case which argument causes
-		 recursion.  But we know that it is a procedure.  So we give up
-		 creating the procedure argument type list at the first
-		 procedure argument.  */
-	      if (recursive_type)
-	        goto arg_type_list_done;
-
 	      type = gfc_get_function_type (arg);
 	      type = build_pointer_type (type);
 	    }
@@ -2819,10 +2816,10 @@ gfc_get_function_type (gfc_symbol * sym)
       || sym->attr.if_source != IFSRC_UNKNOWN)
     is_varargs = false;
 
-arg_type_list_done:
-
-  if (!recursive_type && sym->backend_decl == error_mark_node)
+  if (sym->backend_decl == error_mark_node)
     sym->backend_decl = NULL_TREE;
+
+arg_type_list_done:
 
   if (alternate_return)
     type = integer_type_node;
@@ -2861,7 +2858,7 @@ arg_type_list_done:
   else
     type = gfc_sym_type (sym);
 
-  if (is_varargs || recursive_type)
+  if (is_varargs)
     type = build_varargs_function_type_vec (type, typelist);
   else
     type = build_function_type_vec (type, typelist);

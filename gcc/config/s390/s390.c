@@ -474,9 +474,7 @@ s390_handle_hotpatch_attribute (tree *node, tree name, tree args,
 
       if (TREE_CODE (expr) != INTEGER_CST
 	  || !INTEGRAL_TYPE_P (TREE_TYPE (expr))
-	  || TREE_INT_CST_HIGH (expr) != 0
-	  || TREE_INT_CST_LOW (expr) > (unsigned int)
-	  s390_hotpatch_trampoline_halfwords_max)
+	  || wi::gtu_p (expr, s390_hotpatch_trampoline_halfwords_max))
 	{
 	  error ("requested %qE attribute is not a non-negative integer"
 		 " constant or too large (max. %d)", name,
@@ -4613,7 +4611,7 @@ s390_expand_insv (rtx dest, rtx op1, rtx op2, rtx src)
   int smode_bsize, mode_bsize;
   rtx op, clobber;
 
-  if (bitsize + bitpos > GET_MODE_SIZE (mode))
+  if (bitsize + bitpos > GET_MODE_BITSIZE (mode))
     return false;
 
   /* Generate INSERT IMMEDIATE (IILL et al).  */
@@ -8631,8 +8629,36 @@ s390_restore_gprs_from_fprs (void)
 /* A pass run immediately before shrink-wrapping and prologue and epilogue
    generation.  */
 
-static unsigned int
-s390_early_mach (void)
+namespace {
+
+const pass_data pass_data_s390_early_mach =
+{
+  RTL_PASS, /* type */
+  "early_mach", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_execute */
+  TV_MACH_DEP, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  ( TODO_df_verify | TODO_df_finish ), /* todo_flags_finish */
+};
+
+class pass_s390_early_mach : public rtl_opt_pass
+{
+public:
+  pass_s390_early_mach (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_s390_early_mach, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  virtual unsigned int execute (function *);
+
+}; // class pass_s390_early_mach
+
+unsigned int
+pass_s390_early_mach::execute (function *fun)
 {
   rtx insn;
 
@@ -8644,8 +8670,8 @@ s390_early_mach (void)
 
   /* If we're using a base register, ensure that it is always valid for
      the first non-prologue instruction.  */
-  if (cfun->machine->base_reg)
-    emit_insn_at_entry (gen_main_pool (cfun->machine->base_reg));
+  if (fun->machine->base_reg)
+    emit_insn_at_entry (gen_main_pool (fun->machine->base_reg));
 
   /* Annotate all constant pool references to let the scheduler know
      they implicitly use the base register.  */
@@ -8657,36 +8683,6 @@ s390_early_mach (void)
       }
   return 0;
 }
-
-namespace {
-
-const pass_data pass_data_s390_early_mach =
-{
-  RTL_PASS, /* type */
-  "early_mach", /* name */
-  OPTGROUP_NONE, /* optinfo_flags */
-  false, /* has_gate */
-  true, /* has_execute */
-  TV_MACH_DEP, /* tv_id */
-  0, /* properties_required */
-  0, /* properties_provided */
-  0, /* properties_destroyed */
-  0, /* todo_flags_start */
-  ( TODO_df_verify | TODO_df_finish
-    | TODO_verify_rtl_sharing ), /* todo_flags_finish */
-};
-
-class pass_s390_early_mach : public rtl_opt_pass
-{
-public:
-  pass_s390_early_mach (gcc::context *ctxt)
-    : rtl_opt_pass (pass_data_s390_early_mach, ctxt)
-  {}
-
-  /* opt_pass methods: */
-  unsigned int execute () { return s390_early_mach (); }
-
-}; // class pass_s390_early_mach
 
 } // anon namespace
 
@@ -9224,6 +9220,13 @@ s390_can_use_return_insn (void)
   for (i = 0; i < 16; i++)
     if (cfun_gpr_save_slot (i))
       return false;
+
+  /* For 31 bit this is not covered by the frame_size check below
+     since f4, f6 are saved in the register save area without needing
+     additional stack space.  */
+  if (!TARGET_64BIT
+      && (cfun_fpr_save_p (FPR4_REGNUM) || cfun_fpr_save_p (FPR6_REGNUM)))
+    return false;
 
   if (cfun->machine->base_reg
       && !call_really_used_regs[REGNO (cfun->machine->base_reg)])
@@ -10154,6 +10157,14 @@ s390_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
     return const0_rtx;
 }
 
+/* We call mcount before the function prologue.  So a profiled leaf
+   function should stay a leaf function.  */
+
+static bool
+s390_keep_leaf_when_profiled ()
+{
+  return true;
+}
 
 /* Output assembly code for the trampoline template to
    stdio stream FILE.
@@ -12156,6 +12167,9 @@ s390_option_override (void)
 #define TARGET_FUNCTION_VALUE s390_function_value
 #undef TARGET_LIBCALL_VALUE
 #define TARGET_LIBCALL_VALUE s390_libcall_value
+
+#undef TARGET_KEEP_LEAF_WHEN_PROFILED
+#define TARGET_KEEP_LEAF_WHEN_PROFILED s390_keep_leaf_when_profiled
 
 #undef TARGET_FIXED_CONDITION_CODE_REGS
 #define TARGET_FIXED_CONDITION_CODE_REGS s390_fixed_condition_code_regs

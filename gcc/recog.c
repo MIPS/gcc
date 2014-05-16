@@ -1023,6 +1023,19 @@ general_operand (rtx op, enum machine_mode mode)
 	  && MEM_P (sub))
 	return 0;
 
+#ifdef CANNOT_CHANGE_MODE_CLASS
+      if (REG_P (sub)
+	  && REGNO (sub) < FIRST_PSEUDO_REGISTER
+	  && REG_CANNOT_CHANGE_MODE_P (REGNO (sub), GET_MODE (sub), mode)
+	  && GET_MODE_CLASS (GET_MODE (sub)) != MODE_COMPLEX_INT
+	  && GET_MODE_CLASS (GET_MODE (sub)) != MODE_COMPLEX_FLOAT
+	  /* LRA can generate some invalid SUBREGS just for matched
+	     operand reload presentation.  LRA needs to treat them as
+	     valid.  */
+	  && ! LRA_SUBREG_P (op))
+	return 0;
+#endif
+
       /* FLOAT_MODE subregs can't be paradoxical.  Combine will occasionally
 	 create such rtl, and we must reject it.  */
       if (SCALAR_FLOAT_MODE_P (GET_MODE (op))
@@ -1083,9 +1096,6 @@ address_operand (rtx op, enum machine_mode mode)
 int
 register_operand (rtx op, enum machine_mode mode)
 {
-  if (GET_MODE (op) != mode && mode != VOIDmode)
-    return 0;
-
   if (GET_CODE (op) == SUBREG)
     {
       rtx sub = SUBREG_REG (op);
@@ -1096,41 +1106,12 @@ register_operand (rtx op, enum machine_mode mode)
 	 (Ideally, (SUBREG (MEM)...) should not exist after reload,
 	 but currently it does result from (SUBREG (REG)...) where the
 	 reg went on the stack.)  */
-      if (! reload_completed && MEM_P (sub))
-	return general_operand (op, mode);
-
-#ifdef CANNOT_CHANGE_MODE_CLASS
-      if (REG_P (sub)
-	  && REGNO (sub) < FIRST_PSEUDO_REGISTER
-	  && REG_CANNOT_CHANGE_MODE_P (REGNO (sub), GET_MODE (sub), mode)
-	  && GET_MODE_CLASS (GET_MODE (sub)) != MODE_COMPLEX_INT
-	  && GET_MODE_CLASS (GET_MODE (sub)) != MODE_COMPLEX_FLOAT
-	  /* LRA can generate some invalid SUBREGS just for matched
-	     operand reload presentation.  LRA needs to treat them as
-	     valid.  */
-	  && ! LRA_SUBREG_P (op))
+      if (!REG_P (sub) && (reload_completed || !MEM_P (sub)))
 	return 0;
-#endif
-
-      /* FLOAT_MODE subregs can't be paradoxical.  Combine will occasionally
-	 create such rtl, and we must reject it.  */
-      if (SCALAR_FLOAT_MODE_P (GET_MODE (op))
-	  /* LRA can use subreg to store a floating point value in an
-	     integer mode.  Although the floating point and the
-	     integer modes need the same number of hard registers, the
-	     size of floating point mode can be less than the integer
-	     mode.  */
-	  && ! lra_in_progress 
-	  && GET_MODE_SIZE (GET_MODE (op)) > GET_MODE_SIZE (GET_MODE (sub)))
-	return 0;
-
-      op = sub;
     }
-
-  return (REG_P (op)
-	  && (REGNO (op) >= FIRST_PSEUDO_REGISTER
-	      || in_hard_reg_set_p (operand_reg_set,
-				    GET_MODE (op), REGNO (op))));
+  else if (!REG_P (op))
+    return 0;
+  return general_operand (op, mode);
 }
 
 /* Return 1 for a register in Pmode; ignore the tested mode.  */
@@ -1184,7 +1165,7 @@ immediate_operand (rtx op, enum machine_mode mode)
 					    : mode, op));
 }
 
-/* Returns 1 if OP is an operand that is a CONST_INT.  */
+/* Returns 1 if OP is an operand that is a CONST_INT of mode MODE.  */
 
 int
 const_int_operand (rtx op, enum machine_mode mode)
@@ -1199,8 +1180,51 @@ const_int_operand (rtx op, enum machine_mode mode)
   return 1;
 }
 
+#if TARGET_SUPPORTS_WIDE_INT
+/* Returns 1 if OP is an operand that is a CONST_INT or CONST_WIDE_INT
+   of mode MODE.  */
+int
+const_scalar_int_operand (rtx op, enum machine_mode mode)
+{
+  if (!CONST_SCALAR_INT_P (op))
+    return 0;
+
+  if (CONST_INT_P (op))
+    return const_int_operand (op, mode);
+
+  if (mode != VOIDmode)
+    {
+      int prec = GET_MODE_PRECISION (mode);
+      int bitsize = GET_MODE_BITSIZE (mode);
+
+      if (CONST_WIDE_INT_NUNITS (op) * HOST_BITS_PER_WIDE_INT > bitsize)
+	return 0;
+
+      if (prec == bitsize)
+	return 1;
+      else
+	{
+	  /* Multiword partial int.  */
+	  HOST_WIDE_INT x
+	    = CONST_WIDE_INT_ELT (op, CONST_WIDE_INT_NUNITS (op) - 1);
+	  return (sext_hwi (x, prec & (HOST_BITS_PER_WIDE_INT - 1)) == x);
+	}
+    }
+  return 1;
+}
+
 /* Returns 1 if OP is an operand that is a constant integer or constant
-   floating-point number.  */
+   floating-point number of MODE.  */
+
+int
+const_double_operand (rtx op, enum machine_mode mode)
+{
+  return (GET_CODE (op) == CONST_DOUBLE)
+	  && (GET_MODE (op) == mode || mode == VOIDmode);
+}
+#else
+/* Returns 1 if OP is an operand that is a constant integer or constant
+   floating-point number of MODE.  */
 
 int
 const_double_operand (rtx op, enum machine_mode mode)
@@ -1216,8 +1240,9 @@ const_double_operand (rtx op, enum machine_mode mode)
 	  && (mode == VOIDmode || GET_MODE (op) == mode
 	      || GET_MODE (op) == VOIDmode));
 }
-
-/* Return 1 if OP is a general operand that is not an immediate operand.  */
+#endif
+/* Return 1 if OP is a general operand that is not an immediate
+   operand of mode MODE.  */
 
 int
 nonimmediate_operand (rtx op, enum machine_mode mode)
@@ -1232,27 +1257,7 @@ nonmemory_operand (rtx op, enum machine_mode mode)
 {
   if (CONSTANT_P (op))
     return immediate_operand (op, mode);
-
-  if (GET_MODE (op) != mode && mode != VOIDmode)
-    return 0;
-
-  if (GET_CODE (op) == SUBREG)
-    {
-      /* Before reload, we can allow (SUBREG (MEM...)) as a register operand
-	 because it is guaranteed to be reloaded into one.
-	 Just make sure the MEM is valid in itself.
-	 (Ideally, (SUBREG (MEM)...) should not exist after reload,
-	 but currently it does result from (SUBREG (REG)...) where the
-	 reg went on the stack.)  */
-      if (! reload_completed && MEM_P (SUBREG_REG (op)))
-	return general_operand (op, mode);
-      op = SUBREG_REG (op);
-    }
-
-  return (REG_P (op)
-	  && (REGNO (op) >= FIRST_PSEUDO_REGISTER
-	      || in_hard_reg_set_p (operand_reg_set,
-				    GET_MODE (op), REGNO (op))));
+  return register_operand (op, mode);
 }
 
 /* Return 1 if OP is a valid operand that stands for pushing a
@@ -3849,12 +3854,6 @@ if_test_bypass_p (rtx out_insn, rtx in_insn)
   return true;
 }
 
-static bool
-gate_handle_peephole2 (void)
-{
-  return (optimize > 0 && flag_peephole2);
-}
-
 static unsigned int
 rest_of_handle_peephole2 (void)
 {
@@ -3871,14 +3870,13 @@ const pass_data pass_data_peephole2 =
   RTL_PASS, /* type */
   "peephole2", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
   true, /* has_execute */
   TV_PEEPHOLE2, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  ( TODO_df_finish | TODO_verify_rtl_sharing | 0 ), /* todo_flags_finish */
+  TODO_df_finish, /* todo_flags_finish */
 };
 
 class pass_peephole2 : public rtl_opt_pass
@@ -3892,8 +3890,11 @@ public:
   /* The epiphany backend creates a second instance of this pass, so we need
      a clone method.  */
   opt_pass * clone () { return new pass_peephole2 (m_ctxt); }
-  bool gate () { return gate_handle_peephole2 (); }
-  unsigned int execute () { return rest_of_handle_peephole2 (); }
+  virtual bool gate (function *) { return (optimize > 0 && flag_peephole2); }
+  virtual unsigned int execute (function *)
+    {
+      return rest_of_handle_peephole2 ();
+    }
 
 }; // class pass_peephole2
 
@@ -3905,13 +3906,6 @@ make_pass_peephole2 (gcc::context *ctxt)
   return new pass_peephole2 (ctxt);
 }
 
-static unsigned int
-rest_of_handle_split_all_insns (void)
-{
-  split_all_insns ();
-  return 0;
-}
-
 namespace {
 
 const pass_data pass_data_split_all_insns =
@@ -3919,7 +3913,6 @@ const pass_data pass_data_split_all_insns =
   RTL_PASS, /* type */
   "split1", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  false, /* has_gate */
   true, /* has_execute */
   TV_NONE, /* tv_id */
   0, /* properties_required */
@@ -3940,7 +3933,11 @@ public:
   /* The epiphany backend creates a second instance of this pass, so
      we need a clone method.  */
   opt_pass * clone () { return new pass_split_all_insns (m_ctxt); }
-  unsigned int execute () { return rest_of_handle_split_all_insns (); }
+  virtual unsigned int execute (function *)
+    {
+      split_all_insns ();
+      return 0;
+    }
 
 }; // class pass_split_all_insns
 
@@ -3970,7 +3967,6 @@ const pass_data pass_data_split_after_reload =
   RTL_PASS, /* type */
   "split2", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  false, /* has_gate */
   true, /* has_execute */
   TV_NONE, /* tv_id */
   0, /* properties_required */
@@ -3988,7 +3984,10 @@ public:
   {}
 
   /* opt_pass methods: */
-  unsigned int execute () { return rest_of_handle_split_after_reload (); }
+  virtual unsigned int execute (function *)
+    {
+      return rest_of_handle_split_after_reload ();
+    }
 
 }; // class pass_split_after_reload
 
@@ -4000,31 +3999,6 @@ make_pass_split_after_reload (gcc::context *ctxt)
   return new pass_split_after_reload (ctxt);
 }
 
-static bool
-gate_handle_split_before_regstack (void)
-{
-#if HAVE_ATTR_length && defined (STACK_REGS)
-  /* If flow2 creates new instructions which need splitting
-     and scheduling after reload is not done, they might not be
-     split until final which doesn't allow splitting
-     if HAVE_ATTR_length.  */
-# ifdef INSN_SCHEDULING
-  return (optimize && !flag_schedule_insns_after_reload);
-# else
-  return (optimize);
-# endif
-#else
-  return 0;
-#endif
-}
-
-static unsigned int
-rest_of_handle_split_before_regstack (void)
-{
-  split_all_insns ();
-  return 0;
-}
-
 namespace {
 
 const pass_data pass_data_split_before_regstack =
@@ -4032,7 +4006,6 @@ const pass_data pass_data_split_before_regstack =
   RTL_PASS, /* type */
   "split3", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
   true, /* has_execute */
   TV_NONE, /* tv_id */
   0, /* properties_required */
@@ -4050,12 +4023,32 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_handle_split_before_regstack (); }
-  unsigned int execute () {
-    return rest_of_handle_split_before_regstack ();
-  }
+  virtual bool gate (function *);
+  virtual unsigned int execute (function *)
+    {
+      split_all_insns ();
+      return 0;
+    }
 
 }; // class pass_split_before_regstack
+
+bool
+pass_split_before_regstack::gate (function *)
+{
+#if HAVE_ATTR_length && defined (STACK_REGS)
+  /* If flow2 creates new instructions which need splitting
+     and scheduling after reload is not done, they might not be
+     split until final which doesn't allow splitting
+     if HAVE_ATTR_length.  */
+# ifdef INSN_SCHEDULING
+  return (optimize && !flag_schedule_insns_after_reload);
+# else
+  return (optimize);
+# endif
+#else
+  return 0;
+#endif
+}
 
 } // anon namespace
 
@@ -4063,16 +4056,6 @@ rtl_opt_pass *
 make_pass_split_before_regstack (gcc::context *ctxt)
 {
   return new pass_split_before_regstack (ctxt);
-}
-
-static bool
-gate_handle_split_before_sched2 (void)
-{
-#ifdef INSN_SCHEDULING
-  return optimize > 0 && flag_schedule_insns_after_reload;
-#else
-  return 0;
-#endif
 }
 
 static unsigned int
@@ -4091,14 +4074,13 @@ const pass_data pass_data_split_before_sched2 =
   RTL_PASS, /* type */
   "split4", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
   true, /* has_execute */
   TV_NONE, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  TODO_verify_flow, /* todo_flags_finish */
+  0, /* todo_flags_finish */
 };
 
 class pass_split_before_sched2 : public rtl_opt_pass
@@ -4109,8 +4091,19 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_handle_split_before_sched2 (); }
-  unsigned int execute () { return rest_of_handle_split_before_sched2 (); }
+  virtual bool gate (function *)
+    {
+#ifdef INSN_SCHEDULING
+      return optimize > 0 && flag_schedule_insns_after_reload;
+#else
+      return false;
+#endif
+    }
+
+  virtual unsigned int execute (function *)
+    {
+      return rest_of_handle_split_before_sched2 ();
+    }
 
 }; // class pass_split_before_sched2
 
@@ -4122,18 +4115,6 @@ make_pass_split_before_sched2 (gcc::context *ctxt)
   return new pass_split_before_sched2 (ctxt);
 }
 
-/* The placement of the splitting that we do for shorten_branches
-   depends on whether regstack is used by the target or not.  */
-static bool
-gate_do_final_split (void)
-{
-#if HAVE_ATTR_length && !defined (STACK_REGS)
-  return 1;
-#else
-  return 0;
-#endif
-}
-
 namespace {
 
 const pass_data pass_data_split_for_shorten_branches =
@@ -4141,14 +4122,13 @@ const pass_data pass_data_split_for_shorten_branches =
   RTL_PASS, /* type */
   "split5", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
   true, /* has_execute */
   TV_NONE, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  TODO_verify_rtl_sharing, /* todo_flags_finish */
+  0, /* todo_flags_finish */
 };
 
 class pass_split_for_shorten_branches : public rtl_opt_pass
@@ -4159,8 +4139,21 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_do_final_split (); }
-  unsigned int execute () { return split_all_insns_noflow (); }
+  virtual bool gate (function *)
+    {
+      /* The placement of the splitting that we do for shorten_branches
+	 depends on whether regstack is used by the target or not.  */
+#if HAVE_ATTR_length && !defined (STACK_REGS)
+      return true;
+#else
+      return false;
+#endif
+    }
+
+  virtual unsigned int execute (function *)
+    {
+      return split_all_insns_noflow ();
+    }
 
 }; // class pass_split_for_shorten_branches
 

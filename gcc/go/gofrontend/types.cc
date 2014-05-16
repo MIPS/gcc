@@ -6,12 +6,6 @@
 
 #include "go-system.h"
 
-#include "toplev.h"
-#include "intl.h"
-#include "tree.h"
-#include "real.h"
-#include "convert.h"
-
 #include "go-c.h"
 #include "gogo.h"
 #include "operator.h"
@@ -245,7 +239,7 @@ Type::points_to() const
   return ptype == NULL ? NULL : ptype->points_to();
 }
 
-// Return whether this is an open array type.
+// Return whether this is a slice type.
 
 bool
 Type::is_slice_type() const
@@ -897,7 +891,7 @@ Type::hash_string(const std::string& s, unsigned int h)
 
 Type::Type_btypes Type::type_btypes;
 
-// Return a tree representing this type.
+// Return the backend representation for this type.
 
 Btype*
 Type::get_backend(Gogo* gogo)
@@ -952,7 +946,7 @@ Type::get_backend(Gogo* gogo)
       // We have already created a backend representation for this
       // type.  This can happen when an unnamed type is defined using
       // a named type which in turns uses an identical unnamed type.
-      // Use the tree we created earlier and ignore the one we just
+      // Use the representation we created earlier and ignore the one we just
       // built.
       if (this->btype_ == bt)
 	this->btype_ = ins.first->second.btype;
@@ -1301,7 +1295,7 @@ Type::make_type_descriptor_var(Gogo* gogo)
 
   Translate_context context(gogo, NULL, NULL, NULL);
   context.set_is_const();
-  Bexpression* binitializer = tree_to_expr(initializer->get_tree(&context));
+  Bexpression* binitializer = initializer->get_backend(&context);
 
   gogo->backend()->immutable_struct_set_init(this->type_descriptor_var_,
 					     var_name, false, is_common,
@@ -3073,34 +3067,6 @@ String_type::do_get_backend(Gogo* gogo)
       backend_string_type = gogo->backend()->struct_type(fields);
     }
   return backend_string_type;
-}
-
-// Return a tree for the length of STRING.
-
-tree
-String_type::length_tree(Gogo*, tree string)
-{
-  tree string_type = TREE_TYPE(string);
-  go_assert(TREE_CODE(string_type) == RECORD_TYPE);
-  tree length_field = DECL_CHAIN(TYPE_FIELDS(string_type));
-  go_assert(strcmp(IDENTIFIER_POINTER(DECL_NAME(length_field)),
-		    "__length") == 0);
-  return fold_build3(COMPONENT_REF, TREE_TYPE(length_field), string,
-		     length_field, NULL_TREE);
-}
-
-// Return a tree for a pointer to the bytes of STRING.
-
-tree
-String_type::bytes_tree(Gogo*, tree string)
-{
-  tree string_type = TREE_TYPE(string);
-  go_assert(TREE_CODE(string_type) == RECORD_TYPE);
-  tree bytes_field = TYPE_FIELDS(string_type);
-  go_assert(strcmp(IDENTIFIER_POINTER(DECL_NAME(bytes_field)),
-		    "__data") == 0);
-  return fold_build3(COMPONENT_REF, TREE_TYPE(bytes_field), string,
-		     bytes_field, NULL_TREE);
 }
 
 // The type descriptor for the string type.
@@ -4916,9 +4882,8 @@ Struct_type::method_function(const std::string& name, bool* is_ambiguous) const
 // the interface INTERFACE.  IS_POINTER is true if this is for a
 // pointer to THIS.
 
-tree
-Struct_type::interface_method_table(Gogo* gogo,
-				    const Interface_type* interface,
+Expression*
+Struct_type::interface_method_table(Interface_type* interface,
 				    bool is_pointer)
 {
   std::pair<Struct_type*, Struct_type::Struct_method_table_pair*>
@@ -4937,7 +4902,7 @@ Struct_type::interface_method_table(Gogo* gogo,
       ins.first->second = smtp;
     }
 
-  return Type::interface_method_table(gogo, this, interface, is_pointer,
+  return Type::interface_method_table(this, interface, is_pointer,
 				      &smtp->first, &smtp->second);
 }
 
@@ -4965,7 +4930,7 @@ get_backend_struct_fields(Gogo* gogo, const Struct_field_list* fields,
   go_assert(i == fields->size());
 }
 
-// Get the tree for a struct type.
+// Get the backend representation for a struct type.
 
 Btype*
 Struct_type::do_get_backend(Gogo* gogo)
@@ -5868,54 +5833,6 @@ Array_type::write_equal_function(Gogo* gogo, Named_type* name)
   gogo->add_statement(s);
 }
 
-// Get a tree for the length of a fixed array.  The length may be
-// computed using a function call, so we must only evaluate it once.
-
-tree
-Array_type::get_length_tree(Gogo* gogo)
-{
-  go_assert(this->length_ != NULL);
-  if (this->length_tree_ == NULL_TREE)
-    {
-      Numeric_constant nc;
-      mpz_t val;
-      if (this->length_->numeric_constant_value(&nc) && nc.to_int(&val))
-	{
-	  if (mpz_sgn(val) < 0)
-	    {
-	      this->length_tree_ = error_mark_node;
-	      return this->length_tree_;
-	    }
-	  Type* t = nc.type();
-	  if (t == NULL)
-	    t = Type::lookup_integer_type("int");
-	  else if (t->is_abstract())
-	    t = t->make_non_abstract_type();
-          Btype* btype = t->get_backend(gogo);
-          Bexpression* iexpr =
-              gogo->backend()->integer_constant_expression(btype, val);
-	  this->length_tree_ = expr_to_tree(iexpr);
-	  mpz_clear(val);
-	}
-      else
-	{
-	  // Make up a translation context for the array length
-	  // expression.  FIXME: This won't work in general.
-	  Translate_context context(gogo, NULL, NULL, NULL);
-	  tree len = this->length_->get_tree(&context);
-	  if (len != error_mark_node)
-	    {
-	      Type* int_type = Type::lookup_integer_type("int");
-	      tree int_type_tree = type_to_tree(int_type->get_backend(gogo));
-	      len = convert_to_integer(int_type_tree, len);
-	      len = save_expr(len);
-	    }
-	  this->length_tree_ = len;
-	}
-    }
-  return this->length_tree_;
-}
-
 // Get the backend representation of the fields of a slice.  This is
 // not declared in types.h so that types.h doesn't have to #include
 // backend.h.
@@ -5954,8 +5871,8 @@ get_backend_slice_fields(Gogo* gogo, Array_type* type, bool use_placeholder,
   p->location = ploc;
 }
 
-// Get a tree for the type of this array.  A fixed array is simply
-// represented as ARRAY_TYPE with the appropriate index--i.e., it is
+// Get the backend representation for the type of this array.  A fixed array is
+// simply represented as ARRAY_TYPE with the appropriate index--i.e., it is
 // just like an array in C.  An open array is a struct with three
 // fields: a data pointer, the length, and the capacity.
 
@@ -5987,12 +5904,48 @@ Array_type::get_backend_element(Gogo* gogo, bool use_placeholder)
     return this->element_type_->get_backend(gogo);
 }
 
-// Return the backend representation of the length.
+// Return the backend representation of the length. The length may be
+// computed using a function call, so we must only evaluate it once.
 
 Bexpression*
 Array_type::get_backend_length(Gogo* gogo)
 {
-  return tree_to_expr(this->get_length_tree(gogo));
+  go_assert(this->length_ != NULL);
+  if (this->blength_ == NULL)
+    {
+      Numeric_constant nc;
+      mpz_t val;
+      if (this->length_->numeric_constant_value(&nc) && nc.to_int(&val))
+	{
+	  if (mpz_sgn(val) < 0)
+	    {
+	      this->blength_ = gogo->backend()->error_expression();
+	      return this->blength_;
+	    }
+	  Type* t = nc.type();
+	  if (t == NULL)
+	    t = Type::lookup_integer_type("int");
+	  else if (t->is_abstract())
+	    t = t->make_non_abstract_type();
+          Btype* btype = t->get_backend(gogo);
+          this->blength_ =
+	    gogo->backend()->integer_constant_expression(btype, val);
+	  mpz_clear(val);
+	}
+      else
+	{
+	  // Make up a translation context for the array length
+	  // expression.  FIXME: This won't work in general.
+	  Translate_context context(gogo, NULL, NULL, NULL);
+	  this->blength_ = this->length_->get_backend(&context);
+
+	  Btype* ibtype = Type::lookup_integer_type("int")->get_backend(gogo);
+	  this->blength_ =
+	    gogo->backend()->convert_expression(ibtype, this->blength_,
+						this->length_->location());
+	}
+    }
+  return this->blength_;
 }
 
 // Finish backend representation of the array.
@@ -6026,7 +5979,7 @@ Array_type::get_value_pointer(Gogo*, Expression* array) const
                                    array->location());
     }
 
-  // Open array.
+  // Slice.
   return Expression::make_slice_info(array,
                                      Expression::SLICE_INFO_VALUE_POINTER,
                                      array->location());
@@ -6041,7 +5994,7 @@ Array_type::get_length(Gogo*, Expression* array) const
   if (this->length_ != NULL)
     return this->length_;
 
-  // This is an open array.  We need to read the length field.
+  // This is a slice.  We need to read the length field.
   return Expression::make_slice_info(array, Expression::SLICE_INFO_LENGTH,
                                      array->location());
 }
@@ -6055,7 +6008,7 @@ Array_type::get_capacity(Gogo*, Expression* array) const
   if (this->length_ != NULL)
     return this->length_;
 
-  // This is an open array.  We need to read the capacity field.
+  // This is a slice.  We need to read the capacity field.
   return Expression::make_slice_info(array, Expression::SLICE_INFO_CAPACITY,
                                      array->location());
 }
@@ -6507,7 +6460,7 @@ Map_type::map_descriptor(Gogo* gogo)
 
   Translate_context context(gogo, NULL, NULL, NULL);
   context.set_is_const();
-  Bexpression* binitializer = tree_to_expr(initializer->get_tree(&context));
+  Bexpression* binitializer = initializer->get_backend(&context);
 
   gogo->backend()->immutable_struct_set_init(bvar, mangled_name, false, true,
 					     map_descriptor_btype, bloc,
@@ -6622,8 +6575,8 @@ Channel_type::is_identical(const Channel_type* t,
 	  && this->may_receive_ == t->may_receive_);
 }
 
-// Return the tree for a channel type.  A channel is a pointer to a
-// __go_channel struct.  The __go_channel struct is defined in
+// Return the backend representation for a channel type.  A channel is a pointer
+// to a __go_channel struct.  The __go_channel struct is defined in
 // libgo/runtime/channel.h.
 
 Btype*
@@ -7405,8 +7358,8 @@ get_backend_interface_fields(Gogo* gogo, Interface_type* type,
   (*bfields)[1].location = Linemap::predeclared_location();
 }
 
-// Return a tree for an interface type.  An interface is a pointer to
-// a struct.  The struct has three fields.  The first field is a
+// Return the backend representation for an interface type.  An interface is a
+// pointer to a struct.  The struct has three fields.  The first field is a
 // pointer to the type descriptor for the dynamic type of the object.
 // The second field is a pointer to a table of methods for the
 // interface to be used with the object.  The third field is the value
@@ -8198,13 +8151,12 @@ Named_type::method_function(const std::string& name, bool* is_ambiguous) const
 // the interface INTERFACE.  IS_POINTER is true if this is for a
 // pointer to THIS.
 
-tree
-Named_type::interface_method_table(Gogo* gogo, const Interface_type* interface,
-				   bool is_pointer)
+Expression*
+Named_type::interface_method_table(Interface_type* interface, bool is_pointer)
 {
-  return Type::interface_method_table(gogo, this, interface, is_pointer,
-				      &this->interface_method_tables_,
-				      &this->pointer_interface_method_tables_);
+  return Type::interface_method_table(this, interface, is_pointer,
+                                      &this->interface_method_tables_,
+                                      &this->pointer_interface_method_tables_);
 }
 
 // Return whether a named type has any hidden fields.
@@ -8458,7 +8410,7 @@ Named_type::convert(Gogo* gogo)
   this->verify();
 
   // Convert all the dependencies.  If they refer indirectly back to
-  // this type, they will pick up the intermediate tree we just
+  // this type, they will pick up the intermediate representation we just
   // created.
   for (std::vector<Named_type*>::const_iterator p = this->dependencies_.begin();
        p != this->dependencies_.end();
@@ -8654,7 +8606,7 @@ Named_type::create_placeholder(Gogo* gogo)
     }
 }
 
-// Get a tree for a named type.
+// Get the backend representation for a named type.
 
 Btype*
 Named_type::do_get_backend(Gogo* gogo)
@@ -8690,7 +8642,7 @@ Named_type::do_get_backend(Gogo* gogo)
 
   go_assert(bt != NULL);
 
-  // Complete the tree.
+  // Complete the backend representation.
   Type* base = this->type_->base();
   Btype* bt1;
   switch (base->classification())
@@ -8966,9 +8918,8 @@ Type::finalize_methods(Gogo* gogo, const Type* type, Location location,
 		       Methods** all_methods)
 {
   *all_methods = NULL;
-  Types_seen types_seen;
-  Type::add_methods_for_type(type, NULL, 0, false, false, &types_seen,
-			     all_methods);
+  std::vector<const Named_type*> seen;
+  Type::add_methods_for_type(type, NULL, 0, false, false, &seen, all_methods);
   Type::build_stub_methods(gogo, type, *all_methods, location);
 }
 
@@ -8986,7 +8937,7 @@ Type::add_methods_for_type(const Type* type,
 			   unsigned int depth,
 			   bool is_embedded_pointer,
 			   bool needs_stub_method,
-			   Types_seen* types_seen,
+			   std::vector<const Named_type*>* seen,
 			   Methods** methods)
 {
   // Pointer types may not have methods.
@@ -8996,19 +8947,24 @@ Type::add_methods_for_type(const Type* type,
   const Named_type* nt = type->named_type();
   if (nt != NULL)
     {
-      std::pair<Types_seen::iterator, bool> ins = types_seen->insert(nt);
-      if (!ins.second)
-	return;
-    }
+      for (std::vector<const Named_type*>::const_iterator p = seen->begin();
+	   p != seen->end();
+	   ++p)
+	{
+	  if (*p == nt)
+	    return;
+	}
 
-  if (nt != NULL)
-    Type::add_local_methods_for_type(nt, field_indexes, depth,
-				     is_embedded_pointer, needs_stub_method,
-				     methods);
+      seen->push_back(nt);
+
+      Type::add_local_methods_for_type(nt, field_indexes, depth,
+				       is_embedded_pointer, needs_stub_method,
+				       methods);
+    }
 
   Type::add_embedded_methods_for_type(type, field_indexes, depth,
 				      is_embedded_pointer, needs_stub_method,
-				      types_seen, methods);
+				      seen, methods);
 
   // If we are called with depth > 0, then we are looking at an
   // anonymous field of a struct.  If such a field has interface type,
@@ -9017,6 +8973,9 @@ Type::add_methods_for_type(const Type* type,
   // following the usual rules for an interface type.
   if (depth > 0)
     Type::add_interface_methods_for_type(type, field_indexes, depth, methods);
+
+  if (nt != NULL)
+      seen->pop_back();
 }
 
 // Add the local methods for the named type NT to *METHODS.  The
@@ -9062,7 +9021,7 @@ Type::add_embedded_methods_for_type(const Type* type,
 				    unsigned int depth,
 				    bool is_embedded_pointer,
 				    bool needs_stub_method,
-				    Types_seen* types_seen,
+				    std::vector<const Named_type*>* seen,
 				    Methods** methods)
 {
   // Look for anonymous fields in TYPE.  TYPE has fields if it is a
@@ -9106,7 +9065,7 @@ Type::add_embedded_methods_for_type(const Type* type,
 				 (needs_stub_method
 				  || is_pointer
 				  || i > 0),
-				 types_seen,
+				 seen,
 				 methods);
     }
 }
@@ -9385,9 +9344,9 @@ Type::method_function(const Methods* methods, const std::string& name,
 // Return a pointer to the interface method table for TYPE for the
 // interface INTERFACE.
 
-tree
-Type::interface_method_table(Gogo* gogo, Type* type,
-			     const Interface_type *interface,
+Expression*
+Type::interface_method_table(Type* type,
+			     Interface_type *interface,
 			     bool is_pointer,
 			     Interface_method_tables** method_tables,
 			     Interface_method_tables** pointer_tables)
@@ -9399,23 +9358,18 @@ Type::interface_method_table(Gogo* gogo, Type* type,
   if (*pimt == NULL)
     *pimt = new Interface_method_tables(5);
 
-  std::pair<const Interface_type*, tree> val(interface, NULL_TREE);
+  std::pair<Interface_type*, Expression*> val(interface, NULL);
   std::pair<Interface_method_tables::iterator, bool> ins = (*pimt)->insert(val);
 
+  Location loc = Linemap::predeclared_location();
   if (ins.second)
     {
       // This is a new entry in the hash table.
-      go_assert(ins.first->second == NULL_TREE);
-      ins.first->second = gogo->interface_method_table_for_type(interface,
-								type,
-								is_pointer);
+      go_assert(ins.first->second == NULL);
+      ins.first->second =
+	Expression::make_interface_mtable_ref(interface, type, is_pointer, loc);
     }
-
-  tree decl = ins.first->second;
-  if (decl == error_mark_node)
-    return error_mark_node;
-  go_assert(decl != NULL_TREE && TREE_CODE(decl) == VAR_DECL);
-  return build_fold_addr_expr(decl);
+  return Expression::make_unary(OPERATOR_AND, ins.first->second, loc);
 }
 
 // Look for field or method NAME for TYPE.  Return an Expression for

@@ -854,7 +854,8 @@ expand_subword_shift (enum machine_mode op1_mode, optab binoptab,
   if (CONSTANT_P (op1) || shift_mask >= BITS_PER_WORD)
     {
       carries = outof_input;
-      tmp = immed_double_const (BITS_PER_WORD, 0, op1_mode);
+      tmp = immed_wide_int_const (wi::shwi (BITS_PER_WORD,
+					    op1_mode), op1_mode);
       tmp = simplify_expand_binop (op1_mode, sub_optab, tmp, op1,
 				   0, true, methods);
     }
@@ -869,13 +870,15 @@ expand_subword_shift (enum machine_mode op1_mode, optab binoptab,
 			      outof_input, const1_rtx, 0, unsignedp, methods);
       if (shift_mask == BITS_PER_WORD - 1)
 	{
-	  tmp = immed_double_const (-1, -1, op1_mode);
+	  tmp = immed_wide_int_const
+	    (wi::minus_one (GET_MODE_PRECISION (op1_mode)), op1_mode);
 	  tmp = simplify_expand_binop (op1_mode, xor_optab, op1, tmp,
 				       0, true, methods);
 	}
       else
 	{
-	  tmp = immed_double_const (BITS_PER_WORD - 1, 0, op1_mode);
+	  tmp = immed_wide_int_const (wi::shwi (BITS_PER_WORD - 1,
+						op1_mode), op1_mode);
 	  tmp = simplify_expand_binop (op1_mode, sub_optab, tmp, op1,
 				       0, true, methods);
 	}
@@ -1038,7 +1041,7 @@ expand_doubleword_shift (enum machine_mode op1_mode, optab binoptab,
      is true when the effective shift value is less than BITS_PER_WORD.
      Set SUPERWORD_OP1 to the shift count that should be used to shift
      OUTOF_INPUT into INTO_TARGET when the condition is false.  */
-  tmp = immed_double_const (BITS_PER_WORD, 0, op1_mode);
+  tmp = immed_wide_int_const (wi::shwi (BITS_PER_WORD, op1_mode), op1_mode);
   if (!CONSTANT_P (op1) && shift_mask == BITS_PER_WORD - 1)
     {
       /* Set CMP1 to OP1 & BITS_PER_WORD.  The result is zero iff OP1
@@ -2891,7 +2894,6 @@ expand_absneg_bit (enum rtx_code code, enum machine_mode mode,
   const struct real_format *fmt;
   int bitpos, word, nwords, i;
   enum machine_mode imode;
-  double_int mask;
   rtx temp, insns;
 
   /* The format has to have a simple sign bit.  */
@@ -2927,7 +2929,7 @@ expand_absneg_bit (enum rtx_code code, enum machine_mode mode,
       nwords = (GET_MODE_BITSIZE (mode) + BITS_PER_WORD - 1) / BITS_PER_WORD;
     }
 
-  mask = double_int_zero.set_bit (bitpos);
+  wide_int mask = wi::set_bit_in_zero (bitpos, GET_MODE_PRECISION (imode));
   if (code == ABS)
     mask = ~mask;
 
@@ -2949,7 +2951,7 @@ expand_absneg_bit (enum rtx_code code, enum machine_mode mode,
 	    {
 	      temp = expand_binop (imode, code == ABS ? and_optab : xor_optab,
 				   op0_piece,
-				   immed_double_int_const (mask, imode),
+				   immed_wide_int_const (mask, imode),
 				   targ_piece, 1, OPTAB_LIB_WIDEN);
 	      if (temp != targ_piece)
 		emit_move_insn (targ_piece, temp);
@@ -2967,7 +2969,7 @@ expand_absneg_bit (enum rtx_code code, enum machine_mode mode,
     {
       temp = expand_binop (imode, code == ABS ? and_optab : xor_optab,
 			   gen_lowpart (imode, op0),
-			   immed_double_int_const (mask, imode),
+			   immed_wide_int_const (mask, imode),
 		           gen_lowpart (imode, target), 1, OPTAB_LIB_WIDEN);
       target = lowpart_subreg_maybe_copy (mode, temp, imode);
 
@@ -3384,7 +3386,8 @@ expand_abs_nojump (enum machine_mode mode, rtx op0, rtx target,
 {
   rtx temp;
 
-  if (! flag_trapv)
+  if (GET_MODE_CLASS (mode) != MODE_INT
+      || ! flag_trapv)
     result_unsignedp = 1;
 
   /* First try to do it with a special abs instruction.  */
@@ -3407,7 +3410,8 @@ expand_abs_nojump (enum machine_mode mode, rtx op0, rtx target,
     {
       rtx last = get_last_insn ();
 
-      temp = expand_unop (mode, neg_optab, op0, NULL_RTX, 0);
+      temp = expand_unop (mode, result_unsignedp ? neg_optab : negv_optab,
+			  op0, NULL_RTX, 0);
       if (temp != 0)
 	temp = expand_binop (mode, smax_optab, op0, temp, target, 0,
 			     OPTAB_WIDEN);
@@ -3449,7 +3453,8 @@ expand_abs (enum machine_mode mode, rtx op0, rtx target,
 {
   rtx temp, op1;
 
-  if (! flag_trapv)
+  if (GET_MODE_CLASS (mode) != MODE_INT
+      || ! flag_trapv)
     result_unsignedp = 1;
 
   temp = expand_abs_nojump (mode, op0, target, result_unsignedp);
@@ -3568,8 +3573,6 @@ expand_copysign_absneg (enum machine_mode mode, rtx op0, rtx op1, rtx target,
     }
   else
     {
-      double_int mask;
-
       if (GET_MODE_SIZE (mode) <= UNITS_PER_WORD)
 	{
 	  imode = int_mode_for_mode (mode);
@@ -3590,10 +3593,9 @@ expand_copysign_absneg (enum machine_mode mode, rtx op0, rtx op1, rtx target,
 	  op1 = operand_subword_force (op1, word, mode);
 	}
 
-      mask = double_int_zero.set_bit (bitpos);
-
+      wide_int mask = wi::set_bit_in_zero (bitpos, GET_MODE_PRECISION (imode));
       sign = expand_binop (imode, and_optab, op1,
-			   immed_double_int_const (mask, imode),
+			   immed_wide_int_const (mask, imode),
 			   NULL_RTX, 1, OPTAB_LIB_WIDEN);
     }
 
@@ -3637,7 +3639,6 @@ expand_copysign_bit (enum machine_mode mode, rtx op0, rtx op1, rtx target,
 		     int bitpos, bool op0_is_abs)
 {
   enum machine_mode imode;
-  double_int mask;
   int word, nwords, i;
   rtx temp, insns;
 
@@ -3661,7 +3662,7 @@ expand_copysign_bit (enum machine_mode mode, rtx op0, rtx op1, rtx target,
       nwords = (GET_MODE_BITSIZE (mode) + BITS_PER_WORD - 1) / BITS_PER_WORD;
     }
 
-  mask = double_int_zero.set_bit (bitpos);
+  wide_int mask = wi::set_bit_in_zero (bitpos, GET_MODE_PRECISION (imode));
 
   if (target == 0
       || target == op0
@@ -3683,12 +3684,11 @@ expand_copysign_bit (enum machine_mode mode, rtx op0, rtx op1, rtx target,
 	      if (!op0_is_abs)
 		op0_piece
 		  = expand_binop (imode, and_optab, op0_piece,
-				  immed_double_int_const (~mask, imode),
+				  immed_wide_int_const (~mask, imode),
 				  NULL_RTX, 1, OPTAB_LIB_WIDEN);
-
 	      op1 = expand_binop (imode, and_optab,
 				  operand_subword_force (op1, i, mode),
-				  immed_double_int_const (mask, imode),
+				  immed_wide_int_const (mask, imode),
 				  NULL_RTX, 1, OPTAB_LIB_WIDEN);
 
 	      temp = expand_binop (imode, ior_optab, op0_piece, op1,
@@ -3708,13 +3708,13 @@ expand_copysign_bit (enum machine_mode mode, rtx op0, rtx op1, rtx target,
   else
     {
       op1 = expand_binop (imode, and_optab, gen_lowpart (imode, op1),
-		          immed_double_int_const (mask, imode),
+		          immed_wide_int_const (mask, imode),
 		          NULL_RTX, 1, OPTAB_LIB_WIDEN);
 
       op0 = gen_lowpart (imode, op0);
       if (!op0_is_abs)
 	op0 = expand_binop (imode, and_optab, op0,
-			    immed_double_int_const (~mask, imode),
+			    immed_wide_int_const (~mask, imode),
 			    NULL_RTX, 1, OPTAB_LIB_WIDEN);
 
       temp = expand_binop (imode, ior_optab, op0, op1,
@@ -4750,6 +4750,43 @@ have_add2_insn (rtx x, rtx y)
   if (!insn_operand_matches (icode, 0, x)
       || !insn_operand_matches (icode, 1, x)
       || !insn_operand_matches (icode, 2, y))
+    return 0;
+
+  return 1;
+}
+
+/* Generate and return an insn body to add Y to X.  */
+
+rtx
+gen_addptr3_insn (rtx x, rtx y, rtx z)
+{
+  enum insn_code icode = optab_handler (addptr3_optab, GET_MODE (x));
+
+  gcc_assert (insn_operand_matches (icode, 0, x));
+  gcc_assert (insn_operand_matches (icode, 1, y));
+  gcc_assert (insn_operand_matches (icode, 2, z));
+
+  return GEN_FCN (icode) (x, y, z);
+}
+
+/* Return true if the target implements an addptr pattern and X, Y,
+   and Z are valid for the pattern predicates.  */
+
+int
+have_addptr3_insn (rtx x, rtx y, rtx z)
+{
+  enum insn_code icode;
+
+  gcc_assert (GET_MODE (x) != VOIDmode);
+
+  icode = optab_handler (addptr3_optab, GET_MODE (x));
+
+  if (icode == CODE_FOR_nothing)
+    return 0;
+
+  if (!insn_operand_matches (icode, 0, x)
+      || !insn_operand_matches (icode, 1, y)
+      || !insn_operand_matches (icode, 2, z))
     return 0;
 
   return 1;

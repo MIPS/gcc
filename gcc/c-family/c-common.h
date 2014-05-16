@@ -758,6 +758,7 @@ extern tree c_wrap_maybe_const (tree, bool);
 extern tree c_save_expr (tree);
 extern tree c_common_truthvalue_conversion (location_t, tree);
 extern void c_apply_type_quals_to_decl (int, tree);
+extern unsigned int min_align_of_type (tree);
 extern tree c_sizeof_or_alignof_type (location_t, tree, bool, bool, int);
 extern tree c_alignof_expr (location_t, tree);
 /* Print an error message for invalid operands to arith operation CODE.
@@ -928,8 +929,6 @@ extern bool vector_targets_convertible_p (const_tree t1, const_tree t2);
 extern bool vector_types_convertible_p (const_tree t1, const_tree t2, bool emit_lax_note);
 extern tree c_build_vec_perm_expr (location_t, tree, tree, tree, bool = true);
 
-extern rtx c_expand_expr (tree, rtx, enum machine_mode, int, rtx *);
-
 extern void init_c_lex (void);
 
 extern void c_cpp_builtins (cpp_reader *);
@@ -1014,6 +1013,10 @@ extern void release_tree_vector (vec<tree, va_gc> *);
 extern vec<tree, va_gc> *make_tree_vector_single (tree);
 extern vec<tree, va_gc> *make_tree_vector_from_list (tree);
 extern vec<tree, va_gc> *make_tree_vector_copy (const vec<tree, va_gc> *);
+
+/* Used for communication between c_common_type_for_mode and
+   c_register_builtin_type.  */
+extern GTY(()) tree registered_builtin_types;
 
 /* In c-gimplify.c  */
 extern void c_genericize (tree);

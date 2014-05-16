@@ -57,6 +57,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "target.h"
 #include "cgraph.h"
+#include "wide-int.h"
 
 /* Debugging support.  */
 
@@ -180,7 +181,7 @@ static void write_unscoped_template_name (const tree);
 static void write_nested_name (const tree);
 static void write_prefix (const tree);
 static void write_template_prefix (const tree);
-static void write_unqualified_name (const tree);
+static void write_unqualified_name (tree);
 static void write_conversion_operator_name (const tree);
 static void write_source_name (tree);
 static void write_literal_operator_name (tree);
@@ -323,7 +324,7 @@ dump_substitution_candidates (void)
       else if (TREE_CODE (el) == TREE_LIST)
 	name = IDENTIFIER_POINTER (DECL_NAME (TREE_VALUE (el)));
       else if (TYPE_NAME (el))
-	name = IDENTIFIER_POINTER (TYPE_IDENTIFIER (el));
+	name = TYPE_NAME_STRING (el);
       fprintf (stderr, " S%d_ = ", i - 1);
       if (TYPE_P (el) &&
 	  (CP_TYPE_RESTRICT_P (el)
@@ -1195,7 +1196,7 @@ write_unqualified_id (tree identifier)
 }
 
 static void
-write_unqualified_name (const tree decl)
+write_unqualified_name (tree decl)
 {
   MANGLE_TRACE_TREE ("unqualified-name", decl);
 
@@ -1280,10 +1281,21 @@ write_unqualified_name (const tree decl)
         write_source_name (DECL_NAME (decl));
     }
 
-  tree attrs = (TREE_CODE (decl) == TYPE_DECL
-		? TYPE_ATTRIBUTES (TREE_TYPE (decl))
-		: DECL_ATTRIBUTES (decl));
-  write_abi_tags (lookup_attribute ("abi_tag", attrs));
+  /* We use the ABI tags from the primary template, ignoring tags on any
+     specializations.  This is necessary because C++ doesn't require a
+     specialization to be declared before it is used unless the use
+     requires a complete type, but we need to get the tags right on
+     incomplete types as well.  */
+  if (tree tmpl = most_general_template (decl))
+    decl = DECL_TEMPLATE_RESULT (tmpl);
+  /* Don't crash on an unbound class template.  */
+  if (decl)
+    {
+      tree attrs = (TREE_CODE (decl) == TYPE_DECL
+		    ? TYPE_ATTRIBUTES (TREE_TYPE (decl))
+		    : DECL_ATTRIBUTES (decl));
+      write_abi_tags (lookup_attribute ("abi_tag", attrs));
+    }
 }
 
 /* Write the unqualified-name for a conversion operator to TYPE.  */
@@ -1502,8 +1514,8 @@ static inline void
 write_integer_cst (const tree cst)
 {
   int sign = tree_int_cst_sgn (cst);
-
-  if (TREE_INT_CST_HIGH (cst) + (sign < 0))
+  widest_int abs_value = wi::abs (wi::to_widest (cst));
+  if (!wi::fits_uhwi_p (abs_value))
     {
       /* A bignum. We do this in chunks, each of which fits in a
 	 HOST_WIDE_INT.  */
@@ -1529,8 +1541,7 @@ write_integer_cst (const tree cst)
 
       type = c_common_signed_or_unsigned_type (1, TREE_TYPE (cst));
       base = build_int_cstu (type, chunk);
-      n = build_int_cst_wide (type,
-			      TREE_INT_CST_LOW (cst), TREE_INT_CST_HIGH (cst));
+      n = wide_int_to_tree (type, cst);
 
       if (sign < 0)
 	{
@@ -1557,14 +1568,9 @@ write_integer_cst (const tree cst)
   else
     {
       /* A small num.  */
-      unsigned HOST_WIDE_INT low = TREE_INT_CST_LOW (cst);
-
       if (sign < 0)
-	{
-	  write_char ('n');
-	  low = -low;
-	}
-      write_unsigned_number (low);
+	write_char ('n');
+      write_unsigned_number (abs_value.to_uhwi ());
     }
 }
 
@@ -2800,8 +2806,7 @@ write_expression (tree expr)
       write_type (type);
 
       if (init && TREE_CODE (init) == TREE_LIST
-	  && TREE_CODE (TREE_VALUE (init)) == CONSTRUCTOR
-	  && CONSTRUCTOR_IS_DIRECT_INIT (TREE_VALUE (init)))
+	  && DIRECT_LIST_INIT_P (TREE_VALUE (init)))
 	write_expression (TREE_VALUE (init));
       else
 	{
@@ -3215,12 +3220,12 @@ write_array_type (const tree type)
 	{
 	  /* The ABI specifies that we should mangle the number of
 	     elements in the array, not the largest allowed index.  */
-	  double_int dmax = tree_to_double_int (max) + double_int_one;
+	  offset_int wmax = wi::to_offset (max) + 1;
 	  /* Truncate the result - this will mangle [0, SIZE_INT_MAX]
 	     number of elements as zero.  */
-	  dmax = dmax.zext (TYPE_PRECISION (TREE_TYPE (max)));
-	  gcc_assert (dmax.fits_uhwi ());
-	  write_unsigned_number (dmax.low);
+	  wmax = wi::zext (wmax, TYPE_PRECISION (TREE_TYPE (max)));
+	  gcc_assert (wi::fits_uhwi_p (wmax));
+	  write_unsigned_number (wmax.to_uhwi ());
 	}
       else
 	{

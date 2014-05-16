@@ -88,7 +88,7 @@ else
   nover_glibgo_toolexecdir='${libdir}/gcc/${host_alias}'
   nover_glibgo_toolexeclibdir='${libdir}'
 fi
-multi_os_directory=`$CC -print-multi-os-directory`
+multi_os_directory=`$GOC -print-multi-os-directory`
 case $multi_os_directory in
   .) ;; # Avoid trailing /.
   *) nover_glibgo_toolexeclibdir=${nover_glibgo_toolexeclibdir}/${multi_os_directory} ;;
@@ -316,11 +316,6 @@ case "$target" in
 	# msghdr in <sys/socket.h>.
 	OSCFLAGS="$OSCFLAGS -D_XOPEN_SOURCE=500"
 	;;
-    *-*-solaris2.[[89]])
-	# Solaris 8/9 need this so struct msghdr gets the msg_control
-	# etc. fields in <sys/socket.h> (_XPG4_2).
-	OSCFLAGS="$OSCFLAGS -D_XOPEN_SOURCE=500 -D_XOPEN_SOURCE_EXTENDED -D__EXTENSIONS__"
-	;;
     *-*-solaris2.1[[01]])
 	# Solaris 10+ needs this so struct msghdr gets the msg_control
 	# etc. fields in <sys/socket.h> (_XPG4_2).  _XOPEN_SOURCE=600 as
@@ -445,7 +440,7 @@ no)
   ;;
 esac
 
-AC_CHECK_HEADERS(sys/file.h sys/mman.h syscall.h sys/epoll.h sys/inotify.h sys/ptrace.h sys/syscall.h sys/user.h sys/utsname.h sys/select.h sys/socket.h net/if.h net/if_arp.h net/route.h netpacket/packet.h sys/prctl.h sys/mount.h sys/vfs.h sys/statfs.h sys/timex.h sys/sysinfo.h utime.h linux/ether.h linux/fs.h linux/reboot.h netinet/icmp6.h netinet/in_syst.h netinet/ip.h netinet/ip_mroute.h netinet/if_ether.h)
+AC_CHECK_HEADERS(sched.h sys/file.h sys/mman.h syscall.h sys/epoll.h sys/inotify.h sys/ptrace.h sys/syscall.h sys/user.h sys/utsname.h sys/select.h sys/socket.h net/if.h net/if_arp.h net/route.h netpacket/packet.h sys/prctl.h sys/mount.h sys/vfs.h sys/statfs.h sys/timex.h sys/sysinfo.h utime.h linux/ether.h linux/fs.h linux/reboot.h netinet/icmp6.h netinet/in_syst.h netinet/ip.h netinet/ip_mroute.h netinet/if_ether.h)
 
 AC_CHECK_HEADERS([linux/filter.h linux/if_addr.h linux/if_ether.h linux/if_tun.h linux/netlink.h linux/rtnetlink.h], [], [],
 [#ifdef HAVE_SYS_SOCKET_H
@@ -625,21 +620,6 @@ AC_CHECK_TYPE([struct exception],
 if test "$libgo_has_struct_exception" = "yes"; then
   AC_DEFINE(HAVE_STRUCT_EXCEPTION, 1,
             [Define to 1 if <math.h> defines struct exception])
-fi
-
-dnl Check if makecontext expects the uc_stack member of ucontext to point
-dnl to the top of the stack.
-case "$target" in
-  sparc*-*-solaris2.[[89]]*)
-    libgo_cv_lib_makecontext_stack_top=yes
-    ;;
-  *)
-    libgo_cv_lib_makecontext_stack_top=no
-    ;;
-esac
-if test "$libgo_cv_lib_makecontext_stack_top" = "yes"; then
-  AC_DEFINE(MAKECONTEXT_STACK_TOP, 1,
-	    [Define if makecontext expects top of stack in uc_stack.])
 fi
 
 dnl See whether setcontext changes the value of TLS variables.

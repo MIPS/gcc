@@ -139,7 +139,10 @@ process_references (struct ipa_ref_list *list,
 
       if (node->definition && !node->in_other_partition
 	  && ((!DECL_EXTERNAL (node->decl) || node->alias)
-	      || (before_inlining_p
+	      || (((before_inlining_p
+		    && (cgraph_state < CGRAPH_STATE_IPA_SSA
+		        || !lookup_attribute ("always_inline",
+					      DECL_ATTRIBUTES (node->decl)))))
 		  /* We use variable constructors during late complation for
 		     constant folding.  Keep references alive so partitioning
 		     knows about potential references.  */
@@ -191,7 +194,10 @@ walk_polymorphic_call_targets (pointer_set_t *reachable_call_targets,
 	  /* Prior inlining, keep alive bodies of possible targets for
 	     devirtualization.  */
 	   if (n->definition
-	       && before_inlining_p)
+	       && (before_inlining_p
+		   && (cgraph_state < CGRAPH_STATE_IPA_SSA
+		       || !lookup_attribute ("always_inline",
+					     DECL_ATTRIBUTES (n->decl)))))
 	     pointer_set_insert (reachable, n);
 
 	  /* Even after inlining we want to keep the possible targets in the
@@ -381,7 +387,7 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 			      before_inlining_p, reachable);
 	}
 
-      if (cgraph_node *cnode = dyn_cast <cgraph_node> (node))
+      if (cgraph_node *cnode = dyn_cast <cgraph_node *> (node))
 	{
 	  /* Mark the callees reachable unless they are direct calls to extern
  	     inline functions we decided to not inline.  */
@@ -409,7 +415,18 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 			  || !DECL_EXTERNAL (e->callee->decl)
 			  || e->callee->alias
 			  || before_inlining_p))
-		    pointer_set_insert (reachable, e->callee);
+		    {
+		      /* Be sure that we will not optimize out alias target
+			 body.  */
+		      if (DECL_EXTERNAL (e->callee->decl)
+			  && e->callee->alias
+			  && before_inlining_p)
+			{
+		          pointer_set_insert (reachable,
+					      cgraph_function_node (e->callee));
+			}
+		      pointer_set_insert (reachable, e->callee);
+		    }
 		  enqueue_node (e->callee, &first, reachable);
 		}
 
@@ -448,7 +465,7 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
       /* When we see constructor of external variable, keep referred nodes in the
 	boundary.  This will also hold initializers of the external vars NODE
 	refers to.  */
-      varpool_node *vnode = dyn_cast <varpool_node> (node);
+      varpool_node *vnode = dyn_cast <varpool_node *> (node);
       if (vnode
 	  && DECL_EXTERNAL (node->decl)
 	  && !vnode->alias
@@ -469,7 +486,7 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
       if (!node->aux)
 	{
 	  if (file)
-	    fprintf (file, " %s", node->name ());
+	    fprintf (file, " %s/%i", node->name (), node->order);
 	  cgraph_remove_node (node);
 	  changed = true;
 	}
@@ -483,7 +500,7 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	  if (node->definition)
 	    {
 	      if (file)
-		fprintf (file, " %s", node->name ());
+		fprintf (file, " %s/%i", node->name (), node->order);
 	      node->body_removed = true;
 	      node->analyzed = false;
 	      node->definition = false;
@@ -491,6 +508,12 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	      node->alias = false;
 	      node->thunk.thunk_p = false;
 	      node->weakref = false;
+	      /* After early inlining we drop always_inline attributes on
+		 bodies of functions that are still referenced (have their
+		 address taken).  */
+	      DECL_ATTRIBUTES (node->decl)
+		= remove_attribute ("always_inline",
+				    DECL_ATTRIBUTES (node->decl));
 	      if (!node->in_other_partition)
 		node->local.local = false;
 	      cgraph_node_remove_callees (node);
@@ -531,7 +554,7 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	  && (!flag_ltrans || !DECL_EXTERNAL (vnode->decl)))
 	{
 	  if (file)
-	    fprintf (file, " %s", vnode->name ());
+	    fprintf (file, " %s/%i", vnode->name (), vnode->order);
 	  varpool_remove_node (vnode);
 	  changed = true;
 	}
@@ -671,7 +694,7 @@ address_taken_from_non_vtable_p (symtab_node *node)
     if (ref->use == IPA_REF_ADDR)
       {
 	varpool_node *node;
-	if (is_a <cgraph_node> (ref->referring))
+	if (is_a <cgraph_node *> (ref->referring))
 	  return true;
 	node = ipa_ref_referring_varpool_node (ref);
 	if (!DECL_VIRTUAL_P (node->decl))
@@ -709,7 +732,7 @@ comdat_can_be_unshared_p_1 (symtab_node *node)
     return false;
 
   /* Non-readonly and volatile variables can not be duplicated.  */
-  if (is_a <varpool_node> (node)
+  if (is_a <varpool_node *> (node)
       && (!TREE_READONLY (node->decl)
 	  || TREE_THIS_VOLATILE (node->decl)))
     return false;
@@ -1020,6 +1043,7 @@ function_and_variable_visibility (bool whole_program)
 				   == DECL_COMDAT_GROUP (decl_node->decl));
 	      gcc_checking_assert (node->same_comdat_group);
 	    }
+	  node->forced_by_abi = decl_node->forced_by_abi;
 	  if (DECL_EXTERNAL (decl_node->decl))
 	    DECL_EXTERNAL (node->decl) = 1;
 	}
@@ -1169,12 +1193,6 @@ function_and_variable_visibility (bool whole_program)
 /* Local function pass handling visibilities.  This happens before LTO streaming
    so in particular -fwhole-program should be ignored at this level.  */
 
-static unsigned int
-local_function_and_variable_visibility (void)
-{
-  return function_and_variable_visibility (flag_whole_program && !flag_lto);
-}
-
 namespace {
 
 const pass_data pass_data_ipa_function_and_variable_visibility =
@@ -1182,7 +1200,6 @@ const pass_data pass_data_ipa_function_and_variable_visibility =
   SIMPLE_IPA_PASS, /* type */
   "visibility", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  false, /* has_gate */
   true, /* has_execute */
   TV_CGRAPHOPT, /* tv_id */
   0, /* properties_required */
@@ -1201,9 +1218,10 @@ public:
   {}
 
   /* opt_pass methods: */
-  unsigned int execute () {
-    return local_function_and_variable_visibility ();
-  }
+  virtual unsigned int execute (function *)
+    {
+      return function_and_variable_visibility (flag_whole_program && !flag_lto);
+    }
 
 }; // class pass_ipa_function_and_variable_visibility
 
@@ -1217,13 +1235,6 @@ make_pass_ipa_function_and_variable_visibility (gcc::context *ctxt)
 
 /* Free inline summary.  */
 
-static unsigned
-free_inline_summary (void)
-{
-  inline_free_summary ();
-  return 0;
-}
-
 namespace {
 
 const pass_data pass_data_ipa_free_inline_summary =
@@ -1231,7 +1242,6 @@ const pass_data pass_data_ipa_free_inline_summary =
   SIMPLE_IPA_PASS, /* type */
   "*free_inline_summary", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  false, /* has_gate */
   true, /* has_execute */
   TV_IPA_FREE_INLINE_SUMMARY, /* tv_id */
   0, /* properties_required */
@@ -1249,7 +1259,11 @@ public:
   {}
 
   /* opt_pass methods: */
-  unsigned int execute () { return free_inline_summary (); }
+  virtual unsigned int execute (function *)
+    {
+      inline_free_summary ();
+      return 0;
+    }
 
 }; // class pass_ipa_free_inline_summary
 
@@ -1259,14 +1273,6 @@ simple_ipa_opt_pass *
 make_pass_ipa_free_inline_summary (gcc::context *ctxt)
 {
   return new pass_ipa_free_inline_summary (ctxt);
-}
-
-/* Do not re-run on ltrans stage.  */
-
-static bool
-gate_whole_program_function_and_variable_visibility (void)
-{
-  return !flag_ltrans;
 }
 
 /* Bring functionss local at LTO time with -fwhole-program.  */
@@ -1287,7 +1293,6 @@ const pass_data pass_data_ipa_whole_program_visibility =
   IPA_PASS, /* type */
   "whole-program", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
   true, /* has_execute */
   TV_CGRAPHOPT, /* tv_id */
   0, /* properties_required */
@@ -1314,12 +1319,16 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () {
-    return gate_whole_program_function_and_variable_visibility ();
-  }
-  unsigned int execute () {
-    return whole_program_function_and_variable_visibility ();
-  }
+
+  virtual bool gate (function *)
+    {
+      /* Do not re-run on ltrans stage.  */
+      return !flag_ltrans;
+    }
+  virtual unsigned int execute (function *)
+    {
+      return whole_program_function_and_variable_visibility ();
+    }
 
 }; // class pass_ipa_whole_program_visibility
 
@@ -1603,16 +1612,6 @@ ipa_cdtor_merge (void)
   return 0;
 }
 
-/* Perform the pass when we have no ctors/dtors support
-   or at LTO time to merge multiple constructors into single
-   function.  */
-
-static bool
-gate_ipa_cdtor_merge (void)
-{
-  return !targetm.have_ctors_dtors || (optimize && in_lto_p);
-}
-
 namespace {
 
 const pass_data pass_data_ipa_cdtor_merge =
@@ -1620,7 +1619,6 @@ const pass_data pass_data_ipa_cdtor_merge =
   IPA_PASS, /* type */
   "cdtor", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
   true, /* has_execute */
   TV_CGRAPHOPT, /* tv_id */
   0, /* properties_required */
@@ -1647,10 +1645,19 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_ipa_cdtor_merge (); }
-  unsigned int execute () { return ipa_cdtor_merge (); }
+  virtual bool gate (function *);
+  virtual unsigned int execute (function *) { return ipa_cdtor_merge (); }
 
 }; // class pass_ipa_cdtor_merge
+
+bool
+pass_ipa_cdtor_merge::gate (function *)
+{
+  /* Perform the pass when we have no ctors/dtors support
+     or at LTO time to merge multiple constructors into single
+     function.  */
+  return !targetm.have_ctors_dtors || (optimize && in_lto_p);
+}
 
 } // anon namespace
 

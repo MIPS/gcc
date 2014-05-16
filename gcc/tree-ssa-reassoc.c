@@ -221,6 +221,35 @@ static struct pointer_map_t *operand_rank;
 static long get_rank (tree);
 static bool reassoc_stmt_dominates_stmt_p (gimple, gimple);
 
+/* Wrapper around gsi_remove, which adjusts gimple_uid of debug stmts
+   possibly added by gsi_remove.  */
+
+bool
+reassoc_remove_stmt (gimple_stmt_iterator *gsi)
+{
+  gimple stmt = gsi_stmt (*gsi);
+
+  if (!MAY_HAVE_DEBUG_STMTS || gimple_code (stmt) == GIMPLE_PHI)
+    return gsi_remove (gsi, true);
+
+  gimple_stmt_iterator prev = *gsi;
+  gsi_prev (&prev);
+  unsigned uid = gimple_uid (stmt);
+  basic_block bb = gimple_bb (stmt);
+  bool ret = gsi_remove (gsi, true);
+  if (!gsi_end_p (prev))
+    gsi_next (&prev);
+  else
+    prev = gsi_start_bb (bb);
+  gimple end_stmt = gsi_stmt (*gsi);
+  while ((stmt = gsi_stmt (prev)) != end_stmt)
+    {
+      gcc_assert (stmt && is_gimple_debug (stmt) && gimple_uid (stmt) == 0);
+      gimple_set_uid (stmt, uid);
+      gsi_next (&prev);
+    }
+  return ret;
+}
 
 /* Bias amount for loop-carried phis.  We want this to be larger than
    the depth of any reassociation tree we can see, but not larger than
@@ -1082,7 +1111,7 @@ decrement_power (gimple stmt)
       arg1 = gimple_call_arg (stmt, 1);
       c = TREE_REAL_CST (arg1);
       power = real_to_integer (&c) - 1;
-      real_from_integer (&cint, VOIDmode, power, 0, 0);
+      real_from_integer (&cint, VOIDmode, power, SIGNED);
       gimple_call_set_arg (stmt, 1, build_real (TREE_TYPE (arg1), cint));
       return power;
 
@@ -1123,7 +1152,7 @@ propagate_op_to_single_use (tree op, gimple stmt, tree *def)
     update_stmt (use_stmt);
   gsi = gsi_for_stmt (stmt);
   unlink_stmt_vdef (stmt);
-  gsi_remove (&gsi, true);
+  reassoc_remove_stmt (&gsi);
   release_defs (stmt);
 }
 
@@ -3072,7 +3101,7 @@ remove_visited_stmt_chain (tree var)
 	{
 	  var = gimple_assign_rhs1 (stmt);
 	  gsi = gsi_for_stmt (stmt);
-	  gsi_remove (&gsi, true);
+	  reassoc_remove_stmt (&gsi);
 	  release_defs (stmt);
 	}
       else
@@ -3494,7 +3523,7 @@ linearize_expr (gimple stmt)
   update_stmt (stmt);
 
   gsi = gsi_for_stmt (oldbinrhs);
-  gsi_remove (&gsi, true);
+  reassoc_remove_stmt (&gsi);
   release_defs (oldbinrhs);
 
   gimple_set_visited (stmt, true);
@@ -3675,8 +3704,7 @@ acceptable_pow_call (gimple stmt, tree *base, HOST_WIDE_INT *exponent)
 	return false;
 
       *exponent = real_to_integer (&c);
-      real_from_integer (&cint, VOIDmode, *exponent,
-			 *exponent < 0 ? -1 : 0, 0);
+      real_from_integer (&cint, VOIDmode, *exponent, SIGNED);
       if (!real_identical (&c, &cint))
 	return false;
 
@@ -3896,7 +3924,7 @@ repropagate_negates (void)
 	      gimple_assign_set_rhs_with_ops (&gsi2, NEGATE_EXPR, x, NULL);
 	      user = gsi_stmt (gsi2);
 	      update_stmt (user);
-	      gsi_remove (&gsi, true);
+	      reassoc_remove_stmt (&gsi);
 	      release_defs (feed);
 	      plus_negates.safe_push (gimple_assign_lhs (user));
 	    }
@@ -4413,7 +4441,7 @@ reassociate_bb (basic_block bb)
 		 reassociations.  */
 	      if (has_zero_uses (gimple_get_lhs (stmt)))
 		{
-		  gsi_remove (&gsi, true);
+		  reassoc_remove_stmt (&gsi);
 		  release_defs (stmt);
 		  /* We might end up removing the last stmt above which
 		     places the iterator to the end of the sequence.
@@ -4665,12 +4693,6 @@ execute_reassoc (void)
   return 0;
 }
 
-static bool
-gate_tree_ssa_reassoc (void)
-{
-  return flag_tree_reassoc != 0;
-}
-
 namespace {
 
 const pass_data pass_data_reassoc =
@@ -4678,16 +4700,13 @@ const pass_data pass_data_reassoc =
   GIMPLE_PASS, /* type */
   "reassoc", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
   true, /* has_execute */
   TV_TREE_REASSOC, /* tv_id */
   ( PROP_cfg | PROP_ssa ), /* properties_required */
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  ( TODO_verify_ssa
-    | TODO_update_ssa_only_virtuals
-    | TODO_verify_flow ), /* todo_flags_finish */
+  TODO_update_ssa_only_virtuals, /* todo_flags_finish */
 };
 
 class pass_reassoc : public gimple_opt_pass
@@ -4699,8 +4718,8 @@ public:
 
   /* opt_pass methods: */
   opt_pass * clone () { return new pass_reassoc (m_ctxt); }
-  bool gate () { return gate_tree_ssa_reassoc (); }
-  unsigned int execute () { return execute_reassoc (); }
+  virtual bool gate (function *) { return flag_tree_reassoc != 0; }
+  virtual unsigned int execute (function *) { return execute_reassoc (); }
 
 }; // class pass_reassoc
 

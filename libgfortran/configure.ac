@@ -139,12 +139,13 @@ AM_PROG_CC_C_O
 # Add -Wall -fno-repack-arrays -fno-underscoring if we are using GCC.
 if test "x$GCC" = "xyes"; then
   AM_FCFLAGS="-I . -Wall -Werror -fimplicit-none -fno-repack-arrays -fno-underscoring"
-  ## We like to use C99 routines when available.  This makes sure that
+  ## We like to use C11 and C99 routines when available.  This makes
+  ## sure that
   ## __STDC_VERSION__ is set such that libc includes make them available.
-  AM_CFLAGS="-std=gnu99 -Wall -Wstrict-prototypes -Wmissing-prototypes -Wold-style-definition -Wextra -Wwrite-strings"
+  AM_CFLAGS="-std=gnu11 -Wall -Wstrict-prototypes -Wmissing-prototypes -Wold-style-definition -Wextra -Wwrite-strings"
   ## Compile the following tests with the same system header contents
   ## that we'll encounter when compiling our own source files.
-  CFLAGS="-std=gnu99 $CFLAGS"
+  CFLAGS="-std=gnu11 $CFLAGS"
 fi
 AC_SUBST(AM_FCFLAGS)
 AC_SUBST(AM_CFLAGS)
@@ -510,7 +511,7 @@ AC_CHECK_LIB([m],[feenableexcept],[have_feenableexcept=yes AC_DEFINE([HAVE_FEENA
 # test is copied from libgomp, and modified to not link in -lrt as
 # libgfortran calls clock_gettime via a weak reference if it's found
 # in librt.
-if test $ac_cv_func_clock_gettime = no; then
+if test "$ac_cv_func_clock_gettime" = no; then
   AC_CHECK_LIB(rt, clock_gettime,
     [AC_DEFINE(HAVE_CLOCK_GETTIME_LIBRT, 1,
                [Define to 1 if you have the `clock_gettime' function in librt.])])

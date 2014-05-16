@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-fsanitize=signed-integer-overflow -Wno-unused-variable" } */
+/* { dg-options "-fsanitize=signed-integer-overflow -Wno-unused-variable -fno-sanitize-recover" } */
 
 #define SCHAR_MAX __SCHAR_MAX__
 #define SHRT_MAX __SHRT_MAX__
@@ -55,6 +55,5 @@ main (void)
   d++;
   check (d, -32768);
 #endif
-
   return 0;
 }

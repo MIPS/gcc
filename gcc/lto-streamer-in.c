@@ -596,6 +596,21 @@ make_new_block (struct function *fn, unsigned int index)
 }
 
 
+/* Read a wide-int.  */
+
+static widest_int
+streamer_read_wi (struct lto_input_block *ib)
+{
+  HOST_WIDE_INT a[WIDE_INT_MAX_ELTS];
+  int i;
+  int prec ATTRIBUTE_UNUSED = streamer_read_uhwi (ib);
+  int len = streamer_read_uhwi (ib);
+  for (i = 0; i < len; i++)
+    a[i] = streamer_read_hwi (ib);
+  return widest_int::from_array (a, len);
+}
+
+
 /* Read the CFG for function FN from input block IB.  */
 
 static void
@@ -705,20 +720,15 @@ input_cfg (struct lto_input_block *ib, struct data_in *data_in,
       loop->estimate_state = streamer_read_enum (ib, loop_estimation, EST_LAST);
       loop->any_upper_bound = streamer_read_hwi (ib);
       if (loop->any_upper_bound)
-	{
-	  loop->nb_iterations_upper_bound.low = streamer_read_uhwi (ib);
-	  loop->nb_iterations_upper_bound.high = streamer_read_hwi (ib);
-	}
+	loop->nb_iterations_upper_bound = streamer_read_wi (ib);
       loop->any_estimate = streamer_read_hwi (ib);
       if (loop->any_estimate)
-	{
-	  loop->nb_iterations_estimate.low = streamer_read_uhwi (ib);
-	  loop->nb_iterations_estimate.high = streamer_read_hwi (ib);
-	}
+	loop->nb_iterations_estimate = streamer_read_wi (ib);
 
       /* Read OMP SIMD related info.  */
       loop->safelen = streamer_read_hwi (ib);
-      loop->force_vect = streamer_read_hwi (ib);
+      loop->dont_vectorize = streamer_read_hwi (ib);
+      loop->force_vectorize = streamer_read_hwi (ib);
       loop->simduid = stream_read_tree (ib, data_in);
 
       place_new_loop (fn, loop);
@@ -884,7 +894,7 @@ input_struct_function_base (struct function *fn, struct data_in *data_in,
   fn->has_nonlocal_label = bp_unpack_value (&bp, 1);
   fn->calls_alloca = bp_unpack_value (&bp, 1);
   fn->calls_setjmp = bp_unpack_value (&bp, 1);
-  fn->has_force_vect_loops = bp_unpack_value (&bp, 1);
+  fn->has_force_vectorize_loops = bp_unpack_value (&bp, 1);
   fn->has_simduid_loops = bp_unpack_value (&bp, 1);
   fn->va_list_fpr_size = bp_unpack_value (&bp, 8);
   fn->va_list_gpr_size = bp_unpack_value (&bp, 8);
@@ -1266,12 +1276,18 @@ lto_input_tree_1 (struct lto_input_block *ib, struct data_in *data_in,
     }
   else if (tag == LTO_integer_cst)
     {
-      /* For shared integer constants in singletons we can use the existing
-         tree integer constant merging code.  */
+      /* For shared integer constants in singletons we can use the
+         existing tree integer constant merging code.  */
       tree type = stream_read_tree (ib, data_in);
-      unsigned HOST_WIDE_INT low = streamer_read_uhwi (ib);
-      HOST_WIDE_INT high = streamer_read_hwi (ib);
-      result = build_int_cst_wide (type, low, high);
+      unsigned HOST_WIDE_INT len = streamer_read_uhwi (ib);
+      unsigned HOST_WIDE_INT i;
+      HOST_WIDE_INT a[WIDE_INT_MAX_ELTS];
+
+      for (i = 0; i < len; i++)
+	a[i] = streamer_read_hwi (ib);
+      gcc_assert (TYPE_PRECISION (type) <= MAX_BITSIZE_MODE_ANY_INT);
+      result = wide_int_to_tree (type, wide_int::from_array
+				 (a, len, TYPE_PRECISION (type)));
       streamer_tree_cache_append (data_in->reader_cache, result, hash);
     }
   else if (tag == LTO_tree_scc)
@@ -1365,8 +1381,7 @@ lto_data_in_create (struct lto_file_decl_data *file_data, const char *strings,
   data_in->strings = strings;
   data_in->strings_len = len;
   data_in->globals_resolution = resolutions;
-  data_in->reader_cache = streamer_tree_cache_create (false, false);
-
+  data_in->reader_cache = streamer_tree_cache_create (false, false, true);
   return data_in;
 }
 

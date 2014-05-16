@@ -55,7 +55,7 @@ ipa_print_order (FILE* out,
   fprintf (out, "\n\n ordered call graph: %s\n", note);
 
   for (i = count - 1; i >= 0; i--)
-    dump_cgraph_node (dump_file, order[i]);
+    dump_cgraph_node (out, order[i]);
   fprintf (out, "\n");
   fflush (out);
 }
@@ -659,6 +659,14 @@ ipa_merge_profiles (struct cgraph_node *dst,
   /* Time profiles are merged.  */
   if (dst->tp_first_run > src->tp_first_run && src->tp_first_run)
     dst->tp_first_run = src->tp_first_run;
+
+  if (src->profile_id)
+    {
+      if (!dst->profile_id)
+	dst->profile_id = src->profile_id;
+      else
+	gcc_assert (src->profile_id == dst->profile_id);
+    }
 
   if (!dst->count)
     return;

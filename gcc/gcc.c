@@ -766,6 +766,7 @@ proper position among the other output files.  */
     %{s} %{t} %{u*} %{z} %{Z} %{!nostdlib:%{!nostartfiles:%S}} " VTABLE_VERIFICATION_SPEC " \
     %{static:} %{L*} %(mfwrap) %(link_libgcc) " SANITIZER_EARLY_SPEC " %o\
     %{fopenmp|ftree-parallelize-loops=*:%:include(libgomp.spec)%(link_gomp)}\
+    %{fcilkplus:%:include(libcilkrts.spec)%(link_cilkrts)}\
     %{fgnu-tm:%:include(libitm.spec)%(link_itm)}\
     %(mflib) " STACK_SPLIT_SPEC "\
     %{fprofile-arcs|fprofile-generate*|coverage:-lgcov} " SANITIZER_SPEC " \
@@ -932,9 +933,15 @@ static const char *const multilib_defaults_raw[] = MULTILIB_DEFAULTS;
 #define GTM_SELF_SPECS "%{fgnu-tm: -pthread}"
 #endif
 
+/* Likewise for -fcilkplus.  */
+#ifndef CILK_SELF_SPECS
+#define CILK_SELF_SPECS "%{fcilkplus: -pthread}"
+#endif
+
 static const char *const driver_self_specs[] = {
   "%{fdump-final-insns:-fdump-final-insns=.} %<fdump-final-insns",
-  DRIVER_SELF_SPECS, CONFIGURE_SPECS, GOMP_SELF_SPECS, GTM_SELF_SPECS
+  DRIVER_SELF_SPECS, CONFIGURE_SPECS, GOMP_SELF_SPECS, GTM_SELF_SPECS,
+  CILK_SELF_SPECS
 };
 
 #ifndef OPTION_DEFAULT_SPECS
@@ -5481,7 +5488,7 @@ eval_spec_function (const char *func, const char *args)
   const char *save_suffix_subst;
 
   int save_growing_size;
-  void *save_growing_value;
+  void *save_growing_value = NULL;
 
   sf = lookup_spec_function (func);
   if (sf == NULL)
@@ -7483,7 +7490,7 @@ used_arg (const char *p, int len)
 	{
 	  const char *r;
 
-	  for (q = multilib_options; *q != '\0'; q++)
+	  for (q = multilib_options; *q != '\0'; *q && q++)
 	    {
 	      while (*q == ' ')
 		q++;
@@ -8163,7 +8170,8 @@ sanitize_spec_function (int argc, const char **argv)
   if (strcmp (argv[0], "thread") == 0)
     return (flag_sanitize & SANITIZE_THREAD) ? "" : NULL;
   if (strcmp (argv[0], "undefined") == 0)
-    return (flag_sanitize & SANITIZE_UNDEFINED) ? "" : NULL;
+    return ((flag_sanitize & (SANITIZE_UNDEFINED | SANITIZE_FLOAT_DIVIDE))
+	    && !flag_sanitize_undefined_trap_on_error) ? "" : NULL;
   if (strcmp (argv[0], "leak") == 0)
     return ((flag_sanitize
 	     & (SANITIZE_ADDRESS | SANITIZE_LEAK | SANITIZE_THREAD))

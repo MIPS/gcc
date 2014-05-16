@@ -46,6 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssanames.h"
 #include "asan.h"
 #include "gimplify-me.h"
+#include "intl.h"
 
 /* Map from a tree to a VAR_DECL tree.  */
 
@@ -238,6 +239,8 @@ ubsan_source_location (location_t loc)
   tree type = ubsan_source_location_type ();
 
   xloc = expand_location (loc);
+  if (xloc.file == NULL)
+    xloc.file = "<unknown>";
 
   /* Fill in the values from LOC.  */
   size_t len = strlen (xloc.file);
@@ -404,7 +407,7 @@ ubsan_type_descriptor (tree type, bool want_pointer_type_p)
    pointer checking.  */
 
 tree
-ubsan_create_data (const char *name, location_t loc,
+ubsan_create_data (const char *name, const location_t *ploc,
 		   const struct ubsan_mismatch_data *mismatch, ...)
 {
   va_list args;
@@ -412,17 +415,18 @@ ubsan_create_data (const char *name, location_t loc,
   tree fields[5];
   vec<tree, va_gc> *saved_args = NULL;
   size_t i = 0;
+  location_t loc = UNKNOWN_LOCATION;
 
   /* Firstly, create a pointer to type descriptor type.  */
   tree td_type = ubsan_type_descriptor_type ();
   TYPE_READONLY (td_type) = 1;
   td_type = build_pointer_type (td_type);
-  loc = LOCATION_LOCUS (loc);
 
   /* Create the structure type.  */
   ret = make_node (RECORD_TYPE);
-  if (loc != UNKNOWN_LOCATION)
+  if (ploc != NULL)
     {
+      loc = LOCATION_LOCUS (*ploc);
       fields[i] = build_decl (UNKNOWN_LOCATION, FIELD_DECL, NULL_TREE,
 			      ubsan_source_location_type ());
       DECL_CONTEXT (fields[i]) = ret;
@@ -481,7 +485,7 @@ ubsan_create_data (const char *name, location_t loc,
   tree ctor = build_constructor (ret, v);
 
   /* If desirable, set the __ubsan_source_location element.  */
-  if (loc != UNKNOWN_LOCATION)
+  if (ploc != NULL)
     CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, ubsan_source_location (loc));
 
   size_t nelts = vec_safe_length (saved_args);
@@ -512,8 +516,11 @@ ubsan_create_data (const char *name, location_t loc,
 tree
 ubsan_instrument_unreachable (location_t loc)
 {
+  if (flag_sanitize_undefined_trap_on_error)
+    return build_call_expr_loc (loc, builtin_decl_explicit (BUILT_IN_TRAP), 0);
+
   initialize_sanitizer_builtins ();
-  tree data = ubsan_create_data ("__ubsan_unreachable_data", loc, NULL,
+  tree data = ubsan_create_data ("__ubsan_unreachable_data", &loc, NULL,
 				 NULL_TREE);
   tree t = builtin_decl_explicit (BUILT_IN_UBSAN_HANDLE_BUILTIN_UNREACHABLE);
   return build_call_expr_loc (loc, t, 1, build_fold_addr_expr_loc (loc, data));
@@ -579,16 +586,25 @@ ubsan_expand_null_ifn (gimple_stmt_iterator gsi)
     set_immediate_dominator (CDI_DOMINATORS, then_bb, cond_bb);
 
   /* Put the ubsan builtin call into the newly created BB.  */
-  tree fn = builtin_decl_implicit (BUILT_IN_UBSAN_HANDLE_TYPE_MISMATCH);
-  const struct ubsan_mismatch_data m
-    = { build_zero_cst (pointer_sized_int_node), ckind };
-  tree data = ubsan_create_data ("__ubsan_null_data",
-				 loc, &m,
-				 ubsan_type_descriptor (TREE_TYPE (ptr), true),
-				 NULL_TREE);
-  data = build_fold_addr_expr_loc (loc, data);
-  gimple g = gimple_build_call (fn, 2, data,
-				build_zero_cst (pointer_sized_int_node));
+  gimple g;
+  if (flag_sanitize_undefined_trap_on_error)
+    g = gimple_build_call (builtin_decl_implicit (BUILT_IN_TRAP), 0);
+  else
+    {
+      enum built_in_function bcode
+	= flag_sanitize_recover
+	  ? BUILT_IN_UBSAN_HANDLE_TYPE_MISMATCH
+	  : BUILT_IN_UBSAN_HANDLE_TYPE_MISMATCH_ABORT;
+      tree fn = builtin_decl_implicit (bcode);
+      const struct ubsan_mismatch_data m
+	= { build_zero_cst (pointer_sized_int_node), ckind };
+      tree data = ubsan_create_data ("__ubsan_null_data", &loc, &m,
+				     ubsan_type_descriptor (TREE_TYPE (ptr),
+							    true), NULL_TREE);
+      data = build_fold_addr_expr_loc (loc, data);
+      g = gimple_build_call (fn, 2, data,
+			     build_zero_cst (pointer_sized_int_node));
+    }
   gimple_set_location (g, loc);
   gimple_stmt_iterator gsi2 = gsi_start_bb (then_bb);
   gsi_insert_after (&gsi2, g, GSI_NEW_STMT);
@@ -658,7 +674,10 @@ tree
 ubsan_build_overflow_builtin (tree_code code, location_t loc, tree lhstype,
 			      tree op0, tree op1)
 {
-  tree data = ubsan_create_data ("__ubsan_overflow_data", loc, NULL,
+  if (flag_sanitize_undefined_trap_on_error)
+    return build_call_expr_loc (loc, builtin_decl_explicit (BUILT_IN_TRAP), 0);
+
+  tree data = ubsan_create_data ("__ubsan_overflow_data", &loc, NULL,
 				 ubsan_type_descriptor (lhstype, false),
 				 NULL_TREE);
   enum built_in_function fn_code;
@@ -666,16 +685,24 @@ ubsan_build_overflow_builtin (tree_code code, location_t loc, tree lhstype,
   switch (code)
     {
     case PLUS_EXPR:
-      fn_code = BUILT_IN_UBSAN_HANDLE_ADD_OVERFLOW;
+      fn_code = flag_sanitize_recover
+		? BUILT_IN_UBSAN_HANDLE_ADD_OVERFLOW
+		: BUILT_IN_UBSAN_HANDLE_ADD_OVERFLOW_ABORT;
       break;
     case MINUS_EXPR:
-      fn_code = BUILT_IN_UBSAN_HANDLE_SUB_OVERFLOW;
+      fn_code = flag_sanitize_recover
+		? BUILT_IN_UBSAN_HANDLE_SUB_OVERFLOW
+		: BUILT_IN_UBSAN_HANDLE_SUB_OVERFLOW_ABORT;
       break;
     case MULT_EXPR:
-      fn_code = BUILT_IN_UBSAN_HANDLE_MUL_OVERFLOW;
+      fn_code = flag_sanitize_recover
+		? BUILT_IN_UBSAN_HANDLE_MUL_OVERFLOW
+		: BUILT_IN_UBSAN_HANDLE_MUL_OVERFLOW_ABORT;
       break;
     case NEGATE_EXPR:
-      fn_code = BUILT_IN_UBSAN_HANDLE_NEGATE_OVERFLOW;
+      fn_code = flag_sanitize_recover
+		? BUILT_IN_UBSAN_HANDLE_NEGATE_OVERFLOW
+		: BUILT_IN_UBSAN_HANDLE_NEGATE_OVERFLOW_ABORT;
       break;
     default:
       gcc_unreachable ();
@@ -736,6 +763,21 @@ instrument_si_overflow (gimple_stmt_iterator gsi)
       g = gimple_build_call_internal (IFN_UBSAN_CHECK_SUB, 2, a, b);
       gimple_call_set_lhs (g, lhs);
       gsi_replace (&gsi, g, false);
+      break;
+    case ABS_EXPR:
+      /* Transform i = ABS_EXPR<u>;
+	 into
+	 _N = UBSAN_CHECK_SUB (0, u);
+	 i = ABS_EXPR<_N>;  */
+      a = build_int_cst (lhstype, 0);
+      b = gimple_assign_rhs1 (stmt);
+      g = gimple_build_call_internal (IFN_UBSAN_CHECK_SUB, 2, a, b);
+      a = make_ssa_name (lhstype, NULL);
+      gimple_call_set_lhs (g, a);
+      gimple_set_location (g, gimple_location (stmt));
+      gsi_insert_before (&gsi, g, GSI_SAME_STMT);
+      gimple_assign_set_rhs1 (stmt, a);
+      update_stmt (stmt);
       break;
     default:
       break;
@@ -825,32 +867,73 @@ instrument_bool_enum_load (gimple_stmt_iterator *gsi)
   gimple_assign_set_rhs_with_ops (&gsi2, NOP_EXPR, urhs, NULL_TREE);
   update_stmt (stmt);
 
-  tree data = ubsan_create_data ("__ubsan_invalid_value_data",
-				 loc, NULL,
-				 ubsan_type_descriptor (type, false),
-				 NULL_TREE);
-  data = build_fold_addr_expr_loc (loc, data);
-  tree fn = builtin_decl_explicit (BUILT_IN_UBSAN_HANDLE_LOAD_INVALID_VALUE);
-
   gsi2 = gsi_after_labels (then_bb);
-  tree val = force_gimple_operand_gsi (&gsi2, ubsan_encode_value (urhs),
-				       true, NULL_TREE, true, GSI_SAME_STMT);
-  g = gimple_build_call (fn, 2, data, val);
+  if (flag_sanitize_undefined_trap_on_error)
+    g = gimple_build_call (builtin_decl_explicit (BUILT_IN_TRAP), 0);
+  else
+    {
+      tree data = ubsan_create_data ("__ubsan_invalid_value_data", &loc, NULL,
+				     ubsan_type_descriptor (type, false),
+				     NULL_TREE);
+      data = build_fold_addr_expr_loc (loc, data);
+      enum built_in_function bcode
+	= flag_sanitize_recover
+	  ? BUILT_IN_UBSAN_HANDLE_LOAD_INVALID_VALUE
+	  : BUILT_IN_UBSAN_HANDLE_LOAD_INVALID_VALUE_ABORT;
+      tree fn = builtin_decl_explicit (bcode);
+
+      tree val = force_gimple_operand_gsi (&gsi2, ubsan_encode_value (urhs),
+					   true, NULL_TREE, true,
+					   GSI_SAME_STMT);
+      g = gimple_build_call (fn, 2, data, val);
+    }
   gimple_set_location (g, loc);
   gsi_insert_before (&gsi2, g, GSI_SAME_STMT);
 }
 
-/* Gate and execute functions for ubsan pass.  */
+namespace {
 
-static unsigned int
-ubsan_pass (void)
+const pass_data pass_data_ubsan =
+{
+  GIMPLE_PASS, /* type */
+  "ubsan", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_execute */
+  TV_TREE_UBSAN, /* tv_id */
+  ( PROP_cfg | PROP_ssa ), /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  TODO_update_ssa, /* todo_flags_finish */
+};
+
+class pass_ubsan : public gimple_opt_pass
+{
+public:
+  pass_ubsan (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_ubsan, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  virtual bool gate (function *)
+    {
+      return flag_sanitize & (SANITIZE_NULL | SANITIZE_SI_OVERFLOW
+			      | SANITIZE_BOOL | SANITIZE_ENUM);
+    }
+
+  virtual unsigned int execute (function *);
+
+}; // class pass_ubsan
+
+unsigned int
+pass_ubsan::execute (function *fun)
 {
   basic_block bb;
   gimple_stmt_iterator gsi;
 
   initialize_sanitizer_builtins ();
 
-  FOR_EACH_BB_FN (bb, cfun)
+  FOR_EACH_BB_FN (bb, fun)
     {
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi);)
 	{
@@ -882,43 +965,6 @@ ubsan_pass (void)
     }
   return 0;
 }
-
-static bool
-gate_ubsan (void)
-{
-  return flag_sanitize & (SANITIZE_NULL | SANITIZE_SI_OVERFLOW
-			  | SANITIZE_BOOL | SANITIZE_ENUM);
-}
-
-namespace {
-
-const pass_data pass_data_ubsan =
-{
-  GIMPLE_PASS, /* type */
-  "ubsan", /* name */
-  OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
-  true, /* has_execute */
-  TV_TREE_UBSAN, /* tv_id */
-  ( PROP_cfg | PROP_ssa ), /* properties_required */
-  0, /* properties_provided */
-  0, /* properties_destroyed */
-  0, /* todo_flags_start */
-  TODO_update_ssa, /* todo_flags_finish */
-};
-
-class pass_ubsan : public gimple_opt_pass
-{
-public:
-  pass_ubsan (gcc::context *ctxt)
-    : gimple_opt_pass (pass_data_ubsan, ctxt)
-  {}
-
-  /* opt_pass methods: */
-  bool gate () { return gate_ubsan (); }
-  unsigned int execute () { return ubsan_pass (); }
-
-}; // class pass_ubsan
 
 } // anon namespace
 

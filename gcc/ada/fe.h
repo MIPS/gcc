@@ -6,7 +6,7 @@
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *          Copyright (C) 1992-2013, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2014, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -29,17 +29,20 @@
  *                                                                          *
  ****************************************************************************/
 
-/* This file contains definitions to access front-end functions and
-   variables used by gigi.  */
+/* This file contains declarations to access front-end functions and variables
+   used by gigi.
+
+   WARNING: functions taking String_Pointer parameters must abide by the rule
+   documented alongside the definition of String_Pointer in types.h.  */
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/* comperr:  */
+/* comperr: */
 
 #define Compiler_Abort comperr__compiler_abort
-extern int Compiler_Abort (Fat_Pointer, int, Fat_Pointer) ATTRIBUTE_NORETURN;
+extern int Compiler_Abort (String_Pointer, String_Pointer, Boolean) ATTRIBUTE_NORETURN;
 
 /* csets: */
 
@@ -72,8 +75,6 @@ extern void Set_Mechanism		(Entity_Id, Mechanism_Type);
 extern void Set_RM_Size			(Entity_Id, Uint);
 extern void Set_Present_Expr		(Node_Id, Uint);
 
-/* Test if the node N is the name of an entity (i.e. is an identifier,
-   expanded name, or an attribute reference that returns an entity).  */
 #define Is_Entity_Name einfo__is_entity_name
 extern Boolean Is_Entity_Name		(Node_Id);
 
@@ -90,8 +91,8 @@ extern Node_Id Get_Attribute_Definition_Clause (Entity_Id, char);
 #define Error_Msg_NE              errout__error_msg_ne
 #define Set_Identifier_Casing     errout__set_identifier_casing
 
-extern void Error_Msg_N	          (Fat_Pointer, Node_Id);
-extern void Error_Msg_NE          (Fat_Pointer, Node_Id, Entity_Id);
+extern void Error_Msg_N	          (String_Pointer, Node_Id);
+extern void Error_Msg_NE          (String_Pointer, Node_Id, Entity_Id);
 extern void Set_Identifier_Casing (Char *, const Char *);
 
 /* err_vars: */
@@ -147,11 +148,9 @@ extern void Setup_Asm_Outputs		(Node_Id);
 
 #define Get_Encoded_Name exp_dbug__get_encoded_name
 #define Get_External_Name exp_dbug__get_external_name
-#define Get_External_Name_With_Suffix exp_dbug__get_external_name_with_suffix
 
-extern void Get_Encoded_Name			(Entity_Id);
-extern void Get_External_Name			(Entity_Id, Boolean);
-extern void Get_External_Name_With_Suffix	(Entity_Id, Fat_Pointer);
+extern void Get_Encoded_Name	(Entity_Id);
+extern void Get_External_Name	(Entity_Id, Boolean, String_Pointer);
 
 /* exp_util: */
 
@@ -178,23 +177,21 @@ extern Boolean In_Same_Source_Unit              (Node_Id, Node_Id);
 
 /* opt: */
 
-#define Back_Annotate_Rep_Info         opt__back_annotate_rep_info
 #define Exception_Extra_Info           opt__exception_extra_info
 #define Exception_Locations_Suppressed opt__exception_locations_suppressed
 #define Exception_Mechanism            opt__exception_mechanism
 #define Generate_SCO_Instance_Table    opt__generate_sco_instance_table
-#define Global_Discard_Names           opt__global_discard_names
 #define Float_Format                   opt__float_format
+#define List_Representation_Info       opt__list_representation_info
 
 typedef enum {Setjmp_Longjmp, Back_End_Exceptions} Exception_Mechanism_Type;
 
-extern Boolean Back_Annotate_Rep_Info;
 extern Boolean Exception_Extra_Info;
 extern Boolean Exception_Locations_Suppressed;
 extern Exception_Mechanism_Type Exception_Mechanism;
 extern Boolean Generate_SCO_Instance_Table;
-extern Boolean Global_Discard_Names;
 extern Char Float_Format;
+extern Int List_Representation_Info;
 
 /* restrict: */
 

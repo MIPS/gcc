@@ -127,8 +127,11 @@ pack_ts_base_value_fields (struct bitpack_d *bp, tree expr)
 static void
 pack_ts_int_cst_value_fields (struct bitpack_d *bp, tree expr)
 {
-  bp_pack_var_len_unsigned (bp, TREE_INT_CST_LOW (expr));
-  bp_pack_var_len_int (bp, TREE_INT_CST_HIGH (expr));
+  int i;
+  /* Note that the number of elements has already been written out in
+     streamer_write_tree_header.  */
+  for (i = 0; i < TREE_INT_CST_EXT_NUNITS (expr); i++)
+    bp_pack_var_len_int (bp, TREE_INT_CST_ELT (expr, i));
 }
 
 
@@ -523,13 +526,6 @@ streamer_write_chain (struct output_block *ob, tree t, bool ref_p)
 {
   while (t)
     {
-      tree saved_chain;
-
-      /* Clear TREE_CHAIN to avoid blindly recursing into the rest
-	 of the list.  */
-      saved_chain = TREE_CHAIN (t);
-      TREE_CHAIN (t) = NULL_TREE;
-
       /* We avoid outputting external vars or functions by reference
 	 to the global decls section as we do not want to have them
 	 enter decl merging.  This is, of course, only for the call
@@ -541,7 +537,6 @@ streamer_write_chain (struct output_block *ob, tree t, bool ref_p)
       else
 	stream_write_tree (ob, t, ref_p);
 
-      TREE_CHAIN (t) = saved_chain;
       t = TREE_CHAIN (t);
     }
 
@@ -1016,6 +1011,12 @@ streamer_write_tree_header (struct output_block *ob, tree expr)
     streamer_write_uhwi (ob, call_expr_nargs (expr));
   else if (TREE_CODE (expr) == OMP_CLAUSE)
     streamer_write_uhwi (ob, OMP_CLAUSE_CODE (expr));
+  else if (CODE_CONTAINS_STRUCT (code, TS_INT_CST))
+    {
+      gcc_checking_assert (TREE_INT_CST_NUNITS (expr));
+      streamer_write_uhwi (ob, TREE_INT_CST_NUNITS (expr));
+      streamer_write_uhwi (ob, TREE_INT_CST_EXT_NUNITS (expr));
+    }
 }
 
 
@@ -1025,9 +1026,16 @@ streamer_write_tree_header (struct output_block *ob, tree expr)
 void
 streamer_write_integer_cst (struct output_block *ob, tree cst, bool ref_p)
 {
+  int i;
+  int len = TREE_INT_CST_NUNITS (cst);
   gcc_assert (!TREE_OVERFLOW (cst));
   streamer_write_record_start (ob, LTO_integer_cst);
   stream_write_tree (ob, TREE_TYPE (cst), ref_p);
-  streamer_write_uhwi (ob, TREE_INT_CST_LOW (cst));
-  streamer_write_hwi (ob, TREE_INT_CST_HIGH (cst));
+  /* We're effectively streaming a non-sign-extended wide_int here,
+     so there's no need to stream TREE_INT_CST_EXT_NUNITS or any
+     array members beyond LEN.  We'll recreate the tree from the
+     wide_int and the type.  */
+  streamer_write_uhwi (ob, len);
+  for (i = 0; i < len; i++)
+    streamer_write_hwi (ob, TREE_INT_CST_ELT (cst, i));
 }
