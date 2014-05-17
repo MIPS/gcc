@@ -1409,8 +1409,8 @@ Common Ignore
 Does nothing. Preserved for backward compatibility.
 
 fipa-struct-reorg
-Common Ignore
-Does nothing. Preserved for backward compatibility.
+Common Report Var(flag_ipa_struct_reorg)
+Perform structure layout optimizations.
 
 fira-algorithm=
 Common Joined RejectNegative Enum(ira_algorithm) Var(flag_ira_algorithm) Init(IRA_ALGORITHM_CB)

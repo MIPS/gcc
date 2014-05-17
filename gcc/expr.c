@@ -5869,23 +5869,6 @@ store_constructor_field (rtx target, unsigned HOST_WIDE_INT bitsize,
     store_field (target, bitsize, bitpos, 0, 0, mode, exp, alias_set, false);
 }
 
-
-/* Returns the number of FIELD_DECLs in TYPE.  */
-
-static int
-fields_length (const_tree type)
-{
-  tree t = TYPE_FIELDS (type);
-  int count = 0;
-
-  for (; t; t = DECL_CHAIN (t))
-    if (TREE_CODE (t) == FIELD_DECL)
-      ++count;
-
-  return count;
-}
-
-
 /* Store the value of constructor EXP into the rtx TARGET.
    TARGET is either a REG or a MEM; we know it cannot conflict, since
    safe_from_p has been called.

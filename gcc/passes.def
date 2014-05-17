@@ -111,6 +111,7 @@ along with GCC; see the file COPYING3.  If not see
   NEXT_PASS (pass_ipa_inline);
   NEXT_PASS (pass_ipa_pure_const);
   NEXT_PASS (pass_ipa_reference);
+  NEXT_PASS (pass_ipa_struct_reorg);
   TERMINATE_PASS_LIST ()
 
   /* Simple IPA passes executed after the regular passes.  In WHOPR mode the

@@ -1278,6 +1278,7 @@ OBJS = \
 	ipa-pure-const.o \
 	ipa-reference.o \
 	ipa-ref.o \
+	ipa-struct-reorg.o \
 	ipa-utils.o \
 	ipa.o \
 	ira.o \
@@ -2244,7 +2245,7 @@ GTFILES = $(CPP_ID_DATA_H) $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/cselib.h $(srcdir)/basic-block.h  $(srcdir)/ipa-ref.h $(srcdir)/cgraph.h \
   $(srcdir)/reload.h $(srcdir)/caller-save.c $(srcdir)/symtab.c \
   $(srcdir)/alias.c $(srcdir)/bitmap.c $(srcdir)/cselib.c $(srcdir)/cgraph.c \
-  $(srcdir)/ipa-prop.c $(srcdir)/ipa-cp.c $(srcdir)/ipa-utils.h \
+  $(srcdir)/ipa-prop.c $(srcdir)/ipa-cp.c $(srcdir)/ipa-struct-reorg.c $(srcdir)/ipa-utils.h \
   $(srcdir)/dbxout.c \
   $(srcdir)/dwarf2out.h \
   $(srcdir)/dwarf2asm.c \

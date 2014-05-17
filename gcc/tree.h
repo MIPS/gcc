@@ -3843,6 +3843,10 @@ extern tree nreverse (tree);
 
 extern int list_length (const_tree);
 
+/* Returns the number of FIELD_DECLs in a type.  */
+
+extern int fields_length (const_tree);
+
 /* Returns the first FIELD_DECL in a type.  */
 
 extern tree first_field (const_tree);
