@@ -5100,19 +5100,12 @@ gfc_conv_intrinsic_size (gfc_se * se, gfc_expr * expr, bool shape)
 
   as = gfc_get_full_arrayspec_from_expr (arg->expr);
 
-  if (arg2_var != NULL_TREE && INTEGER_CST_P (arg2_var))
-    {
-      int hi, low;
-
-      hi = TREE_INT_CST_HIGH (arg2_var);
-      low = TREE_INT_CST_LOW (arg2_var);
-      if (hi || low < 0
-	  || ((!as || as->type != AS_ASSUMED_RANK)
-	      && low > GFC_TYPE_ARRAY_RANK (TREE_TYPE (desc)))
-	  || low > GFC_MAX_DIMENSIONS)
+  if (arg2_var != NULL_TREE && INTEGER_CST_P (arg2_var)
+      && (((!as || as->type != AS_ASSUMED_RANK)
+	   && wi::geu_p (bound, GFC_TYPE_ARRAY_RANK (TREE_TYPE (desc))))
+	  || wi::gtu_p (bound, GFC_MAX_DIMENSIONS)))
 	gfc_error ("'dim' argument of SIZE intrinsic at %L is not a valid "
 		   "dimension index", &expr->where);
-    }
 
   if (arg2_var != NULL_TREE
       && (!INTEGER_CST_P (arg2_var) || (as && as->type == AS_ASSUMED_RANK)))
@@ -7622,7 +7615,8 @@ conv_co_minmaxsum (gfc_code *code)
       gfc_conv_expr (&argse, code->ext.actual->expr);
       gfc_add_block_to_block (&block, &argse.pre);
       gfc_add_block_to_block (&post_block, &argse.post);
-      array = gfc_conv_scalar_to_descriptor (&argse, argse.expr, attr);
+      array = gfc_conv_scalar_to_descriptor (&argse, argse.expr, attr,
+					     &code->ext.actual->expr->ts);
       array = gfc_build_addr_expr (NULL_TREE, array);
     }
   else
