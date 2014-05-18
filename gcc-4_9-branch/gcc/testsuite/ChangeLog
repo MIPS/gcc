@@ -1,3 +1,34 @@
+2014-04-16  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/60854
+	* g++.dg/torture/pr60854.C: New testcase.
+
+2014-05-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	* g++.dg/pr60969.C: Compile for all ilp32 x86 targets.
+	(dg-options): Add -mfpmath=387.
+	(dg-final): Check that no MMX registers are used.
+
+2014-05-16  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/60969
+	* g++.dg/pr60969.C: New.
+
+2014-05-15  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/61085
+	* g++.dg/ipa/pr61085.C: New test.
+
+2014-05-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/61158
+	* gcc.dg/pr61158.c: New test.
+
+2014-05-14  Matthias Klose  <doko@ubuntu.com>
+
+	PR driver/61106
+	* gcc-dg/unused-8a.c: Remove.
+
 2014-04-30  Marek Polacek  <polacek@redhat.com>
 
 	* c-c++-common/ubsan/div-by-zero-5.c: Fix formatting.
