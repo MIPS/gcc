@@ -104,6 +104,16 @@ enum symbol_visibility
 };
 #endif
 
+/* Enumerate Objective-c instance variable visibility settings. */
+
+enum ivar_visibility
+{
+  IVAR_VISIBILITY_PRIVATE,
+  IVAR_VISIBILITY_PROTECTED,
+  IVAR_VISIBILITY_PUBLIC,
+  IVAR_VISIBILITY_PACKAGE
+};
+
 /* The stack reuse level.  */
 enum stack_reuse_level
 {
@@ -218,6 +228,7 @@ enum sanitize_code {
   SANITIZE_SI_OVERFLOW = 1 << 9,
   SANITIZE_BOOL = 1 << 10,
   SANITIZE_ENUM = 1 << 11,
+  SANITIZE_FLOAT_DIVIDE = 1 << 12,
   SANITIZE_UNDEFINED = SANITIZE_SHIFT | SANITIZE_DIVIDE | SANITIZE_UNREACHABLE
 		       | SANITIZE_VLA | SANITIZE_NULL | SANITIZE_RETURN
 		       | SANITIZE_SI_OVERFLOW | SANITIZE_BOOL | SANITIZE_ENUM
@@ -229,4 +240,14 @@ enum vtv_priority {
   VTV_STANDARD_PRIORITY = 1,
   VTV_PREINIT_PRIORITY  = 2
 };
+
+/* flag_lto_partition initialization values.  */
+enum lto_partition_model {
+  LTO_PARTITION_NONE = 0,
+  LTO_PARTITION_ONE = 1,
+  LTO_PARTITION_BALANCED = 2,
+  LTO_PARTITION_1TO1 = 3,
+  LTO_PARTITION_MAX = 4
+};
+
 #endif /* ! GCC_FLAG_TYPES_H */

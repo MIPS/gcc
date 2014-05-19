@@ -425,7 +425,8 @@ try_forward_edges (int mode, basic_block b)
   for (ei = ei_start (b->succs); (e = ei_safe_edge (ei)); )
     {
       basic_block target, first;
-      int counter, goto_locus;
+      location_t goto_locus;
+      int counter;
       bool threaded = false;
       int nthreaded_edges = 0;
       bool may_thread = first_pass || (b->flags & BB_MODIFIED) != 0;
@@ -477,8 +478,8 @@ try_forward_edges (int mode, basic_block b)
 		{
 		  /* When not optimizing, ensure that edges or forwarder
 		     blocks with different locus are not optimized out.  */
-		  int new_locus = single_succ_edge (target)->goto_locus;
-		  int locus = goto_locus;
+		  location_t new_locus = single_succ_edge (target)->goto_locus;
+		  location_t locus = goto_locus;
 
 		  if (new_locus != UNKNOWN_LOCATION
 		      && locus != UNKNOWN_LOCATION
@@ -3078,17 +3079,6 @@ cleanup_cfg (int mode)
   return changed;
 }
 
-static unsigned int
-execute_jump (void)
-{
-  delete_trivially_dead_insns (get_insns (), max_reg_num ());
-  if (dump_file)
-    dump_flow_info (dump_file, dump_flags);
-  cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0)
-	       | (flag_thread_jumps ? CLEANUP_THREADING : 0));
-  return 0;
-}
-
 namespace {
 
 const pass_data pass_data_jump =
@@ -3096,14 +3086,13 @@ const pass_data pass_data_jump =
   RTL_PASS, /* type */
   "jump", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  false, /* has_gate */
   true, /* has_execute */
   TV_JUMP, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  TODO_verify_rtl_sharing, /* todo_flags_finish */
+  0, /* todo_flags_finish */
 };
 
 class pass_jump : public rtl_opt_pass
@@ -3114,9 +3103,20 @@ public:
   {}
 
   /* opt_pass methods: */
-  unsigned int execute () { return execute_jump (); }
+  virtual unsigned int execute (function *);
 
 }; // class pass_jump
+
+unsigned int
+pass_jump::execute (function *)
+{
+  delete_trivially_dead_insns (get_insns (), max_reg_num ());
+  if (dump_file)
+    dump_flow_info (dump_file, dump_flags);
+  cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0)
+	       | (flag_thread_jumps ? CLEANUP_THREADING : 0));
+  return 0;
+}
 
 } // anon namespace
 
@@ -3126,13 +3126,6 @@ make_pass_jump (gcc::context *ctxt)
   return new pass_jump (ctxt);
 }
 
-static unsigned int
-execute_jump2 (void)
-{
-  cleanup_cfg (flag_crossjumping ? CLEANUP_CROSSJUMP : 0);
-  return 0;
-}
-
 namespace {
 
 const pass_data pass_data_jump2 =
@@ -3140,14 +3133,13 @@ const pass_data pass_data_jump2 =
   RTL_PASS, /* type */
   "jump2", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  false, /* has_gate */
   true, /* has_execute */
   TV_JUMP, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  TODO_verify_rtl_sharing, /* todo_flags_finish */
+  0, /* todo_flags_finish */
 };
 
 class pass_jump2 : public rtl_opt_pass
@@ -3158,7 +3150,11 @@ public:
   {}
 
   /* opt_pass methods: */
-  unsigned int execute () { return execute_jump2 (); }
+  virtual unsigned int execute (function *)
+    {
+      cleanup_cfg (flag_crossjumping ? CLEANUP_CROSSJUMP : 0);
+      return 0;
+    }
 
 }; // class pass_jump2
 

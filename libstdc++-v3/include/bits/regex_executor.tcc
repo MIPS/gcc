@@ -72,7 +72,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   // TODO: This approach is exponentially slow for certain input.
   //       Try to compile the NFA to a DFA.
   //
-  // Time complexity: o(match_length), O(2^(_M_nfa.size()))
+  // Time complexity: \Omega(match_length), O(2^(_M_nfa.size()))
   // Space complexity: \theta(match_results.size() + match_length)
   //
   // ------------------------------------------------------------
@@ -82,8 +82,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   // Russ Cox's article (http://swtch.com/~rsc/regexp/regexp1.html)
   // explained this algorithm clearly.
   //
-  // It first computes epsilon closure for every state that's still matching,
-  // using the same DFS algorithm, but doesn't reenter states (set true in
+  // It first computes epsilon closure (states that can be achieved without
+  // consuming characters) for every state that's still matching,
+  // using the same DFS algorithm, but doesn't re-enter states (find a true in
   // _M_visited), nor follows _S_opcode_match.
   //
   // Then apply DFS using every _S_opcode_match (in _M_match_queue) as the start
@@ -92,9 +93,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   // It significantly reduces potential duplicate states, so has a better
   // upper bound; but it requires more overhead.
   //
-  // Time complexity: o(match_length * match_results.size())
+  // Time complexity: \Omega(match_length * match_results.size())
   //                  O(match_length * _M_nfa.size() * match_results.size())
-  // Space complexity: o(_M_nfa.size() + match_results.size())
+  // Space complexity: \Omega(_M_nfa.size() + match_results.size())
   //                   O(_M_nfa.size() * match_results.size())
   template<typename _BiIter, typename _Alloc, typename _TraitsT,
     bool __dfs_mode>
@@ -160,7 +161,39 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       return false;
     }
 
-  // TODO: Use a function vector to dispatch, instead of using switch-case.
+  // __rep_count records how many times (__rep_count.second)
+  // this node is visited under certain input iterator
+  // (__rep_count.first). This prevent the executor from entering
+  // infinite loop by refusing to continue when it's already been
+  // visited more than twice. It's `twice` instead of `once` because
+  // we need to spare one more time for potential group capture.
+  template<typename _BiIter, typename _Alloc, typename _TraitsT,
+    bool __dfs_mode>
+  template<bool __match_mode>
+    void _Executor<_BiIter, _Alloc, _TraitsT, __dfs_mode>::
+    _M_rep_once_more(_StateIdT __i)
+    {
+      const auto& __state = _M_nfa[__i];
+      auto& __rep_count = _M_rep_count[__i];
+      if (__rep_count.second == 0 || __rep_count.first != _M_current)
+	{
+	  auto __back = __rep_count;
+	  __rep_count.first = _M_current;
+	  __rep_count.second = 1;
+	  _M_dfs<__match_mode>(__state._M_alt);
+	  __rep_count = __back;
+	}
+      else
+	{
+	  if (__rep_count.second < 2)
+	    {
+	      __rep_count.second++;
+	      _M_dfs<__match_mode>(__state._M_alt);
+	      __rep_count.second--;
+	    }
+	}
+    };
+
   template<typename _BiIter, typename _Alloc, typename _TraitsT,
     bool __dfs_mode>
   template<bool __match_mode>
@@ -183,69 +216,61 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	// of this quantifier". Executing _M_next first or _M_alt first don't
 	// mean the same thing, and we need to choose the correct order under
 	// given greedy mode.
-	case _S_opcode_alternative:
-	  // Greedy.
-	  if (!__state._M_neg)
-	    {
-	      // "Once more" is preferred in greedy mode.
-	      _M_dfs<__match_mode>(__state._M_alt);
-	      // If it's DFS executor and already accepted, we're done.
-	      if (!__dfs_mode || !_M_has_sol)
-		_M_dfs<__match_mode>(__state._M_next);
-	    }
-	  else // Non-greedy mode
-	    {
-	      if (__dfs_mode)
-		{
-		  // vice-versa.
+	case _S_opcode_repeat:
+	  {
+	    // Greedy.
+	    if (!__state._M_neg)
+	      {
+		_M_rep_once_more<__match_mode>(__i);
+		// If it's DFS executor and already accepted, we're done.
+		if (!__dfs_mode || !_M_has_sol)
 		  _M_dfs<__match_mode>(__state._M_next);
-		  if (!_M_has_sol)
-		    _M_dfs<__match_mode>(__state._M_alt);
-		}
-	      else
-		{
-		  // DON'T attempt anything, because there's already another
-		  // state with higher priority accepted. This state cannot be
-		  // better by attempting its next node.
-		  if (!_M_has_sol)
-		    {
-		      _M_dfs<__match_mode>(__state._M_next);
-		      // DON'T attempt anything if it's already accepted. An
-		      // accepted state *must* be better than a solution that
-		      // matches a non-greedy quantifier one more time.
-		      if (!_M_has_sol)
-			_M_dfs<__match_mode>(__state._M_alt);
-		    }
-		}
+	      }
+	    else // Non-greedy mode
+	      {
+		if (__dfs_mode)
+		  {
+		    // vice-versa.
+		    _M_dfs<__match_mode>(__state._M_next);
+		    if (!_M_has_sol)
+		      _M_rep_once_more<__match_mode>(__i);
+		  }
+		else
+		  {
+		    // DON'T attempt anything, because there's already another
+		    // state with higher priority accepted. This state cannot be
+		    // better by attempting its next node.
+		    if (!_M_has_sol)
+		      {
+			_M_dfs<__match_mode>(__state._M_next);
+			// DON'T attempt anything if it's already accepted. An
+			// accepted state *must* be better than a solution that
+			// matches a non-greedy quantifier one more time.
+			if (!_M_has_sol)
+			  _M_rep_once_more<__match_mode>(__i);
+		      }
+		  }
+	      }
 	    }
 	  break;
 	case _S_opcode_subexpr_begin:
-	  // If there's nothing changed since last visit, do NOT continue.
-	  // This prevents the executor from get into infinite loop when using
-	  // "()*" to match "".
-	  if (!_M_cur_results[__state._M_subexpr].matched
-	      || _M_cur_results[__state._M_subexpr].first != _M_current)
-	    {
-	      auto& __res = _M_cur_results[__state._M_subexpr];
-	      auto __back = __res.first;
-	      __res.first = _M_current;
-	      _M_dfs<__match_mode>(__state._M_next);
-	      __res.first = __back;
-	    }
+	  {
+	    auto& __res = _M_cur_results[__state._M_subexpr];
+	    auto __back = __res.first;
+	    __res.first = _M_current;
+	    _M_dfs<__match_mode>(__state._M_next);
+	    __res.first = __back;
+	  }
 	  break;
 	case _S_opcode_subexpr_end:
-	  if (_M_cur_results[__state._M_subexpr].second != _M_current
-	      || _M_cur_results[__state._M_subexpr].matched != true)
-	    {
-	      auto& __res = _M_cur_results[__state._M_subexpr];
-	      auto __back = __res;
-	      __res.second = _M_current;
-	      __res.matched = true;
-	      _M_dfs<__match_mode>(__state._M_next);
-	      __res = __back;
-	    }
-	  else
+	  {
+	    auto& __res = _M_cur_results[__state._M_subexpr];
+	    auto __back = __res;
+	    __res.second = _M_current;
+	    __res.matched = true;
 	    _M_dfs<__match_mode>(__state._M_next);
+	    __res = __back;
+	  }
 	  break;
 	case _S_opcode_line_begin_assertion:
 	  if (_M_at_begin())
@@ -337,6 +362,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		    _M_results = _M_cur_results;
 		  }
 	    }
+	  break;
+	case _S_opcode_alternative:
+	  _M_dfs<__match_mode>(__state._M_alt);
+	  if (!__dfs_mode || !_M_has_sol)
+	    _M_dfs<__match_mode>(__state._M_next);
 	  break;
 	default:
 	  _GLIBCXX_DEBUG_ASSERT(false);

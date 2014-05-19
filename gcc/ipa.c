@@ -387,7 +387,7 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 			      before_inlining_p, reachable);
 	}
 
-      if (cgraph_node *cnode = dyn_cast <cgraph_node> (node))
+      if (cgraph_node *cnode = dyn_cast <cgraph_node *> (node))
 	{
 	  /* Mark the callees reachable unless they are direct calls to extern
  	     inline functions we decided to not inline.  */
@@ -415,7 +415,18 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 			  || !DECL_EXTERNAL (e->callee->decl)
 			  || e->callee->alias
 			  || before_inlining_p))
-		    pointer_set_insert (reachable, e->callee);
+		    {
+		      /* Be sure that we will not optimize out alias target
+			 body.  */
+		      if (DECL_EXTERNAL (e->callee->decl)
+			  && e->callee->alias
+			  && before_inlining_p)
+			{
+		          pointer_set_insert (reachable,
+					      cgraph_function_node (e->callee));
+			}
+		      pointer_set_insert (reachable, e->callee);
+		    }
 		  enqueue_node (e->callee, &first, reachable);
 		}
 
@@ -454,7 +465,7 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
       /* When we see constructor of external variable, keep referred nodes in the
 	boundary.  This will also hold initializers of the external vars NODE
 	refers to.  */
-      varpool_node *vnode = dyn_cast <varpool_node> (node);
+      varpool_node *vnode = dyn_cast <varpool_node *> (node);
       if (vnode
 	  && DECL_EXTERNAL (node->decl)
 	  && !vnode->alias
@@ -506,6 +517,7 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	      if (!node->in_other_partition)
 		node->local.local = false;
 	      cgraph_node_remove_callees (node);
+	      symtab_remove_from_same_comdat_group (node);
 	      ipa_remove_all_references (&node->ref_list);
 	      changed = true;
 	    }
@@ -561,6 +573,8 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	  vnode->analyzed = false;
 	  vnode->aux = NULL;
 
+	  symtab_remove_from_same_comdat_group (vnode);
+
 	  /* Keep body if it may be useful for constant folding.  */
 	  if ((init = ctor_for_folding (vnode->decl)) == error_mark_node)
 	    varpool_remove_initializer (vnode);
@@ -613,6 +627,77 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
   return changed;
 }
 
+/* Process references to VNODE and set flags WRITTEN, ADDRESS_TAKEN, READ
+   as needed, also clear EXPLICIT_REFS if the references to given variable
+   do not need to be explicit.  */
+
+void
+process_references (varpool_node *vnode,
+		    bool *written, bool *address_taken,
+		    bool *read, bool *explicit_refs)
+{
+  int i;
+  struct ipa_ref *ref;
+
+  if (!varpool_all_refs_explicit_p (vnode)
+      || TREE_THIS_VOLATILE (vnode->decl))
+    *explicit_refs = false;
+
+  for (i = 0; ipa_ref_list_referring_iterate (&vnode->ref_list,
+					     i, ref)
+	      && *explicit_refs && (!*written || !*address_taken || !*read); i++)
+    switch (ref->use)
+      {
+      case IPA_REF_ADDR:
+	*address_taken = true;
+	break;
+      case IPA_REF_LOAD:
+	*read = true;
+	break;
+      case IPA_REF_STORE:
+	*written = true;
+	break;
+      case IPA_REF_ALIAS:
+	process_references (varpool (ref->referring), written, address_taken,
+			    read, explicit_refs);
+	break;
+      }
+}
+
+/* Set TREE_READONLY bit.  */
+
+bool
+set_readonly_bit (varpool_node *vnode, void *data ATTRIBUTE_UNUSED)
+{
+  TREE_READONLY (vnode->decl) = true;
+  return false;
+}
+
+/* Set writeonly bit and clear the initalizer, since it will not be needed.  */
+
+bool
+set_writeonly_bit (varpool_node *vnode, void *data ATTRIBUTE_UNUSED)
+{
+  vnode->writeonly = true;
+  if (optimize)
+    {
+      DECL_INITIAL (vnode->decl) = NULL;
+      if (!vnode->alias)
+	ipa_remove_all_references (&vnode->ref_list);
+    }
+  return false;
+}
+
+/* Clear addressale bit of VNODE.  */
+
+bool
+clear_addressable_bit (varpool_node *vnode, void *data ATTRIBUTE_UNUSED)
+{
+  vnode->address_taken = false;
+  TREE_ADDRESSABLE (vnode->decl) = 0;
+  return false;
+}
+
 /* Discover variables that have no longer address taken or that are read only
    and update their flags.
 
@@ -629,43 +714,40 @@ ipa_discover_readonly_nonaddressable_vars (void)
   if (dump_file)
     fprintf (dump_file, "Clearing variable flags:");
   FOR_EACH_VARIABLE (vnode)
-    if (vnode->definition && varpool_all_refs_explicit_p (vnode)
+    if (!vnode->alias
 	&& (TREE_ADDRESSABLE (vnode->decl)
+	    || !vnode->writeonly
 	    || !TREE_READONLY (vnode->decl)))
       {
 	bool written = false;
 	bool address_taken = false;
-	int i;
-        struct ipa_ref *ref;
-        for (i = 0; ipa_ref_list_referring_iterate (&vnode->ref_list,
-						   i, ref)
-		    && (!written || !address_taken); i++)
-	  switch (ref->use)
-	    {
-	    case IPA_REF_ADDR:
-	      address_taken = true;
-	      break;
-	    case IPA_REF_LOAD:
-	      break;
-	    case IPA_REF_STORE:
-	      written = true;
-	      break;
-	    }
-	if (TREE_ADDRESSABLE (vnode->decl) && !address_taken)
+	bool read = false;
+	bool explicit_refs = true;
+
+	process_references (vnode, &written, &address_taken, &read, &explicit_refs);
+	if (!explicit_refs)
+	  continue;
+	if (!address_taken)
 	  {
-	    if (dump_file)
+	    if (TREE_ADDRESSABLE (vnode->decl) && dump_file)
 	      fprintf (dump_file, " %s (addressable)", vnode->name ());
-	    TREE_ADDRESSABLE (vnode->decl) = 0;
+	    varpool_for_node_and_aliases (vnode, clear_addressable_bit, NULL, true);
 	  }
-	if (!TREE_READONLY (vnode->decl) && !address_taken && !written
+	if (!address_taken && !written
 	    /* Making variable in explicit section readonly can cause section
 	       type conflict. 
 	       See e.g. gcc.c-torture/compile/pr23237.c */
 	    && DECL_SECTION_NAME (vnode->decl) == NULL)
 	  {
-	    if (dump_file)
+	    if (!TREE_READONLY (vnode->decl) && dump_file)
 	      fprintf (dump_file, " %s (read-only)", vnode->name ());
-	    TREE_READONLY (vnode->decl) = 1;
+	    varpool_for_node_and_aliases (vnode, set_readonly_bit, NULL, true);
+	  }
+	if (!vnode->writeonly && !read && !address_taken)
+	  {
+	    if (dump_file)
+	      fprintf (dump_file, " %s (write-only)", vnode->name ());
+	    varpool_for_node_and_aliases (vnode, set_writeonly_bit, NULL, true);
 	  }
       }
   if (dump_file)
@@ -683,7 +765,7 @@ address_taken_from_non_vtable_p (symtab_node *node)
     if (ref->use == IPA_REF_ADDR)
       {
 	varpool_node *node;
-	if (is_a <cgraph_node> (ref->referring))
+	if (is_a <cgraph_node *> (ref->referring))
 	  return true;
 	node = ipa_ref_referring_varpool_node (ref);
 	if (!DECL_VIRTUAL_P (node->decl))
@@ -697,6 +779,8 @@ address_taken_from_non_vtable_p (symtab_node *node)
 static bool
 comdat_can_be_unshared_p_1 (symtab_node *node)
 {
+  if (!node->externally_visible)
+    return true;
   /* When address is taken, we don't know if equality comparison won't
      break eventually. Exception are virutal functions, C++
      constructors/destructors and vtables, where this is not possible by
@@ -721,7 +805,7 @@ comdat_can_be_unshared_p_1 (symtab_node *node)
     return false;
 
   /* Non-readonly and volatile variables can not be duplicated.  */
-  if (is_a <varpool_node> (node)
+  if (is_a <varpool_node *> (node)
       && (!TREE_READONLY (node->decl)
 	  || TREE_THIS_VOLATILE (node->decl)))
     return false;
@@ -899,6 +983,50 @@ can_replace_by_local_alias (symtab_node *node)
 	  && !symtab_can_be_discarded (node));
 }
 
+/* In LTO we can remove COMDAT groups and weak symbols.
+   Either turn them into normal symbols or external symbol depending on 
+   resolution info.  */
+
+static void
+update_visibility_by_resolution_info (symtab_node * node)
+{
+  bool define;
+
+  if (!node->externally_visible
+      || (!DECL_WEAK (node->decl) && !DECL_ONE_ONLY (node->decl))
+      || node->resolution == LDPR_UNKNOWN)
+    return;
+
+  define = (node->resolution == LDPR_PREVAILING_DEF_IRONLY
+	    || node->resolution == LDPR_PREVAILING_DEF
+	    || node->resolution == LDPR_PREVAILING_DEF_IRONLY_EXP);
+
+  /* The linker decisions ought to agree in the whole group.  */
+  if (node->same_comdat_group)
+    for (symtab_node *next = node->same_comdat_group;
+	 next != node; next = next->same_comdat_group)
+      gcc_assert (!node->externally_visible
+		  || define == (next->resolution == LDPR_PREVAILING_DEF_IRONLY
+			        || next->resolution == LDPR_PREVAILING_DEF
+			        || next->resolution == LDPR_PREVAILING_DEF_IRONLY_EXP));
+
+  if (node->same_comdat_group)
+    for (symtab_node *next = node->same_comdat_group;
+	 next != node; next = next->same_comdat_group)
+      {
+	DECL_COMDAT_GROUP (next->decl) = NULL;
+	DECL_WEAK (next->decl) = false;
+	if (next->externally_visible
+	    && !define)
+	  DECL_EXTERNAL (next->decl) = true;
+      }
+  DECL_COMDAT_GROUP (node->decl) = NULL;
+  DECL_WEAK (node->decl) = false;
+  if (!define)
+    DECL_EXTERNAL (node->decl) = true;
+  symtab_dissolve_same_comdat_group_list (node);
+}
+
 /* Mark visibility of all functions.
 
    A local function is one whose calls can occur only in the current
@@ -1032,42 +1160,12 @@ function_and_variable_visibility (bool whole_program)
 				   == DECL_COMDAT_GROUP (decl_node->decl));
 	      gcc_checking_assert (node->same_comdat_group);
 	    }
+	  node->forced_by_abi = decl_node->forced_by_abi;
 	  if (DECL_EXTERNAL (decl_node->decl))
 	    DECL_EXTERNAL (node->decl) = 1;
 	}
 
-      /* If whole comdat group is used only within LTO code, we can dissolve it,
-	 we handle the unification ourselves.
-	 We keep COMDAT and weak so visibility out of DSO does not change.
-	 Later we may bring the symbols static if they are not exported.  */
-      if (DECL_ONE_ONLY (node->decl)
-	  && (node->resolution == LDPR_PREVAILING_DEF_IRONLY
-	      || node->resolution == LDPR_PREVAILING_DEF_IRONLY_EXP))
-	{
-	  symtab_node *next = node;
-
-	  if (node->same_comdat_group)
-	    for (next = node->same_comdat_group;
-		 next != node;
-		 next = next->same_comdat_group)
-	      if (next->externally_visible
-		  && (next->resolution != LDPR_PREVAILING_DEF_IRONLY
-		      && next->resolution != LDPR_PREVAILING_DEF_IRONLY_EXP))
-		break;
-	  if (node == next)
-	    {
-	      if (node->same_comdat_group)
-	        for (next = node->same_comdat_group;
-		     next != node;
-		     next = next->same_comdat_group)
-		{
-		  DECL_COMDAT_GROUP (next->decl) = NULL;
-		  DECL_WEAK (next->decl) = false;
-		}
-	      DECL_COMDAT_GROUP (node->decl) = NULL;
-	      symtab_dissolve_same_comdat_group_list (node);
-	    }
-	}
+      update_visibility_by_resolution_info (node);
     }
   FOR_EACH_DEFINED_FUNCTION (node)
     {
@@ -1154,6 +1252,7 @@ function_and_variable_visibility (bool whole_program)
 	    symtab_dissolve_same_comdat_group_list (vnode);
 	  vnode->resolution = LDPR_PREVAILING_DEF_IRONLY;
 	}
+      update_visibility_by_resolution_info (vnode);
     }
 
   if (dump_file)
@@ -1181,12 +1280,6 @@ function_and_variable_visibility (bool whole_program)
 /* Local function pass handling visibilities.  This happens before LTO streaming
    so in particular -fwhole-program should be ignored at this level.  */
 
-static unsigned int
-local_function_and_variable_visibility (void)
-{
-  return function_and_variable_visibility (flag_whole_program && !flag_lto);
-}
-
 namespace {
 
 const pass_data pass_data_ipa_function_and_variable_visibility =
@@ -1194,7 +1287,6 @@ const pass_data pass_data_ipa_function_and_variable_visibility =
   SIMPLE_IPA_PASS, /* type */
   "visibility", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  false, /* has_gate */
   true, /* has_execute */
   TV_CGRAPHOPT, /* tv_id */
   0, /* properties_required */
@@ -1213,9 +1305,10 @@ public:
   {}
 
   /* opt_pass methods: */
-  unsigned int execute () {
-    return local_function_and_variable_visibility ();
-  }
+  virtual unsigned int execute (function *)
+    {
+      return function_and_variable_visibility (flag_whole_program && !flag_lto);
+    }
 
 }; // class pass_ipa_function_and_variable_visibility
 
@@ -1229,13 +1322,6 @@ make_pass_ipa_function_and_variable_visibility (gcc::context *ctxt)
 
 /* Free inline summary.  */
 
-static unsigned
-free_inline_summary (void)
-{
-  inline_free_summary ();
-  return 0;
-}
-
 namespace {
 
 const pass_data pass_data_ipa_free_inline_summary =
@@ -1243,7 +1329,6 @@ const pass_data pass_data_ipa_free_inline_summary =
   SIMPLE_IPA_PASS, /* type */
   "*free_inline_summary", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  false, /* has_gate */
   true, /* has_execute */
   TV_IPA_FREE_INLINE_SUMMARY, /* tv_id */
   0, /* properties_required */
@@ -1261,7 +1346,11 @@ public:
   {}
 
   /* opt_pass methods: */
-  unsigned int execute () { return free_inline_summary (); }
+  virtual unsigned int execute (function *)
+    {
+      inline_free_summary ();
+      return 0;
+    }
 
 }; // class pass_ipa_free_inline_summary
 
@@ -1271,14 +1360,6 @@ simple_ipa_opt_pass *
 make_pass_ipa_free_inline_summary (gcc::context *ctxt)
 {
   return new pass_ipa_free_inline_summary (ctxt);
-}
-
-/* Do not re-run on ltrans stage.  */
-
-static bool
-gate_whole_program_function_and_variable_visibility (void)
-{
-  return !flag_ltrans;
 }
 
 /* Bring functionss local at LTO time with -fwhole-program.  */
@@ -1299,7 +1380,6 @@ const pass_data pass_data_ipa_whole_program_visibility =
   IPA_PASS, /* type */
   "whole-program", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
   true, /* has_execute */
   TV_CGRAPHOPT, /* tv_id */
   0, /* properties_required */
@@ -1326,12 +1406,16 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () {
-    return gate_whole_program_function_and_variable_visibility ();
-  }
-  unsigned int execute () {
-    return whole_program_function_and_variable_visibility ();
-  }
+
+  virtual bool gate (function *)
+    {
+      /* Do not re-run on ltrans stage.  */
+      return !flag_ltrans;
+    }
+  virtual unsigned int execute (function *)
+    {
+      return whole_program_function_and_variable_visibility ();
+    }
 
 }; // class pass_ipa_whole_program_visibility
 
@@ -1615,16 +1699,6 @@ ipa_cdtor_merge (void)
   return 0;
 }
 
-/* Perform the pass when we have no ctors/dtors support
-   or at LTO time to merge multiple constructors into single
-   function.  */
-
-static bool
-gate_ipa_cdtor_merge (void)
-{
-  return !targetm.have_ctors_dtors || (optimize && in_lto_p);
-}
-
 namespace {
 
 const pass_data pass_data_ipa_cdtor_merge =
@@ -1632,7 +1706,6 @@ const pass_data pass_data_ipa_cdtor_merge =
   IPA_PASS, /* type */
   "cdtor", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
   true, /* has_execute */
   TV_CGRAPHOPT, /* tv_id */
   0, /* properties_required */
@@ -1659,10 +1732,19 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_ipa_cdtor_merge (); }
-  unsigned int execute () { return ipa_cdtor_merge (); }
+  virtual bool gate (function *);
+  virtual unsigned int execute (function *) { return ipa_cdtor_merge (); }
 
 }; // class pass_ipa_cdtor_merge
+
+bool
+pass_ipa_cdtor_merge::gate (function *)
+{
+  /* Perform the pass when we have no ctors/dtors support
+     or at LTO time to merge multiple constructors into single
+     function.  */
+  return !targetm.have_ctors_dtors || (optimize && in_lto_p);
+}
 
 } // anon namespace
 

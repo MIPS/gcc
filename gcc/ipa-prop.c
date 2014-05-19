@@ -1103,7 +1103,7 @@ compute_complex_assign_jump_func (struct ipa_node_params *info,
       || max_size == -1
       || max_size != size)
     return;
-  offset += mem_ref_offset (base).low * BITS_PER_UNIT;
+  offset += mem_ref_offset (base).to_short_addr () * BITS_PER_UNIT;
   ssa = TREE_OPERAND (base, 0);
   if (TREE_CODE (ssa) != SSA_NAME
       || !SSA_NAME_IS_DEFAULT_DEF (ssa)
@@ -1164,7 +1164,7 @@ get_ancestor_addr_info (gimple assign, tree *obj_p, HOST_WIDE_INT *offset)
       || TREE_CODE (SSA_NAME_VAR (parm)) != PARM_DECL)
     return NULL_TREE;
 
-  *offset += mem_ref_offset (expr).low * BITS_PER_UNIT;
+  *offset += mem_ref_offset (expr).to_short_addr () * BITS_PER_UNIT;
   *obj_p = obj;
   return expr;
 }
@@ -2885,16 +2885,20 @@ update_indirect_edges_after_inlining (struct cgraph_edge *cs,
       else if (jfunc->type == IPA_JF_PASS_THROUGH
 	       && ipa_get_jf_pass_through_operation (jfunc) == NOP_EXPR)
 	{
-	  if (ici->agg_contents
-	      && !ipa_get_jf_pass_through_agg_preserved (jfunc))
+	  if ((ici->agg_contents
+	       && !ipa_get_jf_pass_through_agg_preserved (jfunc))
+	      || (ici->polymorphic
+		  && !ipa_get_jf_pass_through_type_preserved (jfunc)))
 	    ici->param_index = -1;
 	  else
 	    ici->param_index = ipa_get_jf_pass_through_formal_id (jfunc);
 	}
       else if (jfunc->type == IPA_JF_ANCESTOR)
 	{
-	  if (ici->agg_contents
-	      && !ipa_get_jf_ancestor_agg_preserved (jfunc))
+	  if ((ici->agg_contents
+	       && !ipa_get_jf_ancestor_agg_preserved (jfunc))
+	      || (ici->polymorphic
+		  && !ipa_get_jf_ancestor_type_preserved (jfunc)))
 	    ici->param_index = -1;
 	  else
 	    {
@@ -3319,7 +3323,7 @@ ipa_node_duplication_hook (struct cgraph_node *src, struct cgraph_node *dst,
     {
       struct ipa_agg_replacement_value *v;
 
-      v = ggc_alloc_ipa_agg_replacement_value ();
+      v = ggc_alloc<ipa_agg_replacement_value> ();
       memcpy (v, old_av, sizeof (*v));
       v->next = new_av;
       new_av = v;
@@ -3658,6 +3662,7 @@ ipa_modify_formal_parameters (tree fndecl, ipa_parm_adjustment_vec adjustments)
 
   TREE_TYPE (fndecl) = new_type;
   DECL_VIRTUAL_P (fndecl) = 0;
+  DECL_LANG_SPECIFIC (fndecl) = NULL;
   otypes.release ();
   oparms.release ();
 }
@@ -3795,8 +3800,7 @@ ipa_modify_call_arguments (struct cgraph_edge *cs, gimple stmt,
 		  if (TYPE_ALIGN (type) > align)
 		    align = TYPE_ALIGN (type);
 		}
-	      misalign += (tree_to_double_int (off)
-			   .sext (TYPE_PRECISION (TREE_TYPE (off))).low
+	      misalign += (offset_int::from (off, SIGNED).to_short_addr ()
 			   * BITS_PER_UNIT);
 	      misalign = misalign & (align - 1);
 	      if (misalign != 0)
@@ -4006,7 +4010,7 @@ ipa_get_adjustment_candidate (tree **expr, bool *convert,
 
   if (TREE_CODE (base) == MEM_REF)
     {
-      offset += mem_ref_offset (base).low * BITS_PER_UNIT;
+      offset += mem_ref_offset (base).to_short_addr () * BITS_PER_UNIT;
       base = TREE_OPERAND (base, 0);
     }
 
@@ -4682,7 +4686,7 @@ read_agg_replacement_chain (struct lto_input_block *ib,
       struct ipa_agg_replacement_value *av;
       struct bitpack_d bp;
 
-      av = ggc_alloc_ipa_agg_replacement_value ();
+      av = ggc_alloc<ipa_agg_replacement_value> ();
       av->offset = streamer_read_uhwi (ib);
       av->index = streamer_read_uhwi (ib);
       av->value = stream_read_tree (ib, data_in);

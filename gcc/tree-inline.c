@@ -858,8 +858,7 @@ remap_gimple_op_r (tree *tp, int *walk_subtrees, void *data)
 	*walk_subtrees = 0;
 
       else if (TREE_CODE (*tp) == INTEGER_CST)
-	*tp = build_int_cst_wide (new_type, TREE_INT_CST_LOW (*tp),
-				  TREE_INT_CST_HIGH (*tp));
+	*tp = wide_int_to_tree (new_type, *tp);
       else
 	{
 	  *tp = copy_node (*tp);
@@ -1038,8 +1037,7 @@ copy_tree_body_r (tree *tp, int *walk_subtrees, void *data)
 	*walk_subtrees = 0;
 
       else if (TREE_CODE (*tp) == INTEGER_CST)
-	*tp = build_int_cst_wide (new_type, TREE_INT_CST_LOW (*tp),
-				  TREE_INT_CST_HIGH (*tp));
+	*tp = wide_int_to_tree (new_type, *tp);
       else
 	{
 	  *tp = copy_node (*tp);
@@ -1486,6 +1484,11 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 
       /* Create a new deep copy of the statement.  */
       copy = gimple_copy (stmt);
+
+      /* Clear flags that need revisiting.  */
+      if (is_gimple_call (copy)
+	  && gimple_call_tail_p (copy))
+	gimple_call_set_tail (copy, false);
 
       /* Remap the region numbers for __builtin_eh_{pointer,filter},
 	 RESX and EH_DISPATCH.  */
@@ -1983,7 +1986,8 @@ copy_edges_for_bb (basic_block bb, gcov_type count_scale, basic_block ret_bb,
 	flags = old_edge->flags;
 
 	/* Return edges do get a FALLTHRU flag when the get inlined.  */
-	if (old_edge->dest->index == EXIT_BLOCK && !old_edge->flags
+	if (old_edge->dest->index == EXIT_BLOCK
+	    && !(old_edge->flags & (EDGE_TRUE_VALUE|EDGE_FALSE_VALUE|EDGE_FAKE))
 	    && old_edge->dest->aux != EXIT_BLOCK_PTR_FOR_FN (cfun))
 	  flags |= EDGE_FALLTHRU;
 	new_edge = make_edge (new_bb, (basic_block) old_edge->dest->aux, flags);
@@ -2351,17 +2355,18 @@ copy_loops (copy_body_data *id,
 	  place_new_loop (cfun, dest_loop);
 	  flow_loop_tree_node_add (dest_parent, dest_loop);
 
+	  dest_loop->safelen = src_loop->safelen;
+	  dest_loop->dont_vectorize = src_loop->dont_vectorize;
+	  if (src_loop->force_vectorize)
+	    {
+	      dest_loop->force_vectorize = true;
+	      cfun->has_force_vectorize_loops = true;
+	    }
 	  if (src_loop->simduid)
 	    {
 	      dest_loop->simduid = remap_decl (src_loop->simduid, id);
 	      cfun->has_simduid_loops = true;
 	    }
-	  if (src_loop->force_vect)
-	    {
-	      dest_loop->force_vect = true;
-	      cfun->has_force_vect_loops = true;
-	    }
-	  dest_loop->safelen = src_loop->safelen;
 
 	  /* Recurse.  */
 	  copy_loops (id, dest_loop, src_loop);
@@ -3121,7 +3126,8 @@ declare_return_variable (copy_body_data *id, tree return_slot, tree modify_dest,
 	{
 	  var = return_slot;
 	  gcc_assert (TREE_CODE (var) != SSA_NAME);
-	  TREE_ADDRESSABLE (var) |= TREE_ADDRESSABLE (result);
+	  if (TREE_ADDRESSABLE (result))
+	    mark_addressable (var);
 	}
       if ((TREE_CODE (TREE_TYPE (result)) == COMPLEX_TYPE
            || TREE_CODE (TREE_TYPE (result)) == VECTOR_TYPE)
@@ -5325,18 +5331,6 @@ tree_function_versioning (tree old_decl, tree new_decl,
   id.dst_node = new_version_node;
   id.src_cfun = DECL_STRUCT_FUNCTION (old_decl);
   id.blocks_to_copy = blocks_to_copy;
-  if (id.src_node->ipa_transforms_to_apply.exists ())
-    {
-      vec<ipa_opt_pass> old_transforms_to_apply
-	    = id.dst_node->ipa_transforms_to_apply;
-      unsigned int i;
-
-      id.dst_node->ipa_transforms_to_apply
-	    = id.src_node->ipa_transforms_to_apply.copy ();
-      for (i = 0; i < old_transforms_to_apply.length (); i++)
-        id.dst_node->ipa_transforms_to_apply.safe_push (old_transforms_to_apply[i]);
-      old_transforms_to_apply.release ();
-    }
 
   id.copy_decl = copy_decl_no_change;
   id.transform_call_graph_edges

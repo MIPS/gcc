@@ -1675,7 +1675,7 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
       object = maybe_dummy_object (scope, NULL);
     }
 
-  object = maybe_resolve_dummy (object);
+  object = maybe_resolve_dummy (object, true);
   if (object == error_mark_node)
     return error_mark_node;
 
@@ -2434,7 +2434,7 @@ finish_this_expr (void)
 
       /* In a lambda expression, 'this' refers to the captured 'this'.  */
       if (LAMBDA_TYPE_P (type))
-        result = lambda_expr_this_capture (CLASSTYPE_LAMBDA_EXPR (type));
+        result = lambda_expr_this_capture (CLASSTYPE_LAMBDA_EXPR (type), true);
       else
         result = current_class_ptr;
     }
@@ -3867,6 +3867,7 @@ simplify_aggr_init_expr (tree *tp)
 				    aggr_init_expr_nargs (aggr_init_expr),
 				    AGGR_INIT_EXPR_ARGP (aggr_init_expr));
   TREE_NOTHROW (call_expr) = TREE_NOTHROW (aggr_init_expr);
+  tree ret = call_expr;
 
   if (style == ctor)
     {
@@ -3882,7 +3883,7 @@ simplify_aggr_init_expr (tree *tp)
 	 expand_call{,_inline}.  */
       cxx_mark_addressable (slot);
       CALL_EXPR_RETURN_SLOT_OPT (call_expr) = true;
-      call_expr = build2 (INIT_EXPR, TREE_TYPE (call_expr), slot, call_expr);
+      ret = build2 (INIT_EXPR, TREE_TYPE (ret), slot, ret);
     }
   else if (style == pcc)
     {
@@ -3890,11 +3891,25 @@ simplify_aggr_init_expr (tree *tp)
 	 need to copy the returned value out of the static buffer into the
 	 SLOT.  */
       push_deferring_access_checks (dk_no_check);
-      call_expr = build_aggr_init (slot, call_expr,
-				   DIRECT_BIND | LOOKUP_ONLYCONVERTING,
-                                   tf_warning_or_error);
+      ret = build_aggr_init (slot, ret,
+			     DIRECT_BIND | LOOKUP_ONLYCONVERTING,
+			     tf_warning_or_error);
       pop_deferring_access_checks ();
-      call_expr = build2 (COMPOUND_EXPR, TREE_TYPE (slot), call_expr, slot);
+      ret = build2 (COMPOUND_EXPR, TREE_TYPE (slot), ret, slot);
+    }
+
+  /* DR 1030 says that we need to evaluate the elements of an
+     initializer-list in forward order even when it's used as arguments to
+     a constructor.  So if the target wants to evaluate them in reverse
+     order and there's more than one argument other than 'this', force
+     pre-evaluation.  */
+  if (PUSH_ARGS_REVERSED && CALL_EXPR_LIST_INIT_P (aggr_init_expr)
+      && aggr_init_expr_nargs (aggr_init_expr) > 2)
+    {
+      tree preinit;
+      stabilize_call (call_expr, &preinit);
+      if (preinit)
+	ret = build2 (COMPOUND_EXPR, TREE_TYPE (ret), preinit, ret);
     }
 
   if (AGGR_INIT_ZERO_FIRST (aggr_init_expr))
@@ -3902,11 +3917,10 @@ simplify_aggr_init_expr (tree *tp)
       tree init = build_zero_init (type, NULL_TREE,
 				   /*static_storage_p=*/false);
       init = build2 (INIT_EXPR, void_type_node, slot, init);
-      call_expr = build2 (COMPOUND_EXPR, TREE_TYPE (call_expr),
-			  init, call_expr);
+      ret = build2 (COMPOUND_EXPR, TREE_TYPE (ret), init, ret);
     }
 
-  *tp = call_expr;
+  *tp = ret;
 }
 
 /* Emit all thunks to FN that should be emitted when FN is emitted.  */
@@ -8010,7 +8024,7 @@ register_constexpr_fundef (tree fun, tree body)
     htab_find_slot (constexpr_fundef_table, &entry, INSERT);
 
   gcc_assert (*slot == NULL);
-  *slot = ggc_alloc_constexpr_fundef ();
+  *slot = ggc_alloc<constexpr_fundef> ();
   **slot = entry;
 
   return fun;
@@ -8141,10 +8155,13 @@ maybe_initialize_constexpr_call_table (void)
 
 /* Return true if T designates the implied `this' parameter.  */
 
-static inline bool
+bool
 is_this_parameter (tree t)
 {
-  return t == current_class_ptr;
+  if (!DECL_P (t) || DECL_NAME (t) != this_identifier)
+    return false;
+  gcc_assert (TREE_CODE (t) == PARM_DECL || is_capture_proxy (t));
+  return true;
 }
 
 /* We have an expression tree T that represents a call, either CALL_EXPR
@@ -8451,7 +8468,7 @@ cxx_eval_call_expression (const constexpr_call *old_call, tree t,
     {
       /* We need to keep a pointer to the entry, not just the slot, as the
 	 slot can move in the call to cxx_eval_builtin_function_call.  */
-      *slot = entry = ggc_alloc_constexpr_call ();
+      *slot = entry = ggc_alloc<constexpr_call> ();
       *entry = new_call;
     }
   /* Calls which are in progress have their result set to NULL
@@ -10636,6 +10653,8 @@ apply_deduced_return_type (tree fco, tree return_type)
 
   if (!processing_template_decl)
     {
+      if (!VOID_TYPE_P (TREE_TYPE (result)))
+	complete_type_or_else (TREE_TYPE (result), NULL_TREE);
       bool aggr = aggregate_value_p (result, fco);
 #ifdef PCC_STATIC_STRUCT_RETURN
       cfun->returns_pcc_struct = aggr;

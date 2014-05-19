@@ -42,7 +42,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template<typename, bool, bool>
     struct _BracketMatcher;
 
-  /// Builds an NFA from an input iterator interval.
+  /**
+   * @brief Builds an NFA from an input iterator interval.
+   *
+   * The %_TraitsT type should fulfill requirements [28.3].
+   */
   template<typename _TraitsT>
     class _Compiler
     {
@@ -417,7 +421,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       void
       _M_make_cache(true_type)
       {
-	for (int __i = 0; __i < _M_cache.size(); __i++)
+	for (size_t __i = 0; __i < _M_cache.size(); __i++)
 	  _M_cache[static_cast<_UnsignedCharT>(__i)] =
 	    _M_apply(__i, false_type());
       }

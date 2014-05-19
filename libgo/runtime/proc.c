@@ -1212,9 +1212,6 @@ runtime_newextram(void)
 	// here we need to set up the context for g0.
 	getcontext(&mp->g0->context);
 	mp->g0->context.uc_stack.ss_sp = g0_sp;
-#ifdef MAKECONTEXT_STACK_TOP
-	mp->g0->context.uc_stack.ss_sp += g0_spsize;
-#endif
 	mp->g0->context.uc_stack.ss_size = g0_spsize;
 	makecontext(&mp->g0->context, kickoff, 0);
 
@@ -1857,9 +1854,29 @@ goexit0(G *gp)
 // entersyscall is going to return immediately after.
 
 void runtime_entersyscall(void) __attribute__ ((no_split_stack));
+static void doentersyscall(void) __attribute__ ((no_split_stack, noinline));
 
 void
 runtime_entersyscall()
+{
+	// Save the registers in the g structure so that any pointers
+	// held in registers will be seen by the garbage collector.
+	getcontext(&g->gcregs);
+
+	// Do the work in a separate function, so that this function
+	// doesn't save any registers on its own stack.  If this
+	// function does save any registers, we might store the wrong
+	// value in the call to getcontext.
+	//
+	// FIXME: This assumes that we do not need to save any
+	// callee-saved registers to access the TLS variable g.  We
+	// don't want to put the ucontext_t on the stack because it is
+	// large and we can not split the stack here.
+	doentersyscall();
+}
+
+static void
+doentersyscall()
 {
 	// Disable preemption because during this function g is in Gsyscall status,
 	// but can have inconsistent g->sched, do not let GC observe it.
@@ -1877,10 +1894,6 @@ runtime_entersyscall()
 		g->gcnext_sp = (byte *) &v;
 	}
 #endif
-
-	// Save the registers in the g structure so that any pointers
-	// held in registers will be seen by the garbage collector.
-	getcontext(&g->gcregs);
 
 	g->status = Gsyscall;
 

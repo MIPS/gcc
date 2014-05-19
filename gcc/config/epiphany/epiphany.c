@@ -145,6 +145,27 @@ static rtx frame_insn (rtx);
   hook_bool_const_tree_hwi_hwi_const_tree_true
 #define TARGET_ASM_OUTPUT_MI_THUNK epiphany_output_mi_thunk
 
+/* ??? we can use larger offsets for wider-mode sized accesses, but there
+   is no concept of anchors being dependent on the modes that they are used
+   for, so we can only use an offset range that would suit all modes.  */
+#define TARGET_MAX_ANCHOR_OFFSET (optimize_size ? 31 : 2047)
+/* We further restrict the minimum to be a multiple of eight.  */
+#define TARGET_MIN_ANCHOR_OFFSET (optimize_size ? 0 : -2040)
+
+/* Mode switching hooks.  */
+
+#define TARGET_MODE_EMIT emit_set_fp_mode
+
+#define TARGET_MODE_NEEDED epiphany_mode_needed
+
+#define TARGET_MODE_PRIORITY epiphany_mode_priority
+
+#define TARGET_MODE_ENTRY epiphany_mode_entry
+
+#define TARGET_MODE_EXIT epiphany_mode_exit
+
+#define TARGET_MODE_AFTER epiphany_mode_after
+
 #include "target-def.h"
 
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -443,15 +464,28 @@ static const struct attribute_spec epiphany_attribute_table[] =
 /* Handle an "interrupt" attribute; arguments as in
    struct attribute_spec.handler.  */
 static tree
-epiphany_handle_interrupt_attribute (tree *node ATTRIBUTE_UNUSED,
-				     tree name, tree args,
+epiphany_handle_interrupt_attribute (tree *node, tree name, tree args,
 				     int flags ATTRIBUTE_UNUSED,
 				     bool *no_add_attrs)
 {
   tree value;
 
   if (!args)
-    return NULL_TREE;
+    {
+      gcc_assert (DECL_P (*node));
+      tree t = TREE_TYPE (*node);
+      if (TREE_CODE (t) != FUNCTION_TYPE)
+	warning (OPT_Wattributes, "%qE attribute only applies to functions",
+		 name);
+      /* Argument handling and the stack layout for interrupt handlers
+	 don't mix.  It makes no sense in the first place, so emit an
+	 error for this.  */
+      else if (TYPE_ARG_TYPES (t)
+	       && TREE_VALUE (TYPE_ARG_TYPES (t)) != void_type_node)
+	error_at (DECL_SOURCE_LOCATION (*node),
+		  "interrupt handlers cannot have arguments");
+      return NULL_TREE;
+    }
 
   value = TREE_VALUE (args);
 
@@ -763,6 +797,28 @@ epiphany_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
       *total = COSTS_N_INSNS (1);
       return true;
 
+    case COMPARE:
+      switch (GET_MODE (x))
+	{
+	/* There are a number of single-insn combiner patterns that use
+	   the flag side effects of arithmetic.  */
+	case CC_N_NEmode:
+	case CC_C_LTUmode:
+	case CC_C_GTUmode:
+	  return true;
+	default:
+	  return false;
+	}
+
+	
+    case SET:
+      {
+	rtx src = SET_SRC (x);
+	if (BINARY_P (src))
+	  *total = 0;
+	return false;
+      }
+
     default:
       return false;
     }
@@ -926,7 +982,7 @@ epiphany_init_machine_status (void)
   /* Reset state info for each function.  */
   current_frame_info = zero_frame_info;
 
-  machine = ggc_alloc_cleared_machine_function_t ();
+  machine = ggc_cleared_alloc<machine_function_t> ();
 
   return machine;
 }
@@ -2003,7 +2059,7 @@ epiphany_legitimate_address_p (enum machine_mode mode, rtx x, bool strict)
       && LEGITIMATE_OFFSET_ADDRESS_P (mode, XEXP ((x), 1)))
     return true;
   if (mode == BLKmode)
-    return true;
+    return epiphany_legitimate_address_p (SImode, x, strict);
   return false;
 }
 
@@ -2277,8 +2333,8 @@ epiphany_optimize_mode_switching (int entity)
   gcc_unreachable ();
 }
 
-int
-epiphany_mode_priority_to_mode (int entity, unsigned priority)
+static int
+epiphany_mode_priority (int entity, int priority)
 {
   if (entity == EPIPHANY_MSW_ENTITY_AND || entity == EPIPHANY_MSW_ENTITY_OR
       || entity== EPIPHANY_MSW_ENTITY_CONFIG)
@@ -2386,7 +2442,7 @@ epiphany_mode_needed (int entity, rtx insn)
   }
 }
 
-int
+static int
 epiphany_mode_entry_exit (int entity, bool exit)
 {
   int normal_mode = epiphany_normal_fp_mode ;
@@ -2471,6 +2527,18 @@ epiphany_mode_after (int entity, int last_mode, rtx insn)
       return fp_mode;
     }
   return last_mode;
+}
+
+static int
+epiphany_mode_entry (int entity)
+{
+  return epiphany_mode_entry_exit (entity, false);
+}
+
+static int
+epiphany_mode_exit (int entity)
+{
+  return epiphany_mode_entry_exit (entity, true);
 }
 
 void

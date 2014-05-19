@@ -231,6 +231,7 @@ mark_stmt_if_obviously_necessary (gimple stmt, bool aggressive)
 	  switch (DECL_FUNCTION_CODE (callee))
 	    {
 	    case BUILT_IN_MALLOC:
+	    case BUILT_IN_ALIGNED_ALLOC:
 	    case BUILT_IN_CALLOC:
 	    case BUILT_IN_ALLOCA:
 	    case BUILT_IN_ALLOCA_WITH_ALIGN:
@@ -575,6 +576,7 @@ mark_all_reaching_defs_necessary_1 (ao_ref *ref ATTRIBUTE_UNUSED,
 	switch (DECL_FUNCTION_CODE (callee))
 	  {
 	  case BUILT_IN_MALLOC:
+	  case BUILT_IN_ALIGNED_ALLOC:
 	  case BUILT_IN_CALLOC:
 	  case BUILT_IN_ALLOCA:
 	  case BUILT_IN_ALLOCA_WITH_ALIGN:
@@ -778,7 +780,8 @@ propagate_necessity (bool aggressive)
 		  && is_gimple_call (def_stmt = SSA_NAME_DEF_STMT (ptr))
 		  && (def_callee = gimple_call_fndecl (def_stmt))
 		  && DECL_BUILT_IN_CLASS (def_callee) == BUILT_IN_NORMAL
-		  && (DECL_FUNCTION_CODE (def_callee) == BUILT_IN_MALLOC
+		  && (DECL_FUNCTION_CODE (def_callee) == BUILT_IN_ALIGNED_ALLOC
+		      || DECL_FUNCTION_CODE (def_callee) == BUILT_IN_MALLOC
 		      || DECL_FUNCTION_CODE (def_callee) == BUILT_IN_CALLOC))
 		continue;
 	    }
@@ -824,6 +827,7 @@ propagate_necessity (bool aggressive)
 		  && (DECL_FUNCTION_CODE (callee) == BUILT_IN_MEMSET
 		      || DECL_FUNCTION_CODE (callee) == BUILT_IN_MEMSET_CHK
 		      || DECL_FUNCTION_CODE (callee) == BUILT_IN_MALLOC
+		      || DECL_FUNCTION_CODE (callee) == BUILT_IN_ALIGNED_ALLOC
 		      || DECL_FUNCTION_CODE (callee) == BUILT_IN_CALLOC
 		      || DECL_FUNCTION_CODE (callee) == BUILT_IN_FREE
 		      || DECL_FUNCTION_CODE (callee) == BUILT_IN_VA_END
@@ -1231,7 +1235,8 @@ eliminate_unnecessary_stmts (void)
 		     special logic we apply to malloc/free pair removal.  */
 		  && (!(call = gimple_call_fndecl (stmt))
 		      || DECL_BUILT_IN_CLASS (call) != BUILT_IN_NORMAL
-		      || (DECL_FUNCTION_CODE (call) != BUILT_IN_MALLOC
+		      || (DECL_FUNCTION_CODE (call) != BUILT_IN_ALIGNED_ALLOC
+			  && DECL_FUNCTION_CODE (call) != BUILT_IN_MALLOC
 			  && DECL_FUNCTION_CODE (call) != BUILT_IN_CALLOC
 			  && DECL_FUNCTION_CODE (call) != BUILT_IN_ALLOCA
 			  && (DECL_FUNCTION_CODE (call)
@@ -1506,12 +1511,6 @@ tree_ssa_cd_dce (void)
   return perform_tree_ssa_dce (/*aggressive=*/optimize >= 2);
 }
 
-static bool
-gate_dce (void)
-{
-  return flag_tree_dce != 0;
-}
-
 namespace {
 
 const pass_data pass_data_dce =
@@ -1519,14 +1518,13 @@ const pass_data pass_data_dce =
   GIMPLE_PASS, /* type */
   "dce", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
   true, /* has_execute */
   TV_TREE_DCE, /* tv_id */
   ( PROP_cfg | PROP_ssa ), /* properties_required */
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  TODO_verify_ssa, /* todo_flags_finish */
+  0, /* todo_flags_finish */
 };
 
 class pass_dce : public gimple_opt_pass
@@ -1538,8 +1536,8 @@ public:
 
   /* opt_pass methods: */
   opt_pass * clone () { return new pass_dce (m_ctxt); }
-  bool gate () { return gate_dce (); }
-  unsigned int execute () { return tree_ssa_dce (); }
+  virtual bool gate (function *) { return flag_tree_dce != 0; }
+  virtual unsigned int execute (function *) { return tree_ssa_dce (); }
 
 }; // class pass_dce
 
@@ -1558,14 +1556,13 @@ const pass_data pass_data_dce_loop =
   GIMPLE_PASS, /* type */
   "dceloop", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
   true, /* has_execute */
   TV_TREE_DCE, /* tv_id */
   ( PROP_cfg | PROP_ssa ), /* properties_required */
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  TODO_verify_ssa, /* todo_flags_finish */
+  0, /* todo_flags_finish */
 };
 
 class pass_dce_loop : public gimple_opt_pass
@@ -1577,8 +1574,8 @@ public:
 
   /* opt_pass methods: */
   opt_pass * clone () { return new pass_dce_loop (m_ctxt); }
-  bool gate () { return gate_dce (); }
-  unsigned int execute () { return tree_ssa_dce_loop (); }
+  virtual bool gate (function *) { return flag_tree_dce != 0; }
+  virtual unsigned int execute (function *) { return tree_ssa_dce_loop (); }
 
 }; // class pass_dce_loop
 
@@ -1597,14 +1594,13 @@ const pass_data pass_data_cd_dce =
   GIMPLE_PASS, /* type */
   "cddce", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
   true, /* has_execute */
   TV_TREE_CD_DCE, /* tv_id */
   ( PROP_cfg | PROP_ssa ), /* properties_required */
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  ( TODO_verify_ssa | TODO_verify_flow ), /* todo_flags_finish */
+  0, /* todo_flags_finish */
 };
 
 class pass_cd_dce : public gimple_opt_pass
@@ -1616,8 +1612,8 @@ public:
 
   /* opt_pass methods: */
   opt_pass * clone () { return new pass_cd_dce (m_ctxt); }
-  bool gate () { return gate_dce (); }
-  unsigned int execute () { return tree_ssa_cd_dce (); }
+  virtual bool gate (function *) { return flag_tree_dce != 0; }
+  virtual unsigned int execute (function *) { return tree_ssa_cd_dce (); }
 
 }; // class pass_cd_dce
 
