@@ -769,7 +769,8 @@ struct mips_cpu_info {
 #define BASE_DRIVER_SELF_SPECS \
   "%{!mno-dsp: \
      %{march=24ke*|march=34kc*|march=34kf*|march=34kx*|march=1004k*: -mdsp} \
-     %{march=74k*|march=m14ke*: %{!mno-dspr2: -mdspr2 -mdsp}}}"
+     %{march=74k*|march=m14ke*: %{!mno-dspr2: -mdspr2 -mdsp}}}		    \
+  %{!no-modd-spreg:%{march=mips32*|march=mips64*: -no-modd-spreg}}"
 
 #define DRIVER_SELF_SPECS BASE_DRIVER_SELF_SPECS
 
