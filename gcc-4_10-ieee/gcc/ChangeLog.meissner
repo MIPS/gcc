@@ -1,3 +1,14 @@
+2014-05-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal):
+	-mfloat128 now requires -mvsx.
+	(rs6000_init_builtins): Initialize __float128 type if -mfloat128,
+	initialize __ibm128 type if long double size is 128.
+	(init_float128_ieee): Change the naming of the IEEE 128-bit
+	functions to be *xf* instead *tf*_{vector,fpr}.  Drop the support
+	for __float128 on non VSX systems.
+	(rs6000_opt_masks): Allow -mfloat128 to be set via #pragma target.
+
 2014-05-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (rs6000_option_override_internal):

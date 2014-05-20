@@ -1,3 +1,17 @@
+2014-05-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/float128-vsx.h: Change all mappings to <xf>
+	instead of <tf>.
+
+	* config/rs6000/float128-novsx.h: Delete, no longer used.
+
+	* config/rs6000/libgcc-glibc.ver: Add __float128 support functions
+	as requiring a GCC_4.10.0 tag.
+
+	* config/rs6000/t-float128: Drop support for building the non-VSX
+	version of __float128.  Switch to using <xf> instead of <tf> in
+	the names.
+
 2014-05-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 209991.
