@@ -546,6 +546,30 @@ write_gimple (FILE *f, vec<simplify *>& simplifiers)
 
 /* libccp helpers.  */
 
+static struct line_maps *line_table;
+
+static bool
+error_cb (cpp_reader *, int, int, source_location location,
+	  unsigned int, const char *msg, va_list *ap)
+{
+  const line_map *map;
+  linemap_resolve_location (line_table, location, LRK_SPELLING_LOCATION, &map);
+  expanded_location loc = linemap_expand_location (line_table, map, location);
+  fprintf (stderr, "%s:%d:%d error: ", loc.file, loc.line, loc.column);
+  vfprintf (stderr, msg, *ap);
+  fprintf (stderr, "\n");
+  exit (1);
+}
+
+static void
+fatal_at (const cpp_token *tk, const char *msg, ...)
+{
+  va_list ap;
+  va_start (ap, msg);
+  error_cb (NULL, CPP_DL_FATAL, 0, tk->src_loc, 0, msg, &ap);
+  va_end (ap);
+}
+
 
 /* Read the next non-whitespace token from R.  */
 
@@ -585,8 +609,8 @@ expect (cpp_reader *r, enum cpp_ttype tk)
 {
   const cpp_token *token = next (r);
   if (token->type != tk)
-    fatal ("error: expected %s, got %s",
-	   cpp_type2name (tk, 0), cpp_type2name (token->type, 0));
+    fatal_at (token, "expected %s, got %s",
+	      cpp_type2name (tk, 0), cpp_type2name (token->type, 0));
 
   return token;
 }
@@ -660,7 +684,7 @@ parse_expr (cpp_reader *r)
     op = parse_capture (r, e);
   else if (token->type == CPP_COLON
 	   && !(token->flags & PREV_WHITE))
-    fatal ("not implemented: predicates on expressions");
+    fatal_at (token, "not implemented: predicates on expressions");
   else
     op = e;
   do
@@ -672,8 +696,8 @@ parse_expr (cpp_reader *r)
 	    {
 	      operator_id *opr = static_cast <operator_id *> (e->operation->op);
 	      if (e->ops.length () != opr->get_required_nargs ())
-		fatal ("got %d operands instead of the required %d",
-		       e->ops.length (), opr->get_required_nargs ());
+		fatal_at (token, "got %d operands instead of the required %d",
+			  e->ops.length (), opr->get_required_nargs ());
 	    }
 	  return op;
 	}
@@ -789,10 +813,10 @@ parse_op (cpp_reader *r)
 	}
       else if (token->type != CPP_COLON
 	       && token->type != CPP_ATSIGN)
-	fatal ("expected expression or predicate");
+	fatal_at (token, "expected expression or predicate");
       /* optionally followed by a capture and a predicate.  */
       if (token->type == CPP_COLON)
-	fatal ("not implemented: predicate on leaf operand");
+	fatal_at (token, "not implemented: predicate on leaf operand");
       if (token->type == CPP_ATSIGN)
 	op = parse_capture (r, op);
     }
@@ -818,7 +842,10 @@ parse_match_and_simplify (cpp_reader *r)
       asprintf (&tem, "anon_%d", ++cnt);
       id = tem;
     }
+  const cpp_token *loc = peek (r);
   struct operand *match = parse_op (r);
+  if (match->type != operand::OP_EXPR)
+    fatal_at (loc, "expected uncaptured expression");
   token = peek (r);
   /* Conditional if (....)  */
   struct operand *ifexpr = NULL;
@@ -826,11 +853,9 @@ parse_match_and_simplify (cpp_reader *r)
     {
       const char *tem = get_ident (r);
       if (strcmp (tem, "if") != 0)
-	fatal ("expected 'if' or expression");
+	fatal_at (token, "expected 'if' or expression");
       ifexpr = parse_c_expr (r, CPP_OPEN_PAREN);
     }
-  if (match->type != operand::OP_EXPR)
-    fatal ("expected uncaptured expression");
   return new simplify (id, match, ifexpr, parse_op (r));
 }
 
@@ -846,7 +871,6 @@ main(int argc, char **argv)
 {
   cpp_reader *r;
   const cpp_token *token;
-  struct line_maps *line_table;
 
   progname = "genmatch";
 
@@ -859,6 +883,8 @@ main(int argc, char **argv)
   line_table->round_alloc_size = round_alloc_size;
 
   r = cpp_create_reader (CLK_GNUC99, NULL, line_table);
+  cpp_callbacks *cb = cpp_get_callbacks (r);
+  cb->error = error_cb;
 
   if (!cpp_read_main_file (r, argv[1]))
     return 1;
@@ -895,7 +921,7 @@ main(int argc, char **argv)
       if (strcmp (id, "match_and_simplify") == 0)
 	simplifiers.safe_push (parse_match_and_simplify (r));
       else
-	fatal ("expected 'match_and_simplify'");
+	fatal_at (token, "expected 'match_and_simplify'");
 
       eat_token (r, CPP_CLOSE_PAREN);
     }
