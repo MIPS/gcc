@@ -1,3 +1,10 @@
+2014-05-20  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (parse_match_and_simplify): Reject outermost
+	expressions that are captured or not expressions.
+	* match.pd: Rewrite negate contracting patterns to avoid
+	capturing the outermost expression.
+
 2014-05-15  Richard Biener  <rguenther@suse.de>
 
 	* gimple-fold.c (fold_stmt_1): Dispatch to

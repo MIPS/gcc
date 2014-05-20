@@ -26,22 +26,18 @@ along with GCC; see the file COPYING3.  If not see
 /* ???  Have match_and_simplify groups guarded with common
    predicates on the outermost type?  */
 
-/* Contract negates.
-   ???  !TYPE_SATURATING condition missing.  */
+/* Contract negates.  */
 (match_and_simplify
-  (PLUS_EXPR @0 (NEGATE_EXPR @1))
-  /* Ugh, free form mixed in ... ;)  Want (if ...) instead?  */
-  if (!TYPE_SATURATING (TREE_TYPE (@0)))
-  (MINUS_EXPR @0 @1))
+  (plus @0 (negate @1))
+  if (!TYPE_SATURATING (type))
+  (minus @0 @1))
 (match_and_simplify
-  /* ???  Allow (MINUS:!TYPE_SATURATING @0 (NEGATE @1)), thus
-     type predicates on operands?  Thus also :INTEGRAL_TYPE_P
-     or @0:INTEGRAL_TYPE_P?  */
-  (MINUS @0 (NEGATE @1))
-  (PLUS @0 @1))
+  (minus @0 (negate @1))
+  if (!TYPE_SATURATING (type))
+  (plus @0 @1))
 (match_and_simplify
-  (plus@2 (negate @0) @1)
-  if (!TYPE_SATURATING (TREE_TYPE (@2)))
+  (plus (negate @0) @1)
+  if (!TYPE_SATURATING (type))
   (minus @1 @0))
 
 /* Change to even more free-form like

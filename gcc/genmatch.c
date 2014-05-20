@@ -829,6 +829,8 @@ parse_match_and_simplify (cpp_reader *r)
 	fatal ("expected 'if' or expression");
       ifexpr = parse_c_expr (r, CPP_OPEN_PAREN);
     }
+  if (match->type != operand::OP_EXPR)
+    fatal ("expected uncaptured expression");
   return new simplify (id, match, ifexpr, parse_op (r));
 }
 
