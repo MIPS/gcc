@@ -198,7 +198,7 @@ insert_new_cgraph_node_version (struct cgraph_node *node)
   void **slot;
   
   version_info_node = NULL;
-  version_info_node = ggc_alloc_cleared_cgraph_function_version_info ();
+  version_info_node = ggc_cleared_alloc<cgraph_function_version_info> ();
   version_info_node->this_node = node;
 
   if (cgraph_fnver_htab == NULL)
@@ -507,7 +507,7 @@ cgraph_allocate_node (void)
     }
   else
     {
-      node = ggc_alloc_cleared_cgraph_node ();
+      node = ggc_cleared_alloc<cgraph_node> ();
       node->uid = cgraph_max_uid++;
     }
 
@@ -650,8 +650,7 @@ cgraph_add_thunk (struct cgraph_node *decl_node ATTRIBUTE_UNUSED,
   
   node = cgraph_create_node (alias);
   gcc_checking_assert (!virtual_offset
-		       || tree_to_double_int (virtual_offset) ==
-			     double_int::from_shwi (virtual_value));
+		       || wi::eq_p (virtual_offset, virtual_value));
   node->thunk.fixed_offset = fixed_offset;
   node->thunk.this_adjusting = this_adjusting;
   node->thunk.virtual_value = virtual_value;
@@ -674,7 +673,7 @@ cgraph_node_for_asm (tree asmname)
        node;
        node = node->next_sharing_asm_name)
     {
-      cgraph_node *cn = dyn_cast <cgraph_node> (node);
+      cgraph_node *cn = dyn_cast <cgraph_node *> (node);
       if (cn && !cn->global.inlined_to)
 	return cn;
     }
@@ -866,7 +865,7 @@ cgraph_create_edge_1 (struct cgraph_node *caller, struct cgraph_node *callee,
     }
   else
     {
-      edge = ggc_alloc_cgraph_edge ();
+      edge = ggc_alloc<struct cgraph_edge> ();
       edge->uid = cgraph_edge_max_uid++;
     }
 
@@ -938,7 +937,7 @@ cgraph_allocate_init_indirect_info (void)
 {
   struct cgraph_indirect_call_info *ii;
 
-  ii = ggc_alloc_cleared_cgraph_indirect_call_info ();
+  ii = ggc_cleared_alloc<cgraph_indirect_call_info> ();
   ii->param_index = -1;
   return ii;
 }
@@ -1696,8 +1695,8 @@ release_function_body (tree decl)
 	}
       if (cfun->cfg)
 	{
-	  gcc_assert (dom_computed[0] == DOM_NONE);
-	  gcc_assert (dom_computed[1] == DOM_NONE);
+	  gcc_assert (!dom_info_available_p (CDI_DOMINATORS));
+	  gcc_assert (!dom_info_available_p (CDI_POST_DOMINATORS));
 	  clear_edges ();
 	  cfun->cfg = NULL;
 	}

@@ -1299,7 +1299,7 @@ recompute_todo_spec (rtx next, bool for_backtrack)
 	  {
 	    HARD_REG_SET t;
 
-	    find_all_hard_reg_sets (prev, &t);
+	    find_all_hard_reg_sets (prev, &t, true);
 	    if (TEST_HARD_REG_BIT (t, regno))
 	      return HARD_DEP;
 	    if (prev == pro)
@@ -3082,7 +3082,7 @@ check_clobbered_conditions (rtx insn)
   if ((current_sched_info->flags & DO_PREDICATION) == 0)
     return;
 
-  find_all_hard_reg_sets (insn, &t);
+  find_all_hard_reg_sets (insn, &t, true);
 
  restart:
   for (i = 0; i < ready.n_ready; i++)
@@ -7653,7 +7653,7 @@ sched_create_recovery_edges (basic_block first_bb, basic_block rec,
 	{
 	  /* We don't need the same note for the check because
 	     any_condjump_p (check) == true.  */
-	  add_reg_note (jump, REG_CROSSING_JUMP, NULL_RTX);
+	  CROSSING_JUMP_P (jump) = 1;
 	}
       edge_flags = EDGE_CROSSING;
     }

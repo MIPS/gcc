@@ -646,7 +646,7 @@ enqueue_op (hsa_op_base *op)
   if (op->offset)
     return op->offset;
 
-  if (hsa_op_reg *reg = dyn_cast <hsa_op_reg> (op))
+  if (hsa_op_reg *reg = dyn_cast <hsa_op_reg *> (op))
     {
       unsigned *cache;
       if (reg->reg_class == 'c')
@@ -677,7 +677,7 @@ enqueue_op (hsa_op_base *op)
     op_queue.last_op->next = op;
   op_queue.last_op = op;
 
-  if (hsa_op_immed *imm = dyn_cast <hsa_op_immed> (op))
+  if (hsa_op_immed *imm = dyn_cast <hsa_op_immed *> (op))
     {
       unsigned len = 8;
       switch (imm->type)
@@ -719,11 +719,11 @@ enqueue_op (hsa_op_base *op)
 	}
       op_queue.projected_size += ((len + 3) / 4) * 4;
     }
-  else if (is_a <hsa_op_reg> (op))
+  else if (is_a <hsa_op_reg *> (op))
     op_queue.projected_size += sizeof (struct BrigOperandReg);
-  else if (is_a <hsa_op_address> (op))
+  else if (is_a <hsa_op_address *> (op))
     op_queue.projected_size += sizeof (struct BrigOperandAddress);
-  else if (is_a <hsa_op_label> (op))
+  else if (is_a <hsa_op_label *> (op))
     op_queue.projected_size += sizeof (struct BrigOperandRef);
   else
     gcc_unreachable ();
@@ -937,13 +937,13 @@ emit_queued_operands (void)
   for (hsa_op_base *op = op_queue.first_op; op; op = op->next)
     {
       gcc_assert (op->offset == brig_operand.total_size);
-      if (hsa_op_immed *imm = dyn_cast <hsa_op_immed> (op))
+      if (hsa_op_immed *imm = dyn_cast <hsa_op_immed *> (op))
 	emit_immediate_operand (imm);
-      else if (hsa_op_reg *reg = dyn_cast <hsa_op_reg> (op))
+      else if (hsa_op_reg *reg = dyn_cast <hsa_op_reg *> (op))
 	emit_register_operand (reg);
-      else if (hsa_op_address *addr = dyn_cast <hsa_op_address> (op))
+      else if (hsa_op_address *addr = dyn_cast <hsa_op_address *> (op))
 	emit_address_operand (addr);
-      else if (hsa_op_label *lbl = dyn_cast <hsa_op_label> (op))
+      else if (hsa_op_label *lbl = dyn_cast <hsa_op_label *> (op))
 	emit_label_operand (lbl);
       else
 	gcc_unreachable ();
@@ -957,7 +957,7 @@ static void
 emit_memory_insn (hsa_insn_mem *mem)
 {
   struct BrigInstMem repr;
-  hsa_op_address *addr = as_a <hsa_op_address> (mem->operands[1]);
+  hsa_op_address *addr = as_a <hsa_op_address *> (mem->operands[1]);
 
   /* This is necessary because of the errorneous typedef of
      BrigMemoryModifier8_t which introduces padding which may then contain
@@ -994,7 +994,7 @@ static void
 emit_atomic_insn (hsa_insn_atomic *mem)
 {
   struct BrigInstAtomic repr;
-  hsa_op_address *addr = as_a <hsa_op_address> (mem->operands[1]);
+  hsa_op_address *addr = as_a <hsa_op_address *> (mem->operands[1]);
 
   /* This is necessary because of the errorneous typedef of
      BrigMemoryModifier8_t which introduces padding which may then contain
@@ -1027,7 +1027,7 @@ static void
 emit_addr_insn (hsa_insn_addr *insn)
 {
   struct BrigInstAddr repr;
-  hsa_op_address *addr = as_a <hsa_op_address> (insn->operands[1]);
+  hsa_op_address *addr = as_a <hsa_op_address *> (insn->operands[1]);
 
   repr.size = htole16 (sizeof (repr));
   repr.kind = htole16 (BRIG_INST_ADDR);
@@ -1088,10 +1088,10 @@ emit_cmp_insn (hsa_insn_cmp *cmp)
   repr.operands[2] = htole32 (enqueue_op (cmp->operands[2]));
   repr.operands[3] = 0;
   repr.operands[4] = 0;
-  if (is_a <hsa_op_reg> (cmp->operands[1]))
-    repr.sourceType = htole16 (as_a <hsa_op_reg> (cmp->operands[1])->type);
+  if (is_a <hsa_op_reg *> (cmp->operands[1]))
+    repr.sourceType = htole16 (as_a <hsa_op_reg *> (cmp->operands[1])->type);
   else
-    repr.sourceType = htole16 (as_a <hsa_op_immed> (cmp->operands[1])->type);
+    repr.sourceType = htole16 (as_a <hsa_op_immed *> (cmp->operands[1])->type);
   repr.modifier = 0;
   repr.compare = cmp->compare;
   repr.pack = 0;
@@ -1171,10 +1171,10 @@ emit_cvt_insn (hsa_insn_basic *insn)
       repr.operands[i] = htole32 (enqueue_op (insn->operands[i]));
     else
       repr.operands[i] = 0;
-  if (is_a <hsa_op_reg> (insn->operands[1]))
-    srctype = as_a <hsa_op_reg> (insn->operands[1])->type;
+  if (is_a <hsa_op_reg *> (insn->operands[1]))
+    srctype = as_a <hsa_op_reg *> (insn->operands[1])->type;
   else
-    srctype = as_a <hsa_op_immed> (insn->operands[1])->type;
+    srctype = as_a <hsa_op_immed *> (insn->operands[1])->type;
   repr.sourceType = htole16 (srctype);
 
   /* float to smaller float requires a rounding setting (we default
@@ -1258,33 +1258,33 @@ emit_basic_insn (hsa_insn_basic *insn)
 static void
 emit_insn (hsa_insn_basic *insn)
 {
-  gcc_assert (!is_a <hsa_insn_phi> (insn));
-  if (hsa_insn_atomic *atom = dyn_cast <hsa_insn_atomic> (insn))
+  gcc_assert (!is_a <hsa_insn_phi *> (insn));
+  if (hsa_insn_atomic *atom = dyn_cast <hsa_insn_atomic *> (insn))
     {
       emit_atomic_insn (atom);
       return;
     }
-  if (hsa_insn_mem *mem = dyn_cast <hsa_insn_mem> (insn))
+  if (hsa_insn_mem *mem = dyn_cast <hsa_insn_mem *> (insn))
     {
       emit_memory_insn (mem);
       return;
     }
-  if (hsa_insn_addr *addr = dyn_cast <hsa_insn_addr> (insn))
+  if (hsa_insn_addr *addr = dyn_cast <hsa_insn_addr *> (insn))
     {
       emit_addr_insn (addr);
       return;
     }
-  if (hsa_insn_seg *seg = dyn_cast <hsa_insn_seg> (insn))
+  if (hsa_insn_seg *seg = dyn_cast <hsa_insn_seg *> (insn))
     {
       emit_segment_insn (seg);
       return;
     }
-  if (hsa_insn_cmp *cmp = dyn_cast <hsa_insn_cmp> (insn))
+  if (hsa_insn_cmp *cmp = dyn_cast <hsa_insn_cmp *> (insn))
     {
       emit_cmp_insn (cmp);
       return;
     }
-  if (hsa_insn_br *br = dyn_cast <hsa_insn_br> (insn))
+  if (hsa_insn_br *br = dyn_cast <hsa_insn_br *> (insn))
     {
       emit_branch_insn (br);
       return;

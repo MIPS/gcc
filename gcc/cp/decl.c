@@ -60,6 +60,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "plugin.h"
 #include "cgraph.h"
 #include "cilk.h"
+#include "wide-int.h"
 
 /* Possible cases of bad specifiers type used by bad_specifiers. */
 enum bad_spec_place {
@@ -1167,15 +1168,18 @@ static void
 check_redeclaration_exception_specification (tree new_decl,
 					     tree old_decl)
 {
-  tree new_type;
-  tree old_type;
-  tree new_exceptions;
-  tree old_exceptions;
+  tree new_exceptions = TYPE_RAISES_EXCEPTIONS (TREE_TYPE (new_decl));
+  tree old_exceptions = TYPE_RAISES_EXCEPTIONS (TREE_TYPE (old_decl));
 
-  new_type = TREE_TYPE (new_decl);
-  new_exceptions = TYPE_RAISES_EXCEPTIONS (new_type);
-  old_type = TREE_TYPE (old_decl);
-  old_exceptions = TYPE_RAISES_EXCEPTIONS (old_type);
+  /* Two default specs are equivalent, don't force evaluation.  */
+  if (UNEVALUATED_NOEXCEPT_SPEC_P (new_exceptions)
+      && UNEVALUATED_NOEXCEPT_SPEC_P (old_exceptions))
+    return;
+
+  maybe_instantiate_noexcept (new_decl);
+  maybe_instantiate_noexcept (old_decl);
+  new_exceptions = TYPE_RAISES_EXCEPTIONS (TREE_TYPE (new_decl));
+  old_exceptions = TYPE_RAISES_EXCEPTIONS (TREE_TYPE (old_decl));
 
   /* [except.spec]
 
@@ -1915,12 +1919,12 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 
   if (types_match)
     {
+      if (TREE_CODE (newdecl) == FUNCTION_DECL)
+	check_redeclaration_exception_specification (newdecl, olddecl);
+
       /* Automatically handles default parameters.  */
       tree oldtype = TREE_TYPE (olddecl);
       tree newtype;
-
-      if (TREE_CODE (newdecl) == FUNCTION_DECL)
-	maybe_instantiate_noexcept (olddecl);
 
       /* For typedefs use the old type, as the new type's DECL_NAME points
 	 at newdecl, which will be ggc_freed.  */
@@ -1952,10 +1956,6 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	    }
 	}
 
-      /* Do this after calling `merge_types' so that default
-	 parameters don't confuse us.  */
-      else if (TREE_CODE (newdecl) == FUNCTION_DECL)
-	check_redeclaration_exception_specification (newdecl, olddecl);
       TREE_TYPE (newdecl) = TREE_TYPE (olddecl) = newtype;
 
       if (TREE_CODE (newdecl) == FUNCTION_DECL)
@@ -2700,7 +2700,7 @@ make_label_decl (tree id, int local_p)
   /* Record this label on the list of labels used in this function.
      We do this before calling make_label_decl so that we get the
      IDENTIFIER_LABEL_VALUE before the new label is declared.  */
-  ent = ggc_alloc_cleared_named_label_entry ();
+  ent = ggc_cleared_alloc<named_label_entry> ();
   ent->label_decl = decl;
 
   slot = htab_find_slot (named_labels, ent, INSERT);
@@ -2931,7 +2931,7 @@ check_goto (tree decl)
 	  && ent->uses->names_in_scope == current_binding_level->names)
 	return;
 
-      new_use = ggc_alloc_named_label_use_entry ();
+      new_use = ggc_alloc<named_label_use_entry> ();
       new_use->binding_level = current_binding_level;
       new_use->names_in_scope = current_binding_level->names;
       new_use->o_goto_locus = input_location;
@@ -3490,8 +3490,9 @@ make_unbound_class_template (tree context, tree name, tree parm_list,
 	{
 	  if (complain & tf_error)
 	    {
-	      error ("template parameters do not match template");
-	      error ("%q+D declared here", tmpl);
+	      error ("template parameters do not match template %qD", tmpl);
+	      inform (DECL_SOURCE_LOCATION (tmpl),
+		      "%qD declared here", tmpl);
 	    }
 	  return error_mark_node;
 	}
@@ -4845,7 +4846,7 @@ check_array_designated_initializer (constructor_elt *ce,
       if (TREE_CODE (ce->index) == INTEGER_CST)
 	{
 	  /* A C99 designator is OK if it matches the current index.  */
-	  if (TREE_INT_CST_LOW (ce->index) == index)
+	  if (wi::eq_p (ce->index, index))
 	    return true;
 	  else
 	    sorry ("non-trivial designated initializers not supported");
@@ -7823,6 +7824,8 @@ grokfndecl (tree ctype,
 		     decl, ctype);
 	      return NULL_TREE;
 	    }
+	  if (ok == error_mark_node)
+	    return NULL_TREE;
 	  return old_decl;
 	}
     }
@@ -8315,7 +8318,7 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
       constant_expression_error (size);
 
       /* An array must have a positive number of elements.  */
-      if (INT_CST_LT (size, integer_zero_node))
+      if (tree_int_cst_lt (size, integer_zero_node))
 	{
 	  if (!(complain & tf_error))
 	    return error_mark_node;
@@ -12676,9 +12679,9 @@ finish_enum_value_list (tree enumtype)
 	 enumeration.  We must do this before the type of MINNODE and
 	 MAXNODE are transformed, since tree_int_cst_min_precision relies
 	 on the TREE_TYPE of the value it is passed.  */
-      bool unsignedp = tree_int_cst_sgn (minnode) >= 0;
-      int lowprec = tree_int_cst_min_precision (minnode, unsignedp);
-      int highprec = tree_int_cst_min_precision (maxnode, unsignedp);
+      signop sgn = tree_int_cst_sgn (minnode) >= 0 ? UNSIGNED : SIGNED;
+      int lowprec = tree_int_cst_min_precision (minnode, sgn);
+      int highprec = tree_int_cst_min_precision (maxnode, sgn);
       int precision = MAX (lowprec, highprec);
       unsigned int itk;
       bool use_short_enum;
@@ -12710,7 +12713,7 @@ finish_enum_value_list (tree enumtype)
           underlying_type = integer_types[itk];
           if (underlying_type != NULL_TREE
 	      && TYPE_PRECISION (underlying_type) >= precision
-              && TYPE_UNSIGNED (underlying_type) == unsignedp)
+              && TYPE_SIGN (underlying_type) == sgn)
             break;
         }
       if (itk == itk_none)
@@ -12757,12 +12760,11 @@ finish_enum_value_list (tree enumtype)
 	= build_distinct_type_copy (underlying_type);
       TYPE_PRECISION (ENUM_UNDERLYING_TYPE (enumtype)) = precision;
       set_min_and_max_values_for_integral_type
-        (ENUM_UNDERLYING_TYPE (enumtype), precision, unsignedp);
+        (ENUM_UNDERLYING_TYPE (enumtype), precision, sgn);
 
       /* If -fstrict-enums, still constrain TYPE_MIN/MAX_VALUE.  */
       if (flag_strict_enums)
-	set_min_and_max_values_for_integral_type (enumtype, precision,
-						  unsignedp);
+	set_min_and_max_values_for_integral_type (enumtype, precision, sgn);
     }
   else
     underlying_type = ENUM_UNDERLYING_TYPE (enumtype);
@@ -12886,14 +12888,14 @@ build_enumerator (tree name, tree value, tree enumtype, location_t loc)
 		value = error_mark_node;
 	      else
 		{
-		  double_int di = TREE_INT_CST (prev_value)
-				  .add_with_sign (double_int_one,
-						  false, &overflowed);
+		  tree type = TREE_TYPE (prev_value);
+		  signop sgn = TYPE_SIGN (type);
+		  widest_int wi = wi::add (wi::to_widest (prev_value), 1, sgn,
+					   &overflowed);
 		  if (!overflowed)
 		    {
-		      tree type = TREE_TYPE (prev_value);
-		      bool pos = TYPE_UNSIGNED (type) || !di.is_negative ();
-		      if (!double_int_fits_to_tree_p (type, di))
+		      bool pos = !wi::neg_p (wi, sgn);
+		      if (!wi::fits_to_tree_p (wi, type))
 			{
 			  unsigned int itk;
 			  for (itk = itk_int; itk != itk_none; itk++)
@@ -12901,7 +12903,7 @@ build_enumerator (tree name, tree value, tree enumtype, location_t loc)
 			      type = integer_types[itk];
 			      if (type != NULL_TREE
 				  && (pos || !TYPE_UNSIGNED (type))
-				  && double_int_fits_to_tree_p (type, di))
+				  && wi::fits_to_tree_p (wi, type))
 				break;
 			    }
 			  if (type && cxx_dialect < cxx11
@@ -12913,7 +12915,7 @@ incremented enumerator value is too large for %<long%>");
 		      if (type == NULL_TREE)
 			overflowed = true;
 		      else
-			value = double_int_to_tree (type, di);
+			value = wide_int_to_tree (type, wi);
 		    }
 
 		  if (overflowed)
@@ -13301,7 +13303,7 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
 
   /* Initialize the language data structures.  Whenever we start
      a new function, we destroy temporaries in the usual way.  */
-  cfun->language = ggc_alloc_cleared_language_function ();
+  cfun->language = ggc_cleared_alloc<language_function> ();
   current_stmt_tree ()->stmts_are_full_exprs_p = 1;
   current_binding_level = bl;
 
@@ -13434,6 +13436,9 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
      linkage is set.  */
   if (!DECL_CLONED_FUNCTION_P (decl1))
     determine_visibility (decl1);
+
+  if (!processing_template_decl)
+    maybe_instantiate_noexcept (decl1);
 
   begin_scope (sk_function_parms, decl1);
 
@@ -13603,7 +13608,7 @@ save_function_data (tree decl)
   gcc_assert (!DECL_PENDING_INLINE_P (decl));
 
   /* Make a copy.  */
-  f = ggc_alloc_language_function ();
+  f = ggc_alloc<language_function> ();
   memcpy (f, cp_function_chain, sizeof (struct language_function));
   DECL_SAVED_FUNCTION_DATA (decl) = f;
 

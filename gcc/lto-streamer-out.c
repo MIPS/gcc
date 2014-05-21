@@ -733,8 +733,11 @@ hash_tree (struct streamer_tree_cache_d *cache, tree t)
 
   if (CODE_CONTAINS_STRUCT (code, TS_INT_CST))
     {
-      v = iterative_hash_host_wide_int (TREE_INT_CST_LOW (t), v);
-      v = iterative_hash_host_wide_int (TREE_INT_CST_HIGH (t), v);
+      int i;
+      v = iterative_hash_host_wide_int (TREE_INT_CST_NUNITS (t), v);
+      v = iterative_hash_host_wide_int (TREE_INT_CST_EXT_NUNITS (t), v);
+      for (i = 0; i < TREE_INT_CST_NUNITS (t); i++)
+	v = iterative_hash_host_wide_int (TREE_INT_CST_ELT (t, i), v);
     }
 
   if (CODE_CONTAINS_STRUCT (code, TS_REAL_CST))
@@ -1608,6 +1611,21 @@ output_ssa_names (struct output_block *ob, struct function *fn)
 }
 
 
+/* Output a wide-int.  */
+
+static void
+streamer_write_wi (struct output_block *ob,
+		   const widest_int &w)
+{
+  int len = w.get_len ();
+
+  streamer_write_uhwi (ob, w.get_precision ());
+  streamer_write_uhwi (ob, len);
+  for (int i = 0; i < len; i++)
+    streamer_write_hwi (ob, w.elt (i));
+}
+
+
 /* Output the cfg.  */
 
 static void
@@ -1680,16 +1698,10 @@ output_cfg (struct output_block *ob, struct function *fn)
 			   loop_estimation, EST_LAST, loop->estimate_state);
       streamer_write_hwi (ob, loop->any_upper_bound);
       if (loop->any_upper_bound)
-	{
-	  streamer_write_uhwi (ob, loop->nb_iterations_upper_bound.low);
-	  streamer_write_hwi (ob, loop->nb_iterations_upper_bound.high);
-	}
+	streamer_write_wi (ob, loop->nb_iterations_upper_bound);
       streamer_write_hwi (ob, loop->any_estimate);
       if (loop->any_estimate)
-	{
-	  streamer_write_uhwi (ob, loop->nb_iterations_estimate.low);
-	  streamer_write_hwi (ob, loop->nb_iterations_estimate.high);
-	}
+	streamer_write_wi (ob, loop->nb_iterations_estimate);
 
       /* Write OMP SIMD related info.  */
       streamer_write_hwi (ob, loop->safelen);
@@ -2067,7 +2079,7 @@ lto_output (void)
   for (i = 0; i < n_nodes; i++)
     {
       symtab_node *snode = lto_symtab_encoder_deref (encoder, i);
-      if (cgraph_node *node = dyn_cast <cgraph_node> (snode))
+      if (cgraph_node *node = dyn_cast <cgraph_node *> (snode))
 	{
 	  if (lto_symtab_encoder_encode_body_p (encoder, node)
 	      && !node->alias)
@@ -2087,7 +2099,7 @@ lto_output (void)
 	      lto_record_function_out_decl_state (node->decl, decl_state);
 	    }
 	}
-      else if (varpool_node *node = dyn_cast <varpool_node> (snode))
+      else if (varpool_node *node = dyn_cast <varpool_node *> (snode))
 	{
 	  /* Wrap symbol references inside the ctor in a type
 	     preserving MEM_REF.  */
@@ -2344,7 +2356,7 @@ output_symbol_p (symtab_node *node)
   /* We keep external functions in symtab for sake of inlining
      and devirtualization.  We do not want to see them in symbol table as
      references unless they are really used.  */
-  cnode = dyn_cast <cgraph_node> (node);
+  cnode = dyn_cast <cgraph_node *> (node);
   if (cnode && (!node->definition || DECL_EXTERNAL (cnode->decl))
       && cnode->callers)
     return true;
@@ -2362,7 +2374,7 @@ output_symbol_p (symtab_node *node)
 	{
 	  if (ref->use == IPA_REF_ALIAS)
 	    continue;
-          if (is_a <cgraph_node> (ref->referring))
+          if (is_a <cgraph_node *> (ref->referring))
 	    return true;
 	  if (!DECL_EXTERNAL (ref->referring->decl))
 	    return true;

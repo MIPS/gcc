@@ -479,7 +479,7 @@ record_tm_replacement (tree from, tree to)
   if (tm_wrap_map == NULL)
     tm_wrap_map = htab_create_ggc (32, tree_map_hash, tree_map_eq, 0);
 
-  h = ggc_alloc_tree_map ();
+  h = ggc_alloc<tree_map> ();
   h->hash = htab_hash_pointer (from);
   h->base.from = from;
   h->to = to;
@@ -3018,7 +3018,7 @@ const pass_data pass_data_tm_mark =
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  ( TODO_update_ssa | TODO_verify_ssa ), /* todo_flags_finish */
+  TODO_update_ssa, /* todo_flags_finish */
 };
 
 class pass_tm_mark : public gimple_opt_pass
@@ -3070,7 +3070,7 @@ split_bb_make_tm_edge (gimple stmt, basic_block dest_bb,
   struct tm_restart_node *n = (struct tm_restart_node *) *slot;
   if (n == NULL)
     {
-      n = ggc_alloc_tm_restart_node ();
+      n = ggc_alloc<tm_restart_node> ();
       *n = dummy;
     }
   else
@@ -3175,7 +3175,7 @@ const pass_data pass_data_tm_edges =
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  ( TODO_update_ssa | TODO_verify_ssa ), /* todo_flags_finish */
+  TODO_update_ssa, /* todo_flags_finish */
 };
 
 class pass_tm_edges : public gimple_opt_pass

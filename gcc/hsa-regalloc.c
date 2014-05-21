@@ -73,7 +73,7 @@ naive_outof_ssa (void)
 
     for (phi = hbb->first_phi;
 	 phi;
-	 phi = phi->next ? as_a <hsa_insn_phi> (phi->next): NULL)
+	 phi = phi->next ? as_a <hsa_insn_phi *> (phi->next): NULL)
       naive_process_phi (phi);
 
     /* Zap PHI nodes, they will be deallocated when everything else will.  */
@@ -171,10 +171,10 @@ stupid_regalloc_bb (basic_block bb, struct reg_class_desc *classes)
 
 	  if (!op)
 	    break;
-	  reg = dyn_cast <hsa_op_reg> (op);
+	  reg = dyn_cast <hsa_op_reg *> (op);
 	  if (!reg)
 	    {
-	      hsa_op_address *addr = dyn_cast <hsa_op_address> (op);
+	      hsa_op_address *addr = dyn_cast <hsa_op_address *> (op);
 	      if (addr && addr->reg)
 		{
 		  reg = addr->reg;

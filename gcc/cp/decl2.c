@@ -983,8 +983,7 @@ grokfield (const cp_declarator *declarator,
   if (attrlist)
     cplus_decl_attributes (&value, attrlist, 0);
 
-  if (init && BRACE_ENCLOSED_INITIALIZER_P (init)
-      && CONSTRUCTOR_IS_DIRECT_INIT (init))
+  if (init && DIRECT_LIST_INIT_P (init))
     flags = LOOKUP_NORMAL;
   else
     flags = LOOKUP_IMPLICIT;
@@ -1804,12 +1803,19 @@ vague_linkage_p (tree decl)
   /* Unfortunately, import_export_decl has not always been called
      before the function is processed, so we cannot simply check
      DECL_COMDAT.  */
-  return (DECL_COMDAT (decl)
-	  || (((TREE_CODE (decl) == FUNCTION_DECL
-		&& DECL_DECLARED_INLINE_P (decl))
-	       || (DECL_LANG_SPECIFIC (decl)
-		   && DECL_TEMPLATE_INSTANTIATION (decl)))
-	      && TREE_PUBLIC (decl)));
+  if (DECL_COMDAT (decl)
+      || (((TREE_CODE (decl) == FUNCTION_DECL
+	    && DECL_DECLARED_INLINE_P (decl))
+	   || (DECL_LANG_SPECIFIC (decl)
+	       && DECL_TEMPLATE_INSTANTIATION (decl)))
+	  && TREE_PUBLIC (decl)))
+    return true;
+  else if (DECL_FUNCTION_SCOPE_P (decl))
+    /* A local static in an inline effectively has vague linkage.  */
+    return (TREE_STATIC (decl)
+	    && vague_linkage_p (DECL_CONTEXT (decl)));
+  else
+    return false;
 }
 
 /* Determine whether or not we want to specifically import or export CTYPE,
@@ -4806,6 +4812,9 @@ mark_used (tree decl, tsubst_flags_t complain)
   if (TREE_CODE (decl) == CONST_DECL)
     used_types_insert (DECL_CONTEXT (decl));
 
+  if (TREE_CODE (decl) == FUNCTION_DECL)
+    maybe_instantiate_noexcept (decl);
+
   if (TREE_CODE (decl) == FUNCTION_DECL
       && DECL_DELETED_FN (decl))
     {
@@ -4859,9 +4868,6 @@ mark_used (tree decl, tsubst_flags_t complain)
       vec_safe_push (deferred_mark_used_calls, decl);
       return true;
     }
-
-  if (TREE_CODE (decl) == FUNCTION_DECL)
-    maybe_instantiate_noexcept (decl);
 
   /* Normally, we can wait until instantiation-time to synthesize DECL.
      However, if DECL is a static data member initialized with a constant

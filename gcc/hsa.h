@@ -96,7 +96,7 @@ struct hsa_op_immed : public hsa_op_base
 template <>
 template <>
 inline bool
-is_a_helper <hsa_op_immed>::test (struct hsa_op_base *p)
+is_a_helper <hsa_op_immed *>::test (struct hsa_op_base *p)
 {
   return p->kind == BRIG_OPERAND_IMMED;
 }
@@ -138,7 +138,7 @@ typedef struct hsa_op_reg *hsa_op_reg_p;
 template <>
 template <>
 inline bool
-is_a_helper <hsa_op_reg>::test (struct hsa_op_base *p)
+is_a_helper <hsa_op_reg *>::test (struct hsa_op_base *p)
 {
   return p->kind == BRIG_OPERAND_REG;
 }
@@ -162,7 +162,7 @@ struct hsa_op_address : public hsa_op_base
 template <>
 template <>
 inline bool
-is_a_helper <hsa_op_address>::test (struct hsa_op_base *p)
+is_a_helper <hsa_op_address *>::test (struct hsa_op_base *p)
 {
   return p->kind == BRIG_OPERAND_ADDRESS;
 }
@@ -181,7 +181,7 @@ struct hsa_op_label : public hsa_op_base
 template <>
 template <>
 inline bool
-is_a_helper <hsa_op_label>::test (struct hsa_op_base *p)
+is_a_helper <hsa_op_label *>::test (struct hsa_op_base *p)
 {
   return p->kind == BRIG_OPERAND_LABEL_REF;
 }
@@ -231,7 +231,7 @@ struct hsa_insn_phi : public hsa_insn_basic
 template <>
 template <>
 inline bool
-is_a_helper <hsa_insn_phi>::test (struct hsa_insn_basic *p)
+is_a_helper <hsa_insn_phi *>::test (struct hsa_insn_basic *p)
 {
   return p->opcode == HSA_OPCODE_PHI;
 }
@@ -252,7 +252,7 @@ struct hsa_insn_br : public hsa_insn_basic
 template <>
 template <>
 inline bool
-is_a_helper <hsa_insn_br>::test (struct hsa_insn_basic *p)
+is_a_helper <hsa_insn_br *>::test (struct hsa_insn_basic *p)
 {
   return p->opcode == BRIG_OPCODE_BRN
     || p->opcode == BRIG_OPCODE_CBR;
@@ -275,7 +275,7 @@ struct hsa_insn_cmp : public hsa_insn_basic
 template <>
 template <>
 inline bool
-is_a_helper <hsa_insn_cmp>::test (struct hsa_insn_basic *p)
+is_a_helper <hsa_insn_cmp *>::test (struct hsa_insn_basic *p)
 {
   return p->opcode == BRIG_OPCODE_CMP;
 }
@@ -301,7 +301,7 @@ struct hsa_insn_mem : public hsa_insn_basic
 template <>
 template <>
 inline bool
-is_a_helper <hsa_insn_mem>::test (struct hsa_insn_basic *p)
+is_a_helper <hsa_insn_mem *>::test (struct hsa_insn_basic *p)
 {
   return (p->opcode == BRIG_OPCODE_LD
 	  || p->opcode == BRIG_OPCODE_ST);
@@ -320,7 +320,7 @@ struct hsa_insn_atomic : public hsa_insn_mem
 template <>
 template <>
 inline bool
-is_a_helper <hsa_insn_atomic>::test (struct hsa_insn_basic *p)
+is_a_helper <hsa_insn_atomic *>::test (struct hsa_insn_basic *p)
 {
   return (p->opcode == BRIG_OPCODE_ATOMIC
 	  || p->opcode == BRIG_OPCODE_ATOMICNORET);
@@ -340,7 +340,7 @@ struct hsa_insn_addr : public hsa_insn_basic
 template <>
 template <>
 inline bool
-is_a_helper <hsa_insn_addr>::test (struct hsa_insn_basic *p)
+is_a_helper <hsa_insn_addr *>::test (struct hsa_insn_basic *p)
 {
   return (p->opcode == BRIG_OPCODE_LDA);
 }
@@ -360,7 +360,7 @@ struct hsa_insn_seg : hsa_insn_basic
 template <>
 template <>
 inline bool
-is_a_helper <hsa_insn_seg>::test (struct hsa_insn_basic *p)
+is_a_helper <hsa_insn_seg *>::test (struct hsa_insn_basic *p)
 {
   return (p->opcode == BRIG_OPCODE_STOF
 	  || p->opcode == BRIG_OPCODE_FTOS);

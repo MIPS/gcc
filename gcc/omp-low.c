@@ -1730,6 +1730,9 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION
 	      && OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
 	    scan_array_reductions = true;
+	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LINEAR
+		   && OMP_CLAUSE_LINEAR_GIMPLE_SEQ (c))
+	    scan_array_reductions = true;
 	  break;
 
 	case OMP_CLAUSE_SHARED:
@@ -1816,6 +1819,9 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
       else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LASTPRIVATE
 	       && OMP_CLAUSE_LASTPRIVATE_GIMPLE_SEQ (c))
 	scan_omp (&OMP_CLAUSE_LASTPRIVATE_GIMPLE_SEQ (c), ctx);
+      else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LINEAR
+	       && OMP_CLAUSE_LINEAR_GIMPLE_SEQ (c))
+	scan_omp (&OMP_CLAUSE_LINEAR_GIMPLE_SEQ (c), ctx);
 }
 
 /* Create a new name for omp child function.  Returns an identifier.  */
@@ -2540,9 +2546,7 @@ scan_omp_1_op (tree *tp, int *walk_subtrees, void *data)
 	      if (tem != TREE_TYPE (t))
 		{
 		  if (TREE_CODE (t) == INTEGER_CST)
-		    *tp = build_int_cst_wide (tem,
-					      TREE_INT_CST_LOW (t),
-					      TREE_INT_CST_HIGH (t));
+		    *tp = wide_int_to_tree (tem, t);
 		  else
 		    TREE_TYPE (t) = tem;
 		}
@@ -3406,8 +3410,8 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 			    = gimple_build_assign (unshare_expr (lvar), iv);
 			  gsi_insert_before_without_update (&gsi, g,
 							    GSI_SAME_STMT);
-			  tree stept = POINTER_TYPE_P (TREE_TYPE (x))
-				       ? sizetype : TREE_TYPE (x);
+			  tree stept = POINTER_TYPE_P (TREE_TYPE (iv))
+				       ? sizetype : TREE_TYPE (iv);
 			  tree t = fold_convert (stept,
 						 OMP_CLAUSE_LINEAR_STEP (c));
 			  enum tree_code code = PLUS_EXPR;
@@ -3807,6 +3811,14 @@ lower_lastprivate_clauses (tree clauses, tree predicate, gimple_seq *stmt_list,
 	      gimple_seq_add_seq (stmt_list,
 				  OMP_CLAUSE_LASTPRIVATE_GIMPLE_SEQ (c));
 	      OMP_CLAUSE_LASTPRIVATE_GIMPLE_SEQ (c) = NULL;
+	    }
+	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LINEAR
+		   && OMP_CLAUSE_LINEAR_GIMPLE_SEQ (c))
+	    {
+	      lower_omp (&OMP_CLAUSE_LINEAR_GIMPLE_SEQ (c), ctx);
+	      gimple_seq_add_seq (stmt_list,
+				  OMP_CLAUSE_LINEAR_GIMPLE_SEQ (c));
+	      OMP_CLAUSE_LINEAR_GIMPLE_SEQ (c) = NULL;
 	    }
 
 	  x = build_outer_var_ref (var, ctx);
@@ -4220,8 +4232,6 @@ expand_parallel_call (struct omp_region *region, basic_block bb,
      (cond != 0) or (cond ? val : 1u).  */
   if (cond)
     {
-      gimple_stmt_iterator gsi;
-
       cond = gimple_boolify (cond);
 
       if (integer_zerop (val))
@@ -4677,7 +4687,6 @@ expand_omp_taskreg (struct omp_region *region)
 	 the region, in which case all we need to do is make the
 	 sub-graph unreachable and emit the parallel call.  */
       edge entry_succ_e, exit_succ_e;
-      gimple_stmt_iterator gsi;
 
       entry_succ_e = single_succ_edge (entry_bb);
 
@@ -4714,7 +4723,6 @@ expand_omp_taskreg (struct omp_region *region)
       if (gimple_omp_taskreg_data_arg (entry_stmt))
 	{
 	  basic_block entry_succ_bb = single_succ (entry_bb);
-	  gimple_stmt_iterator gsi;
 	  tree arg, narg;
 	  gimple parcopy_stmt = NULL;
 
@@ -5587,6 +5595,12 @@ expand_omp_for_generic (struct omp_region *region,
     {
       stmt = gimple_build_assign (endvar, iend);
       gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+      if (useless_type_conversion_p (TREE_TYPE (fd->loop.v), TREE_TYPE (iend)))
+	stmt = gimple_build_assign (fd->loop.v, iend);
+      else
+	stmt = gimple_build_assign_with_ops (NOP_EXPR, fd->loop.v, iend,
+					     NULL_TREE);
+      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
     }
   if (fd->collapse > 1)
     expand_omp_for_init_vars (fd, &gsi, counts, inner_stmt, startvar);
@@ -6003,6 +6017,12 @@ expand_omp_for_static_nochunk (struct omp_region *region,
     {
       stmt = gimple_build_assign (endvar, e);
       gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+      if (useless_type_conversion_p (TREE_TYPE (fd->loop.v), TREE_TYPE (e)))
+	stmt = gimple_build_assign (fd->loop.v, e);
+      else
+	stmt = gimple_build_assign_with_ops (NOP_EXPR, fd->loop.v, e,
+					     NULL_TREE);
+      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
     }
   if (fd->collapse > 1)
     expand_omp_for_init_vars (fd, &gsi, counts, inner_stmt, startvar);
@@ -6387,6 +6407,12 @@ expand_omp_for_static_chunk (struct omp_region *region,
   if (endvar)
     {
       stmt = gimple_build_assign (endvar, e);
+      gsi_insert_after (&si, stmt, GSI_CONTINUE_LINKING);
+      if (useless_type_conversion_p (TREE_TYPE (fd->loop.v), TREE_TYPE (e)))
+	stmt = gimple_build_assign (fd->loop.v, e);
+      else
+	stmt = gimple_build_assign_with_ops (NOP_EXPR, fd->loop.v, e,
+					     NULL_TREE);
       gsi_insert_after (&si, stmt, GSI_CONTINUE_LINKING);
     }
   if (fd->collapse > 1)
@@ -8403,10 +8429,14 @@ maybe_add_implicit_barrier_cancel (omp_context *ctx, gimple_seq *body)
       && gimple_code (ctx->outer->stmt) == GIMPLE_OMP_PARALLEL
       && ctx->outer->cancellable)
     {
-      tree lhs = create_tmp_var (boolean_type_node, NULL);
+      tree fndecl = builtin_decl_explicit (BUILT_IN_GOMP_CANCEL);
+      tree c_bool_type = TREE_TYPE (TREE_TYPE (fndecl));
+      tree lhs = create_tmp_var (c_bool_type, NULL);
       gimple_omp_return_set_lhs (omp_return, lhs);
       tree fallthru_label = create_artificial_label (UNKNOWN_LOCATION);
-      gimple g = gimple_build_cond (NE_EXPR, lhs, boolean_false_node,
+      gimple g = gimple_build_cond (NE_EXPR, lhs,
+				    fold_convert (c_bool_type,
+						  boolean_false_node),
 				    ctx->outer->cancel_label, fallthru_label);
       gimple_seq_add_stmt (body, g);
       gimple_seq_add_stmt (body, gimple_build_label (fallthru_label));
@@ -10112,21 +10142,23 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		  }
 		break;
 	      }
-	    tree lhs;
-	    lhs = create_tmp_var (boolean_type_node, NULL);
 	    if (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_GOMP_BARRIER)
 	      {
 		fndecl = builtin_decl_explicit (BUILT_IN_GOMP_BARRIER_CANCEL);
 		gimple_call_set_fndecl (stmt, fndecl);
 		gimple_call_set_fntype (stmt, TREE_TYPE (fndecl));
 	      }
+	    tree lhs;
+	    lhs = create_tmp_var (TREE_TYPE (TREE_TYPE (fndecl)), NULL);
 	    gimple_call_set_lhs (stmt, lhs);
 	    tree fallthru_label;
 	    fallthru_label = create_artificial_label (UNKNOWN_LOCATION);
 	    gimple g;
 	    g = gimple_build_label (fallthru_label);
 	    gsi_insert_after (gsi_p, g, GSI_SAME_STMT);
-	    g = gimple_build_cond (NE_EXPR, lhs, boolean_false_node,
+	    g = gimple_build_cond (NE_EXPR, lhs,
+				   fold_convert (TREE_TYPE (lhs),
+						 boolean_false_node),
 				   cctx->cancel_label, fallthru_label);
 	    gsi_insert_after (gsi_p, g, GSI_SAME_STMT);
 	    break;
@@ -11298,45 +11330,53 @@ static tree
 ipa_simd_modify_stmt_ops (tree *tp, int *walk_subtrees, void *data)
 {
   struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
-  if (!SSA_VAR_P (*tp))
-    {
-      /* Make sure we treat subtrees as a RHS.  This makes sure that
-	 when examining the `*foo' in *foo=x, the `foo' get treated as
-	 a use properly.  */
-      wi->is_lhs = false;
-      wi->val_only = true;
-      if (TYPE_P (*tp))
-	*walk_subtrees = 0;
-      return NULL_TREE;
-    }
   struct modify_stmt_info *info = (struct modify_stmt_info *) wi->info;
-  struct ipa_parm_adjustment *cand
-    = ipa_get_adjustment_candidate (&tp, NULL, info->adjustments, true);
-  if (!cand)
-    return NULL_TREE;
-
-  tree t = *tp;
-  tree repl = make_ssa_name (TREE_TYPE (t), NULL);
-
-  gimple stmt;
-  gimple_stmt_iterator gsi = gsi_for_stmt (info->stmt);
-  if (wi->is_lhs)
-    {
-      stmt = gimple_build_assign (unshare_expr (cand->new_decl), repl);
-      gsi_insert_after (&gsi, stmt, GSI_SAME_STMT);
-      SSA_NAME_DEF_STMT (repl) = info->stmt;
-    }
+  tree *orig_tp = tp;
+  if (TREE_CODE (*tp) == ADDR_EXPR)
+    tp = &TREE_OPERAND (*tp, 0);
+  struct ipa_parm_adjustment *cand = NULL;
+  if (TREE_CODE (*tp) == PARM_DECL)
+    cand = ipa_get_adjustment_candidate (&tp, NULL, info->adjustments, true);
   else
     {
-      /* You'd think we could skip the extra SSA variable when
-	 wi->val_only=true, but we may have `*var' which will get
-	 replaced into `*var_array[iter]' and will likely be something
-	 not gimple.  */
-      stmt = gimple_build_assign (repl, unshare_expr (cand->new_decl));
-      gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
+      if (TYPE_P (*tp))
+	*walk_subtrees = 0;
     }
 
-  if (!useless_type_conversion_p (TREE_TYPE (*tp), TREE_TYPE (repl)))
+  tree repl = NULL_TREE;
+  if (cand)
+    repl = unshare_expr (cand->new_decl);
+  else
+    {
+      if (tp != orig_tp)
+	{
+	  *walk_subtrees = 0;
+	  bool modified = info->modified;
+	  info->modified = false;
+	  walk_tree (tp, ipa_simd_modify_stmt_ops, wi, wi->pset);
+	  if (!info->modified)
+	    {
+	      info->modified = modified;
+	      return NULL_TREE;
+	    }
+	  info->modified = modified;
+	  repl = *tp;
+	}
+      else
+	return NULL_TREE;
+    }
+
+  if (tp != orig_tp)
+    {
+      repl = build_fold_addr_expr (repl);
+      gimple stmt
+	= gimple_build_assign (make_ssa_name (TREE_TYPE (repl), NULL), repl);
+      repl = gimple_assign_lhs (stmt);
+      gimple_stmt_iterator gsi = gsi_for_stmt (info->stmt);
+      gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
+      *orig_tp = repl;
+    }
+  else if (!useless_type_conversion_p (TREE_TYPE (*tp), TREE_TYPE (repl)))
     {
       tree vce = build1 (VIEW_CONVERT_EXPR, TREE_TYPE (*tp), repl);
       *tp = vce;
@@ -11345,8 +11385,6 @@ ipa_simd_modify_stmt_ops (tree *tp, int *walk_subtrees, void *data)
     *tp = repl;
 
   info->modified = true;
-  wi->is_lhs = false;
-  wi->val_only = true;
   return NULL_TREE;
 }
 
@@ -11365,7 +11403,7 @@ ipa_simd_modify_function_body (struct cgraph_node *node,
 			       tree retval_array, tree iter)
 {
   basic_block bb;
-  unsigned int i, j;
+  unsigned int i, j, l;
 
   /* Re-use the adjustments array, but this time use it to replace
      every function argument use to an offset into the corresponding
@@ -11386,6 +11424,46 @@ ipa_simd_modify_function_body (struct cgraph_node *node,
       if (adjustments[j].op == IPA_PARM_OP_NONE
 	  && TYPE_VECTOR_SUBPARTS (vectype) < node->simdclone->simdlen)
 	j += node->simdclone->simdlen / TYPE_VECTOR_SUBPARTS (vectype) - 1;
+    }
+
+  l = adjustments.length ();
+  for (i = 1; i < num_ssa_names; i++)
+    {
+      tree name = ssa_name (i);
+      if (name
+	  && SSA_NAME_VAR (name)
+	  && TREE_CODE (SSA_NAME_VAR (name)) == PARM_DECL)
+	{
+	  for (j = 0; j < l; j++)
+	    if (SSA_NAME_VAR (name) == adjustments[j].base
+		&& adjustments[j].new_decl)
+	      {
+		tree base_var;
+		if (adjustments[j].new_ssa_base == NULL_TREE)
+		  {
+		    base_var
+		      = copy_var_decl (adjustments[j].base,
+				       DECL_NAME (adjustments[j].base),
+				       TREE_TYPE (adjustments[j].base));
+		    adjustments[j].new_ssa_base = base_var;
+		  }
+		else
+		  base_var = adjustments[j].new_ssa_base;
+		if (SSA_NAME_IS_DEFAULT_DEF (name))
+		  {
+		    bb = single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun));
+		    gimple_stmt_iterator gsi = gsi_after_labels (bb);
+		    tree new_decl = unshare_expr (adjustments[j].new_decl);
+		    set_ssa_default_def (cfun, adjustments[j].base, NULL_TREE);
+		    SET_SSA_NAME_VAR_OR_IDENTIFIER (name, base_var);
+		    SSA_NAME_IS_DEFAULT_DEF (name) = 0;
+		    gimple stmt = gimple_build_assign (name, new_decl);
+		    gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
+		  }
+		else
+		  SET_SSA_NAME_VAR_OR_IDENTIFIER (name, base_var);
+	      }
+	}
     }
 
   struct modify_stmt_info info;

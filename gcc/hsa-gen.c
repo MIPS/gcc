@@ -1045,14 +1045,14 @@ hsa_build_append_simple_mov (hsa_op_reg *dest, hsa_op_base *src, hsa_bb *hbb)
   insn->type = dest->type;
   insn->operands[0] = dest;
   insn->operands[1] = src;
-  if (hsa_op_reg *sreg = dyn_cast <hsa_op_reg> (src))
+  if (hsa_op_reg *sreg = dyn_cast <hsa_op_reg *> (src))
     {
       gcc_assert (bittype_for_type (dest->type) == bittype_for_type (sreg->type));
       sreg->uses.safe_push (insn);
     }
   else
     gcc_assert (bittype_for_type (dest->type)
-		== bittype_for_type (as_a <hsa_op_immed> (src)->type));
+		== bittype_for_type (as_a <hsa_op_immed *> (src)->type));
   set_reg_def (dest, insn);
   hsa_append_insn (hbb, insn);
 }
@@ -1116,7 +1116,7 @@ gen_hsa_insns_for_store (tree lhs, hsa_op_base *src, hsa_bb *hbb,
 
   addr = gen_hsa_addr (lhs, hbb, ssa_map);
   mem->opcode = BRIG_OPCODE_ST;
-  if (hsa_op_reg *reg = dyn_cast <hsa_op_reg> (src))
+  if (hsa_op_reg *reg = dyn_cast <hsa_op_reg *> (src))
     reg->uses.safe_push (mem);
   mem->type = mem_type_for_type (hsa_type_for_scalar_tree_type (TREE_TYPE (lhs), false));
 
@@ -1125,7 +1125,7 @@ gen_hsa_insns_for_store (tree lhs, hsa_op_base *src, hsa_bb *hbb,
      it's a register the low bits will be used for sub-word stores.
      We're always allocating new operands so we can modify the above
      in place.  */
-  if (hsa_op_immed *imm = dyn_cast <hsa_op_immed> (src))
+  if (hsa_op_immed *imm = dyn_cast <hsa_op_immed *> (src))
     imm->type = mem->type;
   mem->operands[0] = src;
   mem->operands[1] = addr;

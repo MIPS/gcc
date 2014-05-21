@@ -58,6 +58,9 @@ typedef const struct rtx_def *const_rtx;
 struct rtvec_def;
 typedef struct rtvec_def *rtvec;
 typedef const struct rtvec_def *const_rtvec;
+struct hwivec_def;
+typedef struct hwivec_def *hwivec;
+typedef const struct hwivec_def *const_hwivec;
 union tree_node;
 typedef union tree_node *tree;
 typedef const union tree_node *const_tree;
@@ -194,7 +197,8 @@ enum function_class {
   function_c94,
   function_c99_misc,
   function_c99_math_complex,
-  function_sincos
+  function_sincos,
+  function_c11_misc
 };
 
 /* Memory model types for the __atomic* builtins. 
