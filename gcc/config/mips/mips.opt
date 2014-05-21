@@ -406,3 +406,6 @@ Lift restrictions on GOT size
 
 noasmopt
 Driver
+
+msched-weight
+Target Report Var(TARGET_SCHED_WEIGHT) Undocumented
