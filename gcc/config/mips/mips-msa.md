@@ -107,6 +107,7 @@
   UNSPEC_MSA_ILVR
   UNSPEC_MSA_INSERT
   UNSPEC_MSA_INSVE
+  UNSPEC_MSA_LD0
   UNSPEC_MSA_MADD_Q
   UNSPEC_MSA_MADDR_Q
   UNSPEC_MSA_MAX_A
@@ -720,8 +721,8 @@
 })
 
 (define_expand "neg<mode>2"
-  [(match_operand:MSA 0 "register_operand")
-   (match_operand:MSA 1 "register_operand")]
+  [(match_operand:IMSA 0 "register_operand")
+   (match_operand:IMSA 1 "register_operand")]
   "ISA_HAS_MSA"
 {
   rtx reg = gen_reg_rtx (<MODE>mode);
@@ -730,9 +731,20 @@
   DONE;
 })
 
+(define_expand "neg<mode>2"
+  [(match_operand:FMSA 0 "register_operand")
+   (match_operand:FMSA 1 "register_operand")]
+  "ISA_HAS_MSA"
+{
+  rtx reg = gen_reg_rtx (<MODE>mode);
+  emit_insn (gen_msa_ld0<mode> (reg, const0_rtx));
+  emit_insn (gen_sub<mode>3 (operands[0], reg, operands[1]));
+  DONE;
+})
+
 (define_insn "msa_ldi<mode>_insn"
-  [(set (match_operand:MSA 0 "register_operand" "=f")
-        (match_operand:MSA 1 "const_vector_same_simm10_operand" ""))]
+  [(set (match_operand:IMSA 0 "register_operand" "=f")
+        (match_operand:IMSA 1 "const_vector_same_simm10_operand" ""))]
   "ISA_HAS_MSA"
   {
     operands[1] = CONST_VECTOR_ELT (operands[1], 0);
@@ -743,7 +755,7 @@
    (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_expand "msa_ldi<mode>"
-  [(match_operand:MSA 0 "register_operand")
+  [(match_operand:IMSA 0 "register_operand")
    (match_operand 1 "const_imm10_operand")]
   "ISA_HAS_MSA"
   {
@@ -765,6 +777,16 @@
     emit_insn (gen_msa_ldi<mode>_insn (operands[0], gen_rtx_CONST_VECTOR (<MODE>mode, v)));
     DONE;
   })
+
+(define_insn "msa_ld0<mode>"
+  [(set (match_operand:FMSA 0 "register_operand" "=f")
+        (unspec:FMSA [(match_operand 1 "const_0_operand" "")]
+		     UNSPEC_MSA_LD0))]
+  "ISA_HAS_MSA"
+  "ldi.<msafmt>\t%w0,%d1"
+  [(set_attr "type"     "arith")
+   (set_attr "mode"     "TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "msa_lsa"
  [(set (match_operand:SI 0 "register_operand" "=d")
