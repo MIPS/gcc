@@ -2,7 +2,7 @@
 ;; Based on the MIPS MSA spec Revision 1.07 30/8/2013
 ;; Contributed by Chao-ying Fu (fu@mips.com), MIPS Technologies, Inc.
 ;;
-;; Copyright (C) 2013 Free Software Foundation, Inc.
+;; Copyright (C) 2014 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -388,8 +388,8 @@
    && (GET_MODE_NUNITS (<MSA_2:MODE>mode)
        == GET_MODE_NUNITS (<IMSA:MODE>mode))"
 {
-  rtx true_val = CONSTM1_RTX (<MSA_2:MODE>mode);
-  rtx false_val = CONST0_RTX (<MSA_2:MODE>mode);
+  rtx true_val = CONSTM1_RTX (<MSA_2:VIMODE>mode);
+  rtx false_val = CONST0_RTX (<MSA_2:VIMODE>mode);
 
   if (operands[1] == true_val && operands[2] == false_val)
     mips_expand_msa_vcond (operands[0], operands[1], operands[2],
@@ -405,12 +405,22 @@
 
       mips_expand_msa_vcond (res, true_val, false_val,
 			     GET_CODE (operands[3]), operands[4], operands[5]);
-      // Results in -1 or 0 so need to convert this to correct result for the
-      // correct true/false given by operands[1]/operands[2] repectively.
+      // This results in res T/F elements having value of -1 or 0. The result
+      // needs to adjusted to have the approiate true/false elements as given
+      // by operands[1]/operands[2] repectively.
       emit_move_insn (xres, res);
       if (operands[1] != true_val)
 	{
-	  emit_move_insn (xop1, operands[1]);
+	  if (GET_CODE (operands[1]) == CONST_VECTOR)
+	    {
+	      rtx xtemp = gen_reg_rtx (<MSA_2:MODE>mode);
+	      emit_move_insn (xtemp, operands[1]);
+	      emit_move_insn (xop1,
+			      gen_rtx_SUBREG (<MSA_2:VIMODE>mode, xtemp, 0));
+	    }
+	  else
+	    emit_move_insn (xop1,
+			    gen_rtx_SUBREG (<MSA_2:VIMODE>mode, operands[1], 0));
 	  emit_insn (gen_and<MSA_2:mode_i>3 (temp1, xres, xop1));
 	}
       else
@@ -420,11 +430,21 @@
       emit_insn (gen_xor<MSA_2:mode_i>3 (temp2, xres, temp2));
       if (operands[2] != false_val)
 	{
-	  emit_move_insn (xop2, operands[2]);
+	  if (GET_CODE (operands[2]) == CONST_VECTOR)
+	    {
+	      rtx xtemp = gen_reg_rtx (<MSA_2:MODE>mode);
+	      emit_move_insn (xtemp, operands[2]);
+	      emit_move_insn (xop2, 
+			      gen_rtx_SUBREG (<MSA_2:VIMODE>mode, xtemp, 0));
+	    }
+	  else
+	    emit_move_insn (xop2,
+			    gen_rtx_SUBREG (<MSA_2:VIMODE>mode, operands[2], 0));
 	  emit_insn (gen_and<MSA_2:mode_i>3 (temp2, temp2, xop2));
 	}
       emit_insn (gen_ior<MSA_2:mode_i>3 (xres, temp1, temp2));
-      emit_move_insn (operands[0], xres);
+      emit_move_insn (operands[0],
+		      gen_rtx_SUBREG (<MSA_2:MODE>mode, xres, 0));
     }
   DONE;
 })
@@ -441,8 +461,8 @@
    && (GET_MODE_NUNITS (<MSA_2:MODE>mode)
        == GET_MODE_NUNITS (<MSA:MODE>mode))"
 {
-  rtx true_val = CONSTM1_RTX (<MSA_2:MODE>mode);
-  rtx false_val = CONST0_RTX (<MSA_2:MODE>mode);
+  rtx true_val = CONSTM1_RTX (<MSA_2:VIMODE>mode);
+  rtx false_val = CONST0_RTX (<MSA_2:VIMODE>mode);
 
   if (operands[1] == true_val && operands[2] == false_val)
     mips_expand_msa_vcond (operands[0], operands[1], operands[2],
@@ -458,12 +478,22 @@
 
       mips_expand_msa_vcond (res, true_val, false_val,
 			     GET_CODE (operands[3]), operands[4], operands[5]);
-      // Results in -1 or 0 so need to convert this to correct result for the
-      // correct true/false given by operands[1]/operands[2] repectively.
+      // This results in res T/F elements having value of -1 or 0. The result
+      // needs to adjusted to have the approiate true/false elements as given
+      // by operands[1]/operands[2] repectively.
       emit_move_insn (xres, res);
       if (operands[1] != true_val)
 	{
-	  emit_move_insn (xop1, operands[1]);
+	  if (GET_CODE (operands[1]) == CONST_VECTOR)
+	    {
+	      rtx xtemp = gen_reg_rtx (<MSA_2:MODE>mode);
+	      emit_move_insn (xtemp, operands[1]);
+	      emit_move_insn (xop1,
+			      gen_rtx_SUBREG (<MSA_2:VIMODE>mode, xtemp, 0));
+	    }
+	  else
+	    emit_move_insn (xop1,
+			    gen_rtx_SUBREG (<MSA_2:VIMODE>mode, operands[1], 0));
 	  emit_insn (gen_and<MSA_2:mode_i>3 (temp1, xres, xop1));
 	}
       else
@@ -473,11 +503,21 @@
       emit_insn (gen_xor<MSA_2:mode_i>3 (temp2, xres, temp2));
       if (operands[2] != false_val)
 	{
-	  emit_move_insn (xop2, operands[2]);
+	  if (GET_CODE (operands[2]) == CONST_VECTOR)
+	    {
+	      rtx xtemp = gen_reg_rtx (<MSA_2:MODE>mode);
+	      emit_move_insn (xtemp, operands[2]);
+	      emit_move_insn (xop2,
+			      gen_rtx_SUBREG (<MSA_2:VIMODE>mode, xtemp, 0));
+	    }
+	  else
+	    emit_move_insn (xop2,
+			    gen_rtx_SUBREG (<MSA_2:VIMODE>mode, operands[2], 0));
 	  emit_insn (gen_and<MSA_2:mode_i>3 (temp2, temp2, xop2));
 	}
       emit_insn (gen_ior<MSA_2:mode_i>3 (xres, temp1, temp2));
-      emit_move_insn (operands[0], xres);
+      emit_move_insn (operands[0],
+		      gen_rtx_SUBREG (<MSA_2:MODE>mode, xres, 0));
     }
   DONE;
 })
