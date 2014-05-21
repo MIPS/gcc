@@ -13058,6 +13058,30 @@ mips_scalar_mode_supported_p (enum machine_mode mode)
   return default_scalar_mode_supported_p (mode);
 }
 
+/* Implement TARGET_VECTORIZE_SUPPORT_VECTOR_MISALIGNMENT.  */
+static bool
+mips_builtin_support_vector_misalignment (enum machine_mode mode,
+					  const_tree type
+					  ATTRIBUTE_UNUSED,
+					  int misalignment
+					  ATTRIBUTE_UNUSED,
+					  bool is_packed
+					  ATTRIBUTE_UNUSED)
+{
+  switch (mode)
+    {
+    case V16QImode:
+    case V8HImode:
+    case V4SImode:
+    case V2DImode:
+    case V4SFmode:
+    case V2DFmode:
+      return true;
+    default:
+      break;
+    }
+  return false;
+}
 /* Implement TARGET_VECTORIZE_PREFERRED_SIMD_MODE.  */
 
 static enum machine_mode
@@ -21048,6 +21072,9 @@ mips_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 #undef TARGET_SCALAR_MODE_SUPPORTED_P
 #define TARGET_SCALAR_MODE_SUPPORTED_P mips_scalar_mode_supported_p
 
+#undef TARGET_VECTORIZE_SUPPORT_VECTOR_MISALIGNMENT
+#define TARGET_VECTORIZE_SUPPORT_VECTOR_MISALIGNMENT \
+  mips_builtin_support_vector_misalignment
 #undef TARGET_VECTORIZE_PREFERRED_SIMD_MODE
 #define TARGET_VECTORIZE_PREFERRED_SIMD_MODE mips_preferred_simd_mode
 #undef TARGET_VECTORIZE_AUTOVECTORIZE_VECTOR_SIZES
