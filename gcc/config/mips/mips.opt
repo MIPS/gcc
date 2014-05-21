@@ -528,3 +528,6 @@ Target Undocumented Var(TARGET_USE_COPYW_UCOPYW) Init(-1)
 minline-intermix
 Target Report Var(TARGET_INLINE_INTERMIX)
 Allow inlining even if the compression flags differ between caller and callee.
+
+msched-weight
+Target Report Var(TARGET_SCHED_WEIGHT) Undocumented
