@@ -32,7 +32,7 @@
 
 	* config/rs6000/rs6000-c.c (rs6000_target_modify_macros): Move
 	__FLOAT128__ to rs6000_cpu_cpp_builtins.
-	(rs6000_cpu_cpp_builtins): Define __FLOAT128__if __float128
+	(rs6000_cpu_cpp_builtins): Define __FLOAT128__ if __float128
 	available.  Define __LONG_DOUBLE_IEEE128__ if long double is IEEE
 	128-bit floating point.  Define __LONG_DOUBLE_64__ if long double
 	is the same as double.  Define __SIZEOF_FLOAT128__ to be 16 for
