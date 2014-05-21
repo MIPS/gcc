@@ -918,6 +918,17 @@ proc check_effective_target_nomips16 { } {
     }]
 }
 
+# Return true if the target is a MIPS target that does not produce
+# micromips code.
+
+proc check_effective_target_nomicromips { } {
+    return [check_no_compiler_messages nomicromips object {
+	#ifdef __mips_micromips
+	#error MICROMIPS
+	#endif
+    }]
+}
+
 # Add the options needed for MIPS16 function attributes.  At the moment,
 # we don't support MIPS16 PIC.
 
@@ -2099,6 +2110,10 @@ proc check_effective_target_vect_int { } {
 	      || [istarget aarch64*-*-*]
 	      || [check_effective_target_arm32]
 	      || ([istarget mips*-*-*]
+	          && [check_effective_target_mips_msa]
+	          && [check_effective_target_nomips16] 
+	          && [check_effective_target_nomicromips])
+	      || ([istarget mips*-*-*]
 		  && [check_effective_target_mips_loongson]) } {
 	   set et_vect_int_saved 1
 	}
@@ -2918,6 +2933,25 @@ proc check_effective_target_mips_loongson { } {
     }]
 }
 
+# Return 1 if a msa program can be compiled to object
+proc check_effective_target_mips_msa { } {
+  return [check_no_compiler_messages msa object {
+     #if !defined(__mips_msa)
+     #error "MSA NOT AVAIL"
+     #endif
+
+     #include <msa.h>
+     extern v8i16 __builtin_msa_ldi_h(short a);
+
+     int main()
+     {
+	v8i16 v = __builtin_msa_ldi_h (1);
+
+	return v[0];
+     }
+  } "-mmsa -mfp64 -mnan=2008 -mips32r2 -mhard-float -EL" ]
+}
+
 # Return 1 if this is an ARM target that adheres to the ABI for the ARM
 # Architecture.
 
@@ -3401,6 +3435,10 @@ proc check_effective_target_vect_float { } {
 	      || [istarget x86_64-*-*]
 	      || [istarget ia64-*-*]
 	      || [istarget aarch64*-*-*]
+	      || ([istarget mips*-*-*]
+		  && [check_effective_target_mips_msa]
+	          && [check_effective_target_nomips16] 
+	          && [check_effective_target_nomicromips])
 	      || [check_effective_target_arm32] } {
 	   set et_vect_float_saved 1
 	}
@@ -4043,6 +4081,7 @@ proc check_effective_target_vect_no_align { } {
 	     || [istarget ia64-*-*]
 	     || [check_effective_target_arm_vect_no_misalign]
 	     || ([istarget mips*-*-*]
+	         && (![check_effective_target_mips_msa])
 		 && [check_effective_target_mips_loongson]) } {
 	    set et_vect_no_align_saved 1
 	}
@@ -4332,6 +4371,10 @@ proc check_effective_target_vect_int_mult { } {
 	     || [istarget x86_64-*-*]
 	     || [istarget ia64-*-*]
 	     || [istarget aarch64*-*-*]
+	     || ([istarget mips*-*-*]
+	         && [check_effective_target_mips_msa]
+		 && [check_effective_target_nomips16]
+		 && [check_effective_target_nomicromips])
 	     || [check_effective_target_arm32] } {
 	   set et_vect_int_mult_saved 1
 	}
@@ -4358,6 +4401,10 @@ proc check_effective_target_vect_extract_even_odd { } {
              || [istarget ia64-*-*]
              || [istarget spu-*-*]
 	     || ([istarget mips*-*-*]
+	         && [check_effective_target_mips_msa]
+		 && [check_effective_target_nomips16]
+		 && [check_effective_target_nomicromips])
+	     || ([istarget mips*-*-*]
 		 && [check_effective_target_mpaired_single]) } {
 	    set et_vect_extract_even_odd_saved 1
         }
@@ -4383,6 +4430,10 @@ proc check_effective_target_vect_interleave { } {
              || [istarget x86_64-*-*]
              || [istarget ia64-*-*]
              || [istarget spu-*-*]
+	     || ([istarget mips*-*-*]
+	         && [check_effective_target_mips_msa]
+		 && [check_effective_target_nomips16]
+		 && [check_effective_target_nomicromips])
 	     || ([istarget mips*-*-*]
 		 && [check_effective_target_mpaired_single]) } {
            set et_vect_interleave_saved 1
@@ -5799,6 +5850,13 @@ proc check_vect_support_and_set_flags { } {
         } else {
             set dg-do-what-default compile
         }
+    } elseif { [istarget mips*-*-*] } {
+        if { ([check_effective_target_mips_msa]
+              && [check_effective_target_nomips16] 
+              && [check_effective_target_nomicromips]) } {
+            lappend DEFAULT_VECTCFLAGS "-mmsa" "-mfp64" "-mnan=2008" "-mips32r2" "-mhard-float" "-EL"
+        }
+        set dg-do-what-default run
     } elseif { [istarget mips*-*-*]
                && ([check_effective_target_mpaired_single]
                     || [check_effective_target_mips_loongson])
