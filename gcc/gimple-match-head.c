@@ -35,6 +35,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssanames.h"
 #include "gimple-fold.h"
 #include "gimple-iterator.h"
+#include "expr.h"
+#include "tree-dfa.h"
 
 #define INTEGER_CST_P(node) (TREE_CODE(node) == INTEGER_CST)
 #define integral_op_p(node) INTEGRAL_TYPE_P(TREE_TYPE(node))
@@ -57,7 +59,9 @@ private:
   int rep;
 };
 
-/* Forward declarations of the private auto-generated matchers.  */
+/* Forward declarations of the private auto-generated matchers.  They
+   expect valueized operands in canonical order and they do not
+   perform simplification of all-constant operands.  */
 static bool gimple_match_and_simplify (code_helper, tree, tree,
 				       code_helper *, tree *,
 				       gimple_seq *, tree (*)(tree));
@@ -69,18 +73,31 @@ static bool gimple_match_and_simplify (code_helper, tree, tree, tree, tree,
 				       gimple_seq *, tree (*)(tree));
 
 
+/* Return whether T is a constant that we'll dispatch to fold to
+   evaluate fully constant expressions.  */
+
+static inline bool
+constant_for_folding (tree t)
+{
+  return (CONSTANT_CLASS_P (t)
+	  /* The following is only interesting to string builtins.  */
+	  || (TREE_CODE (t) == ADDR_EXPR
+	      && TREE_CODE (TREE_OPERAND (t, 0)) == STRING_CST));
+}
+
+
 /* Helper that matches and simplifies the toplevel result from
    a gimple_match_and_simplify run (where we don't want to build
    a stmt in case it's used in in-place folding).  Replaces
    *RES_CODE and *RES_OPS with a simplified and/or canonicalized
-   result.  */
+   result and returns whether any change was made.  */
 
-static void
+static bool
 gimple_resimplify1 (gimple_seq *seq,
 		    code_helper *res_code, tree type, tree *res_ops,
 		    tree (*valueize)(tree))
 {
-  if (CONSTANT_CLASS_P (res_ops[0]))
+  if (constant_for_folding (res_ops[0]))
     {
       tree tem;
       if (res_code->is_tree_code ())
@@ -89,13 +106,19 @@ gimple_resimplify1 (gimple_seq *seq,
 	{
 	  tree decl = builtin_decl_implicit (*res_code);
 	  tem = fold_builtin_n (UNKNOWN_LOCATION, decl, res_ops, 1, false);
+	  if (tem)
+	    {
+	      /* fold_builtin_n wraps the result inside a NOP_EXPR.  */
+	      STRIP_NOPS (tem);
+	      tem = fold_convert (type, tem);
+	    }
 	}
       if (tem != NULL_TREE
 	  && CONSTANT_CLASS_P (tem))
 	{
 	  res_ops[0] = tem;
 	  *res_code = TREE_CODE (res_ops[0]);
-	  return;
+	  return true;
 	}
     }
 
@@ -108,21 +131,24 @@ gimple_resimplify1 (gimple_seq *seq,
       res_ops[0] = res_ops2[0];
       res_ops[1] = res_ops2[1];
       res_ops[2] = res_ops2[2];
+      return true;
     }
+
+  return false;
 }
 
 /* Helper that matches and simplifies the toplevel result from
    a gimple_match_and_simplify run (where we don't want to build
    a stmt in case it's used in in-place folding).  Replaces
    *RES_CODE and *RES_OPS with a simplified and/or canonicalized
-   result.  */
+   result and returns whether any change was made.  */
 
-static void
+static bool
 gimple_resimplify2 (gimple_seq *seq,
 		    code_helper *res_code, tree type, tree *res_ops,
 		    tree (*valueize)(tree))
 {
-  if (CONSTANT_CLASS_P (res_ops[0]) && CONSTANT_CLASS_P (res_ops[1]))
+  if (constant_for_folding (res_ops[0]) && constant_for_folding (res_ops[1]))
     {
       tree tem;
       if (res_code->is_tree_code ())
@@ -132,23 +158,31 @@ gimple_resimplify2 (gimple_seq *seq,
 	{
 	  tree decl = builtin_decl_implicit (*res_code);
 	  tem = fold_builtin_n (UNKNOWN_LOCATION, decl, res_ops, 2, false);
+	  if (tem)
+	    {
+	      /* fold_builtin_n wraps the result inside a NOP_EXPR.  */
+	      STRIP_NOPS (tem);
+	      tem = fold_convert (type, tem);
+	    }
 	}
       if (tem != NULL_TREE)
 	{
 	  res_ops[0] = tem;
 	  *res_code = TREE_CODE (res_ops[0]);
-	  return;
+	  return true;
 	}
     }
 
   /* Canonicalize operand order.  */
+  bool canonicalized = false;
   if (res_code->is_tree_code ()
       && commutative_tree_code (*res_code)
       && tree_swap_operands_p (res_ops[0], res_ops[1], false))
     {
       tree tem = res_ops[0];
       res_ops[0] = res_ops[1];
-      res_ops[1]= tem;
+      res_ops[1] = tem;
+      canonicalized = true;
     }
 
   code_helper res_code2;
@@ -160,22 +194,25 @@ gimple_resimplify2 (gimple_seq *seq,
       res_ops[0] = res_ops2[0];
       res_ops[1] = res_ops2[1];
       res_ops[2] = res_ops2[2];
+      return true;
     }
+
+  return canonicalized;
 }
 
 /* Helper that matches and simplifies the toplevel result from
    a gimple_match_and_simplify run (where we don't want to build
    a stmt in case it's used in in-place folding).  Replaces
    *RES_CODE and *RES_OPS with a simplified and/or canonicalized
-   result.  */
+   result and returns whether any change was made.  */
 
-static void
+static bool
 gimple_resimplify3 (gimple_seq *seq,
 		    code_helper *res_code, tree type, tree *res_ops,
 		    tree (*valueize)(tree))
 {
-  if (CONSTANT_CLASS_P (res_ops[0]) && CONSTANT_CLASS_P (res_ops[1])
-      && CONSTANT_CLASS_P (res_ops[2]))
+  if (constant_for_folding (res_ops[0]) && constant_for_folding (res_ops[1])
+      && constant_for_folding (res_ops[2]))
     {
       tree tem;
       if (res_code->is_tree_code ())
@@ -185,24 +222,32 @@ gimple_resimplify3 (gimple_seq *seq,
 	{
 	  tree decl = builtin_decl_implicit (*res_code);
 	  tem = fold_builtin_n (UNKNOWN_LOCATION, decl, res_ops, 3, false);
+	  if (tem)
+	    {
+	      /* fold_builtin_n wraps the result inside a NOP_EXPR.  */
+	      STRIP_NOPS (tem);
+	      tem = fold_convert (type, tem);
+	    }
 	}
       if (tem != NULL_TREE
 	  && CONSTANT_CLASS_P (tem))
 	{
 	  res_ops[0] = tem;
 	  *res_code = TREE_CODE (res_ops[0]);
-	  return;
+	  return true;
 	}
     }
 
   /* Canonicalize operand order.  */
+  bool canonicalized = false;
   if (res_code->is_tree_code ()
       && commutative_ternary_tree_code (*res_code)
       && tree_swap_operands_p (res_ops[0], res_ops[1], false))
     {
       tree tem = res_ops[0];
       res_ops[0] = res_ops[1];
-      res_ops[1]= tem;
+      res_ops[1] = tem;
+      canonicalized = true;
     }
 
   code_helper res_code2;
@@ -215,7 +260,10 @@ gimple_resimplify3 (gimple_seq *seq,
       res_ops[0] = res_ops2[0];
       res_ops[1] = res_ops2[1];
       res_ops[2] = res_ops2[2];
+      return true;
     }
+
+  return canonicalized;
 }
 
 
@@ -232,7 +280,8 @@ maybe_push_res_to_seq (code_helper rcode, tree type, tree *ops,
   if (rcode.is_tree_code ())
     {
       if (!res
-	  && TREE_CODE_LENGTH ((tree_code) rcode) == 0
+	  && (TREE_CODE_LENGTH ((tree_code) rcode) == 0
+	      || ((tree_code) rcode) == ADDR_EXPR)
 	  && is_gimple_val (ops[0]))
 	return ops[0];
       if (!seq)
@@ -265,7 +314,7 @@ gimple_match_and_simplify (enum tree_code code, tree type,
 			   tree op0,
 			   gimple_seq *seq, tree (*valueize)(tree))
 {
-  if (CONSTANT_CLASS_P (op0))
+  if (constant_for_folding (op0))
     {
       tree res = fold_unary_to_constant (code, type, op0);
       if (res != NULL_TREE)
@@ -285,7 +334,7 @@ gimple_match_and_simplify (enum tree_code code, tree type,
 			   tree op0, tree op1,
 			   gimple_seq *seq, tree (*valueize)(tree))
 {
-  if (CONSTANT_CLASS_P (op0) && CONSTANT_CLASS_P (op1))
+  if (constant_for_folding (op0) && constant_for_folding (op1))
     {
       tree res = fold_binary_to_constant (code, type, op0, op1);
       /* ???  We can't assert that we fold this to a constant as
@@ -317,8 +366,8 @@ gimple_match_and_simplify (enum tree_code code, tree type,
 			   tree op0, tree op1, tree op2,
 			   gimple_seq *seq, tree (*valueize)(tree))
 {
-  if (CONSTANT_CLASS_P (op0) && CONSTANT_CLASS_P (op1)
-      && CONSTANT_CLASS_P (op2))
+  if (constant_for_folding (op0) && constant_for_folding (op1)
+      && constant_for_folding (op2))
     {
       tree res = fold_ternary/*_to_constant */ (code, type, op0, op1, op2);
       if (res != NULL_TREE
@@ -349,13 +398,18 @@ gimple_match_and_simplify (enum built_in_function fn, tree type,
 			   tree arg0,
 			   gimple_seq *seq, tree (*valueize)(tree))
 {
-  if (CONSTANT_CLASS_P (arg0))
+  if (constant_for_folding (arg0))
     {
       tree decl = builtin_decl_implicit (fn);
       tree res = fold_builtin_n (UNKNOWN_LOCATION, decl, &arg0, 1, false);
-      if (res != NULL_TREE
-	  && CONSTANT_CLASS_P (res))
-	return res;
+      if (res)
+	{
+	  /* fold_builtin_n wraps the result inside a NOP_EXPR.  */
+	  STRIP_NOPS (res);
+	  res = fold_convert (type, res);
+	  if (CONSTANT_CLASS_P (res))
+	    return res;
+	}
     }
 
   code_helper rcode;
@@ -389,9 +443,9 @@ gimple_match_and_simplify (gimple stmt,
 		  if (!op0)
 		    return false;
 		}
-	      return gimple_match_and_simplify (code, type, op0,
-						rcode, ops,
-						seq, valueize);
+	      *rcode = code;
+	      ops[0] = op0;
+	      return gimple_resimplify1 (seq, rcode, type, ops, valueize);
 	    }
 	  else if (code == BIT_FIELD_REF)
 	    {
@@ -403,11 +457,22 @@ gimple_match_and_simplify (gimple stmt,
 		  if (!op0)
 		    return false;
 		}
-	      return gimple_match_and_simplify (code, type, op0,
-						TREE_OPERAND (rhs1, 1),
-						TREE_OPERAND (rhs1, 2),
-						rcode, ops,
-						seq, valueize);
+	      *rcode = code;
+	      ops[0] = op0;
+	      ops[1] = TREE_OPERAND (rhs1, 1);
+	      ops[2] = TREE_OPERAND (rhs1, 2);
+	      return gimple_resimplify3 (seq, rcode, type, ops, valueize);
+	    }
+	  else if (code == SSA_NAME
+		   && valueize)
+	    {
+	      tree op0 = gimple_assign_rhs1 (stmt);
+	      tree valueized = valueize (op0);
+	      if (!valueized || op0 == valueized)
+		return false;
+	      ops[0] = valueized;
+	      *rcode = TREE_CODE (op0);
+	      return true;
 	    }
 	  break;
 	case GIMPLE_UNARY_RHS:
@@ -419,9 +484,9 @@ gimple_match_and_simplify (gimple stmt,
 		if (!rhs1)
 		  return false;
 	      }
-	    return gimple_match_and_simplify (code, type, rhs1,
-					      rcode, ops,
-					      seq, valueize);
+	    *rcode = code;
+	    ops[0] = rhs1;
+	    return gimple_resimplify1 (seq, rcode, type, ops, valueize);
 	  }
 	case GIMPLE_BINARY_RHS:
 	  {
@@ -439,9 +504,10 @@ gimple_match_and_simplify (gimple stmt,
 		if (!rhs2)
 		  return false;
 	      }
-	    return gimple_match_and_simplify (code, type, rhs1, rhs2,
-					      rcode, ops,
-					      seq, valueize);
+	    *rcode = code;
+	    ops[0] = rhs1;
+	    ops[1] = rhs2;
+	    return gimple_resimplify2 (seq, rcode, type, ops, valueize);
 	  }
 	case GIMPLE_TERNARY_RHS:
 	  {
@@ -466,19 +532,32 @@ gimple_match_and_simplify (gimple stmt,
 		if (!rhs3)
 		  return false;
 	      }
-	    return gimple_match_and_simplify (code, type, rhs1, rhs2, rhs3,
-					      rcode, ops,
-					      seq, valueize);
+	    *rcode = code;
+	    ops[0] = rhs1;
+	    ops[1] = rhs2;
+	    ops[2] = rhs3;
+	    return gimple_resimplify3 (seq, rcode, type, ops, valueize);
 	  }
 	default:
 	  gcc_unreachable ();
 	}
     }
   else if (is_gimple_call (stmt)
-	   && gimple_call_builtin_p (stmt, BUILT_IN_NORMAL)
 	   && gimple_call_lhs (stmt) != NULL_TREE)
     {
-      tree decl = gimple_call_fndecl (stmt);
+      tree fn = gimple_call_fn (stmt);
+      if (TREE_CODE (fn) == SSA_NAME
+	  && valueize)
+	fn = valueize (fn);
+      if (!fn
+	  || TREE_CODE (fn) != ADDR_EXPR
+	  || TREE_CODE (TREE_OPERAND (fn, 0)) != FUNCTION_DECL
+	  || DECL_BUILT_IN_CLASS (TREE_OPERAND (fn, 0)) != BUILT_IN_NORMAL
+	  || !gimple_builtin_call_types_compatible_p (stmt,
+						      TREE_OPERAND (fn, 0)))
+	return false;
+
+      tree decl = TREE_OPERAND (fn, 0);
       tree type = TREE_TYPE (gimple_call_lhs (stmt));
       switch (gimple_call_num_args (stmt))
 	{
@@ -491,10 +570,9 @@ gimple_match_and_simplify (gimple stmt,
 		if (!arg1)
 		  return false;
 	      }
-	    return gimple_match_and_simplify (DECL_FUNCTION_CODE (decl),
-					      type, arg1,
-					      rcode, ops,
-					      seq, valueize);
+	    *rcode = DECL_FUNCTION_CODE (decl);
+	    ops[0] = arg1;
+	    return gimple_resimplify1 (seq, rcode, type, ops, valueize);
 	  }
 	case 2:
 	  {
@@ -512,10 +590,10 @@ gimple_match_and_simplify (gimple stmt,
 		if (!arg2)
 		  return false;
 	      }
-	    return gimple_match_and_simplify (DECL_FUNCTION_CODE (decl),
-					      type, arg1, arg2,
-					      rcode, ops,
-					      seq, valueize);
+	    *rcode = DECL_FUNCTION_CODE (decl);
+	    ops[0] = arg1;
+	    ops[1] = arg2;
+	    return gimple_resimplify2 (seq, rcode, type, ops, valueize);
 	  }
 	default:
 	  return false;
@@ -539,7 +617,23 @@ gimple_match_and_simplify (tree name, gimple_seq *seq, tree (*valueize)(tree))
   if (TREE_CODE (name) != SSA_NAME)
     return NULL_TREE;
 
+  /* This function is supposed to return a valueization of name, thus
+     also allow simply returning an unsimplified RHS of its definition
+     statement.  */
   gimple stmt = SSA_NAME_DEF_STMT (name);
+  if (gimple_assign_single_p (stmt))
+    {
+      tree rhs = gimple_assign_rhs1 (stmt);
+      if (TREE_CODE (rhs) == SSA_NAME)
+	{
+	  if (valueize)
+	    rhs = valueize (rhs);
+	  return rhs;
+	}
+      else if (is_gimple_min_invariant (rhs))
+	return rhs;
+    }
+
   code_helper rcode;
   tree ops[3] = {};
   if (!gimple_match_and_simplify (stmt, &rcode, ops, seq, valueize))

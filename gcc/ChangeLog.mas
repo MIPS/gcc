@@ -1,3 +1,19 @@
+2014-05-21  Richard Biener  <rguenther@suse.de>
+
+	* gimple-match-head.c (constant_for_folding): New function.
+	(gimple_resimplify1, gimple_resimplify2, gimple_resimplify3):
+	Use it.  Strip NOPs from call stmt constant folding results
+	and return whether we re-simplified anything.
+	(maybe_push_res_to_seq): Allow is_gimple_val ADDR_EXPRs
+	as simple.
+	(gimple_match_and_simplify): Use constant_for_folding,
+	Strip NOPs from call stmt constant folding results.
+	(gimple_match_and_simplify): Use gimple_resimplify1 for the
+	stmt overload to get constant folding and argument
+	canonicalization.  Simplify SSA name copies.
+	(gimple_match_and_simplify): Valueize from a copy or
+	constant assignment for the SSA name overload.
+
 2014-05-20  Richard Biener  <rguenther@suse.de>
 
 	* genmatch.c (error_cb, fatal_at): New functions.
