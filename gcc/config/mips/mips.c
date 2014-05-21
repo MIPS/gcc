@@ -8885,7 +8885,7 @@ mips_print_operand (FILE *file, rtx op, int letter)
 	  HOST_WIDE_INT val = INTVAL (op);
 	  if (val < 0)
 	    {
-	      gcc_assert (-128 >= val);
+	      gcc_assert (val >= -128);
 	      val += 256;
 	      fprintf (file, HOST_WIDE_INT_PRINT_DEC, val);
 	    }
