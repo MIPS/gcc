@@ -72,6 +72,17 @@ along with GCC; see the file COPYING3.  If not see
 /* This file should be included last.  */
 #include "target-def.h"
 
+/* Definitions used in ready queue reordering for first scheduling pass.  */
+
+static int *level = NULL;
+static int *consumer_luid = NULL;
+
+#define LEVEL(INSN)	\
+  level[INSN_UID ((INSN))]
+
+#define CONSUMER_LUID(INSN)	\
+  consumer_luid[INSN_UID ((INSN))]
+
 /* True if X is an UNSPEC wrapper around a SYMBOL_REF or LABEL_REF.  */
 #define UNSPEC_ADDRESS_P(X)					\
   (GET_CODE (X) == UNSPEC					\
@@ -15488,6 +15499,220 @@ mips_74k_agen_reorder (rtx_insn **ready, int nready)
       break;
     }
 }
+
+/* These functions are called when -msched-weight is set.  */
+
+/* Find register born in given X if any.  */
+
+static int
+find_reg_born (rtx x)
+{
+  if (GET_CODE (x) == CLOBBER)
+    return 1;
+
+  if (GET_CODE (x) == SET)
+    {
+      if (REG_P (SET_DEST (x)) && reg_mentioned_p (SET_DEST (x), SET_SRC (x)))
+	return 0;
+      return 1;
+    }
+  return 0;
+}
+
+/* Calculate register weight for given INSN.  */
+
+static int
+get_weight (rtx insn)
+{
+  int weight = 0;
+  rtx x;
+
+  /* Increment weight for each register born here.  */
+  x = PATTERN (insn);
+  weight = find_reg_born (x);
+
+  if (GET_CODE (x) == PARALLEL)
+    {
+      int i;
+      for (i = XVECLEN (x, 0) - 1; i >= 0; i--)
+	{
+	  x = XVECEXP (PATTERN (insn), 0, i);
+	  weight += find_reg_born (x);
+	}
+    }
+
+  /* Decrement weight for each register that dies here.  */
+  for (x = REG_NOTES (insn); x; x = XEXP (x, 1))
+    {
+      if (REG_NOTE_KIND (x) == REG_DEAD || REG_NOTE_KIND (x) == REG_UNUSED)
+	{
+	  rtx note = XEXP (x, 0);
+	  if (REG_P (note))
+	    weight--;
+	}
+    }
+  return weight;
+}
+
+/* TARGET_SCHED_WEIGHT helper function.
+   Allocate and initialize global data.  */
+
+static void
+mips_weight_init_global (int old_max_uid)
+{
+  level = (int *) xcalloc (old_max_uid, sizeof (int));
+  consumer_luid = (int *) xcalloc (old_max_uid, sizeof (int));
+}
+
+/* Implement TARGET_SCHED_INIT_GLOBAL.  */
+
+static void
+mips_sched_init_global (FILE *dump ATTRIBUTE_UNUSED,
+			int verbose ATTRIBUTE_UNUSED,
+			int old_max_uid)
+{
+  if (!reload_completed && TARGET_SCHED_WEIGHT)
+    mips_weight_init_global (old_max_uid);
+}
+
+/* TARGET_SCHED_WEIGHT helper function. Called for each basic block
+   with dependency chain information in HEAD and TAIL.
+   Calculates LEVEL for each INSN from its forward dependencies
+   and finds out UID of first consumer instruction (CONSUMER_LUID) of INSN.  */
+
+static void
+mips_weight_evaluation (rtx_insn *head, rtx_insn *tail)
+{
+  sd_iterator_def sd_it;
+  dep_t dep;
+  rtx_insn *prev_head, *insn;
+  rtx x;
+  prev_head = PREV_INSN (head);
+
+  for (insn = tail; insn != prev_head; insn = PREV_INSN (insn))
+    if (INSN_P (insn))
+      {
+	FOR_EACH_DEP (insn, SD_LIST_FORW, sd_it, dep)
+	  {
+	    x = DEP_CON (dep);
+	    if (! DEBUG_INSN_P (x))
+	      {
+		if (LEVEL (x) > LEVEL (insn))
+		  LEVEL (insn) = LEVEL (x);
+		CONSUMER_LUID (insn) = INSN_LUID (x);
+	      }
+	  }
+	LEVEL (insn)++;
+      }
+}
+
+/* Implement TARGET_SCHED_DEPENDENCIES_EVALUATION_HOOK.  */
+
+static void
+mips_evaluation_hook (rtx_insn *head, rtx_insn *tail)
+{
+  if (!reload_completed && TARGET_SCHED_WEIGHT)
+    mips_weight_evaluation (head, tail);
+}
+
+/* Implement TARGET_SCHED_SET_SCHED_FLAGS.
+   Enables DONT_BREAK_DEPENDENCIES for the first scheduling pass.
+   It prevents breaking of dependencies on mem/inc pair in the first pass
+   which would otherwise increase stalls.  */
+
+static void
+mips_set_sched_flags (spec_info_t spec_info ATTRIBUTE_UNUSED)
+{
+  if (!reload_completed && TARGET_SCHED_WEIGHT)
+    {
+      unsigned int *flags = &(current_sched_info->flags);
+      *flags |= DONT_BREAK_DEPENDENCIES;
+    }
+}
+
+static void
+mips_weight_finish_global ()
+{
+  if (level != NULL)
+    free (level);
+
+  if (consumer_luid != NULL)
+    free (consumer_luid);
+}
+
+/* Implement TARGET_SCHED_FINISH_GLOBAL.  */
+
+static void
+mips_sched_finish_global (FILE *dump ATTRIBUTE_UNUSED,
+			  int verbose ATTRIBUTE_UNUSED)
+{
+  if (!reload_completed && TARGET_SCHED_WEIGHT)
+    mips_weight_finish_global ();
+}
+
+
+/* This is a TARGET_SCHED_WEIGHT (option -msched-weight) helper function
+   which is called during reordering of instructions in the first pass
+   of the scheduler. The function swaps the instruction at (NREADY - 1)
+   of the READY list with another instruction in READY list as per
+   the following algorithm. The scheduler then picks the instruction
+   at READY[NREADY - 1] and schedules it.
+
+   Every instruction is assigned with a value LEVEL.
+   [See: mips_weight_evaluation().]
+
+   1. INSN with highest LEVEL is chosen to be scheduled next, ties broken by
+      1a. Choosing INSN that is used early in the flow or
+      1b. Choosing INSN with greater INSN_TICK.
+
+   2. Choose INSN having less LEVEL number iff,
+      2a. It is used early and
+      2b. Has greater INSN_TICK and
+      2c. Contributes less to the register pressure.  */
+
+static void
+mips_sched_weight (rtx_insn **ready, int nready)
+{
+  int max_level = LEVEL (ready[nready-1]), toswap = nready-1;
+  int i;
+#define INSN_TICK(INSN) (HID (INSN)->tick)
+
+  for (i = nready - 2; i >= 0; i--)
+    {
+      rtx_insn *insn = ready[i];
+      if (LEVEL (insn) == max_level)
+	{
+	  if (INSN_PRIORITY (insn) >= INSN_PRIORITY (ready[toswap]))
+	    {
+	      if (CONSUMER_LUID (insn) < CONSUMER_LUID (ready[toswap]))
+		toswap = i;
+	    }
+	  else if (INSN_TICK (insn) > INSN_TICK(ready[toswap]))
+	    toswap = i;
+	}
+      if (LEVEL (insn) > max_level)
+	{
+	  max_level = LEVEL (insn);
+	  toswap = i;
+	}
+      if (LEVEL (insn) < max_level)
+	{
+	  if (CONSUMER_LUID (insn) < CONSUMER_LUID (ready[toswap])
+	      && INSN_TICK (insn) > INSN_TICK(ready[toswap])
+	      && get_weight (insn) < get_weight (ready[toswap]))
+	    toswap = i;
+	}
+    }
+
+  if (toswap != (nready-1))
+    {
+      rtx_insn *temp = ready[nready-1];
+      ready[nready-1] = ready[toswap];
+      ready[toswap] = temp;
+    }
+#undef INSN_TICK
+}
+
 
 /* Implement TARGET_SCHED_INIT.  */
 
@@ -15525,6 +15750,11 @@ mips_sched_reorder_1 (FILE *file ATTRIBUTE_UNUSED, int verbose ATTRIBUTE_UNUSED,
 
   if (TUNE_74K)
     mips_74k_agen_reorder (ready, *nreadyp);
+
+  if (! reload_completed
+      && TARGET_SCHED_WEIGHT
+      && *nreadyp > 1)
+    mips_sched_weight (ready, *nreadyp);
 }
 
 /* Implement TARGET_SCHED_REORDER.  */
@@ -23618,6 +23848,18 @@ mips_bit_clear_p (enum machine_mode mode, unsigned HOST_WIDE_INT m)
 
 #undef TARGET_SECTION_TYPE_FLAGS
 #define TARGET_SECTION_TYPE_FLAGS mips_section_type_flags
+
+#undef TARGET_SCHED_INIT_GLOBAL
+#define TARGET_SCHED_INIT_GLOBAL mips_sched_init_global
+
+#undef TARGET_SCHED_FINISH_GLOBAL
+#define TARGET_SCHED_FINISH_GLOBAL mips_sched_finish_global
+
+#undef TARGET_SCHED_DEPENDENCIES_EVALUATION_HOOK
+#define TARGET_SCHED_DEPENDENCIES_EVALUATION_HOOK mips_evaluation_hook
+
+#undef TARGET_SCHED_SET_SCHED_FLAGS
+#define TARGET_SCHED_SET_SCHED_FLAGS mips_set_sched_flags
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
