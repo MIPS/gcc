@@ -443,3 +443,6 @@ Enum(mips_cb_setting) String(optimal) Value(MIPS_CB_OPTIMAL)
 
 EnumValue
 Enum(mips_cb_setting) String(always) Value(MIPS_CB_ALWAYS)
+
+msched-weight
+Target Report Var(TARGET_SCHED_WEIGHT) Undocumented
