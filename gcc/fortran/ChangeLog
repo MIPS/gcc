@@ -1,3 +1,12 @@
+2014-05-22  Paul Thomas  <pault@gcc.gnu.org>
+
+	* trans-array.c (gfc_conv_descriptor_stride_get,
+	gfc_conv_descriptor_stride_get): Only use 'elem_len' field for
+	element size.
+	* trans-stmt.c (trans_associate_var): Eliminate redundant
+	declaration of 'desc'. Use 'sm' and 'elem_len' fields directly
+	to calculate offset.
+
 2014-05-12  Tobias Burnus  <burnus@net-b.de>
 
 	PR fortran/60127
@@ -167,7 +176,7 @@
 	* trans.c (trans_code): Handle EXEC_OMP_CANCEL,
 	EXEC_OMP_CANCELLATION_POINT, EXEC_OMP_DO_SIMD,
 	EXEC_OMP_PARALLEL_DO_SIMD, EXEC_OMP_SIMD and EXEC_OMP_TASKGROUP.
-	* resolve.c (gfc_resolve_blocks): Handle EXEC_OMP_DO_SIMD,  
+	* resolve.c (gfc_resolve_blocks): Handle EXEC_OMP_DO_SIMD,
 	EXEC_OMP_PARALLEL_DO_SIMD, EXEC_OMP_SIMD and EXEC_OMP_TASKGROUP.
 	(resolve_code): Handle EXEC_OMP_CANCEL,
 	EXEC_OMP_CANCELLATION_POINT, EXEC_OMP_DO_SIMD,

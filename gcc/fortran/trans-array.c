@@ -427,10 +427,8 @@ gfc_conv_descriptor_stride_get (tree desc, tree dim)
     return gfc_index_one_node;
 
   tmp = gfc_get_element_type (type);
-  if (TREE_CODE (tmp) != RECORD_TYPE && !TYPE_STRING_FLAG (tmp))
-    size = size_in_bytes (tmp);
-  else
-    size = gfc_conv_descriptor_elem_len_get (desc);
+
+  size = gfc_conv_descriptor_elem_len_get (desc);
 
   size = fold_convert (gfc_array_index_type, size);
   tmp = fold_build2_loc (input_location, FLOOR_DIV_EXPR, gfc_array_index_type,
@@ -449,10 +447,7 @@ gfc_conv_descriptor_stride_set (stmtblock_t *block, tree desc,
 {
   tree tmp;
   tmp = gfc_get_element_type (TREE_TYPE (desc));
-  if (TREE_CODE (tmp) != RECORD_TYPE && !TYPE_STRING_FLAG (tmp))
-    tmp = size_in_bytes (tmp);
-  else
-    tmp = gfc_conv_descriptor_elem_len_get (desc);
+  tmp = gfc_conv_descriptor_elem_len_get (desc);
 
   tmp = fold_build2_loc (input_location, MULT_EXPR, gfc_array_index_type,
 			 fold_convert (gfc_array_index_type, value),

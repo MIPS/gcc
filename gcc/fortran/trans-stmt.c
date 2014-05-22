@@ -1167,7 +1167,6 @@ trans_associate_var (gfc_symbol *sym, gfc_wrapped_block *block)
       && (sym->as->type == AS_DEFERRED || sym->assoc->variable))
     {
       gfc_se se;
-      tree desc;
 
       desc = sym->backend_decl;
 
@@ -1271,12 +1270,16 @@ trans_associate_var (gfc_symbol *sym, gfc_wrapped_block *block)
 	      dim = gfc_rank_cst[n];
 	      tmp = fold_build2_loc (input_location, MULT_EXPR,
 				     gfc_array_index_type,
-				     gfc_conv_descriptor_stride_get (desc, dim),
+				     gfc_conv_descriptor_sm_get (desc, dim),
 				     gfc_conv_descriptor_lbound_get (desc, dim));
 	      offset = fold_build2_loc (input_location, MINUS_EXPR,
 				        gfc_array_index_type,
 				        offset, tmp);
 	    }
+	  tmp = fold_convert (gfc_array_index_type,
+			      gfc_conv_descriptor_elem_len_get (desc));
+	  offset = fold_build2_loc (input_location, FLOOR_DIV_EXPR,
+				    gfc_array_index_type, offset, tmp);
 	  gfc_conv_descriptor_offset_set (&se.pre, desc, offset);
 	}
       else if (sym->ts.type == BT_CLASS && e->ts.type == BT_CLASS
