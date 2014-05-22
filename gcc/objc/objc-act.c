@@ -52,6 +52,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "tree-iterator.h"
 #include "hash-table.h"
+#include "wide-int.h"
 #include "langhooks-def.h"
 /* Different initialization, code gen and meta data generation for each
    runtime.  */
@@ -3198,7 +3199,7 @@ objc_build_string_object (tree string)
 
   if (!desc)
     {
-      *loc = desc = ggc_alloc_string_descriptor ();
+      *loc = desc = ggc_alloc<string_descriptor> ();
       desc->literal = string;
       desc->constructor =
 	(*runtime.build_const_string_constructor) (input_location, string, length);
@@ -4899,12 +4900,10 @@ objc_decl_method_attributes (tree *node, tree attributes, int flags)
 		  number = TREE_VALUE (second_argument);
 		  if (number
 		      && TREE_CODE (number) == INTEGER_CST
-		      && TREE_INT_CST_HIGH (number) == 0)
-		    {
-		      TREE_VALUE (second_argument)
-			= build_int_cst (integer_type_node,
-					 TREE_INT_CST_LOW (number) + 2);
-		    }
+		      && !wi::eq_p (number, 0))
+		    TREE_VALUE (second_argument)
+		      = wide_int_to_tree (TREE_TYPE (number),
+					  wi::add (number, 2));
 
 		  /* This is the third argument, the "first-to-check",
 		     which specifies the index of the first argument to
@@ -4914,13 +4913,10 @@ objc_decl_method_attributes (tree *node, tree attributes, int flags)
 		  number = TREE_VALUE (third_argument);
 		  if (number
 		      && TREE_CODE (number) == INTEGER_CST
-		      && TREE_INT_CST_HIGH (number) == 0
-		      && TREE_INT_CST_LOW (number) != 0)
-		    {
-		      TREE_VALUE (third_argument)
-			= build_int_cst (integer_type_node,
-					 TREE_INT_CST_LOW (number) + 2);
-		    }
+		      && !wi::eq_p (number, 0))
+		    TREE_VALUE (third_argument)
+		      = wide_int_to_tree (TREE_TYPE (number),
+					  wi::add (number, 2));
 		}
 	      filtered_attributes = chainon (filtered_attributes,
 					     new_attribute);
@@ -4952,15 +4948,11 @@ objc_decl_method_attributes (tree *node, tree attributes, int flags)
 		{
 		  /* Get the value of the argument and add 2.  */
 		  tree number = TREE_VALUE (argument);
-		  if (number
-		      && TREE_CODE (number) == INTEGER_CST
-		      && TREE_INT_CST_HIGH (number) == 0
-		      && TREE_INT_CST_LOW (number) != 0)
-		    {
-		      TREE_VALUE (argument)
-			= build_int_cst (integer_type_node,
-					 TREE_INT_CST_LOW (number) + 2);
-		    }
+		  if (number && TREE_CODE (number) == INTEGER_CST
+		      && !wi::eq_p (number, 0))
+		    TREE_VALUE (argument)
+		      = wide_int_to_tree (TREE_TYPE (number),
+					  wi::add (number, 2));
 		  argument = TREE_CHAIN (argument);
 		}
 
@@ -7040,7 +7032,7 @@ continue_class (tree klass)
 	uprivate_record = CLASS_STATIC_TEMPLATE (implementation_template);
 	objc_instance_type = build_pointer_type (uprivate_record);
 
-	imp_entry = ggc_alloc_imp_entry ();
+	imp_entry = ggc_alloc<struct imp_entry> ();
 
 	imp_entry->next = imp_list;
 	imp_entry->imp_context = klass;

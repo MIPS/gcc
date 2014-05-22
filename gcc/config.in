@@ -1742,12 +1742,6 @@
 #endif
 
 
-/* Define to 1 if HOST_WIDE_INT must be 64 bits wide (see hwint.h). */
-#ifndef USED_FOR_TARGET
-#undef NEED_64BIT_HOST_WIDE_INT
-#endif
-
-
 /* Define to hold the list of target names suitable for offloading. */
 #ifndef USED_FOR_TARGET
 #undef OFFLOAD_TARGETS

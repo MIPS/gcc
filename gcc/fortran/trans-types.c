@@ -863,8 +863,6 @@ gfc_init_types (void)
   int index;
   tree type;
   unsigned n;
-  unsigned HOST_WIDE_INT hi;
-  unsigned HOST_WIDE_INT lo;
 
   /* Create and name the types.  */
 #define PUSH_TYPE(name, node) \
@@ -956,13 +954,10 @@ gfc_init_types (void)
      descriptor.  */
 
   n = TYPE_PRECISION (gfc_array_index_type) - GFC_DTYPE_SIZE_SHIFT;
-  lo = ~ (unsigned HOST_WIDE_INT) 0;
-  if (n > HOST_BITS_PER_WIDE_INT)
-    hi = lo >> (2*HOST_BITS_PER_WIDE_INT - n);
-  else
-    hi = 0, lo >>= HOST_BITS_PER_WIDE_INT - n;
   gfc_max_array_element_size
-    = build_int_cst_wide (long_unsigned_type_node, lo, hi);
+    = wide_int_to_tree (long_unsigned_type_node,
+			wi::mask (n, UNSIGNED,
+				  TYPE_PRECISION (long_unsigned_type_node)));
 
   boolean_type_node = gfc_get_logical_type (gfc_default_logical_kind);
   boolean_true_node = build_int_cst (boolean_type_node, 1);
@@ -1518,8 +1513,7 @@ gfc_get_nodesc_array_type (tree etype, gfc_array_spec * as, gfc_packed packed,
     type = build_variant_type_copy (etype);
 
   GFC_ARRAY_TYPE_P (type) = 1;
-  TYPE_LANG_SPECIFIC (type)
-      = ggc_alloc_cleared_lang_type (sizeof (struct lang_type));
+  TYPE_LANG_SPECIFIC (type) = ggc_cleared_alloc<struct lang_type> ();
 
   known_stride = (packed != PACKED_NO);
   known_offset = 1;
@@ -1821,8 +1815,7 @@ gfc_get_array_type_bounds (tree etype, int dimen, int codimen, tree * lbound,
   TYPE_NAMELESS (fat_type) = 1;
 
   GFC_DESCRIPTOR_TYPE_P (fat_type) = 1;
-  TYPE_LANG_SPECIFIC (fat_type)
-    = ggc_alloc_cleared_lang_type (sizeof (struct lang_type));
+  TYPE_LANG_SPECIFIC (fat_type) = ggc_cleared_alloc<struct lang_type> ();
 
   GFC_TYPE_ARRAY_RANK (fat_type) = dimen;
   GFC_TYPE_ARRAY_CORANK (fat_type) = codimen;
@@ -1902,7 +1895,7 @@ gfc_get_array_type_bounds (tree etype, int dimen, int codimen, tree * lbound,
   if (stride)
     rtype = build_range_type (gfc_array_index_type, gfc_index_zero_node,
 			      int_const_binop (MINUS_EXPR, stride,
-					       integer_one_node));
+					       build_int_cst (TREE_TYPE (stride), 1)));
   else
     rtype = gfc_array_range_type;
   arraytype = build_array_type (etype, rtype);
@@ -1996,8 +1989,7 @@ gfc_nonrestricted_type (tree t)
     return t;
 
   if (!TYPE_LANG_SPECIFIC (t))
-    TYPE_LANG_SPECIFIC (t)
-      = ggc_alloc_cleared_lang_type (sizeof (struct lang_type));
+    TYPE_LANG_SPECIFIC (t) = ggc_cleared_alloc<struct lang_type> ();
   /* If we're dealing with this very node already further up
      the call chain (recursion via pointers and struct members)
      we haven't yet determined if we really need a new type node.
@@ -2049,8 +2041,7 @@ gfc_nonrestricted_type (tree t)
 		  if (dataptr_type != GFC_TYPE_ARRAY_DATAPTR_TYPE (t))
 		    {
 		      TYPE_LANG_SPECIFIC (ret)
-			= ggc_alloc_cleared_lang_type (sizeof (struct
-							       lang_type));
+			= ggc_cleared_alloc<struct lang_type> ();
 		      *TYPE_LANG_SPECIFIC (ret) = *TYPE_LANG_SPECIFIC (t);
 		      GFC_TYPE_ARRAY_DATAPTR_TYPE (ret) = dataptr_type;
 		    }

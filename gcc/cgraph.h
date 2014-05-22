@@ -76,6 +76,8 @@ public:
   /* Set once the definition was analyzed.  The list of references and
      other properties are built during analysis.  */
   unsigned analyzed : 1;
+  /* Set for write-only variables.  */
+  unsigned writeonly : 1;
 
 
   /*** Visibility and linkage flags.  ***/
@@ -728,6 +730,7 @@ enum symbol_partitioning_class
 /* In symtab.c  */
 void symtab_register_node (symtab_node *);
 void symtab_unregister_node (symtab_node *);
+void symtab_remove_from_same_comdat_group (symtab_node *);
 void symtab_remove_node (symtab_node *);
 symtab_node *symtab_get_node (const_tree);
 symtab_node *symtab_node_for_asm (const_tree asmname);
@@ -1027,6 +1030,35 @@ varpool_get_node (const_tree decl)
 #define FOR_EACH_SYMBOL(node) \
    for ((node) = symtab_nodes; (node); (node) = (node)->next)
 
+/* Return first static symbol with definition.  */
+static inline symtab_node *
+symtab_first_defined_symbol (void)
+{
+  symtab_node *node;
+
+  for (node = symtab_nodes; node; node = node->next)
+    if (node->definition)
+      return node;
+
+  return NULL;
+}
+
+/* Return next reachable static symbol with initializer after NODE.  */
+static inline symtab_node *
+symtab_next_defined_symbol (symtab_node *node)
+{
+  symtab_node *node1 = node->next;
+
+  for (; node1; node1 = node1->next)
+    if (node1->definition)
+      return node1;
+
+  return NULL;
+}
+/* Walk all symbols with definitions in current unit.  */
+#define FOR_EACH_DEFINED_SYMBOL(node) \
+   for ((node) = symtab_first_defined_symbol (); (node); \
+        (node) = symtab_next_defined_symbol (node))
 
 /* Return first variable.  */
 static inline varpool_node *
@@ -1055,7 +1087,7 @@ varpool_next_variable (varpool_node *node)
         (node); \
 	(node) = varpool_next_variable ((node)))
 
-/* Return first reachable static variable with initializer.  */
+/* Return first static variable with initializer.  */
 static inline varpool_node *
 varpool_first_static_initializer (void)
 {
@@ -1069,7 +1101,7 @@ varpool_first_static_initializer (void)
   return NULL;
 }
 
-/* Return next reachable static variable with initializer after NODE.  */
+/* Return next static variable with initializer after NODE.  */
 static inline varpool_node *
 varpool_next_static_initializer (varpool_node *node)
 {
@@ -1088,7 +1120,7 @@ varpool_next_static_initializer (varpool_node *node)
    for ((node) = varpool_first_static_initializer (); (node); \
         (node) = varpool_next_static_initializer (node))
 
-/* Return first reachable static variable with initializer.  */
+/* Return first static variable with definition.  */
 static inline varpool_node *
 varpool_first_defined_variable (void)
 {
@@ -1102,7 +1134,7 @@ varpool_first_defined_variable (void)
   return NULL;
 }
 
-/* Return next reachable static variable with initializer after NODE.  */
+/* Return next static variable with definition after NODE.  */
 static inline varpool_node *
 varpool_next_defined_variable (varpool_node *node)
 {
@@ -1542,6 +1574,17 @@ symtab_comdat_local_p (symtab_node *node)
 static inline bool
 symtab_in_same_comdat_p (symtab_node *one, symtab_node *two)
 {
+  if (cgraph_node *cn = dyn_cast <cgraph_node *> (one))
+    {
+      if (cn->global.inlined_to)
+	one = cn->global.inlined_to;
+    }
+  if (cgraph_node *cn = dyn_cast <cgraph_node *> (two))
+    {
+      if (cn->global.inlined_to)
+	two = cn->global.inlined_to;
+    }
+
   return DECL_COMDAT_GROUP (one->decl) == DECL_COMDAT_GROUP (two->decl);
 }
 #endif  /* GCC_CGRAPH_H  */

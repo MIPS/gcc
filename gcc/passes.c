@@ -549,7 +549,7 @@ const pass_data pass_data_postreload =
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  TODO_verify_rtl_sharing, /* todo_flags_finish */
+  0, /* todo_flags_finish */
 };
 
 class pass_postreload : public rtl_opt_pass
@@ -1532,7 +1532,7 @@ do_per_function_toporder (void (*callback) (function *, void *data), void *data)
   else
     {
       gcc_assert (!order);
-      order = ggc_alloc_vec_cgraph_node_ptr (cgraph_n_nodes);
+      order = ggc_vec_alloc<cgraph_node_ptr> (cgraph_n_nodes);
       nnodes = ipa_reverse_postorder (order);
       for (i = nnodes - 1; i >= 0; i--)
         order[i]->process = 1;

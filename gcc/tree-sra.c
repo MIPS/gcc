@@ -2812,7 +2812,7 @@ sra_modify_expr (tree *expr, gimple_stmt_iterator *gsi, bool write)
 	{
 	  tree ref;
 
-	  ref = build_ref_for_model (loc, orig_expr, 0, access, NULL, false);
+	  ref = build_ref_for_model (loc, orig_expr, 0, access, gsi, false);
 
 	  if (write)
 	    {
@@ -3579,7 +3579,7 @@ const pass_data pass_data_sra_early =
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  ( TODO_update_ssa | TODO_verify_ssa ), /* todo_flags_finish */
+  TODO_update_ssa, /* todo_flags_finish */
 };
 
 class pass_sra_early : public gimple_opt_pass
@@ -3616,7 +3616,7 @@ const pass_data pass_data_sra =
   0, /* properties_provided */
   0, /* properties_destroyed */
   TODO_update_address_taken, /* todo_flags_start */
-  ( TODO_update_ssa | TODO_verify_ssa ), /* todo_flags_finish */
+  TODO_update_ssa, /* todo_flags_finish */
 };
 
 class pass_sra : public gimple_opt_pass
