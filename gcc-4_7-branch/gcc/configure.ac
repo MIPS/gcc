@@ -3740,8 +3740,13 @@ foo:	nop
 
     # These two are used unconditionally by i386.[ch]; it is to be defined
     # to 1 if the feature is present, 0 otherwise.
+    as_ix86_gotoff_in_data_opt=
+    if test x$gas = xyes; then
+      as_ix86_gotoff_in_data_opt="--32"
+    fi
     gcc_GAS_CHECK_FEATURE([GOTOFF in data],
-        gcc_cv_as_ix86_gotoff_in_data, [2,11,0],,
+      gcc_cv_as_ix86_gotoff_in_data, [2,11,0],
+      [$as_ix86_gotoff_in_data_opt],
 [	.text
 .L0:
 	nop
@@ -5153,15 +5158,15 @@ if test x"$enable_plugin" = x"yes"; then
   AC_MSG_CHECKING([for exported symbols])
   if test "x$export_sym_check" != x; then
     echo "int main() {return 0;} int foobar() {return 0;}" > conftest.c
-    ${CC} ${CFLAGS} ${LDFLAGS} conftest.c -o conftest > /dev/null 2>&1
-    if $export_sym_check conftest | grep foobar > /dev/null; then
+    ${CC} ${CFLAGS} ${LDFLAGS} conftest.c -o conftest$ac_exeext > /dev/null 2>&1
+    if $export_sym_check conftest$ac_exeext | grep -q foobar > /dev/null; then
       : # No need to use a flag
       AC_MSG_RESULT([yes])
     else
       AC_MSG_RESULT([yes])
       AC_MSG_CHECKING([for -rdynamic])
-      ${CC} ${CFLAGS} ${LDFLAGS} -rdynamic conftest.c -o conftest > /dev/null 2>&1
-      if $export_sym_check conftest | grep foobar > /dev/null; then
+      ${CC} ${CFLAGS} ${LDFLAGS} -rdynamic conftest.c -o conftest$ac_exeext > /dev/null 2>&1
+      if $export_sym_check conftest$ac_exeext | grep -q foobar > /dev/null; then
         plugin_rdynamic=yes
         pluginlibs="-rdynamic"
       else

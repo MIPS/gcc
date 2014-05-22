@@ -549,8 +549,17 @@ avr_set_current_function (tree decl)
     {
       tree args = TYPE_ARG_TYPES (TREE_TYPE (decl));
       tree ret = TREE_TYPE (TREE_TYPE (decl));
-      const char *name = IDENTIFIER_POINTER (DECL_NAME (decl));
-      
+      const char *name;
+
+      name = DECL_ASSEMBLER_NAME_SET_P (decl)
+        ? IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl))
+        : IDENTIFIER_POINTER (DECL_NAME (decl));
+
+      /* Skip a leading '*' that might still prefix the assembler name,
+         e.g. in non-LTO runs.  */
+
+      name = default_strip_name_encoding (name);
+
       /* Silently ignore 'signal' if 'interrupt' is present.  AVR-LibC startet
          using this when it switched from SIGNAL and INTERRUPT to ISR.  */
 
@@ -1004,7 +1013,7 @@ avr_prologue_setup_frame (HOST_WIDE_INT size, HARD_REG_SET set)
               leaf function and thus X has already been saved.  */
               
           int irq_state = -1;
-          HOST_WIDE_INT size_cfa = size;
+          HOST_WIDE_INT size_cfa = size, neg_size;
           rtx fp_plus_insns, fp, my_fp;
 
           gcc_assert (frame_pointer_needed
@@ -1043,6 +1052,7 @@ avr_prologue_setup_frame (HOST_WIDE_INT size, HARD_REG_SET set)
             }
 
           size = trunc_int_for_mode (size, GET_MODE (my_fp));
+          neg_size = trunc_int_for_mode (-size, GET_MODE (my_fp));
           
           /************  Method 1: Adjust frame pointer  ************/
           
@@ -1062,7 +1072,7 @@ avr_prologue_setup_frame (HOST_WIDE_INT size, HARD_REG_SET set)
                             gen_rtx_SET (VOIDmode, fp, stack_pointer_rtx));
             }
 
-          insn = emit_move_insn (my_fp, plus_constant (my_fp, -size));
+          insn = emit_move_insn (my_fp, plus_constant (my_fp, neg_size));
           if (frame_pointer_needed)
             {
               RTX_FRAME_RELATED_P (insn) = 1;
@@ -2163,6 +2173,12 @@ notice_update_cc (rtx body ATTRIBUTE_UNUSED, rtx insn)
 	  cc_status.flags |= CC_NO_OVERFLOW;
 	  cc_status.value1 = SET_DEST (set);
 	}
+      break;
+
+    case CC_SET_VZN:
+      /* Insn like INC, DEC, NEG that set Z,N,V.  We currently don't make use
+         of this combination, cf. also PR61055.  */
+      CC_STATUS_INIT;
       break;
 
     case CC_SET_CZN:
@@ -3627,7 +3643,7 @@ avr_out_store_psi (rtx insn, rtx *op, int *plen)
                                 "std Y+61,%A1"    CR_TAB
                                 "std Y+62,%B1"    CR_TAB
                                 "std Y+63,%C1"    CR_TAB
-                                "sbiw r28,%o0-60", op, plen, -5);
+                                "sbiw r28,%o0-61", op, plen, -5);
 
           return avr_asm_len ("subi r28,lo8(-%o0)" CR_TAB
                               "sbci r29,hi8(-%o0)" CR_TAB
@@ -5939,7 +5955,7 @@ avr_out_plus_1 (rtx *xop, int *plen, enum rtx_code code, int *pcc)
                                op, plen, 1);
 
                   if (n_bytes == 2 && PLUS == code)
-                      *pcc = CC_SET_ZN;
+                      *pcc = CC_SET_CZN;
                 }
 
               i++;
@@ -5961,6 +5977,7 @@ avr_out_plus_1 (rtx *xop, int *plen, enum rtx_code code, int *pcc)
         {
           avr_asm_len ((code == PLUS) ^ (val8 == 1) ? "dec %0" : "inc %0",
                        op, plen, 1);
+          *pcc = CC_CLOBBER;
           break;
         }
 

@@ -126,7 +126,7 @@
   [(set_attr "predicable" "yes")
    (set_attr "type" "*,*,*,*,load1,load1,store1,store1,r_2_f,f_2_r,fcpys,f_loads,f_stores")
    (set_attr "insn" "mov,mov,mvn,mov,*,*,*,*,*,*,*,*,*")
-   (set_attr "pool_range"     "*,*,*,*,1020,4096,*,*,*,*,*,1020,*")
+   (set_attr "pool_range"     "*,*,*,*,1018,4094,*,*,*,*,*,1018,*")
    (set_attr "neg_pool_range" "*,*,*,*,   0,   0,*,*,*,*,*,1008,*")]
 )
 
@@ -177,7 +177,8 @@
                                  (const_int 8)
                                  (const_int 4))]
                               (const_int 4)))
-   (set_attr "pool_range"     "*,*,*,*,1020,4096,*,*,*,*,1020,*")
+   (set_attr "arm_pool_range"     "*,*,*,*,1020,4096,*,*,*,*,1020,*")
+   (set_attr "thumb2_pool_range"     "*,*,*,*,1018,4094,*,*,*,*,1018,*")
    (set_attr "neg_pool_range" "*,*,*,*,1004,0,*,*,*,*,1004,*")
    (set_attr "arch"           "t2,any,any,any,a,t2,any,any,any,any,any,any")]
 )
@@ -222,7 +223,8 @@
                                  * 4")]
                               (const_int 4)))
    (set_attr "predicable"    "yes")
-   (set_attr "pool_range"     "*,*,*,*,1020,4096,*,*,*,*,1020,*")
+   (set_attr "arm_pool_range"     "*,*,*,*,1018,4094,*,*,*,*,1018,*")
+   (set_attr "thumb2_pool_range"     "*,*,*,*,1018,4094,*,*,*,*,1018,*")
    (set_attr "neg_pool_range" "*,*,*,*,1004,0,*,*,*,*,1004,*")
    (set (attr "ce_count") 
 	(symbol_ref "get_attr_length (insn) / 4"))
@@ -409,7 +411,7 @@
    (set_attr "type"
      "r_2_f,f_2_r,fconsts,f_loads,f_stores,load1,store1,fcpys,*")
    (set_attr "insn" "*,*,*,*,*,*,*,*,mov")
-   (set_attr "pool_range" "*,*,*,1020,*,4092,*,*,*")
+   (set_attr "pool_range" "*,*,*,1018,*,4090,*,*,*")
    (set_attr "neg_pool_range" "*,*,*,1008,*,0,*,*,*")]
 )
 
@@ -501,7 +503,7 @@
 				 (const_int 8)
 				 (const_int 4))]
 			      (const_int 4)))
-   (set_attr "pool_range" "*,*,*,1020,*,4096,*,*,*")
+   (set_attr "pool_range" "*,*,*,1018,*,4094,*,*,*")
    (set_attr "neg_pool_range" "*,*,*,1008,*,0,*,*,*")]
 )
 
@@ -1144,18 +1146,18 @@
    (set_attr "type" "fcmpd")]
 )
 
-;; Fixed point to floating point conversions. 
+;; Fixed point to floating point conversions.
 (define_code_iterator FCVT [unsigned_float float])
 (define_code_attr FCVTI32typename [(unsigned_float "u32") (float "s32")])
 
 (define_insn "*combine_vcvt_f32_<FCVTI32typename>"
   [(set (match_operand:SF 0 "s_register_operand" "=t")
 	(mult:SF (FCVT:SF (match_operand:SI 1 "s_register_operand" "0"))
-		 (match_operand 2 
+		 (match_operand 2
 			"const_double_vcvt_power_of_two_reciprocal" "Dt")))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP3 && !flag_rounding_math"
-  "vcvt.f32.<FCVTI32typename>\\t%0, %1, %v2"
- [(set_attr "predicable" "no")
+  "vcvt%?.f32.<FCVTI32typename>\\t%0, %1, %v2"
+ [(set_attr "predicable" "yes")
   (set_attr "type" "f_cvt")]
 )
 
@@ -1164,15 +1166,16 @@
 (define_insn "*combine_vcvt_f64_<FCVTI32typename>"
   [(set (match_operand:DF 0 "s_register_operand" "=x,x,w")
 	(mult:DF (FCVT:DF (match_operand:SI 1 "s_register_operand" "r,t,r"))
-		 (match_operand 2 
+		 (match_operand 2
 		     "const_double_vcvt_power_of_two_reciprocal" "Dt,Dt,Dt")))]
-  "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP3 && !flag_rounding_math 
+  "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP3 && !flag_rounding_math
   && !TARGET_VFP_SINGLE"
   "@
-  vmov.f32\\t%0, %1\;vcvt.f64.<FCVTI32typename>\\t%P0, %P0, %v2
-  vmov.f32\\t%0, %1\;vcvt.f64.<FCVTI32typename>\\t%P0, %P0, %v2
-  vmov.f64\\t%P0, %1, %1\;vcvt.f64.<FCVTI32typename>\\t%P0, %P0, %v2"
- [(set_attr "predicable" "no")
+  vmov%?.f32\\t%0, %1\;vcvt%?.f64.<FCVTI32typename>\\t%P0, %P0, %v2
+  vmov%?.f32\\t%0, %1\;vcvt%?.f64.<FCVTI32typename>\\t%P0, %P0, %v2
+  vmov%?.f64\\t%P0, %1, %1\;vcvt%?.f64.<FCVTI32typename>\\t%P0, %P0, %v2"
+ [(set_attr "predicable" "yes")
+  (set_attr "ce_count" "2")
   (set_attr "type" "f_cvt")
   (set_attr "length" "8")]
 )

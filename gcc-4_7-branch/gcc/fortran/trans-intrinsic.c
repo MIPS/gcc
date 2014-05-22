@@ -4664,9 +4664,11 @@ gfc_conv_intrinsic_index_scan_verify (gfc_se * se, gfc_expr * expr,
 static void
 gfc_conv_intrinsic_ichar (gfc_se * se, gfc_expr * expr)
 {
-  tree args[2], type, pchartype;
+  tree args[3], type, pchartype;
+  int nargs;
 
-  gfc_conv_intrinsic_function_args (se, expr, args, 2);
+  nargs = gfc_intrinsic_argument_list_length (expr);
+  gfc_conv_intrinsic_function_args (se, expr, args, nargs);
   gcc_assert (POINTER_TYPE_P (TREE_TYPE (args[1])));
   pchartype = gfc_get_pchar_type (expr->value.function.actual->expr->ts.kind);
   args[1] = fold_build1_loc (input_location, NOP_EXPR, pchartype, args[1]);
@@ -5623,8 +5625,7 @@ scalar_transfer:
 
   if (expr->ts.type == BT_CHARACTER)
     {
-      tree direct;
-      tree indirect;
+      tree direct, indirect, free;
 
       ptr = convert (gfc_get_pchar_type (expr->ts.kind), source);
       tmpdecl = gfc_create_var (gfc_get_pchar_type (expr->ts.kind),
@@ -5656,6 +5657,13 @@ scalar_transfer:
 			     dest_word_len, source_bytes);
       tmp = build3_v (COND_EXPR, tmp, direct, indirect);
       gfc_add_expr_to_block (&se->pre, tmp);
+
+      /* Free the temporary string, if necessary.  */
+      free = gfc_call_free (tmpdecl);
+      tmp = fold_build2_loc (input_location, GT_EXPR, boolean_type_node,
+			     dest_word_len, source_bytes);
+      tmp = build3_v (COND_EXPR, tmp, free, build_empty_stmt (input_location));
+      gfc_add_expr_to_block (&se->post, tmp);
 
       se->expr = tmpdecl;
       se->string_length = fold_convert (gfc_charlen_type_node, dest_word_len);
