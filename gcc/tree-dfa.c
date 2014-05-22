@@ -402,13 +402,10 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
      outermost expression.  */
   if (TREE_CODE (exp) == COMPONENT_REF)
     {
-      enum machine_mode mode = DECL_MODE (TREE_OPERAND (exp, 1));
       size_tree = DECL_SIZE (TREE_OPERAND (exp, 1));
-      /* ??? The Fortran compiler references components of 'void' type.  */
       *preverse
-	= !VOID_TYPE_P (TREE_TYPE (TREE_OPERAND (exp, 0)))
-	  && TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (TREE_OPERAND (exp, 0)))
-	  && mode != BLKmode;
+	= TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (TREE_OPERAND (exp, 0)))
+	  && !AGGREGATE_TYPE_P (TREE_TYPE (exp));
     }
   else if (TREE_CODE (exp) == BIT_FIELD_REF)
     {
@@ -423,12 +420,11 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
       else
 	bitsize = int (GET_MODE_BITSIZE (mode));
       *preverse
-	= (((TREE_CODE (exp) == ARRAY_REF
-	     || TREE_CODE (exp) == ARRAY_RANGE_REF)
+	= ((TREE_CODE (exp) == ARRAY_REF
 	    && TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (TREE_OPERAND (exp, 0))))
 	   || (TREE_CODE (exp) == MEM_REF
 	       && REF_REVERSE_STORAGE_ORDER (exp)))
-	  && mode != BLKmode;
+	  && !AGGREGATE_TYPE_P (TREE_TYPE (exp));
     }
   else
     *preverse = false;

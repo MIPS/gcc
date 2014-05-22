@@ -6558,15 +6558,18 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
 
       temp = expand_normal (exp);
 
-      /* If BITSIZE is narrower than the size of the type of EXP
-	 we will be narrowing TEMP.  Normally, what's wanted are the
-	 low-order bits.  However, if EXP's type is a record and this
-	 is a big-endian machine, we want the upper BITSIZE bits.
-	 And we must also put it back in memory order first.  */
+      /* If the value has a record type and an integral mode then, if BITSIZE
+	 is narrower than this mode and this is a big-endian machine, we must
+	 first put the value into the low-order bits.  Moreover, the field may
+	 be not aligned on a byte boundary; in this case, if it has reverse
+	 storage order, it needs to be accessed as a scalar field with reverse
+	 storage order and we must first put the value into target order.  */
       if (TREE_CODE (TREE_TYPE (exp)) == RECORD_TYPE
 	  && GET_MODE_CLASS (GET_MODE (temp)) == MODE_INT)
 	{
 	  HOST_WIDE_INT size = GET_MODE_BITSIZE (GET_MODE (temp));
+
+	  reverse = TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (exp));
 
 	  if (reverse)
 	    temp = flip_storage_order (GET_MODE (temp), temp);
@@ -6730,12 +6733,9 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
 	blkmode_bitfield = true;
 
       *punsignedp = DECL_UNSIGNED (field);
-      /* ??? The Fortran compiler references components of 'void' type.  */
       *preversep
-        = !VOID_TYPE_P (TREE_TYPE (TREE_OPERAND (exp, 0)))
-	  && TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (TREE_OPERAND (exp, 0)))
-	  && mode != BLKmode
-	  && !blkmode_bitfield;
+        = TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (TREE_OPERAND (exp, 0)))
+	  && !AGGREGATE_TYPE_P (TREE_TYPE (exp));
     }
   else if (TREE_CODE (exp) == BIT_FIELD_REF)
     {
@@ -6756,12 +6756,11 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
       mode = TYPE_MODE (TREE_TYPE (exp));
       *punsignedp = TYPE_UNSIGNED (TREE_TYPE (exp));
       *preversep
-	= (((TREE_CODE (exp) == ARRAY_REF
-	     || TREE_CODE (exp) == ARRAY_RANGE_REF)
+	= ((TREE_CODE (exp) == ARRAY_REF
 	    && TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (TREE_OPERAND (exp, 0))))
 	   || (TREE_CODE (exp) == MEM_REF
 	       && REF_REVERSE_STORAGE_ORDER (exp)))
-	  && mode != BLKmode;
+	  && !AGGREGATE_TYPE_P (TREE_TYPE (exp));
 
       if (mode == BLKmode)
 	size_tree = TYPE_SIZE (TREE_TYPE (exp));
@@ -10281,16 +10280,25 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	    if (MEM_P (op0) && REG_P (XEXP (op0, 0)))
 	      mark_reg_pointer (XEXP (op0, 0), MEM_ALIGN (op0));
 
+	    /* If the result has a record type and the extraction is done in
+	       an integral mode, then the field may be not aligned on a byte
+	       boundary; in this case, if it has reverse storage order, it
+	       needs to be extracted as a scalar field with reverse storage
+	       order and put back into memory order afterwards.  */
+	    if (TREE_CODE (type) == RECORD_TYPE
+		&& GET_MODE_CLASS (ext_mode) == MODE_INT)
+	      reversep = TYPE_REVERSE_STORAGE_ORDER (type);
+
 	    op0 = extract_bit_field (op0, bitsize, bitpos, unsignedp,
 				     (modifier == EXPAND_STACK_PARM
 				      ? NULL_RTX : target),
 				     ext_mode, ext_mode, reversep);
 
-	    /* If the result is a record type and the mode of OP0 is an
+	    /* If the result has a record type and the mode of OP0 is an
 	       integral mode then, if BITSIZE is narrower than this mode
 	       and this is a big-endian machine, we must put the field
 	       into the high-order bits.  And we must also put it back
-	       in target order if it has been previously reversed.  */
+	       into memory order if it has been previously reversed.  */
 	    if (TREE_CODE (type) == RECORD_TYPE
 		&& GET_MODE_CLASS (GET_MODE (op0)) == MODE_INT)
 	      {

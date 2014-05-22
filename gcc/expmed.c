@@ -1498,6 +1498,8 @@ extract_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
       && bitnum == 0
       && bitsize == GET_MODE_BITSIZE (GET_MODE (op0)))
     {
+      if (reverse)
+	op0 = flip_storage_order (mode, op0);
       /* We're trying to extract a full register from itself.  */
       return op0;
     }
