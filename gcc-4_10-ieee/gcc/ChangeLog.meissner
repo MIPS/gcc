@@ -1,3 +1,35 @@
+2014-05-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-modes.def (KFmode): Change XFmode to
+	KFmode, so there is no confusion with x86's XFmode.
+	* config/rs6000/vector.md (VEC_L): Likewise.
+	(VEC_R): Likewise.
+	* config/rs6000/predicates.md (easy_fp_constant): Likewise.
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Likewise.
+	(rs6000_init_hard_regno_mode_ok): Likewise.
+	(invalid_e500_subreg): Likewise.
+	(reg_offset_addressing_ok_p): Likewise.
+	(rs6000_legitimate_offset_address_p): Likewise.
+	(rs6000_legitimize_address): Likewise.
+	(rs6000_legitimize_reload_address): Likewise.
+	(rs6000_emit_move): Likewise.
+	(rs6000_gimplify_va_arg): Likewise.
+	(rs6000_init_builtins): Likewise.
+	(init_float128_ieee): Likewise.
+	(rs6000_init_libfuncs): Likewise.
+	(rs6000_cannot_change_mode_class): Likewise.
+	(rs6000_generate_compare): Likewise.
+	(output_toc): Likewise.
+	* config/rs6000/vsx.md (VSX_L): Likewise.
+	(VSX_M): Likewise.
+	(VSX_M2): Likewise.
+	* config/rs6000/rs6000.h (FLOAT128_IEEE_P): Likewise.
+	* config/rs6000/altivec.md (VM): Likewise.
+	(VM2): Likewise.
+	* config/rs6000/rs6000.md (FMOVE128): Likewise.
+	(FMOVE128_GPR): Likewise.
+	(FP128_64): Likewise.
+
 2014-05-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (rs6000_option_override_internal):

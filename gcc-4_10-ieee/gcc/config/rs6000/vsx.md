@@ -42,7 +42,7 @@
 			     V2DF
 			     V1TI
 			     TI
-			     (XF	"FLOAT128_VECTOR_P (XFmode)")
+			     (KF	"FLOAT128_VECTOR_P (KFmode)")
 			     (TF	"FLOAT128_VECTOR_P (TFmode)")])
 
 ;; Iterator for memory move.  Handle TImode specially to allow
@@ -54,7 +54,7 @@
 			     V4SF
 			     V2DF
 			     V1TI
-			     (XF	"FLOAT128_VECTOR_P (XFmode)")
+			     (KF	"FLOAT128_VECTOR_P (KFmode)")
 			     (TF	"FLOAT128_VECTOR_P (TFmode)")])
 
 (define_mode_iterator VSX_M2 [V16QI
@@ -64,7 +64,7 @@
 			      V4SF
 			      V2DF
 			      V1TI
-			      (XF	"FLOAT128_VECTOR_P (XFmode)")
+			      (KF	"FLOAT128_VECTOR_P (KFmode)")
 			      (TF	"FLOAT128_VECTOR_P (TFmode)")
 			      (TI	"TARGET_VSX_TIMODE")])
 

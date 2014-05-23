@@ -458,11 +458,11 @@
 
   /* The constant 0.0 is easy under VSX.  */
   if ((mode == SFmode || mode == DFmode || mode == SDmode || mode == DDmode
-       || mode == XFmode)
+       || mode == KFmode)
       && VECTOR_UNIT_VSX_P (DFmode) && op == CONST0_RTX (mode))
     return 1;
 
-  if (DECIMAL_FLOAT_MODE_P (mode) || mode == XFmode)
+  if (DECIMAL_FLOAT_MODE_P (mode) || mode == KFmode)
     return 0;
 
   /* If we are using V.4 style PIC, consider all constants to be hard.  */
@@ -480,12 +480,12 @@
     {
     /* For IEEE 128-bit, only consider 0.0 to be easy.  */
     case JFmode:
-    case XFmode:
+    case KFmode:
     case TFmode:
       if (FLOAT128_VECTOR_P (mode))
 	return (op == CONST0_RTX (mode));
 
-      if (mode == XFmode || TARGET_E500_DOUBLE)
+      if (mode == KFmode || TARGET_E500_DOUBLE)
 	return 0;
 
       REAL_VALUE_FROM_CONST_DOUBLE (rv, op);

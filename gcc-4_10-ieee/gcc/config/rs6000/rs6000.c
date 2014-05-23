@@ -1980,7 +1980,7 @@ rs6000_debug_reg_global (void)
     DFmode,
     TFmode,
     JFmode,
-    XFmode,
+    KFmode,
     SDmode,
     DDmode,
     TDmode,
@@ -2546,13 +2546,13 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
       align32 = 128;
     }
 
-  /* XF mode (ieee 128-bit) where we can pass it as a vector.  We do not have
+  /* KF mode (ieee 128-bit) where we can pass it as a vector.  We do not have
      arithmetic, so only set the memory modes.  */
   if (TARGET_VSX)
     {
       enum rs6000_vector mem_type = VECTOR_VSX;
-      rs6000_vector_mem[XFmode] = mem_type;
-      rs6000_vector_align[XFmode] = 128;
+      rs6000_vector_mem[KFmode] = mem_type;
+      rs6000_vector_align[KFmode] = 128;
       if (TARGET_IEEEQUAD)
 	{
 	  rs6000_vector_mem[TFmode] = mem_type;
@@ -2749,8 +2749,8 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	  reg_addr[V4SFmode].reload_load   = CODE_FOR_reload_v4sf_di_load;
 	  reg_addr[V2DFmode].reload_store  = CODE_FOR_reload_v2df_di_store;
 	  reg_addr[V2DFmode].reload_load   = CODE_FOR_reload_v2df_di_load;
-	  reg_addr[XFmode].reload_store    = CODE_FOR_reload_xf_di_store;
-	  reg_addr[XFmode].reload_load     = CODE_FOR_reload_xf_di_load;
+	  reg_addr[KFmode].reload_store    = CODE_FOR_reload_kf_di_store;
+	  reg_addr[KFmode].reload_load     = CODE_FOR_reload_kf_di_load;
 	  if (TARGET_VSX && TARGET_UPPER_REGS_DF)
 	    {
 	      reg_addr[DFmode].reload_store  = CODE_FOR_reload_df_di_store;
@@ -2818,8 +2818,8 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	  reg_addr[V4SFmode].reload_load   = CODE_FOR_reload_v4sf_si_load;
 	  reg_addr[V2DFmode].reload_store  = CODE_FOR_reload_v2df_si_store;
 	  reg_addr[V2DFmode].reload_load   = CODE_FOR_reload_v2df_si_load;
-	  reg_addr[XFmode].reload_store    = CODE_FOR_reload_xf_si_store;
-	  reg_addr[XFmode].reload_load     = CODE_FOR_reload_xf_si_load;
+	  reg_addr[KFmode].reload_store    = CODE_FOR_reload_kf_si_store;
+	  reg_addr[KFmode].reload_load     = CODE_FOR_reload_kf_si_load;
 	  if (TARGET_VSX && TARGET_UPPER_REGS_DF)
 	    {
 	      reg_addr[DFmode].reload_store  = CODE_FOR_reload_df_si_store;
@@ -5862,14 +5862,14 @@ invalid_e500_subreg (rtx op, enum machine_mode mode)
 	  && REG_P (SUBREG_REG (op))
 	  && (GET_MODE (SUBREG_REG (op)) == DFmode
 	      || GET_MODE (SUBREG_REG (op)) == TFmode
-	      || GET_MODE (SUBREG_REG (op)) == XFmode
+	      || GET_MODE (SUBREG_REG (op)) == KFmode
 	      || GET_MODE (SUBREG_REG (op)) == JFmode))
 	return true;
 
       /* Reject (subreg:DF (reg:DI)); likewise with subreg:TF and
 	 reg:TI.  */
       if (GET_CODE (op) == SUBREG
-	  && (mode == DFmode || mode == TFmode || mode == XFmode
+	  && (mode == DFmode || mode == TFmode || mode == KFmode
 	      || mode == JFmode)
 	  && REG_P (SUBREG_REG (op))
 	  && (GET_MODE (SUBREG_REG (op)) == DImode
@@ -6206,7 +6206,7 @@ reg_offset_addressing_ok_p (enum machine_mode mode)
     case V1TImode:
     case TImode:
     case TFmode:
-    case XFmode:
+    case KFmode:
       /* AltiVec/VSX vector modes.  Only reg+reg addressing is valid.  While
 	 TImode is not a vector mode, if we want to use the VSX registers to
 	 move it around, we need to restrict ourselves to reg+reg addressing.
@@ -6487,7 +6487,7 @@ rs6000_legitimate_offset_address_p (enum machine_mode mode, rtx x,
       break;
 
     case TFmode:
-    case XFmode:
+    case KFmode:
     case JFmode:
       if (TARGET_E500_DOUBLE)
 	return (SPE_CONST_OFFSET_OK (offset)
@@ -6682,7 +6682,7 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
     case TDmode:
     case TImode:
     case PTImode:
-    case XFmode:
+    case KFmode:
     case JFmode:
       /* As in legitimate_offset_address_p we do not assume
 	 worst-case.  The mode here is just a hint as to the registers
@@ -7480,7 +7480,7 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
 	 mem is sufficiently aligned.  */
       && mode != TFmode
       && mode != TDmode
-      && mode != XFmode
+      && mode != KFmode
       && mode != JFmode
       && (mode != TImode || !TARGET_VSX_TIMODE)
       && mode != PTImode
@@ -8463,7 +8463,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 
     case TFmode:
     case TDmode:
-    case XFmode:
+    case KFmode:
     case JFmode:
       if (FLOAT128_2REG_P (mode))
 	rs6000_eliminate_indexed_memrefs (operands);
@@ -11102,7 +11102,7 @@ rs6000_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
           || (TARGET_DOUBLE_FLOAT 
               && (TYPE_MODE (type) == DFmode 
  	          || TYPE_MODE (type) == TFmode
- 	          || TYPE_MODE (type) == XFmode
+ 	          || TYPE_MODE (type) == KFmode
  	          || TYPE_MODE (type) == JFmode
 	          || TYPE_MODE (type) == SDmode
 	          || TYPE_MODE (type) == DDmode
@@ -13946,11 +13946,11 @@ rs6000_init_builtins (void)
   dfloat128_type_internal_node = dfloat128_type_node;
   void_type_internal_node = void_type_node;
 
-  /* 128-bit floating point support.  XFmode is IEEE 128-bit floating point.
+  /* 128-bit floating point support.  KFmode is IEEE 128-bit floating point.
      JFmode is the IBM 128-bit floating point format that uses a pair of
-     doubles to represent the extended value.  TFmode will be either XFmode or
+     doubles to represent the extended value.  TFmode will be either KFmode or
      JFmode, depending on the switches and defaults.  */
-  ieee128_mode = (TARGET_IEEEQUAD) ? TFmode : XFmode;
+  ieee128_mode = (TARGET_IEEEQUAD) ? TFmode : KFmode;
   ieee128_float_type_node = make_node (REAL_TYPE);
   TYPE_PRECISION (ieee128_float_type_node) = 128;
   layout_type (ieee128_float_type_node);
@@ -13982,7 +13982,7 @@ rs6000_init_builtins (void)
   builtin_mode_to_type[TImode][1] = unsigned_intTI_type_node;
   builtin_mode_to_type[SFmode][0] = float_type_node;
   builtin_mode_to_type[DFmode][0] = double_type_node;
-  builtin_mode_to_type[XFmode][0] = ieee128_float_type_node;
+  builtin_mode_to_type[KFmode][0] = ieee128_float_type_node;
   builtin_mode_to_type[JFmode][0] = ibm128_float_type_node;
   builtin_mode_to_type[TFmode][0] = long_double_type_node;
   builtin_mode_to_type[DDmode][0] = dfloat64_type_node;
@@ -15498,7 +15498,7 @@ init_float128_ibm (enum machine_mode mode)
     }
 }
 
-/* Set up IEEE 128-bit floating point routines.  Use the XF form of the name
+/* Set up IEEE 128-bit floating point routines.  Use the KF form of the name
    instead of TF, since there were a few places that the ibm long double used
    tf names (__fixtfdi, __fixunstfdi, __floatditf, __floatunditf).  */
 
@@ -15507,38 +15507,38 @@ init_float128_ieee (enum machine_mode mode)
 {
   if (TARGET_FLOAT128)
     {
-      set_optab_libfunc (add_optab, mode, "__addxf3");
-      set_optab_libfunc (sub_optab, mode, "__subxf3");
-      set_optab_libfunc (neg_optab, mode, "__negxf2");
-      set_optab_libfunc (smul_optab, mode, "__mulxf3");
-      set_optab_libfunc (sdiv_optab, mode, "__divxf3");
-      set_optab_libfunc (sqrt_optab, mode, "__sqrtxf2");
+      set_optab_libfunc (add_optab, mode, "__addkf3");
+      set_optab_libfunc (sub_optab, mode, "__subkf3");
+      set_optab_libfunc (neg_optab, mode, "__negkf2");
+      set_optab_libfunc (smul_optab, mode, "__mulkf3");
+      set_optab_libfunc (sdiv_optab, mode, "__divkf3");
+      set_optab_libfunc (sqrt_optab, mode, "__sqrtkf2");
 
-      set_optab_libfunc (eq_optab, mode, "__eqxf2");
-      set_optab_libfunc (ne_optab, mode, "__nexf2");
-      set_optab_libfunc (gt_optab, mode, "__gtxf2");
-      set_optab_libfunc (ge_optab, mode, "__gexf2");
-      set_optab_libfunc (lt_optab, mode, "__ltxf2");
-      set_optab_libfunc (le_optab, mode, "__lexf2");
+      set_optab_libfunc (eq_optab, mode, "__eqkf2");
+      set_optab_libfunc (ne_optab, mode, "__nekf2");
+      set_optab_libfunc (gt_optab, mode, "__gtkf2");
+      set_optab_libfunc (ge_optab, mode, "__gekf2");
+      set_optab_libfunc (lt_optab, mode, "__ltkf2");
+      set_optab_libfunc (le_optab, mode, "__lekf2");
 
-      set_conv_libfunc (sext_optab, mode, SFmode, "__extendsfxf2");
-      set_conv_libfunc (sext_optab, mode, DFmode, "__extenddfxf2");
-      set_conv_libfunc (trunc_optab, SFmode, mode, "__truncxfsf2");
-      set_conv_libfunc (trunc_optab, DFmode, mode, "__truncxfdf2");
+      set_conv_libfunc (sext_optab, mode, SFmode, "__extendsfkf2");
+      set_conv_libfunc (sext_optab, mode, DFmode, "__extenddfkf2");
+      set_conv_libfunc (trunc_optab, SFmode, mode, "__trunckfsf2");
+      set_conv_libfunc (trunc_optab, DFmode, mode, "__trunckfdf2");
 
-      set_conv_libfunc (sfix_optab, SImode, mode, "__fixxfsi");
-      set_conv_libfunc (ufix_optab, SImode, mode, "__fixunsxfsi");
-      set_conv_libfunc (sfix_optab, DImode, mode, "__fixxfdi");
-      set_conv_libfunc (ufix_optab, DImode, mode, "__fixunsxfdi");
-      set_conv_libfunc (sfix_optab, TImode, mode, "__fixxfti");
-      set_conv_libfunc (ufix_optab, TImode, mode, "__fixunsxfti");
+      set_conv_libfunc (sfix_optab, SImode, mode, "__fixkfsi");
+      set_conv_libfunc (ufix_optab, SImode, mode, "__fixunskfsi");
+      set_conv_libfunc (sfix_optab, DImode, mode, "__fixkfdi");
+      set_conv_libfunc (ufix_optab, DImode, mode, "__fixunskfdi");
+      set_conv_libfunc (sfix_optab, TImode, mode, "__fixkfti");
+      set_conv_libfunc (ufix_optab, TImode, mode, "__fixunskfti");
 
-      set_conv_libfunc (sfloat_optab, mode, SImode, "__floatsixf");
-      set_conv_libfunc (ufloat_optab, mode, SImode, "__floatunssixf");
-      set_conv_libfunc (sfloat_optab, mode, DImode, "__floatdixf");
-      set_conv_libfunc (ufloat_optab, mode, DImode, "__floatunsdixf");
-      set_conv_libfunc (sfloat_optab, mode, TImode, "__floattixf");
-      set_conv_libfunc (ufloat_optab, mode, TImode, "__floatunstixf");
+      set_conv_libfunc (sfloat_optab, mode, SImode, "__floatsikf");
+      set_conv_libfunc (ufloat_optab, mode, SImode, "__floatunssikf");
+      set_conv_libfunc (sfloat_optab, mode, DImode, "__floatdikf");
+      set_conv_libfunc (ufloat_optab, mode, DImode, "__floatunsdikf");
+      set_conv_libfunc (sfloat_optab, mode, TImode, "__floattikf");
+      set_conv_libfunc (ufloat_optab, mode, TImode, "__floatunstikf");
     }
   else
     {
@@ -15578,7 +15578,7 @@ rs6000_init_libfuncs (void)
 
   /* IEEE 128-bit floating point and 32-bit SVR4 quad floating point
      routines.  */
-  init_float128_ieee (XFmode);
+  init_float128_ieee (KFmode);
   if (TARGET_IEEEQUAD)
     init_float128_ieee (TFmode);
 }
@@ -17489,7 +17489,7 @@ rs6000_cannot_change_mode_class (enum machine_mode from,
   if (TARGET_E500_DOUBLE
       && ((((to) == DFmode) + ((from) == DFmode)) == 1
 	  || (((to) == TFmode) + ((from) == TFmode)) == 1
-	  || (((to) == XFmode) + ((from) == XFmode)) == 1
+	  || (((to) == KFmode) + ((from) == KFmode)) == 1
 	  || (((to) == JFmode) + ((from) == JFmode)) == 1
 	  || (((to) == DDmode) + ((from) == DDmode)) == 1
 	  || (((to) == TDmode) + ((from) == TDmode)) == 1
@@ -18896,7 +18896,7 @@ rs6000_generate_compare (rtx cmp, enum machine_mode mode)
 	      break;
 
 	    case TFmode:
-	    case XFmode:
+	    case KFmode:
 	    case JFmode:
 	      cmp = (flag_finite_math_only && !flag_trapping_math)
 		? gen_tsttfeq_gpr (compare_result, op0, op1)
@@ -18925,7 +18925,7 @@ rs6000_generate_compare (rtx cmp, enum machine_mode mode)
 	      break;
 
 	    case TFmode:
-	    case XFmode:
+	    case KFmode:
 	    case JFmode:
 	      cmp = (flag_finite_math_only && !flag_trapping_math)
 		? gen_tsttfgt_gpr (compare_result, op0, op1)
@@ -18954,7 +18954,7 @@ rs6000_generate_compare (rtx cmp, enum machine_mode mode)
 	      break;
 
 	    case TFmode:
-	    case XFmode:
+	    case KFmode:
 	    case JFmode:
 	      cmp = (flag_finite_math_only && !flag_trapping_math)
 		? gen_tsttflt_gpr (compare_result, op0, op1)
@@ -18993,7 +18993,7 @@ rs6000_generate_compare (rtx cmp, enum machine_mode mode)
 	      break;
 
 	    case TFmode:
-	    case XFmode:
+	    case KFmode:
 	    case JFmode:
 	      cmp = (flag_finite_math_only && !flag_trapping_math)
 		? gen_tsttfeq_gpr (compare_result2, op0, op1)
@@ -25208,7 +25208,7 @@ rs6000_output_function_epilogue (FILE *file,
 			case DDmode:
 			case TFmode:
 			case TDmode:
-			case XFmode:
+			case KFmode:
 			case JFmode:
 			  bits = 0x3;
 			  break;
@@ -25697,7 +25697,7 @@ output_toc (FILE *file, rtx x, int labelno, enum machine_mode mode)
      FP constants.  */
   if (GET_CODE (x) == CONST_DOUBLE &&
       (GET_MODE (x) == TFmode || GET_MODE (x) == TDmode
-       || GET_MODE (x) == XFmode || GET_MODE (x) == JFmode))
+       || GET_MODE (x) == KFmode || GET_MODE (x) == JFmode))
     {
       REAL_VALUE_TYPE rv;
       long k[4];
