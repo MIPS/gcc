@@ -7509,9 +7509,11 @@ aarch64_expand_compare_and_swap (rtx operands[])
     case HImode:
       /* For short modes, we're going to perform the comparison in SImode,
 	 so do the zero-extension now.  */
-      cmp_mode = SImode;
-      rval = gen_reg_rtx (SImode);
-      oldval = convert_modes (SImode, mode, oldval, true);
+      if (!TARGET_ATOMIC) { /* atomic supports QI and HI directly */
+        cmp_mode = SImode;
+        rval = gen_reg_rtx (SImode);
+        oldval = convert_modes (SImode, mode, oldval, true);
+      }
       /* Fall through.  */
 
     case SImode:
@@ -7525,6 +7527,30 @@ aarch64_expand_compare_and_swap (rtx operands[])
       gcc_unreachable ();
     }
 
+  if (TARGET_ATOMIC)
+    {
+      rtx (*gen) (rtx, rtx, rtx, rtx, rtx, rtx);
+      rtx x;
+      switch (mode)
+        {
+          case QImode: gen = gen_aarch64_atomic_CASqi; break;
+          case HImode: gen = gen_aarch64_atomic_CAShi; break;
+          case SImode: gen = gen_aarch64_atomic_CASsi; break;
+          case DImode: gen = gen_aarch64_atomic_CASdi; break;
+          default:
+            gcc_unreachable ();
+        }
+      if (mode == QImode || mode == HImode)
+        emit_move_insn (operands[1], gen_lowpart (mode, rval));
+
+      emit_insn (gen (rval, mem, oldval, newval, mod_s, mod_f));
+
+      x = emit_store_flag (bval, EQ, rval, oldval, mode, 1 /* unsignedp */,
+                           1 /* normalizep (to 0 or 1) */);
+      if (x != bval)
+        convert_move (bval, x, 1 /* unsignedp */);
+      return;
+    }
   switch (mode)
     {
     case QImode: gen = gen_atomic_compare_and_swapqi_1; break;

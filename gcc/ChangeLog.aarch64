@@ -1,3 +1,16 @@
+2014-05-24  Joel Jones  <jjones@cavium.com>
+        Bug #9775
+        * gcc/config/aarch64/aarch64.c (aarch64_expand_compare_and_swap):
+        Generate a CAS instruction if target supports ARVMv8.1 atomics.
+        * gcc/config/aarch64/atomics.md (define_insn
+        "aarch64_atomic_CAS<mode>") add.
+        * gcc/testsuite/gcc.target/aarch64/aarch64.exp
+        (check_effective_target_aarch64_atomic): Add aarch64 atomic feature
+        test.
+        * testsuite/gcc.target/aarch64/atomicExchangeSwapCAS-1.c: char CAS
+        * testsuite/gcc.target/aarch64/atomicExchangeSwapCAS-2.c: short CAS
+        * testsuite/gcc.target/aarch64/atomicExchangeSwapCAS-3.c: int CAS
+
 2014-05-23  Joel Jones  <jjones@cavium.com>
         * gcc/config/aarch64/aarch64-cores.def: Associate AARCH64_FL_ATOMIC for
           thunder.

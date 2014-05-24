@@ -34,6 +34,15 @@ if ![info exists DEFAULT_CFLAGS] then {
     set DEFAULT_CFLAGS " -ansi -pedantic-errors"
 }
 
+proc check_effective_target_aarch64_atomic {} {
+    return [check_no_compiler_messages aarch64_atomic assembly {
+	#if __ARM_FEATURE_ATOMIC
+        /* ok */
+	#else
+	#error unsupported
+	#endif
+    } ""]
+}
 # Initialize `dg'.
 dg-init
 

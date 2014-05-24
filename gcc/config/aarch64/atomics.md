@@ -45,6 +45,61 @@
   }
 )
 
+;; CAS{A,L,AL}{B,H} <Ws>, <Wt>, [<Xn|SP>]
+;; CAS{A,L,AL} <Xs>, <Xt>, [<Xn|SP>]
+(define_insn "aarch64_atomic_CAS<mode>"
+ [(parallel
+    [(set (match_operand:ALLI 0 "register_operand" "=&r")            ;; val out
+          (match_operand:ALLI 1 "aarch64_sync_memory_operand" "+Q")) ;; mem
+     (set (match_dup 1)
+          (unspec_volatile:ALLI
+            [(match_dup 1)
+             (match_operand:ALLI 2 "register_operand" "0") ;; expect/oldval
+             (match_operand:ALLI 3 "register_operand" "r")] ;; desired/newval
+            UNSPECV_ATOMIC_CMPSW))
+      (match_operand:SI 4 "const_int_operand")  ;; mod_s
+      (match_operand:SI 5 "const_int_operand")])] ;; mod_f
+  ""
+  {
+    rtx rval, mem, oldval, newval, mod_s, mod_f;
+    rval = operands[0];
+    mem = operands[1];
+    oldval = operands[2];
+    newval = operands[3];
+    mod_s = operands[4];
+    mod_f = operands[5];
+    enum memmodel ldmodel = (enum memmodel) INTVAL (mod_s);
+    enum memmodel stmodel = (enum memmodel) INTVAL (mod_f);
+    const int is_acq = 0x1;
+    const int is_rel = 0x2;
+    int modelCode = 0;
+    switch (ldmodel) {
+      default: modelCode |= is_acq; break;
+      case MEMMODEL_RELAXED:
+      case MEMMODEL_CONSUME:
+      case MEMMODEL_RELEASE: break;
+    }
+    switch (stmodel) {
+      default: modelCode |= is_rel; break;
+      case MEMMODEL_RELAXED:
+      case MEMMODEL_CONSUME:
+      case MEMMODEL_ACQUIRE: break;
+    }
+    switch (modelCode) {
+      default:
+        gcc_unreachable (); break;
+      case 0x0:
+        return "cas<atomic_sfx>\t%<w>0,%<w>3,%1"; break;
+      case is_acq:
+        return "casa<atomic_sfx>\t%<w>0,%<w>3,%1"; break;
+      case is_rel:
+        return "casl<atomic_sfx>\t%<w>0,%<w>3,%1"; break;
+      case (is_acq | is_rel):
+        return "casal<atomic_sfx>\t%<w>0,%<w>3,%1"; break;
+    }
+  }
+)
+
 (define_insn_and_split "atomic_compare_and_swap<mode>_1"
   [(set (reg:CC CC_REGNUM)					;; bool out
     (unspec_volatile:CC [(const_int 0)] UNSPECV_ATOMIC_CMPSW))
