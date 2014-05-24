@@ -1,6 +1,7 @@
 2014-04-25  Joel Jones  <jjones@caviumnetworks.com>
     * config/aarch64/aarch64.md (*add_mul_imm_si_uxtw): Avoid generating 
     extraneous zero-extend for Add (extended register)
+    * testsuite/gcc.target/aarch64/add-extend.c
 
 2014-04-14  Andrew Pinski  <apinski@cavium.com>
 
