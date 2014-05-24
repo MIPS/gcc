@@ -1,5 +1,5 @@
 ! { dg-do run }
-! { dg-options "-O3 -fdump-tree-original" }
+! { dg-options "-fdump-tree-original" }
 ! Tests the fix for PR33850, in which one of the two assignments
 ! below would produce an unnecessary temporary for the index
 ! expression, following the fix for PR33749.
@@ -23,6 +23,6 @@ end
 ! cases will all yield a temporary, so that atmp appears 18 times.
 ! Note that it is the kind conversion that generates the temp.
 !
-! { dg-final { scan-tree-dump-times "parm" 26 "original" } }
+! { dg-final { scan-tree-dump-times "parm" 32 "original" } }
 ! { dg-final { scan-tree-dump-times "atmp" 26 "original" } }
 ! { dg-final { cleanup-tree-dump "original" } }

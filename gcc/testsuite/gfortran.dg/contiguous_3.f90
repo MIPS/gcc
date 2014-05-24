@@ -33,8 +33,8 @@ end subroutine t2
 
 ! { dg-final { scan-tree-dump-times "= a1->dim.0..sm" 0 "original" } }
 ! { dg-final { scan-tree-dump-times "= b1->dim.0..sm" 0 "original" } }
-! { dg-final { scan-tree-dump-times "= c2->dim.0..sm /.fl. 4;" 1 "original" } }
-! { dg-final { scan-tree-dump-times "= d2->dim.0..sm /.fl. 4;" 1 "original" } }
+! { dg-final { scan-tree-dump-times "!= 0 . c2->dim.0..sm /.fl. .integer.kind=\[48\].. c2->elem_len : 0;" 1 "original" } }
+! { dg-final { scan-tree-dump-times "!= 0 . d2->dim.0..sm /.fl. .integer.kind=\[48\].. d2->elem_len : 0;" 1 "original" } }
 
 
 subroutine test3()

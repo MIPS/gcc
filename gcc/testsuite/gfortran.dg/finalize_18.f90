@@ -33,11 +33,11 @@ end
 
 ! { dg-final { scan-tree-dump-times "if \\(y.aa != 0B\\)" 2 "original" } }
 ! { dg-final { scan-tree-dump-times "if \\(y.cc._data != 0B\\)" 2 "original" } }
-! { dg-final { scan-tree-dump-times "if \\(\\(struct t\\\[0:\\\] . restrict\\) y.bb.data != 0B\\)" 1 "original" } }
-! { dg-final { scan-tree-dump-times "if \\(\\(struct t\\\[0:\\\] . restrict\\) y.dd._data.data != 0B\\)" 1 "original" } }
+! { dg-final { scan-tree-dump-times "if \\(\\(struct t\\\[0:\\\] . restrict\\) y.bb.base_addr != 0B\\)" 1 "original" } }
+! { dg-final { scan-tree-dump-times "if \\(\\(struct t\\\[0:\\\] . restrict\\) y.dd._data.base_addr != 0B\\)" 1 "original" } }
 
-! { dg-final { scan-tree-dump-times "desc.\[0-9\]+.data = \\(void . restrict\\) y.aa;" 1 "original" } }
-! { dg-final { scan-tree-dump-times "desc.\[0-9\]+.data = \\(void . restrict\\) y.cc._data;" 1 "original" } }
+! { dg-final { scan-tree-dump-times "desc.\[0-9\]+.base_addr = \\(void . restrict\\) y.aa;" 1 "original" } }
+! { dg-final { scan-tree-dump-times "desc.\[0-9\]+.base_addr = \\(void . restrict\\) y.cc._data;" 1 "original" } }
 
 ! { dg-final { scan-tree-dump-times "__final_m_T \\(&desc.\[0-9\]+, 0, 1\\);" 1 "original" } }
 ! { dg-final { scan-tree-dump-times "__final_m_T \\(&y.bb, 0, 1\\);" 1 "original" } }
