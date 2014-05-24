@@ -59,6 +59,8 @@
 	}						\
       if (TARGET_CRYPTO)				\
 	builtin_define ("__ARM_FEATURE_CRYPTO");	\
+      if (TARGET_ATOMIC)				\
+	builtin_define ("__ARM_FEATURE_ATOMIC");	\
     } while (0)
 
 
@@ -164,6 +166,7 @@
 #define AARCH64_FL_CRYPTO     (1 << 2)	/* Has crypto.  */
 #define AARCH64_FL_SLOWMUL    (1 << 3)	/* A slow multiply core.  */
 #define AARCH64_FL_CRC        (1 << 4)	/* Has CRC.  */
+#define AARCH64_FL_ATOMIC     (1 << 5)	/* Has ARMV8.1 atomic instructions.  */
 
 /* Has FP and SIMD.  */
 #define AARCH64_FL_FPSIMD     (AARCH64_FL_FP | AARCH64_FL_SIMD)
@@ -180,6 +183,7 @@ extern unsigned long aarch64_isa_flags;
 #define AARCH64_ISA_CRYPTO         (aarch64_isa_flags & AARCH64_FL_CRYPTO)
 #define AARCH64_ISA_FP             (aarch64_isa_flags & AARCH64_FL_FP)
 #define AARCH64_ISA_SIMD           (aarch64_isa_flags & AARCH64_FL_SIMD)
+#define AARCH64_ISA_ATOMIC         (aarch64_isa_flags & AARCH64_FL_ATOMIC)
 
 /* Macros to test tuning flags.  */
 extern unsigned long aarch64_tune_flags;
@@ -187,6 +191,9 @@ extern unsigned long aarch64_tune_flags;
 
 /* Crypto is an optional feature.  */
 #define TARGET_CRYPTO AARCH64_ISA_CRYPTO
+
+/* Atomics are an optional feature.  */
+#define TARGET_ATOMIC AARCH64_ISA_ATOMIC
 
 /* Standard register usage.  */
 

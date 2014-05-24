@@ -1,3 +1,11 @@
+2014-05-23  Joel Jones  <jjones@cavium.com>
+        * gcc/config/aarch64/aarch64-cores.def: Associate AARCH64_FL_ATOMIC for
+          thunder.
+        * gcc/config/aarch64/aarch64-option-extensions.def: Add extension
+          "atomic" for AARCH64_FL_ATOMIC
+        * gcc/config/aarch64/aarch64.h: Define __ARM_FEATURE_ATOMIC,
+          AARCH64_FL_ATOMIC, AARCH64_ISA_ATOMIC, and TARGET_ATOMIC
+
 2014-04-25  Joel Jones  <jjones@caviumnetworks.com>
     * config/aarch64/aarch64.md (*add_mul_imm_si_uxtw): Avoid generating 
     extraneous zero-extend for Add (extended register)
