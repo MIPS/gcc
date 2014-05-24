@@ -16,7 +16,7 @@ type(t2) :: a, b
 a = b
 end
 
-! { dg-final { scan-tree-dump "a.y.x.data = D.\[0-9\]+.y.x.data;" "original" } }
-! { dg-final { scan-tree-dump "a.y.z._data.data = D.\[0-9\]+.y.z._data.data;" "original" } }
-! { dg-final { scan-tree-dump "a.y.d._data.data = D.\[0-9\]+.y.d._data.data;" "original" } }
+! { dg-final { scan-tree-dump "a.y.x.base_addr = D.\[0-9\]+.y.x.base_addr;" "original" } }
+! { dg-final { scan-tree-dump "a.y.z._data.base_addr = D.\[0-9\]+.y.z._data.base_addr;" "original" } }
+! { dg-final { scan-tree-dump "a.y.d._data.base_addr = D.\[0-9\]+.y.d._data.base_addr;" "original" } }
 ! { dg-final { cleanup-tree-dump "original" } }

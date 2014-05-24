@@ -1,10 +1,14 @@
 2014-05-24  Dominique d'Humieres <dominiq@lps.ens.fr>
 
-	* gfortran.dg/assign_10.f90: Adjust regexps.
-	* gfortran.dg/assumed_rank_12.f90: Likewise.
-	* gfortran.dg/coarray_12.f90: Likewise.
+	* ChangeLog: Remove missing changes.
+	* gfortran.dg/coarray_12.f90: Adjust regexps.
 	* gfortran.dg/coarray_31.f90: Likewise.
 	* gfortran.dg/coarray_lib_alloc_2.f90: Likewise.
+
+2014-05-24  Dominique d'Humieres <dominiq@lps.ens.fr>
+
+	* gfortran.dg/assign_10.f90: Adjust regexps.
+	* gfortran.dg/assumed_rank_12.f90: Likewise.
 	* gfortran.dg/coarray_lib_alloc_3.f90: Likewise.
 	* gfortran.dg/coarray_lib_this_image_1.f90: Likewise.
 	* gfortran.dg/coarray_lib_this_image_2.f90: Likewise.
