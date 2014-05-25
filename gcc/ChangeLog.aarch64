@@ -1,4 +1,9 @@
 2014-05-24  Joel Jones  <jjones@cavium.com>
+    Bug #9775
+    * gcc/config/aarch64/aarch64.c (aarch64_expand_compare_and_swap):
+    Ensure that oldval is in a register.
+
+2014-05-24  Joel Jones  <jjones@cavium.com>
         Bug #9775
         * gcc/config/aarch64/aarch64.c (aarch64_expand_compare_and_swap):
         Generate a CAS instruction if target supports ARVMv8.1 atomics.

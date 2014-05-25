@@ -7519,7 +7519,7 @@ aarch64_expand_compare_and_swap (rtx operands[])
     case SImode:
     case DImode:
       /* Force the value into a register if needed.  */
-      if (!aarch64_plus_operand (oldval, mode))
+      if (!aarch64_plus_operand (oldval, mode) || TARGET_ATOMIC)
 	oldval = force_reg (cmp_mode, oldval);
       break;
 
