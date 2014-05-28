@@ -203,7 +203,6 @@
 (define_mode_attr VHALFMODE 
   [(V8HI "V16QI")
    (V4SI "V8HI")
-   (V2SI "V4SI")
    (V2DI "V4SI")
    (V2DF "V4SF")])
 
