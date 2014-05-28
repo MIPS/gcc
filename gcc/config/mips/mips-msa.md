@@ -889,6 +889,15 @@
     DONE;
 })
 
+(define_expand "movmisalign<mode>"
+  [(set (match_operand:MODE128 0)
+	(match_operand:MODE128 1))]
+  "TARGET_64BIT || TARGET_MSA"
+{
+  if (mips_legitimize_move (<MODE>mode, operands[0], operands[1]))
+    DONE;
+})
+
 ;; Note that we prefer floating-point loads, stores, and moves by adding * to
 ;; other register preferences.
 ;; Note that we combine f and YG, so that move_type for YG is fmove and its
@@ -1213,7 +1222,7 @@
   [(set_attr "alu_type"	"nor")
    (set_attr "mode"	"TI")
    (set_attr "msa_execunit" "msa_eu_logic")])
-				   
+
 (define_insn "vlshr<mode>3"
   [(set (match_operand:IMSA 0 "register_operand" "=f,f")
 	(lshiftrt:<MODE> (match_operand:<MODE> 1 "register_operand" "f,f")
