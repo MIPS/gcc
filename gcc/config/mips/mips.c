@@ -20430,23 +20430,19 @@ static void
 mips_expand_msa_one_cmpl (rtx dest, rtx src)
 {
   enum machine_mode mode = GET_MODE (dest);
-  rtx reg = gen_reg_rtx (mode);
   switch (mode)
     {
     case V16QImode:
-      emit_insn (gen_msa_nori_b (dest, src, const0_rtx));
+      emit_insn (gen_msa_nori_b (dest, src, src));
       break;
     case V8HImode:
-      emit_insn (gen_msa_ldiv8hi (reg, const0_rtx));
-      emit_insn (gen_msa_nor_v_h (dest, reg, src));
+      emit_insn (gen_msa_nor_v_h (dest, src, src));
       break;
     case V4SImode:
-      emit_insn (gen_msa_ldiv4si (reg, const0_rtx));
-      emit_insn (gen_msa_nor_v_w (dest, reg, src));
+      emit_insn (gen_msa_nor_v_w (dest, src, src));
       break;
     case V2DImode:
-      emit_insn (gen_msa_ldiv2di (reg, const0_rtx));
-      emit_insn (gen_msa_nor_v_d (dest, reg, src));
+      emit_insn (gen_msa_nor_v_d (dest, src, src));
       break;
     default:
       gcc_unreachable ();
