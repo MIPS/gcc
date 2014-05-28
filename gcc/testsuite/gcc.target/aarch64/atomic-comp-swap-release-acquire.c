@@ -1,4 +1,5 @@
 /* { dg-do compile } */
+/* { dg-skip-if "" { aarch64_atomic } } */
 /* { dg-options "-O2" } */
 
 #include "atomic-comp-swap-release-acquire.x"
