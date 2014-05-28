@@ -1206,22 +1206,15 @@
    (set_attr "mode"	"TI")
    (set_attr "msa_execunit" "msa_eu_logic")])
 
-(define_expand "one_cmpl<mode>2"
-  [(match_operand:IMSA 0 "register_operand")
-   (match_operand:IMSA 1 "register_operand")]
+(define_insn "one_cmpl<mode>2"
+  [(set (match_operand:IMSA 0 "register_operand" "=f")
+        (not:IMSA (match_operand:IMSA 1 "register_operand" "f")))]
   "ISA_HAS_MSA"
-{
-  if (<MODE>mode == V16QImode)
-    emit_insn (gen_msa_nori_b (operands[0], operands[1], const0_rtx));
-  else
-    {
-      rtx reg = gen_reg_rtx (<MODE>mode);
-      emit_insn (gen_msa_ldi<mode> (reg, const0_rtx));
-      emit_insn (gen_msa_nor_v_<msafmt> (operands[0], reg, operands[1]));
-    }
-  DONE;
-})
-
+  "nor.v\t%w0,%w1,%w1"
+  [(set_attr "alu_type"	"nor")
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
+				   
 (define_insn "vlshr<mode>3"
   [(set (match_operand:IMSA 0 "register_operand" "=f,f")
 	(lshiftrt:<MODE> (match_operand:<MODE> 1 "register_operand" "f,f")
