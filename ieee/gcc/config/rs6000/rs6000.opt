@@ -441,6 +441,10 @@ mwarn-altivec-long
 Target Var(rs6000_warn_altivec_long) Init(1) Save
 Warn about deprecated 'vector long ...' AltiVec type usage
 
+mfloat128
+Target Mask(FLOAT128) Var(rs6000_isa_flags)
+Enable the __float128 type to specify IEEE 128-bit floating point
+
 mfloat-gprs=
 Target RejectNegative Joined Enum(rs6000_float_gprs) Var(rs6000_float_gprs) Save
 -mfloat-gprs=	Select GPR floating point method

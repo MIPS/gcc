@@ -516,6 +516,10 @@
   case SImode:
     return 1;
 
+  case JFmode:
+    /* The constant 0.f is easy.  */
+    return (op == CONST0_RTX (JFmode));
+
   default:
     gcc_unreachable ();
   }

@@ -463,6 +463,12 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
       builtin_define ("__LONGDOUBLE128");
     }
 
+  if (TARGET_FLOAT128)
+    {
+      builtin_define ("__FLOAT128__");
+      builtin_define ("__SIZEOF_FLOAT128__=16"); /* x86 compatibility.  */
+    }
+
   switch (TARGET_CMODEL)
     {
       /* Deliberately omit __CMODEL_SMALL__ since that was the default

@@ -1,0 +1,30 @@
+# Support for adding __float128 to the powerpc for VSX targets.
+
+fp128_func		 = addjf3 subjf3 muljf3 divjf3 negjf2 \
+			   eqjf2 gejf2 lejf2 unordjf2 \
+			   extenddfjf2 extendsfjf2 truncjfdf2 truncjfsf2 \
+			   fixjfsi fixjfdi fixunsjfsi fixunsjfdi \
+			   floatsijf floatdijf floatunsijf floatundijf
+
+fp128_vsx_src_list	:= $(foreach f,$(fp128_func),$(f)-vsx.c)
+fp128_vsx_objects_base	 = $(basename $(notdir $(fp128_vsx_src_list)))
+fp128_vsx_objects	 = $(addsuffix $(objext),$(fp128_vsx_objects_base))
+
+$(fp128_vsx_src_list):
+	@echo "Create $@"; \
+	tf=$$(echo "$@" | sed -e 's/-vsx//' -e 's/jf/tf/'); \
+	echo '#pragma GCC target ("vsx,float128")' > $@; \
+	echo '#define TFtype __float128' >> $@; \
+	echo '#include "config/rs6000/float128-vsx.h"' > $@; \
+	echo '#include "soft-fp/'$${tf}'"' >> $@
+
+FP128_VSX_CFLAGS	= -Wno-missing-prototypes -Wno-type-limits \
+			  -mfloat128 -mvsx -mabi=altivec
+
+$(fp128_vsx_objects) : INTERNAL_CFLAGS += $(FP128_VSX_CFLAGS)
+$(fp128_vsx_objects) : $(addprefix $(srcdir)/soft-float/,$(patsubst %-vsx.c,%.c,$(subst jf,tf,$<)))
+$(fp128_vsx_objects) : $(srcdir)/config/rs6000/t-float128
+$(fp128_vsx_objects) : $(srcdir)/config/rs6000/float128-vsx.h
+
+LIB2ADD += $(fp128_vsx_src_list)
+

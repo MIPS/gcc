@@ -559,6 +559,7 @@ extern int rs6000_vector_align[];
 #define MASK_DIRECT_MOVE		OPTION_MASK_DIRECT_MOVE
 #define MASK_DLMZB			OPTION_MASK_DLMZB
 #define MASK_EABI			OPTION_MASK_EABI
+#define MASK_FLOAT128			OPTION_MASK_FLOAT128
 #define MASK_FPRND			OPTION_MASK_FPRND
 #define MASK_P8_FUSION			OPTION_MASK_P8_FUSION
 #define MASK_HARD_FLOAT			OPTION_MASK_HARD_FLOAT
@@ -897,7 +898,8 @@ enum data_align { align_abi, align_opt, align_both };
 #define SLOW_UNALIGNED_ACCESS(MODE, ALIGN)				\
   (STRICT_ALIGNMENT							\
    || (((MODE) == SFmode || (MODE) == DFmode || (MODE) == TFmode	\
-	|| (MODE) == SDmode || (MODE) == DDmode || (MODE) == TDmode)	\
+	|| (MODE) == SDmode || (MODE) == DDmode || (MODE) == TDmode	\
+	|| (MODE) == JFmode)						\
        && (ALIGN) < 32)							\
    || (VECTOR_MODE_P ((MODE)) && (((int)(ALIGN)) < VECTOR_ALIGN (MODE))))
 
@@ -1170,9 +1172,11 @@ enum data_align { align_abi, align_opt, align_both };
    enough space to account for vectors in FP regs.  However, TFmode/TDmode
    should not use VSX instructions to do a caller save. */
 #define HARD_REGNO_CALLER_SAVE_MODE(REGNO, NREGS, MODE)			\
-  (TARGET_VSX								\
-   && ((MODE) == VOIDmode || ALTIVEC_OR_VSX_VECTOR_MODE (MODE))		\
-   && FP_REGNO_P (REGNO)						\
+  ((TARGET_VSX && (MODE) == JFmode && FP_REGNO_P (REGNO))		\
+   ? JFmode								\
+   : (TARGET_VSX							\
+      && ((MODE) == VOIDmode || ALTIVEC_OR_VSX_VECTOR_MODE (MODE))	\
+      && FP_REGNO_P (REGNO))						\
    ? V2DFmode								\
    : ((MODE) == TFmode && FP_REGNO_P (REGNO))				\
    ? DFmode								\
@@ -1196,7 +1200,8 @@ enum data_align { align_abi, align_opt, align_both };
 	 ((MODE) == V16QImode		\
 	  || (MODE) == V8HImode		\
 	  || (MODE) == V4SFmode		\
-	  || (MODE) == V4SImode)
+	  || (MODE) == V4SImode		\
+	  || (MODE) == JFmode)
 
 #define ALTIVEC_OR_VSX_VECTOR_MODE(MODE)				\
   (ALTIVEC_VECTOR_MODE (MODE) || VSX_VECTOR_MODE (MODE)			\
@@ -1223,11 +1228,19 @@ enum data_align { align_abi, align_opt, align_both };
 
    PTImode cannot tie with other modes because PTImode is restricted to even
    GPR registers, and TImode can go in any GPR as well as VSX registers (PR
-   57744).  */
+   57744).
+
+   JFmode (ieee 128-bit) needs to tie like the other vector modes, and not like
+   scalar float modes due to the issue that JFmode uses the full 128-bit vector
+   register, and the other scalar float modes only use the upper 64-bits.  */
 #define MODES_TIEABLE_P(MODE1, MODE2)		\
   ((MODE1) == PTImode				\
    ? (MODE2) == PTImode				\
    : (MODE2) == PTImode				\
+   ? 0						\
+   : ALTIVEC_OR_VSX_VECTOR_MODE (MODE1)		\
+   ? ALTIVEC_OR_VSX_VECTOR_MODE (MODE2)		\
+   : ALTIVEC_OR_VSX_VECTOR_MODE (MODE2)		\
    ? 0						\
    : SCALAR_FLOAT_MODE_P (MODE1)		\
    ? SCALAR_FLOAT_MODE_P (MODE2)		\
@@ -1240,10 +1253,6 @@ enum data_align { align_abi, align_opt, align_both };
    : SPE_VECTOR_MODE (MODE1)			\
    ? SPE_VECTOR_MODE (MODE2)			\
    : SPE_VECTOR_MODE (MODE2)			\
-   ? 0						\
-   : ALTIVEC_OR_VSX_VECTOR_MODE (MODE1)		\
-   ? ALTIVEC_OR_VSX_VECTOR_MODE (MODE2)		\
-   : ALTIVEC_OR_VSX_VECTOR_MODE (MODE2)		\
    ? 0						\
    : 1)
 
@@ -1734,6 +1743,7 @@ typedef struct rs6000_args
 				   GPR space (darwin64) */
   int named;			/* false for varargs params */
   int escapes;			/* if function visible outside tu */
+  int libcall;			/* If this is a compiler generated call.  */
 } CUMULATIVE_ARGS;
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
@@ -2630,6 +2640,7 @@ enum rs6000_builtin_type_index
   RS6000_BTI_long_double,        /* long_double_type_node */
   RS6000_BTI_dfloat64,		 /* dfloat64_type_node */
   RS6000_BTI_dfloat128,		 /* dfloat128_type_node */
+  RS6000_BTI_ieee128,		 /* ieee 128-bit floating point */
   RS6000_BTI_void,	         /* void_type_node */
   RS6000_BTI_MAX
 };
@@ -2684,6 +2695,7 @@ enum rs6000_builtin_type_index
 #define long_double_type_internal_node	 (rs6000_builtin_types[RS6000_BTI_long_double])
 #define dfloat64_type_internal_node	 (rs6000_builtin_types[RS6000_BTI_dfloat64])
 #define dfloat128_type_internal_node	 (rs6000_builtin_types[RS6000_BTI_dfloat128])
+#define ieee128_type_node		 (rs6000_builtin_types[RS6000_BTI_ieee128])
 #define void_type_internal_node		 (rs6000_builtin_types[RS6000_BTI_void])
 
 extern GTY(()) tree rs6000_builtin_types[RS6000_BTI_MAX];

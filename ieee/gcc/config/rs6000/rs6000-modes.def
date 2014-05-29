@@ -18,9 +18,17 @@
    along with GCC; see the file COPYING3.  If not see
    <http://www.gnu.org/licenses/>.  */
 
-/* 128-bit floating point.  ABI_V4 uses IEEE quad, AIX/Darwin
-   adjust this in rs6000_option_override_internal.  */
+/* 128-bit floating point.  Depending on switches and defaults, this might be
+   the IBM long double format (two doubles to give more mantissa bits, but no
+   extra exponent range) or IEEE 128-bit floating point.  */
 FLOAT_MODE (TF, 16, ieee_quad_format);
+ADJUST_FLOAT_FORMAT (TF, (TARGET_IEEEQUAD
+			  ? &ieee_quad_format
+			  : &ibm_extended_format));
+
+/* __float128 to give IEEE 128-bit support.  Note, we set the precision high so
+   that the mode is not widened to TFmode.  */
+FRACTIONAL_FLOAT_MODE (JF, -2U, 16, ieee_quad_format);
 
 /* Add any extra modes needed to represent the condition code.
 

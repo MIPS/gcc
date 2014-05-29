@@ -36,13 +36,13 @@
 (define_mode_iterator VEC_K [V16QI V8HI V4SI V4SF])
 
 ;; Vector logical modes
-(define_mode_iterator VEC_L [V16QI V8HI V4SI V2DI V4SF V2DF V1TI TI])
+(define_mode_iterator VEC_L [V16QI V8HI V4SI V2DI V4SF V2DF V1TI TI JF])
 
 ;; Vector modes for moves.  Don't do TImode here.
-(define_mode_iterator VEC_M [V16QI V8HI V4SI V2DI V4SF V2DF V1TI])
+(define_mode_iterator VEC_M [V16QI V8HI V4SI V2DI V4SF V2DF V1TI JF])
 
 ;; Vector modes for types that don't need a realignment under VSX
-(define_mode_iterator VEC_N [V4SI V4SF V2DI V2DF V1TI])
+(define_mode_iterator VEC_N [V4SI V4SF V2DI V2DF V1TI JF])
 
 ;; Vector comparison modes
 (define_mode_iterator VEC_C [V16QI V8HI V4SI V2DI V4SF V2DF])
@@ -54,7 +54,7 @@
 (define_mode_iterator VEC_64 [V2DI V2DF])
 
 ;; Vector reload iterator
-(define_mode_iterator VEC_R [V16QI V8HI V4SI V2DI V4SF V2DF V1TI
+(define_mode_iterator VEC_R [V16QI V8HI V4SI V2DI V4SF V2DF V1TI JF
 			     SF SD SI DF DD DI TI])
 
 ;; Base type from vector mode
@@ -65,7 +65,8 @@
 			    (V4SF  "SF")
 			    (V2DF  "DF")
 			    (V1TI  "TI")
-			    (TI    "TI")])
+			    (TI    "TI")
+			    (JF    "JF")])
 
 ;; Same size integer type for floating point data
 (define_mode_attr VEC_int [(V4SF  "v4si")

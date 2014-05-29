@@ -968,6 +968,11 @@ Not all targets support additional floating-point types.  @code{__float80}
 and @code{__float128} types are supported on i386, x86_64 and IA-64 targets.
 The @code{__float128} type is supported on hppa HP-UX targets.
 
+The PowerPC also support the @code{__float128} type when the Vector
+Scalar (vsx) instruction set is available.  Due to the fact that the
+type @code{TFmode} was previously used for the IBM extended long
+double format, the type @code{JFmode} is used instead.
+
 @node Half-Precision
 @section Half-Precision Floating Point
 @cindex half-precision floating point

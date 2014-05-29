@@ -71,3 +71,77 @@ GCC_4.2.0 {
   __gcc_qunord
 %endif
 }
+
+# IEEE 128-bit support (__float128) was introduced with GCC 4.10 for VSX
+# targets.  Use jf names instead of tf name so that they are unique.  The IBM
+# long double support functions uses different names (__gcc_<xxx> for most of
+# the functions, but it did overlap on: __fixtfdi, __fixunstfdi, __floatditf,
+# __floatunditf).
+
+%exclude {
+  __addjf3
+  __divjf3
+  __eqjf2
+  __extenddfjf2
+  __extendsfjf2
+  __extendjfjf2
+  __fixjfdi
+  __fixjfsi
+  __fixjfti
+  __fixunsjfdi
+  __fixunsjfsi
+  __fixunsjfti
+  __floatdijf
+  __floatsijf
+  __floattijf
+  __floatundijf
+  __floatunsijf
+  __floatuntijf
+  __gejf2
+  __gtjf2
+  __lejf2
+  __ltjf2
+  __muljf3
+  __negjf2
+  __nejf2
+  __powijf2
+  __subjf3
+  __truncjfdf2
+  __truncjfsf2
+  __truncjfjf2
+  __unordjf2
+}
+
+GCC_4.10.0 {
+  __addjf3
+  __divjf3
+  __eqjf2
+  __extenddfjf2
+  __extendsfjf2
+  __extendjfjf2
+  __fixjfdi
+  __fixjfsi
+  __fixjfti
+  __fixunsjfdi
+  __fixunsjfsi
+  __fixunsjfti
+  __floatdijf
+  __floatsijf
+  __floattijf
+  __floatundijf
+  __floatunsijf
+  __floatuntijf
+  __gejf2
+  __gtjf2
+  __lejf2
+  __ltjf2
+  __muljf3
+  __negjf2
+  __nejf2
+  __powijf2
+  __subjf3
+  __truncjfdf2
+  __truncjfsf2
+  __truncjfjf2
+  __unordjf2
+}
