@@ -404,5 +404,9 @@ mxgot
 Target Report Var(TARGET_XGOT)
 Lift restrictions on GOT size
 
+modd-spreg
+Target Report Mask(ODD_SPREG)
+Enable use of odd-numbered single-precision registers
+
 noasmopt
 Driver
