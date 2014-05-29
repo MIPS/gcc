@@ -396,7 +396,7 @@ valid_address_p (struct address_info *ad)
 
 #ifdef EXTRA_CONSTRAINT_STR
 /* Return true if the eliminated form of memory reference OP satisfies
-   extra memory constraint CONSTRAINT.  */
+   extra address constraint CONSTRAINT.  */
 static bool
 satisfies_memory_constraint_p (rtx op, const char *constraint)
 {
