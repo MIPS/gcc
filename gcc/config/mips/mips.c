@@ -12015,8 +12015,14 @@ mips_hard_regno_mode_ok_p (unsigned int regno, enum machine_mode mode)
 	  && size <= 4 && (regno & 1) != 0)
 	return false;
 
+      /* Prevent the use of odd-numbered registers for CCFmode with the
+	 O32-FPXX ABI, otherwise allow them.
+	 The FPXX ABI does not permit double-precision data to be placed
+	 in odd-numbered registers and double-precision compares write
+	 them as 64-bit values.  Without this restriction the R6 FPXX
+	 ABI would not be able to execute in FR=1 FRE=1 mode.  */
       if (mode == CCFmode && ISA_HAS_CCF)
-	return true;
+	return !(TARGET_FLOATXX && (regno & 1) != 0);
 
       /* Allow 64-bit vector modes for Loongson-2E/2F.  */
       if (TARGET_LOONGSON_VECTORS
@@ -17565,7 +17571,7 @@ mips_option_override (void)
          -mdouble-float selects 64-bit float registers, since the old paired
 	 register model is not supported.  In other cases the float registers
 	 should be the same size as the integer ones.  */
-      if (mips_isa_rev >= 6 && TARGET_DOUBLE_FLOAT)
+      if (mips_isa_rev >= 6 && TARGET_DOUBLE_FLOAT && !TARGET_FLOATXX)
 	target_flags |= MASK_FLOAT64;
       else if (TARGET_64BIT && TARGET_DOUBLE_FLOAT)
 	target_flags |= MASK_FLOAT64;
@@ -17575,9 +17581,8 @@ mips_option_override (void)
 
   if (mips_abi != ABI_32 && TARGET_FLOATXX)
     error ("%<-mfpxx%> can only be used with the o32 ABI");
-  else if (mips_isa_rev >= 6 && TARGET_FLOATXX)
-    error ("%<-mfpxx%> cannot be used with %<-march=%s%>",
-	   mips_arch_info->name);
+  else if (TARGET_FLOAT64 && TARGET_FLOATXX)
+    error ("unsupported combination: %s", "-mfp64 -mfpxx");
   else if (ISA_MIPS1 && !TARGET_FLOAT32)
     error ("%<-march=%s%> requires %<-mfp32%>", mips_arch_info->name);
   else if (TARGET_FLOATXX && !mips_lra_flag)

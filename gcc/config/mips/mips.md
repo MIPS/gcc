@@ -7177,6 +7177,17 @@
   if (ISA_HAS_SEL && !FLOAT_MODE_P (GET_MODE (XEXP (operands[1], 0))))
     FAIL;
 
+  /* Workaround an LRA bug which means that tied operands in the sel.fmt
+     pattern lead to the double precision destination of sel.d getting
+     reloaded with the full register file usable and the restrictions on
+     whether the CCFmode input can be used in odd-numbered single-precision
+     registers are ignored. For consistency reasons the CCF mode values
+     must be guaranteed to only exist in the even-registers because of
+     the unusual duality between single and double precision values. */
+  if (ISA_HAS_SEL && <MODE>mode == DFmode
+      && (!TARGET_ODD_SPREG || TARGET_FLOATXX))
+    FAIL;
+
   mips_expand_conditional_move (operands);
   DONE;
 })
