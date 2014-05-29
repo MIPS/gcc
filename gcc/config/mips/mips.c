@@ -20443,7 +20443,7 @@ mips_expand_msa_one_cmpl (rtx dest, rtx src)
   switch (mode)
     {
     case V16QImode:
-      emit_insn (gen_msa_nori_b (dest, src, src));
+      emit_insn (gen_msa_nor_v_b (dest, src, src));
       break;
     case V8HImode:
       emit_insn (gen_msa_nor_v_h (dest, src, src));
