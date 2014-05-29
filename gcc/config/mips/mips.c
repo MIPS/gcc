@@ -17561,6 +17561,9 @@ mips_option_override (void)
 
   if (mips_abi != ABI_32 && TARGET_FLOATXX)
     error ("%<-mfpxx%> can only be used with the o32 ABI");
+  else if (mips_isa_rev >= 6 && TARGET_FLOATXX)
+    error ("%<-mfpxx%> cannot be used with %<-march=%s%>",
+	   mips_arch_info->name);
   else if (ISA_MIPS1 && !TARGET_FLOAT32)
     error ("%<-march=%s%> requires %<-mfp32%>", mips_arch_info->name);
   else if (TARGET_FLOATXX && !mips_lra_flag)
