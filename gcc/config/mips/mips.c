@@ -6498,8 +6498,10 @@ mips16_call_stub_mode_suffix (enum machine_mode mode)
   else if (mode == DCmode)
     return "dc";
   else if (mode == V2SFmode)
-    gcc_assert (TARGET_PAIRED_SINGLE_FLOAT);
-    return "df";
+    {
+      gcc_assert (TARGET_PAIRED_SINGLE_FLOAT);
+      return "df";
+    }
   else
     gcc_unreachable ();
 }
@@ -6987,7 +6989,7 @@ mips16_build_call_stub (rtx retval, rtx *fn_ptr, rtx args_size, int fp_code)
  	    case DFmode:
 	    case V2SFmode:
 	      gcc_assert (TARGET_PAIRED_SINGLE_FLOAT
-			  || GET_MODE (retval) != V2SFmode)
+			  || GET_MODE (retval) != V2SFmode);
 	      mips_output_64bit_xfer ('f', GP_RETURN, FP_REG_FIRST);
 	      break;
 
@@ -11968,7 +11970,6 @@ mips_mode_ok_for_mov_fmt_p (enum machine_mode mode)
       return TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT;
 
     case V2SFmode:
-      gcc_assert (TARGET_PAIRED_SINGLE_FLOAT);
       return TARGET_HARD_FLOAT;
 
     default:

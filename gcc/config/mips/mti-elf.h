@@ -35,8 +35,7 @@ along with GCC; see the file COPYING3.  If not see
   "%{!mabi=*: %{" MIPS_32BIT_OPTION_SPEC ": -mabi=32;: -mabi=n32}}",	\
 									\
   /* If no FP option is specified, infer one from the ABI/ISA level.  */\
-  "%{!mfp*: %{mabi=32: %{" MIPS_FP32_OPTION_SPEC			\
-  ": -mfp32;: -mfpxx}}}",						\
+  "%{!mfp*: %{mabi=32: %{" MIPS_FPXX_OPTION_SPEC ": -mfpxx}}}",		\
 									\
   /* Make sure that an endian option is always present.  This makes	\
      things like LINK_SPEC easier to write.  */				\

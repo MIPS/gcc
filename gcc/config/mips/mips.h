@@ -759,9 +759,11 @@ struct mips_cpu_info {
 #define MIPS_32BIT_OPTION_SPEC \
   "mips1|mips2|mips32*|mgp32"
 
-/* A spec condition that matches 32-bit FPU requirements for O32.  */
-#define MIPS_FP32_OPTION_SPEC \
-  "mips1"
+/* A spec condition that matches architectures should be targetted with
+   O32 FPXX for compatibility reasons.  */
+#define MIPS_FPXX_OPTION_SPEC \
+  "mips2|mips3|mips4|mips5|mips32|mips32r2|mips32r3|mips32r5| \
+   mips64|mips64r2|mips64r3|mips64r5"
 
 /* Infer a -msynci setting from a -mips argument, on the assumption that
    -msynci is desired where possible.  */
