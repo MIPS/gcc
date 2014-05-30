@@ -2231,27 +2231,15 @@ enum reg_class
    `crtl->outgoing_args_size'.  */
 #define OUTGOING_REG_PARM_STACK_SPACE(FNTYPE) 1
 
-/* Define this if STACK_BOUNDRAY and MIPS_STACK_ALIGN should be
- * compatible with -mmsa code.
- */
-#define MSA_COMPATIBLE \
-  ((TARGET_NEWABI || TARGET_MSA) || (TARGET_MSA_COMPAT && TARGET_FLOAT64))
-
-/* Because we want to allow MSA functions and non-MSA functions to
-   call + each other and MSA always requires -mfp64, we set stack
-   boundary to 128 if -mmsa or -msa_compat and -mfp64 bits otherwise 64. */
-#define STACK_BOUNDARY \
-  (MSA_COMPATIBLE ? 128 : 64)
+#define STACK_BOUNDARY (TARGET_NEWABI ? 128 : 64)
 
 /* Symbolic macros for the registers used to return integer and floating
    point values.  */
 
 #define GP_RETURN (GP_REG_FIRST + 2)
 #define FP_RETURN ((TARGET_SOFT_FLOAT) ? GP_RETURN : (FP_REG_FIRST + 0))
-#define MSA_RETURN (MSA_REG_FIRST + 0)
 
 #define MAX_ARGS_IN_REGISTERS (TARGET_OLDABI ? 4 : 8)
-#define MAX_ARGS_IN_MSA_REGISTERS 8
 
 /* Symbolic macros for the first/last argument registers.  */
 
@@ -2259,8 +2247,6 @@ enum reg_class
 #define GP_ARG_LAST  (GP_ARG_FIRST + MAX_ARGS_IN_REGISTERS - 1)
 #define FP_ARG_FIRST (FP_REG_FIRST + 12)
 #define FP_ARG_LAST  (FP_ARG_FIRST + MAX_ARGS_IN_REGISTERS - 1)
-#define MSA_ARG_FIRST (MSA_REG_FIRST + 4)
-#define MSA_ARG_LAST (MSA_ARG_FIRST + MAX_ARGS_IN_MSA_REGISTERS - 1)
 
 /* True if MODE is vector and supported in a MSA vector register.  */
 #define MSA_SUPPORTED_VECTOR_MODE_P(MODE)		\
@@ -2313,25 +2299,14 @@ enum reg_class
    So for the standard ABIs, the first N words are allocated to integer
    registers, and mips_function_arg decides on an argument-by-argument
    basis whether that argument should really go in an integer register,
-   or in a floating-point one.
-
-   The MSA vector registers are allocated separately.
-   We count NUM_MSA_REGS in this structure.  The first 8 MSA vector registers
-   can be used to pass 128-bit vector integer or vector floating-point
-   parameters.  If more than 8 MSA vector registers are required to pass,
-   these parameters are passed in the stack.  */
+   or in a floating-point one.  */
 
 typedef struct mips_args {
-  /* True for varargs functions.  */
-  int stdarg_p;
-
   /* Always true for varargs functions.  Otherwise true if at least
      one argument has been passed in an integer register.  */
   int gp_reg_found;
 
-  /* The number of arguments (that may be passed in gprs or fprs) seen so far.
-     Note that we don't include arguments that may be passed in MSA vector
-     registers, to be able to use the existing parameter mechanism.  */
+  /* The number of arguments seen so far.  */
   unsigned int arg_number;
 
   /* The number of integer registers used so far.  For all ABIs except
@@ -2341,9 +2316,6 @@ typedef struct mips_args {
 
   /* For EABI, the number of floating-point registers used so far.  */
   unsigned int num_fprs;
-
-  /* The number of MSA vector registers used so far.  */
-  unsigned int num_msa_regs;
 
   /* The number of words passed on the stack.  */
   unsigned int stack_words;
@@ -2388,10 +2360,9 @@ typedef struct mips_args {
 #define EPILOGUE_USES(REGNO)	mips_epilogue_uses (REGNO)
 
 /* Treat LOC as a byte offset from the stack pointer and round it up
-   to the next fully-aligned offset.
-   Also see comment for STACK_BOUNDARY.  */
+   to the next fully-aligned offset.  */
 #define MIPS_STACK_ALIGN(LOC) \
-  (MSA_COMPATIBLE ? ((LOC) + 15) & -16 : ((LOC) + 7) & -8)
+  (TARGET_NEWABI ? ((LOC) + 15) & -16 : ((LOC) + 7) & -8)
 
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */

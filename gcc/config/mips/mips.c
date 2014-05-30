@@ -438,10 +438,6 @@ struct GTY(())  machine_function {
 
 /* Information about a single argument.  */
 struct mips_arg_info {
-  /* True if the argument is passed in a MSA vector register, or
-     would have been if we hadn't run out of registers.  */
-  bool msa_reg_p;
-
   /* True if the argument is passed in a floating-point register, or
      would have been if we hadn't run out of registers.  */
   bool fpr_p;
@@ -449,16 +445,10 @@ struct mips_arg_info {
   /* The number of words passed in registers, rounded up.  */
   unsigned int reg_words;
 
-  /* If msa_reg_p is true, the offset of the first register from
-     MSA_ARG_FIRST.
-
-     The value is MAX_ARGS_IN_MSA_REGISTERS if the argument is passed entirely
-     on the stack.
-
-     If msa_reg_p is false, for EABI, the offset of the first register from
-     GP_ARG_FIRST or FP_ARG_FIRST.  For other ABIs, the offset of the first
-     register from the start of the ABI's argument structure
-     (see the CUMULATIVE_ARGS comment for details).
+  /* For EABI, the offset of the first register from GP_ARG_FIRST or
+     FP_ARG_FIRST.  For other ABIs, the offset of the first register from
+     the start of the ABI's argument structure (see the CUMULATIVE_ARGS
+     comment for details).
 
      The value is MAX_ARGS_IN_REGISTERS if the argument is passed entirely
      on the stack.  */
@@ -5648,8 +5638,7 @@ mips_init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype)
 {
   memset (cum, 0, sizeof (*cum));
   cum->prototype = (fntype && prototype_p (fntype));
-  cum->stdarg_p = (cum->prototype && stdarg_p (fntype));
-  cum->gp_reg_found = cum->stdarg_p;
+  cum->gp_reg_found = (cum->prototype && stdarg_p (fntype));
 }
 
 /* Fill INFO with information about a single argument.  CUM is the
@@ -5661,20 +5650,12 @@ static void
 mips_get_arg_info (struct mips_arg_info *info, const CUMULATIVE_ARGS *cum,
 		   enum machine_mode mode, const_tree type, bool named)
 {
-  unsigned aligned = 0;
+  bool doubleword_aligned_p;
   unsigned int num_bytes, num_words, max_regs;
 
   /* Work out the size of the argument.  */
   num_bytes = type ? int_size_in_bytes (type) : GET_MODE_SIZE (mode);
   num_words = (num_bytes + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
-
-  /* When this function doesn't have vararg, we pass 128-bit vector integer
-     or vector floating-point in MSA vector registers.  */
-  info->msa_reg_p = (TARGET_MSA
-		     && !cum->stdarg_p
-		     && (type == 0 || VECTOR_FLOAT_TYPE_P (type)
-			 || VECTOR_INTEGER_TYPE_P (type))
-		     && MSA_SUPPORTED_VECTOR_MODE_P (mode));
 
   /* Decide whether it should go in a floating-point register, assuming
      one is free.  Later code checks for availability.
@@ -5686,8 +5667,7 @@ mips_get_arg_info (struct mips_arg_info *info, const CUMULATIVE_ARGS *cum,
     case ABI_EABI:
       /* The EABI conventions have traditionally been defined in terms
 	 of TYPE_MODE, regardless of the actual type.  */
-      info->fpr_p = (!info->msa_reg_p
-		     && (GET_MODE_CLASS (mode) == MODE_FLOAT
+      info->fpr_p = ((GET_MODE_CLASS (mode) == MODE_FLOAT
 		      || mode == V2SFmode)
 		     && GET_MODE_SIZE (mode) <= UNITS_PER_FPVALUE);
       break;
@@ -5697,8 +5677,7 @@ mips_get_arg_info (struct mips_arg_info *info, const CUMULATIVE_ARGS *cum,
       /* Only leading floating-point scalars are passed in
 	 floating-point registers.  We also handle vector floats the same
 	 say, which is OK because they are not covered by the standard ABI.  */
-      info->fpr_p = (!info->msa_reg_p
-		     && !cum->gp_reg_found
+      info->fpr_p = (!cum->gp_reg_found
 		     && cum->arg_number < 2
 		     && (type == 0
 			 || SCALAR_FLOAT_TYPE_P (type)
@@ -5713,7 +5692,7 @@ mips_get_arg_info (struct mips_arg_info *info, const CUMULATIVE_ARGS *cum,
       /* Scalar, complex and vector floating-point types are passed in
 	 floating-point registers, as long as this is a named rather
 	 than a variable argument.  */
-      info->fpr_p = (!info->msa_reg_p
+      info->fpr_p = (named
 		     && named
 		     && (type == 0 || FLOAT_TYPE_P (type))
 		     && (GET_MODE_CLASS (mode) == MODE_FLOAT
@@ -5752,36 +5731,8 @@ mips_get_arg_info (struct mips_arg_info *info, const CUMULATIVE_ARGS *cum,
     }
 
   /* See whether the argument has doubleword alignment.  */
-  if (mips_function_arg_boundary (mode, type) > BITS_PER_WORD)
-    aligned |= 1;
-  /* See whether the argument has quadword alignment.  */
-  if (mips_function_arg_boundary (mode, type) > 2 * BITS_PER_WORD)
-    aligned |= 2;
-  if (info->msa_reg_p)
-    {
-      info->reg_offset = cum->num_msa_regs;
-
-      /* We can only pass 8 MSA vector registers.  */
-      if (info->reg_offset < MAX_ARGS_IN_MSA_REGISTERS)
-	{
-	  info->reg_words = num_words;
-	  info->stack_words = 0;
-	}
-      else
-	{
-	  info->reg_words = 0;
-	  info->stack_words = num_words;
-
-	  /* Work out the offset of a stack argument.  */
-	  info->stack_offset = cum->stack_words;
-	  if (aligned & 1)
-	    info->stack_offset += info->stack_offset & 1;
-	  if (aligned & 2)
-	    info->stack_offset += info->stack_offset & 2;
-	}
-
-      return;	/* Just return.  */
-    }
+  doubleword_aligned_p = (mips_function_arg_boundary (mode, type)
+			  > BITS_PER_WORD);
 
   /* Set REG_OFFSET to the register count we're interested in.
      The EABI allocates the floating-point registers separately,
@@ -5791,18 +5742,13 @@ mips_get_arg_info (struct mips_arg_info *info, const CUMULATIVE_ARGS *cum,
 		      : cum->num_gprs);
 
   /* Advance to an even register if the argument is doubleword-aligned.  */
-  if (aligned & 1)
+  if (doubleword_aligned_p)
     info->reg_offset += info->reg_offset & 1;
-  /* Advance to a fourth register if the argument is quadword-aligned.  */
-  if (aligned & 2)
-    info->reg_offset += info->reg_offset & 2;
 
   /* Work out the offset of a stack argument.  */
   info->stack_offset = cum->stack_words;
-  if (aligned & 1)
+  if (doubleword_aligned_p)
     info->stack_offset += info->stack_offset & 1;
-  if (aligned & 2)
-    info->stack_offset += info->stack_offset & 2;
 
   max_regs = MAX_ARGS_IN_REGISTERS - info->reg_offset;
 
@@ -5859,21 +5805,6 @@ mips_function_arg (cumulative_args_t cum_v, enum machine_mode mode,
     }
 
   mips_get_arg_info (&info, cum, mode, type, named);
-
-  if (info.msa_reg_p)
-    {
-      if (info.reg_words > 0)
-	{
-	  gcc_assert (info.stack_words == 0);
-	  return gen_rtx_REG (mode, MSA_ARG_FIRST + cum->num_msa_regs);
-	}
-      else
-	{
-	  gcc_assert (info.stack_words > 0);
-	  gcc_assert (info.reg_words == 0);
-	  return NULL;
-	}
-    }
 
   /* Return straight away if the whole argument is passed on the stack.  */
   if (info.reg_offset == MAX_ARGS_IN_REGISTERS)
@@ -5990,24 +5921,6 @@ mips_function_arg_advance (cumulative_args_t cum_v, enum machine_mode mode,
 
   mips_get_arg_info (&info, cum, mode, type, named);
 
-  if (info.msa_reg_p)
-    {
-      if (info.reg_words > 0)
-	{
-	  gcc_assert (info.stack_words == 0);
-	  cum->num_msa_regs++;
-	}
-
-      /* Advance the stack word count.  */
-      if (info.stack_words > 0)
-	{
-	  gcc_assert (info.reg_words == 0);
-	  cum->stack_words = info.stack_offset + info.stack_words;
-	}
-
-      return;	/* Just return.  */
-    }
-
   if (!info.fpr_p)
     cum->gp_reg_found = true;
 
@@ -6020,8 +5933,8 @@ mips_function_arg_advance (cumulative_args_t cum_v, enum machine_mode mode,
 
   /* Advance the register count.  This has the effect of setting
      num_gprs to MAX_ARGS_IN_REGISTERS if a doubleword-aligned
-     or quadword-aligned argument required us to skip the final GPR and
-     pass the whole argument on the stack.  */
+     argument required us to skip the final GPR and pass the whole
+     argument on the stack.  */
   if (mips_abi != ABI_EABI || !info.fpr_p)
     cum->num_gprs = info.reg_offset + info.reg_words;
   else if (info.reg_words > 0)
@@ -6125,10 +6038,6 @@ mips_pass_by_reference (cumulative_args_t cum ATTRIBUTE_UNUSED,
 			enum machine_mode mode, const_tree type,
 			bool named ATTRIBUTE_UNUSED)
 {
-  /* For MSA supported vector modes, we can pass in a MSA vector register.  */
-  if (TARGET_MSA && MSA_SUPPORTED_VECTOR_MODE_P (mode))
-    return false;
-
   if (mips_abi == ABI_EABI)
     {
       int size;
@@ -6309,10 +6218,6 @@ mips_function_value_1 (const_tree valtype, const_tree fn_decl_or_type,
 	 return values, promote the mode here too.  */
       mode = promote_function_mode (valtype, mode, &unsigned_p, func, 1);
 
-      /* Use the first MSA vector register to return.  */
-      if (TARGET_MSA && MSA_SUPPORTED_VECTOR_MODE_P (mode))
-	return gen_rtx_REG (mode, MSA_RETURN);
-
       /* Handle structures whose fields are returned in $f0/$f2.  */
       switch (mips_fpr_return_fields (valtype, fields))
 	{
@@ -6398,7 +6303,6 @@ mips_function_value_regno_p (const unsigned int regno)
 {
   if (regno == GP_RETURN
       || regno == FP_RETURN
-      || regno == MSA_RETURN
       || (LONG_DOUBLE_TYPE_SIZE == 128
 	  && FP_RETURN != GP_RETURN
 	  && regno == FP_RETURN + 2))
@@ -6416,10 +6320,6 @@ mips_function_value_regno_p (const unsigned int regno)
 static bool
 mips_return_in_memory (const_tree type, const_tree fndecl ATTRIBUTE_UNUSED)
 {
-  /* For MSA supported vector modes, return in a MSA vector register.  */
-  if (TARGET_MSA && MSA_SUPPORTED_VECTOR_MODE_P (TYPE_MODE (type)))
-    return false;
-
   return (TARGET_OLDABI
 	  ? TYPE_MODE (type) == BLKmode
 	  : !IN_RANGE (int_size_in_bytes (type), 0, 2 * UNITS_PER_WORD));
@@ -18520,9 +18420,12 @@ mips_option_override (void)
     }
   else
     {
-      /* -msingle-float selects 32-bit float registers.  Otherwise the
-	 float registers should be the same size as the integer ones.  */
+      /* -msingle-float selects 32-bit float registers.  -mmsa selects
+         64-bit registers for O32.  Otherwise the float registers should be
+	 the same size as the integer ones.  */
       if (TARGET_64BIT && TARGET_DOUBLE_FLOAT)
+	target_flags |= MASK_FLOAT64;
+      else if (mips_abi == ABI_32 && TARGET_MSA)
 	target_flags |= MASK_FLOAT64;
       else
 	target_flags &= ~MASK_FLOAT64;
