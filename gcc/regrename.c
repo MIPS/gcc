@@ -884,8 +884,7 @@ regrename_analyze (bitmap bb_mask)
 		  struct du_head *incoming_chain = regrename_chain_from_id (k);
 
 		  if (incoming_chain->regno == chain->regno
-		      && incoming_chain->nregs == chain->nregs
-		      && !bitmap_bit_p (&incoming_chain->conflicts, chain->id))
+		      && incoming_chain->nregs == chain->nregs)
 		    {
 		      if (dump_file)
 			{
