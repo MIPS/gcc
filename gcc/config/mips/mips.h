@@ -804,7 +804,7 @@ struct mips_cpu_info {
   {"float", "%{!msoft-float:%{!mhard-float:-m%(VALUE)-float}}" }, \
   {"fpu", "%{!msingle-float:%{!mdouble-float:-m%(VALUE)-float}}" }, \
   {"nan", "%{!mnan=*:-mnan=%(VALUE)}" }, \
-  {"fp", "%{!mfp*:-mfp%(VALUE)}" }, \
+  {"fp_32", "%{" OPT_ARCH32 ":%{!mfp*:-mfp%(VALUE)}}" }, \
   {"divide", "%{!mdivide-traps:%{!mdivide-breaks:-mdivide-%(VALUE)}}" }, \
   {"llsc", "%{!mllsc:%{!mno-llsc:-m%(VALUE)}}" }, \
   {"mips-plt", "%{!mplt:%{!mno-plt:-m%(VALUE)}}" }, \
@@ -1206,6 +1206,8 @@ struct mips_cpu_info {
 %{mabi=*} %{!mabi=*: %(asm_abi_default_spec)} \
 %{mgp32} %{mgp64} %{march=*} %{mxgot:-xgot} \
 %{mfp32} %{mfpxx} %{mfp64} %{mnan=*} \
+%{mhard-float} %{msoft-float} \
+%{mdouble-float} %{msingle-float} \
 %{mshared} %{mno-shared} \
 %{msym32} %{mno-sym32} \
 %{mtune=*} \

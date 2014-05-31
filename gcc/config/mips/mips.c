@@ -8693,15 +8693,29 @@ mips_dwarf_register_span (rtx reg)
   rtx high, low;
   enum machine_mode mode;
 
+  /* TARGET_FLOATXX is implemented as 32-bit floating-point registers but
+     ensures that double precision registers are treated as if they were
+     64-bit physical registers.  The code will run correctly with 32-bit or
+     64-bit registers which means that dwarf information cannot be precisely
+     correct for all scenarios.  We choose to state that the 64-bit values
+     are stored in a single 64-bit 'piece'.  This slightly unusual
+     construct can then be interpreted as either a pair of registers if the
+     registers are 32-bit or a single 64-bit register depending on
+     hardware.  */
+  mode = GET_MODE (reg);
+  if (FP_REG_P (REGNO (reg))
+      && TARGET_FLOATXX
+      && GET_MODE_SIZE (mode) > UNITS_PER_FPREG)
+    {
+      return gen_rtx_PARALLEL (VOIDmode, gen_rtvec (1, reg));
+    }
   /* By default, GCC maps increasing register numbers to increasing
      memory locations, but paired FPRs are always little-endian,
      regardless of the prevailing endianness.  */
-  mode = GET_MODE (reg);
-  if (FP_REG_P (REGNO (reg))
-      && TARGET_BIG_ENDIAN
-      && MAX_FPRS_PER_FMT > 1
-      && !TARGET_FLOATXX
-      && GET_MODE_SIZE (mode) > UNITS_PER_FPREG)
+  else if (FP_REG_P (REGNO (reg))
+	   && TARGET_BIG_ENDIAN
+	   && MAX_FPRS_PER_FMT > 1
+	   && GET_MODE_SIZE (mode) > UNITS_PER_FPREG)
     {
       gcc_assert (GET_MODE_SIZE (mode) == UNITS_PER_HWFPVALUE);
       high = mips_subword (reg, true);
