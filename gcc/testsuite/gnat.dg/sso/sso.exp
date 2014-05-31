@@ -27,8 +27,7 @@ set SSO_TORTURE_OPTIONS [list \
 	{ -O1 -fno-inline } \
 	{ -O2 } \
 	{ -O3 -finline-functions } \
-	{ -Os } \
-	{ -Og -g } ]
+	{ -Os } ]
 
 set-torture-options $SSO_TORTURE_OPTIONS
 

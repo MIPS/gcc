@@ -5672,6 +5672,16 @@ gnat_to_gnu_component_type (Entity_Id gnat_array, bool definition,
 			  gnat_array);
     }
 
+  /* If the component type is a padded type made for a non-bit-packed array
+     of scalars with reverse storage order, we need to propagate the reverse
+     storage order to the padding type since it is the innermost enclosing
+     aggregate type around the scalar.  */
+  if (TYPE_IS_PADDING_P (gnu_type)
+      && Reverse_Storage_Order (gnat_array)
+      && !Is_Bit_Packed_Array (gnat_array)
+      && Is_Scalar_Type (gnat_type))
+    gnu_type = set_reverse_storage_order_on_pad_type (gnu_type);
+
   if (Has_Volatile_Components (gnat_array))
     gnu_type = change_qualified_type (gnu_type, TYPE_QUAL_VOLATILE);
 
@@ -6752,6 +6762,15 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
   /* Otherwise (or if there was an error), don't specify a position.  */
   else
     gnu_pos = NULL_TREE;
+
+  /* If the field's type is a padded type made for a scalar field of a record
+     type with reverse storage order, we need to propagate the reverse storage
+     order to the padding type since it is the innermost enclosing aggregate
+     type around the scalar.  */
+  if (TYPE_IS_PADDING_P (gnu_field_type)
+      && TYPE_REVERSE_STORAGE_ORDER (gnu_record_type)
+      && Is_Scalar_Type (gnat_field_type))
+    gnu_field_type = set_reverse_storage_order_on_pad_type (gnu_field_type);
 
   gcc_assert (TREE_CODE (gnu_field_type) != RECORD_TYPE
 	      || !TYPE_CONTAINS_TEMPLATE_P (gnu_field_type));
