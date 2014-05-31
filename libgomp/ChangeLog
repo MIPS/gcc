@@ -1,3 +1,14 @@
+2014-05-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	* testsuite/libgomp.fortran/declare-simd-1.f90: Require
+	vect_simd_clones effective target.
+	* testsuite/libgomp.fortran/declare-simd-2.f90: Ditto.
+
+2014-05-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/61252
+	* testsuite/libgomp.c++/simd-9.C: New test.
+
 2014-05-18  Uros Bizjak  <ubizjak@gmail.com>
 
 	* libgomp.texi (Runitme Library Routines): Remove multiple @menu.

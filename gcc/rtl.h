@@ -276,6 +276,7 @@ struct GTY((chain_next ("RTX_NEXT (&%h)"),
 
   /* 1 in a MEM if we should keep the alias set for this mem unchanged
      when we access a component.
+     1 in a JUMP_INSN if it is a crossing jump.
      1 in a CALL_INSN if it is a sibling call.
      1 in a SET that is for a return.
      In a CODE_LABEL, part of the two-bit alternate entry field.
@@ -707,7 +708,7 @@ struct GTY(()) rtvec_def {
 
 #define BLOCK_SYMBOL_CHECK(RTX) __extension__				\
 ({ __typeof (RTX) const _symbol = (RTX);				\
-   const unsigned int flags = RTL_CHECKC1 (_symbol, 1, SYMBOL_REF).rt_int; \
+   const unsigned int flags = SYMBOL_REF_FLAGS (_symbol);		\
    if ((flags & SYMBOL_FLAG_HAS_BLOCK_INFO) == 0)			\
      rtl_check_failed_block_symbol (__FILE__, __LINE__,			\
 				    __FUNCTION__);			\
@@ -941,6 +942,10 @@ extern void rtl_check_failed_flag (const char *, const_rtx, const char *,
 /* 1 if RTX is an insn that has been deleted.  */
 #define INSN_DELETED_P(RTX)						\
   (RTL_INSN_CHAIN_FLAG_CHECK ("INSN_DELETED_P", (RTX))->volatil)
+
+/* 1 if JUMP RTX is a crossing jump.  */
+#define CROSSING_JUMP_P(RTX) \
+  (RTL_FLAG_CHECK1 ("CROSSING_JUMP_P", (RTX), JUMP_INSN)->jump)
 
 /* 1 if RTX is a call to a const function.  Built from ECF_CONST and
    TREE_READONLY.  */
@@ -2192,6 +2197,7 @@ extern enum machine_mode choose_hard_reg_mode (unsigned int, unsigned int,
 					       bool);
 
 /* In emit-rtl.c  */
+extern rtx set_for_reg_notes (rtx);
 extern rtx set_unique_reg_note (rtx, enum reg_note, rtx);
 extern rtx set_dst_reg_note (rtx, enum reg_note, rtx, rtx);
 extern void set_insn_deleted (rtx);

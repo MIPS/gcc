@@ -311,8 +311,10 @@ AC_CHECK_SIZEOF(short)
 AC_CHECK_SIZEOF(int)
 AC_CHECK_SIZEOF(long)
 AC_CHECK_TYPES([long long], [AC_CHECK_SIZEOF(long long)])
-AC_CHECK_TYPES([__int64], [AC_CHECK_SIZEOF(__int64)])
 GCC_STDINT_TYPES
+if test x"$ac_cv_c_uint64_t" = x"no" -o x"$ac_cv_c_int64_t" = x"no"; then
+  AC_MSG_ERROR([uint64_t or int64_t not found])
+fi
 
 # ---------------------
 # Warnings and checking
@@ -1372,14 +1374,9 @@ else
 	done
 fi
 
-if test x$need_64bit_hwint = xyes; then
-	AC_DEFINE(NEED_64BIT_HOST_WIDE_INT, 1,
-[Define to 1 if HOST_WIDE_INT must be 64 bits wide (see hwint.h).])
-fi
-
 if test x$use_long_long_for_widest_fast_int = xyes; then
 	AC_DEFINE(USE_LONG_LONG_FOR_WIDEST_FAST_INT, 1,
-[Define to 1 if the 'long long' (or '__int64') is wider than 'long' but still
+[Define to 1 if the 'long long' type is wider than 'long' but still
 efficiently supported by the host hardware.])
 fi
 
@@ -4737,6 +4734,21 @@ if test x"$gcc_cv_ld_as_needed" = xyes; then
 [Define to the linker option to keep unused dependencies.])
 fi
 
+AC_MSG_CHECKING(linker mapfile support for clearing hardware capabilities)
+saved_LDFLAGS="$LDFLAGS"
+for clearcap_map in sol2-clearcapv2.map sol2-clearcap.map; do
+  LDFLAGS="$saved_LDFLAGS -Wl,-M,${srcdir}/config/$clearcap_map"
+  AC_LINK_IFELSE([int main(void) {return 0;}],
+    [gcc_cv_ld_clearcap=yes; break], [gcc_cv_ld_clearcap=no])
+done
+LDFLAGS="$saved_LDFLAGS"
+if test "x$gcc_cv_ld_clearcap" = xyes; then
+  AC_DEFINE([HAVE_LD_CLEARCAP], 1,
+[Define if the linker supports clearing hardware capabilities via mapfile.])
+  AC_CONFIG_LINKS([clearcap.map:${srcdir}/config/$clearcap_map])
+fi
+AC_MSG_RESULT($gcc_cv_ld_clearcap)
+
 case "$target:$tm_file" in
   powerpc64-*-freebsd* | powerpc64*-*-linux* | powerpc*-*-linux*rs6000/biarch64.h*)
   case "$target" in
@@ -5019,6 +5031,13 @@ case "$target" in
     # compilation with largefile support.
     if grep dl_iterate_phdr $target_header_dir/link.h > /dev/null 2>&1 \
       && grep 'large file capable' $target_header_dir/link.h > /dev/null 2>&1; then
+      gcc_cv_target_dl_iterate_phdr=yes
+    else
+      gcc_cv_target_dl_iterate_phdr=no
+    fi
+    ;;
+  *-*-dragonfly* | *-*-freebsd*)
+    if grep dl_iterate_phdr $target_header_dir/sys/link_elf.h > /dev/null 2>&1; then
       gcc_cv_target_dl_iterate_phdr=yes
     else
       gcc_cv_target_dl_iterate_phdr=no

@@ -1268,18 +1268,10 @@ aarch64_expand_mov_immediate (rtx dest, rtx imm)
 }
 
 static bool
-aarch64_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
+aarch64_function_ok_for_sibcall (tree decl ATTRIBUTE_UNUSED,
+				 tree exp ATTRIBUTE_UNUSED)
 {
-  /* Indirect calls are not currently supported.  */
-  if (decl == NULL)
-    return false;
-
-  /* Cannot tail-call to long-calls, since these are outside of the
-     range of a branch instruction (we could handle this if we added
-     support for indirect tail-calls.  */
-  if (aarch64_decl_is_long_call_p (decl))
-    return false;
-
+  /* Currently, always true.  */
   return true;
 }
 
@@ -4073,7 +4065,7 @@ enum reg_class
 aarch64_regno_regclass (unsigned regno)
 {
   if (GP_REGNUM_P (regno))
-    return CORE_REGS;
+    return GENERAL_REGS;
 
   if (regno == SP_REGNUM)
     return STACK_REG;
@@ -4224,12 +4216,12 @@ aarch64_secondary_reload (bool in_p ATTRIBUTE_UNUSED, rtx x,
   /* A TFmode or TImode memory access should be handled via an FP_REGS
      because AArch64 has richer addressing modes for LDR/STR instructions
      than LDP/STP instructions.  */
-  if (!TARGET_GENERAL_REGS_ONLY && rclass == CORE_REGS
+  if (!TARGET_GENERAL_REGS_ONLY && rclass == GENERAL_REGS
       && GET_MODE_SIZE (mode) == 16 && MEM_P (x))
     return FP_REGS;
 
   if (rclass == FP_REGS && (mode == TImode || mode == TFmode) && CONSTANT_P(x))
-      return CORE_REGS;
+      return GENERAL_REGS;
 
   return NO_REGS;
 }
@@ -4360,7 +4352,7 @@ aarch64_class_max_nregs (reg_class_t regclass, enum machine_mode mode)
 {
   switch (regclass)
     {
-    case CORE_REGS:
+    case CALLER_SAVE_REGS:
     case POINTER_REGS:
     case GENERAL_REGS:
     case ALL_REGS:
@@ -8998,6 +8990,70 @@ aarch64_evpc_zip (struct expand_vec_perm_d *d)
   return true;
 }
 
+/* Recognize patterns for the EXT insn.  */
+
+static bool
+aarch64_evpc_ext (struct expand_vec_perm_d *d)
+{
+  unsigned int i, nelt = d->nelt;
+  rtx (*gen) (rtx, rtx, rtx, rtx);
+  rtx offset;
+
+  unsigned int location = d->perm[0]; /* Always < nelt.  */
+
+  /* Check if the extracted indices are increasing by one.  */
+  for (i = 1; i < nelt; i++)
+    {
+      unsigned int required = location + i;
+      if (d->one_vector_p)
+        {
+          /* We'll pass the same vector in twice, so allow indices to wrap.  */
+	  required &= (nelt - 1);
+	}
+      if (d->perm[i] != required)
+        return false;
+    }
+
+  /* The mid-end handles masks that just return one of the input vectors.  */
+  gcc_assert (location != 0);
+
+  switch (d->vmode)
+    {
+    case V16QImode: gen = gen_aarch64_extv16qi; break;
+    case V8QImode: gen = gen_aarch64_extv8qi; break;
+    case V4HImode: gen = gen_aarch64_extv4hi; break;
+    case V8HImode: gen = gen_aarch64_extv8hi; break;
+    case V2SImode: gen = gen_aarch64_extv2si; break;
+    case V4SImode: gen = gen_aarch64_extv4si; break;
+    case V2SFmode: gen = gen_aarch64_extv2sf; break;
+    case V4SFmode: gen = gen_aarch64_extv4sf; break;
+    case V2DImode: gen = gen_aarch64_extv2di; break;
+    case V2DFmode: gen = gen_aarch64_extv2df; break;
+    default:
+      return false;
+    }
+
+  /* Success! */
+  if (d->testing_p)
+    return true;
+
+  if (BYTES_BIG_ENDIAN)
+    {
+      /* After setup, we want the high elements of the first vector (stored
+         at the LSB end of the register), and the low elements of the second
+         vector (stored at the MSB end of the register). So swap.  */
+      rtx temp = d->op0;
+      d->op0 = d->op1;
+      d->op1 = temp;
+      /* location != 0 (above), so safe to assume (nelt - location) < nelt.  */
+      location = nelt - location;
+    }
+
+  offset = GEN_INT (location);
+  emit_insn (gen (d->target, d->op0, d->op1, offset));
+  return true;
+}
+
 static bool
 aarch64_evpc_dup (struct expand_vec_perm_d *d)
 {
@@ -9102,7 +9158,9 @@ aarch64_expand_vec_perm_const_1 (struct expand_vec_perm_d *d)
 
   if (TARGET_SIMD)
     {
-      if (aarch64_evpc_zip (d))
+      if (aarch64_evpc_ext (d))
+	return true;
+      else if (aarch64_evpc_zip (d))
 	return true;
       else if (aarch64_evpc_uzp (d))
 	return true;
@@ -9487,6 +9545,10 @@ aarch64_modes_tieable_p (enum machine_mode mode1, enum machine_mode mode2)
 #undef TARGET_VECTORIZE_AUTOVECTORIZE_VECTOR_SIZES
 #define TARGET_VECTORIZE_AUTOVECTORIZE_VECTOR_SIZES \
   aarch64_autovectorize_vector_sizes
+
+#undef TARGET_ATOMIC_ASSIGN_EXPAND_FENV
+#define TARGET_ATOMIC_ASSIGN_EXPAND_FENV \
+  aarch64_atomic_assign_expand_fenv
 
 /* Section anchor support.  */
 

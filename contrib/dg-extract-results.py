@@ -11,6 +11,7 @@ import sys
 import getopt
 import re
 from datetime import datetime
+from operator import attrgetter
 
 # True if unrecognised lines should cause a fatal error.  Might want to turn
 # this on by default later.
@@ -23,9 +24,6 @@ sort_logs = True
 class Named:
     def __init__ (self, name):
         self.name = name
-
-    def __cmp__ (self, other):
-        return cmp (self.name, other.name)
 
 class ToolRun (Named):
     def __init__ (self, name):
@@ -264,8 +262,12 @@ class Prog:
             # the harness segment, so that if a run for a particular harness
             # has been split up, we can reassemble the individual segments
             # in a sensible order.
+            #
+            # dejagnu sometimes issues warnings about the testing environment
+            # before running any tests.  Treat them as part of the header
+            # rather than as a test result.
             match = self.result_re.match (line)
-            if match:
+            if match and (harness or not line.startswith ('WARNING:')):
                 if not harness:
                     self.fatal (filename, 'saw test result before harness name')
                 name = match.group (2)
@@ -476,7 +478,8 @@ class Prog:
     # with a summary at the end.
     def output_variation (self, tool, variation):
         self.output_segment (variation.header)
-        for harness in sorted (variation.harnesses.values()):
+        for harness in sorted (variation.harnesses.values(),
+                               key = attrgetter ('name')):
             sys.stdout.write ('Running ' + harness.name + ' ...\n')
             if self.do_sum:
                 # Keep the original test result order if there was only

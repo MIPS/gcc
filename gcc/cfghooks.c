@@ -310,7 +310,7 @@ dump_bb_for_graph (pretty_printer *pp, basic_block bb)
     internal_error ("%s does not support dump_bb_for_graph",
 		    cfg_hooks->name);
   if (bb->count)
-    pp_printf (pp, "COUNT:" HOST_WIDEST_INT_PRINT_DEC, bb->count);
+    pp_printf (pp, "COUNT:" "%"PRId64, bb->count);
   pp_printf (pp, " FREQ:%i |", bb->frequency);
   pp_write_text_to_stream (pp);
   if (!(dump_flags & TDF_SLIM))
@@ -965,7 +965,7 @@ tidy_fallthru_edges (void)
 	  s = single_succ_edge (b);
 	  if (! (s->flags & EDGE_COMPLEX)
 	      && s->dest == c
-	      && !find_reg_note (BB_END (b), REG_CROSSING_JUMP, NULL_RTX))
+	      && !(JUMP_P (BB_END (b)) && CROSSING_JUMP_P (BB_END (b))))
 	    tidy_fallthru_edge (s);
 	}
     }

@@ -5147,7 +5147,7 @@ x86_64_elf_unique_section (tree decl, int reloc)
     {
       const char *prefix = NULL;
       /* We only need to use .gnu.linkonce if we don't have COMDAT groups.  */
-      bool one_only = DECL_ONE_ONLY (decl) && !HAVE_COMDAT_GROUP;
+      bool one_only = DECL_COMDAT_GROUP (decl) && !HAVE_COMDAT_GROUP;
 
       switch (categorize_decl_for_section (decl, reloc))
 	{
@@ -9183,7 +9183,7 @@ ix86_code_end (void)
 #endif
       if (USE_HIDDEN_LINKONCE)
 	{
-	  DECL_COMDAT_GROUP (decl) = DECL_ASSEMBLER_NAME (decl);
+	  cgraph_create_node (decl)->set_comdat_group (DECL_ASSEMBLER_NAME (decl));
 
 	  targetm.asm_out.unique_section (decl, 0);
 	  switch_to_section (get_named_section (decl, NULL, 0));
@@ -26383,7 +26383,7 @@ static int min_insn_size (rtx);
 static void
 core2i7_first_cycle_multipass_filter_ready_try
 (const_ix86_first_cycle_multipass_data_t data,
- char *ready_try, int n_ready, bool first_cycle_insn_p)
+ signed char *ready_try, int n_ready, bool first_cycle_insn_p)
 {
   while (n_ready--)
     {
@@ -26415,7 +26415,8 @@ core2i7_first_cycle_multipass_filter_ready_try
 
 /* Prepare for a new round of multipass lookahead scheduling.  */
 static void
-core2i7_first_cycle_multipass_begin (void *_data, char *ready_try, int n_ready,
+core2i7_first_cycle_multipass_begin (void *_data,
+				     signed char *ready_try, int n_ready,
 				     bool first_cycle_insn_p)
 {
   ix86_first_cycle_multipass_data_t data
@@ -26436,7 +26437,8 @@ core2i7_first_cycle_multipass_begin (void *_data, char *ready_try, int n_ready,
 /* INSN is being issued in current solution.  Account for its impact on
    the decoder model.  */
 static void
-core2i7_first_cycle_multipass_issue (void *_data, char *ready_try, int n_ready,
+core2i7_first_cycle_multipass_issue (void *_data,
+				     signed char *ready_try, int n_ready,
 				     rtx insn, const void *_prev_data)
 {
   ix86_first_cycle_multipass_data_t data
@@ -26474,7 +26476,7 @@ core2i7_first_cycle_multipass_issue (void *_data, char *ready_try, int n_ready,
 /* Revert the effect on ready_try.  */
 static void
 core2i7_first_cycle_multipass_backtrack (const void *_data,
-					 char *ready_try,
+					 signed char *ready_try,
 					 int n_ready ATTRIBUTE_UNUSED)
 {
   const_ix86_first_cycle_multipass_data_t data
@@ -37901,10 +37903,10 @@ ix86_rtx_costs (rtx x, int code_i, int outer_code_i, int opno, int *total,
       else if (TARGET_64BIT && !x86_64_zext_immediate_operand (x, VOIDmode))
 	*total = 2;
       else if (flag_pic && SYMBOLIC_CONST (x)
-	       && (!TARGET_64BIT
-		   || (!GET_CODE (x) != LABEL_REF
-		       && (GET_CODE (x) != SYMBOL_REF
-		           || !SYMBOL_REF_LOCAL_P (x)))))
+	       && !(TARGET_64BIT
+		    && (GET_CODE (x) == LABEL_REF
+			|| (GET_CODE (x) == SYMBOL_REF
+			    && SYMBOL_REF_LOCAL_P (x)))))
 	*total = 1;
       else
 	*total = 0;
@@ -38891,7 +38893,16 @@ x86_output_mi_thunk (FILE *file,
      For our purposes here, we can get away with (ab)using a jump pattern,
      because we're going to do no optimization.  */
   if (MEM_P (fnaddr))
-    emit_jump_insn (gen_indirect_jump (fnaddr));
+    {
+      if (sibcall_insn_operand (fnaddr, word_mode))
+	{
+	  tmp = gen_rtx_CALL (VOIDmode, fnaddr, const0_rtx);
+          tmp = emit_call_insn (tmp);
+          SIBLING_CALL_P (tmp) = 1;
+	}
+      else
+	emit_jump_insn (gen_indirect_jump (fnaddr));
+    }
   else
     {
       if (ix86_cmodel == CM_LARGE_PIC && SYMBOLIC_CONST (fnaddr))
@@ -47269,6 +47280,9 @@ ix86_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 
 #undef TARGET_MODE_PRIORITY
 #define TARGET_MODE_PRIORITY ix86_mode_priority
+
+#undef TARGET_CALL_FUSAGE_CONTAINS_NON_CALLEE_CLOBBERS
+#define TARGET_CALL_FUSAGE_CONTAINS_NON_CALLEE_CLOBBERS true
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
