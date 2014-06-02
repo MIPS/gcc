@@ -922,31 +922,44 @@ static void free_pressure_info()
 }
 
 
-static inline void mark_all_refs_gen (tree *expr_p);
+struct ref_walk_data {
+  bool forward;
+  bitmap kill, gen;
+};
+
+static inline void mark_all_refs_gen (tree *expr_p, struct ref_walk_data *walk_data);
 static inline bool
-set_is_gen (tree t)
+set_is_gen (tree t, bitmap kill, bitmap gen, bool forward)
 {
     if (TREE_CODE (t) == SSA_NAME) {
 	int vno = SSA_NAME_VERSION(t);
 	/* if ( dump_file ) fprintf(dump_file,"   Pressure: bb %d set_is_gen %d\n",pressure_info.bb_index,vno); */
-	if ( (vno != pressure_info.current_lhs_vno) && 
-	     !bitmap_bit_p(pressure_info.bb_kill[pressure_info.bb_index], vno) ) 
+	/*
+	 * If walking forwards, we don't want to set gen for a use if we've seen a def (kill set) already
+	 * in this block. The use should not appear in the live in.
+	 */
+	if ( (vno != pressure_info.current_lhs_vno) && forward &&
+	     !bitmap_bit_p(kill, vno) ) 
 	    {
-		/* if ( dump_file ) fprintf(dump_file,"   Pressure: GEN[%d][_%d] set\n",pressure_info.bb_index,vno); */
-		return bitmap_set_bit(pressure_info.bb_gen[pressure_info.bb_index], vno);
+	      if ( dump_file ) 
+		{
+		  // dump_node ( t, TDF_LINENO|TDF_DETAILS|TDF_VERBOSE, dump_file);
+		  fprintf(dump_file,"   Pressure: GEN[%d][_%d] set\n",pressure_info.bb_index,vno);
+		}
+	        return bitmap_set_bit(gen, vno);
 	    }
     }
     return 0;
 }
-
 static tree
-mark_all_refs_gen_1(tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
+mark_all_refs_gen_1(tree *tp, int *walk_subtrees, void *data)
 {
   tree t = *tp;
+  struct ref_walk_data *walk_data = (struct ref_walk_data *)(data);
 
   if (TREE_CODE (t) == SSA_NAME)
     {
-	set_is_gen(t);
+      set_is_gen(t, walk_data->kill, walk_data->gen, walk_data->forward);
 	t = SSA_NAME_VAR (t);
 	if (!t)
 	    return NULL;
@@ -955,11 +968,11 @@ mark_all_refs_gen_1(tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 
   if (TREE_CODE (t) == TARGET_MEM_REF)
     {
-      mark_all_refs_gen (&TMR_BASE (t));
-      mark_all_refs_gen (&TMR_OFFSET (t));
-      mark_all_refs_gen (&TMR_INDEX (t));
-      mark_all_refs_gen (&TMR_STEP (t));
-      mark_all_refs_gen (&TMR_INDEX2 (t));
+      mark_all_refs_gen (&TMR_BASE (t), walk_data);
+      mark_all_refs_gen (&TMR_OFFSET (t), walk_data);
+      mark_all_refs_gen (&TMR_INDEX (t), walk_data);
+      mark_all_refs_gen (&TMR_STEP (t), walk_data);
+      mark_all_refs_gen (&TMR_INDEX2 (t), walk_data);
       *walk_subtrees = 0;
       return NULL;
     }
@@ -972,9 +985,9 @@ mark_all_refs_gen_1(tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 }
 
 static inline void
-mark_all_refs_gen (tree *expr_p)
+mark_all_refs_gen (tree *expr_p, struct ref_walk_data *walk_data)
 {
-    walk_tree (expr_p, mark_all_refs_gen_1, NULL, NULL);
+    walk_tree (expr_p, mark_all_refs_gen_1, (void *)walk_data, NULL);
 }
 
 /*
@@ -998,6 +1011,8 @@ update_liveness_pressure(struct cgraph_node *node)
   basic_block bb;
   use_operand_p arg_p;
   unsigned int ix;
+  struct ref_walk_data walk_data;
+
   if ( node->local.liveness_pressure_computed) return;
   func = DECL_STRUCT_FUNCTION (node->decl);
   /*
@@ -1025,9 +1040,11 @@ update_liveness_pressure(struct cgraph_node *node)
       bitmap bb_gen = pressure_info.bb_gen[bb->index];
       bitmap bb_live_in = pressure_info.bb_live_in[bb->index];
       pressure_info.bb_index = bb->index;
+      walk_data.kill=pressure_info.bb_kill[bb->index];
+      walk_data.gen=pressure_info.bb_gen[bb->index];
+      walk_data.forward = 1;
 
-      for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
-	   gsi_next (&gsi))
+      for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  gimple phi = gsi_stmt (gsi);
 	  ssa_op_iter i;
@@ -1077,7 +1094,7 @@ update_liveness_pressure(struct cgraph_node *node)
 		/* ignore const phi arg */
 		/* if(dump_file) fprintf(dump_file,"      ignored const phi arg\n"); */
 	      } else {
-		set_is_gen(arg);
+		set_is_gen(arg, pressure_info.bb_kill[bb->index], pressure_info.bb_gen[bb->index], 1);
 	      }
 	    }
 	}
@@ -1085,7 +1102,6 @@ update_liveness_pressure(struct cgraph_node *node)
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  gimple stmt = gsi_stmt (gsi);
-	  enum gimple_code code = gimple_code (stmt);
 	  int lhs_vno = -1;
 	  /*
 	    if ( dump_file ) {
@@ -1094,12 +1110,13 @@ update_liveness_pressure(struct cgraph_node *node)
 	    }
 	  */
 		    
-	  if (is_gimple_debug (stmt))
-	    continue;
-
-	  if (code == GIMPLE_ASSIGN || code == GIMPLE_CALL)
+		    
+	  if (is_gimple_debug (stmt)) continue;
+	    
+	  if (is_gimple_assign(stmt) || is_gimple_call(stmt))
 	    {
 	      tree lhs = gimple_get_lhs (stmt);
+
 	      if (lhs && TREE_CODE (lhs) == SSA_NAME) 
 		{
 		  lhs_vno = SSA_NAME_VERSION(lhs);
@@ -1109,12 +1126,13 @@ update_liveness_pressure(struct cgraph_node *node)
 		    bb->index,lhs_vno,bitmap_bit_p (pressure_info.bb_kill[pressure_info.bb_index], lhs_vno) );
 		  */
 		}
+
+	      for (ix = 0; ix < gimple_num_ops (stmt); ix++)
+		mark_all_refs_gen (gimple_op_ptr (stmt, ix), &walk_data);
 	    }
 
 	  pressure_info.current_lhs_vno = lhs_vno;
 
-	  for (ix = 0; ix < gimple_num_ops (stmt); ix++)
-	    mark_all_refs_gen (gimple_op_ptr (stmt, ix));
 	}
 	    
       /* initial live_in that gets updated by cfg walk below */
@@ -1179,16 +1197,237 @@ update_liveness_pressure(struct cgraph_node *node)
       */
     }
 
-  node->local.liveness_pressure_computed=1;
-  node->local.liveness_pressure=max_live_in_out;
+  /*
+   * Walk gimple again for each bb
+   * add/subtract the kill/gen for each statement
+   * note the max liveness within the function, so we have pressure on statement not bb granularity
+   * use the liveness at each call site to annotate the cgraph_edge
+   */
 
-  if (dump_file) {
-    fprintf (dump_file, "    Pressure for node %s is %ld\n", 
-	     node->name(), max_live_in_out);
-  }
+    bitmap current_live = BITMAP_ALLOC (&pressure_info.obstack);
+    bitmap current_gen = BITMAP_ALLOC (&pressure_info.obstack);
+    bitmap current_kill = BITMAP_ALLOC (&pressure_info.obstack);
 
-  free_pressure_info();
-  pop_cfun();
+    walk_data.kill=current_kill;
+    walk_data.gen=current_gen;
+    walk_data.forward = 0;
+    int max_pressure = 0;
+
+    // compute gen/kill for each bb
+    FOR_EACH_BB_FN (bb, func)
+      {
+	gimple_stmt_iterator gsi;
+	pressure_info.bb_index = bb->index;
+
+	bitmap_clear(current_live);
+	bitmap_copy(current_live, pressure_info.bb_live_out[bb->index]);
+
+	int pressure_after = bitmap_count_bits(current_live); 
+	int new_pressure=pressure_after;
+	if ( pressure_after > max_pressure ) max_pressure = pressure_after;
+
+	if ( dump_file )
+	  fprintf(dump_file,"FUNC %s bb %d pressure_after %d max_pressure %d\n",
+		  node->name(), bb->index, pressure_after, max_pressure);
+
+	/*
+	 * walk gimple stmts backwards. 
+	 * We know the live_out at the exit, we can find the gen/kill for 
+	 * each statement, and use those to compute live_in before the statement
+	 * given live_out after it. So we work backwards through the bb.
+	 */
+	for (gsi = gsi_last_bb (bb); !gsi_end_p (gsi); gsi_prev (&gsi))
+	  {
+	    bitmap_clear(current_gen);
+	    bitmap_clear(current_kill);
+	    gimple stmt = gsi_stmt (gsi);
+	    int lhs_vno = -1;
+
+	    if ( dump_file ) 
+	      {
+		fprintf(dump_file,"  gsi stmt:\n");
+		print_gimple_stmt (dump_file, stmt, 0, TDF_LINENO|TDF_DETAILS|TDF_VERBOSE);
+	      }
+
+	    if (is_gimple_debug (stmt)) continue;
+
+	    if (is_gimple_assign(stmt) || is_gimple_call(stmt))
+	      {
+		tree lhs = gimple_get_lhs (stmt);
+
+		for (ix = 0; ix < gimple_num_ops (stmt); ix++)
+		  mark_all_refs_gen (gimple_op_ptr (stmt, ix), &walk_data);
+
+		if (lhs && TREE_CODE (lhs) == SSA_NAME) 
+		  {
+		    lhs_vno = SSA_NAME_VERSION(lhs);
+		    bitmap_set_bit(current_kill, lhs_vno);
+		    /*
+		     * Can't have lhs in the live-in, but we don't need to check for it as it is not possible with SSA names.
+		     */
+		    if ( dump_file ) 
+		      fprintf(dump_file,"   Pressure: KILL[%d][_%d] set to %d\n",
+			      bb->index,lhs_vno,bitmap_bit_p (pressure_info.bb_kill[pressure_info.bb_index], lhs_vno) );
+		  }
+	      }
+
+	    pressure_info.current_lhs_vno = lhs_vno;
+
+	    /*
+	     * update current live_in
+	     */
+	    /* compute gen U (Live_out - kill) */
+
+	    bitmap_clear(pressure_info.live_in_temp);
+	    bitmap_copy(pressure_info.live_in_temp, current_live);
+	    bitmap_and_compl_into(pressure_info.live_in_temp, current_kill);
+	    bitmap_ior_into(pressure_info.live_in_temp, current_gen);
+	    bitmap_copy(current_live, pressure_info.live_in_temp);
+
+	    pressure_after = new_pressure;
+	    new_pressure = bitmap_count_bits(current_live);
+	    if ( new_pressure > max_pressure ) 
+	      {
+		max_pressure = new_pressure;
+		if ( dump_file ) 
+		  fprintf(dump_file,"FUNC %s bb %d new_pressure %d max_pressure %d\n",
+			  node->name(), bb->index, new_pressure, max_pressure);
+	      }
+	    /*
+	     * at this point:
+	     * max_pressure is the max pressure seen before or after any statement in the function so far 
+	     * pressure_after is the pressure after the statement we just looked at 
+	     * new_pressure is the pressure before the statement we just looked at
+	     */
+
+	    if (is_gimple_call (stmt))
+	      {
+		/*
+		 * Note the after pressure in the cgraph_edge. 
+		 */
+		struct cgraph_edge *edge = cgraph_edge (node, stmt);
+		if ( edge == NULL ) 
+		  {
+		    if ( dump_file ) 
+		      {
+			fprintf(dump_file, "CALL EDGE NULL: ");
+			print_gimple_stmt (dump_file, stmt, 0, TDF_DETAILS|TDF_LINENO);
+		      }
+		  } 
+		else 
+		  {
+
+		    edge->caller_liveness_pressure = pressure_after;
+		  
+		    if ( dump_file ) 
+		      {
+			fprintf (dump_file, "CALL %s/%i -> %s/%i caller livness pressure %d: ",
+				 (edge->caller != NULL)?xstrdup (edge->caller->name ()):"(nil)",
+				 (edge->caller != NULL)?edge->caller->order:0,
+				 (edge->callee != NULL)?xstrdup (edge->callee->name ()):"(nil)", 
+				 (edge->callee != NULL)?edge->callee->order:0, 
+				 edge->caller_liveness_pressure);
+			print_gimple_stmt (dump_file, edge->call_stmt, 0, TDF_DETAILS|TDF_LINENO);
+		      }
+		  }
+	      }
+	  }
+
+	/*
+	 * Do phi nodes last in our backwards walk.
+	 * It should not matter what order we go through the phi nodes.
+	 */
+	for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
+	     gsi_next (&gsi))
+	  {
+	    gimple phi = gsi_stmt (gsi);
+	    ssa_op_iter i;
+
+	    bitmap_clear(current_gen);
+	    bitmap_clear(current_kill);
+
+	    tree def = gimple_phi_result (phi);
+	    const char *dname = get_name(def);
+	    if ( dname == NULL ) dname = "";
+	    int def_vno = SSA_NAME_VERSION(def);
+	    pressure_info.current_lhs_vno = def_vno;
+		    
+	    /*
+	      if ( dump_file )  {
+	      fprintf(dump_file,"     Pressure: bb %d phi def %s_%d\n",bb->index,dname,def_vno);
+	      print_gimple_stmt (dump_file, phi, 0, TDF_LINENO|TDF_DETAILS|TDF_VERBOSE|TDF_ALIAS|TDF_VOPS);
+	      }
+	    */
+
+	    /* Phi definition is a kill */
+	    bitmap_set_bit(current_kill, def_vno);
+	    /*
+	      if ( dump_file ) fprintf(dump_file,"   Pressure: KILL[%d][_%d] set to %d\n",
+	      bb->index,def_vno,bitmap_bit_p (pressure_info.bb_kill[pressure_info.bb_index], def_vno) );
+
+	    */
+		    
+	    /* 
+	     * Because of the way SSA is defined, all the phi
+	     * args could also be marked kill because the phi
+	     * def is the only thing that should be live after
+	     * the phi. This shoudn't be necessary because
+	     * only uses of def_vno should be reachable from
+	     * this point.
+	     */
+	    FOR_EACH_PHI_ARG (arg_p, phi, i, SSA_OP_ALL_USES)
+	      {
+		tree arg = USE_FROM_PTR (arg_p);
+		/*
+		  if ( dump_file )  {
+	          int index = PHI_ARG_INDEX_FROM_USE (arg_p);
+	          int use_vno = SSA_NAME_VERSION(arg);
+	          const char *uname = get_name(arg);
+		  fprintf(dump_file,"     Pressure: bb %d phi arg %d v %s_%d\n",bb->index,index,uname,use_vno);
+		  print_generic_stmt (dump_file, arg, TDF_DETAILS|TDF_VERBOSE|TDF_ALIAS|TDF_VOPS);
+		  }
+		*/
+		if ( CONSTANT_CLASS_P(arg) ) {
+		  /* ignore const phi arg */
+		  /* if(dump_file) fprintf(dump_file,"      ignored const phi arg\n"); */
+		} else {
+		  set_is_gen(arg, current_kill, current_gen, 0);
+		}
+	      }
+
+	    /*
+	     * update current live_in
+	     */
+	    /* compute gen U (Live_out - kill) */
+
+	    bitmap_clear(pressure_info.live_in_temp);
+	    bitmap_copy(pressure_info.live_in_temp, current_live);
+	    bitmap_and_compl_into(pressure_info.live_in_temp, current_kill);
+	    bitmap_ior_into(pressure_info.live_in_temp, current_gen);
+	    bitmap_copy(current_live, pressure_info.live_in_temp);
+
+	    new_pressure = bitmap_count_bits(current_live);
+	    if ( new_pressure > max_pressure ) 
+	      {
+		max_pressure = new_pressure;
+		if ( dump_file )
+		  fprintf(dump_file,"FUNC %s bb %d new_pressure2 %d max_pressure %d\n",
+			  node->name(), bb->index, new_pressure, max_pressure);
+	      }
+	  }
+    }
+
+    node->local.liveness_pressure_computed=1;
+    node->local.liveness_pressure=max_pressure;
+    
+    if (dump_file) 
+      {
+	fprintf (dump_file, "    Pressure for node %s is %u\n", 
+		 node->name(),node->local.liveness_pressure);
+      }
+
+    free_pressure_info();
+    pop_cfun();
 }
 
 static int
@@ -1295,6 +1534,8 @@ edge_badness (struct cgraph_edge *edge, bool dump)
   int growth, edge_time;
   struct cgraph_node *callee = cgraph_function_or_thunk_node (edge->callee,
 							      NULL);
+  struct cgraph_node *caller = cgraph_function_or_thunk_node (edge->caller,
+							      NULL);
   struct inline_summary *callee_info = inline_summary (callee);
   inline_hints hints;
 
@@ -1321,7 +1562,7 @@ edge_badness (struct cgraph_edge *edge, bool dump)
       dump_inline_hints (dump_file, hints);
       if (big_speedup_p (edge))
 	fprintf (dump_file, " big_speedup");
-      int press = get_function_liveness_pressure(callee);
+      int press = get_function_liveness_pressure(callee)+edge->caller_liveness_pressure;
       if ( press > 0 )
 	fprintf(dump_file, " pressure %d", press);
       fprintf (dump_file, "\n");
@@ -1452,10 +1693,20 @@ edge_badness (struct cgraph_edge *edge, bool dump)
     }
 
    if ( PARAM_VALUE(PARAM_ENABLE_INLINE_PRESSURE_CHECK) ) {
-       int press = get_function_liveness_pressure(callee);
-       badness += PARAM_VALUE(PARAM_INLINE_CALLEE_PRESSURE_BADNESS_FACTOR) * press;
+       (void)get_function_liveness_pressure(caller); /* update pressure if needed at caller side */
+       int callee_pressure = get_function_liveness_pressure(callee);
+       HOST_WIDE_INT press =  callee_pressure + edge->caller_liveness_pressure;
+       badness += ((PARAM_VALUE(PARAM_INLINE_CALLEE_PRESSURE_BADNESS_FACTOR) * press)>>16);
+
+       if ( dump_file ) 
+	 fprintf(dump_file, "caller %s pressure %d callee %s pressure %d badness adder %ld badness %ld\n",
+		 xstrdup (caller->name ()), edge->caller_liveness_pressure,
+		 xstrdup (callee->name ()), callee_pressure, 
+		 ((PARAM_VALUE(PARAM_INLINE_CALLEE_PRESSURE_BADNESS_FACTOR) * press)>>16),
+		 badness);
        
-       if ( press > PARAM_VALUE(PARAM_INLINE_CALLEE_PRESSURE_LIMIT) ) return false;
+       if ( callee_pressure > PARAM_VALUE(PARAM_INLINE_CALLEE_PRESSURE_LIMIT) ) return false;
+       if ( (int)(edge->caller_liveness_pressure) > PARAM_VALUE(PARAM_INLINE_CALLER_PRESSURE_LIMIT) ) return false;
    }
 
   /* Ensure that we did not overflow in all the fixed point math above.  */

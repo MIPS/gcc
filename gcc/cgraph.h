@@ -602,6 +602,8 @@ struct GTY((chain_next ("%h.next_caller"), chain_prev ("%h.prev_caller"))) cgrap
   int frequency;
   /* Unique id of the edge.  */
   int uid;
+  /* Liveness pressure at the call site */
+  unsigned int caller_liveness_pressure;
   /* Whether this edge was made direct by indirect inlining.  */
   unsigned int indirect_inlining_edge : 1;
   /* Whether this edge describes an indirect call with an undetermined

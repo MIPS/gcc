@@ -877,6 +877,7 @@ cgraph_create_edge_1 (struct cgraph_node *caller, struct cgraph_node *callee,
   edge->prev_callee = NULL;
   edge->next_callee = NULL;
   edge->lto_stmt_uid = 0;
+  edge->caller_liveness_pressure = 0;
 
   edge->count = count;
   gcc_assert (count >= 0);

@@ -133,7 +133,7 @@ DEFPARAM (PARAM_ENABLE_INLINE_PRESSURE_CHECK,
 DEFPARAM (PARAM_INLINE_CALLEE_PRESSURE_BADNESS_FACTOR,
 	  "inline-callee-pressure-badness",
 	  "callee liveness pressure badness multipler for small functions",
-	  1, 0, 0)
+	  65536, 0, 0)
 
 DEFPARAM (PARAM_INLINE_CALLEE_PRESSURE_LIMIT,
 	  "inline-callee-pressure-limit",
