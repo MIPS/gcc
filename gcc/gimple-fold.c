@@ -2524,8 +2524,8 @@ maybe_fold_or_comparisons (enum tree_code code1, tree op1a, tree op1b,
    privatized with the single valueize function used in the various TUs
    to avoid the indirect function call overhead.  */
 
-tree
-gimple_fold_stmt_to_constant_1 (gimple stmt, tree (*valueize) (tree))
+static tree
+gimple_fold_stmt_to_constant_2 (gimple stmt, tree (*valueize) (tree))
 {
   location_t loc = gimple_location (stmt);
   switch (gimple_code (stmt))
@@ -2801,6 +2801,30 @@ gimple_fold_stmt_to_constant_1 (gimple stmt, tree (*valueize) (tree))
     default:
       return NULL_TREE;
     }
+}
+
+tree
+gimple_fold_stmt_to_constant_1 (gimple stmt, tree (*valueize) (tree))
+{
+  tree lhs = gimple_get_lhs (stmt);
+  if (lhs)
+    {
+      tree res = gimple_match_and_simplify (lhs, NULL, valueize);
+      if (res)
+	{
+	  if (dump_file && dump_flags & TDF_DETAILS)
+	    {
+	      fprintf (dump_file, "Match-and-simplified definition of ");
+	      print_generic_expr (dump_file, lhs, 0);
+	      fprintf (dump_file, " to ");
+	      print_generic_expr (dump_file, res, 0);
+	      fprintf (dump_file, "\n");
+	    }
+	  return res;
+	}
+    }
+  /* ???  For now, to avoid regressions.  */
+  return gimple_fold_stmt_to_constant_2 (stmt, valueize);
 }
 
 /* Fold STMT to a constant using VALUEIZE to valueize SSA names.

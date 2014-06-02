@@ -21,6 +21,95 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+/* Simple constant foldings to substitute gimple_fold_stmt_to_constant_2.  */
+(match_and_simplify
+  (plus @0 integer_zerop)
+  @0)
+(match_and_simplify
+  (pointer_plus @0 integer_zerop)
+  @0)
+(match_and_simplify
+  (minus @0 integer_zerop)
+  @0)
+(match_and_simplify
+  (minus @0 @0)
+  { build_zero_cst (type); })
+(match_and_simplify
+  (mult @0 integer_zerop@1)
+  @1)
+(match_and_simplify
+  (mult @0 integer_onep)
+  @0)
+(match_and_simplify
+  (trunc_div @0 integer_onep)
+  @0)
+/* It's hard to preserve non-folding of / 0 which is done by a
+   positional check in fold-const.c (to preserve warnings).  The
+   issue here is that we fold too early in frontends.
+   Also fold happilt folds 0 / x to 0 (even if x turns out to be zero later). */
+(match_and_simplify
+  (trunc_div integer_zerop@0 @1)
+  @0)
+(match_and_simplify
+  (trunc_div @0 @0)
+  { build_one_cst (type); })
+(match_and_simplify
+  (trunc_mod @0 integer_onep)
+  { build_zero_cst (type); })
+(match_and_simplify
+  (trunc_mod integer_zerop@0 @1)
+  @0)
+(match_and_simplify
+  (trunc_mod @0 @0)
+  { build_zero_cst (type); })
+(match_and_simplify
+  (bit_ior @0 integer_zerop)
+  @0)
+(match_and_simplify
+  (bit_ior @0 integer_all_onesp@1)
+  @1)
+(match_and_simplify
+  (bit_and @0 integer_all_onesp)
+  @0)
+(match_and_simplify
+  (bit_and @0 integer_zerop@1)
+  @1)
+(match_and_simplify
+  (bit_xor @0 integer_zerop)
+  @0)
+(match_and_simplify
+  (bit_xor @0 @0)
+  { build_zero_cst (type); })
+/* tree-ssa/ifc-pr44710.c requires a < b ? c : d to fold to 1.
+   ???  probably runs into issue of recursive folding of a < b op0.  */
+/* tree-ssa/ssa-ccp-16.c wants to fold "hello"[i_2] to 0
+   (fold_const_aggregate_ref_1).  */
+/* tree-ssa/ssa-ccp-19.c wants to fold &a1_3->i to &MEM[(void *)&a]
+   (get_addr_base_and_unit_offset_1). */
+/* tree-ssa/ssa-ccp-22.c wants to fold b_2(D) <= t_1 to 1.
+   We are missing compare constant folding to type boundaries.  */
+
+/* The following is simplification done by gimple_fold_stmt_to_constant_1
+   to aid propagation engines, producing is_gimple_min_invariants from
+   invariant_addr + cst.  It may not be generally wanted
+   (builtin-object-size) and thus may want to be restricted to 'simple'
+   forms like &mem-ref or &decl.  */
+(match_and_simplify
+  (pointer_plus (addr@2 @0) INTEGER_CST_P@1)
+  if (is_gimple_min_invariant (@2))
+  {
+    HOST_WIDE_INT off;
+    tree base = get_addr_base_and_unit_offset (@0, &off);
+    off += tree_to_uhwi (@1);
+    /* Now with that we should be able to simply write
+       (addr (mem_ref (addr @base) (plus @off @1)))  */
+    build1 (ADDR_EXPR, type,
+            build2 (MEM_REF, TREE_TYPE (TREE_TYPE (@2)),
+	    	    build_fold_addr_expr (base),
+	            build_int_cst (ptr_type_node, off)));
+  })
+
+
 /* Transforms formerly done by tree-ssa-forwprop.c:associate_plusminus  */
 
 /* ???  Have match_and_simplify groups guarded with common
@@ -96,6 +185,10 @@ to (minus @1 @0)
 /* ~A + A -> -1 */
 (match_and_simplify
   (plus (bit_not @0) @0)
+  if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
+  { build_int_cst (TREE_TYPE (@0), -1); })
+(match_and_simplify
+  (plus @0 (bit_not @0))
   if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
   { build_int_cst (TREE_TYPE (@0), -1); })
 
@@ -183,6 +276,9 @@ to (minus @1 @0)
 /* One nested fn.  */
 (match_and_simplify
   (mult (BUILT_IN_POW @0 @1) @0)
+  (BUILT_IN_POW @0 (PLUS_EXPR @1 { build_one_cst (TREE_TYPE (@1)); })))
+(match_and_simplify
+  (mult @0 (BUILT_IN_POW @0 @1))
   (BUILT_IN_POW @0 (PLUS_EXPR @1 { build_one_cst (TREE_TYPE (@1)); })))
 (match_and_simplify
   (BUILT_IN_POW @0 REAL_CST_P@1)
