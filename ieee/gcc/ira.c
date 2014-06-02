@@ -1770,34 +1770,6 @@ setup_prohibited_mode_move_regs (void)
 
 
 
-/* Return TRUE if the operand constraint STR is commutative.  */
-static bool
-commutative_constraint_p (const char *str)
-{
-  int c;
-
-  alternative_mask enabled = recog_data.enabled_alternatives;
-  for (;;)
-    {
-      c = *str;
-      if (c == '\0')
-	break;
-      str += CONSTRAINT_LEN (c, str);
-      if (c == '#')
-	enabled &= ~ALTERNATIVE_BIT (0);
-      else if (c == ',')
-	enabled >>= 1;
-      else if (enabled & 1)
-	{
-	  /* Usually `%' is the first constraint character but the
-	     documentation does not require this.  */
-	  if (c == '%')
-	    return true;
-	}
-    }
-  return false;
-}
-
 /* Setup possible alternatives in ALTS for INSN.  */
 void
 ira_setup_alts (rtx insn, HARD_REG_SET &alts)
@@ -2007,33 +1979,33 @@ ira_get_dup_out_num (int op_num, HARD_REG_SET &alts)
 
   if (op_num < 0 || recog_data.n_alternatives == 0)
     return -1;
-  use_commut_op_p = false;
+  /* We should find duplications only for input operands.  */
+  if (recog_data.operand_type[op_num] != OP_IN)
+    return -1;
   str = recog_data.constraints[op_num];
+  use_commut_op_p = false;
   for (;;)
     {
 #ifdef EXTRA_CONSTRAINT_STR
       op = recog_data.operand[op_num];
 #endif
       
-      for (ignore_p = false, original = -1, curr_alt = 0;;)
+      for (curr_alt = 0, ignore_p = !TEST_HARD_REG_BIT (alts, curr_alt),
+	   original = -1;;)
 	{
 	  c = *str;
 	  if (c == '\0')
 	    break;
-	  if (c == '#' || !TEST_HARD_REG_BIT (alts, curr_alt))
+	  if (c == '#')
 	    ignore_p = true;
 	  else if (c == ',')
 	    {
 	      curr_alt++;
-	      ignore_p = false;
+	      ignore_p = !TEST_HARD_REG_BIT (alts, curr_alt);
 	    }
 	  else if (! ignore_p)
 	    switch (c)
 	      {
-		/* We should find duplications only for input operands.  */
-	      case '=':
-	      case '+':
-		goto fail;
 	      case 'X':
 	      case 'p':
 	      case 'g':
@@ -2099,10 +2071,9 @@ ira_get_dup_out_num (int op_num, HARD_REG_SET &alts)
       if (use_commut_op_p)
 	break;
       use_commut_op_p = true;
-      if (commutative_constraint_p (recog_data.constraints[op_num]))
+      if (recog_data.constraints[op_num][0] == '%')
 	str = recog_data.constraints[op_num + 1];
-      else if (op_num > 0 && commutative_constraint_p (recog_data.constraints
-						       [op_num - 1]))
+      else if (op_num > 0 && recog_data.constraints[op_num - 1][0] == '%')
 	str = recog_data.constraints[op_num - 1];
       else
 	break;

@@ -2784,9 +2784,14 @@ equiv_address_substitution (struct address_info *ad)
 
    Add reloads to the lists *BEFORE and *AFTER.  We might need to add
    reloads to *AFTER because of inc/dec, {pre, post} modify in the
-   address.  Return true for any RTL change.  */
+   address.  Return true for any RTL change.
+
+   The function is a helper function which does not produce all
+   transformations which can be necessary.  It does just basic steps.
+   To do all necessary transformations use function
+   process_address.  */
 static bool
-process_address (int nop, rtx *before, rtx *after)
+process_address_1 (int nop, rtx *before, rtx *after)
 {
   struct address_info ad;
   rtx new_reg;
@@ -2984,6 +2989,18 @@ process_address (int nop, rtx *before, rtx *after)
   *before = get_insns ();
   end_sequence ();
   return true;
+}
+
+/* Do address reloads until it is necessary.  Use process_address_1 as
+   a helper function.  Return true for any RTL changes.  */
+static bool
+process_address (int nop, rtx *before, rtx *after)
+{
+  bool res = false;
+
+  while (process_address_1 (nop, before, after))
+    res = true;
+  return res;
 }
 
 /* Emit insns to reload VALUE into a new register.  VALUE is an
@@ -3270,7 +3287,7 @@ curr_insn_transform (void)
 	change_p = true;
 	lra_update_dup (curr_id, i);
       }
-
+  
   if (change_p)
     /* If we've changed the instruction then any alternative that
        we chose previously may no longer be valid.  */
@@ -4605,7 +4622,10 @@ need_for_call_save_p (int regno)
   lra_assert (regno >= FIRST_PSEUDO_REGISTER && reg_renumber[regno] >= 0);
   return (usage_insns[regno].calls_num < calls_num
 	  && (overlaps_hard_reg_set_p
-	      (call_used_reg_set,
+	      ((flag_use_caller_save &&
+		! hard_reg_set_empty_p (lra_reg_info[regno].actual_call_used_reg_set))
+	       ? lra_reg_info[regno].actual_call_used_reg_set
+	       : call_used_reg_set,
 	       PSEUDO_REGNO_MODE (regno), reg_renumber[regno])
 	      || HARD_REGNO_CALL_PART_CLOBBERED (reg_renumber[regno],
 						 PSEUDO_REGNO_MODE (regno))));

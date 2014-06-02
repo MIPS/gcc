@@ -21541,7 +21541,7 @@ ix86_expand_vec_perm (rtx operands[])
 	  t1 = gen_reg_rtx (V32QImode);
 	  t2 = gen_reg_rtx (V32QImode);
 	  t3 = gen_reg_rtx (V32QImode);
-	  vt2 = GEN_INT (128);
+	  vt2 = GEN_INT (-128);
 	  for (i = 0; i < 32; i++)
 	    vec[i] = vt2;
 	  vt = gen_rtx_CONST_VECTOR (V32QImode, gen_rtvec_v (32, vec));
@@ -38893,7 +38893,16 @@ x86_output_mi_thunk (FILE *file,
      For our purposes here, we can get away with (ab)using a jump pattern,
      because we're going to do no optimization.  */
   if (MEM_P (fnaddr))
-    emit_jump_insn (gen_indirect_jump (fnaddr));
+    {
+      if (sibcall_insn_operand (fnaddr, word_mode))
+	{
+	  tmp = gen_rtx_CALL (VOIDmode, fnaddr, const0_rtx);
+          tmp = emit_call_insn (tmp);
+          SIBLING_CALL_P (tmp) = 1;
+	}
+      else
+	emit_jump_insn (gen_indirect_jump (fnaddr));
+    }
   else
     {
       if (ix86_cmodel == CM_LARGE_PIC && SYMBOLIC_CONST (fnaddr))
@@ -47271,6 +47280,9 @@ ix86_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 
 #undef TARGET_MODE_PRIORITY
 #define TARGET_MODE_PRIORITY ix86_mode_priority
+
+#undef TARGET_CALL_FUSAGE_CONTAINS_NON_CALLEE_CLOBBERS
+#define TARGET_CALL_FUSAGE_CONTAINS_NON_CALLEE_CLOBBERS true
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

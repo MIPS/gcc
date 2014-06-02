@@ -1,3 +1,7 @@
+2014-06-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 211140.
+
 2014-05-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config.host (powerpc*-*-linux*): Add t-float128 to support IEEE
