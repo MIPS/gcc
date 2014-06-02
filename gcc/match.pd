@@ -285,6 +285,102 @@ to (minus @1 @0)
   if (REAL_VALUES_EQUAL (TREE_REAL_CST (@1), dconsthalf))
   (BUILT_IN_SQRT @0))
 
+/* TODO bitwise patterns:
+1] x & x -> x
+2] x & 0 -> 0
+3] x & -1 -> x
+4] x & ~x -> 0
+5] ~x & ~y -> ~(x | y)
+6] ~x | ~y -> ~(x & y)
+7] x & (~x | y) -> y & x
+8] (x | CST1) & CST2  ->  (x & CST2) | (CST1 & CST2)
+9] x ^ x -> 0
+10] x ^ ~0 -> ~x
+11] (x | y) & x -> x
+12] (x & y) | x -> x
+13] (~x | y) & x -> x & y
+14] (~x & y) | x -> x | y
+15] ((a & b) & ~a) & ~b -> 0
+16] ~~x -> x
+*/
+
+/* x & x -> x */
+(match_and_simplify
+  (bit_and @0 @0)
+  if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
+  @0)
+
+/* x & ~x -> 0 */
+(match_and_simplify
+  (bit_and @0 (bit_not @0))
+  if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
+  { build_int_cst (type, 0); })
+
+/* ~x & ~y -> ~(x | y) */
+(match_and_simplify
+  (bit_and (bit_not @0) (bit_not @1))
+  if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
+  (bit_not (bit_ior @0 @1)))
+
+/* ~x | ~y -> ~(x & y) */
+(match_and_simplify
+  (bit_ior (bit_not @0) (bit_not @1))
+  if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
+  (bit_not (bit_and @0 @1)))
+
+/* x & (~x | y) -> y & x */
+(match_and_simplify
+  (bit_and @0 (bit_ior (bit_not @0) @1))
+  if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
+  (bit_and @1 @0))
+
+/* (x | CST1) & CST2 -> (x & CST2) | (CST1 & CST2) */
+(match_and_simplify
+  (bit_and (bit_ior @0 INTEGER_CST_P@1) INTEGER_CST_P@2)
+  if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
+  (bit_ior (bit_and @0 @2) (bit_and @1 @2)))
+
+/* x ^ ~0 -> ~x */
+(match_and_simplify
+  (bit_xor @0 integer_all_onesp@1)
+  (bit_not @0))
+
+/* (x | y) & x -> x */
+(match_and_simplify
+  (bit_and (bit_ior @0 @1) @0)
+  if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
+  @0)
+
+/* (x & y) | x -> x */
+(match_and_simplify
+  (bit_ior (bit_and @0 @1) @0)
+  if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
+  @0)
+
+/* (~x | y) & x -> x & y */
+(match_and_simplify
+  (bit_and (bit_ior (bit_not @0) @1) @0)
+  if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
+  (bit_and @0 @1))
+
+/* (~x & y) | x -> x & y */
+(match_and_simplify
+  (bit_ior (bit_and (bit_not @0) @1) @0)
+  if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
+  (bit_and @0 @1))
+
+/* ~~x -> x */
+(match_and_simplify
+  (bit_not (bit_not @0))
+  if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
+  @0)
+
+/* ((a & b) & ~a) -> 0 */
+(match_and_simplify
+  (bit_and (bit_and @0 @1) (bit_not @0))
+  if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
+  { build_int_cst (type, 0); })
+
 /* ????s
 
    We cannot reasonably match vector CONSTRUCTORs or vector constants

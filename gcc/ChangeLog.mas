@@ -1,3 +1,10 @@
+2014-06-02  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+	Richard Biener  <rguenther@suse.de>
+
+	* match.pd: Add few patterns from simplify_bitwise_binary.
+
+	* gcc.dg/tree-ssa/match-2.c: Add more test-cases.
+
 2014-06-02  Richard Biener  <rguenther@suse.de>
 
 	* gimple-fold.c (gimple_fold_stmt_to_constant_1): Rename to ....

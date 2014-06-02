@@ -115,4 +115,97 @@ double f14(double x)
 }
 /* { dg-final { scan-tree-dump "gimple_match_and_simplified to \[^\n\r\]*= x_\\d\+\\(D\\)" "forwprop1" } } */
 
+/* x & x -> x */
+int f15(int x)
+{
+  int t1 = x;
+  return t1 & x;
+}
+/* { dg-final { scan-tree-dump "gimple_match_and_simplified to \[^\n\r\]*= x_\\d\+\\(D\\)" "forwprop1" } } */
+
+/* x & ~x -> 0 */
+int f16(int x)
+{
+  int t1 = ~x;
+  return t1 & x;
+}
+/* { dg-final { scan-tree-dump "gimple_match_and_simplified to \[^\n\r\]*= 0" "forwprop1" } } */
+
+/* x ^ x -> 0 */
+int f17(int x)
+{
+  int t1 = x;
+  return t1 ^ x;
+}
+/* { dg-final { scan-tree-dump "gimple_match_and_simplified to \[^\n\r\]*= 0" "forwprop1" } } */
+
+/* ~~x -> 0 */
+int f18(int x)
+{
+  int t1 = ~x;
+  return ~t1;
+}
+/* { dg-final { scan-tree-dump "gimple_match_and_simplified to \[^\n\r\]*= x_\\d\+\\(D\\)" "forwprop1" } } */
+
+/* (x | y) & x -> x */
+int f19(int x, int y)
+{
+  int t1 = x | y;
+  return t1 & x;
+}
+/* { dg-final { scan-tree-dump "gimple_match_and_simplified to \[^\n\r\]*= x_\\d\+\\(D\\)" "forwprop1" } } */
+
+/* (x & y) | x -> x */
+int f20(int x, int y)
+{
+  int t1 = x & y;
+  return t1 | x;
+}
+/* { dg-final { scan-tree-dump "gimple_match_and_simplified to \[^\n\r\]*= x_\\d\+\\(D\\)" "forwprop1" } } */
+
+/* (~x & y) | x -> x & y */
+int f21(int x, int y)
+{
+  int t1 = ~x;
+  int t2 = t1 & y;
+  return t2 | x;
+}
+/* { dg-final { scan-tree-dump "gimple_match_and_simplified to \[^\n\r\]*= x_\\d\+\\(D\\) & y_\\d\+\\(D\\)" "forwprop1" } } */
+
+/* (~x | y) & x -> x & y */
+int f22(int x, int y)
+{
+  int t1 = ~x;
+  int t2 = t1 | y;
+  return t2 & x;
+}
+/* { dg-final { scan-tree-dump "gimple_match_and_simplified to \[^\n\r\]*= x_\\d\+\\(D\\) & y_\\d\+\\(D\\)" "forwprop1" } } */
+
+/*  ((x & y) & ~x) & ~y -> 0 */
+int f23(int x, int y)
+{
+  int t1 = x & y;
+  int t2 = ~x;
+  int t3 = t1 & t2;
+  int t4 = ~y;
+  return t3 & t4;
+}
+/* { dg-final { scan-tree-dump "gimple_match_and_simplified to \[^\n\r\]*= 0" "forwprop1" } } */
+
+/* x & 0 -> 0 */
+int f24(int x)
+{
+  int t1 = 0;
+  return x & t1;
+}
+/* { dg-final { scan-tree-dump "gimple_match_and_simplified to \[^\n\r\]*= 0" "forwprop1" } } */
+
+/* x & -1 -> x */
+int f25(int x)
+{
+  int t1 = -1;
+  return x & t1;
+}
+/* { dg-final { scan-tree-dump "gimple_match_and_simplified to \[^\n\r\]*= x_\\d\+\\(D\\)" "forwprop1" } } */
+
 /* { dg-final { cleanup-tree-dump "forwprop2" } } */
