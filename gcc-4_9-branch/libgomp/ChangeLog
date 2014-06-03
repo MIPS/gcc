@@ -1,3 +1,21 @@
+2014-05-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/61252
+	* testsuite/libgomp.c++/simd-9.C: New test.
+
+2014-05-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	* libgomp.texi (Runitme Library Routines): Remove multiple @menu.
+	(Environment Variables) Move OMP_PROC_BIND and OMP_STACKSIZE node
+	texts according to their @menu entry positions.
+
+2014-05-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c/simd-10.c: New test.
+	* testsuite/libgomp.c/simd-11.c: New test.
+	* testsuite/libgomp.c/simd-12.c: New test.
+	* testsuite/libgomp.c/simd-13.c: New test.
+
 2014-04-24  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.c++/atomic-14.C: Allow seq_cst and
