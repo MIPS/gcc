@@ -51,6 +51,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "opts.h"
 #include "cgraph.h"
+#include "builtins.h"
 
 /* Usable when we have an amount to add or subtract, and want the
    optimal size of the insn.  */
@@ -2808,7 +2809,7 @@ cris_init_expanders (void)
 static struct machine_function *
 cris_init_machine_status (void)
 {
-  return ggc_alloc_cleared_machine_function ();
+  return ggc_cleared_alloc<machine_function> ();
 }
 
 /* Split a 2 word move (DI or presumably DF) into component parts.

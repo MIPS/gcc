@@ -52,6 +52,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "df.h"
 #include "opts.h"
+#include "builtins.h"
 
 /* Return nonzero if there is a bypass for the output of 
    OUT_INSN and the fp store IN_INSN.  */
@@ -668,7 +669,7 @@ pa_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 static struct machine_function *
 pa_init_machine_status (void)
 {
-  return ggc_alloc_cleared_machine_function ();
+  return ggc_cleared_alloc<machine_function> ();
 }
 
 /* If FROM is a probable pointer register, mark TO as a probable
@@ -5583,7 +5584,7 @@ pa_get_deferred_plabel (rtx symbol)
       tree id;
 
       if (deferred_plabels == 0)
-	deferred_plabels =  ggc_alloc_deferred_plabel ();
+	deferred_plabels =  ggc_alloc<deferred_plabel> ();
       else
         deferred_plabels = GGC_RESIZEVEC (struct deferred_plabel,
                                           deferred_plabels,

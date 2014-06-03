@@ -91,17 +91,19 @@ enum gf_mask {
     GF_CALL_ALLOCA_FOR_VAR	= 1 << 5,
     GF_CALL_INTERNAL		= 1 << 6,
     GF_OMP_PARALLEL_COMBINED	= 1 << 0,
-    GF_OMP_FOR_KIND_MASK	= 3 << 0,
-    GF_OMP_FOR_KIND_FOR		= 0 << 0,
-    GF_OMP_FOR_KIND_DISTRIBUTE	= 1 << 0,
-    GF_OMP_FOR_KIND_SIMD	= 2 << 0,
-    GF_OMP_FOR_KIND_CILKSIMD	= 3 << 0,
+    GF_OMP_FOR_KIND_MASK	= (1 << 2) - 1,
+    GF_OMP_FOR_KIND_FOR		= 0,
+    GF_OMP_FOR_KIND_DISTRIBUTE	= 1,
+    /* Flag for SIMD variants of OMP_FOR kinds.  */
+    GF_OMP_FOR_SIMD		= 1 << 1,
+    GF_OMP_FOR_KIND_SIMD	= GF_OMP_FOR_SIMD | 0,
+    GF_OMP_FOR_KIND_CILKSIMD	= GF_OMP_FOR_SIMD | 1,
     GF_OMP_FOR_COMBINED		= 1 << 2,
     GF_OMP_FOR_COMBINED_INTO	= 1 << 3,
-    GF_OMP_TARGET_KIND_MASK	= 3 << 0,
-    GF_OMP_TARGET_KIND_REGION	= 0 << 0,
-    GF_OMP_TARGET_KIND_DATA	= 1 << 0,
-    GF_OMP_TARGET_KIND_UPDATE	= 2 << 0,
+    GF_OMP_TARGET_KIND_MASK	= (1 << 2) - 1,
+    GF_OMP_TARGET_KIND_REGION	= 0,
+    GF_OMP_TARGET_KIND_DATA	= 1,
+    GF_OMP_TARGET_KIND_UPDATE	= 2,
 
     /* True on an GIMPLE_OMP_RETURN statement if the return does not require
        a thread synchronization via some sort of barrier.  The exact barrier
@@ -1256,10 +1258,10 @@ extern tree gimple_unsigned_type (tree);
 extern tree gimple_signed_type (tree);
 extern alias_set_type gimple_get_alias_set (tree);
 extern bool gimple_ior_addresses_taken (bitmap, gimple);
-extern bool gimple_builtin_call_types_compatible_p (gimple, tree);
-extern bool gimple_call_builtin_p (gimple);
-extern bool gimple_call_builtin_p (gimple, enum built_in_class);
-extern bool gimple_call_builtin_p (gimple, enum built_in_function);
+extern bool gimple_builtin_call_types_compatible_p (const_gimple, tree);
+extern bool gimple_call_builtin_p (const_gimple);
+extern bool gimple_call_builtin_p (const_gimple, enum built_in_class);
+extern bool gimple_call_builtin_p (const_gimple, enum built_in_function);
 extern bool gimple_asm_clobbers_memory_p (const_gimple);
 extern void dump_decl_set (FILE *, bitmap);
 extern bool nonfreeing_call_p (gimple);

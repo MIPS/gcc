@@ -83,6 +83,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "pass_manager.h"
 #include "target-globals.h"
 #include "tree-vectorizer.h"
+#include "shrink-wrap.h"
+#include "builtins.h"
 
 static rtx legitimize_dllimport_symbol (rtx, bool);
 static rtx legitimize_pe_coff_extern_decl (rtx, bool);
@@ -2625,6 +2627,9 @@ ix86_target_string (HOST_WIDE_INT isa, int flags, const char *arch,
     { "-mxsave",	OPTION_MASK_ISA_XSAVE },
     { "-mxsaveopt",	OPTION_MASK_ISA_XSAVEOPT },
     { "-mprefetchwt1",	OPTION_MASK_ISA_PREFETCHWT1 },
+    { "-mclflushopt",   OPTION_MASK_ISA_CLFLUSHOPT },
+    { "-mxsavec",	OPTION_MASK_ISA_XSAVEC },
+    { "-mxsaves",	OPTION_MASK_ISA_XSAVES },
   };
 
   /* Flag options.  */
@@ -3116,6 +3121,9 @@ ix86_option_override_internal (bool main_args_p,
 #define PTA_AVX512CD		(HOST_WIDE_INT_1 << 43)
 #define PTA_SHA			(HOST_WIDE_INT_1 << 45)
 #define PTA_PREFETCHWT1		(HOST_WIDE_INT_1 << 46)
+#define PTA_CLFLUSHOPT		(HOST_WIDE_INT_1 << 47)
+#define PTA_XSAVEC		(HOST_WIDE_INT_1 << 48)
+#define PTA_XSAVES		(HOST_WIDE_INT_1 << 49)
 
 #define PTA_CORE2 \
   (PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3 | PTA_SSSE3 \
@@ -3130,7 +3138,7 @@ ix86_option_override_internal (bool main_args_p,
   (PTA_SANDYBRIDGE | PTA_FSGSBASE | PTA_RDRND | PTA_F16C)
 #define PTA_HASWELL \
   (PTA_IVYBRIDGE | PTA_AVX2 | PTA_BMI | PTA_BMI2 | PTA_LZCNT \
-   | PTA_FMA | PTA_MOVBE | PTA_RTM | PTA_HLE)
+   | PTA_FMA | PTA_MOVBE | PTA_HLE)
 #define PTA_BROADWELL \
   (PTA_HASWELL | PTA_ADX | PTA_PRFCHW | PTA_RDSEED)
 #define PTA_BONNELL \
@@ -3673,6 +3681,15 @@ ix86_option_override_internal (bool main_args_p,
 	if (processor_alias_table[i].flags & PTA_PREFETCHWT1
 	    && !(opts->x_ix86_isa_flags_explicit & OPTION_MASK_ISA_PREFETCHWT1))
 	  opts->x_ix86_isa_flags |= OPTION_MASK_ISA_PREFETCHWT1;
+	if (processor_alias_table[i].flags & PTA_CLFLUSHOPT
+	    && !(opts->x_ix86_isa_flags_explicit & OPTION_MASK_ISA_CLFLUSHOPT))
+	  opts->x_ix86_isa_flags |= OPTION_MASK_ISA_CLFLUSHOPT;
+	if (processor_alias_table[i].flags & PTA_XSAVEC
+	    && !(opts->x_ix86_isa_flags_explicit & OPTION_MASK_ISA_XSAVEC))
+	  opts->x_ix86_isa_flags |= OPTION_MASK_ISA_XSAVEC;
+	if (processor_alias_table[i].flags & PTA_XSAVES
+	    && !(opts->x_ix86_isa_flags_explicit & OPTION_MASK_ISA_XSAVES))
+	  opts->x_ix86_isa_flags |= OPTION_MASK_ISA_XSAVES;
 	if (processor_alias_table[i].flags & (PTA_PREFETCH_SSE | PTA_SSE))
 	  x86_prefetch_sse = true;
 
@@ -4556,6 +4573,9 @@ ix86_valid_target_attribute_inner_p (tree args, char *p_strings[],
     IX86_ATTR_ISA ("xsave",	OPT_mxsave),
     IX86_ATTR_ISA ("xsaveopt",	OPT_mxsaveopt),
     IX86_ATTR_ISA ("prefetchwt1", OPT_mprefetchwt1),
+    IX86_ATTR_ISA ("clflushopt",	OPT_mclflushopt),
+    IX86_ATTR_ISA ("xsavec",	OPT_mxsavec),
+    IX86_ATTR_ISA ("xsaves",	OPT_mxsaves),
 
     /* enum options */
     IX86_ATTR_ENUM ("fpmath=",	OPT_mfpmath_),
@@ -5128,7 +5148,7 @@ x86_64_elf_unique_section (tree decl, int reloc)
     {
       const char *prefix = NULL;
       /* We only need to use .gnu.linkonce if we don't have COMDAT groups.  */
-      bool one_only = DECL_ONE_ONLY (decl) && !HAVE_COMDAT_GROUP;
+      bool one_only = DECL_COMDAT_GROUP (decl) && !HAVE_COMDAT_GROUP;
 
       switch (categorize_decl_for_section (decl, reloc))
 	{
@@ -9164,7 +9184,7 @@ ix86_code_end (void)
 #endif
       if (USE_HIDDEN_LINKONCE)
 	{
-	  DECL_COMDAT_GROUP (decl) = DECL_ASSEMBLER_NAME (decl);
+	  cgraph_create_node (decl)->set_comdat_group (DECL_ASSEMBLER_NAME (decl));
 
 	  targetm.asm_out.unique_section (decl, 0);
 	  switch_to_section (get_named_section (decl, NULL, 0));
@@ -9486,20 +9506,30 @@ ix86_compute_frame_layout (struct ix86_frame *frame)
   frame->nregs = ix86_nsaved_regs ();
   frame->nsseregs = ix86_nsaved_sseregs ();
 
-  stack_alignment_needed = crtl->stack_alignment_needed / BITS_PER_UNIT;
-  preferred_alignment = crtl->preferred_stack_boundary / BITS_PER_UNIT;
-
   /* 64-bit MS ABI seem to require stack alignment to be always 16 except for
      function prologues and leaf.  */
-  if ((TARGET_64BIT_MS_ABI && preferred_alignment < 16)
+  if ((TARGET_64BIT_MS_ABI && crtl->preferred_stack_boundary < 128)
       && (!crtl->is_leaf || cfun->calls_alloca != 0
           || ix86_current_function_calls_tls_descriptor))
     {
-      preferred_alignment = 16;
-      stack_alignment_needed = 16;
       crtl->preferred_stack_boundary = 128;
       crtl->stack_alignment_needed = 128;
     }
+  /* preferred_stack_boundary is never updated for call
+     expanded from tls descriptor. Update it here. We don't update it in
+     expand stage because according to the comments before
+     ix86_current_function_calls_tls_descriptor, tls calls may be optimized
+     away.  */
+  else if (ix86_current_function_calls_tls_descriptor
+	   && crtl->preferred_stack_boundary < PREFERRED_STACK_BOUNDARY)
+    {
+      crtl->preferred_stack_boundary = PREFERRED_STACK_BOUNDARY;
+      if (crtl->stack_alignment_needed < PREFERRED_STACK_BOUNDARY)
+	crtl->stack_alignment_needed = PREFERRED_STACK_BOUNDARY;
+    }
+
+  stack_alignment_needed = crtl->stack_alignment_needed / BITS_PER_UNIT;
+  preferred_alignment = crtl->preferred_stack_boundary / BITS_PER_UNIT;
 
   gcc_assert (!size || stack_alignment_needed);
   gcc_assert (preferred_alignment >= STACK_BOUNDARY / BITS_PER_UNIT);
@@ -11815,7 +11845,7 @@ split_stack_prologue_scratch_regno (void)
 	      if (regparm >= 2)
 		{
 		  sorry ("-fsplit-stack does not support 2 register "
-			 " parameters for a nested function");
+			 "parameters for a nested function");
 		  return INVALID_REGNUM;
 		}
 	      return DX_REG;
@@ -13644,7 +13674,7 @@ get_dllimport_decl (tree decl, bool beimport)
   if (h)
     return h->to;
 
-  *loc = h = ggc_alloc_tree_map ();
+  *loc = h = ggc_alloc<tree_map> ();
   h->hash = in.hash;
   h->base.from = decl;
   h->to = to = build_decl (DECL_SOURCE_LOCATION (decl),
@@ -16137,7 +16167,7 @@ ix86_i387_mode_needed (int entity, rtx insn)
 /* Return mode that entity must be switched into
    prior to the execution of insn.  */
 
-int
+static int
 ix86_mode_needed (int entity, rtx insn)
 {
   switch (entity)
@@ -16235,7 +16265,7 @@ ix86_avx_u128_mode_entry (void)
 /* Return a mode that ENTITY is assumed to be
    switched to at function entry.  */
 
-int
+static int
 ix86_mode_entry (int entity)
 {
   switch (entity)
@@ -16268,7 +16298,7 @@ ix86_avx_u128_mode_exit (void)
 /* Return a mode that ENTITY is assumed to be
    switched to at function exit.  */
 
-int
+static int
 ix86_mode_exit (int entity)
 {
   switch (entity)
@@ -16283,6 +16313,12 @@ ix86_mode_exit (int entity)
     default:
       gcc_unreachable ();
     }
+}
+
+static int
+ix86_mode_priority (int entity ATTRIBUTE_UNUSED, int n)
+{
+  return n;
 }
 
 /* Output code to initialize control word copies used by trunc?f?i and
@@ -16400,7 +16436,11 @@ ix86_avx_emit_vzeroupper (HARD_REG_SET regs_live)
 
 /* Generate one or more insns to set ENTITY to MODE.  */
 
-void
+/* Generate one or more insns to set ENTITY to MODE.  HARD_REG_LIVE
+   is the set of hard registers live at the point where the insn(s)
+   are to be inserted.  */
+
+static void
 ix86_emit_mode_set (int entity, int mode, HARD_REG_SET regs_live)
 {
   switch (entity)
@@ -21502,7 +21542,7 @@ ix86_expand_vec_perm (rtx operands[])
 	  t1 = gen_reg_rtx (V32QImode);
 	  t2 = gen_reg_rtx (V32QImode);
 	  t3 = gen_reg_rtx (V32QImode);
-	  vt2 = GEN_INT (128);
+	  vt2 = GEN_INT (-128);
 	  for (i = 0; i < 32; i++)
 	    vec[i] = vt2;
 	  vt = gen_rtx_CONST_VECTOR (V32QImode, gen_rtvec_v (32, vec));
@@ -24146,8 +24186,13 @@ ix86_expand_set_or_movmem (rtx dst, rtx src, rtx count_exp, rtx val_exp,
     align = MEM_ALIGN (dst) / BITS_PER_UNIT;
 
   if (CONST_INT_P (count_exp))
-    min_size = max_size = probable_max_size = count = expected_size
-      = INTVAL (count_exp);
+    {
+      min_size = max_size = probable_max_size = count = expected_size
+	= INTVAL (count_exp);
+      /* When COUNT is 0, there is nothing to do.  */
+      if (!count)
+	return true;
+    }
   else
     {
       if (min_size_exp)
@@ -24156,7 +24201,7 @@ ix86_expand_set_or_movmem (rtx dst, rtx src, rtx count_exp, rtx val_exp,
 	max_size = INTVAL (max_size_exp);
       if (probable_max_size_exp)
 	probable_max_size = INTVAL (probable_max_size_exp);
-      if (CONST_INT_P (expected_size_exp) && count == 0)
+      if (CONST_INT_P (expected_size_exp))
 	expected_size = INTVAL (expected_size_exp);
      }
 
@@ -24991,7 +25036,7 @@ ix86_init_machine_status (void)
 {
   struct machine_function *f;
 
-  f = ggc_alloc_cleared_machine_function ();
+  f = ggc_cleared_alloc<machine_function> ();
   f->use_fast_prologue_epilogue_nregs = -1;
   f->call_abi = ix86_abi;
 
@@ -25015,7 +25060,7 @@ assign_386_stack_local (enum machine_mode mode, enum ix86_stack_slot n)
     if (s->mode == mode && s->n == n)
       return validize_mem (copy_rtx (s->rtl));
 
-  s = ggc_alloc_stack_local_entry ();
+  s = ggc_alloc<stack_local_entry> ();
   s->n = n;
   s->mode = mode;
   s->rtl = assign_stack_local (mode, GET_MODE_SIZE (mode), 0);
@@ -26228,13 +26273,17 @@ ix86_dependencies_evaluation_hook (rtx head, rtx tail)
 	      {
 		edge e;
 		edge_iterator ei;
-		/* Assume that region is SCC, i.e. all immediate predecessors
-	           of non-head block are in the same region.  */
+
+		/* Regions are SCCs with the exception of selective
+		   scheduling with pipelining of outer blocks enabled.
+		   So also check that immediate predecessors of a non-head
+		   block are in the same region.  */
 		FOR_EACH_EDGE (e, ei, bb->preds)
 		  {
 		    /* Avoid creating of loop-carried dependencies through
-		       using topological odering in region.  */
-		    if (BLOCK_TO_BB (bb->index) > BLOCK_TO_BB (e->src->index))
+		       using topological ordering in the region.  */
+		    if (rgn == CONTAINING_RGN (e->src->index)
+			&& BLOCK_TO_BB (bb->index) > BLOCK_TO_BB (e->src->index))
 		      add_dependee_for_func_arg (first_arg, e->src); 
 		  }
 	      }
@@ -26335,7 +26384,7 @@ static int min_insn_size (rtx);
 static void
 core2i7_first_cycle_multipass_filter_ready_try
 (const_ix86_first_cycle_multipass_data_t data,
- char *ready_try, int n_ready, bool first_cycle_insn_p)
+ signed char *ready_try, int n_ready, bool first_cycle_insn_p)
 {
   while (n_ready--)
     {
@@ -26367,7 +26416,8 @@ core2i7_first_cycle_multipass_filter_ready_try
 
 /* Prepare for a new round of multipass lookahead scheduling.  */
 static void
-core2i7_first_cycle_multipass_begin (void *_data, char *ready_try, int n_ready,
+core2i7_first_cycle_multipass_begin (void *_data,
+				     signed char *ready_try, int n_ready,
 				     bool first_cycle_insn_p)
 {
   ix86_first_cycle_multipass_data_t data
@@ -26388,7 +26438,8 @@ core2i7_first_cycle_multipass_begin (void *_data, char *ready_try, int n_ready,
 /* INSN is being issued in current solution.  Account for its impact on
    the decoder model.  */
 static void
-core2i7_first_cycle_multipass_issue (void *_data, char *ready_try, int n_ready,
+core2i7_first_cycle_multipass_issue (void *_data,
+				     signed char *ready_try, int n_ready,
 				     rtx insn, const void *_prev_data)
 {
   ix86_first_cycle_multipass_data_t data
@@ -26426,7 +26477,7 @@ core2i7_first_cycle_multipass_issue (void *_data, char *ready_try, int n_ready,
 /* Revert the effect on ready_try.  */
 static void
 core2i7_first_cycle_multipass_backtrack (const void *_data,
-					 char *ready_try,
+					 signed char *ready_try,
 					 int n_ready ATTRIBUTE_UNUSED)
 {
   const_ix86_first_cycle_multipass_data_t data
@@ -27280,6 +27331,14 @@ enum ix86_builtins
 
   IX86_BUILTIN_XSAVEOPT,
   IX86_BUILTIN_XSAVEOPT64,
+
+  IX86_BUILTIN_XSAVEC,
+  IX86_BUILTIN_XSAVEC64,
+
+  IX86_BUILTIN_XSAVES,
+  IX86_BUILTIN_XRSTORS,
+  IX86_BUILTIN_XSAVES64,
+  IX86_BUILTIN_XRSTORS64,
 
   /* 3DNow! Original */
   IX86_BUILTIN_FEMMS,
@@ -28476,6 +28535,9 @@ enum ix86_builtins
   IX86_BUILTIN_SHA256MSG2,
   IX86_BUILTIN_SHA256RNDS2,
 
+  /* CLFLUSHOPT instructions.  */
+  IX86_BUILTIN_CLFLUSHOPT,
+
   /* TFmode support builtins.  */
   IX86_BUILTIN_INFQ,
   IX86_BUILTIN_HUGE_VALQ,
@@ -28935,18 +28997,24 @@ static const struct builtin_description bdesc_special_args[] =
   /* 3DNow! */
   { OPTION_MASK_ISA_3DNOW, CODE_FOR_mmx_femms, "__builtin_ia32_femms", IX86_BUILTIN_FEMMS, UNKNOWN, (int) VOID_FTYPE_VOID },
 
-  /* FXSR, XSAVE and XSAVEOPT */
+  /* FXSR, XSAVE, XSAVEOPT, XSAVEC and XSAVES.  */
   { OPTION_MASK_ISA_FXSR, CODE_FOR_nothing, "__builtin_ia32_fxsave", IX86_BUILTIN_FXSAVE, UNKNOWN, (int) VOID_FTYPE_PVOID },
   { OPTION_MASK_ISA_FXSR, CODE_FOR_nothing, "__builtin_ia32_fxrstor", IX86_BUILTIN_FXRSTOR, UNKNOWN, (int) VOID_FTYPE_PVOID },
   { OPTION_MASK_ISA_XSAVE, CODE_FOR_nothing, "__builtin_ia32_xsave", IX86_BUILTIN_XSAVE, UNKNOWN, (int) VOID_FTYPE_PVOID_INT64 },
   { OPTION_MASK_ISA_XSAVE, CODE_FOR_nothing, "__builtin_ia32_xrstor", IX86_BUILTIN_XRSTOR, UNKNOWN, (int) VOID_FTYPE_PVOID_INT64 },
   { OPTION_MASK_ISA_XSAVEOPT, CODE_FOR_nothing, "__builtin_ia32_xsaveopt", IX86_BUILTIN_XSAVEOPT, UNKNOWN, (int) VOID_FTYPE_PVOID_INT64 },
+  { OPTION_MASK_ISA_XSAVES, CODE_FOR_nothing, "__builtin_ia32_xsaves", IX86_BUILTIN_XSAVES, UNKNOWN, (int) VOID_FTYPE_PVOID_INT64 },
+  { OPTION_MASK_ISA_XSAVES, CODE_FOR_nothing, "__builtin_ia32_xrstors", IX86_BUILTIN_XRSTORS, UNKNOWN, (int) VOID_FTYPE_PVOID_INT64 },
+  { OPTION_MASK_ISA_XSAVEC, CODE_FOR_nothing, "__builtin_ia32_xsavec", IX86_BUILTIN_XSAVEC, UNKNOWN, (int) VOID_FTYPE_PVOID_INT64 },
 
   { OPTION_MASK_ISA_FXSR | OPTION_MASK_ISA_64BIT, CODE_FOR_nothing, "__builtin_ia32_fxsave64", IX86_BUILTIN_FXSAVE64, UNKNOWN, (int) VOID_FTYPE_PVOID },
   { OPTION_MASK_ISA_FXSR | OPTION_MASK_ISA_64BIT, CODE_FOR_nothing, "__builtin_ia32_fxrstor64", IX86_BUILTIN_FXRSTOR64, UNKNOWN, (int) VOID_FTYPE_PVOID },
   { OPTION_MASK_ISA_XSAVE | OPTION_MASK_ISA_64BIT, CODE_FOR_nothing, "__builtin_ia32_xsave64", IX86_BUILTIN_XSAVE64, UNKNOWN, (int) VOID_FTYPE_PVOID_INT64 },
   { OPTION_MASK_ISA_XSAVE | OPTION_MASK_ISA_64BIT, CODE_FOR_nothing, "__builtin_ia32_xrstor64", IX86_BUILTIN_XRSTOR64, UNKNOWN, (int) VOID_FTYPE_PVOID_INT64 },
   { OPTION_MASK_ISA_XSAVEOPT | OPTION_MASK_ISA_64BIT, CODE_FOR_nothing, "__builtin_ia32_xsaveopt64", IX86_BUILTIN_XSAVEOPT64, UNKNOWN, (int) VOID_FTYPE_PVOID_INT64 },
+  { OPTION_MASK_ISA_XSAVES | OPTION_MASK_ISA_64BIT, CODE_FOR_nothing, "__builtin_ia32_xsaves64", IX86_BUILTIN_XSAVES64, UNKNOWN, (int) VOID_FTYPE_PVOID_INT64 },
+  { OPTION_MASK_ISA_XSAVES | OPTION_MASK_ISA_64BIT, CODE_FOR_nothing, "__builtin_ia32_xrstors64", IX86_BUILTIN_XRSTORS64, UNKNOWN, (int) VOID_FTYPE_PVOID_INT64 },
+  { OPTION_MASK_ISA_XSAVEC | OPTION_MASK_ISA_64BIT, CODE_FOR_nothing, "__builtin_ia32_xsavec64", IX86_BUILTIN_XSAVEC64, UNKNOWN, (int) VOID_FTYPE_PVOID_INT64 },
 
   /* SSE */
   { OPTION_MASK_ISA_SSE, CODE_FOR_sse_storeups, "__builtin_ia32_storeups", IX86_BUILTIN_STOREUPS, UNKNOWN, (int) VOID_FTYPE_PFLOAT_V4SF },
@@ -31124,6 +31192,9 @@ ix86_init_mmx_sse_builtins (void)
   def_builtin (OPTION_MASK_ISA_64BIT, "__builtin_ia32_writeeflags_u64",
                VOID_FTYPE_UINT64, IX86_BUILTIN_WRITE_FLAGS);
 
+  /* CLFLUSHOPT.  */
+  def_builtin (OPTION_MASK_ISA_CLFLUSHOPT, "__builtin_ia32_clflushopt",
+	       VOID_FTYPE_PCVOID, IX86_BUILTIN_CLFLUSHOPT);
 
   /* Add FMA4 multi-arg argument instructions */
   for (i = 0, d = bdesc_multi_arg; i < ARRAY_SIZE (bdesc_multi_arg); i++, d++)
@@ -35056,6 +35127,16 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
 	emit_insn (gen_sse2_clflush (op0));
 	return 0;
 
+    case IX86_BUILTIN_CLFLUSHOPT:
+	arg0 = CALL_EXPR_ARG (exp, 0);
+	op0 = expand_normal (arg0);
+	icode = CODE_FOR_clflushopt;
+	if (!insn_data[icode].operand[0].predicate (op0, Pmode))
+	  op0 = ix86_zero_extend_to_Pmode (op0);
+
+	emit_insn (gen_clflushopt (op0));
+	return 0;
+
     case IX86_BUILTIN_MONITOR:
       arg0 = CALL_EXPR_ARG (exp, 0);
       arg1 = CALL_EXPR_ARG (exp, 1);
@@ -35247,6 +35328,12 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
     case IX86_BUILTIN_XRSTOR64:
     case IX86_BUILTIN_XSAVEOPT:
     case IX86_BUILTIN_XSAVEOPT64:
+    case IX86_BUILTIN_XSAVES:
+    case IX86_BUILTIN_XRSTORS:
+    case IX86_BUILTIN_XSAVES64:
+    case IX86_BUILTIN_XRSTORS64:
+    case IX86_BUILTIN_XSAVEC:
+    case IX86_BUILTIN_XSAVEC64:
       arg0 = CALL_EXPR_ARG (exp, 0);
       arg1 = CALL_EXPR_ARG (exp, 1);
       op0 = expand_normal (arg0);
@@ -35285,6 +35372,24 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
 	    case IX86_BUILTIN_XSAVEOPT64:
 	      icode = CODE_FOR_xsaveopt64;
 	      break;
+	    case IX86_BUILTIN_XSAVES:
+	      icode = CODE_FOR_xsaves_rex64;
+	      break;
+	    case IX86_BUILTIN_XRSTORS:
+	      icode = CODE_FOR_xrstors_rex64;
+	      break;
+	    case IX86_BUILTIN_XSAVES64:
+	      icode = CODE_FOR_xsaves64;
+	      break;
+	    case IX86_BUILTIN_XRSTORS64:
+	      icode = CODE_FOR_xrstors64;
+	      break;
+	    case IX86_BUILTIN_XSAVEC:
+	      icode = CODE_FOR_xsavec_rex64;
+	      break;
+	    case IX86_BUILTIN_XSAVEC64:
+	      icode = CODE_FOR_xsavec64;
+	      break;
 	    default:
 	      gcc_unreachable ();
 	    }
@@ -35305,6 +35410,15 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
 	      break;
 	    case IX86_BUILTIN_XSAVEOPT:
 	      icode = CODE_FOR_xsaveopt;
+	      break;
+	    case IX86_BUILTIN_XSAVES:
+	      icode = CODE_FOR_xsaves;
+	      break;
+	    case IX86_BUILTIN_XRSTORS:
+	      icode = CODE_FOR_xrstors;
+	      break;
+	    case IX86_BUILTIN_XSAVEC:
+	      icode = CODE_FOR_xsavec;
 	      break;
 	    default:
 	      gcc_unreachable ();
@@ -37790,10 +37904,10 @@ ix86_rtx_costs (rtx x, int code_i, int outer_code_i, int opno, int *total,
       else if (TARGET_64BIT && !x86_64_zext_immediate_operand (x, VOIDmode))
 	*total = 2;
       else if (flag_pic && SYMBOLIC_CONST (x)
-	       && (!TARGET_64BIT
-		   || (!GET_CODE (x) != LABEL_REF
-		       && (GET_CODE (x) != SYMBOL_REF
-		           || !SYMBOL_REF_LOCAL_P (x)))))
+	       && !(TARGET_64BIT
+		    && (GET_CODE (x) == LABEL_REF
+			|| (GET_CODE (x) == SYMBOL_REF
+			    && SYMBOL_REF_LOCAL_P (x)))))
 	*total = 1;
       else
 	*total = 0;
@@ -38780,7 +38894,16 @@ x86_output_mi_thunk (FILE *file,
      For our purposes here, we can get away with (ab)using a jump pattern,
      because we're going to do no optimization.  */
   if (MEM_P (fnaddr))
-    emit_jump_insn (gen_indirect_jump (fnaddr));
+    {
+      if (sibcall_insn_operand (fnaddr, word_mode))
+	{
+	  tmp = gen_rtx_CALL (VOIDmode, fnaddr, const0_rtx);
+          tmp = emit_call_insn (tmp);
+          SIBLING_CALL_P (tmp) = 1;
+	}
+      else
+	emit_jump_insn (gen_indirect_jump (fnaddr));
+    }
   else
     {
       if (ix86_cmodel == CM_LARGE_PIC && SYMBOLIC_CONST (fnaddr))
@@ -47140,6 +47263,27 @@ ix86_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 #undef TARGET_FLOAT_EXCEPTIONS_ROUNDING_SUPPORTED_P
 #define TARGET_FLOAT_EXCEPTIONS_ROUNDING_SUPPORTED_P \
   ix86_float_exceptions_rounding_supported_p
+
+#undef TARGET_MODE_EMIT
+#define TARGET_MODE_EMIT ix86_emit_mode_set
+
+#undef TARGET_MODE_NEEDED
+#define TARGET_MODE_NEEDED ix86_mode_needed
+
+#undef TARGET_MODE_AFTER
+#define TARGET_MODE_AFTER ix86_mode_after
+
+#undef TARGET_MODE_ENTRY
+#define TARGET_MODE_ENTRY ix86_mode_entry
+
+#undef TARGET_MODE_EXIT
+#define TARGET_MODE_EXIT ix86_mode_exit
+
+#undef TARGET_MODE_PRIORITY
+#define TARGET_MODE_PRIORITY ix86_mode_priority
+
+#undef TARGET_CALL_FUSAGE_CONTAINS_NON_CALLEE_CLOBBERS
+#define TARGET_CALL_FUSAGE_CONTAINS_NON_CALLEE_CLOBBERS true
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

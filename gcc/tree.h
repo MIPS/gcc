@@ -1333,6 +1333,9 @@ extern void protected_set_expr_location (tree, location_t);
 #define OMP_CLAUSE_LINEAR_STEP(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_LINEAR), 1)
 
+#define OMP_CLAUSE_LINEAR_STMT(NODE) \
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_LINEAR), 2)
+
 #define OMP_CLAUSE_LINEAR_GIMPLE_SEQ(NODE) \
   (OMP_CLAUSE_CHECK (NODE))->omp_clause.gimple_reduction_init
 
@@ -2320,11 +2323,12 @@ extern void decl_value_expr_insert (tree, tree);
   (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.comdat_flag)
 
 #define DECL_COMDAT_GROUP(NODE) \
-  (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.comdat_group)
+  decl_comdat_group (NODE)
 
 /* Used in TREE_PUBLIC decls to indicate that copies of this DECL in
    multiple translation units should be merged.  */
-#define DECL_ONE_ONLY(NODE) (DECL_COMDAT_GROUP (NODE) != NULL_TREE)
+#define DECL_ONE_ONLY(NODE) (DECL_COMDAT_GROUP (NODE) != NULL_TREE \
+			     && (TREE_PUBLIC (NODE) || DECL_EXTERNAL (NODE)))
 
 /* The name of the object as the assembler will see it (but before any
    translations made by ASM_OUTPUT_LABELREF).  Often this is the same
@@ -3242,6 +3246,8 @@ tree_operand_check_code (const_tree __t, enum tree_code __code, int __i,
 #define uint32_type_node		global_trees[TI_UINT32_TYPE]
 #define uint64_type_node		global_trees[TI_UINT64_TYPE]
 
+#define void_node			global_trees[TI_VOID]
+
 #define integer_zero_node		global_trees[TI_INTEGER_ZERO]
 #define integer_one_node		global_trees[TI_INTEGER_ONE]
 #define integer_three_node              global_trees[TI_INTEGER_THREE]
@@ -3425,6 +3431,8 @@ tree_operand_check_code (const_tree __t, enum tree_code __code, int __i,
    || ((NODE) && TREE_TYPE ((NODE)) == error_mark_node))
 
 extern tree decl_assembler_name (tree);
+extern tree decl_comdat_group (tree);
+extern tree decl_comdat_group_id (tree);
 
 /* Compute the number of bytes occupied by 'node'.  This routine only
    looks at TREE_CODE and, if the code is TREE_VEC, TREE_VEC_LENGTH.  */
@@ -3616,6 +3624,11 @@ extern tree build_call_valist (tree, tree, int, va_list);
    build_call_array_loc (UNKNOWN_LOCATION, T1, T2, N, T3)
 extern tree build_call_array_loc (location_t, tree, tree, int, const tree *);
 extern tree build_call_vec (tree, tree, vec<tree, va_gc> *);
+extern tree build_call_expr_loc_array (location_t, tree, int, tree *);
+extern tree build_call_expr_loc_vec (location_t, tree, vec<tree, va_gc> *);
+extern tree build_call_expr_loc (location_t, tree, int, ...);
+extern tree build_call_expr (tree, int, ...);
+extern tree build_string_literal (int, const char *);
 
 /* Construct various nodes representing data types.  */
 
@@ -4264,7 +4277,6 @@ extern tree build_range_type (tree, tree, tree);
 extern tree build_nonshared_range_type (tree, tree, tree);
 extern bool subrange_type_for_debug_p (const_tree, tree *, tree *);
 extern HOST_WIDE_INT int_cst_value (const_tree);
-extern HOST_WIDEST_INT widest_int_cst_value (const_tree);
 extern tree tree_block (tree);
 extern void tree_set_block (tree, tree);
 extern location_t *block_nonartificial_location (tree);
@@ -4570,7 +4582,6 @@ namespace wi
     unsigned int get_len () const;
   };
 
-  template <>
   template <int N>
   struct int_traits <extended_tree <N> >
   {
@@ -4738,47 +4749,5 @@ extern tree get_inner_reference (tree, HOST_WIDE_INT *, HOST_WIDE_INT *,
 /* Return a tree representing the lower bound of the array mentioned in
    EXP, an ARRAY_REF or an ARRAY_RANGE_REF.  */
 extern tree array_ref_low_bound (tree);
-
-/* In builtins.c.  */
-
-/* Non-zero if __builtin_constant_p should be folded right away.  */
-extern bool force_folding_builtin_constant_p;
-
-extern bool avoid_folding_inline_builtin (tree);
-extern tree fold_call_expr (location_t, tree, bool);
-extern tree fold_builtin_fputs (location_t, tree, tree, bool, bool, tree);
-extern tree fold_builtin_strcpy (location_t, tree, tree, tree, tree);
-extern tree fold_builtin_strncpy (location_t, tree, tree, tree, tree, tree);
-extern tree fold_builtin_strcat (location_t, tree, tree, tree);
-extern tree fold_builtin_memory_chk (location_t, tree, tree, tree, tree, tree, tree, bool,
-				     enum built_in_function);
-extern tree fold_builtin_stxcpy_chk (location_t, tree, tree, tree, tree, tree, bool,
-				     enum built_in_function);
-extern tree fold_builtin_stxncpy_chk (location_t, tree, tree, tree, tree, tree, bool,
-				      enum built_in_function);
-extern tree fold_builtin_expect (location_t, tree, tree, tree);
-extern bool fold_builtin_next_arg (tree, bool);
-extern enum built_in_function builtin_mathfn_code (const_tree);
-extern tree fold_builtin_call_array (location_t, tree, tree, int, tree *);
-extern tree build_call_expr_loc_array (location_t, tree, int, tree *);
-extern tree build_call_expr_loc_vec (location_t, tree, vec<tree, va_gc> *);
-extern tree build_call_expr_loc (location_t, tree, int, ...);
-extern tree build_call_expr (tree, int, ...);
-extern tree mathfn_built_in (tree, enum built_in_function fn);
-extern tree c_strlen (tree, int);
-extern tree build_string_literal (int, const char *);
-extern rtx builtin_memset_read_str (void *, HOST_WIDE_INT, enum machine_mode);
-extern bool is_builtin_fn (tree);
-extern bool get_object_alignment_1 (tree, unsigned int *,
-				    unsigned HOST_WIDE_INT *);
-extern unsigned int get_object_alignment (tree);
-extern bool get_pointer_alignment_1 (tree, unsigned int *,
-				     unsigned HOST_WIDE_INT *);
-extern unsigned int get_pointer_alignment (tree);
-extern tree fold_call_stmt (gimple, bool);
-extern tree gimple_fold_builtin_snprintf_chk (gimple, tree, enum built_in_function);
-extern void set_builtin_user_assembler_name (tree decl, const char *asmspec);
-extern bool is_simple_builtin (tree);
-extern bool is_inexpensive_builtin (tree);
 
 #endif  /* GCC_TREE_H  */

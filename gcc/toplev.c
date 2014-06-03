@@ -957,7 +957,7 @@ init_asm_output (const char *name)
 static void *
 realloc_for_line_map (void *ptr, size_t len)
 {
-  return GGC_RESIZEVAR (void, ptr, len);
+  return ggc_realloc (ptr, len);
 }
 
 /* A helper function: used as the allocator function for
@@ -1156,7 +1156,7 @@ general_init (const char *argv0)
      table.  */
   init_ggc ();
   init_stringpool ();
-  line_table = ggc_alloc_line_maps ();
+  line_table = ggc_alloc<line_maps> ();
   linemap_init (line_table);
   line_table->reallocator = realloc_for_line_map;
   line_table->round_alloc_size = ggc_round_alloc_size;
@@ -1600,6 +1600,9 @@ backend_init_target (void)
 
   /* Depends on HARD_FRAME_POINTER_REGNUM.  */
   init_reload ();
+
+  /* Depends on the enabled attribute.  */
+  recog_init ();
 
   /* The following initialization functions need to generate rtl, so
      provide a dummy function context for them.  */

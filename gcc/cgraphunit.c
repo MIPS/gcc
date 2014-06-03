@@ -210,6 +210,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "pass_manager.h"
 #include "tree-nested.h"
 #include "gimplify.h"
+#include "dbgcnt.h"
 
 /* Queue of cgraph nodes scheduled to be added into cgraph.  This is a
    secondary queue used during optimization to accommodate passes that
@@ -498,7 +499,7 @@ cgraph_add_new_function (tree fndecl, bool lowered)
 	break;
       case CGRAPH_STATE_CONSTRUCTION:
 	/* Just enqueue function to be processed at nearest occurrence.  */
-	node = cgraph_create_node (fndecl);
+	node = cgraph_get_create_node (fndecl);
 	if (lowered)
 	  node->lowered = true;
 	if (!cgraph_new_nodes)
@@ -570,7 +571,7 @@ add_asm_node (tree asm_str)
 {
   struct asm_node *node;
 
-  node = ggc_alloc_cleared_asm_node ();
+  node = ggc_cleared_alloc<asm_node> ();
   node->asm_str = asm_str;
   node->order = symtab_order++;
   node->next = NULL;
@@ -886,7 +887,7 @@ walk_polymorphic_call_targets (pointer_set_t *reachable_call_targets,
      make the edge direct.  */
   if (final)
     {
-      if (targets.length () <= 1)
+      if (targets.length () <= 1 && dbg_cnt (devirt))
 	{
 	  cgraph_node *target;
 	  if (targets.length () == 1)
@@ -903,6 +904,14 @@ walk_polymorphic_call_targets (pointer_set_t *reachable_call_targets,
 				 edge->call_stmt, 0,
 				 TDF_SLIM);
 	    }
+          if (dump_enabled_p ())
+            {
+	      location_t locus = gimple_location (edge->call_stmt);
+	      dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, locus,
+			       "devirtualizing call in %s to %s\n",
+			       edge->caller->name (), target->name ());
+	    }
+
 	  cgraph_make_edge_direct (edge, target);
 	  cgraph_redirect_edge_call_stmt_to_callee (edge);
 	  if (cgraph_dump_file)
@@ -965,6 +974,8 @@ analyze_functions (void)
 	   node != first_analyzed
 	   && node != first_analyzed_var; node = node->next)
 	{
+	  /* Convert COMDAT group designators to IDENTIFIER_NODEs.  */
+	  node->get_comdat_group_id ();
 	  if (decide_is_symbol_needed (node))
 	    {
 	      enqueue_node (node);
@@ -984,7 +995,7 @@ analyze_functions (void)
       first_analyzed_var = varpool_first_variable ();
       first_analyzed = cgraph_first_function ();
 
-      if (changed && dump_file)
+      if (changed && cgraph_dump_file)
 	fprintf (cgraph_dump_file, "\n");
 
       /* Lower representation, build callgraph edges and references for all trivially
@@ -1337,7 +1348,7 @@ init_lowered_empty_function (tree decl, bool in_ssa)
   cfun->curr_properties |= (PROP_gimple_lcf | PROP_gimple_leh | PROP_gimple_any
 			    | PROP_cfg | PROP_loops);
 
-  set_loops_for_fn (cfun, ggc_alloc_cleared_loops ());
+  set_loops_for_fn (cfun, ggc_cleared_alloc<loops> ());
   init_loops_structure (cfun, loops_for_fn (cfun), 1);
   loops_for_fn (cfun)->state |= LOOPS_MAY_HAVE_MULTIPLE_LATCHES;
 

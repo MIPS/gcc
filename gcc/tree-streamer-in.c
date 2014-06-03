@@ -35,6 +35,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "data-streamer.h"
 #include "streamer-hooks.h"
 #include "lto-streamer.h"
+#include "builtins.h"
 
 /* Read a STRING_CST from the string table in DATA_IN using input
    block IB.  */
@@ -168,6 +169,9 @@ unpack_ts_real_cst_value_fields (struct bitpack_d *bp, tree expr)
   REAL_VALUE_TYPE r;
   REAL_VALUE_TYPE *rp;
 
+  /* Clear all bits of the real value type so that we can later do
+     bitwise comparisons to see if two values are the same.  */
+  memset (&r, 0, sizeof r);
   r.cl = (unsigned) bp_unpack_value (bp, 2);
   r.decimal = (unsigned) bp_unpack_value (bp, 1);
   r.sign = (unsigned) bp_unpack_value (bp, 1);
@@ -177,7 +181,7 @@ unpack_ts_real_cst_value_fields (struct bitpack_d *bp, tree expr)
   for (i = 0; i < SIGSZ; i++)
     r.sig[i] = (unsigned long) bp_unpack_value (bp, HOST_BITS_PER_LONG);
 
-  rp = ggc_alloc_real_value ();
+  rp = ggc_alloc<real_value> ();
   memcpy (rp, &r, sizeof (REAL_VALUE_TYPE));
   TREE_REAL_CST_PTR (expr) = rp;
 }
@@ -189,7 +193,7 @@ unpack_ts_real_cst_value_fields (struct bitpack_d *bp, tree expr)
 static void
 unpack_ts_fixed_cst_value_fields (struct bitpack_d *bp, tree expr)
 {
-  FIXED_VALUE_TYPE *fp = ggc_alloc_fixed_value ();
+  FIXED_VALUE_TYPE *fp = ggc_alloc<fixed_value> ();
   fp->mode = bp_unpack_enum (bp, machine_mode, MAX_MACHINE_MODE);
   fp->data.low = bp_unpack_var_len_int (bp);
   fp->data.high = bp_unpack_var_len_int (bp);
@@ -565,7 +569,7 @@ streamer_alloc_tree (struct lto_input_block *ib, struct data_in *data_in,
   enum tree_code code;
   tree result;
 #ifdef LTO_STREAMER_DEBUG
-  HOST_WIDEST_INT orig_address_in_writer;
+  HOST_WIDE_INT orig_address_in_writer;
 #endif
 
   result = NULL_TREE;
@@ -757,7 +761,6 @@ lto_input_ts_decl_with_vis_tree_pointers (struct lto_input_block *ib,
     }
 
   DECL_SECTION_NAME (expr) = stream_read_tree (ib, data_in);
-  DECL_COMDAT_GROUP (expr) = stream_read_tree (ib, data_in);
 }
 
 

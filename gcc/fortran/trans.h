@@ -709,6 +709,9 @@ extern GTY(()) tree gfor_fndecl_caf_sync_all;
 extern GTY(()) tree gfor_fndecl_caf_sync_images;
 extern GTY(()) tree gfor_fndecl_caf_error_stop;
 extern GTY(()) tree gfor_fndecl_caf_error_stop_str;
+extern GTY(()) tree gfor_fndecl_co_max;
+extern GTY(()) tree gfor_fndecl_co_min;
+extern GTY(()) tree gfor_fndecl_co_sum;
 
 
 /* Math functions.  Many other math functions are handled in
@@ -790,10 +793,7 @@ enum gfc_array_kind
 };
 
 /* Array types only.  */
-/* FIXME: the variable_size annotation here is needed because these types are
-   variable-sized in some other frontends.  Due to gengtype deficiency the GTY
-   options of such types have to agree across all frontends. */
-struct GTY((variable_size))	lang_type	 {
+struct GTY(())	lang_type	 {
   int rank, corank;
   enum gfc_array_kind akind;
   tree lbound[GFC_MAX_DIMENSIONS];
@@ -810,7 +810,7 @@ struct GTY((variable_size))	lang_type	 {
   tree caf_offset;
 };
 
-struct GTY((variable_size)) lang_decl {
+struct GTY(()) lang_decl {
   /* Dummy variables.  */
   tree saved_descriptor;
   /* Assigned integer nodes.  Stringlength is the IO format string's length.

@@ -62,6 +62,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "langhooks-def.h"	/* FIXME: for lhd_set_decl_assembler_name */
 #include "tree-pass.h"		/* FIXME: only for PROP_gimple_any */
+#include "builtins.h"
 
 enum gimplify_omp_var_data
 {
@@ -2329,8 +2330,8 @@ gimplify_call_expr (tree *expr_p, gimple_seq *pre_p, bool want_value)
   parms = NULL_TREE;
   if (fndecl)
     parms = TYPE_ARG_TYPES (TREE_TYPE (fndecl));
-  else if (POINTER_TYPE_P (TREE_TYPE (CALL_EXPR_FN (*expr_p))))
-    parms = TYPE_ARG_TYPES (TREE_TYPE (TREE_TYPE (CALL_EXPR_FN (*expr_p))));
+  else
+    parms = TYPE_ARG_TYPES (TREE_TYPE (fnptrtype));
 
   if (fndecl && DECL_ARGUMENTS (fndecl))
     p = DECL_ARGUMENTS (fndecl);
@@ -5683,7 +5684,13 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
       switch (default_kind)
 	{
 	case OMP_CLAUSE_DEFAULT_NONE:
-	  if ((ctx->region_type & ORT_TASK) != 0)
+	  if ((ctx->region_type & ORT_PARALLEL) != 0)
+	    {
+	      error ("%qE not specified in enclosing parallel",
+		     DECL_NAME (lang_hooks.decls.omp_report_decl (decl)));
+	      error_at (ctx->location, "enclosing parallel");
+	    }
+	  else if ((ctx->region_type & ORT_TASK) != 0)
 	    {
 	      error ("%qE not specified in enclosing task",
 		     DECL_NAME (lang_hooks.decls.omp_report_decl (decl)));
@@ -5696,11 +5703,7 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
 	      error_at (ctx->location, "enclosing teams construct");
 	    }
 	  else
-	    {
-	      error ("%qE not specified in enclosing parallel",
-		     DECL_NAME (lang_hooks.decls.omp_report_decl (decl)));
-	      error_at (ctx->location, "enclosing parallel");
-	    }
+	    gcc_unreachable ();
 	  /* FALLTHRU */
 	case OMP_CLAUSE_DEFAULT_SHARED:
 	  flags |= GOVD_SHARED;
@@ -6066,6 +6069,27 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	      pop_gimplify_context
 		(gimple_seq_first_stmt (OMP_CLAUSE_LASTPRIVATE_GIMPLE_SEQ (c)));
 	      OMP_CLAUSE_LASTPRIVATE_STMT (c) = NULL_TREE;
+
+	      gimplify_omp_ctxp = outer_ctx;
+	    }
+	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LINEAR
+		   && OMP_CLAUSE_LINEAR_STMT (c))
+	    {
+	      gimplify_omp_ctxp = ctx;
+	      push_gimplify_context ();
+	      if (TREE_CODE (OMP_CLAUSE_LINEAR_STMT (c)) != BIND_EXPR)
+		{
+		  tree bind = build3 (BIND_EXPR, void_type_node, NULL,
+				      NULL, NULL);
+		  TREE_SIDE_EFFECTS (bind) = 1;
+		  BIND_EXPR_BODY (bind) = OMP_CLAUSE_LINEAR_STMT (c);
+		  OMP_CLAUSE_LINEAR_STMT (c) = bind;
+		}
+	      gimplify_and_add (OMP_CLAUSE_LINEAR_STMT (c),
+				&OMP_CLAUSE_LINEAR_GIMPLE_SEQ (c));
+	      pop_gimplify_context
+		(gimple_seq_first_stmt (OMP_CLAUSE_LINEAR_GIMPLE_SEQ (c)));
+	      OMP_CLAUSE_LINEAR_STMT (c) = NULL_TREE;
 
 	      gimplify_omp_ctxp = outer_ctx;
 	    }

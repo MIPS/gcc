@@ -534,12 +534,16 @@ get_nsdmi (tree member, bool in_ctor)
   if (!in_ctor)
     inject_this_parameter (DECL_CONTEXT (member), TYPE_UNQUALIFIED);
   if (DECL_LANG_SPECIFIC (member) && DECL_TEMPLATE_INFO (member))
-    /* Do deferred instantiation of the NSDMI.  */
-    init = (tsubst_copy_and_build
-	    (DECL_INITIAL (DECL_TI_TEMPLATE (member)),
-	     DECL_TI_ARGS (member),
-	     tf_warning_or_error, member, /*function_p=*/false,
-	     /*integral_constant_expression_p=*/false));
+    {
+      /* Do deferred instantiation of the NSDMI.  */
+      init = (tsubst_copy_and_build
+	      (DECL_INITIAL (DECL_TI_TEMPLATE (member)),
+	       DECL_TI_ARGS (member),
+	       tf_warning_or_error, member, /*function_p=*/false,
+	       /*integral_constant_expression_p=*/false));
+
+      init = digest_nsdmi_init (member, init);
+    }
   else
     {
       init = DECL_INITIAL (member);
@@ -642,8 +646,7 @@ perform_member_init (tree member, tree init)
 		     && TREE_TYPE (init) == type)
 		    /* { } mem-initializer.  */
 		    || (TREE_CODE (init) == TREE_LIST
-			&& TREE_CODE (TREE_VALUE (init)) == CONSTRUCTOR
-			&& CONSTRUCTOR_IS_DIRECT_INIT (TREE_VALUE (init))))
+			&& DIRECT_LIST_INIT_P (TREE_VALUE (init))))
 		   && (CP_AGGREGATE_TYPE_P (type)
 		       || is_std_init_list (type)))))
     {
@@ -1515,8 +1518,7 @@ build_aggr_init (tree exp, tree init, int flags, tsubst_flags_t complain)
       && TREE_CODE (init) != TREE_LIST
       && !(TREE_CODE (init) == TARGET_EXPR
 	   && TARGET_EXPR_DIRECT_INIT_P (init))
-      && !(BRACE_ENCLOSED_INITIALIZER_P (init)
-	   && CONSTRUCTOR_IS_DIRECT_INIT (init)))
+      && !DIRECT_LIST_INIT_P (init))
     flags |= LOOKUP_ONLYCONVERTING;
 
   if (TREE_CODE (type) == ARRAY_TYPE)
@@ -1589,8 +1591,7 @@ expand_default_init (tree binfo, tree true_exp, tree exp, tree init, int flags,
   /* If we have direct-initialization from an initializer list, pull
      it out of the TREE_LIST so the code below can see it.  */
   if (init && TREE_CODE (init) == TREE_LIST
-      && BRACE_ENCLOSED_INITIALIZER_P (TREE_VALUE (init))
-      && CONSTRUCTOR_IS_DIRECT_INIT (TREE_VALUE (init)))
+      && DIRECT_LIST_INIT_P (TREE_VALUE (init)))
     {
       gcc_checking_assert ((flags & LOOKUP_ONLYCONVERTING) == 0
 			   && TREE_CHAIN (init) == NULL_TREE);
@@ -2119,7 +2120,7 @@ build_raw_new_expr (vec<tree, va_gc> *placement, tree type, tree nelts,
   if (init == NULL)
     init_list = NULL_TREE;
   else if (init->is_empty ())
-    init_list = void_zero_node;
+    init_list = void_node;
   else
     init_list = build_tree_list_vec (init);
 
@@ -2791,8 +2792,7 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
 	{
 	  tree vecinit = NULL_TREE;
 	  if (vec_safe_length (*init) == 1
-	      && BRACE_ENCLOSED_INITIALIZER_P ((**init)[0])
-	      && CONSTRUCTOR_IS_DIRECT_INIT ((**init)[0]))
+	      && DIRECT_LIST_INIT_P ((**init)[0]))
 	    {
 	      vecinit = (**init)[0];
 	      if (CONSTRUCTOR_NELTS (vecinit) == 0)
@@ -2935,7 +2935,7 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
 
 	      TARGET_EXPR_CLEANUP (begin)
 		= build3 (COND_EXPR, void_type_node, sentry,
-			  cleanup, void_zero_node);
+			  cleanup, void_node);
 
 	      end = build2 (MODIFY_EXPR, TREE_TYPE (sentry),
 			    sentry, boolean_false_node);
@@ -3598,7 +3598,7 @@ build_vec_init (tree base, tree maxindex, tree init,
 	  else
 	    throw_call = throw_bad_array_new_length ();
 	  length_check = build3 (COND_EXPR, void_type_node, length_check,
-				 throw_call, void_zero_node);
+				 throw_call, void_node);
 	  finish_expr_stmt (length_check);
 	}
 
@@ -4020,7 +4020,7 @@ build_delete (tree otype, tree addr, special_function_kind auto_delete,
 	}
 
       if (auto_delete != sfk_deleting_destructor)
-	return void_zero_node;
+	return void_node;
 
       return build_op_delete_call (DELETE_EXPR, addr,
 				   cxx_sizeof_nowarn (type),
@@ -4108,8 +4108,7 @@ build_delete (tree otype, tree addr, special_function_kind auto_delete,
 	}
 
       if (ifexp != integer_one_node)
-	expr = build3 (COND_EXPR, void_type_node,
-		       ifexp, expr, void_zero_node);
+	expr = build3 (COND_EXPR, void_type_node, ifexp, expr, void_node);
 
       return expr;
     }
@@ -4154,7 +4153,7 @@ push_base_cleanups (void)
 	      if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (BINFO_TYPE (base_binfo)))
 		{
 		  expr = build3 (COND_EXPR, void_type_node, cond,
-				 expr, void_zero_node);
+				 expr, void_node);
 		  finish_decl_cleanup (NULL_TREE, expr);
 		}
 	    }

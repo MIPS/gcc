@@ -2806,14 +2806,13 @@ write_expression (tree expr)
       write_type (type);
 
       if (init && TREE_CODE (init) == TREE_LIST
-	  && TREE_CODE (TREE_VALUE (init)) == CONSTRUCTOR
-	  && CONSTRUCTOR_IS_DIRECT_INIT (TREE_VALUE (init)))
+	  && DIRECT_LIST_INIT_P (TREE_VALUE (init)))
 	write_expression (TREE_VALUE (init));
       else
 	{
 	  if (init)
 	    write_string ("pi");
-	  if (init && init != void_zero_node)
+	  if (init && init != void_node)
 	    for (t = init; t; t = TREE_CHAIN (t))
 	      write_expression (TREE_VALUE (t));
 	  write_char ('E');
@@ -3521,7 +3520,11 @@ mangle_decl (const tree decl)
       if (vague_linkage_p (decl))
 	DECL_WEAK (alias) = 1;
       if (TREE_CODE (decl) == FUNCTION_DECL)
-	cgraph_same_body_alias (cgraph_get_create_node (decl), alias, decl);
+	{
+	  /* Don't create an alias to an unreferenced function.  */
+	  if (struct cgraph_node *n = cgraph_get_node (decl))
+	    cgraph_same_body_alias (n, alias, decl);
+	}
       else
 	varpool_extra_name_alias (alias, decl);
 #endif

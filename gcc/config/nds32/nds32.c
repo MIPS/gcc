@@ -50,6 +50,7 @@
 #include "target-def.h"
 #include "langhooks.h"		/* For add_builtin_function().  */
 #include "ggc.h"
+#include "builtins.h"
 
 /* ------------------------------------------------------------------------ */
 
@@ -131,7 +132,7 @@ static struct machine_function *
 nds32_init_machine_status (void)
 {
   struct machine_function *machine;
-  machine = ggc_alloc_cleared_machine_function ();
+  machine = ggc_cleared_alloc<machine_function> ();
 
   /* Initially assume this function needs prologue/epilogue.  */
   machine->naked_p = 0;

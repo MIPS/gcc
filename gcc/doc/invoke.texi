@@ -216,6 +216,8 @@ Objective-C and Objective-C++ Dialects}.
 -fobjc-gc @gol
 -fobjc-nilcheck @gol
 -fobjc-std=objc1 @gol
+-fno-local-ivars @gol
+-fivar-visibility=@var{public|protected|private|package} @gol
 -freplace-objc-classes @gol
 -fzero-link @gol
 -gen-decls @gol
@@ -262,7 +264,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wparentheses  -Wpedantic-ms-format -Wno-pedantic-ms-format @gol
 -Wpointer-arith  -Wno-pointer-to-int-cast @gol
 -Wredundant-decls  -Wno-return-local-addr @gol
--Wreturn-type  -Wsequence-point  -Wshadow @gol
+-Wreturn-type  -Wsequence-point  -Wshadow  -Wno-shadow-ivar @gol
 -Wsign-compare  -Wsign-conversion -Wfloat-conversion @gol
 -Wsizeof-pointer-memaccess @gol
 -Wstack-protector -Wstack-usage=@var{len} -Wstrict-aliasing @gol
@@ -427,8 +429,8 @@ Objective-C and Objective-C++ Dialects}.
 -ftree-vectorize -ftree-vrp @gol
 -funit-at-a-time -funroll-all-loops -funroll-loops @gol
 -funsafe-loop-optimizations -funsafe-math-optimizations -funswitch-loops @gol
--fvariable-expansion-in-unroller -fvect-cost-model -fvpt -fweb @gol
--fwhole-program -fwpa -fuse-ld=@var{linker} -fuse-linker-plugin @gol
+-fuse-caller-save -fvariable-expansion-in-unroller -fvect-cost-model -fvpt @gol
+-fweb -fwhole-program -fwpa -fuse-ld=@var{linker} -fuse-linker-plugin @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os -Ofast -Og}
 
@@ -670,6 +672,7 @@ Objective-C and Objective-C++ Dialects}.
 -mmmx  -msse  -msse2 -msse3 -mssse3 -msse4.1 -msse4.2 -msse4 -mavx @gol
 -mavx2 -mavx512f -mavx512pf -mavx512er -mavx512cd -msha @gol
 -maes -mpclmul -mfsgsbase -mrdrnd -mf16c -mfma -mprefetchwt1 @gol
+-mclflushopt -mxsavec -mxsaves @gol
 -msse4a -m3dnow -mpopcnt -mabm -mbmi -mtbm -mfma4 -mxop -mlzcnt @gol
 -mbmi2 -mfxsr -mxsave -mxsaveopt -mrtm -mlwp -mthreads @gol
 -mno-align-stringops  -minline-all-stringops @gol
@@ -870,7 +873,7 @@ Objective-C and Objective-C++ Dialects}.
 See RS/6000 and PowerPC Options.
 
 @emph{RL78 Options}
-@gccoptlist{-msim -mmul=none -mmul=g13 -mmul=rl78}
+@gccoptlist{-msim -mmul=none -mmul=g13 -mmul=rl78 -m64bit-doubles -m32bit-doubles}
 
 @emph{RS/6000 and PowerPC Options}
 @gccoptlist{-mcpu=@var{cpu-type} @gol
@@ -980,7 +983,7 @@ See RS/6000 and PowerPC Options.
 -mpretend-cmove -mtas}
 
 @emph{Solaris 2 Options}
-@gccoptlist{-mimpure-text  -mno-impure-text @gol
+@gccoptlist{-mclear-hwcap -mno-clear-hwcap -mimpure-text  -mno-impure-text @gol
 -pthreads -pthread}
 
 @emph{SPARC Options}
@@ -2977,6 +2980,22 @@ for individual class implementations to be modified during program execution.
 The GNU runtime currently always retains calls to @code{objc_get_class("@dots{}")}
 regardless of command-line options.
 
+@item -fno-local-ivars
+@opindex fno-local-ivars
+@opindex flocal-ivars
+By default instance variables in Objective-C can be accessed as if
+they were local variables from within the methods of the class they're
+declared in.  This can lead to shadowing between instance variables
+and other variables declared either locally inside a class method or
+globally with the same name.  Specifying the @option{-fno-local-ivars}
+flag disables this behavior thus avoiding variable shadowing issues.
+
+@item -fivar-visibility=@var{public|protected|private|package}
+@opindex fivar-visibility
+Set the default instance variable visibility to the specified option
+so that instance variables declared outside the scope of any access
+modifier directives default to the specified visibility.
+
 @item -gen-decls
 @opindex gen-decls
 Dump interface declarations for all classes seen in the source file to a
@@ -4360,10 +4379,17 @@ Do not warn whenever an @samp{#else} or an @samp{#endif} are followed by text.
 @item -Wshadow
 @opindex Wshadow
 @opindex Wno-shadow
-Warn whenever a local variable or type declaration shadows another variable,
-parameter, type, or class member (in C++), or whenever a built-in function
-is shadowed. Note that in C++, the compiler warns if a local variable
-shadows an explicit typedef, but not if it shadows a struct/class/enum.
+Warn whenever a local variable or type declaration shadows another
+variable, parameter, type, class member (in C++), or instance variable
+(in Objective-C) or whenever a built-in function is shadowed. Note
+that in C++, the compiler warns if a local variable shadows an
+explicit typedef, but not if it shadows a struct/class/enum.
+
+@item -Wno-shadow-ivar @r{(Objective-C only)}
+@opindex Wno-shadow-ivar
+@opindex Wshadow-ivar
+Do not warn whenever a local variable shadows an instance variable in an
+Objective-C method.
 
 @item -Wlarger-than=@var{len}
 @opindex Wlarger-than=@var{len}
@@ -5400,6 +5426,13 @@ Detect floating-point division by zero.  Unlike other similar options,
 @option{-fsanitize=float-divide-by-zero} is not enabled by
 @option{-fsanitize=undefined}, since floating-point division by zero can
 be a legitimate way of obtaining infinities and NaNs.
+
+@item -fsanitize=float-cast-overflow
+@opindex fsanitize=float-cast-overflow
+
+This option enables floating-point type to integer conversion checking.
+We check that the result of the conversion does not overflow.
+This option does not work well with @code{FE_INVALID} exceptions enabled.
 
 @item -fsanitize-recover
 @opindex fsanitize-recover
@@ -7437,7 +7470,8 @@ Attempt to remove redundant extension instructions.  This is especially
 helpful for the x86-64 architecture, which implicitly zero-extends in 64-bit
 registers after writing to their lower 32-bit half.
 
-Enabled for AArch64 and x86 at levels @option{-O2}, @option{-O3}.
+Enabled for Alpha, AArch64 and x86 at levels @option{-O2},
+@option{-O3}, @option{-Os}.
 
 @item -flive-range-shrinkage
 @opindex flive-range-shrinkage
@@ -7706,6 +7740,14 @@ Tracks stack adjustments (pushes and pops) and stack memory references
 and then tries to find ways to combine them.
 
 Enabled by default at @option{-O1} and higher.
+
+@item -fuse-caller-save
+Use caller save registers for allocation if those registers are not used by
+any called function.  In that case it is not necessary to save and restore
+them around calls.  This is only possible if called functions are part of
+same compilation unit as current function and they are compiled before it.
+
+Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
 
 @item -fconserve-stack
 @opindex fconserve-stack
@@ -8753,6 +8795,9 @@ as an algorithm disables partitioning and streaming completely.
 The default value is @code{balanced}. While @code{1to1} can be used
 as an workaround for various code ordering issues, the @code{max}
 partitioning is intended for internal testing only.
+The value @code{one} specifies that exactly one partition should be
+used while the value @code{none} bypasses partitioning and executes
+the link-time optimization step directly from the WPA phase.
 
 @item -flto-compression-level=@var{n}
 This option specifies the level of compression used for intermediate
@@ -10048,6 +10093,35 @@ IPA-CP attempts to track all possible values and types passed to a function's
 parameter in order to propagate them and perform devirtualization.
 @option{ipa-cp-value-list-size} is the maximum number of values and types it
 stores per one formal parameter of a function.
+
+@item ipa-cp-eval-threshold
+IPA-CP calculates its own score of cloning profitability heuristics
+and performs those cloning opportunities with scores that exceed
+@option{ipa-cp-eval-threshold}.
+
+@item ipa-max-agg-items
+IPA-CP is also capable to propagate a number of scalar values passed
+in an aggregate. @option{ipa-max-agg-items} controls the maximum
+number of such values per one parameter.
+
+@item ipa-cp-loop-hint-bonus
+When IPA-CP determines that a cloning candidate would make the number
+of iterations of a loop known, it adds a bonus of
+@option{ipa-cp-loop-hint-bonus} bonus to the profitability score of
+the candidate.
+
+@item ipa-cp-array-index-hint-bonus
+When IPA-CP determines that a cloning candidate would make the index of
+an array access known, it adds a bonus of
+@option{ipa-cp-array-index-hint-bonus} bonus to the profitability
+score of the candidate.
+
+@item ipa-max-aa-steps
+During its analysis of function bodies, IPA-CP employs alias analysis
+in order to track values pointed to by function parameters.  In order
+not spend too much time analyzing huge functions, it will give up and
+consider all memory clobbered after examining
+@option{ipa-max-aa-steps} statements modifying memory.
 
 @item lto-partitions
 Specify desired number of partitions produced during WHOPR compilation.
@@ -15312,6 +15386,8 @@ preferred alignment to @option{-mpreferred-stack-boundary=2}.
 @itemx -mno-aes
 @itemx -mpclmul
 @itemx -mno-pclmul
+@itemx -mclfushopt
+@itemx -mno-clflsuhopt
 @need 800
 @itemx -mfsgsbase
 @itemx -mno-fsgsbase
@@ -15350,6 +15426,10 @@ preferred alignment to @option{-mpreferred-stack-boundary=2}.
 @itemx -mrtm
 @itemx -mtbm
 @itemx -mno-tbm
+@itemx -mxsavec
+@itemx -mno-xsavec
+@itemx -mxsaves
+@itemx -mno-xsaves
 @opindex mmmx
 @opindex mno-mmx
 @opindex msse
@@ -18845,6 +18925,14 @@ The @code{g13} option is for the hardware multiply/divide peripheral
 only on the RL78/G13 targets.  The @code{rl78} option is for the
 standard hardware multiplication defined in the RL78 software manual.
 
+@item -m64bit-doubles
+@itemx -m32bit-doubles
+@opindex m64bit-doubles
+@opindex m32bit-doubles
+Make the @code{double} data type be 64 bits (@option{-m64bit-doubles})
+or 32 bits (@option{-m32bit-doubles}) in size.  The default is
+@option{-m32bit-doubles}.
+
 @end table
 
 @node RS/6000 and PowerPC Options
@@ -20860,6 +20948,13 @@ patterns.  This can result in faster code on the SH4 processor.
 These @samp{-m} options are supported on Solaris 2:
 
 @table @gcctabopt
+@item -mclear-hwcap
+@opindex mclear-hwcap
+@option{-mclear-hwcap} tells the compiler to remove the hardware
+capabilities generated by the Solaris assembler.  This is only necessary
+when object files use ISA extensions not supported by the current
+machine, but check at runtime whether or not to use them.
+
 @item -mimpure-text
 @opindex mimpure-text
 @option{-mimpure-text}, used in addition to @option{-shared}, tells

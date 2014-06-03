@@ -112,6 +112,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-pretty-print.h"
 #include "ipa-inline.h"
 #include "ipa-utils.h"
+#include "builtins.h"
 
 /* Enumeration of all aggregate reductions we can do.  */
 enum sra_mode { SRA_MODE_EARLY_IPA,   /* early call regularization */
@@ -2812,7 +2813,7 @@ sra_modify_expr (tree *expr, gimple_stmt_iterator *gsi, bool write)
 	{
 	  tree ref;
 
-	  ref = build_ref_for_model (loc, orig_expr, 0, access, NULL, false);
+	  ref = build_ref_for_model (loc, orig_expr, 0, access, gsi, false);
 
 	  if (write)
 	    {

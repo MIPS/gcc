@@ -114,7 +114,6 @@ static hashval_t const_desc_hash (const void *);
 static int const_desc_eq (const void *, const void *);
 static hashval_t const_hash_1 (const tree);
 static int compare_constant (const tree, const tree);
-static tree copy_constant (tree);
 static void output_constant_def_contents (rtx);
 static void output_addressed_constants (tree);
 static unsigned HOST_WIDE_INT output_constant (tree, unsigned HOST_WIDE_INT,
@@ -242,7 +241,7 @@ get_unnamed_section (unsigned int flags, void (*callback) (const void *),
 {
   section *sect;
 
-  sect = ggc_alloc_section ();
+  sect = ggc_alloc<section> ();
   sect->unnamed.common.flags = flags | SECTION_UNNAMED;
   sect->unnamed.callback = callback;
   sect->unnamed.data = data;
@@ -259,7 +258,7 @@ get_noswitch_section (unsigned int flags, noswitch_section_callback callback)
 {
   section *sect;
 
-  sect = ggc_alloc_section ();
+  sect = ggc_alloc<section> ();
   sect->noswitch.common.flags = flags | SECTION_NOSWITCH;
   sect->noswitch.callback = callback;
 
@@ -280,7 +279,7 @@ get_section (const char *name, unsigned int flags, tree decl)
   flags |= SECTION_NAMED;
   if (*slot == NULL)
     {
-      sect = ggc_alloc_section ();
+      sect = ggc_alloc<section> ();
       sect->named.common.flags = flags;
       sect->named.name = ggc_strdup (name);
       sect->named.decl = decl;
@@ -361,7 +360,7 @@ get_block_for_section (section *sect)
   block = (struct object_block *) *slot;
   if (block == NULL)
     {
-      block = ggc_alloc_cleared_object_block ();
+      block = ggc_cleared_alloc<object_block> ();
       block->sect = sect;
       *slot = block;
     }
@@ -381,7 +380,7 @@ create_block_symbol (const char *label, struct object_block *block,
 
   /* Create the extended SYMBOL_REF.  */
   size = RTX_HDR_SIZE + sizeof (struct block_symbol);
-  symbol = ggc_alloc_rtx_def (size);
+  symbol = (rtx) ggc_internal_alloc (size);
 
   /* Initialize the normal SYMBOL_REF fields.  */
   memset (symbol, 0, size);
@@ -428,7 +427,7 @@ resolve_unique_section (tree decl, int reloc ATTRIBUTE_UNUSED,
   if (DECL_SECTION_NAME (decl) == NULL_TREE
       && targetm_common.have_named_sections
       && (flag_function_or_data_sections
-	  || DECL_ONE_ONLY (decl)))
+	  || DECL_COMDAT_GROUP (decl)))
     {
       targetm.asm_out.unique_section (decl, reloc);
       DECL_HAS_IMPLICIT_SECTION_NAME_P (decl) = true;
@@ -517,7 +516,7 @@ get_named_text_section (tree decl,
 
 	  /* Do not try to split gnu_linkonce functions.  This gets somewhat
 	     slipperly.  */
-	  if (DECL_ONE_ONLY (decl) && !HAVE_COMDAT_GROUP)
+	  if (DECL_COMDAT_GROUP (decl) && !HAVE_COMDAT_GROUP)
 	    return NULL;
 	  name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
 	  name = targetm.strip_name_encoding (name);
@@ -687,7 +686,7 @@ default_function_rodata_section (tree decl)
     {
       const char *name = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
 
-      if (DECL_ONE_ONLY (decl) && HAVE_COMDAT_GROUP)
+      if (DECL_COMDAT_GROUP (decl) && HAVE_COMDAT_GROUP)
         {
 	  const char *dot;
 	  size_t len;
@@ -704,7 +703,7 @@ default_function_rodata_section (tree decl)
 	  return get_section (rname, SECTION_LINKONCE, decl);
 	}
       /* For .gnu.linkonce.t.foo we want to use .gnu.linkonce.r.foo.  */
-      else if (DECL_ONE_ONLY (decl)
+      else if (DECL_COMDAT_GROUP (decl)
 	       && strncmp (name, ".gnu.linkonce.t.", 16) == 0)
 	{
 	  size_t len = strlen (name) + 1;
@@ -996,7 +995,8 @@ align_variable (tree decl, bool dont_output_data)
 	 and for code accessing the variable as guaranteed alignment, we
 	 can only increase the alignment if it is a performance optimization
 	 if the references to it must bind to the current definition.  */
-      if (decl_binds_to_current_def_p (decl))
+      if (decl_binds_to_current_def_p (decl)
+	  && !DECL_VIRTUAL_P (decl))
 	{
 #ifdef DATA_ALIGNMENT
 	  unsigned int data_align = DATA_ALIGNMENT (TREE_TYPE (decl), align);
@@ -1082,6 +1082,9 @@ get_variable_section (tree decl, bool prefer_noswitch_p)
 {
   addr_space_t as = ADDR_SPACE_GENERIC;
   int reloc;
+  symtab_node *snode = symtab_get_node (decl);
+  if (snode)
+    decl = symtab_alias_ultimate_target (snode)->decl;
 
   if (TREE_TYPE (decl) != error_mark_node)
     as = TYPE_ADDR_SPACE (TREE_TYPE (decl));
@@ -1142,7 +1145,7 @@ get_block_for_decl (tree decl)
 
       /* There's no point using object blocks for something that is
 	 isolated by definition.  */
-      if (DECL_ONE_ONLY (decl))
+      if (DECL_COMDAT_GROUP (decl))
 	return NULL;
     }
 
@@ -3099,71 +3102,6 @@ compare_constant (const tree t1, const tree t2)
   gcc_unreachable ();
 }
 
-/* Make a copy of the whole tree structure for a constant.  This
-   handles the same types of nodes that compare_constant handles.  */
-
-static tree
-copy_constant (tree exp)
-{
-  switch (TREE_CODE (exp))
-    {
-    case ADDR_EXPR:
-      /* For ADDR_EXPR, we do not want to copy the decl whose address
-	 is requested.  We do want to copy constants though.  */
-      if (CONSTANT_CLASS_P (TREE_OPERAND (exp, 0)))
-	return build1 (TREE_CODE (exp), TREE_TYPE (exp),
-		       copy_constant (TREE_OPERAND (exp, 0)));
-      else
-	return copy_node (exp);
-
-    case INTEGER_CST:
-    case REAL_CST:
-    case FIXED_CST:
-    case STRING_CST:
-      return copy_node (exp);
-
-    case COMPLEX_CST:
-      return build_complex (TREE_TYPE (exp),
-			    copy_constant (TREE_REALPART (exp)),
-			    copy_constant (TREE_IMAGPART (exp)));
-
-    case PLUS_EXPR:
-    case POINTER_PLUS_EXPR:
-    case MINUS_EXPR:
-      return build2 (TREE_CODE (exp), TREE_TYPE (exp),
-		     copy_constant (TREE_OPERAND (exp, 0)),
-		     copy_constant (TREE_OPERAND (exp, 1)));
-
-    CASE_CONVERT:
-    case VIEW_CONVERT_EXPR:
-      return build1 (TREE_CODE (exp), TREE_TYPE (exp),
-		     copy_constant (TREE_OPERAND (exp, 0)));
-
-    case VECTOR_CST:
-      return build_vector (TREE_TYPE (exp), VECTOR_CST_ELTS (exp));
-
-    case CONSTRUCTOR:
-      {
-	tree copy = copy_node (exp);
-	vec<constructor_elt, va_gc> *v;
-	unsigned HOST_WIDE_INT idx;
-	tree purpose, value;
-
-	vec_alloc (v, vec_safe_length (CONSTRUCTOR_ELTS (exp)));
-	FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (exp), idx, purpose, value)
-	  {
-	    constructor_elt ce = {purpose, copy_constant (value)};
-	    v->quick_push (ce);
-	  }
-	CONSTRUCTOR_ELTS (copy) = v;
-	return copy;
-      }
-
-    default:
-      gcc_unreachable ();
-    }
-}
-
 /* Return the section into which constant EXP should be placed.  */
 
 static section *
@@ -3203,8 +3141,8 @@ build_constant_desc (tree exp)
   int labelno;
   tree decl;
 
-  desc = ggc_alloc_constant_descriptor_tree ();
-  desc->value = copy_constant (exp);
+  desc = ggc_alloc<constant_descriptor_tree> ();
+  desc->value = exp;
 
   /* Create a string containing the label name, in LABEL.  */
   labelno = const_labelno++;
@@ -3616,7 +3554,7 @@ create_constant_pool (void)
 {
   struct rtx_constant_pool *pool;
 
-  pool = ggc_alloc_rtx_constant_pool ();
+  pool = ggc_alloc<rtx_constant_pool> ();
   pool->const_rtx_htab = htab_create_ggc (31, const_desc_rtx_hash,
 					  const_desc_rtx_eq, NULL);
   pool->first = NULL;
@@ -3682,7 +3620,7 @@ force_const_mem (enum machine_mode mode, rtx x)
     return copy_rtx (desc->mem);
 
   /* Otherwise, create a new descriptor.  */
-  desc = ggc_alloc_constant_descriptor_rtx ();
+  desc = ggc_alloc<constant_descriptor_rtx> ();
   *slot = desc;
 
   /* Align the location counter as required by EXP's data type.  */
@@ -5081,24 +5019,27 @@ output_constructor_bitfield (oc_local_state *local, unsigned int bit_offset)
       this_time = MIN (end_offset - next_offset, BITS_PER_UNIT - next_bit);
       if (BYTES_BIG_ENDIAN)
 	{
-	  /* On big-endian machine, take the most significant bits
-	     first (of the bits that are significant)
-	     and put them into bytes from the most significant end.  */
+	  /* On big-endian machine, take the most significant bits (of the
+	     bits that are significant) first and put them into bytes from
+	     the most significant end.  */
 	  shift = end_offset - next_offset - this_time;
 
 	  /* Don't try to take a bunch of bits that cross
-	     the word boundary in the INTEGER_CST. We can
-	     only select bits from the LOW or HIGH part
-	     not from both.  */
+	     the word boundary in the INTEGER_CST.  We can
+	     only select bits from one element.  */
 	  if ((shift / HOST_BITS_PER_WIDE_INT)
- 	      != ((shift + this_time) / HOST_BITS_PER_WIDE_INT))
-	    this_time = (shift + this_time) & (HOST_BITS_PER_WIDE_INT - 1);
+	      != ((shift + this_time - 1) / HOST_BITS_PER_WIDE_INT))
+	    {
+	      const int end = shift + this_time - 1;
+	      shift = end & -HOST_BITS_PER_WIDE_INT;
+	      this_time = end - shift + 1;
+	    }
 
 	  /* Now get the bits from the appropriate constant word.  */
 	  value = TREE_INT_CST_ELT (local->val, shift / HOST_BITS_PER_WIDE_INT);
 	  shift = shift & (HOST_BITS_PER_WIDE_INT - 1);
 
-	  /* Get the result. This works only when:
+	  /* Get the result.  This works only when:
 	     1 <= this_time <= HOST_BITS_PER_WIDE_INT.  */
 	  local->byte |= (((value >> shift)
 			   & (((HOST_WIDE_INT) 2 << (this_time - 1)) - 1))
@@ -5106,25 +5047,24 @@ output_constructor_bitfield (oc_local_state *local, unsigned int bit_offset)
 	}
       else
 	{
-	  /* On little-endian machines,
-	     take first the least significant bits of the value
-	     and pack them starting at the least significant
+	  /* On little-endian machines, take the least significant bits of
+	     the value first and pack them starting at the least significant
 	     bits of the bytes.  */
 	  shift = next_offset - byte_relative_ebitpos;
 
 	  /* Don't try to take a bunch of bits that cross
-	     the word boundary in the INTEGER_CST. We can
-	     only select bits from the LOW or HIGH part
-	     not from both.  */
+	     the word boundary in the INTEGER_CST.  We can
+	     only select bits from one element.  */
 	  if ((shift / HOST_BITS_PER_WIDE_INT)
-	      != ((shift + this_time) / HOST_BITS_PER_WIDE_INT))
-	    this_time = (HOST_BITS_PER_WIDE_INT - shift);
+	      != ((shift + this_time - 1) / HOST_BITS_PER_WIDE_INT))
+	    this_time
+	      = HOST_BITS_PER_WIDE_INT - (shift & (HOST_BITS_PER_WIDE_INT - 1));
 
 	  /* Now get the bits from the appropriate constant word.  */
 	  value = TREE_INT_CST_ELT (local->val, shift / HOST_BITS_PER_WIDE_INT);
 	  shift = shift & (HOST_BITS_PER_WIDE_INT - 1);
 
-	  /* Get the result. This works only when:
+	  /* Get the result.  This works only when:
 	     1 <= this_time <= HOST_BITS_PER_WIDE_INT.  */
 	  local->byte |= (((value >> shift)
 			   & (((HOST_WIDE_INT) 2 << (this_time - 1)) - 1))
@@ -5712,7 +5652,7 @@ record_tm_clone_pair (tree o, tree n)
   if (tm_clone_hash == NULL)
     tm_clone_hash = htab_create_ggc (32, tree_map_hash, tree_map_eq, 0);
 
-  h = ggc_alloc_tree_map ();
+  h = ggc_alloc<tree_map> ();
   h->hash = htab_hash_pointer (o);
   h->base.from = o;
   h->to = n;
@@ -5916,17 +5856,23 @@ supports_one_only (void)
 void
 make_decl_one_only (tree decl, tree comdat_group)
 {
+  struct symtab_node *symbol;
   gcc_assert (TREE_CODE (decl) == VAR_DECL
 	      || TREE_CODE (decl) == FUNCTION_DECL);
 
   TREE_PUBLIC (decl) = 1;
+
+  if (TREE_CODE (decl) == VAR_DECL)
+    symbol = varpool_node_for_decl (decl);
+  else
+    symbol = cgraph_get_create_node (decl);
 
   if (SUPPORTS_ONE_ONLY)
     {
 #ifdef MAKE_DECL_ONE_ONLY
       MAKE_DECL_ONE_ONLY (decl);
 #endif
-      DECL_COMDAT_GROUP (decl) = comdat_group;
+      symbol->set_comdat_group (comdat_group);
     }
   else if (TREE_CODE (decl) == VAR_DECL
       && (DECL_INITIAL (decl) == 0 || DECL_INITIAL (decl) == error_mark_node))
@@ -6076,7 +6022,7 @@ default_section_type_flags (tree decl, const char *name, int reloc)
 	flags |= SECTION_RELRO;
     }
 
-  if (decl && DECL_P (decl) && DECL_ONE_ONLY (decl))
+  if (decl && DECL_P (decl) && DECL_COMDAT_GROUP (decl))
     flags |= SECTION_LINKONCE;
 
   if (strcmp (name, ".vtable_map_vars") == 0)
@@ -7075,7 +7021,16 @@ place_block_symbol (rtx symbol)
     }
   else
     {
+      struct symtab_node *snode;
       decl = SYMBOL_REF_DECL (symbol);
+
+      snode = symtab_get_node (decl);
+      if (snode->alias)
+	{
+	  rtx target = DECL_RTL (symtab_alias_ultimate_target (snode)->decl);
+	  SYMBOL_REF_BLOCK_OFFSET (symbol) = SYMBOL_REF_BLOCK_OFFSET (target);
+	  return;
+	}
       alignment = get_variable_align (decl);
       size = tree_to_uhwi (DECL_SIZE_UNIT (decl));
       if ((flag_sanitize & SANITIZE_ADDRESS)

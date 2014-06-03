@@ -55,6 +55,7 @@
 #include "context.h"
 #include "tm-constrs.h" /* for satisfies_constraint_*().  */
 #include "insn-flags.h" /* for gen_*().  */
+#include "builtins.h"
 
 static inline bool is_interrupt_func (const_tree decl);
 static inline bool is_brk_interrupt_func (const_tree decl);
@@ -111,7 +112,7 @@ rl78_init_machine_status (void)
 {
   struct machine_function *m;
 
-  m = ggc_alloc_cleared_machine_function ();
+  m = ggc_cleared_alloc<machine_function> ();
   m->virt_insns_ok = 1;
 
   return m;

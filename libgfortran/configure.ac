@@ -139,12 +139,13 @@ AM_PROG_CC_C_O
 # Add -Wall -fno-repack-arrays -fno-underscoring if we are using GCC.
 if test "x$GCC" = "xyes"; then
   AM_FCFLAGS="-I . -Wall -Werror -fimplicit-none -fno-repack-arrays -fno-underscoring"
-  ## We like to use C99 routines when available.  This makes sure that
+  ## We like to use C11 and C99 routines when available.  This makes
+  ## sure that
   ## __STDC_VERSION__ is set such that libc includes make them available.
-  AM_CFLAGS="-std=gnu99 -Wall -Wstrict-prototypes -Wmissing-prototypes -Wold-style-definition -Wextra -Wwrite-strings"
+  AM_CFLAGS="-std=gnu11 -Wall -Wstrict-prototypes -Wmissing-prototypes -Wold-style-definition -Wextra -Wwrite-strings"
   ## Compile the following tests with the same system header contents
   ## that we'll encounter when compiling our own source files.
-  CFLAGS="-std=gnu99 $CFLAGS"
+  CFLAGS="-std=gnu11 $CFLAGS"
 fi
 AC_SUBST(AM_FCFLAGS)
 AC_SUBST(AM_CFLAGS)
@@ -272,6 +273,8 @@ if test "x${with_newlib}" = "xyes"; then
    AC_DEFINE(HAVE_VSNPRINTF, 1, [Define if you have vsnprintf.])
    AC_DEFINE(HAVE_LOCALTIME_R, 1, [Define if you have localtime_r.])
    AC_DEFINE(HAVE_GMTIME_R, 1, [Define if you have gmtime_r.])
+   AC_DEFINE(HAVE_STRNLEN, 1, [Define if you have strnlen.])
+   AC_DEFINE(HAVE_STRNDUP, 1, [Define if you have strndup.])
 
    # At some point, we should differentiate between architectures
    # like x86, which have long double versions, and alpha/powerpc/etc.,
@@ -286,7 +289,7 @@ else
    strcasestr getrlimit gettimeofday stat fstat lstat getpwuid vsnprintf dup \
    getcwd localtime_r gmtime_r getpwuid_r ttyname_r clock_gettime \
    readlink getgid getpid getppid getuid geteuid umask getegid \
-   secure_getenv __secure_getenv mkostemp)
+   secure_getenv __secure_getenv mkostemp strnlen strndup)
 fi
 
 # Check strerror_r, cannot be above as versions with two and three arguments exist

@@ -76,6 +76,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "debug.h"
 #include "intl.h"
 #include "wide-int.h"
+#include "builtins.h"
 
 /* Tree code classes.  */
 
@@ -253,7 +254,7 @@ unsigned const char omp_clause_num_ops[] =
   4, /* OMP_CLAUSE_REDUCTION  */
   1, /* OMP_CLAUSE_COPYIN  */
   1, /* OMP_CLAUSE_COPYPRIVATE  */
-  2, /* OMP_CLAUSE_LINEAR  */
+  3, /* OMP_CLAUSE_LINEAR  */
   2, /* OMP_CLAUSE_ALIGNED  */
   1, /* OMP_CLAUSE_DEPEND  */
   1, /* OMP_CLAUSE_UNIFORM  */
@@ -383,6 +384,7 @@ tree_node_structure_for_code (enum tree_code code)
   switch (code)
     {
       /* tcc_constant cases.  */
+    case VOID_CST:		return TS_TYPED;
     case INTEGER_CST:		return TS_INT_CST;
     case REAL_CST:		return TS_REAL_CST;
     case FIXED_CST:		return TS_FIXED_CST;
@@ -602,6 +604,28 @@ decl_assembler_name (tree decl)
   return DECL_WITH_VIS_CHECK (decl)->decl_with_vis.assembler_name;
 }
 
+/* When the target supports COMDAT groups, this indicates which group the
+   DECL is associated with.  This can be either an IDENTIFIER_NODE or a
+   decl, in which case its DECL_ASSEMBLER_NAME identifies the group.  */
+tree
+decl_comdat_group (tree node)
+{
+  struct symtab_node *snode = symtab_get_node (node);
+  if (!snode)
+    return NULL;
+  return snode->get_comdat_group ();
+}
+
+/* Likewise, but make sure it's been reduced to an IDENTIFIER_NODE.  */
+tree
+decl_comdat_group_id (tree node)
+{
+  struct symtab_node *snode = symtab_get_node (node);
+  if (!snode)
+    return NULL;
+  return snode->get_comdat_group_id ();
+}
+
 /* Compute the number of bytes occupied by a tree with code CODE.
    This function cannot be used for nodes that have variable sizes,
    including TREE_VEC, INTEGER_CST, STRING_CST, and CALL_EXPR.  */
@@ -652,6 +676,7 @@ tree_code_size (enum tree_code code)
     case tcc_constant:  /* a constant */
       switch (code)
 	{
+	case VOID_CST:		return sizeof (struct tree_typed);
 	case INTEGER_CST:	gcc_unreachable ();
 	case REAL_CST:		return sizeof (struct tree_real_cst);
 	case FIXED_CST:		return sizeof (struct tree_fixed_cst);
@@ -970,14 +995,20 @@ copy_node_stat (tree node MEM_STAT_DECL)
 	}
       /* DECL_DEBUG_EXPR is copied explicitely by callers.  */
       if (TREE_CODE (node) == VAR_DECL)
-	DECL_HAS_DEBUG_EXPR_P (t) = 0;
+	{
+	  DECL_HAS_DEBUG_EXPR_P (t) = 0;
+	  t->decl_with_vis.symtab_node = NULL;
+	}
       if (TREE_CODE (node) == VAR_DECL && DECL_HAS_INIT_PRIORITY_P (node))
 	{
 	  SET_DECL_INIT_PRIORITY (t, DECL_INIT_PRIORITY (node));
 	  DECL_HAS_INIT_PRIORITY_P (t) = 1;
 	}
       if (TREE_CODE (node) == FUNCTION_DECL)
-	DECL_STRUCT_FUNCTION (t) = NULL;
+	{
+	  DECL_STRUCT_FUNCTION (t) = NULL;
+	  t->decl_with_vis.symtab_node = NULL;
+	}
     }
   else if (TREE_CODE_CLASS (code) == tcc_type)
     {
@@ -1670,7 +1701,7 @@ build_fixed (tree type, FIXED_VALUE_TYPE f)
   FIXED_VALUE_TYPE *fp;
 
   v = make_node (FIXED_CST);
-  fp = ggc_alloc_fixed_value ();
+  fp = ggc_alloc<fixed_value> ();
   memcpy (fp, &f, sizeof (FIXED_VALUE_TYPE));
 
   TREE_TYPE (v) = type;
@@ -1691,7 +1722,7 @@ build_real (tree type, REAL_VALUE_TYPE d)
      Consider doing it via real_convert now.  */
 
   v = make_node (REAL_CST);
-  dp = ggc_alloc_real_value ();
+  dp = ggc_alloc<real_value> ();
   memcpy (dp, &d, sizeof (REAL_VALUE_TYPE));
 
   TREE_TYPE (v) = type;
@@ -1748,7 +1779,7 @@ build_string (int len, const char *str)
 
   record_node_allocation_statistics (STRING_CST, length);
 
-  s = ggc_alloc_tree_node (length);
+  s = (tree) ggc_internal_alloc (length);
 
   memset (s, 0, sizeof (struct tree_typed));
   TREE_SET_CODE (s, STRING_CST);
@@ -2016,7 +2047,7 @@ grow_tree_vec_stat (tree v, int len MEM_STAT_DECL)
 
   record_node_allocation_statistics (TREE_VEC, length - oldlength);
 
-  v = (tree) ggc_realloc_stat (v, length PASS_MEM_STAT);
+  v = (tree) ggc_realloc (v, length PASS_MEM_STAT);
 
   TREE_VEC_LENGTH (v) = len;
 
@@ -5236,7 +5267,6 @@ find_decls_types_r (tree *tp, int *ws, void *data)
       else if (TREE_CODE (t) == VAR_DECL)
 	{
 	  fld_worklist_push (DECL_SECTION_NAME (t), fld);
-	  fld_worklist_push (DECL_COMDAT_GROUP (t), fld);
 	}
 
       if ((TREE_CODE (t) == VAR_DECL || TREE_CODE (t) == PARM_DECL)
@@ -6407,7 +6437,7 @@ decl_priority_info (tree decl)
   h = (struct tree_priority_map *) *loc;
   if (!h)
     {
-      h = ggc_alloc_cleared_tree_priority_map ();
+      h = ggc_cleared_alloc<tree_priority_map> ();
       *loc = h;
       h->base.from = decl;
       h->init = DEFAULT_INIT_PRIORITY;
@@ -6490,7 +6520,7 @@ decl_debug_expr_insert (tree from, tree to)
   struct tree_decl_map *h;
   void **loc;
 
-  h = ggc_alloc_tree_decl_map ();
+  h = ggc_alloc<tree_decl_map> ();
   h->base.from = from;
   h->to = to;
   loc = htab_find_slot_with_hash (debug_expr_for_decl, h, DECL_UID (from),
@@ -6521,7 +6551,7 @@ decl_value_expr_insert (tree from, tree to)
   struct tree_decl_map *h;
   void **loc;
 
-  h = ggc_alloc_tree_decl_map ();
+  h = ggc_alloc<tree_decl_map> ();
   h->base.from = from;
   h->to = to;
   loc = htab_find_slot_with_hash (value_expr_for_decl, h, DECL_UID (from),
@@ -6562,7 +6592,7 @@ decl_debug_args_insert (tree from)
   if (debug_args_for_decl == NULL)
     debug_args_for_decl = htab_create_ggc (64, tree_vec_map_hash,
 					   tree_vec_map_eq, 0);
-  h = ggc_alloc_tree_vec_map ();
+  h = ggc_alloc<tree_vec_map> ();
   h->base.from = from;
   h->to = NULL;
   loc = htab_find_slot_with_hash (debug_args_for_decl, h, DECL_UID (from),
@@ -6747,7 +6777,7 @@ type_hash_add (hashval_t hashcode, tree type)
   struct type_hash *h;
   void **loc;
 
-  h = ggc_alloc_type_hash ();
+  h = ggc_alloc<type_hash> ();
   h->hash = hashcode;
   h->type = type;
   loc = htab_find_slot_with_hash (type_hash_table, h, hashcode, INSERT);
@@ -7360,6 +7390,8 @@ iterative_hash_expr (const_tree t, hashval_t val)
     {
     /* Alas, constants aren't shared, so we can't rely on pointer
        identity.  */
+    case VOID_CST:
+      return iterative_hash_hashval_t (0, val);
     case INTEGER_CST:
       for (i = 0; i < TREE_INT_CST_NUNITS (t); i++)
 	val = iterative_hash_host_wide_int (TREE_INT_CST_ELT (t, i), val);
@@ -9631,6 +9663,9 @@ build_common_tree_nodes (bool signed_char, bool short_double)
   TYPE_ALIGN (void_type_node) = BITS_PER_UNIT;
   TYPE_USER_ALIGN (void_type_node) = 0;
 
+  void_node = make_node (VOID_CST);
+  TREE_TYPE (void_node) = void_type_node;
+
   null_pointer_node = build_int_cst (build_pointer_type (void_type_node), 0);
   layout_type (TREE_TYPE (null_pointer_node));
 
@@ -10314,7 +10349,7 @@ build_omp_clause (location_t loc, enum omp_clause_code code)
 
   record_node_allocation_statistics (OMP_CLAUSE, size);
 
-  t = ggc_alloc_tree_node (size);
+  t = (tree) ggc_internal_alloc (size);
   memset (t, 0, size);
   TREE_SET_CODE (t, OMP_CLAUSE);
   OMP_CLAUSE_SET_CODE (t, code);
@@ -10433,6 +10468,91 @@ build_call_vec (tree return_type, tree fn, vec<tree, va_gc> *args)
   return ret;
 }
 
+/* Conveniently construct a function call expression.  FNDECL names the
+   function to be called and N arguments are passed in the array
+   ARGARRAY.  */
+
+tree
+build_call_expr_loc_array (location_t loc, tree fndecl, int n, tree *argarray)
+{
+  tree fntype = TREE_TYPE (fndecl);
+  tree fn = build1 (ADDR_EXPR, build_pointer_type (fntype), fndecl);
+ 
+  return fold_builtin_call_array (loc, TREE_TYPE (fntype), fn, n, argarray);
+}
+
+/* Conveniently construct a function call expression.  FNDECL names the
+   function to be called and the arguments are passed in the vector
+   VEC.  */
+
+tree
+build_call_expr_loc_vec (location_t loc, tree fndecl, vec<tree, va_gc> *vec)
+{
+  return build_call_expr_loc_array (loc, fndecl, vec_safe_length (vec),
+				    vec_safe_address (vec));
+}
+
+
+/* Conveniently construct a function call expression.  FNDECL names the
+   function to be called, N is the number of arguments, and the "..."
+   parameters are the argument expressions.  */
+
+tree
+build_call_expr_loc (location_t loc, tree fndecl, int n, ...)
+{
+  va_list ap;
+  tree *argarray = XALLOCAVEC (tree, n);
+  int i;
+
+  va_start (ap, n);
+  for (i = 0; i < n; i++)
+    argarray[i] = va_arg (ap, tree);
+  va_end (ap);
+  return build_call_expr_loc_array (loc, fndecl, n, argarray);
+}
+
+/* Like build_call_expr_loc (UNKNOWN_LOCATION, ...).  Duplicated because
+   varargs macros aren't supported by all bootstrap compilers.  */
+
+tree
+build_call_expr (tree fndecl, int n, ...)
+{
+  va_list ap;
+  tree *argarray = XALLOCAVEC (tree, n);
+  int i;
+
+  va_start (ap, n);
+  for (i = 0; i < n; i++)
+    argarray[i] = va_arg (ap, tree);
+  va_end (ap);
+  return build_call_expr_loc_array (UNKNOWN_LOCATION, fndecl, n, argarray);
+}
+
+/* Create a new constant string literal and return a char* pointer to it.
+   The STRING_CST value is the LEN characters at STR.  */
+tree
+build_string_literal (int len, const char *str)
+{
+  tree t, elem, index, type;
+
+  t = build_string (len, str);
+  elem = build_type_variant (char_type_node, 1, 0);
+  index = build_index_type (size_int (len - 1));
+  type = build_array_type (elem, index);
+  TREE_TYPE (t) = type;
+  TREE_CONSTANT (t) = 1;
+  TREE_READONLY (t) = 1;
+  TREE_STATIC (t) = 1;
+
+  type = build_pointer_type (elem);
+  t = build1 (ADDR_EXPR, type,
+	      build4 (ARRAY_REF, elem,
+		      t, integer_zero_node, NULL_TREE, NULL_TREE));
+  return t;
+}
+
+
+
 /* Return true if T (assumed to be a DECL) must be assigned a memory
    location.  */
 
@@ -10464,40 +10584,6 @@ int_cst_value (const_tree x)
 	val |= (~(unsigned HOST_WIDE_INT) 0) << (bits - 1) << 1;
       else
 	val &= ~((~(unsigned HOST_WIDE_INT) 0) << (bits - 1) << 1);
-    }
-
-  return val;
-}
-
-/* Return value of a constant X and sign-extend it.  */
-
-HOST_WIDEST_INT
-widest_int_cst_value (const_tree x)
-{
-  unsigned bits = TYPE_PRECISION (TREE_TYPE (x));
-  unsigned HOST_WIDEST_INT val = TREE_INT_CST_LOW (x);
-
-#if HOST_BITS_PER_WIDEST_INT > HOST_BITS_PER_WIDE_INT
-  gcc_assert (HOST_BITS_PER_WIDEST_INT >= HOST_BITS_PER_DOUBLE_INT);
-  gcc_assert (TREE_INT_CST_NUNITS (x) == 2);
-
-  if (TREE_INT_CST_NUNITS (x) == 1)
-    val = HOST_WIDE_INT (val);
-  else
-    val |= (((unsigned HOST_WIDEST_INT) TREE_INT_CST_ELT (x, 1))
-	    << HOST_BITS_PER_WIDE_INT);
-#else
-  /* Make sure the sign-extended value will fit in a HOST_WIDE_INT.  */
-  gcc_assert (TREE_INT_CST_NUNITS (x) == 1);
-#endif
-
-  if (bits < HOST_BITS_PER_WIDEST_INT)
-    {
-      bool negative = ((val >> (bits - 1)) & 1) != 0;
-      if (negative)
-	val |= (~(unsigned HOST_WIDEST_INT) 0) << (bits - 1) << 1;
-      else
-	val &= ~((~(unsigned HOST_WIDEST_INT) 0) << (bits - 1) << 1);
     }
 
   return val;
@@ -10960,8 +11046,13 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	    WALK_SUBTREE_TAIL (OMP_CLAUSE_CHAIN (*tp));
 	  }
 
-	case OMP_CLAUSE_ALIGNED:
 	case OMP_CLAUSE_LINEAR:
+	  WALK_SUBTREE (OMP_CLAUSE_DECL (*tp));
+	  WALK_SUBTREE (OMP_CLAUSE_LINEAR_STEP (*tp));
+	  WALK_SUBTREE (OMP_CLAUSE_LINEAR_STMT (*tp));
+	  WALK_SUBTREE_TAIL (OMP_CLAUSE_CHAIN (*tp));
+
+	case OMP_CLAUSE_ALIGNED:
 	case OMP_CLAUSE_FROM:
 	case OMP_CLAUSE_TO:
 	case OMP_CLAUSE_MAP:

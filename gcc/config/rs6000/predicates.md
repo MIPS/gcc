@@ -743,13 +743,12 @@
 		    || GET_CODE (XEXP (op, 0)) == PRE_DEC
 		    || GET_CODE (XEXP (op, 0)) == PRE_MODIFY))"))
 
-;; Return 1 if the operand is a MEM with an update-indexed-form address. Note
-;; that PRE_INC/PRE_DEC will always be non-indexed (i.e. non X-form) since the
-;; increment is based on the mode size and will therefor always be a const.
-(define_special_predicate "update_indexed_address_mem"
+;; Return 1 if the operand is a MEM with an indexed-form address.
+(define_special_predicate "indexed_address_mem"
   (match_test "(MEM_P (op)
-		&& GET_CODE (XEXP (op, 0)) == PRE_MODIFY
-		&& indexed_address (XEXP (XEXP (op, 0), 1), mode))"))
+		&& (indexed_address (XEXP (op, 0), mode)
+		    || (GET_CODE (XEXP (op, 0)) == PRE_MODIFY
+			&& indexed_address (XEXP (XEXP (op, 0), 1), mode))))"))
 
 ;; Used for the destination of the fix_truncdfsi2 expander.
 ;; If stfiwx will be used, the result goes to memory; otherwise,

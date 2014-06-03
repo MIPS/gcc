@@ -135,7 +135,7 @@ varpool_call_variable_insertion_hooks (varpool_node *node)
 varpool_node *
 varpool_create_empty_node (void)
 {   
-  varpool_node *node = ggc_alloc_cleared_varpool_node ();
+  varpool_node *node = ggc_cleared_alloc<varpool_node> ();
   node->type = SYMTAB_VARIABLE;
   return node;
 }   
@@ -211,6 +211,8 @@ dump_varpool_node (FILE *f, varpool_node *node)
     fprintf (f, " read-only");
   if (ctor_for_folding (node->decl) != error_mark_node)
     fprintf (f, " const-value-known");
+  if (node->writeonly)
+    fprintf (f, " write-only");
   fprintf (f, "\n");
 }
 
@@ -353,7 +355,6 @@ varpool_add_new_variable (tree decl)
 enum availability
 cgraph_variable_initializer_availability (varpool_node *node)
 {
-  gcc_assert (cgraph_function_flags_ready);
   if (!node->definition)
     return AVAIL_NOT_AVAILABLE;
   if (!TREE_PUBLIC (node->decl))

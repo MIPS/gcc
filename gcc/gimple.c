@@ -835,9 +835,7 @@ gimple_build_omp_for (gimple_seq body, int kind, tree clauses, size_t collapse,
   gimple_omp_for_set_clauses (p, clauses);
   gimple_omp_for_set_kind (p, kind);
   p->collapse = collapse;
-  p->iter =  static_cast <struct gimple_omp_for_iter *> (
-   ggc_internal_cleared_vec_alloc_stat (sizeof (*p->iter),
-					collapse MEM_STAT_INFO));
+  p->iter =  ggc_cleared_vec_alloc<gimple_omp_for_iter> (collapse);
 
   if (pre_body)
     gimple_omp_for_set_pre_body (p, pre_body);
@@ -1665,11 +1663,8 @@ gimple_copy (gimple stmt)
 	  {
 	    gimple_statement_omp_for *omp_for_copy =
 	      as_a <gimple_statement_omp_for *> (copy);
-	    omp_for_copy->iter =
-	      static_cast <struct gimple_omp_for_iter *> (
-		  ggc_internal_vec_alloc_stat (sizeof (struct gimple_omp_for_iter),
-					       gimple_omp_for_collapse (stmt)
-					       MEM_STAT_INFO));
+	    omp_for_copy->iter = ggc_vec_alloc<gimple_omp_for_iter>
+	      ( gimple_omp_for_collapse (stmt));
           }
 	  for (i = 0; i < gimple_omp_for_collapse (stmt); i++)
 	    {
@@ -2376,7 +2371,7 @@ validate_type (tree type1, tree type2)
    a decl of a builtin function.  */
 
 bool
-gimple_builtin_call_types_compatible_p (gimple stmt, tree fndecl)
+gimple_builtin_call_types_compatible_p (const_gimple stmt, tree fndecl)
 {
   gcc_checking_assert (DECL_BUILT_IN_CLASS (fndecl) != NOT_BUILT_IN);
 
@@ -2405,7 +2400,7 @@ gimple_builtin_call_types_compatible_p (gimple stmt, tree fndecl)
 /* Return true when STMT is builtins call.  */
 
 bool
-gimple_call_builtin_p (gimple stmt)
+gimple_call_builtin_p (const_gimple stmt)
 {
   tree fndecl;
   if (is_gimple_call (stmt)
@@ -2418,7 +2413,7 @@ gimple_call_builtin_p (gimple stmt)
 /* Return true when STMT is builtins call to CLASS.  */
 
 bool
-gimple_call_builtin_p (gimple stmt, enum built_in_class klass)
+gimple_call_builtin_p (const_gimple stmt, enum built_in_class klass)
 {
   tree fndecl;
   if (is_gimple_call (stmt)
@@ -2431,7 +2426,7 @@ gimple_call_builtin_p (gimple stmt, enum built_in_class klass)
 /* Return true when STMT is builtins call to CODE of CLASS.  */
 
 bool
-gimple_call_builtin_p (gimple stmt, enum built_in_function code)
+gimple_call_builtin_p (const_gimple stmt, enum built_in_function code)
 {
   tree fndecl;
   if (is_gimple_call (stmt)

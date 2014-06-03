@@ -79,6 +79,7 @@
 #include "dumpfile.h"
 #include "cgraph.h"
 #include "target-globals.h"
+#include "builtins.h"
 #if TARGET_XCOFF
 #include "xcoffout.h"  /* get declarations of xcoff_*_section_name */
 #endif
@@ -1068,7 +1069,7 @@ static tree rs6000_handle_longcall_attribute (tree *, tree, tree, int, bool *);
 static tree rs6000_handle_altivec_attribute (tree *, tree, tree, int, bool *);
 static tree rs6000_handle_struct_attribute (tree *, tree, tree, int, bool *);
 static tree rs6000_builtin_vectorized_libmass (tree, tree, tree);
-static rtx rs6000_emit_set_long_const (rtx, HOST_WIDE_INT, HOST_WIDE_INT);
+static void rs6000_emit_set_long_const (rtx, HOST_WIDE_INT);
 static int rs6000_memory_move_cost (enum machine_mode, reg_class_t, bool);
 static bool rs6000_debug_rtx_costs (rtx, int, int, int, int *, bool);
 static int rs6000_debug_address_cost (rtx, enum machine_mode, addr_space_t,
@@ -6124,7 +6125,8 @@ mem_operand_gpr (rtx op, enum machine_mode mode)
     return false;
 
   extra = GET_MODE_SIZE (mode) - UNITS_PER_WORD;
-  gcc_assert (extra >= 0);
+  if (extra < 0)
+    extra = 0;
 
   if (GET_CODE (addr) == LO_SUM)
     /* For lo_sum addresses, we must allow any offset except one that
@@ -6803,6 +6805,16 @@ rs6000_output_dwarf_dtprel (FILE *file, int size, rtx x)
   fputs ("@dtprel+0x8000", file);
 }
 
+/* Return true if X is a symbol that refers to real (rather than emulated)
+   TLS.  */
+
+static bool
+rs6000_real_tls_symbol_ref_p (rtx x)
+{
+  return (GET_CODE (x) == SYMBOL_REF
+	  && SYMBOL_REF_TLS_MODEL (x) >= TLS_MODEL_REAL);
+}
+
 /* In the name of slightly smaller debug output, and to cater to
    general assembler lossage, recognize various UNSPEC sequences
    and turn them back into a direct symbol reference.  */
@@ -6860,7 +6872,7 @@ rs6000_delegitimize_address (rtx orig_x)
       if (TARGET_XCOFF
 	  && GET_CODE (y) == SYMBOL_REF
 	  && CONSTANT_POOL_ADDRESS_P (y)
-	  && SYMBOL_REF_TLS_MODEL (get_pool_constant (y)) >= TLS_MODEL_REAL)
+	  && rs6000_real_tls_symbol_ref_p (get_pool_constant (y)))
 	return orig_x;
 #endif
 
@@ -7838,53 +7850,50 @@ rs6000_conditional_register_usage (void)
 }
 
 
-/* Try to output insns to set TARGET equal to the constant C if it can
-   be done in less than N insns.  Do all computations in MODE.
-   Returns the place where the output has been placed if it can be
-   done and the insns have been emitted.  If it would take more than N
-   insns, zero is returned and no insns and emitted.  */
+/* Output insns to set DEST equal to the constant SOURCE as a series of
+   lis, ori and shl instructions and return TRUE.  */
 
-rtx
-rs6000_emit_set_const (rtx dest, enum machine_mode mode,
-		       rtx source, int n ATTRIBUTE_UNUSED)
+bool
+rs6000_emit_set_const (rtx dest, rtx source)
 {
-  rtx result, insn, set;
-  HOST_WIDE_INT c0, c1;
+  enum machine_mode mode = GET_MODE (dest);
+  rtx temp, insn, set;
+  HOST_WIDE_INT c;
 
+  gcc_checking_assert (CONST_INT_P (source));
+  c = INTVAL (source);
   switch (mode)
     {
-    case  QImode:
+    case QImode:
     case HImode:
-      if (dest == NULL)
-	dest = gen_reg_rtx (mode);
       emit_insn (gen_rtx_SET (VOIDmode, dest, source));
-      return dest;
+      return true;
 
     case SImode:
-      result = !can_create_pseudo_p () ? dest : gen_reg_rtx (SImode);
+      temp = !can_create_pseudo_p () ? dest : gen_reg_rtx (SImode);
 
-      emit_insn (gen_rtx_SET (VOIDmode, copy_rtx (result),
-			      GEN_INT (INTVAL (source)
-				       & (~ (HOST_WIDE_INT) 0xffff))));
+      emit_insn (gen_rtx_SET (VOIDmode, copy_rtx (temp),
+			      GEN_INT (c & ~(HOST_WIDE_INT) 0xffff)));
       emit_insn (gen_rtx_SET (VOIDmode, dest,
-			      gen_rtx_IOR (SImode, copy_rtx (result),
-					   GEN_INT (INTVAL (source) & 0xffff))));
-      result = dest;
+			      gen_rtx_IOR (SImode, copy_rtx (temp),
+					   GEN_INT (c & 0xffff))));
       break;
 
     case DImode:
-      switch (GET_CODE (source))
+      if (!TARGET_POWERPC64)
 	{
-	case CONST_INT:
-	  c0 = INTVAL (source);
-	  c1 = -(c0 < 0);
-	  break;
+	  rtx hi, lo;
 
-	default:
-	  gcc_unreachable ();
+	  hi = operand_subword_force (copy_rtx (dest), WORDS_BIG_ENDIAN == 0,
+				      DImode);
+	  lo = operand_subword_force (dest, WORDS_BIG_ENDIAN != 0,
+				      DImode);
+	  emit_move_insn (hi, GEN_INT (c >> 32));
+	  c = ((c & 0xffffffff) ^ 0x80000000) - 0x80000000;
+	  emit_move_insn (lo, GEN_INT (c));
 	}
-
-      result = rs6000_emit_set_long_const (dest, c0, c1);
+      else
+	rs6000_emit_set_long_const (dest, c);
       break;
 
     default:
@@ -7894,107 +7903,103 @@ rs6000_emit_set_const (rtx dest, enum machine_mode mode,
   insn = get_last_insn ();
   set = single_set (insn);
   if (! CONSTANT_P (SET_SRC (set)))
-    set_unique_reg_note (insn, REG_EQUAL, source);
+    set_unique_reg_note (insn, REG_EQUAL, GEN_INT (c));
 
-  return result;
+  return true;
 }
 
-/* Having failed to find a 3 insn sequence in rs6000_emit_set_const,
-   fall back to a straight forward decomposition.  We do this to avoid
-   exponential run times encountered when looking for longer sequences
-   with rs6000_emit_set_const.  */
-static rtx
-rs6000_emit_set_long_const (rtx dest, HOST_WIDE_INT c1, HOST_WIDE_INT c2)
-{
-  if (!TARGET_POWERPC64)
-    {
-      rtx operand1, operand2;
+/* Subroutine of rs6000_emit_set_const, handling PowerPC64 DImode.
+   Output insns to set DEST equal to the constant C as a series of
+   lis, ori and shl instructions.  */
 
-      operand1 = operand_subword_force (dest, WORDS_BIG_ENDIAN == 0,
-					DImode);
-      operand2 = operand_subword_force (copy_rtx (dest), WORDS_BIG_ENDIAN != 0,
-					DImode);
-      emit_move_insn (operand1, GEN_INT (c1));
-      emit_move_insn (operand2, GEN_INT (c2));
+static void
+rs6000_emit_set_long_const (rtx dest, HOST_WIDE_INT c)
+{
+  rtx temp;
+  HOST_WIDE_INT ud1, ud2, ud3, ud4;
+
+  ud1 = c & 0xffff;
+  c = c >> 16;
+  ud2 = c & 0xffff;
+  c = c >> 16;
+  ud3 = c & 0xffff;
+  c = c >> 16;
+  ud4 = c & 0xffff;
+
+  if ((ud4 == 0xffff && ud3 == 0xffff && ud2 == 0xffff && (ud1 & 0x8000))
+      || (ud4 == 0 && ud3 == 0 && ud2 == 0 && ! (ud1 & 0x8000)))
+    emit_move_insn (dest, GEN_INT ((ud1 ^ 0x8000) - 0x8000));
+
+  else if ((ud4 == 0xffff && ud3 == 0xffff && (ud2 & 0x8000))
+	   || (ud4 == 0 && ud3 == 0 && ! (ud2 & 0x8000)))
+    {
+      temp = !can_create_pseudo_p () ? dest : gen_reg_rtx (DImode);
+
+      emit_move_insn (ud1 != 0 ? copy_rtx (temp) : dest,
+		      GEN_INT (((ud2 << 16) ^ 0x80000000) - 0x80000000));
+      if (ud1 != 0)
+	emit_move_insn (dest,
+			gen_rtx_IOR (DImode, copy_rtx (temp),
+				     GEN_INT (ud1)));
+    }
+  else if (ud3 == 0 && ud4 == 0)
+    {
+      temp = !can_create_pseudo_p () ? dest : gen_reg_rtx (DImode);
+
+      gcc_assert (ud2 & 0x8000);
+      emit_move_insn (copy_rtx (temp),
+		      GEN_INT (((ud2 << 16) ^ 0x80000000) - 0x80000000));
+      if (ud1 != 0)
+	emit_move_insn (copy_rtx (temp),
+			gen_rtx_IOR (DImode, copy_rtx (temp),
+				     GEN_INT (ud1)));
+      emit_move_insn (dest,
+		      gen_rtx_ZERO_EXTEND (DImode,
+					   gen_lowpart (SImode,
+							copy_rtx (temp))));
+    }
+  else if ((ud4 == 0xffff && (ud3 & 0x8000))
+	   || (ud4 == 0 && ! (ud3 & 0x8000)))
+    {
+      temp = !can_create_pseudo_p () ? dest : gen_reg_rtx (DImode);
+
+      emit_move_insn (copy_rtx (temp),
+		      GEN_INT (((ud3 << 16) ^ 0x80000000) - 0x80000000));
+      if (ud2 != 0)
+	emit_move_insn (copy_rtx (temp),
+			gen_rtx_IOR (DImode, copy_rtx (temp),
+				     GEN_INT (ud2)));
+      emit_move_insn (ud1 != 0 ? copy_rtx (temp) : dest,
+		      gen_rtx_ASHIFT (DImode, copy_rtx (temp),
+				      GEN_INT (16)));
+      if (ud1 != 0)
+	emit_move_insn (dest,
+			gen_rtx_IOR (DImode, copy_rtx (temp),
+				     GEN_INT (ud1)));
     }
   else
     {
-      HOST_WIDE_INT ud1, ud2, ud3, ud4;
+      temp = !can_create_pseudo_p () ? dest : gen_reg_rtx (DImode);
 
-      ud1 = c1 & 0xffff;
-      ud2 = (c1 & 0xffff0000) >> 16;
-      c2 = c1 >> 32;
-      ud3 = c2 & 0xffff;
-      ud4 = (c2 & 0xffff0000) >> 16;
+      emit_move_insn (copy_rtx (temp),
+		      GEN_INT (((ud4 << 16) ^ 0x80000000) - 0x80000000));
+      if (ud3 != 0)
+	emit_move_insn (copy_rtx (temp),
+			gen_rtx_IOR (DImode, copy_rtx (temp),
+				     GEN_INT (ud3)));
 
-      if ((ud4 == 0xffff && ud3 == 0xffff && ud2 == 0xffff && (ud1 & 0x8000))
-	  || (ud4 == 0 && ud3 == 0 && ud2 == 0 && ! (ud1 & 0x8000)))
-	emit_move_insn (dest, GEN_INT ((ud1 ^ 0x8000) - 0x8000));
-
-      else if ((ud4 == 0xffff && ud3 == 0xffff && (ud2 & 0x8000))
-	       || (ud4 == 0 && ud3 == 0 && ! (ud2 & 0x8000)))
-	{
-	  emit_move_insn (dest, GEN_INT (((ud2 << 16) ^ 0x80000000)
-					 - 0x80000000));
-	  if (ud1 != 0)
-	    emit_move_insn (copy_rtx (dest),
-			    gen_rtx_IOR (DImode, copy_rtx (dest),
-					 GEN_INT (ud1)));
-	}
-      else if (ud3 == 0 && ud4 == 0)
-	{
-	  gcc_assert (ud2 & 0x8000);
-	  emit_move_insn (dest, GEN_INT (((ud2 << 16) ^ 0x80000000)
-					 - 0x80000000));
-	  if (ud1 != 0)
-	    emit_move_insn (copy_rtx (dest),
-			    gen_rtx_IOR (DImode, copy_rtx (dest),
-					 GEN_INT (ud1)));
-	  emit_move_insn (copy_rtx (dest),
-			  gen_rtx_ZERO_EXTEND (DImode,
-					       gen_lowpart (SImode,
-							    copy_rtx (dest))));
-	}
-      else if ((ud4 == 0xffff && (ud3 & 0x8000))
-	       || (ud4 == 0 && ! (ud3 & 0x8000)))
-	{
-	  emit_move_insn (dest, GEN_INT (((ud3 << 16) ^ 0x80000000)
-					 - 0x80000000));
-	  if (ud2 != 0)
-	    emit_move_insn (copy_rtx (dest),
-			    gen_rtx_IOR (DImode, copy_rtx (dest),
-					 GEN_INT (ud2)));
-	  emit_move_insn (copy_rtx (dest),
-			  gen_rtx_ASHIFT (DImode, copy_rtx (dest),
-					  GEN_INT (16)));
-	  if (ud1 != 0)
-	    emit_move_insn (copy_rtx (dest),
-			    gen_rtx_IOR (DImode, copy_rtx (dest),
-					 GEN_INT (ud1)));
-	}
-      else
-	{
-	  emit_move_insn (dest, GEN_INT (((ud4 << 16) ^ 0x80000000)
-					 - 0x80000000));
-	  if (ud3 != 0)
-	    emit_move_insn (copy_rtx (dest),
-			    gen_rtx_IOR (DImode, copy_rtx (dest),
-					 GEN_INT (ud3)));
-
-	  emit_move_insn (copy_rtx (dest),
-			  gen_rtx_ASHIFT (DImode, copy_rtx (dest),
-					  GEN_INT (32)));
-	  if (ud2 != 0)
-	    emit_move_insn (copy_rtx (dest),
-			    gen_rtx_IOR (DImode, copy_rtx (dest),
-					 GEN_INT (ud2 << 16)));
-	  if (ud1 != 0)
-	    emit_move_insn (copy_rtx (dest),
-			    gen_rtx_IOR (DImode, copy_rtx (dest),
-					 GEN_INT (ud1)));
-	}
+      emit_move_insn (ud2 != 0 || ud1 != 0 ? copy_rtx (temp) : dest,
+		      gen_rtx_ASHIFT (DImode, copy_rtx (temp),
+				      GEN_INT (32)));
+      if (ud2 != 0)
+	emit_move_insn (ud1 != 0 ? copy_rtx (temp) : dest,
+			gen_rtx_IOR (DImode, copy_rtx (temp),
+				     GEN_INT (ud2 << 16)));
+      if (ud1 != 0)
+	emit_move_insn (dest,
+			gen_rtx_IOR (DImode, copy_rtx (temp),
+				     GEN_INT (ud1)));
     }
-  return dest;
 }
 
 /* Helper for the following.  Get rid of [r+r] memory refs
@@ -15093,7 +15098,7 @@ builtin_function_type (enum machine_mode mode_ret, enum machine_mode mode_arg0,
   found = htab_find_slot (builtin_hash_table, &h, INSERT);
   if (*found == NULL)
     {
-      h2 = ggc_alloc_builtin_hash_struct ();
+      h2 = ggc_alloc<builtin_hash_struct> ();
       *h2 = h;
       *found = (void *)h2;
 
@@ -15443,7 +15448,7 @@ expand_block_clear (rtx operands[])
      load zero and three to do clearing.  */
   if (TARGET_ALTIVEC && align >= 128)
     clear_step = 16;
-  else if (TARGET_POWERPC64 && align >= 32)
+  else if (TARGET_POWERPC64 && (align >= 64 || !STRICT_ALIGNMENT))
     clear_step = 8;
   else if (TARGET_SPE && align >= 64)
     clear_step = 8;
@@ -15471,12 +15476,27 @@ expand_block_clear (rtx operands[])
           mode = V2SImode;
         }
       else if (bytes >= 8 && TARGET_POWERPC64
-	       /* 64-bit loads and stores require word-aligned
-		  displacements.  */
-	       && (align >= 64 || (!STRICT_ALIGNMENT && align >= 32)))
+	       && (align >= 64 || !STRICT_ALIGNMENT))
 	{
 	  clear_bytes = 8;
 	  mode = DImode;
+	  if (offset == 0 && align < 64)
+	    {
+	      rtx addr;
+
+	      /* If the address form is reg+offset with offset not a
+		 multiple of four, reload into reg indirect form here
+		 rather than waiting for reload.  This way we get one
+		 reload, not one per store.  */
+	      addr = XEXP (orig_dest, 0);
+	      if ((GET_CODE (addr) == PLUS || GET_CODE (addr) == LO_SUM)
+		  && GET_CODE (XEXP (addr, 1)) == CONST_INT
+		  && (INTVAL (XEXP (addr, 1)) & 3) != 0)
+		{
+		  addr = copy_addr_to_reg (addr);
+		  orig_dest = replace_equiv_address (orig_dest, addr);
+		}
+	    }
 	}
       else if (bytes >= 4 && (align >= 32 || !STRICT_ALIGNMENT))
 	{			/* move 4 bytes */
@@ -15604,13 +15624,36 @@ expand_block_move (rtx operands[])
 	  gen_func.movmemsi = gen_movmemsi_4reg;
 	}
       else if (bytes >= 8 && TARGET_POWERPC64
-	       /* 64-bit loads and stores require word-aligned
-		  displacements.  */
-	       && (align >= 64 || (!STRICT_ALIGNMENT && align >= 32)))
+	       && (align >= 64 || !STRICT_ALIGNMENT))
 	{
 	  move_bytes = 8;
 	  mode = DImode;
 	  gen_func.mov = gen_movdi;
+	  if (offset == 0 && align < 64)
+	    {
+	      rtx addr;
+
+	      /* If the address form is reg+offset with offset not a
+		 multiple of four, reload into reg indirect form here
+		 rather than waiting for reload.  This way we get one
+		 reload, not one per load and/or store.  */
+	      addr = XEXP (orig_dest, 0);
+	      if ((GET_CODE (addr) == PLUS || GET_CODE (addr) == LO_SUM)
+		  && GET_CODE (XEXP (addr, 1)) == CONST_INT
+		  && (INTVAL (XEXP (addr, 1)) & 3) != 0)
+		{
+		  addr = copy_addr_to_reg (addr);
+		  orig_dest = replace_equiv_address (orig_dest, addr);
+		}
+	      addr = XEXP (orig_src, 0);
+	      if ((GET_CODE (addr) == PLUS || GET_CODE (addr) == LO_SUM)
+		  && GET_CODE (XEXP (addr, 1)) == CONST_INT
+		  && (INTVAL (XEXP (addr, 1)) & 3) != 0)
+		{
+		  addr = copy_addr_to_reg (addr);
+		  orig_src = replace_equiv_address (orig_src, addr);
+		}
+	    }
 	}
       else if (TARGET_STRING && bytes > 4 && !TARGET_POWERPC64)
 	{			/* move up to 8 bytes at a time */
@@ -17587,7 +17630,7 @@ static struct machine_function *
 rs6000_init_machine_status (void)
 {
   stack_info.reload_completed = 0;
-  return ggc_alloc_cleared_machine_function ();
+  return ggc_cleared_alloc<machine_function> ();
 }
 
 #define INT_P(X) (GET_CODE (X) == CONST_INT && GET_MODE (X) == VOIDmode)
@@ -25411,7 +25454,7 @@ output_toc (FILE *file, rtx x, int labelno, enum machine_mode mode)
 	toc_hash_table = htab_create_ggc (1021, toc_hash_function,
 					  toc_hash_eq, NULL);
 
-      h = ggc_alloc_toc_hash_struct ();
+      h = ggc_alloc<toc_hash_struct> ();
       h->key = x;
       h->key_mode = mode;
       h->labelno = labelno;
@@ -26139,24 +26182,28 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
                 {
                 case TYPE_CMP:
                 case TYPE_COMPARE:
-                case TYPE_DELAYED_COMPARE:
-                case TYPE_IMUL_COMPARE:
-                case TYPE_LMUL_COMPARE:
                 case TYPE_FPCOMPARE:
                 case TYPE_CR_LOGICAL:
                 case TYPE_DELAYED_CR:
 		  return cost + 2;
+                case TYPE_MUL:
+		  if (get_attr_dot (dep_insn) == DOT_YES)
+		    return cost + 2;
+		  else
+		    break;
+                case TYPE_SHIFT:
+		  if (get_attr_dot (dep_insn) == DOT_YES
+		      && get_attr_var_shift (dep_insn) == VAR_SHIFT_NO)
+		    return cost + 2;
+		  else
+		    break;
 		default:
 		  break;
 		}
             break;
 
           case TYPE_STORE:
-          case TYPE_STORE_U:
-          case TYPE_STORE_UX:
           case TYPE_FPSTORE:
-          case TYPE_FPSTORE_U:
-          case TYPE_FPSTORE_UX:
             if ((rs6000_cpu == PROCESSOR_POWER6)
                 && recog_memoized (dep_insn)
                 && (INSN_CODE (dep_insn) >= 0))
@@ -26173,63 +26220,50 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
                 switch (get_attr_type (dep_insn))
                   {
                   case TYPE_LOAD:
-                  case TYPE_LOAD_U:
-                  case TYPE_LOAD_UX:
                   case TYPE_CNTLZ:
                     {
                       if (! store_data_bypass_p (dep_insn, insn))
-                        return 4;
+                        return get_attr_sign_extend (dep_insn)
+                               == SIGN_EXTEND_YES ? 6 : 4;
                       break;
                     }
-                  case TYPE_LOAD_EXT:
-                  case TYPE_LOAD_EXT_U:
-                  case TYPE_LOAD_EXT_UX:
-                  case TYPE_VAR_SHIFT_ROTATE:
-                  case TYPE_VAR_DELAYED_COMPARE:
+                  case TYPE_SHIFT:
                     {
                       if (! store_data_bypass_p (dep_insn, insn))
-                        return 6;
+                        return get_attr_var_shift (dep_insn) == VAR_SHIFT_YES ?
+                               6 : 3;
                       break;
 		    }
                   case TYPE_INTEGER:
+                  case TYPE_ADD:
+                  case TYPE_LOGICAL:
                   case TYPE_COMPARE:
-                  case TYPE_FAST_COMPARE:
                   case TYPE_EXTS:
-                  case TYPE_SHIFT:
-                  case TYPE_INSERT_WORD:
-                  case TYPE_INSERT_DWORD:
-                  case TYPE_FPLOAD_U:
-                  case TYPE_FPLOAD_UX:
-                  case TYPE_STORE_U:
-                  case TYPE_STORE_UX:
-                  case TYPE_FPSTORE_U:
-                  case TYPE_FPSTORE_UX:
+                  case TYPE_INSERT:
                     {
                       if (! store_data_bypass_p (dep_insn, insn))
                         return 3;
                       break;
                     }
-                  case TYPE_IMUL:
-                  case TYPE_IMUL2:
-                  case TYPE_IMUL3:
-                  case TYPE_LMUL:
-                  case TYPE_IMUL_COMPARE:
-                  case TYPE_LMUL_COMPARE:
+                  case TYPE_STORE:
+                  case TYPE_FPLOAD:
+                  case TYPE_FPSTORE:
+                    {
+                      if (get_attr_update (dep_insn) == UPDATE_YES
+                          && ! store_data_bypass_p (dep_insn, insn))
+                        return 3;
+                      break;
+                    }
+                  case TYPE_MUL:
                     {
                       if (! store_data_bypass_p (dep_insn, insn))
                         return 17;
                       break;
                     }
-                  case TYPE_IDIV:
+                  case TYPE_DIV:
                     {
                       if (! store_data_bypass_p (dep_insn, insn))
-                        return 45;
-                      break;
-                    }
-                  case TYPE_LDIV:
-                    {
-                      if (! store_data_bypass_p (dep_insn, insn))
-                        return 57;
+                        return get_attr_size (dep_insn) == SIZE_32 ? 45 : 57;
                       break;
                     }
                   default:
@@ -26239,11 +26273,6 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 	    break;
 
           case TYPE_LOAD:
-          case TYPE_LOAD_U:
-          case TYPE_LOAD_UX:
-          case TYPE_LOAD_EXT:
-          case TYPE_LOAD_EXT_U:
-          case TYPE_LOAD_EXT_UX:
             if ((rs6000_cpu == PROCESSOR_POWER6)
                 && recog_memoized (dep_insn)
                 && (INSN_CODE (dep_insn) >= 0))
@@ -26255,63 +26284,50 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
                 switch (get_attr_type (dep_insn))
                   {
                   case TYPE_LOAD:
-                  case TYPE_LOAD_U:
-                  case TYPE_LOAD_UX:
                   case TYPE_CNTLZ:
                     {
                       if (set_to_load_agen (dep_insn, insn))
-                        return 4;
+                        return get_attr_sign_extend (dep_insn)
+                               == SIGN_EXTEND_YES ? 6 : 4;
                       break;
                     }
-                  case TYPE_LOAD_EXT:
-                  case TYPE_LOAD_EXT_U:
-                  case TYPE_LOAD_EXT_UX:
-                  case TYPE_VAR_SHIFT_ROTATE:
-                  case TYPE_VAR_DELAYED_COMPARE:
+                  case TYPE_SHIFT:
                     {
                       if (set_to_load_agen (dep_insn, insn))
-                        return 6;
+                        return get_attr_var_shift (dep_insn) == VAR_SHIFT_YES ?
+                               6 : 3;
                       break;
-                    }
+		    }
                   case TYPE_INTEGER:
+                  case TYPE_ADD:
+                  case TYPE_LOGICAL:
                   case TYPE_COMPARE:
-                  case TYPE_FAST_COMPARE:
                   case TYPE_EXTS:
-                  case TYPE_SHIFT:
-                  case TYPE_INSERT_WORD:
-                  case TYPE_INSERT_DWORD:
-                  case TYPE_FPLOAD_U:
-                  case TYPE_FPLOAD_UX:
-                  case TYPE_STORE_U:
-                  case TYPE_STORE_UX:
-                  case TYPE_FPSTORE_U:
-                  case TYPE_FPSTORE_UX:
+                  case TYPE_INSERT:
                     {
                       if (set_to_load_agen (dep_insn, insn))
                         return 3;
                       break;
                     }
-                  case TYPE_IMUL:
-                  case TYPE_IMUL2:
-                  case TYPE_IMUL3:
-                  case TYPE_LMUL:
-                  case TYPE_IMUL_COMPARE:
-                  case TYPE_LMUL_COMPARE:
+                  case TYPE_STORE:
+                  case TYPE_FPLOAD:
+                  case TYPE_FPSTORE:
+                    {
+                      if (get_attr_update (dep_insn) == UPDATE_YES
+                          && set_to_load_agen (dep_insn, insn))
+                        return 3;
+                      break;
+                    }
+                  case TYPE_MUL:
                     {
                       if (set_to_load_agen (dep_insn, insn))
                         return 17;
                       break;
                     }
-                  case TYPE_IDIV:
+                  case TYPE_DIV:
                     {
                       if (set_to_load_agen (dep_insn, insn))
-                        return 45;
-                      break;
-                    }
-                  case TYPE_LDIV:
-                    {
-                      if (set_to_load_agen (dep_insn, insn))
-                        return 57;
+                        return get_attr_size (dep_insn) == SIZE_32 ? 45 : 57;
                       break;
                     }
                   default:
@@ -26322,6 +26338,7 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 
           case TYPE_FPLOAD:
             if ((rs6000_cpu == PROCESSOR_POWER6)
+                && get_attr_update (insn) == UPDATE_NO
                 && recog_memoized (dep_insn)
                 && (INSN_CODE (dep_insn) >= 0)
                 && (get_attr_type (dep_insn) == TYPE_MFFGPR))
@@ -26351,7 +26368,8 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
                 return 1;
               break;
             case TYPE_FPLOAD:
-              if (get_attr_type (dep_insn) == TYPE_MFFGPR)
+              if (get_attr_update (insn) == UPDATE_NO
+                  && get_attr_type (dep_insn) == TYPE_MFFGPR)
                 return 2;
               break;
             default:
@@ -26417,10 +26435,12 @@ is_microcoded_insn (rtx insn)
       && (rs6000_cpu == PROCESSOR_POWER4 || rs6000_cpu == PROCESSOR_POWER5))
     {
       enum attr_type type = get_attr_type (insn);
-      if (type == TYPE_LOAD_EXT_U
-	  || type == TYPE_LOAD_EXT_UX
-	  || type == TYPE_LOAD_UX
-	  || type == TYPE_STORE_UX
+      if ((type == TYPE_LOAD
+	   && get_attr_update (insn) == UPDATE_YES
+	   && get_attr_sign_extend (insn) == SIGN_EXTEND_YES)
+	  || ((type == TYPE_LOAD || type == TYPE_STORE)
+	      && get_attr_update (insn) == UPDATE_YES
+	      && get_attr_indexed (insn) == INDEXED_YES)
 	  || type == TYPE_MFCR)
 	return true;
     }
@@ -26443,14 +26463,28 @@ is_cracked_insn (rtx insn)
       && (rs6000_cpu == PROCESSOR_POWER4 || rs6000_cpu == PROCESSOR_POWER5))
     {
       enum attr_type type = get_attr_type (insn);
-      if (type == TYPE_LOAD_U || type == TYPE_STORE_U
-	  || type == TYPE_FPLOAD_U || type == TYPE_FPSTORE_U
-	  || type == TYPE_FPLOAD_UX || type == TYPE_FPSTORE_UX
-	  || type == TYPE_LOAD_EXT || type == TYPE_DELAYED_CR
-	  || type == TYPE_COMPARE || type == TYPE_DELAYED_COMPARE
-	  || type == TYPE_IMUL_COMPARE || type == TYPE_LMUL_COMPARE
-	  || type == TYPE_IDIV || type == TYPE_LDIV
-	  || type == TYPE_INSERT_WORD)
+      if ((type == TYPE_LOAD
+	   && get_attr_sign_extend (insn) == SIGN_EXTEND_YES
+	   && get_attr_update (insn) == UPDATE_NO)
+	  || (type == TYPE_LOAD
+	      && get_attr_sign_extend (insn) == SIGN_EXTEND_NO
+	      && get_attr_update (insn) == UPDATE_YES
+	      && get_attr_indexed (insn) == INDEXED_NO)
+	  || (type == TYPE_STORE
+	      && get_attr_update (insn) == UPDATE_YES
+	      && get_attr_indexed (insn) == INDEXED_NO)
+	  || ((type == TYPE_FPLOAD || type == TYPE_FPSTORE)
+	      && get_attr_update (insn) == UPDATE_YES)
+	  || type == TYPE_DELAYED_CR
+	  || type == TYPE_COMPARE
+	  || (type == TYPE_SHIFT
+	      && get_attr_dot (insn) == DOT_YES
+	      && get_attr_var_shift (insn) == VAR_SHIFT_NO)
+	  || (type == TYPE_MUL
+	      && get_attr_dot (insn) == DOT_YES)
+	  || type == TYPE_DIV
+	  || (type == TYPE_INSERT
+	      && get_attr_size (insn) == SIZE_32))
 	return true;
     }
 
@@ -26604,8 +26638,8 @@ rs6000_adjust_priority (rtx insn ATTRIBUTE_UNUSED, int priority)
       default:
 	break;
 
-      case TYPE_IMUL:
-      case TYPE_IDIV:
+      case TYPE_MUL:
+      case TYPE_DIV:
 	fprintf (stderr, "priority was %#x (%d) before adjustment\n",
 		 priority, priority);
 	if (priority >= 0 && priority < 0x01000000)
@@ -26658,12 +26692,8 @@ is_nonpipeline_insn (rtx insn)
     return false;
 
   type = get_attr_type (insn);
-  if (type == TYPE_IMUL
-      || type == TYPE_IMUL2
-      || type == TYPE_IMUL3
-      || type == TYPE_LMUL
-      || type == TYPE_IDIV
-      || type == TYPE_LDIV
+  if (type == TYPE_MUL
+      || type == TYPE_DIV
       || type == TYPE_SDIV
       || type == TYPE_DDIV
       || type == TYPE_SSQRT
@@ -26746,22 +26776,25 @@ rs6000_use_sched_lookahead (void)
     }
 }
 
-/* We are choosing insn from the ready queue.  Return nonzero if INSN can be chosen.  */
+/* We are choosing insn from the ready queue.  Return zero if INSN can be
+   chosen.  */
 static int
-rs6000_use_sched_lookahead_guard (rtx insn)
+rs6000_use_sched_lookahead_guard (rtx insn, int ready_index)
 {
-  if (rs6000_cpu_attr != CPU_CELL)
-    return 1;
+  if (ready_index == 0)
+    return 0;
 
-   if (insn == NULL_RTX || !INSN_P (insn))
-     abort ();
+  if (rs6000_cpu_attr != CPU_CELL)
+    return 0;
+
+  gcc_assert (insn != NULL_RTX && INSN_P (insn));
 
   if (!reload_completed
       || is_nonpipeline_insn (insn)
       || is_microcoded_insn (insn))
-    return 0;
+    return 1;
 
-  return 1;
+  return 0;
 }
 
 /* Determine if PAT refers to memory. If so, set MEM_REF to the MEM rtx
@@ -27259,8 +27292,7 @@ insn_must_be_first_in_group (rtx insn)
         case TYPE_CR_LOGICAL:
         case TYPE_MTJMPR:
         case TYPE_MFJMPR:
-        case TYPE_IDIV:
-        case TYPE_LDIV:
+        case TYPE_DIV:
         case TYPE_LOAD_L:
         case TYPE_STORE_C:
         case TYPE_ISYNC:
@@ -27275,21 +27307,11 @@ insn_must_be_first_in_group (rtx insn)
 
       switch (type)
         {
-        case TYPE_INSERT_DWORD:
         case TYPE_EXTS:
         case TYPE_CNTLZ:
-        case TYPE_SHIFT:
-        case TYPE_VAR_SHIFT_ROTATE:
         case TYPE_TRAP:
-        case TYPE_IMUL:
-        case TYPE_IMUL2:
-        case TYPE_IMUL3:
-        case TYPE_LMUL:
-        case TYPE_IDIV:
-        case TYPE_INSERT_WORD:
-        case TYPE_DELAYED_COMPARE:
-        case TYPE_IMUL_COMPARE:
-        case TYPE_LMUL_COMPARE:
+        case TYPE_MUL:
+        case TYPE_INSERT:
         case TYPE_FPCOMPARE:
         case TYPE_MFCR:
         case TYPE_MTCR:
@@ -27299,16 +27321,26 @@ insn_must_be_first_in_group (rtx insn)
         case TYPE_SYNC:
         case TYPE_LOAD_L:
         case TYPE_STORE_C:
-        case TYPE_LOAD_U:
-        case TYPE_LOAD_UX:
-        case TYPE_LOAD_EXT_UX:
-        case TYPE_STORE_U:
-        case TYPE_STORE_UX:
-        case TYPE_FPLOAD_U:
-        case TYPE_FPLOAD_UX:
-        case TYPE_FPSTORE_U:
-        case TYPE_FPSTORE_UX:
           return true;
+        case TYPE_SHIFT:
+          if (get_attr_dot (insn) == DOT_NO
+              || get_attr_var_shift (insn) == VAR_SHIFT_NO)
+            return true;
+          else
+            break;
+        case TYPE_DIV:
+          if (get_attr_size (insn) == SIZE_32)
+            return true;
+          else
+            break;
+        case TYPE_LOAD:
+        case TYPE_STORE:
+        case TYPE_FPLOAD:
+        case TYPE_FPSTORE:
+          if (get_attr_update (insn) == UPDATE_YES)
+            return true;
+          else
+            break;
         default:
           break;
         }
@@ -27322,28 +27354,33 @@ insn_must_be_first_in_group (rtx insn)
         case TYPE_MFCR:
         case TYPE_MFCRF:
         case TYPE_MTCR:
-        case TYPE_IDIV:
-        case TYPE_LDIV:
+        case TYPE_DIV:
         case TYPE_COMPARE:
-        case TYPE_DELAYED_COMPARE:
-        case TYPE_VAR_DELAYED_COMPARE:
         case TYPE_ISYNC:
         case TYPE_LOAD_L:
         case TYPE_STORE_C:
-        case TYPE_LOAD_U:
-        case TYPE_LOAD_UX:
-        case TYPE_LOAD_EXT:
-        case TYPE_LOAD_EXT_U:
-        case TYPE_LOAD_EXT_UX:
-        case TYPE_STORE_U:
-        case TYPE_STORE_UX:
-        case TYPE_FPLOAD_U:
-        case TYPE_FPLOAD_UX:
-        case TYPE_FPSTORE_U:
-        case TYPE_FPSTORE_UX:
         case TYPE_MFJMPR:
         case TYPE_MTJMPR:
           return true;
+        case TYPE_MUL:
+        case TYPE_SHIFT:
+          if (get_attr_dot (insn) == DOT_YES)
+            return true;
+          else
+            break;
+        case TYPE_LOAD:
+          if (get_attr_sign_extend (insn) == SIGN_EXTEND_YES
+              || get_attr_update (insn) == UPDATE_YES)
+            return true;
+          else
+            break;
+        case TYPE_STORE:
+        case TYPE_FPLOAD:
+        case TYPE_FPSTORE:
+          if (get_attr_update (insn) == UPDATE_YES)
+            return true;
+          else
+            break;
         default:
           break;
         }
@@ -27359,24 +27396,32 @@ insn_must_be_first_in_group (rtx insn)
         case TYPE_MFCRF:
         case TYPE_MTCR:
         case TYPE_COMPARE:
-        case TYPE_DELAYED_COMPARE:
-        case TYPE_VAR_DELAYED_COMPARE:
-        case TYPE_IMUL_COMPARE:
-        case TYPE_LMUL_COMPARE:
         case TYPE_SYNC:
         case TYPE_ISYNC:
         case TYPE_LOAD_L:
         case TYPE_STORE_C:
-        case TYPE_LOAD_U:
-        case TYPE_LOAD_UX:
-        case TYPE_LOAD_EXT:
-        case TYPE_LOAD_EXT_U:
-        case TYPE_LOAD_EXT_UX:
-        case TYPE_STORE_UX:
         case TYPE_VECSTORE:
         case TYPE_MFJMPR:
         case TYPE_MTJMPR:
           return true;
+        case TYPE_SHIFT:
+        case TYPE_MUL:
+          if (get_attr_dot (insn) == DOT_YES)
+            return true;
+          else
+            break;
+        case TYPE_LOAD:
+          if (get_attr_sign_extend (insn) == SIGN_EXTEND_YES
+              || get_attr_update (insn) == UPDATE_YES)
+            return true;
+          else
+            break;
+        case TYPE_STORE:
+          if (get_attr_update (insn) == UPDATE_YES
+              && get_attr_indexed (insn) == INDEXED_YES)
+            return true;
+          else
+            break;
         default:
           break;
         }
@@ -27417,17 +27462,8 @@ insn_must_be_last_in_group (rtx insn)
       {
       case TYPE_EXTS:
       case TYPE_CNTLZ:
-      case TYPE_SHIFT:
-      case TYPE_VAR_SHIFT_ROTATE:
       case TYPE_TRAP:
-      case TYPE_IMUL:
-      case TYPE_IMUL2:
-      case TYPE_IMUL3:
-      case TYPE_LMUL:
-      case TYPE_IDIV:
-      case TYPE_DELAYED_COMPARE:
-      case TYPE_IMUL_COMPARE:
-      case TYPE_LMUL_COMPARE:
+      case TYPE_MUL:
       case TYPE_FPCOMPARE:
       case TYPE_MFCR:
       case TYPE_MTCR:
@@ -27438,6 +27474,17 @@ insn_must_be_last_in_group (rtx insn)
       case TYPE_LOAD_L:
       case TYPE_STORE_C:
         return true;
+      case TYPE_SHIFT:
+        if (get_attr_dot (insn) == DOT_NO
+            || get_attr_var_shift (insn) == VAR_SHIFT_NO)
+          return true;
+        else
+          break;
+      case TYPE_DIV:
+        if (get_attr_size (insn) == SIZE_32)
+          return true;
+        else
+          break;
       default:
         break;
     }
@@ -27451,10 +27498,19 @@ insn_must_be_last_in_group (rtx insn)
       case TYPE_SYNC:
       case TYPE_LOAD_L:
       case TYPE_STORE_C:
-      case TYPE_LOAD_EXT_U:
-      case TYPE_LOAD_EXT_UX:
-      case TYPE_STORE_UX:
         return true;
+      case TYPE_LOAD:
+        if (get_attr_sign_extend (insn) == SIGN_EXTEND_YES
+            && get_attr_update (insn) == UPDATE_YES)
+          return true;
+        else
+          break;
+      case TYPE_STORE:
+        if (get_attr_update (insn) == UPDATE_YES
+            && get_attr_indexed (insn) == INDEXED_YES)
+          return true;
+        else
+          break;
       default:
         break;
     }
@@ -27470,10 +27526,19 @@ insn_must_be_last_in_group (rtx insn)
       case TYPE_SYNC:
       case TYPE_LOAD_L:
       case TYPE_STORE_C:
-      case TYPE_LOAD_EXT_U:
-      case TYPE_LOAD_EXT_UX:
-      case TYPE_STORE_UX:
         return true;
+      case TYPE_LOAD:
+        if (get_attr_sign_extend (insn) == SIGN_EXTEND_YES
+            && get_attr_update (insn) == UPDATE_YES)
+          return true;
+        else
+          break;
+      case TYPE_STORE:
+        if (get_attr_update (insn) == UPDATE_YES
+            && get_attr_indexed (insn) == INDEXED_YES)
+          return true;
+        else
+          break;
       default:
         break;
     }
@@ -32260,7 +32325,7 @@ rs6000_code_end (void)
 #if RS6000_WEAK
   if (USE_HIDDEN_LINKONCE)
     {
-      DECL_COMDAT_GROUP (decl) = DECL_ASSEMBLER_NAME (decl);
+      cgraph_create_node (decl)->set_comdat_group (DECL_ASSEMBLER_NAME (decl));
       targetm.asm_out.unique_section (decl, 0);
       switch_to_section (get_named_section (decl, NULL, 0));
       DECL_WEAK (decl) = 1;

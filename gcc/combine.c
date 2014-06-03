@@ -2739,9 +2739,10 @@ try_combine (rtx i3, rtx i2, rtx i1, rtx i0, int *new_direct_jump_p,
 	     never appear in the insn stream so giving it the same INSN_UID
 	     as I2 will not cause a problem.  */
 
-	  i1 = gen_rtx_INSN (VOIDmode, INSN_UID (i2), NULL_RTX, i2,
-			     BLOCK_FOR_INSN (i2), XVECEXP (PATTERN (i2), 0, 1),
-			     INSN_LOCATION (i2), -1, NULL_RTX);
+	  i1 = gen_rtx_INSN (VOIDmode, NULL_RTX, i2, BLOCK_FOR_INSN (i2),
+			     XVECEXP (PATTERN (i2), 0, 1), INSN_LOCATION (i2),
+			     -1, NULL_RTX);
+	  INSN_UID (i1) = INSN_UID (i2);
 
 	  SUBST (PATTERN (i2), XVECEXP (PATTERN (i2), 0, 0));
 	  SUBST (XEXP (SET_SRC (PATTERN (i2)), 0),
@@ -10348,9 +10349,10 @@ simplify_shift_const_1 (enum rtx_code code, enum machine_mode result_mode,
 	  /* (ashift (plus foo C) N) is (plus (ashift foo N) C').  */
 	  if (code == ASHIFT
 	      && CONST_INT_P (XEXP (varop, 1))
-	      && (new_rtx = simplify_const_binary_operation (ASHIFT, result_mode,
-							 XEXP (varop, 1),
-							 GEN_INT (count))) != 0
+	      && (new_rtx = simplify_const_binary_operation
+		  (ASHIFT, result_mode,
+		   gen_int_mode (INTVAL (XEXP (varop, 1)), result_mode),
+		   GEN_INT (count))) != 0
 	      && CONST_INT_P (new_rtx)
 	      && merge_outer_ops (&outer_op, &outer_const, PLUS,
 				  INTVAL (new_rtx), result_mode, &complement_p))
@@ -10367,9 +10369,10 @@ simplify_shift_const_1 (enum rtx_code code, enum machine_mode result_mode,
 	  if (code == LSHIFTRT
 	      && CONST_INT_P (XEXP (varop, 1))
 	      && mode_signbit_p (result_mode, XEXP (varop, 1))
-	      && (new_rtx = simplify_const_binary_operation (code, result_mode,
-							 XEXP (varop, 1),
-							 GEN_INT (count))) != 0
+	      && (new_rtx = simplify_const_binary_operation
+		  (code, result_mode,
+		   gen_int_mode (INTVAL (XEXP (varop, 1)), result_mode),
+		   GEN_INT (count))) != 0
 	      && CONST_INT_P (new_rtx)
 	      && merge_outer_ops (&outer_op, &outer_const, XOR,
 				  INTVAL (new_rtx), result_mode, &complement_p))
