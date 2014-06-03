@@ -185,12 +185,10 @@ to (minus @1 @0)
 /* ~A + A -> -1 */
 (match_and_simplify
   (plus (bit_not @0) @0)
-  if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
-  { build_int_cst (TREE_TYPE (@0), -1); })
+  { build_all_ones_cst (type); })
 (match_and_simplify
   (plus @0 (bit_not @0))
-  if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
-  { build_int_cst (TREE_TYPE (@0), -1); })
+  { build_all_ones_cst (type); })
 
 /* ~A + 1 -> -A */
 (match_and_simplify
