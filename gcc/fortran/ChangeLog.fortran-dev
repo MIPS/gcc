@@ -1,3 +1,22 @@
+2014-06-03  Paul Thomas  <pault@gcc.gnu.org>
+
+	* trans-array.c (gfc_conv_expr_descriptor): Use the type of the
+	expression for the type of the array. The element length should
+	be set initially to the descriptor element type so that the
+	stride measure is calculated correctly.
+	* trans-stmt.c (gfc_conv_elemental_dependencies): Use the type
+	of the elements of the descriptor for 'temptype'. Change the
+	comment accordingly.
+
+2014-05-22  Paul Thomas  <pault@gcc.gnu.org>
+
+	* trans-array.c (gfc_conv_descriptor_stride_get,
+	gfc_conv_descriptor_stride_get): Only use 'elem_len' field for
+	element size.
+	* trans-stmt.c (trans_associate_var): Eliminate redundant
+	declaration of 'desc'. Use 'sm' and 'elem_len' fields directly
+	to calculate offset.
+
 2013-06-05  Tobias Burnus  <burnus@net-b.de>
 
 	* trans-array.c (gfc_array_init_size): Remove superfluous

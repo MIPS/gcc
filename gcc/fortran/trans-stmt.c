@@ -292,16 +292,14 @@ gfc_conv_elemental_dependencies (gfc_se * se, gfc_se * loopse,
 
 	  if (e->ts.type != BT_CLASS)
 	    {
-	     /* Find the type of the temporary to create; we don't use the type
-		of e itself as this breaks for subcomponent-references in e
-		(where the type of e is that of the final reference, but
-		parmse.expr's type corresponds to the full derived-type).  */
-	     /* TODO: Fix this somehow so we don't need a temporary of the whole
-		array but instead only the components referenced.  */
-	      temptype = TREE_TYPE (parmse.expr); /* Pointer to descriptor.  */
-	      gcc_assert (TREE_CODE (temptype) == POINTER_TYPE);
-	      temptype = TREE_TYPE (temptype);
-	      temptype = gfc_get_element_type (temptype);
+	     /* Set the type of the temporary to create using that of
+		the element type of the descriptor.  */
+	      for (tmp = parmse.expr; tmp; tmp = TREE_OPERAND (tmp, 0))
+		{
+		  if (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (tmp)))
+		    break;
+		}
+	      temptype = gfc_get_element_type (TREE_TYPE (tmp));
 	    }
 
 	  else

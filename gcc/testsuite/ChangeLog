@@ -1,28 +1,3 @@
-2014-05-24  Dominique d'Humieres <dominiq@lps.ens.fr>
-
-	* ChangeLog: Remove missing changes.
-	* gfortran.dg/coarray_12.f90: Adjust regexps.
-	* gfortran.dg/coarray_31.f90: Likewise.
-	* gfortran.dg/coarray_lib_alloc_2.f90: Likewise.
-
-2014-05-24  Dominique d'Humieres <dominiq@lps.ens.fr>
-
-	* gfortran.dg/assign_10.f90: Adjust regexps.
-	* gfortran.dg/assumed_rank_12.f90: Likewise.
-	* gfortran.dg/coarray_lib_alloc_3.f90: Likewise.
-	* gfortran.dg/coarray_lib_this_image_1.f90: Likewise.
-	* gfortran.dg/coarray_lib_this_image_2.f90: Likewise.
-	* gfortran.dg/coarray_lib_token_4.f90: Likewise.
-	* gfortran.dg/coarray_poly_5.f90: Likewise.
-	* gfortran.dg/coarray_poly_6.f90: Likewise.
-	* gfortran.dg/coarray_poly_7.f90: Likewise.
-	* gfortran.dg/coarray_poly_8.f90: Likewise.
-	* gfortran.dg/contiguous_3.f90: Likewise.
-	* gfortran.dg/finalize_10.f90: Likewise.
-	* gfortran.dg/finalize_18.f90: Likewise.
-	* gfortran.dg/realloc_on_assign_18.f90: Likewise.
-	* gfortran.dg/transpose_optimization_2.f90: Likewise.
-
 2014-05-15  Martin Jambor  <mjambor@suse.cz>
 
 	PR ipa/61085

@@ -6728,6 +6728,7 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
   int n;
   tree tmp;
   tree desc;
+  tree elem_type;
   stmtblock_t block;
   tree start;
   tree offset;
@@ -7039,6 +7040,8 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
 	se->string_length =  gfc_get_expr_charlen (expr);
 
       desc = info->descriptor;
+      elem_type = gfc_typenode_for_spec(&expr->ts);
+
       if (se->direct_byref && !se->byref_noassign)
 	{
 	  /* For pointer assignments we fill in the destination.  */
@@ -7048,8 +7051,8 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
       else
 	{
 	  /* Otherwise make a new one.  */
-	  parmtype = gfc_get_element_type (TREE_TYPE (desc));
-	  parmtype = gfc_get_array_type_bounds (parmtype, loop.dimen, codim,
+	  parmtype = gfc_get_array_type_bounds (elem_type,
+						loop.dimen, codim,
 						loop.from, loop.to, 0,
 						GFC_ARRAY_UNKNOWN, false);
 	  parm = gfc_create_var (parmtype, "parm");
@@ -7067,10 +7070,14 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
          the offsets because all elements are within the array data.  */
 
       /* Set elem_len, version, rank, dtype and attribute.  */
-      if (expr->ts.type == BT_CHARACTER)
+      if (expr->ts.type == BT_CHARACTER && !is_subref_array (expr))
 	elem_len = size_of_string_in_bytes (expr->ts.kind, se->string_length);
       else
-	elem_len = size_in_bytes (gfc_typenode_for_spec(&expr->ts));
+        /* TODO Set this to the size of elem_type rather than the size of the
+	   descriptor elements.  */
+	elem_len = size_in_bytes (gfc_get_element_type (TREE_TYPE (desc)));
+
+      elem_len = fold_convert (gfc_array_index_type, elem_len);
 
       gfc_conv_descriptor_elem_len_set (&loop.pre, parm, elem_len);
       gfc_conv_descriptor_version_set (&loop.pre, parm);
@@ -7199,9 +7206,11 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
 				     TREE_TYPE (base), tmp, base);
 	    }
 
-	  /* Store the new stride.  */
-	  gfc_conv_descriptor_stride_set (&loop.pre, parm,
-					  gfc_rank_cst[dim], stride);
+	  /* Store the new stride measure.  */
+	  tmp = fold_build2_loc (input_location, MULT_EXPR,
+				 gfc_array_index_type, stride, elem_len);
+	  gfc_conv_descriptor_sm_set (&loop.pre, parm,
+				      gfc_rank_cst[dim], tmp);
 	}
 
       for (n = loop.dimen; n < loop.dimen + codim; n++)
@@ -7236,6 +7245,7 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
 	     it to zero here.  */
 	  gfc_conv_descriptor_offset_set (&loop.pre, parm, gfc_index_zero_node);
 	}
+
       desc = parm;
     }
 
