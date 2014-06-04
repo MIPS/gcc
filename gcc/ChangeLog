@@ -1,3 +1,11 @@
+2014-06-04  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* lra-constraints.c (valid_address_p): Move earlier in file.
+	(address_eliminator): New structure.
+	(satisfies_memory_constraint_p): New function.
+	(satisfies_address_constraint_p): Likewise.
+	(process_alt_operands, process_address, curr_insn_transform): Use them.
+
 2014-06-03  Andrew Bennett  <andrew.bennett@imgtec.com> 
 
 	* config/mips/mips-cpus.def: Add mips32r3, mips32r5, mips64r3 and
