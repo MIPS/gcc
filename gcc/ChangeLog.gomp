@@ -1,3 +1,11 @@
+2014-06-04  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* cgraphunit.c (ipa_passes, compile): Handle flag_openacc next to
+	flag_openmp.
+	* ipa-inline-analysis.c (inline_generate_summary): Likewise.
+	* lto-streamer.c (lto_streamer_init, gate_lto_out): Likewise.
+	* passes.c (ipa_write_summaries): Likewise.
+
 2014-05-12  Bernd Schmidt  <bernds@codesourcery.com>
 
 	* lto-wrapper.c (ompbegin): New static variable.

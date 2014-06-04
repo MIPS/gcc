@@ -4010,7 +4010,7 @@ inline_generate_summary (void)
 
   /* When not optimizing, do not bother to analyze.  Inlining is still done
      because edge redirection needs to happen there.  */
-  if (!optimize && !flag_lto && !flag_wpa && !flag_openmp)
+  if (!optimize && !flag_lto && !flag_wpa && !flag_openacc && !flag_openmp)
     return;
 
   function_insertion_hook_holder =

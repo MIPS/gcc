@@ -2086,7 +2086,7 @@ ipa_passes (void)
 
   if (!in_lto_p)
     {
-      if (flag_openmp)
+      if (flag_openacc || flag_openmp)
 	{
 	  section_name_prefix = OMP_SECTION_NAME_PREFIX;
 	  ipa_write_summaries (true);
@@ -2187,7 +2187,7 @@ compile (void)
   cgraph_state = CGRAPH_STATE_IPA;
 
   /* If LTO is enabled, initialize the streamer hooks needed by GIMPLE.  */
-  if (flag_lto || flag_openmp)
+  if (flag_lto || flag_openacc || flag_openmp)
     lto_streamer_hooks_init ();
 
   /* Don't run the IPA passes if there was any error or sorry messages.  */

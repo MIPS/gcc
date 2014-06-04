@@ -2335,7 +2335,7 @@ ipa_write_summaries (bool is_omp)
   struct cgraph_node *node;
   struct cgraph_node **order;
 
-  if (!(flag_generate_lto || flag_openmp) || seen_error () )
+  if (!(flag_generate_lto || flag_openacc || flag_openmp) || seen_error () )
     return;
 
   select_what_to_dump (is_omp);
