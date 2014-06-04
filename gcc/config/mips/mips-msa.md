@@ -996,7 +996,7 @@
 (define_insn "sub<mode>3"
   [(set (match_operand:IMSA 0 "register_operand" "=f,f,f")
 	(minus:IMSA (match_operand:IMSA 1 "register_operand" "f,f,f")
-		    (match_operand:IMSA 2 "reg_or_vector_same_ximm5_operand" "f,Unv5,Uuv51")))]
+		    (match_operand:IMSA 2 "reg_or_vector_same_ximm5_operand" "f,Unv5,Uuv5")))]
   "ISA_HAS_MSA"
   {
     switch (which_alternative)
