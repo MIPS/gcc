@@ -322,14 +322,14 @@
   (and (match_code "const_vector")
        (match_test "mips_const_vector_bitimm_clr_p (op, mode)")))
 
-(define_constraint "Un31"
+(define_constraint "Unv5"
   "@internal
    A replicated vector const in which the replicated value is negative
    integer number in range [-31,0]."
   (and (match_code "const_vector")
        (match_test "mips_const_vector_same_int_p (op, mode, -31, 0)")))
 
-(define_constraint "Up31"
+(define_constraint "Uuv5"
   "@internal
    A replicated vector const in which the replicated value is positive
    integer number in range [0,31]."
