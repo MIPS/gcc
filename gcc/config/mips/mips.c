@@ -20088,7 +20088,7 @@ mips_expand_vector_init (rtx target, rtx vals)
 	  rtx temp;
 	  rtx temp2;
 
-	  if (CONST_INT_P (same) && mips_signed_immediate_p (INTVAL (same), 10, 0))
+	  if (CONST_INT_P (same) && nvar == 0 && mips_signed_immediate_p (INTVAL (same), 10, 0))
 	    {
 	      switch (vmode)
 		{
@@ -20113,7 +20113,10 @@ mips_expand_vector_init (rtx target, rtx vals)
 		}
 	    }
 	  temp = gen_reg_rtx (imode);
-	  emit_move_insn (temp, same);
+	  if (imode == GET_MODE (same))
+	    emit_move_insn (temp, same);
+	  else
+	    emit_move_insn (temp, simplify_gen_subreg (imode, same, GET_MODE (same), 0));
 	  switch (vmode)
 	    {
 	    case V16QImode:
