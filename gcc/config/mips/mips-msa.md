@@ -172,7 +172,7 @@
 (define_mode_iterator MODE128  [V2DF V4SF V2DI V4SI V8HI V16QI])
 (define_mode_iterator MSA      [V2DF V4SF V2DI V4SI V8HI V16QI])
 
-;; Same as MODE128.  Used by vcond to iterate two modes.
+;; Same as MSA.  Used by vcond to iterate two modes.
 (define_mode_iterator MSA_2    [V2DF V4SF V2DI V4SI V8HI V16QI])
 
 ;; Only integer modes.
@@ -305,10 +305,9 @@
 (define_expand "vec_extract<mode>"
   [(match_operand:<UNITMODE> 0 "register_operand")
    (match_operand:IMSA 1 "register_operand")
-   (match_operand 2 "const_int_operand")]
+   (match_operand 2 "const_<indeximm>_operand")]
   "ISA_HAS_MSA"
 {
-  gcc_assert (UINTVAL (operands[2]) < GET_MODE_NUNITS (<MODE>mode));
   if (<UNITMODE>mode == QImode || <UNITMODE>mode == HImode)
     {
       rtx dest1 = gen_reg_rtx (SImode);
@@ -324,24 +323,22 @@
 (define_expand "vec_extract<mode>"
   [(match_operand:<UNITMODE> 0 "register_operand")
    (match_operand:FMSA 1 "register_operand")
-   (match_operand 2 "const_int_operand")]
+   (match_operand 2 "const_<indeximm>_operand")]
   "ISA_HAS_MSA"
 {
   rtx temp;
   HOST_WIDE_INT val = UINTVAL (operands[2]);
-
-  gcc_assert (val < GET_MODE_NUNITS (<MODE>mode));
 
   if (val == 0)
     temp = operands[1];
   else
     {
       /* We need to do the SLDI operation in V16QImode and adjust
-       * operand[2] accordingly.  */
+         operand[2] accordingly.  */
       rtx tempb = gen_reg_rtx (V16QImode);
       rtx op1b = gen_reg_rtx (V16QImode);
       emit_move_insn (op1b, gen_rtx_SUBREG (V16QImode, operands[1], 0));
-      rtx op2b  = GEN_INT (val * GET_MODE_SIZE (<UNITMODE>mode));
+      rtx op2b = GEN_INT (val * GET_MODE_SIZE (<UNITMODE>mode));
       gcc_assert (UINTVAL (op2b) < GET_MODE_NUNITS (V16QImode));
       emit_insn (gen_msa_sldi_b (tempb, op1b, op1b, op2b));
       temp = gen_reg_rtx (<MODE>mode);
@@ -354,10 +351,9 @@
 (define_expand "vec_set<mode>"
   [(match_operand:IMSA 0 "register_operand")
    (match_operand:<UNITMODE> 1 "register_operand")
-   (match_operand 2 "const_int_operand")]
+   (match_operand 2 "const_<indeximm>_operand")]
   "ISA_HAS_MSA"
 {
-  gcc_assert (UINTVAL (operands[2]) < GET_MODE_NUNITS (<MODE>mode));
   emit_insn (gen_msa_insert_<msafmt> (operands[0], operands[0], operands[2],
 				      operands[1]));
   DONE;
@@ -366,10 +362,9 @@
 (define_expand "vec_set<mode>"
   [(match_operand:FMSA 0 "register_operand")
    (match_operand:<UNITMODE> 1 "register_operand")
-   (match_operand 2 "const_int_operand")]
+   (match_operand 2 "const_<indeximm>_operand")]
   "ISA_HAS_MSA"
 {
-  gcc_assert (UINTVAL (operands[2]) < GET_MODE_NUNITS (<MODE>mode));
   emit_insn (gen_msa_insve_<msafmt_f>_s (operands[0], operands[0], operands[2],
 					 operands[1]));
   DONE;
@@ -399,8 +394,6 @@
       rtx temp1 = gen_reg_rtx (<MSA_2:VIMODE>mode);
       rtx temp2 = gen_reg_rtx (<MSA_2:VIMODE>mode);
       rtx xres = gen_reg_rtx (<MSA_2:VIMODE>mode);
-      rtx xop1 = gen_reg_rtx (<MSA_2:VIMODE>mode);
-      rtx xop2 = gen_reg_rtx (<MSA_2:VIMODE>mode);
 
       mips_expand_msa_vcond (res, true_val, false_val,
 			     GET_CODE (operands[3]), operands[4], operands[5]);
@@ -410,6 +403,8 @@
       emit_move_insn (xres, res);
       if (operands[1] != true_val)
 	{
+	  rtx xop1 = gen_reg_rtx (<MSA_2:VIMODE>mode);
+
 	  if (GET_CODE (operands[1]) == CONST_VECTOR)
 	    {
 	      rtx xtemp = gen_reg_rtx (<MSA_2:MODE>mode);
@@ -425,10 +420,11 @@
       else
 	emit_move_insn (temp1, xres);
 
-      emit_move_insn (temp2, CONSTM1_RTX (<MSA_2:VIMODE>mode));
-      emit_insn (gen_xor<MSA_2:mode_i>3 (temp2, xres, temp2));
+      emit_insn (gen_msa_nor_v_<MSA_2:msafmt> (temp2, xres, xres));
       if (operands[2] != false_val)
 	{
+	  rtx xop2 = gen_reg_rtx (<MSA_2:VIMODE>mode);
+
 	  if (GET_CODE (operands[2]) == CONST_VECTOR)
 	    {
 	      rtx xtemp = gen_reg_rtx (<MSA_2:MODE>mode);
@@ -472,8 +468,6 @@
       rtx temp1 = gen_reg_rtx (<MSA_2:VIMODE>mode);
       rtx temp2 = gen_reg_rtx (<MSA_2:VIMODE>mode);
       rtx xres = gen_reg_rtx (<MSA_2:VIMODE>mode);
-      rtx xop1 = gen_reg_rtx (<MSA_2:VIMODE>mode);
-      rtx xop2 = gen_reg_rtx (<MSA_2:VIMODE>mode);
 
       mips_expand_msa_vcond (res, true_val, false_val,
 			     GET_CODE (operands[3]), operands[4], operands[5]);
@@ -483,6 +477,8 @@
       emit_move_insn (xres, res);
       if (operands[1] != true_val)
 	{
+	  rtx xop1 = gen_reg_rtx (<MSA_2:VIMODE>mode);
+
 	  if (GET_CODE (operands[1]) == CONST_VECTOR)
 	    {
 	      rtx xtemp = gen_reg_rtx (<MSA_2:MODE>mode);
@@ -498,10 +494,11 @@
       else
 	emit_move_insn (temp1, xres);
 
-      emit_move_insn (temp2, CONSTM1_RTX (<MSA_2:VIMODE>mode));
-      emit_insn (gen_xor<MSA_2:mode_i>3 (temp2, xres, temp2));
+      emit_insn (gen_msa_nor_v_<MSA_2:msafmt> (temp2, xres, xres));
       if (operands[2] != false_val)
 	{
+	  rtx xop2 = gen_reg_rtx (<MSA_2:VIMODE>mode);
+
 	  if (GET_CODE (operands[2]) == CONST_VECTOR)
 	    {
 	      rtx xtemp = gen_reg_rtx (<MSA_2:MODE>mode);
