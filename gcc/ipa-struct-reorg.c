@@ -36,13 +36,181 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "gimple-iterator.h"
 
+/* Structure types that appear in symtab_node: 
+
+   (1) if symtab_node is a cgraph_node, then structure 
+       type might be a type of one or more of its formal 
+       or actual parameters; 
+   (2) if symtab_node is a varpool_node, then the node itself 
+       or one of its sub-components might be of structure type.
+
+   This structure is used to define visibility of structure types. */
+
+struct struct_symbols_d {
+  tree struct_decl;
+  vec<symtab_node *> symbols; 
+};
+
+typedef struct struct_symbols_d * struct_symbols;
+
+/* Symbols with structure types that are candidate for ftansformation.
+   Based on their visibility, determined 
+   during WPA, we decide if structure type can be trunsformed or not.  */
+
+static vec<struct_symbols> struct_symbols_vec;
+
+/* Function to print out struct_symbols_vec.  */
+
+static void
+print_struct_symbol_vec ()
+{
+  unsigned int i, j;
+  symtab_node *sbl;
+  struct_symbols symbols;
+  if (!dump_file) 
+    return;
+
+  if (!struct_symbols_vec. exists ())
+    fprintf (dump_file, "\nstruct_symbols_vec does not exist.");
+
+  FOR_EACH_VEC_ELT (struct_symbols_vec, i, symbols)
+    {
+      if (!symbols->symbols.exists ())
+	{
+	  fprintf (dump_file, "\nThere is no symbols for type");
+	  print_generic_expr (dump_file, struct_symbols_vec[i]->struct_decl, 0);
+	}
+      else
+	{
+	  fprintf (dump_file, "\nSymbols for type ");
+	  print_generic_expr (dump_file, struct_symbols_vec[i]->struct_decl, 0);
+	  fprintf (dump_file, " are:\n ");
+
+	  FOR_EACH_VEC_ELT (symbols->symbols, j, sbl)
+	    {
+	      fprintf (dump_file, "%s  ", sbl->name ());
+	    }
+	}
+    }
+}
+
+/* Forward declarations.  */
+static bool is_equal_types (tree type1, tree type2);
+
+/* This function looks for the entry with the type TYPE in 
+   struct_symbols_vec. It returns an index of the entry, if it's found, 
+   and -1 otherwise.  */
+
+static inline int
+is_in_struct_symbols_vec (tree type)
+{
+  unsigned int i;
+  struct_symbols symbol; 
+  if (struct_symbols_vec.exists ())
+    {
+      FOR_EACH_VEC_ELT (struct_symbols_vec, i, symbol)
+	{
+	  if (is_equal_types (symbol->struct_decl, type))
+	      return (int)i;
+	}
+	  
+    }
+  return -1;
+}
+
+/* Add a symbol SYMBOL to the symbols of the I-th element of 
+   struct_symbols_vec, if it's not already there.  */
+
+static void
+add_symbol_to_struct_symbols_vec (unsigned int i, symtab_node *symbol)
+{
+  struct_symbols symbols = struct_symbols_vec[i];
+  if (symbols->symbols.exists ())
+    {
+      unsigned int j;
+      symtab_node *sbl;
+      /* The simbol might be already in vector of symbols.  */
+      FOR_EACH_VEC_ELT (symbols->symbols, j, sbl)
+	{
+	  if (sbl == symbol)
+	    {
+	      if (dump_file)
+		{
+		  fprintf (dump_file, "\nSymbol %s", sbl->name ());
+		  fprintf (dump_file, " for type ");
+		  print_generic_expr (dump_file, symbols->struct_decl, 0);		  
+		  fprintf (dump_file, "\" already in symbols.");
+		}
+	      return;
+	    }
+	}
+      symbols->symbols.safe_push (symbol);
+    }
+  else 
+      symbols->symbols.safe_push (symbol);
+}
+
+/* Strip structure TYPE from pointers and arrays.  */
+
+static inline tree
+strip_type (tree type)
+{
+  gcc_assert (TYPE_P (type));
+
+  while (POINTER_TYPE_P (type)
+	 || TREE_CODE (type) == ARRAY_TYPE)
+    type = TREE_TYPE (type);
+
+  return  type;
+}
+
+
+/* Check whether the type of VAR is potential candidate for peeling.
+   Returns true if yes, false otherwise.  If yes, TYPE_P will contain
+   candidate type.  */
+
+static bool
+type_is_candidate (tree type, tree *type_p)
+{
+  *type_p = NULL;
+
+  if (!type)
+    return false;
+
+  if (type)
+    {
+      type = TYPE_MAIN_VARIANT (strip_type (type));
+      if (TREE_CODE (type) != RECORD_TYPE)
+	  return false;
+      else
+	{
+	  *type_p = type;
+	  return true;
+      }
+    }
+  else
+    return false;
+}
+
+/* This function creates struct_symbols_d structure with the type TYPE 
+   and inserts it into struct_symbols_vec.  */
+
+static unsigned int 
+add_struct_to_struct_symbols_vec (tree type)
+{
+  gcc_assert (is_in_struct_symbols_vec (type) == -1);
+  struct_symbols symbs = XNEW (struct struct_symbols_d);
+  symbs->struct_decl = type;
+  symbs->symbols.create (0);
+  if (!struct_symbols_vec.exists ())
+    struct_symbols_vec.create (0);
+  struct_symbols_vec.safe_push (symbs);
+  return struct_symbols_vec.length () - 1;
+}
 
 /* Vector of structures to be transformed.  */
 typedef struct data_structure structure;
 vec<structure, va_heap, vl_ptr> *structures;
-
-/* Forward declarations.  */
-static bool is_equal_types (tree type1, tree type2);
 
 /* Given a type TYPE, this function returns the name of the type.  */
 
@@ -302,48 +470,6 @@ get_type_of_var (tree var)
     return TREE_TYPE (var);
 }
 
-/* Strip structure TYPE from pointers and arrays.  */
-
-static inline tree
-strip_type (tree type)
-{
-  gcc_assert (TYPE_P (type));
-
-  while (POINTER_TYPE_P (type)
-	 || TREE_CODE (type) == ARRAY_TYPE)
-    type = TREE_TYPE (type);
-
-  return  type;
-}
-
-
-/* Check whether the type of VAR is potential candidate for peeling.
-   Returns true if yes, false otherwise.  If yes, TYPE_P will contain
-   candidate type.  */
-
-static bool
-type_is_candidate (tree type, tree *type_p)
-{
-  *type_p = NULL;
-
-  if (!type)
-    return false;
-
-  if (type)
-    {
-      type = TYPE_MAIN_VARIANT (strip_type (type));
-      if (TREE_CODE (type) != RECORD_TYPE)
-	  return false;
-      else
-	{
-	  *type_p = type;
-	  return true;
-      }
-    }
-  else
-    return false;
-}
-
 /* Check whether the type of VAR is potential candidate for peeling.
    Returns true if yes, false otherwise.  If yes, TYPE_P will contain
    candidate type.  */
@@ -363,6 +489,23 @@ var_is_candidate (tree var, tree *type_p)
   return type_is_candidate (type, type_p);
 }
 
+/* Add a symbol SYMBOL to the vector of symbols corresponding 
+   to the type TYPE in struct_symbols_vec.  */
+
+static void 
+add_symbol (tree type, symtab_node *symbol)
+{
+
+  int i = is_in_struct_symbols_vec (type);
+  if (i != -1)
+  {
+    add_symbol_to_struct_symbols_vec (i, symbol);
+  } else {
+    i = add_struct_to_struct_symbols_vec (type);
+    add_symbol_to_struct_symbols_vec (i, symbol);
+  }
+}
+
 /* This function looks for structure types instantiated in the program.
    The candidate types are added to the structures vector.  */
 
@@ -370,15 +513,15 @@ static void
 build_data_structure (void)
 {
   tree var, type, p;
-  struct varpool_node *current_varpool;
+  struct varpool_node *current_var;
   struct cgraph_node *c_node;
   //struct cgraph_node *callee;
   //struct cgraph_edge *edge;
 
   /* Check global and static (global and local) variables.  */
-  FOR_EACH_VARIABLE (current_varpool) 
+  FOR_EACH_VARIABLE (current_var) 
     {
-      var = current_varpool->decl;
+      var = current_var->decl;
 
       if (dump_file) {
 	fprintf (dump_file, "\nConsidering var: ");
@@ -394,6 +537,7 @@ build_data_structure (void)
 
 	}
 	add_structure (type);
+	add_symbol (type, current_var);
       } else {
 	if (dump_file) {
 	  fprintf (dump_file, " Type ");
@@ -439,6 +583,7 @@ build_data_structure (void)
 	      fprintf (dump_file,  " is candidate. Adding to list of candidates...\n");	      
 	    }
 	    add_structure (type);
+	    add_symbol (type, c_node);
 	  } else {
 	    if (dump_file) {
 	      fprintf (dump_file, " Type ");
@@ -479,67 +624,68 @@ build_data_structure (void)
   /* Scan parameters of functions that have no forward declarations.  */
   FOR_EACH_DEFINED_FUNCTION(c_node)
   {
-    struct function *fn = DECL_STRUCT_FUNCTION (c_node->decl);
+    /* struct function *fn = DECL_STRUCT_FUNCTION (c_node->decl);
     basic_block bb;
-    gimple_stmt_iterator gsi;
-
-    FOR_EACH_BB_FN (bb, fn)
+      gimple_stmt_iterator gsi; */
+    
+    struct cgraph_edge *cs;
+    for (cs = c_node->callees; cs; cs = cs->next_callee)
       {
+      
+	gimple stmt = cs->call_stmt;
 
-	for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+	if (is_gimple_call(stmt))
 	  {
-	    gimple stmt = gsi_stmt (gsi);
+	    tree target = gimple_call_fndecl (stmt);
+	    tree op;
+	    unsigned int i;
+	    
+	    if (dump_file) {
+	      fprintf (dump_file, "\nTarget:");
+	      print_generic_expr (dump_file, target, 0);
+	    }
 
-	    if (is_gimple_call(stmt))
+	    p = TYPE_ARG_TYPES (TREE_TYPE(target));
+	    if (p)
 	      {
-		tree target = gimple_call_fndecl (stmt);
-		tree op;
-		unsigned int i;
-
-		if (dump_file) {
-		  fprintf (dump_file, "\nTarget:");
-		  print_generic_expr (dump_file, target, 0);
-		}
-
-		p = TYPE_ARG_TYPES (TREE_TYPE(target));
-		if (p) {
-		  if (dump_file) 
-		    fprintf (dump_file, " Continuing...");
-		  continue;
-		}
-
-		for (i = 0; i < gimple_num_ops (stmt); i++) 
-		    {
-		      op = gimple_op (stmt, i);
-
-		      if (dump_file) 
-			{
-			  fprintf (dump_file, "\nOp %d:", i);
-			  print_generic_expr (dump_file, op, 0);
-			  debug_tree(op);
-			}
-
-		      if (var_is_candidate (op, &type)) {
-			if (dump_file) {
-			  fprintf (dump_file, " Type ");
-			  print_generic_expr (dump_file, type, 0);
-			  fprintf (dump_file,  " is candidate. Adding to list of candidates...\n");
-			  
-			}
-			add_structure (type);
-		      } else {
-			if (dump_file) {
-			  fprintf (dump_file, " Type ");
-			  print_generic_expr (dump_file, type, 0);
-			  fprintf (dump_file,  "is not candidate. Skipping...\n");
-			}
-		      }
-
-		    } 
+		if (dump_file) 
+		  fprintf (dump_file, " Continuing...");
+		continue;
 	      }
+
+	    for (i = 0; i < gimple_num_ops (stmt); i++) 
+	      {
+		op = gimple_op (stmt, i);
+
+		if (dump_file) 
+		  {
+		    fprintf (dump_file, "\nOp %d:", i);
+		    print_generic_expr (dump_file, op, 0);
+		    //debug_tree(op);
+		  }
+
+		if (var_is_candidate (op, &type)) {
+		  if (dump_file)
+		    {
+		      fprintf (dump_file, " Type ");
+		      print_generic_expr (dump_file, type, 0);
+		      fprintf (dump_file,  " is candidate. Adding to list of candidates...\n");
+		    }
+		  add_structure (type);
+		  add_symbol (type, cs->callee);
+		} else {
+		  if (dump_file)
+		    {
+		      fprintf (dump_file, " Type ");
+		      print_generic_expr (dump_file, type, 0);
+		      fprintf (dump_file,  "is not candidate. Skipping...\n");
+		    }
+		}
+	      } 
 	  }
       }
   }
+  print_struct_symbol_vec ();
 }
 
 /* This function collects structures potential
