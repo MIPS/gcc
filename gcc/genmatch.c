@@ -160,7 +160,7 @@ struct operand {
   operand (enum op_type type_) : type (type_) {}
   enum op_type type;
   virtual void gen_gimple_match (FILE *f, const char *, const char * = NULL) = 0;
-  virtual void gen_gimple_transform (FILE *f, const char * = NULL) = 0;
+  virtual void gen_gimple_transform (FILE *f, const char *, const char *) = 0;
 };
 
 struct predicate : public operand
@@ -168,7 +168,7 @@ struct predicate : public operand
   predicate (const char *ident_) : operand (OP_PREDICATE), ident (ident_) {}
   const char *ident;
   virtual void gen_gimple_match (FILE *f, const char *, const char *);
-  virtual void gen_gimple_transform (FILE *, const char *) { gcc_unreachable (); }
+  virtual void gen_gimple_transform (FILE *, const char *, const char *) { gcc_unreachable (); }
 };
 
 struct e_operation {
@@ -185,7 +185,7 @@ struct expr : public operand
   e_operation *operation;
   vec<operand *> ops;
   virtual void gen_gimple_match (FILE *f, const char *, const char *);
-  virtual void gen_gimple_transform (FILE *f, const char *);
+  virtual void gen_gimple_transform (FILE *f, const char *, const char *);
 };
 
 struct c_expr : public operand
@@ -198,7 +198,7 @@ struct c_expr : public operand
   unsigned nr_stmts;
   char *fname;
   virtual void gen_gimple_match (FILE *, const char *, const char *) { gcc_unreachable (); }
-  virtual void gen_gimple_transform (FILE *f, const char *);
+  virtual void gen_gimple_transform (FILE *f, const char *, const char *);
 };
 
 struct capture : public operand
@@ -208,7 +208,7 @@ struct capture : public operand
   const char *where;
   operand *what;
   virtual void gen_gimple_match (FILE *f, const char *, const char *);
-  virtual void gen_gimple_transform (FILE *f, const char *);
+  virtual void gen_gimple_transform (FILE *f, const char *, const char *);
 };
 
 
@@ -409,15 +409,15 @@ expr::gen_gimple_match (FILE *f, const char *name, const char *label)
 }
 
 void
-expr::gen_gimple_transform (FILE *f, const char *label)
+expr::gen_gimple_transform (FILE *f, const char *label, const char *dest)
 {
-  fprintf (f, "({\n");
+  fprintf (f, "{\n");
   fprintf (f, "  tree ops[%d], res;\n", ops.length ());
   for (unsigned i = 0; i < ops.length (); ++i)
     {
-      fprintf (f, "  ops[%u] = ", i);
-      ops[i]->gen_gimple_transform (f, label);
-      fprintf (f, ";\n");
+      char dest[32];
+      snprintf (dest, 32, "  ops[%u]", i);
+      ops[i]->gen_gimple_transform (f, label, dest);
     }
   /* ???  Have another helper that is like gimple_build but may
      fail if seq == NULL.  */
@@ -437,22 +437,25 @@ expr::gen_gimple_transform (FILE *f, const char *label)
   for (unsigned i = 0; i < ops.length (); ++i)
     fprintf (f, ", ops[%u]", i);
   fprintf (f, ", valueize);\n");
-  fprintf (f, "  res;\n");
-  fprintf (f, "})");
+  fprintf (f, "  %s = res;\n", dest);
+  fprintf (f, "}");
 }
 
 void
-c_expr::gen_gimple_transform (FILE *f, const char *)
+c_expr::gen_gimple_transform (FILE *f, const char *, const char *dest)
 {
   /* If this expression has an outlined function variant, call it.  */
   if (fname)
     {
-      fprintf (f, "%s (type, captures)", fname);
+      fprintf (f, "%s = %s (type, captures);\n", dest, fname);
       return;
     }
 
   /* All multi-stmt expressions should have been outlined.  */
   gcc_assert (nr_stmts <= 1);
+
+  if (nr_stmts == 1)
+    fprintf (f, "%s = ", dest);
 
   for (unsigned i = 0; i < code.length (); ++i)
     {
@@ -473,11 +476,6 @@ c_expr::gen_gimple_transform (FILE *f, const char *)
 	    }
 	}
 
-      /* Skip a single stmt delimiter.  */
-      if (token->type == CPP_SEMICOLON
-	  && nr_stmts == 1)
-	continue;
-
       if (token->flags & PREV_WHITE)
 	fputc (' ', f);
 
@@ -485,12 +483,15 @@ c_expr::gen_gimple_transform (FILE *f, const char *)
       char *tk = (char *)cpp_token_as_text (r, token);
       fputs (tk, f);
     }
+
+  if (nr_stmts == 1)
+    fprintf (f, "\n");
 }
 
 void
-capture::gen_gimple_transform (FILE *f, const char *)
+capture::gen_gimple_transform (FILE *f, const char *, const char *dest)
 {
-  fprintf (f, "captures[%s]", this->where);
+  fprintf (f, "%s = captures[%s];\n", dest, this->where);
 }
 
 void
@@ -540,7 +541,7 @@ write_nary_simplifiers (FILE *f, vec<simplify *>& simplifiers, unsigned n)
       if (s->ifexpr)
 	{
 	  fprintf (f, "  if (!(");
-	  s->ifexpr->gen_gimple_transform (f, fail_label);
+	  s->ifexpr->gen_gimple_transform (f, fail_label, NULL);
 	  fprintf (f, ")) goto %s;", fail_label);
 	}
       if (s->result->type == operand::OP_EXPR)
@@ -549,9 +550,9 @@ write_nary_simplifiers (FILE *f, vec<simplify *>& simplifiers, unsigned n)
 	  fprintf (f, "   *res_code = %s;\n", e->operation->op->id);
 	  for (unsigned j = 0; j < e->ops.length (); ++j)
 	    {
-	      fprintf (f, "  res_ops[%d] = ", j);
-	      e->ops[j]->gen_gimple_transform (f, fail_label);
-	      fprintf (f, ";\n");
+	      char dest[32];
+	      snprintf (dest, 32, "  res_ops[%d]", j);
+	      e->ops[j]->gen_gimple_transform (f, fail_label, dest);
 	    }
 	  /* Re-fold the toplevel result.  It's basically an embedded
 	     gimple_build w/o actually building the stmt.  */
@@ -561,9 +562,8 @@ write_nary_simplifiers (FILE *f, vec<simplify *>& simplifiers, unsigned n)
       else if (s->result->type == operand::OP_CAPTURE
 	       || s->result->type == operand::OP_C_EXPR)
 	{
-	  fprintf (f, "      res_ops[0] = ");
-	  s->result->gen_gimple_transform (f, fail_label);
-	  fprintf (f, ";\n");
+	  s->result->gen_gimple_transform (f, fail_label,
+					   "      res_ops[0]");
 	  fprintf (f, "      *res_code = TREE_CODE (res_ops[0]);\n");
 	}
       else

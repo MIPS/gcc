@@ -1,5 +1,15 @@
 2014-06-04  Richard Biener  <rguenther@suse.de>
 
+	* Makefile.in (gimple-match.o-warn): Drop.
+	* genmatch.c (*::gen_gimple_transform): Add destination argument
+	and use that to store the result to.  Drop stmt expression use.
+	(write_nary_simplifiers): Adjust.
+	* gimple-match-head.c (gimple_resimplify1): Initialize tem.
+	(gimple_resimplify2): Likewise.
+	(gimple_resimplify3): Likewise.
+
+2014-06-04  Richard Biener  <rguenther@suse.de>
+
 	* genmatch.c (c_expr): Record cpp_tokens, the number of
 	stmts seen and a function identifier.
 	(c_expr::gen_gimple_transform): Generate textual form

@@ -99,7 +99,7 @@ gimple_resimplify1 (gimple_seq *seq,
 {
   if (constant_for_folding (res_ops[0]))
     {
-      tree tem;
+      tree tem = NULL_TREE;
       if (res_code->is_tree_code ())
 	tem = fold_unary_to_constant (*res_code, type, res_ops[0]);
       else
@@ -155,7 +155,7 @@ gimple_resimplify2 (gimple_seq *seq,
 {
   if (constant_for_folding (res_ops[0]) && constant_for_folding (res_ops[1]))
     {
-      tree tem;
+      tree tem = NULL_TREE;
       if (res_code->is_tree_code ())
 	tem = fold_binary_to_constant (*res_code, type,
 				       res_ops[0], res_ops[1]);
@@ -224,7 +224,7 @@ gimple_resimplify3 (gimple_seq *seq,
   if (constant_for_folding (res_ops[0]) && constant_for_folding (res_ops[1])
       && constant_for_folding (res_ops[2]))
     {
-      tree tem;
+      tree tem = NULL_TREE;
       if (res_code->is_tree_code ())
 	tem = fold_ternary/*_to_constant*/ (*res_code, type, res_ops[0],
 					    res_ops[1], res_ops[2]);
