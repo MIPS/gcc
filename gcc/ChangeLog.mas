@@ -1,5 +1,10 @@
 2014-06-04  Richard Biener  <rguenther@suse.de>
 
+	* gimple-match-head.c (gimple_match_and_simplify): Fix cut&paste
+	error.
+
+2014-06-04  Richard Biener  <rguenther@suse.de>
+
 	* genmatch.c (error_cb, fatal_at): Annotate with printf
 	format attribute to silence warning.
 	* gimple-match-head.c (gimple_resimplify1): Check for

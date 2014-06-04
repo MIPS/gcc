@@ -604,7 +604,7 @@ gimple_match_and_simplify (gimple stmt,
 		if (!arg1)
 		  return false;
 	      }
-	    tree arg2 = gimple_call_arg (stmt, 0);
+	    tree arg2 = gimple_call_arg (stmt, 1);
 	    if (valueize && TREE_CODE (arg2) == SSA_NAME)
 	      {
 		arg2 = valueize (arg2);
