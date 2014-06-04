@@ -7227,6 +7227,9 @@
 ; ST-Microelectronics Loongson-2E/2F-specific patterns.
 (include "loongson.md")
 
+; The MIPS MSA Instructions.
+(include "mips-msa.md")
+
 (define_c_enum "unspec" [
   UNSPEC_ADDRESS_FIRST
 ])
