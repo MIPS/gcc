@@ -1,3 +1,14 @@
+2014-06-04  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (error_cb, fatal_at): Annotate with printf
+	format attribute to silence warning.
+	* gimple-match-head.c (gimple_resimplify1): Check for
+	builtin availability and properly zero out excess operands.
+	(gimple_resimplify2): Likewise.
+	(gimple_resimplify3): Likewise.
+	(maybe_push_res_to_seq): Check for builtin availability.
+	(gimple_match_and_simplify): Likewise.
+
 2014-06-03  Richard Biener  <rguenther@suse.de>
 
 	* match.pd: Generalize ~A + A -> -1 simplification to all

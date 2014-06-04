@@ -105,18 +105,23 @@ gimple_resimplify1 (gimple_seq *seq,
       else
 	{
 	  tree decl = builtin_decl_implicit (*res_code);
-	  tem = fold_builtin_n (UNKNOWN_LOCATION, decl, res_ops, 1, false);
-	  if (tem)
+	  if (decl)
 	    {
-	      /* fold_builtin_n wraps the result inside a NOP_EXPR.  */
-	      STRIP_NOPS (tem);
-	      tem = fold_convert (type, tem);
+	      tem = fold_builtin_n (UNKNOWN_LOCATION, decl, res_ops, 1, false);
+	      if (tem)
+		{
+		  /* fold_builtin_n wraps the result inside a NOP_EXPR.  */
+		  STRIP_NOPS (tem);
+		  tem = fold_convert (type, tem);
+		}
 	    }
 	}
       if (tem != NULL_TREE
 	  && CONSTANT_CLASS_P (tem))
 	{
 	  res_ops[0] = tem;
+	  res_ops[1] = NULL_TREE;
+	  res_ops[2] = NULL_TREE;
 	  *res_code = TREE_CODE (res_ops[0]);
 	  return true;
 	}
@@ -157,17 +162,22 @@ gimple_resimplify2 (gimple_seq *seq,
       else
 	{
 	  tree decl = builtin_decl_implicit (*res_code);
-	  tem = fold_builtin_n (UNKNOWN_LOCATION, decl, res_ops, 2, false);
-	  if (tem)
+	  if (decl)
 	    {
-	      /* fold_builtin_n wraps the result inside a NOP_EXPR.  */
-	      STRIP_NOPS (tem);
-	      tem = fold_convert (type, tem);
+	      tem = fold_builtin_n (UNKNOWN_LOCATION, decl, res_ops, 2, false);
+	      if (tem)
+		{
+		  /* fold_builtin_n wraps the result inside a NOP_EXPR.  */
+		  STRIP_NOPS (tem);
+		  tem = fold_convert (type, tem);
+		}
 	    }
 	}
       if (tem != NULL_TREE)
 	{
 	  res_ops[0] = tem;
+	  res_ops[1] = NULL_TREE;
+	  res_ops[2] = NULL_TREE;
 	  *res_code = TREE_CODE (res_ops[0]);
 	  return true;
 	}
@@ -221,18 +231,23 @@ gimple_resimplify3 (gimple_seq *seq,
       else
 	{
 	  tree decl = builtin_decl_implicit (*res_code);
-	  tem = fold_builtin_n (UNKNOWN_LOCATION, decl, res_ops, 3, false);
-	  if (tem)
+	  if (decl)
 	    {
-	      /* fold_builtin_n wraps the result inside a NOP_EXPR.  */
-	      STRIP_NOPS (tem);
-	      tem = fold_convert (type, tem);
+	      tem = fold_builtin_n (UNKNOWN_LOCATION, decl, res_ops, 3, false);
+	      if (tem)
+		{
+		  /* fold_builtin_n wraps the result inside a NOP_EXPR.  */
+		  STRIP_NOPS (tem);
+		  tem = fold_convert (type, tem);
+		}
 	    }
 	}
       if (tem != NULL_TREE
 	  && CONSTANT_CLASS_P (tem))
 	{
 	  res_ops[0] = tem;
+	  res_ops[1] = NULL_TREE;
+	  res_ops[2] = NULL_TREE;
 	  *res_code = TREE_CODE (res_ops[0]);
 	  return true;
 	}
@@ -297,9 +312,11 @@ maybe_push_res_to_seq (code_helper rcode, tree type, tree *ops,
     {
       if (!seq)
 	return NULL_TREE;
+      tree decl = builtin_decl_implicit (rcode);
+      if (!decl)
+	return NULL_TREE;
       if (!res)
 	res = make_ssa_name (type, NULL);
-      tree decl = builtin_decl_implicit (rcode);
       unsigned nargs = type_num_arguments (TREE_TYPE (decl));
       gcc_assert (nargs <= 3);
       gimple new_stmt = gimple_build_call (decl, nargs, ops[0], ops[1], ops[2]);
@@ -401,14 +418,17 @@ gimple_match_and_simplify (enum built_in_function fn, tree type,
   if (constant_for_folding (arg0))
     {
       tree decl = builtin_decl_implicit (fn);
-      tree res = fold_builtin_n (UNKNOWN_LOCATION, decl, &arg0, 1, false);
-      if (res)
+      if (decl)
 	{
-	  /* fold_builtin_n wraps the result inside a NOP_EXPR.  */
-	  STRIP_NOPS (res);
-	  res = fold_convert (type, res);
-	  if (CONSTANT_CLASS_P (res))
-	    return res;
+	  tree res = fold_builtin_n (UNKNOWN_LOCATION, decl, &arg0, 1, false);
+	  if (res)
+	    {
+	      /* fold_builtin_n wraps the result inside a NOP_EXPR.  */
+	      STRIP_NOPS (res);
+	      res = fold_convert (type, res);
+	      if (CONSTANT_CLASS_P (res))
+		return res;
+	    }
 	}
     }
 
@@ -553,6 +573,7 @@ gimple_match_and_simplify (gimple stmt,
 	  || TREE_CODE (fn) != ADDR_EXPR
 	  || TREE_CODE (TREE_OPERAND (fn, 0)) != FUNCTION_DECL
 	  || DECL_BUILT_IN_CLASS (TREE_OPERAND (fn, 0)) != BUILT_IN_NORMAL
+	  || !builtin_decl_implicit (DECL_FUNCTION_CODE (TREE_OPERAND (fn, 0)))
 	  || !gimple_builtin_call_types_compatible_p (stmt,
 						      TREE_OPERAND (fn, 0)))
 	return false;

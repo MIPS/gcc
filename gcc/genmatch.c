@@ -549,6 +549,9 @@ write_gimple (FILE *f, vec<simplify *>& simplifiers)
 static struct line_maps *line_table;
 
 static bool
+#if GCC_VERSION >= 4001
+__attribute__((format (printf, 6, 0)))
+#endif
 error_cb (cpp_reader *, int, int, source_location location,
 	  unsigned int, const char *msg, va_list *ap)
 {
@@ -562,6 +565,9 @@ error_cb (cpp_reader *, int, int, source_location location,
 }
 
 static void
+#if GCC_VERSION >= 4001
+__attribute__((format (printf, 2, 3)))
+#endif
 fatal_at (const cpp_token *tk, const char *msg, ...)
 {
   va_list ap;
