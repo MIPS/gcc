@@ -398,7 +398,7 @@
       mips_expand_msa_vcond (res, true_val, false_val,
 			     GET_CODE (operands[3]), operands[4], operands[5]);
       // This results in res T/F elements having value of -1 or 0. The result
-      // needs to adjusted to have the approiate true/false elements as given
+      // needs to adjusted to have the appropriate true/false elements as given
       // by operands[1]/operands[2] repectively.
       emit_move_insn (xres, res);
       if (operands[1] != true_val)
@@ -472,7 +472,7 @@
       mips_expand_msa_vcond (res, true_val, false_val,
 			     GET_CODE (operands[3]), operands[4], operands[5]);
       // This results in res T/F elements having value of -1 or 0. The result
-      // needs to adjusted to have the approiate true/false elements as given
+      // needs to adjusted to have the appropriate true/false elements as given
       // by operands[1]/operands[2] repectively.
       emit_move_insn (xres, res);
       if (operands[1] != true_val)
