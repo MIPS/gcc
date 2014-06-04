@@ -190,9 +190,13 @@ struct expr : public operand
 
 struct c_expr : public operand
 {
-  c_expr (const char *code_)
-    : operand (OP_C_EXPR), code (code_) {}
-  const char *code;
+  c_expr (cpp_reader *r_, vec<cpp_token> code_, unsigned nr_stmts_)
+    : operand (OP_C_EXPR), r (r_), code (code_),
+      nr_stmts (nr_stmts_), fname (NULL) {}
+  cpp_reader *r;
+  vec<cpp_token> code;
+  unsigned nr_stmts;
+  char *fname;
   virtual void gen_gimple_match (FILE *, const char *, const char *) { gcc_unreachable (); }
   virtual void gen_gimple_transform (FILE *f, const char *);
 };
@@ -440,7 +444,47 @@ expr::gen_gimple_transform (FILE *f, const char *label)
 void
 c_expr::gen_gimple_transform (FILE *f, const char *)
 {
-  fputs (code, f);
+  /* If this expression has an outlined function variant, call it.  */
+  if (fname)
+    {
+      fprintf (f, "%s (type, captures)", fname);
+      return;
+    }
+
+  /* All multi-stmt expressions should have been outlined.  */
+  gcc_assert (nr_stmts <= 1);
+
+  for (unsigned i = 0; i < code.length (); ++i)
+    {
+      const cpp_token *token = &code[i];
+
+      /* Replace captures for code-gen.  */
+      if (token->type == CPP_ATSIGN)
+	{
+	  const cpp_token *n = &code[i+1];
+	  if (n->type == CPP_NUMBER
+	      && !(n->flags & PREV_WHITE))
+	    {
+	      if (token->flags & PREV_WHITE)
+		fputc (' ', f);
+	      fprintf (f, "captures[%s]", n->val.str.text);
+	      ++i;
+	      continue;
+	    }
+	}
+
+      /* Skip a single stmt delimiter.  */
+      if (token->type == CPP_SEMICOLON
+	  && nr_stmts == 1)
+	continue;
+
+      if (token->flags & PREV_WHITE)
+	fputc (' ', f);
+
+      /* Output the token as string.  */
+      char *tk = (char *)cpp_token_as_text (r, token);
+      fputs (tk, f);
+    }
 }
 
 void
@@ -495,9 +539,9 @@ write_nary_simplifiers (FILE *f, vec<simplify *>& simplifiers, unsigned n)
 	}
       if (s->ifexpr)
 	{
-	  fprintf (f, "  if (!");
+	  fprintf (f, "  if (!(");
 	  s->ifexpr->gen_gimple_transform (f, fail_label);
-	  fprintf (f, ") goto %s;", fail_label);
+	  fprintf (f, ")) goto %s;", fail_label);
 	}
       if (s->result->type == operand::OP_EXPR)
 	{
@@ -533,10 +577,81 @@ write_nary_simplifiers (FILE *f, vec<simplify *>& simplifiers, unsigned n)
 }
 
 static void
+outline_c_exprs (FILE *f, struct operand *op)
+{
+  if (op->type == operand::OP_C_EXPR)
+    {
+      c_expr *e = static_cast <c_expr *>(op);
+      static unsigned fnnr = 1;
+      if (e->nr_stmts > 1
+	  && !e->fname)
+	{
+	  e->fname = (char *)xmalloc (sizeof ("cexprfn") + 4);
+	  sprintf (e->fname, "cexprfn%d", fnnr);
+	  fprintf (f, "static tree cexprfn%d (tree type, tree *captures)\n",
+		   fnnr);
+	  fprintf (f, "{\n");
+	  unsigned stmt_nr = 1;
+	  for (unsigned i = 0; i < e->code.length (); ++i)
+	    {
+	      const cpp_token *token = &e->code[i];
+
+	      /* Replace captures for code-gen.  */
+	      if (token->type == CPP_ATSIGN)
+		{
+		  const cpp_token *n = &e->code[i+1];
+		  if (n->type == CPP_NUMBER
+		      && !(n->flags & PREV_WHITE))
+		    {
+		      if (token->flags & PREV_WHITE)
+			fputc (' ', f);
+		      fprintf (f, "captures[%s]", n->val.str.text);
+		      ++i;
+		      continue;
+		    }
+		}
+
+	      if (token->flags & PREV_WHITE)
+		fputc (' ', f);
+
+	      /* Output the token as string.  */
+	      char *tk = (char *)cpp_token_as_text (e->r, token);
+	      fputs (tk, f);
+
+	      if (token->type == CPP_SEMICOLON)
+		{
+		  stmt_nr++;
+		  if (stmt_nr == e->nr_stmts)
+		    fputs ("\n  return ", f);
+		}
+	    }
+	  fprintf (f, "\n}\n");
+	  fnnr++;
+	}
+    }
+  else if (op->type == operand::OP_CAPTURE)
+    {
+      capture *c = static_cast <capture *>(op);
+      if (c->what)
+	outline_c_exprs (f, c->what);
+    }
+  else if (op->type == operand::OP_EXPR)
+    {
+      expr *e = static_cast <expr *>(op);
+      for (unsigned i = 0; i < e->ops.length (); ++i)
+	outline_c_exprs (f, e->ops[i]);
+    }
+}
+
+static void
 write_gimple (FILE *f, vec<simplify *>& simplifiers)
 {
   /* Include the header instead of writing it awkwardly quoted here.  */
   fprintf (f, "#include \"gimple-match-head.c\"\n\n");
+
+  /* Outline complex C expressions to helper functions.  */
+  for (unsigned i = 0; i < simplifiers.length (); ++i)
+    outline_c_exprs (stdout, simplifiers[i]->result);
 
   write_nary_simplifiers (f, simplifiers, 1);
   write_nary_simplifiers (f, simplifiers, 2);
@@ -722,42 +837,19 @@ parse_c_expr (cpp_reader *r, cpp_ttype start)
   const cpp_token *token;
   cpp_ttype end;
   unsigned opencnt;
-  char *code;
+  vec<cpp_token> code = vNULL;
+  unsigned nr_stmts = 0;
   eat_token (r, start);
   if (start == CPP_OPEN_PAREN)
-    {
-      code = xstrdup ("(");
-      end = CPP_CLOSE_PAREN;
-    }
+    end = CPP_CLOSE_PAREN;
   else if (start == CPP_OPEN_BRACE)
-    {
-      code = xstrdup ("({");
-      end = CPP_CLOSE_BRACE;
-    }
+    end = CPP_CLOSE_BRACE;
   else
     gcc_unreachable ();
   opencnt = 1;
   do
     {
       token = next (r);
-
-      /* Replace captures for code-gen.  */
-      if (token->type == CPP_ATSIGN)
-	{
-	  const cpp_token *n = peek (r);
-	  if (n->type == CPP_NUMBER
-	      && !(n->flags & PREV_WHITE))
-	    {
-	      code = (char *)xrealloc (code, strlen (code)
-				       + strlen ("captures[") + 4);
-	      if (token->flags & PREV_WHITE)
-		strcat (code, " ");
-	      strcat (code, "captures[");
-	      strcat (code, get_number (r));
-	      strcat (code, "]");
-	      continue;
-	    }
-	}
 
       /* Count brace pairs to find the end of the expr to match.  */
       if (token->type == start)
@@ -766,27 +858,14 @@ parse_c_expr (cpp_reader *r, cpp_ttype start)
 	       && --opencnt == 0)
 	break;
 
-      /* Output the token as string.  */
-      char *tk = (char *)cpp_token_as_text (r, token);
-      code = (char *)xrealloc (code, strlen (code) + strlen (tk) + 2);
-      if (token->flags & PREV_WHITE)
-	strcat (code, " ");
-      strcat (code, tk);
+      if (token->type == CPP_SEMICOLON)
+	nr_stmts++;
+
+      /* Record the token.  */
+      code.safe_push (*token);
     }
   while (1);
-  if (end == CPP_CLOSE_PAREN)
-    {
-      code = (char *)xrealloc (code, strlen (code) + 1 + 1);
-      strcat (code, ")");
-    }
-  else if (end == CPP_CLOSE_BRACE)
-    {
-      code = (char *)xrealloc (code, strlen (code) + 1 + 2);
-      strcat (code, "})");
-    }
-  else
-    gcc_unreachable ();
-  return new c_expr (code);
+  return new c_expr (r, code, nr_stmts);
 }
 
 /* Parse

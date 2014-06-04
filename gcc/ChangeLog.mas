@@ -1,5 +1,16 @@
 2014-06-04  Richard Biener  <rguenther@suse.de>
 
+	* genmatch.c (c_expr): Record cpp_tokens, the number of
+	stmts seen and a function identifier.
+	(c_expr::gen_gimple_transform): Generate textual form
+	from the token vector or a call to the outlined function.
+	(write_nary_simplifiers): Adjust.
+	(outline_c_exprs): New function.
+	(write_gimple): Call it.
+	(parse_c_expr): Record a cpp_token vector.
+
+2014-06-04  Richard Biener  <rguenther@suse.de>
+
 	* gimple-match-head.c (gimple_match_and_simplify): Fix cut&paste
 	error.
 
