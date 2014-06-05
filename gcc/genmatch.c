@@ -31,6 +31,52 @@ along with GCC; see the file COPYING3.  If not see
 #include "vec.h"
 
 
+/* libccp helpers.  */
+
+static struct line_maps *line_table;
+
+static bool
+#if GCC_VERSION >= 4001
+__attribute__((format (printf, 6, 0)))
+#endif
+error_cb (cpp_reader *, int, int, source_location location,
+	  unsigned int, const char *msg, va_list *ap)
+{
+  const line_map *map;
+  linemap_resolve_location (line_table, location, LRK_SPELLING_LOCATION, &map);
+  expanded_location loc = linemap_expand_location (line_table, map, location);
+  fprintf (stderr, "%s:%d:%d error: ", loc.file, loc.line, loc.column);
+  vfprintf (stderr, msg, *ap);
+  fprintf (stderr, "\n");
+  exit (1);
+}
+
+static void
+#if GCC_VERSION >= 4001
+__attribute__((format (printf, 2, 3)))
+#endif
+fatal_at (const cpp_token *tk, const char *msg, ...)
+{
+  va_list ap;
+  va_start (ap, msg);
+  error_cb (NULL, CPP_DL_FATAL, 0, tk->src_loc, 0, msg, &ap);
+  va_end (ap);
+}
+
+static void
+output_line_directive (FILE *f, source_location location)
+{
+  const line_map *map;
+  linemap_resolve_location (line_table, location, LRK_SPELLING_LOCATION, &map);
+  expanded_location loc = linemap_expand_location (line_table, map, location);
+  /* Other gen programs really output line directives here, at least for
+     development it's right now more convenient to have line information
+     from the generated file.  Still keep the directives as comment for now
+     to easily back-point to the meta-description.  */
+  fprintf (f, "/* #line %d \"%s\" */\n", loc.line, loc.file);
+}
+
+
 /* Grammar
 
      capture = '@' number
@@ -247,13 +293,19 @@ e_operation::e_operation (const char *id)
 
 struct simplify {
   simplify (const char *name_,
-	    struct operand *match_, struct operand *ifexpr_,
-	    struct operand *result_)
-      : name (name_), match (match_), ifexpr (ifexpr_), result (result_) {}
+	    struct operand *match_, source_location match_location_,
+	    struct operand *ifexpr_, source_location ifexpr_location_,
+	    struct operand *result_, source_location result_location_)
+      : name (name_), match (match_), match_location (match_location_),
+      ifexpr (ifexpr_), ifexpr_location (ifexpr_location_),
+      result (result_), result_location (result_location_) {}
   const char *name;
   struct operand *match;
+  source_location match_location;
   struct operand *ifexpr;
+  source_location ifexpr_location;
   struct operand *result;
+  source_location result_location;
 };
 
 
@@ -529,6 +581,7 @@ write_nary_simplifiers (FILE *f, vec<simplify *>& simplifiers, unsigned n)
 	continue;
       char fail_label[16];
       snprintf (fail_label, 16, "fail%d", label_cnt++);
+      output_line_directive (f, s->match_location);
       fprintf (f, "  if (code == %s)\n", e->operation->op->id);
       fprintf (f, "    {\n");
       fprintf (f, "      tree captures[4] = {};\n");
@@ -540,10 +593,12 @@ write_nary_simplifiers (FILE *f, vec<simplify *>& simplifiers, unsigned n)
 	}
       if (s->ifexpr)
 	{
+	  output_line_directive (f, s->ifexpr_location);
 	  fprintf (f, "  if (!(");
 	  s->ifexpr->gen_gimple_transform (f, fail_label, NULL);
-	  fprintf (f, ")) goto %s;", fail_label);
+	  fprintf (f, ")) goto %s;\n", fail_label);
 	}
+      output_line_directive (f, s->result_location);
       if (s->result->type == operand::OP_EXPR)
 	{
 	  e = static_cast <expr *> (s->result);
@@ -656,39 +711,6 @@ write_gimple (FILE *f, vec<simplify *>& simplifiers)
   write_nary_simplifiers (f, simplifiers, 1);
   write_nary_simplifiers (f, simplifiers, 2);
   write_nary_simplifiers (f, simplifiers, 3);
-}
-
-
-/* libccp helpers.  */
-
-static struct line_maps *line_table;
-
-static bool
-#if GCC_VERSION >= 4001
-__attribute__((format (printf, 6, 0)))
-#endif
-error_cb (cpp_reader *, int, int, source_location location,
-	  unsigned int, const char *msg, va_list *ap)
-{
-  const line_map *map;
-  linemap_resolve_location (line_table, location, LRK_SPELLING_LOCATION, &map);
-  expanded_location loc = linemap_expand_location (line_table, map, location);
-  fprintf (stderr, "%s:%d:%d error: ", loc.file, loc.line, loc.column);
-  vfprintf (stderr, msg, *ap);
-  fprintf (stderr, "\n");
-  exit (1);
-}
-
-static void
-#if GCC_VERSION >= 4001
-__attribute__((format (printf, 2, 3)))
-#endif
-fatal_at (const cpp_token *tk, const char *msg, ...)
-{
-  va_list ap;
-  va_start (ap, msg);
-  error_cb (NULL, CPP_DL_FATAL, 0, tk->src_loc, 0, msg, &ap);
-  va_end (ap);
 }
 
 
@@ -914,7 +936,7 @@ parse_op (cpp_reader *r)
         <op> <op>)  */
 
 static simplify *
-parse_match_and_simplify (cpp_reader *r)
+parse_match_and_simplify (cpp_reader *r, source_location match_location)
 {
   const cpp_token *token = peek (r);
   const char *id;
@@ -934,14 +956,18 @@ parse_match_and_simplify (cpp_reader *r)
   token = peek (r);
   /* Conditional if (....)  */
   struct operand *ifexpr = NULL;
+  source_location ifexpr_location = 0;
   if (token->type == CPP_NAME)
     {
       const char *tem = get_ident (r);
       if (strcmp (tem, "if") != 0)
 	fatal_at (token, "expected 'if' or expression");
+      ifexpr_location = token->src_loc;
       ifexpr = parse_c_expr (r, CPP_OPEN_PAREN);
     }
-  return new simplify (id, match, ifexpr, parse_op (r));
+  token = peek (r);
+  return new simplify (id, match, match_location,
+		       ifexpr, ifexpr_location, parse_op (r), token->src_loc);
 }
 
 
@@ -1004,7 +1030,7 @@ main(int argc, char **argv)
 
       const char *id = get_ident (r);
       if (strcmp (id, "match_and_simplify") == 0)
-	simplifiers.safe_push (parse_match_and_simplify (r));
+	simplifiers.safe_push (parse_match_and_simplify (r, token->src_loc));
       else
 	fatal_at (token, "expected 'match_and_simplify'");
 

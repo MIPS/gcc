@@ -1,5 +1,15 @@
 2014-06-05  Richard Biener  <rguenther@suse.de>
 
+	* genmatch.c (output_line_directive): New function.
+	(struct simplify): Add locations for match, ifexpr and result.
+	(write_nary_simplifiers): Annotate the source with line
+	directives.
+	(parse_match_and_simplify): Record locations of match, ifexpr
+	and result part.
+	(main): Adjust.
+
+2014-06-05  Richard Biener  <rguenther@suse.de>
+
 	* match.pd: Fix bogus (~x & y) | x -> x & y transform which
 	should have simplified to x | y.
 
