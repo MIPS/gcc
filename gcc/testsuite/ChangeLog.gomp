@@ -1,3 +1,8 @@
+2014-06-05  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-c++-common/goacc/data-clause-duplicate-1.c: Extend.
+	* c-c++-common/goacc/present-1.c: New file.
+
 2014-03-20  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* c-c++-common/goacc-gomp/nesting-1.c: New file.

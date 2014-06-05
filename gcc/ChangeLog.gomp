@@ -1,3 +1,8 @@
+2014-06-05  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* gimplify.c (gimplify_scan_omp_clauses) <case OMP_CLAUSE_MAP>:
+	Don't block OMP_CLAUSE_MAP_FORCE_PRESENT.
+
 2014-06-04  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* cgraphunit.c (ipa_passes, compile): Handle flag_openacc next to

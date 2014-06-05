@@ -6014,7 +6014,6 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	case OMP_CLAUSE_MAP:
 	  switch (OMP_CLAUSE_MAP_KIND (c))
 	    {
-	    case OMP_CLAUSE_MAP_FORCE_PRESENT:
 	    case OMP_CLAUSE_MAP_FORCE_DEALLOC:
 	    case OMP_CLAUSE_MAP_FORCE_DEVICEPTR:
 	      input_location = OMP_CLAUSE_LOCATION (c);

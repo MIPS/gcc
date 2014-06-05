@@ -10,4 +10,6 @@ fun (void)
   /* { dg-error "'fp' appears more than once in map clauses" "" { target *-*-* } 9 } */
   /* { dg-message "sorry, unimplemented: data clause not yet implemented" "" { target *-*-* } 9 } */
   ;
+#pragma acc data create(fp) present(fp) /* { dg-error "'fp' appears more than once in map clauses" } */
+  ;
 }
