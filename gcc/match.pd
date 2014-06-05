@@ -356,11 +356,11 @@ to (minus @1 @0)
   if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
   (bit_and @0 @1))
 
-/* (~x & y) | x -> x & y */
+/* (~x & y) | x -> x | y */
 (match_and_simplify
   (bit_ior (bit_and (bit_not @0) @1) @0)
   if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
-  (bit_and @0 @1))
+  (bit_ior @0 @1))
 
 /* ~~x -> x */
 (match_and_simplify

@@ -1,5 +1,10 @@
 2014-06-05  Richard Biener  <rguenther@suse.de>
 
+	* match.pd: Fix bogus (~x & y) | x -> x & y transform which
+	should have simplified to x | y.
+
+2014-06-05  Richard Biener  <rguenther@suse.de>
+
 	* gimple-match-head.c (gimple_resimplify2): Verify constant
 	folded result is really constant.
 	(gimple_match_and_simplify): Likewise.  Bail out for internal
