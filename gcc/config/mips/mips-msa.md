@@ -437,6 +437,8 @@
 			    gen_rtx_SUBREG (<MSA_2:VIMODE>mode, operands[2], 0));
 	  emit_insn (gen_and<MSA_2:mode_i>3 (temp2, temp2, xop2));
 	}
+      else
+        emit_insn (gen_and<MSA_2:mode_i>3 (temp2, temp2, xres));
       emit_insn (gen_ior<MSA_2:mode_i>3 (xres, temp1, temp2));
       emit_move_insn (operands[0],
 		      gen_rtx_SUBREG (<MSA_2:MODE>mode, xres, 0));
@@ -511,6 +513,8 @@
 			    gen_rtx_SUBREG (<MSA_2:VIMODE>mode, operands[2], 0));
 	  emit_insn (gen_and<MSA_2:mode_i>3 (temp2, temp2, xop2));
 	}
+      else
+        emit_insn (gen_and<MSA_2:mode_i>3 (temp2, temp2, xres));
       emit_insn (gen_ior<MSA_2:mode_i>3 (xres, temp1, temp2));
       emit_move_insn (operands[0],
 		      gen_rtx_SUBREG (<MSA_2:MODE>mode, xres, 0));
