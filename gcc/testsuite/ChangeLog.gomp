@@ -1,5 +1,10 @@
 2014-06-05  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* c-c++-common/goacc/data-clause-duplicate-1.c: The OpenACC
+	deviceptr clause is now supported.
+	* c-c++-common/goacc/deviceptr-1.c: Extend.
+	* c-c++-common/goacc/deviceptr-2.c: New file.
+
 	* c-c++-common/goacc/data-clause-duplicate-1.c: Extend.
 	* c-c++-common/goacc/present-1.c: New file.
 

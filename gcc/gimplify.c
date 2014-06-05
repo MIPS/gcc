@@ -6015,7 +6015,6 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	  switch (OMP_CLAUSE_MAP_KIND (c))
 	    {
 	    case OMP_CLAUSE_MAP_FORCE_DEALLOC:
-	    case OMP_CLAUSE_MAP_FORCE_DEVICEPTR:
 	      input_location = OMP_CLAUSE_LOCATION (c);
 	      /* TODO.  */
 	      sorry ("data clause not yet implemented");
@@ -6533,6 +6532,12 @@ gimplify_adjust_omp_clauses (tree *list_p)
 		   && TREE_CODE (DECL_SIZE (decl)) != INTEGER_CST
 		   && OMP_CLAUSE_MAP_KIND (c) != OMP_CLAUSE_MAP_POINTER)
 	    {
+	      /* For OMP_CLAUSE_MAP_FORCE_DEVICEPTR, we'll never enter here,
+		 because for these, TREE_CODE (DECL_SIZE (decl)) will always be
+		 INTEGER_CST.  */
+	      gcc_assert (OMP_CLAUSE_MAP_KIND (c)
+			  != OMP_CLAUSE_MAP_FORCE_DEVICEPTR);
+
 	      tree decl2 = DECL_VALUE_EXPR (decl);
 	      gcc_assert (TREE_CODE (decl2) == INDIRECT_REF);
 	      decl2 = TREE_OPERAND (decl2, 0);

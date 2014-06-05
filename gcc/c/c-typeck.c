@@ -11747,6 +11747,7 @@ handle_omp_array_sections (tree c)
       OMP_CLAUSE_SIZE (c) = size;
       if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_MAP)
 	return false;
+      gcc_assert (OMP_CLAUSE_MAP_KIND (c) != OMP_CLAUSE_MAP_FORCE_DEVICEPTR);
       tree c2 = build_omp_clause (OMP_CLAUSE_LOCATION (c), OMP_CLAUSE_MAP);
       OMP_CLAUSE_MAP_KIND (c2) = OMP_CLAUSE_MAP_POINTER;
       if (!c_mark_addressable (t))
@@ -12168,7 +12169,9 @@ c_finish_omp_clauses (tree clauses)
 	  else if (!c_mark_addressable (t))
 	    remove = true;
 	  else if (!(OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
-		     && OMP_CLAUSE_MAP_KIND (c) == OMP_CLAUSE_MAP_POINTER)
+		     && (OMP_CLAUSE_MAP_KIND (c) == OMP_CLAUSE_MAP_POINTER
+			 || (OMP_CLAUSE_MAP_KIND (c)
+			     == OMP_CLAUSE_MAP_FORCE_DEVICEPTR)))
 		   && !lang_hooks.types.omp_mappable_type (TREE_TYPE (t)))
 	    {
 	      error_at (OMP_CLAUSE_LOCATION (c),

@@ -1,3 +1,8 @@
+2014-06-05  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-typeck.c (handle_omp_array_sections, c_finish_omp_clauses):
+	Handle OMP_CLAUSE_MAP_FORCE_DEVICEPTR.
+
 2014-03-20  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* c-parser.c: Update comments.

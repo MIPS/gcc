@@ -6,9 +6,7 @@ fun (void)
   ;
 #pragma acc kernels present_or_copyin(fp[3]) present_or_copyout(fp[7:4]) /* { dg-error "'fp' appears more than once in map clauses" } */
   ;
-#pragma acc data create(fp[:10]) deviceptr(fp)
-  /* { dg-error "'fp' appears more than once in map clauses" "" { target *-*-* } 9 } */
-  /* { dg-message "sorry, unimplemented: data clause not yet implemented" "" { target *-*-* } 9 } */
+#pragma acc data create(fp[:10]) deviceptr(fp) /* { dg-error "'fp' appears more than once in map clauses" } */
   ;
 #pragma acc data create(fp) present(fp) /* { dg-error "'fp' appears more than once in map clauses" } */
   ;

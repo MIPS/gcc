@@ -1225,7 +1225,8 @@ enum omp_clause_map_kind
   OMP_CLAUSE_MAP_FORCE_PRESENT = OMP_CLAUSE_MAP_FORCE | OMP_CLAUSE_MAP_SPECIAL,
   /* Deallocate a mapping, without copying from device.  */
   OMP_CLAUSE_MAP_FORCE_DEALLOC,
-  /* Is a device pointer.  */
+  /* Is a device pointer.  OMP_CLAUSE_SIZE for these is unused; is implicitly
+     POINTER_SIZE / BITS_PER_UNIT.  */
   OMP_CLAUSE_MAP_FORCE_DEVICEPTR,
 
   /* End marker.  */

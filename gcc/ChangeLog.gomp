@@ -1,5 +1,13 @@
 2014-06-05  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* gimplify.c (gimplify_scan_omp_clauses)
+	(gimplify_adjust_omp_clauses): Handle
+	OMP_CLAUSE_MAP_FORCE_DEVICEPTR.
+	* omp-low.c (scan_sharing_clauses, lower_oacc_offload)
+	(lower_omp_target): Likewise.
+	* tree-core.h (enum omp_clause_map_kind)
+	<OMP_CLAUSE_MAP_FORCE_DEVICEPTR>: Update comment.
+
 	* gimplify.c (gimplify_scan_omp_clauses) <case OMP_CLAUSE_MAP>:
 	Don't block OMP_CLAUSE_MAP_FORCE_PRESENT.
 

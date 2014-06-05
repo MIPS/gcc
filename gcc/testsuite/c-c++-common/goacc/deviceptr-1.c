@@ -61,4 +61,24 @@ fun3 (void)
   ;
 }
 
-/* { dg-prune-output "sorry, unimplemented: data clause not yet implemented" } */
+extern struct s s1;
+extern struct s s2[1]; /* { dg-error "array type has incomplete element type" "" { target c } } */
+
+void
+fun4 (void)
+{
+  struct s *s1_p = &s1;
+  struct s *s2_p = &s2;
+
+#pragma acc parallel deviceptr(s1) /* { dg-error "'s1' is not a pointer variable" } */
+  ;
+
+#pragma acc parallel deviceptr(s2)
+  ;
+
+#pragma acc parallel deviceptr(s1_p)
+  s1_p = 0;
+
+#pragma acc parallel deviceptr(s2_p)
+  s2_p = 0;
+}

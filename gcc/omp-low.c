@@ -1708,6 +1708,18 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 		  && !POINTER_TYPE_P (TREE_TYPE (decl)))
 		break;
 	    }
+#if 0
+	  /* In target regions that are not offloaded, libgomp won't pay
+	     attention to OMP_CLAUSE_MAP_FORCE_DEVICEPTR -- but I think we need
+	     to handle it here anyway, in order to create a visible copy of the
+	     variable.  */
+	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
+	      && OMP_CLAUSE_MAP_KIND (c) == OMP_CLAUSE_MAP_FORCE_DEVICEPTR)
+	    {
+	      if (!is_gimple_omp_offloaded (ctx->stmt))
+		break;
+	    }
+#endif
 	  if (DECL_P (decl))
 	    {
 	      if (DECL_SIZE (decl)
@@ -1723,6 +1735,10 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 		}
 	      else
 		{
+		  gcc_assert (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_MAP
+			      || (OMP_CLAUSE_MAP_KIND (c)
+				  != OMP_CLAUSE_MAP_FORCE_DEVICEPTR)
+			      || TREE_CODE (TREE_TYPE (decl)) != ARRAY_TYPE);
 		  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
 		      && OMP_CLAUSE_MAP_KIND (c) == OMP_CLAUSE_MAP_POINTER
 		      && !OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION (c)
@@ -1738,6 +1754,10 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	    {
 	      tree base = get_base_address (decl);
 	      tree nc = OMP_CLAUSE_CHAIN (c);
+	      gcc_assert (nc == NULL_TREE
+			  || OMP_CLAUSE_CODE (nc) != OMP_CLAUSE_MAP
+			  || (OMP_CLAUSE_MAP_KIND (nc)
+			      != OMP_CLAUSE_MAP_FORCE_DEVICEPTR));
 	      if (DECL_P (base)
 		  && nc != NULL_TREE
 		  && OMP_CLAUSE_CODE (nc) == OMP_CLAUSE_MAP
@@ -1867,6 +1887,9 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	    }
 	  if (DECL_P (decl))
 	    {
+	      gcc_assert ((OMP_CLAUSE_MAP_KIND (c)
+			   != OMP_CLAUSE_MAP_FORCE_DEVICEPTR)
+			  || TREE_CODE (TREE_TYPE (decl)) != ARRAY_TYPE);
 	      if (OMP_CLAUSE_MAP_KIND (c) == OMP_CLAUSE_MAP_POINTER
 		  && TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE
 		  && !COMPLETE_TYPE_P (TREE_TYPE (decl)))
@@ -1878,6 +1901,9 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	      else if (DECL_SIZE (decl)
 		       && TREE_CODE (DECL_SIZE (decl)) != INTEGER_CST)
 		{
+		  gcc_assert (OMP_CLAUSE_MAP_KIND (c)
+			      != OMP_CLAUSE_MAP_FORCE_DEVICEPTR);
+
 		  tree decl2 = DECL_VALUE_EXPR (decl);
 		  gcc_assert (TREE_CODE (decl2) == INDIRECT_REF);
 		  decl2 = TREE_OPERAND (decl2, 0);
@@ -9100,6 +9126,10 @@ lower_oacc_offload (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	  {
 	    x = build_receiver_ref (var, true, ctx);
 	    tree new_var = lookup_decl (var, ctx);
+	    gcc_assert (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_MAP
+			|| (OMP_CLAUSE_MAP_KIND (c)
+			    != OMP_CLAUSE_MAP_FORCE_DEVICEPTR)
+			|| TREE_CODE (TREE_TYPE (var)) != ARRAY_TYPE);
 	    if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
 		&& OMP_CLAUSE_MAP_KIND (c) == OMP_CLAUSE_MAP_POINTER
 		&& !OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION (c)
@@ -9199,6 +9229,10 @@ lower_oacc_offload (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	      {
 		tree var = lookup_decl_in_outer_ctx (ovar, ctx);
 		tree x = build_sender_ref (ovar, ctx);
+		gcc_assert (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_MAP
+			    || (OMP_CLAUSE_MAP_KIND (c)
+				!= OMP_CLAUSE_MAP_FORCE_DEVICEPTR)
+			    || TREE_CODE (TREE_TYPE (ovar)) != ARRAY_TYPE);
 		if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
 		    && OMP_CLAUSE_MAP_KIND (c) == OMP_CLAUSE_MAP_POINTER
 		    && !OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION (c)
@@ -9219,12 +9253,14 @@ lower_oacc_offload (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		      = OMP_CLAUSE_MAP_KIND (c);
 		    if ((!(map_kind & OMP_CLAUSE_MAP_SPECIAL)
 			 && (map_kind & OMP_CLAUSE_MAP_TO))
-			|| map_kind == OMP_CLAUSE_MAP_POINTER)
+			|| map_kind == OMP_CLAUSE_MAP_POINTER
+			|| map_kind == OMP_CLAUSE_MAP_FORCE_DEVICEPTR)
 		      gimplify_assign (avar, var, &ilist);
 		    avar = build_fold_addr_expr (avar);
 		    gimplify_assign (x, avar, &ilist);
-		    if ((!(map_kind & OMP_CLAUSE_MAP_SPECIAL)
-			 && (map_kind & OMP_CLAUSE_MAP_FROM))
+		    if (((!(map_kind & OMP_CLAUSE_MAP_SPECIAL)
+			  && (map_kind & OMP_CLAUSE_MAP_FROM))
+			 || map_kind == OMP_CLAUSE_MAP_FORCE_DEVICEPTR)
 			&& !TYPE_READONLY (TREE_TYPE (var)))
 		      {
 			x = build_sender_ref (ovar, ctx);
@@ -10606,6 +10642,10 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	  {
 	    x = build_receiver_ref (var, true, ctx);
 	    tree new_var = lookup_decl (var, ctx);
+	    gcc_assert (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_MAP
+			|| (OMP_CLAUSE_MAP_KIND (c)
+			    != OMP_CLAUSE_MAP_FORCE_DEVICEPTR)
+			|| TREE_CODE (TREE_TYPE (var)) != ARRAY_TYPE);
 	    if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
 		&& OMP_CLAUSE_MAP_KIND (c) == OMP_CLAUSE_MAP_POINTER
 		&& !OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION (c)
@@ -10732,12 +10772,15 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	      {
 		tree var = lookup_decl_in_outer_ctx (ovar, ctx);
 		tree x = build_sender_ref (ovar, ctx);
+		gcc_assert (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_MAP
+			    || (OMP_CLAUSE_MAP_KIND (c)
+				!= OMP_CLAUSE_MAP_FORCE_DEVICEPTR)
+			    || TREE_CODE (TREE_TYPE (ovar)) != ARRAY_TYPE);
 		if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
 		    && OMP_CLAUSE_MAP_KIND (c) == OMP_CLAUSE_MAP_POINTER
 		    && !OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION (c)
 		    && TREE_CODE (TREE_TYPE (ovar)) == ARRAY_TYPE)
 		  {
-		    gcc_assert (kind == GF_OMP_TARGET_KIND_REGION);
 		    tree avar
 		      = create_tmp_var (TREE_TYPE (TREE_TYPE (x)), NULL);
 		    mark_addressable (avar);
@@ -10747,19 +10790,20 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		  }
 		else if (is_gimple_reg (var))
 		  {
-		    gcc_assert (kind == GF_OMP_TARGET_KIND_REGION);
 		    tree avar = create_tmp_var (TREE_TYPE (var), NULL);
 		    mark_addressable (avar);
 		    enum omp_clause_map_kind map_kind
 		      = OMP_CLAUSE_MAP_KIND (c);
 		    if ((!(map_kind & OMP_CLAUSE_MAP_SPECIAL)
 			 && (map_kind & OMP_CLAUSE_MAP_TO))
-			|| map_kind == OMP_CLAUSE_MAP_POINTER)
+			|| map_kind == OMP_CLAUSE_MAP_POINTER
+			|| map_kind == OMP_CLAUSE_MAP_FORCE_DEVICEPTR)
 		      gimplify_assign (avar, var, &ilist);
 		    avar = build_fold_addr_expr (avar);
 		    gimplify_assign (x, avar, &ilist);
-		    if ((!(map_kind & OMP_CLAUSE_MAP_SPECIAL)
-			 && (map_kind & OMP_CLAUSE_MAP_FROM))
+		    if (((!(map_kind & OMP_CLAUSE_MAP_SPECIAL)
+			  && (map_kind & OMP_CLAUSE_MAP_FROM))
+			 || map_kind == OMP_CLAUSE_MAP_FORCE_DEVICEPTR)
 			&& !TYPE_READONLY (TREE_TYPE (var)))
 		      {
 			x = build_sender_ref (ovar, ctx);
