@@ -1,3 +1,13 @@
+2014-06-05  Richard Biener  <rguenther@suse.de>
+
+	* gimple-match-head.c (gimple_resimplify2): Verify constant
+	folded result is really constant.
+	(gimple_match_and_simplify): Likewise.  Bail out for internal
+	functions.
+	* match.pd: Match what fold-const.c does for folding of
+	division and modulo with regarding to possibly zero 2nd operand.
+	Add comment to bogus pow (x, 0.5) to sqrt (x) simplification.
+
 2014-06-04  Richard Biener  <rguenther@suse.de>
 
 	* Makefile.in (gimple-match.o-warn): Drop.

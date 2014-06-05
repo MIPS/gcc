@@ -173,7 +173,8 @@ gimple_resimplify2 (gimple_seq *seq,
 		}
 	    }
 	}
-      if (tem != NULL_TREE)
+      if (tem != NULL_TREE
+	  && CONSTANT_CLASS_P (tem))
 	{
 	  res_ops[0] = tem;
 	  res_ops[1] = NULL_TREE;
@@ -334,7 +335,8 @@ gimple_match_and_simplify (enum tree_code code, tree type,
   if (constant_for_folding (op0))
     {
       tree res = fold_unary_to_constant (code, type, op0);
-      if (res != NULL_TREE)
+      if (res != NULL_TREE
+	  && CONSTANT_CLASS_P (res))
 	return res;
     }
 
@@ -354,9 +356,8 @@ gimple_match_and_simplify (enum tree_code code, tree type,
   if (constant_for_folding (op0) && constant_for_folding (op1))
     {
       tree res = fold_binary_to_constant (code, type, op0, op1);
-      /* ???  We can't assert that we fold this to a constant as
-	 for example we can't fold things like 1 / 0.  */
-      if (res != NULL_TREE)
+      if (res != NULL_TREE
+	  && CONSTANT_CLASS_P (res))
 	return res;
     }
 
@@ -566,6 +567,9 @@ gimple_match_and_simplify (gimple stmt,
 	   && gimple_call_lhs (stmt) != NULL_TREE)
     {
       tree fn = gimple_call_fn (stmt);
+      /* ???  Internal function support missing.  */
+      if (!fn)
+	return false;
       if (TREE_CODE (fn) == SSA_NAME
 	  && valueize)
 	fn = valueize (fn);

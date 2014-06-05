@@ -40,28 +40,20 @@ along with GCC; see the file COPYING3.  If not see
 (match_and_simplify
   (mult @0 integer_onep)
   @0)
+/* Make sure to preserve divisions by zero.  This is the reason why
+   we don't simplify x / x to 1 or 0 / x to 0.  */
 (match_and_simplify
   (trunc_div @0 integer_onep)
   @0)
-/* It's hard to preserve non-folding of / 0 which is done by a
-   positional check in fold-const.c (to preserve warnings).  The
-   issue here is that we fold too early in frontends.
-   Also fold happilt folds 0 / x to 0 (even if x turns out to be zero later). */
-(match_and_simplify
-  (trunc_div integer_zerop@0 @1)
-  @0)
-(match_and_simplify
-  (trunc_div @0 @0)
-  { build_one_cst (type); })
 (match_and_simplify
   (trunc_mod @0 integer_onep)
   { build_zero_cst (type); })
+/* Same applies to modulo operations, but fold is inconsistent here
+   and simplifies 0 % x to 0.  */
 (match_and_simplify
   (trunc_mod integer_zerop@0 @1)
+  if (!integer_zerop (@1))
   @0)
-(match_and_simplify
-  (trunc_mod @0 @0)
-  { build_zero_cst (type); })
 (match_and_simplify
   (bit_ior @0 integer_zerop)
   @0)
@@ -280,6 +272,9 @@ to (minus @1 @0)
   (BUILT_IN_POW @0 (PLUS_EXPR @1 { build_one_cst (TREE_TYPE (@1)); })))
 (match_and_simplify
   (BUILT_IN_POW @0 REAL_CST_P@1)
+  /* This needs to be conditionalized on flag_unsafe_math_optimizations,
+     but we keep it for now to exercise function re-optimization.
+     It makes gcc.dg/pr43419.c FAIL execution though.  */
   if (REAL_VALUES_EQUAL (TREE_REAL_CST (@1), dconsthalf))
   (BUILT_IN_SQRT @0))
 
