@@ -17121,6 +17121,8 @@ mips_option_override (void)
     error ("%<-mfpxx%> can only be used with the o32 ABI");
   else if (ISA_MIPS1 && !TARGET_FLOAT32)
     error ("%<-march=%s%> requires %<-mfp32%>", mips_arch_info->name);
+  else if (TARGET_FLOATXX && !mips_lra_flag)
+    error ("%<-mfpxx%> requires %<-mlra%>");
 
   /* End of code shared with GAS.  */
 
@@ -19233,9 +19235,6 @@ mips_lra_p (void)
 
 #undef TARGET_LEGITIMATE_ADDRESS_P
 #define TARGET_LEGITIMATE_ADDRESS_P	mips_legitimate_address_p
-
-#undef TARGET_LRA_P
-#define TARGET_LRA_P hook_bool_void_true
 
 #undef TARGET_FRAME_POINTER_REQUIRED
 #define TARGET_FRAME_POINTER_REQUIRED mips_frame_pointer_required
