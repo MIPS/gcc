@@ -72,6 +72,39 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "context.h"
 
+/* Definitions used in ready queue reordering for first scheduling pass.  */
+
+/* Register types.  */
+#define GPREG 0
+#define VECREG 1
+
+/* Information about GP and vector register weights
+   indexed by instruction UID.  */
+struct msched_weight_info {
+  int reg_weight_gp;
+  int reg_weight_vec;
+};
+
+static msched_weight_info *regtype_weight = NULL;
+
+/* Current vector and GP register weights of scheduled instructions.  */
+static int curr_regtype_pressure[2];
+
+/* Return GP register weight for INSN.  */
+#define INSN_GPREG_WEIGHT(INSN)	\
+  regtype_weight[INSN_UID ((INSN))].reg_weight_gp
+
+/* Return vector register weight for INSN.  */
+#define INSN_VECREG_WEIGHT(INSN)	\
+  regtype_weight[INSN_UID ((INSN))].reg_weight_vec
+
+/* Return current register pressure for REG_TYPE.  */
+#define CURR_REGTYPE_PRESSURE(REG_TYPE)	\
+  curr_regtype_pressure[(REG_TYPE)]
+
+#define PROMOTE_HIGH_PRIORITY_PRESSURE 25
+#define PROMOTE_MAX_DEP_PRESSURE 15
+
 /* True if X is an UNSPEC wrapper around a SYMBOL_REF or LABEL_REF.  */
 #define UNSPEC_ADDRESS_P(X)					\
   (GET_CODE (X) == UNSPEC					\
@@ -13694,6 +13727,194 @@ mips_74k_agen_reorder (rtx *ready, int nready)
       break;
     }
 }
+
+/* These functions are called when -msched-weight is set.
+   They calculate register weight for given register type.  */
+
+/* Find GP and vector register weight for given X.  */
+
+static void
+find_regtype_weight (rtx x, int insn_uid)
+{
+  if (GET_CODE (x) == CLOBBER)
+    {
+      if (GET_MODE_SIZE (GET_MODE (SET_DEST (x))) <= GET_MODE_SIZE (DImode))
+	regtype_weight[insn_uid].reg_weight_gp++;
+      else
+	regtype_weight[insn_uid].reg_weight_vec++;
+    }
+
+  if (GET_CODE (x) == SET)
+    {
+      if (REG_P (SET_DEST (x)) && reg_mentioned_p (SET_DEST (x), SET_SRC (x)))
+	return;
+
+      if (GET_MODE_SIZE (GET_MODE (SET_DEST (x))) <= GET_MODE_SIZE (DImode))
+	regtype_weight[insn_uid].reg_weight_gp++;
+      else
+	regtype_weight[insn_uid].reg_weight_vec++;
+    }
+}
+
+/* Calculate register weights for all instructions and modes
+   of all basic blocks.  */
+
+static void
+mips_weight_init_global (int old_max_uid)
+{
+  rtx x, insn;
+  basic_block b;
+
+  regtype_weight = XCNEWVEC (struct msched_weight_info, old_max_uid);
+
+  FOR_EACH_BB_REVERSE_FN (b, cfun)
+    FOR_BB_INSNS (b, insn)
+      if (NONDEBUG_INSN_P (insn))
+	{
+	  /* Increment weight for each register born here.  */
+	  x = PATTERN (insn);
+	  find_regtype_weight (x, INSN_UID (insn));
+
+	  if (GET_CODE (x) == PARALLEL)
+	    {
+	      int i;
+	      for (i = XVECLEN (x, 0) - 1; i >= 0; i--)
+		{
+		  x = XVECEXP (PATTERN (insn), 0, i);
+		  find_regtype_weight (x, INSN_UID (insn));
+		}
+	    }
+
+	  /* Decrement weight for each register that dies here.  */
+	  for (x = REG_NOTES (insn); x; x = XEXP (x, 1))
+	    if (REG_NOTE_KIND (x) == REG_DEAD
+		|| REG_NOTE_KIND (x) == REG_UNUSED)
+	      {
+		rtx note = XEXP (x, 0);
+		if (REG_P (note))
+		  {
+		    if (GET_MODE_SIZE (GET_MODE (note))
+			<= GET_MODE_SIZE (DImode))
+		      regtype_weight[INSN_UID (insn)].reg_weight_gp--;
+		    else
+		      regtype_weight[INSN_UID (insn)].reg_weight_vec--;
+		  }
+	      }
+	}
+
+  CURR_REGTYPE_PRESSURE (GPREG) = 0;
+  CURR_REGTYPE_PRESSURE (VECREG) = 0;
+}
+
+/* Implement TARGET_SCHED_INIT_GLOBAL.  */
+
+static void
+mips_sched_init_global (FILE *dump ATTRIBUTE_UNUSED,
+			int verbose ATTRIBUTE_UNUSED,
+			int old_max_uid)
+{
+  if (TARGET_SCHED_WEIGHT)
+    mips_weight_init_global (old_max_uid);
+}
+
+static void
+mips_weight_finish_global ()
+{
+  if (regtype_weight != NULL)
+    XDELETEVEC (regtype_weight);
+}
+
+/* Implement TARGET_SCHED_FINISH_GLOBAL.  */
+
+static void
+mips_sched_finish_global (FILE *dump ATTRIBUTE_UNUSED,
+			  int verbose ATTRIBUTE_UNUSED)
+{
+  if (TARGET_SCHED_WEIGHT)
+    mips_weight_finish_global ();
+}
+
+/* This is a TARGET_SCHED_WEIGHT (option -msched-weight) helper
+   function which is called during reordering of instructions in
+   the first pass of the scheduler.  The function swaps the instruction
+   at the bottom (NREADY - 1) of the READY list with another instruction
+   in READY list as per following algorithm.  The scheduler then picks the
+   instruction at READY[NREADY - 1] and schedules it.  
+
+   When an instruction is scheduled its register weight is accumulated
+   in CURR_REGTYPE_PRESSURE (mode).  Which is number of live registers
+   at that instruction.  
+
+   If the current register pressure (CURR_REGTYPE_PRESSURE) is
+   more than PROMOTE_HIGH_PRIORITY_PRESSURE (25 registers) and if the
+   priority of the consumer of the instruction in question (INSN) is
+   more than the priority of READY[NREADY - 1] then INSN is swapped
+   with READY[NREADY - 1].  
+
+   If the current register pressure (CURR_REGTYPE_PRESSURE) is
+   more than PROMOTE_MAX_DEP_PRESSURE (15 registers) then INSN
+   with maximum forward dependencies is swapped with the
+   READY[NREADY - 1].  */
+
+static void
+mips_sched_weight (rtx *ready, int nready)
+{
+  int mode, toswap, i;
+  int max_forw_dependency = 0;
+
+  toswap = nready - 1;
+
+#define INSN_TICK(INSN) (HID (INSN)->tick)
+
+  mode = CURR_REGTYPE_PRESSURE (GPREG) > CURR_REGTYPE_PRESSURE (VECREG)
+	 ? GPREG : VECREG;
+
+  for (i = nready - 1; i >= 0; i--)
+    {
+      rtx insn = ready[i], consumer_insn = NULL_RTX;
+      sd_iterator_def sd_it;
+      dep_t dep;
+      int forw_dependency_count = 0;
+
+      FOR_EACH_DEP (insn, SD_LIST_FORW, sd_it, dep)
+	{
+	  if (! DEBUG_INSN_P (DEP_CON (dep)))
+	    forw_dependency_count++;
+	  consumer_insn = DEP_CON (dep);
+	}
+
+      if (CURR_REGTYPE_PRESSURE (mode) > PROMOTE_HIGH_PRIORITY_PRESSURE)
+	{
+	  if (consumer_insn != NULL_RTX
+	      && INSN_PRIORITY_KNOWN (consumer_insn)
+	      && (INSN_PRIORITY (consumer_insn)
+		  > INSN_PRIORITY (ready[toswap])))
+	    {
+	      max_forw_dependency = forw_dependency_count;
+	      toswap = i;
+	    }
+	}
+      else if (CURR_REGTYPE_PRESSURE (mode) > PROMOTE_MAX_DEP_PRESSURE)
+	{
+	  if (forw_dependency_count > max_forw_dependency
+	      || ((forw_dependency_count == max_forw_dependency)
+		  && (INSN_TICK (insn) >= INSN_TICK (ready[toswap]))
+		  && (INSN_UID (insn) < INSN_UID (ready[toswap]))))
+	    {
+	      max_forw_dependency = forw_dependency_count;
+	      toswap = i;
+	    }
+	}
+    }
+
+  if (toswap != (nready-1))
+    {
+      rtx temp = ready[nready-1];
+      ready[nready-1] = ready[toswap];
+      ready[toswap] = temp;
+    }
+#undef INSN_TICK
+}
 
 /* Implement TARGET_SCHED_INIT.  */
 
@@ -13710,6 +13931,12 @@ mips_sched_init (FILE *file ATTRIBUTE_UNUSED, int verbose ATTRIBUTE_UNUSED,
      pointed to ALU2.  */
   mips_ls2.alu1_turn_p = false;
   mips_ls2.falu1_turn_p = true;
+
+  if (TARGET_SCHED_WEIGHT)
+    {
+      CURR_REGTYPE_PRESSURE (GPREG) = 0;
+      CURR_REGTYPE_PRESSURE (VECREG) = 0;
+    }
 }
 
 /* Subroutine used by TARGET_SCHED_REORDER and TARGET_SCHED_REORDER2.  */
@@ -13731,6 +13958,11 @@ mips_sched_reorder_1 (FILE *file ATTRIBUTE_UNUSED, int verbose ATTRIBUTE_UNUSED,
 
   if (TUNE_74K)
     mips_74k_agen_reorder (ready, *nreadyp);
+
+  if (! reload_completed
+      && TARGET_SCHED_WEIGHT
+      && *nreadyp > 1)
+    mips_sched_weight (ready, *nreadyp);
 }
 
 /* Implement TARGET_SCHED_REORDER.  */
@@ -13802,6 +14034,16 @@ mips_variable_issue (FILE *file ATTRIBUTE_UNUSED, int verbose ATTRIBUTE_UNUSED,
 	mips_74k_agen_init (insn);
       else if (TUNE_LOONGSON_2EF)
 	mips_ls2_variable_issue (insn);
+      else if (TARGET_SCHED_WEIGHT)
+	{
+	  if (regtype_weight != NULL)
+	    {
+	      CURR_REGTYPE_PRESSURE (GPREG)
+		+= INSN_GPREG_WEIGHT (insn);
+	      CURR_REGTYPE_PRESSURE (VECREG)
+		+= INSN_VECREG_WEIGHT (insn);
+	    }
+	}
     }
 
   /* Instructions of type 'multi' should all be split before
@@ -19315,6 +19557,12 @@ mips_lra_p (void)
 
 #undef TARGET_ATOMIC_ASSIGN_EXPAND_FENV
 #define TARGET_ATOMIC_ASSIGN_EXPAND_FENV mips_atomic_assign_expand_fenv
+
+#undef TARGET_SCHED_INIT_GLOBAL
+#define TARGET_SCHED_INIT_GLOBAL mips_sched_init_global
+
+#undef TARGET_SCHED_FINISH_GLOBAL
+#define TARGET_SCHED_FINISH_GLOBAL mips_sched_finish_global
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
