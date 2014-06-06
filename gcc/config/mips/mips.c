@@ -10544,7 +10544,9 @@ mips_for_each_saved_acc (HOST_WIDE_INT sp_offset, mips_save_restore_fn fn)
 static void
 mips_save_reg (rtx reg, rtx mem)
 {
-  if (GET_MODE (reg) == DFmode && TARGET_FLOAT32)
+  if (GET_MODE (reg) == DFmode
+      && (!TARGET_FLOAT64
+	  || mips_abi == ABI_32))
     {
       rtx x1, x2;
 
@@ -11469,7 +11471,9 @@ mips_restore_reg (rtx reg, rtx mem)
      $7 instead and adjust the return insn appropriately.  */
   if (TARGET_MIPS16 && REGNO (reg) == RETURN_ADDR_REGNUM)
     reg = gen_rtx_REG (GET_MODE (reg), GP_REG_FIRST + 7);
-  else if (GET_MODE (reg) == DFmode && TARGET_FLOAT32)
+  else if (GET_MODE (reg) == DFmode
+	   && (!TARGET_FLOAT64
+	       || mips_abi == ABI_32))
     {
       mips_add_cfa_restore (mips_subword (reg, true));
       mips_add_cfa_restore (mips_subword (reg, false));

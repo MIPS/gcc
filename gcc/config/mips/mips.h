@@ -1208,6 +1208,7 @@ struct mips_cpu_info {
 %{mfp32} %{mfpxx} %{mfp64} %{mnan=*} \
 %{mhard-float} %{msoft-float} \
 %{mdouble-float} %{msingle-float} \
+%{modd-spreg} %{mno-odd-spreg} \
 %{mshared} %{mno-shared} \
 %{msym32} %{mno-sym32} \
 %{mtune=*} \
@@ -1324,6 +1325,11 @@ struct mips_cpu_info {
 
 /* The DWARF 2 CFA column which tracks the return address.  */
 #define DWARF_FRAME_RETURN_COLUMN RETURN_ADDR_REGNUM
+
+/* The mode to use to calculate the size of a DWARF 2 CFA column.  */
+#define DWARF_REG_MODE(REGNO, MODE) \
+  (FP_REG_P (REGNO) && mips_abi == ABI_32 && TARGET_FLOAT64 \
+   ? SImode : (MODE))
 
 /* Before the prologue, RA lives in r31.  */
 #define INCOMING_RETURN_ADDR_RTX gen_rtx_REG (VOIDmode, RETURN_ADDR_REGNUM)
