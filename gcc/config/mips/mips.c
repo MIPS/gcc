@@ -585,6 +585,10 @@ const struct mips_cpu_info *mips_tune_info;
 /* The ISA level associated with mips_arch.  */
 int mips_isa;
 
+/* The ISA revision level.  This is 0 for MIPS I to V and N for
+   MIPS{32,64}rN.  */
+int mips_isa_rev;
+
 /* The architecture selected by -mipsN, or null if -mipsN wasn't used.  */
 static const struct mips_cpu_info *mips_isa_option_info;
 
@@ -648,14 +652,14 @@ static mips_one_only_stub *mips16_set_fcsr_stub;
 
 /* Index R is the smallest register class that contains register R.  */
 const enum reg_class mips_regno_to_class[FIRST_PSEUDO_REGISTER] = {
-  LEA_REGS,	LEA_REGS,	M16_REGS,	V1_REG,
-  M16_REGS,	M16_REGS,	M16_REGS,	M16_REGS,
-  LEA_REGS,	LEA_REGS,	LEA_REGS,	LEA_REGS,
-  LEA_REGS,	LEA_REGS,	LEA_REGS,	LEA_REGS,
-  M16_REGS,	M16_REGS,	LEA_REGS,	LEA_REGS,
-  LEA_REGS,	LEA_REGS,	LEA_REGS,	LEA_REGS,
-  T_REG,	PIC_FN_ADDR_REG, LEA_REGS,	LEA_REGS,
-  LEA_REGS,	LEA_REGS,	LEA_REGS,	LEA_REGS,
+  LEA_REGS,        LEA_REGS,        M16_STORE_REGS,  V1_REG,
+  M16_STORE_REGS,  M16_STORE_REGS,  M16_STORE_REGS,  M16_STORE_REGS,
+  LEA_REGS,        LEA_REGS,        LEA_REGS,        LEA_REGS,
+  LEA_REGS,        LEA_REGS,        LEA_REGS,        LEA_REGS,
+  M16_REGS,        M16_STORE_REGS,  LEA_REGS,        LEA_REGS,
+  LEA_REGS,        LEA_REGS,        LEA_REGS,        LEA_REGS,
+  T_REG,           PIC_FN_ADDR_REG, LEA_REGS,        LEA_REGS,
+  LEA_REGS,        M16_SP_REGS,     LEA_REGS,        LEA_REGS,
   FP_REGS,	FP_REGS,	FP_REGS,	FP_REGS,
   FP_REGS,	FP_REGS,	FP_REGS,	FP_REGS,
   FP_REGS,	FP_REGS,	FP_REGS,	FP_REGS,
@@ -1173,6 +1177,19 @@ static const struct mips_rtx_cost_data
     COSTS_N_INSNS (68),           /* int_div_di */
 		     1,           /* branch_cost */
 		     4            /* memory_latency */
+  },
+  { /* P5600 */
+    COSTS_N_INSNS (4),            /* fp_add */
+    COSTS_N_INSNS (5),            /* fp_mult_sf */
+    COSTS_N_INSNS (5),            /* fp_mult_df */
+    COSTS_N_INSNS (17),           /* fp_div_sf */
+    COSTS_N_INSNS (17),           /* fp_div_df */
+    COSTS_N_INSNS (5),            /* int_mult_si */
+    COSTS_N_INSNS (5),            /* int_mult_di */
+    COSTS_N_INSNS (8),            /* int_div_si */
+    COSTS_N_INSNS (8),            /* int_div_di */
+		    2,            /* branch_cost */
+		   10             /* memory_latency */
   }
 };
 
@@ -2240,22 +2257,9 @@ mips_regno_mode_ok_for_base_p (int regno, enum machine_mode mode,
     return true;
 
   /* In MIPS16 mode, the stack pointer can only address word and doubleword
-     values, nothing smaller.  There are two problems here:
-
-       (a) Instantiating virtual registers can introduce new uses of the
-	   stack pointer.  If these virtual registers are valid addresses,
-	   the stack pointer should be too.
-
-       (b) Most uses of the stack pointer are not made explicit until
-	   FRAME_POINTER_REGNUM and ARG_POINTER_REGNUM have been eliminated.
-	   We don't know until that stage whether we'll be eliminating to the
-	   stack pointer (which needs the restriction) or the hard frame
-	   pointer (which doesn't).
-
-     All in all, it seems more consistent to only enforce this restriction
-     during and after reload.  */
+     values, nothing smaller.  */
   if (TARGET_MIPS16 && regno == STACK_POINTER_REGNUM)
-    return !strict_p || GET_MODE_SIZE (mode) == 4 || GET_MODE_SIZE (mode) == 8;
+    return GET_MODE_SIZE (mode) == 4 || GET_MODE_SIZE (mode) == 8;
 
   return TARGET_MIPS16 ? M16_REG_P (regno) : GP_REG_P (regno);
 }
@@ -10016,8 +10020,8 @@ mips_compute_frame_info (void)
   /* Set this function's interrupt properties.  */
   if (mips_interrupt_type_p (TREE_TYPE (current_function_decl)))
     {
-      if (!ISA_MIPS32R2)
-	error ("the %<interrupt%> attribute requires a MIPS32r2 processor");
+      if (mips_isa_rev < 2)
+	error ("the %<interrupt%> attribute requires a MIPS32r2 processor or greater");
       else if (TARGET_HARD_FLOAT)
 	error ("the %<interrupt%> attribute requires %<-msoft-float%>");
       else if (TARGET_MIPS16)
@@ -12114,6 +12118,18 @@ mips_register_move_cost (enum machine_mode mode,
   return 0;
 }
 
+/* Return a register priority for hard reg REGNO.  */
+
+static int
+mips_register_priority (int hard_regno)
+{
+  /* Treat MIPS16 registers with higher priority than other regs.  */
+  if (TARGET_MIPS16
+      && TEST_HARD_REG_BIT (reg_class_contents[M16_REGS], hard_regno))
+    return 1;
+  return 0;
+}
+
 /* Implement TARGET_MEMORY_MOVE_COST.  */
 
 static int
@@ -13059,6 +13075,31 @@ mips_output_division (const char *division, rtx *operands)
   return s;
 }
 
+/* Return true if destination of IN_INSN is used as add source in
+   OUT_INSN. Both IN_INSN and OUT_INSN are of type fmadd. Example:
+   madd.s dst, x, y, z
+   madd.s a, dst, b, c  */
+
+bool
+mips_fmadd_bypass (rtx out_insn, rtx in_insn)
+{
+  int dst_reg, src_reg;
+  
+  gcc_assert (get_attr_type (in_insn) == TYPE_FMADD);
+  gcc_assert (get_attr_type (out_insn) == TYPE_FMADD);
+
+  extract_insn (in_insn);
+  dst_reg = REG_P (recog_data.operand[0]);
+
+  extract_insn (out_insn);
+  src_reg = REG_P (recog_data.operand[1]);
+
+  if (dst_reg == src_reg)
+    return true;
+
+  return false;
+}
+
 /* Return true if IN_INSN is a multiply-add or multiply-subtract
    instruction and if OUT_INSN assigns to the accumulator operand.  */
 
@@ -13194,6 +13235,7 @@ mips_issue_rate (void)
     case PROCESSOR_LOONGSON_2E:
     case PROCESSOR_LOONGSON_2F:
     case PROCESSOR_LOONGSON_3A:
+    case PROCESSOR_P5600:
       return 4;
 
     case PROCESSOR_XLP:
@@ -13328,6 +13370,9 @@ mips_multipass_dfa_lookahead (void)
 
   if (TUNE_OCTEON)
     return 2;
+
+  if (TUNE_P5600)
+    return 4;
 
   return 0;
 }
@@ -16900,6 +16945,10 @@ mips_set_architecture (const struct mips_cpu_info *info)
       mips_arch_info = info;
       mips_arch = info->cpu;
       mips_isa = info->isa;
+      if (mips_isa < 32)
+	mips_isa_rev = 0;
+      else
+	mips_isa_rev = (mips_isa & 31) + 1;
     }
 }
 
@@ -18897,6 +18946,22 @@ mips_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
   *update = build2 (COMPOUND_EXPR, void_type_node, *update,
 		    atomic_feraiseexcept_call);
 }
+
+static reg_class_t
+mips_spill_class (reg_class_t rclass ATTRIBUTE_UNUSED,
+		  enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+  if (TARGET_MIPS16)
+    return SPILL_REGS;
+  return NO_REGS;
+}
+
+static bool
+mips_lra_p (void)
+{
+  return mips_lra_flag;
+}
+
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -18960,12 +19025,19 @@ mips_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 #define TARGET_VALID_POINTER_MODE mips_valid_pointer_mode
 #undef TARGET_REGISTER_MOVE_COST
 #define TARGET_REGISTER_MOVE_COST mips_register_move_cost
+#undef TARGET_REGISTER_PRIORITY
+#define TARGET_REGISTER_PRIORITY mips_register_priority
 #undef TARGET_MEMORY_MOVE_COST
 #define TARGET_MEMORY_MOVE_COST mips_memory_move_cost
 #undef TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS mips_rtx_costs
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST mips_address_cost
+
+#undef TARGET_LRA_P
+#define TARGET_LRA_P mips_lra_p
+#undef TARGET_SPILL_CLASS
+#define TARGET_SPILL_CLASS mips_spill_class
 
 #undef TARGET_IN_SMALL_DATA_P
 #define TARGET_IN_SMALL_DATA_P mips_in_small_data_p

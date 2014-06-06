@@ -1,3 +1,82 @@
+2014-06-05  Jaydeep Patil  <Jaydeep.Patil@imgtec.com>
+	    Prachi Godbole  <Prachi.Godbole@imgtec.com>
+
+	* config/mips/mips-cpus.def: Add definition for p5600.  Updated
+	mips32r5 entry to use PROCESSOR_P5600.
+	* config/mips/mips-tables.opt: Regenerate.
+	* config/mips/mips-protos.h (mips_fmadd_bypass): Add prototype.
+	* config/mips/mips.c (mips_fmadd_bypass): New function.
+	(mips_rtx_cost_data): Add costs for p5600.
+	(mips_issue_rate): Add support for p5600.
+	(mips_multipass_dfa_lookahead): Likewise.
+	* config/mips/mips.h (TUNE_P5600): New define.
+	(TUNE_MACC_CHAINS): Add TUNE_P5600.
+	(MIPS_ISA_LEVEL_SPEC): Map -march=p5600 to -mips32r5.
+	* config/mips/mips.md: Include p5600.md.
+	(processor): Add p5600.
+	* config/mips/p5600.md: New file.
+
+2014-06-04  Matthew Fortune  <matthew.fortune@imgtec.com>
+
+	* regcprop.c (copyprop_hardreg_forward_1): Account for
+	HARD_REGNO_CALL_PART_CLOBBERED.
+
+2014-06-04  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* lra-constraints.c (valid_address_p): Move earlier in file.
+	(address_eliminator): New structure.
+	(satisfies_memory_constraint_p): New function.
+	(satisfies_address_constraint_p): Likewise.
+	(process_alt_operands, process_address, curr_insn_transform): Use them.
+
+2014-06-03  Andrew Bennett  <andrew.bennett@imgtec.com> 
+
+	* config/mips/mips-cpus.def: Add mips32r3, mips32r5, mips64r3 and
+	mips64r5.
+	* config/mips/mips-tables.opt: Regenerate.
+	* config/mips/mips.c (mips_compute_frame_info): Changed if statement
+	to use mips_isa_rev rather than ISA_MIPS32R2.
+	* config/mips/mips.h (ISA_MIPS32R3): New define.
+	(ISA_MIPS32R5): New define.
+	(ISA_MIPS64R3): New define.
+	(ISA_MIPS64R5): New define.
+	(TARGET_CPU_CPP_BUILTINS): Added support for ISA_MIPS32R3, ISA_MIPS32R5,
+	ISA_MIPS64R3 and ISA_MIPS64R5.
+	(MIPS_ISA_LEVEL_SPEC): Added support for mips32r3, mips32r5, mips64r3
+	and mips64r5.
+	(MIPS_ISA_SYNCI_SPEC): Likewise.
+	(ISA_HAS_64BIT_REGS): Added ISA_MIPS64R3 and ISA_MIPS64R5.
+	(LINK_SPEC): Added mips32r3 and mips32r5.
+	* config/mips/t-isa3264 (MULTILIB_MATCHES): Map mips32r3 and mips32r5
+	to mips32r2; and mips64r3 and mips64r5 to mips64r2.
+	* config/mips/t-mti-elf (MULTILIB_MATCHES): Likewise.
+	* config/mips/t-mti-linux (MULTILIB_MATCHES): Likewise.
+	* config/mips/t-sde (MULTILIB_MATCHES): Likewise.
+	* config/mips/t-sdemtk (MULTILIB_MATCHES): New define.
+	* doc/invoke.texi: Document mips32r3, mips32r5, mips64r3 and mips64r5.
+
+2014-06-03  Andrew Bennett  <andrew.bennett@imgtec.com>
+
+	* doc/invoke.texi: Document -mxpa and -mno-xpa MIPS command line
+	options.
+	* config/mips/mips.opt (mxpa): New option.
+	* config/mips/mips.h (ASM_SPEC): Pass mxpa and mno-xpa to the 
+	assembler.
+
+2014-05-03  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/mips/mips.c (mips_isa_rev): New variable.
+	(mips_set_architecture): Set it.
+	* config/mips/mips.h (TARGET_CPU_CPP_BUILTINS): Set __mips_isa_rev
+	from mips_isa_rev.
+	(ISA_HAS_MUL3, ISA_HAS_FP_CONDMOVE, ISA_HAS_8CC, ISA_HAS_FP4)
+	(ISA_HAS_PAIRED_SINGLE, ISA_HAS_MADD_MSUB, ISA_HAS_FP_RECIP_RSQRT)
+	(ISA_HAS_CLZ_CLO, ISA_HAS_ROR, ISA_HAS_WSBH, ISA_HAS_PREFETCH)
+	(ISA_HAS_SEB_SEH, ISA_HAS_EXT_INS, ISA_HAS_MXHC1)
+	(ISA_HAS_HILO_INTERLOCKS, ISA_HAS_SYNCI, MIN_FPRS_PER_FMT): Reexpress
+	conditions in terms of mips_isa_rev.
+	(mips_isa_rev): Declare.
+
 2014-04-22  Release Manager
 
 	* GCC 4.9.0 released.
