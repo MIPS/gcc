@@ -17531,6 +17531,8 @@ mips_option_override (void)
 	   mips_arch_info->name);
   else if (ISA_MIPS1 && !TARGET_FLOAT32)
     error ("%<-march=%s%> requires %<-mfp32%>", mips_arch_info->name);
+  else if (TARGET_FLOATXX && !mips_lra_flag)
+    error ("%<-mfpxx%> requires %<-mlra%>");
 
   /* End of code shared with GAS.  */
 
