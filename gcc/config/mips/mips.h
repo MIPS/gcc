@@ -513,6 +513,12 @@ struct mips_cpu_info {
       if (mips_nan == MIPS_IEEE_754_2008)				\
 	builtin_define ("__mips_nan2008");				\
 									\
+      if (mips_c_lib == MIPS_LIB_SMALL)					\
+	builtin_define ("__mips_clib_small");				\
+									\
+      if (mips_c_lib == MIPS_LIB_TINY)					\
+	builtin_define ("__mips_clib_tiny");				\
+									\
       if (TARGET_BIG_ENDIAN)						\
 	{								\
 	  builtin_define_std ("MIPSEB");				\
