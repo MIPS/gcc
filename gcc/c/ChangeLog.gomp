@@ -1,3 +1,12 @@
+2014-06-06  Thomas Schwinge  <thomas@codesourcery.com>
+	    James Norris  <jnorris@codesourcery.com>
+
+	* c-parser.c (c_parser_pragma): Handle PRAGMA_OACC_UPDATE.
+	(c_parser_omp_clause_name, c_parser_oacc_data_clause)
+	(c_parser_oacc_all_clauses): Handle PRAGMA_OMP_CLAUSE_DEVICE,
+	PRAGMA_OMP_CLAUSE_HOST, PRAGMA_OMP_CLAUSE_SELF.
+	(c_parser_oacc_update): New function.
+
 2014-06-05  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* c-typeck.c (handle_omp_array_sections, c_finish_omp_clauses):

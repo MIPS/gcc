@@ -242,4 +242,5 @@ GOACC_2.0 {
 	GOACC_data_start;
 	GOACC_kernels;
 	GOACC_parallel;
+	GOACC_update;
 };

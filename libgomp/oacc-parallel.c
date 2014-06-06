@@ -104,3 +104,27 @@ GOACC_kernels (int device, void (*fn) (void *), const void *openmp_target,
   GOACC_parallel (device, fn, openmp_target, mapnum, hostaddrs, sizes, kinds,
 		  num_gangs, num_workers, vector_length);
 }
+
+
+void
+GOACC_update (int device, const void *openmp_target, size_t mapnum,
+	      void **hostaddrs, size_t *sizes, unsigned short *kinds)
+{
+  unsigned char kinds_[mapnum];
+  size_t i;
+
+  /* TODO.  Eventually, we'll be interpreting all mapping kinds according to
+     the OpenACC semantics; for now we're re-using what is implemented for
+     OpenMP.  */
+  for (i = 0; i < mapnum; ++i)
+    {
+      unsigned char kind = kinds[i];
+      unsigned char align = kinds[i] >> 8;
+      if (kind > 4)
+	gomp_fatal ("memory mapping kind %x for %zd is not yet supported",
+		    kind, i);
+
+      kinds_[i] = kind | align << 3;
+    }
+  GOMP_target_update (device, openmp_target, mapnum, hostaddrs, sizes, kinds_);
+}

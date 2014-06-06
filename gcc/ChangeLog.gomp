@@ -1,3 +1,18 @@
+2014-06-06  Thomas Schwinge  <thomas@codesourcery.com>
+	    James Norris  <jnorris@codesourcery.com>
+
+	* gimple.h (enum gf_mask): Add GF_OMP_TARGET_KIND_OACC_UPDATE, and
+	extend mask size, GF_OMP_TARGET_KIND_MASK.
+	(is_gimple_omp_oacc_specifically): Handle
+	GF_OMP_TARGET_KIND_OACC_UPDATE.
+	* gimplify.c (gimplify_omp_target_update, gimplify_expr):
+	Likewise.
+	* gimple-pretty-print.c (dump_gimple_omp_target): Likewise.
+	* omp-low.c (scan_omp_target, expand_omp_target)
+	(build_omp_regions_1, lower_omp_target, lower_omp_1)
+	(make_gimple_omp_edges): Likewise.
+	* oacc-builtins.def (BUILT_IN_GOACC_UPDATE): New builtin.
+
 2014-06-05  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* gimplify.c (gimplify_scan_omp_clauses)

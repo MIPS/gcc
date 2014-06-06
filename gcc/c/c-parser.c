@@ -1207,6 +1207,7 @@ static vec<tree, va_gc> *c_parser_expr_list (c_parser *, bool, bool,
 static tree c_parser_oacc_loop (location_t, c_parser *, char *);
 static void c_parser_omp_construct (c_parser *);
 static void c_parser_omp_threadprivate (c_parser *);
+static void c_parser_oacc_update (c_parser *);
 static void c_parser_omp_barrier (c_parser *);
 static void c_parser_omp_flush (c_parser *);
 static tree c_parser_omp_for_loop (location_t, c_parser *, enum tree_code,
@@ -4456,6 +4457,14 @@ c_parser_initval (c_parser *parser, struct c_expr *after,
    old parser in requiring something after label declarations.
    Although they are erroneous if the labels declared aren't defined,
    is it useful for the syntax to be this way?
+
+   OpenACC:
+
+   block-item:
+     openacc-directive
+
+   openacc-directive:
+     update-directive
 
    OpenMP:
 
@@ -9433,6 +9442,17 @@ c_parser_pragma (c_parser *parser, enum pragma_context context)
 
   switch (id)
     {
+    case PRAGMA_OACC_UPDATE:
+      if (context != pragma_compound)
+	{
+	  if (context == pragma_stmt)
+	    c_parser_error (parser, "%<#pragma acc update%> may only be "
+			    "used in compound statements");
+	  goto bad_stmt;
+	}
+      c_parser_oacc_update (parser);
+      return false;
+
     case PRAGMA_OMP_BARRIER:
       if (context != pragma_compound)
 	{
@@ -9680,6 +9700,10 @@ c_parser_omp_clause_name (c_parser *parser)
 	  else if (!strcmp ("from", p))
 	    result = PRAGMA_OMP_CLAUSE_FROM;
 	  break;
+	case 'h':
+	  if (!strcmp ("host", p))
+	    result = PRAGMA_OMP_CLAUSE_SELF;
+	  break;
 	case 'i':
 	  if (!strcmp ("inbranch", p))
 	    result = PRAGMA_OMP_CLAUSE_INBRANCH;
@@ -9755,6 +9779,8 @@ c_parser_omp_clause_name (c_parser *parser)
 	    result = PRAGMA_OMP_CLAUSE_SHARED;
 	  else if (!strcmp ("simdlen", p))
 	    result = PRAGMA_OMP_CLAUSE_SIMDLEN;
+	  else if (!strcmp ("self", p))
+	    result = PRAGMA_OMP_CLAUSE_SELF;
 	  break;
 	case 't':
 	  if (!strcmp ("taskgroup", p))
@@ -9960,6 +9986,12 @@ c_parser_oacc_data_clause (c_parser *parser, pragma_omp_clause c_kind,
     case PRAGMA_OMP_CLAUSE_DELETE:
       kind = OMP_CLAUSE_MAP_FORCE_DEALLOC;
       break;
+    case PRAGMA_OMP_CLAUSE_DEVICE:
+      kind = OMP_CLAUSE_MAP_FORCE_TO;
+      break;
+    case PRAGMA_OMP_CLAUSE_HOST:
+      kind = OMP_CLAUSE_MAP_FORCE_FROM;
+      break;
     case PRAGMA_OMP_CLAUSE_PRESENT:
       kind = OMP_CLAUSE_MAP_FORCE_PRESENT;
       break;
@@ -9974,6 +10006,9 @@ c_parser_oacc_data_clause (c_parser *parser, pragma_omp_clause c_kind,
       break;
     case PRAGMA_OMP_CLAUSE_PRESENT_OR_CREATE:
       kind = OMP_CLAUSE_MAP_ALLOC;
+      break;
+    case PRAGMA_OMP_CLAUSE_SELF:
+      kind = OMP_CLAUSE_MAP_FORCE_FROM;
       break;
     }
   tree nl, c;
@@ -11248,9 +11283,17 @@ c_parser_oacc_all_clauses (c_parser *parser, omp_clause_mask mask,
 	  clauses = c_parser_oacc_data_clause (parser, c_kind, clauses);
 	  c_name = "delete";
 	  break;
+	case PRAGMA_OMP_CLAUSE_DEVICE:
+	  clauses = c_parser_oacc_data_clause (parser, c_kind, clauses);
+	  c_name = "device";
+	  break;
 	case PRAGMA_OMP_CLAUSE_DEVICEPTR:
 	  clauses = c_parser_oacc_data_clause_deviceptr (parser, clauses);
 	  c_name = "deviceptr";
+	  break;
+	case PRAGMA_OMP_CLAUSE_HOST:
+	  clauses = c_parser_oacc_data_clause (parser, c_kind, clauses);
+	  c_name = "host";
 	  break;
 	case PRAGMA_OMP_CLAUSE_NUM_GANGS:
 	  clauses = c_parser_omp_clause_num_gangs (parser, clauses);
@@ -11279,6 +11322,10 @@ c_parser_oacc_all_clauses (c_parser *parser, omp_clause_mask mask,
 	case PRAGMA_OMP_CLAUSE_PRESENT_OR_CREATE:
 	  clauses = c_parser_oacc_data_clause (parser, c_kind, clauses);
 	  c_name = "present_or_create";
+	  break;
+	case PRAGMA_OMP_CLAUSE_SELF:
+	  clauses = c_parser_oacc_data_clause (parser, c_kind, clauses);
+	  c_name = "self";
 	  break;
 	case PRAGMA_OMP_CLAUSE_VECTOR_LENGTH:
 	  clauses = c_parser_omp_clause_vector_length (parser, clauses);
@@ -11719,6 +11766,39 @@ c_parser_oacc_parallel (location_t loc, c_parser *parser, char *p_name)
   stmt = c_finish_oacc_parallel (loc, clauses, block);
 
   return stmt;
+}
+
+/* OpenACC 2.0:
+   # pragma acc update oacc-update-clause[optseq] new-line
+*/
+
+#define OACC_UPDATE_CLAUSE_MASK						\
+	( (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_DEVICE)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_HOST)			\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_SELF) )
+
+static void
+c_parser_oacc_update (c_parser *parser)
+{
+  location_t loc = c_parser_peek_token (parser)->location;
+
+  c_parser_consume_pragma (parser);
+
+  tree clauses = c_parser_oacc_all_clauses (parser, OACC_UPDATE_CLAUSE_MASK,
+					    "#pragma acc update");
+  if (find_omp_clause (clauses, OMP_CLAUSE_MAP) == NULL_TREE)
+    {
+      error_at (loc,
+		"%<#pragma acc update%> must contain at least one "
+		"%<device%> or %<host/self%> clause");
+      return;
+    }
+
+  tree stmt = make_node (OACC_UPDATE);
+  TREE_TYPE (stmt) = void_type_node;
+  OACC_UPDATE_CLAUSES (stmt) = clauses;
+  SET_EXPR_LOCATION (stmt, loc);
+  add_stmt (stmt);
 }
 
 /* OpenMP 2.5:

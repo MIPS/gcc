@@ -1,3 +1,9 @@
+2014-06-06  Thomas Schwinge  <thomas@codesourcery.com>
+	    James Norris  <jnorris@codesourcery.com>
+
+	* libgomp.map (GOACC_2.0): Add GOACC_update.
+	* oacc-parallel.c (GOACC_update): New function.
+
 2014-03-18  Ilya Verbin  <ilya.verbin@intel.com>
 
 	* libgomp.map (GOMP_4.0.1): New symbol version.

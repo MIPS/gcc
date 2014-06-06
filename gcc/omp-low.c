@@ -2419,7 +2419,8 @@ scan_omp_target (gimple stmt, omp_context *outer_ctx)
   tree name;
   int kind = gimple_omp_target_kind (stmt);
 
-  if (kind == GF_OMP_TARGET_KIND_OACC_DATA)
+  if (kind == GF_OMP_TARGET_KIND_OACC_DATA
+      || kind == GF_OMP_TARGET_KIND_OACC_UPDATE)
     {
       gcc_assert (taskreg_nesting_level == 0);
       gcc_assert (target_nesting_level == 0);
@@ -8647,6 +8648,9 @@ expand_omp_target (struct omp_region *region)
     case GF_OMP_TARGET_KIND_OACC_DATA:
       start_ix = BUILT_IN_GOACC_DATA_START;
       break;
+    case GF_OMP_TARGET_KIND_OACC_UPDATE:
+      start_ix = BUILT_IN_GOACC_UPDATE;
+      break;
     default:
       gcc_unreachable ();
     }
@@ -8662,9 +8666,11 @@ expand_omp_target (struct omp_region *region)
     cond = OMP_CLAUSE_IF_EXPR (c);
 
   c = find_omp_clause (clauses, OMP_CLAUSE_DEVICE);
-  gcc_assert (!c || kind != GF_OMP_TARGET_KIND_OACC_DATA);
   if (c)
     {
+      gcc_assert (kind != GF_OMP_TARGET_KIND_OACC_DATA
+		  && kind != GF_OMP_TARGET_KIND_OACC_UPDATE);
+
       device = OMP_CLAUSE_DEVICE_ID (c);
       clause_loc = OMP_CLAUSE_LOCATION (c);
     }
@@ -8920,7 +8926,9 @@ build_omp_regions_1 (basic_block bb, struct omp_region *parent,
 	  ;
 	}
       else if (code == GIMPLE_OMP_TARGET
-	       && gimple_omp_target_kind (stmt) == GF_OMP_TARGET_KIND_UPDATE)
+	       && (gimple_omp_target_kind (stmt) == GF_OMP_TARGET_KIND_UPDATE
+		   || (gimple_omp_target_kind (stmt)
+		       == GF_OMP_TARGET_KIND_OACC_UPDATE)))
 	new_omp_region (bb, code, parent);
       else
 	{
@@ -10604,7 +10612,8 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	  case OMP_CLAUSE_MAP_FORCE_PRESENT:
 	  case OMP_CLAUSE_MAP_FORCE_DEALLOC:
 	  case OMP_CLAUSE_MAP_FORCE_DEVICEPTR:
-	    gcc_assert (kind == GF_OMP_TARGET_KIND_OACC_DATA);
+	    gcc_assert (kind == GF_OMP_TARGET_KIND_OACC_DATA
+			|| kind == GF_OMP_TARGET_KIND_OACC_UPDATE);
 	    break;
 	  default:
 	    gcc_unreachable ();
@@ -10615,7 +10624,8 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
       case OMP_CLAUSE_TO:
       case OMP_CLAUSE_FROM:
 	if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_MAP)
-	  gcc_assert (kind != GF_OMP_TARGET_KIND_OACC_DATA);
+	  gcc_assert (kind != GF_OMP_TARGET_KIND_OACC_DATA
+		      && kind != GF_OMP_TARGET_KIND_OACC_UPDATE);
 	var = OMP_CLAUSE_DECL (c);
 	if (!DECL_P (var))
 	  {
@@ -10702,6 +10712,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	  talign_shift = 3;
 	  break;
 	case GF_OMP_TARGET_KIND_OACC_DATA:
+	case GF_OMP_TARGET_KIND_OACC_UPDATE:
 	  tkind_type = short_unsigned_type_node;
 	  talign_shift = 8;
 	  break;
@@ -10904,7 +10915,8 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   else if (kind == GF_OMP_TARGET_KIND_DATA
 	   || kind == GF_OMP_TARGET_KIND_OACC_DATA)
     new_body = tgt_body;
-  if (kind != GF_OMP_TARGET_KIND_UPDATE)
+  if (kind != GF_OMP_TARGET_KIND_UPDATE
+      && kind != GF_OMP_TARGET_KIND_OACC_UPDATE)
     {
       gimple_seq_add_stmt (&new_body, gimple_build_omp_return (false));
       gimple_omp_set_body (stmt, new_body);
@@ -11124,7 +11136,8 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
     case GIMPLE_OMP_TARGET:
       ctx = maybe_lookup_ctx (stmt);
       gcc_assert (ctx);
-      if (gimple_omp_target_kind (stmt) == GF_OMP_TARGET_KIND_OACC_DATA)
+      if (gimple_omp_target_kind (stmt) == GF_OMP_TARGET_KIND_OACC_DATA
+	  || gimple_omp_target_kind (stmt) == GF_OMP_TARGET_KIND_OACC_UPDATE)
 	gcc_assert (!ctx->cancellable);
       lower_omp_target (gsi_p, ctx);
       break;
@@ -11584,7 +11597,8 @@ make_gimple_omp_edges (basic_block bb, struct omp_region **region,
     case GIMPLE_OMP_TARGET:
       cur_region = new_omp_region (bb, code, cur_region);
       fallthru = true;
-      if (gimple_omp_target_kind (last) == GF_OMP_TARGET_KIND_UPDATE)
+      if (gimple_omp_target_kind (last) == GF_OMP_TARGET_KIND_UPDATE
+	  || gimple_omp_target_kind (last) == GF_OMP_TARGET_KIND_OACC_UPDATE)
 	cur_region = cur_region->outer;
       break;
 

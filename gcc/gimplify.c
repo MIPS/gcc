@@ -7229,19 +7229,32 @@ gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
   *expr_p = NULL_TREE;
 }
 
-/* Gimplify the gross structure of OpenMP target update construct.  */
+/* Gimplify the gross structure of OpenACC update and OpenMP target update
+   constructs.  */
 
 static void
 gimplify_omp_target_update (tree *expr_p, gimple_seq *pre_p)
 {
-  tree expr = *expr_p;
+  tree expr = *expr_p, clauses;
+  int kind;
   gimple stmt;
 
-  gimplify_scan_omp_clauses (&OMP_TARGET_UPDATE_CLAUSES (expr), pre_p,
-			     ORT_WORKSHARE);
-  gimplify_adjust_omp_clauses (&OMP_TARGET_UPDATE_CLAUSES (expr));
-  stmt = gimple_build_omp_target (NULL, GF_OMP_TARGET_KIND_UPDATE,
-				  OMP_TARGET_UPDATE_CLAUSES (expr));
+  switch (TREE_CODE (expr))
+    {
+    case OACC_UPDATE:
+      clauses = OACC_UPDATE_CLAUSES (expr);
+      kind = GF_OMP_TARGET_KIND_OACC_UPDATE;
+      break;
+    case OMP_TARGET_UPDATE:
+      clauses = OMP_TARGET_UPDATE_CLAUSES (expr);
+      kind = GF_OMP_TARGET_KIND_UPDATE;
+      break;
+    default:
+      gcc_unreachable ();
+    }
+  gimplify_scan_omp_clauses (&clauses, pre_p, ORT_WORKSHARE);
+  gimplify_adjust_omp_clauses (&clauses);
+  stmt = gimple_build_omp_target (NULL, kind, clauses);
 
   gimplify_seq_add_stmt (pre_p, stmt);
   *expr_p = NULL_TREE;
@@ -8169,7 +8182,6 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 
 	case OACC_HOST_DATA:
 	case OACC_DECLARE:
-	case OACC_UPDATE:
 	case OACC_ENTER_DATA:
 	case OACC_EXIT_DATA:
 	case OACC_WAIT:
@@ -8222,6 +8234,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  ret = GS_ALL_DONE;
 	  break;
 
+	case OACC_UPDATE:
 	case OMP_TARGET_UPDATE:
 	  gimplify_omp_target_update (expr_p, pre_p);
 	  ret = GS_ALL_DONE;
