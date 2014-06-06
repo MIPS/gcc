@@ -320,6 +320,10 @@ struct mips_cpu_info {
 #define TARGET_HARD_FLOAT (TARGET_HARD_FLOAT_ABI && !TARGET_MIPS16)
 #define TARGET_SOFT_FLOAT (TARGET_SOFT_FLOAT_ABI || TARGET_MIPS16)
 
+/* TARGET_FLOAT64 represents -mfp64 and TARGET_FLOATXX represents
+   -mfpxx, derive TARGET_FLOAT32 to represent -mfp32.  */
+#define TARGET_FLOAT32 (!TARGET_FLOAT64 && !TARGET_FLOATXX)
+
 /* False if SC acts as a memory barrier with respect to itself,
    otherwise a SYNC will be emitted after SC for atomic operations
    that require ordering between the SC and following loads and
@@ -388,6 +392,8 @@ struct mips_cpu_info {
 									\
       if (TARGET_FLOAT64)						\
 	builtin_define ("__mips_fpr=64");				\
+      else if (TARGET_FLOATXX)						\
+	builtin_define ("__mips_fpr=0");				\
       else								\
 	builtin_define ("__mips_fpr=32");				\
 									\
@@ -516,6 +522,8 @@ struct mips_cpu_info {
       builtin_define_with_int_value ("_MIPS_SZPTR", POINTER_SIZE);	\
       builtin_define_with_int_value ("_MIPS_FPSET",			\
 				     32 / MAX_FPRS_PER_FMT);		\
+      builtin_define_with_int_value ("_MIPS_SPFPSET",			\
+				     32 / MIN_FPRS_PER_FMT);		\
 									\
       /* These defines reflect the ABI in use, not whether the  	\
 	 FPU is directly accessible.  */				\
@@ -757,6 +765,12 @@ struct mips_cpu_info {
 #define MIPS_32BIT_OPTION_SPEC \
   "mips1|mips2|mips32*|mgp32"
 
+/* A spec condition that matches architectures should be targetted with
+   O32 FPXX for compatibility reasons.  */
+#define MIPS_FPXX_OPTION_SPEC \
+  "mips2|mips3|mips4|mips5|mips32|mips32r2|mips32r3|mips32r5| \
+   mips64|mips64r2|mips64r3|mips64r5"
+
 /* Infer a -msynci setting from a -mips argument, on the assumption that
    -msynci is desired where possible.  */
 #define MIPS_ISA_SYNCI_SPEC \
@@ -782,6 +796,7 @@ struct mips_cpu_info {
    --with-float is ignored if -mhard-float or -msoft-float are
      specified.
    --with-nan is ignored if -mnan is specified.
+   --with-fp is ignored if -mfp or -msingle-float are specified.
    --with-divide is ignored if -mdivide-traps or -mdivide-breaks are
      specified. */
 #define OPTION_DEFAULT_SPECS \
@@ -795,6 +810,7 @@ struct mips_cpu_info {
   {"float", "%{!msoft-float:%{!mhard-float:-m%(VALUE)-float}}" }, \
   {"fpu", "%{!msingle-float:%{!mdouble-float:-m%(VALUE)-float}}" }, \
   {"nan", "%{!mnan=*:-mnan=%(VALUE)}" }, \
+  {"fp_32", "%{" OPT_ARCH32 ":%{!mfp*:-mfp%(VALUE)}}" }, \
   {"divide", "%{!mdivide-traps:%{!mdivide-breaks:-mdivide-%(VALUE)}}" }, \
   {"llsc", "%{!mllsc:%{!mno-llsc:-m%(VALUE)}}" }, \
   {"mips-plt", "%{!mplt:%{!mno-plt:-m%(VALUE)}}" }, \
@@ -845,6 +861,11 @@ struct mips_cpu_info {
 /* Disable branchlikely for tx39 until compare rewrite.  They haven't
    been generated up to this point.  */
 #define ISA_HAS_BRANCHLIKELY	(!ISA_MIPS1)
+
+/* ISA has 32 single-precision registers.  */
+#define ISA_HAS_ODD_SPREG	((mips_isa_rev >= 1			\
+				  && !TARGET_LOONGSON_3A)		\
+				 || TARGET_FLOAT64)
 
 /* ISA has a three-operand multiplication instruction (usually spelt "mul").  */
 #define ISA_HAS_MUL3		((TARGET_MIPS3900                       \
@@ -1033,7 +1054,8 @@ struct mips_cpu_info {
 #define ISA_HAS_EXT_INS		(mips_isa_rev >= 2 && !TARGET_MIPS16)
 
 /* ISA has instructions for accessing top part of 64-bit fp regs.  */
-#define ISA_HAS_MXHC1		(TARGET_FLOAT64 && mips_isa_rev >= 2)
+#define ISA_HAS_MXHC1		(!TARGET_FLOAT32	\
+				 && mips_isa_rev >= 2)
 
 /* ISA has lwxs instruction (load w/scaled index address.  */
 #define ISA_HAS_LWXS		((TARGET_SMARTMIPS || TARGET_MICROMIPS) \
@@ -1189,7 +1211,10 @@ struct mips_cpu_info {
 %(subtarget_asm_debugging_spec) \
 %{mabi=*} %{!mabi=*: %(asm_abi_default_spec)} \
 %{mgp32} %{mgp64} %{march=*} %{mxgot:-xgot} \
-%{mfp32} %{mfp64} %{mnan=*} \
+%{mfp32} %{mfpxx} %{mfp64} %{mnan=*} \
+%{mhard-float} %{msoft-float} \
+%{mdouble-float} %{msingle-float} \
+%{modd-spreg} %{mno-odd-spreg} \
 %{mshared} %{mno-shared} \
 %{msym32} %{mno-sym32} \
 %{mtune=*} \
@@ -1272,6 +1297,12 @@ struct mips_cpu_info {
 /* By default, turn on GDB extensions.  */
 #define DEFAULT_GDB_EXTENSIONS 1
 
+/* Registers may have a prefix which can be ignored when matching
+   user asm and register definitions.  */
+#ifndef REGISTER_PREFIX
+#define REGISTER_PREFIX    "$"
+#endif
+
 /* Local compiler-generated symbols must have a prefix that the assembler
    understands.   By default, this is $, although some targets (e.g.,
    NetBSD-ELF) need to override this.  */
@@ -1300,6 +1331,11 @@ struct mips_cpu_info {
 
 /* The DWARF 2 CFA column which tracks the return address.  */
 #define DWARF_FRAME_RETURN_COLUMN RETURN_ADDR_REGNUM
+
+/* The mode to use to calculate the size of a DWARF 2 CFA column.  */
+#define DWARF_REG_MODE(REGNO, MODE) \
+  (FP_REG_P (REGNO) && mips_abi == ABI_32 && TARGET_FLOAT64 \
+   ? SImode : (MODE))
 
 /* Before the prologue, RA lives in r31.  */
 #define INCOMING_RETURN_ADDR_RTX gen_rtx_REG (VOIDmode, RETURN_ADDR_REGNUM)
@@ -1353,7 +1389,7 @@ struct mips_cpu_info {
 /* The number of consecutive floating-point registers needed to store the
    smallest format supported by the FPU.  */
 #define MIN_FPRS_PER_FMT \
-  (mips_isa_rev >= 1 ? 1 : MAX_FPRS_PER_FMT)
+  (TARGET_ODD_SPREG ? 1 : MAX_FPRS_PER_FMT)
 
 /* The largest size of value that can be held in floating-point
    registers and moved with a single instruction.  */
@@ -1768,6 +1804,16 @@ struct mips_cpu_info {
 #define HARD_REGNO_MODE_OK(REGNO, MODE)					\
   mips_hard_regno_mode_ok[ (int)(MODE) ][ (REGNO) ]
 
+/* Select a register mode required for caller save of hard regno REGNO.  */
+#define HARD_REGNO_CALLER_SAVE_MODE(REGNO, NREGS, MODE) \
+  mips_hard_regno_caller_save_mode (REGNO, NREGS, MODE)
+
+/* Odd-numbered single-precision registers are not considered call saved
+   for O32 FPXX as they will be clobbered when run on an FR=1 FPU.  */
+#define HARD_REGNO_CALL_PART_CLOBBERED(REGNO, MODE)			\
+  (TARGET_FLOATXX && hard_regno_nregs[REGNO][MODE] == 1			\
+   && FP_REG_P (REGNO) && (REGNO & 1))
+
 #define MODES_TIEABLE_P mips_modes_tieable_p
 
 /* Register to use for pushing function arguments.  */
@@ -2107,6 +2153,16 @@ enum reg_class
   mips_secondary_reload_class (CLASS, MODE, X, true)
 #define SECONDARY_OUTPUT_RELOAD_CLASS(CLASS, MODE, X)			\
   mips_secondary_reload_class (CLASS, MODE, X, false)
+
+/* When targetting the O32 FPXX ABI then all doubleword or greater moves
+   to/from FP registers must be performed by FR-mode-aware instructions.
+   This can be achieved using mfhc1/mthc1 when these instructions are
+   available but otherwise moves must go via memory.  */
+#define SECONDARY_MEMORY_NEEDED(CLASS1, CLASS2, MODE)			\
+  ((((CLASS1) == FP_REGS) != ((CLASS2) == FP_REGS))			\
+   && TARGET_FLOATXX							\
+   && !ISA_HAS_MXHC1							\
+   && GET_MODE_SIZE (MODE) >= 8)
 
 /* Return the maximum number of consecutive registers
    needed to represent mode MODE in a register of class CLASS.  */
@@ -2938,6 +2994,10 @@ while (0)
 
 #ifndef HAVE_AS_NAN
 #define HAVE_AS_NAN 0
+#endif
+
+#ifndef HAVE_AS_MODULE
+#define HAVE_AS_MODULE 0
 #endif
 
 #ifndef USED_FOR_TARGET

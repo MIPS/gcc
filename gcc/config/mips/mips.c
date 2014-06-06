@@ -5134,6 +5134,7 @@ mips_get_arg_info (struct mips_arg_info *info, const CUMULATIVE_ARGS *cum,
       /* Only leading floating-point scalars are passed in
 	 floating-point registers.  We also handle vector floats the same
 	 say, which is OK because they are not covered by the standard ABI.  */
+      gcc_assert (TARGET_PAIRED_SINGLE_FLOAT || mode != V2SFmode);
       info->fpr_p = (!cum->gp_reg_found
 		     && cum->arg_number < 2
 		     && (type == 0
@@ -5149,6 +5150,7 @@ mips_get_arg_info (struct mips_arg_info *info, const CUMULATIVE_ARGS *cum,
       /* Scalar, complex and vector floating-point types are passed in
 	 floating-point registers, as long as this is a named rather
 	 than a variable argument.  */
+      gcc_assert (TARGET_PAIRED_SINGLE_FLOAT || mode != V2SFmode);
       info->fpr_p = (named
 		     && (type == 0 || FLOAT_TYPE_P (type))
 		     && (GET_MODE_CLASS (mode) == MODE_FLOAT
@@ -5589,6 +5591,7 @@ mips_return_in_msb (const_tree valtype)
 static bool
 mips_return_mode_in_fpr_p (enum machine_mode mode)
 {
+  gcc_assert (TARGET_PAIRED_SINGLE_FLOAT || mode != V2SFmode);
   return ((GET_MODE_CLASS (mode) == MODE_FLOAT
 	   || mode == V2SFmode
 	   || GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT)
@@ -5635,7 +5638,7 @@ mips_return_fpr_pair (enum machine_mode mode,
 {
   int inc;
 
-  inc = (TARGET_NEWABI ? 2 : MAX_FPRS_PER_FMT);
+  inc = (TARGET_NEWABI || mips_abi == ABI_32 ? 2 : MAX_FPRS_PER_FMT);
   return gen_rtx_PARALLEL
     (mode,
      gen_rtvec (2,
@@ -6483,7 +6486,10 @@ mips16_call_stub_mode_suffix (enum machine_mode mode)
   else if (mode == DCmode)
     return "dc";
   else if (mode == V2SFmode)
-    return "df";
+    {
+      gcc_assert (TARGET_PAIRED_SINGLE_FLOAT);
+      return "df";
+    }
   else
     gcc_unreachable ();
 }
@@ -6507,12 +6513,26 @@ mips_output_64bit_xfer (char direction, unsigned int gpreg, unsigned int fpreg)
   if (TARGET_64BIT)
     fprintf (asm_out_file, "\tdm%cc1\t%s,%s\n", direction,
  	     reg_names[gpreg], reg_names[fpreg]);
-  else if (TARGET_FLOAT64)
+  else if (ISA_HAS_MXHC1)
     {
       fprintf (asm_out_file, "\tm%cc1\t%s,%s\n", direction,
  	       reg_names[gpreg + TARGET_BIG_ENDIAN], reg_names[fpreg]);
       fprintf (asm_out_file, "\tm%chc1\t%s,%s\n", direction,
  	       reg_names[gpreg + TARGET_LITTLE_ENDIAN], reg_names[fpreg]);
+    }
+  else if (TARGET_FLOATXX && direction == 't')
+    {
+      /* Use the argument save area to move via memory.  */
+      fprintf (asm_out_file, "\tsw\t%s,0($sp)\n", reg_names[gpreg]);
+      fprintf (asm_out_file, "\tsw\t%s,4($sp)\n", reg_names[gpreg + 1]);
+      fprintf (asm_out_file, "\tldc1\t%s,0($sp)\n", reg_names[fpreg]);
+    }
+  else if (TARGET_FLOATXX && direction == 'f')
+    {
+      /* Use the argument save area to move via memory.  */
+      fprintf (asm_out_file, "\tsdc1\t%s,0($sp)\n", reg_names[fpreg]);
+      fprintf (asm_out_file, "\tlw\t%s,0($sp)\n", reg_names[gpreg]);
+      fprintf (asm_out_file, "\tlw\t%s,4($sp)\n", reg_names[gpreg + 1]);
     }
   else
     {
@@ -6919,11 +6939,11 @@ mips16_build_call_stub (rtx retval, rtx *fn_ptr, rtx args_size, int fp_code)
 	    case SCmode:
 	      mips_output_32bit_xfer ('f', GP_RETURN + TARGET_BIG_ENDIAN,
 				      TARGET_BIG_ENDIAN
-				      ? FP_REG_FIRST + MAX_FPRS_PER_FMT
+				      ? FP_REG_FIRST + 2
 				      : FP_REG_FIRST);
 	      mips_output_32bit_xfer ('f', GP_RETURN + TARGET_LITTLE_ENDIAN,
 				      TARGET_LITTLE_ENDIAN
-				      ? FP_REG_FIRST + MAX_FPRS_PER_FMT
+				      ? FP_REG_FIRST + 2
 				      : FP_REG_FIRST);
 	      if (GET_MODE (retval) == SCmode && TARGET_64BIT)
 		{
@@ -6952,10 +6972,12 @@ mips16_build_call_stub (rtx retval, rtx *fn_ptr, rtx args_size, int fp_code)
 
 	    case DCmode:
 	      mips_output_64bit_xfer ('f', GP_RETURN + (8 / UNITS_PER_WORD),
-				      FP_REG_FIRST + MAX_FPRS_PER_FMT);
+				      FP_REG_FIRST + 2);
 	      /* Fall though.  */
  	    case DFmode:
 	    case V2SFmode:
+	      gcc_assert (TARGET_PAIRED_SINGLE_FLOAT
+			  || GET_MODE (retval) != V2SFmode);
 	      mips_output_64bit_xfer ('f', GP_RETURN, FP_REG_FIRST);
 	      break;
 
@@ -8690,14 +8712,29 @@ mips_dwarf_register_span (rtx reg)
   rtx high, low;
   enum machine_mode mode;
 
+  /* TARGET_FLOATXX is implemented as 32-bit floating-point registers but
+     ensures that double precision registers are treated as if they were
+     64-bit physical registers.  The code will run correctly with 32-bit or
+     64-bit registers which means that dwarf information cannot be precisely
+     correct for all scenarios.  We choose to state that the 64-bit values
+     are stored in a single 64-bit 'piece'.  This slightly unusual
+     construct can then be interpreted as either a pair of registers if the
+     registers are 32-bit or a single 64-bit register depending on
+     hardware.  */
+  mode = GET_MODE (reg);
+  if (FP_REG_P (REGNO (reg))
+      && TARGET_FLOATXX
+      && GET_MODE_SIZE (mode) > UNITS_PER_FPREG)
+    {
+      return gen_rtx_PARALLEL (VOIDmode, gen_rtvec (1, reg));
+    }
   /* By default, GCC maps increasing register numbers to increasing
      memory locations, but paired FPRs are always little-endian,
      regardless of the prevailing endianness.  */
-  mode = GET_MODE (reg);
-  if (FP_REG_P (REGNO (reg))
-      && TARGET_BIG_ENDIAN
-      && MAX_FPRS_PER_FMT > 1
-      && GET_MODE_SIZE (mode) > UNITS_PER_FPREG)
+  else if (FP_REG_P (REGNO (reg))
+	   && TARGET_BIG_ENDIAN
+	   && MAX_FPRS_PER_FMT > 1
+	   && GET_MODE_SIZE (mode) > UNITS_PER_FPREG)
     {
       gcc_assert (GET_MODE_SIZE (mode) == UNITS_PER_HWFPVALUE);
       high = mips_subword (reg, true);
@@ -8987,6 +9024,26 @@ mips_file_start (void)
     fprintf (asm_out_file, "\t.nan\t%s\n",
 	     mips_nan == MIPS_IEEE_754_2008 ? "2008" : "legacy");
 
+#ifdef HAVE_AS_MODULE
+  /* Record the FP ABI.  See below for comments.  */
+  if (TARGET_NO_FLOAT)
+#ifdef HAVE_AS_GNU_ATTRIBUTE
+    fputs ("\t.gnu_attribute 4, 0\n", asm_out_file);
+#else
+    ;
+#endif
+  else if (!TARGET_HARD_FLOAT_ABI)
+    fputs ("\t.module\tsoftfloat\n", asm_out_file);
+  else if (!TARGET_DOUBLE_FLOAT)
+    fputs ("\t.module\tsinglefloat\n", asm_out_file);
+  else if (TARGET_FLOATXX)
+    fputs ("\t.module\tfp=xx\n", asm_out_file);
+  else if (TARGET_FLOAT64)
+    fputs ("\t.module\tfp=64\n", asm_out_file);
+  else
+    fputs ("\t.module\tfp=32\n", asm_out_file);
+
+#else
 #ifdef HAVE_AS_GNU_ATTRIBUTE
   {
     int attr;
@@ -9000,15 +9057,23 @@ mips_file_start (void)
     /* Single-float code, -msingle-float.  */
     else if (!TARGET_DOUBLE_FLOAT)
       attr = 2;
-    /* 64-bit FP registers on a 32-bit target, -mips32r2 -mfp64.  */
-    else if (!TARGET_64BIT && TARGET_FLOAT64)
-      attr = 4;
+    /* 64-bit FP registers on a 32-bit target, -mips32r2 -mfp64.
+       Reserved attr=4.
+       This case used 12 callee save double precision registers
+       and is deprecated.  */
+    /* 64-bit or 32-bit FP registers on a 32-bit target, -mfpxx.  */
+    else if (TARGET_FLOATXX)
+      attr = 5;
+    /* 64-bit FP registers on a 32-bit target, -mfp64 */
+    else if (mips_abi == ABI_32 && TARGET_FLOAT64)
+      attr = 6;
     /* Regular FP code, FP regs same size as GP regs, -mdouble-float.  */
     else
       attr = 1;
 
     fprintf (asm_out_file, "\t.gnu_attribute 4, %d\n", attr);
   }
+#endif
 #endif
 
   /* If TARGET_ABICALLS, tell GAS to generate -KPIC code.  */
@@ -10498,7 +10563,9 @@ mips_for_each_saved_acc (HOST_WIDE_INT sp_offset, mips_save_restore_fn fn)
 static void
 mips_save_reg (rtx reg, rtx mem)
 {
-  if (GET_MODE (reg) == DFmode && !TARGET_FLOAT64)
+  if (GET_MODE (reg) == DFmode
+      && (!TARGET_FLOAT64
+	  || mips_abi == ABI_32))
     {
       rtx x1, x2;
 
@@ -11423,7 +11490,9 @@ mips_restore_reg (rtx reg, rtx mem)
      $7 instead and adjust the return insn appropriately.  */
   if (TARGET_MIPS16 && REGNO (reg) == RETURN_ADDR_REGNUM)
     reg = gen_rtx_REG (GET_MODE (reg), GP_REG_FIRST + 7);
-  else if (GET_MODE (reg) == DFmode && !TARGET_FLOAT64)
+  else if (GET_MODE (reg) == DFmode
+	   && (!TARGET_FLOAT64
+	       || mips_abi == ABI_32))
     {
       mips_add_cfa_restore (mips_subword (reg, true));
       mips_add_cfa_restore (mips_subword (reg, false));
@@ -11938,7 +12007,7 @@ mips_mode_ok_for_mov_fmt_p (enum machine_mode mode)
       return TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT;
 
     case V2SFmode:
-      return TARGET_HARD_FLOAT && TARGET_PAIRED_SINGLE_FLOAT;
+      return TARGET_HARD_FLOAT;
 
     default:
       return false;
@@ -12213,7 +12282,8 @@ mips_secondary_reload_class (enum reg_class rclass,
 	return NO_REGS;
 
       /* Otherwise, we need to reload through an integer register.  */
-      return GR_REGS;
+      if (regno >= 0)
+        return GR_REGS;
     }
   if (FP_REG_P (regno))
     return reg_class_subset_p (rclass, GR_REGS) ? NO_REGS : GR_REGS;
@@ -17082,6 +17152,11 @@ mips_option_override (void)
 	target_flags &= ~MASK_FLOAT64;
     }
 
+  if (mips_abi != ABI_32 && TARGET_FLOATXX)
+    error ("%<-mfpxx%> can only be used with the o32 ABI");
+  else if (ISA_MIPS1 && !TARGET_FLOAT32)
+    error ("%<-march=%s%> requires %<-mfp32%>", mips_arch_info->name);
+
   /* End of code shared with GAS.  */
 
   /* The R5900 FPU only supports single precision.  */
@@ -17168,6 +17243,24 @@ mips_option_override (void)
   else if (TARGET_IMADD && !ISA_HAS_MADD_MSUB)
     warning (0, "the %qs architecture does not support madd or msub"
 	     " instructions", mips_arch_info->name);
+
+  /* If neither -modd-spreg nor -mno-odd-spreg was given on the command
+     line, set MASK_ODD_SPREG based on the ISA.  */
+  if ((target_flags_explicit & MASK_ODD_SPREG) == 0)
+    {
+      /* Disable TARGET_ODD_SPREG for generic architectures when using the
+         O32 FPXX ABI to make them compatible with those implementations
+	 which are !ISA_HAS_ODD_SPREG.  */
+      if (!ISA_HAS_ODD_SPREG
+	  || (TARGET_FLOATXX
+	      && (strncmp (mips_arch_info->name, "mips", 4) == 0)))
+	target_flags &= ~MASK_ODD_SPREG;
+      else
+	target_flags |= MASK_ODD_SPREG;
+    }
+  else if (TARGET_ODD_SPREG && !ISA_HAS_ODD_SPREG)
+    warning (0, "the %qs architecture does not support odd single-precision"
+	     " registers", mips_arch_info->name);
 
   /* The effect of -mabicalls isn't defined for the EABI.  */
   if (mips_abi == ABI_EABI && TARGET_ABICALLS)
@@ -17531,8 +17624,10 @@ mips_conditional_register_usage (void)
 	call_really_used_regs[regno] = call_used_regs[regno] = 1;
     }
   /* Odd registers in the range $f21-$f31 (inclusive) are call-clobbered
-     for n32.  */
-  if (mips_abi == ABI_N32)
+     for n32 and o32 FP64.  */
+  if (mips_abi == ABI_N32
+      || (mips_abi == ABI_32
+          && TARGET_FLOAT64))
     {
       int regno;
       for (regno = FP_REG_FIRST + 21; regno <= FP_REG_FIRST + 31; regno+=2)
@@ -18890,6 +18985,21 @@ mips_expand_vec_minmax (rtx target, rtx op0, rtx op1,
 
   x = gen_rtx_IOR (vmode, t0, t1);
   emit_insn (gen_rtx_SET (VOIDmode, target, x));
+}
+
+/* Implement HARD_REGNO_CALLER_SAVE_MODE.  */
+
+enum machine_mode
+mips_hard_regno_caller_save_mode (unsigned int regno,
+				  unsigned int nregs,
+				  enum machine_mode mode)
+{
+  /* For performance, to avoid saving/restoring upper parts of a register,
+     we return MODE as save mode when MODE is not VOIDmode.  */
+  if (mode == VOIDmode)
+    return choose_hard_reg_mode (regno, nregs, false);
+  else
+    return mode;
 }
 
 /* Implement TARGET_CASE_VALUES_THRESHOLD.  */
