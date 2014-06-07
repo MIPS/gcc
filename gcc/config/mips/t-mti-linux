@@ -19,8 +19,8 @@
 # The default build is mips32r2, hard-float big-endian.  Add mips32,
 # soft-float, and little-endian variations.
 
-MULTILIB_OPTIONS = mips32/mips64/mips64r2 mips16/mmicromips mabi=64 EL msoft-float mnan=2008
-MULTILIB_DIRNAMES = mips32 mips64 mips64r2 mips16 micromips 64 el sof nan2008
+MULTILIB_OPTIONS = muclibc mips64r2 mmicromips mabi=64 EL mnan=2008
+MULTILIB_DIRNAMES = uclibc mips64r2 micromips 64 el nan2008
 MULTILIB_MATCHES = EL=mel EB=meb mips32r2=mips32r3 mips32r2=mips32r5 mips64r2=mips64r3 mips64r2=mips64r5
 
 # The 64 bit ABI is not supported on the mips32 architecture.
@@ -43,3 +43,12 @@ MULTILIB_EXCEPTIONS += *mmicromips/mabi=64*
 
 # We do not want nan2008 libraries for soft-float.
 MULTILIB_EXCEPTIONS += *msoft-float*/*mnan=2008*
+
+# Cutbacks for released build
+MULTILIB_EXCEPTIONS += *uclibc*/*mips64*
+MULTILIB_EXCEPTIONS += *uclibc*/*mabi=64*
+MULTILIB_EXCEPTIONS += *uclibc*/*micromips*
+MULTILIB_EXCEPTIONS += *mips64*/*mnan=2008*
+MULTILIB_EXCEPTIONS += *micromips/EL
+MULTILIB_EXCEPTIONS += *micromips/mnan=2008*
+MULTILIB_EXCEPTIONS += *micromips
