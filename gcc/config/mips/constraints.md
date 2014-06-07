@@ -324,10 +324,14 @@
   "When compiling microMIPS code, this constraint matches an address operand
    that is formed from a base register and a 12-bit offset.  These operands
    can be used for microMIPS instructions such as @code{prefetch}.  When
-   not compiling for microMIPS code, @code{ZD} is equivalent to @code{p}."
+   not compiling for microMIPS code, @code{ZD} is either equivalent to
+   @code{p} or matches an address operand that is formed from a base register
+   and a 9-bit offset, depending on ISA support."
    (if_then_else (match_test "TARGET_MICROMIPS")
 		 (match_test "umips_12bit_offset_address_p (op, mode)")
-		 (match_test "mips_address_insns (op, mode, false)")))
+		 (if_then_else (match_test "ISA_HAS_PREFETCH_9BIT")
+			(match_test "mipsr6_9bit_offset_address_p (op, mode)")
+			(match_test "mips_address_insns (op, mode, false)"))))
 
 (define_memory_constraint "ZR"
  "@internal
