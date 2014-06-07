@@ -21,7 +21,7 @@ a copy of the GCC Runtime Library Exception along with this program;
 see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 <http://www.gnu.org/licenses/>.  */
 
-#ifdef __mips_micromips
+#if defined(__mips_micromips) || __mips_isa_rev >= 6
   /* DO NOTHING */
 #else
 

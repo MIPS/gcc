@@ -166,6 +166,9 @@ along with GCC; see the file COPYING3.  If not see
 #define MIPS_JR(DEST) \
   (((DEST) << 21) | 0x8)
 
+#define MIPS_JALR0(DEST) \
+  (((DEST) << 21) | 0x9)
+
 /* Return the opcode for:
 
        bal     . + (1 + OFFSET) * 4.  */
@@ -1191,6 +1194,32 @@ static const struct mips_rtx_cost_data
     COSTS_N_INSNS (8),            /* int_div_di */
 		    2,            /* branch_cost */
 		   10             /* memory_latency */
+  },
+  { /* W32 */
+    COSTS_N_INSNS (4),            /* fp_add */
+    COSTS_N_INSNS (4),            /* fp_mult_sf */
+    COSTS_N_INSNS (5),            /* fp_mult_df */
+    COSTS_N_INSNS (17),           /* fp_div_sf */
+    COSTS_N_INSNS (32),           /* fp_div_df */
+    COSTS_N_INSNS (5),            /* int_mult_si */
+    COSTS_N_INSNS (5),            /* int_mult_di */
+    COSTS_N_INSNS (41),           /* int_div_si */
+    COSTS_N_INSNS (41),           /* int_div_di */
+		     1,           /* branch_cost */
+		     4            /* memory_latency */
+  },
+  { /* W64 */
+    COSTS_N_INSNS (4),            /* fp_add */
+    COSTS_N_INSNS (4),            /* fp_mult_sf */
+    COSTS_N_INSNS (5),            /* fp_mult_df */
+    COSTS_N_INSNS (17),           /* fp_div_sf */
+    COSTS_N_INSNS (32),           /* fp_div_df */
+    COSTS_N_INSNS (5),            /* int_mult_si */
+    COSTS_N_INSNS (5),            /* int_mult_di */
+    COSTS_N_INSNS (41),           /* int_div_si */
+    COSTS_N_INSNS (41),           /* int_div_di */
+		     1,           /* branch_cost */
+		     4            /* memory_latency */
   }
 };
 
@@ -2579,6 +2608,20 @@ umips_12bit_offset_address_p (rtx x, enum machine_mode mode)
 	  && addr.type == ADDRESS_REG
 	  && CONST_INT_P (addr.offset)
 	  && UMIPS_12BIT_OFFSET_P (INTVAL (addr.offset)));
+}
+
+/* Return true if X is a legitimate address with a 9-bit offset.
+   MODE is the mode of the value being accessed.  */
+
+bool
+mipsr6_9bit_offset_address_p (rtx x, enum machine_mode mode)
+{
+  struct mips_address_info addr;
+
+  return (mips_classify_address (&addr, x, mode, false)
+	  && addr.type == ADDRESS_REG
+	  && CONST_INT_P (addr.offset)
+	  && MIPSR6_9BIT_OFFSET_P (INTVAL (addr.offset)));
 }
 
 /* Return the number of instructions needed to load constant X,
@@ -4080,13 +4123,14 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
       if (float_mode_p)
 	*total = mips_fp_mult_cost (mode);
       else if (mode == DImode && !TARGET_64BIT)
+	/* R6 impact ??? */
 	/* Synthesized from 2 mulsi3s, 1 mulsidi3 and two additions,
 	   where the mulsidi3 always includes an MFHI and an MFLO.  */
 	*total = (speed
 		  ? mips_cost->int_mult_si * 3 + 6
 		  : COSTS_N_INSNS (ISA_HAS_MUL3 ? 7 : 9));
       else if (!speed)
-	*total = COSTS_N_INSNS (ISA_HAS_MUL3 ? 1 : 2) + 1;
+	*total = COSTS_N_INSNS ((ISA_HAS_MUL3 || ISA_HAS_R6MUL) ? 1 : 2) + 1;
       else if (mode == DImode)
 	*total = mips_cost->int_mult_di;
       else
@@ -4161,6 +4205,46 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	  return true;
 	}
       *total = mips_zero_extend_cost (mode, XEXP (x, 0));
+      return false;
+    case TRUNCATE:
+      /* Costings for highpart multiplies.  */
+      if (ISA_HAS_R6MUL
+	  && (GET_CODE (XEXP (x, 0)) == ASHIFTRT
+	      || GET_CODE (XEXP (x, 0)) == LSHIFTRT)
+	  && CONST_INT_P (XEXP (XEXP (x, 0), 1))
+	  && ((INTVAL (XEXP (XEXP (x, 0), 1)) == 32
+	       && GET_MODE (XEXP (x, 0)) == DImode)
+	      || (ISA_HAS_R6DMUL
+		  && INTVAL (XEXP (XEXP (x, 0), 1)) == 64
+		  && GET_MODE (XEXP (x, 0)) == TImode))
+	  && GET_CODE (XEXP (XEXP (x, 0), 0)) == MULT
+	  && ((GET_CODE (XEXP (XEXP (XEXP (x, 0), 0), 0)) == SIGN_EXTEND
+	       && GET_CODE (XEXP (XEXP (XEXP (x, 0), 0), 1)) == SIGN_EXTEND)
+	      || (GET_CODE (XEXP (XEXP (XEXP (x, 0), 0), 0)) == ZERO_EXTEND
+		  && (GET_CODE (XEXP (XEXP (XEXP (x, 0), 0), 1))
+		      == ZERO_EXTEND))))
+	{
+	  if (!speed)
+	    *total = COSTS_N_INSNS (1) + 1;
+	  else if (mode == DImode)
+	    *total = mips_cost->int_mult_di;
+	  else
+	    *total = mips_cost->int_mult_si;
+
+	  /* Sign extension is free, zero extension costs for DImode when
+	     on a 64bit core / when DMUL is present.  */
+	  if (ISA_HAS_R6DMUL && GET_MODE (XEXP (x, 0)) == DImode)
+	    {
+	      if (GET_CODE (XEXP (XEXP (XEXP (x, 0), 0), 0)) == ZERO_EXTEND)
+		*total += rtx_cost (XEXP (XEXP (XEXP (x, 0), 0), 0),
+				    ZERO_EXTEND, 0, speed);
+
+	      if (GET_CODE (XEXP (XEXP (XEXP (x, 0), 0), 1)) == ZERO_EXTEND)
+		*total += rtx_cost (XEXP (XEXP (XEXP (x, 0), 0), 1),
+				    ZERO_EXTEND, 0, speed);
+	    }
+	  return true;
+	}
       return false;
 
     case FLOAT:
@@ -4945,17 +5029,32 @@ mips_emit_compare (enum rtx_code *code, rtx *op0, rtx *op1, bool need_eq_ne_p)
     {
       enum rtx_code cmp_code;
 
-      /* Floating-point tests use a separate C.cond.fmt comparison to
-	 set a condition code register.  The branch or conditional move
-	 will then compare that register against zero.
+      /* Floating-point tests use a separate C.cond.fmt or CMP.cond.fmt
+	 comparison to set a condition code register.  The branch or
+	 conditional move will then compare that register against zero.
 
 	 Set CMP_CODE to the code of the comparison instruction and
 	 *CODE to the code that the branch or move should use.  */
       cmp_code = *code;
-      *code = mips_reversed_fp_cond (&cmp_code) ? EQ : NE;
-      *op0 = (ISA_HAS_8CC
-	      ? mips_allocate_fcc (CCmode)
-	      : gen_rtx_REG (CCmode, FPSW_REGNUM));
+      if (ISA_HAS_CCF)
+        {
+	  /* All FP conditions can be implemented directly with CMP.cond.fmt
+	     or by reversing the operands.  */
+	  *code = NE;
+	  *op0 = gen_reg_rtx (CCFmode);
+	}
+      else
+	{
+	  /* Three FP conditions cannot be implemented by reversing the
+	     operands for C.cond.fmt, instead a reversed condition code is
+	     required and a test for false.  */
+	  *code = mips_reversed_fp_cond (&cmp_code) ? EQ : NE;
+	  if (ISA_HAS_8CC)
+	    *op0 = mips_allocate_fcc (CCmode);
+	  else
+	    *op0 = gen_rtx_REG (CCmode, FPSW_REGNUM);
+	}
+
       *op1 = const0_rtx;
       mips_emit_binary (cmp_code, *op0, cmp_op0, cmp_op1);
     }
@@ -5045,9 +5144,37 @@ mips_expand_conditional_move (rtx *operands)
 
   mips_emit_compare (&code, &op0, &op1, true);
   cond = gen_rtx_fmt_ee (code, GET_MODE (op0), op0, op1);
-  emit_insn (gen_rtx_SET (VOIDmode, operands[0],
-			  gen_rtx_IF_THEN_ELSE (GET_MODE (operands[0]), cond,
-						operands[2], operands[3])));
+
+  /* There is no direct support for general conditional GP move involving
+     two registers using SEL.  */
+  if (ISA_HAS_SEL
+      && INTEGRAL_MODE_P (GET_MODE (operands[2]))
+      && register_operand (operands[2], VOIDmode)
+      && register_operand (operands[3], VOIDmode))
+    {
+      enum machine_mode mode = GET_MODE (operands[0]);
+      rtx temp = gen_reg_rtx (mode);
+      rtx temp2 = gen_reg_rtx (mode);
+
+      emit_insn (gen_rtx_SET (VOIDmode, temp,
+			      gen_rtx_IF_THEN_ELSE (mode, cond,
+						    operands[2], const0_rtx)));
+
+      /* Flip the test for the second operand.  */
+      cond = gen_rtx_fmt_ee ((code == EQ) ? NE : EQ, GET_MODE (op0), op0, op1);
+
+      emit_insn (gen_rtx_SET (VOIDmode, temp2,
+			      gen_rtx_IF_THEN_ELSE (mode, cond,
+						    operands[3], const0_rtx)));
+
+      /* Merge the two results, at least one is guaranteed to be zero.  */
+      emit_insn (gen_rtx_SET (VOIDmode, operands[0],
+			      gen_rtx_IOR (mode, temp, temp2)));
+    }
+  else
+    emit_insn (gen_rtx_SET (VOIDmode, operands[0],
+			    gen_rtx_IF_THEN_ELSE (GET_MODE (operands[0]), cond,
+						  operands[2], operands[3])));
 }
 
 /* Perform the comparison in COMPARISON, then trap if the condition holds.  */
@@ -5081,7 +5208,9 @@ mips_expand_conditional_trap (rtx comparison)
 
   mode = GET_MODE (XEXP (comparison, 0));
   op0 = force_reg (mode, op0);
-  if (!arith_operand (op1, mode))
+  if (!arith_operand (op1, mode)
+      || (!ISA_HAS_COND_TRAPI
+	  && !register_operand (op1, mode)))
     op1 = force_reg (mode, op1);
 
   emit_insn (gen_rtx_TRAP_IF (VOIDmode,
@@ -7398,6 +7527,10 @@ mips_block_move_loop (rtx dest, rtx src, HOST_WIDE_INT length,
 bool
 mips_expand_block_move (rtx dest, rtx src, rtx length)
 {
+  /* Disable entirely for R6 initially.  */
+  if (!ISA_HAS_LWL_LWR)
+    return false;
+
   if (CONST_INT_P (length))
     {
       if (INTVAL (length) <= MIPS_MAX_MOVE_BYTES_STRAIGHT)
@@ -8159,11 +8292,17 @@ mips_print_float_branch_condition (FILE *file, enum rtx_code code, int letter)
   switch (code)
     {
     case EQ:
-      fputs ("c1f", file);
+      if (ISA_HAS_CCF)
+	fputs ("c1eqz", file);
+      else
+	fputs ("c1f", file);
       break;
 
     case NE:
-      fputs ("c1t", file);
+      if (ISA_HAS_CCF)
+	fputs ("c1nez", file);
+      else
+	fputs ("c1t", file);
       break;
 
     default:
@@ -8293,7 +8432,7 @@ mips_print_operand (FILE *file, rtx op, int letter)
       break;
 
     case 'Z':
-      if (ISA_HAS_8CC)
+      if (ISA_HAS_8CC || ISA_HAS_CCF)
 	{
 	  mips_print_operand (file, op, 0);
 	  fputc (',', file);
@@ -9781,7 +9920,8 @@ mips_must_initialize_gp_p (void)
 static bool
 mips_interrupt_extra_call_saved_reg_p (unsigned int regno)
 {
-  if (MD_REG_P (regno))
+  if ((ISA_HAS_MULT || TARGET_DSP)
+      && MD_REG_P (regno))
     return true;
 
   if (TARGET_DSP && DSP_ACC_REG_P (regno))
@@ -11731,6 +11871,10 @@ mips_hard_regno_mode_ok_p (unsigned int regno, enum machine_mode mode)
 	    && ST_REG_P (regno)
 	    && (regno - ST_REG_FIRST) % 4 == 0);
 
+  if (mode == CCFmode)
+    return (ISA_HAS_CCF
+	    && FP_REG_P (regno));
+
   if (mode == CCmode)
     return ISA_HAS_8CC ? ST_REG_P (regno) : regno == FPSW_REGNUM;
 
@@ -11903,6 +12047,9 @@ mips_mode_ok_for_mov_fmt_p (enum machine_mode mode)
 {
   switch (mode)
     {
+    case CCFmode:
+      return TARGET_HARD_FLOAT;
+
     case SFmode:
       return TARGET_HARD_FLOAT;
 
@@ -12178,6 +12325,10 @@ mips_secondary_reload_class (enum reg_class rclass,
 
       if (FP_REG_P (regno) && mips_mode_ok_for_mov_fmt_p (mode))
 	/* In this case we can use mov.fmt.  */
+	return NO_REGS;
+
+      /* We don't need a reload if the pseudo is in memory in CCF mode.  */
+      if (mode == CCFmode && regno == -1)
 	return NO_REGS;
 
       /* Otherwise, we need to reload through an integer register.  */
@@ -15779,7 +15930,7 @@ mips_mult_zero_zero_cost (struct mips_sim *state, bool setting)
 static void
 mips_set_fast_mult_zero_zero_p (struct mips_sim *state)
 {
-  if (TARGET_MIPS16)
+  if (TARGET_MIPS16 || !ISA_HAS_MULT)
     /* No MTLO or MTHI available.  */
     mips_tuning_info.fast_mult_zero_zero_p = true;
   else
@@ -17026,7 +17177,9 @@ mips_option_override (void)
 
   if ((target_flags_explicit & MASK_FLOAT64) != 0)
     {
-      if (TARGET_SINGLE_FLOAT && TARGET_FLOAT64)
+      if (mips_isa_rev >= 6 && !TARGET_FLOAT64)
+	error ("unsupported combination: %s", "-mips[32|64]r6 -mfp32");
+      else if (TARGET_SINGLE_FLOAT && TARGET_FLOAT64)
 	error ("unsupported combination: %s", "-mfp64 -msingle-float");
       else if (TARGET_64BIT && TARGET_DOUBLE_FLOAT && !TARGET_FLOAT64)
 	error ("unsupported combination: %s", "-mgp64 -mfp32 -mdouble-float");
@@ -17043,8 +17196,12 @@ mips_option_override (void)
   else
     {
       /* -msingle-float selects 32-bit float registers.  Otherwise the
-	 float registers should be the same size as the integer ones.  */
-      if (TARGET_64BIT && TARGET_DOUBLE_FLOAT)
+	 float registers should be the same size as the integer ones.
+	 MIPS R6 has 64-bit float registers regardless of the size of
+	 the integer ones.  */
+      if (mips_isa_rev >= 6 && TARGET_DOUBLE_FLOAT)
+	target_flags |= MASK_FLOAT64;
+      else if (TARGET_64BIT && TARGET_DOUBLE_FLOAT)
 	target_flags |= MASK_FLOAT64;
       else
 	target_flags &= ~MASK_FLOAT64;
@@ -17200,6 +17357,25 @@ mips_option_override (void)
 	}
     }
 
+  /* Set NaN and ABS defaults.  */
+  if (mips_nan == MIPS_IEEE_754_DEFAULT && !ISA_HAS_NANLEGACY)
+    mips_nan = MIPS_IEEE_754_2008;
+  if (mips_abs == MIPS_IEEE_754_DEFAULT && !ISA_HAS_NANLEGACY)
+    mips_abs = MIPS_IEEE_754_2008;
+
+  /* Check for NaN encoding support.  */
+  if ((mips_nan == MIPS_IEEE_754_LEGACY
+       || mips_abs == MIPS_IEEE_754_LEGACY)
+      && !ISA_HAS_NANLEGACY)
+    warning (0, "the %qs architecture does not support the NaN legacy"
+	     " encoding", mips_arch_info->name);
+
+  if ((mips_nan == MIPS_IEEE_754_2008
+       || mips_abs == MIPS_IEEE_754_2008)
+      && !ISA_HAS_NAN2008)
+    warning (0, "the %qs architecture does not support the NaN 2008"
+	     " encoding", mips_arch_info->name);
+
   /* Pre-IEEE 754-2008 MIPS hardware has a quirky almost-IEEE format
      for all its floating point.  */
   if (mips_nan != MIPS_IEEE_754_2008)
@@ -17253,6 +17429,10 @@ mips_option_override (void)
   /* If TARGET_DSPR2, enable TARGET_DSP.  */
   if (TARGET_DSPR2)
     TARGET_DSP = true;
+
+  if (TARGET_DSP && mips_isa_rev >= 6)
+    error ("the %qs architecture does not support DSP instructions",
+	   mips_arch_info->name);
 
   /* .eh_frame addresses should be the same width as a C pointer.
      Most MIPS ABIs support only one pointer size, so the assembler
@@ -17434,6 +17614,10 @@ mips_conditional_register_usage (void)
     AND_COMPL_HARD_REG_SET (accessible_reg_set,
 			    reg_class_contents[(int) DSP_ACC_REGS]);
 
+  if (!ISA_HAS_MULT && !ISA_HAS_DMULT)
+    AND_COMPL_HARD_REG_SET (accessible_reg_set,
+			    reg_class_contents[(int) MD_REGS]);
+
   if (!TARGET_HARD_FLOAT)
     {
       AND_COMPL_HARD_REG_SET (accessible_reg_set,
@@ -17448,7 +17632,8 @@ mips_conditional_register_usage (void)
 	 RTL that refers directly to ST_REG_FIRST.  */
       AND_COMPL_HARD_REG_SET (accessible_reg_set,
 			      reg_class_contents[(int) ST_REGS]);
-      SET_HARD_REG_BIT (accessible_reg_set, FPSW_REGNUM);
+      if (!ISA_HAS_CCF)
+	SET_HARD_REG_BIT (accessible_reg_set, FPSW_REGNUM);
       fixed_regs[FPSW_REGNUM] = call_used_regs[FPSW_REGNUM] = 1;
     }
   if (TARGET_MIPS16)
@@ -17649,6 +17834,8 @@ mips_mulsidi3_gen_fn (enum rtx_code ext_code)
 	 the extension is not needed for signed multiplication.  In order to
 	 ensure that we always remove the redundant sign-extension in this
 	 case we still expand mulsidi3 for DMUL.  */
+      if (ISA_HAS_R6DMUL)
+	return signed_p ? gen_mulsidi3_64bit_r6dmul : NULL;
       if (ISA_HAS_DMUL3)
 	return signed_p ? gen_mulsidi3_64bit_dmul : NULL;
       if (TARGET_MIPS16)
@@ -17661,6 +17848,8 @@ mips_mulsidi3_gen_fn (enum rtx_code ext_code)
     }
   else
     {
+      if (ISA_HAS_R6MUL)
+	return (signed_p ? gen_mulsidi3_32bit_r6 : gen_umulsidi3_32bit_r6);
       if (TARGET_MIPS16)
 	return (signed_p
 		? gen_mulsidi3_32bit_mips16
@@ -17997,7 +18186,10 @@ mips_trampoline_init (rtx m_tramp, tree fndecl, rtx chain_value)
       trampoline[i++] = OP (MIPS_LOAD_PTR (STATIC_CHAIN_REGNUM,
 					   static_chain_offset,
 					   PIC_FUNCTION_ADDR_REGNUM));
-      trampoline[i++] = OP (MIPS_JR (AT_REGNUM));
+      if (ISA_HAS_JR)
+	trampoline[i++] = OP (MIPS_JR (AT_REGNUM));
+      else
+	trampoline[i++] = OP (MIPS_JALR0 (AT_REGNUM));
       trampoline[i++] = OP (MIPS_MOVE (PIC_FUNCTION_ADDR_REGNUM, AT_REGNUM));
     }
   else if (ptr_mode == DImode)
@@ -18023,7 +18215,10 @@ mips_trampoline_init (rtx m_tramp, tree fndecl, rtx chain_value)
       trampoline[i++] = OP (MIPS_LOAD_PTR (STATIC_CHAIN_REGNUM,
 					   static_chain_offset - 12,
 					   RETURN_ADDR_REGNUM));
-      trampoline[i++] = OP (MIPS_JR (PIC_FUNCTION_ADDR_REGNUM));
+      if (ISA_HAS_JR)
+	trampoline[i++] = OP (MIPS_JR (PIC_FUNCTION_ADDR_REGNUM));
+      else
+	trampoline[i++] = OP (MIPS_JALR0 (PIC_FUNCTION_ADDR_REGNUM));
       trampoline[i++] = OP (MIPS_MOVE (RETURN_ADDR_REGNUM, AT_REGNUM));
     }
   else
@@ -18065,7 +18260,12 @@ mips_trampoline_init (rtx m_tramp, tree fndecl, rtx chain_value)
 
       /* Emit the JR here, if we can.  */
       if (!ISA_HAS_LOAD_DELAY)
-	trampoline[i++] = OP (MIPS_JR (PIC_FUNCTION_ADDR_REGNUM));
+	{
+	  if (ISA_HAS_JR)
+	    trampoline[i++] = OP (MIPS_JR (PIC_FUNCTION_ADDR_REGNUM));
+	  else
+	    trampoline[i++] = OP (MIPS_JALR0 (PIC_FUNCTION_ADDR_REGNUM));
+	}
 
       /* Emit the load of the static chain register.  */
       opcode = OP (MIPS_LOAD_PTR (STATIC_CHAIN_REGNUM,
@@ -18077,7 +18277,10 @@ mips_trampoline_init (rtx m_tramp, tree fndecl, rtx chain_value)
       /* Emit the JR, if we couldn't above.  */
       if (ISA_HAS_LOAD_DELAY)
 	{
-	  trampoline[i++] = OP (MIPS_JR (PIC_FUNCTION_ADDR_REGNUM));
+	  if (ISA_HAS_JR)
+	    trampoline[i++] = OP (MIPS_JR (PIC_FUNCTION_ADDR_REGNUM));
+	  else
+	    trampoline[i++] = OP (MIPS_JALR0 (PIC_FUNCTION_ADDR_REGNUM));
 	  trampoline[i++] = OP (MIPS_NOP);
 	}
     }
