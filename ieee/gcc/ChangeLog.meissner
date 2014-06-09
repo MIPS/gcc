@@ -1,5 +1,153 @@
 2014-06-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	(gcc-power8.patch104 from 2014-04-29)
+
+	* config/rs6000/predicates.md (int_reg_operand_not_pseudo): New
+	predicate that matches hard GPR registers, but not pseudos.
+	(easy_fp_constant): Add support for new floating point modes
+	XFmode and JFmode.
+
+	* config/rs6000/rs6000-cpus.def (ISA_2_6_MASKS_SERVER): Set
+	-mfloat128 on by default.
+	(POWERPC_MASKS): Add -mfloat128.
+	(power7 cpu): Enable -mfloat128.
+
+	* config/rs6000/rs6000.opt (-mfloat128): New option to control
+	whether the __float128 (IEEE 128-bit floating point) and __ibm128
+	(traditional IBM double double format for long double) types are
+	enabled.
+
+	* config/rs6000/rs6000-c.c (rs6000_target_modify_macros): If
+	-mfloat128, define __FLOAT128__.
+
+	* config/rs6000/rs6000-builtin.def (PACK_JF): Define pack/unpack
+	builtin functions for __ibm128.
+	(UNPACK_F): Likewise.
+
+	* config/rs6000/rs6000.c (scalar_float_not_vector_p): New helper
+	function for scalar floats that are used in traditional floating
+	point registers, and not in a vector register.
+	(rs6000_hard_regno_nregs_internal): Add support for __float128 on
+	VSX systems to know that the value uses the full vector register
+	rather than being a pair of scalar registers.
+	(rs6000_hard_regno_mode_ok): Likewise.
+	(rs6000_debug_reg_global): Add debugging for __float128 and
+	__ibm128.
+	(rs6000_init_hard_regno_mode_ok): Add support for __float128 and
+	__ibm128.
+	(rs6000_option_override_internal): Don't allow -mfloat128 and
+	-mlong-double-64.
+	(invalid_e500_subreg): Add support for __float128 and __ibm128
+	floating point types.  On VSX systems, pass/return __float128 in
+	vector registers.
+	(reg_offset_addressing_ok_p): Likewise.
+	(rs6000_legitimate_offset_address_p): Likewise.
+	(rs6000_legitimize_reload_address): Likewise.
+	(rs6000_legitimate_address_p): Likewise.
+	(rs6000_emit_move): Likewise.
+	(USE_FP_FOR_ARG_P): Likewise.
+	(rs6000_aggregate_candidate): Likewise.
+	(rs6000_discover_homogeneous_aggregate): Likewise.
+	(rs6000_return_in_memory): Likewise.
+	(init_cumulative_args): Likewise.
+	(rs6000_function_arg_boundary): Likewise.
+	(rs6000_function_arg_advance_1): Likewise.
+	(rs6000_function_arg): Likewise.
+	(rs6000_arg_partial_bytes): Likewise.
+	(rs6000_pass_by_reference): Likewise.
+	(rs6000_init_builtins): Initialize support for __float128 and
+	__ibm128.
+	(init_float128_ibm): New function to set up the library names for
+	the IBM double-double 128-bit format.
+	(init_float128_ieee): New function to set up the library names for
+	IEEE 128-bit types.  On VSX systems, use <name>_vector, on non-VSX
+	systems with -mfloat128, use <name>_fpr, and on non-Linux/BSD
+	systems that default to long double == IEEE 128-bit, use the
+	historic names.
+	(rs6000_init_libfuncs): Move setup of the library names to
+	init_float128_ibm and init_float128_ieee.
+	(rs6000_cannot_change_mode_class): Add support for __float128 and
+	__ibm128.
+	(rs6000_generate_compare): Likewise.
+	(rs6000_split_multireg_move): Likewise.
+	(spe_func_has_64bit_regs_p): Likewise.
+	(rs6000_output_function_epilogue): Likewise.
+	(output_toc): Likewise.
+	(rs6000_mangle_type): Expand mangling to use "g" for __ibm128, and
+	"e" for __float128, to be compatible with defaults for long
+	double.
+	(rs6000_register_move_cost): Add support for __float128 and
+	__ibm128.
+	(rs6000_function_value): Likewise.
+	(rs6000_libcall_value): Likewise.
+	(rs6000_opt_masks): Add -mfloat128.
+
+	* config/rs6000/rs6000.h (FLOAT128_IEEE_P): New macro to identify
+	types that map to IEEE 128-bit floating point.
+	(FLOAT128_IBM_P): New macro to identify types that map to the
+	traditional IBM double-double 128-bit floating point.
+	(FLOAT128_VECTOR_P): New macro to identify 128-bit floating point
+	types that take a single vector register.
+	(FLOAT128_2REG_P): New macro to identify 128-bit floating point
+	types that take 2 adjacent scalar registers.
+	(MASK_FLOAT128): Map to OPTION_MASK_FLOAT128.
+	(SLOW_UNALIGNED_ACCESS): Add support for __float182 and __ibm128.
+	(HARD_REGNO_CALLER_SAVE_MODE): Likewise.
+	(HARD_REGNO_CALL_PART_CLOBBERED): Likewise.
+	(VSX_VECTOR_MODE): Spacing.
+	(ALTIVEC_VECTOR_MODE): Add __float128 in vector registers.
+	(MODES_TIEABLE_P): Move vectors higher than scalar floating point,
+	so that __float128 in vector registers ties with vectors and not
+	with other floating point values.
+	(struct rs6000_args): Add libcall argument so that we can tell
+	when we calling a library support function for __float128.
+	(enum rs6000_builtin_type_index): Add __float128 and __ibm128
+	support.
+	(ieee128_float_type_node): Likewise.
+	(ibm128_float_type_node): Likewise.
+
+	* config/rs6000/altivec.md (VM): Add support for IEEE 128-bit
+	floating point types that goes in a vector.
+	(VM2): Likewise.
+
+	* config/rs6000/rs6000.md (FMOVE128): Add supprt for __float128
+	and __ibm128.
+	(FMOVE128_GPR): Likewise.
+	(mov<mode>_64bit, FMOVE128 types): Likewise.
+	(mov<mode>_32bit, FMOVE128 types): Likewise.
+	(FP128_64): Likewise.
+	(unpack<mode>): Add support to pack/unpack __ibm128 types.  Delete
+	old insns just for TFmode.  Don't pack/unpack 128-bit types in a
+	vector register.
+	(TF_JF): Likewise.
+	(unpack<mode>_0): Likewise.
+	(unpacktf_0): Likewise.
+	(unpack<mode>_1): Likewise.
+	(unpacktf_1): Likewise.
+	(unpack<mode>_dm): Likewise.
+	(unpack<mode>_nodm): Likewise.
+	(pack<mode>): Likewise.
+
+	* config/rs6000/vector.md (VEC_L): Add XFmode to vector modes.
+	(VEC_R): Likewise.
+
+	* config/rs6000/rs6000-modes.def (XFmode): Add new modes to
+	support __float128 and __ibm128 types.
+	(JFmode): Likewise.
+
+	* config/rs6000/vsx.md (VSX_L): Add XFmode to vector modes.
+	(VSX_M): Likewise.
+	(VSX_M2): Likewise.
+
+	* doc/extend.texi (Floating Types): Document __float128 and
+	__ibm128 on PowerPC.
+	(PowerPC Built-in Functions): Document pack, unpack builtins for
+	__ibm128.
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Add -mfloat128.
+
+2014-06-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	Clone branch from trunk, subversion id 211381.
 	* REVISION: New file to track subversion id.
 

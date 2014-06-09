@@ -944,6 +944,7 @@ examine and set these two fictitious variables with your debugger.
 @cindex additional floating types
 @cindex @code{__float80} data type
 @cindex @code{__float128} data type
+@cindex @code{__ibm128} data type
 @cindex @code{w} floating point suffix
 @cindex @code{q} floating point suffix
 @cindex @code{W} floating point suffix
@@ -968,7 +969,13 @@ typedef _Complex float __attribute__((mode(XC))) _Complex80;
 
 Not all targets support additional floating-point types.  @code{__float80}
 and @code{__float128} types are supported on i386, x86_64 and IA-64 targets.
-The @code{__float128} type is supported on hppa HP-UX targets.
+The @code{__float128} type is supported on hppa HP-UX.
+
+On PowerPC systems that support the vector scalar extensions (VSX),
+@code{__float128} supports the IEEE 128-bit extended format, and
+@code{__ibm128} supports the 128-bit format that uses a pair of
+@code{double} values to provide the extended precision.  The default
+for @code{long double} is @code{__ibm128}.
 
 @node Half-Precision
 @section Half-Precision Floating Point
@@ -13414,6 +13421,8 @@ double __builtin_unpack_longdouble (long double, int);
 double __builtin_longdouble_dw0 (long double);
 double __builtin_longdouble_dw1 (long double);
 long double __builtin_pack_longdouble (double, double);
+double __builtin_unpack_ibm128 (long double, int);
+__ibm128 __builtin_pack_ibm128 (double, double);
 @end smallexample
 
 The @code{vec_rsqrt}, @code{__builtin_rsqrt}, and

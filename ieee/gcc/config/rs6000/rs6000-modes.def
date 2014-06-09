@@ -47,3 +47,17 @@ VECTOR_MODES (FLOAT, 32);     /*       V16HF V8SF V4DF */
    for quad memory atomic operations to force getting an even/odd register
    combination.  */
 PARTIAL_INT_MODE (TI, 128, PTI);
+
+/* These modes really aren't fractional float modes, but declaring them this
+   way prevents the normal mode lookup routines from using them.  To use them,
+   you must use explict keywords.  */
+
+/* IEEE 128-bit floating point.  */
+FRACTIONAL_FLOAT_MODE (XF, 80, 16, ieee_quad_format);
+ADJUST_BYTESIZE  (XF, 16);
+ADJUST_ALIGNMENT (XF, 16);
+
+/* IBM double-double 128-bit floating point.  */
+FRACTIONAL_FLOAT_MODE (JF, 80, 16, ibm_extended_format);
+ADJUST_BYTESIZE  (JF, 16);
+ADJUST_ALIGNMENT (JF, 16);

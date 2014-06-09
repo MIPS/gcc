@@ -928,7 +928,8 @@ See RS/6000 and PowerPC Options.
 -mcrypto -mno-crypto -mdirect-move -mno-direct-move @gol
 -mquad-memory -mno-quad-memory @gol
 -mquad-memory-atomic -mno-quad-memory-atomic @gol
--mcompat-align-parm -mno-compat-align-parm}
+-mcompat-align-parm -mno-compat-align-parm @gol
+-mfloat128 -mno-float128}
 
 @emph{RX Options}
 @gccoptlist{-m64bit-doubles  -m32bit-doubles  -fpu  -nofpu@gol
@@ -20071,6 +20072,13 @@ that is compatible with functions compiled with older versions of
 GCC.
 
 The @option{-mno-compat-align-parm} option is the default.
+
+@item -mfloat128
+@itemx -mno-float128
+@opindex mfloat128
+Enable (do not enable) the types @code{__float128} and @code{__ibm128}
+which given explicit access to IEEE 128-bit and IBM double-double
+128-bit floating point types.
 @end table
 
 @node RX Options

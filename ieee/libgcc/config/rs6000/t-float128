@@ -1,0 +1,51 @@
+# Support for adding __float128 to the powerpc
+
+# Due to the desire to pass __float128 in a vector register under VSX we
+# compile two sets support functions for __float128, one compiled for VSX and
+# newer systems, and the other compiled without VSX.
+
+fp128_func		 = addtf3 subtf3 multf3 divtf3 negtf2 \
+			   eqtf2 getf2 letf2 unordtf2 \
+			   extenddftf2 extendsftf2 trunctfdf2 trunctfsf2 \
+			   fixtfsi fixtfdi fixunstfsi fixunstfdi \
+			   floatsitf floatditf floatunsitf floatunditf
+
+fp128_vsx_src_list	:= $(foreach f,$(fp128_func),$(f)-vsx.c)
+fp128_vsx_objects_base	 = $(basename $(notdir $(fp128_vsx_src_list)))
+fp128_vsx_objects	 = $(addsuffix $(objext),$(fp128_vsx_objects_base))
+
+$(fp128_vsx_src_list):
+	@echo "Create $@"; \
+	tf=$$(echo "$@" | sed -e 's/-vsx//'); \
+	echo '#include "config/rs6000/float128-vsx.h"' > $@; \
+	echo '#include "soft-fp/'$${tf}'"' >> $@
+
+fp128_novsx_src_list	 := $(foreach f,$(fp128_func),$(f)-novsx.c)
+fp128_novsx_objects_base  = $(basename $(notdir $(fp128_novsx_src_list)))
+fp128_novsx_objects	  = $(addsuffix $(objext),$(fp128_novsx_objects_base))
+
+$(fp128_novsx_src_list):
+	@echo "Create $@"; \
+	tf=$$(echo "$@" | sed -e 's/-novsx//'); \
+	echo '#include "config/rs6000/float128-novsx.h"' > $@; \
+	echo '#include "soft-fp/'$${tf}'"' >> $@
+
+FP128_COMMON_CFLAGS	= -Wno-missing-prototypes -Wno-type-limits \
+			  -DTFtype=__float128 -mfloat128
+
+FP128_VSX_CFLAGS	= $(FP128_COMMON_CFLAGS) -mvsx
+FP128_NOVSX_CFLAGS	= $(FP128_COMMON_CFLAGS) -mno-vsx -mno-altivec \
+			  -mno-power8-vector
+
+$(fp128_vsx_objects) : INTERNAL_CFLAGS += $(FP128_VSX_CFLAGS)
+$(fp128_vsx_objects) : $(addprefix $(srcdir)/soft-float/,$(patsubst %-vsx.c,%.c,$<))
+$(fp128_vsx_objects) : $(srcdir)/config/rs6000/t-float128
+$(fp128_vsx_objects) : $(srcdir)/config/rs6000/float128-vsx.h
+
+$(fp128_novsx_objects) : INTERNAL_CFLAGS += $(FP128_NOVSX_CFLAGS)
+$(fp128_novsx_objects) : $(addprefix $(srcdir)/soft-float/,$(patsubst %-novsx.c,%.c,$<))
+$(fp128_novsx_objects) : $(srcdir)/config/rs6000/t-float128
+$(fp128_novsx_objects) : $(srcdir)/config/rs6000/float128-novsx.h
+
+LIB2ADD += $(fp128_vsx_src_list) $(fp128_novsx_src_list)
+

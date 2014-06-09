@@ -1,3 +1,22 @@
 2014-06-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	(gcc-power8.patch104 from 2014-04-29)
+
+	* config/rs6000/float128-vsx.h: New files to add support to build
+	the IEEE 128-bit support functions on the PowerPC.  Build two
+	versions of the IEEE 128-bit support, one version that uses the
+	traditional floating point registers, and passes the type as two
+	scalar registers, and the other that passes the type in a single
+	vector register.
+	* config/rs6000/float128-novsx.h: Likewise.
+	* config/rs6000/t-float128: Likewise.
+
+	* soft-fp/quad.h (TFmode): If TFmode is defined, don't use the
+	normal TF mode definition.
+
+	* config.host (powerpc*-linux*): Add support for building the IEEE
+	128-bit floating point support functions.
+
+2014-06-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	Clone branch from trunk, subversion id 211381.
