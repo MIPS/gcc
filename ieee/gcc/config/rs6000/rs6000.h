@@ -404,11 +404,11 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 
 /* Helper macros for TFmode.  Quad floating point (TFmode) can be either IBM
    long double format that uses a pair of doubles, or IEEE 128-bit floating
-   point.  XFmode was added as a way to represent IEEE 128-bit floating point,
+   point.  KFmode was added as a way to represent IEEE 128-bit floating point,
    even if the default for long double is the IBM long double format.
    Similarly, JFmode is a way to represent the IBM long double format.  */
 #define FLOAT128_IEEE_P(MODE)						\
-  (((MODE) == XFmode)							\
+  (((MODE) == KFmode)							\
    || (((MODE) == TFmode) && TARGET_IEEEQUAD && TARGET_LONG_DOUBLE_128))
 
 #define FLOAT128_IBM_P(MODE)						\
@@ -1213,7 +1213,7 @@ enum data_align { align_abi, align_opt, align_both };
 
 #define VSX_VECTOR_MODE(MODE) ((MODE) == V4SFmode || (MODE) == V2DFmode)
 
-/* Note XFmode and possibly TFmode (i.e. IEEE 128-bit floating point) are not really a vector, but
+/* Note KFmode and possibly TFmode (i.e. IEEE 128-bit floating point) are not really a vector, but
    we want to treat it as a vector for moves, and such.  */
 
 #define ALTIVEC_VECTOR_MODE(MODE)					\

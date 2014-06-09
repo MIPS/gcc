@@ -176,7 +176,7 @@
 			  V2DI
 			  V1TI
 			  TI
-			  (XF "FLOAT128_VECTOR_P (XFmode)")
+			  (KF "FLOAT128_VECTOR_P (KFmode)")
 			  (TF "FLOAT128_VECTOR_P (TFmode)")])
 
 ;; Like VM, except don't do TImode
@@ -187,7 +187,7 @@
 			   V2DF
 			   V2DI
 			   V1TI
-			   (XF "FLOAT128_VECTOR_P (XFmode)")
+			   (KF "FLOAT128_VECTOR_P (KFmode)")
 			   (TF "FLOAT128_VECTOR_P (TFmode)")])
 
 (define_mode_attr VI_char [(V2DI "d") (V4SI "w") (V8HI "h") (V16QI "b")])

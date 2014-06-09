@@ -1,5 +1,18 @@
 2014-06-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/float128-vsx.h: Drop having non-VSX IEEE 128-bit
+	support functions in the library.  Change all names to be
+	<xxx>kf<yyy>.
+	* config/rs6000/t-float128: Likewise.
+
+	* config/rs6000/float128-novsx.h: Delete, we no longer have
+	support for __float128 on non-VSX systems.
+
+	* config/rs6000/libgcc-glibc.ver (GCC_4.10.0): Add all of the
+	__float128 functions as requiring GCC 4.10.0.
+
+2014-06-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	(gcc-power8.patch104 from 2014-04-29)
 
 	* config/rs6000/float128-vsx.h: New files to add support to build

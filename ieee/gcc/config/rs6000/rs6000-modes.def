@@ -53,9 +53,9 @@ PARTIAL_INT_MODE (TI, 128, PTI);
    you must use explict keywords.  */
 
 /* IEEE 128-bit floating point.  */
-FRACTIONAL_FLOAT_MODE (XF, 80, 16, ieee_quad_format);
-ADJUST_BYTESIZE  (XF, 16);
-ADJUST_ALIGNMENT (XF, 16);
+FRACTIONAL_FLOAT_MODE (KF, 80, 16, ieee_quad_format);
+ADJUST_BYTESIZE  (KF, 16);
+ADJUST_ALIGNMENT (KF, 16);
 
 /* IBM double-double 128-bit floating point.  */
 FRACTIONAL_FLOAT_MODE (JF, 80, 16, ibm_extended_format);
