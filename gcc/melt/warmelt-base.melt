@@ -2960,7 +2960,7 @@ typedef struct melthook_st *melthook_ptr_t;
   :valdesc_copychunk #{$' /* from VALDESC_DOUBLE */
 /* ggc_alloc_meltdouble_st should be gengtype generated for VALDESC_DOUBLE */
 #ifndef ggc_alloc_meltdouble_st
-#define ggc_alloc_meltdouble_st() ((struct meltdouble_st *)(ggc_doubleernal_alloc_stat (sizeof (struct meltdouble_st) MEM_STAT_INFO)))
+#define ggc_alloc_meltdouble_st() ((struct meltdouble_st *)(ggc_internal_alloc_stat (sizeof (struct meltdouble_st) MEM_STAT_INFO)))
 #endif
      dst = 
         /* Don't need a cleared allocation.  */
