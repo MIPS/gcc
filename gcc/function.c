@@ -307,7 +307,7 @@ try_fit_stack_local (HOST_WIDE_INT start, HOST_WIDE_INT length,
 static void
 add_frame_space (HOST_WIDE_INT start, HOST_WIDE_INT end)
 {
-  struct frame_space *space = ggc_alloc_frame_space ();
+  struct frame_space *space = ggc_alloc<frame_space> ();
   space->next = crtl->frame_space_list;
   crtl->frame_space_list = space;
   space->start = start;
@@ -655,7 +655,7 @@ static void
 insert_temp_slot_address (rtx address, struct temp_slot *temp_slot)
 {
   void **slot;
-  struct temp_slot_address_entry *t = ggc_alloc_temp_slot_address_entry ();
+  struct temp_slot_address_entry *t = ggc_alloc<temp_slot_address_entry> ();
   t->address = address;
   t->temp_slot = temp_slot;
   t->hash = temp_slot_address_compute_hash (t);
@@ -802,7 +802,7 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size,
 
 	  if (best_p->size - rounded_size >= alignment)
 	    {
-	      p = ggc_alloc_temp_slot ();
+	      p = ggc_alloc<temp_slot> ();
 	      p->in_use = 0;
 	      p->size = best_p->size - rounded_size;
 	      p->base_offset = best_p->base_offset + rounded_size;
@@ -826,7 +826,7 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size,
     {
       HOST_WIDE_INT frame_offset_old = frame_offset;
 
-      p = ggc_alloc_temp_slot ();
+      p = ggc_alloc<temp_slot> ();
 
       /* We are passing an explicit alignment request to assign_stack_local.
 	 One side effect of that is assign_stack_local will not round SIZE
@@ -1254,10 +1254,10 @@ get_hard_reg_initial_val (enum machine_mode mode, unsigned int regno)
   ivs = crtl->hard_reg_initial_vals;
   if (ivs == 0)
     {
-      ivs = ggc_alloc_initial_value_struct ();
+      ivs = ggc_alloc<initial_value_struct> ();
       ivs->num_entries = 0;
       ivs->max_entries = 5;
-      ivs->entries = ggc_alloc_vec_initial_value_pair (5);
+      ivs->entries = ggc_vec_alloc<initial_value_pair> (5);
       crtl->hard_reg_initial_vals = ivs;
     }
 
@@ -1348,9 +1348,13 @@ static int cfa_offset;
 #define STACK_POINTER_OFFSET	0
 #endif
 
+#if defined (REG_PARM_STACK_SPACE) && !defined (INCOMING_REG_PARM_STACK_SPACE)
+#define INCOMING_REG_PARM_STACK_SPACE REG_PARM_STACK_SPACE
+#endif
+
 /* If not defined, pick an appropriate default for the offset of dynamically
    allocated memory depending on the value of ACCUMULATE_OUTGOING_ARGS,
-   REG_PARM_STACK_SPACE, and OUTGOING_REG_PARM_STACK_SPACE.  */
+   INCOMING_REG_PARM_STACK_SPACE, and OUTGOING_REG_PARM_STACK_SPACE.  */
 
 #ifndef STACK_DYNAMIC_OFFSET
 
@@ -1362,12 +1366,12 @@ static int cfa_offset;
    `crtl->outgoing_args_size'.  Nevertheless, we must allow
    for it when allocating stack dynamic objects.  */
 
-#if defined(REG_PARM_STACK_SPACE)
+#ifdef INCOMING_REG_PARM_STACK_SPACE
 #define STACK_DYNAMIC_OFFSET(FNDECL)	\
 ((ACCUMULATE_OUTGOING_ARGS						      \
   ? (crtl->outgoing_args_size				      \
      + (OUTGOING_REG_PARM_STACK_SPACE ((!(FNDECL) ? NULL_TREE : TREE_TYPE (FNDECL))) ? 0 \
-					       : REG_PARM_STACK_SPACE (FNDECL))) \
+					       : INCOMING_REG_PARM_STACK_SPACE (FNDECL))) \
   : 0) + (STACK_POINTER_OFFSET))
 #else
 #define STACK_DYNAMIC_OFFSET(FNDECL)	\
@@ -1459,8 +1463,8 @@ instantiate_virtual_regs_in_rtx (rtx *loc, void *data)
       new_rtx = instantiate_new_reg (XEXP (x, 0), &offset);
       if (new_rtx)
 	{
-	  new_rtx = plus_constant (GET_MODE (x), new_rtx, offset);
-	  *loc = simplify_gen_binary (PLUS, GET_MODE (x), new_rtx, XEXP (x, 1));
+	  XEXP (x, 0) = new_rtx;
+	  *loc = plus_constant (GET_MODE (x), x, offset, true);
 	  if (changed)
 	    *changed = true;
 	  return -1;
@@ -1622,7 +1626,7 @@ instantiate_virtual_regs_in_insn (rtx insn)
 	      continue;
 
 	    start_sequence ();
-	    x = replace_equiv_address (x, addr);
+	    x = replace_equiv_address (x, addr, true);
 	    /* It may happen that the address with the virtual reg
 	       was valid (e.g. based on the virtual stack reg, which might
 	       be acceptable to the predicates with all offsets), whereas
@@ -1635,7 +1639,7 @@ instantiate_virtual_regs_in_insn (rtx insn)
 	    if (!safe_insn_predicate (insn_code, i, x))
 	      {
 		addr = force_reg (GET_MODE (addr), addr);
-		x = replace_equiv_address (x, addr);
+		x = replace_equiv_address (x, addr, true);
 	      }
 	    seq = get_insns ();
 	    end_sequence ();
@@ -1872,6 +1876,11 @@ instantiate_decls (tree fndecl)
 	  walk_tree (&v, instantiate_expr, NULL, NULL);
 	}
     }
+
+  /* Process the saved static chain if it exists.  */
+  decl = DECL_STRUCT_FUNCTION (fndecl)->static_chain_decl;
+  if (decl && DECL_HAS_VALUE_EXPR_P (decl))
+    instantiate_decl_rtl (DECL_RTL (DECL_VALUE_EXPR (decl)));
 
   /* Now process all variables defined in the function or its subblocks.  */
   instantiate_decls_1 (DECL_INITIAL (fndecl));
@@ -2224,8 +2233,9 @@ assign_parms_initialize_all (struct assign_parm_data_all *all)
 #endif
   all->args_so_far = pack_cumulative_args (&all->args_so_far_v);
 
-#ifdef REG_PARM_STACK_SPACE
-  all->reg_parm_stack_space = REG_PARM_STACK_SPACE (current_function_decl);
+#ifdef INCOMING_REG_PARM_STACK_SPACE
+  all->reg_parm_stack_space
+    = INCOMING_REG_PARM_STACK_SPACE (current_function_decl);
 #endif
 }
 
@@ -4499,7 +4509,7 @@ allocate_struct_function (tree fndecl, bool abstract_p)
 {
   tree fntype = fndecl ? TREE_TYPE (fndecl) : NULL_TREE;
 
-  cfun = ggc_alloc_cleared_function ();
+  cfun = ggc_cleared_alloc<function> ();
 
   init_eh_for_function ();
 
@@ -4573,7 +4583,7 @@ prepare_function_start (void)
 
   if (flag_stack_usage_info)
     {
-      cfun->su = ggc_alloc_cleared_stack_usage ();
+      cfun->su = ggc_cleared_alloc<stack_usage> ();
       cfun->su->static_stack_size = -1;
     }
 
@@ -4649,7 +4659,7 @@ stack_protect_epilogue (void)
 
   /* Allow the target to compare Y with X without leaking either into
      a register.  */
-  switch (HAVE_stack_protect_test != 0)
+  switch ((int) (HAVE_stack_protect_test != 0))
     {
     case 1:
       tmp = gen_stack_protect_test (x, y, label);
@@ -4806,6 +4816,20 @@ expand_function_start (tree subr)
       if (MEM_P (chain)
 	  && reg_mentioned_p (arg_pointer_rtx, XEXP (chain, 0)))
 	set_dst_reg_note (insn, REG_EQUIV, chain, local);
+
+      /* If we aren't optimizing, save the static chain onto the stack.  */
+      if (!optimize)
+	{
+	  tree saved_static_chain_decl
+	    = build_decl (DECL_SOURCE_LOCATION (parm), VAR_DECL,
+			  DECL_NAME (parm), TREE_TYPE (parm));
+	  rtx saved_static_chain_rtx
+	    = assign_stack_local (Pmode, GET_MODE_SIZE (Pmode), 0);
+	  SET_DECL_RTL (saved_static_chain_decl, saved_static_chain_rtx);
+	  emit_move_insn (saved_static_chain_rtx, chain);
+	  SET_DECL_VALUE_EXPR (parm, saved_static_chain_decl);
+	  DECL_HAS_VALUE_EXPR_P (parm) = 1;
+	}
     }
 
   /* If the function receives a non-local goto, then store the
@@ -6153,7 +6177,7 @@ types_used_by_var_decl_insert (tree type, tree var_decl)
       if (*slot == NULL)
 	{
 	  struct types_used_by_vars_entry *entry;
-	  entry = ggc_alloc_types_used_by_vars_entry ();
+	  entry = ggc_alloc<types_used_by_vars_entry> ();
 	  entry->type = type;
 	  entry->var_decl = var_decl;
 	  *slot = entry;

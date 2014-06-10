@@ -228,7 +228,7 @@ add_equal_note (rtx insns, rtx target, enum rtx_code code, rtx op0, rtx op1)
       return 0;
     }
 
-  set = single_set (last_insn);
+  set = set_for_reg_notes (last_insn);
   if (set == NULL_RTX)
     return 1;
 
@@ -297,6 +297,25 @@ widened_mode (enum machine_mode to_mode, rtx op0, rtx op1)
   return result;
 }
 
+/* Like optab_handler, but for widening_operations that have a
+   TO_MODE and a FROM_MODE.  */
+
+enum insn_code
+widening_optab_handler (optab op, enum machine_mode to_mode,
+			enum machine_mode from_mode)
+{
+  unsigned scode = (op << 16) | to_mode;
+  if (to_mode != from_mode && from_mode != VOIDmode)
+    {
+      /* ??? Why does find_widening_optab_handler_and_mode attempt to
+	 widen things that can't be widened?  E.g. add_optab... */
+      if (op > LAST_CONV_OPTAB)
+	return CODE_FOR_nothing;
+      scode |= from_mode << 8;
+    }
+  return raw_optab_handler (scode);
+}
+
 /* Find a widening optab even if it doesn't widen as much as we want.
    E.g. if from_mode is HImode, and to_mode is DImode, and there is no
    direct HI->SI insn, then return SI->DI, if that exists.
@@ -6153,7 +6172,7 @@ set_optab_libfunc (optab op, enum machine_mode mode, const char *name)
     val = 0;
   slot = (struct libfunc_entry **) htab_find_slot (libfunc_hash, &e, INSERT);
   if (*slot == NULL)
-    *slot = ggc_alloc_libfunc_entry ();
+    *slot = ggc_alloc<libfunc_entry> ();
   (*slot)->op = op;
   (*slot)->mode1 = mode;
   (*slot)->mode2 = VOIDmode;
@@ -6181,7 +6200,7 @@ set_conv_libfunc (convert_optab optab, enum machine_mode tmode,
     val = 0;
   slot = (struct libfunc_entry **) htab_find_slot (libfunc_hash, &e, INSERT);
   if (*slot == NULL)
-    *slot = ggc_alloc_libfunc_entry ();
+    *slot = ggc_alloc<libfunc_entry> ();
   (*slot)->op = optab;
   (*slot)->mode1 = tmode;
   (*slot)->mode2 = fmode;
@@ -6274,8 +6293,7 @@ init_tree_optimization_optabs (tree optnode)
   if (tmp_optabs)
     memset (tmp_optabs, 0, sizeof (struct target_optabs));
   else
-    tmp_optabs = (struct target_optabs *)
-      ggc_alloc_atomic (sizeof (struct target_optabs));
+    tmp_optabs = ggc_alloc<target_optabs> ();
 
   /* Generate a new set of optabs into tmp_optabs.  */
   init_all_optabs (tmp_optabs);

@@ -198,7 +198,7 @@ insert_new_cgraph_node_version (struct cgraph_node *node)
   void **slot;
   
   version_info_node = NULL;
-  version_info_node = ggc_alloc_cleared_cgraph_function_version_info ();
+  version_info_node = ggc_cleared_alloc<cgraph_function_version_info> ();
   version_info_node->this_node = node;
 
   if (cgraph_fnver_htab == NULL)
@@ -507,7 +507,7 @@ cgraph_allocate_node (void)
     }
   else
     {
-      node = ggc_alloc_cleared_cgraph_node ();
+      node = ggc_cleared_alloc<cgraph_node> ();
       node->uid = cgraph_max_uid++;
     }
 
@@ -565,7 +565,7 @@ cgraph_get_create_node (tree decl)
       first_clone->clone_of = node;
       node->clones = first_clone;
       symtab_prevail_in_asm_name_hash (node);
-      symtab_insert_node_to_hashtable (node);
+      node->decl->decl_with_vis.symtab_node = node;
       if (dump_file)
 	fprintf (dump_file, "Introduced new external node "
 		 "(%s/%i) and turned into root of the clone tree.\n",
@@ -641,14 +641,9 @@ cgraph_add_thunk (struct cgraph_node *decl_node ATTRIBUTE_UNUSED,
 
   node = cgraph_get_node (alias);
   if (node)
-    {
-      gcc_assert (node->definition);
-      gcc_assert (!node->alias);
-      gcc_assert (!node->thunk.thunk_p);
-      cgraph_remove_node (node);
-    }
-  
-  node = cgraph_create_node (alias);
+    cgraph_reset_node (node);
+  else
+    node = cgraph_create_node (alias);
   gcc_checking_assert (!virtual_offset
 		       || wi::eq_p (virtual_offset, virtual_value));
   node->thunk.fixed_offset = fixed_offset;
@@ -865,7 +860,7 @@ cgraph_create_edge_1 (struct cgraph_node *caller, struct cgraph_node *callee,
     }
   else
     {
-      edge = ggc_alloc_cgraph_edge ();
+      edge = ggc_alloc<struct cgraph_edge> ();
       edge->uid = cgraph_edge_max_uid++;
     }
 
@@ -937,7 +932,7 @@ cgraph_allocate_init_indirect_info (void)
 {
   struct cgraph_indirect_call_info *ii;
 
-  ii = ggc_alloc_cleared_cgraph_indirect_call_info ();
+  ii = ggc_cleared_alloc<cgraph_indirect_call_info> ();
   ii->param_index = -1;
   return ii;
 }
@@ -1377,12 +1372,12 @@ cgraph_redirect_edge_call_stmt_to_callee (struct cgraph_edge *e)
 	  if (dump_file)
 	    fprintf (dump_file,
 		     "Expanding speculative call of %s/%i -> %s/%i count:"
-		     HOST_WIDEST_INT_PRINT_DEC"\n",
+		     "%"PRId64"\n",
 		     xstrdup (e->caller->name ()),
 		     e->caller->order,
 		     xstrdup (e->callee->name ()),
 		     e->callee->order,
-		     (HOST_WIDEST_INT)e->count);
+		     (int64_t)e->count);
 	  gcc_assert (e2->speculative);
 	  push_cfun (DECL_STRUCT_FUNCTION (e->caller->decl));
 	  new_stmt = gimple_ic (e->call_stmt, cgraph (ref->referred),
@@ -1975,8 +1970,8 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
   fprintf (f, "  First run: %i\n", node->tp_first_run);
   fprintf (f, "  Function flags:");
   if (node->count)
-    fprintf (f, " executed "HOST_WIDEST_INT_PRINT_DEC"x",
-	     (HOST_WIDEST_INT)node->count);
+    fprintf (f, " executed %"PRId64"x",
+	     (int64_t)node->count);
   if (node->origin)
     fprintf (f, " nested in: %s", node->origin->asm_name ());
   if (gimple_has_body_p (node->decl))
@@ -2027,8 +2022,8 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
       fprintf (f, "%s/%i ", edge->caller->asm_name (),
 	       edge->caller->order);
       if (edge->count)
-	fprintf (f, "("HOST_WIDEST_INT_PRINT_DEC"x) ",
-		 (HOST_WIDEST_INT)edge->count);
+	fprintf (f, "(%"PRId64"x) ",
+		 (int64_t)edge->count);
       if (edge->frequency)
 	fprintf (f, "(%.2f per call) ",
 		 edge->frequency / (double)CGRAPH_FREQ_BASE);
@@ -2054,8 +2049,8 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
       if (edge->indirect_inlining_edge)
 	fprintf (f, "(indirect_inlining) ");
       if (edge->count)
-	fprintf (f, "("HOST_WIDEST_INT_PRINT_DEC"x) ",
-		 (HOST_WIDEST_INT)edge->count);
+	fprintf (f, "(%"PRId64"x) ",
+		 (int64_t)edge->count);
       if (edge->frequency)
 	fprintf (f, "(%.2f per call) ",
 		 edge->frequency / (double)CGRAPH_FREQ_BASE);
@@ -2264,9 +2259,12 @@ cgraph_make_node_local_1 (struct cgraph_node *node, void *data ATTRIBUTE_UNUSED)
     {
       symtab_make_decl_local (node->decl);
 
+      node->set_section (NULL);
+      node->set_comdat_group (NULL);
       node->externally_visible = false;
       node->forced_by_abi = false;
       node->local.local = true;
+      node->set_comdat_group (NULL);
       node->unique_name = (node->resolution == LDPR_PREVAILING_DEF_IRONLY
 				  || node->resolution == LDPR_PREVAILING_DEF_IRONLY_EXP);
       node->resolution = LDPR_PREVAILING_DEF_IRONLY;

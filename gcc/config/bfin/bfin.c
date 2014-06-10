@@ -59,6 +59,7 @@
 #include "hw-doloop.h"
 #include "opts.h"
 #include "dumpfile.h"
+#include "builtins.h"
 
 /* A C structure for machine-specific, per-function data.
    This is added to the cfun structure.  */
@@ -2317,7 +2318,7 @@ bfin_class_likely_spilled_p (reg_class_t rclass)
 static struct machine_function *
 bfin_init_machine_status (void)
 {
-  return ggc_alloc_cleared_machine_function ();
+  return ggc_cleared_alloc<machine_function> ();
 }
 
 /* Implement the TARGET_OPTION_OVERRIDE hook.  */
@@ -2588,7 +2589,7 @@ split_load_immediate (rtx operands[])
       && (D_REGNO_P (regno)
 	  || (regno >= REG_P0 && regno <= REG_P7 && num_zero <= 2)))
     {
-      emit_insn (gen_movsi (operands[0], GEN_INT (shifted)));
+      emit_insn (gen_movsi (operands[0], gen_int_mode (shifted, SImode)));
       emit_insn (gen_ashlsi3 (operands[0], operands[0], GEN_INT (num_zero)));
       return 1;
     }
@@ -2602,13 +2603,15 @@ split_load_immediate (rtx operands[])
       if (log2constp (val & 0xFFFF0000))
 	{
 	  emit_insn (gen_movsi (operands[0], GEN_INT (val & 0xFFFF)));
-	  emit_insn (gen_iorsi3 (operands[0], operands[0], GEN_INT (val & 0xFFFF0000)));
+	  emit_insn (gen_iorsi3 (operands[0], operands[0],
+				 gen_int_mode (val & 0xFFFF0000, SImode)));
 	  return 1;
 	}
       else if (log2constp (val | 0xFFFF) && (val & 0x8000) != 0)
 	{
 	  emit_insn (gen_movsi (operands[0], GEN_INT (tmp)));
-	  emit_insn (gen_andsi3 (operands[0], operands[0], GEN_INT (val | 0xFFFF)));
+	  emit_insn (gen_andsi3 (operands[0], operands[0],
+				 gen_int_mode (val | 0xFFFF, SImode)));
 	}
     }
 
@@ -2617,7 +2620,9 @@ split_load_immediate (rtx operands[])
       if (tmp >= -64 && tmp <= 63)
 	{
 	  emit_insn (gen_movsi (operands[0], GEN_INT (tmp)));
-	  emit_insn (gen_movstricthi_high (operands[0], GEN_INT (val & -65536)));
+	  emit_insn (gen_movstricthi_high (operands[0],
+					   gen_int_mode (val & -65536,
+							 SImode)));
 	  return 1;
 	}
 
@@ -2645,7 +2650,7 @@ split_load_immediate (rtx operands[])
     {
       /* If optimizing for size, generate a sequence that has more instructions
 	 but is shorter.  */
-      emit_insn (gen_movsi (operands[0], GEN_INT (shifted_compl)));
+      emit_insn (gen_movsi (operands[0], gen_int_mode (shifted_compl, SImode)));
       emit_insn (gen_ashlsi3 (operands[0], operands[0],
 			      GEN_INT (num_compl_zero)));
       emit_insn (gen_one_cmplsi2 (operands[0], operands[0]));
@@ -4764,7 +4769,7 @@ bfin_handle_l1_text_attribute (tree *node, tree name, tree ARG_UNUSED (args),
       *no_add_attrs = true;
     }
   else
-    DECL_SECTION_NAME (decl) = build_string (9, ".l1.text");
+    set_decl_section_name (decl, build_string (9, ".l1.text"));
 
   return NULL_TREE;
 }
@@ -4842,7 +4847,7 @@ bfin_handle_l2_attribute (tree *node, tree ARG_UNUSED (name),
 	  *no_add_attrs = true;
 	}
       else
-	DECL_SECTION_NAME (decl) = build_string (9, ".l2.text");
+	set_decl_section_name (decl, build_string (9, ".l2.text"));
     }
   else if (TREE_CODE (decl) == VAR_DECL)
     {
@@ -4855,7 +4860,7 @@ bfin_handle_l2_attribute (tree *node, tree ARG_UNUSED (name),
 	  *no_add_attrs = true;
 	}
       else
-	DECL_SECTION_NAME (decl) = build_string (9, ".l2.data");
+	set_decl_section_name (decl, build_string (9, ".l2.data"));
     }
 
   return NULL_TREE;

@@ -61,6 +61,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "gimplify.h"
 #include "lto-streamer.h"
+#include "lto-section-names.h"
 
 /* Darwin supports a feature called fix-and-continue, which is used
    for rapid turn around debugging.  When code is compiled with the
@@ -561,7 +562,7 @@ machopic_indirection_name (rtx sym_ref, bool stub_p)
     }
   else
     {
-      p = ggc_alloc_machopic_indirection ();
+      p = ggc_alloc<machopic_indirection> ();
       p->symbol = sym_ref;
       p->ptr_name = xstrdup (buffer);
       p->stub_p = stub_p;
@@ -1521,7 +1522,7 @@ machopic_select_section (tree decl,
 
   one = DECL_P (decl) 
 	&& TREE_CODE (decl) == VAR_DECL 
-	&& DECL_ONE_ONLY (decl);
+	&& DECL_COMDAT_GROUP (decl);
 
   ro = TREE_READONLY (decl) || TREE_CONSTANT (decl) ;
 
@@ -1897,9 +1898,6 @@ typedef struct GTY (()) darwin_lto_section_e {
 } darwin_lto_section_e ;
 
 static GTY (()) vec<darwin_lto_section_e, va_gc> *lto_section_names;
-
-/* Segment for LTO data.  */
-#define LTO_SEGMENT_NAME "__GNU_LTO"
 
 /* Section wrapper scheme (used here to wrap the unlimited number of LTO
    sections into three Mach-O ones).
@@ -3499,7 +3497,7 @@ darwin_build_constant_cfstring (tree str)
 	      }
 	}
 
-      *loc = desc = ggc_alloc_cleared_cfstring_descriptor ();
+      *loc = desc = ggc_cleared_alloc<cfstring_descriptor> ();
       desc->literal = str;
 
       /* isa *. */
@@ -3586,7 +3584,7 @@ darwin_enter_string_into_cfstring_table (tree str)
 
   if (!*loc)
     {
-      *loc = ggc_alloc_cleared_cfstring_descriptor ();
+      *loc = ggc_cleared_alloc<cfstring_descriptor> ();
       ((struct cfstring_descriptor *)*loc)->literal = str;
     }
 }

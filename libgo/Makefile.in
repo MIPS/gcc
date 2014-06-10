@@ -118,57 +118,65 @@ am_libgobegin_a_OBJECTS = go-main.$(OBJEXT)
 libgobegin_a_OBJECTS = $(am_libgobegin_a_OBJECTS)
 LTLIBRARIES = $(toolexeclib_LTLIBRARIES)
 am__DEPENDENCIES_1 =
-libgo_la_DEPENDENCIES = $(libgo_go_objs) $(am__DEPENDENCIES_1) \
+am__DEPENDENCIES_2 = bufio.lo bytes.lo bytes/index.lo crypto.lo \
+	encoding.lo errors.lo expvar.lo flag.lo fmt.lo hash.lo html.lo \
+	image.lo io.lo log.lo math.lo mime.lo net.lo os.lo path.lo \
+	reflect-go.lo reflect/makefunc.lo regexp.lo runtime-go.lo \
+	sort.lo strconv.lo strings.lo strings/index.lo sync.lo \
+	syscall.lo syscall/errno.lo syscall/signame.lo syscall/wait.lo \
+	testing.lo time-go.lo unicode.lo archive/tar.lo archive/zip.lo \
+	compress/bzip2.lo compress/flate.lo compress/gzip.lo \
+	compress/lzw.lo compress/zlib.lo container/heap.lo \
+	container/list.lo container/ring.lo crypto/aes.lo \
+	crypto/cipher.lo crypto/des.lo crypto/dsa.lo crypto/ecdsa.lo \
+	crypto/elliptic.lo crypto/hmac.lo crypto/md5.lo crypto/rand.lo \
+	crypto/rc4.lo crypto/rsa.lo crypto/sha1.lo crypto/sha256.lo \
+	crypto/sha512.lo crypto/subtle.lo crypto/tls.lo crypto/x509.lo \
+	crypto/x509/pkix.lo database/sql.lo database/sql/driver.lo \
+	debug/dwarf.lo debug/elf.lo debug/goobj.lo debug/gosym.lo \
+	debug/macho.lo debug/pe.lo debug/plan9obj.lo \
+	encoding/ascii85.lo encoding/asn1.lo encoding/base32.lo \
+	encoding/base64.lo encoding/binary.lo encoding/csv.lo \
+	encoding/gob.lo encoding/hex.lo encoding/json.lo \
+	encoding/pem.lo encoding/xml.lo exp/proxy.lo exp/terminal.lo \
+	html/template.lo go/ast.lo go/build.lo go/doc.lo go/format.lo \
+	go/parser.lo go/printer.lo go/scanner.lo go/token.lo \
+	hash/adler32.lo hash/crc32.lo hash/crc64.lo hash/fnv.lo \
+	net/http/cgi.lo net/http/cookiejar.lo net/http/fcgi.lo \
+	net/http/httptest.lo net/http/httputil.lo net/http/pprof.lo \
+	image/color.lo image/color/palette.lo image/draw.lo \
+	image/gif.lo image/jpeg.lo image/png.lo index/suffixarray.lo \
+	io/ioutil.lo log/syslog.lo log/syslog/syslog_c.lo math/big.lo \
+	math/cmplx.lo math/rand.lo mime/multipart.lo net/http.lo \
+	net/mail.lo net/rpc.lo net/smtp.lo net/textproto.lo net/url.lo \
+	old/regexp.lo old/template.lo os/exec.lo $(am__DEPENDENCIES_1) \
+	os/signal.lo os/user.lo path/filepath.lo regexp/syntax.lo \
+	net/rpc/jsonrpc.lo runtime/debug.lo runtime/pprof.lo \
+	sync/atomic.lo sync/atomic_c.lo text/scanner.lo \
+	text/tabwriter.lo text/template.lo text/template/parse.lo \
+	testing/iotest.lo testing/quick.lo unicode/utf16.lo \
+	unicode/utf8.lo
+libgo_la_DEPENDENCIES = $(am__DEPENDENCIES_2) \
+	../libbacktrace/libbacktrace.la $(am__DEPENDENCIES_1) \
+	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
-am__libgo_la_SOURCES_DIST = runtime/go-append.c runtime/go-assert.c \
-	runtime/go-assert-interface.c \
-	runtime/go-byte-array-to-string.c runtime/go-breakpoint.c \
-	runtime/go-caller.c runtime/go-can-convert-interface.c \
-	runtime/go-chan-cap.c runtime/go-chan-len.c \
-	runtime/go-check-interface.c runtime/go-close.c \
-	runtime/go-closed.c runtime/go-construct-map.c \
-	runtime/go-convert-interface.c runtime/go-copy.c \
-	runtime/go-defer.c runtime/go-deferred-recover.c \
-	runtime/go-eface-compare.c runtime/go-eface-val-compare.c \
-	runtime/go-getgoroot.c runtime/go-go.c runtime/go-gomaxprocs.c \
-	runtime/go-int-array-to-string.c runtime/go-int-to-string.c \
-	runtime/go-interface-compare.c \
-	runtime/go-interface-val-compare.c runtime/go-lock-os-thread.c \
-	runtime/go-map-delete.c runtime/go-map-index.c \
-	runtime/go-map-len.c runtime/go-map-range.c \
-	runtime/go-nanotime.c runtime/go-new-channel.c \
-	runtime/go-new-map.c runtime/go-new.c runtime/go-note.c \
-	runtime/go-panic.c runtime/go-panic-defer.c runtime/go-print.c \
-	runtime/go-rec-big.c runtime/go-rec-nb-big.c \
-	runtime/go-rec-nb-small.c runtime/go-rec-small.c \
-	runtime/go-recover.c runtime/go-reflect.c \
-	runtime/go-reflect-call.c runtime/go-reflect-chan.c \
-	runtime/go-reflect-map.c runtime/go-rune.c \
-	runtime/go-runtime-error.c runtime/go-sched.c \
-	runtime/go-select.c runtime/go-semacquire.c \
-	runtime/go-send-big.c runtime/go-send-nb-big.c \
-	runtime/go-send-nb-small.c runtime/go-send-small.c \
-	runtime/go-signal.c runtime/go-strcmp.c \
-	runtime/go-string-to-byte-array.c \
-	runtime/go-string-to-int-array.c runtime/go-strplus.c \
-	runtime/go-strslice.c runtime/go-trampoline.c \
-	runtime/go-type-eface.c runtime/go-type-error.c \
-	runtime/go-type-identity.c runtime/go-type-interface.c \
-	runtime/go-type-string.c runtime/go-typedesc-equal.c \
-	runtime/go-typestring.c runtime/go-unreflect.c \
-	runtime/go-unsafe-new.c runtime/go-unsafe-newarray.c \
-	runtime/go-unsafe-pointer.c runtime/go-unwind.c \
-	runtime/mcache.c runtime/mcentral.c \
-	runtime/mem_posix_memalign.c runtime/mem.c runtime/mfinal.c \
-	runtime/mfixalloc.c runtime/mgc0.c runtime/mheap.c \
-	runtime/mheapmap32.c runtime/mheapmap64.c runtime/msize.c \
-	runtime/proc.c runtime/thread.c \
-	runtime/rtems-task-variable-add.c chan.c iface.c malloc.c \
-	map.c mprof.c reflect.c sigqueue.c string.c
-@HAVE_SYS_MMAN_H_FALSE@am__objects_1 = mem_posix_memalign.lo
-@HAVE_SYS_MMAN_H_TRUE@am__objects_1 = mem.lo
-@LIBGO_IS_RTEMS_TRUE@am__objects_2 = rtems-task-variable-add.lo
-am__objects_3 = go-append.lo go-assert.lo go-assert-interface.lo \
+@LIBGO_IS_LINUX_FALSE@am__objects_1 = lock_sema.lo thread-sema.lo
+@LIBGO_IS_LINUX_TRUE@am__objects_1 = lock_futex.lo thread-linux.lo
+@HAVE_SYS_MMAN_H_FALSE@am__objects_2 = mem_posix_memalign.lo
+@HAVE_SYS_MMAN_H_TRUE@am__objects_2 = mem.lo
+@LIBGO_IS_LINUX_FALSE@@LIBGO_IS_SOLARIS_FALSE@am__objects_3 = netpoll_kqueue.lo
+@LIBGO_IS_LINUX_FALSE@@LIBGO_IS_SOLARIS_TRUE@am__objects_3 = netpoll_select.lo
+@LIBGO_IS_LINUX_TRUE@am__objects_3 = netpoll_epoll.lo
+@LIBGO_IS_RTEMS_TRUE@am__objects_4 = rtems-task-variable-add.lo
+@LIBGO_IS_DARWIN_FALSE@@LIBGO_IS_FREEBSD_FALSE@@LIBGO_IS_IRIX_FALSE@@LIBGO_IS_LINUX_FALSE@@LIBGO_IS_NETBSD_FALSE@@LIBGO_IS_SOLARIS_FALSE@am__objects_5 = getncpu-none.lo
+@LIBGO_IS_DARWIN_FALSE@@LIBGO_IS_FREEBSD_FALSE@@LIBGO_IS_IRIX_FALSE@@LIBGO_IS_LINUX_FALSE@@LIBGO_IS_NETBSD_TRUE@@LIBGO_IS_SOLARIS_FALSE@am__objects_5 = getncpu-bsd.lo
+@LIBGO_IS_DARWIN_FALSE@@LIBGO_IS_FREEBSD_TRUE@@LIBGO_IS_IRIX_FALSE@@LIBGO_IS_LINUX_FALSE@@LIBGO_IS_SOLARIS_FALSE@am__objects_5 = getncpu-bsd.lo
+@LIBGO_IS_DARWIN_FALSE@@LIBGO_IS_IRIX_FALSE@@LIBGO_IS_LINUX_FALSE@@LIBGO_IS_SOLARIS_TRUE@am__objects_5 = getncpu-solaris.lo
+@LIBGO_IS_DARWIN_FALSE@@LIBGO_IS_IRIX_TRUE@@LIBGO_IS_LINUX_FALSE@am__objects_5 = getncpu-irix.lo
+@LIBGO_IS_DARWIN_TRUE@@LIBGO_IS_LINUX_FALSE@am__objects_5 =  \
+@LIBGO_IS_DARWIN_TRUE@@LIBGO_IS_LINUX_FALSE@	getncpu-bsd.lo
+@LIBGO_IS_LINUX_TRUE@am__objects_5 = getncpu-linux.lo
+am__objects_6 = go-append.lo go-assert.lo go-assert-interface.lo \
 	go-byte-array-to-string.lo go-breakpoint.lo go-caller.lo \
 	go-can-convert-interface.lo go-chan-cap.lo go-chan-len.lo \
 	go-check-interface.lo go-close.lo go-closed.lo \
@@ -191,8 +199,8 @@ am__objects_3 = go-append.lo go-assert.lo go-assert-interface.lo \
 	go-unsafe-new.lo go-unsafe-newarray.lo go-unsafe-pointer.lo \
 	go-unwind.lo go-varargs.lo chan.lo cpuprof.lo env_posix.lo \
 	lfstack.lo $(am__objects_1) mcache.lo mcentral.lo \
-	$(am__objects_2) mfinal.lo mfixalloc.lo mgc0.lo mheap.lo \
-	msize.lo $(am__objects_3) panic.lo parfor.lo print.lo proc.lo \
+	$(am__objects_2) mfixalloc.lo mgc0.lo mheap.lo msize.lo \
+	$(am__objects_3) panic.lo parfor.lo print.lo proc.lo \
 	runtime.lo signal_unix.lo thread.lo yield.lo $(am__objects_4) \
 	iface.lo malloc.lo map.lo mprof.lo netpoll.lo reflect.lo \
 	runtime1.lo sema.lo sigqueue.lo string.lo time.lo \
@@ -286,6 +294,7 @@ INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 LD = @LD@
 LDFLAGS = @LDFLAGS@
+LIBATOMIC = @LIBATOMIC@
 LIBFFI = @LIBFFI@
 LIBFFIINCS = @LIBFFIINCS@
 LIBOBJS = @LIBOBJS@
@@ -547,9 +556,11 @@ toolexeclibgodebugdir = $(toolexeclibgodir)/debug
 toolexeclibgodebug_DATA = \
 	debug/dwarf.gox \
 	debug/elf.gox \
+	debug/goobj.gox \
 	debug/gosym.gox \
 	debug/macho.gox \
-	debug/pe.gox
+	debug/pe.gox \
+	debug/plan9obj.gox
 
 toolexeclibgoencodingdir = $(toolexeclibgodir)/encoding
 toolexeclibgoencoding_DATA = \
@@ -738,7 +749,6 @@ runtime_files = \
 	runtime/mcache.c \
 	runtime/mcentral.c \
 	$(runtime_mem_file) \
-	runtime/mfinal.c \
 	runtime/mfixalloc.c \
 	runtime/mgc0.c \
 	runtime/mheap.c \
@@ -1078,6 +1088,7 @@ go_sync_files = \
 	go/sync/cond.go \
 	go/sync/mutex.go \
 	go/sync/once.go \
+	go/sync/pool.go \
 	go/sync/race0.go \
 	go/sync/runtime.go \
 	go/sync/rwmutex.go \
@@ -1186,7 +1197,8 @@ go_crypto_cipher_files = \
 	go/crypto/cipher/ctr.go \
 	go/crypto/cipher/gcm.go \
 	go/crypto/cipher/io.go \
-	go/crypto/cipher/ofb.go
+	go/crypto/cipher/ofb.go \
+	go/crypto/cipher/xor.go
 
 go_crypto_des_files = \
 	go/crypto/des/block.go \
@@ -1209,7 +1221,8 @@ go_crypto_hmac_files = \
 
 go_crypto_md5_files = \
 	go/crypto/md5/md5.go \
-	go/crypto/md5/md5block.go
+	go/crypto/md5/md5block.go \
+	go/crypto/md5/md5block_generic.go
 
 go_crypto_rand_files = \
 	go/crypto/rand/rand.go \
@@ -1227,7 +1240,8 @@ go_crypto_rsa_files = \
 
 go_crypto_sha1_files = \
 	go/crypto/sha1/sha1.go \
-	go/crypto/sha1/sha1block.go
+	go/crypto/sha1/sha1block.go \
+	go/crypto/sha1/sha1block_generic.go
 
 go_crypto_sha256_files = \
 	go/crypto/sha256/sha256.go \
@@ -1282,23 +1296,32 @@ go_debug_dwarf_files = \
 	go/debug/dwarf/line.go \
 	go/debug/dwarf/open.go \
 	go/debug/dwarf/type.go \
+	go/debug/dwarf/typeunit.go \
 	go/debug/dwarf/unit.go
 
 go_debug_elf_files = \
 	go/debug/elf/elf.go \
 	go/debug/elf/file.go
 
+go_debug_goobj_files = \
+	go/debug/goobj/read.go
+
 go_debug_gosym_files = \
 	go/debug/gosym/pclntab.go \
 	go/debug/gosym/symtab.go
 
 go_debug_macho_files = \
+	go/debug/macho/fat.go \
 	go/debug/macho/file.go \
 	go/debug/macho/macho.go
 
 go_debug_pe_files = \
 	go/debug/pe/file.go \
 	go/debug/pe/pe.go
+
+go_debug_plan9obj_files = \
+	go/debug/plan9obj/file.go \
+	go/debug/plan9obj/plan9obj.go
 
 go_encoding_ascii85_files = \
 	go/encoding/ascii85/ascii85.go
@@ -1337,6 +1360,7 @@ go_encoding_hex_files = \
 go_encoding_json_files = \
 	go/encoding/json/decode.go \
 	go/encoding/json/encode.go \
+	go/encoding/json/fold.go \
 	go/encoding/json/indent.go \
 	go/encoding/json/scanner.go \
 	go/encoding/json/stream.go \
@@ -1465,7 +1489,6 @@ go_index_suffixarray_files = \
 	go/index/suffixarray/suffixarray.go
 
 go_io_ioutil_files = \
-	go/io/ioutil/blackhole.go \
 	go/io/ioutil/ioutil.go \
 	go/io/ioutil/tempfile.go
 
@@ -1560,6 +1583,7 @@ go_net_http_pprof_files = \
 go_net_http_httputil_files = \
 	go/net/http/httputil/chunked.go \
 	go/net/http/httputil/dump.go \
+	go/net/http/httputil/httputil.go \
 	go/net/http/httputil/persist.go \
 	go/net/http/httputil/reverseproxy.go
 
@@ -1847,9 +1871,11 @@ libgo_go_objs = \
 	database/sql/driver.lo \
 	debug/dwarf.lo \
 	debug/elf.lo \
+	debug/goobj.lo \
 	debug/gosym.lo \
 	debug/macho.lo \
 	debug/pe.lo \
+	debug/plan9obj.lo \
 	encoding/ascii85.lo \
 	encoding/asn1.lo \
 	encoding/base32.lo \
@@ -1925,7 +1951,13 @@ libgo_go_objs = \
 	unicode/utf8.lo
 
 libgo_la_SOURCES = $(runtime_files)
-libgo_la_LIBADD = $(libgo_go_objs) $(LIBFFI) $(PTHREAD_LIBS) $(MATH_LIBS)
+libgo_la_LDFLAGS = \
+	-version-info $(libtool_VERSION) $(PTHREAD_CFLAGS) $(AM_LDFLAGS)
+
+libgo_la_LIBADD = \
+	$(libgo_go_objs) ../libbacktrace/libbacktrace.la \
+	$(LIBATOMIC) $(LIBFFI) $(PTHREAD_LIBS) $(MATH_LIBS) $(NET_LIBS)
+
 libgobegin_a_SOURCES = \
 	runtime/go-main.c
 
@@ -2087,6 +2119,7 @@ TEST_PACKAGES = \
 	debug/elf/check \
 	debug/macho/check \
 	debug/pe/check \
+	debug/plan9obj/check \
 	encoding/ascii85/check \
 	encoding/asn1/check \
 	encoding/base32/check \
@@ -2372,7 +2405,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mcentral.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mem.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mem_posix_memalign.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mfinal.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mfixalloc.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mgc0.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mheap.Plo@am__quote@
@@ -2980,13 +3012,6 @@ mem.lo: runtime/mem.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='runtime/mem.c' object='mem.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL)  --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o mem.lo `test -f 'runtime/mem.c' || echo '$(srcdir)/'`runtime/mem.c
-
-mfinal.lo: runtime/mfinal.c
-@am__fastdepCC_TRUE@	$(LIBTOOL)  --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT mfinal.lo -MD -MP -MF $(DEPDIR)/mfinal.Tpo -c -o mfinal.lo `test -f 'runtime/mfinal.c' || echo '$(srcdir)/'`runtime/mfinal.c
-@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/mfinal.Tpo $(DEPDIR)/mfinal.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='runtime/mfinal.c' object='mfinal.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(LIBTOOL)  --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o mfinal.lo `test -f 'runtime/mfinal.c' || echo '$(srcdir)/'`runtime/mfinal.c
 
 mfixalloc.lo: runtime/mfixalloc.c
 @am__fastdepCC_TRUE@	$(LIBTOOL)  --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT mfixalloc.lo -MD -MP -MF $(DEPDIR)/mfixalloc.Tpo -c -o mfixalloc.lo `test -f 'runtime/mfixalloc.c' || echo '$(srcdir)/'`runtime/mfixalloc.c
@@ -4820,6 +4845,15 @@ debug/elf/check: $(CHECK_DEPS)
 	@$(CHECK)
 .PHONY: debug/elf/check
 
+@go_include@ debug/goobj.lo.dep
+debug/goobj.lo.dep: $(go_debug_goobj_files)
+	$(BUILDDEPS)
+debug/goobj.lo: $(go_debug_goobj_files)
+	$(BUILDPACKAGE)
+debug/goobj/check: $(CHECK_DEPS)
+	@$(CHECK)
+.PHONY: debug/goobj/check
+
 @go_include@ debug/gosym.lo.dep
 debug/gosym.lo.dep: $(go_debug_gosym_files)
 	$(BUILDDEPS)
@@ -4846,6 +4880,15 @@ debug/pe.lo: $(go_debug_pe_files)
 debug/pe/check: $(CHECK_DEPS)
 	@$(CHECK)
 .PHONY: debug/pe/check
+
+@go_include@ debug/plan9obj.lo.dep
+debug/plan9obj.lo.dep: $(go_debug_plan9obj_files)
+	$(BUILDDEPS)
+debug/plan9obj.lo: $(go_debug_plan9obj_files)
+	$(BUILDPACKAGE)
+debug/plan9obj/check: $(CHECK_DEPS)
+	@$(CHECK)
+.PHONY: debug/plan9obj/check
 
 @go_include@ encoding/asn1.lo.dep
 encoding/asn1.lo.dep: $(go_encoding_asn1_files)
@@ -5630,11 +5673,15 @@ debug/dwarf.gox: debug/dwarf.lo
 	$(BUILDGOX)
 debug/elf.gox: debug/elf.lo
 	$(BUILDGOX)
+debug/goobj.gox: debug/goobj.lo
+	$(BUILDGOX)
 debug/gosym.gox: debug/gosym.lo
 	$(BUILDGOX)
 debug/macho.gox: debug/macho.lo
 	$(BUILDGOX)
 debug/pe.gox: debug/pe.lo
+	$(BUILDGOX)
+debug/plan9obj.gox: debug/plan9obj.lo
 	$(BUILDGOX)
 
 encoding/ascii85.gox: encoding/ascii85.lo

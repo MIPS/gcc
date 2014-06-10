@@ -51,6 +51,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"	/* for current_pass */
 #include "context.h"
 #include "pass_manager.h"
+#include "builtins.h"
 
 /* Which cpu we're compiling for.  */
 int epiphany_cpu_type;
@@ -982,7 +983,7 @@ epiphany_init_machine_status (void)
   /* Reset state info for each function.  */
   current_frame_info = zero_frame_info;
 
-  machine = ggc_alloc_cleared_machine_function_t ();
+  machine = ggc_cleared_alloc<machine_function_t> ();
 
   return machine;
 }

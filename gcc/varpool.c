@@ -135,7 +135,7 @@ varpool_call_variable_insertion_hooks (varpool_node *node)
 varpool_node *
 varpool_create_empty_node (void)
 {   
-  varpool_node *node = ggc_alloc_cleared_varpool_node ();
+  varpool_node *node = ggc_cleared_alloc<varpool_node> ();
   node->type = SYMTAB_VARIABLE;
   return node;
 }   
@@ -211,6 +211,8 @@ dump_varpool_node (FILE *f, varpool_node *node)
     fprintf (f, " read-only");
   if (ctor_for_folding (node->decl) != error_mark_node)
     fprintf (f, " const-value-known");
+  if (node->writeonly)
+    fprintf (f, " write-only");
   fprintf (f, "\n");
 }
 
@@ -304,7 +306,16 @@ ctor_for_folding (tree decl)
   if (DECL_VIRTUAL_P (real_decl))
     {
       gcc_checking_assert (TREE_READONLY (real_decl));
-      return DECL_INITIAL (real_decl);
+      if (DECL_INITIAL (real_decl))
+	return DECL_INITIAL (real_decl);
+      else
+	{
+	  /* The C++ front end creates VAR_DECLs for vtables of typeinfo
+	     classes not defined in the current TU so that it can refer
+	     to them from typeinfo objects.  Avoid returning NULL_TREE.  */
+	  gcc_checking_assert (!COMPLETE_TYPE_P (DECL_CONTEXT (real_decl)));
+	  return error_mark_node;
+	}
     }
 
   /* If there is no constructor, we have nothing to do.  */
@@ -353,7 +364,6 @@ varpool_add_new_variable (tree decl)
 enum availability
 cgraph_variable_initializer_availability (varpool_node *node)
 {
-  gcc_assert (cgraph_function_flags_ready);
   if (!node->definition)
     return AVAIL_NOT_AVAILABLE;
   if (!TREE_PUBLIC (node->decl))
@@ -572,7 +582,7 @@ varpool_finalize_named_section_flags (varpool_node *node)
       && !DECL_EXTERNAL (node->decl)
       && TREE_CODE (node->decl) == VAR_DECL
       && !DECL_HAS_VALUE_EXPR_P (node->decl)
-      && DECL_SECTION_NAME (node->decl))
+      && node->get_section ())
     get_variable_section (node->decl, false);
 }
 

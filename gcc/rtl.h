@@ -267,7 +267,7 @@ struct GTY((variable_size)) hwivec_def {
 /* RTL expression ("rtx").  */
 
 struct GTY((chain_next ("RTX_NEXT (&%h)"),
-	    chain_prev ("RTX_PREV (&%h)"), variable_size)) rtx_def {
+	    chain_prev ("RTX_PREV (&%h)"))) rtx_def {
   /* The kind of expression this is.  */
   ENUM_BITFIELD(rtx_code) code: 16;
 
@@ -276,6 +276,7 @@ struct GTY((chain_next ("RTX_NEXT (&%h)"),
 
   /* 1 in a MEM if we should keep the alias set for this mem unchanged
      when we access a component.
+     1 in a JUMP_INSN if it is a crossing jump.
      1 in a CALL_INSN if it is a sibling call.
      1 in a SET that is for a return.
      In a CODE_LABEL, part of the two-bit alternate entry field.
@@ -422,7 +423,7 @@ struct GTY((chain_next ("RTX_NEXT (&%h)"),
    for a variable number of things.  The principle use is inside
    PARALLEL expressions.  */
 
-struct GTY((variable_size)) rtvec_def {
+struct GTY(()) rtvec_def {
   int num_elem;		/* number of elements */
   rtx GTY ((length ("%h.num_elem"))) elem[1];
 };
@@ -707,7 +708,7 @@ struct GTY((variable_size)) rtvec_def {
 
 #define BLOCK_SYMBOL_CHECK(RTX) __extension__				\
 ({ __typeof (RTX) const _symbol = (RTX);				\
-   const unsigned int flags = RTL_CHECKC1 (_symbol, 1, SYMBOL_REF).rt_int; \
+   const unsigned int flags = SYMBOL_REF_FLAGS (_symbol);		\
    if ((flags & SYMBOL_FLAG_HAS_BLOCK_INFO) == 0)			\
      rtl_check_failed_block_symbol (__FILE__, __LINE__,			\
 				    __FUNCTION__);			\
@@ -941,6 +942,10 @@ extern void rtl_check_failed_flag (const char *, const_rtx, const char *,
 /* 1 if RTX is an insn that has been deleted.  */
 #define INSN_DELETED_P(RTX)						\
   (RTL_INSN_CHAIN_FLAG_CHECK ("INSN_DELETED_P", (RTX))->volatil)
+
+/* 1 if JUMP RTX is a crossing jump.  */
+#define CROSSING_JUMP_P(RTX) \
+  (RTL_FLAG_CHECK1 ("CROSSING_JUMP_P", (RTX), JUMP_INSN)->jump)
 
 /* 1 if RTX is a call to a const function.  Built from ECF_CONST and
    TREE_READONLY.  */
@@ -1952,7 +1957,7 @@ extern int currently_expanding_to_rtl;
 
 /* In explow.c */
 extern HOST_WIDE_INT trunc_int_for_mode	(HOST_WIDE_INT, enum machine_mode);
-extern rtx plus_constant (enum machine_mode, rtx, HOST_WIDE_INT);
+extern rtx plus_constant (enum machine_mode, rtx, HOST_WIDE_INT, bool = false);
 
 /* In rtl.c */
 extern rtx rtx_alloc_stat (RTX_CODE MEM_STAT_DECL);
@@ -2125,6 +2130,7 @@ extern rtx prev_cc0_setter (rtx);
 extern int insn_line (const_rtx);
 extern const char * insn_file (const_rtx);
 extern tree insn_scope (const_rtx);
+extern expanded_location insn_location (const_rtx);
 extern location_t prologue_location, epilogue_location;
 
 /* In jump.c */
@@ -2192,6 +2198,7 @@ extern enum machine_mode choose_hard_reg_mode (unsigned int, unsigned int,
 					       bool);
 
 /* In emit-rtl.c  */
+extern rtx set_for_reg_notes (rtx);
 extern rtx set_unique_reg_note (rtx, enum reg_note, rtx);
 extern rtx set_dst_reg_note (rtx, enum reg_note, rtx, rtx);
 extern void set_insn_deleted (rtx);

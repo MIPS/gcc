@@ -69,8 +69,20 @@ import (
 
 var debug = false
 
-// Error is the local type for a parsing error.
-type Error string
+// Regexp is the representation of a compiled regular expression.
+// A Regexp is safe for concurrent use by multiple goroutines.
+type Regexp struct {
+	// read-only after Compile
+	expr           string         // as passed to Compile
+	prog           *syntax.Prog   // compiled program
+	prefix         string         // required prefix in unanchored matches
+	prefixBytes    []byte         // prefix, as a []byte
+	prefixComplete bool           // prefix is the entire regexp
+	prefixRune     rune           // first rune in prefix
+	cond           syntax.EmptyOp // empty-width conditions required at start of match
+	numSubexp      int
+	subexpNames    []string
+	longest        bool
 
 func (e Error) String() string {
 	return string(e)

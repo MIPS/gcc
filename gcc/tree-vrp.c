@@ -293,9 +293,8 @@ positive_overflow_infinity (tree type)
 static inline bool
 is_negative_overflow_infinity (const_tree val)
 {
-  return (needs_overflow_infinity (TREE_TYPE (val))
-	  && CONSTANT_CLASS_P (val)
-	  && TREE_OVERFLOW (val)
+  return (TREE_OVERFLOW_P (val)
+	  && needs_overflow_infinity (TREE_TYPE (val))
 	  && vrp_val_is_min (val));
 }
 
@@ -304,9 +303,8 @@ is_negative_overflow_infinity (const_tree val)
 static inline bool
 is_positive_overflow_infinity (const_tree val)
 {
-  return (needs_overflow_infinity (TREE_TYPE (val))
-	  && CONSTANT_CLASS_P (val)
-	  && TREE_OVERFLOW (val)
+  return (TREE_OVERFLOW_P (val)
+	  && needs_overflow_infinity (TREE_TYPE (val))
 	  && vrp_val_is_max (val));
 }
 
@@ -315,9 +313,8 @@ is_positive_overflow_infinity (const_tree val)
 static inline bool
 is_overflow_infinity (const_tree val)
 {
-  return (needs_overflow_infinity (TREE_TYPE (val))
-	  && CONSTANT_CLASS_P (val)
-	  && TREE_OVERFLOW (val)
+  return (TREE_OVERFLOW_P (val)
+	  && needs_overflow_infinity (TREE_TYPE (val))
 	  && (vrp_val_is_min (val) || vrp_val_is_max (val)));
 }
 
@@ -791,9 +788,7 @@ vrp_operand_equal_p (const_tree val1, const_tree val2)
     return true;
   if (!val1 || !val2 || !operand_equal_p (val1, val2, 0))
     return false;
-  if (is_overflow_infinity (val1))
-    return is_overflow_infinity (val2);
-  return true;
+  return is_overflow_infinity (val1) == is_overflow_infinity (val2);
 }
 
 /* Return true, if the bitmaps B1 and B2 are equal.  */
@@ -1815,7 +1810,7 @@ extract_range_from_ssa_name (value_range_t *vr, tree var)
 {
   value_range_t *var_vr = get_value_range (var);
 
-  if (var_vr->type != VR_UNDEFINED && var_vr->type != VR_VARYING)
+  if (var_vr->type != VR_VARYING)
     copy_value_range (vr, var_vr);
   else
     set_value_range (vr, VR_RANGE, var, var, NULL);
@@ -6684,7 +6679,7 @@ vrp_visit_assignment_or_call (gimple stmt, tree *output_p)
 	      print_generic_expr (dump_file, lhs, 0);
 	      fprintf (dump_file, ": ");
 	      dump_value_range (dump_file, &new_vr);
-	      fprintf (dump_file, "\n\n");
+	      fprintf (dump_file, "\n");
 	    }
 
 	  if (new_vr.type == VR_VARYING)
@@ -6924,14 +6919,15 @@ vrp_evaluate_conditional_warnv_with_ops_using_ranges (enum tree_code code,
   vr0 = (TREE_CODE (op0) == SSA_NAME) ? get_value_range (op0) : NULL;
   vr1 = (TREE_CODE (op1) == SSA_NAME) ? get_value_range (op1) : NULL;
 
+  tree res = NULL_TREE;
   if (vr0 && vr1)
-    return compare_ranges (code, vr0, vr1, strict_overflow_p);
-  else if (vr0 && vr1 == NULL)
-    return compare_range_with_value (code, vr0, op1, strict_overflow_p);
-  else if (vr0 == NULL && vr1)
-    return (compare_range_with_value
+    res = compare_ranges (code, vr0, vr1, strict_overflow_p);
+  if (!res && vr0)
+    res = compare_range_with_value (code, vr0, op1, strict_overflow_p);
+  if (!res && vr1)
+    res = (compare_range_with_value
 	    (swap_tree_comparison (code), vr1, op0, strict_overflow_p));
-  return NULL;
+  return res;
 }
 
 /* Helper function for vrp_evaluate_conditional_warnv. */
@@ -7477,7 +7473,6 @@ vrp_visit_stmt (gimple stmt, edge *taken_edge_p, tree *output_p)
     {
       fprintf (dump_file, "\nVisiting statement:\n");
       print_gimple_stmt (dump_file, stmt, 0, dump_flags);
-      fprintf (dump_file, "\n");
     }
 
   if (!stmt_interesting_for_vrp (stmt))
@@ -8246,7 +8241,7 @@ vrp_visit_phi_node (gimple phi)
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file,
-	      "\n    Argument #%d (%d -> %d %sexecutable)\n",
+	      "    Argument #%d (%d -> %d %sexecutable)\n",
 	      (int) i, e->src->index, e->dest->index,
 	      (e->flags & EDGE_EXECUTABLE) ? "" : "not ");
 	}
@@ -8264,16 +8259,30 @@ vrp_visit_phi_node (gimple phi)
 	      /* Do not allow equivalences or symbolic ranges to leak in from
 		 backedges.  That creates invalid equivalencies.
 		 See PR53465 and PR54767.  */
-	      if (e->flags & EDGE_DFS_BACK
-		  && (vr_arg.type == VR_RANGE
-		      || vr_arg.type == VR_ANTI_RANGE))
+	      if (e->flags & EDGE_DFS_BACK)
 		{
-		  vr_arg.equiv = NULL;
-		  if (symbolic_range_p (&vr_arg))
+		  if (vr_arg.type == VR_RANGE
+		      || vr_arg.type == VR_ANTI_RANGE)
 		    {
-		      vr_arg.type = VR_VARYING;
-		      vr_arg.min = NULL_TREE;
-		      vr_arg.max = NULL_TREE;
+		      vr_arg.equiv = NULL;
+		      if (symbolic_range_p (&vr_arg))
+			{
+			  vr_arg.type = VR_VARYING;
+			  vr_arg.min = NULL_TREE;
+			  vr_arg.max = NULL_TREE;
+			}
+		    }
+		}
+	      else
+		{
+		  /* If the non-backedge arguments range is VR_VARYING then
+		     we can still try recording a simple equivalence.  */
+		  if (vr_arg.type == VR_VARYING)
+		    {
+		      vr_arg.type = VR_RANGE;
+		      vr_arg.min = arg;
+		      vr_arg.max = arg;
+		      vr_arg.equiv = NULL;
 		    }
 		}
 	    }
@@ -8292,7 +8301,7 @@ vrp_visit_phi_node (gimple phi)
 	    {
 	      fprintf (dump_file, "\t");
 	      print_generic_expr (dump_file, arg, dump_flags);
-	      fprintf (dump_file, "\n\tValue: ");
+	      fprintf (dump_file, ": ");
 	      dump_value_range (dump_file, &vr_arg);
 	      fprintf (dump_file, "\n");
 	    }
@@ -8327,8 +8336,14 @@ vrp_visit_phi_node (gimple phi)
       && edges == old_edges
       && lhs_vr->type != VR_UNDEFINED)
     {
+      /* Compare old and new ranges, fall back to varying if the
+         values are not comparable.  */
       int cmp_min = compare_values (lhs_vr->min, vr_result.min);
+      if (cmp_min == -2)
+	goto varying;
       int cmp_max = compare_values (lhs_vr->max, vr_result.max);
+      if (cmp_max == -2)
+	goto varying;
 
       /* For non VR_RANGE or for pointers fall back to varying if
 	 the range changed.  */
@@ -8368,7 +8383,6 @@ vrp_visit_phi_node (gimple phi)
 	 PHI node SCEV may known more about its value-range.  */
       if ((cmp_min > 0 || cmp_min < 0
 	   || cmp_max < 0 || cmp_max > 0)
-	  && current_loops
 	  && (l = loop_containing_stmt (phi))
 	  && l->header == gimple_bb (phi))
 	adjust_range_with_scev (&vr_result, l, phi, lhs);
@@ -8394,7 +8408,7 @@ update_range:
 	  print_generic_expr (dump_file, lhs, 0);
 	  fprintf (dump_file, ": ");
 	  dump_value_range (dump_file, &vr_result);
-	  fprintf (dump_file, "\n\n");
+	  fprintf (dump_file, "\n");
 	}
 
       return SSA_PROP_INTERESTING;
@@ -9769,8 +9783,7 @@ execute_vrp (void)
   if (to_remove_edges.length () > 0)
     {
       free_dominance_info (CDI_DOMINATORS);
-      if (current_loops)
-	loops_state_set (LOOPS_NEED_FIXUP);
+      loops_state_set (LOOPS_NEED_FIXUP);
     }
 
   to_remove_edges.release ();

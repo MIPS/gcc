@@ -36,6 +36,7 @@ __go_append (struct __go_open_array a, void *bvalues, size_t bcount,
   if (count > a.__capacity)
     {
       int m;
+      uintptr capmem;
       void *n;
 
       m = a.__capacity;
@@ -53,7 +54,9 @@ __go_append (struct __go_open_array a, void *bvalues, size_t bcount,
 	  while (m < count);
 	}
 
-      n = __go_alloc (m * element_size);
+      capmem = runtime_roundupsize (m * element_size);
+
+      n = __go_alloc (capmem);
       __builtin_memcpy (n, a.__values, a.__count * element_size);
 
       a.__values = n;

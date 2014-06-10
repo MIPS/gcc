@@ -301,7 +301,7 @@ struct visibility_flags visibility_options;
 
 static tree c_fully_fold_internal (tree expr, bool, bool *, bool *);
 static tree check_case_value (tree);
-static bool check_case_bounds (tree, tree, tree *, tree *);
+static bool check_case_bounds (location_t, tree, tree, tree *, tree *);
 
 static tree handle_packed_attribute (tree *, tree, tree, int, bool *);
 static tree handle_nocommon_attribute (tree *, tree, tree, int, bool *);
@@ -1722,6 +1722,29 @@ warn_logical_operator (location_t location, enum tree_code code, tree type,
     }
 }
 
+/* Warn about logical not used on the left hand side operand of a comparison.
+   This function assumes that the LHS is inside of TRUTH_NOT_EXPR.
+   Do not warn if the LHS or RHS is of a boolean or a vector type.  */
+
+void
+warn_logical_not_parentheses (location_t location, enum tree_code code,
+			      tree lhs, tree rhs)
+{
+  if (TREE_CODE_CLASS (code) != tcc_comparison)
+    return;
+  if (TREE_TYPE (lhs) == NULL_TREE
+      || TREE_TYPE (rhs) == NULL_TREE)
+    ;
+  else if (TREE_CODE (TREE_TYPE (lhs)) == BOOLEAN_TYPE
+	   || TREE_CODE (TREE_TYPE (rhs)) == BOOLEAN_TYPE
+	   || VECTOR_TYPE_P (TREE_TYPE (lhs))
+	   || VECTOR_TYPE_P (TREE_TYPE (rhs)))
+    return;
+
+  warning_at (location, OPT_Wlogical_not_parentheses,
+	      "logical not is only applied to the left hand side of "
+	      "comparison");
+}
 
 /* Warn if EXP contains any computations whose results are not used.
    Return true if a warning is printed; false otherwise.  LOCUS is the
@@ -3355,7 +3378,7 @@ check_case_value (tree value)
    untouched) or false if the label is out of range.  */
 
 static bool
-check_case_bounds (tree type, tree orig_type,
+check_case_bounds (location_t loc, tree type, tree orig_type,
 		   tree *case_low_p, tree *case_high_p)
 {
   tree min_value, max_value;
@@ -3373,7 +3396,8 @@ check_case_bounds (tree type, tree orig_type,
   if (tree_int_cst_compare (case_low, min_value) < 0
       && tree_int_cst_compare (case_high, min_value) < 0)
     {
-      warning (0, "case label value is less than minimum value for type");
+      warning_at (loc, 0, "case label value is less than minimum value "
+		  "for type");
       return false;
     }
 
@@ -3381,7 +3405,7 @@ check_case_bounds (tree type, tree orig_type,
   if (tree_int_cst_compare (case_low, max_value) > 0
       && tree_int_cst_compare (case_high, max_value) > 0)
     {
-      warning (0, "case label value exceeds maximum value for type");
+      warning_at (loc, 0, "case label value exceeds maximum value for type");
       return false;
     }
 
@@ -3389,8 +3413,8 @@ check_case_bounds (tree type, tree orig_type,
   if (tree_int_cst_compare (case_high, min_value) >= 0
       && tree_int_cst_compare (case_low, min_value) < 0)
     {
-      warning (0, "lower value in case label range"
-	       " less than minimum value for type");
+      warning_at (loc, 0, "lower value in case label range"
+		  " less than minimum value for type");
       case_low = min_value;
     }
 
@@ -3398,8 +3422,8 @@ check_case_bounds (tree type, tree orig_type,
   if (tree_int_cst_compare (case_low, max_value) <= 0
       && tree_int_cst_compare (case_high, max_value) > 0)
     {
-      warning (0, "upper value in case label range"
-	       " exceeds maximum value for type");
+      warning_at (loc, 0, "upper value in case label range"
+		  " exceeds maximum value for type");
       case_high = max_value;
     }
 
@@ -5128,15 +5152,18 @@ enum c_builtin_type
 #define DEF_FUNCTION_TYPE_3(NAME, RETURN, ARG1, ARG2, ARG3) NAME,
 #define DEF_FUNCTION_TYPE_4(NAME, RETURN, ARG1, ARG2, ARG3, ARG4) NAME,
 #define DEF_FUNCTION_TYPE_5(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5) NAME,
-#define DEF_FUNCTION_TYPE_6(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6) NAME,
-#define DEF_FUNCTION_TYPE_7(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6, ARG7) NAME,
-#define DEF_FUNCTION_TYPE_8(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6, ARG7, ARG8) NAME,
+#define DEF_FUNCTION_TYPE_6(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+			    ARG6) NAME,
+#define DEF_FUNCTION_TYPE_7(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+			    ARG6, ARG7) NAME,
+#define DEF_FUNCTION_TYPE_8(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+			    ARG6, ARG7, ARG8) NAME,
 #define DEF_FUNCTION_TYPE_VAR_0(NAME, RETURN) NAME,
 #define DEF_FUNCTION_TYPE_VAR_1(NAME, RETURN, ARG1) NAME,
 #define DEF_FUNCTION_TYPE_VAR_2(NAME, RETURN, ARG1, ARG2) NAME,
 #define DEF_FUNCTION_TYPE_VAR_3(NAME, RETURN, ARG1, ARG2, ARG3) NAME,
 #define DEF_FUNCTION_TYPE_VAR_4(NAME, RETURN, ARG1, ARG2, ARG3, ARG4) NAME,
-#define DEF_FUNCTION_TYPE_VAR_5(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG6) \
+#define DEF_FUNCTION_TYPE_VAR_5(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5) \
   NAME,
 #define DEF_POINTER_TYPE(NAME, TYPE) NAME,
 #include "builtin-types.def"
@@ -5254,12 +5281,15 @@ c_define_builtins (tree va_list_ref_type_node, tree va_list_arg_type_node)
 #include "builtin-types.def"
 
 #undef DEF_PRIMITIVE_TYPE
+#undef DEF_FUNCTION_TYPE_0
 #undef DEF_FUNCTION_TYPE_1
 #undef DEF_FUNCTION_TYPE_2
 #undef DEF_FUNCTION_TYPE_3
 #undef DEF_FUNCTION_TYPE_4
 #undef DEF_FUNCTION_TYPE_5
 #undef DEF_FUNCTION_TYPE_6
+#undef DEF_FUNCTION_TYPE_7
+#undef DEF_FUNCTION_TYPE_8
 #undef DEF_FUNCTION_TYPE_VAR_0
 #undef DEF_FUNCTION_TYPE_VAR_1
 #undef DEF_FUNCTION_TYPE_VAR_2
@@ -5523,10 +5553,6 @@ c_common_nodes_and_builtins (void)
       = void_name;
     TYPE_NAME (void_type_node) = void_name;
   }
-
-  /* This node must not be shared.  */
-  void_zero_node = make_int_cst (1, 1);
-  TREE_TYPE (void_zero_node) = void_type_node;
 
   void_list_node = build_void_list_node ();
 
@@ -6012,7 +6038,7 @@ c_add_case_label (location_t loc, splay_tree cases, tree cond, tree orig_type,
      expression.  If both low_value and high_value are out of range,
      don't insert the case label and return NULL_TREE.  */
   if (low_value
-      && !check_case_bounds (type, orig_type,
+      && !check_case_bounds (loc, type, orig_type,
 			     &low_value, high_value ? &high_value : NULL))
     return NULL_TREE;
 
@@ -7416,7 +7442,7 @@ handle_section_attribute (tree *node, tree ARG_UNUSED (name), tree args,
 	      *no_add_attrs = true;
 	    }
 	  else
-	    DECL_SECTION_NAME (decl) = TREE_VALUE (args);
+	    set_decl_section_name (decl, TREE_VALUE (args));
 	}
       else
 	{
