@@ -1,5 +1,9 @@
 
 2014-06-10  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/generated/*: Regenerate all.
+
+2014-06-10  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-predef.list (CTYPE_DOUBLE, DISCR_CONSTANT_DOUBLE)
 	(DISCR_DOUBLE): New.
 

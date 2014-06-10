@@ -169,9 +169,9 @@ struct GTY (()) meltbasicblock_st   /* when MELTOBMAG_BASICBLOCK*/
     basic_block val;
 #ifndef MELT_BOGUS_GENGTYPE_4dot7 /* GCC 4.7 gengtype dislikes operator-s */
     operator melt_ptr_t ()
-{
-    return reinterpret_cast<melt_ptr_t>(this);
-}
+    {
+        return reinterpret_cast<melt_ptr_t>(this);
+    }
 #endif /*MELT_BOGUS_GENGTYPE_4dot7*/
 }; /* end of meltbasicblock_st */
 
@@ -198,9 +198,9 @@ struct GTY (()) meltbitmap_st   /* when MELTOBMAG_BITMAP*/
     bitmap val;
 #ifndef MELT_BOGUS_GENGTYPE_4dot7 /* GCC 4.7 gengtype dislikes operator-s */
     operator melt_ptr_t ()
-{
-    return reinterpret_cast<melt_ptr_t>(this);
-}
+    {
+        return reinterpret_cast<melt_ptr_t>(this);
+    }
 #endif /*MELT_BOGUS_GENGTYPE_4dot7*/
 }; /* end of meltbitmap_st */
 
@@ -227,9 +227,9 @@ struct GTY (()) meltedge_st   /* when MELTOBMAG_EDGE*/
     edge val;
 #ifndef MELT_BOGUS_GENGTYPE_4dot7 /* GCC 4.7 gengtype dislikes operator-s */
     operator melt_ptr_t ()
-{
-    return reinterpret_cast<melt_ptr_t>(this);
-}
+    {
+        return reinterpret_cast<melt_ptr_t>(this);
+    }
 #endif /*MELT_BOGUS_GENGTYPE_4dot7*/
 }; /* end of meltedge_st */
 
@@ -256,9 +256,9 @@ struct GTY (()) meltgimple_st   /* when MELTOBMAG_GIMPLE*/
     gimple val;
 #ifndef MELT_BOGUS_GENGTYPE_4dot7 /* GCC 4.7 gengtype dislikes operator-s */
     operator melt_ptr_t ()
-{
-    return reinterpret_cast<melt_ptr_t>(this);
-}
+    {
+        return reinterpret_cast<melt_ptr_t>(this);
+    }
 #endif /*MELT_BOGUS_GENGTYPE_4dot7*/
 }; /* end of meltgimple_st */
 
@@ -285,9 +285,9 @@ struct GTY (()) meltgimpleseq_st   /* when MELTOBMAG_GIMPLESEQ*/
     gimple_seq val;
 #ifndef MELT_BOGUS_GENGTYPE_4dot7 /* GCC 4.7 gengtype dislikes operator-s */
     operator melt_ptr_t ()
-{
-    return reinterpret_cast<melt_ptr_t>(this);
-}
+    {
+        return reinterpret_cast<melt_ptr_t>(this);
+    }
 #endif /*MELT_BOGUS_GENGTYPE_4dot7*/
 }; /* end of meltgimpleseq_st */
 
@@ -314,9 +314,9 @@ struct GTY (()) meltloop_st   /* when MELTOBMAG_LOOP*/
     loop_p val;
 #ifndef MELT_BOGUS_GENGTYPE_4dot7 /* GCC 4.7 gengtype dislikes operator-s */
     operator melt_ptr_t ()
-{
-    return reinterpret_cast<melt_ptr_t>(this);
-}
+    {
+        return reinterpret_cast<melt_ptr_t>(this);
+    }
 #endif /*MELT_BOGUS_GENGTYPE_4dot7*/
 }; /* end of meltloop_st */
 
@@ -343,9 +343,9 @@ struct GTY (()) meltrtvec_st   /* when MELTOBMAG_RTVEC*/
     rtvec val;
 #ifndef MELT_BOGUS_GENGTYPE_4dot7 /* GCC 4.7 gengtype dislikes operator-s */
     operator melt_ptr_t ()
-{
-    return reinterpret_cast<melt_ptr_t>(this);
-}
+    {
+        return reinterpret_cast<melt_ptr_t>(this);
+    }
 #endif /*MELT_BOGUS_GENGTYPE_4dot7*/
 }; /* end of meltrtvec_st */
 
@@ -372,9 +372,9 @@ struct GTY (()) meltrtx_st   /* when MELTOBMAG_RTX*/
     rtx val;
 #ifndef MELT_BOGUS_GENGTYPE_4dot7 /* GCC 4.7 gengtype dislikes operator-s */
     operator melt_ptr_t ()
-{
-    return reinterpret_cast<melt_ptr_t>(this);
-}
+    {
+        return reinterpret_cast<melt_ptr_t>(this);
+    }
 #endif /*MELT_BOGUS_GENGTYPE_4dot7*/
 }; /* end of meltrtx_st */
 
@@ -401,9 +401,9 @@ struct GTY (()) melttree_st   /* when MELTOBMAG_TREE*/
     tree val;
 #ifndef MELT_BOGUS_GENGTYPE_4dot7 /* GCC 4.7 gengtype dislikes operator-s */
     operator melt_ptr_t ()
-{
-    return reinterpret_cast<melt_ptr_t>(this);
-}
+    {
+        return reinterpret_cast<melt_ptr_t>(this);
+    }
 #endif /*MELT_BOGUS_GENGTYPE_4dot7*/
 }; /* end of melttree_st */
 
@@ -1221,43 +1221,47 @@ enum /* generated enumeration for MELT parameters */
     MELTBPAR_CSTRING   /*=3*/,
 #define MELTBPARSTR_CSTRING  "\x3"
 
-    /*gtyctype #4 CTYPE_EDGE*/
-    MELTBPAR_EDGE   /*=4*/,
-#define MELTBPARSTR_EDGE  "\x4"
+    /*gtyctype #4 CTYPE_DOUBLE*/
+    MELTBPAR_DOUBLE   /*=4*/,
+#define MELTBPARSTR_DOUBLE  "\x4"
 
-    /*gtyctype #5 CTYPE_GIMPLE*/
-    MELTBPAR_GIMPLE   /*=5*/,
-#define MELTBPARSTR_GIMPLE  "\x5"
+    /*gtyctype #5 CTYPE_EDGE*/
+    MELTBPAR_EDGE   /*=5*/,
+#define MELTBPARSTR_EDGE  "\x5"
 
-    /*gtyctype #6 CTYPE_GIMPLE_SEQ*/
-    MELTBPAR_GIMPLESEQ   /*=6*/,
-#define MELTBPARSTR_GIMPLESEQ  "\x6"
+    /*gtyctype #6 CTYPE_GIMPLE*/
+    MELTBPAR_GIMPLE   /*=6*/,
+#define MELTBPARSTR_GIMPLE  "\x6"
 
-    /*gtyctype #7 CTYPE_LONG*/
-    MELTBPAR_LONG   /*=7*/,
-#define MELTBPARSTR_LONG  "\x7"
+    /*gtyctype #7 CTYPE_GIMPLE_SEQ*/
+    MELTBPAR_GIMPLESEQ   /*=7*/,
+#define MELTBPARSTR_GIMPLESEQ  "\x7"
 
-    /*gtyctype #8 CTYPE_LOOP*/
-    MELTBPAR_LOOP   /*=8*/,
-#define MELTBPARSTR_LOOP  "\x8"
+    /*gtyctype #8 CTYPE_LONG*/
+    MELTBPAR_LONG   /*=8*/,
+#define MELTBPARSTR_LONG  "\x8"
 
-    /*gtyctype #9 CTYPE_RTVEC*/
-    MELTBPAR_RTVEC   /*=9*/,
-#define MELTBPARSTR_RTVEC  "\x9"
+    /*gtyctype #9 CTYPE_LOOP*/
+    MELTBPAR_LOOP   /*=9*/,
+#define MELTBPARSTR_LOOP  "\x9"
 
-    /*gtyctype #10 CTYPE_RTX*/
-    MELTBPAR_RTX   /*=10*/,
-#define MELTBPARSTR_RTX  "\xa"
+    /*gtyctype #10 CTYPE_RTVEC*/
+    MELTBPAR_RTVEC   /*=10*/,
+#define MELTBPARSTR_RTVEC  "\xa"
 
-    /*gtyctype #11 CTYPE_TREE*/
-    MELTBPAR_TREE   /*=11*/,
-#define MELTBPARSTR_TREE  "\xb"
+    /*gtyctype #11 CTYPE_RTX*/
+    MELTBPAR_RTX   /*=11*/,
+#define MELTBPARSTR_RTX  "\xb"
 
-    /*gtyctype #12 CTYPE_VALUE*/
-    MELTBPAR_PTR   /*=12*/,
-#define MELTBPARSTR_PTR  "\xc"
+    /*gtyctype #12 CTYPE_TREE*/
+    MELTBPAR_TREE   /*=12*/,
+#define MELTBPARSTR_TREE  "\xc"
 
-    /*gtyctype #13 CTYPE_VOID*/
+    /*gtyctype #13 CTYPE_VALUE*/
+    MELTBPAR_PTR   /*=13*/,
+#define MELTBPARSTR_PTR  "\xd"
+
+    /*gtyctype #14 CTYPE_VOID*/
     /*-- non parameter --*/
     /*-- non paramstr --*/
 
@@ -1280,43 +1284,47 @@ union meltparam_un /* generated union for MELT parameters */
     const char* meltbp_cstring; /*argument param.*/
 
     /*no result*/
-    /*ctype #4 CTYPE_EDGE*/
+    /*ctype #4 CTYPE_DOUBLE*/
+    double meltbp_double; /*argument param.*/
+
+    double *meltbp_doubleptr; /*result param.*/
+    /*ctype #5 CTYPE_EDGE*/
     edge meltbp_edge; /*argument param.*/
 
     edge *meltbp_edgeptr; /*result param.*/
-    /*ctype #5 CTYPE_GIMPLE*/
+    /*ctype #6 CTYPE_GIMPLE*/
     gimple meltbp_gimple; /*argument param.*/
 
     gimple *meltbp_gimpleptr; /*result param.*/
-    /*ctype #6 CTYPE_GIMPLE_SEQ*/
+    /*ctype #7 CTYPE_GIMPLE_SEQ*/
     gimple_seq meltbp_gimpleseq; /*argument param.*/
 
     gimple_seq *meltbp_gimpleseqptr; /*result param.*/
-    /*ctype #7 CTYPE_LONG*/
+    /*ctype #8 CTYPE_LONG*/
     long meltbp_long; /*argument param.*/
 
     long *meltbp_longptr; /*result param.*/
-    /*ctype #8 CTYPE_LOOP*/
+    /*ctype #9 CTYPE_LOOP*/
     loop_p meltbp_loop; /*argument param.*/
 
     loop_p *meltbp_loopptr; /*result param.*/
-    /*ctype #9 CTYPE_RTVEC*/
+    /*ctype #10 CTYPE_RTVEC*/
     rtvec meltbp_rtvec; /*argument param.*/
 
     rtvec *meltbp_rtvecptr; /*result param.*/
-    /*ctype #10 CTYPE_RTX*/
+    /*ctype #11 CTYPE_RTX*/
     rtx meltbp_rtx; /*argument param.*/
 
     rtx *meltbp_rtxptr; /*result param.*/
-    /*ctype #11 CTYPE_TREE*/
+    /*ctype #12 CTYPE_TREE*/
     tree meltbp_tree; /*argument param.*/
 
     tree *meltbp_treeptr; /*result param.*/
-    /*ctype #12 CTYPE_VALUE*/
+    /*ctype #13 CTYPE_VALUE*/
     melt_ptr_t meltbp_vptr; /*argument param.*/
 
     melt_ptr_t *meltbp_aptr; /*result param.*/
-    /*ctype #13 CTYPE_VOID*/
+    /*ctype #14 CTYPE_VOID*/
     /* no argument */
 
     /*no result*/
@@ -2537,131 +2545,131 @@ static inline melt_ptr_t melt_auxput_maptrees (melt_ptr_t map_p, melt_ptr_t val_
 /** end of code generated by generate_runtypesupport_predef_fields **/
 
 
-/* declarations generated by generate_runtypesupport_predefined_hooks for 155 predefined */
+/* declarations generated by generate_runtypesupport_predefined_hooks for 158 predefined */
 
-/*predefined hook declaration HOOK_ALL_IPA_PASSES_END #108*/
+/*predefined hook declaration HOOK_ALL_IPA_PASSES_END #111*/
 MELT_EXTERN void melthookproc_HOOK_ALL_IPA_PASSES_END();
 
-/*predefined hook declaration HOOK_ALL_IPA_PASSES_START #109*/
+/*predefined hook declaration HOOK_ALL_IPA_PASSES_START #112*/
 MELT_EXTERN void melthookproc_HOOK_ALL_IPA_PASSES_START();
 
-/*predefined hook declaration HOOK_ALL_PASSES_END #110*/
+/*predefined hook declaration HOOK_ALL_PASSES_END #113*/
 MELT_EXTERN void melthookproc_HOOK_ALL_PASSES_END();
 
-/*predefined hook declaration HOOK_ALL_PASSES_START #111*/
+/*predefined hook declaration HOOK_ALL_PASSES_START #114*/
 MELT_EXTERN void melthookproc_HOOK_ALL_PASSES_START();
 
-/*predefined hook declaration HOOK_EARLY_GIMPLE_PASSES_END #112*/
+/*predefined hook declaration HOOK_EARLY_GIMPLE_PASSES_END #115*/
 MELT_EXTERN void melthookproc_HOOK_EARLY_GIMPLE_PASSES_END();
 
-/*predefined hook declaration HOOK_EARLY_GIMPLE_PASSES_START #113*/
+/*predefined hook declaration HOOK_EARLY_GIMPLE_PASSES_START #116*/
 MELT_EXTERN void melthookproc_HOOK_EARLY_GIMPLE_PASSES_START();
 
-/*predefined hook declaration HOOK_EXIT_FINALIZER #114*/
+/*predefined hook declaration HOOK_EXIT_FINALIZER #117*/
 MELT_EXTERN void melthookproc_HOOK_EXIT_FINALIZER();
 
-/*predefined hook declaration HOOK_FINISH_DECL #115*/
+/*predefined hook declaration HOOK_FINISH_DECL #118*/
 MELT_EXTERN void melthookproc_HOOK_FINISH_DECL(tree meltin_TFNDECL_p0);
 
-/*predefined hook declaration HOOK_FINISH_TYPE #116*/
+/*predefined hook declaration HOOK_FINISH_TYPE #119*/
 MELT_EXTERN void melthookproc_HOOK_FINISH_TYPE(tree meltin_TFNDECL_p0);
 
-/*predefined hook declaration HOOK_FINISH_UNIT #117*/
+/*predefined hook declaration HOOK_FINISH_UNIT #120*/
 MELT_EXTERN void melthookproc_HOOK_FINISH_UNIT();
 
-/*predefined hook declaration HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER #118*/
+/*predefined hook declaration HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER #121*/
 MELT_EXTERN melt_ptr_t melthookproc_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER(melt_ptr_t meltin_PREVENV_p0, const char* meltin_MODULNAME_p1);
 
-/*predefined hook declaration HOOK_GIMPLE_EXECUTE #119*/
+/*predefined hook declaration HOOK_GIMPLE_EXECUTE #122*/
 MELT_EXTERN long melthookproc_HOOK_GIMPLE_EXECUTE();
 
-/*predefined hook declaration HOOK_GIMPLE_GATE #120*/
+/*predefined hook declaration HOOK_GIMPLE_GATE #123*/
 MELT_EXTERN long melthookproc_HOOK_GIMPLE_GATE();
 
-/*predefined hook declaration HOOK_HANDLE_SIGALRM #121*/
+/*predefined hook declaration HOOK_HANDLE_SIGALRM #124*/
 MELT_EXTERN void melthookproc_HOOK_HANDLE_SIGALRM();
 
-/*predefined hook declaration HOOK_HANDLE_SIGCHLD #122*/
+/*predefined hook declaration HOOK_HANDLE_SIGCHLD #125*/
 MELT_EXTERN void melthookproc_HOOK_HANDLE_SIGCHLD();
 
-/*predefined hook declaration HOOK_HANDLE_SIGIO #123*/
+/*predefined hook declaration HOOK_HANDLE_SIGIO #126*/
 MELT_EXTERN void melthookproc_HOOK_HANDLE_SIGIO();
 
-/*predefined hook declaration HOOK_INTERN_KEYWORD #124*/
+/*predefined hook declaration HOOK_INTERN_KEYWORD #127*/
 MELT_EXTERN melt_ptr_t melthookproc_HOOK_INTERN_KEYWORD(melt_ptr_t meltin_KEYWV_p0);
 
-/*predefined hook declaration HOOK_INTERN_SYMBOL #125*/
+/*predefined hook declaration HOOK_INTERN_SYMBOL #128*/
 MELT_EXTERN melt_ptr_t melthookproc_HOOK_INTERN_SYMBOL(melt_ptr_t meltin_SYMBV_p0);
 
-/*predefined hook declaration HOOK_LOW_DEBUG_VALUE_AT #126*/
+/*predefined hook declaration HOOK_LOW_DEBUG_VALUE_AT #129*/
 MELT_EXTERN void melthookproc_HOOK_LOW_DEBUG_VALUE_AT(melt_ptr_t meltin_VAL_p0, const char* meltin_FILENAME_p1, long meltin_LINENO_p2, const char* meltin_MSG_p3, long meltin_COUNT_p4);
 
-/*predefined hook declaration HOOK_LOW_STDERR_VALUE_AT #127*/
+/*predefined hook declaration HOOK_LOW_STDERR_VALUE_AT #130*/
 MELT_EXTERN void melthookproc_HOOK_LOW_STDERR_VALUE_AT(melt_ptr_t meltin_VAL_p0, const char* meltin_FILENAME_p1, long meltin_LINENO_p2, const char* meltin_MSG_p3, long meltin_COUNT_p4);
 
-/*predefined hook declaration HOOK_MACRO_EXPORTER #128*/
+/*predefined hook declaration HOOK_MACRO_EXPORTER #131*/
 MELT_EXTERN void melthookproc_HOOK_MACRO_EXPORTER(melt_ptr_t meltin_SYM_p0, melt_ptr_t meltin_VAL_p1, melt_ptr_t meltin_CONTENV_p2);
 
-/*predefined hook declaration HOOK_MACRO_INSTALLER #129*/
+/*predefined hook declaration HOOK_MACRO_INSTALLER #132*/
 MELT_EXTERN void melthookproc_HOOK_MACRO_INSTALLER(melt_ptr_t meltin_MBIND_p0, melt_ptr_t meltin_MEXPCLOS_p1);
 
-/*predefined hook declaration HOOK_MELT_ATTRIBUTE_DEFINER #130*/
+/*predefined hook declaration HOOK_MELT_ATTRIBUTE_DEFINER #133*/
 MELT_EXTERN void melthookproc_HOOK_MELT_ATTRIBUTE_DEFINER(tree meltin_DECL_p0, tree meltin_NAME_p1, melt_ptr_t meltin_ATTRSEQ_p2, const char* meltin_FILELOC_p3, long meltin_LINENO_p4);
 
-/*predefined hook declaration HOOK_MELT_DO_INITIAL_MODE #131*/
+/*predefined hook declaration HOOK_MELT_DO_INITIAL_MODE #134*/
 MELT_EXTERN void melthookproc_HOOK_MELT_DO_INITIAL_MODE(melt_ptr_t meltin_MODATA_p0, const char* meltin_MODSTR_p1);
 
-/*predefined hook declaration HOOK_MELT_MAKE_LOCATION #132*/
+/*predefined hook declaration HOOK_MELT_MAKE_LOCATION #135*/
 MELT_EXTERN melt_ptr_t melthookproc_HOOK_MELT_MAKE_LOCATION(const char* meltin_FILENAME_p0, long meltin_LINENO_p1);
 
-/*predefined hook declaration HOOK_NAMED_KEYWORD #133*/
+/*predefined hook declaration HOOK_NAMED_KEYWORD #136*/
 MELT_EXTERN melt_ptr_t melthookproc_HOOK_NAMED_KEYWORD(const char* meltin_NAM_p0, long meltin_CREATE_p1);
 
-/*predefined hook declaration HOOK_NAMED_SYMBOL #134*/
+/*predefined hook declaration HOOK_NAMED_SYMBOL #137*/
 MELT_EXTERN melt_ptr_t melthookproc_HOOK_NAMED_SYMBOL(const char* meltin_NAM_p0, long meltin_CREATE_p1);
 
-/*predefined hook declaration HOOK_OVERRIDE_GATE #135*/
+/*predefined hook declaration HOOK_OVERRIDE_GATE #138*/
 MELT_EXTERN void melthookproc_HOOK_OVERRIDE_GATE(long meltin_BEFOREGATE_p0, long* meltout_AFTERGATE_o0);
 
-/*predefined hook declaration HOOK_PASS_EXECUTION #136*/
+/*predefined hook declaration HOOK_PASS_EXECUTION #139*/
 MELT_EXTERN void melthookproc_HOOK_PASS_EXECUTION(const char* meltin_PASSNAME_p0, long meltin_PASSNUM_p1, long meltin_TYPENUM_p2);
 
-/*predefined hook declaration HOOK_PATMACRO_EXPORTER #137*/
+/*predefined hook declaration HOOK_PATMACRO_EXPORTER #140*/
 MELT_EXTERN void melthookproc_HOOK_PATMACRO_EXPORTER(melt_ptr_t meltin_SYM_p0, melt_ptr_t meltin_MACVAL_p1, melt_ptr_t meltin_PATVAL_p2, melt_ptr_t meltin_CONTENV_p3);
 
-/*predefined hook declaration HOOK_POLL_INPUTS #138*/
+/*predefined hook declaration HOOK_POLL_INPUTS #141*/
 MELT_EXTERN void melthookproc_HOOK_POLL_INPUTS(long meltin_DELAYMS_p0);
 
-/*predefined hook declaration HOOK_PRE_GENERICIZE #139*/
+/*predefined hook declaration HOOK_PRE_GENERICIZE #142*/
 MELT_EXTERN void melthookproc_HOOK_PRE_GENERICIZE(tree meltin_TFNDECL_p0);
 
-/*predefined hook declaration HOOK_PROCESS_PRAGMA #140*/
+/*predefined hook declaration HOOK_PROCESS_PRAGMA #143*/
 MELT_EXTERN void melthookproc_HOOK_PROCESS_PRAGMA(long meltin_LIX_p0);
 
-/*predefined hook declaration HOOK_REGISTER_PRAGMAS #141*/
+/*predefined hook declaration HOOK_REGISTER_PRAGMAS #144*/
 MELT_EXTERN void melthookproc_HOOK_REGISTER_PRAGMAS();
 
-/*predefined hook declaration HOOK_RTL_EXECUTE #142*/
+/*predefined hook declaration HOOK_RTL_EXECUTE #145*/
 MELT_EXTERN long melthookproc_HOOK_RTL_EXECUTE();
 
-/*predefined hook declaration HOOK_RTL_GATE #143*/
+/*predefined hook declaration HOOK_RTL_GATE #146*/
 MELT_EXTERN long melthookproc_HOOK_RTL_GATE();
 
-/*predefined hook declaration HOOK_SIMPLE_IPA_EXECUTE #144*/
+/*predefined hook declaration HOOK_SIMPLE_IPA_EXECUTE #147*/
 MELT_EXTERN long melthookproc_HOOK_SIMPLE_IPA_EXECUTE();
 
-/*predefined hook declaration HOOK_SORT_COMPARE_LESS #145*/
+/*predefined hook declaration HOOK_SORT_COMPARE_LESS #148*/
 MELT_EXTERN long melthookproc_HOOK_SORT_COMPARE_LESS(melt_ptr_t meltin_LEFT_p0, melt_ptr_t meltin_RIGHT_p1, melt_ptr_t meltin_CMP_p2);
 
-/*predefined hook declaration HOOK_START_UNIT #146*/
+/*predefined hook declaration HOOK_START_UNIT #149*/
 MELT_EXTERN void melthookproc_HOOK_START_UNIT();
 
-/*predefined hook declaration HOOK_SYMBOL_IMPORTER #147*/
+/*predefined hook declaration HOOK_SYMBOL_IMPORTER #150*/
 MELT_EXTERN melt_ptr_t melthookproc_HOOK_SYMBOL_IMPORTER(const char* meltin_SYMNAMESTR_p0, const char* meltin_MODULENAMESTR_p1, melt_ptr_t meltin_PARENV_p2);
 
-/*predefined hook declaration HOOK_VALUE_EXPORTER #148*/
+/*predefined hook declaration HOOK_VALUE_EXPORTER #151*/
 MELT_EXTERN void melthookproc_HOOK_VALUE_EXPORTER(melt_ptr_t meltin_SYM_p0, melt_ptr_t meltin_VAL_p1, melt_ptr_t meltin_CONTENV_p2);
-/* end of declarations generated by generate_runtypesupport_predefined_hooks for 155 predefined */
+/* end of declarations generated by generate_runtypesupport_predefined_hooks for 158 predefined */
 
-/*** End of declaration file meltbuild-sources/generated/meltrunsup.h generated on 2014 Apr 23
- * by GCC MELT 4.9.0 20140408 (experimental) [melt-branch revision 209401] MELT_1.1-pre . ***/
+/*** End of declaration file meltbuild-sources/generated/meltrunsup.h generated on 2014 Jun 10
+ * by GCC MELT 4.9.0 20140408 (experimental) [melt-branch revision 211412] MELT_1.1-rc0plus . ***/
