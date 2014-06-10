@@ -1,6 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-fsanitize=signed-integer-overflow" } */
-/* { dg-skip-if "" { *-*-* } { "-flto" } { "" } } */
+/* { dg-options "-fsanitize=signed-integer-overflow -fno-sanitize-recover" } */
 
 #ifndef ASM1
 # define ASM1(a) /* Nothing */
@@ -258,6 +257,5 @@ main (void)
   CHECK (FN5 (unsigned long int), -77);
   CHECK (FN5 (long long int), -77);
   CHECK (FN5 (unsigned long long int), -77);
-
   return 0;
 }

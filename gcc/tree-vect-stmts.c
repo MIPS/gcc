@@ -55,6 +55,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-vectorizer.h"
 #include "dumpfile.h"
 #include "cgraph.h"
+#include "builtins.h"
 
 /* For lang_hooks.types.type_for_mode.  */
 #include "langhooks.h"
@@ -1091,10 +1092,11 @@ vect_model_load_cost (stmt_vec_info stmt_info, int ncopies,
      include the cost of the permutes.  */
   if (!load_lanes_p && group_size > 1)
     {
-      /* Uses an even and odd extract operations for each needed permute.  */
-      int nstmts = ncopies * exact_log2 (group_size) * group_size;
-      inside_cost += record_stmt_cost (body_cost_vec, nstmts, vec_perm,
-				       stmt_info, 0, vect_body);
+      /* Uses an even and odd extract operations or shuffle operations
+	 for each needed permute.  */
+      int nstmts = ncopies * ceil_log2 (group_size) * group_size;
+      inside_cost = record_stmt_cost (body_cost_vec, nstmts, vec_perm,
+				      stmt_info, 0, vect_body);
 
       if (dump_enabled_p ())
         dump_printf_loc (MSG_NOTE, vect_location,
@@ -2038,6 +2040,15 @@ vectorizable_mask_load_store (gimple stmt, gimple_stmt_iterator *gsi,
 	    STMT_VINFO_RELATED_STMT (prev_stmt_info) = new_stmt;
 	  prev_stmt_info = vinfo_for_stmt (new_stmt);
 	}
+
+      /* Ensure that even with -fno-tree-dce the scalar MASK_LOAD is removed
+	 from the IL.  */
+      tree lhs = gimple_call_lhs (stmt);
+      new_stmt = gimple_build_assign (lhs, build_zero_cst (TREE_TYPE (lhs)));
+      set_vinfo_for_stmt (new_stmt, stmt_info);
+      set_vinfo_for_stmt (stmt, NULL);
+      STMT_VINFO_STMT (stmt_info) = new_stmt;
+      gsi_replace (gsi, new_stmt, true);
       return true;
     }
   else if (is_store)
@@ -2147,6 +2158,18 @@ vectorizable_mask_load_store (gimple stmt, gimple_stmt_iterator *gsi,
 	    STMT_VINFO_RELATED_STMT (prev_stmt_info) = new_stmt;
 	  prev_stmt_info = vinfo_for_stmt (new_stmt);
 	}
+    }
+
+  if (!is_store)
+    {
+      /* Ensure that even with -fno-tree-dce the scalar MASK_LOAD is removed
+	 from the IL.  */
+      tree lhs = gimple_call_lhs (stmt);
+      new_stmt = gimple_build_assign (lhs, build_zero_cst (TREE_TYPE (lhs)));
+      set_vinfo_for_stmt (new_stmt, stmt_info);
+      set_vinfo_for_stmt (stmt, NULL);
+      STMT_VINFO_STMT (stmt_info) = new_stmt;
+      gsi_replace (gsi, new_stmt, true);
     }
 
   return true;
@@ -2971,11 +2994,10 @@ vectorizable_simd_clone_call (gimple stmt, gimple_stmt_iterator *gsi,
 		      ? POINTER_PLUS_EXPR : PLUS_EXPR;
 		  tree type = POINTER_TYPE_P (TREE_TYPE (op))
 			      ? sizetype : TREE_TYPE (op);
-		  double_int cst
-		    = double_int::from_shwi
-			(bestn->simdclone->args[i].linear_step);
-		  cst *= double_int::from_uhwi (ncopies * nunits);
-		  tree tcst = double_int_to_tree (type, cst);
+		  widest_int cst
+		    = wi::mul (bestn->simdclone->args[i].linear_step,
+			       ncopies * nunits);
+		  tree tcst = wide_int_to_tree (type, cst);
 		  tree phi_arg = copy_ssa_name (op, NULL);
 		  new_stmt = gimple_build_assign_with_ops (code, phi_arg,
 							   phi_res, tcst);
@@ -2996,11 +3018,10 @@ vectorizable_simd_clone_call (gimple stmt, gimple_stmt_iterator *gsi,
 		      ? POINTER_PLUS_EXPR : PLUS_EXPR;
 		  tree type = POINTER_TYPE_P (TREE_TYPE (op))
 			      ? sizetype : TREE_TYPE (op);
-		  double_int cst
-		    = double_int::from_shwi
-			(bestn->simdclone->args[i].linear_step);
-		  cst *= double_int::from_uhwi (j * nunits);
-		  tree tcst = double_int_to_tree (type, cst);
+		  widest_int cst
+		    = wi::mul (bestn->simdclone->args[i].linear_step,
+			       j * nunits);
+		  tree tcst = wide_int_to_tree (type, cst);
 		  new_temp = make_ssa_name (TREE_TYPE (op), NULL);
 		  new_stmt
 		    = gimple_build_assign_with_ops (code, new_temp,
@@ -7827,7 +7848,21 @@ supportable_widening_operation (enum tree_code code, gimple stmt,
 					     stmt, vectype_out, vectype_in,
 					     code1, code2, multi_step_cvt,
 					     interm_types))
-	return true;
+        {
+          /* Elements in a vector with vect_used_by_reduction property cannot
+             be reordered if the use chain with this property does not have the
+             same operation.  One such an example is s += a * b, where elements
+             in a and b cannot be reordered.  Here we check if the vector defined
+             by STMT is only directly used in the reduction statement.  */
+          tree lhs = gimple_assign_lhs (stmt);
+          use_operand_p dummy;
+          gimple use_stmt;
+          stmt_vec_info use_stmt_info = NULL;
+          if (single_imm_use (lhs, &dummy, &use_stmt)
+              && (use_stmt_info = vinfo_for_stmt (use_stmt))
+              && STMT_VINFO_DEF_TYPE (use_stmt_info) == vect_reduction_def)
+            return true;
+        }
       c1 = VEC_WIDEN_MULT_LO_EXPR;
       c2 = VEC_WIDEN_MULT_HI_EXPR;
       break;

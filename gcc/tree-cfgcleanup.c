@@ -586,9 +586,6 @@ fixup_noreturn_call (gimple stmt)
       update_stmt (stmt);
       changed = true;
     }
-  /* Similarly remove VDEF if there is any.  */
-  else if (gimple_vdef (stmt))
-    update_stmt (stmt);
   return changed;
 }
 
@@ -820,6 +817,12 @@ remove_forwarder_block_with_phi (basic_block bb)
       && DECL_NONLOCAL (gimple_label_label (label)))
     return false;
 
+  /* Record BB's single pred in case we need to update the father
+     loop's latch information later.  */
+  basic_block pred = NULL;
+  if (single_pred_p (bb))
+    pred = single_pred (bb);
+
   /* Redirect each incoming edge to BB to DEST.  */
   while (EDGE_COUNT (bb->preds) > 0)
     {
@@ -904,6 +907,11 @@ remove_forwarder_block_with_phi (basic_block bb)
 
   set_immediate_dominator (CDI_DOMINATORS, dest, dom);
 
+  /* Adjust latch infomation of BB's parent loop as otherwise
+     the cfg hook has a hard time not to kill the loop.  */
+  if (current_loops && bb->loop_father->latch == bb)
+    bb->loop_father->latch = pred;
+
   /* Remove BB since all of BB's incoming edges have been redirected
      to DEST.  */
   delete_basic_block (bb);
@@ -936,17 +944,46 @@ remove_forwarder_block_with_phi (basic_block bb)
 <L10>:;
 */
 
-static unsigned int
-merge_phi_nodes (void)
+namespace {
+
+const pass_data pass_data_merge_phi =
 {
-  basic_block *worklist = XNEWVEC (basic_block, n_basic_blocks_for_fn (cfun));
+  GIMPLE_PASS, /* type */
+  "mergephi", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_execute */
+  TV_TREE_MERGE_PHI, /* tv_id */
+  ( PROP_cfg | PROP_ssa ), /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
+};
+
+class pass_merge_phi : public gimple_opt_pass
+{
+public:
+  pass_merge_phi (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_merge_phi, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  opt_pass * clone () { return new pass_merge_phi (m_ctxt); }
+  virtual unsigned int execute (function *);
+
+}; // class pass_merge_phi
+
+unsigned int
+pass_merge_phi::execute (function *fun)
+{
+  basic_block *worklist = XNEWVEC (basic_block, n_basic_blocks_for_fn (fun));
   basic_block *current = worklist;
   basic_block bb;
 
   calculate_dominance_info (CDI_DOMINATORS);
 
   /* Find all PHI nodes that we may be able to merge.  */
-  FOR_EACH_BB_FN (bb, cfun)
+  FOR_EACH_BB_FN (bb, fun)
     {
       basic_block dest;
 
@@ -1027,43 +1064,6 @@ merge_phi_nodes (void)
   return 0;
 }
 
-static bool
-gate_merge_phi (void)
-{
-  return 1;
-}
-
-namespace {
-
-const pass_data pass_data_merge_phi =
-{
-  GIMPLE_PASS, /* type */
-  "mergephi", /* name */
-  OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
-  true, /* has_execute */
-  TV_TREE_MERGE_PHI, /* tv_id */
-  ( PROP_cfg | PROP_ssa ), /* properties_required */
-  0, /* properties_provided */
-  0, /* properties_destroyed */
-  0, /* todo_flags_start */
-  TODO_verify_ssa, /* todo_flags_finish */
-};
-
-class pass_merge_phi : public gimple_opt_pass
-{
-public:
-  pass_merge_phi (gcc::context *ctxt)
-    : gimple_opt_pass (pass_data_merge_phi, ctxt)
-  {}
-
-  /* opt_pass methods: */
-  opt_pass * clone () { return new pass_merge_phi (m_ctxt); }
-  bool gate () { return gate_merge_phi (); }
-  unsigned int execute () { return merge_phi_nodes (); }
-
-}; // class pass_merge_phi
-
 } // anon namespace
 
 gimple_opt_pass *
@@ -1125,7 +1125,6 @@ const pass_data pass_data_cleanup_cfg_post_optimizing =
   GIMPLE_PASS, /* type */
   "optimized", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  false, /* has_gate */
   true, /* has_execute */
   TV_TREE_CLEANUP_CFG, /* tv_id */
   PROP_cfg, /* properties_required */
@@ -1143,9 +1142,10 @@ public:
   {}
 
   /* opt_pass methods: */
-  unsigned int execute () {
-    return execute_cleanup_cfg_post_optimizing ();
-  }
+  virtual unsigned int execute (function *)
+    {
+      return execute_cleanup_cfg_post_optimizing ();
+    }
 
 }; // class pass_cleanup_cfg_post_optimizing
 

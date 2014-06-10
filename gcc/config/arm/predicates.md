@@ -153,6 +153,14 @@
   (ior (match_operand 0 "arm_rhs_operand")
        (match_operand 0 "memory_operand")))
 
+(define_predicate "const_int_I_operand"
+  (and (match_operand 0 "const_int_operand")
+       (match_test "satisfies_constraint_I (op)")))
+
+(define_predicate "const_int_M_operand"
+  (and (match_operand 0 "const_int_operand")
+       (match_test "satisfies_constraint_M (op)")))
+
 ;; This doesn't have to do much because the constant is already checked
 ;; in the shift_operator predicate.
 (define_predicate "shift_amount_operand"
@@ -278,6 +286,15 @@
 		 (and (match_code "rotate")
 		      (match_test "CONST_INT_P (XEXP (op, 1))
 				   && ((unsigned HOST_WIDE_INT) INTVAL (XEXP (op, 1))) < 32")))
+	    (and (match_code "ashift,ashiftrt,lshiftrt,rotatert")
+		 (match_test "!CONST_INT_P (XEXP (op, 1))
+			      || ((unsigned HOST_WIDE_INT) INTVAL (XEXP (op, 1))) < 32")))
+       (match_test "mode == GET_MODE (op)")))
+
+(define_special_predicate "shift_nomul_operator"
+  (and (ior (and (match_code "rotate")
+		 (match_test "CONST_INT_P (XEXP (op, 1))
+			      && ((unsigned HOST_WIDE_INT) INTVAL (XEXP (op, 1))) < 32"))
 	    (and (match_code "ashift,ashiftrt,lshiftrt,rotatert")
 		 (match_test "!CONST_INT_P (XEXP (op, 1))
 			      || ((unsigned HOST_WIDE_INT) INTVAL (XEXP (op, 1))) < 32")))
@@ -673,5 +690,6 @@
        (match_code "reg" "0")))
 
 (define_predicate "call_insn_operand"
-  (ior (match_code "symbol_ref")
+  (ior (and (match_code "symbol_ref")
+	    (match_test "!arm_is_long_call_p (SYMBOL_REF_DECL (op))"))
        (match_operand 0 "s_register_operand")))

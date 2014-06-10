@@ -410,6 +410,8 @@ enum tree_index {
   TI_UINT32_TYPE,
   TI_UINT64_TYPE,
 
+  TI_VOID,
+
   TI_INTEGER_ZERO,
   TI_INTEGER_ONE,
   TI_INTEGER_THREE,
@@ -657,7 +659,10 @@ enum tree_node_kind {
 };
 
 enum annot_expr_kind {
-  annot_expr_ivdep_kind
+  annot_expr_ivdep_kind,
+  annot_expr_no_vector_kind,
+  annot_expr_vector_kind,
+  annot_expr_kind_last
 };
 
 
@@ -755,11 +760,31 @@ struct GTY(()) tree_base {
 	 of the field must be large enough to hold addr_space_t values.  */
       unsigned address_space : 8;
     } bits;
+
     /* The following fields are present in tree_base to save space.  The
        nodes using them do not require any of the flags above and so can
        make better use of the 4-byte sized word.  */
+
+    /* The number of HOST_WIDE_INTs in an INTEGER_CST.  */
+    struct {
+      /* The number of HOST_WIDE_INTs if the INTEGER_CST is accessed in
+	 its native precision.  */
+      unsigned char unextended;
+
+      /* The number of HOST_WIDE_INTs if the INTEGER_CST is extended to
+	 wider precisions based on its TYPE_SIGN.  */
+      unsigned char extended;
+
+      /* The number of HOST_WIDE_INTs if the INTEGER_CST is accessed in
+	 offset_int precision, with smaller integers being extended
+	 according to their TYPE_SIGN.  This is equal to one of the two
+	 fields above but is cached for speed.  */
+      unsigned char offset;
+    } int_length;
+
     /* VEC length.  This field is only used with TREE_VEC.  */
     int length;
+
     /* SSA version number.  This field is only used with SSA_NAME.  */
     unsigned int version;
   } GTY((skip(""))) u;
@@ -987,6 +1012,9 @@ struct GTY(()) tree_base {
        SSA_NAME_IN_FREELIST in
           SSA_NAME
 
+       VAR_DECL_NONALIASED in
+	  VAR_DECL
+
    deprecated_flag:
 
        TREE_DEPRECATED in
@@ -1045,7 +1073,7 @@ struct GTY(()) tree_common {
 
 struct GTY(()) tree_int_cst {
   struct tree_typed typed;
-  double_int int_cst;
+  HOST_WIDE_INT val[1];
 };
 
 
@@ -1265,11 +1293,11 @@ struct GTY(()) tree_type_common {
     const char * GTY ((tag ("TYPE_SYMTAB_IS_POINTER"))) pointer;
     struct die_struct * GTY ((tag ("TYPE_SYMTAB_IS_DIE"))) die;
   } GTY ((desc ("debug_hooks->tree_type_symtab_field"))) symtab;
-  tree name;
+  tree canonical;
   tree next_variant;
   tree main_variant;
   tree context;
-  tree canonical;
+  tree name;
 };
 
 struct GTY(()) tree_type_with_lang_specific {
@@ -1413,8 +1441,7 @@ struct GTY(()) tree_parm_decl {
 struct GTY(()) tree_decl_with_vis {
  struct tree_decl_with_rtl common;
  tree assembler_name;
- tree section_name;
- tree comdat_group;
+ struct symtab_node *symtab_node;
 
  /* Belong to VAR_DECL exclusively.  */
  unsigned defer_output : 1;

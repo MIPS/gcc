@@ -10,7 +10,7 @@
 #include "avx512f-mask-type.h"
 #include "string.h"
 
-void
+static void
 CALC (int *e, UNION_TYPE (AVX512F_LEN, i_d) s1,
       UNION_TYPE (AVX512F_LEN, i_d) s2, int imm)
 {
@@ -31,7 +31,7 @@ CALC (int *e, UNION_TYPE (AVX512F_LEN, i_d) s1,
     }
 }
 
-void static
+void
 TEST (void)
 {
   UNION_TYPE (AVX512F_LEN, i_d) u1, u2, u3, s1, s2;
@@ -43,7 +43,7 @@ TEST (void)
   for (i = 0; i < SIZE; i++)
     {
       s1.a[i] = 1.2 / (i + 0.378);
-      s1.a[i] = 91.02 / (i + 4.3578);
+      s2.a[i] = 91.02 / (i + 4.3578);
       u1.a[i] = DEFAULT_VALUE;
       u2.a[i] = DEFAULT_VALUE;
       u3.a[i] = DEFAULT_VALUE;

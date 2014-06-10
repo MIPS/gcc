@@ -49,6 +49,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "is-a.h"
 #include "gimple.h"
 #include "lto-streamer.h"
+#include "lto-section-names.h"
+#include "builtins.h"
 
 /* i386/PE specific attribute support.
 
@@ -436,7 +438,7 @@ i386_pe_unique_section (tree decl, int reloc)
   string = XALLOCAVEC (char, len + 1);
   sprintf (string, "%s%s", prefix, name);
 
-  DECL_SECTION_NAME (decl) = build_string (len, string);
+  set_decl_section_name (decl, build_string (len, string));
 }
 
 /* Local and global relocs can be placed always into readonly memory for
@@ -649,7 +651,7 @@ i386_pe_record_external_function (tree decl, const char *name)
 {
   struct extern_list *p;
 
-  p = ggc_alloc_extern_list ();
+  p = ggc_alloc<extern_list> ();
   p->next = extern_head;
   p->decl = decl;
   p->name = name;
@@ -700,7 +702,7 @@ i386_pe_maybe_record_exported_symbol (tree decl, const char *name, int is_data)
 
   gcc_assert (TREE_PUBLIC (decl));
 
-  p = ggc_alloc_export_list ();
+  p = ggc_alloc<export_list> ();
   p->next = export_head;
   p->name = name;
   p->is_data = is_data;
@@ -724,7 +726,7 @@ i386_pe_record_stub (const char *name)
       p = p->next;
     }
 
-  p = ggc_alloc_stub_list ();
+  p = ggc_alloc<stub_list> ();
   p->next = stub_head;
   p->name = name;
   stub_head = p;

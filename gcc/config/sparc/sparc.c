@@ -69,6 +69,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "opts.h"
 #include "tree-pass.h"
 #include "context.h"
+#include "wide-int.h"
+#include "builtins.h"
 
 /* Processor costs */
 
@@ -871,13 +873,6 @@ mem_ref (rtx x)
    pass runs as late as possible.  The pass is inserted in the pass pipeline
    at the end of sparc_option_override.  */
 
-static bool
-sparc_gate_work_around_errata (void)
-{
-  /* The only errata we handle are those of the AT697F and UT699.  */
-  return sparc_fix_at697f != 0 || sparc_fix_ut699 != 0;
-}
-
 static unsigned int
 sparc_do_work_around_errata (void)
 {
@@ -907,15 +902,15 @@ sparc_do_work_around_errata (void)
 	  && REGNO (SET_DEST (set)) % 2 != 0)
 	{
 	  /* The wrong dependency is on the enclosing double register.  */
-	  unsigned int x = REGNO (SET_DEST (set)) - 1;
+	  const unsigned int x = REGNO (SET_DEST (set)) - 1;
 	  unsigned int src1, src2, dest;
 	  int code;
 
-	  /* If the insn has a delay slot, then it cannot be problematic.  */
 	  next = next_active_insn (insn);
 	  if (!next)
 	    break;
-	  if (NONJUMP_INSN_P (next) && GET_CODE (PATTERN (next)) == SEQUENCE)
+	  /* If the insn is a branch, then it cannot be problematic.  */
+	  if (!NONJUMP_INSN_P (next) || GET_CODE (PATTERN (next)) == SEQUENCE)
 	    continue;
 
 	  extract_insn (next);
@@ -979,11 +974,11 @@ sparc_do_work_around_errata (void)
 	     dependency on the first single-cycle load.  */
 	  rtx x = SET_DEST (set);
 
-	  /* If the insn has a delay slot, then it cannot be problematic.  */
 	  next = next_active_insn (insn);
 	  if (!next)
 	    break;
-	  if (NONJUMP_INSN_P (next) && GET_CODE (PATTERN (next)) == SEQUENCE)
+	  /* If the insn is a branch, then it cannot be problematic.  */
+	  if (!NONJUMP_INSN_P (next) || GET_CODE (PATTERN (next)) == SEQUENCE)
 	    continue;
 
 	  /* Look for a second memory access to/from an integer register.  */
@@ -1001,14 +996,114 @@ sparc_do_work_around_errata (void)
 		insert_nop = true;
 
 	      /* STD is *not* affected.  */
-	      else if ((mem = mem_ref (dest)) != NULL_RTX
-		       && GET_MODE_SIZE (GET_MODE (mem)) <= 4
-		       && (src == const0_rtx
+	      else if (MEM_P (dest)
+		       && GET_MODE_SIZE (GET_MODE (dest)) <= 4
+		       && (src == CONST0_RTX (GET_MODE (dest))
 			   || (REG_P (src)
 			       && REGNO (src) < 32
 			       && REGNO (src) != REGNO (x)))
-		       && !reg_mentioned_p (x, XEXP (mem, 0)))
+		       && !reg_mentioned_p (x, XEXP (dest, 0)))
 		insert_nop = true;
+	    }
+	}
+
+      /* Look for a single-word load/operation into an FP register.  */
+      else if (sparc_fix_ut699
+	       && NONJUMP_INSN_P (insn)
+	       && (set = single_set (insn)) != NULL_RTX
+	       && GET_MODE_SIZE (GET_MODE (SET_SRC (set))) == 4
+	       && REG_P (SET_DEST (set))
+	       && REGNO (SET_DEST (set)) > 31)
+	{
+	  /* Number of instructions in the problematic window.  */
+	  const int n_insns = 4;
+	  /* The problematic combination is with the sibling FP register.  */
+	  const unsigned int x = REGNO (SET_DEST (set));
+	  const unsigned int y = x ^ 1;
+	  rtx after;
+	  int i;
+
+	  next = next_active_insn (insn);
+	  if (!next)
+	    break;
+	  /* If the insn is a branch, then it cannot be problematic.  */
+	  if (!NONJUMP_INSN_P (next) || GET_CODE (PATTERN (next)) == SEQUENCE)
+	    continue;
+
+	  /* Look for a second load/operation into the sibling FP register.  */
+	  if (!((set = single_set (next)) != NULL_RTX
+		&& GET_MODE_SIZE (GET_MODE (SET_SRC (set))) == 4
+		&& REG_P (SET_DEST (set))
+		&& REGNO (SET_DEST (set)) == y))
+	    continue;
+
+	  /* Look for a (possible) store from the FP register in the next N
+	     instructions, but bail out if it is again modified or if there
+	     is a store from the sibling FP register before this store.  */
+	  for (after = next, i = 0; i < n_insns; i++)
+	    {
+	      bool branch_p;
+
+	      after = next_active_insn (after);
+	      if (!after)
+		break;
+
+	      /* This is a branch with an empty delay slot.  */
+	      if (!NONJUMP_INSN_P (after))
+		{
+		  if (++i == n_insns)
+		    break;
+		  branch_p = true;
+		  after = NULL_RTX;
+		}
+	      /* This is a branch with a filled delay slot.  */
+	      else if (GET_CODE (PATTERN (after)) == SEQUENCE)
+		{
+		  if (++i == n_insns)
+		    break;
+		  branch_p = true;
+		  after = XVECEXP (PATTERN (after), 0, 1);
+		}
+	      /* This is a regular instruction.  */
+	      else
+		branch_p = false;
+
+	      if (after && (set = single_set (after)) != NULL_RTX)
+		{
+		  const rtx src = SET_SRC (set);
+		  const rtx dest = SET_DEST (set);
+		  const unsigned int size = GET_MODE_SIZE (GET_MODE (dest));
+
+		  /* If the FP register is again modified before the store,
+		     then the store isn't affected.  */
+		  if (REG_P (dest)
+		      && (REGNO (dest) == x
+			  || (REGNO (dest) == y && size == 8)))
+		    break;
+
+		  if (MEM_P (dest) && REG_P (src))
+		    {
+		      /* If there is a store from the sibling FP register
+			 before the store, then the store is not affected.  */
+		      if (REGNO (src) == y || (REGNO (src) == x && size == 8))
+			break;
+
+		      /* Otherwise, the store is affected.  */
+		      if (REGNO (src) == x && size == 4)
+			{
+			  insert_nop = true;
+			  break;
+			}
+		    }
+		}
+
+	      /* If we have a branch in the first M instructions, then we
+		 cannot see the (M+2)th instruction so we play safe.  */
+	      if (branch_p && i <= (n_insns - 2))
+		{
+		  insert_nop = true;
+		  break;
+		}
 	    }
 	}
 
@@ -1029,14 +1124,13 @@ const pass_data pass_data_work_around_errata =
   RTL_PASS, /* type */
   "errata", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
   true, /* has_execute */
   TV_MACH_DEP, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  TODO_verify_rtl_sharing, /* todo_flags_finish */
+  0, /* todo_flags_finish */
 };
 
 class pass_work_around_errata : public rtl_opt_pass
@@ -1047,8 +1141,16 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return sparc_gate_work_around_errata (); }
-  unsigned int execute () { return sparc_do_work_around_errata (); }
+  virtual bool gate (function *)
+    {
+      /* The only errata we handle are those of the AT697F and UT699.  */
+      return sparc_fix_at697f != 0 || sparc_fix_ut699 != 0;
+    }
+
+  virtual unsigned int execute (function *)
+    {
+      return sparc_do_work_around_errata ();
+    }
 
 }; // class pass_work_around_errata
 
@@ -3381,9 +3483,12 @@ emit_cbcond_nop (rtx insn)
 /* Return nonzero if TRIAL can go into the call delay slot.  */
 
 int
-tls_call_delay (rtx trial)
+eligible_for_call_delay (rtx trial)
 {
   rtx pat;
+
+  if (get_attr_in_branch_delay (trial) == IN_BRANCH_DELAY_FALSE)
+    return 0;
 
   /* Binutils allows
        call __tls_get_addr, %tgd_call (foo)
@@ -3466,11 +3571,7 @@ eligible_for_restore_insn (rtx trial, bool return_p)
 
   /* If we have the 'return' instruction, anything that does not use
      local or output registers and can go into a delay slot wins.  */
-  else if (return_p
-	   && TARGET_V9
-	   && !epilogue_renumber (&pat, 1)
-	   && get_attr_in_uncond_branch_delay (trial)
-	       == IN_UNCOND_BRANCH_DELAY_TRUE)
+  else if (return_p && TARGET_V9 && !epilogue_renumber (&pat, 1))
     return 1;
 
   /* The 'restore src1,src2,dest' pattern for SImode.  */
@@ -3513,21 +3614,20 @@ eligible_for_return_delay (rtx trial)
   int regno;
   rtx pat;
 
-  if (! NONJUMP_INSN_P (trial))
-    return 0;
-
-  if (get_attr_length (trial) != 1)
-    return 0;
-
   /* If the function uses __builtin_eh_return, the eh_return machinery
      occupies the delay slot.  */
   if (crtl->calls_eh_return)
     return 0;
 
+  if (get_attr_in_branch_delay (trial) == IN_BRANCH_DELAY_FALSE)
+    return 0;
+
   /* In the case of a leaf or flat function, anything can go into the slot.  */
   if (sparc_leaf_function_p || TARGET_FLAT)
-    return
-      get_attr_in_uncond_branch_delay (trial) == IN_UNCOND_BRANCH_DELAY_TRUE;
+    return 1;
+
+  if (!NONJUMP_INSN_P (trial))
+    return 0;
 
   pat = PATTERN (trial);
   if (GET_CODE (pat) == PARALLEL)
@@ -3547,9 +3647,7 @@ eligible_for_return_delay (rtx trial)
 	  if (regno >= 8 && regno < 24)
 	    return 0;
 	}
-      return !epilogue_renumber (&pat, 1)
-	&& (get_attr_in_uncond_branch_delay (trial)
-	    == IN_UNCOND_BRANCH_DELAY_TRUE);
+      return !epilogue_renumber (&pat, 1);
     }
 
   if (GET_CODE (pat) != SET)
@@ -3569,10 +3667,7 @@ eligible_for_return_delay (rtx trial)
      instruction, it can probably go in.  But restore will not work
      with FP_REGS.  */
   if (! SPARC_INT_REG_P (regno))
-    return (TARGET_V9
-	    && !epilogue_renumber (&pat, 1)
-	    && get_attr_in_uncond_branch_delay (trial)
-	       == IN_UNCOND_BRANCH_DELAY_TRUE);
+    return TARGET_V9 && !epilogue_renumber (&pat, 1);
 
   return eligible_for_restore_insn (trial, true);
 }
@@ -3584,10 +3679,10 @@ eligible_for_sibcall_delay (rtx trial)
 {
   rtx pat;
 
-  if (! NONJUMP_INSN_P (trial) || GET_CODE (PATTERN (trial)) != SET)
+  if (get_attr_in_branch_delay (trial) == IN_BRANCH_DELAY_FALSE)
     return 0;
 
-  if (get_attr_length (trial) != 1)
+  if (!NONJUMP_INSN_P (trial))
     return 0;
 
   pat = PATTERN (trial);
@@ -3605,6 +3700,9 @@ eligible_for_sibcall_delay (rtx trial)
 
       return 1;
     }
+
+  if (GET_CODE (pat) != SET)
+    return 0;
 
   /* Otherwise, only operations which can be done in tandem with
      a `restore' insn can go into the delay slot.  */
@@ -4725,47 +4823,50 @@ sparc_init_modes (void)
 
   for (i = 0; i < NUM_MACHINE_MODES; i++)
     {
-      switch (GET_MODE_CLASS (i))
+      enum machine_mode m = (enum machine_mode) i;
+      unsigned int size = GET_MODE_SIZE (m);
+
+      switch (GET_MODE_CLASS (m))
 	{
 	case MODE_INT:
 	case MODE_PARTIAL_INT:
 	case MODE_COMPLEX_INT:
-	  if (GET_MODE_SIZE (i) < 4)
+	  if (size < 4)
 	    sparc_mode_class[i] = 1 << (int) H_MODE;
-	  else if (GET_MODE_SIZE (i) == 4)
+	  else if (size == 4)
 	    sparc_mode_class[i] = 1 << (int) S_MODE;
-	  else if (GET_MODE_SIZE (i) == 8)
+	  else if (size == 8)
 	    sparc_mode_class[i] = 1 << (int) D_MODE;
-	  else if (GET_MODE_SIZE (i) == 16)
+	  else if (size == 16)
 	    sparc_mode_class[i] = 1 << (int) T_MODE;
-	  else if (GET_MODE_SIZE (i) == 32)
+	  else if (size == 32)
 	    sparc_mode_class[i] = 1 << (int) O_MODE;
 	  else
 	    sparc_mode_class[i] = 0;
 	  break;
 	case MODE_VECTOR_INT:
-	  if (GET_MODE_SIZE (i) == 4)
+	  if (size == 4)
 	    sparc_mode_class[i] = 1 << (int) SF_MODE;
-	  else if (GET_MODE_SIZE (i) == 8)
+	  else if (size == 8)
 	    sparc_mode_class[i] = 1 << (int) DF_MODE;
 	  else
 	    sparc_mode_class[i] = 0;
 	  break;
 	case MODE_FLOAT:
 	case MODE_COMPLEX_FLOAT:
-	  if (GET_MODE_SIZE (i) == 4)
+	  if (size == 4)
 	    sparc_mode_class[i] = 1 << (int) SF_MODE;
-	  else if (GET_MODE_SIZE (i) == 8)
+	  else if (size == 8)
 	    sparc_mode_class[i] = 1 << (int) DF_MODE;
-	  else if (GET_MODE_SIZE (i) == 16)
+	  else if (size == 16)
 	    sparc_mode_class[i] = 1 << (int) TF_MODE;
-	  else if (GET_MODE_SIZE (i) == 32)
+	  else if (size == 32)
 	    sparc_mode_class[i] = 1 << (int) OF_MODE;
 	  else
 	    sparc_mode_class[i] = 0;
 	  break;
 	case MODE_CC:
-	  if (i == (int) CCFPmode || i == (int) CCFPEmode)
+	  if (m == CCFPmode || m == CCFPEmode)
 	    sparc_mode_class[i] = 1 << (int) CCFP_MODE;
 	  else
 	    sparc_mode_class[i] = 1 << (int) CC_MODE;
@@ -8443,22 +8544,6 @@ sparc_split_regreg_legitimate (rtx reg1, rtx reg2)
   return 0;
 }
 
-/* Return 1 if x and y are some kind of REG and they refer to
-   different hard registers.  This test is guaranteed to be
-   run after reload.  */
-
-int
-sparc_absnegfloat_split_legitimate (rtx x, rtx y)
-{
-  if (GET_CODE (x) != REG)
-    return 0;
-  if (GET_CODE (y) != REG)
-    return 0;
-  if (REGNO (x) == REGNO (y))
-    return 0;
-  return 1;
-}
-
 /* Return 1 if REGNO (reg1) is even and REGNO (reg1) == REGNO (reg2) - 1.
    This makes them candidates for using ldd and std insns.
 
@@ -10831,30 +10916,30 @@ sparc_fold_builtin (tree fndecl, int n_args ATTRIBUTE_UNUSED,
 	  && TREE_CODE (arg2) == INTEGER_CST)
 	{
 	  bool overflow = false;
-	  double_int result = TREE_INT_CST (arg2);
-	  double_int tmp;
+	  widest_int result = wi::to_widest (arg2);
+	  widest_int tmp;
 	  unsigned i;
 
 	  for (i = 0; i < VECTOR_CST_NELTS (arg0); ++i)
 	    {
-	      double_int e0 = TREE_INT_CST (VECTOR_CST_ELT (arg0, i));
-	      double_int e1 = TREE_INT_CST (VECTOR_CST_ELT (arg1, i));
+	      tree e0 = VECTOR_CST_ELT (arg0, i);
+	      tree e1 = VECTOR_CST_ELT (arg1, i);
 
 	      bool neg1_ovf, neg2_ovf, add1_ovf, add2_ovf;
 
-	      tmp = e1.neg_with_overflow (&neg1_ovf);
-	      tmp = e0.add_with_sign (tmp, false, &add1_ovf);
-	      if (tmp.is_negative ())
-		tmp = tmp.neg_with_overflow (&neg2_ovf);
+	      tmp = wi::neg (wi::to_widest (e1), &neg1_ovf);
+	      tmp = wi::add (wi::to_widest (e0), tmp, SIGNED, &add1_ovf);
+	      if (wi::neg_p (tmp))
+		tmp = wi::neg (tmp, &neg2_ovf);
 	      else
 		neg2_ovf = false;
-	      result = result.add_with_sign (tmp, false, &add2_ovf);
+	      result = wi::add (result, tmp, SIGNED, &add2_ovf);
 	      overflow |= neg1_ovf | neg2_ovf | add1_ovf | add2_ovf;
 	    }
 
 	  gcc_assert (!overflow);
 
-	  return build_int_cst_wide (rtype, result.low, result.high);
+	  return wide_int_to_tree (rtype, result);
 	}
 
     default:
@@ -11394,7 +11479,7 @@ sparc_can_output_mi_thunk (const_tree thunk_fndecl ATTRIBUTE_UNUSED,
 static struct machine_function *
 sparc_init_machine_status (void)
 {
-  return ggc_alloc_cleared_machine_function ();
+  return ggc_cleared_alloc<machine_function> ();
 }
 
 /* Locate some local-dynamic symbol still in use by this function

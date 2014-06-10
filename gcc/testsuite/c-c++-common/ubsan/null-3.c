@@ -1,7 +1,6 @@
 /* { dg-do run } */
 /* { dg-options "-fsanitize=null -w" } */
 /* { dg-shouldfail "ubsan" } */
-/* { dg-skip-if "" { *-*-* } { "-flto" } { "" } } */
 
 int
 foo (int *p)
@@ -16,4 +15,4 @@ main (void)
   return foo (*p);
 }
 
-/* { dg-output "load of null pointer of type 'int \\*'(\n|\r\n|\r)" } */
+/* { dg-output "load of null pointer of type 'int \\*'\[^\n\r]*(\n|\r\n|\r)" } */

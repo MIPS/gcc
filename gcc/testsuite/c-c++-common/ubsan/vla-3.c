@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-fsanitize=vla-bound" } */
+/* { dg-options "-fsanitize=vla-bound -fno-sanitize-recover" } */
 
 /* Don't instrument the arrays here.  */
 int
@@ -12,5 +12,6 @@ int
 main (void)
 {
   int a[6] = { };
-  return foo (3, a);
+  int ret = foo (3, a);
+  return ret;
 }

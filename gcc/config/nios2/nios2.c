@@ -81,8 +81,10 @@ struct GTY (()) machine_function
   int args_size;
   /* Number of bytes needed to store registers in frame.  */
   int save_reg_size;
-   /* Offset from new stack pointer to store registers.  */
+  /* Offset from new stack pointer to store registers.  */
   int save_regs_offset;
+  /* Offset from save_regs_offset to store frame pointer register.  */
+  int fp_save_offset;
   /* != 0 if frame layout already calculated.  */
   int initialized;
 };
@@ -190,6 +192,7 @@ struct nios2_fpu_insn_info
 #define N2F_DFREQ         0x2
 #define N2F_UNSAFE        0x4
 #define N2F_FINITE        0x8
+#define N2F_NO_ERRNO      0x10
   unsigned int flags;
   enum insn_code icode;
   enum nios2_ftcode ftcode;
@@ -272,6 +275,7 @@ struct nios2_fpu_insn_info nios2_fpu_insn[] =
     N2FPU_INSN_DEF_BASE (floatus,  2, 0, floatunssisf2, (SF, UI)),
     N2FPU_INSN_DEF_BASE (floatid,  2, 0, floatsidf2,    (DF, SI)),
     N2FPU_INSN_DEF_BASE (floatud,  2, 0, floatunssidf2, (DF, UI)),
+    N2FPU_INSN_DEF_BASE (round,    2, N2F_NO_ERRNO, lroundsfsi2,   (SI, SF)),
     N2FPU_INSN_DEF_BASE (fixsi,    2, 0, fix_truncsfsi2,      (SI, SF)),
     N2FPU_INSN_DEF_BASE (fixsu,    2, 0, fixuns_truncsfsi2,   (UI, SF)),
     N2FPU_INSN_DEF_BASE (fixdi,    2, 0, fix_truncdfsi2,      (SI, DF)),
@@ -296,6 +300,7 @@ struct nios2_fpu_insn_info nios2_fpu_insn[] =
 #define N2FPU_FTCODE(code) (N2FPU(code).ftcode)
 #define N2FPU_FINITE_P(code) (N2FPU(code).flags & N2F_FINITE)
 #define N2FPU_UNSAFE_P(code) (N2FPU(code).flags & N2F_UNSAFE)
+#define N2FPU_NO_ERRNO_P(code) (N2FPU(code).flags & N2F_NO_ERRNO)
 #define N2FPU_DOUBLE_P(code) (N2FPU(code).flags & N2F_DF)
 #define N2FPU_DOUBLE_REQUIRED_P(code) (N2FPU(code).flags & N2F_DFREQ)
 
@@ -390,6 +395,17 @@ nios2_compute_frame_layout (void)
 	  }
     }
 
+  cfun->machine->fp_save_offset = 0;
+  if (save_mask & (1 << HARD_FRAME_POINTER_REGNUM))
+    {
+      int fp_save_offset = 0;
+      for (regno = 0; regno < HARD_FRAME_POINTER_REGNUM; regno++)
+	if (save_mask & (1 << regno))
+	  fp_save_offset += 4;
+
+      cfun->machine->fp_save_offset = fp_save_offset;
+    }
+
   save_reg_size = NIOS2_STACK_ALIGN (save_reg_size);
   total_size += save_reg_size;
   total_size += NIOS2_STACK_ALIGN (crtl->args.pretend_args_size);
@@ -450,8 +466,8 @@ nios2_expand_prologue (void)
 {
   unsigned int regno;
   int total_frame_size, save_offset;
-  int sp_offset; /* offset from base_reg to final stack value.  */
-  int fp_offset; /* offset from base_reg to final fp value.  */
+  int sp_offset;      /* offset from base_reg to final stack value.  */
+  int save_regs_base; /* offset from base_reg to register save area.  */
   rtx insn;
 
   total_frame_size = nios2_compute_frame_layout ();
@@ -468,8 +484,7 @@ nios2_expand_prologue (void)
 			gen_int_mode (cfun->machine->save_regs_offset
 				      - total_frame_size, Pmode)));
       RTX_FRAME_RELATED_P (insn) = 1;
-
-      fp_offset = 0;
+      save_regs_base = 0;
       sp_offset = -cfun->machine->save_regs_offset;
     }
   else if (total_frame_size)
@@ -478,16 +493,16 @@ nios2_expand_prologue (void)
 				       gen_int_mode (-total_frame_size,
 						     Pmode)));
       RTX_FRAME_RELATED_P (insn) = 1;
-      fp_offset = cfun->machine->save_regs_offset;
+      save_regs_base = cfun->machine->save_regs_offset;
       sp_offset = 0;
     }
   else
-    fp_offset = sp_offset = 0;
+    save_regs_base = sp_offset = 0;
 
   if (crtl->limit_stack)
     nios2_emit_stack_limit_check ();
 
-  save_offset = fp_offset + cfun->machine->save_reg_size;
+  save_offset = save_regs_base + cfun->machine->save_reg_size;
 
   for (regno = LAST_GP_REG; regno > 0; regno--)
     if (cfun->machine->save_mask & (1 << regno))
@@ -498,9 +513,10 @@ nios2_expand_prologue (void)
 
   if (frame_pointer_needed)
     {
+      int fp_save_offset = save_regs_base + cfun->machine->fp_save_offset;
       insn = emit_insn (gen_add3_insn (hard_frame_pointer_rtx,
 				       stack_pointer_rtx,
-				       gen_int_mode (fp_offset, Pmode)));
+				       gen_int_mode (fp_save_offset, Pmode)));
       RTX_FRAME_RELATED_P (insn) = 1;
     }
 
@@ -555,7 +571,9 @@ nios2_expand_epilogue (bool sibcall_p)
   if (frame_pointer_needed)
     {
       /* Recover the stack pointer.  */
-      insn = emit_move_insn (stack_pointer_rtx, hard_frame_pointer_rtx);
+      insn = emit_insn (gen_add3_insn
+			(stack_pointer_rtx, hard_frame_pointer_rtx,
+			 gen_int_mode (-cfun->machine->fp_save_offset, Pmode)));
       cfa_adj = plus_constant (Pmode, stack_pointer_rtx,
 			       (total_frame_size
 				- cfun->machine->save_regs_offset));
@@ -680,7 +698,7 @@ nios2_function_profiler (FILE *file, int labelno ATTRIBUTE_UNUSED)
       fprintf (file, "\taddi\tr3, r3, %%lo(_gp_got - 1b)\n");
       fprintf (file, "\tadd\tr2, r2, r3\n");
       fprintf (file, "\tmovhi\tr3, %%call_hiadj(_mcount)\n");
-      fprintf (file, "\taddi\tr3, %%call_lo(_mcount)\n");
+      fprintf (file, "\taddi\tr3, r3, %%call_lo(_mcount)\n");
       fprintf (file, "\tadd\tr3, r2, r3\n");
       fprintf (file, "\tldw\tr2, 0(r3)\n");
       fprintf (file, "\tcallr\tr2\n");
@@ -772,7 +790,8 @@ nios2_initial_elimination_offset (int from, int to)
     /* If we are asked for the frame pointer offset, then adjust OFFSET
        by the offset from the frame pointer to the stack pointer.  */
   if (to == HARD_FRAME_POINTER_REGNUM)
-    offset -= cfun->machine->save_regs_offset;
+    offset -= (cfun->machine->save_regs_offset
+	       + cfun->machine->fp_save_offset); 
 
   return offset;
 }
@@ -827,6 +846,15 @@ nios2_custom_check_insns (void)
       if (N2FPU_ENABLED_P (i) && N2FPU_FINITE_P (i))
 	warning (0, "switch %<-mcustom-%s%> has no effect unless "
 		 "-ffinite-math-only is specified", N2FPU_NAME (i));
+
+  /* Warn if the user is trying to use a custom rounding instruction
+     that won't get used without -fno-math-errno.  See
+     expand_builtin_int_roundingfn_2 () in builtins.c.  */
+  if (flag_errno_math)
+    for (i = 0; i < ARRAY_SIZE (nios2_fpu_insn); i++)
+      if (N2FPU_ENABLED_P (i) && N2FPU_NO_ERRNO_P (i))
+	warning (0, "switch %<-mcustom-%s%> has no effect unless "
+		 "-fno-math-errno is specified", N2FPU_NAME (i));
 
   if (errors || custom_code_conflict)
     fatal_error ("conflicting use of -mcustom switches, target attributes, "
@@ -958,7 +986,7 @@ nios2_handle_custom_fpu_insn_option (int fpu_insn_index)
 static struct machine_function *
 nios2_init_machine_status (void)
 {
-  return ggc_alloc_cleared_machine_function ();
+  return ggc_cleared_alloc<machine_function> ();
 }
 
 /* Implement TARGET_OPTION_OVERRIDE.  */
@@ -1167,7 +1195,7 @@ nios2_unspec_offset (rtx loc, int unspec)
 
 /* Generate GOT pointer based address with large offset.  */
 static rtx
-nios2_large_got_address (rtx sym, rtx offset)
+nios2_large_got_address (rtx offset)
 {
   rtx addr = gen_reg_rtx (Pmode);
   emit_insn (gen_add3_insn (addr, pic_offset_table_rtx,
@@ -1183,7 +1211,7 @@ nios2_got_address (rtx loc, int unspec)
   crtl->uses_pic_offset_table = 1;
 
   if (nios2_large_offset_p (unspec))
-    return nios2_large_got_address (loc, offset);
+    return nios2_large_got_address (offset);
 
   return gen_rtx_PLUS (Pmode, pic_offset_table_rtx, offset);
 }
@@ -1786,6 +1814,30 @@ nios2_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 	}
     }
 
+  return x;
+}
+
+static rtx
+nios2_delegitimize_address (rtx x)
+{
+  x = delegitimize_mem_from_attrs (x);
+
+  if (GET_CODE (x) == CONST && GET_CODE (XEXP (x, 0)) == UNSPEC)
+    {
+      switch (XINT (XEXP (x, 0), 1))
+	{
+	case UNSPEC_PIC_SYM:
+	case UNSPEC_PIC_CALL_SYM:
+	case UNSPEC_PIC_GOTOFF_SYM:
+	case UNSPEC_ADD_TLS_GD:
+	case UNSPEC_ADD_TLS_LDM:
+	case UNSPEC_LOAD_TLS_IE:
+	case UNSPEC_ADD_TLS_LE:
+	  x = XVECEXP (XEXP (x, 0), 0, 0);
+	  gcc_assert (GET_CODE (x) == SYMBOL_REF);
+	  break;
+	}
+    }
   return x;
 }
 
@@ -3242,6 +3294,9 @@ nios2_merge_decl_attributes (tree olddecl, tree newdecl)
 
 #undef TARGET_LEGITIMIZE_ADDRESS
 #define TARGET_LEGITIMIZE_ADDRESS nios2_legitimize_address
+
+#undef TARGET_DELEGITIMIZE_ADDRESS
+#define TARGET_DELEGITIMIZE_ADDRESS nios2_delegitimize_address
 
 #undef TARGET_LEGITIMATE_ADDRESS_P
 #define TARGET_LEGITIMATE_ADDRESS_P nios2_legitimate_address_p

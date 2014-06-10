@@ -1,7 +1,6 @@
 /* { dg-do run } */
 /* { dg-options "-fsanitize=null -w" } */
 /* { dg-shouldfail "ubsan" } */
-/* { dg-skip-if "" { *-*-* } { "-flto" } { "" } } */
 
 typedef volatile const _Complex float *T;
 
@@ -14,4 +13,4 @@ main (void)
   return 0;
 }
 
-/* { dg-output "load of null pointer of type 'volatile const complex float'(\n|\r\n|\r)" } */
+/* { dg-output "load of null pointer of type 'volatile const complex float'\[^\n\r]*(\n|\r\n|\r)" } */

@@ -1,6 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-fsanitize=undefined" } */
-/* { dg-skip-if "" { *-*-* } { "-flto" } { "" } } */
+/* { dg-options "-fsanitize=undefined -fno-sanitize-recover" } */
 
 int
 foo (int x, int y)

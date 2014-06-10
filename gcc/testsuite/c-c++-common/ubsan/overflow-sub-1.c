@@ -1,6 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-fsanitize=signed-integer-overflow -Wno-unused-variable" } */
-/* { dg-skip-if "" { *-*-* } { "-flto" } { "" } } */
+/* { dg-options "-fsanitize=signed-integer-overflow -Wno-unused-variable -fno-sanitize-recover" } */
 
 #define SCHAR_MAX __SCHAR_MAX__
 #define SCHAR_MIN (-__SCHAR_MAX__ - 1)
@@ -58,6 +57,5 @@ main (void)
   d--;
   check (d, 32767);
 #endif
-
   return 0;
 }

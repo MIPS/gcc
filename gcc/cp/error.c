@@ -1146,7 +1146,12 @@ dump_decl (cxx_pretty_printer *pp, tree t, int flags)
 
     case FUNCTION_DECL:
       if (! DECL_LANG_SPECIFIC (t))
-	pp_string (pp, M_("<built-in>"));
+	{
+	  if (DECL_ABSTRACT_ORIGIN (t))
+	    dump_decl (pp, DECL_ABSTRACT_ORIGIN (t), flags);
+	  else
+	    pp_string (pp, M_("<built-in>"));
+	}
       else if (DECL_GLOBAL_CTOR_P (t) || DECL_GLOBAL_DTOR_P (t))
 	dump_global_iord (pp, t);
       else
@@ -1909,6 +1914,7 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
 	pp_cxx_ws_string (pp, M_("<unknown>"));
       break;
 
+    case VOID_CST:
     case INTEGER_CST:
     case REAL_CST:
     case STRING_CST:

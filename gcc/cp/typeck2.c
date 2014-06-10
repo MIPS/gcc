@@ -36,6 +36,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cp-tree.h"
 #include "flags.h"
 #include "diagnostic-core.h"
+#include "wide-int.h"
 
 static tree
 process_init_constructor (tree type, tree init, tsubst_flags_t complain);
@@ -293,7 +294,7 @@ abstract_virtuals_error_sfinae (tree decl, tree type, abstract_class_use use,
       slot = htab_find_slot_with_hash (abstract_pending_vars, type,
 				      (hashval_t)TYPE_UID (type), INSERT);
 
-      pat = ggc_alloc_pending_abstract_type ();
+      pat = ggc_alloc<pending_abstract_type> ();
       pat->type = type;
       pat->decl = decl;
       pat->use = use;
@@ -428,6 +429,28 @@ abstract_virtuals_error (abstract_class_use use, tree type)
   return abstract_virtuals_error_sfinae (use, type, tf_warning_or_error);
 }
 
+/* Print an inform about the declaration of the incomplete type TYPE.  */
+
+void
+cxx_incomplete_type_inform (const_tree type)
+{
+  if (!TYPE_MAIN_DECL (type))
+    return;
+
+  location_t loc = DECL_SOURCE_LOCATION (TYPE_MAIN_DECL (type));
+  tree ptype = strip_top_quals (CONST_CAST_TREE (type));
+
+  if (current_class_type
+      && TYPE_BEING_DEFINED (current_class_type)
+      && same_type_p (ptype, current_class_type))
+    inform (loc, "definition of %q#T is not complete until "
+	    "the closing brace", ptype);
+  else if (!TYPE_TEMPLATE_INFO (ptype))
+    inform (loc, "forward declaration of %q#T", ptype);
+  else
+    inform (loc, "declaration of %q#T", ptype);
+}
+
 /* Print an error message for invalid use of an incomplete type.
    VALUE is the expression that was used (or 0 if that isn't known)
    and TYPE is the type that was invalid.  DIAG_KIND indicates the
@@ -437,7 +460,7 @@ void
 cxx_incomplete_type_diagnostic (const_tree value, const_tree type, 
 				diagnostic_t diag_kind)
 {
-  int decl = 0;
+  bool is_decl = false, complained = false;
 
   gcc_assert (diag_kind == DK_WARNING 
 	      || diag_kind == DK_PEDWARN 
@@ -451,10 +474,10 @@ cxx_incomplete_type_diagnostic (const_tree value, const_tree type,
 		     || TREE_CODE (value) == PARM_DECL
 		     || TREE_CODE (value) == FIELD_DECL))
     {
-      emit_diagnostic (diag_kind, input_location, 0,
-		       "%q+D has incomplete type", value);
-      decl = 1;
-    }
+      complained = emit_diagnostic (diag_kind, input_location, 0,
+				    "%q+D has incomplete type", value);
+      is_decl = true;
+    } 
  retry:
   /* We must print an error message.  Be clever about what it says.  */
 
@@ -463,15 +486,12 @@ cxx_incomplete_type_diagnostic (const_tree value, const_tree type,
     case RECORD_TYPE:
     case UNION_TYPE:
     case ENUMERAL_TYPE:
-      if (!decl)
-	emit_diagnostic (diag_kind, input_location, 0,
-			 "invalid use of incomplete type %q#T", type);
-      if (!TYPE_TEMPLATE_INFO (type))
-	emit_diagnostic (diag_kind, input_location, 0,
-			 "forward declaration of %q+#T", type);
-      else
-	emit_diagnostic (diag_kind, input_location, 0,
-			 "declaration of %q+#T", type);
+      if (!is_decl)
+	complained = emit_diagnostic (diag_kind, input_location, 0,
+				      "invalid use of incomplete type %q#T",
+				      type);
+      if (complained)
+	cxx_incomplete_type_inform (type);
       break;
 
     case VOID_TYPE:
@@ -760,22 +780,6 @@ store_init_value (tree decl, tree init, vec<tree, va_gc>** cleanups, int flags)
 	  init = build_constructor_from_list (init_list_type_node, nreverse (init));
 	}
     }
-  else if (TREE_CODE (init) == TREE_LIST
-	   && TREE_TYPE (init) != unknown_type_node)
-    {
-      gcc_assert (TREE_CODE (decl) != RESULT_DECL);
-
-      if (TREE_CODE (init) == TREE_LIST
-	       && TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
-	{
-	  error ("cannot initialize arrays using this syntax");
-	  return NULL_TREE;
-	}
-      else
-	/* We get here with code like `int a (2);' */
-	init = build_x_compound_expr_from_list (init, ELK_INIT,
-						tf_warning_or_error);
-    }
 
   /* End of special C++ code.  */
 
@@ -861,7 +865,7 @@ check_narrowing (tree type, tree init)
       return;
     }
 
-  init = maybe_constant_value (init);
+  init = maybe_constant_value (fold_non_dependent_expr_sfinae (init, tf_none));
 
   if (TREE_CODE (type) == INTEGER_TYPE
       && TREE_CODE (ftype) == REAL_TYPE)
@@ -1097,12 +1101,29 @@ digest_init_flags (tree type, tree init, int flags)
 {
   return digest_init_r (type, init, false, flags, tf_warning_or_error);
 }
+
+/* Process the initializer INIT for an NSDMI DECL (a FIELD_DECL).  */
+tree
+digest_nsdmi_init (tree decl, tree init)
+{
+  gcc_assert (TREE_CODE (decl) == FIELD_DECL);
+
+  int flags = LOOKUP_IMPLICIT;
+  if (DIRECT_LIST_INIT_P (init))
+    flags = LOOKUP_NORMAL;
+  init = digest_init_flags (TREE_TYPE (decl), init, flags);
+  if (TREE_CODE (init) == TARGET_EXPR)
+    /* This represents the whole initialization.  */
+    TARGET_EXPR_DIRECT_INIT_P (init) = true;
+  return init;
+}
 
 /* Set of flags used within process_init_constructor to describe the
    initializers.  */
 #define PICFLAG_ERRONEOUS 1
 #define PICFLAG_NOT_ALL_CONSTANT 2
 #define PICFLAG_NOT_ALL_SIMPLE 4
+#define PICFLAG_SIDE_EFFECTS 8
 
 /* Given an initializer INIT, return the flag (PICFLAG_*) which better
    describe it.  */
@@ -1113,7 +1134,12 @@ picflag_from_initializer (tree init)
   if (init == error_mark_node)
     return PICFLAG_ERRONEOUS;
   else if (!TREE_CONSTANT (init))
-    return PICFLAG_NOT_ALL_CONSTANT;
+    {
+      if (TREE_SIDE_EFFECTS (init))
+	return PICFLAG_SIDE_EFFECTS;
+      else
+	return PICFLAG_NOT_ALL_CONSTANT;
+    }
   else if (!initializer_constant_valid_p (init, TREE_TYPE (init)))
     return PICFLAG_NOT_ALL_SIMPLE;
   return 0;
@@ -1132,7 +1158,7 @@ massage_init_elt (tree type, tree init, tsubst_flags_t complain)
   /* When we defer constant folding within a statement, we may want to
      defer this folding as well.  */
   tree t = fold_non_dependent_expr_sfinae (init, complain);
-  t = maybe_constant_value (t);
+  t = maybe_constant_init (t);
   if (TREE_CONSTANT (t))
     init = t;
   return init;
@@ -1159,12 +1185,10 @@ process_init_constructor_array (tree type, tree init,
     {
       tree domain = TYPE_DOMAIN (type);
       if (domain && TREE_CONSTANT (TYPE_MAX_VALUE (domain)))
-	len = (tree_to_double_int (TYPE_MAX_VALUE (domain))
-	       - tree_to_double_int (TYPE_MIN_VALUE (domain))
-	       + double_int_one)
-	      .ext (TYPE_PRECISION (TREE_TYPE (domain)),
-		    TYPE_UNSIGNED (TREE_TYPE (domain)))
-	      .low;
+	len = wi::ext (wi::to_offset (TYPE_MAX_VALUE (domain))
+		       - wi::to_offset (TYPE_MIN_VALUE (domain)) + 1,
+		       TYPE_PRECISION (TREE_TYPE (domain)),
+		       TYPE_SIGN (TREE_TYPE (domain))).to_uhwi ();
       else
 	unbounded = true;  /* Take as many as there are.  */
     }
@@ -1493,7 +1517,12 @@ process_init_constructor (tree type, tree init, tsubst_flags_t complain)
   TREE_TYPE (init) = type;
   if (TREE_CODE (type) == ARRAY_TYPE && TYPE_DOMAIN (type) == NULL_TREE)
     cp_complete_array_type (&TREE_TYPE (init), init, /*do_default=*/0);
-  if (flags & PICFLAG_NOT_ALL_CONSTANT)
+  if (flags & PICFLAG_SIDE_EFFECTS)
+    {
+      TREE_CONSTANT (init) = false;
+      TREE_SIDE_EFFECTS (init) = true;
+    }
+  else if (flags & PICFLAG_NOT_ALL_CONSTANT)
     /* Make sure TREE_CONSTANT isn't set from build_constructor.  */
     TREE_CONSTANT (init) = false;
   else
@@ -1846,7 +1875,7 @@ build_functional_cast (tree exp, tree parms, tsubst_flags_t complain)
       if (parms == NULL_TREE)
 	{
 	  if (VOID_TYPE_P (type))
-	    return void_zero_node;
+	    return void_node;
 	  return build_value_init (cv_unqualified (type), complain);
 	}
 
@@ -1978,10 +2007,10 @@ nothrow_spec_p_uninst (const_tree spec)
 }
 
 /* Combine the two exceptions specifier lists LIST and ADD, and return
-   their union.  If FN is non-null, it's the source of ADD.  */
+   their union.  */
 
 tree
-merge_exception_specifiers (tree list, tree add, tree fn)
+merge_exception_specifiers (tree list, tree add)
 {
   tree noex, orig_list;
 
@@ -1997,22 +2026,18 @@ merge_exception_specifiers (tree list, tree add, tree fn)
   if (nothrow_spec_p_uninst (add))
     return list;
 
-  noex = TREE_PURPOSE (list);
-  if (DEFERRED_NOEXCEPT_SPEC_P (add))
-    {
-      /* If ADD is a deferred noexcept, we must have been called from
-	 process_subob_fn.  For implicitly declared functions, we build up
-	 a list of functions to consider at instantiation time.  */
-      if (noex && operand_equal_p (noex, boolean_true_node, 0))
-	noex = NULL_TREE;
-      gcc_assert (fn && (!noex || is_overloaded_fn (noex)));
-      noex = build_overload (fn, noex);
-    }
-  else if (nothrow_spec_p_uninst (list))
+  /* Two implicit noexcept specs (e.g. on a destructor) are equivalent.  */
+  if (UNEVALUATED_NOEXCEPT_SPEC_P (add)
+      && UNEVALUATED_NOEXCEPT_SPEC_P (list))
+    return list;
+  /* We should have instantiated other deferred noexcept specs by now.  */
+  gcc_assert (!DEFERRED_NOEXCEPT_SPEC_P (add));
+
+  if (nothrow_spec_p_uninst (list))
     return add;
-  else
-    gcc_checking_assert (!TREE_PURPOSE (add)
-			 || cp_tree_equal (noex, TREE_PURPOSE (add)));
+  noex = TREE_PURPOSE (list);
+  gcc_checking_assert (!TREE_PURPOSE (add)
+		       || cp_tree_equal (noex, TREE_PURPOSE (add)));
 
   /* Combine the dynamic-exception-specifiers, if any.  */
   orig_list = list;

@@ -3877,12 +3877,14 @@ find_if_case_1 (basic_block test_bb, edge then_edge, edge else_edge)
      bb-reorder.c:partition_hot_cold_basic_blocks for complete details.  */
 
   if ((BB_END (then_bb)
-       && find_reg_note (BB_END (then_bb), REG_CROSSING_JUMP, NULL_RTX))
+       && JUMP_P (BB_END (then_bb))
+       && CROSSING_JUMP_P (BB_END (then_bb)))
       || (BB_END (test_bb)
-	  && find_reg_note (BB_END (test_bb), REG_CROSSING_JUMP, NULL_RTX))
+	  && JUMP_P (BB_END (test_bb))
+	  && CROSSING_JUMP_P (BB_END (test_bb)))
       || (BB_END (else_bb)
-	  && find_reg_note (BB_END (else_bb), REG_CROSSING_JUMP,
-			    NULL_RTX)))
+	  && JUMP_P (BB_END (else_bb))
+	  && CROSSING_JUMP_P (BB_END (else_bb))))
     return FALSE;
 
   /* THEN has one successor.  */
@@ -4000,12 +4002,14 @@ find_if_case_2 (basic_block test_bb, edge then_edge, edge else_edge)
      bb-reorder.c:partition_hot_cold_basic_blocks for complete details.  */
 
   if ((BB_END (then_bb)
-       && find_reg_note (BB_END (then_bb), REG_CROSSING_JUMP, NULL_RTX))
+       && JUMP_P (BB_END (then_bb))
+       && CROSSING_JUMP_P (BB_END (then_bb)))
       || (BB_END (test_bb)
-	  && find_reg_note (BB_END (test_bb), REG_CROSSING_JUMP, NULL_RTX))
+	  && JUMP_P (BB_END (test_bb))
+	  && CROSSING_JUMP_P (BB_END (test_bb)))
       || (BB_END (else_bb)
-	  && find_reg_note (BB_END (else_bb), REG_CROSSING_JUMP,
-			    NULL_RTX)))
+	  && JUMP_P (BB_END (else_bb))
+	  && CROSSING_JUMP_P (BB_END (else_bb))))
     return FALSE;
 
   /* ELSE has one successor.  */
@@ -4142,6 +4146,21 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
       end = PREV_INSN (end);
       while (DEBUG_INSN_P (end) && end != head)
 	end = PREV_INSN (end);
+    }
+
+  /* Don't move frame-related insn across the conditional branch.  This
+     can lead to one of the paths of the branch having wrong unwind info.  */
+  if (epilogue_completed)
+    {
+      rtx insn = head;
+      while (1)
+	{
+	  if (INSN_P (insn) && RTX_FRAME_RELATED_P (insn))
+	    return FALSE;
+	  if (insn == end)
+	    break;
+	  insn = NEXT_INSN (insn);
+	}
     }
 
   /* Disable handling dead code by conditional execution if the machine needs
@@ -4497,13 +4516,6 @@ if_convert (bool after_combine)
 #endif
 }
 
-static bool
-gate_handle_if_conversion (void)
-{
-  return (optimize > 0)
-    && dbg_cnt (if_conversion);
-}
-
 /* If-conversion and CFG cleanup.  */
 static unsigned int
 rest_of_handle_if_conversion (void)
@@ -4530,14 +4542,13 @@ const pass_data pass_data_rtl_ifcvt =
   RTL_PASS, /* type */
   "ce1", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
   true, /* has_execute */
   TV_IFCVT, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  ( TODO_df_finish | TODO_verify_rtl_sharing | 0 ), /* todo_flags_finish */
+  TODO_df_finish, /* todo_flags_finish */
 };
 
 class pass_rtl_ifcvt : public rtl_opt_pass
@@ -4548,8 +4559,15 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_handle_if_conversion (); }
-  unsigned int execute () { return rest_of_handle_if_conversion (); }
+  virtual bool gate (function *)
+    {
+      return (optimize > 0) && dbg_cnt (if_conversion);
+    }
+
+  virtual unsigned int execute (function *)
+    {
+      return rest_of_handle_if_conversion ();
+    }
 
 }; // class pass_rtl_ifcvt
 
@@ -4561,22 +4579,9 @@ make_pass_rtl_ifcvt (gcc::context *ctxt)
   return new pass_rtl_ifcvt (ctxt);
 }
 
-static bool
-gate_handle_if_after_combine (void)
-{
-  return optimize > 0 && flag_if_conversion
-    && dbg_cnt (if_after_combine);
-}
-
 
 /* Rerun if-conversion, as combine may have simplified things enough
    to now meet sequence length restrictions.  */
-static unsigned int
-rest_of_handle_if_after_combine (void)
-{
-  if_convert (true);
-  return 0;
-}
 
 namespace {
 
@@ -4585,14 +4590,13 @@ const pass_data pass_data_if_after_combine =
   RTL_PASS, /* type */
   "ce2", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
   true, /* has_execute */
   TV_IFCVT, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  ( TODO_df_finish | TODO_verify_rtl_sharing ), /* todo_flags_finish */
+  TODO_df_finish, /* todo_flags_finish */
 };
 
 class pass_if_after_combine : public rtl_opt_pass
@@ -4603,8 +4607,17 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_handle_if_after_combine (); }
-  unsigned int execute () { return rest_of_handle_if_after_combine (); }
+  virtual bool gate (function *)
+    {
+      return optimize > 0 && flag_if_conversion
+	&& dbg_cnt (if_after_combine);
+    }
+
+  virtual unsigned int execute (function *)
+    {
+      if_convert (true);
+      return 0;
+    }
 
 }; // class pass_if_after_combine
 
@@ -4617,21 +4630,6 @@ make_pass_if_after_combine (gcc::context *ctxt)
 }
 
 
-static bool
-gate_handle_if_after_reload (void)
-{
-  return optimize > 0 && flag_if_conversion2
-    && dbg_cnt (if_after_reload);
-}
-
-static unsigned int
-rest_of_handle_if_after_reload (void)
-{
-  if_convert (true);
-  return 0;
-}
-
-
 namespace {
 
 const pass_data pass_data_if_after_reload =
@@ -4639,14 +4637,13 @@ const pass_data pass_data_if_after_reload =
   RTL_PASS, /* type */
   "ce3", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
   true, /* has_execute */
   TV_IFCVT2, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  ( TODO_df_finish | TODO_verify_rtl_sharing ), /* todo_flags_finish */
+  TODO_df_finish, /* todo_flags_finish */
 };
 
 class pass_if_after_reload : public rtl_opt_pass
@@ -4657,8 +4654,17 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_handle_if_after_reload (); }
-  unsigned int execute () { return rest_of_handle_if_after_reload (); }
+  virtual bool gate (function *)
+    {
+      return optimize > 0 && flag_if_conversion2
+	&& dbg_cnt (if_after_reload);
+    }
+
+  virtual unsigned int execute (function *)
+    {
+      if_convert (true);
+      return 0;
+    }
 
 }; // class pass_if_after_reload
 

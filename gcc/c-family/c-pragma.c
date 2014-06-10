@@ -74,9 +74,7 @@ static void pop_alignment (tree);
 static void
 push_alignment (int alignment, tree id)
 {
-  align_stack * entry;
-
-  entry = ggc_alloc_align_stack ();
+  align_stack * entry = ggc_alloc<align_stack> ();
 
   entry->alignment  = alignment;
   entry->id	    = id;
@@ -263,6 +261,7 @@ apply_pragma_weak (tree decl, tree value)
 
   if (SUPPORTS_WEAK && DECL_EXTERNAL (decl) && TREE_USED (decl)
       && !DECL_WEAK (decl) /* Don't complain about a redundant #pragma.  */
+      && DECL_ASSEMBLER_NAME_SET_P (decl)
       && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
     warning (OPT_Wpragmas, "applying #pragma weak %q+D after first use "
 	     "results in unspecified behavior", decl);
@@ -280,7 +279,7 @@ maybe_apply_pragma_weak (tree decl)
   /* Avoid asking for DECL_ASSEMBLER_NAME when it's not needed.  */
 
   /* No weak symbols pending, take the short-cut.  */
-  if (!pending_weaks)
+  if (vec_safe_is_empty (pending_weaks))
     return;
   /* If it's not visible outside this file, it doesn't matter whether
      it's weak.  */
@@ -292,7 +291,13 @@ maybe_apply_pragma_weak (tree decl)
   if (TREE_CODE (decl) != FUNCTION_DECL && TREE_CODE (decl) != VAR_DECL)
     return;
 
-  id = DECL_ASSEMBLER_NAME (decl);
+  if (DECL_ASSEMBLER_NAME_SET_P (decl))
+    id = DECL_ASSEMBLER_NAME (decl);
+  else
+    {
+      id = DECL_ASSEMBLER_NAME (decl);
+      SET_DECL_ASSEMBLER_NAME (decl, NULL_TREE);
+    }
 
   FOR_EACH_VEC_ELT (*pending_weaks, i, pe)
     if (id == pe->name)
@@ -313,7 +318,7 @@ maybe_apply_pending_pragma_weaks (void)
   pending_weak *pe;
   symtab_node *target;
 
-  if (!pending_weaks)
+  if (vec_safe_is_empty (pending_weaks))
     return;
 
   FOR_EACH_VEC_ELT (*pending_weaks, i, pe)
@@ -904,7 +909,6 @@ handle_pragma_push_options (cpp_reader *ARG_UNUSED(dummy))
 {
   enum cpp_ttype token;
   tree x = 0;
-  opt_stack *p;
 
   token = pragma_lex (&x);
   if (token != CPP_EOF)
@@ -913,7 +917,7 @@ handle_pragma_push_options (cpp_reader *ARG_UNUSED(dummy))
       return;
     }
 
-  p = ggc_alloc_opt_stack ();
+  opt_stack *p = ggc_alloc<opt_stack> ();
   p->prev = options_stack;
   options_stack = p;
 
@@ -1181,6 +1185,7 @@ static const struct omp_pragma_def omp_pragmas[] = {
   { "section", PRAGMA_OMP_SECTION },
   { "sections", PRAGMA_OMP_SECTIONS },
   { "single", PRAGMA_OMP_SINGLE },
+  { "task", PRAGMA_OMP_TASK },
   { "taskgroup", PRAGMA_OMP_TASKGROUP },
   { "taskwait", PRAGMA_OMP_TASKWAIT },
   { "taskyield", PRAGMA_OMP_TASKYIELD },
@@ -1193,7 +1198,6 @@ static const struct omp_pragma_def omp_pragmas_simd[] = {
   { "parallel", PRAGMA_OMP_PARALLEL },
   { "simd", PRAGMA_OMP_SIMD },
   { "target", PRAGMA_OMP_TARGET },
-  { "task", PRAGMA_OMP_TASK },
   { "teams", PRAGMA_OMP_TEAMS },
 };
 

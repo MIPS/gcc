@@ -43,12 +43,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "lto.h"
 #include "lto-tree.h"
 #include "lto-streamer.h"
+#include "lto-section-names.h"
 #include "tree-streamer.h"
 #include "splay-tree.h"
 #include "lto-partition.h"
 #include "data-streamer.h"
 #include "context.h"
 #include "pass_manager.h"
+#include "ipa-inline.h"
+#include "params.h"
 
 
 /* Number of parallel tasks to run, -1 if we want to use GNU Make jobserver.  */
@@ -242,7 +245,7 @@ lto_read_in_decl_state (struct data_in *data_in, const uint32_t *data,
   for (i = 0; i < LTO_N_DECL_STREAMS; i++)
     {
       uint32_t size = *data++;
-      tree *decls = ggc_alloc_vec_tree (size);
+      tree *decls = ggc_vec_alloc<tree> (size);
 
       for (j = 0; j < size; j++)
 	decls[j] = streamer_tree_cache_get_tree (data_in->reader_cache, data[j]);
@@ -764,7 +767,6 @@ mentions_vars_p_decl_with_vis (tree t)
 
   /* Accessor macro has side-effects, use field-name here. */
   CHECK_NO_VAR (t->decl_with_vis.assembler_name);
-  CHECK_NO_VAR (DECL_SECTION_NAME (t));
   return false;
 }
 
@@ -1210,8 +1212,8 @@ compare_tree_sccs_1 (tree t1, tree t2, tree **map)
 
   if (CODE_CONTAINS_STRUCT (code, TS_INT_CST))
     {
-      compare_values (TREE_INT_CST_LOW);
-      compare_values (TREE_INT_CST_HIGH);
+      if (!wi::eq_p (t1, t2))
+	return false;
     }
 
   if (CODE_CONTAINS_STRUCT (code, TS_REAL_CST))
@@ -1526,8 +1528,6 @@ compare_tree_sccs_1 (tree t1, tree t2, tree **map)
       if (DECL_ASSEMBLER_NAME_SET_P (t1))
 	compare_tree_edges (DECL_ASSEMBLER_NAME (t1),
 			    DECL_ASSEMBLER_NAME (t2));
-      compare_tree_edges (DECL_SECTION_NAME (t1), DECL_SECTION_NAME (t2));
-      compare_tree_edges (DECL_COMDAT_GROUP (t1), DECL_COMDAT_GROUP (t2));
     }
 
   if (CODE_CONTAINS_STRUCT (code, TS_FIELD_DECL))
@@ -2000,10 +2000,10 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
 
 /* Custom version of strtoll, which is not portable.  */
 
-static HOST_WIDEST_INT
+static int64_t
 lto_parse_hex (const char *p)
 {
-  HOST_WIDEST_INT ret = 0;
+  int64_t ret = 0;
 
   for (; *p != '\0'; ++p)
     {
@@ -2055,7 +2055,7 @@ lto_resolution_read (splay_tree file_ids, FILE *resolution, lto_file *file)
     {
       int t;
       char offset_p[17];
-      HOST_WIDEST_INT offset;
+      int64_t offset;
       t = fscanf (resolution, "@0x%16s", offset_p);
       if (t != 1)
         internal_error ("could not parse file offset");
@@ -2157,7 +2157,7 @@ create_subid_section_table (struct lto_section_slot *ls, splay_tree file_ids,
     }
   else
     {
-      file_data = ggc_alloc_lto_file_decl_data ();
+      file_data = ggc_alloc<lto_file_decl_data> ();
       memset(file_data, 0, sizeof (struct lto_file_decl_data));
       file_data->id = id;
       file_data->section_hash_table = lto_obj_create_section_hash_table ();;
@@ -2476,7 +2476,10 @@ wait_for_child ()
   int status;
   do
     {
-      int w = waitpid(0, &status, WUNTRACED | WCONTINUED);
+#ifndef WCONTINUED
+#define WCONTINUED 0
+#endif
+      int w = waitpid (0, &status, WUNTRACED | WCONTINUED);
       if (w == -1)
 	fatal_error ("waitpid failed");
 
@@ -2485,7 +2488,7 @@ wait_for_child ()
       else if (WIFSIGNALED (status))
 	fatal_error ("streaming subprocess was killed by signal");
     }
-  while (!WIFEXITED(status) && !WIFSIGNALED(status));
+  while (!WIFEXITED (status) && !WIFSIGNALED (status));
 }
 #endif
 
@@ -2565,11 +2568,6 @@ lto_wpa_write_files (void)
   FOR_EACH_VEC_ELT (ltrans_partitions, i, part)
     lto_stats.num_output_symtab_nodes += lto_symtab_encoder_size (part->encoder);
 
-  /* Find out statics that need to be promoted
-     to globals with hidden visibility because they are accessed from multiple
-     partitions.  */
-  lto_promote_cross_file_statics ();
-
   timevar_pop (TV_WHOPR_WPA);
 
   timevar_push (TV_WHOPR_WPA_IO);
@@ -2625,13 +2623,13 @@ lto_wpa_write_files (void)
 	      if (!lto_symtab_encoder_in_partition_p (part->encoder, node))
 		{
 	          fprintf (cgraph_dump_file, "%s ", node->asm_name ());
-		  cgraph_node *cnode = dyn_cast <cgraph_node> (node);
+		  cgraph_node *cnode = dyn_cast <cgraph_node *> (node);
 		  if (cnode
 		      && lto_symtab_encoder_encode_body_p (part->encoder, cnode))
 		    fprintf (cgraph_dump_file, "(body included)");
 		  else
 		    {
-		      varpool_node *vnode = dyn_cast <varpool_node> (node);
+		      varpool_node *vnode = dyn_cast <varpool_node *> (node);
 		      if (vnode
 			  && lto_symtab_encoder_encode_initializer_p (part->encoder, vnode))
 			fprintf (cgraph_dump_file, "(initializer included)");
@@ -2718,7 +2716,6 @@ lto_fixup_prevailing_decls (tree t)
       if (CODE_CONTAINS_STRUCT (code, TS_DECL_WITH_VIS))
 	{
 	  LTO_NO_PREVAIL (t->decl_with_vis.assembler_name);
-	  LTO_NO_PREVAIL (DECL_SECTION_NAME (t));
 	}
       if (CODE_CONTAINS_STRUCT (code, TS_DECL_NON_COMMON))
 	{
@@ -2860,7 +2857,7 @@ lto_flatten_files (struct lto_file_decl_data **orig, int count, int last_file_ix
 
   lto_stats.num_input_files = count;
   all_file_decl_data
-    = ggc_alloc_cleared_vec_lto_file_decl_data_ptr (count + 1);
+    = ggc_cleared_vec_alloc<lto_file_decl_data_ptr> (count + 1);
   /* Set the hooks so that all of the ipa passes can read in their data.  */
   lto_set_in_hooks (all_file_decl_data, get_section_data, free_section_data);
   for (i = 0, k = 0; i < last_file_ix; i++) 
@@ -2903,7 +2900,7 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
   timevar_push (TV_IPA_LTO_DECL_IN);
 
   real_file_decl_data
-    = decl_data = ggc_alloc_cleared_vec_lto_file_decl_data_ptr (nfiles + 1);
+    = decl_data = ggc_cleared_vec_alloc<lto_file_decl_data_ptr> (nfiles + 1);
   real_file_count = nfiles;
 
   /* Read the resolution file.  */
@@ -3001,6 +2998,10 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
   gimple_canonical_types = NULL;
   delete canonical_type_hash_cache;
   canonical_type_hash_cache = NULL;
+
+  /* At this stage we know that majority of GGC memory is reachable.  
+     Growing the limits prevents unnecesary invocation of GGC.  */
+  ggc_grow ();
   ggc_collect ();
 
   /* Set the hooks so that all of the ipa passes can read in their data.  */
@@ -3268,12 +3269,20 @@ do_whole_program_analysis (void)
   timevar_pop (TV_WHOPR_WPA);
 
   timevar_push (TV_WHOPR_PARTITIONING);
-  if (flag_lto_partition_1to1)
+  if (flag_lto_partition == LTO_PARTITION_1TO1)
     lto_1_to_1_map ();
-  else if (flag_lto_partition_max)
+  else if (flag_lto_partition == LTO_PARTITION_MAX)
     lto_max_map ();
+  else if (flag_lto_partition == LTO_PARTITION_ONE)
+    lto_balanced_map (1);
+  else if (flag_lto_partition == LTO_PARTITION_BALANCED)
+    lto_balanced_map (PARAM_VALUE (PARAM_LTO_PARTITIONS));
   else
-    lto_balanced_map ();
+    gcc_unreachable ();
+
+  /* Inline summaries are needed for balanced partitioning.  Free them now so
+     the memory can be used for streamer caches.  */
+  inline_free_summary ();
 
   /* AUX pointers are used by partitioning code to bookkeep number of
      partitions symbol is in.  This is no longer needed.  */
@@ -3281,11 +3290,21 @@ do_whole_program_analysis (void)
     node->aux = NULL;
 
   lto_stats.num_cgraph_partitions += ltrans_partitions.length ();
+
+  /* Find out statics that need to be promoted
+     to globals with hidden visibility because they are accessed from multiple
+     partitions.  */
+  lto_promote_cross_file_statics ();
   timevar_pop (TV_WHOPR_PARTITIONING);
 
   timevar_stop (TV_PHASE_OPT_GEN);
-  timevar_start (TV_PHASE_STREAM_OUT);
 
+  /* Collect a last time - in lto_wpa_write_files we may end up forking
+     with the idea that this doesn't increase memory usage.  So we
+     absoultely do not want to collect after that.  */
+  ggc_collect ();
+
+  timevar_start (TV_PHASE_STREAM_OUT);
   if (!quiet_flag)
     {
       fprintf (stderr, "\nStreaming out");
@@ -3294,10 +3313,8 @@ do_whole_program_analysis (void)
   lto_wpa_write_files ();
   if (!quiet_flag)
     fprintf (stderr, "\n");
-
   timevar_stop (TV_PHASE_STREAM_OUT);
 
-  ggc_collect ();
   if (post_ipa_mem_report)
     {
       fprintf (stderr, "Memory consumption after IPA\n");

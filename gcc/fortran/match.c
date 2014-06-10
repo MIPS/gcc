@@ -1751,8 +1751,7 @@ gfc_match_critical (void)
       return MATCH_ERROR;
     }
 
-  if (gfc_implicit_pure (NULL))
-    gfc_current_ns->proc_name->attr.implicit_pure = 0;
+  gfc_unset_implicit_pure (NULL);
 
   if (!gfc_notify_std (GFC_STD_F2008, "CRITICAL statement at %C"))
     return MATCH_ERROR;
@@ -2596,7 +2595,10 @@ match_exit_cycle (gfc_statement st, gfc_exec_op op)
       && o != NULL
       && o->state == COMP_OMP_STRUCTURED_BLOCK
       && (o->head->op == EXEC_OMP_DO
-	  || o->head->op == EXEC_OMP_PARALLEL_DO))
+	  || o->head->op == EXEC_OMP_PARALLEL_DO
+	  || o->head->op == EXEC_OMP_SIMD
+	  || o->head->op == EXEC_OMP_DO_SIMD
+	  || o->head->op == EXEC_OMP_PARALLEL_DO_SIMD))
     {
       int collapse = 1;
       gcc_assert (o->head->next != NULL
@@ -2676,8 +2678,7 @@ gfc_match_stopcode (gfc_statement st)
       goto cleanup;
     }
 
-  if (gfc_implicit_pure (NULL))
-    gfc_current_ns->proc_name->attr.implicit_pure = 0;
+  gfc_unset_implicit_pure (NULL);
 
   if (st == ST_STOP && gfc_find_state (COMP_CRITICAL))
     {
@@ -2814,8 +2815,7 @@ lock_unlock_statement (gfc_statement st)
       return MATCH_ERROR;
     }
 
-  if (gfc_implicit_pure (NULL))
-    gfc_current_ns->proc_name->attr.implicit_pure = 0;
+  gfc_unset_implicit_pure (NULL);
 
   if (gfc_option.coarray == GFC_FCOARRAY_NONE)
     {
@@ -3008,8 +3008,7 @@ sync_statement (gfc_statement st)
       return MATCH_ERROR;
     }
 
-  if (gfc_implicit_pure (NULL))
-    gfc_current_ns->proc_name->attr.implicit_pure = 0;
+  gfc_unset_implicit_pure (NULL);
 
   if (!gfc_notify_std (GFC_STD_F2008, "SYNC statement at %C"))
     return MATCH_ERROR;
@@ -3479,15 +3478,15 @@ gfc_match_allocate (void)
       if (gfc_check_do_variable (tail->expr->symtree))
 	goto cleanup;
 
-      if (gfc_pure (NULL) && gfc_impure_variable (tail->expr->symtree->n.sym))
+      bool impure = gfc_impure_variable (tail->expr->symtree->n.sym);
+      if (impure && gfc_pure (NULL))
 	{
 	  gfc_error ("Bad allocate-object at %C for a PURE procedure");
 	  goto cleanup;
 	}
 
-      if (gfc_implicit_pure (NULL)
-	    && gfc_impure_variable (tail->expr->symtree->n.sym))
-	gfc_current_ns->proc_name->attr.implicit_pure = 0;
+      if (impure)
+	gfc_unset_implicit_pure (NULL);
 
       if (tail->expr->ts.deferred)
 	{
@@ -3868,14 +3867,15 @@ gfc_match_deallocate (void)
 
       sym = tail->expr->symtree->n.sym;
 
-      if (gfc_pure (NULL) && gfc_impure_variable (sym))
+      bool impure = gfc_impure_variable (sym);
+      if (impure && gfc_pure (NULL))
 	{
 	  gfc_error ("Illegal allocate-object at %C for a PURE procedure");
 	  goto cleanup;
 	}
 
-      if (gfc_implicit_pure (NULL) && gfc_impure_variable (sym))
-	gfc_current_ns->proc_name->attr.implicit_pure = 0;
+      if (impure)
+	gfc_unset_implicit_pure (NULL);
 
       if (gfc_is_coarray (tail->expr)
 	  && gfc_find_state (COMP_DO_CONCURRENT))
@@ -4561,6 +4561,22 @@ gfc_free_namelist (gfc_namelist *name)
 
   for (; name; name = n)
     {
+      n = name->next;
+      free (name);
+    }
+}
+
+
+/* Free an OpenMP namelist structure.  */
+
+void
+gfc_free_omp_namelist (gfc_omp_namelist *name)
+{
+  gfc_omp_namelist *n;
+
+  for (; name; name = n)
+    {
+      gfc_free_expr (name->expr);
       n = name->next;
       free (name);
     }

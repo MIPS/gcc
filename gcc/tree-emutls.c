@@ -245,7 +245,6 @@ get_emutls_init_templ_addr (tree decl)
   TREE_READONLY (to) = 1;
   DECL_IGNORED_P (to) = 1;
   DECL_CONTEXT (to) = DECL_CONTEXT (decl);
-  DECL_SECTION_NAME (to) = DECL_SECTION_NAME (decl);
   DECL_PRESERVE_P (to) = DECL_PRESERVE_P (decl);
 
   DECL_WEAK (to) = DECL_WEAK (decl);
@@ -265,10 +264,13 @@ get_emutls_init_templ_addr (tree decl)
 
   if (targetm.emutls.tmpl_section)
     {
-      DECL_SECTION_NAME (to)
-        = build_string (strlen (targetm.emutls.tmpl_section),
-			targetm.emutls.tmpl_section);
+      set_decl_section_name
+	(to,
+         build_string (strlen (targetm.emutls.tmpl_section),
+		       targetm.emutls.tmpl_section));
     }
+  else
+    set_decl_section_name (to, DECL_SECTION_NAME (decl));
 
   /* Create varpool node for the new variable and finalize it if it is
      not external one.  */
@@ -323,9 +325,10 @@ new_emutls_decl (tree decl, tree alias_of)
   /* If the target wants the control variables grouped, do so.  */
   if (!DECL_COMMON (to) && targetm.emutls.var_section)
     {
-      DECL_SECTION_NAME (to)
-        = build_string (strlen (targetm.emutls.var_section),
-			targetm.emutls.var_section);
+      set_decl_section_name 
+        (to,
+         build_string (strlen (targetm.emutls.var_section),
+		       targetm.emutls.var_section));
     }
 
   /* If this variable is defined locally, then we need to initialize the
@@ -813,15 +816,7 @@ ipa_lower_emutls (void)
   access_vars.release ();
   free_varpool_node_set (tls_vars);
 
-  return TODO_verify_all;
-}
-
-/* If the target supports TLS natively, we need do nothing here.  */
-
-static bool
-gate_emutls (void)
-{
-  return !targetm.have_tls;
+  return 0;
 }
 
 namespace {
@@ -831,7 +826,6 @@ const pass_data pass_data_ipa_lower_emutls =
   SIMPLE_IPA_PASS, /* type */
   "emutls", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
   true, /* has_execute */
   TV_IPA_OPT, /* tv_id */
   ( PROP_cfg | PROP_ssa ), /* properties_required */
@@ -849,8 +843,13 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_emutls (); }
-  unsigned int execute () { return ipa_lower_emutls (); }
+  virtual bool gate (function *)
+    {
+      /* If the target supports TLS natively, we need do nothing here.  */
+      return !targetm.have_tls;
+    }
+
+  virtual unsigned int execute (function *) { return ipa_lower_emutls (); }
 
 }; // class pass_ipa_lower_emutls
 

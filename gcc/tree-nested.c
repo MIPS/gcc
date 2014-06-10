@@ -1082,6 +1082,11 @@ convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	    need_stmts = true;
 	  goto do_decl_clause;
 
+	case OMP_CLAUSE_LINEAR:
+	  if (OMP_CLAUSE_LINEAR_GIMPLE_SEQ (clause))
+	    need_stmts = true;
+	  goto do_decl_clause;
+
 	case OMP_CLAUSE_PRIVATE:
 	case OMP_CLAUSE_FIRSTPRIVATE:
 	case OMP_CLAUSE_COPYPRIVATE:
@@ -1107,6 +1112,7 @@ convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	case OMP_CLAUSE_FINAL:
 	case OMP_CLAUSE_IF:
 	case OMP_CLAUSE_NUM_THREADS:
+	case OMP_CLAUSE_DEPEND:
 	  wi->val_only = true;
 	  wi->is_lhs = false;
 	  convert_nonlocal_reference_op (&OMP_CLAUSE_OPERAND (clause, 0),
@@ -1155,6 +1161,12 @@ convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	  walk_body (convert_nonlocal_reference_stmt,
 		     convert_nonlocal_reference_op, info,
 		     &OMP_CLAUSE_LASTPRIVATE_GIMPLE_SEQ (clause));
+	  break;
+
+	case OMP_CLAUSE_LINEAR:
+	  walk_body (convert_nonlocal_reference_stmt,
+		     convert_nonlocal_reference_op, info,
+		     &OMP_CLAUSE_LINEAR_GIMPLE_SEQ (clause));
 	  break;
 
 	default:
@@ -1605,6 +1617,11 @@ convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	    need_stmts = true;
 	  goto do_decl_clause;
 
+	case OMP_CLAUSE_LINEAR:
+	  if (OMP_CLAUSE_LINEAR_GIMPLE_SEQ (clause))
+	    need_stmts = true;
+	  goto do_decl_clause;
+
 	case OMP_CLAUSE_PRIVATE:
 	case OMP_CLAUSE_FIRSTPRIVATE:
 	case OMP_CLAUSE_COPYPRIVATE:
@@ -1635,6 +1652,7 @@ convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	case OMP_CLAUSE_FINAL:
 	case OMP_CLAUSE_IF:
 	case OMP_CLAUSE_NUM_THREADS:
+	case OMP_CLAUSE_DEPEND:
 	  wi->val_only = true;
 	  wi->is_lhs = false;
 	  convert_local_reference_op (&OMP_CLAUSE_OPERAND (clause, 0), &dummy,
@@ -1683,6 +1701,12 @@ convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	  walk_body (convert_local_reference_stmt,
 		     convert_local_reference_op, info,
 		     &OMP_CLAUSE_LASTPRIVATE_GIMPLE_SEQ (clause));
+	  break;
+
+	case OMP_CLAUSE_LINEAR:
+	  walk_body (convert_local_reference_stmt,
+		     convert_local_reference_op, info,
+		     &OMP_CLAUSE_LINEAR_GIMPLE_SEQ (clause));
 	  break;
 
 	default:
@@ -2196,11 +2220,21 @@ convert_all_function_calls (struct nesting_info *root)
   struct nesting_info *n;
 
   /* First, optimistically clear static_chain for all decls that haven't
-     used the static chain already for variable access.  */
+     used the static chain already for variable access.  But always create
+     it if not optimizing.  This makes it possible to reconstruct the static
+     nesting tree at run time and thus to resolve up-level references from
+     within the debugger.  */
   FOR_EACH_NEST_INFO (n, root)
     {
       tree decl = n->context;
-      if (!n->outer || (!n->chain_decl && !n->chain_field))
+      if (!optimize)
+	{
+	  if (n->inner)
+	    (void) get_frame_type (n);
+	  if (n->outer)
+	    (void) get_chain_decl (n);
+	}
+      else if (!n->outer || (!n->chain_decl && !n->chain_field))
 	{
 	  DECL_STATIC_CHAIN (decl) = 0;
 	  if (dump_file && (dump_flags & TDF_DETAILS))

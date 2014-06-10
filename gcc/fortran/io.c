@@ -1305,7 +1305,8 @@ match_vtag (const io_tag *tag, gfc_expr **v)
       return MATCH_ERROR;
     }
 
-  if (gfc_pure (NULL) && gfc_impure_variable (result->symtree->n.sym))
+  bool impure = gfc_impure_variable (result->symtree->n.sym);
+  if (impure && gfc_pure (NULL))
     {
       gfc_error ("Variable %s cannot be assigned in PURE procedure at %C",
 		 tag->name);
@@ -1313,8 +1314,8 @@ match_vtag (const io_tag *tag, gfc_expr **v)
       return MATCH_ERROR;
     }
 
-  if (gfc_implicit_pure (NULL) && gfc_impure_variable (result->symtree->n.sym))
-    gfc_current_ns->proc_name->attr.implicit_pure = 0;
+  if (impure)
+    gfc_unset_implicit_pure (NULL);
 
   *v = result;
   return MATCH_YES;
@@ -1496,7 +1497,8 @@ resolve_tag (const io_tag *tag, gfc_expr *e)
 	return false;
     }
 
-  if ((tag == &tag_iostat || tag == &tag_size || tag == &tag_iolength)
+  if ((tag == &tag_iostat || tag == &tag_size || tag == &tag_iolength
+       || tag == &tag_number || tag == &tag_nextrec || tag == &tag_s_recl)
       && e->ts.kind != gfc_default_integer_kind)
     {
       if (!gfc_notify_std (GFC_STD_F2003, "Fortran 95 requires default "
@@ -1504,9 +1506,11 @@ resolve_tag (const io_tag *tag, gfc_expr *e)
 	return false;
     }
 
-  if (tag == &tag_exist && e->ts.kind != gfc_default_logical_kind)
+  if (e->ts.kind != gfc_default_logical_kind &&
+      (tag == &tag_exist || tag == &tag_named || tag == &tag_opened
+       || tag == &tag_pending))
     {
-      if (!gfc_notify_std (GFC_STD_F2008, "Nondefault LOGICAL "
+      if (!gfc_notify_std (GFC_STD_F2008, "Non-default LOGICAL kind "
 			   "in %s tag at %L", tag->name, &e->where))
 	return false;
     }
@@ -1829,8 +1833,7 @@ gfc_match_open (void)
       goto cleanup;
     }
 
-  if (gfc_implicit_pure (NULL))
-    gfc_current_ns->proc_name->attr.implicit_pure = 0;
+  gfc_unset_implicit_pure (NULL);
 
   warn = (open->err || open->iostat) ? true : false;
 
@@ -2242,8 +2245,7 @@ gfc_match_close (void)
       goto cleanup;
     }
 
-  if (gfc_implicit_pure (NULL))
-    gfc_current_ns->proc_name->attr.implicit_pure = 0;
+  gfc_unset_implicit_pure (NULL);
 
   warn = (close->iostat || close->err) ? true : false;
 
@@ -2410,8 +2412,7 @@ done:
       goto cleanup;
     }
 
-  if (gfc_implicit_pure (NULL))
-    gfc_current_ns->proc_name->attr.implicit_pure = 0;
+  gfc_unset_implicit_pure (NULL);
 
   new_st.op = op;
   new_st.ext.filepos = fp;
@@ -3261,9 +3262,8 @@ if (condition) \
 		     "an internal file in a PURE procedure",
 		     io_kind_name (k));
 
-      if (gfc_implicit_pure (NULL) && (k == M_READ || k == M_WRITE))
-	gfc_current_ns->proc_name->attr.implicit_pure = 0;
-
+      if (k == M_READ || k == M_WRITE)
+	gfc_unset_implicit_pure (NULL);
     }
 
   if (k != M_READ)
@@ -3793,8 +3793,7 @@ gfc_match_print (void)
       return MATCH_ERROR;
     }
 
-  if (gfc_implicit_pure (NULL))
-    gfc_current_ns->proc_name->attr.implicit_pure = 0;
+  gfc_unset_implicit_pure (NULL);
 
   return MATCH_YES;
 }
@@ -3953,8 +3952,7 @@ gfc_match_inquire (void)
 	  return MATCH_ERROR;
 	}
 
-      if (gfc_implicit_pure (NULL))
-	gfc_current_ns->proc_name->attr.implicit_pure = 0;
+      gfc_unset_implicit_pure (NULL);
 
       new_st.block = gfc_get_code (EXEC_IOLENGTH);
       terminate_io (code);
@@ -4006,8 +4004,7 @@ gfc_match_inquire (void)
       goto cleanup;
     }
 
-  if (gfc_implicit_pure (NULL))
-    gfc_current_ns->proc_name->attr.implicit_pure = 0;
+  gfc_unset_implicit_pure (NULL);
   
   if (inquire->id != NULL && inquire->pending == NULL)
     {
@@ -4195,8 +4192,7 @@ gfc_match_wait (void)
       goto cleanup;
     }
 
-  if (gfc_implicit_pure (NULL))
-    gfc_current_ns->proc_name->attr.implicit_pure = 0;
+  gfc_unset_implicit_pure (NULL);
 
   new_st.op = EXEC_WAIT;
   new_st.ext.wait = wait;

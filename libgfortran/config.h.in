@@ -360,6 +360,9 @@
 /* Define to 1 if you have the `fabsl' function. */
 #undef HAVE_FABSL
 
+/* Define to 1 if you have the `fcntl' function. */
+#undef HAVE_FCNTL
+
 /* libm includes feenableexcept */
 #undef HAVE_FEENABLEEXCEPT
 
@@ -725,6 +728,12 @@
 
 /* Define to 1 if you have the <string.h> header file. */
 #undef HAVE_STRING_H
+
+/* Define to 1 if you have the `strndup' function. */
+#undef HAVE_STRNDUP
+
+/* Define to 1 if you have the `strnlen' function. */
+#undef HAVE_STRNLEN
 
 /* Define to 1 if you have the `strtof' function. */
 #undef HAVE_STRTOF

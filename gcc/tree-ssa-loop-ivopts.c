@@ -109,6 +109,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-propagate.h"
 #include "expmed.h"
 #include "tree-ssa-address.h"
+#include "builtins.h"
 
 /* FIXME: Expressions are expanded to RTL in this pass to determine the
    cost of different addressing modes.  This should be moved to a TBD
@@ -928,36 +929,60 @@ determine_base_object (tree expr)
     }
 }
 
+/* Return true if address expression with non-DECL_P operand appears
+   in EXPR.  */
+
+static bool
+contain_complex_addr_expr (tree expr)
+{
+  bool res = false;
+
+  STRIP_NOPS (expr);
+  switch (TREE_CODE (expr))
+    {
+    case POINTER_PLUS_EXPR:
+    case PLUS_EXPR:
+    case MINUS_EXPR:
+      res |= contain_complex_addr_expr (TREE_OPERAND (expr, 0));
+      res |= contain_complex_addr_expr (TREE_OPERAND (expr, 1));
+      break;
+
+    case ADDR_EXPR:
+      return (!DECL_P (TREE_OPERAND (expr, 0)));
+
+    default:
+      return false;
+    }
+
+  return res;
+}
+
 /* Allocates an induction variable with given initial value BASE and step STEP
    for loop LOOP.  */
 
 static struct iv *
 alloc_iv (tree base, tree step)
 {
-  tree base_object = base;
+  tree expr = base;
   struct iv *iv = XCNEW (struct iv);
   gcc_assert (step != NULL_TREE);
 
-  /* Lower all address expressions except ones with DECL_P as operand.
+  /* Lower address expression in base except ones with DECL_P as operand.
      By doing this:
        1) More accurate cost can be computed for address expressions;
        2) Duplicate candidates won't be created for bases in different
           forms, like &a[0] and &a.  */
-  STRIP_NOPS (base_object);
-  if (TREE_CODE (base_object) == ADDR_EXPR
-      && !DECL_P (TREE_OPERAND (base_object, 0)))
+  STRIP_NOPS (expr);
+  if ((TREE_CODE (expr) == ADDR_EXPR && !DECL_P (TREE_OPERAND (expr, 0)))
+      || contain_complex_addr_expr (expr))
     {
       aff_tree comb;
-      double_int size;
-      base_object = get_inner_reference_aff (TREE_OPERAND (base_object, 0),
-					     &comb, &size);
-      gcc_assert (base_object != NULL_TREE);
-      base_object = build_fold_addr_expr (base_object);
+      tree_to_aff_combination (expr, TREE_TYPE (base), &comb);
       base = fold_convert (TREE_TYPE (base), aff_combination_to_tree (&comb));
     }
 
   iv->base = base;
-  iv->base_object = determine_base_object (base_object);
+  iv->base_object = determine_base_object (base);
   iv->step = step;
   iv->biv_p = false;
   iv->have_use_for = false;
@@ -1611,19 +1636,19 @@ idx_record_use (tree base, tree *idx,
    signedness of TOP and BOT.  */
 
 static bool
-constant_multiple_of (tree top, tree bot, double_int *mul)
+constant_multiple_of (tree top, tree bot, widest_int *mul)
 {
   tree mby;
   enum tree_code code;
-  double_int res, p0, p1;
   unsigned precision = TYPE_PRECISION (TREE_TYPE (top));
+  widest_int res, p0, p1;
 
   STRIP_NOPS (top);
   STRIP_NOPS (bot);
 
   if (operand_equal_p (top, bot, 0))
     {
-      *mul = double_int_one;
+      *mul = 1;
       return true;
     }
 
@@ -1638,7 +1663,7 @@ constant_multiple_of (tree top, tree bot, double_int *mul)
       if (!constant_multiple_of (TREE_OPERAND (top, 0), bot, &res))
 	return false;
 
-      *mul = (res * tree_to_double_int (mby)).sext (precision);
+      *mul = wi::sext (res * wi::to_widest (mby), precision);
       return true;
 
     case PLUS_EXPR:
@@ -1649,19 +1674,19 @@ constant_multiple_of (tree top, tree bot, double_int *mul)
 
       if (code == MINUS_EXPR)
 	p1 = -p1;
-      *mul = (p0 + p1).sext (precision);
+      *mul = wi::sext (p0 + p1, precision);
       return true;
 
     case INTEGER_CST:
       if (TREE_CODE (bot) != INTEGER_CST)
 	return false;
 
-      p0 = tree_to_double_int (top).sext (precision);
-      p1 = tree_to_double_int (bot).sext (precision);
-      if (p1.is_zero ())
+      p0 = widest_int::from (top, SIGNED);
+      p1 = widest_int::from (bot, SIGNED);
+      if (p1 == 0)
 	return false;
-      *mul = p0.sdivmod (p1, FLOOR_DIV_EXPR, &res).sext (precision);
-      return res.is_zero ();
+      *mul = wi::sext (wi::divmod_trunc (p0, p1, SIGNED, &res), precision);
+      return res == 0;
 
     default:
       return false;
@@ -3018,7 +3043,7 @@ get_computation_aff (struct loop *loop,
   tree common_type, var;
   tree uutype;
   aff_tree cbase_aff, var_aff;
-  double_int rat;
+  widest_int rat;
 
   if (TYPE_PRECISION (utype) > TYPE_PRECISION (ctype))
     {
@@ -3838,7 +3863,7 @@ ptr_difference_cost (struct ivopts_data *data,
   type = signed_type_for (TREE_TYPE (e1));
   tree_to_aff_combination (e1, type, &aff_e1);
   tree_to_aff_combination (e2, type, &aff_e2);
-  aff_combination_scale (&aff_e2, double_int_minus_one);
+  aff_combination_scale (&aff_e2, -1);
   aff_combination_add (&aff_e1, &aff_e2);
 
   return force_var_cost (data, aff_combination_to_tree (&aff_e1), depends_on);
@@ -3893,7 +3918,7 @@ difference_cost (struct ivopts_data *data,
   type = signed_type_for (TREE_TYPE (e1));
   tree_to_aff_combination (e1, type, &aff_e1);
   tree_to_aff_combination (e2, type, &aff_e2);
-  aff_combination_scale (&aff_e2, double_int_minus_one);
+  aff_combination_scale (&aff_e2, -1);
   aff_combination_add (&aff_e1, &aff_e2);
 
   return force_var_cost (data, aff_combination_to_tree (&aff_e1), depends_on);
@@ -4037,7 +4062,7 @@ get_loop_invariant_expr_id (struct ivopts_data *data, tree ubase,
   tree_to_aff_combination (ub, TREE_TYPE (ub), &ubase_aff);
   tree_to_aff_combination (cb, TREE_TYPE (cb), &cbase_aff);
 
-  aff_combination_scale (&cbase_aff, double_int::from_shwi (-1 * ratio));
+  aff_combination_scale (&cbase_aff, -1 * ratio);
   aff_combination_add (&ubase_aff, &cbase_aff);
   expr = aff_combination_to_tree (&ubase_aff);
   return get_expr_id (data, expr);
@@ -4067,7 +4092,7 @@ get_computation_cost_at (struct ivopts_data *data,
   HOST_WIDE_INT ratio, aratio;
   bool var_present, symbol_present, stmt_is_after_inc;
   comp_cost cost;
-  double_int rat;
+  widest_int rat;
   bool speed = optimize_bb_for_speed_p (gimple_bb (at));
   enum machine_mode mem_mode = (address_p
 				? TYPE_MODE (TREE_TYPE (*use->op_p))
@@ -4126,7 +4151,7 @@ get_computation_cost_at (struct ivopts_data *data,
   if (!constant_multiple_of (ustep, cstep, &rat))
     return infinite_cost;
 
-  if (rat.fits_shwi ())
+  if (wi::fits_shwi_p (rat))
     ratio = rat.to_shwi ();
   else
     return infinite_cost;
@@ -4363,8 +4388,10 @@ cand_value_at (struct loop *loop, struct iv_cand *cand, gimple at, tree niter,
   tree steptype = type;
   if (POINTER_TYPE_P (type))
     steptype = sizetype;
+  steptype = unsigned_type_for (type);
 
-  tree_to_aff_combination (iv->step, steptype, &step);
+  tree_to_aff_combination (iv->step, TREE_TYPE (iv->step), &step);
+  aff_combination_convert (&step, steptype);
   tree_to_aff_combination (niter, TREE_TYPE (niter), &nit);
   aff_combination_convert (&nit, steptype);
   aff_combination_mult (&nit, &step, &delta);
@@ -4372,6 +4399,8 @@ cand_value_at (struct loop *loop, struct iv_cand *cand, gimple at, tree niter,
     aff_combination_add (&delta, &step);
 
   tree_to_aff_combination (iv->base, type, val);
+  if (!POINTER_TYPE_P (type))
+    aff_combination_convert (val, steptype);
   aff_combination_add (val, &delta);
 }
 
@@ -4636,11 +4665,11 @@ iv_elimination_compare_lt (struct ivopts_data *data,
   tree_to_aff_combination (niter->niter, nit_type, &nit);
   tree_to_aff_combination (fold_convert (nit_type, a), nit_type, &tmpa);
   tree_to_aff_combination (fold_convert (nit_type, b), nit_type, &tmpb);
-  aff_combination_scale (&nit, double_int_minus_one);
-  aff_combination_scale (&tmpa, double_int_minus_one);
+  aff_combination_scale (&nit, -1);
+  aff_combination_scale (&tmpa, -1);
   aff_combination_add (&tmpb, &tmpa);
   aff_combination_add (&tmpb, &nit);
-  if (tmpb.n != 0 || tmpb.offset != double_int_one)
+  if (tmpb.n != 0 || tmpb.offset != 1)
     return false;
 
   /* Finally, check that CAND->IV->BASE - CAND->IV->STEP * A does not
@@ -4726,13 +4755,13 @@ may_eliminate_iv (struct ivopts_data *data,
      entire loop and compare against that instead.  */
   else
     {
-      double_int period_value, max_niter;
+      widest_int period_value, max_niter;
 
       max_niter = desc->max;
       if (stmt_after_increment (loop, cand, use->stmt))
-        max_niter += double_int_one;
-      period_value = tree_to_double_int (period);
-      if (max_niter.ugt (period_value))
+        max_niter += 1;
+      period_value = wi::to_widest (period);
+      if (wi::gtu_p (max_niter, period_value))
         {
           /* See if we can take advantage of inferred loop bound information.  */
           if (data->loop_single_exit_p)
@@ -4740,7 +4769,7 @@ may_eliminate_iv (struct ivopts_data *data,
               if (!max_loop_iterations (loop, &max_niter))
                 return false;
               /* The loop bound is already adjusted by adding 1.  */
-              if (max_niter.ugt (period_value))
+              if (wi::gtu_p (max_niter, period_value))
                 return false;
             }
           else
@@ -4750,7 +4779,8 @@ may_eliminate_iv (struct ivopts_data *data,
 
   cand_value_at (loop, cand, use->stmt, desc->niter, &bnd);
 
-  *bound = aff_combination_to_tree (&bnd);
+  *bound = fold_convert (TREE_TYPE (cand->iv->base),
+			 aff_combination_to_tree (&bnd));
   *comp = iv_elimination_compare (data, use);
 
   /* It is unlikely that computing the number of iterations using division
