@@ -1,6 +1,10 @@
 
 2014-06-10  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/generated/*: Regenerate all.
+
+2014-06-10  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-base.melt (valdesc_double): Correct typo.
 
 2014-06-10  Basile Starynkevitch  <basile@starynkevitch.net>
