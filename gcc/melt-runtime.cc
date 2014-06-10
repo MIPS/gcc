@@ -7683,7 +7683,7 @@ char_escape:
           rdnext ();
           c = strtol (&rdcurc (), &endc, 16);
           if (c == 0 && endc <= &rdcurc ())
-            MELT_READ_ERROR ("MELT: illigal hex #\\x escape in char %.20s starting line %d",
+            MELT_READ_ERROR ("MELT: illegal hex #\\x escape in char %.20s starting line %d",
                              &rdcurc (), lineno);
           rd->rcol += endc - &rdcurc ();
           goto char_escape;

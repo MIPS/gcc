@@ -2896,7 +2896,50 @@ exit, in last place.}#
   (assert_msg "check sbuf" (is_strbuf sbuf) sbuf)
   (forever
    lexloop
-   (assert_msg "@$@incomplete json_lexer")
+   (let ( (curch (strbuf_peek sbuf 0))
+	  (nextch (strbuf_peek sbuf 1))
+	  )
+     (cond
+      ;; skip spaces
+      ((expr_chunk testspace_chk :long #{ISSPACE($CURCH)}#)
+       (strbuf_consume sbuf 1)
+       (again lexloop))
+      ;; return on eof
+      ((<i curch 0)
+       (return))
+      ;; various single-char delimiters
+      ((==i curch #\[)
+       (strbuf_consume sbuf 1)
+       (return :delim :left_bracket))
+      ((==i curch #\])
+       (strbuf_consume sbuf 1)
+       (return :delim :right_bracket))
+      ((==i curch #\,)
+       (strbuf_consume sbuf 1)
+       (return :delim :comma))
+      ((==i curch #\:)
+       (strbuf_consume sbuf 1)
+       (return :delim :colon))
+      ((==i curch #\{)
+       (strbuf_consume sbuf 1)
+       (return :delim :left_brace))
+      ((==i curch #\})
+       (strbuf_consume sbuf 1)
+       (return :delim :right_brace))
+      ;;; numbers
+      ((expr_chunk testdigitminus_chk :long
+		   #{(ISDIGIT($CURCH)
+		      || ((char)$CURCH== '-'
+			  && ISDIGIT((char)$NEXTCH)))}#)
+       (assert_msg "@$@unimplemented lexing of JSON numbers")
+       )
+      ;; otherwise error
+      (:else
+       (return :error sbuf))
+      )
+
+     (assert_msg "@$@incomplete json_lexer")
+     )
    )
   )
 
