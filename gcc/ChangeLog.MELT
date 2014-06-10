@@ -1,4 +1,10 @@
 
+2014-06-10  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.1-rc0plus
+	* melt/warmelt-hooks.melt (register_raw_input_channel_handler):
+	Improve comment.
+	(json_lexer): Tiny bit more.
+
 2014-05-05  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{MELT 1.1-rc0}}
 	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.1-rc0

@@ -2824,12 +2824,11 @@ exit, in last place.}#
   :doc #{$REGISTER_RAW_INPUT_CHANNEL_HANDLER registers an asynchronous
   raw input channel handler, such as for the graphical user interface
   probe. $CLOS is the registered closure, $DATA is some client data,
-  $INCHFD is the input Unix file descriptor. When an entire
-  message (double-newline ended sequence of MELT values in MELT
-  syntax) is recieved from the $INCHFD, the $CLOS is applied to the
-  input channel handler -containing the data as its $INCH_DATA field-,
-  a read-only instance of $CLASS_INPUT_CHANNEL_HANDLER, and to the
-  read list. When end-of-file is obtained on $INCHFD, the closure is
+  $INCHFD is the input Unix file descriptor. When some bytes are
+  recieved from the $INCHFD, the $CLOS is applied to the input channel
+  handler -containing the data as its $INCH_DATA field-, a read-only
+  instance of $CLASS_INPUT_CHANNEL_HANDLER, and to the read string
+  buffer. When end-of-file is obtained on $INCHFD, the closure is
   similarily applied with a null value instead of the read list.}#
   (debug "register_raw_input_channel_handler clos=" clos " data=" data 
 	 " inchfd=" inchfd)
@@ -2892,7 +2891,7 @@ exit, in last place.}#
   (setq json_name_dict jsondict)
   (void))
 
-;; internal function to lexer a json sbuf
+;; internal function to lex a json sbuf
 (defun json_lexer (sbuf)
   (assert_msg "check sbuf" (is_strbuf sbuf) sbuf)
   (forever
@@ -2901,6 +2900,7 @@ exit, in last place.}#
    )
   )
 
+;; this can be passed to register_raw_input_channel_handler
 (defun json_parser_input_processor (inch sbuf)
   (debug "json_parser_input_processor inch=" inch "\n.. sbuf=" sbuf)
   (let ( (jparser (get_field :inch_data inch))
