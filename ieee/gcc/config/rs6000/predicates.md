@@ -479,13 +479,14 @@
   switch (mode)
     {
     /* For IEEE 128-bit, only consider 0.0 to be easy.  */
-    case JFmode:
     case KFmode:
+      return (op == CONST0_RTX (mode));
+
     case TFmode:
       if (FLOAT128_VECTOR_P (mode))
 	return (op == CONST0_RTX (mode));
 
-      if (mode == KFmode || TARGET_E500_DOUBLE)
+      if (TARGET_E500_DOUBLE)
 	return 0;
 
       REAL_VALUE_FROM_CONST_DOUBLE (rv, op);

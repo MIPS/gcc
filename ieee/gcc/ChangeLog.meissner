@@ -1,3 +1,35 @@
+2014-06-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/predicates.md (easy_fp_constant): Eliminate
+	JFmode, including builtin functions, __ibm128 type, and save area
+	to hold JFmode type.
+	* config/rs6000/rs6000-modes.md (JFmode): Likewise.
+	* config/rs6000/rs6000-builtin.def (pack_ibm128): Likewise.
+	(unpack_ibm128): Likewise.
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Likewise.
+	(invalid_e500_subreg): Likewise.
+	(rs6000_legitimate_offset_address_p): Likewise.
+	(rs6000_legitimize_reload_address): Likewise.
+	(rs6000_emit_move): Likewise.
+	(rs6000_gimplify_va_arg): Likewise.
+	(rs6000_init_builtins): Likewise.
+	(rs6000_init_libfuncs): Likewise.
+	(rs6000_cannot_change_mode_class): Likewise.
+	(rs6000_generate_compare): Likewise.
+	(rs6000_output_function_epilogue): Likewise.
+	(output_toc): Likewise.
+	(rs6000_mangle_type): Likewise.
+	* config/rs6000/rs6000.h (FLOAT128_IBM_P): Likewise.
+	(RS6000_BTI_ibm128_float): Likewise.
+	(ibm128_float_type_node): Likewise.
+	* config/rs6000/rs6000.md (FMOVE128): Likewise.
+	(FP128_64): Likewise.
+	(unpacktf_0): Likewise.
+	(unpacktf_1): Likewise.
+	(TF_JF): Delete.
+	(unpack<mode>_0): Likewise.
+	(unpack<mode>_1): Likewise.
+
 2014-06-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/vector.md (VEC_L): Change XFmode to KFmode.  Make

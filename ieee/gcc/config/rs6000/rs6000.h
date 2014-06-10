@@ -405,15 +405,13 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 /* Helper macros for TFmode.  Quad floating point (TFmode) can be either IBM
    long double format that uses a pair of doubles, or IEEE 128-bit floating
    point.  KFmode was added as a way to represent IEEE 128-bit floating point,
-   even if the default for long double is the IBM long double format.
-   Similarly, JFmode is a way to represent the IBM long double format.  */
+   even if the default for long double is the IBM long double format.  */
 #define FLOAT128_IEEE_P(MODE)						\
   (((MODE) == KFmode)							\
    || (((MODE) == TFmode) && TARGET_IEEEQUAD && TARGET_LONG_DOUBLE_128))
 
 #define FLOAT128_IBM_P(MODE)						\
-  (((MODE) == JFmode)							\
-   || (((MODE) == TFmode) && !TARGET_IEEEQUAD && TARGET_LONG_DOUBLE_128))
+  (((MODE) == TFmode) && !TARGET_IEEEQUAD && TARGET_LONG_DOUBLE_128)
 
 /* Helper macros to say whether a 128-bit floating point type can go in a
    single vector register, or whether it needs paired scalar values.  */
@@ -2668,7 +2666,6 @@ enum rs6000_builtin_type_index
   RS6000_BTI_dfloat128,		 /* dfloat128_type_node */
   RS6000_BTI_void,	         /* void_type_node */
   RS6000_BTI_ieee128_float,	 /* ieee 128-bit floating point */
-  RS6000_BTI_ibm128_float,	 /* ibm 128-bit double/double floating point */
   RS6000_BTI_MAX
 };
 
@@ -2724,7 +2721,6 @@ enum rs6000_builtin_type_index
 #define dfloat128_type_internal_node	 (rs6000_builtin_types[RS6000_BTI_dfloat128])
 #define void_type_internal_node		 (rs6000_builtin_types[RS6000_BTI_void])
 #define ieee128_float_type_node		 (rs6000_builtin_types[RS6000_BTI_ieee128_float])
-#define ibm128_float_type_node		 (rs6000_builtin_types[RS6000_BTI_ibm128_float])
 
 extern GTY(()) tree rs6000_builtin_types[RS6000_BTI_MAX];
 extern GTY(()) tree rs6000_builtin_decls[RS6000_BUILTIN_COUNT];

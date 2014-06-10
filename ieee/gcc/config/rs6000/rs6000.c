@@ -1980,7 +1980,6 @@ rs6000_debug_reg_global (void)
     SFmode,
     DFmode,
     TFmode,
-    JFmode,
     KFmode,
     SDmode,
     DDmode,
@@ -5861,15 +5860,13 @@ invalid_e500_subreg (rtx op, enum machine_mode mode)
 	  && REG_P (SUBREG_REG (op))
 	  && (GET_MODE (SUBREG_REG (op)) == DFmode
 	      || GET_MODE (SUBREG_REG (op)) == TFmode
-	      || GET_MODE (SUBREG_REG (op)) == KFmode
-	      || GET_MODE (SUBREG_REG (op)) == JFmode))
+	      || GET_MODE (SUBREG_REG (op)) == KFmode))
 	return true;
 
       /* Reject (subreg:DF (reg:DI)); likewise with subreg:TF and
 	 reg:TI.  */
       if (GET_CODE (op) == SUBREG
-	  && (mode == DFmode || mode == TFmode || mode == KFmode
-	      || mode == JFmode)
+	  && (mode == DFmode || mode == TFmode || mode == KFmode)
 	  && REG_P (SUBREG_REG (op))
 	  && (GET_MODE (SUBREG_REG (op)) == DImode
 	      || GET_MODE (SUBREG_REG (op)) == TImode
@@ -6488,7 +6485,6 @@ rs6000_legitimate_offset_address_p (enum machine_mode mode, rtx x,
 
     case TFmode:
     case KFmode:
-    case JFmode:
       if (TARGET_E500_DOUBLE)
 	return (SPE_CONST_OFFSET_OK (offset)
 		&& SPE_CONST_OFFSET_OK (offset + 8));
@@ -6683,7 +6679,6 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
     case TImode:
     case PTImode:
     case KFmode:
-    case JFmode:
       /* As in legitimate_offset_address_p we do not assume
 	 worst-case.  The mode here is just a hint as to the registers
 	 used.  A TImode is usually in gprs, but may actually be in
@@ -7491,7 +7486,6 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
       && mode != TFmode
       && mode != TDmode
       && mode != KFmode
-      && mode != JFmode
       && (mode != TImode || !TARGET_VSX_TIMODE)
       && mode != PTImode
       && (mode != DImode || TARGET_POWERPC64)
@@ -8451,7 +8445,6 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
     case TFmode:
     case TDmode:
     case KFmode:
-    case JFmode:
       if (FLOAT128_2REG_P (mode))
 	rs6000_eliminate_indexed_memrefs (operands);
       /* fall through */
@@ -11120,7 +11113,6 @@ rs6000_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
               && (TYPE_MODE (type) == DFmode 
  	          || TYPE_MODE (type) == TFmode
  	          || TYPE_MODE (type) == KFmode
- 	          || TYPE_MODE (type) == JFmode
 	          || TYPE_MODE (type) == SDmode
 	          || TYPE_MODE (type) == DDmode
 	          || TYPE_MODE (type) == TDmode))))
@@ -13895,7 +13887,6 @@ rs6000_init_builtins (void)
   tree ftype;
   enum machine_mode mode;
   enum machine_mode ieee128_mode;
-  enum machine_mode ibm128_mode;
 
   if (TARGET_DEBUG_BUILTIN)
     fprintf (stderr, "rs6000_init_builtins%s%s%s%s\n",
@@ -13964,29 +13955,18 @@ rs6000_init_builtins (void)
   void_type_internal_node = void_type_node;
 
   /* 128-bit floating point support.  KFmode is IEEE 128-bit floating point.
-     JFmode is the IBM 128-bit floating point format that uses a pair of
-     doubles to represent the extended value.  TFmode will be either KFmode or
-     JFmode, depending on the switches and defaults.  */
+     TFmode will be either IEEE 128-bit floating point or the IBM double-double
+     format that uses a pair of doubles, depending on the switches and
+     defaults.  */
   ieee128_mode = (TARGET_IEEEQUAD) ? TFmode : KFmode;
   ieee128_float_type_node = make_node (REAL_TYPE);
   TYPE_PRECISION (ieee128_float_type_node) = 128;
   layout_type (ieee128_float_type_node);
   SET_TYPE_MODE (ieee128_float_type_node, ieee128_mode);
 
-  ibm128_mode = (!TARGET_IEEEQUAD) ? TFmode : JFmode;
-  ibm128_float_type_node = make_node (REAL_TYPE);
-  TYPE_PRECISION (ibm128_float_type_node) = 128;
-  layout_type (ibm128_float_type_node);
-  SET_TYPE_MODE (ibm128_float_type_node, ibm128_mode);
-
   if (TARGET_FLOAT128)
-    {
-      lang_hooks.types.register_builtin_type (ieee128_float_type_node,
-					      "__float128");
-
-      lang_hooks.types.register_builtin_type (ibm128_float_type_node,
-					      "__ibm128");
-    }
+    lang_hooks.types.register_builtin_type (ieee128_float_type_node,
+					    "__float128");
 
   /* Initialize the modes for builtin_function_type, mapping a machine mode to
      tree type node.  */
@@ -14001,7 +13981,6 @@ rs6000_init_builtins (void)
   builtin_mode_to_type[SFmode][0] = float_type_node;
   builtin_mode_to_type[DFmode][0] = double_type_node;
   builtin_mode_to_type[KFmode][0] = ieee128_float_type_node;
-  builtin_mode_to_type[JFmode][0] = ibm128_float_type_node;
   builtin_mode_to_type[TFmode][0] = long_double_type_node;
   builtin_mode_to_type[DDmode][0] = dfloat64_type_node;
   builtin_mode_to_type[TDmode][0] = dfloat128_type_node;
@@ -15595,11 +15574,10 @@ static void
 rs6000_init_libfuncs (void)
 {
   /* AIX/Darwin/64-bit Linux quad floating point routines.  */
-  init_float128_ibm (JFmode);
   if (!TARGET_IEEEQUAD)
     init_float128_ibm (TFmode);
 
-  /* 32-bit SVR4 quad floating point routines.  */
+  /* IEEE 128-bit including 32-bit SVR4 quad floating point routines.  */
   init_float128_ieee (KFmode);
   if (TARGET_IEEEQUAD)
     init_float128_ieee (TFmode);
@@ -17513,7 +17491,6 @@ rs6000_cannot_change_mode_class (enum machine_mode from,
       && ((((to) == DFmode) + ((from) == DFmode)) == 1
 	  || (((to) == TFmode) + ((from) == TFmode)) == 1
 	  || (((to) == KFmode) + ((from) == KFmode)) == 1
-	  || (((to) == JFmode) + ((from) == JFmode)) == 1
 	  || (((to) == DDmode) + ((from) == DDmode)) == 1
 	  || (((to) == TDmode) + ((from) == TDmode)) == 1
 	  || (((to) == DImode) + ((from) == DImode)) == 1))
@@ -18920,7 +18897,6 @@ rs6000_generate_compare (rtx cmp, enum machine_mode mode)
 
 	    case TFmode:
 	    case KFmode:
-	    case JFmode:
 	      cmp = (flag_finite_math_only && !flag_trapping_math)
 		? gen_tsttfeq_gpr (compare_result, op0, op1)
 		: gen_cmptfeq_gpr (compare_result, op0, op1);
@@ -18949,7 +18925,6 @@ rs6000_generate_compare (rtx cmp, enum machine_mode mode)
 
 	    case TFmode:
 	    case KFmode:
-	    case JFmode:
 	      cmp = (flag_finite_math_only && !flag_trapping_math)
 		? gen_tsttfgt_gpr (compare_result, op0, op1)
 		: gen_cmptfgt_gpr (compare_result, op0, op1);
@@ -18978,7 +18953,6 @@ rs6000_generate_compare (rtx cmp, enum machine_mode mode)
 
 	    case TFmode:
 	    case KFmode:
-	    case JFmode:
 	      cmp = (flag_finite_math_only && !flag_trapping_math)
 		? gen_tsttflt_gpr (compare_result, op0, op1)
 		: gen_cmptflt_gpr (compare_result, op0, op1);
@@ -19017,7 +18991,6 @@ rs6000_generate_compare (rtx cmp, enum machine_mode mode)
 
 	    case TFmode:
 	    case KFmode:
-	    case JFmode:
 	      cmp = (flag_finite_math_only && !flag_trapping_math)
 		? gen_tsttfeq_gpr (compare_result2, op0, op1)
 		: gen_cmptfeq_gpr (compare_result2, op0, op1);
@@ -25232,7 +25205,6 @@ rs6000_output_function_epilogue (FILE *file,
 			case TFmode:
 			case TDmode:
 			case KFmode:
-			case JFmode:
 			  bits = 0x3;
 			  break;
 
@@ -25720,7 +25692,7 @@ output_toc (FILE *file, rtx x, int labelno, enum machine_mode mode)
      FP constants.  */
   if (GET_CODE (x) == CONST_DOUBLE &&
       (GET_MODE (x) == TFmode || GET_MODE (x) == TDmode
-       || GET_MODE (x) == KFmode || GET_MODE (x) == JFmode))
+       || GET_MODE (x) == KFmode))
     {
       REAL_VALUE_TYPE rv;
       long k[4];
@@ -28451,15 +28423,12 @@ rs6000_mangle_type (const_tree type)
   /* For VSX systems, we are transitioning to supporting IEEE 128-bit floating
      point.  Initially, users will have to use __float128 to get access to the
      IEEE 128-bit floating point, and long double will remain the IBM
-     double-double format (same as the __ibm128 type).  At some point in the
-     future, long double may become the same as __float128.
+     double-double format.  At some point in the future, long double may become
+     the same as __float128.
 
      AIX and really old powerpc*-linux systems default to 64-bit for the
      long double type, and we will use the normal C++ mangling in this
      case.  */
-
-  if (type == ibm128_float_type_node)
-    return "g";
 
   if (type == ieee128_float_type_node)
     return "e";

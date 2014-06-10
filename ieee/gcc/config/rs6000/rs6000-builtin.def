@@ -1598,9 +1598,6 @@ BU_MISC_2 (UNPACK_TF,		"unpack_longdouble",	CONST,	unpacktf)
 BU_MISC_1 (UNPACK_TF_0,		"longdouble_dw0",	CONST,	unpacktf_0)
 BU_MISC_1 (UNPACK_TF_1,		"longdouble_dw1",	CONST,	unpacktf_1)
 
-BU_MISC_2 (PACK_JF,		"pack_ibm128",		CONST,	packjf)
-BU_MISC_2 (UNPACK_JF,		"unpack_ibm128",	CONST,	unpackjf)
-
 BU_P7_MISC_2 (PACK_V1TI,	"pack_vector_int128",	CONST,	packv1ti)
 BU_P7_MISC_2 (UNPACK_V1TI,	"unpack_vector_int128",	CONST,	unpackv1ti)
 
