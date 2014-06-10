@@ -1,5 +1,12 @@
 
 2014-06-10  Basile Starynkevitch  <basile@starynkevitch.net>
+	* utf8/: New directory, from http://utfcpp.sourceforge.net/
+	* utf8.h: new file, from  http://utfcpp.sourceforge.net/
+	* utf8/core.h: Likewise.
+	* utf8/checked.h: Likewise.
+	* utf8/unchecked.h: Likewise.
+
+2014-06-10  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.1-rc0plus
 	* melt/warmelt-hooks.melt (register_raw_input_channel_handler):
 	Improve comment.
