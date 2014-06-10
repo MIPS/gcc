@@ -2095,7 +2095,7 @@ See also $CTYPE_VALUE.}#
   :disc_super discr_any_receiver
   :named_name '"DISCR_INTEGER")
 
-;;; The discriminant for boxed reals.
+;;; The discriminant for boxed reals, as used by GCC
 (definstance discr_real class_discriminant
   :doc #{The $DISCR_REAL is the discriminant of boxed reals. }#
   :predef DISCR_REAL
@@ -2113,6 +2113,26 @@ See also $CTYPE_VALUE.}#
 integer values, in particular those obtained by quoting an
 integer. The number inside is constant and remains unchanged by
 $PUT_INT. See also $DISCR_INTEGER.}# )
+
+;;; the discriminant for doubles
+(definstance discr_double class_discriminant
+  :doc #{The $DISCR_DOUBLE is the discriminant of boxed
+  doubles (notably for JSON support). See also $CTYPE_DOUBLE.}#
+  :predef DISCR_DOUBLE
+ ;; :obj_num MELTOBMAG_DOUBLE 
+  :disc_super discr_any_receiver
+  :named_name '"DISCR_DOUBLE")
+
+;;; the discriminant for constant doubles, like '123.4e5
+(definstance discr_constant_double class_discriminant
+  :predef DISCR_CONSTANT_DOUBLE
+ ;; :obj_num MELTOBMAG_DOUBLE
+  :disc_super discr_double
+  :named_name '"DISCR_CONSTANT_DOUBLE"
+  :doc #{The $DISCR_CONSTANT_DOUBLE is the discriminant for constant
+double values, in particular those obtained by quoting an double. The
+number inside is constant and remains unchanged. See also
+$DISCR_DOUBLE.}# )
 
 ;;; the discriminant for lists
 (definstance discr_list class_discriminant
@@ -2673,6 +2693,26 @@ list.}#
   :ctypp_unboxing '"/*unboxing ctype_long*/ melt_get_int"
   )
 (install_ctype_descr ctype_long "C long unboxed integer")
+
+;;;;;;;;;;;;;;;;
+;; the C type for doubles, needed e.g. for JSON
+(definstance ctype_double class_ctype_plain
+  :doc #{The $CTYPE_DOUBLE is the c-type of raw double number stuff.
+ See also $DISCR_DOUBLE and $DISCR_CONSTANT_DOUBLE. Keyword is :double.}#
+  :predef CTYPE_DOUBLE
+  :named_name  '"CTYPE_DOUBLE"
+  :ctype_keyword ':double
+  :ctype_cname  '"double"
+  :ctype_parchar '"MELTBPAR_DOUBLE"
+  :ctype_parstring '"MELTBPARSTR_DOUBLE"
+  :ctype_argfield '"meltbp_double"
+  :ctype_resfield '"meltbp_doubleptr"
+  :ctype_autoboxdiscr discr_double
+  :ctype_autoconstboxdiscr discr_constant_double
+  :ctypp_boxing '"/*boxing ctype_double*/ meltgc_new_double"
+  :ctypp_unboxing '"/*unboxing ctype_double*/ melt_get_double"
+  )
+(install_ctype_descr ctype_double "C double unboxed raw double-precision floagingpoint")
 
 ;; the C type for gcc trees
 (definstance ctype_tree class_ctype_gty

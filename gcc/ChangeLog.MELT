@@ -1,5 +1,12 @@
 
 2014-06-10  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-predef.list (CTYPE_DOUBLE, DISCR_CONSTANT_DOUBLE)
+	(DISCR_DOUBLE): New.
+
+	* melt/warmelt-first.melt (discr_double, discr_constant_double)
+	(ctype_double): New.
+
+2014-06-10  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.cc (meltgc_readhashescape): Typo in error message.
 
 	* melt/warmelt-hooks.melt (json_lexer): Add more code.
