@@ -73,6 +73,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "libfuncs.h"
 #include "opts.h"
 #include "params.h"
+#include "builtins.h"
 
 /* Specify which cpu to schedule for.  */
 enum processor_type alpha_tune;
@@ -4748,7 +4749,7 @@ struct GTY(()) machine_function
 static struct machine_function *
 alpha_init_machine_status (void)
 {
-  return ggc_alloc_cleared_machine_function ();
+  return ggc_cleared_alloc<machine_function> ();
 }
 
 /* Support for frame based VMS condition handlers.  */
@@ -5450,22 +5451,23 @@ print_operand_address (FILE *file, rtx addr)
       offset = INTVAL (addr);
       break;
 
-#if TARGET_ABI_OPEN_VMS
     case SYMBOL_REF:
+      gcc_assert(TARGET_ABI_OPEN_VMS || this_is_asm_operands);
       fprintf (file, "%s", XSTR (addr, 0));
       return;
 
     case CONST:
+      gcc_assert(TARGET_ABI_OPEN_VMS || this_is_asm_operands);
       gcc_assert (GET_CODE (XEXP (addr, 0)) == PLUS
 		  && GET_CODE (XEXP (XEXP (addr, 0), 0)) == SYMBOL_REF);
       fprintf (file, "%s+" HOST_WIDE_INT_PRINT_DEC,
 	       XSTR (XEXP (XEXP (addr, 0), 0), 0),
 	       INTVAL (XEXP (XEXP (addr, 0), 1)));
       return;
-    
-#endif
+
     default:
-      gcc_unreachable ();
+      output_operand_lossage ("invalid operand address");
+      return;
     }
 
   fprintf (file, HOST_WIDE_INT_PRINT_DEC "($%d)", offset, basereg);
@@ -9576,7 +9578,7 @@ alpha_use_linkage (rtx func, bool lflag, bool rflag)
       linksym = (char *) alloca (buf_len);
       snprintf (linksym, buf_len, "$%d..%s..lk", cfun->funcdef_no, name);
 
-      al = ggc_alloc_alpha_links ();
+      al = ggc_alloc<alpha_links> ();
       al->func = func;
       al->linkage = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (linksym));
 

@@ -768,11 +768,8 @@ build_vtable (tree class_type, tree name, tree vtable_type)
   TREE_READONLY (decl) = 1;
   DECL_VIRTUAL_P (decl) = 1;
   DECL_ALIGN (decl) = TARGET_VTABLE_ENTRY_ALIGN;
+  DECL_USER_ALIGN (decl) = true;
   DECL_VTABLE_OR_VTT_P (decl) = 1;
-  /* At one time the vtable info was grabbed 2 words at a time.  This
-     fails on sparc unless you have 8-byte alignment.  (tiemann) */
-  DECL_ALIGN (decl) = MAX (TYPE_ALIGN (double_type_node),
-			   DECL_ALIGN (decl));
   set_linkage_according_to_type (class_type, decl);
   /* The vtable has not been defined -- yet.  */
   DECL_EXTERNAL (decl) = 1;
@@ -1301,7 +1298,7 @@ handle_using_decl (tree using_decl, tree t)
 	old_value = NULL_TREE;
     }
 
-  cp_emit_debug_info_for_using (decl, USING_DECL_SCOPE (using_decl));
+  cp_emit_debug_info_for_using (decl, t);
 
   if (is_overloaded_fn (decl))
     flist = decl;
@@ -3483,22 +3480,25 @@ check_field_decls (tree t, tree *access_decls,
       /* When this goes into scope, it will be a non-local reference.  */
       DECL_NONLOCAL (x) = 1;
 
-      if (TREE_CODE (t) == UNION_TYPE)
+      if (TREE_CODE (t) == UNION_TYPE
+	  && cxx_dialect < cxx11)
 	{
-	  /* [class.union]
+	  /* [class.union] (C++98)
 
 	     If a union contains a static data member, or a member of
-	     reference type, the program is ill-formed.  */
+	     reference type, the program is ill-formed.
+
+	     In C++11 this limitation doesn't exist anymore.  */
 	  if (VAR_P (x))
 	    {
-	      error ("%q+D may not be static because it is a member of a union", x);
+	      error ("in C++98 %q+D may not be static because it is "
+		     "a member of a union", x);
 	      continue;
 	    }
 	  if (TREE_CODE (type) == REFERENCE_TYPE)
 	    {
-	      error ("%q+D may not have reference type %qT because"
-		     " it is a member of a union",
-		     x, type);
+	      error ("in C++98 %q+D may not have reference type %qT "
+		     "because it is a member of a union", x, type);
 	      continue;
 	    }
 	}
@@ -6487,7 +6487,7 @@ static struct sorted_fields_type *
 sorted_fields_type_new (int n)
 {
   struct sorted_fields_type *sft;
-  sft = ggc_alloc_sorted_fields_type (sizeof (struct sorted_fields_type)
+  sft = (sorted_fields_type *) ggc_internal_alloc (sizeof (sorted_fields_type)
 				      + n * sizeof (tree));
   sft->len = n;
 

@@ -52,6 +52,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-streamer.h"
 #include "streamer-hooks.h"
 #include "cfgloop.h"
+#include "builtins.h"
 
 
 static void lto_write_tree (struct output_block*, tree, bool);
@@ -534,8 +535,6 @@ DFS_write_tree_body (struct output_block *ob,
       /* Make sure we don't inadvertently set the assembler name.  */
       if (DECL_ASSEMBLER_NAME_SET_P (expr))
 	DFS_follow_tree_edge (DECL_ASSEMBLER_NAME (expr));
-      DFS_follow_tree_edge (DECL_SECTION_NAME (expr));
-      DFS_follow_tree_edge (DECL_COMDAT_GROUP (expr));
     }
 
   if (CODE_CONTAINS_STRUCT (code, TS_FIELD_DECL))
@@ -973,8 +972,6 @@ hash_tree (struct streamer_tree_cache_d *cache, tree t)
     {
       if (DECL_ASSEMBLER_NAME_SET_P (t))
 	visit (DECL_ASSEMBLER_NAME (t));
-      visit (DECL_SECTION_NAME (t));
-      visit (DECL_COMDAT_GROUP (t));
     }
 
   if (CODE_CONTAINS_STRUCT (code, TS_FIELD_DECL))
@@ -2243,7 +2240,7 @@ write_symbol (struct streamer_tree_cache_d *cache,
   enum gcc_plugin_symbol_kind kind;
   enum gcc_plugin_symbol_visibility visibility;
   unsigned slot_num;
-  unsigned HOST_WIDEST_INT size;
+  uint64_t size;
   const char *comdat;
   unsigned char c;
 
@@ -2331,7 +2328,7 @@ write_symbol (struct streamer_tree_cache_d *cache,
     size = 0;
 
   if (DECL_ONE_ONLY (t))
-    comdat = IDENTIFIER_POINTER (DECL_COMDAT_GROUP (t));
+    comdat = IDENTIFIER_POINTER (decl_comdat_group_id (t));
   else
     comdat = "";
 

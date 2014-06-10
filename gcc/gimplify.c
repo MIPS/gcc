@@ -62,6 +62,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "langhooks-def.h"	/* FIXME: for lhd_set_decl_assembler_name */
 #include "tree-pass.h"		/* FIXME: only for PROP_gimple_any */
+#include "builtins.h"
 
 enum gimplify_omp_var_data
 {
@@ -450,14 +451,13 @@ is_gimple_mem_rhs_or_call (tree t)
    lookup_tmp_var; nobody else should call this function.  */
 
 static inline tree
-create_tmp_from_val (tree val, bool is_formal)
+create_tmp_from_val (tree val)
 {
   /* Drop all qualifiers and address-space information from the value type.  */
   tree type = TYPE_MAIN_VARIANT (TREE_TYPE (val));
   tree var = create_tmp_var (type, get_name (val));
-  if (is_formal
-      && (TREE_CODE (TREE_TYPE (var)) == COMPLEX_TYPE
-	  || TREE_CODE (TREE_TYPE (var)) == VECTOR_TYPE))
+  if (TREE_CODE (TREE_TYPE (var)) == COMPLEX_TYPE
+      || TREE_CODE (TREE_TYPE (var)) == VECTOR_TYPE)
     DECL_GIMPLE_REG_P (var) = 1;
   return var;
 }
@@ -476,7 +476,7 @@ lookup_tmp_var (tree val, bool is_formal)
      work in reload and final and poorer code generation, outweighing
      the extra memory allocation here.  */
   if (!optimize || !is_formal || TREE_SIDE_EFFECTS (val))
-    ret = create_tmp_from_val (val, is_formal);
+    ret = create_tmp_from_val (val);
   else
     {
       elt_t elt, *elt_p;
@@ -490,7 +490,7 @@ lookup_tmp_var (tree val, bool is_formal)
 	{
 	  elt_p = XNEW (elt_t);
 	  elt_p->val = val;
-	  elt_p->temp = ret = create_tmp_from_val (val, is_formal);
+	  elt_p->temp = ret = create_tmp_from_val (val);
 	  *slot = elt_p;
 	}
       else
@@ -2169,7 +2169,7 @@ maybe_with_size_expr (tree *expr_p)
    Store any side-effects in PRE_P.  CALL_LOCATION is the location of
    the CALL_EXPR.  */
 
-static enum gimplify_status
+enum gimplify_status
 gimplify_arg (tree *arg_p, gimple_seq *pre_p, location_t call_location)
 {
   bool (*test) (tree);
@@ -3153,7 +3153,11 @@ prepare_gimple_addressable (tree *expr_p, gimple_seq *seq_p)
   while (handled_component_p (*expr_p))
     expr_p = &TREE_OPERAND (*expr_p, 0);
   if (is_gimple_reg (*expr_p))
-    *expr_p = get_initialized_tmp_var (*expr_p, seq_p, NULL);
+    {
+      tree var = get_initialized_tmp_var (*expr_p, seq_p, NULL);
+      DECL_GIMPLE_REG_P (var) = 0;
+      *expr_p = var;
+    }
 }
 
 /* A subroutine of gimplify_modify_expr.  Replace a MODIFY_EXPR with
@@ -5683,7 +5687,13 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
       switch (default_kind)
 	{
 	case OMP_CLAUSE_DEFAULT_NONE:
-	  if ((ctx->region_type & ORT_TASK) != 0)
+	  if ((ctx->region_type & ORT_PARALLEL) != 0)
+	    {
+	      error ("%qE not specified in enclosing parallel",
+		     DECL_NAME (lang_hooks.decls.omp_report_decl (decl)));
+	      error_at (ctx->location, "enclosing parallel");
+	    }
+	  else if ((ctx->region_type & ORT_TASK) != 0)
 	    {
 	      error ("%qE not specified in enclosing task",
 		     DECL_NAME (lang_hooks.decls.omp_report_decl (decl)));
@@ -5696,11 +5706,7 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
 	      error_at (ctx->location, "enclosing teams construct");
 	    }
 	  else
-	    {
-	      error ("%qE not specified in enclosing parallel",
-		     DECL_NAME (lang_hooks.decls.omp_report_decl (decl)));
-	      error_at (ctx->location, "enclosing parallel");
-	    }
+	    gcc_unreachable ();
 	  /* FALLTHRU */
 	case OMP_CLAUSE_DEFAULT_SHARED:
 	  flags |= GOVD_SHARED;
@@ -6066,6 +6072,27 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	      pop_gimplify_context
 		(gimple_seq_first_stmt (OMP_CLAUSE_LASTPRIVATE_GIMPLE_SEQ (c)));
 	      OMP_CLAUSE_LASTPRIVATE_STMT (c) = NULL_TREE;
+
+	      gimplify_omp_ctxp = outer_ctx;
+	    }
+	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LINEAR
+		   && OMP_CLAUSE_LINEAR_STMT (c))
+	    {
+	      gimplify_omp_ctxp = ctx;
+	      push_gimplify_context ();
+	      if (TREE_CODE (OMP_CLAUSE_LINEAR_STMT (c)) != BIND_EXPR)
+		{
+		  tree bind = build3 (BIND_EXPR, void_type_node, NULL,
+				      NULL, NULL);
+		  TREE_SIDE_EFFECTS (bind) = 1;
+		  BIND_EXPR_BODY (bind) = OMP_CLAUSE_LINEAR_STMT (c);
+		  OMP_CLAUSE_LINEAR_STMT (c) = bind;
+		}
+	      gimplify_and_add (OMP_CLAUSE_LINEAR_STMT (c),
+				&OMP_CLAUSE_LINEAR_GIMPLE_SEQ (c));
+	      pop_gimplify_context
+		(gimple_seq_first_stmt (OMP_CLAUSE_LINEAR_GIMPLE_SEQ (c)));
+	      OMP_CLAUSE_LINEAR_STMT (c) = NULL_TREE;
 
 	      gimplify_omp_ctxp = outer_ctx;
 	    }

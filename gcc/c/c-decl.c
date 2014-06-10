@@ -63,6 +63,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "plugin.h"
 #include "c-family/c-ada-spec.h"
 #include "cilk.h"
+#include "builtins.h"
 
 /* In grokdeclarator, distinguish syntactic contexts of declarators.  */
 enum decl_context
@@ -638,7 +639,7 @@ bind (tree name, tree decl, struct c_scope *scope, bool invisible,
       binding_freelist = b->prev;
     }
   else
-    b = ggc_alloc_c_binding ();
+    b = ggc_alloc<c_binding> ();
 
   b->shadowed = 0;
   b->decl = decl;
@@ -755,7 +756,7 @@ void
 record_inline_static (location_t loc, tree func, tree decl,
 		      enum c_inline_static_type type)
 {
-  struct c_inline_static *csi = ggc_alloc_c_inline_static ();
+  c_inline_static *csi = ggc_alloc<c_inline_static> ();
   csi->location = loc;
   csi->function = func;
   csi->static_decl = decl;
@@ -952,7 +953,7 @@ push_scope (void)
 	  scope_freelist = scope->outer;
 	}
       else
-	scope = ggc_alloc_cleared_c_scope ();
+	scope = ggc_cleared_alloc<c_scope> ();
 
       /* The FLOAT_CONST_DECIMAL64 pragma applies to nested scopes.  */
       if (current_scope)
@@ -2303,8 +2304,10 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 	 We want to issue an error if the sections conflict but that
 	 must be done later in decl_attributes since we are called
 	 before attributes are assigned.  */
-      if (DECL_SECTION_NAME (newdecl) == NULL_TREE)
-	DECL_SECTION_NAME (newdecl) = DECL_SECTION_NAME (olddecl);
+      if ((DECL_EXTERNAL (olddecl) || TREE_PUBLIC (olddecl) || TREE_STATIC (olddecl))
+	  && DECL_SECTION_NAME (newdecl) == NULL_TREE
+	  && DECL_SECTION_NAME (olddecl))
+	set_decl_section_name (newdecl, DECL_SECTION_NAME (olddecl));
 
       /* Copy the assembler name.
 	 Currently, it can only be defined in the prototype.  */
@@ -2507,8 +2510,18 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
     switch (TREE_CODE (olddecl))
       {
       case FUNCTION_DECL:
-      case FIELD_DECL:
       case VAR_DECL:
+	{
+	  struct symtab_node *snode = olddecl->decl_with_vis.symtab_node;
+
+	  memcpy ((char *) olddecl + sizeof (struct tree_decl_common),
+		  (char *) newdecl + sizeof (struct tree_decl_common),
+		  tree_code_size (TREE_CODE (olddecl)) - sizeof (struct tree_decl_common));
+	  olddecl->decl_with_vis.symtab_node = snode;
+	  break;
+	}
+
+      case FIELD_DECL:
       case PARM_DECL:
       case LABEL_DECL:
       case RESULT_DECL:
@@ -2561,6 +2574,16 @@ duplicate_decls (tree newdecl, tree olddecl)
     }
 
   merge_decls (newdecl, olddecl, newtype, oldtype);
+
+  /* The NEWDECL will no longer be needed.  */
+  if (TREE_CODE (newdecl) == FUNCTION_DECL
+      || TREE_CODE (newdecl) == VAR_DECL)
+    {
+      struct symtab_node *snode = symtab_get_node (newdecl);
+      if (snode)
+	symtab_remove_node (snode);
+    }
+  ggc_free (newdecl);
   return true;
 }
 
@@ -2587,6 +2610,7 @@ warn_if_shadowing (tree new_decl)
 					     DECL_SOURCE_LOCATION (b->decl))))
       {
 	tree old_decl = b->decl;
+	bool warned = false;
 
 	if (old_decl == error_mark_node)
 	  {
@@ -2595,8 +2619,9 @@ warn_if_shadowing (tree new_decl)
 	    break;
 	  }
 	else if (TREE_CODE (old_decl) == PARM_DECL)
-	  warning (OPT_Wshadow, "declaration of %q+D shadows a parameter",
-		   new_decl);
+	  warned = warning (OPT_Wshadow,
+			    "declaration of %q+D shadows a parameter",
+			    new_decl);
 	else if (DECL_FILE_SCOPE_P (old_decl))
 	  {
 	    /* Do not warn if a variable shadows a function, unless
@@ -2606,9 +2631,10 @@ warn_if_shadowing (tree new_decl)
 		&& !FUNCTION_POINTER_TYPE_P (TREE_TYPE (new_decl)))
 		continue;
 
-	    warning_at (DECL_SOURCE_LOCATION (new_decl), OPT_Wshadow, 
-			"declaration of %qD shadows a global declaration",
-			new_decl);
+	    warned = warning_at (DECL_SOURCE_LOCATION (new_decl), OPT_Wshadow,
+				 "declaration of %qD shadows a global "
+				 "declaration",
+				 new_decl);
 	  }
 	else if (TREE_CODE (old_decl) == FUNCTION_DECL
 		 && DECL_BUILT_IN (old_decl))
@@ -2618,11 +2644,12 @@ warn_if_shadowing (tree new_decl)
 	    break;
 	  }
 	else
-	  warning (OPT_Wshadow, "declaration of %q+D shadows a previous local",
-		   new_decl);
+	  warned = warning (OPT_Wshadow, "declaration of %q+D shadows a "
+			    "previous local", new_decl);
 
-	warning_at (DECL_SOURCE_LOCATION (old_decl), OPT_Wshadow,
-		    "shadowed declaration is here");
+	if (warned)
+	  inform (DECL_SOURCE_LOCATION (old_decl),
+		  "shadowed declaration is here");
 
 	break;
       }
@@ -3084,12 +3111,10 @@ make_label (location_t location, tree name, bool defining,
 	    struct c_label_vars **p_label_vars)
 {
   tree label = build_decl (location, LABEL_DECL, name, void_type_node);
-  struct c_label_vars *label_vars;
-
   DECL_CONTEXT (label) = current_function_decl;
   DECL_MODE (label) = VOIDmode;
 
-  label_vars = ggc_alloc_c_label_vars ();
+  c_label_vars *label_vars = ggc_alloc<c_label_vars> ();
   label_vars->shadowed = NULL;
   set_spot_bindings (&label_vars->label_bindings, defining);
   label_vars->decls_in_scope = make_tree_vector ();
@@ -3185,9 +3210,8 @@ lookup_label_for_goto (location_t loc, tree name)
      list for possible later warnings.  */
   if (label_vars->label_bindings.scope == NULL)
     {
-      struct c_goto_bindings *g;
+      c_goto_bindings *g = ggc_alloc<c_goto_bindings> ();
 
-      g = ggc_alloc_c_goto_bindings ();
       g->loc = loc;
       set_spot_bindings (&g->goto_bindings, true);
       vec_safe_push (label_vars->gotos, g);
@@ -7423,8 +7447,8 @@ finish_struct (location_t loc, tree t, tree fieldlist, tree attributes,
 	  ensure that this lives as long as the rest of the struct decl.
 	  All decls in an inline function need to be saved.  */
 
-	space = ggc_alloc_cleared_lang_type (sizeof (struct lang_type));
-	space2 = ggc_alloc_sorted_fields_type
+	space = ggc_cleared_alloc<struct lang_type> ();
+	space2 = (sorted_fields_type *) ggc_internal_alloc
 	  (sizeof (struct sorted_fields_type) + len * sizeof (tree));
 
 	len = 0;
@@ -7705,7 +7729,7 @@ finish_enum (tree enumtype, tree values, tree attributes)
 
   /* Record the min/max values so that we can warn about bit-field
      enumerations that are too small for the values.  */
-  lt = ggc_alloc_cleared_lang_type (sizeof (struct lang_type));
+  lt = ggc_cleared_alloc<struct lang_type> ();
   lt->enum_min = minnode;
   lt->enum_max = maxnode;
   TYPE_LANG_SPECIFIC (enumtype) = lt;
@@ -8479,7 +8503,7 @@ store_parm_decls (void)
   allocate_struct_function (fndecl, false);
 
   if (warn_unused_local_typedefs)
-    cfun->language = ggc_alloc_cleared_language_function ();
+    cfun->language = ggc_cleared_alloc<language_function> ();
 
   /* Begin the statement tree for this function.  */
   DECL_SAVED_TREE (fndecl) = push_stmt_list ();
@@ -8803,7 +8827,7 @@ c_push_function_context (void)
   /* cfun->language might have been already allocated by the use of
      -Wunused-local-typedefs.  In that case, just re-use it.  */
   if (p == NULL)
-    cfun->language = p = ggc_alloc_cleared_language_function ();
+    cfun->language = p = ggc_cleared_alloc<language_function> ();
 
   p->base.x_stmt_tree = c_stmt_tree;
   c_stmt_tree.x_cur_stmt_list = vec_safe_copy (c_stmt_tree.x_cur_stmt_list);

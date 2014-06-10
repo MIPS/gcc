@@ -818,6 +818,7 @@ merge_types (tree t1, tree t2)
 	tree p2 = TYPE_ARG_TYPES (t2);
 	tree parms;
 	tree rval, raises;
+	bool late_return_type_p = TYPE_HAS_LATE_RETURN_TYPE (t1);
 
 	/* Save space: see if the result is identical to one of the args.  */
 	if (valtype == TREE_TYPE (t1) && ! p2)
@@ -842,6 +843,8 @@ merge_types (tree t1, tree t2)
 	raises = merge_exception_specifiers (TYPE_RAISES_EXCEPTIONS (t1),
 					     TYPE_RAISES_EXCEPTIONS (t2));
 	t1 = build_exception_variant (rval, raises);
+	if (late_return_type_p)
+	  TYPE_HAS_LATE_RETURN_TYPE (t1) = 1;
 	break;
       }
 
@@ -854,6 +857,8 @@ merge_types (tree t1, tree t2)
 						  TYPE_RAISES_EXCEPTIONS (t2));
 	cp_ref_qualifier rqual = type_memfn_rqual (t1);
 	tree t3;
+	bool late_return_type_1_p = TYPE_HAS_LATE_RETURN_TYPE (t1);
+	bool late_return_type_2_p = TYPE_HAS_LATE_RETURN_TYPE (t2);
 
 	/* If this was a member function type, get back to the
 	   original type of type member function (i.e., without
@@ -867,6 +872,10 @@ merge_types (tree t1, tree t2)
 					 TYPE_ARG_TYPES (t3));
 	t1 = build_exception_variant (t3, raises);
 	t1 = build_ref_qualified_type (t1, rqual);
+	if (late_return_type_1_p)
+	  TYPE_HAS_LATE_RETURN_TYPE (t1) = 1;
+	if (late_return_type_2_p)
+	  TYPE_HAS_LATE_RETURN_TYPE (t2) = 1;
 	break;
       }
 
@@ -1452,11 +1461,8 @@ at_least_as_qualified_p (const_tree type1, const_tree type2)
    more cv-qualified that TYPE1, and 0 otherwise.  */
 
 int
-comp_cv_qualification (const_tree type1, const_tree type2)
+comp_cv_qualification (int q1, int q2)
 {
-  int q1 = cp_type_quals (type1);
-  int q2 = cp_type_quals (type2);
-
   if (q1 == q2)
     return 0;
 
@@ -1466,6 +1472,14 @@ comp_cv_qualification (const_tree type1, const_tree type2)
     return -1;
 
   return 0;
+}
+
+int
+comp_cv_qualification (const_tree type1, const_tree type2)
+{
+  int q1 = cp_type_quals (type1);
+  int q2 = cp_type_quals (type2);
+  return comp_cv_qualification (q1, q2);
 }
 
 /* Returns 1 if the cv-qualification signature of TYPE1 is a proper
@@ -2921,8 +2935,9 @@ cp_build_indirect_ref (tree ptr, ref_operator errorstring,
 	 of  the  result  is  "T."  */
       tree t = TREE_TYPE (type);
 
-      if (CONVERT_EXPR_P (ptr)
-          || TREE_CODE (ptr) == VIEW_CONVERT_EXPR)
+      if ((CONVERT_EXPR_P (ptr)
+	   || TREE_CODE (ptr) == VIEW_CONVERT_EXPR)
+	  && (!CLASS_TYPE_P (t) || !CLASSTYPE_EMPTY_P (t)))
 	{
 	  /* If a warning is issued, mark it to avoid duplicates from
 	     the backend.  This only needs to be done at
@@ -3247,6 +3262,12 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function,
       nonvirtual = (COMPLETE_TYPE_P (basetype)
 		    && !TYPE_POLYMORPHIC_P (basetype)
 		    && resolves_to_fixed_type_p (instance_ptr, 0));
+
+      /* If we don't really have an object (i.e. in an ill-formed
+	 conversion from PMF to pointer), we can't resolve virtual
+	 functions anyway.  */
+      if (!nonvirtual && is_dummy_object (instance_ptr))
+	nonvirtual = true;
 
       if (TREE_SIDE_EFFECTS (instance_ptr))
 	instance_ptr = instance_save_expr = save_expr (instance_ptr);
@@ -7491,6 +7512,18 @@ cp_build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs,
 	    return error_mark_node;
 	}
 
+      /* C++11 8.5/17: "If the destination type is an array of characters,
+	 an array of char16_t, an array of char32_t, or an array of wchar_t,
+	 and the initializer is a string literal...".  */
+      else if (TREE_CODE (newrhs) == STRING_CST
+	       && char_type_p (TREE_TYPE (TYPE_MAIN_VARIANT (lhstype)))
+	       && modifycode == INIT_EXPR)
+	{
+	  newrhs = digest_init (lhstype, newrhs, complain);
+	  if (newrhs == error_mark_node)
+	    return error_mark_node;
+	}
+
       else if (!same_or_base_type_p (TYPE_MAIN_VARIANT (lhstype),
 				     TYPE_MAIN_VARIANT (TREE_TYPE (newrhs))))
 	{
@@ -8413,7 +8446,7 @@ check_return_expr (tree retval, bool *no_warning)
       else
 	{
 	  if (!retval)
-	    retval = void_zero_node;
+	    retval = void_node;
 	  auto_node = type_uses_auto (current_function_auto_return_pattern);
 	  type = do_auto_deduction (current_function_auto_return_pattern,
 				    retval, auto_node);

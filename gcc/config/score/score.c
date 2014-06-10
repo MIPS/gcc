@@ -51,6 +51,7 @@
 #include "langhooks.h"
 #include "df.h"
 #include "opts.h"
+#include "builtins.h"
 
 #define SCORE_SDATA_MAX                score_sdata_max
 #define SCORE_STACK_ALIGN(LOC)         (((LOC) + 3) & ~3)
@@ -1199,7 +1200,7 @@ score_output_external (FILE *file ATTRIBUTE_UNUSED,
 
   if (score_in_small_data_p (decl))
     {
-      p = ggc_alloc_extern_list ();
+      p = ggc_alloc<extern_list> ();
       p->next = extern_head;
       p->name = name;
       p->size = int_size_in_bytes (TREE_TYPE (decl));

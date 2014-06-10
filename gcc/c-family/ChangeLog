@@ -1,3 +1,69 @@
+2014-06-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/60928
+	* c-pragma.c (omp_pragmas_simd): Move PRAGMA_OMP_TASK...
+	(omp_pragmas): ... back here.
+
+2014-06-05  Marek Polacek  <polacek@redhat.com>
+
+	PR c/49706
+	* c-common.c (warn_logical_not_parentheses): New function.
+	* c-common.h (warn_logical_not_parentheses): Declare.
+	* c.opt (Wlogical-not-parentheses): New option.
+
+2014-06-04  Marek Polacek  <polacek@redhat.com>
+
+	PR c/30020
+	* c-common.c (check_case_bounds): Add location parameter.
+	Use it.
+	(c_add_case_label): Pass loc to check_case_bounds.
+
+2014-06-03  Marek Polacek  <polacek@redhat.com>
+
+	PR c/60439
+	* c.opt (Wswitch-bool): New option.
+
+2014-05-22  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-common.h (c_omp_sharing_predetermined, c_omp_remap_decl):
+	Remove prototypes.
+	(record_types_used_by_current_var_decl): Move prototype to where
+	it belongs.
+
+	* c-common.c (DEF_FUNCTION_TYPE_0, DEF_FUNCTION_TYPE_6)
+	(DEF_FUNCTION_TYPE_7, DEF_FUNCTION_TYPE_8)
+	(DEF_FUNCTION_TYPE_VAR_5): Cosmetic fixes.
+
+2014-05-21  Richard Sandiford  <rsandifo@linux.vnet.ibm.com>
+
+	* c-common.h (CTI_VOID_ZERO, void_zero_node): Delete.
+	* c-common.c (c_common_nodes_and_builtins): Don't initialize
+	void_zero_node.
+	* c-pretty-print.c (pp_c_void_constant): New function.
+	(c_pretty_printer::constant, c_pretty_printer::primary_expression)
+	(c_pretty_printer::expression): Handle VOID_CST.
+	* cilk.c (extract_free_variables): Likewise.
+	* c-ubsan.c (ubsan_instrument_division, ubsan_instrument_shift)
+	(ubsan_instrument_vla): Use void_node instead of void_zero_node.
+
+2014-05-17  Trevor Saunders  <tsaunders@mozilla.com>
+
+	* c-common.h (sorted_fields_type): Remove variable_size GTY attribute.
+	* c-pragma.c (push_alignment): Adjust.
+	(handle_pragma_push_options): Likewise.
+
+2014-05-09  Marek Polacek  <polacek@redhat.com>
+
+	PR c/50459
+	* c-common.c (check_user_alignment): Return -1 if alignment is error
+	node.
+	(handle_aligned_attribute): Don't call default_conversion on
+	FUNCTION_DECLs.
+	(handle_vector_size_attribute): Likewise.
+	(handle_tm_wrap_attribute): Handle case when wrap_decl is error node.
+	(handle_sentinel_attribute): Call default_conversion and allow even
+	integral types as an argument.
+
 2014-05-08  Marek Polacek  <polacek@redhat.com>
 
 	PR c/61053

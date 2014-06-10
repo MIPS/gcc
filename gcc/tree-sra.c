@@ -112,6 +112,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-pretty-print.h"
 #include "ipa-inline.h"
 #include "ipa-utils.h"
+#include "builtins.h"
 
 /* Enumeration of all aggregate reductions we can do.  */
 enum sra_mode { SRA_MODE_EARLY_IPA,   /* early call regularization */
@@ -2812,7 +2813,7 @@ sra_modify_expr (tree *expr, gimple_stmt_iterator *gsi, bool write)
 	{
 	  tree ref;
 
-	  ref = build_ref_for_model (loc, orig_expr, 0, access, NULL, false);
+	  ref = build_ref_for_model (loc, orig_expr, 0, access, gsi, false);
 
 	  if (write)
 	    {
@@ -4925,12 +4926,15 @@ modify_function (struct cgraph_node *node, ipa_parm_adjustment_vec adjustments)
 {
   struct cgraph_node *new_node;
   bool cfg_changed;
-  vec<cgraph_edge_p> redirect_callers = collect_callers_of_node (node);
 
   rebuild_cgraph_edges ();
   free_dominance_info (CDI_DOMINATORS);
   pop_cfun ();
 
+  /* This must be done after rebuilding cgraph edges for node above.
+     Otherwise any recursive calls to node that are recorded in
+     redirect_callers will be corrupted.  */
+  vec<cgraph_edge_p> redirect_callers = collect_callers_of_node (node);
   new_node = cgraph_function_versioning (node, redirect_callers,
 					 NULL,
 					 NULL, false, NULL, NULL, "isra");

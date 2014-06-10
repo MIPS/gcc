@@ -419,13 +419,14 @@ try_forward_edges (int mode, basic_block b)
      partition boundaries).  See the comments at the top of
      bb-reorder.c:partition_hot_cold_basic_blocks for complete details.  */
 
-  if (find_reg_note (BB_END (b), REG_CROSSING_JUMP, NULL_RTX))
+  if (JUMP_P (BB_END (b)) && CROSSING_JUMP_P (BB_END (b)))
     return false;
 
   for (ei = ei_start (b->succs); (e = ei_safe_edge (ei)); )
     {
       basic_block target, first;
-      int counter, goto_locus;
+      location_t goto_locus;
+      int counter;
       bool threaded = false;
       int nthreaded_edges = 0;
       bool may_thread = first_pass || (b->flags & BB_MODIFIED) != 0;
@@ -456,7 +457,8 @@ try_forward_edges (int mode, basic_block b)
 	 details.  */
 
       if (first != EXIT_BLOCK_PTR_FOR_FN (cfun)
-	  && find_reg_note (BB_END (first), REG_CROSSING_JUMP, NULL_RTX))
+	  && JUMP_P (BB_END (first))
+	  && CROSSING_JUMP_P (BB_END (first)))
 	return changed;
 
       while (counter < n_basic_blocks_for_fn (cfun))
@@ -477,34 +479,33 @@ try_forward_edges (int mode, basic_block b)
 		{
 		  /* When not optimizing, ensure that edges or forwarder
 		     blocks with different locus are not optimized out.  */
-		  int new_locus = single_succ_edge (target)->goto_locus;
-		  int locus = goto_locus;
+		  location_t new_locus = single_succ_edge (target)->goto_locus;
+		  location_t locus = goto_locus;
 
-		  if (new_locus != UNKNOWN_LOCATION
-		      && locus != UNKNOWN_LOCATION
+		  if (LOCATION_LOCUS (new_locus) != UNKNOWN_LOCATION
+		      && LOCATION_LOCUS (locus) != UNKNOWN_LOCATION
 		      && new_locus != locus)
 		    new_target = NULL;
 		  else
 		    {
-		      rtx last;
-
-		      if (new_locus != UNKNOWN_LOCATION)
+		      if (LOCATION_LOCUS (new_locus) != UNKNOWN_LOCATION)
 			locus = new_locus;
 
-		      last = BB_END (target);
+		      rtx last = BB_END (target);
 		      if (DEBUG_INSN_P (last))
 			last = prev_nondebug_insn (last);
+		      if (last && INSN_P (last))
+			new_locus = INSN_LOCATION (last);
+		      else
+			new_locus = UNKNOWN_LOCATION;
 
-		      new_locus = last && INSN_P (last)
-				  ? INSN_LOCATION (last) : 0;
-
-		      if (new_locus != UNKNOWN_LOCATION
-			  && locus != UNKNOWN_LOCATION
+		      if (LOCATION_LOCUS (new_locus) != UNKNOWN_LOCATION
+			  && LOCATION_LOCUS (locus) != UNKNOWN_LOCATION
 			  && new_locus != locus)
 			new_target = NULL;
 		      else
 			{
-			  if (new_locus != UNKNOWN_LOCATION)
+			  if (LOCATION_LOCUS (new_locus) != UNKNOWN_LOCATION)
 			    locus = new_locus;
 
 			  goto_locus = locus;
@@ -2796,7 +2797,7 @@ try_optimize_cfg (int mode)
 	      if (single_succ_p (b)
 		  && single_succ (b) != EXIT_BLOCK_PTR_FOR_FN (cfun)
 		  && onlyjump_p (BB_END (b))
-		  && !find_reg_note (BB_END (b), REG_CROSSING_JUMP, NULL_RTX)
+		  && !CROSSING_JUMP_P (BB_END (b))
 		  && try_redirect_by_replacing_jump (single_succ_edge (b),
 						     single_succ (b),
 						     (mode & CLEANUP_CFGLAYOUT) != 0))

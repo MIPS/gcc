@@ -1513,8 +1513,7 @@ gfc_get_nodesc_array_type (tree etype, gfc_array_spec * as, gfc_packed packed,
     type = build_variant_type_copy (etype);
 
   GFC_ARRAY_TYPE_P (type) = 1;
-  TYPE_LANG_SPECIFIC (type)
-      = ggc_alloc_cleared_lang_type (sizeof (struct lang_type));
+  TYPE_LANG_SPECIFIC (type) = ggc_cleared_alloc<struct lang_type> ();
 
   known_stride = (packed != PACKED_NO);
   known_offset = 1;
@@ -1816,8 +1815,7 @@ gfc_get_array_type_bounds (tree etype, int dimen, int codimen, tree * lbound,
   TYPE_NAMELESS (fat_type) = 1;
 
   GFC_DESCRIPTOR_TYPE_P (fat_type) = 1;
-  TYPE_LANG_SPECIFIC (fat_type)
-    = ggc_alloc_cleared_lang_type (sizeof (struct lang_type));
+  TYPE_LANG_SPECIFIC (fat_type) = ggc_cleared_alloc<struct lang_type> ();
 
   GFC_TYPE_ARRAY_RANK (fat_type) = dimen;
   GFC_TYPE_ARRAY_CORANK (fat_type) = codimen;
@@ -1991,8 +1989,7 @@ gfc_nonrestricted_type (tree t)
     return t;
 
   if (!TYPE_LANG_SPECIFIC (t))
-    TYPE_LANG_SPECIFIC (t)
-      = ggc_alloc_cleared_lang_type (sizeof (struct lang_type));
+    TYPE_LANG_SPECIFIC (t) = ggc_cleared_alloc<struct lang_type> ();
   /* If we're dealing with this very node already further up
      the call chain (recursion via pointers and struct members)
      we haven't yet determined if we really need a new type node.
@@ -2044,8 +2041,7 @@ gfc_nonrestricted_type (tree t)
 		  if (dataptr_type != GFC_TYPE_ARRAY_DATAPTR_TYPE (t))
 		    {
 		      TYPE_LANG_SPECIFIC (ret)
-			= ggc_alloc_cleared_lang_type (sizeof (struct
-							       lang_type));
+			= ggc_cleared_alloc<struct lang_type> ();
 		      *TYPE_LANG_SPECIFIC (ret) = *TYPE_LANG_SPECIFIC (t);
 		      GFC_TYPE_ARRAY_DATAPTR_TYPE (ret) = dataptr_type;
 		    }
@@ -2164,9 +2160,6 @@ gfc_sym_type (gfc_symbol * sym)
 						restricted);
 	      byref = 0;
 	    }
-
-	  if (sym->attr.cray_pointee)
-	    GFC_POINTER_TYPE_P (type) = 1;
         }
       else
 	{
@@ -2185,8 +2178,6 @@ gfc_sym_type (gfc_symbol * sym)
       if (sym->attr.allocatable || sym->attr.pointer
 	  || gfc_is_associate_pointer (sym))
 	type = gfc_build_pointer_type (sym, type);
-      if (sym->attr.pointer || sym->attr.cray_pointee)
-	GFC_POINTER_TYPE_P (type) = 1;
     }
 
   /* We currently pass all parameters by reference.
@@ -2555,6 +2546,8 @@ gfc_get_derived_type (gfc_symbol * derived)
 	gfc_set_decl_location (field, &c->loc);
       else if (derived->declared_at.lb)
 	gfc_set_decl_location (field, &derived->declared_at);
+
+      gfc_finish_decl_attrs (field, &c->attr);
 
       DECL_PACKED (field) |= TYPE_PACKED (typenode);
 

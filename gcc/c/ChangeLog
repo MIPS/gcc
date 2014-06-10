@@ -1,3 +1,166 @@
+2014-06-09  Marek Polacek  <polacek@redhat.com>
+
+	PR c/36446
+	* c-typeck.c (error_init): Call inform instead of error_at.
+	(pedwarn_init): Call inform instead of pedwarn.
+	(warning_init): Call inform instead of warning_at.
+
+2014-06-07  Jan Hubicka  <hubicka@ucw.cz>
+
+	* c-decl.c (merge_decls): Use set_decl_section_name.
+	(duplicate_decls): Remove node if it exists.
+
+2014-06-05  S. Gilles  <sgilles@terpmail.umd.edu>
+
+	PR c/53119
+	* c-typeck.c (push_init_level, process_init_element,
+	pop_init_level): Correct check for zero initialization, move
+	missing brace warning to respect zero initialization.
+
+2014-06-05  Marek Polacek  <polacek@redhat.com>
+
+	PR c/56724
+	* c-typeck.c (convert_for_assignment): Use expr_loc for ic_argpass.
+
+2014-06-05  Marek Polacek  <polacek@redhat.com>
+
+	PR c/49706
+	* c-typeck.c (parser_build_binary_op): Warn when logical not is used
+	on the left hand side operand of a comparison. 
+
+2014-06-05  Marek Polacek  <polacek@redhat.com>
+
+	PR c/48062
+	* c-decl.c (warn_if_shadowing): Call inform instead of warning_at.
+	Print note only if the warning was printed.
+
+2014-06-04  Igor Zamyatin  <igor.zamyatin@intel.com>
+
+	PR c/58942
+	* c-array-notation.c (fix_builtin_array_notation_fn): Handle the case
+	with a pointer.
+
+2014-06-03  Marek Polacek  <polacek@redhat.com>
+
+	PR c/60439
+	* c-parser.c (c_parser_switch_statement): Pass explicit_cast_p to
+	c_start_case.
+	* c-tree.h (c_start_case): Update.
+	* c-typeck.c (c_start_case): Add new boolean parameter.  Warn if
+	switch condition has boolean value.
+
+2014-06-02  Andrew MacLeod  <amacleod@redhat.com>
+
+	* c-decl.c: Include builtins.h.
+	* c-parser.c: Likewise.
+
+2014-05-27  Marek Polacek  <polacek@redhat.com>
+
+	PR c/56724
+	* c-typeck.c (convert_arguments): Get location of a parameter.  Change
+	error and warning calls to error_at and warning_at.  Pass location of
+	a parameter to it.  Call warning_at with OPT_Wtraditional_conversion.
+	(convert_for_assignment): Add parameter to WARN_FOR_ASSIGNMENT and
+	WARN_FOR_QUALIFIERS.  Pass expr_loc to those.
+
+2014-05-26  Igor Zamyatin  <igor.zamyatin@intel.com>
+
+	PR c/61191
+	* c-array-notation.c (fix_builtin_array_notation_fn): Check invalid
+	function parameters.
+
+2014-05-23  Jan Hubicka  <hubicka@ucw.cz>
+
+	* c-decl.c (merge_decls): Preserve symtab node pointers.
+	(duplicate_decls): Free new decl.
+
+2014-05-23  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-typeck.c (c_finish_omp_clauses): Remove duplicated variable
+	initialization.
+
+	* c-parser.c (c_parser_omp_target): Return bool values.
+
+2014-05-22  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-parser.c (c_parser_omp_clause_thread_limit): Rename
+	num_teams_loc variable to num_thread_limit_loc.
+
+2014-05-21  Richard Sandiford  <rsandifo@linux.vnet.ibm.com>
+
+	* c-array-notation.c (expand_array_notations): Use void_node
+	instead of void_zero_node.
+
+2014-05-17  Trevor Saunders  <tsaunders@mozilla.com>
+
+	* c-decl.c (finish_struct): Adjust.
+	(finish_enum): Likewise.
+	(bind): Adjust.
+	(record_inline_static): Likewise.
+	(push_scope): Likewise.
+	(make_label): Likewise.
+	(lookup_label_for_goto): Likewise.
+	(finish_struct): Likewise.
+	(finish_enum): Likewise.
+	(store_parm_decls): Likewise.
+	(c_push_function_context): Likewise.
+	* c-lang.h: Remove usage of variable_size gty attribute.
+	* c-parser.c (c_parse_init): Adjust.
+	(c_parse_file): Likewise.
+
+2014-05-13  Marek Polacek  <polacek@redhat.com>
+
+	PR c/61162
+	* c-typeck.c (convert_for_assignment): Pass location to
+	WARN_FOR_ASSIGNMENT instead of input_location.
+
+2014-05-10  Marek Polacek  <polacek@redhat.com>
+
+	* c-parser.c (c_parser_declaration_or_fndef): Pass init_loc to
+	maybe_warn_string_init.
+	(c_parser_postfix_expression_after_paren_type): Pass type_loc to
+	maybe_warn_string_init.
+	* c-tree.h (maybe_warn_string_init): Update declaration.
+	* c-typeck.c (maybe_warn_string_init): Add location parameter.
+	Call pedwarn_init with loc instead of with input_location.
+	(digest_init): Pass init_loc to maybe_warn_string_init.
+	(pop_init_level): Call pedwarn_init with loc instead of with
+	input_location.
+	(set_init_index): Likewise.
+	(process_init_element): Likewise.
+
+2014-05-09  Marek Polacek  <polacek@redhat.com>
+
+	PR c/61096
+	* c-parser.c (c_parser_braced_init): Pass brace_loc to push_init_level.
+	(c_parser_initelt): Pass location to set_init_label.  Pass array index
+	location to set_init_index.
+	* c-tree.h (push_init_level): Update declaration.
+	(pop_init_level): Likewise.
+	(set_init_index): Likewise.
+	(set_init_label): Likewise.
+	* c-typeck.c (error_init): Add location parameter.  Call error_at
+	instead of error.
+	(digest_init): Pass init_loc to error_init.
+	(really_start_incremental_init):
+	(push_init_level): Add location parameter.  Pass loc to pop_init_level
+	and error_init.
+	(pop_init_level): Likewise.
+	(set_designator): Add location parameter.  Pass loc to pop_init_level,
+	push_init_level, and error_init.
+	(set_init_index): Add location parameter.  Pass loc to error_init and
+	set_designator.
+	(set_init_label): Likewise.
+	(output_init_element): Pass loc to error_init.
+	(process_init_element): Pass loc to error_init, pop_init_level,
+	pedwarn_init, and push_init_level.
+
+2014-05-09  Marek Polacek  <polacek@redhat.com>
+
+	PR c/50459
+	* c-parser.c (c_parser_attributes): Parse the arguments as an
+	expression-list if the attribute takes identifier.
+
 2014-05-08  Marek Polacek  <polacek@redhat.com>
 
 	PR c/61053

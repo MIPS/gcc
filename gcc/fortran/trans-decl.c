@@ -501,6 +501,29 @@ gfc_finish_decl (tree decl)
 }
 
 
+/* Handle setting of GFC_DECL_SCALAR* on DECL.  */
+
+void
+gfc_finish_decl_attrs (tree decl, symbol_attribute *attr)
+{
+  if (!attr->dimension && !attr->codimension)
+    {
+      /* Handle scalar allocatable variables.  */
+      if (attr->allocatable)
+	{
+	  gfc_allocate_lang_decl (decl);
+	  GFC_DECL_SCALAR_ALLOCATABLE (decl) = 1;
+	}
+      /* Handle scalar pointer variables.  */
+      if (attr->pointer)
+	{
+	  gfc_allocate_lang_decl (decl);
+	  GFC_DECL_SCALAR_POINTER (decl) = 1;
+	}
+    }
+}
+
+
 /* Apply symbol attributes to a variable, and add it to the function scope.  */
 
 static void
@@ -612,6 +635,8 @@ gfc_finish_var_decl (tree decl, gfc_symbol * sym)
   if (sym->attr.threadprivate
       && (TREE_STATIC (decl) || DECL_EXTERNAL (decl)))
     DECL_TLS_MODEL (decl) = decl_default_tls_model (decl);
+
+  gfc_finish_decl_attrs (decl, &sym->attr);
 }
 
 
@@ -620,8 +645,8 @@ gfc_finish_var_decl (tree decl, gfc_symbol * sym)
 void
 gfc_allocate_lang_decl (tree decl)
 {
-  DECL_LANG_SPECIFIC (decl) = ggc_alloc_cleared_lang_decl(sizeof
-							  (struct lang_decl));
+  if (DECL_LANG_SPECIFIC (decl) == NULL)
+    DECL_LANG_SPECIFIC (decl) = ggc_cleared_alloc<struct lang_decl> ();
 }
 
 /* Remember a symbol to generate initialization/cleanup code at function
@@ -1523,6 +1548,9 @@ gfc_get_symbol_decl (gfc_symbol * sym)
       && !sym->attr.select_type_temporary)
     DECL_BY_REFERENCE (decl) = 1;
 
+  if (sym->attr.associate_var)
+    GFC_DECL_ASSOCIATE_VAR_P (decl) = 1;
+
   if (sym->attr.vtab
       || (sym->name[0] == '_' && strncmp ("__def_init", sym->name, 10) == 0))
     TREE_READONLY (decl) = 1;
@@ -1854,6 +1882,11 @@ module_sym:
 
   if (DECL_CONTEXT (fndecl) == NULL_TREE)
     pushdecl_top_level (fndecl);
+
+  if (sym->formal_ns
+      && sym->formal_ns->proc_name == sym
+      && sym->formal_ns->omp_declare_simd)
+    gfc_trans_omp_declare_simd (sym->formal_ns);
 
   return fndecl;
 }
@@ -2237,6 +2270,7 @@ create_function_arglist (gfc_symbol * sym)
 	DECL_BY_REFERENCE (parm) = 1;
 
       gfc_finish_decl (parm);
+      gfc_finish_decl_attrs (parm, &f->sym->attr);
 
       f->sym->backend_decl = parm;
 
@@ -2560,6 +2594,9 @@ gfc_create_function_decl (gfc_namespace * ns, bool global)
 
   /* Now create the read argument list.  */
   create_function_arglist (ns->proc_name);
+
+  if (ns->omp_declare_simd)
+    gfc_trans_omp_declare_simd (ns);
 }
 
 /* Return the decl used to hold the function return value.  If
@@ -2688,6 +2725,7 @@ gfc_get_fake_result_decl (gfc_symbol * sym, int parent_flag)
       TREE_ADDRESSABLE (decl) = 1;
 
       layout_decl (decl, 0);
+      gfc_finish_decl_attrs (decl, &sym->attr);
 
       if (parent_flag)
 	gfc_add_decl_to_parent_function (decl);
@@ -3258,7 +3296,7 @@ gfc_build_builtin_function_decls (void)
 
       gfor_fndecl_caf_init = gfc_build_library_function_decl (
 		   get_identifier (PREFIX("caf_init")),  void_type_node,
-		   4, pint_type, pppchar_type, pint_type, pint_type);
+		   2, pint_type, pppchar_type);
 
       gfor_fndecl_caf_finalize = gfc_build_library_function_decl (
 	get_identifier (PREFIX("caf_finalize")), void_type_node, 0);
@@ -3269,7 +3307,7 @@ gfc_build_builtin_function_decls (void)
 
       gfor_fndecl_caf_num_images = gfc_build_library_function_decl (
 		   get_identifier (PREFIX("caf_num_images")), integer_type_node,
-		   2, integer_type_node, boolean_type_node);
+		   2, integer_type_node, integer_type_node);
 
       gfor_fndecl_caf_register = gfc_build_library_function_decl_with_spec (
 	get_identifier (PREFIX("caf_register")), "...WWW", pvoid_type_node, 6,
@@ -4186,7 +4224,7 @@ gfc_find_module (const char *name)
 				   htab_hash_string (name), INSERT);
   if (*slot == NULL)
     {
-      struct module_htab_entry *entry = ggc_alloc_cleared_module_htab_entry ();
+      module_htab_entry *entry = ggc_cleared_alloc<module_htab_entry> ();
 
       entry->name = gfc_get_string (name);
       entry->decls = htab_create_ggc (10, module_htab_decls_hash,
@@ -4305,8 +4343,8 @@ gfc_create_module_variable (gfc_symbol * sym)
     }
 
   /* Don't generate variables from other modules. Variables from
-     COMMONs will already have been generated.  */
-  if (sym->attr.use_assoc || sym->attr.in_common)
+     COMMONs and Cray pointees will already have been generated.  */
+  if (sym->attr.use_assoc || sym->attr.in_common || sym->attr.cray_pointee)
     return;
 
   /* Equivalenced variables arrive here after creation.  */
