@@ -1,6 +1,5 @@
 /* { dg-options "-mbranch-cost=10 isa>=4" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
-/* { dg-skip-if "Removed from mipsr6" { *-img-* } { "*" } { "" } } */
 NOMIPS16 int
 foo (int x, int y, int z, int k)
 {

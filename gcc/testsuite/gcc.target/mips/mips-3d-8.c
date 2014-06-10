@@ -1,6 +1,5 @@
 /* { dg-do run } */
 /* { dg-options "-mips3d" } */
-/* { dg-skip-if "Removed from mipsr6" { *-img-* } { "*" } { "" } } */
 
 /* Test MIPS-3D absolute compare and conditional move builtin functions */
 #include <stdlib.h>

@@ -9,7 +9,6 @@
 /* { dg-final { scan-assembler-not "\tmtlo" } } */
 /* { dg-final { scan-assembler "\tmult\t" } } */
 /* { dg-final { scan-assembler "\tmadd\t" } } */
-/* { dg-skip-if "Removed from mipsr6" { *-img-* } { "*" } { "" } } */
 
 NOMIPS16 long long
 f1 (int *a, int *b, int n)

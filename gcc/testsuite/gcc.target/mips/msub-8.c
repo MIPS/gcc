@@ -4,7 +4,6 @@
 /* { dg-final { scan-assembler-not "\tmsub\t" } } */
 /* { dg-final { scan-assembler-not "\tmtlo\t" } } */
 /* { dg-final { scan-assembler-not "\tmflo\t" } } */
-/* { dg-skip-if "Removed from mipsr6" { *-img-* } { "*" } { "" } } */
 
 NOMIPS16 int
 f2 (int x, int y, int z)

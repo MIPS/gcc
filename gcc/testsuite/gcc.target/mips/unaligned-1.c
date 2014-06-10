@@ -9,7 +9,6 @@
 /* { dg-final { scan-assembler-times "\tlwl\t" 1 } } */
 /* { dg-final { scan-assembler-times "\tlwr\t" 1 } } */
 /* { dg-final { scan-assembler-not "\tnop" } } */
-/* { dg-skip-if "Removed from mipsr6" { *-img-* } { "*" } { "" } } */
 
 /* Test to make sure we produce the unaligned load/store for
    both 64bit and 32bits sized accesses.  */

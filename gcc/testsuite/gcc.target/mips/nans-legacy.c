@@ -1,6 +1,5 @@
 /* { dg-do compile } */
 /* { dg-options "-mnan=legacy -EB" } */
-/* { dg-skip-if "Removed from mipsr6" { *-img-* } { "*" } { "" } } */
 
 double ds = __builtin_nans ("");
 

@@ -6,7 +6,6 @@
 /* { dg-final { scan-assembler "\tmfhi\t" } } */
 /* { dg-final { scan-assembler-times "\tdsll\t" 2 } } */
 /* { dg-final { scan-assembler "\tdsrl\t" } } */
-/* { dg-skip-if "Removed from mipsr6" { *-img-* } { "*" } { "" } } */
 
 typedef int DI __attribute__((mode(DI)));
 typedef int SI __attribute__((mode(SI)));

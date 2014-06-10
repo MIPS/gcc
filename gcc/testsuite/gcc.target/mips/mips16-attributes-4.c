@@ -1,6 +1,5 @@
 /* { dg-do run } */
 /* { dg-options "(-mips16)" } */
-/* { dg-skip-if "Removed from mipsr6" { *-img-* } { "*" } { "" } } */
 
 extern void abort (void);
 

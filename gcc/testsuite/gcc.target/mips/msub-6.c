@@ -3,6 +3,5 @@
 /* { dg-final { scan-assembler-not "\tmsub\t" } } */
 /* { dg-final { scan-assembler "\tmul\t" } } */
 /* { dg-final { scan-assembler "\tsubu\t" } } */
-/* { dg-skip-if "Removed from mipsr6" { *-img-* } { "*" } { "" } } */
 
 NOMIPS16 void f1 (int *a) { a[0] = a[0] - a[1] * a[2]; }

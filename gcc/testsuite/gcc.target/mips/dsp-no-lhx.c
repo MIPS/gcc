@@ -1,7 +1,6 @@
 /* Test MIPS32 DSP LHX instruction */
 /* { dg-do compile } */
 /* { dg-options "-mgp32 -mdsp" } */
-/* { dg-skip-if "Removed from mipsr6" { *-img-* } { "*" } { "" } } */
 
 /* { dg-final { scan-assembler-not "\tlhx\t" } } */
 
