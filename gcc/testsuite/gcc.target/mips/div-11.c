@@ -2,7 +2,6 @@
 /* { dg-final { scan-assembler "\tdiv\t" } } */
 /* { dg-final { scan-assembler-not "\tmflo\t" } } */
 /* { dg-final { scan-assembler "\tmfhi\t" } } */
-/* { dg-skip-if "Removed from mipsr6" { *-img-* } { "*" } { "" } } */
 
 typedef int SI __attribute__((mode(SI)));
 

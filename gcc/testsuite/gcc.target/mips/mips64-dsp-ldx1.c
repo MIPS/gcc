@@ -1,7 +1,6 @@
 /* Test MIPS64 DSP instructions */
 /* { dg-do compile } */
 /* { dg-options "-mgp64 -mdsp" }  */
-/* { dg-skip-if "Removed from mipsr6" { *-img-* } { "*" } { "" } } */
 
 /* { dg-final { scan-assembler "\tldx\t" } } */
 

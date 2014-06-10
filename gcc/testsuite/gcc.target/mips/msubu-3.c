@@ -3,7 +3,6 @@
 /* { dg-options "isa_rev>=1 -mgp32 -fexpensive-optimizations" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 /* { dg-final { scan-assembler-times "\tmsubu\t" 2 } } */
-/* { dg-skip-if "Removed from mipsr6" { *-img-* } { "*" } { "" } } */
 
 typedef unsigned int ui;
 typedef unsigned long long ull;

@@ -1,6 +1,5 @@
 /* { dg-do run } */
 /* { dg-options "-mips3d" } */
-/* { dg-skip-if "Removed from mipsr6" { *-img-* } { "*" } { "" } } */
 
 /* Matrix Multiplications */
 #include <stdlib.h>

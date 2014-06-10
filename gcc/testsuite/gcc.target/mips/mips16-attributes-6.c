@@ -1,6 +1,5 @@
 /* { dg-do compile } */
 /* { dg-options "-mips16 addressing=absolute -mips3d" } */
-/* { dg-skip-if "Removed from mipsr6" { *-img-* } { "*" } { "" } } */
 
 static inline NOMIPS16 float
 i1 (float f)

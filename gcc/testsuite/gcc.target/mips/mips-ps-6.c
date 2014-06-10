@@ -2,7 +2,6 @@
    changes the way that abs.ps is handled.  */
 /* { dg-do run } */
 /* { dg-options "-mpaired-single -ffinite-math-only" } */
-/* { dg-skip-if "Removed from mipsr6" { *-img-* } { "*" } { "" } } */
 
 /* Test MIPS paired-single builtin functions */
 #include <stdlib.h>

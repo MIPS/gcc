@@ -3,7 +3,6 @@
 /* { dg-final { scan-assembler "\tdmult\t" } } */
 /* { dg-final { scan-assembler "\tmfhi\t" } } */
 /* { dg-final { scan-assembler "\tmflo\t" } } */
-/* { dg-skip-if "Removed from mipsr6" { *-img-* } { "*" } { "" } } */
 
 typedef int TI __attribute__((mode(TI)));
 typedef int DI __attribute__((mode(DI)));

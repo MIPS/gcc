@@ -1,7 +1,6 @@
 /* Test MIPS32 DSP REV 2 instructions */
 /* { dg-do run } */
 /* { dg-options "-mdspr2" } */
-/* { dg-skip-if "Removed from mipsr6" { *-img-* } { "*" } { "" } } */
 
 typedef signed char v4q7 __attribute__ ((vector_size(4)));
 typedef signed char v4i8 __attribute__ ((vector_size(4)));

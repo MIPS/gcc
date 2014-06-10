@@ -1,7 +1,6 @@
 /* Test MIPS32 DSP instructions */
 /* { dg-do compile } */
 /* { dg-options "-mdsp" } */
-/* { dg-skip-if "Removed from mipsr6" { *-img-* } { "*" } { "" } } */
 /* { dg-final { scan-assembler "\taddq.ph\t" } } */
 /* { dg-final { scan-assembler "\taddu.qb\t" } } */
 /* { dg-final { scan-assembler "\tsubq.ph\t" } } */

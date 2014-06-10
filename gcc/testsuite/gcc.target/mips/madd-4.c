@@ -3,7 +3,6 @@
 /* { dg-options "-mdspr2 -mgp32 -fexpensive-optimizations" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 /* { dg-final { scan-assembler-times "\tmadd\t\\\$ac" 3 } } */
-/* { dg-skip-if "Removed from mipsr6" { *-img-* } { "*" } { "" } } */
 
 NOMIPS16 long long
 f1 (int x, int y, long long z)
