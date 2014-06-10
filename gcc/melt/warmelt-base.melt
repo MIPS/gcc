@@ -2941,6 +2941,37 @@ typedef struct melthook_st *melthook_ptr_t;
 )
 (install_value_descriptor valdesc_int)
 
+;;;;;;;;;;;;;;;; double value
+(definstance valdesc_double class_value_descriptor
+  :doc #{$VALDESC_DOUBLE describes double values boxing long integers.}#
+  :named_name '"VALDESC_DOUBLE"
+  :valdesc_objmagic '"MELTOBMAG_DOUBLE"
+  :valdesc_struct '"meltdouble_st"
+  :valdesc_unionmem '"u_double"
+  :valdesc_membchunk #{$' /* from VALDESC_DOUBLE in warmelt-base.melt */
+    long val;
+  }#
+  :valdesc_declchunk #{$' /* decl VALDESC_DOUBLE in warmelt-base.melt */
+  typedef struct meltdouble_st *meltdouble_ptr_t;
+  #define melt_unsafe_boxed_double_value(V) (((meltdouble_ptr_t)(V))->val)
+  static inline long melt_boxed_double_value(melt_ptr_t v)
+  { return (melt_magic_discr(v)==MELTOBMAG_DOUBLE)? melt_unsafe_boxed_double_value(v) : 0L; }
+  }#
+  :valdesc_copychunk #{$' /* from VALDESC_DOUBLE */
+/* ggc_alloc_meltdouble_st should be gengtype generated for VALDESC_DOUBLE */
+#ifndef ggc_alloc_meltdouble_st
+#define ggc_alloc_meltdouble_st() ((struct meltdouble_st *)(ggc_doubleernal_alloc_stat (sizeof (struct meltdouble_st) MEM_STAT_INFO)))
+#endif
+     dst = 
+        /* Don't need a cleared allocation.  */
+	  ggc_alloc_meltdouble_st ();
+     melt_forwarded_copy_byte_count += sizeof(*dst);
+     *dst = *src;
+  }#
+  :valdesc_clonechunk :true
+)
+(install_value_descriptor valdesc_double)
+
 ;;;;;;;;;;;;;;;; mixint value
 (definstance valdesc_mixint class_value_descriptor
   :doc #{$VALDESC_MIXINT describes mixint values mixing integers with a value.}#
@@ -4100,6 +4131,7 @@ which should be a string or an instance of $CLASS_NAMED, or else nil.}#
  tuple_sized
  valdesc_bucketlongs
  valdesc_closure
+ valdesc_double
  valdesc_decay
  valdesc_hook
  valdesc_int
