@@ -334,7 +334,7 @@
   else
     {
       /* We need to do the SLDI operation in V16QImode and adjust
-         operand[2] accordingly.  */
+	  operand[2] accordingly.  */
       rtx tempb = gen_reg_rtx (V16QImode);
       rtx op1b = gen_reg_rtx (V16QImode);
       emit_move_insn (op1b, gen_rtx_SUBREG (V16QImode, operands[1], 0));
@@ -438,7 +438,7 @@
 	  emit_insn (gen_and<MSA_2:mode_i>3 (temp2, temp2, xop2));
 	}
       else
-        emit_insn (gen_and<MSA_2:mode_i>3 (temp2, temp2, xres));
+	emit_insn (gen_and<MSA_2:mode_i>3 (temp2, temp2, xres));
       emit_insn (gen_ior<MSA_2:mode_i>3 (xres, temp1, temp2));
       emit_move_insn (operands[0],
 		      gen_rtx_SUBREG (<MSA_2:MODE>mode, xres, 0));
@@ -514,7 +514,7 @@
 	  emit_insn (gen_and<MSA_2:mode_i>3 (temp2, temp2, xop2));
 	}
       else
-        emit_insn (gen_and<MSA_2:mode_i>3 (temp2, temp2, xres));
+	emit_insn (gen_and<MSA_2:mode_i>3 (temp2, temp2, xres));
       emit_insn (gen_ior<MSA_2:mode_i>3 (xres, temp1, temp2));
       emit_move_insn (operands[0],
 		      gen_rtx_SUBREG (<MSA_2:MODE>mode, xres, 0));
@@ -784,7 +784,7 @@
 
 (define_insn "msa_ldi<mode>_insn"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
-        (match_operand:IMSA 1 "const_vector_same_simm10_operand" ""))]
+	(match_operand:IMSA 1 "const_vector_same_simm10_operand" ""))]
   "ISA_HAS_MSA"
   {
     operands[1] = CONST_VECTOR_ELT (operands[1], 0);
@@ -820,7 +820,7 @@
 
 (define_insn "msa_ld0<mode>"
   [(set (match_operand:FMSA 0 "register_operand" "=f")
-        (unspec:FMSA [(match_operand 1 "const_0_operand" "")]
+	(unspec:FMSA [(match_operand 1 "const_0_operand" "")]
 		     UNSPEC_MSA_LD0))]
   "ISA_HAS_MSA"
   "ldi.<msafmt>\t%w0,%d1"
@@ -1217,7 +1217,7 @@
 
 (define_insn "one_cmpl<mode>2"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
-        (not:IMSA (match_operand:IMSA 1 "register_operand" "f")))]
+	(not:IMSA (match_operand:IMSA 1 "register_operand" "f")))]
   "ISA_HAS_MSA"
   "nor.v\t%w0,%w1,%w1"
   [(set_attr "alu_type"	"nor")
