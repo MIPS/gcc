@@ -28,6 +28,7 @@
 #include "tree.h"
 #include "stor-layout.h"
 #include "stringpool.h"
+#include "wide-int.h"
 #include "c-family/c-common.h"
 #include "c-family/c-pragma.h"
 #include "diagnostic-core.h"
@@ -3778,6 +3779,12 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
     RS6000_BTI_unsigned_V1TI, RS6000_BTI_unsigned_V1TI,
     RS6000_BTI_unsigned_V1TI, 0 },
 
+  { P8V_BUILTIN_VEC_VBPERMQ, P8V_BUILTIN_VBPERMQ,
+    RS6000_BTI_V2DI, RS6000_BTI_V16QI, RS6000_BTI_V16QI, 0 },
+  { P8V_BUILTIN_VEC_VBPERMQ, P8V_BUILTIN_VBPERMQ,
+    RS6000_BTI_unsigned_V2DI, RS6000_BTI_unsigned_V16QI,
+    RS6000_BTI_unsigned_V16QI, 0 },
+
   { P8V_BUILTIN_VEC_VCLZ, P8V_BUILTIN_VCLZB,
     RS6000_BTI_V16QI, RS6000_BTI_V16QI, 0, 0 },
   { P8V_BUILTIN_VEC_VCLZ, P8V_BUILTIN_VCLZB,
@@ -4298,8 +4305,7 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
       mode = TYPE_MODE (arg1_type);
       if ((mode == V2DFmode || mode == V2DImode) && VECTOR_MEM_VSX_P (mode)
 	  && TREE_CODE (arg2) == INTEGER_CST
-	  && TREE_INT_CST_HIGH (arg2) == 0
-	  && (TREE_INT_CST_LOW (arg2) == 0 || TREE_INT_CST_LOW (arg2) == 1))
+	  && wi::ltu_p (arg2, 2))
 	{
 	  tree call = NULL_TREE;
 
@@ -4313,8 +4319,7 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 	}
       else if (mode == V1TImode && VECTOR_MEM_VSX_P (mode)
 	       && TREE_CODE (arg2) == INTEGER_CST
-	       && TREE_INT_CST_HIGH (arg2) == 0
-	       && TREE_INT_CST_LOW (arg2) == 0)
+	       && wi::eq_p (arg2, 0))
 	{
 	  tree call = rs6000_builtin_decls[VSX_BUILTIN_VEC_EXT_V1TI];
 	  return build_call_expr (call, 2, arg1, arg2);
@@ -4403,8 +4408,7 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
       mode = TYPE_MODE (arg1_type);
       if ((mode == V2DFmode || mode == V2DImode) && VECTOR_UNIT_VSX_P (mode)
 	  && TREE_CODE (arg2) == INTEGER_CST
-	  && TREE_INT_CST_HIGH (arg2) == 0
-	  && (TREE_INT_CST_LOW (arg2) == 0 || TREE_INT_CST_LOW (arg2) == 1))
+	  && wi::ltu_p (arg2, 2))
 	{
 	  tree call = NULL_TREE;
 
@@ -4420,8 +4424,7 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 	}
       else if (mode == V1TImode && VECTOR_UNIT_VSX_P (mode)
 	       && TREE_CODE (arg2) == INTEGER_CST
-	       && TREE_INT_CST_HIGH (arg2) == 0
-	       && TREE_INT_CST_LOW (arg2) == 0)
+	       && wi::eq_p (arg2, 0))
 	{
 	  tree call = rs6000_builtin_decls[VSX_BUILTIN_VEC_SET_V1TI];
 

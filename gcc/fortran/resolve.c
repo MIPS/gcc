@@ -2942,6 +2942,8 @@ resolve_function (gfc_expr *expr)
   else if (expr->value.function.actual != NULL
 	   && expr->value.function.isym != NULL
 	   && GENERIC_ID != GFC_ISYM_LBOUND
+	   && GENERIC_ID != GFC_ISYM_LCOBOUND
+	   && GENERIC_ID != GFC_ISYM_UCOBOUND
 	   && GENERIC_ID != GFC_ISYM_LEN
 	   && GENERIC_ID != GFC_ISYM_LOC
 	   && GENERIC_ID != GFC_ISYM_C_LOC
@@ -4728,6 +4730,50 @@ done:
 }
 
 
+static void
+add_caf_get_intrinsic (gfc_expr *e)
+{
+  gfc_expr *wrapper, *tmp_expr;
+  gfc_ref *ref;
+  int n;
+
+  for (ref = e->ref; ref; ref = ref->next)
+    if (ref->type == REF_ARRAY && ref->u.ar.codimen > 0)
+      break;
+  if (ref == NULL)
+    return;
+
+  for (n = ref->u.ar.dimen; n < ref->u.ar.dimen + ref->u.ar.codimen; n++)
+    if (ref->u.ar.dimen_type[n] != DIMEN_ELEMENT)
+      return;
+
+  tmp_expr = XCNEW (gfc_expr);
+  *tmp_expr = *e;
+  wrapper = gfc_build_intrinsic_call (gfc_current_ns, GFC_ISYM_CAF_GET,
+				      "caf_get", tmp_expr->where, 1, tmp_expr);
+  wrapper->ts = e->ts;
+  wrapper->rank = e->rank;
+  if (e->rank)
+    wrapper->shape = gfc_copy_shape (e->shape, e->rank);
+  *e = *wrapper;
+  free (wrapper);
+}
+
+
+static void
+remove_caf_get_intrinsic (gfc_expr *e)
+{
+  gcc_assert (e->expr_type == EXPR_FUNCTION && e->value.function.isym
+	      && e->value.function.isym->id == GFC_ISYM_CAF_GET);
+  gfc_expr *e2 = e->value.function.actual->expr;
+  e->value.function.actual->expr =NULL;
+  gfc_free_actual_arglist (e->value.function.actual);
+  gfc_free_shape (&e->shape, e->rank);
+  *e = *e2;
+  free (e2);
+}
+
+
 /* Resolve a variable expression.  */
 
 static bool
@@ -5006,6 +5052,12 @@ resolve_procedure:
 	      }
 	}
     }
+
+  if (t)
+    expression_rank (e);
+
+  if (0 && t && gfc_option.coarray == GFC_FCOARRAY_LIB && gfc_is_coindexed (e))
+    add_caf_get_intrinsic (e);
 
   return t;
 }
@@ -6090,11 +6142,7 @@ gfc_resolve_expr (gfc_expr *e)
       if (check_host_association (e))
 	t = resolve_function (e);
       else
-	{
-	  t = resolve_variable (e);
-	  if (t)
-	    expression_rank (e);
-	}
+	t = resolve_variable (e);
 
       if (e->ts.type == BT_CHARACTER && e->ts.u.cl == NULL && e->ref
 	  && e->ref->type != REF_SUBSTRING)
@@ -8980,15 +9028,19 @@ gfc_resolve_blocks (gfc_code *b, gfc_namespace *ns)
 	case EXEC_OMP_ATOMIC:
 	case EXEC_OMP_CRITICAL:
 	case EXEC_OMP_DO:
+	case EXEC_OMP_DO_SIMD:
 	case EXEC_OMP_MASTER:
 	case EXEC_OMP_ORDERED:
 	case EXEC_OMP_PARALLEL:
 	case EXEC_OMP_PARALLEL_DO:
+	case EXEC_OMP_PARALLEL_DO_SIMD:
 	case EXEC_OMP_PARALLEL_SECTIONS:
 	case EXEC_OMP_PARALLEL_WORKSHARE:
 	case EXEC_OMP_SECTIONS:
+	case EXEC_OMP_SIMD:
 	case EXEC_OMP_SINGLE:
 	case EXEC_OMP_TASK:
+	case EXEC_OMP_TASKGROUP:
 	case EXEC_OMP_TASKWAIT:
 	case EXEC_OMP_TASKYIELD:
 	case EXEC_OMP_WORKSHARE:
@@ -9212,8 +9264,10 @@ resolve_ordinary_assign (gfc_code *code, gfc_namespace *ns)
       return false;
     }
 
+  bool lhs_coindexed = gfc_is_coindexed (lhs);
+
   /* F2008, Section 7.2.1.2.  */
-  if (gfc_is_coindexed (lhs) && gfc_has_ultimate_allocatable (lhs))
+  if (lhs_coindexed && gfc_has_ultimate_allocatable (lhs))
     {
       gfc_error ("Coindexed variable must not have an allocatable ultimate "
 		 "component in assignment at %L", &lhs->where);
@@ -9221,6 +9275,25 @@ resolve_ordinary_assign (gfc_code *code, gfc_namespace *ns)
     }
 
   gfc_check_assign (lhs, rhs, 1);
+
+  if (0 && lhs_coindexed && gfc_option.coarray == GFC_FCOARRAY_LIB)
+    {
+      code->op = EXEC_CALL;
+      gfc_get_sym_tree (GFC_PREFIX ("caf_send"), ns, &code->symtree, true);
+      code->resolved_sym = code->symtree->n.sym;
+      code->resolved_sym->attr.flavor = FL_PROCEDURE;
+      code->resolved_sym->attr.intrinsic = 1;
+      code->resolved_sym->attr.subroutine = 1;
+      code->resolved_isym = gfc_intrinsic_subroutine_by_id (GFC_ISYM_CAF_SEND);
+      gfc_commit_symbol (code->resolved_sym);
+      code->ext.actual = gfc_get_actual_arglist ();
+      code->ext.actual->expr = lhs;
+      code->ext.actual->next = gfc_get_actual_arglist ();
+      code->ext.actual->next->expr = rhs;
+      code->expr1 = NULL;
+      code->expr2 = NULL;
+    }
+
   return false;
 }
 
@@ -9733,6 +9806,7 @@ resolve_code (gfc_code *code, gfc_namespace *ns)
 	      break;
 	    case EXEC_OMP_PARALLEL:
 	    case EXEC_OMP_PARALLEL_DO:
+	    case EXEC_OMP_PARALLEL_DO_SIMD:
 	    case EXEC_OMP_PARALLEL_SECTIONS:
 	    case EXEC_OMP_TASK:
 	      omp_workshare_save = omp_workshare_flag;
@@ -9740,6 +9814,8 @@ resolve_code (gfc_code *code, gfc_namespace *ns)
 	      gfc_resolve_omp_parallel_blocks (code, ns);
 	      break;
 	    case EXEC_OMP_DO:
+	    case EXEC_OMP_DO_SIMD:
+	    case EXEC_OMP_SIMD:
 	      gfc_resolve_omp_do_blocks (code, ns);
 	      break;
 	    case EXEC_SELECT_TYPE:
@@ -9843,6 +9919,11 @@ resolve_code (gfc_code *code, gfc_namespace *ns)
 	  if (!t)
 	    break;
 
+	  if (code->expr1->expr_type == EXPR_FUNCTION
+	      && code->expr1->value.function.isym
+	      && code->expr1->value.function.isym->id == GFC_ISYM_CAF_GET)
+	    remove_caf_get_intrinsic (code->expr1);
+
 	  if (!gfc_check_vardef_context (code->expr1, false, false, false, 
 					 _("assignment")))
 	    break;
@@ -9856,7 +9937,7 @@ resolve_code (gfc_code *code, gfc_namespace *ns)
 	    }
 
 	  /* F03 7.4.1.3 for non-allocatable, non-pointer components.  */
-	  if (code->expr1->ts.type == BT_DERIVED
+	  if (code->op != EXEC_CALL && code->expr1->ts.type == BT_DERIVED
 	      && code->expr1->ts.u.derived->attr.defined_assign_comp)
 	    generate_component_assignments (&code, ns);
 
@@ -10054,13 +10135,18 @@ resolve_code (gfc_code *code, gfc_namespace *ns)
 
 	case EXEC_OMP_ATOMIC:
 	case EXEC_OMP_BARRIER:
+	case EXEC_OMP_CANCEL:
+	case EXEC_OMP_CANCELLATION_POINT:
 	case EXEC_OMP_CRITICAL:
 	case EXEC_OMP_FLUSH:
 	case EXEC_OMP_DO:
+	case EXEC_OMP_DO_SIMD:
 	case EXEC_OMP_MASTER:
 	case EXEC_OMP_ORDERED:
 	case EXEC_OMP_SECTIONS:
+	case EXEC_OMP_SIMD:
 	case EXEC_OMP_SINGLE:
+	case EXEC_OMP_TASKGROUP:
 	case EXEC_OMP_TASKWAIT:
 	case EXEC_OMP_TASKYIELD:
 	case EXEC_OMP_WORKSHARE:
@@ -10069,6 +10155,7 @@ resolve_code (gfc_code *code, gfc_namespace *ns)
 
 	case EXEC_OMP_PARALLEL:
 	case EXEC_OMP_PARALLEL_DO:
+	case EXEC_OMP_PARALLEL_DO_SIMD:
 	case EXEC_OMP_PARALLEL_SECTIONS:
 	case EXEC_OMP_PARALLEL_WORKSHARE:
 	case EXEC_OMP_TASK:
@@ -10779,7 +10866,10 @@ resolve_fl_variable (gfc_symbol *sym, int mp_flag)
     }
 
   /* Constraints on deferred type parameter.  */
-  if (sym->ts.deferred && !(sym->attr.pointer || sym->attr.allocatable))
+  if (sym->ts.deferred
+      && !(sym->attr.pointer
+	   || sym->attr.allocatable
+	   || sym->attr.omp_udr_artificial_var))
     {
       gfc_error ("Entity '%s' at %L has a deferred type parameter and "
 		 "requires either the pointer or allocatable attribute",
@@ -10794,7 +10884,8 @@ resolve_fl_variable (gfc_symbol *sym, int mp_flag)
 	 dummy arguments.  */
       e = sym->ts.u.cl->length;
       if (e == NULL && !sym->attr.dummy && !sym->attr.result
-	  && !sym->ts.deferred && !sym->attr.select_type_temporary)
+	  && !sym->ts.deferred && !sym->attr.select_type_temporary
+	  && !sym->attr.omp_udr_artificial_var)
 	{
 	  gfc_error ("Entity with assumed character length at %L must be a "
 		     "dummy argument or a PARAMETER", &sym->declared_at);
@@ -11200,15 +11291,36 @@ resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
    the requirements of the standard for procedures used as finalizers.  */
 
 static bool
-gfc_resolve_finalizers (gfc_symbol* derived)
+gfc_resolve_finalizers (gfc_symbol* derived, bool *finalizable)
 {
   gfc_finalizer* list;
   gfc_finalizer** prev_link; /* For removing wrong entries from the list.  */
   bool result = true;
   bool seen_scalar = false;
+  gfc_symbol *vtab;
+  gfc_component *c;
 
+  /* Return early when not finalizable. Additionally, ensure that derived-type
+     components have a their finalizables resolved.  */
   if (!derived->f2k_derived || !derived->f2k_derived->finalizers)
-    return true;
+    {
+      bool has_final = false;
+      for (c = derived->components; c; c = c->next)
+	if (c->ts.type == BT_DERIVED
+	    && !c->attr.pointer && !c->attr.proc_pointer && !c->attr.allocatable)
+	  {
+	    bool has_final2 = false;
+	    if (!gfc_resolve_finalizers (c->ts.u.derived, &has_final))
+	      return false;  /* Error.  */
+	    has_final = has_final || has_final2;
+	  }
+      if (!has_final)
+	{
+	  if (finalizable)
+	    *finalizable = false;
+	  return true;
+	}
+    }
 
   /* Walk over the list of finalizer-procedures, check them, and if any one
      does not fit in with the standard's definition, print an error and remove
@@ -11330,11 +11442,14 @@ gfc_resolve_finalizers (gfc_symbol* derived)
 	/* Remove wrong nodes immediately from the list so we don't risk any
 	   troubles in the future when they might fail later expectations.  */
 error:
-	result = false;
 	i = list;
 	*prev_link = list->next;
 	gfc_free_finalizer (i);
+	result = false;
     }
+
+  if (result == false)
+    return false;
 
   /* Warn if we haven't seen a scalar finalizer procedure (but we know there
      were nodes in the list, must have been for arrays.  It is surely a good
@@ -11344,8 +11459,14 @@ error:
 		 " defined at %L, suggest also scalar one",
 		 derived->name, &derived->declared_at);
 
-  gfc_find_derived_vtab (derived);
-  return result;
+  vtab = gfc_find_derived_vtab (derived);
+  c = vtab->ts.u.derived->components->next->next->next->next->next;
+  gfc_set_sym_referenced (c->initializer->symtree->n.sym);
+
+  if (finalizable)
+    *finalizable = true;
+
+  return true;
 }
 
 
@@ -12513,7 +12634,7 @@ resolve_fl_derived (gfc_symbol *sym)
     return false;
 
   /* Resolve the finalizer procedures.  */
-  if (!gfc_resolve_finalizers (sym))
+  if (!gfc_resolve_finalizers (sym, NULL))
     return false;
 
   if (sym->attr.is_class && sym->ts.u.derived == NULL)
@@ -14576,6 +14697,10 @@ resolve_types (gfc_namespace *ns)
     warn_unused_fortran_label (ns->st_labels);
 
   gfc_resolve_uops (ns->uop_root);
+
+  gfc_resolve_omp_declare_simd (ns);
+
+  gfc_resolve_omp_udrs (ns->omp_udr_root);
 
   gfc_current_ns = old_ns;
 }

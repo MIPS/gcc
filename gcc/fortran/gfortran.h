@@ -211,8 +211,12 @@ typedef enum
   ST_OMP_PARALLEL, ST_OMP_PARALLEL_DO, ST_OMP_PARALLEL_SECTIONS,
   ST_OMP_PARALLEL_WORKSHARE, ST_OMP_SECTIONS, ST_OMP_SECTION, ST_OMP_SINGLE,
   ST_OMP_THREADPRIVATE, ST_OMP_WORKSHARE, ST_OMP_TASK, ST_OMP_END_TASK,
-  ST_OMP_TASKWAIT, ST_OMP_TASKYIELD, ST_PROCEDURE, ST_GENERIC, ST_CRITICAL,
-  ST_END_CRITICAL, ST_GET_FCN_CHARACTERISTICS, ST_LOCK, ST_UNLOCK, ST_NONE
+  ST_OMP_TASKWAIT, ST_OMP_TASKYIELD, ST_OMP_CANCEL, ST_OMP_CANCELLATION_POINT,
+  ST_OMP_TASKGROUP, ST_OMP_END_TASKGROUP, ST_OMP_SIMD, ST_OMP_END_SIMD,
+  ST_OMP_DO_SIMD, ST_OMP_END_DO_SIMD, ST_OMP_PARALLEL_DO_SIMD,
+  ST_OMP_END_PARALLEL_DO_SIMD, ST_OMP_DECLARE_SIMD, ST_OMP_DECLARE_REDUCTION,
+  ST_PROCEDURE, ST_GENERIC, ST_CRITICAL, ST_END_CRITICAL,
+  ST_GET_FCN_CHARACTERISTICS, ST_LOCK, ST_UNLOCK, ST_NONE
 }
 gfc_statement;
 
@@ -318,11 +322,16 @@ enum gfc_isym_id
   GFC_ISYM_BLE,
   GFC_ISYM_BLT,
   GFC_ISYM_BTEST,
+  GFC_ISYM_CAF_GET,
+  GFC_ISYM_CAF_SEND,
   GFC_ISYM_CEILING,
   GFC_ISYM_CHAR,
   GFC_ISYM_CHDIR,
   GFC_ISYM_CHMOD,
   GFC_ISYM_CMPLX,
+  GFC_ISYM_CO_MAX,
+  GFC_ISYM_CO_MIN,
+  GFC_ISYM_CO_SUM,
   GFC_ISYM_COMMAND_ARGUMENT_COUNT,
   GFC_ISYM_COMPILER_OPTIONS,
   GFC_ISYM_COMPILER_VERSION,
@@ -808,6 +817,10 @@ typedef struct
      variable for SELECT_TYPE or ASSOCIATE.  */
   unsigned select_type_temporary:1, associate_var:1;
 
+  /* This is omp_{out,in,priv,orig} artificial variable in
+     !$OMP DECLARE REDUCTION.  */
+  unsigned omp_udr_artificial_var:1;
+
   /* Attributes set by compiler extensions (!GCC$ ATTRIBUTES).  */
   unsigned ext_attr:EXT_ATTR_NUM;
 
@@ -1028,6 +1041,40 @@ gfc_namelist;
 
 #define gfc_get_namelist() XCNEW (gfc_namelist)
 
+typedef enum
+{
+  OMP_REDUCTION_NONE = -1,
+  OMP_REDUCTION_PLUS = INTRINSIC_PLUS,
+  OMP_REDUCTION_MINUS = INTRINSIC_MINUS,
+  OMP_REDUCTION_TIMES = INTRINSIC_TIMES,
+  OMP_REDUCTION_AND = INTRINSIC_AND,
+  OMP_REDUCTION_OR = INTRINSIC_OR,
+  OMP_REDUCTION_EQV = INTRINSIC_EQV,
+  OMP_REDUCTION_NEQV = INTRINSIC_NEQV,
+  OMP_REDUCTION_MAX = GFC_INTRINSIC_END,
+  OMP_REDUCTION_MIN,
+  OMP_REDUCTION_IAND,
+  OMP_REDUCTION_IOR,
+  OMP_REDUCTION_IEOR,
+  OMP_REDUCTION_USER
+}
+gfc_omp_reduction_op;
+
+/* For use in OpenMP clauses in case we need extra information
+   (aligned clause alignment, linear clause step, etc.).  */
+
+typedef struct gfc_omp_namelist
+{
+  struct gfc_symbol *sym;
+  struct gfc_expr *expr;
+  gfc_omp_reduction_op rop;
+  struct gfc_omp_udr *udr;
+  struct gfc_omp_namelist *next;
+}
+gfc_omp_namelist;
+
+#define gfc_get_omp_namelist() XCNEW (gfc_omp_namelist)
+
 enum
 {
   OMP_LIST_PRIVATE,
@@ -1036,20 +1083,12 @@ enum
   OMP_LIST_COPYPRIVATE,
   OMP_LIST_SHARED,
   OMP_LIST_COPYIN,
-  OMP_LIST_PLUS,
-  OMP_LIST_REDUCTION_FIRST = OMP_LIST_PLUS,
-  OMP_LIST_MULT,
-  OMP_LIST_SUB,
-  OMP_LIST_AND,
-  OMP_LIST_OR,
-  OMP_LIST_EQV,
-  OMP_LIST_NEQV,
-  OMP_LIST_MAX,
-  OMP_LIST_MIN,
-  OMP_LIST_IAND,
-  OMP_LIST_IOR,
-  OMP_LIST_IEOR,
-  OMP_LIST_REDUCTION_LAST = OMP_LIST_IEOR,
+  OMP_LIST_UNIFORM,
+  OMP_LIST_ALIGNED,
+  OMP_LIST_LINEAR,
+  OMP_LIST_DEPEND_IN,
+  OMP_LIST_DEPEND_OUT,
+  OMP_LIST_REDUCTION,
   OMP_LIST_NUM
 };
 
@@ -1075,22 +1114,78 @@ enum gfc_omp_default_sharing
   OMP_DEFAULT_FIRSTPRIVATE
 };
 
+enum gfc_omp_proc_bind_kind
+{
+  OMP_PROC_BIND_UNKNOWN,
+  OMP_PROC_BIND_MASTER,
+  OMP_PROC_BIND_SPREAD,
+  OMP_PROC_BIND_CLOSE
+};
+
+enum gfc_omp_cancel_kind
+{
+  OMP_CANCEL_UNKNOWN,
+  OMP_CANCEL_PARALLEL,
+  OMP_CANCEL_SECTIONS,
+  OMP_CANCEL_DO,
+  OMP_CANCEL_TASKGROUP
+};
+
 typedef struct gfc_omp_clauses
 {
   struct gfc_expr *if_expr;
   struct gfc_expr *final_expr;
   struct gfc_expr *num_threads;
-  gfc_namelist *lists[OMP_LIST_NUM];
+  gfc_omp_namelist *lists[OMP_LIST_NUM];
   enum gfc_omp_sched_kind sched_kind;
   struct gfc_expr *chunk_size;
   enum gfc_omp_default_sharing default_sharing;
   int collapse;
   bool nowait, ordered, untied, mergeable;
+  bool inbranch, notinbranch;
+  enum gfc_omp_cancel_kind cancel;
+  enum gfc_omp_proc_bind_kind proc_bind;
+  struct gfc_expr *safelen_expr;
+  struct gfc_expr *simdlen_expr;
 }
 gfc_omp_clauses;
 
 #define gfc_get_omp_clauses() XCNEW (gfc_omp_clauses)
 
+
+/* Node in the linked list used for storing !$omp declare simd constructs.  */
+
+typedef struct gfc_omp_declare_simd
+{
+  struct gfc_omp_declare_simd *next;
+  locus where; /* Where the !$omp declare simd construct occurred.  */
+
+  gfc_symbol *proc_name;
+
+  gfc_omp_clauses *clauses;
+}
+gfc_omp_declare_simd;
+#define gfc_get_omp_declare_simd() XCNEW (gfc_omp_declare_simd)
+
+typedef struct gfc_omp_udr
+{
+  struct gfc_omp_udr *next;
+  locus where; /* Where the !$omp declare reduction construct occurred.  */
+
+  const char *name;
+  gfc_typespec ts;
+  gfc_omp_reduction_op rop;
+
+  struct gfc_symbol *omp_out;
+  struct gfc_symbol *omp_in;
+  struct gfc_namespace *combiner_ns;
+
+  struct gfc_symbol *omp_priv;
+  struct gfc_symbol *omp_orig;
+  struct gfc_namespace *initializer_ns;
+}
+gfc_omp_udr;
+#define gfc_get_omp_udr() XCNEW (gfc_omp_udr)
 
 /* The gfc_st_label structure is a BBT attached to a namespace that
    records the usage of statement labels within that space.  */
@@ -1368,6 +1463,7 @@ typedef struct gfc_symtree
     gfc_user_op *uop;
     gfc_common_head *common;
     gfc_typebound_proc *tb;
+    gfc_omp_udr *omp_udr;
   }
   n;
 }
@@ -1398,6 +1494,8 @@ typedef struct gfc_namespace
   gfc_symtree *uop_root;
   /* Tree containing all the common blocks.  */
   gfc_symtree *common_root;
+  /* Tree containing all the OpenMP user defined reductions.  */
+  gfc_symtree *omp_udr_root;
 
   /* Tree containing type-bound procedures.  */
   gfc_symtree *tb_sym_root;
@@ -1464,6 +1562,9 @@ typedef struct gfc_namespace
   /* A list of USE statements in this namespace.  */
   gfc_use_list *use_stmts;
 
+  /* Linked list of !$omp declare simd constructs.  */
+  struct gfc_omp_declare_simd *omp_declare_simd;
+
   /* Set to 1 if namespace is a BLOCK DATA program unit.  */
   unsigned is_block_data:1;
 
@@ -1480,6 +1581,9 @@ typedef struct gfc_namespace
   /* Set to 1 if symbols in this namespace should be 'construct entities',
      i.e. for BLOCK local variables.  */
   unsigned construct_entities:1;
+
+  /* Set to 1 for !$OMP DECLARE REDUCTION namespaces.  */
+  unsigned omp_udr_ns:1;
 }
 gfc_namespace;
 
@@ -2111,16 +2215,21 @@ typedef enum
   EXEC_OMP_SECTIONS, EXEC_OMP_SINGLE, EXEC_OMP_WORKSHARE,
   EXEC_OMP_ATOMIC, EXEC_OMP_BARRIER, EXEC_OMP_END_NOWAIT,
   EXEC_OMP_END_SINGLE, EXEC_OMP_TASK, EXEC_OMP_TASKWAIT,
-  EXEC_OMP_TASKYIELD
+  EXEC_OMP_TASKYIELD, EXEC_OMP_CANCEL, EXEC_OMP_CANCELLATION_POINT,
+  EXEC_OMP_TASKGROUP, EXEC_OMP_SIMD, EXEC_OMP_DO_SIMD,
+  EXEC_OMP_PARALLEL_DO_SIMD
 }
 gfc_exec_op;
 
 typedef enum
 {
-  GFC_OMP_ATOMIC_UPDATE,
-  GFC_OMP_ATOMIC_READ,
-  GFC_OMP_ATOMIC_WRITE,
-  GFC_OMP_ATOMIC_CAPTURE
+  GFC_OMP_ATOMIC_UPDATE = 0,
+  GFC_OMP_ATOMIC_READ = 1,
+  GFC_OMP_ATOMIC_WRITE = 2,
+  GFC_OMP_ATOMIC_CAPTURE = 3,
+  GFC_OMP_ATOMIC_MASK = 3,
+  GFC_OMP_ATOMIC_SEQ_CST = 4,
+  GFC_OMP_ATOMIC_SWAP = 8
 }
 gfc_omp_atomic_op;
 
@@ -2172,7 +2281,7 @@ typedef struct gfc_code
     gfc_entry_list *entry;
     gfc_omp_clauses *omp_clauses;
     const char *omp_name;
-    gfc_namelist *omp_namelist;
+    gfc_omp_namelist *omp_namelist;
     bool omp_bool;
     gfc_omp_atomic_op omp_atomic;
   }
@@ -2728,6 +2837,7 @@ void gfc_free_iterator (gfc_iterator *, int);
 void gfc_free_forall_iterator (gfc_forall_iterator *);
 void gfc_free_alloc_list (gfc_alloc *);
 void gfc_free_namelist (gfc_namelist *);
+void gfc_free_omp_namelist (gfc_omp_namelist *);
 void gfc_free_equiv (gfc_equiv *);
 void gfc_free_equiv_until (gfc_equiv *, gfc_equiv *);
 void gfc_free_data (gfc_data *);
@@ -2739,10 +2849,16 @@ gfc_expr *gfc_get_parentheses (gfc_expr *);
 /* openmp.c */
 struct gfc_omp_saved_state { void *ptrs[2]; int ints[1]; };
 void gfc_free_omp_clauses (gfc_omp_clauses *);
+void gfc_free_omp_declare_simd (gfc_omp_declare_simd *);
+void gfc_free_omp_declare_simd_list (gfc_omp_declare_simd *);
+void gfc_free_omp_udr (gfc_omp_udr *);
+gfc_omp_udr *gfc_omp_udr_find (gfc_symtree *, gfc_typespec *);
 void gfc_resolve_omp_directive (gfc_code *, gfc_namespace *);
 void gfc_resolve_do_iterator (gfc_code *, gfc_symbol *);
 void gfc_resolve_omp_parallel_blocks (gfc_code *, gfc_namespace *);
 void gfc_resolve_omp_do_blocks (gfc_code *, gfc_namespace *);
+void gfc_resolve_omp_declare_simd (gfc_namespace *);
+void gfc_resolve_omp_udrs (gfc_symtree *);
 void gfc_omp_save_and_clear_state (struct gfc_omp_saved_state *);
 void gfc_omp_restore_state (struct gfc_omp_saved_state *);
 
@@ -2948,7 +3064,6 @@ bool gfc_convert_to_structure_constructor (gfc_expr *, gfc_symbol *,
 /* trans.c */
 void gfc_generate_code (gfc_namespace *);
 void gfc_generate_module_code (gfc_namespace *);
-void gfc_init_coarray_decl (bool);
 
 /* trans-intrinsic.c */
 bool gfc_inline_intrinsic_function_p (gfc_expr *);
@@ -3019,7 +3134,12 @@ void gfc_run_passes (gfc_namespace *);
 typedef int (*walk_code_fn_t) (gfc_code **, int *, void *);
 typedef int (*walk_expr_fn_t) (gfc_expr **, int *, void *);
 
+int gfc_dummy_code_callback (gfc_code **, int *, void *);
 int gfc_expr_walker (gfc_expr **, walk_expr_fn_t, void *);
 int gfc_code_walker (gfc_code **, walk_code_fn_t, walk_expr_fn_t, void *);
+
+/* simplify.c */
+
+void gfc_convert_mpz_to_signed (mpz_t, int);
 
 #endif /* GCC_GFORTRAN_H  */

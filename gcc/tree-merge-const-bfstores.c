@@ -424,10 +424,42 @@ invalidate_bfstores (gimple stmt)
       i++;
 }
 
+
+namespace {
+
+const pass_data pass_data_merge_const_bfstores =
+{
+  GIMPLE_PASS, /* type */
+  "constbfstores", /* name */
+  OPTGROUP_NONE, /* optinfo_flages */
+  true, /* has_execute */
+  TV_MERGE_CONST_BFSTORES, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  TODO_update_ssa_only_virtuals, /* todo_flags_finish */
+};
+
+class pass_merge_const_bfstores : public gimple_opt_pass
+{
+public:
+  pass_merge_const_bfstores (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_merge_const_bfstores, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  opt_pass * clone () { return new pass_merge_const_bfstores (m_ctxt); }
+  virtual bool gate (function*) { return flag_merge_const_bfstores; }
+  virtual unsigned int execute (function*);
+
+}; // classs pass_merge_const_bfstores
+  
+} // anon namespace
 /* Main entry point of the pass.  */
 
-static unsigned int
-merge_const_bfstores (void)
+unsigned int
+pass_merge_const_bfstores::execute (function*)
 {
   basic_block bb;
 
@@ -453,48 +485,6 @@ merge_const_bfstores (void)
 
   return 0;
 }
-
-/* This code needs some adjustment for little endian targets.  */
-
-static bool
-gate_merge_const_bfstores (void)
-{
-  return flag_merge_const_bfstores;
-}
-
-namespace {
-
-const pass_data pass_data_merge_const_bfstores =
-{
-  GIMPLE_PASS, /* type */
-  "constbfstores", /* name */
-  OPTGROUP_NONE, /* optinfo_flages */
-  true, /* has_gate */
-  true, /* has_execute */
-  TV_MERGE_CONST_BFSTORES, /* tv_id */
-  0, /* properties_required */
-  0, /* properties_provided */
-  0, /* properties_destroyed */
-  0, /* todo_flags_start */
-  ( TODO_update_ssa_only_virtuals 
-    | TODO_verify_ssa ), /* todo_flags_finish */
-};
-
-class pass_merge_const_bfstores : public gimple_opt_pass
-{
-public:
-  pass_merge_const_bfstores (gcc::context *ctxt)
-    : gimple_opt_pass (pass_data_merge_const_bfstores, ctxt)
-  {}
-
-  /* opt_pass methods: */
-  opt_pass * clone () { return new pass_merge_const_bfstores (m_ctxt); }
-  bool gate () { return gate_merge_const_bfstores (); }
-  unsigned int execute () { return merge_const_bfstores (); }
-
-}; // classs pass_merge_const_bfstores
-  
-} // anon namespace
 
 gimple_opt_pass * 
 make_pass_merge_const_bfstores (gcc::context *ctxt)

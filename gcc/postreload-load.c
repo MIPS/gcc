@@ -214,10 +214,41 @@ find_reg_kill_and_mem_invalidate (void **slot, void *arg)
   return 1;
 }
 
+namespace {
+
+const pass_data pass_data_postreload_load =
+{
+  RTL_PASS, /* type */
+  "postreload_load", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_execute */
+  TV_LOAD_AFTER_RELOAD,	/* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
+};
+
+class pass_postreload_load : public rtl_opt_pass
+{
+public:
+  pass_postreload_load (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_postreload_load, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  opt_pass * clone () { return new pass_postreload_load (m_ctxt); }
+  virtual bool gate (function *) { return flag_postreload_load; }
+  virtual unsigned int execute (function *);
+};  // class pass_postreload_load
+
+}  // anon namespace
+
 /* This is the main function of the pass.  */
 
-static unsigned int
-postreload_load (void)
+unsigned int
+pass_postreload_load::execute (function*)
 {
   basic_block bb;
 
@@ -277,42 +308,7 @@ postreload_load (void)
   return 0;
 }
 
-static bool
-gate_postreload_load (void)
-{
-  return flag_postreload_load;
-}
 
-namespace {
-
-const pass_data pass_data_postreload_load =
-{
-  RTL_PASS, /* type */
-  "postreload_load", /* name */
-  OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
-  true, /* has_execute */
-  TV_LOAD_AFTER_RELOAD,	/* tv_id */
-  0, /* properties_required */
-  0, /* properties_provided */
-  0, /* properties_destroyed */
-  0, /* todo_flags_start */
-  0, /* todo_flags_finish */
-};
-
-class pass_postreload_load : public rtl_opt_pass
-{
-public:
-  pass_postreload_load (gcc::context *ctxt)
-    : rtl_opt_pass (pass_data_postreload_load, ctxt)
-  {}
-
-  /* opt_pass methods: */
-  bool gate() { return gate_postreload_load (); }
-  unsigned int execute () { return postreload_load (); }
-};  // class pass_postreload_load
-
-}  // anon namespace
 
 rtl_opt_pass * 
 make_pass_postreload_load (gcc::context *ctxt)

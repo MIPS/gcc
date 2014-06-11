@@ -34,6 +34,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "lto-streamer.h"
 #include "ipa-utils.h"
 #include "ipa-inline.h"
+#include "builtins.h"
 
 /* Replace the cgraph node NODE with PREVAILING_NODE in the cgraph, merging
    all edges and removing the old node.  */
@@ -90,12 +91,6 @@ lto_cgraph_replace_node (struct cgraph_node *node,
 
   if (node->decl != prevailing_node->decl)
     cgraph_release_function_body (node);
-
-  /* Time profile merging */
-  if (node->tp_first_run)
-    prevailing_node->tp_first_run = prevailing_node->tp_first_run ?
-      MIN (prevailing_node->tp_first_run, node->tp_first_run) :
-      node->tp_first_run;
 
   /* Finally remove the replaced node.  */
   cgraph_remove_node (node);
@@ -453,7 +448,12 @@ lto_symtab_merge_decls_1 (symtab_node *first)
      cgraph or a varpool node.  */
   if (!prevailing)
     {
-      prevailing = first;
+      for (prevailing = first;
+	   prevailing; prevailing = prevailing->next_sharing_asm_name)
+	if (lto_symtab_symbol_p (prevailing))
+	  break;
+      if (!prevailing)
+	return;
       /* For variables chose with a priority variant with vnode
 	 attached (i.e. from unit where external declaration of
 	 variable is actually used).
@@ -566,10 +566,10 @@ lto_symtab_merge_symbols_1 (symtab_node *prevailing)
 
       if (!lto_symtab_symbol_p (e))
 	continue;
-      cgraph_node *ce = dyn_cast <cgraph_node> (e);
+      cgraph_node *ce = dyn_cast <cgraph_node *> (e);
       if (ce && !DECL_BUILT_IN (e->decl))
 	lto_cgraph_replace_node (ce, cgraph (prevailing));
-      if (varpool_node *ve = dyn_cast <varpool_node> (e))
+      if (varpool_node *ve = dyn_cast <varpool_node *> (e))
 	lto_varpool_replace_node (ve, varpool (prevailing));
     }
 
@@ -615,7 +615,7 @@ lto_symtab_merge_symbols (void)
 	    }
 	  node->aux = NULL;
 
-	  if (!(cnode = dyn_cast <cgraph_node> (node))
+	  if (!(cnode = dyn_cast <cgraph_node *> (node))
 	      || !cnode->clone_of
 	      || cnode->clone_of->decl != cnode->decl)
 	    {
@@ -630,11 +630,11 @@ lto_symtab_merge_symbols (void)
 	      /* The user defined assembler variables are also not unified by their
 		 symbol name (since it is irrelevant), but we need to unify symbol
 		 nodes if tree merging occured.  */
-	      if ((vnode = dyn_cast <varpool_node> (node))
+	      if ((vnode = dyn_cast <varpool_node *> (node))
 		  && DECL_HARD_REGISTER (vnode->decl)
 		  && (node2 = symtab_get_node (vnode->decl))
 		  && node2 != node)
-		lto_varpool_replace_node (dyn_cast <varpool_node> (node2),
+		lto_varpool_replace_node (dyn_cast <varpool_node *> (node2),
 					  vnode);
 	  
 
@@ -645,7 +645,7 @@ lto_symtab_merge_symbols (void)
 		       && cnode2 != cnode)
 		cgraph_remove_node (cnode2);
 
-	      symtab_insert_node_to_hashtable (node);
+	      node->decl->decl_with_vis.symtab_node = node;
 	    }
 	}
     }

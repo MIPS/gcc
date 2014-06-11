@@ -871,7 +871,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
         : _M_ptr(__p), _M_refcount(__p)
 	{
 	  __glibcxx_function_requires(_ConvertibleConcept<_Tp1*, _Tp*>)
-	  static_assert( !is_void<_Tp>::value, "incomplete type" );
+	  static_assert( !is_void<_Tp1>::value, "incomplete type" );
 	  static_assert( sizeof(_Tp1) > 0, "incomplete type" );
 	  __enable_shared_from_this_helper(_M_refcount, __p, __p);
 	}
@@ -963,10 +963,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	__shared_ptr(std::auto_ptr<_Tp1>&& __r);
 #endif
 
-      /* TODO: use delegating constructor */
-      constexpr __shared_ptr(nullptr_t) noexcept
-      : _M_ptr(0), _M_refcount()
-      { }
+      constexpr __shared_ptr(nullptr_t) noexcept : __shared_ptr() { }
 
       template<typename _Tp1>
 	__shared_ptr&

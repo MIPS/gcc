@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O3 -Wno-attributes -mfpmath=sse -mfma -mtune=generic -fno-unroll-loops" } */
+/* { dg-options "-O3 -Wno-attributes -mfpmath=sse -mfma -mtune=generic -mno-fma4 -fno-unroll-loops" } */
 
 /* Test that the compiler properly optimizes floating point multiply
    and add instructions into FMA3 instructions.  */

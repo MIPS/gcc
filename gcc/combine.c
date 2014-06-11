@@ -446,7 +446,8 @@ static rtx simplify_shift_const (rtx, enum rtx_code, enum machine_mode, rtx,
 				 int);
 static int recog_for_combine (rtx *, rtx, rtx *);
 static rtx gen_lowpart_for_combine (enum machine_mode, rtx);
-static enum rtx_code simplify_compare_const (enum rtx_code, rtx, rtx *);
+static enum rtx_code simplify_compare_const (enum rtx_code, enum machine_mode,
+					     rtx, rtx *);
 static enum rtx_code simplify_comparison (enum rtx_code, rtx *, rtx *);
 static void update_table_tick (rtx);
 static void record_value_for_reg (rtx, rtx, rtx);
@@ -2705,22 +2706,15 @@ try_combine (rtx i3, rtx i2, rtx i1, rtx i0, int *new_direct_jump_p,
 	    offset = -1;
 	}
 
-      if (offset >= 0
-	  && (GET_MODE_PRECISION (GET_MODE (SET_DEST (temp)))
-	      <= HOST_BITS_PER_DOUBLE_INT))
+      if (offset >= 0)
 	{
-	  double_int m, o, i;
 	  rtx inner = SET_SRC (PATTERN (i3));
 	  rtx outer = SET_SRC (temp);
 
-	  o = rtx_to_double_int (outer);
-	  i = rtx_to_double_int (inner);
-
-	  m = double_int::mask (width);
-	  i &= m;
-	  m = m.llshift (offset, HOST_BITS_PER_DOUBLE_INT);
-	  i = i.llshift (offset, HOST_BITS_PER_DOUBLE_INT);
-	  o = o.and_not (m) | i;
+	  wide_int o
+	    = wi::insert (std::make_pair (outer, GET_MODE (SET_DEST (temp))),
+			  std::make_pair (inner, GET_MODE (dest)),
+			  offset, width);
 
 	  combine_merges++;
 	  subst_insn = i3;
@@ -2733,7 +2727,7 @@ try_combine (rtx i3, rtx i2, rtx i1, rtx i0, int *new_direct_jump_p,
 	     resulting insn the new pattern for I3.  Then skip to where we
 	     validate the pattern.  Everything was set up above.  */
 	  SUBST (SET_SRC (temp),
-		 immed_double_int_const (o, GET_MODE (SET_DEST (temp))));
+		 immed_wide_int_const (o, GET_MODE (SET_DEST (temp))));
 
 	  newpat = PATTERN (i2);
 
@@ -2780,9 +2774,10 @@ try_combine (rtx i3, rtx i2, rtx i1, rtx i0, int *new_direct_jump_p,
 	     never appear in the insn stream so giving it the same INSN_UID
 	     as I2 will not cause a problem.  */
 
-	  i1 = gen_rtx_INSN (VOIDmode, INSN_UID (i2), NULL_RTX, i2,
-			     BLOCK_FOR_INSN (i2), XVECEXP (PATTERN (i2), 0, 1),
-			     INSN_LOCATION (i2), -1, NULL_RTX);
+	  i1 = gen_rtx_INSN (VOIDmode, NULL_RTX, i2, BLOCK_FOR_INSN (i2),
+			     XVECEXP (PATTERN (i2), 0, 1), INSN_LOCATION (i2),
+			     -1, NULL_RTX);
+	  INSN_UID (i1) = INSN_UID (i2);
 
 	  SUBST (PATTERN (i2), XVECEXP (PATTERN (i2), 0, 0));
 	  SUBST (XEXP (SET_SRC (PATTERN (i2)), 0),
@@ -2984,7 +2979,7 @@ try_combine (rtx i3, rtx i2, rtx i1, rtx i0, int *new_direct_jump_p,
 	{
 	  compare_code = orig_compare_code = GET_CODE (*cc_use_loc);
 	  compare_code = simplify_compare_const (compare_code,
-						 op0, &op1);
+						 GET_MODE (i2dest), op0, &op1);
 	  target_canonicalize_comparison (&compare_code, &op0, &op1, 1);
 	}
 
@@ -5196,7 +5191,7 @@ subst (rtx x, rtx from, rtx to, int in_dest, int in_cond, int unique_copy)
 		  if (! x)
 		    x = gen_rtx_CLOBBER (mode, const0_rtx);
 		}
-	      else if (CONST_INT_P (new_rtx)
+	      else if (CONST_SCALAR_INT_P (new_rtx)
 		       && GET_CODE (x) == ZERO_EXTEND)
 		{
 		  x = simplify_unary_operation (ZERO_EXTEND, GET_MODE (x),
@@ -10593,9 +10588,10 @@ simplify_shift_const_1 (enum rtx_code code, enum machine_mode result_mode,
 	  /* (ashift (plus foo C) N) is (plus (ashift foo N) C').  */
 	  if (code == ASHIFT
 	      && CONST_INT_P (XEXP (varop, 1))
-	      && (new_rtx = simplify_const_binary_operation (ASHIFT, result_mode,
-							 XEXP (varop, 1),
-							 GEN_INT (count))) != 0
+	      && (new_rtx = simplify_const_binary_operation
+		  (ASHIFT, result_mode,
+		   gen_int_mode (INTVAL (XEXP (varop, 1)), result_mode),
+		   GEN_INT (count))) != 0
 	      && CONST_INT_P (new_rtx)
 	      && merge_outer_ops (&outer_op, &outer_const, PLUS,
 				  INTVAL (new_rtx), result_mode, &complement_p))
@@ -10612,9 +10608,10 @@ simplify_shift_const_1 (enum rtx_code code, enum machine_mode result_mode,
 	  if (code == LSHIFTRT
 	      && CONST_INT_P (XEXP (varop, 1))
 	      && mode_signbit_p (result_mode, XEXP (varop, 1))
-	      && (new_rtx = simplify_const_binary_operation (code, result_mode,
-							 XEXP (varop, 1),
-							 GEN_INT (count))) != 0
+	      && (new_rtx = simplify_const_binary_operation
+		  (code, result_mode,
+		   gen_int_mode (INTVAL (XEXP (varop, 1)), result_mode),
+		   GEN_INT (count))) != 0
 	      && CONST_INT_P (new_rtx)
 	      && merge_outer_ops (&outer_op, &outer_const, XOR,
 				  INTVAL (new_rtx), result_mode, &complement_p))
@@ -11056,9 +11053,9 @@ gen_lowpart_for_combine (enum machine_mode omode, rtx x)
    *POP1 may be updated.  */
 
 static enum rtx_code
-simplify_compare_const (enum rtx_code code, rtx op0, rtx *pop1)
+simplify_compare_const (enum rtx_code code, enum machine_mode mode,
+			rtx op0, rtx *pop1)
 {
-  enum machine_mode mode = GET_MODE (op0);
   unsigned int mode_width = GET_MODE_PRECISION (mode);
   HOST_WIDE_INT const_op = INTVAL (*pop1);
 
@@ -11074,7 +11071,7 @@ simplify_compare_const (enum rtx_code code, rtx op0, rtx *pop1)
   if (const_op
       && (code == EQ || code == NE || code == GE || code == GEU
 	  || code == LT || code == LTU)
-      && mode_width <= HOST_BITS_PER_WIDE_INT
+      && mode_width - 1 < HOST_BITS_PER_WIDE_INT
       && exact_log2 (const_op & GET_MODE_MASK (mode)) >= 0
       && (nonzero_bits (op0, mode)
 	  == (unsigned HOST_WIDE_INT) (const_op & GET_MODE_MASK (mode))))
@@ -11121,7 +11118,7 @@ simplify_compare_const (enum rtx_code code, rtx op0, rtx *pop1)
       /* If we are doing a <= 0 comparison on a value known to have
 	 a zero sign bit, we can replace this with == 0.  */
       else if (const_op == 0
-	       && mode_width <= HOST_BITS_PER_WIDE_INT
+	       && mode_width - 1 < HOST_BITS_PER_WIDE_INT
 	       && (nonzero_bits (op0, mode)
 		   & ((unsigned HOST_WIDE_INT) 1 << (mode_width - 1)))
 	       == 0)
@@ -11150,7 +11147,7 @@ simplify_compare_const (enum rtx_code code, rtx op0, rtx *pop1)
       /* If we are doing a > 0 comparison on a value known to have
 	 a zero sign bit, we can replace this with != 0.  */
       else if (const_op == 0
-	       && mode_width <= HOST_BITS_PER_WIDE_INT
+	       && mode_width - 1 < HOST_BITS_PER_WIDE_INT
 	       && (nonzero_bits (op0, mode)
 		   & ((unsigned HOST_WIDE_INT) 1 << (mode_width - 1)))
 	       == 0)
@@ -11166,7 +11163,7 @@ simplify_compare_const (enum rtx_code code, rtx op0, rtx *pop1)
 	  /* ... fall through ...  */
 	}
       /* (unsigned) < 0x80000000 is equivalent to >= 0.  */
-      else if (mode_width <= HOST_BITS_PER_WIDE_INT
+      else if (mode_width - 1 < HOST_BITS_PER_WIDE_INT
 	       && (unsigned HOST_WIDE_INT) const_op
 	       == (unsigned HOST_WIDE_INT) 1 << (mode_width - 1))
 	{
@@ -11182,7 +11179,7 @@ simplify_compare_const (enum rtx_code code, rtx op0, rtx *pop1)
       if (const_op == 0)
 	code = EQ;
       /* (unsigned) <= 0x7fffffff is equivalent to >= 0.  */
-      else if (mode_width <= HOST_BITS_PER_WIDE_INT
+      else if (mode_width - 1 < HOST_BITS_PER_WIDE_INT
 	       && (unsigned HOST_WIDE_INT) const_op
 	       == ((unsigned HOST_WIDE_INT) 1 << (mode_width - 1)) - 1)
 	{
@@ -11201,7 +11198,7 @@ simplify_compare_const (enum rtx_code code, rtx op0, rtx *pop1)
 	}
 
       /* (unsigned) >= 0x80000000 is equivalent to < 0.  */
-      else if (mode_width <= HOST_BITS_PER_WIDE_INT
+      else if (mode_width - 1 < HOST_BITS_PER_WIDE_INT
 	       && (unsigned HOST_WIDE_INT) const_op
 	       == (unsigned HOST_WIDE_INT) 1 << (mode_width - 1))
 	{
@@ -11217,7 +11214,7 @@ simplify_compare_const (enum rtx_code code, rtx op0, rtx *pop1)
       if (const_op == 0)
 	code = NE;
       /* (unsigned) > 0x7fffffff is equivalent to < 0.  */
-      else if (mode_width <= HOST_BITS_PER_WIDE_INT
+      else if (mode_width - 1 < HOST_BITS_PER_WIDE_INT
 	       && (unsigned HOST_WIDE_INT) const_op
 	       == ((unsigned HOST_WIDE_INT) 1 << (mode_width - 1)) - 1)
 	{
@@ -11424,7 +11421,7 @@ simplify_comparison (enum rtx_code code, rtx *pop0, rtx *pop1)
 
       /* Try to simplify the compare to constant, possibly changing the
 	 comparison op, and/or changing op1 to zero.  */
-      code = simplify_compare_const (code, op0, &op1);
+      code = simplify_compare_const (code, mode, op0, &op1);
       const_op = INTVAL (op1);
 
       /* Compute some predicates to simplify code below.  */
@@ -13507,6 +13504,7 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2, rtx elim_i2,
 	case REG_NORETURN:
 	case REG_SETJMP:
 	case REG_TM:
+	case REG_CALL_DECL:
 	  /* These notes must remain with the call.  It should not be
 	     possible for both I2 and I3 to be a call.  */
 	  if (CALL_P (i3))
@@ -14092,12 +14090,6 @@ dump_combine_total_stats (FILE *file)
      total_attempts, total_merges, total_extras, total_successes);
 }
 
-static bool
-gate_handle_combine (void)
-{
-  return (optimize > 0);
-}
-
 /* Try combining insns through substitution.  */
 static unsigned int
 rest_of_handle_combine (void)
@@ -14135,14 +14127,13 @@ const pass_data pass_data_combine =
   RTL_PASS, /* type */
   "combine", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
   true, /* has_execute */
   TV_COMBINE, /* tv_id */
   PROP_cfglayout, /* properties_required */
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  ( TODO_df_finish | TODO_verify_rtl_sharing ), /* todo_flags_finish */
+  TODO_df_finish, /* todo_flags_finish */
 };
 
 class pass_combine : public rtl_opt_pass
@@ -14153,8 +14144,11 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_handle_combine (); }
-  unsigned int execute () { return rest_of_handle_combine (); }
+  virtual bool gate (function *) { return (optimize > 0); }
+  virtual unsigned int execute (function *)
+    {
+      return rest_of_handle_combine ();
+    }
 
 }; // class pass_combine
 

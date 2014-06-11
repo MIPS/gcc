@@ -194,9 +194,9 @@ merge_code_bb (basic_block bb0, basic_block bb1, basic_block bb2)
   /* If the left hand side of the t1 is a variable decl and has the ignore bit,
      then move statement 2 instead of statement 1. */
 
-    if ((SSA_NAME_VAR (t1) == NULL
+    if (((SSA_NAME_VAR (t1) == NULL
           || (TREE_CODE (SSA_NAME_VAR (t1)) == VAR_DECL
-             && DECL_IGNORED_P (SSA_NAME_VAR (t1)))
+             && DECL_IGNORED_P (SSA_NAME_VAR (t1))))
        && (SSA_NAME_VAR (t2) 
             && TREE_CODE (SSA_NAME_VAR (t2)) == VAR_DECL
             && !DECL_IGNORED_P (SSA_NAME_VAR (t2))))
@@ -243,9 +243,39 @@ merge_code_bb (basic_block bb0, basic_block bb1, basic_block bb2)
     }
 }
 
+namespace {
 
-static unsigned int
-do_merge_code (void)
+const pass_data pass_data_merge_common_code =
+{
+  GIMPLE_PASS, /* type */
+  "merge_code", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_execute */
+  TV_TREE_SSA_MERGE_COMMON, /* tv_id */
+  ( PROP_cfg | PROP_ssa ), /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
+};
+
+class pass_merge_common_code : public gimple_opt_pass
+{
+public:
+  pass_merge_common_code (gcc::context *ctxt) 
+    : gimple_opt_pass (pass_data_merge_common_code, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  opt_pass * clone () { return new pass_merge_common_code (m_ctxt); }
+  virtual unsigned int execute (function*);
+
+};  // class pass_merge_common_code
+
+} // anon namespace
+
+unsigned int
+pass_merge_common_code::execute (function*)
 {
   basic_block bb;
   auto_vec<basic_block, 20> queue;
@@ -305,46 +335,6 @@ do_merge_code (void)
   return 0;
 }
 
-
-static bool
-gate_merge_code (void)
-{
-  return true;
-}
-
-
-namespace {
-
-const pass_data pass_data_merge_common_code =
-{
-  GIMPLE_PASS, /* type */
-  "merge_code", /* name */
-  OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
-  true, /* has_execute */
-  TV_TREE_SSA_MERGE_COMMON, /* tv_id */
-  ( PROP_cfg | PROP_ssa ), /* properties_required */
-  0, /* properties_provided */
-  0, /* properties_destroyed */
-  0, /* todo_flags_start */
-  TODO_verify_ssa, /* todo_flags_finish */
-};
-
-class pass_merge_common_code : public gimple_opt_pass
-{
-public:
-  pass_merge_common_code (gcc::context *ctxt) 
-    : gimple_opt_pass (pass_data_merge_common_code, ctxt)
-  {}
-
-  /* opt_pass methods: */
-  opt_pass * clone () { return new pass_merge_common_code (m_ctxt); }
-  bool gate () { return gate_merge_code (); }
-  unsigned int execute () { return do_merge_code (); }
-
-};  // class pass_merge_common_code
-
-} // anon namespace
 
 gimple_opt_pass *
 make_pass_merge_common_code (gcc::context *ctxt)

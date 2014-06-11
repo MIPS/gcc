@@ -884,8 +884,9 @@ ipcp_verify_propagated_values (void)
 	    {
 	      if (dump_file)
 		{
+		  dump_symtab (dump_file);
 		  fprintf (dump_file, "\nIPA lattices after constant "
-			   "propagation:\n");
+			   "propagation, before gcc_unreachable:\n");
 		  print_all_lattices (dump_file, true, false);
 		}
 
@@ -1639,11 +1640,18 @@ ipa_get_indirect_edge_target_1 (struct cgraph_edge *ie,
 	return NULL_TREE;
       target = gimple_get_virt_method_for_binfo (token, binfo);
     }
-#ifdef ENABLE_CHECKING
-  if (target)
-    gcc_assert (possible_polymorphic_call_target_p
-		 (ie, cgraph_get_node (target)));
-#endif
+
+  if (target && !possible_polymorphic_call_target_p (ie,
+						     cgraph_get_node (target)))
+    {
+      if (dump_file)
+	fprintf (dump_file,
+		 "Type inconsident devirtualization: %s/%i->%s\n",
+		 ie->caller->name (), ie->caller->order,
+		 IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (target)));
+      target = builtin_decl_implicit (BUILT_IN_UNREACHABLE);
+      cgraph_get_create_node (target);
+    }
 
   return target;
 }
@@ -1740,13 +1748,13 @@ good_cloning_opportunity_p (struct cgraph_node *node, int time_benefit,
   if (max_count)
     {
       int factor = (count_sum * 1000) / max_count;
-      HOST_WIDEST_INT evaluation = (((HOST_WIDEST_INT) time_benefit * factor)
+      int64_t evaluation = (((int64_t) time_benefit * factor)
 				    / size_cost);
 
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "     good_cloning_opportunity_p (time: %i, "
 		 "size: %i, count_sum: " HOST_WIDE_INT_PRINT_DEC
-		 ") -> evaluation: " HOST_WIDEST_INT_PRINT_DEC
+		 ") -> evaluation: " "%"PRId64
 		 ", threshold: %i\n",
 		 time_benefit, size_cost, (HOST_WIDE_INT) count_sum,
 		 evaluation, PARAM_VALUE (PARAM_IPA_CP_EVAL_THRESHOLD));
@@ -1755,13 +1763,13 @@ good_cloning_opportunity_p (struct cgraph_node *node, int time_benefit,
     }
   else
     {
-      HOST_WIDEST_INT evaluation = (((HOST_WIDEST_INT) time_benefit * freq_sum)
+      int64_t evaluation = (((int64_t) time_benefit * freq_sum)
 				    / size_cost);
 
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "     good_cloning_opportunity_p (time: %i, "
 		 "size: %i, freq_sum: %i) -> evaluation: "
-		 HOST_WIDEST_INT_PRINT_DEC ", threshold: %i\n",
+		 "%"PRId64 ", threshold: %i\n",
 		 time_benefit, size_cost, freq_sum, evaluation,
 		 PARAM_VALUE (PARAM_IPA_CP_EVAL_THRESHOLD));
 
@@ -2451,7 +2459,7 @@ ipcp_edge_removal_hook (struct cgraph_edge *cs, void *)
    parameter with the given INDEX.  */
 
 static tree
-get_clone_agg_value (struct cgraph_node *node, HOST_WIDEST_INT offset,
+get_clone_agg_value (struct cgraph_node *node, HOST_WIDE_INT offset,
 		     int index)
 {
   struct ipa_agg_replacement_value *aggval;
@@ -2474,7 +2482,8 @@ cgraph_edge_brings_value_p (struct cgraph_edge *cs,
 			    struct ipcp_value_source *src)
 {
   struct ipa_node_params *caller_info = IPA_NODE_REF (cs->caller);
-  struct ipa_node_params *dst_info = IPA_NODE_REF (cs->callee);
+  cgraph_node *real_dest = cgraph_function_node (cs->callee);
+  struct ipa_node_params *dst_info = IPA_NODE_REF (real_dest);
 
   if ((dst_info->ipcp_orig_node && !dst_info->is_all_contexts_clone)
       || caller_info->node_dead)
@@ -2591,7 +2600,7 @@ get_replacement_map (struct ipa_node_params *info, tree value, int parm_num)
   struct ipa_replace_map *replace_map;
 
 
-  replace_map = ggc_alloc_ipa_replace_map ();
+  replace_map = ggc_alloc<ipa_replace_map> ();
   if (dump_file)
     {
       fprintf (dump_file, "    replacing ");
@@ -2804,9 +2813,7 @@ create_specialized_node (struct cgraph_node *node,
       if (aggvals)
 	ipa_dump_agg_replacement_values (dump_file, aggvals);
     }
-  gcc_checking_assert (ipa_node_params_vector.exists ()
-		       && (ipa_node_params_vector.length ()
-			   > (unsigned) cgraph_max_uid));
+  ipa_check_create_node_params ();
   update_profiling_info (node, new_node);
   new_info = IPA_NODE_REF (new_node);
   new_info->ipcp_orig_node = node;
@@ -3176,7 +3183,7 @@ find_aggregate_values_for_callers_subset (struct cgraph_node *node,
 	  if (!item->value)
 	    continue;
 
-	  v = ggc_alloc_ipa_agg_replacement_value ();
+	  v = ggc_alloc<ipa_agg_replacement_value> ();
 	  v->index = i;
 	  v->offset = item->offset;
 	  v->value = item->value;
@@ -3206,7 +3213,7 @@ known_aggs_to_agg_replacement_list (vec<ipa_agg_jump_function> known_aggs)
     FOR_EACH_VEC_SAFE_ELT (aggjf->items, j, item)
       {
 	struct ipa_agg_replacement_value *v;
-	v = ggc_alloc_ipa_agg_replacement_value ();
+	v = ggc_alloc<ipa_agg_replacement_value> ();
 	v->index = i;
 	v->offset = item->offset;
 	v->value = item->value;
@@ -3756,16 +3763,6 @@ ipcp_read_summary (void)
   ipa_prop_read_jump_functions ();
 }
 
-/* Gate for IPCP optimization.  */
-
-static bool
-cgraph_gate_cp (void)
-{
-  /* FIXME: We should remove the optimize check after we ensure we never run
-     IPA passes when not optimizing.  */
-  return flag_ipa_cp && optimize;
-}
-
 namespace {
 
 const pass_data pass_data_ipa_cp =
@@ -3773,7 +3770,6 @@ const pass_data pass_data_ipa_cp =
   IPA_PASS, /* type */
   "cp", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
   true, /* has_execute */
   TV_IPA_CONSTANT_PROP, /* tv_id */
   0, /* properties_required */
@@ -3802,8 +3798,14 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return cgraph_gate_cp (); }
-  unsigned int execute () { return ipcp_driver (); }
+  virtual bool gate (function *)
+    {
+      /* FIXME: We should remove the optimize check after we ensure we never run
+	 IPA passes when not optimizing.  */
+      return flag_ipa_cp && optimize;
+    }
+
+  virtual unsigned int execute (function *) { return ipcp_driver (); }
 
 }; // class pass_ipa_cp
 

@@ -327,6 +327,7 @@ extern bool mips_bitmask_ins_p (unsigned HOST_WIDE_INT, int, enum machine_mode);
 extern bool mips_bottom_bitmask_p (unsigned HOST_WIDE_INT);
 
 extern bool and_operands_ok (enum machine_mode, rtx, rtx);
+extern bool mips_fmadd_bypass (rtx, rtx);
 
 union mips_gen_fn_ptrs
 {

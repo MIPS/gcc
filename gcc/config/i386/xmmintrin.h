@@ -102,6 +102,14 @@ typedef float __v4sf __attribute__ ((__vector_size__ (16)));
 #define _MM_FLUSH_ZERO_ON     0x8000
 #define _MM_FLUSH_ZERO_OFF    0x0000
 
+/* Create an undefined vector.  */
+extern __inline __m128 __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+_mm_undefined_ps (void)
+{
+  __m128 __Y = __Y;
+  return __Y;
+}
+
 /* Create a vector of zeros.  */
 extern __inline __m128 __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 _mm_setzero_ps (void)
@@ -1223,15 +1231,6 @@ _mm_sfence (void)
   __builtin_ia32_sfence ();
 }
 
-/* The execution of the next instruction is delayed by an implementation
-   specific amount of time.  The instruction does not modify the
-   architectural state.  */
-extern __inline void __attribute__((__gnu_inline__, __always_inline__, __artificial__))
-_mm_pause (void)
-{
-  __builtin_ia32_pause ();
-}
-
 /* Transpose the 4x4 matrix composed of row[0-3].  */
 #define _MM_TRANSPOSE4_PS(row0, row1, row2, row3)			\
 do {									\
@@ -1253,5 +1252,16 @@ do {									\
 #undef __DISABLE_SSE__
 #pragma GCC pop_options
 #endif /* __DISABLE_SSE__ */
+
+/* The execution of the next instruction is delayed by an implementation
+   specific amount of time.  The instruction does not modify the
+   architectural state.  This is after the pop_options pragma because
+   it does not require SSE support in the processor--the encoding is a
+   nop on processors that do not support it.  */
+extern __inline void __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+_mm_pause (void)
+{
+  __builtin_ia32_pause ();
+}
 
 #endif /* _XMMINTRIN_H_INCLUDED */

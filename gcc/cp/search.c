@@ -917,9 +917,11 @@ accessible_p (tree type, tree decl, bool consider_local_p)
       /* Figure out where the reference is occurring.  Check to see if
 	 DECL is private or protected in this scope, since that will
 	 determine whether protected access is allowed.  */
-      if (current_class_type)
+      tree ct = current_nonlambda_class_type ();
+      if (ct)
 	protected_ok = protected_accessible_p (decl,
-					       current_class_type, binfo);
+					       ct,
+					       binfo);
 
       /* Now, loop through the classes of which we are a friend.  */
       if (!protected_ok)
@@ -2115,22 +2117,6 @@ get_pure_virtuals (tree type)
      which it is a primary base will contain vtable entries for the
      pure virtuals in the base class.  */
   dfs_walk_once (TYPE_BINFO (type), NULL, dfs_get_pure_virtuals, type);
-
-  /* Treat a virtual destructor in an abstract class as pure even if it
-     isn't declared as pure; there is no way it would be called through the
-     vtable except during construction, which causes undefined behavior.  */
-  if (CLASSTYPE_PURE_VIRTUALS (type)
-      && TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type))
-    {
-      tree dtor = CLASSTYPE_DESTRUCTORS (type);
-      if (dtor && DECL_VIRTUAL_P (dtor) && !DECL_PURE_VIRTUAL_P (dtor))
-	{
-	  tree clone;
-	  DECL_PURE_VIRTUAL_P (dtor) = true;
-	  FOR_EACH_CLONE (clone, dtor)
-	    DECL_PURE_VIRTUAL_P (clone) = true;
-	}
-    }
 }
 
 /* Debug info for C++ classes can get very large; try to avoid

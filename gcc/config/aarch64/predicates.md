@@ -52,6 +52,10 @@
   (ior (match_operand 0 "register_operand")
        (match_operand 0 "aarch64_ccmp_immediate")))
 
+(define_predicate "aarch64_call_insn_operand"
+  (ior (match_code "symbol_ref")
+       (match_operand 0 "register_operand")))
+
 (define_predicate "aarch64_simd_register"
   (and (match_code "reg")
        (ior (match_test "REGNO_REG_CLASS (REGNO (op)) == FP_LO_REGS")
