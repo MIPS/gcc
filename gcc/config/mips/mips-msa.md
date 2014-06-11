@@ -200,6 +200,9 @@
 ;; Only integer modes for dot product.
 (define_mode_iterator IDOTP128 [V2DI V4SI V8HI])
 
+;; Only used in spliters
+(define_mode_iterator SPLIT [V2DI V2DF])
+
 (define_mode_attr VHALFMODE 
   [(V8HI "V16QI")
    (V4SI "V8HI")
@@ -524,10 +527,10 @@
 
 (define_insn "msa_insert_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
-	(unspec:<MODE> [(match_operand:<MODE> 1 "register_operand" "0")
-			(match_operand 2 "const_<indeximm>_operand" "")
-			(match_operand:<REGOR0> 3 "reg_or_0_operand" "dJ")]
-		       UNSPEC_MSA_INSERT))]
+	(unspec:IMSA [(match_operand:IMSA 1 "register_operand" "0")
+		      (match_operand 2 "const_<indeximm>_operand" "")
+		      (match_operand:<REGOR0> 3 "reg_or_0_operand" "dJ")]
+		     UNSPEC_MSA_INSERT))]
   "ISA_HAS_MSA"
   "insert.<msafmt>\t%w0[%2],%z3"
   [(set_attr "type"	"mtc")
@@ -535,38 +538,29 @@
    (set_attr "msa_execunit" "msa_eu_logic_l")])
 
 ; Similar to msa_insert_<msafmt> but with <UNITMODE>mode for operand 3.
+;; Note that insert.d and insert.d_f will be split later if !TARGET_64BIT.
+
 (define_insn "*msa_insert_<msafmt_f>"
   [(set (match_operand:MSA_3 0 "register_operand" "=f")
-	(unspec:<MODE> [(match_operand:<MODE> 1 "register_operand" "0")
-			(match_operand 2 "const_<indeximm>_operand" "")
-			(match_operand:<UNITMODE> 3 "reg_or_0_operand" "dJ")]
-		       UNSPEC_MSA_INSERT))]
+	(unspec:MSA_3 [(match_operand:MSA_3 1 "register_operand" "0")
+		       (match_operand 2 "const_<indeximm>_operand" "")
+		       (match_operand:<UNITMODE> 3 "reg_or_0_operand" "dJ")]
+		      UNSPEC_MSA_INSERT))]
   "ISA_HAS_MSA"
   "insert.<msafmt>\t%w0[%2],%z3"
   [(set_attr "type"     "mtc")
    (set_attr "mode"     "TI")
    (set_attr "msa_execunit" "msa_eu_logic_l")])
 
-;; Note that insert.d and insert.d_f will be split later if !TARGET_64BIT.
+(define_mode_attr constraint
+  [(V2DI "reg_or_0_operand")
+   (V2DF "register_operand")])
 
 (define_split
-  [(set (match_operand:V2DI 0 "register_operand")
-	(unspec:V2DI [(match_operand:V2DI 1 "register_operand")
+  [(set (match_operand:SPLIT 0 "register_operand")
+	(unspec:SPLIT [(match_operand:SPLIT 1 "register_operand")
 		      (match_operand 2 "const_0_or_1_operand")
-		      (match_operand:DI 3 "reg_or_0_operand")]
-		     UNSPEC_MSA_INSERT))]
-  "reload_completed && TARGET_MSA && !TARGET_64BIT"
-  [(const_int 0)]
-{
-  mips_split_msa_insert_d (operands[0], operands[1], operands[2], operands[3]);
-  DONE;
-})
-
-(define_split
-  [(set (match_operand:V2DF 0 "register_operand")
-	(unspec:V2DF [(match_operand:V2DF 1 "register_operand")
-		      (match_operand 2 "const_0_or_1_operand")
-		      (match_operand:DF 3 "register_operand")]
+		      (match_operand:<UNITMODE> 3 "<SPLIT:constraint>")]
 		     UNSPEC_MSA_INSERT))]
   "reload_completed && TARGET_MSA && !TARGET_64BIT"
   [(const_int 0)]
@@ -643,10 +637,10 @@
 
 (define_insn "msa_insve_<msafmt_f>"
   [(set (match_operand:MSA 0 "register_operand" "=f")
-	(unspec:<MODE> [(match_operand:<MODE> 1 "register_operand" "0")
-			(match_operand 2 "const_<indeximm>_operand" "")
-			(match_operand:<MODE> 3 "register_operand" "f")]
-		       UNSPEC_MSA_INSVE))]
+	(unspec:MSA [(match_operand:MSA 1 "register_operand" "0")
+		     (match_operand 2 "const_<indeximm>_operand" "")
+		     (match_operand:MSA 3 "register_operand" "f")]
+		    UNSPEC_MSA_INSVE))]
   "ISA_HAS_MSA"
   "insve.<msafmt>\t%w0[%2],%w3[0]"
   [(set_attr "type"     "arith")
@@ -656,16 +650,18 @@
 ;; operand 3 is a scalar
 (define_insn "msa_insve_<msafmt>_f_s"
   [(set (match_operand:FMSA 0 "register_operand" "=f")
-	(unspec:<MODE> [(match_operand:<MODE> 1 "register_operand" "0")
-			(match_operand 2 "const_<indeximm>_operand" "")
-			(match_operand:<UNITMODE> 3 "register_operand" "f")]
-		       UNSPEC_MSA_INSVE))]
+	(unspec:FMSA [(match_operand:FMSA 1 "register_operand" "0")
+		      (match_operand 2 "const_<indeximm>_operand" "")
+		      (match_operand:<UNITMODE> 3 "register_operand" "f")]
+		     UNSPEC_MSA_INSVE))]
   "ISA_HAS_MSA"
   "insve.<msafmt>\t%w0[%2],%w3[0]"
   [(set_attr "type"     "arith")
    (set_attr "mode"     "TI")
    (set_attr "msa_execunit" "msa_eu_logic_l")])
 
+;; Note that copy_s.d will be split later if !TARGET_64BIT.
+;; Note that copy_s.d_f will be split later if !TARGET_64BIT.
 (define_insn "msa_copy_s_<msafmt_f>"
   [(set (match_operand:<RES> 0 "register_operand" "=d")
 	(unspec:<RES> [(match_operand:MSA 1 "register_operand" "f")
@@ -677,14 +673,11 @@
    (set_attr "mode"     "TI")
    (set_attr "msa_execunit" "msa_eu_store4")])
 
-;; Note that copy_s.d will be split later if !TARGET_64BIT.
-;; Note that copy_s.d_f will be split later if !TARGET_64BIT.
-
 (define_split
-  [(set (match_operand:DI 0 "register_operand")
-	(unspec:DI [(match_operand:V2DI 1 "register_operand")
-		    (match_operand 2 "const_0_or_1_operand")]
-		   UNSPEC_MSA_COPY_S))]
+  [(set (match_operand:<UNITMODE> 0 "register_operand")
+	(unspec:<UNITMODE> [(match_operand:SPLIT 1 "register_operand")
+			    (match_operand 2 "const_0_or_1_operand")]
+			   UNSPEC_MSA_COPY_S))]
   "reload_completed && TARGET_MSA && !TARGET_64BIT"
   [(const_int 0)]
 {
@@ -692,18 +685,8 @@
   DONE;
 })
 
-(define_split
-  [(set (match_operand:DF 0 "register_operand")
-	(unspec:DF [(match_operand:V2DF 1 "register_operand")
-		    (match_operand 2 "const_0_or_1_operand")]
-		   UNSPEC_MSA_COPY_S))]
-  "reload_completed && TARGET_MSA && !TARGET_64BIT"
-  [(const_int 0)]
-{
-  mips_split_msa_copy_d (operands[0], operands[1], operands[2], gen_msa_copy_s_w);
-  DONE;
-})
-
+;; Note that copy_u.d will be split later if !TARGET_64BIT.
+;; Note that copy_u.d will be split later if !TARGET_64BIT.
 (define_insn "msa_copy_u_<msafmt_f>"
   [(set (match_operand:<RES> 0 "register_operand" "=d")
 	(unspec:<RES> [(match_operand:MSA 1 "register_operand" "f")
@@ -715,26 +698,11 @@
    (set_attr "mode"     "TI")
    (set_attr "msa_execunit" "msa_eu_store4")])
 
-;; Note that copy_u.d will be split later if !TARGET_64BIT.
-;; Note that copy_u.d will be split later if !TARGET_64BIT.
-
 (define_split
-  [(set (match_operand:DI 0 "register_operand")
-	(unspec:DI [(match_operand:V2DI 1 "register_operand")
-		    (match_operand 2 "const_0_or_1_operand")]
-		   UNSPEC_MSA_COPY_U))]
-  "reload_completed && TARGET_MSA && !TARGET_64BIT"
-  [(const_int 0)]
-{
-  mips_split_msa_copy_d (operands[0], operands[1], operands[2], gen_msa_copy_u_w);
-  DONE;
-})
-
-(define_split
-  [(set (match_operand:DF 0 "register_operand")
-	(unspec:DF [(match_operand:V2DF 1 "register_operand")
-		    (match_operand 2 "const_0_or_1_operand")]
-		   UNSPEC_MSA_COPY_U))]
+  [(set (match_operand:<UNITMODE> 0 "register_operand")
+	(unspec:<UNITMODE> [(match_operand:SPLIT 1 "register_operand")
+			    (match_operand 2 "const_0_or_1_operand")]
+			   UNSPEC_MSA_COPY_U))]
   "reload_completed && TARGET_MSA && !TARGET_64BIT"
   [(const_int 0)]
 {
@@ -831,7 +799,7 @@
 (define_insn "msa_lsa"
  [(set (match_operand:SI 0 "register_operand" "=d")
        (plus:SI (mult:SI (match_operand:SI 1 "register_operand" "d")
-			 (match_operand    2 "const_immlsa_operand" ""))
+			 (match_operand:SI 2 "const_immlsa_operand" ""))
 		(match_operand:SI 3 "register_operand" "d")))]
  "ISA_HAS_LSA"
  "lsa\t%0,%1,%3,%y2"
