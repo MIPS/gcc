@@ -1,3 +1,10 @@
+2014-06-11  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (capture::gen_gimple_match): Whitespace fixes.
+	(write_nary_simplifiers): Likewise.
+	(outline_c_exprs): Likewise.
+	(write_gimple): Write preamble.
+
 2014-06-05  Richard Biener  <rguenther@suse.de>
 
 	* genmatch.c (output_line_directive): New function.

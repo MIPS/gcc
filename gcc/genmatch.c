@@ -553,7 +553,7 @@ capture::gen_gimple_match (FILE *f, const char *op, const char *label)
     this->what->gen_gimple_match (f, op, label);
   fprintf (f, "if (!captures[%s])\n"
 	   "  captures[%s] = %s;\n"
-	   "else if (captures[%s] != %s)\n",
+	   "else if (captures[%s] != %s)\n  ",
 	   this->where, this->where, op, this->where, op);
   gen_gimple_match_fail (f, label);
 }
@@ -564,7 +564,7 @@ write_nary_simplifiers (FILE *f, vec<simplify *>& simplifiers, unsigned n)
 {
   unsigned label_cnt = 1;
 
-  fprintf (f, "static bool\n"
+  fprintf (f, "\nstatic bool\n"
 	   "gimple_match_and_simplify (code_helper code, tree type");
   for (unsigned i = 0; i < n; ++i)
     fprintf (f, ", tree op%d", i);
@@ -628,7 +628,7 @@ write_nary_simplifiers (FILE *f, vec<simplify *>& simplifiers, unsigned n)
       fprintf (f, "%s:\n", fail_label);
     }
   fprintf (f, "  return false;\n");
-  fprintf (f, "}\n\n");
+  fprintf (f, "}\n");
 }
 
 static void
@@ -643,7 +643,7 @@ outline_c_exprs (FILE *f, struct operand *op)
 	{
 	  e->fname = (char *)xmalloc (sizeof ("cexprfn") + 4);
 	  sprintf (e->fname, "cexprfn%d", fnnr);
-	  fprintf (f, "static tree cexprfn%d (tree type, tree *captures)\n",
+	  fprintf (f, "\nstatic tree\ncexprfn%d (tree type, tree *captures)\n",
 		   fnnr);
 	  fprintf (f, "{\n");
 	  unsigned stmt_nr = 1;
@@ -677,10 +677,12 @@ outline_c_exprs (FILE *f, struct operand *op)
 		{
 		  stmt_nr++;
 		  if (stmt_nr == e->nr_stmts)
-		    fputs ("\n  return ", f);
+		    fputs ("\n return ", f);
+		  else
+		    fputc ('\n', f);
 		}
 	    }
-	  fprintf (f, "\n}\n");
+	  fprintf (f, "}\n");
 	  fnnr++;
 	}
     }
@@ -701,8 +703,11 @@ outline_c_exprs (FILE *f, struct operand *op)
 static void
 write_gimple (FILE *f, vec<simplify *>& simplifiers)
 {
+  fprintf (f, "/* Generated automatically by the program `genmatch' from\n");
+  fprintf (f, "   a IL pattern matching and simplification description.  */\n");
+
   /* Include the header instead of writing it awkwardly quoted here.  */
-  fprintf (f, "#include \"gimple-match-head.c\"\n\n");
+  fprintf (f, "\n#include \"gimple-match-head.c\"\n");
 
   /* Outline complex C expressions to helper functions.  */
   for (unsigned i = 0; i < simplifiers.length (); ++i)
