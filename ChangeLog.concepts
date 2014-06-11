@@ -1,3 +1,39 @@
+2014-06-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/cp/cp-tree.h (build_constrained_parameter): Renamed fro
+	describe_tempalte_parm.
+	* gcc/cp/parser.c (cp_check_constrained_type_parm): New. Prevent
+	declaration of cv-qualifed or non-id types.
+	(cp_constrained_type_template_parm): Renamed, check for invalid 
+	specifiers.
+	(cp_constrained_template_template_parm): Renamed, check for invalid
+	specifiers.
+	(cp_constrained_non_type_tmeplate_parm): Renamed.
+	(cp_finish_constrained-parameter): Support checking of decarlarations.
+	(cp_check_concept_name): Renamed. Add initial support for auto
+	and constrained-type-specifiers in compound requirements.
+	(cp_parser_nonclass_name): Only check for concept names if -fconcepts
+	is on.
+	(cp_manage_requirements): New RAII guard for managinging the
+	current_template_reqs variable during declaration parsing.
+	(cp_paresr_trailing_requirements): Refactored common parsing
+	requirements from cp_parser_init_declarator and 
+	cp_parser_member_declarator. Take terse constraints from implicit
+	parameter declarations.
+	(cp_parser_init_declarator): Cleanup, refactor requirement logic.
+	(cp_parser_type_id_1): Allow auto in compound requirements.
+	(cp_parser_member_declaration): Cleanup, refactor requirement logic.
+	(cp_parser_compound_requirement): Note parsing state for the 
+	trailing-type-id so we can get auto and constrained-type-specifiers.
+	(cp_parser_function_definition_after_decl): Remove broken constraint
+	association.
+	* gcc/cp/parser.h (cp_parser): New member.
+	* gcc/cp/constraint.cc (finish_validtype_expr): Initial (non-)handling
+	of auto in type requirements.
+	(finish_concept_name): Moved to cp_check_concept_name.
+	* gcc/testuite/g++.dg/concepts/constrained-parm.C: New test.
+	* gcc/testuite/g++.dg/concepts/generic-fn.C: New test.
+
+
 2014-03-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/testuite/g++.dg/concepts/fn1.C: New test.
 	* gcc/testuite/g++.dg/concepts/fn2.C: New test.

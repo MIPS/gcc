@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "print-tree.h"
 #include "cp-tree.h"
 #include "c-family/c-common.h"
 #include "c-family/c-objc.h"
@@ -99,6 +100,7 @@ conjoin_requirements (tree t)
 // The result of resolution is a pair (a list node) whose value is the
 // matched declaration, and whose purpose contains the coerced template
 // arguments that can be substituted into the call.
+
 
 // Given an overload set, try to find a unique definition that can be
 // instantiated by the template arguments.
@@ -747,9 +749,19 @@ finish_validexpr_expr (tree expr)
 //
 // When processing a template declaration, the result is an expression 
 // representing the check.
+//
+// FIXME: Semantics need to be aligned with the new version of the
+// specificaiton (i.e., we must be able to invent a function and
+// perform argument deduction against it).
 tree
 finish_validtype_expr (tree type)
 {
+  if (is_auto (type))
+    {
+      sorry ("%<auto%< not supported in result type constraints\n");
+      return error_mark_node;
+    }
+
   if (processing_template_decl)
     return build_check_expr (VALIDTYPE_EXPR, type);
   return truth_node (type && TYPE_P (type));
@@ -803,9 +815,13 @@ check_constrained_friend (tree fn, tree reqs)
 // Given an overload set, OVL, and a template argument or placeholder, ARG,
 // synthesize a call expression that resolves to a concept check of
 // the expression the form OVL<ARG>().
+//
+// TODO: Extend this to take a variable concept also.
 tree
 build_concept_check (tree ovl, tree arg)
- {
+{
+  gcc_assert (TREE_CODE (ovl) == OVERLOAD);
+
   // Build a template-id that acts as the call target using OVL as
   // the template and ARG as the only explicit argument.
   tree targs = make_tree_vec (1);
@@ -829,7 +845,7 @@ build_concept_check (tree ovl, tree arg)
 // the new type decl, and the constraining function is saved in
 // DECL_SIZE_UNIT.
 tree
-describe_template_parm (tree proto, tree fn) 
+build_constrained_parameter (tree proto, tree fn) 
 {
   tree name = DECL_NAME (fn);
   tree type = TREE_TYPE (proto);
@@ -837,56 +853,6 @@ describe_template_parm (tree proto, tree fn)
   DECL_INITIAL (decl) = proto;  // Describing parameter
   DECL_SIZE_UNIT (decl) = fn;   // Constraining function declaration
   return decl;
-}
-
-// If the result is a TYPE_DECL, its DECL_NAME is the name of the
-// concept (without arguments), its TREE_TYPE refers to the type of the
-// first template parameter of concept definition (the prototype parameter),
-// its DECL_INITIAL is the declaration of the prototype parameter, and
-// its DECL_SIZE_UNIT is the constraining concept declaration.
-//
-// TODO: A variable template may refer to a concept. The concept-name
-// could introduce a constrained placeholder type in the terse template
-// syntax.
-tree
-finish_concept_name (tree decl)
-{
-  gcc_assert (TREE_CODE (decl) == OVERLOAD);
-
-  // Try to build a call expression that evaluates the concept. This
-  // can fail if the overload set refers only to non-templates.
-  tree call = build_concept_check (decl, build_nt(PLACEHOLDER_EXPR));
-  if (call == error_mark_node)
-    return NULL_TREE;
-  
-  // Resolve the constraint check to deduce the declared parameter.
-  tree check = resolve_constraint_check (call);
-  if (!check)
-    return NULL_TREE;
-
-  // Get function and argument from the resolved check expression. If 
-  // the argument was a pack expansion, then get the first element 
-  // of that pack.
-  tree fn = TREE_VALUE (check);
-  tree arg = TREE_VEC_ELT (TREE_PURPOSE (check), 0);
-  if (ARGUMENT_PACK_P (arg))
-    arg = TREE_VEC_ELT (ARGUMENT_PACK_ARGS (arg), 0);
-
-  // Get the protyping parameter bound to the placeholder.
-  tree proto = TREE_TYPE (arg);
-
-  // How we process the constrained declaration depends on the scope.
-  // In template scope, we return a "description" that will later be
-  // transformed into a real template parameter by process_template_parm.
-  if (template_parm_scope_p ())
-    return describe_template_parm (proto, fn);
-
-  // NOTE: We may need to be smarter about this since there are lots of
-  // places outside of a template parameter scope we'll want to use
-  // concept names (function arguments, function return types, result
-  // constraints, variable declarations, etc.). 
-
-  return NULL_TREE;
 }
 
 // Create a requirement expression for the given DECL that evaluates the

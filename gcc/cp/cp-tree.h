@@ -6359,9 +6359,8 @@ extern tree get_constraints                     (tree);
 extern tree get_shorthand_requirements          (tree);
 
 extern tree build_concept_check                 (tree, tree);
+extern tree build_constrained_parameter         (tree, tree);
 extern tree resolve_constraint_check            (tree);
-extern tree describe_template_parm              (tree, tree);
-
 
 extern tree finish_concept_name                 (tree);
 extern tree finish_shorthand_requirement        (tree, tree);
