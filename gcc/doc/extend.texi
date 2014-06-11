@@ -13035,9 +13035,9 @@ including @code{<msa.h>} and using @option{-mmsa -mhart-float -mfp64 -mnan=2008}
 @item @code{imm0_255}, an integer literal in range 0 to 255;
 @item @code{imm_n16_15}, an integer literal in range -16 to 15;
 @item @code{imm_n512_511}, an integer literal in range -512 to 511;
-@item @code{imm_n1024_1022}, an integer literal in range -512 to 511 left shifted by 1 bit, i.e., -1024, -1022, ..., 1020, 1022;
-@item @code{imm_n2048_2044}, an integer literal in range -512 to 511 left shifted by 2 bits, i.e., -2048, -2044, ..., 2040, 2044;
-@item @code{imm_n4096_4088}, an integer literal in range -512 to 511 left shifted by 3 bits, i.e., -4096, -4088, ..., 4080, 4088;
+@item @code{imm_n1024_1022}, an integer literal in range -512 to 511 left shifted by 1 bit, i.e., -1024, -1022, @dots{}, 1020, 1022;
+@item @code{imm_n2048_2044}, an integer literal in range -512 to 511 left shifted by 2 bits, i.e., -2048, -2044, @dots{}, 2040, 2044;
+@item @code{imm_n4096_4088}, an integer literal in range -512 to 511 left shifted by 3 bits, i.e., -4096, -4088, @dots{}, 4080, 4088;
 @item @code{imm1_4}, an integer literal in range 1 to 4.
 @end itemize
 
