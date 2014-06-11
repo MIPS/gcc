@@ -1073,8 +1073,11 @@ proc mips-dg-options { args } {
 		   && ([mips_have_test_option_p options "-mbranch-likely"]
 		       || [mips_have_test_option_p options "-mfix-r10000"]) } {
 	    mips_make_test_option options "-mips2"
-	# Check whether we need to switch from a 32-bit processor to the
-	# "nearest" 64-bit processor.
+	# Check whether we need to switch from mips*r6 down to mips*r2 due
+	# to options that are incompatible with mips*r6.  If we do, use
+	# -mnan=2008 because r6 is nan2008 by default and without this flag
+	# tests that include stdlib.h will fail due to not finding
+	# stubs-o32_hard.h  (r6 compilers only have stubs-o32_hard_2008.h)
 	} elseif { $isa_rev > 5
 	     && ([mips_have_test_option_p options "-mdsp"]
 	          || [mips_have_test_option_p options "-mdspr2"]
@@ -1085,10 +1088,12 @@ proc mips-dg-options { args } {
 		  || [mips_have_test_option_p options "-mnan=legacy"]
 		  || [mips_have_test_option_p options "-mabs=legacy"]) } {
 	    if { $gp_size == 32 } {
-		mips_make_test_option options "-mips32r2"
+		mips_make_test_option options "-mips32r2 -mnan=2008"
 	    } else {
-		mips_make_test_option options "-mips64r2"
+		mips_make_test_option options "-mips64r2 -mnan=2008"
 	    }
+	# Check whether we need to switch from a 32-bit processor to the
+	# "nearest" 64-bit processor.
 	} elseif { $gp_size == 64 && [mips_32bit_arch_p $arch] } {
 	    if { $isa_rev == 0 } {
 		mips_make_test_option options "-mips3"
