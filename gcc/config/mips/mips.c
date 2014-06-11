@@ -20620,7 +20620,7 @@ mips_msa_reversed_fp_cond (enum rtx_code *code)
     }
 }
 
-void
+static void
 mips_expand_msa_vcond (rtx dest, rtx true_src, rtx false_src,
 		       enum rtx_code cond, rtx cmp_op0, rtx cmp_op1)
 {
@@ -20640,6 +20640,92 @@ mips_expand_msa_vcond (rtx dest, rtx true_src, rtx false_src,
   /* MSA vcond only produces result -1 and 0 for true and false.  */
   gcc_assert ((true_src == CONSTM1_RTX (dest_mode))
 	      && (false_src == CONST0_RTX (dest_mode)));
+}
+
+/* Expand VEC_COND_EXPR
+ * MODE of result
+ * VIMODE equivalent integer mode
+ * OPERANDS operands of VEC_COND_EXPR
+ * gen_msa_and_fn used to generate a VIMODE vector msa AND
+ * gen_msa_nor_fn used to generate a VIMODE vector msa NOR
+ * gen_msa_ior_fn used to generate a VIMODE vector msa AND.
+ */
+
+void
+mips_expand_vec_cond_expr (enum machine_mode mode,
+			   enum machine_mode vimode,
+			   rtx *operands,
+			   rtx (*gen_msa_and_fn)(rtx, rtx, rtx),
+			   rtx (*gen_msa_nor_fn)(rtx, rtx, rtx),
+			   rtx (*gen_msa_ior_fn)(rtx, rtx, rtx))
+{
+  rtx true_val = CONSTM1_RTX (vimode);
+  rtx false_val = CONST0_RTX (vimode);
+
+  if (operands[1] == true_val && operands[2] == false_val)
+    mips_expand_msa_vcond (operands[0], operands[1], operands[2],
+			   GET_CODE (operands[3]), operands[4], operands[5]);
+  else
+    {
+      rtx res = gen_reg_rtx (vimode);
+      rtx temp1 = gen_reg_rtx (vimode);
+      rtx temp2 = gen_reg_rtx (vimode);
+      rtx xres = gen_reg_rtx (vimode);
+
+      mips_expand_msa_vcond (res, true_val, false_val,
+			     GET_CODE (operands[3]), operands[4], operands[5]);
+
+      // This results in a vector result with whose T/F elements having
+      // the value -1 or 0 for (T/F repectively). This result may need
+      // adjusting if needed results operands[]/operands[1] are different.
+
+      // Adjust True elements to be operand[1].
+      emit_move_insn (xres, res);
+      if (operands[1] != true_val)
+	{
+	  rtx xop1 = gen_reg_rtx (vimode);
+
+	  if (GET_CODE (operands[1]) == CONST_VECTOR)
+	    {
+	      rtx xtemp = gen_reg_rtx (mode);
+	      emit_move_insn (xtemp, operands[1]);
+	      emit_move_insn (xop1,
+			      gen_rtx_SUBREG (vimode, xtemp, 0));
+	    }
+	  else
+	    emit_move_insn (xop1,
+			    gen_rtx_SUBREG (vimode, operands[1], 0));
+	  emit_insn (gen_msa_and_fn (temp1, xres, xop1));
+	}
+      else
+	emit_move_insn (temp1, xres);
+
+      // Adjust False elements to be operand[0].
+      emit_insn (gen_msa_nor_fn (temp2, xres, xres));
+      if (operands[2] != false_val)
+	{
+	  rtx xop2 = gen_reg_rtx (vimode);
+
+	  if (GET_CODE (operands[2]) == CONST_VECTOR)
+	    {
+	      rtx xtemp = gen_reg_rtx (mode);
+	      emit_move_insn (xtemp, operands[2]);
+	      emit_move_insn (xop2,
+			      gen_rtx_SUBREG (vimode, xtemp, 0));
+	    }
+	  else
+	    emit_move_insn (xop2,
+			    gen_rtx_SUBREG (vimode, operands[2], 0));
+	  emit_insn (gen_msa_and_fn (temp2, temp2, xop2));
+	}
+      else
+	emit_insn (gen_msa_and_fn (temp2, temp2, xres));
+
+      // Combine together into result.
+      emit_insn (gen_msa_ior_fn (xres, temp1, temp2));
+      emit_move_insn (operands[0],
+		      gen_rtx_SUBREG (mode, xres, 0));
+    }
 }
 
 /* Implement HARD_REGNO_CALLER_SAVE_MODE.  */

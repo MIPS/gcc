@@ -233,7 +233,6 @@ extern void mips_expand_scc (rtx *);
 extern void mips_expand_conditional_branch (rtx *);
 #ifdef RTX_CODE
 extern void mips_expand_vcondv2sf (rtx, rtx, rtx, enum rtx_code, rtx, rtx);
-extern void mips_expand_msa_vcond (rtx, rtx, rtx, enum rtx_code, rtx, rtx);
 #endif
 extern void mips_expand_conditional_move (rtx *);
 extern void mips_expand_conditional_trap (rtx);
@@ -376,5 +375,12 @@ typedef rtx (*mulsidi3_gen_fn) (rtx, rtx, rtx);
 #ifdef RTX_CODE
 extern mulsidi3_gen_fn mips_mulsidi3_gen_fn (enum rtx_code);
 #endif
+
+extern void mips_expand_vec_cond_expr (enum machine_mode,
+				       enum machine_mode,
+				       rtx *,
+				       rtx (*)(rtx, rtx, rtx),
+				       rtx (*)(rtx, rtx, rtx),
+				       rtx (*)(rtx, rtx, rtx));
 
 #endif /* ! GCC_MIPS_PROTOS_H */
