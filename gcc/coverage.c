@@ -555,24 +555,35 @@ coverage_compute_lineno_checksum (void)
 unsigned
 coverage_compute_profile_id (struct cgraph_node *n)
 {
-  expanded_location xloc
-    = expand_location (DECL_SOURCE_LOCATION (n->decl));
-  unsigned chksum = xloc.line;
+  unsigned chksum;
 
-  chksum = coverage_checksum_string (chksum, xloc.file);
-  chksum = coverage_checksum_string
-    (chksum, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (n->decl)));
-  if (first_global_object_name)
-    chksum = coverage_checksum_string
-      (chksum, first_global_object_name);
-  chksum = coverage_checksum_string
-    (chksum, aux_base_name);
+  /* Externally visible symbols have unique name.  */
+  if (TREE_PUBLIC (n->decl) || DECL_EXTERNAL (n->decl))
+    {
+      chksum = coverage_checksum_string
+	(0, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (n->decl)));
+    }
+  else
+    {
+      expanded_location xloc
+	= expand_location (DECL_SOURCE_LOCATION (n->decl));
+
+      chksum = xloc.line;
+      chksum = coverage_checksum_string (chksum, xloc.file);
+      chksum = coverage_checksum_string
+	(chksum, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (n->decl)));
+      if (first_global_object_name)
+	chksum = coverage_checksum_string
+	  (chksum, first_global_object_name);
+      chksum = coverage_checksum_string
+	(chksum, aux_base_name);
+    }
 
   /* Non-negative integers are hopefully small enough to fit in all targets.  */
   return chksum & 0x7fffffff;
 }
 
-/* Compute cfg checksum for the current function.
+/* Compute cfg checksum for the function FN given as argument.
    The checksum is calculated carefully so that
    source code changes that doesn't affect the control flow graph
    won't change the checksum.
@@ -583,12 +594,12 @@ coverage_compute_profile_id (struct cgraph_node *n)
    but the compiler won't detect the change and use the wrong profile data.  */
 
 unsigned
-coverage_compute_cfg_checksum (void)
+coverage_compute_cfg_checksum (struct function *fn)
 {
   basic_block bb;
-  unsigned chksum = n_basic_blocks_for_fn (cfun);
+  unsigned chksum = n_basic_blocks_for_fn (fn);
 
-  FOR_EACH_BB_FN (bb, cfun)
+  FOR_EACH_BB_FN (bb, fn)
     {
       edge e;
       edge_iterator ei;
@@ -656,7 +667,7 @@ coverage_end_function (unsigned lineno_checksum, unsigned cfg_checksum)
 	 list.  */
       if (!DECL_EXTERNAL (current_function_decl))
 	{
-	  item = ggc_alloc_coverage_data ();
+	  item = ggc_alloc<coverage_data> ();
 	  
 	  item->ident = current_function_funcdef_no + 1;
 	  item->lineno_checksum = lineno_checksum;

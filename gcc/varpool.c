@@ -135,7 +135,7 @@ varpool_call_variable_insertion_hooks (varpool_node *node)
 varpool_node *
 varpool_create_empty_node (void)
 {   
-  varpool_node *node = ggc_alloc_cleared_varpool_node ();
+  varpool_node *node = ggc_cleared_alloc<varpool_node> ();
   node->type = SYMTAB_VARIABLE;
   return node;
 }   
@@ -166,7 +166,9 @@ varpool_remove_node (varpool_node *node)
   /* Because we remove references from external functions before final compilation,
      we may end up removing useful constructors.
      FIXME: We probably want to trace boundaries better.  */
-  if ((init = ctor_for_folding (node->decl)) == error_mark_node)
+  if (cgraph_state == CGRAPH_LTO_STREAMING)
+    ;
+  else if ((init = ctor_for_folding (node->decl)) == error_mark_node)
     varpool_remove_initializer (node);
   else
     DECL_INITIAL (node->decl) = init;
@@ -209,6 +211,8 @@ dump_varpool_node (FILE *f, varpool_node *node)
     fprintf (f, " read-only");
   if (ctor_for_folding (node->decl) != error_mark_node)
     fprintf (f, " const-value-known");
+  if (node->writeonly)
+    fprintf (f, " write-only");
   fprintf (f, "\n");
 }
 
@@ -236,7 +240,7 @@ varpool_node *
 varpool_node_for_asm (tree asmname)
 {
   if (symtab_node *node = symtab_node_for_asm (asmname))
-    return dyn_cast <varpool_node> (node);
+    return dyn_cast <varpool_node *> (node);
   else
     return NULL;
 }
@@ -302,7 +306,16 @@ ctor_for_folding (tree decl)
   if (DECL_VIRTUAL_P (real_decl))
     {
       gcc_checking_assert (TREE_READONLY (real_decl));
-      return DECL_INITIAL (real_decl);
+      if (DECL_INITIAL (real_decl))
+	return DECL_INITIAL (real_decl);
+      else
+	{
+	  /* The C++ front end creates VAR_DECLs for vtables of typeinfo
+	     classes not defined in the current TU so that it can refer
+	     to them from typeinfo objects.  Avoid returning NULL_TREE.  */
+	  gcc_checking_assert (!COMPLETE_TYPE_P (DECL_CONTEXT (real_decl)));
+	  return error_mark_node;
+	}
     }
 
   /* If there is no constructor, we have nothing to do.  */
@@ -351,7 +364,6 @@ varpool_add_new_variable (tree decl)
 enum availability
 cgraph_variable_initializer_availability (varpool_node *node)
 {
-  gcc_assert (cgraph_function_flags_ready);
   if (!node->definition)
     return AVAIL_NOT_AVAILABLE;
   if (!TREE_PUBLIC (node->decl))
@@ -519,14 +531,14 @@ varpool_remove_unreferenced_decls (void)
 	       next != node;
 	       next = next->same_comdat_group)
 	    {
-	      varpool_node *vnext = dyn_cast <varpool_node> (next);
+	      varpool_node *vnext = dyn_cast <varpool_node *> (next);
 	      if (vnext && vnext->analyzed && !symtab_comdat_local_p (next))
 		enqueue_node (vnext, &first);
 	    }
 	}
       for (i = 0; ipa_ref_list_reference_iterate (&node->ref_list, i, ref); i++)
 	{
-	  varpool_node *vnode = dyn_cast <varpool_node> (ref->referred);
+	  varpool_node *vnode = dyn_cast <varpool_node *> (ref->referred);
 	  if (vnode
 	      && !vnode->in_other_partition
 	      && (!DECL_EXTERNAL (ref->referred->decl)
@@ -570,7 +582,7 @@ varpool_finalize_named_section_flags (varpool_node *node)
       && !DECL_EXTERNAL (node->decl)
       && TREE_CODE (node->decl) == VAR_DECL
       && !DECL_HAS_VALUE_EXPR_P (node->decl)
-      && DECL_SECTION_NAME (node->decl))
+      && node->get_section ())
     get_variable_section (node->decl, false);
 }
 

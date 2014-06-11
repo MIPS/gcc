@@ -37,6 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-iterator.h"
 #include "expr.h"
 #include "tree-dfa.h"
+#include "builtins.h"
 
 #define INTEGER_CST_P(node) (TREE_CODE(node) == INTEGER_CST)
 #define integral_op_p(node) INTEGRAL_TYPE_P(TREE_TYPE(node))

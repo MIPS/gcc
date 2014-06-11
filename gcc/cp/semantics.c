@@ -49,6 +49,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimplify.h"
 #include "bitmap.h"
 #include "omp-low.h"
+#include "builtins.h"
 
 static bool verify_constant (tree, bool, bool *, bool *);
 #define VERIFY_CONSTANT(X)						\
@@ -385,6 +386,9 @@ add_stmt (tree t)
 	 statements are full-expressions.  We record that fact here.  */
       STMT_IS_FULL_EXPR_P (t) = stmts_are_full_exprs_p ();
     }
+
+  if (code == LABEL_EXPR || code == CASE_LABEL_EXPR)
+    STATEMENT_LIST_HAS_LABEL (cur_stmt_list) = 1;
 
   /* Add T to the statement-tree.  Non-side-effect statements need to be
      recorded during statement expressions.  */
@@ -1080,7 +1084,7 @@ finish_break_stmt (void)
      block_may_fallthru returns true when given something it does not
      understand.  */
   if (!block_may_fallthru (cur_stmt_list))
-    return void_zero_node;
+    return void_node;
   return add_stmt (build_stmt (input_location, BREAK_STMT));
 }
 
@@ -1126,6 +1130,11 @@ finish_switch_cond (tree cond, tree switch_stmt)
       orig_type = TREE_TYPE (cond);
       if (cond != error_mark_node)
 	{
+	  /* Warn if the condition has boolean value.  */
+	  if (TREE_CODE (orig_type) == BOOLEAN_TYPE)
+	    warning_at (input_location, OPT_Wswitch_bool,
+			"switch condition has type bool");
+
 	  /* [stmt.switch]
 
 	     Integral promotions are performed.  */
@@ -1672,7 +1681,7 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
       object = maybe_dummy_object (scope, NULL);
     }
 
-  object = maybe_resolve_dummy (object);
+  object = maybe_resolve_dummy (object, true);
   if (object == error_mark_node)
     return error_mark_node;
 
@@ -1832,10 +1841,11 @@ check_accessibility_of_qualified_id (tree decl,
       /* If the reference is to a non-static member of the
 	 current class, treat it as if it were referenced through
 	 `this'.  */
+      tree ct;
       if (DECL_NONSTATIC_MEMBER_P (decl)
 	  && current_class_ptr
-	  && DERIVED_FROM_P (scope, current_class_type))
-	qualifying_type = current_class_type;
+	  && DERIVED_FROM_P (scope, ct = current_nonlambda_class_type ()))
+	qualifying_type = ct;
       /* Otherwise, use the type indicated by the
 	 nested-name-specifier.  */
       else
@@ -2092,7 +2102,7 @@ empty_expr_stmt_p (tree expr_stmt)
 {
   tree body = NULL_TREE;
 
-  if (expr_stmt == void_zero_node)
+  if (expr_stmt == void_node)
     return true;
 
   if (expr_stmt)
@@ -2431,7 +2441,7 @@ finish_this_expr (void)
 
       /* In a lambda expression, 'this' refers to the captured 'this'.  */
       if (LAMBDA_TYPE_P (type))
-        result = lambda_expr_this_capture (CLASSTYPE_LAMBDA_EXPR (type));
+        result = lambda_expr_this_capture (CLASSTYPE_LAMBDA_EXPR (type), true);
       else
         result = current_class_ptr;
     }
@@ -3163,12 +3173,7 @@ finish_id_expression (tree id_expression,
       else if (TREE_STATIC (decl)
 	       /* It's not a use (3.2) if we're in an unevaluated context.  */
 	       || cp_unevaluated_operand)
-	{
-	  if (processing_template_decl)
-	    /* For a use of an outer static/unevaluated var, return the id
-	       so that we'll look it up again in the instantiation.  */
-	    return id_expression;
-	}
+	/* OK */;
       else
 	{
 	  tree context = DECL_CONTEXT (decl);
@@ -3187,13 +3192,13 @@ finish_id_expression (tree id_expression,
 	     the complexity of the problem"
 
 	     FIXME update for final resolution of core issue 696.  */
-	  if (decl_constant_var_p (decl))
+	  if (decl_maybe_constant_var_p (decl))
 	    {
 	      if (processing_template_decl)
 		/* In a template, the constant value may not be in a usable
-		   form, so look it up again at instantiation time.  */
-		return id_expression;
-	      else
+		   form, so wait until instantiation time.  */
+		return decl;
+	      else if (decl_constant_var_p (decl))
 		return integral_constant_value (decl);
 	    }
 
@@ -3864,6 +3869,8 @@ simplify_aggr_init_expr (tree *tp)
 				    aggr_init_expr_nargs (aggr_init_expr),
 				    AGGR_INIT_EXPR_ARGP (aggr_init_expr));
   TREE_NOTHROW (call_expr) = TREE_NOTHROW (aggr_init_expr);
+  CALL_EXPR_LIST_INIT_P (call_expr) = CALL_EXPR_LIST_INIT_P (aggr_init_expr);
+  tree ret = call_expr;
 
   if (style == ctor)
     {
@@ -3879,7 +3886,7 @@ simplify_aggr_init_expr (tree *tp)
 	 expand_call{,_inline}.  */
       cxx_mark_addressable (slot);
       CALL_EXPR_RETURN_SLOT_OPT (call_expr) = true;
-      call_expr = build2 (INIT_EXPR, TREE_TYPE (call_expr), slot, call_expr);
+      ret = build2 (INIT_EXPR, TREE_TYPE (ret), slot, ret);
     }
   else if (style == pcc)
     {
@@ -3887,11 +3894,11 @@ simplify_aggr_init_expr (tree *tp)
 	 need to copy the returned value out of the static buffer into the
 	 SLOT.  */
       push_deferring_access_checks (dk_no_check);
-      call_expr = build_aggr_init (slot, call_expr,
-				   DIRECT_BIND | LOOKUP_ONLYCONVERTING,
-                                   tf_warning_or_error);
+      ret = build_aggr_init (slot, ret,
+			     DIRECT_BIND | LOOKUP_ONLYCONVERTING,
+			     tf_warning_or_error);
       pop_deferring_access_checks ();
-      call_expr = build2 (COMPOUND_EXPR, TREE_TYPE (slot), call_expr, slot);
+      ret = build2 (COMPOUND_EXPR, TREE_TYPE (slot), ret, slot);
     }
 
   if (AGGR_INIT_ZERO_FIRST (aggr_init_expr))
@@ -3899,11 +3906,10 @@ simplify_aggr_init_expr (tree *tp)
       tree init = build_zero_init (type, NULL_TREE,
 				   /*static_storage_p=*/false);
       init = build2 (INIT_EXPR, void_type_node, slot, init);
-      call_expr = build2 (COMPOUND_EXPR, TREE_TYPE (call_expr),
-			  init, call_expr);
+      ret = build2 (COMPOUND_EXPR, TREE_TYPE (ret), init, ret);
     }
 
-  *tp = call_expr;
+  *tp = ret;
 }
 
 /* Emit all thunks to FN that should be emitted when FN is emitted.  */
@@ -5205,7 +5211,7 @@ finish_omp_clauses (tree clauses)
 {
   bitmap_head generic_head, firstprivate_head, lastprivate_head;
   bitmap_head aligned_head;
-  tree c, t, *pc = &clauses;
+  tree c, t, *pc;
   bool branch_seen = false;
   bool copyprivate_seen = false;
 
@@ -7717,8 +7723,8 @@ sort_constexpr_mem_initializers (tree type, vec<constructor_elt, va_gc> *v)
 {
   tree pri = CLASSTYPE_PRIMARY_BINFO (type);
   tree field_type;
-  constructor_elt elt;
-  int i;
+  unsigned i;
+  constructor_elt *ce;
 
   if (pri)
     field_type = BINFO_TYPE (pri);
@@ -7729,14 +7735,14 @@ sort_constexpr_mem_initializers (tree type, vec<constructor_elt, va_gc> *v)
 
   /* Find the element for the primary base or vptr and move it to the
      beginning of the vec.  */
-  vec<constructor_elt, va_gc> &vref = *v;
-  for (i = 0; ; ++i)
-    if (TREE_TYPE (vref[i].index) == field_type)
+  for (i = 0; vec_safe_iterate (v, i, &ce); ++i)
+    if (TREE_TYPE (ce->index) == field_type)
       break;
 
-  if (i > 0)
+  if (i > 0 && i < vec_safe_length (v))
     {
-      elt = vref[i];
+      vec<constructor_elt, va_gc> &vref = *v;
+      constructor_elt elt = vref[i];
       for (; i > 0; --i)
 	vref[i] = vref[i-1];
       vref[0] = elt;
@@ -8007,7 +8013,7 @@ register_constexpr_fundef (tree fun, tree body)
     htab_find_slot (constexpr_fundef_table, &entry, INSERT);
 
   gcc_assert (*slot == NULL);
-  *slot = ggc_alloc_constexpr_fundef ();
+  *slot = ggc_alloc<constexpr_fundef> ();
   **slot = entry;
 
   return fun;
@@ -8138,10 +8144,13 @@ maybe_initialize_constexpr_call_table (void)
 
 /* Return true if T designates the implied `this' parameter.  */
 
-static inline bool
+bool
 is_this_parameter (tree t)
 {
-  return t == current_class_ptr;
+  if (!DECL_P (t) || DECL_NAME (t) != this_identifier)
+    return false;
+  gcc_assert (TREE_CODE (t) == PARM_DECL || is_capture_proxy (t));
+  return true;
 }
 
 /* We have an expression tree T that represents a call, either CALL_EXPR
@@ -8448,7 +8457,7 @@ cxx_eval_call_expression (const constexpr_call *old_call, tree t,
     {
       /* We need to keep a pointer to the entry, not just the slot, as the
 	 slot can move in the call to cxx_eval_builtin_function_call.  */
-      *slot = entry = ggc_alloc_constexpr_call ();
+      *slot = entry = ggc_alloc<constexpr_call> ();
       *entry = new_call;
     }
   /* Calls which are in progress have their result set to NULL
@@ -10633,6 +10642,8 @@ apply_deduced_return_type (tree fco, tree return_type)
 
   if (!processing_template_decl)
     {
+      if (!VOID_TYPE_P (TREE_TYPE (result)))
+	complete_type_or_else (TREE_TYPE (result), NULL_TREE);
       bool aggr = aggregate_value_p (result, fco);
 #ifdef PCC_STATIC_STRUCT_RETURN
       cfun->returns_pcc_struct = aggr;

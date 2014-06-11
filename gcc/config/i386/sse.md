@@ -758,11 +758,10 @@
   [(set_attr "type" "sselog1,ssemov,ssemov")
    (set_attr "prefix" "maybe_vex")
    (set (attr "mode")
-	(cond [(match_test "TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL")
-		 (const_string "<ssePSmode>")
-	       (and (match_test "<MODE_SIZE> == 16")
-		    (and (eq_attr "alternative" "2")
-			 (match_test "TARGET_SSE_TYPELESS_STORES")))
+	(cond [(and (match_test "<MODE_SIZE> == 16")
+		    (ior (match_test "TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL")
+			 (and (eq_attr "alternative" "2")
+			      (match_test "TARGET_SSE_TYPELESS_STORES"))))
 		 (const_string "<ssePSmode>")
 	       (match_test "TARGET_AVX")
 		 (const_string "<sseinsnmode>")
@@ -967,7 +966,8 @@
    (set_attr "ssememalign" "8")
    (set_attr "prefix" "maybe_vex")
    (set (attr "mode")
-	(cond [(match_test "TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL")
+	(cond [(and (match_test "<MODE_SIZE> == 16")
+		    (match_test "TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL"))
 		 (const_string "<ssePSmode>")
 	       (match_test "TARGET_AVX")
 		 (const_string "<MODE>")
@@ -1089,7 +1089,8 @@
      (const_string "1")))
    (set_attr "prefix" "maybe_vex")
    (set (attr "mode")
-	(cond [(match_test "TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL")
+	(cond [(and (match_test "<MODE_SIZE> == 16")
+		    (match_test "TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL"))
 		 (const_string "<ssePSmode>")
 	       (match_test "TARGET_AVX")
 		 (const_string "<sseinsnmode>")
@@ -2377,7 +2378,8 @@
    (set_attr "type" "sselog")
    (set_attr "prefix" "orig,maybe_evex")
    (set (attr "mode")
-	(cond [(match_test "TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL")
+	(cond [(and (match_test "<MODE_SIZE> == 16")
+		    (match_test "TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL"))
 		 (const_string "<ssePSmode>")
 	       (match_test "TARGET_AVX")
 		 (const_string "<MODE>")
@@ -2449,7 +2451,8 @@
    (set_attr "type" "sselog")
    (set_attr "prefix" "orig,maybe_evex")
    (set (attr "mode")
-	(cond [(match_test "TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL")
+	(cond [(and (match_test "<MODE_SIZE> == 16")
+		    (match_test "TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL"))
 		 (const_string "<ssePSmode>")
 	       (match_test "TARGET_AVX")
 		 (const_string "<MODE>")
@@ -2513,7 +2516,8 @@
    (set_attr "type" "sselog")
    (set_attr "prefix" "orig,vex")
    (set (attr "mode")
-	(cond [(match_test "TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL")
+	(cond [(and (match_test "<MODE_SIZE> == 16")
+		    (match_test "TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL"))
 		 (const_string "V4SF")
 	       (match_test "TARGET_AVX")
 		 (const_string "<ssevecmode>")
@@ -2600,7 +2604,8 @@
    (set_attr "type" "sselog")
    (set_attr "prefix" "orig,vex")
    (set (attr "mode")
-	(cond [(match_test "TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL")
+	(cond [(and (match_test "<MODE_SIZE> == 16")
+		    (match_test "TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL"))
 		 (const_string "V4SF")
 	       (match_test "TARGET_AVX")
 		 (const_string "<ssevecmode>")
@@ -9047,7 +9052,8 @@
        (const_string "*")))
    (set_attr "prefix" "<mask_prefix3>")
    (set (attr "mode")
-	(cond [(match_test "TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL")
+	(cond [(and (match_test "<MODE_SIZE> == 16")
+		    (match_test "TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL"))
 		 (const_string "<ssePSmode>")
 	       (match_test "TARGET_AVX2")
 		 (const_string "<sseinsnmode>")
@@ -9140,7 +9146,8 @@
        (const_string "*")))
    (set_attr "prefix" "<mask_prefix3>")
    (set (attr "mode")
-	(cond [(match_test "TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL")
+	(cond [(and (match_test "<MODE_SIZE> == 16")
+		    (match_test "TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL"))
 		 (const_string "<ssePSmode>")
 	       (match_test "TARGET_AVX2")
 		 (const_string "<sseinsnmode>")
@@ -14543,6 +14550,35 @@
    (set_attr "length_immediate" "1")
    (set_attr "prefix" "vex")
    (set_attr "mode" "<sseinsnmode>")])
+
+(define_insn "*ssse3_palignr<mode>_perm"
+  [(set (match_operand:V_128 0 "register_operand" "=x,x")
+      (vec_select:V_128
+	(match_operand:V_128 1 "register_operand" "0,x")
+	(match_parallel 2 "palignr_operand"
+	  [(match_operand 3 "const_int_operand" "n, n")])))]
+  "TARGET_SSSE3"
+{
+  enum machine_mode imode = GET_MODE_INNER (GET_MODE (operands[0]));
+  operands[2] = GEN_INT (INTVAL (operands[3]) * GET_MODE_SIZE (imode));
+
+  switch (which_alternative)
+    {
+    case 0:
+      return "palignr\t{%2, %1, %0|%0, %1, %2}";
+    case 1:
+      return "vpalignr\t{%2, %1, %1, %0|%0, %1, %1, %2}";
+    default:
+      gcc_unreachable ();
+    }
+}
+  [(set_attr "isa" "noavx,avx")
+   (set_attr "type" "sseishft")
+   (set_attr "atom_unit" "sishuf")
+   (set_attr "prefix_data16" "1,*")
+   (set_attr "prefix_extra" "1")
+   (set_attr "length_immediate" "1")
+   (set_attr "prefix" "orig,vex")])
 
 (define_expand "avx_vinsertf128<mode>"
   [(match_operand:V_256 0 "register_operand")

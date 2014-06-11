@@ -32,8 +32,11 @@
       else						\
 	builtin_define ("__AARCH64EL__");		\
 							\
-      if (!TARGET_GENERAL_REGS_ONLY)			\
+      if (TARGET_SIMD)					\
 	builtin_define ("__ARM_NEON");			\
+							\
+      if (TARGET_CRC32)				\
+	builtin_define ("__ARM_FEATURE_CRC32");		\
 							\
       switch (aarch64_cmodel)				\
 	{						\
@@ -83,9 +86,9 @@
 #define WORDS_BIG_ENDIAN (BYTES_BIG_ENDIAN)
 
 /* AdvSIMD is supported in the default configuration, unless disabled by
-   -mgeneral-regs-only.  */
-#define TARGET_SIMD !TARGET_GENERAL_REGS_ONLY
-#define TARGET_FLOAT !TARGET_GENERAL_REGS_ONLY
+   -mgeneral-regs-only or by the +nosimd extension.  */
+#define TARGET_SIMD (!TARGET_GENERAL_REGS_ONLY && AARCH64_ISA_SIMD)
+#define TARGET_FLOAT (!TARGET_GENERAL_REGS_ONLY && AARCH64_ISA_FP)
 
 #define UNITS_PER_WORD		8
 
@@ -185,8 +188,11 @@ extern unsigned long aarch64_isa_flags;
 extern unsigned long aarch64_tune_flags;
 #define AARCH64_TUNE_SLOWMUL       (aarch64_tune_flags & AARCH64_FL_SLOWMUL)
 
-/* Crypto is an optional feature.  */
-#define TARGET_CRYPTO AARCH64_ISA_CRYPTO
+/* Crypto is an optional extension to AdvSIMD.  */
+#define TARGET_CRYPTO (TARGET_SIMD && AARCH64_ISA_CRYPTO)
+
+/* CRC instructions that can be enabled through +crc arch extension.  */
+#define TARGET_CRC32 (AARCH64_ISA_CRC)
 
 /* Standard register usage.  */
 
@@ -365,8 +371,7 @@ extern unsigned long aarch64_tune_flags;
 
 #define HARD_REGNO_MODE_OK(REGNO, MODE)	aarch64_hard_regno_mode_ok (REGNO, MODE)
 
-#define MODES_TIEABLE_P(MODE1, MODE2)			\
-  (GET_MODE_CLASS (MODE1) == GET_MODE_CLASS (MODE2))
+#define MODES_TIEABLE_P(MODE1, MODE2) aarch64_modes_tieable_p (MODE1, MODE2)
 
 #define DWARF2_UNWIND_INFO 1
 
@@ -409,7 +414,7 @@ extern unsigned long aarch64_tune_flags;
 enum reg_class
 {
   NO_REGS,
-  CORE_REGS,
+  CALLER_SAVE_REGS,
   GENERAL_REGS,
   STACK_REG,
   POINTER_REGS,
@@ -424,7 +429,7 @@ enum reg_class
 #define REG_CLASS_NAMES				\
 {						\
   "NO_REGS",					\
-  "CORE_REGS",					\
+  "CALLER_SAVE_REGS",				\
   "GENERAL_REGS",				\
   "STACK_REG",					\
   "POINTER_REGS",				\
@@ -436,7 +441,7 @@ enum reg_class
 #define REG_CLASS_CONTENTS						\
 {									\
   { 0x00000000, 0x00000000, 0x00000000 },	/* NO_REGS */		\
-  { 0x7fffffff, 0x00000000, 0x00000003 },	/* CORE_REGS */		\
+  { 0x0007ffff, 0x00000000, 0x00000000 },	/* CALLER_SAVE_REGS */	\
   { 0x7fffffff, 0x00000000, 0x00000003 },	/* GENERAL_REGS */	\
   { 0x80000000, 0x00000000, 0x00000000 },	/* STACK_REG */		\
   { 0xffffffff, 0x00000000, 0x00000003 },	/* POINTER_REGS */	\
@@ -447,7 +452,7 @@ enum reg_class
 
 #define REGNO_REG_CLASS(REGNO)	aarch64_regno_regclass (REGNO)
 
-#define INDEX_REG_CLASS	CORE_REGS
+#define INDEX_REG_CLASS	GENERAL_REGS
 #define BASE_REG_CLASS  POINTER_REGS
 
 /* Register pairs used to eliminate unneeded registers that point into
@@ -515,12 +520,29 @@ extern enum aarch64_processor aarch64_tune;
 struct GTY (()) aarch64_frame
 {
   HOST_WIDE_INT reg_offset[FIRST_PSEUDO_REGISTER];
+
+  /* The number of extra stack bytes taken up by register varargs.
+     This area is allocated by the callee at the very top of the
+     frame.  This value is rounded up to a multiple of
+     STACK_BOUNDARY.  */
+  HOST_WIDE_INT saved_varargs_size;
+
   HOST_WIDE_INT saved_regs_size;
   /* Padding if needed after the all the callee save registers have
      been saved.  */
   HOST_WIDE_INT padding0;
   HOST_WIDE_INT hardfp_offset;	/* HARD_FRAME_POINTER_REGNUM */
-  HOST_WIDE_INT fp_lr_offset;	/* Space needed for saving fp and/or lr */
+
+  /* Offset from the base of the frame (incomming SP) to the
+     hard_frame_pointer.  This value is always a multiple of
+     STACK_BOUNDARY.  */
+  HOST_WIDE_INT hard_fp_offset;
+
+  /* The size of the frame.  This value is the offset from base of the
+   * frame (incomming SP) to the stack_pointer.  This value is always
+   * a multiple of STACK_BOUNDARY.  */
+
+  HOST_WIDE_INT frame_size;
 
   bool laid_out;
 };
@@ -528,11 +550,6 @@ struct GTY (()) aarch64_frame
 typedef struct GTY (()) machine_function
 {
   struct aarch64_frame frame;
-
-  /* The number of extra stack bytes taken up by register varargs.
-     This area is allocated by the callee at the very top of the frame.  */
-  HOST_WIDE_INT saved_varargs_size;
-
 } machine_function;
 #endif
 
@@ -661,12 +678,14 @@ do {									     \
 /* The base cost overhead of a memcpy call, for MOVE_RATIO and friends.  */
 #define AARCH64_CALL_RATIO 8
 
-/* When optimizing for size, give a better estimate of the length of a memcpy
-   call, but use the default otherwise.  But move_by_pieces_ninsns() counts
-   memory-to-memory moves, and we'll have to generate a load & store for each,
-   so halve the value to take that into account.  */
+/* MOVE_RATIO dictates when we will use the move_by_pieces infrastructure.
+   move_by_pieces will continually copy the largest safe chunks.  So a
+   7-byte copy is a 4-byte + 2-byte + byte copy.  This proves inefficient
+   for both size and speed of copy, so we will instead use the "movmem"
+   standard name to implement the copy.  This logic does not apply when
+   targeting -mstrict-align, so keep a sensible default in that case.  */
 #define MOVE_RATIO(speed) \
-  (((speed) ? 15 : AARCH64_CALL_RATIO) / 2)
+  (!STRICT_ALIGNMENT ? 2 : (((speed) ? 15 : AARCH64_CALL_RATIO) / 2))
 
 /* For CLEAR_RATIO, when optimizing for size, give a better estimate
    of the length of a memset call, but use the default otherwise.  */
@@ -825,6 +844,11 @@ do {									     \
   aarch64_cannot_change_mode_class (FROM, TO, CLASS)
 
 #define SHIFT_COUNT_TRUNCATED !TARGET_SIMD
+
+/* Choose appropriate mode for caller saves, so we do the minimum
+   required size of load/store.  */
+#define HARD_REGNO_CALLER_SAVE_MODE(REGNO, NREGS, MODE) \
+  aarch64_hard_regno_caller_save_mode ((REGNO), (NREGS), (MODE))
 
 /* Callee only saves lower 64-bits of a 128-bit register.  Tell the
    compiler the callee clobbers the top 64-bits when restoring the

@@ -66,6 +66,7 @@
 #include "df.h"
 #include "dumpfile.h"
 #include "cfgloop.h"
+#include "builtins.h"
 
 /* Builtin types, data and prototypes. */
 
@@ -223,7 +224,7 @@ struct GTY(()) machine_function
 static struct machine_function *
 spu_init_machine_status (void)
 {
-  return ggc_alloc_cleared_machine_function ();
+  return ggc_cleared_alloc<machine_function> ();
 }
 
 /* Implement TARGET_OPTION_OVERRIDE.  */
@@ -2064,7 +2065,7 @@ pad_bb(void)
 	    }
 	  hbr_insn = insn;
 	}
-      if (INSN_CODE (insn) == CODE_FOR_blockage)
+      if (INSN_CODE (insn) == CODE_FOR_blockage && next_insn)
 	{
 	  if (GET_MODE (insn) == TImode)
 	    PUT_MODE (next_insn, TImode);

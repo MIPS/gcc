@@ -395,6 +395,9 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
   ipa_opt_pass_d *pass;
   int i;
   bool alias_p;
+  const char *comdat;
+  const char *section;
+  tree group;
 
   boundary_p = !lto_symtab_encoder_in_partition_p (encoder, node);
 
@@ -478,15 +481,30 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
       streamer_write_hwi_stream (ob->main_stream, ref);
     }
 
-  if (node->same_comdat_group && !boundary_p)
-    {
-      ref = lto_symtab_encoder_lookup (encoder,
-				       node->same_comdat_group);
-      gcc_assert (ref != LCC_NOT_FOUND);
-    }
+  group = node->get_comdat_group ();
+  if (group)
+    comdat = IDENTIFIER_POINTER (group);
   else
-    ref = LCC_NOT_FOUND;
-  streamer_write_hwi_stream (ob->main_stream, ref);
+    comdat = "";
+  lto_output_data_stream (ob->main_stream, comdat, strlen (comdat) + 1);
+
+  if (group)
+    {
+      if (node->same_comdat_group && !boundary_p)
+	{
+	  ref = lto_symtab_encoder_lookup (encoder,
+					   node->same_comdat_group);
+	  gcc_assert (ref != LCC_NOT_FOUND);
+	}
+      else
+	ref = LCC_NOT_FOUND;
+      streamer_write_hwi_stream (ob->main_stream, ref);
+    }
+
+  section = node->get_section ();
+  if (!section)
+    section = "";
+  lto_output_data_stream (ob->main_stream, section, strlen (section) + 1);
 
   streamer_write_hwi_stream (ob->main_stream, node->tp_first_run);
 
@@ -501,6 +519,7 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
   bp_pack_value (&bp, node->forced_by_abi, 1);
   bp_pack_value (&bp, node->unique_name, 1);
   bp_pack_value (&bp, node->body_removed, 1);
+  bp_pack_value (&bp, node->implicit_section, 1);
   bp_pack_value (&bp, node->address_taken, 1);
   bp_pack_value (&bp, tag == LTO_symtab_analyzed_node
 		 && symtab_get_symbol_partitioning_class (node) == SYMBOL_PARTITION
@@ -551,6 +570,9 @@ lto_output_varpool_node (struct lto_simple_output_block *ob, varpool_node *node,
   struct bitpack_d bp;
   int ref;
   bool alias_p;
+  const char *comdat;
+  const char *section;
+  tree group;
 
   streamer_write_enum (ob->main_stream, LTO_symtab_tags, LTO_symtab_last_tag,
 		       LTO_symtab_variable);
@@ -562,6 +584,8 @@ lto_output_varpool_node (struct lto_simple_output_block *ob, varpool_node *node,
   bp_pack_value (&bp, node->forced_by_abi, 1);
   bp_pack_value (&bp, node->unique_name, 1);
   bp_pack_value (&bp, node->body_removed, 1);
+  bp_pack_value (&bp, node->implicit_section, 1);
+  bp_pack_value (&bp, node->writeonly, 1);
   bp_pack_value (&bp, node->definition, 1);
   alias_p = node->alias && (!boundary_p || node->weakref);
   bp_pack_value (&bp, alias_p, 1);
@@ -586,15 +610,32 @@ lto_output_varpool_node (struct lto_simple_output_block *ob, varpool_node *node,
 	  /* in_other_partition.  */
     }
   streamer_write_bitpack (&bp);
-  if (node->same_comdat_group && !boundary_p)
-    {
-      ref = lto_symtab_encoder_lookup (encoder,
-				       node->same_comdat_group);
-      gcc_assert (ref != LCC_NOT_FOUND);
-    }
+
+  group = node->get_comdat_group ();
+  if (group)
+    comdat = IDENTIFIER_POINTER (group);
   else
-    ref = LCC_NOT_FOUND;
-  streamer_write_hwi_stream (ob->main_stream, ref);
+    comdat = "";
+  lto_output_data_stream (ob->main_stream, comdat, strlen (comdat) + 1);
+
+  if (group)
+    {
+      if (node->same_comdat_group && !boundary_p)
+	{
+	  ref = lto_symtab_encoder_lookup (encoder,
+					   node->same_comdat_group);
+	  gcc_assert (ref != LCC_NOT_FOUND);
+	}
+      else
+	ref = LCC_NOT_FOUND;
+      streamer_write_hwi_stream (ob->main_stream, ref);
+    }
+
+  section = node->get_section ();
+  if (!section)
+    section = "";
+  lto_output_data_stream (ob->main_stream, section, strlen (section) + 1);
+
   streamer_write_enum (ob->main_stream, ld_plugin_symbol_resolution,
 		       LDPR_NUM_KNOWN, node->resolution);
 }
@@ -619,7 +660,7 @@ lto_output_ref (struct lto_simple_output_block *ob, struct ipa_ref *ref,
   gcc_assert (nref != LCC_NOT_FOUND);
   streamer_write_hwi_stream (ob->main_stream, nref);
   
-  node = dyn_cast <cgraph_node> (ref->referring);
+  node = dyn_cast <cgraph_node *> (ref->referring);
   if (node)
     {
       if (ref->stmt)
@@ -753,7 +794,7 @@ add_references (lto_symtab_encoder_t encoder,
   int i;
   struct ipa_ref *ref;
   for (i = 0; ipa_ref_list_reference_iterate (list, i, ref); i++)
-    if (is_a <cgraph_node> (ref->referred))
+    if (is_a <cgraph_node *> (ref->referred))
       add_node_to (encoder, ipa_ref_node (ref), false);
     else
       lto_symtab_encoder_encode (encoder, ref->referred);
@@ -770,7 +811,6 @@ add_references (lto_symtab_encoder_t encoder,
 lto_symtab_encoder_t 
 compute_ltrans_boundary (lto_symtab_encoder_t in_encoder)
 {
-  struct cgraph_node *node;
   struct cgraph_edge *edge;
   int i;
   lto_symtab_encoder_t encoder;
@@ -785,7 +825,7 @@ compute_ltrans_boundary (lto_symtab_encoder_t in_encoder)
   for (lsei = lsei_start_function_in_partition (in_encoder);
        !lsei_end_p (lsei); lsei_next_function_in_partition (&lsei))
     {
-      node = lsei_cgraph_node (lsei);
+      struct cgraph_node *node = lsei_cgraph_node (lsei);
       add_node_to (encoder, node, true);
       lto_set_symtab_encoder_in_partition (encoder, node);
       add_references (encoder, &node->ref_list);
@@ -809,7 +849,7 @@ compute_ltrans_boundary (lto_symtab_encoder_t in_encoder)
       if (DECL_ABSTRACT_ORIGIN (vnode->decl))
 	{
 	  varpool_node *origin_node
-	  = varpool_get_node (DECL_ABSTRACT_ORIGIN (node->decl));
+	    = varpool_get_node (DECL_ABSTRACT_ORIGIN (vnode->decl));
 	  lto_set_symtab_encoder_in_partition (encoder, origin_node);
 	}
     }
@@ -819,7 +859,7 @@ compute_ltrans_boundary (lto_symtab_encoder_t in_encoder)
   for (i = 0; i < lto_symtab_encoder_size (encoder); i++)
     {
       symtab_node *node = lto_symtab_encoder_deref (encoder, i);
-      if (varpool_node *vnode = dyn_cast <varpool_node> (node))
+      if (varpool_node *vnode = dyn_cast <varpool_node *> (node))
 	{
 	  if (!lto_symtab_encoder_encode_initializer_p (encoder,
 							vnode)
@@ -836,7 +876,7 @@ compute_ltrans_boundary (lto_symtab_encoder_t in_encoder)
   for (lsei = lsei_start_function_in_partition (encoder);
        !lsei_end_p (lsei); lsei_next_function_in_partition (&lsei))
     {
-      node = lsei_cgraph_node (lsei);
+      struct cgraph_node *node = lsei_cgraph_node (lsei);
       for (edge = node->callees; edge; edge = edge->next_callee)
 	{
 	  struct cgraph_node *callee = edge->callee;
@@ -913,7 +953,7 @@ output_symtab (void)
   for (i = 0; i < n_nodes; i++)
     {
       symtab_node *node = lto_symtab_encoder_deref (encoder, i);
-      if (cgraph_node *cnode = dyn_cast <cgraph_node> (node))
+      if (cgraph_node *cnode = dyn_cast <cgraph_node *> (node))
         lto_output_node (ob, cnode, encoder);
       else
         lto_output_varpool_node (ob, varpool (node), encoder);
@@ -946,6 +986,46 @@ output_symtab (void)
   output_refs (encoder);
 }
 
+/* Return identifier encoded in IB as a plain string.  */
+
+static tree
+read_identifier (struct lto_input_block *ib)
+{
+  unsigned int len = strnlen (ib->data + ib->p, ib->len - ib->p - 1);
+  tree id;
+
+  if (ib->data[ib->p + len])
+    lto_section_overrun (ib);
+  if (!len)
+    {
+      ib->p++;
+      return NULL;
+    }
+  id = get_identifier (ib->data + ib->p);
+  ib->p += len + 1;
+  return id;
+}
+
+/* Return identifier encoded in IB as a plain string.  */
+
+static tree
+read_string_cst (struct lto_input_block *ib)
+{
+  unsigned int len = strnlen (ib->data + ib->p, ib->len - ib->p - 1);
+  tree id;
+
+  if (ib->data[ib->p + len])
+    lto_section_overrun (ib);
+  if (!len)
+    {
+      ib->p++;
+      return NULL;
+    }
+  id = build_string (len, ib->data + ib->p);
+  ib->p += len + 1;
+  return id;
+}
+
 /* Overwrite the information in NODE based on FILE_DATA, TAG, FLAGS,
    STACK_SIZE, SELF_TIME and SELF_SIZE.  This is called either to initialize
    NODE or to replace the values in it, for instance because the first
@@ -972,6 +1052,7 @@ input_overwrite_node (struct lto_file_decl_data *file_data,
   node->forced_by_abi = bp_unpack_value (bp, 1);
   node->unique_name = bp_unpack_value (bp, 1);
   node->body_removed = bp_unpack_value (bp, 1);
+  node->implicit_section = bp_unpack_value (bp, 1);
   node->address_taken = bp_unpack_value (bp, 1);
   node->used_from_other_partition = bp_unpack_value (bp, 1);
   node->lowered = bp_unpack_value (bp, 1);
@@ -1001,6 +1082,9 @@ input_overwrite_node (struct lto_file_decl_data *file_data,
   node->thunk.thunk_p = bp_unpack_value (bp, 1);
   node->resolution = bp_unpack_enum (bp, ld_plugin_symbol_resolution,
 				     LDPR_NUM_KNOWN);
+  gcc_assert (flag_ltrans
+	      || (!node->in_other_partition
+		  && !node->used_from_other_partition));
 }
 
 /* Return string alias is alias of.  */
@@ -1031,6 +1115,8 @@ input_node (struct lto_file_decl_data *file_data,
   int clone_ref;
   int order;
   int i, count;
+  tree group;
+  tree section;
 
   order = streamer_read_hwi (ib) + order_base;
   clone_ref = streamer_read_hwi (ib);
@@ -1042,7 +1128,7 @@ input_node (struct lto_file_decl_data *file_data,
     {
       node = cgraph_clone_node (cgraph (nodes[clone_ref]), fn_decl,
 				0, CGRAPH_FREQ_BASE, false,
-				vNULL, false, NULL);
+				vNULL, false, NULL, NULL);
     }
   else
     {
@@ -1076,7 +1162,10 @@ input_node (struct lto_file_decl_data *file_data,
   if (tag == LTO_symtab_analyzed_node)
     ref = streamer_read_hwi (ib);
 
-  ref2 = streamer_read_hwi (ib);
+  group = read_identifier (ib);
+  if (group)
+    ref2 = streamer_read_hwi (ib);
+  section = read_string_cst (ib);
 
   /* Make sure that we have not read this node before.  Nodes that
      have already been read will have their tag stored in the 'aux'
@@ -1095,8 +1184,16 @@ input_node (struct lto_file_decl_data *file_data,
   /* Store a reference for now, and fix up later to be a pointer.  */
   node->global.inlined_to = (cgraph_node_ptr) (intptr_t) ref;
 
-  /* Store a reference for now, and fix up later to be a pointer.  */
-  node->same_comdat_group = (symtab_node *) (intptr_t) ref2;
+  if (group)
+    {
+      node->set_comdat_group (group);
+      /* Store a reference for now, and fix up later to be a pointer.  */
+      node->same_comdat_group = (symtab_node *) (intptr_t) ref2;
+    }
+  else
+    node->same_comdat_group = (symtab_node *) (intptr_t) LCC_NOT_FOUND;
+  if (section)
+    node->set_section_for_node (section);
 
   if (node->thunk.thunk_p)
     {
@@ -1128,6 +1225,8 @@ input_varpool_node (struct lto_file_decl_data *file_data,
   struct bitpack_d bp;
   int ref = LCC_NOT_FOUND;
   int order;
+  tree group;
+  tree section;
 
   order = streamer_read_hwi (ib) + order_base;
   decl_index = streamer_read_uhwi (ib);
@@ -1151,6 +1250,8 @@ input_varpool_node (struct lto_file_decl_data *file_data,
   node->forced_by_abi = bp_unpack_value (&bp, 1);
   node->unique_name = bp_unpack_value (&bp, 1);
   node->body_removed = bp_unpack_value (&bp, 1);
+  node->implicit_section = bp_unpack_value (&bp, 1);
+  node->writeonly = bp_unpack_value (&bp, 1);
   node->definition = bp_unpack_value (&bp, 1);
   node->alias = bp_unpack_value (&bp, 1);
   node->weakref = bp_unpack_value (&bp, 1);
@@ -1164,11 +1265,24 @@ input_varpool_node (struct lto_file_decl_data *file_data,
     }
   if (node->alias && !node->analyzed && node->weakref)
     node->alias_target = get_alias_symbol (node->decl);
-  ref = streamer_read_hwi (ib);
-  /* Store a reference for now, and fix up later to be a pointer.  */
-  node->same_comdat_group = (symtab_node *) (intptr_t) ref;
+  group = read_identifier (ib);
+  if (group)
+    {
+      node->set_comdat_group (group);
+      ref = streamer_read_hwi (ib);
+      /* Store a reference for now, and fix up later to be a pointer.  */
+      node->same_comdat_group = (symtab_node *) (intptr_t) ref;
+    }
+  else
+    node->same_comdat_group = (symtab_node *) (intptr_t) LCC_NOT_FOUND;
+  section = read_string_cst (ib);
+  if (section)
+    node->set_section_for_node (section);
   node->resolution = streamer_read_enum (ib, ld_plugin_symbol_resolution,
 					        LDPR_NUM_KNOWN);
+  gcc_assert (flag_ltrans
+	      || (!node->in_other_partition
+		  && !node->used_from_other_partition));
 
   return node;
 }
@@ -1193,7 +1307,7 @@ input_ref (struct lto_input_block *ib,
   node = nodes[streamer_read_hwi (ib)];
   ref = ipa_record_reference (referring_node, node, use, NULL);
   ref->speculative = speculative;
-  if (is_a <cgraph_node> (referring_node))
+  if (is_a <cgraph_node *> (referring_node))
     ref->lto_stmt_uid = streamer_read_hwi (ib);
 }
 
@@ -1310,12 +1424,12 @@ input_cgraph_1 (struct lto_file_decl_data *file_data,
   /* AUX pointers should be all non-zero for function nodes read from the stream.  */
 #ifdef ENABLE_CHECKING
   FOR_EACH_VEC_ELT (nodes, i, node)
-    gcc_assert (node->aux || !is_a <cgraph_node> (node));
+    gcc_assert (node->aux || !is_a <cgraph_node *> (node));
 #endif
   FOR_EACH_VEC_ELT (nodes, i, node)
     {
       int ref;
-      if (cgraph_node *cnode = dyn_cast <cgraph_node> (node))
+      if (cgraph_node *cnode = dyn_cast <cgraph_node *> (node))
 	{
 	  ref = (int) (intptr_t) cnode->global.inlined_to;
 
@@ -1340,7 +1454,7 @@ input_cgraph_1 (struct lto_file_decl_data *file_data,
 	node->same_comdat_group = NULL;
     }
   FOR_EACH_VEC_ELT (nodes, i, node)
-    node->aux = is_a <cgraph_node> (node) ? (void *)1 : NULL;
+    node->aux = is_a <cgraph_node *> (node) ? (void *)1 : NULL;
   return nodes;
 }
 
@@ -1690,7 +1804,7 @@ output_cgraph_opt_summary (void)
   for (i = 0; i < n_nodes; i++)
     {
       symtab_node *node = lto_symtab_encoder_deref (encoder, i);
-      cgraph_node *cnode = dyn_cast <cgraph_node> (node);
+      cgraph_node *cnode = dyn_cast <cgraph_node *> (node);
       if (cnode && output_cgraph_opt_summary_p (cnode))
 	count++;
     }
@@ -1698,7 +1812,7 @@ output_cgraph_opt_summary (void)
   for (i = 0; i < n_nodes; i++)
     {
       symtab_node *node = lto_symtab_encoder_deref (encoder, i);
-      cgraph_node *cnode = dyn_cast <cgraph_node> (node);
+      cgraph_node *cnode = dyn_cast <cgraph_node *> (node);
       if (cnode && output_cgraph_opt_summary_p (cnode))
 	{
 	  streamer_write_uhwi (ob, i);
@@ -1749,7 +1863,7 @@ input_node_opt_summary (struct cgraph_node *node,
   count = streamer_read_uhwi (ib_main);
   for (i = 0; i < count; i++)
     {
-      struct ipa_replace_map *map = ggc_alloc_ipa_replace_map ();
+      struct ipa_replace_map *map = ggc_alloc<ipa_replace_map> ();
 
       vec_safe_push (node->clone.tree_map, map);
       map->parm_num = streamer_read_uhwi (ib_main);

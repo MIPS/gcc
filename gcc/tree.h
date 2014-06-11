@@ -21,6 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_TREE_H
 
 #include "tree-core.h"
+#include "wide-int.h"
 
 /* These includes are required here because they provide declarations
    used by inline functions in this file.
@@ -207,6 +208,8 @@ along with GCC; see the file COPYING3.  If not see
 #define CASE_FLT_FN_REENT(FN) case FN##_R: case FN##F_R: case FN##L_R
 #define CASE_INT_FN(FN) case FN: case FN##L: case FN##LL: case FN##IMAX
 
+#define NULL_TREE (tree) NULL
+
 /* Define accessors for the fields that all tree nodes have
    (though some fields are not used for all kinds of nodes).  */
 
@@ -278,6 +281,9 @@ along with GCC; see the file COPYING3.  If not see
 #define NON_TYPE_CHECK(T) \
 (non_type_check ((T), __FILE__, __LINE__, __FUNCTION__))
 
+#define TREE_INT_CST_ELT_CHECK(T, I) \
+(*tree_int_cst_elt_check ((T), (I), __FILE__, __LINE__, __FUNCTION__))
+
 #define TREE_VEC_ELT_CHECK(T, I) \
 (*(CONST_CAST2 (tree *, typeof (T)*, \
      tree_vec_elt_check ((T), (I), __FILE__, __LINE__, __FUNCTION__))))
@@ -333,6 +339,9 @@ extern void tree_not_class_check_failed (const_tree,
 					 const enum tree_code_class,
 					 const char *, int, const char *)
     ATTRIBUTE_NORETURN;
+extern void tree_int_cst_elt_check_failed (int, int, const char *,
+					   int, const char *)
+    ATTRIBUTE_NORETURN;
 extern void tree_vec_elt_check_failed (int, int, const char *,
 				       int, const char *)
     ATTRIBUTE_NORETURN;
@@ -370,6 +379,7 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define TREE_RANGE_CHECK(T, CODE1, CODE2)	(T)
 #define EXPR_CHECK(T)				(T)
 #define NON_TYPE_CHECK(T)			(T)
+#define TREE_INT_CST_ELT_CHECK(T, I)		((T)->int_cst.val[I])
 #define TREE_VEC_ELT_CHECK(T, I)		((T)->vec.a[I])
 #define TREE_OPERAND_CHECK(T, I)		((T)->exp.operands[I])
 #define TREE_OPERAND_CHECK_CODE(T, CODE, I)	((T)->exp.operands[I])
@@ -738,6 +748,9 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 /* In integral and pointer types, means an unsigned type.  */
 #define TYPE_UNSIGNED(NODE) (TYPE_CHECK (NODE)->base.u.bits.unsigned_flag)
 
+/* Same as TYPE_UNSIGNED but converted to SIGNOP.  */
+#define TYPE_SIGN(NODE) ((signop) TYPE_UNSIGNED (NODE))
+
 /* True if overflow wraps around for the given integral type.  That
    is, TYPE_MAX + 1 == TYPE_MIN.  */
 #define TYPE_OVERFLOW_WRAPS(TYPE) \
@@ -872,25 +885,15 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 
 /* Define additional fields and accessors for nodes representing constants.  */
 
-/* In an INTEGER_CST node.  These two together make a 2-word integer.
-   If the data type is signed, the value is sign-extended to 2 words
-   even though not all of them may really be in use.
-   In an unsigned constant shorter than 2 words, the extra bits are 0.  */
-#define TREE_INT_CST(NODE) (INTEGER_CST_CHECK (NODE)->int_cst.int_cst)
-#define TREE_INT_CST_LOW(NODE) (TREE_INT_CST (NODE).low)
-#define TREE_INT_CST_HIGH(NODE) (TREE_INT_CST (NODE).high)
-
-#define INT_CST_LT(A, B)				\
-  (TREE_INT_CST_HIGH (A) < TREE_INT_CST_HIGH (B)	\
-   || (TREE_INT_CST_HIGH (A) == TREE_INT_CST_HIGH (B)	\
-       && TREE_INT_CST_LOW (A) < TREE_INT_CST_LOW (B)))
-
-#define INT_CST_LT_UNSIGNED(A, B)				\
-  (((unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (A)		\
-    < (unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (B))		\
-   || (((unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (A)		\
-	== (unsigned HOST_WIDE_INT) TREE_INT_CST_HIGH (B))	\
-       && TREE_INT_CST_LOW (A) < TREE_INT_CST_LOW (B)))
+#define TREE_INT_CST_NUNITS(NODE) \
+  (INTEGER_CST_CHECK (NODE)->base.u.int_length.unextended)
+#define TREE_INT_CST_EXT_NUNITS(NODE) \
+  (INTEGER_CST_CHECK (NODE)->base.u.int_length.extended)
+#define TREE_INT_CST_OFFSET_NUNITS(NODE) \
+  (INTEGER_CST_CHECK (NODE)->base.u.int_length.offset)
+#define TREE_INT_CST_ELT(NODE, I) TREE_INT_CST_ELT_CHECK (NODE, I)
+#define TREE_INT_CST_LOW(NODE) \
+  ((unsigned HOST_WIDE_INT) TREE_INT_CST_ELT (NODE, 0))
 
 #define TREE_REAL_CST_PTR(NODE) (REAL_CST_CHECK (NODE)->real_cst.real_cst_ptr)
 #define TREE_REAL_CST(NODE) (*TREE_REAL_CST_PTR (NODE))
@@ -1329,6 +1332,12 @@ extern void protected_set_expr_location (tree, location_t);
 
 #define OMP_CLAUSE_LINEAR_STEP(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_LINEAR), 1)
+
+#define OMP_CLAUSE_LINEAR_STMT(NODE) \
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_LINEAR), 2)
+
+#define OMP_CLAUSE_LINEAR_GIMPLE_SEQ(NODE) \
+  (OMP_CLAUSE_CHECK (NODE))->omp_clause.gimple_reduction_init
 
 #define OMP_CLAUSE_ALIGNED_ALIGNMENT(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_ALIGNED), 1)
@@ -1906,6 +1915,11 @@ extern void protected_set_expr_location (tree, location_t);
    It is an IDENTIFIER_NODE.  */
 #define DECL_NAME(NODE) (DECL_MINIMAL_CHECK (NODE)->decl_minimal.name)
 
+/* The IDENTIFIER_NODE associated with the TYPE_NAME field.  */
+#define TYPE_IDENTIFIER(NODE) \
+  (TYPE_NAME (NODE) && DECL_P (TYPE_NAME (NODE)) \
+   ? DECL_NAME (TYPE_NAME (NODE)) : TYPE_NAME (NODE))
+
 /* Every ..._DECL node gets a unique number.  */
 #define DECL_UID(NODE) (DECL_MINIMAL_CHECK (NODE)->decl_minimal.uid)
 
@@ -2309,11 +2323,12 @@ extern void decl_value_expr_insert (tree, tree);
   (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.comdat_flag)
 
 #define DECL_COMDAT_GROUP(NODE) \
-  (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.comdat_group)
+  decl_comdat_group (NODE)
 
 /* Used in TREE_PUBLIC decls to indicate that copies of this DECL in
    multiple translation units should be merged.  */
-#define DECL_ONE_ONLY(NODE) (DECL_COMDAT_GROUP (NODE) != NULL_TREE)
+#define DECL_ONE_ONLY(NODE) (DECL_COMDAT_GROUP (NODE) != NULL_TREE \
+			     && (TREE_PUBLIC (NODE) || DECL_EXTERNAL (NODE)))
 
 /* The name of the object as the assembler will see it (but before any
    translations made by ASM_OUTPUT_LABELREF).  Often this is the same
@@ -2353,8 +2368,7 @@ extern void decl_value_expr_insert (tree, tree);
 
 /* Records the section name in a section attribute.  Used to pass
    the name from decl_attributes to make_function_rtl and make_decl_rtl.  */
-#define DECL_SECTION_NAME(NODE) \
-  (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.section_name)
+#define DECL_SECTION_NAME(NODE) decl_section_name (NODE)
 
 /* Nonzero in a decl means that the gimplifier has seen (or placed)
    this variable in a BIND_EXPR.  */
@@ -2384,11 +2398,6 @@ extern void decl_value_expr_insert (tree, tree);
    will be initialized at the DEFAULT_INIT_PRIORITY.  */
 #define DECL_HAS_INIT_PRIORITY_P(NODE) \
   (VAR_DECL_CHECK (NODE)->decl_with_vis.init_priority_p)
-
-/* Specify whether the section name was set by user or by
-   compiler via -ffunction-sections.  */
-#define DECL_HAS_IMPLICIT_SECTION_NAME_P(NODE) \
-  (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.implicit_section_name_p)
 
 extern tree decl_debug_expr_lookup (tree);
 extern void decl_debug_expr_insert (tree, tree);
@@ -2893,6 +2902,30 @@ non_type_check (tree __t, const char *__f, int __l, const char *__g)
   return __t;
 }
 
+inline const HOST_WIDE_INT *
+tree_int_cst_elt_check (const_tree __t, int __i,
+			const char *__f, int __l, const char *__g)
+{
+  if (TREE_CODE (__t) != INTEGER_CST)
+    tree_check_failed (__t, __f, __l, __g, INTEGER_CST, 0);
+  if (__i < 0 || __i >= __t->base.u.int_length.extended)
+    tree_int_cst_elt_check_failed (__i, __t->base.u.int_length.extended,
+				   __f, __l, __g);
+  return &CONST_CAST_TREE (__t)->int_cst.val[__i];
+}
+
+inline HOST_WIDE_INT *
+tree_int_cst_elt_check (tree __t, int __i,
+			const char *__f, int __l, const char *__g)
+{
+  if (TREE_CODE (__t) != INTEGER_CST)
+    tree_check_failed (__t, __f, __l, __g, INTEGER_CST, 0);
+  if (__i < 0 || __i >= __t->base.u.int_length.extended)
+    tree_int_cst_elt_check_failed (__i, __t->base.u.int_length.extended,
+				   __f, __l, __g);
+  return &CONST_CAST_TREE (__t)->int_cst.val[__i];
+}
+
 inline tree *
 tree_vec_elt_check (tree __t, int __i,
                     const char *__f, int __l, const char *__g)
@@ -3207,6 +3240,8 @@ tree_operand_check_code (const_tree __t, enum tree_code __code, int __i,
 #define uint32_type_node		global_trees[TI_UINT32_TYPE]
 #define uint64_type_node		global_trees[TI_UINT64_TYPE]
 
+#define void_node			global_trees[TI_VOID]
+
 #define integer_zero_node		global_trees[TI_INTEGER_ZERO]
 #define integer_one_node		global_trees[TI_INTEGER_ONE]
 #define integer_three_node              global_trees[TI_INTEGER_THREE]
@@ -3383,8 +3418,6 @@ tree_operand_check_code (const_tree __t, enum tree_code __code, int __i,
 #define int128_integer_type_node	integer_types[itk_int128]
 #define int128_unsigned_type_node	integer_types[itk_unsigned_int128]
 
-#define NULL_TREE (tree) NULL
-
 /* True if NODE is an erroneous expression.  */
 
 #define error_operand_p(NODE)					\
@@ -3392,15 +3425,19 @@ tree_operand_check_code (const_tree __t, enum tree_code __code, int __i,
    || ((NODE) && TREE_TYPE ((NODE)) == error_mark_node))
 
 extern tree decl_assembler_name (tree);
+extern tree decl_comdat_group (const_tree);
+extern tree decl_comdat_group_id (const_tree);
+extern tree decl_section_name (const_tree);
+extern void set_decl_section_name (tree, tree);
 
 /* Compute the number of bytes occupied by 'node'.  This routine only
    looks at TREE_CODE and, if the code is TREE_VEC, TREE_VEC_LENGTH.  */
 
 extern size_t tree_size (const_tree);
 
-/* Compute the number of bytes occupied by a tree with code CODE.  This
-   function cannot be used for TREE_VEC codes, which are of variable
-   length.  */
+/* Compute the number of bytes occupied by a tree with code CODE.
+   This function cannot be used for TREE_VEC or INTEGER_CST nodes,
+   which are of variable length.  */
 extern size_t tree_code_size (enum tree_code);
 
 /* Allocate and return a new UID from the DECL_UID namespace.  */
@@ -3429,6 +3466,12 @@ extern tree build_case_label (tree, tree, tree);
 /* Make a BINFO.  */
 extern tree make_tree_binfo_stat (unsigned MEM_STAT_DECL);
 #define make_tree_binfo(t) make_tree_binfo_stat (t MEM_STAT_INFO)
+
+/* Make an INTEGER_CST.  */
+
+extern tree make_int_cst_stat (int, int MEM_STAT_DECL);
+#define make_int_cst(LEN, EXT_LEN) \
+  make_int_cst_stat (LEN, EXT_LEN MEM_STAT_INFO)
 
 /* Make a TREE_VEC.  */
 
@@ -3527,27 +3570,17 @@ extern tree build_var_debug_value_stat (tree, tree MEM_STAT_DECL);
 
 /* Constructs double_int from tree CST.  */
 
-static inline double_int
-tree_to_double_int (const_tree cst)
-{
-  return TREE_INT_CST (cst);
-}
-
 extern tree double_int_to_tree (tree, double_int);
-extern bool double_int_fits_to_tree_p (const_tree, double_int);
-extern tree force_fit_type_double (tree, double_int, int, bool);
+
+extern tree wide_int_to_tree (tree type, const wide_int_ref &cst);
+extern tree force_fit_type (tree, const wide_int_ref &, int, bool);
 
 /* Create an INT_CST node with a CST value zero extended.  */
 
-static inline tree
-build_int_cstu (tree type, unsigned HOST_WIDE_INT cst)
-{
-  return double_int_to_tree (type, double_int::from_uhwi (cst));
-}
-
+/* static inline */
 extern tree build_int_cst (tree, HOST_WIDE_INT);
+extern tree build_int_cstu (tree type, unsigned HOST_WIDE_INT cst);
 extern tree build_int_cst_type (tree, HOST_WIDE_INT);
-extern tree build_int_cst_wide (tree, unsigned HOST_WIDE_INT, HOST_WIDE_INT);
 extern tree make_vector_stat (unsigned MEM_STAT_DECL);
 #define make_vector(n) make_vector_stat (n MEM_STAT_INFO)
 extern tree build_vector_stat (tree, tree * MEM_STAT_DECL);
@@ -3587,6 +3620,11 @@ extern tree build_call_valist (tree, tree, int, va_list);
    build_call_array_loc (UNKNOWN_LOCATION, T1, T2, N, T3)
 extern tree build_call_array_loc (location_t, tree, tree, int, const tree *);
 extern tree build_call_vec (tree, tree, vec<tree, va_gc> *);
+extern tree build_call_expr_loc_array (location_t, tree, int, tree *);
+extern tree build_call_expr_loc_vec (location_t, tree, vec<tree, va_gc> *);
+extern tree build_call_expr_loc (location_t, tree, int, ...);
+extern tree build_call_expr (tree, int, ...);
+extern tree build_string_literal (int, const char *);
 
 /* Construct various nodes representing data types.  */
 
@@ -3629,8 +3667,7 @@ extern tree chain_index (int, tree);
 extern int attribute_list_equal (const_tree, const_tree);
 extern int attribute_list_contained (const_tree, const_tree);
 extern int tree_int_cst_equal (const_tree, const_tree);
-extern int tree_int_cst_lt (const_tree, const_tree);
-extern int tree_int_cst_compare (const_tree, const_tree);
+
 extern bool tree_fits_shwi_p (const_tree)
 #ifndef ENABLE_TREE_CHECKING
   ATTRIBUTE_PURE /* tree_fits_shwi_p is pure only when checking is disabled.  */
@@ -3660,7 +3697,7 @@ tree_to_uhwi (const_tree t)
 #endif
 extern int tree_int_cst_sgn (const_tree);
 extern int tree_int_cst_sign_bit (const_tree);
-extern unsigned int tree_int_cst_min_precision (tree, bool);
+extern unsigned int tree_int_cst_min_precision (tree, signop);
 extern tree strip_array_types (tree);
 extern tree excess_precision_type (tree);
 extern bool valid_constant_size_p (const_tree);
@@ -3695,6 +3732,10 @@ extern tree merge_type_attributes (tree, tree);
    and you should never call it directly.  */
 extern tree private_lookup_attribute (const char *, size_t, tree);
 
+/* This function is a private implementation detail
+   of lookup_attribute_by_prefix() and you should never call it directly.  */
+extern tree private_lookup_attribute_by_prefix (const char *, size_t, tree);
+
 /* Given an attribute name ATTR_NAME and a list of attributes LIST,
    return a pointer to the attribute's list element if the attribute
    is part of the list, or NULL_TREE if not found.  If the attribute
@@ -3716,6 +3757,24 @@ lookup_attribute (const char *attr_name, tree list)
        will optimize the strlen() away.  */
     return private_lookup_attribute (attr_name, strlen (attr_name), list);
 }
+
+/* Given an attribute name ATTR_NAME and a list of attributes LIST,
+   return a pointer to the attribute's list first element if the attribute
+   starts with ATTR_NAME. ATTR_NAME must be in the form 'text' (not
+   '__text__').  */
+
+static inline tree
+lookup_attribute_by_prefix (const char *attr_name, tree list)
+{
+  gcc_checking_assert (attr_name[0] != '_');
+  /* In most cases, list is NULL_TREE.  */
+  if (list == NULL_TREE)
+    return NULL_TREE;
+  else
+    return private_lookup_attribute_by_prefix (attr_name, strlen (attr_name),
+					       list);
+}
+
 
 /* This function is a private implementation detail of
    is_attribute_p() and you should never call it directly.  */
@@ -4187,7 +4246,7 @@ static inline tree
 fold_build_pointer_plus_loc (location_t loc, tree ptr, tree off)
 {
   return fold_build2_loc (loc, POINTER_PLUS_EXPR, TREE_TYPE (ptr),
-			  ptr, fold_convert_loc (loc, sizetype, off));
+			  ptr, convert_to_ptrofftype_loc (loc, off));
 }
 #define fold_build_pointer_plus(p,o) \
 	fold_build_pointer_plus_loc (UNKNOWN_LOCATION, p, o)
@@ -4236,7 +4295,6 @@ extern tree build_range_type (tree, tree, tree);
 extern tree build_nonshared_range_type (tree, tree, tree);
 extern bool subrange_type_for_debug_p (const_tree, tree *, tree *);
 extern HOST_WIDE_INT int_cst_value (const_tree);
-extern HOST_WIDEST_INT widest_int_cst_value (const_tree);
 extern tree tree_block (tree);
 extern void tree_set_block (tree, tree);
 extern location_t *block_nonartificial_location (tree);
@@ -4511,6 +4569,179 @@ opts_for_fn (const_tree fndecl)
 #endif	/* NO_DOLLAR_IN_LABEL */
 #endif	/* NO_DOT_IN_LABEL */
 
+/* The tree and const_tree overload templates.   */
+namespace wi
+{
+  template <>
+  struct int_traits <const_tree>
+  {
+    static const enum precision_type precision_type = VAR_PRECISION;
+    static const bool host_dependent_precision = false;
+    static const bool is_sign_extended = false;
+    static unsigned int get_precision (const_tree);
+    static wi::storage_ref decompose (HOST_WIDE_INT *, unsigned int,
+				      const_tree);
+  };
+
+  template <>
+  struct int_traits <tree> : public int_traits <const_tree> {};
+
+  template <int N>
+  class extended_tree
+  {
+  private:
+    const_tree m_t;
+
+  public:
+    extended_tree (const_tree);
+
+    unsigned int get_precision () const;
+    const HOST_WIDE_INT *get_val () const;
+    unsigned int get_len () const;
+  };
+
+  template <int N>
+  struct int_traits <extended_tree <N> >
+  {
+    static const enum precision_type precision_type = CONST_PRECISION;
+    static const bool host_dependent_precision = false;
+    static const bool is_sign_extended = true;
+    static const unsigned int precision = N;
+  };
+
+  generic_wide_int <extended_tree <WIDE_INT_MAX_PRECISION> >
+  to_widest (const_tree);
+
+  generic_wide_int <extended_tree <ADDR_MAX_PRECISION> > to_offset (const_tree);
+}
+
+inline unsigned int
+wi::int_traits <const_tree>::get_precision (const_tree tcst)
+{
+  return TYPE_PRECISION (TREE_TYPE (tcst));
+}
+
+/* Convert the tree_cst X into a wide_int of PRECISION.  */
+inline wi::storage_ref
+wi::int_traits <const_tree>::decompose (HOST_WIDE_INT *,
+					unsigned int precision, const_tree x)
+{
+  return wi::storage_ref (&TREE_INT_CST_ELT (x, 0), TREE_INT_CST_NUNITS (x),
+			  precision);
+}
+
+inline generic_wide_int <wi::extended_tree <WIDE_INT_MAX_PRECISION> >
+wi::to_widest (const_tree t)
+{
+  return t;
+}
+
+inline generic_wide_int <wi::extended_tree <ADDR_MAX_PRECISION> >
+wi::to_offset (const_tree t)
+{
+  return t;
+}
+
+template <int N>
+inline wi::extended_tree <N>::extended_tree (const_tree t)
+  : m_t (t)
+{
+  gcc_checking_assert (TYPE_PRECISION (TREE_TYPE (t)) <= N);
+}
+
+template <int N>
+inline unsigned int
+wi::extended_tree <N>::get_precision () const
+{
+  return N;
+}
+
+template <int N>
+inline const HOST_WIDE_INT *
+wi::extended_tree <N>::get_val () const
+{
+  return &TREE_INT_CST_ELT (m_t, 0);
+}
+
+template <int N>
+inline unsigned int
+wi::extended_tree <N>::get_len () const
+{
+  if (N == ADDR_MAX_PRECISION)
+    return TREE_INT_CST_OFFSET_NUNITS (m_t);
+  else if (N >= WIDE_INT_MAX_PRECISION)
+    return TREE_INT_CST_EXT_NUNITS (m_t);
+  else
+    /* This class is designed to be used for specific output precisions
+       and needs to be as fast as possible, so there is no fallback for
+       other casees.  */
+    gcc_unreachable ();
+}
+
+namespace wi
+{
+  template <typename T>
+  bool fits_to_tree_p (const T &x, const_tree);
+
+  wide_int min_value (const_tree);
+  wide_int max_value (const_tree);
+  wide_int from_mpz (const_tree, mpz_t, bool);
+}
+
+template <typename T>
+bool
+wi::fits_to_tree_p (const T &x, const_tree type)
+{
+  if (TYPE_SIGN (type) == UNSIGNED)
+    return eq_p (x, zext (x, TYPE_PRECISION (type)));
+  else
+    return eq_p (x, sext (x, TYPE_PRECISION (type)));
+}
+
+/* Produce the smallest number that is represented in TYPE.  The precision
+   and sign are taken from TYPE.  */
+inline wide_int
+wi::min_value (const_tree type)
+{
+  return min_value (TYPE_PRECISION (type), TYPE_SIGN (type));
+}
+
+/* Produce the largest number that is represented in TYPE.  The precision
+   and sign are taken from TYPE.  */
+inline wide_int
+wi::max_value (const_tree type)
+{
+  return max_value (TYPE_PRECISION (type), TYPE_SIGN (type));
+}
+
+/* Return true if INTEGER_CST T1 is less than INTEGER_CST T2,
+   extending both according to their respective TYPE_SIGNs.  */
+
+inline bool
+tree_int_cst_lt (const_tree t1, const_tree t2)
+{
+  return wi::lts_p (wi::to_widest (t1), wi::to_widest (t2));
+}
+
+/* Return true if INTEGER_CST T1 is less than or equal to INTEGER_CST T2,
+   extending both according to their respective TYPE_SIGNs.  */
+
+inline bool
+tree_int_cst_le (const_tree t1, const_tree t2)
+{
+  return wi::les_p (wi::to_widest (t1), wi::to_widest (t2));
+}
+
+/* Returns -1 if T1 < T2, 0 if T1 == T2, and 1 if T1 > T2.  T1 and T2
+   are both INTEGER_CSTs and their values are extended according to their
+   respective TYPE_SIGNs.  */
+
+inline int
+tree_int_cst_compare (const_tree t1, const_tree t2)
+{
+  return wi::cmps (wi::to_widest (t1), wi::to_widest (t2));
+}
+
 /* FIXME - These declarations belong in builtins.h, expr.h and emit-rtl.h,
    but none of these files are allowed to be included from front ends.
    They should be split in two. One suitable for the FEs, the other suitable
@@ -4536,48 +4767,5 @@ extern tree get_inner_reference (tree, HOST_WIDE_INT *, HOST_WIDE_INT *,
 /* Return a tree representing the lower bound of the array mentioned in
    EXP, an ARRAY_REF or an ARRAY_RANGE_REF.  */
 extern tree array_ref_low_bound (tree);
-
-/* In builtins.c.  */
-
-/* Non-zero if __builtin_constant_p should be folded right away.  */
-extern bool force_folding_builtin_constant_p;
-
-extern bool avoid_folding_inline_builtin (tree);
-extern tree fold_call_expr (location_t, tree, bool);
-extern tree fold_builtin_fputs (location_t, tree, tree, bool, bool, tree);
-extern tree fold_builtin_strcpy (location_t, tree, tree, tree, tree);
-extern tree fold_builtin_strncpy (location_t, tree, tree, tree, tree, tree);
-extern tree fold_builtin_strcat (location_t, tree, tree, tree);
-extern tree fold_builtin_memory_chk (location_t, tree, tree, tree, tree, tree, tree, bool,
-				     enum built_in_function);
-extern tree fold_builtin_stxcpy_chk (location_t, tree, tree, tree, tree, tree, bool,
-				     enum built_in_function);
-extern tree fold_builtin_stxncpy_chk (location_t, tree, tree, tree, tree, tree, bool,
-				      enum built_in_function);
-extern tree fold_builtin_expect (location_t, tree, tree, tree);
-extern bool fold_builtin_next_arg (tree, bool);
-extern enum built_in_function builtin_mathfn_code (const_tree);
-extern tree fold_builtin_call_array (location_t, tree, tree, int, tree *);
-extern tree build_call_expr_loc_array (location_t, tree, int, tree *);
-extern tree build_call_expr_loc_vec (location_t, tree, vec<tree, va_gc> *);
-extern tree build_call_expr_loc (location_t, tree, int, ...);
-extern tree build_call_expr (tree, int, ...);
-extern tree mathfn_built_in (tree, enum built_in_function fn);
-extern tree c_strlen (tree, int);
-extern tree build_string_literal (int, const char *);
-extern rtx builtin_memset_read_str (void *, HOST_WIDE_INT, enum machine_mode);
-extern bool is_builtin_fn (tree);
-extern bool get_object_alignment_1 (tree, unsigned int *,
-				    unsigned HOST_WIDE_INT *);
-extern unsigned int get_object_alignment (tree);
-extern bool get_pointer_alignment_1 (tree, unsigned int *,
-				     unsigned HOST_WIDE_INT *);
-extern unsigned int get_pointer_alignment (tree);
-extern tree fold_call_stmt (gimple, bool);
-extern tree fold_builtin_n (location_t, tree, tree *, int, bool);
-extern tree gimple_fold_builtin_snprintf_chk (gimple, tree, enum built_in_function);
-extern void set_builtin_user_assembler_name (tree decl, const char *asmspec);
-extern bool is_simple_builtin (tree);
-extern bool is_inexpensive_builtin (tree);
 
 #endif  /* GCC_TREE_H  */

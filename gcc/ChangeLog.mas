@@ -1,5 +1,9 @@
 2014-06-11  Richard Biener  <rguenther@suse.de>
 
+	Merge from trunk r208477 through r211444.
+
+2014-06-11  Richard Biener  <rguenther@suse.de>
+
 	* genmatch.c (capture::gen_gimple_match): Whitespace fixes.
 	(write_nary_simplifiers): Likewise.
 	(outline_c_exprs): Likewise.
