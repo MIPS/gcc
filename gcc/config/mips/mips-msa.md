@@ -203,6 +203,11 @@
 ;; Only used in spliters
 (define_mode_iterator SPLIT [V2DI V2DF])
 
+;; Only used with SPILT iteraror
+(define_mode_attr predicate
+  [(V2DI "reg_or_0")
+   (V2DF "register")])
+
 (define_mode_attr VHALFMODE 
   [(V8HI "V16QI")
    (V4SI "V8HI")
@@ -337,7 +342,7 @@
   else
     {
       /* We need to do the SLDI operation in V16QImode and adjust
-	  operand[2] accordingly.  */
+	 operand[2] accordingly.  */
       rtx tempb = gen_reg_rtx (V16QImode);
       rtx op1b = gen_reg_rtx (V16QImode);
       emit_move_insn (op1b, gen_rtx_SUBREG (V16QImode, operands[1], 0));
@@ -385,67 +390,12 @@
    && (GET_MODE_NUNITS (<MSA_2:MODE>mode)
        == GET_MODE_NUNITS (<IMSA:MODE>mode))"
 {
-  rtx true_val = CONSTM1_RTX (<MSA_2:VIMODE>mode);
-  rtx false_val = CONST0_RTX (<MSA_2:VIMODE>mode);
-
-  if (operands[1] == true_val && operands[2] == false_val)
-    mips_expand_msa_vcond (operands[0], operands[1], operands[2],
-			   GET_CODE (operands[3]), operands[4], operands[5]);
-  else
-    {
-      rtx res = gen_reg_rtx (<MSA_2:VIMODE>mode);
-      rtx temp1 = gen_reg_rtx (<MSA_2:VIMODE>mode);
-      rtx temp2 = gen_reg_rtx (<MSA_2:VIMODE>mode);
-      rtx xres = gen_reg_rtx (<MSA_2:VIMODE>mode);
-
-      mips_expand_msa_vcond (res, true_val, false_val,
-			     GET_CODE (operands[3]), operands[4], operands[5]);
-      // This results in res T/F elements having value of -1 or 0. The result
-      // needs to adjusted to have the appropriate true/false elements as given
-      // by operands[1]/operands[2] repectively.
-      emit_move_insn (xres, res);
-      if (operands[1] != true_val)
-	{
-	  rtx xop1 = gen_reg_rtx (<MSA_2:VIMODE>mode);
-
-	  if (GET_CODE (operands[1]) == CONST_VECTOR)
-	    {
-	      rtx xtemp = gen_reg_rtx (<MSA_2:MODE>mode);
-	      emit_move_insn (xtemp, operands[1]);
-	      emit_move_insn (xop1,
-			      gen_rtx_SUBREG (<MSA_2:VIMODE>mode, xtemp, 0));
-	    }
-	  else
-	    emit_move_insn (xop1,
-			    gen_rtx_SUBREG (<MSA_2:VIMODE>mode, operands[1], 0));
-	  emit_insn (gen_and<MSA_2:mode_i>3 (temp1, xres, xop1));
-	}
-      else
-	emit_move_insn (temp1, xres);
-
-      emit_insn (gen_msa_nor_v_<MSA_2:msafmt> (temp2, xres, xres));
-      if (operands[2] != false_val)
-	{
-	  rtx xop2 = gen_reg_rtx (<MSA_2:VIMODE>mode);
-
-	  if (GET_CODE (operands[2]) == CONST_VECTOR)
-	    {
-	      rtx xtemp = gen_reg_rtx (<MSA_2:MODE>mode);
-	      emit_move_insn (xtemp, operands[2]);
-	      emit_move_insn (xop2, 
-			      gen_rtx_SUBREG (<MSA_2:VIMODE>mode, xtemp, 0));
-	    }
-	  else
-	    emit_move_insn (xop2,
-			    gen_rtx_SUBREG (<MSA_2:VIMODE>mode, operands[2], 0));
-	  emit_insn (gen_and<MSA_2:mode_i>3 (temp2, temp2, xop2));
-	}
-      else
-	emit_insn (gen_and<MSA_2:mode_i>3 (temp2, temp2, xres));
-      emit_insn (gen_ior<MSA_2:mode_i>3 (xres, temp1, temp2));
-      emit_move_insn (operands[0],
-		      gen_rtx_SUBREG (<MSA_2:MODE>mode, xres, 0));
-    }
+  mips_expand_vec_cond_expr (<MSA_2:MODE>mode,
+	   	             <MSA_2:VIMODE>mode,
+			     operands,
+			     gen_and<MSA_2:mode_i>3,
+			     gen_msa_nor_v_<MSA_2:msafmt>,
+			     gen_ior<MSA_2:mode_i>3);
   DONE;
 })
 
@@ -461,67 +411,12 @@
    && (GET_MODE_NUNITS (<MSA_2:MODE>mode)
        == GET_MODE_NUNITS (<MSA:MODE>mode))"
 {
-  rtx true_val = CONSTM1_RTX (<MSA_2:VIMODE>mode);
-  rtx false_val = CONST0_RTX (<MSA_2:VIMODE>mode);
-
-  if (operands[1] == true_val && operands[2] == false_val)
-    mips_expand_msa_vcond (operands[0], operands[1], operands[2],
-			   GET_CODE (operands[3]), operands[4], operands[5]);
-  else
-    {
-      rtx res = gen_reg_rtx (<MSA_2:VIMODE>mode);
-      rtx temp1 = gen_reg_rtx (<MSA_2:VIMODE>mode);
-      rtx temp2 = gen_reg_rtx (<MSA_2:VIMODE>mode);
-      rtx xres = gen_reg_rtx (<MSA_2:VIMODE>mode);
-
-      mips_expand_msa_vcond (res, true_val, false_val,
-			     GET_CODE (operands[3]), operands[4], operands[5]);
-      // This results in res T/F elements having value of -1 or 0. The result
-      // needs to adjusted to have the appropriate true/false elements as given
-      // by operands[1]/operands[2] repectively.
-      emit_move_insn (xres, res);
-      if (operands[1] != true_val)
-	{
-	  rtx xop1 = gen_reg_rtx (<MSA_2:VIMODE>mode);
-
-	  if (GET_CODE (operands[1]) == CONST_VECTOR)
-	    {
-	      rtx xtemp = gen_reg_rtx (<MSA_2:MODE>mode);
-	      emit_move_insn (xtemp, operands[1]);
-	      emit_move_insn (xop1,
-			      gen_rtx_SUBREG (<MSA_2:VIMODE>mode, xtemp, 0));
-	    }
-	  else
-	    emit_move_insn (xop1,
-			    gen_rtx_SUBREG (<MSA_2:VIMODE>mode, operands[1], 0));
-	  emit_insn (gen_and<MSA_2:mode_i>3 (temp1, xres, xop1));
-	}
-      else
-	emit_move_insn (temp1, xres);
-
-      emit_insn (gen_msa_nor_v_<MSA_2:msafmt> (temp2, xres, xres));
-      if (operands[2] != false_val)
-	{
-	  rtx xop2 = gen_reg_rtx (<MSA_2:VIMODE>mode);
-
-	  if (GET_CODE (operands[2]) == CONST_VECTOR)
-	    {
-	      rtx xtemp = gen_reg_rtx (<MSA_2:MODE>mode);
-	      emit_move_insn (xtemp, operands[2]);
-	      emit_move_insn (xop2,
-			      gen_rtx_SUBREG (<MSA_2:VIMODE>mode, xtemp, 0));
-	    }
-	  else
-	    emit_move_insn (xop2,
-			    gen_rtx_SUBREG (<MSA_2:VIMODE>mode, operands[2], 0));
-	  emit_insn (gen_and<MSA_2:mode_i>3 (temp2, temp2, xop2));
-	}
-      else
-	emit_insn (gen_and<MSA_2:mode_i>3 (temp2, temp2, xres));
-      emit_insn (gen_ior<MSA_2:mode_i>3 (xres, temp1, temp2));
-      emit_move_insn (operands[0],
-		      gen_rtx_SUBREG (<MSA_2:MODE>mode, xres, 0));
-    }
+  mips_expand_vec_cond_expr (<MSA_2:MODE>mode,
+			     <MSA_2:VIMODE>mode,
+			     operands,
+			     gen_and<MSA_2:mode_i>3,
+			     gen_msa_nor_v_<MSA_2:msafmt>,
+			     gen_ior<MSA_2:mode_i>3);
   DONE;
 })
 
@@ -552,15 +447,11 @@
    (set_attr "mode"     "TI")
    (set_attr "msa_execunit" "msa_eu_logic_l")])
 
-(define_mode_attr constraint
-  [(V2DI "reg_or_0_operand")
-   (V2DF "register_operand")])
-
 (define_split
   [(set (match_operand:SPLIT 0 "register_operand")
 	(unspec:SPLIT [(match_operand:SPLIT 1 "register_operand")
 		      (match_operand 2 "const_0_or_1_operand")
-		      (match_operand:<UNITMODE> 3 "<SPLIT:constraint>")]
+		      (match_operand:<UNITMODE> 3 "<SPLIT:predicate>_operand")]
 		     UNSPEC_MSA_INSERT))]
   "reload_completed && TARGET_MSA && !TARGET_64BIT"
   [(const_int 0)]
