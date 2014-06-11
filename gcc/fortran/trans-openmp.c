@@ -1090,7 +1090,7 @@ gfc_trans_omp_udr_expr (gfc_omp_namelist *n, bool is_initializer,
   /* Enable loop reversal.  */
   for (i = 0; i < GFC_MAX_DIMENSIONS; i++)
     loop.reverse[i] = GFC_ENABLE_REVERSE;
-  gfc_conv_loop_setup (&loop, &ns->code->loc);
+  gfc_conv_loop_setup (&loop, &ns->code->loc, &syme->ts);
   gfc_copy_loopinfo_to_se (&symse, &loop);
   gfc_copy_loopinfo_to_se (&outerse, &loop);
   symse.ss = symss;
