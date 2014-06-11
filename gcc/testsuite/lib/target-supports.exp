@@ -1326,7 +1326,6 @@ proc check_msa_hw_available { } {
 	      #error "MSA NOT AVAIL"
 	      #else
 	      #include <msa.h>
-	      extern v8i16 __builtin_msa_ldi_h(short a);
 
 	      int main()
 	      {
@@ -2180,7 +2179,9 @@ proc check_effective_target_vect_intfloat_cvt { } {
                    && ![istarget powerpc-*-linux*paired*])
               || [istarget x86_64-*-*] 
               || ([istarget arm*-*-*]
-                  && [check_effective_target_arm_neon_ok])} {
+                  && [check_effective_target_arm_neon_ok])
+	      || ([istarget mips*-*-*]
+	          && [check_effective_target_mips_msa_nomips16_nomicromips])} {
            set et_vect_intfloat_cvt_saved 1
         }
     }
@@ -2219,7 +2220,9 @@ proc check_effective_target_vect_uintfloat_cvt { } {
 	      || [istarget x86_64-*-*] 
 	      || [istarget aarch64*-*-*]
 	      || ([istarget arm*-*-*]
-		  && [check_effective_target_arm_neon_ok])} {
+		  && [check_effective_target_arm_neon_ok])
+	      || ([istarget mips*-*-*]
+	          && [check_effective_target_mips_msa_nomips16_nomicromips])} {
            set et_vect_uintfloat_cvt_saved 1
         }
     }
@@ -2244,7 +2247,9 @@ proc check_effective_target_vect_floatint_cvt { } {
                    && ![istarget powerpc-*-linux*paired*])
               || [istarget x86_64-*-*]
               || ([istarget arm*-*-*]
-                  && [check_effective_target_arm_neon_ok])} {
+                  && [check_effective_target_arm_neon_ok])
+	      || ([istarget mips*-*-*]
+	          && [check_effective_target_mips_msa_nomips16_nomicromips])} {
            set et_vect_floatint_cvt_saved 1
         }
     }
@@ -2266,7 +2271,9 @@ proc check_effective_target_vect_floatuint_cvt { } {
         if { ([istarget powerpc*-*-*]
 	      && ![istarget powerpc-*-linux*paired*])
 	    || ([istarget arm*-*-*]
-	        && [check_effective_target_arm_neon_ok])} {
+	        && [check_effective_target_arm_neon_ok])
+	    || ([istarget mips*-*-*]
+	        && [check_effective_target_mips_msa_nomips16_nomicromips])} {
            set et_vect_floatuint_cvt_saved 1
         }
     }
@@ -2981,9 +2988,7 @@ proc check_effective_target_mips_msa { } {
      #if !defined(__mips_msa)
      #error "MSA NOT AVAIL"
      #else
-
      #include <msa.h>
-     extern v8i16 __builtin_msa_ldi_h(short a);
 
      int main()
      {
