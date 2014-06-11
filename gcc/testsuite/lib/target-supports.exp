@@ -2167,7 +2167,7 @@ proc check_effective_target_vect_intfloat_cvt { } {
               || ([istarget arm*-*-*]
                   && [check_effective_target_arm_neon_ok])
 	      || ([istarget mips*-*-*]
-	          && [check_effective_target_mips_msa_nomips16_nomicromips])} {
+	          && [check_effective_target_mips_msa_nomips16_nomicromips]) } {
            set et_vect_intfloat_cvt_saved 1
         }
     }
@@ -2208,7 +2208,7 @@ proc check_effective_target_vect_uintfloat_cvt { } {
 	      || ([istarget arm*-*-*]
 		  && [check_effective_target_arm_neon_ok])
 	      || ([istarget mips*-*-*]
-	          && [check_effective_target_mips_msa_nomips16_nomicromips])} {
+	          && [check_effective_target_mips_msa_nomips16_nomicromips]) } {
            set et_vect_uintfloat_cvt_saved 1
         }
     }
@@ -2235,7 +2235,7 @@ proc check_effective_target_vect_floatint_cvt { } {
               || ([istarget arm*-*-*]
                   && [check_effective_target_arm_neon_ok])
 	      || ([istarget mips*-*-*]
-	          && [check_effective_target_mips_msa_nomips16_nomicromips])} {
+	          && [check_effective_target_mips_msa_nomips16_nomicromips]) } {
            set et_vect_floatint_cvt_saved 1
         }
     }
@@ -2259,7 +2259,7 @@ proc check_effective_target_vect_floatuint_cvt { } {
 	    || ([istarget arm*-*-*]
 	        && [check_effective_target_arm_neon_ok])
 	    || ([istarget mips*-*-*]
-	        && [check_effective_target_mips_msa_nomips16_nomicromips])} {
+	        && [check_effective_target_mips_msa_nomips16_nomicromips]) } {
            set et_vect_floatuint_cvt_saved 1
         }
     }
@@ -3532,7 +3532,9 @@ proc check_effective_target_vect_long_long { } {
     } else {
         set et_vect_long_long_saved 0
         if { [istarget i?86-*-*]
-              || [istarget x86_64-*-*] } {
+              || [istarget x86_64-*-*] 
+	      || ([istarget mips*-*-*]
+	          && [check_effect_target_mips_msa_nomips16_nomicronyps]) } {
            set et_vect_long_long_saved 1
         }
     }
@@ -3558,7 +3560,7 @@ proc check_effective_target_vect_no_int_max { } {
 	     || [istarget spu-*-*]
 	     || [istarget alpha*-*-*]
 	     || ([istarget mips*-*-*]
-		 && ![check_effective_target_mips_msa_nomips16_nomicromips]
+		 && (![check_effective_target_mips_msa_nomips16_nomicromips])
 		 &&  [check_effective_target_mips_loongson]) } {
 	    set et_vect_no_int_max_saved 1
 	}
@@ -3679,7 +3681,7 @@ proc check_effective_target_vect_perm_short { } {
 	     || [istarget powerpc*-*-*]
              || [istarget spu-*-*]
 	     || ([istarget mips*-*-*]
-	          && [check_effective_target_mips_msa_nomips16_nomicromips])} {
+	          && [check_effective_target_mips_msa_nomips16_nomicromips]) } {
             set et_vect_perm_short_saved 1
         }
     }
