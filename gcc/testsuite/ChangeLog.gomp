@@ -1,3 +1,8 @@
+2014-06-12  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-c++-common/goacc/if-clause-1.c: New file.
+	* c-c++-common/goacc/if-clause-2.c: Likewise.
+
 2014-06-06  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* c-c++-common/goacc/pragma_context.c: New file.

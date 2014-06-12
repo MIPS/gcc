@@ -1634,12 +1634,6 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  ctx->default_kind = OMP_CLAUSE_DEFAULT_KIND (c);
 	  break;
 
-	case OMP_CLAUSE_IF:
-	  if (is_gimple_omp_oacc_specifically (ctx->stmt))
-	    {
-	      sorry ("clause not supported yet");
-	      break;
-	    }
 	case OMP_CLAUSE_FINAL:
 	case OMP_CLAUSE_NUM_THREADS:
 	case OMP_CLAUSE_NUM_TEAMS:
@@ -1649,6 +1643,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_DIST_SCHEDULE:
 	case OMP_CLAUSE_DEPEND:
 	  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
+	case OMP_CLAUSE_IF:
 	case OMP_CLAUSE_NUM_GANGS:
 	case OMP_CLAUSE_NUM_WORKERS:
 	case OMP_CLAUSE_VECTOR_LENGTH:
@@ -1916,12 +1911,6 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	    }
 	  break;
 
-	case OMP_CLAUSE_IF:
-	  if (is_gimple_omp_oacc_specifically (ctx->stmt))
-	    {
-	      sorry ("clause not supported yet");
-	      break;
-	    }
 	case OMP_CLAUSE_COPYPRIVATE:
 	case OMP_CLAUSE_COPYIN:
 	case OMP_CLAUSE_DEFAULT:
@@ -1945,6 +1934,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_TO:
 	case OMP_CLAUSE_FROM:
 	  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
+	case OMP_CLAUSE_IF:
 	case OMP_CLAUSE_NUM_GANGS:
 	case OMP_CLAUSE_NUM_WORKERS:
 	case OMP_CLAUSE_VECTOR_LENGTH:
@@ -5115,7 +5105,7 @@ expand_oacc_offload (struct omp_region *region)
   /* Emit a library call to launch CHILD_FN.  */
   tree t1, t2, t3, t4,
     t_num_gangs, t_num_workers, t_vector_length,
-    device, c, clauses;
+    device, cond, c, clauses;
   enum built_in_function start_ix;
   location_t clause_loc;
   tree (*gimple_omp_clauses) (const_gimple);
@@ -5165,8 +5155,14 @@ expand_oacc_offload (struct omp_region *region)
       break;
     }
 
-  /* By default, the value of DEVICE is -1 (let runtime library choose).  */
+  /* By default, the value of DEVICE is -1 (let runtime library choose)
+     and there is no conditional.  */
+  cond = NULL_TREE;
   device = build_int_cst (integer_type_node, -1);
+
+  c = find_omp_clause (clauses, OMP_CLAUSE_IF);
+  if (c)
+    cond = OMP_CLAUSE_IF_EXPR (c);
 
   c = find_omp_clause (clauses, OMP_CLAUSE_DEVICE);
   gcc_assert (c == NULL);
@@ -5180,6 +5176,61 @@ expand_oacc_offload (struct omp_region *region)
 
   /* Ensure 'device' is of the correct type.  */
   device = fold_convert_loc (clause_loc, integer_type_node, device);
+
+  /* If we found the clause 'if (cond)', build
+     (cond ? device : -2).  */
+  if (cond)
+    {
+      cond = gimple_boolify (cond);
+
+      basic_block cond_bb, then_bb, else_bb;
+      edge e;
+      tree tmp_var;
+
+      tmp_var = create_tmp_var (TREE_TYPE (device), NULL);
+      /* Preserve indentation of expand_omp_target.  */
+      if (0)
+	{
+	  gsi = gsi_last_bb (new_bb);
+	  gsi_prev (&gsi);
+	  e = split_block (new_bb, gsi_stmt (gsi));
+	}
+      else
+	e = split_block (new_bb, NULL);
+      cond_bb = e->src;
+      new_bb = e->dest;
+      remove_edge (e);
+
+      then_bb = create_empty_bb (cond_bb);
+      else_bb = create_empty_bb (then_bb);
+      set_immediate_dominator (CDI_DOMINATORS, then_bb, cond_bb);
+      set_immediate_dominator (CDI_DOMINATORS, else_bb, cond_bb);
+
+      stmt = gimple_build_cond_empty (cond);
+      gsi = gsi_last_bb (cond_bb);
+      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+      gsi = gsi_start_bb (then_bb);
+      stmt = gimple_build_assign (tmp_var, device);
+      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+      gsi = gsi_start_bb (else_bb);
+      stmt = gimple_build_assign (tmp_var,
+				  build_int_cst (integer_type_node, -2));
+      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+      make_edge (cond_bb, then_bb, EDGE_TRUE_VALUE);
+      make_edge (cond_bb, else_bb, EDGE_FALSE_VALUE);
+      if (current_loops)
+	{
+	  add_bb_to_loop (then_bb, cond_bb->loop_father);
+	  add_bb_to_loop (else_bb, cond_bb->loop_father);
+	}
+      make_edge (then_bb, new_bb, EDGE_FALLTHRU);
+      make_edge (else_bb, new_bb, EDGE_FALLTHRU);
+
+      device = tmp_var;
+    }
 
   gsi = gsi_last_bb (new_bb);
   t = gimple_omp_data_arg (entry_stmt);
@@ -8661,7 +8712,6 @@ expand_omp_target (struct omp_region *region)
   device = build_int_cst (integer_type_node, -1);
 
   c = find_omp_clause (clauses, OMP_CLAUSE_IF);
-  gcc_assert (!c || kind != GF_OMP_TARGET_KIND_OACC_DATA);
   if (c)
     cond = OMP_CLAUSE_IF_EXPR (c);
 
@@ -8684,7 +8734,6 @@ expand_omp_target (struct omp_region *region)
      (cond ? device : -2).  */
   if (cond)
     {
-      gcc_assert (kind != GF_OMP_TARGET_KIND_OACC_DATA);
       cond = gimple_boolify (cond);
 
       basic_block cond_bb, then_bb, else_bb;

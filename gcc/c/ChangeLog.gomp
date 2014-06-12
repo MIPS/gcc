@@ -1,3 +1,11 @@
+2014-06-12  Thomas Schwinge  <thomas@codesourcery.com>
+	    James Norris  <jnorris@codesourcery.com>
+
+	* c-parser.c (c_parser_oacc_all_clauses): Handle
+	PRAGMA_OMP_CLAUSE_IF.
+	(OACC_DATA_CLAUSE_MASK, OACC_KERNELS_CLAUSE_MASK)
+	(OACC_PARALLEL_CLAUSE_MASK, OACC_UPDATE_CLAUSE_MASK): Add it.
+
 2014-06-06  Thomas Schwinge  <thomas@codesourcery.com>
 	    James Norris  <jnorris@codesourcery.com>
 

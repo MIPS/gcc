@@ -10203,7 +10203,7 @@ c_parser_omp_clause_final (c_parser *parser, tree list)
   return list;
 }
 
-/* OpenMP 2.5:
+/* OpenACC, OpenMP 2.5:
    if ( expression ) */
 
 static tree
@@ -11295,6 +11295,10 @@ c_parser_oacc_all_clauses (c_parser *parser, omp_clause_mask mask,
 	  clauses = c_parser_oacc_data_clause (parser, c_kind, clauses);
 	  c_name = "host";
 	  break;
+	case PRAGMA_OMP_CLAUSE_IF:
+	  clauses = c_parser_omp_clause_if (parser, clauses);
+	  c_name = "if";
+	  break;
 	case PRAGMA_OMP_CLAUSE_NUM_GANGS:
 	  clauses = c_parser_omp_clause_num_gangs (parser, clauses);
 	  c_name = "num_gangs";
@@ -11614,6 +11618,7 @@ c_parser_omp_structured_block (c_parser *parser)
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_COPYOUT)		\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_CREATE)		\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_DEVICEPTR)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_IF)			\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_PRESENT)		\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_PRESENT_OR_COPY)	\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_PRESENT_OR_COPYIN)	\
@@ -11649,6 +11654,7 @@ c_parser_oacc_data (location_t loc, c_parser *parser)
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_COPYOUT)		\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_CREATE)		\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_DEVICEPTR)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_IF)			\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_PRESENT)		\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_PRESENT_OR_COPY)	\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_PRESENT_OR_COPYIN)	\
@@ -11727,6 +11733,7 @@ c_parser_oacc_loop (location_t loc, c_parser *parser, char *p_name)
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_COPYOUT)		\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_CREATE)		\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_DEVICEPTR)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_IF)			\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_NUM_GANGS)		\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_NUM_WORKERS)		\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_PRESENT)		\
@@ -11775,6 +11782,7 @@ c_parser_oacc_parallel (location_t loc, c_parser *parser, char *p_name)
 #define OACC_UPDATE_CLAUSE_MASK						\
 	( (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_DEVICE)		\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_HOST)			\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_IF)			\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_SELF) )
 
 static void
