@@ -1,3 +1,13 @@
+2014-06-12  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/cp/parser.c (cp_check_type_concept): New.
+	(cp_check_concept_name): Remove redundant condition from check.
+	Diagnose misuse of non-type concepts in constrained type specifiers.
+	* gcc/testuite/g++.dg/concepts/generic-fn.C: Add tests for
+	non-simple constrained-type-specifiers and nested-name-specifiers
+	in concept names.
+	* gcc/testuite/g++.dg/concepts/generic-fn-err.C: New tests for
+	diagnosing ill-formed programs.
+
 2014-06-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/cp-tree.h (build_constrained_parameter): Renamed fro
 	describe_tempalte_parm.

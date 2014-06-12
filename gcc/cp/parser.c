@@ -15132,11 +15132,22 @@ cp_parser_type_name (cp_parser* parser)
   return type_decl;
 }
 
-
+/// Returns true if proto is a type parameter, but not a template template
+/// parameter.
+static bool
+cp_check_type_concept (tree proto, tree fn) 
+{
+  if (TREE_CODE (proto) != TYPE_DECL) 
+    {
+      error ("invalid use of non-type concept %qD", fn);
+      return false;
+    }
+  return true;
+}
 
 // If DECL refers to a concept, return a TYPE_DECL representing the result
 // of using the constrained type specifier in the current context. 
-
+//
 // DECL refers to a concept if
 //   - it is an overload set containing a function concept taking a single
 //     type argument, or
@@ -15173,8 +15184,12 @@ cp_check_concept_name (cp_parser* parser, tree decl)
 
   // In template paramteer scope, this results in a constrained parameter.
   // Return a descriptor of that parm.
-  if (template_parm_scope_p () && processing_template_parmlist)
+  if (processing_template_parmlist)
     return build_constrained_parameter (proto, fn);
+
+  // In any other context, a concept must be a type concept.
+  if (!cp_check_type_concept (proto, fn))
+    return error_mark_node;
 
   // In a parameter-declaration-clause, constrained-type specifiers
   // result in invented template parameters.
