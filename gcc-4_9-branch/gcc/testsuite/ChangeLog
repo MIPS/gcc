@@ -1,3 +1,52 @@
+2014-06-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/61486
+	* c-c++-common/gomp/pr61486-1.c: New test.
+	* c-c++-common/gomp/pr61486-2.c: New test.
+
+2014-06-12  Jeff Law  <law@redhat.com>
+
+	Backports from mainline:
+	2014-06-05  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/61289
+	* g++.dg/pr61289.C: New test.
+	* g++.dg/pr61289-2.C: New test.
+
+2014-06-12  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from 2014-06-12 trunk r211491
+
+	PR target/61443
+	* gcc.target/avr/torture/pr61443.c: New test.
+
+2014-06-11  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/61452
+	* gcc.dg/torture/pr61452.c: New testcase.
+
+2014-06-11  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/61456
+	* g++.dg/opt/pr61456.C: New testcase.
+
+2014-06-09  Paul Thomas  <pault@gcc.gnu.org>
+
+	Backport from trunk.
+	PR fortran/61406
+	* gfortran.dg/associate_17.f90 : New test
+
+2014-06-07  Jerry DeLisle  <jvdelisle@gcc.gnu>
+
+	Backport from trunk.
+	PR libfortran/61173
+	* gfortran.dg/arrayio_14.f90: New test.
+
+2014-06-07  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/opt38.adb: New test.
+	* gnat.dg/opt38_pkg.ad[sb]: New helper.
+
 2014-06-04  Richard Biener  <rguenther@suse.de>
 
 	PR tree-optimization/61383
