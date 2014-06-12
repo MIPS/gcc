@@ -319,6 +319,23 @@ esac
 
 ACX_CANONICAL_ACCEL_TARGET
 
+# Allow for specifying configure flags that apply to only the target GCC, or
+# only the accelerator GCC.
+
+AC_ARG_ENABLE(target-gcc-configure-flags,
+  [AS_HELP_STRING([[--enable-target-gcc-configure-flags=FLAGS]],
+    [additional flags for configuring the target GCC @<:@none@:>@])],
+  extra_target_gcc_configure_flags=$enableval,
+  extra_target_gcc_configure_flags=)
+AC_SUBST(extra_target_gcc_configure_flags)
+
+AC_ARG_ENABLE(accelerator-gcc-configure-flags,
+  [AS_HELP_STRING([[--enable-accelerator-gcc-configure-flags=FLAGS]],
+    [additional flags for configuring the accelerator GCC @<:@none@:>@])],
+  extra_accelerator_gcc_configure_flags=$enableval,
+  extra_accelerator_gcc_configure_flags=)
+AC_SUBST(extra_accelerator_gcc_configure_flags)
+
 # Handle --enable-gold, --enable-ld.
 # --disable-gold [--enable-ld]
 #     Build only ld.  Default option.
