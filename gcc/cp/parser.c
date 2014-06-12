@@ -2523,7 +2523,10 @@ static tree cp_parser_make_typename_type
 static cp_declarator * cp_parser_make_indirect_declarator
  (enum tree_code, tree, cp_cv_quals, cp_declarator *, tree);
 
+/* Concept-related syntactic transformations */
 
+static tree cp_maybe_concept_name       (cp_parser *, tree);
+static tree cp_maybe_partial_concept_id (cp_parser *, tree, tree);
 
 // -------------------------------------------------------------------------- //
 // Unevaluated Operand Guard
@@ -13775,6 +13778,11 @@ cp_parser_template_id (cp_parser *parser,
 		   || TREE_CODE (templ) == OVERLOAD
 		   || BASELINK_P (templ)));
 
+      // If the template + args designate a concept, then return
+      // something else.
+      if (tree id = cp_maybe_partial_concept_id (parser, templ, arguments))
+        return id;
+
       template_id = lookup_template_function (templ, arguments);
     }
 
@@ -14995,7 +15003,8 @@ cp_parser_simple_type_specifier (cp_parser* parser,
 	}
       /* Otherwise, look for a type-name.  */
       else
-	type = cp_parser_type_name (parser);
+        type = cp_parser_type_name (parser);
+      
       /* Keep track of all name-lookups performed in class scopes.  */
       if (type
 	  && !global_p
@@ -15071,6 +15080,7 @@ cp_parser_simple_type_specifier (cp_parser* parser,
    
    type-name:
      concept-name
+     partial-concept-id
 
    concept-name:
      identifier
@@ -15092,6 +15102,7 @@ cp_parser_type_name (cp_parser* parser)
 				    /*check_dependency_p=*/true,
 				    /*class_head_p=*/false,
 				    /*is_declaration=*/false);
+
   /* If it's not a class-name, keep looking.  */
   if (!cp_parser_parse_definitely (parser))
     {
@@ -15107,6 +15118,7 @@ cp_parser_type_name (cp_parser* parser)
 					 /*check_dependency_p=*/true,
 					 none_type,
 					 /*is_declaration=*/false);
+
       /* Note that this must be an instantiation of an alias template
 	 because [temp.names]/6 says:
 	 
@@ -15135,7 +15147,7 @@ cp_parser_type_name (cp_parser* parser)
 /// Returns true if proto is a type parameter, but not a template template
 /// parameter.
 static bool
-cp_check_type_concept (tree proto, tree fn) 
+cp_check_type_concept (tree fn, tree proto) 
 {
   if (TREE_CODE (proto) != TYPE_DECL) 
     {
@@ -15145,57 +15157,58 @@ cp_check_type_concept (tree proto, tree fn)
   return true;
 }
 
-// If DECL refers to a concept, return a TYPE_DECL representing the result
-// of using the constrained type specifier in the current context. 
-//
-// DECL refers to a concept if
-//   - it is an overload set containing a function concept taking a single
-//     type argument, or
-//   - it is a variable concept taking a single type argument
-//
-//
-// TODO: DECL could be a variable concept.
+/// Returns true if the parser is in a context that allows the
+/// use of a constrained type specifier.
+static inline bool
+cp_parser_allows_constrained_type_specifier (cp_parser *parser)
+{
+  return flag_concepts 
+        && (processing_template_parmlist
+            || parser->auto_is_implicit_function_template_parm_p
+            || parser->in_result_type_constraint_p);
+}
+
+// Check if DECL and ARGS can form a constrained-type-specifier. If ARGS
+// is non-null, we try to form a concept check of the form DECL<?, ARGS>
+// where ? is a placeholder for any kind of template argument. If ARGS
+// is NULL, then we try to form a concept check of the form DEC<?>.
 static tree
-cp_check_concept_name (cp_parser* parser, tree decl)
+cp_maybe_constrained_type_specifier (cp_parser *parser, tree decl, tree args)
 {
   gcc_assert (TREE_CODE (decl) == OVERLOAD);
+  gcc_assert (args ? TREE_CODE (args) == TREE_VEC : true);
+
+  // Don't do any heavy lifting if we know we're not in a context
+  // where it could succeed.
+  if (!cp_parser_allows_constrained_type_specifier (parser))
+    return NULL_TREE;
 
   // Try to build a call expression that evaluates the concept. This
   // can fail if the overload set refers only to non-templates.
-  tree call = build_concept_check (decl, build_nt(PLACEHOLDER_EXPR));
+  tree call = build_concept_check (decl, build_nt(PLACEHOLDER_EXPR), args);
   if (call == error_mark_node)
     return NULL_TREE;
   
-  // Resolve the constraint check to deduce the declared parameter.
-  tree check = resolve_constraint_check (call);
-  if (!check)
+  // Deduce the checked constraint and the prototype parameter.
+  tree fn;
+  tree proto;
+  if (!deduce_constrained_parameter (call, fn, proto))
     return NULL_TREE;
-
-  // Get function and argument from the resolved check expression. If 
-  // the argument was a pack expansion, then get the first element 
-  // of that pack.
-  tree fn = TREE_VALUE (check);
-  tree arg = TREE_VEC_ELT (TREE_PURPOSE (check), 0);
-  if (ARGUMENT_PACK_P (arg))
-    arg = TREE_VEC_ELT (ARGUMENT_PACK_ARGS (arg), 0);
-
-  // Get the protyping parameter bound to the placeholder.
-  tree proto = TREE_TYPE (arg);
 
   // In template paramteer scope, this results in a constrained parameter.
   // Return a descriptor of that parm.
   if (processing_template_parmlist)
-    return build_constrained_parameter (proto, fn);
+    return build_constrained_parameter (fn, proto, args);
 
   // In any other context, a concept must be a type concept.
-  if (!cp_check_type_concept (proto, fn))
+  if (!cp_check_type_concept (fn, proto))
     return error_mark_node;
 
   // In a parameter-declaration-clause, constrained-type specifiers
   // result in invented template parameters.
   if (parser->auto_is_implicit_function_template_parm_p)
     {
-      tree x = build_constrained_parameter (proto, fn);
+      tree x = build_constrained_parameter (fn, proto, args);
       tree r = synthesize_implicit_template_parm (parser, x);
       return r;
     }
@@ -15208,11 +15221,35 @@ cp_check_concept_name (cp_parser* parser, tree decl)
   if (parser->in_result_type_constraint_p)
       return make_auto();
 
-  // FIXME: What other contexts accept a constrained-type-specifier?
-  // - variable declarations
-  // - trailing return types
+  return NULL_TREE;  
+}
 
-  return NULL_TREE;
+
+// If DECL refers to a concept, return a TYPE_DECL representing the result
+// of using the constrained type specifier in the current context. 
+//
+// DECL refers to a concept if
+//   - it is an overload set containing a function concept taking a single
+//     type argument, or
+//   - it is a variable concept taking a single type argument
+//
+// TODO: DECL could be a variable concept.
+static tree
+cp_maybe_concept_name (cp_parser* parser, tree decl)
+{
+  return cp_maybe_constrained_type_specifier (parser, decl, NULL_TREE);
+}
+
+// Check if DECL and ARGS forms a partial concept id. Let C be the name
+// of the overload set denoted by TMPL, Args the sequence of ARGS, and
+// ? denote an unspecified template argument. If the template-id C<?, Args>
+// is valid, this denotes a partial-concept-id to be acted on.
+//
+// TODO: TMPL could be a variable concept.
+tree
+cp_maybe_partial_concept_id (cp_parser *parser, tree decl, tree args)
+{
+  return cp_maybe_constrained_type_specifier (parser, decl, args);
 }
 
 /* Parse a non-class type-name, that is, either an enum-name, a typedef-name,
@@ -15251,7 +15288,7 @@ cp_parser_nonclass_name (cp_parser* parser)
   if (flag_concepts && TREE_CODE (type_decl) == OVERLOAD)
   {
     // Determine whether the overload refers to a concept.
-    if (tree decl = cp_check_concept_name (parser, type_decl))
+    if (tree decl = cp_maybe_concept_name (parser, type_decl))
       return decl;
   }
 

@@ -192,7 +192,31 @@ resolve_constraint_check (tree call)
   tree args = TREE_OPERAND (target, 1);
   return resolve_constraint_check (ovl, args);
 }
-  
+
+// Given a call expression to a concept, possibly including a placeholder
+// argument, deduce the concept being checked and the prototype paraemter.
+// Returns true if the constraint and prototype can be deduced and false
+// otherwise. Note that the CHECK and PROTO arguments are set to NULL_TREE
+// if this returns false.
+bool
+deduce_constrained_parameter (tree call, tree& check, tree& proto)
+{
+  // Resolve the constraint check to deduce the declared parameter.
+  if (tree info = resolve_constraint_check (call))
+    {
+      // Get function and argument from the resolved check expression and
+      // the prototype parameter. Note that if the first argument was a
+      // pack, we need to extract the first element ot get the prototype.
+      check = TREE_VALUE (info);
+      tree arg = TREE_VEC_ELT (TREE_PURPOSE (info), 0);
+      if (ARGUMENT_PACK_P (arg))
+        arg = TREE_VEC_ELT (ARGUMENT_PACK_ARGS (arg), 0);
+      proto = TREE_TYPE (arg);
+      return true;
+    }
+  check = proto = NULL_TREE;
+  return false;
+}
 
 // -------------------------------------------------------------------------- //
 // Requirement Reduction
@@ -812,31 +836,43 @@ check_constrained_friend (tree fn, tree reqs)
     }
 }
 
-// Given an overload set, OVL, and a template argument or placeholder, ARG,
-// synthesize a call expression that resolves to a concept check of
-// the expression the form OVL<ARG>().
-//
-// TODO: Extend this to take a variable concept also.
-tree
-build_concept_check (tree ovl, tree arg)
-{
-  gcc_assert (TREE_CODE (ovl) == OVERLOAD);
-
-  // Build a template-id that acts as the call target using OVL as
-  // the template and ARG as the only explicit argument.
-  tree targs = make_tree_vec (1);
-  TREE_VEC_ELT (targs, 0) = arg;
-  SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT (targs, 1);
-  tree id = lookup_template_function (ovl, targs);
-
+namespace {
   // Build a new call expression, but don't actually generate a new 
   // function call. We just want the tree, not the semantics.
+inline tree
+build_call_check (tree id)
+{
   ++processing_template_decl;
   vec<tree, va_gc> *fargs = make_tree_vector();
   tree call = finish_call_expr (id, &fargs, false, false, tf_none);
   --processing_template_decl;
-  
   return call;
+}
+} // namespace
+
+// Construct a concept check for the overloaded function, where the
+// template arguments are the list given by ARG and REST. That is, it
+// build the call expression OVL<ARG, REST>(). If REST is null, then
+// the resulting constraint is OVL<ARG>().
+//
+// TODO: Extend this to take a variable concept also.
+tree
+build_concept_check (tree ovl, tree arg, tree rest) 
+{
+  gcc_assert (TREE_CODE (ovl) == OVERLOAD);
+  gcc_assert (rest ? TREE_CODE (rest) == TREE_VEC : true);
+
+  // Build a template-id that acts as the call target using OVL as
+  // the template and ARG as the only explicit argument.
+  int n = rest ? TREE_VEC_LENGTH (rest) : 0;
+  tree targs = make_tree_vec (n + 1);
+  TREE_VEC_ELT (targs, 0) = arg;
+  if (rest)
+    for (int i = 0; i < n; ++i)
+      TREE_VEC_ELT (targs, i + 1) = TREE_VEC_ELT (rest, i);
+  SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT (targs, n + 1);
+  tree id = lookup_template_function (ovl, targs);
+  return build_call_check (id);
 }
 
 // Returns a TYPE_DECL that contains sufficient information to build
@@ -844,14 +880,18 @@ build_concept_check (tree ovl, tree arg)
 // by the concept declaration FN. PROTO is saved as the initializer of
 // the new type decl, and the constraining function is saved in
 // DECL_SIZE_UNIT.
+//
+// If specified ARGS provides additional arguments to the constraint
+// check. These are stored in the DECL_SIZE field.
 tree
-build_constrained_parameter (tree proto, tree fn) 
+build_constrained_parameter (tree fn, tree proto, tree args) 
 {
   tree name = DECL_NAME (fn);
   tree type = TREE_TYPE (proto);
   tree decl = build_decl (input_location, TYPE_DECL, name, type);
   DECL_INITIAL (decl) = proto;  // Describing parameter
   DECL_SIZE_UNIT (decl) = fn;   // Constraining function declaration
+  DECL_SIZE (decl) = args;      // Extra template arguments.
   return decl;
 }
 
@@ -871,6 +911,7 @@ finish_shorthand_requirement (tree decl, tree constr)
 
   tree proto = DECL_INITIAL (constr); // The prototype declaration
   tree con = DECL_SIZE_UNIT (constr); // The concept declaration
+  tree args = DECL_SIZE (constr);     // Extra template arguments
 
   // If the parameter declaration is variadic, but the concept is not 
   // then we need to apply the concept to every element in the pack.
@@ -888,7 +929,7 @@ finish_shorthand_requirement (tree decl, tree constr)
   // to all elements of the parameter pack, then expand make the constraint
   // an expansion.
   tree ovl = build_overload (DECL_TI_TEMPLATE (con), NULL_TREE);
-  tree check = build_concept_check (ovl, arg);
+  tree check = build_concept_check (ovl, arg, args);
   if (apply_to_all_p)
     {
       check = make_pack_expansion (check);

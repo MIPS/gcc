@@ -1,4 +1,26 @@
 2014-06-12  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/cp/constraint.cc (deduce_constrained_parameter): Refactor
+	common deduction framework into separate function.
+	(build_call_check): New.
+	(build_concept_check): Take additional arguments to support the
+	creation of constrained-type-specifiers from partial-concept-ids.
+	(build_constrained_parameter): Take arguments from a partial-concept-id.
+	* gcc/cp/cp-tree.h (build_concept_check, biuld_constrained_parameter):
+	Take a template argument list, defaulting to NULL_TREE.
+	* gcc/cp/parser.c (cp_parser_template_id): Check to see if a 
+	template-id is a concept check.
+	(cp_check_type_concept): Reorder arguments
+	(cp_parser_allows_constrained_type_specifier): New. Check contexts
+	where a constrained-type-specifier is allowed.
+	(cp_maybe_constrained_type_specifier): New. Refactored common rules
+	for concept name checks.
+	(cp_maybe_partial_concept_id): New. Check for 
+	constrained-type-specifiers.
+	* gcc/testuite/g++.dg/concepts/partial.C: New tests.
+	* gcc/testuite/g++.dg/concepts/partial-err.C: New tests.
+	* gcc/testuite/g++.dg/concepts/concepts.exp: Add missing test driver.
+
+2014-06-12  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/parser.c (cp_check_type_concept): New.
 	(cp_check_concept_name): Remove redundant condition from check.
 	Diagnose misuse of non-type concepts in constrained type specifiers.

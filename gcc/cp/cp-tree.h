@@ -841,12 +841,12 @@ check_constraint_info (tree t)
 // Access the logical constraints on the template parameters introduced 
 // at a given template parameter list level indicated by NODE.
 #define TEMPLATE_PARMS_CONSTRAINTS(NODE) \
-  TREE_TYPE(TREE_LIST_CHECK(NODE))
+  TREE_TYPE (TREE_LIST_CHECK (NODE))
 
 // Access the logical constraints on the template parameter declaration
 // indicatd by NODE.
 #define TEMPLATE_PARM_CONSTRAINTS(NODE) \
-  TREE_TYPE(TREE_LIST_CHECK(NODE))
+  TREE_TYPE (TREE_LIST_CHECK (NODE))
 
 enum cp_tree_node_structure_enum {
   TS_CP_GENERIC,
@@ -6358,8 +6358,9 @@ extern tree make_constraints                    (tree);
 extern tree get_constraints                     (tree);
 extern tree get_shorthand_requirements          (tree);
 
-extern tree build_concept_check                 (tree, tree);
-extern tree build_constrained_parameter         (tree, tree);
+extern tree build_concept_check                 (tree, tree, tree = NULL_TREE);
+extern tree build_constrained_parameter         (tree, tree, tree = NULL_TREE);
+extern bool deduce_constrained_parameter        (tree, tree&, tree&);
 extern tree resolve_constraint_check            (tree);
 
 extern tree finish_concept_name                 (tree);
