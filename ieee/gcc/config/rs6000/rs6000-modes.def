@@ -48,11 +48,9 @@ VECTOR_MODES (FLOAT, 32);     /*       V16HF V8SF V4DF */
    combination.  */
 PARTIAL_INT_MODE (TI, 128, PTI);
 
-/* These modes really aren't fractional float modes, but declaring them this
-   way prevents the normal mode lookup routines from using them.  To use them,
-   you must use explict keywords.  */
-
-/* IEEE 128-bit floating point.  */
-FRACTIONAL_FLOAT_MODE (KF, 80, 16, ieee_quad_format);
-ADJUST_BYTESIZE  (KF, 16);
+/* IEEE 128-bit floating point.  Define this as a SPECIAL floating point type
+   to prevent the compiler from widening DFmode to KFmode (IEEE 128-bit) and
+   then to TFmode (IBM long double).  To use KFmode, you must explicitly use
+   __float128.  */
+SPECIAL_FLOAT_MODE (KF, 16, ieee_quad_format);
 ADJUST_ALIGNMENT (KF, 16);
