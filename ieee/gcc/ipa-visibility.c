@@ -512,7 +512,8 @@ function_and_variable_visibility (bool whole_program)
 		     next = next->same_comdat_group)
 		{
 		  next->set_comdat_group (NULL);
-		  next->set_section (NULL);
+		  if (!next->alias)
+		    next->set_section (NULL);
 		  symtab_make_decl_local (next->decl);
 		  next->unique_name = ((next->resolution == LDPR_PREVAILING_DEF_IRONLY
 					|| next->unique_name
@@ -527,7 +528,7 @@ function_and_variable_visibility (bool whole_program)
 	    }
 	  if (TREE_PUBLIC (node->decl))
 	    node->set_comdat_group (NULL);
-	  if (DECL_COMDAT (node->decl))
+	  if (DECL_COMDAT (node->decl) && !node->alias)
 	    node->set_section (NULL);
 	  symtab_make_decl_local (node->decl);
 	}
@@ -646,7 +647,8 @@ function_and_variable_visibility (bool whole_program)
 		     next = next->same_comdat_group)
 		{
 		  next->set_comdat_group (NULL);
-		  next->set_section (NULL);
+		  if (!next->alias)
+		    next->set_section (NULL);
 		  symtab_make_decl_local (next->decl);
 		  next->unique_name = ((next->resolution == LDPR_PREVAILING_DEF_IRONLY
 					|| next->unique_name
@@ -657,16 +659,19 @@ function_and_variable_visibility (bool whole_program)
 	    }
 	  if (TREE_PUBLIC (vnode->decl))
 	    vnode->set_comdat_group (NULL);
-	  if (DECL_COMDAT (vnode->decl))
+	  if (DECL_COMDAT (vnode->decl) && !vnode->alias)
 	    vnode->set_section (NULL);
 	  symtab_make_decl_local (vnode->decl);
 	  vnode->resolution = LDPR_PREVAILING_DEF_IRONLY;
 	}
       update_visibility_by_resolution_info (vnode);
 
-      /* Update virutal tables to point to local aliases where possible.  */
+      /* Update virtual tables to point to local aliases where possible.  */
       if (DECL_VIRTUAL_P (vnode->decl)
-	  && !DECL_EXTERNAL (vnode->decl))
+	  && !DECL_EXTERNAL (vnode->decl)
+	  /* FIXME: currently this optimization breaks on AIX.  Disable it for targets
+	     without comdat support for now.  */
+	  && SUPPORTS_ONE_ONLY)
 	{
 	  int i;
 	  struct ipa_ref *ref;

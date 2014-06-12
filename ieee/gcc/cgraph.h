@@ -37,6 +37,19 @@ enum symtab_type
   SYMTAB_VARIABLE
 };
 
+/* Section names are stored as reference counted strings in GGC safe hashtable
+   (to make them survive through PCH).  */
+
+struct GTY(()) section_hash_entry_d
+{
+  int ref_count;
+  char *name;  /* As long as this datastructure stays in GGC, we can not put
+		  string at the tail of structure of GGC dies in horrible
+		  way  */
+};
+
+typedef struct section_hash_entry_d section_hash_entry;
+
 /* Base of all entries in the symbol table.
    The symtab_node is inherited by cgraph and varpol nodes.  */
 class GTY((desc ("%h.type"), tag ("SYMTAB_SYMBOL"),
@@ -93,6 +106,9 @@ public:
   unsigned forced_by_abi : 1;
   /* True when the name is known to be unique and thus it does not need mangling.  */
   unsigned unique_name : 1;
+  /* Specify whether the section was set by user or by
+     compiler via -ffunction-sections.  */
+  unsigned implicit_section : 1;
   /* True when body and other characteristics have been removed by
      symtab_remove_unreachable_nodes. */
   unsigned body_removed : 1;
@@ -144,14 +160,14 @@ public:
   /* Return comdat group.  */
   tree get_comdat_group ()
     {
-      return comdat_group_;
+      return x_comdat_group;
     }
 
   tree get_comdat_group_id ()
     {
-      if (comdat_group_ && TREE_CODE (comdat_group_) != IDENTIFIER_NODE)
-	comdat_group_ = DECL_ASSEMBLER_NAME (comdat_group_);
-      return comdat_group_;
+      if (x_comdat_group && TREE_CODE (x_comdat_group) != IDENTIFIER_NODE)
+	x_comdat_group = DECL_ASSEMBLER_NAME (x_comdat_group);
+      return x_comdat_group;
     }
 
   /* Set comdat group.  */
@@ -159,20 +175,15 @@ public:
     {
       gcc_checking_assert (!group || TREE_CODE (group) == IDENTIFIER_NODE
 			   || DECL_P (group));
-      comdat_group_ = group;
+      x_comdat_group = group;
     }
 
-  /* Return section.  */
-  tree get_section ()
+  /* Return section as string.  */
+  const char * get_section ()
     {
-      return section_;
-    }
-
-  /* Set section.  */
-  void set_section (tree section)
-    {
-      gcc_checking_assert (!section || TREE_CODE (section) == STRING_CST);
-      section_ = section;
+      if (!x_section)
+	return NULL;
+      return x_section->name;
     }
 
   /* Vectors of referring and referenced entities.  */
@@ -189,10 +200,14 @@ public:
   PTR GTY ((skip)) aux;
 
   /* Comdat group the symbol is in.  Can be private if GGC allowed that.  */
-  tree comdat_group_;
+  tree x_comdat_group;
 
   /* Section name. Again can be private, if allowed.  */
-  tree section_;
+  section_hash_entry *x_section;
+
+  /* Set section for symbol and its aliases.  */
+  void set_section (const char *section);
+  void set_section_for_node (const char *section);
 };
 
 enum availability

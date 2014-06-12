@@ -68,6 +68,14 @@
 (define_c_enum "unspec" [
     UNSPEC_CASESI
     UNSPEC_CLS
+    UNSPEC_CRC32B
+    UNSPEC_CRC32CB
+    UNSPEC_CRC32CH
+    UNSPEC_CRC32CW
+    UNSPEC_CRC32CX
+    UNSPEC_CRC32H
+    UNSPEC_CRC32W
+    UNSPEC_CRC32X
     UNSPEC_FRECPE
     UNSPEC_FRECPS
     UNSPEC_FRECPX
@@ -689,7 +697,7 @@
    fmov\\t%w0, %s1
    fmov\\t%s0, %s1"
   [(set_attr "type" "mov_reg,mov_reg,mov_reg,mov_imm,load1,load1,store1,store1,\
-                     adr,adr,fmov,fmov,fmov")
+                     adr,adr,f_mcr,f_mrc,fmov")
    (set_attr "fp" "*,*,*,*,*,yes,*,yes,*,*,yes,yes,yes")]
 )
 
@@ -714,7 +722,7 @@
    fmov\\t%d0, %d1
    movi\\t%d0, %1"
   [(set_attr "type" "mov_reg,mov_reg,mov_reg,mov_imm,load1,load1,store1,store1,\
-                     adr,adr,fmov,fmov,fmov,fmov")
+                     adr,adr,f_mcr,f_mrc,fmov,fmov")
    (set_attr "fp" "*,*,*,*,*,yes,*,yes,*,*,yes,yes,yes,*")
    (set_attr "simd" "*,*,*,*,*,*,*,*,*,*,*,*,*,yes")]
 )
@@ -809,7 +817,7 @@
    str\\t%w1, %0
    mov\\t%w0, %w1"
   [(set_attr "type" "f_mcr,f_mrc,fmov,fconsts,\
-                     f_loads,f_stores,f_loads,f_stores,fmov")]
+                     f_loads,f_stores,f_loads,f_stores,mov_reg")]
 )
 
 (define_insn "*movdf_aarch64"
@@ -2481,6 +2489,23 @@
   }
 )
 
+
+;; CRC32 instructions.
+(define_insn "aarch64_<crc_variant>"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+        (unspec:SI [(match_operand:SI 1 "register_operand" "r")
+                    (match_operand:<crc_mode> 2 "register_operand" "r")]
+         CRC))]
+  "TARGET_CRC32"
+  {
+    if (GET_MODE_BITSIZE (GET_MODE (operands[2])) >= 64)
+      return "<crc_variant>\\t%w0, %w1, %x2";
+    else
+      return "<crc_variant>\\t%w0, %w1, %w2";
+  }
+  [(set_attr "type" "crc")]
+)
+
 (define_insn "*csinc2<mode>_insn"
   [(set (match_operand:GPI 0 "register_operand" "=r")
         (plus:GPI (match_operator:GPI 2 "aarch64_comparison_operator"
@@ -3679,7 +3704,7 @@
 	  (truncate:DI (match_operand:TI 1 "register_operand" "w"))))]
   "reload_completed || reload_in_progress"
   "fmov\\t%d0, %d1"
-  [(set_attr "type" "f_mcr")
+  [(set_attr "type" "fmov")
    (set_attr "length" "4")
   ])
 

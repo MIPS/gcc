@@ -1,3 +1,7 @@
+2014-06-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 211594.
+
 2014-06-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/float128-vsx.h: Drop having non-VSX IEEE 128-bit

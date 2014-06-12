@@ -1,5 +1,10 @@
 2014-06-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 211594.
+	* REVISION: Update subversion id.
+
+2014-06-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* machmode.def (SPECIAL_FLOAT_MODE): Document.
 
 	* genmodes.c (struct mode_data): Add special field.

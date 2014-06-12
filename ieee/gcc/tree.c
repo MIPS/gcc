@@ -628,7 +628,7 @@ decl_comdat_group_id (const_tree node)
 
 /* When the target supports named section, return its name as IDENTIFIER_NODE
    or NULL if it is in no section.  */
-tree
+const char *
 decl_section_name (const_tree node)
 {
   struct symtab_node *snode = symtab_get_node (node);
@@ -640,7 +640,7 @@ decl_section_name (const_tree node)
 /* Set section section name of NODE to VALUE (that is expected to
    be identifier node)  */
 void
-set_decl_section_name (tree node, tree value)
+set_decl_section_name (tree node, const char *value)
 {
   struct symtab_node *snode;
 

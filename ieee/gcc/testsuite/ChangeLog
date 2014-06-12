@@ -1,3 +1,126 @@
+2014-06-10  Alan Lawrence  <alan.lawrence@arm.com>
+
+	PR target/59843
+	* gcc.dg/vect/vect-singleton_1.c: New file.
+
+2014-06-12  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/61443
+	* gcc.target/avr/torture/pr61443.c: New test.
+
+2014-06-11  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/19200
+	* g++.dg/parse/friend11.C: New.
+
+2014-06-11  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/60265
+	* g++.dg/cpp0x/using-enum-1.C: New.
+	* g++.dg/cpp0x/using-enum-2.C: Likewise.
+
+2014-06-11  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/19200
+	* g++.dg/parse/friend9.C: New.
+	* g++.dg/parse/friend10.C: Likewise.
+	* g++.dg/parse/friend7.C: Adjust.
+
+2014-06-11  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/61452
+	* gcc.dg/torture/pr61452.c: New testcase.
+
+2014-06-11  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/34049
+	* g++.dg/parse/pr34049.C: New.
+
+2014-06-11  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* gcc.c-torture/execute/pr61306-1.c: New test.
+	* gcc.c-torture/execute/pr61306-2.c: Likewise.
+	* gcc.c-torture/execute/pr61306-3.c: Likewise.
+
+2014-06-11  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/aarch64/acle/acle.exp: New.
+	* gcc.target/aarch64/acle/crc32b.c: New test.
+	* gcc.target/aarch64/acle/crc32cb.c: Likewise.
+	* gcc.target/aarch64/acle/crc32cd.c: Likewise.
+	* gcc.target/aarch64/acle/crc32ch.c: Likewise.
+	* gcc.target/aarch64/acle/crc32cw.c: Likewise.
+	* gcc.target/aarch64/acle/crc32d.c: Likewise.
+	* gcc.target/aarch64/acle/crc32h.c: Likewise.
+	* gcc.target/aarch64/acle/crc32w.c: Likewise.
+
+2014-06-11  Evgeny Stupachenko  <evstupac@gmail.com>
+
+	PR tree-optimization/52252
+	* gcc.dg/vect/pr52252-st.c: Test on stores group of size 3.
+
+2014-06-11  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/61437
+	* gcc.dg/torture/20140610-1.c: New testcase.
+	* gcc.dg/torture/20140610-2.c: Likewise.
+
+2014-06-10  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/61438
+	* gcc.dg/torture/pr61438.c: New testcase.
+
+2014-06-10  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/61456
+	* g++.dg/opt/pr61456.C: New testcase.
+
+2014-06-10  Dominique d'Humieres <dominiq@lps.ens.fr>
+	    Mikael Morin <mikael@gcc.gnu.org>
+
+	PR fortran/41936
+	* gfortran.dg/class_array_15.f03: Check memory leaks.
+
+2014-06-10  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57186
+	PR tree-optimization/59299
+	* gcc.dg/tree-ssa/ssa-sink-11.c: New testcase.
+	* gcc.dg/tree-ssa/ssa-sink-12.c: Likewise.
+
+2014-06-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/60928
+	* gfortran.dg/gomp/allocatable_components_1.f90: Remove dg-error
+	directives.
+	* gfortran.dg/gomp/associate1.f90: New test.
+	* gfortran.dg/gomp/intentin1.f90: New test.
+	* gfortran.dg/gomp/openmp-simd-1.f90: New test.
+	* gfortran.dg/gomp/openmp-simd-2.f90: New test.
+	* gfortran.dg/gomp/openmp-simd-3.f90: New test.
+	* gfortran.dg/gomp/proc_ptr_2.f90: New test.
+
+2014-06-09  Marek Polacek  <polacek@redhat.com>
+
+	PR c/36446
+	* gcc.dg/Wcxx-compat-6.c: Change dg-warning to dg-message.
+	* gcc.dg/array-2.c: Likewise.
+	* gcc.dg/array-const-2.c: Likewise.
+	* gcc.dg/ucnid-8.c: Likewise.
+	* gcc.dg/vla-init-1.c: Likewise.
+	* gcc.dg/array-const-3.c: Change dg-error to dg-message.
+	* gcc.dg/c99-flex-array-7.c: Likewise.
+	* gcc.dg/init-bad-1.c: Likewise.
+	* gcc.dg/init-bad-3.c: Likewise.
+	* gcc.dg/init-bad-2.c: Change dg-error and dg-warning to dg-message.
+	* gcc.dg/pedwarn-init.c: Add dg-warning.
+	* gcc.dg/pr53119.c: Remove dg-excess-errors.
+
+2014-06-09  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/22556
+	* g++.dg/other/redecl3.C: New.
+
 2014-06-09  Marc Glisse  <marc.glisse@inria.fr>
 
 	PR c++/54442

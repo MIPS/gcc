@@ -1,3 +1,79 @@
+2014-06-12  Jason Merrill  <jason@redhat.com>
+
+	* call.c (convert_arg_to_ellipsis): Use abi_version_crosses.
+	* cvt.c (type_promotes_to): Likewise.
+	* mangle.c (write_type, write_expression): Likewise.
+	(write_name, write_template_arg): Likewise.
+	(mangle_decl): Make alias based on flag_abi_compat_version.
+	Emit -Wabi warning here.
+	(finish_mangling_internal): Not here.  Drop warn parm.
+	(finish_mangling_get_identifier, finish_mangling): Adjust.
+	(mangle_type_string, mangle_special_for_type): Adjust.
+	(mangle_ctor_vtbl_for_type, mangle_thunk): Adjust.
+	(mangle_guard_variable, mangle_tls_init_fn): Adjust.
+	(mangle_tls_wrapper_fn, mangle_ref_init_variable): Adjust.
+
+	* call.c (build_operator_new_call): Remove -fabi-version=1 support.
+	* class.c (walk_subobject_offsets, include_empty_classes): Likewise.
+	(layout_nonempty_base_or_field, end_of_class): Likewise.
+	(layout_empty_base, build_base_field, layout_class_type): Likewise.
+	(is_empty_class, add_vcall_offset_vtbl_entries_1): Likewise.
+	(layout_virtual_bases): Likewise.
+	* decl.c (compute_array_index_type): Likewise.
+	* mangle.c (write_mangled_name, write_prefix): Likewise.
+	(write_template_prefix, write_integer_cst, write_expression): Likewise.
+	(write_template_arg, write_array_type): Likewise.
+	* method.c (lazily_declare_fn): Likewise.
+	* rtti.c (get_pseudo_ti_index): Likewise.
+	* typeck.c (comp_array_types): Likewise.
+
+2014-06-11  Jan Hubicka  <hubicka@ucw.cz>
+
+	* vtable-class-hierarchy.c: Update handling for section names
+	that are no longer trees.
+	* decl.c (duplicate_decls): Likewise.
+
+2014-06-11  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/19200
+	* parser.c (cp_parser_init_declarator): Actually pass friend_p
+	to cp_parser_declarator.
+
+2014-06-11  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/60265
+	* parser.c (cp_parser_using_declaration): Handle unscoped enums.
+	* name-lookup.c (validate_nonmember_using_decl): Adjust error
+	message.
+
+2014-06-11  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/19200
+	* parser.c (cp_parser_declarator): Add bool parameter.
+	(cp_parser_direct_declarator): Likewise, use it.
+	(cp_parser_member_declaration): Pass friend_p to cp_parser_declarator.
+	(cp_parser_condition, cp_parser_explicit_instantiation,
+	cp_parser_init_declarator, cp_parser_type_id_1,
+	cp_parser_parameter_declaration, cp_parser_exception_declaration,
+	cp_parser_cache_defarg, cp_parser_objc_class_ivars,
+	cp_parser_objc_struct_declaration, cp_parser_omp_for_loop_init):
+	Adjust.
+	* decl.c (grokdeclarator): Fix handling of friend declared in
+	namespace scope (g++.dg/parse/friend10.C).
+
+2014-06-10  Jan Hubicka  <hubicka@ucw.cz>
+
+	* vtable-class-hierarchy.c: Use symtab_get_node (var_decl)
+	->implicit_section.
+	* optimize.c (cdtor_comdat_group): Fix handling of aliases.
+	(maybe_clone_body): Move symbol across comdat groups.
+	* method.c (use_thunk): Copy implicit section flag.
+
+2014-06-09  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/22556
+	* name-lookup.c (pushdecl_maybe_friend_1): Use comptypes.
+
 2014-06-07  Jan Hubicka  <hubicka@ucw.cz>
 
 	* method.c (use_thunk): Use set_decl_section_name.

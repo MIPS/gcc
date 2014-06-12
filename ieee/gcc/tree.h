@@ -2399,11 +2399,6 @@ extern void decl_value_expr_insert (tree, tree);
 #define DECL_HAS_INIT_PRIORITY_P(NODE) \
   (VAR_DECL_CHECK (NODE)->decl_with_vis.init_priority_p)
 
-/* Specify whether the section name was set by user or by
-   compiler via -ffunction-sections.  */
-#define DECL_HAS_IMPLICIT_SECTION_NAME_P(NODE) \
-  (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.implicit_section_name_p)
-
 extern tree decl_debug_expr_lookup (tree);
 extern void decl_debug_expr_insert (tree, tree);
 
@@ -3432,8 +3427,8 @@ tree_operand_check_code (const_tree __t, enum tree_code __code, int __i,
 extern tree decl_assembler_name (tree);
 extern tree decl_comdat_group (const_tree);
 extern tree decl_comdat_group_id (const_tree);
-extern tree decl_section_name (const_tree);
-extern void set_decl_section_name (tree, tree);
+extern const char *decl_section_name (const_tree);
+extern void set_decl_section_name (tree, const char *);
 
 /* Compute the number of bytes occupied by 'node'.  This routine only
    looks at TREE_CODE and, if the code is TREE_VEC, TREE_VEC_LENGTH.  */
@@ -4529,7 +4524,9 @@ static inline bool
 may_be_aliased (const_tree var)
 {
   return (TREE_CODE (var) != CONST_DECL
-	  && TREE_ADDRESSABLE (var)
+	  && (TREE_PUBLIC (var)
+	      || DECL_EXTERNAL (var)
+	      || TREE_ADDRESSABLE (var))
 	  && !((TREE_STATIC (var) || TREE_PUBLIC (var) || DECL_EXTERNAL (var))
 	       && ((TREE_READONLY (var)
 		    && !TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (var)))

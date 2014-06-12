@@ -759,6 +759,7 @@ single_reg_class (const char *constraints, rtx op, rtx equiv_const)
 {
   int c;
   enum reg_class cl, next_cl;
+  enum constraint_num cn;
 
   cl = NO_REGS;
   alternative_mask enabled = recog_data.enabled_alternatives;
@@ -770,99 +771,21 @@ single_reg_class (const char *constraints, rtx op, rtx equiv_const)
     else if (enabled & 1)
       switch (c)
 	{
-	case ' ':
-	case '\t':
-	case '=':
-	case '+':
-	case '*':
-	case '&':
-	case '%':
-	case '!':
-	case '?':
-	  break;
-	case 'i':
-	  if (CONSTANT_P (op)
-	      || (equiv_const != NULL_RTX && CONSTANT_P (equiv_const)))
-	    return NO_REGS;
-	  break;
+	case 'g':
+	  return NO_REGS;
 
-	case 'n':
-	  if (CONST_SCALAR_INT_P (op)
-	      || (equiv_const != NULL_RTX && CONST_SCALAR_INT_P (equiv_const)))
-	    return NO_REGS;
-	  break;
-
-	case 's':
-	  if ((CONSTANT_P (op) && !CONST_SCALAR_INT_P (op))
-	      || (equiv_const != NULL_RTX
-		  && CONSTANT_P (equiv_const)
-		  && !CONST_SCALAR_INT_P (equiv_const)))
-	    return NO_REGS;
-	  break;
-
-	case 'I':
-	case 'J':
-	case 'K':
-	case 'L':
-	case 'M':
-	case 'N':
-	case 'O':
-	case 'P':
-	  if ((CONST_INT_P (op)
-	       && CONST_OK_FOR_CONSTRAINT_P (INTVAL (op), c, constraints))
-	      || (equiv_const != NULL_RTX
-		  && CONST_INT_P (equiv_const)
-		  && CONST_OK_FOR_CONSTRAINT_P (INTVAL (equiv_const),
-						c, constraints)))
-	    return NO_REGS;
-	  break;
-
-	case 'E':
-	case 'F':
-	  if (CONST_DOUBLE_AS_FLOAT_P (op) 
-	      || (GET_CODE (op) == CONST_VECTOR
-		  && GET_MODE_CLASS (GET_MODE (op)) == MODE_VECTOR_FLOAT)
-	      || (equiv_const != NULL_RTX
-		  && (CONST_DOUBLE_AS_FLOAT_P (equiv_const)
-		      || (GET_CODE (equiv_const) == CONST_VECTOR
-			  && (GET_MODE_CLASS (GET_MODE (equiv_const))
-			      == MODE_VECTOR_FLOAT)))))
-	    return NO_REGS;
-	  break;
-
-	case 'G':
-	case 'H':
-	  if ((CONST_DOUBLE_AS_FLOAT_P (op) 
-	       && CONST_DOUBLE_OK_FOR_CONSTRAINT_P (op, c, constraints))
-	      || (equiv_const != NULL_RTX
-		  && CONST_DOUBLE_AS_FLOAT_P (equiv_const) 
-		  && CONST_DOUBLE_OK_FOR_CONSTRAINT_P (equiv_const,
-						       c, constraints)))
-	    return NO_REGS;
-	  break;
-
-	case 'r':
-	case 'a': case 'b': case 'c': case 'd': case 'e': case 'f':
-	case 'h': case 'j': case 'k': case 'l':
-	case 'q': case 't': case 'u':
-	case 'v': case 'w': case 'x': case 'y': case 'z':
-	case 'A': case 'B': case 'C': case 'D':
-	case 'Q': case 'R': case 'S': case 'T': case 'U':
-	case 'W': case 'Y': case 'Z':
-#ifdef EXTRA_CONSTRAINT_STR
+	default:
 	  /* ??? Is this the best way to handle memory constraints?  */
-	  if (EXTRA_MEMORY_CONSTRAINT (c, constraints)
-	      || EXTRA_ADDRESS_CONSTRAINT (c, constraints))
+	  cn = lookup_constraint (constraints);
+	  if (insn_extra_memory_constraint (cn)
+	      || insn_extra_address_constraint (cn))
 	    return NO_REGS;
-	  if (EXTRA_CONSTRAINT_STR (op, c, constraints)
+	  if (constraint_satisfied_p (op, cn)
 	      || (equiv_const != NULL_RTX
 		  && CONSTANT_P (equiv_const)
-		  && EXTRA_CONSTRAINT_STR (equiv_const, c, constraints)))
+		  && constraint_satisfied_p (equiv_const, cn)))
 	    return NO_REGS;
-#endif
-	  next_cl = (c == 'r'
-		     ? GENERAL_REGS
-		     : REG_CLASS_FROM_CONSTRAINT (c, constraints));
+	  next_cl = reg_class_for_constraint (cn);
 	  if (next_cl == NO_REGS)
 	    break;
 	  if (cl == NO_REGS
@@ -885,9 +808,6 @@ single_reg_class (const char *constraints, rtx op, rtx equiv_const)
 	    return NO_REGS;
 	  cl = next_cl;
 	  break;
-
-	default:
-	  return NO_REGS;
 	}
   return cl;
 }
@@ -938,29 +858,17 @@ ira_implicitly_set_insn_hard_regs (HARD_REG_SET *set)
 	    else if (c == ',')
 	      enabled >>= 1;
 	    else if (enabled & 1)
-	      switch (c)
-		{
-		case 'r':
-		case 'a': case 'b': case 'c': case 'd': case 'e': case 'f':
-		case 'h': case 'j': case 'k': case 'l':
-		case 'q': case 't': case 'u':
-		case 'v': case 'w': case 'x': case 'y': case 'z':
-		case 'A': case 'B': case 'C': case 'D':
-		case 'Q': case 'R': case 'S': case 'T': case 'U':
-		case 'W': case 'Y': case 'Z':
-		  cl = (c == 'r'
-			? GENERAL_REGS
-			: REG_CLASS_FROM_CONSTRAINT (c, p));
-		  if (cl != NO_REGS)
-		    {
-		      /* There is no register pressure problem if all of the
-			 regs in this class are fixed.  */
-		      int regno = ira_class_singleton[cl][mode];
-		      if (regno >= 0)
-			add_to_hard_reg_set (set, mode, regno);
-		    }
-		  break;
-		}
+	      {
+		cl = reg_class_for_constraint (lookup_constraint (p));
+		if (cl != NO_REGS)
+		  {
+		    /* There is no register pressure problem if all of the
+		       regs in this class are fixed.  */
+		    int regno = ira_class_singleton[cl][mode];
+		    if (regno >= 0)
+		      add_to_hard_reg_set (set, mode, regno);
+		  }
+	      }
 	}
     }
 }
