@@ -1534,7 +1534,6 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
       switch (OMP_CLAUSE_CODE (c))
 	{
 	case OMP_CLAUSE_PRIVATE:
-	  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
 	  decl = OMP_CLAUSE_DECL (c);
 	  if (OMP_CLAUSE_PRIVATE_OUTER_REF (c))
 	    goto do_private;
@@ -1833,7 +1832,6 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	    break;
 	  /* FALLTHRU */
 
-	case OMP_CLAUSE_PRIVATE:
 	case OMP_CLAUSE_FIRSTPRIVATE:
 	case OMP_CLAUSE_REDUCTION:
 	  if (is_gimple_omp_oacc_specifically (ctx->stmt))
@@ -1843,6 +1841,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	    }
 	case OMP_CLAUSE_LINEAR:
 	  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
+	case OMP_CLAUSE_PRIVATE:
 	  decl = OMP_CLAUSE_DECL (c);
 	  if (is_variable_sized (decl))
 	    install_var_local (decl, ctx);

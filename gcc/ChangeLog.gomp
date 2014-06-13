@@ -1,5 +1,8 @@
 2014-06-13  Cesar Philippidis  <cesar@codesourcery.com>
 
+	* omp-low.c (scan_sharing_clauses): Preliminary support for
+	OMP_CLAUSE_PRIVATE for OpenACC.
+
 	* omp-low.c (scan_sharing_clauses): For clauses currently not
 	supported with OpenACC directives, emit a sorry message instead of
 	aborting.
