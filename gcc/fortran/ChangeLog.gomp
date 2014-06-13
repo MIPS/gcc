@@ -1,3 +1,10 @@
+2014-06-13  Ilmir Usmanov  <i.usmanov@samsung.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+
+	* trans-openmp.c (gfc_trans_oacc_combined_directive): Move under
+	gfc_trans_omp_do.
+	(gfc_trans_omp_do, gfc_trans_oacc_directive): Handle EXEC_OACC_LOOP.
+
 2014-04-05  Tobias Burnus  <burnus@net-b.de>
 
 	PR fortran/60283

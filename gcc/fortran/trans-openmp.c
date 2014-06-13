@@ -1856,58 +1856,6 @@ typedef struct dovar_init_d {
   tree init;
 } dovar_init;
 
-/* parallel loop and kernels loop. */
-static tree
-gfc_trans_oacc_combined_directive (gfc_code *code)
-{
-  stmtblock_t block;
-  gfc_omp_clauses construct_clauses, loop_clauses;
-  tree stmt, oacc_clauses = NULL_TREE;
-  enum tree_code construct_code;
-
-  switch (code->op)
-    {
-      case EXEC_OACC_PARALLEL_LOOP:
-	construct_code = OACC_PARALLEL;
-	break;
-      case EXEC_OACC_KERNELS_LOOP:
-	construct_code = OACC_KERNELS;
-	break;
-      default:
-	gcc_unreachable ();
-    }
-
-  gfc_start_block (&block);
-
-  memset (&loop_clauses, 0, sizeof (loop_clauses));
-  if (code->ext.omp_clauses != NULL)
-    {
-      memcpy (&construct_clauses, code->ext.omp_clauses,
-	      sizeof (construct_clauses));
-      loop_clauses.collapse = construct_clauses.collapse;
-      loop_clauses.gang = construct_clauses.gang;
-      loop_clauses.vector = construct_clauses.vector;
-      loop_clauses.worker = construct_clauses.worker;
-      loop_clauses.seq = construct_clauses.seq;
-      loop_clauses.independent = construct_clauses.independent;
-      construct_clauses.collapse = 0;
-      construct_clauses.gang = false;
-      construct_clauses.vector = false;
-      construct_clauses.worker = false;
-      construct_clauses.seq = false;
-      construct_clauses.independent = false;
-      oacc_clauses = gfc_trans_omp_clauses (&block, &construct_clauses,
-					    code->loc);
-    }
-    
-  gfc_error ("!$ACC LOOP directive not implemented yet %L", &code->loc);
-  stmt = gfc_trans_omp_code (code->block->next, true);
-  stmt = build2_loc (input_location, construct_code, void_type_node, stmt,
-		     oacc_clauses);
-  gfc_add_expr_to_block (&block, stmt);
-  return gfc_finish_block (&block);
-}
-
 static tree
 gfc_trans_omp_do (gfc_code *code, gfc_exec_op op, stmtblock_t *pblock,
 		  gfc_omp_clauses *do_clauses, tree par_clauses)
@@ -1915,6 +1863,7 @@ gfc_trans_omp_do (gfc_code *code, gfc_exec_op op, stmtblock_t *pblock,
   gfc_se se;
   tree dovar, stmt, from, to, step, type, init, cond, incr;
   tree count = NULL_TREE, cycle_label, tmp, omp_clauses;
+  tree_code stmt_code;
   stmtblock_t block;
   stmtblock_t body;
   gfc_omp_clauses *clauses = code->ext.omp_clauses;
@@ -2174,7 +2123,19 @@ gfc_trans_omp_do (gfc_code *code, gfc_exec_op op, stmtblock_t *pblock,
     }
 
   /* End of loop body.  */
-  stmt = make_node (op == EXEC_OMP_SIMD ? OMP_SIMD : OMP_FOR);
+  switch (op)
+    {
+    case EXEC_OMP_SIMD:
+      stmt_code = OMP_SIMD;
+      break;
+    case EXEC_OACC_LOOP:
+      stmt_code = OACC_LOOP;
+      break;
+    default:
+      stmt_code = OMP_FOR;
+    }
+ 
+  stmt = make_node (stmt_code);
 
   TREE_TYPE (stmt) = void_type_node;
   OMP_FOR_BODY (stmt) = gfc_finish_block (&body);
@@ -2184,6 +2145,68 @@ gfc_trans_omp_do (gfc_code *code, gfc_exec_op op, stmtblock_t *pblock,
   OMP_FOR_INCR (stmt) = incr;
   gfc_add_expr_to_block (&block, stmt);
 
+  return gfc_finish_block (&block);
+}
+
+/* parallel loop and kernels loop. */
+static tree
+gfc_trans_oacc_combined_directive (gfc_code *code)
+{
+  stmtblock_t block, *pblock = NULL;
+  gfc_omp_clauses construct_clauses, loop_clauses;
+  tree stmt, oacc_clauses = NULL_TREE;
+  enum tree_code construct_code;
+
+  switch (code->op)
+    {
+      case EXEC_OACC_PARALLEL_LOOP:
+	construct_code = OACC_PARALLEL;
+	break;
+      case EXEC_OACC_KERNELS_LOOP:
+	construct_code = OACC_KERNELS;
+	break;
+      default:
+	gcc_unreachable ();
+    }
+
+  gfc_start_block (&block);
+
+  memset (&loop_clauses, 0, sizeof (loop_clauses));
+  if (code->ext.omp_clauses != NULL)
+    {
+      memcpy (&construct_clauses, code->ext.omp_clauses,
+	      sizeof (construct_clauses));
+      loop_clauses.collapse = construct_clauses.collapse;
+      loop_clauses.gang = construct_clauses.gang;
+      loop_clauses.vector = construct_clauses.vector;
+      loop_clauses.worker = construct_clauses.worker;
+      loop_clauses.seq = construct_clauses.seq;
+      loop_clauses.independent = construct_clauses.independent;
+      construct_clauses.collapse = 0;
+      construct_clauses.gang = false;
+      construct_clauses.vector = false;
+      construct_clauses.worker = false;
+      construct_clauses.seq = false;
+      construct_clauses.independent = false;
+      oacc_clauses = gfc_trans_omp_clauses (&block, &construct_clauses,
+					    code->loc);
+    }
+  if (!loop_clauses.seq)
+    pblock = &block;
+  else
+    pushlevel ();
+  stmt = gfc_trans_omp_do (code, code->op, pblock, &loop_clauses, NULL);
+  if (TREE_CODE (stmt) != BIND_EXPR)
+    stmt = build3_v (BIND_EXPR, NULL, stmt, poplevel (1, 0));
+  else
+    poplevel (0, 0);
+  stmt = build2_loc (input_location, construct_code, void_type_node, stmt,
+		     oacc_clauses);
+  if (code->op == EXEC_OACC_KERNELS_LOOP)
+    OACC_KERNELS_COMBINED (stmt) = 1;
+  else
+    OACC_PARALLEL_COMBINED (stmt) = 1;
+  gfc_add_expr_to_block (&block, stmt);
   return gfc_finish_block (&block);
 }
 
@@ -2763,8 +2786,8 @@ gfc_trans_oacc_directive (gfc_code *code)
     case EXEC_OACC_HOST_DATA:
       return gfc_trans_oacc_construct (code);
     case EXEC_OACC_LOOP:
-      gfc_error ("!$ACC LOOP directive not implemented yet %L", &code->loc);
-      return NULL_TREE;
+      return gfc_trans_omp_do (code, code->op, NULL, code->ext.omp_clauses,
+			       NULL);
     case EXEC_OACC_UPDATE:
     case EXEC_OACC_WAIT:
     case EXEC_OACC_CACHE:
