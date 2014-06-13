@@ -365,6 +365,9 @@ extract_omp_for_data (gimple for_stmt, struct omp_for_data *fd,
       case OMP_CLAUSE_COLLAPSE:
 	if (fd->collapse > 1)
 	  {
+	    if (is_gimple_omp_oacc_specifically (for_stmt))
+	      sorry ("collapse (>1) clause not supported yet");
+
 	    collapse_iter = &OMP_CLAUSE_COLLAPSE_ITERVAR (t);
 	    collapse_count = &OMP_CLAUSE_COLLAPSE_COUNT (t);
 	  }
@@ -1779,7 +1782,6 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 
 	case OMP_CLAUSE_NOWAIT:
 	case OMP_CLAUSE_ORDERED:
-	case OMP_CLAUSE_COLLAPSE:
 	case OMP_CLAUSE_UNTIED:
 	case OMP_CLAUSE_MERGEABLE:
 	case OMP_CLAUSE_PROC_BIND:
@@ -1789,6 +1791,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	      sorry ("clause not supported yet");
 	      break;
 	    }
+	case OMP_CLAUSE_COLLAPSE:
 	  break;
 
 	case OMP_CLAUSE_ALIGNED:
@@ -1925,7 +1928,6 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_DIST_SCHEDULE:
 	case OMP_CLAUSE_NOWAIT:
 	case OMP_CLAUSE_ORDERED:
-	case OMP_CLAUSE_COLLAPSE:
 	case OMP_CLAUSE_UNTIED:
 	case OMP_CLAUSE_FINAL:
 	case OMP_CLAUSE_MERGEABLE:
@@ -1937,6 +1939,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_TO:
 	case OMP_CLAUSE_FROM:
 	  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
+	case OMP_CLAUSE_COLLAPSE:
 	case OMP_CLAUSE_IF:
 	case OMP_CLAUSE_NUM_GANGS:
 	case OMP_CLAUSE_NUM_WORKERS:
