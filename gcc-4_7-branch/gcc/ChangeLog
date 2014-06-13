@@ -1,3 +1,43 @@
+2014-06-12  Release Manager
+
+	* GCC 4.7.4 released.
+
+2014-06-04  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2013-05-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/57230
+	* tree-ssa-strlen.c (handle_char_store): Add missing integer_zerop
+	check.
+
+2014-05-28  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/61044
+	* doc/extend.texi (Local Labels): Note that label differences are
+	not supported for AVR.
+
+2014-05-23  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2013-08-30  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/58228
+	* tree-vect-data-refs.c (vect_analyze_data_ref_access): Do not
+	allow invariant loads in nested loop vectorization.
+
+	2013-09-26  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/58539
+	* tree-vect-loop.c (vect_create_epilog_for_reduction): Honor
+	the fact that debug statements are not taking part in loop-closed
+	SSA construction.
+
+2014-05-22  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/61208
+	* arm.md (arm_cmpdi_unsigned): Fix length calculation for Thumb2.
+
 2014-05-20  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
 
 	Backport from mainline r210325
