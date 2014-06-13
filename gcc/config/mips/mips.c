@@ -20759,18 +20759,28 @@ mips_expand_vec_cond_expr (enum machine_mode mode,
       emit_move_insn (xres, res);
       if (operands[1] != true_val)
 	{
-	  rtx xop1 = gen_reg_rtx (vimode);
+	  rtx xop1 = operands[1]; /* Assume we can use operands[1] */
 
-	  if (GET_CODE (operands[1]) == CONST_VECTOR)
+	  if (mode != vimode)
 	    {
-	      rtx xtemp = gen_reg_rtx (mode);
-	      emit_move_insn (xtemp, operands[1]);
-	      emit_move_insn (xop1,
-			      gen_rtx_SUBREG (vimode, xtemp, 0));
+	      xop1 = gen_reg_rtx (vimode);
+	      if (GET_CODE (operands[1]) == CONST_VECTOR)
+		{
+		  rtx xtemp = gen_reg_rtx (mode);
+		  emit_move_insn (xtemp, operands[1]);
+		  emit_move_insn (xop1,
+				  gen_rtx_SUBREG (vimode, xtemp, 0));
+		}
+	      else
+		emit_move_insn (xop1,
+				gen_rtx_SUBREG (vimode, operands[1], 0));
 	    }
-	  else
-	    emit_move_insn (xop1,
-			    gen_rtx_SUBREG (vimode, operands[1], 0));
+	  else if (GET_CODE (operands[1]) == CONST_VECTOR)
+	    {
+	      xop1 = gen_reg_rtx (mode);
+	      emit_move_insn (xop1, operands[1]);
+	    }
+
 	  emit_insn (gen_msa_and_fn (temp1, xres, xop1));
 	}
       else
@@ -20780,18 +20790,28 @@ mips_expand_vec_cond_expr (enum machine_mode mode,
       emit_insn (gen_msa_nor_fn (temp2, xres, xres));
       if (operands[2] != false_val)
 	{
-	  rtx xop2 = gen_reg_rtx (vimode);
+	  rtx xop2 = operands[2]; ; /* Assume we can use operands[2] */
 
-	  if (GET_CODE (operands[2]) == CONST_VECTOR)
+	  if (mode != vimode)
 	    {
-	      rtx xtemp = gen_reg_rtx (mode);
-	      emit_move_insn (xtemp, operands[2]);
-	      emit_move_insn (xop2,
-			      gen_rtx_SUBREG (vimode, xtemp, 0));
+	      xop2 = gen_reg_rtx (vimode);
+	      if (GET_CODE (operands[2]) == CONST_VECTOR)
+		{
+		  rtx xtemp = gen_reg_rtx (mode);
+		  emit_move_insn (xtemp, operands[2]);
+		  emit_move_insn (xop2,
+				  gen_rtx_SUBREG (vimode, xtemp, 0));
+		}
+	      else
+		emit_move_insn (xop2,
+				gen_rtx_SUBREG (vimode, operands[2], 0));
 	    }
-	  else
-	    emit_move_insn (xop2,
-			    gen_rtx_SUBREG (vimode, operands[2], 0));
+	  else if (GET_CODE (operands[2]) == CONST_VECTOR)
+	    {
+	      xop2 = gen_reg_rtx (mode);
+	      emit_move_insn (xop2, operands[2]);
+	    }
+
 	  emit_insn (gen_msa_and_fn (temp2, temp2, xop2));
 	}
       else
