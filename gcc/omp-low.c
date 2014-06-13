@@ -1785,7 +1785,11 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_MERGEABLE:
 	case OMP_CLAUSE_PROC_BIND:
 	case OMP_CLAUSE_SAFELEN:
-	  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
+	  if (is_gimple_omp_oacc_specifically (ctx->stmt))
+	    {
+	      sorry ("clause not supported yet");
+	      break;
+	    }
 	  break;
 
 	case OMP_CLAUSE_ALIGNED:
