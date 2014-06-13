@@ -1,4 +1,10 @@
 2014-06-13  Thomas Schwinge  <thomas@codesourcery.com>
+	    Ilmir Usmanov  <i.usmanov@samsung.com>
+
+	* tree-pretty-print.c (dump_omp_clause): Instead of
+	OMP_CLAUSE_DECL, use more specific accessors for some clauses.
+
+2014-06-13  Thomas Schwinge  <thomas@codesourcery.com>
 	    Cesar Philippidis  <cesar@codesourcery.com>
 
 	* omp-low.c (extract_omp_for_data, scan_sharing_clauses): For
