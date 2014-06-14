@@ -1,3 +1,10 @@
+2014-06-13  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Merge up to 211657.
+	* REVISION: Update subversion id.
+
+	Picks up fixes for bugs 61300 and 61415.
+
 2014-06-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 211332 (pick up fix for pr 61431).
