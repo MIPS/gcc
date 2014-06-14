@@ -7539,13 +7539,7 @@ gfc_conv_array_parameter (gfc_se * se, gfc_expr * expr, bool g77,
 	      tree old_desc = tmp;
 	      tree new_desc = gfc_create_var (TREE_TYPE (old_desc), "arg_desc");
 
-	      old_field = gfc_conv_descriptor_dtype (old_desc);
-	      new_field = gfc_conv_descriptor_dtype (new_desc);
-	      gfc_add_modify (&se->pre, new_field, old_field);
-
-	      old_field = gfc_conv_descriptor_offset (old_desc);
-	      new_field = gfc_conv_descriptor_offset (new_desc);
-	      gfc_add_modify (&se->pre, new_field, old_field);
+	      gfc_add_modify (&se->pre, new_desc, old_desc);
 
 	      for (int i = 0; i < expr->rank; i++)
 		{
