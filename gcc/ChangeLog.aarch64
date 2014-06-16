@@ -1,3 +1,10 @@
+2014-06-16  Andrew Pinski  <apinski@cavium.com>
+
+	* config/aarch64/aarch64.md (mov<mode>cc:ALLI):
+	Handle the case where the incoming compare is already
+	a CCmode compare.
+	(mov<mode>cc:GPF): Likewise.
+
 2014-06-15  Andrew Pinski  <apinski@cavium.com>
 
 	Bug #10196
