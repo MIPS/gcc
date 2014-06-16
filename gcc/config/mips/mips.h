@@ -2244,6 +2244,7 @@ enum reg_class
 
 #define GP_RETURN (GP_REG_FIRST + 2)
 #define FP_RETURN ((TARGET_SOFT_FLOAT) ? GP_RETURN : (FP_REG_FIRST + 0))
+#define MSA_RETURN (MSA_REG_FIRST + 0)
 
 #define MAX_ARGS_IN_REGISTERS (TARGET_OLDABI ? 4 : 8)
 
