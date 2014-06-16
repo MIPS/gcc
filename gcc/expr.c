@@ -7989,7 +7989,9 @@ expand_cond_expr_using_cmove (tree treeop0 ATTRIBUTE_UNUSED,
       op00 = expand_normal (treeop0);
       op01 = const0_rtx;
       comparison_code = NE;
-      comparison_mode = TYPE_MODE (TREE_TYPE (treeop0));
+      comparison_mode = GET_MODE (op00);
+      if (comparison_mode == VOIDmode)
+	comparison_mode = TYPE_MODE (TREE_TYPE (treeop0));
     }
 
   if (GET_MODE (op1) != mode)

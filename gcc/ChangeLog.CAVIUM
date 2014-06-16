@@ -1,3 +1,9 @@
+2014-06-16  Andrew Pinski  <apinski@cavium.com>
+
+	* expr.c (expand_cond_expr_using_cmove): Use
+	the mode from expansion first.  if VOIDmode,
+	use the mode from the tree type.
+
 2014-06-15  Andrew Pinski  <apinski@cavium.com>
 
 	* cfgexpand.c (expand_value_return): Correctly handle
