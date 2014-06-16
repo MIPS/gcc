@@ -1,3 +1,10 @@
+2014-06-15  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #10196
+	* config/aarch64/predicates.md (const0_operand): New predicate.
+	* config/aarch64/aarch64.md (cstorecc4): New define_expand
+	for ccmp code to use.
+
 2014-05-28  Joel Jones  <jjones@cavium.com>
 
         * gcc/testsuite/gcc.target/aarch64/atomic-comp-swap-release-acquire.c:

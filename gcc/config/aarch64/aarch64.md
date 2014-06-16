@@ -2446,6 +2446,14 @@
   "
 )
 
+(define_expand "cstorecc4"
+  [(set (match_operand:DI 0 "register_operand" "")
+	(match_operator:DI 1 "aarch64_comparison_operator"
+	 [(match_operand 2 "cc_register")
+	  (match_operand 3 "const0_operand")]))]
+  ""
+  "")
+
 (define_insn "*cstore<mode>_insn"
   [(set (match_operand:ALLI 0 "register_operand" "=r")
 	(match_operator:ALLI 1 "aarch64_comparison_operator"

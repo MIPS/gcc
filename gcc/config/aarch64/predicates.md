@@ -18,6 +18,11 @@
 ;; along with GCC; see the file COPYING3.  If not see
 ;; <http://www.gnu.org/licenses/>.
 
+;; Return true if OP a (const_int 0) operand.
+(define_predicate "const0_operand"
+  (and (match_code "const_int, const_double")
+       (match_test "op == CONST0_RTX (mode)")))
+
 (define_special_predicate "cc_register"
   (and (match_code "reg")
        (and (match_test "REGNO (op) == CC_REGNUM")
