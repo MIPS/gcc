@@ -1,3 +1,9 @@
+2014-06-15  Andrew Pinski  <apinski@cavium.com>
+
+	* cfgexpand.c (expand_value_return): Correctly handle
+	the case where mode of VAL (from expand_expr) was not the
+	same as the expected mode.
+
 2014-05-15  Praveen Jonnalagadda <pjonnalagadda@caviumnetworks.com>
 
 	* gcc/testsuite/gcc.dg/torture/pr59330.c: Change to compile

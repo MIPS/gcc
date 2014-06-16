@@ -3079,6 +3079,11 @@ expand_value_return (rtx val)
       else
         mode = promote_function_mode (type, old_mode, &unsignedp, funtype, 1);
 
+      /* If the mode of val is not VOID mode (that is val is not a constant),
+         use it for the old mode.  */
+      if (mode != BLKmode && GET_MODE (val) != VOIDmode)
+	old_mode = GET_MODE(val);
+
       if (mode != old_mode)
 	val = convert_modes (mode, old_mode, val, unsignedp);
 
