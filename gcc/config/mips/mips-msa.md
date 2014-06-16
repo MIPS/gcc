@@ -608,12 +608,11 @@
    (match_operand:<VIMODE> 3 "register_operand")]
   "ISA_HAS_MSA"
 {
-  /* Note that GCC always uses memory order (as big-endian) in indexing,
-     and layouts operands[1] frist and then operands[2] next.
-     However, vshf starts indexes from wt to ws, so so we need to swap
-     two operands.  MSA loads or stores elements to or from the rightmost
-     position of vector registers, for both big-endian and little-endian CPUs.
-     No need to change any index numbers.  */
+  /* The optab semantics are that index 0 selects the first element
+     of operands[1] and the highest index selects the last element
+     of operands[2]. This is the oppossite order from "vshf.df wd,rs,wt"
+     where index 0 selects the first elemnt of wt and the highest index
+     selects the last element of ws. We therefore swap the operands here. */
   emit_insn (gen_msa_vshf<mode> (operands[0], operands[3], operands[2],
 				 operands[1]));
   DONE;
@@ -743,7 +742,7 @@
 (define_expand "mov<mode>"
   [(set (match_operand:MODE128 0)
 	(match_operand:MODE128 1))]
-  "TARGET_64BIT || TARGET_MSA"
+  "TARGET_MSA"
 {
   if (mips_legitimize_move (<MODE>mode, operands[0], operands[1]))
     DONE;
@@ -752,24 +751,21 @@
 (define_expand "movmisalign<mode>"
   [(set (match_operand:MODE128 0)
 	(match_operand:MODE128 1))]
-  "TARGET_64BIT || TARGET_MSA"
+  "TARGET_MSA"
 {
   if (mips_legitimize_move (<MODE>mode, operands[0], operands[1]))
     DONE;
 })
 
-;; Note that we prefer floating-point loads, stores, and moves by adding * to
-;; other register preferences.
-;; Note that we combine f and YG, so that move_type for YG is fmove and its
-;; instruction length can be 1.
+;; 128bit MSA modes only it msa register or memmory.
 (define_insn "mov<mode>_msa"
-  [(set (match_operand:MODE128 0 "nonimmediate_operand" "=f,f,R,R,*f,*d,*d,*d,*R")
-	(match_operand:MODE128 1 "move_operand" "fYG,R,f,YG,*d,*f,*d*YG,*R,*d"))]
+  [(set (match_operand:MODE128 0 "nonimmediate_operand" "=f,f,R")
+	(match_operand:MODE128 1 "move_operand" "fYG,R,f"))]
   "ISA_HAS_MSA
    && (register_operand (operands[0], <MODE>mode)
        || reg_or_0_operand (operands[1], <MODE>mode))"
 { return mips_output_move (operands[0], operands[1]); }
-  [(set_attr "move_type"	"fmove,fpload,fpstore,store,mtc,mfc,move,load,store")
+  [(set_attr "move_type"	"fmove,fpload,fpstore")
    (set_attr "mode"     "TI")])
 
 (define_split
