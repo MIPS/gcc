@@ -7911,16 +7911,6 @@ mips_expand_ext_as_unaligned_load (rtx dest, rtx src, HOST_WIDE_INT width,
       else
         emit_insn (gen_extendsidi2 (dest1, dest));
     }
-
-  /* If we were loading 32bits and the original register was DI then
-     sign/zero extend into the orignal dest.  */
-  if (dest1)
-    {
-      if (unsigned_p)
-        emit_insn (gen_zero_extendsidi2 (dest1, dest));
-      else
-        emit_insn (gen_extendsidi2 (dest1, dest));
-    }
   return true;
 }
 
