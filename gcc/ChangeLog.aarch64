@@ -1,13 +1,16 @@
 2014-05-28  Joel Jones  <jjones@cavium.com>
+
         * gcc/testsuite/gcc.target/aarch64/atomic-comp-swap-release-acquire.c:
         Skip test for load/store exclusive instructions if TARGET_ATOMIC.
 
 2014-05-24  Joel Jones  <jjones@cavium.com>
-    Bug #9775
-    * gcc/config/aarch64/aarch64.c (aarch64_expand_compare_and_swap):
-    Ensure that oldval is in a register.
+
+	Bug #9775
+	* gcc/config/aarch64/aarch64.c (aarch64_expand_compare_and_swap):
+	Ensure that oldval is in a register.
 
 2014-05-24  Joel Jones  <jjones@cavium.com>
+
         Bug #9775
         * gcc/config/aarch64/aarch64.c (aarch64_expand_compare_and_swap):
         Generate a CAS instruction if target supports ARVMv8.1 atomics.
@@ -21,6 +24,7 @@
         * testsuite/gcc.target/aarch64/atomicExchangeSwapCAS-3.c: int CAS
 
 2014-05-23  Joel Jones  <jjones@cavium.com>
+
         * gcc/config/aarch64/aarch64-cores.def: Associate AARCH64_FL_ATOMIC for
           thunder.
         * gcc/config/aarch64/aarch64-option-extensions.def: Add extension
@@ -29,9 +33,10 @@
           AARCH64_FL_ATOMIC, AARCH64_ISA_ATOMIC, and TARGET_ATOMIC
 
 2014-04-25  Joel Jones  <jjones@caviumnetworks.com>
-    * config/aarch64/aarch64.md (*add_mul_imm_si_uxtw): Avoid generating 
-    extraneous zero-extend for Add (extended register)
-    * testsuite/gcc.target/aarch64/add-extend.c
+
+	* config/aarch64/aarch64.md (*add_mul_imm_si_uxtw): Avoid generating 
+	extraneous zero-extend for Add (extended register)
+	* testsuite/gcc.target/aarch64/add-extend.c
 
 2014-04-14  Andrew Pinski  <apinski@cavium.com>
 
