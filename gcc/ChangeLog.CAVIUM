@@ -1,5 +1,11 @@
 2014-06-16  Andrew Pinski  <apinski@cavium.com>
 
+	Bug #11168
+	* expr.c (used_in_cond_stmt_p): Also return
+	true for usage in ?: expressions.
+
+2014-06-16  Andrew Pinski  <apinski@cavium.com>
+
 	* expr.c (expand_cond_expr_using_cmove): Use
 	the mode from expansion first.  if VOIDmode,
 	use the mode from the tree type.

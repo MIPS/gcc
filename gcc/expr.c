@@ -9300,26 +9300,36 @@ used_in_cond_stmt_p (tree exp)
   imm_use_iterator ui;
   gimple use_stmt;
   FOR_EACH_IMM_USE_STMT (use_stmt, ui, exp)
-    if (gimple_code (use_stmt) == GIMPLE_COND)
-      {
-	tree op1 = gimple_cond_rhs (use_stmt);
-	/* TBD: If we can convert all
-	    _Bool t;
+    {
+      if (gimple_code (use_stmt) == GIMPLE_COND)
+	{
+	  tree op1 = gimple_cond_rhs (use_stmt);
+	  /* TBD: If we can convert all
+	      _Bool t;
 
-	    if (t == 1)
-	      goto <bb 3>;
-	    else
-	      goto <bb 4>;
-	   to
-	    if (t != 0)
-	      goto <bb 3>;
-	    else
-	      goto <bb 4>;
-	   we can remove the following check.  */
-	if (integer_zerop (op1))
-	  expand_cond = true;
-	BREAK_FROM_IMM_USE_STMT (ui);
-      }
+	      if (t == 1)
+	        goto <bb 3>;
+	      else
+	        goto <bb 4>;
+	     to
+	      if (t != 0)
+	        goto <bb 3>;
+	      else
+	        goto <bb 4>;
+	     we can remove the following check.  */
+	  if (integer_zerop (op1))
+	    expand_cond = true;
+	  BREAK_FROM_IMM_USE_STMT (ui);
+	}
+      /* a = EXP ? b : c is also an use in conditional
+         statement. */
+      else if (gimple_code (use_stmt) == GIMPLE_ASSIGN
+	       && gimple_expr_code (use_stmt) == COND_EXPR)
+	{
+	  if (gimple_assign_rhs1 (use_stmt) == exp)
+	    expand_cond = true;
+	}
+    }
   return expand_cond;
 }
 
