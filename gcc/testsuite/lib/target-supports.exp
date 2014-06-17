@@ -3478,7 +3478,7 @@ proc check_effective_target_vect_long_long { } {
         if { [istarget i?86-*-*]
               || [istarget x86_64-*-*] 
 	      || ([istarget mips*-*-*]
-	          && [check_effect_target_mips_msa_nomips16_nomicromips]) } {
+	          && [check_effective_target_mips_msa_nomips16_nomicromips]) } {
            set et_vect_long_long_saved 1
         }
     }
