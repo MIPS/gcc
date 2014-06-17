@@ -1,3 +1,8 @@
+2014-06-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 211742.
+	* REVISION: Update subversion id.
+
 2014-06-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/vsx.md (VSX_LE): Properly swap IEEE 128-bit on
