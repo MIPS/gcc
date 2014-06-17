@@ -49,6 +49,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimplify.h"
 #include "bitmap.h"
 #include "omp-low.h"
+#include "builtins.h"
 
 static bool verify_constant (tree, bool, bool *, bool *);
 #define VERIFY_CONSTANT(X)						\
@@ -1083,7 +1084,7 @@ finish_break_stmt (void)
      block_may_fallthru returns true when given something it does not
      understand.  */
   if (!block_may_fallthru (cur_stmt_list))
-    return void_zero_node;
+    return void_node;
   return add_stmt (build_stmt (input_location, BREAK_STMT));
 }
 
@@ -1129,6 +1130,11 @@ finish_switch_cond (tree cond, tree switch_stmt)
       orig_type = TREE_TYPE (cond);
       if (cond != error_mark_node)
 	{
+	  /* Warn if the condition has boolean value.  */
+	  if (TREE_CODE (orig_type) == BOOLEAN_TYPE)
+	    warning_at (input_location, OPT_Wswitch_bool,
+			"switch condition has type bool");
+
 	  /* [stmt.switch]
 
 	     Integral promotions are performed.  */
@@ -1835,10 +1841,11 @@ check_accessibility_of_qualified_id (tree decl,
       /* If the reference is to a non-static member of the
 	 current class, treat it as if it were referenced through
 	 `this'.  */
+      tree ct;
       if (DECL_NONSTATIC_MEMBER_P (decl)
 	  && current_class_ptr
-	  && DERIVED_FROM_P (scope, current_class_type))
-	qualifying_type = current_class_type;
+	  && DERIVED_FROM_P (scope, ct = current_nonlambda_class_type ()))
+	qualifying_type = ct;
       /* Otherwise, use the type indicated by the
 	 nested-name-specifier.  */
       else
@@ -2095,7 +2102,7 @@ empty_expr_stmt_p (tree expr_stmt)
 {
   tree body = NULL_TREE;
 
-  if (expr_stmt == void_zero_node)
+  if (expr_stmt == void_node)
     return true;
 
   if (expr_stmt)
@@ -3166,12 +3173,7 @@ finish_id_expression (tree id_expression,
       else if (TREE_STATIC (decl)
 	       /* It's not a use (3.2) if we're in an unevaluated context.  */
 	       || cp_unevaluated_operand)
-	{
-	  if (processing_template_decl)
-	    /* For a use of an outer static/unevaluated var, return the id
-	       so that we'll look it up again in the instantiation.  */
-	    return id_expression;
-	}
+	/* OK */;
       else
 	{
 	  tree context = DECL_CONTEXT (decl);
@@ -3190,13 +3192,13 @@ finish_id_expression (tree id_expression,
 	     the complexity of the problem"
 
 	     FIXME update for final resolution of core issue 696.  */
-	  if (decl_constant_var_p (decl))
+	  if (decl_maybe_constant_var_p (decl))
 	    {
 	      if (processing_template_decl)
 		/* In a template, the constant value may not be in a usable
-		   form, so look it up again at instantiation time.  */
-		return id_expression;
-	      else
+		   form, so wait until instantiation time.  */
+		return decl;
+	      else if (decl_constant_var_p (decl))
 		return integral_constant_value (decl);
 	    }
 
@@ -3491,6 +3493,7 @@ finish_id_expression (tree id_expression,
       tree wrap;
       if (VAR_P (decl)
 	  && !cp_unevaluated_operand
+	  && (TREE_STATIC (decl) || DECL_EXTERNAL (decl))
 	  && DECL_THREAD_LOCAL_P (decl)
 	  && (wrap = get_tls_wrapper_fn (decl)))
 	{
@@ -3867,6 +3870,7 @@ simplify_aggr_init_expr (tree *tp)
 				    aggr_init_expr_nargs (aggr_init_expr),
 				    AGGR_INIT_EXPR_ARGP (aggr_init_expr));
   TREE_NOTHROW (call_expr) = TREE_NOTHROW (aggr_init_expr);
+  CALL_EXPR_LIST_INIT_P (call_expr) = CALL_EXPR_LIST_INIT_P (aggr_init_expr);
   tree ret = call_expr;
 
   if (style == ctor)
@@ -3896,20 +3900,6 @@ simplify_aggr_init_expr (tree *tp)
 			     tf_warning_or_error);
       pop_deferring_access_checks ();
       ret = build2 (COMPOUND_EXPR, TREE_TYPE (slot), ret, slot);
-    }
-
-  /* DR 1030 says that we need to evaluate the elements of an
-     initializer-list in forward order even when it's used as arguments to
-     a constructor.  So if the target wants to evaluate them in reverse
-     order and there's more than one argument other than 'this', force
-     pre-evaluation.  */
-  if (PUSH_ARGS_REVERSED && CALL_EXPR_LIST_INIT_P (aggr_init_expr)
-      && aggr_init_expr_nargs (aggr_init_expr) > 2)
-    {
-      tree preinit;
-      stabilize_call (call_expr, &preinit);
-      if (preinit)
-	ret = build2 (COMPOUND_EXPR, TREE_TYPE (ret), preinit, ret);
     }
 
   if (AGGR_INIT_ZERO_FIRST (aggr_init_expr))
@@ -5222,7 +5212,7 @@ finish_omp_clauses (tree clauses)
 {
   bitmap_head generic_head, firstprivate_head, lastprivate_head;
   bitmap_head aligned_head;
-  tree c, t, *pc = &clauses;
+  tree c, t, *pc;
   bool branch_seen = false;
   bool copyprivate_seen = false;
 
@@ -5967,7 +5957,7 @@ finish_omp_threadprivate (tree vars)
 
 	  if (! DECL_THREAD_LOCAL_P (v))
 	    {
-	      DECL_TLS_MODEL (v) = decl_default_tls_model (v);
+	      set_decl_tls_model (v, decl_default_tls_model (v));
 	      /* If rtl has been already set for this var, call
 		 make_decl_rtl once again, so that encode_section_info
 		 has a chance to look at the new decl flags.  */

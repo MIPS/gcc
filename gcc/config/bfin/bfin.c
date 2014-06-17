@@ -59,6 +59,7 @@
 #include "hw-doloop.h"
 #include "opts.h"
 #include "dumpfile.h"
+#include "builtins.h"
 
 /* A C structure for machine-specific, per-function data.
    This is added to the cfun structure.  */
@@ -2588,7 +2589,7 @@ split_load_immediate (rtx operands[])
       && (D_REGNO_P (regno)
 	  || (regno >= REG_P0 && regno <= REG_P7 && num_zero <= 2)))
     {
-      emit_insn (gen_movsi (operands[0], GEN_INT (shifted)));
+      emit_insn (gen_movsi (operands[0], gen_int_mode (shifted, SImode)));
       emit_insn (gen_ashlsi3 (operands[0], operands[0], GEN_INT (num_zero)));
       return 1;
     }
@@ -2602,13 +2603,15 @@ split_load_immediate (rtx operands[])
       if (log2constp (val & 0xFFFF0000))
 	{
 	  emit_insn (gen_movsi (operands[0], GEN_INT (val & 0xFFFF)));
-	  emit_insn (gen_iorsi3 (operands[0], operands[0], GEN_INT (val & 0xFFFF0000)));
+	  emit_insn (gen_iorsi3 (operands[0], operands[0],
+				 gen_int_mode (val & 0xFFFF0000, SImode)));
 	  return 1;
 	}
       else if (log2constp (val | 0xFFFF) && (val & 0x8000) != 0)
 	{
 	  emit_insn (gen_movsi (operands[0], GEN_INT (tmp)));
-	  emit_insn (gen_andsi3 (operands[0], operands[0], GEN_INT (val | 0xFFFF)));
+	  emit_insn (gen_andsi3 (operands[0], operands[0],
+				 gen_int_mode (val | 0xFFFF, SImode)));
 	}
     }
 
@@ -2617,7 +2620,9 @@ split_load_immediate (rtx operands[])
       if (tmp >= -64 && tmp <= 63)
 	{
 	  emit_insn (gen_movsi (operands[0], GEN_INT (tmp)));
-	  emit_insn (gen_movstricthi_high (operands[0], GEN_INT (val & -65536)));
+	  emit_insn (gen_movstricthi_high (operands[0],
+					   gen_int_mode (val & -65536,
+							 SImode)));
 	  return 1;
 	}
 
@@ -2645,7 +2650,7 @@ split_load_immediate (rtx operands[])
     {
       /* If optimizing for size, generate a sequence that has more instructions
 	 but is shorter.  */
-      emit_insn (gen_movsi (operands[0], GEN_INT (shifted_compl)));
+      emit_insn (gen_movsi (operands[0], gen_int_mode (shifted_compl, SImode)));
       emit_insn (gen_ashlsi3 (operands[0], operands[0],
 			      GEN_INT (num_compl_zero)));
       emit_insn (gen_one_cmplsi2 (operands[0], operands[0]));
@@ -4755,8 +4760,8 @@ bfin_handle_l1_text_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 
   /* The decl may have already been given a section attribute
      from a previous declaration. Ensure they match.  */
-  else if (DECL_SECTION_NAME (decl) != NULL_TREE
-	   && strcmp (TREE_STRING_POINTER (DECL_SECTION_NAME (decl)),
+  else if (DECL_SECTION_NAME (decl) != NULL
+	   && strcmp (DECL_SECTION_NAME (decl),
 		      ".l1.text") != 0)
     {
       error ("section of %q+D conflicts with previous declaration",
@@ -4764,7 +4769,7 @@ bfin_handle_l1_text_attribute (tree *node, tree name, tree ARG_UNUSED (args),
       *no_add_attrs = true;
     }
   else
-    DECL_SECTION_NAME (decl) = build_string (9, ".l1.text");
+    set_decl_section_name (decl, ".l1.text");
 
   return NULL_TREE;
 }
@@ -4806,8 +4811,8 @@ bfin_handle_l1_data_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 
       /* The decl may have already been given a section attribute
 	 from a previous declaration. Ensure they match.  */
-      if (DECL_SECTION_NAME (decl) != NULL_TREE
-	  && strcmp (TREE_STRING_POINTER (DECL_SECTION_NAME (decl)),
+      if (DECL_SECTION_NAME (decl) != NULL
+	  && strcmp (DECL_SECTION_NAME (decl),
 		     section_name) != 0)
 	{
 	  error ("section of %q+D conflicts with previous declaration",
@@ -4815,8 +4820,7 @@ bfin_handle_l1_data_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 	  *no_add_attrs = true;
 	}
       else
-	DECL_SECTION_NAME (decl)
-	  = build_string (strlen (section_name) + 1, section_name);
+	set_decl_section_name (decl, section_name);
     }
 
  return NULL_TREE;
@@ -4833,8 +4837,8 @@ bfin_handle_l2_attribute (tree *node, tree ARG_UNUSED (name),
 
   if (TREE_CODE (decl) == FUNCTION_DECL)
     {
-      if (DECL_SECTION_NAME (decl) != NULL_TREE
-	  && strcmp (TREE_STRING_POINTER (DECL_SECTION_NAME (decl)),
+      if (DECL_SECTION_NAME (decl) != NULL
+	  && strcmp (DECL_SECTION_NAME (decl),
 		     ".l2.text") != 0)
 	{
 	  error ("section of %q+D conflicts with previous declaration",
@@ -4842,12 +4846,12 @@ bfin_handle_l2_attribute (tree *node, tree ARG_UNUSED (name),
 	  *no_add_attrs = true;
 	}
       else
-	DECL_SECTION_NAME (decl) = build_string (9, ".l2.text");
+	set_decl_section_name (decl, ".l2.text");
     }
   else if (TREE_CODE (decl) == VAR_DECL)
     {
-      if (DECL_SECTION_NAME (decl) != NULL_TREE
-	  && strcmp (TREE_STRING_POINTER (DECL_SECTION_NAME (decl)),
+      if (DECL_SECTION_NAME (decl) != NULL
+	  && strcmp (DECL_SECTION_NAME (decl),
 		     ".l2.data") != 0)
 	{
 	  error ("section of %q+D conflicts with previous declaration",
@@ -4855,7 +4859,7 @@ bfin_handle_l2_attribute (tree *node, tree ARG_UNUSED (name),
 	  *no_add_attrs = true;
 	}
       else
-	DECL_SECTION_NAME (decl) = build_string (9, ".l2.data");
+	set_decl_section_name (decl, ".l2.data");
     }
 
   return NULL_TREE;

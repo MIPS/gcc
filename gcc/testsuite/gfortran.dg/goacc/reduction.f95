@@ -66,73 +66,73 @@ common /blk/ i1
 !$acc end parallel
 !$acc parallel reduction (*:ia1)	! { dg-error "Assumed size" }
 !$acc end parallel
-!$acc parallel reduction (+:l1)		! { dg-error "must be of numeric type, got LOGICAL" }
+!$acc parallel reduction (+:l1)		! { dg-error "OMP DECLARE REDUCTION \\+ not found for type LOGICAL" }
 !$acc end parallel
-!$acc parallel reduction (*:la1)	! { dg-error "must be of numeric type, got LOGICAL" }
+!$acc parallel reduction (*:la1)	! { dg-error "OMP DECLARE REDUCTION \\* not found for type LOGICAL" }
 !$acc end parallel
-!$acc parallel reduction (-:a1)		! { dg-error "must be of numeric type, got CHARACTER" }
+!$acc parallel reduction (-:a1)		! { dg-error "OMP DECLARE REDUCTION - not found for type CHARACTER" }
 !$acc end parallel
-!$acc parallel reduction (+:t1)		! { dg-error "must be of numeric type, got TYPE" }
+!$acc parallel reduction (+:t1)		! { dg-error "OMP DECLARE REDUCTION \\+ not found for type TYPE" }
 !$acc end parallel
-!$acc parallel reduction (*:ta1)	! { dg-error "must be of numeric type, got TYPE" }
+!$acc parallel reduction (*:ta1)	! { dg-error "OMP DECLARE REDUCTION \\* not found for type TYPE" }
 !$acc end parallel
-!$acc parallel reduction (.and.:i3)	! { dg-error "must be LOGICAL" }
+!$acc parallel reduction (.and.:i3)	! { dg-error "OMP DECLARE REDUCTION \\.and\\. not found for type INTEGER" }
 !$acc end parallel
-!$acc parallel reduction (.or.:ia2)	! { dg-error "must be LOGICAL" }
+!$acc parallel reduction (.or.:ia2)	! { dg-error "OMP DECLARE REDUCTION \\.or\\. not found for type INTEGER" }
 !$acc end parallel
-!$acc parallel reduction (.eqv.:r1)	! { dg-error "must be LOGICAL" }
+!$acc parallel reduction (.eqv.:r1)	! { dg-error "OMP DECLARE REDUCTION \\.eqv\\. not found for type REAL" }
 !$acc end parallel
-!$acc parallel reduction (.neqv.:ra1)	! { dg-error "must be LOGICAL" }
+!$acc parallel reduction (.neqv.:ra1)	! { dg-error "OMP DECLARE REDUCTION \\.neqv\\. not found for type REAL" }
 !$acc end parallel
-!$acc parallel reduction (.and.:d1)	! { dg-error "must be LOGICAL" }
+!$acc parallel reduction (.and.:d1)	! { dg-error "OMP DECLARE REDUCTION \\.and\\. not found for type REAL" }
 !$acc end parallel
-!$acc parallel reduction (.or.:da1)	! { dg-error "must be LOGICAL" }
+!$acc parallel reduction (.or.:da1)	! { dg-error "OMP DECLARE REDUCTION \\.or\\. not found for type REAL" }
 !$acc end parallel
-!$acc parallel reduction (.eqv.:c1)	! { dg-error "must be LOGICAL" }
+!$acc parallel reduction (.eqv.:c1)	! { dg-error "OMP DECLARE REDUCTION \\.eqv\\. not found for type COMPLEX" }
 !$acc end parallel
-!$acc parallel reduction (.neqv.:ca1)	! { dg-error "must be LOGICAL" }
+!$acc parallel reduction (.neqv.:ca1)	! { dg-error "OMP DECLARE REDUCTION \\.neqv\\. not found for type COMPLEX" }
 !$acc end parallel
-!$acc parallel reduction (.and.:a1)	! { dg-error "must be LOGICAL" }
+!$acc parallel reduction (.and.:a1)	! { dg-error "OMP DECLARE REDUCTION \\.and\\. not found for type CHARACTER" }
 !$acc end parallel
-!$acc parallel reduction (.or.:t1)	! { dg-error "must be LOGICAL" }
+!$acc parallel reduction (.or.:t1)	! { dg-error "OMP DECLARE REDUCTION \\.or\\. not found for type TYPE" }
 !$acc end parallel
-!$acc parallel reduction (.eqv.:ta1)	! { dg-error "must be LOGICAL" }
+!$acc parallel reduction (.eqv.:ta1)	! { dg-error "OMP DECLARE REDUCTION \\.eqv\\. not found for type TYPE" }
 !$acc end parallel
-!$acc parallel reduction (min:c1)	! { dg-error "must be INTEGER or REAL" }
+!$acc parallel reduction (min:c1)	! { dg-error "OMP DECLARE REDUCTION min not found for type COMPLEX" }
 !$acc end parallel
-!$acc parallel reduction (max:ca1)	! { dg-error "must be INTEGER or REAL" }
+!$acc parallel reduction (max:ca1)	! { dg-error "OMP DECLARE REDUCTION max not found for type COMPLEX" }
 !$acc end parallel
-!$acc parallel reduction (max:l1)	! { dg-error "must be INTEGER or REAL" }
+!$acc parallel reduction (max:l1)	! { dg-error "OMP DECLARE REDUCTION max not found for type LOGICAL" }
 !$acc end parallel
-!$acc parallel reduction (min:la1)	! { dg-error "must be INTEGER or REAL" }
+!$acc parallel reduction (min:la1)	! { dg-error "OMP DECLARE REDUCTION min not found for type LOGICAL" }
 !$acc end parallel
-!$acc parallel reduction (max:a1)	! { dg-error "must be INTEGER or REAL" }
+!$acc parallel reduction (max:a1)	! { dg-error "OMP DECLARE REDUCTION max not found for type CHARACTER" }
 !$acc end parallel
-!$acc parallel reduction (min:t1)	! { dg-error "must be INTEGER or REAL" }
+!$acc parallel reduction (min:t1)	! { dg-error "OMP DECLARE REDUCTION min not found for type TYPE" }
 !$acc end parallel
-!$acc parallel reduction (max:ta1)	! { dg-error "must be INTEGER or REAL" }
+!$acc parallel reduction (max:ta1)	! { dg-error "OMP DECLARE REDUCTION max not found for type TYPE" }
 !$acc end parallel
-!$acc parallel reduction (iand:r1)	! { dg-error "must be INTEGER" }
+!$acc parallel reduction (iand:r1)	! { dg-error "OMP DECLARE REDUCTION iand not found for type REAL" }
 !$acc end parallel
-!$acc parallel reduction (ior:ra1)	! { dg-error "must be INTEGER" }
+!$acc parallel reduction (ior:ra1)	! { dg-error "OMP DECLARE REDUCTION ior not found for type REAL" }
 !$acc end parallel
-!$acc parallel reduction (ieor:d1)	! { dg-error "must be INTEGER" }
+!$acc parallel reduction (ieor:d1)	! { dg-error "OMP DECLARE REDUCTION ieor not found for type REAL" }
 !$acc end parallel
-!$acc parallel reduction (ior:da1)	! { dg-error "must be INTEGER" }
+!$acc parallel reduction (ior:da1)	! { dg-error "OMP DECLARE REDUCTION ior not found for type REAL" }
 !$acc end parallel
-!$acc parallel reduction (iand:c1)	! { dg-error "must be INTEGER" }
+!$acc parallel reduction (iand:c1)	! { dg-error "OMP DECLARE REDUCTION iand not found for type COMPLEX" }
 !$acc end parallel
-!$acc parallel reduction (ior:ca1)	! { dg-error "must be INTEGER" }
+!$acc parallel reduction (ior:ca1)	! { dg-error "OMP DECLARE REDUCTION ior not found for type COMPLEX" }
 !$acc end parallel
-!$acc parallel reduction (ieor:l1)	! { dg-error "must be INTEGER" }
+!$acc parallel reduction (ieor:l1)	! { dg-error "OMP DECLARE REDUCTION ieor not found for type LOGICAL" }
 !$acc end parallel
-!$acc parallel reduction (iand:la1)	! { dg-error "must be INTEGER" }
+!$acc parallel reduction (iand:la1)	! { dg-error "OMP DECLARE REDUCTION iand not found for type LOGICAL" }
 !$acc end parallel
-!$acc parallel reduction (ior:a1)	! { dg-error "must be INTEGER" }
+!$acc parallel reduction (ior:a1)	! { dg-error "OMP DECLARE REDUCTION ior not found for type CHARACTER" }
 !$acc end parallel
-!$acc parallel reduction (ieor:t1)	! { dg-error "must be INTEGER" }
+!$acc parallel reduction (ieor:t1)	! { dg-error "OMP DECLARE REDUCTION ieor not found for type TYPE" }
 !$acc end parallel
-!$acc parallel reduction (iand:ta1)	! { dg-error "must be INTEGER" }
+!$acc parallel reduction (iand:ta1)	! { dg-error "OMP DECLARE REDUCTION iand not found for type TYPE" }
 !$acc end parallel
 
 end subroutine

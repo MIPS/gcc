@@ -620,10 +620,14 @@ gfc_init_builtin_functions (void)
 #define DEF_FUNCTION_TYPE_3(NAME, RETURN, ARG1, ARG2, ARG3) NAME,
 #define DEF_FUNCTION_TYPE_4(NAME, RETURN, ARG1, ARG2, ARG3, ARG4) NAME,
 #define DEF_FUNCTION_TYPE_5(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5) NAME,
-#define DEF_FUNCTION_TYPE_6(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6) NAME,
-#define DEF_FUNCTION_TYPE_7(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6, ARG7) NAME,
-#define DEF_FUNCTION_TYPE_8(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6, ARG7, ARG8) NAME,
-#define DEF_FUNCTION_TYPE_10(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6, ARG7, ARG8, ARG9, ARG10) NAME,
+#define DEF_FUNCTION_TYPE_6(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+			    ARG6) NAME,
+#define DEF_FUNCTION_TYPE_7(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+			    ARG6, ARG7) NAME,
+#define DEF_FUNCTION_TYPE_8(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+			    ARG6, ARG7, ARG8) NAME,
+#define DEF_FUNCTION_TYPE_10(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+			     ARG6, ARG7, ARG8, ARG9, ARG10) NAME,
 #define DEF_FUNCTION_TYPE_VAR_0(NAME, RETURN) NAME,
 #define DEF_POINTER_TYPE(NAME, TYPE) NAME,
 #include "types.def"
@@ -1037,12 +1041,15 @@ gfc_init_builtin_functions (void)
     = build_pointer_type (builtin_types[(int) TYPE]);
 #include "types.def"
 #undef DEF_PRIMITIVE_TYPE
+#undef DEF_FUNCTION_TYPE_0
 #undef DEF_FUNCTION_TYPE_1
 #undef DEF_FUNCTION_TYPE_2
 #undef DEF_FUNCTION_TYPE_3
 #undef DEF_FUNCTION_TYPE_4
 #undef DEF_FUNCTION_TYPE_5
 #undef DEF_FUNCTION_TYPE_6
+#undef DEF_FUNCTION_TYPE_7
+#undef DEF_FUNCTION_TYPE_8
 #undef DEF_FUNCTION_TYPE_10
 #undef DEF_FUNCTION_TYPE_VAR_0
 #undef DEF_POINTER_TYPE
@@ -1066,7 +1073,9 @@ gfc_init_builtin_functions (void)
 #undef DEF_GOACC_BUILTIN
     }
 
-  if (gfc_option.gfc_flag_openmp || flag_tree_parallelize_loops)
+  if (gfc_option.gfc_flag_openmp
+      || gfc_option.gfc_flag_openmp_simd
+      || flag_tree_parallelize_loops)
     {
 #undef DEF_GOMP_BUILTIN
 #define DEF_GOMP_BUILTIN(code, name, type, attr) \

@@ -834,7 +834,9 @@ skip_free_comments (void)
 		only if followed by space).  */
 	  if (at_bol)
 	  {
-	    if (gfc_option.gfc_flag_openmp && gfc_option.gfc_flag_openacc)
+	    if ((gfc_option.gfc_flag_openmp
+		 || gfc_option.gfc_flag_openmp_simd)
+		&& gfc_option.gfc_flag_openacc)
 	      {
 		locus old_loc = gfc_current_locus;
 		if (next_char () == '$')
@@ -866,7 +868,9 @@ skip_free_comments (void)
 		  }
 		gfc_current_locus = old_loc;
 	      }
-	    else if (gfc_option.gfc_flag_openmp && !gfc_option.gfc_flag_openacc)
+	    else if ((gfc_option.gfc_flag_openmp
+		      || gfc_option.gfc_flag_openmp_simd)
+		     && !gfc_option.gfc_flag_openacc)
 	      {
 		locus old_loc = gfc_current_locus;
 		if (next_char () == '$')
@@ -890,12 +894,14 @@ skip_free_comments (void)
 		  }
 		gfc_current_locus = old_loc;
 	      }
-	    else if (gfc_option.gfc_flag_openacc && !gfc_option.gfc_flag_openmp)
+	    else if (gfc_option.gfc_flag_openacc
+		     && !(gfc_option.gfc_flag_openmp
+			  || gfc_option.gfc_flag_openmp_simd))
 	      {
 		locus old_loc = gfc_current_locus;
-		if (next_char() == '$')
+		if (next_char () == '$')
 		  {
-		    c = next_char();
+		    c = next_char ();
 		      if (c == 'a' || c == 'A')
 			{
 			  if (skip_oacc_attribute (start, old_loc, 
@@ -1002,7 +1008,7 @@ skip_fixed_comments (void)
 	      && continue_line < gfc_linebuf_linenum (gfc_current_locus.lb))
 	    continue_line = gfc_linebuf_linenum (gfc_current_locus.lb);
 
-	  if (gfc_option.gfc_flag_openmp)
+	  if (gfc_option.gfc_flag_openmp || gfc_option.gfc_flag_openmp_simd)
 	    {
 	      if (next_char () == '$')
 		{
@@ -2055,7 +2061,7 @@ include_line (gfc_char_t *line)
 
   c = line;
 
-  if (gfc_option.gfc_flag_openmp)
+  if (gfc_option.gfc_flag_openmp || gfc_option.gfc_flag_openmp_simd)
     {
       if (gfc_current_form == FORM_FREE)
 	{

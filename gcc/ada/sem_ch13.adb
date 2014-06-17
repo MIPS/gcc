@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -48,7 +48,6 @@ with Sem_Case; use Sem_Case;
 with Sem_Ch3;  use Sem_Ch3;
 with Sem_Ch6;  use Sem_Ch6;
 with Sem_Ch8;  use Sem_Ch8;
-with Sem_Ch9;  use Sem_Ch9;
 with Sem_Dim;  use Sem_Dim;
 with Sem_Disp; use Sem_Disp;
 with Sem_Eval; use Sem_Eval;
@@ -490,7 +489,7 @@ package body Sem_Ch13 is
 
             --  We need to sort the component clauses on the basis of the
             --  Position values in the clause, so we can group clauses with
-            --  the same Position. together to determine the relevant machine
+            --  the same Position together to determine the relevant machine
             --  scalar size.
 
             Sort_CC : declare
@@ -538,7 +537,7 @@ package body Sem_Ch13 is
                   Comps (To) := Comps (From);
                end CP_Move;
 
-               --  Start of processing for Sort_CC
+            --  Start of processing for Sort_CC
 
             begin
                --  Collect the machine scalar relevant component clauses
@@ -662,12 +661,12 @@ package body Sem_Ch13 is
 
                            if Bytes_Big_Endian then
                               Error_Msg_NE
-                                ("\info: big-endian range for "
+                                ("\big-endian range for "
                                  & "component & is ^ .. ^?V?",
                                  First_Bit (CC), Comp);
                            else
                               Error_Msg_NE
-                                ("\info: little-endian range "
+                                ("\little-endian range "
                                  & "for component & is ^ .. ^?V?",
                                  First_Bit (CC), Comp);
                            end if;
@@ -1162,7 +1161,8 @@ package body Sem_Ch13 is
       procedure Insert_Delayed_Pragma (Prag : Node_Id);
       --  Insert a postcondition-like pragma into the tree depending on the
       --  context. Prag must denote one of the following: Pre, Post, Depends,
-      --  Global or Contract_Cases.
+      --  Global or Contract_Cases. This procedure is also used for the case
+      --  of Attach_Handler which has similar requirements for placement.
 
       --------------------------------
       -- Decorate_Aspect_And_Pragma --
@@ -1464,7 +1464,7 @@ package body Sem_Ch13 is
 
             Check_Restriction_No_Specification_Of_Aspect (Aspect);
 
-            --  Analyze this aspect (actual analysis is delayed till later)
+            --  Mark aspect analyzed (actual analysis is delayed till later)
 
             Set_Analyzed (Aspect);
             Set_Entity (Aspect, E);
@@ -1603,7 +1603,7 @@ package body Sem_Ch13 is
                      goto Continue;
                   end if;
 
-                  --  For case of address aspect, we don't consider that we
+                  --  For the case of aspect Address, we don't consider that we
                   --  know the entity is never set in the source, since it is
                   --  is likely aliasing is occurring.
 
@@ -1678,6 +1678,12 @@ package body Sem_Ch13 is
                        Make_Pragma_Argument_Association (Sloc (Expr),
                          Expression => Relocate_Node (Expr))),
                      Pragma_Name                  => Name_Attach_Handler);
+
+                  --  We need to insert this pragma into the tree to get proper
+                  --  processing and to look valid from a placement viewpoint.
+
+                  Insert_Delayed_Pragma (Aitem);
+                  goto Continue;
 
                --  Dynamic_Predicate, Predicate, Static_Predicate
 
@@ -2001,9 +2007,50 @@ package body Sem_Ch13 is
                --  immediately.
 
                when Aspect_Abstract_State => Abstract_State : declare
+                  procedure Insert_After_SPARK_Mode
+                    (Ins_Nod : Node_Id;
+                     Decls   : List_Id);
+                  --  Insert Aitem before node Ins_Nod. If Ins_Nod denotes
+                  --  pragma SPARK_Mode, then SPARK_Mode is skipped. Decls is
+                  --  the associated declarative list where Aitem is to reside.
+
+                  -----------------------------
+                  -- Insert_After_SPARK_Mode --
+                  -----------------------------
+
+                  procedure Insert_After_SPARK_Mode
+                    (Ins_Nod : Node_Id;
+                     Decls   : List_Id)
+                  is
+                     Decl : Node_Id := Ins_Nod;
+
+                  begin
+                     --  Skip SPARK_Mode
+
+                     if Present (Decl)
+                       and then Nkind (Decl) = N_Pragma
+                       and then Pragma_Name (Decl) = Name_SPARK_Mode
+                     then
+                        Decl := Next (Decl);
+                     end if;
+
+                     if Present (Decl) then
+                        Insert_Before (Decl, Aitem);
+
+                     --  Aitem acts as the last declaration
+
+                     else
+                        Append_To (Decls, Aitem);
+                     end if;
+                  end Insert_After_SPARK_Mode;
+
+                  --  Local variables
+
                   Context : Node_Id := N;
                   Decl    : Node_Id;
                   Decls   : List_Id;
+
+               --  Start of processing for Abstract_State
 
                begin
                   --  When aspect Abstract_State appears on a generic package,
@@ -2055,17 +2102,20 @@ package body Sem_Ch13 is
                               Decl := Next (Decl);
                            end loop;
 
-                           if Present (Decl) then
-                              Insert_Before (Decl, Aitem);
-                           else
-                              Append_To (Decls, Aitem);
-                           end if;
+                           --  Pragma Abstract_State must be inserted after
+                           --  pragma SPARK_Mode in the tree. This ensures that
+                           --  any error messages dependent on SPARK_Mode will
+                           --  be properly enabled/suppressed.
+
+                           Insert_After_SPARK_Mode (Decl, Decls);
 
                         --  The related package is not a generic instance, the
-                        --  corresponding pragma must be the first declaration.
+                        --  corresponding pragma must be the first declaration
+                        --  except when SPARK_Mode is already in the list. In
+                        --  that case pragma Abstract_State is placed second.
 
                         else
-                           Prepend_To (Decls, Aitem);
+                           Insert_After_SPARK_Mode (First (Decls), Decls);
                         end if;
 
                      --  Otherwise the pragma forms a new declarative list
@@ -2685,50 +2735,25 @@ package body Sem_Ch13 is
 
                   elsif A_Id = Aspect_Import or else A_Id = Aspect_Export then
 
-                     --  Verify that there is an aspect Convention that will
-                     --  incorporate the Import/Export aspect, and eventual
-                     --  Link/External names.
+                     --  For the case of aspects Import and Export, we don't
+                     --  consider that we know the entity is never set in the
+                     --  source, since it is is likely modified outside the
+                     --  program.
 
-                     declare
-                        A : Node_Id;
+                     --  Note: one might think that the analysis of the
+                     --  resulting pragma would take care of that, but
+                     --  that's not the case since it won't be from source.
 
-                     begin
-                        A := First (L);
-                        while Present (A) loop
-                           exit when Chars (Identifier (A)) = Name_Convention;
-                           Next (A);
-                        end loop;
+                     if Ekind (E) = E_Variable then
+                        Set_Never_Set_In_Source (E, False);
+                     end if;
 
-                        --  It is legal to specify Import for a variable, in
-                        --  order to suppress initialization for it, without
-                        --  specifying explicitly its convention. However this
-                        --  is only legal if the convention of the object type
-                        --  is Ada or similar.
-
-                        if No (A) then
-                           if Ekind (E) = E_Variable
-                             and then A_Id = Aspect_Import
-                           then
-                              declare
-                                 C : constant Convention_Id :=
-                                       Convention (Etype (E));
-                              begin
-                                 if C = Convention_Ada              or else
-                                    C = Convention_Ada_Pass_By_Copy or else
-                                    C = Convention_Ada_Pass_By_Reference
-                                 then
-                                    goto Continue;
-                                 end if;
-                              end;
-                           end if;
-
-                           --  Otherwise, Convention must be specified
-
-                           Error_Msg_N
-                             ("missing Convention aspect for Export/Import",
-                              Aspect);
-                        end if;
-                     end;
+                     --  In older versions of Ada the corresponding pragmas
+                     --  specified a Convention. In Ada 2012 the convention
+                     --  is specified as a separate aspect, and it is optional,
+                     --  given that it defaults to Convention_Ada. The code
+                     --  that verifed that there was a matching convention
+                     --  is now obsolete.
 
                      goto Continue;
                   end if;
@@ -3126,8 +3151,23 @@ package body Sem_Ch13 is
                Typ := Etype (Subp);
             end if;
 
-            return Base_Type (Typ) = Base_Type (Ent)
-              and then No (Next_Formal (F));
+            --  Verify that the prefix of the attribute and the local name
+            --  for the type of the formal match.
+
+            if Base_Type (Typ) /= Base_Type (Ent)
+              or else Present ((Next_Formal (F)))
+            then
+               return False;
+
+            elsif not Is_Scalar_Type (Typ)
+              and then not Is_First_Subtype (Typ)
+              and then not Is_Class_Wide_Type (Typ)
+            then
+               return False;
+
+            else
+               return True;
+            end if;
          end Has_Good_Profile;
 
       --  Start of processing for Analyze_Stream_TSS_Definition
@@ -3137,6 +3177,10 @@ package body Sem_Ch13 is
 
          if not Is_Type (U_Ent) then
             Error_Msg_N ("local name must be a subtype", Nam);
+            return;
+
+         elsif not Is_First_Subtype (U_Ent) then
+            Error_Msg_N ("local name must be a first subtype", Nam);
             return;
          end if;
 
@@ -3188,6 +3232,20 @@ package body Sem_Ch13 is
             if Is_Abstract_Subprogram (Subp) then
                Error_Msg_N ("stream subprogram must not be abstract", Expr);
                return;
+
+            --  Test for stream subprogram for interface type being non-null
+
+            elsif Is_Interface (U_Ent)
+              and then not Inside_A_Generic
+              and then Ekind (Subp) = E_Procedure
+              and then
+                not Null_Present
+                  (Specification
+                     (Unit_Declaration_Node (Ultimate_Alias (Subp))))
+            then
+               Error_Msg_N
+                 ("stream subprogram for interface type "
+                  & "must be null procedure", Expr);
             end if;
 
             Set_Entity (Expr, Subp);
@@ -6318,7 +6376,7 @@ package body Sem_Ch13 is
                if Inherit and Opt.List_Inherited_Aspects then
                   Error_Msg_Sloc := Sloc (Ritem);
                   Error_Msg_N
-                    ("?L?info: & inherits `Invariant''Class` aspect from #",
+                    ("info: & inherits `Invariant''Class` aspect from #?L?",
                      Typ);
                end if;
             end if;
@@ -10059,6 +10117,24 @@ package body Sem_Ch13 is
       Unchecked_Conversions.Init;
    end Initialize;
 
+   ---------------------------
+   -- Install_Discriminants --
+   ---------------------------
+
+   procedure Install_Discriminants (E : Entity_Id) is
+      Disc : Entity_Id;
+      Prev : Entity_Id;
+   begin
+      Disc := First_Discriminant (E);
+      while Present (Disc) loop
+         Prev := Current_Entity (Disc);
+         Set_Current_Entity (Disc);
+         Set_Is_Immediately_Visible (Disc);
+         Set_Homonym (Disc, Prev);
+         Next_Discriminant (Disc);
+      end loop;
+   end Install_Discriminants;
+
    -------------------------
    -- Is_Operational_Item --
    -------------------------
@@ -10432,6 +10508,24 @@ package body Sem_Ch13 is
          Copy_TSS (Subp_Id, Base_Type (Ent));
       end if;
    end New_Stream_Subprogram;
+
+   ------------------------------------------
+   -- Push_Scope_And_Install_Discriminants --
+   ------------------------------------------
+
+   procedure Push_Scope_And_Install_Discriminants (E : Entity_Id) is
+   begin
+      if Has_Discriminants (E) then
+         Push_Scope (E);
+
+         --  Make discriminants visible for type declarations and protected
+         --  type declarations, not for subtype declarations (RM 13.1.1 (12/3))
+
+         if Nkind (Parent (E)) /= N_Subtype_Declaration then
+            Install_Discriminants (E);
+         end if;
+      end if;
+   end Push_Scope_And_Install_Discriminants;
 
    ------------------------
    -- Rep_Item_Too_Early --
@@ -11138,6 +11232,69 @@ package body Sem_Ch13 is
       end if;
    end Set_Enum_Esize;
 
+   -----------------------------
+   -- Uninstall_Discriminants --
+   -----------------------------
+
+   procedure Uninstall_Discriminants (E : Entity_Id) is
+      Disc  : Entity_Id;
+      Prev  : Entity_Id;
+      Outer : Entity_Id;
+
+   begin
+      --  Discriminants have been made visible for type declarations and
+      --  protected type declarations, not for subtype declarations.
+
+      if Nkind (Parent (E)) /= N_Subtype_Declaration then
+         Disc := First_Discriminant (E);
+         while Present (Disc) loop
+            if Disc /= Current_Entity (Disc) then
+               Prev := Current_Entity (Disc);
+               while Present (Prev)
+                 and then Present (Homonym (Prev))
+                 and then Homonym (Prev) /= Disc
+               loop
+                  Prev := Homonym (Prev);
+               end loop;
+            else
+               Prev := Empty;
+            end if;
+
+            Set_Is_Immediately_Visible (Disc, False);
+
+            Outer := Homonym (Disc);
+            while Present (Outer) and then Scope (Outer) = E loop
+               Outer := Homonym (Outer);
+            end loop;
+
+            --  Reset homonym link of other entities, but do not modify link
+            --  between entities in current scope, so that the back-end can
+            --  have a proper count of local overloadings.
+
+            if No (Prev) then
+               Set_Name_Entity_Id (Chars (Disc), Outer);
+
+            elsif Scope (Prev) /= Scope (Disc) then
+               Set_Homonym (Prev,  Outer);
+            end if;
+
+            Next_Discriminant (Disc);
+         end loop;
+      end if;
+   end Uninstall_Discriminants;
+
+   -------------------------------------------
+   -- Uninstall_Discriminants_And_Pop_Scope --
+   -------------------------------------------
+
+   procedure Uninstall_Discriminants_And_Pop_Scope (E : Entity_Id) is
+   begin
+      if Has_Discriminants (E) then
+         Uninstall_Discriminants (E);
+         Pop_Scope;
+      end if;
+   end Uninstall_Discriminants_And_Pop_Scope;
+
    ------------------------------
    -- Validate_Address_Clauses --
    ------------------------------
@@ -11180,7 +11337,7 @@ package body Sem_Ch13 is
                  and then X_Size > Y_Size
                then
                   Error_Msg_NE
-                    ("?& overlays smaller object", ACCR.N, ACCR.X);
+                    ("??& overlays smaller object", ACCR.N, ACCR.X);
                   Error_Msg_N
                     ("\??program execution may be erroneous", ACCR.N);
                   Error_Msg_Uint_1 := X_Size;
@@ -11821,7 +11978,7 @@ package body Sem_Ch13 is
                         elsif Is_Unsigned_Type (Source) then
                            Error_Msg
                              ("\?z?source will be extended with ^ high order "
-                              & "zero bits?!", Eloc);
+                              & "zero bits!", Eloc);
 
                         else
                            Error_Msg

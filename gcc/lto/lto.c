@@ -767,7 +767,6 @@ mentions_vars_p_decl_with_vis (tree t)
 
   /* Accessor macro has side-effects, use field-name here. */
   CHECK_NO_VAR (t->decl_with_vis.assembler_name);
-  CHECK_NO_VAR (DECL_SECTION_NAME (t));
   return false;
 }
 
@@ -1300,7 +1299,6 @@ compare_tree_sccs_1 (tree t1, tree t2, tree **map)
 	  compare_values (DECL_HARD_REGISTER);
           /* DECL_IN_TEXT_SECTION is set during final asm output only.  */
 	  compare_values (DECL_IN_CONSTANT_POOL);
-	  compare_values (DECL_TLS_MODEL);
 	}
       if (VAR_OR_FUNCTION_DECL_P (t1))
 	compare_values (DECL_INIT_PRIORITY);
@@ -1529,8 +1527,6 @@ compare_tree_sccs_1 (tree t1, tree t2, tree **map)
       if (DECL_ASSEMBLER_NAME_SET_P (t1))
 	compare_tree_edges (DECL_ASSEMBLER_NAME (t1),
 			    DECL_ASSEMBLER_NAME (t2));
-      compare_tree_edges (DECL_SECTION_NAME (t1), DECL_SECTION_NAME (t2));
-      compare_tree_edges (DECL_COMDAT_GROUP (t1), DECL_COMDAT_GROUP (t2));
     }
 
   if (CODE_CONTAINS_STRUCT (code, TS_FIELD_DECL))
@@ -2003,10 +1999,10 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
 
 /* Custom version of strtoll, which is not portable.  */
 
-static HOST_WIDEST_INT
+static int64_t
 lto_parse_hex (const char *p)
 {
-  HOST_WIDEST_INT ret = 0;
+  int64_t ret = 0;
 
   for (; *p != '\0'; ++p)
     {
@@ -2058,7 +2054,7 @@ lto_resolution_read (splay_tree file_ids, FILE *resolution, lto_file *file)
     {
       int t;
       char offset_p[17];
-      HOST_WIDEST_INT offset;
+      int64_t offset;
       t = fscanf (resolution, "@0x%16s", offset_p);
       if (t != 1)
         internal_error ("could not parse file offset");
@@ -2719,7 +2715,6 @@ lto_fixup_prevailing_decls (tree t)
       if (CODE_CONTAINS_STRUCT (code, TS_DECL_WITH_VIS))
 	{
 	  LTO_NO_PREVAIL (t->decl_with_vis.assembler_name);
-	  LTO_NO_PREVAIL (DECL_SECTION_NAME (t));
 	}
       if (CODE_CONTAINS_STRUCT (code, TS_DECL_NON_COMMON))
 	{
@@ -3006,6 +3001,10 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
   gimple_canonical_types = NULL;
   delete canonical_type_hash_cache;
   canonical_type_hash_cache = NULL;
+
+  /* At this stage we know that majority of GGC memory is reachable.  
+     Growing the limits prevents unnecesary invocation of GGC.  */
+  ggc_grow ();
   ggc_collect ();
 
   /* Set the hooks so that all of the ipa passes can read in their data.  */
@@ -3094,6 +3093,10 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
       dump_symtab (cgraph_dump_file);
     }
   lto_symtab_merge_symbols ();
+  /* Removal of unreacable symbols is needed to make verify_symtab to pass;
+     we are still having duplicated comdat groups containing local statics.
+     We could also just remove them while merging.  */
+  symtab_remove_unreachable_nodes (false, dump_file);
   ggc_collect ();
   cgraph_state = CGRAPH_STATE_IPA_SSA;
 
@@ -3265,7 +3268,7 @@ do_whole_program_analysis (void)
       dump_symtab (cgraph_dump_file);
     }
 #ifdef ENABLE_CHECKING
-  verify_cgraph ();
+  verify_symtab ();
 #endif
   bitmap_obstack_release (NULL);
 

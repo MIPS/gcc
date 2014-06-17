@@ -301,7 +301,7 @@ add_control_edge (edge e)
   cfg_blocks_add (bb);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "Adding Destination of edge (%d -> %d) to worklist\n\n",
+    fprintf (dump_file, "\nAdding Destination of edge (%d -> %d) to worklist\n",
 	e->src->index, e->dest->index);
 }
 
@@ -1410,11 +1410,6 @@ replace_exp (use_operand_p op_p, tree val)
 void
 propagate_tree_value (tree *op_p, tree val)
 {
-  gcc_checking_assert (!(TREE_CODE (val) == SSA_NAME
-			 && *op_p
-			 && TREE_CODE (*op_p) == SSA_NAME
-			 && !may_propagate_copy (*op_p, val)));
-
   if (TREE_CODE (val) == SSA_NAME)
     *op_p = val;
   else

@@ -68,6 +68,14 @@
 (define_c_enum "unspec" [
     UNSPEC_CASESI
     UNSPEC_CLS
+    UNSPEC_CRC32B
+    UNSPEC_CRC32CB
+    UNSPEC_CRC32CH
+    UNSPEC_CRC32CW
+    UNSPEC_CRC32CX
+    UNSPEC_CRC32H
+    UNSPEC_CRC32W
+    UNSPEC_CRC32X
     UNSPEC_FRECPE
     UNSPEC_FRECPS
     UNSPEC_FRECPX
@@ -112,6 +120,10 @@
 
 (define_c_enum "unspecv" [
     UNSPECV_EH_RETURN		; Represent EH_RETURN
+    UNSPECV_GET_FPCR		; Represent fetch of FPCR content.
+    UNSPECV_SET_FPCR		; Represent assign of FPCR content.
+    UNSPECV_GET_FPSR		; Represent fetch of FPSR content.
+    UNSPECV_SET_FPSR		; Represent assign of FPSR content.
   ]
 )
 
@@ -519,6 +531,10 @@
 	      (use (match_operand 2 "" ""))])]
   ""
   {
+    if (!REG_P (XEXP (operands[0], 0))
+       && (GET_CODE (XEXP (operands[0], 0)) != SYMBOL_REF))
+     XEXP (operands[0], 0) = force_reg (Pmode, XEXP (operands[0], 0));
+
     if (operands[2] == NULL_RTX)
       operands[2] = const0_rtx;
   }
@@ -532,31 +548,38 @@
 	      (use (match_operand 3 "" ""))])]
   ""
   {
+    if (!REG_P (XEXP (operands[1], 0))
+       && (GET_CODE (XEXP (operands[1], 0)) != SYMBOL_REF))
+     XEXP (operands[1], 0) = force_reg (Pmode, XEXP (operands[1], 0));
+
     if (operands[3] == NULL_RTX)
       operands[3] = const0_rtx;
   }
 )
 
 (define_insn "*sibcall_insn"
-  [(call (mem:DI (match_operand:DI 0 "" "X"))
+  [(call (mem:DI (match_operand:DI 0 "aarch64_call_insn_operand" "Ucs, Usf"))
 	 (match_operand 1 "" ""))
    (return)
    (use (match_operand 2 "" ""))]
-  "GET_CODE (operands[0]) == SYMBOL_REF"
-  "b\\t%a0"
-  [(set_attr "type" "branch")]
-
+  "SIBLING_CALL_P (insn)"
+  "@
+   br\\t%0
+   b\\t%a0"
+  [(set_attr "type" "branch, branch")]
 )
 
 (define_insn "*sibcall_value_insn"
   [(set (match_operand 0 "" "")
-	(call (mem:DI (match_operand 1 "" "X"))
+	(call (mem:DI (match_operand 1 "aarch64_call_insn_operand" "Ucs, Usf"))
 	      (match_operand 2 "" "")))
    (return)
    (use (match_operand 3 "" ""))]
-  "GET_CODE (operands[1]) == SYMBOL_REF"
-  "b\\t%a1"
-  [(set_attr "type" "branch")]
+  "SIBLING_CALL_P (insn)"
+  "@
+   br\\t%1
+   b\\t%a1"
+  [(set_attr "type" "branch, branch")]
 )
 
 ;; Call subroutine returning any type.
@@ -674,7 +697,7 @@
    fmov\\t%w0, %s1
    fmov\\t%s0, %s1"
   [(set_attr "type" "mov_reg,mov_reg,mov_reg,mov_imm,load1,load1,store1,store1,\
-                     adr,adr,fmov,fmov,fmov")
+                     adr,adr,f_mcr,f_mrc,fmov")
    (set_attr "fp" "*,*,*,*,*,yes,*,yes,*,*,yes,yes,yes")]
 )
 
@@ -699,7 +722,7 @@
    fmov\\t%d0, %d1
    movi\\t%d0, %1"
   [(set_attr "type" "mov_reg,mov_reg,mov_reg,mov_imm,load1,load1,store1,store1,\
-                     adr,adr,fmov,fmov,fmov,fmov")
+                     adr,adr,f_mcr,f_mrc,fmov,fmov")
    (set_attr "fp" "*,*,*,*,*,yes,*,yes,*,*,yes,yes,yes,*")
    (set_attr "simd" "*,*,*,*,*,*,*,*,*,*,*,*,*,yes")]
 )
@@ -794,7 +817,7 @@
    str\\t%w1, %0
    mov\\t%w0, %w1"
   [(set_attr "type" "f_mcr,f_mrc,fmov,fconsts,\
-                     f_loads,f_stores,f_loads,f_stores,fmov")]
+                     f_loads,f_stores,f_loads,f_stores,mov_reg")]
 )
 
 (define_insn "*movdf_aarch64"
@@ -866,6 +889,24 @@
     aarch64_split_128bit_move (operands[0], operands[1]);
     DONE;
   }
+)
+
+;; 0 is dst
+;; 1 is src
+;; 2 is size of move in bytes
+;; 3 is alignment
+
+(define_expand "movmemdi"
+  [(match_operand:BLK 0 "memory_operand")
+   (match_operand:BLK 1 "memory_operand")
+   (match_operand:DI 2 "immediate_operand")
+   (match_operand:DI 3 "immediate_operand")]
+   "!STRICT_ALIGNMENT"
+{
+  if (aarch64_expand_movmem (operands))
+    DONE;
+  FAIL;
+}
 )
 
 ;; Operands 1 and 3 are tied together by the final condition; so we allow
@@ -2448,6 +2489,23 @@
   }
 )
 
+
+;; CRC32 instructions.
+(define_insn "aarch64_<crc_variant>"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+        (unspec:SI [(match_operand:SI 1 "register_operand" "r")
+                    (match_operand:<crc_mode> 2 "register_operand" "r")]
+         CRC))]
+  "TARGET_CRC32"
+  {
+    if (GET_MODE_BITSIZE (GET_MODE (operands[2])) >= 64)
+      return "<crc_variant>\\t%w0, %w1, %x2";
+    else
+      return "<crc_variant>\\t%w0, %w1, %w2";
+  }
+  [(set_attr "type" "crc")]
+)
+
 (define_insn "*csinc2<mode>_insn"
   [(set (match_operand:GPI 0 "register_operand" "=r")
         (plus:GPI (match_operator:GPI 2 "aarch64_comparison_operator"
@@ -3646,7 +3704,7 @@
 	  (truncate:DI (match_operand:TI 1 "register_operand" "w"))))]
   "reload_completed || reload_in_progress"
   "fmov\\t%d0, %d1"
-  [(set_attr "type" "f_mcr")
+  [(set_attr "type" "fmov")
    (set_attr "length" "4")
   ])
 
@@ -3844,7 +3902,7 @@
 	 UNSPEC_SP_SET))
    (set (match_scratch:PTR 2 "=&r") (const_int 0))]
   ""
-  "ldr\\t%x2, %1\;str\\t%x2, %0\;mov\t%x2,0"
+  "ldr\\t%<w>2, %1\;str\\t%<w>2, %0\;mov\t%<w>2,0"
   [(set_attr "length" "12")
    (set_attr "type" "multiple")])
 
@@ -3854,10 +3912,10 @@
    (match_operand 2)]
   ""
 {
-
-  rtx result = gen_reg_rtx (Pmode);
-
+  rtx result;
   enum machine_mode mode = GET_MODE (operands[0]);
+
+  result = gen_reg_rtx(mode);
 
   emit_insn ((mode == DImode
 	      ? gen_stack_protect_test_di
@@ -3881,9 +3939,40 @@
 	 UNSPEC_SP_TEST))
    (clobber (match_scratch:PTR 3 "=&r"))]
   ""
-  "ldr\t%x3, %x1\;ldr\t%x0, %x2\;eor\t%x0, %x3, %x0"
+  "ldr\t%<w>3, %x1\;ldr\t%<w>0, %x2\;eor\t%<w>0, %<w>3, %<w>0"
   [(set_attr "length" "12")
    (set_attr "type" "multiple")])
+
+;; Write Floating-point Control Register.
+(define_insn "set_fpcr"
+  [(unspec_volatile [(match_operand:SI 0 "register_operand" "r")] UNSPECV_SET_FPCR)]
+  ""
+  "msr\\tfpcr, %0"
+  [(set_attr "type" "mrs")])
+
+;; Read Floating-point Control Register.
+(define_insn "get_fpcr"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+        (unspec_volatile:SI [(const_int 0)] UNSPECV_GET_FPCR))]
+  ""
+  "mrs\\t%0, fpcr"
+  [(set_attr "type" "mrs")])
+
+;; Write Floating-point Status Register.
+(define_insn "set_fpsr"
+  [(unspec_volatile [(match_operand:SI 0 "register_operand" "r")] UNSPECV_SET_FPSR)]
+  ""
+  "msr\\tfpsr, %0"
+  [(set_attr "type" "mrs")])
+
+;; Read Floating-point Status Register.
+(define_insn "get_fpsr"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+        (unspec_volatile:SI [(const_int 0)] UNSPECV_GET_FPSR))]
+  ""
+  "mrs\\t%0, fpsr"
+  [(set_attr "type" "mrs")])
+
 
 ;; AdvSIMD Stuff
 (include "aarch64-simd.md")

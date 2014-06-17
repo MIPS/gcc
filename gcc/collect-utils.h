@@ -21,10 +21,6 @@ along with GCC; see the file COPYING3.  If not see
 extern void notice (const char *, ...)
   __attribute__ ((format (printf, 1, 2)));
 extern void fatal_signal (int);
-extern void fatal (const char *, ...)
-  __attribute__ ((format (printf, 1, 2)));
-extern void fatal_perror (const char *, ...)
-  __attribute__ ((format (printf, 1, 2)));
 
 extern struct pex_obj *collect_execute (const char *, char **,
 					const char *, const char *,

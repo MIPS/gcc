@@ -1008,15 +1008,16 @@ configure-[+prefix+][+module+]: [+ IF bootstrap +][+ ELSE +]
 	cd "[+subdir+]/[+module+]" || exit 1; \
 	case $(srcdir) in \
 	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
-	  *) topdir=`echo [+subdir+]/[+? actual_module (get "actual_module") (get "module")+]/ | \
+	  *) topdir=`echo [+subdir+]/[+module+]/ | \
 		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
 	esac; \
-	srcdiroption="--srcdir=$${topdir}/[+? actual_module (get "actual_module") (get "module")+]"; \
-	libsrcdir="$$s/[+? actual_module (get "actual_module") (get "module")+]"; \
+	module_srcdir=[+? module_srcdir (get "module_srcdir") (get "module")+]; \
 	[+ IF no-config-site +]rm -f no-such-file || : ; \
-	CONFIG_SITE=no-such-file [+ ENDIF +]$(SHELL) $${libsrcdir}/configure \
+	CONFIG_SITE=no-such-file [+ ENDIF +]$(SHELL) \
+	  $$s/$$module_srcdir/configure \
+	  --srcdir=$${topdir}/$$module_srcdir \
 	  [+args+] --build=${build_alias} --host=[+host_alias+] \
-	  --target=$${this_target} $${srcdiroption} [+extra_configure_flags+] \
+	  --target=$${this_target} [+extra_configure_flags+] \
 	  || exit 1
 @endif [+prefix+][+module+]
 
@@ -1064,12 +1065,12 @@ configure-stage[+id+]-[+prefix+][+module+]:
 	  *) topdir=`echo [+subdir+]/[+module+]/ | \
 		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
 	esac; \
-	srcdiroption="--srcdir=$${topdir}/[+module+]"; \
-	libsrcdir="$$s/[+module+]"; \
-	$(SHELL) $${libsrcdir}/configure \
+	module_srcdir=[+? module_srcdir (get "module_srcdir") (get "module")+]; \
+	$(SHELL) $$s/$$module_srcdir/configure \
+	  --srcdir=$${topdir}/$$module_srcdir \
 	  [+args+] --build=${build_alias} --host=[+host_alias+] \
-	  --target=[+target_alias+] $${srcdiroption} [+ IF prev +]\
-	  --with-build-libsubdir=$(HOST_SUBDIR) [+ ENDIF prev +]\
+	  --target=[+target_alias+] \
+	  [+ IF prev +] --with-build-libsubdir=$(HOST_SUBDIR) [+ ENDIF prev +] \
 	  $(STAGE[+id+]_CONFIGURE_FLAGS)[+ IF extra_configure_flags +] \
 	  [+extra_configure_flags+][+ ENDIF extra_configure_flags +]
 @endif [+prefix+][+module+]-bootstrap
@@ -1094,7 +1095,7 @@ all-[+prefix+][+module+]: configure-[+prefix+][+module+][+ IF bootstrap +][+ ELS
 	[+exports+] [+extra_exports+] \
 	(cd [+subdir+]/[+module+] && \
 	  $(MAKE) $(BASE_FLAGS_TO_PASS) [+args+] [+stage1_args+] [+extra_make_flags+] \
-		$(TARGET-[+prefix+][+? actual_module (get "actual_module") (get "module")+]))
+		$(TARGET-[+prefix+][+module+]))
 @endif [+prefix+][+module+]
 
 [+ IF bootstrap +]

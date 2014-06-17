@@ -55,43 +55,6 @@ fatal_signal (int signum)
      so its normal effect occurs.  */
   kill (getpid (), signum);
 }
-
-/* Just die. CMSGID is the error message. */
-
-void __attribute__ ((format (printf, 1, 2)))
-fatal (const char * cmsgid, ...)
-{
-  va_list ap;
-
-  va_start (ap, cmsgid);
-  fprintf (stderr, "%s: ", tool_name);
-  vfprintf (stderr, _(cmsgid), ap);
-  fprintf (stderr, "\n");
-  va_end (ap);
-
-  utils_cleanup (false);
-  exit (FATAL_EXIT_CODE);
-}
-
-
-/* Die when sys call fails. CMSGID is the error message.  */
-
-void __attribute__ ((format (printf, 1, 2)))
-fatal_perror (const char *cmsgid, ...)
-{
-  int e = errno;
-  va_list ap;
-
-  va_start (ap, cmsgid);
-  fprintf (stderr, "%s: ", tool_name);
-  vfprintf (stderr, _(cmsgid), ap);
-  fprintf (stderr, ": %s\n", xstrerror (e));
-  va_end (ap);
-
-  utils_cleanup (false);
-  exit (FATAL_EXIT_CODE);
-}
-
 
 /* Wait for a process to finish, and exit if a nonzero status is found.  */
 
@@ -101,7 +64,7 @@ collect_wait (const char *prog, struct pex_obj *pex)
   int status;
 
   if (!pex_get_status (pex, 1, &status))
-    fatal_perror ("can't get program status");
+    fatal_error ("can't get program status: %m");
   pex_free (pex);
 
   if (status)
@@ -109,9 +72,9 @@ collect_wait (const char *prog, struct pex_obj *pex)
       if (WIFSIGNALED (status))
 	{
 	  int sig = WTERMSIG (status);
-	  fatal ("%s terminated with signal %d [%s]%s",
-		 prog, sig, strsignal (sig),
-		 WCOREDUMP (status) ? ", core dumped" : "");
+	  fatal_error ("%s terminated with signal %d [%s]%s",
+		       prog, sig, strsignal (sig),
+		       WCOREDUMP (status) ? ", core dumped" : "");
 	}
 
       if (WIFEXITED (status))
@@ -170,17 +133,17 @@ collect_execute (const char *prog, char **argv, const char *outname,
       f = fopen (response_file, "w");
 
       if (f == NULL)
-        fatal ("could not open response file %s", response_file);
+        fatal_error ("could not open response file %s", response_file);
 
       status = writeargv (current_argv, f);
 
       if (status)
-        fatal ("could not write to response file %s", response_file);
+        fatal_error ("could not write to response file %s", response_file);
 
       status = fclose (f);
 
       if (EOF == status)
-        fatal ("could not close response file %s", response_file);
+        fatal_error ("could not close response file %s", response_file);
 
       response_arg = concat ("@", response_file, NULL);
       response_argv[0] = argv0;
@@ -213,11 +176,11 @@ collect_execute (const char *prog, char **argv, const char *outname,
      since we might not end up needing something that we could not find.  */
 
   if (argv[0] == 0)
-    fatal ("cannot find '%s'", prog);
+    fatal_error ("cannot find '%s'", prog);
 
   pex = pex_init (0, "collect2", NULL);
   if (pex == NULL)
-    fatal_perror ("pex_init failed");
+    fatal_error ("pex_init failed: %m");
 
   errmsg = pex_run (pex, flags, argv[0], argv, outname,
 		    errname, &err);
@@ -226,10 +189,10 @@ collect_execute (const char *prog, char **argv, const char *outname,
       if (err != 0)
 	{
 	  errno = err;
-	  fatal_perror ("%s", _(errmsg));
+	  fatal_error ("%s: %m", errmsg);
 	}
       else
-	fatal ("%s", errmsg);
+	fatal_error ("%s", errmsg);
     }
 
   free (response_arg);

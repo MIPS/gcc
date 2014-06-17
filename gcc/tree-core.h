@@ -464,6 +464,8 @@ enum tree_index {
   TI_UINT32_TYPE,
   TI_UINT64_TYPE,
 
+  TI_VOID,
+
   TI_INTEGER_ZERO,
   TI_INTEGER_ONE,
   TI_INTEGER_THREE,
@@ -1064,7 +1066,7 @@ struct GTY(()) tree_base {
        SSA_NAME_IN_FREELIST in
           SSA_NAME
 
-       VAR_DECL_NONALIASED in
+       DECL_NONALIASED in
 	  VAR_DECL
 
    deprecated_flag:
@@ -1519,8 +1521,7 @@ struct GTY(()) tree_parm_decl {
 struct GTY(()) tree_decl_with_vis {
  struct tree_decl_with_rtl common;
  tree assembler_name;
- tree section_name;
- tree comdat_group;
+ struct symtab_node *symtab_node;
 
  /* Belong to VAR_DECL exclusively.  */
  unsigned defer_output : 1;
@@ -1531,15 +1532,12 @@ struct GTY(()) tree_decl_with_vis {
  unsigned dllimport_flag : 1;
  /* Don't belong to VAR_DECL exclusively.  */
  unsigned weak_flag : 1;
- /* When SECTION_NAME is implied by -ffunction-section.  */
- unsigned implicit_section_name_p : 1;
 
  unsigned seen_in_bind_expr : 1;
  unsigned comdat_flag : 1;
+ /* Used for FUNCTION_DECL, VAR_DECL and in C++ for TYPE_DECL.  */
  ENUM_BITFIELD(symbol_visibility) visibility : 2;
  unsigned visibility_specified : 1;
- /* Belongs to VAR_DECL exclusively.  */
- ENUM_BITFIELD(tls_model) tls_model : 3;
 
  /* Belong to FUNCTION_DECL exclusively.  */
  unsigned init_priority_p : 1;
@@ -1551,7 +1549,7 @@ struct GTY(()) tree_decl_with_vis {
  unsigned cxx_destructor : 1;
  /* Belong to FUNCTION_DECL exclusively.  */
  unsigned final : 1;
- /* 11 unused bits. */
+ /* 15 unused bits. */
 };
 
 struct GTY(()) tree_var_decl {

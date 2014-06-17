@@ -248,7 +248,6 @@ pack_ts_decl_with_vis_value_fields (struct bitpack_d *bp, tree expr)
       bp_pack_value (bp, DECL_HARD_REGISTER (expr), 1);
       /* DECL_IN_TEXT_SECTION is set during final asm output only. */
       bp_pack_value (bp, DECL_IN_CONSTANT_POOL (expr), 1);
-      bp_pack_value (bp, DECL_TLS_MODEL (expr),  3);
     }
 
   if (TREE_CODE (expr) == FUNCTION_DECL)
@@ -660,9 +659,6 @@ write_ts_decl_with_vis_tree_pointers (struct output_block *ob, tree expr,
     stream_write_tree (ob, DECL_ASSEMBLER_NAME (expr), ref_p);
   else
     stream_write_tree (ob, NULL_TREE, false);
-
-  stream_write_tree (ob, DECL_SECTION_NAME (expr), ref_p);
-  stream_write_tree (ob, DECL_COMDAT_GROUP (expr), ref_p);
 }
 
 
@@ -991,8 +987,8 @@ streamer_write_tree_header (struct output_block *ob, tree expr)
      and the writer do not agree on a streamed node, the pointer
      value for EXPR can be used to track down the differences in
      the debugger.  */
-  gcc_assert ((HOST_WIDEST_INT) (intptr_t) expr == (intptr_t) expr);
-  streamer_write_hwi (ob, (HOST_WIDEST_INT) (intptr_t) expr);
+  gcc_assert ((HOST_WIDE_INT) (intptr_t) expr == (intptr_t) expr);
+  streamer_write_hwi (ob, (HOST_WIDE_INT) (intptr_t) expr);
 #endif
 
   /* The text in strings and identifiers are completely emitted in

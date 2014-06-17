@@ -849,6 +849,7 @@ can_assign_to_reg_without_clobbers_p (rtx x)
 {
   int num_clobbers = 0;
   int icode;
+  bool can_assign = false;
 
   /* If this is a valid operand, we are OK.  If it's VOIDmode, we aren't.  */
   if (general_operand (x, GET_MODE (x)))
@@ -866,6 +867,7 @@ can_assign_to_reg_without_clobbers_p (rtx x)
 						   FIRST_PSEUDO_REGISTER * 2),
 				      const0_rtx));
       NEXT_INSN (test_insn) = PREV_INSN (test_insn) = 0;
+      INSN_LOCATION (test_insn) = UNKNOWN_LOCATION;
     }
 
   /* Now make an insn like the one we would make when GCSE'ing and see if
@@ -874,16 +876,19 @@ can_assign_to_reg_without_clobbers_p (rtx x)
   SET_SRC (PATTERN (test_insn)) = x;
 
   icode = recog (PATTERN (test_insn), test_insn, &num_clobbers);
-  if (icode < 0)
-    return false;
 
-  if (num_clobbers > 0 && added_clobbers_hard_reg_p (icode))
-    return false;
+  /* If the test insn is valid and doesn't need clobbers, and the target also
+     has no objections, we're good.  */
+  if (icode >= 0
+      && (num_clobbers == 0 || !added_clobbers_hard_reg_p (icode))
+      && ! (targetm.cannot_copy_insn_p
+	    && targetm.cannot_copy_insn_p (test_insn)))
+    can_assign = true;
 
-  if (targetm.cannot_copy_insn_p && targetm.cannot_copy_insn_p (test_insn))
-    return false;
+  /* Make sure test_insn doesn't have any pointers into GC space.  */
+  SET_SRC (PATTERN (test_insn)) = NULL_RTX;
 
-  return true;
+  return can_assign;
 }
 
 /* Return nonzero if the operands of expression X are unchanged from the
@@ -2956,16 +2961,16 @@ update_bb_reg_pressure (basic_block bb, rtx from)
 {
   rtx dreg, insn;
   basic_block succ_bb;
-  df_ref *op, op_ref;
+  df_ref use, op_ref;
   edge succ;
   edge_iterator ei;
   int decreased_pressure = 0;
   int nregs;
   enum reg_class pressure_class;
-  
-  for (op = DF_INSN_USES (from); *op; op++)
+
+  FOR_EACH_INSN_USE (use, from)
     {
-      dreg = DF_REF_REAL_REG (*op);
+      dreg = DF_REF_REAL_REG (use);
       /* The live range of register is shrunk only if it isn't:
 	 1. referred on any path from the end of this block to EXIT, or
 	 2. referred by insns other than FROM in this block.  */
@@ -3588,17 +3593,17 @@ calculate_bb_reg_pressure (void)
 	{
 	  rtx dreg;
 	  int regno;
-	  df_ref *def_rec, *use_rec;
+	  df_ref def, use;
 
 	  if (! NONDEBUG_INSN_P (insn))
 	    continue;
 
-	  for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
+	  FOR_EACH_INSN_DEF (def, insn)
 	    {
-	      dreg = DF_REF_REAL_REG (*def_rec);
+	      dreg = DF_REF_REAL_REG (def);
 	      gcc_assert (REG_P (dreg));
 	      regno = REGNO (dreg);
-	      if (!(DF_REF_FLAGS (*def_rec) 
+	      if (!(DF_REF_FLAGS (def)
 		    & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
 		{
 		  if (bitmap_clear_bit (curr_regs_live, regno))
@@ -3606,9 +3611,9 @@ calculate_bb_reg_pressure (void)
 		}
 	    }
 
-	  for (use_rec = DF_INSN_USES (insn); *use_rec; use_rec++)
+	  FOR_EACH_INSN_USE (use, insn)
 	    {
-	      dreg = DF_REF_REAL_REG (*use_rec);
+	      dreg = DF_REF_REAL_REG (use);
 	      gcc_assert (REG_P (dreg));
 	      regno = REGNO (dreg);
 	      if (bitmap_set_bit (curr_regs_live, regno))

@@ -92,6 +92,12 @@ tool_cleanup (bool)
     }
 }
 
+static void
+lto_wrapper_cleanup (void)
+{
+  utils_cleanup (false);
+}
+
 /* Unlink a temporary LTRANS file unless requested otherwise.  */
 
 void
@@ -101,7 +107,7 @@ maybe_unlink (const char *file)
     {
       if (unlink_if_ordinary (file)
 	  && errno != ENOENT)
-	fatal_perror ("deleting LTRANS file %s", file);
+	fatal_error ("deleting LTRANS file %s: %m", file);
     }
   else if (verbose)
     fprintf (stderr, "[Leaving LTRANS %s]\n", file);
@@ -138,7 +144,7 @@ get_options_from_collect_gcc_options (const char *collect_gcc,
 	  do
 	    {
 	      if (argv_storage[j] == '\0')
-		fatal ("malformed COLLECT_GCC_OPTIONS");
+		fatal_error ("malformed COLLECT_GCC_OPTIONS");
 	      else if (strncmp (&argv_storage[j], "'\\''", 4) == 0)
 		{
 		  argv_storage[k++] = '\'';
@@ -278,8 +284,8 @@ merge_and_complain (struct cl_decoded_option **decoded_options,
 	    if ((*decoded_options)[j].opt_index == foption->opt_index)
 	      break;
 	  if (j == *decoded_options_count)
-	    fatal ("Option %s not used consistently in all LTO input files",
-		   foption->orig_option_with_args_text);
+	    fatal_error ("Option %s not used consistently in all LTO input"
+			 " files", foption->orig_option_with_args_text);
 	  break;
 
 	case OPT_O:
@@ -526,7 +532,8 @@ compile_images_for_openmp_targets (unsigned in_argc, char *in_argv[])
       offload_names[i] = prepare_target_image (names[i], compiler_path,
 					       in_argc, in_argv);
       if (!offload_names[i])
-	fatal_perror ("Problem with building target image for %s.\n", names[i]);
+	fatal_error ("problem with building target image for %s: %m",
+		     names[i]);
     }
 
  out:
@@ -544,12 +551,12 @@ copy_file (const char *dest, const char *src)
     {
       size_t len = fread (buffer, 1, 512, s);
       if (ferror (s) != 0)
-	fatal ("reading input file");
+	fatal_error ("reading input file");
       if (len > 0)
 	{
 	  fwrite (buffer, 1, len, d);
 	  if (ferror (d) != 0)
-	    fatal ("writing output file");
+	    fatal_error ("writing output file");
 	}
     }
 }
@@ -574,7 +581,7 @@ find_ompbeginend (void)
 	char *tmp = xstrdup (paths[i]);
 	strcpy (paths[i] + len - 7, "end.o");
 	if (access_check (paths[i], R_OK) != 0)
-	  fatal ("installation error, can't find crtompend.o");
+	  fatal_error ("installation error, can't find crtompend.o");
 	/* The linker will delete the filenames we give it, so make
 	   copies.  */
 	const char *omptmp1 = make_temp_file (".o");
@@ -587,7 +594,7 @@ find_ompbeginend (void)
 	break;
       }
   if (i == n_paths)
-    fatal ("installation error, can't find crtompbegin.o");
+    fatal_error ("installation error, can't find crtompbegin.o");
 
   free_array_of_ptrs ((void**) paths, n_paths);
 }
@@ -617,10 +624,10 @@ run_gcc (unsigned argc, char *argv[])
   /* Get the driver and options.  */
   collect_gcc = getenv ("COLLECT_GCC");
   if (!collect_gcc)
-    fatal ("environment variable COLLECT_GCC must be set");
+    fatal_error ("environment variable COLLECT_GCC must be set");
   collect_gcc_options = getenv ("COLLECT_GCC_OPTIONS");
   if (!collect_gcc_options)
-    fatal ("environment variable COLLECT_GCC_OPTIONS must be set");
+    fatal_error ("environment variable COLLECT_GCC_OPTIONS must be set");
   get_options_from_collect_gcc_options (collect_gcc, collect_gcc_options,
 					CL_LANG_ALL,
 					&decoded_options,
@@ -939,7 +946,7 @@ run_gcc (unsigned argc, char *argv[])
       struct obstack env_obstack;
 
       if (!stream)
-	fatal_perror ("fopen: %s", ltrans_output_file);
+	fatal_error ("fopen: %s: %m", ltrans_output_file);
 
       /* Parse the list of LTRANS inputs from the WPA stage.  */
       obstack_init (&env_obstack);
@@ -1134,6 +1141,9 @@ main (int argc, char *argv[])
   progname = p;
 
   xmalloc_set_program_name (progname);
+
+  if (atexit (lto_wrapper_cleanup) != 0)
+    fatal_error ("atexit failed");
 
   gcc_init_libintl ();
 

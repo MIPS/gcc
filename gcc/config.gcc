@@ -302,7 +302,7 @@ m32c*-*-*)
         ;;
 aarch64*-*-*)
 	cpu_type=aarch64
-	extra_headers="arm_neon.h"
+	extra_headers="arm_neon.h arm_acle.h"
 	extra_objs="aarch64-builtins.o aarch-common.o"
 	target_has_targetm_common=yes
 	;;
@@ -620,6 +620,26 @@ case ${target} in
   case ${enable_threads} in
     "" | yes | posix) thread_file='posix' ;;
   esac
+  ;;
+*-*-dragonfly*)
+  gas=yes
+  gnu_ld=yes
+  tmake_file="t-slibgcc"
+  case ${enable_threads} in
+    "" | yes | posix)
+      thread_file='posix'
+      ;;
+    no | single)
+      # Let these non-posix thread selections fall through if requested
+      ;;
+    *)
+      echo 'Unknown thread configuration for DragonFly BSD'
+      exit 1
+      ;;
+  esac
+  extra_options="$extra_options rpath.opt dragonfly.opt"
+  default_use_cxa_atexit=yes
+  use_gcc_stdint=wrap
   ;;
 *-*-freebsd*)
   # This is the generic ELF configuration of FreeBSD.  Later
@@ -1321,6 +1341,14 @@ x86_64-*-rdos*)
     tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h newlib-stdint.h i386/i386elf.h i386/x86-64.h i386/rdos.h i386/rdos64.h"
     tmake_file="i386/t-i386elf t-svr4"
     ;;
+i[34567]86-*-dragonfly*)
+	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h dragonfly.h dragonfly-stdint.h i386/dragonfly.h"
+	tmake_file="${tmake_file} i386/t-crtstuff"
+	;;
+x86_64-*-dragonfly*)
+	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h dragonfly.h dragonfly-stdint.h i386/x86-64.h i386/dragonfly.h"
+	tmake_file="${tmake_file} i386/t-crtstuff"
+	;;
 i[34567]86-*-freebsd*)
 	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h ${fbsd_tm_file} i386/freebsd.h"
 	;;
@@ -2285,7 +2313,7 @@ powerpc-wrs-vxworks|powerpc-wrs-vxworksae)
 	extra_headers=ppc-asm.h
 	case ${target} in
 	  *-vxworksae*)
-	    tm_file="${tm_file} vx-common.h vxworksae.h rs6000/vxworks.h rs6000/e500.h"
+	    tm_file="${tm_file} vx-common.h vxworksae.h rs6000/vxworks.h rs6000/e500.h rs6000/vxworksae.h"
 	    tmake_file="${tmake_file} rs6000/t-vxworksae"
 	    ;;
 	  *-vxworks*)
@@ -4059,6 +4087,8 @@ case ${target} in
 	i[34567]86-*-cygwin* | x86_64-*-cygwin*)
 		;;
 	i[34567]86-*-mingw* | x86_64-*-mingw*)
+		;;
+	i[34567]86-*-dragonfly* | x86_64-*-dragonfly*)
 		;;
 	i[34567]86-*-freebsd* | x86_64-*-freebsd*)
 		;;
