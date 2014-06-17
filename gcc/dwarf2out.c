@@ -13614,15 +13614,9 @@ secname_for_decl (const_tree decl)
   if (VAR_OR_FUNCTION_DECL_P (decl)
       && (DECL_EXTERNAL (decl) || TREE_PUBLIC (decl) || TREE_STATIC (decl))
       && DECL_SECTION_NAME (decl))
-    {
-      tree sectree = DECL_SECTION_NAME (decl);
-      secname = TREE_STRING_POINTER (sectree);
-    }
+    secname = DECL_SECTION_NAME (decl);
   else if (current_function_decl && DECL_SECTION_NAME (current_function_decl))
-    {
-      tree sectree = DECL_SECTION_NAME (current_function_decl);
-      secname = TREE_STRING_POINTER (sectree);
-    }
+    secname = DECL_SECTION_NAME (current_function_decl);
   else if (cfun && in_cold_section_p)
     secname = crtl->subsections.cold_section_label;
   else
@@ -16798,10 +16792,9 @@ add_src_coords_attributes (dw_die_ref die, tree decl)
 static void
 add_linkage_name (dw_die_ref die, tree decl)
 {
-  if (debug_info_level > DINFO_LEVEL_TERSE
+  if (debug_info_level > DINFO_LEVEL_NONE
       && (TREE_CODE (decl) == FUNCTION_DECL || TREE_CODE (decl) == VAR_DECL)
       && TREE_PUBLIC (decl)
-      && !DECL_ABSTRACT (decl)
       && !(TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl))
       && die->die_tag != DW_TAG_member)
     {

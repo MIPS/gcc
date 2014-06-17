@@ -246,7 +246,7 @@ spread_internal_scalar (gfc_array_char *ret, const char *source,
 
   if (ret->base_addr == NULL)
     {
-      ret->base_addr = xmalloc (ncopies * size);
+      ret->base_addr = xmallocarray (ncopies, size);
       ret->offset = 0;
       GFC_DIMENSION_SET (ret->dim[0], 0, ncopies, size);
     }

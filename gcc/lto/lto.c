@@ -1299,7 +1299,6 @@ compare_tree_sccs_1 (tree t1, tree t2, tree **map)
 	  compare_values (DECL_HARD_REGISTER);
           /* DECL_IN_TEXT_SECTION is set during final asm output only.  */
 	  compare_values (DECL_IN_CONSTANT_POOL);
-	  compare_values (DECL_TLS_MODEL);
 	}
       if (VAR_OR_FUNCTION_DECL_P (t1))
 	compare_values (DECL_INIT_PRIORITY);
@@ -3090,6 +3089,10 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
       dump_symtab (cgraph_dump_file);
     }
   lto_symtab_merge_symbols ();
+  /* Removal of unreacable symbols is needed to make verify_symtab to pass;
+     we are still having duplicated comdat groups containing local statics.
+     We could also just remove them while merging.  */
+  symtab_remove_unreachable_nodes (false, dump_file);
   ggc_collect ();
   cgraph_state = CGRAPH_STATE_IPA_SSA;
 
@@ -3261,7 +3264,7 @@ do_whole_program_analysis (void)
       dump_symtab (cgraph_dump_file);
     }
 #ifdef ENABLE_CHECKING
-  verify_cgraph ();
+  verify_symtab ();
 #endif
   bitmap_obstack_release (NULL);
 

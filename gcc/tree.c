@@ -628,7 +628,7 @@ decl_comdat_group_id (const_tree node)
 
 /* When the target supports named section, return its name as IDENTIFIER_NODE
    or NULL if it is in no section.  */
-tree
+const char *
 decl_section_name (const_tree node)
 {
   struct symtab_node *snode = symtab_get_node (node);
@@ -640,7 +640,7 @@ decl_section_name (const_tree node)
 /* Set section section name of NODE to VALUE (that is expected to
    be identifier node)  */
 void
-set_decl_section_name (tree node, tree value)
+set_decl_section_name (tree node, const char *value)
 {
   struct symtab_node *snode;
 
@@ -655,6 +655,33 @@ set_decl_section_name (tree node, tree value)
   else
     snode = cgraph_get_create_node (node);
   snode->set_section (value);
+}
+
+/* Return TLS model of a variable NODE.  */
+enum tls_model
+decl_tls_model (const_tree node)
+{
+  struct varpool_node *snode = varpool_get_node (node);
+  if (!snode)
+    return TLS_MODEL_NONE;
+  return snode->tls_model;
+}
+
+/* Set TLS model of variable NODE to MODEL.  */
+void
+set_decl_tls_model (tree node, enum tls_model model)
+{
+  struct varpool_node *vnode;
+
+  if (model == TLS_MODEL_NONE)
+    {
+      vnode = varpool_get_node (node);
+      if (!vnode)
+	return;
+    }
+  else
+    vnode = varpool_node_for_decl (node);
+  vnode->tls_model = model;
 }
 
 /* Compute the number of bytes occupied by a tree with code CODE.

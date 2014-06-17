@@ -100,11 +100,11 @@ reshape_internal (parray *ret, parray *source, shape_type *shape,
       ret->offset = 0;
 
       if (unlikely (rs < 1))
-	alloc_size = 1;
+	alloc_size = 0; /* xmalloc will allocate 1 byte.  */
       else
 	alloc_size = rs;
 
-      ret->base_addr = xmalloc (alloc_size);
+      ret->base_addr = xmallocarray (alloc_size, size);
       ret->elem_len = source->elem_len;
       ret->type = source->type;
     }

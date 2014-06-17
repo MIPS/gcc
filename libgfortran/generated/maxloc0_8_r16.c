@@ -59,7 +59,7 @@ maxloc0_8_r16 (gfc_array_i8 * const restrict retarray,
       retarray->elem_len = retarray->elem_len;
       retarray->type = retarray->type;
       retarray->offset = 0;
-      retarray->base_addr = xmalloc (sizeof (GFC_INTEGER_8) * rank);
+      retarray->base_addr = xmallocarray (rank, sizeof (GFC_INTEGER_8));
     }
   else
     {
@@ -201,7 +201,7 @@ mmaxloc0_8_r16 (gfc_array_i8 * const restrict retarray,
       retarray->elem_len = retarray->elem_len;
       retarray->type = retarray->type;
       retarray->offset = 0;
-      retarray->base_addr = xmalloc (sizeof (GFC_INTEGER_8) * rank);
+      retarray->base_addr = xmallocarray (rank, sizeof (GFC_INTEGER_8));
     }
   else
     {
@@ -368,7 +368,7 @@ smaxloc0_8_r16 (gfc_array_i8 * const restrict retarray,
     {
       GFC_DIMENSION_SET (retarray->dim[0], 0, rank, sizeof (GFC_INTEGER_8));
       retarray->offset = 0;
-      retarray->base_addr = xmalloc (sizeof (GFC_INTEGER_8) * rank);
+      retarray->base_addr = xmallocarray (rank, sizeof (GFC_INTEGER_8));
     }
   else if (unlikely (compile_options.bounds_check))
     {

@@ -101,8 +101,7 @@ count_8_l (gfc_array_i8 * const restrict retarray,
       retarray->type = array->type;
       retarray->offset = 0;
 
-      alloc_size = GFC_DESCRIPTOR_SM (retarray, rank-1)
-    		   * extent[rank-1];
+      alloc_size = GFC_DESCRIPTOR_SM (retarray, rank-1) * extent[rank-1];
 
       if (alloc_size == 0)
 	{
@@ -111,7 +110,7 @@ count_8_l (gfc_array_i8 * const restrict retarray,
 	  return;
 	}
       else
-	retarray->base_addr = xmalloc (alloc_size);
+	retarray->base_addr = xmallocarray (alloc_size, sizeof (GFC_INTEGER_8));
     }
   else
     {

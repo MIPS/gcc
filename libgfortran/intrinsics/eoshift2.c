@@ -79,8 +79,8 @@ eoshift2 (gfc_array_char *ret, const gfc_array_char *array,
       ret->elem_len = array->elem_len;
       ret->type = array->type;
 
-      /* xmalloc allocates a single byte for zero size.  */
-      ret->base_addr = xmalloc (size * arraysize);
+      /* xmallocarray allocates a single byte for zero size.  */
+      ret->base_addr = xmallocarray (arraysize, size);
 
       for (i = 0; i < GFC_DESCRIPTOR_RANK (array); i++)
         {

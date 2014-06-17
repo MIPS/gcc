@@ -90,7 +90,7 @@ eoshift3 (gfc_array_char * const restrict ret,
     {
       int i;
 
-      ret->base_addr = xmalloc (size * arraysize);
+      ret->base_addr = xmallocarray (arraysize, size);
       ret->elem_len = array->elem_len;
       ret->type = array->type;
       ret->offset = 0;
@@ -109,8 +109,8 @@ eoshift3 (gfc_array_char * const restrict ret,
 	  GFC_DIMENSION_SET (ret->dim[i], 0, ext, sm);
 
         }
-      /* xmalloc allocates a single byte for zero size.  */
-      ret->base_addr = xmalloc (size * arraysize);
+      /* xmallocarray allocates a single byte for zero size.  */
+      ret->base_addr = xmallocarray (arraysize, size);
 
     }
   else if (unlikely (compile_options.bounds_check))

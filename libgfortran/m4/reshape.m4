@@ -115,11 +115,11 @@ reshape_'rtype_ccode` ('rtype` * const restrict ret,
       ret->offset = 0;
 
       if (unlikely (rs < 1))
-        alloc_size = 1;
+        alloc_size = 0;
       else
         alloc_size = rs;
 
-      ret->base_addr = xmalloc (alloc_size);
+      ret->base_addr = xmallocarray (alloc_size, sizeof ('rtype_name`));
       ret->elem_len = source->elem_len;
       ret->type = source->type;
     }

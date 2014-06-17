@@ -250,10 +250,10 @@ get_emutls_init_templ_addr (tree decl)
   DECL_WEAK (to) = DECL_WEAK (decl);
   if (DECL_ONE_ONLY (decl))
     {
-      make_decl_one_only (to, DECL_ASSEMBLER_NAME (to));
       TREE_STATIC (to) = TREE_STATIC (decl);
       TREE_PUBLIC (to) = TREE_PUBLIC (decl);
       DECL_VISIBILITY (to) = DECL_VISIBILITY (decl);
+      make_decl_one_only (to, DECL_ASSEMBLER_NAME (to));
     }
   else
     TREE_STATIC (to) = 1;
@@ -263,12 +263,7 @@ get_emutls_init_templ_addr (tree decl)
   DECL_INITIAL (decl) = NULL;
 
   if (targetm.emutls.tmpl_section)
-    {
-      set_decl_section_name
-	(to,
-         build_string (strlen (targetm.emutls.tmpl_section),
-		       targetm.emutls.tmpl_section));
-    }
+    set_decl_section_name (to, targetm.emutls.tmpl_section);
   else
     set_decl_section_name (to, DECL_SECTION_NAME (decl));
 
@@ -295,7 +290,6 @@ new_emutls_decl (tree decl, tree alias_of)
 
   SET_DECL_ASSEMBLER_NAME (to, DECL_NAME (to));
 
-  DECL_TLS_MODEL (to) = TLS_MODEL_EMULATED;
   DECL_ARTIFICIAL (to) = 1;
   DECL_IGNORED_P (to) = 1;
   TREE_READONLY (to) = 0;
@@ -317,6 +311,8 @@ new_emutls_decl (tree decl, tree alias_of)
   if (DECL_ONE_ONLY (decl))
     make_decl_one_only (to, DECL_ASSEMBLER_NAME (to));
 
+  set_decl_tls_model (to, TLS_MODEL_EMULATED);
+
   /* If we're not allowed to change the proxy object's alignment,
      pretend it has been set by the user.  */
   if (targetm.emutls.var_align_fixed)
@@ -325,10 +321,7 @@ new_emutls_decl (tree decl, tree alias_of)
   /* If the target wants the control variables grouped, do so.  */
   if (!DECL_COMMON (to) && targetm.emutls.var_section)
     {
-      set_decl_section_name 
-        (to,
-         build_string (strlen (targetm.emutls.var_section),
-		       targetm.emutls.var_section));
+      set_decl_section_name (to, targetm.emutls.var_section);
     }
 
   /* If this variable is defined locally, then we need to initialize the

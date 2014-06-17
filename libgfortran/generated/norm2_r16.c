@@ -106,10 +106,9 @@ norm2_r16 (gfc_array_r16 * const restrict retarray,
       retarray->elem_len = array->elem_len;
       retarray->type = array->type;
 
-      alloc_size = GFC_DESCRIPTOR_SM (retarray, rank-1)
-    		   * extent[rank-1];
+      alloc_size = GFC_DESCRIPTOR_SM (retarray, rank-1) * extent[rank-1];
 
-      retarray->base_addr = xmalloc (alloc_size);
+      retarray->base_addr = xmallocarray (alloc_size, sizeof (GFC_REAL_16));
       if (alloc_size == 0)
 	{
 	  /* Make sure we have a zero-sized array.  */

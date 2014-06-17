@@ -2294,7 +2294,7 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
   /* Merge the threadprivate attribute.  */
   if (TREE_CODE (olddecl) == VAR_DECL && C_DECL_THREADPRIVATE_P (olddecl))
     {
-      DECL_TLS_MODEL (newdecl) = DECL_TLS_MODEL (olddecl);
+      set_decl_tls_model (newdecl, DECL_TLS_MODEL (olddecl));
       C_DECL_THREADPRIVATE_P (newdecl) = 1;
     }
 
@@ -2305,7 +2305,7 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 	 must be done later in decl_attributes since we are called
 	 before attributes are assigned.  */
       if ((DECL_EXTERNAL (olddecl) || TREE_PUBLIC (olddecl) || TREE_STATIC (olddecl))
-	  && DECL_SECTION_NAME (newdecl) == NULL_TREE
+	  && DECL_SECTION_NAME (newdecl) == NULL
 	  && DECL_SECTION_NAME (olddecl))
 	set_decl_section_name (newdecl, DECL_SECTION_NAME (olddecl));
 
@@ -6345,7 +6345,7 @@ grokdeclarator (const struct c_declarator *declarator,
 	  }
 
 	if (threadp)
-	  DECL_TLS_MODEL (decl) = decl_default_tls_model (decl);
+	  set_decl_tls_model (decl, decl_default_tls_model (decl));
       }
 
     if ((storage_class == csc_extern
