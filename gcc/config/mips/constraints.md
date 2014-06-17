@@ -308,6 +308,13 @@
    "@internal"
    (match_operand 0 "low_bitmask_operand"))
 
+(define_constraint "YI"
+  "@internal
+   A replicated vector const in which the replicated is a 10-bit signed
+   value."
+  (and (match_code "const_vector")
+       (match_test "mips_const_vector_same_int_p (op, mode, -1024, 1023)")))
+
 (define_constraint "YC"
   "@internal
    A replicated vector const in which the replicated value has a single
