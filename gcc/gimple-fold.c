@@ -2810,8 +2810,8 @@ gimple_fold_stmt_to_constant_1 (gimple stmt, tree (*valueize) (tree))
 	{
 	  if (dump_file && dump_flags & TDF_DETAILS)
 	    {
-	      fprintf (dump_file, "Match-and-simplified definition of ");
-	      print_generic_expr (dump_file, lhs, 0);
+	      fprintf (dump_file, "Match-and-simplified ");
+	      print_gimple_expr (dump_file, stmt, 0, TDF_SLIM);
 	      fprintf (dump_file, " to ");
 	      print_generic_expr (dump_file, res, 0);
 	      fprintf (dump_file, "\n");
