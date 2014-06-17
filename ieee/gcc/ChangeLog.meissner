@@ -1,3 +1,15 @@
+2014-06-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vsx.md (VSX_LE): Properly swap IEEE 128-bit on
+	little endian.
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal):
+	Eliminate check for -mfloat128 requiring 128-bit long double.
+
+	* config/rs6000/rs6000-modes.def (KFmode): Go back to using
+	FRACTIONAL_FLOAT_MODE instead of SPECIAL_FLOAT mode, due to
+	widening problems with Fortran.
+
 2014-06-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 211594.

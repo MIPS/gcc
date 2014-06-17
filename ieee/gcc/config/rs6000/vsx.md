@@ -29,6 +29,7 @@
 (define_mode_iterator VSX_LE [V2DF
 			      V2DI
 			      V1TI
+			      KF
 			      (TI	"VECTOR_MEM_VSX_P (TImode)")])
 
 ;; Iterator for the 2 32-bit vector types

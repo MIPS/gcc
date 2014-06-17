@@ -3572,12 +3572,6 @@ rs6000_option_override_internal (bool global_init_p)
     rs6000_ieeequad = 1;
 #endif
 
-  if (rs6000_long_double_type_size != 128 && TARGET_FLOAT128)
-    {
-      error ("-mfloat128 needs long doubles to be 128-bits");
-      rs6000_isa_flags &= ~OPTION_MASK_FLOAT128;
-    }
-
   /* Disable VSX and Altivec silently if the user switched cpus to power7 in a
      target attribute or pragma which automatically enables both options,
      unless the altivec ABI was set.  This is set by default for 64-bit, but
