@@ -6209,10 +6209,6 @@ mips_function_value_1 (const_tree valtype, const_tree fn_decl_or_type,
 	 return values, promote the mode here too.  */
       mode = promote_function_mode (valtype, mode, &unsigned_p, func, 1);
 
-      /* Use the first MSA vector register to return.  */
-      if (TARGET_MSA && MSA_SUPPORTED_VECTOR_MODE_P (mode))
-	return gen_rtx_REG (mode, MSA_RETURN);
-
       /* Handle structures whose fields are returned in $f0/$f2.  */
       switch (mips_fpr_return_fields (valtype, fields))
 	{
@@ -6298,7 +6294,6 @@ mips_function_value_regno_p (const unsigned int regno)
 {
   if (regno == GP_RETURN
       || regno == FP_RETURN
-      || regno == MSA_RETURN
       || (LONG_DOUBLE_TYPE_SIZE == 128
 	  && FP_RETURN != GP_RETURN
 	  && regno == FP_RETURN + 2))
