@@ -672,7 +672,8 @@
 
     for (i = 0; i < n_elts; i++)
        RTVEC_ELT (v, i) = GEN_INT (val);
-    emit_insn (gen_msa_ldi<mode>_insn (operands[0], gen_rtx_CONST_VECTOR (<MODE>mode, v)));
+    emit_insn (gen_msa_ldi<mode>_insn (operands[0],
+				       gen_rtx_CONST_VECTOR (<MODE>mode, v)));
     DONE;
   })
 
@@ -708,37 +709,6 @@
    (set_attr "mode"	"TI")
    (set_attr "msa_execunit" "msa_eu_logic_l")])
 
-;; 128-bit integer/MSA vector registers moves
-;; Note that we prefer floating-point loads, stores, and moves by adding * to
-;; other register preferences.
-;; Note that we combine f and J, so that move_type for J is fmove and its
-;; instruction length can be 1.
-(define_insn "movti_msa"
-  [(set (match_operand:TI 0 "nonimmediate_operand" "=*d,*d,*d,*R,*d,*f,f,R,f,*m,*d")
-	(match_operand:TI 1 "move_operand" "*d,*i,*R,*d*J,*f,*d,R,f,fJ,*d*J,*m"))]
-  "ISA_HAS_MSA
-   && !TARGET_64BIT
-   && (register_operand (operands[0], TImode)
-       || reg_or_0_operand (operands[1], TImode))"
-  { return mips_output_move (operands[0], operands[1]); }
-  [(set_attr "move_type"	"move,const,load,store,mfc,mtc,fpload,fpstore,fmove,store,load")
-   (set_attr "mode"     "TI")])
-
-;; Note that we prefer floating-point loads, stores, and moves by adding * to
-;; other register preferences.
-;; Note that we combine f and J, so that move_type for J is fmove and its
-;; instruction length can be 1.
-(define_insn "movti_msa_64bit"
-  [(set (match_operand:TI 0 "nonimmediate_operand" "=*d,*d,*d,*R,*a,*d,*d,*f,f,R,f,*m,*d")
-	(match_operand:TI 1 "move_operand" "*d,*i,*R,*d*J,*d*J,*a,*f,*d,R,f,fJ,*d*J,*m"))]
-  "ISA_HAS_MSA
-   && TARGET_64BIT
-   && (register_operand (operands[0], TImode)
-       || reg_or_0_operand (operands[1], TImode))"
-  { return mips_output_move (operands[0], operands[1]); }
-  [(set_attr "move_type" "move,const,load,store,mtlo,mflo,mfc,mtc,fpload,fpstore,fmove,store,load")
-   (set_attr "mode" "TI")])
-
 (define_expand "mov<mode>"
   [(set (match_operand:MODE128 0)
 	(match_operand:MODE128 1))]
@@ -757,15 +727,17 @@
     DONE;
 })
 
-;; 128bit MSA modes only it msa register or memmory.
+;; 128bit MSA modes only in msa registers or memmory
+;; an exception is allowing MSA modes for GP registers for arguments
+;; and return values.
 (define_insn "mov<mode>_msa"
-  [(set (match_operand:MODE128 0 "nonimmediate_operand" "=f,f,R")
-	(match_operand:MODE128 1 "move_operand" "fYG,R,f"))]
+  [(set (match_operand:MODE128 0 "nonimmediate_operand" "=f,f,R,*d,f")
+	(match_operand:MODE128 1 "move_operand" "fYGYI,R,f,f,*d"))]
   "ISA_HAS_MSA
    && (register_operand (operands[0], <MODE>mode)
        || reg_or_0_operand (operands[1], <MODE>mode))"
 { return mips_output_move (operands[0], operands[1]); }
-  [(set_attr "move_type"	"fmove,fpload,fpstore")
+  [(set_attr "move_type"	"fmove,fpload,fpstore,fmove,fmove")
    (set_attr "mode"     "TI")])
 
 (define_split

@@ -4819,7 +4819,7 @@
 (define_expand "movti"
   [(set (match_operand:TI 0)
 	(match_operand:TI 1))]
-  "TARGET_64BIT || TARGET_MSA"
+  "TARGET_64BIT"
 {
   if (mips_legitimize_move (TImode, operands[0], operands[1]))
     DONE;
@@ -4829,7 +4829,6 @@
   [(set (match_operand:TI 0 "nonimmediate_operand" "=d,d,d,m,*a,*a,*d")
 	(match_operand:TI 1 "move_operand" "d,i,m,dJ,*J,*d,*a"))]
   "TARGET_64BIT
-   && !TARGET_MSA
    && !TARGET_MIPS16
    && (register_operand (operands[0], TImode)
        || reg_or_0_operand (operands[1], TImode))"
