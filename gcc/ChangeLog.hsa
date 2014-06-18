@@ -1,3 +1,9 @@
+2014-06-18  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.h: Removed keyword struct from the parameter all is_a_helper
+	function template instantiations.
+	* tree-vectorizer.c (pass_slp_vectorize::gate): Remove parameter name.
+
 2013-02-03  Michael Matz  <matz@suse.de>
 
 	* hsa-brig.c (sanitize_hsa_name): New function.

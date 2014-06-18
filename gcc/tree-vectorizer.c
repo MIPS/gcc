@@ -610,7 +610,7 @@ public:
   {}
 
   /* opt_pass methods: */
-  virtual bool gate (function *fun)
+  virtual bool gate (function *)
     { 
       return flag_tree_slp_vectorize != 0;
     }
