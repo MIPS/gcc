@@ -551,8 +551,7 @@
    (set_attr "mode"     "TI")
    (set_attr "msa_execunit" "msa_eu_logic_l")])
 
-;; Note that copy_s.d will be split later if !TARGET_64BIT.
-;; Note that copy_s.d_f will be split later if !TARGET_64BIT.
+;; Note that copy_s.d and copy_s.d_f will be split later if !TARGET_64BIT.
 (define_insn "msa_copy_s_<msafmt_f>"
   [(set (match_operand:<RES> 0 "register_operand" "=d")
 	(unspec:<RES> [(match_operand:MSA 1 "register_operand" "f")
@@ -576,8 +575,7 @@
   DONE;
 })
 
-;; Note that copy_u.d will be split later if !TARGET_64BIT.
-;; Note that copy_u.d will be split later if !TARGET_64BIT.
+;; Note that copy_u.d and copy_u.d_f will be split later if !TARGET_64BIT.
 (define_insn "msa_copy_u_<msafmt_f>"
   [(set (match_operand:<RES> 0 "register_operand" "=d")
 	(unspec:<RES> [(match_operand:MSA 1 "register_operand" "f")
@@ -709,10 +707,41 @@
    (set_attr "mode"	"TI")
    (set_attr "msa_execunit" "msa_eu_logic_l")])
 
+;; 128-bit integer/MSA vector registers moves
+;; Note that we prefer floating-point loads, stores, and moves by adding * to
+;; other register preferences.
+;; Note that we combine f and J, so that move_type for J is fmove and its
+;; instruction length can be 1.
+(define_insn "movti_msa"
+  [(set (match_operand:TI 0 "nonimmediate_operand" "=*d,*d,*d,*R,*d,*f,f,R,f,*m,*d")
+	(match_operand:TI 1 "move_operand" "*d,*i,*R,*d*J,*f,*d,R,f,fJ,*d*J,*m"))]
+  "ISA_HAS_MSA
+   && !TARGET_64BIT
+   && (register_operand (operands[0], TImode)
+       || reg_or_0_operand (operands[1], TImode))"
+  { return mips_output_move (operands[0], operands[1]); }
+  [(set_attr "move_type"	"move,const,load,store,mfc,mtc,fpload,fpstore,fmove,store,load")
+   (set_attr "mode"     "TI")])
+
+;; Note that we prefer floating-point loads, stores, and moves by adding * to
+;; other register preferences.
+;; Note that we combine f and J, so that move_type for J is fmove and its
+;; instruction length can be 1.
+(define_insn "movti_msa_64bit"
+  [(set (match_operand:TI 0 "nonimmediate_operand" "=*d,*d,*d,*R,*a,*d,*d,*f,f,R,f,*m,*d")
+	(match_operand:TI 1 "move_operand" "*d,*i,*R,*d*J,*d*J,*a,*f,*d,R,f,fJ,*d*J,*m"))]
+  "ISA_HAS_MSA
+   && TARGET_64BIT
+   && (register_operand (operands[0], TImode)
+       || reg_or_0_operand (operands[1], TImode))"
+  { return mips_output_move (operands[0], operands[1]); }
+  [(set_attr "move_type" "move,const,load,store,mtlo,mflo,mfc,mtc,fpload,fpstore,fmove,store,load")
+   (set_attr "mode" "TI")])
+
 (define_expand "mov<mode>"
   [(set (match_operand:MODE128 0)
 	(match_operand:MODE128 1))]
-  "TARGET_MSA"
+  "TARGET_64BIT || TARGET_MSA"
 {
   if (mips_legitimize_move (<MODE>mode, operands[0], operands[1]))
     DONE;
@@ -721,7 +750,7 @@
 (define_expand "movmisalign<mode>"
   [(set (match_operand:MODE128 0)
 	(match_operand:MODE128 1))]
-  "TARGET_MSA"
+  "TARGET_64BIT || TARGET_MSA"
 {
   if (mips_legitimize_move (<MODE>mode, operands[0], operands[1]))
     DONE;
