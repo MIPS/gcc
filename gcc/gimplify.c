@@ -410,11 +410,11 @@ gimplify_and_return_first (tree t, gimple_seq *seq_p)
    LHS, or for a call argument.  */
 
 static bool
-is_gimple_mem_rhs (tree t)
+is_gimple_mem_rhs (Gimple::value t)
 {
   /* If we're dealing with a renamable type, either source or dest must be
      a renamed variable.  */
-  if (is_gimple_reg_type (TREE_TYPE (t)))
+  if (is_gimple_reg_type (t->type()))
     return is_gimple_val (t);
   else
     return is_gimple_val (t) || is_gimple_lvalue (t);
@@ -426,10 +426,9 @@ is_gimple_mem_rhs (tree t)
    gimplify_modify_expr.  */
 
 static bool
-is_gimple_reg_rhs_or_call (tree t)
+is_gimple_reg_rhs_or_call (Gimple::value t)
 {
-  return (get_gimple_rhs_class (TREE_CODE (t)) != GIMPLE_INVALID_RHS
-	  || TREE_CODE (t) == CALL_EXPR);
+  return (is_gimple_reg_rhs (t) || is_a<Gimple::call_expr> (t));
 }
 
 /* Return true if T is a valid memory RHS or a CALL_EXPR.  Note that
@@ -437,15 +436,15 @@ is_gimple_reg_rhs_or_call (tree t)
    rationale for this in gimplify_modify_expr.  */
 
 static bool
-is_gimple_mem_rhs_or_call (tree t)
+is_gimple_mem_rhs_or_call (Gimple::value t)
 {
   /* If we're dealing with a renamable type, either source or dest must be
      a renamed variable.  */
-  if (is_gimple_reg_type (TREE_TYPE (t)))
+  if (is_gimple_reg_type (t->type ()))
     return is_gimple_val (t);
   else
     return (is_gimple_val (t) || is_gimple_lvalue (t)
-	    || TREE_CODE (t) == CALL_EXPR);
+	    || is_a<Gimple::call_expr> (t));
 }
 
 /* Create a temporary with a name derived from VAL.  Subroutine of
@@ -594,7 +593,7 @@ declare_vars (tree vars, gimple scope, bool debug_info)
 	  else
 	    {
 	      gimple_bind_set_vars (scope,
-	      			    chainon (gimple_bind_vars (scope), temps));
+	      			    chainon ((tree)gimple_bind_vars (scope), temps));
 	      BLOCK_VARS (block) = temps;
 	    }
 	}
@@ -2173,7 +2172,7 @@ maybe_with_size_expr (tree *expr_p)
 enum gimplify_status
 gimplify_arg (tree *arg_p, gimple_seq *pre_p, location_t call_location)
 {
-  bool (*test) (tree);
+  gimple_predicate test;
   fallback_t fb;
 
   /* In general, we allow lvalues for function arguments to avoid
@@ -3585,7 +3584,7 @@ rhs_predicate_for (tree lhs)
 
 static enum gimplify_status
 gimplify_compound_literal_expr (tree *expr_p, gimple_seq *pre_p,
-				bool (*gimple_test_f) (tree),
+				gimple_predicate gimple_test_f,
 				fallback_t fallback)
 {
   tree decl_s = COMPOUND_LITERAL_EXPR_DECL_EXPR (*expr_p);
@@ -4337,20 +4336,20 @@ gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p,
 /* Return true if T looks like a valid GIMPLE statement.  */
 
 static bool
-is_gimple_stmt (tree t)
+is_gimple_stmt (Gimple::value t)
 {
-  const enum tree_code code = TREE_CODE (t);
+  const enum tree_code code = t->code ();
 
   switch (code)
     {
     case NOP_EXPR:
       /* The only valid NOP_EXPR is the empty statement.  */
-      return IS_EMPTY_STMT (t);
+      return is_empty_stmt (t);
 
     case BIND_EXPR:
     case COND_EXPR:
       /* These are only valid if they're void.  */
-      return TREE_TYPE (t) == NULL || VOID_TYPE_P (TREE_TYPE (t));
+      return !t->type () || void_type_p (t->type ());
 
     case SWITCH_EXPR:
     case GOTO_EXPR:
@@ -4764,6 +4763,16 @@ gimplify_save_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
   return ret;
 }
 
+
+
+/* We need this because its invoked indrectly, which means the parameter
+   does not have a chance to be converted to a GimpleValue.  */
+static inline bool
+is_gimple_addressable_predicate (Gimple::value t)
+{
+  return is_gimple_addressable(t);
+}
+
 /* Rewrite the ADDR_EXPR node pointed to by EXPR_P
 
       unary_expr
@@ -4837,7 +4846,7 @@ gimplify_addr_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 
       /* Make the operand addressable.  */
       ret = gimplify_expr (&TREE_OPERAND (expr, 0), pre_p, post_p,
-			   is_gimple_addressable, fb_either);
+			   is_gimple_addressable_predicate, fb_either);
       if (ret == GS_ERROR)
 	break;
 
@@ -7368,7 +7377,7 @@ gimplify_transaction (tree *expr_p, gimple_seq *pre_p)
 
 enum gimplify_status
 gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
-	       bool (*gimple_test_f) (tree), fallback_t fallback)
+	       gimple_predicate gimple_test_f, fallback_t fallback)
 {
   tree tmp;
   gimple_seq internal_pre = NULL;
@@ -7404,7 +7413,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
   else if (gimple_test_f == is_gimple_min_lval
 	   || gimple_test_f == is_gimple_lvalue)
     gcc_assert (fallback & fb_lvalue);
-  else if (gimple_test_f == is_gimple_addressable)
+  else if (gimple_test_f == is_gimple_addressable_predicate)
     gcc_assert (fallback & fb_either);
   else if (gimple_test_f == is_gimple_stmt)
     gcc_assert (fallback == fb_none);
@@ -8864,7 +8873,7 @@ gimplify_function_tree (tree fndecl)
       new_bind = gimple_build_bind (NULL, body, gimple_bind_block (bind));
       /* Clear the block for BIND, since it is no longer directly inside
          the function, but within a try block.  */
-      gimple_bind_set_block (bind, NULL);
+      gimple_bind_set_block (bind, NULL_GIMPLE);
 
       /* Replace the current function body with the body
          wrapped in the try/finally TF.  */
@@ -8998,6 +9007,25 @@ gimplify_assign (tree dst, tree src, gimple_seq *seq_p)
   ggc_free (t);
   return gimple_seq_last_stmt (*seq_p);
 }
+
+/* Return true if gimplify_one_sizepos doesn't need to gimplify
+   expr (when in TYPE_SIZE{,_UNIT} and similar type/decl size/bitsize
+   fields).  */
+
+bool
+is_gimple_sizepos (tree expr)
+{
+  /* gimplify_one_sizepos doesn't need to do anything if the value isn't there,
+     is constant, or contains A PLACEHOLDER_EXPR.  We also don't want to do
+     anything if it's already a VAR_DECL.  If it's a VAR_DECL from another
+     function, the gimplifier will want to replace it with a new variable,
+     but that will cause problems if this type is from outside the function.
+     It's OK to have that here.  */
+  return (expr == NULL_TREE
+	  || TREE_CONSTANT (expr)
+	  || TREE_CODE (expr) == VAR_DECL
+	  || CONTAINS_PLACEHOLDER_P (expr));
+}                                        
 
 inline hashval_t
 gimplify_hasher::hash (const value_type *p)

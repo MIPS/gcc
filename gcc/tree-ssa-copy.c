@@ -527,16 +527,18 @@ init_copy_prop (void)
 
 /* Callback for substitute_and_fold to get at the final copy-of values.  */
 
-static tree
-get_value (tree name)
+static Gimple::value
+get_value (Gimple::value v)
 {
-  tree val;
-  if (SSA_NAME_VERSION (name) >= n_copy_of)
-    return NULL_TREE;
-  val = copy_of[SSA_NAME_VERSION (name)].value;
+  Gimple::value val;
+  Gimple::ssa_name name = v;
+
+  if (name->version () >= n_copy_of)
+    return NULL_GIMPLE;
+  val = copy_of[name->version ()].value;
   if (val && val != name)
     return val;
-  return NULL_TREE;
+  return NULL_GIMPLE;
 }
 
 /* Deallocate memory used in copy propagation and do final

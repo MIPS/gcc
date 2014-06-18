@@ -9910,7 +9910,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 
   bind = gimple_build_bind (NULL, NULL,
 			    tgt_bind ? gimple_bind_block (tgt_bind)
-				     : NULL_TREE);
+				     : NULL_GIMPLE);
   gsi_replace (gsi_p, bind, true);
   gimple_bind_add_seq (bind, ilist);
   gimple_bind_add_stmt (bind, stmt);
@@ -10417,7 +10417,8 @@ diagnose_sb_1 (gimple_stmt_iterator *gsi_p, bool *handled_ops_p,
       break;
 
     case GIMPLE_LABEL:
-      splay_tree_insert (all_labels, (splay_tree_key) gimple_label_label (stmt),
+      splay_tree_insert (all_labels, 
+			 (splay_tree_key) (tree) gimple_label_label (stmt),
 			 (splay_tree_value) context);
       break;
 

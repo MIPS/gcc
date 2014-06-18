@@ -122,7 +122,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "tree.h"
+#include "gimple-tree.h"
 #include "stor-layout.h"
 #include "flags.h"
 #include "tm_p.h"
@@ -136,8 +136,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-eh.h"
 #include "gimple-expr.h"
 #include "is-a.h"
+#include "fold-const.h"
 #include "gimple.h"
-#include "gimplify.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
 #include "tree-cfg.h"
@@ -171,7 +171,7 @@ struct prop_value_d {
     ccp_lattice_t lattice_val;
 
     /* Propagated value.  */
-    tree value;
+    Gimple::value value;
 
     /* Mask that applies to the propagated value during CCP.  For X
        with a CONSTANT lattice value X & ~mask == value & ~mask.  The
@@ -211,8 +211,7 @@ dump_lattice_value (FILE *outf, const char *prefix, prop_value_t val)
       fprintf (outf, "%sVARYING", prefix);
       break;
     case CONSTANT:
-      if (TREE_CODE (val.value) != INTEGER_CST
-	  || val.mask == 0)
+      if (!is_a<Gimple::integer_cst> (val.value) || val.mask == 0)
 	{
 	  fprintf (outf, "%sCONSTANT ", prefix);
 	  print_generic_expr (outf, val.value, dump_flags);
@@ -273,12 +272,12 @@ extend_mask (const wide_int &nonzero_bits)
       considered VARYING.  */
 
 static prop_value_t
-get_default_value (tree var)
+get_default_value (Gimple::ssa_name var)
 {
-  prop_value_t val = { UNINITIALIZED, NULL_TREE, 0 };
+  prop_value_t val = { UNINITIALIZED, NULL_GIMPLE, 0 };
   gimple stmt;
 
-  stmt = SSA_NAME_DEF_STMT (var);
+  stmt = var->def_stmt ();
 
   if (gimple_nop_p (stmt))
     {
@@ -286,8 +285,7 @@ get_default_value (tree var)
 	 before being initialized.  If VAR is a local variable, we
 	 can assume initially that it is UNDEFINED, otherwise we must
 	 consider it VARYING.  */
-      if (!virtual_operand_p (var)
-	  && TREE_CODE (SSA_NAME_VAR (var)) == VAR_DECL)
+      if (!virtual_operand_p (var) && is_a<Gimple::var_decl> (var->var ()))
 	val.lattice_val = UNDEFINED;
       else
 	{
@@ -299,7 +297,7 @@ get_default_value (tree var)
 	      if (nonzero_bits != -1)
 		{
 		  val.lattice_val = CONSTANT;
-		  val.value = build_zero_cst (TREE_TYPE (var));
+		  val.value = build_zero_cst (var->type ());
 		  val.mask = extend_mask (nonzero_bits);
 		}
 	    }
@@ -307,9 +305,9 @@ get_default_value (tree var)
     }
   else if (is_gimple_assign (stmt))
     {
-      tree cst;
+      Gimple::value cst;
       if (gimple_assign_single_p (stmt)
-	  && DECL_P (gimple_assign_rhs1 (stmt))
+	  && is_a<Gimple::decl> (gimple_assign_rhs1 (stmt))
 	  && (cst = get_symbol_constant_value (gimple_assign_rhs1 (stmt))))
 	{
 	  val.lattice_val = CONSTANT;
@@ -323,7 +321,7 @@ get_default_value (tree var)
 	}
     }
   else if ((is_gimple_call (stmt)
-	    && gimple_call_lhs (stmt) != NULL_TREE)
+	    && gimple_call_lhs (stmt) != NULL_GIMPLE)
 	   || gimple_code (stmt) == GIMPLE_PHI)
     {
       /* A variable defined by a call or a PHI node is considered
@@ -344,15 +342,15 @@ get_default_value (tree var)
 /* Get the constant value associated with variable VAR.  */
 
 static inline prop_value_t *
-get_value (tree var)
+get_value (Gimple::ssa_name var)
 {
   prop_value_t *val;
 
   if (const_val == NULL
-      || SSA_NAME_VERSION (var) >= n_const_val)
+      || var->version () >= n_const_val)
     return NULL;
 
-  val = &const_val[SSA_NAME_VERSION (var)];
+  val = &const_val[var->version ()];
   if (val->lattice_val == UNINITIALIZED)
     *val = get_default_value (var);
 
@@ -363,34 +361,33 @@ get_value (tree var)
 
 /* Return the constant tree value associated with VAR.  */
 
-static inline tree
-get_constant_value (tree var)
+static inline Gimple::value
+get_constant_value (Gimple::value var)
 {
   prop_value_t *val;
-  if (TREE_CODE (var) != SSA_NAME)
+  if (!is_a<Gimple::ssa_name> (var))
     {
       if (is_gimple_min_invariant (var))
         return var;
-      return NULL_TREE;
+      return NULL_GIMPLE;
     }
   val = get_value (var);
   if (val
       && val->lattice_val == CONSTANT
-      && (TREE_CODE (val->value) != INTEGER_CST
-	  || val->mask == 0))
+      && (!is_a<Gimple::integer_cst> (val->value) || val->mask == 0))
     return val->value;
-  return NULL_TREE;
+  return NULL_GIMPLE;
 }
 
 /* Sets the value associated with VAR to VARYING.  */
 
 static inline void
-set_value_varying (tree var)
+set_value_varying (Gimple::ssa_name var)
 {
-  prop_value_t *val = &const_val[SSA_NAME_VERSION (var)];
+  prop_value_t *val = &const_val[var->version ()];
 
   val->lattice_val = VARYING;
-  val->value = NULL_TREE;
+  val->value = NULL_GIMPLE;
   val->mask = -1;
 }
 
@@ -416,21 +413,23 @@ static void
 canonicalize_value (prop_value_t *val)
 {
   enum machine_mode mode;
-  tree type;
+  Gimple::type type;
   REAL_VALUE_TYPE d;
 
   if (val->lattice_val != CONSTANT)
     return;
 
-  if (TREE_OVERFLOW_P (val->value))
+  if (as_a<Gimple::constant> (val->value)->overflow_p ())
     val->value = drop_tree_overflow (val->value);
 
-  if (TREE_CODE (val->value) != REAL_CST)
+  Gimple::real_cst rcst = val->value;
+
+  if (!rcst)
     return;
 
-  d = TREE_REAL_CST (val->value);
-  type = TREE_TYPE (val->value);
-  mode = TYPE_MODE (type);
+  d = rcst->real_cst ();
+  type = rcst->type ();
+  mode = type->mode ();
 
   if (!HONOR_SIGNED_ZEROS (mode)
       && REAL_VALUE_MINUS_ZERO (d))
@@ -443,7 +442,7 @@ canonicalize_value (prop_value_t *val)
       && REAL_VALUE_ISNAN (d))
     {
       val->lattice_val = UNDEFINED;
-      val->value = NULL;
+      val->value = NULL_GIMPLE;
       return;
     }
 }
@@ -466,17 +465,18 @@ valid_lattice_transition (prop_value_t old_val, prop_value_t new_val)
 
   /* Now both lattice values are CONSTANT.  */
 
+  Gimple::integer_cst old_i = old_val.value;
+  Gimple::integer_cst new_i = new_val.value;
+
   /* Allow transitioning from PHI <&x, not executable> == &x
      to PHI <&x, &y> == common alignment.  */
-  if (TREE_CODE (old_val.value) != INTEGER_CST
-      && TREE_CODE (new_val.value) == INTEGER_CST)
+  if (!old_i && new_i)
     return true;
 
   /* Bit-lattices have to agree in the still valid bits.  */
-  if (TREE_CODE (old_val.value) == INTEGER_CST
-      && TREE_CODE (new_val.value) == INTEGER_CST)
-    return (wi::bit_and_not (wi::to_widest (old_val.value), new_val.mask)
-	    == wi::bit_and_not (wi::to_widest (new_val.value), new_val.mask));
+  if (old_i && new_i)
+    return (wi::bit_and_not (wi::to_widest (old_i), new_val.mask)
+	    == wi::bit_and_not (wi::to_widest (new_i), new_val.mask));
 
   /* Otherwise constant values have to agree.  */
   return operand_equal_p (old_val.value, new_val.value, 0);
@@ -486,10 +486,10 @@ valid_lattice_transition (prop_value_t old_val, prop_value_t new_val)
    value is different from VAR's previous value.  */
 
 static bool
-set_lattice_value (tree var, prop_value_t new_val)
+set_lattice_value (Gimple::ssa_name var, prop_value_t new_val)
 {
   /* We can deal with old UNINITIALIZED values just fine here.  */
-  prop_value_t *old_val = &const_val[SSA_NAME_VERSION (var)];
+  prop_value_t *old_val = &const_val[var->version ()];
 
   canonicalize_value (&new_val);
 
@@ -497,13 +497,16 @@ set_lattice_value (tree var, prop_value_t new_val)
      represented by the mask.
      ???  This doesn't seem to be the best place to enforce this.  */
   if (new_val.lattice_val == CONSTANT
-      && old_val->lattice_val == CONSTANT
-      && TREE_CODE (new_val.value) == INTEGER_CST
-      && TREE_CODE (old_val->value) == INTEGER_CST)
+      && old_val->lattice_val == CONSTANT)
     {
-      widest_int diff = (wi::to_widest (new_val.value)
-			 ^ wi::to_widest (old_val->value));
-      new_val.mask = new_val.mask | old_val->mask | diff;
+      Gimple::integer_cst new_i = new_val.value;
+      Gimple::integer_cst old_i = old_val->value;
+      if (new_i && old_i)
+        {
+	  widest_int diff = (wi::to_widest (new_i)
+			     ^ wi::to_widest (old_i));
+	  new_val.mask = new_val.mask | old_val->mask | diff;
+	}
     }
 
   gcc_assert (valid_lattice_transition (*old_val, new_val));
@@ -512,8 +515,8 @@ set_lattice_value (tree var, prop_value_t new_val)
      caller that this was a non-transition.  */
   if (old_val->lattice_val != new_val.lattice_val
       || (new_val.lattice_val == CONSTANT
-	  && TREE_CODE (new_val.value) == INTEGER_CST
-	  && (TREE_CODE (old_val->value) != INTEGER_CST
+	  && is_a<Gimple::integer_cst> (new_val.value)
+	  && (!is_a<Gimple::integer_cst> (old_val->value)
 	      || new_val.mask != old_val->mask)))
     {
       /* ???  We would like to delay creation of INTEGER_CSTs from
@@ -534,11 +537,13 @@ set_lattice_value (tree var, prop_value_t new_val)
   return false;
 }
 
-static prop_value_t get_value_for_expr (tree, bool);
-static prop_value_t bit_value_binop (enum tree_code, tree, tree, tree);
-static void bit_value_binop_1 (enum tree_code, tree, widest_int *, widest_int *,
-			       tree, const widest_int &, const widest_int &,
-			       tree, const widest_int &, const widest_int &);
+static prop_value_t get_value_for_expr (Gimple::value, bool);
+static prop_value_t bit_value_binop (enum tree_code, Gimple::type,
+				     Gimple::value, Gimple::value);
+static void bit_value_binop_1 (enum tree_code, Gimple::type, widest_int *,
+			       widest_int *, Gimple::type, const widest_int &,
+			       const widest_int &, Gimple::type,
+			       const widest_int &, const widest_int &);
 
 /* Return a widest_int that can be used for bitwise simplifications
    from VAL.  */
@@ -546,9 +551,9 @@ static void bit_value_binop_1 (enum tree_code, tree, widest_int *, widest_int *,
 static widest_int
 value_to_wide_int (prop_value_t val)
 {
-  if (val.value
-      && TREE_CODE (val.value) == INTEGER_CST)
-    return wi::to_widest (val.value);
+  Gimple::integer_cst val_i = val.value;
+  if (val_i)
+    return wi::to_widest (val_i);
 
   return 0;
 }
@@ -557,24 +562,22 @@ value_to_wide_int (prop_value_t val)
    information.  */
 
 static prop_value_t
-get_value_from_alignment (tree expr)
+get_value_from_alignment (Gimple::addr_expr expr)
 {
-  tree type = TREE_TYPE (expr);
+  Gimple::type type = expr->type ();
   prop_value_t val;
   unsigned HOST_WIDE_INT bitpos;
   unsigned int align;
 
-  gcc_assert (TREE_CODE (expr) == ADDR_EXPR);
-
   get_pointer_alignment_1 (expr, &align, &bitpos);
-  val.mask = (POINTER_TYPE_P (type) || TYPE_UNSIGNED (type)
-	      ? wi::mask <widest_int> (TYPE_PRECISION (type), false)
-	      : -1).and_not (align / BITS_PER_UNIT - 1);
+  val.mask = ((type->pointer_type_p () || type->type_unsigned ()
+	      ? wi::mask <widest_int> (type->precision (), false)
+	      : -1).and_not (align / BITS_PER_UNIT - 1));
   val.lattice_val = val.mask == -1 ? VARYING : CONSTANT;
   if (val.lattice_val == CONSTANT)
-    val.value = build_int_cstu (type, bitpos / BITS_PER_UNIT);
+    val.value = create_int_cstu (type, bitpos / BITS_PER_UNIT);
   else
-    val.value = NULL_TREE;
+    val.value = NULL_GIMPLE;
 
   return val;
 }
@@ -584,33 +587,33 @@ get_value_from_alignment (tree expr)
    invariant addresses.  */
 
 static prop_value_t
-get_value_for_expr (tree expr, bool for_bits_p)
+get_value_for_expr (Gimple::value expr, bool for_bits_p)
 {
   prop_value_t val;
 
-  if (TREE_CODE (expr) == SSA_NAME)
+  if (is_a<Gimple::ssa_name> (expr))
     {
       val = *get_value (expr);
       if (for_bits_p
 	  && val.lattice_val == CONSTANT
-	  && TREE_CODE (val.value) == ADDR_EXPR)
+	  && is_a<Gimple::addr_expr> (val.value))
 	val = get_value_from_alignment (val.value);
     }
   else if (is_gimple_min_invariant (expr)
-	   && (!for_bits_p || TREE_CODE (expr) != ADDR_EXPR))
+	   && (!for_bits_p || !is_a<Gimple::addr_expr> (expr)))
     {
       val.lattice_val = CONSTANT;
       val.value = expr;
       val.mask = 0;
       canonicalize_value (&val);
     }
-  else if (TREE_CODE (expr) == ADDR_EXPR)
+  else if (is_a<Gimple::addr_expr> (expr))
     val = get_value_from_alignment (expr);
   else
     {
       val.lattice_val = VARYING;
       val.mask = -1;
-      val.value = NULL_TREE;
+      val.value = NULL_GIMPLE;
     }
   return val;
 }
@@ -630,7 +633,7 @@ static ccp_lattice_t
 likely_value (gimple stmt)
 {
   bool has_constant_operand, has_undefined_operand, all_undefined_operands;
-  tree use;
+  Gimple::value use;
   ssa_op_iter iter;
   unsigned i;
 
@@ -671,8 +674,8 @@ likely_value (gimple stmt)
   for (i = (is_gimple_call (stmt) ? 2 : 0) + gimple_has_lhs (stmt);
        i < gimple_num_ops (stmt); ++i)
     {
-      tree op = gimple_op (stmt, i);
-      if (!op || TREE_CODE (op) == SSA_NAME)
+      Gimple::value op = gimple_op (stmt, i);
+      if (!op || is_a<Gimple::ssa_name> (op))
 	continue;
       if (is_gimple_min_invariant (op))
 	has_constant_operand = true;
@@ -758,14 +761,13 @@ surely_varying_stmt_p (gimple stmt)
      assume_aligned/alloc_align attribute, it is varying.  */
   if (is_gimple_call (stmt))
     {
-      tree fndecl, fntype = gimple_call_fntype (stmt);
+      Gimple::function_decl fndecl;
+      Gimple::type fntype = gimple_call_fntype (stmt);
       if (!gimple_call_lhs (stmt)
-	  || ((fndecl = gimple_call_fndecl (stmt)) != NULL_TREE
-	      && !DECL_BUILT_IN (fndecl)
-	      && !lookup_attribute ("assume_aligned",
-				    TYPE_ATTRIBUTES (fntype))
-	      && !lookup_attribute ("alloc_align",
-				    TYPE_ATTRIBUTES (fntype))))
+	  || ((fndecl = gimple_call_fndecl (stmt)) != NULL_GIMPLE
+	      && !fndecl->builtin ()
+	      && !lookup_attribute ("assume_aligned", fntype->attributes ())
+	      && !lookup_attribute ("alloc_align", fntype->attributes ())))
 	return true;
     }
 
@@ -814,7 +816,7 @@ ccp_initialize (void)
 
 	  if (is_varying)
 	    {
-	      tree def;
+	      Gimple::value def;
 	      ssa_op_iter iter;
 
 	      /* If the statement will not produce a constant, mark
@@ -859,7 +861,7 @@ do_dbg_cnt (void)
         {
           const_val[i].lattice_val = VARYING;
 	  const_val[i].mask = -1;
-          const_val[i].value = NULL_TREE;
+          const_val[i].value = NULL_GIMPLE;
         }
     }
 }
@@ -883,24 +885,27 @@ ccp_finalize (void)
      constant integers.  */
   for (i = 1; i < num_ssa_names; ++i)
     {
-      tree name = ssa_name (i);
+      Gimple::ssa_name name = ssa_name (i);
       prop_value_t *val;
       unsigned int tem, align;
 
       if (!name
-	  || (!POINTER_TYPE_P (TREE_TYPE (name))
-	      && (!INTEGRAL_TYPE_P (TREE_TYPE (name))
+	  || (!name->type()->pointer_type_p ()
+	      && (!name->type()->integral_type_p ()
 		  /* Don't record nonzero bits before IPA to avoid
 		     using too much memory.  */
 		  || first_pass_instance)))
 	continue;
 
       val = get_value (name);
-      if (val->lattice_val != CONSTANT
-	  || TREE_CODE (val->value) != INTEGER_CST)
+      if (val->lattice_val != CONSTANT)
 	continue;
 
-      if (POINTER_TYPE_P (TREE_TYPE (name)))
+      Gimple::integer_cst val_i = val->value;
+      if (!val_i)
+        continue;
+      
+      if (name->type()->pointer_type_p ())
 	{
 	  /* Trailing mask bits specify the alignment, trailing value
 	     bits the misalignment.  */
@@ -908,14 +913,13 @@ ccp_finalize (void)
 	  align = (tem & -tem);
 	  if (align > 1)
 	    set_ptr_info_alignment (get_ptr_info (name), align,
-				    (TREE_INT_CST_LOW (val->value)
-				     & (align - 1)));
+				    (val_i->low () & (align - 1)));
 	}
       else
 	{
-	  unsigned int precision = TYPE_PRECISION (TREE_TYPE (val->value));
+	  unsigned int precision = val_i->type()->precision ();
 	  wide_int nonzero_bits = wide_int::from (val->mask, precision,
-						  UNSIGNED) | val->value;
+						  UNSIGNED) | val_i;
 	  nonzero_bits &= get_nonzero_bits (name);
 	  set_nonzero_bits (name, nonzero_bits);
 	}
@@ -943,6 +947,8 @@ ccp_finalize (void)
 static void
 ccp_lattice_meet (prop_value_t *val1, prop_value_t *val2)
 {
+  Gimple::integer_cst v1;
+  Gimple::integer_cst v2;
   if (val1->lattice_val == UNDEFINED)
     {
       /* UNDEFINED M any = any   */
@@ -960,12 +966,13 @@ ccp_lattice_meet (prop_value_t *val1, prop_value_t *val2)
       /* any M VARYING = VARYING.  */
       val1->lattice_val = VARYING;
       val1->mask = -1;
-      val1->value = NULL_TREE;
+      val1->value = NULL_GIMPLE;
     }
   else if (val1->lattice_val == CONSTANT
 	   && val2->lattice_val == CONSTANT
-	   && TREE_CODE (val1->value) == INTEGER_CST
-	   && TREE_CODE (val2->value) == INTEGER_CST)
+	   && ((v1 = val1->value))
+	   && ((v2 = val2->value)))
+
     {
       /* Ci M Cj = Ci		if (i == j)
 	 Ci M Cj = VARYING	if (i != j)
@@ -973,12 +980,12 @@ ccp_lattice_meet (prop_value_t *val1, prop_value_t *val2)
          For INTEGER_CSTs mask unequal bits.  If no equal bits remain,
 	 drop to varying.  */
       val1->mask = (val1->mask | val2->mask
-		    | (wi::to_widest (val1->value)
-		       ^ wi::to_widest (val2->value)));
+		    | (wi::to_widest (v1)
+		       ^ wi::to_widest (v2)));
       if (val1->mask == -1)
 	{
 	  val1->lattice_val = VARYING;
-	  val1->value = NULL_TREE;
+	  val1->value = NULL_GIMPLE;
 	}
     }
   else if (val1->lattice_val == CONSTANT
@@ -992,15 +999,15 @@ ccp_lattice_meet (prop_value_t *val1, prop_value_t *val2)
     }
   else if (val1->lattice_val == CONSTANT
 	   && val2->lattice_val == CONSTANT
-	   && (TREE_CODE (val1->value) == ADDR_EXPR
-	       || TREE_CODE (val2->value) == ADDR_EXPR))
+	   && (is_a<Gimple::addr_expr> (val1->value)
+	       || is_a<Gimple::addr_expr> (val2->value)))
     {
       /* When not equal addresses are involved try meeting for
 	 alignment.  */
       prop_value_t tem = *val2;
-      if (TREE_CODE (val1->value) == ADDR_EXPR)
+      if (is_a<Gimple::addr_expr> (val1->value))
 	*val1 = get_value_for_expr (val1->value, true);
-      if (TREE_CODE (val2->value) == ADDR_EXPR)
+      if (is_a<Gimple::addr_expr> (val2->value))
 	tem = get_value_for_expr (val2->value, true);
       ccp_lattice_meet (val1, &tem);
     }
@@ -1009,7 +1016,7 @@ ccp_lattice_meet (prop_value_t *val1, prop_value_t *val2)
       /* Any other combination is VARYING.  */
       val1->lattice_val = VARYING;
       val1->mask = -1;
-      val1->value = NULL_TREE;
+      val1->value = NULL_GIMPLE;
     }
 }
 
@@ -1043,7 +1050,7 @@ ccp_visit_phi_node (gimple phi)
 
     case UNDEFINED:
       new_val.lattice_val = UNDEFINED;
-      new_val.value = NULL_TREE;
+      new_val.value = NULL_GIMPLE;
       break;
 
     default:
@@ -1068,7 +1075,7 @@ ccp_visit_phi_node (gimple phi)
 	 the existing value of the PHI node and the current PHI argument.  */
       if (e->flags & EDGE_EXECUTABLE)
 	{
-	  tree arg = gimple_phi_arg (phi, i)->def;
+	  Gimple::value arg = gimple_phi_arg (phi, i)->def;
 	  prop_value_t arg_val = get_value_for_expr (arg, false);
 
 	  ccp_lattice_meet (&new_val, &arg_val);
@@ -1106,12 +1113,14 @@ ccp_visit_phi_node (gimple phi)
 
 /* Return the constant value for OP or OP otherwise.  */
 
+// THis is a callback function to gimple_fold_stmt_to_constant_1
 static tree
 valueize_op (tree op)
 {
-  if (TREE_CODE (op) == SSA_NAME)
+  Gimple::value v = op;
+  if (is_a<Gimple::ssa_name> (v))
     {
-      tree tem = get_constant_value (op);
+      Gimple::value tem = get_constant_value (v);
       if (tem)
 	return tem;
     }
@@ -1125,9 +1134,9 @@ valueize_op (tree op)
    operands are constants.
 
    If simplification is possible, return the simplified RHS,
-   otherwise return the original RHS or NULL_TREE.  */
+   otherwise return the original RHS or NULL_GIMPLE.  */
 
-static tree
+static Gimple::value
 ccp_fold (gimple stmt)
 {
   location_t loc = gimple_location (stmt);
@@ -1136,10 +1145,10 @@ ccp_fold (gimple stmt)
     case GIMPLE_COND:
       {
         /* Handle comparison operators that can appear in GIMPLE form.  */
-        tree op0 = valueize_op (gimple_cond_lhs (stmt));
-        tree op1 = valueize_op (gimple_cond_rhs (stmt));
+        Gimple::value op0 = valueize_op (gimple_cond_lhs (stmt));
+        Gimple::value op1 = valueize_op (gimple_cond_rhs (stmt));
         enum tree_code code = gimple_cond_code (stmt);
-        return fold_binary_loc (loc, code, boolean_type_node, op0, op1);
+        return fold_binary_loc (loc, code, gimple_boolean_type, op0, op1);
       }
 
     case GIMPLE_SWITCH:
@@ -1162,9 +1171,10 @@ ccp_fold (gimple stmt)
    the value, mask pair *VAL and *MASK to the result.  */
 
 static void
-bit_value_unop_1 (enum tree_code code, tree type,
+bit_value_unop_1 (enum tree_code code, Gimple::type type,
 		  widest_int *val, widest_int *mask,
-		  tree rtype, const widest_int &rval, const widest_int &rmask)
+		  Gimple::type rtype, const widest_int &rval,
+		  const widest_int &rmask)
 {
   switch (code)
     {
@@ -1188,14 +1198,14 @@ bit_value_unop_1 (enum tree_code code, tree type,
 	signop sgn;
 
 	/* First extend mask and value according to the original type.  */
-	sgn = TYPE_SIGN (rtype);
-	*mask = wi::ext (rmask, TYPE_PRECISION (rtype), sgn);
-	*val = wi::ext (rval, TYPE_PRECISION (rtype), sgn);
+	sgn = rtype->type_sign ();
+	*mask = wi::ext (rmask, rtype->precision (), sgn);
+	*val = wi::ext (rval, rtype->precision (), sgn);
 
 	/* Then extend mask and value according to the target type.  */
-	sgn = TYPE_SIGN (type);
-	*mask = wi::ext (*mask, TYPE_PRECISION (type), sgn);
-	*val = wi::ext (*val, TYPE_PRECISION (type), sgn);
+	sgn = type->type_sign ();
+	*mask = wi::ext (*mask, type->precision (), sgn);
+	*val = wi::ext (*val, type->precision (), sgn);
 	break;
       }
 
@@ -1210,14 +1220,14 @@ bit_value_unop_1 (enum tree_code code, tree type,
    and R2TYPE and set the value, mask pair *VAL and *MASK to the result.  */
 
 static void
-bit_value_binop_1 (enum tree_code code, tree type,
+bit_value_binop_1 (enum tree_code code, Gimple::type type,
 		   widest_int *val, widest_int *mask,
-		   tree r1type, const widest_int &r1val,
-		   const widest_int &r1mask, tree r2type,
+		   Gimple::type r1type, const widest_int &r1val,
+		   const widest_int &r1mask, Gimple::type r2type,
 		   const widest_int &r2val, const widest_int &r2mask)
 {
-  signop sgn = TYPE_SIGN (type);
-  int width = TYPE_PRECISION (type);
+  signop sgn = type->type_sign ();
+  int width = type->precision ();
   bool swap_p = false;
 
   /* Assume we'll get a constant result.  Use an initial non varying
@@ -1409,7 +1419,7 @@ bit_value_binop_1 (enum tree_code code, tree type,
 	  break;
 
 	/* For comparisons the signedness is in the comparison operands.  */
-	sgn = TYPE_SIGN (r1type);
+	sgn = r1type->type_sign ();
 
 	/* If we know the most significant bits we know the values
 	   value ranges by means of treating varying bits as zero
@@ -1450,7 +1460,7 @@ bit_value_binop_1 (enum tree_code code, tree type,
    the value RHS yielding type TYPE.  */
 
 static prop_value_t
-bit_value_unop (enum tree_code code, tree type, tree rhs)
+bit_value_unop (enum tree_code code, Gimple::type type, Gimple::value rhs)
 {
   prop_value_t rval = get_value_for_expr (rhs, true);
   widest_int value, mask;
@@ -1460,21 +1470,21 @@ bit_value_unop (enum tree_code code, tree type, tree rhs)
     return rval;
 
   gcc_assert ((rval.lattice_val == CONSTANT
-	       && TREE_CODE (rval.value) == INTEGER_CST)
+	       && is_a<Gimple::integer_cst> (rval.value))
 	      || rval.mask == -1);
   bit_value_unop_1 (code, type, &value, &mask,
-		    TREE_TYPE (rhs), value_to_wide_int (rval), rval.mask);
+		    rhs->type (), value_to_wide_int (rval), rval.mask);
   if (mask != -1)
     {
       val.lattice_val = CONSTANT;
       val.mask = mask;
       /* ???  Delay building trees here.  */
-      val.value = wide_int_to_tree (type, value);
+	val.value = wide_int_to_int_cst (type, value);
     }
   else
     {
       val.lattice_val = VARYING;
-      val.value = NULL_TREE;
+      val.value = NULL_GIMPLE;
       val.mask = -1;
     }
   return val;
@@ -1484,7 +1494,8 @@ bit_value_unop (enum tree_code code, tree type, tree rhs)
    the values RHS1 and RHS2 yielding type TYPE.  */
 
 static prop_value_t
-bit_value_binop (enum tree_code code, tree type, tree rhs1, tree rhs2)
+bit_value_binop (enum tree_code code, Gimple::type type, Gimple::value rhs1,
+		 Gimple::value rhs2)
 {
   prop_value_t r1val = get_value_for_expr (rhs1, true);
   prop_value_t r2val = get_value_for_expr (rhs2, true);
@@ -1495,31 +1506,31 @@ bit_value_binop (enum tree_code code, tree type, tree rhs1, tree rhs2)
       || r2val.lattice_val == UNDEFINED)
     {
       val.lattice_val = VARYING;
-      val.value = NULL_TREE;
+      val.value = NULL_GIMPLE;
       val.mask = -1;
       return val;
     }
 
   gcc_assert ((r1val.lattice_val == CONSTANT
-	       && TREE_CODE (r1val.value) == INTEGER_CST)
+	       && is_a<Gimple::integer_cst> (r1val.value))
 	      || r1val.mask == -1);
   gcc_assert ((r2val.lattice_val == CONSTANT
-	       && TREE_CODE (r2val.value) == INTEGER_CST)
+	       && is_a<Gimple::integer_cst> (r2val.value))
 	      || r2val.mask == -1);
   bit_value_binop_1 (code, type, &value, &mask,
-		     TREE_TYPE (rhs1), value_to_wide_int (r1val), r1val.mask,
-		     TREE_TYPE (rhs2), value_to_wide_int (r2val), r2val.mask);
+		     rhs1->type (), value_to_wide_int (r1val), r1val.mask,
+		     rhs2->type (), value_to_wide_int (r2val), r2val.mask);
   if (mask != -1)
     {
       val.lattice_val = CONSTANT;
       val.mask = mask;
       /* ???  Delay building trees here.  */
-      val.value = wide_int_to_tree (type, value);
+      val.value = wide_int_to_int_cst (type, value);
     }
   else
     {
       val.lattice_val = VARYING;
-      val.value = NULL_TREE;
+      val.value = NULL_GIMPLE;
       val.mask = -1;
     }
   return val;
@@ -1533,79 +1544,80 @@ bit_value_binop (enum tree_code code, tree type, tree rhs1, tree rhs2)
    ALLOC_ALIGNED is true.  */
 
 static prop_value_t
-bit_value_assume_aligned (gimple stmt, tree attr, prop_value_t ptrval,
-			  bool alloc_aligned)
+bit_value_assume_aligned (gimple stmt, Gimple::value_list attr,
+			  prop_value_t ptrval, bool alloc_aligned)
 {
-  tree align, misalign = NULL_TREE, type;
+  Gimple::value align, misalign = NULL_GIMPLE;
+  Gimple::type type;
   unsigned HOST_WIDE_INT aligni, misaligni = 0;
   prop_value_t alignval;
   widest_int value, mask;
   prop_value_t val;
 
-  if (attr == NULL_TREE)
+  if (attr == NULL_GIMPLE)
     {
-      tree ptr = gimple_call_arg (stmt, 0);
-      type = TREE_TYPE (ptr);
+      Gimple::value ptr = gimple_call_arg (stmt, 0);
+      type = ptr->type ();
       ptrval = get_value_for_expr (ptr, true);
     }
   else
     {
-      tree lhs = gimple_call_lhs (stmt);
-      type = TREE_TYPE (lhs);
+      Gimple::value lhs = gimple_call_lhs (stmt);
+      type = lhs->type ();
     }
 
   if (ptrval.lattice_val == UNDEFINED)
     return ptrval;
   gcc_assert ((ptrval.lattice_val == CONSTANT
-	       && TREE_CODE (ptrval.value) == INTEGER_CST)
+	       && is_a<Gimple::integer_cst> (ptrval.value))
 	      || ptrval.mask == -1);
-  if (attr == NULL_TREE)
+  if (attr == NULL_GIMPLE)
     {
       /* Get aligni and misaligni from __builtin_assume_aligned.  */
       align = gimple_call_arg (stmt, 1);
-      if (!tree_fits_uhwi_p (align))
+      if (!gimple_fits_uhwi_p (align))
 	return ptrval;
-      aligni = tree_to_uhwi (align);
+      aligni = gimple_to_uhwi (align);
       if (gimple_call_num_args (stmt) > 2)
 	{
 	  misalign = gimple_call_arg (stmt, 2);
-	  if (!tree_fits_uhwi_p (misalign))
+	  if (!gimple_fits_uhwi_p (misalign))
 	    return ptrval;
-	  misaligni = tree_to_uhwi (misalign);
+	  misaligni = gimple_to_uhwi (misalign);
 	}
     }
   else
     {
       /* Get aligni and misaligni from assume_aligned or
 	 alloc_align attributes.  */
-      if (TREE_VALUE (attr) == NULL_TREE)
+      if (attr->value () == NULL_GIMPLE)
 	return ptrval;
-      attr = TREE_VALUE (attr);
-      align = TREE_VALUE (attr);
-      if (!tree_fits_uhwi_p (align))
+      attr = attr->value ();
+      align = attr->value ();
+      if (!gimple_fits_uhwi_p (align))
 	return ptrval;
-      aligni = tree_to_uhwi (align);
+      aligni = gimple_to_uhwi (align);
       if (alloc_aligned)
 	{
 	  if (aligni == 0 || aligni > gimple_call_num_args (stmt))
 	    return ptrval;
 	  align = gimple_call_arg (stmt, aligni - 1);
-	  if (!tree_fits_uhwi_p (align))
+	  if (!gimple_fits_uhwi_p (align))
 	    return ptrval;
-	  aligni = tree_to_uhwi (align);
+	  aligni = gimple_to_uhwi (align);
 	}
-      else if (TREE_CHAIN (attr) && TREE_VALUE (TREE_CHAIN (attr)))
+      else if (attr->chain () && attr->chain()->value ())
 	{
-	  misalign = TREE_VALUE (TREE_CHAIN (attr));
-	  if (!tree_fits_uhwi_p (misalign))
+	  misalign = attr->chain()->value ();
+	  if (!gimple_fits_uhwi_p (misalign))
 	    return ptrval;
-	  misaligni = tree_to_uhwi (misalign);
+	  misaligni = gimple_to_uhwi (misalign);
 	}
     }
   if (aligni <= 1 || (aligni & (aligni - 1)) != 0 || misaligni >= aligni)
     return ptrval;
 
-  align = build_int_cst_type (type, -aligni);
+  align = create_int_cst_type (type, -aligni);
   alignval = get_value_for_expr (align, true);
   bit_value_binop_1 (BIT_AND_EXPR, type, &value, &mask,
 		     type, value_to_wide_int (ptrval), ptrval.mask,
@@ -1618,12 +1630,12 @@ bit_value_assume_aligned (gimple stmt, tree attr, prop_value_t ptrval,
       gcc_assert ((value.to_uhwi () & (aligni - 1)) == 0);
       value |= misaligni;
       /* ???  Delay building trees here.  */
-      val.value = wide_int_to_tree (type, value);
+      val.value = wide_int_to_int_cst (type, value);
     }
   else
     {
       val.lattice_val = VARYING;
-      val.value = NULL_TREE;
+      val.value = NULL_GIMPLE;
       val.mask = -1;
     }
   return val;
@@ -1636,7 +1648,7 @@ static prop_value_t
 evaluate_stmt (gimple stmt)
 {
   prop_value_t val;
-  tree simplified = NULL_TREE;
+  Gimple::value simplified = NULL_GIMPLE;
   ccp_lattice_t likelyvalue = likely_value (stmt);
   bool is_constant = false;
   unsigned int align;
@@ -1715,36 +1727,36 @@ evaluate_stmt (gimple stmt)
     {
       enum gimple_code code = gimple_code (stmt);
       val.lattice_val = VARYING;
-      val.value = NULL_TREE;
+      val.value = NULL_GIMPLE;
       val.mask = -1;
       if (code == GIMPLE_ASSIGN)
 	{
 	  enum tree_code subcode = gimple_assign_rhs_code (stmt);
-	  tree rhs1 = gimple_assign_rhs1 (stmt);
+	  Gimple::value rhs1 = gimple_assign_rhs1 (stmt);
 	  switch (get_gimple_rhs_class (subcode))
 	    {
 	    case GIMPLE_SINGLE_RHS:
-	      if (INTEGRAL_TYPE_P (TREE_TYPE (rhs1))
-		  || POINTER_TYPE_P (TREE_TYPE (rhs1)))
+	      if (rhs1->type()->integral_type_p ()
+		  || rhs1->type()->pointer_type_p ())
 		val = get_value_for_expr (rhs1, true);
 	      break;
 
 	    case GIMPLE_UNARY_RHS:
-	      if ((INTEGRAL_TYPE_P (TREE_TYPE (rhs1))
-		   || POINTER_TYPE_P (TREE_TYPE (rhs1)))
-		  && (INTEGRAL_TYPE_P (gimple_expr_type (stmt))
-		      || POINTER_TYPE_P (gimple_expr_type (stmt))))
+	      if ((rhs1->type()->integral_type_p ()
+		   || rhs1->type()->pointer_type_p ())
+		  && (gimple_expr_type (stmt)->integral_type_p ()
+		      || gimple_expr_type (stmt)->pointer_type_p ()))
 		val = bit_value_unop (subcode, gimple_expr_type (stmt), rhs1);
 	      break;
 
 	    case GIMPLE_BINARY_RHS:
-	      if (INTEGRAL_TYPE_P (TREE_TYPE (rhs1))
-		  || POINTER_TYPE_P (TREE_TYPE (rhs1)))
+	      if (rhs1->type()->integral_type_p ()
+		  || rhs1->type()->pointer_type_p ())
 		{
-		  tree lhs = gimple_assign_lhs (stmt);
-		  tree rhs2 = gimple_assign_rhs2 (stmt);
+		  Gimple::value lhs = gimple_assign_lhs (stmt);
+		  Gimple::value rhs2 = gimple_assign_rhs2 (stmt);
 		  val = bit_value_binop (subcode,
-					 TREE_TYPE (lhs), rhs1, rhs2);
+					 lhs->type (), rhs1, rhs2);
 		}
 	      break;
 
@@ -1754,16 +1766,16 @@ evaluate_stmt (gimple stmt)
       else if (code == GIMPLE_COND)
 	{
 	  enum tree_code code = gimple_cond_code (stmt);
-	  tree rhs1 = gimple_cond_lhs (stmt);
-	  tree rhs2 = gimple_cond_rhs (stmt);
-	  if (INTEGRAL_TYPE_P (TREE_TYPE (rhs1))
-	      || POINTER_TYPE_P (TREE_TYPE (rhs1)))
-	    val = bit_value_binop (code, TREE_TYPE (rhs1), rhs1, rhs2);
+	  Gimple::value rhs1 = gimple_cond_lhs (stmt);
+	  Gimple::value rhs2 = gimple_cond_rhs (stmt);
+	  if (rhs1->type ()->integral_type_p ()
+	      || rhs1->type()->pointer_type_p ())
+	    val = bit_value_binop (code, rhs1->type (), rhs1, rhs2);
 	}
       else if (gimple_call_builtin_p (stmt, BUILT_IN_NORMAL))
 	{
-	  tree fndecl = gimple_call_fndecl (stmt);
-	  switch (DECL_FUNCTION_CODE (fndecl))
+	  Gimple::function_decl fndecl = gimple_call_fndecl (stmt);
+	  switch (fndecl->function_code ())
 	    {
 	    case BUILT_IN_MALLOC:
 	    case BUILT_IN_REALLOC:
@@ -1771,18 +1783,18 @@ evaluate_stmt (gimple stmt)
 	    case BUILT_IN_STRDUP:
 	    case BUILT_IN_STRNDUP:
 	      val.lattice_val = CONSTANT;
-	      val.value = build_int_cst (TREE_TYPE (gimple_get_lhs (stmt)), 0);
+	      val.value = create_int_cst (gimple_get_lhs (stmt)->type (), 0);
 	      val.mask = ~((HOST_WIDE_INT) MALLOC_ABI_ALIGNMENT
 			   / BITS_PER_UNIT - 1);
 	      break;
 
 	    case BUILT_IN_ALLOCA:
 	    case BUILT_IN_ALLOCA_WITH_ALIGN:
-	      align = (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_ALLOCA_WITH_ALIGN
-		       ? TREE_INT_CST_LOW (gimple_call_arg (stmt, 1))
+	      align = (fndecl->function_code () == BUILT_IN_ALLOCA_WITH_ALIGN
+		       ? gimple_to_uhwi (gimple_call_arg (stmt, 1))
 		       : BIGGEST_ALIGNMENT);
 	      val.lattice_val = CONSTANT;
-	      val.value = build_int_cst (TREE_TYPE (gimple_get_lhs (stmt)), 0);
+	      val.value = create_int_cst (gimple_get_lhs (stmt)->type (), 0);
 	      val.mask = ~((HOST_WIDE_INT) align / BITS_PER_UNIT - 1);
 	      break;
 
@@ -1801,22 +1813,22 @@ evaluate_stmt (gimple stmt)
 	      break;
 
 	    case BUILT_IN_ASSUME_ALIGNED:
-	      val = bit_value_assume_aligned (stmt, NULL_TREE, val, false);
+	      val = bit_value_assume_aligned (stmt, NULL_GIMPLE, val, false);
 	      break;
 
 	    case BUILT_IN_ALIGNED_ALLOC:
 	      {
-		tree align = get_constant_value (gimple_call_arg (stmt, 0));
-		if (align
-		    && tree_fits_uhwi_p (align))
+		Gimple::integer_cst align = 
+				get_constant_value (gimple_call_arg (stmt, 0));
+		if (align && gimple_fits_uhwi_p (align))
 		  {
-		    unsigned HOST_WIDE_INT aligni = tree_to_uhwi (align);
+		    unsigned HOST_WIDE_INT aligni = gimple_to_uhwi (align);
 		    if (aligni > 1
 			/* align must be power-of-two */
 			&& (aligni & (aligni - 1)) == 0)
 		      {
 			val.lattice_val = CONSTANT;
-			val.value = build_int_cst (ptr_type_node, 0);
+			val.value = create_int_cst (gimple_ptr_type, 0);
 			val.mask = -aligni;
 		      }
 		  }
@@ -1828,15 +1840,15 @@ evaluate_stmt (gimple stmt)
 	}
       if (is_gimple_call (stmt) && gimple_call_lhs (stmt))
 	{
-	  tree fntype = gimple_call_fntype (stmt);
+	  Gimple::type fntype = gimple_call_fntype (stmt);
 	  if (fntype)
 	    {
-	      tree attrs = lookup_attribute ("assume_aligned",
-					     TYPE_ATTRIBUTES (fntype));
+	      Gimple::value_list attrs = lookup_attribute ("assume_aligned",
+					     fntype->attributes ());
 	      if (attrs)
 		val = bit_value_assume_aligned (stmt, attrs, val, false);
 	      attrs = lookup_attribute ("alloc_align",
-					TYPE_ATTRIBUTES (fntype));
+					fntype->attributes ());
 	      if (attrs)
 		val = bit_value_assume_aligned (stmt, attrs, val, true);
 	    }
@@ -1844,28 +1856,29 @@ evaluate_stmt (gimple stmt)
       is_constant = (val.lattice_val == CONSTANT);
     }
 
+  Gimple::integer_cst cst_val = val.value;
   if (flag_tree_bit_ccp
-      && ((is_constant && TREE_CODE (val.value) == INTEGER_CST)
+      && ((is_constant && cst_val)
 	  || (!is_constant && likelyvalue != UNDEFINED))
       && gimple_get_lhs (stmt)
-      && TREE_CODE (gimple_get_lhs (stmt)) == SSA_NAME)
+      && is_a<Gimple::ssa_name> (gimple_get_lhs (stmt)))
     {
-      tree lhs = gimple_get_lhs (stmt);
+      Gimple::ssa_name lhs = gimple_get_lhs (stmt);
       wide_int nonzero_bits = get_nonzero_bits (lhs);
       if (nonzero_bits != -1)
 	{
 	  if (!is_constant)
 	    {
 	      val.lattice_val = CONSTANT;
-	      val.value = build_zero_cst (TREE_TYPE (lhs));
+	      val.value = build_zero_cst (lhs->type ());
 	      val.mask = extend_mask (nonzero_bits);
 	      is_constant = true;
 	    }
 	  else
 	    {
-	      if (wi::bit_and_not (val.value, nonzero_bits) != 0)
-		val.value = wide_int_to_tree (TREE_TYPE (lhs),
-					      nonzero_bits & val.value);
+	      if (wi::bit_and_not (cst_val, nonzero_bits) != 0)
+		val.value = wide_int_to_int_cst (lhs->type (),
+						 nonzero_bits & cst_val);
 	      if (nonzero_bits == 0)
 		val.mask = 0;
 	      else
@@ -1890,7 +1903,7 @@ evaluate_stmt (gimple stmt)
 	  val.mask = -1;
 	}
 
-      val.value = NULL_TREE;
+      val.value = NULL_GIMPLE;
     }
 
   return val;
@@ -1902,11 +1915,12 @@ typedef hash_table <pointer_hash <gimple_statement_base> > gimple_htab;
    each matching BUILT_IN_STACK_RESTORE.  Mark visited phis in VISITED.  */
 
 static void
-insert_clobber_before_stack_restore (tree saved_val, tree var,
+insert_clobber_before_stack_restore (Gimple::ssa_name saved_val,
+				     Gimple::value var,
 				     gimple_htab *visited)
 {
   gimple stmt, clobber_stmt;
-  tree clobber;
+  Gimple::constructor clobber;
   imm_use_iterator iter;
   gimple_stmt_iterator i;
   gimple *slot;
@@ -1914,9 +1928,8 @@ insert_clobber_before_stack_restore (tree saved_val, tree var,
   FOR_EACH_IMM_USE_STMT (stmt, iter, saved_val)
     if (gimple_call_builtin_p (stmt, BUILT_IN_STACK_RESTORE))
       {
-	clobber = build_constructor (TREE_TYPE (var),
-				     NULL);
-	TREE_THIS_VOLATILE (clobber) = 1;
+	clobber = create<Gimple::constructor> (var->type ());
+	clobber->set_this_volatile (true);
 	clobber_stmt = gimple_build_assign (var, clobber);
 
 	i = gsi_for_stmt (stmt);
@@ -1927,7 +1940,7 @@ insert_clobber_before_stack_restore (tree saved_val, tree var,
 	if (!visited->is_created ())
 	  visited->create (10);
 
-	slot = visited->find_slot (stmt, INSERT);
+	slot = visited->find_slot (stmt, INSERT); 
 	if (*slot != NULL)
 	  continue;
 
@@ -1969,10 +1982,10 @@ gsi_prev_dom_bb_nondebug (gimple_stmt_iterator *i)
    that case the function gives up without inserting the clobbers.  */
 
 static void
-insert_clobbers_for_var (gimple_stmt_iterator i, tree var)
+insert_clobbers_for_var (gimple_stmt_iterator i, Gimple::value var)
 {
   gimple stmt;
-  tree saved_val;
+  Gimple::value saved_val;
   gimple_htab visited;
 
   for (; !gsi_end_p (i); gsi_prev_dom_bb_nondebug (&i))
@@ -1983,7 +1996,7 @@ insert_clobbers_for_var (gimple_stmt_iterator i, tree var)
 	continue;
 
       saved_val = gimple_call_lhs (stmt);
-      if (saved_val == NULL_TREE)
+      if (saved_val == NULL_GIMPLE)
 	continue;
 
       insert_clobber_before_stack_restore (saved_val, var, &visited);
@@ -1996,27 +2009,29 @@ insert_clobbers_for_var (gimple_stmt_iterator i, tree var)
 
 /* Detects a __builtin_alloca_with_align with constant size argument.  Declares
    fixed-size array and returns the address, if found, otherwise returns
-   NULL_TREE.  */
+   NULL_GIMPLE.  */
 
-static tree
+static Gimple::value 
 fold_builtin_alloca_with_align (gimple stmt)
 {
   unsigned HOST_WIDE_INT size, threshold, n_elem;
-  tree lhs, arg, block, var, elem_type, array_type;
+  Gimple::value lhs;
+  Gimple::var_decl var;
+  Gimple::type elem_type, array_type;
+  Gimple::integer_cst arg;
+  Gimple::block block;
 
   /* Get lhs.  */
   lhs = gimple_call_lhs (stmt);
-  if (lhs == NULL_TREE)
-    return NULL_TREE;
+  if (lhs == NULL_GIMPLE)
+    return NULL_GIMPLE;
 
   /* Detect constant argument.  */
   arg = get_constant_value (gimple_call_arg (stmt, 0));
-  if (arg == NULL_TREE
-      || TREE_CODE (arg) != INTEGER_CST
-      || !tree_fits_uhwi_p (arg))
-    return NULL_TREE;
+  if (!arg || !gimple_fits_uhwi_p (arg))
+    return NULL_GIMPLE;
 
-  size = tree_to_uhwi (arg);
+  size = gimple_to_uhwi (arg);
 
   /* Heuristic: don't fold large allocas.  */
   threshold = (unsigned HOST_WIDE_INT)PARAM_VALUE (PARAM_LARGE_STACK_FRAME);
@@ -2024,31 +2039,33 @@ fold_builtin_alloca_with_align (gimple stmt)
      as a declared array, so we allow a larger size.  */
   block = gimple_block (stmt);
   if (!(cfun->after_inlining
-        && TREE_CODE (BLOCK_SUPERCONTEXT (block)) == FUNCTION_DECL))
+        && is_a<Gimple::function_decl>(block->supercontext ())))
     threshold /= 10;
   if (size > threshold)
-    return NULL_TREE;
+    return NULL_GIMPLE;
 
   /* Declare array.  */
-  elem_type = build_nonstandard_integer_type (BITS_PER_UNIT, 1);
+  elem_type = build_gimple_nonstandard_integer_type (BITS_PER_UNIT, 1);
   n_elem = size * 8 / BITS_PER_UNIT;
-  array_type = build_array_type_nelts (elem_type, n_elem);
+  array_type = build_gimple_array_type_nelts (elem_type, n_elem);
   var = create_tmp_var (array_type, NULL);
-  DECL_ALIGN (var) = TREE_INT_CST_LOW (gimple_call_arg (stmt, 1));
+  arg = gimple_call_arg (stmt, 1);
+  var->set_align (arg->low ());
   {
-    struct ptr_info_def *pi = SSA_NAME_PTR_INFO (lhs);
+    Gimple::ssa_name name = lhs;
+    struct ptr_info_def *pi = name->ptr_info ();
     if (pi != NULL && !pi->pt.anything)
       {
 	bool singleton_p;
 	unsigned uid;
 	singleton_p = pt_solution_singleton_p (&pi->pt, &uid);
 	gcc_assert (singleton_p);
-	SET_DECL_PT_UID (var, uid);
+	var->set_pt_uid (uid);
       }
   }
 
   /* Fold alloca to the address of the array.  */
-  return fold_convert (TREE_TYPE (lhs), build_fold_addr_expr (var));
+  return fold_convert (lhs->type (), build_fold_addr_expr (var));
 }
 
 /* Fold the stmt at *GSI with CCP specific information that propagating
@@ -2091,10 +2108,10 @@ ccp_fold_stmt (gimple_stmt_iterator *gsi)
 
     case GIMPLE_CALL:
       {
-	tree lhs = gimple_call_lhs (stmt);
+	Gimple::value lhs = gimple_call_lhs (stmt);
 	int flags = gimple_call_flags (stmt);
-	tree val;
-	tree argt;
+	Gimple::value val;
+	Gimple::type_list argt;
 	bool changed = false;
 	unsigned i;
 
@@ -2102,17 +2119,16 @@ ccp_fold_stmt (gimple_stmt_iterator *gsi)
 	   away even if we cannot propagate into all uses because of
 	   type issues.  */
 	if (lhs
-	    && TREE_CODE (lhs) == SSA_NAME
+	    && is_a<Gimple::ssa_name> (lhs)
 	    && (val = get_constant_value (lhs))
 	    /* Don't optimize away calls that have side-effects.  */
 	    && (flags & (ECF_CONST|ECF_PURE)) != 0
 	    && (flags & ECF_LOOPING_CONST_OR_PURE) == 0)
 	  {
-	    tree new_rhs = unshare_expr (val);
+	    Gimple::value new_rhs = unshare_expr (val);
 	    bool res;
-	    if (!useless_type_conversion_p (TREE_TYPE (lhs),
-					    TREE_TYPE (new_rhs)))
-	      new_rhs = fold_convert (TREE_TYPE (lhs), new_rhs);
+	    if (!useless_type_conversion_p (lhs->type (), new_rhs->type ()))
+	      new_rhs = fold_convert (lhs->type (), new_rhs);
 	    res = update_call_from_tree (gsi, new_rhs);
 	    gcc_assert (res);
 	    return true;
@@ -2128,11 +2144,11 @@ ccp_fold_stmt (gimple_stmt_iterator *gsi)
 	   constant for folding, but just to be constant.  */
         if (gimple_call_builtin_p (stmt, BUILT_IN_ALLOCA_WITH_ALIGN))
           {
-            tree new_rhs = fold_builtin_alloca_with_align (stmt);
+            Gimple::value new_rhs = fold_builtin_alloca_with_align (stmt);
             if (new_rhs)
 	      {
 		bool res = update_call_from_tree (gsi, new_rhs);
-		tree var = TREE_OPERAND (TREE_OPERAND (new_rhs, 0),0);
+		Gimple::value var = new_rhs->op(0)->op(0);
 		gcc_assert (res);
 		insert_clobbers_for_var (*gsi, var);
 		return true;
@@ -2143,16 +2159,16 @@ ccp_fold_stmt (gimple_stmt_iterator *gsi)
 	   this can use the argument slot types for type verification
 	   instead of the current argument type.  We also can safely
 	   drop qualifiers here as we are dealing with constants anyway.  */
-	argt = TYPE_ARG_TYPES (gimple_call_fntype (stmt));
+	argt = gimple_call_fntype (stmt)->arg_types ();
 	for (i = 0; i < gimple_call_num_args (stmt) && argt;
-	     ++i, argt = TREE_CHAIN (argt))
+	     ++i, argt = argt->chain ())
 	  {
-	    tree arg = gimple_call_arg (stmt, i);
-	    if (TREE_CODE (arg) == SSA_NAME
+	    Gimple::value arg = gimple_call_arg (stmt, i);
+	    if (is_a<Gimple::ssa_name> (arg)
 		&& (val = get_constant_value (arg))
 		&& useless_type_conversion_p
-		     (TYPE_MAIN_VARIANT (TREE_VALUE (argt)),
-		      TYPE_MAIN_VARIANT (TREE_TYPE (val))))
+		     (argt->value()->main_variant (),
+		      val->type()->main_variant ()))
 	      {
 		gimple_call_set_arg (stmt, i, unshare_expr (val));
 		changed = true;
@@ -2164,18 +2180,18 @@ ccp_fold_stmt (gimple_stmt_iterator *gsi)
 
     case GIMPLE_ASSIGN:
       {
-	tree lhs = gimple_assign_lhs (stmt);
-	tree val;
+	Gimple::value lhs = gimple_assign_lhs (stmt);
+	Gimple::value val;
 
 	/* If we have a load that turned out to be constant replace it
 	   as we cannot propagate into all uses in all cases.  */
 	if (gimple_assign_single_p (stmt)
-	    && TREE_CODE (lhs) == SSA_NAME
+	    && is_a<Gimple::ssa_name> (lhs)
 	    && (val = get_constant_value (lhs)))
 	  {
-	    tree rhs = unshare_expr (val);
-	    if (!useless_type_conversion_p (TREE_TYPE (lhs), TREE_TYPE (rhs)))
-	      rhs = fold_build1 (VIEW_CONVERT_EXPR, TREE_TYPE (lhs), rhs);
+	    Gimple::value rhs = unshare_expr (val);
+	    if (!useless_type_conversion_p (lhs->type (), rhs->type ()))
+	      rhs = fold_build1 (VIEW_CONVERT_EXPR, lhs->type (), rhs);
 	    gimple_assign_set_rhs_from_tree (gsi, rhs);
 	    return true;
 	  }
@@ -2196,18 +2212,18 @@ ccp_fold_stmt (gimple_stmt_iterator *gsi)
    are handled here.  */
 
 static enum ssa_prop_result
-visit_assignment (gimple stmt, tree *output_p)
+visit_assignment (gimple stmt, Gimple::value_ptr output_p)
 {
   prop_value_t val;
   enum ssa_prop_result retval;
 
-  tree lhs = gimple_get_lhs (stmt);
+  Gimple::value lhs = gimple_get_lhs (stmt);
 
   gcc_assert (gimple_code (stmt) != GIMPLE_CALL
-              || gimple_call_lhs (stmt) != NULL_TREE);
+              || gimple_call_lhs (stmt) != NULL_GIMPLE);
 
   if (gimple_assign_single_p (stmt)
-      && gimple_assign_rhs_code (stmt) == SSA_NAME)
+      && (gimple_assign_rhs_code (stmt) == SSA_NAME))
     /* For a simple copy operation, we copy the lattice values.  */
     val = *get_value (gimple_assign_rhs1 (stmt));
   else
@@ -2218,7 +2234,7 @@ visit_assignment (gimple stmt, tree *output_p)
   retval = SSA_PROP_NOT_INTERESTING;
 
   /* Set the lattice value of the statement's output.  */
-  if (TREE_CODE (lhs) == SSA_NAME)
+  if (is_a<Gimple::ssa_name> (lhs))
     {
       /* If STMT is an assignment to an SSA_NAME, we only have one
 	 value to set.  */
@@ -2273,10 +2289,14 @@ visit_cond_stmt (gimple stmt, edge *taken_edge_p)
    value, set *TAKEN_EDGE_P accordingly.  If STMT produces a varying
    value, return SSA_PROP_VARYING.  */
 
+
+/* Tree * is the signature required for ssa_propagate() whichthis is passed
+   to later.  */
 static enum ssa_prop_result
-ccp_visit_stmt (gimple stmt, edge *taken_edge_p, tree *output_p)
+ccp_visit_stmt (gimple stmt, edge *taken_edge_p, tree *treep)
 {
-  tree def;
+  Gimple::value_ptr output_p = treep;
+  Gimple::value def;
   ssa_op_iter iter;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2295,7 +2315,7 @@ ccp_visit_stmt (gimple stmt, edge *taken_edge_p, tree *output_p)
 
       case GIMPLE_CALL:
         /* A value-returning call also performs an assignment.  */
-        if (gimple_call_lhs (stmt) != NULL_TREE)
+        if (gimple_call_lhs (stmt) != NULL_GIMPLE)
           return visit_assignment (stmt, output_p);
         break;
 
@@ -2321,7 +2341,7 @@ ccp_visit_stmt (gimple stmt, edge *taken_edge_p, tree *output_p)
      Mark them VARYING.  */
   FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_ALL_DEFS)
     {
-      prop_value_t v = { VARYING, NULL_TREE, -1 };
+      prop_value_t v = { VARYING, NULL_GIMPLE, -1 };
       set_lattice_value (def, v);
     }
 
@@ -2391,10 +2411,10 @@ make_pass_ccp (gcc::context *ctxt)
    only outgoing edge is to EXIT_BLOCK and there are no calls or
    ASM_EXPRs after this __builtin_stack_restore.  */
 
-static tree
+static Gimple::value 
 optimize_stack_restore (gimple_stmt_iterator i)
 {
-  tree callee;
+  Gimple::function_decl callee;
   gimple stmt;
 
   basic_block bb = gsi_bb (i);
@@ -2402,32 +2422,32 @@ optimize_stack_restore (gimple_stmt_iterator i)
 
   if (gimple_code (call) != GIMPLE_CALL
       || gimple_call_num_args (call) != 1
-      || TREE_CODE (gimple_call_arg (call, 0)) != SSA_NAME
-      || !POINTER_TYPE_P (TREE_TYPE (gimple_call_arg (call, 0))))
-    return NULL_TREE;
+      || !is_a<Gimple::ssa_name> (gimple_call_arg (call, 0))
+      || !gimple_call_arg (call, 0)->type()->pointer_type_p ())
+    return NULL_GIMPLE;
 
   for (gsi_next (&i); !gsi_end_p (i); gsi_next (&i))
     {
       stmt = gsi_stmt (i);
       if (gimple_code (stmt) == GIMPLE_ASM)
-	return NULL_TREE;
+	return NULL_GIMPLE;
       if (gimple_code (stmt) != GIMPLE_CALL)
 	continue;
 
       callee = gimple_call_fndecl (stmt);
       if (!callee
-	  || DECL_BUILT_IN_CLASS (callee) != BUILT_IN_NORMAL
+	  || callee->builtin_class () != BUILT_IN_NORMAL
 	  /* All regular builtins are ok, just obviously not alloca.  */
-	  || DECL_FUNCTION_CODE (callee) == BUILT_IN_ALLOCA
-	  || DECL_FUNCTION_CODE (callee) == BUILT_IN_ALLOCA_WITH_ALIGN)
-	return NULL_TREE;
+	  || callee->function_code () == BUILT_IN_ALLOCA
+	  || callee->function_code () == BUILT_IN_ALLOCA_WITH_ALIGN)
+	return NULL_GIMPLE;
 
-      if (DECL_FUNCTION_CODE (callee) == BUILT_IN_STACK_RESTORE)
+      if (callee->function_code () == BUILT_IN_STACK_RESTORE)
 	goto second_stack_restore;
     }
 
   if (!gsi_end_p (i))
-    return NULL_TREE;
+    return NULL_GIMPLE;
 
   /* Allow one successor of the exit block, or zero successors.  */
   switch (EDGE_COUNT (bb->succs))
@@ -2436,10 +2456,10 @@ optimize_stack_restore (gimple_stmt_iterator i)
       break;
     case 1:
       if (single_succ_edge (bb)->dest != EXIT_BLOCK_PTR_FOR_FN (cfun))
-	return NULL_TREE;
+	return NULL_GIMPLE;
       break;
     default:
-      return NULL_TREE;
+      return NULL_GIMPLE;
     }
  second_stack_restore:
 
@@ -2447,28 +2467,29 @@ optimize_stack_restore (gimple_stmt_iterator i)
      If there are multiple uses, then the last one should remove the call.
      In any case, whether the call to __builtin_stack_save can be removed
      or not is irrelevant to removing the call to __builtin_stack_restore.  */
-  if (has_single_use (gimple_call_arg (call, 0)))
+  Gimple::ssa_name name = gimple_call_arg (call, 0);
+  if (has_single_use (name))
     {
-      gimple stack_save = SSA_NAME_DEF_STMT (gimple_call_arg (call, 0));
+      gimple stack_save = name->def_stmt ();
       if (is_gimple_call (stack_save))
 	{
 	  callee = gimple_call_fndecl (stack_save);
 	  if (callee
-	      && DECL_BUILT_IN_CLASS (callee) == BUILT_IN_NORMAL
-	      && DECL_FUNCTION_CODE (callee) == BUILT_IN_STACK_SAVE)
+	      && callee->builtin_class () == BUILT_IN_NORMAL
+	      && callee->function_code () == BUILT_IN_STACK_SAVE)
 	    {
 	      gimple_stmt_iterator stack_save_gsi;
-	      tree rhs;
+	      Gimple::integer_cst rhs;
 
 	      stack_save_gsi = gsi_for_stmt (stack_save);
-	      rhs = build_int_cst (TREE_TYPE (gimple_call_arg (call, 0)), 0);
+	      rhs = create_int_cst (name->type (), 0);
 	      update_call_from_tree (&stack_save_gsi, rhs);
 	    }
 	}
     }
 
   /* No effect, so the statement will be deleted.  */
-  return integer_zero_node;
+  return gimple_integer_zero;
 }
 
 /* If va_list type is a simple pointer and nothing special is needed,
@@ -2476,71 +2497,74 @@ optimize_stack_restore (gimple_stmt_iterator i)
    __builtin_va_end (&ap) out as NOP and __builtin_va_copy into a simple
    pointer assignment.  */
 
-static tree
+static Gimple::value
 optimize_stdarg_builtin (gimple call)
 {
-  tree callee, lhs, rhs, cfun_va_list;
+  Gimple::function_decl callee;
+  Gimple::value lhs, rhs;
+  Gimple::type cfun_va_list;
+
   bool va_list_simple_ptr;
   location_t loc = gimple_location (call);
 
   if (gimple_code (call) != GIMPLE_CALL)
-    return NULL_TREE;
+    return NULL_GIMPLE;
 
   callee = gimple_call_fndecl (call);
 
   cfun_va_list = targetm.fn_abi_va_list (callee);
-  va_list_simple_ptr = POINTER_TYPE_P (cfun_va_list)
-		       && (TREE_TYPE (cfun_va_list) == void_type_node
-			   || TREE_TYPE (cfun_va_list) == char_type_node);
+  va_list_simple_ptr = cfun_va_list->pointer_type_p ()
+		       && (cfun_va_list->type () == gimple_void_type
+			   || cfun_va_list->type () == gimple_char_type);
 
-  switch (DECL_FUNCTION_CODE (callee))
+  switch (callee->function_code ())
     {
     case BUILT_IN_VA_START:
       if (!va_list_simple_ptr
 	  || targetm.expand_builtin_va_start != NULL
-	  || !builtin_decl_explicit_p (BUILT_IN_NEXT_ARG))
-	return NULL_TREE;
+	  || !gimple_builtin_decl_explicit_p (BUILT_IN_NEXT_ARG))
+	return NULL_GIMPLE;
 
       if (gimple_call_num_args (call) != 2)
-	return NULL_TREE;
+	return NULL_GIMPLE;
 
       lhs = gimple_call_arg (call, 0);
-      if (!POINTER_TYPE_P (TREE_TYPE (lhs))
-	  || TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (lhs)))
-	     != TYPE_MAIN_VARIANT (cfun_va_list))
-	return NULL_TREE;
+      if (!lhs->type()->pointer_type_p ()
+	  || lhs->type()->type()->main_variant () 
+	     != cfun_va_list->main_variant ())
+	return NULL_GIMPLE;
 
       lhs = build_fold_indirect_ref_loc (loc, lhs);
-      rhs = build_call_expr_loc (loc, builtin_decl_explicit (BUILT_IN_NEXT_ARG),
-                             1, integer_zero_node);
-      rhs = fold_convert_loc (loc, TREE_TYPE (lhs), rhs);
-      return build2 (MODIFY_EXPR, TREE_TYPE (lhs), lhs, rhs);
+      rhs = build_call_expr_loc (loc, 
+			      gimple_builtin_decl_explicit (BUILT_IN_NEXT_ARG),
+			      1, gimple_integer_zero);
+      rhs = fold_convert_loc (loc, lhs->type (), rhs);
+      return create<Gimple::modify_expr> (lhs->type (), lhs, rhs);
 
     case BUILT_IN_VA_COPY:
       if (!va_list_simple_ptr)
-	return NULL_TREE;
+	return NULL_GIMPLE;
 
       if (gimple_call_num_args (call) != 2)
-	return NULL_TREE;
+	return NULL_GIMPLE;
 
       lhs = gimple_call_arg (call, 0);
-      if (!POINTER_TYPE_P (TREE_TYPE (lhs))
-	  || TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (lhs)))
-	     != TYPE_MAIN_VARIANT (cfun_va_list))
-	return NULL_TREE;
+      if (!lhs->type()->pointer_type_p ()
+	  || lhs->type()->type()->main_variant () 
+	     != cfun_va_list->main_variant ())
+	return NULL_GIMPLE;
 
       lhs = build_fold_indirect_ref_loc (loc, lhs);
       rhs = gimple_call_arg (call, 1);
-      if (TYPE_MAIN_VARIANT (TREE_TYPE (rhs))
-	  != TYPE_MAIN_VARIANT (cfun_va_list))
-	return NULL_TREE;
+      if (rhs->type()->main_variant () != cfun_va_list->main_variant ())
+	return NULL_GIMPLE;
 
-      rhs = fold_convert_loc (loc, TREE_TYPE (lhs), rhs);
-      return build2 (MODIFY_EXPR, TREE_TYPE (lhs), lhs, rhs);
+      rhs = fold_convert_loc (loc, lhs->type (), rhs);
+      return create<Gimple::modify_expr> (lhs->type (), lhs, rhs);
 
     case BUILT_IN_VA_END:
       /* No effect, so the statement will be deleted.  */
-      return integer_zero_node;
+      return gimple_integer_zero;
 
     default:
       gcc_unreachable ();
@@ -2570,7 +2594,7 @@ optimize_unreachable (gimple_stmt_iterator i)
       if (gimple_code (stmt) == GIMPLE_LABEL)
 	{
 	  /* Verify we do not need to preserve the label.  */
-	  if (FORCED_LABEL (gimple_label_label (stmt)))
+	  if (gimple_label_label (stmt)->forced_label ())
 	    return false;
 
 	  continue;
@@ -2658,7 +2682,8 @@ pass_fold_builtins::execute (function *fun)
       for (i = gsi_start_bb (bb); !gsi_end_p (i); )
 	{
           gimple stmt, old_stmt;
-	  tree callee, result;
+	  Gimple::function_decl callee;
+	  Gimple::value result;
 	  enum built_in_function fcode;
 
 	  stmt = gsi_stmt (i);
@@ -2670,9 +2695,8 @@ pass_fold_builtins::execute (function *fun)
 		 unnecessarily keep the SSA_NAMEs live.  */
 	      if (gimple_clobber_p (stmt))
 		{
-		  tree lhs = gimple_assign_lhs (stmt);
-		  if (TREE_CODE (lhs) == MEM_REF
-		      && TREE_CODE (TREE_OPERAND (lhs, 0)) == SSA_NAME)
+		  Gimple::mem_ref lhs = gimple_assign_lhs (stmt);
+		  if (lhs && is_a<Gimple::ssa_name> (lhs->base ()))
 		    {
 		      unlink_stmt_vdef (stmt);
 		      gsi_remove (&i, true);
@@ -2684,12 +2708,12 @@ pass_fold_builtins::execute (function *fun)
 	      continue;
 	    }
 	  callee = gimple_call_fndecl (stmt);
-	  if (!callee || DECL_BUILT_IN_CLASS (callee) != BUILT_IN_NORMAL)
+	  if (!callee || callee->builtin_class () != BUILT_IN_NORMAL)
 	    {
 	      gsi_next (&i);
 	      continue;
 	    }
-	  fcode = DECL_FUNCTION_CODE (callee);
+	  fcode = callee->function_code ();
 
 	  result = gimple_fold_builtin (stmt);
 
@@ -2697,13 +2721,13 @@ pass_fold_builtins::execute (function *fun)
 	    gimple_remove_stmt_histograms (fun, stmt);
 
 	  if (!result)
-	    switch (DECL_FUNCTION_CODE (callee))
+	    switch (callee->function_code ())
 	      {
 	      case BUILT_IN_CONSTANT_P:
 		/* Resolve __builtin_constant_p.  If it hasn't been
 		   folded to integer_one_node by now, it's fairly
 		   certain that the value simply isn't constant.  */
-                result = integer_zero_node;
+                result = gimple_integer_zero;
 		break;
 
 	      case BUILT_IN_ASSUME_ALIGNED:
@@ -2737,7 +2761,7 @@ pass_fold_builtins::execute (function *fun)
 		continue;
 	      }
 
-	  if (result == NULL_TREE)
+	  if (result == NULL_GIMPLE)
 	    break;
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2776,8 +2800,8 @@ pass_fold_builtins::execute (function *fun)
 	    }
 	  callee = gimple_call_fndecl (stmt);
 	  if (!callee
-              || DECL_BUILT_IN_CLASS (callee) != BUILT_IN_NORMAL
-	      || DECL_FUNCTION_CODE (callee) == fcode)
+              || callee->builtin_class () != BUILT_IN_NORMAL
+	      || callee->function_code () == fcode)
 	    gsi_next (&i);
 	}
     }

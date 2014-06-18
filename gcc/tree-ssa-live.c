@@ -685,7 +685,7 @@ clear_unused_block_pointer (void)
 	  continue;
 	b = gimple_block (stmt);
 	if (b && !TREE_USED (b))
-	  gimple_set_block (stmt, NULL);
+	  gimple_set_block (stmt, NULL_GIMPLE);
 	for (i = 0; i < gimple_num_ops (stmt); i++)
 	  walk_tree (gimple_op_ptr (stmt, i), clear_unused_block_pointer_1,
 		     NULL, NULL);

@@ -386,7 +386,7 @@ finalize_ssa_uses (struct function *fn, gimple stmt)
       if (oldvuse != (build_vuse != NULL_TREE
 		      ? build_vuse : build_vdef))
 	gimple_set_vuse (stmt, NULL_TREE);
-      build_uses.safe_insert (0, (tree)gimple_vuse_ptr (stmt));
+      build_uses.safe_insert (0, (tree)(tree *)gimple_vuse_ptr (stmt));
     }
 
   new_list.next = NULL;

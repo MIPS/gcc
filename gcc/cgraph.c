@@ -1489,7 +1489,7 @@ cgraph_redirect_edge_call_stmt_to_callee (struct cgraph_edge *e)
   /* If new callee has no static chain, remove it.  */
   if (gimple_call_chain (new_stmt) && !DECL_STATIC_CHAIN (e->callee->decl))
     {
-      gimple_call_set_chain (new_stmt, NULL);
+      gimple_call_set_chain (new_stmt, NULL_GIMPLE);
       update_stmt_fn (DECL_STRUCT_FUNCTION (e->caller->decl), new_stmt);
     }
 
@@ -1515,7 +1515,7 @@ cgraph_update_edges_for_call_stmt_node (struct cgraph_node *node,
 					gimple new_stmt)
 {
   tree new_call = (new_stmt && is_gimple_call (new_stmt))
-		  ? gimple_call_fndecl (new_stmt) : 0;
+		  ? gimple_call_fndecl (new_stmt) : NULL_GIMPLE;
 
   /* We are seeing indirect calls, then there is nothing to update.  */
   if (!new_call && !old_call)

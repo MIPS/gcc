@@ -790,7 +790,8 @@ gimple_divmod_fixed_value_transform (gimple_stmt_iterator *si)
   histogram_value histogram;
   enum tree_code code;
   gcov_type val, count, all;
-  tree result, value, tree_val;
+  Gimple::value value;
+  tree result, tree_val;
   gcov_type prob;
   gimple stmt;
 
@@ -952,7 +953,8 @@ gimple_mod_pow2_value_transform (gimple_stmt_iterator *si)
   histogram_value histogram;
   enum tree_code code;
   gcov_type count, wrong_values, all;
-  tree lhs_type, result, value;
+  tree lhs_type, result;
+  Gimple::value value;
   gcov_type prob;
   gimple stmt;
 
@@ -1622,8 +1624,8 @@ gimple_stringop_fixed_value (gimple vcall_stmt, tree icall_size, int prob,
   cond_stmt = gimple_build_cond (EQ_EXPR, tmp1, tmp0, NULL_TREE, NULL_TREE);
   gsi_insert_before (&gsi, cond_stmt, GSI_SAME_STMT);
 
-  gimple_set_vdef (vcall_stmt, NULL);
-  gimple_set_vuse (vcall_stmt, NULL);
+  gimple_set_vdef (vcall_stmt, NULL_GIMPLE);
+  gimple_set_vuse (vcall_stmt, NULL_GIMPLE);
   update_stmt (vcall_stmt);
   icall_stmt = gimple_copy (vcall_stmt);
   gimple_call_set_arg (icall_stmt, size_arg, icall_size);

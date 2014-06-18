@@ -23,7 +23,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "tree.h"
+#include "gimple-tree.h"
+
 #include "pointer-set.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
@@ -31,12 +32,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-eh.h"
 #include "gimple-expr.h"
 #include "is-a.h"
+#include "fold-const.h"
 #include "gimple.h"
 #include "stringpool.h"
-#include "gimplify.h"
 #include "stor-layout.h"
 #include "demangle.h"
 #include "gimple-ssa.h"
+#include "gimplify.h"
 
 /* ----- Type related -----  */
 
@@ -64,52 +66,55 @@ along with GCC; see the file COPYING3.  If not see
 	to T* are not.  */
 
 bool
-useless_type_conversion_p (tree outer_type, tree inner_type)
+useless_type_conversion_p (Gimple::type outer_type, Gimple::type inner_type)
 {
+  Gimple::array_type inner_array;
+  Gimple::array_type outer_array;
+  Gimple::function_or_method_type inner_func;
+  Gimple::function_or_method_type outer_func;
+
   /* Do the following before stripping toplevel qualifiers.  */
-  if (POINTER_TYPE_P (inner_type)
-      && POINTER_TYPE_P (outer_type))
+  if (inner_type->pointer_type_p () && outer_type->pointer_type_p ())
     {
       /* Do not lose casts between pointers to different address spaces.  */
-      if (TYPE_ADDR_SPACE (TREE_TYPE (outer_type))
-	  != TYPE_ADDR_SPACE (TREE_TYPE (inner_type)))
+      if (outer_type->type()->addr_space ()
+	  != inner_type->type()->addr_space ())
 	return false;
     }
 
   /* From now on qualifiers on value types do not matter.  */
-  inner_type = TYPE_MAIN_VARIANT (inner_type);
-  outer_type = TYPE_MAIN_VARIANT (outer_type);
+  inner_type = inner_type->main_variant ();
+  outer_type = outer_type->main_variant ();
 
   if (inner_type == outer_type)
     return true;
 
   /* If we know the canonical types, compare them.  */
-  if (TYPE_CANONICAL (inner_type)
-      && TYPE_CANONICAL (inner_type) == TYPE_CANONICAL (outer_type))
+  if (inner_type->canonical ()
+      && inner_type->canonical ()  == outer_type->canonical ())
     return true;
 
   /* Changes in machine mode are never useless conversions unless we
      deal with aggregate types in which case we defer to later checks.  */
-  if (TYPE_MODE (inner_type) != TYPE_MODE (outer_type)
-      && !AGGREGATE_TYPE_P (inner_type))
+  if (inner_type->mode () != outer_type->mode ()
+      && !inner_type->aggregate_type_p ())
     return false;
 
   /* If both the inner and outer types are integral types, then the
      conversion is not necessary if they have the same mode and
      signedness and precision, and both or neither are boolean.  */
-  if (INTEGRAL_TYPE_P (inner_type)
-      && INTEGRAL_TYPE_P (outer_type))
+  if (inner_type->integral_type_p ()
+      && outer_type->integral_type_p ())
     {
       /* Preserve changes in signedness or precision.  */
-      if (TYPE_UNSIGNED (inner_type) != TYPE_UNSIGNED (outer_type)
-	  || TYPE_PRECISION (inner_type) != TYPE_PRECISION (outer_type))
+      if (inner_type->type_unsigned () != outer_type->type_unsigned ()
+	  || inner_type->precision () != outer_type->precision ())
 	return false;
 
       /* Preserve conversions to/from BOOLEAN_TYPE if types are not
 	 of precision one.  */
-      if (((TREE_CODE (inner_type) == BOOLEAN_TYPE)
-	   != (TREE_CODE (outer_type) == BOOLEAN_TYPE))
-	  && TYPE_PRECISION (outer_type) != 1)
+      if (inner_type->boolean_type_p () != outer_type->boolean_type_p ()
+	  && outer_type->precision () != 1)
 	return false;
 
       /* We don't need to preserve changes in the types minimum or
@@ -119,24 +124,22 @@ useless_type_conversion_p (tree outer_type, tree inner_type)
     }
 
   /* Scalar floating point types with the same mode are compatible.  */
-  else if (SCALAR_FLOAT_TYPE_P (inner_type)
-	   && SCALAR_FLOAT_TYPE_P (outer_type))
+  else if (inner_type->scalar_float_type_p ()
+	   && outer_type->scalar_float_type_p ())
     return true;
 
   /* Fixed point types with the same mode are compatible.  */
-  else if (FIXED_POINT_TYPE_P (inner_type)
-	   && FIXED_POINT_TYPE_P (outer_type))
+  else if (inner_type->fixed_point_type_p ()
+	   && outer_type->fixed_point_type_p ())
     return true;
 
   /* We need to take special care recursing to pointed-to types.  */
-  else if (POINTER_TYPE_P (inner_type)
-	   && POINTER_TYPE_P (outer_type))
+  else if (inner_type->pointer_type_p ()
+	   && outer_type->pointer_type_p ())
     {
       /* Do not lose casts to function pointer types.  */
-      if ((TREE_CODE (TREE_TYPE (outer_type)) == FUNCTION_TYPE
-	   || TREE_CODE (TREE_TYPE (outer_type)) == METHOD_TYPE)
-	  && !(TREE_CODE (TREE_TYPE (inner_type)) == FUNCTION_TYPE
-	       || TREE_CODE (TREE_TYPE (inner_type)) == METHOD_TYPE))
+      if (outer_type->type()->method_or_function_type_p ()
+	  && !inner_type->type()->method_or_function_type_p ())
 	return false;
 
       /* We do not care for const qualification of the pointed-to types
@@ -147,39 +150,38 @@ useless_type_conversion_p (tree outer_type, tree inner_type)
     }
 
   /* Recurse for complex types.  */
-  else if (TREE_CODE (inner_type) == COMPLEX_TYPE
-	   && TREE_CODE (outer_type) == COMPLEX_TYPE)
-    return useless_type_conversion_p (TREE_TYPE (outer_type),
-				      TREE_TYPE (inner_type));
+  else if (inner_type->complex_type_p () && outer_type->complex_type_p ())
+    return useless_type_conversion_p (outer_type->type (),
+				      inner_type->type ());
 
   /* Recurse for vector types with the same number of subparts.  */
-  else if (TREE_CODE (inner_type) == VECTOR_TYPE
-	   && TREE_CODE (outer_type) == VECTOR_TYPE
-	   && TYPE_PRECISION (inner_type) == TYPE_PRECISION (outer_type))
-    return useless_type_conversion_p (TREE_TYPE (outer_type),
-				      TREE_TYPE (inner_type));
+  else if (inner_type->vector_type_p () && outer_type->vector_type_p ()
+	   && inner_type->precision () == outer_type->precision ())
+    return useless_type_conversion_p (outer_type->type (),
+				      inner_type->type());
 
-  else if (TREE_CODE (inner_type) == ARRAY_TYPE
-	   && TREE_CODE (outer_type) == ARRAY_TYPE)
+  else if ((inner_array = inner_type) && (outer_array = outer_type))
     {
       /* Preserve string attributes.  */
-      if (TYPE_STRING_FLAG (inner_type) != TYPE_STRING_FLAG (outer_type))
+      if (inner_array->string_flag () != outer_array->string_flag ())
 	return false;
+
+      Gimple::numerical_type inner_domain = inner_array->domain ();
+      Gimple::numerical_type outer_domain = outer_array->domain ();
 
       /* Conversions from array types with unknown extent to
 	 array types with known extent are not useless.  */
-      if (!TYPE_DOMAIN (inner_type)
-	  && TYPE_DOMAIN (outer_type))
+      if (!inner_domain && outer_domain)
 	return false;
 
       /* Nor are conversions from array types with non-constant size to
          array types with constant size or to different size.  */
-      if (TYPE_SIZE (outer_type)
-	  && TREE_CODE (TYPE_SIZE (outer_type)) == INTEGER_CST
-	  && (!TYPE_SIZE (inner_type)
-	      || TREE_CODE (TYPE_SIZE (inner_type)) != INTEGER_CST
-	      || !tree_int_cst_equal (TYPE_SIZE (outer_type),
-				      TYPE_SIZE (inner_type))))
+      if (outer_array->size ()
+	  && is_a<Gimple::integer_cst> (outer_array->size ()) 
+	  && (!inner_array->size ()
+	      || !is_a<Gimple::integer_cst> (inner_array->size ())
+	      || !tree_int_cst_equal (outer_array->size (),
+				      inner_array->size ())))
 	return false;
 
       /* Check conversions between arrays with partially known extents.
@@ -187,78 +189,72 @@ useless_type_conversion_p (tree outer_type, tree inner_type)
 	 Otherwise allow conversions to unknown and variable extents.
 	 In particular this declares conversions that may change the
 	 mode to BLKmode as useless.  */
-      if (TYPE_DOMAIN (inner_type)
-	  && TYPE_DOMAIN (outer_type)
-	  && TYPE_DOMAIN (inner_type) != TYPE_DOMAIN (outer_type))
+      if (inner_domain && outer_domain && inner_domain != outer_domain)
 	{
-	  tree inner_min = TYPE_MIN_VALUE (TYPE_DOMAIN (inner_type));
-	  tree outer_min = TYPE_MIN_VALUE (TYPE_DOMAIN (outer_type));
-	  tree inner_max = TYPE_MAX_VALUE (TYPE_DOMAIN (inner_type));
-	  tree outer_max = TYPE_MAX_VALUE (TYPE_DOMAIN (outer_type));
+	  Gimple::value inner_min = inner_domain->min_value ();
+	  Gimple::value outer_min = outer_domain->min_value ();
+	  Gimple::value inner_max = inner_domain->max_value ();
+	  Gimple::value outer_max = outer_domain->max_value ();
 
 	  /* After gimplification a variable min/max value carries no
 	     additional information compared to a NULL value.  All that
 	     matters has been lowered to be part of the IL.  */
-	  if (inner_min && TREE_CODE (inner_min) != INTEGER_CST)
-	    inner_min = NULL_TREE;
-	  if (outer_min && TREE_CODE (outer_min) != INTEGER_CST)
-	    outer_min = NULL_TREE;
-	  if (inner_max && TREE_CODE (inner_max) != INTEGER_CST)
-	    inner_max = NULL_TREE;
-	  if (outer_max && TREE_CODE (outer_max) != INTEGER_CST)
-	    outer_max = NULL_TREE;
+	  if (inner_min && !is_a<Gimple::integer_cst>(inner_min))
+	    inner_min = NULL_GIMPLE;
+	  if (outer_min && !is_a<Gimple::integer_cst>(outer_min))
+	    outer_min = NULL_GIMPLE;
+	  if (inner_max && !is_a<Gimple::integer_cst>(inner_max))
+	    inner_max = NULL_GIMPLE;
+	  if (outer_max && !is_a<Gimple::integer_cst>(outer_max))
+	    outer_max = NULL_GIMPLE;
 
 	  /* Conversions NULL / variable <- cst are useless, but not
 	     the other way around.  */
-	  if (outer_min
-	      && (!inner_min
-		  || !tree_int_cst_equal (inner_min, outer_min)))
+	  if (outer_min && (!inner_min
+			    || !tree_int_cst_equal (inner_min, outer_min)))
 	    return false;
-	  if (outer_max
-	      && (!inner_max
-		  || !tree_int_cst_equal (inner_max, outer_max)))
+	  if (outer_max && (!inner_max
+			    || !tree_int_cst_equal (inner_max, outer_max)))
 	    return false;
 	}
 
       /* Recurse on the element check.  */
-      return useless_type_conversion_p (TREE_TYPE (outer_type),
-					TREE_TYPE (inner_type));
+      return useless_type_conversion_p (outer_array->type (),
+					inner_array->type ());
     }
 
-  else if ((TREE_CODE (inner_type) == FUNCTION_TYPE
-	    || TREE_CODE (inner_type) == METHOD_TYPE)
-	   && TREE_CODE (inner_type) == TREE_CODE (outer_type))
+  else if ((inner_func = inner_type) && (outer_func = outer_type)
+	   && (inner_type->code () == outer_type->code ()))
     {
-      tree outer_parm, inner_parm;
+      Gimple::type_list outer_parm, inner_parm;
 
       /* If the return types are not compatible bail out.  */
-      if (!useless_type_conversion_p (TREE_TYPE (outer_type),
-				      TREE_TYPE (inner_type)))
+      if (!useless_type_conversion_p (outer_func->type (), inner_func->type ()))
 	return false;
 
       /* Method types should belong to a compatible base class.  */
-      if (TREE_CODE (inner_type) == METHOD_TYPE
-	  && !useless_type_conversion_p (TYPE_METHOD_BASETYPE (outer_type),
-					 TYPE_METHOD_BASETYPE (inner_type)))
+      if (is_a<Gimple::method_type>(inner_func) 
+	  && !useless_type_conversion_p (
+			  as_a<Gimple::method_type>(outer_func)->basetype (),
+			  as_a<Gimple::method_type>(inner_func)->basetype ()))
 	return false;
 
       /* A conversion to an unprototyped argument list is ok.  */
-      if (!prototype_p (outer_type))
+      if (!prototype_p (outer_func))
 	return true;
 
       /* If the unqualified argument types are compatible the conversion
 	 is useless.  */
-      if (TYPE_ARG_TYPES (outer_type) == TYPE_ARG_TYPES (inner_type))
+      if (outer_func->arg_types () == inner_func->arg_types ())
 	return true;
 
-      for (outer_parm = TYPE_ARG_TYPES (outer_type),
-	   inner_parm = TYPE_ARG_TYPES (inner_type);
+      for (outer_parm = outer_func->arg_types (),
+	   inner_parm = inner_func->arg_types ();
 	   outer_parm && inner_parm;
-	   outer_parm = TREE_CHAIN (outer_parm),
-	   inner_parm = TREE_CHAIN (inner_parm))
-	if (!useless_type_conversion_p
-	       (TYPE_MAIN_VARIANT (TREE_VALUE (outer_parm)),
-		TYPE_MAIN_VARIANT (TREE_VALUE (inner_parm))))
+	   outer_parm = outer_func->chain (),
+	   inner_parm = inner_func->chain ())
+	if (!useless_type_conversion_p (outer_parm->value()->main_variant (),
+					inner_parm->value()->main_variant ()))
 	  return false;
 
       /* If there is a mismatch in the number of arguments the functions
@@ -267,8 +263,8 @@ useless_type_conversion_p (tree outer_type, tree inner_type)
 	return false;
 
       /* Defer to the target if necessary.  */
-      if (TYPE_ATTRIBUTES (inner_type) || TYPE_ATTRIBUTES (outer_type))
-	return comp_type_attributes (outer_type, inner_type) != 0;
+      if (inner_func->attributes () || outer_func->attributes ())
+	return comp_type_attributes (outer_func, inner_func) != 0;
 
       return true;
     }
@@ -276,8 +272,8 @@ useless_type_conversion_p (tree outer_type, tree inner_type)
   /* For aggregates we rely on TYPE_CANONICAL exclusively and require
      explicit conversions for types involving to be structurally
      compared types.  */
-  else if (AGGREGATE_TYPE_P (inner_type)
-	   && TREE_CODE (inner_type) == TREE_CODE (outer_type))
+  else if (inner_type->aggregate_type_p ()
+	   && inner_type->code () ==  outer_type->code ())
     return false;
 
   return false;
@@ -289,9 +285,9 @@ useless_type_conversion_p (tree outer_type, tree inner_type)
 /* Set sequence SEQ to be the GIMPLE body for function FN.  */
 
 void
-gimple_set_body (tree fndecl, gimple_seq seq)
+gimple_set_body (Gimple::function_decl fndecl, gimple_seq seq)
 {
-  struct function *fn = DECL_STRUCT_FUNCTION (fndecl);
+  struct function *fn = fndecl->function ();
   if (fn == NULL)
     {
       /* If FNDECL still does not have a function structure associated
@@ -310,30 +306,30 @@ gimple_set_body (tree fndecl, gimple_seq seq)
    NULL.  */
 
 gimple_seq
-gimple_body (tree fndecl)
+gimple_body (Gimple::function_decl fndecl)
 {
-  struct function *fn = DECL_STRUCT_FUNCTION (fndecl);
+  struct function *fn = fndecl->function ();
   return fn ? fn->gimple_body : NULL;
 }
 
 /* Return true when FNDECL has Gimple body either in unlowered
    or CFG form.  */
 bool
-gimple_has_body_p (tree fndecl)
+gimple_has_body_p (Gimple::function_decl fndecl)
 {
-  struct function *fn = DECL_STRUCT_FUNCTION (fndecl);
+  struct function *fn = fndecl->function ();
   return (gimple_body (fndecl) || (fn && fn->cfg));
 }
 
 /* Return a printable name for symbol DECL.  */
 
 const char *
-gimple_decl_printable_name (tree decl, int verbosity)
+gimple_decl_printable_name (Gimple::decl decl, int verbosity)
 {
-  if (!DECL_NAME (decl))
+  if (!decl->name ())
     return NULL;
 
-  if (DECL_ASSEMBLER_NAME_SET_P (decl))
+  if (decl->assembler_name_set_p ())
     {
       const char *str, *mangled_str;
       int dmgl_opts = DMGL_NO_OPTS;
@@ -344,36 +340,35 @@ gimple_decl_printable_name (tree decl, int verbosity)
 		      | DMGL_ANSI
 		      | DMGL_GNU_V3
 		      | DMGL_RET_POSTFIX;
-	  if (TREE_CODE (decl) == FUNCTION_DECL)
+	  if (is_a<Gimple::function_decl> (decl))
 	    dmgl_opts |= DMGL_PARAMS;
 	}
 
-      mangled_str = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+      mangled_str = decl->assembler_name()->pointer ();
       str = cplus_demangle_v3 (mangled_str, dmgl_opts);
       return (str) ? str : mangled_str;
     }
 
-  return IDENTIFIER_POINTER (DECL_NAME (decl));
+  return decl->name()->pointer ();
 }
 
 
 /* Create a new VAR_DECL and copy information from VAR to it.  */
 
-tree
-copy_var_decl (tree var, tree name, tree type)
+Gimple::var_decl
+copy_var_decl (Gimple::decl var, Gimple::identifier name, Gimple::type type)
 {
-  tree copy = build_decl (DECL_SOURCE_LOCATION (var), VAR_DECL, name, type);
-
-  TREE_ADDRESSABLE (copy) = TREE_ADDRESSABLE (var);
-  TREE_THIS_VOLATILE (copy) = TREE_THIS_VOLATILE (var);
-  DECL_GIMPLE_REG_P (copy) = DECL_GIMPLE_REG_P (var);
-  DECL_ARTIFICIAL (copy) = DECL_ARTIFICIAL (var);
-  DECL_IGNORED_P (copy) = DECL_IGNORED_P (var);
-  DECL_CONTEXT (copy) = DECL_CONTEXT (var);
-  TREE_NO_WARNING (copy) = TREE_NO_WARNING (var);
-  TREE_USED (copy) = 1;
-  DECL_SEEN_IN_BIND_EXPR_P (copy) = 1;
-  DECL_ATTRIBUTES (copy) = DECL_ATTRIBUTES (var);
+  Gimple::var_decl copy = build_var_decl (var->source_location (), name, type);
+  copy->set_addressable (var->addressable ());
+  copy->set_this_volatile (var->this_volatile ());
+  copy->set_gimple_reg_p (var->gimple_reg_p ());
+  copy->set_artificial (var->artificial ());
+  copy->set_ignored_p (var->ignored_p ());
+  copy->set_context (var->context ());
+  copy->set_no_warning (var->no_warning ());
+  copy->set_used (true);
+  copy->set_seen_in_bind_expr_p (true);
+  copy->set_attributes (var->attributes ());
 
   return copy;
 }
@@ -384,21 +379,23 @@ copy_var_decl (tree var, tree name, tree type)
    This must stay consistent with var_map_base_init in tree-ssa-live.c.  */
 
 bool
-gimple_can_coalesce_p (tree name1, tree name2)
+gimple_can_coalesce_p (Gimple::ssa_name name1, Gimple::ssa_name name2)
 {
   /* First check the SSA_NAME's associated DECL.  We only want to
      coalesce if they have the same DECL or both have no associated DECL.  */
-  tree var1 = SSA_NAME_VAR (name1);
-  tree var2 = SSA_NAME_VAR (name2);
-  var1 = (var1 && (!VAR_P (var1) || !DECL_IGNORED_P (var1))) ? var1 : NULL_TREE;
-  var2 = (var2 && (!VAR_P (var2) || !DECL_IGNORED_P (var2))) ? var2 : NULL_TREE;
+  Gimple::decl var1 = name1->var ();
+  Gimple::decl var2 = name2->var ();
+
+  var1 = (var1 && (!is_a<Gimple::var_decl> (var1) || !var1->ignored_p ())) ? var1 : NULL_GIMPLE;
+  var2 = (var2 && (!is_a<Gimple::var_decl> (var2) || !var2->ignored_p ())) ? var2 : NULL_GIMPLE;
   if (var1 != var2)
+
     return false;
 
   /* Now check the types.  If the types are the same, then we should
      try to coalesce V1 and V2.  */
-  tree t1 = TREE_TYPE (name1);
-  tree t2 = TREE_TYPE (name2);
+  Gimple::type t1 = name1->type ();
+  Gimple::type t2 = name2->type ();
   if (t1 == t2)
     return true;
 
@@ -409,8 +406,7 @@ gimple_can_coalesce_p (tree name1, tree name2)
      Note pointer types with different address spaces may have the same
      canonical type.  Those are rejected for coalescing by the
      types_compatible_p check.  */
-  if (TYPE_CANONICAL (t1)
-      && TYPE_CANONICAL (t1) == TYPE_CANONICAL (t2)
+  if (t1->canonical () && t1->canonical () == t2->canonical ()
       && types_compatible_p (t1, t2))
     return true;
 
@@ -441,7 +437,7 @@ remove_suffix (char *name, int len)
 
 static GTY(()) unsigned int tmp_var_id_num;
 
-tree
+Gimple::identifier
 create_tmp_var_name (const char *prefix)
 {
   char *tmp_name;
@@ -463,26 +459,26 @@ create_tmp_var_name (const char *prefix)
 /* Create a new temporary variable declaration of type TYPE.
    Do NOT push it into the current binding.  */
 
-tree
-create_tmp_var_raw (tree type, const char *prefix)
+Gimple::var_decl
+create_tmp_var_raw (Gimple::type type, const char *prefix)
 {
-  tree tmp_var;
+  Gimple::var_decl tmp_var;
 
-  tmp_var = build_decl (input_location,
-			VAR_DECL, prefix ? create_tmp_var_name (prefix) : NULL,
-			type);
+  tmp_var = build_var_decl (input_location,
+			    prefix ? create_tmp_var_name (prefix) : NULL_GIMPLE,
+			    type);
 
   /* The variable was declared by the compiler.  */
-  DECL_ARTIFICIAL (tmp_var) = 1;
+  tmp_var->set_artificial (true);
   /* And we don't want debug info for it.  */
-  DECL_IGNORED_P (tmp_var) = 1;
+  tmp_var->set_ignored_p (true);
 
   /* Make the variable writable.  */
-  TREE_READONLY (tmp_var) = 0;
+  tmp_var->set_readonly (false);
 
-  DECL_EXTERNAL (tmp_var) = 0;
-  TREE_STATIC (tmp_var) = 0;
-  TREE_USED (tmp_var) = 1;
+  tmp_var->set_external (false);
+  tmp_var->set_static_p (false);
+  tmp_var->set_used (true);
 
   return tmp_var;
 }
@@ -492,10 +488,10 @@ create_tmp_var_raw (tree type, const char *prefix)
    only from gimplification or optimization, at which point the creation of
    certain types are bugs.  */
 
-tree
-create_tmp_var (tree type, const char *prefix)
+Gimple::var_decl
+create_tmp_var (Gimple::type type, const char *prefix)
 {
-  tree tmp_var;
+  Gimple::var_decl tmp_var;
 
   /* We don't allow types that are addressable (meaning we can't make copies),
      or incomplete.  We also used to reject every variable size objects here,
@@ -503,7 +499,7 @@ create_tmp_var (tree type, const char *prefix)
      The processing for variable sizes is performed in gimple_add_tmp_var,
      point at which it really matters and possibly reached via paths not going
      through this function, e.g. after direct calls to create_tmp_var_raw.  */
-  gcc_assert (!TREE_ADDRESSABLE (type) && COMPLETE_TYPE_P (type));
+  gcc_assert (!type->addressable () && type->complete_type_p ());
 
   tmp_var = create_tmp_var_raw (type, prefix);
   gimple_add_tmp_var (tmp_var);
@@ -514,15 +510,14 @@ create_tmp_var (tree type, const char *prefix)
    create_tmp_var and if TYPE is a vector or a complex number, mark the new
    temporary as gimple register.  */
 
-tree
-create_tmp_reg (tree type, const char *prefix)
+Gimple::var_decl
+create_tmp_reg (Gimple::type type, const char *prefix)
 {
-  tree tmp;
+  Gimple::var_decl tmp;
 
   tmp = create_tmp_var (type, prefix);
-  if (TREE_CODE (type) == COMPLEX_TYPE
-      || TREE_CODE (type) == VECTOR_TYPE)
-    DECL_GIMPLE_REG_P (tmp) = 1;
+  if (type->complex_type_p () || type->vector_type_p ())
+    tmp->set_gimple_reg_p (true);
 
   return tmp;
 }
@@ -531,16 +526,15 @@ create_tmp_reg (tree type, const char *prefix)
    create_tmp_var and if TYPE is a vector or a complex number, mark the new
    temporary as gimple register.  */
 
-tree
-create_tmp_reg_fn (struct function *fn, tree type, const char *prefix)
+Gimple::var_decl
+create_tmp_reg_fn (struct function *fn, Gimple::type type, const char *prefix)
 {
-  tree tmp;
+  Gimple::var_decl tmp;
 
   tmp = create_tmp_var_raw (type, prefix);
   gimple_add_tmp_var_fn (fn, tmp);
-  if (TREE_CODE (type) == COMPLEX_TYPE
-      || TREE_CODE (type) == VECTOR_TYPE)
-    DECL_GIMPLE_REG_P (tmp) = 1;
+  if (is_a<Gimple::complex_type> (type) || is_a<Gimple::vector_type> (type))
+    tmp->set_gimple_reg_p (true);
 
   return tmp;
 }
@@ -552,37 +546,36 @@ create_tmp_reg_fn (struct function *fn, tree type, const char *prefix)
    *OP1_P, *OP2_P and *OP3_P respectively.  */
 
 void
-extract_ops_from_tree_1 (tree expr, enum tree_code *subcode_p, tree *op1_p,
-			 tree *op2_p, tree *op3_p)
+extract_ops_from_tree_1 (Gimple::value expr, enum tree_code *subcode_p,
+			 Gimple::value_ptr op1_p,
+			 Gimple::value_ptr op2_p, Gimple::value_ptr op3_p)
 {
-  enum gimple_rhs_class grhs_class;
-
-  *subcode_p = TREE_CODE (expr);
-  grhs_class = get_gimple_rhs_class (*subcode_p);
+  enum gimple_rhs_class grhs_class = get_gimple_rhs_class (expr);
+  *subcode_p = expr->code ();
 
   if (grhs_class == GIMPLE_TERNARY_RHS)
     {
-      *op1_p = TREE_OPERAND (expr, 0);
-      *op2_p = TREE_OPERAND (expr, 1);
-      *op3_p = TREE_OPERAND (expr, 2);
+      *op1_p = expr->op (0);
+      *op2_p = expr->op (1);
+      *op3_p = expr->op (2);
     }
   else if (grhs_class == GIMPLE_BINARY_RHS)
     {
-      *op1_p = TREE_OPERAND (expr, 0);
-      *op2_p = TREE_OPERAND (expr, 1);
-      *op3_p = NULL_TREE;
+      *op1_p = expr->op (0);
+      *op2_p = expr->op (1);
+      *op3_p = NULL_GIMPLE;
     }
   else if (grhs_class == GIMPLE_UNARY_RHS)
     {
-      *op1_p = TREE_OPERAND (expr, 0);
-      *op2_p = NULL_TREE;
-      *op3_p = NULL_TREE;
+      *op1_p = expr->op (0);
+      *op2_p = NULL_GIMPLE;
+      *op3_p = NULL_GIMPLE;
     }
   else if (grhs_class == GIMPLE_SINGLE_RHS)
     {
       *op1_p = expr;
-      *op2_p = NULL_TREE;
-      *op3_p = NULL_TREE;
+      *op2_p = NULL_GIMPLE;
+      *op3_p = NULL_GIMPLE;
     }
   else
     gcc_unreachable ();
@@ -591,80 +584,85 @@ extract_ops_from_tree_1 (tree expr, enum tree_code *subcode_p, tree *op1_p,
 /* Extract operands for a GIMPLE_COND statement out of COND_EXPR tree COND.  */
 
 void
-gimple_cond_get_ops_from_tree (tree cond, enum tree_code *code_p,
-                               tree *lhs_p, tree *rhs_p)
+gimple_cond_get_ops_from_tree (Gimple::value cond, enum tree_code *code_p,
+                               Gimple::value_ptr lhs_p, Gimple::value_ptr rhs_p)
 {
-  gcc_assert (TREE_CODE_CLASS (TREE_CODE (cond)) == tcc_comparison
-	      || TREE_CODE (cond) == TRUTH_NOT_EXPR
-	      || is_gimple_min_invariant (cond)
-	      || SSA_VAR_P (cond));
+  gcc_assert (is_a<Gimple::comparison> (cond)
+	      || is_a<Gimple::truth_not_expr> (cond)
+	      || is_gimple_min_invariant (cond) || ssa_var_p (cond));
+
 
   extract_ops_from_tree (cond, code_p, lhs_p, rhs_p);
 
   /* Canonicalize conditionals of the form 'if (!VAL)'.  */
-  if (*code_p == TRUTH_NOT_EXPR)
+  if (is_a<Gimple::truth_not_expr> (cond))
     {
       *code_p = EQ_EXPR;
-      gcc_assert (*lhs_p && *rhs_p == NULL_TREE);
-      *rhs_p = build_zero_cst (TREE_TYPE (*lhs_p));
+      gcc_assert (*lhs_p && *rhs_p == NULL_GIMPLE);
+      *rhs_p = build_zero_cst ((*lhs_p)->type ());
     }
   /* Canonicalize conditionals of the form 'if (VAL)'  */
-  else if (TREE_CODE_CLASS (*code_p) != tcc_comparison)
+  else if (!is_a<Gimple::comparison> (cond))
     {
       *code_p = NE_EXPR;
-      gcc_assert (*lhs_p && *rhs_p == NULL_TREE);
-      *rhs_p = build_zero_cst (TREE_TYPE (*lhs_p));
+      gcc_assert (*lhs_p && *rhs_p == NULL_GIMPLE);
+      *rhs_p = build_zero_cst ((*lhs_p)->type ());
     }
 }
 
 /*  Return true if T is a valid LHS for a GIMPLE assignment expression.  */
 
 bool
-is_gimple_lvalue (tree t)
+is_gimple_lvalue (Gimple::value t)
 {
   return (is_gimple_addressable (t)
-	  || TREE_CODE (t) == WITH_SIZE_EXPR
+	  || is_a<Gimple::with_size_expr> (t)
 	  /* These are complex lvalues, but don't have addresses, so they
 	     go here.  */
-	  || TREE_CODE (t) == BIT_FIELD_REF);
+	  || is_a<Gimple::bit_field_ref> (t));
 }
 
 /*  Return true if T is a GIMPLE condition.  */
 
 bool
-is_gimple_condexpr (tree t)
+is_gimple_condexpr (Gimple::value t)
 {
-  return (is_gimple_val (t) || (COMPARISON_CLASS_P (t)
-				&& !tree_could_throw_p (t)
-				&& is_gimple_val (TREE_OPERAND (t, 0))
-				&& is_gimple_val (TREE_OPERAND (t, 1))));
+  if (is_gimple_val (t))
+    return true;
+
+  Gimple::comparison cmp = t;
+  if (cmp)
+    return !tree_could_throw_p (cmp) && is_gimple_val (cmp->op1 ())
+	   && is_gimple_val (cmp->op2 ());
+
+  return false;
 }
 
 /* Return true if T is a gimple address.  */
 
 bool
-is_gimple_address (const_tree t)
+is_gimple_address (Gimple::value t)
 {
-  tree op;
 
-  if (TREE_CODE (t) != ADDR_EXPR)
+  Gimple::addr_expr val = t; 
+  if (!val)
     return false;
 
-  op = TREE_OPERAND (t, 0);
+  Gimple::value op = val->expr ();
+
   while (handled_component_p (op))
     {
-      if ((TREE_CODE (op) == ARRAY_REF
-	   || TREE_CODE (op) == ARRAY_RANGE_REF)
-	  && !is_gimple_val (TREE_OPERAND (op, 1)))
+      if ((is_a<Gimple::array_ref> (op) || is_a<Gimple::array_range_ref> (op))
+	  && !is_gimple_val (op->op (1)))
 	    return false;
 
-      op = TREE_OPERAND (op, 0);
+      op = op->op(0);
     }
 
-  if (CONSTANT_CLASS_P (op) || TREE_CODE (op) == MEM_REF)
+  if (is_a<Gimple::constant> (op) || is_a<Gimple::mem_ref> (op))
     return true;
 
-  switch (TREE_CODE (op))
+  switch (op->code ())
     {
     case PARM_DECL:
     case RESULT_DECL:
@@ -682,61 +680,66 @@ is_gimple_address (const_tree t)
 /* Return true if T is a gimple invariant address.  */
 
 bool
-is_gimple_invariant_address (const_tree t)
+is_gimple_invariant_address (Gimple::value t)
 {
-  const_tree op;
 
-  if (TREE_CODE (t) != ADDR_EXPR)
+  Gimple::addr_expr val = t; 
+  if (!val)
     return false;
 
-  op = strip_invariant_refs (TREE_OPERAND (t, 0));
+  Gimple::value op;
+
+  op = strip_invariant_refs (val->expr ());
   if (!op)
     return false;
 
-  if (TREE_CODE (op) == MEM_REF)
+  Gimple::mem_ref mem = op;
+  if (mem)
     {
-      const_tree op0 = TREE_OPERAND (op, 0);
-      return (TREE_CODE (op0) == ADDR_EXPR
-	      && (CONSTANT_CLASS_P (TREE_OPERAND (op0, 0))
-		  || decl_address_invariant_p (TREE_OPERAND (op0, 0))));
+      Gimple::addr_expr val2 = mem->base ();
+      return (val2
+	      && (is_a<Gimple::constant> (val2->expr ())
+		  || decl_address_invariant_p (val2->expr ())));
     }
 
-  return CONSTANT_CLASS_P (op) || decl_address_invariant_p (op);
+  return is_a<Gimple::constant> (op) || decl_address_invariant_p (op);
 }
 
 /* Return true if T is a gimple invariant address at IPA level
    (so addresses of variables on stack are not allowed).  */
 
 bool
-is_gimple_ip_invariant_address (const_tree t)
+is_gimple_ip_invariant_address (Gimple::value t)
 {
-  const_tree op;
-
-  if (TREE_CODE (t) != ADDR_EXPR)
+  Gimple::addr_expr val = t; 
+  if (!val)
     return false;
 
-  op = strip_invariant_refs (TREE_OPERAND (t, 0));
+  Gimple::value op;
+
+  op = strip_invariant_refs (val->expr ());
   if (!op)
     return false;
 
-  if (TREE_CODE (op) == MEM_REF)
+  Gimple::mem_ref mem = op;
+  if (mem)
     {
-      const_tree op0 = TREE_OPERAND (op, 0);
-      return (TREE_CODE (op0) == ADDR_EXPR
-	      && (CONSTANT_CLASS_P (TREE_OPERAND (op0, 0))
-		  || decl_address_ip_invariant_p (TREE_OPERAND (op0, 0))));
+      Gimple::addr_expr val2 = mem->base ();
+      return (val2
+	      && (is_a<Gimple::constant> (val2->expr ())
+		  || decl_address_ip_invariant_p (val2->expr ())));
     }
 
-  return CONSTANT_CLASS_P (op) || decl_address_ip_invariant_p (op);
+  return is_a<Gimple::constant> (op) || decl_address_ip_invariant_p (op);
 }
 
 /* Return true if T is a GIMPLE minimal invariant.  It's a restricted
    form of function invariant.  */
 
 bool
-is_gimple_min_invariant (const_tree t)
+is_gimple_min_invariant (Gimple::value t)
 {
-  if (TREE_CODE (t) == ADDR_EXPR)
+  if (is_a<Gimple::addr_expr> (t))
     return is_gimple_invariant_address (t);
 
   return is_gimple_constant (t);
@@ -746,9 +749,9 @@ is_gimple_min_invariant (const_tree t)
    form of gimple minimal invariant.  */
 
 bool
-is_gimple_ip_invariant (const_tree t)
+is_gimple_ip_invariant (Gimple::value t)
 {
-  if (TREE_CODE (t) == ADDR_EXPR)
+  if (is_a<Gimple::addr_expr> (t))
     return is_gimple_ip_invariant_address (t);
 
   return is_gimple_constant (t);
@@ -757,23 +760,23 @@ is_gimple_ip_invariant (const_tree t)
 /* Return true if T is a non-aggregate register variable.  */
 
 bool
-is_gimple_reg (tree t)
+is_gimple_reg (Gimple::value t)
 {
   if (virtual_operand_p (t))
     return false;
 
-  if (TREE_CODE (t) == SSA_NAME)
+  if (is_a<Gimple::ssa_name> (t))
     return true;
 
   if (!is_gimple_variable (t))
     return false;
 
-  if (!is_gimple_reg_type (TREE_TYPE (t)))
+  if (!is_gimple_reg_type (t->type ()))
     return false;
 
   /* A volatile decl is not acceptable because we can't reuse it as
      needed.  We need to copy it into a temp first.  */
-  if (TREE_THIS_VOLATILE (t))
+  if (t->this_volatile ())
     return false;
 
   /* We define "registers" as things that can be renamed as needed,
@@ -791,14 +794,15 @@ is_gimple_reg (tree t)
      it seems safest to not do too much optimization with these at the
      tree level at all.  We'll have to rely on the rtl optimizers to
      clean this up, as there we've got all the appropriate bits exposed.  */
-  if (TREE_CODE (t) == VAR_DECL && DECL_HARD_REGISTER (t))
+  if (is_a<Gimple::var_decl> (t) 
+      && as_a<Gimple::var_decl> (t)->hard_register ())
     return false;
 
   /* Complex and vector values must have been put into SSA-like form.
      That is, no assignments to the individual components.  */
-  if (TREE_CODE (TREE_TYPE (t)) == COMPLEX_TYPE
-      || TREE_CODE (TREE_TYPE (t)) == VECTOR_TYPE)
-    return DECL_GIMPLE_REG_P (t);
+  if (is_a<Gimple::complex_type> (t->type ())
+      || is_a<Gimple::vector_type> (t->type ()))
+    return as_a<Gimple::decl> (t)->gimple_reg_p ();
 
   return true;
 }
@@ -807,11 +811,11 @@ is_gimple_reg (tree t)
 /* Return true if T is a GIMPLE rvalue, i.e. an identifier or a constant.  */
 
 bool
-is_gimple_val (tree t)
+is_gimple_val (Gimple::value t)
 {
   /* Make loads from volatiles and memory vars explicit.  */
   if (is_gimple_variable (t)
-      && is_gimple_reg_type (TREE_TYPE (t))
+      && is_gimple_reg_type (t->type ())
       && !is_gimple_reg (t))
     return false;
 
@@ -821,9 +825,10 @@ is_gimple_val (tree t)
 /* Similarly, but accept hard registers as inputs to asm statements.  */
 
 bool
-is_gimple_asm_val (tree t)
+is_gimple_asm_val (Gimple::value t)
 {
-  if (TREE_CODE (t) == VAR_DECL && DECL_HARD_REGISTER (t))
+  if (is_a<Gimple::var_decl> (t)
+      && as_a<Gimple::var_decl> (t)->hard_register ())
     return true;
 
   return is_gimple_val (t);
@@ -832,61 +837,63 @@ is_gimple_asm_val (tree t)
 /* Return true if T is a GIMPLE minimal lvalue.  */
 
 bool
-is_gimple_min_lval (tree t)
+is_gimple_min_lval (Gimple::value t)
 {
-  if (!(t = CONST_CAST_TREE (strip_invariant_refs (t))))
+  if (!(t = strip_invariant_refs (t)))
     return false;
-  return (is_gimple_id (t) || TREE_CODE (t) == MEM_REF);
+  return (is_gimple_id (t) || is_a<Gimple::mem_ref> (t));
 }
 
 /* Return true if T is a valid function operand of a CALL_EXPR.  */
 
 bool
-is_gimple_call_addr (tree t)
+is_gimple_call_addr (Gimple::value t)
 {
-  return (TREE_CODE (t) == OBJ_TYPE_REF || is_gimple_val (t));
+  return (is_a<Gimple::obj_type_ref> (t) || is_gimple_val (t));
 }
 
 /* Return true if T is a valid address operand of a MEM_REF.  */
 
 bool
-is_gimple_mem_ref_addr (tree t)
+is_gimple_mem_ref_addr (Gimple::value t)
 {
-  return (is_gimple_reg (t)
-	  || TREE_CODE (t) == INTEGER_CST
-	  || (TREE_CODE (t) == ADDR_EXPR
-	      && (CONSTANT_CLASS_P (TREE_OPERAND (t, 0))
-		  || decl_address_invariant_p (TREE_OPERAND (t, 0)))));
+  if (is_gimple_reg (t) || is_a<Gimple::integer_cst> (t))
+    return true;
+
+  Gimple::addr_expr addr = t;
+
+  return (addr && (is_a<Gimple::constant> (addr->expr ())
+		   || decl_address_invariant_p (addr->expr ())));
 }
 
 /* Mark X addressable.  Unlike the langhook we expect X to be in gimple
    form and we don't do any syntax checking.  */
 
 void
-mark_addressable (tree x)
+mark_addressable (Gimple::value x)
 {
   while (handled_component_p (x))
-    x = TREE_OPERAND (x, 0);
-  if (TREE_CODE (x) == MEM_REF
-      && TREE_CODE (TREE_OPERAND (x, 0)) == ADDR_EXPR)
-    x = TREE_OPERAND (TREE_OPERAND (x, 0), 0);
-  if (TREE_CODE (x) != VAR_DECL
-      && TREE_CODE (x) != PARM_DECL
-      && TREE_CODE (x) != RESULT_DECL)
+    x = x->op(0);
+
+  Gimple::mem_ref mem = x;
+  if (mem && is_a<Gimple::addr_expr> (mem->base ()))
+    x = as_a<Gimple::addr_expr> (mem->base ())-> expr ();
+  if (!is_a<Gimple::var_decl> (x) && !is_a<Gimple::parm_decl> (x)
+      && !is_a<Gimple::result_decl> (x))
     return;
-  TREE_ADDRESSABLE (x) = 1;
+  x->set_addressable (true);
 
   /* Also mark the artificial SSA_NAME that points to the partition of X.  */
-  if (TREE_CODE (x) == VAR_DECL
-      && !DECL_EXTERNAL (x)
-      && !TREE_STATIC (x)
+  Gimple::var_decl var = x;
+  if (var && !var->external () && !var->static_p ()
       && cfun->gimple_df != NULL
       && cfun->gimple_df->decls_to_pointers != NULL)
     {
-      void *namep
-	= pointer_map_contains (cfun->gimple_df->decls_to_pointers, x); 
+      Gimple::value_ptr namep =
+	    (tree *) (pointer_map_contains (cfun->gimple_df->decls_to_pointers,
+					    var)); 
       if (namep)
-	TREE_ADDRESSABLE (*(tree *)namep) = 1;
+        (*namep)->set_addressable (true);
     }
 }
 
@@ -894,9 +901,9 @@ mark_addressable (tree x)
    user -- or front-end generated artificial -- variable.  */
 
 bool
-is_gimple_reg_rhs (tree t)
+is_gimple_reg_rhs (Gimple::value t)
 {
-  return get_gimple_rhs_class (TREE_CODE (t)) != GIMPLE_INVALID_RHS;
+  return get_gimple_rhs_class (t) != GIMPLE_INVALID_RHS;
 }
 
 #include "gt-gimple-expr.h"

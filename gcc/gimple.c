@@ -1564,7 +1564,7 @@ gimple_assign_set_rhs_with_ops_1 (gimple_stmt_iterator *gsi, enum tree_code code
    for a call to a function that returns no value, or for a
    statement other than an assignment or a call.  */
 
-tree
+Gimple::value
 gimple_get_lhs (const_gimple stmt)
 {
   enum gimple_code code = gimple_code (stmt);
@@ -1574,7 +1574,7 @@ gimple_get_lhs (const_gimple stmt)
   else if (code == GIMPLE_CALL)
     return gimple_call_lhs (stmt);
   else
-    return NULL_TREE;
+    return NULL_GIMPLE;
 }
 
 

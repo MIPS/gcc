@@ -334,7 +334,7 @@ remove_prop_source_from_use (tree name)
       cfg_changed |= gimple_purge_dead_eh_edges (bb);
     release_defs (stmt);
 
-    name = is_gimple_assign (stmt) ? gimple_assign_rhs1 (stmt) : NULL_TREE;
+    name = is_gimple_assign (stmt) ? gimple_assign_rhs1 (stmt) : NULL_GIMPLE;
   } while (name && TREE_CODE (name) == SSA_NAME);
 
   return cfg_changed;

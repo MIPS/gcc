@@ -65,7 +65,7 @@ enum ssa_prop_result {
 typedef enum ssa_prop_result (*ssa_prop_visit_stmt_fn) (gimple, edge *, tree *);
 typedef enum ssa_prop_result (*ssa_prop_visit_phi_fn) (gimple);
 typedef bool (*ssa_prop_fold_stmt_fn) (gimple_stmt_iterator *gsi);
-typedef tree (*ssa_prop_get_value_fn) (tree);
+typedef Gimple::value(*ssa_prop_get_value_fn) (Gimple::value);
 
 
 extern bool valid_gimple_rhs_p (tree);

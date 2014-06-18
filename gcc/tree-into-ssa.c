@@ -22,7 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "tree.h"
+#include "gimple-tree.h"
 #include "flags.h"
 #include "tm_p.h"
 #include "langhooks.h"
@@ -34,6 +34,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "internal-fn.h"
 #include "gimple-expr.h"
 #include "is-a.h"
+#include "fold-const.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
@@ -176,7 +177,7 @@ struct common_info_d
   ENUM_BITFIELD (need_phi_state) need_phi_state : 2;
 
   /* The current reaching definition replacing this var.  */
-  tree current_def;
+  Gimple::value current_def;
 
   /* Definitions for this var.  */
   struct def_blocks_d def_blocks;
@@ -189,7 +190,7 @@ typedef struct common_info_d *common_info_p;
 struct var_info_d
 {
   /* The variable.  */
-  tree var;
+  Gimple::decl var;
 
   /* Information stored for both SSA names and decls.  */
   struct common_info_d info;
@@ -212,7 +213,7 @@ struct var_info_hasher : typed_free_remove <var_info_d>
 inline hashval_t
 var_info_hasher::hash (const value_type *p)
 {
-  return DECL_UID (p->var);
+  return p->var->uid ();
 }
 
 inline bool
@@ -270,27 +271,27 @@ enum rewrite_mode {
 
 /* The set of symbols we ought to re-write into SSA form in update_ssa.  */
 static bitmap symbols_to_rename_set;
-static vec<tree> symbols_to_rename;
+static vec<Gimple::decl> symbols_to_rename;
 
 /* Mark SYM for renaming.  */
 
 static void
-mark_for_renaming (tree sym)
+mark_for_renaming (Gimple::decl sym)
 {
   if (!symbols_to_rename_set)
     symbols_to_rename_set = BITMAP_ALLOC (NULL);
-  if (bitmap_set_bit (symbols_to_rename_set, DECL_UID (sym)))
+  if (bitmap_set_bit (symbols_to_rename_set, sym->uid ()))
     symbols_to_rename.safe_push (sym);
 }
 
 /* Return true if SYM is marked for renaming.  */
 
 static bool
-marked_for_renaming (tree sym)
+marked_for_renaming (Gimple::decl sym)
 {
-  if (!symbols_to_rename_set || sym == NULL_TREE)
+  if (!symbols_to_rename_set || sym == NULL_GIMPLE)
     return false;
-  return bitmap_bit_p (symbols_to_rename_set, DECL_UID (sym));
+  return bitmap_bit_p (symbols_to_rename_set, sym->uid ());
 }
 
 
@@ -341,9 +342,9 @@ set_register_defs (gimple stmt, bool register_defs_p)
 /* Get the information associated with NAME.  */
 
 static inline ssa_name_info_p
-get_ssa_name_ann (tree name)
+get_ssa_name_ann (Gimple::ssa_name name)
 {
-  unsigned ver = SSA_NAME_VERSION (name);
+  unsigned ver = name->version ();
   unsigned len = info_for_ssa_name.length ();
   struct ssa_name_info *info;
 
@@ -366,7 +367,7 @@ get_ssa_name_ann (tree name)
       info->age = current_info_for_ssa_name_age;
       info->repl_set = NULL;
       info->info.need_phi_state = NEED_PHI_STATE_UNKNOWN;
-      info->info.current_def = NULL_TREE;
+      info->info.current_def = NULL_GIMPLE;
       info->info.def_blocks.def_blocks = NULL;
       info->info.def_blocks.phi_blocks = NULL;
       info->info.def_blocks.livein_blocks = NULL;
@@ -378,12 +379,12 @@ get_ssa_name_ann (tree name)
 /* Return and allocate the auxiliar information for DECL.  */
 
 static inline var_info_p
-get_var_info (tree decl)
+get_var_info (Gimple::decl decl)
 {
   struct var_info_d vi;
   var_info_d **slot;
   vi.var = decl;
-  slot = var_infos.find_slot_with_hash (&vi, DECL_UID (decl), INSERT);
+  slot = var_infos.find_slot_with_hash (&vi, decl->uid (), INSERT);
   if (*slot == NULL)
     {
       var_info_p v = XCNEW (struct var_info_d);
@@ -409,11 +410,22 @@ clear_ssa_name_info (void)
 
 
 /* Get access to the auxiliar information stored per SSA name or decl.  */
+static inline common_info_p
+get_common_info (Gimple::ssa_name name)
+{
+  return &get_ssa_name_ann (name)->info;
+}
 
 static inline common_info_p
-get_common_info (tree var)
+get_common_info (Gimple::decl var)
 {
-  if (TREE_CODE (var) == SSA_NAME)
+  return &get_var_info (var)->info;
+}
+
+static inline common_info_p
+get_common_info (Gimple::value var)
+{
+  if (is_a<Gimple::ssa_name> (var))
     return &get_ssa_name_ann (var)->info;
   else
     return &get_var_info (var)->info;
@@ -423,7 +435,7 @@ get_common_info (tree var)
 /* Return the current definition for VAR.  */
 
 tree
-get_current_def (tree var)
+get_current_def (Gimple::value var)
 {
   return get_common_info (var)->current_def;
 }
@@ -432,7 +444,7 @@ get_current_def (tree var)
 /* Sets current definition of VAR to DEF.  */
 
 void
-set_current_def (tree var, tree def)
+set_current_def (Gimple::value var, Gimple::value def)
 {
   get_common_info (var)->current_def = def;
 }
@@ -500,7 +512,7 @@ get_def_blocks_for (common_info_p info)
    VAR is defined by a PHI node.  */
 
 static void
-set_def_block (tree var, basic_block bb, bool phi_p)
+set_def_block (Gimple::value var, basic_block bb, bool phi_p)
 {
   struct def_blocks_d *db_p;
   common_info_p info;
@@ -535,7 +547,7 @@ set_def_block (tree var, basic_block bb, bool phi_p)
 /* Mark block BB as having VAR live at the entry to BB.  */
 
 static void
-set_livein_block (tree var, basic_block bb)
+set_livein_block (Gimple::value var, basic_block bb)
 {
   common_info_p info;
   struct def_blocks_d *db_p;
@@ -569,9 +581,9 @@ set_livein_block (tree var, basic_block bb)
 /* Return true if NAME is in OLD_SSA_NAMES.  */
 
 static inline bool
-is_old_name (tree name)
+is_old_name (Gimple::ssa_name name)
 {
-  unsigned ver = SSA_NAME_VERSION (name);
+  unsigned ver = name->version ();
   if (!new_ssa_names)
     return false;
   return (ver < SBITMAP_SIZE (new_ssa_names)
@@ -582,9 +594,9 @@ is_old_name (tree name)
 /* Return true if NAME is in NEW_SSA_NAMES.  */
 
 static inline bool
-is_new_name (tree name)
+is_new_name (Gimple::ssa_name name)
 {
-  unsigned ver = SSA_NAME_VERSION (name);
+  unsigned ver = name->version ();
   if (!new_ssa_names)
     return false;
   return (ver < SBITMAP_SIZE (new_ssa_names)
@@ -595,7 +607,7 @@ is_new_name (tree name)
 /* Return the names replaced by NEW_TREE (i.e., REPL_TBL[NEW_TREE].SET).  */
 
 static inline bitmap
-names_replaced_by (tree new_tree)
+names_replaced_by (Gimple::ssa_name new_tree)
 {
   return get_ssa_name_ann (new_tree)->repl_set;
 }
@@ -604,12 +616,12 @@ names_replaced_by (tree new_tree)
 /* Add OLD to REPL_TBL[NEW_TREE].SET.  */
 
 static inline void
-add_to_repl_tbl (tree new_tree, tree old)
+add_to_repl_tbl (Gimple::ssa_name new_tree, Gimple::ssa_name old)
 {
   bitmap *set = &get_ssa_name_ann (new_tree)->repl_set;
   if (!*set)
     *set = BITMAP_ALLOC (&update_ssa_obstack);
-  bitmap_set_bit (*set, SSA_NAME_VERSION (old));
+  bitmap_set_bit (*set, old->version ());
 }
 
 
@@ -619,11 +631,10 @@ add_to_repl_tbl (tree new_tree, tree old)
    already formed SSA web.  */
 
 static void
-add_new_name_mapping (tree new_tree, tree old)
+add_new_name_mapping (Gimple::ssa_name new_tree, Gimple::ssa_name old)
 {
   /* OLD and NEW_TREE must be different SSA names for the same symbol.  */
-  gcc_checking_assert (new_tree != old
-		       && SSA_NAME_VAR (new_tree) == SSA_NAME_VAR (old));
+  gcc_checking_assert (new_tree != old && new_tree->var () == old->var ());
 
   /* We may need to grow NEW_SSA_NAMES and OLD_SSA_NAMES because our
      caller may have created new names since the set was created.  */
@@ -644,8 +655,8 @@ add_new_name_mapping (tree new_tree, tree old)
 
   /* Register NEW_TREE and OLD in NEW_SSA_NAMES and OLD_SSA_NAMES,
      respectively.  */
-  bitmap_set_bit (new_ssa_names, SSA_NAME_VERSION (new_tree));
-  bitmap_set_bit (old_ssa_names, SSA_NAME_VERSION (old));
+  bitmap_set_bit (new_ssa_names, new_tree->version ());
+  bitmap_set_bit (old_ssa_names, old->version ());
 }
 
 
@@ -666,7 +677,7 @@ add_new_name_mapping (tree new_tree, tree old)
 static void
 mark_def_sites (basic_block bb, gimple stmt, bitmap kills)
 {
-  tree def;
+  Gimple::decl def;
   use_operand_p use_p;
   ssa_op_iter iter;
 
@@ -682,8 +693,8 @@ mark_def_sites (basic_block bb, gimple stmt, bitmap kills)
     {
       FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
 	{
-	  tree sym = USE_FROM_PTR (use_p);
-	  gcc_checking_assert (DECL_P (sym));
+	  /* Ensure this is a decl by assigning it to a Gimple::decl.  */
+	  def = USE_FROM_PTR (use_p);  
 	  set_rewrite_uses (stmt, true);
 	}
       if (rewrite_uses_p (stmt))
@@ -695,9 +706,8 @@ mark_def_sites (basic_block bb, gimple stmt, bitmap kills)
      across a block boundary, so mark it live-on-entry to BB.  */
   FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_ALL_USES)
     {
-      tree sym = USE_FROM_PTR (use_p);
-      gcc_checking_assert (DECL_P (sym));
-      if (!bitmap_bit_p (kills, DECL_UID (sym)))
+      Gimple::decl sym = USE_FROM_PTR (use_p);
+      if (!bitmap_bit_p (kills, sym->uid ()))
 	set_livein_block (sym, bb);
       set_rewrite_uses (stmt, true);
     }
@@ -706,9 +716,8 @@ mark_def_sites (basic_block bb, gimple stmt, bitmap kills)
      each def to the set of killed symbols.  */
   FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_ALL_DEFS)
     {
-      gcc_checking_assert (DECL_P (def));
       set_def_block (def, bb, false);
-      bitmap_set_bit (kills, DECL_UID (def));
+      bitmap_set_bit (kills, def->uid ());
       set_register_defs (stmt, true);
     }
 
@@ -937,7 +946,7 @@ prune_unused_phi_nodes (bitmap phis, bitmap kills, bitmap uses)
    found in DEF_BLOCKS.  */
 
 static inline struct def_blocks_d *
-find_def_blocks_for (tree var)
+find_def_blocks_for (Gimple::value var)
 {
   def_blocks_p p = &get_common_info (var)->def_blocks;
   if (!p->def_blocks)
@@ -986,7 +995,7 @@ mark_phi_for_rewrite (basic_block bb, gimple phi)
    for VAR will be present in PHI_INSERTION_POINTS.  */
 
 static void
-insert_phi_nodes_for (tree var, bitmap phi_insertion_points, bool update_p)
+insert_phi_nodes_for (Gimple::value var, bitmap phi_insertion_points, bool update_p)
 {
   unsigned bb_index;
   edge e;
@@ -1017,14 +1026,14 @@ insert_phi_nodes_for (tree var, bitmap phi_insertion_points, bool update_p)
 	}
       phi = NULL;
 
-      if (TREE_CODE (var) == SSA_NAME)
+      if (is_a<Gimple::ssa_name> (var))
 	{
 	  /* If we are rewriting SSA names, create the LHS of the PHI
 	     node by duplicating VAR.  This is useful in the case of
 	     pointers, to also duplicate pointer attributes (alias
 	     information, in particular).  */
 	  edge_iterator ei;
-	  tree new_lhs;
+	  Gimple::ssa_name new_lhs;
 
 	  gcc_checking_assert (update_p);
 	  new_lhs = duplicate_ssa_name (var, NULL);
@@ -1042,9 +1051,9 @@ insert_phi_nodes_for (tree var, bitmap phi_insertion_points, bool update_p)
 	}
       else
 	{
-	  tree tracked_var;
+	  Gimple::decl tracked_var;
 
-	  gcc_checking_assert (DECL_P (var));
+	  gcc_checking_assert (is_a<Gimple::decl> (var));
 	  phi = create_phi_node (var, bb);
 
 	  tracked_var = target_for_debug_bind (var);
@@ -1071,7 +1080,7 @@ insert_phi_nodes_compare_var_infos (const void *a, const void *b)
 {
   const struct var_info_d *defa = *(struct var_info_d * const *)a;
   const struct var_info_d *defb = *(struct var_info_d * const *)b;
-  if (DECL_UID (defa->var) < DECL_UID (defb->var))
+  if (defa->var->uid () < defb->var->uid ())
     return -1;
   else
     return 1;
@@ -1114,10 +1123,10 @@ insert_phi_nodes (bitmap_head *dfs)
    register DEF (an SSA_NAME) to be a new definition for SYM.  */
 
 static void
-register_new_def (tree def, tree sym)
+register_new_def (Gimple::ssa_name def, Gimple::value sym)
 {
   common_info_p info = get_common_info (sym);
-  tree currdef;
+  Gimple::value currdef;
 
   /* If this variable is set in a single basic block and all uses are
      dominated by the set(s) in that single basic block, then there is
@@ -1181,20 +1190,24 @@ register_new_def (tree def, tree sym)
 /* Return the current definition for variable VAR.  If none is found,
    create a new SSA name to act as the zeroth definition for VAR.  */
 
-static tree
-get_reaching_def (tree var)
+static Gimple::ssa_name
+get_reaching_def (Gimple::value var)
 {
   common_info_p info = get_common_info (var);
-  tree currdef;
+  Gimple::value currdef;
 
   /* Lookup the current reaching definition for VAR.  */
   currdef = info->current_def;
 
   /* If there is no reaching definition for VAR, create and register a
      default definition for it (if needed).  */
-  if (currdef == NULL_TREE)
+  if (currdef == NULL_GIMPLE)
     {
-      tree sym = DECL_P (var) ? var : SSA_NAME_VAR (var);
+      Gimple::decl sym;
+      if (is_a<Gimple::ssa_name> (var))
+        sym = as_a<Gimple::ssa_name> (var)->var ();
+      else
+        sym = var;
       currdef = get_or_create_ssa_default_def (cfun, sym);
     }
 
@@ -1215,13 +1228,14 @@ rewrite_debug_stmt_uses (gimple stmt)
 
   FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
     {
-      tree var = USE_FROM_PTR (use_p), def;
+      Gimple::decl var = USE_FROM_PTR (use_p);
+      Gimple::value def;
       common_info_p info = get_common_info (var);
-      gcc_checking_assert (DECL_P (var));
+
       def = info->current_def;
       if (!def)
 	{
-	  if (TREE_CODE (var) == PARM_DECL
+	  if (is_a<Gimple::parm_decl> (var)
 	      && single_succ_p (ENTRY_BLOCK_PTR_FOR_FN (cfun)))
 	    {
 	      gimple_stmt_iterator gsi
@@ -1240,35 +1254,38 @@ rewrite_debug_stmt_uses (gimple stmt)
 		  if (gimple_debug_source_bind_get_value (gstmt) == var)
 		    {
 		      def = gimple_debug_source_bind_get_var (gstmt);
-		      if (TREE_CODE (def) == DEBUG_EXPR_DECL)
+		      if (is_a<Gimple::debug_expr_decl>(def))
 			break;
 		      else
-			def = NULL_TREE;
+			def = NULL_GIMPLE;
 		    }
 		}
 	      /* If not, add a new source bind stmt.  */
-	      if (def == NULL_TREE)
+	      if (def == NULL_GIMPLE)
 		{
 		  gimple def_temp;
-		  def = make_node (DEBUG_EXPR_DECL);
-		  def_temp = gimple_build_debug_source_bind (def, var, NULL);
-		  DECL_ARTIFICIAL (def) = 1;
-		  TREE_TYPE (def) = TREE_TYPE (var);
-		  DECL_MODE (def) = DECL_MODE (var);
+		  Gimple::debug_expr_decl decl =
+			      Gimple::create<Gimple::debug_expr_decl> ();
+		  def_temp = gimple_build_debug_source_bind (decl, var, NULL);
+		  decl->set_artificial (true);
+		  decl->set_type (var->type ());
+		  decl->set_mode (var->mode ());
 		  gsi =
 		 gsi_after_labels (single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun)));
 		  gsi_insert_before (&gsi, def_temp, GSI_SAME_STMT);
+		  def = decl;
 		}
 	      update = true;
 	    }
 	}
       else
 	{
+	  Gimple::ssa_name name = def;
 	  /* Check if info->current_def can be trusted.  */
 	  basic_block bb = gimple_bb (stmt);
 	  basic_block def_bb
-	      = SSA_NAME_IS_DEFAULT_DEF (def)
-	      ? NULL : gimple_bb (SSA_NAME_DEF_STMT (def));
+	      = name->is_default_def ()
+	      ? NULL : gimple_bb (name->def_stmt ());
 
 	  /* If definition is in current bb, it is fine.  */
 	  if (bb == def_bb)
@@ -1276,7 +1293,7 @@ rewrite_debug_stmt_uses (gimple stmt)
 	  /* If definition bb doesn't dominate the current bb,
 	     it can't be used.  */
 	  else if (def_bb && !dominated_by_p (CDI_DOMINATORS, bb, def_bb))
-	    def = NULL;
+	    def = NULL_GIMPLE;
 	  /* If there is just one definition and dominates the current
 	     bb, it is fine.  */
 	  else if (info->need_phi_state == NEED_PHI_STATE_NO)
@@ -1291,7 +1308,7 @@ rewrite_debug_stmt_uses (gimple stmt)
 		;
 	      /* Otherwise give up for now.  */
 	      else
-		def = NULL;
+		def = NULL_GIMPLE;
 	    }
 	}
       if (def == NULL)
@@ -1339,8 +1356,7 @@ rewrite_stmt (gimple_stmt_iterator *si)
       else
 	FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_ALL_USES)
 	  {
-	    tree var = USE_FROM_PTR (use_p);
-	    gcc_checking_assert (DECL_P (var));
+	    Gimple::decl var = USE_FROM_PTR (use_p);
 	    SET_USE (use_p, get_reaching_def (var));
 	  }
     }
@@ -1349,18 +1365,16 @@ rewrite_stmt (gimple_stmt_iterator *si)
   if (register_defs_p (stmt))
     FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, iter, SSA_OP_ALL_DEFS)
       {
-	tree var = DEF_FROM_PTR (def_p);
-	tree name;
-	tree tracked_var;
-
-	gcc_checking_assert (DECL_P (var));
+	Gimple::decl var = DEF_FROM_PTR (def_p);
+	Gimple::ssa_name name;
+	Gimple::value tracked_var;
 
 	if (gimple_clobber_p (stmt)
 	    && is_gimple_reg (var))
 	  {
 	    /* If we rewrite a DECL into SSA form then drop its
 	       clobber stmts and replace uses with a new default def.  */
-	    gcc_checking_assert (TREE_CODE (var) == VAR_DECL
+	    gcc_checking_assert (is_a<Gimple::var_decl> (var)
 				 && !gimple_vdef (stmt));
 	    gsi_replace (si, gimple_build_nop (), true);
 	    register_new_def (get_or_create_ssa_default_def (cfun, var), var);
@@ -1400,17 +1414,17 @@ rewrite_add_phi_arguments (basic_block bb)
       for (gsi = gsi_start_phis (e->dest); !gsi_end_p (gsi);
 	   gsi_next (&gsi))
 	{
-	  tree currdef, res;
+	  Gimple::ssa_name currdef, res;
 	  location_t loc;
 
 	  phi = gsi_stmt (gsi);
 	  res = gimple_phi_result (phi);
-	  currdef = get_reaching_def (SSA_NAME_VAR (res));
+	  currdef = get_reaching_def (res->var ());
 	  /* Virtual operand PHI args do not need a location.  */
 	  if (virtual_operand_p (res))
 	    loc = UNKNOWN_LOCATION;
 	  else
-	    loc = gimple_location (SSA_NAME_DEF_STMT (currdef));
+	    loc = gimple_location (currdef->def_stmt ());
 	  add_phi_arg (phi, currdef, e, loc);
 	}
     }
@@ -1439,15 +1453,15 @@ rewrite_dom_walker::before_dom_children (basic_block bb)
     fprintf (dump_file, "\n\nRenaming block #%d\n\n", bb->index);
 
   /* Mark the unwind point for this block.  */
-  block_defs_stack.safe_push (NULL_TREE);
+  block_defs_stack.safe_push (NULL_GIMPLE);
 
   /* Step 1.  Register new definitions for every PHI node in the block.
      Conceptually, all the PHI nodes are executed in parallel and each PHI
      node introduces a new version for the associated variable.  */
   for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      tree result = gimple_phi_result (gsi_stmt (gsi));
-      register_new_def (result, SSA_NAME_VAR (result));
+      Gimple::ssa_name result = gimple_phi_result (gsi_stmt (gsi));
+      register_new_def (result, result->var ());
     }
 
   /* Step 2.  Rewrite every variable used in each statement in the block
@@ -1475,13 +1489,15 @@ rewrite_dom_walker::after_dom_children (basic_block bb ATTRIBUTE_UNUSED)
   /* Restore CURRDEFS to its original state.  */
   while (block_defs_stack.length () > 0)
     {
-      tree tmp = block_defs_stack.pop ();
-      tree saved_def, var;
+      Gimple::value tmp = block_defs_stack.pop ();
+      Gimple::decl var;
+      Gimple::ssa_name saved_def;
 
-      if (tmp == NULL_TREE)
+      if (tmp == NULL_GIMPLE)
 	break;
 
-      if (TREE_CODE (tmp) == SSA_NAME)
+      saved_def = tmp;
+      if (saved_def)
 	{
 	  /* If we recorded an SSA_NAME, then make the SSA_NAME the
 	     current definition of its underlying variable.  Note that
@@ -1490,8 +1506,7 @@ rewrite_dom_walker::after_dom_children (basic_block bb ATTRIBUTE_UNUSED)
 	     This mechanism is needed because an SSA name for a
 	     non-register symbol may be the definition for more than
 	     one symbol (e.g., SFTs, aliased variables, etc).  */
-	  saved_def = tmp;
-	  var = SSA_NAME_VAR (saved_def);
+	  var = saved_def->var ();
 	  if (!is_gimple_reg (var))
 	    var = block_defs_stack.pop ();
 	}
@@ -1500,7 +1515,7 @@ rewrite_dom_walker::after_dom_children (basic_block bb ATTRIBUTE_UNUSED)
 	  /* If we recorded anything else, it must have been a _DECL
 	     node and its current reaching definition must have been
 	     NULL.  */
-	  saved_def = NULL;
+	  saved_def = NULL_GIMPLE;
 	  var = tmp;
 	}
 
@@ -1538,10 +1553,11 @@ dump_defs_stack (FILE *file, int n)
   fprintf (file, "Level %d (current level)\n", i);
   for (j = (int) block_defs_stack.length () - 1; j >= 0; j--)
     {
-      tree name, var;
+      Gimple::value name;
+      Gimple::decl var;
 
       name = block_defs_stack[j];
-      if (name == NULL_TREE)
+      if (name == NULL_GIMPLE)
 	{
 	  i++;
 	  if (n > 0 && i > n)
@@ -1550,14 +1566,12 @@ dump_defs_stack (FILE *file, int n)
 	  continue;
 	}
 
-      if (DECL_P (name))
-	{
-	  var = name;
-	  name = NULL_TREE;
-	}
+      var = name;
+      if (var)
+	name = NULL_GIMPLE;
       else
 	{
-	  var = SSA_NAME_VAR (name);
+	  var = as_a<Gimple::ssa_name> (name)->var ();
 	  if (!is_gimple_reg (var))
 	    {
 	      j--;
@@ -1595,7 +1609,7 @@ void
 dump_currdefs (FILE *file)
 {
   unsigned i;
-  tree var;
+  Gimple::decl var;
 
   if (symbols_to_rename.is_empty ())
     return;
@@ -1730,7 +1744,8 @@ debug_var_infos (void)
 /* Register NEW_NAME to be the new reaching definition for OLD_NAME.  */
 
 static inline void
-register_new_update_single (tree new_name, tree old_name)
+register_new_update_single (Gimple::ssa_name new_name,
+			    Gimple::value old_name)
 {
   common_info_p info = get_common_info (old_name);
   tree currdef = info->current_def;
@@ -1755,7 +1770,7 @@ register_new_update_single (tree new_name, tree old_name)
    replace old SSA names with new ones.  */
 
 static inline void
-register_new_update_set (tree new_name, bitmap old_names)
+register_new_update_set (Gimple::ssa_name new_name, bitmap old_names)
 {
   bitmap_iterator bi;
   unsigned i;
@@ -1773,14 +1788,15 @@ register_new_update_set (tree new_name, bitmap old_names)
 static inline void
 maybe_replace_use (use_operand_p use_p)
 {
-  tree rdef = NULL_TREE;
-  tree use = USE_FROM_PTR (use_p);
-  tree sym = DECL_P (use) ? use : SSA_NAME_VAR (use);
+  Gimple::value rdef = NULL_GIMPLE;
+  Gimple::value use = USE_FROM_PTR (use_p);
+  Gimple::ssa_name name = use;
+  Gimple::decl sym = name ? name->var () : use;
 
   if (marked_for_renaming (sym))
     rdef = get_reaching_def (sym);
-  else if (is_old_name (use))
-    rdef = get_reaching_def (use);
+  else if (is_old_name (name))
+    rdef = get_reaching_def (name);
 
   if (rdef && rdef != use)
     SET_USE (use_p, rdef);
@@ -1793,21 +1809,23 @@ maybe_replace_use (use_operand_p use_p)
 static inline bool
 maybe_replace_use_in_debug_stmt (use_operand_p use_p)
 {
-  tree rdef = NULL_TREE;
-  tree use = USE_FROM_PTR (use_p);
-  tree sym = DECL_P (use) ? use : SSA_NAME_VAR (use);
+  Gimple::value rdef = NULL_GIMPLE;
+  Gimple::value use = USE_FROM_PTR (use_p);
+  Gimple::ssa_name name = use;
+  Gimple::decl sym = name ? name->var () : use;
+
 
   if (marked_for_renaming (sym))
     rdef = get_var_info (sym)->info.current_def;
-  else if (is_old_name (use))
+  else if (is_old_name (name))
     {
-      rdef = get_ssa_name_ann (use)->info.current_def;
+      rdef = get_ssa_name_ann (name)->info.current_def;
       /* We can't assume that, if there's no current definition, the
 	 default one should be used.  It could be the case that we've
 	 rearranged blocks so that the earlier definition no longer
 	 dominates the use.  */
-      if (!rdef && SSA_NAME_IS_DEFAULT_DEF (use))
-	rdef = use;
+      if (!rdef && name->is_default_def ())
+	rdef = name;
     }
   else
     rdef = use;
@@ -1815,7 +1833,7 @@ maybe_replace_use_in_debug_stmt (use_operand_p use_p)
   if (rdef && rdef != use)
     SET_USE (use_p, rdef);
 
-  return rdef != NULL_TREE;
+  return rdef != NULL_GIMPLE;
 }
 
 
@@ -1828,24 +1846,25 @@ static inline void
 maybe_register_def (def_operand_p def_p, gimple stmt,
 		    gimple_stmt_iterator gsi)
 {
-  tree def = DEF_FROM_PTR (def_p);
-  tree sym = DECL_P (def) ? def : SSA_NAME_VAR (def);
+  Gimple::value def = DEF_FROM_PTR (def_p);
+  Gimple::ssa_name name = def;
+  Gimple::decl sym = name ? name->var () : def;
 
   /* If DEF is a naked symbol that needs renaming, create a new
      name for it.  */
   if (marked_for_renaming (sym))
     {
-      if (DECL_P (def))
+      if (!name)
 	{
-	  tree tracked_var;
+	  Gimple::value tracked_var;
 
-	  def = make_ssa_name (def, stmt);
-	  SET_DEF (def_p, def);
+	  name = make_ssa_name (def, stmt);
+	  SET_DEF (def_p, name);
 
 	  tracked_var = target_for_debug_bind (sym);
 	  if (tracked_var)
 	    {
-	      gimple note = gimple_build_debug_bind (tracked_var, def, stmt);
+	      gimple note = gimple_build_debug_bind (tracked_var, name, stmt);
 	      /* If stmt ends the bb, insert the debug stmt on the single
 		 non-EH edge from the stmt.  */
 	      if (gsi_one_before_end_p (gsi) && stmt_ends_bb_p (stmt))
@@ -1886,19 +1905,19 @@ maybe_register_def (def_operand_p def_p, gimple stmt,
 	    }
 	}
 
-      register_new_update_single (def, sym);
+      register_new_update_single (name, sym);
     }
   else
     {
       /* If DEF is a new name, register it as a new definition
 	 for all the names replaced by DEF.  */
-      if (is_new_name (def))
-	register_new_update_set (def, names_replaced_by (def));
+      if (is_new_name (name))
+	register_new_update_set (name, names_replaced_by (name));
 
       /* If DEF is an old name, register DEF as a new
 	 definition for itself.  */
-      if (is_old_name (def))
-	register_new_update_single (def, def);
+      if (is_old_name (name))
+	register_new_update_single (name, name);
     }
 }
 
@@ -1999,20 +2018,24 @@ rewrite_update_phi_arguments (basic_block bb)
       phis = phis_to_rewrite[e->dest->index];
       FOR_EACH_VEC_ELT (phis, i, phi)
 	{
-	  tree arg, lhs_sym, reaching_def = NULL;
+	  Gimple::value arg, reaching_def = NULL_GIMPLE;
+	  Gimple::decl lhs_sym, decl;
+	  Gimple::ssa_name name;
 	  use_operand_p arg_p;
 
   	  gcc_checking_assert (rewrite_uses_p (phi));
 
 	  arg_p = PHI_ARG_DEF_PTR_FROM_EDGE (phi, e);
 	  arg = USE_FROM_PTR (arg_p);
+	  name = arg;
+	  decl = arg;
 
-	  if (arg && !DECL_P (arg) && TREE_CODE (arg) != SSA_NAME)
+	  if (arg && !name  && !decl)
 	    continue;
 
-	  lhs_sym = SSA_NAME_VAR (gimple_phi_result (phi));
+	  lhs_sym = as_a<Gimple::ssa_name> (gimple_phi_result (phi))->var ();
 
-	  if (arg == NULL_TREE)
+	  if (arg == NULL_GIMPLE)
 	    {
 	      /* When updating a PHI node for a recently introduced
 		 symbol we may find NULL arguments.  That's why we
@@ -2022,12 +2045,12 @@ rewrite_update_phi_arguments (basic_block bb)
 	    }
 	  else
 	    {
-	      tree sym = DECL_P (arg) ? arg : SSA_NAME_VAR (arg);
+	      Gimple::decl sym = decl ? decl : name->var ();
 
 	      if (marked_for_renaming (sym))
 		reaching_def = get_reaching_def (sym);
-	      else if (is_old_name (arg))
-		reaching_def = get_reaching_def (arg);
+	      else if (is_old_name (name))
+		reaching_def = get_reaching_def (name);
 	    }
 
           /* Update the argument if there is a reaching def.  */
@@ -2043,7 +2066,8 @@ rewrite_update_phi_arguments (basic_block bb)
 		locus = UNKNOWN_LOCATION;
 	      else
 		{
-		  gimple stmt = SSA_NAME_DEF_STMT (reaching_def);
+		  gimple stmt
+			  = as_a<Gimple::ssa_name> (reaching_def)->def_stmt ();
 
 		  /* Single element PHI nodes  behave like copies, so get the
 		     location from the phi argument.  */
@@ -2059,7 +2083,8 @@ rewrite_update_phi_arguments (basic_block bb)
 
 
 	  if (e->flags & EDGE_ABNORMAL)
-	    SSA_NAME_OCCURS_IN_ABNORMAL_PHI (USE_FROM_PTR (arg_p)) = 1;
+	    as_a<Gimple::ssa_name> (USE_FROM_PTR (arg_p))
+					  ->set_occurs_in_abnormal_phi (true);
 	}
     }
 }
@@ -2089,7 +2114,7 @@ rewrite_update_dom_walker::before_dom_children (basic_block bb)
 	     bb->index);
 
   /* Mark the unwind point for this block.  */
-  block_defs_stack.safe_push (NULL_TREE);
+  block_defs_stack.safe_push (NULL_GIMPLE);
 
   if (!bitmap_bit_p (blocks_to_update, bb->index))
     return;
@@ -2105,14 +2130,15 @@ rewrite_update_dom_walker::before_dom_children (basic_block bb)
      marked for renaming.  */
   for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      tree lhs, lhs_sym;
+      Gimple::ssa_name lhs;
+      Gimple::decl lhs_sym;
       gimple phi = gsi_stmt (gsi);
 
       if (!register_defs_p (phi))
 	continue;
 
       lhs = gimple_phi_result (phi);
-      lhs_sym = SSA_NAME_VAR (lhs);
+      lhs_sym = lhs->var ();
 
       if (marked_for_renaming (lhs_sym))
 	register_new_update_single (lhs, lhs_sym);
@@ -2131,7 +2157,7 @@ rewrite_update_dom_walker::before_dom_children (basic_block bb)
 	}
 
       if (is_abnormal_phi)
-	SSA_NAME_OCCURS_IN_ABNORMAL_PHI (lhs) = 1;
+	lhs->set_occurs_in_abnormal_phi (true);
     }
 
   /* Step 2.  Rewrite every variable used in each statement in the block.  */
@@ -2157,8 +2183,8 @@ rewrite_update_dom_walker::after_dom_children (basic_block bb ATTRIBUTE_UNUSED)
 {
   while (block_defs_stack.length () > 0)
     {
-      tree var = block_defs_stack.pop ();
-      tree saved_def;
+      Gimple::value var = block_defs_stack.pop ();
+      Gimple::value saved_def;
 
       /* NULL indicates the unwind stop point for this block (see
 	 rewrite_update_enter_block).  */
@@ -2384,16 +2410,13 @@ pass_build_ssa::execute (function *fun)
      all after removing unused locals which we do in our TODO.  */
   for (i = 1; i < num_ssa_names; ++i)
     {
-      tree decl, name = ssa_name (i);
-      if (!name
-	  || SSA_NAME_IS_DEFAULT_DEF (name))
+      Gimple::var_decl decl;
+      Gimple::ssa_name name = ssa_name (i);
+      if (!name || name->is_default_def ())
 	continue;
-      decl = SSA_NAME_VAR (name);
-      if (decl
-	  && TREE_CODE (decl) == VAR_DECL
-	  && !VAR_DECL_IS_VIRTUAL_OPERAND (decl)
-	  && DECL_IGNORED_P (decl))
-	SET_SSA_NAME_VAR_OR_IDENTIFIER (name, DECL_NAME (decl));
+      decl = name->var ();
+      if (decl && !decl->is_virtual_operand () && decl->ignored_p ())
+	name->set_identifier (decl->name ());
     }
 
   return 0;
@@ -2412,7 +2435,8 @@ make_pass_build_ssa (gcc::context *ctxt)
    renamer.  BLOCKS is the set of blocks that need updating.  */
 
 static void
-mark_def_interesting (tree var, gimple stmt, basic_block bb, bool insert_phi_p)
+mark_def_interesting (Gimple::value var, gimple stmt, basic_block bb,
+		      bool insert_phi_p)
 {
   gcc_checking_assert (bitmap_bit_p (blocks_to_update, bb->index));
   set_register_defs (stmt, true);
@@ -2420,16 +2444,17 @@ mark_def_interesting (tree var, gimple stmt, basic_block bb, bool insert_phi_p)
   if (insert_phi_p)
     {
       bool is_phi_p = gimple_code (stmt) == GIMPLE_PHI;
+      Gimple::ssa_name name = var;
 
       set_def_block (var, bb, is_phi_p);
 
       /* If VAR is an SSA name in NEW_SSA_NAMES, this is a definition
 	 site for both itself and all the old names replaced by it.  */
-      if (TREE_CODE (var) == SSA_NAME && is_new_name (var))
+      if (name && is_new_name (name))
 	{
 	  bitmap_iterator bi;
 	  unsigned i;
-	  bitmap set = names_replaced_by (var);
+	  bitmap set = names_replaced_by (name);
 	  if (set)
 	    EXECUTE_IF_SET_IN_BITMAP (set, 0, i, bi)
 	      set_def_block (ssa_name (i), bb, is_phi_p);
@@ -2443,7 +2468,8 @@ mark_def_interesting (tree var, gimple stmt, basic_block bb, bool insert_phi_p)
    nodes.  */
 
 static inline void
-mark_use_interesting (tree var, gimple stmt, basic_block bb, bool insert_phi_p)
+mark_use_interesting (Gimple::value var, gimple stmt, basic_block bb,
+		      bool insert_phi_p)
 {
   basic_block def_bb = gimple_bb (stmt);
 
@@ -2504,14 +2530,15 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
   for (si = gsi_start_phis (bb); !gsi_end_p (si); gsi_next (&si))
     {
       gimple phi = gsi_stmt (si);
-      tree lhs_sym, lhs = gimple_phi_result (phi);
+      Gimple::value lhs = gimple_phi_result (phi);
+      Gimple::ssa_name lhs_name = lhs;
+      Gimple::decl lhs_sym;
 
-      if (TREE_CODE (lhs) == SSA_NAME
-	  && (! virtual_operand_p (lhs)
-	      || ! cfun->gimple_df->rename_vops))
+      if (lhs_name && (! virtual_operand_p (lhs)
+		       || ! cfun->gimple_df->rename_vops))
 	continue;
 
-      lhs_sym = DECL_P (lhs) ? lhs : SSA_NAME_VAR (lhs);
+      lhs_sym = lhs_name ? lhs_name->var () : lhs;
       mark_for_renaming (lhs_sym);
       mark_def_interesting (lhs_sym, phi, bb, insert_phi_p);
 
@@ -2539,16 +2566,17 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
       if (cfun->gimple_df->rename_vops
 	  && gimple_vuse (stmt))
 	{
-	  tree use = gimple_vuse (stmt);
-	  tree sym = DECL_P (use) ? use : SSA_NAME_VAR (use);
+	  Gimple::value use = gimple_vuse (stmt);
+	  Gimple::decl sym = is_a<Gimple::decl> (use)
+				  ? use : as_a<Gimple::ssa_name> (use)->var ();
 	  mark_for_renaming (sym);
 	  mark_use_interesting (sym, stmt, bb, insert_phi_p);
 	}
 
       FOR_EACH_SSA_USE_OPERAND (use_p, stmt, i, SSA_OP_USE)
 	{
-	  tree use = USE_FROM_PTR (use_p);
-	  if (!DECL_P (use))
+	  Gimple::value use = USE_FROM_PTR (use_p);
+	  if (!is_a<Gimple::decl> (use))
 	    continue;
 	  mark_for_renaming (use);
 	  mark_use_interesting (use, stmt, bb, insert_phi_p);
@@ -2557,16 +2585,17 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
       if (cfun->gimple_df->rename_vops
 	  && gimple_vdef (stmt))
 	{
-	  tree def = gimple_vdef (stmt);
-	  tree sym = DECL_P (def) ? def : SSA_NAME_VAR (def);
+	  Gimple::value def = gimple_vdef (stmt);
+	  Gimple::decl sym = is_a<Gimple::decl> (def)
+				  ? def : as_a<Gimple::ssa_name> (def)->var ();
 	  mark_for_renaming (sym);
 	  mark_def_interesting (sym, stmt, bb, insert_phi_p);
 	}
 
       FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, i, SSA_OP_DEF)
 	{
-	  tree def = DEF_FROM_PTR (def_p);
-	  if (!DECL_P (def))
+	  Gimple::value def = DEF_FROM_PTR (def_p);
+	  if (!is_a<Gimple::decl> (def))
 	    continue;
 	  mark_for_renaming (def);
 	  mark_def_interesting (def, stmt, bb, insert_phi_p);
@@ -2586,7 +2615,7 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
    prepare_names_to_update.  */
 
 static void
-prepare_use_sites_for (tree name, bool insert_phi_p)
+prepare_use_sites_for (Gimple::ssa_name name, bool insert_phi_p)
 {
   use_operand_p use_p;
   imm_use_iterator iter;
@@ -2617,16 +2646,16 @@ prepare_use_sites_for (tree name, bool insert_phi_p)
    prepare_names_to_update.  */
 
 static void
-prepare_def_site_for (tree name, bool insert_phi_p)
+prepare_def_site_for (Gimple::ssa_name name, bool insert_phi_p)
 {
   gimple stmt;
   basic_block bb;
 
   gcc_checking_assert (names_to_release == NULL
 		       || !bitmap_bit_p (names_to_release,
-					 SSA_NAME_VERSION (name)));
+					 name->version ()));
 
-  stmt = SSA_NAME_DEF_STMT (name);
+  stmt = name->def_stmt ();
   bb = gimple_bb (stmt);
   if (bb)
     {
@@ -2677,7 +2706,7 @@ prepare_names_to_update (bool insert_phi_p)
 /* Dump all the names replaced by NAME to FILE.  */
 
 void
-dump_names_replaced_by (FILE *file, tree name)
+dump_names_replaced_by (FILE *file, Gimple::ssa_name name)
 {
   unsigned i;
   bitmap old_set;
@@ -2700,7 +2729,7 @@ dump_names_replaced_by (FILE *file, tree name)
 /* Dump all the names replaced by NAME to stderr.  */
 
 DEBUG_FUNCTION void
-debug_names_replaced_by (tree name)
+debug_names_replaced_by (Gimple::ssa_name name)
 {
   dump_names_replaced_by (stderr, name);
 }
@@ -2829,10 +2858,10 @@ delete_update_ssa (void)
    Return the new name and register the replacement mapping <NEW, OLD> in
    update_ssa's tables.  */
 
-tree
-create_new_def_for (tree old_name, gimple stmt, def_operand_p def)
+Gimple::ssa_name
+create_new_def_for (Gimple::ssa_name old_name, gimple stmt, def_operand_p def)
 {
-  tree new_name;
+  Gimple::ssa_name new_name;
 
   timevar_push (TV_TREE_SSA_INCREMENTAL);
 
@@ -2852,7 +2881,7 @@ create_new_def_for (tree old_name, gimple stmt, def_operand_p def)
       basic_block bb = gimple_bb (stmt);
 
       /* If needed, mark NEW_NAME as occurring in an abnormal PHI node. */
-      SSA_NAME_OCCURS_IN_ABNORMAL_PHI (new_name) = bb_has_abnormal_pred (bb);
+      new_name->set_occurs_in_abnormal_phi (bb_has_abnormal_pred (bb));
     }
 
   add_new_name_mapping (new_name, old_name);
@@ -2882,15 +2911,15 @@ mark_virtual_operands_for_renaming (struct function *fn)
    going to be removed.  */
 
 void
-mark_virtual_operand_for_renaming (tree name)
+mark_virtual_operand_for_renaming (Gimple::ssa_name name)
 {
-  tree name_var = SSA_NAME_VAR (name);
+  Gimple::var_decl name_var = name->var ();
   bool used = false;
   imm_use_iterator iter;
   use_operand_p use_p;
   gimple stmt;
 
-  gcc_assert (VAR_DECL_IS_VIRTUAL_OPERAND (name_var));
+  gcc_assert (name_var->is_virtual_operand ());
   FOR_EACH_IMM_USE_STMT (stmt, iter, name)
     {
       FOR_EACH_IMM_USE_ON_STMT (use_p, iter)
@@ -2932,7 +2961,7 @@ need_ssa_update_p (struct function *fn)
 /* Return true if name N has been registered in the replacement table.  */
 
 bool
-name_registered_for_update_p (tree n ATTRIBUTE_UNUSED)
+name_registered_for_update_p (Gimple::ssa_name n ATTRIBUTE_UNUSED)
 {
   if (!update_ssa_initialized_fn)
     return false;
@@ -2946,14 +2975,14 @@ name_registered_for_update_p (tree n ATTRIBUTE_UNUSED)
 /* Mark NAME to be released after update_ssa has finished.  */
 
 void
-release_ssa_name_after_update_ssa (tree name)
+release_ssa_name_after_update_ssa (Gimple::ssa_name name)
 {
   gcc_assert (cfun && update_ssa_initialized_fn == cfun);
 
   if (names_to_release == NULL)
     names_to_release = BITMAP_ALLOC (NULL);
 
-  bitmap_set_bit (names_to_release, SSA_NAME_VERSION (name));
+  bitmap_set_bit (names_to_release, name->version ());
 }
 
 
@@ -2981,17 +3010,18 @@ release_ssa_name_after_update_ssa (tree name)
      names is not pruned.  PHI nodes are inserted at every IDF block.  */
 
 static void
-insert_updated_phi_nodes_for (tree var, bitmap_head *dfs, bitmap blocks,
-                              unsigned update_flags)
+insert_updated_phi_nodes_for (Gimple::value var, bitmap_head *dfs,
+			      bitmap blocks, unsigned update_flags)
 {
   basic_block entry;
   struct def_blocks_d *db;
   bitmap idf, pruned_idf;
   bitmap_iterator bi;
   unsigned i;
+  Gimple::ssa_name var_name = var;
 
-  if (TREE_CODE (var) == SSA_NAME)
-    gcc_checking_assert (is_old_name (var));
+  if (var_name)
+    gcc_checking_assert (is_old_name (var_name));
   else
     gcc_checking_assert (marked_for_renaming (var));
 
@@ -3006,7 +3036,7 @@ insert_updated_phi_nodes_for (tree var, bitmap_head *dfs, bitmap blocks,
   idf = compute_idf (db->def_blocks, dfs);
   pruned_idf = BITMAP_ALLOC (NULL);
 
-  if (TREE_CODE (var) == SSA_NAME)
+  if (var_name)
     {
       if (update_flags == TODO_update_ssa)
 	{
@@ -3070,11 +3100,11 @@ insert_updated_phi_nodes_for (tree var, bitmap_head *dfs, bitmap blocks,
 static int
 insert_updated_phi_nodes_compare_uids (const void *a, const void *b)
 {
-  const_tree syma = *(const const_tree *)a;
-  const_tree symb = *(const const_tree *)b;
-  if (DECL_UID (syma) == DECL_UID (symb))
+  Gimple::decl syma = *(const const_tree *)a;
+  Gimple::decl symb = *(const const_tree *)b;
+  if (syma->uid () == symb->uid ())
     return 0;
-  return DECL_UID (syma) < DECL_UID (symb) ? -1 : 1;
+  return syma->uid () < symb->uid () ? -1 : 1;
 }
 
 /* Given a set of newly created SSA names (NEW_SSA_NAMES) and a set of
@@ -3149,7 +3179,7 @@ update_ssa (unsigned update_flags)
   unsigned i = 0;
   bool insert_phi_p;
   sbitmap_iterator sbi;
-  tree sym;
+  Gimple::decl sym;
 
   /* Only one update flag should be set.  */
   gcc_assert (update_flags == TODO_update_ssa
@@ -3226,7 +3256,7 @@ update_ssa (unsigned update_flags)
 #ifdef ENABLE_CHECKING
       for (i = 1; i < num_ssa_names; ++i)
 	{
-	  tree name = ssa_name (i);
+	  Gimple::ssa_name name = ssa_name (i);
 	  if (!name
 	      || virtual_operand_p (name))
 	    continue;
@@ -3236,7 +3266,7 @@ update_ssa (unsigned update_flags)
 	     for renaming do not have existing SSA names associated with
 	     them as we do not re-write them out-of-SSA before going
 	     into SSA for the remaining symbol uses.  */
-	  if (marked_for_renaming (SSA_NAME_VAR (name)))
+	  if (marked_for_renaming (name->var ()))
 	    {
 	      fprintf (stderr, "Existing SSA name for symbol marked for "
 		       "renaming: ");
@@ -3306,10 +3336,10 @@ update_ssa (unsigned update_flags)
   /* Reset the current definition for name and symbol before renaming
      the sub-graph.  */
   EXECUTE_IF_SET_IN_BITMAP (old_ssa_names, 0, i, sbi)
-    get_ssa_name_ann (ssa_name (i))->info.current_def = NULL_TREE;
+    get_ssa_name_ann (ssa_name (i))->info.current_def = NULL_GIMPLE;
 
   FOR_EACH_VEC_ELT (symbols_to_rename, i, sym)
-    get_var_info (sym)->info.current_def = NULL_TREE;
+    get_var_info (sym)->info.current_def = NULL_GIMPLE;
 
   /* Now start the renaming process at START_BB.  */
   interesting_blocks = sbitmap_alloc (last_basic_block_for_fn (cfun));

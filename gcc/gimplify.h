@@ -20,10 +20,12 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_GIMPLIFY_H
 #define GCC_GIMPLIFY_H
 
+#include "gimple-value-core.h"
+
 /* Validation of GIMPLE expressions.  Note that these predicates only check
    the basic form of the expression, they don't recurse to make sure that
    underlying nodes are also of the right form.  */
-typedef bool (*gimple_predicate)(tree);
+typedef bool (*gimple_predicate)(Gimple::value);
 
 /* FIXME we should deduce this from the predicate.  */
 enum fallback {
@@ -72,7 +74,7 @@ extern gimple_predicate rhs_predicate_for (tree);
 extern bool gimplify_stmt (tree *, gimple_seq *);
 extern void omp_firstprivatize_variable (struct gimplify_omp_ctx *, tree);
 extern enum gimplify_status gimplify_expr (tree *, gimple_seq *, gimple_seq *,
-					   bool (*) (tree), fallback_t);
+					   gimple_predicate, fallback_t);
 
 extern void gimplify_type_sizes (tree, gimple_seq *);
 extern void gimplify_one_sizepos (tree *, gimple_seq *);
@@ -82,24 +84,6 @@ extern void gimplify_function_tree (tree);
 extern enum gimplify_status gimplify_va_arg_expr (tree *, gimple_seq *,
 						  gimple_seq *);
 gimple gimplify_assign (tree, tree, gimple_seq *);
-
-/* Return true if gimplify_one_sizepos doesn't need to gimplify
-   expr (when in TYPE_SIZE{,_UNIT} and similar type/decl size/bitsize
-   fields).  */
-
-static inline bool
-is_gimple_sizepos (tree expr)
-{
-  /* gimplify_one_sizepos doesn't need to do anything if the value isn't there,
-     is constant, or contains A PLACEHOLDER_EXPR.  We also don't want to do
-     anything if it's already a VAR_DECL.  If it's a VAR_DECL from another
-     function, the gimplifier will want to replace it with a new variable,
-     but that will cause problems if this type is from outside the function.
-     It's OK to have that here.  */
-  return (expr == NULL_TREE
-	  || TREE_CONSTANT (expr)
-	  || TREE_CODE (expr) == VAR_DECL
-	  || CONTAINS_PLACEHOLDER_P (expr));
-}                                        
+extern bool is_gimple_sizepos (tree expr);
 
 #endif /* GCC_GIMPLIFY_H */

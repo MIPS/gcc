@@ -1241,6 +1241,8 @@ OBJS = \
 	gimple-ssa-strength-reduction.o \
 	gimple-streamer-in.o \
 	gimple-streamer-out.o \
+	gimple-tree.o \
+	gimple-value.o \
 	gimple-walk.o \
 	gimplify.o \
 	gimplify-me.o \

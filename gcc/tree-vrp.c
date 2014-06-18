@@ -995,9 +995,9 @@ static bool
 gimple_call_nonnegative_warnv_p (gimple stmt, bool *strict_overflow_p)
 {
   tree arg0 = gimple_call_num_args (stmt) > 0 ?
-    gimple_call_arg (stmt, 0) : NULL_TREE;
+    gimple_call_arg (stmt, 0) : NULL_GIMPLE;
   tree arg1 = gimple_call_num_args (stmt) > 1 ?
-    gimple_call_arg (stmt, 1) : NULL_TREE;
+    gimple_call_arg (stmt, 1) : NULL_GIMPLE;
 
   return tree_call_nonnegative_warnv_p (gimple_expr_type (stmt),
 					gimple_call_fndecl (stmt),
@@ -1484,14 +1484,14 @@ value_range_constant_singleton (value_range_t *vr)
    otherwise return NULL_TREE.  This returns OP itself if OP is a
    constant.  */
 
-static tree
-op_with_constant_singleton_value_range (tree op)
+static Gimple::value
+op_with_constant_singleton_value_range (Gimple::value op)
 {
   if (is_gimple_min_invariant (op))
     return op;
 
-  if (TREE_CODE (op) != SSA_NAME)
-    return NULL_TREE;
+  if (!is_a<Gimple::ssa_name> (op))
+    return NULL_GIMPLE;
 
   return value_range_constant_singleton (get_value_range (op));
 }
@@ -4364,7 +4364,7 @@ build_assert_expr_for (tree cond, tree v)
      operand of the ASSERT_EXPR.  Create it so the new name and the old one
      are registered in the replacement table so that we can fix the SSA web
      after adding all the ASSERT_EXPRs.  */
-  create_new_def_for (v, assertion, NULL);
+  create_new_def_for (v, assertion, NULL_GIMPLE);
 
   return assertion;
 }
@@ -8692,7 +8692,7 @@ simplify_bit_ops_using_ranges (gimple_stmt_iterator *gsi, gimple stmt)
   if (op == NULL_TREE)
     return false;
 
-  gimple_assign_set_rhs_with_ops (gsi, TREE_CODE (op), op, NULL);
+  gimple_assign_set_rhs_with_ops (gsi, TREE_CODE (op), op, NULL_GIMPLE);
   update_stmt (gsi_stmt (*gsi));
   return true;
 }

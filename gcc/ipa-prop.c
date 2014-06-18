@@ -1720,7 +1720,7 @@ ipa_get_callee_param_type (struct cgraph_edge *e, int i)
   int n;
   tree type = (e->callee
 	       ? TREE_TYPE (e->callee->decl)
-	       : gimple_call_fntype (e->call_stmt));
+	       : (tree)gimple_call_fntype (e->call_stmt));
   tree t = TYPE_ARG_TYPES (type);
 
   for (n = 0; n < i; n++)
@@ -3888,7 +3888,7 @@ ipa_modify_call_arguments (struct cgraph_edge *cs, gimple stmt,
 
   len = adjustments.length ();
   vargs.create (len);
-  callee_decl = !cs ? gimple_call_fndecl (stmt) : cs->callee->decl;
+  callee_decl = !cs ? (tree)gimple_call_fndecl (stmt) : cs->callee->decl;
   ipa_remove_stmt_references (current_node, stmt);
 
   gsi = gsi_for_stmt (stmt);

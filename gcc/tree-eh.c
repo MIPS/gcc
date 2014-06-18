@@ -2757,7 +2757,7 @@ stmt_could_throw_1_p (gimple stmt)
     }
 
   /* Check if the main expression may trap.  */
-  t = is_gimple_assign (stmt) ? gimple_assign_rhs2 (stmt) : NULL;
+  t = is_gimple_assign (stmt) ? gimple_assign_rhs2 (stmt) : NULL_GIMPLE;
   ret = operation_could_trap_helper_p (code, fp_operation, honor_trapv,
 				       honor_nans, honor_snans, t,
 				       &handled);

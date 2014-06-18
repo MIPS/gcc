@@ -4686,7 +4686,7 @@ find_func_aliases (struct function *fn, gimple origt)
     {
       /* Otherwise, just a regular assignment statement.  */
       tree lhsop = gimple_assign_lhs (t);
-      tree rhsop = (gimple_num_ops (t) == 2) ? gimple_assign_rhs1 (t) : NULL;
+      tree rhsop = (gimple_num_ops (t) == 2) ? gimple_assign_rhs1 (t) : NULL_GIMPLE;
 
       if (rhsop && TREE_CLOBBER_P (rhsop))
 	/* Ignore clobbers, they don't actually store anything into

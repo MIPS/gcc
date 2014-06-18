@@ -13956,7 +13956,7 @@ gimple_fold_builtin_sprintf_chk (gimple stmt, enum built_in_function fcode)
 
   return fold_builtin_sprintf_chk_1 (gimple_location (stmt), nargs,
 				     (nargs > 0
-				      ? gimple_call_arg_ptr (stmt, 0)
+				      ? (tree *)gimple_call_arg_ptr (stmt, 0)
 				      : &error_mark_node), fcode);
 }
 
@@ -13974,7 +13974,7 @@ gimple_fold_builtin_snprintf_chk (gimple stmt, tree maxlen,
 
   return fold_builtin_snprintf_chk_1 (gimple_location (stmt), nargs,
 				      (nargs > 0
-				       ? gimple_call_arg_ptr (stmt, 0)
+				       ? (tree *)gimple_call_arg_ptr (stmt, 0)
 				       : &error_mark_node), maxlen, fcode);
 }
 
@@ -14032,7 +14032,7 @@ fold_call_stmt (gimple stmt, bool ignore)
     {
       int nargs = gimple_call_num_args (stmt);
       tree *args = (nargs > 0
-		    ? gimple_call_arg_ptr (stmt, 0)
+		    ? (tree *)gimple_call_arg_ptr (stmt, 0)
 		    : &error_mark_node);
 
       if (avoid_folding_inline_builtin (fndecl))

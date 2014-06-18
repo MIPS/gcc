@@ -138,12 +138,11 @@ release_ssa_name (tree name)
    in function cfun.  Arrange so that it uses NAME in dumps.  */
 
 static inline tree
-make_temp_ssa_name (tree type, gimple stmt, const char *name)
+make_temp_ssa_name (Gimple::type type, gimple stmt, const char *name)
 {
-  tree ssa_name;
-  gcc_checking_assert (TYPE_P (type));
+  Gimple::ssa_name ssa_name;
   ssa_name = make_ssa_name_fn (cfun, type, stmt);
-  SET_SSA_NAME_VAR_OR_IDENTIFIER (ssa_name, get_identifier (name));
+  ssa_name->set_identifier (get_identifier (name));
   return ssa_name;
 }
 

@@ -8442,7 +8442,7 @@ execute_fixup_cfg (void)
 	  gimple stmt = gsi_stmt (gsi);
 	  tree decl = is_gimple_call (stmt)
 		      ? gimple_call_fndecl (stmt)
-		      : NULL;
+		      : NULL_GIMPLE;
 	  if (decl)
 	    {
 	      int flags = gimple_call_flags (stmt);
@@ -8493,7 +8493,7 @@ execute_fixup_cfg (void)
 		  && (TREE_STATIC (lhs) || DECL_EXTERNAL (lhs))
 		  && varpool_get_node (lhs)->writeonly)
 		{
-		  gimple_call_set_lhs (stmt, NULL);
+		  gimple_call_set_lhs (stmt, NULL_GIMPLE);
 		  update_stmt (stmt);
 	          todo |= TODO_update_ssa | TODO_cleanup_cfg;
 		}
