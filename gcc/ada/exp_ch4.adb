@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -831,13 +831,26 @@ package body Exp_Ch4 is
 
             --  Step 2: Create the accessibility comparison
 
+            --  Reference the tag: for a renaming of an access to an interface
+            --  object Obj_Ref already references the tag of the secondary
+            --  dispatch table.
+
+            if Nkind (Obj_Ref) in N_Has_Entity
+              and then Present (Entity (Obj_Ref))
+              and then Present (Renamed_Object (Entity (Obj_Ref)))
+              and then Is_Interface (DesigT)
+            then
+               null;
+
             --  Generate:
             --    Ref'Tag
 
-            Obj_Ref :=
-              Make_Attribute_Reference (Loc,
-                Prefix         => Obj_Ref,
-                Attribute_Name => Name_Tag);
+            else
+               Obj_Ref :=
+                 Make_Attribute_Reference (Loc,
+                   Prefix         => Obj_Ref,
+                   Attribute_Name => Name_Tag);
+            end if;
 
             --  For tagged types, determine the accessibility level by looking
             --  at the type specific data of the dispatch table. Generate:
@@ -6661,6 +6674,8 @@ package body Exp_Ch4 is
          R_Exp   : Node_Id := Relocate_Node (Rhs);
 
       begin
+         --  Adjust operands if necessary to comparison type
+
          if Base_Type (Op_Type) /= Base_Type (A_Typ)
            and then not Is_Class_Wide_Type (A_Typ)
          then
@@ -6758,8 +6773,7 @@ package body Exp_Ch4 is
                   --  formal is that of the discriminant, with added suffix,
                   --  see Exp_Ch3.Build_Record_Equality for details.
 
-                  if Is_Unchecked_Union
-                       (Scope (Entity (Selector_Name (Lhs))))
+                  if Is_Unchecked_Union (Scope (Entity (Selector_Name (Lhs))))
                   then
                      Discr :=
                        First_Discriminant
@@ -7060,6 +7074,25 @@ package body Exp_Ch4 is
       end if;
 
       Typl := Base_Type (Typl);
+
+      --  Equality between variant records results in a call to a routine
+      --  that has conditional tests of the discriminant value(s), and hence
+      --  violates the No_Implicit_Conditionals restriction.
+
+      if Has_Variant_Part (Typl) then
+         declare
+            Msg : Boolean;
+
+         begin
+            Check_Restriction (Msg, No_Implicit_Conditionals, N);
+
+            if Msg then
+               Error_Msg_N
+                 ("\comparison of variant records tests discriminants", N);
+               return;
+            end if;
+         end;
+      end if;
 
       --  Deal with overflow checks in MINIMIZED/ELIMINATED mode and if that
       --  means we no longer have a comparison operation, we are all done.
@@ -7560,7 +7593,7 @@ package body Exp_Ch4 is
                 Make_Function_Call (Loc,
                   Name => New_Occurrence_Of (RTE (RE_Exp_Modular), Loc),
                   Parameter_Associations => New_List (
-                    Convert_To (Standard_Integer, Base),
+                    Convert_To (RTE (RE_Unsigned), Base),
                     Make_Integer_Literal (Loc, Modulus (Rtyp)),
                     Exp))));
 
@@ -12526,7 +12559,7 @@ package body Exp_Ch4 is
       --  hook pointer is null.
 
       procedure Find_Enclosing_Contexts (N : Node_Id);
-      --  Find the logical context where N appears, and initializae
+      --  Find the logical context where N appears, and initialize
       --  Hook_Context and Finalization_Context accordingly. Also
       --  sets Finalize_Always.
 

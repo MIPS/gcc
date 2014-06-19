@@ -768,9 +768,14 @@ internal_proto(get_fpu_rounding_mode);
 extern void *xmalloc (size_t) __attribute__ ((malloc));
 internal_proto(xmalloc);
 
+extern void *xmallocarray (size_t, size_t) __attribute__ ((malloc));
+internal_proto(xmallocarray);
+
 extern void *xcalloc (size_t, size_t) __attribute__ ((malloc));
 internal_proto(xcalloc);
 
+extern void *xrealloc (void *, size_t);
+internal_proto(xrealloc);
 
 /* environ.c */
 
@@ -821,6 +826,9 @@ export_proto(string_len_trim);
 extern gfc_charlen_type string_len_trim_char4 (gfc_charlen_type,
 					       const gfc_char4_t *);
 export_proto(string_len_trim_char4);
+
+extern char *fc_strdup(const char *, gfc_charlen_type);
+internal_proto(fc_strdup);
 
 /* io/intrinsics.c */
 

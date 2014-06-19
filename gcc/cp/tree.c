@@ -102,6 +102,16 @@ lvalue_kind (const_tree ref)
     case IMAGPART_EXPR:
       return lvalue_kind (TREE_OPERAND (ref, 0));
 
+    case MEMBER_REF:
+    case DOTSTAR_EXPR:
+      if (TREE_CODE (ref) == MEMBER_REF)
+	op1_lvalue_kind = clk_ordinary;
+      else
+	op1_lvalue_kind = lvalue_kind (TREE_OPERAND (ref, 0));
+      if (TYPE_PTRMEMFUNC_P (TREE_TYPE (TREE_OPERAND (ref, 1))))
+	op1_lvalue_kind = clk_none;
+      return op1_lvalue_kind;
+
     case COMPONENT_REF:
       op1_lvalue_kind = lvalue_kind (TREE_OPERAND (ref, 0));
       /* Look at the member designator.  */
@@ -1257,6 +1267,8 @@ strip_typedefs (tree t)
 	if (TYPE_RAISES_EXCEPTIONS (t))
 	  result = build_exception_variant (result,
 					    TYPE_RAISES_EXCEPTIONS (t));
+	if (TYPE_HAS_LATE_RETURN_TYPE (t))
+	  TYPE_HAS_LATE_RETURN_TYPE (result) = 1;
       }
       break;
     case TYPENAME_TYPE:
@@ -2620,6 +2632,11 @@ cp_tree_equal (tree t1, tree t2)
 
   switch (code1)
     {
+    case VOID_CST:
+      /* There's only a single VOID_CST node, so we should never reach
+	 here.  */
+      gcc_unreachable ();
+
     case INTEGER_CST:
       return tree_int_cst_equal (t1, t2);
 
@@ -2947,7 +2964,7 @@ member_p (const_tree decl)
 tree
 build_dummy_object (tree type)
 {
-  tree decl = build1 (NOP_EXPR, build_pointer_type (type), void_zero_node);
+  tree decl = build1 (NOP_EXPR, build_pointer_type (type), void_node);
   return cp_build_indirect_ref (decl, RO_NULL, tf_warning_or_error);
 }
 
@@ -2997,7 +3014,7 @@ is_dummy_object (const_tree ob)
   if (INDIRECT_REF_P (ob))
     ob = TREE_OPERAND (ob, 0);
   return (TREE_CODE (ob) == NOP_EXPR
-	  && TREE_OPERAND (ob, 0) == void_zero_node);
+	  && TREE_OPERAND (ob, 0) == void_node);
 }
 
 /* Returns 1 iff type T is something we want to treat as a scalar type for
@@ -3775,7 +3792,7 @@ stabilize_expr (tree exp, tree* initp)
   else if (VOID_TYPE_P (TREE_TYPE (exp)))
     {
       init_expr = exp;
-      exp = void_zero_node;
+      exp = void_node;
     }
   /* There are no expressions with REFERENCE_TYPE, but there can be call
      arguments with such a type; just treat it as a pointer.  */

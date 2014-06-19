@@ -35,6 +35,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "data-streamer.h"
 #include "streamer-hooks.h"
 #include "lto-streamer.h"
+#include "builtins.h"
 
 /* Read a STRING_CST from the string table in DATA_IN using input
    block IB.  */
@@ -168,6 +169,9 @@ unpack_ts_real_cst_value_fields (struct bitpack_d *bp, tree expr)
   REAL_VALUE_TYPE r;
   REAL_VALUE_TYPE *rp;
 
+  /* Clear all bits of the real value type so that we can later do
+     bitwise comparisons to see if two values are the same.  */
+  memset (&r, 0, sizeof r);
   r.cl = (unsigned) bp_unpack_value (bp, 2);
   r.decimal = (unsigned) bp_unpack_value (bp, 1);
   r.sign = (unsigned) bp_unpack_value (bp, 1);
@@ -276,7 +280,6 @@ unpack_ts_decl_with_vis_value_fields (struct bitpack_d *bp, tree expr)
     {
       DECL_HARD_REGISTER (expr) = (unsigned) bp_unpack_value (bp, 1);
       DECL_IN_CONSTANT_POOL (expr) = (unsigned) bp_unpack_value (bp, 1);
-      DECL_TLS_MODEL (expr) = (enum tls_model) bp_unpack_value (bp,  3);
     }
 
   if (TREE_CODE (expr) == FUNCTION_DECL)
@@ -565,7 +568,7 @@ streamer_alloc_tree (struct lto_input_block *ib, struct data_in *data_in,
   enum tree_code code;
   tree result;
 #ifdef LTO_STREAMER_DEBUG
-  HOST_WIDEST_INT orig_address_in_writer;
+  HOST_WIDE_INT orig_address_in_writer;
 #endif
 
   result = NULL_TREE;
@@ -755,9 +758,6 @@ lto_input_ts_decl_with_vis_tree_pointers (struct lto_input_block *ib,
       gcc_assert (TREE_CODE (id) == IDENTIFIER_NODE);
       SET_DECL_ASSEMBLER_NAME (expr, id);
     }
-
-  DECL_SECTION_NAME (expr) = stream_read_tree (ib, data_in);
-  DECL_COMDAT_GROUP (expr) = stream_read_tree (ib, data_in);
 }
 
 

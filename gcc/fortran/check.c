@@ -4552,7 +4552,7 @@ gfc_check_image_index (gfc_expr *coarray, gfc_expr *sub)
 
 
 bool
-gfc_check_this_image (gfc_expr *coarray, gfc_expr *dim)
+gfc_check_num_images (gfc_expr *distance, gfc_expr *failed)
 {
   if (gfc_option.coarray == GFC_FCOARRAY_NONE)
     {
@@ -4560,15 +4560,95 @@ gfc_check_this_image (gfc_expr *coarray, gfc_expr *dim)
       return false;
     }
 
-  if (dim != NULL &&  coarray == NULL)
+  if (distance)
     {
-      gfc_error ("DIM argument without ARRAY argument not allowed for THIS_IMAGE "
-                "intrinsic at %L", &dim->where);
+      if (!type_check (distance, 0, BT_INTEGER))
+	return false;
+
+      if (!nonnegative_check ("DISTANCE", distance))
+	return false;
+
+      if (!scalar_check (distance, 0))
+	return false;
+
+      if (!gfc_notify_std (GFC_STD_F2008_TS, "DISTANCE= argument to "
+			   "NUM_IMAGES at %L", &distance->where))
+	return false;
+    }
+
+   if (failed)
+    {
+      if (!type_check (failed, 1, BT_LOGICAL))
+	return false;
+
+      if (!scalar_check (failed, 1))
+	return false;
+
+      if (!gfc_notify_std (GFC_STD_F2008_TS, "FAILED= argument to "
+			   "NUM_IMAGES at %L", &distance->where))
+	return false;
+    }
+
+  return true;
+}
+
+
+bool
+gfc_check_this_image (gfc_expr *coarray, gfc_expr *dim, gfc_expr *distance)
+{
+  if (gfc_option.coarray == GFC_FCOARRAY_NONE)
+    {
+      gfc_fatal_error ("Coarrays disabled at %C, use -fcoarray= to enable");
       return false;
     }
 
-  if (coarray == NULL)
+  if (coarray == NULL && dim == NULL && distance == NULL)
     return true;
+
+  if (dim != NULL && coarray == NULL)
+    {
+      gfc_error ("DIM argument without COARRAY argument not allowed for "
+		 "THIS_IMAGE intrinsic at %L", &dim->where);
+      return false;
+    }
+
+  if (distance && (coarray || dim))
+    {
+      gfc_error ("The DISTANCE argument may not be specified together with the "
+		 "COARRAY or DIM argument in intrinsic at %L",
+		 &distance->where);
+      return false;
+    }
+
+  /* Assume that we have "this_image (distance)".  */
+  if (coarray && !gfc_is_coarray (coarray) && coarray->ts.type == BT_INTEGER)
+    {
+      if (dim)
+	{
+	  gfc_error ("Unexpected DIM argument with noncoarray argument at %L",
+		     &coarray->where);
+	  return false;
+	}
+      distance = coarray;
+    }
+
+  if (distance)
+    {
+      if (!type_check (distance, 2, BT_INTEGER))
+	return false;
+
+      if (!nonnegative_check ("DISTANCE", distance))
+	return false;
+
+      if (!scalar_check (distance, 2))
+	return false;
+
+      if (!gfc_notify_std (GFC_STD_F2008_TS, "DISTANCE= argument to "
+			   "THIS_IMAGE at %L", &distance->where))
+	return false;
+
+      return true;
+    }
 
   if (!coarray_check (coarray, 0))
     return false;
@@ -5126,8 +5206,10 @@ gfc_check_second_sub (gfc_expr *time)
 }
 
 
-/* The arguments of SYSTEM_CLOCK are scalar, integer variables.  Note,
-   count, count_rate, and count_max are all optional arguments */
+/* COUNT and COUNT_MAX of SYSTEM_CLOCK are scalar, default-kind integer
+   variables in Fortran 95.  In Fortran 2003 and later, they can be of any
+   kind, and COUNT_RATE can be of type real.  Note, count, count_rate, and
+   count_max are all optional arguments */
 
 bool
 gfc_check_system_clock (gfc_expr *count, gfc_expr *count_rate,
@@ -5141,6 +5223,12 @@ gfc_check_system_clock (gfc_expr *count, gfc_expr *count_rate,
       if (!type_check (count, 0, BT_INTEGER))
 	return false;
 
+      if (count->ts.kind != gfc_default_integer_kind
+	  && !gfc_notify_std (GFC_STD_F2003, "COUNT argument to "
+			      "SYSTEM_CLOCK at %L has non-default kind",
+			      &count->where))
+	return false;
+
       if (!variable_check (count, 0, false))
 	return false;
     }
@@ -5150,15 +5238,26 @@ gfc_check_system_clock (gfc_expr *count, gfc_expr *count_rate,
       if (!scalar_check (count_rate, 1))
 	return false;
 
-      if (!type_check (count_rate, 1, BT_INTEGER))
-	return false;
-
       if (!variable_check (count_rate, 1, false))
 	return false;
 
-      if (count != NULL
-	  && !same_type_check (count, 0, count_rate, 1))
-	return false;
+      if (count_rate->ts.type == BT_REAL)
+	{
+	  if (!gfc_notify_std (GFC_STD_F2003, "Real COUNT_RATE argument to "
+			       "SYSTEM_CLOCK at %L", &count_rate->where))
+	    return false;
+	}
+      else
+	{
+	  if (!type_check (count_rate, 1, BT_INTEGER))
+	    return false;
+
+	  if (count_rate->ts.kind != gfc_default_integer_kind
+	      && !gfc_notify_std (GFC_STD_F2003, "COUNT_RATE argument to "
+				  "SYSTEM_CLOCK at %L has non-default kind",
+				  &count_rate->where))
+	    return false;
+	}
 
     }
 
@@ -5170,15 +5269,13 @@ gfc_check_system_clock (gfc_expr *count, gfc_expr *count_rate,
       if (!type_check (count_max, 2, BT_INTEGER))
 	return false;
 
+      if (count_max->ts.kind != gfc_default_integer_kind
+	  && !gfc_notify_std (GFC_STD_F2003, "COUNT_MAX argument to "
+			      "SYSTEM_CLOCK at %L has non-default kind",
+			      &count_max->where))
+	return false;
+
       if (!variable_check (count_max, 2, false))
-	return false;
-
-      if (count != NULL
-	  && !same_type_check (count, 0, count_max, 2))
-	return false;
-
-      if (count_rate != NULL
-	  && !same_type_check (count_rate, 1, count_max, 2))
 	return false;
     }
 

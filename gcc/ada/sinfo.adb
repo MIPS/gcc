@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -3175,6 +3175,15 @@ package body Sinfo is
       return List2 (N);
    end Visible_Declarations;
 
+   function Uninitialized_Variable
+     (N : Node_Id) return Node_Id is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Formal_Private_Type_Definition
+        or else NT (N).Nkind = N_Private_Extension_Declaration);
+      return Node3 (N);
+   end Uninitialized_Variable;
+
    function Used_Operations
      (N : Node_Id) return Elist_Id is
    begin
@@ -6314,6 +6323,15 @@ package body Sinfo is
         or else NT (N).Nkind = N_Task_Definition);
       Set_List2_With_Parent (N, Val);
    end Set_Visible_Declarations;
+
+   procedure Set_Uninitialized_Variable
+     (N : Node_Id; Val : Node_Id) is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Formal_Private_Type_Definition
+        or else NT (N).Nkind = N_Private_Extension_Declaration);
+      Set_Node3 (N, Val);
+   end Set_Uninitialized_Variable;
 
    procedure Set_Used_Operations
      (N : Node_Id; Val :  Elist_Id) is

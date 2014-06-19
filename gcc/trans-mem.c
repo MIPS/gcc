@@ -2745,12 +2745,9 @@ expand_transaction (struct tm_region *region, void *data ATTRIBUTE_UNUSED)
       basic_block test_bb = create_empty_bb (transaction_bb);
       basic_block code_bb = create_empty_bb (test_bb);
       basic_block join_bb = create_empty_bb (code_bb);
-      if (current_loops && transaction_bb->loop_father)
-	{
-	  add_bb_to_loop (test_bb, transaction_bb->loop_father);
-	  add_bb_to_loop (code_bb, transaction_bb->loop_father);
-	  add_bb_to_loop (join_bb, transaction_bb->loop_father);
-	}
+      add_bb_to_loop (test_bb, transaction_bb->loop_father);
+      add_bb_to_loop (code_bb, transaction_bb->loop_father);
+      add_bb_to_loop (join_bb, transaction_bb->loop_father);
       if (region->restart_block == region->entry_block)
 	region->restart_block = test_bb;
 
@@ -2791,8 +2788,7 @@ expand_transaction (struct tm_region *region, void *data ATTRIBUTE_UNUSED)
   if (abort_edge)
     {
       basic_block test_bb = create_empty_bb (transaction_bb);
-      if (current_loops && transaction_bb->loop_father)
-	add_bb_to_loop (test_bb, transaction_bb->loop_father);
+      add_bb_to_loop (test_bb, transaction_bb->loop_father);
       if (region->restart_block == region->entry_block)
 	region->restart_block = test_bb;
 
@@ -2834,8 +2830,7 @@ expand_transaction (struct tm_region *region, void *data ATTRIBUTE_UNUSED)
   if (inst_edge && uninst_edge)
     {
       basic_block test_bb = create_empty_bb (transaction_bb);
-      if (current_loops && transaction_bb->loop_father)
-	add_bb_to_loop (test_bb, transaction_bb->loop_father);
+      add_bb_to_loop (test_bb, transaction_bb->loop_father);
       if (region->restart_block == region->entry_block)
 	region->restart_block = test_bb;
 
@@ -2886,8 +2881,7 @@ expand_transaction (struct tm_region *region, void *data ATTRIBUTE_UNUSED)
     {
       basic_block empty_bb = create_empty_bb (transaction_bb);
       region->restart_block = empty_bb;
-      if (current_loops && transaction_bb->loop_father)
-	add_bb_to_loop (empty_bb, transaction_bb->loop_father);
+      add_bb_to_loop (empty_bb, transaction_bb->loop_father);
 
       redirect_edge_pred (fallthru_edge, empty_bb);
       make_edge (transaction_bb, empty_bb, EDGE_FALLTHRU);
@@ -4852,7 +4846,7 @@ ipa_tm_create_version_alias (struct cgraph_node *node, void *data)
 
   /* Perform the same remapping to the comdat group.  */
   if (DECL_ONE_ONLY (new_decl))
-    DECL_COMDAT_GROUP (new_decl) = tm_mangle (DECL_COMDAT_GROUP (old_decl));
+    varpool_get_node (new_decl)->set_comdat_group (tm_mangle (decl_comdat_group_id (old_decl)));
 
   new_node = cgraph_same_body_alias (NULL, new_decl, info->new_decl);
   new_node->tm_clone = true;
@@ -4892,7 +4886,7 @@ ipa_tm_create_version (struct cgraph_node *old_node)
 
   /* Perform the same remapping to the comdat group.  */
   if (DECL_ONE_ONLY (new_decl))
-    DECL_COMDAT_GROUP (new_decl) = tm_mangle (DECL_COMDAT_GROUP (old_decl));
+    varpool_get_node (new_decl)->set_comdat_group (tm_mangle (DECL_COMDAT_GROUP (old_decl)));
 
   gcc_assert (!old_node->ipa_transforms_to_apply.exists ());
   new_node = cgraph_copy_node_for_versioning (old_node, new_decl, vNULL, NULL);

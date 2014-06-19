@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -120,6 +120,7 @@ package Restrict is
       No_Exception_Propagation           => True,
       No_Exception_Registration          => True,
       No_Finalization                    => True,
+      No_Fixed_IO                        => True,
       No_Implementation_Attributes       => True,
       No_Implementation_Pragmas          => True,
       No_Implicit_Conditionals           => True,
@@ -191,10 +192,15 @@ package Restrict is
    --  For abort to be allowed, either No_Abort_Statements must be False,
    --  or Max_Asynchronous_Select_Nesting must be non-zero.
 
-   procedure Check_Compiler_Unit (N : Node_Id);
-   --  If unit N is in a unit that has a pragma Compiler_Unit, then a message
-   --  is posted on node N noting use of a construct that is not permitted in
-   --  the compiler.
+   procedure Check_Compiler_Unit (Feature : String; N : Node_Id);
+   --  If unit N is in a unit that has a pragma Compiler_Unit_Warning, then
+   --  a message is posted on node N noting use of the given feature is not
+   --  permitted in the compiler (bootstrap considerations).
+
+   procedure Check_Compiler_Unit (Feature : String; Loc : Source_Ptr);
+   --  If unit N is in a unit that has a pragma Compiler_Unit_Warning, then a
+   --  message is posted at location Loc noting use of the given feature is not
+   --  permitted in the compiler (bootstrap considerations).
 
    procedure Check_Restricted_Unit (U : Unit_Name_Type; N : Node_Id);
    --  Checks if loading of unit U is prohibited by the setting of some

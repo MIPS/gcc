@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -666,6 +666,51 @@ package body Sem_Aux is
       end if;
    end Has_Unconstrained_Elements;
 
+   ----------------------
+   -- Has_Variant_Part --
+   ----------------------
+
+   function Has_Variant_Part (Typ : Entity_Id) return Boolean is
+      FSTyp : Entity_Id;
+      Decl  : Node_Id;
+      TDef  : Node_Id;
+      CList : Node_Id;
+
+   begin
+      if not Is_Type (Typ) then
+         return False;
+      end if;
+
+      FSTyp := First_Subtype (Typ);
+
+      if not Has_Discriminants (FSTyp) then
+         return False;
+      end if;
+
+      --  Proceed with cautious checks here, return False if tree is not
+      --  as expected (may be caused by prior errors).
+
+      Decl := Declaration_Node (FSTyp);
+
+      if Nkind (Decl) /= N_Full_Type_Declaration then
+         return False;
+      end if;
+
+      TDef := Type_Definition (Decl);
+
+      if Nkind (TDef) /= N_Record_Definition then
+         return False;
+      end if;
+
+      CList := Component_List (TDef);
+
+      if Nkind (CList) /= N_Component_List then
+         return False;
+      else
+         return Present (Variant_Part (CList));
+      end if;
+   end Has_Variant_Part;
+
    ---------------------
    -- In_Generic_Body --
    ---------------------
@@ -1008,7 +1053,7 @@ package body Sem_Aux is
       --  Otherwise we will look around to see if there is some other reason
       --  for it to be limited, except that if an error was posted on the
       --  entity, then just assume it is non-limited, because it can cause
-      --  trouble to recurse into a murky erroneous entity.
+      --  trouble to recurse into a murky entity resulting from other errors.
 
       elsif Error_Posted (Ent) then
          return False;

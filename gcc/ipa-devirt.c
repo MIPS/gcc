@@ -129,6 +129,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic.h"
 #include "tree-dfa.h"
 #include "demangle.h"
+#include "dbgcnt.h"
 
 static bool odr_violation_reported = false;
 
@@ -1602,6 +1603,8 @@ possible_polymorphic_call_targets (tree otr_type,
     {
       if (completep)
 	*completep = false;
+      if (cache_token)
+	*cache_token = NULL;
       if (nonconstruction_targetsp)
 	*nonconstruction_targetsp = 0;
       return nodes;
@@ -1612,6 +1615,8 @@ possible_polymorphic_call_targets (tree otr_type,
     {
       if (completep)
 	*completep = true;
+      if (cache_token)
+	*cache_token = NULL;
       if (nonconstruction_targetsp)
 	*nonconstruction_targetsp = 0;
       return nodes;
@@ -1625,6 +1630,8 @@ possible_polymorphic_call_targets (tree otr_type,
     {
       if (completep)
 	*completep = false;
+      if (cache_token)
+	*cache_token = NULL;
       if (nonconstruction_targetsp)
 	*nonconstruction_targetsp = 0;
       return nodes;
@@ -2067,14 +2074,17 @@ ipa_devirt (void)
 		noverwritable++;
 		continue;
 	      }
-	    else
+	    else if (dbg_cnt (devirt))
 	      {
-		if (dump_file)
-		  fprintf (dump_file,
-			   "Speculatively devirtualizing call in %s/%i to %s/%i\n\n",
-			   n->name (), n->order,
-			   likely_target->name (),
-			   likely_target->order);
+		if (dump_enabled_p ())
+                  {
+                    location_t locus = gimple_location (e->call_stmt);
+                    dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, locus,
+                                     "speculatively devirtualizing call in %s/%i to %s/%i\n",
+                                     n->name (), n->order,
+                                     likely_target->name (),
+                                     likely_target->order);
+                  }
 		if (!symtab_can_be_discarded (likely_target))
 		  {
 		    cgraph_node *alias;

@@ -934,15 +934,30 @@ trans_this_image (gfc_se * se, gfc_expr *expr)
        lbound, ubound, extent, ml;
   gfc_se argse;
   int rank, corank;
+  gfc_expr *distance = expr->value.function.actual->next->next->expr;
+
+  if (expr->value.function.actual->expr
+      && !gfc_is_coarray (expr->value.function.actual->expr))
+    distance = expr->value.function.actual->expr;
 
   /* The case -fcoarray=single is handled elsewhere.  */
   gcc_assert (gfc_option.coarray != GFC_FCOARRAY_SINGLE);
 
   /* Argument-free version: THIS_IMAGE().  */
-  if (expr->value.function.actual->expr == NULL)
+  if (distance || expr->value.function.actual->expr == NULL)
     {
+      if (distance)
+	{
+	  gfc_init_se (&argse, NULL);
+	  gfc_conv_expr_val (&argse, distance);
+	  gfc_add_block_to_block (&se->pre, &argse.pre);
+	  gfc_add_block_to_block (&se->post, &argse.post);
+	  tmp = fold_convert (integer_type_node, argse.expr);
+	}
+      else
+	tmp = integer_zero_node;
       tmp = build_call_expr_loc (input_location, gfor_fndecl_caf_this_image, 1,
-				 integer_zero_node);
+				 tmp);
       se->expr = fold_convert (gfc_get_int_type (gfc_default_integer_kind),
 			       tmp);
       return;
@@ -1262,11 +1277,35 @@ trans_image_index (gfc_se * se, gfc_expr *expr)
 
 
 static void
-trans_num_images (gfc_se * se)
+trans_num_images (gfc_se * se, gfc_expr *expr)
 {
-  tree tmp = build_call_expr_loc (input_location, gfor_fndecl_caf_num_images, 2,
-				  integer_zero_node,
-				  build_int_cst (integer_type_node, -1));
+  tree tmp, distance, failed;
+  gfc_se argse;
+
+  if (expr->value.function.actual->expr)
+    {
+      gfc_init_se (&argse, NULL);
+      gfc_conv_expr_val (&argse, expr->value.function.actual->expr);
+      gfc_add_block_to_block (&se->pre, &argse.pre);
+      gfc_add_block_to_block (&se->post, &argse.post);
+      distance = fold_convert (integer_type_node, argse.expr);
+    }
+  else
+    distance = integer_zero_node;
+
+  if (expr->value.function.actual->next->expr)
+    {
+      gfc_init_se (&argse, NULL);
+      gfc_conv_expr_val (&argse, expr->value.function.actual->next->expr);
+      gfc_add_block_to_block (&se->pre, &argse.pre);
+      gfc_add_block_to_block (&se->post, &argse.post);
+      failed = fold_convert (integer_type_node, argse.expr);
+    }
+  else
+    failed = build_int_cst (integer_type_node, -1);
+
+  tmp = build_call_expr_loc (input_location, gfor_fndecl_caf_num_images, 2,
+			     distance, failed);
   se->expr = fold_convert (gfc_get_int_type (gfc_default_integer_kind), tmp);
 }
 
@@ -2144,6 +2183,96 @@ gfc_conv_intrinsic_fdate (gfc_se * se, gfc_expr * expr)
 }
 
 
+/* Call the SYSTEM_CLOCK library functions, handling the type and kind
+   conversions.  */
+
+static tree
+conv_intrinsic_system_clock (gfc_code *code)
+{
+  stmtblock_t block;
+  gfc_se count_se, count_rate_se, count_max_se;
+  tree arg1 = NULL_TREE, arg2 = NULL_TREE, arg3 = NULL_TREE;
+  tree type, tmp;
+  int kind;
+
+  gfc_expr *count = code->ext.actual->expr;
+  gfc_expr *count_rate = code->ext.actual->next->expr;
+  gfc_expr *count_max = code->ext.actual->next->next->expr;
+
+  /* The INTEGER(8) version has higher precision, it is used if both COUNT
+     and COUNT_MAX can hold 64-bit values, or are absent.  */
+  if ((!count || count->ts.kind >= 8)
+      && (!count_max || count_max->ts.kind >= 8))
+    kind = 8;
+  else
+    kind = gfc_default_integer_kind;
+  type = gfc_get_int_type (kind);
+
+  /* Evaluate our arguments.  */
+  if (count)
+    {
+      gfc_init_se (&count_se, NULL);
+      gfc_conv_expr (&count_se, count);
+    }
+
+  if (count_rate)
+    {
+      gfc_init_se (&count_rate_se, NULL);
+      gfc_conv_expr (&count_rate_se, count_rate);
+    }
+
+  if (count_max)
+    {
+      gfc_init_se (&count_max_se, NULL);
+      gfc_conv_expr (&count_max_se, count_max);
+    }
+
+  /* Prepare temporary variables if we need them.  */
+  if (count && count->ts.kind != kind)
+    arg1 = gfc_create_var (type, "count");
+  else if (count)
+    arg1 = count_se.expr;
+
+  if (count_rate && (count_rate->ts.kind != kind
+		     || count_rate->ts.type != BT_INTEGER))
+    arg2 = gfc_create_var (type, "count_rate");
+  else if (count_rate)
+    arg2 = count_rate_se.expr;
+
+  if (count_max && count_max->ts.kind != kind)
+    arg3 = gfc_create_var (type, "count_max");
+  else if (count_max)
+    arg3 = count_max_se.expr;
+
+  /* Make the function call. */
+  gfc_init_block (&block);
+  tmp = build_call_expr_loc (input_location,
+			     kind == 4 ? gfor_fndecl_system_clock4
+				       : gfor_fndecl_system_clock8,
+                             3,
+			     arg1 ? gfc_build_addr_expr (NULL_TREE, arg1)
+				  : null_pointer_node,
+			     arg2 ? gfc_build_addr_expr (NULL_TREE, arg2)
+				  : null_pointer_node,
+			     arg3 ? gfc_build_addr_expr (NULL_TREE, arg3)
+				  : null_pointer_node);
+  gfc_add_expr_to_block (&block, tmp);
+
+  /* And store values back if needed.  */
+  if (arg1 && arg1 != count_se.expr)
+    gfc_add_modify (&block, count_se.expr,
+		    fold_convert (TREE_TYPE (count_se.expr), arg1));
+  if (arg2 && arg2 != count_rate_se.expr)
+    gfc_add_modify (&block, count_rate_se.expr,
+		    fold_convert (TREE_TYPE (count_rate_se.expr), arg2));
+  if (arg3 && arg3 != count_max_se.expr)
+    gfc_add_modify (&block, count_max_se.expr,
+		    fold_convert (TREE_TYPE (count_max_se.expr), arg3));
+
+  return gfc_finish_block (&block);
+}
+
+
 /* Return a character string containing the tty name.  */
 
 static void
@@ -2332,7 +2461,7 @@ gfc_conv_intrinsic_minmax_char (gfc_se * se, gfc_expr * expr, int op)
    has the generic name.  */
 
 static gfc_symbol *
-gfc_get_symbol_for_expr (gfc_expr * expr)
+gfc_get_symbol_for_expr (gfc_expr * expr, bool ignore_optional)
 {
   gfc_symbol *sym;
 
@@ -2355,7 +2484,9 @@ gfc_get_symbol_for_expr (gfc_expr * expr)
       sym->as->rank = expr->rank;
     }
 
-  gfc_copy_formal_args_intr (sym, expr->value.function.isym);
+  gfc_copy_formal_args_intr (sym, expr->value.function.isym,
+			     ignore_optional ? expr->value.function.actual
+					     : NULL);
 
   return sym;
 }
@@ -2374,7 +2505,7 @@ gfc_conv_intrinsic_funcall (gfc_se * se, gfc_expr * expr)
   else
     gcc_assert (expr->rank == 0);
 
-  sym = gfc_get_symbol_for_expr (expr);
+  sym = gfc_get_symbol_for_expr (expr, se->ignore_optional);
 
   /* Calls to libgfortran_matmul need to be appended special arguments,
      to be able to call the BLAS ?gemm functions if required and possible.  */
@@ -4545,7 +4676,8 @@ conv_generic_with_optional_char_arg (gfc_se* se, gfc_expr* expr,
     }
 
   /* Build the call itself.  */
-  sym = gfc_get_symbol_for_expr (expr);
+  gcc_assert (!se->ignore_optional);
+  sym = gfc_get_symbol_for_expr (expr, false);
   gfc_conv_procedure_call (se, sym, expr->value.function.actual, expr,
 			  append_args);
   gfc_free_symbol (sym);
@@ -7099,7 +7231,7 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
       break;
 
     case GFC_ISYM_NUM_IMAGES:
-      trans_num_images (se);
+      trans_num_images (se, expr);
       break;
 
     case GFC_ISYM_ACCESS:
@@ -7924,6 +8056,10 @@ gfc_conv_intrinsic_subroutine (gfc_code *code)
     case GFC_ISYM_CO_MAX:
     case GFC_ISYM_CO_SUM:
       res = conv_co_minmaxsum (code);
+      break;
+
+    case GFC_ISYM_SYSTEM_CLOCK:
+      res = conv_intrinsic_system_clock (code);
       break;
 
     default:

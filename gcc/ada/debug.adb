@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -124,7 +124,7 @@ package body Debug is
    --  d.D
    --  d.E  Turn selected errors into warnings
    --  d.F  Debug mode for GNATprove
-   --  d.G
+   --  d.G  Ignore calls through generic formal parameters for elaboration
    --  d.H
    --  d.I  Do not ignore enum representation clauses in CodePeer mode
    --  d.J  Disable parallel SCIL generation mode
@@ -154,6 +154,16 @@ package body Debug is
    --  d7   Do not output version & file time stamp in -gnatv or -gnatl mode
    --  d8   Force opposite endianness in packed stuff
    --  d9   Allow lock free implementation
+
+   --  d.1
+   --  d.2
+   --  d.3
+   --  d.4
+   --  d.5
+   --  d.6
+   --  d.7
+   --  d.8
+   --  d.9
 
    --  Debug flags for binder (GNATBIND)
 
@@ -609,9 +619,19 @@ package body Debug is
    --
    --          Errors relating to the new rules about not defining equality
    --          too late so that composition of equality can be assured.
+   --
+   --          Errors relating to overriding indicators on protected subprogram
+   --          bodies (not an Ada 2012 incompatibility, but might cause errors
+   --          for existing programs assuming they were legal because GNAT
+   --          formerly allowed them).
 
    --  d.F  Sets GNATprove_Mode to True. This allows debugging the frontend in
    --       the special mode used by GNATprove.
+
+   --  d.G  Previously the compiler ignored calls via generic formal parameters
+   --       when doing the analysis for the static elaboration model. This is
+   --       now fixed, but we provide this debug flag to revert to the previous
+   --       situation of ignoring such calls to aid in transition.
 
    --  d.I  Do not ignore enum representation clauses in CodePeer mode.
    --       The default of ignoring representation clauses for enumeration

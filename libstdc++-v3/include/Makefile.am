@@ -638,6 +638,7 @@ decimal_headers = \
 experimental_srcdir = ${glibcxx_srcdir}/include/experimental
 experimental_builddir = ./experimental
 experimental_headers = \
+	${experimental_srcdir}/any \
 	${experimental_srcdir}/optional \
 	${experimental_srcdir}/string_view \
 	${experimental_srcdir}/string_view.tcc
@@ -733,6 +734,7 @@ debug_headers = \
 	${debug_srcdir}/multimap.h \
 	${debug_srcdir}/multiset.h \
 	${debug_srcdir}/safe_base.h \
+	${debug_srcdir}/safe_container.h \
 	${debug_srcdir}/safe_iterator.h \
 	${debug_srcdir}/safe_iterator.tcc \
 	${debug_srcdir}/safe_local_iterator.h \
@@ -815,6 +817,7 @@ profile_headers = \
 	${profile_srcdir}/map.h \
 	${profile_srcdir}/multimap.h \
 	${profile_srcdir}/multiset.h \
+	${profile_srcdir}/ordered_base.h \
 	${profile_srcdir}/set \
 	${profile_srcdir}/set.h \
 	${profile_srcdir}/iterator_tracker.h

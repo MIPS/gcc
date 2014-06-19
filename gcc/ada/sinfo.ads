@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -2043,6 +2043,13 @@ package Sinfo is
    --    body, and is not referenced by the spec (it may still be referenced by
    --    the body, so this flag is used to generate the proper message (see
    --    Sem_Util.Check_Unused_Withs for details)
+
+   --  Uninitialized_Variable (Node3-Sem)
+   --    Present in N_Formal_Private_Type_Definition and in N_Private_
+   --    Extension_Declarations. Indicates that a variable in a generic unit
+   --    whose type is a formal private or derived type is read without being
+   --    initialized. Used to warn if the corresponding actual type is not
+   --    a fully initialized type.
 
    --  Used_Operations (Elist5-Sem)
    --    Present in N_Use_Type_Clause nodes. Holds the list of operations that
@@ -5272,6 +5279,7 @@ package Sinfo is
       --  N_Private_Extension_Declaration
       --  Sloc points to TYPE
       --  Defining_Identifier (Node1)
+      --  Uninitialized_Variable (Node3-Sem)
       --  Discriminant_Specifications (List4) (set to No_List if no
       --   discriminant part)
       --  Unknown_Discriminants_Present (Flag13) set if (<>) discriminant
@@ -6702,6 +6710,7 @@ package Sinfo is
 
       --  N_Formal_Private_Type_Definition
       --  Sloc points to PRIVATE
+      --  Uninitialized_Variable (Node3-Sem)
       --  Abstract_Present (Flag4)
       --  Tagged_Present (Flag15)
       --  Limited_Present (Flag17)
@@ -8930,7 +8939,6 @@ package Sinfo is
 
    function Generalized_Indexing
      (N : Node_Id) return Node_Id;    -- Node4
-
    function Generic_Associations
      (N : Node_Id) return List_Id;    -- List3
 
@@ -9491,6 +9499,9 @@ package Sinfo is
 
    function Visible_Declarations
      (N : Node_Id) return List_Id;    -- List2
+
+   function Uninitialized_Variable
+     (N : Node_Id) return Node_Id;    -- Node3
 
    function Used_Operations
      (N : Node_Id) return Elist_Id;   -- Elist5
@@ -10490,6 +10501,9 @@ package Sinfo is
 
    procedure Set_Visible_Declarations
      (N : Node_Id; Val : List_Id);            -- List2
+
+   procedure Set_Uninitialized_Variable
+     (N : Node_Id; Val : Node_Id);            -- Node3
 
    procedure Set_Used_Operations
      (N : Node_Id; Val : Elist_Id);           -- Elist5
@@ -12577,6 +12591,7 @@ package Sinfo is
    pragma Inline (TSS_Elist);
    pragma Inline (Type_Definition);
    pragma Inline (Unit);
+   pragma Inline (Uninitialized_Variable);
    pragma Inline (Unknown_Discriminants_Present);
    pragma Inline (Unreferenced_In_Spec);
    pragma Inline (Variant_Part);
@@ -12904,6 +12919,7 @@ package Sinfo is
    pragma Inline (Set_Triggering_Statement);
    pragma Inline (Set_Type_Definition);
    pragma Inline (Set_Unit);
+   pragma Inline (Set_Uninitialized_Variable);
    pragma Inline (Set_Unknown_Discriminants_Present);
    pragma Inline (Set_Unreferenced_In_Spec);
    pragma Inline (Set_Used_Operations);
