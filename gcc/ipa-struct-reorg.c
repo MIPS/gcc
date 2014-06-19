@@ -35,6 +35,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-alias.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
+#include "lto-streamer.h"
+#include "data-streamer.h"
+#include "tree-streamer.h"
 
 /* Structure types that appear in symtab_node: 
 
@@ -708,11 +711,80 @@ propagate (void)
   return 0;
 }
 
+/* Read section in file FILE_DATA of length LEN with data DATA.  */
+
+static void
+struct_reorg_read_section (struct lto_file_decl_data *file_data, const char *data,
+		       size_t len)
+{
+  const struct lto_function_header *header =
+    (const struct lto_function_header *) data;
+  const int cfg_offset = sizeof (struct lto_function_header);
+  const int main_offset = cfg_offset + header->cfg_size;
+  const int string_offset = main_offset + header->main_size;
+  struct data_in *data_in;
+  struct lto_input_block ib_main;
+  unsigned int i;
+  unsigned int count;
+  lto_symtab_encoder_t encoder;
+
+  LTO_INIT_INPUT_BLOCK (ib_main, (const char *) data + main_offset, 0,
+			header->main_size);
+
+  data_in =
+    lto_data_in_create (file_data, (const char *) data + string_offset,
+			header->string_size, vNULL);
+  count = streamer_read_uhwi (&ib_main);
+  encoder = file_data->symtab_node_encoder;
+
+  for (i = 0; i < count; i++)
+    {
+      tree struct_decl;
+      unsigned int n_symbols;
+      unsigned int index;
+      struct symtab_node *symbol;
+      int j;
+
+      struct_decl = stream_read_tree (&ib_main, data_in);
+      j = is_in_struct_symbols_vec (struct_decl);
+      if (j == -1)	
+	j = add_struct_to_struct_symbols_vec (struct_decl);
+      n_symbols = streamer_read_uhwi (&ib_main);
+
+      while (n_symbols)
+	{	      
+	  index = streamer_read_uhwi (&ib_main);
+	  symbol = lto_symtab_encoder_deref (encoder, index);
+	  add_symbol_to_struct_symbols_vec (j, symbol);
+	  n_symbols--;
+	}
+    }
+
+  lto_free_section_data (file_data, LTO_section_ipa_struct_reorg, NULL, data,
+			 len);
+  lto_data_in_delete (data_in);
+} 
+
 /* Deserialize the ipa info for lto.  */
 
 static void
 struct_reorg_read_summary (void)
 {
+  struct lto_file_decl_data **file_data_vec = lto_get_file_decl_data ();
+  struct lto_file_decl_data *file_data;
+  unsigned int j = 0; 
+
+  while ((file_data = file_data_vec[j++]))
+    {
+      size_t len;
+      const char *data = lto_get_section_data (file_data, LTO_section_ipa_struct_reorg, NULL, &len);
+
+      if (data) {
+        struct_reorg_read_section (file_data, data, len);
+      }
+    }
+
+  print_struct_symbol_vec ();  
 }
 
 /* Serialize the ipa info for lto.  */
@@ -720,7 +792,68 @@ struct_reorg_read_summary (void)
 static void
 struct_reorg_write_summary (void)
 {
-}
+  struct output_block *ob = create_output_block (LTO_section_ipa_struct_reorg);
+  lto_symtab_encoder_t encoder;
+  unsigned int i, j;
+  symtab_node *sbl;
+  struct_symbols symbols;
+
+
+  if (!struct_symbols_vec.exists () || struct_symbols_vec.is_empty ())
+    {
+      destroy_output_block (ob);
+      return;
+    } 
+
+  encoder = ob->decl_state->symtab_node_encoder;
+  ob->cgraph_node = NULL;
+  streamer_write_uhwi (ob, struct_symbols_vec.length ());
+
+  if (dump_file)
+    {
+      fprintf (dump_file, "\n\nStruct-reorg write summary starts...");
+      fprintf (dump_file, "\nNumber of structure types is %d\n", struct_symbols_vec.length ());
+    }
+
+  FOR_EACH_VEC_ELT (struct_symbols_vec, i, symbols)
+    {
+      gcc_assert (struct_symbols_vec[i]->struct_decl);
+      stream_write_tree (ob, struct_symbols_vec[i]->struct_decl, true);
+
+      if (dump_file)
+	  print_generic_expr (dump_file, struct_symbols_vec[i]->struct_decl, 0);
+      
+      if (!symbols->symbols.exists () || struct_symbols_vec.is_empty ())
+	{
+	  streamer_write_zero (ob);
+	  if (dump_file)
+	    fprintf (dump_file, "\nNo symbols found...");
+	}
+      else
+	{
+	  streamer_write_uhwi (ob, symbols->symbols.length ());
+	  if (dump_file)
+	      fprintf (dump_file, "\nNumber of symbols for this type is %d\n", symbols->symbols.length ());
+	  FOR_EACH_VEC_ELT (symbols->symbols, j, sbl)
+	    {
+	      unsigned int node_ref = lto_symtab_encoder_encode (encoder, sbl);
+	      streamer_write_uhwi (ob, node_ref);
+	      if (dump_file)
+		{
+		  fprintf (dump_file, "\nnode_ref for symbol ");
+		  fprintf (dump_file, "%s  ", sbl->name ());
+		  fprintf (dump_file, "is %d", node_ref);
+		}
+
+	    }
+	}
+    }
+
+  streamer_write_char_stream (ob->main_stream, 0);
+  produce_asm (ob, NULL);
+  destroy_output_block (ob);
+  
+} 
 
 /* Analyze each function in the cgraph. */
 

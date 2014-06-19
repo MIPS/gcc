@@ -248,6 +248,7 @@ enum lto_section_type
   LTO_section_ipa_pure_const,
   LTO_section_ipa_reference,
   LTO_section_ipa_profile,
+  LTO_section_ipa_struct_reorg, 
   LTO_section_symtab_nodes,
   LTO_section_opts,
   LTO_section_cgraph_opt_sum,

@@ -56,6 +56,7 @@ const char *lto_section_name[LTO_N_SECTION_TYPES] =
   "pureconst",
   "reference",
   "profile",
+  "struct_reorg",
   "symbol_nodes",
   "opts",
   "cgraphopt",
