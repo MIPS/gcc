@@ -2996,10 +2996,6 @@ while (0)
 #define HAVE_AS_NAN 0
 #endif
 
-#ifndef HAVE_AS_MODULE
-#define HAVE_AS_MODULE 0
-#endif
-
 #ifndef USED_FOR_TARGET
 /* Information about ".set noFOO; ...; .set FOO" blocks.  */
 struct mips_asm_switch {
