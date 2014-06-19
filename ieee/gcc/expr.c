@@ -264,11 +264,11 @@ init_expr_target (void)
   mem = gen_rtx_MEM (VOIDmode, gen_rtx_raw_REG (Pmode, 10000));
 
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT); mode != VOIDmode;
-       mode = GET_MODE_WIDER_MODE (mode))
+       mode = GET_MODE_WIDER_MODE_SPECIAL (mode))
     {
       enum machine_mode srcmode;
       for (srcmode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT); srcmode != mode;
-	   srcmode = GET_MODE_WIDER_MODE (srcmode))
+	   srcmode = GET_MODE_WIDER_MODE_SPECIAL (srcmode))
 	{
 	  enum insn_code ic;
 
@@ -3645,7 +3645,7 @@ compress_float_constant (rtx x, rtx y)
     oldcost = set_src_cost (force_const_mem (dstmode, y), speed);
 
   for (srcmode = GET_CLASS_NARROWEST_MODE (GET_MODE_CLASS (orig_srcmode));
-       srcmode != orig_srcmode;
+       srcmode != orig_srcmode && srcmode != VOIDmode;
        srcmode = GET_MODE_WIDER_MODE (srcmode))
     {
       enum insn_code ic;

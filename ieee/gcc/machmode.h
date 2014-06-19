@@ -249,6 +249,12 @@ extern const unsigned char mode_nunits[NUM_MACHINE_MODES];
 extern const unsigned char mode_wider[NUM_MACHINE_MODES];
 #define GET_MODE_WIDER_MODE(MODE) ((enum machine_mode) mode_wider[MODE])
 
+/* Special modes are not listed in the normal widening tables, but they are
+   listed in the widening tables used for initialization, etc.  */
+extern const unsigned char mode_wider_special[NUM_MACHINE_MODES];
+#define GET_MODE_WIDER_MODE_SPECIAL(MODE) \
+  ((enum machine_mode) mode_wider_special[MODE])
+
 /* For scalars, this is a mode with twice the precision.  For vectors,
    this is a mode with the same inner mode but with twice the elements.  */
 extern const unsigned char mode_2xwider[NUM_MACHINE_MODES];

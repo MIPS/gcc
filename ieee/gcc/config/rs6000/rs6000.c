@@ -1622,6 +1622,9 @@ static const struct attribute_spec rs6000_attribute_table[] =
 
 #undef TARGET_CAN_USE_DOLOOP_P
 #define TARGET_CAN_USE_DOLOOP_P can_use_doloop_if_innermost
+
+#undef TARGET_C_MODE_FOR_SUFFIX
+#define TARGET_C_MODE_FOR_SUFFIX rs6000_c_mode_for_suffix
 
 
 /* Processor table.  */
@@ -17686,13 +17689,7 @@ rs6000_output_move_128bit (rtx operands[])
 	return output_vec_const_move (operands);
     }
 
-  if (TARGET_DEBUG_ADDR)
-    {
-      fprintf (stderr, "\n===== Bad 128 bit move:\n");
-      debug_rtx (gen_rtx_SET (VOIDmode, dest, src));
-    }
-
-  gcc_unreachable ();
+  fatal_insn ("Bad 128-bit move", gen_rtx_SET (VOIDmode, dest, src));
 }
 
 /* Validate a 128-bit move.  */
@@ -31408,6 +31405,8 @@ rs6000_scalar_mode_supported_p (enum machine_mode mode)
 {
   if (DECIMAL_FLOAT_MODE_P (mode))
     return default_decimal_float_supported_p ();
+  else if (mode == KFmode)
+    return TARGET_FLOAT128;
   else
     return default_scalar_mode_supported_p (mode);
 }
@@ -31428,6 +31427,16 @@ rs6000_vector_mode_supported_p (enum machine_mode mode)
 
   else
     return false;
+}
+
+/* Target hook for c_mode_for_suffix.  */
+static enum machine_mode
+rs6000_c_mode_for_suffix (char suffix)
+{
+  if (TARGET_FLOAT128 && suffix == 'q')
+    return KFmode;
+
+  return VOIDmode;
 }
 
 /* Target hook for invalid_arg_for_unprototyped_fn. */

@@ -5278,7 +5278,8 @@ init_num_sign_bit_copies_in_rep (void)
 
   for (in_mode = GET_CLASS_NARROWEST_MODE (MODE_INT); in_mode != VOIDmode;
        in_mode = GET_MODE_WIDER_MODE (mode))
-    for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT); mode != in_mode;
+    for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT);
+	 mode != in_mode && mode != VOIDmode;
 	 mode = GET_MODE_WIDER_MODE (mode))
       {
 	enum machine_mode i;

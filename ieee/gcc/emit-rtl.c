@@ -5786,7 +5786,7 @@ init_derived_machine_modes (void)
 
   for (enum machine_mode mode = GET_CLASS_NARROWEST_MODE (MODE_INT);
        mode != VOIDmode;
-       mode = GET_MODE_WIDER_MODE (mode))
+       mode = GET_MODE_WIDER_MODE_SPECIAL (mode))
     {
       if (GET_MODE_BITSIZE (mode) == BITS_PER_UNIT
 	  && byte_mode == VOIDmode)
@@ -5868,13 +5868,13 @@ init_emit_once (void)
 
       for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT);
 	   mode != VOIDmode;
-	   mode = GET_MODE_WIDER_MODE (mode))
+	   mode = GET_MODE_WIDER_MODE_SPECIAL (mode))
 	const_tiny_rtx[i][(int) mode] =
 	  CONST_DOUBLE_FROM_REAL_VALUE (*r, mode);
 
       for (mode = GET_CLASS_NARROWEST_MODE (MODE_DECIMAL_FLOAT);
 	   mode != VOIDmode;
-	   mode = GET_MODE_WIDER_MODE (mode))
+	   mode = GET_MODE_WIDER_MODE_SPECIAL (mode))
 	const_tiny_rtx[i][(int) mode] =
 	  CONST_DOUBLE_FROM_REAL_VALUE (*r, mode);
 
@@ -5882,7 +5882,7 @@ init_emit_once (void)
 
       for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT);
 	   mode != VOIDmode;
-	   mode = GET_MODE_WIDER_MODE (mode))
+	   mode = GET_MODE_WIDER_MODE_SPECIAL (mode))
 	const_tiny_rtx[i][(int) mode] = GEN_INT (i);
 
       for (mode = MIN_MODE_PARTIAL_INT;
@@ -5895,7 +5895,7 @@ init_emit_once (void)
 
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT);
        mode != VOIDmode;
-       mode = GET_MODE_WIDER_MODE (mode))
+       mode = GET_MODE_WIDER_MODE_SPECIAL (mode))
     const_tiny_rtx[3][(int) mode] = constm1_rtx;
 
   for (mode = MIN_MODE_PARTIAL_INT;
@@ -5905,7 +5905,7 @@ init_emit_once (void)
       
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_COMPLEX_INT);
        mode != VOIDmode;
-       mode = GET_MODE_WIDER_MODE (mode))
+       mode = GET_MODE_WIDER_MODE_SPECIAL (mode))
     {
       rtx inner = const_tiny_rtx[0][(int)GET_MODE_INNER (mode)];
       const_tiny_rtx[0][(int) mode] = gen_rtx_CONCAT (mode, inner, inner);
@@ -5913,7 +5913,7 @@ init_emit_once (void)
 
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_COMPLEX_FLOAT);
        mode != VOIDmode;
-       mode = GET_MODE_WIDER_MODE (mode))
+       mode = GET_MODE_WIDER_MODE_SPECIAL (mode))
     {
       rtx inner = const_tiny_rtx[0][(int)GET_MODE_INNER (mode)];
       const_tiny_rtx[0][(int) mode] = gen_rtx_CONCAT (mode, inner, inner);
@@ -5921,7 +5921,7 @@ init_emit_once (void)
 
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_VECTOR_INT);
        mode != VOIDmode;
-       mode = GET_MODE_WIDER_MODE (mode))
+       mode = GET_MODE_WIDER_MODE_SPECIAL (mode))
     {
       const_tiny_rtx[0][(int) mode] = gen_const_vector (mode, 0);
       const_tiny_rtx[1][(int) mode] = gen_const_vector (mode, 1);
@@ -5930,7 +5930,7 @@ init_emit_once (void)
 
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_VECTOR_FLOAT);
        mode != VOIDmode;
-       mode = GET_MODE_WIDER_MODE (mode))
+       mode = GET_MODE_WIDER_MODE_SPECIAL (mode))
     {
       const_tiny_rtx[0][(int) mode] = gen_const_vector (mode, 0);
       const_tiny_rtx[1][(int) mode] = gen_const_vector (mode, 1);
@@ -5938,7 +5938,7 @@ init_emit_once (void)
 
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_FRACT);
        mode != VOIDmode;
-       mode = GET_MODE_WIDER_MODE (mode))
+       mode = GET_MODE_WIDER_MODE_SPECIAL (mode))
     {
       FCONST0 (mode).data.high = 0;
       FCONST0 (mode).data.low = 0;
@@ -5949,7 +5949,7 @@ init_emit_once (void)
 
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_UFRACT);
        mode != VOIDmode;
-       mode = GET_MODE_WIDER_MODE (mode))
+       mode = GET_MODE_WIDER_MODE_SPECIAL (mode))
     {
       FCONST0 (mode).data.high = 0;
       FCONST0 (mode).data.low = 0;
@@ -5960,7 +5960,7 @@ init_emit_once (void)
 
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_ACCUM);
        mode != VOIDmode;
-       mode = GET_MODE_WIDER_MODE (mode))
+       mode = GET_MODE_WIDER_MODE_SPECIAL (mode))
     {
       FCONST0 (mode).data.high = 0;
       FCONST0 (mode).data.low = 0;
@@ -5982,7 +5982,7 @@ init_emit_once (void)
 
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_UACCUM);
        mode != VOIDmode;
-       mode = GET_MODE_WIDER_MODE (mode))
+       mode = GET_MODE_WIDER_MODE_SPECIAL (mode))
     {
       FCONST0 (mode).data.high = 0;
       FCONST0 (mode).data.low = 0;
@@ -6004,21 +6004,21 @@ init_emit_once (void)
 
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_VECTOR_FRACT);
        mode != VOIDmode;
-       mode = GET_MODE_WIDER_MODE (mode))
+       mode = GET_MODE_WIDER_MODE_SPECIAL (mode))
     {
       const_tiny_rtx[0][(int) mode] = gen_const_vector (mode, 0);
     }
 
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_VECTOR_UFRACT);
        mode != VOIDmode;
-       mode = GET_MODE_WIDER_MODE (mode))
+       mode = GET_MODE_WIDER_MODE_SPECIAL (mode))
     {
       const_tiny_rtx[0][(int) mode] = gen_const_vector (mode, 0);
     }
 
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_VECTOR_ACCUM);
        mode != VOIDmode;
-       mode = GET_MODE_WIDER_MODE (mode))
+       mode = GET_MODE_WIDER_MODE_SPECIAL (mode))
     {
       const_tiny_rtx[0][(int) mode] = gen_const_vector (mode, 0);
       const_tiny_rtx[1][(int) mode] = gen_const_vector (mode, 1);
@@ -6026,7 +6026,7 @@ init_emit_once (void)
 
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_VECTOR_UACCUM);
        mode != VOIDmode;
-       mode = GET_MODE_WIDER_MODE (mode))
+       mode = GET_MODE_WIDER_MODE_SPECIAL (mode))
     {
       const_tiny_rtx[0][(int) mode] = gen_const_vector (mode, 0);
       const_tiny_rtx[1][(int) mode] = gen_const_vector (mode, 1);

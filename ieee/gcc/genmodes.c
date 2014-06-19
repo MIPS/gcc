@@ -74,9 +74,8 @@ struct mode_data
   unsigned int fbit;		/* the number of fractional bits */
   bool need_bytesize_adj;	/* true if this mode need dynamic size
 				   adjustment */
-  bool special;			/* true if this mode is special and need to
-				   sort higher when calculating the widening
-				   tables.  */
+  bool special;			/* true if this mode is special and should be
+				   skipped with the normal widening rules.  */
 };
 
 static struct mode_data *modes[MAX_MODE_CLASS];
@@ -590,8 +589,8 @@ make_fixed_point_mode (enum mode_class cl,
 #define FRACTIONAL_FLOAT_MODE(N, B, Y, F)		\
   FLOAT_MODE_INTERNAL (N, B, Y, F, false)
 
-#define SPECIAL_FLOAT_MODE(N, Y, F)			\
-  FLOAT_MODE_INTERNAL (N, -1U, Y, F, true)
+#define SPECIAL_FLOAT_MODE(N, B, Y, F)			\
+  FLOAT_MODE_INTERNAL (N, B, Y, F, true)
 
 #define FLOAT_MODE_INTERNAL(N, B, Y, F, SPECIAL)	\
   make_float_mode (#N, B, Y, #F, SPECIAL, __FILE__, __LINE__)
@@ -764,10 +763,7 @@ create_modes (void)
    they have the same bytesize; this is the right thing because
    the precision must always be smaller than the bytesize * BITS_PER_UNIT.
    We don't have to do anything special to get this done -- an unset
-   precision shows up as (unsigned int)-1, i.e. UINT_MAX.
-
-   If the type was declared SPECIAL, sort this field to the end of the types of
-   the same size.  */
+   precision shows up as (unsigned int)-1, i.e. UINT_MAX.  */
 static int
 cmp_modes (const void *a, const void *b)
 {
@@ -778,23 +774,6 @@ cmp_modes (const void *a, const void *b)
     return 1;
   else if (m->bytesize < n->bytesize)
     return -1;
-
-  if (m->special || n->special)
-    {
-      if (m->special && n->special)
-	{
-	  if (m->counter < n->counter)
-	    return -1;
-	  else
-	    return 1;
-	}
-
-      if (m->special)
-	return 1;
-
-      else
-	return -1;
-    }
 
   if (m->precision > n->precision)
     return 1;
@@ -1228,12 +1207,45 @@ emit_mode_wider (void)
   int c;
   struct mode_data *m;
 
-  print_decl ("unsigned char", "mode_wider", "NUM_MACHINE_MODES");
+  /* Special modes are not listed in the normal widening tables, but they are
+     listed in the widening tables used for initialization, etc.  */
+  print_decl ("unsigned char", "mode_wider_special", "NUM_MACHINE_MODES");
 
   for_all_modes (c, m)
     tagged_printf ("%smode",
 		   m->wider ? m->wider->name : void_mode->name,
 		   m->name);
+
+  print_closer ();
+  print_decl ("unsigned char", "mode_wider", "NUM_MACHINE_MODES");
+
+  for_all_modes (c, m)
+    {
+      const char *name;
+
+      if (!m->wider)
+	name = void_mode->name;
+      else if (!m->wider->special || m->special)
+	name = m->wider->name;
+      else
+	{
+	  struct mode_data * m2;
+
+	  name = void_mode->name;
+	  for (m2 = m->wider->wider;
+	       m2 && m2 != void_mode;
+	       m2 = m2->wider)
+	    {
+	      if (!m2->special)
+		{
+		  name = m2->name;
+		  break;
+		}
+	    }
+	}
+
+      tagged_printf ("%smode", name, m->name);
+    }
 
   print_closer ();
   print_decl ("unsigned char", "mode_2xwider", "NUM_MACHINE_MODES");
@@ -1242,49 +1254,46 @@ emit_mode_wider (void)
     {
       struct mode_data * m2;
 
-      if (m->special)
-	m2 = 0;
-      else
+      for (m2 = m;
+	   m2 && m2 != void_mode;
+	   m2 = m2->wider)
 	{
-	  for (m2 = m;
-	       m2 && m2 != void_mode;
-	       m2 = m2->wider)
+	  if (m2->special && !m->special)
+	    continue;
+	  if (m2->bytesize < 2 * m->bytesize)
+	    continue;
+	  if (m->precision != (unsigned int) -1)
 	    {
-	      if (m2->special)
+	      if (m2->precision != 2 * m->precision)
 		continue;
-	      if (m2->bytesize < 2 * m->bytesize)
-		continue;
-	      if (m->precision != (unsigned int) -1)
-		{
-		  if (m2->precision != 2 * m->precision)
-		    continue;
-		}
-	      else
-		{
-		  if (m2->precision != (unsigned int) -1)
-		    continue;
-		}
-
-	      /* For vectors we want twice the number of components,
-		 with the same element type.  */
-	      if (m->cl == MODE_VECTOR_INT
-		  || m->cl == MODE_VECTOR_FLOAT
-		  || m->cl == MODE_VECTOR_FRACT
-		  || m->cl == MODE_VECTOR_UFRACT
-		  || m->cl == MODE_VECTOR_ACCUM
-		  || m->cl == MODE_VECTOR_UACCUM)
-		{
-		  if (m2->ncomponents != 2 * m->ncomponents)
-		    continue;
-		  if (m->component != m2->component)
-		    continue;
-		}
-
-	      break;
 	    }
-	  if (m2 == void_mode)
-	    m2 = 0;
+	  else
+	    {
+	      if (m2->precision != (unsigned int) -1)
+		continue;
+	    }
+
+	  /* For vectors we want twice the number of components,
+	     with the same element type.  */
+	  if (m->cl == MODE_VECTOR_INT
+	      || m->cl == MODE_VECTOR_FLOAT
+	      || m->cl == MODE_VECTOR_FRACT
+	      || m->cl == MODE_VECTOR_UFRACT
+	      || m->cl == MODE_VECTOR_ACCUM
+	      || m->cl == MODE_VECTOR_UACCUM)
+	    {
+	      if (m2->ncomponents != 2 * m->ncomponents)
+		continue;
+	      if (m->component != m2->component)
+		continue;
+	    }
+
+	  break;
 	}
+
+      if (m2 == void_mode)
+	m2 = 0;
+
       tagged_printf ("%smode",
 		     m2 ? m2->name : void_mode->name,
 		     m->name);
