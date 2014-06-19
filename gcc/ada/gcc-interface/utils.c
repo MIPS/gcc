@@ -1301,7 +1301,7 @@ built:
 tree
 set_reverse_storage_order_on_pad_type (tree type)
 {
-  tree canonical_pad_type;
+  tree field, canonical_pad_type;
 
 #ifdef ENABLE_CHECKING
   /* If the inner type is not scalar then the function does nothing.  */
@@ -1312,7 +1312,10 @@ set_reverse_storage_order_on_pad_type (tree type)
   /* This is required for the canonicalization.  */
   gcc_assert (TREE_CONSTANT (TYPE_SIZE (type)));
 
+  field = copy_node (TYPE_FIELDS (type));
   type = copy_type (type);
+  DECL_CONTEXT (field) = type;
+  TYPE_FIELDS (type) = field;
   TYPE_REVERSE_STORAGE_ORDER (type) = 1;
   canonical_pad_type = lookup_and_insert_pad_type (type);
   return canonical_pad_type ? canonical_pad_type : type;
