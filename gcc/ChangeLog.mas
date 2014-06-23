@@ -1,3 +1,7 @@
+2014-06-23  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	* match.pd: Mark commutative operators.
+
 2014-06-23  Richard Biener  <rguenther@suse.de>
 
 	* genmatch.c (operand::gen_gimple_match): Remove.

@@ -138,7 +138,7 @@ along with GCC; see the file COPYING3.  If not see
   (minus (plus @0 @1) @1)
   @0)
 (match_and_simplify
-  (plus (minus @0 @1) @1)
+  (plus:c (minus @0 @1) @1)
   @0)
 /* (CST +- A) +- CST -> CST' +- A.  */
 /* match_and_simplify handles constant folding for us so we can
@@ -285,7 +285,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* x & ~x -> 0 */
 (match_and_simplify
-  (bit_and @0 (bit_not @0))
+  (bit_and:c @0 (bit_not @0))
   if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
   { build_int_cst (type, 0); })
 
@@ -303,7 +303,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* x & (~x | y) -> y & x */
 (match_and_simplify
-  (bit_and @0 (bit_ior (bit_not @0) @1))
+  (bit_and:c @0 (bit_ior:c (bit_not @0) @1))
   if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
   (bit_and @1 @0))
 
@@ -320,25 +320,25 @@ along with GCC; see the file COPYING3.  If not see
 
 /* (x | y) & x -> x */
 (match_and_simplify
-  (bit_and (bit_ior @0 @1) @0)
+  (bit_and:c (bit_ior @0 @1) @0)
   if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
   @0)
 
 /* (x & y) | x -> x */
 (match_and_simplify
-  (bit_ior (bit_and @0 @1) @0)
+  (bit_ior:c (bit_and @0 @1) @0)
   if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
   @0)
 
 /* (~x | y) & x -> x & y */
 (match_and_simplify
-  (bit_and (bit_ior (bit_not @0) @1) @0)
+  (bit_and:c (bit_ior:c (bit_not @0) @1) @0)
   if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
   (bit_and @0 @1))
 
 /* (~x & y) | x -> x | y */
 (match_and_simplify
-  (bit_ior (bit_and (bit_not @0) @1) @0)
+  (bit_ior:c (bit_and:c (bit_not @0) @1) @0)
   if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
   (bit_ior @0 @1))
 
@@ -350,7 +350,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* ((a & b) & ~a) -> 0 */
 (match_and_simplify
-  (bit_and (bit_and @0 @1) (bit_not @0))
+  (bit_and:c (bit_and @0 @1) (bit_not @0))
   if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
   { build_int_cst (type, 0); })
 
