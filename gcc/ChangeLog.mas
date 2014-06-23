@@ -1,3 +1,16 @@
+2014-06-23  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	* genmatch.c (print_operand): Add additional default argument bool
+	flattened = false
+	(cmp_operand): New function to compare operands.
+	(dt_node): New struct.
+	(dt_operand): New struct.
+	(dt_simplify): New struct.
+	(decision_tree): New struct.
+	(write_fn_prototype): New function to write
+	gimple_match_and_simplify prototype.
+	* gimple-match-head.c (do_valueize): New function.
+
 2014-06-23  Richard Biener  <rguenther@suse.de>
 	Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 

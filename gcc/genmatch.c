@@ -30,7 +30,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-table.h"
 #include "vec.h"
 
-
 /* libccp helpers.  */
 
 static struct line_maps *line_table;
@@ -312,16 +311,16 @@ struct simplify {
 };
 
 void
-print_operand (operand *o, FILE *f = stderr)
+print_operand (operand *o, FILE *f = stderr, bool flattened = false)
 {
   if (o->type == operand::OP_CAPTURE)
     {
       capture *c = static_cast<capture *> (o);
       fprintf (f, "@%s", (static_cast<capture *> (o))->where);
-      if (c->what)
+      if (c->what && flattened == false) 
 	{
 	  putc (':', f);
-	  print_operand (c->what, f);
+	  print_operand (c->what, f, flattened);
 	  putc (' ', f);
 	}
     }
@@ -335,14 +334,17 @@ print_operand (operand *o, FILE *f = stderr)
   else if (o->type == operand::OP_EXPR)
     {
       expr *e = static_cast<expr *> (o);
-      fprintf (f, "(%s ", e->operation->op->id);
+      fprintf (f, "(%s", e->operation->op->id);
 
-      for (unsigned i = 0; i < e->ops.length (); ++i)
+      if (flattened == false)
 	{
-	  print_operand (e->ops[i], f);
 	  putc (' ', f);
+	  for (unsigned i = 0; i < e->ops.length (); ++i)
+	    {
+	      print_operand (e->ops[i], f, flattened);
+	      putc (' ', f);
+	    }
 	}
-
       putc (')', f);
     }
 
@@ -702,6 +704,620 @@ capture::gen_gimple_match (FILE *f, const char *op, const char *label)
 }
 
 
+
+bool
+cmp_operand (operand *o1, operand *o2)
+{
+  if (!o1 || !o2 || o1->type != o2->type)
+    return false;
+
+  if (o1->type == operand::OP_PREDICATE)
+    {
+      predicate *p1 = static_cast<predicate *>(o1);
+      predicate *p2 = static_cast<predicate *>(o2);
+      return strcmp (p1->ident, p2->ident) == 0;
+    }
+  else if (o1->type == operand::OP_EXPR)
+    {
+      expr *e1 = static_cast<expr *>(o1);
+      expr *e2 = static_cast<expr *>(o2);
+      return strcmp (e1->operation->op->id, e2->operation->op->id) == 0;
+    }
+  else
+    return false;
+}
+
+struct dt_node
+{
+  enum dt_type { DT_NODE, DT_OPERAND, DT_TRUE, DT_MATCH, DT_SIMPLIFY };
+
+  enum dt_type type;
+  unsigned level;
+  vec<dt_node *> kids;
+
+  dt_node (enum dt_type type_): type (type_), level (0), kids (vNULL) {} 
+  
+  dt_node *append_node (dt_node *); 
+  dt_node *append_op (operand *, dt_node *parent = 0, unsigned pos = 0); 
+  dt_node *append_true_op (dt_node *parent = 0, unsigned pos = 0);
+  dt_node *append_match_op (unsigned, dt_node *parent = 0, unsigned pos = 0);
+  dt_node *append_simplify (simplify *, unsigned, unsigned *); 
+
+  virtual void gen_gimple (FILE *) {}
+};
+
+struct dt_operand: public dt_node
+{
+  operand *op;
+  unsigned m_level; // for match
+  dt_operand *parent;
+  unsigned pos;
+  vec<unsigned> temps;
+  static unsigned temp_count;
+ 
+  dt_operand (enum dt_type type, operand *op_, unsigned m_level_, dt_operand *parent_ = 0, unsigned pos_ = 0)
+	: dt_node (type), op (op_), m_level (m_level_), parent (parent_), pos (pos_), temps (vNULL) {}
+
+  virtual void gen_gimple (FILE *);
+  unsigned gen_gimple_predicate (FILE *, const char *);
+  unsigned gen_gimple_match_op (FILE *, const char *);
+
+  unsigned gen_gimple_expr (FILE *, const char *);
+  void gen_gimple_expr_expr (FILE *, expr *);
+  void gen_gimple_expr_fn (FILE *, expr *);
+
+  unsigned gen_generic_expr (FILE *, const char *);
+  void gen_generic_expr_expr (FILE *, expr *, const char *);
+  void gen_generic_expr_fn (FILE *, expr *, const char *);
+};
+
+unsigned dt_operand::temp_count = 0;
+
+struct dt_simplify: public dt_node
+{
+  static const unsigned level_max = UINT_MAX;
+  static const unsigned capture_max = 4;
+  simplify *s; 
+  unsigned pattern_no;
+  unsigned indexes[capture_max]; 
+  
+  dt_simplify (simplify *s_, unsigned pattern_no_, unsigned *indexes_)
+	: dt_node (DT_SIMPLIFY), s (s_), pattern_no (pattern_no_)
+  {
+    for (unsigned i = 0; i < capture_max; ++i)
+      indexes[i] = indexes_[i];
+  }
+
+  virtual void gen_gimple (FILE *f);
+};
+
+struct decision_tree
+{
+  dt_node *root;
+  
+  void insert (struct simplify *, unsigned);
+  void gen_gimple (FILE *f = stderr);
+  void print (FILE *f = stderr);
+
+  decision_tree () { root = new dt_node (dt_node::DT_NODE); }
+
+  static dt_node *insert_operand (dt_node *, operand *, unsigned *indexes, unsigned pos = 0, dt_node *parent = 0);
+  static dt_node *find_node (vec<dt_node *>&, dt_node *);
+  static bool cmp_node (dt_node *, dt_node *);
+  static void print_node (dt_node *, FILE *f = stderr, unsigned = 0);
+};
+
+bool
+decision_tree::cmp_node (dt_node *n1, dt_node *n2)
+{
+  if (!n1 || !n2 || n1->type != n2->type)
+    return false;
+
+  if (n1 == n2 || n1->type == dt_node::DT_TRUE)
+    return true;
+
+  if (n1->type == dt_node::DT_OPERAND)
+    return cmp_operand ((static_cast<dt_operand *> (n1))->op, (static_cast<dt_operand *> (n2))->op);
+
+  else if (n1->type == dt_node::DT_MATCH)
+    return (static_cast<dt_operand *> (n1))->m_level == (static_cast<dt_operand *> (n2))->m_level;
+
+  else
+    return false;
+}
+
+dt_node *
+decision_tree::find_node (vec<dt_node *>& ops, dt_node *p)
+{
+  for (unsigned i = 0; i < ops.length (); ++i)
+    if (decision_tree::cmp_node (ops[i], p))
+      return ops[i]; 
+  
+  return 0;
+}
+
+dt_node *
+dt_node::append_node (dt_node *n)
+{
+  dt_node *kid;
+
+  kid = decision_tree::find_node (kids, n);
+  if (kid)
+    return kid;
+
+  kids.safe_push (n);
+  n->level = this->level + 1;
+
+  unsigned len = kids.length ();
+
+  if (len > 1 && kids[len - 2]->type == dt_node::DT_TRUE)
+    {
+      dt_node *p = kids[len - 2];
+      kids[len - 2] = kids[len - 1];
+      kids[len - 1] = p;
+    }
+
+  return n;
+}
+
+dt_node *
+dt_node::append_op (operand *op, dt_node *parent, unsigned pos)
+{
+  dt_operand *parent_ = static_cast<dt_operand *> (parent);
+  dt_node *n = new dt_operand (DT_OPERAND, op, 0, parent_, pos);
+  dt_node *p = append_node (n);
+
+  if (p != n)
+    free (n);
+
+  return p; 
+}
+
+dt_node *
+dt_node::append_true_op (dt_node *parent, unsigned pos)
+{
+  dt_operand *parent_ = static_cast<dt_operand *> (parent);
+  dt_node *n = new dt_operand (DT_TRUE, 0, 0, parent_, pos);
+  dt_node *p = append_node (n);
+
+  if (p != n)
+    free (n);
+
+  return p;
+}
+
+dt_node *
+dt_node::append_match_op (unsigned m_level, dt_node *parent, unsigned pos)
+{
+  dt_operand *parent_ = static_cast<dt_operand *> (parent);
+  dt_node *n = new dt_operand (DT_MATCH, 0, m_level, parent_, pos);
+  dt_node *p = append_node (n);
+
+  if (p != n)
+    free (n);
+
+  return p;
+}
+
+dt_node *
+dt_node::append_simplify (simplify *s, unsigned pattern_no, unsigned *indexes) 
+{
+  dt_node *n = new dt_simplify (s, pattern_no, indexes);
+  return append_node (n);
+}
+
+dt_node *
+decision_tree::insert_operand (dt_node *p, operand *o, unsigned *indexes, unsigned pos, dt_node *parent) 
+{
+  dt_node *q;
+
+  if (o->type == operand::OP_CAPTURE)
+    {
+      capture *c = static_cast<capture *> (o);
+      unsigned capt_index = atoi (c->where);
+
+      if (indexes[capt_index] == dt_simplify::level_max)
+	{
+	  indexes[capt_index] = p->level + 1;
+
+	  if (c->what)
+	    return insert_operand (p, c->what, indexes, pos, parent);
+	  else
+	    {
+	      p = p->append_true_op (parent, pos);
+	      return p;
+	    }
+	}
+      else
+	{
+	  p = p->append_match_op (indexes[capt_index], parent, pos);
+	  if (c->what)
+	    return insert_operand (p, c->what, indexes, 0, p);
+	  else
+	    return p;
+	}
+    }
+  p = p->append_op (o, parent, pos);
+  q = p;
+
+  if (o->type == operand::OP_EXPR)
+    {
+      expr *e = static_cast<expr *> (o);
+      for (unsigned i = 0; i < e->ops.length (); ++i)
+	q = decision_tree::insert_operand (q, e->ops[i], indexes, i, p);		
+    }
+
+  return q;
+}
+
+void
+decision_tree::insert (struct simplify *s, unsigned pattern_no)
+{
+  unsigned indexes[dt_simplify::capture_max];
+
+  for (unsigned i = 0; i < s->matchers.length (); ++i)
+    {
+      if (s->matchers[i]->type != operand::OP_EXPR)
+	continue;
+
+      for (unsigned j = 0; j < dt_simplify::capture_max; ++j)
+	indexes[j] = dt_simplify::level_max;
+
+      dt_node *p = decision_tree::insert_operand (root, s->matchers[i], indexes);
+      p->append_simplify (s, pattern_no, indexes);
+    }            
+}
+
+void
+decision_tree::print_node (dt_node *p, FILE *f, unsigned indent)
+{
+  if (p->type == dt_node::DT_NODE)
+    fprintf (f, "root");
+  else
+    {
+      fprintf (f, "|");
+      for (unsigned i = 0; i < indent; i++)
+	fprintf (f, "-");
+
+      if (p->type == dt_node::DT_OPERAND)
+	{
+	  dt_operand *dop = static_cast<dt_operand *>(p);
+	  print_operand (dop->op, f, true); 
+	} 
+      else if (p->type == dt_node::DT_TRUE)
+	fprintf (f, "true");
+      else if (p->type == dt_node::DT_MATCH)
+	fprintf (f, "match (%u)", ((static_cast<dt_operand *>(p))->m_level));
+      else if (p->type == dt_node::DT_SIMPLIFY)
+	{
+	  dt_simplify *s = static_cast<dt_simplify *> (p);
+	  fprintf (f, "simplify_%u { ", s->pattern_no); 
+	  for (unsigned i = 0; i < dt_simplify::capture_max; ++i)
+	    fprintf (f, "%u, ", s->indexes[i]);
+	  fprintf (f, " } "); 
+	}
+    }      
+
+  fprintf (stderr, " (%p), %u, %u\n", (void *) p, p->level, p->kids.length ());
+
+  for (unsigned i = 0; i < p->kids.length (); ++i)
+    decision_tree::print_node (p->kids[i], f, indent + 2);
+}
+
+
+void
+decision_tree::print (FILE *f)
+{
+  return decision_tree::print_node (root, f);
+}
+
+void
+write_fn_prototype (FILE *f, unsigned n)
+{
+  fprintf (f, "static bool\n"
+          "gimple_match_and_simplify (code_helper code, tree type");
+  for (unsigned i = 0; i < n; ++i)
+    fprintf (f, ", tree op%d", i);
+  fprintf (f, ", code_helper *res_code, tree *res_ops, gimple_seq *seq, tree (*valueize)(tree))\n");
+}
+
+unsigned
+dt_operand::gen_gimple_predicate (FILE *f, const char *opname)
+{
+  predicate *p = static_cast<predicate *> (op);
+
+  fprintf (f, "if (%s (%s))\n", p->ident, opname);
+  fprintf (f, "{\n");
+  return 1;
+}
+
+unsigned
+dt_operand::gen_gimple_match_op (FILE *f, const char *opname)
+{
+  fprintf (f, "if (%s == o%u)\n", opname, m_level);
+  fprintf (f, "{\n");
+  return 1;
+}
+
+void
+dt_operand::gen_gimple_expr_fn (FILE *f, expr *e)
+{
+  unsigned n_ops = e->ops.length ();
+
+  fn_id *op = static_cast <fn_id *> (e->operation->op);
+  fprintf (f, "if (gimple_call_builtin_p (def_stmt, %s))\n", op->id);
+  fprintf (f, "{\n");
+
+  for (unsigned i = 0; i < n_ops; ++i)
+    {
+      char child_opname[20];
+      sprintf (child_opname, "t%u", dt_operand::temp_count);
+      temps.safe_push (dt_operand::temp_count++);
+
+      fprintf (f, "tree %s = gimple_call_arg (def_stmt, %u);\n", child_opname, i);
+      fprintf (f, "if ((%s = do_valueize (valueize, %s)) != 0)\n", child_opname, child_opname);
+      fprintf (f, "{\n");
+    } 
+}
+
+void
+dt_operand::gen_gimple_expr_expr (FILE *f, expr *e)
+{
+  unsigned n_ops = e->ops.length (); 
+
+  operator_id *op_id = static_cast <operator_id *> (e->operation->op);
+  
+  if (op_id->code == NOP_EXPR || op_id->code == CONVERT_EXPR)
+    fprintf (f, "if (is_gimple_assign (def_stmt)\n"
+	        "    && CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (def_stmt)))");
+  else
+    fprintf (f, "if (is_gimple_assign (def_stmt) && gimple_assign_rhs_code (def_stmt) == %s)\n", op_id->id);
+
+  fprintf (f, "{\n");
+  
+  for (unsigned i = 0; i < n_ops; ++i)
+    {
+      char child_opname[20];
+      sprintf (child_opname, "t%u", dt_operand::temp_count);
+      temps.safe_push (dt_operand::temp_count++);
+
+      fprintf (f, "tree %s = gimple_assign_rhs%u (def_stmt);\n", child_opname, i + 1);
+      fprintf (f, "if ((%s = do_valueize (valueize, %s)) != 0)\n", child_opname, child_opname);
+      fprintf (f, "{\n");
+    }      
+} 
+
+unsigned
+dt_operand::gen_gimple_expr (FILE *f, const char *opname)
+{
+  unsigned i;
+  expr *e = static_cast<expr *> (op);
+
+  fprintf (f, "if (TREE_CODE (%s) == SSA_NAME)\n", opname);
+  fprintf (f, "{\n");
+  
+  fprintf (f, "gimple def_stmt = SSA_NAME_DEF_STMT (%s);\n", opname);
+  (e->operation->op->kind == id_base::CODE) ? gen_gimple_expr_expr (f, e) : gen_gimple_expr_fn (f, e);
+
+  return e->ops.length () + 2;
+}
+
+
+void
+dt_operand::gen_generic_expr_expr (FILE *f, expr *e, const char *opname)
+{
+  unsigned n_ops = e->ops.length ();
+
+  fprintf (f, "if (TREE_CODE (%s) == %s)\n", opname, e->operation->op->id);
+  fprintf (f, "{\n");
+
+  for (unsigned i = 0; i < n_ops; ++i)
+    {
+      char child_opname[20];
+      sprintf (child_opname, "t%u", dt_operand::temp_count);
+      temps.safe_push (dt_operand::temp_count++);
+
+      fprintf (f, "tree %s = TREE_OPERAND (%s, %u);\n", child_opname, opname, i);
+      fprintf (f, "if ((%s = do_valueize (valueize, %s)) != 0)\n", child_opname, child_opname);
+      fprintf (f, "{\n");
+    }
+}   
+
+void
+dt_operand::gen_generic_expr_fn (FILE *f, expr *e, const char *opname)
+{
+  unsigned n_ops = e->ops.length ();
+  fn_id *op = static_cast <fn_id *> (e->operation->op);
+
+  fprintf (f, "if (TREE_CODE (%s) == CALL_EXPR\n"
+               "    && TREE_CODE (CALL_EXPR_FN (%s)) == ADDR_EXPR\n"
+               "    && TREE_CODE (TREE_OPERAND (CALL_EXPR_FN (%s), 0)) == FUNCTION_DECL\n"
+               "    && DECL_BUILT_IN_CLASS (TREE_OPERAND (CALL_EXPR_FN (%s), 0)) == BUILT_IN_NORMAL\n"
+               "    && DECL_FUNCTION_CODE (TREE_OPERAND (CALL_EXPR_FN (%s), 0)) == %s)\n",
+               opname, opname, opname, opname, opname, op->id);
+  fprintf (f, "  {\n");
+
+  for (unsigned i = 0; i < n_ops; ++i)
+    {
+      char child_opname[20];
+      sprintf (child_opname, "t%u", dt_operand::temp_count);
+      temps.safe_push (dt_operand::temp_count++);
+
+      fprintf (f, "tree %s = CALL_EXPR_ARG (%s, %u);\n", child_opname, opname, i);
+      fprintf (f, "if ((%s = do_valueize (valueize, %s)) != 0)\n", child_opname, child_opname);
+      fprintf (f, "{\n");
+    }
+}
+
+unsigned
+dt_operand::gen_generic_expr (FILE *f, const char *opname)
+{
+  unsigned i;
+  expr *e = static_cast<expr *> (op);
+  (e->operation->op->kind == id_base::CODE) ? gen_generic_expr_expr (f, e, opname) : gen_generic_expr_fn (f, e, opname);
+  return e->ops.length () + 1;
+}
+
+void
+dt_operand::gen_gimple (FILE *f)
+{
+  char opname[20];
+  sprintf (opname, "o%u", level);
+  
+
+  fprintf (f, "{\n");
+
+  if (parent->parent == 0)
+    fprintf (f, "tree %s = op%u;\n", opname, pos);
+  else if (parent->type == dt_node::DT_MATCH)
+    fprintf (f, "tree %s = o%u;\n", opname, parent->level);
+  else if (parent->type == dt_node::DT_OPERAND && parent->op->type == operand::OP_EXPR) 
+    fprintf (f, "tree %s = t%u;\n", opname, parent->temps[pos]);
+  else
+    gcc_unreachable ();
+
+  unsigned n_braces = 0;
+ 
+  if (type == DT_OPERAND)
+    switch (op->type)
+      {
+	case operand::OP_PREDICATE:
+	  n_braces = gen_gimple_predicate (f, opname);
+	  break;
+
+	case operand::OP_EXPR:
+	{
+	  expr *e = static_cast<expr *> (op);
+  	  operator_id *op_id = static_cast <operator_id *> (e->operation->op);
+	  enum tree_code code = op_id->code;
+
+	  if (code == REALPART_EXPR || code == IMAGPART_EXPR || code == VIEW_CONVERT_EXPR || code == BIT_FIELD_REF)
+	    n_braces = gen_generic_expr (f, opname);
+
+	  // check for cond_expr, 0th operand -> generic
+	  else if (parent->type == dt_node::DT_OPERAND && parent->op->type == operand::OP_EXPR)
+	    {
+	      e = static_cast<expr *> (parent->op);
+	      op_id = static_cast <operator_id *> (e->operation->op);
+	      n_braces = (op_id->code == COND_EXPR && pos == 0) ? gen_generic_expr (f, opname) : gen_gimple_expr (f, opname);
+	    }
+	  else
+	    n_braces = gen_gimple_expr (f, opname);
+	}
+	  break;
+
+	default:
+	  gcc_unreachable ();
+      }
+  else if (type == DT_TRUE)
+    ;
+  else if (type == DT_MATCH)
+    n_braces = gen_gimple_match_op (f, opname);
+  else
+    gcc_unreachable ();
+
+  unsigned i;
+
+  for (i = 0; i < kids.length (); ++i)
+    kids[i]->gen_gimple (f);
+
+  for (i = 0; i < n_braces; ++i)
+    fprintf (f, "}\n");
+  
+  fprintf (f, "}\n");
+}
+
+void
+dt_simplify::gen_gimple (FILE *f)
+{
+  char *fail_label = 0;
+
+  fprintf (f, "/* simplify %u */\n", pattern_no);
+
+  fprintf (f, "{\n");
+  fprintf (f, "tree captures[4] = {};\n");
+
+  for (unsigned i = 0; i < dt_simplify::capture_max; ++i)
+    if (indexes[i] != dt_simplify::level_max) 
+      fprintf (f, "captures[%u] = o%u;\n", i, indexes[i]); 
+
+  if (s->ifexpr)
+	{
+	  output_line_directive (f, s->ifexpr_location);
+	  fprintf (f, "if (");
+	  s->ifexpr->gen_gimple_transform (f, fail_label, NULL);
+	  fprintf (f, ")\n");
+	  fprintf (f, "{\n");
+	}
+      output_line_directive (f, s->result_location);
+
+      if (s->result->type == operand::OP_EXPR)
+	{
+	  expr *e = static_cast <expr *> (s->result);
+	  fprintf (f, "*res_code = %s;\n", e->operation->op->id);
+	  for (unsigned j = 0; j < e->ops.length (); ++j)
+	    {
+	      char dest[32];
+	      snprintf (dest, 32, "  res_ops[%d]", j);
+	      e->ops[j]->gen_gimple_transform (f, fail_label, dest);
+	    }
+	  /* Re-fold the toplevel result.  It's basically an embedded
+	     gimple_build w/o actually building the stmt.  */
+	  fprintf (f, "gimple_resimplify%d (seq, res_code, type, "
+		   "res_ops, valueize);\n", e->ops.length ());
+	}
+      else if (s->result->type == operand::OP_CAPTURE
+	       || s->result->type == operand::OP_C_EXPR)
+	{
+	  s->result->gen_gimple_transform (f, fail_label,
+					   "res_ops[0]");
+	  fprintf (f, "*res_code = TREE_CODE (res_ops[0]);\n");
+	}
+      else
+	gcc_unreachable ();
+
+      fprintf (f, "return true;\n");
+      if (s->ifexpr)
+	fprintf (f, "}\n");
+
+  fprintf (f, "}\n");
+}
+
+
+
+void
+decision_tree::gen_gimple (FILE *f)
+{
+  write_fn_prototype (f, 1);
+  fprintf (f, "{ return gimple_match_and_simplify (code, type, op0, NULL_TREE, NULL_TREE, res_code, res_ops, seq, valueize); }\n\n");
+
+  write_fn_prototype (f, 2);
+  fprintf (f, "{ return gimple_match_and_simplify (code, type, op0, op1, NULL_TREE, res_code, res_ops, seq, valueize); }\n\n");
+
+  write_fn_prototype (f, 3);
+  fprintf (f, "{\n");
+
+  for (unsigned i = 0; i < root->kids.length (); i++)
+    {
+      dt_operand *dop = static_cast<dt_operand *>(root->kids[i]);
+      expr *e = static_cast<expr *>(dop->op);
+
+      if (i)
+        fprintf (f, "else ");
+      fprintf (f, "if (code == %s)\n", e->operation->op->id);
+      fprintf (f, "{\n");
+
+      for (unsigned j = 0; j < dop->kids.length (); ++j)
+	dop->kids[j]->gen_gimple (f);
+
+      fprintf (f, "}\n");
+    }
+
+  fprintf (f, "return false;\n");
+  fprintf (f, "}\n");
+}
+
+
 static void
 write_nary_simplifiers (FILE *f, vec<simplify *>& simplifiers, unsigned n)
 {
@@ -861,9 +1477,11 @@ write_gimple (FILE *f, vec<simplify *>& simplifiers)
   for (unsigned i = 0; i < simplifiers.length (); ++i)
     outline_c_exprs (stdout, simplifiers[i]->result);
 
+#if 0
   write_nary_simplifiers (f, simplifiers, 1);
   write_nary_simplifiers (f, simplifiers, 2);
   write_nary_simplifiers (f, simplifiers, 3);
+#endif
 }
 
 
@@ -1219,7 +1837,14 @@ main(int argc, char **argv)
   for (unsigned i = 0; i < simplifiers.length (); ++i)
     print_matches (simplifiers[i]);
 
+  decision_tree dt;
+  for (unsigned i = 0; i < simplifiers.length (); ++i)
+    dt.insert (simplifiers[i], i);
+
+  dt.print (stderr);
+ 
   write_gimple (stdout, simplifiers);
+  dt.gen_gimple (stdout);
 
   cpp_finish (r, NULL);
   cpp_destroy (r);

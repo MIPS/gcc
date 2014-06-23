@@ -706,3 +706,10 @@ gimple_match_and_simplify (gimple_stmt_iterator *gsi, tree (*valueize)(tree))
   return true;
 }
 
+static tree 
+do_valueize (tree (*valueize)(tree), tree op)
+{
+  if (valueize && TREE_CODE (op) == SSA_NAME)
+    return valueize (op);
+  return op;
+}
