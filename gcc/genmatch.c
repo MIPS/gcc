@@ -204,7 +204,6 @@ struct operand {
   enum op_type { OP_PREDICATE, OP_EXPR, OP_CAPTURE, OP_C_EXPR };
   operand (enum op_type type_) : type (type_) {}
   enum op_type type;
-  virtual void gen_gimple_match (FILE *f, const char *, const char * = NULL) = 0;
   virtual void gen_gimple_transform (FILE *f, const char *, const char *) = 0;
 };
 
@@ -212,7 +211,6 @@ struct predicate : public operand
 {
   predicate (const char *ident_) : operand (OP_PREDICATE), ident (ident_) {}
   const char *ident;
-  virtual void gen_gimple_match (FILE *f, const char *, const char *);
   virtual void gen_gimple_transform (FILE *, const char *, const char *) { gcc_unreachable (); }
 };
 
@@ -230,7 +228,6 @@ struct expr : public operand
   void append_op (operand *op) { ops.safe_push (op); }
   e_operation *operation;
   vec<operand *> ops;
-  virtual void gen_gimple_match (FILE *f, const char *, const char *);
   virtual void gen_gimple_transform (FILE *f, const char *, const char *);
 };
 
@@ -243,7 +240,6 @@ struct c_expr : public operand
   vec<cpp_token> code;
   unsigned nr_stmts;
   char *fname;
-  virtual void gen_gimple_match (FILE *, const char *, const char *) { gcc_unreachable (); }
   virtual void gen_gimple_transform (FILE *f, const char *, const char *);
 };
 
@@ -253,7 +249,6 @@ struct capture : public operand
       : operand (OP_CAPTURE), where (where_), what (what_) {}
   const char *where;
   operand *what;
-  virtual void gen_gimple_match (FILE *f, const char *, const char *);
   virtual void gen_gimple_transform (FILE *f, const char *, const char *);
 };
 
@@ -467,145 +462,6 @@ gen_gimple_match_fail (FILE *f, const char *label)
 }
 
 void
-predicate::gen_gimple_match (FILE *f, const char *op, const char *label)
-{
-  fprintf (f, "if (!%s (%s)) ", ident, op);
-  gen_gimple_match_fail (f, label);
-}
-
-void
-expr::gen_gimple_match (FILE *f, const char *name, const char *label)
-{
-  if (operation->op->kind == id_base::CODE)
-    {
-      operator_id *op = static_cast <operator_id *> (operation->op);
-      /* The GIMPLE variant.  */
-      fprintf (f, "if (TREE_CODE (%s) == SSA_NAME)\n", name);
-      fprintf (f, "  {\n");
-      fprintf (f, "gimple def_stmt = SSA_NAME_DEF_STMT (%s);\n", name);
-      fprintf (f, "if (!is_gimple_assign (def_stmt)\n");
-      if (op->code == NOP_EXPR
-	  || op->code == CONVERT_EXPR)
-	fprintf (f, "    || !CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (def_stmt))) ");
-      else
-	fprintf (f, "    || gimple_assign_rhs_code (def_stmt) != %s) ",  op->id);
-      gen_gimple_match_fail (f, label);
-      if (op->code == REALPART_EXPR
-	  || op->code == IMAGPART_EXPR
-	  || op->code == VIEW_CONVERT_EXPR
-	  || op->code == BIT_FIELD_REF)
-	{
-	  fprintf (f, "    tree rhs = gimple_assign_rhs1 (def_stmt);\n");
-	  for (unsigned i = 0; i < ops.length (); ++i)
-	    {
-	      fprintf (f, "   {\n");
-	      fprintf (f, "     tree op = TREE_OPERAND (rhs, %d);\n", i);
-	      fprintf (f, "     if (valueize && TREE_CODE (op) == SSA_NAME)\n");
-	      fprintf (f, "       {\n");
-	      fprintf (f, "         op = valueize (op);\n");
-	      fprintf (f, "         if (!op) ");
-	      gen_gimple_match_fail (f, label);
-	      fprintf (f, "       }\n");
-	      ops[i]->gen_gimple_match (f, "op", label);
-	      fprintf (f, "   }\n");
-	    }
-	}
-      else
-	{
-	  for (unsigned i = 0; i < ops.length (); ++i)
-	    {
-	      fprintf (f, "   {\n");
-	      fprintf (f, "     tree op = gimple_assign_rhs%d (def_stmt);\n", i + 1);
-	      fprintf (f, "     if (valueize && TREE_CODE (op) == SSA_NAME)\n");
-	      fprintf (f, "       {\n");
-	      fprintf (f, "         op = valueize (op);\n");
-	      fprintf (f, "         if (!op) ");
-	      gen_gimple_match_fail (f, label);
-	      fprintf (f, "       }\n");
-	      ops[i]->gen_gimple_match (f, "op", label);
-	      fprintf (f, "   }\n");
-	    }
-	}
-      fprintf (f, "  }\n");
-      /* The GENERIC variant.  */
-      fprintf (f, "else if (TREE_CODE (%s) == %s)\n", name, op->id);
-      fprintf (f, "  {\n");
-      for (unsigned i = 0; i < ops.length (); ++i)
-	{
-	  fprintf (f, "   {\n");
-	  fprintf (f, "     tree op_ = %s;\n", name);
-	  fprintf (f, "     tree op = TREE_OPERAND (op_, %d);\n", i);
-	  fprintf (f, "     if (valueize && TREE_CODE (op) == SSA_NAME)\n");
-	  fprintf (f, "       {\n");
-	  fprintf (f, "         op = valueize (op);\n");
-	  fprintf (f, "         if (!op) ");
-	  gen_gimple_match_fail (f, label);
-	  fprintf (f, "       }\n");
-	  ops[i]->gen_gimple_match (f, "op", label);
-	  fprintf (f, "   }\n");
-	}
-      fprintf (f, "  }\n");
-      fprintf (f, "else ");
-      gen_gimple_match_fail (f, label);
-    }
-  else if (operation->op->kind == id_base::FN)
-    {
-      fn_id *op = static_cast <fn_id *> (operation->op);
-      /* The GIMPLE variant.  */
-      fprintf (f, "if (TREE_CODE (%s) == SSA_NAME)\n", name);
-      fprintf (f, "  {\n");
-      fprintf (f, "gimple def_stmt = SSA_NAME_DEF_STMT (%s);\n", name);
-      fprintf (f, "if (!gimple_call_builtin_p (def_stmt, %s)) ", op->id);
-      gen_gimple_match_fail (f, label);
-      for (unsigned i = 0; i < ops.length (); ++i)
-	{
-	  fprintf (f, "   {\n");
-	  fprintf (f, "     tree op = gimple_call_arg (def_stmt, %d);\n", i);
-	  fprintf (f, "     if (valueize && TREE_CODE (op) == SSA_NAME)\n");
-	  fprintf (f, "       {\n");
-	  fprintf (f, "         op = valueize (op);\n");
-	  fprintf (f, "         if (!op) ");
-	  gen_gimple_match_fail (f, label);
-	  fprintf (f, "       }\n");
-	  ops[i]->gen_gimple_match (f, "op", label);
-	  fprintf (f, "   }\n");
-	}
-      fprintf (f, "  }\n");
-      /* GENERIC handling for calls.  */
-      fprintf (f, "else if (TREE_CODE (%s) == CALL_EXPR\n"
-	       "    && TREE_CODE (CALL_EXPR_FN (%s)) == ADDR_EXPR\n"
-	       "    && TREE_CODE (TREE_OPERAND (CALL_EXPR_FN (%s), 0)) == FUNCTION_DECL\n"
-	       "    && DECL_BUILT_IN_CLASS (TREE_OPERAND (CALL_EXPR_FN (%s), 0)) == BUILT_IN_NORMAL\n"
-	       "    && DECL_FUNCTION_CODE (TREE_OPERAND (CALL_EXPR_FN (%s), 0)) == %s)\n",
-	       name, name, name, name, name, op->id);
-      fprintf (f, "  {\n");
-      for (unsigned i = 0; i < ops.length (); ++i)
-	{
-	  fprintf (f, "   {\n");
-	  fprintf (f, "     tree op = CALL_EXPR_ARG (%s, %d);\n", name, i);
-	  fprintf (f, "     if (valueize && TREE_CODE (op) == SSA_NAME)\n");
-	  fprintf (f, "       {\n");
-	  fprintf (f, "         op = valueize (op);\n");
-	  fprintf (f, "         if (!op) ");
-	  gen_gimple_match_fail (f, label);
-	  fprintf (f, "       }\n");
-	  ops[i]->gen_gimple_match (f, "op", label);
-	  fprintf (f, "   }\n");
-	}
-      fprintf (f, "  }\n");
-      fprintf (f, "else ");
-      gen_gimple_match_fail (f, label);
-    }
-  /* ???  Specifically COND_EXPR could also match on CFG diamonds.
-     (cond@3 @0 @1 @2) is
-     if (@0) goto bb2;
-     bb3:
-     bb2:
-     @3 = PHI <@1(2), @2(3)>
-   */
-}
-
-void
 expr::gen_gimple_transform (FILE *f, const char *label, const char *dest)
 {
   fprintf (f, "{\n");
@@ -689,18 +545,6 @@ void
 capture::gen_gimple_transform (FILE *f, const char *, const char *dest)
 {
   fprintf (f, "%s = captures[%s];\n", dest, this->where);
-}
-
-void
-capture::gen_gimple_match (FILE *f, const char *op, const char *label)
-{
-  if (this->what)
-    this->what->gen_gimple_match (f, op, label);
-  fprintf (f, "if (!captures[%s])\n"
-	   "  captures[%s] = %s;\n"
-	   "else if (captures[%s] != %s)\n  ",
-	   this->where, this->where, op, this->where, op);
-  gen_gimple_match_fail (f, label);
 }
 
 
@@ -1090,7 +934,6 @@ dt_operand::gen_gimple_expr_expr (FILE *f, expr *e)
 unsigned
 dt_operand::gen_gimple_expr (FILE *f, const char *opname)
 {
-  unsigned i;
   expr *e = static_cast<expr *> (op);
 
   fprintf (f, "if (TREE_CODE (%s) == SSA_NAME)\n", opname);
@@ -1152,7 +995,6 @@ dt_operand::gen_generic_expr_fn (FILE *f, expr *e, const char *opname)
 unsigned
 dt_operand::gen_generic_expr (FILE *f, const char *opname)
 {
-  unsigned i;
   expr *e = static_cast<expr *> (op);
   (e->operation->op->kind == id_base::CODE) ? gen_generic_expr_expr (f, e, opname) : gen_generic_expr_fn (f, e, opname);
   return e->ops.length () + 1;
@@ -1319,83 +1161,6 @@ decision_tree::gen_gimple (FILE *f)
 
 
 static void
-write_nary_simplifiers (FILE *f, vec<simplify *>& simplifiers, unsigned n)
-{
-  unsigned label_cnt = 1;
-
-  fprintf (f, "\nstatic bool\n"
-	   "gimple_match_and_simplify (code_helper code, tree type");
-  for (unsigned i = 0; i < n; ++i)
-    fprintf (f, ", tree op%d", i);
-  fprintf (f, ", code_helper *res_code, tree *res_ops, gimple_seq *seq, tree (*valueize)(tree))\n"
-	   "{\n");
-  for (unsigned i = 0; i < simplifiers.length (); ++i)
-    {
-      simplify *s = simplifiers[i];
-      /* ???  This means we can't capture the outermost expression.  */
-      for (unsigned i = 0; i < s->matchers.length (); ++i)
-	{
-	  operand *match = s->matchers[i];
-	  if (match->type != operand::OP_EXPR)
-	continue;
-	  expr *e = static_cast <expr *> (match);
-      if (e->ops.length () != n)
-	continue;
-
-      char fail_label[16];
-      snprintf (fail_label, 16, "fail%d", label_cnt++);
-      output_line_directive (f, s->match_location);
-      fprintf (f, "  if (code == %s)\n", e->operation->op->id);
-      fprintf (f, "    {\n");
-      fprintf (f, "      tree captures[4] = {};\n");
-      for (unsigned j = 0; j < n; ++j)
-	{
-	  char op[4] = "op0";
-	  op[2] = '0' + j;
-	  e->ops[j]->gen_gimple_match (f, op, fail_label);
-	}
-      if (s->ifexpr)
-	{
-	  output_line_directive (f, s->ifexpr_location);
-	  fprintf (f, "  if (!(");
-	  s->ifexpr->gen_gimple_transform (f, fail_label, NULL);
-	  fprintf (f, ")) goto %s;\n", fail_label);
-	}
-      output_line_directive (f, s->result_location);
-      if (s->result->type == operand::OP_EXPR)
-	{
-	  e = static_cast <expr *> (s->result);
-	  fprintf (f, "   *res_code = %s;\n", e->operation->op->id);
-	  for (unsigned j = 0; j < e->ops.length (); ++j)
-	    {
-	      char dest[32];
-	      snprintf (dest, 32, "  res_ops[%d]", j);
-	      e->ops[j]->gen_gimple_transform (f, fail_label, dest);
-	    }
-	  /* Re-fold the toplevel result.  It's basically an embedded
-	     gimple_build w/o actually building the stmt.  */
-	  fprintf (f, "   gimple_resimplify%d (seq, res_code, type, "
-		   "res_ops, valueize);\n", e->ops.length ());
-	}
-      else if (s->result->type == operand::OP_CAPTURE
-	       || s->result->type == operand::OP_C_EXPR)
-	{
-	  s->result->gen_gimple_transform (f, fail_label,
-					   "      res_ops[0]");
-	  fprintf (f, "      *res_code = TREE_CODE (res_ops[0]);\n");
-	}
-      else
-	gcc_unreachable ();
-      fprintf (f, "      return true;\n");
-      fprintf (f, "    }\n");
-      fprintf (f, "%s:\n", fail_label);
-    }
-    }
-  fprintf (f, "  return false;\n");
-  fprintf (f, "}\n");
-}
-
-static void
 outline_c_exprs (FILE *f, struct operand *op)
 {
   if (op->type == operand::OP_C_EXPR)
@@ -1476,12 +1241,6 @@ write_gimple (FILE *f, vec<simplify *>& simplifiers)
   /* Outline complex C expressions to helper functions.  */
   for (unsigned i = 0; i < simplifiers.length (); ++i)
     outline_c_exprs (stdout, simplifiers[i]->result);
-
-#if 0
-  write_nary_simplifiers (f, simplifiers, 1);
-  write_nary_simplifiers (f, simplifiers, 2);
-  write_nary_simplifiers (f, simplifiers, 3);
-#endif
 }
 
 
