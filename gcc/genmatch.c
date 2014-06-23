@@ -452,15 +452,6 @@ commutate (operand *op)
 
 /* Code gen off the AST.  */
 
-static void
-gen_gimple_match_fail (FILE *f, const char *label)
-{
-  if (!label)
-    fprintf (f, "return NULL_TREE;\n");
-  else
-    fprintf (f, "goto %s;\n", label);
-}
-
 void
 expr::gen_gimple_transform (FILE *f, const char *label, const char *dest)
 {
@@ -481,8 +472,7 @@ expr::gen_gimple_transform (FILE *f, const char *label, const char *dest)
   for (unsigned i = 0; i < ops.length (); ++i)
     fprintf (f, ", ops[%u]", i);
   fprintf (f, ", seq, valueize);\n");
-  fprintf (f, "      if (!res) ");
-  gen_gimple_match_fail (f, label);
+  fprintf (f, "      if (!res) return false;\n");
   fprintf (f, "    }\n");
   fprintf (f, "  else\n");
   fprintf (f, "    res = gimple_build (seq, UNKNOWN_LOCATION, %s, "
