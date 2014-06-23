@@ -435,7 +435,9 @@
   (cond [;; The O32 FPXX ABI prohibits direct moves between GR_REG and FR_REG
 	 ;; for 64-bit values.
 	 (and (eq_attr "move_type" "mtc,mfc")
-	      (match_test "TARGET_FLOATXX && !ISA_HAS_MXHC1")
+	      (match_test "(TARGET_FLOATXX && !ISA_HAS_MXHC1)
+			   || (mips_abi == ABI_32
+			       && TARGET_FLOAT64 && !TARGET_ODD_SPREG)")
 	      (eq_attr "dword_mode" "yes"))
 	 (const_string "no")
 

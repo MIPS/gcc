@@ -9044,6 +9044,11 @@ mips_file_start (void)
   else
     fputs ("\t.module\tfp=32\n", asm_out_file);
 
+  if (TARGET_ODD_SPREG)
+    fputs ("\t.module\toddspreg\n", asm_out_file);
+  else
+    fputs ("\t.module\tnooddspreg\n", asm_out_file);
+
 #else
 #ifdef HAVE_AS_GNU_ATTRIBUTE
   {
@@ -9065,9 +9070,12 @@ mips_file_start (void)
     /* 64-bit or 32-bit FP registers on a 32-bit target, -mfpxx.  */
     else if (TARGET_FLOATXX)
       attr = 5;
-    /* 64-bit FP registers on a 32-bit target, -mfp64 */
-    else if (mips_abi == ABI_32 && TARGET_FLOAT64)
+    /* 64-bit FP registers on a 32-bit target, -mfp64 -modd-spreg.  */
+    else if (mips_abi == ABI_32 && TARGET_FLOAT64 && TARGET_ODD_SPREG)
       attr = 6;
+    /* 64-bit FP registers on a 32-bit target, -mfp64 -mno-odd-spreg.  */
+    else if (mips_abi == ABI_32 && TARGET_FLOAT64)
+      attr = 7;
     /* Regular FP code, FP regs same size as GP regs, -mdouble-float.  */
     else
       attr = 1;
@@ -11842,6 +11850,12 @@ mips_hard_regno_mode_ok_p (unsigned int regno, enum machine_mode mode)
       && (((regno - FP_REG_FIRST) % MAX_FPRS_PER_FMT) == 0
 	  || (MIN_FPRS_PER_FMT == 1 && size <= UNITS_PER_FPREG)))
     {
+      /* Deny use of odd-numbered registers for 32-bit data for
+	 the O32 FP64A ABI.  */
+      if (mips_abi == ABI_32 && TARGET_FLOAT64 && !TARGET_ODD_SPREG
+	  && size <= 4 && (regno & 1) != 0)
+	return false;
+
       /* Allow 64-bit vector modes for Loongson-2E/2F.  */
       if (TARGET_LOONGSON_VECTORS
 	  && (mode == V2SImode
@@ -12208,6 +12222,25 @@ mips_memory_move_cost (enum machine_mode mode, reg_class_t rclass, bool in)
   return (mips_cost->memory_latency
 	  + memory_move_secondary_cost (mode, rclass, in));
 } 
+
+/* Implement SECONDARY_MEMORY_NEEDED.  */
+
+bool
+mips_secondary_memory_needed (enum reg_class class1, enum reg_class class2,
+			      enum machine_mode mode)
+{
+  /* Ignore spilled pseudos.  */
+  if (lra_in_progress && (class1 == NO_REGS || class2 == NO_REGS))
+    return false;
+
+  if (((class1 == FP_REGS) != (class2 == FP_REGS))
+      && ((TARGET_FLOATXX && !ISA_HAS_MXHC1)
+	  || (mips_abi == ABI_32 && TARGET_FLOAT64 && !TARGET_ODD_SPREG))
+      && GET_MODE_SIZE (mode) >= 8)
+    return true;
+
+  return false;
+}
 
 /* Return the register class required for a secondary register when
    copying between one of the registers in RCLASS and value X, which

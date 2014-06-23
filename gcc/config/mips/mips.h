@@ -523,7 +523,7 @@ struct mips_cpu_info {
       builtin_define_with_int_value ("_MIPS_FPSET",			\
 				     32 / MAX_FPRS_PER_FMT);		\
       builtin_define_with_int_value ("_MIPS_SPFPSET",			\
-				     32 / MIN_FPRS_PER_FMT);		\
+				     TARGET_ODD_SPREG ? 32 : 16);	\
 									\
       /* These defines reflect the ABI in use, not whether the  	\
 	 FPU is directly accessible.  */				\
@@ -790,7 +790,8 @@ struct mips_cpu_info {
    --with-float is ignored if -mhard-float or -msoft-float are
      specified.
    --with-nan is ignored if -mnan is specified.
-   --with-fp is ignored if -mfp or -msingle-float are specified.
+   --with-fp is ignored if -mfp is specified.
+   --with-odd-spreg is ignored if -modd-spreg or -mno-odd-spreg are specified.
    --with-divide is ignored if -mdivide-traps or -mdivide-breaks are
      specified. */
 #define OPTION_DEFAULT_SPECS \
@@ -805,6 +806,7 @@ struct mips_cpu_info {
   {"fpu", "%{!msingle-float:%{!mdouble-float:-m%(VALUE)-float}}" }, \
   {"nan", "%{!mnan=*:-mnan=%(VALUE)}" }, \
   {"fp_32", "%{" OPT_ARCH32 ":%{!mfp*:-mfp%(VALUE)}}" }, \
+  {"odd_spreg_32", "%{" OPT_ARCH32 ":%{!modd-spreg:%{!mno-odd-spreg:-m%(VALUE)}}}" }, \
   {"divide", "%{!mdivide-traps:%{!mdivide-breaks:-mdivide-%(VALUE)}}" }, \
   {"llsc", "%{!mllsc:%{!mno-llsc:-m%(VALUE)}}" }, \
   {"mips-plt", "%{!mplt:%{!mno-plt:-m%(VALUE)}}" }, \
@@ -2151,12 +2153,18 @@ enum reg_class
 /* When targetting the O32 FPXX ABI then all doubleword or greater moves
    to/from FP registers must be performed by FR-mode-aware instructions.
    This can be achieved using mfhc1/mthc1 when these instructions are
-   available but otherwise moves must go via memory.  */
+   available but otherwise moves must go via memory.
+   For the O32 FP64A ABI then all odd-numbered doubleword or greater
+   moves to/from FP registers must move via memory as it is not permitted
+   to access the lower-half of these registers with mtc1/mfc1 since that
+   constitutes a single-precision access (which is forbidden).  This is
+   implemented by requiring all double-word moves to move via memory
+   as this check is register class based and not register based.
+   Splitting the FP_REGS into even and odd classes would allow the
+   precise restriction to be represented but this would have a
+   significant affect on other areas of the backend.  */
 #define SECONDARY_MEMORY_NEEDED(CLASS1, CLASS2, MODE)			\
-  ((((CLASS1) == FP_REGS) != ((CLASS2) == FP_REGS))			\
-   && TARGET_FLOATXX							\
-   && !ISA_HAS_MXHC1							\
-   && GET_MODE_SIZE (MODE) >= 8)
+  mips_secondary_memory_needed ((CLASS1), (CLASS2), (MODE))
 
 /* Return the maximum number of consecutive registers
    needed to represent mode MODE in a register of class CLASS.  */

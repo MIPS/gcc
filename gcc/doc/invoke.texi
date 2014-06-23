@@ -17343,10 +17343,13 @@ Assume that the floating-point coprocessor supports double-precision
 operations.  This is the default.
 
 @item -modd-spreg
+@itemx -mno-odd-spreg
 @opindex modd-spreg
+@opindex mno-odd-spreg
 Enable the use of odd-numbered single-precision floating-point registers
-with @option{-mfp32}.  This is the default for specific processors
-that are known to support these registers.
+for the O32 ABI.  This is the default for specific processors that are
+known to support these registers.  The O32 FPXX extension sets
+@code{-mno-odd-spreg} by default when targetting generic architectures.
 
 @item -mabs=2008
 @itemx -mabs=legacy

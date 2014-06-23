@@ -279,6 +279,8 @@ extern void mips_expand_before_return (void);
 extern void mips_expand_epilogue (bool);
 extern bool mips_can_use_return_insn (void);
 
+extern bool mips_secondary_memory_needed (enum reg_class, enum reg_class,
+					  enum machine_mode);
 extern bool mips_cannot_change_mode_class (enum machine_mode,
 					   enum machine_mode, enum reg_class);
 extern bool mips_dangerous_for_la25_p (rtx);
