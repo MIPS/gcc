@@ -8440,9 +8440,13 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 	operands[1] = force_const_mem (mode, operands[1]);
       break;
 
+    case KFmode:
+      if (CONSTANT_P (operands[1]) && !easy_fp_constant (operands[1], mode))
+	operands[1] = force_const_mem (mode, operands[1]);
+      break;
+
     case TFmode:
     case TDmode:
-    case KFmode:
       if (FLOAT128_2REG_P (mode))
 	rs6000_eliminate_indexed_memrefs (operands);
       /* fall through */
@@ -15534,15 +15538,21 @@ init_float128_ieee (enum machine_mode mode)
       set_conv_libfunc (ufix_optab, SImode, mode, "__fixunskfsi");
       set_conv_libfunc (sfix_optab, DImode, mode, "__fixkfdi");
       set_conv_libfunc (ufix_optab, DImode, mode, "__fixunskfdi");
-      set_conv_libfunc (sfix_optab, TImode, mode, "__fixkfti");
-      set_conv_libfunc (ufix_optab, TImode, mode, "__fixunskfti");
+      if (TARGET_POWERPC64)
+	{
+	  set_conv_libfunc (sfix_optab, TImode, mode, "__fixkfti");
+	  set_conv_libfunc (ufix_optab, TImode, mode, "__fixunskfti");
+	}
 
       set_conv_libfunc (sfloat_optab, mode, SImode, "__floatsikf");
-      set_conv_libfunc (ufloat_optab, mode, SImode, "__floatunssikf");
+      set_conv_libfunc (ufloat_optab, mode, SImode, "__floatunsikf");
       set_conv_libfunc (sfloat_optab, mode, DImode, "__floatdikf");
-      set_conv_libfunc (ufloat_optab, mode, DImode, "__floatunsdikf");
-      set_conv_libfunc (sfloat_optab, mode, TImode, "__floattikf");
-      set_conv_libfunc (ufloat_optab, mode, TImode, "__floatunstikf");
+      set_conv_libfunc (ufloat_optab, mode, DImode, "__floatundikf");
+      if (TARGET_POWERPC64)
+	{
+	  set_conv_libfunc (sfloat_optab, mode, TImode, "__floattikf");
+	  set_conv_libfunc (ufloat_optab, mode, TImode, "__floatuntikf");
+	}
     }
   else
     {

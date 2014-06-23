@@ -1,3 +1,27 @@
+2014-06-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (VEC_M): Add KFmode to vector types.
+	(VEC_N): Likewise.
+	(mov<mode>): For KFmode constants, call easy_fp_constant instead
+	of easy_vector_constant.
+
+	* config/rs6000/predicates.md (easy_vector_constant): If KFmode,
+	call easy_fp_constant instead of other handling.
+
+	* config/rs6000/rs6000.c (rs6000_emit_move): Improve handling of
+	KFmode constant moves.
+	(init_float128_ieee): Use correct spelling of float unsigned
+	conversion functions.  Don't add TImode conversion functions on
+	32-bit.
+
+	* config/rs6000/rs6000.md (FMOVE128): Move KFmode moves to
+	vector.md.
+	(FMOVE128_VSX): New iterator for VSX scalar types.
+	(unpack<mode>): Add support for pack, unpack functions for KFmode.
+	(pack<mode>): Likewise.
+	(unpackv1ti): Delete, merge with KFmode unpack/pack.
+	(packv1ti): Likewise.
+
 2014-06-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* machmode.h (GET_MODE_WIDER_MODE_SPECIAL): New macro to get the

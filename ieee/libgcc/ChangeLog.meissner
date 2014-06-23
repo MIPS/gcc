@@ -1,3 +1,16 @@
+2014-06-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/sfp-machine.h (TI_BITS): Define on 64-bit
+	systems.
+
+	* config/rs6000/float128-vsx.h: Add proper copyright statement.
+
+	* config/rs6000/float128.c: New file to provide __float128
+	conversions to/from long double.
+
+	* config/rs6000/t-float128: Rework to add float128.c and build
+	TImode conversion functions on 64-bit.
+
 2014-06-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 211742.
