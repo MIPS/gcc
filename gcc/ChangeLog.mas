@@ -1,3 +1,21 @@
+2014-06-23  Richard Biener  <rguenther@suse.de>
+	Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	* match.pd: Remove commutated patterns in favor of :c annotations.
+	* genmatch.c (e_operation): Add is_commutative flag.
+	(e_operation::e_operation): Adjust.
+	(simplify): Make match a vector of matches.
+	(print_operand): New debug function.
+	(print_matches): Likewise.
+	(cartesian_product, commutate): New functions implementing
+	AST commutation.
+	(write_nary_simplifiers): Adjust to create code for all
+	commutations.
+	(parse_expr): Parse ':<flag>' with <flag> being c for
+	commutative.
+	(parse_match_and_simplify): Commutate the AST.
+	(main): Print commutated simplifiers.
+
 2014-06-17  Richard Biener  <rguenther@suse.de>
 
 	* gimple-fold.c (gimple_fold_stmt_to_constant_1): Dump

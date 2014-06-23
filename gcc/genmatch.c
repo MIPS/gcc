@@ -218,8 +218,9 @@ struct predicate : public operand
 };
 
 struct e_operation {
-  e_operation (const char *id);
+  e_operation (const char *id, bool is_commutative_ = false);
   id_base *op;
+  bool is_commutative;
 };
 
 
@@ -258,9 +259,11 @@ struct capture : public operand
 };
 
 
-e_operation::e_operation (const char *id)
+e_operation::e_operation (const char *id, bool is_commutative_)
 {
   id_base tem (id_base::CODE, id);
+  is_commutative = is_commutative_;
+
   op = operators.find_with_hash (&tem, tem.hashval);
   if (op)
     return;
@@ -293,14 +296,14 @@ e_operation::e_operation (const char *id)
 
 struct simplify {
   simplify (const char *name_,
-	    struct operand *match_, source_location match_location_,
+	    vec<operand *> matchers_, source_location match_location_,
 	    struct operand *ifexpr_, source_location ifexpr_location_,
 	    struct operand *result_, source_location result_location_)
-      : name (name_), match (match_), match_location (match_location_),
+      : name (name_), matchers (matchers_), match_location (match_location_),
       ifexpr (ifexpr_), ifexpr_location (ifexpr_location_),
       result (result_), result_location (result_location_) {}
   const char *name;
-  struct operand *match;
+  vec<operand *> matchers;  // vector to hold commutative expressions
   source_location match_location;
   struct operand *ifexpr;
   source_location ifexpr_location;
@@ -308,7 +311,147 @@ struct simplify {
   source_location result_location;
 };
 
+void
+print_operand (operand *o, FILE *f = stderr)
+{
+  if (o->type == operand::OP_CAPTURE)
+    {
+      capture *c = static_cast<capture *> (o);
+      fprintf (f, "@%s", (static_cast<capture *> (o))->where);
+      if (c->what)
+	{
+	  putc (':', f);
+	  print_operand (c->what, f);
+	  putc (' ', f);
+	}
+    }
 
+  else if (o->type == operand::OP_PREDICATE)
+    fprintf (f, "%s", (static_cast<predicate *> (o))->ident);
+
+  else if (o->type == operand::OP_C_EXPR)
+    fprintf (f, "c_expr");
+
+  else if (o->type == operand::OP_EXPR)
+    {
+      expr *e = static_cast<expr *> (o);
+      fprintf (f, "(%s ", e->operation->op->id);
+
+      for (unsigned i = 0; i < e->ops.length (); ++i)
+	{
+	  print_operand (e->ops[i], f);
+	  putc (' ', f);
+	}
+
+      putc (')', f);
+    }
+
+  else
+    gcc_unreachable ();
+}
+
+void
+print_matches (struct simplify *s, FILE *f = stderr)
+{
+  if (s->matchers.length () == 1)
+    return;
+
+  fprintf (f, "for expression: ");
+  print_operand (s->matchers[0], f);  // s->matchers[0] is equivalent to original expression
+  putc ('\n', f);
+
+  fprintf (f, "commutative expressions:\n");
+  for (unsigned i = 0; i < s->matchers.length (); ++i)
+    {
+      print_operand (s->matchers[i], f);
+      putc ('\n', f);
+    }
+}
+
+void
+cartesian_product (const vec< vec<operand *> >& ops_vector, vec< vec<operand *> >& result, vec<operand *>& v, unsigned n)
+{
+  if (n == ops_vector.length ())
+    {
+      vec<operand *> xv = v.copy (); 
+      result.safe_push (xv);
+      return;
+    }
+
+  for (unsigned i = 0; i < ops_vector[n].length (); ++i)
+    {
+      v[n] = ops_vector[n][i];
+      cartesian_product (ops_vector, result, v, n + 1);
+    }
+}
+ 
+void
+cartesian_product (const vec< vec<operand *> >& ops_vector, vec< vec<operand *> >& result, unsigned n_ops)
+{
+  vec<operand *> v = vNULL;
+  v.safe_grow_cleared (n_ops);
+  cartesian_product (ops_vector, result, v, 0);
+}
+
+vec<operand *>
+commutate (operand *op)
+{
+  vec<operand *> ret = vNULL;
+
+  if (op->type == operand::OP_CAPTURE)
+    {
+      capture *c = static_cast<capture *> (op);
+      if (!c->what)
+	{
+	  ret.safe_push (op);
+	  return ret;
+	}
+      vec<operand *> v = commutate (c->what);
+      for (unsigned i = 0; i < v.length (); ++i)
+	{
+	  capture *nc = new capture (c->where, v[i]);
+	  ret.safe_push (nc);
+	}
+      return ret;	
+    }
+
+  if (op->type != operand::OP_EXPR)
+    {
+      ret.safe_push (op);
+      return ret;
+    }
+
+  expr *e = static_cast<expr *> (op);
+
+  vec< vec<operand *> > ops_vector = vNULL;
+  for (unsigned i = 0; i < e->ops.length (); ++i)
+    ops_vector.safe_push (commutate (e->ops[i]));
+
+  vec< vec<operand *> > result = vNULL;
+  cartesian_product (ops_vector, result, e->ops.length ());
+
+  for (unsigned i = 0; i < result.length (); ++i)
+    {
+      expr *ne = new expr (e->operation);
+      for (unsigned j = 0; j < result[i].length (); ++j)
+	ne->append_op (result[i][j]);
+      ret.safe_push (ne);
+    }
+
+  if (!e->operation->is_commutative)
+    return ret;
+
+  for (unsigned i = 0; i < result.length (); ++i)
+    {
+      expr *ne = new expr (e->operation);
+      // result[i].length () is 2 since e->operation is binary
+      for (unsigned j = result[i].length (); j; --j)
+	ne->append_op (result[i][j-1]);
+      ret.safe_push (ne);
+    }
+
+  return ret;
+}
 
 /* Code gen off the AST.  */
 
@@ -574,11 +717,15 @@ write_nary_simplifiers (FILE *f, vec<simplify *>& simplifiers, unsigned n)
     {
       simplify *s = simplifiers[i];
       /* ???  This means we can't capture the outermost expression.  */
-      if (s->match->type != operand::OP_EXPR)
+      for (unsigned i = 0; i < s->matchers.length (); ++i)
+	{
+	  operand *match = s->matchers[i];
+	  if (match->type != operand::OP_EXPR)
 	continue;
-      expr *e = static_cast <expr *> (s->match);
+	  expr *e = static_cast <expr *> (match);
       if (e->ops.length () != n)
 	continue;
+
       char fail_label[16];
       snprintf (fail_label, 16, "fail%d", label_cnt++);
       output_line_directive (f, s->match_location);
@@ -626,6 +773,7 @@ write_nary_simplifiers (FILE *f, vec<simplify *>& simplifiers, unsigned n)
       fprintf (f, "      return true;\n");
       fprintf (f, "    }\n");
       fprintf (f, "%s:\n", fail_label);
+    }
     }
   fprintf (f, "  return false;\n");
   fprintf (f, "}\n");
@@ -827,12 +975,30 @@ parse_expr (cpp_reader *r)
   expr *e = new expr (parse_operation (r));
   const cpp_token *token = peek (r);
   operand *op;
+  bool is_commutative = false;
+
+  if (token->type == CPP_COLON
+      && !(token->flags & PREV_WHITE))
+    {
+      eat_token (r, CPP_COLON);
+      token = peek (r);
+      if (token->type == CPP_NAME
+	  && !(token->flags & PREV_WHITE))
+	{
+	  const char *s = get_ident (r);
+	  if (s[0] == 'c' && !s[1])
+	    is_commutative = true;
+	  else
+	    fatal_at (token, "predicates or flag %s not recognized", s);
+	  token = peek (r);
+	}
+      else
+	fatal_at (token, "expected flag or predicate");
+    }
+
   if (token->type == CPP_ATSIGN
       && !(token->flags & PREV_WHITE))
     op = parse_capture (r, e);
-  else if (token->type == CPP_COLON
-	   && !(token->flags & PREV_WHITE))
-    fatal_at (token, "not implemented: predicates on expressions");
   else
     op = e;
   do
@@ -846,6 +1012,13 @@ parse_expr (cpp_reader *r)
 	      if (e->ops.length () != opr->get_required_nargs ())
 		fatal_at (token, "got %d operands instead of the required %d",
 			  e->ops.length (), opr->get_required_nargs ());
+	    }
+	  if (is_commutative)
+	    {
+	      if (e->ops.length () == 2)
+		e->operation->is_commutative = true;
+	      else
+		fatal_at (token, "only binary operators or function with two arguments can be marked commutative");
 	    }
 	  return op;
 	}
@@ -971,7 +1144,7 @@ parse_match_and_simplify (cpp_reader *r, source_location match_location)
       ifexpr = parse_c_expr (r, CPP_OPEN_PAREN);
     }
   token = peek (r);
-  return new simplify (id, match, match_location,
+  return new simplify (id, commutate (match), match_location,
 		       ifexpr, ifexpr_location, parse_op (r), token->src_loc);
 }
 
@@ -1042,6 +1215,9 @@ main(int argc, char **argv)
       eat_token (r, CPP_CLOSE_PAREN);
     }
   while (1);
+
+  for (unsigned i = 0; i < simplifiers.length (); ++i)
+    print_matches (simplifiers[i]);
 
   write_gimple (stdout, simplifiers);
 
