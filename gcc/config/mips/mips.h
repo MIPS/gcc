@@ -838,15 +838,17 @@ struct mips_cpu_info {
 				 && TARGET_OCTEON			\
 				 && !TARGET_MIPS16)
 
+/* ISA has HI and LO registers.  */
+#define ISA_HAS_HILO		(mips_isa_rev <= 5)
+
+
 /* ISA supports instructions DMULT and DMULTU. */
 #define ISA_HAS_DMULT		(TARGET_64BIT				\
 				 && !TARGET_MIPS5900			\
-				 && mips_isa_rev <= 5)
+				 && ISA_HAS_HILO)
 
-/* ISA supports instructions MULT and MULTU.
-   This is always true, but the macro is needed for ISA_HAS_<D>MULT
-   in mips.md.  */
-#define ISA_HAS_MULT		(mips_isa_rev <= 5)
+/* ISA supports instructions MULT and MULTU.  */
+#define ISA_HAS_MULT		ISA_HAS_HILO
 
 #define ISA_HAS_R6MUL		(mips_isa_rev >= 6)
 #define ISA_HAS_R6DMUL		(TARGET_64BIT && mips_isa_rev >= 6)
@@ -968,11 +970,11 @@ struct mips_cpu_info {
 				      && (MODE) == V2SFmode))		\
 				 && !TARGET_MIPS16)
 
-#define ISA_HAS_LWL_LWR		(mips_isa_rev <= 5)
+#define ISA_HAS_LWL_LWR		(mips_isa_rev <= 5 && !TARGET_MIPS16)
 
-#define ISA_HAS_NANLEGACY	(mips_isa_rev <= 5)
+#define ISA_HAS_IEEE_754_LEGACY	(mips_isa_rev <= 5)
 
-#define ISA_HAS_NAN2008		(mips_isa_rev >= 2)
+#define ISA_HAS_IEEE_754_2008	(mips_isa_rev >= 2)
 
 /* ISA has count leading zeroes/ones instruction (not implemented).  */
 #define ISA_HAS_CLZ_CLO		(mips_isa_rev >= 1 && !TARGET_MIPS16)
@@ -1069,14 +1071,10 @@ struct mips_cpu_info {
 				 && TARGET_64BIT)
 
 /* The DSP ASE is available.  */
-#define ISA_HAS_DSP		(TARGET_DSP				\
-				 && mips_isa_rev <= 5			\
-				 && !TARGET_MIPS16)
+#define ISA_HAS_DSP		(TARGET_DSP && !TARGET_MIPS16)
 
 /* Revision 2 of the DSP ASE is available.  */
-#define ISA_HAS_DSPR2		(TARGET_DSPR2				\
-				 && mips_isa_rev <= 5			\
-				 && !TARGET_MIPS16)
+#define ISA_HAS_DSPR2		(TARGET_DSPR2 && !TARGET_MIPS16)
 
 /* True if the result of a load is not available to the next instruction.
    A nop will then be needed between instructions like "lw $4,..."
@@ -2121,7 +2119,7 @@ enum reg_class
 #define SMALL_INT_UNSIGNED(X) SMALL_OPERAND_UNSIGNED (INTVAL (X))
 #define LUI_INT(X) LUI_OPERAND (INTVAL (X))
 #define UMIPS_12BIT_OFFSET_P(OFFSET) (IN_RANGE (OFFSET, -2048, 2047))
-#define MIPSR6_9BIT_OFFSET_P(OFFSET) (IN_RANGE (OFFSET, -256, 255))
+#define MIPS_9BIT_OFFSET_P(OFFSET) (IN_RANGE (OFFSET, -256, 255))
 
 /* The HI and LO registers can only be reloaded via the general
    registers.  Condition code registers can only be loaded to the
