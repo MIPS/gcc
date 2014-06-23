@@ -1,3 +1,8 @@
+2014-06-23  Richard Biener  <rguenther@suse.de>
+
+	* match.pd (A - (A + B) -> - B): Fix and mark the inner
+	addition as commutative.
+
 2014-06-23  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 
 	* genmatch.c (gen_gimple_match_fail): Remove.
