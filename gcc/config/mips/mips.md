@@ -329,7 +329,6 @@
 ;; imadd	integer multiply-add
 ;; idiv		integer divide 2 operands
 ;; idiv3	integer divide 3 operands
-;; idiv3nc	integer divide 3 operands without clobbering HI/LO
 ;; move		integer register move ({,D}ADD{,U} with rt = 0)
 ;; fmove	floating point register move
 ;; fadd		floating point add/subtract
@@ -362,9 +361,9 @@
 (define_attr "type"
   "unknown,branch,jump,call,load,fpload,fpidxload,store,fpstore,fpidxstore,
    prefetch,prefetchx,condmove,mtc,mfc,mthi,mtlo,mfhi,mflo,const,arith,logical,
-   shift,slt,signext,clz,pop,trap,imul,imul3,imul3nc,imadd,idiv,idiv3,idiv3nc,
-   move,fmove,fadd,fmul,fmadd,fdiv,frdiv,frdiv1,frdiv2,fabs,fneg,fcmp,fcvt,
-   fsqrt,frsqrt,frsqrt1,frsqrt2,dspmac,dspmacsat,accext,accmod,dspalu,dspalusat,
+   shift,slt,signext,clz,pop,trap,imul,imul3,imul3nc,imadd,idiv,idiv3,move,
+   fmove,fadd,fmul,fmadd,fdiv,frdiv,frdiv1,frdiv2,fabs,fneg,fcmp,fcvt,fsqrt,
+   frsqrt,frsqrt1,frsqrt2,dspmac,dspmacsat,accext,accmod,dspalu,dspalusat,
    multi,atomic,syncloop,nop,ghost,multimem"
   (cond [(eq_attr "jal" "!unset") (const_string "call")
 	 (eq_attr "got" "load") (const_string "load")
@@ -1132,21 +1131,21 @@
   DONE;
 })
 
-(define_insn "*conditional_trapi<mode>"
+(define_insn "*conditional_trap_reg<mode>"
   [(trap_if (match_operator:GPR 0 "trap_comparison_operator"
-			[(match_operand:GPR 1 "reg_or_0_operand" "dJ")
-			 (match_operand:GPR 2 "const_arith_operand" "I")])
+				[(match_operand:GPR 1 "reg_or_0_operand" "dJ")
+				 (match_operand:GPR 2 "reg_or_0_operand" "dJ")])
 	    (const_int 0))]
-  "ISA_HAS_COND_TRAPI"
+  "ISA_HAS_COND_TRAP && !ISA_HAS_COND_TRAPI"
   "t%C0\t%z1,%2"
   [(set_attr "type" "trap")])
 
 (define_insn "*conditional_trap<mode>"
   [(trap_if (match_operator:GPR 0 "trap_comparison_operator"
 				[(match_operand:GPR 1 "reg_or_0_operand" "dJ")
-				 (match_operand:GPR 2 "register_operand" "d")])
+				 (match_operand:GPR 2 "arith_operand" "dI")])
 	    (const_int 0))]
-  "ISA_HAS_COND_TRAP"
+  "ISA_HAS_COND_TRAPI"
   "t%C0\t%z1,%2"
   [(set_attr "type" "trap")])
 
@@ -1519,8 +1518,8 @@
   rtx lo;
 
   if (TARGET_LOONGSON_2EF || TARGET_LOONGSON_3A || ISA_HAS_R6<D>MUL)
-    emit_insn (gen_mul<mode>3_mul3_r6 (operands[0], operands[1],
-                                       operands[2]));
+    emit_insn (gen_mul<mode>3_mul3_nohilo (operands[0], operands[1],
+					   operands[2]));
   else if (ISA_HAS_<D>MUL3)
     emit_insn (gen_mul<mode>3_mul3 (operands[0], operands[1], operands[2]));
   else if (TARGET_MIPS16)
@@ -1537,7 +1536,7 @@
   DONE;
 })
 
-(define_insn "mul<mode>3_mul3_r6"
+(define_insn "mul<mode>3_mul3_nohilo"
   [(set (match_operand:GPR 0 "register_operand" "=d")
         (mult:GPR (match_operand:GPR 1 "register_operand" "d")
                   (match_operand:GPR 2 "register_operand" "d")))]
@@ -1994,7 +1993,7 @@
   rtx low = mips_subword (dest, 0);
   rtx high = mips_subword (dest, 1);
 
-  emit_insn (gen_mulsi3_mul3_r6 (low, operands[1], operands[2]));
+  emit_insn (gen_mulsi3_mul3_nohilo (low, operands[1], operands[2]));
   emit_insn (gen_<su>mulsi3_highpart_r6 (high, operands[1], operands[2]));
 
   emit_move_insn (mips_subword (operands[0], 0), low);
@@ -4055,7 +4054,7 @@
 	(sign_extract:GPR (match_operand:BLK 1 "memory_operand")
 			  (match_operand 2 "const_int_operand")
 			  (match_operand 3 "const_int_operand")))]
-  "ISA_HAS_LWL_LWR && !TARGET_MIPS16"
+  "ISA_HAS_LWL_LWR"
 {
   if (mips_expand_ext_as_unaligned_load (operands[0], operands[1],
 					 INTVAL (operands[2]),
@@ -4092,7 +4091,7 @@
 	(zero_extract:GPR (match_operand:BLK 1 "memory_operand")
 			  (match_operand 2 "const_int_operand")
 			  (match_operand 3 "const_int_operand")))]
-  "ISA_HAS_LWL_LWR && !TARGET_MIPS16"
+  "ISA_HAS_LWL_LWR"
 {
   if (mips_expand_ext_as_unaligned_load (operands[0], operands[1],
 					 INTVAL (operands[2]),
@@ -4143,7 +4142,7 @@
 			  (match_operand 1 "const_int_operand")
 			  (match_operand 2 "const_int_operand"))
 	(match_operand:GPR 3 "reg_or_0_operand"))]
-  "ISA_HAS_LWL_LWR && !TARGET_MIPS16"
+  "ISA_HAS_LWL_LWR"
 {
   if (mips_expand_ins_as_unaligned_store (operands[0], operands[3],
 					  INTVAL (operands[1]),
@@ -7108,7 +7107,7 @@
 	 (match_operand:GPR 3 "reg_or_0_operand" "J,d")))]
   "ISA_HAS_SEL
    && (register_operand (operands[2], <GPR:MODE>mode)
-       ^ register_operand (operands[3], <GPR:MODE>mode))"
+       != register_operand (operands[3], <GPR:MODE>mode))"
   "@
    <sel>\t%0,%2,%1
    <selinv>\t%0,%3,%1"
@@ -7144,9 +7143,7 @@
 			  (match_operand:GPR 3 "reg_or_0_operand")))]
   "ISA_HAS_CONDMOVE || ISA_HAS_SEL"
 {
-  if (ISA_HAS_SEL
-      && (GET_MODE (XEXP (operands[1], 0)) != SImode)
-      && (GET_MODE (XEXP (operands[1], 0)) != DImode))
+  if (ISA_HAS_SEL && !INTEGRAL_MODE_P (GET_MODE (XEXP (operands[1], 0))))
     FAIL;
 
   mips_expand_conditional_move (operands);
@@ -7162,9 +7159,7 @@
   "ISA_HAS_FP_CONDMOVE
    || (ISA_HAS_SEL && ISA_HAS_CCF)"
 {
-  if (ISA_HAS_SEL
-      && GET_MODE (XEXP (operands[1], 0)) != SFmode
-      && GET_MODE (XEXP (operands[1], 0)) != DFmode)
+  if (ISA_HAS_SEL && !FLOAT_MODE_P (GET_MODE (XEXP (operands[1], 0))))
     FAIL;
 
   mips_expand_conditional_move (operands);

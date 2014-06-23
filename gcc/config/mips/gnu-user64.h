@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #undef DRIVER_SELF_SPECS
 #define DRIVER_SELF_SPECS \
+  MIPS_ISA_LEVEL_SPEC,    \
   BASE_DRIVER_SELF_SPECS, \
   LINUX64_DRIVER_SELF_SPECS
 
