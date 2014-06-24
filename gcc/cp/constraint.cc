@@ -181,8 +181,13 @@ resolve_constraint_check (tree call)
 {
   gcc_assert (TREE_CODE (call) == CALL_EXPR);
 
-  // A constraint check must be only be a template-id expression.
+  // A constraint check must be only a template-id expression. If
+  // it's a call to a base-link, its function(s) should be a
+  // template-id expressson. If this is not a template-id, then it
+  // cannot be a concept-check.
   tree target = CALL_EXPR_FN (call);
+  if (BASELINK_P (target))
+    target = BASELINK_FUNCTIONS (target);
   if (TREE_CODE (target) != TEMPLATE_ID_EXPR)
     return NULL_TREE;
 
@@ -850,19 +855,20 @@ build_call_check (tree id)
 }
 } // namespace
 
-// Construct a concept check for the overloaded function, where the
-// template arguments are the list given by ARG and REST. That is, it
-// build the call expression OVL<ARG, REST>(). If REST is null, then
-// the resulting constraint is OVL<ARG>().
+// Construct a concept check for the given TARGET. The target may be
+// an overload set or a baselink referring to an overload set. Template
+// arguments to the target are given by ARG and REST. If the target is
+// a function (overload set or baselink reffering to an overload set),
+// then ths builds the call expression  TARGET<ARG, REST>(). If REST is 
+// NULL_TREE, then the resulting check is just TARGET<ARG>().
 //
-// TODO: Extend this to take a variable concept also.
+// TODO: Allow TARGET to be a variable concept.
 tree
-build_concept_check (tree ovl, tree arg, tree rest) 
+build_concept_check (tree target, tree arg, tree rest) 
 {
-  gcc_assert (TREE_CODE (ovl) == OVERLOAD);
   gcc_assert (rest ? TREE_CODE (rest) == TREE_VEC : true);
 
-  // Build a template-id that acts as the call target using OVL as
+  // Build a template-id that acts as the call target using TARGET as
   // the template and ARG as the only explicit argument.
   int n = rest ? TREE_VEC_LENGTH (rest) : 0;
   tree targs = make_tree_vec (n + 1);
@@ -871,7 +877,7 @@ build_concept_check (tree ovl, tree arg, tree rest)
     for (int i = 0; i < n; ++i)
       TREE_VEC_ELT (targs, i + 1) = TREE_VEC_ELT (rest, i);
   SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT (targs, n + 1);
-  tree id = lookup_template_function (ovl, targs);
+  tree id = lookup_template_function (target, targs);
   return build_call_check (id);
 }
 

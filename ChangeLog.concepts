@@ -1,5 +1,18 @@
 2014-06-24  Andrew Sutton  <andrew.n.sutton@gmail.com>
-	* gcc/cp/error.C (dump_expr): Pretty print placeholder to improve
+	* gcc/cp/parser.c (cp_maybe_constrained_type_specifier): Defer
+	handling the BASELINK check until concept-resolution in order to
+	allow member conceps.
+	(cp_parser_nonclass_name): Also Check for concept-names when the
+	lookup finds a BASELINk.
+	* gcc/cp/constraint.cc: (resolve_constraint_check) If the call
+	target is a base-link, resolve against its overload set.
+	(build_concept_check): Update comments and variable names to
+	reflect actual processing.
+	* gcc/testuite/g++.dg/concepts/mem-concept.C: New test.
+	* gcc/testuite/g++.dg/concepts/mem-concept-err.C: New test.
+
+2014-06-24  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/cp/error.c (dump_expr): Pretty print placeholder to improve
 	debug output.
 
 2014-06-17  Braden Obrzut  <admin@maniacsvault.net>

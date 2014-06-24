@@ -15168,6 +15168,7 @@ cp_parser_allows_constrained_type_specifier (cp_parser *parser)
             || parser->in_result_type_constraint_p);
 }
 
+
 // Check if DECL and ARGS can form a constrained-type-specifier. If ARGS
 // is non-null, we try to form a concept check of the form DECL<?, ARGS>
 // where ? is a placeholder for any kind of template argument. If ARGS
@@ -15177,13 +15178,6 @@ cp_maybe_constrained_type_specifier (cp_parser *parser, tree decl, tree args)
 {
   gcc_assert (args ? TREE_CODE (args) == TREE_VEC : true);
 
-  // If we get a reference to a member function, allow the referenced
-  // functions to participate in this resolution: the baselink may refer
-  // to a static member concept.
-  if (BASELINK_P (decl))
-    decl = BASELINK_FUNCTIONS (decl);
-  gcc_assert (TREE_CODE (decl) == OVERLOAD);
-
   // Don't do any heavy lifting if we know we're not in a context
   // where it could succeed.
   if (!cp_parser_allows_constrained_type_specifier (parser))
@@ -15191,7 +15185,8 @@ cp_maybe_constrained_type_specifier (cp_parser *parser, tree decl, tree args)
 
   // Try to build a call expression that evaluates the concept. This
   // can fail if the overload set refers only to non-templates.
-  tree call = build_concept_check (decl, build_nt(PLACEHOLDER_EXPR), args);
+  tree placeholder = build_nt(PLACEHOLDER_EXPR);
+  tree call = build_concept_check (decl, placeholder, args);
   if (call == error_mark_node)
     return NULL_TREE;
   
@@ -15291,7 +15286,8 @@ cp_parser_nonclass_name (cp_parser* parser)
   //
   // TODO: The name could also refer to a variable template or an
   // introduction (if followed by '{').
-  if (flag_concepts && TREE_CODE (type_decl) == OVERLOAD)
+  if (flag_concepts && 
+        (TREE_CODE (type_decl) == OVERLOAD || BASELINK_P (type_decl)))
   {
     // Determine whether the overload refers to a concept.
     if (tree decl = cp_maybe_concept_name (parser, type_decl))
