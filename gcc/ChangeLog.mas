@@ -1,3 +1,31 @@
+2014-06-24  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	* genmatch.c (operand::gen_gimple_transform): Remove 2nd argument.
+	(predicate::gen_gimple_transform): Likewise.
+	(expr::gen_gimple_transform): Likewise.
+	(c_expr::gen_gimple_transform): Likewise.
+	(capture::gen_gimple_transform): Likewise.
+	(dt_simplify::indexes): Change type to array of dt_operand *
+	(dt_simplify::dt_simplify): change type of 3rd argument to dt_operand **
+	(dt_simplify::gen_gimple): Remove 2nd argument in call to
+	.gen_gimple_transform()
+	(dt_operand::get_name): New member function.
+	(dt_operand::gen_opname): New member function.
+	(dt_operand::match_dop): New member.
+	(dt_operand::temps): Remove.
+	(dt_operand::temp_count): Likewise.
+	(dt_operand::m_level): Likewise.
+	(dt_operand::dt_operand): Change type of 2nd argument to dt_operand *
+	(dt_operand::gen_gimple): Call get_name for getting operand name.
+	(dt_operand::gen_gimple_expr_fn): Replace call to sprintf,
+	by get_name (opname).
+	(dt_operand::gen_gimple_expr_expr): Likwise.
+	(dt_operand::gen_generic_expr_expr): Likewise.
+	(dt_operand::gen_generic_expr_fn): Likewise
+	(decision_tree::insert_operand): Change type of 3rd argument to
+	dt_operand**.
+	(dt_node::append_simplify): Likewise.
+
 2014-06-23  Richard Biener  <rguenther@suse.de>
 
 	* match.pd (A - (A + B) -> - B): Fix and mark the inner
