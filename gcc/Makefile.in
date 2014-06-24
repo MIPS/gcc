@@ -1237,6 +1237,7 @@ OBJS = \
 	gimple-fold.o \
 	gimple-low.o \
 	gimple-match.o \
+	generic-match.o \
 	gimple-pretty-print.o \
 	gimple-ssa-isolate-paths.o \
 	gimple-ssa-strength-reduction.o \
@@ -1509,7 +1510,7 @@ MOSTLYCLEANFILES = insn-flags.h insn-config.h insn-codes.h \
  insn-output.c insn-recog.c insn-emit.c insn-extract.c insn-peep.c \
  insn-attr.h insn-attr-common.h insn-attrtab.c insn-dfatab.c \
  insn-latencytab.c insn-opinit.c insn-opinit.h insn-preds.c insn-constants.h \
- tm-preds.h tm-constrs.h checksum-options gimple-match.c \
+ tm-preds.h tm-constrs.h checksum-options gimple-match.c generic-match.c \
  tree-check.h min-insn-modes.c insn-modes.c insn-modes.h \
  genrtl.h gt-*.h gtype-*.h gtype-desc.c gtyp-input.list \
  xgcc$(exeext) cpp$(exeext) \
@@ -2023,7 +2024,7 @@ $(common_out_object_file): $(common_out_file)
 .PRECIOUS: insn-config.h insn-flags.h insn-codes.h insn-constants.h \
   insn-emit.c insn-recog.c insn-extract.c insn-output.c insn-peep.c \
   insn-attr.h insn-attr-common.h insn-attrtab.c insn-dfatab.c \
-  insn-latencytab.c insn-preds.c gimple-match.c
+  insn-latencytab.c insn-preds.c gimple-match.c generic-match.c
 
 # Dependencies for the md file.  The first time through, we just assume
 # the md file itself and the generated dependency file (in order to get
@@ -2233,12 +2234,17 @@ s-tm-texi: build/genhooks$(build_exeext) $(srcdir)/doc/tm.texi.in
 	fi
 
 gimple-match.c: s-match gimple-match-head.c ; @true
+generic-match.c: s-match generic-match-head.c ; @true
 
 s-match: build/genmatch$(build_exeext) $(srcdir)/match.pd
-	$(RUN_GEN) build/genmatch$(build_exeext) $(srcdir)/match.pd \
+	$(RUN_GEN) build/genmatch$(build_exeext) -gimple $(srcdir)/match.pd \
 	    > tmp-gimple-match.c
+	$(RUN_GEN) build/genmatch$(build_exeext) -generic $(srcdir)/match.pd \
+	    > tmp-generic-match.c
 	$(SHELL) $(srcdir)/../move-if-change tmp-gimple-match.c \
 	    					gimple-match.c
+	$(SHELL) $(srcdir)/../move-if-change tmp-generic-match.c \
+	    					generic-match.c
 	$(STAMP) s-match
 
 GTFILES = $(CPP_ID_DATA_H) $(srcdir)/input.h $(srcdir)/coretypes.h \

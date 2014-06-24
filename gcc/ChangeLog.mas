@@ -1,3 +1,16 @@
+2014-06-24  Richard Biener  <rguenther@suse.de>
+
+	* Makefile.in (OBJS): Add generic-match.o.
+	(.PRECIOUS): Likewise.
+	(MOSTLYCLEANFILES): Add generic-match.c.
+	(generic-match.c): New rule.
+	(s-match): Amend.
+	* generic-match-head.c: New file.
+	* genmatch.c (write_gimple): Rename to ...
+	(write_header): ... this and support generic-match.c creation.
+	(main): Recognize -gimple and -generic switches and adjust
+	what we output.
+
 2014-06-24  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 
 	* genmatch.c (operand::gen_gimple_transform): Remove 2nd argument.

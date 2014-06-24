@@ -1232,13 +1232,13 @@ outline_c_exprs (FILE *f, struct operand *op)
 }
 
 static void
-write_gimple (FILE *f, vec<simplify *>& simplifiers)
+write_header (FILE *f, vec<simplify *>& simplifiers, const char *head)
 {
   fprintf (f, "/* Generated automatically by the program `genmatch' from\n");
   fprintf (f, "   a IL pattern matching and simplification description.  */\n");
 
   /* Include the header instead of writing it awkwardly quoted here.  */
-  fprintf (f, "\n#include \"gimple-match-head.c\"\n");
+  fprintf (f, "\n#include \"%s\"\n", head);
 
   /* Outline complex C expressions to helper functions.  */
   for (unsigned i = 0; i < simplifiers.length (); ++i)
@@ -1542,7 +1542,7 @@ main(int argc, char **argv)
 
   progname = "genmatch";
 
-  if (argc != 2)
+  if (argc != 3)
     return 1;
 
   line_table = XCNEW (struct line_maps);
@@ -1554,7 +1554,7 @@ main(int argc, char **argv)
   cpp_callbacks *cb = cpp_get_callbacks (r);
   cb->error = error_cb;
 
-  if (!cpp_read_main_file (r, argv[1]))
+  if (!cpp_read_main_file (r, argv[2]))
     return 1;
 
   /* Pre-seed operators.  */
@@ -1604,8 +1604,18 @@ main(int argc, char **argv)
 
   dt.print (stderr);
  
-  write_gimple (stdout, simplifiers);
-  dt.gen_gimple (stdout);
+  if (strcmp (argv[1], "-gimple") == 0)
+    {
+      write_header (stdout, simplifiers, "gimple-match-head.c");
+      dt.gen_gimple (stdout);
+    }
+  else if (strcmp (argv[1], "-generic") == 0)
+    {
+      write_header (stdout, simplifiers, "generic-match-head.c");
+      //dt.gen_generic (stdout);
+    }
+  else
+    return 1;
 
   cpp_finish (r, NULL);
   cpp_destroy (r);
