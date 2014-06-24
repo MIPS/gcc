@@ -1,3 +1,8 @@
+2014-06-17  Braden Obrzut  <admin@maniacsvault.net>
+	* gcc/cp/parser.c (cp_maybe_constrained_type_specifier): If getting
+	a baselink, use the referred-to function/overload declarations rather
+	than asserting.
+
 2014-06-12  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/constraint.cc (deduce_constrained_parameter): Refactor
 	common deduction framework into separate function.

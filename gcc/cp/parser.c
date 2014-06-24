@@ -15175,8 +15175,14 @@ cp_parser_allows_constrained_type_specifier (cp_parser *parser)
 static tree
 cp_maybe_constrained_type_specifier (cp_parser *parser, tree decl, tree args)
 {
-  gcc_assert (TREE_CODE (decl) == OVERLOAD);
   gcc_assert (args ? TREE_CODE (args) == TREE_VEC : true);
+
+  // If we get a reference to a member function, allow the referenced
+  // functions to participate in this resolution: the baselink may refer
+  // to a static member concept.
+  if (BASELINK_P (decl))
+    decl = BASELINK_FUNCTIONS (decl);
+  gcc_assert (TREE_CODE (decl) == OVERLOAD);
 
   // Don't do any heavy lifting if we know we're not in a context
   // where it could succeed.
