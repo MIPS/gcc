@@ -1,5 +1,17 @@
 2014-06-24  Richard Biener  <rguenther@suse.de>
 
+	* genmatch.c (write_fn_prototype): Remove and inline...
+	(decision_tree::gen_gimple): ...here.
+	* gimple-match-head.c (gimple_match_and_simplify): Adjust
+	operand order to put operands last.  Make the last two
+	default initialized to zero.
+	(gimple_resimplify1): Adjust.
+	(gimple_resimplify2): Likewise.
+	(gimple_resimplify3): Likewise.
+	(gimple_match_and_simplify): Likewise.
+
+2014-06-24  Richard Biener  <rguenther@suse.de>
+
 	* Makefile.in (OBJS): Add generic-match.o.
 	(.PRECIOUS): Likewise.
 	(MOSTLYCLEANFILES): Add generic-match.c.

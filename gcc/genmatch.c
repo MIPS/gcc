@@ -849,16 +849,6 @@ decision_tree::print (FILE *f)
   return decision_tree::print_node (root, f);
 }
 
-void
-write_fn_prototype (FILE *f, unsigned n)
-{
-  fprintf (f, "static bool\n"
-          "gimple_match_and_simplify (code_helper code, tree type");
-  for (unsigned i = 0; i < n; ++i)
-    fprintf (f, ", tree op%d", i);
-  fprintf (f, ", code_helper *res_code, tree *res_ops, gimple_seq *seq, tree (*valueize)(tree))\n");
-}
-
 char *
 dt_operand::get_name (char *name)
 {
@@ -1132,13 +1122,13 @@ dt_simplify::gen_gimple (FILE *f)
 void
 decision_tree::gen_gimple (FILE *f)
 {
-  write_fn_prototype (f, 1);
-  fprintf (f, "{ return gimple_match_and_simplify (code, type, op0, NULL_TREE, NULL_TREE, res_code, res_ops, seq, valueize); }\n\n");
-
-  write_fn_prototype (f, 2);
-  fprintf (f, "{ return gimple_match_and_simplify (code, type, op0, op1, NULL_TREE, res_code, res_ops, seq, valueize); }\n\n");
-
-  write_fn_prototype (f, 3);
+  fprintf (f, "static bool\n"
+	   "gimple_match_and_simplify (code_helper *res_code, tree *res_ops,\n"
+	   "                           gimple_seq *seq, tree (*valueize)(tree),\n"
+	   "                           code_helper code, tree type");
+  for (unsigned i = 0; i < 3; ++i)
+    fprintf (f, ", tree op%d", i);
+  fprintf (f, ")\n");
   fprintf (f, "{\n");
 
   for (unsigned i = 0; i < root->kids.length (); i++)

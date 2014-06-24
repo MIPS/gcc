@@ -60,18 +60,13 @@ private:
   int rep;
 };
 
-/* Forward declarations of the private auto-generated matchers.  They
-   expect valueized operands in canonical order and they do not
+/* Forward declarations of the private auto-generated matcher.
+   It expects valueized operands in canonical order and does not
    perform simplification of all-constant operands.  */
-static bool gimple_match_and_simplify (code_helper, tree, tree,
-				       code_helper *, tree *,
-				       gimple_seq *, tree (*)(tree));
-static bool gimple_match_and_simplify (code_helper, tree, tree, tree,
-				       code_helper *, tree *,
-				       gimple_seq *, tree (*)(tree));
-static bool gimple_match_and_simplify (code_helper, tree, tree, tree, tree,
-				       code_helper *, tree *,
-				       gimple_seq *, tree (*)(tree));
+static bool gimple_match_and_simplify (code_helper *, tree *,
+				       gimple_seq *, tree (*)(tree),
+				       code_helper, tree,
+				       tree, tree = NULL_TREE, tree = NULL_TREE);
 
 
 /* Return whether T is a constant that we'll dispatch to fold to
@@ -130,8 +125,8 @@ gimple_resimplify1 (gimple_seq *seq,
 
   code_helper res_code2;
   tree res_ops2[3] = {};
-  if (gimple_match_and_simplify (*res_code, type, res_ops[0],
-				 &res_code2, res_ops2, seq, valueize))
+  if (gimple_match_and_simplify (&res_code2, res_ops2, seq, valueize,
+				 *res_code, type, res_ops[0]))
     {
       *res_code = res_code2;
       res_ops[0] = res_ops2[0];
@@ -199,8 +194,8 @@ gimple_resimplify2 (gimple_seq *seq,
 
   code_helper res_code2;
   tree res_ops2[3] = {};
-  if (gimple_match_and_simplify (*res_code, type, res_ops[0], res_ops[1],
-				 &res_code2, res_ops2, seq, valueize))
+  if (gimple_match_and_simplify (&res_code2, res_ops2, seq, valueize,
+				 *res_code, type, res_ops[0], res_ops[1]))
     {
       *res_code = res_code2;
       res_ops[0] = res_ops2[0];
@@ -269,9 +264,9 @@ gimple_resimplify3 (gimple_seq *seq,
 
   code_helper res_code2;
   tree res_ops2[3] = {};
-  if (gimple_match_and_simplify (*res_code, type,
-				 res_ops[0], res_ops[1], res_ops[2],
-				 &res_code2, res_ops2, seq, valueize))
+  if (gimple_match_and_simplify (&res_code2, res_ops2, seq, valueize,
+				 *res_code, type,
+				 res_ops[0], res_ops[1], res_ops[2]))
     {
       *res_code = res_code2;
       res_ops[0] = res_ops2[0];
@@ -343,8 +338,8 @@ gimple_match_and_simplify (enum tree_code code, tree type,
 
   code_helper rcode;
   tree ops[3] = {};
-  if (!gimple_match_and_simplify (code, type, op0,
-				  &rcode, ops, seq, valueize))
+  if (!gimple_match_and_simplify (&rcode, ops, seq, valueize,
+				  code, type, op0))
     return NULL_TREE;
   return maybe_push_res_to_seq (rcode, type, ops, seq);
 }
@@ -374,8 +369,8 @@ gimple_match_and_simplify (enum tree_code code, tree type,
 
   code_helper rcode;
   tree ops[3] = {};
-  if (!gimple_match_and_simplify (code, type, op0, op1,
-				  &rcode, ops, seq, valueize))
+  if (!gimple_match_and_simplify (&rcode, ops, seq, valueize,
+				  code, type, op0, op1))
     return NULL_TREE;
   return maybe_push_res_to_seq (rcode, type, ops, seq);
 }
@@ -406,8 +401,8 @@ gimple_match_and_simplify (enum tree_code code, tree type,
 
   code_helper rcode;
   tree ops[3] = {};
-  if (!gimple_match_and_simplify (code, type, op0, op1, op2,
-				  &rcode, ops, seq, valueize))
+  if (!gimple_match_and_simplify (&rcode, ops, seq, valueize,
+				  code, type, op0, op1, op2))
     return NULL_TREE;
   return maybe_push_res_to_seq (rcode, type, ops, seq);
 }
@@ -436,8 +431,8 @@ gimple_match_and_simplify (enum built_in_function fn, tree type,
 
   code_helper rcode;
   tree ops[3] = {};
-  if (!gimple_match_and_simplify (fn, type, arg0,
-				  &rcode, ops, seq, valueize))
+  if (!gimple_match_and_simplify (&rcode, ops, seq, valueize,
+				  fn, type, arg0))
     return NULL_TREE;
   return maybe_push_res_to_seq (rcode, type, ops, seq);
 }
