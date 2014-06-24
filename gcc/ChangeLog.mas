@@ -1,5 +1,22 @@
 2014-06-24  Richard Biener  <rguenther@suse.de>
 
+	* genmatch.c (operand::gen_gimple_transform): Rename to...
+	(operand::gen_transform): ... this and add a flag argument for
+	the kind of IL to generate.
+	(predicate::gen_gimple_transform): Likewise.
+	(expr::gen_gimple_transform): Likewise.
+	(c_expr::gen_gimple_transform): Likewise.
+	(capture::gen_gimple_transform): Likewise.
+	(dt_node::gen_generic): Add.
+	(dt_operand::gen_generic_expr): Add flag whether to valueize.
+	(dt_operand::gen_generic_expr_expr): Likewise.
+	(dt_operand::gen_generic_expr_fn): Likewise.
+	(dt_simplify::gen_genric): Add.
+	(decision_tree::gen_generic): Likewise.
+	(main): Uncomment generic codegen.
+
+2014-06-24  Richard Biener  <rguenther@suse.de>
+
 	* genmatch.c (write_fn_prototype): Remove and inline...
 	(decision_tree::gen_gimple): ...here.
 	* gimple-match-head.c (gimple_match_and_simplify): Adjust
