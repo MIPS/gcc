@@ -2656,6 +2656,10 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
     case CONSTEXPR_EXPR:
       pp_cxx_constexpr_expr (cxx_pp, t);
 
+    case PLACEHOLDER_EXPR:
+      pp_cxx_ws_string (cxx_pp, "<placeholder>");
+      break;
+
       /*  This list is incomplete, but should suffice for now.
 	  It is very important that `sorry' does not call
 	  `report_error_function'.  That could cause an infinite loop.  */
