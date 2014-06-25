@@ -86,6 +86,10 @@ along with GCC; see the file COPYING3.  If not see
    invariant_addr + cst.  It may not be generally wanted
    (builtin-object-size) and thus may want to be restricted to 'simple'
    forms like &mem-ref or &decl.  */
+/* Disable for GENERIC, this causes endless recursions of addr-expr
+   expansion which folds a POINTER_PLUS_EXPR and doesn't expect
+   an ADDR_EXPR in return.  */
+#if GIMPLE
 (match_and_simplify
   (pointer_plus (addr@2 @0) INTEGER_CST_P@1)
   if (is_gimple_min_invariant (@2))
@@ -100,6 +104,7 @@ along with GCC; see the file COPYING3.  If not see
 	    	    build_fold_addr_expr (base),
 	            build_int_cst (ptr_type_node, off)));
   })
+#endif
 
 
 /* Transforms formerly done by tree-ssa-forwprop.c:associate_plusminus  */

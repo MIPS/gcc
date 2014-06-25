@@ -1253,64 +1253,85 @@ dt_simplify::gen_generic (FILE *f)
 void
 decision_tree::gen_gimple (FILE *f)
 {
-  fprintf (f, "static bool\n"
-	   "gimple_match_and_simplify (code_helper *res_code, tree *res_ops,\n"
-	   "                           gimple_seq *seq, tree (*valueize)(tree),\n"
-	   "                           code_helper code, tree type");
-  for (unsigned i = 0; i < 3; ++i)
-    fprintf (f, ", tree op%d", i);
-  fprintf (f, ")\n");
-  fprintf (f, "{\n");
-
-  for (unsigned i = 0; i < root->kids.length (); i++)
+  for (unsigned n = 1; n <= 3; ++n)
     {
-      dt_operand *dop = static_cast<dt_operand *>(root->kids[i]);
-      expr *e = static_cast<expr *>(dop->op);
-
-      if (i)
-        fprintf (f, "else ");
-      fprintf (f, "if (code == %s)\n", e->operation->op->id);
+      fprintf (f, "\nstatic bool\n"
+	       "gimple_match_and_simplify (code_helper *res_code, tree *res_ops,\n"
+	       "                           gimple_seq *seq, tree (*valueize)(tree),\n"
+	       "                           code_helper code, tree type");
+      for (unsigned i = 0; i < n; ++i)
+	fprintf (f, ", tree op%d", i);
+      fprintf (f, ")\n");
       fprintf (f, "{\n");
 
-      for (unsigned j = 0; j < dop->kids.length (); ++j)
-	dop->kids[j]->gen_gimple (f);
+      bool first = true;
+      for (unsigned i = 0; i < root->kids.length (); i++)
+	{
+	  dt_operand *dop = static_cast<dt_operand *>(root->kids[i]);
+	  expr *e = static_cast<expr *>(dop->op);
+	  if (e->ops.length () != n)
+	    continue;
 
+	  if (!first)
+	    fprintf (f, "else ");
+	  fprintf (f, "if (code == %s)\n", e->operation->op->id);
+	  fprintf (f, "{\n");
+
+	  for (unsigned j = 0; j < dop->kids.length (); ++j)
+	    dop->kids[j]->gen_gimple (f);
+
+	  fprintf (f, "}\n");
+
+	  first = false;
+	}
+
+      fprintf (f, "return false;\n");
       fprintf (f, "}\n");
     }
-
-  fprintf (f, "return false;\n");
-  fprintf (f, "}\n");
 }
 
 
 void
 decision_tree::gen_generic (FILE *f)
 {
-  fprintf (f, "tree\n"
-	   "generic_match_and_simplify (code_helper code, tree type");
-  for (unsigned i = 0; i < 3; ++i)
-    fprintf (f, ", tree op%d", i);
-  fprintf (f, ")\n");
-  fprintf (f, "{\n");
-
-  for (unsigned i = 0; i < root->kids.length (); i++)
+  for (unsigned n = 1; n <= 3; ++n)
     {
-      dt_operand *dop = static_cast<dt_operand *>(root->kids[i]);
-      expr *e = static_cast<expr *>(dop->op);
-
-      if (i)
-        fprintf (f, "else ");
-      fprintf (f, "if (code == %s)\n", e->operation->op->id);
+      fprintf (f, "\ntree\n"
+	       "generic_match_and_simplify (enum tree_code code, tree type");
+      for (unsigned i = 0; i < n; ++i)
+	fprintf (f, ", tree op%d", i);
+      fprintf (f, ")\n");
       fprintf (f, "{\n");
 
-      for (unsigned j = 0; j < dop->kids.length (); ++j)
-	dop->kids[j]->gen_generic (f);
+      bool first = true;
+      for (unsigned i = 0; i < root->kids.length (); i++)
+	{
+	  dt_operand *dop = static_cast<dt_operand *>(root->kids[i]);
+	  expr *e = static_cast<expr *>(dop->op);
+	  if (e->ops.length () != n
+	      /* Builtin simplifications are somewhat premature on
+	         GENERIC.  The following drops patterns with outermost
+		 calls.  It's easy to emit overloads for function code
+		 though if necessary.  */
+	      || e->operation->op->kind != id_base::CODE)
+	    continue;
 
+	  if (!first)
+	    fprintf (f, "else ");
+	  fprintf (f, "if (code == %s)\n", e->operation->op->id);
+	  fprintf (f, "{\n");
+
+	  for (unsigned j = 0; j < dop->kids.length (); ++j)
+	    dop->kids[j]->gen_generic (f);
+
+	  fprintf (f, "}\n");
+
+	  first = false;
+	}
+
+      fprintf (f, "return NULL_TREE;\n");
       fprintf (f, "}\n");
     }
-
-  fprintf (f, "return NULL_TREE;\n");
-  fprintf (f, "}\n");
 }
 
 
@@ -1697,6 +1718,14 @@ main(int argc, char **argv)
   if (argc != 3)
     return 1;
 
+  bool gimple;
+  if (strcmp (argv[1], "-gimple") == 0)
+    gimple = true;
+  else if (strcmp (argv[1], "-generic") == 0)
+    gimple = false;
+  else
+    return 1;
+
   line_table = XCNEW (struct line_maps);
   linemap_init (line_table);
   line_table->reallocator = xrealloc;
@@ -1708,6 +1737,7 @@ main(int argc, char **argv)
 
   if (!cpp_read_main_file (r, argv[2]))
     return 1;
+  cpp_define (r, gimple ? "GIMPLE=1": "GENERIC=1");
 
   /* Pre-seed operators.  */
   operators.create (1024);
@@ -1756,18 +1786,16 @@ main(int argc, char **argv)
 
   dt.print (stderr);
  
-  if (strcmp (argv[1], "-gimple") == 0)
+  if (gimple)
     {
       write_header (stdout, simplifiers, "gimple-match-head.c");
       dt.gen_gimple (stdout);
     }
-  else if (strcmp (argv[1], "-generic") == 0)
+  else
     {
       write_header (stdout, simplifiers, "generic-match-head.c");
       dt.gen_generic (stdout);
     }
-  else
-    return 1;
 
   cpp_finish (r, NULL);
   cpp_destroy (r);

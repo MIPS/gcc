@@ -1,3 +1,18 @@
+2014-06-25  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (decision_tree::gen_gimple): Create three
+	gimple_match_and_simplify overloads again.
+	(decision_tree::gen_generic): Likewise.  Create final API
+	with enum tree_code arguments.
+	(main): Define GIMPLE or GENERIC dependent on code generation mode.
+	* gimple-match-head.c (gimple_match_and_simplify): Adjust
+	prototypes.
+	* match.pd: Disable P p+ CST -> &MEM[P, CST] transform for GENERIC.
+	* fold-const.c (fold_unary_loc): First dispatch to
+	generic_match_and_simplify.
+	(fold_binary_loc): Likewise.
+	(fold_ternary_loc): Likewise.
+
 2014-06-25  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 
 	* genmatch.c (dt_operand::gen_gimple_predicate): Rename to ...

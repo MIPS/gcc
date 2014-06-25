@@ -60,13 +60,18 @@ private:
   int rep;
 };
 
-/* Forward declarations of the private auto-generated matcher.
-   It expects valueized operands in canonical order and does not
+/* Forward declarations of the private auto-generated matchers.
+   They expect valueized operands in canonical order and do not
    perform simplification of all-constant operands.  */
 static bool gimple_match_and_simplify (code_helper *, tree *,
 				       gimple_seq *, tree (*)(tree),
-				       code_helper, tree,
-				       tree, tree = NULL_TREE, tree = NULL_TREE);
+				       code_helper, tree, tree);
+static bool gimple_match_and_simplify (code_helper *, tree *,
+				       gimple_seq *, tree (*)(tree),
+				       code_helper, tree, tree, tree);
+static bool gimple_match_and_simplify (code_helper *, tree *,
+				       gimple_seq *, tree (*)(tree),
+				       code_helper, tree, tree, tree, tree);
 
 
 /* Return whether T is a constant that we'll dispatch to fold to
