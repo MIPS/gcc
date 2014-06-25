@@ -760,8 +760,8 @@
 ;; an exception is allowing MSA modes for GP registers for arguments
 ;; and return values.
 (define_insn "mov<mode>_msa"
-  [(set (match_operand:MODE128 0 "nonimmediate_operand" "=f,f,R,*d,f")
-	(match_operand:MODE128 1 "move_operand" "fYGYI,R,f,f,*d"))]
+  [(set (match_operand:MODE128 0 "nonimmediate_operand" "=f,f,R,d,f")
+	(match_operand:MODE128 1 "move_operand" "fYGYI,R,f,f,d"))]
   "ISA_HAS_MSA
    && (register_operand (operands[0], <MODE>mode)
        || reg_or_0_operand (operands[1], <MODE>mode))"
