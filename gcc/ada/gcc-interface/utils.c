@@ -5442,18 +5442,34 @@ unchecked_convert (tree type, tree expr, bool notrunc_p)
     }
 
   /* If we are converting to an integral type whose precision is not equal
-     to its size, first unchecked convert to a record type that contains an
-     field of the given precision.  Then extract the field.  */
+     to its size, first unchecked convert to a record type that contains a
+     field of the given precision.  Then extract the result from the field.
+
+     There is a subtlety if the source type is an aggregate type with reverse
+     storage order because its representation is not contiguous in the native
+     storage order, i.e. a direct unchecked conversion to an integral type
+     with N bits of precision cannot read the first N bits of the aggregate
+     type.  To overcome it, we do an unchecked conversion to an integral type
+     with reverse storage order and return the resulting value.  This also
+     ensures that the result of the unchecked conversion doesn't depend on
+     the endianness of the target machine, but only on the storage order of
+     the aggregate type.
+
+     Finally, for the sake of consistency, we do the unchecked conversion
+     to an integral type with reverse storage order as soon as the source
+     type is an aggregate type with reverse storage order, even if there
+     are no considerations of precision or size involved.  */
   else if (INTEGRAL_TYPE_P (type)
 	   && TYPE_RM_SIZE (type)
-	   && 0 != compare_tree_int (TYPE_RM_SIZE (type),
-				     GET_MODE_BITSIZE (TYPE_MODE (type))))
+	   && (0 != compare_tree_int (TYPE_RM_SIZE (type),
+				      GET_MODE_BITSIZE (TYPE_MODE (type)))
+	       || (AGGREGATE_TYPE_P (etype)
+		   && TYPE_REVERSE_STORAGE_ORDER (etype))))
     {
       tree rec_type = make_node (RECORD_TYPE);
       unsigned HOST_WIDE_INT prec = TREE_INT_CST_LOW (TYPE_RM_SIZE (type));
       tree field_type, field;
 
-      /* Preserve the storage order through the unchecked conversion.  */
       if (AGGREGATE_TYPE_P (etype))
 	TYPE_REVERSE_STORAGE_ORDER (rec_type)
 	  = TYPE_REVERSE_STORAGE_ORDER (etype);
@@ -5476,11 +5492,16 @@ unchecked_convert (tree type, tree expr, bool notrunc_p)
 
   /* Similarly if we are converting from an integral type whose precision is
      not equal to its size, first copy into a field of the given precision
-     and unchecked convert the record type.  */
+     and unchecked convert the record type.
+
+     The same considerations as above apply if the target type is an aggregate
+     type with reverse storage order and we also proceed similarly.  */
   else if (INTEGRAL_TYPE_P (etype)
 	   && TYPE_RM_SIZE (etype)
-	   && 0 != compare_tree_int (TYPE_RM_SIZE (etype),
-				     GET_MODE_BITSIZE (TYPE_MODE (etype))))
+	   && (0 != compare_tree_int (TYPE_RM_SIZE (etype),
+				      GET_MODE_BITSIZE (TYPE_MODE (etype)))
+	       || (AGGREGATE_TYPE_P (type)
+		   && TYPE_REVERSE_STORAGE_ORDER (type))))
     {
       tree rec_type = make_node (RECORD_TYPE);
       unsigned HOST_WIDE_INT prec = TREE_INT_CST_LOW (TYPE_RM_SIZE (etype));
@@ -5488,7 +5509,6 @@ unchecked_convert (tree type, tree expr, bool notrunc_p)
       vec_alloc (v, 1);
       tree field_type, field;
 
-      /* Preserve the storage order through the unchecked conversion.  */
       if (AGGREGATE_TYPE_P (type))
 	TYPE_REVERSE_STORAGE_ORDER (rec_type)
 	  = TYPE_REVERSE_STORAGE_ORDER (type);
