@@ -22686,9 +22686,11 @@ cp_parser_label_declaration (cp_parser* parser)
 static tree
 cp_parser_requires_clause (cp_parser *parser)
 {
-  // Parse the constant expression.
+  // Parse the requires clause so that it is not automatically folded.
+  ++processing_template_decl;
   tree expr = 
     cp_parser_binary_expression (parser, false, false, PREC_NOT_OPERATOR, NULL);
+  --processing_template_decl;
   if (!require_potential_rvalue_constant_expression (expr))
     return error_mark_node;
   return expr;

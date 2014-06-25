@@ -1,3 +1,9 @@
+2014-06-25  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/cp/parser.c (cp_parser_requires_clause): Don't fold expressions
+	when parsing a requires-clause.
+	* gcc/cp/constraint.cc (reduce_requirements): Don't fold
+	expressions during constraint normalization.
+
 2014-06-24  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/parser.c (cp_maybe_constrained_type_specifier): Defer
 	handling the BASELINK check until concept-resolution in order to
@@ -14,11 +20,6 @@
 2014-06-24  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/error.c (dump_expr): Pretty print placeholder to improve
 	debug output.
-
-2014-06-17  Braden Obrzut  <admin@maniacsvault.net>
-	* gcc/cp/parser.c (cp_maybe_constrained_type_specifier): If getting
-	a baselink, use the referred-to function/overload declarations rather
-	than asserting.
 
 2014-06-17  Braden Obrzut  <admin@maniacsvault.net>
 	* gcc/cp/parser.c (cp_maybe_constrained_type_specifier): If getting

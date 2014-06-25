@@ -526,7 +526,10 @@ reduce_stmt_list (tree stmts)
 tree
 reduce_requirements (tree reqs)
 {
-  return reduce_node (reqs);
+  ++processing_template_decl;
+  tree expr = reduce_node (reqs);
+  --processing_template_decl;
+  return expr;
 }
 
 // -------------------------------------------------------------------------- //
