@@ -8945,6 +8945,10 @@ get_callee_fndecl (const_tree call)
      called.  */
   addr = CALL_EXPR_FN (call);
 
+  /* If there is no function, return early.  */
+  if (addr == NULL_TREE)
+    return NULL_TREE;
+
   STRIP_NOPS (addr);
 
   /* If this is a readonly function pointer, extract its initial value.  */
@@ -10497,6 +10501,27 @@ build_call_vec (tree return_type, tree fn, vec<tree, va_gc> *args)
     CALL_EXPR_ARG (ret, ix) = t;
   process_call_operands (ret);
   return ret;
+}
+
+/* Build internal call expression.  This is just like CALL_EXPR, except
+   its CALL_EXPR_FN is NULL.  It will get gimplified later into ordinary
+   internal function.  */
+
+tree
+build_call_expr_internal_loc (location_t loc, enum internal_fn ifn,
+			      tree type, int n, ...)
+{
+  va_list ap;
+  int i;
+
+  tree fn = build_call_1 (type, NULL_TREE, n);
+  va_start (ap, n);
+  for (i = 0; i < n; i++)
+    CALL_EXPR_ARG (fn, i) = va_arg (ap, tree);
+  va_end (ap);
+  SET_EXPR_LOCATION (fn, loc);
+  CALL_EXPR_IFN (fn) = ifn;
+  return fn;
 }
 
 /* Return true if T (assumed to be a DECL) must be assigned a memory
