@@ -60,44 +60,7 @@
       (match_operand:SI 4 "const_int_operand")  ;; mod_s
       (match_operand:SI 5 "const_int_operand")])] ;; mod_f
   ""
-  {
-    rtx rval, mem, oldval, newval, mod_s, mod_f;
-    rval = operands[0];
-    mem = operands[1];
-    oldval = operands[2];
-    newval = operands[3];
-    mod_s = operands[4];
-    mod_f = operands[5];
-    enum memmodel ldmodel = (enum memmodel) INTVAL (mod_s);
-    enum memmodel stmodel = (enum memmodel) INTVAL (mod_f);
-    const int is_acq = 0x1;
-    const int is_rel = 0x2;
-    int modelCode = 0;
-    switch (ldmodel) {
-      default: modelCode |= is_acq; break;
-      case MEMMODEL_RELAXED:
-      case MEMMODEL_CONSUME:
-      case MEMMODEL_RELEASE: break;
-    }
-    switch (stmodel) {
-      default: modelCode |= is_rel; break;
-      case MEMMODEL_RELAXED:
-      case MEMMODEL_CONSUME:
-      case MEMMODEL_ACQUIRE: break;
-    }
-    switch (modelCode) {
-      default:
-        gcc_unreachable (); break;
-      case 0x0:
-        return "cas<atomic_sfx>\t%<w>0,%<w>3,%1"; break;
-      case is_acq:
-        return "casa<atomic_sfx>\t%<w>0,%<w>3,%1"; break;
-      case is_rel:
-        return "casl<atomic_sfx>\t%<w>0,%<w>3,%1"; break;
-      case (is_acq | is_rel):
-        return "casal<atomic_sfx>\t%<w>0,%<w>3,%1"; break;
-    }
-  }
+  "cas%Q4%R4<atomic_sfx>\t%<w>0, %<w>3, %1"
 )
 
 (define_insn_and_split "atomic_compare_and_swap<mode>_1"
@@ -314,15 +277,7 @@
        (match_operand:SI 2 "const_int_operand")]			;; model
       UNSPECV_LDA))]
   ""
-  {
-    enum memmodel model = (enum memmodel) INTVAL (operands[2]);
-    if (model == MEMMODEL_RELAXED
-	|| model == MEMMODEL_CONSUME
-	|| model == MEMMODEL_RELEASE)
-      return "ldr<atomic_sfx>\t%<w>0, %1";
-    else
-      return "ldar<atomic_sfx>\t%<w>0, %1";
-  }
+  "ld%Q2r<atomic_sfx>\t%<w>0, %1"
 )
 
 (define_insn "atomic_store<mode>"
@@ -332,15 +287,7 @@
        (match_operand:SI 2 "const_int_operand")]			;; model
       UNSPECV_STL))]
   ""
-  {
-    enum memmodel model = (enum memmodel) INTVAL (operands[2]);
-    if (model == MEMMODEL_RELAXED
-	|| model == MEMMODEL_CONSUME
-	|| model == MEMMODEL_ACQUIRE)
-      return "str<atomic_sfx>\t%<w>1, %0";
-    else
-      return "stlr<atomic_sfx>\t%<w>1, %0";
-  }
+  "st%R2r<atomic_sfx>\t%<w>1, %0"
 )
 
 (define_insn "aarch64_load_exclusive<mode>"
@@ -351,15 +298,7 @@
 	 (match_operand:SI 2 "const_int_operand")]
 	UNSPECV_LX)))]
   ""
-  {
-    enum memmodel model = (enum memmodel) INTVAL (operands[2]);
-    if (model == MEMMODEL_RELAXED
-	|| model == MEMMODEL_CONSUME
-	|| model == MEMMODEL_RELEASE)
-      return "ldxr<atomic_sfx>\t%w0, %1";
-    else
-      return "ldaxr<atomic_sfx>\t%w0, %1";
-  }
+  "ld%Q2xr<atomic_sfx>\t%w0, %1"
 )
 
 (define_insn "aarch64_load_exclusive<mode>"
@@ -369,15 +308,7 @@
        (match_operand:SI 2 "const_int_operand")]
       UNSPECV_LX))]
   ""
-  {
-    enum memmodel model = (enum memmodel) INTVAL (operands[2]);
-    if (model == MEMMODEL_RELAXED
-	|| model == MEMMODEL_CONSUME
-	|| model == MEMMODEL_RELEASE)
-      return "ldxr\t%<w>0, %1";
-    else
-      return "ldaxr\t%<w>0, %1";
-  }
+  "ld%Q2xr\t%<w>0, %1"
 )
 
 (define_insn "aarch64_store_exclusive<mode>"
@@ -389,15 +320,7 @@
        (match_operand:SI 3 "const_int_operand")]
       UNSPECV_SX))]
   ""
-  {
-    enum memmodel model = (enum memmodel) INTVAL (operands[3]);
-    if (model == MEMMODEL_RELAXED
-	|| model == MEMMODEL_CONSUME
-	|| model == MEMMODEL_ACQUIRE)
-      return "stxr<atomic_sfx>\t%w0, %<w>2, %1";
-    else
-      return "stlxr<atomic_sfx>\t%w0, %<w>2, %1";
-  }
+  "st%R3xr<atomic_sfx>\t%w0, %<w>2, %1";
 )
 
 (define_expand "mem_thread_fence"

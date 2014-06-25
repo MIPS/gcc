@@ -1,6 +1,6 @@
 /* { dg-do compile } */
 /* { dg-skip-if "" { aarch64_atomic } } */
-/* { dg-options "-O2" } */
+/* { dg-options "-O2 -march=armv8-a+noatomic" } */
 
 #include "atomic-comp-swap-release-acquire.x"
 

@@ -1,8 +1,8 @@
 /* { dg-do compile } */
 /* { dg-require-effective-target aarch64_atomic } */
 /* { dg-final { scan-assembler-times "casb\\t" 2 } } */
-/* { dg-final { scan-assembler-times "casab\\t" 4 } } */
-/* { dg-final { scan-assembler-times "casalb\\t" 2 } } */
+/* { dg-final { scan-assembler-times "casab\\t" 2 } } */
+/* { dg-final { scan-assembler-times "casalb\\t" 4 } } */
 
 char v = 0;
 char expected = 0;

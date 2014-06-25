@@ -4077,6 +4077,50 @@ aarch64_print_operand (FILE *f, rtx x, char code)
       output_addr_const (asm_out_file, x);
       break;
 
+    case 'Q':
+      {
+        /* Print "a" if memory model requires ac'Q'uire semantics */
+        if (GET_CODE (x) != CONST_INT)
+  	{
+  	  output_operand_lossage ("invalid operand for '%%%c'", code);
+  	  return;
+  	}
+        enum memmodel model = (enum memmodel) INTVAL (x);
+        bool is_acq = false;
+        switch (model) 
+          {
+            default: is_acq = true; break;
+            case MEMMODEL_RELAXED:
+            case MEMMODEL_CONSUME:
+            case MEMMODEL_RELEASE: break;
+          }
+        if (is_acq)
+  	fputc ('a', f);
+      }
+      break;
+
+    case 'R':
+      {
+        /* Print "l" if memory model requires 'R'elease semantics */
+        if (GET_CODE (x) != CONST_INT)
+  	{
+  	  output_operand_lossage ("invalid operand for '%%%c'", code);
+  	  return;
+  	}
+        enum memmodel model = (enum memmodel) INTVAL (x);
+        bool is_rel = false;
+        switch (model) 
+          {
+            default: is_rel = true; break;
+            case MEMMODEL_RELAXED:
+            case MEMMODEL_CONSUME:
+            case MEMMODEL_ACQUIRE: break;
+          }
+        if (is_rel)
+  	  fputc ('l', f);
+      }
+      break;
+
     default:
       output_operand_lossage ("invalid operand prefix '%%%c'", code);
       return;

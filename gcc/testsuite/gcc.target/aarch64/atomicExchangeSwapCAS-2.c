@@ -1,8 +1,8 @@
 /* { dg-do compile } */
 /* { dg-require-effective-target aarch64_atomic } */
 /* { dg-final { scan-assembler-times "cash\\t" 2 } } */
-/* { dg-final { scan-assembler-times "casah\\t" 4 } } */
-/* { dg-final { scan-assembler-times "casalh\\t" 2 } } */
+/* { dg-final { scan-assembler-times "casah\\t" 2 } } */
+/* { dg-final { scan-assembler-times "casalh\\t" 4 } } */
 
 short v = 0;
 short expected = 0;
