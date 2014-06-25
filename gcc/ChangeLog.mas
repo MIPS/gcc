@@ -1,3 +1,10 @@
+2014-06-25  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	* genmatch.c (dt_operand::gen_gimple_predicate): Rename to ...
+	(dt_operand::gen_predicate): ... this.
+	(dt_operand::gen_gimple_match_op): Rename to ...
+	(dt_operand::gen_match_op): ... this.
+
 2014-06-24  Richard Biener  <rguenther@suse.de>
 
 	* genmatch.c (operand::gen_gimple_transform): Rename to...

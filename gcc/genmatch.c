@@ -339,8 +339,8 @@ struct dt_operand: public dt_node
 
   virtual void gen_gimple (FILE *);
   virtual void gen_generic (FILE *);
-  unsigned gen_gimple_predicate (FILE *, const char *);
-  unsigned gen_gimple_match_op (FILE *, const char *);
+  unsigned gen_predicate (FILE *, const char *);
+  unsigned gen_match_op (FILE *, const char *);
 
   unsigned gen_gimple_expr (FILE *, const char *);
   void gen_gimple_expr_expr (FILE *, expr *);
@@ -887,7 +887,7 @@ dt_operand::gen_opname (char *name, unsigned pos)
 }
 
 unsigned
-dt_operand::gen_gimple_predicate (FILE *f, const char *opname)
+dt_operand::gen_predicate (FILE *f, const char *opname)
 {
   predicate *p = static_cast<predicate *> (op);
 
@@ -897,7 +897,7 @@ dt_operand::gen_gimple_predicate (FILE *f, const char *opname)
 }
 
 unsigned
-dt_operand::gen_gimple_match_op (FILE *f, const char *opname)
+dt_operand::gen_match_op (FILE *f, const char *opname)
 {
   char match_opname[20];
   match_dop->get_name (match_opname);
@@ -1040,7 +1040,7 @@ dt_operand::gen_gimple (FILE *f)
     switch (op->type)
       {
 	case operand::OP_PREDICATE:
-	  n_braces = gen_gimple_predicate (f, opname);
+	  n_braces = gen_predicate (f, opname);
 	  break;
 
 	case operand::OP_EXPR:
@@ -1070,7 +1070,7 @@ dt_operand::gen_gimple (FILE *f)
   else if (type == DT_TRUE)
     ;
   else if (type == DT_MATCH)
-    n_braces = gen_gimple_match_op (f, opname);
+    n_braces = gen_match_op (f, opname);
   else
     gcc_unreachable ();
 
@@ -1099,7 +1099,7 @@ dt_operand::gen_generic (FILE *f)
     switch (op->type)
       {
 	case operand::OP_PREDICATE:
-	  n_braces = gen_gimple_predicate (f, opname);
+	  n_braces = gen_predicate (f, opname);
 	  break;
 
 	case operand::OP_EXPR:
@@ -1112,7 +1112,7 @@ dt_operand::gen_generic (FILE *f)
   else if (type == DT_TRUE)
     ;
   else if (type == DT_MATCH)
-    n_braces = gen_gimple_match_op (f, opname);
+    n_braces = gen_match_op (f, opname);
   else
     gcc_unreachable ();
 
