@@ -4622,13 +4622,18 @@ mips_split_move_p (rtx dest, rtx src, enum mips_split_type split_type)
 	return false;
     }
 
-  /* Otherwise don't split moves that can use MSA insns.  */
-  if (MSA_SUPPORTED_MODE_P (GET_MODE (dest)))
-    return false;
+  /* Check if MSA moves need splitting. */
+  if (MSA_SUPPORTED_MODE_P (GET_MODE (dest))
+      ||  MSA_SUPPORTED_MODE_P (GET_MODE (src)))
+    return mips_split_128bit_move_p (dest, src);
 
   /* Otherwise split all multiword moves.  */
   return size > UNITS_PER_WORD;
 }
+
+/* Determine if the DEST,SRC move insn applies to MSA.  */
+#define MSA_SPLIT_P(DEST, SRC)	\
+  (MSA_SUPPORTED_MODE_P (GET_MODE (DEST)) && MSA_SUPPORTED_MODE_P (GET_MODE (SRC)))
 
 /* Split a move from SRC to DEST, given that mips_split_move_p holds.
    SPLIT_TYPE describes the split condition.  */
@@ -4639,7 +4644,8 @@ mips_split_move (rtx dest, rtx src, enum mips_split_type split_type)
   rtx low_dest;
 
   gcc_checking_assert (mips_split_move_p (dest, src, split_type));
-  if (FP_REG_RTX_P (dest) || FP_REG_RTX_P (src))
+  if (!MSA_SPLIT_P (dest, src)
+      && (FP_REG_RTX_P (dest)||  FP_REG_RTX_P (src)))
     {
       if (!TARGET_64BIT && GET_MODE (dest) == DImode)
 	emit_insn (gen_move_doubleword_fprdi (dest, src));
@@ -4674,6 +4680,13 @@ mips_split_move (rtx dest, rtx src, enum mips_split_type split_type)
 	emit_insn (gen_mfhidi_ti (mips_subword (dest, true), src));
       else
 	emit_insn (gen_mfhisi_di (mips_subword (dest, true), src));
+    }
+  else if (MSA_SPLIT_P (dest, src))
+    {
+      /* Temporary sanity check should only get here if
+       * a 128bit move needed spliting. */
+      gcc_assert (mips_split_128bit_move_p (dest, src));
+      mips_split_128bit_move (dest, src);
     }
   else
     {
@@ -4727,8 +4740,9 @@ mips_split_128bit_move_p (rtx dest, rtx src)
   if (FP_REG_RTX_P (src) && MEM_P (dest))
     return false;
 
-  /* Check for MSA set to 0  */
-  if (FP_REG_RTX_P (dest) && mips_const_vector_same_int_p (src, GET_MODE (src), -512, 511))
+  /* Check for MSA set to an immediate const vector with valid replicated element.  */
+  if (FP_REG_RTX_P (dest)
+      && mips_const_vector_same_int_p (src, GET_MODE (src), -512, 511))
     return false;
 
   return true;

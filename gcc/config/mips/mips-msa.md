@@ -773,10 +773,13 @@
   [(set (match_operand:TI 0 "nonimmediate_operand")
 	(match_operand:TI 1 "move_operand"))]
   "reload_completed && TARGET_MSA
-   && mips_split_128bit_move_p (operands[0], operands[1])"
+   && mips_split_move_insn_p (operands[0], operands[1], insn)"
   [(const_int 0)]
 {
-  mips_split_128bit_move (operands[0], operands[1]);
+  /* Temporary sanity check */
+  gcc_assert (mips_split_128bit_move_p (operands[0], operands[1]));
+  gcc_assert (mips_split_move_insn_p (operands[0], operands[1], curr_insn));
+  mips_split_move_insn (operands[0], operands[1], curr_insn);
   DONE;
 })
 
@@ -784,10 +787,12 @@
   [(set (match_operand:MSA 0 "nonimmediate_operand")
 	(match_operand:MSA 1 "move_operand"))]
   "reload_completed && TARGET_MSA
-   && mips_split_128bit_move_p (operands[0], operands[1])"
+   && mips_split_move_insn_p (operands[0], operands[1], insn)"
   [(const_int 0)]
 {
-  mips_split_128bit_move (operands[0], operands[1]);
+  /* Temporary sanity check */
+  gcc_assert (mips_split_128bit_move_p (operands[0], operands[1]));
+  mips_split_move_insn (operands[0], operands[1], curr_insn);
   DONE;
 })
 
