@@ -1,5 +1,13 @@
 2014-06-26  Richard Biener  <rguenther@suse.de>
 
+	* genmatch.c (c_expr::gen_transform): Fix unused parameter.
+	(dt_simplify::gen_gimple): Mark captures as possibly unused.
+	(dt_simplify::gen_generic): Likewise.
+	(decision_tree::gen_generic): Mark type parameter as possibly
+	unused.
+
+2014-06-26  Richard Biener  <rguenther@suse.de>
+
 	* genmatch.c (dt_operand::gen_generic_kids): New function.
 	(dt_operand::gen_generic_expr_expr): Conditionalize matching
 	of code to GIMPLE code-gen.

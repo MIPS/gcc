@@ -602,7 +602,7 @@ expr::gen_transform (FILE *f, const char *dest, bool gimple)
 }
 
 void
-c_expr::gen_transform (FILE *f, const char *dest, bool gimple)
+c_expr::gen_transform (FILE *f, const char *dest, bool)
 {
   /* If this expression has an outlined function variant, call it.  */
   if (fname)
@@ -1352,7 +1352,7 @@ dt_simplify::gen_gimple (FILE *f)
   fprintf (f, "/* simplify %u */\n", pattern_no);
 
   fprintf (f, "{\n");
-  fprintf (f, "tree captures[4] = {};\n");
+  fprintf (f, "tree captures[4] ATTRIBUTE_UNUSED = {};\n");
 
   for (unsigned i = 0; i < dt_simplify::capture_max; ++i)
     if (indexes[i])
@@ -1410,7 +1410,7 @@ dt_simplify::gen_generic (FILE *f)
   fprintf (f, "/* simplify %u */\n", pattern_no);
 
   fprintf (f, "{\n");
-  fprintf (f, "tree captures[4] = {};\n");
+  fprintf (f, "tree captures[4] ATTRIBUTE_UNUSED = {};\n");
 
   for (unsigned i = 0; i < dt_simplify::capture_max; ++i)
     if (indexes[i])
@@ -1512,7 +1512,7 @@ decision_tree::gen_generic (FILE *f)
   for (unsigned n = 1; n <= 3; ++n)
     {
       fprintf (f, "\ntree\n"
-	       "generic_match_and_simplify (enum tree_code code, tree type");
+	       "generic_match_and_simplify (enum tree_code code, tree type ATTRIBUTE_UNUSED");
       for (unsigned i = 0; i < n; ++i)
 	fprintf (f, ", tree op%d", i);
       fprintf (f, ")\n");
