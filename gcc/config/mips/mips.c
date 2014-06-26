@@ -585,6 +585,10 @@ const struct mips_cpu_info *mips_tune_info;
 /* The ISA level associated with mips_arch.  */
 int mips_isa;
 
+/* The ISA revision level.  This is 0 for MIPS I to V and N for
+   MIPS{32,64}rN.  */
+int mips_isa_rev;
+
 /* The architecture selected by -mipsN, or null if -mipsN wasn't used.  */
 static const struct mips_cpu_info *mips_isa_option_info;
 
@@ -648,14 +652,15 @@ static mips_one_only_stub *mips16_set_fcsr_stub;
 
 /* Index R is the smallest register class that contains register R.  */
 const enum reg_class mips_regno_to_class[FIRST_PSEUDO_REGISTER] = {
-  LEA_REGS,	LEA_REGS,	M16_REGS,	V1_REG,
-  M16_REGS,	M16_REGS,	M16_REGS,	M16_REGS,
-  LEA_REGS,	LEA_REGS,	LEA_REGS,	LEA_REGS,
-  LEA_REGS,	LEA_REGS,	LEA_REGS,	LEA_REGS,
-  M16_REGS,	M16_REGS,	LEA_REGS,	LEA_REGS,
-  LEA_REGS,	LEA_REGS,	LEA_REGS,	LEA_REGS,
-  T_REG,	PIC_FN_ADDR_REG, LEA_REGS,	LEA_REGS,
-  LEA_REGS,	LEA_REGS,	LEA_REGS,	LEA_REGS,
+  LEA_REGS,        LEA_REGS,        M16_STORE_REGS,  V1_REG,
+  M16_STORE_REGS,  M16_STORE_REGS,  M16_STORE_REGS,  M16_STORE_REGS,
+  LEA_REGS,        LEA_REGS,        LEA_REGS,        LEA_REGS,
+  LEA_REGS,        LEA_REGS,        LEA_REGS,        LEA_REGS,
+  M16_REGS,        M16_STORE_REGS,  LEA_REGS,        LEA_REGS,
+  LEA_REGS,        LEA_REGS,        LEA_REGS,        LEA_REGS,
+  T_REG,           PIC_FN_ADDR_REG, LEA_REGS,        LEA_REGS,
+  LEA_REGS,        M16_SP_REGS,     LEA_REGS,        LEA_REGS,
+
   FP_REGS,	FP_REGS,	FP_REGS,	FP_REGS,
   FP_REGS,	FP_REGS,	FP_REGS,	FP_REGS,
   FP_REGS,	FP_REGS,	FP_REGS,	FP_REGS,
@@ -1173,6 +1178,19 @@ static const struct mips_rtx_cost_data
     COSTS_N_INSNS (68),           /* int_div_di */
 		     1,           /* branch_cost */
 		     4            /* memory_latency */
+  },
+  { /* P5600 */
+    COSTS_N_INSNS (4),            /* fp_add */
+    COSTS_N_INSNS (5),            /* fp_mult_sf */
+    COSTS_N_INSNS (5),            /* fp_mult_df */
+    COSTS_N_INSNS (17),           /* fp_div_sf */
+    COSTS_N_INSNS (17),           /* fp_div_df */
+    COSTS_N_INSNS (5),            /* int_mult_si */
+    COSTS_N_INSNS (5),            /* int_mult_di */
+    COSTS_N_INSNS (8),            /* int_div_si */
+    COSTS_N_INSNS (8),            /* int_div_di */
+		    2,            /* branch_cost */
+		   10             /* memory_latency */
   }
 };
 
@@ -2240,22 +2258,9 @@ mips_regno_mode_ok_for_base_p (int regno, enum machine_mode mode,
     return true;
 
   /* In MIPS16 mode, the stack pointer can only address word and doubleword
-     values, nothing smaller.  There are two problems here:
-
-       (a) Instantiating virtual registers can introduce new uses of the
-	   stack pointer.  If these virtual registers are valid addresses,
-	   the stack pointer should be too.
-
-       (b) Most uses of the stack pointer are not made explicit until
-	   FRAME_POINTER_REGNUM and ARG_POINTER_REGNUM have been eliminated.
-	   We don't know until that stage whether we'll be eliminating to the
-	   stack pointer (which needs the restriction) or the hard frame
-	   pointer (which doesn't).
-
-     All in all, it seems more consistent to only enforce this restriction
-     during and after reload.  */
+     values, nothing smaller.  */
   if (TARGET_MIPS16 && regno == STACK_POINTER_REGNUM)
-    return !strict_p || GET_MODE_SIZE (mode) == 4 || GET_MODE_SIZE (mode) == 8;
+    return GET_MODE_SIZE (mode) == 4 || GET_MODE_SIZE (mode) == 8;
 
   return TARGET_MIPS16 ? M16_REG_P (regno) : GP_REG_P (regno);
 }
@@ -5130,6 +5135,7 @@ mips_get_arg_info (struct mips_arg_info *info, const CUMULATIVE_ARGS *cum,
       /* Only leading floating-point scalars are passed in
 	 floating-point registers.  We also handle vector floats the same
 	 say, which is OK because they are not covered by the standard ABI.  */
+      gcc_assert (TARGET_PAIRED_SINGLE_FLOAT || mode != V2SFmode);
       info->fpr_p = (!cum->gp_reg_found
 		     && cum->arg_number < 2
 		     && (type == 0
@@ -5145,6 +5151,7 @@ mips_get_arg_info (struct mips_arg_info *info, const CUMULATIVE_ARGS *cum,
       /* Scalar, complex and vector floating-point types are passed in
 	 floating-point registers, as long as this is a named rather
 	 than a variable argument.  */
+      gcc_assert (TARGET_PAIRED_SINGLE_FLOAT || mode != V2SFmode);
       info->fpr_p = (named
 		     && (type == 0 || FLOAT_TYPE_P (type))
 		     && (GET_MODE_CLASS (mode) == MODE_FLOAT
@@ -5585,6 +5592,7 @@ mips_return_in_msb (const_tree valtype)
 static bool
 mips_return_mode_in_fpr_p (enum machine_mode mode)
 {
+  gcc_assert (TARGET_PAIRED_SINGLE_FLOAT || mode != V2SFmode);
   return ((GET_MODE_CLASS (mode) == MODE_FLOAT
 	   || mode == V2SFmode
 	   || GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT)
@@ -5631,7 +5639,7 @@ mips_return_fpr_pair (enum machine_mode mode,
 {
   int inc;
 
-  inc = (TARGET_NEWABI ? 2 : MAX_FPRS_PER_FMT);
+  inc = (TARGET_NEWABI || mips_abi == ABI_32 ? 2 : MAX_FPRS_PER_FMT);
   return gen_rtx_PARALLEL
     (mode,
      gen_rtvec (2,
@@ -6479,7 +6487,10 @@ mips16_call_stub_mode_suffix (enum machine_mode mode)
   else if (mode == DCmode)
     return "dc";
   else if (mode == V2SFmode)
-    return "df";
+    {
+      gcc_assert (TARGET_PAIRED_SINGLE_FLOAT);
+      return "df";
+    }
   else
     gcc_unreachable ();
 }
@@ -6503,12 +6514,26 @@ mips_output_64bit_xfer (char direction, unsigned int gpreg, unsigned int fpreg)
   if (TARGET_64BIT)
     fprintf (asm_out_file, "\tdm%cc1\t%s,%s\n", direction,
  	     reg_names[gpreg], reg_names[fpreg]);
-  else if (TARGET_FLOAT64)
+  else if (ISA_HAS_MXHC1)
     {
       fprintf (asm_out_file, "\tm%cc1\t%s,%s\n", direction,
  	       reg_names[gpreg + TARGET_BIG_ENDIAN], reg_names[fpreg]);
       fprintf (asm_out_file, "\tm%chc1\t%s,%s\n", direction,
  	       reg_names[gpreg + TARGET_LITTLE_ENDIAN], reg_names[fpreg]);
+    }
+  else if (TARGET_FLOATXX && direction == 't')
+    {
+      /* Use the argument save area to move via memory.  */
+      fprintf (asm_out_file, "\tsw\t%s,0($sp)\n", reg_names[gpreg]);
+      fprintf (asm_out_file, "\tsw\t%s,4($sp)\n", reg_names[gpreg + 1]);
+      fprintf (asm_out_file, "\tldc1\t%s,0($sp)\n", reg_names[fpreg]);
+    }
+  else if (TARGET_FLOATXX && direction == 'f')
+    {
+      /* Use the argument save area to move via memory.  */
+      fprintf (asm_out_file, "\tsdc1\t%s,0($sp)\n", reg_names[fpreg]);
+      fprintf (asm_out_file, "\tlw\t%s,0($sp)\n", reg_names[gpreg]);
+      fprintf (asm_out_file, "\tlw\t%s,4($sp)\n", reg_names[gpreg + 1]);
     }
   else
     {
@@ -6915,11 +6940,11 @@ mips16_build_call_stub (rtx retval, rtx *fn_ptr, rtx args_size, int fp_code)
 	    case SCmode:
 	      mips_output_32bit_xfer ('f', GP_RETURN + TARGET_BIG_ENDIAN,
 				      TARGET_BIG_ENDIAN
-				      ? FP_REG_FIRST + MAX_FPRS_PER_FMT
+				      ? FP_REG_FIRST + 2
 				      : FP_REG_FIRST);
 	      mips_output_32bit_xfer ('f', GP_RETURN + TARGET_LITTLE_ENDIAN,
 				      TARGET_LITTLE_ENDIAN
-				      ? FP_REG_FIRST + MAX_FPRS_PER_FMT
+				      ? FP_REG_FIRST + 2
 				      : FP_REG_FIRST);
 	      if (GET_MODE (retval) == SCmode && TARGET_64BIT)
 		{
@@ -6948,10 +6973,12 @@ mips16_build_call_stub (rtx retval, rtx *fn_ptr, rtx args_size, int fp_code)
 
 	    case DCmode:
 	      mips_output_64bit_xfer ('f', GP_RETURN + (8 / UNITS_PER_WORD),
-				      FP_REG_FIRST + MAX_FPRS_PER_FMT);
+				      FP_REG_FIRST + 2);
 	      /* Fall though.  */
  	    case DFmode:
 	    case V2SFmode:
+	      gcc_assert (TARGET_PAIRED_SINGLE_FLOAT
+			  || GET_MODE (retval) != V2SFmode);
 	      mips_output_64bit_xfer ('f', GP_RETURN, FP_REG_FIRST);
 	      break;
 
@@ -8686,14 +8713,29 @@ mips_dwarf_register_span (rtx reg)
   rtx high, low;
   enum machine_mode mode;
 
+  /* TARGET_FLOATXX is implemented as 32-bit floating-point registers but
+     ensures that double precision registers are treated as if they were
+     64-bit physical registers.  The code will run correctly with 32-bit or
+     64-bit registers which means that dwarf information cannot be precisely
+     correct for all scenarios.  We choose to state that the 64-bit values
+     are stored in a single 64-bit 'piece'.  This slightly unusual
+     construct can then be interpreted as either a pair of registers if the
+     registers are 32-bit or a single 64-bit register depending on
+     hardware.  */
+  mode = GET_MODE (reg);
+  if (FP_REG_P (REGNO (reg))
+      && TARGET_FLOATXX
+      && GET_MODE_SIZE (mode) > UNITS_PER_FPREG)
+    {
+      return gen_rtx_PARALLEL (VOIDmode, gen_rtvec (1, reg));
+    }
   /* By default, GCC maps increasing register numbers to increasing
      memory locations, but paired FPRs are always little-endian,
      regardless of the prevailing endianness.  */
-  mode = GET_MODE (reg);
-  if (FP_REG_P (REGNO (reg))
-      && TARGET_BIG_ENDIAN
-      && MAX_FPRS_PER_FMT > 1
-      && GET_MODE_SIZE (mode) > UNITS_PER_FPREG)
+  else if (FP_REG_P (REGNO (reg))
+	   && TARGET_BIG_ENDIAN
+	   && MAX_FPRS_PER_FMT > 1
+	   && GET_MODE_SIZE (mode) > UNITS_PER_FPREG)
     {
       gcc_assert (GET_MODE_SIZE (mode) == UNITS_PER_HWFPVALUE);
       high = mips_subword (reg, true);
@@ -8983,6 +9025,31 @@ mips_file_start (void)
     fprintf (asm_out_file, "\t.nan\t%s\n",
 	     mips_nan == MIPS_IEEE_754_2008 ? "2008" : "legacy");
 
+#ifdef HAVE_AS_MODULE
+  /* Record the FP ABI.  See below for comments.  */
+  if (TARGET_NO_FLOAT)
+#ifdef HAVE_AS_GNU_ATTRIBUTE
+    fputs ("\t.gnu_attribute 4, 0\n", asm_out_file);
+#else
+    ;
+#endif
+  else if (!TARGET_HARD_FLOAT_ABI)
+    fputs ("\t.module\tsoftfloat\n", asm_out_file);
+  else if (!TARGET_DOUBLE_FLOAT)
+    fputs ("\t.module\tsinglefloat\n", asm_out_file);
+  else if (TARGET_FLOATXX)
+    fputs ("\t.module\tfp=xx\n", asm_out_file);
+  else if (TARGET_FLOAT64)
+    fputs ("\t.module\tfp=64\n", asm_out_file);
+  else
+    fputs ("\t.module\tfp=32\n", asm_out_file);
+
+  if (TARGET_ODD_SPREG)
+    fputs ("\t.module\toddspreg\n", asm_out_file);
+  else
+    fputs ("\t.module\tnooddspreg\n", asm_out_file);
+
+#else
 #ifdef HAVE_AS_GNU_ATTRIBUTE
   {
     int attr;
@@ -8996,15 +9063,26 @@ mips_file_start (void)
     /* Single-float code, -msingle-float.  */
     else if (!TARGET_DOUBLE_FLOAT)
       attr = 2;
-    /* 64-bit FP registers on a 32-bit target, -mips32r2 -mfp64.  */
-    else if (!TARGET_64BIT && TARGET_FLOAT64)
-      attr = 4;
+    /* 64-bit FP registers on a 32-bit target, -mips32r2 -mfp64.
+       Reserved attr=4.
+       This case used 12 callee save double precision registers
+       and is deprecated.  */
+    /* 64-bit or 32-bit FP registers on a 32-bit target, -mfpxx.  */
+    else if (TARGET_FLOATXX)
+      attr = 5;
+    /* 64-bit FP registers on a 32-bit target, -mfp64 -modd-spreg.  */
+    else if (mips_abi == ABI_32 && TARGET_FLOAT64 && TARGET_ODD_SPREG)
+      attr = 6;
+    /* 64-bit FP registers on a 32-bit target, -mfp64 -mno-odd-spreg.  */
+    else if (mips_abi == ABI_32 && TARGET_FLOAT64)
+      attr = 7;
     /* Regular FP code, FP regs same size as GP regs, -mdouble-float.  */
     else
       attr = 1;
 
     fprintf (asm_out_file, "\t.gnu_attribute 4, %d\n", attr);
   }
+#endif
 #endif
 
   /* If TARGET_ABICALLS, tell GAS to generate -KPIC code.  */
@@ -10016,8 +10094,8 @@ mips_compute_frame_info (void)
   /* Set this function's interrupt properties.  */
   if (mips_interrupt_type_p (TREE_TYPE (current_function_decl)))
     {
-      if (!ISA_MIPS32R2)
-	error ("the %<interrupt%> attribute requires a MIPS32r2 processor");
+      if (mips_isa_rev < 2)
+	error ("the %<interrupt%> attribute requires a MIPS32r2 processor or greater");
       else if (TARGET_HARD_FLOAT)
 	error ("the %<interrupt%> attribute requires %<-msoft-float%>");
       else if (TARGET_MIPS16)
@@ -10494,7 +10572,9 @@ mips_for_each_saved_acc (HOST_WIDE_INT sp_offset, mips_save_restore_fn fn)
 static void
 mips_save_reg (rtx reg, rtx mem)
 {
-  if (GET_MODE (reg) == DFmode && !TARGET_FLOAT64)
+  if (GET_MODE (reg) == DFmode
+      && (!TARGET_FLOAT64
+	  || mips_abi == ABI_32))
     {
       rtx x1, x2;
 
@@ -11419,7 +11499,9 @@ mips_restore_reg (rtx reg, rtx mem)
      $7 instead and adjust the return insn appropriately.  */
   if (TARGET_MIPS16 && REGNO (reg) == RETURN_ADDR_REGNUM)
     reg = gen_rtx_REG (GET_MODE (reg), GP_REG_FIRST + 7);
-  else if (GET_MODE (reg) == DFmode && !TARGET_FLOAT64)
+  else if (GET_MODE (reg) == DFmode
+	   && (!TARGET_FLOAT64
+	       || mips_abi == ABI_32))
     {
       mips_add_cfa_restore (mips_subword (reg, true));
       mips_add_cfa_restore (mips_subword (reg, false));
@@ -11768,6 +11850,12 @@ mips_hard_regno_mode_ok_p (unsigned int regno, enum machine_mode mode)
       && (((regno - FP_REG_FIRST) % MAX_FPRS_PER_FMT) == 0
 	  || (MIN_FPRS_PER_FMT == 1 && size <= UNITS_PER_FPREG)))
     {
+      /* Deny use of odd-numbered registers for 32-bit data for
+	 the O32 FP64A ABI.  */
+      if (mips_abi == ABI_32 && TARGET_FLOAT64 && !TARGET_ODD_SPREG
+	  && size <= 4 && (regno & 1) != 0)
+	return false;
+
       /* Allow 64-bit vector modes for Loongson-2E/2F.  */
       if (TARGET_LOONGSON_VECTORS
 	  && (mode == V2SImode
@@ -11934,7 +12022,7 @@ mips_mode_ok_for_mov_fmt_p (enum machine_mode mode)
       return TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT;
 
     case V2SFmode:
-      return TARGET_HARD_FLOAT && TARGET_PAIRED_SINGLE_FLOAT;
+      return TARGET_HARD_FLOAT;
 
     default:
       return false;
@@ -12114,6 +12202,18 @@ mips_register_move_cost (enum machine_mode mode,
   return 0;
 }
 
+/* Implement TARGET_REGISTER_PRIORITY.  */
+
+static int
+mips_register_priority (int hard_regno)
+{
+  /* Treat MIPS16 registers with higher priority than other regs.  */
+  if (TARGET_MIPS16
+      && TEST_HARD_REG_BIT (reg_class_contents[M16_REGS], hard_regno))
+    return 1;
+  return 0;
+}
+
 /* Implement TARGET_MEMORY_MOVE_COST.  */
 
 static int
@@ -12122,6 +12222,25 @@ mips_memory_move_cost (enum machine_mode mode, reg_class_t rclass, bool in)
   return (mips_cost->memory_latency
 	  + memory_move_secondary_cost (mode, rclass, in));
 } 
+
+/* Implement SECONDARY_MEMORY_NEEDED.  */
+
+bool
+mips_secondary_memory_needed (enum reg_class class1, enum reg_class class2,
+			      enum machine_mode mode)
+{
+  /* Ignore spilled pseudos.  */
+  if (lra_in_progress && (class1 == NO_REGS || class2 == NO_REGS))
+    return false;
+
+  if (((class1 == FP_REGS) != (class2 == FP_REGS))
+      && ((TARGET_FLOATXX && !ISA_HAS_MXHC1)
+	  || (mips_abi == ABI_32 && TARGET_FLOAT64 && !TARGET_ODD_SPREG))
+      && GET_MODE_SIZE (mode) >= 8)
+    return true;
+
+  return false;
+}
 
 /* Return the register class required for a secondary register when
    copying between one of the registers in RCLASS and value X, which
@@ -12197,7 +12316,8 @@ mips_secondary_reload_class (enum reg_class rclass,
 	return NO_REGS;
 
       /* Otherwise, we need to reload through an integer register.  */
-      return GR_REGS;
+      if (regno >= 0)
+        return GR_REGS;
     }
   if (FP_REG_P (regno))
     return reg_class_subset_p (rclass, GR_REGS) ? NO_REGS : GR_REGS;
@@ -13059,6 +13179,31 @@ mips_output_division (const char *division, rtx *operands)
   return s;
 }
 
+/* Return true if destination of IN_INSN is used as add source in
+   OUT_INSN. Both IN_INSN and OUT_INSN are of type fmadd. Example:
+   madd.s dst, x, y, z
+   madd.s a, dst, b, c  */
+
+bool
+mips_fmadd_bypass (rtx out_insn, rtx in_insn)
+{
+  int dst_reg, src_reg;
+  
+  gcc_assert (get_attr_type (in_insn) == TYPE_FMADD);
+  gcc_assert (get_attr_type (out_insn) == TYPE_FMADD);
+
+  extract_insn (in_insn);
+  dst_reg = REG_P (recog_data.operand[0]);
+
+  extract_insn (out_insn);
+  src_reg = REG_P (recog_data.operand[1]);
+
+  if (dst_reg == src_reg)
+    return true;
+
+  return false;
+}
+
 /* Return true if IN_INSN is a multiply-add or multiply-subtract
    instruction and if OUT_INSN assigns to the accumulator operand.  */
 
@@ -13194,6 +13339,7 @@ mips_issue_rate (void)
     case PROCESSOR_LOONGSON_2E:
     case PROCESSOR_LOONGSON_2F:
     case PROCESSOR_LOONGSON_3A:
+    case PROCESSOR_P5600:
       return 4;
 
     case PROCESSOR_XLP:
@@ -13328,6 +13474,9 @@ mips_multipass_dfa_lookahead (void)
 
   if (TUNE_OCTEON)
     return 2;
+
+  if (TUNE_P5600)
+    return 4;
 
   return 0;
 }
@@ -16900,6 +17049,10 @@ mips_set_architecture (const struct mips_cpu_info *info)
       mips_arch_info = info;
       mips_arch = info->cpu;
       mips_isa = info->isa;
+      if (mips_isa < 32)
+	mips_isa_rev = 0;
+      else
+	mips_isa_rev = (mips_isa & 31) + 1;
     }
 }
 
@@ -17033,6 +17186,13 @@ mips_option_override (void)
 	target_flags &= ~MASK_FLOAT64;
     }
 
+  if (mips_abi != ABI_32 && TARGET_FLOATXX)
+    error ("%<-mfpxx%> can only be used with the o32 ABI");
+  else if (ISA_MIPS1 && !TARGET_FLOAT32)
+    error ("%<-march=%s%> requires %<-mfp32%>", mips_arch_info->name);
+  else if (TARGET_FLOATXX && !mips_lra_flag)
+    error ("%<-mfpxx%> requires %<-mlra%>");
+
   /* End of code shared with GAS.  */
 
   /* The R5900 FPU only supports single precision.  */
@@ -17119,6 +17279,24 @@ mips_option_override (void)
   else if (TARGET_IMADD && !ISA_HAS_MADD_MSUB)
     warning (0, "the %qs architecture does not support madd or msub"
 	     " instructions", mips_arch_info->name);
+
+  /* If neither -modd-spreg nor -mno-odd-spreg was given on the command
+     line, set MASK_ODD_SPREG based on the ISA.  */
+  if ((target_flags_explicit & MASK_ODD_SPREG) == 0)
+    {
+      /* Disable TARGET_ODD_SPREG for generic architectures when using the
+         O32 FPXX ABI to make them compatible with those implementations
+	 which are !ISA_HAS_ODD_SPREG.  */
+      if (!ISA_HAS_ODD_SPREG
+	  || (TARGET_FLOATXX
+	      && (strncmp (mips_arch_info->name, "mips", 4) == 0)))
+	target_flags &= ~MASK_ODD_SPREG;
+      else
+	target_flags |= MASK_ODD_SPREG;
+    }
+  else if (TARGET_ODD_SPREG && !ISA_HAS_ODD_SPREG)
+    warning (0, "the %qs architecture does not support odd single-precision"
+	     " registers", mips_arch_info->name);
 
   /* The effect of -mabicalls isn't defined for the EABI.  */
   if (mips_abi == ABI_EABI && TARGET_ABICALLS)
@@ -17482,8 +17660,10 @@ mips_conditional_register_usage (void)
 	call_really_used_regs[regno] = call_used_regs[regno] = 1;
     }
   /* Odd registers in the range $f21-$f31 (inclusive) are call-clobbered
-     for n32.  */
-  if (mips_abi == ABI_N32)
+     for n32 and o32 FP64.  */
+  if (mips_abi == ABI_N32
+      || (mips_abi == ABI_32
+          && TARGET_FLOAT64))
     {
       int regno;
       for (regno = FP_REG_FIRST + 21; regno <= FP_REG_FIRST + 31; regno+=2)
@@ -18843,6 +19023,21 @@ mips_expand_vec_minmax (rtx target, rtx op0, rtx op1,
   emit_insn (gen_rtx_SET (VOIDmode, target, x));
 }
 
+/* Implement HARD_REGNO_CALLER_SAVE_MODE.  */
+
+enum machine_mode
+mips_hard_regno_caller_save_mode (unsigned int regno,
+				  unsigned int nregs,
+				  enum machine_mode mode)
+{
+  /* For performance, to avoid saving/restoring upper parts of a register,
+     we return MODE as save mode when MODE is not VOIDmode.  */
+  if (mode == VOIDmode)
+    return choose_hard_reg_mode (regno, nregs, false);
+  else
+    return mode;
+}
+
 /* Implement TARGET_CASE_VALUES_THRESHOLD.  */
 
 unsigned int
@@ -18896,6 +19091,25 @@ mips_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 						    1, int_exceptions_var);
   *update = build2 (COMPOUND_EXPR, void_type_node, *update,
 		    atomic_feraiseexcept_call);
+}
+
+/* Implement TARGET_SPILL_CLASS.  */
+
+static reg_class_t
+mips_spill_class (reg_class_t rclass ATTRIBUTE_UNUSED,
+		  enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+  if (TARGET_MIPS16)
+    return SPILL_REGS;
+  return NO_REGS;
+}
+
+/* Implement TARGET_LRA_P.  */
+
+static bool
+mips_lra_p (void)
+{
+  return mips_lra_flag;
 }
 
 /* Initialize the GCC target structure.  */
@@ -18960,6 +19174,8 @@ mips_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 #define TARGET_VALID_POINTER_MODE mips_valid_pointer_mode
 #undef TARGET_REGISTER_MOVE_COST
 #define TARGET_REGISTER_MOVE_COST mips_register_move_cost
+#undef TARGET_REGISTER_PRIORITY
+#define TARGET_REGISTER_PRIORITY mips_register_priority
 #undef TARGET_MEMORY_MOVE_COST
 #define TARGET_MEMORY_MOVE_COST mips_memory_move_cost
 #undef TARGET_RTX_COSTS
@@ -19133,6 +19349,11 @@ mips_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 
 #undef TARGET_ATOMIC_ASSIGN_EXPAND_FENV
 #define TARGET_ATOMIC_ASSIGN_EXPAND_FENV mips_atomic_assign_expand_fenv
+
+#undef TARGET_SPILL_CLASS
+#define TARGET_SPILL_CLASS mips_spill_class
+#undef TARGET_LRA_P
+#define TARGET_LRA_P mips_lra_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
