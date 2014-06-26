@@ -23,7 +23,8 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 #include "auto-host.h"
 
-#if defined(__mips_micromips) || defined(__mips_soft_float)
+#if defined(__mips_micromips) || defined(__mips_soft_float) \
+    || __mips_isa_rev >= 6
   /* DO NOTHING */
 #else
 

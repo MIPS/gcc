@@ -991,20 +991,25 @@ proc mips-dg-options { args } {
 		set arch "-march=loongson2f"
 	    }
 	} else {
-	    if { ![regexp {^(isa(?:|_rev))(=|<=|>=)([0-9]*)$} \
-		       $spec dummy prop relation value nocpus] } {
+	    if { ![regexp {^(isa(?:|_rev))(=|<=|>=)([0-9]*)-?([0-9]*)$} \
+		       $spec dummy prop relation minvalue maxvalue nocpus] } {
 		error "Unrecognized isa specification: $spec"
+	    }
+	    if { ![string equal $maxvalue ""] && ![string equal $relation "="] {
+		error "Unsupported use of isa ranges: $spec"
+	    } else if { [string equal $maxvalue ""] } {
+		set maxvalue $minvalue
 	    }
 	    set current [mips_arch_info $arch $prop]
 	    if { $force_generic_isa_p
-		 || ($current < $value && ![string equal $relation "<="])
-		 || ($current > $value && ![string equal $relation ">="])
+		 || ($current < $minvalue && ![string equal $relation "<="])
+		 || ($current > $maxvalue && ![string equal $relation ">="])
 		 || ([mips_have_test_option_p options "-mgp64"]
 		     && [mips_32bit_arch_p $arch]) } {
 		# The current setting is out of range; it cannot
 		# possibly be used.  Find a replacement that can.
 		if { [string equal $prop "isa"] } {
-		    set arch "-mips$value"
+		    set arch "-mips$maxvalue"
 		} elseif { $value == 0 } {
 		    set arch "-mips4"
 		} else {
@@ -1013,8 +1018,8 @@ proc mips-dg-options { args } {
 		    } else {
 			set arch "-mips64"
 		    }
-		    if { $value > 1 } {
-			append arch "r$value"
+		    if { $maxvalue > 1 } {
+			append arch "r$maxvalue"
 		    }
 		}
 	    }
@@ -1095,6 +1100,26 @@ proc mips-dg-options { args } {
 		       || ($gp_size == 32
 			   && [mips_have_test_option_p options "-mfpxx"])) } {
 	    mips_make_test_option options "-mips2"
+	# Check whether we need to switch from mips*r6 down to mips*r5 due
+	# to options that are incompatible with mips*r6.  If we do, use
+	# -mnan=2008 because r6 is nan2008 by default and without this flag
+	# tests that include stdlib.h will fail due to not finding
+	# stubs-o32_hard.h  (r6 compilers only have stubs-o32_hard_2008.h)
+	} elseif { $isa_rev > 5
+		   && ([mips_have_test_option_p options "-mdsp"]
+		       || [mips_have_test_option_p options "-mdspr2"]
+		       || [mips_have_test_option_p options "-mips16"]
+		       || [mips_have_test_option_p options "-mfp32"]
+		       || [mips_have_test_option_p options "-mfix-r10000"]
+		       || [mips_have_test_option_p options "-mpaired-single"]
+		       || [mips_have_test_option_p options "-mnan=legacy"]
+		       || [mips_have_test_option_p options "-mabs=legacy"]) } {
+	    if { $gp_size == 32 } {
+		mips_make_test_option options "-mips32r5"
+	    } else {
+		mips_make_test_option options "-mips64r5"
+	    }
+	    mips_make_test_option options "-mnan=2008"
 	# Check whether we need to switch from a 32-bit processor to the
 	# "nearest" 64-bit processor.
 	} elseif { $gp_size == 64 && [mips_32bit_arch_p $arch] } {
@@ -1118,6 +1143,10 @@ proc mips-dg-options { args } {
 	unset isa
 	unset isa_rev
     }
+
+    # Re-calculate the isa_rev for use in the abi handling code below
+    set arch [mips_option options arch]
+    set isa_rev [mips_arch_info $arch isa_rev]
 
     # Set an appropriate ABI, handling dependencies between the pre-abi
     # options and the abi options.  This should mirror the abi and post-abi
@@ -1183,8 +1212,8 @@ proc mips-dg-options { args } {
     if { $abi_test_option_p } {
 	if { $eabi_p } {
 	    mips_make_test_option options "-mno-abicalls"
-	    if { $gp_size == 32 } {
-		mips_make_test_option options "-mfp32"
+	    if { $isa_rev < 6 && $gp_size == 32 } {
+		    mips_make_test_option options "-mfp32"
 	    }
 	}
 	if { [mips_using_mips16_p options]
@@ -1226,6 +1255,17 @@ proc mips-dg-options { args } {
 	    }
 	    mips_make_test_option options "-mno-dsp"
 	    mips_make_test_option options "-mno-synci"
+	}
+        if { $isa_rev > 5 } {
+	    mips_make_test_option options "-mno-dsp"
+	    mips_make_test_option options "-mno-mips16"
+	    if { [mips_have_test_option_p options "-mdsp"] } {
+		mips_make_test_option options "-mfp64"
+	    }
+	    mips_make_test_option options "-mno-fix-r10000"
+	    mips_make_test_option options "-mno-paired-single"
+	    mips_make_test_option options "-mnan=2008"
+	    mips_make_test_option options "-mabs=2008"
 	}
 	unset arch
 	unset isa
