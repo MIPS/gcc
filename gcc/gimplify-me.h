@@ -23,7 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 /* Validation of GIMPLE expressions.  Note that these predicates only check
  *    the basic form of the expression, they don't recurse to make sure that
  *       underlying nodes are also of the right form.  */
-typedef bool (*gimple_predicate)(Gimple::value);
+typedef bool (*gimple_predicate)(G::value);
 
 extern tree force_gimple_operand_1 (tree, gimple_seq *, gimple_predicate, tree);
 extern tree force_gimple_operand (tree, gimple_seq *, bool, tree);

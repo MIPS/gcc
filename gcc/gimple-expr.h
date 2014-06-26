@@ -22,49 +22,49 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "gimple-value.h"
 
-extern bool useless_type_conversion_p (Gimple::type, Gimple::type);
+extern bool useless_type_conversion_p (G::type, G::type);
 
-extern void gimple_set_body (Gimple::function_decl, gimple_seq);
-extern gimple_seq gimple_body (Gimple::function_decl);
-extern bool gimple_has_body_p (Gimple::function_decl);
-extern const char *gimple_decl_printable_name (Gimple::decl, int);
-extern Gimple::var_decl copy_var_decl (Gimple::decl, Gimple::identifier,
-				       Gimple::type);
-extern bool gimple_can_coalesce_p (Gimple::ssa_name, Gimple::ssa_name);
-extern Gimple::identifier create_tmp_var_name (const char *);
-extern Gimple::var_decl create_tmp_var_raw (Gimple::type, const char *);
-extern Gimple::var_decl create_tmp_var (Gimple::type, const char *);
-extern Gimple::var_decl create_tmp_reg (Gimple::type, const char *);
-extern Gimple::var_decl create_tmp_reg_fn (struct function *,
-					   Gimple::type, const char *);
+extern void gimple_set_body (G::function_decl, gimple_seq);
+extern gimple_seq gimple_body (G::function_decl);
+extern bool gimple_has_body_p (G::function_decl);
+extern const char *gimple_decl_printable_name (G::decl, int);
+extern G::var_decl copy_var_decl (G::decl, G::identifier,
+				  G::type);
+extern bool gimple_can_coalesce_p (G::ssa_name, G::ssa_name);
+extern G::identifier create_tmp_var_name (const char *);
+extern G::var_decl create_tmp_var_raw (G::type, const char *);
+extern G::var_decl create_tmp_var (G::type, const char *);
+extern G::var_decl create_tmp_reg (G::type, const char *);
+extern G::var_decl create_tmp_reg_fn (struct function *,
+				      G::type, const char *);
 
-extern void extract_ops_from_tree_1 (Gimple::value, enum tree_code *,
-				     Gimple::value_ptr, Gimple::value_ptr,
-				     Gimple::value_ptr);
-extern void gimple_cond_get_ops_from_tree (Gimple::value , enum tree_code *,
-					   Gimple::value_ptr,
-					   Gimple::value_ptr);
-extern bool is_gimple_lvalue (Gimple::value);
-extern bool is_gimple_condexpr (Gimple::value);
-extern bool is_gimple_address (Gimple::value);
-extern bool is_gimple_invariant_address (Gimple::value);
-extern bool is_gimple_ip_invariant_address (Gimple::value);
-extern bool is_gimple_min_invariant (Gimple::value);
-extern bool is_gimple_ip_invariant (Gimple::value);
-extern bool is_gimple_reg (Gimple::value);
-extern bool is_gimple_val (Gimple::value);
-extern bool is_gimple_asm_val (Gimple::value);
-extern bool is_gimple_min_lval (Gimple::value);
-extern bool is_gimple_call_addr (Gimple::value);
-extern bool is_gimple_mem_ref_addr (Gimple::value);
-extern void mark_addressable (Gimple::value);
-extern bool is_gimple_reg_rhs (Gimple::value);
+extern void extract_ops_from_tree_1 (G::value, enum tree_code *,
+				     G::value_ptr, G::value_ptr,
+				     G::value_ptr);
+extern void gimple_cond_get_ops_from_tree (G::value , enum tree_code *,
+					   G::value_ptr,
+					   G::value_ptr);
+extern bool is_gimple_lvalue (G::value);
+extern bool is_gimple_condexpr (G::value);
+extern bool is_gimple_address (G::value);
+extern bool is_gimple_invariant_address (G::value);
+extern bool is_gimple_ip_invariant_address (G::value);
+extern bool is_gimple_min_invariant (G::value);
+extern bool is_gimple_ip_invariant (G::value);
+extern bool is_gimple_reg (G::value);
+extern bool is_gimple_val (G::value);
+extern bool is_gimple_asm_val (G::value);
+extern bool is_gimple_min_lval (G::value);
+extern bool is_gimple_call_addr (G::value);
+extern bool is_gimple_mem_ref_addr (G::value);
+extern void mark_addressable (G::value);
+extern bool is_gimple_reg_rhs (G::value);
   
 /* Return true if a conversion from either type of TYPE1 and TYPE2
    to the other is not required.  Otherwise return false.  */
 
 static inline bool
-types_compatible_p (Gimple::type type1, Gimple::type type2)
+types_compatible_p (G::type type1, G::type type2)
 {
   return (type1 == type2
 	  || (useless_type_conversion_p (type1, type2)
@@ -74,7 +74,7 @@ types_compatible_p (Gimple::type type1, Gimple::type type2)
 /* Return true if TYPE is a suitable type for a scalar register variable.  */
 
 static inline bool
-is_gimple_reg_type (Gimple::type type)
+is_gimple_reg_type (G::type type)
 {
   return !type->aggregate_type_p ();
 }
@@ -82,7 +82,7 @@ is_gimple_reg_type (Gimple::type type)
 /* Return true if T is a variable.  */
 
 static inline bool
-is_gimple_variable (Gimple::value t)
+is_gimple_variable (G::value t)
 {
   enum tree_code c = t->code();
   return c  == VAR_DECL || c == PARM_DECL || c == RESULT_DECL || c == SSA_NAME;
@@ -91,7 +91,7 @@ is_gimple_variable (Gimple::value t)
 /*  Return true if T is a GIMPLE identifier (something with an address).  */
 
 static inline bool
-is_gimple_id (Gimple::value t)
+is_gimple_id (G::value t)
 {
   return (is_gimple_variable (t)
 	  || t->code () == FUNCTION_DECL
@@ -104,9 +104,9 @@ is_gimple_id (Gimple::value t)
 /* Return true if OP, an SSA name or a DECL is a virtual operand.  */
 
 static inline bool
-virtual_operand_p (Gimple::value op)
+virtual_operand_p (G::value op)
 {
-  Gimple::ssa_name ssa(op);
+  G::ssa_name ssa(op);
   if (ssa)
     {
       op = ssa->var ();
@@ -114,7 +114,7 @@ virtual_operand_p (Gimple::value op)
 	return false;
     }
 
-  Gimple::var_decl decl(op);
+  G::var_decl decl(op);
   if (decl)
     return decl->is_virtual_operand ();
 
@@ -124,7 +124,7 @@ virtual_operand_p (Gimple::value op)
 /*  Return true if T is something whose address can be taken.  */
 
 static inline bool
-is_gimple_addressable (Gimple::value t)
+is_gimple_addressable (G::value t)
 {
   return (is_gimple_id (t) || handled_component_p (t)
 	  || t->code () == MEM_REF);
@@ -133,7 +133,7 @@ is_gimple_addressable (Gimple::value t)
 /* Return true if T is a valid gimple constant.  */
 
 static inline bool
-is_gimple_constant (const Gimple::value t) 
+is_gimple_constant (const G::value t) 
 {
   switch (t->code ())
     {
@@ -154,10 +154,10 @@ is_gimple_constant (const Gimple::value t)
    to see only a maximum of two operands.  */
 
 static inline void
-extract_ops_from_tree (Gimple::value expr, enum tree_code *code, Gimple::value_ptr op0,
-		       Gimple::value_ptr op1)
+extract_ops_from_tree (G::value expr, enum tree_code *code, G::value_ptr op0,
+		       G::value_ptr op1)
 {
-  Gimple::value op2;
+  G::value op2;
   extract_ops_from_tree_1 (expr, code, op0, op1, &op2);
   gcc_assert (!op2);
 }
@@ -165,21 +165,21 @@ extract_ops_from_tree (Gimple::value expr, enum tree_code *code, Gimple::value_p
 /* Given a valid GIMPLE_CALL function address return the FUNCTION_DECL
    associated with the callee if known.  Otherwise return NULL_TREE.  */
 
-static inline Gimple::function_decl
-gimple_call_addr_fndecl (const Gimple::value val)
+static inline G::function_decl
+gimple_call_addr_fndecl (const G::value val)
 {
-  Gimple::function_decl fndecl;
-  Gimple::addr_expr addr = val;
+  G::function_decl fndecl;
+  G::addr_expr addr = val;
   if (addr)
     {
-      fndecl = as_a<Gimple::function_decl> (addr->expr ());
+      fndecl = as_a<G::function_decl> (addr->expr ());
 
       if (!fndecl)
         {
-	  Gimple::mem_ref mem = addr->expr ();
+	  G::mem_ref mem = addr->expr ();
 	  if (mem)
 	    {
-	      Gimple::addr_expr addr2 = mem->base ();
+	      G::addr_expr addr2 = mem->base ();
 	      if (addr2 && integer_zerop (mem->offset ()))
 		fndecl = addr2->expr ();
 	    }

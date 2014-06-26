@@ -47,7 +47,7 @@ template<typename T, typename D>
 inline T dyn_cast (D v)
 { return T::dyn_cast (v); }
 
-namespace Gimple {
+namespace G {
 
 template<typename T>
 class _ptr 
@@ -479,7 +479,7 @@ typedef _addr<type>			type_ptr;
 typedef _addr<value>			value_ptr;
 typedef _addr<integer_cst>		integer_cst_ptr;
 
-} // namespace Gimple
+} // namespace G
 
 
 #endif  /* GIMPLE_WRAPPER_H  */

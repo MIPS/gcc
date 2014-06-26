@@ -4,7 +4,7 @@
 #include "gimple-value-core.h"
 #include "gimple-wrapper.h"
 
-namespace Gimple {
+namespace G {
 
 /* Class tree_desc methods.  */
 
@@ -234,17 +234,17 @@ tree_desc::check_node (enum tree_code t1, enum tree_code t2, enum tree_code t3,
 #endif
 }
 
-inline Gimple::value
+inline G::value
 block_desc::supercontext () const
 {
   return node.block.supercontext;
 }
 
 
-inline Gimple::type
+inline G::type
 type_desc::type() const
 { 
-  return Gimple::type (node.typed.type);
+  return G::type (node.typed.type);
 }
 
 inline bool 
@@ -341,7 +341,7 @@ type_desc::addr_space () const
   return node.base.u.bits.address_space;
 }
 
-inline Gimple::type
+inline G::type
 type_desc::main_variant () const
 {
   return node.type_common.main_variant;
@@ -353,7 +353,7 @@ type_desc::chain () const
   return node.common.chain;
 }
 
-inline Gimple::type
+inline G::type
 type_desc::canonical () const
 {
   return node.type_common.canonical;
@@ -384,13 +384,13 @@ array_type_desc::domain () const
   return node.type_non_common.values;
 }
 
-inline Gimple::type_list
+inline G::type_list
 function_or_method_type_desc::arg_types () const
 {
   return node.type_non_common.values;
 }
 
-inline Gimple::type
+inline G::type
 method_type_desc::basetype () const
 {
   return node.type_non_common.maxval;
@@ -418,14 +418,14 @@ type_desc::attributes () const
 //
 //
 
-inline Gimple::type
+inline G::type
 value_desc::type() const
 { 
-  return Gimple::type (node.typed.type);
+  return G::type (node.typed.type);
 }
 
 inline void 
-value_desc::set_type (Gimple::type t)
+value_desc::set_type (G::type t)
 { 
   node.typed.type = t;
 }
@@ -480,19 +480,19 @@ value_ops_desc::op(const int i) const
   return value_desc::op(i);
 }
 
-inline Gimple::value
+inline G::value
 unary_desc::op1 () const
 {
   return op(0);
 }  
 
-inline Gimple::value
+inline G::value
 binary_desc::op1 () const
 {
   return op(0);
 }  
 
-inline Gimple::value
+inline G::value
 binary_desc::op2 () const
 {
   return op(1);
@@ -629,10 +629,10 @@ constructor_desc::set_elts (::vec<constructor_elt, va_gc> *e)
 // decl methods
 //
 
-inline Gimple::identifier
+inline G::identifier
 decl_desc::name() const
 { 
-  return Gimple::identifier (node.decl_minimal.name);
+  return G::identifier (node.decl_minimal.name);
 }
 
 inline bool
@@ -775,44 +775,44 @@ decl_desc::set_attributes (const value_list list)
 inline bool
 decl_desc::is_type_context () const
 {
-  Gimple::value v = node.decl_minimal.context;
+  G::value v = node.decl_minimal.context;
   return (!v || v->code() != FUNCTION_DECL);
 }
 
-inline Gimple::function_decl
+inline G::function_decl
 decl_desc::function_context () const
 {
   return node.decl_minimal.context;
 }
 
 inline void
-decl_desc::set_function_context (Gimple::function_decl decl)
+decl_desc::set_function_context (G::function_decl decl)
 {
   node.decl_minimal.context = decl;
 }
 
-inline Gimple::type
+inline G::type
 decl_desc::type_context () const
 {
   return node.decl_minimal.context;
 }
 
 inline void
-decl_desc::set_type_context (Gimple::type t)
+decl_desc::set_type_context (G::type t)
 {
   node.decl_minimal.context = t;
 }
 
 */
 
-inline Gimple::value
+inline G::value
 decl_desc::context () const
 {
   return node.decl_minimal.context;
 }
 
 inline void
-decl_desc::set_context (Gimple::value t)
+decl_desc::set_context (G::value t)
 {
   node.decl_minimal.context = t;
 }
@@ -938,16 +938,16 @@ label_decl_desc::forced_label () const
   return node.base.side_effects_flag;
 }
 
-inline Gimple::value
+inline G::value
 value_list_desc::value () const
 { 
-  return Gimple::value (node.list.value);
+  return G::value (node.list.value);
 }
 
-inline Gimple::value_ptr
+inline G::value_ptr
 value_list_desc::ptrto_value ()
 { 
-  return Gimple::value_ptr (&(node.list.value));
+  return G::value_ptr (&(node.list.value));
 }
 
 
@@ -957,10 +957,10 @@ value_list_desc::chain () const
   return value_list (node.common.chain);
 }
 
-inline Gimple::identifier
+inline G::identifier
 identifier_list_desc::value () const
 { 
-  return Gimple::identifier (node.list.value);
+  return G::identifier (node.list.value);
 }
 
 inline identifier_list
@@ -971,10 +971,10 @@ identifier_list_desc::chain () const
 
 
 
-inline Gimple::type
+inline G::type
 type_list_desc::value () const
 { 
-  return Gimple::type (node.list.value);
+  return G::type (node.list.value);
 }
 
 inline type_list
@@ -1020,13 +1020,13 @@ ssa_name_desc::var () const
     return decl();
 }
 
-inline Gimple::identifier
+inline G::identifier
 ssa_name_desc::identifier () const
 { 
-  Gimple::identifier i;
+  G::identifier i;
   if (node.ssa_name.var)
     {
-      i = dyn_cast<Gimple::identifier> (value(node.ssa_name.var));
+      i = dyn_cast<G::identifier> (value(node.ssa_name.var));
 
       /* If this is not an identifier, it must be a Decl.  */
       if (!i)
@@ -1043,7 +1043,7 @@ ssa_name_desc::set_var (decl decl)
 { node.ssa_name.var = decl; }
 
 inline void
-ssa_name_desc::set_identifier (Gimple::identifier ident)
+ssa_name_desc::set_identifier (G::identifier ident)
 { node.ssa_name.var = ident; }
 
 inline gimple 
@@ -1083,9 +1083,9 @@ ssa_name_desc::imm_use_node_ptr ()
 { return &(node.ssa_name.imm_uses); }
 
 inline bool
-ssa_name_desc::same_base (const Gimple::ssa_name n) const
+ssa_name_desc::same_base (const G::ssa_name n) const
 { return (node.ssa_name.var == n->node.ssa_name.var); }
 
-} // namespace Gimple
+} // namespace G
 
 #endif /* GIMPLE_VALUE_H  */

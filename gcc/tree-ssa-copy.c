@@ -527,11 +527,11 @@ init_copy_prop (void)
 
 /* Callback for substitute_and_fold to get at the final copy-of values.  */
 
-static Gimple::value
-get_value (Gimple::value v)
+static G::value
+get_value (G::value v)
 {
-  Gimple::value val;
-  Gimple::ssa_name name = v;
+  G::value val;
+  G::ssa_name name = v;
 
   if (name->version () >= n_copy_of)
     return NULL_GIMPLE;

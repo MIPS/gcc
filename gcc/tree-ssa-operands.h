@@ -24,7 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 
 
 /* This represents a pointer to a DEF operand.  */
-typedef Gimple::value_ptr def_operand_p;
+typedef G::value_ptr def_operand_p;
 
 /* This represents a pointer to a USE operand.  */
 typedef ssa_use_operand_t *use_operand_p;
@@ -106,14 +106,14 @@ extern void debug_immediate_uses_for (tree var);
 extern void unlink_stmt_vdef (gimple);
 
 /* Return the value pointed-to by USE.  */
-static inline Gimple::value
+static inline G::value
 get_use_from_ptr (use_operand_p use)
 {
   return *(use->use);
 }
 
 /* Return the tree pointed-to by DEF.  */
-static inline Gimple::value
+static inline G::value
 get_def_from_ptr (def_operand_p def)
 {
   return *def;

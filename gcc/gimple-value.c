@@ -29,7 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 
 
 location_t 
-expr_location (Gimple::value v)
+expr_location (G::value v)
 {
   if (v)
     return v->expr_location();
@@ -38,7 +38,7 @@ expr_location (Gimple::value v)
 }
 
 void
-strip_nops (Gimple::value_ptr gv)
+strip_nops (G::value_ptr gv)
 { 
   extern tree tree_strip_nop_conversions (tree);
   *gv = tree_strip_nop_conversions (CONST_CAST_TREE ((tree)(*gv)));
@@ -47,7 +47,7 @@ strip_nops (Gimple::value_ptr gv)
 extern tree copy_node_stat (tree MEM_STAT_DECL);
 extern tree make_node_stat (enum tree_code MEM_STAT_DECL);
 
-namespace Gimple {
+namespace G {
 
 void *
 gimple_copy_node (const void *t)
@@ -63,7 +63,7 @@ gimple_make_node (enum tree_code t)
 }
 
 
-Gimple::identifier
+G::identifier
 decl_with_viz_desc::assembler_name()
 {
   if (!assembler_name_set_p ())
@@ -71,7 +71,7 @@ decl_with_viz_desc::assembler_name()
   return node.decl_with_vis.assembler_name;
 }
 
-Gimple::identifier
+G::identifier
 decl_desc::assembler_name() const
 {
   decl_with_viz viz(&node);
@@ -84,6 +84,6 @@ type_desc::vector_mode() const
   return vector_type_mode(&node);
 }
 
-}  // namespace Gimple
+}  // namespace G
 
 

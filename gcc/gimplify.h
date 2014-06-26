@@ -25,7 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 /* Validation of GIMPLE expressions.  Note that these predicates only check
    the basic form of the expression, they don't recurse to make sure that
    underlying nodes are also of the right form.  */
-typedef bool (*gimple_predicate)(Gimple::value);
+typedef bool (*gimple_predicate)(G::value);
 
 /* FIXME we should deduce this from the predicate.  */
 enum fallback {

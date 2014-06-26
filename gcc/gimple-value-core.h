@@ -3,7 +3,7 @@
 
 #include "tree-core.h"
 
-namespace Gimple {
+namespace G {
 
 template<typename T> class _ptr;
 template<typename pT, typename dT> class _dptr;
@@ -149,14 +149,14 @@ class type_desc : public tree_desc
   protected:
     enum machine_mode vector_mode() const;
   public:
-    Gimple::type type() const;
+    G::type type() const;
     type_list chain () const;
     bool type_unsigned () const;
     signop type_sign () const;
     enum machine_mode mode () const;
     addr_space_t addr_space () const;
-    Gimple::type main_variant () const;
-    Gimple::type canonical () const;
+    G::type main_variant () const;
+    G::type canonical () const;
     unsigned int precision () const;
     value size () const;
     identifier_list attributes () const;
@@ -193,7 +193,7 @@ class fixed_point_type_desc : public type_desc
 class function_or_method_type_desc : public type_desc
 {
   public:
-    Gimple::type_list arg_types() const;
+    G::type_list arg_types() const;
 };
 
 class function_type_desc : public function_or_method_type_desc
@@ -203,14 +203,14 @@ class function_type_desc : public function_or_method_type_desc
 class method_type_desc : public function_or_method_type_desc
 {
   public:
-    Gimple::type basetype () const;
+    G::type basetype () const;
 };
 
 class numerical_type_desc : public type_desc
 {
   public:
-    Gimple::value min_value () const;
-    Gimple::value max_value () const;
+    G::value min_value () const;
+    G::value max_value () const;
 };
 
 class array_type_desc : public type_desc
@@ -231,7 +231,7 @@ class vector_type_desc : public type_desc
 class block_desc : public tree_desc
 {
   public:
-    Gimple::value supercontext () const;
+    G::value supercontext () const;
 };
 
 class value_desc : public tree_desc
@@ -240,8 +240,8 @@ class value_desc : public tree_desc
     inline value op (const int i) const;
     int op_len () const;
   public:
-    Gimple::type type() const;
-    void set_type (Gimple::type);
+    G::type type() const;
+    void set_type (G::type);
     location_t expr_location () const;
     bool clobber_p () const;
 };
@@ -378,7 +378,7 @@ class real_cst_desc : public constant_desc
 class decl_desc : public value_desc
 {
   public:
-    Gimple::identifier name() const;
+    G::identifier name() const;
     decl decl_abstract_origin () const;
     unsigned int align () const;
     void set_align (unsigned int a);
@@ -399,7 +399,7 @@ class decl_desc : public value_desc
     bool decl_asm_written() const;
 
     bool assembler_name_set_p () const;
-    Gimple::identifier assembler_name () const;
+    G::identifier assembler_name () const;
 
     location_t source_location () const;
     void set_source_location (const location_t);
@@ -409,18 +409,18 @@ class decl_desc : public value_desc
     void set_artificial (const bool);
     bool ignored_p () const;
     void set_ignored_p (const bool);
-    Gimple::value context() const;
-    void set_context(Gimple::value);
+    G::value context() const;
+    void set_context(G::value);
     unsigned int uid() const;
 
     enum machine_mode mode () const;
     void set_mode (enum machine_mode);
 /*
     bool is_type_context () const;
-    Gimple::function_decl function_context () const;
-    void set_function_context (Gimple::function_decl);
-    Gimple::type type_context () const;
-    void set_type_context (Gimple::type);
+    G::function_decl function_context () const;
+    void set_function_context (G::function_decl);
+    G::type type_context () const;
+    void set_type_context (G::type);
 */
     value_list attributes () const;
     void set_attributes (const value_list);
@@ -444,7 +444,7 @@ class decl_with_viz_desc : public decl_with_rtl_desc
 {
   public:
     bool assembler_name_set_p () const;
-    Gimple::identifier assembler_name ();
+    G::identifier assembler_name ();
     bool seen_in_bind_expr_p () const;
     void set_seen_in_bind_expr_p (const bool);
     bool hard_register() const;
@@ -490,22 +490,22 @@ class label_decl_desc : public decl_with_rtl_desc
 class value_list_desc : public value_desc
 {
   public:
-    Gimple::value value() const;
-    Gimple::value_ptr ptrto_value();
+    G::value value() const;
+    G::value_ptr ptrto_value();
     value_list chain () const;
 };
 
 class type_list_desc : public value_list_desc
 {
   public:
-    Gimple::type value() const;
+    G::type value() const;
     type_list chain () const;
 };
 
 class identifier_list_desc : public value_list_desc
 {
   public:
-    Gimple::identifier value() const;
+    G::identifier value() const;
     identifier_list chain () const;
 };
 
@@ -516,8 +516,8 @@ class ssa_name_desc : public value_desc
     void set_version(unsigned int);
     decl var () const ;
     void set_var (decl);
-    Gimple::identifier identifier () const;
-    void set_identifier (Gimple::identifier);
+    G::identifier identifier () const;
+    void set_identifier (G::identifier);
     gimple def_stmt () const;
     void set_def_stmt (gimple);
     struct ptr_info_def *ptr_info () const;
@@ -529,9 +529,9 @@ class ssa_name_desc : public value_desc
     struct ssa_use_operand_t * imm_use_node_ptr ();
     bool occurs_in_abnormal_phi () const;
     void set_occurs_in_abnormal_phi (bool);
-    bool same_base (const Gimple::ssa_name n) const;
+    bool same_base (const G::ssa_name n) const;
 };
 
-} // namespace Gimple
+} // namespace G
 
 #endif /* GIMPLE_VALUE_CORE_H */

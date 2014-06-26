@@ -66,12 +66,12 @@ along with GCC; see the file COPYING3.  If not see
 	to T* are not.  */
 
 bool
-useless_type_conversion_p (Gimple::type outer_type, Gimple::type inner_type)
+useless_type_conversion_p (G::type outer_type, G::type inner_type)
 {
-  Gimple::array_type inner_array;
-  Gimple::array_type outer_array;
-  Gimple::function_or_method_type inner_func;
-  Gimple::function_or_method_type outer_func;
+  G::array_type inner_array;
+  G::array_type outer_array;
+  G::function_or_method_type inner_func;
+  G::function_or_method_type outer_func;
 
   /* Do the following before stripping toplevel qualifiers.  */
   if (inner_type->pointer_type_p () && outer_type->pointer_type_p ())
@@ -166,8 +166,8 @@ useless_type_conversion_p (Gimple::type outer_type, Gimple::type inner_type)
       if (inner_array->string_flag () != outer_array->string_flag ())
 	return false;
 
-      Gimple::numerical_type inner_domain = inner_array->domain ();
-      Gimple::numerical_type outer_domain = outer_array->domain ();
+      G::numerical_type inner_domain = inner_array->domain ();
+      G::numerical_type outer_domain = outer_array->domain ();
 
       /* Conversions from array types with unknown extent to
 	 array types with known extent are not useless.  */
@@ -177,9 +177,9 @@ useless_type_conversion_p (Gimple::type outer_type, Gimple::type inner_type)
       /* Nor are conversions from array types with non-constant size to
          array types with constant size or to different size.  */
       if (outer_array->size ()
-	  && is_a<Gimple::integer_cst> (outer_array->size ()) 
+	  && is_a<G::integer_cst> (outer_array->size ()) 
 	  && (!inner_array->size ()
-	      || !is_a<Gimple::integer_cst> (inner_array->size ())
+	      || !is_a<G::integer_cst> (inner_array->size ())
 	      || !tree_int_cst_equal (outer_array->size (),
 				      inner_array->size ())))
 	return false;
@@ -191,21 +191,21 @@ useless_type_conversion_p (Gimple::type outer_type, Gimple::type inner_type)
 	 mode to BLKmode as useless.  */
       if (inner_domain && outer_domain && inner_domain != outer_domain)
 	{
-	  Gimple::value inner_min = inner_domain->min_value ();
-	  Gimple::value outer_min = outer_domain->min_value ();
-	  Gimple::value inner_max = inner_domain->max_value ();
-	  Gimple::value outer_max = outer_domain->max_value ();
+	  G::value inner_min = inner_domain->min_value ();
+	  G::value outer_min = outer_domain->min_value ();
+	  G::value inner_max = inner_domain->max_value ();
+	  G::value outer_max = outer_domain->max_value ();
 
 	  /* After gimplification a variable min/max value carries no
 	     additional information compared to a NULL value.  All that
 	     matters has been lowered to be part of the IL.  */
-	  if (inner_min && !is_a<Gimple::integer_cst>(inner_min))
+	  if (inner_min && !is_a<G::integer_cst>(inner_min))
 	    inner_min = NULL_GIMPLE;
-	  if (outer_min && !is_a<Gimple::integer_cst>(outer_min))
+	  if (outer_min && !is_a<G::integer_cst>(outer_min))
 	    outer_min = NULL_GIMPLE;
-	  if (inner_max && !is_a<Gimple::integer_cst>(inner_max))
+	  if (inner_max && !is_a<G::integer_cst>(inner_max))
 	    inner_max = NULL_GIMPLE;
-	  if (outer_max && !is_a<Gimple::integer_cst>(outer_max))
+	  if (outer_max && !is_a<G::integer_cst>(outer_max))
 	    outer_max = NULL_GIMPLE;
 
 	  /* Conversions NULL / variable <- cst are useless, but not
@@ -226,17 +226,18 @@ useless_type_conversion_p (Gimple::type outer_type, Gimple::type inner_type)
   else if ((inner_func = inner_type) && (outer_func = outer_type)
 	   && (inner_type->code () == outer_type->code ()))
     {
-      Gimple::type_list outer_parm, inner_parm;
+      G::type_list outer_parm, inner_parm;
 
       /* If the return types are not compatible bail out.  */
-      if (!useless_type_conversion_p (outer_func->type (), inner_func->type ()))
+      if (!useless_type_conversion_p (outer_func->type (),
+				      inner_func->type ()))
 	return false;
 
       /* Method types should belong to a compatible base class.  */
-      if (is_a<Gimple::method_type>(inner_func) 
+      if (is_a<G::method_type>(inner_func) 
 	  && !useless_type_conversion_p (
-			  as_a<Gimple::method_type>(outer_func)->basetype (),
-			  as_a<Gimple::method_type>(inner_func)->basetype ()))
+			  as_a<G::method_type>(outer_func)->basetype (),
+			  as_a<G::method_type>(inner_func)->basetype ()))
 	return false;
 
       /* A conversion to an unprototyped argument list is ok.  */
@@ -285,7 +286,7 @@ useless_type_conversion_p (Gimple::type outer_type, Gimple::type inner_type)
 /* Set sequence SEQ to be the GIMPLE body for function FN.  */
 
 void
-gimple_set_body (Gimple::function_decl fndecl, gimple_seq seq)
+gimple_set_body (G::function_decl fndecl, gimple_seq seq)
 {
   struct function *fn = fndecl->function ();
   if (fn == NULL)
@@ -306,7 +307,7 @@ gimple_set_body (Gimple::function_decl fndecl, gimple_seq seq)
    NULL.  */
 
 gimple_seq
-gimple_body (Gimple::function_decl fndecl)
+gimple_body (G::function_decl fndecl)
 {
   struct function *fn = fndecl->function ();
   return fn ? fn->gimple_body : NULL;
@@ -315,7 +316,7 @@ gimple_body (Gimple::function_decl fndecl)
 /* Return true when FNDECL has Gimple body either in unlowered
    or CFG form.  */
 bool
-gimple_has_body_p (Gimple::function_decl fndecl)
+gimple_has_body_p (G::function_decl fndecl)
 {
   struct function *fn = fndecl->function ();
   return (gimple_body (fndecl) || (fn && fn->cfg));
@@ -324,7 +325,7 @@ gimple_has_body_p (Gimple::function_decl fndecl)
 /* Return a printable name for symbol DECL.  */
 
 const char *
-gimple_decl_printable_name (Gimple::decl decl, int verbosity)
+gimple_decl_printable_name (G::decl decl, int verbosity)
 {
   if (!decl->name ())
     return NULL;
@@ -340,7 +341,7 @@ gimple_decl_printable_name (Gimple::decl decl, int verbosity)
 		      | DMGL_ANSI
 		      | DMGL_GNU_V3
 		      | DMGL_RET_POSTFIX;
-	  if (is_a<Gimple::function_decl> (decl))
+	  if (is_a<G::function_decl> (decl))
 	    dmgl_opts |= DMGL_PARAMS;
 	}
 
@@ -355,10 +356,10 @@ gimple_decl_printable_name (Gimple::decl decl, int verbosity)
 
 /* Create a new VAR_DECL and copy information from VAR to it.  */
 
-Gimple::var_decl
-copy_var_decl (Gimple::decl var, Gimple::identifier name, Gimple::type type)
+G::var_decl
+copy_var_decl (G::decl var, G::identifier name, G::type type)
 {
-  Gimple::var_decl copy = build_var_decl (var->source_location (), name, type);
+  G::var_decl copy = build_var_decl (var->source_location (), name, type);
   copy->set_addressable (var->addressable ());
   copy->set_this_volatile (var->this_volatile ());
   copy->set_gimple_reg_p (var->gimple_reg_p ());
@@ -379,23 +380,25 @@ copy_var_decl (Gimple::decl var, Gimple::identifier name, Gimple::type type)
    This must stay consistent with var_map_base_init in tree-ssa-live.c.  */
 
 bool
-gimple_can_coalesce_p (Gimple::ssa_name name1, Gimple::ssa_name name2)
+gimple_can_coalesce_p (G::ssa_name name1, G::ssa_name name2)
 {
   /* First check the SSA_NAME's associated DECL.  We only want to
      coalesce if they have the same DECL or both have no associated DECL.  */
-  Gimple::decl var1 = name1->var ();
-  Gimple::decl var2 = name2->var ();
+  G::decl var1 = name1->var ();
+  G::decl var2 = name2->var ();
 
-  var1 = (var1 && (!is_a<Gimple::var_decl> (var1) || !var1->ignored_p ())) ? var1 : NULL_GIMPLE;
-  var2 = (var2 && (!is_a<Gimple::var_decl> (var2) || !var2->ignored_p ())) ? var2 : NULL_GIMPLE;
+  var1 = (var1 && (!is_a<G::var_decl> (var1) || !var1->ignored_p ())) ? var1 :
+									NULL_GIMPLE;
+  var2 = (var2 && (!is_a<G::var_decl> (var2) || !var2->ignored_p ())) ? var2 :
+									NULL_GIMPLE;
   if (var1 != var2)
 
     return false;
 
   /* Now check the types.  If the types are the same, then we should
      try to coalesce V1 and V2.  */
-  Gimple::type t1 = name1->type ();
-  Gimple::type t2 = name2->type ();
+  G::type t1 = name1->type ();
+  G::type t2 = name2->type ();
   if (t1 == t2)
     return true;
 
@@ -437,7 +440,7 @@ remove_suffix (char *name, int len)
 
 static GTY(()) unsigned int tmp_var_id_num;
 
-Gimple::identifier
+G::identifier
 create_tmp_var_name (const char *prefix)
 {
   char *tmp_name;
@@ -459,10 +462,10 @@ create_tmp_var_name (const char *prefix)
 /* Create a new temporary variable declaration of type TYPE.
    Do NOT push it into the current binding.  */
 
-Gimple::var_decl
-create_tmp_var_raw (Gimple::type type, const char *prefix)
+G::var_decl
+create_tmp_var_raw (G::type type, const char *prefix)
 {
-  Gimple::var_decl tmp_var;
+  G::var_decl tmp_var;
 
   tmp_var = build_var_decl (input_location,
 			    prefix ? create_tmp_var_name (prefix) : NULL_GIMPLE,
@@ -488,10 +491,10 @@ create_tmp_var_raw (Gimple::type type, const char *prefix)
    only from gimplification or optimization, at which point the creation of
    certain types are bugs.  */
 
-Gimple::var_decl
-create_tmp_var (Gimple::type type, const char *prefix)
+G::var_decl
+create_tmp_var (G::type type, const char *prefix)
 {
-  Gimple::var_decl tmp_var;
+  G::var_decl tmp_var;
 
   /* We don't allow types that are addressable (meaning we can't make copies),
      or incomplete.  We also used to reject every variable size objects here,
@@ -510,10 +513,10 @@ create_tmp_var (Gimple::type type, const char *prefix)
    create_tmp_var and if TYPE is a vector or a complex number, mark the new
    temporary as gimple register.  */
 
-Gimple::var_decl
-create_tmp_reg (Gimple::type type, const char *prefix)
+G::var_decl
+create_tmp_reg (G::type type, const char *prefix)
 {
-  Gimple::var_decl tmp;
+  G::var_decl tmp;
 
   tmp = create_tmp_var (type, prefix);
   if (type->complex_type_p () || type->vector_type_p ())
@@ -526,14 +529,14 @@ create_tmp_reg (Gimple::type type, const char *prefix)
    create_tmp_var and if TYPE is a vector or a complex number, mark the new
    temporary as gimple register.  */
 
-Gimple::var_decl
-create_tmp_reg_fn (struct function *fn, Gimple::type type, const char *prefix)
+G::var_decl
+create_tmp_reg_fn (struct function *fn, G::type type, const char *prefix)
 {
-  Gimple::var_decl tmp;
+  G::var_decl tmp;
 
   tmp = create_tmp_var_raw (type, prefix);
   gimple_add_tmp_var_fn (fn, tmp);
-  if (is_a<Gimple::complex_type> (type) || is_a<Gimple::vector_type> (type))
+  if (is_a<G::complex_type> (type) || is_a<G::vector_type> (type))
     tmp->set_gimple_reg_p (true);
 
   return tmp;
@@ -546,9 +549,9 @@ create_tmp_reg_fn (struct function *fn, Gimple::type type, const char *prefix)
    *OP1_P, *OP2_P and *OP3_P respectively.  */
 
 void
-extract_ops_from_tree_1 (Gimple::value expr, enum tree_code *subcode_p,
-			 Gimple::value_ptr op1_p,
-			 Gimple::value_ptr op2_p, Gimple::value_ptr op3_p)
+extract_ops_from_tree_1 (G::value expr, enum tree_code *subcode_p,
+			 G::value_ptr op1_p,
+			 G::value_ptr op2_p, G::value_ptr op3_p)
 {
   enum gimple_rhs_class grhs_class = get_gimple_rhs_class (expr);
   *subcode_p = expr->code ();
@@ -584,25 +587,24 @@ extract_ops_from_tree_1 (Gimple::value expr, enum tree_code *subcode_p,
 /* Extract operands for a GIMPLE_COND statement out of COND_EXPR tree COND.  */
 
 void
-gimple_cond_get_ops_from_tree (Gimple::value cond, enum tree_code *code_p,
-                               Gimple::value_ptr lhs_p, Gimple::value_ptr rhs_p)
+gimple_cond_get_ops_from_tree (G::value cond, enum tree_code *code_p,
+                               G::value_ptr lhs_p, G::value_ptr rhs_p)
 {
-  gcc_assert (is_a<Gimple::comparison> (cond)
-	      || is_a<Gimple::truth_not_expr> (cond)
+  gcc_assert (is_a<G::comparison> (cond) || is_a<G::truth_not_expr> (cond)
 	      || is_gimple_min_invariant (cond) || ssa_var_p (cond));
 
 
   extract_ops_from_tree (cond, code_p, lhs_p, rhs_p);
 
   /* Canonicalize conditionals of the form 'if (!VAL)'.  */
-  if (is_a<Gimple::truth_not_expr> (cond))
+  if (is_a<G::truth_not_expr> (cond))
     {
       *code_p = EQ_EXPR;
       gcc_assert (*lhs_p && *rhs_p == NULL_GIMPLE);
       *rhs_p = build_zero_cst ((*lhs_p)->type ());
     }
   /* Canonicalize conditionals of the form 'if (VAL)'  */
-  else if (!is_a<Gimple::comparison> (cond))
+  else if (!is_a<G::comparison> (cond))
     {
       *code_p = NE_EXPR;
       gcc_assert (*lhs_p && *rhs_p == NULL_GIMPLE);
@@ -613,24 +615,24 @@ gimple_cond_get_ops_from_tree (Gimple::value cond, enum tree_code *code_p,
 /*  Return true if T is a valid LHS for a GIMPLE assignment expression.  */
 
 bool
-is_gimple_lvalue (Gimple::value t)
+is_gimple_lvalue (G::value t)
 {
   return (is_gimple_addressable (t)
-	  || is_a<Gimple::with_size_expr> (t)
+	  || is_a<G::with_size_expr> (t)
 	  /* These are complex lvalues, but don't have addresses, so they
 	     go here.  */
-	  || is_a<Gimple::bit_field_ref> (t));
+	  || is_a<G::bit_field_ref> (t));
 }
 
 /*  Return true if T is a GIMPLE condition.  */
 
 bool
-is_gimple_condexpr (Gimple::value t)
+is_gimple_condexpr (G::value t)
 {
   if (is_gimple_val (t))
     return true;
 
-  Gimple::comparison cmp = t;
+  G::comparison cmp = t;
   if (cmp)
     return !tree_could_throw_p (cmp) && is_gimple_val (cmp->op1 ())
 	   && is_gimple_val (cmp->op2 ());
@@ -641,25 +643,25 @@ is_gimple_condexpr (Gimple::value t)
 /* Return true if T is a gimple address.  */
 
 bool
-is_gimple_address (Gimple::value t)
+is_gimple_address (G::value t)
 {
 
-  Gimple::addr_expr val = t; 
+  G::addr_expr val = t; 
   if (!val)
     return false;
 
-  Gimple::value op = val->expr ();
+  G::value op = val->expr ();
 
   while (handled_component_p (op))
     {
-      if ((is_a<Gimple::array_ref> (op) || is_a<Gimple::array_range_ref> (op))
+      if ((is_a<G::array_ref> (op) || is_a<G::array_range_ref> (op))
 	  && !is_gimple_val (op->op (1)))
 	    return false;
 
       op = op->op(0);
     }
 
-  if (is_a<Gimple::constant> (op) || is_a<Gimple::mem_ref> (op))
+  if (is_a<G::constant> (op) || is_a<G::mem_ref> (op))
     return true;
 
   switch (op->code ())
@@ -680,66 +682,65 @@ is_gimple_address (Gimple::value t)
 /* Return true if T is a gimple invariant address.  */
 
 bool
-is_gimple_invariant_address (Gimple::value t)
+is_gimple_invariant_address (G::value t)
 {
 
-  Gimple::addr_expr val = t; 
+  G::addr_expr val = t; 
   if (!val)
     return false;
 
-  Gimple::value op;
+  G::value op;
 
   op = strip_invariant_refs (val->expr ());
   if (!op)
     return false;
 
-  Gimple::mem_ref mem = op;
+  G::mem_ref mem = op;
   if (mem)
     {
-      Gimple::addr_expr val2 = mem->base ();
-      return (val2
-	      && (is_a<Gimple::constant> (val2->expr ())
-		  || decl_address_invariant_p (val2->expr ())));
+      G::addr_expr val2 = mem->base ();
+      return (val2 && (is_a<G::constant> (val2->expr ())
+		       || decl_address_invariant_p (val2->expr ())));
     }
 
-  return is_a<Gimple::constant> (op) || decl_address_invariant_p (op);
+  return is_a<G::constant> (op) || decl_address_invariant_p (op);
 }
 
 /* Return true if T is a gimple invariant address at IPA level
    (so addresses of variables on stack are not allowed).  */
 
 bool
-is_gimple_ip_invariant_address (Gimple::value t)
+is_gimple_ip_invariant_address (G::value t)
 {
-  Gimple::addr_expr val = t; 
+  G::addr_expr val = t; 
   if (!val)
     return false;
 
-  Gimple::value op;
+  G::value op;
 
   op = strip_invariant_refs (val->expr ());
   if (!op)
     return false;
 
-  Gimple::mem_ref mem = op;
+  G::mem_ref mem = op;
   if (mem)
     {
-      Gimple::addr_expr val2 = mem->base ();
+      G::addr_expr val2 = mem->base ();
       return (val2
-	      && (is_a<Gimple::constant> (val2->expr ())
+	      && (is_a<G::constant> (val2->expr ())
 		  || decl_address_ip_invariant_p (val2->expr ())));
     }
 
-  return is_a<Gimple::constant> (op) || decl_address_ip_invariant_p (op);
+  return is_a<G::constant> (op) || decl_address_ip_invariant_p (op);
 }
 
 /* Return true if T is a GIMPLE minimal invariant.  It's a restricted
    form of function invariant.  */
 
 bool
-is_gimple_min_invariant (Gimple::value t)
+is_gimple_min_invariant (G::value t)
 {
-  if (is_a<Gimple::addr_expr> (t))
+  if (is_a<G::addr_expr> (t))
     return is_gimple_invariant_address (t);
 
   return is_gimple_constant (t);
@@ -749,9 +750,9 @@ is_gimple_min_invariant (Gimple::value t)
    form of gimple minimal invariant.  */
 
 bool
-is_gimple_ip_invariant (Gimple::value t)
+is_gimple_ip_invariant (G::value t)
 {
-  if (is_a<Gimple::addr_expr> (t))
+  if (is_a<G::addr_expr> (t))
     return is_gimple_ip_invariant_address (t);
 
   return is_gimple_constant (t);
@@ -760,12 +761,12 @@ is_gimple_ip_invariant (Gimple::value t)
 /* Return true if T is a non-aggregate register variable.  */
 
 bool
-is_gimple_reg (Gimple::value t)
+is_gimple_reg (G::value t)
 {
   if (virtual_operand_p (t))
     return false;
 
-  if (is_a<Gimple::ssa_name> (t))
+  if (is_a<G::ssa_name> (t))
     return true;
 
   if (!is_gimple_variable (t))
@@ -794,15 +795,14 @@ is_gimple_reg (Gimple::value t)
      it seems safest to not do too much optimization with these at the
      tree level at all.  We'll have to rely on the rtl optimizers to
      clean this up, as there we've got all the appropriate bits exposed.  */
-  if (is_a<Gimple::var_decl> (t) 
-      && as_a<Gimple::var_decl> (t)->hard_register ())
+  if (is_a<G::var_decl> (t) && as_a<G::var_decl> (t)->hard_register ())
     return false;
 
   /* Complex and vector values must have been put into SSA-like form.
      That is, no assignments to the individual components.  */
-  if (is_a<Gimple::complex_type> (t->type ())
-      || is_a<Gimple::vector_type> (t->type ()))
-    return as_a<Gimple::decl> (t)->gimple_reg_p ();
+  if (is_a<G::complex_type> (t->type ())
+      || is_a<G::vector_type> (t->type ()))
+    return as_a<G::decl> (t)->gimple_reg_p ();
 
   return true;
 }
@@ -811,7 +811,7 @@ is_gimple_reg (Gimple::value t)
 /* Return true if T is a GIMPLE rvalue, i.e. an identifier or a constant.  */
 
 bool
-is_gimple_val (Gimple::value t)
+is_gimple_val (G::value t)
 {
   /* Make loads from volatiles and memory vars explicit.  */
   if (is_gimple_variable (t)
@@ -825,10 +825,9 @@ is_gimple_val (Gimple::value t)
 /* Similarly, but accept hard registers as inputs to asm statements.  */
 
 bool
-is_gimple_asm_val (Gimple::value t)
+is_gimple_asm_val (G::value t)
 {
-  if (is_a<Gimple::var_decl> (t)
-      && as_a<Gimple::var_decl> (t)->hard_register ())
+  if (is_a<G::var_decl> (t) && as_a<G::var_decl> (t)->hard_register ())
     return true;
 
   return is_gimple_val (t);
@@ -837,32 +836,32 @@ is_gimple_asm_val (Gimple::value t)
 /* Return true if T is a GIMPLE minimal lvalue.  */
 
 bool
-is_gimple_min_lval (Gimple::value t)
+is_gimple_min_lval (G::value t)
 {
   if (!(t = strip_invariant_refs (t)))
     return false;
-  return (is_gimple_id (t) || is_a<Gimple::mem_ref> (t));
+  return (is_gimple_id (t) || is_a<G::mem_ref> (t));
 }
 
 /* Return true if T is a valid function operand of a CALL_EXPR.  */
 
 bool
-is_gimple_call_addr (Gimple::value t)
+is_gimple_call_addr (G::value t)
 {
-  return (is_a<Gimple::obj_type_ref> (t) || is_gimple_val (t));
+  return (is_a<G::obj_type_ref> (t) || is_gimple_val (t));
 }
 
 /* Return true if T is a valid address operand of a MEM_REF.  */
 
 bool
-is_gimple_mem_ref_addr (Gimple::value t)
+is_gimple_mem_ref_addr (G::value t)
 {
-  if (is_gimple_reg (t) || is_a<Gimple::integer_cst> (t))
+  if (is_gimple_reg (t) || is_a<G::integer_cst> (t))
     return true;
 
-  Gimple::addr_expr addr = t;
+  G::addr_expr addr = t;
 
-  return (addr && (is_a<Gimple::constant> (addr->expr ())
+  return (addr && (is_a<G::constant> (addr->expr ())
 		   || decl_address_invariant_p (addr->expr ())));
 }
 
@@ -870,26 +869,26 @@ is_gimple_mem_ref_addr (Gimple::value t)
    form and we don't do any syntax checking.  */
 
 void
-mark_addressable (Gimple::value x)
+mark_addressable (G::value x)
 {
   while (handled_component_p (x))
     x = x->op(0);
 
-  Gimple::mem_ref mem = x;
-  if (mem && is_a<Gimple::addr_expr> (mem->base ()))
-    x = as_a<Gimple::addr_expr> (mem->base ())-> expr ();
-  if (!is_a<Gimple::var_decl> (x) && !is_a<Gimple::parm_decl> (x)
-      && !is_a<Gimple::result_decl> (x))
+  G::mem_ref mem = x;
+  if (mem && is_a<G::addr_expr> (mem->base ()))
+    x = as_a<G::addr_expr> (mem->base ())-> expr ();
+  if (!is_a<G::var_decl> (x) && !is_a<G::parm_decl> (x)
+      && !is_a<G::result_decl> (x))
     return;
   x->set_addressable (true);
 
   /* Also mark the artificial SSA_NAME that points to the partition of X.  */
-  Gimple::var_decl var = x;
+  G::var_decl var = x;
   if (var && !var->external () && !var->static_p ()
       && cfun->gimple_df != NULL
       && cfun->gimple_df->decls_to_pointers != NULL)
     {
-      Gimple::value_ptr namep =
+      G::value_ptr namep =
 	    (tree *) (pointer_map_contains (cfun->gimple_df->decls_to_pointers,
 					    var)); 
       if (namep)
@@ -901,7 +900,7 @@ mark_addressable (Gimple::value x)
    user -- or front-end generated artificial -- variable.  */
 
 bool
-is_gimple_reg_rhs (Gimple::value t)
+is_gimple_reg_rhs (G::value t)
 {
   return get_gimple_rhs_class (t) != GIMPLE_INVALID_RHS;
 }

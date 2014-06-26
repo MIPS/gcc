@@ -3,14 +3,14 @@
 
 #include "gimple-value.h"
 
-extern Gimple::value_ptr boolean_true_node_ptr;
-extern Gimple::value_ptr boolean_false_node_ptr;
-extern Gimple::type_ptr void_type_node_ptr;
-extern Gimple::type_ptr char_type_node_ptr;
-extern Gimple::type_ptr boolean_type_node_ptr;
-extern Gimple::type_ptr integer_type_node_ptr;
-extern Gimple::integer_cst_ptr integer_zero_node_ptr;
-extern Gimple::type_ptr pointer_type_node_ptr;
+extern G::value_ptr boolean_true_node_ptr;
+extern G::value_ptr boolean_false_node_ptr;
+extern G::type_ptr void_type_node_ptr;
+extern G::type_ptr char_type_node_ptr;
+extern G::type_ptr boolean_type_node_ptr;
+extern G::type_ptr integer_type_node_ptr;
+extern G::integer_cst_ptr integer_zero_node_ptr;
+extern G::type_ptr pointer_type_node_ptr;
 
 #define gimple_boolean_true (*boolean_true_node_ptr)
 #define gimple_boolean_false (*boolean_false_node_ptr)
@@ -36,24 +36,24 @@ extern tree build_call_expr_loc(location_t, tree, int, ...);  /*builtins.c */
 namespace wi
 {
   template <>
-  struct int_traits <Gimple::integer_cst>
+  struct int_traits <G::integer_cst>
   {
     static const enum precision_type precision_type = VAR_PRECISION;
     static const bool host_dependent_precision = false;
     static const bool is_sign_extended = false;
-    static unsigned int get_precision (Gimple::integer_cst);
+    static unsigned int get_precision (G::integer_cst);
     static wi::storage_ref decompose (HOST_WIDE_INT *, unsigned int,
-				      Gimple::integer_cst);
+				      G::integer_cst);
   };
 
   template <int N>
   class extended_gimple
   {
   private:
-    Gimple::integer_cst m_t;
+    G::integer_cst m_t;
 
   public:
-    extended_gimple (Gimple::integer_cst);
+    extended_gimple (G::integer_cst);
 
     unsigned int get_precision () const;
     const HOST_WIDE_INT *get_val () const;
@@ -70,39 +70,39 @@ namespace wi
   };
 
   generic_wide_int <extended_gimple <WIDE_INT_MAX_PRECISION> >
-  to_widest (Gimple::integer_cst);
+  to_widest (G::integer_cst);
 
-  generic_wide_int <extended_gimple <ADDR_MAX_PRECISION> > to_offset (Gimple::integer_cst);
+  generic_wide_int <extended_gimple <ADDR_MAX_PRECISION> > to_offset (G::integer_cst);
 }
 
 inline unsigned int
-wi::int_traits <Gimple::integer_cst>::get_precision (Gimple::integer_cst tcst)
+wi::int_traits <G::integer_cst>::get_precision (G::integer_cst tcst)
 {
   return tcst->type()->precision ();
 }
 
 /* Convert the tree_cst X into a wide_int of PRECISION.  */
 inline wi::storage_ref
-wi::int_traits <Gimple::integer_cst>::decompose (HOST_WIDE_INT *,
-					unsigned int precision, Gimple::integer_cst x)
+wi::int_traits <G::integer_cst>::decompose (HOST_WIDE_INT *,
+					unsigned int precision, G::integer_cst x)
 {
   return wi::storage_ref (x->addr(0), x->nunits (), precision);
 }
 
 inline generic_wide_int <wi::extended_gimple <WIDE_INT_MAX_PRECISION> >
-wi::to_widest (Gimple::integer_cst t)
+wi::to_widest (G::integer_cst t)
 {
   return t;
 }
 
 inline generic_wide_int <wi::extended_gimple <ADDR_MAX_PRECISION> >
-wi::to_offset (Gimple::integer_cst t)
+wi::to_offset (G::integer_cst t)
 {
   return t;
 }
 
 template <int N>
-inline wi::extended_gimple <N>::extended_gimple (Gimple::integer_cst t)
+inline wi::extended_gimple <N>::extended_gimple (G::integer_cst t)
   : m_t (t)
 {
   gcc_checking_assert (t->type()->precision () <= N);
@@ -140,16 +140,16 @@ wi::extended_gimple <N>::get_len () const
 namespace wi
 {
   template <typename T>
-  bool fits_to_tree_p (const T &x, Gimple::integer_cst);
+  bool fits_to_tree_p (const T &x, G::integer_cst);
 
-  wide_int min_value (Gimple::type);
-  wide_int max_value (Gimple::type);
-  wide_int from_mpz (Gimple::type, mpz_t, bool);
+  wide_int min_value (G::type);
+  wide_int max_value (G::type);
+  wide_int from_mpz (G::type, mpz_t, bool);
 }
 
 template <typename T>
 bool
-wi::fits_to_tree_p (const T &x, Gimple::type type)
+wi::fits_to_tree_p (const T &x, G::type type)
 {
   if (type->type_sign () == UNSIGNED)
     return eq_p (x, zext (x, type->precision ()));
@@ -160,7 +160,7 @@ wi::fits_to_tree_p (const T &x, Gimple::type type)
 /* Produce the smallest number that is represented in TYPE.  The precision
    and sign are taken from TYPE.  */
 inline wide_int
-wi::min_value (Gimple::type type)
+wi::min_value (G::type type)
 {
   return min_value (type->precision (), type->type_sign());
 }
@@ -168,7 +168,7 @@ wi::min_value (Gimple::type type)
 /* Produce the largest number that is represented in TYPE.  The precision
    and sign are taken from TYPE.  */
 inline wide_int
-wi::max_value (Gimple::type type)
+wi::max_value (G::type type)
 {
   return max_value (type->precision (), type->type_sign ());
 }
@@ -177,75 +177,75 @@ wi::max_value (Gimple::type type)
 
 
 inline int
-simple_cst_equal (Gimple::value v1, Gimple::value v2)
+simple_cst_equal (G::value v1, G::value v2)
 {
   extern int simple_cst_equal (const_tree, const_tree);
   return simple_cst_equal ((const_tree)v1, (const_tree)v2);
 }
 
-inline Gimple::value 
-unshare_expr (Gimple::value v)
+inline G::value 
+unshare_expr (G::value v)
 {
   extern tree unshare_expr (tree);
   return unshare_expr ((tree)v);
 }
 inline bool
-integer_zerop (Gimple::value v)
+integer_zerop (G::value v)
 {
   extern int integer_zerop (const_tree);
   return integer_zerop ((const_tree) v);
 }
 
 inline bool
-void_type_p (Gimple::type t)
+void_type_p (G::type t)
 {
   return t == gimple_void_type;
 }
 
 inline bool
-is_empty_stmt (Gimple::value v)
+is_empty_stmt (G::value v)
 {
-  return (is_a<Gimple::nop_expr> (v) && void_type_p (v->type ())
+  return (is_a<G::nop_expr> (v) && void_type_p (v->type ())
 	  && integer_zerop (v->op (0)));
 }
 
-inline Gimple::constant 
-build_zero_cst (Gimple::type type)
+inline G::constant 
+build_zero_cst (G::type type)
 {
   extern tree build_zero_cst (tree);
   return build_zero_cst ((tree) type);
 }
 
-inline Gimple::value
-strip_invariant_refs (const Gimple::value op)
+inline G::value
+strip_invariant_refs (const G::value op)
 {
   extern const_tree strip_invariant_refs (const_tree);
   return strip_invariant_refs ((const_tree)op);
 }
 
 inline bool
-decl_address_invariant_p (const Gimple::value op)
+decl_address_invariant_p (const G::value op)
 {
   extern bool decl_address_invariant_p (const_tree);
   return decl_address_invariant_p ((const_tree) op);
 }
 
 inline bool
-decl_address_ip_invariant_p (const Gimple::value op)
+decl_address_ip_invariant_p (const G::value op)
 {
   extern bool decl_address_ip_invariant_p (const_tree);
   return decl_address_ip_invariant_p ((const_tree) op);
 }
 
 inline bool
-needs_to_live_in_memory (Gimple::value t)
+needs_to_live_in_memory (G::value t)
 {
   extern bool needs_to_live_in_memory (const_tree);
   return needs_to_live_in_memory ((const_tree) t);
 }
 
 static inline bool
-handled_component_p (Gimple::value t)
+handled_component_p (G::value t)
 {
   switch (t->code())
     {
@@ -264,8 +264,8 @@ handled_component_p (Gimple::value t)
 }
 
 
-inline Gimple::var_decl 
-build_var_decl (location_t loc, Gimple::identifier name, Gimple::type t)
+inline G::var_decl 
+build_var_decl (location_t loc, G::identifier name, G::type t)
 {
   extern tree build_decl_stat (location_t, enum tree_code, tree,
 			       tree MEM_STAT_DECL);
@@ -280,7 +280,7 @@ builtin_valid_p (enum built_in_function fncode)
 	  ((int) END_BUILTINS) - 1));
 }
 
-inline Gimple::function_decl
+inline G::function_decl
 gimple_builtin_decl_explicit (enum built_in_function fncode)
 {
   gcc_checking_assert (builtin_valid_p (fncode));
@@ -300,7 +300,7 @@ gimple_builtin_decl_explicit_p (enum built_in_function fncode)
 
 // from gimplify.h
 
-inline void gimple_add_tmp_var (Gimple::var_decl var)
+inline void gimple_add_tmp_var (G::var_decl var)
 {
   extern void gimple_add_tmp_var (tree);
   gimple_add_tmp_var ((tree)var);
@@ -309,21 +309,21 @@ inline void gimple_add_tmp_var (Gimple::var_decl var)
 // from tree.h
 
 inline bool
-prototype_p (Gimple::function_or_method_type f)
+prototype_p (G::function_or_method_type f)
 {
   gcc_assert (f);
   return f->arg_types();
 }
 
 inline bool
-comp_type_attributes (Gimple::type t1, Gimple::type t2)
+comp_type_attributes (G::type t1, G::type t2)
 {
   extern int comp_type_attributes (const_tree, const_tree);
   return comp_type_attributes((const_tree)t1, (const_tree)t2);
 }
 
 inline bool
-tree_int_cst_equal (Gimple::integer_cst const1, Gimple::integer_cst const2)
+tree_int_cst_equal (G::integer_cst const1, G::integer_cst const2)
 {
   if (const1 == const2)
     return true;
@@ -337,8 +337,8 @@ tree_int_cst_equal (Gimple::integer_cst const1, Gimple::integer_cst const2)
 }
 
 
-inline Gimple::value
-chainon (Gimple::value x, Gimple::value y)
+inline G::value
+chainon (G::value x, G::value y)
 {
   extern tree chainon (tree, tree);
   return chainon ((tree)x, (tree)y);
@@ -346,8 +346,8 @@ chainon (Gimple::value x, Gimple::value y)
 
 
 
-inline Gimple::value
-get_base_address (Gimple::value t)
+inline G::value
+get_base_address (G::value t)
 { 
   extern tree get_base_address (tree);
   return get_base_address ((tree)t);
@@ -362,7 +362,7 @@ convert_expr_code_p (const enum tree_code tc)
 
 
 inline bool
-convert_expr_code_p (const Gimple::value p)
+convert_expr_code_p (const G::value p)
 {
   enum tree_code tc = p->code ();
   return convert_expr_code_p (tc);
@@ -370,10 +370,10 @@ convert_expr_code_p (const Gimple::value p)
 
 
 inline bool
-ssa_var_p (Gimple::value p)
+ssa_var_p (G::value p)
 {
-  if (is_a<Gimple::var_decl>(p) || is_a<Gimple::parm_decl>(p)
-      || is_a<Gimple::result_decl>(p) || is_a<Gimple::ssa_name>(p))
+  if (is_a<G::var_decl>(p) || is_a<G::parm_decl>(p)
+      || is_a<G::result_decl>(p) || is_a<G::ssa_name>(p))
     return true;
   return false;
 }
@@ -385,7 +385,7 @@ is_comparison_p (enum tree_code code)
 }
 
 inline bool
-get_pointer_alignment_1 (Gimple::value v, unsigned int *alignp,
+get_pointer_alignment_1 (G::value v, unsigned int *alignp,
 			 unsigned HOST_WIDE_INT *bitpos)
 {
   /* From builtins.c */
@@ -395,8 +395,8 @@ get_pointer_alignment_1 (Gimple::value v, unsigned int *alignp,
 }
 
 
-static inline Gimple::identifier_list
-lookup_attribute (const char *attr_name, Gimple::identifier_list list)
+static inline G::identifier_list
+lookup_attribute (const char *attr_name, G::identifier_list list)
 {
   extern tree private_lookup_attribute (const char *, size_t, tree);
   gcc_checking_assert (attr_name[0] != '_');
@@ -411,8 +411,8 @@ lookup_attribute (const char *attr_name, Gimple::identifier_list list)
 }
 
 
-static inline Gimple::value_list
-lookup_attribute (const char *attr_name, Gimple::value_list list)
+static inline G::value_list
+lookup_attribute (const char *attr_name, G::value_list list)
 {
   extern tree private_lookup_attribute (const char *, size_t, tree);
   gcc_checking_assert (attr_name[0] != '_');
@@ -427,22 +427,22 @@ lookup_attribute (const char *attr_name, Gimple::value_list list)
 }
 
 /* build2 */
-template <typename T> T create (Gimple::type, Gimple::value, Gimple::value);
+template <typename T> T create (G::type, G::value, G::value);
 
 template <>
-inline Gimple::modify_expr
-create (Gimple::type type , Gimple::value lhs, Gimple::value rhs)
+inline G::modify_expr
+create (G::type type , G::value lhs, G::value rhs)
 {
   extern tree build2_stat (enum tree_code, tree, tree, tree MEM_STAT_DECL);
   return build2_stat (MODIFY_EXPR, type, lhs, rhs);
 }
 
-template <typename T> T create (Gimple::type);
+template <typename T> T create (G::type);
 template <>
-inline Gimple::constructor
-create<Gimple::constructor> (Gimple::type type)
+inline G::constructor
+create<G::constructor> (G::type type)
 {
-  Gimple::constructor c = Gimple::create<Gimple::constructor> ();
+  G::constructor c = G::create<G::constructor> ();
   c->set_type (type);
   c->set_elts (NULL);
   c->set_side_effects (false);
@@ -450,31 +450,31 @@ create<Gimple::constructor> (Gimple::type type)
   return c;
 }
 
-inline Gimple::integer_cst
-wide_int_to_int_cst (Gimple::type type, const wide_int_ref &pcst)
+inline G::integer_cst
+wide_int_to_int_cst (G::type type, const wide_int_ref &pcst)
 {
   extern tree wide_int_to_tree (tree type, const wide_int_ref &cst);
-  return Gimple::integer_cst (wide_int_to_tree (type, pcst));
+  return G::integer_cst (wide_int_to_tree (type, pcst));
 
 }
 #if 0
-template <typename T> T create (Gimple::type type, const wide_int &cst);
+template <typename T> T create (G::type type, const wide_int &cst);
 
 template<>
-inline Gimple::integer_cst
-create<Gimple::integer_cst>  (Gimple::type type, const wide_int &cst)
+inline G::integer_cst
+create<G::integer_cst>  (G::type type, const wide_int &cst)
 {
   extern tree build_int_cst_wide (tree, const wide_int &);
-  return Gimple::integer_cst (build_int_cst_wide ((tree)type, cst));
+  return G::integer_cst (build_int_cst_wide ((tree)type, cst));
 }
 
 
 /* double_int_to_tree */
-template <typename T> T create (Gimple::type type, double_int cst);
+template <typename T> T create (G::type type, double_int cst);
 
 template<>
-inline Gimple::integer_cst
-create<Gimple::integer_cst>  (Gimple::type type, double_int d)
+inline G::integer_cst
+create<G::integer_cst>  (G::type type, double_int d)
 {
   extern tree double_int_to_tree (tree, double_int);
   return double_int_to_tree (type, d);
@@ -482,8 +482,8 @@ create<Gimple::integer_cst>  (Gimple::type type, double_int d)
 #endif
 
 /* build_int_cst */
-inline Gimple::integer_cst
-create_int_cst (Gimple::type type, HOST_WIDE_INT cst)
+inline G::integer_cst
+create_int_cst (G::type type, HOST_WIDE_INT cst)
 {
   extern tree build_int_cst (tree, HOST_WIDE_INT);
   return build_int_cst ((tree)type, cst);
@@ -491,40 +491,40 @@ create_int_cst (Gimple::type type, HOST_WIDE_INT cst)
 
 
 /* build_int_cstu */
-inline Gimple::integer_cst
-create_int_cstu (Gimple::type type, unsigned HOST_WIDE_INT cst)
+inline G::integer_cst
+create_int_cstu (G::type type, unsigned HOST_WIDE_INT cst)
 {
   extern tree build_int_cstu (tree, unsigned HOST_WIDE_INT);
   return build_int_cstu ((tree)type, cst);
 }
 
 /* build_int_cst_type */
-inline Gimple::integer_cst
-create_int_cst_type (Gimple::type type, HOST_WIDE_INT low)
+inline G::integer_cst
+create_int_cst_type (G::type type, HOST_WIDE_INT low)
 {
   extern tree build_int_cst_type (tree, HOST_WIDE_INT);
   return build_int_cst_type ((tree)type, low);
 }
 
 inline bool 
-gimple_fits_uhwi_p (Gimple::value v)
+gimple_fits_uhwi_p (G::value v)
 {
   extern bool tree_fits_uhwi_p (const_tree t);
   return tree_fits_uhwi_p (v);
 }
 
 inline unsigned HOST_WIDE_INT
-gimple_to_uhwi (Gimple::integer_cst value)
+gimple_to_uhwi (G::integer_cst value)
 {
   gcc_assert (gimple_fits_uhwi_p (value));
   return value->low ();
 }
 
 
-inline Gimple::constant
-drop_tree_overflow (Gimple::constant t)
+inline G::constant
+drop_tree_overflow (G::constant t)
 {
-  Gimple::integer_cst i = t;
+  G::integer_cst i = t;
   gcc_checking_assert (t->overflow_p ());
 
   /* For tree codes with a sharing machinery re-build the result.  */
@@ -532,7 +532,7 @@ drop_tree_overflow (Gimple::constant t)
     return wide_int_to_int_cst (i->type (), i);
   /* Otherwise, as all tcc_constants are possibly shared, copy the node
      and drop the flag.  */
-  t = Gimple::copy (t);
+  t = G::copy (t);
   t->set_overflow_p (false);
   return t;
 }
@@ -544,7 +544,7 @@ drop_tree_overflow (Gimple::constant t)
 #endif
 
 
-inline Gimple::integer_type
+inline G::integer_type
 build_gimple_nonstandard_integer_type (unsigned HOST_WIDE_INT precision,
 				       int unsignedp) 
 {
@@ -553,8 +553,8 @@ build_gimple_nonstandard_integer_type (unsigned HOST_WIDE_INT precision,
 }
 
 
-inline Gimple::array_type
-build_gimple_array_type (Gimple::type elt_type, Gimple::type index_type)
+inline G::array_type
+build_gimple_array_type (G::type elt_type, G::type index_type)
 {
   extern tree build_array_type (tree, tree);
   return build_array_type ((tree)elt_type, (tree)index_type);
@@ -563,25 +563,25 @@ build_gimple_array_type (Gimple::type elt_type, Gimple::type index_type)
 
 #define gimple_size_int (X) create_int_cst (sizetype_tab[(int) stk_sizetype], X);
 
-inline Gimple::type
-build_gimple_index_type (Gimple::integer_cst i)
+inline G::type
+build_gimple_index_type (G::integer_cst i)
 {
   extern tree build_index_type (tree);
   return build_index_type ((tree)i);
 }
 
-inline Gimple::array_type
-build_gimple_array_type_nelts (Gimple::type elt_type,
+inline G::array_type
+build_gimple_array_type_nelts (G::type elt_type,
 			       unsigned HOST_WIDE_INT nelts)
 {
-  Gimple::integer_cst i;
-  i = create_int_cst (Gimple::type(sizetype_tab[(int) stk_sizetype]),
+  G::integer_cst i;
+  i = create_int_cst (G::type(sizetype_tab[(int) stk_sizetype]),
 		      nelts - 1);
   return build_gimple_array_type (elt_type, build_gimple_index_type (i));
 }
 
 inline bool
-contains_placeholder_p (const Gimple::value value)
+contains_placeholder_p (const G::value value)
 {
   extern bool contains_placeholder_p (const_tree exp);
   return contains_placeholder_p ((const_tree)value);

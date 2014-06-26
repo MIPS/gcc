@@ -1484,13 +1484,13 @@ value_range_constant_singleton (value_range_t *vr)
    otherwise return NULL_TREE.  This returns OP itself if OP is a
    constant.  */
 
-static Gimple::value
-op_with_constant_singleton_value_range (Gimple::value op)
+static G::value
+op_with_constant_singleton_value_range (G::value op)
 {
   if (is_gimple_min_invariant (op))
     return op;
 
-  if (!is_a<Gimple::ssa_name> (op))
+  if (!is_a<G::ssa_name> (op))
     return NULL_GIMPLE;
 
   return value_range_constant_singleton (get_value_range (op));

@@ -261,10 +261,10 @@ link_imm_use_to_list (ssa_use_operand_t *linknode, ssa_use_operand_t *list)
 
 /* Link ssa_imm_use node LINKNODE into the chain for DEF.  */
 static inline void
-link_imm_use (ssa_use_operand_t *linknode, Gimple::value def)
+link_imm_use (ssa_use_operand_t *linknode, G::value def)
 {
   ssa_use_operand_t *root;
-  Gimple::ssa_name name = def;
+  G::ssa_name name = def;
 
   if (!name)
     linknode->prev = NULL;
@@ -279,7 +279,7 @@ link_imm_use (ssa_use_operand_t *linknode, Gimple::value def)
 
 /* Set the value of a use pointed to by USE to VAL.  */
 static inline void
-set_ssa_use_from_ptr (use_operand_p use, Gimple::value val)
+set_ssa_use_from_ptr (use_operand_p use, G::value val)
 {
   delink_imm_use (use);
   *(use->use) = val;
@@ -289,7 +289,7 @@ set_ssa_use_from_ptr (use_operand_p use, Gimple::value val)
 /* Link ssa_imm_use node LINKNODE into the chain for DEF, with use occurring
    in STMT.  */
 static inline void
-link_imm_use_stmt (ssa_use_operand_t *linknode, Gimple::value def, gimple stmt)
+link_imm_use_stmt (ssa_use_operand_t *linknode, G::value def, gimple stmt)
 {
   if (stmt)
     link_imm_use (linknode, def);
@@ -338,7 +338,7 @@ end_readonly_imm_use_p (const imm_use_iterator *imm)
 
 /* Initialize iterator IMM to process the list for VAR.  */
 static inline use_operand_p
-first_readonly_imm_use (imm_use_iterator *imm, Gimple::ssa_name var)
+first_readonly_imm_use (imm_use_iterator *imm, G::ssa_name var)
 {
   imm->end_p = var->imm_use_node_ptr ();
   imm->imm_use = imm->end_p->next;
@@ -374,7 +374,7 @@ next_readonly_imm_use (imm_use_iterator *imm)
 
 /* Return true if VAR has no nondebug uses.  */
 static inline bool
-has_zero_uses (Gimple::ssa_name var)
+has_zero_uses (G::ssa_name var)
 {
   const ssa_use_operand_t *const ptr = var->imm_use_node_ptr ();
 
@@ -392,7 +392,7 @@ has_zero_uses (Gimple::ssa_name var)
 
 /* Return true if VAR has a single nondebug use.  */
 static inline bool
-has_single_use (Gimple::ssa_name var)
+has_single_use (G::ssa_name var)
 {
   const ssa_use_operand_t *const ptr = var->imm_use_node_ptr ();
 
@@ -415,7 +415,7 @@ has_single_use (Gimple::ssa_name var)
 /* If VAR has only a single immediate nondebug use, return true, and
    set USE_P and STMT to the use pointer and stmt of occurrence.  */
 static inline bool
-single_imm_use (Gimple::ssa_name var, use_operand_p *use_p, gimple *stmt)
+single_imm_use (G::ssa_name var, use_operand_p *use_p, gimple *stmt)
 {
   const ssa_use_operand_t *const ptr = var->imm_use_node_ptr ();
 
@@ -450,7 +450,7 @@ single_imm_use (Gimple::ssa_name var, use_operand_p *use_p, gimple *stmt)
 
 /* Return the number of nondebug immediate uses of VAR.  */
 static inline unsigned int
-num_imm_uses (Gimple::ssa_name var)
+num_imm_uses (G::ssa_name var)
 {
   const ssa_use_operand_t *const start = var->imm_use_node_ptr ();
   const ssa_use_operand_t *ptr;
@@ -506,7 +506,7 @@ op_iter_next_def (ssa_op_iter *ptr)
   gcc_checking_assert (ptr->iter_type == ssa_op_iter_def);
   if (ptr->flags & SSA_OP_VDEF)
     {
-      Gimple::value_ptr p;
+      G::value_ptr p;
       ptr->flags &= ~SSA_OP_VDEF;
       p = gimple_vdef_ptr (ptr->stmt);
       if (p && *p)
@@ -516,13 +516,13 @@ op_iter_next_def (ssa_op_iter *ptr)
     {
       while (ptr->i < ptr->numops)
 	{
-	  Gimple::value_ptr val = gimple_op_ptr (ptr->stmt, ptr->i);
+	  G::value_ptr val = gimple_op_ptr (ptr->stmt, ptr->i);
 	  ptr->i++;
 	  if (*val)
 	    {
-	      if (is_a<Gimple::value_list> (*val))
-		val = as_a<Gimple::value_list> (*val)->ptrto_value ();
-	      if (is_a<Gimple::ssa_name> (*val) || is_gimple_reg (*val))
+	      if (is_a<G::value_list> (*val))
+		val = as_a<G::value_list> (*val)->ptrto_value ();
+	      if (is_a<G::ssa_name> (*val) || is_gimple_reg (*val))
 		return val;
 	    }
 	}
@@ -534,10 +534,10 @@ op_iter_next_def (ssa_op_iter *ptr)
 }
 
 /* Get the next iterator tree value for PTR.  */
-static inline Gimple::value
+static inline G::value
 op_iter_next_tree (ssa_op_iter *ptr)
 {
-  Gimple::value val;
+  G::value val;
   gcc_checking_assert (ptr->iter_type == ssa_op_iter_tree);
   if (ptr->uses)
     {
@@ -559,9 +559,9 @@ op_iter_next_tree (ssa_op_iter *ptr)
 	  ptr->i++;
 	  if (val)
 	    {
-	      if (is_a<Gimple::value_list> (val))
-		val = as_a<Gimple::value_list> (val)->value ();
-	      if (is_a<Gimple::ssa_name> (val) || is_gimple_reg (val))
+	      if (is_a<G::value_list> (val))
+		val = as_a<G::value_list> (val)->value ();
+	      if (is_a<G::ssa_name> (val) || is_gimple_reg (val))
 		return val;
 	    }
 	}
@@ -655,7 +655,7 @@ op_iter_init_def (ssa_op_iter *ptr, gimple stmt, int flags)
 
 /* Initialize iterator PTR to the operands in STMT based on FLAGS. Return
    the first operand as a tree.  */
-static inline Gimple::value
+static inline G::value
 op_iter_init_tree (ssa_op_iter *ptr, gimple stmt, int flags)
 {
   op_iter_init (ptr, stmt, flags);
@@ -666,10 +666,10 @@ op_iter_init_tree (ssa_op_iter *ptr, gimple stmt, int flags)
 
 /* If there is a single operand in STMT matching FLAGS, return it.  Otherwise
    return NULL.  */
-static inline Gimple::value
+static inline G::value
 single_ssa_tree_operand (gimple stmt, int flags)
 {
-  Gimple::value var;
+  G::value var;
   ssa_op_iter iter;
 
   var = op_iter_init_tree (&iter, stmt, flags);
@@ -736,7 +736,7 @@ static inline int
 num_ssa_operands (gimple stmt, int flags)
 {
   ssa_op_iter iter;
-  Gimple::value t;
+  G::value t;
   int num = 0;
 
   gcc_checking_assert (gimple_code (stmt) != GIMPLE_PHI);
@@ -747,10 +747,10 @@ num_ssa_operands (gimple stmt, int flags)
 
 /* If there is a single DEF in the PHI node which matches FLAG, return it.
    Otherwise return NULL_DEF_OPERAND_P.  */
-static inline Gimple::value
+static inline G::value
 single_phi_def (gimple stmt, int flags)
 {
-  Gimple::value def = PHI_RESULT (stmt);
+  G::value def = PHI_RESULT (stmt);
   if ((flags & SSA_OP_DEF) && is_gimple_reg (def))
     return def;
   if ((flags & SSA_OP_VIRTUAL_DEFS) && !is_gimple_reg (def))
@@ -763,7 +763,7 @@ single_phi_def (gimple stmt, int flags)
 static inline use_operand_p
 op_iter_init_phiuse (ssa_op_iter *ptr, gimple phi, int flags)
 {
-  Gimple::value phi_def = gimple_phi_result (phi);
+  G::value phi_def = gimple_phi_result (phi);
   int comp;
 
   clear_and_done_ssa_iter (ptr);
@@ -793,7 +793,7 @@ op_iter_init_phiuse (ssa_op_iter *ptr, gimple phi, int flags)
 static inline def_operand_p
 op_iter_init_phidef (ssa_op_iter *ptr, gimple phi, int flags)
 {
-  Gimple::value phi_def = PHI_RESULT (phi);
+  G::value phi_def = PHI_RESULT (phi);
   int comp;
 
   clear_and_done_ssa_iter (ptr);
@@ -873,7 +873,7 @@ link_use_stmts_after (use_operand_p head, imm_use_iterator *imm)
   use_operand_p use_p;
   use_operand_p last_p = head;
   gimple head_stmt = USE_STMT (head);
-  Gimple::value use = USE_FROM_PTR (head);
+  G::value use = USE_FROM_PTR (head);
   ssa_op_iter op_iter;
   int flag;
 
@@ -908,7 +908,7 @@ link_use_stmts_after (use_operand_p head, imm_use_iterator *imm)
 
 /* Initialize IMM to traverse over uses of VAR.  Return the first statement.  */
 static inline gimple
-first_imm_use_stmt (imm_use_iterator *imm, Gimple::ssa_name var)
+first_imm_use_stmt (imm_use_iterator *imm, G::ssa_name var)
 {
   imm->end_p = var->imm_use_node_ptr ();
   imm->imm_use = imm->end_p->next;

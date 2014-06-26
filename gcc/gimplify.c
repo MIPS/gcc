@@ -410,7 +410,7 @@ gimplify_and_return_first (tree t, gimple_seq *seq_p)
    LHS, or for a call argument.  */
 
 static bool
-is_gimple_mem_rhs (Gimple::value t)
+is_gimple_mem_rhs (G::value t)
 {
   /* If we're dealing with a renamable type, either source or dest must be
      a renamed variable.  */
@@ -426,9 +426,9 @@ is_gimple_mem_rhs (Gimple::value t)
    gimplify_modify_expr.  */
 
 static bool
-is_gimple_reg_rhs_or_call (Gimple::value t)
+is_gimple_reg_rhs_or_call (G::value t)
 {
-  return (is_gimple_reg_rhs (t) || is_a<Gimple::call_expr> (t));
+  return (is_gimple_reg_rhs (t) || is_a<G::call_expr> (t));
 }
 
 /* Return true if T is a valid memory RHS or a CALL_EXPR.  Note that
@@ -436,7 +436,7 @@ is_gimple_reg_rhs_or_call (Gimple::value t)
    rationale for this in gimplify_modify_expr.  */
 
 static bool
-is_gimple_mem_rhs_or_call (Gimple::value t)
+is_gimple_mem_rhs_or_call (G::value t)
 {
   /* If we're dealing with a renamable type, either source or dest must be
      a renamed variable.  */
@@ -444,7 +444,7 @@ is_gimple_mem_rhs_or_call (Gimple::value t)
     return is_gimple_val (t);
   else
     return (is_gimple_val (t) || is_gimple_lvalue (t)
-	    || is_a<Gimple::call_expr> (t));
+	    || is_a<G::call_expr> (t));
 }
 
 /* Create a temporary with a name derived from VAL.  Subroutine of
@@ -4336,7 +4336,7 @@ gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p,
 /* Return true if T looks like a valid GIMPLE statement.  */
 
 static bool
-is_gimple_stmt (Gimple::value t)
+is_gimple_stmt (G::value t)
 {
   const enum tree_code code = t->code ();
 
@@ -4768,7 +4768,7 @@ gimplify_save_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 /* We need this because its invoked indrectly, which means the parameter
    does not have a chance to be converted to a GimpleValue.  */
 static inline bool
-is_gimple_addressable_predicate (Gimple::value t)
+is_gimple_addressable_predicate (G::value t)
 {
   return is_gimple_addressable(t);
 }
