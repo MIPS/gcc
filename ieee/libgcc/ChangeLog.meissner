@@ -1,3 +1,14 @@
+2014-06-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/float128.c: Rewrite float128 support completely.
+	Pull all modules into float128.c, float128-int.c.  Use float128.h
+	header instead of float128-vsx.h.  Do not use Makefile tricks to
+	reuse the TF libraries in soft-fp.  Delete float128-vsx.h.
+	* config/rs6000/float128-int.c: Likewise.
+	* config/rs6000/float128-vsx.h: Likewise.
+	* config/rs6000/float128.h: Likewise.
+	* config/rs6000/t-float128: Likewise.
+
 2014-06-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/sfp-machine.h (TI_BITS): Define on 64-bit

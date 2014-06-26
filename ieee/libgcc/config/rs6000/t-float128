@@ -1,49 +1,32 @@
 # Support for adding __float128 to the powerpc.  The __float128 type is
 # restricted to VSX systems so that we can pass the value in VSX registers.
 
-fp128_anybit		 = addtf3 subtf3 multf3 divtf3 negtf2 \
-			   eqtf2 getf2 letf2 unordtf2 \
-			   extenddftf2 extendsftf2 trunctfdf2 trunctfsf2 \
-			   fixtfsi fixtfdi \
-			   fixunstfsi fixunstfdi \
-			   floatsitf floatditf \
-			   floatunsitf floatunditf
-
-fp128_64bit		 = fixtfti fixunstfti floattitf floatuntitf
-fp128_func		 = $(fp128_func_anybit) $(fp128_func_64bit)
-fp128_vsx_src_anybit	:= $(foreach f,$(fp128_func_anybit),$(f)-vsx.c)
-fp128_vsx_src_64bit	:= $(foreach f,$(fp128_func_64bit),$(f)-vsx.c)
-fp128_vsx_src		:= $(fp128_vsx_src_anybit) $(fp128_vsx_src_64bit)
-fp128_vsx_objects_base	 = $(basename $(notdir $(fp128_vsx_src)))
-fp128_vsx_objects	 = $(addsuffix $(objext),$(fp128_vsx_objects_base))
-
-$(fp128_vsx_src_anybit):
-	@echo "Create $@"; \
-	tf=$$(echo "$@" | sed -e 's/-vsx//'); \
-	echo '#include "config/rs6000/float128-vsx.h"' > $@; \
-	echo '#include "soft-fp/'$${tf}'"' >> $@
-
-$(fp128_vsx_src_64bit):
-	@echo "Create $@"; \
-	tf=$$(echo "$@" | sed -e 's/-vsx//'); \
-	echo '#ifdef _ARCH_PPC64' > $@; \
-	echo '#include "config/rs6000/float128-vsx.h"' >> $@; \
-	echo '#include "soft-fp/'$${tf}'"' >> $@; \
-	echo '#endif /* _ARCH_PPC64 */' >> $@
+fp128_src		= $(srcdir)/config/rs6000/float128.c \
+			  $(srcdir)/config/rs6000/float128-int.c
+fp128_objects_base	= $(basename $(notdir $(fp128_src)))
+fp128_objects		= $(addsuffix $(objext),$(fp128_objects_base))
 
 FP128_COMMON_CFLAGS	= -Wno-missing-prototypes -Wno-type-limits \
 			  -DTFtype=__float128 -mfloat128
 
 FP128_VSX_CFLAGS	= $(FP128_COMMON_CFLAGS) -mvsx
 
-$(fp128_vsx_objects) : INTERNAL_CFLAGS += $(FP128_VSX_CFLAGS)
-$(fp128_vsx_objects) : $(addprefix $(srcdir)/soft-float/,$(patsubst %-vsx.c,%.c,$<))
-$(fp128_vsx_objects) : $(srcdir)/config/rs6000/t-float128
-$(fp128_vsx_objects) : $(srcdir)/config/rs6000/float128-vsx.h
+$(fp128_objects) : INTERNAL_CFLAGS += $(FP128_VSX_CFLAGS)
+$(fp128_objects) : $(addprefix $(srcdir)/config/rs6000/,$<)
+$(fp128_objects) : $(srcdir)/config/rs6000/float128.c
+$(fp128_objects) : $(srcdir)/config/rs6000/float128.h
+$(fp128_objects) : $(srcdir)/config/rs6000/t-float128
+$(fp128_objects) : $(srcdir)/soft-fp/soft-fp.h
+$(fp128_objects) : $(srcdir)/soft-fp/quad.h
+$(fp128_objects) : $(srcdir)/soft-fp/double.h
+$(fp128_objects) : $(srcdir)/soft-fp/single.h
+$(fp128_objects) : $(srcdir)/soft-fp/soft-fp.h
+$(fp128_objects) : $(srcdir)/soft-fp/extended.h
+$(fp128_objects) : $(srcdir)/soft-fp/op-1.h
+$(fp128_objects) : $(srcdir)/soft-fp/op-2.h
+$(fp128_objects) : $(srcdir)/soft-fp/op-4.h
+$(fp128_objects) : $(srcdir)/soft-fp/op-8.h
+$(fp128_objects) : $(srcdir)/soft-fp/op-common.h
 
-float128$(objext) : INTERNAL_CFLAGS += $(FP128_VSX_CFLAGS)
-float128$(objext) : $(srcdir)/config/rs6000/float128.c
-float128$(objext) : $(srcdir)/config/rs6000/t-float128
-
-LIB2ADD += $(fp128_vsx_src_list) $(srcdir)/config/rs6000/float128.c
+LIB2ADD += $(fp128_src)
 

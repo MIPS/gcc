@@ -3463,3 +3463,32 @@
 				  (match_dup 3)]
 				 UNSPEC_BCD_ADD_SUB)
 		    (match_dup 4)))])])
+
+
+;; Return constant 0x80000000000000000000000000000000 in an Altivec register.
+
+(define_expand "altivec_high_bit"
+  [(set (match_dup 1)
+	(vec_duplicate:V16QI (const_int 7)))
+   (set (match_dup 2)
+	(ashift:V16QI (match_dup 1)
+		      (match_dup 1)))
+   (set (match_dup 3)
+	(match_dup 4))
+   (set (match_operand:V16QI 0 "register_operand" "")
+	(unspec:V16QI [(match_dup 2)
+		       (match_dup 3)
+		       (const_int 15)] UNSPEC_VLSDOI))]
+  "TARGET_ALTIVEC"
+{
+  if (can_create_pseudo_p ())
+    {
+      operands[1] = gen_reg_rtx (V16QImode);
+      operands[2] = gen_reg_rtx (V16QImode);
+      operands[3] = gen_reg_rtx (V16QImode);
+    }
+  else
+    operands[1] = operands[2] = operands[3] = operands[0];
+
+  operands[4] = CONST0_RTX (V16QImode);
+})

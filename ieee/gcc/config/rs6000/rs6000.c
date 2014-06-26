@@ -2553,12 +2553,14 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
      arithmetic, so only set the memory modes.  */
   if (TARGET_VSX)
     {
-      enum rs6000_vector mem_type = VECTOR_VSX;
-      rs6000_vector_mem[KFmode] = mem_type;
-      rs6000_vector_align[KFmode] = 128;
+      if (TARGET_FLOAT128)
+	{
+	  rs6000_vector_mem[KFmode] = VECTOR_VSX;
+	  rs6000_vector_align[KFmode] = 128;
+	}
       if (TARGET_IEEEQUAD)
 	{
-	  rs6000_vector_mem[TFmode] = mem_type;
+	  rs6000_vector_mem[TFmode] = VECTOR_VSX;
 	  rs6000_vector_align[TFmode] = 128;
 	}
     }
@@ -15528,6 +15530,8 @@ init_float128_ieee (enum machine_mode mode)
       set_optab_libfunc (ge_optab, mode, "__gekf2");
       set_optab_libfunc (lt_optab, mode, "__ltkf2");
       set_optab_libfunc (le_optab, mode, "__lekf2");
+      set_optab_libfunc (unord_optab, mode, "__unordkf2");
+      set_optab_libfunc (cmp_optab, mode, "__cmpkf2");
 
       set_conv_libfunc (sext_optab, mode, SFmode, "__extendsfkf2");
       set_conv_libfunc (sext_optab, mode, DFmode, "__extenddfkf2");
@@ -19019,6 +19023,71 @@ rs6000_generate_compare (rtx cmp, enum machine_mode mode)
 
       emit_insn (cmp);
     }
+
+  /* IEEE 128-bit support without hardware.  The ge/le comparison functions
+     return -2 for unordered, -1 for less than, 0 for equal, and +1 for greater
+     than.  For now, don't support IEEE Nan's in tests.  */
+  else if(FLOAT128_IEEE_P (mode))
+    {
+      rtx libfunc = NULL_RTX;
+      rtx dest = gen_reg_rtx (SImode);
+
+      switch (code)
+	{
+	case EQ:
+	  libfunc = optab_libfunc (eq_optab, mode);
+	  code = NE;
+	  break;
+
+	case NE:
+	  libfunc = optab_libfunc (eq_optab, mode);
+	  code = EQ;
+	  break;
+
+	case GT:
+	  libfunc = optab_libfunc (gt_optab, mode);
+	  code = NE;
+	  break;
+
+	case GE:
+	  libfunc = optab_libfunc (ge_optab, mode);
+	  code = NE;
+	  break;
+
+	case LT:
+	  libfunc = optab_libfunc (lt_optab, mode);
+	  code = NE;
+	  break;
+
+	case LE:
+	  libfunc = optab_libfunc (le_optab, mode);
+	  code = NE;
+	  break;
+
+	case UNORDERED:
+	  libfunc = optab_libfunc (unord_optab, mode);
+	  code = NE;
+	  break;
+
+	case ORDERED:
+	  libfunc = optab_libfunc (unord_optab, mode);
+	  code = EQ;
+	  break;
+
+	default:
+	  gcc_unreachable ();
+	}
+
+      gcc_assert (libfunc != NULL_RTX);
+      dest = emit_library_call_value (libfunc, dest, LCT_CONST, SImode, 2,
+				      op0, mode, op1, mode);
+      compare_result = gen_reg_rtx (CCmode);
+      comp_mode = CCmode;
+
+      emit_insn (gen_rtx_SET (VOIDmode, compare_result,
+			      gen_rtx_COMPARE (comp_mode, dest, const0_rtx)));
+    }
+
   else
     {
       /* Generate XLC-compatible TFmode compare as PARALLEL with extra
@@ -19059,6 +19128,7 @@ rs6000_generate_compare (rtx cmp, enum machine_mode mode)
   /* Some kinds of FP comparisons need an OR operation;
      under flag_finite_math_only we don't bother.  */
   if (FLOAT_MODE_P (mode)
+      && !FLOAT128_IEEE_P (mode)
       && !flag_finite_math_only
       && !(TARGET_HARD_FLOAT && !TARGET_FPRS)
       && (code == LE || code == GE

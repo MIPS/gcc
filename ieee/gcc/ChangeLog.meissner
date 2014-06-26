@@ -1,3 +1,25 @@
+2014-06-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok): Check
+	for TARGET_FLOAT128 before setting up KFmode.
+	(init_float128_ieee): Set up functions for unordered and general
+	compare.
+	(rs6000_generate_compare): Add support for IEEE 128-bit floating
+	point.
+
+	* config/rs6000/vsx.md (negkf2): Add support for IEEE 128-bit
+	floating point negate.
+	(negkf2_internal): Likewise.
+	(abskf2): Add support for IEEE 128-bit absolute value.
+	(nabskf2): Add support for negative of IEEE 128-bit absolute
+	value.
+
+	* config/rs6000/altivec.md (altivec_high_bit): New insn to create
+	a vector with the highest bit set.
+
+	* config/rs6000/rs6000.md (FP iterator): Add IEEE 128-bit floating
+	point so comparisons are handled.
+
 2014-06-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/vector.md (VEC_M): Add KFmode to vector types.
