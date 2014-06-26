@@ -1,3 +1,13 @@
+2014-06-26  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (dt_operand::gen_generic_kids): New function.
+	(dt_operand::gen_generic_expr_expr): Conditionalize matching
+	of code to GIMPLE code-gen.
+	(dt_operand::gen_generic_expr_fn): Likewise.
+	(dt_operand::gen_generic_expr): Adjust to close parens.
+	(dt_operand::gen_generic): Call gen_generic_kids.
+	(decision_tree::gen_generic): Likewise, use a switch stmt.
+
 2014-06-26  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 
 	* genmatch.c (dt_node::get_expr_code): New member function.

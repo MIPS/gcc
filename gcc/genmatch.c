@@ -367,6 +367,7 @@ struct dt_operand: public dt_node
 
   void grok_kids(kids_type&);
   void gen_gimple_kids (FILE *);
+  void gen_generic_kids (FILE *);
 };
 
 
@@ -978,8 +979,16 @@ dt_operand::gen_generic_expr_expr (FILE *f, expr *e, const char *opname,
 {
   unsigned n_ops = e->ops.length ();
 
-  fprintf (f, "if (TREE_CODE (%s) == %s)\n", opname, e->operation->op->id);
-  fprintf (f, "{\n");
+  operator_id *op_id = static_cast <operator_id *> (e->operation->op);
+
+  if (valueize)
+    {
+      if (op_id->code == NOP_EXPR || op_id->code == CONVERT_EXPR)
+	fprintf (f, "if (CONVERT_EXPR_P (%s))\n", opname);
+      else
+	fprintf (f, "if (TREE_CODE (%s) == %s)\n", opname, e->operation->op->id);
+      fprintf (f, "{\n");
+    }
 
   for (unsigned i = 0; i < n_ops; ++i)
     {
@@ -1001,13 +1010,16 @@ dt_operand::gen_generic_expr_fn (FILE *f, expr *e, const char *opname, bool valu
   unsigned n_ops = e->ops.length ();
   fn_id *op = static_cast <fn_id *> (e->operation->op);
 
-  fprintf (f, "if (TREE_CODE (%s) == CALL_EXPR\n"
-               "    && TREE_CODE (CALL_EXPR_FN (%s)) == ADDR_EXPR\n"
-               "    && TREE_CODE (TREE_OPERAND (CALL_EXPR_FN (%s), 0)) == FUNCTION_DECL\n"
-               "    && DECL_BUILT_IN_CLASS (TREE_OPERAND (CALL_EXPR_FN (%s), 0)) == BUILT_IN_NORMAL\n"
-               "    && DECL_FUNCTION_CODE (TREE_OPERAND (CALL_EXPR_FN (%s), 0)) == %s)\n",
-               opname, opname, opname, opname, opname, op->id);
-  fprintf (f, "  {\n");
+  if (valueize)
+    {
+      fprintf (f, "if (TREE_CODE (%s) == CALL_EXPR\n"
+	       "    && TREE_CODE (CALL_EXPR_FN (%s)) == ADDR_EXPR\n"
+	       "    && TREE_CODE (TREE_OPERAND (CALL_EXPR_FN (%s), 0)) == FUNCTION_DECL\n"
+	       "    && DECL_BUILT_IN_CLASS (TREE_OPERAND (CALL_EXPR_FN (%s), 0)) == BUILT_IN_NORMAL\n"
+	       "    && DECL_FUNCTION_CODE (TREE_OPERAND (CALL_EXPR_FN (%s), 0)) == %s)\n",
+	       opname, opname, opname, opname, opname, op->id);
+      fprintf (f, "  {\n");
+    }
 
   for (unsigned i = 0; i < n_ops; ++i)
     {
@@ -1028,7 +1040,7 @@ dt_operand::gen_generic_expr (FILE *f, const char *opname, bool valueize)
 {
   expr *e = static_cast<expr *> (op);
   (e->operation->op->kind == id_base::CODE) ? gen_generic_expr_expr (f, e, opname, valueize) : gen_generic_expr_fn (f, e, opname, valueize);
-  return valueize ? e->ops.length () + 1 : 1;
+  return valueize ? e->ops.length () + 1 : 0;
 }
 
 bool
@@ -1197,6 +1209,7 @@ dt_operand::gen_gimple (FILE *f)
   fprintf (f, "}\n");
 }
 
+
 void
 dt_operand::gen_generic (FILE *f)
 {
@@ -1230,14 +1243,107 @@ dt_operand::gen_generic (FILE *f)
 
   unsigned i;
 
-  for (i = 0; i < kids.length (); ++i)
-    kids[i]->gen_generic (f);
+  gen_generic_kids (f);
 
   for (i = 0; i < n_braces; ++i)
     fprintf (f, "}\n");
   
   fprintf (f, "}\n");
 }
+
+void
+dt_operand::gen_generic_kids (FILE *f)
+{
+  bool any = false;
+  for (unsigned j = 0; j < kids.length (); ++j)
+    {
+      dt_node *node = kids[j];
+      if (node->type == DT_OPERAND)
+	{
+	  dt_operand *kid = static_cast<dt_operand *>(node);
+	  if (kid->op->type == operand::OP_EXPR)
+	    any = true;
+	}
+    }
+
+  if (any)
+    {
+      char opname[20];
+      static_cast <dt_operand *>(kids[0])->get_name (opname); 
+      fprintf (f, "switch (TREE_CODE (%s))\n"
+	       "{\n", opname);
+      for (unsigned j = 0; j < kids.length (); ++j)
+	{
+	  dt_node *node = kids[j];
+	  if (node->type != DT_OPERAND)
+	    continue;
+	  dt_operand *kid = static_cast<dt_operand *>(node);
+	  if (kid->op->type != operand::OP_EXPR)
+	    continue;
+	  expr *e = static_cast <expr *>(kid->op);
+	  if (e->operation->op->kind != id_base::CODE)
+	    continue;
+
+	  /* ??? CONVERT */
+	  fprintf (f, "case %s:\n"
+		   "{\n", e->operation->op->id);
+	  kid->gen_generic (f);
+	  fprintf (f, "break;\n"
+		   "}\n");
+	}
+
+      bool first = true;
+      for (unsigned j = 0; j < kids.length (); ++j)
+	{
+	  dt_node *node = kids[j];
+	  if (node->type != DT_OPERAND)
+	    continue;
+	  dt_operand *kid = static_cast<dt_operand *>(node);
+	  if (kid->op->type != operand::OP_EXPR)
+	    continue;
+	  expr *e = static_cast <expr *>(kid->op);
+	  if (e->operation->op->kind != id_base::FN)
+	    continue;
+
+	  if (first)
+	    fprintf (f, "case CALL_EXPR:\n"
+		     "{\n"
+		     "tree fndecl = get_callee_fndecl (%s);\n"
+		     "if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL)\n"
+		     "switch (DECL_FUNCTION_CODE (fndecl))\n"
+		     "{\n", opname);
+	  first = false;
+
+	  fprintf (f, "case %s:\n"
+		   "{\n", e->operation->op->id);
+	  kid->gen_generic (f);
+	  fprintf (f, "break;\n"
+		   "}\n");
+	}
+      if (!first)
+	fprintf (f, "default:;\n"
+		 "}\n"
+		 "break;\n"
+		 "}\n");
+      /* Close switch of TREE_CODE.  */
+      fprintf (f, "default:;\n"
+	       "}\n");
+    }
+
+  for (unsigned j = 0; j < kids.length (); ++j)
+    {
+      dt_node *node = kids[j];
+      if (node->type == DT_OPERAND)
+	{
+	  dt_operand *kid = static_cast<dt_operand *>(node);
+	  if (kid->op->type == operand::OP_EXPR)
+	    continue;
+	}
+
+      node->gen_generic (f);
+    }
+}
+
 
 void
 dt_simplify::gen_gimple (FILE *f)
@@ -1412,7 +1518,8 @@ decision_tree::gen_generic (FILE *f)
       fprintf (f, ")\n");
       fprintf (f, "{\n");
 
-      bool first = true;
+      fprintf (f, "switch (code)\n"
+	       "{\n");
       for (unsigned i = 0; i < root->kids.length (); i++)
 	{
 	  dt_operand *dop = static_cast<dt_operand *>(root->kids[i]);
@@ -1425,18 +1532,18 @@ decision_tree::gen_generic (FILE *f)
 	      || e->operation->op->kind != id_base::CODE)
 	    continue;
 
-	  if (!first)
-	    fprintf (f, "else ");
-	  fprintf (f, "if (code == %s)\n", e->operation->op->id);
+	  operator_id *op_id = static_cast <operator_id *> (e->operation->op);
+	  if (op_id->code == NOP_EXPR || op_id->code == CONVERT_EXPR)
+	    fprintf (f, "CASE_CONVERT:\n");
+	  else
+	    fprintf (f, "case %s:\n", e->operation->op->id);
 	  fprintf (f, "{\n");
-
-	  for (unsigned j = 0; j < dop->kids.length (); ++j)
-	    dop->kids[j]->gen_generic (f);
-
-	  fprintf (f, "}\n");
-
-	  first = false;
+	  dop->gen_generic_kids (f);
+	  fprintf (f, "break;\n"
+		   "}\n");
 	}
+      fprintf (f, "default:;\n"
+	       "}\n");
 
       fprintf (f, "return NULL_TREE;\n");
       fprintf (f, "}\n");
