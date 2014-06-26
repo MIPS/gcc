@@ -468,18 +468,6 @@ value_desc::expr_location() const
     return UNKNOWN_LOCATION;
 }
 
-inline int
-value_ops_desc::op_len () const
-{
-  return value_desc::op_len ();
-}
-
-inline value
-value_ops_desc::op(const int i) const
-{
-  return value_desc::op(i);
-}
-
 inline G::value
 unary_desc::op1 () const
 {

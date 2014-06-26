@@ -328,20 +328,19 @@ create ()
 }
 
 
-typedef _ptr<value_ops_desc>		value;
-
+typedef _ptr<value_desc>		value;
 typedef _ptr<type_desc>			type;
 typedef _ptr<block_desc>		block;
 
 template<>
 inline void 
-_ptr<value_ops_desc>::check_contents() const
+_ptr<value_desc>::check_contents() const
 {
 }
 
 template<>
-inline _ptr<value_ops_desc> 
-_ptr<value_ops_desc>::create()
+inline _ptr<value_desc> 
+_ptr<value_desc>::create()
 {
   gcc_unreachable ();
 }

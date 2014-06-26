@@ -13,7 +13,7 @@ template<typename T> class _addr;
 #define FWD_DECL(NAME, BASE)	typedef _dptr<class NAME ## _desc, BASE> NAME
 #define FWD_DECL_PTR(NAME)	typedef _addr<NAME> NAME ## _ptr
 
-typedef _ptr<class value_ops_desc> value;
+FWD_DECL_BASE (value);
 FWD_DECL_BASE (type);
 FWD_DECL_BASE (block);
 
@@ -236,23 +236,14 @@ class block_desc : public tree_desc
 
 class value_desc : public tree_desc
 {
-  protected:
+  public:
     inline value op (const int i) const;
     int op_len () const;
-  public:
     G::type type() const;
     void set_type (G::type);
     location_t expr_location () const;
     bool clobber_p () const;
 };
-
-class value_ops_desc : public value_desc
-{
-  public:
-    inline value op (const int i) const;
-    int op_len () const;
-};
-
 
 class unary_desc : public value_desc
 {
