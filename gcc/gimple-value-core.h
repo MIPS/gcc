@@ -375,6 +375,11 @@ class real_cst_desc : public constant_desc
     REAL_VALUE_TYPE real_cst() const;
 };
 
+class string_cst_desc : public constant_desc
+{
+};
+
+
 class decl_desc : public value_desc
 {
   public:
@@ -437,6 +442,10 @@ class debug_expr_decl_desc : public decl_desc
 };
 
 class decl_with_rtl_desc : public decl_desc
+{
+};
+
+class const_decl_desc : public decl_desc
 {
 };
 

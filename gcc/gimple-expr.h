@@ -84,8 +84,8 @@ is_gimple_reg_type (G::type type)
 static inline bool
 is_gimple_variable (G::value t)
 {
-  enum tree_code c = t->code();
-  return c  == VAR_DECL || c == PARM_DECL || c == RESULT_DECL || c == SSA_NAME;
+  return is_a<G::var_decl> (t) || is_a<G::ssa_name> (t) ||
+	  is_a<G::parm_decl> (t) || is_a<G::result_decl> (t);
 }
 
 /*  Return true if T is a GIMPLE identifier (something with an address).  */
@@ -94,11 +94,11 @@ static inline bool
 is_gimple_id (G::value t)
 {
   return (is_gimple_variable (t)
-	  || t->code () == FUNCTION_DECL
-	  || t->code () == LABEL_DECL
-	  || t->code () == CONST_DECL
+	  || is_a<G::function_decl> (t)
+	  || is_a<G::label_decl> (t)
+	  || is_a<G::const_decl> (t)
 	  /* Allow string constants, since they are addressable.  */
-	  || t->code () == STRING_CST);
+	  || is_a<G::string_cst> (t));
 }
 
 /* Return true if OP, an SSA name or a DECL is a virtual operand.  */
@@ -106,7 +106,7 @@ is_gimple_id (G::value t)
 static inline bool
 virtual_operand_p (G::value op)
 {
-  G::ssa_name ssa(op);
+  G::ssa_name ssa = dyn_cast<G::ssa_name> (op);
   if (ssa)
     {
       op = ssa->var ();
@@ -114,7 +114,7 @@ virtual_operand_p (G::value op)
 	return false;
     }
 
-  G::var_decl decl(op);
+  G::var_decl decl = dyn_cast<G::var_decl> (op);
   if (decl)
     return decl->is_virtual_operand ();
 
@@ -127,7 +127,7 @@ static inline bool
 is_gimple_addressable (G::value t)
 {
   return (is_gimple_id (t) || handled_component_p (t)
-	  || t->code () == MEM_REF);
+	  || is_a<G::mem_ref> (t));
 }
 
 /* Return true if T is a valid gimple constant.  */
