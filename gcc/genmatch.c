@@ -325,6 +325,10 @@ struct dt_node
 
   virtual void gen_gimple (FILE *) {}
   virtual void gen_generic (FILE *) {}
+  
+  bool get_expr_code (enum tree_code&);
+  bool is_gimple_expr ();
+  bool is_gimple_fn ();
 };
 
 struct dt_operand: public dt_node
@@ -333,6 +337,15 @@ struct dt_operand: public dt_node
   dt_operand *match_dop;
   dt_operand *parent;
   unsigned pos;
+
+  struct kids_type {
+    vec<dt_node *> gimple_exprs;
+    vec<dt_node *> fns;
+    vec<dt_node *> others;
+    dt_node *true_operand;
+  
+    kids_type (): gimple_exprs (vNULL), fns (vNULL), others (vNULL), true_operand (0) {}
+  };
  
   dt_operand (enum dt_type type, operand *op_, dt_operand *match_dop_, dt_operand *parent_ = 0, unsigned pos_ = 0)
 	: dt_node (type), op (op_), match_dop (match_dop_), parent (parent_), pos (pos_) {} 
@@ -342,9 +355,8 @@ struct dt_operand: public dt_node
   unsigned gen_predicate (FILE *, const char *);
   unsigned gen_match_op (FILE *, const char *);
 
-  unsigned gen_gimple_expr (FILE *, const char *);
-  void gen_gimple_expr_expr (FILE *, expr *);
-  void gen_gimple_expr_fn (FILE *, expr *);
+  unsigned gen_gimple_expr_expr (FILE *); 
+  unsigned gen_gimple_expr_fn (FILE *);
 
   unsigned gen_generic_expr (FILE *, const char *, bool);
   void gen_generic_expr_expr (FILE *, expr *, const char *, bool);
@@ -352,6 +364,9 @@ struct dt_operand: public dt_node
 
   char *get_name (char *);
   void gen_opname (char *, unsigned);
+
+  void grok_kids(kids_type&);
+  void gen_gimple_kids (FILE *);
 };
 
 
@@ -906,9 +921,10 @@ dt_operand::gen_match_op (FILE *f, const char *opname)
   return 1;
 }
 
-void
-dt_operand::gen_gimple_expr_fn (FILE *f, expr *e)
+unsigned
+dt_operand::gen_gimple_expr_fn (FILE *f) 
 {
+  expr *e = static_cast<expr *> (op);
   unsigned n_ops = e->ops.length ();
 
   fn_id *op = static_cast <fn_id *> (e->operation->op);
@@ -924,20 +940,22 @@ dt_operand::gen_gimple_expr_fn (FILE *f, expr *e)
       fprintf (f, "if ((%s = do_valueize (valueize, %s)) != 0)\n", child_opname, child_opname);
       fprintf (f, "{\n");
     } 
+
+  return n_ops + 1;
 }
 
-void
-dt_operand::gen_gimple_expr_expr (FILE *f, expr *e)
+unsigned
+dt_operand::gen_gimple_expr_expr (FILE *f)
 {
+  expr *e = static_cast<expr *> (op);
   unsigned n_ops = e->ops.length (); 
 
   operator_id *op_id = static_cast <operator_id *> (e->operation->op);
   
   if (op_id->code == NOP_EXPR || op_id->code == CONVERT_EXPR)
-    fprintf (f, "if (is_gimple_assign (def_stmt)\n"
-	        "    && CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (def_stmt)))");
+    fprintf (f, " if (CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (def_stmt)))");
   else
-    fprintf (f, "if (is_gimple_assign (def_stmt) && gimple_assign_rhs_code (def_stmt) == %s)\n", op_id->id);
+    fprintf (f, "if (gimple_assign_rhs_code (def_stmt) == %s)\n", op_id->id);
 
   fprintf (f, "{\n");
   
@@ -950,22 +968,9 @@ dt_operand::gen_gimple_expr_expr (FILE *f, expr *e)
       fprintf (f, "if ((%s = do_valueize (valueize, %s)) != 0)\n", child_opname, child_opname);
       fprintf (f, "{\n");
     }      
+
+  return n_ops + 1;
 } 
-
-unsigned
-dt_operand::gen_gimple_expr (FILE *f, const char *opname)
-{
-  expr *e = static_cast<expr *> (op);
-
-  fprintf (f, "if (TREE_CODE (%s) == SSA_NAME)\n", opname);
-  fprintf (f, "{\n");
-  
-  fprintf (f, "gimple def_stmt = SSA_NAME_DEF_STMT (%s);\n", opname);
-  (e->operation->op->kind == id_base::CODE) ? gen_gimple_expr_expr (f, e) : gen_gimple_expr_fn (f, e);
-
-  return e->ops.length () + 2;
-}
-
 
 void
 dt_operand::gen_generic_expr_expr (FILE *f, expr *e, const char *opname,
@@ -1026,6 +1031,128 @@ dt_operand::gen_generic_expr (FILE *f, const char *opname, bool valueize)
   return valueize ? e->ops.length () + 1 : 1;
 }
 
+bool
+dt_node::get_expr_code (enum tree_code& code)
+{
+
+  if (type != dt_node::DT_OPERAND)
+    return false;
+
+  dt_operand *dop = static_cast<dt_operand *> (this);
+  
+  if (dop->op->type != operand::OP_EXPR)
+    return false;
+
+  expr *e = static_cast<expr *> (dop->op);
+  if (e->operation->op->kind != id_base::CODE)
+    return false;
+
+  operator_id *opr = static_cast<operator_id *> (e->operation->op);
+  code = opr->code;
+  return true;
+}
+
+bool
+dt_node::is_gimple_expr ()
+{
+  enum tree_code code;
+
+  if (!get_expr_code (code))
+    return false;
+
+  if (code == REALPART_EXPR || code == IMAGPART_EXPR
+      || code == BIT_FIELD_REF || code == VIEW_CONVERT_EXPR)
+    return false;
+
+  dt_operand *dop = static_cast<dt_operand *> (this);
+
+  if (dop->parent->type != dt_operand::DT_OPERAND)
+    return true;
+
+  if (dop->parent->get_expr_code (code) && code == COND_EXPR && dop->pos == 0)
+    return false;
+
+  return true;
+}
+
+bool
+dt_node::is_gimple_fn ()
+{
+  if (type != dt_node::DT_OPERAND)
+    return false;
+  
+  dt_operand *dop = static_cast<dt_operand *> (this);
+  if (dop->op->type != operand::OP_EXPR)
+    return false;
+
+  expr *e = static_cast<expr *> (dop->op);
+  return e->operation->op->kind == id_base::FN;
+}
+
+void
+dt_operand::grok_kids (kids_type& ktype)
+{
+
+  for (unsigned i = 0; i < kids.length (); ++i)
+    {
+      if (kids[i]->is_gimple_expr ())
+	ktype.gimple_exprs.safe_push (kids[i]);
+      else if (kids[i]->is_gimple_fn ())
+	ktype.fns.safe_push (kids[i]);
+      else if (kids[i]->type == dt_node::DT_TRUE)
+	ktype.true_operand = kids[i];
+      else
+	ktype.others.safe_push (kids[i]);
+    }
+}
+
+void
+dt_operand::gen_gimple_kids (FILE *f)
+{
+  kids_type ktype;
+  grok_kids (ktype);
+
+  char buf[128];
+  char *kid_opname = buf;
+ 
+  unsigned exprs_len = ktype.gimple_exprs.length ();
+  unsigned fns_len = ktype.fns.length ();
+
+  if (exprs_len || fns_len)
+    {
+      if (exprs_len)
+	(static_cast<dt_operand *>(ktype.gimple_exprs[0]))->get_name (kid_opname);
+      else
+	(static_cast<dt_operand *>(ktype.fns[0]))->get_name (kid_opname);
+
+      fprintf (f, "if (TREE_CODE (%s) == SSA_NAME)\n", kid_opname);
+      fprintf (f, "{\n");
+      fprintf (f, "gimple def_stmt = SSA_NAME_DEF_STMT (%s);\n", kid_opname);
+
+      if (exprs_len)
+	{
+	  fprintf (f, "if (is_gimple_assign (def_stmt))\n");
+	  fprintf (f, "{\n");
+	  for (unsigned i = 0; i < exprs_len; ++i)
+	    {
+	      ktype.gimple_exprs[i]->gen_gimple (f);
+	    }
+	  fprintf (f, "}\n");
+	}
+  
+      for (unsigned i = 0; i < fns_len; ++i) 
+	ktype.fns[i]->gen_gimple (f);
+
+      fprintf (f, "}\n");
+    }
+  
+  for (unsigned i = 0; i < ktype.others.length (); ++i)
+    ktype.others[i]->gen_gimple (f);
+
+  if (ktype.true_operand)
+    ktype.true_operand->gen_gimple (f);
+}
+
 void
 dt_operand::gen_gimple (FILE *f)
 {
@@ -1044,24 +1171,12 @@ dt_operand::gen_gimple (FILE *f)
 	  break;
 
 	case operand::OP_EXPR:
-	{
-	  expr *e = static_cast<expr *> (op);
-  	  operator_id *op_id = static_cast <operator_id *> (e->operation->op);
-	  enum tree_code code = op_id->code;
-
-	  if (code == REALPART_EXPR || code == IMAGPART_EXPR || code == VIEW_CONVERT_EXPR || code == BIT_FIELD_REF)
-	    n_braces = gen_generic_expr (f, opname, true);
-
-	  // check for cond_expr, 0th operand -> generic
-	  else if (parent->type == dt_node::DT_OPERAND && parent->op->type == operand::OP_EXPR)
-	    {
-	      e = static_cast<expr *> (parent->op);
-	      op_id = static_cast <operator_id *> (e->operation->op);
-	      n_braces = (op_id->code == COND_EXPR && pos == 0) ? gen_generic_expr (f, opname, true) : gen_gimple_expr (f, opname);
-	    }
+	  if (is_gimple_expr ())
+	    n_braces = gen_gimple_expr_expr (f);
+	  else if (is_gimple_fn ())
+	    n_braces = gen_gimple_expr_fn (f);
 	  else
-	    n_braces = gen_gimple_expr (f, opname);
-	}
+	    n_braces = gen_generic_expr (f, opname, true);
 	  break;
 
 	default:
@@ -1074,14 +1189,11 @@ dt_operand::gen_gimple (FILE *f)
   else
     gcc_unreachable ();
 
-  unsigned i;
+  gen_gimple_kids (f);
 
-  for (i = 0; i < kids.length (); ++i)
-    kids[i]->gen_gimple (f);
-
-  for (i = 0; i < n_braces; ++i)
+  for (unsigned i = 0; i < n_braces; ++i)
     fprintf (f, "}\n");
-  
+
   fprintf (f, "}\n");
 }
 
@@ -1276,10 +1388,7 @@ decision_tree::gen_gimple (FILE *f)
 	    fprintf (f, "else ");
 	  fprintf (f, "if (code == %s)\n", e->operation->op->id);
 	  fprintf (f, "{\n");
-
-	  for (unsigned j = 0; j < dop->kids.length (); ++j)
-	    dop->kids[j]->gen_gimple (f);
-
+	  dop->gen_gimple_kids (f); 
 	  fprintf (f, "}\n");
 
 	  first = false;

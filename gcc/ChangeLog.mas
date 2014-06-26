@@ -1,3 +1,20 @@
+2014-06-26  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	* genmatch.c (dt_node::get_expr_code): New member function.
+	(dt_node::is_gimple_expr): Likewise.
+	(dt_node::is_gimple_fn): Likewise.
+	(dt_operand::kids_type): New struct.
+	(dt_operand::gen_gimple_expr): Remove.
+	(dt_operand::gen_gimple_expr_expr): Remove 2nd argument and
+	change return type to unsigned. Adjust code-gen for expressions.
+	(dt_operand::gen_gimple_expr_fn): Remove 2nd argument and change
+	return type to unsigned.
+	(dt_operand::grok_kids): New member function.
+	(dt_operand::gen_gimple_kids): Likewise.
+	(dt_operand::gen_gimple): Adjust code-gen for gimple expressions.
+	Call dt_operand::gen_gimple_kids.
+	(decision_tree::gen_gimple): Call dt_operand::gen_gimple_kids.
+
 2014-06-25  Richard Biener  <rguenther@suse.de>
 
 	* genmatch.c (decision_tree::gen_gimple): Create three
