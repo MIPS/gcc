@@ -18954,11 +18954,11 @@ mips_option_override (void)
 	 register model is not supported.  -mmsa selects 64-bit registers for
 	 O32.  In other cases the float registers should be the same size as
 	 the integer ones.  */
-      if (mips_isa_rev >= 6 && TARGET_DOUBLE_FLOAT)
+      if (mips_isa_rev >= 6 && TARGET_DOUBLE_FLOAT && !TARGET_FLOATXX)
 	target_flags |= MASK_FLOAT64;
       else if (TARGET_64BIT && TARGET_DOUBLE_FLOAT)
 	target_flags |= MASK_FLOAT64;
-      else if (mips_abi == ABI_32 && TARGET_MSA)
+      else if (mips_abi == ABI_32 && TARGET_MSA && !TARGET_FLOATXX)
 	target_flags |= MASK_FLOAT64;
       else
 	target_flags &= ~MASK_FLOAT64;
@@ -18966,9 +18966,8 @@ mips_option_override (void)
 
   if (mips_abi != ABI_32 && TARGET_FLOATXX)
     error ("%<-mfpxx%> can only be used with the o32 ABI");
-  else if (mips_isa_rev >= 6 && TARGET_FLOATXX)
-    error ("%<-mfpxx%> cannot be used with %<-march=%s%>",
-	   mips_arch_info->name);
+  else if (TARGET_FLOAT64 && TARGET_FLOATXX)
+    error ("unsupported combination: %s", "-mfp64 -mfpxx");
   else if (ISA_MIPS1 && !TARGET_FLOAT32)
     error ("%<-march=%s%> requires %<-mfp32%>", mips_arch_info->name);
   else if (TARGET_FLOATXX && !mips_lra_flag)
