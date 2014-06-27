@@ -1,3 +1,59 @@
+2014-06-27  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/61160
+	* cgraphclones.c (duplicate_thunk_for_node): Removed parameter
+	args_to_skip, use those from node instead.  Copy args_to_skip and
+	combined_args_to_skip from node to the new thunk.
+	(redirect_edge_duplicating_thunks): Removed parameter args_to_skip.
+	(cgraph_create_virtual_clone): Moved computation of
+	combined_args_to_skip...
+	(cgraph_clone_node): ...here, simplify it to bitmap_ior..
+
+2014-06-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2014-06-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/61586
+	* config/alpha/alpha.c (alpha_handle_trap_shadows): Handle BARRIER RTX.
+
+2014-06-26  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/61542
+	* config/rs6000/vsx.md (vsx_extract_v4sf): Fix bug with element
+	extraction other than index 3.
+
+2014-06-26  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR target/61503
+	* config/i386/i386.md (x86_64_shrd, x86_shrd,
+	ix86_rotr<dwi>3_doubleword): Replace ashiftrt with lshiftrt.
+
+2014-06-26  Martin Jambor  <mjambor@suse.cz>
+
+	Backport from mainline
+	* ipa-prop.c (ipa_impossible_devirt_target): No longer static,
+	renamed to ipa_impossible_devirt_target.  Fix typo.
+	* ipa-prop.h (ipa_impossible_devirt_target): Declare.
+	* ipa-cp.c (ipa_get_indirect_edge_target_1): Use
+	ipa_impossible_devirt_target.
+
+2014-06-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/61570
+	* config/i386/driver-i386.c (host_detect_local_cpu): For unknown
+	model family 6 CPU with has_longmode never use a CPU without
+	64-bit support.
+
+	* gimplify.c (gimplify_omp_for): For #pragma omp for simd iterator
+	not mentioned in clauses use private clause if the iterator is
+	declared in #pragma omp for simd, and when adding lastprivate
+	instead, add it to the outer #pragma omp for too.  Diagnose
+	if the variable is private in outer context.  For simd collapse > 1
+	loops, replace all iterators with temporaries.
+	* omp-low.c (lower_rec_input_clauses): Handle LINEAR clause the
+	same even in collapse > 1 loops.
+
 2014-06-23  Alan Modra  <amodra@gmail.com>
 
 	PR bootstrap/61583
@@ -168,7 +224,7 @@
 
 	2014-06-12  Jeff Law  <law@redhat.com>
 
-        PR tree-optimization/61009
+	PR tree-optimization/61009
 	* tree-ssa-threadedge.c (thread_through_normal_block): Correct return
 	value when we stop processing a block due to problematic PHIs.
 
