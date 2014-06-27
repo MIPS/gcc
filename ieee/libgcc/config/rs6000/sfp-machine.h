@@ -69,3 +69,10 @@ typedef int __gcc_CMPtype __attribute__ ((mode (__libgcc_cmp_return__)));
 # define strong_alias(name, aliasname) _strong_alias(name, aliasname)
 # define _strong_alias(name, aliasname) \
   extern __typeof (name) aliasname __attribute__ ((alias (#name)));
+
+#ifdef _ARCH_PPC64
+typedef __int128_t TItype;
+typedef __uint128_t UTItype;
+
+#define TI_BITS (__CHAR_BIT__ * (int)sizeof(TItype))
+#endif

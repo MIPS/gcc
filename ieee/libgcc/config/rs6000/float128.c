@@ -135,6 +135,25 @@ __negkf3 (TFtype a)
   return r;
 }
 
+/* Do a square root of an IEEE 128-bit floating point value.  */
+
+TFtype
+__sqrtkf3 (TFtype a)
+{
+  FP_DECL_EX;
+  FP_DECL_Q (A);
+  FP_DECL_Q (R);
+  TFtype r;
+
+  FP_INIT_ROUNDMODE;
+  FP_UNPACK_Q (A, a);
+  FP_SQRT_Q (R, A);
+  FP_PACK_Q (r, R);
+  FP_HANDLE_EXCEPTIONS;
+
+  return r;
+}
+
 
 /* Convert single precision floating point to IEEE 128-bit floating point.  */
 
@@ -354,6 +373,77 @@ __fixunskfdi (TFtype a)
 }
 
 
+#ifdef _ARCH_PPC64
+/* Convert 128-bit signed integer to IEEE 128-bit floating point.  */
+
+TFtype
+__floattikf (TItype i)
+{
+  FP_DECL_EX;
+  FP_DECL_Q (A);
+  TFtype a;
+
+  FP_INIT_ROUNDMODE;
+  FP_FROM_INT_Q (A, i, TI_BITS, UTItype);
+  FP_PACK_RAW_Q (a, A);
+  FP_HANDLE_EXCEPTIONS;
+
+  return a;
+}
+
+/* Convert 128-bit unsigned integer to IEEE 128-bit floating point.  */
+
+TFtype
+__floatuntikf (UTItype i)
+{
+  FP_DECL_EX;
+  FP_DECL_Q (A);
+  TFtype a;
+
+  FP_INIT_ROUNDMODE;
+  FP_FROM_INT_Q (A, i, TI_BITS, UTItype);
+  FP_PACK_RAW_Q (a, A);
+  FP_HANDLE_EXCEPTIONS;
+
+  return a;
+}
+
+/* Convert 128-bit IEEE floating point to 128-bit signed integer.  */
+
+TItype
+__fixkfti (TFtype a)
+{
+  FP_DECL_EX;
+  FP_DECL_Q (A);
+  UTItype r;
+
+  FP_INIT_EXCEPTIONS;
+  FP_UNPACK_RAW_Q (A, a);
+  FP_TO_INT_Q (r, A, TI_BITS, 1);
+  FP_HANDLE_EXCEPTIONS;
+
+  return r;
+}
+
+/* Convert 128-bit IEEE floating point to 128-bit unsigned integer.  */
+
+UTItype
+__fixunskfti (TFtype a)
+{
+  FP_DECL_EX;
+  FP_DECL_Q (A);
+  UTItype r;
+
+  FP_INIT_EXCEPTIONS;
+  FP_UNPACK_RAW_Q (A, a);
+  FP_TO_INT_Q (r, A, TI_BITS, 0);
+  FP_HANDLE_EXCEPTIONS;
+
+  return r;
+}
+#endif
+
+
 /* PowerPC condition register bits.  */
 #define PPC_UNORDERED		0x1		/* isnan (a) || isnan (b).  */
 #define PPC_EQUAL		0x2		/* a == b.  */
@@ -526,6 +616,116 @@ __gekf2 (TFtype a, TFtype b)
   FP_HANDLE_EXCEPTIONS;
 
   return (r == CMP_EQUAL) || (r == CMP_GREATER_THEN);
+}
+
+/* Return non-zero if IEEE 128-bit floating point a == b || isnan (a)
+   || isnan (b).  */
+
+CMPtype
+__uneqkf2 (TFtype a, TFtype b)
+{
+  FP_DECL_EX;
+  FP_DECL_Q (A);
+  FP_DECL_Q (B);
+  CMPtype r;
+
+  FP_INIT_EXCEPTIONS;
+  FP_UNPACK_RAW_Q (A, a);
+  FP_UNPACK_RAW_Q (B, b);
+  FP_CMP_Q (r, A, B, 2);
+  if (r == CMP_INVALID)
+    FP_SET_EXCEPTION (FP_EX_INVALID);
+  FP_HANDLE_EXCEPTIONS;
+
+  return (r == CMP_EQUAL) || (r == CMP_UNORDERED) || (r == CMP_INVALID);
+}
+
+/* Return non-zero if IEEE 128-bit floating point a > b || isnan (a)
+   || isnan (b).  */
+
+CMPtype
+__ungtkf2 (TFtype a, TFtype b)
+{
+  FP_DECL_EX;
+  FP_DECL_Q (A);
+  FP_DECL_Q (B);
+  CMPtype r;
+
+  FP_INIT_EXCEPTIONS;
+  FP_UNPACK_RAW_Q (A, a);
+  FP_UNPACK_RAW_Q (B, b);
+  FP_CMP_Q (r, A, B, 2);
+  if (r == CMP_INVALID)
+    FP_SET_EXCEPTION (FP_EX_INVALID);
+  FP_HANDLE_EXCEPTIONS;
+
+  return (r == CMP_GREATER_THEN) || (r == CMP_UNORDERED) || (r == CMP_INVALID);
+}
+
+/* Return non-zero if IEEE 128-bit floating point a >= b || isnan (a)
+   || isnan (b).  */
+
+CMPtype
+__ungekf2 (TFtype a, TFtype b)
+{
+  FP_DECL_EX;
+  FP_DECL_Q (A);
+  FP_DECL_Q (B);
+  CMPtype r;
+
+  FP_INIT_EXCEPTIONS;
+  FP_UNPACK_RAW_Q (A, a);
+  FP_UNPACK_RAW_Q (B, b);
+  FP_CMP_Q (r, A, B, 2);
+  if (r == CMP_INVALID)
+    FP_SET_EXCEPTION (FP_EX_INVALID);
+  FP_HANDLE_EXCEPTIONS;
+
+  return (r != CMP_LESS_THEN);
+}
+
+/* Return non-zero if IEEE 128-bit floating point a < b || isnan (a)
+   || isnan (b).  */
+
+CMPtype
+__unltkf2 (TFtype a, TFtype b)
+{
+  FP_DECL_EX;
+  FP_DECL_Q (A);
+  FP_DECL_Q (B);
+  CMPtype r;
+
+  FP_INIT_EXCEPTIONS;
+  FP_UNPACK_RAW_Q (A, a);
+  FP_UNPACK_RAW_Q (B, b);
+  FP_CMP_Q (r, A, B, 2);
+  if (r == CMP_INVALID)
+    FP_SET_EXCEPTION (FP_EX_INVALID);
+  FP_HANDLE_EXCEPTIONS;
+
+  return (r == CMP_LESS_THEN) || (r == CMP_UNORDERED) || (r == CMP_INVALID);
+}
+
+/* Return non-zero if IEEE 128-bit floating point a <= b || isnan (a)
+   || isnan (b).  */
+
+CMPtype
+__unlekf2 (TFtype a, TFtype b)
+{
+  FP_DECL_EX;
+  FP_DECL_Q (A);
+  FP_DECL_Q (B);
+  CMPtype r;
+
+  FP_INIT_EXCEPTIONS;
+  FP_UNPACK_RAW_Q (A, a);
+  FP_UNPACK_RAW_Q (B, b);
+  FP_CMP_Q (r, A, B, 2);
+  if (r == CMP_INVALID)
+    FP_SET_EXCEPTION (FP_EX_INVALID);
+  FP_HANDLE_EXCEPTIONS;
+
+  return (r != CMP_LESS_THEN);
 }
 
 /* Return non-zero if IEEE 128-bit floating point !isnan (a) && !isnan (b).  */
