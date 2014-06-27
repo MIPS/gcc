@@ -12630,7 +12630,7 @@ mips_canonicalize_move_class (reg_class_t rclass)
    function.  */
 
 static int
-mips_move_to_gpr_cost (reg_class_t from)
+mips_move_to_gpr_cost (enum machine_mode mode, reg_class_t from)
 {
   switch (from)
     {
@@ -12671,7 +12671,7 @@ mips_move_to_gpr_cost (reg_class_t from)
    function.  */
 
 static int
-mips_move_from_gpr_cost (reg_class_t to)
+mips_move_from_gpr_cost (enum machine_mode mode, reg_class_t to)
 {
   switch (to)
     {
@@ -12732,15 +12732,15 @@ mips_register_move_cost (enum machine_mode mode,
   /* Handle cases in which only one class deviates from the ideal.  */
   dregs = TARGET_MIPS16 ? M16_REGS : GENERAL_REGS;
   if (from == dregs)
-    return mips_move_from_gpr_cost (to);
+    return mips_move_from_gpr_cost (mode, to);
   if (to == dregs)
-    return mips_move_to_gpr_cost (from);
+    return mips_move_to_gpr_cost (mode, from);
 
   /* Handles cases that require a GPR temporary.  */
-  cost1 = mips_move_to_gpr_cost (from);
+  cost1 = mips_move_to_gpr_cost (mode, from);
   if (cost1 != 0)
     {
-      cost2 = mips_move_from_gpr_cost (to);
+      cost2 = mips_move_from_gpr_cost (mode, to);
       if (cost2 != 0)
 	return cost1 + cost2;
     }
@@ -13746,11 +13746,7 @@ mips_msa_output_division (const char *division, rtx *operands)
 /* Return true if destination of IN_INSN is used as add source in
    OUT_INSN. Both IN_INSN and OUT_INSN are of type fmadd. Example:
    madd.s dst, x, y, z
-<<<<<<< HEAD
    madd.s a, dst, b, c  */
-=======
-   madd.s a, dst, b, c */
->>>>>>> Fix BZ1612 generate xori.b likewise andi.b and ori.b when possible.
 
 bool
 mips_fmadd_bypass (rtx out_insn, rtx in_insn)

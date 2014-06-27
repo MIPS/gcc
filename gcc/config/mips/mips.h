@@ -423,10 +423,10 @@ struct mips_cpu_info {
 	}								\
 									\
       if (TARGET_MSA)							\
-        {								\
+	{								\
 	  builtin_define ("__mips_msa");				\
 	  builtin_define ("__mips_msa_width=128");			\
-        }								\
+	}								\
 									\
       MIPS_CPP_SET_PROCESSOR ("_MIPS_ARCH", mips_arch_info);		\
       MIPS_CPP_SET_PROCESSOR ("_MIPS_TUNE", mips_tune_info);		\
@@ -736,7 +736,7 @@ struct mips_cpu_info {
      %{march=mips32r5|march=p5600: -mips32r5} \
      %{march=mips64|march=5k*|march=20k*|march=sb1*|march=sr71000 \
        |march=xlr: -mips64} \
-     %{march=mips64r2|march=loongson3a|march=octeon|march=xlp|marcg=p5600: -mips64r2} \
+     %{march=mips64r2|march=loongson3a|march=octeon|march=xlp|march=p5600: -mips64r2} \
      %{march=mips64r3: -mips64r3} \
      %{march=mips64r5: -mips64r5} \
      %{!march=*: -" MULTILIB_ISA_DEFAULT "}}"
@@ -2262,10 +2262,8 @@ enum reg_class
    are used for returning complex double values in soft-float code, so $6 is the
    first suitable candidate for TARGET_MIPS16.  For !TARGET_MIPS16 we can use
    $gp itself as the temporary.  */
-
-/* True if MODE is supported in a MSA vector register .  */
-#define MSA_SUPPORTED_INT_MODE_P(MODE)	\
-  (TARGET_MSA && ((MODE) == TImode || MSA_SUPPORTED_VECTOR_INT_MODE_P (MODE)))
+#define POST_CALL_TMP_REG \
+  (TARGET_MIPS16 ? GP_ARG_FIRST + 2 : PIC_OFFSET_TABLE_REGNUM)
 
 /* 1 if N is a possible register number for function argument passing.
    We have no FP argument registers when soft-float.  When FP registers
