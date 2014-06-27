@@ -1,3 +1,51 @@
+2014-06-27  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gfortran.dg/nint_2.f90: Don't XFAIL for powerpc64le-*-linux*.
+
+2014-06-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2014-06-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/61586
+	* gcc.target/alpha/pr61586.c: New test.
+
+2014-06-25  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gfortran.dg/default_format_denormal_2.f90:  Remove xfail for
+	powerpc*-*-linux*.
+
+2014-06-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2014-06-13  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR rtl-optimization/61094
+	PR rtl-optimization/61446
+	* gcc.target/i386/pr61446.c : New.
+
+	Backport from mainline
+	2014-06-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/61423
+	* gcc.target/i386/pr61423.c: New test.
+
+2014-06-17  Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	Backport from mainline
+
+	PR target/61483
+	* gcc.target/aarch64/aapcs64/type-def.h (struct hfa_fx2_t): New type.
+	* gcc.target/aarch64/aapcs64/va_arg-13.c: New test.
+	* gcc.target/aarch64/aapcs64/va_arg-14.c: Ditto.
+	* gcc.target/aarch64/aapcs64/va_arg-15.c: Ditto.
+
+2014-06-15  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	Backport from trunk.
+	PR fortran/45187
+	* gfortran.dg/cray_pointers_10.f90: New file.
+
 2014-06-13  Peter Bergner  <bergner@vnet.ibm.com>
 
 	Backport from mainline
