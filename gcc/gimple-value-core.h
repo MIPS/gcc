@@ -24,11 +24,14 @@ FWD_DECL (numerical_type, type);
 FWD_DECL (identifier, value);
 FWD_DECL (decl, value);
 FWD_DECL (value_list, value);
-FWD_DECL (type_list, value);
-FWD_DECL (identifier_list, value);
+FWD_DECL (type_list, value_list);
+FWD_DECL (identifier_list, value_list);
 FWD_DECL (ssa_name, value);
-FWD_DECL (function_decl, value);
-FWD_DECL (var_decl, value);
+FWD_DECL (decl_with_rtl, decl);
+FWD_DECL (decl_with_viz, decl_with_rtl);
+FWD_DECL (var_decl, decl_with_viz);
+FWD_DECL (decl_noncommon, decl_with_viz);
+FWD_DECL (function_decl, decl_noncommon);
 
 
 // This class accesses parts of trees that are common to all tree types.

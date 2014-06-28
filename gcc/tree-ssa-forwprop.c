@@ -1071,7 +1071,7 @@ forward_propagate_addr_expr (tree name, tree rhs, bool parent_single_use_p)
       if (result
 	  && TREE_CODE (gimple_assign_lhs (use_stmt)) == SSA_NAME
 	  && TREE_CODE (use_rhs) == SSA_NAME
-	  && has_zero_uses (gimple_assign_lhs (use_stmt)))
+	  && has_zero_uses (gimple_ssa_assign_lhs (use_stmt)))
 	{
 	  gimple_stmt_iterator gsi = gsi_for_stmt (use_stmt);
 	  release_defs (use_stmt);
@@ -1199,7 +1199,7 @@ simplify_conversion_from_bitmask (gimple_stmt_iterator *gsi_p)
      the only use of the BIT_AND_EXPR result is the conversion.  */
   if (is_gimple_assign (rhs_def_stmt)
       && gimple_assign_rhs_code (rhs_def_stmt) == BIT_AND_EXPR
-      && has_single_use (gimple_assign_lhs (rhs_def_stmt)))
+      && has_single_use (gimple_ssa_assign_lhs (rhs_def_stmt)))
     {
       tree rhs_def_operand1 = gimple_assign_rhs1 (rhs_def_stmt);
       tree rhs_def_operand2 = gimple_assign_rhs2 (rhs_def_stmt);
@@ -2203,7 +2203,7 @@ simplify_bitwise_binary (gimple_stmt_iterator *gsi)
 	  use_operand_p use_p;
           gimple use_stmt;
 
-	  if (single_imm_use (gimple_assign_lhs (stmt), &use_p, &use_stmt))
+	  if (single_imm_use (gimple_ssa_assign_lhs (stmt), &use_p, &use_stmt))
 	    {
 	      if (gimple_code (use_stmt) == GIMPLE_COND
 		  && gimple_cond_lhs (use_stmt) == gimple_assign_lhs (stmt)

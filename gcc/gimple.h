@@ -1725,6 +1725,18 @@ gimple_vuse (const_gimple g)
   return mem_ops_stmt->vuse;
 }
 
+static inline G::ssa_name
+ssa_vuse (const_gimple g)
+{
+  G::value v = gimple_vuse (g);
+  if (v)
+    {
+      extra_checking_assert (is_a<G::ssa_name> (v));
+      return as_a<G::ssa_name> (v);
+    }
+  return NULL_GIMPLE;
+}
+
 /* Return the single VDEF operand of the statement G.  */
 
 static inline G::value
@@ -1736,6 +1748,19 @@ gimple_vdef (const_gimple g)
     return NULL_GIMPLE;
   return mem_ops_stmt->vdef;
 }
+
+static inline G::ssa_name
+ssa_vdef (const_gimple g)
+{
+  G::value v = gimple_vdef (g);
+  if (v)
+    {
+      extra_checking_assert (is_a<G::ssa_name> (v));
+      return as_a<G::ssa_name> (v);
+    }
+  return NULL_GIMPLE;
+}
+
 
 /* Return the single VUSE operand of the statement G.  */
 
@@ -2077,6 +2102,18 @@ gimple_op (const_gimple gs, unsigned i)
     return NULL_GIMPLE;
 }
 
+static inline G::ssa_name
+gimple_ssa_op (const_gimple gs, unsigned i)
+{
+  G::value v = gimple_op (gs, i);
+  if (v)
+    {
+      extra_checking_assert (is_a<G::ssa_name> (v));
+      return as_a<G::ssa_name> (v);
+    }
+  return NULL_GIMPLE;
+}
+
 /* Return a pointer to operand I for statement GS.  */
 
 static inline G::value_ptr
@@ -2139,7 +2176,14 @@ gimple_assign_lhs (const_gimple gs)
   GIMPLE_CHECK (gs, GIMPLE_ASSIGN);
   return gimple_op (gs, 0);
 }
+/* Return the LHS of assignment statement GS.  */
 
+static inline G::ssa_name
+gimple_ssa_assign_lhs (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ASSIGN);
+  return gimple_ssa_op (gs, 0);
+}
 
 /* Return a pointer to the LHS of assignment statement GS.  */
 
@@ -2209,6 +2253,20 @@ gimple_assign_rhs2 (const_gimple gs)
     return NULL_GIMPLE;
 }
 
+/* Return the second operand on the RHS of assignment statement GS.
+   If GS does not have two operands, NULL is returned instead.  */
+
+static inline G::ssa_name
+gimple_ssa_assign_rhs2 (const_gimple gs)
+{
+  G::value v = gimple_assign_rhs2 (gs);
+  if (v)
+    {
+      extra_checking_assert (is_a<G::ssa_name> (v));
+      return as_a<G::ssa_name> (v);
+    }
+  return NULL_GIMPLE;
+}
 
 /* Return a pointer to the second operand on the RHS of assignment
    statement GS.  */
@@ -2417,6 +2475,16 @@ gimple_call_lhs (const_gimple gs)
   GIMPLE_CHECK (gs, GIMPLE_CALL);
   return gimple_op (gs, 0);
 }
+
+/* Return the SSA LHS of call statement GS.  */
+
+static inline G::ssa_name
+gimple_ssa_call_lhs (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_CALL);
+  return (gimple_ssa_op (gs, 0));
+}
+
 
 
 /* Return a pointer to the LHS of call statement GS.  */
@@ -3052,7 +3120,7 @@ static inline G::label_decl
 gimple_label_label (const_gimple gs)
 {
   GIMPLE_CHECK (gs, GIMPLE_LABEL);
-  return gimple_op (gs, 0);
+  return as_a<G::label_decl> (gimple_op (gs, 0));
 }
 
 
@@ -3780,7 +3848,7 @@ gimple_phi_num_args (const_gimple gs)
 }
 
 
-/* Return the SSA name created by GIMPLE_PHI GS.  */
+/* Return the result of a GIMPLE_PHI GS.  */
 
 static inline G::value
 gimple_phi_result (const_gimple gs)
@@ -3789,6 +3857,31 @@ gimple_phi_result (const_gimple gs)
     as_a <const gimple_statement_phi *> (gs);
   return phi_stmt->result;
 }
+
+/* Return the SSA name created by GIMPLE_PHI GS.  */
+
+static inline G::ssa_name
+ssa_phi_result (const_gimple gs)
+{
+  const gimple_statement_phi *phi_stmt =
+    as_a <const gimple_statement_phi *> (gs);
+  G::value r = phi_stmt->result;
+  extra_checking_assert (is_a<G::ssa_name> (r));
+  return as_a<G::ssa_name> (r);
+}
+
+/* Return the decl name created by GIMPLE_PHI GS.  */
+
+static inline G::decl
+decl_phi_result (const_gimple gs)
+{
+  const gimple_statement_phi *phi_stmt =
+    as_a <const gimple_statement_phi *> (gs);
+  G::value r = phi_stmt->result;
+  extra_checking_assert (is_a<G::decl> (r));
+  return as_a<G::decl> (r);
+}
+
 
 /* Return a pointer to the SSA name created by GIMPLE_PHI GS.  */
 
@@ -4011,7 +4104,7 @@ gimple_switch_label (const_gimple gs, unsigned index)
 {
   GIMPLE_CHECK (gs, GIMPLE_SWITCH);
   gcc_gimple_checking_assert (gimple_num_ops (gs) > index + 1);
-  return gimple_op (gs, index + 1);
+  return as_a<G::case_label_expr> (gimple_op (gs, index + 1));
 }
 
 /* Set the label number INDEX to LABEL.  0 is always the default label.  */
@@ -5714,6 +5807,14 @@ gimple_set_do_not_emit_location (gimple g)
   gimple_set_plf (g, GF_PLF_1, true);
 }
 
+/* Get the ssa_name lhs of a gimple stmt.  */
+static inline G::ssa_name
+gimple_ssa_lhs (const_gimple stmt)
+{
+  G::value v = gimple_get_lhs (stmt);
+  extra_checking_assert (is_a<G::ssa_name> (v));
+  return as_a<G::ssa_name> (v);
+}
 
 /* Macros for showing usage statistics.  */
 #define SCALE(x) ((unsigned long) ((x) < 1024*10	\

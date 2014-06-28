@@ -273,7 +273,7 @@ statement_sink_location (gimple stmt, basic_block frombb,
     return false;
 
   /* Return if there are no immediate uses of this stmt.  */
-  if (has_zero_uses (DEF_FROM_PTR (def_p)))
+  if (has_zero_uses (SSA_DEF_FROM_PTR (def_p)))
     return false;
 
   /* There are a few classes of things we can't or don't move, some because we
@@ -322,7 +322,7 @@ statement_sink_location (gimple stmt, basic_block frombb,
      merging PHI node.  */
   if (virtual_operand_p (DEF_FROM_PTR (def_p)))
     {
-      FOR_EACH_IMM_USE_FAST (use_p, imm_iter, DEF_FROM_PTR (def_p))
+      FOR_EACH_IMM_USE_FAST (use_p, imm_iter, SSA_DEF_FROM_PTR (def_p))
 	{
 	  gimple use_stmt = USE_STMT (use_p);
 
@@ -377,7 +377,7 @@ statement_sink_location (gimple stmt, basic_block frombb,
 	  imm_use_iterator imm_iter;
 	  use_operand_p use_p;
 	  basic_block found = NULL;
-	  FOR_EACH_IMM_USE_FAST (use_p, imm_iter, gimple_vuse (stmt))
+	  FOR_EACH_IMM_USE_FAST (use_p, imm_iter, ssa_vuse (stmt))
 	    {
 	      gimple use_stmt = USE_STMT (use_p);
 	      basic_block bb = gimple_bb (use_stmt);
@@ -418,7 +418,7 @@ statement_sink_location (gimple stmt, basic_block frombb,
     }
   else
     {
-      FOR_EACH_IMM_USE_FAST (one_use, imm_iter, DEF_FROM_PTR (def_p))
+      FOR_EACH_IMM_USE_FAST (one_use, imm_iter, SSA_DEF_FROM_PTR (def_p))
 	{
 	  if (is_gimple_debug (USE_STMT (one_use)))
 	    continue;
@@ -510,7 +510,7 @@ sink_code_in_bb (basic_block bb)
 	  use_operand_p use_p;
 	  gimple vuse_stmt;
 
-	  FOR_EACH_IMM_USE_STMT (vuse_stmt, iter, gimple_vdef (stmt))
+	  FOR_EACH_IMM_USE_STMT (vuse_stmt, iter, ssa_vdef (stmt))
 	    if (gimple_code (vuse_stmt) != GIMPLE_PHI)
 	      FOR_EACH_IMM_USE_ON_STMT (use_p, iter)
 		SET_USE (use_p, gimple_vuse (stmt));

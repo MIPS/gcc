@@ -1283,7 +1283,8 @@ eliminate_unnecessary_stmts (void)
 		    bool found = false;
 		    imm_use_iterator iter;
 
-		    FOR_EACH_IMM_USE_STMT (stmt, iter, gimple_phi_result (gsi_stmt (gsi)))
+		    FOR_EACH_IMM_USE_STMT (stmt, iter,
+						ssa_phi_result (gsi_stmt (gsi)))
 		      {
 			if (!(gimple_bb (stmt)->flags & BB_REACHABLE))
 			  continue;

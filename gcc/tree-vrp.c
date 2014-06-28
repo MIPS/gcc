@@ -6361,7 +6361,7 @@ all_imm_uses_in_stmt_or_feed_cond (tree var, gimple stmt, basic_block cond_bb)
 	  continue;
 	while (is_gimple_assign (use_stmt)
 	       && TREE_CODE (gimple_assign_lhs (use_stmt)) == SSA_NAME
-	       && single_imm_use (gimple_assign_lhs (use_stmt),
+	       && single_imm_use (gimple_ssa_assign_lhs (use_stmt),
 				  &use2_p, &use_stmt2))
 	  use_stmt = use_stmt2;
 	if (gimple_code (use_stmt) != GIMPLE_COND

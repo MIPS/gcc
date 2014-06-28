@@ -169,24 +169,22 @@ static inline G::function_decl
 gimple_call_addr_fndecl (const G::value val)
 {
   G::function_decl fndecl;
-  G::addr_expr addr = val;
+  G::addr_expr addr = val ? dyn_cast<G::addr_expr> (val) : NULL_GIMPLE;
   if (addr)
     {
-      fndecl = as_a<G::function_decl> (addr->expr ());
-
+      fndecl = dyn_cast<G::function_decl> (addr->expr ());
       if (!fndecl)
         {
-	  G::mem_ref mem = addr->expr ();
+	  G::mem_ref mem = dyn_cast<G::mem_ref> (addr->expr ());
 	  if (mem)
 	    {
-	      G::addr_expr addr2 = mem->base ();
+	      G::addr_expr addr2 = dyn_cast<G::addr_expr> (mem->base ());
 	      if (addr2 && integer_zerop (mem->offset ()))
-		fndecl = addr2->expr ();
+		fndecl = dyn_cast<G::function_decl> (addr2->expr ());
 	    }
 	}
     }
   return fndecl;
 }
-
  
 #endif /* GCC_GIMPLE_EXPR_H */

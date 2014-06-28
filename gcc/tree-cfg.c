@@ -1657,7 +1657,7 @@ gimple_can_merge_blocks_p (basic_block a, basic_block b)
     {
       gimple phi = gsi_stmt (gsi);
       /* Technically only new names matter.  */
-      if (name_registered_for_update_p (PHI_RESULT (phi)))
+      if (name_registered_for_update_p (SSA_PHI_RESULT (phi)))
 	return false;
     }
 
@@ -5712,7 +5712,7 @@ gimple_duplicate_bb (basic_block bb)
     {
       phi = gsi_stmt (gsi);
       copy = create_phi_node (NULL_TREE, new_bb);
-      create_new_def_for (gimple_phi_result (phi), copy,
+      create_new_def_for (ssa_phi_result (phi), copy,
 			  gimple_phi_result_ptr (copy));
       gimple_set_uid (copy, gimple_uid (phi));
     }
@@ -5763,7 +5763,7 @@ gimple_duplicate_bb (basic_block bb)
       /* Create new names for all the definitions created by COPY and
 	 add replacement mappings for each new name.  */
       FOR_EACH_SSA_DEF_OPERAND (def_p, copy, op_iter, SSA_OP_ALL_DEFS)
-	create_new_def_for (DEF_FROM_PTR (def_p), copy, def_p);
+	create_new_def_for (SSA_DEF_FROM_PTR (def_p), copy, def_p);
     }
 
   return new_bb;

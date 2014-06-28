@@ -24,6 +24,12 @@ extern void tree_int_cst_elt_check_failed (int, int, const char *,
 #define GIMPLE_CHECKING_ON	0
 #endif
 
+// define a unique name for checks that are only to heplwith the re-arch work...
+// things that should never ever fail... but just in case as_a is in the wrong
+// place...  unique name so we can easily rip them out later, or do performance
+// analysis.
+#define extra_checking_assert	gcc_checking_assert
+
 
 class gimple_null {
   public:
@@ -35,17 +41,11 @@ class gimple_null {
 
 static gimple_null NULL_GIMPLE;
 
-template<typename T, typename D>
-inline bool is_a (D v)
-{ return T::is_a (v); }
+template<typename T, typename D> inline bool is_a (D v);
 
-template<typename T, typename D>
-inline T as_a (D v)
-{ return T::as_a (v); }
+template<typename T, typename D> inline T as_a (D v);
 
-template<typename T, typename D>
-inline T dyn_cast (D v)
-{ return T::dyn_cast (v); }
+template<typename T, typename D> inline T dyn_cast (D v);
 
 namespace G {
 
@@ -119,8 +119,16 @@ class _ptr
 
     template<typename, typename> friend class _dptr;
     template<typename> friend class _addr;
+    template <typename TT, typename D> bool friend ::is_a(D);
+    template <typename TT, typename D> TT friend ::as_a(D);
+    template <typename TT, typename D> TT friend ::dyn_cast(D);
+
 };
 
+
+typedef _ptr<value_desc>		value;
+typedef _ptr<type_desc>			type;
+typedef _ptr<block_desc>		block;
 
 template<typename pT, typename dT>
 class _dptr : public dT
@@ -129,18 +137,11 @@ class _dptr : public dT
     pT *ptr() const { return static_cast<pT *>(dT::Tree); }
     void set_ptr(const void *p) 
 	    { dT::Tree = reinterpret_cast<tree_desc *>(const_cast<void *>(p)); }
-    static inline bool Test (const dT &);
-    inline void check_contents () const;
+    static inline bool test (value);
+    static inline bool test (type);
     static inline _dptr create ();
+    inline void check_contents () const;
     inline _dptr copy () const;
-    static inline bool is_a(const dT &d) { return Test (d); }
-    static inline  pT * as_a(dT &d) { return static_cast<pT *>(d.Tree); }
-    static inline  const pT * as_a(const dT &d)
-				    { return static_cast<const pT *>(d.Tree); }
-    static inline pT * dyn_cast(dT &d) 
-		      { return (Test (d)) ? static_cast<pT *>(d.Tree) : NULL; }
-    static inline const pT * dyn_cast(const dT &d) 
-		{ return (Test (d)) ? static_cast<const pT *>(d.Tree) : NULL; }
 
   public:
 
@@ -148,16 +149,14 @@ class _dptr : public dT
     inline _dptr (const gimple_null& g ATTRIBUTE_UNUSED) : dT() { }
     inline _dptr (const tree t) : dT (t) { check_contents(); }
     inline _dptr (const_tree t) : dT (t) { check_contents(); }
-    inline _dptr (const dT& d) : dT () { if (d) set_ptr ((dyn_cast (d))); }
     inline _dptr (const pT *n) : dT () {  dT::set_ptr (n); }
     inline _dptr (int x ATTRIBUTE_UNUSED) : dT () { gcc_assert (!x); }
-
+/*
     inline _dptr& operator= (const tree t) 
 				{ set_ptr (t); check_contents(); return *this; }
     inline _dptr& operator= (const_tree t) 
 				{ set_ptr (t); check_contents(); return *this; }
-    inline _dptr& operator= (const dT& d) 
-	   { if (d) set_ptr (dyn_cast (d)); else set_ptr (NULL); return *this; }
+*/
     inline _dptr& operator= (const pT *p) { set_ptr (p); return *this; }
     inline _dptr& operator= (const gimple_null& g ATTRIBUTE_UNUSED)
 						{ set_ptr (NULL); return *this;}
@@ -328,10 +327,6 @@ create ()
 }
 
 
-typedef _ptr<value_desc>		value;
-typedef _ptr<type_desc>			type;
-typedef _ptr<block_desc>		block;
-
 template<>
 inline void 
 _ptr<value_desc>::check_contents() const
@@ -385,28 +380,28 @@ _ptr<block_desc>::create()
 #define CHKNODE(CC)
 #endif
 
-#define DERIVED_PTR(LAB, CC, DT)			\
+#define DERIVED_PTR(LAB, CC, DT, BT)			\
 typedef _dptr<LAB ## _desc, DT>	LAB;			\
 template<> inline void 					\
 _dptr<LAB ## _desc, DT>::check_contents() const		\
 { CHKNODE (CC) ; }					\
 template<> inline bool					\
-_dptr<LAB ## _desc, DT>::Test(const DT &d)		\
-{ return d.Tree->test_node (CC); }			\
+_dptr<LAB ## _desc, DT>::test(BT b)			\
+{ return b.ptr()->test_node (CC); }			\
 template<> inline _dptr<LAB ## _desc, DT>		\
 _dptr<LAB ## _desc, DT>::create ()			\
 { gcc_unreachable (); }
 
 
 
-#define TERMINAL_PTR(LAB, CC, DT)			\
+#define TERMINAL_PTR(LAB, CC, DT, BT)			\
 typedef _dptr<LAB ## _desc, DT>	LAB;			\
 template<> inline void 					\
 _dptr<LAB ## _desc, DT>::check_contents() const		\
 { CHKNODE (CC) ; }					\
 template<> inline bool					\
-_dptr<LAB ## _desc, DT>::Test(const DT &d)		\
-{ return d.Tree->test_node (CC); }			\
+_dptr<LAB ## _desc, DT>::test(BT b)			\
+{ return b.ptr()->test_node (CC); }			\
 template<> inline _dptr<LAB ## _desc, DT>		\
 _dptr<LAB ## _desc, DT>::create ()			\
 { return _dptr<LAB ## _desc, DT> 			\
@@ -414,73 +409,96 @@ _dptr<LAB ## _desc, DT>::create ()			\
 
 
 
-
-DERIVED_PTR (decl, tcc_declaration, value)
-DERIVED_PTR (constant, tcc_constant, value)
-DERIVED_PTR (comparison, tcc_comparison, value)
-DERIVED_PTR (unary, tcc_unary, value)
-DERIVED_PTR (binary, tcc_binary, value)
-
-TERMINAL_PTR (identifier, IDENTIFIER_NODE, value) 
-TERMINAL_PTR (integer_cst, INTEGER_CST, value)
-TERMINAL_PTR (real_cst, REAL_CST, value)
-TERMINAL_PTR (string_cst, STRING_CST, value)
-TERMINAL_PTR (var_decl, VAR_DECL, value)
-TERMINAL_PTR (parm_decl, PARM_DECL, value)
-TERMINAL_PTR (result_decl, RESULT_DECL, value)
-TERMINAL_PTR (label_decl, LABEL_DECL, value)
-TERMINAL_PTR (function_decl, FUNCTION_DECL, value)
-TERMINAL_PTR (debug_expr_decl, DEBUG_EXPR_DECL, value)
-
-TERMINAL_PTR (ssa_name, SSA_NAME, value)
-TERMINAL_PTR (mem_ref, MEM_REF, value)
-TERMINAL_PTR (addr_expr, ADDR_EXPR, value)
-TERMINAL_PTR (value_list, TREE_LIST, value)
-TERMINAL_PTR (type_list, TREE_LIST, value)
-TERMINAL_PTR (identifier_list, TREE_LIST, value)
-TERMINAL_PTR (case_label_expr, CASE_LABEL_EXPR, value)
-TERMINAL_PTR (truth_not_expr, TRUTH_NOT_EXPR, value)
-TERMINAL_PTR (with_size_expr, WITH_SIZE_EXPR, value)
-TERMINAL_PTR (call_expr, CALL_EXPR, value)
-TERMINAL_PTR (nop_expr, NOP_EXPR, value)
-TERMINAL_PTR (bit_field_ref, BIT_FIELD_REF, value)
-TERMINAL_PTR (target_mem_ref, TARGET_MEM_REF, value)
-TERMINAL_PTR (array_ref, ARRAY_REF, value)
-TERMINAL_PTR (array_range_ref, ARRAY_RANGE_REF, value)
-TERMINAL_PTR (obj_type_ref, OBJ_TYPE_REF, value)
-TERMINAL_PTR (constructor, CONSTRUCTOR, value)
-TERMINAL_PTR (modify_expr, MODIFY_EXPR, value)
-TERMINAL_PTR (const_decl, CONST_DECL, value)
-
-TERMINAL_PTR (boolean_type, BOOLEAN_TYPE, type)
-TERMINAL_PTR (integer_type, INTEGER_TYPE, type)
-TERMINAL_PTR (real_type, REAL_TYPE, type)
-TERMINAL_PTR (fixed_point_type, FIXED_POINT_TYPE, type)
-TERMINAL_PTR (function_type, FUNCTION_TYPE, type)
-TERMINAL_PTR (method_type, METHOD_TYPE, type)
-TERMINAL_PTR (array_type, ARRAY_TYPE, type)
-TERMINAL_PTR (complex_type, COMPLEX_TYPE, type)
-TERMINAL_PTR (vector_type, VECTOR_TYPE, type)
-
-DERIVED_PTR (decl_with_rtl, TS_DECL_WRTL, value)
-DERIVED_PTR (decl_with_viz, TS_DECL_WITH_VIS, value)
-DERIVED_PTR (decl_noncommon, TS_DECL_NON_COMMON, value)
-
 #define MULTIARGS(...) __VA_ARGS__
+
+DERIVED_PTR (decl, tcc_declaration, value, value)
+DERIVED_PTR (constant, tcc_constant, value, value)
+DERIVED_PTR (comparison, tcc_comparison, value, value)
+DERIVED_PTR (unary, tcc_unary, value, value)
+DERIVED_PTR (binary, tcc_binary, value, value)
+DERIVED_PTR (decl_with_rtl, TS_DECL_WRTL, decl, value)
+DERIVED_PTR (decl_with_viz, TS_DECL_WITH_VIS, decl_with_rtl, value)
+DERIVED_PTR (decl_noncommon, TS_DECL_NON_COMMON, decl_with_viz, value)
+
 DERIVED_PTR (numerical_type, 
 	     MULTIARGS (INTEGER_TYPE, ENUMERAL_TYPE, BOOLEAN_TYPE, REAL_TYPE,
 			FIXED_POINT_TYPE),
-	     type)
-
+	     type, type)
 DERIVED_PTR (function_or_method_type,
 	     MULTIARGS (FUNCTION_TYPE, METHOD_TYPE),
-	     type)
+	     type, type)
+
+TERMINAL_PTR (identifier, IDENTIFIER_NODE, value, value) 
+TERMINAL_PTR (integer_cst, INTEGER_CST, constant, value)
+TERMINAL_PTR (real_cst, REAL_CST, constant, value)
+TERMINAL_PTR (string_cst, STRING_CST, constant, value)
+TERMINAL_PTR (var_decl, VAR_DECL, decl_with_viz, value)
+TERMINAL_PTR (parm_decl, PARM_DECL, decl_with_rtl, value)
+TERMINAL_PTR (result_decl, RESULT_DECL, decl_with_rtl, value)
+TERMINAL_PTR (label_decl, LABEL_DECL, decl_with_rtl, value)
+TERMINAL_PTR (function_decl, FUNCTION_DECL, decl_noncommon, value)
+TERMINAL_PTR (debug_expr_decl, DEBUG_EXPR_DECL, decl, value)
+
+TERMINAL_PTR (ssa_name, SSA_NAME, value, value)
+TERMINAL_PTR (mem_ref, MEM_REF, value, value)
+TERMINAL_PTR (addr_expr, ADDR_EXPR, value, value)
+TERMINAL_PTR (value_list, TREE_LIST, value, value)
+TERMINAL_PTR (type_list, TREE_LIST, value_list, value)
+TERMINAL_PTR (identifier_list, TREE_LIST, value_list, value)
+TERMINAL_PTR (case_label_expr, CASE_LABEL_EXPR, value, value)
+TERMINAL_PTR (truth_not_expr, TRUTH_NOT_EXPR, value, value)
+TERMINAL_PTR (with_size_expr, WITH_SIZE_EXPR, value, value)
+TERMINAL_PTR (call_expr, CALL_EXPR, value, value)
+TERMINAL_PTR (nop_expr, NOP_EXPR, value, value)
+TERMINAL_PTR (bit_field_ref, BIT_FIELD_REF, value, value)
+TERMINAL_PTR (target_mem_ref, TARGET_MEM_REF, value, value)
+TERMINAL_PTR (array_ref, ARRAY_REF, value, value)
+TERMINAL_PTR (array_range_ref, ARRAY_RANGE_REF, value, value)
+TERMINAL_PTR (obj_type_ref, OBJ_TYPE_REF, value, value)
+TERMINAL_PTR (constructor, CONSTRUCTOR, value, value)
+TERMINAL_PTR (modify_expr, MODIFY_EXPR, value, value)
+TERMINAL_PTR (const_decl, CONST_DECL, decl, value)
+
+TERMINAL_PTR (boolean_type, BOOLEAN_TYPE, type, type)
+TERMINAL_PTR (integer_type, INTEGER_TYPE, type, type)
+TERMINAL_PTR (real_type, REAL_TYPE, type, type)
+TERMINAL_PTR (fixed_point_type, FIXED_POINT_TYPE, type, type)
+TERMINAL_PTR (function_type, FUNCTION_TYPE, function_or_method_type, type)
+TERMINAL_PTR (method_type, METHOD_TYPE, function_or_method_type, type)
+TERMINAL_PTR (array_type, ARRAY_TYPE, type, type)
+TERMINAL_PTR (complex_type, COMPLEX_TYPE, type, type)
+TERMINAL_PTR (vector_type, VECTOR_TYPE, type, type)
+
 
 typedef _addr<type>			type_ptr;
 typedef _addr<value>			value_ptr;
 typedef _addr<integer_cst>		integer_cst_ptr;
 
 } // namespace G
+
+template<typename T, typename D>
+inline bool is_a (D v)
+{ 
+  return T::test (v);
+}
+
+template<typename T, typename D>
+inline T as_a (D v)
+{
+  T t;
+  t.set_ptr (v.ptr ());
+  return t;
+}
+
+template<typename T, typename D>
+inline T dyn_cast (D v)
+{ 
+  T t;
+  if (T::test(v))
+    t.set_ptr(v.ptr ());
+  return t;
+}
+
 
 
 #endif  /* GIMPLE_WRAPPER_H  */

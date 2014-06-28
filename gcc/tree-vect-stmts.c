@@ -337,7 +337,7 @@ vect_stmt_relevant_p (gimple stmt, loop_vec_info loop_vinfo,
   /* uses outside the loop.  */
   FOR_EACH_PHI_OR_STMT_DEF (def_p, stmt, op_iter, SSA_OP_DEF)
     {
-      FOR_EACH_IMM_USE_FAST (use_p, imm_iter, DEF_FROM_PTR (def_p))
+      FOR_EACH_IMM_USE_FAST (use_p, imm_iter, SSA_DEF_FROM_PTR (def_p))
 	{
 	  basic_block bb = gimple_bb (USE_STMT (use_p));
 	  if (!flow_bb_inside_loop_p (loop, bb))

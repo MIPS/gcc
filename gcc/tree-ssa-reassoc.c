@@ -628,7 +628,7 @@ is_reassociable_op (gimple stmt, enum tree_code code, struct loop *loop)
 
   if (is_gimple_assign (stmt)
       && gimple_assign_rhs_code (stmt) == code
-      && has_single_use (gimple_assign_lhs (stmt)))
+      && has_single_use (gimple_ssa_assign_lhs (stmt)))
     return true;
 
   return false;
@@ -1198,7 +1198,7 @@ zero_one_operation (tree *def, enum tree_code opcode, tree op)
       if (opcode == MULT_EXPR
 	  && gimple_assign_rhs_code (stmt) == opcode
 	  && TREE_CODE (gimple_assign_rhs2 (stmt)) == SSA_NAME
-	  && has_single_use (gimple_assign_rhs2 (stmt)))
+	  && has_single_use (gimple_ssa_assign_rhs2 (stmt)))
 	{
 	  gimple stmt2 = SSA_NAME_DEF_STMT (gimple_assign_rhs2 (stmt));
 	  if (stmt_is_power_of_op (stmt2, op))
@@ -3577,7 +3577,7 @@ negate_value (tree tonegate, gimple_stmt_iterator *gsip)
   if (TREE_CODE (tonegate) == SSA_NAME
       && is_gimple_assign (negatedefstmt)
       && TREE_CODE (gimple_assign_lhs (negatedefstmt)) == SSA_NAME
-      && has_single_use (gimple_assign_lhs (negatedefstmt))
+      && has_single_use (gimple_ssa_assign_lhs (negatedefstmt))
       && gimple_assign_rhs_code (negatedefstmt) == PLUS_EXPR)
     {
       tree rhs1 = gimple_assign_rhs1 (negatedefstmt);
@@ -3681,7 +3681,7 @@ acceptable_pow_call (gimple stmt, tree *base, HOST_WIDE_INT *exponent)
   if (!first_pass_instance
       || !flag_unsafe_math_optimizations
       || !is_gimple_call (stmt)
-      || !has_single_use (gimple_call_lhs (stmt)))
+      || !has_single_use (gimple_ssa_call_lhs (stmt)))
     return false;
 
   fndecl = gimple_call_fndecl (stmt);
@@ -4441,7 +4441,7 @@ reassociate_bb (basic_block bb)
 	    {
 	      /* This statement might have become dead because of previous
 		 reassociations.  */
-	      if (has_zero_uses (gimple_get_lhs (stmt)))
+	      if (has_zero_uses (gimple_ssa_lhs (stmt)))
 		{
 		  reassoc_remove_stmt (&gsi);
 		  release_defs (stmt);

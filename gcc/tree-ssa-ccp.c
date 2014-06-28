@@ -211,22 +211,25 @@ dump_lattice_value (FILE *outf, const char *prefix, prop_value_t val)
       fprintf (outf, "%sVARYING", prefix);
       break;
     case CONSTANT:
-      if (!is_a<G::integer_cst> (val.value) || val.mask == 0)
-	{
-	  fprintf (outf, "%sCONSTANT ", prefix);
-	  print_generic_expr (outf, val.value, dump_flags);
-	}
-      else
-	{
-	  widest_int cval = wi::bit_and_not (wi::to_widest (val.value),
-					     val.mask);
-	  fprintf (outf, "%sCONSTANT ", prefix);
-	  print_hex (cval, outf);
-	  fprintf (outf, " (");
-	  print_hex (val.mask, outf);
-	  fprintf (outf, ")");
-	}
-      break;
+      {
+	G::integer_cst i = dyn_cast<G::integer_cst> (val.value);
+	if (!i || val.mask == 0)
+	  {
+	    fprintf (outf, "%sCONSTANT ", prefix);
+	    print_generic_expr (outf, val.value, dump_flags);
+	  }
+	else
+	  {
+	    widest_int cval = wi::bit_and_not (wi::to_widest (i),
+					       val.mask);
+	    fprintf (outf, "%sCONSTANT ", prefix);
+	    print_hex (cval, outf);
+	    fprintf (outf, " (");
+	    print_hex (val.mask, outf);
+	    fprintf (outf, ")");
+	  }
+	break;
+      }
     default:
       gcc_unreachable ();
     }
@@ -365,13 +368,14 @@ static inline G::value
 get_constant_value (G::value var)
 {
   prop_value_t *val;
-  if (!is_a<G::ssa_name> (var))
+  G::ssa_name ssa_var = dyn_cast<G::ssa_name> (var);
+  if (!ssa_var)
     {
       if (is_gimple_min_invariant (var))
         return var;
       return NULL_GIMPLE;
     }
-  val = get_value (var);
+  val = get_value (ssa_var);
   if (val
       && val->lattice_val == CONSTANT
       && (!is_a<G::integer_cst> (val->value) || val->mask == 0))
@@ -419,10 +423,11 @@ canonicalize_value (prop_value_t *val)
   if (val->lattice_val != CONSTANT)
     return;
 
-  if (as_a<G::constant> (val->value)->overflow_p ())
-    val->value = drop_tree_overflow (val->value);
+  G::constant c = dyn_cast<G::constant> (val->value);
+  if (c && c->overflow_p ())
+    val->value = drop_tree_overflow (c);
 
-  G::real_cst rcst = val->value;
+  G::real_cst rcst = dyn_cast<G::real_cst> (val->value);
 
   if (!rcst)
     return;
@@ -465,8 +470,8 @@ valid_lattice_transition (prop_value_t old_val, prop_value_t new_val)
 
   /* Now both lattice values are CONSTANT.  */
 
-  G::integer_cst old_i = old_val.value;
-  G::integer_cst new_i = new_val.value;
+  G::integer_cst old_i = dyn_cast<G::integer_cst> (old_val.value);
+  G::integer_cst new_i = dyn_cast<G::integer_cst> (new_val.value);
 
   /* Allow transitioning from PHI <&x, not executable> == &x
      to PHI <&x, &y> == common alignment.  */
@@ -499,8 +504,8 @@ set_lattice_value (G::ssa_name var, prop_value_t new_val)
   if (new_val.lattice_val == CONSTANT
       && old_val->lattice_val == CONSTANT)
     {
-      G::integer_cst new_i = new_val.value;
-      G::integer_cst old_i = old_val->value;
+      G::integer_cst new_i = dyn_cast<G::integer_cst> (new_val.value);
+      G::integer_cst old_i = dyn_cast<G::integer_cst> (old_val->value);
       if (new_i && old_i)
         {
 	  widest_int diff = (wi::to_widest (new_i)
@@ -551,7 +556,9 @@ static void bit_value_binop_1 (enum tree_code, G::type, widest_int *,
 static widest_int
 value_to_wide_int (prop_value_t val)
 {
-  G::integer_cst val_i = val.value;
+  
+  G::integer_cst val_i = val.value ? dyn_cast<G::integer_cst> (val.value)
+				   : NULL_GIMPLE;
   if (val_i)
     return wi::to_widest (val_i);
 
@@ -591,13 +598,16 @@ get_value_for_expr (G::value expr, bool for_bits_p)
 {
   prop_value_t val;
 
-  if (is_a<G::ssa_name> (expr))
+  G::ssa_name ssa_expr = dyn_cast<G::ssa_name> (expr);
+  if (ssa_expr)
     {
-      val = *get_value (expr);
-      if (for_bits_p
-	  && val.lattice_val == CONSTANT
-	  && is_a<G::addr_expr> (val.value))
-	val = get_value_from_alignment (val.value);
+      val = *get_value (ssa_expr);
+      if (for_bits_p && val.lattice_val == CONSTANT)
+        {
+	  G::addr_expr addr = dyn_cast<G::addr_expr> (val.value);
+	  if (addr)
+	    val = get_value_from_alignment (addr);
+	}
     }
   else if (is_gimple_min_invariant (expr)
 	   && (!for_bits_p || !is_a<G::addr_expr> (expr)))
@@ -607,8 +617,8 @@ get_value_for_expr (G::value expr, bool for_bits_p)
       val.mask = 0;
       canonicalize_value (&val);
     }
-  else if (is_a<G::addr_expr> (expr))
-    val = get_value_from_alignment (expr);
+  else if (G::addr_expr addr = dyn_cast<G::addr_expr> (expr))
+    val = get_value_from_alignment (addr);
   else
     {
       val.lattice_val = VARYING;
@@ -633,7 +643,7 @@ static ccp_lattice_t
 likely_value (gimple stmt)
 {
   bool has_constant_operand, has_undefined_operand, all_undefined_operands;
-  G::value use;
+  G::ssa_name use;
   ssa_op_iter iter;
   unsigned i;
 
@@ -655,7 +665,7 @@ likely_value (gimple stmt)
   has_constant_operand = false;
   has_undefined_operand = false;
   all_undefined_operands = true;
-  FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_USE)
+  FOR_EACH_SSA_OPERAND (use, stmt, iter, SSA_OP_USE)
     {
       prop_value_t *val = get_value (use);
 
@@ -816,12 +826,12 @@ ccp_initialize (void)
 
 	  if (is_varying)
 	    {
-	      G::value def;
+	      G::ssa_name def;
 	      ssa_op_iter iter;
 
 	      /* If the statement will not produce a constant, mark
 		 all its outputs VARYING.  */
-	      FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_ALL_DEFS)
+	      FOR_EACH_SSA_OPERAND (def, stmt, iter, SSA_OP_ALL_DEFS)
 		set_value_varying (def);
 	    }
           prop_set_simulate_again (stmt, !is_varying);
@@ -901,7 +911,7 @@ ccp_finalize (void)
       if (val->lattice_val != CONSTANT)
 	continue;
 
-      G::integer_cst val_i = val->value;
+      G::integer_cst val_i = dyn_cast<G::integer_cst> (val->value);
       if (!val_i)
         continue;
       
@@ -970,10 +980,12 @@ ccp_lattice_meet (prop_value_t *val1, prop_value_t *val2)
     }
   else if (val1->lattice_val == CONSTANT
 	   && val2->lattice_val == CONSTANT
-	   && ((v1 = val1->value))
-	   && ((v2 = val2->value)))
+	   && is_a<G::integer_cst> (val1->value)
+	   && is_a<G::integer_cst> (val2->value))
 
     {
+      v1 = as_a<G::integer_cst> (val1->value);
+      v2 = as_a<G::integer_cst> (val2->value);
       /* Ci M Cj = Ci		if (i == j)
 	 Ci M Cj = VARYING	if (i != j)
 
@@ -1038,7 +1050,7 @@ ccp_visit_phi_node (gimple phi)
       print_gimple_stmt (dump_file, phi, 0, dump_flags);
     }
 
-  old_val = get_value (gimple_phi_result (phi));
+  old_val = get_value (ssa_phi_result (phi));
   switch (old_val->lattice_val)
     {
     case VARYING:
@@ -1100,7 +1112,7 @@ ccp_visit_phi_node (gimple phi)
     }
 
   /* Make the transition to the new value.  */
-  if (set_lattice_value (gimple_phi_result (phi), new_val))
+  if (set_lattice_value (ssa_phi_result (phi), new_val))
     {
       if (new_val.lattice_val == VARYING)
 	return SSA_PROP_VARYING;
@@ -1592,7 +1604,8 @@ bit_value_assume_aligned (gimple stmt, G::value_list attr,
 	 alloc_align attributes.  */
       if (attr->value () == NULL_GIMPLE)
 	return ptrval;
-      attr = attr->value ();
+      extra_checking_assert (is_a<G::value_list> (attr->value ()));
+      attr = as_a<G::value_list> (attr->value ());
       align = attr->value ();
       if (!gimple_fits_uhwi_p (align))
 	return ptrval;
@@ -1818,8 +1831,8 @@ evaluate_stmt (gimple stmt)
 
 	    case BUILT_IN_ALIGNED_ALLOC:
 	      {
-		G::integer_cst align = 
-				get_constant_value (gimple_call_arg (stmt, 0));
+		G::integer_cst align = dyn_cast<G::integer_cst>
+			      (get_constant_value (gimple_call_arg (stmt, 0)));
 		if (align && gimple_fits_uhwi_p (align))
 		  {
 		    unsigned HOST_WIDE_INT aligni = gimple_to_uhwi (align);
@@ -1856,14 +1869,15 @@ evaluate_stmt (gimple stmt)
       is_constant = (val.lattice_val == CONSTANT);
     }
 
-  G::integer_cst cst_val = val.value;
+  G::integer_cst cst_val = val.value ? dyn_cast<G::integer_cst> (val.value)
+				     : NULL_GIMPLE;
   if (flag_tree_bit_ccp
       && ((is_constant && cst_val)
 	  || (!is_constant && likelyvalue != UNDEFINED))
       && gimple_get_lhs (stmt)
       && is_a<G::ssa_name> (gimple_get_lhs (stmt)))
     {
-      G::ssa_name lhs = gimple_get_lhs (stmt);
+      G::ssa_name lhs = as_a<G::ssa_name> (gimple_get_lhs (stmt));
       wide_int nonzero_bits = get_nonzero_bits (lhs);
       if (nonzero_bits != -1)
 	{
@@ -1945,12 +1959,14 @@ insert_clobber_before_stack_restore (G::ssa_name saved_val,
 	  continue;
 
 	*slot = stmt;
-	insert_clobber_before_stack_restore (gimple_phi_result (stmt), var,
+	insert_clobber_before_stack_restore (ssa_phi_result (stmt), var,
 					     visited);
       }
     else if (gimple_assign_ssa_name_copy_p (stmt))
-      insert_clobber_before_stack_restore (gimple_assign_lhs (stmt), var,
-					   visited);
+      {
+	insert_clobber_before_stack_restore (gimple_ssa_assign_lhs (stmt),
+					     var, visited);
+      }
     else
       gcc_assert (is_gimple_debug (stmt));
 }
@@ -1999,7 +2015,9 @@ insert_clobbers_for_var (gimple_stmt_iterator i, G::value var)
       if (saved_val == NULL_GIMPLE)
 	continue;
 
-      insert_clobber_before_stack_restore (saved_val, var, &visited);
+      extra_checking_assert (is_a<G::ssa_name> (saved_val));
+      insert_clobber_before_stack_restore (as_a<G::ssa_name> (saved_val),
+					   var, &visited);
       break;
     }
 
@@ -2018,7 +2036,6 @@ fold_builtin_alloca_with_align (gimple stmt)
   G::value lhs;
   G::var_decl var;
   G::type elem_type, array_type;
-  G::integer_cst arg;
   G::block block;
 
   /* Get lhs.  */
@@ -2027,7 +2044,9 @@ fold_builtin_alloca_with_align (gimple stmt)
     return NULL_GIMPLE;
 
   /* Detect constant argument.  */
-  arg = get_constant_value (gimple_call_arg (stmt, 0));
+  G::value arg_val = get_constant_value (gimple_call_arg (stmt, 0));
+  G::integer_cst arg = arg_val ? dyn_cast<G::integer_cst> (arg_val)
+			       : NULL_GIMPLE;
   if (!arg || !gimple_fits_uhwi_p (arg))
     return NULL_GIMPLE;
 
@@ -2049,10 +2068,12 @@ fold_builtin_alloca_with_align (gimple stmt)
   n_elem = size * 8 / BITS_PER_UNIT;
   array_type = build_gimple_array_type_nelts (elem_type, n_elem);
   var = create_tmp_var (array_type, NULL);
-  arg = gimple_call_arg (stmt, 1);
+  extra_checking_assert (is_a<G::integer_cst> (gimple_call_arg (stmt, 1)));
+  arg = as_a<G::integer_cst> (gimple_call_arg (stmt, 1));
   var->set_align (arg->low ());
   {
-    G::ssa_name name = lhs;
+    extra_checking_assert (is_a<G::ssa_name> (lhs));
+    G::ssa_name name = as_a<G::ssa_name> (lhs);
     struct ptr_info_def *pi = name->ptr_info ();
     if (pi != NULL && !pi->pt.anything)
       {
@@ -2180,14 +2201,13 @@ ccp_fold_stmt (gimple_stmt_iterator *gsi)
 
     case GIMPLE_ASSIGN:
       {
-	G::value lhs = gimple_assign_lhs (stmt);
+	G::ssa_name lhs = dyn_cast <G::ssa_name> (gimple_assign_lhs (stmt));
 	G::value val;
 
 	/* If we have a load that turned out to be constant replace it
 	   as we cannot propagate into all uses in all cases.  */
 	if (gimple_assign_single_p (stmt)
-	    && is_a<G::ssa_name> (lhs)
-	    && (val = get_constant_value (lhs)))
+	    && lhs && (val = get_constant_value (lhs)))
 	  {
 	    G::value rhs = unshare_expr (val);
 	    if (!useless_type_conversion_p (lhs->type (), rhs->type ()))
@@ -2224,8 +2244,11 @@ visit_assignment (gimple stmt, G::value_ptr output_p)
 
   if (gimple_assign_single_p (stmt)
       && (gimple_assign_rhs_code (stmt) == SSA_NAME))
-    /* For a simple copy operation, we copy the lattice values.  */
-    val = *get_value (gimple_assign_rhs1 (stmt));
+    {
+      extra_checking_assert (is_a<G::ssa_name> (gimple_assign_rhs1 (stmt)));
+      /* For a simple copy operation, we copy the lattice values.  */
+      val = *get_value (as_a<G::ssa_name> (gimple_assign_rhs1 (stmt)));
+    }
   else
     /* Evaluate the statement, which could be
        either a GIMPLE_ASSIGN or a GIMPLE_CALL.  */
@@ -2234,13 +2257,14 @@ visit_assignment (gimple stmt, G::value_ptr output_p)
   retval = SSA_PROP_NOT_INTERESTING;
 
   /* Set the lattice value of the statement's output.  */
-  if (is_a<G::ssa_name> (lhs))
+  G::ssa_name ssa_lhs = dyn_cast<G::ssa_name> (lhs);
+  if (ssa_lhs)
     {
       /* If STMT is an assignment to an SSA_NAME, we only have one
 	 value to set.  */
-      if (set_lattice_value (lhs, val))
+      if (set_lattice_value (ssa_lhs, val))
 	{
-	  *output_p = lhs;
+	  *output_p = ssa_lhs;
 	  if (val.lattice_val == VARYING)
 	    retval = SSA_PROP_VARYING;
 	  else
@@ -2296,7 +2320,7 @@ static enum ssa_prop_result
 ccp_visit_stmt (gimple stmt, edge *taken_edge_p, tree *treep)
 {
   G::value_ptr output_p = treep;
-  G::value def;
+  G::ssa_name def;
   ssa_op_iter iter;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2339,7 +2363,7 @@ ccp_visit_stmt (gimple stmt, edge *taken_edge_p, tree *treep)
   /* Definitions made by statements other than assignments to
      SSA_NAMEs represent unknown modifications to their outputs.
      Mark them VARYING.  */
-  FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_ALL_DEFS)
+  FOR_EACH_SSA_OPERAND (def, stmt, iter, SSA_OP_ALL_DEFS)
     {
       prop_value_t v = { VARYING, NULL_GIMPLE, -1 };
       set_lattice_value (def, v);
@@ -2467,7 +2491,8 @@ optimize_stack_restore (gimple_stmt_iterator i)
      If there are multiple uses, then the last one should remove the call.
      In any case, whether the call to __builtin_stack_save can be removed
      or not is irrelevant to removing the call to __builtin_stack_restore.  */
-  G::ssa_name name = gimple_call_arg (call, 0);
+  extra_checking_assert (is_a<G::ssa_name> (gimple_call_arg (call, 0)));
+  G::ssa_name name = as_a<G::ssa_name> (gimple_call_arg (call, 0));
   if (has_single_use (name))
     {
       gimple stack_save = name->def_stmt ();
@@ -2695,7 +2720,8 @@ pass_fold_builtins::execute (function *fun)
 		 unnecessarily keep the SSA_NAMEs live.  */
 	      if (gimple_clobber_p (stmt))
 		{
-		  G::mem_ref lhs = gimple_assign_lhs (stmt);
+		  G::mem_ref lhs
+			      = dyn_cast<G::mem_ref> (gimple_assign_lhs (stmt));
 		  if (lhs && is_a<G::ssa_name> (lhs->base ()))
 		    {
 		      unlink_stmt_vdef (stmt);

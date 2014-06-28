@@ -5615,7 +5615,7 @@ vect_loop_kill_debug_uses (struct loop *loop, gimple stmt)
 
   FOR_EACH_PHI_OR_STMT_DEF (def_p, stmt, op_iter, SSA_OP_DEF)
     {
-      FOR_EACH_IMM_USE_STMT (ustmt, imm_iter, DEF_FROM_PTR (def_p))
+      FOR_EACH_IMM_USE_STMT (ustmt, imm_iter, SSA_DEF_FROM_PTR (def_p))
 	{
 	  basic_block bb;
 

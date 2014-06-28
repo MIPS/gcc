@@ -160,7 +160,8 @@ useless_type_conversion_p (G::type outer_type, G::type inner_type)
     return useless_type_conversion_p (outer_type->type (),
 				      inner_type->type());
 
-  else if ((inner_array = inner_type) && (outer_array = outer_type))
+  else if ((inner_array = dyn_cast<G::array_type> (inner_type))
+	    && (outer_array = dyn_cast<G::array_type> (outer_type)))
     {
       /* Preserve string attributes.  */
       if (inner_array->string_flag () != outer_array->string_flag ())
@@ -180,8 +181,8 @@ useless_type_conversion_p (G::type outer_type, G::type inner_type)
 	  && is_a<G::integer_cst> (outer_array->size ()) 
 	  && (!inner_array->size ()
 	      || !is_a<G::integer_cst> (inner_array->size ())
-	      || !tree_int_cst_equal (outer_array->size (),
-				      inner_array->size ())))
+	      || !gimple_int_cst_equal (outer_array->size (),
+					inner_array->size ())))
 	return false;
 
       /* Check conversions between arrays with partially known extents.
@@ -211,10 +212,10 @@ useless_type_conversion_p (G::type outer_type, G::type inner_type)
 	  /* Conversions NULL / variable <- cst are useless, but not
 	     the other way around.  */
 	  if (outer_min && (!inner_min
-			    || !tree_int_cst_equal (inner_min, outer_min)))
+			    || !gimple_int_cst_equal (inner_min, outer_min)))
 	    return false;
 	  if (outer_max && (!inner_max
-			    || !tree_int_cst_equal (inner_max, outer_max)))
+			    || !gimple_int_cst_equal (inner_max, outer_max)))
 	    return false;
 	}
 
@@ -223,7 +224,8 @@ useless_type_conversion_p (G::type outer_type, G::type inner_type)
 					inner_array->type ());
     }
 
-  else if ((inner_func = inner_type) && (outer_func = outer_type)
+  else if ((inner_func = dyn_cast<G::function_or_method_type> (inner_type))
+	    && (outer_func = dyn_cast<G::function_or_method_type> (outer_type))
 	   && (inner_type->code () == outer_type->code ()))
     {
       G::type_list outer_parm, inner_parm;
@@ -632,9 +634,10 @@ is_gimple_condexpr (G::value t)
   if (is_gimple_val (t))
     return true;
 
-  G::comparison cmp = t;
+  G::comparison cmp = dyn_cast<G::comparison> (t);
   if (cmp)
-    return !tree_could_throw_p (cmp) && is_gimple_val (cmp->op1 ())
+    return !tree_could_throw_p (cmp) 
+	   && is_gimple_val (cmp->op1 ())
 	   && is_gimple_val (cmp->op2 ());
 
   return false;
@@ -646,7 +649,7 @@ bool
 is_gimple_address (G::value t)
 {
 
-  G::addr_expr val = t; 
+  G::addr_expr val = dyn_cast<G::addr_expr> (t); 
   if (!val)
     return false;
 
@@ -685,7 +688,7 @@ bool
 is_gimple_invariant_address (G::value t)
 {
 
-  G::addr_expr val = t; 
+  G::addr_expr val = dyn_cast<G::addr_expr> (t); 
   if (!val)
     return false;
 
@@ -695,10 +698,10 @@ is_gimple_invariant_address (G::value t)
   if (!op)
     return false;
 
-  G::mem_ref mem = op;
+  G::mem_ref mem = dyn_cast<G::mem_ref> (op);
   if (mem)
     {
-      G::addr_expr val2 = mem->base ();
+      G::addr_expr val2 = dyn_cast<G::addr_expr> (mem->base ());
       return (val2 && (is_a<G::constant> (val2->expr ())
 		       || decl_address_invariant_p (val2->expr ())));
     }
@@ -712,7 +715,7 @@ is_gimple_invariant_address (G::value t)
 bool
 is_gimple_ip_invariant_address (G::value t)
 {
-  G::addr_expr val = t; 
+  G::addr_expr val = dyn_cast<G::addr_expr> (t); 
   if (!val)
     return false;
 
@@ -722,10 +725,10 @@ is_gimple_ip_invariant_address (G::value t)
   if (!op)
     return false;
 
-  G::mem_ref mem = op;
+  G::mem_ref mem = dyn_cast<G::mem_ref> (op);
   if (mem)
     {
-      G::addr_expr val2 = mem->base ();
+      G::addr_expr val2 = dyn_cast<G::addr_expr> (mem->base ());
       return (val2
 	      && (is_a<G::constant> (val2->expr ())
 		  || decl_address_ip_invariant_p (val2->expr ())));
@@ -859,7 +862,7 @@ is_gimple_mem_ref_addr (G::value t)
   if (is_gimple_reg (t) || is_a<G::integer_cst> (t))
     return true;
 
-  G::addr_expr addr = t;
+  G::addr_expr addr = dyn_cast<G::addr_expr> (t);
 
   return (addr && (is_a<G::constant> (addr->expr ())
 		   || decl_address_invariant_p (addr->expr ())));
@@ -874,7 +877,7 @@ mark_addressable (G::value x)
   while (handled_component_p (x))
     x = x->op(0);
 
-  G::mem_ref mem = x;
+  G::mem_ref mem = dyn_cast<G::mem_ref> (x);
   if (mem && is_a<G::addr_expr> (mem->base ()))
     x = as_a<G::addr_expr> (mem->base ())-> expr ();
   if (!is_a<G::var_decl> (x) && !is_a<G::parm_decl> (x)
@@ -883,7 +886,7 @@ mark_addressable (G::value x)
   x->set_addressable (true);
 
   /* Also mark the artificial SSA_NAME that points to the partition of X.  */
-  G::var_decl var = x;
+  G::var_decl var = dyn_cast<G::var_decl> (x);
   if (var && !var->external () && !var->static_p ()
       && cfun->gimple_df != NULL
       && cfun->gimple_df->decls_to_pointers != NULL)

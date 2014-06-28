@@ -88,6 +88,13 @@ struct GTY(()) ssa_operands {
 				PHI_ARG_DEF_PTR ((PHI), (E)->dest_idx)
 #define PHI_ARG_INDEX_FROM_USE(USE)   phi_arg_index_from_use (USE)
 
+#define SSA_USE_FROM_PTR(PTR)	ssa_use_from_ptr (PTR)
+#define SSA_DEF_FROM_PTR(PTR)	ssa_def_from_ptr (PTR)
+#define SSA_PHI_RESULT(PHI)	SSA_DEF_FROM_PTR (PHI_RESULT_PTR (PHI))
+#define DECL_USE_FROM_PTR(PTR)	decl_use_from_ptr (PTR)
+#define DECL_DEF_FROM_PTR(PTR)	decl_def_from_ptr (PTR)
+#define DECL_PHI_RESULT(PHI)	DECL_DEF_FROM_PTR (PHI_RESULT_PTR (PHI))
+
 
 extern bool ssa_operands_active (struct function *);
 extern void init_ssa_operands (struct function *fn);
@@ -117,6 +124,40 @@ static inline G::value
 get_def_from_ptr (def_operand_p def)
 {
   return *def;
+}
+
+/* Return the ssa_name pointed-to by USE.  */
+static inline G::ssa_name
+ssa_use_from_ptr (use_operand_p use)
+{
+  G::value v = *(use->use);
+  extra_checking_assert (is_a<G::ssa_name> (v));
+  return as_a<G::ssa_name> (v);
+}
+
+/* Return the ssa_name pointed-to by DEF.  */
+static inline G::ssa_name
+ssa_def_from_ptr (def_operand_p def)
+{
+  extra_checking_assert (is_a<G::ssa_name> (*def));
+  return as_a<G::ssa_name> (*def);
+}
+
+/* Return the decl pointed-to by USE.  */
+static inline G::decl
+decl_use_from_ptr (use_operand_p use)
+{
+  G::value v = *(use->use);
+  extra_checking_assert (is_a<G::decl> (v));
+  return as_a<G::decl> (v);
+}
+
+/* Return the decl pointed-to by DEF.  */
+static inline G::decl
+decl_def_from_ptr (def_operand_p def)
+{
+  extra_checking_assert (is_a<G::decl> (*def));
+  return as_a<G::decl> (*def);
 }
 
 #endif  /* GCC_TREE_SSA_OPERANDS_H  */

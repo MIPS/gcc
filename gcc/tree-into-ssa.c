@@ -425,10 +425,12 @@ get_common_info (G::decl var)
 static inline common_info_p
 get_common_info (G::value var)
 {
-  if (is_a<G::ssa_name> (var))
-    return &get_ssa_name_ann (var)->info;
-  else
-    return &get_var_info (var)->info;
+  G::ssa_name s = dyn_cast<G::ssa_name> (var);
+  if (s)
+    return &get_ssa_name_ann (s)->info;
+
+  extra_checking_assert (is_a<G::decl> (var));
+  return &get_var_info (as_a<G::decl> (var))->info;
 }
 
 
@@ -693,8 +695,8 @@ mark_def_sites (basic_block bb, gimple stmt, bitmap kills)
     {
       FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
 	{
-	  /* Ensure this is a decl by assigning it to a G::decl.  */
-	  def = USE_FROM_PTR (use_p);  
+	  /* Ensure this is a decl. */
+	  gcc_checking_assert (is_a<G::decl> (USE_FROM_PTR (use_p)));
 	  set_rewrite_uses (stmt, true);
 	}
       if (rewrite_uses_p (stmt))
@@ -706,7 +708,7 @@ mark_def_sites (basic_block bb, gimple stmt, bitmap kills)
      across a block boundary, so mark it live-on-entry to BB.  */
   FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_ALL_USES)
     {
-      G::decl sym = USE_FROM_PTR (use_p);
+      G::decl sym = DECL_USE_FROM_PTR (use_p);
       if (!bitmap_bit_p (kills, sym->uid ()))
 	set_livein_block (sym, bb);
       set_rewrite_uses (stmt, true);
@@ -714,7 +716,7 @@ mark_def_sites (basic_block bb, gimple stmt, bitmap kills)
 
   /* Now process the defs.  Mark BB as the definition block and add
      each def to the set of killed symbols.  */
-  FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_ALL_DEFS)
+  FOR_EACH_SSA_DECL_OPERAND (def, stmt, iter, SSA_OP_ALL_DEFS)
     {
       set_def_block (def, bb, false);
       bitmap_set_bit (kills, def->uid ());
@@ -1026,7 +1028,7 @@ insert_phi_nodes_for (G::value var, bitmap phi_insertion_points, bool update_p)
 	}
       phi = NULL;
 
-      if (is_a<G::ssa_name> (var))
+      if (G::ssa_name ssa_var = dyn_cast<G::ssa_name> (var))
 	{
 	  /* If we are rewriting SSA names, create the LHS of the PHI
 	     node by duplicating VAR.  This is useful in the case of
@@ -1036,9 +1038,9 @@ insert_phi_nodes_for (G::value var, bitmap phi_insertion_points, bool update_p)
 	  G::ssa_name new_lhs;
 
 	  gcc_checking_assert (update_p);
-	  new_lhs = duplicate_ssa_name (var, NULL);
+	  new_lhs = duplicate_ssa_name (ssa_var, NULL);
 	  phi = create_phi_node (new_lhs, bb);
-	  add_new_name_mapping (new_lhs, var);
+	  add_new_name_mapping (new_lhs, ssa_var);
 
 	  /* Add VAR to every argument slot of PHI.  We need VAR in
 	     every argument so that rewrite_update_phi_arguments knows
@@ -1047,7 +1049,7 @@ insert_phi_nodes_for (G::value var, bitmap phi_insertion_points, bool update_p)
 	     renamer will use the symbol on the LHS to get its
 	     reaching definition.  */
 	  FOR_EACH_EDGE (e, ei, bb->preds)
-	    add_phi_arg (phi, var, e, UNKNOWN_LOCATION);
+	    add_phi_arg (phi, ssa_var, e, UNKNOWN_LOCATION);
 	}
       else
 	{
@@ -1194,20 +1196,23 @@ static G::ssa_name
 get_reaching_def (G::value var)
 {
   common_info_p info = get_common_info (var);
-  G::value currdef;
+  G::ssa_name currdef;
 
   /* Lookup the current reaching definition for VAR.  */
-  currdef = info->current_def;
+  currdef = info->current_def ? dyn_cast<G::ssa_name> (info->current_def)
+			      : NULL_GIMPLE;
 
   /* If there is no reaching definition for VAR, create and register a
      default definition for it (if needed).  */
   if (currdef == NULL_GIMPLE)
     {
       G::decl sym;
-      if (is_a<G::ssa_name> (var))
-        sym = as_a<G::ssa_name> (var)->var ();
-      else
-        sym = var;
+      sym = dyn_cast<G::decl> (var);
+      if (!sym)
+        {
+	  extra_checking_assert (is_a<G::ssa_name> (var));
+	  sym = as_a<G::ssa_name> (var)->var ();
+	}
       currdef = get_or_create_ssa_default_def (cfun, sym);
     }
 
@@ -1228,11 +1233,12 @@ rewrite_debug_stmt_uses (gimple stmt)
 
   FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
     {
-      G::decl var = USE_FROM_PTR (use_p);
+      G::decl var = DECL_USE_FROM_PTR (use_p);
       G::value def;
       common_info_p info = get_common_info (var);
 
-      def = info->current_def;
+      def = info->current_def ? dyn_cast<G::ssa_name> (info->current_def)
+			      : NULL_GIMPLE;
       if (!def)
 	{
 	  if (is_a<G::parm_decl> (var)
@@ -1267,8 +1273,7 @@ rewrite_debug_stmt_uses (gimple stmt)
 		  G::debug_expr_decl decl =
 			      G::create<G::debug_expr_decl> ();
 		  def_temp = gimple_build_debug_source_bind (decl, var, NULL);
-		  decl->set_artificial (true);
-		  decl->set_type (var->type ());
+		  decl->set_artificial (true); decl->set_type (var->type ());
 		  decl->set_mode (var->mode ());
 		  gsi =
 		 gsi_after_labels (single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun)));
@@ -1280,7 +1285,7 @@ rewrite_debug_stmt_uses (gimple stmt)
 	}
       else
 	{
-	  G::ssa_name name = def;
+	  G::ssa_name name = dyn_cast<G::ssa_name> (def);
 	  /* Check if info->current_def can be trusted.  */
 	  basic_block bb = gimple_bb (stmt);
 	  basic_block def_bb
@@ -1356,7 +1361,7 @@ rewrite_stmt (gimple_stmt_iterator *si)
       else
 	FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_ALL_USES)
 	  {
-	    G::decl var = USE_FROM_PTR (use_p);
+	    G::decl var = DECL_USE_FROM_PTR (use_p);
 	    SET_USE (use_p, get_reaching_def (var));
 	  }
     }
@@ -1365,7 +1370,7 @@ rewrite_stmt (gimple_stmt_iterator *si)
   if (register_defs_p (stmt))
     FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, iter, SSA_OP_ALL_DEFS)
       {
-	G::decl var = DEF_FROM_PTR (def_p);
+	G::decl var = DECL_DEF_FROM_PTR (def_p);
 	G::ssa_name name;
 	G::value tracked_var;
 
@@ -1383,7 +1388,7 @@ rewrite_stmt (gimple_stmt_iterator *si)
 
 	name = make_ssa_name (var, stmt);
 	SET_DEF (def_p, name);
-	register_new_def (DEF_FROM_PTR (def_p), var);
+	register_new_def (SSA_DEF_FROM_PTR (def_p), var);
 
 	tracked_var = target_for_debug_bind (var);
 	if (tracked_var)
@@ -1418,7 +1423,7 @@ rewrite_add_phi_arguments (basic_block bb)
 	  location_t loc;
 
 	  phi = gsi_stmt (gsi);
-	  res = gimple_phi_result (phi);
+	  res = ssa_phi_result (phi);
 	  currdef = get_reaching_def (res->var ());
 	  /* Virtual operand PHI args do not need a location.  */
 	  if (virtual_operand_p (res))
@@ -1460,7 +1465,7 @@ rewrite_dom_walker::before_dom_children (basic_block bb)
      node introduces a new version for the associated variable.  */
   for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      G::ssa_name result = gimple_phi_result (gsi_stmt (gsi));
+      G::ssa_name result = ssa_phi_result (gsi_stmt (gsi));
       register_new_def (result, result->var ());
     }
 
@@ -1496,7 +1501,7 @@ rewrite_dom_walker::after_dom_children (basic_block bb ATTRIBUTE_UNUSED)
       if (tmp == NULL_GIMPLE)
 	break;
 
-      saved_def = tmp;
+      saved_def = dyn_cast<G::ssa_name> (tmp);
       if (saved_def)
 	{
 	  /* If we recorded an SSA_NAME, then make the SSA_NAME the
@@ -1515,8 +1520,9 @@ rewrite_dom_walker::after_dom_children (basic_block bb ATTRIBUTE_UNUSED)
 	  /* If we recorded anything else, it must have been a _DECL
 	     node and its current reaching definition must have been
 	     NULL.  */
+	  extra_checking_assert (is_a<G::decl> (tmp));
 	  saved_def = NULL_GIMPLE;
-	  var = tmp;
+	  var = as_a<G::decl> (tmp);
 	}
 
       get_common_info (var)->current_def = saved_def;
@@ -1566,11 +1572,12 @@ dump_defs_stack (FILE *file, int n)
 	  continue;
 	}
 
-      var = name;
+      var = dyn_cast<G::decl> (name);
       if (var)
 	name = NULL_GIMPLE;
       else
 	{
+	  extra_checking_assert (is_a<G::ssa_name> (name));
 	  var = as_a<G::ssa_name> (name)->var ();
 	  if (!is_gimple_reg (var))
 	    {
@@ -1790,8 +1797,8 @@ maybe_replace_use (use_operand_p use_p)
 {
   G::value rdef = NULL_GIMPLE;
   G::value use = USE_FROM_PTR (use_p);
-  G::ssa_name name = use;
-  G::decl sym = name ? name->var () : use;
+  G::ssa_name name = dyn_cast<G::ssa_name> (use);
+  G::decl sym = name ? name->var () : DECL_USE_FROM_PTR (use_p);
 
   if (marked_for_renaming (sym))
     rdef = get_reaching_def (sym);
@@ -1811,8 +1818,8 @@ maybe_replace_use_in_debug_stmt (use_operand_p use_p)
 {
   G::value rdef = NULL_GIMPLE;
   G::value use = USE_FROM_PTR (use_p);
-  G::ssa_name name = use;
-  G::decl sym = name ? name->var () : use;
+  G::ssa_name name = dyn_cast<G::ssa_name> (use);
+  G::decl sym = name ? name->var () : DECL_USE_FROM_PTR (use_p);
 
 
   if (marked_for_renaming (sym))
@@ -1847,8 +1854,8 @@ maybe_register_def (def_operand_p def_p, gimple stmt,
 		    gimple_stmt_iterator gsi)
 {
   G::value def = DEF_FROM_PTR (def_p);
-  G::ssa_name name = def;
-  G::decl sym = name ? name->var () : def;
+  G::ssa_name name = dyn_cast<G::ssa_name> (def);
+  G::decl sym = name ? name->var () : DECL_DEF_FROM_PTR (def_p);
 
   /* If DEF is a naked symbol that needs renaming, create a new
      name for it.  */
@@ -2027,13 +2034,13 @@ rewrite_update_phi_arguments (basic_block bb)
 
 	  arg_p = PHI_ARG_DEF_PTR_FROM_EDGE (phi, e);
 	  arg = USE_FROM_PTR (arg_p);
-	  name = arg;
-	  decl = arg;
+	  name = arg ? dyn_cast<G::ssa_name> (arg) : NULL_GIMPLE;
+	  decl = arg ? dyn_cast<G::decl> (arg) : NULL_GIMPLE;
 
 	  if (arg && !name  && !decl)
 	    continue;
 
-	  lhs_sym = as_a<G::ssa_name> (gimple_phi_result (phi))->var ();
+	  lhs_sym = ssa_phi_result (phi)->var ();
 
 	  if (arg == NULL_GIMPLE)
 	    {
@@ -2137,7 +2144,7 @@ rewrite_update_dom_walker::before_dom_children (basic_block bb)
       if (!register_defs_p (phi))
 	continue;
 
-      lhs = gimple_phi_result (phi);
+      lhs = ssa_phi_result (phi);
       lhs_sym = lhs->var ();
 
       if (marked_for_renaming (lhs_sym))
@@ -2414,7 +2421,7 @@ pass_build_ssa::execute (function *fun)
       G::ssa_name name = ssa_name (i);
       if (!name || name->is_default_def ())
 	continue;
-      decl = name->var ();
+      decl = dyn_cast<G::var_decl> (name->var ());
       if (decl && !decl->is_virtual_operand () && decl->ignored_p ())
 	name->set_identifier (decl->name ());
     }
@@ -2444,7 +2451,7 @@ mark_def_interesting (G::value var, gimple stmt, basic_block bb,
   if (insert_phi_p)
     {
       bool is_phi_p = gimple_code (stmt) == GIMPLE_PHI;
-      G::ssa_name name = var;
+      G::ssa_name name = dyn_cast<G::ssa_name> (var);
 
       set_def_block (var, bb, is_phi_p);
 
@@ -2531,14 +2538,21 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
     {
       gimple phi = gsi_stmt (si);
       G::value lhs = gimple_phi_result (phi);
-      G::ssa_name lhs_name = lhs;
+      G::ssa_name lhs_name = dyn_cast<G::ssa_name> (lhs);
       G::decl lhs_sym;
 
       if (lhs_name && (! virtual_operand_p (lhs)
 		       || ! cfun->gimple_df->rename_vops))
 	continue;
 
-      lhs_sym = lhs_name ? lhs_name->var () : lhs;
+      if (lhs_name) 
+        lhs_sym = lhs_name->var ();
+      else
+        {
+	  extra_checking_assert (is_a<G::decl> (lhs));
+	  lhs_sym = as_a<G::decl> (lhs);
+	}
+
       mark_for_renaming (lhs_sym);
       mark_def_interesting (lhs_sym, phi, bb, insert_phi_p);
 
@@ -2567,16 +2581,20 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
 	  && gimple_vuse (stmt))
 	{
 	  G::value use = gimple_vuse (stmt);
-	  G::decl sym = is_a<G::decl> (use)
-				  ? use : as_a<G::ssa_name> (use)->var ();
+	  G::decl sym = dyn_cast<G::decl> (use);
+	  if (!sym)
+	    {
+	      extra_checking_assert (is_a<G::ssa_name> (use));
+	      sym = as_a<G::ssa_name> (use)->var ();
+	    }
 	  mark_for_renaming (sym);
 	  mark_use_interesting (sym, stmt, bb, insert_phi_p);
 	}
 
       FOR_EACH_SSA_USE_OPERAND (use_p, stmt, i, SSA_OP_USE)
 	{
-	  G::value use = USE_FROM_PTR (use_p);
-	  if (!is_a<G::decl> (use))
+	  G::decl use = dyn_cast<G::decl> (USE_FROM_PTR (use_p));
+	  if (!use)
 	    continue;
 	  mark_for_renaming (use);
 	  mark_use_interesting (use, stmt, bb, insert_phi_p);
@@ -2586,16 +2604,20 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
 	  && gimple_vdef (stmt))
 	{
 	  G::value def = gimple_vdef (stmt);
-	  G::decl sym = is_a<G::decl> (def)
-				  ? def : as_a<G::ssa_name> (def)->var ();
+	  G::decl sym = dyn_cast<G::decl> (def);
+	  if (!sym)
+	    {
+	      extra_checking_assert (is_a<G::ssa_name> (def));
+	      sym = as_a<G::ssa_name> (def)->var ();
+	    }
 	  mark_for_renaming (sym);
 	  mark_def_interesting (sym, stmt, bb, insert_phi_p);
 	}
 
       FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, i, SSA_OP_DEF)
 	{
-	  G::value def = DEF_FROM_PTR (def_p);
-	  if (!is_a<G::decl> (def))
+	  G::decl def = dyn_cast<G::decl> (DEF_FROM_PTR (def_p));
+	  if (!def)
 	    continue;
 	  mark_for_renaming (def);
 	  mark_def_interesting (def, stmt, bb, insert_phi_p);
@@ -2913,7 +2935,9 @@ mark_virtual_operands_for_renaming (struct function *fn)
 void
 mark_virtual_operand_for_renaming (G::ssa_name name)
 {
-  G::var_decl name_var = name->var ();
+  extra_checking_assert (is_a<G::var_decl> (name->var ()));
+
+  G::var_decl name_var = as_a<G::var_decl> (name->var ());
   bool used = false;
   imm_use_iterator iter;
   use_operand_p use_p;
@@ -2944,7 +2968,7 @@ mark_virtual_phi_result_for_renaming (gimple phi)
       fprintf (dump_file, "\n");
     }
 
-  mark_virtual_operand_for_renaming (gimple_phi_result (phi));
+  mark_virtual_operand_for_renaming (ssa_phi_result (phi));
 }
 
 /* Return true if there is any work to be done by update_ssa
@@ -3018,12 +3042,15 @@ insert_updated_phi_nodes_for (G::value var, bitmap_head *dfs,
   bitmap idf, pruned_idf;
   bitmap_iterator bi;
   unsigned i;
-  G::ssa_name var_name = var;
+  G::ssa_name var_name = dyn_cast<G::ssa_name> (var);
 
   if (var_name)
     gcc_checking_assert (is_old_name (var_name));
   else
-    gcc_checking_assert (marked_for_renaming (var));
+    {
+      extra_checking_assert (is_a<G::decl> (var));
+      gcc_checking_assert (marked_for_renaming (as_a<G::decl> (var)));
+    }
 
   /* Get all the definition sites for VAR.  */
   db = find_def_blocks_for (var);

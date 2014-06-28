@@ -323,7 +323,7 @@ comp_type_attributes (G::type t1, G::type t2)
 }
 
 inline bool
-tree_int_cst_equal (G::integer_cst const1, G::integer_cst const2)
+gimple_int_cst_equal (G::integer_cst const1, G::integer_cst const2)
 {
   if (const1 == const2)
     return true;
@@ -331,11 +331,24 @@ tree_int_cst_equal (G::integer_cst const1, G::integer_cst const2)
   if (!const1 || !const2)
     return false;
 
-// return wi::to_widest ((const_tree)const1) == wi::to_widest ((const_tree)const2);
-//   to_widest simply returns its argument...?
-   return const1 == const2;
+  return wi::to_widest (const1) == wi::to_widest (const2);
 }
 
+inline bool
+gimple_int_cst_equal (G::value const1, G::value const2)
+{
+  if (const1 == const2)
+    return true;
+
+  if (!const1 || !const2)
+    return false;
+
+  if (is_a <G::integer_cst> (const1) && is_a <G::integer_cst> (const2))
+    return wi::to_widest (as_a<G::integer_cst> (const1))
+	   == wi::to_widest (as_a<G::integer_cst> (const2));
+  return false;
+
+}
 
 inline G::value
 chainon (G::value x, G::value y)
@@ -514,20 +527,28 @@ gimple_fits_uhwi_p (G::value v)
 }
 
 inline unsigned HOST_WIDE_INT
-gimple_to_uhwi (G::integer_cst value)
+gimple_to_uhwi (G::integer_cst i)
 {
-  gcc_assert (gimple_fits_uhwi_p (value));
-  return value->low ();
+  gcc_assert (gimple_fits_uhwi_p (i));
+  return i->low ();
 }
+
+inline unsigned HOST_WIDE_INT
+gimple_to_uhwi (G::value v)
+{
+  gcc_assert (gimple_fits_uhwi_p (v));
+  return as_a<G::integer_cst> (v)->low ();
+}
+
 
 
 inline G::constant
 drop_tree_overflow (G::constant t)
 {
-  G::integer_cst i = t;
   gcc_checking_assert (t->overflow_p ());
 
   /* For tree codes with a sharing machinery re-build the result.  */
+  G::integer_cst i = dyn_cast<G::integer_cst> (t);
   if (i)
     return wide_int_to_int_cst (i->type (), i);
   /* Otherwise, as all tcc_constants are possibly shared, copy the node

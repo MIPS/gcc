@@ -2969,7 +2969,7 @@ convert_mult_to_fma (gimple mul_stmt, tree op1, tree op2)
 
 	  /* Make sure the negate statement becomes dead with this
 	     single transformation.  */
-	  if (!single_imm_use (gimple_assign_lhs (use_stmt),
+	  if (!single_imm_use (gimple_ssa_assign_lhs (use_stmt),
 			       &use_p, &neguse_stmt))
 	    return false;
 
@@ -3052,7 +3052,8 @@ convert_mult_to_fma (gimple mul_stmt, tree op1, tree op2)
       if (use_code == NEGATE_EXPR)
 	{
 	  result = gimple_assign_lhs (use_stmt);
-	  single_imm_use (gimple_assign_lhs (use_stmt), &use_p, &neguse_stmt);
+	  single_imm_use (gimple_ssa_assign_lhs (use_stmt),
+			  &use_p, &neguse_stmt);
 	  gsi_remove (&gsi, true);
 	  release_defs (use_stmt);
 

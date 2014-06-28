@@ -525,13 +525,16 @@ init_copy_prop (void)
     }
 }
 
-/* Callback for substitute_and_fold to get at the final copy-of values.  */
+/* Callback for substitute_and_fold to get at the final copy-of values.
+   Paramaters must match prototype which is why the parm is a value instead
+   of an ssa_name.  */
 
 static G::value
 get_value (G::value v)
 {
+  extra_checking_assert (is_a<G::ssa_name> (v));
+  G::ssa_name name = as_a<G::ssa_name> (v);
   G::value val;
-  G::ssa_name name = v;
 
   if (name->version () >= n_copy_of)
     return NULL_GIMPLE;

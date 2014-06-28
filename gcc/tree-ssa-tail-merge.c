@@ -854,7 +854,7 @@ release_last_vdef (basic_block bb)
       if (gimple_vdef (stmt) == NULL_TREE)
 	continue;
 
-      mark_virtual_operand_for_renaming (gimple_vdef (stmt));
+      mark_virtual_operand_for_renaming (ssa_vdef (stmt));
       return;
     }
 

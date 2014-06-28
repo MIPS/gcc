@@ -2827,7 +2827,7 @@ detect_commutative_reduction (scop_p scop, gimple stmt, vec<gimple> *in,
       phi = follow_inital_value_to_phi (init, lhs);
 
       if (phi && (used_outside_reduction (lhs, phi)
-		  || !has_single_use (gimple_phi_result (phi))))
+		  || !has_single_use (ssa_phi_result (phi))))
 	return NULL;
 
       in->safe_push (loop_phi);

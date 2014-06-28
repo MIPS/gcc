@@ -166,6 +166,24 @@ struct ssa_op_iter
        (void) (TREEVAR = op_iter_next_tree (&(ITER))))
 
 /* This macro executes a loop over the operands of STMT specified in FLAG,
+   returning each operand as a 'tree' in the variable TREEVAR.  ITER is an
+   ssa_op_iter structure used to control the loop.  */
+#define FOR_EACH_SSA_OPERAND(SSAVAR, STMT, ITER, FLAGS)	\
+  for (SSAVAR = op_iter_init_ssa (&(ITER), STMT, FLAGS);	\
+       !op_iter_done (&(ITER));					\
+       (void) (SSAVAR = op_iter_next_ssa (&(ITER))))
+
+/* This macro executes a loop over the operands of STMT specified in FLAG,
+   returning each operand as a 'tree' in the variable TREEVAR.  ITER is an
+   ssa_op_iter structure used to control the loop.  */
+#define FOR_EACH_SSA_DECL_OPERAND(DECLVAR, STMT, ITER, FLAGS)	\
+  for (DECLVAR = op_iter_init_decl (&(ITER), STMT, FLAGS);	\
+       !op_iter_done (&(ITER));					\
+       (void) (DECLVAR = op_iter_next_decl (&(ITER))))
+
+
+
+/* This macro executes a loop over the operands of STMT specified in FLAG,
    returning each operand as a 'use_operand_p' in the variable USEVAR.
    ITER is an ssa_op_iter structure used to control the loop.  */
 #define FOR_EACH_SSA_USE_OPERAND(USEVAR, STMT, ITER, FLAGS)	\
@@ -264,7 +282,7 @@ static inline void
 link_imm_use (ssa_use_operand_t *linknode, G::value def)
 {
   ssa_use_operand_t *root;
-  G::ssa_name name = def;
+  G::ssa_name name = def ? dyn_cast<G::ssa_name> (def) : NULL_GIMPLE;
 
   if (!name)
     linknode->prev = NULL;
@@ -572,6 +590,33 @@ op_iter_next_tree (ssa_op_iter *ptr)
   return NULL_GIMPLE;
 }
 
+/* Get the next iterator tree value for PTR.  */
+static inline G::ssa_name
+op_iter_next_ssa (ssa_op_iter *ptr)
+{
+  G::value v = op_iter_next_tree (ptr);
+  if (v)
+    {
+      extra_checking_assert (is_a<G::ssa_name> (v));
+      return as_a<G::ssa_name> (v);
+    }
+  return NULL_GIMPLE;
+}
+
+/* Get the next iterator tree value for PTR.  */
+static inline G::decl
+op_iter_next_decl (ssa_op_iter *ptr)
+{
+  G::value v = op_iter_next_tree (ptr);
+  if (v)
+    {
+      extra_checking_assert (is_a<G::decl> (v));
+      return as_a<G::decl> (v);
+    }
+  return NULL_GIMPLE;
+}
+
+
 
 /* This functions clears the iterator PTR, and marks it done.  This is normally
    used to prevent warnings in the compile about might be uninitialized
@@ -654,13 +699,35 @@ op_iter_init_def (ssa_op_iter *ptr, gimple stmt, int flags)
 }
 
 /* Initialize iterator PTR to the operands in STMT based on FLAGS. Return
-   the first operand as a tree.  */
+   the first operand as a decl.  */
 static inline G::value
 op_iter_init_tree (ssa_op_iter *ptr, gimple stmt, int flags)
 {
   op_iter_init (ptr, stmt, flags);
   ptr->iter_type = ssa_op_iter_tree;
   return op_iter_next_tree (ptr);
+}
+
+
+/* Initialize iterator PTR to the operands in STMT based on FLAGS. Return
+   the first operand as an ssaname   */
+static inline G::ssa_name
+op_iter_init_ssa (ssa_op_iter *ptr, gimple stmt, int flags)
+{
+  op_iter_init (ptr, stmt, flags);
+  ptr->iter_type = ssa_op_iter_tree;
+  return op_iter_next_ssa (ptr);
+}
+
+
+/* Initialize iterator PTR to the operands in STMT based on FLAGS. Return
+   the first operand as a tree.  */
+static inline G::decl
+op_iter_init_decl (ssa_op_iter *ptr, gimple stmt, int flags)
+{
+  op_iter_init (ptr, stmt, flags);
+  ptr->iter_type = ssa_op_iter_tree;
+  return op_iter_next_decl (ptr);
 }
 
 

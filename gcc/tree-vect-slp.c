@@ -1786,7 +1786,7 @@ vect_detect_hybrid_slp_stmts (slp_tree node)
   FOR_EACH_VEC_ELT (SLP_TREE_SCALAR_STMTS (node), i, stmt)
     if (PURE_SLP_STMT (vinfo_for_stmt (stmt))
 	&& TREE_CODE (gimple_op (stmt, 0)) == SSA_NAME)
-      FOR_EACH_IMM_USE_STMT (use_stmt, imm_iter, gimple_op (stmt, 0))
+      FOR_EACH_IMM_USE_STMT (use_stmt, imm_iter, gimple_ssa_op (stmt, 0))
 	if (gimple_bb (use_stmt)
             && ((loop && flow_bb_inside_loop_p (loop, gimple_bb (use_stmt)))
 		 || bb == gimple_bb (use_stmt))
@@ -1983,7 +1983,7 @@ vect_bb_slp_scalar_cost (basic_block bb,
 	{
 	  imm_use_iterator use_iter;
 	  gimple use_stmt;
-	  FOR_EACH_IMM_USE_STMT (use_stmt, use_iter, DEF_FROM_PTR (def_p))
+	  FOR_EACH_IMM_USE_STMT (use_stmt, use_iter, SSA_DEF_FROM_PTR (def_p))
 	    if (!is_gimple_debug (use_stmt)
 		&& (gimple_code (use_stmt) == GIMPLE_PHI
 		    || gimple_bb (use_stmt) != bb

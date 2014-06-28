@@ -565,7 +565,7 @@ find_basis_for_candidate (slsr_cand_t c)
 
 	  /* If we found a hidden basis, estimate additional dead-code
 	     savings if the phi and its feeding statements can be removed.  */
-	  if (basis && has_single_use (gimple_phi_result (phi_cand->cand_stmt)))
+	  if (basis && has_single_use (ssa_phi_result (phi_cand->cand_stmt)))
 	    c->dead_savings += phi_cand->dead_savings;
 	}
     }
@@ -2650,7 +2650,7 @@ phi_incr_cost (slsr_cand_t c, const widest_int &incr, gimple phi, int *savings)
 	    {
 	      int feeding_savings = 0;
 	      cost += phi_incr_cost (c, incr, arg_def, &feeding_savings);
-	      if (has_single_use (gimple_phi_result (arg_def)))
+	      if (has_single_use (ssa_phi_result (arg_def)))
 		*savings += feeding_savings;
 	    }
 	  else
@@ -2740,7 +2740,7 @@ lowest_cost_path (int cost_in, int repl_savings, slsr_cand_t c,
       gimple phi = lookup_cand (c->def_phi)->cand_stmt;
       local_cost += phi_incr_cost (c, incr, phi, &savings);
 
-      if (has_single_use (gimple_phi_result (phi)))
+      if (has_single_use (ssa_phi_result (phi)))
 	local_cost -= savings;
     }
 
@@ -2784,7 +2784,7 @@ total_savings (int repl_savings, slsr_cand_t c, const widest_int &incr,
       gimple phi = lookup_cand (c->def_phi)->cand_stmt;
       savings -= phi_incr_cost (c, incr, phi, &phi_savings);
 
-      if (has_single_use (gimple_phi_result (phi)))
+      if (has_single_use (ssa_phi_result (phi)))
 	savings += phi_savings;
     }
 

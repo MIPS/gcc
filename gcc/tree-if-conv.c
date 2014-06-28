@@ -519,7 +519,7 @@ if_convertible_phi_p (struct loop *loop, basic_block bb, gimple phi,
 	  return false;
 	}
 
-      FOR_EACH_IMM_USE_FAST (use_p, imm_iter, gimple_phi_result (phi))
+      FOR_EACH_IMM_USE_FAST (use_p, imm_iter, ssa_phi_result (phi))
 	{
 	  if (gimple_code (USE_STMT (use_p)) == GIMPLE_PHI)
 	    {
