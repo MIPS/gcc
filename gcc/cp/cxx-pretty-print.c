@@ -2220,7 +2220,7 @@ pp_cxx_template_declaration (cxx_pretty_printer *pp, tree t)
       pp_newline_and_indent (pp, 3);
     }
 
-  if (tree c = DECL_CONSTRAINTS (t))
+  if (tree c = get_constraints (t))
     {
       pp_cxx_ws_string (pp, "requires");
       pp->expression (CI_REQUIREMENTS (c));

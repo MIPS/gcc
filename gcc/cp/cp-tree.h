@@ -828,16 +828,6 @@ check_constraint_info (tree t)
 #define CI_ASSUMPTIONS(NODE) \
   check_nonnull (check_constraint_info (NODE))->assumptions
 
-// Access constraints for the declaration, NODE.
-//
-// For TEMPLATE_DECL nodes, the constraints are stored in the
-// DECL_SIZE_UNIT node.
-//
-// TODO: This will need to be updated for shorthand constraints and
-// constrained auto declarations.
-#define DECL_CONSTRAINTS(NODE) \
-  (DECL_SIZE_UNIT (TEMPLATE_DECL_CHECK (NODE)))
-
 // Access the logical constraints on the template parameters introduced 
 // at a given template parameter list level indicated by NODE.
 #define TEMPLATE_PARMS_CONSTRAINTS(NODE) \
@@ -6358,6 +6348,7 @@ extern tree conjoin_requirements                (tree);
 extern tree reduce_requirements                 (tree);
 extern tree make_constraints                    (tree);
 extern tree get_constraints                     (tree);
+extern void set_constraints                     (tree, tree);
 extern tree get_shorthand_requirements          (tree);
 
 extern tree build_concept_check                 (tree, tree, tree = NULL_TREE);

@@ -2693,9 +2693,9 @@ finish_template_template_parm (tree aggr, tree identifier)
 
   tree tmpl = build_lang_decl (TEMPLATE_DECL, identifier, NULL_TREE);
   DECL_TEMPLATE_PARMS (tmpl) = current_template_parms;
-  DECL_CONSTRAINTS (tmpl) = current_template_reqs;
   DECL_TEMPLATE_RESULT (tmpl) = decl;
   DECL_ARTIFICIAL (decl) = 1;
+  set_constraints (tmpl, current_template_reqs);
 
   end_template_decl ();
 
@@ -3012,7 +3012,7 @@ fixup_template_type (tree type)
   tree specs = DECL_TEMPLATE_SPECIALIZATIONS (tmpl);
   while (specs)
     {
-      tree spec_constr = DECL_CONSTRAINTS (TREE_VALUE (specs));
+      tree spec_constr = get_constraints (TREE_VALUE (specs));
 
       // If the type and constraints match a specialization, then we
       // are entering that type. Note that the type comparison is

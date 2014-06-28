@@ -1,3 +1,31 @@
+2014-06-28  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/cp/cp-tree.h (DECL_CONSTRAINTS): Remove this macro; use
+	get_constraints instead.
+	(set_constraints): new.
+	* gcc/cp/cxx-pretty-print.c (pp_cxx_template_declaration): Use
+	get_constraints.
+	* gcc/cp/pt.c (get_specialization_constraints): Use get_constraints.
+	(build_template_decl): Use get_constraints.
+	(process_partial_specialization): Use get_constraints.
+	(add_inherited_template_parms): Use get_constraints.
+	(redeclare_class_template): Use get_constraints.
+	(is_compatible_template_arg): Use get_constraints.
+	(tsubst_friend_class): Use get_constraints.
+	(tsubst_decl): Uset get_constraints.
+	* gcc/cp/semantics.c (finish_template_template_parm): Use
+	get_constraints.
+	(fixup_template_type): Use get_constraints.
+	* gcc/cp/constraint.cc (constraints): New global association
+	of declarations to constraints.
+	(get_constraints): Return the associated constraints from the
+	hash table.
+	(set_constraints): New. Associate constraints with a declaration.
+	(check_template_constraints): Use get_constraints.
+	(equivalently_constrained): Use get_constraints.
+	(more_constrained): Use get_constraints.
+	(diagnose_constraints): Use get_constraints.
+	* gcc/testsuite/g++.dg/concepts/partial-spec.C: New.
+
 2014-06-25  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/parser.c (cp_parser_requires_clause): Don't fold expressions
 	when parsing a requires-clause.

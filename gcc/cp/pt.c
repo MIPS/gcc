@@ -846,7 +846,7 @@ get_specialization_constraints (tree type)
   // that type. If it is an explicit specialization, return null since
   // non-templates cannot be constrained.
   if (tree d = get_specializing_template_decl (type))
-    return DECL_CONSTRAINTS (d);
+    return get_constraints (d);
   else
     return NULL_TREE;
 }
@@ -4147,10 +4147,10 @@ build_template_decl (tree decl, tree parms, tree constr, bool member_template_p)
 {
   tree tmpl = build_lang_decl (TEMPLATE_DECL, DECL_NAME (decl), NULL_TREE);
   DECL_TEMPLATE_PARMS (tmpl) = parms;
-  DECL_CONSTRAINTS (tmpl) = constr;
   DECL_CONTEXT (tmpl) = DECL_CONTEXT (decl);
   DECL_SOURCE_LOCATION (tmpl) = DECL_SOURCE_LOCATION (decl);
   DECL_MEMBER_TEMPLATE_P (tmpl) = member_template_p;
+  set_constraints (tmpl, constr);
 
   return tmpl;
 }
@@ -4319,7 +4319,7 @@ process_partial_specialization (tree decl)
      arguments but different constraints. */
   tree main_type = TREE_TYPE (maintmpl);
   tree main_args = INNERMOST_TEMPLATE_ARGS (CLASSTYPE_TI_ARGS (main_type));
-  tree main_constr = DECL_CONSTRAINTS (maintmpl);
+  tree main_constr = get_constraints (maintmpl);
   if (comp_template_args (inner_args, main_args)
       && equivalent_constraints (current_template_reqs, main_constr))
     error ("partial specialization %qT does not specialize any "
@@ -5229,13 +5229,13 @@ add_inherited_template_parms (tree fn, tree inherited)
   // If the inherited constructor was constrained, then also
   // propagate the constraints to the new declaration by
   // rewriting them in terms of the local template parameters.
-  tree cons = DECL_CONSTRAINTS (inherited);
+  tree cons = get_constraints (inherited);
   if (cons)
     {
       ++processing_template_decl;
       tree reqs = instantiate_requirements (CI_REQUIREMENTS (cons), args);
       --processing_template_decl;
-      DECL_CONSTRAINTS (tmpl) = make_constraints (reqs);
+      set_constraints (tmpl, make_constraints (reqs));
     }
 
   DECL_TEMPLATE_INFO (fn) = build_template_info (tmpl, args);
@@ -5354,7 +5354,7 @@ redeclare_class_template (tree type, tree parms, tree cons)
     }
 
   // Cannot redeclare a class template with a different set of constraints. 
-  if (!equivalent_constraints (DECL_CONSTRAINTS (tmpl), cons))
+  if (!equivalent_constraints (get_constraints (tmpl), cons))
     {
       error_at (input_location, "redeclaration %q#D with different "
                                 "constraints", tmpl);
@@ -6586,8 +6586,8 @@ is_compatible_template_arg (tree parm, tree arg)
         return true;
     }
 
-  tree parmcons = DECL_CONSTRAINTS (parm);
-  tree argcons = DECL_CONSTRAINTS (arg);
+  tree parmcons = get_constraints (parm);
+  tree argcons = get_constraints (arg);
 
   // If the template parameter is constrained, we need to rewrite its
   // constraints in terms of the ARG's template parameters. This ensures
@@ -8997,7 +8997,7 @@ tsubst_friend_class (tree friend_tmpl, tree args)
 
           saved_input_location = input_location;
           input_location = DECL_SOURCE_LOCATION (friend_tmpl);
-          tree cons = DECL_CONSTRAINTS (tmpl);
+          tree cons = get_constraints (tmpl);
           redeclare_class_template (TREE_TYPE (tmpl), parms, cons);
           input_location = saved_input_location;
           
@@ -10800,10 +10800,10 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
         // If constrained, also instantiate requirements.
         // TODO: Instantiate shorthand constraints on parameters also.
         // See tsubst_template_parms for that. 
-        if (tree ci = DECL_CONSTRAINTS (t))
+        if (tree ci = get_constraints (t))
           {
             tree reqs = instantiate_requirements (CI_SPELLING (ci), args);
-            DECL_CONSTRAINTS (r) = finish_template_requirements (reqs);
+            set_constraints (r, make_constraints (reqs));
           }
 
 	if (PRIMARY_TEMPLATE_P (t))

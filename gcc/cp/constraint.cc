@@ -38,7 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "vec.h"
 #include "target.h"
 #include "bitmap.h"
-
+#include "hash-map.h"
 
 // -------------------------------------------------------------------------- //
 // Requirement Construction
@@ -564,21 +564,38 @@ make_constraints (tree reqs)
   return (tree)cinfo;
 }
 
+typedef hash_map<tree, tree> constraint_map;
+
+// Constraints (constraint_info nodes) are associatd with declrations 
+// via this mapping. Note that we don't store constraints directly in trees 
+// so we don't use the extra memory when concepts are not enabled. This also 
+// provides the ability to associate constraint information with a broader 
+// set of declarations (i.e., templates, functions, variables, template
+// parameters, etc).
+static constraint_map constraints;
+
 // Returns the template constraints of declaration T. If T is not a
 // template, this return NULL_TREE. Note that T must be non-null.
 tree
 get_constraints (tree t)
 {
   gcc_assert (DECL_P (t));
-  if (TREE_CODE (t) != TEMPLATE_DECL)
-    {
-      if (!DECL_TEMPLATE_INFO (t))
-        return NULL_TREE;
-      else
-        return DECL_CONSTRAINTS (DECL_TI_TEMPLATE (t));
-    }
-  return DECL_CONSTRAINTS (t);
+  if (tree* r = constraints.get(t))
+    return *r;
+  else
+    return NULL_TREE;
 }
+
+// Associate the given constraint information with the declaration.
+// Once set, constraints cannot be overwritten.
+void
+set_constraints (tree t, tree ci)
+{
+  gcc_assert (DECL_P (t));
+  gcc_assert(!get_constraints(t));
+  constraints.put(t, ci);
+}
+
 
 // Returns a conjunction of shorthand requirements for the template
 // parameter list PARMS. Note that the requirements are stored in
@@ -1187,7 +1204,7 @@ check_constraints (tree cinfo, tree args)
 bool
 check_template_constraints (tree t, tree args)
 {
-  return check_constraints (DECL_CONSTRAINTS (t), args);
+  return check_constraints (get_constraints (t), args);
 }
 
 // -------------------------------------------------------------------------- //
@@ -1212,7 +1229,7 @@ bool
 equivalently_constrained (tree a, tree b)
 {
   gcc_assert (TREE_CODE (a) == TREE_CODE (b));
-  return equivalent_constraints (DECL_CONSTRAINTS (a), DECL_CONSTRAINTS (b));
+  return equivalent_constraints (get_constraints (a), get_constraints (b));
 }
 
 // Returns true when the A contains more atomic properties than B.
@@ -1228,7 +1245,7 @@ bool
 more_constrained (tree a, tree b)
 {
   gcc_assert (TREE_CODE (a) == TREE_CODE (b));
-  return more_constraints (DECL_CONSTRAINTS (a), DECL_CONSTRAINTS (b));
+  return more_constraints (get_constraints (a), get_constraints (b));
 }
 
 
@@ -1535,7 +1552,7 @@ diagnose_constraints (location_t loc, tree tmpl, tree args)
 
   // Diagnose the constraints by recursively decomposing and
   // evaluating the template requirements.
-  tree reqs = CI_SPELLING (DECL_CONSTRAINTS (tmpl));
+  tree reqs = CI_SPELLING (get_constraints (tmpl));
   diagnose_requirements (loc, reqs, args);
 }
 
