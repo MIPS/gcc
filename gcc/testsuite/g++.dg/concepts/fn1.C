@@ -1,4 +1,4 @@
-// { dg-options "-std=c++1y" }
+// { dg-options "-std=c++1z" }
 
 template<typename T>
   concept bool C() { return __is_class(T); }

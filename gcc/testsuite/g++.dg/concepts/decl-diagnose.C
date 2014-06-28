@@ -1,4 +1,5 @@
-// { dg-options "-std=c++11" }
+// { dg-options "-std=c++1z" }
+
 typedef concept int CINT; // { dg-error "'concept' cannot appear in a typedef declaration" }
 
 void f(concept int); // { dg-error "a parameter cannot be declared 'concept'" }

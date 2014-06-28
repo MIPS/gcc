@@ -1,4 +1,15 @@
 2014-06-28  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/c-family/c.opt (flag_concepts): Don't enable by default.
+	* gcc/c-family/c-opts.c (set_std_cxx1z): Enable concepts if
+	-std=cxx1z is selected.
+	* gcc/c-family/c-format.c (gcc_cxxdia): Add "Z" as format specifier.
+	* gcc/cp/c-common.c (cxx_dialect): Make -std=c++98 the default
+	language again.
+	* gcc/cp/lex.c (cxx_init): Don't set flag_concepts explicitly.
+	* gcc/testsuite/g++.dg/concepts/*.C: Updat build flags.
+
+
+2014-06-28  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/cp-tree.h (DECL_CONSTRAINTS): Remove this macro; use
 	get_constraints instead.
 	(set_constraints): new.

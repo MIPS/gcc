@@ -1601,6 +1601,8 @@ set_std_cxx1z (int iso)
   /* C++11 includes the C99 standard library.  */
   flag_isoc94 = 1;
   flag_isoc99 = 1;
+  /* Enable concepts by default. */
+  flag_concepts = true;
   cxx_dialect = cxx1z;
 }
 

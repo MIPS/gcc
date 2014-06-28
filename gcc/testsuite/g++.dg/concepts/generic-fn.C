@@ -1,5 +1,5 @@
 // { dg-do run }
-// { dg-options "-std=c++1y" }
+// { dg-options "-std=c++1z" }
 
 #include <cassert>
 #include <type_traits>

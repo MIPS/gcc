@@ -892,8 +892,8 @@ C ObjC C++ ObjC++
 Where shorter, use canonicalized paths to systems headers.
 
 fconcepts
-C++ ObjC++ Var(flag_concepts, true)
-Activate support for C++ concepts
+C++ ObjC++ Var(flag_concepts, false)
+Enable support for C++ concepts
 
 fcilkplus
 C ObjC C++ ObjC++ LTO Report Var(flag_cilkplus) Init(0)

@@ -229,8 +229,6 @@ cxx_init (void)
    EXPR_STMT
   };
 
-  flag_concepts = true;
-
   memset (&statement_code_p, 0, sizeof (statement_code_p));
   for (i = 0; i < ARRAY_SIZE (stmt_codes); i++)
     statement_code_p[stmt_codes[i]] = true;

@@ -1,4 +1,4 @@
-// { dg-options "-std=c++1y" }
+// { dg-options "-std=c++1z" }
 
 
 // The following error is emitted without context. I'm not
