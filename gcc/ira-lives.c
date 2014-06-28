@@ -725,13 +725,13 @@ make_early_clobber_and_input_conflicts (void)
 static bool
 mark_hard_reg_early_clobbers (rtx insn, bool live_p)
 {
-  df_ref *def_rec;
+  df_ref def;
   bool set_p = false;
 
-  for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
-    if (DF_REF_FLAGS_IS_SET (*def_rec, DF_REF_MUST_CLOBBER))
+  FOR_EACH_INSN_DEF (def, insn)
+    if (DF_REF_FLAGS_IS_SET (def, DF_REF_MUST_CLOBBER))
       {
-	rtx dreg = DF_REF_REG (*def_rec);
+	rtx dreg = DF_REF_REG (def);
 
 	if (GET_CODE (dreg) == SUBREG)
 	  dreg = SUBREG_REG (dreg);
@@ -742,9 +742,9 @@ mark_hard_reg_early_clobbers (rtx insn, bool live_p)
 	   because there is no way to say that non-operand hard
 	   register clobbers are not early ones.  */
 	if (live_p)
-	  mark_ref_live (*def_rec);
+	  mark_ref_live (def);
 	else
-	  mark_ref_dead (*def_rec);
+	  mark_ref_dead (def);
 	set_p = true;
       }
 
@@ -759,6 +759,7 @@ single_reg_class (const char *constraints, rtx op, rtx equiv_const)
 {
   int c;
   enum reg_class cl, next_cl;
+  enum constraint_num cn;
 
   cl = NO_REGS;
   alternative_mask enabled = recog_data.enabled_alternatives;
@@ -770,99 +771,21 @@ single_reg_class (const char *constraints, rtx op, rtx equiv_const)
     else if (enabled & 1)
       switch (c)
 	{
-	case ' ':
-	case '\t':
-	case '=':
-	case '+':
-	case '*':
-	case '&':
-	case '%':
-	case '!':
-	case '?':
-	  break;
-	case 'i':
-	  if (CONSTANT_P (op)
-	      || (equiv_const != NULL_RTX && CONSTANT_P (equiv_const)))
-	    return NO_REGS;
-	  break;
+	case 'g':
+	  return NO_REGS;
 
-	case 'n':
-	  if (CONST_SCALAR_INT_P (op)
-	      || (equiv_const != NULL_RTX && CONST_SCALAR_INT_P (equiv_const)))
-	    return NO_REGS;
-	  break;
-
-	case 's':
-	  if ((CONSTANT_P (op) && !CONST_SCALAR_INT_P (op))
-	      || (equiv_const != NULL_RTX
-		  && CONSTANT_P (equiv_const)
-		  && !CONST_SCALAR_INT_P (equiv_const)))
-	    return NO_REGS;
-	  break;
-
-	case 'I':
-	case 'J':
-	case 'K':
-	case 'L':
-	case 'M':
-	case 'N':
-	case 'O':
-	case 'P':
-	  if ((CONST_INT_P (op)
-	       && CONST_OK_FOR_CONSTRAINT_P (INTVAL (op), c, constraints))
-	      || (equiv_const != NULL_RTX
-		  && CONST_INT_P (equiv_const)
-		  && CONST_OK_FOR_CONSTRAINT_P (INTVAL (equiv_const),
-						c, constraints)))
-	    return NO_REGS;
-	  break;
-
-	case 'E':
-	case 'F':
-	  if (CONST_DOUBLE_AS_FLOAT_P (op) 
-	      || (GET_CODE (op) == CONST_VECTOR
-		  && GET_MODE_CLASS (GET_MODE (op)) == MODE_VECTOR_FLOAT)
-	      || (equiv_const != NULL_RTX
-		  && (CONST_DOUBLE_AS_FLOAT_P (equiv_const)
-		      || (GET_CODE (equiv_const) == CONST_VECTOR
-			  && (GET_MODE_CLASS (GET_MODE (equiv_const))
-			      == MODE_VECTOR_FLOAT)))))
-	    return NO_REGS;
-	  break;
-
-	case 'G':
-	case 'H':
-	  if ((CONST_DOUBLE_AS_FLOAT_P (op) 
-	       && CONST_DOUBLE_OK_FOR_CONSTRAINT_P (op, c, constraints))
-	      || (equiv_const != NULL_RTX
-		  && CONST_DOUBLE_AS_FLOAT_P (equiv_const) 
-		  && CONST_DOUBLE_OK_FOR_CONSTRAINT_P (equiv_const,
-						       c, constraints)))
-	    return NO_REGS;
-	  break;
-
-	case 'r':
-	case 'a': case 'b': case 'c': case 'd': case 'e': case 'f':
-	case 'h': case 'j': case 'k': case 'l':
-	case 'q': case 't': case 'u':
-	case 'v': case 'w': case 'x': case 'y': case 'z':
-	case 'A': case 'B': case 'C': case 'D':
-	case 'Q': case 'R': case 'S': case 'T': case 'U':
-	case 'W': case 'Y': case 'Z':
-#ifdef EXTRA_CONSTRAINT_STR
+	default:
 	  /* ??? Is this the best way to handle memory constraints?  */
-	  if (EXTRA_MEMORY_CONSTRAINT (c, constraints)
-	      || EXTRA_ADDRESS_CONSTRAINT (c, constraints))
+	  cn = lookup_constraint (constraints);
+	  if (insn_extra_memory_constraint (cn)
+	      || insn_extra_address_constraint (cn))
 	    return NO_REGS;
-	  if (EXTRA_CONSTRAINT_STR (op, c, constraints)
+	  if (constraint_satisfied_p (op, cn)
 	      || (equiv_const != NULL_RTX
 		  && CONSTANT_P (equiv_const)
-		  && EXTRA_CONSTRAINT_STR (equiv_const, c, constraints)))
+		  && constraint_satisfied_p (equiv_const, cn)))
 	    return NO_REGS;
-#endif
-	  next_cl = (c == 'r'
-		     ? GENERAL_REGS
-		     : REG_CLASS_FROM_CONSTRAINT (c, constraints));
+	  next_cl = reg_class_for_constraint (cn);
 	  if (next_cl == NO_REGS)
 	    break;
 	  if (cl == NO_REGS
@@ -885,9 +808,6 @@ single_reg_class (const char *constraints, rtx op, rtx equiv_const)
 	    return NO_REGS;
 	  cl = next_cl;
 	  break;
-
-	default:
-	  return NO_REGS;
 	}
   return cl;
 }
@@ -938,29 +858,17 @@ ira_implicitly_set_insn_hard_regs (HARD_REG_SET *set)
 	    else if (c == ',')
 	      enabled >>= 1;
 	    else if (enabled & 1)
-	      switch (c)
-		{
-		case 'r':
-		case 'a': case 'b': case 'c': case 'd': case 'e': case 'f':
-		case 'h': case 'j': case 'k': case 'l':
-		case 'q': case 't': case 'u':
-		case 'v': case 'w': case 'x': case 'y': case 'z':
-		case 'A': case 'B': case 'C': case 'D':
-		case 'Q': case 'R': case 'S': case 'T': case 'U':
-		case 'W': case 'Y': case 'Z':
-		  cl = (c == 'r'
-			? GENERAL_REGS
-			: REG_CLASS_FROM_CONSTRAINT (c, p));
-		  if (cl != NO_REGS)
-		    {
-		      /* There is no register pressure problem if all of the
-			 regs in this class are fixed.  */
-		      int regno = ira_class_singleton[cl][mode];
-		      if (regno >= 0)
-			add_to_hard_reg_set (set, mode, regno);
-		    }
-		  break;
-		}
+	      {
+		cl = reg_class_for_constraint (lookup_constraint (p));
+		if (cl != NO_REGS)
+		  {
+		    /* There is no register pressure problem if all of the
+		       regs in this class are fixed.  */
+		    int regno = ira_class_singleton[cl][mode];
+		    if (regno >= 0)
+		      add_to_hard_reg_set (set, mode, regno);
+		  }
+	      }
 	}
     }
 }
@@ -1206,7 +1114,7 @@ process_bb_node_lives (ira_loop_tree_node_t loop_tree_node)
 	 pessimistic, but it probably doesn't matter much in practice.  */
       FOR_BB_INSNS_REVERSE (bb, insn)
 	{
-	  df_ref *def_rec, *use_rec;
+	  df_ref def, use;
 	  bool call_p;
 
 	  if (!NONDEBUG_INSN_P (insn))
@@ -1227,9 +1135,9 @@ process_bb_node_lives (ira_loop_tree_node_t loop_tree_node)
 	     live would stop us from allocating it to a call-crossing
 	     allocno.  */
 	  call_p = CALL_P (insn);
-	  for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
-	    if (!call_p || !DF_REF_FLAGS_IS_SET (*def_rec, DF_REF_MAY_CLOBBER))
-	      mark_ref_live (*def_rec);
+	  FOR_EACH_INSN_DEF (def, insn)
+	    if (!call_p || !DF_REF_FLAGS_IS_SET (def, DF_REF_MAY_CLOBBER))
+	      mark_ref_live (def);
 
 	  /* If INSN has multiple outputs, then any value used in one
 	     of the outputs conflicts with the other outputs.  Model this
@@ -1243,12 +1151,12 @@ process_bb_node_lives (ira_loop_tree_node_t loop_tree_node)
 	     to the same hard register as an unused output we could
 	     set the hard register before the output reload insn.  */
 	  if (GET_CODE (PATTERN (insn)) == PARALLEL && multiple_sets (insn))
-	    for (use_rec = DF_INSN_USES (insn); *use_rec; use_rec++)
+	    FOR_EACH_INSN_USE (use, insn)
 	      {
 		int i;
 		rtx reg;
 
-		reg = DF_REF_REG (*use_rec);
+		reg = DF_REF_REG (use);
 		for (i = XVECLEN (PATTERN (insn), 0) - 1; i >= 0; i--)
 		  {
 		    rtx set;
@@ -1259,7 +1167,7 @@ process_bb_node_lives (ira_loop_tree_node_t loop_tree_node)
 		      {
 			/* After the previous loop, this is a no-op if
 			   REG is contained within SET_DEST (SET).  */
-			mark_ref_live (*use_rec);
+			mark_ref_live (use);
 			break;
 		      }
 		  }
@@ -1270,9 +1178,9 @@ process_bb_node_lives (ira_loop_tree_node_t loop_tree_node)
 	  process_single_reg_class_operands (false, freq);
 
 	  /* See which defined values die here.  */
-	  for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
-	    if (!call_p || !DF_REF_FLAGS_IS_SET (*def_rec, DF_REF_MAY_CLOBBER))
-	      mark_ref_dead (*def_rec);
+	  FOR_EACH_INSN_DEF (def, insn)
+	    if (!call_p || !DF_REF_FLAGS_IS_SET (def, DF_REF_MAY_CLOBBER))
+	      mark_ref_dead (def);
 
 	  if (call_p)
 	    {
@@ -1341,8 +1249,8 @@ process_bb_node_lives (ira_loop_tree_node_t loop_tree_node)
 	  curr_point++;
 
 	  /* Mark each used value as live.  */
-	  for (use_rec = DF_INSN_USES (insn); *use_rec; use_rec++)
-	    mark_ref_live (*use_rec);
+	  FOR_EACH_INSN_USE (use, insn)
+	    mark_ref_live (use);
 
 	  process_single_reg_class_operands (true, freq);
 
@@ -1355,16 +1263,16 @@ process_bb_node_lives (ira_loop_tree_node_t loop_tree_node)
 	      /* Mark each hard reg as live again.  For example, a
 		 hard register can be in clobber and in an insn
 		 input.  */
-	      for (use_rec = DF_INSN_USES (insn); *use_rec; use_rec++)
+	      FOR_EACH_INSN_USE (use, insn)
 		{
-		  rtx ureg = DF_REF_REG (*use_rec);
+		  rtx ureg = DF_REF_REG (use);
 
 		  if (GET_CODE (ureg) == SUBREG)
 		    ureg = SUBREG_REG (ureg);
 		  if (! REG_P (ureg) || REGNO (ureg) >= FIRST_PSEUDO_REGISTER)
 		    continue;
 
-		  mark_ref_live (*use_rec);
+		  mark_ref_live (use);
 		}
 	    }
 

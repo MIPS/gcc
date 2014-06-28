@@ -219,10 +219,6 @@ static GTY ((if_marked ("tree_decl_map_marked_p"), param_is (struct tree_decl_ma
 static GTY ((if_marked ("tree_vec_map_marked_p"), param_is (struct tree_vec_map)))
      htab_t debug_args_for_decl;
 
-static GTY ((if_marked ("tree_priority_map_marked_p"),
-	     param_is (struct tree_priority_map)))
-  htab_t init_priority_for_decl;
-
 static void set_type_quals (tree, int);
 static int type_hash_eq (const void *, const void *);
 static hashval_t type_hash_hash (const void *);
@@ -573,8 +569,6 @@ init_ttree (void)
 
   value_expr_for_decl = htab_create_ggc (512, tree_decl_map_hash,
 					 tree_decl_map_eq, 0);
-  init_priority_for_decl = htab_create_ggc (512, tree_priority_map_hash,
-					    tree_priority_map_eq, 0);
 
   int_cst_hash_table = htab_create_ggc (1024, int_cst_hash_hash,
 					int_cst_hash_eq, NULL);
@@ -608,7 +602,7 @@ decl_assembler_name (tree decl)
    DECL is associated with.  This can be either an IDENTIFIER_NODE or a
    decl, in which case its DECL_ASSEMBLER_NAME identifies the group.  */
 tree
-decl_comdat_group (tree node)
+decl_comdat_group (const_tree node)
 {
   struct symtab_node *snode = symtab_get_node (node);
   if (!snode)
@@ -618,12 +612,70 @@ decl_comdat_group (tree node)
 
 /* Likewise, but make sure it's been reduced to an IDENTIFIER_NODE.  */
 tree
-decl_comdat_group_id (tree node)
+decl_comdat_group_id (const_tree node)
 {
   struct symtab_node *snode = symtab_get_node (node);
   if (!snode)
     return NULL;
   return snode->get_comdat_group_id ();
+}
+
+/* When the target supports named section, return its name as IDENTIFIER_NODE
+   or NULL if it is in no section.  */
+const char *
+decl_section_name (const_tree node)
+{
+  struct symtab_node *snode = symtab_get_node (node);
+  if (!snode)
+    return NULL;
+  return snode->get_section ();
+}
+
+/* Set section section name of NODE to VALUE (that is expected to
+   be identifier node)  */
+void
+set_decl_section_name (tree node, const char *value)
+{
+  struct symtab_node *snode;
+
+  if (value == NULL)
+    {
+      snode = symtab_get_node (node);
+      if (!snode)
+	return;
+    }
+  else if (TREE_CODE (node) == VAR_DECL)
+    snode = varpool_node_for_decl (node);
+  else
+    snode = cgraph_get_create_node (node);
+  snode->set_section (value);
+}
+
+/* Return TLS model of a variable NODE.  */
+enum tls_model
+decl_tls_model (const_tree node)
+{
+  struct varpool_node *snode = varpool_get_node (node);
+  if (!snode)
+    return TLS_MODEL_NONE;
+  return snode->tls_model;
+}
+
+/* Set TLS model of variable NODE to MODEL.  */
+void
+set_decl_tls_model (tree node, enum tls_model model)
+{
+  struct varpool_node *vnode;
+
+  if (model == TLS_MODEL_NONE)
+    {
+      vnode = varpool_get_node (node);
+      if (!vnode)
+	return;
+    }
+  else
+    vnode = varpool_node_for_decl (node);
+  vnode->tls_model = model;
 }
 
 /* Compute the number of bytes occupied by a tree with code CODE.
@@ -5254,7 +5306,6 @@ find_decls_types_r (tree *tp, int *ws, void *data)
       else if (TREE_CODE (t) == TYPE_DECL)
 	{
 	  fld_worklist_push (DECL_ARGUMENT_FLD (t), fld);
-	  fld_worklist_push (DECL_VINDEX (t), fld);
 	  fld_worklist_push (DECL_ORIGINAL_TYPE (t), fld);
 	}
       else if (TREE_CODE (t) == FIELD_DECL)
@@ -5263,10 +5314,6 @@ find_decls_types_r (tree *tp, int *ws, void *data)
 	  fld_worklist_push (DECL_BIT_FIELD_TYPE (t), fld);
 	  fld_worklist_push (DECL_FIELD_BIT_OFFSET (t), fld);
 	  fld_worklist_push (DECL_FCONTEXT (t), fld);
-	}
-      else if (TREE_CODE (t) == VAR_DECL)
-	{
-	  fld_worklist_push (DECL_SECTION_NAME (t), fld);
 	}
 
       if ((TREE_CODE (t) == VAR_DECL || TREE_CODE (t) == PARM_DECL)
@@ -6299,8 +6346,10 @@ build_qualified_type (tree type, int type_quals)
       else if (TYPE_CANONICAL (type) != type)
 	/* Build the underlying canonical type, since it is different
 	   from TYPE. */
-	TYPE_CANONICAL (t) = build_qualified_type (TYPE_CANONICAL (type),
-						   type_quals);
+	{
+	  tree c = build_qualified_type (TYPE_CANONICAL (type), type_quals);
+	  TYPE_CANONICAL (t) = TYPE_CANONICAL (c);
+	}
       else
 	/* T is its own canonical type. */
 	TYPE_CANONICAL (t) = t;
@@ -6436,13 +6485,12 @@ tree_decl_map_hash (const void *item)
 priority_type
 decl_init_priority_lookup (tree decl)
 {
-  struct tree_priority_map *h;
-  struct tree_map_base in;
+  symtab_node *snode = symtab_get_node (decl);
 
-  gcc_assert (VAR_OR_FUNCTION_DECL_P (decl));
-  in.from = decl;
-  h = (struct tree_priority_map *) htab_find (init_priority_for_decl, &in);
-  return h ? h->init : DEFAULT_INIT_PRIORITY;
+  if (!snode)
+    return DEFAULT_INIT_PRIORITY;
+  return
+    snode->get_init_priority ();
 }
 
 /* Return the finalization priority for DECL.  */
@@ -6450,39 +6498,12 @@ decl_init_priority_lookup (tree decl)
 priority_type
 decl_fini_priority_lookup (tree decl)
 {
-  struct tree_priority_map *h;
-  struct tree_map_base in;
+  cgraph_node *node = cgraph_get_node (decl);
 
-  gcc_assert (TREE_CODE (decl) == FUNCTION_DECL);
-  in.from = decl;
-  h = (struct tree_priority_map *) htab_find (init_priority_for_decl, &in);
-  return h ? h->fini : DEFAULT_INIT_PRIORITY;
-}
-
-/* Return the initialization and finalization priority information for
-   DECL.  If there is no previous priority information, a freshly
-   allocated structure is returned.  */
-
-static struct tree_priority_map *
-decl_priority_info (tree decl)
-{
-  struct tree_priority_map in;
-  struct tree_priority_map *h;
-  void **loc;
-
-  in.base.from = decl;
-  loc = htab_find_slot (init_priority_for_decl, &in, INSERT);
-  h = (struct tree_priority_map *) *loc;
-  if (!h)
-    {
-      h = ggc_cleared_alloc<tree_priority_map> ();
-      *loc = h;
-      h->base.from = decl;
-      h->init = DEFAULT_INIT_PRIORITY;
-      h->fini = DEFAULT_INIT_PRIORITY;
-    }
-
-  return h;
+  if (!node)
+    return DEFAULT_INIT_PRIORITY;
+  return
+    node->get_fini_priority ();
 }
 
 /* Set the initialization priority for DECL to PRIORITY.  */
@@ -6490,13 +6511,19 @@ decl_priority_info (tree decl)
 void
 decl_init_priority_insert (tree decl, priority_type priority)
 {
-  struct tree_priority_map *h;
+  struct symtab_node *snode;
 
-  gcc_assert (VAR_OR_FUNCTION_DECL_P (decl));
   if (priority == DEFAULT_INIT_PRIORITY)
-    return;
-  h = decl_priority_info (decl);
-  h->init = priority;
+    {
+      snode = symtab_get_node (decl);
+      if (!snode)
+	return;
+    }
+  else if (TREE_CODE (decl) == VAR_DECL)
+    snode = varpool_node_for_decl (decl);
+  else
+    snode = cgraph_get_create_node (decl);
+  snode->set_init_priority (priority);
 }
 
 /* Set the finalization priority for DECL to PRIORITY.  */
@@ -6504,13 +6531,17 @@ decl_init_priority_insert (tree decl, priority_type priority)
 void
 decl_fini_priority_insert (tree decl, priority_type priority)
 {
-  struct tree_priority_map *h;
+  struct cgraph_node *node;
 
-  gcc_assert (TREE_CODE (decl) == FUNCTION_DECL);
   if (priority == DEFAULT_INIT_PRIORITY)
-    return;
-  h = decl_priority_info (decl);
-  h->fini = priority;
+    {
+      node = cgraph_get_node (decl);
+      if (!node)
+	return;
+    }
+  else
+    node = cgraph_get_create_node (decl);
+  node->set_fini_priority (priority);
 }
 
 /* Print out the statistics for the DECL_DEBUG_EXPR hash table.  */
@@ -8939,6 +8970,10 @@ get_callee_fndecl (const_tree call)
      called.  */
   addr = CALL_EXPR_FN (call);
 
+  /* If there is no function, return early.  */
+  if (addr == NULL_TREE)
+    return NULL_TREE;
+
   STRIP_NOPS (addr);
 
   /* If this is a readonly function pointer, extract its initial value.  */
@@ -10564,6 +10599,27 @@ build_call_expr (tree fndecl, int n, ...)
     argarray[i] = va_arg (ap, tree);
   va_end (ap);
   return build_call_expr_loc_array (UNKNOWN_LOCATION, fndecl, n, argarray);
+}
+
+/* Build internal call expression.  This is just like CALL_EXPR, except
+   its CALL_EXPR_FN is NULL.  It will get gimplified later into ordinary
+   internal function.  */
+
+tree
+build_call_expr_internal_loc (location_t loc, enum internal_fn ifn,
+			      tree type, int n, ...)
+{
+  va_list ap;
+  int i;
+
+  tree fn = build_call_1 (type, NULL_TREE, n);
+  va_start (ap, n);
+  for (i = 0; i < n; i++)
+    CALL_EXPR_ARG (fn, i) = va_arg (ap, tree);
+  va_end (ap);
+  SET_EXPR_LOCATION (fn, loc);
+  CALL_EXPR_IFN (fn) = ifn;
+  return fn;
 }
 
 /* Create a new constant string literal and return a char* pointer to it.

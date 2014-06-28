@@ -682,7 +682,7 @@ alpha_in_small_data_p (const_tree exp)
 
   if (TREE_CODE (exp) == VAR_DECL && DECL_SECTION_NAME (exp))
     {
-      const char *section = TREE_STRING_POINTER (DECL_SECTION_NAME (exp));
+      const char *section = DECL_SECTION_NAME (exp);
       if (strcmp (section, ".sdata") == 0
 	  || strcmp (section, ".sbss") == 0)
 	return true;
@@ -8717,6 +8717,11 @@ alpha_handle_trap_shadows (void)
 			}
 		      break;
 
+		    case BARRIER:
+		      /* __builtin_unreachable can expand to no code at all,
+			 leaving (barrier) RTXes in the instruction stream.  */
+		      goto close_shadow_notrapb;
+
 		    case JUMP_INSN:
 		    case CALL_INSN:
 		    case CODE_LABEL:
@@ -8732,6 +8737,7 @@ alpha_handle_trap_shadows (void)
 		  n = emit_insn_before (gen_trapb (), i);
 		  PUT_MODE (n, TImode);
 		  PUT_MODE (i, TImode);
+		close_shadow_notrapb:
 		  trap_pending = 0;
 		  shadow.used.i = 0;
 		  shadow.used.fp = 0;

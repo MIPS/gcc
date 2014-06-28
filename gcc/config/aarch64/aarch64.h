@@ -35,6 +35,9 @@
       if (TARGET_SIMD)					\
 	builtin_define ("__ARM_NEON");			\
 							\
+      if (TARGET_CRC32)				\
+	builtin_define ("__ARM_FEATURE_CRC32");		\
+							\
       switch (aarch64_cmodel)				\
 	{						\
 	  case AARCH64_CMODEL_TINY:			\
@@ -194,6 +197,9 @@ extern unsigned long aarch64_tune_flags;
 
 /* Atomics are an optional feature.  */
 #define TARGET_ATOMIC AARCH64_ISA_ATOMIC
+
+/* CRC instructions that can be enabled through +crc arch extension.  */
+#define TARGET_CRC32 (AARCH64_ISA_CRC)
 
 /* Standard register usage.  */
 

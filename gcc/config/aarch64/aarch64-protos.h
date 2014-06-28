@@ -246,6 +246,7 @@ void aarch64_init_cumulative_args (CUMULATIVE_ARGS *, const_tree, rtx,
 void aarch64_init_expanders (void);
 void aarch64_print_operand (FILE *, rtx, char);
 void aarch64_print_operand_address (FILE *, rtx);
+void aarch64_emit_call_insn (rtx);
 
 bool aarch64_uimm5 (HOST_WIDE_INT);
 const char* aarch64_output_ccmp (rtx *, bool, int);

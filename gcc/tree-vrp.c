@@ -3906,15 +3906,6 @@ adjust_range_with_scev (value_range_t *vr, struct loop *loop,
 	max = init;
       else
 	min = init;
-
-      /* If we would create an invalid range, then just assume we
-	 know absolutely nothing.  This may be over-conservative,
-	 but it's clearly safe, and should happen only in unreachable
-         parts of code, or for invalid programs.  */
-      if (compare_values (min, max) == 1)
-	return;
-
-      set_value_range (vr, VR_RANGE, min, max, vr->equiv);
     }
   else if (vr->type == VR_RANGE)
     {
@@ -3947,16 +3938,20 @@ adjust_range_with_scev (value_range_t *vr, struct loop *loop,
 	      || compare_values (tmax, max) == -1)
 	    max = tmax;
 	}
-
-      /* If we just created an invalid range with the minimum
-	 greater than the maximum, we fail conservatively.
-	 This should happen only in unreachable
-	 parts of code, or for invalid programs.  */
-      if (compare_values (min, max) == 1)
-	return;
-
-      set_value_range (vr, VR_RANGE, min, max, vr->equiv);
     }
+  else
+    return;
+
+  /* If we just created an invalid range with the minimum
+     greater than the maximum, we fail conservatively.
+     This should happen only in unreachable
+     parts of code, or for invalid programs.  */
+  if (compare_values (min, max) == 1
+      || (is_negative_overflow_infinity (min)
+	  && is_positive_overflow_infinity (max)))
+    return;
+
+  set_value_range (vr, VR_RANGE, min, max, vr->equiv);
 }
 
 
@@ -6602,8 +6597,9 @@ remove_range_assertions (void)
 	  }
 	else
 	  {
+	    if (!is_gimple_debug (gsi_stmt (si)))
+	      is_unreachable = 0;
 	    gsi_next (&si);
-	    is_unreachable = 0;
 	  }
       }
 }
