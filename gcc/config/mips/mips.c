@@ -18031,7 +18031,7 @@ octeon_unique_section (tree decl, int reloc)
 	  string = XALLOCAVAR (char, plen + nlen + 1);
 	  memcpy (string, sname, plen);
 	  memcpy (string + plen, name, nlen + 1);
-	  DECL_SECTION_NAME (decl) = build_string (nlen + plen, string);
+	  set_decl_section_name (decl, string);
 	  return;
         }
     }

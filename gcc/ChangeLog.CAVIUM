@@ -1,3 +1,8 @@
+2014-06-28  Andrew Pinski  <apinski@cavium.com>
+
+	* config/mips/mips.c (octeon_unique_section): Use set_decl_section_name
+	rather than setting DECL_SECTION_NAME directly.
+
 2014-06-16  Andrew Pinski  <apinski@cavium.com>
 
 	Bug #11168
