@@ -256,6 +256,10 @@ Wabi
 C ObjC C++ ObjC++ LTO Var(warn_abi) Warning
 Warn about things that will change when compiling with an ABI-compliant compiler
 
+Wabi=
+C ObjC C++ ObjC++ LTO Joined RejectNegative UInteger Warning
+Warn about things that change between the current -fabi-version and the specified version
+
 Wabi-tag
 C++ ObjC++ Var(warn_abi_tag) Warning
 Warn if a subobject has an abi_tag attribute that the complete object type does not have
@@ -539,7 +543,7 @@ C ObjC C++ ObjC++ Var(warn_switch_enum) Warning
 Warn about all enumerated switches missing a specific case
 
 Wswitch-bool
-C ObjC C++ ObjC++ Warning Init(1)
+C ObjC C++ ObjC++ Var(warn_switch_bool) Warning Init(1)
 Warn about switches with boolean controlling expression
 
 Wmissing-format-attribute
@@ -844,6 +848,10 @@ A synonym for -std=c89 (for C) or -std=c++98 (for C++)
 d
 C ObjC C++ ObjC++ Joined
 ; Documented in common.opt.  FIXME - what about -dI, -dD, -dN and -dD?
+
+fabi-compat-version=
+C++ ObjC++ Joined RejectNegative UInteger Var(flag_abi_compat_version) Init(-1)
+The version of the C++ ABI used for -Wabi warnings and link compatibility aliases
 
 faccess-control
 C++ ObjC++ Var(flag_access_control) Init(1)
@@ -1193,11 +1201,11 @@ C ObjC C++ ObjC++ LTO Optimization Var(flag_short_double)
 Use the same size for double as for float
 
 fshort-enums
-C ObjC C++ ObjC++ Optimization Var(flag_short_enums)
+C ObjC C++ ObjC++ LTO Optimization Var(flag_short_enums)
 Use the narrowest integer type possible for enumeration types
 
 fshort-wchar
-C ObjC C++ ObjC++ Optimization Var(flag_short_wchar)
+C ObjC C++ ObjC++ LTO Optimization Var(flag_short_wchar)
 Force the underlying type for \"wchar_t\" to be \"unsigned short\"
 
 fsigned-bitfields
@@ -1410,6 +1418,13 @@ Conform to the ISO 2014(?) C++ draft standard (experimental and incomplete suppo
 std=c++14
 C++ ObjC++ Alias(std=c++1y) Undocumented
 
+std=c++1z
+C++ ObjC++
+Conform to the ISO 2017(?) C++ draft standard (experimental and incomplete support)
+
+std=c++17
+C++ ObjC++ Alias(std=c++1z) Undocumented
+
 std=c11
 C ObjC
 Conform to the ISO 2011 C standard (experimental and incomplete support)
@@ -1454,9 +1469,16 @@ Deprecated in favor of -std=gnu++11
 
 std=gnu++1y
 C++ ObjC++
-Conform to the ISO 201y(7?) C++ draft standard with GNU extensions (experimental and incomplete support)
+Conform to the ISO 201y(4?) C++ draft standard with GNU extensions (experimental and incomplete support)
 
 std=gnu++14
+C++ ObjC++ Alias(std=gnu++1y) Undocumented
+
+std=gnu++1z
+C++ ObjC++
+Conform to the ISO 201z(7?) C++ draft standard with GNU extensions (experimental and incomplete support)
+
+std=gnu++17
 C++ ObjC++ Alias(std=gnu++1y) Undocumented
 
 std=gnu11

@@ -1,3 +1,64 @@
+2014-06-26  Jason Merrill  <jason@redhat.com>
+
+	* c-common.h (enum cxx_dialect): Add cxx1z.
+	* c.opt (std=c++1z, std=c++17, std=gnu++1z, std=gnu++17): New.
+	* c-opts.c (c_common_handle_option, set_std_cxx1z): Handle it.
+
+2014-06-23  Marek Polacek  <polacek@redhat.com>
+	    Andrew MacLeod  <amacleod@redhat.com>
+
+	PR c/61553
+	* c-common.c (get_atomic_generic_size): Don't segfault if the
+	type doesn't have a size.
+
+2014-06-20  Marek Polacek  <polacek@redhat.com>
+
+	* c-gimplify.c: Include "c-ubsan.h" and "pointer-set.h".
+	(ubsan_walk_array_refs_r): New function.
+	(c_genericize): Instrument array bounds.
+	* c-ubsan.c: Include "internal-fn.h".
+	(ubsan_instrument_division): Mark instrumented arrays as having
+	side effects.  Adjust ubsan_type_descriptor call.
+	(ubsan_instrument_shift): Likewise.
+	(ubsan_instrument_vla): Adjust ubsan_type_descriptor call.
+	(ubsan_instrument_bounds): New function.
+	(ubsan_array_ref_instrumented_p): New function.
+	(ubsan_maybe_instrument_array_ref): New function.
+	* c-ubsan.h (ubsan_instrument_bounds): Declare.
+	(ubsan_array_ref_instrumented_p): Declare.
+	(ubsan_maybe_instrument_array_ref): Declare.
+
+2014-06-20  Hale Wang  <hale.wang@arm.com>
+
+	PR lto/61123
+	* c.opt (fshort-enums): Add to LTO.
+	* c.opt (fshort-wchar): Likewise.
+
+2014-06-16  Marek Polacek  <polacek@redhat.com>
+
+	PR c/60439
+	* c.opt (Wswitch-bool): Add Var.
+
+2014-06-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/61486
+	* c-omp.c (c_omp_split_clauses): Don't crash on firstprivate in
+	#pragma omp target teams or
+	#pragma omp {,target }teams distribute simd.
+
+2014-06-12  Jason Merrill  <jason@redhat.com>
+
+	* c.opt (Wabi=, fabi-compat-version): New.
+	* c-opts.c (c_common_handle_option): Handle -Wabi=.
+	(c_common_post_options): Handle flag_abi_compat_version default.
+	Disallow -fabi-compat-version=1.
+	* c-common.h (abi_version_crosses): New.
+
+2014-06-11  Jan Hubicka  <hubicka@ucw.cz>
+
+	* c-family/c-common.c (handle_section_attribute): Update handling for
+	section names that are no longer trees.
+
 2014-06-10  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/60928

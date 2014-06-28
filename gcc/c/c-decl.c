@@ -2294,7 +2294,7 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
   /* Merge the threadprivate attribute.  */
   if (TREE_CODE (olddecl) == VAR_DECL && C_DECL_THREADPRIVATE_P (olddecl))
     {
-      DECL_TLS_MODEL (newdecl) = DECL_TLS_MODEL (olddecl);
+      set_decl_tls_model (newdecl, DECL_TLS_MODEL (olddecl));
       C_DECL_THREADPRIVATE_P (newdecl) = 1;
     }
 
@@ -2305,7 +2305,7 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 	 must be done later in decl_attributes since we are called
 	 before attributes are assigned.  */
       if ((DECL_EXTERNAL (olddecl) || TREE_PUBLIC (olddecl) || TREE_STATIC (olddecl))
-	  && DECL_SECTION_NAME (newdecl) == NULL_TREE
+	  && DECL_SECTION_NAME (newdecl) == NULL
 	  && DECL_SECTION_NAME (olddecl))
 	set_decl_section_name (newdecl, DECL_SECTION_NAME (olddecl));
 
@@ -6345,7 +6345,7 @@ grokdeclarator (const struct c_declarator *declarator,
 	  }
 
 	if (threadp)
-	  DECL_TLS_MODEL (decl) = decl_default_tls_model (decl);
+	  set_decl_tls_model (decl, decl_default_tls_model (decl));
       }
 
     if ((storage_class == csc_extern
@@ -7076,7 +7076,7 @@ is_duplicate_field (tree x, tree y)
 
 static void
 detect_field_duplicates_hash (tree fieldlist,
-			      hash_table <pointer_hash <tree_node> > htab)
+			      hash_table<pointer_hash <tree_node> > *htab)
 {
   tree x, y;
   tree_node **slot;
@@ -7084,7 +7084,7 @@ detect_field_duplicates_hash (tree fieldlist,
   for (x = fieldlist; x ; x = DECL_CHAIN (x))
     if ((y = DECL_NAME (x)) != 0)
       {
-	slot = htab.find_slot (y, INSERT);
+	slot = htab->find_slot (y, INSERT);
 	if (*slot)
 	  {
 	    error ("duplicate member %q+D", x);
@@ -7104,7 +7104,7 @@ detect_field_duplicates_hash (tree fieldlist,
 	    && TREE_CODE (TYPE_NAME (TREE_TYPE (x))) == TYPE_DECL)
 	  {
 	    tree xn = DECL_NAME (TYPE_NAME (TREE_TYPE (x)));
-	    slot = htab.find_slot (xn, INSERT);
+	    slot = htab->find_slot (xn, INSERT);
 	    if (*slot)
 	      error ("duplicate member %q+D", TYPE_NAME (TREE_TYPE (x)));
 	    *slot = xn;
@@ -7176,11 +7176,8 @@ detect_field_duplicates (tree fieldlist)
     }
   else
     {
-      hash_table <pointer_hash <tree_node> > htab;
-      htab.create (37);
-
-      detect_field_duplicates_hash (fieldlist, htab);
-      htab.dispose ();
+      hash_table<pointer_hash <tree_node> > htab (37);
+      detect_field_duplicates_hash (fieldlist, &htab);
     }
 }
 

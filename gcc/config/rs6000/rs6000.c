@@ -3041,7 +3041,8 @@ rs6000_builtin_mask_calculate (void)
 	  | ((TARGET_CRYPTO)		    ? RS6000_BTM_CRYPTO	   : 0)
 	  | ((TARGET_HTM)		    ? RS6000_BTM_HTM	   : 0)
 	  | ((TARGET_DFP)		    ? RS6000_BTM_DFP	   : 0)
-	  | ((TARGET_HARD_FLOAT)	    ? RS6000_BTM_HARD_FLOAT : 0));
+	  | ((TARGET_HARD_FLOAT)	    ? RS6000_BTM_HARD_FLOAT : 0)
+	  | ((TARGET_LONG_DOUBLE_128)	    ? RS6000_BTM_LDBL128 : 0));
 }
 
 /* Override command line options.  Mostly we process the processor type and
@@ -8765,6 +8766,7 @@ rs6000_aggregate_candidate (const_tree type, enum machine_mode *modep)
 	   fixed.  */
 	if (!COMPLETE_TYPE_P (type)
 	    || TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
+	  return -1;
 
 	for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
 	  {
@@ -13589,11 +13591,15 @@ rs6000_invalid_builtin (enum rs6000_builtins fncode)
   else if ((fnmask & (RS6000_BTM_DFP | RS6000_BTM_P8_VECTOR))
 	   == (RS6000_BTM_DFP | RS6000_BTM_P8_VECTOR))
     error ("Builtin function %s requires the -mhard-dfp and"
-	   "-mpower8-vector options", name);
+	   " -mpower8-vector options", name);
   else if ((fnmask & RS6000_BTM_DFP) != 0)
     error ("Builtin function %s requires the -mhard-dfp option", name);
   else if ((fnmask & RS6000_BTM_P8_VECTOR) != 0)
     error ("Builtin function %s requires the -mpower8-vector option", name);
+  else if ((fnmask & (RS6000_BTM_HARD_FLOAT | RS6000_BTM_LDBL128))
+	   == (RS6000_BTM_HARD_FLOAT | RS6000_BTM_LDBL128))
+    error ("Builtin function %s requires the -mhard-float and"
+	   " -mlong-double-128 options", name);
   else if ((fnmask & RS6000_BTM_HARD_FLOAT) != 0)
     error ("Builtin function %s requires the -mhard-float option", name);
   else
@@ -28508,7 +28514,7 @@ rs6000_elf_in_small_data_p (const_tree decl)
 
   if (TREE_CODE (decl) == VAR_DECL && DECL_SECTION_NAME (decl))
     {
-      const char *section = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
+      const char *section = DECL_SECTION_NAME (decl);
       if (compare_section_name (section, ".sdata")
 	  || compare_section_name (section, ".sdata2")
 	  || compare_section_name (section, ".gnu.linkonce.s")
@@ -29277,7 +29283,7 @@ rs6000_xcoff_asm_named_section (const char *name, unsigned int flags,
 
 #define IN_NAMED_SECTION(DECL) \
   ((TREE_CODE (DECL) == FUNCTION_DECL || TREE_CODE (DECL) == VAR_DECL) \
-   && DECL_SECTION_NAME (DECL) != NULL_TREE)
+   && DECL_SECTION_NAME (DECL) != NULL)
 
 static section *
 rs6000_xcoff_select_section (tree decl, int reloc,
@@ -29342,7 +29348,7 @@ rs6000_xcoff_unique_section (tree decl, int reloc ATTRIBUTE_UNUSED)
 
   name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
   name = (*targetm.strip_name_encoding) (name);
-  set_decl_section_name (decl, build_string (strlen (name), name));
+  set_decl_section_name (decl, name);
 }
 
 /* Select section for constant in constant pool.
@@ -29445,6 +29451,71 @@ rs6000_xcoff_file_end (void)
   fputs (TARGET_32BIT
 	 ? "\t.long _section_.text\n" : "\t.llong _section_.text\n",
 	 asm_out_file);
+}
+
+/* This macro produces the initial definition of a function name.
+   On the RS/6000, we need to place an extra '.' in the function name and
+   output the function descriptor.
+   Dollar signs are converted to underscores.
+
+   The csect for the function will have already been created when
+   text_section was selected.  We do have to go back to that csect, however.
+
+   The third and fourth parameters to the .function pseudo-op (16 and 044)
+   are placeholders which no longer have any use.  */
+
+void
+rs6000_xcoff_declare_function_name (FILE *file, const char *name, tree decl)
+{
+  char *buffer = (char *) alloca (strlen (name) + 1);
+  char *p;
+  int dollar_inside = 0;
+  strcpy (buffer, name);
+  p = strchr (buffer, '$');
+  while (p) {
+    *p = '_';
+    dollar_inside++;
+    p = strchr (p + 1, '$');
+  }
+  if (TREE_PUBLIC (decl))
+    {
+      if (!RS6000_WEAK || !DECL_WEAK (decl))
+	{
+          if (dollar_inside) {
+              fprintf(file, "\t.rename .%s,\".%s\"\n", buffer, name);
+              fprintf(file, "\t.rename %s,\"%s\"\n", buffer, name);
+	    }
+	  fputs ("\t.globl .", file);
+	  RS6000_OUTPUT_BASENAME (file, buffer);
+	  putc ('\n', file);
+	}
+    }
+  else
+    {
+      if (dollar_inside) {
+          fprintf(file, "\t.rename .%s,\".%s\"\n", buffer, name);
+          fprintf(file, "\t.rename %s,\"%s\"\n", buffer, name);
+	}
+      fputs ("\t.lglobl .", file);
+      RS6000_OUTPUT_BASENAME (file, buffer);
+      putc ('\n', file);
+    }
+  fputs ("\t.csect ", file);
+  RS6000_OUTPUT_BASENAME (file, buffer);
+  fputs (TARGET_32BIT ? "[DS]\n" : "[DS],3\n", file);
+  RS6000_OUTPUT_BASENAME (file, buffer);
+  fputs (":\n", file);
+  fputs (TARGET_32BIT ? "\t.long ." : "\t.llong .", file);
+  RS6000_OUTPUT_BASENAME (file, buffer);
+  fputs (", TOC[tc0], 0\n", file);
+  in_section = NULL;
+  switch_to_section (function_section (decl));
+  putc ('.', file);
+  RS6000_OUTPUT_BASENAME (file, buffer);
+  fputs (":\n", file);
+  if (write_symbols != NO_DEBUG && !DECL_IGNORED_P (decl))
+    xcoffout_declare_function (file, decl, buffer);
+  return;
 }
 
 #ifdef HAVE_AS_TLS
@@ -31413,6 +31484,7 @@ static struct rs6000_opt_mask const rs6000_builtin_mask_names[] =
   { "htm",		 RS6000_BTM_HTM,	false, false },
   { "hard-dfp",		 RS6000_BTM_DFP,	false, false },
   { "hard-float",	 RS6000_BTM_HARD_FLOAT,	false, false },
+  { "long-double-128",	 RS6000_BTM_LDBL128,	false, false },
 };
 
 /* Option variables that we want to support inside attribute((target)) and

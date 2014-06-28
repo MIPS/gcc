@@ -2607,7 +2607,6 @@ finish_compound_literal (tree type, tree compound_literal,
   if ((!at_function_scope_p () || CP_TYPE_CONST_P (type))
       && TREE_CODE (type) == ARRAY_TYPE
       && !TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type)
-      && !cp_unevaluated_operand
       && initializer_constant_valid_p (compound_literal, type))
     {
       tree decl = create_temporary_var (type);
@@ -3572,6 +3571,7 @@ finish_id_expression (tree id_expression,
       tree wrap;
       if (VAR_P (decl)
 	  && !cp_unevaluated_operand
+	  && (TREE_STATIC (decl) || DECL_EXTERNAL (decl))
 	  && DECL_THREAD_LOCAL_P (decl)
 	  && (wrap = get_tls_wrapper_fn (decl)))
 	{
@@ -4127,9 +4127,11 @@ expand_or_defer_fn (tree fn)
 
 struct nrv_data
 {
+  nrv_data () : visited (37) {}
+
   tree var;
   tree result;
-  hash_table <pointer_hash <tree_node> > visited;
+  hash_table<pointer_hash <tree_node> > visited;
 };
 
 /* Helper function for walk_tree, used by finalize_nrv below.  */
@@ -4209,9 +4211,7 @@ finalize_nrv (tree *tp, tree var, tree result)
 
   data.var = var;
   data.result = result;
-  data.visited.create (37);
   cp_walk_tree (tp, finalize_nrv_r, &data, 0);
-  data.visited.dispose ();
 }
 
 /* Create CP_OMP_CLAUSE_INFO for clause C.  Returns true if it is invalid.  */
@@ -5365,6 +5365,8 @@ finish_omp_clauses (tree clauses)
 			  break;
 			}
 		    }
+		  else
+		    t = fold_convert (TREE_TYPE (OMP_CLAUSE_DECL (c)), t);
 		}
 	      OMP_CLAUSE_LINEAR_STEP (c) = t;
 	    }
@@ -6035,7 +6037,7 @@ finish_omp_threadprivate (tree vars)
 
 	  if (! DECL_THREAD_LOCAL_P (v))
 	    {
-	      DECL_TLS_MODEL (v) = decl_default_tls_model (v);
+	      set_decl_tls_model (v, decl_default_tls_model (v));
 	      /* If rtl has been already set for this var, call
 		 make_decl_rtl once again, so that encode_section_info
 		 has a chance to look at the new decl flags.  */

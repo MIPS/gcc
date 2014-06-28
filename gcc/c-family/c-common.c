@@ -7432,8 +7432,8 @@ handle_section_attribute (tree *node, tree ARG_UNUSED (name), tree args,
 
 	  /* The decl may have already been given a section attribute
 	     from a previous declaration.  Ensure they match.  */
-	  else if (DECL_SECTION_NAME (decl) != NULL_TREE
-		   && strcmp (TREE_STRING_POINTER (DECL_SECTION_NAME (decl)),
+	  else if (DECL_SECTION_NAME (decl) != NULL
+		   && strcmp (DECL_SECTION_NAME (decl),
 			      TREE_STRING_POINTER (TREE_VALUE (args))) != 0)
 	    {
 	      error ("section of %q+D conflicts with previous declaration",
@@ -7448,7 +7448,8 @@ handle_section_attribute (tree *node, tree ARG_UNUSED (name), tree args,
 	      *no_add_attrs = true;
 	    }
 	  else
-	    set_decl_section_name (decl, TREE_VALUE (args));
+	    set_decl_section_name (decl,
+				   TREE_STRING_POINTER (TREE_VALUE (args)));
 	}
       else
 	{
@@ -8041,7 +8042,7 @@ handle_tls_model_attribute (tree *node, tree name, tree args,
   else
     error ("tls_model argument must be one of \"local-exec\", \"initial-exec\", \"local-dynamic\" or \"global-dynamic\"");
 
-  DECL_TLS_MODEL (decl) = kind;
+  set_decl_tls_model (decl, kind);
   return NULL_TREE;
 }
 
@@ -10476,7 +10477,8 @@ get_atomic_generic_size (location_t loc, tree function,
 		    function);
 	  return 0;
 	}
-      size = tree_to_uhwi (TYPE_SIZE_UNIT (TREE_TYPE (type)));
+      tree type_size = TYPE_SIZE_UNIT (TREE_TYPE (type));
+      size = type_size ? tree_to_uhwi (type_size) : 0;
       if (size != size_0)
 	{
 	  error_at (loc, "size mismatch in argument %d of %qE", x + 1,

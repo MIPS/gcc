@@ -12259,15 +12259,16 @@ clock implementation, provide up to nanosecond resolution.  If a
 monotonic clock is not available, the implementation falls back to a
 realtime clock.
 
-@var{COUNT_RATE} is system dependent and can vary depending on the
-kind of the arguments. For @var{kind=4} arguments, @var{COUNT}
-represents milliseconds, while for @var{kind=8} arguments, @var{COUNT}
-typically represents micro- or nanoseconds depending on resolution of
-the underlying platform clock. @var{COUNT_MAX} usually equals
-@code{HUGE(COUNT_MAX)}. Note that the millisecond resolution of the
-@var{kind=4} version implies that the @var{COUNT} will wrap around in
-roughly 25 days. In order to avoid issues with the wrap around and for
-more precise timing, please use the @var{kind=8} version.
+@var{COUNT_RATE} is system dependent and can vary depending on the kind of
+the arguments. For @var{kind=4} arguments (and smaller integer kinds),
+@var{COUNT} represents milliseconds, while for @var{kind=8} arguments (and
+larger integer kinds), @var{COUNT} typically represents micro- or
+nanoseconds depending on resolution of the underlying platform clock.
+@var{COUNT_MAX} usually equals @code{HUGE(COUNT_MAX)}. Note that the
+millisecond resolution of the @var{kind=4} version implies that the
+@var{COUNT} will wrap around in roughly 25 days. In order to avoid issues
+with the wrap around and for more precise timing, please use the
+@var{kind=8} version.
 
 If there is no clock, or querying the clock fails, @var{COUNT} is set
 to @code{-HUGE(COUNT)}, and @var{COUNT_RATE} and @var{COUNT_MAX} are
@@ -12299,7 +12300,7 @@ Subroutine
 @item @var{COUNT}      @tab (Optional) shall be a scalar of type 
 @code{INTEGER} with @code{INTENT(OUT)}.
 @item @var{COUNT_RATE} @tab (Optional) shall be a scalar of type 
-@code{INTEGER} with @code{INTENT(OUT)}.
+@code{INTEGER} or @code{REAL}, with @code{INTENT(OUT)}.
 @item @var{COUNT_MAX}  @tab (Optional) shall be a scalar of type 
 @code{INTEGER} with @code{INTENT(OUT)}.
 @end multitable
@@ -13398,8 +13399,7 @@ named constants:
 @code{OMP_LIB} provides the scalar default-integer
 named constant @code{openmp_version} with a value of the form
 @var{yyyymm}, where @code{yyyy} is the year and @var{mm} the month
-of the OpenMP version; for OpenMP v3.1 the value is @code{201107}
-and for OpenMP v4.0 the value is @code{201307}.
+of the OpenMP version; for OpenMP v4.0 the value is @code{201307}.
 
 The following scalar integer named constants of the
 kind @code{omp_sched_kind}:

@@ -696,7 +696,7 @@ aarch64_load_symref_appropriately (rtx dest, rtx imm,
 	rtx result = gen_rtx_REG (Pmode, R0_REGNUM);
 
 	start_sequence ();
-	emit_call_insn (gen_tlsgd_small (result, imm));
+	aarch64_emit_call_insn (gen_tlsgd_small (result, imm));
 	insns = get_insns ();
 	end_sequence ();
 
@@ -1504,12 +1504,18 @@ aarch64_layout_arg (cumulative_args_t pcum_v, enum machine_mode mode,
   CUMULATIVE_ARGS *pcum = get_cumulative_args (pcum_v);
   int ncrn, nvrn, nregs;
   bool allocate_ncrn, allocate_nvrn;
+  HOST_WIDE_INT size;
 
   /* We need to do this once per argument.  */
   if (pcum->aapcs_arg_processed)
     return;
 
   pcum->aapcs_arg_processed = true;
+
+  /* Size in bytes, rounded to the nearest multiple of 8 bytes.  */
+  size
+    = AARCH64_ROUND_UP (type ? int_size_in_bytes (type) : GET_MODE_SIZE (mode),
+			UNITS_PER_WORD);
 
   allocate_ncrn = (type) ? !(FLOAT_TYPE_P (type)) : !FLOAT_MODE_P (mode);
   allocate_nvrn = aarch64_vfp_is_call_candidate (pcum_v,
@@ -1561,9 +1567,7 @@ aarch64_layout_arg (cumulative_args_t pcum_v, enum machine_mode mode,
     }
 
   ncrn = pcum->aapcs_ncrn;
-  nregs = ((type ? int_size_in_bytes (type) : GET_MODE_SIZE (mode))
-	   + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
-
+  nregs = size / UNITS_PER_WORD;
 
   /* C6 - C9.  though the sign and zero extension semantics are
      handled elsewhere.  This is the case where the argument fits
@@ -1612,13 +1616,12 @@ aarch64_layout_arg (cumulative_args_t pcum_v, enum machine_mode mode,
   pcum->aapcs_nextncrn = NUM_ARG_REGS;
 
   /* The argument is passed on stack; record the needed number of words for
-     this argument (we can re-use NREGS) and align the total size if
-     necessary.  */
+     this argument and align the total size if necessary.  */
 on_stack:
-  pcum->aapcs_stack_words = nregs;
+  pcum->aapcs_stack_words = size / UNITS_PER_WORD;
   if (aarch64_function_arg_alignment (mode, type) == 16 * BITS_PER_UNIT)
     pcum->aapcs_stack_size = AARCH64_ROUND_UP (pcum->aapcs_stack_size,
-					       16 / UNITS_PER_WORD) + 1;
+					       16 / UNITS_PER_WORD);
   return;
 }
 
@@ -1917,7 +1920,6 @@ aarch64_save_or_restore_fprs (int start_offset, int increment,
   rtx (*gen_mem_ref)(enum machine_mode, rtx)
     = (frame_pointer_needed)? gen_frame_mem : gen_rtx_MEM;
 
-
   for (regno = V0_REGNUM; regno <= V31_REGNUM; regno++)
     {
       if (aarch64_register_saved_on_entry (regno))
@@ -1935,10 +1937,12 @@ aarch64_save_or_restore_fprs (int start_offset, int increment,
 	    {
 	      /* Empty loop.  */
 	    }
+
 	  if (regno2 <= V31_REGNUM &&
 	      aarch64_register_saved_on_entry (regno2))
 	    {
 	      rtx mem2;
+
 	      /* Next highest register to be saved.  */
 	      mem2 = gen_mem_ref (DFmode,
 				  plus_constant
@@ -1964,10 +1968,10 @@ aarch64_save_or_restore_fprs (int start_offset, int increment,
 				gen_rtx_REG (DFmode, regno2));
 		}
 
-		  /* The first part of a frame-related parallel insn
-		     is always assumed to be relevant to the frame
-		     calculations; subsequent parts, are only
-		     frame-related if explicitly marked.  */
+	      /* The first part of a frame-related parallel insn is
+		 always assumed to be relevant to the frame
+		 calculations; subsequent parts, are only
+		 frame-related if explicitly marked.  */
 	      RTX_FRAME_RELATED_P (XVECEXP (PATTERN (insn), 0, 1)) = 1;
 	      regno = regno2;
 	      start_offset += increment * 2;
@@ -1987,7 +1991,6 @@ aarch64_save_or_restore_fprs (int start_offset, int increment,
 	  RTX_FRAME_RELATED_P (insn) = 1;
 	}
     }
-
 }
 
 
@@ -1995,7 +1998,7 @@ aarch64_save_or_restore_fprs (int start_offset, int increment,
    restore's have to happen.  */
 static void
 aarch64_save_or_restore_callee_save_registers (HOST_WIDE_INT offset,
-					    bool restore)
+					       bool restore)
 {
   rtx insn;
   rtx base_rtx = stack_pointer_rtx;
@@ -2027,6 +2030,7 @@ aarch64_save_or_restore_callee_save_registers (HOST_WIDE_INT offset,
 	      aarch64_register_saved_on_entry (regno2))
 	    {
 	      rtx mem2;
+
 	      /* Next highest register to be saved.  */
 	      mem2 = gen_mem_ref (Pmode,
 				  plus_constant
@@ -2050,12 +2054,11 @@ aarch64_save_or_restore_callee_save_registers (HOST_WIDE_INT offset,
 		  add_reg_note (insn, REG_CFA_RESTORE, gen_rtx_REG (DImode, regno2));
 		}
 
-		  /* The first part of a frame-related parallel insn
-		     is always assumed to be relevant to the frame
-		     calculations; subsequent parts, are only
-		     frame-related if explicitly marked.  */
-	      RTX_FRAME_RELATED_P (XVECEXP (PATTERN (insn), 0,
-					    1)) = 1;
+	      /* The first part of a frame-related parallel insn is
+		 always assumed to be relevant to the frame
+		 calculations; subsequent parts, are only
+		 frame-related if explicitly marked.  */
+	      RTX_FRAME_RELATED_P (XVECEXP (PATTERN (insn), 0, 1)) = 1;
 	      regno = regno2;
 	      start_offset += increment * 2;
 	    }
@@ -2075,7 +2078,6 @@ aarch64_save_or_restore_callee_save_registers (HOST_WIDE_INT offset,
     }
 
   aarch64_save_or_restore_fprs (start_offset, increment, restore, base_rtx);
-
 }
 
 /* AArch64 stack frames generated by this compiler look like:
@@ -3389,6 +3391,18 @@ aarch64_fixed_condition_code_regs (unsigned int *p1, unsigned int *p2)
   *p1 = CC_REGNUM;
   *p2 = INVALID_REGNUM;
   return true;
+}
+
+/* Emit call insn with PAT and do aarch64-specific handling.  */
+
+void
+aarch64_emit_call_insn (rtx pat)
+{
+  rtx insn = emit_call_insn (pat);
+
+  rtx *fusage = &CALL_INSN_FUNCTION_USAGE (insn);
+  clobber_reg (fusage, gen_rtx_REG (word_mode, IP0_REGNUM));
+  clobber_reg (fusage, gen_rtx_REG (word_mode, IP1_REGNUM));
 }
 
 enum machine_mode
@@ -7252,7 +7266,8 @@ aarch64_vector_mode_supported_p (enum machine_mode mode)
 	  || mode == V16QImode || mode == V2DImode
 	  || mode == V2SImode  || mode == V4HImode
 	  || mode == V8QImode || mode == V2SFmode
-	  || mode == V4SFmode || mode == V2DFmode))
+	  || mode == V4SFmode || mode == V2DFmode
+	  || mode == V1DFmode))
     return true;
 
   return false;
@@ -7343,6 +7358,9 @@ static aarch64_simd_mangle_map_entry aarch64_simd_mangle_map[] = {
   { V2SImode,  "__builtin_aarch64_simd_si",     "11__Int32x2_t" },
   { V2SImode,  "__builtin_aarch64_simd_usi",    "12__Uint32x2_t" },
   { V2SFmode,  "__builtin_aarch64_simd_sf",     "13__Float32x2_t" },
+  { DImode,    "__builtin_aarch64_simd_di",     "11__Int64x1_t" },
+  { DImode,    "__builtin_aarch64_simd_udi",    "12__Uint64x1_t" },
+  { V1DFmode,  "__builtin_aarch64_simd_df",	"13__Float64x1_t" },
   { V8QImode,  "__builtin_aarch64_simd_poly8",  "11__Poly8x8_t" },
   { V4HImode,  "__builtin_aarch64_simd_poly16", "12__Poly16x4_t" },
   /* 128-bit containerized types.  */
@@ -9809,6 +9827,9 @@ aarch64_expand_movmem (rtx *operands)
 
 #undef TARGET_FLAGS_REGNUM
 #define TARGET_FLAGS_REGNUM CC_REGNUM
+
+#undef TARGET_CALL_FUSAGE_CONTAINS_NON_CALLEE_CLOBBERS
+#define TARGET_CALL_FUSAGE_CONTAINS_NON_CALLEE_CLOBBERS true
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

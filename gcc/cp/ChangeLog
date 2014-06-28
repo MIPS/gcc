@@ -1,3 +1,220 @@
+2014-06-28  Jonathan Wakely  <jwakely@redhat.com>
+
+	DR 1579
+	PR c++/58051
+	* typeck.c (check_return_expr): Lookup as an rvalue even when the
+	types aren't the same.
+
+2014-06-27  Jason Merrill  <jason@redhat.com>
+
+	PR c++/61433
+	* error.c (dump_template_bindings): Don't tsubst in a clone.
+
+2014-06-27  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/61614
+	* semantics.c (finish_compound_literal): Revert r204228.
+
+2014-06-27  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* parser.c (cp_parser_compound_literal_p): New.
+	(cp_parser_postfix_expression, cp_parser_sizeof_operand): Use it.
+
+2014-06-26  Jason Merrill  <jason@redhat.com>
+
+	* parser.c (cp_parser_for_init_statement): Change range-for error
+	to pedwarn.
+
+	N3994 Ranged-based for-loops: The Next Generation
+	* parser.c (cp_lexer_nth_token_is): New.
+	(cp_parser_for_init_statement): Allow "for (id : init)".
+
+2014-06-26  Adam Butcher  <adam@jessamine.co.uk>
+
+	PR c++/61537
+	* parser.c (cp_parser_elaborated_type_specifier): Only consider template
+	parameter lists outside of function parameter scope.
+
+2014-06-25  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	DR 178
+	PR c++/49132
+	* typeck2.c (process_init_constructor_record): Do not complain about
+	uninitialized const members, because within aggregate-initialization,
+	members without explicit initializers are value-initialized.
+
+2014-06-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* semantics.c (finish_omp_clauses): Make sure
+	OMP_CLAUSE_LINEAR_STEP has correct type.
+
+2014-06-24  Jan Hubicka  <hubicka@ucw.cz>
+
+	* class.c (check_methods, create_vtable_ptr, determine_key_method,
+	add_vcall_offset_vtbl_entries_1): Guard VINDEX checks by
+	FUNCTION_DECL check.
+	* cp-tree.h (lang_decl_ns): Add ns_using and ns_users.
+	(DECL_NAMESPACE_USING, DECL_NAMESPACE_USERS): Use lang_decl_ns.
+	(DECL_NAMESPACE_ASSOCIATIONS): Use DECL_INITIAL.
+	(DECL_TEMPLATE_INSTANTIATIONS): Use DECL_SIZE_UNIT.
+
+2014-06-24  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/33972
+	* decl.c (grokdeclarator): Do not early check for operator-function-id
+	as non-function.
+
+2014-06-24  Trevor Saunders  <tsaunders@mozilla.com>
+
+	* class.c, semantics.c, tree.c, vtable-class-hierarchy.c:
+	Adjust.
+
+2014-06-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_for_loop): For
+	#pragma omp parallel for simd move lastprivate clause from parallel
+	to for rather than simd.
+
+2014-06-23  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	DR 577
+	PR c++/33101
+	* decl.c (grokparms): Accept a single parameter of type 'void'.
+
+2014-06-20  Jason Merrill  <jason@redhat.com>
+
+	PR c++/59296
+	* call.c (add_function_candidate): Avoid special 'this' handling
+	if we have a ref-qualifier.
+
+	PR c++/61556
+	* call.c (build_over_call): Call build_this in template path.
+
+2014-06-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/59296
+	* call.c (add_function_candidate): Also set LOOKUP_NO_TEMP_BIND.
+
+2014-06-18  Jason Merrill  <jason@redhat.com>
+
+	PR c++/59296
+	* call.c (add_function_candidate): Set LOOKUP_NO_RVAL_BIND for
+	ref-qualifier handling.
+
+	PR c++/61507
+	* pt.c (resolve_overloaded_unification): Preserve
+	ARGUMENT_PACK_EXPLICIT_ARGS.
+
+2014-06-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* cp-gimplify.c (cxx_omp_finish_clause): Add a gimple_seq *
+	argument.
+	* cp-tree.h (cxx_omp_finish_clause): Adjust prototype.
+
+2014-06-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/60605
+	* pt.c (check_default_tmpl_args): Check DECL_LOCAL_FUNCTION_P.
+
+2014-06-15  Jason Merrill  <jason@redhat.com>
+
+	PR c++/61488
+	* pt.c (check_valid_ptrmem_cst_expr): Fix for template context.
+
+	PR c++/61500
+	* tree.c (lvalue_kind): Handle MEMBER_REF and DOTSTAR_EXPR.
+
+2014-06-15  Jan Hubicka  <hubicka@ucw.cz>
+
+	* decl.c (grokvardecl): Fix pasto in previous patch.
+
+2014-06-15  Jan Hubicka  <hubicka@ucw.cz>
+
+	* decl.c (duplicate_decls): Use set_decl_tls_model.
+	(grokdeclarator): Likewise.
+	* semantics.c (finish_id_expression): Check TLS only for
+	static variables.
+	(finish_omp_threadprivate): Use decl_default_tls_model.
+	* decl2.c (get_guard): Likewise.
+	* call.c (make_temporary_var_for_ref_to_temp): Likewise.
+
+2014-06-14  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/33101
+	* decl.c (grokparms): Improve error message about void parameters.
+	* error.c (type_to_string): Fix aka cut off code.
+
+2014-06-12  Jason Merrill  <jason@redhat.com>
+
+	* call.c (convert_arg_to_ellipsis): Use abi_version_crosses.
+	* cvt.c (type_promotes_to): Likewise.
+	* mangle.c (write_type, write_expression): Likewise.
+	(write_name, write_template_arg): Likewise.
+	(mangle_decl): Make alias based on flag_abi_compat_version.
+	Emit -Wabi warning here.
+	(finish_mangling_internal): Not here.  Drop warn parm.
+	(finish_mangling_get_identifier, finish_mangling): Adjust.
+	(mangle_type_string, mangle_special_for_type): Adjust.
+	(mangle_ctor_vtbl_for_type, mangle_thunk): Adjust.
+	(mangle_guard_variable, mangle_tls_init_fn): Adjust.
+	(mangle_tls_wrapper_fn, mangle_ref_init_variable): Adjust.
+
+	* call.c (build_operator_new_call): Remove -fabi-version=1 support.
+	* class.c (walk_subobject_offsets, include_empty_classes): Likewise.
+	(layout_nonempty_base_or_field, end_of_class): Likewise.
+	(layout_empty_base, build_base_field, layout_class_type): Likewise.
+	(is_empty_class, add_vcall_offset_vtbl_entries_1): Likewise.
+	(layout_virtual_bases): Likewise.
+	* decl.c (compute_array_index_type): Likewise.
+	* mangle.c (write_mangled_name, write_prefix): Likewise.
+	(write_template_prefix, write_integer_cst, write_expression): Likewise.
+	(write_template_arg, write_array_type): Likewise.
+	* method.c (lazily_declare_fn): Likewise.
+	* rtti.c (get_pseudo_ti_index): Likewise.
+	* typeck.c (comp_array_types): Likewise.
+
+2014-06-11  Jan Hubicka  <hubicka@ucw.cz>
+
+	* vtable-class-hierarchy.c: Update handling for section names
+	that are no longer trees.
+	* decl.c (duplicate_decls): Likewise.
+
+2014-06-11  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/19200
+	* parser.c (cp_parser_init_declarator): Actually pass friend_p
+	to cp_parser_declarator.
+
+2014-06-11  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/60265
+	* parser.c (cp_parser_using_declaration): Handle unscoped enums.
+	* name-lookup.c (validate_nonmember_using_decl): Adjust error
+	message.
+
+2014-06-11  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/19200
+	* parser.c (cp_parser_declarator): Add bool parameter.
+	(cp_parser_direct_declarator): Likewise, use it.
+	(cp_parser_member_declaration): Pass friend_p to cp_parser_declarator.
+	(cp_parser_condition, cp_parser_explicit_instantiation,
+	cp_parser_init_declarator, cp_parser_type_id_1,
+	cp_parser_parameter_declaration, cp_parser_exception_declaration,
+	cp_parser_cache_defarg, cp_parser_objc_class_ivars,
+	cp_parser_objc_struct_declaration, cp_parser_omp_for_loop_init):
+	Adjust.
+	* decl.c (grokdeclarator): Fix handling of friend declared in
+	namespace scope (g++.dg/parse/friend10.C).
+
+2014-06-10  Jan Hubicka  <hubicka@ucw.cz>
+
+	* vtable-class-hierarchy.c: Use symtab_get_node (var_decl)
+	->implicit_section.
+	* optimize.c (cdtor_comdat_group): Fix handling of aliases.
+	(maybe_clone_body): Move symbol across comdat groups.
+	* method.c (use_thunk): Copy implicit section flag.
+
 2014-06-09  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/22556

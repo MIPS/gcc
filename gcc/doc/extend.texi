@@ -4316,8 +4316,8 @@ attribute also means that the function is instantiated if the
 class itself is instantiated.
 
 @item vector
-@cindex @code{vector} attibute
-This RX attribute is similar to the @code{attribute}, including its
+@cindex @code{vector} attribute
+This RX attribute is similar to the @code{interrupt} attribute, including its
 parameters, but does not make the function an interrupt-handler type
 function (i.e. it retains the normal C function calling ABI).  See the
 @code{interrupt} attribute for a description of its arguments.
@@ -9697,6 +9697,7 @@ instructions, but allow the compiler to schedule those calls.
 
 @menu
 * AArch64 Built-in Functions::
+* AArch64 intrinsics::
 * Alpha Built-in Functions::
 * Altera Nios II Built-in Functions::
 * ARC Built-in Functions::
@@ -9741,6 +9742,11 @@ void __builtin_aarch64_set_fpcr (unsigned int)
 unsigned int __builtin_aarch64_get_fpsr ()
 void __builtin_aarch64_set_fpsr (unsigned int)
 @end smallexample
+
+@node AArch64 intrinsics
+@subsection ACLE Intrinsics for AArch64
+
+@include aarch64-acle-intrinsics.texi
 
 @node Alpha Built-in Functions
 @subsection Alpha Built-in Functions
@@ -13410,8 +13416,6 @@ double __builtin_rsqrt (double);
 uint64_t __builtin_ppc_get_timebase ();
 unsigned long __builtin_ppc_mftb ();
 double __builtin_unpack_longdouble (long double, int);
-double __builtin_longdouble_dw0 (long double);
-double __builtin_longdouble_dw1 (long double);
 long double __builtin_pack_longdouble (double, double);
 @end smallexample
 

@@ -91,7 +91,7 @@ cgraph_non_local_node_p_1 (struct cgraph_node *node, void *data ATTRIBUTE_UNUSED
 {
    /* FIXME: Aliases can be local, but i386 gets thunks wrong then.  */
    return !(cgraph_only_called_directly_or_aliased_p (node)
-	    && !ipa_ref_has_aliases_p (&node->ref_list)
+	    && !node->has_aliases_p ()
 	    && node->definition
 	    && !DECL_EXTERNAL (node->decl)
 	    && !node->externally_visible
@@ -120,15 +120,15 @@ bool
 address_taken_from_non_vtable_p (symtab_node *node)
 {
   int i;
-  struct ipa_ref *ref;
-  for (i = 0; ipa_ref_list_referring_iterate (&node->ref_list,
-					     i, ref); i++)
+  struct ipa_ref *ref = NULL;
+
+  for (i = 0; node->iterate_referring (i, ref); i++)
     if (ref->use == IPA_REF_ADDR)
       {
 	varpool_node *node;
 	if (is_a <cgraph_node *> (ref->referring))
 	  return true;
-	node = ipa_ref_referring_varpool_node (ref);
+	node = dyn_cast <varpool_node *> (ref->referring);
 	if (!DECL_VIRTUAL_P (node->decl))
 	  return true;
       }
@@ -512,7 +512,8 @@ function_and_variable_visibility (bool whole_program)
 		     next = next->same_comdat_group)
 		{
 		  next->set_comdat_group (NULL);
-		  next->set_section (NULL);
+		  if (!next->alias)
+		    next->set_section (NULL);
 		  symtab_make_decl_local (next->decl);
 		  next->unique_name = ((next->resolution == LDPR_PREVAILING_DEF_IRONLY
 					|| next->unique_name
@@ -527,7 +528,7 @@ function_and_variable_visibility (bool whole_program)
 	    }
 	  if (TREE_PUBLIC (node->decl))
 	    node->set_comdat_group (NULL);
-	  if (DECL_COMDAT (node->decl))
+	  if (DECL_COMDAT (node->decl) && !node->alias)
 	    node->set_section (NULL);
 	  symtab_make_decl_local (node->decl);
 	}
@@ -565,7 +566,11 @@ function_and_variable_visibility (bool whole_program)
 	 cheaper and enable more optimization.
 
 	 TODO: We can also update virtual tables.  */
-      if (node->callers && can_replace_by_local_alias (node))
+      if (node->callers 
+          /* FIXME: currently this optimization breaks on AIX.  Disable it for targets
+             without comdat support for now.  */
+	  && SUPPORTS_ONE_ONLY
+	  && can_replace_by_local_alias (node))
 	{
 	  struct cgraph_node *alias = cgraph (symtab_nonoverwritable_alias (node));
 
@@ -646,7 +651,8 @@ function_and_variable_visibility (bool whole_program)
 		     next = next->same_comdat_group)
 		{
 		  next->set_comdat_group (NULL);
-		  next->set_section (NULL);
+		  if (!next->alias)
+		    next->set_section (NULL);
 		  symtab_make_decl_local (next->decl);
 		  next->unique_name = ((next->resolution == LDPR_PREVAILING_DEF_IRONLY
 					|| next->unique_name
@@ -657,24 +663,26 @@ function_and_variable_visibility (bool whole_program)
 	    }
 	  if (TREE_PUBLIC (vnode->decl))
 	    vnode->set_comdat_group (NULL);
-	  if (DECL_COMDAT (vnode->decl))
+	  if (DECL_COMDAT (vnode->decl) && !vnode->alias)
 	    vnode->set_section (NULL);
 	  symtab_make_decl_local (vnode->decl);
 	  vnode->resolution = LDPR_PREVAILING_DEF_IRONLY;
 	}
       update_visibility_by_resolution_info (vnode);
 
-      /* Update virutal tables to point to local aliases where possible.  */
+      /* Update virtual tables to point to local aliases where possible.  */
       if (DECL_VIRTUAL_P (vnode->decl)
-	  && !DECL_EXTERNAL (vnode->decl))
+	  && !DECL_EXTERNAL (vnode->decl)
+	  /* FIXME: currently this optimization breaks on AIX.  Disable it for targets
+	     without comdat support for now.  */
+	  && SUPPORTS_ONE_ONLY)
 	{
 	  int i;
 	  struct ipa_ref *ref;
 	  bool found = false;
 
 	  /* See if there is something to update.  */
-	  for (i = 0; ipa_ref_list_referring_iterate (&vnode->ref_list,
-						      i, ref); i++)
+	  for (i = 0; vnode->iterate_referring (i, ref); i++)
 	    if (ref->use == IPA_REF_ADDR
 		&& can_replace_by_local_alias_in_vtable (ref->referred))
 	      {
@@ -687,7 +695,7 @@ function_and_variable_visibility (bool whole_program)
 	      walk_tree (&DECL_INITIAL (vnode->decl),
 			 update_vtable_references, NULL, visited_nodes);
 	      pointer_set_destroy (visited_nodes);
-	      ipa_remove_all_references (&vnode->ref_list);
+	      vnode->remove_all_references ();
 	      record_references_in_initializer (vnode->decl, false);
 	    }
 	}
