@@ -8469,7 +8469,11 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
 			     throw_bad_array_length (), void_node);
 	      finish_expr_stmt (comp);
 	    }
-	  else if (flag_sanitize & SANITIZE_VLA)
+	  else if (flag_sanitize & SANITIZE_VLA
+		   && current_function_decl != NULL_TREE
+		   && !lookup_attribute ("no_sanitize_undefined",
+					 DECL_ATTRIBUTES
+					   (current_function_decl)))
 	    {
 	      /* From C++1y onwards, we throw an exception on a negative
 		 length size of an array; see above.  */
@@ -9007,7 +9011,7 @@ grokdeclarator (const cp_declarator *declarator,
       return error_mark_node;
     }
 
-  if (((dname && IDENTIFIER_OPNAME_P (dname)) || flags == TYPENAME_FLAG)
+  if (flags == TYPENAME_FLAG
       && innermost_code != cdk_function
       && ! (ctype && !declspecs->any_specifiers_p))
     {
@@ -11138,16 +11142,13 @@ grokparms (tree parmlist, tree *parms)
       type = TREE_TYPE (decl);
       if (VOID_TYPE_P (type))
 	{
-	  if (type == void_type_node
+	  if (same_type_p (type, void_type_node)
 	      && !init
 	      && !DECL_NAME (decl) && !result
 	      && TREE_CHAIN (parm) == void_list_node)
-	    /* this is a parmlist of `(void)', which is ok.  */
+	    /* DR 577: A parameter list consisting of a single
+	       unnamed parameter of non-dependent type 'void'.  */
 	    break;
-	  else if (typedef_variant_p (type))
-	    error_at (DECL_SOURCE_LOCATION (decl),
-		      "invalid use of typedef-name %qT in "
-		      "parameter declaration", type);
 	  else if (cv_qualified_p (type))
 	    error_at (DECL_SOURCE_LOCATION (decl),
 		      "invalid use of cv-qualified type %qT in "

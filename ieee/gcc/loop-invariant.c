@@ -453,14 +453,14 @@ invariant_expr_hasher::equal (const value_type *entry1,
 				 entry2->inv->insn, entry2->expr);
 }
 
-typedef hash_table <invariant_expr_hasher> invariant_htab_type;
+typedef hash_table<invariant_expr_hasher> invariant_htab_type;
 
 /* Checks whether invariant with value EXPR in machine mode MODE is
    recorded in EQ.  If this is the case, return the invariant.  Otherwise
    insert INV to the table for this expression and return INV.  */
 
 static struct invariant *
-find_or_insert_inv (invariant_htab_type eq, rtx expr, enum machine_mode mode,
+find_or_insert_inv (invariant_htab_type *eq, rtx expr, enum machine_mode mode,
 		    struct invariant *inv)
 {
   hashval_t hash = hash_invariant_expr_1 (inv->insn, expr);
@@ -471,7 +471,7 @@ find_or_insert_inv (invariant_htab_type eq, rtx expr, enum machine_mode mode,
   pentry.expr = expr;
   pentry.inv = inv;
   pentry.mode = mode;
-  slot = eq.find_slot_with_hash (&pentry, hash, INSERT);
+  slot = eq->find_slot_with_hash (&pentry, hash, INSERT);
   entry = *slot;
 
   if (entry)
@@ -491,7 +491,7 @@ find_or_insert_inv (invariant_htab_type eq, rtx expr, enum machine_mode mode,
    hash table of the invariants.  */
 
 static void
-find_identical_invariants (invariant_htab_type eq, struct invariant *inv)
+find_identical_invariants (invariant_htab_type *eq, struct invariant *inv)
 {
   unsigned depno;
   bitmap_iterator bi;
@@ -528,13 +528,10 @@ merge_identical_invariants (void)
 {
   unsigned i;
   struct invariant *inv;
-  invariant_htab_type eq;
-  eq.create (invariants.length ());
+  invariant_htab_type eq (invariants.length ());
 
   FOR_EACH_VEC_ELT (invariants, i, inv)
-    find_identical_invariants (eq, inv);
-
-  eq.dispose ();
+    find_identical_invariants (&eq, inv);
 }
 
 /* Determines the basic blocks inside LOOP that are always executed and
@@ -839,6 +836,39 @@ check_dependencies (rtx insn, bitmap depends_on)
   return true;
 }
 
+/* Pre-check candidate DEST to skip the one which can not make a valid insn
+   during move_invariant_reg.  SIMPLE is to skip HARD_REGISTER.  */
+static bool
+pre_check_invariant_p (bool simple, rtx dest)
+{
+  if (simple && REG_P (dest) && DF_REG_DEF_COUNT (REGNO (dest)) > 1)
+    {
+      df_ref use;
+      rtx ref;
+      unsigned int i = REGNO (dest);
+      struct df_insn_info *insn_info;
+      df_ref def_rec;
+
+      for (use = DF_REG_USE_CHAIN (i); use; use = DF_REF_NEXT_REG (use))
+	{
+	  ref = DF_REF_INSN (use);
+	  insn_info = DF_INSN_INFO_GET (ref);
+
+	  FOR_EACH_INSN_INFO_DEF (def_rec, insn_info)
+	    if (DF_REF_REGNO (def_rec) == i)
+	      {
+		/* Multi definitions at this stage, most likely are due to
+		   instruction constraints, which requires both read and write
+		   on the same register.  Since move_invariant_reg is not
+		   powerful enough to handle such cases, just ignore the INV
+		   and leave the chance to others.  */
+		return false;
+	      }
+	}
+    }
+  return true;
+}
+
 /* Finds invariant in INSN.  ALWAYS_REACHED is true if the insn is always
    executed.  ALWAYS_EXECUTED is true if the insn is always executed,
    unless the program ends due to a function call.  */
@@ -868,7 +898,8 @@ find_invariant_insn (rtx insn, bool always_reached, bool always_executed)
       || HARD_REGISTER_P (dest))
     simple = false;
 
-  if (!may_assign_reg_p (SET_DEST (set))
+  if (!may_assign_reg_p (dest)
+      || !pre_check_invariant_p (simple, dest)
       || !check_maybe_invariant (SET_SRC (set)))
     return;
 
@@ -1056,16 +1087,22 @@ get_pressure_class_and_nregs (rtx insn, int *nregs)
 }
 
 /* Calculates cost and number of registers needed for moving invariant INV
-   out of the loop and stores them to *COST and *REGS_NEEDED.  */
+   out of the loop and stores them to *COST and *REGS_NEEDED.  *CL will be
+   the REG_CLASS of INV.  Return
+     -1: if INV is invalid.
+      0: if INV and its depends_on have same reg_class
+      1: if INV and its depends_on have different reg_classes.  */
 
-static void
-get_inv_cost (struct invariant *inv, int *comp_cost, unsigned *regs_needed)
+static int
+get_inv_cost (struct invariant *inv, int *comp_cost, unsigned *regs_needed,
+	      enum reg_class *cl)
 {
   int i, acomp_cost;
   unsigned aregs_needed[N_REG_CLASSES];
   unsigned depno;
   struct invariant *dep;
   bitmap_iterator bi;
+  int ret = 1;
 
   /* Find the representative of the class of the equivalent invariants.  */
   inv = invariants[inv->eqto];
@@ -1081,7 +1118,7 @@ get_inv_cost (struct invariant *inv, int *comp_cost, unsigned *regs_needed)
 
   if (inv->move
       || inv->stamp == actual_stamp)
-    return;
+    return -1;
   inv->stamp = actual_stamp;
 
   if (! flag_ira_loop_pressure)
@@ -1093,6 +1130,8 @@ get_inv_cost (struct invariant *inv, int *comp_cost, unsigned *regs_needed)
 
       pressure_class = get_pressure_class_and_nregs (inv->insn, &nregs);
       regs_needed[pressure_class] += nregs;
+      *cl = pressure_class;
+      ret = 0;
     }
 
   if (!inv->cheap_address
@@ -1133,10 +1172,16 @@ get_inv_cost (struct invariant *inv, int *comp_cost, unsigned *regs_needed)
   EXECUTE_IF_SET_IN_BITMAP (inv->depends_on, 0, depno, bi)
     {
       bool check_p;
+      enum reg_class dep_cl = ALL_REGS;
+      int dep_ret;
 
       dep = invariants[depno];
 
-      get_inv_cost (dep, &acomp_cost, aregs_needed);
+      /* If DEP is moved out of the loop, it is not a depends_on any more.  */
+      if (dep->move)
+	continue;
+
+      dep_ret = get_inv_cost (dep, &acomp_cost, aregs_needed, &dep_cl);
 
       if (! flag_ira_loop_pressure)
 	check_p = aregs_needed[0] != 0;
@@ -1146,6 +1191,12 @@ get_inv_cost (struct invariant *inv, int *comp_cost, unsigned *regs_needed)
 	    if (aregs_needed[ira_pressure_classes[i]] != 0)
 	      break;
 	  check_p = i < ira_pressure_classes_num;
+
+	  if ((dep_ret == 1) || ((dep_ret == 0) && (*cl != dep_cl)))
+	    {
+	      *cl = ALL_REGS;
+	      ret = 1;
+	    }
 	}
       if (check_p
 	  /* We need to check always_executed, since if the original value of
@@ -1179,6 +1230,7 @@ get_inv_cost (struct invariant *inv, int *comp_cost, unsigned *regs_needed)
 	}
       (*comp_cost) += acomp_cost;
     }
+  return ret;
 }
 
 /* Calculates gain for eliminating invariant INV.  REGS_USED is the number
@@ -1193,10 +1245,12 @@ gain_for_invariant (struct invariant *inv, unsigned *regs_needed,
 		    bool speed, bool call_p)
 {
   int comp_cost, size_cost;
+  enum reg_class cl;
+  int ret;
 
   actual_stamp++;
 
-  get_inv_cost (inv, &comp_cost, regs_needed);
+  ret = get_inv_cost (inv, &comp_cost, regs_needed, &cl);
 
   if (! flag_ira_loop_pressure)
     {
@@ -1205,6 +1259,11 @@ gain_for_invariant (struct invariant *inv, unsigned *regs_needed,
 		   - estimate_reg_pressure_cost (new_regs[0],
 						 regs_used, speed, call_p));
     }
+  else if (ret < 0)
+    return -1;
+  else if ((ret == 0) && (cl == NO_REGS))
+    /* Hoist it anyway since it does not impact register pressure.  */
+    return 1;
   else
     {
       int i;
@@ -1213,6 +1272,10 @@ gain_for_invariant (struct invariant *inv, unsigned *regs_needed,
       for (i = 0; i < ira_pressure_classes_num; i++)
 	{
 	  pressure_class = ira_pressure_classes[i];
+
+	  if (!reg_classes_intersect_p (pressure_class, cl))
+	    continue;
+
 	  if ((int) new_regs[pressure_class]
 	      + (int) regs_needed[pressure_class]
 	      + LOOP_DATA (curr_loop)->max_reg_pressure[pressure_class]
