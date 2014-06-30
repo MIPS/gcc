@@ -4654,7 +4654,7 @@ mips_split_move (rtx dest, rtx src, enum mips_split_type split_type)
 
   gcc_checking_assert (mips_split_move_p (dest, src, split_type));
   if (!MSA_SPLIT_P (dest, src)
-      && (FP_REG_RTX_P (dest)||  FP_REG_RTX_P (src)))
+      && (FP_REG_RTX_P (dest) || FP_REG_RTX_P (src)))
     {
       if (!TARGET_64BIT && GET_MODE (dest) == DImode)
 	emit_insn (gen_move_doubleword_fprdi (dest, src));
@@ -13761,7 +13761,7 @@ bool
 mips_fmadd_bypass (rtx out_insn, rtx in_insn)
 {
   int dst_reg, src_reg;
-  
+
   gcc_assert (get_attr_type (in_insn) == TYPE_FMADD);
   gcc_assert (get_attr_type (out_insn) == TYPE_FMADD);
 
@@ -20639,6 +20639,10 @@ mips_msa_reversed_fp_cond (enum rtx_code *code)
       return false;
     }
 }
+
+/* Generate RTL for comparing CMP_OP0, CMP_ OP1 using condition COND
+ * and store the result result -1 or 0 in DEST TRUE_SRC and DEST_SRC
+ * must be -1 and 0 respectively.  */
 
 static void
 mips_expand_msa_vcond (rtx dest, rtx true_src, rtx false_src,

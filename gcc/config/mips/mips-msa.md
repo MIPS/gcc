@@ -714,7 +714,7 @@
 ;; instruction length can be 1.
 (define_insn "movti_msa"
   [(set (match_operand:TI 0 "nonimmediate_operand" "=*d,*d,*d,*R,*d,*f,f,R,f,*m,*d,*m,*f")
-	(match_operand:TI 1 "move_operand"          "*d,*i,*R,*d*J,*f,*d,R,f,fJ,*d*J,*m,*f,*m"))]
+	(match_operand:TI 1 "move_operand" "*d,*i,*R,*d*J,*f,*d,R,f,fJ,*d*J,*m,*f,*m"))]
   "ISA_HAS_MSA
    && !TARGET_64BIT
    && (register_operand (operands[0], TImode)
