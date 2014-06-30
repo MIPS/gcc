@@ -5755,9 +5755,17 @@ mips_expand_conditional_move (rtx *operands)
 			      gen_rtx_IOR (mode, temp, temp2)));
     }
   else
-    emit_insn (gen_rtx_SET (VOIDmode, operands[0],
-			    gen_rtx_IF_THEN_ELSE (GET_MODE (operands[0]), cond,
-						  operands[2], operands[3])));
+    {
+      if (FLOAT_MODE_P (GET_MODE (operands[2])) && !ISA_HAS_SEL)
+	{
+	  operands[2] = force_reg (GET_MODE (operands[0]), operands[2]);
+	  operands[3] = force_reg (GET_MODE (operands[0]), operands[3]);
+	}
+
+      emit_insn (gen_rtx_SET (VOIDmode, operands[0],
+			      gen_rtx_IF_THEN_ELSE (GET_MODE (operands[0]), cond,
+						    operands[2], operands[3])));
+    }
 }
 
 /* Perform the comparison in COMPARISON, then trap if the condition holds.  */
