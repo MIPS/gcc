@@ -12639,16 +12639,13 @@ mips_hard_regno_mode_ok_p (unsigned int regno, enum machine_mode mode)
 	    && ST_REG_P (regno)
 	    && (regno - ST_REG_FIRST) % 4 == 0);
 
-  if (mode == CCFmode)
-    return (ISA_HAS_CCF && FP_REG_P (regno));
-
   if (mode == CCmode)
     return ISA_HAS_8CC ? ST_REG_P (regno) : regno == FPSW_REGNUM;
 
   size = GET_MODE_SIZE (mode);
   mclass = GET_MODE_CLASS (mode);
 
-  if (GP_REG_P (regno))
+  if (GP_REG_P (regno) && mode != CCFmode)
     return ((regno - GP_REG_FIRST) & 1) == 0 || size <= UNITS_PER_WORD;
 
   /* For MSA, allow TImode and 128-bit vector modes in all FPR.  */
@@ -12664,6 +12661,9 @@ mips_hard_regno_mode_ok_p (unsigned int regno, enum machine_mode mode)
       if (mips_abi == ABI_32 && TARGET_FLOAT64 && !TARGET_ODD_SPREG
 	  && size <= 4 && (regno & 1) != 0)
 	return false;
+
+      if (mode == CCFmode && ISA_HAS_CCF)
+	return true;
 
       /* Allow 64-bit vector modes for Loongson-2E/2F.  */
       if (TARGET_LOONGSON_VECTORS
