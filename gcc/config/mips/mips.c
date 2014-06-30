@@ -12359,13 +12359,7 @@ mips_hard_regno_mode_ok_p (unsigned int regno, enum machine_mode mode)
   mclass = GET_MODE_CLASS (mode);
 
   if (GP_REG_P (regno))
-    {
-      /* For MSA, allow TImode and 128-bit vector modes in GPR registers.  */
-      if (MSA_SUPPORTED_MODE_P (mode))
-	return true;
-
-      return ((regno - GP_REG_FIRST) & 1) == 0 || size <= UNITS_PER_WORD;
-    }
+    return ((regno - GP_REG_FIRST) & 1) == 0 || size <= UNITS_PER_WORD;
 
   /* For MSA, allow TImode and 128-bit vector modes in all FPR.  */
   if (FP_REG_P (regno) && MSA_SUPPORTED_MODE_P (mode))
