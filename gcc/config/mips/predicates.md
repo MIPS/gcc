@@ -101,6 +101,10 @@
   (and (match_code "const_int,const_double,const_vector")
        (match_test "op == CONST0_RTX (GET_MODE (op))")))
 
+(define_predicate "const_yi_operand"
+  (and (match_code "const_vector")
+       (match_test "mips_const_vector_same_int_p (op, mode, -1024, 1023)")))
+
 (define_predicate "const_m1_operand"
   (and (match_code "const_int,const_double,const_vector")
        (match_test "op == CONSTM1_RTX (GET_MODE (op))")))
@@ -112,6 +116,12 @@
 (define_predicate "reg_or_0_operand"
   (ior (and (match_operand 0 "const_0_operand")
 	    (not (match_test "TARGET_MIPS16")))
+       (match_operand 0 "register_operand")))
+
+(define_predicate "reg_or_0yi_operand"
+   (ior (and (ior (match_operand 0 "const_0_operand")
+	          (match_operand 0 "const_yi_operand"))
+	    (match_test "TARGET_MSA"))
        (match_operand 0 "register_operand")))
 
 (define_predicate "const_1_operand"

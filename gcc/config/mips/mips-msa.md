@@ -638,18 +638,6 @@
   DONE;
 })
 
-(define_insn "msa_ldi<mode>_insn"
-  [(set (match_operand:IMSA 0 "register_operand" "=f")
-	(match_operand:IMSA 1 "const_vector_same_simm10_operand" ""))]
-  "ISA_HAS_MSA"
-  {
-    operands[1] = CONST_VECTOR_ELT (operands[1], 0);
-    return "ldi.<msafmt>\t%w0,%d1";
-  }
-  [(set_attr "type"     "arith")
-   (set_attr "mode"     "TI")
-   (set_attr "msa_execunit" "msa_eu_logic")])
-
 (define_expand "msa_ldi<mode>"
   [(match_operand:IMSA 0 "register_operand")
    (match_operand 1 "const_imm10_operand")]
@@ -670,8 +658,8 @@
 
     for (i = 0; i < n_elts; i++)
        RTVEC_ELT (v, i) = GEN_INT (val);
-    emit_insn (gen_msa_ldi<mode>_insn (operands[0],
-				       gen_rtx_CONST_VECTOR (<MODE>mode, v)));
+    emit_move_insn (operands[0],
+		    gen_rtx_CONST_VECTOR (<MODE>mode, v));
     DONE;
   })
 
@@ -761,10 +749,10 @@
 ;; and return values.
 (define_insn "mov<mode>_msa"
   [(set (match_operand:MODE128 0 "nonimmediate_operand" "=f,f,R,!d,f")
-	(match_operand:MODE128 1 "move_operand" "fYG,R,f,f,!d"))]
+	(match_operand:MODE128 1 "move_operand" "fYGYI,R,f,f,!d"))]
   "ISA_HAS_MSA
    && (register_operand (operands[0], <MODE>mode)
-       || reg_or_0_operand (operands[1], <MODE>mode))"
+       || reg_or_0yi_operand (operands[1], <MODE>mode))"
 { return mips_output_move (operands[0], operands[1]); }
   [(set_attr "move_type"	"fmove,fpload,fpstore,fmove,fmove")
    (set_attr "mode"     "TI")])
@@ -967,7 +955,7 @@
   {
     if (which_alternative == 1)
       {
-	operands[2] = CONST_VECTOR_ELT (operands[2], 0);
+//	operands[2] = CONST_VECTOR_ELT (operands[2], 0);
 	return "xori.b\t%w0,%w1,%B2";
       }
     else
@@ -1560,10 +1548,7 @@
 	(ICC:IMSA (match_operand:IMSA 1 "register_operand" "f")
 		  (match_operand:IMSA 2 "const_vector_same_cmp<ICC:cmpi>imm4_operand" "")))]
   "ISA_HAS_MSA"
-  {
-    operands[2] = CONST_VECTOR_ELT (operands[2], 0);
-    return "c<ICC:icci>.<IMSA:msafmt>\t%w0,%w1,%d2";
-  }
+  "c<ICC:icci>.<IMSA:msafmt>\t%w0,%w1,%E2"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
    (set_attr "msa_execunit"	"msa_eu_int_add")])
