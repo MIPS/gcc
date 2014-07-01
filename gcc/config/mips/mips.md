@@ -7208,7 +7208,8 @@
      registers are ignored. For consistency reasons the CCF mode values
      must be guaranteed to only exist in the even-registers because of
      the unusual duality between single and double precision values. */
-  if (ISA_HAS_SEL && !TARGET_ODD_SPREG && <MODE>mode == DFmode)
+  if (ISA_HAS_SEL && <MODE>mode == DFmode
+      && (!TARGET_ODD_SPREG || TARGET_FLOATXX))
     FAIL;
 
   mips_expand_conditional_move (operands);

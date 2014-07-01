@@ -12662,8 +12662,14 @@ mips_hard_regno_mode_ok_p (unsigned int regno, enum machine_mode mode)
 	  && size <= 4 && (regno & 1) != 0)
 	return false;
 
+      /* Prevent the use of odd-numbered registers for CCFmode with the
+	 O32-FPXX ABI, otherwise allow them.
+	 The FPXX ABI does not permit double-precision data to be placed
+	 in odd-numbered registers and double-precision compares write
+	 them as 64-bit values.  Without this restriction the R6 FPXX
+	 ABI would not be able to execute in FR=1 FRE=1 mode.  */
       if (mode == CCFmode && ISA_HAS_CCF)
-	return true;
+	return !(TARGET_FLOATXX && (regno & 1) != 0)
 
       /* Allow 64-bit vector modes for Loongson-2E/2F.  */
       if (TARGET_LOONGSON_VECTORS
