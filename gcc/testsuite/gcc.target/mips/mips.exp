@@ -1002,7 +1002,7 @@ proc mips-dg-options { args } {
 		       $spec dummy prop relation minvalue maxvalue nocpus] } {
 		error "Unrecognized isa specification: $spec"
 	    }
-	    if { ![string equal $maxvalue ""] && ![string equal $relation "="] {
+	    if { ![string equal $maxvalue ""] && ![string equal $relation "="] } {
 		error "Unsupported use of isa ranges: $spec"
 	    } else if { [string equal $maxvalue ""] } {
 		set maxvalue $minvalue
