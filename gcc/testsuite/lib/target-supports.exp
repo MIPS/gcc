@@ -3512,7 +3512,7 @@ proc check_effective_target_vect_double { } {
 	   set et_vect_double_saved 1
 	} elseif { [istarget mips*-*-*]
 		   && [check_effective_target_mips_msa_nomips16_nomicromips] } {
-	   set et_vect_dpouble_saved 1
+	   set et_vect_double_saved 1
 	}
     }
 
@@ -4327,6 +4327,8 @@ proc check_effective_target_vect_condition { } {
 	     || [istarget i?86-*-*]
 	     || [istarget spu-*-*]
 	     || [istarget x86_64-*-*]
+	     || [istarget mips*-*-*]
+		 && [check_effective_target_mips_msa_nomips16_nomicromips]
 	     || ([istarget arm*-*-*] && [check_effective_target_arm_neon_ok]) } {
 	   set et_vect_cond_saved 1
 	}
