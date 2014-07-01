@@ -4978,19 +4978,24 @@ mips_split_move_insn (rtx dest, rtx src, rtx insn)
 const char *
 mips_output_move (rtx dest, rtx src)
 {
-  enum rtx_code dest_code, src_code;
-  enum machine_mode mode;
+  enum rtx_code dest_code = GET_CODE (dest);
+  enum rtx_code src_code = GET_CODE (src);
+  enum machine_mode mode = GET_MODE (dest);
+  bool dbl_p = (GET_MODE_SIZE (mode) == 8);
+  bool msa_p = MSA_SUPPORTED_MODE_P (mode);
   enum mips_symbol_type symbol_type;
-  bool dbl_p, msa_p;
-
-  dest_code = GET_CODE (dest);
-  src_code = GET_CODE (src);
-  mode = GET_MODE (dest);
-  dbl_p = (GET_MODE_SIZE (mode) == 8);
-  msa_p = MSA_SUPPORTED_MODE_P (mode);
 
   if (mips_split_move_p (dest, src, SPLIT_IF_NECESSARY))
     return "#";
+
+  if (msa_p
+      && dest_code == REG && FP_REG_P (REGNO (dest))
+      && src_code == CONST_VECTOR
+      && CONST_INT_P (CONST_VECTOR_ELT (src, 0)))
+    {
+      gcc_assert (const_yi_operand (src, mode));
+      return "ldi.%v0\t%w0,%E1";
+    }
 
   if ((src_code == REG && GP_REG_P (REGNO (src)))
       || (!TARGET_MIPS16 && src == CONST0_RTX (mode)))
@@ -8737,6 +8742,7 @@ mips_print_operand_punct_valid_p (unsigned char code)
 
 /* Implement TARGET_PRINT_OPERAND.  The MIPS-specific operand codes are:
 
+   'E'  Print CONST_INT_OP element 0 of a replicated CONST_VECTOR in decimal.
    'X'	Print CONST_INT OP in hexadecimal format.
    'x'	Print the low 16 bits of CONST_INT OP in hexadecimal format.
    'd'	Print CONST_INT OP in decimal.
@@ -8781,6 +8787,18 @@ mips_print_operand (FILE *file, rtx op, int letter)
 
   switch (letter)
     {
+    case 'E':
+      if (GET_CODE (op) == CONST_VECTOR)
+	{
+	  gcc_assert (mips_const_vector_same_val_p (op, GET_MODE (op)));
+	  op = CONST_VECTOR_ELT (op, 0);
+	  gcc_assert (CONST_INT_P (op));
+	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (op));
+	}
+      else
+	output_operand_lossage ("invalid use of '%%%c'", letter);
+      break;
+
     case 'X':
       if (CONST_INT_P (op))
 	fprintf (file, HOST_WIDE_INT_PRINT_HEX, INTVAL (op));
