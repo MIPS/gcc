@@ -20413,13 +20413,13 @@ mips_expand_msa_cmp (rtx dest, enum rtx_code cond, rtx op0, rtx op1)
 	  emit_insn (gen_msa_cle_u_b (dest, op0, op1));
 	  break;
 	case GE: // swap
-	  emit_insn (gen_msa_clt_s_b (dest, op1, op0));
+	  emit_insn (gen_msa_cle_s_b (dest, op1, op0));
 	  break;
 	case GT: // swap
 	  emit_insn (gen_msa_clt_s_b (dest, op1, op0));
 	  break;
 	case GEU: // swap
-	  emit_insn (gen_msa_clt_u_b (dest, op1, op0));
+	  emit_insn (gen_msa_cle_u_b (dest, op1, op0));
 	  break;
 	case GTU: // swap
 	  emit_insn (gen_msa_clt_u_b (dest, op1, op0));
@@ -20448,13 +20448,13 @@ mips_expand_msa_cmp (rtx dest, enum rtx_code cond, rtx op0, rtx op1)
 	  emit_insn (gen_msa_cle_u_h (dest, op0, op1));
 	  break;
 	case GE: // swap
-	  emit_insn (gen_msa_clt_s_h (dest, op1, op0));
+	  emit_insn (gen_msa_cle_s_h (dest, op1, op0));
 	  break;
 	case GT: // swap
 	  emit_insn (gen_msa_clt_s_h (dest, op1, op0));
 	  break;
 	case GEU: // swap
-	  emit_insn (gen_msa_clt_u_h (dest, op1, op0));
+	  emit_insn (gen_msa_cle_u_h (dest, op1, op0));
 	  break;
 	case GTU: // swap
 	  emit_insn (gen_msa_clt_u_h (dest, op1, op0));
@@ -20483,13 +20483,13 @@ mips_expand_msa_cmp (rtx dest, enum rtx_code cond, rtx op0, rtx op1)
 	  emit_insn (gen_msa_cle_u_w (dest, op0, op1));
 	  break;
 	case GE: // swap
-	  emit_insn (gen_msa_clt_s_w (dest, op1, op0));
+	  emit_insn (gen_msa_cle_s_w (dest, op1, op0));
 	  break;
 	case GT: // swap
 	  emit_insn (gen_msa_clt_s_w (dest, op1, op0));
 	  break;
 	case GEU: // swap
-	  emit_insn (gen_msa_clt_u_w (dest, op1, op0));
+	  emit_insn (gen_msa_cle_u_w (dest, op1, op0));
 	  break;
 	case GTU: // swap
 	  emit_insn (gen_msa_clt_u_w (dest, op1, op0));
@@ -20518,13 +20518,13 @@ mips_expand_msa_cmp (rtx dest, enum rtx_code cond, rtx op0, rtx op1)
 	  emit_insn (gen_msa_cle_u_d (dest, op0, op1));
 	  break;
 	case GE: // swap
-	  emit_insn (gen_msa_clt_s_d (dest, op1, op0));
+	  emit_insn (gen_msa_cle_s_d (dest, op1, op0));
 	  break;
 	case GT: // swap
 	  emit_insn (gen_msa_clt_s_d (dest, op1, op0));
 	  break;
 	case GEU: // swap
-	  emit_insn (gen_msa_clt_u_d (dest, op1, op0));
+	  emit_insn (gen_msa_cle_u_d (dest, op1, op0));
 	  break;
 	case GTU: // swap
 	  emit_insn (gen_msa_clt_u_d (dest, op1, op0));
