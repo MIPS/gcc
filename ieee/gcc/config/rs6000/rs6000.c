@@ -2409,6 +2409,7 @@ rs6000_setup_reg_addr_masks (void)
 		  && GET_MODE_SIZE (m2) <= 8
 		  && !VECTOR_MODE_P (m2)
 		  && !COMPLEX_MODE_P (m2)
+		  && !FLOAT128_VECTOR_P (m2)
 		  && !indexed_only_p
 		  && !(TARGET_E500_DOUBLE && GET_MODE_SIZE (m2) == 8)
 		  && !(m2 == DFmode && TARGET_UPPER_REGS_DF)

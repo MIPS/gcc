@@ -84,6 +84,7 @@
 			(V2DF  "vd2")
 			(V2DI  "vd2")
 			(DF    "d")
+			(KF    "vd2")
 			(V1TI  "vd2")
 			(TI    "vd2")])
 
@@ -96,6 +97,7 @@
 			 (V2DI  "dp")
 			 (DF    "dp")
 			 (SF	"sp")
+			 (KF    "dp")
 			 (V1TI  "dp")
 			 (TI    "dp")])
 
@@ -108,6 +110,7 @@
 			 (V2DF  "wd")
 			 (DF    "ws")
 			 (SF	"d")
+			 (KF	"wd")
 			 (V1TI  "v")
 			 (TI    "wt")])
 
@@ -155,7 +158,8 @@
 			 (V2DI  "v")
 			 (V2DF  "v")
 			 (V1TI  "v")
-			 (DF    "s")])
+			 (DF    "s")
+			 (KF	"v")])
 
 ;; Appropriate type for add ops (and other simple FP ops)
 (define_mode_attr VStype_simple	[(V2DF "vecdouble")
