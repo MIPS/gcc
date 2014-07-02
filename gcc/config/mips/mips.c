@@ -12669,7 +12669,7 @@ mips_hard_regno_mode_ok_p (unsigned int regno, enum machine_mode mode)
 	 them as 64-bit values.  Without this restriction the R6 FPXX
 	 ABI would not be able to execute in FR=1 FRE=1 mode.  */
       if (mode == CCFmode && ISA_HAS_CCF)
-	return !(TARGET_FLOATXX && (regno & 1) != 0)
+	return !(TARGET_FLOATXX && (regno & 1) != 0);
 
       /* Allow 64-bit vector modes for Loongson-2E/2F.  */
       if (TARGET_LOONGSON_VECTORS
