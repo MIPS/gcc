@@ -1,3 +1,27 @@
+2014-06-30  Marek Polacek  <polacek@redhat.com>
+
+	* c-c++-common/ubsan/attrib-2.c: New test.
+	* g++.dg/ubsan/return-3.C: New test.
+
+2014-06-27  Marek Polacek  <polacek@redhat.com>
+
+	* c-c++-common/ubsan/bounds-2.c: Adjust dg-output.
+	(fn1): Remove store to out-of-bounds location.  Add memory barrier.
+	(fn2): Likewise.
+	(fn5): Likewise.
+	(fn6): Likewise.
+	(fn7): Likewise.
+	(fn8): Likewise.
+	(fn9): Likewise.
+	(fn11): Likewise.
+	* c-c++-common/ubsan/bounds-5.c (fn1): Remove store to out-of-bounds
+	location.  Add memory barrier.
+	(fn2): Likewise.
+	(fn3): Likewise.
+	(fn4): Likewise.
+	(fn5): Likewise.
+	* c-c++-common/ubsan/bounds-7.c: New test.
+
 2014-07-02  Jakub Jelinek  <jakub@redhat.com>
 	    Fritz Reese  <Reese-Fritz@zai.com>
 
