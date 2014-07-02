@@ -22,13 +22,14 @@
 
 include $(top_srcdir)/fragment.am
 
-SUBDIRS = c++98 c++11
+SUBDIRS = c++98 c++11 filesystem
 
 # Cross compiler support.
 toolexeclib_LTLIBRARIES = libstdc++.la
 
 vpath % $(top_srcdir)/src/c++98
 vpath % $(top_srcdir)/src/c++11
+vpath % $(top_srcdir)/src/filesystem
 
 if GLIBCXX_LDBL_COMPAT
 ldbl_compat_sources = compatibility-ldbl.cc

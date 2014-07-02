@@ -392,6 +392,7 @@ bits_headers = \
 	${bits_srcdir}/postypes.h \
 	${bits_srcdir}/predefined_ops.h \
 	${bits_srcdir}/ptr_traits.h \
+	${bits_srcdir}/quoted_string.h \
 	${bits_srcdir}/random.h \
 	${bits_srcdir}/random.tcc \
 	${bits_srcdir}/range_access.h \
@@ -906,6 +907,11 @@ experimental_srcdir = ${glibcxx_srcdir}/include/experimental
 experimental_builddir = ./experimental
 experimental_headers = \
 	${experimental_srcdir}/any \
+	${experimental_srcdir}/filesystem \
+	${experimental_srcdir}/fs_dir.h \
+	${experimental_srcdir}/fs_fwd.h \
+	${experimental_srcdir}/fs_ops.h \
+	${experimental_srcdir}/fs_path.h \
 	${experimental_srcdir}/optional \
 	${experimental_srcdir}/string_view \
 	${experimental_srcdir}/string_view.tcc
