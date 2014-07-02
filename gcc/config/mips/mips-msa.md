@@ -450,9 +450,9 @@
 (define_split
   [(set (match_operand:SPLIT 0 "register_operand")
 	(unspec:SPLIT [(match_operand:SPLIT 1 "register_operand")
-		      (match_operand 2 "const_0_or_1_operand")
-		      (match_operand:<UNITMODE> 3 "<SPLIT:predicate>_operand")]
-		     UNSPEC_MSA_INSERT))]
+		       (match_operand 2 "const_0_or_1_operand")
+		       (match_operand:<UNITMODE> 3 "<SPLIT:predicate>_operand")]
+		      UNSPEC_MSA_INSERT))]
   "reload_completed && TARGET_MSA && !TARGET_64BIT"
   [(const_int 0)]
 {
