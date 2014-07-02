@@ -107,7 +107,6 @@
   UNSPEC_MSA_ILVR
   UNSPEC_MSA_INSERT
   UNSPEC_MSA_INSVE
-  UNSPEC_MSA_LD0
   UNSPEC_MSA_MADD_Q
   UNSPEC_MSA_MADDR_Q
   UNSPEC_MSA_MAX_A
@@ -633,7 +632,7 @@
   "ISA_HAS_MSA"
 {
   rtx reg = gen_reg_rtx (<MODE>mode);
-  emit_insn (gen_msa_ld0<mode> (reg, const0_rtx));
+  emit_move_insn (reg, CONST0_RTX (<MODE>mode));
   emit_insn (gen_sub<mode>3 (operands[0], reg, operands[1]));
   DONE;
 })
@@ -662,16 +661,6 @@
 		    gen_rtx_CONST_VECTOR (<MODE>mode, v));
     DONE;
   })
-
-(define_insn "msa_ld0<mode>"
-  [(set (match_operand:FMSA 0 "register_operand" "=f")
-	(unspec:FMSA [(match_operand 1 "const_0_operand" "")]
-		     UNSPEC_MSA_LD0))]
-  "ISA_HAS_MSA"
-  "ldi.<msafmt>\t%w0,%d1"
-  [(set_attr "type"     "arith")
-   (set_attr "mode"     "TI")
-   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "msa_lsa"
  [(set (match_operand:SI 0 "register_operand" "=d")
