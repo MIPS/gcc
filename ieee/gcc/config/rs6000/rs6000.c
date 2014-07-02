@@ -15525,6 +15525,7 @@ init_float128_ieee (enum machine_mode mode)
       set_optab_libfunc (smul_optab, mode, "__mulkf3");
       set_optab_libfunc (sdiv_optab, mode, "__divkf3");
       set_optab_libfunc (sqrt_optab, mode, "__sqrtkf2");
+      set_optab_libfunc (abs_optab, mode, "__abstkf2");
 
       set_optab_libfunc (eq_optab, mode, "__eqkf2");
       set_optab_libfunc (ne_optab, mode, "__nekf2");
@@ -19031,48 +19032,85 @@ rs6000_generate_compare (rtx cmp, enum machine_mode mode)
      than.  For now, don't support IEEE Nan's in tests.  */
   else if(FLOAT128_IEEE_P (mode))
     {
-      rtx libfunc = NULL_RTX;
+      rtx and_reg = gen_reg_rtx (SImode);
       rtx dest = gen_reg_rtx (SImode);
+      rtx libfunc = optab_libfunc (cmp_optab, mode);
+      HOST_WIDE_INT mask_value = 0;
+
+      /* Values that __cmpkf2 returns (same bits as the CR registers).  */
+#define PPC_CMP_UNORDERED	0x1		/* isnan (a) || isnan (b).  */
+#define PPC_CMP_EQUAL		0x2		/* a == b.  */
+#define PPC_CMP_GREATER_THEN	0x4		/* a > b.  */
+#define PPC_CMP_LESS_THEN	0x8		/* a < b.  */
 
       switch (code)
 	{
 	case EQ:
-	  libfunc = optab_libfunc (eq_optab, mode);
+	  mask_value = PPC_CMP_EQUAL;
 	  code = NE;
 	  break;
 
 	case NE:
-	  libfunc = optab_libfunc (eq_optab, mode);
+	  mask_value = PPC_CMP_EQUAL;
 	  code = EQ;
 	  break;
 
 	case GT:
-	  libfunc = optab_libfunc (gt_optab, mode);
+	  mask_value = PPC_CMP_GREATER_THEN;
 	  code = NE;
 	  break;
 
 	case GE:
-	  libfunc = optab_libfunc (ge_optab, mode);
+	  mask_value = PPC_CMP_GREATER_THEN | PPC_CMP_EQUAL;
 	  code = NE;
 	  break;
 
 	case LT:
-	  libfunc = optab_libfunc (lt_optab, mode);
+	  mask_value = PPC_CMP_LESS_THEN;
 	  code = NE;
 	  break;
 
 	case LE:
-	  libfunc = optab_libfunc (le_optab, mode);
+	  mask_value = PPC_CMP_LESS_THEN | PPC_CMP_EQUAL;
 	  code = NE;
 	  break;
 
+	case UNLE:
+	  mask_value = PPC_CMP_GREATER_THEN;
+	  code = EQ;
+	  break;
+
+	case UNLT:
+	  mask_value = PPC_CMP_GREATER_THEN | PPC_CMP_EQUAL;
+	  code = EQ;
+	  break;
+
+	case UNGE:
+	  mask_value = PPC_CMP_LESS_THEN;
+	  code = EQ;
+	  break;
+
+	case UNGT:
+	  mask_value = PPC_CMP_LESS_THEN | PPC_CMP_EQUAL;
+	  code = EQ;
+	  break;
+
+	case UNEQ:
+	  mask_value = PPC_CMP_EQUAL | PPC_CMP_UNORDERED;
+	  code = NE;
+
+	case LTGT:
+	  mask_value = PPC_CMP_EQUAL | PPC_CMP_UNORDERED;
+	  code = EQ;
+	  break;
+
 	case UNORDERED:
-	  libfunc = optab_libfunc (unord_optab, mode);
+	  mask_value = PPC_CMP_UNORDERED;
 	  code = NE;
 	  break;
 
 	case ORDERED:
-	  libfunc = optab_libfunc (unord_optab, mode);
+	  mask_value = PPC_CMP_UNORDERED;
 	  code = EQ;
 	  break;
 
@@ -19080,9 +19118,11 @@ rs6000_generate_compare (rtx cmp, enum machine_mode mode)
 	  gcc_unreachable ();
 	}
 
-      gcc_assert (libfunc != NULL_RTX);
-      dest = emit_library_call_value (libfunc, dest, LCT_CONST, SImode, 2,
-				      op0, mode, op1, mode);
+      gcc_assert (mask_value != 0);
+      and_reg = emit_library_call_value (libfunc, and_reg, LCT_CONST, SImode, 2,
+					 op0, mode, op1, mode);
+
+      emit_insn (gen_andsi3 (dest, and_reg, GEN_INT (mask_value)));
       compare_result = gen_reg_rtx (CCmode);
       comp_mode = CCmode;
 
