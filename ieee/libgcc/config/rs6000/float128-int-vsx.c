@@ -34,12 +34,12 @@
    -mfloat128-fpr that passes and returns IEEE 128-bit values in a pair of
    scalar floating point registers.  */
 
-#ifndef __VSX__
-#error "-mvsx is required"
-#endif
+#pragma GCC target ("vsx,float128-vsx,no-float128-fpr")
 
 #ifndef __FLOAT128_VSX__
-#error "-mfloat128-vsx is required"
+#define __FLOAT128_VSX__
 #endif
+
+#undef __FLOAT128_FPR__
 
 #include "config/rs6000/float128-int.c"

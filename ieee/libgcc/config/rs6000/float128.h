@@ -65,7 +65,7 @@ extern TFtype F128_MAP(__subkf3,_q_sub) (TFtype, TFtype);
 extern TFtype F128_MAP(__mulkf3,_q_mul) (TFtype, TFtype);
 extern TFtype F128_MAP(__divkf3,_q_div) (TFtype, TFtype);
 extern TFtype F128_MAP(__negkf2,_q_neg) (TFtype);
-extern TFtype F128_MAP(__sqrtkf3,_q_sqrt) (TFtype);
+extern TFtype F128_MAP(__sqrtkf2,_q_sqrt) (TFtype);
 
 extern CMPtype F128_MAP(__cmpkf2,_q_fcmp) (TFtype, TFtype);
 extern CMPtype F128_MAP(__eqkf2,_q_feq) (TFtype, TFtype);
@@ -104,11 +104,4 @@ extern TFtype F128_MAP(__floatundikf,_q_utoq_d) (UDItype);
 #if defined(__LONG_DOUBLE_128__) && !defined(__LONG_DOUBLE_IEEE128__)
 extern IFtype F128_MAP(__extendkftf2,_q_ttoq) (TFtype);
 extern TFtype F128_MAP(__trunctfkf2,_q_qtot) (IFtype);
-#endif
-
-#ifdef _ARCH_PPC64
-extern TFtype F128_MAP(__floattikf,_q_itoq_q) (TItype);
-extern TFtype F128_MAP(__floatuntikf,_q_utoq_q) (UTItype);
-extern TItype F128_MAP(__fixkfti,_q_qtoi_q) (TFtype);
-extern UTItype F128_MAP(__fixunskfti,_q_qtou_q) (TFtype);
 #endif

@@ -55,7 +55,7 @@ F128_MAP(__floatdikf,_q_itoq_d) (DItype i)
   FP_DECL_Q (A);
   TFtype a;
 
-  FP_FROM_INT_Q (A, i, SI_BITS, USItype);
+  FP_FROM_INT_Q (A, i, DI_BITS, UDItype);
   FP_PACK_RAW_Q (a, A);
 
   return a;
@@ -84,7 +84,7 @@ F128_MAP(__floatundikf,_q_utoq_d) (UDItype i)
   FP_DECL_Q (A);
   TFtype a;
 
-  FP_FROM_INT_Q (A, i, SI_BITS, USItype);
+  FP_FROM_INT_Q (A, i, DI_BITS, UDItype);
   FP_PACK_RAW_Q (a, A);
 
   return a;

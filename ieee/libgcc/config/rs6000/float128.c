@@ -119,7 +119,7 @@ F128_MAP(__divkf3,_q_div) (TFtype a, TFtype b)
 /* Negate an IEEE 128-bit floating point value.  */
 
 TFtype
-F128_MAP(__negkf3,_q_neg) (TFtype a)
+F128_MAP(__negkf2,_q_neg) (TFtype a)
 {
   FP_DECL_EX;
   FP_DECL_Q (A);
@@ -138,7 +138,7 @@ F128_MAP(__negkf3,_q_neg) (TFtype a)
 /* Do a square root of an IEEE 128-bit floating point value.  */
 
 TFtype
-F128_MAP(__sqrtkf3,_q_sqrt) (TFtype a)
+F128_MAP(__sqrtkf2,_q_sqrt) (TFtype a)
 {
   FP_DECL_EX;
   FP_DECL_Q (A);
@@ -392,77 +392,6 @@ F128_MAP(__fixunskfdi,_q_qtou_d) (TFtype a)
 
   return r;
 }
-
-
-#ifdef _ARCH_PPC64
-/* Convert 128-bit signed integer to IEEE 128-bit floating point.  */
-
-TFtype
-F128_MAP(__floattikf,_q_itoq_q) (TItype i)
-{
-  FP_DECL_EX;
-  FP_DECL_Q (A);
-  TFtype a;
-
-  FP_INIT_ROUNDMODE;
-  FP_FROM_INT_Q (A, i, TI_BITS, UTItype);
-  FP_PACK_RAW_Q (a, A);
-  FP_HANDLE_EXCEPTIONS;
-
-  return a;
-}
-
-/* Convert 128-bit unsigned integer to IEEE 128-bit floating point.  */
-
-TFtype
-F128_MAP(__floatuntikf,_q_utoq_q) (UTItype i)
-{
-  FP_DECL_EX;
-  FP_DECL_Q (A);
-  TFtype a;
-
-  FP_INIT_ROUNDMODE;
-  FP_FROM_INT_Q (A, i, TI_BITS, UTItype);
-  FP_PACK_RAW_Q (a, A);
-  FP_HANDLE_EXCEPTIONS;
-
-  return a;
-}
-
-/* Convert 128-bit IEEE floating point to 128-bit signed integer.  */
-
-TItype
-F128_MAP(__fixkfti,_q_qtoi_q) (TFtype a)
-{
-  FP_DECL_EX;
-  FP_DECL_Q (A);
-  UTItype r;
-
-  FP_INIT_EXCEPTIONS;
-  FP_UNPACK_RAW_Q (A, a);
-  FP_TO_INT_Q (r, A, TI_BITS, 1);
-  FP_HANDLE_EXCEPTIONS;
-
-  return r;
-}
-
-/* Convert 128-bit IEEE floating point to 128-bit unsigned integer.  */
-
-UTItype
-F128_MAP(__fixunskfti,_q_qtou_q) (TFtype a)
-{
-  FP_DECL_EX;
-  FP_DECL_Q (A);
-  UTItype r;
-
-  FP_INIT_EXCEPTIONS;
-  FP_UNPACK_RAW_Q (A, a);
-  FP_TO_INT_Q (r, A, TI_BITS, 0);
-  FP_HANDLE_EXCEPTIONS;
-
-  return r;
-}
-#endif	/* 128-bit integer conversions.  */
 
 
 /* PowerPC condition register bits.  */

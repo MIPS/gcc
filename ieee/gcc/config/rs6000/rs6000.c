@@ -15576,20 +15576,16 @@ init_float128_ieee (enum machine_mode mode)
       set_conv_libfunc (ufix_optab, SImode, mode, "__fixunskfsi");
       set_conv_libfunc (sfix_optab, DImode, mode, "__fixkfdi");
       set_conv_libfunc (ufix_optab, DImode, mode, "__fixunskfdi");
-      if (TARGET_POWERPC64)
-	{
-	  set_conv_libfunc (sfix_optab, TImode, mode, "__fixkfti");
-	  set_conv_libfunc (ufix_optab, TImode, mode, "__fixunskfti");
-	}
 
       set_conv_libfunc (sfloat_optab, mode, SImode, "__floatsikf");
       set_conv_libfunc (ufloat_optab, mode, SImode, "__floatunsikf");
       set_conv_libfunc (sfloat_optab, mode, DImode, "__floatdikf");
       set_conv_libfunc (ufloat_optab, mode, DImode, "__floatundikf");
-      if (TARGET_POWERPC64)
+
+      if (mode == KFmode && !TARGET_IEEEQUAD && TARGET_LONG_DOUBLE_128)
 	{
-	  set_conv_libfunc (sfloat_optab, mode, TImode, "__floattikf");
-	  set_conv_libfunc (ufloat_optab, mode, TImode, "__floatuntikf");
+	  set_conv_libfunc (sext_optab, TFmode, mode, "__extendkftf2");
+	  set_conv_libfunc (trunc_optab, mode, TFmode, "__trunctfkf2");
 	}
     }
 
@@ -15637,14 +15633,6 @@ init_float128_ieee (enum machine_mode mode)
 	  set_conv_libfunc (ufix_optab, DImode, mode, "_q_qtou_d");
 	  set_conv_libfunc (sfloat_optab, mode, DImode, "_q_itoq_d");
 	  set_conv_libfunc (ufloat_optab, mode, DImode, "_q_utoq_d");
-
-	  if (TARGET_POWERPC64)
-	    {
-	      set_conv_libfunc (sfix_optab, DImode, mode, "_q_qtoi_q");
-	      set_conv_libfunc (ufix_optab, DImode, mode, "_q_qtou_q");
-	      set_conv_libfunc (sfloat_optab, mode, DImode, "_q_itoq_q");
-	      set_conv_libfunc (ufloat_optab, mode, DImode, "_q_utoq_q");
-	    }
 	}
     }
 }
@@ -31773,8 +31761,8 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
   { "crypto",			OPTION_MASK_CRYPTO,		false, true  },
   { "direct-move",		OPTION_MASK_DIRECT_MOVE,	false, true  },
   { "dlmzb",			OPTION_MASK_DLMZB,		false, true  },
-  { "float128-vsx",		OPTION_MASK_FLOAT128_VSX,	false, false },
-  { "float128-fpr",		OPTION_MASK_FLOAT128_FPR,	false, false },
+  { "float128-vsx",		OPTION_MASK_FLOAT128_VSX,	false, true  },
+  { "float128-fpr",		OPTION_MASK_FLOAT128_FPR,	false, true  },
   { "fprnd",			OPTION_MASK_FPRND,		false, true  },
   { "hard-dfp",			OPTION_MASK_DFP,		false, true  },
   { "htm",			OPTION_MASK_HTM,		false, true  },
