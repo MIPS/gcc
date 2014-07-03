@@ -1170,6 +1170,7 @@ skip_fixed_comments (void)
     }
 
   openmp_flag = 0;
+  openacc_flag = 0;
   gcc_attribute_flag = 0;
   gfc_current_locus = start;
 }
