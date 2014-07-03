@@ -957,23 +957,34 @@ add, subtract, multiply, divide; unary arithmetic operators;
 relational operators; equality operators; and conversions to and from
 integer and other floating types.  Use a suffix @samp{w} or @samp{W}
 in a literal constant of type @code{__float80} and @samp{q} or @samp{Q}
-for @code{_float128}.  You can declare complex types using the
-corresponding internal complex type, @code{XCmode} for @code{__float80}
-type and @code{TCmode} for @code{__float128} type:
+for @code{_float128}.
+
+On the i386, x86_64, IA-64, and HP-UX targets, you can declare complex
+types using the corresponding internal complex type, @code{XCmode} for
+@code{__float80} type and @code{TCmode} for @code{__float128} type:
 
 @smallexample
 typedef _Complex float __attribute__((mode(TC))) _Complex128;
 typedef _Complex float __attribute__((mode(XC))) _Complex80;
 @end smallexample
 
+On PowerPC Linux, Freebsd and Darwin systems, the default for
+@code{long double} is to use the IBM extended floating point format
+that uses a pair of @code{double} values to extend the precision.
+This means that the mode @code{TCmode} was already used by the
+traditional IBM long double format, and you would need to use the mode
+@code{KCmode}:
+
+@smallexample
+typedef _Complex float __attribute__((mode(KC))) _Complex128;
+@end smallexample
+
 Not all targets support additional floating-point types.  @code{__float80}
 and @code{__float128} types are supported on i386, x86_64 and IA-64 targets.
 The @code{__float128} type is supported on hppa HP-UX.
-
-On PowerPC systems that support the vector scalar extensions (VSX),
-@code{__float128} supports the IEEE 128-bit extended format.  The default
-for @code{long double} is to use the IBM extended floating point that
-uses a pair of @code{double} values to extend the precision.
+The @code{__float128} type is supported on PowerPC systems by default
+if the vector scalar instruction set (VSX) is enabled, or if the
+@option{-mfloat128-fpr} option is used.
 
 @node Half-Precision
 @section Half-Precision Floating Point

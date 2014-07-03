@@ -1,3 +1,40 @@
+2014-07-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* doc/extend.texi (Floating Types): Update __float128
+	documentation.
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Drop -mfloat128,
+	add -mfloat128-vsx and -mfloat128-fpr.
+
+	* config/rs6000/rs6000-cpus.def (ISA_2_6_MASKS_SERVER): Split
+	-mfloat128 into 2 separate options, -mfloat128-vsx and
+	-mfloat128-fpr, so that users can control how IEEE 128-bit
+	floating point values are passed and returned.  Make
+	-mfloat128-vsx default on VSX systems.
+	(POWERPC_MASK): Likewise.
+	(power7 defaults): Likewise.
+	* config/rs6000/rs6000.opt (-mfloat128): Likewise.
+	(-mfloat128-vsx): Likewise.
+	(-mfloat128-fpr): Likewise.
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Likewise.
+	(rs6000_init_hard_regno_mode_ok): Likewise.
+	(rs6000_option_override_internal): Likewise.
+	(init_float128_ieee): Likewise.
+	(rs6000_opt_masks): Likewise.
+	* config/rs6000/vsx.md (negkf2): Likewise.
+	(negkf2_internal): Likewise.
+	(abskf2): Likewise.
+	(abskf2_internal): Likewise.
+	(nabskf2_internal): Likewise.
+	* config/rs6000/rs6000.h (TARGET_FLOAT128): Likewise.
+	(FLOAT128_VECTOR_P): Likewise.
+	(FLOAT128_2REG_P): Likewise.
+	(MASK_FLOAT128): Likewise.
+	(MASK_FLOAT128_VSX): Likewise.
+	(MASK_FLOAT128_FPR): Likewise.
+	(SLOW_UNALIGNED_ACCESS): Likewise.
+	(HARD_REGNO_CALL_PART_CLOBBERED): Likewise.
+
 2014-07-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (rs6000_generate_compare): Change code to

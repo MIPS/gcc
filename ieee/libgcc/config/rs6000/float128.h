@@ -35,8 +35,10 @@
 #endif
 
 /* Use IFtype for IBM long double.  */
+#if defined(__LONG_DOUBLE_128__) && !defined(__LONG_DOUBLE_IEEE128__)
 #ifndef IFtype
 #define IFtype long double
+#endif
 #endif
 
 #include "soft-fp/soft-fp.h"
@@ -45,63 +47,68 @@
 #include "soft-fp/single.h"
 
 #ifndef __FLOAT128__
-#error "-mfloat128 is required"
+#error "-mfloat128-vsx or -mfloat128-fpr is required"
 #endif
 
-#if !defined(__LONG_DOUBLE_128__) || defined(__LONG_DOUBLE_IEEE128__)
-#error "long double must use the IBM long double format"
+/* Depending on options, we want to create two different names, one that passes
+   the values as VSX types, and the other that passes values as pairs of FPR
+   registers.  */
+#ifdef __FLOAT128_VSX__
+#define F128_MAP(VSX,FPR) VSX
+#else
+#define F128_MAP(VSX,FPR) FPR
 #endif
-
-/* If we want to support __float128 on non-VSX systems, we could use #define to
-   change all of the functions declared to be a different name.  */
 
 /* Declare all of the support functions.  */
-extern TFtype __addkf3 (TFtype, TFtype);
-extern TFtype __subkf3 (TFtype, TFtype);
-extern TFtype __mulkf3 (TFtype, TFtype);
-extern TFtype __divkf3 (TFtype, TFtype);
-extern TFtype __negkf2 (TFtype);
-extern TFtype __sqrtkf3 (TFtype);
+extern TFtype F128_MAP(__addkf3,_q_add) (TFtype, TFtype);
+extern TFtype F128_MAP(__subkf3,_q_sub) (TFtype, TFtype);
+extern TFtype F128_MAP(__mulkf3,_q_mul) (TFtype, TFtype);
+extern TFtype F128_MAP(__divkf3,_q_div) (TFtype, TFtype);
+extern TFtype F128_MAP(__negkf2,_q_neg) (TFtype);
+extern TFtype F128_MAP(__sqrtkf3,_q_sqrt) (TFtype);
 
-extern CMPtype __cmpkf2 (TFtype, TFtype);
-extern CMPtype __eqkf2 (TFtype, TFtype);
-extern CMPtype __nekf2 (TFtype, TFtype);
-extern CMPtype __ltkf2 (TFtype, TFtype);
-extern CMPtype __lekf2 (TFtype, TFtype);
-extern CMPtype __gtkf2 (TFtype, TFtype);
-extern CMPtype __gekf2 (TFtype, TFtype);
-extern CMPtype __uneqkf2 (TFtype, TFtype);
-extern CMPtype __ungekf2 (TFtype, TFtype);
-extern CMPtype __ungtkf2 (TFtype, TFtype);
-extern CMPtype __unlekf2 (TFtype, TFtype);
-extern CMPtype __unltkf2 (TFtype, TFtype);
-extern CMPtype __ltgtkf2 (TFtype, TFtype);
+extern CMPtype F128_MAP(__cmpkf2,_q_fcmp) (TFtype, TFtype);
+extern CMPtype F128_MAP(__eqkf2,_q_feq) (TFtype, TFtype);
+extern CMPtype F128_MAP(__nekf2,_q_fne) (TFtype, TFtype);
+extern CMPtype F128_MAP(__ltkf2,_q_flt) (TFtype, TFtype);
+extern CMPtype F128_MAP(__lekf2,_q_fle) (TFtype, TFtype);
+extern CMPtype F128_MAP(__gtkf2,_q_fgt) (TFtype, TFtype);
+extern CMPtype F128_MAP(__gekf2,_q_fge) (TFtype, TFtype);
+extern CMPtype F128_MAP(__uneqkf2,_q_funeq) (TFtype, TFtype);
+extern CMPtype F128_MAP(__ungekf2,_q_funge) (TFtype, TFtype);
+extern CMPtype F128_MAP(__ungtkf2,_q_fungt) (TFtype, TFtype);
+extern CMPtype F128_MAP(__unlekf2,_q_funle) (TFtype, TFtype);
+extern CMPtype F128_MAP(__unltkf2,_q_funlt) (TFtype, TFtype);
+extern CMPtype F128_MAP(__ltgtkf2,_q_fltgt) (TFtype, TFtype);
 
-extern CMPtype __unordkf2 (TFtype, TFtype);
-extern CMPtype __orderedkf2 (TFtype, TFtype);
+extern CMPtype F128_MAP(__unordkf2,_q_funordered) (TFtype, TFtype);
+extern CMPtype F128_MAP(__orderedkf2,_q_fordered) (TFtype, TFtype);
 
-extern TFtype __extenddfkf2 (DFtype);
-extern TFtype __extendsfkf2 (SFtype);
-extern IFtype __extendkftf2 (TFtype);
+extern TFtype F128_MAP(__extenddfkf2,_q_dtoq) (DFtype);
+extern TFtype F128_MAP(__extendsfkf2,_q_stoq) (SFtype);
 
-extern DFtype __trunckfdf2 (TFtype);
-extern SFtype __trunckfsf2 (TFtype);
-extern TFtype __trunctfkf2 (IFtype);
+extern DFtype F128_MAP(__trunckfdf2,_q_qtod) (TFtype);
+extern SFtype F128_MAP(__trunckfsf2,_q_qtos) (TFtype);
 
-extern SItype __fixkfsi (TFtype);
-extern DItype __fixkfdi (TFtype);
-extern USItype __fixunskfsi (TFtype);
-extern UDItype __fixunskfdi (TFtype);
+extern SItype F128_MAP(__fixkfsi,_q_qtoi) (TFtype);
+extern DItype F128_MAP(__fixkfdi,_q_qtoi_d) (TFtype);
+extern USItype F128_MAP(__fixunskfsi,_q_qtou) (TFtype);
+extern UDItype F128_MAP(__fixunskfdi,_q_qtou_d) (TFtype);
 
-extern TFtype __floatsikf (SItype);
-extern TFtype __floatdikf (DItype);
+extern TFtype F128_MAP(__floatsikf,_q_itoq) (SItype);
+extern TFtype F128_MAP(__floatdikf,_q_itoq_d) (DItype);
 
-extern TFtype __floatunsikf (USItype);
-extern TFtype __floatundikf (UDItype);
+extern TFtype F128_MAP(__floatunsikf,_q_utoq) (USItype);
+extern TFtype F128_MAP(__floatundikf,_q_utoq_d) (UDItype);
+
+#if defined(__LONG_DOUBLE_128__) && !defined(__LONG_DOUBLE_IEEE128__)
+extern IFtype F128_MAP(__extendkftf2,_q_ttoq) (TFtype);
+extern TFtype F128_MAP(__trunctfkf2,_q_qtot) (IFtype);
+#endif
 
 #ifdef _ARCH_PPC64
-extern TFtype __floattikf (TItype);
-extern TFtype __floatuntikf (UTItype);
-extern TItype __fixkfti (TFtype);
-extern UTItype __fixunskfti (TFtype);
+extern TFtype F128_MAP(__floattikf,_q_itoq_q) (TItype);
+extern TFtype F128_MAP(__floatuntikf,_q_utoq_q) (UTItype);
+extern TItype F128_MAP(__fixkfti,_q_qtoi_q) (TFtype);
+extern UTItype F128_MAP(__fixunskfti,_q_qtou_q) (TFtype);
 #endif

@@ -109,6 +109,44 @@ GCC_4.2.0 {
   __unlekf2
   __unltkf2
   __unordkf2
+  _q_add
+  _q_div
+  _q_dtoq
+  _q_fcmp
+  _q_feq
+  _q_fge
+  _q_fgt
+  _q_fle
+  _q_flt
+  _q_fne
+  _q_fordered
+  _q_funeq
+  _q_funge
+  _q_fungt
+  _q_funle
+  _q_funlt
+  _q_funordered
+  _q_itoq
+  _q_itoq_d
+  _q_itoq_q
+  _q_mul
+  _q_neg
+  _q_qtod
+  _q_qtoi
+  _q_qtoi_d
+  _q_qtoi_q
+  _q_qtos
+  _q_qtot
+  _q_qtou
+  _q_qtou_d
+  _q_qtou_q
+  _q_sqrt
+  _q_stoq
+  _q_sub
+  _q_ttoq
+  _q_utoq
+  _q_utoq_d
+  _q_utoq_q
 }
 
 GCC_4.10.0 {
@@ -146,6 +184,42 @@ GCC_4.10.0 {
   __unlekf2
   __unltkf2
   __unordkf2
+  _q_add
+  _q_div
+  _q_dtoq
+  _q_fcmp
+  _q_feq
+  _q_fge
+  _q_fgt
+  _q_fle
+  _q_flt
+  _q_fne
+  _q_fordered
+  _q_funeq
+  _q_funge
+  _q_fungt
+  _q_funle
+  _q_funlt
+  _q_funordered
+  _q_itoq
+  _q_itoq_d
+  _q_itoq_q
+  _q_mul
+  _q_neg
+  _q_qtod
+  _q_qtoi
+  _q_qtoi_d
+  _q_qtoi_q
+  _q_qtos
+  _q_qtot
+  _q_qtou
+  _q_qtou_d
+  _q_qtou_q
+  _q_sqrt
+  _q_stoq
+  _q_sub
+  _q_ttoq
+  _q_utoq
+  _q_utoq_d
+  _q_utoq_q
 }
-
-

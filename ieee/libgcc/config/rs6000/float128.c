@@ -35,7 +35,7 @@
 /* Add two IEEE 128-bit floating point values.  */
 
 TFtype
-__addkf3 (TFtype a, TFtype b)
+F128_MAP(__addkf3,_q_add) (TFtype a, TFtype b)
 {
   FP_DECL_EX;
   FP_DECL_Q (A);
@@ -56,7 +56,7 @@ __addkf3 (TFtype a, TFtype b)
 /* Subtract two IEEE 128-bit floating point values.  */
 
 TFtype
-__subkf3 (TFtype a, TFtype b)
+F128_MAP(__subkf3,_q_sub) (TFtype a, TFtype b)
 {
   FP_DECL_EX;
   FP_DECL_Q (A);
@@ -77,7 +77,7 @@ __subkf3 (TFtype a, TFtype b)
 /* Multiply two IEEE 128-bit floating point values.  */
 
 TFtype
-__mulkf3 (TFtype a, TFtype b)
+F128_MAP(__mulkf3,_q_mul) (TFtype a, TFtype b)
 {
   FP_DECL_EX;
   FP_DECL_Q (A);
@@ -98,7 +98,7 @@ __mulkf3 (TFtype a, TFtype b)
 /* Divide two IEEE 128-bit floating point values.  */
 
 TFtype
-__divkf3 (TFtype a, TFtype b)
+F128_MAP(__divkf3,_q_div) (TFtype a, TFtype b)
 {
   FP_DECL_EX;
   FP_DECL_Q (A);
@@ -119,7 +119,7 @@ __divkf3 (TFtype a, TFtype b)
 /* Negate an IEEE 128-bit floating point value.  */
 
 TFtype
-__negkf3 (TFtype a)
+F128_MAP(__negkf3,_q_neg) (TFtype a)
 {
   FP_DECL_EX;
   FP_DECL_Q (A);
@@ -138,7 +138,7 @@ __negkf3 (TFtype a)
 /* Do a square root of an IEEE 128-bit floating point value.  */
 
 TFtype
-__sqrtkf3 (TFtype a)
+F128_MAP(__sqrtkf3,_q_sqrt) (TFtype a)
 {
   FP_DECL_EX;
   FP_DECL_Q (A);
@@ -158,7 +158,7 @@ __sqrtkf3 (TFtype a)
 /* Convert single precision floating point to IEEE 128-bit floating point.  */
 
 TFtype
-__extendsfkf2 (SFtype a)
+F128_MAP(__extendsfkf2,_q_stoq) (SFtype a)
 {
   FP_DECL_EX;
   FP_DECL_S (A);
@@ -181,7 +181,7 @@ __extendsfkf2 (SFtype a)
 /* Convert double precision floating point to IEEE 128-bit floating point.  */
 
 TFtype
-__extenddfkf2 (DFtype a)
+F128_MAP(__extenddfkf2,_q_dtoq) (DFtype a)
 {
   FP_DECL_EX;
   FP_DECL_D (A);
@@ -201,22 +201,39 @@ __extenddfkf2 (DFtype a)
   return r;
 }
 
+
 /* Convert IEEE 128-bit floating point to IBM long double.  */
 
+#if defined(__LONG_DOUBLE_128__) && !defined(__LONG_DOUBLE_IEEE128__)
+
 IFtype
-__extendkftf2 (TFtype value)
+F128_MAP(__extendkftf2,_q_ttoq) (TFtype value)
 {
   double high, low;
 
-  high = __trunckfdf2 (value);
+  high = F128_MAP (__trunckfdf2,_q_qtod) (value);
   if (__builtin_isnan (high) || __builtin_isinf (high))
     low = high;
 
   else
     {
-      TFtype high_f128 = __extenddfkf2 (high);
-      TFtype low_f128 = __subkf3 (value, high_f128);
-      low = __builtin_copysign (__trunckfdf2 (low_f128), high);
+      TFtype high_f128 = F128_MAP (__extenddfkf2,_q_qtod) (high);
+      TFtype low_f128 = F128_MAP (__subkf3,_q_sub) (value, high_f128);
+
+      /* If we are on a power6 or newer, we can use copysign to propigate the
+	 sign bit so that -0.0Q becomes -0.0L.  If we are on an older platform,
+	 we need to handle the sign propigation.  */
+#ifdef _ARCH_PWR6
+      low = __builtin_copysign (F128_MAP (__trunckfdf2,_q_qtod) (low_f128), high);
+#else
+      low = F128_MAP (__trunckfdf2,_q_qtod) (low_f128);
+      if (high == 0.0 && low == 0.0)
+	low = high;		/* just in case it is -0.0 */
+      else if (high < 0)
+	low = - __builtin_fabs (low);
+      else
+	low = __builtin_fabs (low);
+#endif	/* no copysign */
     }
 
 #ifdef __LITTLE_ENDIAN__
@@ -225,12 +242,13 @@ __extendkftf2 (TFtype value)
   return __builtin_pack_longdouble (high, low);
 #endif
 }
+#endif	/* long double is IBM long double.  */
 
 
 /* Convert IEEE 128-bit floating point to single precision floating point.  */
 
 SFtype
-__trunckfsf2 (TFtype a)
+F128_MAP(__trunckfsf2,_q_qtos) (TFtype a)
 {
   FP_DECL_EX;
   FP_DECL_Q (A);
@@ -253,7 +271,7 @@ __trunckfsf2 (TFtype a)
 /* Convert IEEE 128-bit floating point to double precision floating point.  */
 
 DFtype
-__trunckfdf2 (TFtype a)
+F128_MAP(__trunckfdf2,_q_qtod) (TFtype a)
 {
   FP_DECL_EX;
   FP_DECL_Q (A);
@@ -273,10 +291,12 @@ __trunckfdf2 (TFtype a)
   return r;
 }
 
+
 /* Convert IBM long double to IEEE 128-bit floating point.  */
+#if defined(__LONG_DOUBLE_128__) && !defined(__LONG_DOUBLE_IEEE128__)
 
 TFtype
-__trunctfkf2 (IFtype value)
+F128_MAP(__trunctfkf2,_q_qtot) (IFtype value)
 {
   TFtype high_f128, low_f128;
 #ifdef __LITTLE_ENDIAN__
@@ -293,20 +313,21 @@ __trunctfkf2 (IFtype value)
   if (__builtin_isinf (high))
     return (TFtype) __builtin_inf ();
 
-  high_f128 = __extenddfkf2 (high);
+  high_f128 = F128_MAP (__extenddfkf2,_q_dtoq) (high);
 
   if (low == 0.0)
     return high_f128;
 
-  low_f128 = __extenddfkf2 (low);
-  return __addkf3 (high_f128, low_f128);
+  low_f128 = F128_MAP (__extenddfkf2,_q_dtoq) (low);
+  return F128_MAP (__addkf3,_q_add) (high_f128, low_f128);
 }
+#endif	/* long double is IBM long double.  */
 
 
 /* Convert IEEE 128-bit floating point to signed 32-bit integer.  */
 
 SItype
-__fixkfsi (TFtype a)
+F128_MAP(__fixkfsi,_q_qtoi) (TFtype a)
 {
   FP_DECL_EX;
   FP_DECL_Q (A);
@@ -323,7 +344,7 @@ __fixkfsi (TFtype a)
 /* Convert IEEE 128-bit floating point to signed 64-bit integer.  */
 
 DItype
-__fixkfdi (TFtype a)
+F128_MAP(__fixkfdi,_q_qtoi_d) (TFtype a)
 {
   FP_DECL_EX;
   FP_DECL_Q (A);
@@ -341,7 +362,7 @@ __fixkfdi (TFtype a)
 /* Convert IEEE 128-bit floating point to unsigned 32-bit integer.  */
 
 USItype
-__fixunskfsi (TFtype a)
+F128_MAP(__fixunskfsi,_q_qtou) (TFtype a)
 {
   FP_DECL_EX;
   FP_DECL_Q (A);
@@ -358,7 +379,7 @@ __fixunskfsi (TFtype a)
 /* Convert IEEE 128-bit floating point to unsigned 64-bit integer.  */
 
 UDItype
-__fixunskfdi (TFtype a)
+F128_MAP(__fixunskfdi,_q_qtou_d) (TFtype a)
 {
   FP_DECL_EX;
   FP_DECL_Q (A);
@@ -377,7 +398,7 @@ __fixunskfdi (TFtype a)
 /* Convert 128-bit signed integer to IEEE 128-bit floating point.  */
 
 TFtype
-__floattikf (TItype i)
+F128_MAP(__floattikf,_q_itoq_q) (TItype i)
 {
   FP_DECL_EX;
   FP_DECL_Q (A);
@@ -394,7 +415,7 @@ __floattikf (TItype i)
 /* Convert 128-bit unsigned integer to IEEE 128-bit floating point.  */
 
 TFtype
-__floatuntikf (UTItype i)
+F128_MAP(__floatuntikf,_q_utoq_q) (UTItype i)
 {
   FP_DECL_EX;
   FP_DECL_Q (A);
@@ -411,7 +432,7 @@ __floatuntikf (UTItype i)
 /* Convert 128-bit IEEE floating point to 128-bit signed integer.  */
 
 TItype
-__fixkfti (TFtype a)
+F128_MAP(__fixkfti,_q_qtoi_q) (TFtype a)
 {
   FP_DECL_EX;
   FP_DECL_Q (A);
@@ -428,7 +449,7 @@ __fixkfti (TFtype a)
 /* Convert 128-bit IEEE floating point to 128-bit unsigned integer.  */
 
 UTItype
-__fixunskfti (TFtype a)
+F128_MAP(__fixunskfti,_q_qtou_q) (TFtype a)
 {
   FP_DECL_EX;
   FP_DECL_Q (A);
@@ -441,7 +462,7 @@ __fixunskfti (TFtype a)
 
   return r;
 }
-#endif
+#endif	/* 128-bit integer conversions.  */
 
 
 /* PowerPC condition register bits.  */
@@ -473,7 +494,7 @@ static const unsigned char ppc_cr_map[] = {
    conditon code register.  */
 
 CMPtype
-__cmpkf2 (TFtype a, TFtype b)
+F128_MAP(__cmpkf2,_q_fcmp) (TFtype a, TFtype b)
 {
   FP_DECL_EX;
   FP_DECL_Q (A);
@@ -495,7 +516,7 @@ __cmpkf2 (TFtype a, TFtype b)
 /* Return non-zero if IEEE 128-bit floating point a == b.  */
 
 CMPtype
-__eqkf2 (TFtype a, TFtype b)
+F128_MAP(__eqkf2,_q_feq) (TFtype a, TFtype b)
 {
   FP_DECL_EX;
   FP_DECL_Q (A);
@@ -516,7 +537,7 @@ __eqkf2 (TFtype a, TFtype b)
 /* Return non-zero if IEEE 128-bit floating point a != b.  */
 
 CMPtype
-__nekf2 (TFtype a, TFtype b)
+F128_MAP(__nekf2,_q_fne) (TFtype a, TFtype b)
 {
   FP_DECL_EX;
   FP_DECL_Q (A);
@@ -537,7 +558,7 @@ __nekf2 (TFtype a, TFtype b)
 /* Return non-zero if IEEE 128-bit floating point a < b.  */
 
 CMPtype
-__ltkf2 (TFtype a, TFtype b)
+F128_MAP(__ltkf2,_q_flt) (TFtype a, TFtype b)
 {
   FP_DECL_EX;
   FP_DECL_Q (A);
@@ -558,7 +579,7 @@ __ltkf2 (TFtype a, TFtype b)
 /* Return non-zero if IEEE 128-bit floating point a <= b.  */
 
 CMPtype
-__lekf2 (TFtype a, TFtype b)
+F128_MAP(__lekf2,_q_fle) (TFtype a, TFtype b)
 {
   FP_DECL_EX;
   FP_DECL_Q (A);
@@ -579,7 +600,7 @@ __lekf2 (TFtype a, TFtype b)
 /* Return non-zero if IEEE 128-bit floating point a > b.  */
 
 CMPtype
-__gtkf2 (TFtype a, TFtype b)
+F128_MAP(__gtkf2,_q_fgt) (TFtype a, TFtype b)
 {
   FP_DECL_EX;
   FP_DECL_Q (A);
@@ -600,7 +621,7 @@ __gtkf2 (TFtype a, TFtype b)
 /* Return non-zero if IEEE 128-bit floating point a >= b.  */
 
 CMPtype
-__gekf2 (TFtype a, TFtype b)
+F128_MAP(__gekf2,_q_fge) (TFtype a, TFtype b)
 {
   FP_DECL_EX;
   FP_DECL_Q (A);
@@ -622,7 +643,7 @@ __gekf2 (TFtype a, TFtype b)
    || isnan (b).  */
 
 CMPtype
-__uneqkf2 (TFtype a, TFtype b)
+F128_MAP(__uneqkf2,_q_funeq) (TFtype a, TFtype b)
 {
   FP_DECL_EX;
   FP_DECL_Q (A);
@@ -644,7 +665,7 @@ __uneqkf2 (TFtype a, TFtype b)
    || isnan (b).  */
 
 CMPtype
-__ungtkf2 (TFtype a, TFtype b)
+F128_MAP(__ungtkf2,_q_fungt) (TFtype a, TFtype b)
 {
   FP_DECL_EX;
   FP_DECL_Q (A);
@@ -666,7 +687,7 @@ __ungtkf2 (TFtype a, TFtype b)
    || isnan (b).  */
 
 CMPtype
-__ungekf2 (TFtype a, TFtype b)
+F128_MAP(__ungekf2,_q_funge) (TFtype a, TFtype b)
 {
   FP_DECL_EX;
   FP_DECL_Q (A);
@@ -688,7 +709,7 @@ __ungekf2 (TFtype a, TFtype b)
    || isnan (b).  */
 
 CMPtype
-__unltkf2 (TFtype a, TFtype b)
+F128_MAP(__unltkf2,_q_funlt) (TFtype a, TFtype b)
 {
   FP_DECL_EX;
   FP_DECL_Q (A);
@@ -710,7 +731,7 @@ __unltkf2 (TFtype a, TFtype b)
    || isnan (b).  */
 
 CMPtype
-__unlekf2 (TFtype a, TFtype b)
+F128_MAP(__unlekf2,_q_funle) (TFtype a, TFtype b)
 {
   FP_DECL_EX;
   FP_DECL_Q (A);
@@ -731,7 +752,7 @@ __unlekf2 (TFtype a, TFtype b)
 /* Return non-zero if IEEE 128-bit floating point !isnan (a) && !isnan (b).  */
 
 CMPtype
-__orderedkf2 (TFtype a, TFtype b)
+F128_MAP(__orderedkf2,_q_fordered) (TFtype a, TFtype b)
 {
   FP_DECL_EX;
   FP_DECL_Q (A);
@@ -752,7 +773,7 @@ __orderedkf2 (TFtype a, TFtype b)
 /* Return non-zero if IEEE 128-bit floating point isnan (a) || isnan (b).  */
 
 CMPtype
-__unordkf2 (TFtype a, TFtype b)
+F128_MAP(__unordkf2,_q_funordered) (TFtype a, TFtype b)
 {
   FP_DECL_EX;
   FP_DECL_Q (A);

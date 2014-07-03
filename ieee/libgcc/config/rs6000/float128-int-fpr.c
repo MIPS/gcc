@@ -29,63 +29,13 @@
    License along with the GNU C Library; if not, see
    <http://www.gnu.org/licenses/>.  */
 
-#define FP_NO_EXCEPTIONS
-#include "float128.h"
+/* Support building the __float128 support with two options, -mfloat128-vsx
+   that passes and returns IEEE 128-bit values in a single vector register, and
+   -mfloat128-fpr that passes and returns IEEE 128-bit values in a pair of
+   scalar floating point registers.  */
 
-
-/* Convert signed 32-bit integer to IEEE 128-bit floating point.  */
+#ifndef __FLOAT128_FPR__
+#error "-mfloat128-fpr is required"
+#endif
 
-TFtype
-F128_MAP(__floatsikf,_q_itoq) (SItype i)
-{
-  FP_DECL_Q (A);
-  TFtype a;
-
-  FP_FROM_INT_Q (A, i, SI_BITS, USItype);
-  FP_PACK_RAW_Q (a, A);
-
-  return a;
-}
-
-/* Convert signed 64-bit integer to IEEE 128-bit floating point.  */
-
-TFtype
-F128_MAP(__floatdikf,_q_itoq_d) (DItype i)
-{
-  FP_DECL_Q (A);
-  TFtype a;
-
-  FP_FROM_INT_Q (A, i, SI_BITS, USItype);
-  FP_PACK_RAW_Q (a, A);
-
-  return a;
-}
-
-
-/* Convert unsigned 32-bit integer to IEEE 128-bit floating point.  */
-
-TFtype
-F128_MAP(__floatunsikf,_q_utoq) (USItype i)
-{
-  FP_DECL_Q (A);
-  TFtype a;
-
-  FP_FROM_INT_Q (A, i, SI_BITS, USItype);
-  FP_PACK_RAW_Q (a, A);
-
-  return a;
-}
-
-/* Convert unsigned 64-bit integer to IEEE 128-bit floating point.  */
-
-TFtype
-F128_MAP(__floatundikf,_q_utoq_d) (UDItype i)
-{
-  FP_DECL_Q (A);
-  TFtype a;
-
-  FP_FROM_INT_Q (A, i, SI_BITS, USItype);
-  FP_PACK_RAW_Q (a, A);
-
-  return a;
-}
+#include "config/rs6000/float128-int.c"

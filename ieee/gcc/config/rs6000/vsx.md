@@ -2116,7 +2116,7 @@
   [(parallel [(set (match_operand:KF 0 "register_operand" "")
 		   (neg:KF (match_operand:KF 1 "register_operand" "")))
 	      (use (match_dup 2))])]
-  "TARGET_VSX && TARGET_FLOAT128"
+  "TARGET_FLOAT128_VSX"
 {
   operands[2] = gen_reg_rtx (V16QImode);
 
@@ -2127,7 +2127,7 @@
   [(set (match_operand:KF 0 "register_operand" "=wa")
 	(neg:KF (match_operand:KF 1 "register_operand" "wa")))
    (use (match_operand:V16QI 2 "register_operand" "=&wa"))]
-  "TARGET_VSX && TARGET_FLOAT128"
+  "TARGET_FLOAT128_VSX"
   "xxlxor %x0,%x1,%x2"
   [(set_attr "length" "4")
    (set_attr "type" "vecsimple")])
@@ -2137,7 +2137,7 @@
   [(parallel [(set (match_operand:KF 0 "register_operand" "")
 		   (abs:KF (match_operand:KF 1 "register_operand" "")))
 	      (use (match_dup 2))])]
-  "TARGET_VSX && TARGET_FLOAT128"
+  "TARGET_FLOAT128_VSX"
 {
   operands[2] = gen_reg_rtx (V16QImode);
 
@@ -2148,7 +2148,7 @@
   [(set (match_operand:KF 0 "register_operand" "=wa")
 	(abs:KF (match_operand:KF 1 "register_operand" "wa")))
    (use (match_operand:V16QI 2 "register_operand" "=&wa"))]
-  "TARGET_VSX && TARGET_FLOAT128"
+  "TARGET_FLOAT128_VSX"
   "xxlandc %x0,%x1,%x2"
   [(set_attr "length" "4")
    (set_attr "type" "vecsimple")])
@@ -2158,7 +2158,7 @@
   [(set (match_operand:KF 0 "register_operand" "=wa")
 	(neg:KF (abs:KF (match_operand:KF 1 "register_operand" "wa"))))
    (use (match_operand:V16QI 2 "register_operand" "=&wa"))]
-  "TARGET_VSX && TARGET_FLOAT128"
+  "TARGET_FLOAT128_VSX"
   "xxlor %x0,%x1,%x2"
   [(set_attr "length" "4")
    (set_attr "type" "vecsimple")])

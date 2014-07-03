@@ -1,3 +1,19 @@
+2014-07-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/float128-vsx.c: New file, build both VSX and
+	non-VSX IEEE 128-bit floating point support.
+	* config/rs6000/float128-fpr.c: Likewise.
+	* config/rs6000/float128-int-vsx.c: Likewise.
+	* config/rs6000/float128-int-fpr.c: Likewise.
+
+	* config/rs6000/float128.h: Add support for building either IEEE
+	128-bit support where values are passed and returned in vector
+	registers, or in pairs of scalar registers.
+	* config/rs6000/float128.c: Likewise.
+	* config/rs6000/float128-int.c: Likewise.
+	* config/rs6000/t-float128: Likewise.
+	* config/rs6000/libgcc-glibc.ver: Likewise.
+
 2014-07-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/libgcc-glibc.ver: Update IEEE 128-bit functions.

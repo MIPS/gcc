@@ -1,19 +1,34 @@
 # Support for adding __float128 to the powerpc.  The __float128 type is
 # restricted to VSX systems so that we can pass the value in VSX registers.
 
-fp128_src		= $(srcdir)/config/rs6000/float128.c \
-			  $(srcdir)/config/rs6000/float128-int.c
-fp128_objects_base	= $(basename $(notdir $(fp128_src)))
-fp128_objects		= $(addsuffix $(objext),$(fp128_objects_base))
+fp128_vsx_src		= $(srcdir)/config/rs6000/float128-vsx.c \
+			  $(srcdir)/config/rs6000/float128-int-vsx.c
+
+fp128_vsx_objects_base	= $(basename $(notdir $(fp128_vsx_src)))
+fp128_vsx_objects	= $(addsuffix $(objext),$(fp128_vsx_objects_base))
+
+fp128_fpr_src		= $(srcdir)/config/rs6000/float128-fpr.c \
+			  $(srcdir)/config/rs6000/float128-int-fpr.c
+
+fp128_fpr_objects_base	= $(basename $(notdir $(fp128_fpr_src)))
+fp128_fpr_objects	= $(addsuffix $(objext),$(fp128_fpr_objects_base))
+
+fp128_objects		= $(fp128_vsx_objects) $(fp128_fpr_objects)
 
 FP128_COMMON_CFLAGS	= -Wno-missing-prototypes -Wno-type-limits \
-			  -DTFtype=__float128 -mfloat128
+			  -DTFtype=__float128
 
-FP128_VSX_CFLAGS	= $(FP128_COMMON_CFLAGS) -mvsx
+FP128_VSX_CFLAGS	= $(FP128_COMMON_CFLAGS) -mvsx -mfloat128-vsx \
+			  -mno-float128-fpr
+FP128_FPR_CFLAGS	= $(FP128_COMMON_CFLAGS) -mfloat128-fpr \
+			  -mno-float128-vsx
 
-$(fp128_objects) : INTERNAL_CFLAGS += $(FP128_VSX_CFLAGS)
+$(fp128_vsx_objects) : INTERNAL_CFLAGS += $(FP128_VSX_CFLAGS)
+$(fp128_fpr_objects) : INTERNAL_CFLAGS += $(FP128_FPR_CFLAGS)
+
 $(fp128_objects) : $(addprefix $(srcdir)/config/rs6000/,$<)
 $(fp128_objects) : $(srcdir)/config/rs6000/float128.c
+$(fp128_objects) : $(srcdir)/config/rs6000/float128-int.c
 $(fp128_objects) : $(srcdir)/config/rs6000/float128.h
 $(fp128_objects) : $(srcdir)/config/rs6000/t-float128
 $(fp128_objects) : $(srcdir)/soft-fp/soft-fp.h
@@ -28,5 +43,5 @@ $(fp128_objects) : $(srcdir)/soft-fp/op-4.h
 $(fp128_objects) : $(srcdir)/soft-fp/op-8.h
 $(fp128_objects) : $(srcdir)/soft-fp/op-common.h
 
-LIB2ADD += $(fp128_src)
+LIB2ADD += $(fp128_vsx_src) $(fp128_fpr_src)
 
