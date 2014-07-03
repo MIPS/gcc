@@ -1171,8 +1171,6 @@ static bool
 gate_ubsan (void)
 {
   return flag_sanitize & (SANITIZE_NULL | SANITIZE_SI_OVERFLOW
-			  | SANITIZE_BOOL | SANITIZE_ENUM);
-  return flag_sanitize & (SANITIZE_NULL | SANITIZE_SI_OVERFLOW
 			  | SANITIZE_BOOL | SANITIZE_ENUM)
 	 && current_function_decl != NULL_TREE
 	 && !lookup_attribute ("no_sanitize_undefined",
