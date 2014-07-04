@@ -1,8 +1,3 @@
-2014-07-03  Cesar Philippidis  <cesar@codesourcery.com>
-
-	* scanner.c (skip_fixed_comments): Reset openacc_flag
-	if an openacc directive wasn't found.
-
 2014-06-15  Jan Hubicka  <hubicka@ucw.cz>
 
 	* trans-common.c (build_common_decl): Use
