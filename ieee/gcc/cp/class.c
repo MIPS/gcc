@@ -2771,9 +2771,9 @@ check_for_override (tree decl, tree ctype)
 	TYPE_HAS_NONTRIVIAL_DESTRUCTOR (ctype) = true;
     }
   else if (DECL_FINAL_P (decl))
-    error ("%q+#D marked final, but is not virtual", decl);
+    error ("%q+#D marked %<final%>, but is not virtual", decl);
   if (DECL_OVERRIDE_P (decl) && !overrides_found)
-    error ("%q+#D marked override, but does not override", decl);
+    error ("%q+#D marked %<override%>, but does not override", decl);
 }
 
 /* Warn about hidden virtual functions that are not overridden in t.
@@ -6405,8 +6405,10 @@ finish_struct_1 (tree t)
 	determine_key_method (t);
 
       /* If a polymorphic class has no key method, we may emit the vtable
-	 in every translation unit where the class definition appears.  */
-      if (CLASSTYPE_KEY_METHOD (t) == NULL_TREE)
+	 in every translation unit where the class definition appears.  If
+	 we're devirtualizing, we can look into the vtable even if we
+	 aren't emitting it.  */
+      if (CLASSTYPE_KEY_METHOD (t) == NULL_TREE || flag_devirtualize)
 	keyed_classes = tree_cons (NULL_TREE, t, keyed_classes);
     }
 

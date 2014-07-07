@@ -1,3 +1,8 @@
+2014-07-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 212339.
+	* REVISION: Update subversion id.
+
 2014-07-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (init_float128_ieee): Add conversions

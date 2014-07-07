@@ -5381,8 +5381,10 @@ output_vec_const_move (rtx *operands)
   operands[2] = CONST_VECTOR_ELT (vec, 1);
   if (cst == cst2)
     return "li %0,%1\n\tevmergelo %0,%0,%0";
-  else
+  else if (WORDS_BIG_ENDIAN)
     return "li %0,%1\n\tevmergelo %0,%0,%0\n\tli %0,%2";
+  else
+    return "li %0,%2\n\tevmergelo %0,%0,%0\n\tli %0,%1";
 }
 
 /* Initialize TARGET of vector PAIRED to VALS.  */
@@ -20212,7 +20214,7 @@ rs6000_adjust_atomic_subword (rtx orig_mem, rtx *pshift, rtx *pmask)
   shift = gen_reg_rtx (SImode);
   addr = gen_lowpart (SImode, addr);
   emit_insn (gen_rlwinm (shift, addr, GEN_INT (3), GEN_INT (shift_mask)));
-  if (WORDS_BIG_ENDIAN)
+  if (BYTES_BIG_ENDIAN)
     shift = expand_simple_binop (SImode, XOR, shift, GEN_INT (shift_mask),
 			         shift, 1, OPTAB_LIB_WIDEN);
   *pshift = shift;
