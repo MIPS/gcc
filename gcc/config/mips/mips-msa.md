@@ -737,7 +737,7 @@
 (define_expand "mov<mode>"
   [(set (match_operand:MODE128 0)
 	(match_operand:MODE128 1))]
-  "TARGET_64BIT || TARGET_MSA"
+  "TARGET_MSA"
 {
   if (mips_legitimize_move (<MODE>mode, operands[0], operands[1]))
     DONE;
@@ -746,7 +746,7 @@
 (define_expand "movmisalign<mode>"
   [(set (match_operand:MODE128 0)
 	(match_operand:MODE128 1))]
-  "TARGET_64BIT || TARGET_MSA"
+  "TARGET_MSA"
 {
   if (mips_legitimize_move (<MODE>mode, operands[0], operands[1]))
     DONE;
