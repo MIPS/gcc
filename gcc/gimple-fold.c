@@ -53,6 +53,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "gimplify-me.h"
 #include "dbgcnt.h"
+#include "builtins.h"
 
 /* Return true when DECL can be referenced from current unit.
    FROM_DECL (if non-null) specify constructor of variable DECL was taken from.
@@ -375,7 +376,7 @@ fold_gimple_assign (gimple_stmt_iterator *si)
 	      {
 		bool final;
 		vec <cgraph_node *>targets
-		  = possible_polymorphic_call_targets (val, &final);
+		  = possible_polymorphic_call_targets (val, stmt, &final);
 		if (final && targets.length () <= 1 && dbg_cnt (devirt))
 		  {
 		    tree fndecl;
@@ -386,7 +387,7 @@ fold_gimple_assign (gimple_stmt_iterator *si)
 		      fndecl = builtin_decl_implicit (BUILT_IN_UNREACHABLE);
 		    if (dump_enabled_p ())
 		      {
-			location_t loc = gimple_location (stmt);
+			location_t loc = gimple_location_safe (stmt);
 			dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, loc,
 					 "resolving virtual function address "
 					 "reference to function %s\n",
@@ -1124,13 +1125,13 @@ gimple_fold_call (gimple_stmt_iterator *gsi, bool inplace)
 	{
 	  bool final;
 	  vec <cgraph_node *>targets
-	    = possible_polymorphic_call_targets (callee, &final);
+	    = possible_polymorphic_call_targets (callee, stmt, &final);
 	  if (final && targets.length () <= 1 && dbg_cnt (devirt))
 	    {
 	      tree lhs = gimple_call_lhs (stmt);
 	      if (dump_enabled_p ())
 		{
-		  location_t loc = gimple_location (stmt);
+		  location_t loc = gimple_location_safe (stmt);
 		  dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, loc,
 				   "folding virtual function call to %s\n",
 		 		   targets.length () == 1

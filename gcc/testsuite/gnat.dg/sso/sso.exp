@@ -33,7 +33,7 @@ set SSO_TORTURE_OPTIONS [list \
 set-torture-options $SSO_TORTURE_OPTIONS
 
 # Main loop.
-gcc-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.adb]] ""
+gcc-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.adb]] "" ""
 
 # All done.
 dg-finish

@@ -84,6 +84,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target-globals.h"
 #include "tree-vectorizer.h"
 #include "shrink-wrap.h"
+#include "builtins.h"
 
 static rtx legitimize_dllimport_symbol (rtx, bool);
 static rtx legitimize_pe_coff_extern_decl (rtx, bool);
@@ -5027,7 +5028,7 @@ ix86_in_large_data_p (tree exp)
 
   if (TREE_CODE (exp) == VAR_DECL && DECL_SECTION_NAME (exp))
     {
-      const char *section = TREE_STRING_POINTER (DECL_SECTION_NAME (exp));
+      const char *section = DECL_SECTION_NAME (exp);
       if (strcmp (section, ".ldata") == 0
 	  || strcmp (section, ".lbss") == 0)
 	return true;
@@ -5192,7 +5193,7 @@ x86_64_elf_unique_section (tree decl, int reloc)
 
 	  string = ACONCAT ((linkonce, prefix, ".", name, NULL));
 
-	  DECL_SECTION_NAME (decl) = build_string (strlen (string), string);
+	  set_decl_section_name (decl, string);
 	  return;
 	}
     }
@@ -5826,13 +5827,15 @@ ix86_legitimate_combined_insn (rtx insn)
       int i;
 
       extract_insn (insn);
-      preprocess_constraints ();
+      preprocess_constraints (insn);
 
-      for (i = 0; i < recog_data.n_operands; i++)
+      int n_operands = recog_data.n_operands;
+      int n_alternatives = recog_data.n_alternatives;
+      for (i = 0; i < n_operands; i++)
 	{
 	  rtx op = recog_data.operand[i];
 	  enum machine_mode mode = GET_MODE (op);
-	  struct operand_alternative *op_alt;
+	  const operand_alternative *op_alt;
 	  int offset = 0;
 	  bool win;
 	  int j;
@@ -5867,19 +5870,22 @@ ix86_legitimate_combined_insn (rtx insn)
 	  if (!(REG_P (op) && HARD_REGISTER_P (op)))
 	    continue;
 
-	  op_alt = recog_op_alt[i];
+	  op_alt = recog_op_alt;
 
 	  /* Operand has no constraints, anything is OK.  */
- 	  win = !recog_data.n_alternatives;
+ 	  win = !n_alternatives;
 
-	  for (j = 0; j < recog_data.n_alternatives; j++)
+	  alternative_mask enabled = recog_data.enabled_alternatives;
+	  for (j = 0; j < n_alternatives; j++, op_alt += n_operands)
 	    {
-	      if (op_alt[j].anything_ok
-		  || (op_alt[j].matches != -1
+	      if (!TEST_BIT (enabled, j))
+		continue;
+	      if (op_alt[i].anything_ok
+		  || (op_alt[i].matches != -1
 		      && operands_match_p
 			  (recog_data.operand[i],
-			   recog_data.operand[op_alt[j].matches]))
-		  || reg_fits_class_p (op, op_alt[j].cl, offset, mode))
+			   recog_data.operand[op_alt[i].matches]))
+		  || reg_fits_class_p (op, op_alt[i].cl, offset, mode))
 		{
 		  win = true;
 		  break;
@@ -7773,8 +7779,9 @@ ix86_function_value_regno_p (const unsigned int regno)
   switch (regno)
     {
     case AX_REG:
-    case DX_REG:
       return true;
+    case DX_REG:
+      return (!TARGET_64BIT || ix86_abi != MS_ABI);
     case DI_REG:
     case SI_REG:
       return TARGET_64BIT && ix86_abi != MS_ABI;
@@ -16440,7 +16447,8 @@ ix86_avx_emit_vzeroupper (HARD_REG_SET regs_live)
    are to be inserted.  */
 
 static void
-ix86_emit_mode_set (int entity, int mode, HARD_REG_SET regs_live)
+ix86_emit_mode_set (int entity, int mode, int prev_mode ATTRIBUTE_UNUSED,
+		    HARD_REG_SET regs_live)
 {
   switch (entity)
     {
@@ -17757,8 +17765,7 @@ ix86_emit_cfi ()
 static unsigned int
 increase_distance (rtx prev, rtx next, unsigned int distance)
 {
-  df_ref *use_rec;
-  df_ref *def_rec;
+  df_ref def, use;
 
   if (!prev || !next)
     return distance + (distance & 1) + 2;
@@ -17766,10 +17773,10 @@ increase_distance (rtx prev, rtx next, unsigned int distance)
   if (!DF_INSN_USES (next) || !DF_INSN_DEFS (prev))
     return distance + 1;
 
-  for (use_rec = DF_INSN_USES (next); *use_rec; use_rec++)
-    for (def_rec = DF_INSN_DEFS (prev); *def_rec; def_rec++)
-      if (!DF_REF_IS_ARTIFICIAL (*def_rec)
-	  && DF_REF_REGNO (*use_rec) == DF_REF_REGNO (*def_rec))
+  FOR_EACH_INSN_USE (use, next)
+    FOR_EACH_INSN_DEF (def, prev)
+      if (!DF_REF_IS_ARTIFICIAL (def)
+	  && DF_REF_REGNO (use) == DF_REF_REGNO (def))
 	return distance + (distance & 1) + 2;
 
   return distance + 1;
@@ -17782,16 +17789,14 @@ static bool
 insn_defines_reg (unsigned int regno1, unsigned int regno2,
 		  rtx insn)
 {
-  df_ref *def_rec;
+  df_ref def;
 
-  for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
-    if (DF_REF_REG_DEF_P (*def_rec)
-	&& !DF_REF_IS_ARTIFICIAL (*def_rec)
-	&& (regno1 == DF_REF_REGNO (*def_rec)
-	    || regno2 == DF_REF_REGNO (*def_rec)))
-      {
-	return true;
-      }
+  FOR_EACH_INSN_DEF (def, insn)
+    if (DF_REF_REG_DEF_P (def)
+	&& !DF_REF_IS_ARTIFICIAL (def)
+	&& (regno1 == DF_REF_REGNO (def)
+	    || regno2 == DF_REF_REGNO (def)))
+      return true;
 
   return false;
 }
@@ -17802,10 +17807,10 @@ insn_defines_reg (unsigned int regno1, unsigned int regno2,
 static bool
 insn_uses_reg_mem (unsigned int regno, rtx insn)
 {
-  df_ref *use_rec;
+  df_ref use;
 
-  for (use_rec = DF_INSN_USES (insn); *use_rec; use_rec++)
-    if (DF_REF_REG_MEM_P (*use_rec) && regno == DF_REF_REGNO (*use_rec))
+  FOR_EACH_INSN_USE (use, insn)
+    if (DF_REF_REG_MEM_P (use) && regno == DF_REF_REGNO (use))
       return true;
 
   return false;
@@ -18137,15 +18142,15 @@ static bool
 ix86_ok_to_clobber_flags (rtx insn)
 {
   basic_block bb = BLOCK_FOR_INSN (insn);
-  df_ref *use;
+  df_ref use;
   bitmap live;
 
   while (insn)
     {
       if (NONDEBUG_INSN_P (insn))
 	{
-	  for (use = DF_INSN_USES (insn); *use; use++)
-	    if (DF_REF_REG_USE_P (*use) && DF_REF_REGNO (*use) == FLAGS_REG)
+	  FOR_EACH_INSN_USE (use, insn)
+	    if (DF_REF_REG_USE_P (use) && DF_REF_REGNO (use) == FLAGS_REG)
 	      return false;
 
 	  if (insn_defines_reg (FLAGS_REG, INVALID_REGNUM, insn))
@@ -21541,7 +21546,7 @@ ix86_expand_vec_perm (rtx operands[])
 	  t1 = gen_reg_rtx (V32QImode);
 	  t2 = gen_reg_rtx (V32QImode);
 	  t3 = gen_reg_rtx (V32QImode);
-	  vt2 = GEN_INT (128);
+	  vt2 = GEN_INT (-128);
 	  for (i = 0; i < 32; i++)
 	    vec[i] = vt2;
 	  vt = gen_rtx_CONST_VECTOR (V32QImode, gen_rtvec_v (32, vec));
@@ -23828,7 +23833,7 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size,
 {
   const struct stringop_algs * algs;
   bool optimize_for_speed;
-  int max = -1;
+  int max = 0;
   const struct processor_costs *cost;
   int i;
   bool any_alg_usable_p = false;
@@ -23866,7 +23871,7 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size,
   /* If expected size is not known but max size is small enough
      so inline version is a win, set expected size into
      the range.  */
-  if (max > 1 && (unsigned HOST_WIDE_INT) max >= max_size
+  if (((max > 1 && (unsigned HOST_WIDE_INT) max >= max_size) || max == -1)
       && expected_size == -1)
     expected_size = min_size / 2 + max_size / 2;
 
@@ -23955,7 +23960,7 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size,
             *dynamic_check = 128;
           return loop_1_byte;
         }
-      if (max == -1)
+      if (max <= 0)
 	max = 4096;
       alg = decide_alg (count, max / 2, min_size, max_size, memset,
 			zero_memset, dynamic_check, noalign);
@@ -43194,6 +43199,80 @@ expand_vec_perm_palignr (struct expand_vec_perm_d *d)
   return ok;
 }
 
+/* A subroutine of ix86_expand_vec_perm_const_1.  Try to simplify
+   the permutation using the SSE4_1 pblendv instruction.  Potentially
+   reduces permutaion from 2 pshufb and or to 1 pshufb and pblendv.  */
+
+static bool
+expand_vec_perm_pblendv (struct expand_vec_perm_d *d)
+{
+  unsigned i, which, nelt = d->nelt;
+  struct expand_vec_perm_d dcopy, dcopy1;
+  enum machine_mode vmode = d->vmode;
+  bool ok;
+
+  /* Use the same checks as in expand_vec_perm_blend, but skipping
+     AVX2 as it requires more than 2 instructions for general case.  */
+  if (d->one_operand_p)
+    return false;
+  if (TARGET_AVX && (vmode == V4DFmode || vmode == V8SFmode))
+    ;
+  else if (TARGET_SSE4_1 && GET_MODE_SIZE (vmode) == 16)
+    ;
+  else
+    return false;
+
+  /* Figure out where permutation elements stay not in their
+     respective lanes.  */
+  for (i = 0, which = 0; i < nelt; ++i)
+    {
+      unsigned e = d->perm[i];
+      if (e != i)
+	which |= (e < nelt ? 1 : 2);
+    }
+  /* We can pblend the part where elements stay not in their
+     respective lanes only when these elements are all in one
+     half of a permutation.
+     {0 1 8 3 4 5 9 7} is ok as 8, 9 are at not at their respective
+     lanes, but both 8 and 9 >= 8
+     {0 1 8 3 4 5 2 7} is not ok as 2 and 8 are not at their
+     respective lanes and 8 >= 8, but 2 not.  */
+  if (which != 1 && which != 2)
+    return false;
+  if (d->testing_p)
+    return true;
+
+  /* First we apply one operand permutation to the part where
+     elements stay not in their respective lanes.  */
+  dcopy = *d;
+  if (which == 2)
+    dcopy.op0 = dcopy.op1 = d->op1;
+  else
+    dcopy.op0 = dcopy.op1 = d->op0;
+  dcopy.one_operand_p = true;
+
+  for (i = 0; i < nelt; ++i)
+    dcopy.perm[i] = d->perm[i] & (nelt - 1);
+
+  ok = expand_vec_perm_1 (&dcopy);
+  gcc_assert (ok);
+
+  /* Next we put permuted elements into their positions.  */
+  dcopy1 = *d;
+  if (which == 2)
+    dcopy1.op1 = dcopy.target;
+  else
+    dcopy1.op0 = dcopy.target;
+
+  for (i = 0; i < nelt; ++i)
+    dcopy1.perm[i] = ((d->perm[i] >= nelt) ? (nelt + i) : i);
+
+  ok = expand_vec_perm_blend (&dcopy1);
+  gcc_assert (ok);
+
+  return true;
+}
+
 static bool expand_vec_perm_interleave3 (struct expand_vec_perm_d *d);
 
 /* A subroutine of ix86_expand_vec_perm_builtin_1.  Try to simplify
@@ -44566,6 +44645,9 @@ ix86_expand_vec_perm_const_1 (struct expand_vec_perm_d *d)
   if (expand_vec_perm_vperm2f128 (d))
     return true;
 
+  if (expand_vec_perm_pblendv (d))
+    return true;
+
   /* Try sequences of three instructions.  */
 
   if (expand_vec_perm_2vperm2f128_vshuf (d))
@@ -45198,8 +45280,13 @@ ix86_expand_sse2_mulvxdi3 (rtx op0, rtx op1, rtx op2)
       /* t4: ((B*E)+(A*F))<<32, ((D*G)+(C*H))<<32 */
       emit_insn (gen_ashlv2di3 (t4, t3, GEN_INT (32)));
 
-      /* op0: (((B*E)+(A*F))<<32)+(B*F), (((D*G)+(C*H))<<32)+(D*H) */
-      emit_insn (gen_xop_pmacsdql (op0, op1, op2, t4));
+      /* Multiply lower parts and add all */
+      t5 = gen_reg_rtx (V2DImode);
+      emit_insn (gen_vec_widen_umult_even_v4si (t5, 
+					gen_lowpart (V4SImode, op1),
+					gen_lowpart (V4SImode, op2)));
+      op0 = expand_binop (mode, add_optab, t5, t4, op0, 1, OPTAB_DIRECT);
+
     }
   else
     {
@@ -46343,6 +46430,16 @@ ix86_reassociation_width (unsigned int opc ATTRIBUTE_UNUSED,
 {
   int res = 1;
 
+  /* Vector part.  */
+  if (VECTOR_MODE_P (mode))
+    {
+      if (TARGET_VECTOR_PARALLEL_EXECUTION)
+	return 2;
+      else
+	return 1;
+    }
+
+  /* Scalar part.  */
   if (INTEGRAL_MODE_P (mode) && TARGET_REASSOC_INT_TO_PARALLEL)
     res = 2;
   else if (FLOAT_MODE_P (mode) && TARGET_REASSOC_FP_TO_PARALLEL)
@@ -46418,7 +46515,7 @@ ix86_spill_class (reg_class_t rclass, enum machine_mode mode)
 {
   if (TARGET_SSE && TARGET_GENERAL_REGS_SSE_SPILL && ! TARGET_MMX
       && (mode == SImode || (TARGET_64BIT && mode == DImode))
-      && INTEGER_CLASS_P (rclass))
+      && rclass != NO_REGS && INTEGER_CLASS_P (rclass))
     return ALL_SSE_REGS;
   return NO_REGS;
 }

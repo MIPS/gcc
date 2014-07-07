@@ -67,6 +67,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "tree-ssa-address.h"
 #include "cfgexpand.h"
+#include "builtins.h"
 
 #ifndef STACK_PUSH_CODE
 #ifdef STACK_GROWS_DOWNWARD
@@ -9157,6 +9158,20 @@ expand_expr_real_2 (sepops ops, rtx target, enum machine_mode tmode,
       return temp;
 
     case DOT_PROD_EXPR:
+      {
+	tree oprnd0 = treeop0;
+	tree oprnd1 = treeop1;
+	tree oprnd2 = treeop2;
+	rtx op2;
+
+	expand_operands (oprnd0, oprnd1, NULL_RTX, &op0, &op1, EXPAND_NORMAL);
+	op2 = expand_normal (oprnd2);
+	target = expand_widen_pattern_expr (ops, op0, op1, op2,
+					    target, unsignedp);
+	return target;
+      }
+
+      case SAD_EXPR:
       {
 	tree oprnd0 = treeop0;
 	tree oprnd1 = treeop1;

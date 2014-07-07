@@ -33,7 +33,7 @@ set SSO_TORTURE_OPTIONS [list \
 set-torture-options $SSO_TORTURE_OPTIONS
 
 # Main loop.
-gcc-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.c $srcdir/c-c++-common/sso/*.c]] ""
+gcc-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.c $srcdir/c-c++-common/sso/*.c]] "" ""
 
 # All done.
 dg-finish

@@ -49,6 +49,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimplify.h"
 #include "bitmap.h"
 #include "omp-low.h"
+#include "builtins.h"
 
 static bool verify_constant (tree, bool, bool *, bool *);
 #define VERIFY_CONSTANT(X)						\
@@ -1129,6 +1130,11 @@ finish_switch_cond (tree cond, tree switch_stmt)
       orig_type = TREE_TYPE (cond);
       if (cond != error_mark_node)
 	{
+	  /* Warn if the condition has boolean value.  */
+	  if (TREE_CODE (orig_type) == BOOLEAN_TYPE)
+	    warning_at (input_location, OPT_Wswitch_bool,
+			"switch condition has type bool");
+
 	  /* [stmt.switch]
 
 	     Integral promotions are performed.  */
@@ -1835,10 +1841,11 @@ check_accessibility_of_qualified_id (tree decl,
       /* If the reference is to a non-static member of the
 	 current class, treat it as if it were referenced through
 	 `this'.  */
+      tree ct;
       if (DECL_NONSTATIC_MEMBER_P (decl)
 	  && current_class_ptr
-	  && DERIVED_FROM_P (scope, current_class_type))
-	qualifying_type = current_class_type;
+	  && DERIVED_FROM_P (scope, ct = current_nonlambda_class_type ()))
+	qualifying_type = ct;
       /* Otherwise, use the type indicated by the
 	 nested-name-specifier.  */
       else
@@ -2600,7 +2607,6 @@ finish_compound_literal (tree type, tree compound_literal,
   if ((!at_function_scope_p () || CP_TYPE_CONST_P (type))
       && TREE_CODE (type) == ARRAY_TYPE
       && !TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type)
-      && !cp_unevaluated_operand
       && initializer_constant_valid_p (compound_literal, type))
     {
       tree decl = create_temporary_var (type);
@@ -3486,6 +3492,7 @@ finish_id_expression (tree id_expression,
       tree wrap;
       if (VAR_P (decl)
 	  && !cp_unevaluated_operand
+	  && (TREE_STATIC (decl) || DECL_EXTERNAL (decl))
 	  && DECL_THREAD_LOCAL_P (decl)
 	  && (wrap = get_tls_wrapper_fn (decl)))
 	{
@@ -3862,7 +3869,7 @@ simplify_aggr_init_expr (tree *tp)
 				    aggr_init_expr_nargs (aggr_init_expr),
 				    AGGR_INIT_EXPR_ARGP (aggr_init_expr));
   TREE_NOTHROW (call_expr) = TREE_NOTHROW (aggr_init_expr);
-  tree ret = call_expr;
+  CALL_EXPR_LIST_INIT_P (call_expr) = CALL_EXPR_LIST_INIT_P (aggr_init_expr);
 
   if (style == ctor)
     {
@@ -3878,7 +3885,7 @@ simplify_aggr_init_expr (tree *tp)
 	 expand_call{,_inline}.  */
       cxx_mark_addressable (slot);
       CALL_EXPR_RETURN_SLOT_OPT (call_expr) = true;
-      ret = build2 (INIT_EXPR, TREE_TYPE (ret), slot, ret);
+      call_expr = build2 (INIT_EXPR, TREE_TYPE (call_expr), slot, call_expr);
     }
   else if (style == pcc)
     {
@@ -3886,25 +3893,11 @@ simplify_aggr_init_expr (tree *tp)
 	 need to copy the returned value out of the static buffer into the
 	 SLOT.  */
       push_deferring_access_checks (dk_no_check);
-      ret = build_aggr_init (slot, ret,
-			     DIRECT_BIND | LOOKUP_ONLYCONVERTING,
-			     tf_warning_or_error);
+      call_expr = build_aggr_init (slot, call_expr,
+				   DIRECT_BIND | LOOKUP_ONLYCONVERTING,
+                                   tf_warning_or_error);
       pop_deferring_access_checks ();
-      ret = build2 (COMPOUND_EXPR, TREE_TYPE (slot), ret, slot);
-    }
-
-  /* DR 1030 says that we need to evaluate the elements of an
-     initializer-list in forward order even when it's used as arguments to
-     a constructor.  So if the target wants to evaluate them in reverse
-     order and there's more than one argument other than 'this', force
-     pre-evaluation.  */
-  if (PUSH_ARGS_REVERSED && CALL_EXPR_LIST_INIT_P (aggr_init_expr)
-      && aggr_init_expr_nargs (aggr_init_expr) > 2)
-    {
-      tree preinit;
-      stabilize_call (call_expr, &preinit);
-      if (preinit)
-	ret = build2 (COMPOUND_EXPR, TREE_TYPE (ret), preinit, ret);
+      call_expr = build2 (COMPOUND_EXPR, TREE_TYPE (slot), call_expr, slot);
     }
 
   if (AGGR_INIT_ZERO_FIRST (aggr_init_expr))
@@ -3912,10 +3905,11 @@ simplify_aggr_init_expr (tree *tp)
       tree init = build_zero_init (type, NULL_TREE,
 				   /*static_storage_p=*/false);
       init = build2 (INIT_EXPR, void_type_node, slot, init);
-      ret = build2 (COMPOUND_EXPR, TREE_TYPE (ret), init, ret);
+      call_expr = build2 (COMPOUND_EXPR, TREE_TYPE (call_expr),
+			  init, call_expr);
     }
 
-  *tp = ret;
+  *tp = call_expr;
 }
 
 /* Emit all thunks to FN that should be emitted when FN is emitted.  */
@@ -4054,9 +4048,11 @@ expand_or_defer_fn (tree fn)
 
 struct nrv_data
 {
+  nrv_data () : visited (37) {}
+
   tree var;
   tree result;
-  hash_table <pointer_hash <tree_node> > visited;
+  hash_table<pointer_hash <tree_node> > visited;
 };
 
 /* Helper function for walk_tree, used by finalize_nrv below.  */
@@ -4136,9 +4132,7 @@ finalize_nrv (tree *tp, tree var, tree result)
 
   data.var = var;
   data.result = result;
-  data.visited.create (37);
   cp_walk_tree (tp, finalize_nrv_r, &data, 0);
-  data.visited.dispose ();
 }
 
 /* Create CP_OMP_CLAUSE_INFO for clause C.  Returns true if it is invalid.  */
@@ -5292,6 +5286,8 @@ finish_omp_clauses (tree clauses)
 			  break;
 			}
 		    }
+		  else
+		    t = fold_convert (TREE_TYPE (OMP_CLAUSE_DECL (c)), t);
 		}
 	      OMP_CLAUSE_LINEAR_STEP (c) = t;
 	    }
@@ -5962,7 +5958,7 @@ finish_omp_threadprivate (tree vars)
 
 	  if (! DECL_THREAD_LOCAL_P (v))
 	    {
-	      DECL_TLS_MODEL (v) = decl_default_tls_model (v);
+	      set_decl_tls_model (v, decl_default_tls_model (v));
 	      /* If rtl has been already set for this var, call
 		 make_decl_rtl once again, so that encode_section_info
 		 has a chance to look at the new decl flags.  */

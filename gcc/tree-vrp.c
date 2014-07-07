@@ -3892,15 +3892,6 @@ adjust_range_with_scev (value_range_t *vr, struct loop *loop,
 	max = init;
       else
 	min = init;
-
-      /* If we would create an invalid range, then just assume we
-	 know absolutely nothing.  This may be over-conservative,
-	 but it's clearly safe, and should happen only in unreachable
-         parts of code, or for invalid programs.  */
-      if (compare_values (min, max) == 1)
-	return;
-
-      set_value_range (vr, VR_RANGE, min, max, vr->equiv);
     }
   else if (vr->type == VR_RANGE)
     {
@@ -3933,16 +3924,20 @@ adjust_range_with_scev (value_range_t *vr, struct loop *loop,
 	      || compare_values (tmax, max) == -1)
 	    max = tmax;
 	}
-
-      /* If we just created an invalid range with the minimum
-	 greater than the maximum, we fail conservatively.
-	 This should happen only in unreachable
-	 parts of code, or for invalid programs.  */
-      if (compare_values (min, max) == 1)
-	return;
-
-      set_value_range (vr, VR_RANGE, min, max, vr->equiv);
     }
+  else
+    return;
+
+  /* If we just created an invalid range with the minimum
+     greater than the maximum, we fail conservatively.
+     This should happen only in unreachable
+     parts of code, or for invalid programs.  */
+  if (compare_values (min, max) == 1
+      || (is_negative_overflow_infinity (min)
+	  && is_positive_overflow_infinity (max)))
+    return;
+
+  set_value_range (vr, VR_RANGE, min, max, vr->equiv);
 }
 
 
@@ -6528,8 +6523,9 @@ remove_range_assertions (void)
 	  }
 	else
 	  {
+	    if (!is_gimple_debug (gsi_stmt (si)))
+	      is_unreachable = 0;
 	    gsi_next (&si);
-	    is_unreachable = 0;
 	  }
       }
 }
@@ -8383,7 +8379,6 @@ vrp_visit_phi_node (gimple phi)
 	 PHI node SCEV may known more about its value-range.  */
       if ((cmp_min > 0 || cmp_min < 0
 	   || cmp_max < 0 || cmp_max > 0)
-	  && current_loops
 	  && (l = loop_containing_stmt (phi))
 	  && l->header == gimple_bb (phi))
 	adjust_range_with_scev (&vr_result, l, phi, lhs);
@@ -9784,8 +9779,7 @@ execute_vrp (void)
   if (to_remove_edges.length () > 0)
     {
       free_dominance_info (CDI_DOMINATORS);
-      if (current_loops)
-	loops_state_set (LOOPS_NEED_FIXUP);
+      loops_state_set (LOOPS_NEED_FIXUP);
     }
 
   to_remove_edges.release ();

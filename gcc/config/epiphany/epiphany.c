@@ -51,6 +51,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"	/* for current_pass */
 #include "context.h"
 #include "pass_manager.h"
+#include "builtins.h"
 
 /* Which cpu we're compiling for.  */
 int epiphany_cpu_type;
@@ -2542,7 +2543,8 @@ epiphany_mode_exit (int entity)
 }
 
 void
-emit_set_fp_mode (int entity, int mode, HARD_REG_SET regs_live ATTRIBUTE_UNUSED)
+emit_set_fp_mode (int entity, int mode, int prev_mode ATTRIBUTE_UNUSED,
+		  HARD_REG_SET regs_live ATTRIBUTE_UNUSED)
 {
   rtx save_cc, cc_reg, mask, src, src2;
   enum attr_fp_mode fp_mode;
