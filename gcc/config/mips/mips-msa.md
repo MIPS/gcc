@@ -719,10 +719,7 @@
   [(set_attr "move_type"	"move,const,load,store,mfc,mtc,fpload,fpstore,fmove,store,load,fpstore,fpload")
    (set_attr "mode"     "TI")])
 
-;; Note that we prefer floating-point loads, stores, and moves by adding * to
-;; other register preferences.
-;; Note that we combine f and J, so that move_type for J is fmove and its
-;; instruction length can be 1.
+;; Like above but for 64bit.
 (define_insn "movti_msa_64bit"
   [(set (match_operand:TI 0 "nonimmediate_operand" "=*d,*d,*d,*R,*a,*d,*d,*f,f,R,f,*m,*d,*m,*f")
 	(match_operand:TI 1 "move_operand" "*d,*i,*R,*d*J,*d*J,*a,*f,*d,R,f,fJ,*d*J,*m,*f,*m"))]
