@@ -181,14 +181,11 @@
 ;; note V2DI is excluded because it split if !TARGET_64
 (define_mode_iterator INSVE    [V4SI V8HI V16QI])
 
-;; mode that can be combine copy+inset with subreg info insve.
+;; mode that can be combine copy+insert with subreg info insve.
 (define_mode_iterator INSVE_2  [V8HI V16QI])
 
-;; As IMSA but excludeds V16QI.
+;; As IMSA but excludes V16QI.
 (define_mode_iterator IMSA_X   [V2DI V4SI V8HI])
-
-;; Only used with insert.
-(define_mode_iterator MSA_3    [V16QI V8HI V2DF V4SF])
 
 ;; Only integer modes for fixed-point madd_q/maddr_q.
 (define_mode_iterator QMSA     [V4SI V8HI])
@@ -281,9 +278,10 @@
    (V8HI "uimm3")
    (V16QI "uimm4")])
 
-;; This attribute is used to form the MODE for reg_or_0_operand
-;; constraint.
-(define_mode_attr REGOR0
+;; This attribute is used to form the MODE of an input operand
+;; when some builtins (insert snd fill) take an input operand other than
+;; UNITMODE mode. See the msa_insert and msa_fill for an examples.
+(define_mode_attr EXCEPT 
   [(V2DF "DF")
    (V4SF "SF")
    (V2DI "DI")
@@ -361,8 +359,8 @@
    (match_operand 2 "const_<indeximm>_operand")]
   "ISA_HAS_MSA"
 {
-  emit_insn (gen_msa_insert_<msafmt> (operands[0], operands[0], operands[2],
-				      operands[1]));
+  emit_insn (gen_msa_insert_<msafmt>_insn (operands[0], operands[0], operands[2],
+					   operands[1]));
   DONE;
 })
 
@@ -390,7 +388,7 @@
        == GET_MODE_NUNITS (<IMSA:MODE>mode))"
 {
   mips_expand_vec_cond_expr (<MSA_2:MODE>mode,
-	   	             <MSA_2:VIMODE>mode,
+			     <MSA_2:VIMODE>mode,
 			     operands,
 			     gen_and<MSA_2:mode_i>3,
 			     gen_msa_nor_v_<MSA_2:msafmt>,
@@ -419,27 +417,48 @@
   DONE;
 })
 
-(define_insn "msa_insert_<msafmt>"
+;; Note used directly by builtins but via the following define_expand.
+(define_insn "msa_insert_<msafmt>_insn"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
 	(unspec:IMSA [(match_operand:IMSA 1 "register_operand" "0")
 		      (match_operand 2 "const_<indeximm>_operand" "")
-		      (match_operand:<REGOR0> 3 "reg_or_0_operand" "dJ")]
+		      (match_operand:<UNITMODE> 3 "reg_or_0_operand" "dJ")]
 		     UNSPEC_MSA_INSERT))]
   "ISA_HAS_MSA"
   "insert.<msafmt>\t%w0[%2],%z3"
-  [(set_attr "type"	"mtc")
-   (set_attr "mode"	"TI")
+  [(set_attr "type"     "mtc")
+   (set_attr "mode"     "TI")
    (set_attr "msa_execunit" "msa_eu_logic_l")])
 
-; Similar to msa_insert_<msafmt> but with <UNITMODE>mode for operand 3.
-;; Note that insert.d and insert.d_f will be split later if !TARGET_64BIT.
+;; Expand builtin catoring for HImode and QImode which take SImode.
+(define_expand "msa_insert_<msafmt>"
+  [(set (match_operand:IMSA 0 "register_operand")
+	(unspec:IMSA [(match_operand:IMSA 1 "register_operand")
+		      (match_operand 2 "const_<indeximm>_operand")
+		      (match_operand:<EXCEPT> 3 "reg_or_0_operand")]
+		     UNSPEC_MSA_INSERT))]
+  "ISA_HAS_MSA"
+{
+  gcc_assert (GET_MODE_SIZE (<UNITMODE>mode) <= GET_MODE_SIZE (<EXCEPT>mode));
+  if ((GET_MODE_SIZE (<UNITMODE>mode) < GET_MODE_SIZE (<EXCEPT>mode))
+       && REG_P (operands[3]))
+    {
+      unsigned int offset =  GET_MODE_SIZE (<EXCEPT>mode)
+                              - GET_MODE_SIZE (<UNITMODE>mode);
+      operands[3] = gen_rtx_SUBREG (<UNITMODE>mode, operands[3],
+				    TARGET_LITTLE_ENDIAN ? 0 : offset);
+    }
+  emit_insn (gen_msa_insert_<msafmt>_insn (operands[0], operands[1], operands[2],
+					   operands[3]));
+  DONE;
+})
 
-(define_insn "*msa_insert_<msafmt_f>"
-  [(set (match_operand:MSA_3 0 "register_operand" "=f")
-	(unspec:MSA_3 [(match_operand:MSA_3 1 "register_operand" "0")
-		       (match_operand 2 "const_<indeximm>_operand" "")
-		       (match_operand:<UNITMODE> 3 "reg_or_0_operand" "dJ")]
-		      UNSPEC_MSA_INSERT))]
+(define_insn "msa_insert_<msafmt_f>"
+  [(set (match_operand:FMSA 0 "register_operand" "=f")
+	(unspec:FMSA [(match_operand:FMSA 1 "register_operand" "0")
+		      (match_operand 2 "const_<indeximm>_operand" "")
+		      (match_operand:<UNITMODE> 3 "register_operand" "d")]
+		     UNSPEC_MSA_INSERT))]
   "ISA_HAS_MSA"
   "insert.<msafmt>\t%w0[%2],%z3"
   [(set_attr "type"     "mtc")
@@ -1064,8 +1083,8 @@
 
 (define_insn "vlshr<mode>3"
   [(set (match_operand:IMSA 0 "register_operand" "=f,f")
-	(lshiftrt:<MODE> (match_operand:<MODE> 1 "register_operand" "f,f")
-			 (match_operand:<MODE> 2 "reg_or_vector_same_uimm6_operand" "f,Uuv6")))]
+	(lshiftrt:IMSA (match_operand:IMSA 1 "register_operand" "f,f")
+			 (match_operand:IMSA 2 "reg_or_vector_same_uimm6_operand" "f,Uuv6")))]
   "ISA_HAS_MSA"
 {
   if (which_alternative == 0)
@@ -1555,9 +1574,9 @@
 
 (define_insn "msa_dotp_s_<msafmt>"
   [(set (match_operand:IDOTP128 0 "register_operand" "=f")
-	(unspec:<MODE> [(match_operand:<VHALFMODE> 1 "register_operand" "f")
-			(match_operand:<VHALFMODE> 2 "register_operand" "f")]
-		       UNSPEC_MSA_DOTP_S))]
+	(unspec:IDOTP128 [(match_operand:<VHALFMODE> 1 "register_operand" "f")
+			  (match_operand:<VHALFMODE> 2 "register_operand" "f")]
+			  UNSPEC_MSA_DOTP_S))]
   "ISA_HAS_MSA"
   "dotp_s.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
@@ -1566,9 +1585,9 @@
 
 (define_insn "msa_dotp_u_<msafmt>"
   [(set (match_operand:IDOTP128 0 "register_operand" "=f")
-	(unspec:<MODE> [(match_operand:<VHALFMODE> 1 "register_operand" "f")
-			(match_operand:<VHALFMODE> 2 "register_operand" "f")]
-		       UNSPEC_MSA_DOTP_U))]
+	(unspec:IDOTP128 [(match_operand:<VHALFMODE> 1 "register_operand" "f")
+			  (match_operand:<VHALFMODE> 2 "register_operand" "f")]
+			  UNSPEC_MSA_DOTP_U))]
   "ISA_HAS_MSA"
   "dotp_u.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
@@ -1577,10 +1596,10 @@
 
 (define_insn "msa_dpadd_s_<msafmt>"
   [(set (match_operand:IDOTP128 0 "register_operand" "=f")
-	(unspec:<MODE> [(match_operand:<MODE> 1 "register_operand" "0")
-			(match_operand:<VHALFMODE> 2 "register_operand" "f")
-			(match_operand:<VHALFMODE> 3 "register_operand" "f")]
-		       UNSPEC_MSA_DPADD_S))]
+	(unspec:IDOTP128 [(match_operand:IDOTP128 1 "register_operand" "0")
+			  (match_operand:<VHALFMODE> 2 "register_operand" "f")
+			  (match_operand:<VHALFMODE> 3 "register_operand" "f")]
+			  UNSPEC_MSA_DPADD_S))]
   "ISA_HAS_MSA"
   "dpadd_s.<msafmt>\t%w0,%w2,%w3"
   [(set_attr "type"	"arith")
@@ -1589,10 +1608,10 @@
 
 (define_insn "msa_dpadd_u_<msafmt>"
   [(set (match_operand:IDOTP128 0 "register_operand" "=f")
-	(unspec:<MODE> [(match_operand:<MODE> 1 "register_operand" "0")
-			(match_operand:<VHALFMODE> 2 "register_operand" "f")
-			(match_operand:<VHALFMODE> 3 "register_operand" "f")]
-		       UNSPEC_MSA_DPADD_U))]
+	(unspec:IDOTP128 [(match_operand:IDOTP128 1 "register_operand" "0")
+		    	  (match_operand:<VHALFMODE> 2 "register_operand" "f")
+			  (match_operand:<VHALFMODE> 3 "register_operand" "f")]
+			  UNSPEC_MSA_DPADD_U))]
   "ISA_HAS_MSA"
   "dpadd_u.<msafmt>\t%w0,%w2,%w3"
   [(set_attr "type"	"arith")
@@ -1601,10 +1620,10 @@
 
 (define_insn "msa_dpsub_s_<msafmt>"
   [(set (match_operand:IDOTP128 0 "register_operand" "=f")
-	(unspec:<MODE> [(match_operand:<MODE> 1 "register_operand" "0")
-			(match_operand:<VHALFMODE> 2 "register_operand" "f")
-			(match_operand:<VHALFMODE> 3 "register_operand" "f")]
-		       UNSPEC_MSA_DPSUB_S))]
+	(unspec:IDOTP128 [(match_operand:IDOTP128 1 "register_operand" "0")
+			  (match_operand:<VHALFMODE> 2 "register_operand" "f")
+			  (match_operand:<VHALFMODE> 3 "register_operand" "f")]
+			  UNSPEC_MSA_DPSUB_S))]
   "ISA_HAS_MSA"
   "dpsub_s.<msafmt>\t%w0,%w2,%w3"
   [(set_attr "type"	"arith")
@@ -1613,10 +1632,10 @@
 
 (define_insn "msa_dpsub_u_<msafmt>"
   [(set (match_operand:IDOTP128 0 "register_operand" "=f")
-	(unspec:<MODE> [(match_operand:<MODE> 1 "register_operand" "0")
-			(match_operand:<VHALFMODE> 2 "register_operand" "f")
-			(match_operand:<VHALFMODE> 3 "register_operand" "f")]
-		       UNSPEC_MSA_DPSUB_U))]
+	(unspec:IDOTP128 [(match_operand:IDOTP128 1 "register_operand" "0")
+			  (match_operand:<VHALFMODE> 2 "register_operand" "f")
+		 	  (match_operand:<VHALFMODE> 3 "register_operand" "f")]
+			  UNSPEC_MSA_DPSUB_U))]
   "ISA_HAS_MSA"
   "dpsub_u.<msafmt>\t%w0,%w2,%w3"
   [(set_attr "type"	"arith")
@@ -1828,7 +1847,7 @@
 
 (define_insn "float<FMSA:mode><fint>2"
   [(set (match_operand:FMSA 0 "register_operand" "=f")
-	(float:<MODE> (match_operand:<FINT> 1 "register_operand" "f")))]
+	(float:FMSA (match_operand:<FINT> 1 "register_operand" "f")))]
   "ISA_HAS_MSA"
   "ffint_s.<msafmt>\t%w0,%w1"
   [(set_attr "type"     "fcvt")
@@ -1838,7 +1857,7 @@
 
 (define_insn "floatuns<FMSA:mode><fint>2"
   [(set (match_operand:FMSA 0 "register_operand" "=f")
-	(unsigned_float:<MODE> (match_operand:<FINT> 1 "register_operand" "f")))]
+	(unsigned_float:FMSA (match_operand:<FINT> 1 "register_operand" "f")))]
   "ISA_HAS_MSA"
   "ffint_u.<msafmt>\t%w0,%w1"
   [(set_attr "type"	"fcvt")
@@ -1852,8 +1871,8 @@
 
 (define_insn "msa_ffql_<msafmt>"
   [(set (match_operand:FMSA 0 "register_operand" "=f")
-	(unspec:<MODE> [(match_operand:<FINT> 1 "register_operand" "f")]
-		       UNSPEC_MSA_FFQL))]
+	(unspec:FMSA [(match_operand:<FINT> 1 "register_operand" "f")]
+		     UNSPEC_MSA_FFQL))]
   "ISA_HAS_MSA"
   "ffql.<msafmt>\t%w0,%w1"
   [(set_attr "type"	"fcvt")
@@ -1863,8 +1882,8 @@
 
 (define_insn "msa_ffqr_<msafmt>"
   [(set (match_operand:FMSA 0 "register_operand" "=f")
-	(unspec:<MODE> [(match_operand:<FINT> 1 "register_operand" "f")]
-		       UNSPEC_MSA_FFQR))]
+	(unspec:FMSA [(match_operand:<FINT> 1 "register_operand" "f")]
+		     UNSPEC_MSA_FFQR))]
   "ISA_HAS_MSA"
   "ffqr.<msafmt>\t%w0,%w1"
   [(set_attr "type"	"fcvt")
@@ -1872,15 +1891,47 @@
    (set_attr "mode"	"<UNITMODE>")
    (set_attr "msa_execunit" "msa_eu_float4")])
 
-(define_insn "msa_fill_<msafmt_f>"
-  [(set (match_operand:MSA 0 "register_operand" "=f")
-	(unspec:<MODE> [(match_operand:<REGOR0> 1 "reg_or_0_operand" "dJ")]
-		       UNSPEC_MSA_FILL))]
+;; Note used directly by builtins but via the following define_expand.
+(define_insn "msa_fill_<msafmt>_insn"
+  [(set (match_operand:IMSA 0 "register_operand" "=f")
+	(unspec:IMSA [(match_operand:<UNITMODE> 1 "reg_or_0_operand" "dJ")]
+		     UNSPEC_MSA_FILL))]
   "ISA_HAS_MSA"
   "fill.<msafmt>\t%w0,%z1"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
    (set_attr "msa_execunit" "msa_eu_logic")])
+
+;; Expand builtin catoring for HImode and QImode which take SImode.
+(define_expand "msa_fill_<msafmt>"
+  [(set (match_operand:IMSA 0 "register_operand")
+	(unspec:IMSA [(match_operand:<EXCEPT> 1 "reg_or_0_operand")]
+		     UNSPEC_MSA_FILL))]
+  "ISA_HAS_MSA"
+{
+   gcc_assert (GET_MODE_SIZE (<UNITMODE>mode) <= GET_MODE_SIZE (<EXCEPT>mode));
+   if ((GET_MODE_SIZE (<UNITMODE>mode) < GET_MODE_SIZE (<EXCEPT>mode))
+	&& REG_P (operands[1]))
+     {
+	unsigned int offset =  GET_MODE_SIZE (<EXCEPT>mode)
+			       - GET_MODE_SIZE (<UNITMODE>mode);
+	operands[1] = gen_rtx_SUBREG (<UNITMODE>mode, operands[1],
+				     TARGET_LITTLE_ENDIAN ? 0 : offset);
+     }
+   emit_insn (gen_msa_fill_<msafmt>_insn (operands[0], operands[1]));
+   DONE;
+ })
+
+(define_insn "msa_fill_<msafmt_f>"
+  [(set (match_operand:FMSA 0 "register_operand" "=f")
+	(unspec:FMSA [(match_operand:<UNITMODE> 1 "reg_or_0_operand" "dJ")]
+		     UNSPEC_MSA_FILL))]
+  "ISA_HAS_MSA"
+  "fill.<msafmt>\t%w0,%z1"
+  [(set_attr "type"     "arith")
+   (set_attr "mode"     "TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
+
 
 ;; Note that fill.d and fill_d_f will be split later if !TARGET_64BIT.
 
@@ -1919,8 +1970,8 @@
 ;;UNSPEC_MSA_FMAX
 (define_insn "smax<mode>3"
   [(set (match_operand:FMSA 0 "register_operand" "=f")
-	(smax:<MODE> (match_operand:<MODE> 1 "register_operand" "f")
-		     (match_operand:<MODE> 2 "register_operand" "f")))]
+	(smax:FMSA (match_operand:FMSA 1 "register_operand" "f")
+		   (match_operand:FMSA 2 "register_operand" "f")))]
   "ISA_HAS_MSA"
   "fmax.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fadd")
@@ -1930,8 +1981,8 @@
 ;;UNSPEC_MSA_FMAX_A
 (define_insn "umax<mode>3"
   [(set (match_operand:FMSA 0 "register_operand" "=f")
-	(umax:<MODE> (match_operand:<MODE> 1 "register_operand" "f")
-		     (match_operand:<MODE> 2 "register_operand" "f")))]
+	(umax:FMSA (match_operand:FMSA 1 "register_operand" "f")
+		   (match_operand:FMSA 2 "register_operand" "f")))]
   "ISA_HAS_MSA"
   "fmax_a.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fadd")
@@ -1941,8 +1992,8 @@
 ;;UNSPEC_MSA_FMIN
 (define_insn "smin<mode>3"
   [(set (match_operand:FMSA 0 "register_operand" "=f")
-	(smin:<MODE> (match_operand:<MODE> 1 "register_operand" "f")
-		     (match_operand:<MODE> 2 "register_operand" "f")))]
+	(smin:FMSA (match_operand:FMSA 1 "register_operand" "f")
+		   (match_operand:FMSA 2 "register_operand" "f")))]
   "ISA_HAS_MSA"
   "fmin.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fadd")
@@ -1952,8 +2003,8 @@
 ;;UNSPEC_MSA_FMIN_A
 (define_insn "umin<mode>3"
   [(set (match_operand:FMSA 0 "register_operand" "=f")
-	(umin:<MODE> (match_operand:<MODE> 1 "register_operand" "f")
-		     (match_operand:<MODE> 2 "register_operand" "f")))]
+	(umin:FMSA (match_operand:FMSA 1 "register_operand" "f")
+		   (match_operand:FMSA 2 "register_operand" "f")))]
   "ISA_HAS_MSA"
   "fmin_a.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fadd")
@@ -2064,7 +2115,7 @@
 
 (define_insn "msa_hadd_s_<msafmt>"
   [(set (match_operand:IZMODE 0 "register_operand" "=f")
-	(unspec:<MODE> [(match_operand:<IZDOUBLE> 1 "register_operand" "f")
+	(unspec:IZMODE [(match_operand:<IZDOUBLE> 1 "register_operand" "f")
 			(match_operand:<IZDOUBLE> 2 "register_operand" "f")]
 		       UNSPEC_MSA_HADD_S))]
   "ISA_HAS_MSA"
@@ -2075,7 +2126,7 @@
 
 (define_insn "msa_hadd_u_<msafmt>"
   [(set (match_operand:IZMODE 0 "register_operand" "=f")
-	(unspec:<MODE> [(match_operand:<IZDOUBLE> 1 "register_operand" "f")
+	(unspec:IZMODE [(match_operand:<IZDOUBLE> 1 "register_operand" "f")
 			(match_operand:<IZDOUBLE> 2 "register_operand" "f")]
 		       UNSPEC_MSA_HADD_U))]
   "ISA_HAS_MSA"
@@ -2086,7 +2137,7 @@
 
 (define_insn "msa_hsub_s_<msafmt>"
   [(set (match_operand:IZMODE 0 "register_operand" "=f")
-	(unspec:<MODE> [(match_operand:<IZDOUBLE> 1 "register_operand" "f")
+	(unspec:IZMODE [(match_operand:<IZDOUBLE> 1 "register_operand" "f")
 			(match_operand:<IZDOUBLE> 2 "register_operand" "f")]
 		       UNSPEC_MSA_HSUB_S))]
   "ISA_HAS_MSA"
@@ -2097,7 +2148,7 @@
 
 (define_insn "msa_hsub_u_<msafmt>"
   [(set (match_operand:IZMODE 0 "register_operand" "=f")
-	(unspec:<MODE> [(match_operand:<IZDOUBLE> 1 "register_operand" "f")
+	(unspec:IZMODE [(match_operand:<IZDOUBLE> 1 "register_operand" "f")
 			(match_operand:<IZDOUBLE> 2 "register_operand" "f")]
 		       UNSPEC_MSA_HSUB_U))]
   "ISA_HAS_MSA"
@@ -2647,9 +2698,9 @@
 ;; operand 1 is a scalar
 (define_insn "msa_splati_<msafmt_f>_s"
   [(set (match_operand:FMSA 0 "register_operand" "=f")
-	(unspec:<MODE> [(match_operand:<UNITMODE> 1 "register_operand" "f")
-			(match_operand 2 "const_<indeximm>_operand" "")]
-		       UNSPEC_MSA_SPLATI))]
+	(unspec:FMSA [(match_operand:<UNITMODE> 1 "register_operand" "f")
+		      (match_operand 2 "const_<indeximm>_operand" "")]
+		     UNSPEC_MSA_SPLATI))]
   "ISA_HAS_MSA"
   "splati.<msafmt>\t%w0,%w1[%2]"
   [(set_attr "type"	"arith")

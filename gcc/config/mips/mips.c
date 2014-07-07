@@ -20117,8 +20117,7 @@ mips_expand_vector_init (rtx target, rtx vals)
       if (all_same)
 	{
 	  rtx same = XVECEXP (vals, 0, 0);
-	  rtx temp;
-	  rtx temp2;
+	  rtx temp, temp2;
 
 	  if (CONST_INT_P (same) && nvar == 0 && mips_signed_immediate_p (INTVAL (same), 10, 0))
 	    {
@@ -20146,19 +20145,27 @@ mips_expand_vector_init (rtx target, rtx vals)
 	    }
 	  temp = gen_reg_rtx (imode);
 	  if (imode == GET_MODE (same))
-	    emit_move_insn (temp, same);
+	    temp2 = same;
+	  else if (GET_MODE_SIZE (imode) >= UNITS_PER_WORD)
+	    temp2 = simplify_gen_subreg (imode, same, GET_MODE (same), 0);
 	  else
-	    emit_move_insn (temp, simplify_gen_subreg (imode, same, GET_MODE (same), 0));
+	    {
+	      unsigned offset = 0;
+
+	      if (TARGET_BIG_ENDIAN)
+		offset = GET_MODE_SIZE (GET_MODE (same)) - GET_MODE_SIZE (imode);
+	      temp2 = simplify_gen_subreg (imode, same, GET_MODE (same), offset);
+	    }
+	  emit_move_insn (temp, temp2);
+
 	  switch (vmode)
 	    {
 	    case V16QImode:
-	      temp2 = simplify_gen_subreg (SImode, temp, imode, 0);
-	      emit_insn (gen_msa_fill_b (target, temp2));
+	      emit_insn (gen_msa_fill_b_insn (target, temp));
 	      break;
 
 	    case V8HImode:
-	      temp2 = simplify_gen_subreg (SImode, temp, imode, 0);
-	      emit_insn (gen_msa_fill_h (target, temp2));
+	      emit_insn (gen_msa_fill_h_insn (target, temp));
 	      break;
 
 	    case V4SImode:
@@ -20183,7 +20190,6 @@ mips_expand_vector_init (rtx target, rtx vals)
 
 	  return;
 	}
-
       rtvec vec = shallow_copy_rtvec (XVEC (vals, 0));
 
       for (i = 0; i < nelt; ++i)
