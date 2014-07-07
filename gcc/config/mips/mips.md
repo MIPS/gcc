@@ -4857,7 +4857,7 @@
 (define_expand "movti"
   [(set (match_operand:TI 0)
 	(match_operand:TI 1))]
-  "TARGET_64BIT || TARGET_MSA"
+  "TARGET_MSA"
 {
   if (mips_legitimize_move (TImode, operands[0], operands[1]))
     DONE;
