@@ -178,7 +178,7 @@
 (define_mode_iterator IMSA     [V2DI V4SI V8HI V16QI])
 
 ;; mode that can combine a copy+insert into insve.
-;; note V2DI is excluded because it split if !TARGET_64
+;; note V2DI is excluded because it will be split if !TARGET_64BIT.
 (define_mode_iterator INSVE    [V4SI V8HI V16QI])
 
 ;; mode that can be combine copy+insert with subreg info insve.
@@ -290,7 +290,7 @@
    (V16QI "SI")])
 
 ;; This attribute used to form an immediate operand constraint
-;; using  "const_<bitimm>_operand" 
+;; using  "const_<bitimm>_operand".
 (define_mode_attr bitimm 
   [(V16QI "uimm3")
    (V8HI  "uimm4")
