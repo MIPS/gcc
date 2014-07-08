@@ -444,12 +444,12 @@
        && REG_P (operands[3]))
     {
       unsigned int offset =  GET_MODE_SIZE (<EXCEPT>mode)
-                              - GET_MODE_SIZE (<UNITMODE>mode);
+			     - GET_MODE_SIZE (<UNITMODE>mode);
       operands[3] = gen_rtx_SUBREG (<UNITMODE>mode, operands[3],
 				    TARGET_LITTLE_ENDIAN ? 0 : offset);
     }
-  emit_insn (gen_msa_insert_<msafmt>_insn (operands[0], operands[1], operands[2],
-					   operands[3]));
+  emit_insn (gen_msa_insert_<msafmt>_insn (operands[0], operands[1],
+					   operands[2], operands[3]));
   DONE;
 })
 
@@ -1906,17 +1906,17 @@
 		     UNSPEC_MSA_FILL))]
   "ISA_HAS_MSA"
 {
-   gcc_assert (GET_MODE_SIZE (<UNITMODE>mode) <= GET_MODE_SIZE (<EXCEPT>mode));
-   if ((GET_MODE_SIZE (<UNITMODE>mode) < GET_MODE_SIZE (<EXCEPT>mode))
-	&& REG_P (operands[1]))
-     {
-	unsigned int offset =  GET_MODE_SIZE (<EXCEPT>mode)
-			       - GET_MODE_SIZE (<UNITMODE>mode);
-	operands[1] = gen_rtx_SUBREG (<UNITMODE>mode, operands[1],
-				     TARGET_LITTLE_ENDIAN ? 0 : offset);
-     }
-   emit_insn (gen_msa_fill_<msafmt>_insn (operands[0], operands[1]));
-   DONE;
+  gcc_assert (GET_MODE_SIZE (<UNITMODE>mode) <= GET_MODE_SIZE (<EXCEPT>mode));
+  if ((GET_MODE_SIZE (<UNITMODE>mode) < GET_MODE_SIZE (<EXCEPT>mode))
+       && REG_P (operands[1]))
+    {
+      unsigned int offset =  GET_MODE_SIZE (<EXCEPT>mode)
+			     - GET_MODE_SIZE (<UNITMODE>mode);
+      operands[1] = gen_rtx_SUBREG (<UNITMODE>mode, operands[1],
+				    TARGET_LITTLE_ENDIAN ? 0 : offset);
+    }
+  emit_insn (gen_msa_fill_<msafmt>_insn (operands[0], operands[1]));
+  DONE;
  })
 
 (define_insn "msa_fill_<msafmt_f>"
@@ -1928,7 +1928,6 @@
   [(set_attr "type"     "arith")
    (set_attr "mode"     "TI")
    (set_attr "msa_execunit" "msa_eu_logic")])
-
 
 ;; Note that fill.d and fill_d_f will be split later if !TARGET_64BIT.
 
