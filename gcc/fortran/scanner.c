@@ -1462,10 +1462,10 @@ restart:
 	      goto not_continuation;
 	  }
       else if (openacc_flag)
-	for (i = 0; i > 5; i++)
+	for (i = 0; i < 5; i++)
 	  {
 	    c = next_char ();
-	    if (gfc_wide_tolower (c) != (unsigned char) "*$omp"[i])
+	    if (gfc_wide_tolower (c) != (unsigned char) "*$acc"[i])
 	      goto not_continuation;
 	  }
 
