@@ -1,3 +1,21 @@
+2014-07-08  Cesar Philippidis  <cesar@codesourcery.com>
+	    Thomas Schwinge  <thomas@codesourcery.com>
+
+	* omp-low.c (omp_get_id): New function.
+	(lookup_reduction): New function.
+	(maybe_lookup_reduction): New function.
+	(build_outer_var_ref): Remove openacc assert.
+	(new_omp_context): Preserve ctx->reduction_map.
+	(scan_sharing_clauses): Handle OMP_CLAUSE_REDUCTION.
+	(scan_oacc_offload): Initialize ctx->reduction_map.
+	(lower_reduction_clauses): Handle OpenACC reductions.
+	(omp_gimple_assign_with_ops): New function.
+	(initialize_reduction_data): New function.
+	(finalize_reduction_data): New function.
+	(process_reduction_data): New function.
+	(lower_oacc_offload): Handle reductions.
+	* gcc/omp-builtins.def (BUILT_IN_OMP_SET_NUM_THREADS): New.
+
 2014-06-13  Thomas Schwinge  <thomas@codesourcery.com>
 	    Ilmir Usmanov  <i.usmanov@samsung.com>
 

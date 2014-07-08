@@ -11332,6 +11332,10 @@ c_parser_oacc_all_clauses (c_parser *parser, omp_clause_mask mask,
 	  clauses = c_parser_oacc_data_clause (parser, c_kind, clauses);
 	  c_name = "present_or_create";
 	  break;
+	case PRAGMA_OMP_CLAUSE_REDUCTION:
+	  clauses = c_parser_omp_clause_reduction (parser, clauses);
+	  c_name = "reduction";
+	  break;
 	case PRAGMA_OMP_CLAUSE_SELF:
 	  clauses = c_parser_oacc_data_clause (parser, c_kind, clauses);
 	  c_name = "self";
@@ -11706,7 +11710,7 @@ c_parser_oacc_kernels (location_t loc, c_parser *parser, char *p_name)
 */
 
 #define OACC_LOOP_CLAUSE_MASK						\
-	(OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_NONE)
+	(OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_REDUCTION)
 
 static tree
 c_parser_oacc_loop (location_t loc, c_parser *parser, char *p_name)
@@ -11746,6 +11750,7 @@ c_parser_oacc_loop (location_t loc, c_parser *parser, char *p_name)
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_PRESENT_OR_COPYIN)	\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_PRESENT_OR_COPYOUT)	\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_PRESENT_OR_CREATE)	\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_REDUCTION)		\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_VECTOR_LENGTH) )
 
 static tree

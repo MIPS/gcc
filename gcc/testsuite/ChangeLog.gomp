@@ -1,5 +1,12 @@
 2014-07-08  Cesar Philippidis  <cesar@codesourcery.com>
 
+	* gcc/testsuite/c-c++-common/goacc/reduction-1.c: New test.
+	* gcc/testsuite/c-c++-common/goacc/reduction-2.c: New test.
+	* gcc/testsuite/c-c++-common/goacc/reduction-3.c: New test.
+	* gcc/testsuite/c-c++-common/goacc/reduction-4.c: New test.
+
+2014-07-08  Cesar Philippidis  <cesar@codesourcery.com>
+
 	* gfortran.dg/goacc/fixed-3.f: New test.
 	* gfortran.dg/goacc/fixed-4.f: New test.
 
