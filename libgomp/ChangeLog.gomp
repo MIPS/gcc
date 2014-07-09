@@ -1,3 +1,10 @@
+2014-07-09  Thomas Schwinge  <thomas@codesourcery.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* target.c (gomp_map_vars, gomp_unmap_vars, gomp_update): Support
+	NULL mappings as well as mapping kind OMP_CLAUSE_MAP_TO_PSET.
+	Also, some code reformatting.
+
 2014-06-06  Thomas Schwinge  <thomas@codesourcery.com>
 	    James Norris  <jnorris@codesourcery.com>
 
