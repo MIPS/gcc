@@ -207,7 +207,7 @@ F128_MAP(__extenddfkf2,_q_dtoq) (DFtype a)
 #if defined(__LONG_DOUBLE_128__) && !defined(__LONG_DOUBLE_IEEE128__)
 
 IFtype
-F128_MAP(__extendkftf2,_q_ttoq) (TFtype value)
+F128_MAP(__extendkftf2,_q_qtot) (TFtype value)
 {
   double high, low;
 
@@ -296,7 +296,7 @@ F128_MAP(__trunckfdf2,_q_qtod) (TFtype a)
 #if defined(__LONG_DOUBLE_128__) && !defined(__LONG_DOUBLE_IEEE128__)
 
 TFtype
-F128_MAP(__trunctfkf2,_q_qtot) (IFtype value)
+F128_MAP(__trunctfkf2,_q_ttoq) (IFtype value)
 {
   TFtype high_f128, low_f128;
 #ifdef __LITTLE_ENDIAN__

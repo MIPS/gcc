@@ -102,6 +102,6 @@ extern TFtype F128_MAP(__floatunsikf,_q_utoq) (USItype);
 extern TFtype F128_MAP(__floatundikf,_q_utoq_d) (UDItype);
 
 #if defined(__LONG_DOUBLE_128__) && !defined(__LONG_DOUBLE_IEEE128__)
-extern IFtype F128_MAP(__extendkftf2,_q_ttoq) (TFtype);
-extern TFtype F128_MAP(__trunctfkf2,_q_qtot) (IFtype);
+extern IFtype F128_MAP(__extendkftf2,_q_qtot) (TFtype);
+extern TFtype F128_MAP(__trunctfkf2,_q_ttoq) (IFtype);
 #endif

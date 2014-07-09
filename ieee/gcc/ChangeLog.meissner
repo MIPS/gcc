@@ -1,3 +1,35 @@
+2014-07-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-protos.h (rs6000_expand_float128_convert):
+	Add declaration.
+
+	* config/rs6000/rs6000.c (init_float128_ieee): Fix up spellings of
+	functions.
+	(rs6000_expand_float128_convert): Call the correct function to
+	convert to/from IEEE 128-bit floating point from other formats.
+
+	* config/rs6000/vsx.md (negkf2): Move IEEE 128-bit floating point
+	neg, abs handing to rs6000.md.
+
+	* config/rs6000/rs6000.md (FLOAT128_SFDFTF): New iterators for
+	IEEE 128-bit floating point.
+	(TFKF): Likewise.
+	(negtf2): Add support for neg, absolute value, and negative
+	absolute value for both IBM extended double and IEEE 128-bit
+	floating points.  Invoke the appropriate insns, based on the
+	mode.  Delete TF-only versions of the expanders.  Change to use
+	new float128 macros.
+	(neg<mode>2): Likewise.
+	(negtf2_internal): Likewise.
+	(abstf2): Likewise.
+	(abs<mode>2): Likewise.
+	(float128_vsx_neg<mode>2): Likewise.
+	(float128_vsx_neg<mode>2_internal): Likewise.
+	(float128_vsx_abs<mode>2): Likewise.
+	(float128_vsx_abs<mode>2_internal): Likewise.
+	(float128_vsx_nabs<mode>2): Likewise.
+	(float128_vsx_nabs<mode>2_internal): Likewise.
+
 2014-07-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 212339.

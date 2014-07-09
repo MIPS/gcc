@@ -15627,8 +15627,8 @@ init_float128_ieee (enum machine_mode mode)
 
 	  if (mode == KFmode && !TARGET_IEEEQUAD && TARGET_LONG_DOUBLE_128)
 	    {
-	      set_conv_libfunc (sext_optab, mode, TFmode, "_q_ttoq");
-	      set_conv_libfunc (trunc_optab, TFmode, mode, "_q_qtot");
+	      set_conv_libfunc (sext_optab, TFmode, mode, "_q_qtot");
+	      set_conv_libfunc (trunc_optab, mode, TFmode, "_q_ttoq");
 	    }
 
 	  set_conv_libfunc (sfix_optab, DImode, mode, "_q_qtoi_d");
@@ -19259,6 +19259,38 @@ rs6000_generate_compare (rtx cmp, enum machine_mode mode)
   return gen_rtx_fmt_ee (code, VOIDmode, compare_result, const0_rtx);
 }
 
+
+/* Expand floating point conversion to/from __float128.  Return true if we have
+   a conversion function.  */
+
+void
+rs6000_expand_float128_convert (rtx dest, rtx src)
+{
+  enum machine_mode dest_mode = GET_MODE (dest);
+  enum machine_mode src_mode = GET_MODE (src);
+  rtx libfunc = NULL_RTX;
+
+  if (FLOAT128_IEEE_P (dest_mode)
+      && (src_mode == SFmode
+	  || src_mode == DFmode
+	  || FLOAT128_IBM_P (src_mode)))
+    libfunc = convert_optab_libfunc (sext_optab, dest_mode, src_mode);
+
+  else if (FLOAT128_IEEE_P (src_mode)
+	   && (dest_mode == SFmode
+	       || dest_mode == DFmode
+	       || FLOAT128_IBM_P (dest_mode)))
+    libfunc = convert_optab_libfunc (trunc_optab, dest_mode, src_mode);
+  else
+    gcc_unreachable ();
+
+  gcc_assert (libfunc != NULL_RTX);
+
+  dest = emit_library_call_value (libfunc, dest, LCT_CONST, dest_mode, 1, src,
+				  src_mode);
+  gcc_assert (dest != NULL_RTX);
+  return;
+}
 
 /* Emit the RTL for an sISEL pattern.  */
 
