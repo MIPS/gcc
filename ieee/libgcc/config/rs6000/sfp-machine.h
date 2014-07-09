@@ -1,7 +1,20 @@
+#ifdef _ARCH_PPC64
+#define _FP_W_TYPE_SIZE		64
+#define _FP_W_TYPE		unsigned long long
+#define _FP_WS_TYPE		signed long long
+#define _FP_I_TYPE		long long
+
+typedef int TItype __attribute__ ((mode (TI)));
+typedef unsigned int UTItype __attribute__ ((mode (TI)));
+
+#define TI_BITS (__CHAR_BIT__ * (int)sizeof(TItype))
+
+#else	/* 32-bits  */
 #define _FP_W_TYPE_SIZE		32
 #define _FP_W_TYPE		unsigned int
 #define _FP_WS_TYPE		signed int
 #define _FP_I_TYPE		int
+#endif	/* 32-bits  */
 
 /* The type of the result of a floating point comparison.  This must
    match `__libgcc_cmp_return__' in GCC for the target.  */
@@ -12,16 +25,34 @@ typedef int __gcc_CMPtype __attribute__ ((mode (__libgcc_cmp_return__)));
   _FP_MUL_MEAT_1_wide(_FP_WFRACBITS_S,R,X,Y,umul_ppmm)
 #define _FP_MUL_MEAT_D(R,X,Y)				\
   _FP_MUL_MEAT_2_wide(_FP_WFRACBITS_D,R,X,Y,umul_ppmm)
+
+#ifdef _ARCH_PPC64
+#define _FP_MUL_MEAT_Q(R,X,Y)				\
+  _FP_MUL_MEAT_2_wide(_FP_WFRACBITS_Q,R,X,Y,umul_ppmm)
+
+#else
 #define _FP_MUL_MEAT_Q(R,X,Y)				\
   _FP_MUL_MEAT_4_wide(_FP_WFRACBITS_Q,R,X,Y,umul_ppmm)
+#endif
 
 #define _FP_DIV_MEAT_S(R,X,Y)	_FP_DIV_MEAT_1_loop(S,R,X,Y)
 #define _FP_DIV_MEAT_D(R,X,Y)	_FP_DIV_MEAT_2_udiv(D,R,X,Y)
+
+#ifdef _ARCH_PPC64
+#define _FP_DIV_MEAT_Q(R,X,Y)   _FP_DIV_MEAT_2_udiv(Q,R,X,Y)
+#else
 #define _FP_DIV_MEAT_Q(R,X,Y)	_FP_DIV_MEAT_4_udiv(Q,R,X,Y)
+#endif
 
 #define _FP_NANFRAC_S		((_FP_QNANBIT_S << 1) - 1)
 #define _FP_NANFRAC_D		((_FP_QNANBIT_D << 1) - 1), -1
+
+#ifdef _ARCH_PPC64
+#define _FP_NANFRAC_Q		((_FP_QNANBIT_Q << 1) - 1), -1
+#else
 #define _FP_NANFRAC_Q		((_FP_QNANBIT_Q << 1) - 1), -1, -1, -1
+#endif
+
 #define _FP_NANSIGN_S		0
 #define _FP_NANSIGN_D		0
 #define _FP_NANSIGN_Q		0
@@ -69,10 +100,3 @@ typedef int __gcc_CMPtype __attribute__ ((mode (__libgcc_cmp_return__)));
 # define strong_alias(name, aliasname) _strong_alias(name, aliasname)
 # define _strong_alias(name, aliasname) \
   extern __typeof (name) aliasname __attribute__ ((alias (#name)));
-
-#ifdef _ARCH_PPC64
-typedef __int128_t TItype;
-typedef __uint128_t UTItype;
-
-#define TI_BITS (__CHAR_BIT__ * (int)sizeof(TItype))
-#endif
