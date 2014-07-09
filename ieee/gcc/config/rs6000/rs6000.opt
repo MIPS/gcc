@@ -445,9 +445,9 @@ mfloat128-vsx
 Target Mask(FLOAT128_VSX) Var(rs6000_isa_flags)
 Enable the __float128 type using VSX registers
 
-mfloat128-fpr
-Target Mask(FLOAT128_FPR) Var(rs6000_isa_flags)
-Enable the __float128 type using pairs of floating point registers
+mfloat128-gpr
+Target Mask(FLOAT128_GPR) Var(rs6000_isa_flags)
+Enable the __float128 type, passing the value by reference on the stack
 
 mfloat-gprs=
 Target RejectNegative Joined Enum(rs6000_float_gprs) Var(rs6000_float_gprs) Save

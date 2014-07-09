@@ -51,12 +51,11 @@
 #endif
 
 /* Depending on options, we want to create two different names, one that passes
-   the values as VSX types, and the other that passes values as pairs of FPR
-   registers.  */
+   the values as VSX types, and the other that passes values by reference.  */
 #ifdef __FLOAT128_VSX__
-#define F128_MAP(VSX,FPR) VSX
+#define F128_MAP(VSX,GPR) VSX
 #else
-#define F128_MAP(VSX,FPR) FPR
+#define F128_MAP(VSX,GPR) GPR
 #endif
 
 /* Declare all of the support functions.  */

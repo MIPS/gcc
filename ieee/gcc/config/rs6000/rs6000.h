@@ -403,7 +403,7 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define TARGET_DEBUG_BUILTIN	(rs6000_debug & MASK_DEBUG_BUILTIN)
 
 /* __float128 enablement.  */
-#define TARGET_FLOAT128		(TARGET_FLOAT128_VSX || TARGET_FLOAT128_FPR)
+#define TARGET_FLOAT128		(TARGET_FLOAT128_VSX || TARGET_FLOAT128_GPR)
 
 /* Helper macros for TFmode.  Quad floating point (TFmode) can be either IBM
    long double format that uses a pair of doubles, or IEEE 128-bit floating
@@ -423,7 +423,7 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define FLOAT128_2REG_P(MODE)						\
   (FLOAT128_IBM_P (MODE)						\
    || ((MODE) == TDmode)						\
-   || (TARGET_FLOAT128_FPR && FLOAT128_IEEE_P (MODE)))
+   || (TARGET_FLOAT128_GPR && FLOAT128_IEEE_P (MODE)))
 
 /* Describe the vector unit used for arithmetic operations.  */
 extern enum rs6000_vector rs6000_vector_unit[];
@@ -583,7 +583,7 @@ extern int rs6000_vector_align[];
 #define MASK_DLMZB			OPTION_MASK_DLMZB
 #define MASK_EABI			OPTION_MASK_EABI
 #define MASK_FLOAT128_VSX		OPTION_MASK_FLOAT128_VSX
-#define MASK_FLOAT128_FPR		OPTION_MASK_FLOAT128_FPR
+#define MASK_FLOAT128_GPR		OPTION_MASK_FLOAT128_GPR
 #define MASK_FPRND			OPTION_MASK_FPRND
 #define MASK_P8_FUSION			OPTION_MASK_P8_FUSION
 #define MASK_HARD_FLOAT			OPTION_MASK_HARD_FLOAT

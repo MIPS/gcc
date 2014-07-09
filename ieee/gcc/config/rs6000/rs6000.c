@@ -3437,24 +3437,24 @@ rs6000_option_override_internal (bool global_init_p)
       rs6000_isa_flags &= ~OPTION_MASK_P8_VECTOR;
     }
 
-  if (TARGET_FLOAT128_FPR && TARGET_FLOAT128_VSX)
+  if (TARGET_FLOAT128_GPR && TARGET_FLOAT128_VSX)
     {
       if (((rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128_VSX) != 0)
-	  && ((rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128_FPR) == 0))
-	rs6000_isa_flags &= ~OPTION_MASK_FLOAT128_FPR;
+	  && ((rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128_GPR) == 0))
+	rs6000_isa_flags &= ~OPTION_MASK_FLOAT128_GPR;
 
       else if (((rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128_VSX) == 0)
-	       && ((rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128_FPR) != 0))
+	       && ((rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128_GPR) != 0))
 	rs6000_isa_flags &= ~OPTION_MASK_FLOAT128_VSX;
 
       else
 	{
 	  if ((rs6000_isa_flags_explicit
-	       & (OPTION_MASK_FLOAT128_VSX | OPTION_MASK_FLOAT128_FPR)) != 0)
-	    error ("-mfloat128-vsx and -mfloat128-fpr are incompatible");
+	       & (OPTION_MASK_FLOAT128_VSX | OPTION_MASK_FLOAT128_GPR)) != 0)
+	    error ("-mfloat128-vsx and -mfloat128-gpr are incompatible");
 
 	  rs6000_isa_flags &= ((TARGET_VSX)
-			       ? ~OPTION_MASK_FLOAT128_FPR
+			       ? ~OPTION_MASK_FLOAT128_GPR
 			       : ~OPTION_MASK_FLOAT128_VSX);
 	}
     }
@@ -3464,13 +3464,6 @@ rs6000_option_override_internal (bool global_init_p)
       if (rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128_VSX)
 	error ("-mfloat128-vsx requires -mvsx");
       rs6000_isa_flags &= ~OPTION_MASK_FLOAT128_VSX;
-    }
-
-  if (TARGET_FLOAT128_FPR && !TARGET_HARD_FLOAT)
-    {
-      if (rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128_FPR)
-	error ("-mfloat128-fpr requires hardware floating point");
-      rs6000_isa_flags &= ~OPTION_MASK_FLOAT128_FPR;
     }
 
   if (TARGET_VSX_TIMODE && !TARGET_VSX)
@@ -15620,7 +15613,7 @@ init_float128_ieee (enum machine_mode mode)
       /* The classic V4 IEEE 128-bit support did not include IEEE unordered
 	 support, or 64/128-bit integer conversions.  If we have
 	 -mfloat128-fpr, add these functions.  */
-      if (TARGET_FLOAT128_FPR)
+      if (TARGET_FLOAT128_GPR)
 	{
 	  set_optab_libfunc (unord_optab, mode, "_q_funordered");
 	  set_optab_libfunc (cmp_optab, mode, "_q_fcmp");
@@ -31796,7 +31789,7 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
   { "direct-move",		OPTION_MASK_DIRECT_MOVE,	false, true  },
   { "dlmzb",			OPTION_MASK_DLMZB,		false, true  },
   { "float128-vsx",		OPTION_MASK_FLOAT128_VSX,	false, true  },
-  { "float128-fpr",		OPTION_MASK_FLOAT128_FPR,	false, true  },
+  { "float128-gpr",		OPTION_MASK_FLOAT128_GPR,	false, true  },
   { "fprnd",			OPTION_MASK_FPRND,		false, true  },
   { "hard-dfp",			OPTION_MASK_DFP,		false, true  },
   { "htm",			OPTION_MASK_HTM,		false, true  },

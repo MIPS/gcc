@@ -7,24 +7,24 @@ fp128_vsx_src		= $(srcdir)/config/rs6000/float128-vsx.c \
 fp128_vsx_objects_base	= $(basename $(notdir $(fp128_vsx_src)))
 fp128_vsx_objects	= $(addsuffix $(objext),$(fp128_vsx_objects_base))
 
-fp128_fpr_src		= $(srcdir)/config/rs6000/float128-fpr.c \
-			  $(srcdir)/config/rs6000/float128-int-fpr.c
+fp128_gpr_src		= $(srcdir)/config/rs6000/float128-gpr.c \
+			  $(srcdir)/config/rs6000/float128-int-gpr.c
 
-fp128_fpr_objects_base	= $(basename $(notdir $(fp128_fpr_src)))
-fp128_fpr_objects	= $(addsuffix $(objext),$(fp128_fpr_objects_base))
+fp128_gpr_objects_base	= $(basename $(notdir $(fp128_gpr_src)))
+fp128_gpr_objects	= $(addsuffix $(objext),$(fp128_gpr_objects_base))
 
-fp128_objects		= $(fp128_vsx_objects) $(fp128_fpr_objects)
+fp128_objects		= $(fp128_vsx_objects) $(fp128_gpr_objects)
 
 FP128_COMMON_CFLAGS	= -Wno-missing-prototypes -Wno-type-limits \
 			  -DTFtype=__float128
 
 FP128_VSX_CFLAGS	= $(FP128_COMMON_CFLAGS) -mvsx -mfloat128-vsx \
-			  -mno-float128-fpr
-FP128_FPR_CFLAGS	= $(FP128_COMMON_CFLAGS) -mfloat128-fpr \
+			  -mno-float128-gpr
+FP128_GPR_CFLAGS	= $(FP128_COMMON_CFLAGS) -mfloat128-gpr \
 			  -mno-float128-vsx
 
 $(fp128_vsx_objects) : INTERNAL_CFLAGS += $(FP128_VSX_CFLAGS)
-$(fp128_fpr_objects) : INTERNAL_CFLAGS += $(FP128_FPR_CFLAGS)
+$(fp128_gpr_objects) : INTERNAL_CFLAGS += $(FP128_GPR_CFLAGS)
 
 $(fp128_objects) : $(addprefix $(srcdir)/config/rs6000/,$<)
 $(fp128_objects) : $(srcdir)/config/rs6000/float128.c
@@ -43,5 +43,5 @@ $(fp128_objects) : $(srcdir)/soft-fp/op-4.h
 $(fp128_objects) : $(srcdir)/soft-fp/op-8.h
 $(fp128_objects) : $(srcdir)/soft-fp/op-common.h
 
-LIB2ADD += $(fp128_vsx_src) $(fp128_fpr_src)
+LIB2ADD += $(fp128_vsx_src) $(fp128_gpr_src)
 

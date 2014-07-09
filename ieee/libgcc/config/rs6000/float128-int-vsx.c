@@ -31,10 +31,9 @@
 
 /* Support building the __float128 support with two options, -mfloat128-vsx
    that passes and returns IEEE 128-bit values in a single vector register, and
-   -mfloat128-fpr that passes and returns IEEE 128-bit values in a pair of
-   scalar floating point registers.  */
+   -mfloat128-gpr that passes and returns IEEE 128-bit values by reference.  */
 
-#pragma GCC target ("vsx,float128-vsx,no-float128-fpr")
+#pragma GCC target ("vsx,float128-vsx,no-float128-gpr")
 
 #ifndef __FLOAT128_VSX__
 #define __FLOAT128_VSX__
