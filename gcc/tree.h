@@ -4060,6 +4060,7 @@ extern tree substitute_placeholder_in_expr (tree, tree);
   ((EXP) == 0 || TREE_CONSTANT (EXP) ? (EXP)	\
    : substitute_placeholder_in_expr (EXP, OBJ))
 
+extern unsigned HOST_WIDE_INT simple_type_size_in_bits (const_tree type);
 
 /* stabilize_reference (EXP) returns a reference equivalent to EXP
    but it can be used multiple times
@@ -4175,6 +4176,11 @@ inlined_function_outer_scope_p (const_tree block)
   for (function_args_iter_init (&(ITER), (FNTYPE));			\
        (TREE = function_args_iter_cond (&(ITER))) != NULL_TREE;		\
        function_args_iter_next (&(ITER)))
+
+
+/* In dwarf2out.c.  */
+HOST_WIDE_INT
+field_byte_offset (const_tree decl);
 
 /* In tree.c */
 extern unsigned crc32_string (unsigned, const char *);
@@ -4319,6 +4325,7 @@ extern tree obj_type_ref_class (tree ref);
 extern bool types_same_for_odr (tree type1, tree type2);
 extern bool contains_bitfld_component_ref_p (const_tree);
 extern bool type_in_anonymous_namespace_p (tree);
+extern bool expressions_equal_p (tree e1, tree e2);
 extern bool block_may_fallthru (const_tree);
 extern void using_eh_for_cleanups (void);
 extern bool using_eh_for_cleanups_p (void);

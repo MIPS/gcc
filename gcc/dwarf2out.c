@@ -3165,8 +3165,6 @@ static HOST_WIDE_INT ceiling (HOST_WIDE_INT, unsigned int);
 static tree field_type (const_tree);
 static unsigned int simple_type_align_in_bits (const_tree);
 static unsigned int simple_decl_align_in_bits (const_tree);
-static unsigned HOST_WIDE_INT simple_type_size_in_bits (const_tree);
-static HOST_WIDE_INT field_byte_offset (const_tree);
 static void add_AT_location_description	(dw_die_ref, enum dwarf_attribute,
 					 dw_loc_list_ref);
 static void add_data_member_location_attribute (dw_die_ref, tree);
@@ -10430,25 +10428,6 @@ is_base_type (tree type)
   return 0;
 }
 
-/* Given a pointer to a tree node, assumed to be some kind of a ..._TYPE
-   node, return the size in bits for the type if it is a constant, or else
-   return the alignment for the type if the type's size is not constant, or
-   else return BITS_PER_WORD if the type actually turns out to be an
-   ERROR_MARK node.  */
-
-static inline unsigned HOST_WIDE_INT
-simple_type_size_in_bits (const_tree type)
-{
-  if (TREE_CODE (type) == ERROR_MARK)
-    return BITS_PER_WORD;
-  else if (TYPE_SIZE (type) == NULL_TREE)
-    return 0;
-  else if (tree_fits_uhwi_p (TYPE_SIZE (type)))
-    return tree_to_uhwi (TYPE_SIZE (type));
-  else
-    return TYPE_ALIGN (type);
-}
-
 /* Similarly, but return an offset_int instead of UHWI.  */
 
 static inline offset_int
@@ -14845,7 +14824,7 @@ round_up_to_align (const offset_int &t, unsigned int align)
    because the offset is actually variable.  (We can't handle the latter case
    just yet).  */
 
-static HOST_WIDE_INT
+HOST_WIDE_INT
 field_byte_offset (const_tree decl)
 {
   offset_int object_offset_in_bits;

@@ -416,7 +416,7 @@ Objective-C and Objective-C++ Dialects}.
 -fsplit-ivs-in-unroller -fsplit-wide-types -fssa-phiopt -fstack-protector @gol
 -fstack-protector-all -fstack-protector-strong -fstrict-aliasing @gol
 -fstrict-overflow -fthread-jumps -ftracer -ftree-bit-ccp @gol
--ftree-builtin-call-dce -ftree-ccp -ftree-ch @gol
+-fmerge-bitfields -ftree-builtin-call-dce -ftree-ccp -ftree-ch @gol
 -ftree-coalesce-inline-vars -ftree-coalesce-vars -ftree-copy-prop @gol
 -ftree-copyrename -ftree-dce -ftree-dominator-opts -ftree-dse @gol
 -ftree-forwprop -ftree-fre -ftree-loop-if-convert @gol
@@ -6969,6 +6969,7 @@ also turns on the following optimization flags:
 -findirect-inlining @gol
 -fipa-sra @gol
 -fisolate-erroneous-paths-dereference @gol
+-fmerge-bitfields @gol
 -foptimize-sibling-calls @gol
 -fpartial-inlining @gol
 -fpeephole2 @gol
@@ -7922,6 +7923,12 @@ Perform sparse conditional bit constant propagation on trees and propagate
 pointer alignment information.
 This pass only operates on local scalar variables and is enabled by default
 at @option{-O} and higher.  It requires that @option{-ftree-ccp} is enabled.
+
+@item -fmerge-bitfields
+@opindex fmerge-bitfields
+Combines several adjacent bit-field accesses that copy values
+from one memory location to another into one single bit-field access.
+This is enabled by default at @option{-O2} and higher.
 
 @item -ftree-ccp
 @opindex ftree-ccp

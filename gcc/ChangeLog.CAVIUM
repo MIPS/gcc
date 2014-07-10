@@ -1,3 +1,36 @@
+2014-07-10  Manjunath Matti <mmatti@caviumnetworks.com>
+
+	Ported:
+	2014-04-22 Zoran Jovanovic (zoran.jovanovic@imgtec.com)
+	* common.opt (fmerge-bitfields): New option.
+	* doc/invoke.texi: Add reference to "-fmerge-bitfields".
+	* doc/invoke.texi: Add "-fmerge-bitfields" to the list of optimization
+	flags turned on at -O2.
+	* tree-sra.c (lower_bitfields): New function.
+	Entry for (-fmerge-bitfields).
+	(part_of_union_p): New function.
+	(bf_access_candidate_p): New function.
+	(lower_bitfield_read): New function.
+	(lower_bitfield_write): New function.
+	(bitfield_stmt_bfcopy_pair::hash): New function.
+	(bitfield_stmt_bfcopy_pair::equal): New function.
+	(bitfield_stmt_bfcopy_pair::remove): New function.
+	(create_and_insert_bfcopy): New function.
+	(get_bit_offset): New function.
+	(add_stmt_bfcopy_pair): New function.
+	(cmp_bfcopies): New function.
+	(get_merged_bit_field_size): New function.
+	* dwarf2out.c (simple_type_size_in_bits): Move to tree.c.
+	(field_byte_offset): Move declaration to tree.h and make it extern.
+	* testsuite/gcc.dg/tree-ssa/bitfldmrg1.c: New test.
+	* testsuite/gcc.dg/tree-ssa/bitfldmrg2.c: New test.
+	* tree-ssa-sccvn.c (expressions_equal_p): Move to tree.c.
+	* tree-ssa-sccvn.h (expressions_equal_p): Move declaration to tree.h.
+	* tree.c (expressions_equal_p): Move from tree-ssa-sccvn.c.
+	(simple_type_size_in_bits): Move from dwarf2out.c.
+	* tree.h (expressions_equal_p): Add declaration.
+	(field_byte_offset): Add declaration.
+
 2014-07-10  Praveen Jonnalagadda <pjonnalagadda@caviumnetworks.com>
 	Bug #11324
 	Ported part of #4619

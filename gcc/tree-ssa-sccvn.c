@@ -4475,28 +4475,6 @@ get_next_value_id (void)
 }
 
 
-/* Compare two expressions E1 and E2 and return true if they are equal.  */
-
-bool
-expressions_equal_p (tree e1, tree e2)
-{
-  /* The obvious case.  */
-  if (e1 == e2)
-    return true;
-
-  /* If only one of them is null, they cannot be equal.  */
-  if (!e1 || !e2)
-    return false;
-
-  /* Now perform the actual comparison.  */
-  if (TREE_CODE (e1) == TREE_CODE (e2)
-      && operand_equal_p (e1, e2, OEP_PURE_SAME))
-    return true;
-
-  return false;
-}
-
-
 /* Return true if the nary operation NARY may trap.  This is a copy
    of stmt_could_throw_1_p adjusted to the SCCVN IL.  */
 

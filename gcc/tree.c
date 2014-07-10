@@ -12435,4 +12435,44 @@ get_base_address (tree t)
   return t;
 }
 
+/* Compare two expressions E1 and E2 and return true if they are equal.  */
+
+bool
+expressions_equal_p (tree e1, tree e2)
+{
+  /* The obvious case.  */
+  if (e1 == e2)
+    return true;
+
+  /* If only one of them is null, they cannot be equal.  */
+  if (!e1 || !e2)
+    return false;
+
+  /* Now perform the actual comparison.  */
+  if (TREE_CODE (e1) == TREE_CODE (e2)
+      && operand_equal_p (e1, e2, OEP_PURE_SAME))
+    return true;
+
+  return false;
+}
+
+/* Given a pointer to a tree node, assumed to be some kind of a ..._TYPE
+   node, return the size in bits for the type if it is a constant, or else
+   return the alignment for the type if the type's size is not constant, or
+   else return BITS_PER_WORD if the type actually turns out to be an
+   ERROR_MARK node.  */
+
+unsigned HOST_WIDE_INT
+simple_type_size_in_bits (const_tree type)
+{
+  if (TREE_CODE (type) == ERROR_MARK)
+    return BITS_PER_WORD;
+  else if (TYPE_SIZE (type) == NULL_TREE)
+    return 0;
+  else if (tree_fits_uhwi_p (TYPE_SIZE (type)))
+    return tree_to_uhwi (TYPE_SIZE (type));
+  else
+    return TYPE_ALIGN (type);
+}
+
 #include "gt-tree.h"

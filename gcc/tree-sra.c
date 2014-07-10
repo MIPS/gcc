@@ -3542,13 +3542,632 @@ perform_intra_sra (void)
   sra_deinitialize ();
   return ret;
 }
+ 
+/* Bit-field copy sequences.  */
+
+struct bfcopy
+{
+  bfcopy ():merged (false), modified (false), is_barrier (false), next (0),
+    head_copy (0)
+  {
+  }
+
+  gimple load_stmt;		/* Bit-field load statement.  */
+  gimple store_stmt;		/* Bit-field store statement.  */
+  unsigned src_offset_words;	/* Bit-field offset at src in words.  */
+  unsigned src_bit_offset;	/* Bit-field offset inside source word.  */
+  unsigned src_bit_size;	/* Size of bit-field in source word.  */
+  unsigned dst_offset_words;	/* Bit-field offset at dst in words.  */
+  unsigned dst_bit_offset;	/* Bit-field offset inside destination
+				   word.  */
+  unsigned src_field_offset;	/* Source field offset.  */
+  unsigned dst_bit_size;	/* Size of bit-field in destination word.  */
+  tree src_addr;		/* Address of source memory access.  */
+  tree dst_addr;		/* Address of destination memory access.  */
+  unsigned merged:1;		/* 1 if copy is merged with another one.  */
+  unsigned modified:1;		/* 1 if bit-field size is modified.  */
+  unsigned is_barrier:1;	/* 1 if copy is barrier (call or mem
+				   access).  */
+  struct bfcopy *next;		/* Copy with which this one is merged.  */
+  tree bitfield_representative;	/* Bit field representative of original
+				   declaration.  */
+  struct bfcopy *head_copy;	/* Head of copies list where this one is
+				   merged.  */
+};
+
+/* Returns true if given COMPONENT_REF is part of an union.  */
+
+static bool
+part_of_union_p (tree component)
+{
+  tree tmp = component;
+  bool res = false;
+  while (TREE_CODE (tmp) == COMPONENT_REF)
+    {
+      if (TREE_CODE (TREE_TYPE (tmp)) == UNION_TYPE)
+	{
+	  res = true;
+	  break;
+	}
+      tmp = TREE_OPERAND (tmp, 0);
+    }
+  if (tmp && (TREE_CODE (TREE_TYPE (tmp)) == UNION_TYPE))
+    res = true;
+  return res;
+}
+
+/* Return TRUE if REF is a bit-field access.  If *OFF is not NULL it will
+   contain offset of the bit-field within the representative in bits.  */
+
+static bool
+bf_access_candidate_p (tree ref, unsigned HOST_WIDE_INT * off)
+{
+  if (TREE_CODE (ref) != COMPONENT_REF)
+    return false;
+  if (part_of_union_p (ref))
+    return false;
+  tree field = TREE_OPERAND (ref, 1);
+  if (!DECL_BIT_FIELD_TYPE (field))
+    return false;
+
+  tree rep = DECL_BIT_FIELD_REPRESENTATIVE (field);
+  if (!rep)
+    return false;
+  /* Do not lower if representative is bigger than one word.  */
+  if (TREE_CODE (TREE_TYPE (rep)) == ARRAY_TYPE)
+    return false;
+
+  if (!off)
+    return true;
+
+  if (tree_fits_uhwi_p (DECL_FIELD_OFFSET (field))
+      && tree_fits_uhwi_p (DECL_FIELD_OFFSET (rep)))
+    *off = (tree_to_uhwi (DECL_FIELD_OFFSET (field))
+	    - tree_to_uhwi (DECL_FIELD_OFFSET (rep))) * BITS_PER_UNIT;
+  else
+    *off = 0;
+  *off += (tree_to_uhwi (DECL_FIELD_BIT_OFFSET (field))
+	   - tree_to_uhwi (DECL_FIELD_BIT_OFFSET (rep)));
+
+  return true;
+}
+
+
+/* Lower the bit-field read at *GSI.  */
+
+static void
+lower_bitfield_read (gimple_stmt_iterator * gsi, unsigned HOST_WIDE_INT off,
+		     tree size, tree type)
+{
+  gimple stmt = gsi_stmt (*gsi);
+  tree ref = gimple_assign_rhs1 (stmt);
+  tree field = TREE_OPERAND (ref, 1);
+  tree rep = DECL_BIT_FIELD_REPRESENTATIVE (field);
+  tree loadres = make_ssa_name (TREE_TYPE (rep), NULL);
+  gimple load = gimple_build_assign (loadres,
+				     build3 (COMPONENT_REF, TREE_TYPE (rep),
+					     TREE_OPERAND (ref, 0), rep,
+					     NULL_TREE));
+  gimple_set_vuse (load, gimple_vuse (stmt));
+  gsi_insert_before (gsi, load, GSI_SAME_STMT);
+  if (!type)
+    type = TREE_TYPE (ref);
+  gimple_assign_set_rhs1 (stmt,
+			  build3 (BIT_FIELD_REF, type,
+				  loadres, size, bitsize_int (off)));
+  update_stmt (stmt);
+}
+
+/* Lower the bit-field write at *GSI.  */
+
+static void
+lower_bitfield_write (gimple_stmt_iterator * gsi, unsigned HOST_WIDE_INT off,
+		      tree size)
+{
+  gimple stmt = gsi_stmt (*gsi);
+  tree ref = gimple_assign_lhs (stmt);
+  tree field = TREE_OPERAND (ref, 1);
+  tree rep = DECL_BIT_FIELD_REPRESENTATIVE (field);
+  tree loadres = make_ssa_name (TREE_TYPE (rep), NULL);
+  gimple load = gimple_build_assign (loadres,
+				     build3 (COMPONENT_REF, TREE_TYPE (rep),
+					     unshare_expr
+					     (TREE_OPERAND (ref, 0)),
+					     rep,
+					     NULL_TREE));
+  gimple_set_vuse (load, gimple_vuse (stmt));
+  gsi_insert_before (gsi, load, GSI_SAME_STMT);
+  /* Mask out bits.  */
+  tree masked = make_ssa_name (TREE_TYPE (rep), NULL);
+  tree mask = double_int_to_tree (TREE_TYPE (rep),
+				  ~double_int::mask
+				  (TREE_INT_CST_LOW (size)).lshift (off));
+  gimple tems = gimple_build_assign_with_ops (BIT_AND_EXPR,
+					      masked, loadres, mask);
+  gsi_insert_before (gsi, tems, GSI_SAME_STMT);
+  /* Zero-extend the value to representative size.  */
+  tree tem2;
+  if (!TYPE_UNSIGNED (TREE_TYPE (field)))
+    {
+      tem2 = make_ssa_name (unsigned_type_for (TREE_TYPE (field)), NULL);
+      tems = gimple_build_assign_with_ops (NOP_EXPR, tem2,
+					   gimple_assign_rhs1 (stmt),
+					   NULL_TREE);
+      gsi_insert_before (gsi, tems, GSI_SAME_STMT);
+    }
+  else
+    tem2 = gimple_assign_rhs1 (stmt);
+  tree tem = make_ssa_name (TREE_TYPE (rep), NULL);
+  tems = gimple_build_assign_with_ops (NOP_EXPR, tem, tem2, NULL_TREE);
+  gsi_insert_before (gsi, tems, GSI_SAME_STMT);
+  /* Shift the value into place.  */
+  if (off != 0)
+    {
+      tem2 = make_ssa_name (TREE_TYPE (rep), NULL);
+      tems = gimple_build_assign_with_ops (LSHIFT_EXPR, tem2, tem,
+					   size_int (off));
+      gsi_insert_before (gsi, tems, GSI_SAME_STMT);
+    }
+  else
+    tem2 = tem;
+  /* Merge masked loaded value and value.  */
+  tree modres = make_ssa_name (TREE_TYPE (rep), NULL);
+  gimple mod = gimple_build_assign_with_ops (BIT_IOR_EXPR, modres,
+					     masked, tem2);
+  gsi_insert_before (gsi, mod, GSI_SAME_STMT);
+  /* Finally adjust the store.  */
+  gimple_assign_set_rhs1 (stmt, modres);
+  gimple_assign_set_lhs (stmt,
+			 build3 (COMPONENT_REF, TREE_TYPE (rep),
+				 TREE_OPERAND (ref, 0), rep, NULL_TREE));
+  update_stmt (stmt);
+}
+
+/* Connects statement with bit-field copy sequence to which that statement
+   belong.  */
+
+struct bitfield_stmt_bfcopy_pair
+{
+  gimple stmt;
+  bfcopy *copy;
+    bitfield_stmt_bfcopy_pair (gimple s, bfcopy * c):stmt (s), copy (c)
+  {
+  };
+  /* hash_table support.  */
+  typedef bitfield_stmt_bfcopy_pair value_type;
+  typedef bitfield_stmt_bfcopy_pair compare_type;
+  static inline hashval_t hash (const bitfield_stmt_bfcopy_pair * const);
+  static inline int equal (const bitfield_stmt_bfcopy_pair * const,
+			   const bitfield_stmt_bfcopy_pair * const);
+  static inline void remove (bitfield_stmt_bfcopy_pair *);
+};
+
+hashval_t
+  bitfield_stmt_bfcopy_pair::hash (const bitfield_stmt_bfcopy_pair * const a)
+{
+  return hashval_t (gimple_uid (a->stmt));
+}
+
+int
+bitfield_stmt_bfcopy_pair::equal (const bitfield_stmt_bfcopy_pair * const a,
+				  const bitfield_stmt_bfcopy_pair * const b)
+{
+  return a->stmt == b->stmt;
+}
+
+void
+bitfield_stmt_bfcopy_pair::remove (bitfield_stmt_bfcopy_pair * a)
+{
+  delete a;
+}
+
+/* Create new bfcopy structure and add it to given bitfield_copies
+   htab.  */
+
+static struct bfcopy *
+create_and_insert_bfcopy (vec<struct bfcopy*> *bitfield_copies)
+{
+  bfcopy *copy = new bfcopy;
+  bitfield_copies->safe_push (copy);
+  return copy;
+}
+
+/* Get offset of the field in bits from the start of the record.  */
+
+static inline HOST_WIDE_INT
+get_bit_offset (tree decl)
+{
+  tree type = DECL_BIT_FIELD_TYPE (decl);
+  HOST_WIDE_INT bitpos_int;
+
+  /* Must be a field and a bit-field.  */
+  gcc_assert (type && TREE_CODE (decl) == FIELD_DECL);
+  /* Bit position and decl size should be integer constants that can be
+     represented in a single HOST_WIDE_INT.  */
+  if (!tree_fits_uhwi_p (bit_position (decl))
+      || !tree_fits_uhwi_p (DECL_SIZE (decl)))
+    return -1;
+
+  bitpos_int = int_bit_position (decl);
+  return bitpos_int;
+}
+
+/* Creates new bitfield_stmt_bfcopy_pair structure and adds it to given
+   htab.  */
+
+static bool
+add_stmt_bfcopy_pair (hash_table <bitfield_stmt_bfcopy_pair> &bf_stmnt_cpy,
+		      bfcopy * copy, gimple stmt)
+{
+  bitfield_stmt_bfcopy_pair p (stmt, copy);
+  bitfield_stmt_bfcopy_pair **slot = bf_stmnt_cpy.find_slot (&p, INSERT);
+  if (!*slot)
+    {
+      *slot = new bitfield_stmt_bfcopy_pair (stmt, copy);
+      return true;
+    }
+  return false;
+}
+
+/* Passed to qsort.  Compares two bfcopy records.  */
+
+static int
+cmp_bfcopies (const void *p1, const void *p2)
+{
+  const struct bfcopy *a1 = *((const struct bfcopy **) p1);
+  const struct bfcopy *a2 = *((const struct bfcopy **) p2);
+
+  if (DECL_UID (a1->bitfield_representative) -
+      DECL_UID (a2->bitfield_representative))
+    return DECL_UID (a1->bitfield_representative) -
+      DECL_UID (a2->bitfield_representative);
+
+  if (!expressions_equal_p (a1->src_addr, a2->src_addr))
+    return a1->src_addr - a2->src_addr;
+
+  if (!expressions_equal_p (a1->dst_addr, a2->dst_addr))
+    return a1->dst_addr - a2->dst_addr;
+
+  if (a1->src_offset_words - a2->src_offset_words)
+    return a1->src_offset_words - a2->src_offset_words;
+
+  return a1->src_bit_offset - a2->src_bit_offset;
+}
+
+/* Returns size of combined bitfields.  Size cannot be larger than size
+   of largest directly accessible memory unit.  */
+
+static int
+get_merged_bit_field_size (bfcopy * copy)
+{
+  bfcopy *tmp_copy = copy;
+  int size = 0;
+
+  while (tmp_copy)
+    {
+      size += tmp_copy->src_bit_size;
+      tmp_copy = tmp_copy->next;
+    }
+  return size;
+}
+
+/* Lower bit-field access to accesses to its
+   DECL_BIT_FIELD_REPRESENTATIVE.  */
+
+static hash_table<bitfield_stmt_bfcopy_pair> *bf_stmnt_cpy;
+static void
+lower_bitfields (void)
+{
+  basic_block bb;
+  bf_stmnt_cpy = new hash_table <bitfield_stmt_bfcopy_pair> (1);
+  vec<struct bfcopy*> bitfield_copies;
+  struct bfcopy *copy;
+
+  FOR_EACH_BB_FN (bb, cfun)
+  {
+    bf_stmnt_cpy->empty ();
+    tree prev_representative = NULL_TREE;
+    bitfield_copies.create (0);
+
+    /* There are two passes, the first one identifies interesting
+       bit-field accesses and the second one actually lowers them.  */
+    for (gimple_stmt_iterator gsi = gsi_start_bb (bb);
+	 !gsi_end_p (gsi); gsi_next (&gsi))
+      {
+	gimple stmt = gsi_stmt (gsi);
+
+	if (!gimple_assign_single_p (stmt) || gimple_has_volatile_ops (stmt))
+	  continue;
+
+	tree ref = gimple_assign_rhs1 (stmt);
+	if (bf_access_candidate_p (ref, NULL))
+	  {
+	    gimple use_stmt;
+	    use_operand_p use;
+	    tree op0 = TREE_OPERAND (ref, 0);
+	    tree op1 = TREE_OPERAND (ref, 1);
+
+	    if (TREE_CODE (DECL_CONTEXT (op1)) == UNION_TYPE
+		|| TREE_CODE (DECL_CONTEXT (op1)) == QUAL_UNION_TYPE)
+	      continue;
+
+	    if (TREE_CODE (gimple_assign_lhs (stmt)) == SSA_NAME
+		&& single_imm_use (gimple_assign_lhs (stmt), &use,
+				   &use_stmt) && is_gimple_assign (use_stmt))
+	      {
+		tree uses_stmt_lhs = gimple_assign_lhs (use_stmt);
+
+		if (bf_access_candidate_p (uses_stmt_lhs, NULL))
+		  {
+		    tree use_op0 = TREE_OPERAND (uses_stmt_lhs, 0);
+		    tree use_op1 = TREE_OPERAND (uses_stmt_lhs, 1);
+		    tree use_repr = DECL_BIT_FIELD_REPRESENTATIVE (use_op1);
+		    if (prev_representative
+			&& (prev_representative != use_repr))
+		      {
+			/* If previous bfcopy has different
+			   representative then barrier is needed
+			   between it and new access.  */
+			copy = create_and_insert_bfcopy (&bitfield_copies);
+			copy->is_barrier = true;
+		      }
+		    prev_representative = use_repr;
+		    /* Create new bit-field bfcopy structure.  */
+		    copy = create_and_insert_bfcopy (&bitfield_copies);
+		    /* Collect bfcopy data - load instruction.  */
+		    copy->src_bit_size = tree_to_uhwi (DECL_SIZE (op1));
+		    copy->src_bit_offset = get_bit_offset (op1);
+		    copy->src_offset_words =
+		      field_byte_offset (op1) / UNITS_PER_WORD;
+		    copy->src_field_offset =
+		      tree_to_uhwi (DECL_FIELD_OFFSET (op1));
+		    copy->src_addr = op0;
+		    copy->load_stmt = gsi_stmt (gsi);
+		    /* Collect bfcopy data - store instruction.  */
+		    copy->dst_bit_size = tree_to_uhwi (DECL_SIZE (use_op1));
+		    copy->dst_bit_offset = get_bit_offset (use_op1);
+		    copy->dst_offset_words =
+		      field_byte_offset (use_op1) / UNITS_PER_WORD;
+		    copy->dst_addr = use_op0;
+		    copy->store_stmt = use_stmt;
+		    add_stmt_bfcopy_pair (*bf_stmnt_cpy, copy, stmt);
+		    add_stmt_bfcopy_pair (*bf_stmnt_cpy, copy, use_stmt);
+		    copy->bitfield_representative = use_repr;
+		  }
+	      }
+	  }
+
+	/* Insert barrier for merging if statement is function call or memory
+	   access.  */
+	bitfield_stmt_bfcopy_pair csdata (stmt, NULL);
+	if (!bf_stmnt_cpy->find (&csdata)
+	    && ((gimple_code (stmt) == GIMPLE_CALL)
+		|| (gimple_has_mem_ops (stmt))))
+	  {
+	    /* Create new bfcopy access structure.  */
+	    copy = create_and_insert_bfcopy (&bitfield_copies);
+	    /* Mark it as barrier.  */
+	    copy->is_barrier = true;
+	  }
+      }
+
+    /* If there are no at least two sequences go to the next basic block.  */
+    if (bitfield_copies.length () <= 1)
+      {
+	bitfield_copies.release ();
+	continue;
+      }
+    vec<struct bfcopy*> bitfield_copies_merge = vNULL;
+    /* Try to merge different bfcopy sequences.  */
+    for (int ix = 0; bitfield_copies.iterate (ix, &copy); ix++)
+      {
+	struct bfcopy *head_copy;
+	struct bfcopy *mrg_copy;
+	struct bfcopy *prev_copy;
+
+	if (!bitfield_copies_merge.exists ())
+	  bitfield_copies_merge.create (0);
+
+	if (!copy->is_barrier)
+	  bitfield_copies_merge.safe_push (copy);
+
+	if (!copy->is_barrier
+	    && !(copy == bitfield_copies.last ()
+		 && !bitfield_copies_merge.is_empty ()))
+	  continue;
+
+	bitfield_copies_merge.qsort (cmp_bfcopies);
+
+	head_copy = prev_copy = NULL;
+	int iy;
+	for (iy = 0; bitfield_copies_merge.iterate (iy, &mrg_copy); iy++)
+	  {
+	    if (head_copy
+		&& expressions_equal_p (head_copy->src_addr,
+					mrg_copy->src_addr)
+		&& expressions_equal_p (head_copy->dst_addr,
+					mrg_copy->dst_addr)
+		&& prev_copy->src_offset_words
+		== mrg_copy->src_offset_words
+		&& prev_copy->dst_offset_words
+		== mrg_copy->dst_offset_words
+		&& prev_copy->src_bit_offset + prev_copy->src_bit_size
+		== mrg_copy->src_bit_offset
+		&& prev_copy->dst_bit_offset + prev_copy->dst_bit_size
+		== mrg_copy->dst_bit_offset
+		&& prev_copy->bitfield_representative
+		== mrg_copy->bitfield_representative)
+	      {
+		/* Merge conditions are satisfied - merge copies.  */
+		mrg_copy->merged = true;
+		prev_copy->next = mrg_copy;
+		head_copy->modified = true;
+		prev_copy = mrg_copy;
+		mrg_copy->head_copy = head_copy;
+	      }
+	    else
+	      head_copy = prev_copy = mrg_copy;
+	  }
+	bitfield_copies_merge.release ();
+	bitfield_copies_merge = vNULL;
+      }
+
+    tree reaching_vuse = NULL_TREE;
+
+    for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);)
+      {
+	gimple stmt = gsi_stmt (gsi);
+
+	/* Fix vuse info if necessary.  */
+	if (gimple_has_mem_ops (stmt) && reaching_vuse != NULL_TREE)
+	  {
+	    gimple_set_vuse (stmt, reaching_vuse);
+	    update_stmt (stmt);
+	  }
+
+	if (!gimple_assign_single_p (stmt) || gimple_has_volatile_ops (stmt))
+	  {
+	    gsi_next (&gsi);
+	    if (gimple_vdef (stmt))
+	      reaching_vuse = gimple_vdef (stmt);
+	    continue;
+	  }
+
+	tree ref;
+	unsigned HOST_WIDE_INT off;
+	tree size;
+	bool deleted = false;
+
+	/* Lower a bit-field read.  */
+	ref = gimple_assign_rhs1 (stmt);
+	if (bf_access_candidate_p (ref, &off))
+	  {
+	    bfcopy *cc = NULL;
+	    bitfield_stmt_bfcopy_pair st_cpy (stmt, NULL);
+	    bitfield_stmt_bfcopy_pair *p_st_cpy;
+	    p_st_cpy = bf_stmnt_cpy->find (&st_cpy);
+	    unsigned HOST_WIDE_INT mrg_off;
+	    if (p_st_cpy)
+	      cc = p_st_cpy->copy;
+
+	    if (cc && (cc->merged || cc->modified))
+	      size =
+		build_int_cst (unsigned_type_node,
+			       get_merged_bit_field_size (cc->head_copy ?
+							  cc->head_copy :
+							  cc));
+	    else
+	      size = DECL_SIZE (TREE_OPERAND (ref, 1));
+	    if (cc && cc->merged
+		&& bf_access_candidate_p (gimple_assign_rhs1
+					  (cc->head_copy->load_stmt),
+					  &mrg_off))
+	      off = mrg_off;
+	    if (cc && cc->merged)
+	      {
+		tree head_rhs = gimple_assign_rhs1 (cc->head_copy->load_stmt);
+		switch (TREE_CODE (head_rhs))
+		  {
+		  case COMPONENT_REF:
+		    if (bf_access_candidate_p (head_rhs, &mrg_off))
+		      off = mrg_off;
+		    break;
+		  case BIT_FIELD_REF:
+		    off = tree_to_uhwi (TREE_OPERAND (head_rhs, 2));
+		    break;
+		  default:
+		    break;
+		  }
+	      }
+
+	    if (cc && (cc->modified))
+	      {
+		tree tmp_ssa;
+		tree itype = make_node (INTEGER_TYPE);
+		TYPE_PRECISION (itype) = TREE_INT_CST_LOW (size);
+		fixup_unsigned_type (itype);
+		lower_bitfield_read (&gsi, off, size, itype);
+		tmp_ssa =
+		  make_ssa_name (create_tmp_var (itype, NULL), cc->load_stmt);
+		gimple_assign_set_lhs (cc->load_stmt, tmp_ssa);
+		update_stmt (cc->load_stmt);
+		gimple_assign_set_rhs1 (cc->store_stmt, tmp_ssa);
+		update_stmt (cc->store_stmt);
+	      }
+	    else if (cc && cc->merged)
+	      {
+		gsi_remove (&gsi, true);
+		deleted = true;
+	      }
+	  }
+	/* Lower a bit-field write.  */
+	ref = gimple_assign_lhs (stmt);
+	if (bf_access_candidate_p (ref, &off))
+	  {
+	    bfcopy *cc = NULL;
+	    bitfield_stmt_bfcopy_pair st_cpy (stmt, NULL);
+	    bitfield_stmt_bfcopy_pair *p_st_cpy;
+	    unsigned HOST_WIDE_INT mrg_off;
+	    p_st_cpy = bf_stmnt_cpy->find (&st_cpy);
+	    if (p_st_cpy)
+	      cc = p_st_cpy->copy;
+
+	    if (cc && (cc->merged || cc->modified))
+	      size =
+		build_int_cst (unsigned_type_node,
+			       get_merged_bit_field_size (cc->head_copy ?
+							  cc->head_copy :
+							  cc));
+	    else
+	      size = DECL_SIZE (TREE_OPERAND (ref, 1));
+	    if (cc && cc->merged
+		&&
+		bf_access_candidate_p (gimple_assign_lhs
+				       (cc->head_copy->store_stmt), &mrg_off))
+	      off = mrg_off;
+
+	    if (cc && (cc->modified) && !(cc && cc->merged))
+	      lower_bitfield_write (&gsi, off, size);
+	    else if (cc && cc->merged)
+	      {
+		if (gimple_vdef (stmt))
+		  {
+		    imm_use_iterator imm_iter;
+		    gimple use_stmt;
+		    use_operand_p use_p;
+		    FOR_EACH_IMM_USE_STMT (use_stmt, imm_iter,
+					   gimple_vdef (stmt))
+		    {
+		      FOR_EACH_IMM_USE_ON_STMT (use_p, imm_iter)
+			SET_USE (use_p, reaching_vuse);
+		      update_stmt (stmt);
+		    }
+		  }
+
+		gsi_remove (&gsi, true);
+		deleted = true;
+	      }
+	  }
+	if (gimple_vdef (stmt) && !deleted)
+	  reaching_vuse = gimple_vdef (stmt);
+	if (!deleted)
+	  gsi_next (&gsi);
+      }
+  }
+
+  delete bf_stmnt_cpy;
+  bf_stmnt_cpy = NULL;
+}
 
 /* Perform early intraprocedural SRA.  */
 static unsigned int
 early_intra_sra (void)
 {
   sra_mode = SRA_MODE_EARLY_INTRA;
-  return perform_intra_sra ();
+  unsigned int res = perform_intra_sra ();
+  if (flag_tree_bitfield_merge)
+    lower_bitfields ();
+  return res;
 }
 
 /* Perform "late" intraprocedural SRA.  */

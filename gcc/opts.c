@@ -498,6 +498,7 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_2_PLUS_SPEED_ONLY, OPT_foptimize_strlen, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fhoist_adjacent_loads, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fisolate_erroneous_paths_dereference, NULL, 1 },
+    { OPT_LEVELS_2_PLUS, OPT_fmerge_bitfields, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fuse_caller_save, NULL, 1 },
 
     /* -O3 optimizations.  */
