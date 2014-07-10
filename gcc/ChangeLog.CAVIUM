@@ -1,3 +1,13 @@
+2014-07-10  Praveen Jonnalagadda <pjonnalagadda@caviumnetworks.com>
+	Bug #11324
+	Ported part of #4619
+	2012-09-10  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #4619
+	(simplify_subreg): When doing (subreg (ior/and)) produce
+	TRUNCATE rather than subregs of the inner operands and only
+	do it if the outer mode is a scalar integer mode.
+
 2014-06-28  Andrew Pinski  <apinski@cavium.com>
 
 	* config/mips/mips.c (octeon_unique_section): Use set_decl_section_name
