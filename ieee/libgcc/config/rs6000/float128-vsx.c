@@ -33,12 +33,12 @@
    that passes and returns IEEE 128-bit values in a single vector register, and
    -mfloat128-gpr that passes and returns IEEE 128-bit values by reference.  */
 
-#pragma GCC target ("vsx,float128-vsx,no-float128-gpr")
+#pragma GCC target ("vsx,float128-vsx,no-float128-ref")
 
 #ifndef __FLOAT128_VSX__
 #define __FLOAT128_VSX__
 #endif
 
-#undef __FLOAT128_FPR__
+#undef __FLOAT128_REF__
 
 #include "config/rs6000/float128.c"

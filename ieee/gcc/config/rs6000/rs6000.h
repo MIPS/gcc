@@ -403,27 +403,27 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define TARGET_DEBUG_BUILTIN	(rs6000_debug & MASK_DEBUG_BUILTIN)
 
 /* __float128 enablement.  */
-#define TARGET_FLOAT128		(TARGET_FLOAT128_VSX || TARGET_FLOAT128_GPR)
+#define TARGET_FLOAT128		(TARGET_FLOAT128_VSX || TARGET_FLOAT128_REF)
 
 /* Helper macros for TFmode.  Quad floating point (TFmode) can be either IBM
    long double format that uses a pair of doubles, or IEEE 128-bit floating
    point.  KFmode was added as a way to represent IEEE 128-bit floating point,
    even if the default for long double is the IBM long double format.  */
-#define FLOAT128_IEEE_P(MODE)						\
+#define IEEE_128BIT_P(MODE)						\
   (((MODE) == KFmode)							\
    || (((MODE) == TFmode) && TARGET_IEEEQUAD && TARGET_LONG_DOUBLE_128))
 
-#define FLOAT128_IBM_P(MODE)						\
+#define IBM_128BIT_P(MODE)						\
   (((MODE) == TFmode) && !TARGET_IEEEQUAD && TARGET_LONG_DOUBLE_128)
 
 /* Helper macros to say whether a 128-bit floating point type can go in a
    single vector register, or whether it needs paired scalar values.  */
-#define FLOAT128_VECTOR_P(MODE) (TARGET_FLOAT128_VSX && FLOAT128_IEEE_P (MODE))
+#define FLOAT128_VECTOR_P(MODE) (TARGET_FLOAT128_VSX && IEEE_128BIT_P (MODE))
 
 #define FLOAT128_2REG_P(MODE)						\
-  (FLOAT128_IBM_P (MODE)						\
+  (IBM_128BIT_P (MODE)							\
    || ((MODE) == TDmode)						\
-   || (TARGET_FLOAT128_GPR && FLOAT128_IEEE_P (MODE)))
+   || (!TARGET_FLOAT128_VSX && IEEE_128BIT_P (MODE)))
 
 /* Describe the vector unit used for arithmetic operations.  */
 extern enum rs6000_vector rs6000_vector_unit[];

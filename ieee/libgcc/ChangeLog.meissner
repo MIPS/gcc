@@ -1,7 +1,7 @@
-2014-07-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
+2014-07-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/float128-int-vsx.c: Change -mfloat128-fpr to
-	-mfloat128-gpr.
+	-mfloat128-ref.
 	* config/rs6000/float128-vsx.c: Likewise.
 	* config/rs6000/float128-int-fpr.c: Likewise.
 	* config/rs6000/float128-int-gpr.c: Likewise.
@@ -9,6 +9,8 @@
 	* config/rs6000/t-float128: Likewise.
 	* config/rs6000/float128-fpr.c: Likewise.
 	* config/rs6000/float128-gpr.c: Likewise.
+
+2014-07-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/sfp-machine.h (_FP_W_TYPE): Use appropriate types
 	for 32-bit and 64-bit.

@@ -1,7 +1,9 @@
-2014-07-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
+2014-07-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* doc/invoke.texi: Change the spelling -mfloat128-fpr to
-	-mfloat128-gpr, since the values are really passed by reference.
+	-mfloat128-ref, since the values are really passed by reference.
+	Change FLOAT128_IEEE_P to IEEE_128BIT_P, FLOAT128_IBM_P to
+	IBM_128BIT_P.
 	* config/rs6000/rs6000-cpus.def: Likewise.
 	* config/rs6000/rs6000.opt: Likewise.
 	* config/rs6000/rs6000-c.c: Likewise.
@@ -11,6 +13,20 @@
 
 	* config/rs6000/rs6000-protos.h (rs6000_expand_float128_convert):
 	Add declaration.
+
+	* config/rs6000/rs6000.c (scalar_float_not_ieee128_p): Helper
+	function for normal scalar floats that aren't IEEE 128-bit.
+	(scalar_float_not_vector_p): Delete, either use
+	scalar_float_not_ieee128_p or go back to normal SCALAR_MODE.
+	(rs6000_hard_regno_mode_ok): Likewise.
+	(rs6000_setup_reg_addr_masks): Delete uneeded test for IEEE
+	128-bit.
+	(rs6000_expand_float128_convert): Add integer conversions.
+
+	* config/rs6000/rs6000.md: Add integer conversion insns for IEEE
+	128-bit.  Add in converters if TARGET_IEEEQUAD.
+
+2014-07-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (init_float128_ieee): Fix up spellings of
 	functions.

@@ -19,8 +19,8 @@ FP128_COMMON_CFLAGS	= -Wno-missing-prototypes -Wno-type-limits \
 			  -DTFtype=__float128
 
 FP128_VSX_CFLAGS	= $(FP128_COMMON_CFLAGS) -mvsx -mfloat128-vsx \
-			  -mno-float128-gpr
-FP128_GPR_CFLAGS	= $(FP128_COMMON_CFLAGS) -mfloat128-gpr \
+			  -mno-float128-ref
+FP128_GPR_CFLAGS	= $(FP128_COMMON_CFLAGS) -mfloat128-ref \
 			  -mno-float128-vsx
 
 $(fp128_vsx_objects) : INTERNAL_CFLAGS += $(FP128_VSX_CFLAGS)

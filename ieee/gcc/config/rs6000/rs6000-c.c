@@ -363,12 +363,12 @@ rs6000_target_modify_macros (bool define_p, HOST_WIDE_INT flags,
     rs6000_define_or_undefine_macro (define_p, "__QUAD_MEMORY_ATOMIC__");
   if ((flags & OPTION_MASK_CRYPTO) != 0)
     rs6000_define_or_undefine_macro (define_p, "__CRYPTO__");
-  if ((flags & (OPTION_MASK_FLOAT128_VSX | OPTION_MASK_FLOAT128_GPR)) != 0)
+  if ((flags & (OPTION_MASK_FLOAT128_VSX | OPTION_MASK_FLOAT128_REF)) != 0)
     rs6000_define_or_undefine_macro (define_p, "__FLOAT128__");
   if ((flags & OPTION_MASK_FLOAT128_VSX) != 0)
     rs6000_define_or_undefine_macro (define_p, "__FLOAT128_VSX__");
-  if ((flags & OPTION_MASK_FLOAT128_GPR) != 0)
-    rs6000_define_or_undefine_macro (define_p, "__FLOAT128_GPR__");
+  if ((flags & OPTION_MASK_FLOAT128_REF) != 0)
+    rs6000_define_or_undefine_macro (define_p, "__FLOAT128_REF__");
 
   /* options from the builtin masks.  */
   if ((bu_mask & RS6000_BTM_SPE) != 0)

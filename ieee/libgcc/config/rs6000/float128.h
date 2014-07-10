@@ -47,7 +47,7 @@
 #include "soft-fp/single.h"
 
 #ifndef __FLOAT128__
-#error "-mfloat128-vsx or -mfloat128-fpr is required"
+#error "-mfloat128-vsx or -mfloat128-ref is required"
 #endif
 
 /* Depending on options, we want to create two different names, one that passes
