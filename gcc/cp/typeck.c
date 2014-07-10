@@ -1614,6 +1614,15 @@ cxx_sizeof_expr (tree e, tsubst_flags_t complain)
       && DECL_TEMPLATE_INSTANTIATION (e))
     instantiate_decl (e, /*defer_ok*/true, /*expl_inst_mem*/false);
 
+  if (TREE_CODE (e) == PARM_DECL
+      && DECL_ARRAY_PARAMETER_P (e)
+      && (complain & tf_warning))
+    {
+      if (warning (OPT_Wsizeof_array_argument, "%<sizeof%> on array function "
+		   "parameter %qE will return size of %qT", e, TREE_TYPE (e)))
+	inform (DECL_SOURCE_LOCATION (e), "declared here");
+    }
+
   e = mark_type_use (e);
 
   if (TREE_CODE (e) == COMPONENT_REF
@@ -2848,8 +2857,10 @@ build_ptrmemfunc_access_expr (tree ptrmem, tree member_name)
      type.  */
   ptrmem_type = TREE_TYPE (ptrmem);
   gcc_assert (TYPE_PTRMEMFUNC_P (ptrmem_type));
-  member = lookup_member (ptrmem_type, member_name, /*protect=*/0,
-			  /*want_type=*/false, tf_warning_or_error);
+  for (member = TYPE_FIELDS (ptrmem_type); member;
+       member = DECL_CHAIN (member))
+    if (DECL_NAME (member) == member_name)
+      break;
   return build_simple_component_ref (ptrmem, member);
 }
 
@@ -8607,7 +8618,7 @@ check_return_expr (tree retval, bool *no_warning)
       if (VOID_TYPE_P (functype))
 	return error_mark_node;
 
-      /* Under C++0x [12.8/16 class.copy], a returned lvalue is sometimes
+      /* Under C++11 [12.8/32 class.copy], a returned lvalue is sometimes
 	 treated as an rvalue for the purposes of overload resolution to
 	 favor move constructors over copy constructors.
 
@@ -8618,8 +8629,6 @@ check_return_expr (tree retval, bool *no_warning)
 	      || TREE_CODE (retval) == PARM_DECL)
 	  && DECL_CONTEXT (retval) == current_function_decl
 	  && !TREE_STATIC (retval)
-	  && same_type_p ((TYPE_MAIN_VARIANT (TREE_TYPE (retval))),
-			  (TYPE_MAIN_VARIANT (functype)))
 	  /* This is only interesting for class type.  */
 	  && CLASS_TYPE_P (functype))
 	flags = flags | LOOKUP_PREFER_RVALUE;

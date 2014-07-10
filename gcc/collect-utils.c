@@ -33,6 +33,7 @@ static char *response_file;
 
 bool debug;
 bool verbose;
+bool save_temps;
 
 
 /* Notify user of a non-error.  */
@@ -88,13 +89,9 @@ do_wait (const char *prog, struct pex_obj *pex)
 {
   int ret = collect_wait (prog, pex);
   if (ret != 0)
-    {
-      error ("%s returned %d exit status", prog, ret);
-      utils_cleanup (false);
-      exit (ret);
-    }
+    fatal_error ("%s returned %d exit status", prog, ret);
 
-  if (response_file && !debug)
+  if (response_file && !save_temps)
     {
       unlink (response_file);
       response_file = NULL;
@@ -189,10 +186,10 @@ collect_execute (const char *prog, char **argv, const char *outname,
       if (err != 0)
 	{
 	  errno = err;
-	  fatal_error ("%s: %m", errmsg);
+	  fatal_error ("%s: %m", _(errmsg));
 	}
       else
-	fatal_error ("%s", errmsg);
+	fatal_error (errmsg);
     }
 
   free (response_arg);

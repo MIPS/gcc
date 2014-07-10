@@ -33,6 +33,7 @@ extern void utils_cleanup (bool);
 
 extern bool debug;
 extern bool verbose;
+extern bool save_temps;
 
 /* Provided by the tool itself.  */
 

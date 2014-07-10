@@ -253,7 +253,7 @@ static unsigned int next_expression_id;
 
 /* Mapping from expression to id number we can use in bitmap sets.  */
 static vec<pre_expr> expressions;
-static hash_table <pre_expr_d> expression_to_id;
+static hash_table<pre_expr_d> *expression_to_id;
 static vec<unsigned> name_to_id;
 
 /* Allocate an expression id for EXPR.  */
@@ -280,7 +280,7 @@ alloc_expression_id (pre_expr expr)
     }
   else
     {
-      slot = expression_to_id.find_slot (expr, INSERT);
+      slot = expression_to_id->find_slot (expr, INSERT);
       gcc_assert (!*slot);
       *slot = expr;
     }
@@ -309,7 +309,7 @@ lookup_expression_id (const pre_expr expr)
     }
   else
     {
-      slot = expression_to_id.find_slot (expr, NO_INSERT);
+      slot = expression_to_id->find_slot (expr, NO_INSERT);
       if (!slot)
 	return 0;
       return ((pre_expr)*slot)->id;
@@ -542,7 +542,7 @@ expr_pred_trans_d::equal (const value_type *ve1,
 
 /* The phi_translate_table caches phi translations for a given
    expression and predecessor.  */
-static hash_table <expr_pred_trans_d> phi_translate_table;
+static hash_table<expr_pred_trans_d> *phi_translate_table;
 
 /* Add the tuple mapping from {expression E, basic block PRED} to
    the phi translation table and return whether it pre-existed.  */
@@ -557,7 +557,7 @@ phi_trans_add (expr_pred_trans_t *entry, pre_expr e, basic_block pred)
   tem.e = e;
   tem.pred = pred;
   tem.hashcode = hash;
-  slot = phi_translate_table.find_slot_with_hash (&tem, hash, INSERT);
+  slot = phi_translate_table->find_slot_with_hash (&tem, hash, INSERT);
   if (*slot)
     {
       *entry = *slot;
@@ -1783,7 +1783,7 @@ phi_translate (pre_expr expr, bitmap_set_t set1, bitmap_set_t set2,
       else
 	/* Remove failed translations again, they cause insert
 	   iteration to not pick up new opportunities reliably.  */
-	phi_translate_table.remove_elt_with_hash (slot, slot->hashcode);
+	phi_translate_table->remove_elt_with_hash (slot, slot->hashcode);
     }
 
   return phitrans;
@@ -4188,7 +4188,6 @@ eliminate_dom_walker::before_dom_children (basic_block b)
 				   b->loop_father->num);
 			}
 		      /* Don't keep sprime available.  */
-		      eliminate_push_avail (lhs);
 		      sprime = NULL_TREE;
 		    }
 		}
@@ -4368,7 +4367,7 @@ eliminate_dom_walker::before_dom_children (basic_block b)
 		{
 		  if (dump_enabled_p ())
 		    {
-		      location_t loc = gimple_location (stmt);
+		      location_t loc = gimple_location_safe (stmt);
 		      dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, loc,
 				       "converting indirect call to "
 				       "function %s\n",
@@ -4433,10 +4432,11 @@ eliminate_dom_walker::before_dom_children (basic_block b)
 	    VN_INFO (vdef)->valnum = vuse;
 	}
 
-      /* Make the new value available - for fully redundant LHS we
-         continue with the next stmt above.  */
-      if (lhs && TREE_CODE (lhs) == SSA_NAME)
-	eliminate_push_avail (lhs);
+      /* Make new values available - for fully redundant LHS we
+         continue with the next stmt above and skip this.  */
+      def_operand_p defp;
+      FOR_EACH_SSA_DEF_OPERAND (defp, stmt, iter, SSA_OP_DEF)
+	eliminate_push_avail (DEF_FROM_PTR (defp));
     }
 
   /* Replace destination PHI arguments.  */
@@ -4530,6 +4530,9 @@ eliminate (bool do_pre)
 	    bitmap_set_bit (need_eh_cleanup, bb->index);
 	  release_defs (stmt);
 	}
+
+      /* Removing a stmt may expose a forwarder block.  */
+      el_todo |= TODO_cleanup_cfg;
     }
   el_to_remove.release ();
 
@@ -4708,8 +4711,8 @@ init_pre (void)
   calculate_dominance_info (CDI_DOMINATORS);
 
   bitmap_obstack_initialize (&grand_bitmap_obstack);
-  phi_translate_table.create (5110);
-  expression_to_id.create (num_ssa_names * 3);
+  phi_translate_table = new hash_table<expr_pred_trans_d> (5110);
+  expression_to_id = new hash_table<pre_expr_d> (num_ssa_names * 3);
   bitmap_set_pool = create_alloc_pool ("Bitmap sets",
 				       sizeof (struct bitmap_set), 30);
   pre_expr_pool = create_alloc_pool ("pre_expr nodes",
@@ -4735,8 +4738,10 @@ fini_pre ()
   bitmap_obstack_release (&grand_bitmap_obstack);
   free_alloc_pool (bitmap_set_pool);
   free_alloc_pool (pre_expr_pool);
-  phi_translate_table.dispose ();
-  expression_to_id.dispose ();
+  delete phi_translate_table;
+  phi_translate_table = NULL;
+  delete expression_to_id;
+  expression_to_id = NULL;
   name_to_id.release ();
 
   free_aux_for_blocks ();
@@ -4751,7 +4756,6 @@ const pass_data pass_data_pre =
   GIMPLE_PASS, /* type */
   "pre", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_TREE_PRE, /* tv_id */
   /* PROP_no_crit_edges is ensured by placing pass_split_crit_edges before
      pass_pre.  */
@@ -4868,7 +4872,6 @@ const pass_data pass_data_fre =
   GIMPLE_PASS, /* type */
   "fre", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_TREE_FRE, /* tv_id */
   ( PROP_cfg | PROP_ssa ), /* properties_required */
   0, /* properties_provided */

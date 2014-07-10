@@ -414,7 +414,7 @@ tool_cleanup (bool from_signal)
 static void
 collect_atexit (void)
 {
-  utils_cleanup (false);
+  tool_cleanup (false);
 }
 
 static void
@@ -425,7 +425,6 @@ handler (int signo)
   signal (signo, SIG_DFL);
   raise (signo);
 }
-
 /* Notify user of a non-error, without translating the format string.  */
 void
 notice_translated (const char *cmsgid, ...)

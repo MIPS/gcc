@@ -5300,8 +5300,10 @@ output_vec_const_move (rtx *operands)
   operands[2] = CONST_VECTOR_ELT (vec, 1);
   if (cst == cst2)
     return "li %0,%1\n\tevmergelo %0,%0,%0";
-  else
+  else if (WORDS_BIG_ENDIAN)
     return "li %0,%1\n\tevmergelo %0,%0,%0\n\tli %0,%2";
+  else
+    return "li %0,%2\n\tevmergelo %0,%0,%0\n\tli %0,%1";
 }
 
 /* Initialize TARGET of vector PAIRED to VALS.  */
@@ -8766,6 +8768,7 @@ rs6000_aggregate_candidate (const_tree type, enum machine_mode *modep)
 	   fixed.  */
 	if (!COMPLETE_TYPE_P (type)
 	    || TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
+	  return -1;
 
 	for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
 	  {
@@ -19896,7 +19899,7 @@ rs6000_adjust_atomic_subword (rtx orig_mem, rtx *pshift, rtx *pmask)
   shift = gen_reg_rtx (SImode);
   addr = gen_lowpart (SImode, addr);
   emit_insn (gen_rlwinm (shift, addr, GEN_INT (3), GEN_INT (shift_mask)));
-  if (WORDS_BIG_ENDIAN)
+  if (BYTES_BIG_ENDIAN)
     shift = expand_simple_binop (SImode, XOR, shift, GEN_INT (shift_mask),
 			         shift, 1, OPTAB_LIB_WIDEN);
   *pshift = shift;
@@ -29450,6 +29453,71 @@ rs6000_xcoff_file_end (void)
   fputs (TARGET_32BIT
 	 ? "\t.long _section_.text\n" : "\t.llong _section_.text\n",
 	 asm_out_file);
+}
+
+/* This macro produces the initial definition of a function name.
+   On the RS/6000, we need to place an extra '.' in the function name and
+   output the function descriptor.
+   Dollar signs are converted to underscores.
+
+   The csect for the function will have already been created when
+   text_section was selected.  We do have to go back to that csect, however.
+
+   The third and fourth parameters to the .function pseudo-op (16 and 044)
+   are placeholders which no longer have any use.  */
+
+void
+rs6000_xcoff_declare_function_name (FILE *file, const char *name, tree decl)
+{
+  char *buffer = (char *) alloca (strlen (name) + 1);
+  char *p;
+  int dollar_inside = 0;
+  strcpy (buffer, name);
+  p = strchr (buffer, '$');
+  while (p) {
+    *p = '_';
+    dollar_inside++;
+    p = strchr (p + 1, '$');
+  }
+  if (TREE_PUBLIC (decl))
+    {
+      if (!RS6000_WEAK || !DECL_WEAK (decl))
+	{
+          if (dollar_inside) {
+              fprintf(file, "\t.rename .%s,\".%s\"\n", buffer, name);
+              fprintf(file, "\t.rename %s,\"%s\"\n", buffer, name);
+	    }
+	  fputs ("\t.globl .", file);
+	  RS6000_OUTPUT_BASENAME (file, buffer);
+	  putc ('\n', file);
+	}
+    }
+  else
+    {
+      if (dollar_inside) {
+          fprintf(file, "\t.rename .%s,\".%s\"\n", buffer, name);
+          fprintf(file, "\t.rename %s,\"%s\"\n", buffer, name);
+	}
+      fputs ("\t.lglobl .", file);
+      RS6000_OUTPUT_BASENAME (file, buffer);
+      putc ('\n', file);
+    }
+  fputs ("\t.csect ", file);
+  RS6000_OUTPUT_BASENAME (file, buffer);
+  fputs (TARGET_32BIT ? "[DS]\n" : "[DS],3\n", file);
+  RS6000_OUTPUT_BASENAME (file, buffer);
+  fputs (":\n", file);
+  fputs (TARGET_32BIT ? "\t.long ." : "\t.llong .", file);
+  RS6000_OUTPUT_BASENAME (file, buffer);
+  fputs (", TOC[tc0], 0\n", file);
+  in_section = NULL;
+  switch_to_section (function_section (decl));
+  putc ('.', file);
+  RS6000_OUTPUT_BASENAME (file, buffer);
+  fputs (":\n", file);
+  if (write_symbols != NO_DEBUG && !DECL_IGNORED_P (decl))
+    xcoffout_declare_function (file, decl, buffer);
+  return;
 }
 
 #ifdef HAVE_AS_TLS

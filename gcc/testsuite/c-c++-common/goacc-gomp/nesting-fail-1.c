@@ -117,6 +117,19 @@ f_omp (void)
     for (i = 0; i < 2; ++i)
       ;
   }
+
+#pragma omp target
+  {
+#pragma acc parallel	/* { dg-error "may not be nested" } */
+    ;
+#pragma acc kernels	/* { dg-error "may not be nested" } */
+    ;
+#pragma acc data	/* { dg-error "may not be nested" } */
+    ;
+#pragma acc loop
+    for (i = 0; i < 2; ++i)
+      ;
+  }
 }
 
 /* TODO: Some of these should either be allowed or fail with a more sensible
@@ -180,6 +193,12 @@ f_acc_parallel (void)
 #pragma acc parallel
   {
 #pragma omp ordered	/* { dg-error "may not be nested" } */
+    ;
+  }
+
+#pragma acc parallel
+  {
+#pragma omp target	/* { dg-error "may not be nested" } */
     ;
   }
 }
@@ -247,6 +266,12 @@ f_acc_kernels (void)
 #pragma omp ordered	/* { dg-error "may not be nested" } */
     ;
   }
+
+#pragma acc kernels
+  {
+#pragma omp target	/* { dg-error "may not be nested" } */
+    ;
+  }
 }
 
 /* TODO: Some of these should either be allowed or fail with a more sensible
@@ -310,6 +335,12 @@ f_acc_data (void)
 #pragma acc data
   {
 #pragma omp ordered	/* { dg-error "may not be nested" } */
+    ;
+  }
+
+#pragma acc data
+  {
+#pragma omp target	/* { dg-error "may not be nested" } */
     ;
   }
 }
@@ -384,6 +415,13 @@ f_acc_loop (void)
   for (i = 0; i < 2; ++i)
     {
 #pragma omp ordered	/* { dg-error "may not be nested" } */
+      ;
+    }
+
+#pragma acc loop
+  for (i = 0; i < 2; ++i)
+    {
+#pragma omp target	/* { dg-error "may not be nested" } */
       ;
     }
 }

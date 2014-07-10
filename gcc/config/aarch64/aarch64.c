@@ -696,7 +696,7 @@ aarch64_load_symref_appropriately (rtx dest, rtx imm,
 	rtx result = gen_rtx_REG (Pmode, R0_REGNUM);
 
 	start_sequence ();
-	emit_call_insn (gen_tlsgd_small (result, imm));
+	aarch64_emit_call_insn (gen_tlsgd_small (result, imm));
 	insns = get_insns ();
 	end_sequence ();
 
@@ -1504,12 +1504,18 @@ aarch64_layout_arg (cumulative_args_t pcum_v, enum machine_mode mode,
   CUMULATIVE_ARGS *pcum = get_cumulative_args (pcum_v);
   int ncrn, nvrn, nregs;
   bool allocate_ncrn, allocate_nvrn;
+  HOST_WIDE_INT size;
 
   /* We need to do this once per argument.  */
   if (pcum->aapcs_arg_processed)
     return;
 
   pcum->aapcs_arg_processed = true;
+
+  /* Size in bytes, rounded to the nearest multiple of 8 bytes.  */
+  size
+    = AARCH64_ROUND_UP (type ? int_size_in_bytes (type) : GET_MODE_SIZE (mode),
+			UNITS_PER_WORD);
 
   allocate_ncrn = (type) ? !(FLOAT_TYPE_P (type)) : !FLOAT_MODE_P (mode);
   allocate_nvrn = aarch64_vfp_is_call_candidate (pcum_v,
@@ -1561,9 +1567,7 @@ aarch64_layout_arg (cumulative_args_t pcum_v, enum machine_mode mode,
     }
 
   ncrn = pcum->aapcs_ncrn;
-  nregs = ((type ? int_size_in_bytes (type) : GET_MODE_SIZE (mode))
-	   + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
-
+  nregs = size / UNITS_PER_WORD;
 
   /* C6 - C9.  though the sign and zero extension semantics are
      handled elsewhere.  This is the case where the argument fits
@@ -1612,13 +1616,12 @@ aarch64_layout_arg (cumulative_args_t pcum_v, enum machine_mode mode,
   pcum->aapcs_nextncrn = NUM_ARG_REGS;
 
   /* The argument is passed on stack; record the needed number of words for
-     this argument (we can re-use NREGS) and align the total size if
-     necessary.  */
+     this argument and align the total size if necessary.  */
 on_stack:
-  pcum->aapcs_stack_words = nregs;
+  pcum->aapcs_stack_words = size / UNITS_PER_WORD;
   if (aarch64_function_arg_alignment (mode, type) == 16 * BITS_PER_UNIT)
     pcum->aapcs_stack_size = AARCH64_ROUND_UP (pcum->aapcs_stack_size,
-					       16 / UNITS_PER_WORD) + 1;
+					       16 / UNITS_PER_WORD);
   return;
 }
 
@@ -3388,6 +3391,18 @@ aarch64_fixed_condition_code_regs (unsigned int *p1, unsigned int *p2)
   *p1 = CC_REGNUM;
   *p2 = INVALID_REGNUM;
   return true;
+}
+
+/* Emit call insn with PAT and do aarch64-specific handling.  */
+
+void
+aarch64_emit_call_insn (rtx pat)
+{
+  rtx insn = emit_call_insn (pat);
+
+  rtx *fusage = &CALL_INSN_FUNCTION_USAGE (insn);
+  clobber_reg (fusage, gen_rtx_REG (word_mode, IP0_REGNUM));
+  clobber_reg (fusage, gen_rtx_REG (word_mode, IP1_REGNUM));
 }
 
 enum machine_mode
@@ -7343,6 +7358,9 @@ static aarch64_simd_mangle_map_entry aarch64_simd_mangle_map[] = {
   { V2SImode,  "__builtin_aarch64_simd_si",     "11__Int32x2_t" },
   { V2SImode,  "__builtin_aarch64_simd_usi",    "12__Uint32x2_t" },
   { V2SFmode,  "__builtin_aarch64_simd_sf",     "13__Float32x2_t" },
+  { DImode,    "__builtin_aarch64_simd_di",     "11__Int64x1_t" },
+  { DImode,    "__builtin_aarch64_simd_udi",    "12__Uint64x1_t" },
+  { V1DFmode,  "__builtin_aarch64_simd_df",	"13__Float64x1_t" },
   { V8QImode,  "__builtin_aarch64_simd_poly8",  "11__Poly8x8_t" },
   { V4HImode,  "__builtin_aarch64_simd_poly16", "12__Poly16x4_t" },
   /* 128-bit containerized types.  */
@@ -8713,20 +8731,26 @@ void
 aarch64_expand_vec_perm (rtx target, rtx op0, rtx op1, rtx sel)
 {
   enum machine_mode vmode = GET_MODE (target);
-  unsigned int i, nelt = GET_MODE_NUNITS (vmode);
+  unsigned int nelt = GET_MODE_NUNITS (vmode);
   bool one_vector_p = rtx_equal_p (op0, op1);
-  rtx rmask[MAX_VECT_LEN], mask;
-
-  gcc_checking_assert (!BYTES_BIG_ENDIAN);
+  rtx mask;
 
   /* The TBL instruction does not use a modulo index, so we must take care
      of that ourselves.  */
-  mask = GEN_INT (one_vector_p ? nelt - 1 : 2 * nelt - 1);
-  for (i = 0; i < nelt; ++i)
-    rmask[i] = mask;
-  mask = gen_rtx_CONST_VECTOR (vmode, gen_rtvec_v (nelt, rmask));
+  mask = aarch64_simd_gen_const_vector_dup (vmode,
+      one_vector_p ? nelt - 1 : 2 * nelt - 1);
   sel = expand_simple_binop (vmode, AND, sel, mask, NULL, 0, OPTAB_LIB_WIDEN);
 
+  /* For big-endian, we also need to reverse the index within the vector
+     (but not which vector).  */
+  if (BYTES_BIG_ENDIAN)
+    {
+      /* If one_vector_p, mask is a vector of (nelt - 1)'s already.  */
+      if (!one_vector_p)
+        mask = aarch64_simd_gen_const_vector_dup (vmode, nelt - 1);
+      sel = expand_simple_binop (vmode, XOR, sel, mask,
+				 NULL, 0, OPTAB_LIB_WIDEN);
+    }
   aarch64_expand_vec_perm_1 (target, op0, op1, sel);
 }
 
@@ -9809,6 +9833,9 @@ aarch64_expand_movmem (rtx *operands)
 
 #undef TARGET_FLAGS_REGNUM
 #define TARGET_FLAGS_REGNUM CC_REGNUM
+
+#undef TARGET_CALL_FUSAGE_CONTAINS_NON_CALLEE_CLOBBERS
+#define TARGET_CALL_FUSAGE_CONTAINS_NON_CALLEE_CLOBBERS true
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

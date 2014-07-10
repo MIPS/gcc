@@ -221,6 +221,24 @@ typedef enum
   ST_OMP_TASKGROUP, ST_OMP_END_TASKGROUP, ST_OMP_SIMD, ST_OMP_END_SIMD,
   ST_OMP_DO_SIMD, ST_OMP_END_DO_SIMD, ST_OMP_PARALLEL_DO_SIMD,
   ST_OMP_END_PARALLEL_DO_SIMD, ST_OMP_DECLARE_SIMD, ST_OMP_DECLARE_REDUCTION,
+  ST_OMP_TARGET, ST_OMP_END_TARGET, ST_OMP_TARGET_DATA, ST_OMP_END_TARGET_DATA,
+  ST_OMP_TARGET_UPDATE, ST_OMP_DECLARE_TARGET,
+  ST_OMP_TEAMS, ST_OMP_END_TEAMS, ST_OMP_DISTRIBUTE, ST_OMP_END_DISTRIBUTE,
+  ST_OMP_DISTRIBUTE_SIMD, ST_OMP_END_DISTRIBUTE_SIMD,
+  ST_OMP_DISTRIBUTE_PARALLEL_DO, ST_OMP_END_DISTRIBUTE_PARALLEL_DO,
+  ST_OMP_DISTRIBUTE_PARALLEL_DO_SIMD, ST_OMP_END_DISTRIBUTE_PARALLEL_DO_SIMD,
+  ST_OMP_TARGET_TEAMS, ST_OMP_END_TARGET_TEAMS, ST_OMP_TEAMS_DISTRIBUTE,
+  ST_OMP_END_TEAMS_DISTRIBUTE, ST_OMP_TEAMS_DISTRIBUTE_SIMD,
+  ST_OMP_END_TEAMS_DISTRIBUTE_SIMD, ST_OMP_TARGET_TEAMS_DISTRIBUTE,
+  ST_OMP_END_TARGET_TEAMS_DISTRIBUTE, ST_OMP_TARGET_TEAMS_DISTRIBUTE_SIMD,
+  ST_OMP_END_TARGET_TEAMS_DISTRIBUTE_SIMD, ST_OMP_TEAMS_DISTRIBUTE_PARALLEL_DO,
+  ST_OMP_END_TEAMS_DISTRIBUTE_PARALLEL_DO,
+  ST_OMP_TARGET_TEAMS_DISTRIBUTE_PARALLEL_DO,
+  ST_OMP_END_TARGET_TEAMS_DISTRIBUTE_PARALLEL_DO,
+  ST_OMP_TEAMS_DISTRIBUTE_PARALLEL_DO_SIMD,
+  ST_OMP_END_TEAMS_DISTRIBUTE_PARALLEL_DO_SIMD,
+  ST_OMP_TARGET_TEAMS_DISTRIBUTE_PARALLEL_DO_SIMD,
+  ST_OMP_END_TARGET_TEAMS_DISTRIBUTE_PARALLEL_DO_SIMD,
   ST_PROCEDURE, ST_GENERIC, ST_CRITICAL, ST_END_CRITICAL,
   ST_GET_FCN_CHARACTERISTICS, ST_LOCK, ST_UNLOCK, ST_NONE
 }
@@ -666,7 +684,8 @@ iso_c_binding_symbol;
 
 typedef enum
 {
-  INTMOD_NONE = 0, INTMOD_ISO_FORTRAN_ENV, INTMOD_ISO_C_BINDING
+  INTMOD_NONE = 0, INTMOD_ISO_FORTRAN_ENV, INTMOD_ISO_C_BINDING,
+  INTMOD_IEEE_FEATURES, INTMOD_IEEE_EXCEPTIONS, INTMOD_IEEE_ARITHMETIC
 }
 intmod_id;
 
@@ -826,6 +845,9 @@ typedef struct
   /* This is omp_{out,in,priv,orig} artificial variable in
      !$OMP DECLARE REDUCTION.  */
   unsigned omp_udr_artificial_var:1;
+
+  /* Mentioned in OMP DECLARE TARGET.  */
+  unsigned omp_declare_target:1;
 
   /* Attributes set by compiler extensions (!GCC$ ATTRIBUTES).  */
   unsigned ext_attr:EXT_ATTR_NUM;
@@ -1076,6 +1098,23 @@ typedef enum
 }
 gfc_omp_reduction_op;
 
+typedef enum
+{
+  OMP_DEPEND_IN,
+  OMP_DEPEND_OUT,
+  OMP_DEPEND_INOUT
+}
+gfc_omp_depend_op;
+
+typedef enum
+{
+  OMP_MAP_ALLOC,
+  OMP_MAP_TO,
+  OMP_MAP_FROM,
+  OMP_MAP_TOFROM
+}
+gfc_omp_map_op;
+
 /* For use in OpenMP clauses in case we need extra information
    (aligned clause alignment, linear clause step, etc.).  */
 
@@ -1083,8 +1122,13 @@ typedef struct gfc_omp_namelist
 {
   struct gfc_symbol *sym;
   struct gfc_expr *expr;
-  gfc_omp_reduction_op rop;
-  struct gfc_omp_udr *udr;
+  union
+    {
+      gfc_omp_reduction_op reduction_op;
+      gfc_omp_depend_op depend_op;
+      gfc_omp_map_op map_op;
+    } u;
+  struct gfc_omp_namelist_udr *udr;
   struct gfc_omp_namelist *next;
 }
 gfc_omp_namelist;
@@ -1102,8 +1146,10 @@ enum
   OMP_LIST_UNIFORM,
   OMP_LIST_ALIGNED,
   OMP_LIST_LINEAR,
-  OMP_LIST_DEPEND_IN,
-  OMP_LIST_DEPEND_OUT,
+  OMP_LIST_DEPEND,
+  OMP_LIST_MAP,
+  OMP_LIST_TO,
+  OMP_LIST_FROM,
   OMP_LIST_REDUCTION,
   OMP_LIST_COPY,
   OMP_LIST_DATA_CLAUSE_FIRST = OMP_LIST_COPY,
@@ -1181,6 +1227,11 @@ typedef struct gfc_omp_clauses
   enum gfc_omp_proc_bind_kind proc_bind;
   struct gfc_expr *safelen_expr;
   struct gfc_expr *simdlen_expr;
+  struct gfc_expr *num_teams;
+  struct gfc_expr *device;
+  struct gfc_expr *thread_limit;
+  enum gfc_omp_sched_kind dist_sched_kind;
+  struct gfc_expr *dist_chunk_size;
 
   /* OpenACC. */
   struct gfc_expr *async_expr;
@@ -1242,6 +1293,15 @@ typedef struct gfc_omp_udr
 }
 gfc_omp_udr;
 #define gfc_get_omp_udr() XCNEW (gfc_omp_udr)
+
+typedef struct gfc_omp_namelist_udr
+{
+  struct gfc_omp_udr *udr;
+  struct gfc_code *combiner;
+  struct gfc_code *initializer;
+}
+gfc_omp_namelist_udr;
+#define gfc_get_omp_namelist_udr() XCNEW (gfc_omp_namelist_udr)
 
 /* The gfc_st_label structure is a BBT attached to a namespace that
    records the usage of statement labels within that space.  */
@@ -1443,7 +1503,7 @@ struct gfc_undo_change_set
 typedef struct gfc_common_head
 {
   locus where;
-  char use_assoc, saved, threadprivate;
+  char use_assoc, saved, threadprivate, omp_declare_target;
   char name[GFC_MAX_SYMBOL_LEN + 1];
   struct gfc_symbol *head;
   const char* binding_label;
@@ -2280,7 +2340,17 @@ typedef enum
   EXEC_OMP_END_SINGLE, EXEC_OMP_TASK, EXEC_OMP_TASKWAIT,
   EXEC_OMP_TASKYIELD, EXEC_OMP_CANCEL, EXEC_OMP_CANCELLATION_POINT,
   EXEC_OMP_TASKGROUP, EXEC_OMP_SIMD, EXEC_OMP_DO_SIMD,
-  EXEC_OMP_PARALLEL_DO_SIMD
+  EXEC_OMP_PARALLEL_DO_SIMD, EXEC_OMP_TARGET, EXEC_OMP_TARGET_DATA,
+  EXEC_OMP_TEAMS, EXEC_OMP_DISTRIBUTE, EXEC_OMP_DISTRIBUTE_SIMD,
+  EXEC_OMP_DISTRIBUTE_PARALLEL_DO, EXEC_OMP_DISTRIBUTE_PARALLEL_DO_SIMD,
+  EXEC_OMP_TARGET_TEAMS, EXEC_OMP_TEAMS_DISTRIBUTE,
+  EXEC_OMP_TEAMS_DISTRIBUTE_SIMD, EXEC_OMP_TARGET_TEAMS_DISTRIBUTE,
+  EXEC_OMP_TARGET_TEAMS_DISTRIBUTE_SIMD,
+  EXEC_OMP_TEAMS_DISTRIBUTE_PARALLEL_DO,
+  EXEC_OMP_TARGET_TEAMS_DISTRIBUTE_PARALLEL_DO,
+  EXEC_OMP_TEAMS_DISTRIBUTE_PARALLEL_DO_SIMD,
+  EXEC_OMP_TARGET_TEAMS_DISTRIBUTE_PARALLEL_DO_SIMD,
+  EXEC_OMP_TARGET_UPDATE
 }
 gfc_exec_op;
 
@@ -2746,6 +2816,7 @@ bool gfc_add_protected (symbol_attribute *, const char *, locus *);
 bool gfc_add_result (symbol_attribute *, const char *, locus *);
 bool gfc_add_save (symbol_attribute *, save_state, const char *, locus *);
 bool gfc_add_threadprivate (symbol_attribute *, const char *, locus *);
+bool gfc_add_omp_declare_target (symbol_attribute *, const char *, locus *);
 bool gfc_add_saved_common (symbol_attribute *, locus *);
 bool gfc_add_target (symbol_attribute *, locus *);
 bool gfc_add_dummy (symbol_attribute *, const char *, locus *);
@@ -2863,6 +2934,8 @@ gfc_formal_arglist *gfc_sym_get_dummy_args (gfc_symbol *);
 
 /* intrinsic.c -- true if working in an init-expr, false otherwise.  */
 extern bool gfc_init_expr_flag;
+
+gfc_expr *gfc_simplify_ieee_selected_real_kind (gfc_expr *);
 
 /* Given a symbol that we have decided is intrinsic, mark it as such
    by placing it into a special module that is otherwise impossible to
@@ -3019,6 +3092,7 @@ void gfc_free_association_list (gfc_association_list *);
 /* resolve.c */
 bool gfc_resolve_expr (gfc_expr *);
 void gfc_resolve (gfc_namespace *);
+void gfc_resolve_code (gfc_code *, gfc_namespace *);
 void gfc_resolve_blocks (gfc_code *, gfc_namespace *);
 int gfc_impure_variable (gfc_symbol *);
 int gfc_pure (gfc_symbol *);
