@@ -7978,6 +7978,59 @@ get_def_noter_for_expr_with_code (tree name, enum tree_code code)
     }
   return NULL;
 }
+
+/* Try to expand the conditional expression which is represented by
+   TREEOP0 ? TREEOP1 : TREEOP2 as treeop1 & -(treeop0) if treeop2 is 0 or treeop2 & -(!treeop0).
+   If succeseds return the rtl reg which represents the result.  Otherwise return
+   NULL_RTL.  */
+
+static rtx
+expand_cond_expr_using_mask (tree treeop0, tree treeop1, tree treeop2)
+{
+  rtx op0, op1, op2, opN;
+  rtx target;
+  tree type;
+  enum machine_mode mode;
+
+  type = TREE_TYPE (treeop1);
+  mode = TYPE_MODE (type);
+
+  if (!INTEGRAL_TYPE_P (type))
+    return NULL_RTX;
+
+  if (!integer_zerop (treeop1) && !integer_zerop (treeop2))
+    return NULL_RTX;
+
+  target = assign_temp (type, 0, 1);
+
+  expand_operands (treeop1, treeop2,
+		   NULL_RTX, &op1, &op2, EXPAND_NORMAL);
+
+  op0 = expand_normal (treeop0);
+  op0 = convert_modes (mode, VOIDmode, op0, 1);
+
+  /* If treeop1 is the one which is zero, then we have to add a not to the
+     condition.  */
+  if (integer_zerop (treeop1))
+    {
+      op0 = expand_binop (mode, xor_optab, op0, const1_rtx, target, 0,
+			  OPTAB_LIB_WIDEN);
+      opN = op2;
+    }
+  else
+    opN = op1;
+
+  /* produce -(treeop0) */
+  op0 = expand_unop (mode, optab_for_tree_code (NEGATE_EXPR, type, optab_default),
+		     op0, target, 0);
+
+  /* opN & -(treeop0) */
+  return expand_binop (mode, and_optab, op0, opN, target, 0,
+		       OPTAB_LIB_WIDEN);
+
+  
+}
+
 /* Try to expand the conditional expression which is represented by
    TREEOP0 ? TREEOP1 : TREEOP2 using conditonal adds.  If succeseds
    return the rtl reg which represents the result.  Otherwise return
@@ -9322,6 +9375,10 @@ expand_expr_real_2 (sepops ops, rtx target, enum machine_mode tmode,
 		  && !ignore
 		  && TREE_TYPE (treeop1) != void_type_node
 		  && TREE_TYPE (treeop2) != void_type_node);
+
+      temp = expand_cond_expr_using_mask (treeop0, treeop1, treeop2);
+      if (temp)
+	return temp;
 
       temp = expand_cond_expr_using_addcc (treeop0, treeop1, treeop2);
       if (temp)

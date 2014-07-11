@@ -1,6 +1,18 @@
 2014-07-11  Manjunath Matti <mmatti@caviumnetworks.com>
 
 	Ported for bug #10200
+	 2012-07-30  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #4274
+	* expr.c (expand_cond_expr_using_mask): New function.
+	(expand_expr_real_2 <case COND_EXPR>): Call expand_cond_expr_using_mask
+	before trying any other case.
+
+	* testsuite/testsuite/gcc.target/mips/movcc-6.c: New testcase.
+
+2014-07-11  Manjunath Matti <mmatti@caviumnetworks.com>
+
+	Ported for bug #10200
 	2012-07-27  Andrew Pinski  <apinski@cavium.com>
 
 	* expr.c (get_condition_from_operand): New function.
