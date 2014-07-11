@@ -8163,6 +8163,81 @@ expand_cond_expr_using_addcc (tree treeop0, tree treeop1, tree treeop2)
 
   return NULL_RTX;
 }
+
+/* Try to expand the conditional expression which is represented by
+   TREEOP0 ? TREEOP1 : TREEOP2 using an xor (one comp abs).  If succeseds
+   return the rtl reg which represents the result.  Otherwise return
+   NULL_RTL.  */
+static rtx
+expand_cond_expr_using_xors (tree treeop0, tree treeop1, tree treeop2)
+{
+  tree op = NULL_TREE;
+  bool reverse = false;
+  gimple srcstmt;
+  tree type;
+  rtx op0, op1;
+  enum machine_mode mode;
+  rtx target;
+
+  type = TREE_TYPE (treeop1);
+  mode = TYPE_MODE (type);
+
+  if (!INTEGRAL_TYPE_P (type))
+    return NULL_RTX;
+
+  if (TREE_CODE (treeop2) == SSA_NAME
+      && (srcstmt = get_def_noter_for_expr_with_code (treeop2, BIT_NOT_EXPR))
+      && gimple_assign_rhs1 (srcstmt) == treeop1)
+    {
+      op = treeop1;
+      reverse = true;
+    }
+
+  if (TREE_CODE (treeop1) == SSA_NAME
+      && (srcstmt = get_def_noter_for_expr_with_code (treeop1, BIT_NOT_EXPR))
+      && gimple_assign_rhs1 (srcstmt) == treeop2)
+    {
+      op = treeop2;
+      reverse = false;
+    }
+
+  if (!op)
+    return NULL_RTX;
+
+
+  if (reverse)
+    {
+      tree newop0;
+      newop0 = fold_truth_not_expr (UNKNOWN_LOCATION, treeop0);
+      if (newop0 != NULL_TREE && COMPARISON_CLASS_P (newop0))
+	{
+	  treeop0 = newop0;
+	  reverse = false;
+	}
+    }
+
+  target = assign_temp (type, 0, 1);
+
+  op0 = expand_normal (treeop0);
+  op1 = expand_normal (op);
+
+  op0 = convert_modes (mode, VOIDmode, op0, 1);
+
+  /* If treeop1 is the one which is zero, then we have to add a not to the
+     condition.  */
+  if (reverse)
+      op0 = expand_binop (mode, xor_optab, op0, const1_rtx, target, 0,
+			  OPTAB_LIB_WIDEN);
+
+  /* produce -(treeop0) */
+  op0 = expand_unop (mode, optab_for_tree_code (NEGATE_EXPR, type, optab_default),
+		     op0, target, 0);
+
+  /* op ^ -(treeop0) */
+  return expand_binop (mode, xor_optab, op0, op1, target, 0,
+		       OPTAB_LIB_WIDEN);
+}
+
 /* Try to expand the conditional expression which is represented by
    TREEOP0 ? TREEOP1 : TREEOP2 using conditonal moves.  If succeseds
    return the rtl reg which repsents the result.  Otherwise return
@@ -9381,6 +9456,10 @@ expand_expr_real_2 (sepops ops, rtx target, enum machine_mode tmode,
 	return temp;
 
       temp = expand_cond_expr_using_addcc (treeop0, treeop1, treeop2);
+      if (temp)
+	return temp;
+
+      temp = expand_cond_expr_using_xors (treeop0, treeop1, treeop2);
       if (temp)
 	return temp;
 

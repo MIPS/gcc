@@ -2,6 +2,16 @@
 
 	Ported for bug #10200
 	 2012-07-30  Andrew Pinski  <apinski@cavium.com>
+ 
+	Bug #4367
+	* expr.c (expand_cond_expr_using_xors): New function.
+	(expand_expr_real_2 <case COND_EXPR>): Call expand_cond_expr_using_mask
+	before expand_cond_expr_using_cmove.
+
+2014-07-11  Manjunath Matti <mmatti@caviumnetworks.com>
+
+	Ported for bug #10200
+	 2012-07-30  Andrew Pinski  <apinski@cavium.com>
 
 	Bug #4274
 	* expr.c (expand_cond_expr_using_mask): New function.
