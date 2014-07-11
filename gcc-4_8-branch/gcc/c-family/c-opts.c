@@ -1347,6 +1347,10 @@ c_finish_options (void)
 static void
 push_command_line_include (void)
 {
+  // This can happen if disabled by -imacros for example.
+  if (include_cursor > deferred_count)
+    return;
+
   if (!done_preinclude)
     {
       done_preinclude = true;
