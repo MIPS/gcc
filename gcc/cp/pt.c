@@ -1607,6 +1607,7 @@ register_specialization (tree spec, tree tmpl, tree args, bool is_friend,
   return spec;
 }
 
+
 /* Returns true iff two spec_entry nodes are equivalent.  Only compares the
    TMPL and ARGS members, ignores SPEC.  */
 
@@ -3889,7 +3890,7 @@ process_template_parm (tree list, location_t parm_loc, tree parm,
       TYPE_CANONICAL (t) = canonical_type_parameter (t);
 
       // Build requirements for the type/template parameter.
-      reqs = finish_shorthand_requirement (parm, constr);      
+      reqs = finish_shorthand_requirement (parm, constr);
     }
   DECL_ARTIFICIAL (decl) = 1;
   SET_DECL_TEMPLATE_PARM_P (decl);
@@ -4150,7 +4151,7 @@ build_template_decl (tree decl, tree parms, tree constr, bool member_template_p)
   DECL_CONTEXT (tmpl) = DECL_CONTEXT (decl);
   DECL_SOURCE_LOCATION (tmpl) = DECL_SOURCE_LOCATION (decl);
   DECL_MEMBER_TEMPLATE_P (tmpl) = member_template_p;
-  set_constraints (tmpl, constr);
+  set_constraints (tmpl, finish_template_requirements (constr));
 
   return tmpl;
 }
@@ -5004,7 +5005,7 @@ push_template_decl_real (tree decl, bool is_friend)
 	     class-type, we must be redeclaring it here.  Make sure
 	     that the redeclaration is valid.  */
 	  redeclare_class_template (TREE_TYPE (decl),
-				    current_template_parms,
+                                    current_template_parms,
                                     current_template_reqs);
 	  /* We don't need to create a new TEMPLATE_DECL; just use the
 	     one we already had.  */
@@ -5013,9 +5014,9 @@ push_template_decl_real (tree decl, bool is_friend)
       else
 	{
 	  tmpl = build_template_decl (decl, 
-                                current_template_parms,
-                                current_template_reqs,
-				                        member_template_p);
+                                      current_template_parms,
+                                      current_template_reqs,
+                                      member_template_p);
 	  new_template_p = 1;
 
 	  if (DECL_LANG_SPECIFIC (decl)
@@ -5229,20 +5230,15 @@ add_inherited_template_parms (tree fn, tree inherited)
   // If the inherited constructor was constrained, then also
   // propagate the constraints to the new declaration by
   // rewriting them in terms of the local template parameters.
-  tree cons = get_constraints (inherited);
-  if (cons)
-    {
-      ++processing_template_decl;
-      tree reqs = instantiate_requirements (CI_REQUIREMENTS (cons), args);
-      --processing_template_decl;
-      set_constraints (tmpl, make_constraints (reqs));
-    }
+  if (tree ci = get_constraints (inherited))
+    set_constraints (tmpl, tsubst_constraint_info (ci, args));
 
   DECL_TEMPLATE_INFO (fn) = build_template_info (tmpl, args);
   TREE_TYPE (tmpl) = TREE_TYPE (fn);
   DECL_TEMPLATE_RESULT (tmpl) = fn;
   DECL_ARTIFICIAL (tmpl) = true;
   DECL_PRIMARY_TEMPLATE (tmpl) = tmpl;
+
   return tmpl;
 }
 
@@ -6586,8 +6582,8 @@ is_compatible_template_arg (tree parm, tree arg)
         return true;
     }
 
-  tree parmcons = get_constraints (parm);
-  tree argcons = get_constraints (arg);
+  tree parm_cons = get_constraints (parm);
+  tree arg_cons = get_constraints (arg);
 
   // If the template parameter is constrained, we need to rewrite its
   // constraints in terms of the ARG's template parameters. This ensures
@@ -6596,18 +6592,18 @@ is_compatible_template_arg (tree parm, tree arg)
   // Note that this is only valid when coerce_template_template_parm is
   // true for the innermost template parameters of PARM and ARG. In other
   // words, because coercion is successful, this conversion will be valid.
-  if (parmcons)
+  //
+  // BUG: This substitution seems to have broken during an update and no
+  // longer works. The resulting expression seems to be the same.
+  if (parm_cons)
     {
       tree args = template_parms_to_args (DECL_TEMPLATE_PARMS (arg));
-      ++processing_template_decl;
-      tree reqs = instantiate_requirements (CI_REQUIREMENTS (parmcons), args);
-      --processing_template_decl;
-      if (reqs == error_mark_node)
+      parm_cons = tsubst_constraint_info (parm_cons, args);
+      if (parm_cons == error_mark_node)
         return false;
-      parmcons = make_constraints (reqs);
     }
 
-  return more_constraints (argcons, parmcons);
+  return more_constraints (parm_cons, arg_cons);
 }
 
 // Convert a placeholder argument into a binding to the original
@@ -10797,14 +10793,9 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	  = tsubst_template_parms (DECL_TEMPLATE_PARMS (t), args,
 				   complain);
 
-        // If constrained, also instantiate requirements.
-        // TODO: Instantiate shorthand constraints on parameters also.
-        // See tsubst_template_parms for that. 
+        // If constrained, also instantiate the constraints.
         if (tree ci = get_constraints (t))
-          {
-            tree reqs = instantiate_requirements (CI_SPELLING (ci), args);
-            set_constraints (r, make_constraints (reqs));
-          }
+          set_constraints (r, tsubst_constraint_info (ci, args));
 
 	if (PRIMARY_TEMPLATE_P (t))
 	  DECL_PRIMARY_TEMPLATE (r) = r;
@@ -11016,6 +11007,9 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	   GEN_TMPL is NULL.  */
 	if (gen_tmpl)
 	  {
+            if (tree ci = get_constraints (gen_tmpl))
+              set_constraints (r, tsubst_constraint_info (ci, argvec));
+
             DECL_TEMPLATE_INFO (r) = build_template_info (gen_tmpl, argvec);
 	    SET_DECL_IMPLICIT_INSTANTIATION (r);
 
@@ -11061,9 +11055,11 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	    maybe_retrofit_in_chrg (r);
 	    if (DECL_CONSTRUCTOR_P (r))
 	      grok_ctor_properties (ctx, r);
+
 	    if (DECL_INHERITED_CTOR_BASE (r))
 	      deduce_inheriting_ctor (r);
-	    /* If this is an instantiation of a member template, clone it.
+	    
+            /* If this is an instantiation of a member template, clone it.
 	       If it isn't, that'll be handled by
 	       clone_constructors_and_destructors.  */
 	    if (PRIMARY_TEMPLATE_P (gen_tmpl))

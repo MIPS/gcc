@@ -985,15 +985,17 @@ get_member_fn_template (tree fn)
 static inline bool
 are_constrained_member_overloads (tree newdecl, tree olddecl) 
 {
-  newdecl = get_member_fn_template (newdecl);
-  olddecl = get_member_fn_template (olddecl);
+  return !equivalently_constrained (newdecl, olddecl);
 
-  // If neither is a template or temploid, then they cannot
-  // be constrained declarations.
-  if (!newdecl && !olddecl)
-    return false;
-  else
-    return !equivalently_constrained (newdecl, olddecl);
+  // newdecl = get_member_fn_template (newdecl);
+  // olddecl = get_member_fn_template (olddecl);
+
+  // // If neither is a template or temploid, then they cannot
+  // // be constrained declarations.
+  // if (!newdecl && !olddecl)
+  //   return false;
+  // else
+  //   return !equivalently_constrained (newdecl, olddecl);
 }
 
 

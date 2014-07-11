@@ -1277,6 +1277,14 @@ dump_template_decl (cxx_pretty_printer *pp, tree t, int flags)
                                        flags);
 	    }
 	  pp_cxx_end_template_argument_list (pp);
+
+          if (flag_concepts)
+            if (tree ci = get_constraints (t))
+                if (ci != error_mark_node)
+                  pp_cxx_requires_clause (pp, CI_LEADING_REQS (ci));
+                else
+                  pp_cxx_ws_string (pp, "<invalid-constraints>");
+
 	  pp_cxx_whitespace (pp);
 	}
       nreverse(orig_parms);
@@ -1522,6 +1530,10 @@ dump_function_decl (cxx_pretty_printer *pp, tree t, int flags)
 
       if (show_return)
 	dump_type_suffix (pp, TREE_TYPE (fntype), flags);
+
+      if (flag_concepts)
+        if (tree ci = get_constraints (t))
+          pp_cxx_requires_clause (pp, CI_TRAILING_REQS (ci));
 
       dump_substitution (pp, t, template_parms, template_args, flags);
     }

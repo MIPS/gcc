@@ -9,10 +9,11 @@ template<typename T>
   requires C<T>()
     void f(T x) { }
 
-// Calls to constrained functions are valid.
+// Calls are valid when arguments are dependent,
 template<typename T>
   void g(T x) { f(x); }
 
+// Calls are checked when arguments are non-dependent.
 template<typename T>
   void h(T x) {
     f(s);

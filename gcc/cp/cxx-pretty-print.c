@@ -53,8 +53,6 @@ pp_cxx_nonconsecutive_character (cxx_pretty_printer *pp, int c)
    pp_c_expression_list (PP, T)
 #define pp_cxx_space_for_pointer_operator(PP, T)  \
    pp_c_space_for_pointer_operator (PP, T)
-#define pp_cxx_init_declarator(PP, T)    \
-   pp_c_init_declarator (PP, T)
 #define pp_cxx_call_argument_list(PP, T) \
    pp_c_call_argument_list (PP, T)
 
@@ -1556,6 +1554,8 @@ pp_cxx_exception_specification (cxx_pretty_printer *pp, tree t)
   pp_cxx_right_paren (pp);
 }
 
+
+
 /* direct-declarator:
       declarator-id
       direct-declarator ( parameter-declaration-clause ) cv-qualifier-seq(opt)
@@ -1672,6 +1672,12 @@ pp_cxx_function_definition (cxx_pretty_printer *pp, tree t)
   tree saved_scope = pp->enclosing_scope;
   pp->declaration_specifiers (t);
   pp->declarator (t);
+
+  // Print a requires clause.
+  if (flag_concepts)
+    if (tree ci = get_constraints (t))
+      pp_cxx_requires_clause (pp, CI_TRAILING_REQS (ci));
+
   pp_needs_newline (pp) = true;
   pp->enclosing_scope = DECL_CONTEXT (t);
   if (DECL_SAVED_TREE (t))
@@ -2109,6 +2115,52 @@ pp_cxx_namespace_alias_definition (cxx_pretty_printer *pp, tree t)
   pp_cxx_semicolon (pp);
 }
 
+/* init-declarator:
+      declarator:
+      declarator initializer(opt)
+
+   Concept extensions:
+
+   init-declarator:
+      declarator requires-clause(opt) initializer(opt)
+      */
+
+void
+pp_cxx_init_declarator (cxx_pretty_printer *pp, tree t)
+{
+  pp->declarator (t);
+
+  // If there's a trailing requires clause, print it here.
+  if (flag_concepts) {
+    if (tree ci = get_constraints (t))
+      pp_cxx_requires_clause (pp, CI_TRAILING_REQS (ci));
+  }
+
+  /* We don't want to output function definitions here.  There are handled
+     elsewhere (and the syntactic form is bogus anyway).  */
+  if (TREE_CODE (t) != FUNCTION_DECL && DECL_INITIAL (t))
+    {
+      tree init = DECL_INITIAL (t);
+      /* This C++ bit is handled here because it is easier to do so.
+         In templates, the C++ parser builds a TREE_LIST for a
+         direct-initialization; the TREE_PURPOSE is the variable to
+         initialize and the TREE_VALUE is the initializer.  */
+      if (TREE_CODE (init) == TREE_LIST)
+        {
+          pp_cxx_left_paren (pp);
+          pp->expression (TREE_VALUE (init));
+          pp_cxx_right_paren (pp);
+        }
+      else
+        {
+          pp_space (pp);
+          pp_equal (pp);
+          pp_space (pp);
+          pp->initializer (init);
+        }
+    }
+}
+
 /* simple-declaration:
       decl-specifier-seq(opt) init-declarator-list(opt)  */
 
@@ -2202,7 +2254,13 @@ pp_cxx_canonical_template_parameter (cxx_pretty_printer *pp, tree parm)
 
 /*
   template-declaration:
-     export(opt) template < template-parameter-list > declaration   */
+     export(opt) template < template-parameter-list > declaration   
+
+  Concept extensions:
+
+  template-declaration:
+     export(opt) template < template-parameter-list > 
+       requires-clause(opt) declaration */
 
 static void
 pp_cxx_template_declaration (cxx_pretty_printer *pp, tree t)
@@ -2220,12 +2278,12 @@ pp_cxx_template_declaration (cxx_pretty_printer *pp, tree t)
       pp_newline_and_indent (pp, 3);
     }
 
-  if (tree c = get_constraints (t))
-    {
-      pp_cxx_ws_string (pp, "requires");
-      pp->expression (CI_REQUIREMENTS (c));
-      pp_newline_and_indent (pp, 6);
-    }
+  if (flag_concepts)
+    if (tree ci = get_constraints (t)) 
+       {
+          pp_cxx_requires_clause (pp, CI_LEADING_REQS (ci));
+          pp_newline_and_indent (pp, 6);
+       }
 
   if (TREE_CODE (t) == FUNCTION_DECL && DECL_SAVED_TREE (t))
     pp_cxx_function_definition (pp, t);
@@ -2508,6 +2566,19 @@ pp_cxx_requirement_body (cxx_pretty_printer *pp, tree t)
   pp_cxx_left_brace (pp);
   pp_cxx_requirement_list (pp, t);
   pp_cxx_right_brace (pp);
+}
+
+// requires-clause:
+//    'requires' logical-or-expression
+void
+pp_cxx_requires_clause (cxx_pretty_printer *pp, tree t)
+{
+  if (!t)
+    return;
+  pp->padding = pp_before;
+  pp_cxx_ws_string (pp, "requires");
+  pp_space (pp);
+  pp->expression (t);
 }
 
 // requires-expression:

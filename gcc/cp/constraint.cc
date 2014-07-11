@@ -430,7 +430,7 @@ reduce_call (tree t)
     }
 
   // Instantiate the reduced results using the deduced args.
-  tree result = instantiate_requirements (body, args);
+  tree result = instantiate_requirements (body, args, false);
   if (result == error_mark_node)
     {
       error ("could not instantiate requirements from %qD", fn);
@@ -454,9 +454,13 @@ reduce_template_id (tree t)
 {
   vec<tree, va_gc>* args = NULL;
   tree c = finish_call_expr (t, &args, true, false, 0);
-  error_at (EXPR_LOCATION (t), "invalid requirement");
-  inform (EXPR_LOCATION (t), "did you mean %qE", c);
-  return c;
+
+  // FIXME: input_location is probably wrong, but there's not necessarly
+  // an expr location with the tree.
+  error_at (input_location, "invalid requirement");
+  inform (input_location, "did you mean %qE", c);
+
+  return error_mark_node;
 }
 
 
@@ -526,6 +530,9 @@ reduce_stmt_list (tree stmts)
 tree
 reduce_requirements (tree reqs)
 {
+  if (!reqs)
+    return NULL_TREE;
+
   ++processing_template_decl;
   tree expr = reduce_node (reqs);
   --processing_template_decl;
@@ -538,64 +545,23 @@ reduce_requirements (tree reqs)
 // The following functions are called by the parser and substitution rules
 // to create and evaluate constraint-related nodes.
 
-// Create a constraint-info node from the specified requirements.
-tree 
-make_constraints (tree reqs)
-{
-  // No requirements == no constraints
-  if (!reqs)
-    return NULL_TREE;
-
-  // Reduce the requirements into a single expression of constraints.
-  tree expr = reduce_requirements (reqs);
-  if (expr == error_mark_node)
-    return error_mark_node;
-
-  // Decompose those expressions into lists of lists of atomic
-  // propositions.
-  tree assume = decompose_assumptions (expr);
-
-  // Build the constraint info.
-  tree_constraint_info *cinfo = 
-    (tree_constraint_info *)make_node (CONSTRAINT_INFO);
-  cinfo->spelling = reqs;
-  cinfo->requirements = expr;
-  cinfo->assumptions = assume;
-  return (tree)cinfo;
-}
-
-typedef hash_map<tree, tree> constraint_map;
-
-// Constraints (constraint_info nodes) are associatd with declrations 
-// via this mapping. Note that we don't store constraints directly in trees 
-// so we don't use the extra memory when concepts are not enabled. This also 
-// provides the ability to associate constraint information with a broader 
-// set of declarations (i.e., templates, functions, variables, template
-// parameters, etc).
-static constraint_map constraints;
-
 // Returns the template constraints of declaration T. If T is not a
 // template, this return NULL_TREE. Note that T must be non-null.
 tree
 get_constraints (tree t)
 {
   gcc_assert (DECL_P (t));
-  if (tree* r = constraints.get(t))
-    return *r;
-  else
-    return NULL_TREE;
+  return LANG_DECL_MIN_CHECK (t)->constraint_info;
 }
 
-// Associate the given constraint information with the declaration.
-// Once set, constraints cannot be overwritten.
+// Associate the given constraint information with the declaration. Don't
+// build associations if ci is NULL_TREE.
 void
 set_constraints (tree t, tree ci)
 {
   gcc_assert (DECL_P (t));
-  gcc_assert(!get_constraints(t));
-  constraints.put(t, ci);
+  LANG_DECL_MIN_CHECK (t)->constraint_info = ci;
 }
-
 
 // Returns a conjunction of shorthand requirements for the template
 // parameter list PARMS. Note that the requirements are stored in
@@ -608,20 +574,127 @@ get_shorthand_requirements (tree parms)
   for (int i = 0; i < TREE_VEC_LENGTH (parms); ++i)
     {
       tree parm = TREE_VEC_ELT (parms, i);
-      reqs = conjoin_requirements(reqs, TREE_TYPE (parm));
+      reqs = conjoin_requirements(reqs, TEMPLATE_PARM_CONSTRAINTS (parm));
     }
   return reqs;
 }
 
-// Finish the template requirement, EXPR, by translating it into
-// a constraint information record.
-tree
-finish_template_requirements (tree expr)
+namespace {
+// Create an empty constraint into block.
+inline tree_constraint_info*
+build_constraint_info ()
 {
-  if (expr == error_mark_node)
+  return (tree_constraint_info *)make_node (CONSTRAINT_INFO);
+}
+
+// Create a constraint info object, initialized with the given template
+// requirements.
+inline tree
+init_leading_requirements (tree reqs)
+{
+  tree_constraint_info* ci = build_constraint_info ();
+  ci->leading_reqs = reqs;
+  return (tree)ci;
+}
+
+// Initialize a constraint info object, initialized with the given
+// trailing requirements.
+inline tree
+init_trailing_requirements (tree reqs)
+{
+  tree_constraint_info* ci = build_constraint_info ();
+  ci->trailing_reqs = reqs;
+  return (tree)ci;
+}
+
+// Upodate the template requiremnets.
+inline tree
+update_leading_requirements (tree ci, tree reqs) {
+  tree& current = CI_LEADING_REQS (ci);
+  current = conjoin_requirements (current, reqs);
+  return ci;
+}
+
+// Set the trailing requiremnts to the given expression. Note that
+// traling requirements cannot be updated once set: no other reqiurements
+// can be found after parsing a trailing requires-clause.
+inline tree
+update_trailing_requirements (tree ci, tree reqs) {
+  gcc_assert(CI_TRAILING_REQS (ci) == NULL_TREE);
+  CI_TRAILING_REQS (ci) = reqs;
+  return ci;
+}
+} // namespace
+
+// Return a constraint-info object containing the current template
+// requirements. If constraints have already been assigned, then these
+// are appended to the current constraints. 
+//
+// Note that template constraints can be updated by the appearance of
+// constrained type specifiers in a parameter list. These update the
+// template requirements after the template header has been parsed.
+tree
+save_leading_requirements (tree reqs)
+{
+  if (!reqs || reqs == error_mark_node)
     return NULL_TREE;
+  else if (!current_template_reqs)
+    return init_leading_requirements (reqs);
   else
-    return make_constraints (expr);
+    return update_leading_requirements (current_template_reqs, reqs);
+}
+
+// Return a constraint info object containing saved trailing requirements.
+// If there are already template requirements, these are added to the
+// existing requirements. Otherwise, an empty constraint-info object
+// holding only these trailing requirements is returned.
+tree
+save_trailing_requirements (tree reqs)
+{
+  if (!reqs || reqs == error_mark_node)
+    return NULL_TREE;
+  else if (!current_template_reqs)
+    return init_trailing_requirements (reqs);
+  else
+    return update_trailing_requirements (current_template_reqs, reqs);
+}
+
+// Finish the template requirements, by computing the associated
+// constrains (the conjunction of template and trailing requirements),
+// and then decomposing that into sets of atomic propositions.
+tree
+finish_template_requirements (tree ci)
+{
+  if (!ci || ci == error_mark_node)
+    return NULL_TREE;
+
+  // If these constraints have already been analyzed, don't do it
+  // a second time. This happens when groking a function decl.
+  // before creating its corresponding template.
+  if (CI_ASSUMPTIONS (ci))
+    return ci;
+
+  // Build and normalize th associated constraints. If any constraints
+  // are ill-formed, this is a hard error.
+  tree r1 = CI_LEADING_REQS (ci);
+  tree r2 = CI_TRAILING_REQS (ci);
+  tree assoc = conjoin_requirements (r1, r2);
+  CI_ASSOCIATED_REQS (ci) = assoc;
+
+  // Decompose those expressions into sets of atomic constraints. 
+  tree reqs = reduce_requirements (assoc);
+  CI_ASSUMPTIONS (ci) = decompose_assumptions (reqs);
+  return ci;
+}
+
+// Returns true iff cinfo contains a valid constraint expression.
+// This is the case when the associated requirements can be successfully
+// decomposed into lists of atomic constraints.
+bool
+valid_requirements_p (tree cinfo)
+{
+  gcc_assert(cinfo);
+  return CI_ASSUMPTIONS (cinfo) != error_mark_node;
 }
 
 tree
@@ -1127,10 +1200,45 @@ tsubst_nested_req (tree t, tree args, tree in_decl)
 // Substitute the template arguments ARGS into the requirement
 // expression REQS. Errors resulting from substitution are not
 // diagnosed.
+//
+// If DO_NOT_FOLD is true, then the requirements are substituted as
+// if parsing a template declaration, which causes the resulting expression
+// to not be folded.
 tree
-instantiate_requirements (tree reqs, tree args)
+instantiate_requirements (tree reqs, tree args, bool do_not_fold)
 {
-  return tsubst_expr (reqs, args, tf_none, NULL_TREE, false);
+  if (do_not_fold)
+    ++processing_template_decl;
+  tree r = tsubst_expr (reqs, args, tf_none, NULL_TREE, false);
+  if (do_not_fold)
+    --processing_template_decl;
+  return r;
+}
+
+// Substitute into the constraint information, producing a new constraint
+// record.
+tree
+tsubst_constraint_info (tree ci, tree args) 
+{
+  if (!ci || ci == error_mark_node)
+    return NULL_TREE;
+
+  // Substitute into the various constraint fields.
+  tree_constraint_info* result = build_constraint_info ();
+  if (tree r = CI_LEADING_REQS (ci))
+    result->leading_reqs = instantiate_requirements (r, args, true);
+  if (tree r = CI_TRAILING_REQS (ci))
+    result->trailing_reqs = instantiate_requirements (r, args, true);
+
+  // Build the associated requiremnts.
+  result->associated_reqs = 
+      conjoin_requirements (result->leading_reqs, result->trailing_reqs);
+  
+  // Analyze the resulting constraints.
+  // TODO: Is this actually necessary if the constraints are non-dependent?
+  // Presumably not since we'd never actually look at them, right?
+  result->assumptions = decompose_assumptions (result->associated_reqs);
+  return (tree)result;
 }
 
 // -------------------------------------------------------------------------- //
@@ -1148,7 +1256,7 @@ check_requirements (tree reqs)
 {
   // Reduce any remaining TRAIT_EXPR nodes before evaluating.
   reqs = fold_non_dependent_expr (reqs);
-  
+
   // Requirements are satisfied when REQS evaluates to true.
   return cxx_constant_value (reqs) == boolean_true_node;
 }
@@ -1161,11 +1269,11 @@ check_requirements (tree reqs, tree args)
 {
   // If any arguments are dependent, then we can't check the
   // requirements. Just return true.
-  if (uses_template_parms (args))
+  if (args && uses_template_parms (args))
     return true;
 
-  // Instantiate and evaluate the requirements.
-  reqs = instantiate_requirements (reqs, args);
+  // Instantiate and evaluate the requirements. 
+  reqs = instantiate_requirements (reqs, args, false);
   if (reqs == error_mark_node)
     return false;
   return check_requirements (reqs);
@@ -1179,7 +1287,15 @@ check_constraints (tree cinfo)
   // No constraints? Satisfied.
   if (!cinfo)
     return true;
-  return check_requirements (CI_REQUIREMENTS (cinfo));
+  // Invalid constraints, not satisfied.
+  else if (!valid_requirements_p (cinfo))
+    return false;
+  // Funnel back into the dependent checking branch. This forces
+  // one more substitution through the constraints, which removes
+  // all remaining expressions that are not constant expressions
+  // (e.g., template-id expressions).
+  else
+    return check_requirements (CI_ASSOCIATED_REQS (cinfo), NULL_TREE);
 }
 
 // Check the constraints in CINFO against the given ARGS, returning
@@ -1187,15 +1303,14 @@ check_constraints (tree cinfo)
 bool 
 check_constraints (tree cinfo, tree args)
 {
-  // No constraints? Satisfied.
+  // If there are no constraints then this is trivally satisfied.
   if (!cinfo)
     return true;
-
-  // Dependent arguments? Satisfied. They won't reduce to true or false.
-  if (uses_template_parms (args))
-    return true;
-
-  return check_requirements (CI_REQUIREMENTS (cinfo), args);
+  // Invlaid requirements cannot be satisfied.
+  else if (!valid_requirements_p (cinfo))
+    return false;
+  else
+    return check_requirements (CI_ASSOCIATED_REQS (cinfo), args);
 }
 
 // Check the constraints of the declaration or type T, against 
@@ -1216,10 +1331,7 @@ check_template_constraints (tree t, tree args)
 bool
 equivalent_constraints (tree a, tree b)
 {
-  if (a == b)
-    return true;
-  else
-    return subsumes (a, b) && subsumes (b, a);
+  return cp_tree_equal (a, b);
 }
 
 // Returns true if the template declarations A and B have equivalent
@@ -1263,9 +1375,7 @@ diagnose_trait (location_t loc, tree t, tree args)
   if (check_requirements (t, args))
     return;
 
-  ++processing_template_decl;
-  tree subst = instantiate_requirements (t, args);
-  --processing_template_decl;
+  tree subst = instantiate_requirements (t, args, true);
 
   if (subst == error_mark_node)
     {
@@ -1278,22 +1388,22 @@ diagnose_trait (location_t loc, tree t, tree args)
   switch (TRAIT_EXPR_KIND (t))
     {
       case CPTK_HAS_NOTHROW_ASSIGN:
-        inform (loc, "  %qT is not nothrow assignable", t1);
+        inform (loc, "  %qT is not nothrow copy assignable", t1);
         break;
       case CPTK_HAS_NOTHROW_CONSTRUCTOR:
-        inform (loc, "  %qT is not nothrow constructible", t1);
+        inform (loc, "  %qT is not nothrow default constructible", t1);
         break;
       case CPTK_HAS_NOTHROW_COPY:
-        inform (loc, "  %qT is not nothrow copyable", t1);
+        inform (loc, "  %qT is not nothrow copy constructible", t1);
         break;
       case CPTK_HAS_TRIVIAL_ASSIGN:
-        inform (loc, "  %qT is not trivially assignable", t1);
+        inform (loc, "  %qT is not trivially copy assignable", t1);
         break;
       case CPTK_HAS_TRIVIAL_CONSTRUCTOR:
-        inform (loc, "  %qT is not trivially constructible", t1);
+        inform (loc, "  %qT is not trivially default constructible", t1);
         break;
       case CPTK_HAS_TRIVIAL_COPY:
-        inform (loc, "  %qT is not trivially copyable", t1);
+        inform (loc, "  %qT is not trivially copy constructible", t1);
         break;
       case CPTK_HAS_TRIVIAL_DESTRUCTOR:
         inform (loc, "  %qT is not trivially destructible", t1);
@@ -1370,9 +1480,7 @@ diagnose_check (location_t loc, tree t, tree args)
 
   // Locally instantiate the body with the call's template args, 
   // and recursively diagnose.
-  ++processing_template_decl;
-  body = instantiate_requirements (body, targs);
-  --processing_template_decl;
+  body = instantiate_requirements (body, targs, true);
   
   diagnose_node (loc, body, args);
 }
@@ -1399,9 +1507,7 @@ diagnose_requires (location_t loc, tree t, tree args)
   if (check_requirements (t, args))
     return;
 
-  ++processing_template_decl;
-  tree subst = instantiate_requirements (t, args);
-  --processing_template_decl;
+  tree subst = instantiate_requirements (t, args, true);
 
   // Print the header for the requires expression.
   tree parms = TREE_OPERAND (subst, 0);
@@ -1546,14 +1652,25 @@ make_subst (tree tmpl, tree args)
 // Emit diagnostics detailing the failure ARGS to satisfy the constraints
 // of the template declaration, TMPL.
 void
-diagnose_constraints (location_t loc, tree tmpl, tree args)
+diagnose_constraints (location_t loc, tree decl, tree args)
 {
-  inform (loc, "  constraints not satisfied %S", make_subst (tmpl, args));
+  tree ci = get_constraints (decl);
+
+  // If the constraints could not be reduced, then we can't diagnose them.
+  if (!valid_requirements_p (ci))
+    {
+      inform (loc, "  invalid constraints");
+      return;
+    }
+
+  // Otherwiise, diagnose the actual failed constraints.
+  if (TREE_CODE (decl) == TEMPLATE_DECL)
+    inform (loc, "  constraints not satisfied %S", make_subst (decl, args));
+  else
+    inform (loc, "  constraints not satisfied");
 
   // Diagnose the constraints by recursively decomposing and
   // evaluating the template requirements.
-  tree reqs = CI_SPELLING (get_constraints (tmpl));
+  tree reqs = CI_ASSOCIATED_REQS (get_constraints (decl));
   diagnose_requirements (loc, reqs, args);
 }
-
-

@@ -3459,18 +3459,15 @@ cp_build_function_call_vec (tree function, vec<tree, va_gc> **params,
       // this function will be used to explicitly diagnose the failure
       // for the single call expression. The check is technically 
       // redundant since we would have failed in add_function_candidate.
-      if (tree ti = DECL_TEMPLATE_INFO (function))
-        {
-          tree tmpl = TI_TEMPLATE (ti);
-          tree args = TI_ARGS (ti);
-          if (!check_template_constraints (tmpl, args))
+      if (flag_concepts)
+        if (tree ci = get_constraints (function))
+          if (!check_constraints (ci))
             {
               location_t loc = DECL_SOURCE_LOCATION (function);
-              error ("%qD is not a viable candidate", function);
-              diagnose_constraints (loc, tmpl, args);
+              error_at (loc, "cannot call function %qD", function);
+              diagnose_constraints (loc, function, NULL_TREE);
               return error_mark_node;
             }
-        }
 
       mark_used (function);
       fndecl = function;

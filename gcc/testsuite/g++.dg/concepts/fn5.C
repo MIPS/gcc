@@ -1,5 +1,7 @@
 // { dg-options "-std=c++1z" }
 
+// Check shorthand notation.
+
 template<typename T>
   concept bool Type() { return true; }
 

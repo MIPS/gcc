@@ -92,6 +92,7 @@ void pp_cxx_va_arg_expression (cxx_pretty_printer *, tree);
 void pp_cxx_offsetof_expression (cxx_pretty_printer *, tree);
 void pp_cxx_userdef_literal (cxx_pretty_printer *, tree);
 void pp_cxx_parameter_declaration_clause (cxx_pretty_printer *, tree);
+void pp_cxx_requires_clause (cxx_pretty_printer *, tree);
 void pp_cxx_requires_expr (cxx_pretty_printer *, tree);
 void pp_cxx_expr_requirement (cxx_pretty_printer *, tree);
 void pp_cxx_type_requirement (cxx_pretty_printer *, tree);

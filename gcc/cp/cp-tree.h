@@ -796,14 +796,29 @@ struct GTY(()) tree_template_info {
   vec<qualified_typedef_usage_t, va_gc> *typedefs_needing_access_checking;
 };
 
-/* Constraint information for a C++ declaration. This includes the
-   requirements (as a constant expression) and the decomposed assumptions
-   and conclusions. The assumptions and conclusions are cached for the
-   purposes of overload resolution and diagnostics. */
+// Constraint information for a C++ declaration. Constraint information is
+// comprised of:
+//
+// - leading requirements (possibly null), which are introduced by the
+//   template header and constrained-type-specifiers in a parameter
+//   declaration clause
+// - trailing requirements (possibly null), which are introduced by the
+//   a requires-clause following a declarator in a function declaration,
+//   member declaration, or function definition.
+// - associated requirements (should never be null), which is the conjunction
+//   of leading and trailing requirements (in that order), and
+// - assumptions which is the result of analyzed and decomposed template
+//   requirements.
+//
+// The leading and trailing requirements are kept to support pretty printing
+// constrained declarations. The associated requirements are used for
+// declaration matching, and the assumptions are computed to support
+// partial ordering of constraints.
 struct GTY(()) tree_constraint_info {
   struct tree_base base;
-  tree spelling;
-  tree requirements;
+  tree leading_reqs;
+  tree trailing_reqs;
+  tree associated_reqs;
   tree assumptions;
 };
 
@@ -816,17 +831,29 @@ check_constraint_info (tree t)
   return NULL;
 }
 
-// Get the spelling of the requirements
-#define CI_SPELLING(NODE) \
-  check_nonnull (check_constraint_info (NODE))->spelling
+// Access the expression describing the template constraints. This may be
+// null if no constraints were introduced in the template parameter list,
+// a requirements clause after the template parameter list, or constraints
+// introduced through a constrained-type-specifier.
+#define CI_LEADING_REQS(NODE) \
+  check_constraint_info (check_nonnull(NODE))->leading_reqs
 
-// Get the reduced requirements associated with the constraint info node
-#define CI_REQUIREMENTS(NODE) \
-  check_nonnull (check_constraint_info (NODE))->requirements
+// Access the expression descrbing the trailing constraints. This is non-null
+// for any implicit instantiation of a constrained declaration. For a
+// templated declaration it is non-null only when a trailing requires-clause
+// was specified.
+#define CI_TRAILING_REQS(NODE) \
+  check_constraint_info (check_nonnull(NODE))->trailing_reqs
 
-// Get the set of assumptions associated with the constraint info node
+// Access the expression describing the associated constraints of a 
+// declaration. This is the conjunction of template and trailing
+// requirements.
+#define CI_ASSOCIATED_REQS(NODE) \
+  check_constraint_info (check_nonnull(NODE))->associated_reqs
+
+// Get the set of assumptions associated with the constraint info node.
 #define CI_ASSUMPTIONS(NODE) \
-  check_nonnull (check_constraint_info (NODE))->assumptions
+  check_constraint_info (check_nonnull(NODE))->assumptions
 
 // Access the logical constraints on the template parameters introduced 
 // at a given template parameter list level indicated by NODE.
@@ -2038,6 +2065,10 @@ struct GTY(()) lang_decl_min {
      VAR_DECL, TYPE_DECL, or TEMPLATE_DECL, this is
      DECL_TEMPLATE_INFO.  */
   tree template_info;
+
+  // The constraint info maintains information about constraints
+  // associated with the declaration.
+  tree constraint_info;
 
   union lang_decl_u2 {
     /* In a FUNCTION_DECL for which DECL_THUNK_P holds, this is
@@ -6011,6 +6042,9 @@ extern tree nonlambda_method_basetype		(void);
 extern void maybe_add_lambda_conv_op            (tree);
 extern bool is_lambda_ignored_entity            (tree);
 extern tree finish_template_requirements        (tree);
+extern tree save_leading_requirements           (tree);
+extern tree save_trailing_requirements          (tree);
+extern bool valid_requirements_p                (tree);
 
 /* in tree.c */
 extern int cp_tree_operand_length		(const_tree);
@@ -6346,7 +6380,6 @@ extern tree strip_using_decl                    (tree);
 extern tree conjoin_requirements                (tree, tree);
 extern tree conjoin_requirements                (tree);
 extern tree reduce_requirements                 (tree);
-extern tree make_constraints                    (tree);
 extern tree get_constraints                     (tree);
 extern void set_constraints                     (tree, tree);
 extern tree get_shorthand_requirements          (tree);
@@ -6380,7 +6413,9 @@ extern tree tsubst_constexpr_expr               (tree, tree, tree);
 extern tree tsubst_expr_req                     (tree, tree, tree);
 extern tree tsubst_type_req                     (tree, tree, tree);
 extern tree tsubst_nested_req                   (tree, tree, tree);
-extern tree instantiate_requirements            (tree, tree);
+
+extern tree instantiate_requirements            (tree, tree, bool);
+extern tree tsubst_constraint_info              (tree, tree);
 
 extern bool check_constraints                   (tree);
 extern bool check_constraints                   (tree, tree);

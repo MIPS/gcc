@@ -991,6 +991,11 @@ decls_match (tree newdecl, tree olddecl)
       if (t1 != t2)
 	return 0;
 
+      // Normal functions can be constraind. Two functions with the
+      // same type and different constraints are different functions.
+      tree c1 = get_constraints (newdecl);
+      tree c2 = get_constraints (olddecl);
+
       if (CP_DECL_CONTEXT (newdecl) != CP_DECL_CONTEXT (olddecl)
 	  && ! (DECL_EXTERN_C_P (newdecl)
 		&& DECL_EXTERN_C_P (olddecl)))
@@ -1036,13 +1041,15 @@ decls_match (tree newdecl, tree olddecl)
 	      TREE_TYPE (newdecl) = TREE_TYPE (olddecl);
 	    }
 #endif
-	  else
+	  else {
 	    types_match =
 	      compparms (p1, p2)
 	      && type_memfn_rqual (f1) == type_memfn_rqual (f2)
+              && equivalent_constraints (c1, c2)
 	      && (TYPE_ATTRIBUTES (TREE_TYPE (newdecl)) == NULL_TREE
 	          || comp_type_attributes (TREE_TYPE (newdecl),
 					   TREE_TYPE (olddecl)) != 0);
+          }
 	}
       else
 	types_match = 0;
@@ -1607,8 +1614,11 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	     are not ambiguous.  */
 	  else if ((!DECL_FUNCTION_VERSIONED (newdecl)
 		    && !DECL_FUNCTION_VERSIONED (olddecl))
+                   // The functions have the same parameter types
 		   && compparms (TYPE_ARG_TYPES (TREE_TYPE (newdecl)),
-			      TYPE_ARG_TYPES (TREE_TYPE (olddecl))))
+			      TYPE_ARG_TYPES (TREE_TYPE (olddecl)))
+                   // And the same constraints
+                   && equivalently_constrained (newdecl, olddecl))
 	    {
 	      error ("ambiguating new declaration of %q#D", newdecl);
 	      inform (DECL_SOURCE_LOCATION (olddecl),
@@ -2552,6 +2562,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
       if (snode)
 	symtab_remove_node (snode);
     }
+
   ggc_free (newdecl);
 
   return olddecl;
@@ -7508,6 +7519,58 @@ declare_simd_adjust_this (tree *tp, int *walk_subtrees, void *data)
   return NULL_TREE;
 }
 
+// Returns the there leading template requirements if they exist.
+static inline tree
+get_leading_template_requirements () 
+{
+  return current_template_reqs ? 
+    CI_LEADING_REQS (current_template_reqs) : NULL_TREE;
+}
+
+// When defining an out-of-class template, we want to adjust the
+// current template requirements by adding any template requirements
+// declared by the inntermost template parameter list. For example:
+//
+//    template<typename T>
+//    struct S { template<C U> void f(); };
+//
+//    template<typename T>
+//    template<C U>
+//    void S<T>::f() { }  // #2
+//
+// When grokking #2, the constraints introduced by C are not
+// in the current_template_reqs; they are attached to the innermost
+// parameter list. The adjustment makes them part of the current
+// template requirements.
+static void
+adjust_out_of_class_fn_requirements (tree ctype)
+{
+  if (ctype && processing_template_decl > template_class_depth (ctype))
+    {
+      if (tree ci = TEMPLATE_PARMS_CONSTRAINTS (current_template_parms))
+        {
+          tree reqs = CI_LEADING_REQS (ci);
+          if (reqs && !get_leading_template_requirements ())
+            current_template_reqs = save_leading_requirements (reqs);
+        }
+    }
+  else if (current_template_parms)
+  {
+    if (tree ci = TEMPLATE_PARMS_CONSTRAINTS (current_template_parms))
+      {
+        tree r1 = CI_LEADING_REQS (ci);
+        if (current_template_reqs)
+          {
+            tree r2 = CI_LEADING_REQS (current_template_reqs);
+            CI_LEADING_REQS (current_template_reqs) = 
+                conjoin_requirements (r1, r2);
+          }
+        else
+          current_template_reqs = save_leading_requirements (r1);
+      }
+  }
+}
+
 /* CTYPE is class type, or null if non-class.
    TYPE is type this FUNCTION_DECL should have, either FUNCTION_TYPE
    or METHOD_TYPE.
@@ -7561,6 +7624,23 @@ grokfndecl (tree ctype,
     type = build_exception_variant (type, raises);
 
   decl = build_lang_decl (FUNCTION_DECL, declarator, type);
+
+  // Possibly adjust the template requirements for out-of-class
+  // function definitions. This guarantees that current_template_reqs
+  // will be fully completed before calling finish_template_requirements.
+  // verbatim ("%d", processing_template_decl);
+  if (flag_concepts)
+    adjust_out_of_class_fn_requirements (ctype);
+      
+  // Check and normalize the template requirements for the declared
+  // function. Note that these constraints are multiply associated
+  // with both the template-decl and the function-decl.
+  if (current_template_reqs)
+    {
+      current_template_reqs
+          = finish_template_requirements (current_template_reqs);
+      set_constraints (decl, current_template_reqs);
+    }
 
   /* If we have an explicit location, use it, otherwise use whatever
      build_lang_decl used (probably input_location).  */
@@ -12337,6 +12417,11 @@ xref_tag_1 (enum tag_types tag_code, tree name,
     {
       if (template_header_p && MAYBE_CLASS_TYPE_P (t))
         {
+          // It's safe to finish the current template requirements here
+          // since a class doesn't have trailing requirements.
+          if (current_template_reqs)
+            current_template_reqs = 
+                finish_template_requirements (current_template_reqs);
 	  if (!redeclare_class_template (t, 
                                    current_template_parms, 
                                    current_template_reqs))

@@ -2695,7 +2695,7 @@ finish_template_template_parm (tree aggr, tree identifier)
   DECL_TEMPLATE_PARMS (tmpl) = current_template_parms;
   DECL_TEMPLATE_RESULT (tmpl) = decl;
   DECL_ARTIFICIAL (decl) = 1;
-  set_constraints (tmpl, current_template_reqs);
+  set_constraints (tmpl, finish_template_requirements (current_template_reqs));
 
   end_template_decl ();
 

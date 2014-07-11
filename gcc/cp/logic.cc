@@ -386,10 +386,14 @@ extract_assumptions (proof_state& s)
 
 
 // Decompose the required expression T into a constraint set: a
-// vector of vectors containing only atomic propositions.
+// vector of vectors containing only atomic propositions. If T is
+// invalid, return an error.
 tree
 decompose_assumptions (tree t)
 {
+  if (t == error_mark_node)
+    return t;
+
   // Create a proof state, and insert T as the sole assumption.
   proof_state s;
   term_list &l = s.begin ()->assumptions;
@@ -502,7 +506,7 @@ subsumes_constraints (tree left, tree right)
   // Check that the required expression in RIGHT is subsumed by each
   // subgoal in the assumptions of LEFT.
   tree as = CI_ASSUMPTIONS (left);
-  tree c = reduce_requirements (CI_REQUIREMENTS (right));
+  tree c = reduce_requirements (CI_ASSOCIATED_REQS (right));
   for (int i = 0; i < TREE_VEC_LENGTH (as); ++i)
     if (!subsumes_prop (TREE_VEC_ELT (as, i), c))
       return false;

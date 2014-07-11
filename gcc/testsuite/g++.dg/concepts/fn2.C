@@ -7,7 +7,7 @@ template<typename T>
   requires C<T>()
     void f(T x) { }
 
-// Check call sites in templates when the args are non-dependent.
+// Non-dependent args are checked even in dependent scope.
 template<typename T>
   void h(T x) {
     f(0); // { dg-error "matching" }

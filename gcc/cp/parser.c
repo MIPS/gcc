@@ -8883,6 +8883,9 @@ cp_parser_lambda_expression (cp_parser* parser)
     parser->implicit_template_scope = 0;
     parser->auto_is_implicit_function_template_parm_p = false;
 
+    // Reset the current requirements also.
+    tree saved_template_reqs = release (current_template_reqs);
+
     /* By virtue of defining a local class, a lambda expression has access to
        the private variables of enclosing classes.  */
 
@@ -8914,6 +8917,9 @@ cp_parser_lambda_expression (cp_parser* parser)
     parser->implicit_template_scope = implicit_template_scope;
     parser->auto_is_implicit_function_template_parm_p
 	= auto_is_implicit_function_template_parm_p;
+
+    // Restore requirements.
+    current_template_reqs = saved_template_reqs;
   }
 
   pop_deferring_access_checks ();
@@ -13127,7 +13133,7 @@ cp_check_constrained_type_parm (cp_parser *parser,
                                 cp_parameter_declarator *parm)
 {
   // Don't ptr, ref, function, or array declarators for a constrained type
-  // or templtae template parameter.
+  // or template template parameter.
   if (parm->declarator->kind != cdk_id)
     {
       cp_parser_error (parser, "invalid constrained type parameter");
@@ -13530,7 +13536,7 @@ cp_parser_type_parameter (cp_parser* parser, bool *is_parameter_pack)
             tree reqs = get_shorthand_requirements (current_template_parms);
             if (tree r = cp_parser_requires_clause_opt (parser))
               reqs = conjoin_requirements (reqs, r);
-            current_template_reqs = finish_template_requirements (reqs);
+            current_template_reqs = save_leading_requirements (reqs);
 
             // Attach the constraints to the parameter list.
             TEMPLATE_PARMS_CONSTRAINTS (current_template_parms) 
@@ -16976,23 +16982,10 @@ struct cp_manage_requirements {
 static tree
 cp_parser_trailing_requirements (cp_parser *parser, cp_declarator *decl) 
 {
+  // A function declaration may have a trailing requires-clause.
   if (function_declarator_p (decl))
-    {
-      // Get any constraints induced by the terse notaiton.
-      tree terse_reqs = NULL_TREE;
-      if (parser->fully_implicit_function_template_p)
-        terse_reqs = get_shorthand_requirements (current_template_parms);
-
-      // An optional requires clause can yield an additional constraint.
-      tree explicit_reqs = cp_parser_requires_clause_opt (parser);
-
-      // If requirements were specified in either the implicit
-      // template parameter list or an explicit requires clause,
-      // prepare to associate those with the declaration.
-      if (tree r = conjoin_requirements (terse_reqs, explicit_reqs))
-        current_template_reqs = finish_template_requirements (r);
-    }
-  
+    if (tree reqs = cp_parser_requires_clause_opt (parser))
+      current_template_reqs = save_trailing_requirements (reqs);
   return current_template_reqs;
 }
 
@@ -17098,6 +17091,23 @@ cp_parser_init_declarator (cp_parser* parser,
      declared.  */
   resume_deferring_access_checks ();
 
+  // If scope is non-null, then we're parsing a declarator with
+  // a nested-name specifier. It's possible that some component of
+  // that specifier is bringing template constraints with it, which
+  // we need to suppress for for the time being. For example:
+  //
+  //    template<typename T>
+  //      requires C<T>()
+  //        void S<T>::f() requires D<T>() { ... }
+  //
+  // At the point we parse the 2nd requires clause, the previous the
+  // current constraints will have been used to resolve the enclosing
+  // class S<T>. The D<T>() requirement applies only to the definition
+  // of f and do not include C<T>().
+  //
+  // Save requirements, resetting them if the scope was established.
+  cp_manage_requirements saved_requirements (true);
+
   /* Parse the declarator.  */
   token = cp_lexer_peek_token (parser->lexer);
   declarator
@@ -17149,26 +17159,6 @@ cp_parser_init_declarator (cp_parser* parser,
   /* Look for attributes.  */
   attributes_start_token = cp_lexer_peek_token (parser->lexer);
   attributes = cp_parser_attributes_opt (parser);
-
-
-  // If scope is non-null, then we're parsing a declarator with
-  // a nested-name specifier. It's possible that some component of
-  // that specifier is bringing template contsraints with it, which
-  // we need to suppress for for the time being. For example:
-  //
-  //    template<typename T>
-  //      requires C<T>()
-  //        void S<T>::f() requires D<T>() { ... }
-  //
-  // At the point we parse the 2nd requires clause, the previous the
-  // current constraints will have been used to resolve the enclosing
-  // class S<T>. The D<T>() requirement applies only to the definition
-  // of f and do not include C<T>().
-  //
-  // Save requirements, resetting them if the scope was established.
-  cp_manage_requirements saved_requirements (scope != NULL_TREE);
-
-  // TODO: Check that a declaration does not have 2 requires clauses.
 
   // Parse an optional trailing requires clause for the parsed declarator.
   if (flag_concepts)
@@ -19072,16 +19062,19 @@ cp_parser_parameter_declaration_list (cp_parser* parser, bool *is_error)
      the template parameter scope.  */
 
   if (cp_binding_level *its = parser->implicit_template_scope)
-    if (cp_binding_level *maybe_its = current_binding_level->level_chain)
-      {
-	while (maybe_its->kind == sk_class)
-	  maybe_its = maybe_its->level_chain;
-	if (maybe_its == its)
-	  {
-	    parser->implicit_template_parms = 0;
-	    parser->implicit_template_scope = 0;
-	  }
-      }
+    {
+      if (cp_binding_level *maybe_its = current_binding_level->level_chain)
+        {
+          while (maybe_its->kind == sk_class)
+            maybe_its = maybe_its->level_chain;
+         
+          if (maybe_its == its)
+            {
+              parser->implicit_template_parms = 0;
+              parser->implicit_template_scope = 0;
+            }
+        }
+    }
 
   return parameters;
 }
@@ -21024,6 +21017,10 @@ cp_parser_member_declaration (cp_parser* parser)
 	      tree asm_specification;
 	      int ctor_dtor_or_conv_p;
 
+              // Save off the requirements, creating a new context
+              // for constraints.
+              cp_manage_requirements saved_requirements (true);
+
 	      /* Parse the declarator.  */
 	      declarator
 		= cp_parser_declarator (parser, CP_PARSER_DECLARATOR_NAMED,
@@ -21126,7 +21123,6 @@ cp_parser_member_declaration (cp_parser* parser)
 
               // Save and reset the current template requirements. Handle
               // the trailing requirements, if there are any.
-              cp_manage_requirements saved_requirements (true);
               if (flag_concepts)
                 cp_parser_trailing_requirements (parser, declarator);
 
@@ -21215,7 +21211,7 @@ cp_parser_member_declaration (cp_parser* parser)
 		 actual semicolon is missing.  Find the previous token
 		 and use that for our error position.  */
 	      cp_token *token = cp_lexer_previous_token (parser->lexer);
-	      error_at (token->location,
+	      error_at (token->location ? token->location : input_location,
 			"expected %<;%> at end of member declaration");
 
 	      /* Assume that the user meant to provide a semicolon.  If
@@ -22757,7 +22753,9 @@ cp_parser_label_declaration (cp_parser* parser)
 //    requires-clause:
 //      'requires' logical-or-expression
 //
-// The required logical-or-expression must be a constant expression.
+// The required logical-or-expression must be a constant expression. Note
+// that we don't check that the expression is constepxr here. We defer until
+// we analyze constraints and then, we only check atomic constraints.
 static tree
 cp_parser_requires_clause (cp_parser *parser)
 {
@@ -22766,8 +22764,6 @@ cp_parser_requires_clause (cp_parser *parser)
   tree expr = 
     cp_parser_binary_expression (parser, false, false, PREC_NOT_OPERATOR, NULL);
   --processing_template_decl;
-  if (!require_potential_rvalue_constant_expression (expr))
-    return error_mark_node;
   return expr;
 }
 
@@ -23996,9 +23992,11 @@ cp_parser_template_declaration_after_export (cp_parser* parser, bool member_p)
       tree reqs = get_shorthand_requirements (current_template_parms);
       if (tree r = cp_parser_requires_clause_opt (parser))
         reqs = conjoin_requirements (reqs, r);
-      current_template_reqs = finish_template_requirements (reqs);
+      current_template_reqs = save_leading_requirements (reqs);
 
       // Attach the constraints to the template parameter list.
+      // This is used to pass template requirements to out-of-class
+      // member definitions.      
       TEMPLATE_PARMS_CONSTRAINTS (current_template_parms) 
         = current_template_reqs;
     }
@@ -24538,7 +24536,6 @@ cp_parser_late_parsing_for_member (cp_parser* parser, tree member_function)
 
   // Restore the declaration's requirements for the parsing of
   // the definition.
-  //
   tree saved_template_reqs = release (current_template_reqs);
   current_template_reqs = get_constraints (member_function);
 
@@ -33018,7 +33015,6 @@ synthesize_implicit_template_parm  (cp_parser *parser, tree constr)
         }
     }
 
-
   /* We are either continuing a function template that already contains implicit
      template parameters, creating a new fully-implicit function template, or
      extending an existing explicit function template with implicit template
@@ -33095,7 +33091,6 @@ synthesize_implicit_template_parm  (cp_parser *parser, tree constr)
 	{
 	  /* Introduce a new template parameter list for implicit template
 	     parameters.  */
-
 	  become_template = true;
 
 	  parser->implicit_template_scope
@@ -33131,7 +33126,6 @@ synthesize_implicit_template_parm  (cp_parser *parser, tree constr)
   // Attach the constraint to the parm before processing.
   tree node = build_tree_list (NULL_TREE, synth_tmpl_parm);
   TREE_TYPE (node) = constr;
-  
   tree new_parm
     = process_template_parm (parser->implicit_template_parms,
 			     input_location,
@@ -33139,7 +33133,11 @@ synthesize_implicit_template_parm  (cp_parser *parser, tree constr)
 			     /*non_type=*/false,
 			     /*param_pack=*/false);
 
+  // If the invented parameter was constrained, save the constraint.
+  if (tree reqs = TEMPLATE_PARM_CONSTRAINTS (tree_last (new_parm)))
+    current_template_reqs = save_leading_requirements (reqs);
 
+  // Chain the new parameter to the list of implicit parameters.
   if (parser->implicit_template_parms)
     parser->implicit_template_parms
       = TREE_CHAIN (parser->implicit_template_parms);

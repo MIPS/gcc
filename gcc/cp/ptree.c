@@ -227,7 +227,10 @@ cxx_print_xnode (FILE *file, tree node, int indent)
     case CONSTRAINT_INFO:
       {
         tree_constraint_info *cinfo = (tree_constraint_info *)node;
-        print_node (file, "requirements", cinfo->requirements, indent+4);
+        if (cinfo->leading_reqs)
+          print_node (file, "leading_reqs", cinfo->leading_reqs, indent+4);
+        if (cinfo->trailing_reqs)
+          print_node (file, "trailing_reqs", cinfo->trailing_reqs, indent+4);
         if (cinfo->assumptions)
           print_node_brief (file, "assumptions", cinfo->assumptions, indent+4);
         break;

@@ -1,3 +1,91 @@
+2014-07-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/cp/tree.c (cp_tree_equal): compare constraint infos by
+	their associated constraints (patch by Braden Obrzut).
+	* gcc/cp/logic.c (decompose_assumptions): Don't decompose errors.
+	(subsumes_constraints): Update to use new macros.
+	* gcc/cp/cp-tree.h (tree_constraint_info): Rewrite constraints
+	to cache leading, trailing, and associated requirements.
+	(CI_SPELLING, CI_REQUIREMENTS): Remove
+	(CL_LEADING_REQS, CI_TRAILING_REQS, CI_ASSOCIATED_REQS): New
+	accessors for constraint info field.
+	(save_leading_requirements, save_trailing_requirements,
+	valid_template_requirements_p): New.
+	(make_constraints): Removed.
+	(instantiate_requirements): Add flag to substitute in either
+	dependent/non-dependent mode.
+	(tsubst_constraint_info): New.
+	* gcc/cp/cxx-pretty-print.h (pp_cxx_requires_clause): New.
+	* gcc/cp/cxx-pretty-print.c (pp_cxx_init_declarator): Remove.
+	(pp_cxx_function_definition): Print trailing constraints if they
+	exist.
+	(pp_cxx_init_declarator): New. Print trailing requirements.
+	(pp_cxx_template_declaration): Print leading requirements.
+	(pp_cxx_requires_clause): New.
+	* gcc/cp/pt.c (build_template_decl): Ensure completion of constraints
+	when associating them with the template.
+	(add_inherited_template_parms): Update to new constraint mechanisms.
+	(redeclare_class_template): Update to new constraint mechanisms.
+	(tsubst_decl): Update to new constraint mechanism.
+	* gcc/cp/parser.c (cp_parser_lambda_expression): Save off constraints
+	in a generic lambda.
+	(cp_check_constrained_type_parm): Save leading requirements instead
+	of finishing them.
+	(cp_parser_trailing_requirements): Simplify by just saving the trailing
+	requirements.
+	(cp_parser_init_declarator): Save off constraints before parsing the
+	declarator.
+	(cp_parser_member_declaration): Save off requirements before parsing
+	the declarator.
+	(cp_parser_requires_clause): Defer constexpr check until as late as
+	possible.
+	(cp_parser_template_declaration_after_export): Save leading requirements
+	instead of finishing them.
+	(synthesize_implicit_template_parm): Save leading requirements when
+	processing a constrained-type-specifier.
+	* gcc/cp/class.c (get_member_fn_template): Update to use new constraint
+	mechanism.
+	* gcc/cp/call.c (constraint_failure): Renamed from
+	template_constraint_failure. Produce reasons for non-template functions.
+	(is_constrainable_non_template_fn): Removed.
+	(add_function_candidate): Use new constraint association framework.
+	* gcc/cp/ptree.c (cxx_print_xnode): Dump leading, trailing requirements.
+	* gcc/cp/error.c (dumpl_template_decl): Print a leading requires-clause.
+	(dump_function_decl): Print a trailing requires-clause.
+	* gcc/cp/semantics.c (finish_template_template_parm): Finish
+	template constraints before associating them.
+	* gcc/cp/constraint.cc (reduce_call): Don't fold constants when
+	substituting.
+	(reduce_template_id): Replace EXPR_LOCATION in diagnostics. Return
+	error_mark_node instead of corrected call expression.
+	(reduce_requirements): Don't normalize a null expression.
+	(make_constraints): Removed.
+	(get_constraints): Updated.
+	(set_constraint): Updated.
+	(get_shorthand_requirements): Use the appropriate macro.
+	(build_constraint_info, init_leading_requirements, 
+	init_trailing_requirements, update_leadng_requirements,
+	update_trailing_requirements, save_leading_requirements,
+	save_trailing_requirements): New.
+	(finish_template_requirements): Analyze and decompose constraints.
+	(valid_template_requirements_p): New.
+	(instantiate_requirements): New flag.
+	(tsubst_constraint_info): New.
+	(check_requirements): Update.
+	(check_constraints): Add another round of instantiation to ensure
+	that all non-constexpr exprs are folded out of the expression.
+	(check_constraints): Update.
+	(equivalent_constraints): Redefine constraint equivalence in terms
+	of tokens (patch by Braden Obrzut).
+	(diagnose_trait, diagnose_check, diagnose_requires, 
+	diagnose_constraints): Update.
+	* gcc/cp/decl2.c (check_classfn): Update constraint mechanisms.
+	* gcc/cp/decl.c (decls_match): Update to use new constraints.
+	(duplicate_decls): members match if they have equivalent constraints.
+	(get_leading_template_requirements): New.
+	(adjust_out_of_class_fn_requirements): New.
+	(grokfndecl): Associate requirements with a function declaration.
+	* gcc/testsuite/g++.dg/concepts/*: New tests.
+
 2014-06-28  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/c-family/c.opt (flag_concepts): Don't enable by default.
 	* gcc/c-family/c-opts.c (set_std_cxx1z): Enable concepts if
@@ -6,8 +94,7 @@
 	* gcc/cp/c-common.c (cxx_dialect): Make -std=c++98 the default
 	language again.
 	* gcc/cp/lex.c (cxx_init): Don't set flag_concepts explicitly.
-	* gcc/testsuite/g++.dg/concepts/*.C: Updat build flags.
-
+	* gcc/testsuite/g++.dg/concepts/*.C: Update build flags.
 
 2014-06-28  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/cp-tree.h (DECL_CONSTRAINTS): Remove this macro; use

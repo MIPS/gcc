@@ -716,14 +716,25 @@ invalid_copy_with_fn_template_rejection (void)
   return r;
 }
 
+// Build a constraint failure reecord, saving information into the
+// template_instantiation field of the rejection. If FN is not a template
+// declaration, the TMPL member is the FN declaration and TARGS is empty.
 static struct rejection_reason *
-template_constraint_failure (tree tmpl, tree targs)
-{
+constraint_failure (tree fn) {
   struct rejection_reason *r = alloc_rejection (rr_constraint_failure);
-  r->u.template_instantiation.tmpl = tmpl;
-  r->u.template_instantiation.targs = targs;
+  if (tree ti = DECL_TEMPLATE_INFO (fn))
+    {
+      r->u.template_instantiation.tmpl = TI_TEMPLATE (ti);
+      r->u.template_instantiation.targs = TI_ARGS (ti);
+    }
+  else
+    {
+      r->u.template_instantiation.tmpl = fn;
+      r->u.template_instantiation.targs = NULL_TREE;
+    }
   return r;
 }
+
 
 /* Dynamically allocate a conversion.  */
 
@@ -1886,19 +1897,6 @@ remaining_arguments (tree arg)
   return n;
 }
 
-// Returns true if FN is a non-template member function or non-template 
-// friend function. Both kinds of declaration can be constrained.
-static inline bool
-is_constrainable_non_template_fn (tree fn) 
-{
-  if (DECL_FRIEND_PSEUDO_TEMPLATE_INSTANTIATION (fn))
-    return true;
-
-  return DECL_FUNCTION_MEMBER_P (fn) &&
-         DECL_TEMPLATE_INFO (fn) &&
-         !DECL_MEMBER_TEMPLATE_P (DECL_TI_TEMPLATE (fn));
-}
-
 /* Create an overload candidate for the function or method FN called
    with the argument list FIRST_ARG/ARGS and add it to CANDIDATES.
    FLAGS is passed on to implicit_conversion.
@@ -1949,30 +1947,18 @@ add_function_candidate (struct z_candidate **candidates,
 
   // Viable functions
   //
-  // Functions whose constraints are not satisfied are non-viable.
-  //
-  // For function templates, constraints are checked as part of template
-  // argument deduction. A failure there means that the template is
-  // already added as a non-viable candidate. For non-template member 
-  // functions, however, the declaration declaration has already been
-  // synthesized, but its constraints have not actually been checked.
-  // We should do that now.
-  //
-  // TODO: Consider checking constrained non-template members during
-  // class template instantiation and setting a flag indicating whether
-  // or not the declaration is viable. This could be set as a flag in
-  // TEMPLATE_INFO (there should be a bunch of unused bits there).
-  if (is_constrainable_non_template_fn (fn)) 
-    {
-      tree tmpl = DECL_TI_TEMPLATE (fn);
-      tree args = DECL_TI_ARGS (fn);
-      if (!check_template_constraints (tmpl, args))
+  // Zeroth, a constrained function is not viable if its constraints are not
+  // satisfied.
+  if (flag_concepts) {
+    if (tree ci = get_constraints (fn)) {
+      if (!check_constraints (ci))
         {
-          reason = template_constraint_failure (tmpl, args);
+          reason = constraint_failure (fn);
           viable = false;
           goto out;          
         }
     }
+  }
 
   /* 13.3.2 - Viable functions [over.match.viable]
      First, to be a viable function, a candidate function shall have enough
@@ -4090,15 +4076,18 @@ build_new_function_call (tree fn, vec<tree, va_gc> **args, bool koenig_p,
 
   cand = perform_overload_resolution (fn, *args, &candidates, &any_viable_p,
 				      complain);
-
   if (!cand)
     {
       if (complain & tf_error)
 	{
+          // If there is a single (non-viable) function candidate,
+          // let the error be diagnosed by cp_build_function_call_vec.
 	  if (!any_viable_p && candidates && ! candidates->next
 	      && (TREE_CODE (candidates->fn) == FUNCTION_DECL))
 	    return cp_build_function_call_vec (candidates->fn, args, complain);
-	  if (TREE_CODE (fn) == TEMPLATE_ID_EXPR)
+	  
+          // Otherwise, emit notes for non-viable candidates.
+          if (TREE_CODE (fn) == TEMPLATE_ID_EXPR)
 	    fn = TREE_OPERAND (fn, 0);
 	  print_error_for_call_failure (fn, *args, candidates);
 	}
