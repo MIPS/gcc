@@ -1,3 +1,18 @@
+2014-07-11  Manjunath Matti <mmatti@caviumnetworks.com>
+
+	Ported for bug #10200
+	2012-07-27  Andrew Pinski  <apinski@cavium.com>
+
+	* expr.c (get_condition_from_operand): New function.
+	(get_def_noter_for_expr_with_code): New function.
+	(expand_cond_expr_using_addcc): New function.
+	(expand_cond_expr_using_cmove): Use get_condition_from_operand
+	instead of doing it inline.
+	(expand_expr_real_2 <case COND_EXPR>): Try expanding using
+	addcc before using cmove.
+	* fold-const.c (fold_truth_not_expr): Make it non static.
+	* fold-const.h (fold_truth_not_expr): Add declaration.
+
 2014-07-10  Manjunath Matti <mmatti@caviumnetworks.com>
 
 	Ported:

@@ -7925,6 +7925,191 @@ expand_expr_real (tree exp, rtx target, enum machine_mode tmode,
   return ret;
 }
 
+static void
+get_condition_from_operand (tree op, tree *op0, tree *op1,
+			    enum tree_code *code)
+{
+  gimple srcstmt;
+
+  if (TREE_CODE (op) == SSA_NAME
+      && (srcstmt = get_def_for_expr_class (op, tcc_comparison)))
+    {
+      *op0 = gimple_assign_rhs1 (srcstmt);
+      *op1 = gimple_assign_rhs2 (srcstmt);
+      *code = gimple_assign_rhs_code (srcstmt);
+    }
+  else if (TREE_CODE (op) == SSA_NAME
+      && (srcstmt = get_def_for_expr (op, BIT_NOT_EXPR)))
+    {
+      *op0 = gimple_assign_rhs1 (srcstmt);
+      *op1 = fold_convert (TREE_TYPE (op), integer_zero_node);
+      *code = EQ_EXPR;
+    }
+  else if (TREE_CODE_CLASS (TREE_CODE (op)) == tcc_comparison)
+    {
+      *op0 = TREE_OPERAND (op, 0);
+      *op1 = TREE_OPERAND (op, 1);
+      *code = TREE_CODE (op);
+    }
+  else
+    {
+      *op0 = op;
+      *op1 = fold_convert (TREE_TYPE (op), integer_zero_node);
+      *code = NE_EXPR;
+    }
+}
+
+/* Given a ssa_name in NAME see if it was defined by an assignment and
+   set CODE to be the code and ARG1 to the first operand on the rhs and ARG2
+   to the second operand on the rhs. */
+
+static gimple
+get_def_noter_for_expr_with_code (tree name, enum tree_code code)
+{
+  gimple def;
+
+  if (TREE_CODE (name) == SSA_NAME)
+    {
+      def = SSA_NAME_DEF_STMT (name);
+      
+      if (def && is_gimple_assign (def)
+	  && gimple_assign_rhs_code (def) == code)
+	return def;
+    }
+  return NULL;
+}
+/* Try to expand the conditional expression which is represented by
+   TREEOP0 ? TREEOP1 : TREEOP2 using conditonal adds.  If succeseds
+   return the rtl reg which represents the result.  Otherwise return
+   NULL_RTL.  */
+
+static rtx
+expand_cond_expr_using_addcc (tree treeop0, tree treeop1, tree treeop2)
+{
+  tree diff;
+  rtx op1, op2, op00, op01, temp;
+  tree cmpop0, cmpop1, type;
+  enum tree_code cmpcode;
+  enum rtx_code comparison_code;
+  enum machine_mode comparison_mode, mode;
+  rtx seq;
+  int unsignedp;
+  gimple srcstmt;
+
+  type = TREE_TYPE (treeop1);
+  mode = TYPE_MODE (type);
+
+  if (!INTEGRAL_TYPE_P (type))
+    return NULL_RTX;
+
+  /* Handle 0/1 specially because boolean types and precision of one types,
+     will cause the diff to always be 1.  Note this really should have
+     simplified before reaching here.  */
+  /* A ? 1 : 0 is just (type)(A!=0). */
+  if (integer_zerop (treeop2) && integer_onep (treeop1))
+    {
+      tree t = fold_convert (TREE_TYPE (treeop0), integer_zero_node);
+      tree tmp = fold_build2 (NE_EXPR, TREE_TYPE (treeop0), treeop0, t);
+      tmp = fold_convert (type, tmp);
+      return expand_normal (tmp);
+    }
+
+  /* A ? 0 : 1 is just (type)(A==0). */
+  if (integer_zerop (treeop1) && integer_onep (treeop0))
+    {
+      tree t = fold_convert (TREE_TYPE (treeop0), integer_zero_node);
+      tree tmp = fold_build2 (EQ_EXPR, TREE_TYPE (treeop0), treeop0, t);
+      tmp = fold_convert (type, tmp);
+      return expand_normal (tmp);
+    }
+
+  /* A ? CST1 : CST2 can be expanded as CST2 + (!A)*(CST1 - CST2) */
+  if (TREE_CODE (treeop1) == INTEGER_CST
+      && TREE_CODE (treeop2) == INTEGER_CST)
+    diff = int_const_binop (MINUS_EXPR, treeop1, treeop2);
+  /* A ? b : b+c can be expanded as b + (!A)*(c) */
+  else if (TREE_CODE (treeop2) == SSA_NAME
+	   && (srcstmt = get_def_noter_for_expr_with_code (treeop2, PLUS_EXPR)))
+    {
+      tree newop0;
+      if (gimple_assign_rhs1 (srcstmt) == treeop1)
+        diff = gimple_assign_rhs2 (srcstmt);
+      else if (gimple_assign_rhs2 (srcstmt) == treeop1)
+        diff = gimple_assign_rhs1 (srcstmt);
+      else
+	return NULL_RTX;
+      newop0 = fold_truth_not_expr (UNKNOWN_LOCATION, treeop0);
+      if (newop0 == NULL_TREE || !COMPARISON_CLASS_P (newop0))
+	diff = fold_build1 (NEGATE_EXPR, TREE_TYPE (treeop1), diff);
+      else
+	{
+	  tree tmp = treeop2;
+
+	  treeop0 = newop0;
+	  treeop2 = treeop1;
+	  treeop1 = tmp;
+	}
+    }
+  /* A ? b + c : b can be expanded as b + (!A)*(c) */
+  else if (TREE_CODE (treeop1) == SSA_NAME
+	   && (srcstmt = get_def_noter_for_expr_with_code (treeop1, PLUS_EXPR)))
+    {
+      if (gimple_assign_rhs1 (srcstmt) == treeop2)
+        diff = gimple_assign_rhs2 (srcstmt);
+      else if (gimple_assign_rhs2 (srcstmt) == treeop2)
+        diff = gimple_assign_rhs1 (srcstmt);
+      else
+	return NULL_RTX;
+    }
+  else
+    return NULL_RTX;
+
+  start_sequence ();
+
+  get_condition_from_operand (treeop0, &cmpop0, &cmpop1, &cmpcode);
+
+  op00 = expand_normal (cmpop0);
+  op01 = expand_normal (cmpop1);
+  unsignedp = TYPE_UNSIGNED (TREE_TYPE (cmpop0));
+  comparison_mode = TYPE_MODE (TREE_TYPE (cmpop0));
+  comparison_code = convert_tree_comp_to_rtx (cmpcode, unsignedp);
+
+  expand_operands (diff, treeop2,
+		   NULL_RTX, &op1, &op2, EXPAND_NORMAL);
+
+  temp = emit_conditional_add (NULL_RTX, comparison_code, op00, op01,
+			       comparison_mode, op2, op1, mode, unsignedp);
+
+  seq = get_insns ();
+  end_sequence ();
+
+  if (temp)
+    {
+      emit_insn (seq);
+      if (INTEGRAL_TYPE_P (type)
+	  && GET_MODE_PRECISION (mode) > TYPE_PRECISION (type))
+	return reduce_to_bit_field_precision (temp, NULL_RTX, type);
+      return temp;
+    }
+
+  /* If addcc fails, then we should expanding it as treeop2 +- (A)
+     if the diff is either 1 or -1 (plus if 1 and minus is -1).  */
+  if (INTEGRAL_TYPE_P (TREE_TYPE (cmpop0))
+      && (integer_onep (diff) || integer_all_onesp (diff)))
+    {
+      bool add = false;
+      tree tmp, t;
+      if (integer_onep (diff))
+	add = true;
+      t = fold_convert (TREE_TYPE (treeop0), integer_zero_node);
+      tmp = fold_build2 (NE_EXPR, TREE_TYPE (treeop0), treeop0, t);
+      tmp = fold_convert (type, tmp);
+      tmp = fold_build2 (add ? PLUS_EXPR : MINUS_EXPR, type, treeop2, tmp);
+      return expand_normal (tmp);
+    }
+
+  return NULL_RTX;
+}
 /* Try to expand the conditional expression which is represented by
    TREEOP0 ? TREEOP1 : TREEOP2 using conditonal moves.  If succeseds
    return the rtl reg which repsents the result.  Otherwise return
@@ -7940,12 +8125,13 @@ expand_cond_expr_using_cmove (tree treeop0 ATTRIBUTE_UNUSED,
   rtx op00, op01, op1, op2;
   enum rtx_code comparison_code;
   enum machine_mode comparison_mode;
-  gimple srcstmt;
   rtx temp;
   tree type = TREE_TYPE (treeop1);
   int unsignedp = TYPE_UNSIGNED (type);
   enum machine_mode mode = TYPE_MODE (type);
   enum machine_mode orig_mode = mode;
+  tree cmpop0, cmpop1;
+  enum tree_code cmpcode;
 
   /* If we cannot do a conditional move on the mode, try doing it
      with the promoted mode. */
@@ -7963,36 +8149,13 @@ expand_cond_expr_using_cmove (tree treeop0 ATTRIBUTE_UNUSED,
   expand_operands (treeop1, treeop2,
 		   temp, &op1, &op2, EXPAND_NORMAL);
 
-  if (TREE_CODE (treeop0) == SSA_NAME
-      && (srcstmt = get_def_for_expr_class (treeop0, tcc_comparison)))
-    {
-      tree type = TREE_TYPE (gimple_assign_rhs1 (srcstmt));
-      enum tree_code cmpcode = gimple_assign_rhs_code (srcstmt);
-      op00 = expand_normal (gimple_assign_rhs1 (srcstmt));
-      op01 = expand_normal (gimple_assign_rhs2 (srcstmt));
-      comparison_mode = TYPE_MODE (type);
-      unsignedp = TYPE_UNSIGNED (type);
-      comparison_code = convert_tree_comp_to_rtx (cmpcode, unsignedp);
-    }
-  else if (TREE_CODE_CLASS (TREE_CODE (treeop0)) == tcc_comparison)
-    {
-      tree type = TREE_TYPE (TREE_OPERAND (treeop0, 0));
-      enum tree_code cmpcode = TREE_CODE (treeop0);
-      op00 = expand_normal (TREE_OPERAND (treeop0, 0));
-      op01 = expand_normal (TREE_OPERAND (treeop0, 1));
-      unsignedp = TYPE_UNSIGNED (type);
-      comparison_mode = TYPE_MODE (type);
-      comparison_code = convert_tree_comp_to_rtx (cmpcode, unsignedp);
-    }
-  else
-    {
-      op00 = expand_normal (treeop0);
-      op01 = const0_rtx;
-      comparison_code = NE;
-      comparison_mode = GET_MODE (op00);
-      if (comparison_mode == VOIDmode)
-	comparison_mode = TYPE_MODE (TREE_TYPE (treeop0));
-    }
+  get_condition_from_operand (treeop0, &cmpop0, &cmpop1, &cmpcode);
+
+  op00 = expand_normal (cmpop0);
+  op01 = expand_normal (cmpop1);
+  unsignedp = TYPE_UNSIGNED (TREE_TYPE (cmpop0));
+  comparison_mode = TYPE_MODE (TREE_TYPE (cmpop0));
+  comparison_code = convert_tree_comp_to_rtx (cmpcode, unsignedp);
 
   if (GET_MODE (op1) != mode)
     op1 = gen_lowpart (mode, op1);
@@ -9159,6 +9322,10 @@ expand_expr_real_2 (sepops ops, rtx target, enum machine_mode tmode,
 		  && !ignore
 		  && TREE_TYPE (treeop1) != void_type_node
 		  && TREE_TYPE (treeop2) != void_type_node);
+
+      temp = expand_cond_expr_using_addcc (treeop0, treeop1, treeop2);
+      if (temp)
+	return temp;
 
       temp = expand_cond_expr_using_cmove (treeop0, treeop1, treeop2);
       if (temp)
