@@ -413,3 +413,7 @@ Driver
 
 msched-weight
 Target Report Var(TARGET_SCHED_WEIGHT) Undocumented
+
+mload-store-pairs
+Target Report Var(TARGET_LOAD_STORE_PAIRS) Undocumented
+Enable load/store bonding.

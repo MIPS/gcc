@@ -354,6 +354,7 @@ extern bool mips_epilogue_uses (unsigned int);
 extern void mips_final_prescan_insn (rtx, rtx *, int);
 extern int mips_trampoline_code_size (void);
 extern void mips_function_profiler (FILE *);
+extern bool mips_load_store_bonding_p (rtx *, enum machine_mode, bool);
 
 typedef rtx (*mulsidi3_gen_fn) (rtx, rtx, rtx);
 #ifdef RTX_CODE
