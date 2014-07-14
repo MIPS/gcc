@@ -18996,7 +18996,7 @@ mips_option_override (void)
 	target_flags |= MASK_FLOAT64;
       else if (TARGET_64BIT && TARGET_DOUBLE_FLOAT)
 	target_flags |= MASK_FLOAT64;
-      else if (mips_abi == ABI_32 && TARGET_MSA)
+      else if (mips_abi == ABI_32 && TARGET_MSA && !TARGET_FLOATXX)
 	target_flags |= MASK_FLOAT64;
       else
 	target_flags &= ~MASK_FLOAT64;
