@@ -42,9 +42,11 @@ along with GCC; see the file COPYING3.  If not see
   @0)
 /* Make sure to preserve divisions by zero.  This is the reason why
    we don't simplify x / x to 1 or 0 / x to 0.  */
+(for op in trunc_div ceil_div floor_div round_div
 (match_and_simplify
-  (trunc_div @0 integer_onep)
-  @0)
+  (op @0 integer_onep)
+  @0))
+
 (match_and_simplify
   (trunc_mod @0 integer_onep)
   { build_zero_cst (type); })
@@ -357,6 +359,16 @@ along with GCC; see the file COPYING3.  If not see
   (bit_and:c (bit_and @0 @1) (bit_not @0))
   if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
   { build_int_cst (type, 0); })
+
+/* (x << CNT1) OP (x >> CNT2) -> x r<< CNT1 OP being +, |, ^ */
+(for op in plus bit_ior bit_xor 
+(match_and_simplify
+  (op:c (lshift @0 INTEGER_CST_P@1) (rshift @0 INTEGER_CST_P@2))
+  if (INTEGRAL_TYPE_P (type) && TYPE_UNSIGNED (type)
+      && tree_fits_uhwi_p (@1) && tree_fits_uhwi_p (@2)
+      && tree_to_uhwi (@1) + tree_to_uhwi (@2) == TYPE_PRECISION (type))
+  (lrotate @0 @1)))
+
 
 /* ????s
 

@@ -116,7 +116,7 @@ END_BUILTINS
 
 struct id_base : typed_free_remove<id_base>
 {
-  enum id_kind { CODE, FN } kind;
+  enum id_kind { CODE, FN, USER_DEFINED } kind;
 
   id_base (id_kind, const char *);
 
@@ -135,6 +135,7 @@ id_base::hash (const value_type *op)
 {
   return op->hashval;
 }
+
 inline int
 id_base::equal (const value_type *op1,
 			const compare_type *op2)
@@ -168,6 +169,7 @@ struct fn_id : public id_base
       : id_base (id_base::FN, id_), fn (fn_) {}
   enum built_in_function fn;
 };
+
 
 static void
 add_operator (enum tree_code code, const char *id,
@@ -217,7 +219,7 @@ struct predicate : public operand
 };
 
 struct e_operation {
-  e_operation (const char *id, bool is_commutative_ = false);
+  e_operation (const char *id, bool is_commutative_ = false, bool add_new_id = true);
   id_base *op;
   bool is_commutative;
 };
@@ -254,11 +256,10 @@ struct capture : public operand
   virtual void gen_transform (FILE *f, const char *, bool);
 };
 
-
-e_operation::e_operation (const char *id, bool is_commutative_)
+e_operation::e_operation (const char *id, bool is_commutative_, bool add_new_id)
 {
-  id_base tem (id_base::CODE, id);
   is_commutative = is_commutative_;
+  id_base tem (id_base::CODE, id);
 
   op = operators.find_with_hash (&tem, tem.hashval);
   if (op)
@@ -287,19 +288,25 @@ e_operation::e_operation (const char *id, bool is_commutative_)
       return;
     }
 
-  fatal ("expected operator, got %s", id);
+  if (add_new_id == false)
+    fatal ("%s is not an operator/built-in function", id);
+
+  op = new id_base (id_base::USER_DEFINED, id);
+  operators.find_slot_with_hash (op, op->hashval, INSERT);
 }
+
+
 
 struct simplify {
   simplify (const char *name_,
-	    vec<operand *> matchers_, source_location match_location_,
+	    operand *match_, source_location match_location_,
 	    struct operand *ifexpr_, source_location ifexpr_location_,
 	    struct operand *result_, source_location result_location_)
-      : name (name_), matchers (matchers_), match_location (match_location_),
+      : name (name_), match (match_), match_location (match_location_),
       ifexpr (ifexpr_), ifexpr_location (ifexpr_location_),
       result (result_), result_location (result_location_) {}
   const char *name;
-  vec<operand *> matchers;  // vector to hold commutative expressions
+  operand *match; 
   source_location match_location;
   struct operand *ifexpr;
   source_location ifexpr_location;
@@ -452,19 +459,9 @@ print_operand (operand *o, FILE *f = stderr, bool flattened = false)
 void
 print_matches (struct simplify *s, FILE *f = stderr)
 {
-  if (s->matchers.length () == 1)
-    return;
-
   fprintf (f, "for expression: ");
-  print_operand (s->matchers[0], f);  // s->matchers[0] is equivalent to original expression
+  print_operand (s->match, f); 
   putc ('\n', f);
-
-  fprintf (f, "commutative expressions:\n");
-  for (unsigned i = 0; i < s->matchers.length (); ++i)
-    {
-      print_operand (s->matchers[i], f);
-      putc ('\n', f);
-    }
 }
 
 void
@@ -551,6 +548,74 @@ commutate (operand *op)
 
   return ret;
 }
+
+void
+lower_commutative (simplify *s, vec<simplify *>& simplifiers)
+{
+  vec<operand *> matchers = commutate (s->match);
+  for (unsigned i = 0; i < matchers.length (); ++i)
+    {
+      simplify *ns = new simplify (s->name, matchers[i], s->match_location,
+				   s->ifexpr, s->ifexpr_location,
+				   s->result, s->result_location);
+      simplifiers.safe_push (ns);
+    }
+}
+
+void
+check_operator (id_base *op, unsigned n_ops, const cpp_token *token = 0)
+{
+  if (!op)
+    return;
+
+  if (op->kind != id_base::CODE)
+    return;
+
+  operator_id *opr = static_cast<operator_id *> (op);
+  if (opr->get_required_nargs () == n_ops)
+    return;
+
+  if (token)
+    fatal_at (token, "%s expects %u operands, got %u operands", opr->id, opr->get_required_nargs (), n_ops);
+  else
+    fatal ("%s expects %u operands, got %u operands", opr->id, opr->get_required_nargs (), n_ops);
+}
+        
+operand *
+replace_id (operand *o, const char *user_id, const char *oper)
+{
+  if (o->type == operand::OP_CAPTURE)
+    {
+      capture *c = static_cast<capture *> (o);
+      if (!c->what)
+	return c;
+      capture *nc = new capture (c->where, replace_id (c->what, user_id, oper));
+      return nc;
+    }
+
+  if (o->type != operand::OP_EXPR)
+    return o;
+
+  expr *e = static_cast<expr *> (o);
+  expr *ne;
+
+  if (e->operation->op->kind == id_base::USER_DEFINED) 
+    {
+      if (strcmp (e->operation->op->id, user_id) != 0)
+	fatal ("defined symbol (%s) and replacement symbol (%s) should be same", e->operation->op->id, user_id);
+      struct e_operation *operation = new e_operation (oper, e->operation->is_commutative, false);
+      check_operator (operation->op, e->ops.length ());
+      ne = new expr (operation);
+    }
+  else
+    ne = new expr (e->operation);
+
+  for (unsigned i = 0; i < e->ops.length (); ++i)
+    ne->append_op (replace_id (e->ops[i], user_id, oper));
+
+  return ne;
+}
+  
 
 /* Code gen off the AST.  */
 
@@ -828,17 +893,14 @@ decision_tree::insert (struct simplify *s, unsigned pattern_no)
 {
   dt_operand *indexes[dt_simplify::capture_max];
 
-  for (unsigned i = 0; i < s->matchers.length (); ++i)
-    {
-      if (s->matchers[i]->type != operand::OP_EXPR)
-	continue;
+  if (s->match->type != operand::OP_EXPR)
+    return; 
 
-      for (unsigned j = 0; j < dt_simplify::capture_max; ++j)
-	indexes[j] = 0; 
+  for (unsigned j = 0; j < dt_simplify::capture_max; ++j)
+    indexes[j] = 0; 
 
-      dt_node *p = decision_tree::insert_operand (root, s->matchers[i], indexes);
-      p->append_simplify (s, pattern_no, indexes);
-    }            
+  dt_node *p = decision_tree::insert_operand (root, s->match, indexes);
+  p->append_simplify (s, pattern_no, indexes);
 }
 
 void
@@ -1707,6 +1769,16 @@ get_ident (cpp_reader *r)
   return (const char *)CPP_HASHNODE (token->val.node.node)->ident.str;
 }
 
+static void
+eat_ident (cpp_reader *r, const char *s)
+{
+  const cpp_token *token = expect (r, CPP_NAME);
+  const char *t = (const char *) CPP_HASHNODE (token->val.node.node)->ident.str;
+
+  if (strcmp (s, t)) 
+    fatal_at (token, "expected %s got %s\n", s, t);
+}
+
 /* Read the next token from R and assert it is of type CPP_NUMBER and
    return its value.  */
 
@@ -1734,6 +1806,7 @@ parse_capture (cpp_reader *r, operand *op)
   eat_token (r, CPP_ATSIGN);
   return new capture (get_number (r), op);
 }
+
 
 /* Parse
      expr = (operation[capture] op...)  */
@@ -1774,13 +1847,7 @@ parse_expr (cpp_reader *r)
       const cpp_token *token = peek (r);
       if (token->type == CPP_CLOSE_PAREN)
 	{
-	  if (e->operation->op->kind == id_base::CODE)
-	    {
-	      operator_id *opr = static_cast <operator_id *> (e->operation->op);
-	      if (e->ops.length () != opr->get_required_nargs ())
-		fatal_at (token, "got %d operands instead of the required %d",
-			  e->ops.length (), opr->get_required_nargs ());
-	    }
+	  check_operator (e->operation->op, e->ops.length (), token); 
 	  if (is_commutative)
 	    {
 	      if (e->ops.length () == 2)
@@ -1912,10 +1979,45 @@ parse_match_and_simplify (cpp_reader *r, source_location match_location)
       ifexpr = parse_c_expr (r, CPP_OPEN_PAREN);
     }
   token = peek (r);
-  return new simplify (id, commutate (match), match_location,
+  return new simplify (id, match, match_location,
 		       ifexpr, ifexpr_location, parse_op (r), token->src_loc);
 }
 
+
+void
+parse_for (cpp_reader *r, source_location match_location, vec<simplify *>& simplifiers)
+{
+  const char *user_id = get_ident (r);
+  eat_ident (r, "in");
+
+  vec<const char *> opers = vNULL;
+
+  while (1)
+    {
+      const cpp_token *token = peek (r);
+      if (token->type != CPP_NAME)
+	break;
+      opers.safe_push (get_ident (r));
+    } 
+
+  eat_token (r, CPP_OPEN_PAREN);
+  eat_ident (r, "match_and_simplify");
+
+  simplify *s = parse_match_and_simplify (r, match_location);
+  eat_token (r, CPP_CLOSE_PAREN);
+
+  for (unsigned i = 0; i < opers.length (); ++i)
+    {
+      operand *match_op = replace_id (s->match, user_id, opers[i]);
+      operand *result_op = replace_id (s->result, user_id, opers[i]);
+
+      simplify *ns = new simplify (s->name, match_op, s->match_location,
+				  s->ifexpr, s->ifexpr_location,
+				  result_op, s->result_location);
+
+      simplifiers.safe_push (ns);
+    }
+}
 
 static size_t
 round_alloc_size (size_t s)
@@ -1986,30 +2088,36 @@ main(int argc, char **argv)
       const char *id = get_ident (r);
       if (strcmp (id, "match_and_simplify") == 0)
 	simplifiers.safe_push (parse_match_and_simplify (r, token->src_loc));
+      else if (strcmp (id, "for") == 0)
+	parse_for (r, token->src_loc, simplifiers); 
       else
-	fatal_at (token, "expected 'match_and_simplify'");
+	fatal_at (token, "expected 'match_and_simplify' or 'for'");
 
       eat_token (r, CPP_CLOSE_PAREN);
     }
   while (1);
 
+  vec<simplify *> out_simplifiers = vNULL;
   for (unsigned i = 0; i < simplifiers.length (); ++i)
-    print_matches (simplifiers[i]);
+    lower_commutative (simplifiers[i], out_simplifiers);
+
+  for (unsigned i = 0; i < out_simplifiers.length (); ++i)
+    print_matches (out_simplifiers[i]);
 
   decision_tree dt;
-  for (unsigned i = 0; i < simplifiers.length (); ++i)
-    dt.insert (simplifiers[i], i);
+  for (unsigned i = 0; i < out_simplifiers.length (); ++i)
+    dt.insert (out_simplifiers[i], i);
 
   dt.print (stderr);
  
   if (gimple)
     {
-      write_header (stdout, simplifiers, "gimple-match-head.c");
+      write_header (stdout, out_simplifiers, "gimple-match-head.c");
       dt.gen_gimple (stdout);
     }
   else
     {
-      write_header (stdout, simplifiers, "generic-match-head.c");
+      write_header (stdout, out_simplifiers, "generic-match-head.c");
       dt.gen_generic (stdout);
     }
 

@@ -1,3 +1,27 @@
+2014-07-14  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	* genmatch.c (id_base::id_kind): Add new enum value USER_DEFINED.
+	(e_operation::e_operation): New default argument add_new_id. Adjust
+	to add id in hash table.
+	(simplify): Remove matchers member. New member match.
+	(print_matches): Adjust to changes in simplify.
+	(decision_tree::insert): Likewise.
+	(lower_commutative): New function.
+	(check_operator): Likewise.
+	(replace_id): Likewise.
+	(eat_ident): Likewise.
+	(parse_for): Likewise.
+	(parse_pattern): Likewise.
+	(check_no_user_id): Likewise.
+	(check_no_user_id): Likewise, overloaded to take simplify as first
+	argument.
+	(parse_expr): Call check_operator.
+	(main): call parse_pattern, lower_commutative, check_no_user_id.
+	* match.pd: Adjust few constant folding patterns to use for.
+
+	testsuite/
+	* gcc.dg/tree-ssa/match-rotate.c: New test-case.
+
 2014-07-08  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 
 	testsuite/
