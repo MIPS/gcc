@@ -1,3 +1,14 @@
+2014-07-14  David Malcolm  <dmalcolm@redhat.com>
+
+	* internal-api.c (gcc::jit::recording::context::new_array_type):
+	Reject attempts to create an array of a struct if the fields of
+	the struct haven't yet been set.
+	* internal-api.h (gcc::jit::recording::type::dyn_cast_struct): New
+	virtual function.
+	(gcc::jit::recording::struct_::dyn_cast_struct): New, overriding
+	for this subclass.
+	(gcc::jit::recording::struct_::get_name): New.
+
 2014-05-07  David Malcolm  <dmalcolm@redhat.com>
 
 	* Make-lang.in (LIBGCCJIT_LINKER_NAME): New.

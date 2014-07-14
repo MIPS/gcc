@@ -477,8 +477,9 @@ public:
      The caller is responsible for setting an error.  */
   virtual type *dereference () = 0;
 
-  /* Dynamic cast.  */
+  /* Dynamic casts.  */
   virtual function_type *as_a_function_type() { gcc_unreachable (); return NULL; }
+  virtual struct_ *dyn_cast_struct () { return NULL; }
 
   /* Is it typesafe to copy to this type from rtype?  */
   virtual bool accepts_writes_from (type *rtype)
@@ -755,9 +756,12 @@ public:
 	   location *loc,
 	   string *name);
 
+  struct_ *dyn_cast_struct () { return this; }
+
   type *
   as_type () { return this; }
 
+  string *get_name () const { return m_name; }
   fields * get_fields () { return m_fields; }
 
   void
