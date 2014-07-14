@@ -414,7 +414,7 @@ struct decision_tree
   static void print_node (dt_node *, FILE *f = stderr, unsigned = 0);
 };
 
-void
+DEBUG_FUNCTION void
 print_operand (operand *o, FILE *f = stderr, bool flattened = false)
 {
   if (o->type == operand::OP_CAPTURE)
@@ -456,7 +456,7 @@ print_operand (operand *o, FILE *f = stderr, bool flattened = false)
     gcc_unreachable ();
 }
 
-void
+DEBUG_FUNCTION void
 print_matches (struct simplify *s, FILE *f = stderr)
 {
   fprintf (f, "for expression: ");
@@ -903,7 +903,7 @@ decision_tree::insert (struct simplify *s, unsigned pattern_no)
   p->append_simplify (s, pattern_no, indexes);
 }
 
-void
+DEBUG_FUNCTION void
 decision_tree::print_node (dt_node *p, FILE *f, unsigned indent)
 {
   if (p->type == dt_node::DT_NODE)
@@ -940,7 +940,7 @@ decision_tree::print_node (dt_node *p, FILE *f, unsigned indent)
 }
 
 
-void
+DEBUG_FUNCTION void
 decision_tree::print (FILE *f)
 {
   return decision_tree::print_node (root, f);

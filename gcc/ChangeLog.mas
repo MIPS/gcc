@@ -1,5 +1,12 @@
 2014-07-14  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 
+	* genmatch.c (print_operand): Add attribute DEBUG_FUNCTION.
+	(print_matches): Likewise.
+	(decision_tree::print_node): Likewise.
+	(decision_tree::print): Likewise.
+
+2014-07-14  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
 	* genmatch.c (id_base::id_kind): Add new enum value USER_DEFINED.
 	(e_operation::e_operation): New default argument add_new_id. Adjust
 	to add id in hash table.
