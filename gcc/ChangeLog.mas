@@ -1,5 +1,10 @@
 2014-07-14  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 
+	* match.pd: Remove INTEGRAL_TYPE_P (TREE_TYPE (@0)) in bitwise
+	patterns and use integral_op_p@0.
+
+2014-07-14  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
 	* genmatch.c (print_operand): Add attribute DEBUG_FUNCTION.
 	(print_matches): Likewise.
 	(decision_tree::print_node): Likewise.

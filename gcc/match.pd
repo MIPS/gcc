@@ -177,8 +177,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* ~A + 1 -> -A */
 (match_and_simplify
-  (plus (bit_not @0) integer_onep)
-  if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
+  (plus (bit_not integral_op_p@0) integer_onep)
   (negate @0)) 
 
 /* A - (A +- B) -> -+ B */
@@ -222,8 +221,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* fold_negate_exprs convert - (~A) to A + 1.  */
 (match_and_simplify
-  (negate (bit_not @0))
-  if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
+  (negate (bit_not integral_op_p@0))
   (plus @0 { build_int_cst (TREE_TYPE (@0), 1); } ))
 
 /* One ternary pattern.  */
@@ -285,38 +283,32 @@ along with GCC; see the file COPYING3.  If not see
 
 /* x & x -> x */
 (match_and_simplify
-  (bit_and @0 @0)
-  if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
+  (bit_and integral_op_p@0 @0)
   @0)
 
 /* x & ~x -> 0 */
 (match_and_simplify
-  (bit_and:c @0 (bit_not @0))
-  if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
+  (bit_and:c integral_op_p@0 (bit_not @0))
   { build_int_cst (type, 0); })
 
 /* ~x & ~y -> ~(x | y) */
 (match_and_simplify
-  (bit_and (bit_not @0) (bit_not @1))
-  if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
+  (bit_and (bit_not integral_op_p@0) (bit_not @1))
   (bit_not (bit_ior @0 @1)))
 
 /* ~x | ~y -> ~(x & y) */
 (match_and_simplify
-  (bit_ior (bit_not @0) (bit_not @1))
-  if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
+  (bit_ior (bit_not integral_op_p@0) (bit_not @1))
   (bit_not (bit_and @0 @1)))
 
 /* x & (~x | y) -> y & x */
 (match_and_simplify
-  (bit_and:c @0 (bit_ior:c (bit_not @0) @1))
-  if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
+  (bit_and:c integral_op_p@0 (bit_ior:c (bit_not @0) @1))
   (bit_and @1 @0))
 
 /* (x | CST1) & CST2 -> (x & CST2) | (CST1 & CST2) */
 (match_and_simplify
-  (bit_and (bit_ior @0 INTEGER_CST_P@1) INTEGER_CST_P@2)
-  if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
+  (bit_and (bit_ior integral_op_p@0 INTEGER_CST_P@1) INTEGER_CST_P@2)
   (bit_ior (bit_and @0 @2) (bit_and @1 @2)))
 
 /* x ^ ~0 -> ~x */
@@ -326,38 +318,32 @@ along with GCC; see the file COPYING3.  If not see
 
 /* (x | y) & x -> x */
 (match_and_simplify
-  (bit_and:c (bit_ior @0 @1) @0)
-  if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
+  (bit_and:c (bit_ior integral_op_p@0 @1) @0)
   @0)
 
 /* (x & y) | x -> x */
 (match_and_simplify
-  (bit_ior:c (bit_and @0 @1) @0)
-  if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
+  (bit_ior:c (bit_and integral_op_p@0 @1) @0)
   @0)
 
 /* (~x | y) & x -> x & y */
 (match_and_simplify
-  (bit_and:c (bit_ior:c (bit_not @0) @1) @0)
-  if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
+  (bit_and:c (bit_ior:c (bit_not integral_op_p@0) @1) @0)
   (bit_and @0 @1))
 
 /* (~x & y) | x -> x | y */
 (match_and_simplify
-  (bit_ior:c (bit_and:c (bit_not @0) @1) @0)
-  if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
+  (bit_ior:c (bit_and:c (bit_not integral_op_p@0) @1) @0)
   (bit_ior @0 @1))
 
 /* ~~x -> x */
 (match_and_simplify
-  (bit_not (bit_not @0))
-  if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
+  (bit_not (bit_not integral_op_p@0))
   @0)
 
 /* ((a & b) & ~a) -> 0 */
 (match_and_simplify
-  (bit_and:c (bit_and @0 @1) (bit_not @0))
-  if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
+  (bit_and:c (bit_and integral_op_p@0 @1) (bit_not @0))
   { build_int_cst (type, 0); })
 
 /* (x << CNT1) OP (x >> CNT2) -> x r<< CNT1 OP being +, |, ^ */
