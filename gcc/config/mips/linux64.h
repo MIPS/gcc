@@ -31,12 +31,15 @@ along with GCC; see the file COPYING3.  If not see
 
 #undef UCLIBC_DYNAMIC_LINKER32
 #define UCLIBC_DYNAMIC_LINKER32 \
-  "%{mnan=2008:/lib/ld-uClibc-mipsn8.so.0;:/lib/ld-uClibc.so.0}"
+  "%{mnan=2008:/lib/ld-uClibc-mipsn8.so.0;" \
+  ":/lib/ld-uClibc.so.0}"
 #undef UCLIBC_DYNAMIC_LINKER64
 #define UCLIBC_DYNAMIC_LINKER64 \
-  "%{mnan=2008:/lib/ld64-uClibc-mipsn8.so.0;:/lib/ld64-uClibc.so.0}"
+  "%{mnan=2008:/lib/ld64-uClibc-mipsn8.so.0;" \
+  ":/lib/ld64-uClibc.so.0}"
 #define UCLIBC_DYNAMIC_LINKERN32 \
-  "%{mnan=2008:/lib32/ld-uClibc-mipsn8.so.0;:/lib32/ld-uClibc.so.0}"
+  "%{mnan=2008:/lib32/ld-uClibc-mipsn8.so.0;" \
+  ":/lib32/ld-uClibc.so.0}"
 
 #define BIONIC_DYNAMIC_LINKERN32 "/system/bin/linker32"
 #define GNU_USER_DYNAMIC_LINKERN32 \
