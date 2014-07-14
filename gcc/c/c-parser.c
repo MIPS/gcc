@@ -10057,7 +10057,7 @@ c_parser_oacc_data_clause_deviceptr (c_parser *parser, tree list)
   return list;
 }
 
-/* OpenMP 3.0:
+/* OpenACC 2.0, OpenMP 3.0:
    collapse ( constant-expression ) */
 
 static tree
@@ -11260,6 +11260,10 @@ c_parser_oacc_all_clauses (c_parser *parser, omp_clause_mask mask,
 
       switch (c_kind)
 	{
+	case PRAGMA_OMP_CLAUSE_COLLAPSE:
+	  clauses = c_parser_omp_clause_collapse (parser, clauses);
+	  c_name = "collapse";
+	  break;
 	case PRAGMA_OMP_CLAUSE_COPY:
 	  clauses = c_parser_oacc_data_clause (parser, c_kind, clauses);
 	  c_name = "copy";
@@ -11702,7 +11706,8 @@ c_parser_oacc_kernels (location_t loc, c_parser *parser, char *p_name)
 */
 
 #define OACC_LOOP_CLAUSE_MASK						\
-	(OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_REDUCTION)
+	( (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_COLLAPSE)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_REDUCTION) )
 
 static tree
 c_parser_oacc_loop (location_t loc, c_parser *parser, char *p_name)
@@ -12306,10 +12311,7 @@ c_parser_omp_for_loop (location_t loc, c_parser *parser, enum tree_code code,
 
   for (cl = clauses; cl; cl = OMP_CLAUSE_CHAIN (cl))
     if (OMP_CLAUSE_CODE (cl) == OMP_CLAUSE_COLLAPSE)
-      {
-	gcc_assert (code != OACC_LOOP);
       collapse = tree_to_shwi (OMP_CLAUSE_COLLAPSE_EXPR (cl));
-      }
 
   gcc_assert (collapse >= 1);
 

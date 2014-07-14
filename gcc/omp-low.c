@@ -381,9 +381,6 @@ extract_omp_for_data (gimple for_stmt, struct omp_for_data *fd,
       case OMP_CLAUSE_COLLAPSE:
 	if (fd->collapse > 1)
 	  {
-	    if (is_gimple_omp_oacc_specifically (for_stmt))
-	      sorry ("collapse (>1) clause not supported yet");
-
 	    collapse_iter = &OMP_CLAUSE_COLLAPSE_ITERVAR (t);
 	    collapse_count = &OMP_CLAUSE_COLLAPSE_COUNT (t);
 	  }
@@ -6684,9 +6681,6 @@ expand_omp_for_static_nochunk (struct omp_region *region,
 
   if (fd->collapse > 1)
     {
-      gcc_assert (gimple_omp_for_kind (fd->for_stmt)
-		  != GF_OMP_FOR_KIND_OACC_LOOP);
-
       int first_zero_iter = -1;
       basic_block l2_dom_bb = NULL;
 
@@ -6697,12 +6691,7 @@ expand_omp_for_static_nochunk (struct omp_region *region,
       t = NULL_TREE;
     }
   else if (gimple_omp_for_combined_into_p (fd->for_stmt))
-    {
-      gcc_assert (gimple_omp_for_kind (fd->for_stmt)
-		  != GF_OMP_FOR_KIND_OACC_LOOP);
-
     t = integer_one_node;
-    }
   else
     t = fold_binary (fd->loop.cond_code, boolean_type_node,
 		     fold_convert (type, fd->loop.n1),
@@ -6736,9 +6725,6 @@ expand_omp_for_static_nochunk (struct omp_region *region,
       ep->probability = REG_BR_PROB_BASE / 2000 - 1;
       if (gimple_in_ssa_p (cfun))
 	{
-	  gcc_assert (gimple_omp_for_kind (fd->for_stmt)
-		      != GF_OMP_FOR_KIND_OACC_LOOP);
-
 	  int dest_idx = find_edge (entry_bb, fin_bb)->dest_idx;
 	  for (gsi = gsi_start_phis (fin_bb);
 	       !gsi_end_p (gsi); gsi_next (&gsi))
@@ -6865,9 +6851,6 @@ expand_omp_for_static_nochunk (struct omp_region *region,
 
   if (gimple_omp_for_combined_p (fd->for_stmt))
     {
-      gcc_assert (gimple_omp_for_kind (fd->for_stmt)
-		  != GF_OMP_FOR_KIND_OACC_LOOP);
-
       tree clauses = gimple_code (inner_stmt) == GIMPLE_OMP_PARALLEL
 		     ? gimple_omp_parallel_clauses (inner_stmt)
 		     : gimple_omp_for_clauses (inner_stmt);
@@ -6914,12 +6897,7 @@ expand_omp_for_static_nochunk (struct omp_region *region,
       gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
     }
   if (fd->collapse > 1)
-    {
-      gcc_assert (gimple_omp_for_kind (fd->for_stmt)
-		  != GF_OMP_FOR_KIND_OACC_LOOP);
-
     expand_omp_for_init_vars (fd, &gsi, counts, inner_stmt, startvar);
-    }
 
   if (!broken_loop)
     {
@@ -6954,12 +6932,7 @@ expand_omp_for_static_nochunk (struct omp_region *region,
       gsi_remove (&gsi, true);
 
       if (fd->collapse > 1 && !gimple_omp_for_combined_p (fd->for_stmt))
-	{
-	  gcc_assert (gimple_omp_for_kind (fd->for_stmt)
-		      != GF_OMP_FOR_KIND_OACC_LOOP);
-
 	collapse_bb = extract_omp_for_update_vars (fd, cont_bb, body_bb);
-	}
     }
 
   /* Replace the GIMPLE_OMP_RETURN with a barrier, or nothing.  */
@@ -6996,9 +6969,6 @@ expand_omp_for_static_nochunk (struct omp_region *region,
 	}
       else if (fd->collapse > 1)
 	{
-	  gcc_assert (gimple_omp_for_kind (fd->for_stmt)
-		      != GF_OMP_FOR_KIND_OACC_LOOP);
-
 	  remove_edge (ep);
 	  ep = make_edge (cont_bb, collapse_bb, EDGE_TRUE_VALUE);
 	}

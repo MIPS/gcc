@@ -1,3 +1,10 @@
+2014-07-14  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-parser.c (c_parser_oacc_all_clauses): Handle
+	PRAGMA_OMP_CLAUSE_COLLAPSE.
+	(OACC_LOOP_CLAUSE_MASK): Add PRAGMA_OMP_CLAUSE_COLLAPSE.
+	(c_parser_omp_for_loop): Remove asserts.
+
 2014-07-08  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* c-parser.c (c_parser_oacc_all_clauses): Handle
