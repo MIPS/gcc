@@ -1,3 +1,9 @@
+2014-07-14  David Malcolm  <dmalcolm@redhat.com>
+
+	* cgraph.h (ipa_cp_c_finalize): Add prototype.
+	* ipa-cp.c (ipa_cp_c_finalize): New.
+	* toplev.c (toplev::finalize): Add call to ipa_cp_c_finalize.
+
 2014-05-08  David Malcolm  <dmalcolm@redhat.com>
 
 	* params.c (global_init_params): Require that params_finished be

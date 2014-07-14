@@ -3689,3 +3689,12 @@ make_pass_ipa_cp (gcc::context *ctxt)
 {
   return new pass_ipa_cp (ctxt);
 }
+
+void
+ipa_cp_c_finalize (void)
+{
+  max_count = 0;
+  overall_size = 0;
+  max_new_size = 0;
+  values_topo = NULL;
+}

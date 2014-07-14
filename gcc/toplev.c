@@ -2014,6 +2014,7 @@ toplev::finalize (void)
   dwarf2out_c_finalize ();
   gcse_c_finalize ();
   ipa_c_finalize ();
+  ipa_cp_c_finalize ();
   ipa_reference_c_finalize ();
   params_c_finalize ();
   predict_c_finalize ();
