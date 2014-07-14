@@ -279,6 +279,8 @@ extern void mips_expand_before_return (void);
 extern void mips_expand_epilogue (bool);
 extern bool mips_can_use_return_insn (void);
 
+extern bool mips_secondary_memory_needed (enum reg_class, enum reg_class,
+					  enum machine_mode);
 extern bool mips_cannot_change_mode_class (enum machine_mode,
 					   enum machine_mode, enum reg_class);
 extern bool mips_dangerous_for_la25_p (rtx);
@@ -287,7 +289,9 @@ extern enum reg_class mips_secondary_reload_class (enum reg_class,
 						   enum machine_mode,
 						   rtx, bool);
 extern int mips_class_max_nregs (enum reg_class, enum machine_mode);
-
+extern enum machine_mode mips_hard_regno_caller_save_mode (unsigned int,
+							   unsigned int,
+							   enum machine_mode);
 extern int mips_adjust_insn_length (rtx, int);
 extern void mips_output_load_label (rtx);
 extern const char *mips_output_conditional_branch (rtx, rtx *, const char *,
@@ -315,6 +319,7 @@ extern bool mips16e_save_restore_pattern_p (rtx, HOST_WIDE_INT,
 extern bool mask_low_and_shift_p (enum machine_mode, rtx, rtx, int);
 extern int mask_low_and_shift_len (enum machine_mode, rtx, rtx);
 extern bool and_operands_ok (enum machine_mode, rtx, rtx);
+extern bool mips_fmadd_bypass (rtx, rtx);
 
 union mips_gen_fn_ptrs
 {
