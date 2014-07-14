@@ -2281,12 +2281,16 @@ enum reg_class
 #define FP_ARG_LAST  (FP_ARG_FIRST + MAX_ARGS_IN_REGISTERS - 1)
 
 /* 1 if N is a possible register number for function argument passing.
-   We have no FP argument registers when soft-float.  When FP registers
-   are 32 bits, we can't directly reference the odd numbered ones.  */
+   We have no FP argument registers when soft-float.  Special handling
+   is required for O32 where only even numbered registers are used for
+   O32-FPXX and O32-FP64.  */
 
 #define FUNCTION_ARG_REGNO_P(N)					\
   ((IN_RANGE((N), GP_ARG_FIRST, GP_ARG_LAST)			\
-    || (IN_RANGE((N), FP_ARG_FIRST, FP_ARG_LAST)))		\
+    || (IN_RANGE((N), FP_ARG_FIRST, FP_ARG_LAST) 		\
+        && (mips_abi != ABI_32 					\
+            || TARGET_FLOAT32 					\
+            || ((N) % 2 == 0))))				\
    && !fixed_regs[N])
 
 /* This structure has to cope with two different argument allocation

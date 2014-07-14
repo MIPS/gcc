@@ -1198,6 +1198,7 @@ static rtx mips_find_pic_call_symbol (rtx, rtx, bool);
 static int mips_register_move_cost (enum machine_mode, reg_class_t,
 				    reg_class_t);
 static unsigned int mips_function_arg_boundary (enum machine_mode, const_tree);
+static enum machine_mode mips_get_reg_raw_mode (int regno);
 
 /* This hash table keeps track of implicit "mips16" and "nomips16" attributes
    for -mflip_mips16.  It maps decl names onto a boolean mode setting.  */
@@ -5435,6 +5436,17 @@ mips_function_arg_boundary (enum machine_mode mode, const_tree type)
   return alignment;
 }
 
+/* Implement TARGET_GET_RAW_*_MODE.  */
+
+static enum machine_mode
+mips_get_reg_raw_mode (int regno)
+{
+  if ((mips_abi == ABI_32 && !TARGET_FLOAT32)
+      && FP_REG_P (regno))
+    return DFmode;
+  return default_get_reg_raw_mode(regno);
+}
+
 /* Return true if FUNCTION_ARG_PADDING (MODE, TYPE) should return
    upward rather than downward.  In other words, return true if the
    first byte of the stack slot has useful data, false if the last
@@ -5755,17 +5767,24 @@ mips_libcall_value (enum machine_mode mode, const_rtx fun ATTRIBUTE_UNUSED)
 
 /* Implement TARGET_FUNCTION_VALUE_REGNO_P.
 
-   On the MIPS, R2 R3 and F0 F2 are the only register thus used.
-   Currently, R2 and F0 are only implemented here (C has no complex type).  */
+   On the MIPS, R2 R3 and F0 F2 are the only register thus used.  */
 
 static bool
 mips_function_value_regno_p (const unsigned int regno)
 {
   if (regno == GP_RETURN
       || regno == FP_RETURN
+      || regno == FP_RETURN + 2
       || (LONG_DOUBLE_TYPE_SIZE == 128
 	  && FP_RETURN != GP_RETURN
 	  && regno == FP_RETURN + 2))
+    return true;
+
+  if ((regno == FP_RETURN + 1
+      || regno == FP_RETURN + 3)
+      && FP_RETURN != GP_RETURN
+      && (mips_abi == ABI_32 && TARGET_FLOAT32)
+      && FP_REG_P (regno))
     return true;
 
   return false;
@@ -19259,6 +19278,10 @@ mips_lra_p (void)
 #define TARGET_FUNCTION_ARG_ADVANCE mips_function_arg_advance
 #undef TARGET_FUNCTION_ARG_BOUNDARY
 #define TARGET_FUNCTION_ARG_BOUNDARY mips_function_arg_boundary
+#undef TARGET_GET_RAW_RESULT_MODE
+#define TARGET_GET_RAW_RESULT_MODE mips_get_reg_raw_mode
+#undef TARGET_GET_RAW_ARG_MODE
+#define TARGET_GET_RAW_ARG_MODE mips_get_reg_raw_mode
 
 #undef TARGET_MODE_REP_EXTENDED
 #define TARGET_MODE_REP_EXTENDED mips_mode_rep_extended
