@@ -3085,3 +3085,7 @@ extern GTY(()) struct target_globals *mips16_globals;
    with arguments ARGS.  */
 #define PMODE_INSN(NAME, ARGS) \
   (Pmode == SImode ? NAME ## _si ARGS : NAME ## _di ARGS)
+
+#define ENABLE_P5600_LD_ST_PAIRS \
+  (TARGET_LOAD_STORE_PAIRS && TUNE_P5600 \
+   && !TARGET_MICROMIPS && !TARGET_FIX_24K)
