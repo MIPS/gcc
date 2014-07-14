@@ -1,3 +1,20 @@
+2014-07-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_emit_le_vsx_load): Convert
+	KFmode/TFmode to V2DImode on little endian to swap double words.
+	(rs6000_emit_le_vsx_store): Likewise.
+	(rs6000_cannot_change_mode_class): Undo change that restricted
+	TFmode from changing mode class on little endian systems.
+
+	* config/rs6000/vsx.md (VSX_LE): Remove KFmode from VSX_LE
+	iterator, and create VSX_F128 for little endian support of IEEE
+	128-bit floating point.
+	(VSX_F128): Likewise.
+	(vsx_le_perm_load_<mode>, VSX_F128 mode): When doing little endian
+	permutes, convert KFmode/TFmode to V2DImode.
+	(vsx_le_perm_store_<mode>, VSX_F128 mode): Likewise.
+	(splits of KFmode/TFmode moves on little endian): Likewise.
+
 2014-07-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* doc/invoke.texi: Change the spelling -mfloat128-fpr to

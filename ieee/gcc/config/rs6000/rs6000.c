@@ -8167,9 +8167,9 @@ rs6000_emit_le_vsx_load (rtx dest, rtx source, enum machine_mode mode)
 {
   rtx tmp, permute_mem, permute_reg;
 
-  /* Use V2DImode to do swaps of types with 128-bit scalare parts (TImode,
-     V1TImode).  */
-  if (mode == TImode || mode == V1TImode)
+  /* Use V2DImode to do swaps of types with 128-bit scalar parts (TImode,
+     V1TImode, IEEE 128-bit floating point that goes in vector registers).  */
+  if (mode == TImode || mode == V1TImode || FLOAT128_VECTOR_P (mode))
     {
       mode = V2DImode;
       dest = gen_lowpart (V2DImode, dest);
@@ -8191,9 +8191,9 @@ rs6000_emit_le_vsx_store (rtx dest, rtx source, enum machine_mode mode)
 {
   rtx tmp, permute_src, permute_tmp;
 
-  /* Use V2DImode to do swaps of types with 128-bit scalare parts (TImode,
-     V1TImode).  */
-  if (mode == TImode || mode == V1TImode)
+  /* Use V2DImode to do swaps of types with 128-bit scalar parts (TImode,
+     V1TImode, IEEE 128-bit floating point that goes in vector registers).  */
+  if (mode == TImode || mode == V1TImode || FLOAT128_VECTOR_P (mode))
     {
       mode = V2DImode;
       dest = adjust_address (dest, V2DImode, 0);
@@ -17525,8 +17525,7 @@ rs6000_cannot_change_mode_class (enum machine_mode from,
 	     pair with the most significant word in the even-numbered register
 	     to match ISA requirements.  In little-endian mode, this does not
 	     match subreg numbering, so we cannot allow subregs.  */
-	  if (!BYTES_BIG_ENDIAN
-	      && (FLOAT128_2REG_P (to) || FLOAT128_2REG_P (from)))
+	  if (!BYTES_BIG_ENDIAN && (to == TDmode || from == TDmode))
 	    return true;
 
 	  if (from_size < 8 || to_size < 8)

@@ -29,7 +29,6 @@
 (define_mode_iterator VSX_LE [V2DF
 			      V2DI
 			      V1TI
-			      KF
 			      (TI	"VECTOR_MEM_VSX_P (TImode)")])
 
 ;; Iterator for the 2 32-bit vector types
@@ -75,6 +74,11 @@
 			      (KF	"FLOAT128_VECTOR_P (KFmode)")
 			      (TF	"FLOAT128_VECTOR_P (TFmode)")
 			      (TI	"TARGET_VSX_TIMODE")])
+
+;; Mode iterator for 128-bit floating point that goes in a single vector
+;; register.
+(define_mode_iterator VSX_F128 [(KF	"FLOAT128_VECTOR_P (KFmode)")
+				(TF	"FLOAT128_VECTOR_P (TFmode)")])
 
 ;; Map into the appropriate load/store name based on the type
 (define_mode_attr VSm  [(V16QI "vw4")
@@ -281,6 +285,30 @@
   [(set_attr "type" "vecload")
    (set_attr "length" "8")])
 
+;; KFmode/TFmode aren't vector types.  Use V2DImode instead.
+(define_insn_and_split "*vsx_le_perm_load_<mode>"
+  [(set (match_operand:VSX_F128 0 "vsx_register_operand" "=wa")
+        (match_operand:VSX_F128 1 "memory_operand" "Z"))]
+  "!BYTES_BIG_ENDIAN && TARGET_VSX"
+  "#"
+  "!BYTES_BIG_ENDIAN && TARGET_VSX"
+  [(set (match_dup 4)
+        (vec_select:V2DI (match_dup 3)
+			 (parallel [(const_int 1) (const_int 0)])))
+   (set (match_dup 2)
+        (vec_select:V2DI (match_dup 4)
+			 (parallel [(const_int 1) (const_int 0)])))]
+  "
+{
+  operands[2] = gen_lowpart (V2DImode, operands[0]);
+  operands[3] = gen_lowpart (V2DImode, operands[1]);
+  operands[4] = can_create_pseudo_p () ? gen_reg_rtx_and_attrs (operands[2])
+                                       : operands[2];
+}
+  "
+  [(set_attr "type" "vecload")
+   (set_attr "length" "8")])
+
 (define_insn_and_split "*vsx_le_perm_load_<mode>"
   [(set (match_operand:VSX_W 0 "vsx_register_operand" "=wa")
         (match_operand:VSX_W 1 "memory_operand" "Z"))]
@@ -416,6 +444,51 @@
           (match_dup 1)
           (parallel [(const_int 1) (const_int 0)])))]
   "")
+
+(define_insn "*vsx_le_perm_store_<mode>"
+  [(set (match_operand:VSX_F128 0 "memory_operand" "=Z")
+        (match_operand:VSX_F128 1 "vsx_register_operand" "+wa"))]
+  "!BYTES_BIG_ENDIAN && TARGET_VSX"
+  "#"
+  [(set_attr "type" "vecstore")
+   (set_attr "length" "12")])
+
+(define_split
+  [(set (match_operand:VSX_F128 0 "memory_operand" "")
+        (match_operand:VSX_F128 1 "vsx_register_operand" ""))]
+  "!BYTES_BIG_ENDIAN && TARGET_VSX && !reload_completed"
+  [(set (match_dup 4)
+        (vec_select:V2DI (match_dup 3)
+			 (parallel [(const_int 1) (const_int 0)])))
+   (set (match_dup 2)
+        (vec_select:V2DI (match_dup 4)
+			 (parallel [(const_int 1) (const_int 0)])))]
+{
+  operands[2] = gen_lowpart (V2DImode, operands[0]);
+  operands[3] = gen_lowpart (V2DImode, operands[1]);
+  operands[4] = can_create_pseudo_p () ? gen_reg_rtx_and_attrs (operands[2])
+                                       : operands[2];
+})
+
+;; The post-reload split requires that we re-permute the source
+;; register in case it is still live.
+(define_split
+  [(set (match_operand:VSX_F128 0 "memory_operand" "")
+        (match_operand:VSX_F128 1 "vsx_register_operand" ""))]
+  "!BYTES_BIG_ENDIAN && TARGET_VSX && reload_completed"
+  [(set (match_dup 3)
+        (vec_select:V2DI (match_dup 3)
+			 (parallel [(const_int 1) (const_int 0)])))
+   (set (match_dup 2)
+        (vec_select:V2DI (match_dup 3)
+			 (parallel [(const_int 1) (const_int 0)])))
+   (set (match_dup 3)
+        (vec_select:V2DI (match_dup 3)
+			 (parallel [(const_int 1) (const_int 0)])))]
+{
+  operands[2] = gen_lowpart (V2DImode, operands[0]);
+  operands[3] = gen_lowpart (V2DImode, operands[1]);
+})
 
 (define_insn "*vsx_le_perm_store_<mode>"
   [(set (match_operand:VSX_W 0 "memory_operand" "=Z")
