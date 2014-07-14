@@ -17281,15 +17281,11 @@ mips_option_override (void)
 	     " instructions", mips_arch_info->name);
 
   /* If neither -modd-spreg nor -mno-odd-spreg was given on the command
-     line, set MASK_ODD_SPREG based on the ISA.  */
+     line, set MASK_ODD_SPREG based on the ISA and ABI.  */
   if ((target_flags_explicit & MASK_ODD_SPREG) == 0)
     {
-      /* Disable TARGET_ODD_SPREG for generic architectures when using the
-         O32 FPXX ABI to make them compatible with those implementations
-	 which are !ISA_HAS_ODD_SPREG.  */
-      if (!ISA_HAS_ODD_SPREG
-	  || (TARGET_FLOATXX
-	      && (strncmp (mips_arch_info->name, "mips", 4) == 0)))
+      /* Disable TARGET_ODD_SPREG when using the O32 FPXX ABI.  */
+      if (!ISA_HAS_ODD_SPREG || TARGET_FLOATXX)
 	target_flags &= ~MASK_ODD_SPREG;
       else
 	target_flags |= MASK_ODD_SPREG;
@@ -17297,6 +17293,12 @@ mips_option_override (void)
   else if (TARGET_ODD_SPREG && !ISA_HAS_ODD_SPREG)
     warning (0, "the %qs architecture does not support odd single-precision"
 	     " registers", mips_arch_info->name);
+
+  if (!TARGET_ODD_SPREG && TARGET_64BIT)
+    {
+      error ("unsupported combination: %s", "-mgp64 -mno-odd-spreg");
+      target_flags |= MASK_ODD_SPREG;
+    }
 
   /* The effect of -mabicalls isn't defined for the EABI.  */
   if (mips_abi == ABI_EABI && TARGET_ABICALLS)

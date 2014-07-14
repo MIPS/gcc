@@ -861,7 +861,8 @@ struct mips_cpu_info {
 /* ISA has 32 single-precision registers.  */
 #define ISA_HAS_ODD_SPREG	((mips_isa_rev >= 1			\
 				  && !TARGET_LOONGSON_3A)		\
-				 || TARGET_FLOAT64)
+				 || TARGET_FLOAT64			\
+				 || TARGET_MIPS5900)
 
 /* ISA has a three-operand multiplication instruction (usually spelt "mul").  */
 #define ISA_HAS_MUL3		((TARGET_MIPS3900                       \
