@@ -9679,11 +9679,24 @@ process_reduction_data (gimple_seq *body, gimple_seq *in_stmt_seqp,
   gcc_assert (is_gimple_omp_oacc_specifically (ctx->stmt));
 
   gimple_stmt_iterator gsi;
+  gimple_seq inner;
+  gimple stmt;
+
+  /* A collapse clause may have inserted a new bind block.  */
+  stmt = gimple_seq_first (*body);
+  if (stmt && gimple_code (stmt) == GIMPLE_BIND)
+    {
+      inner = gimple_bind_body (gimple_seq_first (*body));
+      body = &inner;
+    }
 
   for (gsi = gsi_start (*body); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple stmt = gsi_stmt (gsi);
       tree call;
+      tree clauses, nthreads, t, c;
+      bool reduction_found = false;
+ 
+      stmt = gsi_stmt (gsi);
 
       switch (gimple_code (stmt))
 	{
@@ -9691,6 +9704,18 @@ process_reduction_data (gimple_seq *body, gimple_seq *in_stmt_seqp,
 	  tree clauses, nthreads, t;
 
 	  clauses = gimple_omp_for_clauses (stmt);
+
+	  /* Search for a reduction clause.  */
+	  for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
+	    if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION)
+	      {
+		reduction_found = true;
+		break;
+	      }
+
+	  if (!reduction_found)
+	    break;
+
 	  ctx = maybe_lookup_ctx (stmt);
 	  t = NULL_TREE;
 
@@ -9698,8 +9723,6 @@ process_reduction_data (gimple_seq *body, gimple_seq *in_stmt_seqp,
 	     Scan for the innermost vector_length clause.  */
 	  for (omp_context *oc = ctx; oc; oc = oc->outer)
 	    {
-	      tree c;
-
 	      switch (gimple_code (oc->stmt))
 		{
 		case GIMPLE_OACC_PARALLEL:
