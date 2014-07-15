@@ -3873,6 +3873,35 @@ which should be a string or an instance of $CLASS_NAMED, or else nil.}#
 )
 (install_method discr_multiple output_as_json outjson_multiple_method)
 
+;; for named objects, we output their name in lower-case per JSON habits
+;; beware that this won't work for non-ASCII upper-case letters!
+(defun outjson_named_method (nmd out)
+  (assert_msg "check out" (is_out out) out)
+  (assert_msg "check nmd" (is_a nmd class_named) nmd)
+  (let ((nam (unsafe_get_field :named_name nmd))
+	)
+    (assert_msg "check nam" (is_string nam) nam nmd)
+    (add2out out "\"")
+    (code_chunk addname_chk 
+		#{ /* outjson_named_method $ADDNAME_CHK */
+		long namelen = strlen(melt_string_str($NAM));
+		for (long ix=0; 
+			  ix<namelen; 
+			  ix++) {
+		  char curc = melt_string_str($NAM)[ix]; 
+		  char buf[4];
+		  memset(buf, 0, sizeof(buf)); 
+		  buf[0] = tolower(curc);
+		  buf[1] = (char)0;
+		  meltgc_add_out_raw ($OUT, buf);
+		}
+		}#)
+    (add2out out "\"")
+    )
+  )
+(install_method class_named output_as_json outjson_named_method)
+
+
 (export_values make_jsonobject 
 	       output_as_json
 	       output_json
