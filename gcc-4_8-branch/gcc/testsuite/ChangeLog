@@ -1,3 +1,7 @@
+2013-09-06  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* gcc.target/s390/nearestint-1.c: New testcase.
+
 2013-07-02  Ian Bolton  <ian.bolton@arm.com>
 
 	* gcc.target/aarch64/abs_1.c: New test.
