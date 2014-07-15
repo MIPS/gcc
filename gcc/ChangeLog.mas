@@ -1,5 +1,10 @@
 2014-07-15  Richard Biener  <rguenther@suse.de>
 
+	* genmatch.c (decision_tree::gen_generic): Guard against
+	NULL_TREE operands.
+
+2014-07-15  Richard Biener  <rguenther@suse.de>
+
 	* genmatch.c (main): Add -v flag and guard debug dumps on it.
 
 2014-07-15  Richard Biener  <rguenther@suse.de>

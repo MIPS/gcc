@@ -1614,9 +1614,9 @@ decision_tree::gen_generic (FILE *f)
 	 principle we can do that automagically for a subset of
 	 transforms (and only reject the remaining cases).
 	 This fixes for example gcc.c-torture/execute/20050131-1.c.  */
-      fprintf (f, "if (TREE_SIDE_EFFECTS (op0)");
+      fprintf (f, "if ((op0 && TREE_SIDE_EFFECTS (op0))");
       for (unsigned i = 1; i < n; ++i)
-	fprintf (f, "|| TREE_SIDE_EFFECTS (op%d)", i);
+	fprintf (f, "|| (op%d && TREE_SIDE_EFFECTS (op%d))", i, i);
       fprintf (f, ")\n"
 	       "  return NULL_TREE;\n");
 
