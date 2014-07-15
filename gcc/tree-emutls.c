@@ -453,7 +453,7 @@ gen_emutls_addr (tree decl, struct lower_emutls_data *d)
 
       /* We may be adding a new reference to a new variable to the function.
          This means we have to play with the ipa-reference web.  */
-      ipa_record_reference (d->cfun_node, cvar, IPA_REF_ADDR, x);
+      d->cfun_node->add_reference (cvar, IPA_REF_ADDR, x);
 
       /* Record this ssa_name for possible use later in the basic block.  */
       access_vars[index] = addr;
@@ -819,7 +819,6 @@ const pass_data pass_data_ipa_lower_emutls =
   SIMPLE_IPA_PASS, /* type */
   "emutls", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_IPA_OPT, /* tv_id */
   ( PROP_cfg | PROP_ssa ), /* properties_required */
   0, /* properties_provided */

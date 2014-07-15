@@ -87,7 +87,7 @@ create_output_block (enum lto_section_type section_type)
 
   clear_line_info (ob);
 
-  ob->string_hash_table.create (37);
+  ob->string_hash_table = new hash_table<string_slot_hasher> (37);
   gcc_obstack_init (&ob->obstack);
 
   return ob;
@@ -101,7 +101,8 @@ destroy_output_block (struct output_block *ob)
 {
   enum lto_section_type section_type = ob->section_type;
 
-  ob->string_hash_table.dispose ();
+  delete ob->string_hash_table;
+  ob->string_hash_table = NULL;
 
   free (ob->main_stream);
   free (ob->string_stream);
@@ -317,7 +318,7 @@ lto_is_streamable (tree expr)
 /* For EXPR lookup and return what we want to stream to OB as DECL_INITIAL.  */
 
 static tree
-get_symbol_initial_value (struct output_block *ob, tree expr)
+get_symbol_initial_value (lto_symtab_encoder_t encoder, tree expr)
 {
   gcc_checking_assert (DECL_P (expr)
 		       && TREE_CODE (expr) != FUNCTION_DECL
@@ -330,15 +331,13 @@ get_symbol_initial_value (struct output_block *ob, tree expr)
       && !DECL_IN_CONSTANT_POOL (expr)
       && initial)
     {
-      lto_symtab_encoder_t encoder;
       varpool_node *vnode;
-
-      encoder = ob->decl_state->symtab_node_encoder;
-      vnode = varpool_get_node (expr);
-      if (!vnode
-	  || !lto_symtab_encoder_encode_initializer_p (encoder,
-						       vnode))
-	initial = error_mark_node;
+      /* Extra section needs about 30 bytes; do not produce it for simple
+	 scalar values.  */
+      if (TREE_CODE (DECL_INITIAL (expr)) == CONSTRUCTOR
+	  || !(vnode = varpool_get_node (expr))
+	  || !lto_symtab_encoder_encode_initializer_p (encoder, vnode))
+        initial = error_mark_node;
     }
 
   return initial;
@@ -368,7 +367,8 @@ lto_write_tree_1 (struct output_block *ob, tree expr, bool ref_p)
       && TREE_CODE (expr) != TRANSLATION_UNIT_DECL)
     {
       /* Handle DECL_INITIAL for symbols.  */
-      tree initial = get_symbol_initial_value (ob, expr);
+      tree initial = get_symbol_initial_value
+			 (ob->decl_state->symtab_node_encoder, expr);
       stream_write_tree (ob, initial, ref_p);
     }
 }
@@ -527,7 +527,6 @@ DFS_write_tree_body (struct output_block *ob,
     {
       if (TREE_CODE (expr) == TYPE_DECL)
 	DFS_follow_tree_edge (DECL_ORIGINAL_TYPE (expr));
-      DFS_follow_tree_edge (DECL_VINDEX (expr));
     }
 
   if (CODE_CONTAINS_STRUCT (code, TS_DECL_WITH_VIS))
@@ -548,6 +547,7 @@ DFS_write_tree_body (struct output_block *ob,
 
   if (CODE_CONTAINS_STRUCT (code, TS_FUNCTION_DECL))
     {
+      DFS_follow_tree_edge (DECL_VINDEX (expr));
       DFS_follow_tree_edge (DECL_FUNCTION_PERSONALITY (expr));
       /* Do not DECL_FUNCTION_SPECIFIC_TARGET.  They will be regenerated.  */
       DFS_follow_tree_edge (DECL_FUNCTION_SPECIFIC_OPTIMIZATION (expr));
@@ -960,7 +960,6 @@ hash_tree (struct streamer_tree_cache_d *cache, tree t)
     {
       if (code == TYPE_DECL)
 	visit (DECL_ORIGINAL_TYPE (t));
-      visit (DECL_VINDEX (t));
     }
 
   if (CODE_CONTAINS_STRUCT (code, TS_DECL_WITH_VIS))
@@ -980,6 +979,7 @@ hash_tree (struct streamer_tree_cache_d *cache, tree t)
 
   if (CODE_CONTAINS_STRUCT (code, TS_FUNCTION_DECL))
     {
+      visit (DECL_VINDEX (t));
       visit (DECL_FUNCTION_PERSONALITY (t));
       /* Do not follow DECL_FUNCTION_SPECIFIC_TARGET.  */
       visit (DECL_FUNCTION_SPECIFIC_OPTIMIZATION (t));
@@ -1130,32 +1130,18 @@ hash_scc (struct streamer_tree_cache_d *cache, unsigned first, unsigned size)
 
   /* Sort the SCC of type, hash pairs so that when we mix in
      all members of the SCC the hash value becomes independent on
-     the order we visited the SCC.  Disregard hashes equal to
-     the hash of the tree we mix into because we cannot guarantee
-     a stable sort for those across different TUs.  */
+     the order we visited the SCC.  Produce hash of the whole SCC as
+     combination of hashes of individual elements.  Then combine that hash into
+     hash of each element, so othewise identically looking elements from two
+     different SCCs are distinguished.  */
   qsort (&sccstack[first], size, sizeof (scc_entry), scc_entry_compare);
-  hashval_t *tem = XALLOCAVEC (hashval_t, size);
+
+  hashval_t scc_hash = sccstack[first].hash;
+  for (unsigned i = 1; i < size; ++i)
+    scc_hash = iterative_hash_hashval_t (scc_hash,
+					 sccstack[first+i].hash);
   for (unsigned i = 0; i < size; ++i)
-    {
-      hashval_t hash = sccstack[first+i].hash;
-      hashval_t orig_hash = hash;
-      unsigned j;
-      /* Skip same hashes.  */
-      for (j = i + 1;
-	   j < size && sccstack[first+j].hash == orig_hash; ++j)
-	;
-      for (; j < size; ++j)
-	hash = iterative_hash_hashval_t (sccstack[first+j].hash, hash);
-      for (j = 0; sccstack[first+j].hash != orig_hash; ++j)
-	hash = iterative_hash_hashval_t (sccstack[first+j].hash, hash);
-      tem[i] = hash;
-    }
-  hashval_t scc_hash = 0;
-  for (unsigned i = 0; i < size; ++i)
-    {
-      sccstack[first+i].hash = tem[i];
-      scc_hash = iterative_hash_hashval_t (tem[i], scc_hash);
-    }
+    sccstack[first+i].hash = iterative_hash_hashval_t (sccstack[first+i].hash, scc_hash);
   return scc_hash;
 }
 
@@ -1208,7 +1194,8 @@ DFS_write_tree (struct output_block *ob, sccs *from_state,
 	      && TREE_CODE (expr) != TRANSLATION_UNIT_DECL)
 	    {
 	      /* Handle DECL_INITIAL for symbols.  */
-	      tree initial = get_symbol_initial_value (ob, expr);
+	      tree initial = get_symbol_initial_value (ob->decl_state->symtab_node_encoder,
+						       expr);
 	      DFS_write_tree (ob, cstate, initial, ref_p, ref_p);
 	    }
 	}
@@ -1821,7 +1808,7 @@ output_function (struct cgraph_node *node)
   ob = create_output_block (LTO_section_function_body);
 
   clear_line_info (ob);
-  ob->cgraph_node = node;
+  ob->symbol = node;
 
   gcc_assert (current_function_decl == NULL_TREE && cfun == NULL);
 
@@ -1912,6 +1899,32 @@ output_function (struct cgraph_node *node)
   destroy_output_block (ob);
 }
 
+/* Output the body of function NODE->DECL.  */
+
+static void
+output_constructor (struct varpool_node *node)
+{
+  tree var = node->decl;
+  struct output_block *ob;
+
+  ob = create_output_block (LTO_section_function_body);
+
+  clear_line_info (ob);
+  ob->symbol = node;
+
+  /* Make string 0 be a NULL string.  */
+  streamer_write_char_stream (ob->string_stream, 0);
+
+  /* Output DECL_INITIAL for the function, which contains the tree of
+     lexical scopes.  */
+  stream_write_tree (ob, DECL_INITIAL (var), true);
+
+  /* Create a section to hold the pickled output of this function.   */
+  produce_asm (ob, var);
+
+  destroy_output_block (ob);
+}
+
 
 /* Emit toplevel asms.  */
 
@@ -1970,10 +1983,10 @@ lto_output_toplevel_asms (void)
 }
 
 
-/* Copy the function body of NODE without deserializing. */
+/* Copy the function body or variable constructor of NODE without deserializing. */
 
 static void
-copy_function (struct cgraph_node *node)
+copy_function_or_variable (struct symtab_node *node)
 {
   tree function = node->decl;
   struct lto_file_decl_data *file_data = node->lto_file_data;
@@ -2085,7 +2098,7 @@ lto_output (void)
 	      if (gimple_has_body_p (node->decl) || !flag_wpa)
 		output_function (node);
 	      else
-		copy_function (node);
+		copy_function_or_variable (node);
 	      gcc_assert (lto_get_out_decl_state () == decl_state);
 	      lto_pop_out_decl_state ();
 	      lto_record_function_out_decl_state (node->decl, decl_state);
@@ -2098,6 +2111,27 @@ lto_output (void)
 	  tree ctor = DECL_INITIAL (node->decl);
 	  if (ctor && !in_lto_p)
 	    walk_tree (&ctor, wrap_refs, NULL, NULL);
+	  if (get_symbol_initial_value (encoder, node->decl) == error_mark_node
+	      && lto_symtab_encoder_encode_initializer_p (encoder, node)
+	      && !node->alias)
+	    {
+	      timevar_push (TV_IPA_LTO_CTORS_OUT);
+#ifdef ENABLE_CHECKING
+	      gcc_assert (!bitmap_bit_p (output, DECL_UID (node->decl)));
+	      bitmap_set_bit (output, DECL_UID (node->decl));
+#endif
+	      decl_state = lto_new_out_decl_state ();
+	      lto_push_out_decl_state (decl_state);
+	      if (DECL_INITIAL (node->decl) != error_mark_node
+		  || !flag_wpa)
+		output_constructor (node);
+	      else
+		copy_function_or_variable (node);
+	      gcc_assert (lto_get_out_decl_state () == decl_state);
+	      lto_pop_out_decl_state ();
+	      lto_record_function_out_decl_state (node->decl, decl_state);
+	      timevar_pop (TV_IPA_LTO_CTORS_OUT);
+	    }
 	}
     }
 
@@ -2361,8 +2395,7 @@ output_symbol_p (symtab_node *node)
     {
       int i;
       struct ipa_ref *ref;
-      for (i = 0; ipa_ref_list_referring_iterate (&node->ref_list,
-					          i, ref); i++)
+      for (i = 0; node->iterate_referring (i, ref); i++)
 	{
 	  if (ref->use == IPA_REF_ALIAS)
 	    continue;

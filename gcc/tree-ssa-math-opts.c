@@ -515,7 +515,6 @@ const pass_data pass_data_cse_reciprocals =
   GIMPLE_PASS, /* type */
   "recip", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   PROP_ssa, /* properties_required */
   0, /* properties_provided */
@@ -1411,7 +1410,6 @@ const pass_data pass_data_cse_sincos =
   GIMPLE_PASS, /* type */
   "sincos", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   PROP_ssa, /* properties_required */
   0, /* properties_provided */
@@ -2123,7 +2121,6 @@ const pass_data pass_data_optimize_bswap =
   GIMPLE_PASS, /* type */
   "bswap", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   PROP_ssa, /* properties_required */
   0, /* properties_provided */
@@ -2179,7 +2176,9 @@ bswap_replace (gimple cur_stmt, gimple_stmt_iterator gsi, gimple src_stmt,
       unsigned align;
 
       align = get_object_alignment (src);
-      if (bswap && SLOW_UNALIGNED_ACCESS (TYPE_MODE (load_type), align))
+      if (bswap
+	  && align < GET_MODE_ALIGNMENT (TYPE_MODE (load_type))
+	  && SLOW_UNALIGNED_ACCESS (TYPE_MODE (load_type), align))
 	return false;
 
       gsi_move_before (&gsi, &gsi_ins);
@@ -3122,7 +3121,6 @@ const pass_data pass_data_optimize_widening_mul =
   GIMPLE_PASS, /* type */
   "widening_mul", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   PROP_ssa, /* properties_required */
   0, /* properties_provided */

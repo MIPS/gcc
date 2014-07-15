@@ -2771,9 +2771,9 @@ check_for_override (tree decl, tree ctype)
 	TYPE_HAS_NONTRIVIAL_DESTRUCTOR (ctype) = true;
     }
   else if (DECL_FINAL_P (decl))
-    error ("%q+#D marked final, but is not virtual", decl);
+    error ("%q+#D marked %<final%>, but is not virtual", decl);
   if (DECL_OVERRIDE_P (decl) && !overrides_found)
-    error ("%q+#D marked override, but does not override", decl);
+    error ("%q+#D marked %<override%>, but does not override", decl);
 }
 
 /* Warn about hidden virtual functions that are not overridden in t.
@@ -4356,11 +4356,11 @@ check_methods (tree t)
   for (x = TYPE_METHODS (t); x; x = DECL_CHAIN (x))
     {
       check_for_override (x, t);
-      if (DECL_PURE_VIRTUAL_P (x) && ! DECL_VINDEX (x))
+      if (DECL_PURE_VIRTUAL_P (x) && (TREE_CODE (x) != FUNCTION_DECL || ! DECL_VINDEX (x)))
 	error ("initializer specified for non-virtual method %q+D", x);
       /* The name of the field is the original field name
 	 Save this in auxiliary field for later overloading.  */
-      if (DECL_VINDEX (x))
+      if (TREE_CODE (x) == FUNCTION_DECL && DECL_VINDEX (x))
 	{
 	  TYPE_POLYMORPHIC_P (t) = 1;
 	  if (DECL_PURE_VIRTUAL_P (x))
@@ -5658,7 +5658,8 @@ create_vtable_ptr (tree t, tree* virtuals_p)
 
   /* Collect the virtual functions declared in T.  */
   for (fn = TYPE_METHODS (t); fn; fn = DECL_CHAIN (fn))
-    if (DECL_VINDEX (fn) && !DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (fn)
+    if (TREE_CODE (fn) == FUNCTION_DECL
+	&& DECL_VINDEX (fn) && !DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (fn)
 	&& TREE_CODE (DECL_VINDEX (fn)) != INTEGER_CST)
       {
 	tree new_virtual = make_node (TREE_LIST);
@@ -6327,7 +6328,8 @@ determine_key_method (tree type)
      this function until the end of the translation unit.  */
   for (method = TYPE_METHODS (type); method != NULL_TREE;
        method = DECL_CHAIN (method))
-    if (DECL_VINDEX (method) != NULL_TREE
+    if (TREE_CODE (method) == FUNCTION_DECL
+	&& DECL_VINDEX (method) != NULL_TREE
 	&& ! DECL_DECLARED_INLINE_P (method)
 	&& ! DECL_PURE_VIRTUAL_P (method))
       {
@@ -6403,8 +6405,10 @@ finish_struct_1 (tree t)
 	determine_key_method (t);
 
       /* If a polymorphic class has no key method, we may emit the vtable
-	 in every translation unit where the class definition appears.  */
-      if (CLASSTYPE_KEY_METHOD (t) == NULL_TREE)
+	 in every translation unit where the class definition appears.  If
+	 we're devirtualizing, we can look into the vtable even if we
+	 aren't emitting it.  */
+      if (CLASSTYPE_KEY_METHOD (t) == NULL_TREE || flag_use_all_virtuals)
 	keyed_classes = tree_cons (NULL_TREE, t, keyed_classes);
     }
 
@@ -6709,7 +6713,7 @@ finish_struct (tree t, tree attributes)
 }
 
 /* Hash table to avoid endless recursion when handling references.  */
-static hash_table <pointer_hash <tree_node> > fixed_type_or_null_ref_ht;
+static hash_table<pointer_hash<tree_node> > *fixed_type_or_null_ref_ht;
 
 /* Return the dynamic type of INSTANCE, if known.
    Used to determine whether the virtual function table is needed
@@ -6826,8 +6830,9 @@ fixed_type_or_null (tree instance, int *nonnull, int *cdtorp)
       else if (TREE_CODE (TREE_TYPE (instance)) == REFERENCE_TYPE)
 	{
 	  /* We only need one hash table because it is always left empty.  */
-	  if (!fixed_type_or_null_ref_ht.is_created ())
-	    fixed_type_or_null_ref_ht.create (37); 
+	  if (!fixed_type_or_null_ref_ht)
+	    fixed_type_or_null_ref_ht
+	      = new hash_table<pointer_hash<tree_node> > (37); 
 
 	  /* Reference variables should be references to objects.  */
 	  if (nonnull)
@@ -6839,15 +6844,15 @@ fixed_type_or_null (tree instance, int *nonnull, int *cdtorp)
 	  if (VAR_P (instance)
 	      && DECL_INITIAL (instance)
 	      && !type_dependent_expression_p_push (DECL_INITIAL (instance))
-	      && !fixed_type_or_null_ref_ht.find (instance))
+	      && !fixed_type_or_null_ref_ht->find (instance))
 	    {
 	      tree type;
 	      tree_node **slot;
 
-	      slot = fixed_type_or_null_ref_ht.find_slot (instance, INSERT);
+	      slot = fixed_type_or_null_ref_ht->find_slot (instance, INSERT);
 	      *slot = instance;
 	      type = RECUR (DECL_INITIAL (instance));
-	      fixed_type_or_null_ref_ht.remove_elt (instance);
+	      fixed_type_or_null_ref_ht->remove_elt (instance);
 
 	      return type;
 	    }
@@ -8074,12 +8079,11 @@ static void
 dump_class_hierarchy (tree t)
 {
   int flags;
-  FILE *stream = dump_begin (TDI_class, &flags);
+  FILE *stream = get_dump_info (TDI_class, &flags);
 
   if (stream)
     {
       dump_class_hierarchy_1 (stream, flags, t);
-      dump_end (TDI_class, stream);
     }
 }
 
@@ -8109,7 +8113,7 @@ static void
 dump_vtable (tree t, tree binfo, tree vtable)
 {
   int flags;
-  FILE *stream = dump_begin (TDI_class, &flags);
+  FILE *stream = get_dump_info (TDI_class, &flags);
 
   if (!stream)
     return;
@@ -8132,15 +8136,13 @@ dump_vtable (tree t, tree binfo, tree vtable)
       dump_array (stream, vtable);
       fprintf (stream, "\n");
     }
-
-  dump_end (TDI_class, stream);
 }
 
 static void
 dump_vtt (tree t, tree vtt)
 {
   int flags;
-  FILE *stream = dump_begin (TDI_class, &flags);
+  FILE *stream = get_dump_info (TDI_class, &flags);
 
   if (!stream)
     return;
@@ -8152,8 +8154,6 @@ dump_vtt (tree t, tree vtt)
       dump_array (stream, vtt);
       fprintf (stream, "\n");
     }
-
-  dump_end (TDI_class, stream);
 }
 
 /* Dump a function or thunk and its thunkees.  */
@@ -9139,7 +9139,7 @@ add_vcall_offset_vtbl_entries_1 (tree binfo, vtbl_init_data* vid)
   for (orig_fn = TYPE_METHODS (BINFO_TYPE (binfo));
        orig_fn;
        orig_fn = DECL_CHAIN (orig_fn))
-    if (DECL_VINDEX (orig_fn))
+    if (TREE_CODE (orig_fn) == FUNCTION_DECL && DECL_VINDEX (orig_fn))
       add_vcall_offset (orig_fn, binfo, vid);
 }
 

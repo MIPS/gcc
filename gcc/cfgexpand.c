@@ -3713,6 +3713,7 @@ expand_debug_expr (tree exp)
 	{
 	case COND_EXPR:
 	case DOT_PROD_EXPR:
+	case SAD_EXPR:
 	case WIDEN_MULT_PLUS_EXPR:
 	case WIDEN_MULT_MINUS_EXPR:
 	case FMA_EXPR:
@@ -5578,7 +5579,6 @@ const pass_data pass_data_expand =
   RTL_PASS, /* type */
   "expand", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_EXPAND, /* tv_id */
   ( PROP_ssa | PROP_gimple_leh | PROP_cfg
     | PROP_gimple_lcx

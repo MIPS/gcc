@@ -466,7 +466,7 @@ struct hsa_function_representation
   /* Output argument or NULL if there is none.  */
   struct hsa_symbol *output_arg;
   /* Hash table of local variable symbols.  */
-  hash_table <hsa_noop_symbol_hasher> local_symbols;
+  hash_table <hsa_noop_symbol_hasher> *local_symbols;
   /* Vector of pointers to spill symbols.  */
   vec <struct hsa_symbol *> spill_symbols;
 
@@ -483,7 +483,7 @@ struct hsa_function_representation
 
 /* In hsa-gen.c.  */
 extern struct hsa_function_representation hsa_cfun;
-extern hash_table <hsa_free_symbol_hasher> hsa_global_variable_symbols;
+extern hash_table <hsa_free_symbol_hasher> *hsa_global_variable_symbols;
 bool hsa_machine_large_p (void);
 BrigType16_t hsa_get_segment_addr_type (BrigSegment8_t);
 bool hsa_full_profile_p (void);

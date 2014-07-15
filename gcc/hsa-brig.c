@@ -227,7 +227,7 @@ brig_string_slot_hasher::remove (value_type *ds)
   free (const_cast<char*> (ds->s));
 }
 
-static hash_table<brig_string_slot_hasher> brig_string_htab;
+static hash_table<brig_string_slot_hasher> *brig_string_htab;
 
 static void
 sanitize_hsa_name (char *p)
@@ -258,7 +258,7 @@ brig_emit_string (const char *str, char prefix = 0)
   s_slot.prefix = prefix;
   s_slot.offset = 0;
 
-  slot = brig_string_htab.find_slot (&s_slot, INSERT);
+  slot = brig_string_htab->find_slot (&s_slot, INSERT);
   if (*slot == NULL)
     {
       brig_string_slot *new_slot = XCNEW (brig_string_slot);
@@ -326,7 +326,7 @@ brig_init (void)
   if (brig_initialized)
     return;
 
-  brig_string_htab.create (37);
+  brig_string_htab = new hash_table<brig_string_slot_hasher> (37);
   brig_string.init ();
   brig_directive.init ();
   brig_code.init ();
@@ -358,7 +358,7 @@ brig_init (void)
 static void
 brig_release_data (void)
 {
-  brig_string_htab.dispose ();
+  delete brig_string_htab;
   brig_string.release ();
   brig_directive.release ();
   brig_code.release ();
@@ -445,10 +445,10 @@ emit_function_directives (void)
   scoped_off = inarg_off
     + hsa_cfun.input_args_count * sizeof (struct BrigDirectiveSymbol);
   for (hash_table <hsa_noop_symbol_hasher>::iterator iter
-	 = hsa_cfun.local_symbols.begin ();
-       iter != hsa_cfun.local_symbols.end ();
+	 = hsa_cfun.local_symbols->begin ();
+       iter != hsa_cfun.local_symbols->end ();
        ++iter)
-    if (TREE_CODE ((*iter).decl) == VAR_DECL)
+    if (TREE_CODE ((*iter)->decl) == VAR_DECL)
       count++;
   count += hsa_cfun.spill_symbols.length();
 
@@ -483,10 +483,10 @@ emit_function_directives (void)
   for (int i = 0; i < hsa_cfun.input_args_count; i++)
     emit_symbol_directive (&hsa_cfun.input_args[i]);
   for (hash_table <hsa_noop_symbol_hasher>::iterator iter
-	 = hsa_cfun.local_symbols.begin ();
-       iter != hsa_cfun.local_symbols.end ();
+	 = hsa_cfun.local_symbols->begin ();
+       iter != hsa_cfun.local_symbols->end ();
        ++iter)
-    emit_symbol_directive (&*iter);
+    emit_symbol_directive (*iter);
   for (int i = 0; hsa_cfun.spill_symbols.iterate (i, &sym); i++)
     emit_symbol_directive (sym);
   return ptr_to_fndir;

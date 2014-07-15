@@ -189,6 +189,74 @@ public:
       return x_section->name;
     }
 
+  /* Return ipa reference from this symtab_node to
+     REFERED_NODE or REFERED_VARPOOL_NODE. USE_TYPE specify type
+     of the use and STMT the statement (if it exists).  */
+  struct ipa_ref *add_reference (symtab_node *referred_node,
+				enum ipa_ref_use use_type);
+
+  /* Return ipa reference from this symtab_node to
+     REFERED_NODE or REFERED_VARPOOL_NODE. USE_TYPE specify type
+     of the use and STMT the statement (if it exists).  */
+  struct ipa_ref *add_reference (symtab_node *referred_node,
+				 enum ipa_ref_use use_type, gimple stmt);
+
+  /* If VAL is a reference to a function or a variable, add a reference from
+     this symtab_node to the corresponding symbol table node.  USE_TYPE specify
+     type of the use and STMT the statement (if it exists).  Return the new
+     reference or NULL if none was created.  */
+  struct ipa_ref *maybe_add_reference (tree val, enum ipa_ref_use use_type,
+				       gimple stmt);
+
+  /* Clone all references from symtab NODE to this symtab_node.  */
+  void clone_references (symtab_node *node);
+
+  /* Remove all stmt references in non-speculative references.
+     Those are not maintained during inlining & clonning.
+     The exception are speculative references that are updated along
+     with callgraph edges associated with them.  */
+  void clone_referring (symtab_node *node);
+
+  /* Clone reference REF to this symtab_node and set its stmt to STMT.  */
+  struct ipa_ref *clone_reference (struct ipa_ref *ref, gimple stmt);
+
+  /* Find the structure describing a reference to REFERRED_NODE
+     and associated with statement STMT.  */
+  struct ipa_ref *find_reference (symtab_node *, gimple, unsigned int);
+
+  /* Remove all references that are associated with statement STMT.  */
+  void remove_stmt_references (gimple stmt);
+
+  /* Remove all stmt references in non-speculative references.
+     Those are not maintained during inlining & clonning.
+     The exception are speculative references that are updated along
+     with callgraph edges associated with them.  */
+  void clear_stmts_in_references (void);
+
+  /* Remove all references in ref list.  */
+  void remove_all_references (void);
+
+  /* Remove all referring items in ref list.  */
+  void remove_all_referring (void);
+
+  /* Dump references in ref list to FILE.  */
+  void dump_references (FILE *file);
+
+  /* Dump referring in list to FILE.  */
+  void dump_referring (FILE *);
+
+  /* Return true if list contains an alias.  */
+  bool has_aliases_p (void);
+
+  /* Iterates I-th reference in the list, REF is also set.  */
+  struct ipa_ref *iterate_reference (unsigned i, struct ipa_ref *&ref);
+
+  /* Iterates I-th referring item in the list, REF is also set.  */
+  struct ipa_ref *iterate_referring (unsigned i, struct ipa_ref *&ref);
+
+  /* Iterates I-th referring alias item in the list, REF is also set.  */
+  struct ipa_ref *iterate_direct_aliases (unsigned i, struct ipa_ref *&ref);
+
   /* Vectors of referring and referenced entities.  */
   struct ipa_ref_list ref_list;
 
@@ -214,7 +282,14 @@ public:
 
   void set_init_priority (priority_type priority);
   priority_type get_init_priority ();
+
+  /* Return true if symbol is known to be nonzero.  */
+  bool nonzero_address ();
 };
+
+/* Walk all aliases for NODE.  */
+#define FOR_EACH_ALIAS(node, alias) \
+   for (unsigned x_i = 0; node->iterate_direct_aliases (x_i, alias); x_i++)
 
 enum availability
 {
@@ -719,6 +794,12 @@ public:
   unsigned dynamically_initialized : 1;
 
   ENUM_BITFIELD(tls_model) tls_model : 3;
+
+  /* Set if the variable is known to be used by single function only.
+     This is computed by ipa_signle_use pass and used by late optimizations
+     in places where optimization would be valid for local static variable
+     if we did not do any inter-procedural code movement.  */
+  unsigned used_by_single_function : 1;
 };
 
 /* Every top level asm statement is put into a asm_node.  */
@@ -1056,6 +1137,7 @@ void varpool_analyze_node (varpool_node *);
 varpool_node * varpool_extra_name_alias (tree, tree);
 varpool_node * varpool_create_variable_alias (tree, tree);
 void varpool_reset_queue (void);
+bool varpool_ctor_useable_for_folding_p (varpool_node *);
 tree ctor_for_folding (tree);
 bool varpool_for_node_and_aliases (varpool_node *,
 		                   bool (*) (varpool_node *, void *),
@@ -1064,9 +1146,21 @@ void varpool_add_new_variable (tree);
 void symtab_initialize_asm_name_hash (void);
 void symtab_prevail_in_asm_name_hash (symtab_node *node);
 void varpool_remove_initializer (varpool_node *);
+tree varpool_get_constructor (struct varpool_node *node);
 
 /* In cgraph.c */
 extern void change_decl_assembler_name (tree, tree);
+
+/* Return true if DECL should have entry in symbol table if used.
+   Those are functions and static & external veriables*/
+
+static inline bool
+decl_in_symtab_p (const_tree decl)
+{
+  return (TREE_CODE (decl) == FUNCTION_DECL
+          || (TREE_CODE (decl) == VAR_DECL
+	      && (TREE_STATIC (decl) || DECL_EXTERNAL (decl))));
+}
 
 /* Return symbol table node associated with DECL, if any,
    and NULL otherwise.  */
@@ -1075,12 +1169,7 @@ static inline symtab_node *
 symtab_get_node (const_tree decl)
 {
 #ifdef ENABLE_CHECKING
-  /* Check that we are called for sane type of object - functions
-     and static or external variables.  */
-  gcc_checking_assert (TREE_CODE (decl) == FUNCTION_DECL
-		       || (TREE_CODE (decl) == VAR_DECL
-			   && (TREE_STATIC (decl) || DECL_EXTERNAL (decl)
-			       || in_lto_p)));
+  gcc_checking_assert (decl_in_symtab_p (decl));
   /* Check that the mapping is sane - perhaps this check can go away,
      but at the moment frontends tends to corrupt the mapping by calling
      memcpy/memset on the tree nodes.  */
@@ -1531,16 +1620,13 @@ varpool_all_refs_explicit_p (varpool_node *vnode)
 /* Constant pool accessor function.  */
 htab_t constant_pool_htab (void);
 
-/* FIXME: inappropriate dependency of cgraph on IPA.  */
-#include "ipa-ref-inline.h"
-
 /* Return node that alias N is aliasing.  */
 
 static inline symtab_node *
 symtab_alias_target (symtab_node *n)
 {
-  struct ipa_ref *ref;
-  ipa_ref_list_reference_iterate (&n->ref_list, 0, ref);
+  struct ipa_ref *ref = NULL;
+  n->iterate_reference (0, ref);
   gcc_checking_assert (ref->use == IPA_REF_ALIAS);
   return ref->referred;
 }

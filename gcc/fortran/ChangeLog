@@ -1,3 +1,205 @@
+2014-07-12  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/61780
+	* dependency.c (gfc_dep_resolver): Index the 'reverse' array so
+	that elements are skipped. This then correctly aligns 'reverse'
+	with the scalarizer loops.
+
+2014-07-12  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/61628
+	* trans-types.c (gfc_init_types): Fix data-type bug
+	with gfc_max_array_element_size.
+
+2014-07-12  Tobias Burnus  <burnus@net-b.de>
+
+	* libgfortran.h (libcaf_atomic_codes): Add.
+	* trans-decl.c (gfor_fndecl_caf_atomic_def,
+	gfor_fndecl_caf_atomic_ref, gfor_fndecl_caf_atomic_cas,
+	gfor_fndecl_caf_atomic_op): New variables.
+	(gfc_build_builtin_function_decls): Initialize them.
+	* trans.h (gfor_fndecl_caf_atomic_def,
+	gfor_fndecl_caf_atomic_ref, gfor_fndecl_caf_atomic_cas,
+	gfor_fndecl_caf_atomic_op): New variables.
+	* trans-intrinsic.c (conv_intrinsic_atomic_op,
+	conv_intrinsic_atomic_ref, conv_intrinsic_atomic_cas):
+	Add library calls with -fcoarray=lib.
+
+2014-07-12  Tobias Burnus  <burnus@net-b.de>
+
+	* check.c (gfc_check_atomic): Update for STAT=.
+	(gfc_check_atomic_def, gfc_check_atomic_ref): Update call.
+	(gfc_check_atomic_op, gfc_check_atomic_cas,
+	gfc_check_atomic_fetch_op): New.
+	* gfortran.h (gfc_isym_id): GFC_ISYM_ATOMIC_CAS, GFC_ISYM_ATOMIC_ADD,
+	GFC_ISYM_ATOMIC_AND, GFC_ISYM_ATOMIC_OR, GFC_ISYM_ATOMIC_XOR,
+	GFC_ISYM_ATOMIC_FETCH_ADD, GFC_ISYM_ATOMIC_FETCH_AND,
+	GFC_ISYM_ATOMIC_FETCH_OR and GFC_ISYM_ATOMIC_FETCH_XOR.
+	* intrinsic.c (add_subroutines): Handle them.
+	* intrinsic.texi: Add documentation for them.
+	(ATOMIC_REF, ATOMIC_DEFINE): Add STAT=.
+	(ISO_FORTRAN_ENV): Add STAT_FAILED_IMAGE.
+	* intrinsic.h (gfc_check_atomic_op, gfc_check_atomic_cas,
+	gfc_check_atomic_fetch_op): New
+	prototypes.
+	* libgfortran.h (libgfortran_stat_codes): Add GFC_STAT_FAILED_IMAGE.
+	* iso-fortran-env.def: Add it.
+	* trans-intrinsic.c (conv_intrinsic_atomic_op): Renamed from
+	conv_intrinsic_atomic_ref; handle more atomics.
+	(conv_intrinsic_atomic_def): Handle STAT=.
+	(conv_intrinsic_atomic_cas): New.
+	(gfc_conv_intrinsic_subroutine): Handle new atomics.
+
+2014-07-09  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* trans-array.c (gfc_build_constant_array_constructor): Build a
+	static decl manually.
+	* trans-decl.c (create_main_function): Likewise.
+
+2014-07-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/61459
+	PR fortran/58883
+	* trans-expr.c (fcncall_realloc_result): Use the natural type
+	for the address expression of 'res_desc'.
+
+2014-07-07  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* gfortran.texi (Fortran 2003 status): Fix grammar.
+
+2014-07-04  Tobias Burnus  <burnus@net-b.de>
+
+	* resolve.c (resolve_assoc_var): Fix corank setting.
+	* trans-array.c (gfc_conv_descriptor_token): Change assert.
+	for select-type temporaries.
+	* trans-decl.c (generate_coarray_sym_init): Skip for
+	attr.select_type_temporary.
+	* trans-expr.c (gfc_conv_procedure_call): Fix for
+	select-type temporaries.
+	* trans-intrinsic.c (get_caf_token_offset): Ditto.
+	(gfc_conv_intrinsic_caf_get, gfc_conv_intrinsic_caf_send): Set
+	the correct dtype.
+	* trans-types.h (gfc_get_dtype_rank_type): New.
+	* trans-types.c (gfc_get_dtype_rank_type): Ditto.
+
+2014-07-03  Tobias Burnus  <burnus@net-b.de>
+
+	* scanner.c (skip_free_comments): Fix indentation.
+
+2014-07-02  Jakub Jelinek  <jakub@redhat.com>
+	    Fritz Reese  <Reese-Fritz@zai.com>
+
+	* decl.c (variable_decl): Reject old style initialization
+	for derived type components.
+
+2014-06-29  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/36275
+	PR fortran/38839
+	* decl.c (check_bind_name_identifier): New function.
+	(gfc_match_bind_c): Match any constant expression as binding
+	label.
+	* match.c (gfc_match_name_C): Remove.
+
+2014-06-28  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/29383
+	* gfortran.h (gfc_simplify_ieee_selected_real_kind): New prototype.
+	* libgfortran.h (GFC_FPE_*): Use simple integer values, valid in
+	both C and Fortran.
+	* expr.c (gfc_check_init_expr): Simplify IEEE_SELECTED_REAL_KIND.
+	* simplify.c (gfc_simplify_ieee_selected_real_kind): New function.
+	* module.c (mio_symbol): Keep track of symbols which came from
+	intrinsic modules.
+	(gfc_use_module): Keep track of the IEEE modules.
+	* trans-decl.c (gfc_get_symbol_decl): Adjust code since
+	we have new intrinsic modules.
+	(gfc_build_builtin_function_decls): Build decls for
+	ieee_procedure_entry and ieee_procedure_exit.
+	(is_from_ieee_module, is_ieee_module_used, save_fp_state,
+	restore_fp_state): New functions.
+	(gfc_generate_function_code): Save and restore floating-point
+	state on procedure entry/exit, when IEEE modules are used.
+	* intrinsic.texi: Document the IEEE modules.
+
+2014-06-25  Tobias Burnus  <burnus@net-b.de>
+
+	* interface.c (check_intents): Fix diagnostic with
+	coindexed coarrays.
+
+2014-06-25  Tobias Burnus  <burnus@net-b.de>
+
+	* resolve.c (resolve_ordinary_assign): Don't invoke caf_send
+	when assigning a coindexed RHS scalar to a noncoindexed LHS
+	array.
+	* trans-intrinsic.c (conv_caf_send): Do numeric type conversion
+	for a noncoindexed scalar RHS.
+
+2014-06-25  Tobias Burnus  <burnus@net-b.de>
+
+	* check.c (check_co_minmaxsum): Add definable check.
+	* expr.c (gfc_check_vardef_context): Fix context == NULL case.
+	* trans-expr.c (get_scalar_to_descriptor_type): Handle pointer
+	arguments.
+	* trans-intrinsic.c (gfc_conv_intrinsic_caf_get): Fix generation of
+	temporary strings.
+
+2014-06-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* trans.h (gfc_omp_clause_linear_ctor): New prototype.
+	* trans-openmp.c (gfc_omp_linear_clause_add_loop,
+	gfc_omp_clause_linear_ctor): New functions.
+	(gfc_trans_omp_clauses): Make sure OMP_CLAUSE_LINEAR_STEP has
+	correct type.  Set OMP_CLAUSE_LINEAR_ARRAY flag if needed.
+	* f95-lang.c (LANG_HOOKS_OMP_CLAUSE_LINEAR_CTOR): Redefine.
+
+2014-06-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* dump-parse-tree.c (show_omp_namelist): Use n->udr->udr instead
+	of n->udr.
+	* f95-lang.c (gfc_init_builtin_functions): Initialize
+	BUILT_IN_ASSUME_ALIGNED.
+	* gfortran.h (gfc_omp_namelist): Change udr field type to
+	struct gfc_omp_namelist_udr.
+	(gfc_omp_namelist_udr): New type.
+	(gfc_get_omp_namelist_udr): Define.
+	(gfc_resolve_code): New prototype.
+	* match.c (gfc_free_omp_namelist): Free name->udr.
+	* module.c (intrinsics): Add INTRINSIC_USER.
+	(fix_mio_expr): Likewise.
+	(mio_expr): Handle INSTRINSIC_USER and non-resolved EXPR_FUNCTION.
+	* openmp.c (gfc_match_omp_clauses): Adjust initialization of n->udr.
+	(gfc_match_omp_declare_reduction): Treat len=: the same as len=*.
+	Set attr.flavor on omp_{out,in,priv,orig} artificial variables.
+	(struct resolve_omp_udr_callback_data): New type.
+	(resolve_omp_udr_callback, resolve_omp_udr_callback2,
+	resolve_omp_udr_clause): New functions.
+	(resolve_omp_clauses): Adjust for n->udr changes, resolve UDR clauses
+	here.
+	(omp_udr_callback): Don't check for implicitly declared functions
+	here.
+	(gfc_resolve_omp_udr): Don't call gfc_resolve.  Don't check for
+	implicitly declared subroutines here.
+	* resolve.c (resolve_function): If value.function.isym is non-NULL,
+	consider it already resolved.
+	(resolve_code): Renamed to ...
+	(gfc_resolve_code): ... this.  No longer static.
+	(gfc_resolve_blocks, generate_component_assignments, resolve_codes):
+	Adjust callers.
+	* trans-openmp.c (gfc_omp_privatize_by_reference): Don't privatize
+	by reference type (C_PTR) variables.
+	(gfc_omp_finish_clause): Make sure OMP_CLAUSE_SIZE is non-NULL.
+	(gfc_trans_omp_udr_expr): Remove.
+	(gfc_trans_omp_array_reduction_or_udr): Adjust for n->udr changes.
+	Don't call gfc_trans_omp_udr_expr, even for sym->attr.dimension
+	expand it as assignment or subroutine call.  Don't initialize
+	value.function.isym.
+
+2014-06-23  Tobias Burnus  <burnus@net-b.de>
+
+	* trans-decl.c (gfc_trans_deferred_vars): Fix handling of
+	explicit-size arrays with -fcoarray=lib.
+
 2014-06-20  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
 
 	PR fortran/33363

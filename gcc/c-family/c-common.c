@@ -6578,9 +6578,11 @@ handle_noreturn_attribute (tree *node, tree name, tree ARG_UNUSED (args),
   else if (TREE_CODE (type) == POINTER_TYPE
 	   && TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE)
     TREE_TYPE (*node)
-      = build_pointer_type
-	(build_type_variant (TREE_TYPE (type),
-			     TYPE_READONLY (TREE_TYPE (type)), 1));
+      = (build_qualified_type
+	 (build_pointer_type
+	  (build_type_variant (TREE_TYPE (type),
+			       TYPE_READONLY (TREE_TYPE (type)), 1)),
+	  TYPE_QUALS (type)));
   else
     {
       warning (OPT_Wattributes, "%qE attribute ignored", name);
@@ -7008,9 +7010,11 @@ handle_const_attribute (tree *node, tree name, tree ARG_UNUSED (args),
   else if (TREE_CODE (type) == POINTER_TYPE
 	   && TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE)
     TREE_TYPE (*node)
-      = build_pointer_type
-	(build_type_variant (TREE_TYPE (type), 1,
-			     TREE_THIS_VOLATILE (TREE_TYPE (type))));
+      = (build_qualified_type
+	 (build_pointer_type
+	  (build_type_variant (TREE_TYPE (type), 1,
+			       TREE_THIS_VOLATILE (TREE_TYPE (type)))),
+	  TYPE_QUALS (type)));
   else
     {
       warning (OPT_Wattributes, "%qE attribute ignored", name);
@@ -10491,7 +10495,8 @@ get_atomic_generic_size (location_t loc, tree function,
 		    function);
 	  return 0;
 	}
-      size = tree_to_uhwi (TYPE_SIZE_UNIT (TREE_TYPE (type)));
+      tree type_size = TYPE_SIZE_UNIT (TREE_TYPE (type));
+      size = type_size ? tree_to_uhwi (type_size) : 0;
       if (size != size_0)
 	{
 	  error_at (loc, "size mismatch in argument %d of %qE", x + 1,

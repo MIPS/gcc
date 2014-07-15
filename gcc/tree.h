@@ -1330,6 +1330,11 @@ extern void protected_set_expr_location (tree, location_t);
 #define OMP_CLAUSE_LINEAR_VARIABLE_STRIDE(NODE) \
   TREE_PROTECTED (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_LINEAR))
 
+/* True if a LINEAR clause is for an array or allocatable variable that
+   needs special handling by the frontend.  */
+#define OMP_CLAUSE_LINEAR_ARRAY(NODE) \
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_LINEAR)->base.deprecated_flag)
+
 #define OMP_CLAUSE_LINEAR_STEP(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_LINEAR), 1)
 
@@ -2470,10 +2475,9 @@ extern void decl_fini_priority_insert (tree, priority_type);
    is the FUNCTION_DECL which this FUNCTION_DECL will replace as a virtual
    function.  When the class is laid out, this pointer is changed
    to an INTEGER_CST node which is suitable for use as an index
-   into the virtual function table.
-   C++ also uses this field in namespaces, hence the DECL_NON_COMMON_CHECK.  */
+   into the virtual function table. */
 #define DECL_VINDEX(NODE) \
-  (DECL_NON_COMMON_CHECK (NODE)->decl_non_common.vindex)
+  (FUNCTION_DECL_CHECK (NODE)->function_decl.vindex)
 
 /* In FUNCTION_DECL, holds the decl for the return value.  */
 #define DECL_RESULT(NODE) (FUNCTION_DECL_CHECK (NODE)->decl_non_common.result)
@@ -2485,7 +2489,7 @@ extern void decl_fini_priority_insert (tree, priority_type);
 /* In a FUNCTION_DECL, the saved representation of the body of the
    entire function.  */
 #define DECL_SAVED_TREE(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->decl_non_common.saved_tree)
+  (FUNCTION_DECL_CHECK (NODE)->function_decl.saved_tree)
 
 /* Nonzero in a FUNCTION_DECL means this function should be treated
    as if it were a malloc, meaning it returns a pointer that is
@@ -4312,9 +4316,9 @@ extern tree block_ultimate_origin (const_tree);
 extern tree get_binfo_at_offset (tree, HOST_WIDE_INT, tree);
 extern bool virtual_method_call_p (tree);
 extern tree obj_type_ref_class (tree ref);
-extern bool types_same_for_odr (tree type1, tree type2);
+extern bool types_same_for_odr (const_tree type1, const_tree type2);
 extern bool contains_bitfld_component_ref_p (const_tree);
-extern bool type_in_anonymous_namespace_p (tree);
+extern bool type_in_anonymous_namespace_p (const_tree);
 extern bool block_may_fallthru (const_tree);
 extern void using_eh_for_cleanups (void);
 extern bool using_eh_for_cleanups_p (void);

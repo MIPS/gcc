@@ -2607,7 +2607,6 @@ finish_compound_literal (tree type, tree compound_literal,
   if ((!at_function_scope_p () || CP_TYPE_CONST_P (type))
       && TREE_CODE (type) == ARRAY_TYPE
       && !TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type)
-      && !cp_unevaluated_operand
       && initializer_constant_valid_p (compound_literal, type))
     {
       tree decl = create_temporary_var (type);
@@ -3871,7 +3870,6 @@ simplify_aggr_init_expr (tree *tp)
 				    AGGR_INIT_EXPR_ARGP (aggr_init_expr));
   TREE_NOTHROW (call_expr) = TREE_NOTHROW (aggr_init_expr);
   CALL_EXPR_LIST_INIT_P (call_expr) = CALL_EXPR_LIST_INIT_P (aggr_init_expr);
-  tree ret = call_expr;
 
   if (style == ctor)
     {
@@ -3887,7 +3885,7 @@ simplify_aggr_init_expr (tree *tp)
 	 expand_call{,_inline}.  */
       cxx_mark_addressable (slot);
       CALL_EXPR_RETURN_SLOT_OPT (call_expr) = true;
-      ret = build2 (INIT_EXPR, TREE_TYPE (ret), slot, ret);
+      call_expr = build2 (INIT_EXPR, TREE_TYPE (call_expr), slot, call_expr);
     }
   else if (style == pcc)
     {
@@ -3895,11 +3893,11 @@ simplify_aggr_init_expr (tree *tp)
 	 need to copy the returned value out of the static buffer into the
 	 SLOT.  */
       push_deferring_access_checks (dk_no_check);
-      ret = build_aggr_init (slot, ret,
-			     DIRECT_BIND | LOOKUP_ONLYCONVERTING,
-			     tf_warning_or_error);
+      call_expr = build_aggr_init (slot, call_expr,
+				   DIRECT_BIND | LOOKUP_ONLYCONVERTING,
+                                   tf_warning_or_error);
       pop_deferring_access_checks ();
-      ret = build2 (COMPOUND_EXPR, TREE_TYPE (slot), ret, slot);
+      call_expr = build2 (COMPOUND_EXPR, TREE_TYPE (slot), call_expr, slot);
     }
 
   if (AGGR_INIT_ZERO_FIRST (aggr_init_expr))
@@ -3907,10 +3905,11 @@ simplify_aggr_init_expr (tree *tp)
       tree init = build_zero_init (type, NULL_TREE,
 				   /*static_storage_p=*/false);
       init = build2 (INIT_EXPR, void_type_node, slot, init);
-      ret = build2 (COMPOUND_EXPR, TREE_TYPE (ret), init, ret);
+      call_expr = build2 (COMPOUND_EXPR, TREE_TYPE (call_expr),
+			  init, call_expr);
     }
 
-  *tp = ret;
+  *tp = call_expr;
 }
 
 /* Emit all thunks to FN that should be emitted when FN is emitted.  */
@@ -3950,13 +3949,16 @@ emit_associated_thunks (tree fn)
 }
 
 /* Returns true iff FUN is an instantiation of a constexpr function
-   template.  */
+   template or a defaulted constexpr function.  */
 
 static inline bool
 is_instantiation_of_constexpr (tree fun)
 {
-  return (DECL_TEMPLOID_INSTANTIATION (fun)
-	  && DECL_DECLARED_CONSTEXPR_P (DECL_TI_TEMPLATE (fun)));
+  return ((DECL_TEMPLOID_INSTANTIATION (fun)
+	   && DECL_DECLARED_CONSTEXPR_P (DECL_TI_TEMPLATE (fun)))
+	  || (DECL_DEFAULTED_FN (fun)
+	      && DECL_DECLARED_CONSTEXPR_P (fun)));
+
 }
 
 /* Generate RTL for FN.  */
@@ -4049,9 +4051,11 @@ expand_or_defer_fn (tree fn)
 
 struct nrv_data
 {
+  nrv_data () : visited (37) {}
+
   tree var;
   tree result;
-  hash_table <pointer_hash <tree_node> > visited;
+  hash_table<pointer_hash <tree_node> > visited;
 };
 
 /* Helper function for walk_tree, used by finalize_nrv below.  */
@@ -4131,9 +4135,7 @@ finalize_nrv (tree *tp, tree var, tree result)
 
   data.var = var;
   data.result = result;
-  data.visited.create (37);
   cp_walk_tree (tp, finalize_nrv_r, &data, 0);
-  data.visited.dispose ();
 }
 
 /* Create CP_OMP_CLAUSE_INFO for clause C.  Returns true if it is invalid.  */
@@ -5287,6 +5289,8 @@ finish_omp_clauses (tree clauses)
 			  break;
 			}
 		    }
+		  else
+		    t = fold_convert (TREE_TYPE (OMP_CLAUSE_DECL (c)), t);
 		}
 	      OMP_CLAUSE_LINEAR_STEP (c) = t;
 	    }
@@ -8047,7 +8051,7 @@ explain_invalid_constexpr_fn (tree fun)
   if (is_valid_constexpr_fn (fun, true))
     {
       /* Then if it's OK, the body.  */
-      if (DECL_DEFAULTED_FN (fun))
+      if (!DECL_DECLARED_CONSTEXPR_P (fun))
 	explain_implicit_non_constexpr (fun);
       else
 	{
@@ -8518,11 +8522,24 @@ cxx_eval_call_expression (const constexpr_call *old_call, tree t,
 bool
 reduced_constant_expression_p (tree t)
 {
-  if (TREE_CODE (t) == PTRMEM_CST)
-    /* Even if we can't lower this yet, it's constant.  */
-    return true;
-  /* FIXME are we calling this too much?  */
-  return initializer_constant_valid_p (t, TREE_TYPE (t)) != NULL_TREE;
+  switch (TREE_CODE (t))
+    {
+    case PTRMEM_CST:
+      /* Even if we can't lower this yet, it's constant.  */
+      return true;
+
+    case CONSTRUCTOR:
+      /* And we need to handle PTRMEM_CST wrapped in a CONSTRUCTOR.  */
+      tree elt; unsigned HOST_WIDE_INT idx;
+      FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (t), idx, elt)
+	if (!reduced_constant_expression_p (elt))
+	  return false;
+      return true;
+
+    default:
+      /* FIXME are we calling this too much?  */
+      return initializer_constant_valid_p (t, TREE_TYPE (t)) != NULL_TREE;
+    }
 }
 
 /* Some expressions may have constant operands but are not constant

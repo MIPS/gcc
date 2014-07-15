@@ -75,7 +75,7 @@ static alloc_pool hsa_allocp_bb;
 static alloc_pool hsa_allocp_symbols;
 
 /* Hash function to lookup a symbol for a decl.  */
-hash_table <hsa_free_symbol_hasher> hsa_global_variable_symbols;
+hash_table <hsa_free_symbol_hasher> *hsa_global_variable_symbols;
 
 /* True if compilation unit-wide data are already allocated and initialized.  */
 static bool compilation_unit_data_initialized;
@@ -90,7 +90,7 @@ hsa_init_compilation_unit_data (void)
     return;
 
   compilation_unit_data_initialized = true;
-  hsa_global_variable_symbols.create (8);
+  hsa_global_variable_symbols = new hash_table <hsa_free_symbol_hasher> (8);
 }
 
 /* Free data structures that are used when dealing with different
@@ -102,7 +102,7 @@ hsa_deinit_compilation_unit_data (void)
   if (!compilation_unit_data_initialized)
     return;
 
-  hsa_global_variable_symbols.dispose ();
+  delete hsa_global_variable_symbols;
 }
 
 /* Allocate HSA structures that we need only while generating with this.  */
@@ -157,7 +157,8 @@ hsa_init_data_for_cfun ()
 
   memset (&hsa_cfun, 0, sizeof (hsa_cfun));
   hsa_cfun.prologue.label_ref.kind = BRIG_OPERAND_LABEL_REF;
-  hsa_cfun.local_symbols.create (sym_init_len);
+  hsa_cfun.local_symbols
+    = new hash_table <hsa_noop_symbol_hasher> (sym_init_len);
   hsa_cfun.reg_count = 0;
   hsa_cfun.hbb_count = 1;       /* 0 is for prologue.  */
   hsa_cfun.in_ssa = true;	/* We start in SSA.  */
@@ -182,7 +183,7 @@ hsa_deinit_data_for_cfun (void)
   free_alloc_pool (hsa_allocp_bb);
 
   free_alloc_pool (hsa_allocp_symbols);
-  hsa_cfun.local_symbols.dispose ();
+  delete hsa_cfun.local_symbols;
   free (hsa_cfun.input_args);
   free (hsa_cfun.output_arg);
   free (hsa_cfun.name);
@@ -459,7 +460,7 @@ get_symbol_for_decl (tree decl)
 
   if (TREE_CODE (decl) == VAR_DECL && is_global_var (decl))
     {
-      slot = hsa_global_variable_symbols.find_slot (&dummy, INSERT);
+      slot = hsa_global_variable_symbols->find_slot (&dummy, INSERT);
       gcc_checking_assert (slot);
       if (*slot)
 	return *slot;
@@ -469,7 +470,7 @@ get_symbol_for_decl (tree decl)
     }
   else
     {
-      slot = hsa_cfun.local_symbols.find_slot (&dummy, INSERT);
+      slot = hsa_cfun.local_symbols->find_slot (&dummy, INSERT);
       gcc_checking_assert (slot);
       if (*slot)
 	return *slot;
@@ -1833,7 +1834,7 @@ gen_function_parameters (vec <hsa_op_reg_p> ssa_map)
       hsa_cfun.input_args[i].segment = BRIG_SEGMENT_KERNARG;
       gcc_checking_assert (DECL_NAME (parm));
       hsa_cfun.input_args[i].name = IDENTIFIER_POINTER (DECL_NAME (parm));
-      slot = hsa_cfun.local_symbols.find_slot (&hsa_cfun.input_args[i],
+      slot = hsa_cfun.local_symbols->find_slot (&hsa_cfun.input_args[i],
 						INSERT);
       gcc_assert (!*slot);
       *slot = &hsa_cfun.input_args[i];
@@ -1867,7 +1868,7 @@ gen_function_parameters (vec <hsa_op_reg_p> ssa_map)
       fillup_sym_for_decl (DECL_RESULT (cfun->decl), hsa_cfun.output_arg);
       hsa_cfun.output_arg->segment = BRIG_SEGMENT_ARG;
       hsa_cfun.output_arg->name = "output$param";
-      slot = hsa_cfun.local_symbols.find_slot (hsa_cfun.output_arg, INSERT);
+      slot = hsa_cfun.local_symbols->find_slot (hsa_cfun.output_arg, INSERT);
       gcc_assert (!*slot);
       *slot = hsa_cfun.output_arg;
     }
@@ -2061,7 +2062,6 @@ const pass_data pass_data_gen_hsail =
   GIMPLE_PASS,
   "hsagen",	 			/* name */
   OPTGROUP_NONE,                        /* optinfo_flags */
-  true,					/* has_execute */
   TV_NONE,				/* tv_id */
   PROP_cfg | PROP_ssa,                  /* properties_required */
   0,					/* properties_provided */

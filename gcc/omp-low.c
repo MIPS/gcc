@@ -3001,8 +3001,10 @@ lower_rec_simd_input_clauses (tree new_var, omp_context *ctx, int &max_vf,
 	{
 	  tree c = find_omp_clause (gimple_omp_for_clauses (ctx->stmt),
 				    OMP_CLAUSE_SAFELEN);
-	  if (c
-	      && compare_tree_int (OMP_CLAUSE_SAFELEN_EXPR (c), max_vf) == -1)
+	  if (c && TREE_CODE (OMP_CLAUSE_SAFELEN_EXPR (c)) != INTEGER_CST)
+	    max_vf = 1;
+	  else if (c && compare_tree_int (OMP_CLAUSE_SAFELEN_EXPR (c),
+					  max_vf) == -1)
 	    max_vf = tree_to_shwi (OMP_CLAUSE_SAFELEN_EXPR (c));
 	}
       if (max_vf > 1)
@@ -3086,11 +3088,14 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
     for (c = clauses; c ; c = OMP_CLAUSE_CHAIN (c))
       switch (OMP_CLAUSE_CODE (c))
 	{
+	case OMP_CLAUSE_LINEAR:
+	  if (OMP_CLAUSE_LINEAR_ARRAY (c))
+	    max_vf = 1;
+	  /* FALLTHRU */
 	case OMP_CLAUSE_REDUCTION:
 	case OMP_CLAUSE_PRIVATE:
 	case OMP_CLAUSE_FIRSTPRIVATE:
 	case OMP_CLAUSE_LASTPRIVATE:
-	case OMP_CLAUSE_LINEAR:
 	  if (is_variable_sized (OMP_CLAUSE_DECL (c)))
 	    max_vf = 1;
 	  break;
@@ -3416,34 +3421,37 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 		  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LINEAR
 		      && gimple_omp_for_combined_into_p (ctx->stmt))
 		    {
-		      tree stept = POINTER_TYPE_P (TREE_TYPE (x))
-				   ? sizetype : TREE_TYPE (x);
-		      tree t = fold_convert (stept,
-					     OMP_CLAUSE_LINEAR_STEP (c));
-		      tree c = find_omp_clause (clauses,
-						OMP_CLAUSE__LOOPTEMP_);
-		      gcc_assert (c);
-		      tree l = OMP_CLAUSE_DECL (c);
-		      if (fd->collapse == 1)
-			{
-			  tree n1 = fd->loop.n1;
-			  tree step = fd->loop.step;
-			  tree itype = TREE_TYPE (l);
-			  if (POINTER_TYPE_P (itype))
-			    itype = signed_type_for (itype);
-			  l = fold_build2 (MINUS_EXPR, itype, l, n1);
-			  if (TYPE_UNSIGNED (itype)
-			      && fd->loop.cond_code == GT_EXPR)
-			    l = fold_build2 (TRUNC_DIV_EXPR, itype,
-					     fold_build1 (NEGATE_EXPR,
-							  itype, l),
-					     fold_build1 (NEGATE_EXPR,
-							  itype, step));
-			  else
-			    l = fold_build2 (TRUNC_DIV_EXPR, itype, l, step);
-			}
+		      tree t = OMP_CLAUSE_LINEAR_STEP (c);
+		      tree stept = TREE_TYPE (t);
+		      tree ct = find_omp_clause (clauses,
+						 OMP_CLAUSE__LOOPTEMP_);
+		      gcc_assert (ct);
+		      tree l = OMP_CLAUSE_DECL (ct);
+		      tree n1 = fd->loop.n1;
+		      tree step = fd->loop.step;
+		      tree itype = TREE_TYPE (l);
+		      if (POINTER_TYPE_P (itype))
+			itype = signed_type_for (itype);
+		      l = fold_build2 (MINUS_EXPR, itype, l, n1);
+		      if (TYPE_UNSIGNED (itype)
+			  && fd->loop.cond_code == GT_EXPR)
+			l = fold_build2 (TRUNC_DIV_EXPR, itype,
+					 fold_build1 (NEGATE_EXPR, itype, l),
+					 fold_build1 (NEGATE_EXPR,
+						      itype, step));
+		      else
+			l = fold_build2 (TRUNC_DIV_EXPR, itype, l, step);
 		      t = fold_build2 (MULT_EXPR, stept,
 				       fold_convert (stept, l), t);
+
+		      if (OMP_CLAUSE_LINEAR_ARRAY (c))
+			{
+			  x = lang_hooks.decls.omp_clause_linear_ctor
+							(c, new_var, x, t);
+			  gimplify_and_add (x, ilist);
+			  goto do_dtor;
+			}
+
 		      if (POINTER_TYPE_P (TREE_TYPE (x)))
 			x = fold_build2 (POINTER_PLUS_EXPR,
 					 TREE_TYPE (x), x, t);
@@ -3467,10 +3475,7 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 			    = gimple_build_assign (unshare_expr (lvar), iv);
 			  gsi_insert_before_without_update (&gsi, g,
 							    GSI_SAME_STMT);
-			  tree stept = POINTER_TYPE_P (TREE_TYPE (iv))
-				       ? sizetype : TREE_TYPE (iv);
-			  tree t = fold_convert (stept,
-						 OMP_CLAUSE_LINEAR_STEP (c));
+			  tree t = OMP_CLAUSE_LINEAR_STEP (c);
 			  enum tree_code code = PLUS_EXPR;
 			  if (POINTER_TYPE_P (TREE_TYPE (new_var)))
 			    code = POINTER_PLUS_EXPR;
@@ -3750,8 +3755,9 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
       tree c = find_omp_clause (gimple_omp_for_clauses (ctx->stmt),
 				OMP_CLAUSE_SAFELEN);
       if (c == NULL_TREE
-	  || compare_tree_int (OMP_CLAUSE_SAFELEN_EXPR (c),
-			       max_vf) == 1)
+	  || (TREE_CODE (OMP_CLAUSE_SAFELEN_EXPR (c)) == INTEGER_CST
+	      && compare_tree_int (OMP_CLAUSE_SAFELEN_EXPR (c),
+				   max_vf) == 1))
 	{
 	  c = build_omp_clause (UNKNOWN_LOCATION, OMP_CLAUSE_SAFELEN);
 	  OMP_CLAUSE_SAFELEN_EXPR (c) = build_int_cst (integer_type_node,
@@ -6917,8 +6923,10 @@ expand_omp_simd (struct omp_region *region, struct omp_for_data *fd)
       else
 	{
 	  safelen = OMP_CLAUSE_SAFELEN_EXPR (safelen);
-	  if (!tree_fits_uhwi_p (safelen)
-	      || tree_to_uhwi (safelen) > INT_MAX)
+	  if (TREE_CODE (safelen) != INTEGER_CST)
+	    loop->safelen = 0;
+	  else if (!tree_fits_uhwi_p (safelen)
+		   || tree_to_uhwi (safelen) > INT_MAX)
 	    loop->safelen = INT_MAX;
 	  else
 	    loop->safelen = tree_to_uhwi (safelen);
@@ -8424,7 +8432,6 @@ const pass_data pass_data_expand_omp =
   GIMPLE_PASS, /* type */
   "ompexp", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   PROP_gimple_any, /* properties_required */
   0, /* properties_provided */
@@ -10298,7 +10305,6 @@ const pass_data pass_data_lower_omp =
   GIMPLE_PASS, /* type */
   "omplower", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   PROP_gimple_any, /* properties_required */
   PROP_gimple_lomp, /* properties_provided */
@@ -10722,7 +10728,6 @@ const pass_data pass_data_diagnose_omp_blocks =
   GIMPLE_PASS, /* type */
   "*diagnose_omp_blocks", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   PROP_gimple_any, /* properties_required */
   0, /* properties_provided */
@@ -11933,7 +11938,6 @@ const pass_data pass_data_omp_simd_clone =
   SIMPLE_IPA_PASS,		/* type */
   "simdclone",			/* name */
   OPTGROUP_NONE,		/* optinfo_flags */
-  true,				/* has_execute */
   TV_NONE,			/* tv_id */
   ( PROP_ssa | PROP_cfg ),	/* properties_required */
   0,				/* properties_provided */

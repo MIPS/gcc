@@ -123,7 +123,7 @@ c_genericize (tree fndecl)
     }
 
   /* Dump the C-specific tree IR.  */
-  dump_orig = dump_begin (TDI_original, &local_dump_flags);
+  dump_orig = get_dump_info (TDI_original, &local_dump_flags);
   if (dump_orig)
     {
       fprintf (dump_orig, "\n;; Function %s",
@@ -140,8 +140,6 @@ c_genericize (tree fndecl)
       else
 	print_c_tree (dump_orig, DECL_SAVED_TREE (fndecl));
       fprintf (dump_orig, "\n");
-
-      dump_end (TDI_original, dump_orig);
     }
 
   /* Dump all nested functions now.  */
@@ -242,9 +240,7 @@ c_gimplify_expr (tree *expr_p, gimple_seq *pre_p ATTRIBUTE_UNUSED,
 	tree type = TREE_TYPE (TREE_OPERAND (*expr_p, 0));
 	if (INTEGRAL_TYPE_P (type) && c_promoting_integer_type_p (type))
 	  {
-	    if (TYPE_OVERFLOW_UNDEFINED (type)
-		|| ((flag_sanitize & SANITIZE_SI_OVERFLOW)
-		    && !TYPE_OVERFLOW_WRAPS (type)))
+	    if (!TYPE_OVERFLOW_WRAPS (type))
 	      type = unsigned_type_for (type);
 	    return gimplify_self_mod_expr (expr_p, pre_p, post_p, 1, type);
 	  }

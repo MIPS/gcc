@@ -375,11 +375,14 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
 		.. = a[i+1];
 	     where we will end up loading { a[i], a[i+1] } once, make
 	     sure that inserting group loads before the first load and
-	     stores after the last store will do the right thing.  */
-	  if ((STMT_VINFO_GROUPED_ACCESS (stmtinfo_a)
-	       && GROUP_SAME_DR_STMT (stmtinfo_a))
-	      || (STMT_VINFO_GROUPED_ACCESS (stmtinfo_b)
-		  && GROUP_SAME_DR_STMT (stmtinfo_b)))
+	     stores after the last store will do the right thing.
+	     Similar for groups like
+	        a[i] = ...;
+		... = a[i];
+		a[i+1] = ...;
+	     where loads from the group interleave with the store.  */
+	  if (STMT_VINFO_GROUPED_ACCESS (stmtinfo_a)
+	      || STMT_VINFO_GROUPED_ACCESS (stmtinfo_b))
 	    {
 	      gimple earlier_stmt;
 	      earlier_stmt = get_earlier_stmt (DR_STMT (dra), DR_STMT (drb));
@@ -1068,7 +1071,7 @@ vect_peeling_hash_insert (loop_vec_info loop_vinfo, struct data_reference *dr,
   bool supportable_dr_alignment = vect_supportable_dr_alignment (dr, true);
 
   elem.npeel = npeel;
-  slot = LOOP_VINFO_PEELING_HTAB (loop_vinfo).find (&elem);
+  slot = LOOP_VINFO_PEELING_HTAB (loop_vinfo)->find (&elem);
   if (slot)
     slot->count++;
   else
@@ -1077,7 +1080,8 @@ vect_peeling_hash_insert (loop_vec_info loop_vinfo, struct data_reference *dr,
       slot->npeel = npeel;
       slot->dr = dr;
       slot->count = 1;
-      new_slot = LOOP_VINFO_PEELING_HTAB (loop_vinfo).find_slot (slot, INSERT);
+      new_slot
+       	= LOOP_VINFO_PEELING_HTAB (loop_vinfo)->find_slot (slot, INSERT);
       *new_slot = slot;
     }
 
@@ -1197,15 +1201,15 @@ vect_peeling_hash_choose_best_peeling (loop_vec_info loop_vinfo,
        res.inside_cost = INT_MAX;
        res.outside_cost = INT_MAX;
        LOOP_VINFO_PEELING_HTAB (loop_vinfo)
-           .traverse <_vect_peel_extended_info *,
-                      vect_peeling_hash_get_lowest_cost> (&res);
+           ->traverse <_vect_peel_extended_info *,
+                       vect_peeling_hash_get_lowest_cost> (&res);
      }
    else
      {
        res.peel_info.count = 0;
        LOOP_VINFO_PEELING_HTAB (loop_vinfo)
-           .traverse <_vect_peel_extended_info *,
-                      vect_peeling_hash_get_most_frequent> (&res);
+           ->traverse <_vect_peel_extended_info *,
+                       vect_peeling_hash_get_most_frequent> (&res);
      }
 
    *npeel = res.peel_info.npeel;
@@ -1397,8 +1401,9 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 						    size_zero_node) < 0;
 
               /* Save info about DR in the hash table.  */
-              if (!LOOP_VINFO_PEELING_HTAB (loop_vinfo).is_created ())
-                LOOP_VINFO_PEELING_HTAB (loop_vinfo).create (1);
+              if (!LOOP_VINFO_PEELING_HTAB (loop_vinfo))
+                LOOP_VINFO_PEELING_HTAB (loop_vinfo)
+		  = new hash_table<peel_info_hasher> (1);
 
               vectype = STMT_VINFO_VECTYPE (stmt_info);
               nelements = TYPE_VECTOR_SUBPARTS (vectype);

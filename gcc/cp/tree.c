@@ -2092,8 +2092,8 @@ static tree
 verify_stmt_tree_r (tree* tp, int * /*walk_subtrees*/, void* data)
 {
   tree t = *tp;
-  hash_table <pointer_hash <tree_node> > *statements
-      = static_cast <hash_table <pointer_hash <tree_node> > *> (data);
+  hash_table<pointer_hash <tree_node> > *statements
+      = static_cast <hash_table<pointer_hash <tree_node> > *> (data);
   tree_node **slot;
 
   if (!STATEMENT_CODE_P (TREE_CODE (t)))
@@ -2116,10 +2116,8 @@ verify_stmt_tree_r (tree* tp, int * /*walk_subtrees*/, void* data)
 void
 verify_stmt_tree (tree t)
 {
-  hash_table <pointer_hash <tree_node> > statements;
-  statements.create (37);
+  hash_table<pointer_hash <tree_node> > statements (37);
   cp_walk_tree (&t, verify_stmt_tree_r, &statements, NULL);
-  statements.dispose ();
 }
 
 /* Check if the type T depends on a type with no linkage and if so, return
@@ -2355,7 +2353,8 @@ bot_replace (tree* t, int* /*walk_subtrees*/, void* data)
 	*t = (tree) n->value;
     }
   else if (TREE_CODE (*t) == PARM_DECL
-	   && DECL_NAME (*t) == this_identifier)
+	   && DECL_NAME (*t) == this_identifier
+	   && !DECL_CONTEXT (*t))
     {
       /* In an NSDMI we need to replace the 'this' parameter we used for
 	 parsing with the real one for this function.  */
