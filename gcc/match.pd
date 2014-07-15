@@ -351,15 +351,6 @@ along with GCC; see the file COPYING3.  If not see
   (lrotate @0 @1)))
 
 
-/* (x << CNT1) OP (x >> CNT2) -> x r<< CNT1 OP being +, |, ^ */
-(for op in plus bit_ior bit_xor 
-(match_and_simplify
-  (op:c (lshift @0 INTEGER_CST_P@1) (rshift @0 INTEGER_CST_P@2))
-  if (tree_fits_uhwi_p (@1) && tree_fits_uhwi_p (@2)
-      && tree_to_uhwi (@1) + tree_to_uhwi (@2) == TYPE_PRECISION (type))
-  (lrotate @0 @1)))
-
-
 /* ????s
 
    We cannot reasonably match vector CONSTRUCTORs or vector constants

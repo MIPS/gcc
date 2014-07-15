@@ -1,5 +1,9 @@
 2014-07-15  Richard Biener  <rguenther@suse.de>
 
+	* match.pd: Remove duplicated and broken rotate pattern.
+
+2014-07-15  Richard Biener  <rguenther@suse.de>
+
 	* genmatch.c (dt_operand::gen_match_op): Fall back to
 	use operand_equal_p if literal equality does not hold.
 
