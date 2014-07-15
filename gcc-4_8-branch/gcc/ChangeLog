@@ -1,3 +1,16 @@
+2014-04-22  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/aarch64/aarch64-simd.md
+	(aarch64_cm<optab>di): Always split.
+	(*aarch64_cm<optab>di): New.
+	(aarch64_cmtstdi): Always split.
+	(*aarch64_cmtstdi): New.
+
+2013-05-23  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/aarch64/aarch64-simd.md
+	(aarch64_cm<optab>di): Add clobber of CC_REGNUM to unsplit pattern.
+
 2013-07-02  Ian Bolton  <ian.bolton@arm.com>
 
 	* config/aarch64/aarch64-simd.md (absdi2): Support abs for
