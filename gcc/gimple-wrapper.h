@@ -107,12 +107,6 @@ class _ptr
     inline _ptr (int x ATTRIBUTE_UNUSED) { gcc_assert (!x); set_ptr (NULL); }
     inline _ptr& operator= (const gimple_null& g ATTRIBUTE_UNUSED)
 				    { Tree = NULL; return *this;}
-/*
-    inline _ptr& operator= (const tree t) 
-			    { set_ptr (t); check_contents (); return *this;}
-    inline _ptr& operator= (const_tree t)
-			    { set_ptr (t); check_contents (); return *this;}
-*/
     inline _ptr& operator= (const T *v) { set_ptr (v); return *this;}
     inline _ptr& operator= (int x ATTRIBUTE_UNUSED) 
 			  { gcc_assert (!x); set_ptr (NULL); return *this; }
@@ -257,12 +251,7 @@ class _dptr : public dT
     inline _dptr (const_tree t) : dT (t) { check_contents(); }
     inline _dptr (const pT *n) : dT () {  dT::set_ptr (n); }
     inline _dptr (int x ATTRIBUTE_UNUSED) : dT () { gcc_assert (!x); }
-/*
-    inline _dptr& operator= (const tree t) 
-				{ set_ptr (t); check_contents(); return *this; }
-    inline _dptr& operator= (const_tree t) 
-				{ set_ptr (t); check_contents(); return *this; }
-*/
+
     inline _dptr& operator= (const pT *p) { set_ptr (p); return *this; }
     inline _dptr& operator= (const gimple_null& g ATTRIBUTE_UNUSED)
 						{ set_ptr (NULL); return *this;}
