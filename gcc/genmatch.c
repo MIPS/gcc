@@ -1007,7 +1007,8 @@ dt_operand::gen_match_op (FILE *f, const char *opname)
 {
   char match_opname[20];
   match_dop->get_name (match_opname);
-  fprintf (f, "if (%s == %s)\n", opname, match_opname);
+  fprintf (f, "if (%s == %s || operand_equal_p (%s, %s, 0))\n",
+	   opname, match_opname, opname, match_opname);
   fprintf (f, "{\n");
   return 1;
 }

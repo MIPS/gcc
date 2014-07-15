@@ -1,5 +1,10 @@
 2014-07-15  Richard Biener  <rguenther@suse.de>
 
+	* genmatch.c (dt_operand::gen_match_op): Fall back to
+	use operand_equal_p if literal equality does not hold.
+
+2014-07-15  Richard Biener  <rguenther@suse.de>
+
 	* genmatch.c (decision_tree::gen_generic): Guard against
 	NULL_TREE operands.
 
