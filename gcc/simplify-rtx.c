@@ -5652,18 +5652,28 @@ simplify_subreg (enum machine_mode outermode, rtx op,
       if (GET_CODE (op0) == CONST_INT)
 	op0 = NULL_RTX;
       else
-        op0 = simplify_subreg (outermode, op0, innermode, byte);
+       {
+          op0 = simplify_unary_operation (TRUNCATE, outermode, op0, innermode);
+         if (op0 && (GET_CODE (op0) == TRUNCATE
+                     || GET_CODE (op0) == SUBREG))
+           op0 = NULL_RTX;
+       }
       if (GET_CODE (op1) == CONST_INT)
 	op1 = NULL_RTX;
       else
-        op1 = simplify_subreg (outermode, op1, innermode, byte);
+       {
+          op1 = simplify_unary_operation (TRUNCATE, outermode, op1, innermode);
+         if (op1 && (GET_CODE (op1) == TRUNCATE
+                     || GET_CODE (op1) == SUBREG))
+           op1 = NULL_RTX;
+       }
 
       if (op0 != NULL_RTX || op1 != NULL_RTX)
 	{
 	  if (op0 == NULL_RTX)
-	    op0 = simplify_gen_subreg (outermode, XEXP (op, 0), innermode, byte);
+	    op0 = simplify_gen_unary (TRUNCATE, outermode, XEXP (op, 0), innermode);
 	  if (op1 == NULL_RTX)
-	    op1 = simplify_gen_subreg (outermode, XEXP (op, 1), innermode, byte);
+	    op1 = simplify_gen_unary (TRUNCATE, outermode, XEXP (op, 1), innermode);
 	  return simplify_gen_binary (GET_CODE (op), outermode, op0, op1);
 	}
     }
