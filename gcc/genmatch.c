@@ -1608,6 +1608,18 @@ decision_tree::gen_generic (FILE *f)
       fprintf (f, ")\n");
       fprintf (f, "{\n");
 
+      /* ???  For now reject all simplifications on operands with
+         side-effects as we are not prepared to properly wrap
+	 omitted parts with omit_one_operand and friends.  In
+	 principle we can do that automagically for a subset of
+	 transforms (and only reject the remaining cases).
+	 This fixes for example gcc.c-torture/execute/20050131-1.c.  */
+      fprintf (f, "if (TREE_SIDE_EFFECTS (op0)");
+      for (unsigned i = 1; i < n; ++i)
+	fprintf (f, "|| TREE_SIDE_EFFECTS (op%d)", i);
+      fprintf (f, ")\n"
+	       "  return NULL_TREE;\n");
+
       fprintf (f, "switch (code)\n"
 	       "{\n");
       for (unsigned i = 0; i < root->kids.length (); i++)
@@ -2013,7 +2025,7 @@ parse_match_and_simplify (cpp_reader *r, source_location match_location)
 }
 
 void
-parse_for (cpp_reader *r, source_location match_location, vec<simplify *>& simplifiers) 
+parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers) 
 {
   const char *user_id = get_ident (r);
   eat_ident (r, "in");
@@ -2074,7 +2086,6 @@ int
 main(int argc, char **argv)
 {
   cpp_reader *r;
-  const cpp_token *token;
 
   progname = "genmatch";
 

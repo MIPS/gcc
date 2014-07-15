@@ -1,3 +1,11 @@
+2014-07-15  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (decision_tree::gen_generic): Reject operands
+	with TREE_SIDE_EFFECTS for now.
+	(parse_for): Drop name of unused parameter.
+	(main): Remove unused token.
+	* match.pd: Remove ??? comment about TREE_SIDE_EFFECTS.
+
 2014-07-14  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 
 	* match.pd: Remove INTEGRAL_TYPE_P (TREE_TYPE (@0)) in bitwise

@@ -46,11 +46,7 @@ along with GCC; see the file COPYING3.  If not see
   (trunc_mod @0 integer_onep)
   { build_zero_cst (type); })
 /* Same applies to modulo operations, but fold is inconsistent here
-   and simplifies 0 % x to 0.
-   ???  This also shows an issue with the GENERIC case - we have to
-   pass all dropped through omit_{one,two}_operand{,s} to preserve
-   their side-effects - seen gcc.c-torture/execute/20050131-1.c
-   execute failure.  Eventually we can autodetect this.  */
+   and simplifies 0 % x to 0.  */
 (match_and_simplify
   (trunc_mod integer_zerop@0 @1)
   if (!integer_zerop (@1))
