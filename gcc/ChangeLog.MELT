@@ -1,6 +1,18 @@
 
 2014-07-15  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h: Typo in comment.
+	(meltgc_strbuf_json_string_peek): New declaration.
+
+	* melt-runtime.cc (MELT_READ_ERROR, MELT_READ_WARNING):
+	Re-indented.
+	(meltgc_strbuf_json_string_peek): New function.
+
+	* melt/warmelt-hooks.melt (json_lexer): Now lexing JSON strings,
+	but incomplete since should lex keywords.
+
+2014-07-15  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.h (meltgc_new_double): New declaration.
 
 	* melt-runtime.cc (meltgc_new_int): Default discriminant becomes

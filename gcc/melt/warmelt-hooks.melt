@@ -2891,6 +2891,7 @@ exit, in last place.}#
   (setq json_name_dict jsondict)
   (void))
 
+
 ;; internal function to lex a json sbuf
 (defun json_lexer (sbuf)
   (assert_msg "check sbuf" (is_strbuf sbuf) sbuf)
@@ -2960,6 +2961,23 @@ exit, in last place.}#
 	   (strbuf_consume sbuf eatlen)
 	   (return :number val))
        ))
+      ;;; strings
+      ((==i curch #\")
+       (let ( (nstr ())
+	      (:long endoff 0)
+	      )
+	 (code_chunk peekjsonstr_chk
+		     #{ /* json_lexer start $PEEKJSONSTR_CHK */
+		     int iend = 0;
+		     $NSTR = meltgc_strbuf_json_string_peek ($SBUF, 0, &iend);
+		     if ($NSTR) $ENDOFF = (long) iend;
+		     }#)
+	 (when nstr
+	   (strbuf_consume sbuf endoff)	   
+	   (return :string nstr))
+	 )
+       )
+      ;;; missing case for keywords
       ;; otherwise error
       (:else
        (return :error sbuf))

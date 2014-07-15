@@ -6785,15 +6785,16 @@ static void melt_linemap_compute_current_location (struct melt_reading_st *rd);
 static void melt_read_got_error_at (struct melt_reading_st*rd, const char* file, int line)
   throw (melt_read_error);
 
-#define MELT_READ_ERROR(Fmt,...)    do {			\
-   melt_linemap_compute_current_location (rd);			\
-   error_at(rd->rsrcloc, Fmt, ##__VA_ARGS__);			\
-   melt_read_got_error_at(rd, melt_basename(__FILE__), __LINE__); } while(0)
+#define MELT_READ_ERROR(Fmt,...)    do {				\
+   melt_linemap_compute_current_location (rd);				\
+   error_at(rd->rsrcloc, Fmt, ##__VA_ARGS__);				\
+   melt_read_got_error_at(rd, melt_basename(__FILE__), __LINE__);	\
+} while(0)
 
-#define MELT_READ_WARNING(Fmt,...)  do {      \
-   melt_linemap_compute_current_location (rd);      \
-   warning_at (rd->rsrcloc, 0, "MELT read warning: " Fmt, \
-                ##__VA_ARGS__);         \
+#define MELT_READ_WARNING(Fmt,...)  do {			\
+   melt_linemap_compute_current_location (rd);			\
+   warning_at (rd->rsrcloc, 0, "MELT read warning: " Fmt,	\
+                ##__VA_ARGS__);					\
  } while(0)
 
 /* meltgc_readval returns the read value and sets *PGOT to true if something
@@ -7395,6 +7396,151 @@ meltgc_readstring (struct melt_reading_st *rd)
 #undef strv
 #undef str_strv
 }
+
+
+
+melt_ptr_t
+meltgc_strbuf_json_string_peek (melt_ptr_t v, int ioff, int*pendoff)
+{
+  int curix = 0;
+  int slen = 0;
+  MELT_ENTERFRAME (3, NULL);
+#define bufv   meltfram__.mcfr_varptr[0]
+#define sbuf_bufv ((struct meltstrbuf_st *)(bufv))
+#define unsafe_sbuf_nth(N) (sbuf_bufv->bufzn+sbuf_bufv->bufstart+(N))
+#define wbuv   meltfram__.mcfr_varptr[1]
+#define sbuf_wbuv ((struct meltstrbuf_st *)(wbuv))
+#define resv   meltfram__.mcfr_varptr[2]
+  bufv = v;
+  resv = NULL;
+  gcc_assert (pendoff != NULL);
+  if (melt_magic_discr (bufv) != MELTOBMAG_STRBUF)
+    goto end;
+  slen = (sbuf_bufv->bufend) - (sbuf_bufv->bufstart);
+  if (ioff<0)
+    ioff += slen;
+  if (ioff < 0 || ioff >= slen-1)
+    goto end;
+  if (*unsafe_sbuf_nth(ioff) != '"')
+    goto end;
+  {
+    char* ndqu = strchr(unsafe_sbuf_nth(ioff+1), '"');
+    if (!ndqu) goto end;
+    int clen = ndqu-unsafe_sbuf_nth(ioff);
+    wbuv = (melt_ptr_t)
+      meltgc_new_strbuf ((meltobject_ptr_t)MELT_PREDEF(DISCR_STRBUF), NULL);
+    meltgc_strbuf_reserve(wbuv, 9*clen/8+20);
+  }
+  curix = ioff+1;
+  while (curix < slen)
+    {
+      char cc = *unsafe_sbuf_nth(curix);
+      if (ISALNUM(cc) || cc=='_' || ISSPACE(cc)) {
+	meltgc_add_strbuf_raw_len(wbuv,&cc,1);
+	curix++;
+	continue;
+      }
+      else if (cc=='"') {
+	curix++;
+	*pendoff = curix;
+	resv = meltgc_new_stringdup((meltobject_ptr_t)MELT_PREDEF(DISCR_STRING),melt_strbuf_str(wbuv));
+	goto end;
+      }
+      else if (cc=='\\' && curix+1<slen) {
+	/* see http://www.json.org/ */
+	char ec = *unsafe_sbuf_nth(curix+1);
+	curix++;
+	switch (ec) {
+#define ADD1S(S) meltgc_add_strbuf_raw_len(wbuv,S,1); curix++; break
+	case '"': ADD1S("\"");
+	case '\\': ADD1S("\\");
+	case '/': ADD1S("/");
+	case 'b': ADD1S("\b");
+	case 'f': ADD1S("\f");
+	case 'n': ADD1S("\n");
+	case 'r': ADD1S("\r");
+	case 't': ADD1S("\r");
+#undef ADD1S
+	case 'u':
+	  if (curix+6<slen) {
+	    char hbuf[8] = {0};
+	    memset (hbuf, 0, sizeof(hbuf));
+	    char ubuf[8] = {0};
+	    memset (ubuf, 0, sizeof(ubuf));
+	    if (ISXDIGIT(*unsafe_sbuf_nth(curix+2))) hbuf[0] = *unsafe_sbuf_nth(curix+2);
+	    if (ISXDIGIT(*unsafe_sbuf_nth(curix+3))) hbuf[1] = *unsafe_sbuf_nth(curix+3);
+	    if (ISXDIGIT(*unsafe_sbuf_nth(curix+4))) hbuf[2] = *unsafe_sbuf_nth(curix+4);
+	    if (ISXDIGIT(*unsafe_sbuf_nth(curix+5))) hbuf[3] = *unsafe_sbuf_nth(curix+5);
+	    curix+=5;
+	    uint32_t uc = (uint32_t)strtol(hbuf, NULL, 16);
+	    // I am slightly tempted to use
+	    // http://www.gnu.org/software/libunistring/ but I really
+	    // want to avoid adding some additional dependencies.
+	    /// some code inspired by http://tidy.sourceforge.net/cgi-bin/lxr/source/src/utf8.c
+	    if (uc <= 0x7f) {	 // one UTF8 byte
+	      ubuf[0] = uc;
+	      meltgc_add_strbuf_raw_len(wbuv,ubuf,1);	      
+	    }
+	    else if (uc <= 0x7ff) { // two UTF8 bytes
+	      ubuf[0] = ( 0xC0 | (uc >> 6) );
+	      ubuf[1] = ( 0x80 | (uc & 0x3F) );
+	      meltgc_add_strbuf_raw_len(wbuv,ubuf,2);	  
+	    }
+	    else if (uc <= 0xffff) { // three UTF8 bytes
+	      // we don't care checking about UTF surrogates...
+	      ubuf[0] =  (0xE0 | (uc >> 12));
+	      ubuf[1] = (0x80 | ((uc >> 6) & 0x3F));
+	      ubuf[2] = (0x80 | (uc & 0x3F));
+	      meltgc_add_strbuf_raw_len(wbuv,ubuf,3);	  
+	    }
+	    else if (uc <=  0x1FFFFF) { // four UTF8 bytes
+	      // don't care about strange errors
+	      ubuf[0] =  (0xF0 | (uc >> 18));
+	      ubuf[1] =  (0x80 | ((uc >> 12) & 0x3F));
+	      ubuf[2] =  (0x80 | ((uc >> 6) & 0x3F));
+	      ubuf[3] =  (0x80 | (uc & 0x3F));
+	      meltgc_add_strbuf_raw_len(wbuv,ubuf,4);
+	    }
+	    else if (uc <= 0x3FFFFFF)  // five UTF8 bytes 
+	      {
+		ubuf[0] =  (0xF8 | (uc >> 24));
+		ubuf[1] =  (0x80 | (uc >> 18));
+		ubuf[2] =  (0x80 | ((uc >> 12) & 0x3F));
+		ubuf[3] =  (0x80 | ((uc >> 6) & 0x3F));
+		ubuf[4] =  (0x80 | (uc & 0x3F));
+		meltgc_add_strbuf_raw_len(wbuv,ubuf,5);
+	      }
+	    else if (uc <= 0x7FFFFFFF)  //  six UTF8 bytes
+	      {
+		ubuf[0] =  (0xFC | (uc >> 30));
+		ubuf[1] =  (0x80 | ((uc >> 24) & 0x3F));
+		ubuf[2] =  (0x80 | ((uc >> 18) & 0x3F));
+		ubuf[3] =  (0x80 | ((uc >> 12) & 0x3F));
+		ubuf[4] =  (0x80 | ((uc >> 6) & 0x3F));
+		ubuf[5] =  (0x80 | (uc & 0x3F));
+		meltgc_add_strbuf_raw_len(wbuv,ubuf,6);
+	      }
+	  }
+	  break;
+	default:
+	  meltgc_add_strbuf_raw_len(wbuv,&ec,1);
+	  curix++;
+	  break;
+	}
+      }
+    };
+ end:
+  MELT_EXITFRAME ();
+  return (melt_ptr_t) resv;
+#undef bufv
+#undef wbuv
+#undef resv
+#undef sbuf_bufv
+#undef unsafe_sbuf_nth
+#undef sbuf_wbuv
+}
+
+
 
 /**
    macrostring so #{if ($A>0) printf("%s", $B);}# is parsed as would

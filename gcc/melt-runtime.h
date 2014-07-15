@@ -1948,6 +1948,13 @@ melt_strbuf_peek_double_number (melt_ptr_t v, int ioff, double *pnum)
   return 0;
 }
 
+/* Peek an encoded JSON string starting by an unconsumed
+   double-quote. If the JSON string was fully parsed, return that
+   string and set *pendoff to the ending offset after the ending
+   doubl-quote. otherwise, return NULL. Pointer pendoff should not be
+   null! */
+melt_ptr_t meltgc_strbuf_json_string_peek(melt_ptr_t v, int ioff, int*pendoff);
+
 static inline void
 melt_strbuf_consume (melt_ptr_t v, int cnt)
 {
@@ -3647,7 +3654,7 @@ extern void melt_gt_ggc_mx_gimple_seq_d(void*);
 #endif /* GCC 4.8 */
 
 #if MELT_GCC_VERSION == 4009
-/* Orobably temporary */
+/* Probably temporary */
 #define gt_ggc_mx_gimple_statement_d gt_ggc_m_21gimple_statement_base
 #endif /* GCC 4.9 */
 
