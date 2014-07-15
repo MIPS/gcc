@@ -1,4 +1,10 @@
 
+2014-07-15  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-predef.list (DISCR_JSONARRAY): New.
+
+	* melt/warmelt-first.melt (DISCR_JSONARRAY): New.
+
 2014-06-10  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/generated/*: Regenerate all.

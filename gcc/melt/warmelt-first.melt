@@ -2479,6 +2479,17 @@ See also $CLASS_CLASS and $DISCR_MULTIPLE.}#
   )
 
 
+;;; the discriminant for JSON arrays 
+(definstance discr_jsonarray class_discriminant
+  :doc #{The $DISCR_JSONARRAY is the discriminant of JSON array tuple values. 
+See also  $DISCR_MULTIPLE.}#
+  :predef DISCR_JSONARRAY
+  :obj_num MELTOBMAG_MULTIPLE
+  :named_name '"DISCR_JSONARRAY"
+  :disc_super discr_multiple
+  )
+
+
 ;;; the discriminant for method dictionnary maps
 (definstance discr_method_map class_discriminant
   :doc #{The $DISCR_METHOD_MAP is the discriminant of method
