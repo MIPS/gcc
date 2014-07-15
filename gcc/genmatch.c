@@ -2089,16 +2089,26 @@ main(int argc, char **argv)
 
   progname = "genmatch";
 
-  if (argc != 3)
+  if (argc < 2)
     return 1;
 
-  bool gimple;
-  if (strcmp (argv[1], "-gimple") == 0)
-    gimple = true;
-  else if (strcmp (argv[1], "-generic") == 0)
-    gimple = false;
-  else
-    return 1;
+  bool gimple = true;
+  bool verbose = false;
+  char *input = argv[argc-1];
+  for (int i = 1; i < argc - 1; ++i)
+    {
+      if (strcmp (argv[i], "-gimple") == 0)
+	gimple = true;
+      else if (strcmp (argv[i], "-generic") == 0)
+	gimple = false;
+      else if (strcmp (argv[i], "-v") == 0)
+	verbose = true;
+      else
+	{
+	  fprintf (stderr, "Usage: genmatch [-gimple] [-generic] [-v] input\n");
+	  return 1;
+	}
+    }
 
   line_table = XCNEW (struct line_maps);
   linemap_init (line_table);
@@ -2109,7 +2119,7 @@ main(int argc, char **argv)
   cpp_callbacks *cb = cpp_get_callbacks (r);
   cb->error = error_cb;
 
-  if (!cpp_read_main_file (r, argv[2]))
+  if (!cpp_read_main_file (r, input))
     return 1;
   cpp_define (r, gimple ? "GIMPLE=1": "GENERIC=1");
 
@@ -2137,22 +2147,25 @@ main(int argc, char **argv)
 
   for (unsigned i = 0; i < simplifiers.length (); ++i)
     {
-      fprintf (stderr, "pattern = %u\n", i);
+      if (verbose)
+	fprintf (stderr, "pattern = %u\n", i);
       check_no_user_id (simplifiers[i]);
     }
   vec<simplify *> out_simplifiers = vNULL;
   for (unsigned i = 0; i < simplifiers.length (); ++i)
     lower_commutative (simplifiers[i], out_simplifiers);
 
-  for (unsigned i = 0; i < out_simplifiers.length (); ++i)
-    print_matches (out_simplifiers[i]);
+  if (verbose)
+    for (unsigned i = 0; i < out_simplifiers.length (); ++i)
+      print_matches (out_simplifiers[i]);
 
   decision_tree dt;
   for (unsigned i = 0; i < out_simplifiers.length (); ++i)
     dt.insert (out_simplifiers[i], i);
 
-  dt.print (stderr);
- 
+  if (verbose)
+    dt.print (stderr);
+
   if (gimple)
     {
       write_header (stdout, out_simplifiers, "gimple-match-head.c");
