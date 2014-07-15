@@ -1,4 +1,4 @@
-/* Copyright (C) 2009-2013 Free Software Foundation, Inc.
+/* Copyright (C) 2014 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>.
 
    This file is part of the GNU Transactional Memory Library (libitm).
@@ -26,14 +26,15 @@ namespace GTM HIDDEN {
 
 typedef struct gtm_jmpbuf
 {
-  unsigned long pc;
-  unsigned long s[7];
+  unsigned long long fp;	/* x29 */
+  unsigned long long pc;	/* x30 */
+  unsigned long long gr[10];	/* x19-x28 */
+  unsigned long long vr[8];	/* d8-d15 */
   void *cfa;
-  unsigned long f[8];
 } gtm_jmpbuf;
 
-/* The size of one line in hardware caches (in bytes). */
-#define HW_CACHELINE_SIZE 64
+/* ??? The size of one line in hardware caches (in bytes). */
+#define HW_CACHELINE_SIZE 128
 
 static inline void
 cpu_relax (void)

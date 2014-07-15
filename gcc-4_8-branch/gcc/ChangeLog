@@ -1,3 +1,62 @@
+2013-07-02  Ian Bolton  <ian.bolton@arm.com>
+
+	* config/aarch64/aarch64-simd.md (absdi2): Support abs for
+	DI mode.
+
+2013-05-30  Ian Bolton  <ian.bolton@arm.com>
+
+	* config/aarch64/aarch64.md (insv<mode>): New define_expand.
+	(*insv_reg<mode>): New define_insn.
+
+2013-05-02  Ian Bolton  <ian.bolton@arm.com>
+
+	* config/aarch64/aarch64.md (movsi_aarch64): Only allow to/from
+	S reg when fp attribute set.
+	(movdi_aarch64): Only allow to/from D reg when fp attribute set.
+
+2013-04-29  Ian Bolton  <ian.bolton@arm.com>
+
+	* config/aarch64/aarch64.md (movsi_aarch64): Support LDR/STR
+	from/to S register.
+	(movdi_aarch64): Support LDR/STR from/to D register.
+
+2014-02-19  Michael Hudson-Doyle  <michael.hudson@linaro.org>
+
+	PR target/59799
+	* config/aarch64/aarch64.c (aarch64_pass_by_reference): The rules for
+	passing arrays in registers are the same as for structs, so remove the
+	special case for them.
+
+2013-08-22  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* configure.ac: Add backslashes missing from the last change.
+	* configure: Regenerate.
+
+2013-08-22  Julian Brown  <julian@codesourcery.com>
+
+	* configure.ac: Add aarch64 to list of arches which use "nop" in
+	debug_line test.
+	* configure: Regenerate.
+
+2013-09-30  Venkataramanan Kumar  <venkataramanan.kumar@linaro.org>
+
+	* config/aarch64/aarch64.h (MCOUNT_NAME): Define.
+	(NO_PROFILE_COUNTERS): Likewise.
+	(PROFILE_HOOK): Likewise.
+	(FUNCTION_PROFILER): Likewise.
+	* config/aarch64/aarch64.c (aarch64_function_profiler): Remove.
+
+2013-12-06  Andrew Pinski  <apinski@cavium.com>
+
+	PR target/59092
+	* config/aarch64/aarch64.md (trap): New pattern.
+
+2013-11-13  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* config/aarch64/aarch64.h (FRAME_GROWS_DOWNWARD): Define to 1.
+	* config/aarch64/aarch64.c (aarch64_initial_elimination_offset):
+	Update offset calculations.
+
 2014-07-10  Tom G. Christensen  <tgc@jupiterrise.com>
 
 	* doc/install.texi: Remove links to defunct package providers for

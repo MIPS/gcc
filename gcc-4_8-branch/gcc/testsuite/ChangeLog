@@ -1,3 +1,24 @@
+2013-07-02  Ian Bolton  <ian.bolton@arm.com>
+
+	* gcc.target/aarch64/abs_1.c: New test.
+
+2013-05-30  Ian Bolton  <ian.bolton@arm.com>
+
+	* gcc.target/aarch64/insv_1.c: New test.
+
+2014-01-22  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gcc.dg/pr44194-1.c: Match "insn " and "insn:", but not "insn/f".
+
+2014-01-20  Renlin Li  <renlin.li@arm.com>
+
+	* gcc.dg/pr44194-1.c: Tweak regexp.
+
+2013-11-19  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gcc.c-torture/execute/20101011-1.c (__aarch64__):
+	Remove defined(__linux__).
+
 2014-07-10  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* gnat.dg/opt39.adb: New test.
