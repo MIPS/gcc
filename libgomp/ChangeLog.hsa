@@ -1,0 +1,8 @@
+2014-07-14  Michael Matz  <matz@suse.de>
+
+	* okra.h: New file.
+	* hsaokra.c: New file.
+	* Makefile.am (libgomp_la_SOURCES): Add hsaokra.c.
+	(libgomp_la_LDFLAGS): Add -ldl.
+	* Makefile.in: Regenerated.
+	* libgomp.map (HSA_1.0): New version, export __hsa_launch_kernel.

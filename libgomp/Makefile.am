@@ -53,14 +53,14 @@ libgomp_version_dep =
 endif
 libgomp_version_info = -version-info $(libtool_VERSION)
 libgomp_la_LDFLAGS = $(libgomp_version_info) $(libgomp_version_script) \
-        $(lt_host_flags)
+        $(lt_host_flags) -ldl
 libgomp_la_DEPENDENCIES = $(libgomp_version_dep)
 libgomp_la_LINK = $(LINK) $(libgomp_la_LDFLAGS)
 
 libgomp_la_SOURCES = alloc.c barrier.c critical.c env.c error.c iter.c \
 	iter_ull.c loop.c loop_ull.c ordered.c parallel.c sections.c single.c \
 	task.c team.c work.c lock.c mutex.c proc.c sem.c bar.c ptrlock.c \
-	time.c fortran.c affinity.c target.c
+	time.c fortran.c affinity.c target.c hsaokra.c
 
 nodist_noinst_HEADERS = libgomp_f.h
 nodist_libsubinclude_HEADERS = omp.h

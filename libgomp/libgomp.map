@@ -227,3 +227,8 @@ GOMP_4.0 {
 	GOMP_target_update;
 	GOMP_teams;
 } GOMP_3.0;
+
+HSA_1.0 {
+  global:
+	__hsa_launch_kernel;
+} GOMP_4.0;
