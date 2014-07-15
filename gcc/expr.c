@@ -7926,36 +7926,57 @@ expand_expr_real (tree exp, rtx target, enum machine_mode tmode,
 }
 
 static void
-get_condition_from_operand (tree op, tree *op0, tree *op1,
-			    enum tree_code *code)
+get_condition_from_operand (tree op, rtx *r0, rtx *r1, bool *unsignedp,
+			    enum machine_mode *mode, enum rtx_code *code)
 {
-  gimple srcstmt;
+  gimple srcstmt = NULL;
+  tree op0, op1;
 
   if (TREE_CODE (op) == SSA_NAME
       && (srcstmt = get_def_for_expr_class (op, tcc_comparison)))
     {
-      *op0 = gimple_assign_rhs1 (srcstmt);
-      *op1 = gimple_assign_rhs2 (srcstmt);
-      *code = gimple_assign_rhs_code (srcstmt);
+      tree type;
+      op0 = gimple_assign_rhs1 (srcstmt);
+      op1 = gimple_assign_rhs2 (srcstmt);
+      type = TREE_TYPE (op0);
+      *unsignedp = TYPE_UNSIGNED (type);
+      *code = convert_tree_comp_to_rtx (gimple_assign_rhs_code (srcstmt), *unsignedp);
+      *mode = TYPE_MODE (type);
     }
   else if (TREE_CODE (op) == SSA_NAME
       && (srcstmt = get_def_for_expr (op, BIT_NOT_EXPR)))
     {
-      *op0 = gimple_assign_rhs1 (srcstmt);
-      *op1 = fold_convert (TREE_TYPE (op), integer_zero_node);
-      *code = EQ_EXPR;
+      op0 = gimple_assign_rhs1 (srcstmt);
+      op1 = NULL_TREE;
+      *code = EQ;
     }
   else if (TREE_CODE_CLASS (TREE_CODE (op)) == tcc_comparison)
     {
-      *op0 = TREE_OPERAND (op, 0);
-      *op1 = TREE_OPERAND (op, 1);
-      *code = TREE_CODE (op);
+      tree type;
+      op0 = TREE_OPERAND (op, 0);
+      op1 = TREE_OPERAND (op, 1);
+      type = TREE_TYPE (op0);
+      *unsignedp = TYPE_UNSIGNED (type);
+      *code = convert_tree_comp_to_rtx (TREE_CODE (op), *unsignedp);
+      *mode = TYPE_MODE (type);
     }
   else
     {
-      *op0 = op;
-      *op1 = fold_convert (TREE_TYPE (op), integer_zero_node);
-      *code = NE_EXPR;
+      op0 = op;
+      op1 = NULL_TREE;
+      *code = NE;
+    }
+
+  *r0 = expand_normal (op0);
+  if (op1 != NULL_TREE)
+    *r1 = expand_normal (op1);
+  else
+    {
+      *mode = GET_MODE (*r0);
+      if (*mode == VOIDmode)
+	*mode = TYPE_MODE (TREE_TYPE (op0));
+      *r1 = const0_rtx;
+      *unsignedp = true;
     }
 }
 
@@ -8003,10 +8024,34 @@ expand_cond_expr_using_mask (tree treeop0, tree treeop1, tree treeop2)
 
   target = assign_temp (type, 0, 1);
 
+  start_sequence ();
+
   expand_operands (treeop1, treeop2,
 		   NULL_RTX, &op1, &op2, EXPAND_NORMAL);
 
   op0 = expand_normal (treeop0);
+  if (GET_MODE_CLASS (GET_MODE (op0)) == MODE_CC)
+    {
+      enum insn_code icode;
+      icode = optab_handler (cstore_optab, CCmode);
+      if (icode == CODE_FOR_nothing)
+	{
+	  end_sequence ();
+	  return NULL_RTX;
+	}
+      rtx target = gen_reg_rtx (mode);
+      op0 = emit_cstore (target, icode, NE, CCmode, CCmode,
+			 0, op0, const0_rtx, 1, mode);
+      if (!op0)
+	{
+	  end_sequence ();
+	  return NULL_RTX;
+	}
+    }
+
+  rtx seq = get_insns ();
+  end_sequence ();
+  emit_insn (seq);
   op0 = convert_modes (mode, VOIDmode, op0, 1);
 
   /* If treeop1 is the one which is zero, then we have to add a not to the
@@ -8041,12 +8086,11 @@ expand_cond_expr_using_addcc (tree treeop0, tree treeop1, tree treeop2)
 {
   tree diff;
   rtx op1, op2, op00, op01, temp;
-  tree cmpop0, cmpop1, type;
-  enum tree_code cmpcode;
+  tree type;
   enum rtx_code comparison_code;
   enum machine_mode comparison_mode, mode;
   rtx seq;
-  int unsignedp;
+  bool unsignedp;
   gimple srcstmt;
 
   type = TREE_TYPE (treeop1);
@@ -8119,13 +8163,8 @@ expand_cond_expr_using_addcc (tree treeop0, tree treeop1, tree treeop2)
 
   start_sequence ();
 
-  get_condition_from_operand (treeop0, &cmpop0, &cmpop1, &cmpcode);
-
-  op00 = expand_normal (cmpop0);
-  op01 = expand_normal (cmpop1);
-  unsignedp = TYPE_UNSIGNED (TREE_TYPE (cmpop0));
-  comparison_mode = TYPE_MODE (TREE_TYPE (cmpop0));
-  comparison_code = convert_tree_comp_to_rtx (cmpcode, unsignedp);
+  get_condition_from_operand (treeop0, &op00, &op01, &unsignedp,
+			      &comparison_mode, &comparison_code);
 
   expand_operands (diff, treeop2,
 		   NULL_RTX, &op1, &op2, EXPAND_NORMAL);
@@ -8145,21 +8184,30 @@ expand_cond_expr_using_addcc (tree treeop0, tree treeop1, tree treeop2)
       return temp;
     }
 
+#if 0
+  /* FIXME: we need to expand this manually now due to ccmp. */
   /* If addcc fails, then we should expanding it as treeop2 +- (A)
      if the diff is either 1 or -1 (plus if 1 and minus is -1).  */
-  if (INTEGRAL_TYPE_P (TREE_TYPE (cmpop0))
-      && (integer_onep (diff) || integer_all_onesp (diff)))
+  if ((integer_onep (diff) || integer_all_onesp (diff)))
     {
       bool add = false;
       tree tmp, t;
+      rtx target = gen_reg_rtx (word_mode);
+      enum insn_code icode;
+      icode = optab_handler (cstore_optab, comparison_mode);
+      if (icode == CODE_FOR_nothing)
+	return NULL_RTX; 
+
       if (integer_onep (diff))
 	add = true;
-      t = fold_convert (TREE_TYPE (treeop0), integer_zero_node);
-      tmp = fold_build2 (NE_EXPR, TREE_TYPE (treeop0), treeop0, t);
-      tmp = fold_convert (type, tmp);
-      tmp = fold_build2 (add ? PLUS_EXPR : MINUS_EXPR, type, treeop2, tmp);
+      get_condition_from_operand (treeop0, &op00, &op01, &unsignedp,
+				  &comparison_mode, &comparison_code);
+      tmp = emit_cstore (target, icode, NE, CCmode, CCmode,
+			     0, tmp, const0_rtx, 1, word_mode);
+      
       return expand_normal (tmp);
     }
+#endif
 
   return NULL_RTX;
 }
@@ -8255,17 +8303,16 @@ expand_cond_expr_using_cmove (tree treeop0 ATTRIBUTE_UNUSED,
   enum machine_mode comparison_mode;
   rtx temp;
   tree type = TREE_TYPE (treeop1);
-  int unsignedp = TYPE_UNSIGNED (type);
+  bool unsignedp = TYPE_UNSIGNED (type);
   enum machine_mode mode = TYPE_MODE (type);
   enum machine_mode orig_mode = mode;
-  tree cmpop0, cmpop1;
-  enum tree_code cmpcode;
 
   /* If we cannot do a conditional move on the mode, try doing it
      with the promoted mode. */
   if (!can_conditionally_move_p (mode))
     {
-      mode = promote_mode (type, mode, &unsignedp);
+      int up;
+      mode = promote_mode (type, mode, &up);
       if (!can_conditionally_move_p (mode))
 	return NULL_RTX;
       temp = assign_temp (type, 0, 0); /* Use promoted mode for temp.  */
@@ -8277,13 +8324,8 @@ expand_cond_expr_using_cmove (tree treeop0 ATTRIBUTE_UNUSED,
   expand_operands (treeop1, treeop2,
 		   temp, &op1, &op2, EXPAND_NORMAL);
 
-  get_condition_from_operand (treeop0, &cmpop0, &cmpop1, &cmpcode);
-
-  op00 = expand_normal (cmpop0);
-  op01 = expand_normal (cmpop1);
-  unsignedp = TYPE_UNSIGNED (TREE_TYPE (cmpop0));
-  comparison_mode = TYPE_MODE (TREE_TYPE (cmpop0));
-  comparison_code = convert_tree_comp_to_rtx (cmpcode, unsignedp);
+  get_condition_from_operand (treeop0, &op00, &op01, &unsignedp,
+			      &comparison_mode, &comparison_code);
 
   if (GET_MODE (op1) != mode)
     op1 = gen_lowpart (mode, op1);

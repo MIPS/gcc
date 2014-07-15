@@ -1,4 +1,18 @@
+2014-07-15  Andrew Pinski  <apinski@cavium.com>
+
+	* expr.c (get_condition_from_operand): Change argument types.
+	Expand the tree to rtl inside the function.
+	(expand_cond_expr_using_mask): Handle the case
+	where op0 is a CCmode rtl.
+	(expand_cond_expr_using_addcc): Update the call to
+	get_condition_from_operand.  Disable (for now)
+	the expansion of treeop2 +- diff as it needs to
+	work with CCmode correctly.
+	(expand_cond_expr_using_cmove): Update call
+	to get_condition_from_operand.
+
 2014-07-14  Praveen Jonnalagadda <pjonnalagadda@caviumnetworks.com>
+
 	Bug #11324
 	Ported part of #4619
 	2012-09-10  Andrew Pinski  <apinski@cavium.com>
