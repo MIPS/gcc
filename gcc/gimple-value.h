@@ -1,3 +1,24 @@
+/* Gimple value core c++ class method definitions.  
+
+   Copyright (C) 2014 Free Software Foundation, Inc.
+   Contributed by Andrew MacLeod  <amacleod@redhat.com>
+
+This file is part of GCC.
+
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 3, or (at your option) any later
+version.
+
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
+
+You should have received a copy of the GNU General Public License
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
+
 #ifndef GIMPLE_VALUE_H
 #define GIMPLE_VALUE_H
 
@@ -31,6 +52,7 @@ tree_desc::addressable () const
 {
   return node.base.addressable_flag;
 }
+
 inline void
 tree_desc::set_addressable (const bool f)
 {
@@ -234,11 +256,18 @@ tree_desc::check_node (enum tree_code t1, enum tree_code t2, enum tree_code t3,
 #endif
 }
 
+
+/*  class block_desc methods.  */
+
+
 inline G::value
 block_desc::supercontext () const
 {
   return node.block.supercontext;
 }
+
+
+/*  class type_desc methods.  */
 
 
 inline G::type
@@ -249,12 +278,15 @@ type_desc::type() const
 
 inline bool 
 type_desc::type_unsigned () const
-{ return node.base.u.bits.unsigned_flag; }
+{
+  return node.base.u.bits.unsigned_flag;
+}
 
 inline signop
 type_desc::type_sign () const
-{ return (signop) node.base.u.bits.unsigned_flag; }
-
+{
+  return (signop) node.base.u.bits.unsigned_flag;
+}
 
 inline enum machine_mode
 type_desc::mode () const
@@ -334,7 +366,6 @@ type_desc::array_type_p () const
   return code () == ARRAY_TYPE;
 }
 
-
 inline addr_space_t 
 type_desc::addr_space () const
 {
@@ -370,6 +401,9 @@ type_desc::size () const
 {
   return node.type_common.size;
 }
+
+
+/* Methods for objects derived from class type_desc.  */
 
 
 inline bool
@@ -414,9 +448,9 @@ type_desc::attributes () const
   return node.type_common.attributes;
 }
 
-// value methods
-//
-//
+
+/* Methods for class value_desc.  */
+
 
 inline G::type
 value_desc::type() const
@@ -613,9 +647,8 @@ constructor_desc::set_elts (::vec<constructor_elt, va_gc> *e)
 }
 
 
-//
-// decl methods
-//
+/* Methods for class decl_desc.  */
+
 
 inline G::identifier
 decl_desc::name() const
@@ -759,39 +792,6 @@ decl_desc::set_attributes (const value_list list)
 {
   node.decl_common.attributes = list;
 }
-/*
-inline bool
-decl_desc::is_type_context () const
-{
-  G::value v = node.decl_minimal.context;
-  return (!v || v->code() != FUNCTION_DECL);
-}
-
-inline G::function_decl
-decl_desc::function_context () const
-{
-  return node.decl_minimal.context;
-}
-
-inline void
-decl_desc::set_function_context (G::function_decl decl)
-{
-  node.decl_minimal.context = decl;
-}
-
-inline G::type
-decl_desc::type_context () const
-{
-  return node.decl_minimal.context;
-}
-
-inline void
-decl_desc::set_type_context (G::type t)
-{
-  node.decl_minimal.context = t;
-}
-
-*/
 
 inline G::value
 decl_desc::context () const
@@ -850,11 +850,17 @@ decl_desc::assembler_name_set_p() const
 
 inline bool
 decl_desc::decl_public() const
-{ return node.base.public_flag; }
+{
+  return node.base.public_flag;
+}
 
 inline bool
 decl_desc::decl_asm_written() const
-{ return node.base.asm_written_flag; }
+{
+  return node.base.asm_written_flag;
+}
+
+/* Methods for clases derived from decl_desc.  */
 
 inline bool 
 decl_with_viz_desc::hard_register () const
@@ -881,16 +887,6 @@ decl_with_viz_desc::assembler_name_set_p() const
 }
 
 
-/*
-inline bool
-decl_desc::decl_visibility_specified() const
-{ return DECL_WITH_VIS_CHECK (Tree)->decl_with_vis.visibility_specified; }
-
-inline bool
-decl_desc::decl_comdat() const
-{ return DECL_WITH_VIS_CHECK (Tree)->decl_with_vis.comdat_flag; }
-
-*/
 inline bool 
 var_decl_desc::is_virtual_operand () const
 { 
@@ -926,6 +922,8 @@ label_decl_desc::forced_label () const
   return node.base.side_effects_flag;
 }
 
+
+/* Methods for value_list and derived classes.  */
 inline G::value
 value_list_desc::value () const
 { 
@@ -973,18 +971,19 @@ type_list_desc::chain () const
 
 
 
-//
-// ssa_name
-//
+/* methods for class ssa_name_desc.  */
 
 inline unsigned int 
 ssa_name_desc::version () const
-{ return node.base.u.version; }
+{
+  return node.base.u.version;
+}
 
 inline void
 ssa_name_desc::set_version (unsigned int v) 
-{ node.base.u.version = v; }
-
+{
+  node.base.u.version = v;
+}
 
 inline bool
 ssa_name_desc::occurs_in_abnormal_phi () const
@@ -998,6 +997,8 @@ ssa_name_desc::set_occurs_in_abnormal_phi (bool f)
  node.base.asm_written_flag = f;
 }
 
+/* Return the base decl node for an ssa_name.  */
+
 inline decl
 ssa_name_desc::var () const
 { 
@@ -1008,6 +1009,7 @@ ssa_name_desc::var () const
     return decl();
 }
 
+/* Return the identifier node for an ssa_name.  */
 inline G::identifier
 ssa_name_desc::identifier () const
 { 
@@ -1016,7 +1018,7 @@ ssa_name_desc::identifier () const
     {
       i = dyn_cast<G::identifier> (value(node.ssa_name.var));
 
-      /* If this is not an identifier, it must be a Decl.  */
+      /* If this is not an identifier, it must be a decl.  */
       if (!i)
 	{
 	  decl d = node.ssa_name.var;
@@ -1028,52 +1030,76 @@ ssa_name_desc::identifier () const
 
 inline void
 ssa_name_desc::set_var (decl decl)
-{ node.ssa_name.var = decl; }
+{
+  node.ssa_name.var = decl;
+}
 
 inline void
 ssa_name_desc::set_identifier (G::identifier ident)
-{ node.ssa_name.var = ident; }
+{
+  node.ssa_name.var = ident;
+}
 
 inline gimple 
 ssa_name_desc::def_stmt () const
-{ return node.ssa_name.def_stmt; }
+{
+  return node.ssa_name.def_stmt;
+}
 
 inline void 
 ssa_name_desc::set_def_stmt (gimple stmt)
-{ node.ssa_name.def_stmt = stmt; }
+{
+  node.ssa_name.def_stmt = stmt;
+}
 
 inline struct ptr_info_def *
 ssa_name_desc::ptr_info () const
-{ return node.ssa_name.info.ptr_info; }
+{
+  return node.ssa_name.info.ptr_info;
+}
 
 inline void 
 ssa_name_desc::set_ptr_info (struct ptr_info_def *p)
-{ node.ssa_name.info.ptr_info = p; }
+{
+  node.ssa_name.info.ptr_info = p;
+}
 
 inline bool 
 ssa_name_desc::in_free_list () const
-{ return node.base.nothrow_flag; }
+{
+  return node.base.nothrow_flag;
+}
 
 inline void 
 ssa_name_desc::set_in_free_list (bool f)
-{ node.base.nothrow_flag = f; }
+{
+  node.base.nothrow_flag = f;
+}
 
 inline bool 
 ssa_name_desc::is_default_def () const
-{ return node.base.default_def_flag; }
+{
+  return node.base.default_def_flag;
+}
 
 inline void 
 ssa_name_desc::set_is_default_def (bool f)
-{ node.base.default_def_flag = f; }
+{
+  node.base.default_def_flag = f;
+}
 
 inline struct ssa_use_operand_t * 
 ssa_name_desc::imm_use_node_ptr () 
-{ return &(node.ssa_name.imm_uses); }
+{
+  return &(node.ssa_name.imm_uses);
+}
 
 inline bool
 ssa_name_desc::same_base (const G::ssa_name n) const
-{ return (node.ssa_name.var == n->node.ssa_name.var); }
+{
+  return (node.ssa_name.var == n->node.ssa_name.var); }
+}
 
-} // namespace G
+// namespace G
 
 #endif /* GIMPLE_VALUE_H  */

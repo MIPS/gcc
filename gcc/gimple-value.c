@@ -1,7 +1,7 @@
-/* Gimple decl, type, and expression support functions.
+/* Gimple value core c++ class methods.  
 
-   Copyright (C) 2007-2014 Free Software Foundation, Inc.
-   Contributed by Aldy Hernandez <aldyh@redhat.com>
+   Copyright (C) 2014 Free Software Foundation, Inc.
+   Contributed by Andrew MacLeod  <amacleod@redhat.com>
 
 This file is part of GCC.
 

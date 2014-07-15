@@ -1,7 +1,38 @@
+/* Gimple routines required for functions declared in tree.[ch]
+
+   Copyright (C) 2014 Free Software Foundation, Inc.
+   Contributed by Andrew MacLeod  <amacleod@redhat.com>
+
+This file is part of GCC.
+
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 3, or (at your option) any later
+version.
+
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
+
+You should have received a copy of the GNU General Public License
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
+
+
+/* This file contains routines which are part of the tree interface which
+   the gimple interface also requires.  Eventually these will be implemented 
+   from scratch for gimple, or maintained in a common area as ong as the
+   functionality is required by both interfaces.  Currentlt, the gimple
+   interface simply acts as a wrapper with gimple types and calls the tree
+   routines under the covers.  */
+
 #ifndef GIMPLE_TREE
 #define GIMPLE_TREE
 
 #include "gimple-value.h"
+
+/* Declare instances of specific nodes.  */
 
 extern G::value_ptr boolean_true_node_ptr;
 extern G::value_ptr boolean_false_node_ptr;
@@ -11,6 +42,12 @@ extern G::type_ptr boolean_type_node_ptr;
 extern G::type_ptr integer_type_node_ptr;
 extern G::integer_cst_ptr integer_zero_node_ptr;
 extern G::type_ptr pointer_type_node_ptr;
+
+/* Define the gimple node for use.  Unfortunately we need to do this level of
+   indirection because the values are maintained by the tree interface. They are
+   statically initialized, but LTO can overwrite those initialiizations and
+   thus can change on the fly.  Until these are maintained by the gimple
+   interface its easier just to derefence the pointer to the tree node.  */
 
 #define gimple_boolean_true (*boolean_true_node_ptr)
 #define gimple_boolean_false (*boolean_false_node_ptr)
@@ -31,8 +68,7 @@ const char * gimple_tree_printable_name (tree, int);
 extern void clean_symbol_name (char *p);
 extern tree build_call_expr_loc(location_t, tree, int, ...);  /*builtins.c */
 
-
-/* The gimple wide-int overload templates.   */
+/* Implement the wide-int overload templates for class integer_cst.  */
 namespace wi
 {
   template <>
@@ -174,6 +210,7 @@ wi::max_value (G::type type)
 }
 
 
+/* End of wide-int interface.  */
 
 
 inline int
@@ -470,29 +507,6 @@ wide_int_to_int_cst (G::type type, const wide_int_ref &pcst)
   return G::integer_cst (wide_int_to_tree (type, pcst));
 
 }
-#if 0
-template <typename T> T create (G::type type, const wide_int &cst);
-
-template<>
-inline G::integer_cst
-create<G::integer_cst>  (G::type type, const wide_int &cst)
-{
-  extern tree build_int_cst_wide (tree, const wide_int &);
-  return G::integer_cst (build_int_cst_wide ((tree)type, cst));
-}
-
-
-/* double_int_to_tree */
-template <typename T> T create (G::type type, double_int cst);
-
-template<>
-inline G::integer_cst
-create<G::integer_cst>  (G::type type, double_int d)
-{
-  extern tree double_int_to_tree (tree, double_int);
-  return double_int_to_tree (type, d);
-}
-#endif
 
 /* build_int_cst */
 inline G::integer_cst

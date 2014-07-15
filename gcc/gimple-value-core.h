@@ -1,9 +1,34 @@
+/* Gimple value core c++ class definitions.  
+
+   Copyright (C) 2014 Free Software Foundation, Inc.
+   Contributed by Andrew MacLeod  <amacleod@redhat.com>
+
+This file is part of GCC.
+
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 3, or (at your option) any later
+version.
+
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
+
+You should have received a copy of the GNU General Public License
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
+
 #ifndef GIMPLE_VALUE_CORE_H
 #define GIMPLE_VALUE_CORE_H
 
 #include "tree-core.h"
 
 namespace G {
+
+/* Forward declare the 3 basic wrapper class templates and instances used
+   by methods of the basic classes.  */
+
 
 template<typename T> class _ptr;
 template<typename pT, typename dT> class _dptr;
@@ -34,22 +59,22 @@ FWD_DECL (decl_noncommon, decl_with_viz);
 FWD_DECL (function_decl, decl_noncommon);
 
 
-// This class accesses parts of trees that are common to all tree types.
-// All methods other than comparisons are protected forcing inheriting
-// classes to provide their own iterface.  This will ensure that any future  
-// implementations of those classes will have any required methods exposed
-// directly in that class.
+/* This class accesses parts of trees that are common to all tree types.
+   All methods other than comparisons are protected forcing inheriting
+   classes to provide their own iterface.  This will ensure that any future  
+   implementations of those classes will have any required methods exposed
+   directly in that class.  */
 
 class tree_desc {
 
-// The new interface keeps the tree node in protected space.
-// Original interface files can be identified by having included tree.h. 
-// That require making access to the tree structures public and transparent
-// so macros like TREE_CODE() which do not perform TREE_CHECKS can access the 
-// base field directly.  Furthermore, when tree checking is turned off, most
-// macros directly access nodes, so tree_desc must export the same fields as
-// a tree node.
-//
+/* The new interface keeps the tree node in protected space.
+   Original interface files can be identified by having included tree.h. 
+   That require making access to the tree structures public and transparent
+   so macros like TREE_CODE() which do not perform TREE_CHECKS can access the 
+   base field directly.  Furthermore, when tree checking is turned off, most
+   macros directly access nodes, so tree_desc must export the same fields as
+   a tree node.  */
+
 #ifdef GCC_TREE_H
   public:
     union {
@@ -147,6 +172,8 @@ class tree_desc {
 };
 
 
+/* Implement a gimple type node.  This is one of the primary gimple classes.  */
+
 class type_desc : public tree_desc
 {
   protected:
@@ -176,6 +203,10 @@ class type_desc : public tree_desc
     bool vector_type_p () const;
     bool array_type_p () const;
 };
+
+
+/* Classes for the various type nodes, plus any pecial accessors those classes
+   may have.  */
 
 class boolean_type_desc : public type_desc
 {
@@ -237,6 +268,9 @@ class block_desc : public tree_desc
     G::value supercontext () const;
 };
 
+/* Implement a gimple value node.  This is another of the primary gimple
+   classes.  Most non-types inherit from this class.   */
+
 class value_desc : public tree_desc
 {
   public:
@@ -247,6 +281,10 @@ class value_desc : public tree_desc
     location_t expr_location () const;
     bool clobber_p () const;
 };
+
+
+/* Implement the various kinds of objects which form a gimple value, along with
+   any utilized accessors.  */
 
 class unary_desc : public value_desc
 {
@@ -343,6 +381,9 @@ class case_label_expr_desc : public value_desc
     value case_chain () const;
 };
 
+
+/* Constant base class.  */
+
 class constant_desc : public value_desc
 {
   public:
@@ -373,6 +414,8 @@ class string_cst_desc : public constant_desc
 {
 };
 
+
+/* Base class for various kinds of decls.  */
 
 class decl_desc : public value_desc
 {
@@ -414,16 +457,8 @@ class decl_desc : public value_desc
 
     enum machine_mode mode () const;
     void set_mode (enum machine_mode);
-/*
-    bool is_type_context () const;
-    G::function_decl function_context () const;
-    void set_function_context (G::function_decl);
-    G::type type_context () const;
-    void set_type_context (G::type);
-*/
     value_list attributes () const;
     void set_attributes (const value_list);
-
 
 protected:
     bool decl_has_assembler_p () const;
@@ -451,7 +486,6 @@ class decl_with_viz_desc : public decl_with_rtl_desc
     bool seen_in_bind_expr_p () const;
     void set_seen_in_bind_expr_p (const bool);
     bool hard_register() const;
-
 };
 
 class decl_noncommon_desc : public decl_with_viz_desc
@@ -490,6 +524,8 @@ class label_decl_desc : public decl_with_rtl_desc
     bool forced_label () const;
 };
 
+
+/* Base class for various kinds of lists.  */
 class value_list_desc : public value_desc
 {
   public:
@@ -511,6 +547,8 @@ class identifier_list_desc : public value_list_desc
     G::identifier value() const;
     identifier_list chain () const;
 };
+
+/* Base class for an SSA_NAME.  */
 
 class ssa_name_desc : public value_desc
 {

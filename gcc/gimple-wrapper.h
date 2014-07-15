@@ -1,3 +1,24 @@
+/* Gimple wrapper class definitions for pointers to gimple objects. 
+
+   Copyright (C) 2014 Free Software Foundation, Inc.
+   Contributed by Andrew MacLeod  <amacleod@redhat.com>
+
+This file is part of GCC.
+
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 3, or (at your option) any later
+version.
+
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
+
+You should have received a copy of the GNU General Public License
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
+
 #ifndef GIMPLE_WRAPPER_H
 #define GIMPLE_WRAPPER_H
 
@@ -24,12 +45,17 @@ extern void tree_int_cst_elt_check_failed (int, int, const char *,
 #define GIMPLE_CHECKING_ON	0
 #endif
 
-// define a unique name for checks that are only to heplwith the re-arch work...
-// things that should never ever fail... but just in case as_a is in the wrong
-// place...  unique name so we can easily rip them out later, or do performance
-// analysis.
+/* Define a unique name for checks that are only to help with the re-arch work.
+   Things that should never ever fail... but just in case as_a is in the wrong
+   place...  unique name so we can easily rip them out later, or do performance
+   analysis or eliminate them from the compiler.  */
+
 #define extra_checking_assert	gcc_checking_assert
 
+/* Define a class which performs the same role as TREE_NULL.  Using a special
+   class allows all the interface methods to handle NULL without expecting a 
+   long or a pointer.  The class knows how to be interpreted as an int or 
+   a tree to allow interaction with the existing tree interface.  */
 
 class gimple_null {
   public:
@@ -39,15 +65,27 @@ class gimple_null {
     operator tree() { return (tree)0; }
 };
 
+/* Define a static instance to perform the same function a TREE_NULL. */
+
 static gimple_null NULL_GIMPLE;
 
+
+/* Forward declare the templates for is_a, as_a, and dyn_cast outside
+   the gimple namspace.  
+   we cannot use the definition in is-a.h since these gimple wrappers are
+   a ctually smart pointer classes, not actual pointers.  Since they are
+   class instances passed by value, ths give the 3 routins a different
+   signature than the is-a.h templates, so everything just works.  */
+
 template<typename T, typename D> inline bool is_a (D v);
-
 template<typename T, typename D> inline T as_a (D v);
-
 template<typename T, typename D> inline T dyn_cast (D v);
 
 namespace G {
+
+/* This is a basic gimple object pointer.  The different instances of a basic
+   type are not compatible with each other.  ie, a type cannot be passed to a
+   value as they are fundamentally incompatible.  */
 
 template<typename T>
 class _ptr 
@@ -69,10 +107,12 @@ class _ptr
     inline _ptr (int x ATTRIBUTE_UNUSED) { gcc_assert (!x); set_ptr (NULL); }
     inline _ptr& operator= (const gimple_null& g ATTRIBUTE_UNUSED)
 				    { Tree = NULL; return *this;}
+/*
     inline _ptr& operator= (const tree t) 
 			    { set_ptr (t); check_contents (); return *this;}
     inline _ptr& operator= (const_tree t)
 			    { set_ptr (t); check_contents (); return *this;}
+*/
     inline _ptr& operator= (const T *v) { set_ptr (v); return *this;}
     inline _ptr& operator= (int x ATTRIBUTE_UNUSED) 
 			  { gcc_assert (!x); set_ptr (NULL); return *this; }
@@ -110,10 +150,8 @@ class _ptr
     template <typename TT>
     friend bool operator!= (const T *b, const _ptr<TT>& a);
 
-    template <typename TT>
-    friend bool operator== (const _ptr<TT>&, long);
-    template <typename TT>
-    friend bool operator!= (const _ptr<TT>&, long); 
+    template <typename TT> friend bool operator== (const _ptr<TT>&, long);
+    template <typename TT> friend bool operator!= (const _ptr<TT>&, long); 
     template <typename TT> friend TT copy (TT ptr);
     template <typename TT> friend TT create ();
 
@@ -125,80 +163,7 @@ class _ptr
 
 };
 
-
-typedef _ptr<value_desc>		value;
-typedef _ptr<type_desc>			type;
-typedef _ptr<block_desc>		block;
-
-template<typename pT, typename dT>
-class _dptr : public dT
-{
-  protected:
-    pT *ptr() const { return static_cast<pT *>(dT::Tree); }
-    void set_ptr(const void *p) 
-	    { dT::Tree = reinterpret_cast<tree_desc *>(const_cast<void *>(p)); }
-    static inline bool test (value);
-    static inline bool test (type);
-    static inline _dptr create ();
-    inline void check_contents () const;
-    inline _dptr copy () const;
-
-  public:
-
-    inline _dptr () : dT () { }
-    inline _dptr (const gimple_null& g ATTRIBUTE_UNUSED) : dT() { }
-    inline _dptr (const tree t) : dT (t) { check_contents(); }
-    inline _dptr (const_tree t) : dT (t) { check_contents(); }
-    inline _dptr (const pT *n) : dT () {  dT::set_ptr (n); }
-    inline _dptr (int x ATTRIBUTE_UNUSED) : dT () { gcc_assert (!x); }
-/*
-    inline _dptr& operator= (const tree t) 
-				{ set_ptr (t); check_contents(); return *this; }
-    inline _dptr& operator= (const_tree t) 
-				{ set_ptr (t); check_contents(); return *this; }
-*/
-    inline _dptr& operator= (const pT *p) { set_ptr (p); return *this; }
-    inline _dptr& operator= (const gimple_null& g ATTRIBUTE_UNUSED)
-						{ set_ptr (NULL); return *this;}
-    inline _dptr& operator= (int x ATTRIBUTE_UNUSED) 
-			    { gcc_assert (!x); set_ptr (NULL); return *this; }
-
-    inline pT * operator->() { return ptr(); }
-    inline const pT * operator->() const { return ptr(); }
-    inline pT& operator*() { return *ptr(); }
-    inline const pT& operator*() const { return *ptr(); }
-
-    template <typename T1, typename T2>
-    friend bool operator== (const _dptr<T1,T2>& a, const T1 *b);
-    template <typename T1, typename T2>
-    friend bool operator!= (const _dptr<T1,T2>& a, const T1 *b);
-    template <typename T1, typename T2>
-    friend bool operator== (const T1 *b, const _dptr<T1,T2>& a);
-    template <typename T1, typename T2>
-    friend bool operator!= (const T1 *b, const _dptr<T1,T2>& a);
-
-    template <typename T, typename D> bool friend ::is_a(D);
-    template <typename T, typename D> T friend ::as_a(D);
-    template <typename T, typename D> T friend ::dyn_cast(D);
-    template <typename TT> friend TT copy (TT ptr);
-    template <typename TT> friend TT create ();
-    template<typename> friend class _addr;
-};
-
-template<typename T>
-class _addr 
-{
-  protected:
-    T *ptr;
-  public:
-    inline _addr () { ptr = NULL; }
-    inline _addr (const gimple_null& g ATTRIBUTE_UNUSED) { ptr = NULL;}
-    inline _addr (tree *t) { ptr = reinterpret_cast<T *> (t); }
-    inline _addr (T *t) { ptr = t; }
-    inline T& operator*() { return *ptr; }
-    inline operator tree *() const { return reinterpret_cast<tree *>(ptr); }
-};
-
+/* Various friend classes.  */
 
 template <typename T>
 inline bool 
@@ -262,6 +227,72 @@ operator!= (const _ptr<T>& t1, const gimple_null& n ATTRIBUTE_UNUSED)
 
 
 
+/* Define instances and typedefs for the baic gimple objects.  */
+
+typedef _ptr<value_desc>		value;
+typedef _ptr<type_desc>			type;
+typedef _ptr<block_desc>		block;
+
+/* This template is for any object derived from one of the base types.  It
+   includes the test method helper for is_a, as_a and dyn_cast.  */
+
+template<typename pT, typename dT>
+class _dptr : public dT
+{
+  protected:
+    pT *ptr() const { return static_cast<pT *>(dT::Tree); }
+    void set_ptr(const void *p) 
+	    { dT::Tree = reinterpret_cast<tree_desc *>(const_cast<void *>(p)); }
+    static inline bool test (value);
+    static inline bool test (type);
+    static inline _dptr create ();
+    inline void check_contents () const;
+    inline _dptr copy () const;
+
+  public:
+
+    inline _dptr () : dT () { }
+    inline _dptr (const gimple_null& g ATTRIBUTE_UNUSED) : dT() { }
+    inline _dptr (const tree t) : dT (t) { check_contents(); }
+    inline _dptr (const_tree t) : dT (t) { check_contents(); }
+    inline _dptr (const pT *n) : dT () {  dT::set_ptr (n); }
+    inline _dptr (int x ATTRIBUTE_UNUSED) : dT () { gcc_assert (!x); }
+/*
+    inline _dptr& operator= (const tree t) 
+				{ set_ptr (t); check_contents(); return *this; }
+    inline _dptr& operator= (const_tree t) 
+				{ set_ptr (t); check_contents(); return *this; }
+*/
+    inline _dptr& operator= (const pT *p) { set_ptr (p); return *this; }
+    inline _dptr& operator= (const gimple_null& g ATTRIBUTE_UNUSED)
+						{ set_ptr (NULL); return *this;}
+    inline _dptr& operator= (int x ATTRIBUTE_UNUSED) 
+			    { gcc_assert (!x); set_ptr (NULL); return *this; }
+
+    inline pT * operator->() { return ptr(); }
+    inline const pT * operator->() const { return ptr(); }
+    inline pT& operator*() { return *ptr(); }
+    inline const pT& operator*() const { return *ptr(); }
+
+    template <typename T1, typename T2>
+    friend bool operator== (const _dptr<T1,T2>& a, const T1 *b);
+    template <typename T1, typename T2>
+    friend bool operator!= (const _dptr<T1,T2>& a, const T1 *b);
+    template <typename T1, typename T2>
+    friend bool operator== (const T1 *b, const _dptr<T1,T2>& a);
+    template <typename T1, typename T2>
+    friend bool operator!= (const T1 *b, const _dptr<T1,T2>& a);
+
+    template <typename T, typename D> bool friend ::is_a(D);
+    template <typename T, typename D> T friend ::as_a(D);
+    template <typename T, typename D> T friend ::dyn_cast(D);
+    template <typename TT> friend TT copy (TT ptr);
+    template <typename TT> friend TT create ();
+    template<typename> friend class _addr;
+};
+
+/* Various friend classes.  */
+
 template <typename pT, typename dT>
 inline bool operator== (const _dptr<pT, dT>& a, const pT *b)
 { return a.ptr() == b; }
@@ -289,11 +320,30 @@ operator!= (const _ptr<T>& t1, long t2)
 { return t1.Tree != reinterpret_cast<class tree_desc *>(t2); }
 
 
-//////////////////////////////////////////////////////////////////
-//
-// Instances
-//
-//////////////////////////////////////////////////////////////////
+/* This is the basic address of an object type.  ie, a pointer to smart poimter.
+   This class is used instead of &value. 
+   The rationale for this is again to allow for interaction with the
+   unconverted tree interface.  It is a requirement that the address of a
+   gimple object be type compatible with a 'tree *'.  This class allows that by
+   allowng construction from trees and casting to trees. 
+   When the tree interface is no longer required, this can be replaced with 
+   a simple 'T *'.  */
+
+template<typename T>
+class _addr 
+{
+  protected:
+    T *ptr;
+  public:
+    inline _addr () { ptr = NULL; }
+    inline _addr (const gimple_null& g ATTRIBUTE_UNUSED) { ptr = NULL;}
+    inline _addr (tree *t) { ptr = reinterpret_cast<T *> (t); }
+    inline _addr (T *t) { ptr = t; }
+    inline T& operator*() { return *ptr; }
+    inline operator tree *() const { return reinterpret_cast<tree *>(ptr); }
+};
+
+/* From tree.c for create () and copy () methods.  */
 
 extern void * gimple_copy_node (const void *t);
 extern void * gimple_make_node (enum tree_code t);
@@ -327,12 +377,23 @@ create ()
 }
 
 
+//////////////////////////////////////////////////////////////////
+//
+// Instances
+//
+//////////////////////////////////////////////////////////////////
+
+
+
+/* A value doesnt need to check anything.  */
 template<>
 inline void 
 _ptr<value_desc>::check_contents() const
 {
 }
 
+/* There cannot be an instance of just a value node, it must be sort
+   of concrete derived type.  */
 template<>
 inline _ptr<value_desc> 
 _ptr<value_desc>::create()
@@ -340,6 +401,7 @@ _ptr<value_desc>::create()
   gcc_unreachable ();
 }
 
+/* Check a type node.  */
 template<>
 inline void 
 _ptr<type_desc>::check_contents() const
@@ -350,6 +412,7 @@ _ptr<type_desc>::check_contents() const
 #endif
 }
 
+/* A type node must be some sort of concrete derived type when created.  */
 template<>
 inline _ptr<type_desc> 
 _ptr<type_desc>::create()
@@ -357,6 +420,7 @@ _ptr<type_desc>::create()
   gcc_unreachable ();
 }
 
+/* Check for a block node.  */
 template<>
 inline void 
 _ptr<block_desc>::check_contents() const
@@ -367,6 +431,7 @@ _ptr<block_desc>::check_contents() const
 #endif
 }
 
+/* Craeat a block node.  */
 template<>
 inline _ptr<block_desc> 
 _ptr<block_desc>::create()
@@ -379,6 +444,13 @@ _ptr<block_desc>::create()
 #else
 #define CHKNODE(CC)
 #endif
+
+/* Define the basic template functions for a derived type which does not form
+   a concrete type.  This is for things like a DECL node... it is derived from
+   a VALUE node, but you cannot create a node of that type. it has to be one
+   of the concrete decl objects, like a PARM_DECL.
+   Note the test method works off the BASE class for the type.  This allows
+   a test for any intermediary class along the inheritance chain. */
 
 #define DERIVED_PTR(LAB, CC, DT, BT)			\
 typedef _dptr<LAB ## _desc, DT>	LAB;			\
@@ -393,6 +465,10 @@ _dptr<LAB ## _desc, DT>::create ()			\
 { gcc_unreachable (); }
 
 
+/* Define the basic template functions for a derived type which does form
+   a concrete type. 
+   Note the test method works off the BASE class for the type.  This allows
+   a test for any intermediary class along the inheritance chain. */
 
 #define TERMINAL_PTR(LAB, CC, DT, BT)			\
 typedef _dptr<LAB ## _desc, DT>	LAB;			\
@@ -411,6 +487,9 @@ _dptr<LAB ## _desc, DT>::create ()			\
 
 #define MULTIARGS(...) __VA_ARGS__
 
+/* Declare all the intermediate inherited types whihc do not define a concrete
+   type with  a single gimple_code.  */
+
 DERIVED_PTR (decl, tcc_declaration, value, value)
 DERIVED_PTR (constant, tcc_constant, value, value)
 DERIVED_PTR (comparison, tcc_comparison, value, value)
@@ -427,6 +506,8 @@ DERIVED_PTR (numerical_type,
 DERIVED_PTR (function_or_method_type,
 	     MULTIARGS (FUNCTION_TYPE, METHOD_TYPE),
 	     type, type)
+
+/* Define all the concrete derived types which form actual node instances.  */
 
 TERMINAL_PTR (identifier, IDENTIFIER_NODE, value, value) 
 TERMINAL_PTR (integer_cst, INTEGER_CST, constant, value)
@@ -470,17 +551,23 @@ TERMINAL_PTR (complex_type, COMPLEX_TYPE, type, type)
 TERMINAL_PTR (vector_type, VECTOR_TYPE, type, type)
 
 
+/* define the pointer to pointer types required.  */
+
 typedef _addr<type>			type_ptr;
 typedef _addr<value>			value_ptr;
 typedef _addr<integer_cst>		integer_cst_ptr;
 
 } // namespace G
 
+/* Implement is_a ().  */
+
 template<typename T, typename D>
 inline bool is_a (D v)
 { 
   return T::test (v);
 }
+
+/* Implement as_a ().  */
 
 template<typename T, typename D>
 inline T as_a (D v)
@@ -490,6 +577,7 @@ inline T as_a (D v)
   return t;
 }
 
+/* Implement dyn_cast ().  */
 template<typename T, typename D>
 inline T dyn_cast (D v)
 { 
@@ -498,7 +586,6 @@ inline T dyn_cast (D v)
     t.set_ptr(v.ptr ());
   return t;
 }
-
 
 
 #endif  /* GIMPLE_WRAPPER_H  */
