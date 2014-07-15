@@ -2928,17 +2928,43 @@ exit, in last place.}#
        (return :delim :right_brace))
       ;;; numbers
       ((expr_chunk testdigitminus_chk :long
-		   #{(ISDIGIT($CURCH)
+		   #{/* json_lexer $TESTDIGITMINUS_CHK */ (ISDIGIT($CURCH)
 		      || ((char)$CURCH== '-'
 			  && ISDIGIT((char)$NEXTCH)))}#)
-       (assert_msg "@$@unimplemented lexing of JSON numbers")
-       )
+       (let ( (:long bulen (strbuf_usedlength sbuf))
+	      (:long eatlen 0)
+	      (val ())
+	      )
+	 (code_chunk
+	  parsejsonnum_chk
+	  #{ /* json_lexer begin $PARSEJSONNUM_CHK */
+	    long l = 0;
+	    double x = 0.0;
+	    int lnum = melt_strbuf_peek_long_number($SBUF,0,&l);
+	    int ldbl = melt_strbuf_peek_double_number($SBUF,0,&x);
+	    if (lnum>0 && lnum>=ldbl && (long)lnum<$BULEN) {
+	      $EATLEN = (long)lnum;
+	      $VAL = meltgc_new_int((meltobject_ptr_t)
+				    MELT_PREDEF(DISCR_CONSTANT_INTEGER),
+				    l);
+	    }
+	    else if (ldbl>0  && (long)lnum<$BULEN) {
+	      $EATLEN = (long)ldbl;
+	      $VAL = meltgc_new_double((meltobject_ptr_t)
+				       MELT_PREDEF(DISCR_CONSTANT_DOUBLE),
+				       x);
+	      }
+	      /* json_lexer end $PARSEJSONNUM_CHK */
+	      }#)
+	 (when eatlen
+	   (strbuf_consume sbuf eatlen)
+	   (return :number val))
+       ))
       ;; otherwise error
       (:else
        (return :error sbuf))
       )
-
-     (assert_msg "@$@incomplete json_lexer")
+      (return)
      )
    )
   )

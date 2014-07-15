@@ -1271,6 +1271,9 @@ melt_mark_decay (struct meltdecay_st *p)
 /* allocate a boxed long integer (or null if bad DISCR) fillen with NUM */
 melt_ptr_t meltgc_new_int (meltobject_ptr_t discr, long num);
 
+/* allocate a boxed long double (or null if bad DISCR) fillen with NUM */
+melt_ptr_t meltgc_new_double (meltobject_ptr_t discr, double num);
+
 /* Retrieve an integer from a boxed integer or mixnumbers.  */
 static inline long
 melt_get_int (melt_ptr_t v)

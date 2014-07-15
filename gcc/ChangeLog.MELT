@@ -1,6 +1,17 @@
 
 2014-07-15  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (meltgc_new_double): New declaration.
+
+	* melt-runtime.cc (meltgc_new_int): Default discriminant becomes
+	DISCR_CONSTANT_INTEGER, not just DISCR_INTEGER.
+	(meltgc_new_double): New function.
+
+	* melt/warmelt-hooks.melt (json_lexer): Now lexing numbers but
+	still very incomplete.
+
+2014-07-15  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.h (melt_strbuf_peek_long_number)
 	(melt_strbuf_peek_double_number): New inline functions.
 

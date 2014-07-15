@@ -2123,7 +2123,7 @@ meltgc_new_int (meltobject_ptr_t discr_p, long num)
 #define int_newintv ((struct meltint_st*)(newintv))
   discrv = (melt_ptr_t) discr_p;
   if (!discrv)
-    discrv = (melt_ptr_t) MELT_PREDEF (DISCR_INTEGER);
+    discrv = (melt_ptr_t) MELT_PREDEF (DISCR_CONSTANT_INTEGER);
   if (melt_magic_discr ((melt_ptr_t) (discrv)) != MELTOBMAG_OBJECT)
     goto end;
   if (object_discrv->meltobj_magic != MELTOBMAG_INT)
@@ -2134,6 +2134,35 @@ meltgc_new_int (meltobject_ptr_t discr_p, long num)
 end:
   MELT_EXITFRAME ();
   return (melt_ptr_t) newintv;
+#undef newintv
+#undef discrv
+#undef int_newintv
+#undef object_discrv
+}
+
+
+
+melt_ptr_t
+meltgc_new_double (meltobject_ptr_t discr_p, double num)
+{
+  MELT_ENTERFRAME (2, NULL);
+#define newdblv meltfram__.mcfr_varptr[0]
+#define discrv  meltfram__.mcfr_varptr[1]
+#define object_discrv ((meltobject_ptr_t)(discrv))
+#define dbl_newdblv ((struct meltdouble_st*)(newdblv))
+  discrv = (melt_ptr_t) discr_p;
+  if (!discrv)
+    discrv = (melt_ptr_t) MELT_PREDEF (DISCR_CONSTANT_DOUBLE);
+  if (melt_magic_discr ((melt_ptr_t) (discrv)) != MELTOBMAG_OBJECT)
+    goto end;
+  if (object_discrv->meltobj_magic != MELTOBMAG_DOUBLE)
+    goto end;
+  newdblv = (melt_ptr_t) meltgc_allocate (sizeof (struct meltdouble_st), 0);
+  dbl_newdblv->discr = object_discrv;
+  dbl_newdblv->val = num;
+end:
+  MELT_EXITFRAME ();
+  return (melt_ptr_t) newdblv;
 #undef newintv
 #undef discrv
 #undef int_newintv
