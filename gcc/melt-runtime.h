@@ -1892,6 +1892,58 @@ melt_strbuf_peek (melt_ptr_t v, int ioff)
   return -1;
 }
 
+/* peek an encoded long number, returning the length and setting *pnum
+   to the parsed number */
+static inline int
+melt_strbuf_peek_long_number (melt_ptr_t v, int ioff, long *pnum)
+{
+  gcc_assert (pnum != NULL);
+  if (melt_magic_discr (v) == MELTOBMAG_STRBUF)
+    {
+      struct meltstrbuf_st *sbu = (struct meltstrbuf_st *) v;
+      int slen = (sbu->bufend) - (sbu->bufstart);
+      if (ioff < 0)
+	ioff += slen;
+      if (ioff >= 0 && ioff < slen)
+	{
+	  char *endp = NULL;
+	  char*curp = sbu->bufzn+sbu->bufstart+ioff;
+	  long n = strtol(curp, &endp, 0);
+	  if (endp && endp>curp) {
+	    *pnum = n;
+	    return (int) (endp - curp);
+	  }
+	}
+    }
+  return 0;
+}
+
+
+/* peek an encoded double number, returning the length and setting *pnum
+   to the parsed floating point */
+static inline int
+melt_strbuf_peek_double_number (melt_ptr_t v, int ioff, double *pnum)
+{
+  gcc_assert (pnum != NULL);
+  if (melt_magic_discr (v) == MELTOBMAG_STRBUF)
+    {
+      struct meltstrbuf_st *sbu = (struct meltstrbuf_st *) v;
+      int slen = (sbu->bufend) - (sbu->bufstart);
+      if (ioff < 0)
+	ioff += slen;
+      if (ioff >= 0 && ioff < slen)
+	{
+	  char *endp = NULL;
+	  char*curp = sbu->bufzn+sbu->bufstart+ioff;
+	  double x = strtod(curp, &endp);
+	  if (endp && endp>curp) {
+	    *pnum = x;
+	    return (int) (endp - curp);
+	  }
+	}
+    }
+  return 0;
+}
 
 static inline void
 melt_strbuf_consume (melt_ptr_t v, int cnt)

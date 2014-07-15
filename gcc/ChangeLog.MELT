@@ -1,5 +1,10 @@
 
 2014-07-15  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.h (melt_strbuf_peek_long_number)
+	(melt_strbuf_peek_double_number): New inline functions.
+
+2014-07-15  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-base.melt (outjson_named_method): New method for
 	output_as_json on class_named. Beware that it won't work well with
 	non-ASCII names!
