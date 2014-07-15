@@ -22,42 +22,38 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 /* Simple constant foldings to substitute gimple_fold_stmt_to_constant_2.  */
-(match_and_simplify
-  (plus @0 integer_zerop)
-  @0)
-(match_and_simplify
-  (pointer_plus @0 integer_zerop)
-  @0)
-(match_and_simplify
-  (minus @0 integer_zerop)
-  @0)
+(for op in plus pointer_plus minus bit_ior bit_xor
+  (match_and_simplify
+    (op @0 integer_zerop)
+    @0))
+
 (match_and_simplify
   (minus @0 @0)
   { build_zero_cst (type); })
+
 (match_and_simplify
   (mult @0 integer_zerop@1)
   @1)
-(match_and_simplify
-  (mult @0 integer_onep)
-  @0)
+
 /* Make sure to preserve divisions by zero.  This is the reason why
    we don't simplify x / x to 1 or 0 / x to 0.  */
-(for op in trunc_div ceil_div floor_div round_div
-(match_and_simplify
-  (op @0 integer_onep)
-  @0))
+(for op in mult trunc_div ceil_div floor_div round_div
+  (match_and_simplify
+    (op @0 integer_onep)
+    @0))
 
 (match_and_simplify
   (trunc_mod @0 integer_onep)
   { build_zero_cst (type); })
 /* Same applies to modulo operations, but fold is inconsistent here
-   and simplifies 0 % x to 0.  */
+   and simplifies 0 % x to 0.
+   ???  This also shows an issue with the GENERIC case - we have to
+   pass all dropped through omit_{one,two}_operand{,s} to preserve
+   their side-effects - seen gcc.c-torture/execute/20050131-1.c
+   execute failure.  Eventually we can autodetect this.  */
 (match_and_simplify
   (trunc_mod integer_zerop@0 @1)
   if (!integer_zerop (@1))
-  @0)
-(match_and_simplify
-  (bit_ior @0 integer_zerop)
   @0)
 (match_and_simplify
   (bit_ior @0 integer_all_onesp@1)
@@ -68,9 +64,6 @@ along with GCC; see the file COPYING3.  If not see
 (match_and_simplify
   (bit_and @0 integer_zerop@1)
   @1)
-(match_and_simplify
-  (bit_xor @0 integer_zerop)
-  @0)
 (match_and_simplify
   (bit_xor @0 @0)
   { build_zero_cst (type); })
@@ -134,18 +127,24 @@ along with GCC; see the file COPYING3.  If not see
 /* (A +- B) - A -> +-B.  */
 (match_and_simplify
   (minus (plus @0 @1) @0)
-  if (!TYPE_SATURATING (TREE_TYPE (@0))
-      && !FLOAT_TYPE_P (TREE_TYPE (@0)) && !FIXED_POINT_TYPE_P (TREE_TYPE (@0)))
+  if (!TYPE_SATURATING (type)
+      && !FLOAT_TYPE_P (type) && !FIXED_POINT_TYPE_P (type))
   @1)
 (match_and_simplify
   (minus (minus @0 @1) @0)
+  if (!TYPE_SATURATING (type)
+      && !FLOAT_TYPE_P (type) && !FIXED_POINT_TYPE_P (type))
   (negate @1))
 /* (A +- B) -+ B -> A.  */
 (match_and_simplify
   (minus (plus @0 @1) @1)
+  if (!TYPE_SATURATING (type)
+      && !FLOAT_TYPE_P (type) && !FIXED_POINT_TYPE_P (type))
   @0)
 (match_and_simplify
   (plus:c (minus @0 @1) @1)
+  if (!TYPE_SATURATING (type)
+      && !FLOAT_TYPE_P (type) && !FIXED_POINT_TYPE_P (type))
   @0)
 /* (CST +- A) +- CST -> CST' +- A.  */
 /* match_and_simplify handles constant folding for us so we can
@@ -352,6 +351,15 @@ along with GCC; see the file COPYING3.  If not see
   (op:c (lshift @0 INTEGER_CST_P@1) (rshift @0 INTEGER_CST_P@2))
   if (INTEGRAL_TYPE_P (type) && TYPE_UNSIGNED (type)
       && tree_fits_uhwi_p (@1) && tree_fits_uhwi_p (@2)
+      && tree_to_uhwi (@1) + tree_to_uhwi (@2) == TYPE_PRECISION (type))
+  (lrotate @0 @1)))
+
+
+/* (x << CNT1) OP (x >> CNT2) -> x r<< CNT1 OP being +, |, ^ */
+(for op in plus bit_ior bit_xor 
+(match_and_simplify
+  (op:c (lshift @0 INTEGER_CST_P@1) (rshift @0 INTEGER_CST_P@2))
+  if (tree_fits_uhwi_p (@1) && tree_fits_uhwi_p (@2)
       && tree_to_uhwi (@1) + tree_to_uhwi (@2) == TYPE_PRECISION (type))
   (lrotate @0 @1)))
 

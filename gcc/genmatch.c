@@ -295,8 +295,6 @@ e_operation::e_operation (const char *id, bool is_commutative_, bool add_new_id)
   operators.find_slot_with_hash (op, op->hashval, INSERT);
 }
 
-
-
 struct simplify {
   simplify (const char *name_,
 	    operand *match_, source_location match_location_,
@@ -599,10 +597,8 @@ replace_id (operand *o, const char *user_id, const char *oper)
   expr *e = static_cast<expr *> (o);
   expr *ne;
 
-  if (e->operation->op->kind == id_base::USER_DEFINED) 
+  if (e->operation->op->kind == id_base::USER_DEFINED && strcmp (e->operation->op->id, user_id) == 0)
     {
-      if (strcmp (e->operation->op->id, user_id) != 0)
-	fatal ("defined symbol (%s) and replacement symbol (%s) should be same", e->operation->op->id, user_id);
       struct e_operation *operation = new e_operation (oper, e->operation->is_commutative, false);
       check_operator (operation->op, e->ops.length ());
       ne = new expr (operation);
@@ -616,6 +612,38 @@ replace_id (operand *o, const char *user_id, const char *oper)
   return ne;
 }
   
+void
+check_no_user_id (operand *o)
+{
+  if (o->type == operand::OP_CAPTURE)
+    {
+      capture *c = static_cast<capture *> (o);
+      if (c->what && c->what->type == operand::OP_EXPR)
+	{
+	  o = c->what;
+	  goto check_expr; 
+	}
+      return; 
+    }
+
+  if (o->type != operand::OP_EXPR)
+    return;
+
+check_expr:
+  expr *e = static_cast<expr *> (o);
+  if (e->operation->op->kind == id_base::USER_DEFINED)
+    fatal ("%s is not defined in for", e->operation->op->id);
+
+  for (unsigned i = 0; i < e->ops.length (); ++i)
+    check_no_user_id (e->ops[i]);
+}
+
+void
+check_no_user_id (simplify *s)
+{
+  check_no_user_id (s->match);
+  check_no_user_id (s->result);
+}
 
 /* Code gen off the AST.  */
 
@@ -1944,6 +1972,7 @@ parse_op (cpp_reader *r)
   return op;
 }
 
+
 /* Parse
      (define_match_and_simplify "<ident>"
         <op> <op>)  */
@@ -1983,12 +2012,12 @@ parse_match_and_simplify (cpp_reader *r, source_location match_location)
 		       ifexpr, ifexpr_location, parse_op (r), token->src_loc);
 }
 
-
 void
-parse_for (cpp_reader *r, source_location match_location, vec<simplify *>& simplifiers)
+parse_for (cpp_reader *r, source_location match_location, vec<simplify *>& simplifiers) 
 {
   const char *user_id = get_ident (r);
   eat_ident (r, "in");
+  void parse_pattern (cpp_reader *, vec<simplify *>&);
 
   vec<const char *> opers = vNULL;
 
@@ -1998,24 +2027,23 @@ parse_for (cpp_reader *r, source_location match_location, vec<simplify *>& simpl
       if (token->type != CPP_NAME)
 	break;
       opers.safe_push (get_ident (r));
-    } 
+    }
 
-  eat_token (r, CPP_OPEN_PAREN);
-  eat_ident (r, "match_and_simplify");
-
-  simplify *s = parse_match_and_simplify (r, match_location);
-  eat_token (r, CPP_CLOSE_PAREN);
+  vec<simplify *> for_simplifiers = vNULL;
+  parse_pattern (r, for_simplifiers);
 
   for (unsigned i = 0; i < opers.length (); ++i)
     {
-      operand *match_op = replace_id (s->match, user_id, opers[i]);
-      operand *result_op = replace_id (s->result, user_id, opers[i]);
-
-      simplify *ns = new simplify (s->name, match_op, s->match_location,
-				  s->ifexpr, s->ifexpr_location,
-				  result_op, s->result_location);
-
-      simplifiers.safe_push (ns);
+      for (unsigned j = 0; j < for_simplifiers.length (); ++j)
+	{
+	  simplify *s = for_simplifiers[j];
+	  operand *match_op = replace_id (s->match, user_id, opers[i]);
+	  operand *result_op = replace_id (s->result, user_id, opers[i]);
+	  simplify *ns = new simplify (s->name, match_op, s->match_location,
+				       s->ifexpr, s->ifexpr_location,
+				       result_op, s->result_location);
+	  simplifiers.safe_push (ns);
+	}
     }
 }
 
@@ -2023,6 +2051,23 @@ static size_t
 round_alloc_size (size_t s)
 {
   return s;
+}
+
+void
+parse_pattern (cpp_reader *r, vec<simplify *>& simplifiers)
+{
+  /* All clauses start with '('.  */
+  eat_token (r, CPP_OPEN_PAREN);
+  const cpp_token *token = peek (r);
+  const char *id = get_ident (r);
+  if (strcmp (id, "match_and_simplify") == 0)
+    simplifiers.safe_push (parse_match_and_simplify (r, token->src_loc));
+  else if (strcmp (id, "for") == 0)
+    parse_for (r, token->src_loc, simplifiers); 
+  else
+    fatal_at (token, "expected 'match_and_simplify' or 'for'");
+
+  eat_token (r, CPP_CLOSE_PAREN);
 }
 
 int
@@ -2076,27 +2121,14 @@ main(int argc, char **argv)
 
   vec<simplify *> simplifiers = vNULL;
 
-  do
+  while (peek (r)->type != CPP_EOF)
+    parse_pattern (r, simplifiers);
+
+  for (unsigned i = 0; i < simplifiers.length (); ++i)
     {
-      token = peek (r);
-      if (token->type == CPP_EOF)
-	break;
-
-      /* All clauses start with '('.  */
-      eat_token (r, CPP_OPEN_PAREN);
-
-      const char *id = get_ident (r);
-      if (strcmp (id, "match_and_simplify") == 0)
-	simplifiers.safe_push (parse_match_and_simplify (r, token->src_loc));
-      else if (strcmp (id, "for") == 0)
-	parse_for (r, token->src_loc, simplifiers); 
-      else
-	fatal_at (token, "expected 'match_and_simplify' or 'for'");
-
-      eat_token (r, CPP_CLOSE_PAREN);
+      fprintf (stderr, "pattern = %u\n", i);
+      check_no_user_id (simplifiers[i]);
     }
-  while (1);
-
   vec<simplify *> out_simplifiers = vNULL;
   for (unsigned i = 0; i < simplifiers.length (); ++i)
     lower_commutative (simplifiers[i], out_simplifiers);
