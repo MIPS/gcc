@@ -149,7 +149,11 @@ along with GCC; see the file COPYING3.  If not see
    we do!  A - CST -> A + -CST, CST + A -> A + CST.  */
 (match_and_simplify
   (plus (plus @0 INTEGER_CST_P@1) INTEGER_CST_P@2)
-  (plus @0 (plus @1 @2)))
+  /* If the constant operation overflows we cannot do the transform
+     as we would introduce undefined overflow, for example
+     with (a - 1) + INT_MIN.  */
+  if (!TREE_OVERFLOW (@1 = int_const_binop (PLUS_EXPR, @1, @2)))
+  (plus @0 @1))
 (match_and_simplify
   (plus (minus INTEGER_CST_P@0 @1) INTEGER_CST_P@2)
   (minus (plus @0 @2) @1))
@@ -346,6 +350,7 @@ along with GCC; see the file COPYING3.  If not see
 (match_and_simplify
   (op:c (lshift @0 INTEGER_CST_P@1) (rshift @0 INTEGER_CST_P@2))
   if (INTEGRAL_TYPE_P (type) && TYPE_UNSIGNED (type)
+      && TYPE_PRECISION (type) == GET_MODE_PRECISION (TYPE_MODE (type))
       && tree_fits_uhwi_p (@1) && tree_fits_uhwi_p (@2)
       && tree_to_uhwi (@1) + tree_to_uhwi (@2) == TYPE_PRECISION (type))
   (lrotate @0 @1)))

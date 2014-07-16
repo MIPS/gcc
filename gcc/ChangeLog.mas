@@ -1,3 +1,7 @@
+2014-07-16  Richard Biener  <rguenther@suse.de>
+
+	* match.pd: Fix two patterns.
+
 2014-07-15  Richard Biener  <rguenther@suse.de>
 
 	* match.pd: Remove duplicated and broken rotate pattern.
