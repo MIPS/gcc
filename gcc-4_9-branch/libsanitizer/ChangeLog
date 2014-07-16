@@ -1,3 +1,7 @@
+2014-07-16  Release Manager
+
+	* GCC 4.9.1 released.
+
 2014-05-23  Marek Polacek  <polacek@redhat.com>
 
 	* ubsan/ubsan_value.cc (getFloatValue): Handle 96-bit
