@@ -1,4 +1,4 @@
-/* { dg-options "-O2 -march=octeon2" }  */
+/* { dg-options "-march=octeon2" }  */
 int f(int a, int b)
 {
   return a== 10 ? b : 0;
