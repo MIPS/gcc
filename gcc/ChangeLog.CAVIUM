@@ -1,5 +1,12 @@
 2014-07-15  Andrew Pinski  <apinski@cavium.com>
 
+	Finish porting of bug #4619 fix.
+	* simplify-rtl.c (simplify_subreg):
+	When doing (subreg (ior/and)) only do it
+	if the outer mode is a scalar integer mode.
+
+2014-07-15  Andrew Pinski  <apinski@cavium.com>
+
 	* expr.c (get_condition_from_operand): Change argument types.
 	Expand the tree to rtl inside the function.
 	(expand_cond_expr_using_mask): Handle the case
