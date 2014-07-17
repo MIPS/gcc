@@ -1,5 +1,9 @@
 
 2014-07-17  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/generated/*: Regenerate all.
+
+2014-07-17  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-hooks.melt (json_lexer): Completed.
 
 2014-07-15  Basile Starynkevitch  <basile@starynkevitch.net>
