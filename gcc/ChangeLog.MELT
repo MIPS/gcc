@@ -1,6 +1,13 @@
 
 2014-07-17  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.cc (meltgc_strbuf_json_string_peek): Handle
+	ordinary character & EOF...
+
+	* melt/warmelt-hooks.melt (json_lexer): Improve debug.
+
+2014-07-17  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-hooks.melt (json_lexer): Add debug.
 
 2014-07-17  Basile Starynkevitch  <basile@starynkevitch.net>

@@ -7528,6 +7528,14 @@ meltgc_strbuf_json_string_peek (melt_ptr_t v, int ioff, int*pendoff)
 	  break;
 	}
       }
+      else if (cc != '\0') /* some other character */
+	{
+	  meltgc_add_strbuf_raw_len(wbuv,&cc,1);
+	  curix++;
+	  continue;
+	}
+      else  // reached end of buffer
+	goto end;
     };
  end:
   MELT_EXITFRAME ();

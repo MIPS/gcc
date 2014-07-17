@@ -2999,14 +2999,15 @@ exit, in last place.}#
 	      (:long endoff 0)
 	      )
 	 (code_chunk peekjsonstr_chk
-		     #{ /* json_lexer start $PEEKJSONSTR_CHK */
-		     int iend = 0	;
+		     #{ /* json_lexer $PEEKJSONSTR_CHK */
+		     int iend = 0 ;
 		     $NSTR = meltgc_strbuf_json_string_peek ($SBUF, 0, &iend) ;
-		     if ($NSTR) $ENDOFF = (long) iend ;
+		     if ($NSTR)
+		        $ENDOFF = (long) iend ;
 		     }#)
+	 (debug "json_lexer string nstr=" nstr " endoff=" endoff)
 	 (when nstr
 	   (strbuf_consume sbuf endoff)
-	   (debug "json_lexer string nstr=" nstr " endoff=" endoff)
 	   (return :string nstr))
 	 )
        )
