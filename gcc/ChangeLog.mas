@@ -1,3 +1,10 @@
+2014-07-17  Richard Biener  <rguenther@suse.de>
+
+	* gimple-fold.h (gimple_convert): Add overload with location_t
+	argument.
+	(gimple_match_and_simplify): Mark overloads on tree and gsi
+	as obsolete.
+
 2014-07-16  Richard Biener  <rguenther@suse.de>
 
 	* match.pd: Fix two patterns.

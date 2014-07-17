@@ -91,19 +91,23 @@ gimple_build (gimple_seq *seq,
 extern bool useless_type_conversion_p (tree, tree);
 
 inline tree
-gimple_convert (gimple_seq *seq, tree type, tree op)
+gimple_convert (gimple_seq *seq, location_t loc, tree type, tree op)
 {
   if (useless_type_conversion_p (type, TREE_TYPE (op)))
     return op;
-  return gimple_build (seq, NOP_EXPR, type, op);
+  return gimple_build (seq, loc, NOP_EXPR, type, op);
+}
+
+inline tree
+gimple_convert (gimple_seq *seq, tree type, tree op)
+{
+  return gimple_convert (seq, UNKNOWN_LOCATION, type, op);
 }
 
 /* Add gimple_seq_discard (gimple_seq *) that releases defs of all stmts
    in the sequence.  */
 
 /* In gimple-match.c.  */
-tree gimple_match_and_simplify (tree, gimple_seq *, tree (*)(tree));
-bool gimple_match_and_simplify (gimple_stmt_iterator *, tree (*)(tree));
 tree gimple_match_and_simplify (enum tree_code, tree, tree,
 				gimple_seq *, tree (*)(tree));
 tree gimple_match_and_simplify (enum tree_code, tree, tree, tree,
@@ -112,5 +116,9 @@ tree gimple_match_and_simplify (enum tree_code, tree, tree, tree, tree,
 				gimple_seq *, tree (*)(tree));
 tree gimple_match_and_simplify (enum built_in_function, tree, tree,
 				gimple_seq *, tree (*)(tree));
+/* The following two APIs are an artifact and should vanish in favor
+   of the existing gimple_fold_stmt_to_constant and fold_stmt APIs.  */
+tree gimple_match_and_simplify (tree, gimple_seq *, tree (*)(tree));
+bool gimple_match_and_simplify (gimple_stmt_iterator *, tree (*)(tree));
 
 #endif  /* GCC_GIMPLE_FOLD_H */
