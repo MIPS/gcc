@@ -1,3 +1,9 @@
+2014-07-16  Andrew Pinski  <apinski@cavium.com>
+
+	* cp/semantics.c (cxx_eval_constant_expression): Handle
+	BYTESWAP_EXPR.
+	(potential_constant_expression_1): Likewise.
+
 2014-07-15  Andrew Pinski  <apinski@cavium.com>
 
 	Finish porting of bug #4619 fix.

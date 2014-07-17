@@ -9576,6 +9576,7 @@ cxx_eval_constant_expression (const constexpr_call *call, tree t,
     case BIT_NOT_EXPR:
     case TRUTH_NOT_EXPR:
     case FIXED_CONVERT_EXPR:
+    case BYTESWAP_EXPR:
       r = cxx_eval_unary_expression (call, t, allow_non_constant, addr,
 				     non_constant_p, overflow_p);
       break;
@@ -10335,6 +10336,7 @@ potential_constant_expression_1 (tree t, bool want_rval, tsubst_flags_t flags)
     case TRUTH_NOT_EXPR:
     case FIXED_CONVERT_EXPR:
     case UNARY_PLUS_EXPR:
+    case BYTESWAP_EXPR:
       return potential_constant_expression_1 (TREE_OPERAND (t, 0), rval,
 					      flags);
 
