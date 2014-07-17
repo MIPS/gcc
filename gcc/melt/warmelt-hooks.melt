@@ -2892,13 +2892,18 @@ exit, in last place.}#
   (void))
 
 
-;; internal function to lex a json sbuf
+;; internal function to lex a json sbuf it is expected that the sbuf
+;; contains a JSON composite object or array.  Passing an sbuf
+;; containing exactly "null" would fail (because another letter could
+;; be added after that....), you'll need to pass an sbuf like "null "
+;; or "null," to get a successful :json_nil
 (defun json_lexer (sbuf)
   (assert_msg "check sbuf" (is_strbuf sbuf) sbuf)
   (forever
    lexloop
    (let ( (curch (strbuf_peek sbuf 0))
 	  (nextch (strbuf_peek sbuf 1))
+	  (:long bulen (strbuf_usedlength sbuf))
 	  )
      (cond
       ;; skip spaces
@@ -2927,62 +2932,136 @@ exit, in last place.}#
       ((==i curch #\})
        (strbuf_consume sbuf 1)
        (return :delim :right_brace))
-      ;;; numbers
+;;; numbers
       ((expr_chunk testdigitminus_chk :long
 		   #{/* json_lexer $TESTDIGITMINUS_CHK */ (ISDIGIT($CURCH)
-		      || ((char)$CURCH== '-'
-			  && ISDIGIT((char)$NEXTCH)))}#)
-       (let ( (:long bulen (strbuf_usedlength sbuf))
-	      (:long eatlen 0)
-	      (val ())
-	      )
+								  || ((char)$CURCH== '-'
+								      && ISDIGIT((char)$NEXTCH)))}#)
+       (let ( 
+	     (:long eatlen 0)
+	     (val ())
+	     )
 	 (code_chunk
 	  parsejsonnum_chk
 	  #{ /* json_lexer begin $PARSEJSONNUM_CHK */
-	    long l = 0;
-	    double x = 0.0;
-	    int lnum = melt_strbuf_peek_long_number($SBUF,0,&l);
-	    int ldbl = melt_strbuf_peek_double_number($SBUF,0,&x);
-	    if (lnum>0 && lnum>=ldbl && (long)lnum<$BULEN) {
-	      $EATLEN = (long)lnum;
-	      $VAL = meltgc_new_int((meltobject_ptr_t)
-				    MELT_PREDEF(DISCR_CONSTANT_INTEGER),
-				    l);
-	    }
-	    else if (ldbl>0  && (long)lnum<$BULEN) {
-	      $EATLEN = (long)ldbl;
-	      $VAL = meltgc_new_double((meltobject_ptr_t)
-				       MELT_PREDEF(DISCR_CONSTANT_DOUBLE),
-				       x);
-	      }
-	      /* json_lexer end $PARSEJSONNUM_CHK */
-	      }#)
+	  long l = 0						  ;
+	  double x = 0.0					  ;
+	  int lnum = melt_strbuf_peek_long_number($SBUF,0,&l)	  ;
+	  int ldbl = melt_strbuf_peek_double_number($SBUF,0,&x)	  ;
+	  if (lnum>0 && lnum>=ldbl && (long)lnum<$BULEN) {
+	  $EATLEN = (long)lnum		;
+	  $VAL = meltgc_new_int((meltobject_ptr_t)
+				MELT_PREDEF(DISCR_CONSTANT_INTEGER),
+				l)	;
+	  }
+	  else if (ldbl>0  && (long)lnum<$BULEN) {
+	  $EATLEN = (long)ldbl		;
+	  $VAL = meltgc_new_double((meltobject_ptr_t)
+				   MELT_PREDEF(DISCR_CONSTANT_DOUBLE),
+				   x)	;
+	  }
+	  /* json_lexer end $PARSEJSONNUM_CHK */
+	  }#)
 	 (when eatlen
 	   (strbuf_consume sbuf eatlen)
 	   (return :number val))
-       ))
-      ;;; strings
+	 ))
+;;; strings
       ((==i curch #\")
+					; notice that this favors rather short strings. For very long
+					; strings (e.g. megabyte-sized) which takes several calls to be
+					; read, the meltgc_strbuf_json_string_peek function would be
+					; called several times. Hopefully not a big deal in practice!
        (let ( (nstr ())
 	      (:long endoff 0)
 	      )
 	 (code_chunk peekjsonstr_chk
 		     #{ /* json_lexer start $PEEKJSONSTR_CHK */
-		     int iend = 0;
-		     $NSTR = meltgc_strbuf_json_string_peek ($SBUF, 0, &iend);
-		     if ($NSTR) $ENDOFF = (long) iend;
+		     int iend = 0	;
+		     $NSTR = meltgc_strbuf_json_string_peek ($SBUF, 0, &iend) ;
+		     if ($NSTR) $ENDOFF = (long) iend ;
 		     }#)
 	 (when nstr
 	   (strbuf_consume sbuf endoff)	   
 	   (return :string nstr))
 	 )
        )
-      ;;; missing case for keywords
+;;; special case for null
+      ((and (==i curch #\n)
+	    (==i nextch #\u)
+	    (>i bulen 4)
+	    (==i (strbuf_peek sbuf 2) #\l)
+	    (==i (strbuf_peek sbuf 3) #\l)
+	    (let ( (:long c4 (strbuf_peek sbuf 4)) )
+	      (expr_chunk testc4null_chk :long
+			  #{/* json_lexer $TESTC4NULL_CHK */
+			  (!ISALNUM($C4) && $C4 != '_')}#)))
+       (strbuf_consume sbuf 4)
+       (return :keyword :json_nil))
+;;; special case for true
+      ((and (==i curch #\t)
+	    (==i nextch #\r)
+	    (>i bulen 4)
+	    (==i (strbuf_peek sbuf 2) #\u)
+	    (==i (strbuf_peek sbuf 3) #\e)
+	    (let ( (:long c4 (strbuf_peek sbuf 4)) )
+	      (expr_chunk testc4true_chk :long
+			  #{/* json_lexer $TESTC4TRUE_CHK */
+			  (!ISALNUM($C4) && $C4 != '_')}#)))
+       (strbuf_consume sbuf 4)
+       (return :keyword :true))
+;;; special case for false
+      ((and (==i curch #\f)
+	    (==i nextch #\a)
+	    (>i bulen 5)
+	    (==i (strbuf_peek sbuf 2) #\l)
+	    (==i (strbuf_peek sbuf 3) #\s)
+	    (==i (strbuf_peek sbuf 4) #\e)
+	    (let ( (:long c5 (strbuf_peek sbuf 5)) )
+	      (expr_chunk testc5false_chk :long
+			  #{/* json_lexer $TESTC5FALSE_CHK */
+			  (!ISALNUM($C5) && $C5 != '_')}#)))
+       (strbuf_consume sbuf 5)
+       (return :keyword :json_false))      
+;;; keywords case, which we accept as an extension
+      ((expr_chunk testalpha_chk :long
+		   #{/* json_lexer $TESTALPHA_CHK */
+		   (ISALPHA((char)$CURCH) || ($CURCH== '_')) }#)
+       (let ( (nambuf (make_strbuf discr_strbuf))
+	      (:long ix 0)
+	      )
+	 (forever getalnumloop
+		  (if (>i ix bulen) (return))
+		  (let ( (:long curc (strbuf_peek sbuf ix)) )
+		    (if
+			(expr_chunk
+			 testnotalnumu_chk :long
+			 #{/* json_lexer $TESTNOTALNUMU_CHK */
+			 (!(ISALNUM((char)$CURCH) || ($CURCH== '_'))) }#)
+			(exit getalnumloop))
+		    (code_chunk addtoname_chk #{ /* json_lexer $ADDTONAME_CHK */
+				char buf_$ADDTONAME_CHK[4] = {0,0,0,0} ;
+				buf_$ADDTONAME_CHK[0] = (char) $CURCH ;
+				meltgc_add_strbuf_raw_len($NAMBUF, buf_$ADDTONAME_CHK, 1) ;
+				}#)
+		    )
+		  (setq ix (+i ix 1))
+		  )
+	 (let ( (namstr (strbuf2string discr_string nambuf))
+		(namjson (mapstring_getstr json_name_dict namstr))
+		(namsymb (get_symbolstr namstr))
+		(namkeyw (get_keywordstr namstr))
+		(name (or namjson namsymb namkeyw namstr))
+		)
+	   (return :keyword name)
+	   )   
+	 )
+       )
       ;; otherwise error
       (:else
        (return :error sbuf))
       )
-      (return)
+     (return)
      )
    )
   )
