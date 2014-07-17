@@ -4179,8 +4179,7 @@ inlined_function_outer_scope_p (const_tree block)
 
 
 /* In dwarf2out.c.  */
-HOST_WIDE_INT
-field_byte_offset (const_tree decl);
+HOST_WIDE_INT field_byte_offset (const_tree decl);
 
 /* In tree.c */
 extern unsigned crc32_string (unsigned, const char *);
