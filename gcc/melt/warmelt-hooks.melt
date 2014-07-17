@@ -2503,6 +2503,9 @@ exit, in last place.}#
 
 ;; internal utility to read input and invoke the callbacks
 (defun melt_invoke_input_callbacks (tupinch tupstate :long nbins)
+  :doc #{$MELT_INVOKE_INPUT_CALLBACKS is an internal utility, useful
+  for $REGISTER_RAW_INPUT_CHANNEL_HANDLER and
+  $REGISTER_PARAGRAPH_INPUT_CHANNEL_HANDLER...}#
   (debug "melt_invoke_input_callbacks tupinch=" tupinch
 	 "\n.. tupstate=" tupstate
 	 "\n.. nbins=" nbins)
@@ -2530,11 +2533,11 @@ exit, in last place.}#
 	      (code_chunk 
 	       read_chk
 	       #{ /* melt_invoke_input_callbacks $READ_CHK */
-	       static char rdbuf[MELT_BUFSIZE]		      ;
-	       memset (&rdbuf, 0, sizeof (rdbuf))	      ;
+	       static char rdbuf[MELT_BUFSIZE] ;
+	       memset (&rdbuf, 0, sizeof (rdbuf)) ;
 	       $READCNT = read ($CURFD, rdbuf, sizeof(rdbuf)) ;
 	       if ($READCNT > 0)
-	       meltgc_add_out_raw_len ((melt_ptr_t) $SBUF, rdbuf, $READCNT) ;
+	         meltgc_add_out_raw_len ((melt_ptr_t) $SBUF, rdbuf, $READCNT) ;
 	       }#)
 	      (when (==i readcnt 0)
 		(list_append removelist curinch)
@@ -2583,7 +2586,8 @@ exit, in last place.}#
 		 )			;end scanloop
 		)
 	      ( (is_a curinch class_raw_input_channel_handler)
-	       (debug "melt_invoke_input_callbacks raw sbuf=" sbuf)
+		(debug "melt_invoke_input_callbacks raw sbuf=" sbuf)
+		;; pass the sbuf to separate the EOF case
 	       (clos curinch sbuf)
 	       )
 	      (:else
@@ -2617,9 +2621,10 @@ exit, in last place.}#
   :doc #{The $HOOK_POLL_INPUTS is making a multiplexing @code{poll(2)}
   syscall -with the milliseconds delay given by $DELAYMS- and then
   reading appropriate input file descriptors and running the callback
-  registered with $REGISTER_INPUT_CHANNEL_HANDLER. It is usually
-  called to service the SIGIO signal, but could be called
-  elsewhere. For experts mostly.}#
+  registered with $REGISTER_PARAGRAPH_INPUT_CHANNEL_HANDLER or
+  $REGISTER_RAW_INPUT_CHANNEL_HANDLER. It is usually called to service
+  the SIGIO signal, but could be called elsewhere. For experts
+  mostly.}#
   (let ( (inchbuck melt_inpchanbuck)
 	 (:long nbinch (bucketlong_count inchbuck))
 	 (:long respoll 0)
@@ -2825,11 +2830,12 @@ exit, in last place.}#
   raw input channel handler, such as for the graphical user interface
   probe. $CLOS is the registered closure, $DATA is some client data,
   $INCHFD is the input Unix file descriptor. When some bytes are
-  recieved from the $INCHFD, the $CLOS is applied to the input channel
-  handler -containing the data as its $INCH_DATA field-, a read-only
-  instance of $CLASS_INPUT_CHANNEL_HANDLER, and to the read string
-  buffer. When end-of-file is obtained on $INCHFD, the closure is
-  similarily applied with a null value instead of the read list.}#
+  recieved from the $INCHFD, the $CLOS is applied - by
+  $MELT_INVOKE_INPUT_CALLBACKS utility - to the input channel handler
+  -containing the data as its $INCH_DATA field-, a read-only instance
+  of $CLASS_INPUT_CHANNEL_HANDLER and to the contained string buffer.
+  When end-of-file is obtained on $INCHFD, the closure is similarily
+  applied to the channel and a null value.}#
   (debug "register_raw_input_channel_handler clos=" clos " data=" data 
 	 " inchfd=" inchfd)
   (let ( (:long goodinchfd 0) )
@@ -2879,6 +2885,7 @@ exit, in last place.}#
   :super class_proped
   :doc #{The $CLASS_JSON_PARSER is the internal class for asynchronous JSON parsing}#
   :fields (jsonparse_jdata
+	   jsonparse_stack
 	   )
   )
 
@@ -2932,11 +2939,13 @@ exit, in last place.}#
       ((==i curch #\})
        (strbuf_consume sbuf 1)
        (return :delim :right_brace))
-;;; numbers
+      ;;
+      ;; numbers
       ((expr_chunk testdigitminus_chk :long
-		   #{/* json_lexer $TESTDIGITMINUS_CHK */ (ISDIGIT($CURCH)
-								  || ((char)$CURCH== '-'
-								      && ISDIGIT((char)$NEXTCH)))}#)
+		   #{/* json_lexer $TESTDIGITMINUS_CHK */
+		   (ISDIGIT($CURCH)
+			   || ((char)$CURCH== '-'
+			       && ISDIGIT((char)$NEXTCH)))}#)
        (let ( 
 	     (:long eatlen 0)
 	     (val ())
@@ -2944,21 +2953,21 @@ exit, in last place.}#
 	 (code_chunk
 	  parsejsonnum_chk
 	  #{ /* json_lexer begin $PARSEJSONNUM_CHK */
-	  long l = 0						  ;
-	  double x = 0.0					  ;
-	  int lnum = melt_strbuf_peek_long_number($SBUF,0,&l)	  ;
-	  int ldbl = melt_strbuf_peek_double_number($SBUF,0,&x)	  ;
+	  long l = 0 ;
+	  double x = 0.0 ;
+	  int lnum = melt_strbuf_peek_long_number($SBUF,0,&l) ;
+	  int ldbl = melt_strbuf_peek_double_number($SBUF,0,&x)	;
 	  if (lnum>0 && lnum>=ldbl && (long)lnum<$BULEN) {
-	  $EATLEN = (long)lnum		;
+	  $EATLEN = (long)lnum ;
 	  $VAL = meltgc_new_int((meltobject_ptr_t)
 				MELT_PREDEF(DISCR_CONSTANT_INTEGER),
-				l)	;
+				l) ;
 	  }
 	  else if (ldbl>0  && (long)lnum<$BULEN) {
-	  $EATLEN = (long)ldbl		;
+	  $EATLEN = (long)ldbl ;
 	  $VAL = meltgc_new_double((meltobject_ptr_t)
 				   MELT_PREDEF(DISCR_CONSTANT_DOUBLE),
-				   x)	;
+				   x) ;
 	  }
 	  /* json_lexer end $PARSEJSONNUM_CHK */
 	  }#)
@@ -2966,12 +2975,13 @@ exit, in last place.}#
 	   (strbuf_consume sbuf eatlen)
 	   (return :number val))
 	 ))
-;;; strings
+      ;;
+      ;; strings
       ((==i curch #\")
-					; notice that this favors rather short strings. For very long
-					; strings (e.g. megabyte-sized) which takes several calls to be
-					; read, the meltgc_strbuf_json_string_peek function would be
-					; called several times. Hopefully not a big deal in practice!
+       ;; notice that this favors rather short strings. For very long
+       ;; strings (e.g. megabyte-sized) which takes several calls to be
+       ;; read, the meltgc_strbuf_json_string_peek function would be
+       ;; called several times. Hopefully not a big deal in practice!
        (let ( (nstr ())
 	      (:long endoff 0)
 	      )
@@ -2986,7 +2996,8 @@ exit, in last place.}#
 	   (return :string nstr))
 	 )
        )
-;;; special case for null
+      ;;
+      ;; special case for "null"
       ((and (==i curch #\n)
 	    (==i nextch #\u)
 	    (>i bulen 4)
@@ -2998,7 +3009,8 @@ exit, in last place.}#
 			  (!ISALNUM($C4) && $C4 != '_')}#)))
        (strbuf_consume sbuf 4)
        (return :keyword :json_nil))
-;;; special case for true
+      ;;
+      ;; special case for "true"
       ((and (==i curch #\t)
 	    (==i nextch #\r)
 	    (>i bulen 4)
@@ -3010,7 +3022,8 @@ exit, in last place.}#
 			  (!ISALNUM($C4) && $C4 != '_')}#)))
        (strbuf_consume sbuf 4)
        (return :keyword :true))
-;;; special case for false
+      ;;
+      ;; special case for "false"
       ((and (==i curch #\f)
 	    (==i nextch #\a)
 	    (>i bulen 5)
@@ -3022,8 +3035,9 @@ exit, in last place.}#
 			  #{/* json_lexer $TESTC5FALSE_CHK */
 			  (!ISALNUM($C5) && $C5 != '_')}#)))
        (strbuf_consume sbuf 5)
-       (return :keyword :json_false))      
-;;; keywords case, which we accept as an extension
+       (return :keyword :json_false))
+      ;;
+      ;; keywords case, which we accept as an extension
       ((expr_chunk testalpha_chk :long
 		   #{/* json_lexer $TESTALPHA_CHK */
 		   (ISALPHA((char)$CURCH) || ($CURCH== '_')) }#)
@@ -3057,6 +3071,7 @@ exit, in last place.}#
 	   )   
 	 )
        )
+      ;;
       ;; otherwise error
       (:else
        (return :error sbuf))
@@ -3067,15 +3082,34 @@ exit, in last place.}#
   )
 
 ;; this can be passed to register_raw_input_channel_handler
-(defun json_parser_input_processor (inch sbuf)
-  (debug "json_parser_input_processor inch=" inch "\n.. sbuf=" sbuf)
+(defun json_parser_input_processor (inch arg)
+  (debug "json_parser_input_processor inch=" inch " arg=" arg)
+  (unless arg				;eof
+    (return))
   (let ( (jparser (get_field :inch_data inch))
+	 (sbuf (get_field :inch_sbuf inch))
+	 (jstack (get_field :jsonparse_stack jparser))
 	 )
     (assert_msg "check jparser" (is_a jparser class_json_parser) jparser inch)
     (assert_msg "check inch" (is_a inch class_raw_input_channel_handler))
     (assert_msg "check sbuf" (is_strbuf sbuf))
+    (forever
+     jsonparseloop
+     (let ( (jtopstate (list_last_element jstack))
+	    )
+       (debug "json_parser_input_processor parseloop start sbuf=" sbuf
+	      " jparser=" jparser "\n jtopstate=" jtopstate)
+       (multicall
+	(kind detail)
+	(json_lexer sbuf)
+	(debug "json_parser_input_processor lexed kind=" kind " detail=" detail)
+	(unless kind
+	  (exit jsonparseloop))
+	)
+       )
+     )
     (assert_msg "@$@unimplemented json_parser_input_processor")
-  ))
+    ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; the sigio handler, called from safe places
@@ -3093,6 +3127,7 @@ exit, in last place.}#
  hook_poll_inputs 
  is_polling_inputs
  melt_invoke_input_callbacks
+ json_parser_input_processor
 )
 
 

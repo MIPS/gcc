@@ -1,6 +1,17 @@
 
 2014-07-17  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* testsuite/melt/tjson-1.melt: New file.
+
+	* melt/warmelt-hooks.melt (melt_invoke_input_callbacks): Add
+	documentation...
+	(register_raw_input_channel_handler)
+	(register_paragraph_input_channel_handler): Improve documentation.
+	(json_lexer): Improved.
+	(json_parser_input_processor): Improved but incomplete.
+
+2014-07-17  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/generated/*: Regenerate all.
 
 2014-07-17  Basile Starynkevitch  <basile@starynkevitch.net>

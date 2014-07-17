@@ -1,0 +1,35 @@
+;; file tjson-1.melt -*- lisp -*-
+;; this sample code is in the public domain
+#| run in buildir/gcc
+ ln -s $GCCMELT_SOURCE/gcc/testsuite/melt/tjson-1.melt
+
+ ./cc1 -fmelt-mode=runfile @meltbuild-common.args -Iinclude/ \
+    -fmelt-init=@melt-default-modules.quicklybuilt -fmelt-arg=tjson-1.melt \
+     meltbuild-empty-file.c
+
+or in a MELT module
+
+gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
+    -fplugin-arg-melt-init=@melt-default-modules.quicklybuilt -fplugin-arg-melt-arg=tjson-1.melt \
+     -c -O empty.c -o /dev/null
+|#
+(module_is_gpl_compatible "public domain")
+(let (
+      (sbuf (make_strbuf discr_strbuf))
+      (jparser (instance class_json_parser
+			 :jsonparse_jdata ()
+			 :jsonparse_stack (make_list discr_list)
+			 ))
+      (inh (instance class_raw_input_channel_handler
+		     :inch_sbuf sbuf
+		     :inch_clos ()
+		     :inch_data jparser
+		     ))
+      )
+  (debug "jparser=" jparser "\n inh=" inh)
+  (add2out sbuf "{\"jsonrpc\":\"2.0\",\"method\":\"hello\",\"params\":[1 null true]}")
+  (debug "sbuf=" sbuf)
+  (json_parser_input_processor inh sbuf)
+  (debug "done final jparser=" jparser)
+  )
+;; eof tjson-1.melt
