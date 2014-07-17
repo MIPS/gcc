@@ -2888,6 +2888,7 @@ exit, in last place.}#
 	   jsonparse_stack
 	   )
   )
+(export_class class_json_parser)
 
 (defvar json_name_dict)
 (let ( (jsondict (make_mapstring discr_map_strings 71))
@@ -2908,10 +2909,12 @@ exit, in last place.}#
   (assert_msg "check sbuf" (is_strbuf sbuf) sbuf)
   (forever
    lexloop
-   (let ( (curch (strbuf_peek sbuf 0))
-	  (nextch (strbuf_peek sbuf 1))
+   (let ( (:long curch (strbuf_peek sbuf 0))
+	  (:long nextch (strbuf_peek sbuf 1))
 	  (:long bulen (strbuf_usedlength sbuf))
 	  )
+     (debug "json_lexer loop sbuf=" sbuf " curch=" curch " nextch=" nextch
+	    " bulen=" bulen)
      (cond
       ;; skip spaces
       ((expr_chunk testspace_chk :long #{ISSPACE($CURCH)}#)
@@ -2919,25 +2922,32 @@ exit, in last place.}#
        (again lexloop))
       ;; return on eof
       ((<i curch 0)
+       (debug "json_lexer eof")
        (return))
       ;; various single-char delimiters
       ((==i curch #\[)
        (strbuf_consume sbuf 1)
+       (debug "json_lexer leftbacket")
        (return :delim :left_bracket))
       ((==i curch #\])
        (strbuf_consume sbuf 1)
+       (debug "json_lexer rightbracket")
        (return :delim :right_bracket))
       ((==i curch #\,)
        (strbuf_consume sbuf 1)
+       (debug "json_lexer comma")
        (return :delim :comma))
       ((==i curch #\:)
        (strbuf_consume sbuf 1)
+       (debug "json_lexer colon")
        (return :delim :colon))
       ((==i curch #\{)
        (strbuf_consume sbuf 1)
+       (debug "json_lexer leftbrace")
        (return :delim :left_brace))
       ((==i curch #\})
        (strbuf_consume sbuf 1)
+       (debug "json_lexer rightbrace")
        (return :delim :right_brace))
       ;;
       ;; numbers
@@ -2946,6 +2956,7 @@ exit, in last place.}#
 		   (ISDIGIT($CURCH)
 			   || ((char)$CURCH== '-'
 			       && ISDIGIT((char)$NEXTCH)))}#)
+       (debug "json_lexer number start")
        (let ( 
 	     (:long eatlen 0)
 	     (val ())
@@ -2973,11 +2984,13 @@ exit, in last place.}#
 	  }#)
 	 (when eatlen
 	   (strbuf_consume sbuf eatlen)
+	   (debug "json_lexer number val=" val)
 	   (return :number val))
 	 ))
       ;;
       ;; strings
       ((==i curch #\")
+       (debug "json_lexer string start")
        ;; notice that this favors rather short strings. For very long
        ;; strings (e.g. megabyte-sized) which takes several calls to be
        ;; read, the meltgc_strbuf_json_string_peek function would be
@@ -2992,7 +3005,8 @@ exit, in last place.}#
 		     if ($NSTR) $ENDOFF = (long) iend ;
 		     }#)
 	 (when nstr
-	   (strbuf_consume sbuf endoff)	   
+	   (strbuf_consume sbuf endoff)
+	   (debug "json_lexer string nstr=" nstr " endoff=" endoff)
 	   (return :string nstr))
 	 )
        )
@@ -3008,6 +3022,7 @@ exit, in last place.}#
 			  #{/* json_lexer $TESTC4NULL_CHK */
 			  (!ISALNUM($C4) && $C4 != '_')}#)))
        (strbuf_consume sbuf 4)
+       (debug "json_lexer null")
        (return :keyword :json_nil))
       ;;
       ;; special case for "true"
@@ -3021,6 +3036,7 @@ exit, in last place.}#
 			  #{/* json_lexer $TESTC4TRUE_CHK */
 			  (!ISALNUM($C4) && $C4 != '_')}#)))
        (strbuf_consume sbuf 4)
+       (debug "json_lexer true")
        (return :keyword :true))
       ;;
       ;; special case for "false"
@@ -3035,6 +3051,7 @@ exit, in last place.}#
 			  #{/* json_lexer $TESTC5FALSE_CHK */
 			  (!ISALNUM($C5) && $C5 != '_')}#)))
        (strbuf_consume sbuf 5)
+       (debug "json_lexer false")
        (return :keyword :json_false))
       ;;
       ;; keywords case, which we accept as an extension
@@ -3044,6 +3061,7 @@ exit, in last place.}#
        (let ( (nambuf (make_strbuf discr_strbuf))
 	      (:long ix 0)
 	      )
+	 (debug "json_lexer start keyword")
 	 (forever getalnumloop
 		  (if (>i ix bulen) (return))
 		  (let ( (:long curc (strbuf_peek sbuf ix)) )
@@ -3067,6 +3085,7 @@ exit, in last place.}#
 		(namkeyw (get_keywordstr namstr))
 		(name (or namjson namsymb namkeyw namstr))
 		)
+	   (debug "json_lexer keyword name=" name)
 	   (return :keyword name)
 	   )   
 	 )
@@ -3074,8 +3093,10 @@ exit, in last place.}#
       ;;
       ;; otherwise error
       (:else
+       (debug "json_lexer error sbuf=" sbuf)
        (return :error sbuf))
       )
+     (debug "json_lexer fail")
      (return)
      )
    )
@@ -3095,10 +3116,11 @@ exit, in last place.}#
     (assert_msg "check sbuf" (is_strbuf sbuf))
     (forever
      jsonparseloop
+       (debug "json_parser_input_processor parseloop start sbuf=" sbuf
+	      " jparser=" jparser)
      (let ( (jtopstate (list_last_element jstack))
 	    )
-       (debug "json_parser_input_processor parseloop start sbuf=" sbuf
-	      " jparser=" jparser "\n jtopstate=" jtopstate)
+       (debug "json_parser_input_processor jtopstate=" jtopstate)
        (multicall
 	(kind detail)
 	(json_lexer sbuf)

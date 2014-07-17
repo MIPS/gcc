@@ -1,6 +1,10 @@
 
 2014-07-17  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-hooks.melt (json_lexer): Add debug.
+
+2014-07-17  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* testsuite/melt/tjson-1.melt: New file.
 
 	* melt/warmelt-hooks.melt (melt_invoke_input_callbacks): Add
