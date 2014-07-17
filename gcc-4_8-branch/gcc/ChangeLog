@@ -1,3 +1,15 @@
+2014-07-17  Richard Biener  <rguenther@suse.de>
+
+	PR rtl-optimization/61801
+	* sched-deps.c (sched_analyze_2): For ASM_OPERANDS and
+	ASM_INPUT don't set reg_pending_barrier if it appears in a
+	debug-insn.
+
+2014-07-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (create_omp_child_function): Don't set DECL_NAMELESS
+	on the FUNCTION_DECL.
+
 2013-09-06  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
 
 	* config/s390/s390.md (UNSPEC_FPINT_FLOOR, UNSPEC_FPINT_BTRUNC)
