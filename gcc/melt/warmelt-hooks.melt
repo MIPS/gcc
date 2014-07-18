@@ -3175,8 +3175,11 @@ exit, in last place.}#
 	   (debug "json_parser_input_processor got leftbrace")
 	   (cond
 	    ((json_state_accepting_jvalue jtopstate)
-	     (list_prepend jstack (tuple :json_object_attr (list) (list)))
-	     )
+	     (let ( (jnewstate (tuple :json_object_attr (list) (list)))
+		    )
+	       (list_prepend jstack jnewstate)
+	       (debug "json_parser_input_processor after leftbrace jnewstate=" jnewstate)
+	     ))
 	    (:else
 	     (jerror '"unexpected left brace")
 	     (return)))
@@ -3226,8 +3229,11 @@ exit, in last place.}#
 	   (debug "json_parser_input_processor got leftbracket")
 	   (cond
 	    ((json_state_accepting_jvalue jtopstate)
-	     (list_prepend jstack (tuple :json_array (list)))
-	     )
+	     (let ( (jnewstate (tuple :json_array (list)))
+		    )
+	       (list_prepend jstack jnewstate)
+	       (debug "json_parser_input_processor leftbracket pushed jnewstate=" jnewstate)
+	     ))
 	    (:else
 	     (jerror '"unexpected left bracket")
 	     (return)))
