@@ -1,6 +1,10 @@
 
 2014-07-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/generated/*: Regenerate all.
+
+2014-07-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-hooks.melt (json_parser_input_processor): More
 	debug, probably still buggy.
 
