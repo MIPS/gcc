@@ -1,6 +1,16 @@
 
 2014-07-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.cc (Melt_Module::get_dlsym): Becomes public.
+	(melt_fatal_info): Display the melt_gen_timestamp of loaded
+	modules when available.
+
+	* melt/warmelt-first.melt (discr_jsonarray): Exported.
+
+	* melt/warmelt-hooks.melt (json_parser_input_processor): More code.
+
+2014-07-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-hooks.melt (class_json_parser): Add jsonparser_errorhandler field.
 	(make_json_parser): New errclos argument.
 	(json_parser_input_processor) More code, but incomplete.

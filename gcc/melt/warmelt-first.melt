@@ -4208,6 +4208,7 @@ $MELT_MAKE_FRESH_ENVIRONMENT_REFERENCE primitive. For gurus and MELT itself.}#
  discr_gimple_seq
  discr_hook
  discr_integer
+ discr_jsonarray
  discr_jsonobject
  discr_list    
  discr_loop

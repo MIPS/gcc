@@ -423,10 +423,6 @@ protected:
   melt_marking_rout_t * _mm_markrout;	   // marking routine for Ggc
   Melt_Module (unsigned magic, const char*modpath, const char* descrbase, void*dlh=NULL);
   virtual ~Melt_Module ();
-  void *get_dlsym (const char*name) const
-  {
-    return (_mm_dlh && name)?dlsym(_mm_dlh,name):NULL;
-  };
   static Melt_Module *unsafe_nth_module(int rk)
   {
     if (rk<0) rk +=  _mm_vect_.size();
@@ -441,6 +437,10 @@ protected:
     if (_mm_forwardrout) (*_mm_forwardrout) ();
   };
 public:
+  void *get_dlsym (const char*name) const
+  {
+    return (_mm_dlh && name)?dlsym(_mm_dlh,name):NULL;
+  };
   bool valid_magic () const
   {
     return  _mm_magic == MELT_MODULE_PLAIN_MAGIC || _mm_magic == MELT_MODULE_EXTENSION_MAGIC;
@@ -12922,18 +12922,32 @@ melt_fatal_info (const char*filename, int lineno)
     {
       Melt_Module* cmod = Melt_Module::nth_module(ix);
       const char*curmodpath = NULL;
+      const char*curmodgen = NULL;
       if (!cmod)
         continue;
       gcc_assert (cmod->valid_magic());
       curmodpath = cmod->module_path();
-      if (workdirlen>0 && !strncmp (workdir, curmodpath, workdirlen))
-        inform (UNKNOWN_LOCATION,
-                "MELT failure with loaded work module #%d: %s",
-                ix, curmodpath+workdirlen);
-      else
-        inform (UNKNOWN_LOCATION,
-                "MELT failure with loaded module #%d: %s",
-                ix, melt_basename (curmodpath));
+      curmodgen = static_cast<const char*>(cmod->get_dlsym("melt_gen_timestamp"));
+      if (curmodgen && curmodgen[0]) {
+	if (workdirlen>0 && !strncmp (workdir, curmodpath, workdirlen))
+	  inform (UNKNOWN_LOCATION,
+		  "MELT failure with loaded work module #%d: %s generated on %s",
+		  ix, curmodpath+workdirlen, curmodgen);
+	else
+	  inform (UNKNOWN_LOCATION,
+		  "MELT failure with loaded module #%d: %s generated on %s",
+		  ix, melt_basename (curmodpath), curmodgen);
+      }
+      else {
+	if (workdirlen>0 && !strncmp (workdir, curmodpath, workdirlen))
+	  inform (UNKNOWN_LOCATION,
+		  "MELT failure with loaded work module #%d: %s",
+		  ix, curmodpath+workdirlen);
+	else
+	  inform (UNKNOWN_LOCATION,
+		  "MELT failure with loaded module #%d: %s",
+		  ix, melt_basename (curmodpath));
+      }
     };
   if (filename != NULL && lineno>0)
     inform (UNKNOWN_LOCATION,
