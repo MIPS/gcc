@@ -2150,7 +2150,7 @@ proc check_effective_target_vect_int { } {
 	     || [istarget x86_64-*-*]
 	     || [istarget sparc*-*-*]
 	     || [istarget alpha*-*-*]
-	     || [istarget ia64-*-*] 
+	     || [istarget ia64-*-*]
 	     || [istarget aarch64*-*-*]
 	     || [check_effective_target_arm32]
 	     || ([istarget mips*-*-*]
@@ -3546,7 +3546,7 @@ proc check_effective_target_vect_long_long { } {
     } else {
         set et_vect_long_long_saved 0
         if { [istarget i?86-*-*]
-              || [istarget x86_64-*-*] 
+              || [istarget x86_64-*-*]
 	      || ([istarget mips*-*-*]
 	          && [check_effective_target_mips_msa_nomips16_nomicromips]) } {
            set et_vect_long_long_saved 1
@@ -3666,7 +3666,7 @@ proc check_effective_target_vect_perm_byte { } {
 	     || ([istarget aarch64*-*-*]
 		 && [is-effective-target aarch64_little_endian])
 	     || [istarget powerpc*-*-*]
-             || [istarget spu-*-*] 
+             || [istarget spu-*-*]
 	     || ([istarget mips-*.*]
 	         && [check_effective_target_mips_msa_nomips16_nomicromips]) } {
             set et_vect_perm_byte_saved 1

@@ -160,10 +160,10 @@
 ])
 
 ;; Attributes to categorize MSA instructions based on execution units
-(define_attr "msa_execunit" 
+(define_attr "msa_execunit"
   "unknown, msa_eu_div, msa_eu_float2, msa_eu_float2_l,
-  msa_eu_float4, msa_eu_float5, msa_eu_float8, msa_eu_logic, 
-  msa_eu_logic3, msa_eu_logic_l, msa_eu_mult, msa_eu_cmp, 
+  msa_eu_float4, msa_eu_float5, msa_eu_float8, msa_eu_logic,
+  msa_eu_logic3, msa_eu_logic_l, msa_eu_mult, msa_eu_cmp,
   msa_eu_store4, msa_eu_int_add, msa_eu_fdiv"
   (const_string "unknown"))
 
@@ -199,7 +199,7 @@
 ;; Only used in spliters
 (define_mode_iterator SPLIT [V2DI V2DF])
 
-;; Only used with SPILT iteraror
+;; Only used with SPLIT iterator
 (define_mode_attr predicate
   [(V2DI "reg_or_0")
    (V2DF "register")])
@@ -210,7 +210,7 @@
    (V2DI "V4SI")
    (V2DF "V4SF")])
 
-;; The attribute give the integer vector mode with same size.
+;; The attribute gives the integer vector mode with same size.
 (define_mode_attr VIMODE
   [(V2DF "V2DI")
    (V4SF "V4SI")
@@ -281,7 +281,7 @@
 ;; This attribute is used to form the MODE of an input operand
 ;; when some builtins (insert snd fill) take an input operand other than
 ;; UNITMODE mode. See the msa_insert and msa_fill for an examples.
-(define_mode_attr EXCEPT 
+(define_mode_attr EXCEPT
   [(V2DF "DF")
    (V4SF "SF")
    (V2DI "DI")
@@ -626,9 +626,9 @@
 {
   /* The optab semantics are that index 0 selects the first element
      of operands[1] and the highest index selects the last element
-     of operands[2]. This is the oppossite order from "vshf.df wd,rs,wt"
-     where index 0 selects the first elemnt of wt and the highest index
-     selects the last element of ws. We therefore swap the operands here. */
+     of operands[2].  This is the oppossite order from "vshf.df wd,rs,wt"
+     where index 0 selects the first element of wt and the highest index
+     selects the last element of ws.  We therefore swap the operands here.  */
   emit_insn (gen_msa_vshf<mode> (operands[0], operands[3], operands[2],
 				 operands[1]));
   DONE;
@@ -675,7 +675,7 @@
       val = trunc_int_for_mode (val, <UNITMODE>mode);
 
     for (i = 0; i < n_elts; i++)
-       RTVEC_ELT (v, i) = GEN_INT (val);
+      RTVEC_ELT (v, i) = GEN_INT (val);
     emit_move_insn (operands[0],
 		    gen_rtx_CONST_VECTOR (<MODE>mode, v));
     DONE;
@@ -749,7 +749,7 @@
     DONE;
 })
 
-;; 128bit MSA modes only in msa registers or memmory
+;; 128bit MSA modes only in msa registers or memory
 ;; an exception is allowing MSA modes for GP registers for arguments
 ;; and return values.
 (define_insn "mov<mode>_msa"
@@ -2785,7 +2785,7 @@
    (set_attr "mode"	"TI")
    (set_attr "msa_execunit" "msa_eu_float4")])
 
-(define_insn "msa_branch_nz_v_<msafmt_f>" 
+(define_insn "msa_branch_nz_v_<msafmt_f>"
  [(set (pc) (if_then_else
 	      (ne (unspec:SI [(match_operand:MSA 1 "register_operand" "f")]
 			     UNSPEC_MSA_BNZ_V)

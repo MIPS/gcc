@@ -1842,7 +1842,7 @@ mips_const_vector_bitimm_clr_p (rtx op, enum machine_mode mode)
 }
 
 /* Return true if OP is a constant vector with the number of units in MODE,
-   and each unit has the same value. */
+   and each unit has the same value.  */
 
 bool
 mips_const_vector_same_val_p (rtx op, enum machine_mode mode)
@@ -1862,7 +1862,7 @@ mips_const_vector_same_val_p (rtx op, enum machine_mode mode)
 }
 
 /* Return true if OP is a constant vector with the number of units in MODE,
-   and each unit has the same value. */
+   and each unit has the same value.  */
 
 bool
 mips_const_vector_same_byte_p (rtx op, enum machine_mode mode)
@@ -2666,7 +2666,7 @@ mips_signed_immediate_p (unsigned HOST_WIDE_INT x, int bits, int shift = 0)
   return mips_unsigned_immediate_p (x, bits, shift);
 }
 
-/* Return the scale shift that applied to MSA LD/ST address offset  */
+/* Return the scale shift that applied to MSA LD/ST address offset.  */
 
 int
 mips_ldst_scaled_shift (enum machine_mode mode)
@@ -4622,7 +4622,7 @@ mips_split_move_p (rtx dest, rtx src, enum mips_split_type split_type)
 	return false;
     }
 
-  /* Check if MSA moves need splitting. */
+  /* Check if MSA moves need splitting.  */
   if (MSA_SUPPORTED_MODE_P (GET_MODE (dest))
       ||  MSA_SUPPORTED_MODE_P (GET_MODE (src)))
     return mips_split_128bit_move_p (dest, src);
@@ -4684,7 +4684,7 @@ mips_split_move (rtx dest, rtx src, enum mips_split_type split_type)
   else if (MSA_SPLIT_P (dest, src))
     {
       /* Temporary sanity check should only get here if
-       * a 128bit move needed spliting. */
+         a 128bit move needed spliting.  */
       gcc_assert (mips_split_128bit_move_p (dest, src));
       mips_split_128bit_move (dest, src);
     }
@@ -4876,8 +4876,8 @@ mips_split_128bit_move (rtx dest, rtx src)
     }
 }
 
-/* Split a COPY_S.D with operands  DEST, SRC and INDEX. GEN is a function
- * used to generate subregs.  */
+/* Split a COPY_S.D with operands DEST, SRC and INDEX.  GEN is a function
+   used to generate subregs.  */
 
 void
 mips_split_msa_copy_d (rtx dest, rtx src, rtx index,
@@ -4896,7 +4896,7 @@ mips_split_msa_copy_d (rtx dest, rtx src, rtx index,
   emit_insn (gen_fn (high, new_src, GEN_INT (INTVAL (index) * 2 + 1)));
 }
 
-/* Split a  INSERT.D with operand DEST, SRC1.INDEX and SRC2.  */
+/* Split a INSERT.D with operand DEST, SRC1.INDEX and SRC2.  */
 
 void
 mips_split_msa_insert_d (rtx dest, rtx src1, rtx index, rtx src2)
@@ -5536,9 +5536,9 @@ mips_expand_conditional_branch (rtx *operands)
   emit_jump_insn (gen_condjump (condition, operands[3]));
 }
 
-/* Generate RTL to test OPERAND[1] the test is specified by GEN_FUN
- * then set OPERANDS[0] to 1 or 0 if test is true/false repectiveltyi
- * according to GEN_FN.  */
+/* Generate RTL to test OPERAND[1].  The test is specified by GEN_FN,
+   then sets OPERANDS[0] to 1 or 0 if the test is true/false respectively
+   according to GEN_FN.  */
 
 void
 mips_expand_msa_branch (rtx *operands, rtx (*gen_fn)(rtx, rtx, rtx))
@@ -20649,8 +20649,8 @@ mips_msa_reversed_fp_cond (enum rtx_code *code)
 }
 
 /* Generate RTL for comparing CMP_OP0, CMP_ OP1 using condition COND
- * and store the result result -1 or 0 in DEST TRUE_SRC and DEST_SRC
- * must be -1 and 0 respectively.  */
+   and store the result -1 or 0 in DEST TRUE_SRC and DEST_SRC
+   must be -1 and 0 respectively.  */
 
 static void
 mips_expand_msa_vcond (rtx dest, rtx true_src, rtx false_src,
@@ -20674,14 +20674,13 @@ mips_expand_msa_vcond (rtx dest, rtx true_src, rtx false_src,
 	      && (false_src == CONST0_RTX (dest_mode)));
 }
 
-/* Expand VEC_COND_EXPR
- * MODE of result
- * VIMODE equivalent integer mode
- * OPERANDS operands of VEC_COND_EXPR
- * gen_msa_and_fn used to generate a VIMODE vector msa AND
- * gen_msa_nor_fn used to generate a VIMODE vector msa NOR
- * gen_msa_ior_fn used to generate a VIMODE vector msa AND.
- */
+/* Expand VEC_COND_EXPR, where:
+   MODE is mode of the result
+   VIMODE equivalent integer mode
+   OPERANDS operands of VEC_COND_EXPR
+   gen_msa_and_fn used to generate a VIMODE vector msa AND
+   gen_msa_nor_fn used to generate a VIMODE vector msa NOR
+   gen_msa_ior_fn used to generate a VIMODE vector msa AND.  */
 
 void
 mips_expand_vec_cond_expr (enum machine_mode mode,
@@ -20707,15 +20706,15 @@ mips_expand_vec_cond_expr (enum machine_mode mode,
       mips_expand_msa_vcond (res, true_val, false_val,
 			     GET_CODE (operands[3]), operands[4], operands[5]);
 
-      // This results in a vector result with whose T/F elements having
-      // the value -1 or 0 for (T/F repectively). This result may need
-      // adjusting if needed results operands[]/operands[1] are different.
+      /* This results in a vector result with whose T/F elements having
+         the value -1 or 0 for (T/F repectively).  This result may need
+         adjusting if needed results operands[]/operands[1] are different.  */
 
-      // Adjust True elements to be operand[1].
+      /* Adjust True elements to be operand[1].  */
       emit_move_insn (xres, res);
       if (operands[1] != true_val)
 	{
-	  rtx xop1 = operands[1]; /* Assume we can use operands[1] */
+	  rtx xop1 = operands[1]; /* Assume we can use operands[1].  */
 
 	  if (mode != vimode)
 	    {
@@ -20742,11 +20741,11 @@ mips_expand_vec_cond_expr (enum machine_mode mode,
       else
 	emit_move_insn (temp1, xres);
 
-      // Adjust False elements to be operand[0].
+      /* Adjust False elements to be operand[0].  */
       emit_insn (gen_msa_nor_fn (temp2, xres, xres));
       if (operands[2] != false_val)
 	{
-	  rtx xop2 = operands[2]; ; /* Assume we can use operands[2] */
+	  rtx xop2 = operands[2]; ; /* Assume we can use operands[2].  */
 
 	  if (mode != vimode)
 	    {
@@ -20773,7 +20772,7 @@ mips_expand_vec_cond_expr (enum machine_mode mode,
       else
 	emit_insn (gen_msa_and_fn (temp2, temp2, xres));
 
-      // Combine together into result.
+      /* Combine together into result.  */
       emit_insn (gen_msa_ior_fn (xres, temp1, temp2));
       emit_move_insn (operands[0],
 		      gen_rtx_SUBREG (mode, xres, 0));
