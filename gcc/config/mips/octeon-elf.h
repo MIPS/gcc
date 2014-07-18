@@ -83,6 +83,7 @@ Boston, MA 02110-1301, USA.  */
 
 /* Append the core number to the GCOV filename FN.  */
 
+#ifdef IN_LIBGCC2
 #define GCOV_TARGET_SUFFIX_LENGTH 2
 #define ADD_GCOV_TARGET_SUFFIX(FN)		\
 do						\
@@ -96,6 +97,7 @@ do						\
     strcat (fn, s);				\
   }						\
 while (0)
+#endif
 
 /* Override because simple-exec does not have TLS and can never
    have TLS variables as the bootloader never sets up the TLS

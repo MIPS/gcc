@@ -1,3 +1,9 @@
+2014-07-18  Andrew Pinski  <apinski@cavium.com>
+
+	* config/mips/octeon-elf.h (GCOV_TARGET_SUFFIX_LENGTH):
+	Only define if IN_LIBGCC2 is defined.
+	(ADD_GCOV_TARGET_SUFFIX): Likewise.
+
 2014-07-17  Manjunath Matti  <mmatti@caviumnetworks.com>
 	
 	gcc/
