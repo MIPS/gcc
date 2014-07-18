@@ -2886,6 +2886,7 @@ exit, in last place.}#
   :doc #{The $CLASS_JSON_PARSER is the internal class for asynchronous JSON parsing}#
   :fields (jsonparse_jdata
 	   jsonparse_stack
+	   jsonparse_errorhandler
 	   )
   )
 (export_class class_json_parser)
@@ -3112,13 +3113,15 @@ exit, in last place.}#
 ;;;;  (:json_array <list-comp>) ;; when parsing array elements
 
 
-(defun make_json_parser (clos data)
+(defun make_json_parser (resclos errclos data)
   :doc #{$MAKE_JSON_PARSER create an initialized instance of
-  $CLASS_JSON_PARSER with the given $CLOS closure getting the parsed
-  JSON, and some additional $DATA.}#
+  $CLASS_JSON_PARSER with the given $RESCLOS closure getting the parsed
+  JSON, the given $ERRCLOS handling errors, and some additional $DATA.}#
   (let ( (jp (instance class_json_parser
 		       :jsonparse_jdata data
-		       :jsonparse_stack (list (tuple :json_result clos))))
+		       :jsonparse_stack (list (tuple :json_result resclos))
+		       :jsonparse_errorhandler errclos
+	     ))
 	 )
     (debug "make_json_parser jp=" jp)
     (return jp)
@@ -3147,19 +3150,30 @@ exit, in last place.}#
 	(kind detail)
 	(json_lexer sbuf)
 	(debug "json_parser_input_processor lexed kind=" kind " detail=" detail)
-	(cond
-	 ( (null kind)
-	   (debug "json_parser_input_processor exiting")
-	   (exit jsonparseloop))
-	 ;;
-	 (:else
+	(match
+	 (tuple kind detail)
+	 (?(tuple :delim :left_brace)
+	   (debug "json_parser_input_processor got leftbrace")
+	   )
+	 (?(tuple :delim :right_brace)
+	   (debug "json_parser_input_processor got rightbrace")
+	   )
+	 (?(tuple :delim :left_bracket)
+	   (debug "json_parser_input_processor got leftbracket")
+	   )
+	 (?(tuple :delim :right_bracket)
+	   (debug "json_parser_input_processor got rightbracket")
+	   )
+	 (?(tuple :delim :comma)
+	   (debug "json_parser_input_processor got comma")
+	   )
+	 (?_
 	  (debug "json_parser_input_processor unexpected kind=" kind " detail=" detail)
-	  (assert_msg "json_parser_input_processor unexpected kind" () kind detail)
-	      )
+	  (assert_msg "json_parser_input_processor unexpected kind" () kind detail))
+	 )
 	)
        )
-       )
-     )
+     )					;end forever parseloop
     (debug "json_parser_input_processor ended")
     ))
 
@@ -3387,17 +3401,17 @@ exit, in last place.}#
 	 (code_chunk 
 	  lookwstatchk
           #{ /* hook_handle_sigchld $LOOKWSTATCHK */ {
-          int wstat = (int) $CURWSTAT	;
+          int wstat = (int) $CURWSTAT ;
           if (WIFEXITED(wstat)) {
-	  $EXITED = 1			    ;
-	  $EXITSTAT = WEXITSTATUS (wstat)   ;
+	    $EXITED = 1	;
+	    $EXITSTAT = WEXITSTATUS (wstat) ;
           } 
           else if (WIFSIGNALED(wstat)) {
-          $SIGNALED = 1			;
-          $TERMSIG = WTERMSIG (wstat)	;
-          $TERMSIGNAME = meltgc_new_string
-	  ((meltobject_ptr_t) MELT_PREDEF(DISCR_STRING),
-	   strsignal($TERMSIG))		;
+            $SIGNALED = 1 ;
+            $TERMSIG = WTERMSIG (wstat)	;
+            $TERMSIGNAME = meltgc_new_string
+	         ((meltobject_ptr_t) MELT_PREDEF(DISCR_STRING),
+	           strsignal($TERMSIG))	;
           }
           } /* end hook_handle_sigchld $LOOKWSTATCHK */  }#)
 	 ;;

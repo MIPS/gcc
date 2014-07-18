@@ -17,7 +17,10 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 (let (
       (sbuf (make_strbuf discr_strbuf))
       (gotjson (lambda (js) (debug "gotjson js=" js)))
-      (jparser ((make_json_parser gotjson ())
+      (goterror (lambda (err)
+		  (debug "goterror err=" err)
+		  (assert_msg "failed jsonparsing err=" () err)))
+      (jparser (make_json_parser gotjson goterror ()))
       (inh (instance class_raw_input_channel_handler
 		     :inch_sbuf sbuf
 		     :inch_clos ()

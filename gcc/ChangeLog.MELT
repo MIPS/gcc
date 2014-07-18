@@ -1,6 +1,15 @@
 
 2014-07-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-hooks.melt (class_json_parser): Add jsonparser_errorhandler field.
+	(make_json_parser): New errclos argument.
+	(json_parser_input_processor) More code, but incomplete.
+	(hook_handle_sigchld): Better indented.
+
+	* testsuite/melt/tjson-1.melt: Provide goterror to make_json_parser.
+
+2014-07-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-hooks.melt (make_json_parser): New function.
 	(json_parser_input_processor): Still incomplete.
 
