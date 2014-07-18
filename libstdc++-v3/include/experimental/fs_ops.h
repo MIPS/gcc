@@ -241,9 +241,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   space_info space(const path& __p);
   space_info space(const path& __p, error_code& __ec) noexcept;
 
-  // TODO
-  inline file_status status(const path& __p) { return file_status{}; }
-  inline file_status status(const path& __p, error_code& __ec) noexcept { return file_status{}; }
+  file_status status(const path& __p);
+  file_status status(const path& __p, error_code& __ec) noexcept;
 
   bool status_known(file_status __s) noexcept;
 
