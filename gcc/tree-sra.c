@@ -188,14 +188,14 @@ struct access
      when grp_to_be_replaced flag is set.  */
   tree replacement_decl;
 
-  /* Is this particular access write access? */
-  unsigned write : 1;
-
   /* Is this access an access to a non-addressable field? */
   unsigned non_addressable : 1;
 
   /* Is this access made in reverse storage order? */
   unsigned reverse : 1;
+
+  /* Is this particular access write access? */
+  unsigned write : 1;
 
   /* Is this access currently in the work queue?  */
   unsigned grp_queued : 1;
@@ -437,6 +437,8 @@ dump_access (FILE *f, struct access *access, bool grp)
   print_generic_expr (f, access->expr, 0);
   fprintf (f, ", type = ");
   print_generic_expr (f, access->type, 0);
+  fprintf (f, ", non_addressable = %d, reverse = %d",
+	   access->non_addressable, access->reverse);
   if (grp)
     fprintf (f, ", grp_read = %d, grp_write = %d, grp_assignment_read = %d, "
 	     "grp_assignment_write = %d, grp_scalar_read = %d, "
@@ -1009,6 +1011,7 @@ completely_scalarize_record (tree base, tree decl, HOST_WIDE_INT offset,
 	    access->expr = nref;
 	    access->type = ft;
 	    access->grp_total_scalarization = 1;
+	    access->reverse = TYPE_REVERSE_STORAGE_ORDER (decl_type);
 	    /* Accesses for intraprocedural SRA can have their stmt NULL.  */
 	  }
 	else
