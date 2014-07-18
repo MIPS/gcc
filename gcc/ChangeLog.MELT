@@ -1,4 +1,14 @@
 
+2014-07-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-hooks.melt (make_json_parser): New function.
+	(json_parser_input_processor): Still incomplete.
+
+	* melt/warmelt-outobj.melt (translate_run_melt_expressions): Typo
+	in melt_fatal_error call in chunk..
+
+	* testsuite/melt/tjson-1.melt: use make_json_parser.
+
 2014-07-17  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-runtime.cc (meltgc_strbuf_json_string_peek): Handle

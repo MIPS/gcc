@@ -3103,6 +3103,27 @@ exit, in last place.}#
    )
   )
 
+
+;;;; the JSON parser stack is a list of tuples whose first element is
+;;;; a MELT keyword.
+;;;;
+;;;;  (:json_result <closure>) ;; to return a result via <closure>
+;;;;
+;;;;  (:json_array <list-comp>) ;; when parsing array elements
+
+
+(defun make_json_parser (clos data)
+  :doc #{$MAKE_JSON_PARSER create an initialized instance of
+  $CLASS_JSON_PARSER with the given $CLOS closure getting the parsed
+  JSON, and some additional $DATA.}#
+  (let ( (jp (instance class_json_parser
+		       :jsonparse_jdata data
+		       :jsonparse_stack (list (tuple :json_result clos))))
+	 )
+    (debug "make_json_parser jp=" jp)
+    (return jp)
+    ))
+
 ;; this can be passed to register_raw_input_channel_handler
 (defun json_parser_input_processor (inch arg)
   (debug "json_parser_input_processor inch=" inch " arg=" arg)
@@ -3126,12 +3147,20 @@ exit, in last place.}#
 	(kind detail)
 	(json_lexer sbuf)
 	(debug "json_parser_input_processor lexed kind=" kind " detail=" detail)
-	(unless kind
-	  (exit jsonparseloop))
+	(cond
+	 ( (null kind)
+	   (debug "json_parser_input_processor exiting")
+	   (exit jsonparseloop))
+	 ;;
+	 (:else
+	  (debug "json_parser_input_processor unexpected kind=" kind " detail=" detail)
+	  (assert_msg "json_parser_input_processor unexpected kind" () kind detail)
+	      )
 	)
        )
+       )
      )
-    (assert_msg "@$@unimplemented json_parser_input_processor")
+    (debug "json_parser_input_processor ended")
     ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -3150,6 +3179,7 @@ exit, in last place.}#
  hook_poll_inputs 
  is_polling_inputs
  melt_invoke_input_callbacks
+ make_json_parser
  json_parser_input_processor
 )
 

@@ -16,10 +16,8 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 (module_is_gpl_compatible "public domain")
 (let (
       (sbuf (make_strbuf discr_strbuf))
-      (jparser (instance class_json_parser
-			 :jsonparse_jdata ()
-			 :jsonparse_stack (make_list discr_list)
-			 ))
+      (gotjson (lambda (js) (debug "gotjson js=" js)))
+      (jparser ((make_json_parser gotjson ())
       (inh (instance class_raw_input_channel_handler
 		     :inch_sbuf sbuf
 		     :inch_clos ()
@@ -27,7 +25,7 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 		     ))
       )
   (debug "jparser=" jparser "\n inh=" inh)
-  (add2out sbuf "{\"jsonrpc\":\"2.0\",\"method\":\"hello\",\"params\":[1 null true]}")
+  (add2out sbuf "{\"jsonrpc\":\"2.0\", \"method\":\"hello\",\"params\":[1 null true \"a string with \\n in it\"]}")
   (debug "sbuf=" sbuf)
   (json_parser_input_processor inh sbuf)
   (debug "done final jparser=" jparser)
