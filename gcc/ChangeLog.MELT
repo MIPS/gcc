@@ -1,6 +1,11 @@
 
 2014-07-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-hooks.melt (json_parser_input_processor): Even more
+	code.
+
+2014-07-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.cc (Melt_Module::get_dlsym): Becomes public.
 	(melt_fatal_info): Display the melt_gen_timestamp of loaded
 	modules when available.
