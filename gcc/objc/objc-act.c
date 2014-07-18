@@ -2695,11 +2695,15 @@ objc_copy_binfo (tree binfo)
 static void
 objc_xref_basetypes (tree ref, tree basetype)
 {
+  tree variant;
   tree binfo = make_tree_binfo (basetype ? 1 : 0);
-
   TYPE_BINFO (ref) = binfo;
   BINFO_OFFSET (binfo) = size_zero_node;
   BINFO_TYPE (binfo) = ref;
+
+  gcc_assert (TYPE_MAIN_VARIANT (ref) == ref);
+  for (variant = ref; variant; variant = TYPE_NEXT_VARIANT (variant))
+    TYPE_BINFO (variant) = binfo;
 
   if (basetype)
     {
@@ -10110,5 +10114,22 @@ objc_common_init_ts (void)
   MARK_TS_TYPED (MESSAGE_SEND_EXPR);
   MARK_TS_TYPED (PROPERTY_REF);
 }
+
+size_t
+objc_common_tree_size (enum tree_code code)
+{
+  switch (code)
+    {
+    case CLASS_METHOD_DECL:
+    case INSTANCE_METHOD_DECL:
+    case KEYWORD_DECL:
+    case PROPERTY_DECL:
+      return sizeof (struct tree_decl_non_common);
+    default:
+      gcc_unreachable ();
+  
+    }
+}
+
 
 #include "gt-objc-objc-act.h"

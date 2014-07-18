@@ -2014,7 +2014,6 @@ const pass_data pass_data_set_nothrow_function_flags =
   RTL_PASS, /* type */
   "nothrow", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -2466,6 +2465,20 @@ add_call_site (rtx landing_pad, int action, int section)
   return call_site_base + crtl->eh.call_site_record_v[section]->length () - 1;
 }
 
+static rtx
+emit_note_eh_region_end (rtx insn)
+{
+  rtx next = NEXT_INSN (insn);
+
+  /* Make sure we do not split a call and its corresponding
+     CALL_ARG_LOCATION note.  */
+  if (next && NOTE_P (next)
+      && NOTE_KIND (next) == NOTE_INSN_CALL_ARG_LOCATION)
+    insn = next;
+
+  return emit_note_after (NOTE_INSN_EH_REGION_END, insn);
+}
+
 /* Turn REG_EH_REGION notes back into NOTE_INSN_EH_REGION notes.
    The new note numbers will not refer to region numbers, but
    instead to call site entries.  */
@@ -2544,8 +2557,8 @@ convert_to_eh_region_ranges (void)
 		note = emit_note_before (NOTE_INSN_EH_REGION_BEG,
 					 first_no_action_insn_before_switch);
 		NOTE_EH_HANDLER (note) = call_site;
-		note = emit_note_after (NOTE_INSN_EH_REGION_END,
-					last_no_action_insn_before_switch);
+		note
+		  = emit_note_eh_region_end (last_no_action_insn_before_switch);
 		NOTE_EH_HANDLER (note) = call_site;
 		gcc_assert (last_action != -3
 			    || (last_action_insn
@@ -2569,8 +2582,7 @@ convert_to_eh_region_ranges (void)
 		    first_no_action_insn = NULL_RTX;
 		  }
 
-		note = emit_note_after (NOTE_INSN_EH_REGION_END,
-					last_action_insn);
+		note = emit_note_eh_region_end (last_action_insn);
 		NOTE_EH_HANDLER (note) = call_site;
 	      }
 
@@ -2617,7 +2629,7 @@ convert_to_eh_region_ranges (void)
 
   if (last_action >= -1 && ! first_no_action_insn)
     {
-      note = emit_note_after (NOTE_INSN_EH_REGION_END, last_action_insn);
+      note = emit_note_eh_region_end (last_action_insn);
       NOTE_EH_HANDLER (note) = call_site;
     }
 
@@ -2633,7 +2645,6 @@ const pass_data pass_data_convert_to_eh_region_ranges =
   RTL_PASS, /* type */
   "eh_ranges", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */

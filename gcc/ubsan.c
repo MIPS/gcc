@@ -1128,7 +1128,6 @@ const pass_data pass_data_ubsan =
   GIMPLE_PASS, /* type */
   "ubsan", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_TREE_UBSAN, /* tv_id */
   ( PROP_cfg | PROP_ssa ), /* properties_required */
   0, /* properties_provided */
@@ -1148,7 +1147,10 @@ public:
   virtual bool gate (function *)
     {
       return flag_sanitize & (SANITIZE_NULL | SANITIZE_SI_OVERFLOW
-			      | SANITIZE_BOOL | SANITIZE_ENUM);
+			      | SANITIZE_BOOL | SANITIZE_ENUM)
+	     && current_function_decl != NULL_TREE
+	     && !lookup_attribute ("no_sanitize_undefined",
+				   DECL_ATTRIBUTES (current_function_decl));
     }
 
   virtual unsigned int execute (function *);

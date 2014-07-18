@@ -6016,7 +6016,8 @@ add_stores (rtx loc, const_rtx expr, void *cuip)
     {
       cselib_val *oval = cselib_lookup (oloc, GET_MODE (oloc), 0, VOIDmode);
 
-      gcc_assert (oval != v);
+      if (oval == v)
+	return;
       gcc_assert (REG_P (oloc) || MEM_P (oloc));
 
       if (oval && !cselib_preserved_value_p (oval))
@@ -10372,7 +10373,6 @@ const pass_data pass_data_variable_tracking =
   RTL_PASS, /* type */
   "vartrack", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_VAR_TRACKING, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */

@@ -432,7 +432,6 @@ const pass_data pass_data_merge_const_bfstores =
   GIMPLE_PASS, /* type */
   "constbfstores", /* name */
   OPTGROUP_NONE, /* optinfo_flages */
-  true, /* has_execute */
   TV_MERGE_CONST_BFSTORES, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */

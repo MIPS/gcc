@@ -4757,7 +4757,6 @@ const pass_data pass_data_pre =
   GIMPLE_PASS, /* type */
   "pre", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_TREE_PRE, /* tv_id */
   /* PROP_no_crit_edges is ensured by placing pass_split_crit_edges before
      pass_pre.  */
@@ -4874,7 +4873,6 @@ const pass_data pass_data_fre =
   GIMPLE_PASS, /* type */
   "fre", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_TREE_FRE, /* tv_id */
   ( PROP_cfg | PROP_ssa ), /* properties_required */
   0, /* properties_provided */

@@ -3155,7 +3155,6 @@ const pass_data pass_data_profile =
   GIMPLE_PASS, /* type */
   "profile_estimate", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_BRANCH_PROB, /* tv_id */
   PROP_cfg, /* properties_required */
   0, /* properties_provided */
@@ -3220,7 +3219,6 @@ const pass_data pass_data_strip_predict_hints =
   GIMPLE_PASS, /* type */
   "*strip_predict_hints", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_BRANCH_PROB, /* tv_id */
   PROP_cfg, /* properties_required */
   0, /* properties_provided */

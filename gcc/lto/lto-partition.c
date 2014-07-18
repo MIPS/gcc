@@ -96,7 +96,7 @@ add_references_to_partition (ltrans_partition part, symtab_node *node)
        Recursively look into the initializers of the constant variable and add
        references, too.  */
     else if (is_a <varpool_node *> (ref->referred)
-	     && ctor_for_folding (ref->referred->decl) != error_mark_node
+	     && varpool_ctor_useable_for_folding_p (varpool (ref->referred))
 	     && !lto_symtab_encoder_in_partition_p (part->encoder, ref->referred))
       {
 	if (!part->initializers_visited)
@@ -113,8 +113,7 @@ static bool
 add_symbol_to_partition_1 (ltrans_partition part, symtab_node *node)
 {
   enum symbol_partitioning_class c = symtab_get_symbol_partitioning_class (node);
-  int i;
-  struct ipa_ref *ref = NULL;
+  struct ipa_ref *ref;
   symtab_node *node1;
 
   /* If NODE is already there, we have nothing to do.  */
@@ -168,8 +167,9 @@ add_symbol_to_partition_1 (ltrans_partition part, symtab_node *node)
   add_references_to_partition (part, node);
 
   /* Add all aliases associated with the symbol.  */
-  for (i = 0; node->iterate_referring (i, ref); i++)
-    if (ref->use == IPA_REF_ALIAS && !node->weakref)
+
+  FOR_EACH_ALIAS (node, ref)
+    if (!node->weakref)
       add_symbol_to_partition_1 (part, ref->referring);
 
   /* Ensure that SAME_COMDAT_GROUP lists all allways added in a group.  */

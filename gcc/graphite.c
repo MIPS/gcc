@@ -73,6 +73,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "graphite-poly.h"
 #include "graphite-scop-detection.h"
 #include "graphite-clast-to-gimple.h"
+#include "graphite-isl-ast-to-gimple.h"
 #include "graphite-sese-to-poly.h"
 #include "graphite-htab.h"
 
@@ -299,7 +300,10 @@ graphite_transform_loops (void)
 
 	if (POLY_SCOP_P (scop)
 	    && apply_poly_transforms (scop)
-	    && gloog (scop, &bb_pbb_mapping))
+	    && (((flag_graphite_code_gen == FGRAPHITE_CODE_GEN_ISL)
+	    && graphite_regenerate_ast_isl (scop))
+	    || ((flag_graphite_code_gen == FGRAPHITE_CODE_GEN_CLOOG)
+	    && graphite_regenerate_ast_cloog (scop, &bb_pbb_mapping))))
 	  need_cfg_cleanup_p = true;
       }
 
@@ -354,7 +358,6 @@ const pass_data pass_data_graphite =
   GIMPLE_PASS, /* type */
   "graphite0", /* name */
   OPTGROUP_LOOP, /* optinfo_flags */
-  false, /* has_execute */
   TV_GRAPHITE, /* tv_id */
   ( PROP_cfg | PROP_ssa ), /* properties_required */
   0, /* properties_provided */
@@ -390,7 +393,6 @@ const pass_data pass_data_graphite_transforms =
   GIMPLE_PASS, /* type */
   "graphite", /* name */
   OPTGROUP_LOOP, /* optinfo_flags */
-  true, /* has_execute */
   TV_GRAPHITE_TRANSFORMS, /* tv_id */
   ( PROP_cfg | PROP_ssa ), /* properties_required */
   0, /* properties_provided */

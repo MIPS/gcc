@@ -1895,11 +1895,11 @@ static cp_parser *cp_parser_new
 static tree cp_parser_identifier
   (cp_parser *);
 static tree cp_parser_string_literal
-  (cp_parser *, bool, bool);
+  (cp_parser *, bool, bool, bool);
 static tree cp_parser_userdef_char_literal
   (cp_parser *);
 static tree cp_parser_userdef_string_literal
-  (cp_token *);
+  (tree);
 static tree cp_parser_userdef_numeric_literal
   (cp_parser *);
 
@@ -1929,7 +1929,7 @@ static tree cp_parser_postfix_open_square_expression
 static tree cp_parser_postfix_dot_deref_expression
   (cp_parser *, enum cpp_ttype, tree, bool, cp_id_kind *, location_t);
 static vec<tree, va_gc> *cp_parser_parenthesized_expression_list
-  (cp_parser *, int, bool, bool, bool *);
+  (cp_parser *, int, bool, bool, bool *, bool = false);
 /* Values for the second parameter of cp_parser_parenthesized_expression_list.  */
 enum { non_attr = 0, normal_attr = 1, id_attr = 2 };
 static void cp_parser_pseudo_destructor_name
@@ -3566,7 +3566,8 @@ cp_parser_identifier (cp_parser* parser)
 
    FUTURE: ObjC++ will need to handle @-strings here.  */
 static tree
-cp_parser_string_literal (cp_parser *parser, bool translate, bool wide_ok)
+cp_parser_string_literal (cp_parser *parser, bool translate, bool wide_ok,
+			  bool lookup_udlit = true)
 {
   tree value;
   size_t count;
@@ -3721,8 +3722,10 @@ cp_parser_string_literal (cp_parser *parser, bool translate, bool wide_ok)
 	{
 	  tree literal = build_userdef_literal (suffix_id, value,
 						OT_NONE, NULL_TREE);
-	  tok->u.value = literal;
-	  return cp_parser_userdef_string_literal (tok);
+	  if (lookup_udlit)
+	    value = cp_parser_userdef_string_literal (literal);
+	  else
+	    value = literal;
 	}
     }
   else
@@ -3970,9 +3973,8 @@ cp_parser_userdef_numeric_literal (cp_parser *parser)
    as arguments.  */
 
 static tree
-cp_parser_userdef_string_literal (cp_token *token)
+cp_parser_userdef_string_literal (tree literal)
 {
-  tree literal = token->u.value;
   tree suffix_id = USERDEF_LITERAL_SUFFIX_ID (literal);
   tree name = cp_literal_operator_id (IDENTIFIER_POINTER (suffix_id));
   tree value = USERDEF_LITERAL_VALUE (literal);
@@ -4109,6 +4111,7 @@ complain_flags (bool decltype_p)
      this
      ( expression )
      id-expression
+     lambda-expression (C++11)
 
    GNU Extensions:
 
@@ -6075,7 +6078,8 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 	    args = (cp_parser_parenthesized_expression_list
 		    (parser, non_attr,
 		     /*cast_p=*/false, /*allow_expansion_p=*/true,
-		     /*non_constant_p=*/NULL));
+		     /*non_constant_p=*/NULL,
+		     /*want_literal_zero_p=*/warn_memset_transposed_args));
 	    if (is_builtin_constant_p)
 	      {
 		parser->integral_constant_expression_p
@@ -6141,6 +6145,30 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 						     complain);
 		      }
 		  }
+	      }
+
+	    if (warn_memset_transposed_args)
+	      {
+		if (TREE_CODE (postfix_expression) == FUNCTION_DECL
+		    && DECL_BUILT_IN_CLASS (postfix_expression) == BUILT_IN_NORMAL
+		    && DECL_FUNCTION_CODE (postfix_expression) == BUILT_IN_MEMSET
+		    && vec_safe_length (args) == 3
+		    && integer_zerop ((*args)[2])
+		    && LITERAL_ZERO_P ((*args)[2])
+		    && !(integer_zerop ((*args)[1])
+			 && LITERAL_ZERO_P ((*args)[1])))
+		  warning (OPT_Wmemset_transposed_args,
+			   "%<memset%> used with constant zero length "
+			   "parameter; this could be due to transposed "
+			   "parameters");
+
+		/* Replace LITERAL_ZERO_P INTEGER_CSTs with normal ones
+		   to avoid leaking those into folder and middle-end.  */
+		unsigned int i;
+		tree arg;
+		FOR_EACH_VEC_SAFE_ELT (args, i, arg)
+		  if (TREE_CODE (arg) == INTEGER_CST && LITERAL_ZERO_P (arg))
+		    (*args)[i] = build_int_cst (TREE_TYPE (arg), 0);
 	      }
 
 	    if (TREE_CODE (postfix_expression) == COMPONENT_REF)
@@ -6631,6 +6659,10 @@ cp_parser_postfix_dot_deref_expression (cp_parser *parser,
   return postfix_expression;
 }
 
+/* Cache of LITERAL_ZERO_P constants.  */
+
+static GTY(()) tree literal_zeros[itk_none];
+
 /* Parse a parenthesized expression-list.
 
    expression-list:
@@ -6655,14 +6687,18 @@ cp_parser_postfix_dot_deref_expression (cp_parser *parser,
    plain identifier argument, normal_attr for an attribute that wants
    an expression, or non_attr if we aren't parsing an attribute list.  If
    NON_CONSTANT_P is non-NULL, *NON_CONSTANT_P indicates whether or
-   not all of the expressions in the list were constant.  */
+   not all of the expressions in the list were constant.
+   WANT_LITERAL_ZERO_P is true if the caller is interested in
+   LITERAL_ZERO_P INTEGER_CSTs.  FIXME: once we don't fold everything
+   immediately, this can be removed.  */
 
 static vec<tree, va_gc> *
 cp_parser_parenthesized_expression_list (cp_parser* parser,
 					 int is_attribute_list,
 					 bool cast_p,
                                          bool allow_expansion_p,
-					 bool *non_constant_p)
+					 bool *non_constant_p,
+					 bool want_literal_zero_p)
 {
   vec<tree, va_gc> *expression_list;
   bool fold_expr_p = is_attribute_list != non_attr;
@@ -6725,7 +6761,50 @@ cp_parser_parenthesized_expression_list (cp_parser* parser,
 		  *non_constant_p = true;
 	      }
 	    else
-	      expr = cp_parser_assignment_expression (parser, cast_p, NULL);
+	      {
+		expr = NULL_TREE;
+		cp_token *tok = cp_lexer_peek_token (parser->lexer);
+		switch (tok->type)
+		  {
+		  case CPP_NUMBER:
+		  case CPP_CHAR:
+		  case CPP_WCHAR:
+		  case CPP_CHAR16:
+		  case CPP_CHAR32:
+		    /* If a parameter is literal zero alone, remember it
+		       for -Wmemset-transposed-args warning.  */
+		    if (integer_zerop (tok->u.value)
+			&& !TREE_OVERFLOW (tok->u.value)
+			&& want_literal_zero_p
+			&& (cp_lexer_peek_nth_token (parser->lexer, 2)->type
+			    == CPP_COMMA
+			    || cp_lexer_peek_nth_token (parser->lexer, 2)->type
+			       == CPP_CLOSE_PAREN))
+		      {
+			unsigned int i;
+			for (i = 0; i < itk_none; ++i)
+			  if (TREE_TYPE (tok->u.value) == integer_types[i])
+			    break;
+			if (i < itk_none && literal_zeros[i])
+			  expr = literal_zeros[i];
+			else
+			  {
+			    expr = copy_node (tok->u.value);
+			    LITERAL_ZERO_P (expr) = 1;
+			    if (i < itk_none)
+			      literal_zeros[i] = expr;
+			  }
+			/* Consume the 0 token (or '\0', 0LL etc.).  */
+			cp_lexer_consume_token (parser->lexer);
+		      }
+		    break;
+		  default:
+		    break;
+		  }
+		if (expr == NULL_TREE)
+		  expr = cp_parser_assignment_expression (parser, cast_p,
+							  NULL);
+	      }
 
 	    if (fold_expr_p)
 	      expr = fold_non_dependent_expr (expr);
@@ -7621,10 +7700,11 @@ cp_parser_delete_expression (cp_parser* parser)
 			tf_warning_or_error);
 }
 
-/* Returns true if TOKEN may start a cast-expression and false
-   otherwise.  */
+/* Returns 1 if TOKEN may start a cast-expression and isn't '++', '--',
+   neither '[' in C++11; -1 if TOKEN is '++', '--', or '[' in C++11;
+   0 otherwise.  */
 
-static bool
+static int
 cp_parser_tokens_start_cast_expression (cp_parser *parser)
 {
   cp_token *token = cp_lexer_peek_token (parser->lexer);
@@ -7667,7 +7747,8 @@ cp_parser_tokens_start_cast_expression (cp_parser *parser)
     case CPP_OR:
     case CPP_OR_OR:
     case CPP_EOF:
-      return false;
+    case CPP_ELLIPSIS:
+      return 0;
 
     case CPP_OPEN_PAREN:
       /* In ((type ()) () the last () isn't a valid cast-expression,
@@ -7675,12 +7756,28 @@ cp_parser_tokens_start_cast_expression (cp_parser *parser)
       return cp_lexer_peek_nth_token (parser->lexer, 2)->type
 	     != CPP_CLOSE_PAREN;
 
-      /* '[' may start a primary-expression in obj-c++.  */
     case CPP_OPEN_SQUARE:
+      /* '[' may start a primary-expression in obj-c++ and in C++11,
+	 as a lambda-expression, eg, '(void)[]{}'.  */
+      if (cxx_dialect >= cxx11)
+	return -1;
       return c_dialect_objc ();
 
+    case CPP_PLUS_PLUS:
+    case CPP_MINUS_MINUS:
+      /* '++' and '--' may or may not start a cast-expression:
+
+	 struct T { void operator++(int); };
+	 void f() { (T())++; }
+
+	 vs
+
+	 int a;
+	 (int)++a;  */
+      return -1;
+
     default:
-      return true;
+      return 1;
     }
 }
 
@@ -7705,7 +7802,7 @@ cp_parser_cast_expression (cp_parser *parser, bool address_p, bool cast_p,
     {
       tree type = NULL_TREE;
       tree expr = NULL_TREE;
-      bool cast_expression_p;
+      int cast_expression = 0;
       const char *saved_message;
 
       /* There's no way to know yet whether or not this is a cast.
@@ -7728,6 +7825,7 @@ cp_parser_cast_expression (cp_parser *parser, bool address_p, bool cast_p,
 	 will commit to the parse at that point, because we cannot
 	 undo the action that is done when creating a new class.  So,
 	 then we cannot back up and do a postfix-expression.
+
 	 Another tricky case is the following (c++/29234):
 
          struct S { void operator () (); };
@@ -7746,20 +7844,30 @@ cp_parser_cast_expression (cp_parser *parser, bool address_p, bool cast_p,
 	 we are dealing with an unary-expression, a postfix-expression
 	 or something else.
 
+	 Yet another tricky case, in C++11, is the following (c++/54891):
+
+	 (void)[]{};
+
+         The issue is that usually, besides the case of lambda-expressions,
+	 the parenthesized type-id cannot be followed by '[', and, eg, we
+	 want to parse '(C ())[2];' in parse/pr26997.C as unary-expression.
+	 Thus, if cp_parser_tokens_start_cast_expression returns -1, below
+	 we don't commit, we try a cast-expression, then an unary-expression.
+
 	 Save tokens so that we can put them back.  */
       cp_lexer_save_tokens (parser->lexer);
 
       /* We may be looking at a cast-expression.  */
-      cast_expression_p
-	= (cp_parser_skip_to_closing_parenthesis (parser, false, false,
-						  /*consume_paren=*/true)
-	   && cp_parser_tokens_start_cast_expression (parser));
+      if (cp_parser_skip_to_closing_parenthesis (parser, false, false,
+						 /*consume_paren=*/true))
+	cast_expression
+	  = cp_parser_tokens_start_cast_expression (parser);
 
       /* Roll back the tokens we skipped.  */
       cp_lexer_rollback_tokens (parser->lexer);
       /* If we aren't looking at a cast-expression, simulate an error so
-	 that the call to cp_parser_parse_definitely below will fail.  */
-      if (!cast_expression_p)
+	 that the call to cp_parser_error_occurred below returns true.  */
+      if (!cast_expression)
 	cp_parser_simulate_error (parser);
       else
 	{
@@ -7780,30 +7888,37 @@ cp_parser_cast_expression (cp_parser *parser, bool address_p, bool cast_p,
 	 function returning T.  */
       if (!cp_parser_error_occurred (parser))
 	{
-	  cp_parser_parse_definitely (parser);
+	  /* Only commit if the cast-expression doesn't start with
+	     '++', '--', or '[' in C++11.  */
+	  if (cast_expression > 0)
+	    cp_parser_commit_to_topmost_tentative_parse (parser);
+
 	  expr = cp_parser_cast_expression (parser,
 					    /*address_p=*/false,
 					    /*cast_p=*/true,
 					    /*decltype_p=*/false,
 					    pidk);
 
-	  /* Warn about old-style casts, if so requested.  */
-	  if (warn_old_style_cast
-	      && !in_system_header_at (input_location)
-	      && !VOID_TYPE_P (type)
-	      && current_lang_name != lang_name_c)
-	    warning (OPT_Wold_style_cast, "use of old-style cast");
+	  if (cp_parser_parse_definitely (parser))
+	    {
+	      /* Warn about old-style casts, if so requested.  */
+	      if (warn_old_style_cast
+		  && !in_system_header_at (input_location)
+		  && !VOID_TYPE_P (type)
+		  && current_lang_name != lang_name_c)
+		warning (OPT_Wold_style_cast, "use of old-style cast");
 
-	  /* Only type conversions to integral or enumeration types
-	     can be used in constant-expressions.  */
-	  if (!cast_valid_in_integral_constant_expression_p (type)
-	      && cp_parser_non_integral_constant_expression (parser,
-							     NIC_CAST))
-	    return error_mark_node;
+	      /* Only type conversions to integral or enumeration types
+		 can be used in constant-expressions.  */
+	      if (!cast_valid_in_integral_constant_expression_p (type)
+		  && cp_parser_non_integral_constant_expression (parser,
+								 NIC_CAST))
+		return error_mark_node;
 
-	  /* Perform the cast.  */
-	  expr = build_c_cast (input_location, type, expr);
-	  return expr;
+	      /* Perform the cast.  */
+	      expr = build_c_cast (input_location, type, expr);
+	      return expr;
+	    }
 	}
       else 
         cp_parser_abort_tentative_parse (parser);
@@ -12615,7 +12730,7 @@ cp_parser_operator (cp_parser* parser)
 {
   tree id = NULL_TREE;
   cp_token *token;
-  bool bad_encoding_prefix = false;
+  bool utf8 = false;
 
   /* Peek at the next token.  */
   token = cp_lexer_peek_token (parser->lexer);
@@ -12815,83 +12930,73 @@ cp_parser_operator (cp_parser* parser)
       cp_parser_require (parser, CPP_CLOSE_SQUARE, RT_CLOSE_SQUARE);
       return ansi_opname (ARRAY_REF);
 
+    case CPP_UTF8STRING:
+    case CPP_UTF8STRING_USERDEF:
+      utf8 = true;
+    case CPP_STRING:
     case CPP_WSTRING:
     case CPP_STRING16:
     case CPP_STRING32:
-    case CPP_UTF8STRING:
-     bad_encoding_prefix = true;
-      /* Fall through.  */
-
-    case CPP_STRING:
-      if (cxx_dialect == cxx98)
-	maybe_warn_cpp0x (CPP0X_USER_DEFINED_LITERALS);
-      if (bad_encoding_prefix)
-	{
-	  error ("invalid encoding prefix in literal operator");
-	  return error_mark_node;
-	}
-      if (TREE_STRING_LENGTH (token->u.value) > 2)
-	{
-	  error ("expected empty string after %<operator%> keyword");
-	  return error_mark_node;
-	}
-      /* Consume the string.  */
-      cp_lexer_consume_token (parser->lexer);
-      /* Look for the suffix identifier.  */
-      token = cp_lexer_peek_token (parser->lexer);
-      if (token->type == CPP_NAME)
-	{
-	  id = cp_parser_identifier (parser);
-	  if (id != error_mark_node)
-	    {
-	      const char *name = IDENTIFIER_POINTER (id);
-	      return cp_literal_operator_id (name);
-	    }
-	}
-      else if (token->type == CPP_KEYWORD)
-	{
-	  error ("unexpected keyword;"
-		 " remove space between quotes and suffix identifier");
-	  return error_mark_node;
-	}
-      else
-	{
-	  error ("expected suffix identifier");
-	  return error_mark_node;
-	}
-
+    case CPP_STRING_USERDEF:
     case CPP_WSTRING_USERDEF:
     case CPP_STRING16_USERDEF:
     case CPP_STRING32_USERDEF:
-    case CPP_UTF8STRING_USERDEF:
-      bad_encoding_prefix = true;
-      /* Fall through.  */
-
-    case CPP_STRING_USERDEF:
-      if (cxx_dialect == cxx98)
-	maybe_warn_cpp0x (CPP0X_USER_DEFINED_LITERALS);
-      if (bad_encoding_prefix)
-	{
-	  error ("invalid encoding prefix in literal operator");
-	  return error_mark_node;
-	}
       {
-	tree string_tree = USERDEF_LITERAL_VALUE (token->u.value);
-	if (TREE_STRING_LENGTH (string_tree) > 2)
+	tree str, string_tree;
+	int sz, len;
+
+	if (cxx_dialect == cxx98)
+	  maybe_warn_cpp0x (CPP0X_USER_DEFINED_LITERALS);
+
+	/* Consume the string.  */
+	str = cp_parser_string_literal (parser, /*translate=*/true,
+				      /*wide_ok=*/true, /*lookup_udlit=*/false);
+	if (str == error_mark_node)
+	  return error_mark_node;
+	else if (TREE_CODE (str) == USERDEF_LITERAL)
+	  {
+	    string_tree = USERDEF_LITERAL_VALUE (str);
+	    id = USERDEF_LITERAL_SUFFIX_ID (str);
+	  }
+	else
+	  {
+	    string_tree = str;
+	    /* Look for the suffix identifier.  */
+	    token = cp_lexer_peek_token (parser->lexer);
+	    if (token->type == CPP_NAME)
+	      id = cp_parser_identifier (parser);
+	    else if (token->type == CPP_KEYWORD)
+	      {
+		error ("unexpected keyword;"
+		       " remove space between quotes and suffix identifier");
+		return error_mark_node;
+	      }
+	    else
+	      {
+		error ("expected suffix identifier");
+		return error_mark_node;
+	      }
+	  }
+	sz = TREE_INT_CST_LOW (TYPE_SIZE_UNIT
+			       (TREE_TYPE (TREE_TYPE (string_tree))));
+	len = TREE_STRING_LENGTH (string_tree) / sz - 1;
+	if (len != 0)
 	  {
 	    error ("expected empty string after %<operator%> keyword");
 	    return error_mark_node;
 	  }
-	id = USERDEF_LITERAL_SUFFIX_ID (token->u.value);
-	/* Consume the user-defined string literal.  */
-	cp_lexer_consume_token (parser->lexer);
+	if (utf8 || TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (string_tree)))
+	    != char_type_node)
+	  {
+	    error ("invalid encoding prefix in literal operator");
+	    return error_mark_node;
+	  }
 	if (id != error_mark_node)
 	  {
 	    const char *name = IDENTIFIER_POINTER (id);
-	    return cp_literal_operator_id (name);
+	    id = cp_literal_operator_id (name);
 	  }
-	else
-	  return error_mark_node;
+	return id;
       }
 
     default:
@@ -23202,10 +23307,17 @@ cp_parser_template_declaration_after_export (cp_parser* parser, bool member_p)
 	    ok = false;
 	}
       if (!ok)
-	error ("literal operator template %qD has invalid parameter list."
-	       "  Expected non-type template argument pack <char...>"
-	       " or <typename CharT, CharT...>",
-	       decl);
+	{
+	  if (cxx_dialect >= cxx1y)
+	    error ("literal operator template %qD has invalid parameter list."
+		   "  Expected non-type template argument pack <char...>"
+		   " or <typename CharT, CharT...>",
+		   decl);
+	  else
+	    error ("literal operator template %qD has invalid parameter list."
+		   "  Expected non-type template argument pack <char...>",
+		   decl);
+	}
     }
   /* Register member declarations.  */
   if (member_p && !friend_p && decl && !DECL_CLASS_TEMPLATE_P (decl))

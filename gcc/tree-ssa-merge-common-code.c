@@ -250,7 +250,6 @@ const pass_data pass_data_merge_common_code =
   GIMPLE_PASS, /* type */
   "merge_code", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_TREE_SSA_MERGE_COMMON, /* tv_id */
   ( PROP_cfg | PROP_ssa ), /* properties_required */
   0, /* properties_provided */

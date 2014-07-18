@@ -35,7 +35,7 @@
 
 (define_insn_reservation "thunder_add" 1
   (and (eq_attr "tune" "thunder")
-       (eq_attr "type" "adc_imm,adc_reg,adr,alu_imm,alu_reg,alus_imm,alus_reg,extend,logic_imm,logic_reg,logics_imm,logics_reg,mov_imm,mov_reg"))
+       (eq_attr "type" "adc_imm,adc_reg,adr,alu_imm,alu_sreg,alus_imm,alus_sreg,extend,logic_imm,logic_reg,logics_imm,logics_reg,mov_imm,mov_reg"))
   "thunder_pipe0 | thunder_pipe1")
 
 (define_insn_reservation "thunder_shift" 1

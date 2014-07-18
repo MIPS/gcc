@@ -2621,13 +2621,9 @@ extern vec<tree, va_gc> **decl_debug_args_insert (tree);
 #define DECL_BUILT_IN_CLASS(NODE) \
    (FUNCTION_DECL_CHECK (NODE)->function_decl.built_in_class)
 
-/* In FUNCTION_DECL, a chain of ..._DECL nodes.
-   VAR_DECL and PARM_DECL reserve the arguments slot for language-specific
-   uses.  */
+/* In FUNCTION_DECL, a chain of ..._DECL nodes.  */
 #define DECL_ARGUMENTS(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->decl_non_common.arguments)
-#define DECL_ARGUMENT_FLD(NODE) \
-  (DECL_NON_COMMON_CHECK (NODE)->decl_non_common.arguments)
+   (FUNCTION_DECL_CHECK (NODE)->function_decl.arguments)
 
 /* In FUNCTION_DECL, the function specific target options to use when compiling
    this function.  */
@@ -4321,9 +4317,9 @@ extern tree block_ultimate_origin (const_tree);
 extern tree get_binfo_at_offset (tree, HOST_WIDE_INT, tree);
 extern bool virtual_method_call_p (tree);
 extern tree obj_type_ref_class (tree ref);
-extern bool types_same_for_odr (tree type1, tree type2);
+extern bool types_same_for_odr (const_tree type1, const_tree type2);
 extern bool contains_bitfld_component_ref_p (const_tree);
-extern bool type_in_anonymous_namespace_p (tree);
+extern bool type_in_anonymous_namespace_p (const_tree);
 extern bool expressions_equal_p (tree e1, tree e2);
 extern bool block_may_fallthru (const_tree);
 extern void using_eh_for_cleanups (void);

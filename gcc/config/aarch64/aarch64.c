@@ -5038,6 +5038,25 @@ aarch64_rtx_arith_op_extract_p (rtx x, enum machine_mode mode)
   return false;
 }
 
+static bool
+aarch64_frint_unspec_p (unsigned int u)
+{
+  switch (u)
+    {
+      case UNSPEC_FRINTZ:
+      case UNSPEC_FRINTP:
+      case UNSPEC_FRINTM:
+      case UNSPEC_FRINTA:
+      case UNSPEC_FRINTN:
+      case UNSPEC_FRINTX:
+      case UNSPEC_FRINTI:
+        return true;
+
+      default:
+        return false;
+    }
+}
+
 /* Calculate the cost of calculating (if_then_else (OP0) (OP1) (OP2)),
    storing it in *COST.  Result is true if the total cost of the operation
    has now been calculated.  */
@@ -5218,7 +5237,7 @@ aarch64_rtx_costs (rtx x, int code, int outer ATTRIBUTE_UNUSED,
 	default:
 	  /* We can't make sense of this, assume default cost.  */
           *cost = COSTS_N_INSNS (1);
-	  break;
+	  return false;
 	}
       return false;
 
@@ -5916,6 +5935,29 @@ cost_plus:
 	*cost += extra_cost->fp[mode == DFmode].narrow;
       return false;
 
+    case FIX:
+    case UNSIGNED_FIX:
+      x = XEXP (x, 0);
+      /* Strip the rounding part.  They will all be implemented
+         by the fcvt* family of instructions anyway.  */
+      if (GET_CODE (x) == UNSPEC)
+        {
+          unsigned int uns_code = XINT (x, 1);
+
+          if (uns_code == UNSPEC_FRINTA
+              || uns_code == UNSPEC_FRINTM
+              || uns_code == UNSPEC_FRINTN
+              || uns_code == UNSPEC_FRINTP
+              || uns_code == UNSPEC_FRINTZ)
+            x = XVECEXP (x, 0, 0);
+        }
+
+      if (speed)
+        *cost += extra_cost->fp[GET_MODE (x) == DFmode].toint;
+
+      *cost += rtx_cost (x, (enum rtx_code) code, 0, speed);
+      return true;
+
     case ABS:
       if (GET_MODE_CLASS (mode) == MODE_FLOAT)
 	{
@@ -5944,6 +5986,17 @@ cost_plus:
 	  *cost += extra_cost->fp[mode == DFmode].addsub;
 	}
       return false;
+
+    case UNSPEC:
+      /* The floating point round to integer frint* instructions.  */
+      if (aarch64_frint_unspec_p (XINT (x, 1)))
+        {
+          if (speed)
+            *cost += extra_cost->fp[mode == DFmode].roundint;
+
+          return false;
+        }
+      break;
 
     case TRUNCATE:
 
@@ -5979,13 +6032,14 @@ cost_plus:
 
       /* Fall through.  */
     default:
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file,
-		 "\nFailed to cost RTX.  Assuming default cost.\n");
-
-      return true;
+      break;
     }
-  return false;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file,
+      "\nFailed to cost RTX.  Assuming default cost.\n");
+
+  return true;
 }
 
 /* Wrapper around aarch64_rtx_costs, dumps the partial, or total cost
@@ -6076,7 +6130,7 @@ aarch64_macro_fusion_pair (rtx condgen, rtx)
 
   /* This misses some of them due to easy shift
      is not checked. */
-  if (get_attr_type (condgen) == TYPE_ALUS_REG
+  if (get_attr_type (condgen) == TYPE_ALUS_SREG
       || get_attr_type (condgen) == TYPE_ALUS_IMM
       || get_attr_type (condgen) == TYPE_LOGICS_REG
       || get_attr_type (condgen) == TYPE_LOGICS_IMM)
@@ -8995,20 +9049,26 @@ void
 aarch64_expand_vec_perm (rtx target, rtx op0, rtx op1, rtx sel)
 {
   enum machine_mode vmode = GET_MODE (target);
-  unsigned int i, nelt = GET_MODE_NUNITS (vmode);
+  unsigned int nelt = GET_MODE_NUNITS (vmode);
   bool one_vector_p = rtx_equal_p (op0, op1);
-  rtx rmask[MAX_VECT_LEN], mask;
-
-  gcc_checking_assert (!BYTES_BIG_ENDIAN);
+  rtx mask;
 
   /* The TBL instruction does not use a modulo index, so we must take care
      of that ourselves.  */
-  mask = GEN_INT (one_vector_p ? nelt - 1 : 2 * nelt - 1);
-  for (i = 0; i < nelt; ++i)
-    rmask[i] = mask;
-  mask = gen_rtx_CONST_VECTOR (vmode, gen_rtvec_v (nelt, rmask));
+  mask = aarch64_simd_gen_const_vector_dup (vmode,
+      one_vector_p ? nelt - 1 : 2 * nelt - 1);
   sel = expand_simple_binop (vmode, AND, sel, mask, NULL, 0, OPTAB_LIB_WIDEN);
 
+  /* For big-endian, we also need to reverse the index within the vector
+     (but not which vector).  */
+  if (BYTES_BIG_ENDIAN)
+    {
+      /* If one_vector_p, mask is a vector of (nelt - 1)'s already.  */
+      if (!one_vector_p)
+        mask = aarch64_simd_gen_const_vector_dup (vmode, nelt - 1);
+      sel = expand_simple_binop (vmode, XOR, sel, mask,
+				 NULL, 0, OPTAB_LIB_WIDEN);
+    }
   aarch64_expand_vec_perm_1 (target, op0, op1, sel);
 }
 

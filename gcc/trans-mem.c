@@ -838,7 +838,6 @@ const pass_data pass_data_diagnose_tm_blocks =
   GIMPLE_PASS, /* type */
   "*diagnose_tm_blocks", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_TRANS_MEM, /* tv_id */
   PROP_gimple_any, /* properties_required */
   0, /* properties_provided */
@@ -1762,7 +1761,6 @@ const pass_data pass_data_lower_tm =
   GIMPLE_PASS, /* type */
   "tmlower", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_TRANS_MEM, /* tv_id */
   PROP_gimple_lcf, /* properties_required */
   0, /* properties_provided */
@@ -2039,7 +2037,6 @@ const pass_data pass_data_tm_init =
   GIMPLE_PASS, /* type */
   "*tminit", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  false, /* has_execute */
   TV_TRANS_MEM, /* tv_id */
   ( PROP_ssa | PROP_cfg ), /* properties_required */
   0, /* properties_provided */
@@ -3008,7 +3005,6 @@ const pass_data pass_data_tm_mark =
   GIMPLE_PASS, /* type */
   "tmmark", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_TRANS_MEM, /* tv_id */
   ( PROP_ssa | PROP_cfg ), /* properties_required */
   0, /* properties_provided */
@@ -3165,7 +3161,6 @@ const pass_data pass_data_tm_edges =
   GIMPLE_PASS, /* type */
   "tmedge", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_TRANS_MEM, /* tv_id */
   ( PROP_ssa | PROP_cfg ), /* properties_required */
   0, /* properties_provided */
@@ -3925,7 +3920,6 @@ const pass_data pass_data_tm_memopt =
   GIMPLE_PASS, /* type */
   "tmmemopt", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_TRANS_MEM, /* tv_id */
   ( PROP_ssa | PROP_cfg ), /* properties_required */
   0, /* properties_provided */
@@ -5439,8 +5433,7 @@ ipa_tm_execute (void)
     {
       struct cgraph_node *caller;
       struct cgraph_edge *e;
-      struct ipa_ref *ref = NULL;
-      unsigned j;
+      struct ipa_ref *ref;
 
       if (i > 256 && i == irr_worklist.length () / 8)
 	{
@@ -5466,11 +5459,10 @@ ipa_tm_execute (void)
 	}
 
       /* Propagate back to referring aliases as well.  */
-      for (j = 0; node->iterate_referring (j, ref); j++)
+      FOR_EACH_ALIAS (node, ref)
 	{
 	  caller = cgraph (ref->referring);
-	  if (ref->use == IPA_REF_ALIAS
-	      && !caller->local.tm_may_enter_irr)
+	  if (!caller->local.tm_may_enter_irr)
 	    {
 	      /* ?? Do not traverse aliases here.  */
 	      d = get_cg_data (&caller, false);
@@ -5561,7 +5553,6 @@ const pass_data pass_data_ipa_tm =
   SIMPLE_IPA_PASS, /* type */
   "tmipa", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_TRANS_MEM, /* tv_id */
   ( PROP_ssa | PROP_cfg ), /* properties_required */
   0, /* properties_provided */
