@@ -15,6 +15,8 @@ CALC (float *e, UNION_TYPE (AVX512F_LEN, d) s1)
   int i;
   for (i = 0; i < SIZE; i++)
     e[i] = (float) s1.a[i];
+  for (i = SIZE; i < AVX512F_LEN_HALF / 32; i++)
+    e[i] = 0.0;
 }
 
 void

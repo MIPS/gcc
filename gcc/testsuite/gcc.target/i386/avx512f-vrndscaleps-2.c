@@ -38,7 +38,7 @@ TEST (void)
   UNION_TYPE (AVX512F_LEN,) res1, res2, res3, s;
   float res_ref[SIZE];
 
-  MASK_TYPE mask = 6 ^ (0xffff >> SIZE);
+  MASK_TYPE mask = MASK_VALUE;
 
   imm = _MM_FROUND_FLOOR | (7 << 4);
 
