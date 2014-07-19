@@ -3235,6 +3235,7 @@ exit, in last place.}#
 	       (debug "json_parser_input_processor leftbracket pushed jnewstate=" jnewstate)
 	     ))
 	    (:else
+	     (debug "json_parser_input_processor leftbracket unhappy with jtopstate=" jtopstate)
 	     (jerror '"unexpected left bracket")
 	     (return)))
 	   )
@@ -3315,7 +3316,7 @@ exit, in last place.}#
 	   (match jtopstate
 		  (?(tuple :json_object_attr ?atlist ?valist)
 		    (list_append atlist vstr)
-		    (multiple_put_nth jtopstate 0 :json_object_comma)
+		    (multiple_put_nth jtopstate 0 :json_object_colon)
 		    (debug "json_parser_input_processor after string now jtopstate=" jtopstate)
 		    )
 		  (?(tuple :json_object_val ?atlist ?valist)
