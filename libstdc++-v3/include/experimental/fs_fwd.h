@@ -268,6 +268,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   file_status symlink_status(const path&);
   file_status symlink_status(const path&, error_code&) noexcept;
 
+  bool is_regular_file(file_status) noexcept;
+  bool is_symlink(file_status) noexcept;
+
   // @} group filesystem
 _GLIBCXX_END_NAMESPACE_VERSION
 } // namespace v1

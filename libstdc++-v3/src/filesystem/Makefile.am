@@ -28,6 +28,7 @@ headers =
 
 sources = \
 	dir.cc \
+	ops.cc \
 	path.cc
 
 # vpath % $(top_srcdir)/src/filesystem
