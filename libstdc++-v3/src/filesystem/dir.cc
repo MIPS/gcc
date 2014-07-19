@@ -26,13 +26,25 @@
 #include <utility>
 #include <stack>
 #include <tuple>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <dirent.h>
 #include <string.h>
 #include <errno.h>
-
-#define _GLIBCXX_USE_DIRENT_D_TYPE 1
+#ifdef _GLIBCXX_HAVE_DIRENT_H
+# ifdef _GLIBCXX_HAVE_SYS_TYPES_H
+#  include <sys/types.h>
+# endif
+# include <dirent.h>
+#else
+// TODO: replace dummy definitions with suitable Win32 code
+#ifndef EACCES
+# define EACCES static_cast<int>(std::errc::permission_denied)
+#endif
+using DIR = void;
+static DIR* opendir(const char*) { return nullptr; }
+static void closedir(DIR*) { }
+struct dirent { const char* d_name; };
+static inline int readdir_r(DIR*, dirent*, dirent**)
+{ return static_cast<int>(std::errc::not_supported); }
+#endif
 
 namespace fs = std::experimental::filesystem;
 
@@ -74,10 +86,11 @@ struct fs::_Dir
   ~_Dir() { if (dirp) ::closedir(dirp); }
 
   bool advance(ErrorCode);
+
   DIR*			dirp;
   fs::path		path;
   directory_entry	entry;
-  file_type		type = file_type::not_found;
+  file_type		type = file_type::none;
 };
 
 namespace
@@ -119,9 +132,9 @@ namespace
   inline fs::file_type
   get_file_type(const dirent& d)
   {
+#ifdef _GLIBCXX_HAVE_STRUCT_DIRENT_D_TYPE
     switch (d.d_type)
     {
-#if _GLIBCXX_USE_DIRENT_D_TYPE
     case DT_BLK:
       return fs::file_type::block;
     case DT_CHR:
@@ -137,11 +150,13 @@ namespace
     case DT_SOCK:
       return fs::file_type::socket;
     case DT_UNKNOWN:
-      // fall through, so we call status() as needed
-#endif
+      return fs::file_type::unknown;
     default:
-      return fs::file_type::not_found;
+      return fs::file_type::none;
     }
+#else
+    return fs::file_type::none;
+#endif
   }
 }
 
@@ -286,95 +301,17 @@ fs::recursive_directory_iterator::operator++()
 
 namespace
 {
-  fs::file_status
-  map_status(struct ::stat& st)
-  {
-    using fs::file_status;
-    using fs::file_type;
-    using fs::perms;
-    file_type ft;
-    perms perm = static_cast<perms>(st.st_mode) & perms::mask;
-    if (S_ISREG(st.st_mode))
-      ft = file_type::regular;
-    else if (S_ISDIR(st.st_mode))
-      ft = file_type::directory;
-    else if (S_ISCHR(st.st_mode))
-      ft = file_type::character;
-    else if (S_ISBLK(st.st_mode))
-      ft = file_type::block;
-    else if (S_ISFIFO(st.st_mode))
-      ft = file_type::fifo;
-    else if (S_ISLNK(st.st_mode))
-      ft = file_type::symlink;
-    else if (S_ISSOCK(st.st_mode))
-      ft = file_type::socket;
-    else
-      ft = file_type::unknown;
-    return file_status{ft, perm};
-  }
-}
-
-fs::file_status
-fs::status(const fs::path& p, std::error_code& ec) noexcept
-{
-    file_status status;
-    struct ::stat st;
-    int err = ::stat(p.native().c_str(), &st);
-    if (err)
-      ec.assign(err, std::generic_category());
-    else
-      status = map_status(st);
-    return status;
-}
-
-fs::file_status
-fs::status(const fs::path& p)
-{
-  std::error_code ec;
-  auto s = status(p, ec);
-  if (ec.value())
-    _GLIBCXX_THROW_OR_ABORT(filesystem_error(
-	  "status", ec));
-  return s;
-}
-
-fs::file_status
-fs::symlink_status(const fs::path& p, std::error_code& ec) noexcept
-{
-    file_status status;
-    struct ::stat st;
-    int err = ::lstat(p.native().c_str(), &st);
-    if (err)
-      ec.assign(err, std::generic_category());
-    else
-      status = map_status(st);
-    return status;
-}
-
-fs::file_status
-fs::symlink_status(const fs::path& p)
-{
-  std::error_code ec;
-  auto s = symlink_status(p, ec);
-  if (ec.value())
-    _GLIBCXX_THROW_OR_ABORT(filesystem_error(
-	  "symlink_status", ec));
-  return s;
-}
-
-namespace
-{
   bool
   recurse(const fs::_Dir& d, fs::directory_options options, std::error_code& ec)
   {
     bool follow_symlink
       = is_set(options, fs::directory_options::follow_directory_symlink);
-#if _GLIBCXX_USE_DIRENT_D_TYPE
+#ifdef _GLIBCXX_HAVE_STRUCT_DIRENT_D_TYPE
     if (d.type == fs::file_type::directory)
       return true;
     if (d.type == fs::file_type::symlink && follow_symlink)
       return d.entry.status().type() == fs::file_type::directory;
-    if (d.type != fs::file_type::not_found)
+    if (d.type != fs::file_type::none && d.type != fs::file_type::unknown)
       return false;
 #endif
     const fs::path& path = d.entry.path();
