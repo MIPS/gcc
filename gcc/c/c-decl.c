@@ -2300,7 +2300,7 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 
   if (CODE_CONTAINS_STRUCT (TREE_CODE (olddecl), TS_DECL_WITH_VIS))
     {
-      /* Merge the section attribute.
+      /* Merge the section attribute from the old decl to the new one.
 	 We want to issue an error if the sections conflict but that
 	 must be done later in decl_attributes since we are called
 	 before attributes are assigned.  */
@@ -2308,6 +2308,12 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 	  && DECL_SECTION_NAME (newdecl) == NULL
 	  && DECL_SECTION_NAME (olddecl))
 	set_decl_section_name (newdecl, DECL_SECTION_NAME (olddecl));
+
+      /* Merge the section attribute from the new decl to the old one. */
+      if ((DECL_EXTERNAL (newdecl) || TREE_PUBLIC (newdecl) || TREE_STATIC (newdecl))
+	  && DECL_SECTION_NAME (olddecl) == NULL
+	  && DECL_SECTION_NAME (newdecl))
+	set_decl_section_name (olddecl, DECL_SECTION_NAME (newdecl));
 
       /* Copy the assembler name.
 	 Currently, it can only be defined in the prototype.  */

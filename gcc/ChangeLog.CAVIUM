@@ -1,3 +1,9 @@
+2014-07-19  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #11496
+	* c/c-decl.c (merge_decls): Also copy the section to olddecl
+	from the newdecl.
+
 2014-07-18  Andrew Pinski  <apinski@cavium.com>
 
 	* config/mips/octeon-elf.h (GCOV_TARGET_SUFFIX_LENGTH):
