@@ -3687,7 +3687,7 @@ given object map $MAPO}#
 		 (if (or (is_string curnamelem) (is_a curnamelem class_named))
 		     (list_append listentries (tuple curnamelem curvalelem)))))))
        )
-     )
+     ) ;; end of forever argloop
     (let ( (tupentries (list_to_multiple listentries))
 	   (sortedtupentries 
 	    (multiple_sort tupentries 
@@ -3701,12 +3701,13 @@ given object map $MAPO}#
 	       (curent :long ix)
 	       (let ( (nextent (multiple_nth sortedtupentries (+i ix 1)))
 		      )
-		 (if (json_name_less (multiple_nth curent 0) (multiple_nth nextent 0))
+		 (if (or (null nextent) (notnull (json_name_less (multiple_nth curent 0) (multiple_nth nextent 0))))
 		     (list_append ul curent))))
 	      (list_to_multiple ul)))
 	   (:long nbuniqentries (multiple_length uniqlistentries))
 	   (resj ())			        
 	   )
+      ;;
       ;; this is the only place where jsonobject are allocated! ;
       (code_chunk makejson_chk 
 		  #{ /* melt_make_jsonobject $MAKEJSON_CHK */
@@ -3723,6 +3724,7 @@ given object map $MAPO}#
       (foreach_in_multiple
        (uniqlistentries)
        (curent :long ix)
+       (assert_msg "check curent" (==i (multiple_length curent) 2))
        (let ( (curnam (multiple_nth curent 0))
 	      (curval (multiple_nth curent 1))
 	      )

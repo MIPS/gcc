@@ -1,6 +1,17 @@
 
 2014-07-20  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-base.melt (make_jsonobject): Add assert.
+
+	* melt/warmelt-debug.melt (dbgout_jsonobject_method): Also display
+	the size near toplevel...
+
+	* melt/warmelt-hooks.melt (json_parser_input_processor): Works
+	nearly ok, but make_jsonobject is still disappointing.
+
+
+2014-07-20  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-hooks.melt (json_parser_input_processor): Works
 	better, but make_jsonobject is disappointing.
 

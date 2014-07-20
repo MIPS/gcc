@@ -1186,7 +1186,7 @@ $TORANK}#
     (add2out sbuf ".jsonobj/" (get_field :named_name dis) "<{")
     (when (or (<=i depth 0) (notnull aux))
       (add2sbuf_indentnl sbuf nextdepth)
-      (add2out sbuf "*aux= ")
+      (add2out sbuf "/" size "**aux= ")
       (dbg_out aux dbgi (+i nextdepth 2))
       )
     (foreach_entry_in_jsonobject

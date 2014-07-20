@@ -3191,6 +3191,7 @@ exit, in last place.}#
 		    (assert_msg "check atlist samelength valist"
 				(==i (list_length atlist) (list_length valist)) jtopstate)
 		    (list_popfirst jstack)
+		    (debug "json_parser_input_processor rightbrace atlist=" atlist "; valist=" valist)
 		    (let ( (jsob (make_jsonobject discr_jsonobject atlist valist))
 			   (jprevstate (list_first_element jstack))
 			   )
