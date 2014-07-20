@@ -1,3 +1,8 @@
+2014-07-18  Michael Matz  <matz@suse.de>
+
+	* okra.h: Update to public API.
+	* hsaokra.c: Adjust accordingly.
+
 2014-07-14  Michael Matz  <matz@suse.de>
 
 	* okra.h: New file.

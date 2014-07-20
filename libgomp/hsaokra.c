@@ -7,8 +7,9 @@
 typedef okra_status_t (*okra_get_context_func_t)(okra_context_t**);
 typedef okra_status_t (*okra_kernel_create_func_t)( okra_context_t* ,const char *, const char *,okra_kernel_t **);
 typedef okra_status_t (*okra_push_pointer_func_t)(okra_kernel_t* , void* );
-typedef okra_status_t (*okra_execute_kernel_func_t)(okra_kernel_t* , okra_range_t* );
+typedef okra_status_t (*okra_execute_kernel_func_t)(okra_context_t*, okra_kernel_t* , okra_range_t* );
 typedef okra_status_t (*okra_clear_args_func_t)(okra_kernel_t* );
+typedef okra_status_t (*okra_dispose_kernel_func_t)(okra_kernel_t*);
 
 static void *okralib;
 static okra_get_context_func_t     _okra_get_context;
@@ -98,6 +99,8 @@ typedef struct __hsa_kernel_desc_
   void *kernel;
 } __hsa_kernel_desc;
 
+static okra_context_t *okracontext;
+
 void * __hsa_launch_kernel (__hsa_kernel_desc *, __hsa_launch_attrs *attrs,
 			    __hsa_kernelarg *args);
 
@@ -124,7 +127,10 @@ __hsa_launch_kernel (__hsa_kernel_desc * _kd, __hsa_launch_attrs *attrs,
     }
 
   if (_kd->kernel)
-    kernel = _kd->kernel;
+    {
+      kernel = _kd->kernel;
+      context = okracontext;
+    }
   else
     {
       char* hsailStr = NULL;
@@ -146,12 +152,13 @@ __hsa_launch_kernel (__hsa_kernel_desc * _kd, __hsa_launch_attrs *attrs,
 	  return NULL;
 	}
       _kd->kernel = kernel;
+      okracontext = context;
     }
 
-  _okra_clear_args(kernel);
+  _okra_clear_args (kernel);
   for (; i < _kd->nargs; i++) {
       void *cur_args = args[i].addr;
-      _okra_push_pointer(kernel,cur_args);
+      _okra_push_pointer (kernel, cur_args);
   }
   /* set launch dimensions */
   range.dimension = 1;
@@ -159,7 +166,7 @@ __hsa_launch_kernel (__hsa_kernel_desc * _kd, __hsa_launch_attrs *attrs,
   range.group_size[0] = 1;
   if (debug > 0)
     printf ("HSA: launching kernel %s\n", _kd->name);
-  status = _okra_execute_kernel(kernel, &range);
+  status = _okra_execute_kernel (context, kernel, &range);
   if (status != OKRA_SUCCESS)
     {
       printf( "Failed to launch kernel \n"); 

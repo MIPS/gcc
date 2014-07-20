@@ -130,22 +130,14 @@ okra_status_t OKRA_API okra_clear_args(okra_kernel_t* kernel);
 
 //execute the kernel - takes kernel, execution range as input
 //This is a synchronous call - returns only after kernel completion
-//Dimensions:
-//assert(range->dimension >=1 && range->dimension <=3)
-//Global Size:
-// 0 for global size any dimension is invalid, should be atleast 1. 
-//Group size:
-//For instance, this is valid: group_size[0]=x;group_size[1]=y;group_size[2] = z; where x,y,z is >=1
-//However assert(group_size[0] * group_size[1] * group_size[2] <= 2048)
-//This is valid too: group_size[0]=group_size[1]=group_size[2]=0; - runtime will choose an 
-//appropriate size in this case, depending on the number of dimensions
-//This set of input is invalid: If dimension=2, then group_size[0]=256, group_size[1]=group_size[2]=0;
-//Either pass required group_size for each valid dimension or let the runtime choose group size for each
-//valid dimension
-okra_status_t OKRA_API okra_execute_kernel(okra_kernel_t* kernel, okra_range_t* range);
+//If the user pass 0's for group size, the runtime will choose one
+okra_status_t OKRA_API okra_execute_kernel(okra_context_t* context, okra_kernel_t* kernel, okra_range_t* range);
 
-//cleanup any resource allocated by okra runtime
-okra_status_t OKRA_API okra_dispose(okra_context_t* context);
+//cleanup kernel
+okra_status_t OKRA_API okra_dispose_kernel(okra_kernel_t* kernel);
+
+//cleanup any resource allocated by okra context
+okra_status_t OKRA_API okra_dispose_context(okra_context_t* context);
 
 
 #ifdef __cplusplus
