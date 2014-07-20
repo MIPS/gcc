@@ -1,5 +1,17 @@
-Playing with the HSA branch only makes sense if you also have
-the HSA tools and simulator available.  The important things
+For playing with the HSA branch there are two viable approaches:
+1) Use the HSA simulator directly (via a shared library)
+2) Use the OKRA wrapper, which comes in two flavors itself,
+   supporting the simulator and supporting hardware
+
+Using the OKRA layer results in a small restriction (see below), but
+is currently the only way to see the HSA code running on hardware.
+For debugging it makes sense to have the simulator available anyway,
+and as it's a bit cumbersome to set up, we'll deal with that first.
+If you only want to play with hardware skip below until OKRA.
+
+======================= GCC + HSA Simulator ===============================
+
+The important things for the simulator
 are split over two git repositories, but for building they
 are integrated.  They'll also need a specific LLVM version.
 You don't need to hunt those for yourself, downloading it is
@@ -25,7 +37,7 @@ the simulator.  Build the HSA simulator (which also builds libHSAIL):
 % make _DBG=1
 
 If something breaks here or in the cmake call before it's probably
-missign development packages, which you'll have to figure out and 
+missing development packages, which you'll have to figure out and 
 install somehow.
 
 Test the HSAIL simulator:
@@ -121,7 +133,7 @@ OpenMP
 -------------------------
 
 The HSA branch contains some early support to transform openMP code
-into HSAIL code, for only the openMP parallel pragma is implemented,
+into HSAIL code, for now only the openMP parallel pragma is implemented,
 e.g. this loop:
 
      /* Launch threads to  */
@@ -133,3 +145,129 @@ e.g. this loop:
      } /* omp end parallel */
 
 can be transformed into an HSA kernel.  Just use -fopenmp for compilation.
+
+========================= GCC + OKRA bindings ==============================
+
+If you want hardware support you need to use the okra bindings towards
+the HSA backend.  There are two: one using the simulator (sources available),
+and another using hardware (binary only).  There may be more in the future.
+Right now both are a shared module named libokra_x86_64.so, which is loaded
+dynamically by libgomp.  Depending which one is loaded you'll get the
+simluator or the hardware one.  If you link your programs additionally
+against the above libgcchsa.so then the HSA simulator is used directly
+and the OKRA binding is ignored.  (Technically that's done by GCC emitting
+calls to __hsa_launch_kernel, which exists in libgcchsa.so and in libgomp.so.
+If libgcchsa.so is linked explicitely it's linked before libgomp.so,
+so that version is found first.  Otherwise the libgomp.so variant is used,
+which uses the okra wrapper itself.)
+
+The okra wrapper for the simulator is here:
+  https://github.com/HSAFoundation/Okra-Interface-to-HSAIL-Simulator
+The okra wrapper for hardware here:
+  https://github.com/HSAFoundation/Okra-Interface-to-HSA-Device
+
+========================== okra for simulator ==========================
+
+For the simulator-okra you need the simulator itself first, see above
+for building it.  Once done you can build the simulator-okra.  The repo
+itself contains only a method which needs java and ant to build this, it's
+easier to use this Makefile (to be placed into the toplevel dir, parallel
+to build-okra-sim.xml):
+
+----------------- Makefile ----------------------------
+HSADIR=..../HSAIL-Instruction-Set-Simulator
+HSALIBFLAVOR=Debug
+HSADEVDIR=$(HSADIR)/dev
+LIBS=-L $(HSADEVDIR)/build/$(HSALIBFLAVOR)/lib/ -Wl,-rpath,$(HSADEVDIR)/build/$(HSALIBFLAVOR)/lib/ -lgcchsa
+INCLUDES=-Isrc/cpp -I$(HSADIR)/include
+SOURCES=src/cpp/okra_c_interface.cpp src/cpp/okraContextSimulator.cpp
+OBJECTS=$(SOURCES:.cpp=.o)
+CXXFLAGS=-g -fPIC $(INCLUDES)
+
+all: dist/bin/libokra_x86_64.so
+
+dist/bin/libokra_x86_64.so: $(OBJECTS)
+	echo $(OBJECTS)
+	echo $(SOURCES)
+	mkdir -p dist/bin
+	g++ -shared -fPIC -Wl,-soname,libokra_x86_64.so -o $@ $(OBJECTS) $(LIBS)
+
+.cpp.o:
+	g++ -c $(CXXFLAGS) -o $@ $<
+-------------------------------------------------------
+
+Make sure you transfer the file correctly (Tabs before commands in rules!)
+and to adjust the HSADIR variable to point to the simulator as set up
+from the above section.
+
+After make you should have ended up with a file dist/bin/libokra_x86_64.so.
+The hardware okra wrapper repository contains that file as binary blob,
+together with some other shared libraries that actually implement the
+finalizer for hardware.
+
+Either way you have a libokra_x86_64.so file now which can be dynamically
+loaded by libgomp when it can be found by the dynamic loader (i.e.
+set LD_LIBRARY_PATH or copy to your current directory).
+
+There is one caveat with using the okra wrappers: for HSA kernels only
+the ascii form is accepted at this point, and all kernel must be in a file
+called hsakernel.hsail in the current directory.  This restriction will
+be lifted once the HSA spec is finalized to version 1.0 (and the restriction
+of having just one file name might be lifted before).
+
+GCC will directly generate the binary form of HSA kernels in ELF sections
+of the associated .o files.  To generate an ASCII file from that you
+need the hsailasm helper program (which can also disassemble), binutils
+and this script:
+
+% cat hsacreatekernel.sh
+#!/bin/sh
+ld -r -o hsakernel.all.o ${1+"$@"}
+objcopy -O elf32-i386 -j .brig_strtab -j .brig_directives \
+  -j .brig_code -j .brig_operands -j .brig_debug hsakernel.all.o hsakernel.o
+rm -f hsakernel.all.o
+hsailasm -disassemble hsakernel.o
+
+It takes all object filenames containing BRIG sections, merges them,
+and disassembles this into hsakernel.hsail.
+
+======================= OKRA Example ==============================
+
+This trivial fortran program will square a vector with openMP:
+
+% cat omp_vecsquare.f90
+subroutine vector_square(n, a, b)
+      integer i, n, b(n), a(n)
+!$omp parallel do 
+      do i=1,n
+          b(i) = a(i) * a(i)
+      enddo
+!$omp end parallel do
+end subroutine vector_square
+
+program main
+      integer, parameter :: n=256
+      integer i, b(n), a(n)
+      do i=1,n
+          a(i) = i
+          b(i) = 0
+      enddo 
+      call vector_square(n, a, b)
+      print *, ' Array B is ', b
+end program main 
+
+Do the following (needs the above scripts and helper programs in path):
+
+% p=/path/to/gcc-hsa-branch-installation
+% $p/bin/gfortran -fopenmp -c omp_vecsquare.f90
+% hsacreatekernel.sh omp_vecsquare.o
+% $p/bin/gfortran -fopenmp omp_vecsquare.o -Wl,-rpath,$p/lib64
+% LD_LIBRARY_PATH=... something where libokra_x86_64.so can be found ...
+% ./a.out
+...
+
+If you link against libgcchsa.so (as described above in the first section)
+the okra wrapper will not be used, and instead the HSA simulator directly.
+In that case there's no need for the hsakernel.hsail file (the kernel
+will be load from the BRIG sections in the executable).
+
