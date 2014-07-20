@@ -3831,6 +3831,53 @@ AC_DEFUN([GLIBCXX_CHECK_SDT_H], [
   AC_MSG_RESULT($glibcxx_cv_sys_sdt_h)
 ])
 
+dnl
+dnl Check whether the library calls required by the Filesystem TS are present
+dnl and define _GLIBCXX_USE_REALPATH and _GLIBCXX_USE_UTIMENSAT.
+dnl
+AC_DEFUN([GLIBCXX_CHECK_FILESYSTEM_DEPS], [dnl
+dnl
+  AC_LANG_SAVE
+  AC_LANG_CPLUSPLUS
+  ac_save_CXXFLAGS="$CXXFLAGS"
+  CXXFLAGS="$CXXFLAGS -fno-exceptions"
+dnl
+  AC_MSG_CHECKING([for realpath])
+  AC_CACHE_VAL(glibcxx_cv_realpath, [dnl
+    GCC_TRY_COMPILE_OR_LINK(
+      [#include <stdlib.h>],
+      [char *tmp = realpath((const char*)NULL, (char*)NULL);],
+      [glibcxx_cv_realpath=yes],
+      [glibcxx_cv_realpath=no])
+  ])
+  if test $glibcxx_cv_realpath = yes; then
+    AC_DEFINE(_GLIBCXX_USE_REALPATH, 1, [Define if realpath is available in <stdlib.h>.])
+  fi
+  AC_MSG_RESULT($glibcxx_cv_realpath)
+dnl
+  AC_MSG_CHECKING([for utimensat])
+  AC_CACHE_VAL(glibcxx_cv_utimensat, [dnl
+    GCC_TRY_COMPILE_OR_LINK(
+      [
+        #include <fcntl.h>
+        #include <sys/stat.h>
+      ],
+      [
+        struct timespec ts[2] = { { 0, UTIME_OMIT }, { 1, 1 } };
+        int i = utimensat(AT_FDCWD, "path", ts, 0);
+      ],
+      [glibcxx_cv_utimensat=yes],
+      [glibcxx_cv_utimensat=no])
+  ])
+  if test $glibcxx_cv_utimensat = yes; then
+    AC_DEFINE(_GLIBCXX_USE_UTIMENSAT, 1, [Define if utimensat and UTIME_OMIT are available in <sys/stat.h> and AT_FDCWD in <fcntl.h>.])
+  fi
+  AC_MSG_RESULT($glibcxx_cv_utimensat)
+dnl
+  CXXFLAGS="$ac_save_CXXFLAGS"
+  AC_LANG_RESTORE
+])
+
 # Macros from the top-level gcc directory.
 m4_include([../config/gc++filt.m4])
 m4_include([../config/tls.m4])

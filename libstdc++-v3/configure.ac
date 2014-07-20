@@ -397,8 +397,9 @@ GLIBCXX_CONFIGURE_TESTSUITE
 GLIBCXX_CHECK_GTHREADS
 
 # For Filesystem TS.
-AC_CHECK_HEADERS([dirent.h])
+AC_CHECK_HEADERS([fcntl.h dirent.h])
 AC_STRUCT_DIRENT_D_TYPE
+GLIBCXX_CHECK_FILESYSTEM_DEPS
 
 # Define documentation rules conditionally.
 
