@@ -4,7 +4,7 @@
  ln -s $GCCMELT_SOURCE/gcc/testsuite/melt/tjson-1.melt
 
  ./cc1 -fmelt-mode=runfile @meltbuild-common.args -Iinclude/ \
-    -fmelt-init=@melt-default-modules.quicklybuilt -fmelt-arg=tjson-1.melt \
+    -fmelt-init=@warmelt.quicklybuilt -fmelt-arg=tjson-1.melt \
      meltbuild-empty-file.c
 
 or in a MELT module
@@ -28,7 +28,7 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 		     ))
       )
   (debug "jparser=" jparser "\n inh=" inh)
-  (add2out sbuf "{\"jsonrpc\":\"2.0\", \"method\":\"hello\",\"params\":[1 null true \"a string with \\n in it\"]}")
+  (add2out sbuf "{\"jsonrpc\":\"2.0\", \"method\":\"hello\",\"params\":[1,null,true,\"a string with \\n in it\"]}")
   (debug "sbuf=" sbuf)
   (json_parser_input_processor inh sbuf)
   (debug "done final jparser=" jparser)

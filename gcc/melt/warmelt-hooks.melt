@@ -3123,7 +3123,7 @@ exit, in last place.}#
   (match jstate
 	 (?(tuple :json_result ?_) (return :true))
 	 (?(tuple :json_array ?_) (return :true))
-	 (?(tuple :json_object_val ?_) (return :true))
+	 (?(tuple :json_object_val ?_ ?_) (return :true))
 	 (?_ (return ()))))
 
 	 
@@ -3164,11 +3164,11 @@ exit, in last place.}#
 	      " jparser=" jparser)
      (let ( (jtopstate (list_first_element jstack))
 	    )
-       (debug "json_parser_input_processor jtopstate=" jtopstate)
        (multicall
 	(kind detail)
 	(json_lexer sbuf)
-	(debug "json_parser_input_processor lexed kind=" kind " detail=" detail)
+	(debug "json_parser_input_processor lexed kind=" kind
+	       ", detail=" detail "; jtopstate=" jtopstate "\n")
 	(match
 	 (tuple kind detail)
 	 (?(tuple :delim :left_brace)
@@ -3381,7 +3381,7 @@ exit, in last place.}#
 		    (debug "json_parser_input_processor after null now jtopstate=" jtopstate)
 		    )  
 		  (?_
-		   (debug "json_parser_input_processor after null bad jtopstate=" jtopstate)
+		   (debug "json_parser_input_processor after null bad jtopstate=" jtopstate "; jstack=" jstack)
 		   (jerror '"unexpected null")
 		   (return))
 		   )

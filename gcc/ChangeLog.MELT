@@ -1,4 +1,12 @@
 
+2014-07-20  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-hooks.melt (json_parser_input_processor): Works
+	better, but make_jsonobject is disappointing.
+
+	* testsuite/melt/tjson-1.melt: Improve the example, it was
+	incorrect JSON because of missing comma inside array...
+
 2014-07-19  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-hooks.melt (json_parser_input_processor): More
