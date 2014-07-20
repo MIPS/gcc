@@ -1,0 +1,38 @@
+;; file tjson-0.melt -*- lisp -*-
+;; this sample code is in the public domain
+#| run in buildir/gcc
+ ln -s $GCCMELT_SOURCE/gcc/testsuite/melt/tjson-0.melt
+
+ ./cc1 -fmelt-mode=runfile @meltbuild-common.args -Iinclude/ \
+    -fmelt-init=@warmelt.quicklybuilt -fmelt-arg=tjson-0.melt \
+     meltbuild-empty-file.c
+
+or in a MELT module
+
+gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
+    -fplugin-arg-melt-init=@melt-default-modules.quicklybuilt -fplugin-arg-melt-arg=tjson-0.melt \
+     -c -O empty.c -o /dev/null
+|#
+(module_is_gpl_compatible "public domain")
+(let (
+      (jo1 (make_jsonobject discr_jsonobject 'a 1 'b 2 'c ()))
+     )
+  (debug "tjson0" " jo1=" jo1)
+  )
+
+(let ( (jo2 (make_jsonobject discr_jsonobject 'a 'b))
+       )
+  (debug "tjson0" " jo2=" jo2)
+  )
+
+(let ( (jo3 (make_jsonobject discr_jsonobject (tuple 'aa 'bb) (tuple 'xx 'yy)))
+       )
+  (debug "tjson0" " jo3=" jo3)
+  )
+
+(let ( (jo4 (make_jsonobject discr_jsonobject (list 'aa 'bb) (list 'x 'y)))
+       )
+  (debug "tjson0" " jo4=" jo4)
+  )
+
+;; eof tjson-0.melt

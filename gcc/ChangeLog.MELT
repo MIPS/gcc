@@ -1,6 +1,10 @@
 
 2014-07-20  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* testsuite/melt/tjson-0.melt: New file.
+
+2014-07-20  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-base.melt (make_jsonobject): Add assert.
 
 	* melt/warmelt-debug.melt (dbgout_jsonobject_method): Also display
