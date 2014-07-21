@@ -1,4 +1,10 @@
 
+2014-07-21  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* testsuite/melt/tjson-0.melt: Improved and working.
+
+	* melt/warmelt-base.melt (make_jsonobject): Correct bug for list case.
+
 2014-07-20  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* testsuite/melt/tjson-0.melt: New file.

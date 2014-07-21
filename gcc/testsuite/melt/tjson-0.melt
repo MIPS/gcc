@@ -30,7 +30,7 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
   (debug "tjson0" " jo3=" jo3)
   )
 
-(let ( (jo4 (make_jsonobject discr_jsonobject (list 'aa 'bb) (list 'x 'y)))
+(let ( (jo4 (make_jsonobject discr_jsonobject (list 'aa 'bb 'cc) (list 'x 'y '3)))
        )
   (debug "tjson0" " jo4=" jo4)
   )

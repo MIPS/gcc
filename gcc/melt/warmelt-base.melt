@@ -3671,9 +3671,12 @@ given object map $MAPO}#
 		( (is_string v) (setq curval v))
 		( (is_integerbox v) (setq curval v))
 		( (is_jsonobject v) (setq curval v))
-		( (is_multiple v) (if nametup (setq valtup v) (setq curval v)))
-		( (is_list v) (let ( (vtup (list_to_multiple v)) )
-				(if nametup (setq valtup v) (setq curval v))))
+		( (is_multiple v) (if nametup 
+				      (setq valtup v) 
+				    (setq curval v)))
+		( (is_list v) (if nametup 
+				  (setq valtup (list_to_multiple v)) 
+				(setq curval v)))
 		(:else (void))))
 	(:else (void))
 	)
