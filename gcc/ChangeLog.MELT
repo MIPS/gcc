@@ -1,5 +1,9 @@
 
 2014-07-21  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/generated/*: Regenerate all.
+
+2014-07-21  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-hooks.melt (connect_server): Done function, untested!
 
 2014-07-21  Basile Starynkevitch  <basile@starynkevitch.net>
