@@ -2882,7 +2882,7 @@ exit, in last place.}#
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; connect to a server thru a socket
 (cheader
- #{ /* headers before connect_server */
+ #{ /* headers before connect_to_server */
  #include <sys/socket.h>
  #include <sys/types.h>
  #include <sys/socket.h>
@@ -2891,11 +2891,11 @@ exit, in last place.}#
  #include <netinet/ip.h>
  #include <netinet/tcp.h>
  #include <netdb.h>
- /* end of headers for connect_server */
+ /* end of headers for connect_to_server */
  }#)
 
-(defun connect_server (service :long quiet)
-  :doc #{the $CONNECT_SERVER function connect thru a socket to a given
+(defun connect_to_server (service :long quiet)
+  :doc #{the $CONNECT_TO_SERVER function connect thru a socket to a given
   $SERVICE. If $SERVICE is a boxed integer, it is an already connected
   socket file descriptor. If $SERVICE is a string containing a / it is
   understood as @code{AF_UNIX} socket name. Otherwise it should be a
@@ -2903,7 +2903,7 @@ exit, in last place.}#
   as @code{localhost:1234}. Returns a boxed integer to a connected
   socket file descriptor, or NIL on system error. Gives GCC warnings
   on system errors. If $QUIET is zero, gives GCC notice inform on success.}#
-  (debug "connect_server start service=" service)
+  (debug "connect_to_server start service=" service)
   (cond
    ;;; boxed integer, a connected socket
    ( (is_integerbox service)
@@ -2912,43 +2912,43 @@ exit, in last place.}#
      (let ( (:long servicenumfd (get_int service))
 	    )
        (code_chunk
-        getpeer_chk #{ /* connect_server $GETPEER_CHK */
+        getpeer_chk #{ /* connect_to_server $GETPEER_CHK */
         struct sockaddr_storage sa ;
         char sahname[80] ;           
         memset ((void*)&sa, 0, sizeof(sa)) ;
         memset ((void*)sahname, 0, sizeof(sahname)) ;
         socklen_t salen = sizeof(sa) ;
         if (getpeername((int)$SERVICENUMFD, (struct sockaddr*)&sa, &salen)) {
-          warning (0, "MELT connect_server: on file descriptor #%d failed getpeername: %s",
+          warning (0, "MELT connect_to_server: on file descriptor #%d failed getpeername: %s",
                    (int)$SERVICENUMFD, xstrerror(errno)) ;
           $(ignore (return ())) ;
 	} ;	  
         if (getnameinfo((const struct sockaddr *)(&sa), salen,
                         sahname, sizeof(sahname),
                         NULL, 0, 0)) {
-          warning (0, "MELT connect_server: on file descriptor #%d failed getnameinfo: %s",
+          warning (0, "MELT connect_to_server: on file descriptor #%d failed getnameinfo: %s",
                     (int)$SERVICENUMFD, xstrerror(errno)) ;
           $(ignore (return ())) ;
         } ;
         if (!$QUIET)
-          inform (UNKNOWN_LOCATION, "MELT connect_server with file descriptor #%d of peer %s",
+          inform (UNKNOWN_LOCATION, "MELT connect_to_server with file descriptor #%d of peer %s",
                   (int)$SERVICENUMFD, sahname) ;
         }#)
-       (debug "connect_server good peered file descriptor#" servicenumfd)
+       (debug "connect_to_server service=" service " good peered file descriptor#" servicenumfd)
        (return (constant_box servicenumfd))
        )
      )
    ;; should be a string
    ( (not (is_string service))
-     (warning_at () "connect_server invalid service=" service)
+     (warning_at () "connect_to_server invalid service=" service)
      (return))
    ;; unix-like socket with /
    ( (expr_chunk unixsockslash_chk :long
-		 #{/* connect_server $UNIXSOCKSLASH_CHK */ strchr (melt_string_str ($SERVICE), '/') != NULL}#)
+		 #{/* connect_to_server $UNIXSOCKSLASH_CHK */ strchr (melt_string_str ($SERVICE), '/') != NULL}#)
      (let ( (:long unixsockfd -1)
 	    )
        (code_chunk connectunix_chk
-		 #{ /* connect_server $CONNECTUNIX_CHK */
+		 #{ /* connect_to_server $CONNECTUNIX_CHK */
 		 /* UNIX_PATH_MAX might be defined, but usually not, see unix(7) man page */
 #ifndef UNIX_PATH_MAX
 #define UNIX_PATH_MAX 100
@@ -2956,33 +2956,146 @@ exit, in last place.}#
 		 struct sockaddr_un saun;
 		 memset (&saun, 0, sizeof(saun));
 		 if (strlen(melt_string_str($SERVICE))>=UNIX_PATH_MAX) {
-		    warning (0, "MELT connect_server: AF_UNIX too long path %s", melt_string_str($SERVICE));
+		    warning (0, "MELT connect_to_server: AF_UNIX too long path %s", melt_string_str($SERVICE));
 		    $(ignore (return ()));
 		 };
 		 saun.sun_family = AF_UNIX;
 		 strncpy (saun.sun_path,  melt_string_str($SERVICE), UNIX_PATH_MAX);
 		 $UNIXSOCKFD = socket (AF_UNIX, SOCK_STREAM, 0);
 		 if ((int)$UNIXSOCKFD<0) {
-		   warning (0, "MELT connect_server: AF_UNIX %s socket failure: %s",
+		   warning (0, "MELT connect_to_server: AF_UNIX %s socket failure: %s",
 			    saun.sun_path, xstrerror(errno));
 		   $(ignore (return ()));
 		 };
 		 socklen_t saulen = sizeof(saun.sun_family) + strlen(saun.sun_path);
 		 if (connect ((int)$UNIXSOCKFD, (const struct sockaddr*)&saun, saulen)) {
-		   warning (0, "MELT connect_server: AF_UNIX %s connect failure: %s",
-			    saun.sun_path, xstrerror(errno));
+		   warning (0, "MELT connect_to_server: AF_UNIX %s connect failure: %s",
+			       saun.sun_path, xstrerror(errno));
+		   (void) close((int)$UNIXSOCKFD);
 		   $(ignore (return ()));
 		 };
 		 if (!$QUIET)
 		   inform (UNKNOWN_LOCATION,
-			   "MELT connect_server: connected to Unix socket %s file descriptor #%d",
+			   "MELT connect_to_server: connected to Unix socket %s file descriptor #%d",
 			   saun.sun_path, (int)$UNIXSOCKFD) ;		    
 		 }#)
-       (debug "connect_server: unixsockfd=" unixsockfd)
+       (debug "connect_to_server service=" service " unixsockfd=" unixsockfd)
        (return (constant_box unixsockfd))
      ))
+   ;; TCP-like socket with at least one colon <host>:<port>
+   ( (expr_chunk unixsockslash_chk :long
+		 #{/* connect_to_server $UNIXSOCKSLASH_CHK */ strchr (melt_string_str ($SERVICE), ':') != NULL}#)
+     (let ( (:long tcpsockfd -1)
+	    )
+       (code_chunk connecttcp_chk
+		   #{ /* connect_to_server $CONNECTTCP_CHK */
+		   int locportnum = -1;
+		   if ((sscanf(melt_string_str ($SERVICE), "localhost:%d", &locportnum)>0
+		        || sscanf(melt_string_str ($SERVICE), ":%d", &locportnum)>0)
+		       && locportnum>0) {
+		     struct sockaddr_in sain;
+		     memset (&sain, 0, sizeof (sain));
+		     sain.sin_family = AF_INET;
+		     sain.sin_port = htons ((int)locportnum);
+		     sain.sin_addr.s_addr = htonl (INADDR_LOOPBACK);
+		     $TCPSOCKFD = (long) socket (AF_INET, SOCK_STREAM, IPPROTO_TCP);
+		     if ((int)$TCPSOCKFD<0) {
+		       warning (0, "MELT connect_to_server: localhost:%d socket failure: %s",
+				locportnum, xstrerror(errno));
+		       $(ignore (return ()));
+		     }
+		     if (connect ((int)$TCPSOCKFD, (const struct sockaddr*)&sain, (socklen_t)sizeof(sain))) {
+		        warning (0, "MELT connect_to_server: localhost:%d connect failure: %s",
+				 locportnum, xstrerror(errno));
+			(void) close((int)$TCPSOCKFD);
+			$(ignore (return ()));
+		     }
+		   }
+		   else { /* try IPv6 connection with getaddrinfo, <hostname>:<servicenameorport> */
+		     char remservicename[24] = { 0 };
+		     char remhostname[80] = { 0 };
+                     struct addrinfo hints = { 0 };
+                     struct addrinfo *adinf = NULL;
+		     int gstatus = -1;
+                     memset (&hints, 0, sizeof (hints));
+		     {
+		       const char* servicestr = melt_string_str ($SERVICE);
+		       gcc_assert (servicestr != NULL);
+		       if (strlen(servicestr) >= sizeof(remhostname)) {
+		          warning (0, "MELT connect_to_server: too long service name %s", servicestr);
+			  $(ignore (return ()));
+		       };
+		       const char* lastcolon = strrchr(servicestr, ':');
+		       gcc_assert (lastcolon != NULL && lastcolon > servicestr+1);
+		       strncpy(remhostname, servicestr, MIN(lastcolon-servicestr-1, sizeof(remhostname)));
+		       strncpy(remservicename, lastcolon+1, sizeof(remservicename)-1);
+		     }
+                     hints.ai_family = AF_UNSPEC;
+                     hints.ai_socktype = SOCK_STREAM;
+                     hints.ai_flags = AI_PASSIVE | AI_CANONNAME;
+                     if ((gstatus = getaddrinfo (remhostname, remservicename, &hints, &adinf)) != 0) {
+		       warning (0, "MELT connect_to_server: getaddrinfo host %s service %s failed: %s",
+                                remhostname, remservicename, gai_strerror(gstatus));
+		       $(ignore (return ()));
+                     };
+                     for (struct addrinfo * curadinf = adinf; 
+                          curadinf != NULL;
+ 	                  curadinf = curadinf->ai_next)
+	               {
+                         errno = 0;
+                         $TCPSOCKFD = (long) socket (curadinf->ai_family, curadinf->ai_socktype,
+		                     curadinf->ai_protocol);
+                         if ((int)$TCPSOCKFD<0 && curadinf->ai_next) 
+                           continue;
+                         if ((int)$TCPSOCKFD<0) {
+                           int errnosocket = errno;
+	                   struct protoent *protoent = getprotobynumber (curadinf->ai_protocol);
+	                   char protonumbuf[8] = { 0 };
+                           char* protoname = NULL;
+	                   if (protoent) 
+                              protoname = protoent->p_name;
+                           else {
+                              snprintf (protonumbuf, sizeof (protonumbuf), "%d",
+		                        curadinf->ai_protocol);
+                              protoname = protonumbuf;
+                           };
+		           warning (0, "MELT connect_to_server socket remote host %s service %s failed for protocol %s: %s",
+                                    remhostname, remservicename, protoname,
+                                    xstrerror(errnosocket));
+                           freeaddrinfo (adinf);
+                           $(ignore (return ()));
+                         }; // end if (int)$TCPSOCKFD<0 
+                         if (connect ((int)$TCPSOCKFD, (struct sockaddr *) curadinf->ai_addr,
+	                     curadinf->ai_addrlen) < 0) {
+                           int errnoconnect = errno;
+	                   struct protoent *protoent = getprotobynumber (curadinf->ai_protocol);
+	                   char protonumbuf[8] = { 0 };
+                           char* protoname = NULL;
+	                   if (protoent) 
+                              protoname = protoent->p_name;
+                           else {
+                              snprintf (protonumbuf, sizeof (protonumbuf), "%d",
+		                        curadinf->ai_protocol);
+                              protoname = protonumbuf;
+                           };
+		           warning (0, "MELT connect_to_server connect remote host %s service %s failed for protocol %s: %s",
+                                    remhostname, remservicename, protoname,
+                                    xstrerror(errnoconnect));
+                           freeaddrinfo (adinf);
+                           $(ignore (return ()));
+                         } // end if connect failed
+                         else
+                           break;
+                       }; /* end for curadinf */
+                       freeaddrinfo(adinf), adinf = NULL;
+                     } /* end IP with getaddrinfo */
+                   /* end connect_to_server $CONNECTTCP_CHK */
+		   }#)
+       (debug "connect_to_server service=" service " tcpsockfd=" tcpsockfd)
+       (return (constant_box tcpsockfd))
+       ))
    (:else
-    (warning_at () "connect_server: invalid service=" service)
+    (warning_at () "connect_to_server: invalid service=" service)
     (return)))
   )
 
@@ -3558,6 +3671,7 @@ exit, in last place.}#
 )
 
 (export_values
+ connect_to_server
  every_polling_input
  get_polling_input
  hook_handle_sigio 
