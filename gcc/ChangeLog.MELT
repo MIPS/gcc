@@ -1,5 +1,10 @@
 
 2014-07-21  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{tjson-1.melt test also works}}
+
+	* melt/warmelt-hooks.melt (connect_server): New incomplete function.
+
+2014-07-21  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* testsuite/melt/tjson-0.melt: Improved and working.
 

@@ -2828,14 +2828,14 @@ exit, in last place.}#
 (defun register_raw_input_channel_handler (clos data :long inchfd)
   :doc #{$REGISTER_RAW_INPUT_CHANNEL_HANDLER registers an asynchronous
   raw input channel handler, such as for the graphical user interface
-  probe. $CLOS is the registered closure, $DATA is some client data,
-  $INCHFD is the input Unix file descriptor. When some bytes are
-  recieved from the $INCHFD, the $CLOS is applied - by
-  $MELT_INVOKE_INPUT_CALLBACKS utility - to the input channel handler
-  -containing the data as its $INCH_DATA field-, a read-only instance
-  of $CLASS_INPUT_CHANNEL_HANDLER and to the contained string buffer.
-  When end-of-file is obtained on $INCHFD, the closure is similarily
-  applied to the channel and a null value.}#
+  probe or for some JSONRPC server. $CLOS is the registered closure,
+  $DATA is some client data, $INCHFD is the input Unix file
+  descriptor. When some bytes are recieved from the $INCHFD, the $CLOS
+  is applied - by $MELT_INVOKE_INPUT_CALLBACKS utility - to the input
+  channel handler -containing the data as its $INCH_DATA field-, a
+  read-only instance of $CLASS_INPUT_CHANNEL_HANDLER and to the
+  contained string buffer.  When end-of-file is obtained on $INCHFD,
+  the closure is similarily applied to the channel and a null value.}#
   (debug "register_raw_input_channel_handler clos=" clos " data=" data 
 	 " inchfd=" inchfd)
   (let ( (:long goodinchfd 0) )
@@ -2878,6 +2878,113 @@ exit, in last place.}#
           /* end  $FCNTLINCHFDCHK register_raw_input_channel_handler */
 	  }#)
       )))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; connect to a server thru a socket
+(cheader
+ #{ /* headers before connect_server */
+ #include <sys/socket.h>
+ #include <sys/types.h>
+ #include <sys/socket.h>
+ #include <sys/un.h>
+ #include <netinet/in.h>
+ #include <netinet/ip.h>
+ #include <netinet/tcp.h>
+ #include <netdb.h>
+ /* end of headers for connect_server */
+ }#)
+
+(defun connect_server (service :long quiet)
+  :doc #{the $CONNECT_SERVER function connect thru a socket to a given
+  $SERVICE. If $SERVICE is a boxed integer, it is an already connected
+  socket file descriptor. If $SERVICE is a string containing a / it is
+  understood as @code{AF_UNIX} socket name. Otherwise it should be a
+  @var{hostname}@code{:}@var{portnumber}, with @code{:1234} understood
+  as @code{localhost:1234}. Returns a boxed integer to a connected
+  socket file descriptor, or NIL on system error. Gives GCC warnings
+  on system errors. If $QUIET is zero, gives GCC notice inform on success.}#
+  (debug "connect_server start service=" service)
+  (cond
+   ;;; boxed integer, a connected socket
+   ( (is_integerbox service)
+     ;; already connected socket, use getpeername
+     ;;
+     (let ( (:long servicenumfd (get_int service))
+	    )
+       (code_chunk
+        getpeer_chk #{ /* connect_server $GETPEER_CHK */
+        struct sockaddr_storage sa ;
+        char sahname[80] ;           
+        memset ((void*)&sa, 0, sizeof(sa)) ;
+        memset ((void*)sahname, 0, sizeof(sahname)) ;
+        socklen_t salen = sizeof(sa) ;
+        if (getpeername((int)$SERVICENUMFD, (struct sockaddr*)&sa, &salen)) {
+          warning (0, "MELT connect_server: on file descriptor #%d failed getpeername: %s",
+                   (int)$SERVICENUMFD, xstrerror(errno)) ;
+          $(ignore (return ())) ;
+	} ;	  
+        if (getnameinfo((const struct sockaddr *)(&sa), salen,
+                        sahname, sizeof(sahname),
+                        NULL, 0, 0)) {
+          warning (0, "MELT connect_server: on file descriptor #%d failed getnameinfo: %s",
+                    (int)$SERVICENUMFD, xstrerror(errno)) ;
+          $(ignore (return ())) ;
+        } ;
+        if (!$QUIET)
+          inform (UNKNOWN_LOCATION, "MELT connect_server with file descriptor #%d of peer %s",
+                  (int)$SERVICENUMFD, sahname) ;
+        }#)
+       (debug "connect_server good peered file descriptor#" servicenumfd)
+       (return (constant_box servicenumfd))
+       )
+     )
+   ;; should be a string
+   ( (not (is_string service))
+     (warning_at () "connect_server invalid service=" service)
+     (return))
+   ;; unix-like socket with /
+   ( (expr_chunk unixsockslash_chk :long
+		 #{/* connect_server $UNIXSOCKSLASH_CHK */ strchr (melt_string_str ($SERVICE), '/') != NULL}#)
+     (let ( (:long unixsockfd -1)
+	    )
+       (code_chunk connectunix_chk
+		 #{ /* connect_server $CONNECTUNIX_CHK */
+		 /* UNIX_PATH_MAX might be defined, but usually not, see unix(7) man page */
+#ifndef UNIX_PATH_MAX
+#define UNIX_PATH_MAX 100
+#endif /*UNIX_PATH_MAX */
+		 struct sockaddr_un saun;
+		 memset (&saun, 0, sizeof(saun));
+		 if (strlen(melt_string_str($SERVICE))>=UNIX_PATH_MAX) {
+		    warning (0, "MELT connect_server: AF_UNIX too long path %s", melt_string_str($SERVICE));
+		    $(ignore (return ()));
+		 };
+		 saun.sun_family = AF_UNIX;
+		 strncpy (saun.sun_path,  melt_string_str($SERVICE), UNIX_PATH_MAX);
+		 $UNIXSOCKFD = socket (AF_UNIX, SOCK_STREAM, 0);
+		 if ((int)$UNIXSOCKFD<0) {
+		   warning (0, "MELT connect_server: AF_UNIX %s socket failure: %s",
+			    saun.sun_path, xstrerror(errno));
+		   $(ignore (return ()));
+		 };
+		 socklen_t saulen = sizeof(saun.sun_family) + strlen(saun.sun_path);
+		 if (connect ((int)$UNIXSOCKFD, (const struct sockaddr*)&saun, saulen)) {
+		   warning (0, "MELT connect_server: AF_UNIX %s connect failure: %s",
+			    saun.sun_path, xstrerror(errno));
+		   $(ignore (return ()));
+		 };
+		 if (!$QUIET)
+		   inform (UNKNOWN_LOCATION,
+			   "MELT connect_server: connected to Unix socket %s file descriptor #%d",
+			   saun.sun_path, (int)$UNIXSOCKFD) ;		    
+		 }#)
+       (debug "connect_server: unixsockfd=" unixsockfd)
+       (return (constant_box unixsockfd))
+     ))
+   (:else
+    (warning_at () "connect_server: invalid service=" service)
+    (return)))
+  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; asynchronous JSON parsing
