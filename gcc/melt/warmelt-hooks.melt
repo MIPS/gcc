@@ -2891,18 +2891,31 @@ exit, in last place.}#
  #include <netinet/ip.h>
  #include <netinet/tcp.h>
  #include <netdb.h>
+ #include <map>
+ 
+ struct Melt_connect_info {
+   std::string             mci_service;
+   int             	   mci_family;
+   int             	   mci_socktype;
+   int             	   mci_protocol;
+   socklen_t       	   mci_addrlen;
+   struct sockaddr_storage mci_sockaddr;
+   };
+ typedef std::map<std::string,Melt_connect_info> melt_connect_info_map_t;
  /* end of headers for connect_to_server */
  }#)
 
 (defun connect_to_server (service :long quiet)
-  :doc #{the $CONNECT_TO_SERVER function connect thru a socket to a given
-  $SERVICE. If $SERVICE is a boxed integer, it is an already connected
-  socket file descriptor. If $SERVICE is a string containing a / it is
-  understood as @code{AF_UNIX} socket name. Otherwise it should be a
-  @var{hostname}@code{:}@var{portnumber}, with @code{:1234} understood
-  as @code{localhost:1234}. Returns a boxed integer to a connected
-  socket file descriptor, or NIL on system error. Gives GCC warnings
-  on system errors. If $QUIET is zero, gives GCC notice inform on success.}#
+  :doc #{the $CONNECT_TO_SERVER function connect thru a socket to a
+  given $SERVICE. If $SERVICE is a boxed integer, it is an already
+  connected socket file descriptor. If $SERVICE is a string containing
+  a / it is understood as @code{AF_UNIX} socket name. Otherwise it
+  should be a @var{hostname}@code{:}@var{portnumber} for TCP/IPv4 or
+  IPv6, with @code{:1234} understood as @code{localhost:1234}. Returns
+  a boxed integer to a connected socket file descriptor, or NIL on
+  system error. Gives GCC warnings on system errors. If $QUIET is
+  zero, gives GCC notice inform on success. Notice that for IP
+  connections, the IP address is cached so would be requested once.}#
   (debug "connect_to_server start service=" service)
   (cond
    ;;; boxed integer, a connected socket
@@ -2923,16 +2936,17 @@ exit, in last place.}#
                    (int)$SERVICENUMFD, xstrerror(errno)) ;
           $(ignore (return ())) ;
 	} ;	  
-        if (getnameinfo((const struct sockaddr *)(&sa), salen,
-                        sahname, sizeof(sahname),
-                        NULL, 0, 0)) {
-          warning (0, "MELT connect_to_server: on file descriptor #%d failed getnameinfo: %s",
-                    (int)$SERVICENUMFD, xstrerror(errno)) ;
-          $(ignore (return ())) ;
-        } ;
-        if (!$QUIET)
+        if (!$QUIET) {
+          if (getnameinfo((const struct sockaddr *)(&sa), salen,
+                          sahname, sizeof(sahname),
+                          NULL, 0, 0)) {
+            warning (0, "MELT connect_to_server: on file descriptor #%d failed getnameinfo: %s",
+                     (int)$SERVICENUMFD, xstrerror(errno)) ;
+            $(ignore (return ())) ;
+          } ;
           inform (UNKNOWN_LOCATION, "MELT connect_to_server with file descriptor #%d of peer %s",
-                  (int)$SERVICENUMFD, sahname) ;
+				    (int)$SERVICENUMFD, sahname) ;
+	  }
         }#)
        (debug "connect_to_server service=" service " good peered file descriptor#" servicenumfd)
        (return (constant_box servicenumfd))
@@ -2990,11 +3004,22 @@ exit, in last place.}#
        (code_chunk connecttcp_chk
 		   #{ /* connect_to_server $CONNECTTCP_CHK */
 		   int locportnum = -1;
-		   if ((sscanf(melt_string_str ($SERVICE), "localhost:%d", &locportnum)>0
-		        || sscanf(melt_string_str ($SERVICE), ":%d", &locportnum)>0)
-		       && locportnum>0) {
+		   int pos = -1;
+		   struct addrinfo hints = { 0 };
+		   char remservicename[24] = { 0 };
+		   char remhostname[80] = { 0 };
+                   struct addrinfo *adinf = NULL;
+		   int gstatus = -1;
+		   static melt_connect_info_map_t coninfmap;
+		   Melt_connect_info conninfo;
+		   bool gotconninfo = false;
+		   const char* servicestr = melt_string_str ($SERVICE);
+		   if ((sscanf(servicestr, "localhost:%d", &locportnum)>0
+		        || sscanf(servicestr, ":%d%n", &locportnum, &pos)>0)
+		       && locportnum>0 && pos>=strlen(servicestr)) {
 		     struct sockaddr_in sain;
 		     memset (&sain, 0, sizeof (sain));
+		     servicestr = NULL;
 		     sain.sin_family = AF_INET;
 		     sain.sin_port = htons ((int)locportnum);
 		     sain.sin_addr.s_addr = htonl (INADDR_LOOPBACK);
@@ -3012,15 +3037,16 @@ exit, in last place.}#
 		     }
 		   }
 		   else { /* try IPv6 connection with getaddrinfo, <hostname>:<servicenameorport> */
-		     char remservicename[24] = { 0 };
-		     char remhostname[80] = { 0 };
-                     struct addrinfo hints = { 0 };
-                     struct addrinfo *adinf = NULL;
-		     int gstatus = -1;
                      memset (&hints, 0, sizeof (hints));
+		     /// use the memoized connect info, if available
 		     {
 		       const char* servicestr = melt_string_str ($SERVICE);
 		       gcc_assert (servicestr != NULL);
+		       melt_connect_info_map_t::iterator iterconninfo = coninfmap.find(std::string(servicestr));
+		       if (iterconninfo != coninfmap.end()) {
+		         conninfo = iterconninfo->second;
+		         gotconninfo = true;
+		       }
 		       if (strlen(servicestr) >= sizeof(remhostname)) {
 		          warning (0, "MELT connect_to_server: too long service name %s", servicestr);
 			  $(ignore (return ()));
@@ -3029,7 +3055,25 @@ exit, in last place.}#
 		       gcc_assert (lastcolon != NULL && lastcolon > servicestr+1);
 		       strncpy(remhostname, servicestr, MIN(lastcolon-servicestr-1, sizeof(remhostname)));
 		       strncpy(remservicename, lastcolon+1, sizeof(remservicename)-1);
-		     }
+		       if (gotconninfo) { // cached network info from previous call
+		         gcc_assert (!strcmp(conninfo.mci_service.c_str(), melt_string_str($SERVICE)));
+                         $TCPSOCKFD = (long) socket (conninfo.mci_family, conninfo.mci_socktype, conninfo.mci_protocol);
+			 if ((int)$TCPSOCKFD<0) {
+			   warning (0, "MELT connect_to_server: cached service %s socket failed: %s",
+				       melt_string_str($SERVICE), xstrerror(errno));
+			   $(ignore (return ()));
+			 }
+                         if (connect ((int)$TCPSOCKFD, (struct sockaddr *) &conninfo.mci_sockaddr,
+				      conninfo.mci_addrlen) < 0) {
+			   warning (0, "MELT connect_to_server: cached service %s connect failed: %s",
+				       melt_string_str($SERVICE), xstrerror(errno));
+			   $(ignore (return ()));
+			 };			 
+			 $(progn (debug "connect_to_server cached service=" service " tcpsockfd=" tcpsockfd)
+				 (return (constant_box tcpsockfd))
+				 (void))			 
+		       };// end if gotconninfo
+		     };  		       
                      hints.ai_family = AF_UNSPEC;
                      hints.ai_socktype = SOCK_STREAM;
                      hints.ai_flags = AI_PASSIVE | AI_CANONNAME;
@@ -3044,7 +3088,7 @@ exit, in last place.}#
 	               {
                          errno = 0;
                          $TCPSOCKFD = (long) socket (curadinf->ai_family, curadinf->ai_socktype,
-		                     curadinf->ai_protocol);
+		                                     curadinf->ai_protocol);
                          if ((int)$TCPSOCKFD<0 && curadinf->ai_next) 
                            continue;
                          if ((int)$TCPSOCKFD<0) {
@@ -3084,8 +3128,20 @@ exit, in last place.}#
                            freeaddrinfo (adinf);
                            $(ignore (return ()));
                          } // end if connect failed
-                         else
-                           break;
+                         else 
+                           { // memoize and break the loop
+                              Melt_connect_info newconninfo;
+                              std::string strservice(melt_string_str($SERVICE));
+                              newconninfo.mci_service = strservice;
+                              newconninfo.mci_family = curadinf->ai_family;
+                              newconninfo.mci_socktype = curadinf->ai_socktype;
+                              newconninfo.mci_protocol = curadinf->ai_protocol;
+                              newconninfo.mci_addrlen = curadinf->ai_addrlen;
+                              memset (&newconninfo.mci_sockaddr, 0, sizeof(struct sockaddr_storage));
+                              memcpy (&newconninfo.mci_sockaddr, curadinf->ai_addr, curadinf->ai_addrlen);
+                              coninfmap[strservice] = newconninfo;
+                              break;
+                           };
                        }; /* end for curadinf */
                        freeaddrinfo(adinf), adinf = NULL;
                      } /* end IP with getaddrinfo */

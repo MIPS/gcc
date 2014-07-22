@@ -1,4 +1,7 @@
 
+2014-07-22  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-hooks.melt (connect_to_server): Add memoization of services.
+
 2014-07-21  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/generated/*: Regenerate all.
