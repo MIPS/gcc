@@ -1,5 +1,17 @@
 
 2014-07-22  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.h (melt_string_same_case, melt_string_less_case):
+	New inlined functions.
+
+	* melt/warmelt-first.melt (==s-case, !=s-case, string<case)
+	(string>case): New primitives using above functions.
+
+	* melt/warmelt-base.melt (json_name_less, json_name_equal): Document the functions.
+	(json_canonical_name): New function.
+	(make_jsonobject): Use it.
+
+2014-07-22  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-first.melt (class_named): Improve doc.
 
 2014-07-22  Basile Starynkevitch  <basile@starynkevitch.net>

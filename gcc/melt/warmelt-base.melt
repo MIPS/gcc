@@ -3613,6 +3613,7 @@ given object map $MAPO}#
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun json_name_less (lv rv)
+:doc #{Compare two JSON names $LV and $RV for less.}#
   (let ( (lname (cond ((is_string lv) lv) 
 		      ((is_a lv class_named) (get_field :named_name lv))))
 	 (rname (cond ((is_string rv) rv) 
@@ -3621,12 +3622,65 @@ given object map $MAPO}#
     (if (string< lname rname) :true)))
 
 (defun json_name_equal (lv rv)
+:doc #{Compare two JSON names $LV and $RV for equality.}#
   (let ( (lname (cond ((is_string lv) lv) 
 		      ((is_a lv class_named) (get_field :named_name lv))))
 	 (rname (cond ((is_string rv) rv) 
 		      ((is_a rv class_named) (get_field :named_name rv))))
 	 )
     (if (==s lname rname) :true)))
+
+
+(defun json_canonical_name (n)
+  :doc #{Gives the JSON canonical name $N. If $N is a all-lower-cases
+  string of some @i{existing} symbol or keyword, gives that symbol or
+  string, otherwise if $N is a string gives just that $N}#
+  (cond 
+   ;; rare cases for string naming JSON false, true or null
+   ((is_stringconst n "json_false")
+    n)
+    ((is_stringconst n "true")
+     n)
+    ((is_stringconst n "null")
+     n)
+    ;; other strings
+   ((is_string n)
+    (let ( (:long namlen (string_length n))
+	   (named (or (get_symbolstr n) (get_keywordstr n)))
+	   (:long bad (null named))
+	   (namstr (get_field :named_name named))
+	   )
+      (when (is_string namstr)
+	(code_chunk 
+	 compareupcase_chk 
+	 #{ /* json_canonical_name $COMPAREUPCASE_CHK */
+	   const char* ncstr = melt_string_str($N);
+	   const char* namcstr = melt_string_str($NAMSTR);
+	   unsigned nlen = (unsigned)$NAMLEN;
+           gcc_assert (ncstr && namcstr);
+	   gcc_assert ((unsigned)strlen(namcstr) == nlen);
+           for (unsigned ix=0; 
+	        ix<nlen && !$BAD;
+		ix++) {
+              char nc = ncstr[ix];
+              char namc = namcstr[ix];
+              if (isupper(nc))
+	         $BAD = 1;
+              else if (isalpha(nc) && isalpha(namc)
+		       && nc != tolower(namc))
+                 $BAD = 1;
+              else if (nc != namc)
+	         $BAD = 1;         
+	   }; // end for ix
+	 /* end json_canonical_name $COMPAREUPCASE_CHK */}#	 
+	)
+	(if bad (return n) (return named))
+       )				;end when
+    ))
+   ((is_a n class_named)
+    n)
+   (:else
+    ())))
 
 (defun make_jsonobject (dis :rest)   
   :doc #{Dynamically build a JSON object of discriminant
@@ -3655,7 +3709,7 @@ given object map $MAPO}#
 	( (:long lname) (setq curname (string4out discr_string lname)))
 	( (:value vname)
 	  (cond ( (is_a vname class_named) (setq curname vname))
-		( (is_string vname) (setq curname vname))
+		( (is_string vname) (setq curname (json_canonical_name vname)))
 		( (is_multiple vname) (setq nametup vname))
 		( (is_list vname) (setq nametup (list_to_multiple vname)))
 		(:else (void)))
@@ -3668,7 +3722,7 @@ given object map $MAPO}#
 	( (:long l) (setq curval (constant_box l)))
 	( (:value v)
 	  (cond ( (is_a v class_named) (setq curval v))
-		( (is_string v) (setq curval v))
+		( (is_string v) (setq curval (json_canonical_name v)))
 		( (is_integerbox v) (setq curval v))
 		( (is_jsonobject v) (setq curval v))
 		( (is_multiple v) (if nametup 
@@ -3687,8 +3741,14 @@ given object map $MAPO}#
 	       (nametup)
 	       (curnamelem :long nix)
 	       (let ( (curvalelem (multiple_nth valtup nix)) )
-		 (if (or (is_string curnamelem) (is_a curnamelem class_named))
-		     (list_append listentries (tuple curnamelem curvalelem)))))))
+		 (if (is_string curvalelem) (setq curvalelem (json_canonical_name curvalelem)))
+		 (cond
+		  ( (is_string curnamelem)
+		    (list_append listentries (tuple (json_canonical_name curnamelem) curvalelem)))
+		  ( (is_a curnamelem class_named)
+		    (list_append listentries (tuple curnamelem curvalelem)))
+		  (:else
+		   (void)))))))
        )
      ) ;; end of forever argloop
     (let ( (tupentries (list_to_multiple listentries))

@@ -1436,6 +1436,13 @@ an integer $I if $I is greater than $N.}#
   :doc #{Test that $S1 and $S2 are not both string equal values.}#
   #{!melt_string_same((melt_ptr_t)($s1), (melt_ptr_t)($s2))}#)
 
+(defprimitive ==s-case (s1 s2) :long
+  :doc #{Test that $S1 and $S2 are both string values and are equal, ignoring case.}#
+  #{melt_string_same_case((melt_ptr_t)($s1), (melt_ptr_t)($s2))}#)
+(defprimitive !=s-case (s1 s2) :long
+  :doc #{Test that $S1 and $S2 are not both string equal values, ignoring case.}#
+  #{!melt_string_same_case((melt_ptr_t)($s1), (melt_ptr_t)($s2))}#)
+
 (defun is_empty_string (string)
   :doc #{Test that value string is empty}#
   (if (==s string '"") (return :true))
@@ -1455,6 +1462,13 @@ an integer $I if $I is greater than $N.}#
   #{melt_string_less((melt_ptr_t)($s1), (melt_ptr_t)($s2))}#)
 (defprimitive string> (s1 s2) :long 
   :doc #{Test that value string $S1 is greater than $S2.}#
+  #{melt_string_less((melt_ptr_t)($s2), (melt_ptr_t)($s1))}#)
+
+(defprimitive string<case (s1 s2) :long 
+  :doc #{Test that value string $S1 is less than $S2, compared alphanumerically as strings without case.}#
+  #{melt_string_less((melt_ptr_t)($s1), (melt_ptr_t)($s2))}#)
+(defprimitive string>case (s1 s2) :long 
+  :doc #{Test that value string $S1 is greater than $S2 without case.}#
   #{melt_string_less((melt_ptr_t)($s2), (melt_ptr_t)($s1))}#)
 
 (defprimitive string_to_long (string) :long
@@ -4055,6 +4069,7 @@ $MELT_MAKE_FRESH_ENVIRONMENT_REFERENCE primitive. For gurus and MELT itself.}#
 (export_values				;in alphanumerical order
  !=
  !=s
+ !=s-case
  %i
  %iraw
  +i
@@ -4063,6 +4078,7 @@ $MELT_MAKE_FRESH_ENVIRONMENT_REFERENCE primitive. For gurus and MELT itself.}#
  <i
  ==
  ==s
+ ==s-case
  >=i
  >i
  assert_failed
@@ -4165,7 +4181,9 @@ $MELT_MAKE_FRESH_ENVIRONMENT_REFERENCE primitive. For gurus and MELT itself.}#
  routine_size
  shortbacktrace_dbg
  string<
+ string<case
  string>
+ string>case
  string_to_long
  stringconst2val
  the_framedepth

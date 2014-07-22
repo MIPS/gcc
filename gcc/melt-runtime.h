@@ -1847,6 +1847,30 @@ melt_string_less (melt_ptr_t v1, melt_ptr_t v2)
 }
 
 static inline bool
+melt_string_same_case (melt_ptr_t v1, melt_ptr_t v2)
+{
+  if (melt_magic_discr (v1) == MELTOBMAG_STRING
+      && melt_magic_discr (v2) == MELTOBMAG_STRING)
+    {
+      return 0 == strcasecmp (((struct meltstring_st *) v1)->val,
+                          ((struct meltstring_st *) v2)->val);
+    }
+  return 0;
+}
+
+static inline bool
+melt_string_less_case (melt_ptr_t v1, melt_ptr_t v2)
+{
+  if (melt_magic_discr (v1) == MELTOBMAG_STRING
+      && melt_magic_discr (v2) == MELTOBMAG_STRING)
+    {
+      return strcasecmp (((struct meltstring_st *) v1)->val,
+                     ((struct meltstring_st *) v2)->val) < 0;
+    }
+  return 0;
+}
+
+static inline bool
 melt_is_string_const (melt_ptr_t v, const char *s)
 {
   if (s && melt_magic_discr (v) == MELTOBMAG_STRING)
