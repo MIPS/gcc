@@ -36,6 +36,9 @@
 #ifdef _GLIBCXX_HAVE_FCNTL_H
 # include <fcntl.h>
 #endif
+#ifdef _GLIBCXX_HAVE_SYS_STATVFS_H
+# include <sys/statvfs.h>
+#endif
 
 namespace fs = std::experimental::filesystem;
 
@@ -611,7 +614,29 @@ fs::space(const path& p)
 }
 
 fs::space_info
-fs::space(const path& p, error_code& ec) noexcept; // TODO
+fs::space(const path& p, error_code& ec) noexcept
+{
+  space_info info = {
+    static_cast<uintmax_t>(-1),
+    static_cast<uintmax_t>(-1),
+    static_cast<uintmax_t>(-1)
+  };
+#ifdef _GLIBCXX_HAVE_SYS_STATVFS_H
+  struct ::statvfs f;
+  if (int err = ::statvfs(p.c_str(), &f))
+      ec.assign(err, std::generic_category());
+  else
+    {
+      info = space_info{
+	f.f_blocks * f.f_frsize,
+	f.f_bfree * f.f_frsize,
+	f.f_bavail * f.f_frsize
+      };
+      ec.clear();
+    }
+#endif
+  return info;
+}
 
 #ifdef _GLIBCXX_HAVE_SYS_STAT_H
 fs::file_status
