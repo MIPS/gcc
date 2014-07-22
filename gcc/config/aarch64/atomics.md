@@ -176,27 +176,75 @@
   }
 )
 
-(define_insn_and_split "atomic_fetch_<atomic_optab><mode>"
+(define_expand "atomic_fetch_<atomic_optab><mode>"
   [(set (match_operand:ALLI 0 "register_operand" "=&r")
-    (match_operand:ALLI 1 "aarch64_sync_memory_operand" "+Q"))
+        (match_operand:ALLI 1 "aarch64_sync_memory_operand" "+Q"))
    (set (match_dup 1)
-    (unspec_volatile:ALLI
-      [(atomic_op:ALLI (match_dup 1)
-	(match_operand:ALLI 2 "<atomic_op_operand>" "rn"))
-       (match_operand:SI 3 "const_int_operand")]		;; model
-      UNSPECV_ATOMIC_OP))
+        (unspec_volatile:ALLI
+          [(atomic_op:ALLI
+             (match_dup 1)
+             (match_operand:ALLI 2 "<atomic_op_operand>" "r"))
+           (match_operand:SI 3 "const_int_operand")]		;; model
+          UNSPECV_ATOMIC_OP))
    (clobber (reg:CC CC_REGNUM))
    (clobber (match_scratch:ALLI 4 "=&r"))
    (clobber (match_scratch:SI 5 "=&r"))]
   ""
-  "#"
-  "&& reload_completed"
-  [(const_int 0)]
   {
-    aarch64_split_atomic_op (<CODE>, operands[0], operands[4], operands[1],
-			     operands[2], operands[3], operands[5]);
-    DONE;
+    bool isLdOp = false;;
+    rtx (*gen) (rtx, rtx, rtx, rtx);
+    if (TARGET_ATOMIC)
+      {
+        switch (<CODE>) {
+          default:
+            gen = NULL;
+            isLdOp = false;
+            break;
+          case PLUS:
+            gen = gen_atomic_fetch_add<mode>_laf;
+            isLdOp = true;
+            break;
+          case XOR:
+            gen = gen_atomic_fetch_eor<mode>_laf;
+            isLdOp = true;
+            break;
+          case IOR:
+            gen = gen_atomic_fetch_set<mode>_laf;
+            isLdOp = true;
+            break;
+          }
+      }
+    if (!TARGET_ATOMIC || !isLdOp)
+      {
+        operands[4] = gen_reg_rtx(<MODE>mode);
+        operands[5] = gen_reg_rtx(SImode);
+        aarch64_split_atomic_op (<CODE>, operands[0], operands[4], operands[1],
+                                 operands[2], operands[3], operands[5]);
+        DONE;
+      }
+    else
+      {
+        /* XXX make sure operands[2] is in a register */
+        operands[2] = force_reg (<MODE>mode/*dest_mode*/, operands[2]);
+        emit_insn (gen (operands[0], operands[1], operands[2],  operands[3]));
+        DONE;
+      }
   }
+)
+
+(define_insn "atomic_fetch_<atomic_ldop_optab><mode>_laf"
+  [(parallel
+   [(set (match_operand:ALLI 0 "register_operand" "=&r")
+         (match_operand:ALLI 1 "aarch64_sync_memory_operand" "+Q"))
+    (set (match_dup 1)
+         (unspec_volatile:ALLI
+           [(atomic_ldop:ALLI
+              (match_dup 1)
+              (match_operand:ALLI 2 "<atomic_op_operand>" "r"))]
+          UNSPECV_ATOMIC_OP))
+    (match_operand:SI 3 "const_int_operand")])]          ;; memory model
+  "TARGET_ATOMIC"
+  "ld<atomic_ldop_optab>%Q3%R3<atomic_sfx>\t%<w>2, %<w>0, %w1"
 )
 
 (define_insn_and_split "atomic_fetch_nand<mode>"

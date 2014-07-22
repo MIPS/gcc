@@ -1,7 +1,8 @@
 /* { dg-do compile } */
-/* { dg-options "-O2" } */
+/* { dg-skip-if "" { aarch64_atomic } } */
+/* { dg-options "-O2 -march=armv8-a+noatomic" } */
 
-#include "atomic-op-relaxed.x"
+#include "atomic-op-int.x"
 
 /* { dg-final { scan-assembler-times "ldxr\tw\[0-9\]+, \\\[x\[0-9\]+\\\]" 6 } } */
 /* { dg-final { scan-assembler-times "stxr\tw\[0-9\]+, w\[0-9\]+, \\\[x\[0-9\]+\\\]" 6 } } */

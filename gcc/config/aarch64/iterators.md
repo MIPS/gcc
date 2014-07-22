@@ -473,7 +473,7 @@
 
 ;; Widened modes of vector modes.
 (define_mode_attr VWIDE [(V8QI "V8HI") (V4HI "V4SI")
-			 (V2SI "V2DI") (V16QI "V8HI") 
+			 (V2SI "V2DI") (V16QI "V8HI")
 			 (V8HI "V4SI") (V4SI "V2DI")
 			 (HI "SI")     (SI "DI")]
 
@@ -481,12 +481,12 @@
 
 ;; Widened mode register suffixes for VDW/VQW.
 (define_mode_attr Vwtype [(V8QI "8h") (V4HI "4s")
-			  (V2SI "2d") (V16QI "8h") 
+			  (V2SI "2d") (V16QI "8h")
 			  (V8HI "4s") (V4SI "2d")])
 
 ;; Widened mode register suffixes for VDW/VQW.
 (define_mode_attr Vmwtype [(V8QI ".8h") (V4HI ".4s")
-			   (V2SI ".2d") (V16QI ".8h") 
+			   (V2SI ".2d") (V16QI ".8h")
 			   (V8HI ".4s") (V4SI ".2d")
 			   (SI   "")    (HI   "")])
 
@@ -687,6 +687,10 @@
 ;; nand.
 (define_code_iterator atomic_op [plus minus ior xor and])
 
+;; Iterator for _atomic_<op> operations where there is an AArch64 ld<op>
+;; instruction.
+(define_code_iterator atomic_ldop [plus ior xor])
+
 ;; Iterator for integer conversions
 (define_code_iterator FIXUORS [fix unsigned_fix])
 
@@ -828,6 +832,10 @@
 ;; Atomic operations
 (define_code_attr atomic_optab
   [(ior "or") (xor "xor") (and "and") (plus "add") (minus "sub")])
+
+;; Atomic operations for ld<op>
+(define_code_attr atomic_ldop_optab
+  [(ior "set") (xor "eor") (plus "add")])
 
 (define_code_attr atomic_op_operand
   [(ior "aarch64_logical_operand")
