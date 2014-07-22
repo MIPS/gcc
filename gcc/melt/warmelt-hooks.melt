@@ -2827,15 +2827,15 @@ exit, in last place.}#
 ;;;;;;;;;;;;;;;;
 (defun register_raw_input_channel_handler (clos data :long inchfd)
   :doc #{$REGISTER_RAW_INPUT_CHANNEL_HANDLER registers an asynchronous
-  raw input channel handler, such as for the graphical user interface
-  probe or for some JSONRPC server. $CLOS is the registered closure,
-  $DATA is some client data, $INCHFD is the input Unix file
-  descriptor. When some bytes are recieved from the $INCHFD, the $CLOS
-  is applied - by $MELT_INVOKE_INPUT_CALLBACKS utility - to the input
-  channel handler -containing the data as its $INCH_DATA field-, a
-  read-only instance of $CLASS_INPUT_CHANNEL_HANDLER and to the
-  contained string buffer.  When end-of-file is obtained on $INCHFD,
-  the closure is similarily applied to the channel and a null value.}#
+  raw input channel handler, such as for some JSONRPC server. $CLOS is
+  the registered closure, $DATA is some client data, $INCHFD is the
+  input Unix file descriptor. When some bytes are recieved from the
+  $INCHFD, the $CLOS is applied - by $MELT_INVOKE_INPUT_CALLBACKS
+  utility - to the input channel handler -containing the data as its
+  $INCH_DATA field-, a read-only instance of
+  $CLASS_INPUT_CHANNEL_HANDLER and to the contained string buffer.
+  When end-of-file is obtained on $INCHFD, the closure is similarily
+  applied to the channel and a null value.}#
   (debug "register_raw_input_channel_handler clos=" clos " data=" data 
 	 " inchfd=" inchfd)
   (let ( (:long goodinchfd 0) )
@@ -2954,7 +2954,7 @@ exit, in last place.}#
      )
    ;; should be a string
    ( (not (is_string service))
-     (warning_at () "connect_to_server invalid service=" service)
+     (warning_at () "connect_to_server invalid service $1" service)
      (return))
    ;; unix-like socket with /
    ( (expr_chunk unixsockslash_chk :long
@@ -3151,7 +3151,7 @@ exit, in last place.}#
        (return (constant_box tcpsockfd))
        ))
    (:else
-    (warning_at () "connect_to_server: invalid service=" service)
+    (warning_at () "connect_to_server: invalid service $1" service)
     (return)))
   )
 
@@ -3716,6 +3716,87 @@ exit, in last place.}#
      )					;end forever parseloop
     (debug "json_parser_input_processor ended")
     ))
+
+
+;;;; make one single blocking JSONRPC2 call on TCP/IP transport, then
+;;;; close the connection
+(defun do_blocking_jsonrpc2_call (server methodname jparams :long timeoutms)
+  :doc #{$DO_BLOCKING_JSONRPC2_CALL makes a single JSONRPC to given
+  $SERVER with given $METHODNAME and given JSON parameters $JPARAMS
+  with a timeout of $TIMEOUTMS milliseconds, at least 50 milliseconds,
+  then close the connection.}#
+  (debug "do_blocking_jsonrpc2_call server=" server 
+	 " methodname=" methodname ", jparams=" jparams 
+	 "\n.. timeoutms=" timeoutms)
+  (when 
+      (<i timeoutms 50) 
+    (setq timeoutms 50)
+    (debug "do_blocking_jsonrpc2_call forced timeoutms=" timeoutms)
+    )
+  (let  ( 
+	 (service (connect_to_server server))
+	 (jreq (make_jsonobject discr_jsonobject 
+				'jsonrpc '"2.0"
+				'method methodname
+				'params jparams))
+	 )
+    (debug "do_blocking_jsonrpc2_call service=" service " jreq=" jreq)
+    (unless (is_integerbox service)
+      (warning_at () "do_blocking_jsonrpc2_call failure server=$1 method=$2 connection failed" 
+		  server methodname)
+      (return))
+    (let (
+	  (:long servfd (get_int service))
+	  (servout ())
+	  )
+      (code_chunk 
+       makesockfile_chk
+       #{ /* do_blocking_jsonrpc2_call $MAKESOCKFILE_CHK */
+       FILE* sockfil = fdopen((int)$SERVFD, "w+");
+       if (!sockfil) {
+         warning(0, "MELT do_blocking_jsonrpc2_call failed to fdopen #%d",
+		  (int)$SERVFD);
+         (void) close((int)$SERVFD);
+         $(ignore (return));
+       }
+       $SERVOUT = meltgc_new_file($DISCR_RAWFILE, sockfil); ;
+       }#)
+      (output_json servout jreq)
+      (code_chunk 
+       flushsockfile_chk
+       #{ /* do_blocking_jsonrpc2_call $FLUSHSOCKFILE_CHK */
+       melt_newlineflush (melt_get_file($SERVOUT));
+       }#)
+      (let (
+	    (gotreply (reference ()))
+	    (goterror (reference ()))
+	    (replyref (reference ()))
+	    (jreplyhandler 
+	     (lambda (jrepl)
+	       (debug "blockjsonrpcreply jrepl=" jrepl)
+	       (set_ref replyref jrepl)
+	       (set_ref gotreply :true)
+	       ))
+	    (jerrorhandler
+	     (lambda (jerror)
+	       (debug "blockjsonrpcerror jerror=" jerror)
+	       (assert_msg "blockjsonrpcerror check jerror" jerror)
+	       (set_ref goterror jerror)
+	       ))
+	    (jparser (make_json_parser jreplyhandler jerrorhandler 
+				       (tuple servout (constant_box servfd))))   
+	    )
+	(debug "do_blocking_jsonrpc2_call jparser=" jparser)
+	(register_raw_input_channel_handler json_parser_input_processor
+					    jparser
+					    servfd)
+	(assert_msg 
+	 "@$@ do_blocking_jsonrpc2_call should initialize the stack" ())
+	;;; then poll the socket etc...
+	)
+      )
+    )
+  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; the sigio handler, called from safe places

@@ -1,6 +1,13 @@
 
 2014-07-22  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-hooks.melt (register_raw_input_channel_handler):
+	Improve documentation.
+	(connect_to_server): Improve warning_at calls.
+	(do_blocking_jsonrpc2_call): Incomplete function.
+
+2014-07-22  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.h (melt_string_same_case, melt_string_less_case):
 	New inlined functions.
 
@@ -12,6 +19,7 @@
 	(make_jsonobject): Use it.
 
 2014-07-22  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-first.melt (class_named): Improve doc.
 
 2014-07-22  Basile Starynkevitch  <basile@starynkevitch.net>
