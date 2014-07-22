@@ -52,7 +52,7 @@ fs::absolute(const path& p, const path& base)
     abs = p;
   else
     {
-      abs = absolute(base);
+      abs = base.is_absolute() ? base : absolute(base);
       if (has_root_dir)
 	abs = abs.root_name() / p;
       else if (has_root_name)
