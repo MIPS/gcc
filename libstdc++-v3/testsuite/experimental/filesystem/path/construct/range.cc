@@ -1,4 +1,4 @@
-// { dg-options "-std=gnu++11" }
+// { dg-options "-std=gnu++11 -lstdc++fs" }
 
 // Copyright (C) 2014 Free Software Foundation, Inc.
 //
