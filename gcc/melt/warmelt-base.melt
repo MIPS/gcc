@@ -147,6 +147,10 @@ given a string $MSG, with gdb when desperate.}#
   :doc #{Get the real time, relative to MELT start, in milliseconds.}#
   #{melt_relative_time_millisec()}#)
 
+(defprimitive cpu_time_millisec () :long
+  :doc #{Get the CPU time in milliseconds.}#
+  #{melt_cpu_time_millisec()}#)
+
 (defprimitive set_real_timer_millisec (:long millisec) :void
   :doc #{Set the real time alarm in millisecond (or clear alarm if $MILLISEC is non-positive)}#
   #{melt_set_real_timer_millisec($MILLISEC)}#)
@@ -4066,6 +4070,7 @@ which should be a string or an instance of $CLASS_NAMED, or else nil.}#
  compare_named_alpha
  complete_sequence_as_list
  complete_sequence_as_tuple
+ cpu_time_millisec
  cstring_containing
  cstring_length
  cstring_prefixed

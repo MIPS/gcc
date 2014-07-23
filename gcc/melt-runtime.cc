@@ -10665,6 +10665,17 @@ melt_relative_time_millisec (void)
          + (long)(tv.tv_usec - melt_start_time.tv_usec)/1000L;
 }
 
+long
+melt_cpu_time_millisec (void)
+{
+
+  struct timespec ts = {0,0};
+  if (clock_gettime (CLOCK_PROCESS_CPUTIME_ID, &ts))
+    melt_fatal_error ("MELT cannot call clock_gettime CLOCK_PROCESS_CPUTIME_ID - %s",
+		      xstrerror(errno));
+  return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;  
+}
+
 void
 melt_set_real_timer_millisec (long millisec)
 {

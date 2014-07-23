@@ -211,6 +211,9 @@ void melt_handle_signal (void);
 /* Gives the relative real time in milliseconds since MELT started. */
 long melt_relative_time_millisec (void);
 
+/* Gives the CPU time in milliseconds */
+long melt_cpu_time_millisec (void);
+
 /* Set the real timer alarm in milliseconds, or remove alarm if negative */
 void melt_set_real_timer_millisec (long millisec);
 
@@ -3590,7 +3593,7 @@ melt_ptr_t meltgc_new_file(melt_ptr_t discr_p, FILE* fil);
 
 /* get a file from a boxed file, may return NULL */
 static inline FILE*
-melt_get_file(melt_ptr_t file_p)
+melt_get_file (melt_ptr_t file_p)
 {
   int magic;
   if (!file_p)
@@ -3604,6 +3607,50 @@ melt_get_file(melt_ptr_t file_p)
     }
 
   return NULL;
+}
+
+
+/*Flush safely a boxed file. */
+static inline void
+melt_flush_file (melt_ptr_t file_p)
+{
+  int magic;
+  if (!file_p)
+    return;
+  magic = melt_magic_discr (file_p);
+  if (magic == MELTOBMAG_SPECIAL_DATA)
+    {
+      unsigned k = melt_special_kind (file_p);
+      if (k == meltpydkind_file || k == meltpydkind_rawfile)
+	{
+	  FILE *f = (((struct meltspecialdata_st*)file_p)->meltspec_payload.meltpayload_file1);
+	  if (f) fflush(f);
+	}
+    }
+}
+
+/*Close safely a boxed file. */
+static inline void
+melt_close_file (melt_ptr_t file_p)
+{
+  int magic;
+  if (!file_p)
+    return;
+  magic = melt_magic_discr (file_p);
+  if (magic == MELTOBMAG_SPECIAL_DATA)
+    {
+      unsigned k = melt_special_kind (file_p);
+      if (k == meltpydkind_file || k == meltpydkind_rawfile)
+	{
+	  FILE *f = (((struct meltspecialdata_st*)file_p)->meltspec_payload.meltpayload_file1);
+	  if (f) {
+	    fclose(f);
+	    ((struct meltspecialdata_st*)file_p)->meltspec_payload.meltpayload_file1 = NULL;
+	   ((struct meltspecialdata_st*)file_p)->meltspec_kind
+	     = meltpydkind__none;
+	  }
+	}
+    }
 }
 
 

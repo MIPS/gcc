@@ -1,4 +1,16 @@
 
+2014-07-23  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.h (melt_cpu_time_millisec): New function declaration.
+	(melt_flush_file, melt_close_file): New inlined functions.
+
+	* melt-runtime.cc (melt_cpu_time_millisec): New function.
+
+	* melt/warmelt-base.melt (cpu_time_millisec): New primitive.
+
+	* melt/warmelt-hooks.melt (do_blocking_jsonrpc2_call): Complete
+	but untested.
+
 2014-07-22  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-hooks.melt (register_raw_input_channel_handler):

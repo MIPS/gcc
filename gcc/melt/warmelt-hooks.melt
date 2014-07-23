@@ -2827,13 +2827,13 @@ exit, in last place.}#
 ;;;;;;;;;;;;;;;;
 (defun register_raw_input_channel_handler (clos data :long inchfd)
   :doc #{$REGISTER_RAW_INPUT_CHANNEL_HANDLER registers an asynchronous
-  raw input channel handler, such as for some JSONRPC server. $CLOS is
-  the registered closure, $DATA is some client data, $INCHFD is the
-  input Unix file descriptor. When some bytes are recieved from the
-  $INCHFD, the $CLOS is applied - by $MELT_INVOKE_INPUT_CALLBACKS
-  utility - to the input channel handler -containing the data as its
-  $INCH_DATA field-, a read-only instance of
-  $CLASS_INPUT_CHANNEL_HANDLER and to the contained string buffer.
+  raw input channel handler, such as for some JSONRPC server (e.g. by
+  $DO_BLOCKING_JSONRPC2_CALL). $CLOS is the registered closure, $DATA
+  is some client data, $INCHFD is the input Unix file descriptor. When
+  some bytes are recieved from the $INCHFD, the $CLOS is applied - by
+  $MELT_INVOKE_INPUT_CALLBACKS utility - to the input channel handler
+  -containing the data as its $INCH_DATA field-, a read-only instance
+  of $CLASS_INPUT_CHANNEL_HANDLER and to the contained string buffer.
   When end-of-file is obtained on $INCHFD, the closure is similarily
   applied to the channel and a null value.}#
   (debug "register_raw_input_channel_handler clos=" clos " data=" data 
@@ -3163,6 +3163,7 @@ exit, in last place.}#
   :fields (jsonparse_jdata
 	   jsonparse_stack
 	   jsonparse_errorhandler
+	   jsonparse_counter
 	   )
   )
 (export_class class_json_parser)
@@ -3412,6 +3413,7 @@ exit, in last place.}#
 		       :jsonparse_jdata data
 		       :jsonparse_stack (list (tuple :json_result resclos))
 		       :jsonparse_errorhandler errclos
+		       :jsonparse_counter (box 0)
 	     ))
 	 )
     (debug "make_json_parser jp=" jp)
@@ -3427,12 +3429,14 @@ exit, in last place.}#
 	 (sbuf (get_field :inch_sbuf inch))
 	 (jstack (get_field :jsonparse_stack jparser))
 	 (jerror (get_field :jsonparse_errorhandler jparser))
+	 (jcountbox (get_field :jsonparse_counter jparser))
 	 (:long count 0)
 	 )
     (assert_msg "check jparser" (is_a jparser class_json_parser) jparser inch)
     (assert_msg "check inch" (is_a inch class_raw_input_channel_handler))
     (assert_msg "check sbuf" (is_strbuf sbuf))
     (assert_msg "check jstack" (is_list jstack))
+    (assert_msg "check jcountbox" (is_integerbox jcountbox))
     (forever
      jsonparseloop
        (setq count (+i count 1))
@@ -3445,6 +3449,7 @@ exit, in last place.}#
 	(json_lexer sbuf)
 	(debug "json_parser_input_processor lexed kind=" kind
 	       ", detail=" detail "; jtopstate=" jtopstate "\n")
+	(put_int jcountbox count)
 	(match
 	 (tuple kind detail)
 	 (?(tuple :delim :left_brace)
@@ -3768,6 +3773,8 @@ exit, in last place.}#
        melt_newlineflush (melt_get_file($SERVOUT));
        }#)
       (let (
+	    (:long begtime (relative_time_millisec))
+	    (:long loopcount 0)
 	    (gotreply (reference ()))
 	    (goterror (reference ()))
 	    (replyref (reference ()))
@@ -3784,15 +3791,43 @@ exit, in last place.}#
 	       (set_ref goterror jerror)
 	       ))
 	    (jparser (make_json_parser jreplyhandler jerrorhandler 
-				       (tuple servout (constant_box servfd))))   
+				       (tuple servout (constant_box servfd))))
 	    )
 	(debug "do_blocking_jsonrpc2_call jparser=" jparser)
 	(register_raw_input_channel_handler json_parser_input_processor
 					    jparser
 					    servfd)
-	(assert_msg 
-	 "@$@ do_blocking_jsonrpc2_call should initialize the stack" ())
-	;;; then poll the socket etc...
+	(forever pollingloop
+		 (setq loopcount (+i loopcount 1))
+		 (debug "do_blocking_jsonrpc2_call loopcount=" loopcount) 
+		 (hook_poll_inputs timeoutms)
+		 (cond ( !gotreply
+			 (debug "do_blocking_jsonrpc2_call gotreply replyref=" replyref)
+			 )
+		       ( !goterror
+			 (debug "do_blocking_jsonrpc2_call goterror=" goterror)
+			 (warning_at () "do_blocking_jsonrpc2_call error $1 on method $2 to server $3"
+				     !goterror methodname server)
+			 (exit pollingloop)
+			 )
+		       ( (>=i (-i (relative_time_millisec) begtime) timeoutms)
+			 (debug "do_blocking_jsonrpc2_call timedout " timeoutms)
+			 (warning_at () "do_blocking_jsonrpc2_call timedout $1 milliseconds on method $2 to server $3"
+				     timeoutms methodname server)
+			 (exit pollingloop)			 
+			 )
+		       (:else
+			(again pollingloop))))
+	(code_chunk afterpoll_chk 
+		    #{ /* do_blocking_jsonrpc2_call $AFTERPOLL_CHK */
+		    if (shutdown ($SERVFD, SHUT_RDWR))
+		       warning(0, "MELT do_blocking_jsonrpc2_call shutdown failed: %s",
+				  xstrerror(errno));
+		    melt_close_file($SERVOUT);
+		    }#)
+	(when !gotreply 
+	  (debug "do_blocking_jsonrpc2_call gives " !replyref)
+	  (return !replyref))
 	)
       )
     )
