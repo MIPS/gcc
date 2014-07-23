@@ -1,6 +1,10 @@
 
 2014-07-23  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/generated/*: Regenerate all.
+
+2014-07-23  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* testsuite/melt/tjson-2.melt: New file.
 
 2014-07-23  Basile Starynkevitch  <basile@starynkevitch.net>
