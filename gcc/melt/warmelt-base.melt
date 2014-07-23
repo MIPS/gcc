@@ -1570,6 +1570,7 @@ output $OUT. It is called by the $ADD2OUT variadic function.}#
 	   (if ix (add2out out ","))
 	   (output_json out curcomp))
 	  (add2out out "]"))
+;; @@@@ should output JSON strings with UTF8
 	(:else
 	 (output_as_json v out)))
   )
