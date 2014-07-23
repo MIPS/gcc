@@ -2042,20 +2042,30 @@ parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers)
       opers.safe_push (get_ident (r));
     }
 
-  vec<simplify *> for_simplifiers = vNULL;
-  parse_pattern (r, for_simplifiers);
 
-  for (unsigned i = 0; i < opers.length (); ++i)
+  while (1)
     {
-      for (unsigned j = 0; j < for_simplifiers.length (); ++j)
+      const cpp_token *token = peek (r);
+      if (token->type == CPP_CLOSE_PAREN)
+	break;
+      
+      vec<simplify *> for_simplifiers = vNULL;
+      parse_pattern (r, for_simplifiers);
+      
+      for (unsigned i = 0; i < opers.length (); ++i)
 	{
-	  simplify *s = for_simplifiers[j];
-	  operand *match_op = replace_id (s->match, user_id, opers[i]);
-	  operand *result_op = replace_id (s->result, user_id, opers[i]);
-	  simplify *ns = new simplify (s->name, match_op, s->match_location,
-				       s->ifexpr, s->ifexpr_location,
+	  for (unsigned j = 0; j < for_simplifiers.length (); ++j)
+	    {
+	      simplify *s = for_simplifiers[j];
+	      operand *match_op = replace_id (s->match, user_id, opers[i]);
+	      operand *result_op = replace_id (s->result, user_id, opers[i]);
+
+	      simplify *ns = new simplify (s->name, match_op, s->match_location,
+					   s->ifexpr, s->ifexpr_location,
 				       result_op, s->result_location);
-	  simplifiers.safe_push (ns);
+
+	      simplifiers.safe_push (ns);
+	    }
 	}
     }
 }
