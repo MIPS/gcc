@@ -4100,16 +4100,9 @@ aarch64_print_operand (FILE *f, rtx x, char code)
   	  return;
   	}
         enum memmodel model = (enum memmodel) INTVAL (x);
-        bool is_acq = false;
-        switch (model) 
-          {
-            default: is_acq = true; break;
-            case MEMMODEL_RELAXED:
-            case MEMMODEL_CONSUME:
-            case MEMMODEL_RELEASE: break;
-          }
+        bool is_acq = need_atomic_barrier_p (model, false);;
         if (is_acq)
-  	fputc ('a', f);
+          fputc ('a', f);
       }
       break;
 
@@ -4122,16 +4115,9 @@ aarch64_print_operand (FILE *f, rtx x, char code)
   	  return;
   	}
         enum memmodel model = (enum memmodel) INTVAL (x);
-        bool is_rel = false;
-        switch (model) 
-          {
-            default: is_rel = true; break;
-            case MEMMODEL_RELAXED:
-            case MEMMODEL_CONSUME:
-            case MEMMODEL_ACQUIRE: break;
-          }
+        bool is_rel = need_atomic_barrier_p (model, true);
         if (is_rel)
-  	  fputc ('l', f);
+          fputc ('l', f);
       }
       break;
 
