@@ -1,0 +1,29 @@
+;; file tjson-2.melt -*- lisp -*-
+;; this sample code is in the public domain
+#| run in buildir/gcc
+ ln -s $GCCMELT_SOURCE/gcc/testsuite/melt/tjson-2.melt
+
+ ./cc1 -fmelt-mode=runfile @meltbuild-common.args -Iinclude/ \
+    -fmelt-init=@warmelt.quicklybuilt -fmelt-arg=tjson-2.melt \
+     meltbuild-empty-file.c
+
+or in a MELT module
+
+gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
+    -fplugin-arg-melt-init=@melt-default-modules.quicklybuilt -fplugin-arg-melt-arg=tjson-2.melt \
+     -c -O empty.c -o /dev/null
+|#
+(module_is_gpl_compatible "public domain")
+(let ( (sbuf (make_strbuf discr_strbuf))
+       (job (make_jsonobject discr_jsonobject
+       	       'id 1234
+	       'foo "rawstring"
+	       'bar '"quotedstring"
+	       '"quotedint" '112233
+	       ))
+       )
+  (debug "tjson-2 " "job=" job)
+  (output_json sbuf job)
+  (add2out sbuf "\n")
+  (debug "tjson-2 " "sbuf=" sbuf))
+;; eof tjson-2.melt

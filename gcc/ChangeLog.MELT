@@ -1,6 +1,10 @@
 
 2014-07-23  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* testsuite/melt/tjson-2.melt: New file.
+
+2014-07-23  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{caveat: the JSON output for JSONobjects with string values is wrong.}}
 	* melt/warmelt-base.melt (json_canonical_name): Return the string
 	if it is not a name.
@@ -8,7 +12,9 @@
 	* melt/warmelt-hooks.melt (do_blocking_jsonrpc2_call): Generate an
 	id. Should probably test it in the answer.
 
-	
+	* testsuite/melt/tcalljsonrpc-1.melt: New file.
+	* testsuite/melt/tservjsonrpc-1.cc: New file.
+
 2014-07-23  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-runtime.h (melt_cpu_time_millisec): New function declaration.
