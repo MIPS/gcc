@@ -1,0 +1,23 @@
+;; file tcalljsonrpc-1.melt -*- lisp -*-
+;; this sample code is in the public domain
+;; see also file tservjsonrpc-1.cc for cxxtools
+#| run in buildir/gcc
+ ln -s $GCCMELT_SOURCE/gcc/testsuite/melt/tcalljsonrpc-1.melt
+
+ ./cc1 -fmelt-mode=runfile @meltbuild-common.args -Iinclude/ \
+    -fmelt-init=@warmelt.quicklybuilt -fmelt-arg=tcalljsonrpc-1.melt \
+     meltbuild-empty-file.c
+
+or in a MELT module
+
+gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
+    -fplugin-arg-melt-init=@melt-default-modules.quicklybuilt -fplugin-arg-melt-arg=tcalljsonrpc-1.melt \
+     -c -O empty.c -o /dev/null
+|#
+(module_is_gpl_compatible "public domain")
+(debug "tcalljsonrpc-1 " "before rpccall")
+(let ( (res (do_blocking_jsonrpc2_call '"localhost:8088" 'add (tuple '1 '2) 7650))
+     )
+  (debug "tcalljsonrpc-1 " "got result res=" res))
+;; eof tcalljsonrpc-1.melt
+     

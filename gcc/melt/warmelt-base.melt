@@ -3654,8 +3654,9 @@ given object map $MAPO}#
 	   (:long bad (null named))
 	   (namstr (get_field :named_name named))
 	   )
-      (when (is_string namstr)
-	(code_chunk 
+      (cond 
+       ( (is_string namstr)
+	 (code_chunk 
 	 compareupcase_chk 
 	 #{ /* json_canonical_name $COMPAREUPCASE_CHK */
 	   const char* ncstr = melt_string_str($N);
@@ -3677,14 +3678,17 @@ given object map $MAPO}#
 	         $BAD = 1;         
 	   }; // end for ix
 	 /* end json_canonical_name $COMPAREUPCASE_CHK */}#	 
-	)
-	(if bad (return n) (return named))
-       )				;end when
+	 )
+	 (if bad (return n) (return named))
+	 )
+       (:else
+	(return n))
+       )				;end cond namstr
     ))
    ((is_a n class_named)
     n)
    (:else
-    ())))
+    (return ()))))
 
 (defun make_jsonobject (dis :rest)   
   :doc #{Dynamically build a JSON object of discriminant

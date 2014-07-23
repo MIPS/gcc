@@ -3726,10 +3726,11 @@ exit, in last place.}#
 ;;;; make one single blocking JSONRPC2 call on TCP/IP transport, then
 ;;;; close the connection
 (defun do_blocking_jsonrpc2_call (server methodname jparams :long timeoutms)
-  :doc #{$DO_BLOCKING_JSONRPC2_CALL makes a single JSONRPC to given
-  $SERVER with given $METHODNAME and given JSON parameters $JPARAMS
-  with a timeout of $TIMEOUTMS milliseconds, at least 50 milliseconds,
-  then close the connection.}#
+  :doc #{$DO_BLOCKING_JSONRPC2_CALL makes a single JSONRPC2 remote
+  procedure call with TCP transport to given $SERVER with given
+  $METHODNAME and given JSON parameters $JPARAMS with a timeout of
+  $TIMEOUTMS milliseconds, at least 50 milliseconds, then close the
+  connection.}#
   (debug "do_blocking_jsonrpc2_call server=" server 
 	 " methodname=" methodname ", jparams=" jparams 
 	 "\n.. timeoutms=" timeoutms)
@@ -3739,10 +3740,27 @@ exit, in last place.}#
     (debug "do_blocking_jsonrpc2_call forced timeoutms=" timeoutms)
     )
   (let  ( 
+	 (randidstr 
+	  ( let ( (idstr ()) 
+		  )
+	    (code_chunk 
+	     makerandidstr_chk 
+	     #{ /* do_blocking_jsonrpc2_call $MAKERANDIDSTR_CHK */
+	     static long cumcallcount;	     
+	     char buf[40];
+	     cumcallcount++;
+	     snprintf(buf, sizeof(buf), "C%lxP%dR%xT%ld", 
+			   cumcallcount, (int)getpid(),
+			   (int)(melt_lrand() % 65536), melt_relative_time_millisec());
+	     $IDSTR =  meltgc_new_string((meltobject_ptr_t)MELT_PREDEF(DISCR_STRING), buf);	     
+	     }#)
+	    (debug "do_blocking_jsonrpc2_call randidstr=" idstr)
+	    idstr))
 	 (service (connect_to_server server))
 	 (jreq (make_jsonobject discr_jsonobject 
 				'jsonrpc '"2.0"
 				'method methodname
+				'id randidstr
 				'params jparams))
 	 )
     (debug "do_blocking_jsonrpc2_call service=" service " jreq=" jreq)
@@ -3793,7 +3811,7 @@ exit, in last place.}#
 	    (jparser (make_json_parser jreplyhandler jerrorhandler 
 				       (tuple servout (constant_box servfd))))
 	    )
-	(debug "do_blocking_jsonrpc2_call jparser=" jparser)
+	(debug "do_blocking_jsonrpc2_call jparser=" jparser "; begtime=" begtime)
 	(register_raw_input_channel_handler json_parser_input_processor
 					    jparser
 					    servfd)
@@ -3801,8 +3819,12 @@ exit, in last place.}#
 		 (setq loopcount (+i loopcount 1))
 		 (debug "do_blocking_jsonrpc2_call loopcount=" loopcount) 
 		 (hook_poll_inputs timeoutms)
+		 (debug "do_blocking_jsonrpc2_call after timeoutms=" timeoutms 
+			" elapsed " (-i (relative_time_millisec) begtime)
+			" ms; gotreply=" gotreply " goterror=" goterror)
 		 (cond ( !gotreply
 			 (debug "do_blocking_jsonrpc2_call gotreply replyref=" replyref)
+			 (exit pollingloop)
 			 )
 		       ( !goterror
 			 (debug "do_blocking_jsonrpc2_call goterror=" goterror)
@@ -3817,7 +3839,10 @@ exit, in last place.}#
 			 (exit pollingloop)			 
 			 )
 		       (:else
+			(debug "do_blocking_jsonrpc2_call again loopcount=" loopcount)
 			(again pollingloop))))
+	(debug "do_blocking_jsonrpc2_call after pollingloop loopcount=" loopcount " gotreply=" gotreply
+	       " goterror=" goterror " replyref=" replyref)
 	(code_chunk afterpoll_chk 
 		    #{ /* do_blocking_jsonrpc2_call $AFTERPOLL_CHK */
 		    if (shutdown ($SERVFD, SHUT_RDWR))
@@ -3844,14 +3869,15 @@ exit, in last place.}#
 
 (export_values
  connect_to_server
+ do_blocking_jsonrpc2_call
  every_polling_input
  get_polling_input
  hook_handle_sigio 
  hook_poll_inputs 
  is_polling_inputs
- melt_invoke_input_callbacks
- make_json_parser
  json_parser_input_processor
+ make_json_parser
+ melt_invoke_input_callbacks
 )
 
 
