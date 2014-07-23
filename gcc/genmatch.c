@@ -2157,11 +2157,8 @@ main(int argc, char **argv)
     parse_pattern (r, simplifiers);
 
   for (unsigned i = 0; i < simplifiers.length (); ++i)
-    {
-      if (verbose)
-	fprintf (stderr, "pattern = %u\n", i);
-      check_no_user_id (simplifiers[i]);
-    }
+    check_no_user_id (simplifiers[i]);
+  
   vec<simplify *> out_simplifiers = vNULL;
   for (unsigned i = 0; i < simplifiers.length (); ++i)
     lower_commutative (simplifiers[i], out_simplifiers);

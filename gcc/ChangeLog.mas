@@ -1,5 +1,9 @@
 2014-07-23  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 
+	* genmatch.c (main): Remove unnecessary debug information.
+
+2014-07-23  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
 	* genmatch.c (parse_for): Adjust to parse multiple patterns.
 
 2014-07-17  Richard Biener  <rguenther@suse.de>
