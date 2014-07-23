@@ -92,6 +92,10 @@ print_struct_symbol_vec ()
 	  FOR_EACH_VEC_ELT (symbols->symbols, j, sbl)
 	    {
 	      fprintf (dump_file, "%s  ", sbl->name ());
+	      fprintf (dump_file, "with resolution %s  ",
+		       ld_plugin_symbol_resolution_names[(int)sbl->resolution]);
+	      fprintf (dump_file, "\n");
+
 	    }
 	}
     }
@@ -209,6 +213,14 @@ add_struct_to_struct_symbols_vec (tree type)
     struct_symbols_vec.create (0);
   struct_symbols_vec.safe_push (symbs);
   return struct_symbols_vec.length () - 1;
+}
+
+static void 
+remove_type_from_struct_symbols_vec (struct_symbols symbols)
+{
+  if (symbols->symbols.exists ())
+    symbols->symbols.release ();
+  free (symbols);
 }
 
 /* Vector of structures to be transformed.  */
@@ -708,7 +720,94 @@ collect_structures (void)
 static unsigned int
 propagate (void)
 {
+  unsigned int i, j;
+  symtab_node *sbl;
+  struct_symbols symbols;
+  bool escape;
+
+  if (dump_file)
+    fprintf (dump_file, "\n\nPropagating LTO info...");
+    
+  if (!struct_symbols_vec. exists ()) 
+    {
+      if (dump_file)
+	fprintf (dump_file, "\nstruct_symbols_vec does not exist.");
+    }
+
+  if (dump_file)
+    fprintf (dump_file, "\nnumber of types is %d", struct_symbols_vec.length ());
+
+  print_struct_symbol_vec ();  
+
+  for (i = 0; struct_symbols_vec.iterate (i, &symbols);)
+    {
+      if (dump_file)
+	{
+	  fprintf (dump_file, "\nConsidering symbols for type ");
+	  print_generic_expr (dump_file, struct_symbols_vec[i]->struct_decl, 0);
+	}
+      
+      /* Only local types might not have symbols, but they are not included 
+	 in struct_symbols_vec.  */
+      gcc_assert (symbols->symbols.exists ());
+
+      escape = false;
+      FOR_EACH_VEC_ELT (symbols->symbols, j, sbl)
+	{
+	  if (sbl->resolution != LDPR_PREVAILING_DEF_IRONLY) 
+	    {
+	      if (dump_file)
+		{
+		  fprintf (dump_file, "\nSymbol %s", sbl->name ());
+		  fprintf (dump_file, " has resolution %s.\nType ",
+			   ld_plugin_symbol_resolution_names[(int)sbl->resolution]);
+		  print_generic_expr (dump_file, struct_symbols_vec[i]->struct_decl, 0);
+		  fprintf (dump_file, "escapes.\n");
+		}
+	      escape = true;
+	      break;
+	    }
+	}
+      if (escape)
+	{
+	  /* Delete i's type from struct_symbols_vec.  */
+	  remove_type_from_struct_symbols_vec (symbols);
+	  struct_symbols_vec.ordered_remove (i);
+	}
+      else
+	i++;
+    } 
+
+  if (dump_file)
+    fprintf (dump_file, "\nAfter propagation:\n");
+
+  if (!struct_symbols_vec. exists ()) 
+    {
+      if (dump_file)
+	fprintf (dump_file, "\nstruct_symbols_vec does not exist.");
+    }
+
+  if (dump_file)
+    fprintf (dump_file, "\nnumber of types is %d", struct_symbols_vec.length ());
+
+  print_struct_symbol_vec ();  
+
   return 0;
+}
+
+struct symtab_node *
+get_prevailing_symbol (struct symtab_node * node)
+{
+  struct symtab_node *e;
+  struct symtab_node *next;
+  for (e = node; e; e = next)
+    {
+      next = e->previous_sharing_asm_name;
+      if (!next)
+	return e;
+    }
+
+  return NULL;
 }
 
 /* Read section in file FILE_DATA of length LEN with data DATA.  */
@@ -755,7 +854,14 @@ struct_reorg_read_section (struct lto_file_decl_data *file_data, const char *dat
 	{	      
 	  index = streamer_read_uhwi (&ib_main);
 	  symbol = lto_symtab_encoder_deref (encoder, index);
-	  add_symbol_to_struct_symbols_vec (j, symbol);
+
+	  /* For each symbol we keep its prevailing symbol, 
+             since non-previaling symbols are replaced by 
+	     prevailing ones just after lto passes read in 
+	     their summaries. So we won't be able to see 
+	     non-prevailing symbols in propagation.  */
+	  add_symbol_to_struct_symbols_vec (j, 
+					    get_prevailing_symbol (symbol));
 	  n_symbols--;
 	}
     }
