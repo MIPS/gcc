@@ -1,5 +1,12 @@
 2014-07-23  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 
+	* genmatch.c (parse_match_and_simplify): Adjust to parse
+	parenthesized if.
+	(peek_ident): New function.
+	* match.pd: Adjust patterns having if-expr to new syntax.
+
+2014-07-23  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
 	* genmatch.c (main): Remove unnecessary debug information.
 
 2014-07-23  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>

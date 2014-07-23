@@ -1769,6 +1769,20 @@ peek (cpp_reader *r)
   return token;
 }
 
+static const cpp_token *
+peek_ident (cpp_reader *r, const char *id)
+{
+  const cpp_token *token = peek (r);
+  if (token->type != CPP_NAME)
+    return 0;
+
+  const char *t = (const char *) CPP_HASHNODE (token->val.node.node)->ident.str;  
+  if (strcmp (id, t) == 0)
+    return token;
+
+  return 0;
+}
+
 /* Read the next token from R and assert it is of type TK.  */
 
 static const cpp_token *
@@ -1985,7 +1999,6 @@ parse_op (cpp_reader *r)
   return op;
 }
 
-
 /* Parse
      (define_match_and_simplify "<ident>"
         <op> <op>)  */
@@ -2008,21 +2021,33 @@ parse_match_and_simplify (cpp_reader *r, source_location match_location)
   struct operand *match = parse_op (r);
   if (match->type != operand::OP_EXPR)
     fatal_at (loc, "expected uncaptured expression");
+
   token = peek (r);
-  /* Conditional if (....)  */
-  struct operand *ifexpr = NULL;
-  source_location ifexpr_location = 0;
-  if (token->type == CPP_NAME)
+
+  if (token->type != CPP_OPEN_PAREN)
+    return new simplify (id, match, match_location, 0, 0, parse_op (r), token->src_loc);
+
+  eat_token (r, CPP_OPEN_PAREN);
+
+  token = peek (r);
+  source_location result_loc = token->src_loc;
+
+  // ( expr )
+  if (peek_ident (r, "if") == 0)
     {
-      const char *tem = get_ident (r);
-      if (strcmp (tem, "if") != 0)
-	fatal_at (token, "expected 'if' or expression");
-      ifexpr_location = token->src_loc;
-      ifexpr = parse_c_expr (r, CPP_OPEN_PAREN);
+      operand *result = parse_expr (r);
+      eat_token (r, CPP_CLOSE_PAREN);
+      return new simplify (id, match, match_location, 0, 0, result, result_loc); 
     }
-  token = peek (r);
-  return new simplify (id, match, match_location,
-		       ifexpr, ifexpr_location, parse_op (r), token->src_loc);
+
+  // (if c-expr)
+  source_location ifexpr_loc = token->src_loc; 
+  eat_ident (r, "if");
+  operand *ifexpr = parse_c_expr (r, CPP_OPEN_PAREN);
+  eat_token (r, CPP_CLOSE_PAREN);
+
+  result_loc = peek (r)->src_loc;
+  return new simplify (id, match, match_location, ifexpr, ifexpr_loc, parse_op (r), result_loc);
 }
 
 void

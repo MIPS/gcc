@@ -49,7 +49,7 @@ along with GCC; see the file COPYING3.  If not see
    and simplifies 0 % x to 0.  */
 (match_and_simplify
   (trunc_mod integer_zerop@0 @1)
-  if (!integer_zerop (@1))
+  (if (!integer_zerop (@1)))
   @0)
 (match_and_simplify
   (bit_ior @0 integer_all_onesp@1)
@@ -83,7 +83,7 @@ along with GCC; see the file COPYING3.  If not see
 #if GIMPLE
 (match_and_simplify
   (pointer_plus (addr@2 @0) INTEGER_CST_P@1)
-  if (is_gimple_min_invariant (@2))
+  (if (is_gimple_min_invariant (@2)))
   {
     HOST_WIDE_INT off;
     tree base = get_addr_base_and_unit_offset (@0, &off);
@@ -106,11 +106,11 @@ along with GCC; see the file COPYING3.  If not see
 /* Contract negates.  */
 (match_and_simplify
   (plus:c @0 (negate @1))
-  if (!TYPE_SATURATING (type))
+  (if (!TYPE_SATURATING (type)))
   (minus @0 @1))
 (match_and_simplify
   (minus @0 (negate @1))
-  if (!TYPE_SATURATING (type))
+  (if (!TYPE_SATURATING (type)))
   (plus @0 @1))
 
 
@@ -123,24 +123,24 @@ along with GCC; see the file COPYING3.  If not see
 /* (A +- B) - A -> +-B.  */
 (match_and_simplify
   (minus (plus @0 @1) @0)
-  if (!TYPE_SATURATING (type)
-      && !FLOAT_TYPE_P (type) && !FIXED_POINT_TYPE_P (type))
+  (if (!TYPE_SATURATING (type)
+      && !FLOAT_TYPE_P (type) && !FIXED_POINT_TYPE_P (type)))
   @1)
 (match_and_simplify
   (minus (minus @0 @1) @0)
-  if (!TYPE_SATURATING (type)
-      && !FLOAT_TYPE_P (type) && !FIXED_POINT_TYPE_P (type))
+  (if (!TYPE_SATURATING (type)
+      && !FLOAT_TYPE_P (type) && !FIXED_POINT_TYPE_P (type)))
   (negate @1))
 /* (A +- B) -+ B -> A.  */
 (match_and_simplify
   (minus (plus @0 @1) @1)
-  if (!TYPE_SATURATING (type)
-      && !FLOAT_TYPE_P (type) && !FIXED_POINT_TYPE_P (type))
+  (if (!TYPE_SATURATING (type)
+      && !FLOAT_TYPE_P (type) && !FIXED_POINT_TYPE_P (type)))
   @0)
 (match_and_simplify
   (plus:c (minus @0 @1) @1)
-  if (!TYPE_SATURATING (type)
-      && !FLOAT_TYPE_P (type) && !FIXED_POINT_TYPE_P (type))
+  (if (!TYPE_SATURATING (type)
+      && !FLOAT_TYPE_P (type) && !FIXED_POINT_TYPE_P (type)))
   @0)
 /* (CST +- A) +- CST -> CST' +- A.  */
 /* match_and_simplify handles constant folding for us so we can
@@ -152,7 +152,7 @@ along with GCC; see the file COPYING3.  If not see
   /* If the constant operation overflows we cannot do the transform
      as we would introduce undefined overflow, for example
      with (a - 1) + INT_MIN.  */
-  if (!TREE_OVERFLOW (@1 = int_const_binop (PLUS_EXPR, @1, @2)))
+  (if (!TREE_OVERFLOW (@1 = int_const_binop (PLUS_EXPR, @1, @2))))
   (plus @0 @1))
 (match_and_simplify
   (plus (minus INTEGER_CST_P@0 @1) INTEGER_CST_P@2)
@@ -202,7 +202,7 @@ along with GCC; see the file COPYING3.  If not see
      if the new mask might be further optimized.  */
 (match_and_simplify
   (bit_and (rshift@0 @1 INTEGER_CST_P@2) integer_onep)
-  if (compare_tree_int (@2, TYPE_PRECISION (TREE_TYPE (@1)) - 1) == 0)
+  (if (compare_tree_int (@2, TYPE_PRECISION (TREE_TYPE (@1)) - 1) == 0))
   @0)
 
 /* COMPLEX_EXPR and REALPART/IMAGPART_EXPR cancellations.  */
@@ -258,7 +258,7 @@ along with GCC; see the file COPYING3.  If not see
   /* This needs to be conditionalized on flag_unsafe_math_optimizations,
      but we keep it for now to exercise function re-optimization.
      It makes gcc.dg/pr43419.c FAIL execution though.  */
-  if (REAL_VALUES_EQUAL (TREE_REAL_CST (@1), dconsthalf))
+  (if (REAL_VALUES_EQUAL (TREE_REAL_CST (@1), dconsthalf)))
   (BUILT_IN_SQRT @0))
 
 /* TODO bitwise patterns:
@@ -349,10 +349,10 @@ along with GCC; see the file COPYING3.  If not see
 (for op in plus bit_ior bit_xor 
 (match_and_simplify
   (op:c (lshift @0 INTEGER_CST_P@1) (rshift @0 INTEGER_CST_P@2))
-  if (INTEGRAL_TYPE_P (type) && TYPE_UNSIGNED (type)
+  (if (INTEGRAL_TYPE_P (type) && TYPE_UNSIGNED (type)
       && TYPE_PRECISION (type) == GET_MODE_PRECISION (TYPE_MODE (type))
       && tree_fits_uhwi_p (@1) && tree_fits_uhwi_p (@2)
-      && tree_to_uhwi (@1) + tree_to_uhwi (@2) == TYPE_PRECISION (type))
+      && tree_to_uhwi (@1) + tree_to_uhwi (@2) == TYPE_PRECISION (type)))
   (lrotate @0 @1)))
 
 
