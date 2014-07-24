@@ -7040,8 +7040,6 @@ static void
 expand_omp_for_static_chunk (struct omp_region *region,
 			     struct omp_for_data *fd, gimple inner_stmt)
 {
-  gcc_assert (gimple_omp_for_kind (fd->for_stmt) != GF_OMP_FOR_KIND_OACC_LOOP);
-
   tree n, s0, e0, e, t;
   tree trip_var, trip_init, trip_main, trip_back, nthreads, threadid;
   tree type, itype, vmain, vback, vextra;
@@ -7053,6 +7051,10 @@ expand_omp_for_static_chunk (struct omp_region *region,
   bool broken_loop = region->cont == NULL;
   tree *counts = NULL;
   tree n1, n2, step;
+
+  gcc_assert ((gimple_omp_for_kind (fd->for_stmt)
+	       != GF_OMP_FOR_KIND_OACC_LOOP)
+	      || !inner_stmt);
 
   itype = type = TREE_TYPE (fd->loop.v);
   if (POINTER_TYPE_P (type))
@@ -7153,6 +7155,10 @@ expand_omp_for_static_chunk (struct omp_region *region,
       threadid = builtin_decl_explicit (BUILT_IN_OMP_GET_TEAM_NUM);
       threadid = build_call_expr (threadid, 0);
       break;
+    case GF_OMP_FOR_KIND_OACC_LOOP:
+      nthreads = integer_one_node;
+      threadid = integer_zero_node;
+      break;
     default:
       gcc_unreachable ();
     }
@@ -7168,6 +7174,9 @@ expand_omp_for_static_chunk (struct omp_region *region,
   step = fd->loop.step;
   if (gimple_omp_for_combined_into_p (fd->for_stmt))
     {
+      gcc_assert (gimple_omp_for_kind (fd->for_stmt)
+		  != GF_OMP_FOR_KIND_OACC_LOOP);
+
       tree innerc = find_omp_clause (gimple_omp_for_clauses (fd->for_stmt),
 				     OMP_CLAUSE__LOOPTEMP_);
       gcc_assert (innerc);
@@ -7351,6 +7360,9 @@ expand_omp_for_static_chunk (struct omp_region *region,
   gsi = gsi_last_bb (exit_bb);
   if (!gimple_omp_return_nowait_p (gsi_stmt (gsi)))
     {
+      gcc_assert (gimple_omp_for_kind (fd->for_stmt)
+		  != GF_OMP_FOR_KIND_OACC_LOOP);
+
       t = gimple_omp_return_lhs (gsi_stmt (gsi));
       gsi_insert_after (&gsi, build_omp_barrier (t), GSI_SAME_STMT);
     }
@@ -7365,6 +7377,9 @@ expand_omp_for_static_chunk (struct omp_region *region,
       se = find_edge (cont_bb, body_bb);
       if (gimple_omp_for_combined_p (fd->for_stmt))
 	{
+	  gcc_assert (gimple_omp_for_kind (fd->for_stmt)
+		      != GF_OMP_FOR_KIND_OACC_LOOP);
+
 	  remove_edge (se);
 	  se = NULL;
 	}
