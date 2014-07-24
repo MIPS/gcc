@@ -1,3 +1,6 @@
+2014-07-24  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-base.melt (json_canonical_name): Improved.
 
 2014-07-24  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{json_canonical_name probably buggy}}

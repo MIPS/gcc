@@ -3695,14 +3695,15 @@ given object map $MAPO}#
 	   )
       (cond 
        ( (is_string namstr)
+	 (assert_msg "check namestrlen" (==i (string_length namstr) namlen) namstr n)
 	 (code_chunk 
 	 compareupcase_chk 
 	 #{ /* json_canonical_name $COMPAREUPCASE_CHK */
 	   const char* ncstr = melt_string_str($N);
 	   const char* namcstr = melt_string_str($NAMSTR);
+	   gcc_assert (ncstr != NULL);
+	   gcc_assert (namcstr != NULL);
 	   unsigned nlen = (unsigned)$NAMLEN;
-           gcc_assert (ncstr && namcstr);
-	   gcc_assert ((unsigned)strlen(namcstr) == nlen);
            for (unsigned ix=0; 
 	        ix<nlen && !$BAD;
 		ix++) {
@@ -3710,11 +3711,10 @@ given object map $MAPO}#
               char namc = namcstr[ix];
               if (isupper(nc))
 	         $BAD = 1;
-              else if (isalpha(nc) && isalpha(namc)
-		       && nc != tolower(namc))
-                 $BAD = 1;
-              else if (nc != namc)
-	         $BAD = 1;         
+              else if (isalpha(nc) && isalpha(namc))
+                 $BAD = toupper(nc) != namc;
+              else
+	         $BAD = nc != namc;         
 	   }; // end for ix
 	 /* end json_canonical_name $COMPAREUPCASE_CHK */}#	 
 	 )
