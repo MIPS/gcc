@@ -3636,26 +3636,44 @@ given object map $MAPO}#
 
 (defun json_name_less (lv rv)
 :doc #{Compare two JSON names $LV and $RV for less.}#
-  (let ( (lname (cond ((is_string lv) lv) 
-		      ((is_a lv class_named) (get_field :named_name lv))))
-	 (rname (cond ((is_string rv) rv) 
-		      ((is_a rv class_named) (get_field :named_name rv))))
+  (let (
+	(:long nonstring 0)
+	(lname (cond ((is_string lv) lv) 
+		      ((is_a lv class_named) 
+		       (setq nonstring 1)
+		       (get_field :named_name lv))))
+	(rname (cond ((is_string rv) rv) 
+		      ((is_a rv class_named) 
+		       (setq nonstring 1)
+		       (get_field :named_name rv))))
 	 )
-    (if (string< lname rname) :true)))
+    (if nonstring
+	(if (string<case lname rname) (return :true))      
+      (if (string< lname rname) (return :true)))
+    (return ())))
 
+;;;;;;;;;;;;;;;;
 (defun json_name_equal (lv rv)
-:doc #{Compare two JSON names $LV and $RV for equality.}#
+  :doc #{Compare two JSON names $LV and $RV for equality.}#
   (if (== lv rv) (return :true))
-  (let ( (lname (cond ((is_string lv) lv) 
-		      ((is_a lv class_named) (get_field :named_name lv))))
-	 (rname (cond ((is_string rv) rv) 
-		      ((is_a rv class_named) (get_field :named_name rv))))
-	 )
-    (if (==s lname rname) (return :true)))
-  (return ()))
+  (let ( 
+	(:long nonstring 0)
+	(lname (cond ((is_string lv) lv) 
+		     ((is_a lv class_named) 
+		      (setq nonstring 1)
+		      (get_field :named_name lv))))
+	(rname (cond ((is_string rv) rv) 
+		     ((is_a rv class_named) 
+		      (setq nonstring 1)
+		      (get_field :named_name rv))))
+	)
+    (if nonstring
+	(if (==s-case lname rname) (return :true))      
+      (if (==s lname rname) (return :true)))
+    (return ())))
 
 
-
+;;;;;;;;;;;;;;;;
 (defun json_canonical_name (n)
   :doc #{Gives the JSON canonical name $N. If $N is a all-lower-cases
   string of some @i{existing} symbol or keyword, gives that symbol or
@@ -3711,6 +3729,7 @@ given object map $MAPO}#
    (:else
     (return ()))))
 
+;;;;;;;;;;;;;;;;
 (defun make_jsonobject (dis :rest)   
   :doc #{Dynamically build a JSON object of discriminant
   $DIS. Variadic arguments are alternatively name and value entries; a
@@ -4138,6 +4157,9 @@ given object map $MAPO}#
  is_out
  is_strbuf
  is_stringconst
+ json_canonical_name
+ json_name_less
+ json_name_equal
  list_nth_element
  list_remove_last_element
  longbacktrace_dbg

@@ -1,5 +1,12 @@
 
 2014-07-24  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{json_canonical_name probably buggy}}
+	* melt/warmelt-base.melt (json_canonical_name, json_name_less)
+	(json_name_equal): Exported.
+
+	* testsuite/melt/tjson-2.melt: Also testing json_canonical_name.
+
+2014-07-24  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{incorrectly a JSON object name like "id" is not transformed to
 	ID symbol at json parsing but it should.}}
 

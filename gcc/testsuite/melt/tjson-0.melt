@@ -105,6 +105,6 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 	    " get'resumt=" (jsonobject_get_named jo5 'result))
   ))
 
-(debug "tjson0" " canonical id=" (json_canonical_name '"id"))
-(debug "tjson0" " canonical result=" (json_canonical_name '"result"))
+(debug "tjson0" " 'id=" 'id " canonical id=" (json_canonical_name '"id"))
+(debug "tjson0" " 'result=" 'result " canonical result=" (json_canonical_name '"result"))
 ;; eof tjson-0.melt
