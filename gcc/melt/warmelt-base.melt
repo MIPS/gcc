@@ -1198,6 +1198,15 @@ Returns a boxed integer.}#
   #{meltgc_add_strbuf_cstr ((melt_ptr_t)($SBUF), 
                             melt_string_str ((melt_ptr_t)($STR)))}#)
 
+;; primitive to add a string value, UTF8JSON encoded, into a strbuf or output
+(defprimitive add2out_utf8json_encstring (sbuf str) :void 
+  :doc #{Add into stringbuffer $SBUF the content of string $STR with JSONUTF8 encoding.}#
+  #{/*add2out_utf8json_encstring*/
+  meltgc_add_out_cstr_len_mode ((melt_ptr_t)($SBUF), 
+				melt_string_str ((melt_ptr_t)($STR)),
+				-1,
+				MELTCOUT_UTF8JSON)}#)
+
 ;; primitive to add a strbuf, C encoded, into a strbuf
 (defprimitive add2sbuf_cencstrbuf (sbuf asbuf) :void 
   :doc #{Add into stringbuffer $SBUF the content of stringbuffer $ASBUF with C encoding.}#
@@ -1570,7 +1579,11 @@ output $OUT. It is called by the $ADD2OUT variadic function.}#
 	   (if ix (add2out out ","))
 	   (output_json out curcomp))
 	  (add2out out "]"))
-;; @@@@ should output JSON strings with UTF8
+	( (is_string v)
+	  (add2out out "\"")
+	  (add2out_utf8json_encstring out v)
+	  (add2out out "\"")
+	  )
 	(:else
 	 (output_as_json v out)))
   )
@@ -4046,6 +4059,7 @@ which should be a string or an instance of $CLASS_NAMED, or else nil.}#
  add2out_sbuf
  add2out_strconst
  add2out_string
+ add2out_utf8json_encstring
  add2sbuf_ccomconst
  add2sbuf_ccomstrbuf
  add2sbuf_ccomstring 

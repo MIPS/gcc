@@ -1,4 +1,20 @@
 
+2014-07-24  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.h: Improve some comments.
+	(enum melt_coutput_mode_en): New.
+	(meltgc_add_out_cstr_len_mode): New function.
+	(meltgc_add_out_cstr_len, meltgc_add_out_cstr)
+	(meltgc_add_out_csubstr_len): Functions made inline..
+
+	* melt-runtime.cc (meltgc_add_out_cstr_len): Remove and replace by....
+	(meltgc_add_out_csubstr_len): ... generalized to take a mode.
+	(meltgc_add_out_csubstr_len, meltgc_add_out_cstr): Remove, since
+	inlined in header file.
+
+	* melt/warmelt-base.melt (add2out_utf8json_encstring): New primitive.
+	(output_json): Use it to output strings.
+
 2014-07-23  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-base.melt (output_json): Should output JSON strings

@@ -116,8 +116,8 @@ MELT_EXTERN void melt_fatal_info (const char*filename, int lineno);
 MELT_EXTERN char* melt_gccversionstr;
 
 
-/* The version number of GCC, at MELT build time. So 4006 is for 4.6,
-   4007 is for 4.7.  Same as MELT_GCC_VERSION constant macro.  */
+/* The version number of GCC, at MELT build time. So 4008 is for 4.8,
+   4009 is for 4.9.  Same as MELT_GCC_VERSION constant macro.  */
 MELT_EXTERN const int melt_gcc_version;
 /* Points to the gcc_version from plugin-version.h */
 MELT_EXTERN struct plugin_gcc_version* melt_plugin_gcc_version;
@@ -129,8 +129,8 @@ MELT_EXTERN int melt_count_runtime_extensions;
 #define MELT_MAX_RUNTIME_EXTENSIONS 3000000
 
 /* The version string of MELT; this is parsed by make, so spaces are
-   important!  That version string is extracted by scripts or
-   makefiles... */
+   important, don't add spaces after the terminating double-quote!
+   That version string is extracted by scripts or makefiles... */
 #define MELT_VERSION_STRING "1.1-rc0plus"
 
 /* return a read only version string */
@@ -2541,8 +2541,7 @@ void meltgc_add_out_raw (melt_ptr_t outbuf_p,
 /*  add into OUT (a boxed STRBUF or a boxed FILE) the static string
    STR (which is not in the melt heap) of length SLEN or
    strlen(STR) if SLEN<0 */
-void meltgc_add_out_raw_len (melt_ptr_t outbuf_p,
-                             const char *str, int slen);
+void meltgc_add_out_raw_len (melt_ptr_t outbuf_p, const char *str, int slen);
 #define meltgc_add_strbuf_raw_len(Out,Str,Len) meltgc_add_out_raw_len((Out),(Str),(Len))
 
 /* add safely into OUTBUF the string STR (which is first copied, so
@@ -2551,23 +2550,53 @@ void meltgc_add_out (melt_ptr_t outbuf_p,
                      const char *str);
 #define meltgc_add_strbuf(Out,Str) meltgc_add_out((Out),(Str))
 
-/* add safely into OUTBUF the string STR encoded as a C string with
-   backslash escapes */
-void meltgc_add_out_cstr (melt_ptr_t outbuf_p,
-                          const char *str);
-#define meltgc_add_strbuf_cstr(Out,Str) meltgc_add_out_cstr(Out,Str)
 
 /* add safely into OUTBUF the string STR of length SLEN encoded as a C
    string with backslash escapes */
-void meltgc_add_out_cstr_len (melt_ptr_t outbuf_p,
-                              const char *str, int slen);
+enum melt_coutput_mode_en {
+  MELTCOUT_ASCII,		// use \oXXX
+  MELTCOUT_UTF8JSON,		// keep UTF8 characters as is,
+				// e.g. for JSON, use \uXXXX for
+				// control characters
+  /// we could add a mode for JSON \uXXXX escapes for UTF8 sequences
+  /// outside of ASCII, this would require decoding of UTF-8 multibyte
+  /// characters.
+};
+void meltgc_add_out_cstr_len_mode (melt_ptr_t outbuf_p, const char *str, int slen,
+				     enum melt_coutput_mode_en omode);
+static inline void
+meltgc_add_out_cstr_len(melt_ptr_t outbuf_p, const char *str, int slen)
+{
+  meltgc_add_out_cstr_len_mode (outbuf_p, str, slen, MELTCOUT_ASCII);
+}
 #define meltgc_add_strbuf_cstr_len(Out,Str,Slen) \
   meltgc_add_out_cstr_len(Out,Str,Slen)
+/* add safely into OUTBUF the string STR encoded as a C string with
+   backslash escapes */
+static inline void
+meltgc_add_out_cstr (melt_ptr_t outbuf_p, const char *str)
+{
+  meltgc_add_out_cstr_len (outbuf_p, str, -1);
+}
+
+#define meltgc_add_strbuf_cstr(Out,Str) meltgc_add_out_cstr(Out,Str)
+
 
 /* add safely into OUTBUF the substring of STR starting at offset OFF
    of length SLEN encoded as a C string with backslash escapes */
-void meltgc_add_out_csubstr_len (melt_ptr_t outbuf_p,
-                                 const char *str, int off, int slen);
+static inline void
+meltgc_add_out_csubstr_len (melt_ptr_t outbuf_p,
+			    const char *str, int off, int slen)
+{
+  if (!str)
+    return;
+  if (off < 0)
+    off=0;
+  if (slen < 0)
+    slen = strlen(str+off);
+  meltgc_add_out_cstr_len (outbuf_p, str+off, slen);
+}
+
 #define meltgc_add_strbuf_csubstr_len(Out,Str,Slen) \
   meltgc_add_out_csubstr_len(Out,Str,Slen)
 

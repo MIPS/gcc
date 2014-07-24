@@ -2782,8 +2782,10 @@ meltgc_add_out (melt_ptr_t out_p, const char *str)
 }
 
 
+
 void
-meltgc_add_out_cstr_len (melt_ptr_t outbuf_p, const char *str, int slen)
+meltgc_add_out_cstr_len_mode (melt_ptr_t outbuf_p, const char *str, int slen,			      
+                              enum melt_coutput_mode_en omode)
 {
   const char *ps = NULL;
   char *pd = NULL;
@@ -2865,13 +2867,28 @@ meltgc_add_out_cstr_len (melt_ptr_t outbuf_p, const char *str, int slen)
           ADDS ("\\\\");
 #undef ADDS
         default:
-          if (ISPRINT (*ps))
+          if ((unsigned char)(*ps) < (unsigned char)0x7f && ISPRINT (*ps))
             *(pd++) = *ps;
-          else
-            {
-              sprintf (pd, "\\%03o", (*ps) & 0xff);
-              pd += 4;
-            }
+          else {
+	    switch (omode) {
+            case MELTCOUT_ASCII:
+	      {
+		sprintf (pd, "\\%03o", (*ps) & 0xff);
+		pd += 4;
+	      }
+	      break;
+	    case MELTCOUT_UTF8JSON:
+	      if ((unsigned char)(*ps) < 0xff && ISCNTRL(*ps)) {
+		sprintf (pd, "\\u%04x", (*ps) & 0xff);
+		pd += 6;
+	      }
+	      else {
+		// if the source string is UTF-8, the UTF-8 multibyte characters are kept verbatim!
+		*(pd++) = *ps;
+	      }
+	      break;
+	    }
+	  }
         }
     };
   if (dupstr && dupstr != tinybuf)
@@ -2880,23 +2897,6 @@ meltgc_add_out_cstr_len (melt_ptr_t outbuf_p, const char *str, int slen)
   free (encstr);
 }
 
-void meltgc_add_out_csubstr_len (melt_ptr_t outbuf_p,
-                                 const char *str, int off, int slen)
-{
-  if (!str)
-    return;
-  if (off < 0)
-    off=0;
-  if (slen < 0)
-    slen = strlen(str+off);
-  meltgc_add_out_cstr_len (outbuf_p, str+off, slen);
-}
-
-void
-meltgc_add_out_cstr (melt_ptr_t outbuf_p, const char *str)
-{
-  meltgc_add_out_cstr_len (outbuf_p, str, -1);
-}
 
 void
 meltgc_add_out_ccomment (melt_ptr_t outbuf_p, const char *str)
