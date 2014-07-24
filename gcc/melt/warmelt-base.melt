@@ -3858,26 +3858,31 @@ given object map $MAPO}#
   #{ /* jsonobject_nth_value */ melt_jsonobject_nth_value ($VJ, (int)$RK) }#)
 
 
-(defun jsonobject_get_named (:value vj name)
+;;;;
+(defun jsonobject_get_named (:value vjob atname)
 :doc #{Dichotomically get in JSONobject $VJ the value associated to name $NAME 
 which should be a string or an instance of $CLASS_NAMED, or else nil.}#
-  (if (not (is_jsonobject vj)) (return ()))
+  (if (not (is_jsonobject vjob)) (return ()))
   (let ( (vname (cond 
-		 ((is_string name) name)
-		 ((is_a name class_named) (unsafe_get_field :named_name name))
-		 (:else ())))
-	 (:long sz (jsonobject_size vj))
+		 ((is_string atname) 
+		  atname)
+		 ((is_a atname class_named) 
+		  (unsafe_get_field :named_name atname))
+		 (:else (return ()))))
+	 (:long sz (jsonobject_size vjob))
 	 (:long lo 0)
 	 (:long hi (-i sz 1))
 	 )
-    (if (not (is_string vname)) (return ()))
-    (if (==i sz 0) (return ()))
+    (if (not (is_string vname)) 
+	(return ()))
+    (if (==i sz 0) 
+	(return ()))
     (forever 
      getloop
      (if (>i (+i lo 3) hi) 
 	 (exit getloop))
      (let ( (:long mi (/iraw (+i lo hi) 2))
-	    (midname (jsonobject_nth_name vj mi))
+	    (midname (jsonobject_nth_name vjob mi))
 	    )
        (if (json_name_less vname midname)
 	   (setq hi mi)
@@ -3885,15 +3890,17 @@ which should be a string or an instance of $CLASS_NAMED, or else nil.}#
     (foreach_long_upto 
      (lo hi)
      (:long ix)
-     (let ( (curname (jsonobject_nth_name vj ix))
+     (let ( (curname (jsonobject_nth_name vjob ix))
 	    )
-       (if (json_name_equal name vname)
-	   (return (jsonobject_nth_value vj ix)))
+       (if (json_name_equal curname vname)
+	   (return (jsonobject_nth_value vjob ix)))
        )
      )
     )
   )
 
+
+;;;
 (defciterator foreach_entry_in_jsonobject 
   (:value vj)
   eachjson

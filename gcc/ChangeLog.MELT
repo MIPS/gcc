@@ -1,5 +1,9 @@
 
 2014-07-24  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-base.melt (jsonobject_get_named): Use curname not
+	name in the last loop.
+
+2014-07-24  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/generated/*: Regenerate all.
 
