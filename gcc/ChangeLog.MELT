@@ -1,11 +1,17 @@
 
 2014-07-24  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/generated/*: Regenerate all.
+
+2014-07-24  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{jsonobject_get_named is buggy}}
 
 	* melt-runtime.h (enum melt_coutput_mode_en): Remove last comma...
 	* melt/warmelt-base.melt (valdesc_jsonobject): Improve
 	cosmetically some generated inlined routines, e.g.
 	melt_jsonobject_nth_name & melt_jsonobject_nth_value.
+	(json_name_equal): Shortcut for identity of names.
+	(jsonobject_get_named): Still buggy.
 
 	* melt/warmelt-hooks.melt (do_blocking_jsonrpc2_call): Extract the
 	result, handle JSON remote errors, etc...
