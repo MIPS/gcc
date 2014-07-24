@@ -1192,8 +1192,13 @@ $TORANK}#
     (foreach_entry_in_jsonobject
      (self)
      (jname jval :long jix)
-      (add2sbuf_indentnl sbuf nextdepth)
-      (add2out sbuf "* " jname "= ")
+     (add2sbuf_indentnl sbuf nextdepth)
+     (cond ( (is_string jname)
+	     (add2out sbuf "*\"" jname "= "))
+	   ( (is_a jname class_named)
+	     (add2out sbuf "*'" jname "= "))
+	   (:else
+	    (add2out sbuf "*?" jname "= ")))
       (dbg_out jval dbgi nextdepth)
      )
     (if size 

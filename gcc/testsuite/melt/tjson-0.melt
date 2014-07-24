@@ -72,7 +72,8 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
        (debug "jsob_get_named" " foreach curname=" curname)
        (if (json_name_equal curname vname)
 	   (let ( (curval (jsonobject_nth_value vjob ix)) )
-	     (debug "jsob_get_named" " gives curval=" curval)))
+	     (debug "jsob_get_named" " gives curval=" curval)
+	     (return curval)))
        )
      )
     )
@@ -82,6 +83,28 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 (let ( (jo4 (make_jsonobject discr_jsonobject (list 'aa 'bb 'cc) (list 'x 'y '3)))
        )
   (debug "tjson0" " jo4=" jo4)
-  )
+  (let ( (gaa (jsob_get_named jo4 'aa))
+	 (gcc (jsob_get_named jo4 'cc))
+	 )
+    (debug  "tjson0" " gaa=" gaa " gcc=" gcc)	 
+    (debug  "tjson0" " get'aa=" (jsonobject_get_named jo4 'aa)
+	    " get'cc=" (jsonobject_get_named jo4 'cc))
+  ))
 
+(let ( (jo5 (make_jsonobject discr_jsonobject
+			     'id "C1P4444R2a83T2222"
+			     'jsonrpc "2.0"
+			     'result 3))
+       )
+  (debug "tjson0" " jo5=" jo5)
+  (let ( (gid (jsob_get_named jo5 'id))
+	 (gresult (jsob_get_named jo5 'result))
+	 )
+    (debug  "tjson0" " gid=" gid " gresult=" gresult)	 
+    (debug  "tjson0" " get'id=" (jsonobject_get_named jo5 'id)
+	    " get'resumt=" (jsonobject_get_named jo5 'result))
+  ))
+
+(debug "tjson0" " canonical id=" (json_canonical_name '"id"))
+(debug "tjson0" " canonical result=" (json_canonical_name '"result"))
 ;; eof tjson-0.melt

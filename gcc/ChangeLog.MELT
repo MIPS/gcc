@@ -1,5 +1,13 @@
 
 2014-07-24  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{incorrectly a JSON object name like "id" is not transformed to
+	ID symbol at json parsing but it should.}}
+
+	* melt/warmelt-debug.melt (dbgout_jsonobject_method): Display
+	differently name & string JSONobject attribute...
+	* testsuite/melt/tjson-0.melt: Improve.
+
+2014-07-24  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-base.melt (jsonobject_get_named): Explicitly return
 	nil on failure. But still buggy!
 
