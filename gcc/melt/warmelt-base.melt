@@ -3860,8 +3860,8 @@ given object map $MAPO}#
 
 ;;;;
 (defun jsonobject_get_named (:value vjob atname)
-:doc #{Dichotomically get in JSONobject $VJ the value associated to name $NAME 
-which should be a string or an instance of $CLASS_NAMED, or else nil.}#
+  :doc #{Dichotomically get in JSONobject $VJ the value associated to name $NAME 
+  which should be a string or an instance of $CLASS_NAMED, or else nil.}#
   (if (not (is_jsonobject vjob)) (return ()))
   (let ( (vname (cond 
 		 ((is_string atname) 
@@ -3893,9 +3893,12 @@ which should be a string or an instance of $CLASS_NAMED, or else nil.}#
      (let ( (curname (jsonobject_nth_name vjob ix))
 	    )
        (if (json_name_equal curname vname)
-	   (return (jsonobject_nth_value vjob ix)))
+	   (let ( (curval (jsonobject_nth_value vjob ix)) )
+	     (return curval)))
        )
      )
+    ;;					; ;
+    (return ())
     )
   )
 

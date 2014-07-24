@@ -1,5 +1,11 @@
 
 2014-07-24  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-base.melt (jsonobject_get_named): Explicitly return
+	nil on failure. But still buggy!
+
+	* testsuite/melt/tjson-0.melt: Add jsob_get_named with debug.
+
+2014-07-24  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-base.melt (jsonobject_get_named): Use curname not
 	name in the last loop.
 
