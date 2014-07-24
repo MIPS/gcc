@@ -1,5 +1,8 @@
 2014-07-24  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* omp-low.c (extract_omp_for_data): Force OpenACC loop to use a
+	chunk size of one.
+
 	* omp-low.c (expand_omp_for_static_chunk): Merge changes
 	previously applied to expand_omp_for_static_nochunk.
 

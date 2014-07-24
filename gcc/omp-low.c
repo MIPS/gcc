@@ -619,6 +619,16 @@ extract_omp_for_data (gimple for_stmt, struct omp_for_data *fd,
       fd->loop.step = build_int_cst (TREE_TYPE (fd->loop.v), 1);
       fd->loop.cond_code = LT_EXPR;
     }
+
+  //TODO
+  /* For OpenACC loops, force a chunk size of one, as this avoids the default
+    scheduling where several subsequent iterations are being executed by the
+    same thread.  */
+  if (gimple_omp_for_kind (for_stmt) == GF_OMP_FOR_KIND_OACC_LOOP)
+    {
+      gcc_assert (fd->chunk_size == NULL_TREE);
+      fd->chunk_size = build_int_cst (TREE_TYPE (fd->loop.v), 1);
+    }
 }
 
 
