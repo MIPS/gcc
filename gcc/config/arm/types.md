@@ -119,6 +119,7 @@
 ; mvn_shift_reg      inverting move instruction, shifted operand by a register.
 ; no_insn            an insn which does not represent an instruction in the
 ;                    final output, thus having no impact on scheduling.
+; prefetch           a prefetch instruction
 ; rbit               reverse bits.
 ; rev                reverse bytes.
 ; sdiv               signed division.
@@ -557,6 +558,7 @@
   call,\
   clz,\
   no_insn,\
+  prefetch,\
   csel,\
   crc,\
   extend,\

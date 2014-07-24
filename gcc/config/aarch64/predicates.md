@@ -97,6 +97,14 @@
   (ior (match_operand 0 "register_operand")
        (match_operand 0 "aarch64_plus_immediate")))
 
+(define_predicate "aarch64_prefetch_pimm"
+  (and (match_code "const_int")
+       (match_test "(INTVAL (op) < 0x7ff8 && (0 == INTVAL (op) % 8))")))
+
+(define_predicate "aarch64_prefetch_unscaled"
+  (and (match_code "const_int")
+       (match_test "(INTVAL (op) < 255 && INTVAL (op) > -256)")))
+
 (define_predicate "aarch64_pluslong_immediate"
   (and (match_code "const_int")
        (match_test "(INTVAL (op) < 0xffffff && INTVAL (op) > -0xffffff)")))

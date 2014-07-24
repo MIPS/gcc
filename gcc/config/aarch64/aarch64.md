@@ -362,6 +362,74 @@
   [(set_attr "type" "no_insn")]
 )
 
+(define_insn "*prefetch"
+  [(prefetch (plus:DI (match_operand:DI 0 "register_operand" "r")
+                      (match_operand:DI 1 "aarch64_prefetch_pimm" "")
+             )
+            (match_operand:QI 2 "const_int_operand" "n")
+           (match_operand:QI 3 "const_int_operand" "n"))]
+  ""
+  "*
+{
+  int locality = INTVAL (operands[3]);
+
+  gcc_assert (IN_RANGE (locality, 0, 3));
+
+  if (locality == 0)
+     /* non temporal locality */
+     return (INTVAL(operands[2])) ? \"prfm\\tPSTL1STRM, [%0, %1]\" : \"prfm\\tPLDL1STRM, [%0, %1]\";
+
+  /* temporal locality */
+  return (INTVAL(operands[2])) ? \"prfm\\tPSTL%3KEEP, [%0, %1]\" : \"prfm\\tPLDL%3KEEP, [%0, %1]\";
+}"
+  [(set_attr "type" "prefetch")]
+)
+
+(define_insn "*prefetch"
+  [(prefetch (plus:DI (match_operand:DI 0 "register_operand" "r")
+                      (match_operand:DI 1 "aarch64_prefetch_unscaled" "")
+             )
+            (match_operand:QI 2 "const_int_operand" "n")
+            (match_operand:QI 3 "const_int_operand" "n"))]
+  ""
+  "*
+{
+  int locality = INTVAL (operands[3]);
+
+  gcc_assert (IN_RANGE (locality, 0, 3));
+
+  if (locality == 0)
+     /* non temporal locality */
+     return (INTVAL(operands[2])) ? \"prfum\\tPSTL1STRM, [%0, %1]\" : \"prfm\\tPLDL1STRM, [%0, %1]\";
+
+  /* temporal locality */
+  return (INTVAL(operands[2])) ? \"prfum\\tPSTL%3KEEP, [%0, %1]\" : \"prfm\\tPLDL%3KEEP, [%0, %1]\";
+}"
+  [(set_attr "type" "prefetch")]
+)
+
+(define_insn "prefetch"
+  [(prefetch (match_operand:DI 0 "address_operand" "r")
+            (match_operand:QI 1 "const_int_operand" "n")
+            (match_operand:QI 2 "const_int_operand" "n"))]
+  ""
+  "*
+{
+  int locality = INTVAL (operands[2]);
+
+  gcc_assert (IN_RANGE (locality, 0, 3));
+
+  if (locality == 0)
+     /* non temporal locality */
+     return (INTVAL(operands[1])) ? \"prfm\\tPSTL1STRM, [%0, #0]\" : \"prfm\\tPLDL1STRM, [%0, #0]\";
+
+  /* temporal locality */
+  return (INTVAL(operands[1])) ? \"prfm\\tPSTL%2KEEP, [%0, #0]\" : \"prfm\\tPLDL%2KEEP, [%0, #0]\";
+}"
+  [(set_attr "type" "prefetch")]
+)
+
+
 (define_insn "trap"
   [(trap_if (const_int 1) (const_int 8))]
   ""

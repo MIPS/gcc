@@ -1,3 +1,13 @@
+2014-07-24  Andrew Pinski  <apinski@cavium.com>
+
+	Port:
+	2014-07-04  Ganesh Gopalasubramanian <Ganesh.Gopalasubramanian@amd.com>
+	* config/aarch64/aarch64.md (define_insn "*prefetch")
+	(define_insn "prefetch"): New
+	* config/aarch64/predicates.md (aarch64_prefetch_pimm)
+	(aarch64_prefetch_unscaled): New.
+	* config/arm/types.md (define_attr "type"): Add prefetch.
+
 2014-06-16  Andrew Pinski  <apinski@cavium.com>
 
 	* config/aarch64/aarch64.md (mov<mode>cc:ALLI):
