@@ -25,6 +25,7 @@
 #include <experimental/filesystem>
 #include <functional>
 #include <stdlib.h>
+#include <stdio.h>
 #include <errno.h>
 #ifdef _GLIBCXX_HAVE_UNISTD_H
 # include <unistd.h>
@@ -122,7 +123,10 @@ fs::copy(const path& from, const path& to, copy_options options)
 
 void
 fs::copy(const path& from, const path& to, copy_options options,
-	 error_code& ec) noexcept; // TODO
+	 error_code& ec) noexcept
+{
+  // TODO
+}
 
 bool
 fs::copy_file(const path& from, const path& to, copy_options option)
@@ -137,7 +141,11 @@ fs::copy_file(const path& from, const path& to, copy_options option)
 
 bool
 fs::copy_file(const path& from, const path& to, copy_options option,
-	      error_code& ec) noexcept; // TODO
+	      error_code& ec) noexcept
+{
+  // TODO
+}
+
 
 void
 fs::copy_symlink(const path& existing_symlink, const path& new_symlink)
@@ -151,7 +159,11 @@ fs::copy_symlink(const path& existing_symlink, const path& new_symlink)
 
 void
 fs::copy_symlink(const path& existing_symlink, const path& new_symlink,
-		 error_code& ec) noexcept; // TODO
+		 error_code& ec) noexcept
+{
+  // TODO
+}
+
 
 bool
 fs::create_directories(const path& p)
@@ -165,7 +177,34 @@ fs::create_directories(const path& p)
 }
 
 bool
-fs::create_directories(const path& p, error_code& ec) noexcept; // TODO
+fs::create_directories(const path& p, error_code& ec) noexcept
+{
+  // TODO
+}
+
+namespace
+{
+  bool
+  create_dir(const fs::path& p, fs::perms perm, std::error_code& ec)
+  {
+#ifdef _GLIBCXX_HAVE_SYS_STAT_H
+    ::mode_t mode = static_cast<std::underlying_type_t<fs::perms>>(perm);
+    if (::mkdir(p.c_str(), mode))
+      {
+	ec.assign(errno, std::generic_category());
+	return false;
+      }
+    else
+      {
+	ec.clear();
+	return true;
+      }
+#else
+    ec = std::make_error_code(std::errc::not_supported);
+    return false;
+#endif
+  }
+} // namespace
 
 bool
 fs::create_directory(const path& p)
@@ -179,7 +218,11 @@ fs::create_directory(const path& p)
 }
 
 bool
-fs::create_directory(const path& p, error_code& ec) noexcept; // TODO
+fs::create_directory(const path& p, error_code& ec) noexcept
+{
+  return create_dir(p, perms::all, ec);
+}
+
 
 bool
 fs::create_directory(const path& p, const path& attributes)
@@ -194,7 +237,22 @@ fs::create_directory(const path& p, const path& attributes)
 
 bool
 fs::create_directory(const path& p, const path& attributes,
-		     error_code& ec) noexcept; // TODO
+		     error_code& ec) noexcept
+{
+#ifdef _GLIBCXX_HAVE_SYS_STAT_H
+  struct ::stat st;
+  if (::stat(attributes.c_str(), &st))
+    {
+      ec.assign(errno, std::generic_category());
+      return false;
+    }
+  return create_dir(p, static_cast<perms>(st.st_mode), ec);
+#else
+  ec = std::make_error_code(std::errc::not_supported);
+  return false;
+#endif
+}
+
 
 void
 fs::create_directory_symlink(const path& to, const path& new_symlink)
@@ -208,7 +266,15 @@ fs::create_directory_symlink(const path& to, const path& new_symlink)
 
 void
 fs::create_directory_symlink(const path& to, const path& new_symlink,
-			     error_code& ec) noexcept; // TODO
+			     error_code& ec) noexcept
+{
+#ifdef _GLIBCXX_FILESYSTEM_IS_WINDOWS
+  ec = std::make_error_code(std::errc::not_supported);
+#else
+  create_symlink(to, new_symlink, ec);
+#endif
+}
+
 
 void
 fs::create_hard_link(const path& to, const path& new_hard_link)
@@ -222,7 +288,17 @@ fs::create_hard_link(const path& to, const path& new_hard_link)
 
 void
 fs::create_hard_link(const path& to, const path& new_hard_link,
-		     error_code& ec) noexcept;
+		     error_code& ec) noexcept
+{
+#ifdef _GLIBCXX_HAVE_UNISTD_H
+  if (::link(to.c_str(), new_hard_link.c_str()))
+    ec.assign(errno, std::generic_category());
+  else
+    ec.clear();
+#else
+  ec = std::make_error_code(std::errc::not_supported);
+#endif
+}
 
 void
 fs::create_symlink(const path& to, const path& new_symlink)
@@ -236,7 +312,18 @@ fs::create_symlink(const path& to, const path& new_symlink)
 
 void
 fs::create_symlink(const path& to, const path& new_symlink,
-		   error_code& ec) noexcept; // TODO
+		   error_code& ec) noexcept
+{
+#ifdef _GLIBCXX_HAVE_UNISTD_H
+  if (::symlink(to.c_str(), new_symlink.c_str()))
+    ec.assign(errno, std::generic_category());
+  else
+    ec.clear();
+#else
+  ec = std::make_error_code(std::errc::not_supported);
+#endif
+}
+
 
 fs::path
 fs::current_path()
@@ -400,7 +487,7 @@ fs::equivalent(const path& p1, const path& p2, error_code& ec) noexcept
 }
 #endif
 
-uintmax_t
+std::uintmax_t
 fs::file_size(const path& p)
 {
   error_code ec;
@@ -432,14 +519,14 @@ namespace
     }
 }
 
-uintmax_t
+std::uintmax_t
 fs::file_size(const path& p, error_code& ec) noexcept
 {
   return do_stat(p, ec, std::mem_fn(&stat::st_size),
 		 static_cast<uintmax_t>(-1));
 }
 
-uintmax_t
+std::uintmax_t
 fs::hard_link_count(const path& p)
 {
   error_code ec;
@@ -449,7 +536,7 @@ fs::hard_link_count(const path& p)
   return count;
 }
 
-uintmax_t
+std::uintmax_t
 fs::hard_link_count(const path& p, error_code& ec) noexcept
 {
   return do_stat(p, ec, std::mem_fn(&stat::st_nlink),
@@ -551,22 +638,58 @@ fs::read_symlink(const path& p)
   return tgt;
 }
 
-fs::path fs::read_symlink(const path& p, error_code& ec); // TODO
+fs::path fs::read_symlink(const path& p, error_code& ec)
+{
+#ifdef _GLIBCXX_HAVE_SYS_STAT_H
+  struct ::stat st;
+  if (int err = ::lstat(p.c_str(), &st))
+    {
+      ec.assign(err, std::generic_category());
+      return {};
+    }
+  std::string buf(st.st_size, '\0');
+  ssize_t len = ::readlink(p.c_str(), &buf.front(), buf.size());
+  if (len == -1)
+    {
+      ec.assign(errno, std::generic_category());
+      return {};
+    }
+  return path{buf.data(), buf.data()+len};
+#else
+  ec = std::make_error_code(std::errc::not_supported);
+  return {};
+#endif
+}
+
 
 bool
 fs::remove(const path& p)
 {
   error_code ec;
-  bool result = remove(p, ec);
+  bool result = fs::remove(p, ec);
   if (ec.value())
     _GLIBCXX_THROW_OR_ABORT(filesystem_error("cannot remove", p, ec));
   return result;
 }
 
 bool
-fs::remove(const path& p, error_code& ec) noexcept; // TODO
+fs::remove(const path& p, error_code& ec) noexcept
+{
+  if (exists(symlink_status(p, ec)))
+    {
+      if (::remove(p.c_str()) == 0)
+	{
+	  ec.clear();
+	  return true;
+	}
+      else
+	ec.assign(errno, std::generic_category());
+    }
+  return false;
+}
 
-uintmax_t
+
+std::uintmax_t
 fs::remove_all(const path& p)
 {
   error_code ec;
@@ -576,8 +699,18 @@ fs::remove_all(const path& p)
   return result;
 }
 
-uintmax_t
-fs::remove_all(const path& p, error_code& ec) noexcept; // TODO
+std::uintmax_t
+fs::remove_all(const path& p, error_code& ec) noexcept
+{
+  auto fs = symlink_status(p, ec);
+  uintmax_t count = 0;
+  if (ec.value() == 0 && fs.type() == file_type::directory)
+    for (directory_iterator d(p, ec), end; ec.value() == 0 && d != end; ++d)
+      count += fs::remove(d->path(), ec);
+  if (ec.value())
+    return -1;
+  return fs::remove(p, ec) ? ++count : -1;  // fs:remove() calls ec.clear()
+}
 
 void
 fs::rename(const path& from, const path& to)
@@ -589,7 +722,13 @@ fs::rename(const path& from, const path& to)
 }
 
 void
-fs::rename(const path& from, const path& to, error_code& ec) noexcept; // TODO
+fs::rename(const path& from, const path& to, error_code& ec) noexcept
+{
+  if (::rename(from.c_str(), to.c_str()))
+    ec.assign(errno, std::generic_category());
+  else
+    ec.clear();
+}
 
 void
 fs::resize_file(const path& p, uintmax_t size)
@@ -601,7 +740,20 @@ fs::resize_file(const path& p, uintmax_t size)
 }
 
 void
-fs::resize_file(const path& p, uintmax_t size, error_code& ec) noexcept; // TODO
+fs::resize_file(const path& p, uintmax_t size, error_code& ec) noexcept
+{
+#ifdef _GLIBCXX_HAVE_UNISTD_H
+  if (size > static_cast<uintmax_t>(std::numeric_limits<off_t>::max()))
+    ec.assign(EINVAL, std::generic_category());
+  else if (::truncate(p.c_str(), size))
+    ec.assign(errno, std::generic_category());
+  else
+    ec.clear();
+#else
+  ec = std::make_error_code(std::errc::not_supported);
+#endif
+}
+
 
 fs::space_info
 fs::space(const path& p)
@@ -735,5 +887,16 @@ fs::path fs::temp_directory_path()
   return tmp;
 }
 
-fs::path fs::temp_directory_path(error_code& ec); // TODO
+fs::path fs::temp_directory_path(error_code& ec)
+{
+#ifdef _GLIBCXX_FILESYSTEM_IS_WINDOWS
+  return {}; // TODO
+#else
+  const char* tmpdir = ::getenv("TMPDIR");
+  if (!tmpdir)
+    tmpdir = "/tmp";
+  ec.clear();
+  return tmpdir;
+#endif
+}
 
