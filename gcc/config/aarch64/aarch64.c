@@ -373,6 +373,22 @@ static const struct cpu_vector_cost cortexa57_vector_cost =
   NAMED_PARAM (cond_not_taken_branch_cost, 1)
 };
 
+static const struct prefetch_cost generic_prefetch_costs = {
+  0,
+  0,
+  0,
+  64,
+  false
+};
+
+static const struct prefetch_cost thunder_prefetch_costs = {
+  8, /* 8 simultaneous loads can be happening  */
+  32, /*L1D == 32k */
+  16*1024, /* 16MB L2 */
+  128, /* 128 byte cache line size */
+  true /* Enable sw prefetching at -O3 */
+};
+
 #if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
 __extension__
 #endif
@@ -382,6 +398,7 @@ static const struct tune_params generic_tunings =
   &generic_addrcost_table,
   &generic_regmove_cost,
   &generic_vector_cost,
+  &generic_prefetch_costs,
   NAMED_PARAM (memmov_cost, 4),
   NAMED_PARAM (issue_rate, 2),
   NAMED_PARAM (align, 8)
@@ -393,6 +410,7 @@ static const struct tune_params cortexa53_tunings =
   &generic_addrcost_table,
   &generic_regmove_cost,
   &generic_vector_cost,
+  &generic_prefetch_costs,
   NAMED_PARAM (memmov_cost, 4),
   NAMED_PARAM (issue_rate, 2),
   NAMED_PARAM (align, 8)
@@ -409,6 +427,7 @@ static const struct tune_params thunder_tunings =
   &generic_addrcost_table,
   &thunder_regmove_cost,
   &generic_vector_cost,
+  &thunder_prefetch_costs,
   NAMED_PARAM (memmov_cost, 3),
   NAMED_PARAM (issue_rate, 2),
   NAMED_PARAM (align, 8)
@@ -420,6 +439,7 @@ static const struct tune_params cortexa57_tunings =
   &cortexa57_addrcost_table,
   &generic_regmove_cost,
   &cortexa57_vector_cost,
+  &generic_prefetch_costs,
   NAMED_PARAM (memmov_cost, 4),
   NAMED_PARAM (issue_rate, 3),
   NAMED_PARAM (align, 8)
@@ -6492,6 +6512,31 @@ aarch64_override_options (void)
       if (align_functions <= 0)
 	align_functions = aarch64_tune_params->align;
     }
+
+
+  maybe_set_param_value (PARAM_SIMULTANEOUS_PREFETCHES,
+			 aarch64_tune_params->prefetch_costs->simultaneous_prefetches,
+			 global_options.x_param_values,
+			 global_options_set.x_param_values);
+  maybe_set_param_value (PARAM_L1_CACHE_LINE_SIZE,
+			 aarch64_tune_params->prefetch_costs->cache_line_size,
+			 global_options.x_param_values,
+			 global_options_set.x_param_values);
+  maybe_set_param_value (PARAM_L1_CACHE_SIZE,
+			 aarch64_tune_params->prefetch_costs->l1_cache_size,
+			 global_options.x_param_values,
+			 global_options_set.x_param_values);
+  maybe_set_param_value (PARAM_L2_CACHE_SIZE,
+			 aarch64_tune_params->prefetch_costs->l2_cache_size,
+			 global_options.x_param_values,
+			 global_options_set.x_param_values);
+
+  /* Enable sw prefetching at -O3 for CPUS that prefetching is helpful.  */
+  if (global_options_set.x_flag_prefetch_loop_arrays < 0
+      && !optimize_size
+      && (global_options_set.x_optimize >= 3 || global_options_set.x_flag_profile_use)
+      && aarch64_tune_params->prefetch_costs->prefetch_beneficial)
+    global_options_set.x_flag_prefetch_loop_arrays = 1;
 
   aarch64_override_options_after_change ();
 }

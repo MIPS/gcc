@@ -1,5 +1,20 @@
 2014-07-24  Andrew Pinski  <apinski@cavium.com>
 
+	* config/aarch64/aarch64-protos.h (prefetch_cost): New struct.
+	(struct tune_params): Add prefetch_costs field.
+	* config/aarch64/aarch64.c (generic_prefetch_costs): New variable.
+	(thunder_prefetch_costs): New variable to hold thunder prefetching tuning.
+	(generic_tunings): Update to use generic_prefetch_costs.
+	(cortexa53_tunings): Likewise.
+	(cortexa57_tunings): Likewise.
+	(thunder_tunings): Use the thunder_prefetch_costs.
+	(aarch64_override_options): Set PARAM_SIMULTANEOUS_PREFETCHES,
+	PARAM_L1_CACHE_LINE_SIZE, PARAM_L1_CACHE_SIZE, PARAM_L2_CACHE_SIZE
+	from the cost/tuning structure.
+	Also enable software prefetching for CPUs where it is helpful.
+
+2014-07-24  Andrew Pinski  <apinski@cavium.com>
+
 	Port:
 	2014-07-04  Ganesh Gopalasubramanian <Ganesh.Gopalasubramanian@amd.com>
 	* config/aarch64/aarch64.md (define_insn "*prefetch")

@@ -162,12 +162,23 @@ struct cpu_vector_cost
   const int cond_not_taken_branch_cost;  /* Cost of not taken branch.  */
 };
 
+/* Parameters for the prefetcher. */
+struct prefetch_cost
+{
+  const int simultaneous_prefetches;
+  const int l1_cache_size;
+  const int l2_cache_size;
+  const int cache_line_size;
+  const bool prefetch_beneficial;
+};
+
 struct tune_params
 {
   const struct cpu_cost_table *const insn_extra_cost;
   const struct cpu_addrcost_table *const addr_cost;
   const struct cpu_regmove_cost *const regmove_cost;
   const struct cpu_vector_cost *const vec_costs;
+  const struct prefetch_cost *const prefetch_costs;
   const int memmov_cost;
   const int issue_rate;
   const int align;
