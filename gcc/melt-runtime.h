@@ -2555,7 +2555,7 @@ void meltgc_add_out (melt_ptr_t outbuf_p,
    string with backslash escapes */
 enum melt_coutput_mode_en {
   MELTCOUT_ASCII,		// use \oXXX
-  MELTCOUT_UTF8JSON,		// keep UTF8 characters as is,
+  MELTCOUT_UTF8JSON		// keep UTF8 characters as is,
 				// e.g. for JSON, use \uXXXX for
 				// control characters
   /// we could add a mode for JSON \uXXXX escapes for UTF8 sequences

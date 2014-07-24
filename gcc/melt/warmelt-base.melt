@@ -2678,8 +2678,10 @@ typedef struct melthook_st *melthook_ptr_t;
   {
     if (melt_magic_discr(vjob) == MELTOBMAG_JSONOBJECT) {
       unsigned sz = ((struct meltjsonobject_st*)vjob)->jsob_size;
-      if (rk<0) rk += sz;
-      if (rk>=0 && rk < (int) sz) return ((struct meltjsonobject_st*)vjob)->jsob_entab[rk].jsonob_name;
+      if (rk<0) 
+        rk += (int)sz;
+      if (rk>=0 && rk < (int) sz) 
+        return ((struct meltjsonobject_st*)vjob)->jsob_entab[rk].jsonob_name;
     };
     return NULL;
   }
@@ -2689,8 +2691,10 @@ typedef struct melthook_st *melthook_ptr_t;
   {
     if (melt_magic_discr(vjob) == MELTOBMAG_JSONOBJECT) {
       unsigned sz = ((struct meltjsonobject_st*)vjob)->jsob_size;
-      if (rk<0) rk += sz;
-      if (rk>=0 && rk < (int) sz) return ((struct meltjsonobject_st*)vjob)->jsob_entab[rk].jsonob_val;
+      if (rk<0) 
+        rk += (int)sz;
+      if (rk>=0 && rk < (int) sz) 
+        return ((struct meltjsonobject_st*)vjob)->jsob_entab[rk].jsonob_val;
     };
     return NULL;
   }
@@ -3641,12 +3645,15 @@ given object map $MAPO}#
 
 (defun json_name_equal (lv rv)
 :doc #{Compare two JSON names $LV and $RV for equality.}#
+  (if (== lv rv) (return :true))
   (let ( (lname (cond ((is_string lv) lv) 
 		      ((is_a lv class_named) (get_field :named_name lv))))
 	 (rname (cond ((is_string rv) rv) 
 		      ((is_a rv class_named) (get_field :named_name rv))))
 	 )
-    (if (==s lname rname) :true)))
+    (if (==s lname rname) (return :true)))
+  (return ()))
+
 
 
 (defun json_canonical_name (n)
@@ -3864,9 +3871,11 @@ which should be a string or an instance of $CLASS_NAMED, or else nil.}#
 	 (:long hi (-i sz 1))
 	 )
     (if (not (is_string vname)) (return ()))
+    (if (==i sz 0) (return ()))
     (forever 
      getloop
-     (if (>i (+i lo 2) hi) (exit getloop))
+     (if (>i (+i lo 3) hi) 
+	 (exit getloop))
      (let ( (:long mi (/iraw (+i lo hi) 2))
 	    (midname (jsonobject_nth_name vj mi))
 	    )

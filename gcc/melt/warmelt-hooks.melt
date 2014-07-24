@@ -3851,12 +3851,30 @@ exit, in last place.}#
 		    melt_close_file($SERVOUT);
 		    }#)
 	(when !gotreply 
-	  (debug "do_blocking_jsonrpc2_call gives " !replyref)
-	  (return !replyref))
-	)
-      )
-    )
-  )
+	  (let ( (jreply !replyref)
+		 (jid (jsonobject_get_named jreply 'id))
+		 (jres (jsonobject_get_named jreply 'result))
+		 (jerr (jsonobject_get_named jreply 'error))
+		 )
+	  (debug "do_blocking_jsonrpc2_call got jreply=" jreply "; jid=" jid
+		 " jres=" jres " jerr=" jerr)
+	  (assert_msg "check jreply" (is_jsonobject jreply))
+	  (cond
+	   ( (!=s jid randidstr)
+	     (warning_at () 
+			 "do_blocking_jsonrpc2_call sent id $1 but got reply with id $2 for method $3 to server $4"
+			 randidstr jid methodname server)
+	     (return ()))
+	   ( jerr
+	     (warning_at ()
+			 "do_blocking_jsonrpc2_call failed for method $1 to server $2 : got error $3"
+			 methodname server jerr)
+	     (return ()))
+	   (:else
+	    (debug "do_blocking_jsonrpc2_call gives jres=" jres)
+	    (return jres))
+	   )
+	))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; the sigio handler, called from safe places
