@@ -552,9 +552,10 @@ Melt_Module::Melt_Module (unsigned magic, const char*modpath, const char* descrb
   _mm_descrbase = std::string(descrbase);
   if (!dlh)
     {
+      errno = 0;
       dlh = dlopen (_mm_modpath.c_str(),  RTLD_NOW | RTLD_GLOBAL);
       if (!dlh)
-        melt_fatal_error ("failed to dlopen module %s - %s", _mm_modpath.c_str(), dlerror());
+        melt_fatal_error ("failed to dlopen Melt module %s - %s", _mm_modpath.c_str(), dlerror());
     }
   _mm_dlh = dlh;
   _mm_index = ix;
@@ -9464,10 +9465,10 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
   debugeprintf ("melt_load_module_index absolute sopath %s", sopath);
   if (access (sopath, R_OK))
     melt_fatal_error ("Cannot access MELT module %s - %m", sopath);
+  errno = 0;
   dlh = dlopen (sopath, RTLD_NOW | RTLD_GLOBAL);
   if (!dlh)
     melt_fatal_error ("Failed to dlopen MELT module %s - %s", sopath, dlerror ());
-
   if (melt_trace_module_fil)
     fprintf (melt_trace_module_fil,
              "dlopened %s #%d\n", sopath, Melt_Module::nb_modules());
@@ -9652,6 +9653,8 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
                 sopath, (int)validh, dlh);
   if (validh)
     {
+      debugeprintf ("melt_load_module_index making Melt_Plain_Module of sopath=%s srcbase=%s dlh=%p",
+		    sopath, srcbase, dlh);
       Melt_Plain_Module* pmod = new Melt_Plain_Module(sopath, srcbase, dlh);
       gcc_assert (pmod->valid_magic());
       pmod->set_forwarding_routine (MELTDESCR_OPTIONAL (melt_forwarding_module_data));
@@ -11004,8 +11007,8 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
   /* Notice if the locale is not UTF-8 */
   if (!locale_utf8 /* from intl.h */)
     inform (UNKNOWN_LOCATION,
-	    "MELT {%s} prefers an UTF-8 locale for some features, e.g. JSONRPC",
-	    melt_version_str());
+	    "MELT {%s} prefers an UTF-8 locale for some features, e.g. JSONRPC, but locale is %s",
+	    melt_version_str(), setlocale(LC_ALL, NULL));
   
   /* Optionally trace the dynamic linking of modules.  */
   {

@@ -1,9 +1,17 @@
 2014-07-25  Basile Starynkevitch  <basile@starynkevitch.net>
 
-	{{libmelt-ana-base.quicklybuilt not built or not found for MELT plugin}}
+	* melt-module.mk (GCCMELT_COMMON_FLAGS): New variable, for -fno-rtti.
+	Use it where needed, for every module compilation.
+
+	* melt-runtime.cc (Melt_Module::Melt_Module): Better error message
+	on dlopen failure. Also forces errno to be zero before.
+	(melt_load_module_index): Force errno to be zero before dlopen.
 
 2014-07-25  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{libmelt-ana-base.quicklybuilt not built or not found for MELT
+	plugin, dlopen of libmelt-ana-base fails undefined symbol:
+	_ZTI8opt_pass, i.e. typeinfo for opt_pass}}
 	* melt-runtime.cc (melt_really_initialize): Improve debug message.
 
 2014-07-25  Basile Starynkevitch  <basile@starynkevitch.net>
