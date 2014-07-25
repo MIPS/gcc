@@ -10999,6 +10999,13 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
       debugeprintf("melt_really_initialize curmod='%s' #%d", curmod.c_str(), melt_asked_modes_vector.size());
     }
   }
+
+  /* Notice if the locale is not UTF-8 */
+  if (!locale_utf8 /* from intl.h */)
+    inform (UNKNOWN_LOCATION,
+	    "MELT {%s} prefers an UTF-8 locale for some features, e.g. JSONRPC",
+	    melt_version_str());
+  
   /* Optionally trace the dynamic linking of modules.  */
   {
     char* moduleenv = getenv ("GCCMELT_TRACE_MODULE");

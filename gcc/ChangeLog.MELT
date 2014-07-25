@@ -1,4 +1,11 @@
 2014-07-25  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.cc (melt_really_initialize): Notice if locale is
+	not UTF-8.
+
+	* melt/generated/*: Regenerate all.
+
+2014-07-25  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.1-rc1almost.
 
 2014-07-25  Basile Starynkevitch  <basile@starynkevitch.net>

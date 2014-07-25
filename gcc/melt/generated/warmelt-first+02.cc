@@ -39,8 +39,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f2[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiFIRST_h408061211; // forward declaration fromline 6566
-typedef Melt_InitialClassyFrame_WARMELTmiFIRST_h408061211 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiFIRST_h976862078; // forward declaration fromline 6566
+typedef Melt_InitialClassyFrame_WARMELTmiFIRST_h976862078 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
 /*** 2 MELT called hook declarations ***/
@@ -360,7 +360,7 @@ MELT_EXTERN const char melt_module_is_gpl_compatible[];
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiFIRST_h408061211 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiFIRST_h976862078 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -1900,7 +1900,7 @@ meltlab_endgetargs:
         /*_.CURMODENVCONT__V3*/
         meltfptr[2] =
             /*quasi.cur.mod.env.ref */
-            /* check quasi.cur.mod.env.ref 841161792 */
+            /* check quasi.cur.mod.env.ref 882148012 */
             ((/*!konst_0*/ meltfrout->tabval[0]))
             ;;
 
