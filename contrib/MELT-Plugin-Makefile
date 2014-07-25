@@ -74,7 +74,7 @@ else
 $(info building MELT: GCCMELT_CXX= $(GCCMELT_CXX) is explicitly given $(origin GCCMELT_CXX))
 endif
 
-GCCMELT_CFLAGS ?= -g -O -Wall
+GCCMELT_CXXFLAGS ?= -g -O2 -Wall -fno-rtti
 
 $(info building MELT: MELT plugin for MELTGCC= $(MELTGCC) to be compiled with GCCMELT_CXX= $(GCCMELT_CXX) flags $(GCCMELT_CFLAGS) $(if $(MELTGCC_BUILD_WITH_CXX),built with C++ $(MELTGCC_BUILD_WITH_CXX)))
 
