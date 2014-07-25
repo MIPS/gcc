@@ -1922,6 +1922,17 @@ melt_strbuf_peek (melt_ptr_t v, int ioff)
   return -1;
 }
 
+/* Unsafely give in a stringbuffer the address of character at given
+   non-negative rank without any checks. Could crash if v is not an
+   strbuf or if ioff is negative or out of bounds. To be used very
+   carefully! */
+static inline const char*
+melt_strbuf_unsafe_byte_address (melt_ptr_t v, int ioff)
+{
+  struct meltstrbuf_st *sbu = (struct meltstrbuf_st *) v;
+  return sbu->bufzn+(sbu->bufstart+ioff);
+}
+
 /* peek an encoded long number, returning the length and setting *pnum
    to the parsed number */
 static inline int

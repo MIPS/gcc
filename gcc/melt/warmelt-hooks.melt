@@ -3184,13 +3184,23 @@ exit, in last place.}#
 ;; be added after that....), you'll need to pass an sbuf like "null "
 ;; or "null," to get a successful :json_nil
 (defun json_lexer (sbuf)
-  (assert_msg "check sbuf" (is_strbuf sbuf) sbuf)
+  (unless (is_strbuf sbuf) 
+    (return))
   (forever
    lexloop
-   (let ( (:long curch (strbuf_peek sbuf 0))
-	  (:long nextch (strbuf_peek sbuf 1))
+   (let ( (:long curch -1)
+	  (:long nextch -1)
 	  (:long bulen (strbuf_usedlength sbuf))
 	  )
+     (when (<=i bulen 0) 
+       (debug "json_lexer eof")
+       (return))
+     (code_chunk getch2_chk 
+		 #{/* json_lexer $GETCH2_CHK */
+		 const char* pc = melt_strbuf_unsafe_byte_address($SBUF, 0);
+		 if ($BULEN>0) $CURCH= pc[0];
+		 if ($BULEN>1) $NEXTCH= pc[1];
+		 }#)
      (debug "json_lexer loop sbuf=" sbuf " curch=" curch " nextch=" nextch
 	    " bulen=" bulen)
      (cond
@@ -3198,10 +3208,6 @@ exit, in last place.}#
       ((expr_chunk testspace_chk :long #{ISSPACE($CURCH)}#)
        (strbuf_consume sbuf 1)
        (again lexloop))
-      ;; return on eof
-      ((<i curch 0)
-       (debug "json_lexer eof")
-       (return))
       ;; various single-char delimiters
       ((==i curch #\[)
        (strbuf_consume sbuf 1)

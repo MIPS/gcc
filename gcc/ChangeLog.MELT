@@ -1,3 +1,8 @@
+2014-07-25  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.h (melt_strbuf_unsafe_byte_address): New function.
+
+	* melt/warmelt-hooks.melt (json_lexer): Use it.
+
 2014-07-24  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{tcalljsonrpc-1 is working!}}
 	* melt/warmelt-base.melt (json_canonical_name): Improved.
