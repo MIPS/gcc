@@ -1,5 +1,9 @@
 2014-07-25  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{libmelt-ana-base.quicklybuilt not built or not found for MELT plugin}}
+
+2014-07-25  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.cc (melt_really_initialize): Improve debug message.
 
 2014-07-25  Basile Starynkevitch  <basile@starynkevitch.net>
