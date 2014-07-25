@@ -845,6 +845,9 @@ class SingleObjContainerPrinter(object):
 
     def _recognize(self, type):
         """Return TYPE as a string after applying type printers"""
+        global _use_type_printing
+        if not _use_type_printing:
+            return str(type)
         return gdb.types.apply_type_recognizers(gdb.types.get_type_recognizers(),
                                                 type) or str(type)
 
@@ -896,7 +899,7 @@ class StdExpAnyPrinter(SingleObjContainerPrinter):
                 raise ValueError("Unknown manager function in std::experimental::any")
 
             # FIXME need to expand 'std::string' so that gdb.lookup_type works
-            mgrname = re.sub("std::string(?!\w)", gdb.lookup_type('std::string').strip_typedefs().name, m.group(1))
+            mgrname = re.sub("std::string(?!\w)", str(gdb.lookup_type('std::string').strip_typedefs()), m.group(1))
             mgrtype = gdb.lookup_type(mgrname)
             self.contained_type = mgrtype.template_argument(0)
             valptr = None
@@ -1043,7 +1046,7 @@ class Printer(object):
 libstdcxx_printer = None
 
 class TemplateTypePrinter(object):
-    """A type printer for class templates.
+    r"""A type printer for class templates.
 
     Recognizes type names that match a regular expression.
     Replaces them with a formatted string which can use replacement field
