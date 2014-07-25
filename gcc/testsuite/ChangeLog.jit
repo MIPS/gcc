@@ -1,3 +1,8 @@
+2014-07-25  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/test-error-index-not-a-numeric-type.c: New test case.
+	* jit.dg/test-error-value-not-a-numeric-type.c: New test case.
+
 2014-03-19  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/test-array-as-pointer.c: New test case, verifying that

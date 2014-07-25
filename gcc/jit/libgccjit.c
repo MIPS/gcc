@@ -671,13 +671,20 @@ gcc_jit_rvalue_get_type (gcc_jit_rvalue *rvalue)
   return static_cast <gcc_jit_type *> (rvalue->get_type ());
 }
 
+#define RETURN_NULL_IF_FAIL_NONNULL_NUMERIC_TYPE(CTXT, NUMERIC_TYPE) \
+  RETURN_NULL_IF_FAIL (NUMERIC_TYPE, CTXT, NULL, "NULL type"); \
+  RETURN_NULL_IF_FAIL_PRINTF1 (                                \
+    NUMERIC_TYPE->is_numeric (), ctxt, NULL,                   \
+    "not a numeric type: %s",                                  \
+    NUMERIC_TYPE->get_debug_string ());
+
 gcc_jit_rvalue *
 gcc_jit_context_new_rvalue_from_int (gcc_jit_context *ctxt,
 				     gcc_jit_type *numeric_type,
 				     int value)
 {
   RETURN_NULL_IF_FAIL (ctxt, NULL, NULL, "NULL context");
-  RETURN_NULL_IF_FAIL (numeric_type, ctxt, NULL, "NULL type");
+  RETURN_NULL_IF_FAIL_NONNULL_NUMERIC_TYPE (ctxt, numeric_type);
 
   return (gcc_jit_rvalue *)ctxt->new_rvalue_from_int (numeric_type, value);
 }
@@ -687,7 +694,7 @@ gcc_jit_context_zero (gcc_jit_context *ctxt,
 		      gcc_jit_type *numeric_type)
 {
   RETURN_NULL_IF_FAIL (ctxt, NULL, NULL, "NULL context");
-  RETURN_NULL_IF_FAIL (numeric_type, ctxt, NULL, "NULL type");
+  RETURN_NULL_IF_FAIL_NONNULL_NUMERIC_TYPE (ctxt, numeric_type);
 
   return gcc_jit_context_new_rvalue_from_int (ctxt, numeric_type, 0);
 }
@@ -697,7 +704,7 @@ gcc_jit_context_one (gcc_jit_context *ctxt,
 		     gcc_jit_type *numeric_type)
 {
   RETURN_NULL_IF_FAIL (ctxt, NULL, NULL, "NULL context");
-  RETURN_NULL_IF_FAIL (numeric_type, ctxt, NULL, "NULL type");
+  RETURN_NULL_IF_FAIL_NONNULL_NUMERIC_TYPE (ctxt, numeric_type);
 
   return gcc_jit_context_new_rvalue_from_int (ctxt, numeric_type, 1);
 }
@@ -708,7 +715,7 @@ gcc_jit_context_new_rvalue_from_double (gcc_jit_context *ctxt,
 					double value)
 {
   RETURN_NULL_IF_FAIL (ctxt, NULL, NULL, "NULL context");
-  RETURN_NULL_IF_FAIL (numeric_type, ctxt, NULL, "NULL type");
+  RETURN_NULL_IF_FAIL_NONNULL_NUMERIC_TYPE (ctxt, numeric_type);
 
   return (gcc_jit_rvalue *)ctxt->new_rvalue_from_double (numeric_type, value);
 }
@@ -946,9 +953,15 @@ gcc_jit_context_new_array_access (gcc_jit_context *ctxt,
   RETURN_NULL_IF_FAIL_PRINTF2 (
     ptr->get_type ()->dereference (),
     ctxt, loc,
-    "%s (type: %s) is not a pointer or array",
+    "ptr: %s (type: %s) is not a pointer or array",
     ptr->get_debug_string (),
     ptr->get_type ()->get_debug_string ());
+  RETURN_NULL_IF_FAIL_PRINTF2 (
+    index->get_type ()->is_numeric (),
+    ctxt, loc,
+    "index: %s (type: %s) is not of numeric type",
+    index->get_debug_string (),
+    index->get_type ()->get_debug_string ());
 
   return (gcc_jit_lvalue *)ctxt->new_array_access (loc, ptr, index);
 }

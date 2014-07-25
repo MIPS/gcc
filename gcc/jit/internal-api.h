@@ -500,6 +500,11 @@ public:
   virtual type *is_pointer () = 0;
   virtual type *is_array () = 0;
 
+  bool is_numeric () const
+  {
+    return is_int () || is_float () || is_bool ();
+  }
+
   playback::type *
   playback_type ()
   {

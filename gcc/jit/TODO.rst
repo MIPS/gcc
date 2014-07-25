@@ -75,20 +75,6 @@ Initial Release
 
 * error-checking:
 
-    * gcc_jit_context_new_field: type must not be void
-
-    * gcc_jit_context_new_param: type must not be void
-
-    * gcc_jit_context_new_global: type must not be void
-
-    * gcc_jit_context_new_rvalue_from_int: must be a numeric type
-
-    * gcc_jit_context_zero: must be a numeric type
-
-    * gcc_jit_context_one: must be a numeric type
-
-    * gcc_jit_context_new_rvalue_from_double: must be a numeric type
-
     * gcc_jit_context_new_unary_op: various checks needed
 
     * gcc_jit_context_new_binary_op: various checks needed
@@ -100,8 +86,6 @@ Initial Release
     * gcc_jit_lvalue_access_field: must be field of correct struct
 
     * gcc_jit_rvalue_access_field: must be field of correct struct
-
-    * gcc_jit_function_new_local: type must not be void
 
     * gcc_jit_block_add_assignment_op: check the types
 

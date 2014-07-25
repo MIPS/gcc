@@ -1,3 +1,16 @@
+2014-07-25  David Malcolm  <dmalcolm@redhat.com>
+
+	* TODO.rst (error-checking): Remove various items that either
+	already were implemented, or are implemented by this commit.
+	* internal-api.h (gcc::jit::recording::type::is_numeric): New.
+	* libgccjit.c (RETURN_NULL_IF_FAIL_NONNULL_NUMERIC_TYPE): New macro.
+        (gcc_jit_context_new_rvalue_from_int): Verify that numeric_type is
+	indeed numeric.
+	(gcc_jit_context_zero): Likewise.
+	(gcc_jit_context_one): Likewise.
+	(gcc_jit_context_new_rvalue_from_double): Likewise.
+	(gcc_jit_context_new_array_access): Likewise for type of "index".
+
 2014-07-14  David Malcolm  <dmalcolm@redhat.com>
 
 	* internal-api.c (gcc::jit::recording::context::new_array_type):
