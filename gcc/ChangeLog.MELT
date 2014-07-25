@@ -1,5 +1,9 @@
 2014-07-25  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.cc (melt_really_initialize): Improve debug message.
+
+2014-07-25  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.cc (melt_really_initialize): Notice if locale is
 	not UTF-8.
 

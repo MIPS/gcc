@@ -10996,7 +10996,8 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
       else
 	curmod.assign(modstr);
       melt_asked_modes_vector.push_back (curmod);
-      debugeprintf("melt_really_initialize curmod='%s' #%d", curmod.c_str(), melt_asked_modes_vector.size());
+      debugeprintf("melt_really_initialize curmod='%s' #%d", curmod.c_str(),
+		   (int)melt_asked_modes_vector.size());
     }
   }
 
