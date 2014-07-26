@@ -104,7 +104,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 /* Structure to keep track of constant bit-field stores.  */
 
-typedef struct const_bfstore GTY (())
+typedef struct const_bfstore
 {
   tree inner;
   HOST_WIDE_INT bitsize;
@@ -309,14 +309,14 @@ static void
 record_new_const_bfstore (tree inner, HOST_WIDE_INT bitsize,
 			  HOST_WIDE_INT bitpos, gimple stmt)
 {
-  const_bfstore *p;
-  bfstores.safe_push (*p);
+  const_bfstore p;
       
-  p->inner = inner;
-  p->bitsize = bitsize;
-  p->bitpos = bitpos;
-  p->constval = gimple_assign_rhs1 (stmt);
-  p->stmt = stmt;
+  p.inner = inner;
+  p.bitsize = bitsize;
+  p.bitpos = bitpos;
+  p.constval = gimple_assign_rhs1 (stmt);
+  p.stmt = stmt;
+  bfstores.safe_push (p);
 }
 
 /* Decide based on vops whether STMT conflicts with a later STORE.  */
@@ -482,6 +482,7 @@ pass_merge_const_bfstores::execute (function*)
 	}
     }
 
+  bfstores.truncate (0);
   return 0;
 }
 

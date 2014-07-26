@@ -1,5 +1,12 @@
 2014-07-26  Andrew Pinski  <apinski@cavium.com>
 
+	* opts.c (default_options_table): Turn on merge const bitfields at -O2 and above.
+	* tree-merge-const-bfstores.c (const_bfstore): Remove the unneeded GTY marker.
+	(record_new_const_bfstore): Fix up for the new vec infrastructure.
+	(pass_merge_const_bfstores::execute): Truncate bfstores before returning.
+
+2014-07-26  Andrew Pinski  <apinski@cavium.com>
+
 	Bug #11598
 	* simplify-rtx.c (simplify_subreg): Remove assert
 	after simplify_unary_operation call on operand 1 of
