@@ -1,3 +1,10 @@
+2014-07-26  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #11598
+	* simplify-rtx.c (simplify_subreg): Remove assert
+	after simplify_unary_operation call on operand 1 of
+	ior/and.
+
 2014-07-19  Andrew Pinski  <apinski@cavium.com>
 
 	Bug #11496

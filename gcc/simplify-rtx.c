@@ -5706,7 +5706,7 @@ simplify_subreg (enum machine_mode outermode, rtx op,
 	op0 = NULL_RTX;
       else
        {
-          op0 = simplify_unary_operation (TRUNCATE, outermode, op0, innermode);
+         op0 = simplify_unary_operation (TRUNCATE, outermode, op0, innermode);
          if (op0 && (GET_CODE (op0) == TRUNCATE
                      || GET_CODE (op0) == SUBREG))
            op0 = NULL_RTX;
@@ -5717,13 +5717,12 @@ simplify_subreg (enum machine_mode outermode, rtx op,
 	op1 = NULL_RTX;
       else
        {
-          op1 = simplify_unary_operation (TRUNCATE, outermode, op1, innermode);
+         op1 = simplify_unary_operation (TRUNCATE, outermode, op1, innermode);
          if (op1 && (GET_CODE (op1) == TRUNCATE
                      || GET_CODE (op1) == SUBREG))
            op1 = NULL_RTX;
 	 if (op1 == XEXP (op, 1))
 	   op1 = NULL_RTX;
-	 gcc_assert (op1 == NULL_RTX || GET_MODE (op1) == outermode);
        }
 
       if (op0 != NULL_RTX || op1 != NULL_RTX)
