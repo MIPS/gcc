@@ -1,3 +1,10 @@
+2014-07-26  Andrew Pinski  <apinski@cavium.com>
+
+	* config/aarch64/aarch64-simd-builtins.def (bswap): Use CF2 rather
+	than CF10 so 2 is appended on the code.
+	* config/aarch64/aarch64-simd.md (bswap<mode>): Rename to ...
+	(bswap<mode>2): This so it matches for the optable.
+
 2014-07-24  Andrew Pinski  <apinski@cavium.com>
 
 	* config/aarch64/aarch64-protos.h (prefetch_cost): New struct.

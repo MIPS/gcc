@@ -286,7 +286,7 @@
   [(set_attr "type" "neon_mul_<Vetype><q>")]
 )
 
-(define_insn "bswap<mode>"
+(define_insn "bswap<mode>2"
   [(set (match_operand:VDQHSD 0 "register_operand" "=w")
         (bswap:VDQHSD (match_operand:VDQHSD 1 "register_operand" "w")))]
   "TARGET_SIMD"
