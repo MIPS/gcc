@@ -1,3 +1,7 @@
+2014-07-26  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/generated/*: Regenerate all.
+
 2014-07-25  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-module.mk (GCCMELT_COMMON_FLAGS): New variable, for -fno-rtti.
