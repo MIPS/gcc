@@ -1,5 +1,9 @@
 
 
+2014-07-26  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{MELT plugin 1.1rc1 for GCC 4.9}}
+
 2014-07-25  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* INSTALL/README-MELT-PLUGIN: Don't use utfcpp.  Mention new
