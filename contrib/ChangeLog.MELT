@@ -1,6 +1,11 @@
 
 2014-07-26  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* MELT-Plugin-Makefile (all): Say that the probe is probably
+	obsolete.
+
+2014-07-26  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* MELT-Plugin-Makefile (melt.so): Use $(GCCMELT_CXXFLAGS).
 
 	* make-melt-plugin-source-tar.sh: Output some usage text.

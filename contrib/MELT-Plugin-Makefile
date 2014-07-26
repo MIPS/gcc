@@ -229,20 +229,12 @@ GCCMELT_STAGE_ZERO = meltbuild-stage0-quicklybuilt
 
 all: melt-run.h melt.so melt-translator melt-applications melt-gendoc doc
 	@echo 
-	@echo '+++++++++++++++++++'
+	@echo '++++++++++++++++++++++++++++++++++++++'
 	@date +'*** MELT plugin "$(melt_version_string)" compilation completed at %c ***%n'
-	@echo 
-	@echo You may want to manually compile			\
-	       simplemelt-gtkmm-probe.cc if you have GTK '>= 3.4' and	\
-	       GTKmm.
-	@echo See its last dozen of lines for building	\
-	       instructions. 
-	@echo You could also use the Qt Python MELT \
-	       probe by Alexandre Lissy in the file simplemelt-pyqt4-probe.py \
-	       or from \
-	       git://git.mandriva.com/users/alissy/python-qt-melt-probe.git 
 	@echo
-	@echo you may want to install with e.g. \
+	@echo The MELT probe in simplemelt-gtkmm-probe.cc is probably obsolete.
+	@echo
+	@echo You may want to install this MELT plugin with e.g. \
 	  make install DESTDIR=/tmp/meltinstall \
 	  then copy your '$$DESTDIR' appropriately to the installation tree \
           to fill $(MELTGCC_PLUGIN_DIR)
