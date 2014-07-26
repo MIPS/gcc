@@ -54,6 +54,14 @@ gccmelt_source_tree=$1
 ## a bzipped tar archive /tmp/gcc-melt-plugin.tar.bz2
 gccmelt_tarbase=$2
 
+if [ -z "$gccmelt_tarbase" ]; then
+    echo usage: $0 "[-l|-s]" "<meltbranch-sourcetree> <output-tarbase>" >&2
+    echo " " use " -l" for symlinks or " -s" for snapshots or nothing for release  >&2
+    echo " " "<meltbranch-sourcetree> could be e.g. /usr/src/gcc-melt-branch" >&2
+    echo " " "<output-tarbase> could be e.g. /tmp/melt-plugin" >&2
+    exit 1
+fi
+
 shift 2
 ## the optional other arguments are used to invoke gengtype, for instance
 ## $(gcc-4.6 -print-file-name=gengtype) -v -r $(gcc-4.6 -print-file-name=gtype.state)
@@ -80,8 +88,9 @@ if [ -z $gccmelt_tarbase ]; then
     exit 1
 fi
 
+gccmelt_svnrev=$(svn info $gccmelt_source_tree | awk '/^Revision:/{print $2}')
+
 if [ -n "$gccmelt_snapshot" ]; then
-    gccmelt_svnrev=$(svn info $gccmelt_source_tree | awk '/^Revision:/{print $2}')
     case $gccmelt_svnrev in
 	[1-9][0-9]*) gccmelt_snapshot="snap-svnrev-$gccmelt_svnrev";;
 	*);;

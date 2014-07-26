@@ -1,5 +1,12 @@
 
-2014-07-24  Basile Starynkevitch  <basile@starynkevitch.net>
+2014-07-26  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* MELT-Plugin-Makefile (melt.so): Use $(GCCMELT_CXXFLAGS).
+
+	* make-melt-plugin-source-tar.sh: Output some usage text.
+	(gccmelt_svnrev): Always set.
+
+2014-07-25  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* MELT-Plugin-Makefile (GCCMELT_CFLAGS): Remove, replace by
 	(GCCMELT_CXXFLAGS): Use -fno-rtti

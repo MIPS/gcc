@@ -364,7 +364,7 @@ melt.so melt-runtime.args: $(MELT_RUNTIME_CC) $(MELTGCC_RUNTIME_INCLUDES) \
 	@echo $(MELTGCC_OPTIMFLAGS) >> melt-runtime.args-tmp
 	@echo -Wall $(MELT_RUNTIME_CC) >> melt-runtime.args-tmp
 	@mv melt-runtime.args-tmp melt-runtime.args
-	$(GCCMELT_CXX) $(GCCMELT_CFLAGS) -fPIC  -shared  @melt-runtime.args \
+	$(GCCMELT_CXX) $(GCCMELT_CXXFLAGS) -fPIC  -shared  @melt-runtime.args \
 	      -o $@ $(MELTGCC_LIBES)
 
 
