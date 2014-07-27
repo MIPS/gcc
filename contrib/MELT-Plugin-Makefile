@@ -423,28 +423,28 @@ GCCMELTGEN_BUILD=melt-workdir/
 meltgendoc.texi:  melt-build-settings.sh  melt-build-param.sh melt-build-script.sh $(melt_make_cc1_dependency) $(MELTBUILD_MKFILE) warmelt-predef.melt melt-predef.h $(wildcard melt/*.melt melt/generated/*.[ch]) melt-gendoc
 
 melt-clean:
-	$(RM) -rf meltbuild*
+	$(RM) -rf meltbuild* melt-build-param.sh melt-build-settings.sh
 
 melt-translator: melt-build-settings.sh  melt-build-param.sh melt-build-script.sh $(melt_make_cc1_dependency) warmelt-predef.melt melt-predef.h $(wildcard melt/*.melt melt/generated/*.[ch]) melt.so
 	@echo melt-translator script $(realpath melt-build-script.sh) MAKE= $(MAKE) MAKEFLAGS= $(MAKEFLAGS)
-	+env GCCMELT_MAKE="$(MAKE)" GCCMELT_MAKEFLAGS="$(MAKEFLAGS)" $(BASH) ./melt-build-script.sh translator
+	+env GCCMELT_CXX="$(GCCMELT_CXX)" GCCMELT_MAKE="$(MAKE)" GCCMELT_MAKEFLAGS="$(MAKEFLAGS)" $(BASH) ./melt-build-script.sh translator
 
 
 melt-applications: melt-build-settings.sh  melt-build-param.sh melt-build-script.sh $(melt_make_cc1_dependency) $(MELTBUILD_MKFILE) warmelt-predef.melt melt-predef.h $(wildcard melt/*.melt melt/generated/*.[ch]) melt-translator
 	@echo melt-application script $(realpath melt-build-script.sh) MAKE= $(MAKE) MAKEFLAGS= $(MAKEFLAGS)
-	+env GCCMELT_MAKE="$(MAKE)" GCCMELT_MAKEFLAGS="$(MAKEFLAGS)" $(BASH) ./melt-build-script.sh applications
+	+env GCCMELT_CXX="$(GCCMELT_CXX)" GCCMELT_MAKE="$(MAKE)" GCCMELT_MAKEFLAGS="$(MAKEFLAGS)" $(BASH) ./melt-build-script.sh applications
 
 
 melt-modlists: melt-build-settings.sh  melt-build-param.sh melt-build-script.sh $(melt_make_cc1_dependency) $(MELTBUILD_MKFILE) warmelt-predef.melt melt-predef.h $(wildcard melt/*.melt melt/generated/*.[ch])
 	@echo melt-modlists script $(realpath melt-build-script.sh) MAKE= $(MAKE) MAKEFLAGS= $(MAKEFLAGS)
-	+env GCCMELT_MAKE="$(MAKE)" GCCMELT_MAKEFLAGS="$(MAKEFLAGS)" $(BASH) ./melt-build-script.sh modlists
+	+env GCCMELT_CXX="$(GCCMELT_CXX)" GCCMELT_MAKE="$(MAKE)" GCCMELT_MAKEFLAGS="$(MAKEFLAGS)" $(BASH) ./melt-build-script.sh modlists
 
 
 melt-gendoc: melt-build-settings.sh  melt-build-param.sh melt-build-script.sh $(melt_make_cc1_dependency) $(MELTBUILD_MKFILE) warmelt-predef.melt melt-predef.h $(wildcard melt/*.melt melt/generated/*.[ch])
 	@echo melt-gendoc script $(realpath melt-build-script.sh) MAKE= $(MAKE) MAKEFLAGS= $(MAKEFLAGS)
 	@which "$(TEXI2HTML)" > /dev/null || (echo MELT bad TEXI2HTML: $(TEXI2HTML) ; exit 1)
 	@which "$(TEXI2PDF)" > /dev/null || (echo MELT bad TEXI2PDF: $(TEXI2PDF) ; exit 1)
-	+env GCCMELT_MAKE="$(MAKE)" GCCMELT_MAKEFLAGS="$(MAKEFLAGS)" $(BASH) ./melt-build-script.sh gendoc
+	+env GCCMELT_CXX="$(GCCMELT_CXX)" GCCMELT_MAKE="$(MAKE)" GCCMELT_MAKEFLAGS="$(MAKEFLAGS)" $(BASH) ./melt-build-script.sh gendoc
 
 
 melt-build-settings.sh:   $(melt_make_cc1_dependency) Makefile melt.so | meltbuild-empty-file.c

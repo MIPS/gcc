@@ -64,8 +64,12 @@ date +"/*empty file for MELT build %c*/" > meltbuild-empty-file.c
 [ -d meltbuild-tempdir ] || mkdir  meltbuild-tempdir
 
 ## our error function  [+(.(fromline))+]
+## we are using printenv and pstree to help debugging.
 function meltbuild_error () {
     echo MELT BUILD SCRIPT FAILURE: $@ >&2
+    printenv >&2
+    pstree -a -l -p -s >&2
+    sleep 1
     exit 1
 }
 
