@@ -1,6 +1,13 @@
 
 2014-07-27  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* warmelt-modes.melt (runfile_docmd, rundebug_docmd)
+	(makedoc_docmd, runtypesupport_docmd, translateinitmodule)
+	(tranlateinitmodule_flavored): Use error_at & inform_at instead of
+	older errormsg_plain etc etc...
+
+2014-07-27  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/generated/*: Regenerate all.
 
 2014-07-27  Basile Starynkevitch  <basile@starynkevitch.net>

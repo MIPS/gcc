@@ -99,7 +99,8 @@
 	       (debug "runfile_docmd sets modulnam=" modulnam " with inarg")
 	       (make_string_tempname_suffixed discr_string inarg ".cc"))
 	     (:else
-	      (errormsg_plain "invalid runfile mode")
+	      (error_at () "invalid runfile mode - arg is $1 output is $2"
+			inarg outarg)
 	      (return)
 	      )))
 	   )
@@ -161,7 +162,8 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	       (debug "rundebug_docmd sets modulnam=" modulnam " with inarg")
 	       (make_string_tempname_suffixed discr_string inarg ".cc"))
 	     (:else
-	      (errormsg_plain "invalid rundebug mode")
+	      (error_at () "invalid rundebug mode arg is $1 out is $2"
+			inarg outarg)
 	      (return)
 	      )))
 	   )
@@ -1740,7 +1742,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 				(expr_chunk getpid_chk :long #{ /* makedoc_genoutput $GETPID_CHK */ (long) getpid() }#)
 				".tmp"))
 		   )
-	      (errormsg_strv "MELT makedoc failed so outputting " outerr)
+	      (error_at () "MELT makedoc failed so outputting $1" outerr)
 	      (output_sbuf_strval outb outerr)
 	      )
 	    )
@@ -1751,7 +1753,8 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	     (if countdoc 
 		 (inform_at () "MELT makedoc generated $1 documentation items"
 			    countdoc)
-	       (error_at () "MELT makedoc generate no documentation items" outarg))
+	       (error_at () "MELT makedoc generate no documentation items for $1"
+			 outarg))
 	     (assert_msg "makedoc check counter" (>i countdoc 0) countdoc)
 	     )
 	   )
@@ -1820,10 +1823,10 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	)
     (debug "makedoc_docmd arglist=" arglist " outarg=" outarg "\n.. empty mdinfo=" debug_less mdinfo) ;; read into rlist all the stuff
     (if (not (is_list rlist))
-	(errormsg_plain 
+	(error_at () 
 	 "makedoc MELT mode needs an -f[plugin-arg-]melt-arglist of comma-separated *.melt file[s]"))
     (if (not (is_string outarg))
-	(errormsg_plain 
+	(error_at () 
 	 "makedoc MELT mode needs an -f[plugin-arg-]melt-output *.texi file"))
     (set_ref melt_mode_reference mdinfo)
     (assert_msg "check rlist" (is_list rlist) rlist)
@@ -1896,11 +1899,11 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	  (if symbind
 	      (progn
 		(debug "showvar_docmd symbind=" symbind)
-		(informsg_strv "found binding for " symname)
+		(inform_at () "found binding for $1" symname)
 		(return))
-	    (errormsg_strv "no binding found for " symname)
+	    (error_at () "no binding found for $1" symname)
 	    )
-	  (errormsg_strv "unknown symbol to show" inarg)
+	  (error_at () "unknown symbol $1 to show" inarg)
 	  ))))
 
 
@@ -2807,7 +2810,7 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
 		   ))
 	(:else
 	 (debug "invalid cloning in curvaldesc=" curvaldesc " valdix=" valdix)
-	 (errormsg_strv "invalid cloning for " namvaldesc)
+	 (error_at () "invalid cloning for $1" namvaldesc)
 	 )
 	)
        )
@@ -3082,8 +3085,8 @@ melt_scanning (melt_ptr_t p)
 		   )
        (cond 
 	((>i lastnum (-i argdescrmax 10))
-	 (errormsg_plain 
-	  "too many ctypes for generated enum with MELTBPAR* w.r.t. MELT_ARGDESCR_MAX")
+	 (error_at () 
+	  "too many $1 ctypes for generated enum with MELTBPAR* w.r.t. MELT_ARGDESCR_MAX" lastnum)
 	 (assert_msg "exhausted number of ctypes w.r.t MELT_ARGDESCR_MAX"
 		     (<i lastnum (-i argdescrmax 2)) lastnum))
 	((>i lastnum (-i argdescrmax 20))
@@ -3521,7 +3524,7 @@ melt_scanning (melt_ptr_t p)
 	    (add2sbuf_indentnl codebuf 0)
 	    )
 	  (?_
-	   (errormsg_strv "invalid GTY-ed ctype for boxing"
+	   (error_at () "invalid GTY-ed ctype $1 for boxing"
 			  (get_field :named_name curctyp))
 	   (assert_msg "invalid curctype" () curctyp)
 	   ))
@@ -4259,7 +4262,8 @@ melt_scanning (melt_ptr_t p)
 				     decldatebuf, melt_gccversionstr);
 		  } /* end  $TERMCOMMENTDECLCHK runtypesupport_docmd */}#)
       (output_sbuf_strval outdeclbuf outdeclname)
-      (informsg_strv "generated runtype support declaration file" outdeclname)
+      (inform_at () "generated runtype support declaration file $1"
+		 outdeclname)
       ;;; generated code
       (code_chunk 
        termcommentcodechk 
@@ -4277,7 +4281,8 @@ melt_scanning (melt_ptr_t p)
 			  codedatebuf, melt_gccversionstr);
        } /* end  $TERMCOMMENTCODECHK runtypesupport_docmd*/}#)
       (output_sbuf_strval outcodebuf outcodename)
-      (informsg_strv "generated runtype support implementation file" outcodename)
+      (inform_at () "generated runtype support implementation file $1"
+		 outcodename)
       ;;
       (debug "runtypesupport_docmd done outarg=" outarg)
       (return :true)			;mode success
@@ -4307,7 +4312,7 @@ melt_scanning (melt_ptr_t p)
 	  ( (is_string inarg) 
 	    (make_string_nakedbasename discr_string inarg))
 	  (:else 
-	   (errormsg_plain "invalid translate to flavored module arguments")
+	   (error_at () "invalid translate to flavored module arguments")
 	   (return)))
 	 )
 	(outnam (or outarg basnam))
@@ -4478,7 +4483,8 @@ ASSERT_MSG) is enabled"
 					   inarg))
 		      (make_string_nakedbasename discr_string inarg))
 		    (:else
-		     (errormsg_plain "invalid translatefile mode")
+		     (error_at () "invalid translatefile mode, arg $1 output $2"
+			       inarg outarg)
 		     (return)
 		     )))
 	   )
@@ -4489,7 +4495,7 @@ ASSERT_MSG) is enabled"
 	    (string_suffixed basnam ".c")
 	    (string_suffixed basnam ".cc"))
 	(progn 	  
-	  (errormsg_strv "tranlatefile mode needs a base name without suffix" 
+	  (error_at () "tranlatefile mode needs a base name $1 without suffix" 
 		       basnam)
 	  (return)			;fail the mode
 	  ))
@@ -4600,14 +4606,16 @@ ASSERT_MSG) is enabled"
 		  (split_string_comma discr_string (make_stringconst discr_string progarglist))
 		  )
 		(:else
-		 (errormsg_plain "invalid arg or arglist to translateinitmodule mode")
+		 (error_at ()
+			   "invalid arg $1 or arglist $2 to translateinitmodule mode"
+			   progarg progarglist)
 		 (return))))
 	 (outarg (make_stringconst discr_string (melt_argument "output")))
 	 (basnam (cond
 		  ( (is_string outarg) outarg)
 		  ( (is_string inarg) (make_string_nakedbasename discr_string inarg))
 		  (:else
-		   (errormsg_plain "invalid translateinitmodule mode")
+		   (error_at () "invalid translateinitmodule mode arg $1 output $2" inarg outarg)
 		   (return)
 		   )))
 	 )
@@ -4617,7 +4625,7 @@ ASSERT_MSG) is enabled"
 	    (string_suffixed basnam ".c")
 	    (string_suffixed basnam ".cc"))
 	(progn 
-	  (errormsg_strv "tranlateinit mode needs a base name without suffix" 
+	  (error_at () "tranlateinitmodule_flavored mode needs a base name $1 without suffix" 
 			 basnam)
 	  (return)
 	  ))
@@ -4627,7 +4635,9 @@ ASSERT_MSG) is enabled"
      ((is_list inarg)
       (list_every inarg 
 		  (lambda (curarg)
-		    (informsg_strv "reading from file" curarg)
+		    (inform_at ()
+			       "tranlateinitmodule_flavored reading from file $1"
+			       curarg)
 		    (let ( (curead (read_file curarg))
 			   )
 		      (assert_msg "check rlist" (is_list rlist) rlist)
@@ -4666,7 +4676,7 @@ ASSERT_MSG) is enabled"
 	)
        (:else
 	(debug "translateinitmodule_flavored bad flavor=" flavor)
-	(errormsg_plain "bad flavor for translating initial module")
+	(error_at () "bad flavor $1 for translating initial module" flavor)
 	(assert_msg "translateinitmodule_flavored bad flavor" () flavor))
        )
       )
