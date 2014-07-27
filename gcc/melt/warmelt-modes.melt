@@ -59,7 +59,8 @@
 	    *pc;
 	    pc++)
           if (!ISALNUM(*pc) && *pc != '_')
-             melt_fatal_error("invalid mode name %s", modnamstr);
+	    melt_fatal_error("invalid MELT mode name %s, should contain alphanumerical or underscore",
+			     modnamstr);
      }#)
     (debug "install_melt_mode mode=" mode)
     (mapstring_putstr cmdict cnam mode)

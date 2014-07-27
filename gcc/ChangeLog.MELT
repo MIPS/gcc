@@ -1,3 +1,9 @@
+
+2014-07-27  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* warmelt-modes.melt (install_melt_mode): Improve error message
+	for bad mode name.
+
 2014-07-26  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.1-rc1

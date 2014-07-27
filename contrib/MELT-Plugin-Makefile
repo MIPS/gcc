@@ -539,9 +539,9 @@ install-melt-sources:
 ### notice that meltbuild-modules is  a directory filled by the all target
 install-melt-modules:
 	@echo installing MELT modules directory $(melt_module_dir)
-# we check that some xtramelt-ana-base module exist
-	@[ -f meltbuild-modules/xtramelt-ana-base.meltmod*.optimized.so ] \
-          || (echo incomplete meltbuild-modules missing xtramelt-ana-base optimized; exit 1)
+# we check that some libmelt-ana-base module exist
+	@[ -f meltbuild-modules/libmelt-ana-base.meltmod*.optimized.so ] \
+          || (echo incomplete meltbuild-modules missing libmelt-ana-base optimized; exit 1)
 	$(mkinstalldirs) $(DESTDIR)$(melt_module_dir)
 	for l in  meltbuild-modules/[a-z]*.meltmod*.so ; do \
 	  $(INSTALL_PROGRAM) $$l $(DESTDIR)$(melt_module_dir)/ ; \
