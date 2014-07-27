@@ -6151,7 +6151,7 @@ aarch64_rtx_costs_wrapper (rtx x, int code, int outer,
 {
   bool result = aarch64_rtx_costs (x, code, outer, param, cost, speed);
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (0 && dump_file && (dump_flags & TDF_DETAILS))
     {
       print_rtl_single (dump_file, x);
       fprintf (dump_file, "\n%s cost: %d (%s)\n",

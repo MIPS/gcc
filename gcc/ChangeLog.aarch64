@@ -1,5 +1,10 @@
 2014-07-26  Andrew Pinski  <apinski@cavium.com>
 
+	* config/aarch64/aarch64.c (aarch64_rtx_costs_wrapper):
+	Disable the printing of the cost as it is too noisy.
+
+2014-07-26  Andrew Pinski  <apinski@cavium.com>
+
 	Bug #11605
 	* config/aarch64/aarch64-simd-builtins.def (bswap): Use CF2 rather
 	than CF10 so 2 is appended on the code.
