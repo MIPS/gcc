@@ -1,5 +1,11 @@
 2014-07-26  Andrew Pinski  <apinski@cavium.com>
 
+	Bug #11606
+	* config/aarch64/aarch64.md (*extr_insv_lower_reg<mode>1): New pattern
+	which just has the shift and not the zero_extract.
+
+2014-07-26  Andrew Pinski  <apinski@cavium.com>
+
 	* config/aarch64/aarch64.c (aarch64_rtx_costs_wrapper):
 	Disable the printing of the cost as it is too noisy.
 
