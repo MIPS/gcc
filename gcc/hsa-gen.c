@@ -2010,14 +2010,9 @@ wrap_hsa (void)
 	    TREE_CONSTANT (initval) = 1;
 	    TREE_STATIC (initval) = 1;
 	    DECL_INITIAL (decl) = initval;
-	    //rest_of_decl_compilation (decl, 1, 0);
-	    /* ??? We'd like to do 
-	         varpool_add_new_variable (decl);
-	       but that breaks with -O0 (variable not emitted).  */
-	    varpool_assemble_decl (varpool_node_for_decl (decl));
+	    varpool_node::finalize_decl (decl);
 
 	    decl = build_fold_addr_expr (decl);
-
 	    tree args = create_tmp_var (build_array_type_nelts (uint64_type_node,
 								gimple_call_num_args (gsi_stmt (gsi))),
 					NULL);

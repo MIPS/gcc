@@ -6581,7 +6581,7 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
 	{
 	  HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (exp));
 	  rtx temp_target;
-	  if (mode == BLKmode)
+	  if (mode == BLKmode || mode == VOIDmode)
 	    mode = smallest_mode_for_size (size * BITS_PER_UNIT, MODE_INT);
 	  temp_target = gen_reg_rtx (mode);
 	  emit_group_store (temp_target, temp, TREE_TYPE (exp), size);
@@ -9212,7 +9212,9 @@ expand_expr_real_2 (sepops ops, rtx target, enum machine_mode tmode,
   if (modifier == EXPAND_STACK_PARM)
     target = 0;
   temp = expand_binop (mode, this_optab, op0, op1, target,
-		       unsignedp, OPTAB_LIB_WIDEN);
+		       unsignedp,
+		       trapv_binoptab_p (this_optab)
+		       ? OPTAB_LIB : OPTAB_LIB_WIDEN);
   gcc_assert (temp);
   /* Bitwise operations do not need bitfield reduction as we expect their
      operands being properly truncated.  */

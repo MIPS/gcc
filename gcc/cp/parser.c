@@ -2151,6 +2151,8 @@ static tree cp_parser_class_head
   (cp_parser *, bool *);
 static enum tag_types cp_parser_class_key
   (cp_parser *);
+static void cp_parser_type_parameter_key
+  (cp_parser* parser);
 static void cp_parser_member_specification_opt
   (cp_parser *);
 static void cp_parser_member_declaration
@@ -2408,6 +2410,8 @@ static bool cp_parser_next_token_ends_template_argument_p
 static bool cp_parser_nth_token_starts_template_argument_list_p
   (cp_parser *, size_t);
 static enum tag_types cp_parser_token_is_class_key
+  (cp_token *);
+static enum tag_types cp_parser_token_is_type_parameter_key
   (cp_token *);
 static void cp_parser_check_class_key
   (enum tag_types, tree type);
@@ -7700,8 +7704,9 @@ cp_parser_delete_expression (cp_parser* parser)
 			tf_warning_or_error);
 }
 
-/* Returns 1 if TOKEN may start a cast-expression and, in C++11,
-   isn't '[', -1 if TOKEN is '[' in C++11, 0 otherwise.  */
+/* Returns 1 if TOKEN may start a cast-expression and isn't '++', '--',
+   neither '[' in C++11; -1 if TOKEN is '++', '--', or '[' in C++11;
+   0 otherwise.  */
 
 static int
 cp_parser_tokens_start_cast_expression (cp_parser *parser)
@@ -7755,12 +7760,25 @@ cp_parser_tokens_start_cast_expression (cp_parser *parser)
       return cp_lexer_peek_nth_token (parser->lexer, 2)->type
 	     != CPP_CLOSE_PAREN;
 
+    case CPP_OPEN_SQUARE:
       /* '[' may start a primary-expression in obj-c++ and in C++11,
 	 as a lambda-expression, eg, '(void)[]{}'.  */
-    case CPP_OPEN_SQUARE:
       if (cxx_dialect >= cxx11)
 	return -1;
       return c_dialect_objc ();
+
+    case CPP_PLUS_PLUS:
+    case CPP_MINUS_MINUS:
+      /* '++' and '--' may or may not start a cast-expression:
+
+	 struct T { void operator++(int); };
+	 void f() { (T())++; }
+
+	 vs
+
+	 int a;
+	 (int)++a;  */
+      return -1;
 
     default:
       return 1;
@@ -7874,8 +7892,8 @@ cp_parser_cast_expression (cp_parser *parser, bool address_p, bool cast_p,
 	 function returning T.  */
       if (!cp_parser_error_occurred (parser))
 	{
-	  /* Only commit if the cast-expression doesn't start with '[' in
-	     C++11, which may or may not start a lambda-expression.  */
+	  /* Only commit if the cast-expression doesn't start with
+	     '++', '--', or '[' in C++11.  */
 	  if (cast_expression > 0)
 	    cp_parser_commit_to_topmost_tentative_parse (parser);
 
@@ -13361,8 +13379,8 @@ cp_parser_type_parameter (cp_parser* parser, bool *is_parameter_pack)
 	cp_parser_template_parameter_list (parser);
 	/* Look for the `>'.  */
 	cp_parser_require (parser, CPP_GREATER, RT_GREATER);
-	/* Look for the `class' keyword.  */
-	cp_parser_require_keyword (parser, RID_CLASS, RT_CLASS);
+	/* Look for the `class' or 'typename' keywords.  */
+	cp_parser_type_parameter_key (parser);
         /* If the next token is an ellipsis, we have a template
            argument pack. */
         if (cp_lexer_next_token_is (parser->lexer, CPP_ELLIPSIS))
@@ -20244,6 +20262,35 @@ cp_parser_class_key (cp_parser* parser)
   return tag_type;
 }
 
+/* Parse a type-parameter-key.
+
+   type-parameter-key:
+     class
+     typename
+ */
+
+static void
+cp_parser_type_parameter_key (cp_parser* parser)
+{
+  /* Look for the type-parameter-key.  */
+  enum tag_types tag_type = none_type;
+  cp_token *token = cp_lexer_peek_token (parser->lexer);
+  if ((tag_type = cp_parser_token_is_type_parameter_key (token)) != none_type)
+    {
+      cp_lexer_consume_token (parser->lexer);
+      if (pedantic && tag_type == typename_type && cxx_dialect < cxx1z)
+	/* typename is not allowed in a template template parameter
+	   by the standard until C++1Z.  */
+	pedwarn (token->location, OPT_Wpedantic, 
+		 "ISO C++ forbids typename key in template template parameter;"
+		 " use -std=c++1z or -std=gnu++1z");
+    }
+  else
+    cp_parser_error (parser, "expected %<class%> or %<typename%>");
+
+  return;
+}
+
 /* Parse an (optional) member-specification.
 
    member-specification:
@@ -24756,6 +24803,27 @@ cp_parser_token_is_class_key (cp_token* token)
       return record_type;
     case RID_UNION:
       return union_type;
+
+    default:
+      return none_type;
+    }
+}
+
+/* Returns the kind of tag indicated by TOKEN, if it is a type-parameter-key,
+   or none_type otherwise or if the token is null.  */
+
+static enum tag_types
+cp_parser_token_is_type_parameter_key (cp_token* token)
+{
+  if (!token)
+    return none_type;
+
+  switch (token->keyword)
+    {
+    case RID_CLASS:
+      return class_type;
+    case RID_TYPENAME:
+      return typename_type;
 
     default:
       return none_type;
