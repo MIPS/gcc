@@ -1,3 +1,7 @@
+2014-07-24  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gfortran.dg/goacc/reduction-2.f95: New test.
+
 2014-07-28  Cesar Philippidis  <cesar@codesourcery.com>
 	    Thomas Schwinge  <thomas@codesourcery.com>
 	    Ilmir Usmanov  <i.usmanov@samsung.com>

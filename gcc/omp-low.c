@@ -857,6 +857,17 @@ is_reference (tree decl)
   return lang_hooks.decls.omp_privatize_by_reference (decl);
 }
 
+/* Return the type of a decl.  If the decl is reference type,
+   return its base type.  */
+static inline tree
+get_base_type (tree decl)
+{
+  tree type = TREE_TYPE (decl);
+  if (is_reference (decl))
+    type = TREE_TYPE (type);
+  return type;
+}
+
 /* Lookup variables in the decl or field splay trees.  The "maybe" form
    allows for the variable form to not have been entered, otherwise we
    assert that the variable must have been entered.  */
@@ -1674,7 +1685,8 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	    {
 	      /* Create a decl for the reduction array.  */
 	      tree var = OMP_CLAUSE_DECL (c);
-	      tree ptype = build_pointer_type (TREE_TYPE (var));
+	      tree type = get_base_type (var);
+	      tree ptype = build_pointer_type (type);
 	      tree array = create_tmp_var (ptype, omp_get_id (var));
 	      omp_context *c = (ctx->field_map ? ctx : ctx->outer);
 	      install_var_field (array, true, 3, c);
@@ -4335,6 +4347,7 @@ lower_reduction_clauses (tree clauses, gimple_seq *stmt_seqp, omp_context *ctx)
 	     values of array will be combined.  */
 
 	  tree t = NULL_TREE, array, nthreads;
+	  tree type = get_base_type (var);
 
 	  /* First ensure that the current tid is less than vector_length.  */
 	  tree exit_label = create_artificial_label (UNKNOWN_LOCATION);
@@ -4394,9 +4407,9 @@ lower_reduction_clauses (tree clauses, gimple_seq *stmt_seqp, omp_context *ctx)
 
 	  /* Now insert the partial reductions into the array.  */
 
-	  /* Create an array for the reduction variable and install it
-	     in the parent scope.  */
-	  tree ptype = build_pointer_type (TREE_TYPE (var));
+	  /* Find the reduction array.  */
+
+	  tree ptype = build_pointer_type (type);
 
 	  t = lookup_reduction (omp_get_id (var), ctx);
 	  t = build_receiver_ref (t, false, ctx->outer);
@@ -4410,7 +4423,7 @@ lower_reduction_clauses (tree clauses, gimple_seq *stmt_seqp, omp_context *ctx)
 
 	  /* testing a unary conversion.  */
 	  tree offset = create_tmp_var (sizetype, NULL);
-	  gimplify_assign (offset, TYPE_SIZE_UNIT (TREE_TYPE (var)),
+	  gimplify_assign (offset, TYPE_SIZE_UNIT (type),
 			   stmt_seqp);
 	  t = create_tmp_var (sizetype, NULL);
 	  gimplify_assign (t, unshare_expr (fold_build1 (NOP_EXPR, sizetype,
@@ -9467,6 +9480,7 @@ initialize_reduction_data (tree clauses, tree nthreads, gimple_seq *stmt_seqp,
 	continue;
 
       tree var = OMP_CLAUSE_DECL (c);
+      tree type = get_base_type (var);
       tree array = lookup_reduction (omp_get_id (var), ctx);
       tree size, call;
 
@@ -9474,7 +9488,7 @@ initialize_reduction_data (tree clauses, tree nthreads, gimple_seq *stmt_seqp,
       t = create_tmp_var (TREE_TYPE (nthreads), NULL);
       stmt = gimple_build_assign_with_ops (MULT_EXPR, t, nthreads,
 			 fold_convert (TREE_TYPE (nthreads),
-				       TYPE_SIZE_UNIT (TREE_TYPE (var))));
+				       TYPE_SIZE_UNIT (type)));
       gimple_seq_add_stmt (stmt_seqp, stmt);
 
       size = create_tmp_var (sizetype, NULL);
@@ -9520,7 +9534,7 @@ finalize_reduction_data (tree clauses, tree nthreads, gimple_seq *stmt_seqp,
 {
   gcc_assert (is_gimple_omp_oacc_specifically (ctx->stmt));
 
-  tree c, var, array, loop_header, loop_body, loop_exit;
+  tree c, var, array, loop_header, loop_body, loop_exit, type;
   gimple stmt;
 
   /* Create for loop.
@@ -9554,18 +9568,17 @@ finalize_reduction_data (tree clauses, tree nthreads, gimple_seq *stmt_seqp,
       /* Set up reduction variable, var.  Becuase it's not gimple register,
          it needs to be treated as a reference.  */
       var = OMP_CLAUSE_DECL (c);
-
+      type = get_base_type (var);
       tree ptr = lookup_reduction (omp_get_id (OMP_CLAUSE_DECL (c)), ctx);
 
-      /* Extract array[ix] into mem.  */
-      tree mem = create_tmp_var (TREE_TYPE (var), NULL);
+      /* Extract array[0] into mem.  */
+      tree mem = create_tmp_var (type, NULL);
       gimplify_assign (mem, build_simple_mem_ref (ptr), stmt_seqp);
 
       /* Find the original reduction variable.  */
-      tree new_var = lookup_decl (var, ctx);
       tree x = build_outer_var_ref (var, ctx);
       if (is_reference (var))
-	new_var = build_simple_mem_ref (new_var);
+	var = build_simple_mem_ref (var);
 
       x = lang_hooks.decls.omp_clause_assign_op (c, var, mem);
       gimplify_and_add (unshare_expr(x), stmt_seqp);
@@ -9603,12 +9616,12 @@ finalize_reduction_data (tree clauses, tree nthreads, gimple_seq *stmt_seqp,
 
       /* Set up reduction variable var.  */
       var = OMP_CLAUSE_DECL (c);
-
+      type = get_base_type (var);
       array = lookup_reduction (omp_get_id (OMP_CLAUSE_DECL (c)), ctx);
 
       /* Calculate the array offset.  */
       tree offset = create_tmp_var (sizetype, NULL);
-      gimplify_assign (offset, TYPE_SIZE_UNIT (TREE_TYPE (var)), stmt_seqp);
+      gimplify_assign (offset, TYPE_SIZE_UNIT (type), stmt_seqp);
       stmt = gimple_build_assign_with_ops (MULT_EXPR, offset, offset, ix);
       gimple_seq_add_stmt (stmt_seqp, stmt);
 
@@ -9618,16 +9631,15 @@ finalize_reduction_data (tree clauses, tree nthreads, gimple_seq *stmt_seqp,
       gimple_seq_add_stmt (stmt_seqp, stmt);
 
       /* Extract array[ix] into mem.  */
-      tree mem = create_tmp_var (TREE_TYPE (var), NULL);
+      tree mem = create_tmp_var (type, NULL);
       gimplify_assign (mem, build_simple_mem_ref (ptr), stmt_seqp);
 
       /* Find the original reduction variable.  */
-      tree new_var = lookup_decl (var, ctx);
       tree x = build_outer_var_ref (var, ctx);
       if (is_reference (var))
-	new_var = build_simple_mem_ref (new_var);
+	var = build_simple_mem_ref (var);
 
-      tree t = create_tmp_var (TREE_TYPE (var), NULL);
+      tree t = create_tmp_var (type, NULL);
 
       x = lang_hooks.decls.omp_clause_assign_op (c, t, var);
       gimplify_and_add (unshare_expr(x), stmt_seqp);

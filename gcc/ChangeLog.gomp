@@ -1,3 +1,11 @@
+2014-07-28  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* omp-low.c (get_base_type): New function.
+	(scan_sharing_clauses): Replace TREE_TYPE with get_base_type.
+	(lower_reduction_clauses): Use it.
+	(initialize_reduction_data): Likewise.
+	(finalize_reduction_data): Likewise. Remove new_var.
+
 2014-07-28  Tom de Vries  <tom@codesourcery.com>
 
 	* omp-low.c (process_reduction_data): Remove unused variables.
