@@ -1,5 +1,11 @@
 2014-07-28  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 
+	* genmatch.c (is-a.h): Include.
+	(is_a_helper::test): Specialize for operand subclasses.
+	(print_operand): Adjust to use is_a and as_a.
+
+2014-07-28  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
 	* genmatch.c (simplify::ifexpr): Remove.
 	(simplify::ifexpr_location): Likewise.
 	(simplify::simplify): Adjust to changes in simplify and

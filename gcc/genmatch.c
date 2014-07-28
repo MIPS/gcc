@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "hashtab.h"
 #include "hash-table.h"
 #include "vec.h"
+#include "is-a.h"
 
 /* libccp helpers.  */
 
@@ -256,6 +257,39 @@ struct capture : public operand
   virtual void gen_transform (FILE *f, const char *, bool);
 };
 
+template<>
+template<>
+inline bool
+is_a_helper <capture *>::test (operand *op)
+{
+  return op->type == operand::OP_CAPTURE;
+}
+
+template<>
+template<>
+inline bool
+is_a_helper <predicate *>::test (operand *op)
+{
+  return op->type == operand::OP_PREDICATE;
+}
+
+template<>
+template<>
+inline bool
+is_a_helper <c_expr *>::test (operand *op)
+{
+  return op->type == operand::OP_C_EXPR;
+}
+
+template<>
+template<>
+inline bool
+is_a_helper <expr *>::test (operand *op)
+{
+  return op->type == operand::OP_EXPR;
+}
+
+
 e_operation::e_operation (const char *id, bool is_commutative_, bool add_new_id)
 {
   is_commutative = is_commutative_;
@@ -414,10 +448,10 @@ struct decision_tree
 DEBUG_FUNCTION void
 print_operand (operand *o, FILE *f = stderr, bool flattened = false)
 {
-  if (o->type == operand::OP_CAPTURE)
+  if (is_a<capture *> (o))
     {
-      capture *c = static_cast<capture *> (o);
-      fprintf (f, "@%s", (static_cast<capture *> (o))->where);
+      capture *c = as_a<capture *> (o); 
+      fprintf (f, "@%s", c->where);
       if (c->what && flattened == false) 
 	{
 	  putc (':', f);
@@ -426,15 +460,15 @@ print_operand (operand *o, FILE *f = stderr, bool flattened = false)
 	}
     }
 
-  else if (o->type == operand::OP_PREDICATE)
-    fprintf (f, "%s", (static_cast<predicate *> (o))->ident);
+  else if (is_a<predicate *> (o))
+    fprintf (f, "%s", (as_a<predicate *> (o))->ident);
 
-  else if (o->type == operand::OP_C_EXPR)
+  else if (is_a<c_expr *> (o))
     fprintf (f, "c_expr");
 
-  else if (o->type == operand::OP_EXPR)
+  else if (is_a<expr *> (o))
     {
-      expr *e = static_cast<expr *> (o);
+      expr *e = as_a<expr *> (o); 
       fprintf (f, "(%s", e->operation->op->id);
 
       if (flattened == false)
