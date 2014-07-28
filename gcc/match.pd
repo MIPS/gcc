@@ -120,28 +120,24 @@ along with GCC; see the file COPYING3.  If not see
    ???  !FLOAT_TYPE_P && !FIXED_POINT_TYPE_P condition missing
    because of saturation to +-Inf.  */
 
-/* (A +- B) - A -> +-B.  */
-(match_and_simplify
-  (minus (plus @0 @1) @0)
-  (if (!TYPE_SATURATING (type)
-      && !FLOAT_TYPE_P (type) && !FIXED_POINT_TYPE_P (type)))
-  @1)
-(match_and_simplify
-  (minus (minus @0 @1) @0)
-  (if (!TYPE_SATURATING (type)
-      && !FLOAT_TYPE_P (type) && !FIXED_POINT_TYPE_P (type)))
-  (negate @1))
-/* (A +- B) -+ B -> A.  */
-(match_and_simplify
-  (minus (plus @0 @1) @1)
-  (if (!TYPE_SATURATING (type)
-      && !FLOAT_TYPE_P (type) && !FIXED_POINT_TYPE_P (type)))
-  @0)
-(match_and_simplify
-  (plus:c (minus @0 @1) @1)
-  (if (!TYPE_SATURATING (type)
-      && !FLOAT_TYPE_P (type) && !FIXED_POINT_TYPE_P (type)))
-  @0)
+(if (!TYPE_SATURATING (type)
+    && !FLOAT_TYPE_P (type) && !FIXED_POINT_TYPE_P (type))
+  (match_and_simplify
+    (minus (plus @0 @1) @0)
+    @1)
+
+  (match_and_simplify
+    (minus (minus @0 @1) @0)
+    (negate @1))
+
+  (match_and_simplify
+    (minus (plus @0 @1) @1)
+    @0)
+
+  (match_and_simplify
+    (plus:c (minus @0 @1) @1)
+    @0))
+
 /* (CST +- A) +- CST -> CST' +- A.  */
 /* match_and_simplify handles constant folding for us so we can
    implement these as re-association patterns.

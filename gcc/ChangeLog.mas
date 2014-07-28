@@ -1,5 +1,18 @@
 2014-07-28  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 
+	* genmatch.c (simplify::ifexpr): Remove.
+	(simplify::ifexpr_location): Likewise.
+	(simplify::simplify): Adjust to changes in simplify and
+	add parameter ifexpr_vec_.
+	(dt_simplify::gen_gimple): Adjust to changes in simplify.
+	(dt_simplify::gen_generic): Likewise.
+	(parse_if): New function.
+	(parse_pattern): Add call to parse_if.
+
+	* match.pd: Use outer-if for plus-minus patterns.
+
+2014-07-28  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
 	* genmatch.c (parse_for): Reject for that has no pattern defined.
 
 2014-07-23  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
