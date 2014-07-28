@@ -1743,36 +1743,6 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
 	  enum omp_clause_map_kind kind;
 	  switch (list) 
 	    {
-	    case OMP_LIST_COPY:
-	      kind = OMP_CLAUSE_MAP_FORCE_TOFROM;
-	      break;
-	    case OMP_LIST_OACC_COPYIN:
-	      kind = OMP_CLAUSE_MAP_FORCE_TO;
-	      break;
-	    case OMP_LIST_COPYOUT:
-	      kind = OMP_CLAUSE_MAP_FORCE_FROM;
-	      break;
-	    case OMP_LIST_CREATE:
-	      kind = OMP_CLAUSE_MAP_FORCE_ALLOC;
-	      break;
-	    case OMP_LIST_DELETE:
-	      kind = OMP_CLAUSE_MAP_FORCE_DEALLOC;
-	      break;
-	    case OMP_LIST_PRESENT:
-	      kind = OMP_CLAUSE_MAP_FORCE_PRESENT;
-	      break;
-	    case OMP_LIST_PRESENT_OR_COPY:
-	      kind = OMP_CLAUSE_MAP_TOFROM;
-	      break;
-	    case OMP_LIST_PRESENT_OR_COPYIN:
-	      kind = OMP_CLAUSE_MAP_TO;
-	      break;
-	    case OMP_LIST_PRESENT_OR_COPYOUT:
-	      kind = OMP_CLAUSE_MAP_FROM;
-	      break;
-	    case OMP_LIST_PRESENT_OR_CREATE:
-	      kind = OMP_CLAUSE_MAP_ALLOC;
-	      break;
 	    case OMP_LIST_DEVICEPTR:
 	      kind = OMP_CLAUSE_MAP_FORCE_DEVICEPTR;
 	      break;
@@ -2141,6 +2111,24 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
 		  break;
 		case OMP_MAP_TOFROM:
 		  OMP_CLAUSE_MAP_KIND (node) = OMP_CLAUSE_MAP_TOFROM;
+		  break;
+		case OMP_MAP_FORCE_ALLOC:
+		  OMP_CLAUSE_MAP_KIND (node) = OMP_CLAUSE_MAP_FORCE_ALLOC;
+		  break;
+		case OMP_MAP_FORCE_DEALLOC:
+		  OMP_CLAUSE_MAP_KIND (node) = OMP_CLAUSE_MAP_FORCE_DEALLOC;
+		  break;
+		case OMP_MAP_FORCE_TO:
+		  OMP_CLAUSE_MAP_KIND (node) = OMP_CLAUSE_MAP_FORCE_TO;
+		  break;
+		case OMP_MAP_FORCE_FROM:
+		  OMP_CLAUSE_MAP_KIND (node) = OMP_CLAUSE_MAP_FORCE_FROM;
+		  break;
+		case OMP_MAP_FORCE_TOFROM:
+		  OMP_CLAUSE_MAP_KIND (node) = OMP_CLAUSE_MAP_FORCE_TOFROM;
+		  break;
+		case OMP_MAP_FORCE_PRESENT:
+		  OMP_CLAUSE_MAP_KIND (node) = OMP_CLAUSE_MAP_FORCE_PRESENT;
 		  break;
 		default:
 		  gcc_unreachable ();

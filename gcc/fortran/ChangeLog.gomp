@@ -1,3 +1,61 @@
+2014-07-28  Cesar Philippidis  <cesar@codesourcery.com>
+	    Thomas Schwinge  <thomas@codesourcery.com>
+	    Ilmir Usmanov  <i.usmanov@samsung.com>
+
+	* gfortran.h (gfc_omp_map_op): Add OMP_MAP_FORCE_ALLOC,
+	OMP_MAP_FORCE_DEALLOC, OMP_MAP_FORCE_TO, OMP_MAP_FORCE_FROM,
+	OMP_MAP_FORCE_TOFROM, OMP_MAP_FORCE_PRESENT.
+	(enum) Remove OMP_LIST_OACC_COPYIN, OMP_LIST_COPYOUT,
+	OMP_LIST_CREATE, OMP_LIST_DELETE, OMP_LIST_PRESENT,
+	OMP_LIST_PRESENT_OR_COPY, OMP_LIST_PRESENT_OR_COPYIN,
+	OMP_LIST_PRESENT_OR_COPYOUT, OMP_LIST_PRESENT_OR_CREATE.
+	* dump-parse-tree.c (show_omp_clauses): Remove handling of
+	OMP_LIST_OACC_COPYIN, OMP_LIST_COPYOUT,	OMP_LIST_CREATE,
+	OMP_LIST_DELETE, OMP_LIST_PRESENT, OMP_LIST_PRESENT_OR_COPY,
+	OMP_LIST_PRESENT_OR_COPYIN, OMP_LIST_PRESENT_OR_COPYOUT,
+	OMP_LIST_PRESENT_OR_CREATE.
+	* openmp.c (OMP_CLAUSE_OACC_COPYIN): Remove define.
+	(gfc_match_omp_map_clause): New function.
+	(gfc_match_omp_clauses): New openacc argument. Treat
+	OMP_CLAUSE_COPY, OMP_CLAUSE_COPYOUT, OMP_CLAUSE_CREATE,
+	OMP_CLAUSE_DELETE, OMP_CLAUSE_PRESENT, OMP_CLAUSE_PRESENT_OR_COPY,
+	OMP_CLAUSE_PRESENT_OR_COPYIN, OMP_CLAUSE_PRESENT_OR_COPYOUT, and
+	OMP_CLAUSE_PRESENT_OR_CREATE as OpenMP memory maps. Also, remove
+	support for OMP_CLAUSE_OACC_COPYIN. Make OMP_CLAUSE_COPYIN
+	represent the COPYIN clause for both OpenACC and OpenMP.
+	(OACC_PARALLEL_CLAUSES): Replace OMP_CLAUSE_OACC_COPYIN with
+	OMC_CLAUSE_COPYIN.
+	(OACC_KERNEL_CLAUSES): Likewise.
+	(OACC_DATA_CLAUSES): Likewise.
+	(OACC_DECLARE_CLAUSES): Likewise.
+	(OACC_ENTER_DATA_CLAUSES): Likewise.
+	(gfc_match_oacc_parallel_loop): Call gfc_match_omp_clauses with
+	the openacc parameter as true.
+	(gfc_match_oacc_parallel): Likewise.
+	(gfc_match_oacc_kernels_loop): Likewise.
+	(gfc_match_oacc_kernels): Likewise.
+	(gfc_match_oacc_data): Likewise.
+	(gfc_match_oacc_host_data): Likewise.
+	(gfc_match_oacc_loop): Likewise.
+	(gfc_match_oacc_declare): Likewise.
+	(gfc_match_oacc_update): Likewise.
+	(gfc_match_oacc_enter_data): Likewise.
+	(gfc_match_oacc_exit_data): Likewise.
+	(resolve_omp_clauses): New openacc argument. Call
+	resolve_oacc_data_clauses to check additional errors.
+	(resolve_oacc_loop): Update call to resolve_omp_clauses.
+	(resolve_oacc_wait): Likewise.
+	(gfc_resolve_oacc_declare): Likewise.
+	(gfc_resolve_oacc_directive): Likewise.
+	* trans-openmp.c (gfc_trans_omp_clauses): Remove
+	OMP_LIST_OACC_COPYIN, OMP_LIST_COPYOUT, OMP_LIST_CREATE,
+	OMP_LIST_DELETE, OMP_LIST_PRESENT, OMP_LIST_PRESENT_OR_COPY,
+	OMP_LIST_PRESENT_OR_COPYIN, OMP_LIST_PRESENT_OR_COPYOUT,
+	OMP_LIST_PRESENT_OR_CREATE switch items. Handle
+	OMP_MAP_FORCE_ALLOC, OMP_MAP_FORCE_DEALLOC, OMP_MAP_FORCE_TO,
+	OMP_MAP_FORCE_FROM, OMP_MAP_FORCE_TOFROM, OMP_MAP_FORCE_PRESENT
+	clause memory mappings.
+
 2014-07-08  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gcc/fortran/scanner.c (gfc_next_char_literal): Fix the scan for

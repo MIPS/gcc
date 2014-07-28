@@ -1258,15 +1258,6 @@ show_omp_clauses (gfc_omp_clauses *omp_clauses)
 	switch (list_type)
 	  {
 	  case OMP_LIST_COPY: type = "COPY"; break;
-	  case OMP_LIST_OACC_COPYIN: type = "COPYIN"; break;
-	  case OMP_LIST_COPYOUT: type = "COPYOUT"; break;
-	  case OMP_LIST_CREATE: type = "CREATE"; break;
-	  case OMP_LIST_DELETE: type = "DELETE"; break;
-	  case OMP_LIST_PRESENT: type = "PRESENT"; break;
-	  case OMP_LIST_PRESENT_OR_COPY: type = "PRESENT_OR_COPY"; break;
-	  case OMP_LIST_PRESENT_OR_COPYIN: type = "PRESENT_OR_COPYIN"; break;
-	  case OMP_LIST_PRESENT_OR_COPYOUT: type = "PRESENT_OR_COPYOUT"; break;
-	  case OMP_LIST_PRESENT_OR_CREATE: type = "PRESENT_OR_CREATE"; break;
 	  case OMP_LIST_DEVICEPTR: type = "DEVICEPTR"; break;
 	  case OMP_LIST_USE_DEVICE: type = "USE_DEVICE"; break;
 	  case OMP_LIST_DEVICE_RESIDENT: type = "USE_DEVICE"; break;

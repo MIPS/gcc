@@ -1,3 +1,9 @@
+2014-07-28  Cesar Philippidis  <cesar@codesourcery.com>
+	    Thomas Schwinge  <thomas@codesourcery.com>
+	    Ilmir Usmanov  <i.usmanov@samsung.com>
+
+	* gfortran.dg/goacc/subarrays.f95: New test.
+	* gfortran.dg/gomp/map-1.f90: New test.
 2014-07-14  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* c-c++-common/goacc/collapse-1.c: New test.
