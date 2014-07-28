@@ -405,14 +405,19 @@ fs::recursive_directory_iterator::increment(error_code& ec) noexcept
 
   if (std::exchange(_M_pending, true) && recurse(top.first, _M_options, ec))
     {
-      _M_push(_Dir{ opendir((*cur)->path(), _M_options, &ec) }, &ec);
+      _Dir dir = opendir((*cur)->path(), _M_options, &ec);
       if (ec.value())
-	if (ec != std::make_error_code(errc::permission_denied)
-	    || !is_set(_M_options, directory_options::skip_permission_denied))
+	return *this;
+      if (dir.dirp)
+	{
+	  _M_push(std::move(dir), &ec);
+	  if (ec.value())
+	    return *this;
+	  if (_M_dirs->top().second == directory_iterator())
+	    pop();
 	  return *this;
-      if (_M_dirs->top().second == directory_iterator())
-	pop();
-      return *this;
+	}
+      // else skip permission denied and continue in parent dir
     }
 
   while (++*cur == directory_iterator())
