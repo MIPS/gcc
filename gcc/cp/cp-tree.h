@@ -6423,8 +6423,8 @@ extern bool check_template_constraints          (tree, tree);
 extern tree subst_template_constraints          (tree, tree);
 extern bool equivalent_constraints              (tree, tree);
 extern bool equivalently_constrained            (tree, tree);
-extern bool more_constraints                    (tree, tree);
-extern bool more_constrained                    (tree, tree);
+extern bool subsumes_constraints                (tree, tree);
+extern int more_constrained                     (tree, tree);
 
 extern void diagnose_constraints                (location_t, tree, tree);
 

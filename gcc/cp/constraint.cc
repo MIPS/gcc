@@ -1344,20 +1344,29 @@ equivalently_constrained (tree a, tree b)
   return equivalent_constraints (get_constraints (a), get_constraints (b));
 }
 
-// Returns true when the A contains more atomic properties than B.
-bool
-more_constraints (tree a, tree b)
-{
-  return subsumes (a, b);
-}
-
 // Returns true when the template declaration A's constraints subsume
 // those of the template declaration B.
 bool 
-more_constrained (tree a, tree b)
+subsumes_constraints (tree a, tree b)
 {
   gcc_assert (TREE_CODE (a) == TREE_CODE (b));
-  return more_constraints (get_constraints (a), get_constraints (b));
+  return subsumes (get_constraints (a), get_constraints (b));
+}
+
+// Determines which of the templates, A or B, is more constrained. 
+// That is, which template's constraints subsume but are not subsumed 
+// by the other's?
+//
+// Returns 1 if A is more constrained than B, -1 if B is more constrained
+// than A, and 0 otherwise.
+int
+more_constrained (tree a, tree b) {
+  int winner = 0;
+  if (subsumes_constraints (a, b))
+    ++winner;
+  if (subsumes_constraints (b, a))
+    --winner;
+  return winner;
 }
 
 

@@ -3463,8 +3463,8 @@ cp_build_function_call_vec (tree function, vec<tree, va_gc> **params,
         if (tree ci = get_constraints (function))
           if (!check_constraints (ci))
             {
+              error ("cannot call function %qD", function);
               location_t loc = DECL_SOURCE_LOCATION (function);
-              error_at (loc, "cannot call function %qD", function);
               diagnose_constraints (loc, function, NULL_TREE);
               return error_mark_node;
             }

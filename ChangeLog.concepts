@@ -1,3 +1,27 @@
+2014-07-28  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/cp/cp-tree.h (more_constraints): Remove
+	(subsumes_constraints): Renamed from more_constraints
+	(more_constrained): Repurposed
+	* gcc/cp/call-c (template_decl_for_candidates): Rename to get_temploid,
+	only get template info for member functions of a class template
+	specialization.
+	(joust): Handle member functions of class template specializations
+	separately from function templates. This matches the new wording in
+	the TS.
+	* gcc/cp/logic.cc (match_terms): Make inline.
+	(subsumes_constraints): Rename to subsumes_constraints_nonnull.
+	* gcc/cp/pt.c (is_compatible_template_arg): Use subsumes.
+	(more_specialized_fn): Use usubsumes_constraints.
+	(more_specialized_class): Use more_constrained.
+	* gcc/cp/constraint.cc (more_constraints): Removed.
+	(more_constrained): New.
+
+2014-07-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/cp/typeck.c (cp_build_function_call_vec): Emit diagnostic
+	at the input location.
+	* gcc/cp/error.c (dump_template_decl): Constraints are never invalid
+	in this way. Also fixes brace warning.
+
 2014-07-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/tree.c (cp_tree_equal): compare constraint infos by
 	their associated constraints (patch by Braden Obrzut).

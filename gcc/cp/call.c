@@ -8731,20 +8731,22 @@ add_warning (struct z_candidate *winner, struct z_candidate *loser)
   winner->warnings = cw;
 }
 
-// Returns the template declaration associated with the candidate
-// function. For actual templates, this is directly associated
-// with the candidate. For temploids, we return the template
-// associated with the specialization.
+// When a CANDidate function is a member function of a class template
+// specialization, return the temploid describing that function.
+// Returns NULL_TREE otherwise.
 static inline tree
-template_decl_for_candidate (struct z_candidate *cand)
+get_temploid (struct z_candidate *cand)
 {
- tree r = cand->template_decl;
-  tree d = cand->fn;
-  if (!r && DECL_P (d) && DECL_USE_TEMPLATE (d))
-    r = DECL_TI_TEMPLATE (d);
-  if (r && TREE_CODE (r) == TEMPLATE_INFO)
-    r = TI_TEMPLATE (r);
-  return r;
+  gcc_assert (cand);
+  tree t = NULL_TREE;
+  if (!cand->template_decl)
+    {
+      if (DECL_P (cand->fn) && DECL_USE_TEMPLATE (cand->fn))
+        t = DECL_TI_TEMPLATE (cand->fn);
+      if (t && TREE_CODE (t) == TEMPLATE_INFO)
+        t = TI_TEMPLATE (t);
+    }
+    return t;
 }
 
 /* Compare two candidates for overloading as described in
@@ -8763,9 +8765,9 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn,
   size_t i;
   size_t len;
 
-  // Get the actual template decls associated with the candidates.
-  tree tmpl1 = template_decl_for_candidate (cand1);
-  tree tmpl2 = template_decl_for_candidate (cand2);
+  // Try to get a temploid describing each candidate. 
+  tree m1 = get_temploid (cand1);
+  tree m2 = get_temploid (cand2);
 
   /* Candidates that involve bad conversions are always worse than those
      that don't.  */
@@ -8969,17 +8971,32 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn,
      more specialized than the template for F2 according to the partial
      ordering rules.  */
 
-  if (tmpl1 && tmpl2)
+  if (cand1->template_decl && cand2->template_decl)
     {
-      /* [temp.func.order]: The presence of unused ellipsis and default
-         arguments has no effect on the partial ordering of function
-         templates.   add_function_candidate() will not have
-         counted the "this" argument for constructors.  */
-      int nparms = cand1->num_convs + DECL_CONSTRUCTOR_P (cand1->fn);
-      winner = more_specialized_fn (tmpl1, tmpl2, nparms);
+      winner = more_specialized_fn
+        (TI_TEMPLATE (cand1->template_decl),
+         TI_TEMPLATE (cand2->template_decl),
+         /* [temp.func.order]: The presence of unused ellipsis and default
+            arguments has no effect on the partial ordering of function
+            templates.   add_function_candidate() will not have
+            counted the "this" argument for constructors.  */
+         cand1->num_convs + DECL_CONSTRUCTOR_P (cand1->fn));
       if (winner)
-	return winner;
+        return winner;
     }
+
+    // C++ Concepts
+    // or, if not that,
+    // F1 and F2 are member functions of a class template specialization
+    // T, and M1 and M2 are member functions in the template of T
+    // corresponding to F1 and F2, and M1 is more constrained according
+    // to the partial ordering rules for constraints.
+    if (m1 && m2)
+      {
+        winner = more_constrained (m1, m2);
+        if (winner)
+          return winner;
+      }
 
   /* Check whether we can discard a builtin candidate, either because we
      have two identical ones or matching builtin and non-builtin candidates.

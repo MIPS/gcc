@@ -426,7 +426,7 @@ bool subsumes_or(tree, tree);
 //    * __is_same_as |- __is_convertible_to
 //    * __is_same_as |- __is_derived_from
 //    * Any other built-in predicates?
-bool
+inline bool
 match_terms (tree a, tree c)
 {
   return cp_tree_equal (a, c);
@@ -498,7 +498,7 @@ subsumes_prop (tree as, tree c)
 // This is done by checking that the RIGHT requirements follow from
 // each of the LEFT subgoals.
 bool
-subsumes_constraints (tree left, tree right)
+subsumes_constraints_nonnull (tree left, tree right)
 {
   gcc_assert (check_constraint_info (left));
   gcc_assert (check_constraint_info (right));
@@ -527,7 +527,7 @@ subsumes (tree left, tree right)
     return false;
   if (!right)
     return true;
-  return subsumes_constraints (left, right);
+  return subsumes_constraints_nonnull (left, right);
 }
 
 

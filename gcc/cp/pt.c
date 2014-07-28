@@ -6603,7 +6603,7 @@ is_compatible_template_arg (tree parm, tree arg)
         return false;
     }
 
-  return more_constraints (parm_cons, arg_cons);
+  return subsumes (parm_cons, arg_cons);
 }
 
 // Convert a placeholder argument into a binding to the original
@@ -19052,8 +19052,8 @@ more_specialized_fn (tree pat1, tree pat2, int len)
   // All things still being equal, determine if one is more constrained.
   if (lose1 == lose2)
     {
-      lose1 = !more_constrained (pat1, pat2);
-      lose2 = !more_constrained (pat2, pat1);
+      lose1 = !subsumes_constraints (pat1, pat2);
+      lose2 = !subsumes_constraints (pat2, pat1);
     }
 
   if (lose1 == lose2)
@@ -19140,11 +19140,10 @@ more_specialized_class (tree tmpl, tree pat1, tree pat2)
         return -1;
     }
 
-  if (more_constrained (tmpl1, tmpl2))
-    ++winner;
-  if (more_constrained (tmpl2, tmpl1))
-    --winner;
-
+  // If still tied at this point, the most specialized is also
+  // the most constrained. 
+  if (!winner)
+    return more_constrained (tmpl1, tmpl2);
   return winner;
 }
 
