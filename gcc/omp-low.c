@@ -9696,8 +9696,6 @@ process_reduction_data (gimple_seq *body, gimple_seq *in_stmt_seqp,
       switch (gimple_code (stmt))
 	{
 	case GIMPLE_OMP_FOR:
-	  tree clauses, nthreads, t;
-
 	  clauses = gimple_omp_for_clauses (stmt);
 
 	  /* Search for a reduction clause.  */
