@@ -2059,13 +2059,17 @@ parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers)
 
   vec<const char *> opers = vNULL;
 
+  const cpp_token *token;
   while (1)
     {
-      const cpp_token *token = peek (r);
+      token = peek (r); 
       if (token->type != CPP_NAME)
 	break;
       opers.safe_push (get_ident (r));
     }
+
+  if (token->type == CPP_CLOSE_PAREN)
+    fatal_at (token, "no pattern defined in for");
 
 
   while (1)
