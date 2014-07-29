@@ -5914,7 +5914,7 @@ package body Checks is
       --  First special case, if the source type is already within the range
       --  of the target type, then no check is needed (probably we should have
       --  stopped Do_Range_Check from being set in the first place, but better
-      --  late than never in preventing junk code.
+      --  late than never in preventing junk code and junk flag settings.
 
       if In_Subrange_Of (Source_Type, Target_Type)
 
@@ -5933,13 +5933,30 @@ package body Checks is
         and then not
           (Is_Floating_Point_Type (Source_Type) and Check_Float_Overflow)
       then
+         Set_Do_Range_Check (N, False);
          return;
       end if;
 
-      --  We need a check, so force evaluation of the node, so that it does
-      --  not get evaluated twice (once for the check, once for the actual
-      --  reference). Such a double evaluation is always a potential source
-      --  of inefficiency, and is functionally incorrect in the volatile case.
+      --  Here a check is needed. If the expander is not active, or if we are
+      --  in GNATProve mode, then simply set the Do_Range_Check flag and we
+      --  are done. In both these cases, we just want to see the range check
+      --  flag set, we do not want to generate the explicit range check code.
+
+      if GNATprove_Mode or else not Expander_Active then
+         Set_Do_Range_Check (N, True);
+         return;
+      end if;
+
+      --  Here we will generate an explicit range check, so we don't want to
+      --  set the Do_Range check flag, since the range check is taken care of
+      --  by the code we will generate.
+
+      Set_Do_Range_Check (N, False);
+
+      --  Force evaluation of the node, so that it does not get evaluated twice
+      --  (once for the check, once for the actual reference). Such a double
+      --  evaluation is always a potential source of inefficiency, and is
+      --  functionally incorrect in the volatile case.
 
       if not Is_Entity_Name (N) or else Treat_As_Volatile (Entity (N)) then
          Force_Evaluation (N);
@@ -5956,13 +5973,18 @@ package body Checks is
       --  cases are like this. Notably conversions can involve two types.
 
       if Source_Base_Type = Target_Base_Type then
+
+         --  Insert the explicit range check. Note that we suppress checks for
+         --  this code, since we don't want a recursive range check popping up.
+
          Insert_Action (N,
            Make_Raise_Constraint_Error (Loc,
              Condition =>
                Make_Not_In (Loc,
                  Left_Opnd  => Duplicate_Subexpr (N),
                  Right_Opnd => New_Occurrence_Of (Target_Type, Loc)),
-             Reason => Reason));
+             Reason => Reason),
+           Suppress => All_Checks);
 
       --  Next test for the case where the target type is within the bounds
       --  of the base type of the source type, since in this case we can
@@ -5982,6 +6004,10 @@ package body Checks is
       --  itself does not require a check.
 
       elsif In_Subrange_Of (Target_Type, Source_Base_Type) then
+
+         --  Insert the explicit range check. Note that we suppress checks for
+         --  this code, since we don't want a recursive range check popping up.
+
          Insert_Action (N,
            Make_Raise_Constraint_Error (Loc,
              Condition =>
@@ -6003,7 +6029,8 @@ package body Checks is
                            Prefix =>
                              New_Occurrence_Of (Target_Type, Loc),
                            Attribute_Name => Name_Last)))),
-             Reason => Reason));
+             Reason => Reason),
+           Suppress => All_Checks);
 
       --  Note that at this stage we now that the Target_Base_Type is not in
       --  the range of the Source_Base_Type (since even the Target_Type itself
@@ -6023,6 +6050,9 @@ package body Checks is
          --     [constraint_error when Tnn not in Target_Type]
 
          --  Then the conversion itself is replaced by an occurrence of Tnn
+
+         --  Insert the explicit range check. Note that we suppress checks for
+         --  this code, since we don't want a recursive range check popping up.
 
          declare
             Tnn : constant Entity_Id := Make_Temporary (Loc, 'T', N);
@@ -6045,7 +6075,8 @@ package body Checks is
                     Left_Opnd  => New_Occurrence_Of (Tnn, Loc),
                     Right_Opnd => New_Occurrence_Of (Target_Type, Loc)),
 
-                Reason => Reason)));
+                Reason => Reason)),
+              Suppress => All_Checks);
 
             Rewrite (N, New_Occurrence_Of (Tnn, Loc));
 
@@ -6876,7 +6907,7 @@ package body Checks is
    --------------------------
 
    procedure Install_Static_Check (R_Cno : Node_Id; Loc : Source_Ptr) is
-      Stat : constant Boolean   := Is_Static_Expression (R_Cno);
+      Stat : constant Boolean   := Is_OK_Static_Expression (R_Cno);
       Typ  : constant Entity_Id := Etype (R_Cno);
 
    begin
@@ -7148,7 +7179,7 @@ package body Checks is
          if Lo = No_Uint or else Hi = No_Uint then
             return False;
 
-         elsif Is_Static_Subtype (Etype (N)) then
+         elsif Is_OK_Static_Subtype (Etype (N)) then
             return Lo >= Expr_Value (Type_Low_Bound  (Rtyp))
                      and then
                    Hi <= Expr_Value (Type_High_Bound (Rtyp));

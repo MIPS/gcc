@@ -80,7 +80,7 @@ package body Debug is
    --  dN   No file name information in exception messages
    --  dO   Output immediate error messages
    --  dP   Do not check for controlled objects in preelaborable packages
-   --  dQ
+   --  dQ   Enable inlining in GNATprove mode
    --  dR   Bypass check for correct version of s-rpc
    --  dS   Never convert numbers to machine numbers in Sem_Eval
    --  dT   Convert to machine numbers only for constant declarations
@@ -438,6 +438,10 @@ package body Debug is
    --       in preelaborable packages, but this restriction is a huge pain,
    --       especially in the predefined library units.
 
+   --  dQ   Enable inlining in GNATprove mode. Although expansion is not set in
+   --       GNATprove mode, inlining is useful for improving the precision of
+   --       formal verification. Under a debug flag until fully reliable.
+
    --  dR   Bypass the check for a proper version of s-rpc being present
    --       to use the -gnatz? switch. This allows debugging of the use
    --       of stubs generation without needing to have GLADE (or some
@@ -541,8 +545,9 @@ package body Debug is
    --       to the backend. This is useful to locate skipped calls that must be
    --       inlined by the frontend.
 
-   --  d.k  Enable new semantics of frontend inlining.  This is useful to test
-   --       this new feature in all the platforms.
+   --  d.k  Enable new semantics of frontend inlining. This is useful to test
+   --       this new feature in all the platforms. What *is* this new semantics
+   --       which doesn't seem to be documented anywhere???
 
    --  d.l  Use Ada 95 semantics for limited function returns. This may be
    --       used to work around the incompatibility introduced by AI-318-2.

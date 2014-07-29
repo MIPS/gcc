@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -360,78 +360,91 @@ package body Ada.Exceptions is
    --  attached. The parameters are the file name and line number in each
    --  case. The names are defined by Exp_Ch11.Get_RT_Exception_Name.
 
-   procedure Rcheck_CE_Access_Check
+   --  Note on ordering of these routines. Normally in the Ada.Exceptions units
+   --  we don't care about the ordering of entries for Rcheck routines, and
+   --  the normal approach is to keep them in the same order as declarations
+   --  in Types.
+
+   --  This section is an IMPORTANT EXCEPTION. It is required by the .Net
+   --  runtime that the routine Rcheck_PE_Finalize_Raise_Exception is at the
+   --  end of the list (for reasons that are documented in the exceptmsg.awk
+   --  script which takes care of generating the required exception data).
+
+   procedure Rcheck_CE_Access_Check                   -- 00
      (File : System.Address; Line : Integer);
-   procedure Rcheck_CE_Null_Access_Parameter
+   procedure Rcheck_CE_Null_Access_Parameter          -- 01
      (File : System.Address; Line : Integer);
-   procedure Rcheck_CE_Discriminant_Check
+   procedure Rcheck_CE_Discriminant_Check             -- 02
      (File : System.Address; Line : Integer);
-   procedure Rcheck_CE_Divide_By_Zero
+   procedure Rcheck_CE_Divide_By_Zero                 -- 03
      (File : System.Address; Line : Integer);
-   procedure Rcheck_CE_Explicit_Raise
+   procedure Rcheck_CE_Explicit_Raise                 -- 04
      (File : System.Address; Line : Integer);
-   procedure Rcheck_CE_Index_Check
+   procedure Rcheck_CE_Index_Check                    -- 05
      (File : System.Address; Line : Integer);
-   procedure Rcheck_CE_Invalid_Data
+   procedure Rcheck_CE_Invalid_Data                   -- 06
      (File : System.Address; Line : Integer);
-   procedure Rcheck_CE_Length_Check
+   procedure Rcheck_CE_Length_Check                   -- 07
      (File : System.Address; Line : Integer);
-   procedure Rcheck_CE_Null_Exception_Id
+   procedure Rcheck_CE_Null_Exception_Id              -- 08
      (File : System.Address; Line : Integer);
-   procedure Rcheck_CE_Null_Not_Allowed
+   procedure Rcheck_CE_Null_Not_Allowed               -- 09
      (File : System.Address; Line : Integer);
-   procedure Rcheck_CE_Overflow_Check
+   procedure Rcheck_CE_Overflow_Check                 -- 10
      (File : System.Address; Line : Integer);
-   procedure Rcheck_CE_Partition_Check
+   procedure Rcheck_CE_Partition_Check                -- 11
      (File : System.Address; Line : Integer);
-   procedure Rcheck_CE_Range_Check
+   procedure Rcheck_CE_Range_Check                    -- 12
      (File : System.Address; Line : Integer);
-   procedure Rcheck_CE_Tag_Check
+   procedure Rcheck_CE_Tag_Check                      -- 13
      (File : System.Address; Line : Integer);
-   procedure Rcheck_PE_Access_Before_Elaboration
+   procedure Rcheck_PE_Access_Before_Elaboration      -- 14
      (File : System.Address; Line : Integer);
-   procedure Rcheck_PE_Accessibility_Check
+   procedure Rcheck_PE_Accessibility_Check            -- 15
      (File : System.Address; Line : Integer);
-   procedure Rcheck_PE_Address_Of_Intrinsic
+   procedure Rcheck_PE_Address_Of_Intrinsic           -- 16
      (File : System.Address; Line : Integer);
-   procedure Rcheck_PE_Aliased_Parameters
+   procedure Rcheck_PE_Aliased_Parameters             -- 17
      (File : System.Address; Line : Integer);
-   procedure Rcheck_PE_All_Guards_Closed
+   procedure Rcheck_PE_All_Guards_Closed              -- 18
      (File : System.Address; Line : Integer);
-   procedure Rcheck_PE_Bad_Predicated_Generic_Type
+   procedure Rcheck_PE_Bad_Predicated_Generic_Type    -- 19
      (File : System.Address; Line : Integer);
-   procedure Rcheck_PE_Current_Task_In_Entry_Body
+   procedure Rcheck_PE_Current_Task_In_Entry_Body     -- 20
      (File : System.Address; Line : Integer);
-   procedure Rcheck_PE_Duplicated_Entry_Address
+   procedure Rcheck_PE_Duplicated_Entry_Address       -- 21
      (File : System.Address; Line : Integer);
-   procedure Rcheck_PE_Explicit_Raise
-     (File : System.Address; Line : Integer);
-   procedure Rcheck_PE_Implicit_Return
-     (File : System.Address; Line : Integer);
-   procedure Rcheck_PE_Misaligned_Address_Value
-     (File : System.Address; Line : Integer);
-   procedure Rcheck_PE_Missing_Return
-     (File : System.Address; Line : Integer);
-   procedure Rcheck_PE_Overlaid_Controlled_Object
-     (File : System.Address; Line : Integer);
-   procedure Rcheck_PE_Potentially_Blocking_Operation
-     (File : System.Address; Line : Integer);
-   procedure Rcheck_PE_Stubbed_Subprogram_Called
-     (File : System.Address; Line : Integer);
-   procedure Rcheck_PE_Unchecked_Union_Restriction
-     (File : System.Address; Line : Integer);
-   procedure Rcheck_PE_Non_Transportable_Actual
-     (File : System.Address; Line : Integer);
-   procedure Rcheck_SE_Empty_Storage_Pool
-     (File : System.Address; Line : Integer);
-   procedure Rcheck_SE_Explicit_Raise
-     (File : System.Address; Line : Integer);
-   procedure Rcheck_SE_Infinite_Recursion
-     (File : System.Address; Line : Integer);
-   procedure Rcheck_SE_Object_Too_Large
+   procedure Rcheck_PE_Explicit_Raise                 -- 22
      (File : System.Address; Line : Integer);
 
-   procedure Rcheck_PE_Finalize_Raised_Exception
+   procedure Rcheck_PE_Implicit_Return                -- 24
+     (File : System.Address; Line : Integer);
+   procedure Rcheck_PE_Misaligned_Address_Value       -- 25
+     (File : System.Address; Line : Integer);
+   procedure Rcheck_PE_Missing_Return                 -- 26
+     (File : System.Address; Line : Integer);
+   procedure Rcheck_PE_Overlaid_Controlled_Object     -- 27
+     (File : System.Address; Line : Integer);
+   procedure Rcheck_PE_Potentially_Blocking_Operation -- 28
+     (File : System.Address; Line : Integer);
+   procedure Rcheck_PE_Stubbed_Subprogram_Called      -- 29
+     (File : System.Address; Line : Integer);
+   procedure Rcheck_PE_Unchecked_Union_Restriction    -- 30
+     (File : System.Address; Line : Integer);
+   procedure Rcheck_PE_Non_Transportable_Actual       -- 31
+     (File : System.Address; Line : Integer);
+   procedure Rcheck_SE_Empty_Storage_Pool             -- 32
+     (File : System.Address; Line : Integer);
+   procedure Rcheck_SE_Explicit_Raise                 -- 33
+     (File : System.Address; Line : Integer);
+   procedure Rcheck_SE_Infinite_Recursion             -- 34
+     (File : System.Address; Line : Integer);
+   procedure Rcheck_SE_Object_Too_Large               -- 35
+     (File : System.Address; Line : Integer);
+   procedure Rcheck_PE_Stream_Operation_Not_Allowed   -- 36
+     (File : System.Address; Line : Integer);
+
+   procedure Rcheck_PE_Finalize_Raised_Exception      -- 23
      (File : System.Address; Line : Integer);
    --  This routine is separated out because it has quite different behavior
    --  from the others. This is the "finalize/adjust raised exception". This
@@ -492,16 +505,18 @@ package body Ada.Exceptions is
                   "__gnat_rcheck_PE_Misaligned_Address_Value");
    pragma Export (C, Rcheck_PE_Missing_Return,
                   "__gnat_rcheck_PE_Missing_Return");
+   pragma Export (C, Rcheck_PE_Non_Transportable_Actual,
+                  "__gnat_rcheck_PE_Non_Transportable_Actual");
    pragma Export (C, Rcheck_PE_Overlaid_Controlled_Object,
                   "__gnat_rcheck_PE_Overlaid_Controlled_Object");
    pragma Export (C, Rcheck_PE_Potentially_Blocking_Operation,
                   "__gnat_rcheck_PE_Potentially_Blocking_Operation");
+   pragma Export (C, Rcheck_PE_Stream_Operation_Not_Allowed,
+                  "__gnat_rcheck_PE_Stream_Operation_Not_Allowed");
    pragma Export (C, Rcheck_PE_Stubbed_Subprogram_Called,
                   "__gnat_rcheck_PE_Stubbed_Subprogram_Called");
    pragma Export (C, Rcheck_PE_Unchecked_Union_Restriction,
                   "__gnat_rcheck_PE_Unchecked_Union_Restriction");
-   pragma Export (C, Rcheck_PE_Non_Transportable_Actual,
-                  "__gnat_rcheck_PE_Non_Transportable_Actual");
    pragma Export (C, Rcheck_SE_Empty_Storage_Pool,
                   "__gnat_rcheck_SE_Empty_Storage_Pool");
    pragma Export (C, Rcheck_SE_Explicit_Raise,
@@ -542,10 +557,11 @@ package body Ada.Exceptions is
    pragma No_Return (Rcheck_PE_Misaligned_Address_Value);
    pragma No_Return (Rcheck_PE_Missing_Return);
    pragma No_Return (Rcheck_PE_Overlaid_Controlled_Object);
+   pragma No_Return (Rcheck_PE_Non_Transportable_Actual);
    pragma No_Return (Rcheck_PE_Potentially_Blocking_Operation);
+   pragma No_Return (Rcheck_PE_Stream_Operation_Not_Allowed);
    pragma No_Return (Rcheck_PE_Stubbed_Subprogram_Called);
    pragma No_Return (Rcheck_PE_Unchecked_Union_Restriction);
-   pragma No_Return (Rcheck_PE_Non_Transportable_Actual);
    pragma No_Return (Rcheck_PE_Finalize_Raised_Exception);
    pragma No_Return (Rcheck_SE_Empty_Storage_Pool);
    pragma No_Return (Rcheck_SE_Explicit_Raise);
@@ -576,6 +592,7 @@ package body Ada.Exceptions is
    procedure Rcheck_19 (File : System.Address; Line : Integer);
    procedure Rcheck_20 (File : System.Address; Line : Integer);
    procedure Rcheck_21 (File : System.Address; Line : Integer);
+   procedure Rcheck_22 (File : System.Address; Line : Integer);
    procedure Rcheck_23 (File : System.Address; Line : Integer);
    procedure Rcheck_24 (File : System.Address; Line : Integer);
    procedure Rcheck_25 (File : System.Address; Line : Integer);
@@ -589,8 +606,7 @@ package body Ada.Exceptions is
    procedure Rcheck_33 (File : System.Address; Line : Integer);
    procedure Rcheck_34 (File : System.Address; Line : Integer);
    procedure Rcheck_35 (File : System.Address; Line : Integer);
-
-   procedure Rcheck_22 (File : System.Address; Line : Integer);
+   procedure Rcheck_36 (File : System.Address; Line : Integer);
 
    pragma Export (C, Rcheck_00, "__gnat_rcheck_00");
    pragma Export (C, Rcheck_01, "__gnat_rcheck_01");
@@ -628,6 +644,7 @@ package body Ada.Exceptions is
    pragma Export (C, Rcheck_33, "__gnat_rcheck_33");
    pragma Export (C, Rcheck_34, "__gnat_rcheck_34");
    pragma Export (C, Rcheck_35, "__gnat_rcheck_35");
+   pragma Export (C, Rcheck_36, "__gnat_rcheck_36");
 
    --  None of these procedures ever returns (they raise an exception). By
    --  using pragma No_Return, we ensure that any junk code after the call,
@@ -668,6 +685,7 @@ package body Ada.Exceptions is
    pragma No_Return (Rcheck_33);
    pragma No_Return (Rcheck_34);
    pragma No_Return (Rcheck_35);
+   pragma No_Return (Rcheck_36);
 
    ---------------------------------------------
    -- Reason Strings for Run-Time Check Calls --
@@ -718,6 +736,7 @@ package body Ada.Exceptions is
    Rmsg_33 : constant String := "explicit raise"                   & NUL;
    Rmsg_34 : constant String := "infinite recursion"               & NUL;
    Rmsg_35 : constant String := "object too large"                 & NUL;
+   Rmsg_36 : constant String := "stream operation not allowed"     & NUL;
 
    -----------------------
    -- Polling Interface --
@@ -1420,6 +1439,13 @@ package body Ada.Exceptions is
       Raise_Storage_Error_Msg (File, Line, Rmsg_35'Address);
    end Rcheck_SE_Object_Too_Large;
 
+   procedure Rcheck_PE_Stream_Operation_Not_Allowed
+     (File : System.Address; Line : Integer)
+   is
+   begin
+      Raise_Program_Error_Msg (File, Line, Rmsg_36'Address);
+   end Rcheck_PE_Stream_Operation_Not_Allowed;
+
    procedure Rcheck_PE_Finalize_Raised_Exception
      (File : System.Address; Line : Integer)
    is
@@ -1483,6 +1509,8 @@ package body Ada.Exceptions is
      renames Rcheck_PE_Duplicated_Entry_Address;
    procedure Rcheck_22 (File : System.Address; Line : Integer)
      renames Rcheck_PE_Explicit_Raise;
+   procedure Rcheck_23 (File : System.Address; Line : Integer)
+     renames Rcheck_PE_Finalize_Raised_Exception;
    procedure Rcheck_24 (File : System.Address; Line : Integer)
      renames Rcheck_PE_Implicit_Return;
    procedure Rcheck_25 (File : System.Address; Line : Integer)
@@ -1507,9 +1535,8 @@ package body Ada.Exceptions is
      renames Rcheck_SE_Infinite_Recursion;
    procedure Rcheck_35 (File : System.Address; Line : Integer)
      renames Rcheck_SE_Object_Too_Large;
-
-   procedure Rcheck_23 (File : System.Address; Line : Integer)
-     renames Rcheck_PE_Finalize_Raised_Exception;
+   procedure Rcheck_36 (File : System.Address; Line : Integer)
+     renames Rcheck_PE_Stream_Operation_Not_Allowed;
 
    -------------
    -- Reraise --

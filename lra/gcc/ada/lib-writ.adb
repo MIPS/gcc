@@ -44,6 +44,7 @@ with Par_SCO;  use Par_SCO;
 with Restrict; use Restrict;
 with Rident;   use Rident;
 with Scn;      use Scn;
+with Sem_Eval; use Sem_Eval;
 with Sinfo;    use Sinfo;
 with Sinput;   use Sinput;
 with Snames;   use Snames;
@@ -697,12 +698,12 @@ package body Lib.Writ is
                               Write_Info_Name (Chars (Expr));
 
                            elsif Nkind (Expr) = N_Integer_Literal
-                             and then Is_Static_Expression (Expr)
+                             and then Is_OK_Static_Expression (Expr)
                            then
                               Write_Info_Uint (Intval (Expr));
 
                            elsif Nkind (Expr) = N_String_Literal
-                             and then Is_Static_Expression (Expr)
+                             and then Is_OK_Static_Expression (Expr)
                            then
                               Write_Info_Slit (Strval (Expr));
 
@@ -1156,6 +1157,11 @@ package body Lib.Writ is
 
       if Normalize_Scalars then
          Write_Info_Str (" NS");
+      end if;
+
+      if Default_SSO_Config /= ' ' then
+         Write_Info_Str (" O");
+         Write_Info_Char (Default_SSO_Config);
       end if;
 
       if Sec_Stack_Used then

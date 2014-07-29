@@ -1,4 +1,3 @@
-
 \input texinfo   @c -*-texinfo-*-
 
 @c %**start of header
@@ -112,7 +111,7 @@ Implementation Defined Pragmas
 * Pragma Assertion_Policy::
 * Pragma Assume::
 * Pragma Assume_No_Invalid_Values::
-* Pragma Ast_Entry::
+* Pragma AST_Entry::
 * Pragma Async_Readers::
 * Pragma Async_Writers::
 * Pragma Attribute_Definition::
@@ -140,6 +139,7 @@ Implementation Defined Pragmas
 * Pragma CPU::
 * Pragma Debug::
 * Pragma Debug_Policy::
+* Pragma Default_Scalar_Storage_Order::
 * Pragma Default_Storage_Pool::
 * Pragma Depends::
 * Pragma Detect_Blocking::
@@ -195,6 +195,7 @@ Implementation Defined Pragmas
 * Pragma Linker_Constructor::
 * Pragma Linker_Destructor::
 * Pragma Linker_Section::
+* Pragma Lock_Free::
 * Pragma Long_Float::
 * Pragma Loop_Invariant::
 * Pragma Loop_Optimize::
@@ -233,6 +234,7 @@ Implementation Defined Pragmas
 * Pragma Provide_Shift_Operators::
 * Pragma Psect_Object::
 * Pragma Pure_Function::
+* Pragma Rational::
 * Pragma Ravenscar::
 * Pragma Refined_Depends::
 * Pragma Refined_Global::
@@ -270,6 +272,7 @@ Implementation Defined Pragmas
 * Pragma Type_Invariant::
 * Pragma Type_Invariant_Class::
 * Pragma Unchecked_Union::
+* Pragma Unevaluated_Use_Of_Old::
 * Pragma Unimplemented_Unit::
 * Pragma Universal_Aliasing ::
 * Pragma Universal_Data::
@@ -304,6 +307,7 @@ Implementation Defined Aspects
 * Aspect Initializes::
 * Aspect Inline_Always::
 * Aspect Invariant::
+* Aspect Iterable::
 * Aspect Linker_Section::
 * Aspect Object_Size::
 * Aspect Part_Of::
@@ -338,10 +342,11 @@ Implementation Defined Attributes
 * Attribute Asm_Input::
 * Attribute Asm_Output::
 * Attribute AST_Entry::
+* Attribute Atomic_Always_Lock_Free::
 * Attribute Bit::
 * Attribute Bit_Position::
-* Attribute Compiler_Version::
 * Attribute Code_Address::
+* Attribute Compiler_Version::
 * Attribute Default_Bit_Order::
 * Attribute Descriptor_Size::
 * Attribute Elaborated::
@@ -353,14 +358,18 @@ Implementation Defined Attributes
 * Attribute Enum_Rep::
 * Attribute Enum_Val::
 * Attribute Epsilon::
+* Attribute Fast_Math::
 * Attribute Fixed_Value::
+* Attribute From_Any::
 * Attribute Has_Access_Values::
 * Attribute Has_Discriminants::
 * Attribute Img::
 * Attribute Integer_Value::
 * Attribute Invalid_Value::
+* Attribute Iterable::
 * Attribute Large::
 * Attribute Library_Level::
+* Attribute Lock_Free::
 * Attribute Loop_Entry::
 * Attribute Machine_Size::
 * Attribute Mantissa::
@@ -368,6 +377,7 @@ Implementation Defined Attributes
 * Attribute Mechanism_Code::
 * Attribute Null_Parameter::
 * Attribute Object_Size::
+* Attribute Old::
 * Attribute Passed_By_Reference::
 * Attribute Pool_Address::
 * Attribute Range_Length::
@@ -376,6 +386,7 @@ Implementation Defined Attributes
 * Attribute Result::
 * Attribute Safe_Emax::
 * Attribute Safe_Large::
+* Attribute Safe_Small::
 * Attribute Scalar_Storage_Order::
 * Attribute Simple_Storage_Pool::
 * Attribute Small::
@@ -383,16 +394,18 @@ Implementation Defined Attributes
 * Attribute Stub_Type::
 * Attribute System_Allocator_Alignment::
 * Attribute Target_Name::
-* Attribute Tick::
 * Attribute To_Address::
+* Attribute To_Any::
 * Attribute Type_Class::
+* Attribute Type_Key::
+* Attribute TypeCode::
 * Attribute UET_Address::
 * Attribute Unconstrained_Array::
 * Attribute Universal_Literal_String::
 * Attribute Unrestricted_Access::
 * Attribute Update::
-* Attribute Valid_Scalars::
 * Attribute VADS_Size::
+* Attribute Valid_Scalars::
 * Attribute Value_Size::
 * Attribute Wchar_T_Size::
 * Attribute Word_Size::
@@ -961,7 +974,7 @@ consideration, the use of these pragmas should be minimized.
 * Pragma Assertion_Policy::
 * Pragma Assume::
 * Pragma Assume_No_Invalid_Values::
-* Pragma Ast_Entry::
+* Pragma AST_Entry::
 * Pragma Async_Readers::
 * Pragma Async_Writers::
 * Pragma Attribute_Definition::
@@ -989,6 +1002,7 @@ consideration, the use of these pragmas should be minimized.
 * Pragma CPU::
 * Pragma Debug::
 * Pragma Debug_Policy::
+* Pragma Default_Scalar_Storage_Order::
 * Pragma Default_Storage_Pool::
 * Pragma Depends::
 * Pragma Detect_Blocking::
@@ -1044,6 +1058,7 @@ consideration, the use of these pragmas should be minimized.
 * Pragma Linker_Constructor::
 * Pragma Linker_Destructor::
 * Pragma Linker_Section::
+* Pragma Lock_Free::
 * Pragma Long_Float::
 * Pragma Loop_Invariant::
 * Pragma Loop_Optimize::
@@ -1082,6 +1097,7 @@ consideration, the use of these pragmas should be minimized.
 * Pragma Provide_Shift_Operators::
 * Pragma Psect_Object::
 * Pragma Pure_Function::
+* Pragma Rational::
 * Pragma Ravenscar::
 * Pragma Refined_Depends::
 * Pragma Refined_Global::
@@ -1119,6 +1135,7 @@ consideration, the use of these pragmas should be minimized.
 * Pragma Type_Invariant::
 * Pragma Type_Invariant_Class::
 * Pragma Unchecked_Union::
+* Pragma Unevaluated_Use_Of_Old::
 * Pragma Unimplemented_Unit::
 * Pragma Universal_Aliasing ::
 * Pragma Universal_Data::
@@ -1656,10 +1673,10 @@ section 7.1.2.
 For the description of this pragma, see SPARK 2014 Reference Manual,
 section 7.1.2.
 
-@node Pragma Ast_Entry
-@unnumberedsec Pragma Ast_Entry
+@node Pragma AST_Entry
+@unnumberedsec Pragma AST_Entry
 @cindex OpenVMS
-@findex Ast_Entry
+@findex AST_Entry
 @noindent
 Syntax:
 @smallexample @c ada
@@ -2505,8 +2522,79 @@ This pragma is equivalent to a corresponding @code{Check_Policy} pragma
 with a first argument of @code{Debug}. It is retained for historical
 compatibility reasons.
 
+@node Pragma Default_Scalar_Storage_Order
+@unnumberedsec Pragma Default_Scalar_Storage_Order
+@cindex Default_Scalar_Storage_Order
+@cindex Scalar_Storage_Order
+@findex Default_Scalar_Storage_Order
+@noindent
+Syntax:
+
+@smallexample @c ada
+pragma Default_Scalar_Storage_Order (High_Order_First | Low_Order_First);
+@end smallexample
+
+@noindent
+Normally if no explicit @code{Scalar_Storage_Order} is given for a record
+type or array type, then the scalar storage order defaults to the ordinary
+default for the target. But this default may be overridden using this pragma.
+The pragma may appear as a configuration pragma, or locally within a package
+spec or declarative part. In the latter case, it applies to all subsequent
+types declared within that package spec or declarative part.
+
+If this pragma is used as a configuration pragma which appears within a
+configuration pragma file (as opposed to appearing explicitly at the start
+of a single unit), then the binder will require that all units in a partition
+be compiled in a similar manner, including all units in the run-time that
+are included in the partition.
+
+The following example shows the use of this pragma:
+
+@smallexample @c ada
+pragma Default_Scalar_Storage_Order (High_Order_First);
+with System; use System;
+package DSSO1 is
+   type H1 is record
+      a : Integer;
+   end record;
+
+   type L2 is record
+      a : Integer;
+   end record;
+   for L2'Scalar_Storage_Order use Low_Order_First;
+
+   type L2a is new L2;
+
+   package Inner is
+      type H3 is record
+         a : Integer;
+      end record;
+
+      pragma Default_Scalar_Storage_Order (Low_Order_First);
+
+      type L4 is record
+         a : Integer;
+      end record;
+   end Inner;
+
+   type H4a is new Inner.L4;
+
+   type H5 is record
+      a : Integer;
+   end record;
+end DSSO1;
+@end smallexample
+
+@noindent
+In this example record types L.. have @code{Low_Order_First} scalar
+storage order, and record types H.. have @code{High_Order_First}.
+Note that in the case of @code{H4a}, the order is not inherited
+from the parent type. Only an explicitly set @code{Scalar_Storage_Order}
+gets inherited on type derivation.
+
 @node Pragma Default_Storage_Pool
 @unnumberedsec Pragma Default_Storage_Pool
+@cindex Default_Storage_Pool
 @findex Default_Storage_Pool
 @noindent
 Syntax:
@@ -4400,6 +4488,16 @@ package IO_Card is
 end IO_Card;
 @end smallexample
 
+@node Pragma Lock_Free
+@unnumberedsec Pragma Lock_Free
+@findex Lock_Free
+@noindent
+Syntax:
+This pragma may be specified for protected types or objects. It specifies that
+the implementation of protected operations must be implemented without locks.
+Compilation fails if the compiler cannot generate lock-free code for the
+operations.
+
 @node Pragma Long_Float
 @unnumberedsec Pragma Long_Float
 @cindex OpenVMS
@@ -4478,7 +4576,9 @@ There are five supported optimization hints for a loop:
 @itemize @bullet
 @item Ivdep
 
-The programmer asserts that there are no loop-carried dependencies which would prevent consecutive iterations of the loop from being executed simultaneously.
+The programmer asserts that there are no loop-carried dependencies
+which would prevent consecutive iterations of the loop from being
+executed simultaneously.
 
 @item No_Unroll
 
@@ -4504,7 +4604,7 @@ unrolling, but there is no guarantee that the loop will be vectorized.
 
 @end itemize
 
-These hints do not void the need to pass the appropriate switches to the
+These hints do not remove the need to pass the appropriate switches to the
 compiler in order to enable the relevant optimizations, that is to say
 @option{-funroll-loops} for unrolling and @option{-ftree-vectorize} for
 vectorization.
@@ -6001,6 +6101,24 @@ function is also considered pure from an optimization point of view, but the
 unit is not a Pure unit in the categorization sense. So for example, a function
 thus marked is free to @code{with} non-pure units.
 
+@node Pragma Rational
+@unnumberedsec Pragma Rational
+@findex Rational
+@noindent
+Syntax:
+
+@smallexample @c ada
+pragma Rational;
+@end smallexample
+
+@noindent
+This pragma is considered obsolescent, but is retained for
+compatibility purposes. It is equivalent to:
+
+@smallexample @c ada
+pragma Profile (Rational);
+@end smallexample
+
 @node Pragma Ravenscar
 @unnumberedsec Pragma Ravenscar
 @findex Pragma Ravenscar
@@ -7242,6 +7360,59 @@ pragma, making it language defined, and GNAT fully implements this extended
 version in all language modes (Ada 83, Ada 95, and Ada 2005). For full
 details, consult the Ada 2012 Reference Manual, section B.3.3.
 
+@node Pragma Unevaluated_Use_Of_Old
+@unnumberedsec Pragma Unevaluated_Use_Of_Old
+@cindex Attribute Old
+@cindex Attribute Loop_Entry
+@cindex Unevaluated_Use_Of_Old
+@findex Unevaluated_Use_Of_Old
+@noindent
+Syntax:
+
+@smallexample @c ada
+pragma Unevaluated_Use_Of_Old (Error | Warn | Allow);
+@end smallexample
+
+@noindent
+This pragma controls the processing of attributes Old and Loop_Entry.
+If either of these attributes is used in a potentially unevaluated
+expression  (e.g. the then or else parts of an if expression), then
+normally this usage is considered illegal if the prefix of the attribute
+is other than an entity name. The language requires this
+behavior for Old, and GNAT copies the same rule for Loop_Entry.
+
+The reason for this rule is that otherwise, we can have a situation
+where we save the Old value, and this results in an exception, even
+though we might not evaluate the attribute. Consider this example:
+
+@smallexample @c ada
+package UnevalOld is
+   K : Character;
+   procedure U (A : String; C : Boolean)  -- ERROR
+     with Post => (if C then A(1)'Old = K else True);
+end;
+@end smallexample
+
+@noindent
+If procedure U is called with a string with a lower bound of 2, and
+C false, then an exception would be raised trying to evaluate A(1)
+on entry even though the value would not be actually used.
+
+Although the rule guarantees against this possibility, it is sometimes
+too restrictive. For example if we know that the string has a lower
+bound of 1, then we will never raise an exception.
+The pragma @code{Unevaluated_Use_Of_Old} can be
+used to modify this behavior. If the argument is @code{Error} then an
+error is given (this is the default RM behavior). If the argument is
+@code{Warn} then the usage is allowed as legal but with a warning
+that an exception might be raised. If the argument is @code{Allow}
+then the usage is allowed as legal without generating a warning.
+
+This pragma may appear as a configuration pragma, or in a declarative
+part or package specification. In the latter case it applies to
+uses up to the end of the corresponding statement sequence or
+sequence of package declarations.
+
 @node Pragma Unimplemented_Unit
 @unnumberedsec Pragma Unimplemented_Unit
 @findex Unimplemented_Unit
@@ -7952,6 +8123,7 @@ clause.
 * Aspect Initializes::
 * Aspect Inline_Always::
 * Aspect Invariant::
+* Aspect Iterable::
 * Aspect Linker_Section::
 * Aspect Lock_Free::
 * Aspect Object_Size::
@@ -8105,19 +8277,22 @@ between values in different systems. The MKS system is characterized by the
 following aspect:
 
 @smallexample @c ada
-   type Mks_Type is new Long_Long_Float
-     with
-      Dimension_System => (
-        (Unit_Name => Meter,    Unit_Symbol => 'm',   Dim_Symbol => 'L'),
-        (Unit_Name => Kilogram, Unit_Symbol => "kg",  Dim_Symbol => 'M'),
-        (Unit_Name => Second,   Unit_Symbol => 's',   Dim_Symbol => 'T'),
-        (Unit_Name => Ampere,   Unit_Symbol => 'A',   Dim_Symbol => 'I'),
-        (Unit_Name => Kelvin,   Unit_Symbol => 'K',   Dim_Symbol => "Theta"),
-        (Unit_Name => Mole,     Unit_Symbol => "mol", Dim_Symbol => 'N'),
-        (Unit_Name => Candela,  Unit_Symbol => "cd",  Dim_Symbol => 'J'));
+   type Mks_Type is new Long_Long_Float with
+     Dimension_System => (
+       (Unit_Name => Meter,    Unit_Symbol => 'm',   Dim_Symbol => 'L'),
+       (Unit_Name => Kilogram, Unit_Symbol => "kg",  Dim_Symbol => 'M'),
+       (Unit_Name => Second,   Unit_Symbol => 's',   Dim_Symbol => 'T'),
+       (Unit_Name => Ampere,   Unit_Symbol => 'A',   Dim_Symbol => 'I'),
+       (Unit_Name => Kelvin,   Unit_Symbol => 'K',   Dim_Symbol => '@'),
+       (Unit_Name => Mole,     Unit_Symbol => "mol", Dim_Symbol => 'N'),
+       (Unit_Name => Candela,  Unit_Symbol => "cd",  Dim_Symbol => 'J'));
 @end smallexample
 
 @noindent
+Note that in the above type definition, we use the symbol @code{@@} to
+represent a theta character (avoiding the use of extended Latin-1
+characters in this context).
+
 See section ``Performing Dimensionality Analysis in GNAT'' in the GNAT Users
 Guide for detailed examples of use of the dimension system.
 
@@ -8170,6 +8345,35 @@ This aspect is equivalent to pragma @code{Inline_Always}.
 This aspect is equivalent to pragma @code{Invariant}. It is a
 synonym for the language defined aspect @code{Type_Invariant} except
 that it is separately controllable using pragma @code{Assertion_Policy}.
+
+@node Aspect Iterable
+@unnumberedsec Aspect Iterable
+@findex Iterable
+@noindent
+This aspect is used in the GNAT-defined formal container packages, to provide
+a light-weight mechanism for loops over such containers, without the overhead
+imposed by the tampering checks of standard Ada2012 iterators. The value of the
+aspect is a aggregate with four named  components: First, Next, Has_Element,
+and Element. The following is a typical example of use:
+
+@smallexample @c ada
+type List is private with
+    Iterable => (First        => First_Element,
+                 Next         => Advance,
+                 Has_Element  => Get_Element,
+                 Element      => List_Element);
+@end smallexample
+@itemize @bullet
+@item The value denoted by @code{First} must denote a primitive operation of
+the  container type that returns a Cursor, which must a be a type declared in
+the container package.
+@item The value of @code{Next} is a primitive operation of the container type
+that takes a cursor and yields a cursor.
+@item @code{Has_Element} is an operation that applies to a cursor a yields an
+element of the container.
+@item @code{Element} is the type of the elements of the container type, and
+thus the result of the function denoted by Has_Element.
+@end itemize
 
 @node Aspect Linker_Section
 @unnumberedsec Aspect Linker_Section
@@ -8360,7 +8564,9 @@ In addition, Ada allows implementations to define additional
 attributes whose meaning is defined by the implementation.  GNAT provides
 a number of these implementation-dependent attributes which can be used
 to extend and enhance the functionality of the compiler.  This section of
-the GNAT reference manual describes these additional attributes.
+the GNAT reference manual describes these additional attributes.  It also
+describes additional implementation-dependent features of standard
+language-defined attributes.
 
 Note that any program using these attributes may not be portable to
 other compilers (although GNAT implements this set of attributes on all
@@ -8373,10 +8579,11 @@ consideration, you should minimize the use of these attributes.
 * Attribute Asm_Input::
 * Attribute Asm_Output::
 * Attribute AST_Entry::
+* Attribute Atomic_Always_Lock_Free::
 * Attribute Bit::
 * Attribute Bit_Position::
-* Attribute Compiler_Version::
 * Attribute Code_Address::
+* Attribute Compiler_Version::
 * Attribute Default_Bit_Order::
 * Attribute Descriptor_Size::
 * Attribute Elaborated::
@@ -8388,14 +8595,18 @@ consideration, you should minimize the use of these attributes.
 * Attribute Enum_Rep::
 * Attribute Enum_Val::
 * Attribute Epsilon::
+* Attribute Fast_Math::
 * Attribute Fixed_Value::
+* Attribute From_Any::
 * Attribute Has_Access_Values::
 * Attribute Has_Discriminants::
 * Attribute Img::
 * Attribute Integer_Value::
 * Attribute Invalid_Value::
+* Attribute Iterable::
 * Attribute Large::
 * Attribute Library_Level::
+* Attribute Lock_Free::
 * Attribute Loop_Entry::
 * Attribute Machine_Size::
 * Attribute Mantissa::
@@ -8403,6 +8614,7 @@ consideration, you should minimize the use of these attributes.
 * Attribute Mechanism_Code::
 * Attribute Null_Parameter::
 * Attribute Object_Size::
+* Attribute Old::
 * Attribute Passed_By_Reference::
 * Attribute Pool_Address::
 * Attribute Range_Length::
@@ -8411,6 +8623,7 @@ consideration, you should minimize the use of these attributes.
 * Attribute Result::
 * Attribute Safe_Emax::
 * Attribute Safe_Large::
+* Attribute Safe_Small::
 * Attribute Scalar_Storage_Order::
 * Attribute Simple_Storage_Pool::
 * Attribute Small::
@@ -8418,16 +8631,18 @@ consideration, you should minimize the use of these attributes.
 * Attribute Stub_Type::
 * Attribute System_Allocator_Alignment::
 * Attribute Target_Name::
-* Attribute Tick::
 * Attribute To_Address::
+* Attribute To_Any::
 * Attribute Type_Class::
+* Attribute Type_Key::
+* Attribute TypeCode::
 * Attribute UET_Address::
 * Attribute Unconstrained_Array::
 * Attribute Universal_Literal_String::
 * Attribute Unrestricted_Access::
 * Attribute Update::
-* Attribute Valid_Scalars::
 * Attribute VADS_Size::
+* Attribute Valid_Scalars::
 * Attribute Value_Size::
 * Attribute Wchar_T_Size::
 * Attribute Word_Size::
@@ -8498,6 +8713,16 @@ pragma @code{Extend_System (Aux_DEC)}).  This value enables the given entry to
 be called when an AST occurs.  For further details, refer to the @cite{DEC Ada
 Language Reference Manual}, section 9.12a.
 
+@node Attribute Atomic_Always_Lock_Free
+@unnumberedsec Attribute Atomic_Always_Lock_Free
+@findex Atomic_Always_Lock_Free
+@noindent
+
+The prefix of the @code{Atomic_Always_Lock_Free} attribute is a type.
+The result is a Boolean value which is True if the type has discriminants,
+and False otherwise.  The result indicate whether atomic operations are
+supported by the target for the given type.
+
 @node Attribute Bit
 @unnumberedsec Attribute Bit
 @findex Bit
@@ -8537,15 +8762,6 @@ type @code{Universal_Integer}.  The value depends only on the field
 @var{C} and is independent of the alignment of
 the containing record @var{R}.
 
-@node Attribute Compiler_Version
-@unnumberedsec Attribute Compiler_Version
-@findex Compiler_Version
-@noindent
-@code{Standard'Compiler_Version} (@code{Standard} is the only allowed
-prefix) yields a static string identifying the version of the compiler
-being used to compile the unit containing the attribute reference. A
-typical result would be something like "@value{EDITION} @i{version} (20090221)".
-
 @node Attribute Code_Address
 @unnumberedsec Attribute Code_Address
 @findex Code_Address
@@ -8584,6 +8800,15 @@ subprogram entities, always returns the address of the start of the
 generated code of the specified subprogram, which may or may not be
 the same value as is returned by the corresponding @code{'Address}
 attribute.
+
+@node Attribute Compiler_Version
+@unnumberedsec Attribute Compiler_Version
+@findex Compiler_Version
+@noindent
+@code{Standard'Compiler_Version} (@code{Standard} is the only allowed
+prefix) yields a static string identifying the version of the compiler
+being used to compile the unit containing the attribute reference. A
+typical result would be something like "@value{EDITION} @value{gnat_version} (20090221)".
 
 @node Attribute Default_Bit_Order
 @unnumberedsec Attribute Default_Bit_Order
@@ -8765,6 +8990,14 @@ The @code{Epsilon} attribute is provided for compatibility with Ada 83.  See
 the Ada 83 reference manual for an exact description of the semantics of
 this attribute.
 
+@node Attribute Fast_Math
+@unnumberedsec Attribute Fast_Math
+@findex Fast_Math
+@noindent
+@code{Standard'Fast_Math} (@code{Standard} is the only allowed
+prefix) yields a static Boolean value that is True if pragma
+@code{Fast_Math} is active, and False otherwise.
+
 @node Attribute Fixed_Value
 @unnumberedsec Attribute Fixed_Value
 @findex Fixed_Value
@@ -8791,6 +9024,13 @@ conversion to the fixed-point type.  The difference is
 that there are full range checks, to ensure that the result is in range.
 This attribute is primarily intended for use in implementation of the
 input-output functions for fixed-point values.
+
+@node Attribute From_Any
+@unnumberedsec Attribute From_Any
+@findex From_Any
+@noindent
+This internal attribute is used for the generation of remote subprogram
+stubs in the context of the Distributed Systems Annex.
 
 @node Attribute Has_Access_Values
 @unnumberedsec Attribute Has_Access_Values
@@ -8884,6 +9124,12 @@ uninitialized value of the type if pragma Initialize_Scalars is used,
 including the ability to modify the value with the binder -Sxx flag and
 relevant environment variables at run time.
 
+@node Attribute Iterable
+@unnumberedsec Attribute Iterable
+@findex Iterable
+@noindent
+Equivalent to Aspect Iterable.
+
 @node Attribute Large
 @unnumberedsec Attribute Large
 @cindex Ada 83 attributes
@@ -8916,6 +9162,13 @@ package Gen is
   ...
 end Gen;
 @end smallexample
+
+@node Attribute Lock_Free
+@unnumberedsec Attribute Lock_Free
+@findex Lock_Free
+@noindent
+@code{P'Lock_Free}, where P is a protected object, returns True if a
+pragma @code{Lock_Free} applies to P.
 
 @node Attribute Loop_Entry
 @unnumberedsec Attribute Loop_Entry
@@ -9101,6 +9354,18 @@ generates the diagnostic shown above.
 Similar additional checks are performed in other contexts requiring
 statically matching subtypes.
 
+@node Attribute Old
+@unnumberedsec Attribute Old
+@findex Old
+@noindent
+In addition to the usage of @code{Old} defined in the Ada 2012 RM (usage
+within @code{Post} aspect), GNAT also permits the use of this attribute
+in implementation defined pragmas @code{Postcondition},
+@code{Contract_Cases} and @code{Test_Case}. Also usages of
+@code{Old} which would be illegal according to the Ada 2012 RM
+definition are allowed under control of
+implementation defined pragma @code{Unevaluated_Use_Of_Old}.
+
 @node Attribute Passed_By_Reference
 @unnumberedsec Attribute Passed_By_Reference
 @cindex Parameters, when passed by reference
@@ -9243,6 +9508,15 @@ The @code{Safe_Large} attribute is provided for compatibility with Ada 83.  See
 the Ada 83 reference manual for an exact description of the semantics of
 this attribute.
 
+@node Attribute Safe_Small
+@unnumberedsec Attribute Safe_Small
+@cindex Ada 83 attributes
+@findex Safe_Small
+@noindent
+The @code{Safe_Small} attribute is provided for compatibility with Ada 83.  See
+the Ada 83 reference manual for an exact description of the semantics of
+this attribute.
+
 @node Attribute Scalar_Storage_Order
 @unnumberedsec Attribute Scalar_Storage_Order
 @cindex Endianness
@@ -9251,7 +9525,9 @@ this attribute.
 @noindent
 For every array or record type @var{S}, the representation attribute
 @code{Scalar_Storage_Order} denotes the order in which storage elements
-that make up scalar components are ordered within S:
+that make up scalar components are ordered within S. The value given must
+be a static expression of type System.Bit_Order. The following is an example
+of the use of this feature:
 
 @smallexample @c ada
    --  Component type definitions
@@ -9285,19 +9561,22 @@ that make up scalar components are ordered within S:
    --  the former is used.
 @end smallexample
 
+@noindent
 Other properties are as for standard representation attribute @code{Bit_Order},
 as defined by Ada RM 13.5.3(4). The default is @code{System.Default_Bit_Order}.
 
-For a record type @var{S}, if @code{@var{S}'Scalar_Storage_Order} is
-specified explicitly, it shall be equal to @code{@var{S}'Bit_Order}. Note:
+For a record type @var{T}, if @code{@var{T}'Scalar_Storage_Order} is
+specified explicitly, it shall be equal to @code{@var{T}'Bit_Order}. Note:
 this means that if a @code{Scalar_Storage_Order} attribute definition
 clause is not confirming, then the type's @code{Bit_Order} shall be
 specified explicitly and set to the same value.
 
-For a record extension, the derived type shall have the same scalar storage
-order as the parent type.
+Derived types inherit an explicitly set scalar storage order from their parent
+types. This may be overridden for the derived type by giving an explicit scalar
+storage order for the derived type. For a record extension, the derived type
+must have the same scalar storage order as the parent type.
 
-If a component of @var{S} is of a record or array type, then that type shall
+If a component of @var{T} is of a record or array type, then that type must
 also have a @code{Scalar_Storage_Order} attribute definition clause.
 
 A component of a record or array type that is a packed array, or that
@@ -9336,6 +9615,11 @@ are relaxed. Instead, the following rules apply:
  scalar.
 
 @end itemize
+
+If no scalar storage order is specified for a type (either directly, or by
+inheritance in the case of a derived type), then the default is normally
+the native ordering of the target, but this default can be overridden using
+pragma @code{Default_Scalar_Storage_Order}.
 
 @node Attribute Simple_Storage_Pool
 @unnumberedsec Attribute Simple_Storage_Pool
@@ -9459,13 +9743,6 @@ for the current compilation. For GCC implementations, this is the
 standard gcc target name without the terminating slash (for
 example, GNAT 5.0 on windows yields "i586-pc-mingw32msv").
 
-@node Attribute Tick
-@unnumberedsec Attribute Tick
-@findex Tick
-@noindent
-@code{Standard'Tick} (@code{Standard} is the only permissible prefix)
-provides the same value as @code{System.Tick},
-
 @node Attribute To_Address
 @unnumberedsec Attribute To_Address
 @findex To_Address
@@ -9485,6 +9762,13 @@ argument is static). The argument must be in the range
 (typically 32 or 64). Negative values are intepreted in a
 modular manner (e.g. -1 means the same as 16#FFFF_FFFF# on
 a 32 bits machine).
+
+@node Attribute To_Any
+@unnumberedsec Attribute To_Any
+@findex To_Any
+@noindent
+This internal attribute is used for the generation of remote subprogram
+stubs in the context of the Distributed Systems Annex.
 
 @node Attribute Type_Class
 @unnumberedsec Attribute Type_Class
@@ -9513,6 +9797,22 @@ type Type_Class is
 Protected types yield the value @code{Type_Class_Task}, which thus
 applies to all concurrent types.  This attribute is designed to
 be compatible with the DEC Ada 83 attribute of the same name.
+
+@node Attribute Type_Key
+@unnumberedsec Attribute Type_Key
+@findex Type_Key
+@noindent
+The @code{Type_Key} attribute is applicable to a type or subtype and
+yields a value of type Standard.String containing encoded information
+about the type or subtype. This provides improved compatibility with
+other implementations that support this attribute.
+
+@node Attribute TypeCode
+@unnumberedsec Attribute TypeCode
+@findex TypeCode
+@noindent
+This internal attribute is used for the generation of remote subprogram
+stubs in the context of the Distributed Systems Annex.
 
 @node Attribute UET_Address
 @unnumberedsec Attribute UET_Address

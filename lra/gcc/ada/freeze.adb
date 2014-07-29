@@ -180,6 +180,14 @@ package body Freeze is
    --  the flag if Debug_Info_Off is set. This procedure also ensures that
    --  subsidiary entities have the flag set as required.
 
+   procedure Set_SSO_From_Default (T : Entity_Id);
+   --  T is a record or array type that is being frozen. If it is a base type,
+   --  and if SSO_Set_Low/High_By_Default is set, then Reverse_Storage order
+   --  will be set appropriately. Note that an explicit occurrence of aspect
+   --  Scalar_Storage_Order or an explicit setting of this aspect with an
+   --  attribute definition clause occurs, then these two flags are reset in
+   --  any case, so call will have no effect.
+
    procedure Undelay_Type (T : Entity_Id);
    --  T is a type of a component that we know to be an Itype. We don't want
    --  this to have a Freeze_Node, so ensure it doesn't. Do the same for any
@@ -2076,6 +2084,10 @@ package body Freeze is
 
          if Ekind (Arr) = E_Array_Type then
 
+            --  Deal with default setting of reverse storage order
+
+            Set_SSO_From_Default (Arr);
+
             --  Propagate flags for component type
 
             if Is_Controlled (Component_Type (Arr))
@@ -2219,8 +2231,7 @@ package body Freeze is
 
                      if Has_Pragma_Pack (Arr)
                        and then not Present (Comp_Size_C)
-                       and then
-                         (Csiz = 7 or else Csiz = 15 or else Csiz = 31)
+                       and then (Csiz = 7 or else Csiz = 15 or else Csiz = 31)
                        and then Esize (Base_Type (Ctyp)) = Csiz + 1
                      then
                         Error_Msg_Uint_1 := Csiz;
@@ -2262,8 +2273,7 @@ package body Freeze is
                         if Known_Static_Esize (Component_Type (Arr))
                           and then Esize (Component_Type (Arr)) = Csiz
                         then
-                           Set_Has_Non_Standard_Rep
-                             (Base_Type (Arr), False);
+                           Set_Has_Non_Standard_Rep (Base_Type (Arr), False);
                         end if;
 
                         --  In all other cases, packing is indeed needed
@@ -3091,6 +3101,12 @@ package body Freeze is
             end loop;
          end;
 
+         --  Deal with default setting of reverse storage order
+
+         Set_SSO_From_Default (Rec);
+
+         --  Now deal with reverse storage order/bit order issues
+
          if Present (SSO_ADC) then
 
             --  Check compatibility of Scalar_Storage_Order with Bit_Order, if
@@ -3392,6 +3408,43 @@ package body Freeze is
                     ("\use explicit pragma Pack "
                      & "or use pragma Implicit_Packing", Sz);
                end;
+            end if;
+         end if;
+
+         --  The following checks are only relevant when SPARK_Mode is on as
+         --  they are not standard Ada legality rules.
+
+         if SPARK_Mode = On then
+            if Is_SPARK_Volatile (Rec) then
+
+               --  A discriminated type cannot be volatile (SPARK RM C.6(4))
+
+               if Has_Discriminants (Rec) then
+                  Error_Msg_N ("discriminated type & cannot be volatile", Rec);
+
+               --  A tagged type cannot be volatile (SPARK RM C.6(5))
+
+               elsif Is_Tagged_Type (Rec) then
+                  Error_Msg_N ("tagged type & cannot be volatile", Rec);
+               end if;
+
+            --  A non-volatile record type cannot contain volatile components
+            --  (SPARK RM C.6(2))
+
+            else
+               Comp := First_Component (Rec);
+               while Present (Comp) loop
+                  if Comes_From_Source (Comp)
+                    and then Is_SPARK_Volatile (Etype (Comp))
+                  then
+                     Error_Msg_Name_1 := Chars (Rec);
+                     Error_Msg_N
+                       ("component & of non-volatile type % cannot be "
+                        & "volatile", Comp);
+                  end if;
+
+                  Next_Component (Comp);
+               end loop;
             end if;
          end if;
 
@@ -4241,12 +4294,12 @@ package body Freeze is
                      if Has_Default_Initialization
                        or else
                          (Has_Init_Expression (Decl)
-                            and then
-                             (No (Expression (Decl))
-                                or else not
-                                  (Is_Static_Expression (Expression (Decl))
-                                     or else
-                                   Nkind (Expression (Decl)) = N_Null)))
+                           and then
+                            (No (Expression (Decl))
+                              or else not
+                                (Is_OK_Static_Expression (Expression (Decl))
+                                  or else
+                                    Nkind (Expression (Decl)) = N_Null)))
                      then
                         Error_Msg_NE
                           ("Thread_Local_Storage variable& is "
@@ -4692,12 +4745,11 @@ package body Freeze is
          then
             Freeze_Record_Type (E);
 
-         --  For a concurrent type, freeze corresponding record type. This
-         --  does not correspond to any specific rule in the RM, but the
-         --  record type is essentially part of the concurrent type.
-         --  Freeze as well all local entities. This includes record types
-         --  created for entry parameter blocks, and whatever local entities
-         --  may appear in the private part.
+         --  For a concurrent type, freeze corresponding record type. This does
+         --  not correspond to any specific rule in the RM, but the record type
+         --  is essentially part of the concurrent type. Also freeze all local
+         --  entities. This includes record types created for entry parameter
+         --  blocks and whatever local entities may appear in the private part.
 
          elsif Is_Concurrent_Type (E) then
             if Present (Corresponding_Record_Type (E)) then
@@ -4710,13 +4762,19 @@ package body Freeze is
                   Freeze_And_Append (Comp, N, Result);
 
                elsif (Ekind (Comp)) /= E_Function then
-                  if Is_Itype (Etype (Comp))
-                    and then Underlying_Type (Scope (Etype (Comp))) = E
-                  then
-                     Undelay_Type (Etype (Comp));
-                  end if;
 
-                  Freeze_And_Append (Etype (Comp), N, Result);
+                  --  The guard on the presence of the Etype seems to be needed
+                  --  for some CodePeer (-gnatcC) cases, but not clear why???
+
+                  if Present (Etype (Comp)) then
+                     if Is_Itype (Etype (Comp))
+                       and then Underlying_Type (Scope (Etype (Comp))) = E
+                     then
+                        Undelay_Type (Etype (Comp));
+                     end if;
+
+                     Freeze_And_Append (Etype (Comp), N, Result);
+                  end if;
                end if;
 
                Next_Entity (Comp);
@@ -5398,7 +5456,7 @@ package body Freeze is
                Analyze_And_Resolve (Exp, Typ);
 
                if Etype (Exp) /= Any_Type then
-                  if not Is_Static_Expression (Exp) then
+                  if not Is_OK_Static_Expression (Exp) then
                      Error_Msg_Name_1 := Nam;
                      Flag_Non_Static_Expr
                        ("aspect% requires static expression", Exp);
@@ -5647,21 +5705,21 @@ package body Freeze is
       --  expression, see section "Handling of Default Expressions" in the
       --  spec of package Sem for further details. Note that we have to make
       --  sure that we actually have a real expression (if we have a subtype
-      --  indication, we can't test Is_Static_Expression). However, we exclude
-      --  the case of the prefix of an attribute of a static scalar subtype
-      --  from this early return, because static subtype attributes should
-      --  always cause freezing, even in default expressions, but the attribute
-      --  may not have been marked as static yet (because in Resolve_Attribute,
-      --  the call to Eval_Attribute follows the call of Freeze_Expression on
-      --  the prefix).
+      --  indication, we can't test Is_OK_Static_Expression). However, we
+      --  exclude the case of the prefix of an attribute of a static scalar
+      --  subtype from this early return, because static subtype attributes
+      --  should always cause freezing, even in default expressions, but
+      --  the attribute may not have been marked as static yet (because in
+      --  Resolve_Attribute, the call to Eval_Attribute follows the call of
+      --  Freeze_Expression on the prefix).
 
       if In_Spec_Exp
         and then Nkind (N) in N_Subexpr
-        and then not Is_Static_Expression (N)
+        and then not Is_OK_Static_Expression (N)
         and then (Nkind (Parent (N)) /= N_Attribute_Reference
                    or else not (Is_Entity_Name (N)
                                  and then Is_Type (Entity (N))
-                                 and then Is_Static_Subtype (Entity (N))))
+                                 and then Is_OK_Static_Subtype (Entity (N))))
       then
          return;
       end if;
@@ -6607,7 +6665,7 @@ package body Freeze is
       begin
          Ensure_Type_Is_SA (Etype (N));
 
-         if Is_Static_Expression (N) then
+         if Is_OK_Static_Expression (N) then
             return;
 
          elsif Nkind (N) = N_Identifier then
@@ -7167,6 +7225,29 @@ package body Freeze is
                   (Scope_Stack.Last).Component_Alignment_Default);
       end if;
    end Set_Component_Alignment_If_Not_Set;
+
+   --------------------------
+   -- Set_SSO_From_Default --
+   --------------------------
+
+   procedure Set_SSO_From_Default (T : Entity_Id) is
+   begin
+      if (Is_Record_Type (T) or else Is_Array_Type (T))
+        and then Is_Base_Type (T)
+      then
+         if (Bytes_Big_Endian and then SSO_Set_Low_By_Default (T))
+              or else
+            ((not Bytes_Big_Endian) and then SSO_Set_High_By_Default (T))
+         then
+            --  If flags cause reverse storage order, then set the result. Note
+            --  that we would have ignored the pragma setting the non default
+            --  storage order in any case, hence the assertion at this point.
+
+            pragma Assert (Support_Nondefault_SSO_On_Target);
+            Set_Reverse_Storage_Order (T);
+         end if;
+      end if;
+   end Set_SSO_From_Default;
 
    ------------------
    -- Undelay_Type --

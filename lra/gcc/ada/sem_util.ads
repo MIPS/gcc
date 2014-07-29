@@ -250,14 +250,6 @@ package Sem_Util is
       Related_Nod : Node_Id);
    --  Check wrong use of dynamically tagged expression
 
-   procedure Check_Expression_Against_Static_Predicate
-     (Expr : Node_Id;
-      Typ  : Entity_Id);
-   --  Determine whether an arbitrary expression satisfies the static predicate
-   --  of a type. The routine does nothing if Expr is not known at compile time
-   --  or Typ lacks a static predicate, otherwise it may emit a warning if the
-   --  expression is prohibited by the predicate.
-
    procedure Check_Fully_Declared (T : Entity_Id; N : Node_Id);
    --  Verify that the full declaration of type T has been seen. If not, place
    --  error message on node N. Used in object declarations, type conversions
@@ -452,6 +444,11 @@ package Sem_Util is
    --  specification. If the declaration has a defining unit name, then the
    --  defining entity is obtained from the defining unit name ignoring any
    --  child unit prefixes.
+   --
+   --  Iterator loops also have a defining entity, which holds the list of
+   --  local entities declared during loop expansion. These entities need
+   --  debugging information, generated through QUalify_Entity_Names, and
+   --  the loop declaration must be placed in the table Name_Qualify_Units.
 
    function Denotes_Discriminant
      (N                : Node_Id;
@@ -886,6 +883,9 @@ package Sem_Util is
    --  Note that tagged types return False. Even though the tag is implemented
    --  as an access type internally, this function tests only for access types
    --  known to the programmer. See also Has_Tagged_Component.
+
+      function Has_Defaulted_Discriminants (Typ : Entity_Id) return Boolean;
+      --  Simple predicate to test for defaulted discriminants
 
    type Alignment_Result is (Known_Compatible, Unknown, Known_Incompatible);
    --  Result of Has_Compatible_Alignment test, description found below. Note
@@ -1628,6 +1628,12 @@ package Sem_Util is
    --  the presence of 'Class, which results in one of the special names
    --  Name_uPre, Name_uPost, Name_uInvariant, or Name_uType_Invariant being
    --  returned to represent the corresponding aspects with x'Class names.
+
+   function Predicate_Tests_On_Arguments (Subp : Entity_Id) return Boolean;
+   --  Subp is the entity for a subprogram call. This function returns True if
+   --  predicate tests are required for the arguments in this call (this is the
+   --  normal case). It returns False for special cases where these predicate
+   --  tests should be skipped (see body for details).
 
    function Primitive_Names_Match (E1, E2 : Entity_Id) return Boolean;
    --  Returns True if the names of both entities correspond with matching

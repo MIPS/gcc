@@ -819,6 +819,28 @@ package Einfo is
 --       Defined in all type entities. Set if the type is private or if it
 --       depends on a private type.
 
+--    Derived_Type_Link (Node31)
+--       Defined in all type and subtype entries. Set in a base type if
+--       a derived type declaration is encountered which derives from
+--       this base type or one of its subtypes, and there are already
+--       primitive operations declared. In this case, it references the
+--       entity for the type declared by the derived type declaration.
+--       For example:
+--
+--          type R is ...
+--          subtype RS is R ...
+--          ...
+--          type G is new RS ...
+--
+--       In this case, if primitive operations have been declared for R, at
+--       the point of declaration of G, then the Derived_Type_Link of R is set
+--       to point to the entity for G. This is used to generate warnings for
+--       rep clauses that appear later on for R, which might result in an
+--       unexpected implicit conversion operation.
+--
+--       Note: if there is more than one such derived type, the link will point
+--       to the last one (this is only used in generating warning messages).
+
 --    Designated_Type (synthesized)
 --       Applies to access types. Returns the designated type. Differs from
 --       Directly_Designated_Type in that if the access type refers to an
@@ -1245,14 +1267,14 @@ package Einfo is
 --       all the extra formals (see description of Extra_Formals field).
 
 --    First_Index (Node17)
---       Defined in array types and subtypes and in string types and subtypes.
---       By introducing implicit subtypes for the index constraints, we have
---       the same structure for constrained and unconstrained arrays, subtype
---       marks and discrete ranges are both represented by a subtype. This
---       function returns the tree node corresponding to an occurrence of the
---       first index (NOT the entity for the type). Subsequent indices are
---       obtained using Next_Index. Note that this field is defined for the
---       case of string literal subtypes, but is always Empty.
+--       Defined in array types and subtypes. By introducing implicit subtypes
+--       for the index constraints, we have the same structure for constrained
+--       and unconstrained arrays, subtype marks and discrete ranges are
+--       both represented by a subtype. This function returns the tree node
+--       corresponding to an occurrence of the first index (NOT the entity for
+--       the type). Subsequent indices are obtained using Next_Index. Note that
+--       this field is defined for the case of string literal subtypes, but is
+--       always Empty.
 
 --    First_Literal (Node17)
 --       Defined in all enumeration types, including character and boolean
@@ -1808,6 +1830,14 @@ package Einfo is
 --       indicate if a full type declaration is a completion. Used for semantic
 --       checks in E.4(18) and elsewhere.
 
+--    Has_Protected (Flag271) [base type only]
+--       Defined in all type entities. Set on protected types themselves, and
+--       also (recursively) on any composite type which has a component for
+--       which Has_Protected is set. The meaning is that an allocator for
+--       or declaration of such an object must create the required protected
+--       objects. Note: the flag is not set on access types, even if they
+--       designate an object that Has_Protected.
+
 --    Has_Qualified_Name (Flag161)
 --       Defined in all entities. Set if the name in the Chars field has
 --       been replaced by its qualified name, as used for debug output. See
@@ -1878,13 +1908,13 @@ package Einfo is
 --       include only the components corresponding to these discriminants.
 
 --    Has_Static_Predicate (Flag269)
---       Defined in all types and subtypes. Set if the type (which must be
---       a discrete, real, or string subtype) has a static predicate, i.e. a
---       predicate whose expression is predicate-static. This can result from
---       use of a Predicate, Static_Predicate, or Dynamic_Predicate aspect. We
---       can distinguish these cases by testing Has_Static_Predicate_Aspect
---       and Has_Dynamic_Predicate_Aspect. See description of the latter flag
---       for further information on dynamic predicates which are also static.
+--       Defined in all types and subtypes. Set if the type (which must be a
+--       scalar type) has a predicate whose expression is predicate-static.
+--       This can result from use of any of a Predicate, Static_Predicate, or
+--       Dynamic_Predicate aspect. We can distinguish these cases by testing
+--       Has_Static_Predicate_Aspect and Has_Dynamic_Predicate_Aspect. See
+--       description of the latter flag for further information on dynamic
+--       predicates which are also static.
 
 --    Has_Static_Predicate_Aspect (Flag259)
 --       Defined in all types and subtypes. Set if a Static_Predicate aspect
@@ -3164,9 +3194,9 @@ package Einfo is
 --    Mechanism (Uint8) (returned as Mechanism_Type)
 --       Defined in functions and non-generic formal parameters. Indicates
 --       the mechanism to be used for the function return or for the formal
---       parameter. See separate section on passing mechanisms. This field
---       is also set (to the default value of zero) in a subprogram body
---       entity but not used in this context.
+--       parameter. See full description in the spec of Sem_Mech. This field
+--       is also set (to the default value of zero = Default_Mechanism) in a
+--       subprogram body entity but not used in this context.
 
 --    Modulus (Uint17) [base type only]
 --       Defined in modular types. Contains the modulus. For the binary case,
@@ -3889,9 +3919,19 @@ package Einfo is
 --       case where there is a separate spec, where this field references
 --       the corresponding parameter entities in the spec.
 
---    Static_Predicate (List25)
+--    SSO_Set_High_By_Default (Flag273) [base type only]
+--       Defined for record and array types. Set in the base type if a pragma
+--       Default_Scalar_Storage_Order (High_Order_First) was active at the time
+--       the record or array was declared and therefore applies to it.
+
+--    SSO_Set_Low_By_Default (Flag272) [base type only]
+--       Defined for record and array types. Set in the base type if a pragma
+--       Default_Scalar_Storage_Order (High_Order_First) was active at the time
+--       the record or array was declared and therefore applies to it.
+
+--    Static_Discrete_Predicate (List25)
 --       Defined in discrete types/subtypes with static predicates (with the
---       two flags Has_Predicates set and Has_Static_Predicate set). Set if the
+--       two flags Has_Predicates and Has_Static_Predicate set). Set if the
 --       type/subtype has a static predicate. Points to a list of expression
 --       and N_Range nodes that represent the predicate in canonical form. The
 --       canonical form has entries sorted in ascending order, with duplicates
@@ -3899,6 +3939,26 @@ package Einfo is
 --       gap in the values between successive entries. The entries in this list
 --       are fully analyzed and typed with the base type of the subtype. Note
 --       that all entries are static and have values within the subtype range.
+
+--    Static_Real_Or_String_Predicate (Node25)
+--       Defined in real types/subtypes with static predicates (with the two
+--       flags Has_Predicates and Has_Static_Predicate set). Set if the type
+--       or subtype has a static predicate. Points to the return expression
+--       of the predicate function. This is the original expression given as
+--       the predicate except that occurrences of the type are replaced by
+--       occurrences of the formal parameter of the predicate function (note
+--       that the spec of this function including this formal parameter name)
+--       is available from the Subprograms_For_Type field (it can be accessed
+--       as Predicate_Function (typ). Also, in the case where a predicate is
+--       inherited, the expression is of the form:
+--
+--         expression AND THEN xxxPredicate (typ2 (ent))
+--
+--       where typ2 is the type from which the predicate is inherited, ent is
+--       the entity for the current predicate function, and xxxPredicate is the
+--       inherited predicate (from typ2). Finally for a predicate that inherits
+--       from another predicate but does not add a predicate of its own, the
+--       expression may consist of the above xxxPredicate call on its own.
 
 --    Status_Flag_Or_Transient_Decl (Node15)
 --       Defined in variables and constants. Applies to objects that require
@@ -4481,12 +4541,9 @@ package Einfo is
       --  or the use of an anonymous array subtype.
 
       E_String_Type,
-      --  A string type, i.e. an array type whose component type is a character
-      --  type, and for which string literals can thus be written.
-
       E_String_Subtype,
-      --  A string subtype, created by an explicit subtype declaration for a
-      --  string type, or the use of an anonymous subtype of a string type,
+      --  These are obsolete and not used any more, they are retained to ease
+      --  transition in getting rid of these obsolete entries.
 
       E_String_Literal_Subtype,
       --  A special string subtype, used only to describe the type of a string
@@ -4720,8 +4777,6 @@ package Einfo is
    subtype Aggregate_Kind              is Entity_Kind range
        E_Array_Type ..
    --  E_Array_Subtype
-   --  E_String_Type
-   --  E_String_Subtype
    --  E_String_Literal_Subtype
    --  E_Class_Wide_Type
    --  E_Class_Wide_Subtype
@@ -4731,8 +4786,6 @@ package Einfo is
    subtype Array_Kind                  is Entity_Kind range
        E_Array_Type ..
    --  E_Array_Subtype
-   --  E_String_Type
-   --  E_String_Subtype
        E_String_Literal_Subtype;
 
    subtype Assignable_Kind             is Entity_Kind range
@@ -4747,8 +4800,6 @@ package Einfo is
    subtype Composite_Kind              is Entity_Kind range
        E_Array_Type ..
    --  E_Array_Subtype
-   --  E_String_Type
-   --  E_String_Subtype
    --  E_String_Literal_Subtype
    --  E_Class_Wide_Type
    --  E_Class_Wide_Subtype
@@ -4973,11 +5024,6 @@ package Einfo is
    --  E_Floating_Point_Type
        E_Floating_Point_Subtype;
 
-   subtype String_Kind                 is Entity_Kind range
-       E_String_Type ..
-   --  E_String_Subtype
-       E_String_Literal_Subtype;
-
    subtype Subprogram_Kind             is Entity_Kind range
        E_Function ..
    --  E_Operator
@@ -5016,8 +5062,6 @@ package Einfo is
    --  E_Anonymous_Access_Type
    --  E_Array_Type
    --  E_Array_Subtype
-   --  E_String_Type
-   --  E_String_Subtype
    --  E_String_Literal_Subtype
    --  E_Class_Wide_Subtype
    --  E_Class_Wide_Type
@@ -5177,6 +5221,7 @@ package Einfo is
    --    Related_Expression                  (Node24)
    --    Current_Use_Clause                  (Node27)
    --    Subprograms_For_Type                (Node29)
+   --    Derived_Type_Link                   (Node31)
    --    Linker_Section_Pragma               (Node33)
 
    --    Depends_On_Private                  (Flag14)
@@ -5203,6 +5248,7 @@ package Einfo is
    --    Has_Pragma_Unreferenced_Objects     (Flag212)
    --    Has_Predicates                      (Flag250)
    --    Has_Primitive_Operations            (Flag120)  (base type only)
+   --    Has_Protected                       (Flag271)  (base type only)
    --    Has_Size_Clause                     (Flag29)
    --    Has_Specified_Layout                (Flag100)  (base type only)
    --    Has_Specified_Stream_Input          (Flag190)
@@ -5338,6 +5384,8 @@ package Einfo is
    --    Has_Pragma_Pack                     (Flag121)  (impl base type only)
    --    Is_Constrained                      (Flag12)
    --    Reverse_Storage_Order               (Flag93)   (base type only)
+   --    SSO_Set_High_By_Default             (Flag273)  (base type only)
+   --    SSO_Set_Low_By_Default              (Flag272)  (base type only)
    --    Next_Index                          (synth)
    --    Number_Dimensions                   (synth)
    --    (plus type attributes)
@@ -5363,6 +5411,8 @@ package Einfo is
    --    First_Entity                        (Node17)
    --    Equivalent_Type                     (Node18)   (always Empty for type)
    --    Last_Entity                         (Node20)
+   --    SSO_Set_High_By_Default             (Flag273)  (base type only)
+   --    SSO_Set_Low_By_Default              (Flag272)  (base type only)
    --    First_Component                     (synth)
    --    First_Component_Or_Discriminant     (synth)
    --    (plus type attributes)
@@ -5443,6 +5493,7 @@ package Einfo is
    --    Scalar_Range                        (Node20)
    --    Delta_Value                         (Ureal18)
    --    Small_Value                         (Ureal21)
+   --    Static_Real_Or_String_Predicate     (Node25)
    --    Has_Machine_Radix_Clause            (Flag83)
    --    Machine_Radix_10                    (Flag84)
    --    Aft_Value                           (synth)
@@ -5517,7 +5568,7 @@ package Einfo is
    --    Default_Aspect_Value                (Node19)   (base type only)
    --    Scalar_Range                        (Node20)
    --    Enum_Pos_To_Rep                     (Node23)   (type only)
-   --    Static_Predicate                    (List25)
+   --    Static_Discrete_Predicate           (List25)
    --    Has_Biased_Representation           (Flag139)
    --    Has_Contiguous_Rep                  (Flag181)
    --    Has_Enumeration_Rep_Clause          (Flag66)
@@ -5548,6 +5599,7 @@ package Einfo is
    --    Float_Rep                           (Uint10)   (Float_Rep_Kind)
    --    Default_Aspect_Value                (Node19)   (base type only)
    --    Scalar_Range                        (Node20)
+   --    Static_Real_Or_String_Predicate     (Node25)
    --    Machine_Emax_Value                  (synth)
    --    Machine_Emin_Value                  (synth)
    --    Machine_Mantissa_Value              (synth)
@@ -5732,7 +5784,7 @@ package Einfo is
    --    Default_Aspect_Value                (Node19)   (base type only)
    --    Original_Array_Type                 (Node21)
    --    Scalar_Range                        (Node20)
-   --    Static_Predicate                    (List25)
+   --    Static_Discrete_Predicate           (List25)
    --    Non_Binary_Modulus                  (Flag58)   (base type only)
    --    Has_Biased_Representation           (Flag139)
    --    Has_Shift_Operator                  (Flag267)  (base type only)
@@ -5768,6 +5820,7 @@ package Einfo is
    --    Delta_Value                         (Ureal18)
    --    Default_Aspect_Value                (Node19)   (base type only)
    --    Scalar_Range                        (Node20)
+   --    Static_Real_Or_String_Predicate     (Node25)
    --    Small_Value                         (Ureal21)
    --    Has_Small_Clause                    (Flag67)
    --    Aft_Value                           (synth)
@@ -5991,6 +6044,8 @@ package Einfo is
    --    OK_To_Reorder_Components            (Flag239)  (base type only)
    --    Reverse_Bit_Order                   (Flag164)  (base type only)
    --    Reverse_Storage_Order               (Flag93)   (base type only)
+   --    SSO_Set_High_By_Default             (Flag273)  (base type only)
+   --    SSO_Set_Low_By_Default              (Flag272)  (base type only)
    --    First_Component                     (synth)
    --    First_Component_Or_Discriminant     (synth)
    --    (plus type attributes)
@@ -6017,6 +6072,8 @@ package Einfo is
    --    OK_To_Reorder_Components            (Flag239)  (base type only)
    --    Reverse_Bit_Order                   (Flag164)  (base type only)
    --    Reverse_Storage_Order               (Flag93)   (base type only)
+   --    SSO_Set_High_By_Default             (Flag273)  (base type only)
+   --    SSO_Set_Low_By_Default              (Flag272)  (base type only)
    --    First_Component                     (synth)
    --    First_Component_Or_Discriminant     (synth)
    --    (plus type attributes)
@@ -6028,20 +6085,11 @@ package Einfo is
    --  E_Signed_Integer_Subtype
    --    Default_Aspect_Value                (Node19)   (base type only)
    --    Scalar_Range                        (Node20)
-   --    Static_Predicate                    (List25)
+   --    Static_Discrete_Predicate           (List25)
    --    Has_Biased_Representation           (Flag139)
    --    Has_Shift_Operator                  (Flag267)  (base type only)
    --    Type_Low_Bound                      (synth)
    --    Type_High_Bound                     (synth)
-   --    (plus type attributes)
-
-   --  E_String_Type
-   --  E_String_Subtype
-   --    First_Index                         (Node17)
-   --    Component_Type                      (Node20)   (base type only)
-   --    Is_Constrained                      (Flag12)
-   --    Next_Index                          (synth)
-   --    Number_Dimensions                   (synth)
    --    (plus type attributes)
 
    --  E_String_Literal_Subtype
@@ -6436,6 +6484,7 @@ package Einfo is
    function Delta_Value                         (Id : E) return R;
    function Dependent_Instances                 (Id : E) return L;
    function Depends_On_Private                  (Id : E) return B;
+   function Derived_Type_Link                   (Id : E) return E;
    function Digits_Value                        (Id : E) return U;
    function Direct_Primitive_Operations         (Id : E) return L;
    function Directly_Designated_Type            (Id : E) return E;
@@ -6551,6 +6600,7 @@ package Einfo is
    function Has_Primitive_Operations            (Id : E) return B;
    function Has_Private_Ancestor                (Id : E) return B;
    function Has_Private_Declaration             (Id : E) return B;
+   function Has_Protected                       (Id : E) return B;
    function Has_Qualified_Name                  (Id : E) return B;
    function Has_RACW                            (Id : E) return B;
    function Has_Record_Rep_Clause               (Id : E) return B;
@@ -6778,9 +6828,12 @@ package Einfo is
    function SPARK_Pragma                        (Id : E) return N;
    function SPARK_Pragma_Inherited              (Id : E) return B;
    function Spec_Entity                         (Id : E) return E;
+   function SSO_Set_High_By_Default             (Id : E) return B;
+   function SSO_Set_Low_By_Default              (Id : E) return B;
    function Static_Elaboration_Desired          (Id : E) return B;
    function Static_Initialization               (Id : E) return N;
-   function Static_Predicate                    (Id : E) return S;
+   function Static_Discrete_Predicate           (Id : E) return S;
+   function Static_Real_Or_String_Predicate     (Id : E) return N;
    function Status_Flag_Or_Transient_Decl       (Id : E) return E;
    function Storage_Size_Variable               (Id : E) return E;
    function Stored_Constraint                   (Id : E) return L;
@@ -7066,6 +7119,7 @@ package Einfo is
    procedure Set_Delta_Value                     (Id : E; V : R);
    procedure Set_Dependent_Instances             (Id : E; V : L);
    procedure Set_Depends_On_Private              (Id : E; V : B := True);
+   procedure Set_Derived_Type_Link               (Id : E; V : E);
    procedure Set_Digits_Value                    (Id : E; V : U);
    procedure Set_Direct_Primitive_Operations     (Id : E; V : L);
    procedure Set_Directly_Designated_Type        (Id : E; V : E);
@@ -7179,6 +7233,7 @@ package Einfo is
    procedure Set_Has_Primitive_Operations        (Id : E; V : B := True);
    procedure Set_Has_Private_Ancestor            (Id : E; V : B := True);
    procedure Set_Has_Private_Declaration         (Id : E; V : B := True);
+   procedure Set_Has_Protected                   (Id : E; V : B := True);
    procedure Set_Has_Qualified_Name              (Id : E; V : B := True);
    procedure Set_Has_RACW                        (Id : E; V : B := True);
    procedure Set_Has_Record_Rep_Clause           (Id : E; V : B := True);
@@ -7411,9 +7466,12 @@ package Einfo is
    procedure Set_SPARK_Pragma                    (Id : E; V : N);
    procedure Set_SPARK_Pragma_Inherited          (Id : E; V : B := True);
    procedure Set_Spec_Entity                     (Id : E; V : E);
+   procedure Set_SSO_Set_High_By_Default         (Id : E; V : B := True);
+   procedure Set_SSO_Set_Low_By_Default          (Id : E; V : B := True);
    procedure Set_Static_Elaboration_Desired      (Id : E; V : B);
    procedure Set_Static_Initialization           (Id : E; V : N);
-   procedure Set_Static_Predicate                (Id : E; V : S);
+   procedure Set_Static_Discrete_Predicate       (Id : E; V : S);
+   procedure Set_Static_Real_Or_String_Predicate (Id : E; V : N);
    procedure Set_Status_Flag_Or_Transient_Decl   (Id : E; V : E);
    procedure Set_Storage_Size_Variable           (Id : E; V : E);
    procedure Set_Stored_Constraint               (Id : E; V : L);
@@ -7808,6 +7866,7 @@ package Einfo is
    pragma Inline (Delta_Value);
    pragma Inline (Dependent_Instances);
    pragma Inline (Depends_On_Private);
+   pragma Inline (Derived_Type_Link);
    pragma Inline (Digits_Value);
    pragma Inline (Direct_Primitive_Operations);
    pragma Inline (Directly_Designated_Type);
@@ -7920,6 +7979,7 @@ package Einfo is
    pragma Inline (Has_Primitive_Operations);
    pragma Inline (Has_Private_Ancestor);
    pragma Inline (Has_Private_Declaration);
+   pragma Inline (Has_Protected);
    pragma Inline (Has_Qualified_Name);
    pragma Inline (Has_RACW);
    pragma Inline (Has_Record_Rep_Clause);
@@ -8194,9 +8254,12 @@ package Einfo is
    pragma Inline (SPARK_Pragma);
    pragma Inline (SPARK_Pragma_Inherited);
    pragma Inline (Spec_Entity);
+   pragma Inline (SSO_Set_High_By_Default);
+   pragma Inline (SSO_Set_Low_By_Default);
    pragma Inline (Static_Elaboration_Desired);
    pragma Inline (Static_Initialization);
-   pragma Inline (Static_Predicate);
+   pragma Inline (Static_Discrete_Predicate);
+   pragma Inline (Static_Real_Or_String_Predicate);
    pragma Inline (Status_Flag_Or_Transient_Decl);
    pragma Inline (Storage_Size_Variable);
    pragma Inline (Stored_Constraint);
@@ -8285,6 +8348,7 @@ package Einfo is
    pragma Inline (Set_Delta_Value);
    pragma Inline (Set_Dependent_Instances);
    pragma Inline (Set_Depends_On_Private);
+   pragma Inline (Set_Derived_Type_Link);
    pragma Inline (Set_Digits_Value);
    pragma Inline (Set_Direct_Primitive_Operations);
    pragma Inline (Set_Directly_Designated_Type);
@@ -8395,6 +8459,7 @@ package Einfo is
    pragma Inline (Set_Has_Primitive_Operations);
    pragma Inline (Set_Has_Private_Ancestor);
    pragma Inline (Set_Has_Private_Declaration);
+   pragma Inline (Set_Has_Protected);
    pragma Inline (Set_Has_Qualified_Name);
    pragma Inline (Set_Has_RACW);
    pragma Inline (Set_Has_Record_Rep_Clause);
@@ -8626,9 +8691,12 @@ package Einfo is
    pragma Inline (Set_SPARK_Pragma);
    pragma Inline (Set_SPARK_Pragma_Inherited);
    pragma Inline (Set_Spec_Entity);
+   pragma Inline (Set_SSO_Set_High_By_Default);
+   pragma Inline (Set_SSO_Set_Low_By_Default);
    pragma Inline (Set_Static_Elaboration_Desired);
    pragma Inline (Set_Static_Initialization);
-   pragma Inline (Set_Static_Predicate);
+   pragma Inline (Set_Static_Discrete_Predicate);
+   pragma Inline (Set_Static_Real_Or_String_Predicate);
    pragma Inline (Set_Status_Flag_Or_Transient_Decl);
    pragma Inline (Set_Storage_Size_Variable);
    pragma Inline (Set_Stored_Constraint);

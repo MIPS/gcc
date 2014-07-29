@@ -1196,8 +1196,15 @@ package body Sem_Ch10 is
 
       Set_Analyzed (N);
 
+      --  Call Check_Package_Body so that a body containing subprograms with
+      --  Inline_Always can be made available for front end inlining.
+
       if Nkind (Unit_Node) = N_Package_Declaration
         and then Get_Cunit_Unit_Number (N) /= Main_Unit
+
+        --  We don't need to do this if the Expander is not active, since there
+        --  is no code to inline.
+
         and then Expander_Active
       then
          declare
@@ -1209,7 +1216,8 @@ package body Sem_Ch10 is
             Save_Style_Check_Options (Options);
             Reset_Style_Check_Options;
             Opt.Warning_Mode := Suppress;
-            Check_Body_For_Inlining (N, Defining_Entity (Unit_Node));
+
+            Check_Package_Body_For_Inlining (N, Defining_Entity (Unit_Node));
 
             Reset_Style_Check_Options;
             Set_Style_Check_Options (Options);

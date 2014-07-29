@@ -1734,7 +1734,6 @@ package body Exp_Ch5 is
          --  First deal with generation of range check if required
 
          if Do_Range_Check (Rhs) then
-            Set_Do_Range_Check (Rhs, False);
             Generate_Range_Check (Rhs, Typ, CE_Range_Check_Failed);
          end if;
 
@@ -2002,6 +2001,14 @@ package body Exp_Ch5 is
       if Is_Access_Type (Typ)
         and then Can_Never_Be_Null (Etype (Lhs))
         and then not Can_Never_Be_Null (Etype (Rhs))
+
+        --  If an actual is an out parameter of a null-excluding access
+        --  type, there is access check on entry, so we set the flag
+        --  Suppress_Assignment_Checks on the generated statement to
+        --  assign the actual to the parameter block, and we do not want
+        --  to generate an additional check at this point.
+
+        and then not Suppress_Assignment_Checks (N)
       then
          Apply_Constraint_Check (Rhs, Etype (Lhs));
       end if;
@@ -2524,7 +2531,13 @@ package body Exp_Ch5 is
       if Compile_Time_Known_Value (Expr) then
          Alt := Find_Static_Alternative (N);
 
-         Process_Statements_For_Controlled_Objects (Alt);
+         --  Do not consider controlled objects found in a case statement which
+         --  actually models a case expression because their early finalization
+         --  will affect the result of the expression.
+
+         if not From_Conditional_Expression (N) then
+            Process_Statements_For_Controlled_Objects (Alt);
+         end if;
 
          --  Move statements from this alternative after the case statement.
          --  They are already analyzed, so will be skipped by the analyzer.
@@ -2603,10 +2616,16 @@ package body Exp_Ch5 is
             --  effects.
 
             Remove_Side_Effects (Expression (N));
-
             Alt := First (Alternatives (N));
 
-            Process_Statements_For_Controlled_Objects (Alt);
+            --  Do not consider controlled objects found in a case statement
+            --  which actually models a case expression because their early
+            --  finalization will affect the result of the expression.
+
+            if not From_Conditional_Expression (N) then
+               Process_Statements_For_Controlled_Objects (Alt);
+            end if;
+
             Insert_List_After (N, Statements (Alt));
 
             --  That leaves the case statement as a shell. The alternative that
@@ -2711,7 +2730,14 @@ package body Exp_Ch5 is
 
          Alt := First_Non_Pragma (Alternatives (N));
          while Present (Alt) loop
-            Process_Statements_For_Controlled_Objects (Alt);
+
+            --  Do not consider controlled objects found in a case statement
+            --  which actually models a case expression because their early
+            --  finalization will affect the result of the expression.
+
+            if not From_Conditional_Expression (N) then
+               Process_Statements_For_Controlled_Objects (Alt);
+            end if;
 
             if Has_SP_Choice (Alt) then
                Expand_Static_Predicates_In_Choices (Alt);
@@ -2914,7 +2940,13 @@ package body Exp_Ch5 is
       --  these warnings for expander generated code.
 
    begin
-      Process_Statements_For_Controlled_Objects (N);
+      --  Do not consider controlled objects found in an if statement which
+      --  actually models an if expression because their early finalization
+      --  will affect the result of the expression.
+
+      if not From_Conditional_Expression (N) then
+         Process_Statements_For_Controlled_Objects (N);
+      end if;
 
       Adjust_Condition (Condition (N));
 
@@ -3001,7 +3033,14 @@ package body Exp_Ch5 is
       if Present (Elsif_Parts (N)) then
          E := First (Elsif_Parts (N));
          while Present (E) loop
-            Process_Statements_For_Controlled_Objects (E);
+
+            --  Do not consider controlled objects found in an if statement
+            --  which actually models an if expression because their early
+            --  finalization will affect the result of the expression.
+
+            if not From_Conditional_Expression (N) then
+               Process_Statements_For_Controlled_Objects (E);
+            end if;
 
             Adjust_Condition (Condition (E));
 
@@ -3915,6 +3954,19 @@ package body Exp_Ch5 is
         and then Present (Iterator_Specification (Scheme))
       then
          Expand_Iterator_Loop (N);
+
+         --  An iterator loop may generate renaming declarations for elements
+         --  that require debug information. This is the case in particular
+         --  with element iterators, where debug information must be generated
+         --  for the temporary that holds the element value. These temporaries
+         --  are created within a transient block whose local declarations are
+         --  transferred to the loop, which now has non-trivial local objects.
+
+         if Nkind (N) = N_Loop_Statement
+           and then Present (Identifier (N))
+         then
+            Qualify_Entity_Names (N);
+         end if;
       end if;
 
       --  When the iteration scheme mentiones attribute 'Loop_Entry, the loop
@@ -3946,7 +3998,7 @@ package body Exp_Ch5 is
       LPS     : constant Node_Id    := Loop_Parameter_Specification (Isc);
       Loop_Id : constant Entity_Id  := Defining_Identifier (LPS);
       Ltype   : constant Entity_Id  := Etype (Loop_Id);
-      Stat    : constant List_Id    := Static_Predicate (Ltype);
+      Stat    : constant List_Id    := Static_Discrete_Predicate (Ltype);
       Stmts   : constant List_Id    := Statements (N);
 
    begin
@@ -4029,7 +4081,7 @@ package body Exp_Ch5 is
 
             function Hi_Val (N : Node_Id) return Node_Id is
             begin
-               if Is_Static_Expression (N) then
+               if Is_OK_Static_Expression (N) then
                   return New_Copy (N);
                else
                   pragma Assert (Nkind (N) = N_Range);
@@ -4043,7 +4095,7 @@ package body Exp_Ch5 is
 
             function Lo_Val (N : Node_Id) return Node_Id is
             begin
-               if Is_Static_Expression (N) then
+               if Is_OK_Static_Expression (N) then
                   return New_Copy (N);
                else
                   pragma Assert (Nkind (N) = N_Range);

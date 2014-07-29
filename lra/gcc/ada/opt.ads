@@ -418,17 +418,26 @@ package Opt is
    --  to trigger the activation of the remote debugging interface.
    --  Is this still true ???
 
+   Default_Exit_Status : Int := 0;
+   --  GNATBIND
+   --  Set the default exit status value. Set by the -Xnnn switch for the
+   --  binder.
+
    Debug_Generated_Code : Boolean := False;
    --  GNAT
    --  Set True (-gnatD switch) to debug generated expanded code instead
    --  of the original source code. Causes debugging information to be
    --  written with respect to the generated code file that is written.
 
-   Default_Exit_Status : Int := 0;
-   --  GNATBIND
-   --  Set the default exit status value. Set by the -Xnnn switch for the
-   --  binder.
-
+   Default_Pool : Node_Id := Empty;
+   --  GNAT
+   --  Used to record the storage pool name (or null literal) that is the
+   --  argument of an applicable pragma Default_Storage_Pool.
+   --    Empty:       No pragma Default_Storage_Pool applies.
+   --    N_Null node: "pragma Default_Storage_Pool (null);" applies.
+   --    otherwise:   "pragma Default_Storage_Pool (X);" applies, and
+   --                 this points to the name X.
+   --  Push_Scope and Pop_Scope in Sem_Ch8 save and restore this value.
    Default_Stack_Size : Int := -1;
    --  GNATBIND
    --  Set to default primary stack size in units of bytes. Set by
@@ -442,15 +451,11 @@ package Opt is
    --  default was set by the binder, and that the default should be the
    --  initial value of System.Secondary_Stack.Default_Secondary_Stack_Size.
 
-   Default_Pool : Node_Id := Empty;
+   Default_SSO : Character := ' ';
    --  GNAT
-   --  Used to record the storage pool name (or null literal) that is the
-   --  argument of an applicable pragma Default_Storage_Pool.
-   --    Empty:       No pragma Default_Storage_Pool applies.
-   --    N_Null node: "pragma Default_Storage_Pool (null);" applies.
-   --    otherwise:   "pragma Default_Storage_Pool (X);" applies, and
-   --                 this points to the name X.
-   --  Push_Scope and Pop_Scope in Sem_Ch8 save and restore this value.
+   --  Set if a pragma Default_Scalar_Storage_Order has been given. The value
+   --  of ' ' indicates that no default has been set, otherwise the value is
+   --  either 'H' for High_Order_First or 'L' for Lower_Order_First.
 
    Detect_Blocking : Boolean := False;
    --  GNAT
@@ -1487,6 +1492,12 @@ package Opt is
    --  file for the compiler. Indicates that while preprocessing sources,
    --  symbols that are not defined have the value FALSE.
 
+   Uneval_Old : Character := 'E';
+   --  GNAT
+   --  Set to 'E'/'W'/'A' for use of Error/Warn/Allow in a valid pragma
+   --  Unevaluated_Use_Of_Old. Default in the absence of the pragma is 'E'
+   --  for the RM default behavior of giving an error.
+
    Unique_Error_Tag : Boolean := Tag_Errors;
    --  GNAT
    --  Indicates if error messages are to be prefixed by the string error:
@@ -1804,7 +1815,8 @@ package Opt is
    --  These are settings that are used to establish the mode at the start of
    --  each unit. The values defined below can be affected either by command
    --  line switches, or by the use of appropriate configuration pragmas in a
-   --  configuration pragma file.
+   --  configuration pragma file (but NOT by a local use of a configuration
+   --  pragma in a single file).
 
    Ada_Version_Config : Ada_Version_Type;
    --  GNAT
@@ -1857,6 +1869,12 @@ package Opt is
    --  GNAT
    --  Same as Default_Pool above, except this is only for Default_Storage_Pool
    --  pragmas that are configuration pragmas.
+
+   Default_SSO_Config : Character := ' ';
+   --  GNAT
+   --  Set if a pragma Default_Scalar_Storage_Order appears as a configuration
+   --  pragma. A value of ' ' means that no pragma was given, otherwise the
+   --  value is 'H' for High_Order_First or 'L' for Low_Order_First.
 
    Dynamic_Elaboration_Checks_Config : Boolean := False;
    --  GNAT
@@ -1951,6 +1969,10 @@ package Opt is
    SPARK_Mode_Pragma_Config : Node_Id := Empty;
    --  If a SPARK_Mode pragma appeared in the configuration pragmas (setting
    --  SPARK_Mode_Config appropriately), then this points to the N_Pragma node.
+
+   Uneval_Old_Config : Character;
+   --  GNAT
+   --  The setting of Uneval_Old from configuration pragmas
 
    Use_VADS_Size_Config : Boolean;
    --  GNAT
@@ -2107,6 +2129,7 @@ private
       Check_Float_Overflow           : Boolean;
       Check_Policy_List              : Node_Id;
       Default_Pool                   : Node_Id;
+      Default_SSO                    : Character;
       Dynamic_Elaboration_Checks     : Boolean;
       Exception_Locations_Suppressed : Boolean;
       Extensions_Allowed             : Boolean;
@@ -2122,6 +2145,7 @@ private
       Short_Descriptors              : Boolean;
       SPARK_Mode                     : SPARK_Mode_Type;
       SPARK_Mode_Pragma              : Node_Id;
+      Uneval_Old                     : Character;
       Use_VADS_Size                  : Boolean;
       Warnings_As_Errors_Count       : Natural;
    end record;
