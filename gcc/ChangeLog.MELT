@@ -1,6 +1,10 @@
 
 2014-07-29  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/generated/*: Regenerate all.
+
+2014-07-29  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.cc (melt_really_initialize): Use a curmodstr, dont
 	change modstr.
 
