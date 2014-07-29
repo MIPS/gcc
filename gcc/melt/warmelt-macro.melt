@@ -1214,8 +1214,7 @@ $EXIT loops. The field $SEXI_BODY is the body sequence.}#
   :doc #{The interal abstract $CLASS_SOURCE_COMPILER_WARNING is for
   compile time diagnostic message.}#
   :super class_source_compile_diagnostic
-  :fields (scwarn_msg
-	   scwarn_expr))
+  :fields ())
 (export_synonym class_source_compilewarning class_source_compile_warning)
 ;; compile time error
 (defclass class_source_compile_error
@@ -7956,8 +7955,6 @@ remain.}#)
 			     :loca_location loc
 			     :scdiag_msg xmsg
 			     :scdiag_expr xexp
-			     :scwarn_msg xmsg
-			     :scwarn_expr xexp
 			     ))
 	     )
 	(debug "mexpand_compile_warning result" res)

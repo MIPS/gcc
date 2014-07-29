@@ -1,6 +1,15 @@
 
 2014-07-29  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/melt-macro.melt (class_source_compile_warning): Remove old
+	scwarn_msg & scwarn_expr fields.
+	(mexpand_compile_warning): Likewise.
+
+	* testsuite/melt/tpragma-1.melt: New file.
+	* testsuite/melt/tpragmacode-1.c: New file.
+
+2014-07-29  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/generated/*: Regenerate all.
 
 2014-07-29  Basile Starynkevitch  <basile@starynkevitch.net>
