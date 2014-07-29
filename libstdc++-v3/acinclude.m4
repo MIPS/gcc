@@ -3874,6 +3874,22 @@ dnl
   fi
   AC_MSG_RESULT($glibcxx_cv_utimensat)
 dnl
+  AC_MSG_CHECKING([for struct stat.st_mtim.tv_nsec])
+  AC_CACHE_VAL(glibcxx_cv_st_mtim, [dnl
+    GCC_TRY_COMPILE_OR_LINK(
+      [ #include <sys/stat.h> ],
+      [
+        struct stat st;
+        return st.st_mtim.tv_nsec;
+      ],
+      [glibcxx_cv_st_mtim=yes],
+      [glibcxx_cv_st_mtim=no])
+  ])
+  if test $glibcxx_cv_st_mtim = yes; then
+    AC_DEFINE(_GLIBCXX_USE_ST_MTIM, 1, [Define if struct stat has timespec members.])
+  fi
+  AC_MSG_RESULT($glibcxx_cv_st_mtim)
+dnl
   CXXFLAGS="$ac_save_CXXFLAGS"
   AC_LANG_RESTORE
 ])

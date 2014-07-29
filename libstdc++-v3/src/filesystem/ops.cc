@@ -24,6 +24,7 @@
 
 #include <experimental/filesystem>
 #include <functional>
+#include <stack>
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
@@ -174,6 +175,19 @@ namespace
     return err == ENOENT || err == ENOTDIR;
   }
 
+  inline fs::file_time_type
+  file_time(const struct ::stat& st)
+  {
+    using namespace std::chrono;
+    return fs::file_time_type{
+#ifdef _GLIBCXX_USE_ST_MTIM
+	seconds{st.st_mtim.tv_sec} + nanoseconds{st.st_mtim.tv_nsec}
+#else
+	seconds{st.st_mtime}
+#endif
+    };
+  }
+
   bool
   do_copy_file(const fs::path& from, const fs::path& to,
 	       fs::copy_options option,
@@ -234,7 +248,7 @@ namespace
 	  }
 	else if (is_set(option, fs::copy_options::update_existing))
 	  {
-	    if (from_st->st_mtime < to_st->st_mtime)
+	    if (file_time(*from_st) <= file_time(*to_st))
 	      {
 		ec.clear();
 		return false;
@@ -815,10 +829,8 @@ fs::last_write_time(const path& p)
 fs::file_time_type
 fs::last_write_time(const path& p, error_code& ec) noexcept
 {
-  using namespace std::chrono;
-  return do_stat(p, ec, [](const auto& st) {
-      return file_time_type{ seconds(st.st_mtime) };
-      }, file_time_type::min());
+  return do_stat(p, ec, [](const auto& st) { return file_time(st); },
+		 file_time_type::min());
 }
 
 void
