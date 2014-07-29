@@ -1,5 +1,5 @@
 ;; -*- Lisp -*-
-;; file xtramelt-ana-base.melt
+;; file libmelt-ana-base.melt
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (comment "***
     Copyright 2008 - 2014 Free Software Foundation, Inc.
@@ -8,7 +8,7 @@
                 and Pierre Vittet  <piervit@pvittet.com>
                 and Romain Geissler  <romain.geissler@gmail.com>
 
-    This file xtramelt-ana-base.{melt,c} is part of GCC.
+    This file libmelt-ana-base.{melt,c} is part of GCC.
 
     GCC is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -25,8 +25,8 @@
     <http://www.gnu.org/licenses/>.
 ***")
 
-;; the copyright notice above apply both to xtramelt-ana-base.melt and 
-;; to the generated file  xtramelt-ana-base*.c
+;; the copyright notice above apply both to libmelt-ana-base.melt and 
+;; to the generated file  libmelt-ana-base*.c
 
 
 ;; This MELT module is GPL compatible since it is GPLv3+ licensed.
@@ -131,7 +131,7 @@ static inline long melt_get_current_pass_index (void) {
 (cimplement 
  #{
  
-/* implementation of wrapping gate and exec functions from xtramelt-ana-base.melt */
+/* implementation of wrapping gate and exec functions from libmelt-ana-base.melt */
 bool melthk_gimple_gate(void)
 { 
   debugeprintf("melthk_gimple_gate start");
@@ -2118,4 +2118,4 @@ current function and gives its declaration in $CFUNDECL}#
 (export_class
  class_analysis_state
 )
-;; eof xtramelt-ana-base.melt
+;; eof libmelt-ana-base.melt

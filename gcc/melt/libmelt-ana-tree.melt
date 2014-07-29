@@ -1,5 +1,5 @@
 ;; -*- Lisp -*-
-;; file xtramelt-ana-tree.melt
+;; file libmelt-ana-tree.melt
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (comment "***
     Copyright 2008 - 2014  Free Software Foundation, Inc.
@@ -8,7 +8,7 @@
                 and Pierre Vittet  <piervit@pvittet.com>
                 and Romain Geissler  <romain.geissler@gmail.com>
 
-    This file xtramelt-ana-tree.{melt,cc} is part of GCC.
+    This file libmelt-ana-tree.{melt,cc} is part of GCC.
 
     GCC is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -25,8 +25,8 @@
     <http://www.gnu.org/licenses/>.
 ***")
 
-;; the copyright notice above apply both to xtramelt-ana-tree.melt and 
-;; to the generated file  xtramelt-ana-tree*.c
+;; the copyright notice above apply both to libmelt-ana-tree.melt and 
+;; to the generated file  libmelt-ana-tree*.c
 
 ;; This MELT module is GPL compatible since it is GPLv3+ licensed.
 (module_is_gpl_compatible "GPLv3+")
@@ -1731,6 +1731,21 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  }#)
 
 
+(defprimitive inside_c_frontend () :long
+  :doc #{utility boolean primitive testing if we are indeed within a C or
+  C++ compiler, outside of @code{lto1} but inside @code{cc1} or
+  @code{cc1plus}.  }#
+     #{ /* start inside_c_frontend */
+#ifdef MELT_WEAK_ON_HOST
+        (pragma_lex != NULL
+           && c_register_pragma_with_expansion_and_data != NULL
+           && c_register_pragma_with_data != NULL)
+#else
+#error inside_c_frontend need MELT_WEAK_ON_HOST
+#endif
+     /* end inside_c_frontend  */
+     }#)
+
 (defun check_c_frontend (nam :cstring msg)
   :doc #{utility function to check that we are indeed within a C or
   C++ compiler, outside of @code{lto1} but inside @code{cc1} or
@@ -1764,6 +1779,7 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
 			  melt_string_str($NAMSTR),
 			  $MSG);
 	 }#)))
+    (return :true)
     ))
 
 
@@ -1933,19 +1949,21 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
   (foreach_in_multiple
    (pragmatup)
    (curpragma :long ix)
+   (debug "real_pragma_processor curpragma=" curpragma "\n.. ix=" ix "\n")
    (cond
     ( (null curpragma)
       (void))
     ( (is_a curpragma class_gcc_plain_pragma)
       (let ( (:long lix (get_int curpragma) )
-	     (name (get_field :named_name curpragma))
+	     (namestr (get_field :named_name curpragma))
 	     (space (get_field :gccpragma_space curpragma))
 	     (spacestr (get_field :named_name space))
-	     (namestr (get_field :named_name name))
 	     )
+	(debug "real_pragma_processor plainpragma lix=" lix 
+	       "; spacestr=" spacestr " namestr=" namestr)
 	(assert_msg "check lix" (==i lix ix) lix ix curpragma)
 	(assert_msg "check spacestr" (is_string spacestr) space curpragma)
-	(assert_msg "check namestr" (is_string namestr) name curpragma)
+	(assert_msg "check namestr" (is_string namestr) namestr curpragma)
 	(code_chunk
 	 plainpragma_chk
 	 #{ /* real_pragma_processor $PLAINPRAGMA_CHK */
@@ -1960,14 +1978,15 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
       )
     ( (is_a curpragma class_gcc_expanded_pragma)
       (let ( (:long lix (get_int curpragma))
-	     (name (get_field :named_name curpragma))
+	     (namestr (get_field :named_name curpragma))
 	     (space (get_field :gccpragma_space curpragma))
 	     (spacestr (get_field :named_name space))
-	     (namestr (get_field :named_name name))
 	     )
+	(debug "real_pragma_processor expandedpragma lix=" lix 
+	       "; spacestr=" spacestr " namestr=" namestr)
 	(assert_msg "check lix" (==i lix ix) lix ix curpragma)
 	(assert_msg "check spacestr" (is_string spacestr) space curpragma)
-	(assert_msg "check namestr" (is_string namestr) name curpragma)
+	(assert_msg "check namestr" (is_string namestr) namestr curpragma)
 	(code_chunk
 	 expandedpragma_chk
 	 #{ /* real_pragma_processor $EXPANDEDPRAGMA_CHK */
@@ -1984,6 +2003,8 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
      (assert_msg "bad curpragma" curpragma curpragma))
     )
    )
+  (debug "real_pragma_processor done pragmatup=" pragmatup)
+  (return pragmatup)
   )
 
 ;; see warmelt-hooks.melt and its hook_register_pragmas
@@ -2019,9 +2040,11 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  build_identifier_tree
  build_int_tree
  build_string_tree
+ check_c_frontend
  foreach_argument_in_function_tree
  foreach_maptree
  inform_at_tree
+ inside_c_frontend
  is_maptree
  is_tree
  isnull_tree
@@ -2074,8 +2097,8 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_fixed_point_type
  tree_float_type_node 
  tree_function_decl 
- tree_function_decl_named_of_type
  tree_function_decl_named
+ tree_function_decl_named_of_type
  tree_function_decl_of_name
  tree_function_decl_of_type_and_result
  tree_function_type
@@ -2146,4 +2169,23 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
 )
 
 
-;; eof xtramelt-ana-tree.melt
+
+;; keep this code chunk at the end of libmelt-ana-tree.melt
+(when (inside_c_frontend)
+  (code_chunk 
+   finalanatree_chk 
+   #{ /* libmelt-ana-tree.melt: start $FINALANATREE_CHK */
+   static long count_$FINALANATREE_CHK ;
+   debugeprintf("count_$FINALANATREE_CHK  = %ld", count_$FINALANATREE_CHK) ;
+   if (!count_$FINALANATREE_CHK) 
+     {
+       debugeprintf ("$FINALANATREE_CHK #%ld registering pragmas", count_$FINALANATREE_CHK) ;
+       register_callback (melt_plugin_name, PLUGIN_PRAGMAS,
+			  melt_register_pragmas_callback, NULL)	;
+     };
+     count_$FINALANATREE_CHK++	;
+     /* libmelt-ana-tree.melt: end $FINALANATREE_CHK */
+     }#)
+  (debug "libmelt-ana-tree final registered PLUGIN_PRAGMAS")
+  )
+;; eof libmelt-ana-tree.melt

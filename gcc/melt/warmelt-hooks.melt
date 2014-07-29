@@ -2333,7 +2333,7 @@ exit, in last place.}#
 
 
 ;; pragma support is related to trees, so most of it is done in
-;; xtramelt-ana-tree.melt however, the hook is predefined so should
+;; libmelt-ana-tree.melt however, the hook is predefined so should
 ;; appear here. In fact, it calls a forward reference variable.
 
 

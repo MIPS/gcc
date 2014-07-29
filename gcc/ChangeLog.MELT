@@ -1,6 +1,17 @@
 
 2014-07-29  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-hooks.melt: Improve comment.
+	* melt/libmelt-ana-base.melt: Likewise.
+	* melt/libmelt-ana-tree: Likewise, and ...
+	(inside_c_frontend): New primitive.
+	(real_pragma_processor): Retrieve directly the namestr. More
+	debug.  Added final code to register PLUGIN_PRAGMAS when
+	inside_c_frontend gives true.
+	* testsuite/melt/tpragmacode-1.c: Use the #pragma 
+
+2014-07-29  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/generated/*: Regenerate all.
 
 2014-07-29  Basile Starynkevitch  <basile@starynkevitch.net>
