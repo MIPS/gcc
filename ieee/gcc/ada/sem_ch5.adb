@@ -2317,11 +2317,11 @@ package body Sem_Ch5 is
          --  Propagate staticness to loop range itself, in case the
          --  corresponding subtype is static.
 
-         if New_Lo /= Lo and then Is_Static_Expression (New_Lo) then
+         if New_Lo /= Lo and then Is_OK_Static_Expression (New_Lo) then
             Rewrite (Low_Bound (R), New_Copy (New_Lo));
          end if;
 
-         if New_Hi /= Hi and then Is_Static_Expression (New_Hi) then
+         if New_Hi /= Hi and then Is_OK_Static_Expression (New_Hi) then
             Rewrite (High_Bound (R), New_Copy (New_Hi));
          end if;
       end Process_Bounds;
@@ -2480,8 +2480,8 @@ package body Sem_Ch5 is
          --  function only, look for a dynamic predicate aspect as well.
 
          if Is_Discrete_Type (Entity (DS))
-           and then Present (Predicate_Function (Entity (DS)))
-           and then (No (Static_Predicate (Entity (DS)))
+           and then Has_Predicates (Entity (DS))
+           and then (not Has_Static_Predicate (Entity (DS))
                       or else Has_Dynamic_Predicate_Aspect (Entity (DS)))
          then
             Bad_Predicated_Subtype_Use
@@ -3182,16 +3182,21 @@ package body Sem_Ch5 is
                   --  unreachable code, since it is useless and we don't
                   --  want to generate junk warnings.
 
-                  --  We skip this step if we are not in code generation mode.
+                  --  We skip this step if we are not in code generation mode
+                  --  or CodePeer mode.
+
                   --  This is the one case where we remove dead code in the
                   --  semantics as opposed to the expander, and we do not want
                   --  to remove code if we are not in code generation mode,
-                  --  since this messes up the ASIS trees.
+                  --  since this messes up the ASIS trees or loses useful
+                  --  information in the CodePeer tree.
 
                   --  Note that one might react by moving the whole circuit to
                   --  exp_ch5, but then we lose the warning in -gnatc mode.
 
-                  if Operating_Mode = Generate_Code then
+                  if Operating_Mode = Generate_Code
+                    and then not CodePeer_Mode
+                  then
                      loop
                         Nxt := Next (N);
 

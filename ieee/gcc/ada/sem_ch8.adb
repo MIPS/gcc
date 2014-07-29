@@ -1245,17 +1245,17 @@ package body Sem_Ch8 is
 
       elsif Nkind (Original_Node (Nam)) = N_Function_Call
 
-            --  When expansion is disabled, attribute reference is not
-            --  rewritten as function call. Otherwise it may be rewritten
-            --  as a conversion, so check original node.
+        --  When expansion is disabled, attribute reference is not rewritten
+        --  as function call. Otherwise it may be rewritten as a conversion,
+        --  so check original node.
 
         or else (Nkind (Original_Node (Nam)) = N_Attribute_Reference
                   and then Is_Function_Attribute_Name
                              (Attribute_Name (Original_Node (Nam))))
 
-            --  Weird but legal, equivalent to renaming a function call.
-            --  Illegal if the literal is the result of constant-folding an
-            --  attribute reference that is not a function.
+        --  Weird but legal, equivalent to renaming a function call. Illegal
+        --  if the literal is the result of constant-folding an attribute
+        --  reference that is not a function.
 
         or else (Is_Entity_Name (Nam)
                   and then Ekind (Entity (Nam)) = E_Enumeration_Literal
@@ -1295,6 +1295,28 @@ package body Sem_Ch8 is
          Set_Never_Set_In_Source (Id, True);
          Set_Is_True_Constant    (Id, True);
       end if;
+
+      --  The entity of the renaming declaration needs to reflect whether the
+      --  renamed object is volatile. Is_Volatile is set if the renamed object
+      --  is volatile in the RM legality sense.
+
+      Set_Is_Volatile (Id, Is_Volatile_Object (Nam));
+
+      --  Treat as volatile if we just set the Volatile flag
+
+      if Is_Volatile (Id)
+
+        --  Or if we are renaming an entity which was marked this way
+
+        --  Are there more cases, e.g. X(J) where X is Treat_As_Volatile ???
+
+        or else (Is_Entity_Name (Nam)
+                  and then Treat_As_Volatile (Entity (Nam)))
+      then
+         Set_Treat_As_Volatile (Id, True);
+      end if;
+
+      --  Now make the link to the renamed object
 
       Set_Renamed_Object (Id, Nam);
 
@@ -7533,6 +7555,8 @@ package body Sem_Ch8 is
       Default_Pool             := SST.Save_Default_Storage_Pool;
       SPARK_Mode               := SST.Save_SPARK_Mode;
       SPARK_Mode_Pragma        := SST.Save_SPARK_Mode_Pragma;
+      Default_SSO              := SST.Save_Default_SSO;
+      Uneval_Old               := SST.Save_Uneval_Old;
 
       if Debug_Flag_W then
          Write_Str ("<-- exiting scope: ");
@@ -7605,6 +7629,8 @@ package body Sem_Ch8 is
          SST.Save_Default_Storage_Pool     := Default_Pool;
          SST.Save_SPARK_Mode               := SPARK_Mode;
          SST.Save_SPARK_Mode_Pragma        := SPARK_Mode_Pragma;
+         SST.Save_Default_SSO              := Default_SSO;
+         SST.Save_Uneval_Old               := Uneval_Old;
 
          if Scope_Stack.Last > Scope_Stack.First then
             SST.Component_Alignment_Default := Scope_Stack.Table

@@ -1,3 +1,66 @@
+2014-07-29  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR bootstrap/61914
+	* gengtype.c (strtoken): New function.
+	(create_user_defined_type): Replace strtok with strtoken.
+
+2014-07-29  Nathan Sidwell  <nathan@acm.org>
+
+	* gcov-io.c (gcov_var): Make hidden.
+	* gcov-tool.c (gcov_list, gcov_exit): Remove declarations.
+	(gcov_do_dump): Declare.
+	(gcov_output_files): Call gcov_do_dump, not gcov_exit).
+
+2014-07-29  Martin Jambor  <mjambor@suse.cz>
+
+	* tree-sra.c (sra_modify_constructor_assign): Change type of stmt
+	parameter to gimple.
+	(sra_modify_assign): Likewise.
+
+2014-07-29  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/52478
+	* expr.c (expand_expr_real_2): Revert last change.
+
+2014-07-28  Jan Hubicka  <hubicka@ucw.cz>
+
+	* cgraph.c (cgraph_node::create_indirect_edge): Copy speculative data.
+	* cgraph.h (cgraph_indirect_call_info): Add speculative data.
+	* gimple-fold.c (fold_gimple_assign): Fix check for virtual
+	call.
+	* ipa-devirt.c (ipa_dummy_polymorphic_call_context): Update
+	(contains_type_p): Forward declare.
+	(polymorphic_call_target_hasher::hash): Hash speculative info.
+	(polymorphic_call_target_hasher::equal): Compare speculative info.
+	(get_class_context): Handle speuclation.
+	(contains_type_p): Update.
+	(get_polymorphic_call_info_for_decl): Update.
+	(walk_ssa_copies): Break out from ...
+	(get_polymorphic_call_info): ... here; set speculative context
+	before giving up.
+	* ipa-prop.c (ipa_write_indirect_edge_info,
+	ipa_read_indirect_edge_info): Stream speculative context.
+	* ipa-utils.h (ipa_polymorphic_call_context): Add speculative info
+	(SPECULATIVE_OFFSET, SPECULATIVE_OUTER_TYPE,
+	SPECULATIVE_MAYBE_DERIVED_TYPE).
+	(possible_polymorphic_call_targets overriders): Update.
+	(dump_possible_polymorphic_call_targets overriders): Update.
+	(dump_possible_polymorphic_call_target_p overriders): Update.
+
+2014-07-28  Jan Hubicka  <hubicka@ucw.cz>
+
+	* gimple-fold.c (fold_gimple_assign): Fix condition guarding
+	ipa-devirt path; fix thinko there.
+
+2014-07-28  Trevor Saunders  <tsaunders@mozilla.com>
+
+	* config/i386/i386.c (ix86_return_in_memory): Replace one
+	ATTRIBUTE_UNUSED where the attribute can actually sometimes be unused.
+
+2014-07-28  Marek Polacek  <polacek@redhat.com>
+
+	* doc/invoke.texi (-Wno-odr): Fix @item entry.  Tweak wording.
+
 2014-07-28  Peter Bergner  <bergner@vnet.ibm.com>
 
 	* config.gcc (powerpc*-*-linux*): Include gnu-user.h in tm_file.

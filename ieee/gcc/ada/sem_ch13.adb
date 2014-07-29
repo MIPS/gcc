@@ -97,8 +97,8 @@ package body Sem_Ch13 is
    --  name, which is unique, so any identifier with Chars matching Nam must be
    --  a reference to the type. If the predicate is non-static, this procedure
    --  returns doing nothing. If the predicate is static, then the predicate
-   --  list is stored in Static_Predicate (Typ), and the Expr is rewritten as
-   --  a canonicalized membership operation.
+   --  list is stored in Static_Discrete_Predicate (Typ), and the Expr is
+   --  rewritten as a canonicalized membership operation.
 
    procedure Build_Predicate_Functions (Typ : Entity_Id; N : Node_Id);
    --  If Typ has predicates (indicated by Has_Predicates being set for Typ),
@@ -932,6 +932,12 @@ package body Sem_Ch13 is
                           and then Reverse_Storage_Order (P)
                         then
                            Set_Reverse_Storage_Order (Base_Type (E));
+
+                           --  Clear default SSO indications, since the aspect
+                           --  overrides the default.
+
+                           Set_SSO_Set_Low_By_Default  (Base_Type (E), False);
+                           Set_SSO_Set_High_By_Default (Base_Type (E), False);
                         end if;
 
                      --  Small
@@ -1688,10 +1694,10 @@ package body Sem_Ch13 is
                   --  illegal specification of this aspect for a subtype now,
                   --  to prevent malformed rep_item chains.
 
-                  if (A_Id = Aspect_Input
-                       or else A_Id = Aspect_Output
-                       or else A_Id = Aspect_Read
-                       or else A_Id = Aspect_Write)
+                  if (A_Id = Aspect_Input  or else
+                      A_Id = Aspect_Output or else
+                      A_Id = Aspect_Read   or else
+                      A_Id = Aspect_Write)
                     and not Is_First_Subtype (E)
                   then
                      Error_Msg_N
@@ -1931,7 +1937,7 @@ package body Sem_Ch13 is
 
                      --  The expression must be static
 
-                     elsif not Is_Static_Expression (Expr) then
+                     elsif not Is_OK_Static_Expression (Expr) then
                         Flag_Non_Static_Expr
                           ("aspect requires static expression!", Expr);
 
@@ -3272,6 +3278,18 @@ package body Sem_Ch13 is
 
                Typ := Etype (F);
 
+               --  If the attribute specification comes from an aspect
+               --  specification for a class-wide stream, the parameter
+               --  must be a class-wide type of the entity to which the
+               --  aspect applies.
+
+               if From_Aspect_Specification (N)
+                 and then Class_Present (Parent (N))
+                 and then Is_Class_Wide_Type (Typ)
+               then
+                  Typ := Etype (Typ);
+               end if;
+
             else
                Typ := Etype (Subp);
             end if;
@@ -4227,7 +4245,7 @@ package body Sem_Ch13 is
                if Etype (Expr) = Any_Type then
                   return;
 
-               elsif not Is_Static_Expression (Expr) then
+               elsif not Is_OK_Static_Expression (Expr) then
                   Flag_Non_Static_Expr
                     ("Bit_Order requires static expression!", Expr);
 
@@ -4367,7 +4385,7 @@ package body Sem_Ch13 is
                   Preanalyze_Spec_Expression (Expr, RTE (RE_CPU_Range));
                   Uninstall_Discriminants_And_Pop_Scope (U_Ent);
 
-                  if not Is_Static_Expression (Expr) then
+                  if not Is_OK_Static_Expression (Expr) then
                      Check_Restriction (Static_Priorities, Expr);
                   end if;
                end if;
@@ -4466,7 +4484,7 @@ package body Sem_Ch13 is
             else
                Analyze_And_Resolve (Expr, Standard_String);
 
-               if not Is_Static_Expression (Expr) then
+               if not Is_OK_Static_Expression (Expr) then
                   Flag_Non_Static_Expr
                     ("static string required for tag name!", Nam);
                end if;
@@ -4700,7 +4718,7 @@ package body Sem_Ch13 is
                   Preanalyze_Spec_Expression (Expr, Standard_Integer);
                   Uninstall_Discriminants_And_Pop_Scope (U_Ent);
 
-                  if not Is_Static_Expression (Expr) then
+                  if not Is_OK_Static_Expression (Expr) then
                      Check_Restriction (Static_Priorities, Expr);
                   end if;
                end if;
@@ -4741,7 +4759,7 @@ package body Sem_Ch13 is
                if Etype (Expr) = Any_Type then
                   return;
 
-               elsif not Is_Static_Expression (Expr) then
+               elsif not Is_OK_Static_Expression (Expr) then
                   Flag_Non_Static_Expr
                     ("Scalar_Storage_Order requires static expression!", Expr);
 
@@ -4758,6 +4776,12 @@ package body Sem_Ch13 is
                         & "not supported on target", Expr);
                   end if;
                end if;
+
+               --  Clear SSO default indications since explicit setting of the
+               --  order overrides the defaults.
+
+               Set_SSO_Set_Low_By_Default  (Base_Type (U_Ent), False);
+               Set_SSO_Set_High_By_Default (Base_Type (U_Ent), False);
             end if;
          end Scalar_Storage_Order;
 
@@ -4896,7 +4920,7 @@ package body Sem_Ch13 is
             if Etype (Expr) = Any_Type then
                return;
 
-            elsif not Is_Static_Expression (Expr) then
+            elsif not Is_OK_Static_Expression (Expr) then
                Flag_Non_Static_Expr
                  ("small requires static expression!", Expr);
                return;
@@ -5567,7 +5591,7 @@ package body Sem_Ch13 is
                      --  ??? should allow static subtype with zero/one entry
 
                   elsif Etype (Choice) = Base_Type (Enumtype) then
-                     if not Is_Static_Expression (Choice) then
+                     if not Is_OK_Static_Expression (Choice) then
                         Flag_Non_Static_Expr
                           ("non-static expression used for choice!", Choice);
                         Err := True;
@@ -6266,13 +6290,13 @@ package body Sem_Ch13 is
 
       function Build_Val (V : Uint) return Node_Id;
       --  Return an analyzed N_Identifier node referencing this value, suitable
-      --  for use as an entry in the Static_Predicate list. This node is typed
-      --  with the base type.
+      --  for use as an entry in the Static_Discrte_Predicate list. This node
+      --  is typed with the base type.
 
       function Build_Range (Lo : Uint; Hi : Uint) return Node_Id;
       --  Return an analyzed N_Range node referencing this range, suitable for
-      --  use as an entry in the Static_Predicate list. This node is typed with
-      --  the base type.
+      --  use as an entry in the Static_Discrete_Predicate list. This node is
+      --  typed with the base type.
 
       function Get_RList (Exp : Node_Id) return RList;
       --  This is a recursive routine that converts the given expression into a
@@ -6295,12 +6319,14 @@ package body Sem_Ch13 is
       --  name appears in parens, this routine will return False.
 
       function Lo_Val (N : Node_Id) return Uint;
-      --  Given static expression or static range from a Static_Predicate list,
-      --  gets expression value or low bound of range.
+      --  Given an entry from a Static_Discrete_Predicate list that is either
+      --  a static expression or static range, gets either the expression value
+      --  or the low bound of the range.
 
       function Hi_Val (N : Node_Id) return Uint;
-      --  Given static expression or static range from a Static_Predicate list,
-      --  gets expression value of high bound of range.
+      --  Given an entry from a Static_Discrete_Predicate list that is either
+      --  a static expression or static range, gets either the expression value
+      --  or the high bound of the range.
 
       function Membership_Entry (N : Node_Id) return RList;
       --  Given a single membership entry (range, value, or subtype), returns
@@ -6737,7 +6763,7 @@ package body Sem_Ch13 is
                   while Present (Alt) loop
                      Dep := Expression (Alt);
 
-                     if not Is_Static_Expression (Dep) then
+                     if not Is_OK_Static_Expression (Dep) then
                         raise Non_Static;
 
                      elsif Is_True (Expr_Value (Dep)) then
@@ -6781,7 +6807,7 @@ package body Sem_Ch13 is
 
       function Hi_Val (N : Node_Id) return Uint is
       begin
-         if Is_Static_Expression (N) then
+         if Is_OK_Static_Expression (N) then
             return Expr_Value (N);
          else
             pragma Assert (Nkind (N) = N_Range);
@@ -6826,7 +6852,7 @@ package body Sem_Ch13 is
 
       function Lo_Val (N : Node_Id) return Uint is
       begin
-         if Is_Static_Expression (N) then
+         if Is_OK_Static_Expression (N) then
             return Expr_Value (N);
          else
             pragma Assert (Nkind (N) = N_Range);
@@ -6860,9 +6886,9 @@ package body Sem_Ch13 is
          --  Range case
 
          if Nkind (N) = N_Range then
-            if not Is_Static_Expression (Low_Bound  (N))
+            if not Is_OK_Static_Expression (Low_Bound  (N))
                  or else
-               not Is_Static_Expression (High_Bound (N))
+               not Is_OK_Static_Expression (High_Bound (N))
             then
                raise Non_Static;
             else
@@ -6873,7 +6899,7 @@ package body Sem_Ch13 is
 
          --  Static expression case
 
-         elsif Is_Static_Expression (N) then
+         elsif Is_OK_Static_Expression (N) then
             Val := Expr_Value (N);
             return RList'(1 => REnt'(Val, Val));
 
@@ -6892,7 +6918,7 @@ package body Sem_Ch13 is
 
                --  For static subtype without predicates, get range
 
-               elsif Is_Static_Subtype (Entity (N)) then
+               elsif Is_OK_Static_Subtype (Entity (N)) then
                   SLo := Expr_Value (Type_Low_Bound  (Entity (N)));
                   SHi := Expr_Value (Type_High_Bound (Entity (N)));
                   return RList'(1 => REnt'(SLo, SHi));
@@ -6920,18 +6946,19 @@ package body Sem_Ch13 is
       begin
          --  Not static if type does not have static predicates
 
-         if not Has_Predicates (Typ) or else No (Static_Predicate (Typ)) then
+         if not Has_Static_Predicate (Typ) then
             raise Non_Static;
          end if;
 
          --  Otherwise we convert the predicate list to a range list
 
          declare
-            Result : RList (1 .. List_Length (Static_Predicate (Typ)));
+            Spred  : constant List_Id := Static_Discrete_Predicate (Typ);
+            Result : RList (1 .. List_Length (Spred));
             P      : Node_Id;
 
          begin
-            P := First (Static_Predicate (Typ));
+            P := First (Static_Discrete_Predicate (Typ));
             for J in Result'Range loop
                Result (J) := REnt'(Lo_Val (P), Hi_Val (P));
                Next (P);
@@ -6999,7 +7026,7 @@ package body Sem_Ch13 is
          --  Processing was successful and all entries were static, so now we
          --  can store the result as the predicate list.
 
-         Set_Static_Predicate (Typ, Plist);
+         Set_Static_Discrete_Predicate (Typ, Plist);
 
          --  The processing for static predicates put the expression into
          --  canonical form as a series of ranges. It also eliminated
@@ -7539,7 +7566,7 @@ package body Sem_Ch13 is
 
       Object_Name : constant Name_Id := New_Internal_Name ('I');
       --  Name for argument of Predicate procedure. Note that we use the same
-      --  name for both predicate procedure. That way the reference within the
+      --  name for both predicate functions. That way the reference within the
       --  predicate expression is the same in both functions.
 
       Object_Entity : constant Entity_Id :=
@@ -7999,10 +8026,16 @@ package body Sem_Ch13 is
          --  yes even if we have an explicit Dynamic_Predicate present.
 
          declare
-            PS : constant Boolean := Is_Predicate_Static (Expr, Object_Name);
+            PS : Boolean;
             EN : Node_Id;
 
          begin
+            if not Is_Scalar_Type (Typ) and then not Is_String_Type (Typ) then
+               PS := False;
+            else
+               PS := Is_Predicate_Static (Expr, Object_Name);
+            end if;
+
             --  Case where we have a predicate-static aspect
 
             if PS then
@@ -8027,9 +8060,14 @@ package body Sem_Ch13 is
                   --  dynamic. But if we do succeed in building the list, then
                   --  we mark the predicate as static.
 
-                  if No (Static_Predicate (Typ)) then
+                  if No (Static_Discrete_Predicate (Typ)) then
                      Set_Has_Static_Predicate (Typ, False);
                   end if;
+
+               --  For real or string subtype, save predicate expression
+
+               elsif Is_Real_Type (Typ) or else Is_String_Type (Typ) then
+                  Set_Static_Real_Or_String_Predicate (Typ, Expr);
                end if;
 
             --  Case of dynamic predicate (expression is not predicate-static)
@@ -8057,14 +8095,13 @@ package body Sem_Ch13 is
                --  Now post appropriate message
 
                if Has_Static_Predicate_Aspect (Typ) then
-                  if Is_Scalar_Type (Typ) then
+                  if Is_Scalar_Type (Typ) or else Is_String_Type (Typ) then
                      Error_Msg_F
-                       ("expression is not predicate-static (RM 4.3.2(16-22))",
+                       ("expression is not predicate-static (RM 3.2.4(16-22))",
                         EN);
                   else
-                     Error_Msg_FE
-                       ("static predicate not allowed for non-scalar type&",
-                        EN, Typ);
+                     Error_Msg_F
+                       ("static predicate requires scalar or string type", EN);
                   end if;
                end if;
             end if;
@@ -9606,7 +9643,7 @@ package body Sem_Ch13 is
                --  issued elsewhere, since sizes of non-static array types
                --  cannot be set implicitly or explicitly.
 
-               if not Is_Static_Subtype (Ityp) then
+               if not Is_OK_Static_Subtype (Ityp) then
                   return;
                end if;
 
@@ -10298,6 +10335,12 @@ package body Sem_Ch13 is
                   Set_Reverse_Storage_Order (Bas_Typ,
                     Reverse_Storage_Order (Entity (Name
                       (Get_Rep_Item (Typ, Name_Scalar_Storage_Order)))));
+
+                  --  Clear default SSO indications, since the inherited aspect
+                  --  which was set explicitly overrides the default.
+
+                  Set_SSO_Set_Low_By_Default  (Bas_Typ, False);
+                  Set_SSO_Set_High_By_Default (Bas_Typ, False);
                end if;
             end if;
          end;
@@ -10358,6 +10401,9 @@ package body Sem_Ch13 is
    -------------------------
    -- Is_Predicate_Static --
    -------------------------
+
+   --  Note: the basic legality of the expression has already been checked, so
+   --  we don't need to worry about cases or ranges on strings for example.
 
    function Is_Predicate_Static
      (Expr : Node_Id;
@@ -10459,12 +10505,6 @@ package body Sem_Ch13 is
    --  Start of processing for Is_Predicate_Static
 
    begin
-      --  Only scalar types can be predicate-static
-
-      if not Is_Scalar_Type (Etype (Expr)) then
-         return False;
-      end if;
-
       --  Predicate_Static means one of the following holds. Numbers are the
       --  corresponding paragraph numbers in (RM 3.2.4(16-22)).
 
@@ -10499,7 +10539,20 @@ package body Sem_Ch13 is
       --  operand is the current instance, and the other is a static
       --  expression.
 
+      --  Note: the RM is clearly wrong here in not excluding string types.
+      --  Without this exclusion, we would allow expressions like X > "ABC"
+      --  to be considered as predicate-static, which is clearly not intended,
+      --  since the idea is for predicate-static to be a subset of normal
+      --  static expressions (and "DEF" > "ABC" is not a static expression).
+
+      --  However, we do allow internally generated (not from source) equality
+      --  and inequality operations to be valid on strings (this helps deal
+      --  with cases where we transform A in "ABC" to A = "ABC).
+
       elsif Nkind (Expr) in N_Op_Compare
+        and then ((not Is_String_Type (Etype (Left_Opnd (Expr))))
+                    or else (Nkind_In (Expr, N_Op_Eq, N_Op_Ne)
+                              and then not Comes_From_Source (Expr)))
         and then ((Is_Type_Ref (Left_Opnd (Expr))
                     and then Is_OK_Static_Expression (Right_Opnd (Expr)))
                   or else
@@ -10534,7 +10587,7 @@ package body Sem_Ch13 is
       --  all the cases above.
 
       --  One more test that is an implementation artifact caused by the fact
-      --  that we are analyzing not the original expresesion, but the generated
+      --  that we are analyzing not the original expression, but the generated
       --  expression in the body of the predicate function. This can include
       --  references to inherited predicates, so that the expression we are
       --  processing looks like:
@@ -10543,7 +10596,7 @@ package body Sem_Ch13 is
 
       --  Where the call is to a Predicate function for an inherited predicate.
       --  We simply ignore such a call (which could be to either a dynamic or
-      --  a static predicate, but remember that we can have Static_Predicate
+      --  a static predicate, but remember that we can have a Static_Predicate
       --  for a non-static subtype).
 
       elsif Nkind (Expr) = N_Function_Call
@@ -11011,10 +11064,28 @@ package body Sem_Ch13 is
       S           : Entity_Id;
       Parent_Type : Entity_Id;
 
+      procedure No_Type_Rep_Item;
+      --  Output message indicating that no type-related aspects can be
+      --  specified due to some property of the parent type.
+
       procedure Too_Late;
-      --  Output the too late message. Note that this is not considered a
-      --  serious error, since the effect is simply that we ignore the
-      --  representation clause in this case.
+      --  Output message for an aspect being specified too late
+
+      --  Note that neither of the above errors is considered a serious one,
+      --  since the effect is simply that we ignore the representation clause
+      --  in these cases.
+      --  Is this really true? In any case if we make this change we must
+      --  document the requirement in the spec of Rep_Item_Too_Late that
+      --  if True is returned, then the rep item must be completely ignored???
+
+      ----------------------
+      -- No_Type_Rep_Item --
+      ----------------------
+
+      procedure No_Type_Rep_Item is
+      begin
+         Error_Msg_N ("|type-related representation item not permitted!", N);
+      end No_Type_Rep_Item;
 
       --------------
       -- Too_Late --
@@ -11054,14 +11125,18 @@ package body Sem_Ch13 is
          S := First_Subtype (T);
 
          if Present (Freeze_Node (S)) then
-            Error_Msg_NE
-              ("??no more representation items for }", Freeze_Node (S), S);
+            if not Relaxed_RM_Semantics then
+               Error_Msg_NE
+                 ("??no more representation items for }", Freeze_Node (S), S);
+            end if;
          end if;
 
          return True;
 
       --  Check for case of non-tagged derived type whose parent either has
-      --  primitive operations, or is a by reference type (RM 13.1(10)).
+      --  primitive operations, or is a by reference type (RM 13.1(10)). In
+      --  this case we do not output a Too_Late message, since there is no
+      --  earlier point where the rep item could be placed to make it legal.
 
       elsif Is_Type (T)
         and then not FOnly
@@ -11071,17 +11146,67 @@ package body Sem_Ch13 is
          Parent_Type := Etype (Base_Type (T));
 
          if Has_Primitive_Operations (Parent_Type) then
-            Too_Late;
-            Error_Msg_NE
-              ("primitive operations already defined for&!", N, Parent_Type);
+            No_Type_Rep_Item;
+
+            if not Relaxed_RM_Semantics then
+               Error_Msg_NE
+                 ("\parent type & has primitive operations!", N, Parent_Type);
+            end if;
+
             return True;
 
          elsif Is_By_Reference_Type (Parent_Type) then
-            Too_Late;
-            Error_Msg_NE
-              ("parent type & is a by reference type!", N, Parent_Type);
+            No_Type_Rep_Item;
+
+            if not Relaxed_RM_Semantics then
+               Error_Msg_NE
+                 ("\parent type & is a by reference type!", N, Parent_Type);
+            end if;
+
             return True;
          end if;
+      end if;
+
+      --  No error, but one more warning to consider. The RM (surprisingly)
+      --  allows this pattern:
+
+      --    type S is ...
+      --    primitive operations for S
+      --    type R is new S;
+      --    rep clause for S
+
+      --  Meaning that calls on the primitive operations of S for values of
+      --  type R may require possibly expensive implicit conversion operations.
+      --  This is not an error, but is worth a warning.
+
+      if not Relaxed_RM_Semantics and then Is_Type (T) then
+         declare
+            DTL : constant Entity_Id := Derived_Type_Link (Base_Type (T));
+
+         begin
+            if Present (DTL)
+              and then Has_Primitive_Operations (Base_Type (T))
+
+              --  For now, do not generate this warning for the case of aspect
+              --  specification using Ada 2012 syntax, since we get wrong
+              --  messages we do not understand. The whole business of derived
+              --  types and rep items seems a bit confused when aspects are
+              --  used, since the aspects are not evaluated till freeze time.
+
+              and then not From_Aspect_Specification (N)
+            then
+               Error_Msg_Sloc := Sloc (DTL);
+               Error_Msg_N
+                 ("representation item for& appears after derived type "
+                  & "declaration#??", N);
+               Error_Msg_NE
+                 ("\may result in implicit conversions for primitive "
+                  & "operations of&??", N, T);
+               Error_Msg_NE
+                 ("\to change representations when called with arguments "
+                  & "of type&??", N, DTL);
+            end if;
+         end;
       end if;
 
       --  No error, link item into head of chain of rep items for the entity,

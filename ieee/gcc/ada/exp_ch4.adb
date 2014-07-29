@@ -1386,7 +1386,6 @@ package body Exp_Ch4 is
          Apply_Constraint_Check (Exp, T, No_Sliding => True);
 
          if Do_Range_Check (Exp) then
-            Set_Do_Range_Check (Exp, False);
             Generate_Range_Check (Exp, DesigT, CE_Range_Check_Failed);
          end if;
 
@@ -1402,7 +1401,6 @@ package body Exp_Ch4 is
               (Exp, DesigT, No_Sliding => False);
 
             if Do_Range_Check (Exp) then
-               Set_Do_Range_Check (Exp, False);
                Generate_Range_Check (Exp, DesigT, CE_Range_Check_Failed);
             end if;
          end if;
@@ -4991,6 +4989,13 @@ package body Exp_Ch4 is
           Expression   => Expression (N),
           Alternatives => New_List);
 
+      --  Preserve the original context for which the case statement is being
+      --  generated. This is needed by the finalization machinery to prevent
+      --  the premature finalization of controlled objects found within the
+      --  case statement.
+
+      Set_From_Conditional_Expression (Cstmt);
+
       Actions := New_List;
 
       --  Scalar case
@@ -5273,11 +5278,9 @@ package body Exp_Ch4 is
          return;
       end if;
 
-      --  If the type is limited or unconstrained, we expand as follows to
-      --  avoid any possibility of improper copies.
-
-      --  Note: it may be possible to avoid this special processing if the
-      --  back end uses its own mechanisms for handling by-reference types ???
+      --  If the type is limited, and the back end does not handle limited
+      --  types, then we expand as follows to avoid the possibility of
+      --  improper copying.
 
       --      type Ptr is access all Typ;
       --      Cnn : Ptr;
@@ -5354,9 +5357,48 @@ package body Exp_Ch4 is
                      Prefix         => Relocate_Node (Elsex),
                      Attribute_Name => Name_Unrestricted_Access))));
 
-            New_N :=
-              Make_Explicit_Dereference (Loc,
-                Prefix => New_Occurrence_Of (Cnn, Loc));
+         --  Preserve the original context for which the if statement is being
+         --  generated. This is needed by the finalization machinery to prevent
+         --  the premature finalization of controlled objects found within the
+         --  if statement.
+
+         Set_From_Conditional_Expression (New_If);
+
+         New_N :=
+           Make_Explicit_Dereference (Loc,
+             Prefix => New_Occurrence_Of (Cnn, Loc));
+
+      --  If the result is an unconstrained array and the if expression is in a
+      --  context other than the initializing expression of the declaration of
+      --  an object, then we pull out the if expression as follows:
+
+      --     Cnn : constant typ := if-expression
+
+      --  and then replace the if expression with an occurrence of Cnn. This
+      --  avoids the need in the back end to create on-the-fly variable length
+      --  temporaries (which it cannot do!)
+
+      --  Note that the test for being in an object declaration avoids doing an
+      --  unnecessary expansion, and also avoids infinite recursion.
+
+      elsif Is_Array_Type (Typ) and then not Is_Constrained (Typ)
+        and then (Nkind (Parent (N)) /= N_Object_Declaration
+                   or else Expression (Parent (N)) /= N)
+      then
+         declare
+            Cnn : constant Node_Id := Make_Temporary (Loc, 'C', N);
+         begin
+            Insert_Action (N,
+              Make_Object_Declaration (Loc,
+                Defining_Identifier => Cnn,
+                Constant_Present    => True,
+                Object_Definition   => New_Occurrence_Of (Typ, Loc),
+                Expression          => Relocate_Node (N),
+                Has_Init_Expression => True));
+
+            Rewrite (N, New_Occurrence_Of (Cnn, Loc));
+            return;
+         end;
 
       --  For other types, we only need to expand if there are other actions
       --  associated with either branch.
@@ -9636,7 +9678,7 @@ package body Exp_Ch4 is
                          Nkind (Parent (Entity (Dval))) = N_Object_Declaration
                        and then Present (Expression (Parent (Entity (Dval))))
                        and then not
-                         Is_Static_Expression
+                         Is_OK_Static_Expression
                            (Expression (Parent (Entity (Dval))))
                      then
                         exit Discr_Loop;
@@ -10932,6 +10974,7 @@ package body Exp_Ch4 is
                --  integer type.
 
                Set_Do_Overflow_Check (N, False);
+
                if not Is_Descendent_Of_Address (Etype (Expr))
                  and then not Is_Descendent_Of_Address (Target_Type)
                then
@@ -12602,9 +12645,6 @@ package body Exp_Ch4 is
       --  If False, call to finalizer includes a test of whether the hook
       --  pointer is null.
 
-      In_Cond_Expr : constant Boolean :=
-                       Within_Case_Or_If_Expression (Rel_Node);
-
    begin
       --  Step 0: determine where to attach finalization actions in the tree
 
@@ -12622,10 +12662,10 @@ package body Exp_Ch4 is
          --  conditional expression.
 
          Finalize_Always :=
-            not (In_Cond_Expr
-                  or else
-                    Nkind_In (Original_Node (Rel_Node), N_Case_Expression,
-                                                        N_If_Expression));
+           not Within_Case_Or_If_Expression (Rel_Node)
+             and then not Nkind_In
+                            (Original_Node (Rel_Node), N_Case_Expression,
+                                                       N_If_Expression);
 
          declare
             Loc  : constant Source_Ptr := Sloc (Rel_Node);

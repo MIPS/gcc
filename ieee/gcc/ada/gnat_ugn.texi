@@ -1378,7 +1378,8 @@ of the compiler (@pxref{Character Set Control}).
 @menu
 * Latin-1::
 * Other 8-Bit Codes::
-* Wide Character Encodings::
+* Wide_Character Encodings::
+* Wide_Wide_Character Encodings::
 @end menu
 
 @node Latin-1
@@ -1471,8 +1472,8 @@ equivalences that are recognized, see the file @file{csets.adb} in
 the GNAT compiler sources. You will need to obtain a full source release
 of GNAT to obtain this file.
 
-@node Wide Character Encodings
-@subsection Wide Character Encodings
+@node Wide_Character Encodings
+@subsection Wide_Character Encodings
 
 @noindent
 GNAT allows wide character codes to appear in character and string
@@ -1545,8 +1546,9 @@ where the @var{xxx} bits correspond to the left-padded bits of the
 are represented as ASCII bytes and all upper half characters and
 other wide characters are represented as sequences of upper-half
 (The full UTF-8 scheme allows for encoding 31-bit characters as
-6-byte sequences, but in this implementation, all UTF-8 sequences
-of four or more bytes length will be treated as illegal).
+6-byte sequences, and in the following section on wide wide
+characters, the use of these sequences is documented).
+
 @item Brackets Coding
 In this encoding, a wide character is represented by the following eight
 character sequence:
@@ -1564,8 +1566,8 @@ Brackets coding for upper half characters. For example, the code
 @code{16#A3#} can be represented as @code{[``A3'']}.
 
 This scheme is compatible with use of the full Wide_Character set,
-and is also the method used for wide character encoding in the standard
-ACVC (Ada Compiler Validation Capability) test suite distributions.
+and is also the method used for wide character encoding in some standard
+ACATS (Ada Conformity Assessment Test Suite) test suite distributions.
 
 @end table
 
@@ -1573,6 +1575,60 @@ ACVC (Ada Compiler Validation Capability) test suite distributions.
 Note: Some of these coding schemes do not permit the full use of the
 Ada character set. For example, neither Shift JIS, nor EUC allow the
 use of the upper half of the Latin-1 set.
+
+@node Wide_Wide_Character Encodings
+@subsection Wide_Wide_Character Encodings
+
+@noindent
+GNAT allows wide wide character codes to appear in character and string
+literals, and also optionally in identifiers, by means of the following
+possible encoding schemes:
+
+@table @asis
+
+@item UTF-8 Coding
+A wide character is represented using
+UCS Transformation Format 8 (UTF-8) as defined in Annex R of ISO
+10646-1/Am.2. Depending on the character value, the representation
+of character codes with values greater than 16#FFFF# is a
+is a four, five, or six byte sequence:
+
+@smallexample
+@iftex
+@leftskip=.7cm
+@end iftex
+16#01_0000#-16#10_FFFF#:     11110xxx 10xxxxxx 10xxxxxx
+                             10xxxxxx
+16#0020_0000#-16#03FF_FFFF#: 111110xx 10xxxxxx 10xxxxxx
+                             10xxxxxx 10xxxxxx
+16#0400_0000#-16#7FFF_FFFF#: 1111110x 10xxxxxx 10xxxxxx
+                             10xxxxxx 10xxxxxx 10xxxxxx
+@end smallexample
+
+@noindent
+where the @var{xxx} bits correspond to the left-padded bits of the
+32-bit character value.
+
+@item Brackets Coding
+In this encoding, a wide wide character is represented by the following ten or
+twelve byte character sequence:
+
+@smallexample
+[ " a b c d e f " ]
+[ " a b c d e f g h " ]
+@end smallexample
+
+@noindent
+Where @code{a-h} are the six or eight hexadecimal
+characters (using uppercase letters) of the wide wide character code. For
+example, ["1F4567"] is used to represent the wide wide character with code
+@code{16#001F_4567#}.
+
+This scheme is compatible with use of the full Wide_Wide_Character set,
+and is also the method used for wide wide character encoding in some standard
+ACATS (Ada Conformity Assessment Test Suite) test suite distributions.
+
+@end table
 
 @node File Naming Rules
 @section File Naming Rules
@@ -4204,6 +4260,8 @@ Don't quit. Try semantics, even if parse errors.
 @item -gnatQ
 @cindex @option{-gnatQ} (@command{gcc})
 Don't quit. Generate @file{ALI} and tree files even if illegalities.
+Note that code generation is still suppressed in the presence of any
+errors, so even with @option{-gnatQ} no object file is generated.
 
 @item -gnatr
 @cindex @option{-gnatr} (@command{gcc})
@@ -4980,17 +5038,25 @@ This switch activates most optional warning messages.  See the remaining list
 in this section for details on optional warning messages that can be
 individually controlled.  The warnings that are not turned on by this
 switch are:
-@option{-gnatwd} (implicit dereferencing),
-@option{-gnatwh} (hiding),
+
+@itemize
+@option{-gnatwd} (implicit dereferencing)
 @option{-gnatw.d} (tag warnings with -gnatw switch)
-@option{-gnatw.h} (holes (gaps) in record layouts)
-@option{-gnatw.i} (overlapping actuals),
-@option{-gnatw.k} (redefinition of names in standard),
-@option{-gnatwl} (elaboration warnings),
-@option{-gnatw.l} (inherited aspects),
-@option{-gnatw.o} (warn on values set by out parameters ignored),
+@option{-gnatwh} (hiding)
+@option{-gnatw.h} (holes in record layouts)
+@option{-gnatw.k} (redefinition of names in standard)
+@option{-gnatwl} (elaboration warnings)
+@option{-gnatw.l} (inherited aspects)
+@option{-gnatw.n} (atomic synchronization)
+@option{-gnatwo} (address clause overlay)
+@option{-gnatw.o} (values set by out parameters ignored)
+@option{-gnatw.s} (overridden size clause)
 @option{-gnatwt} (tracking of deleted conditional code)
-and @option{-gnatw.u} (unordered enumeration),
+@option{-gnatw.u} (unordered enumeration)
+@option{-gnatw.w} (use of Warnings Off)
+@option{-gnatw.y} (reasons for package needing body)
+@end itemize
+
 All other optional warnings are turned on.
 
 @item -gnatwA
@@ -5102,8 +5168,6 @@ representation clause is present and has component clauses for the
 majority, but not all, of the components. A warning is given for each
 component for which no component clause is present.
 
-This warning can also be turned on using @option{-gnatwa}.
-
 @item -gnatw.C
 @emph{Suppress warnings on missing component clauses.}
 @cindex @option{-gnatwC} (@command{gcc})
@@ -5120,8 +5184,6 @@ enabled, access checks occur only at points where an explicit
 @code{.all} appears in the source code (assuming no warnings are
 generated as a result of this switch). The default is that such
 warnings are not generated.
-Note that @option{-gnatwa} does not affect the setting of
-this warning option.
 
 @item -gnatwD
 @emph{Suppress warnings on implicit dereferencing.}
@@ -5202,7 +5264,7 @@ been specifically designed according to specialized coding rules.
 @cindex Formals, unreferenced
 This switch causes a warning to be generated if a formal parameter
 is not referenced in the body of the subprogram. This warning can
-also be turned on using @option{-gnatwa} or @option{-gnatwu}. The
+also be turned on using @option{-gnatwu}. The
 default is that these warnings are not generated.
 
 @item -gnatwF
@@ -5220,8 +5282,7 @@ formals.
 @cindex Pragmas, unrecognized
 This switch causes a warning to be generated if an unrecognized
 pragma is encountered. Apart from issuing this warning, the
-pragma is ignored and has no effect. This warning can
-also be turned on using @option{-gnatwa}. The default
+pragma is ignored and has no effect. The default
 is that such warnings are issued (satisfying the Ada Reference
 Manual requirement that such warnings appear).
 
@@ -5247,7 +5308,6 @@ A declaration is considered hiding
 if it is for a non-overloadable entity, and it declares an entity with the
 same name as some other entity that is directly or use-visible. The default
 is that such warnings are not generated.
-Note that @option{-gnatwa} does not affect the setting of this warning option.
 
 @item -gnatwH
 @emph{Suppress warnings on hiding.}
@@ -5262,7 +5322,6 @@ This switch activates warnings on component clauses in record
 representation clauses that leave holes (gaps) in the record layout.
 If this warning option is active, then record representation clauses
 should specify a contiguous layout, adding unused fill fields if needed.
-Note that @option{-gnatwa} does not affect the setting of this warning option.
 
 @item -gnatw.H
 @emph{Suppress warnings on holes/gaps in records.}
@@ -5282,7 +5341,6 @@ documented in either the Ada Reference Manual or the GNAT
 Programmer's Reference Manual. Such units are intended only
 for internal implementation purposes and should not be @code{with}'ed
 by user programs. The default is that such warnings are generated
-This warning can also be turned on using @option{-gnatwa}.
 
 @item -gnatwI
 @emph{Disable warnings on implementation units.}
@@ -5295,8 +5353,7 @@ implementation unit.
 @cindex @option{-gnatw.i} (@command{gcc})
 This switch enables a warning on statically detectable overlapping actuals in
 a subprogram call, when one of the actuals is an in-out parameter, and the
-types of the actuals are not by-copy types. The warning is off by default,
-and is not included under -gnatwa.
+types of the actuals are not by-copy types. This warning is off by default.
 
 @item -gnatw.I
 @emph{Disable warnings on overlapping actuals.}
@@ -5315,8 +5372,7 @@ case of Annex J, not all features are flagged. In particular use
 of the renamed packages (like @code{Text_IO}) and use of package
 @code{ASCII} are not flagged, since these are very common and
 would generate many annoying positive warnings. The default is that
-such warnings are not generated. This warning is also turned on by
-the use of @option{-gnatwa}.
+such warnings are not generated.
 
 In addition to the above cases, warnings are also generated for
 GNAT features that have been provided in past versions but which
@@ -5342,7 +5398,6 @@ This switch disables warnings on use of obsolescent features.
 This switch activates warnings for variables that are initialized but
 never modified, and then could be declared constants. The default is that
 such warnings are not given.
-This warning can also be turned on using @option{-gnatwa}.
 
 @item -gnatwK
 @emph{Suppress warnings on variables that could be constants.}
@@ -5358,8 +5413,6 @@ especially since the names in package Standard continue to be directly
 visible, meaning that use visibiliy on such redeclared names does not
 work as expected. Names of discriminants and components in records are
 not included in this check.
-This warning is not part of the warnings activated by @option{-gnatwa}.
-It must be explicitly activated.
 
 @item -gnatw.K
 @emph{Suppress warnings on variables that could be constants.}
@@ -5379,7 +5432,6 @@ dynamic elaboration model.
 See the section in this guide on elaboration checking for further details.
 The default is that such warnings
 are not generated.
-This warning is not automatically turned on by the use of @option{-gnatwa}.
 
 @item -gnatwL
 @emph{Suppress warnings for elaboration pragmas.}
@@ -5392,7 +5444,6 @@ This switch suppresses warnings for possible elaboration problems.
 This switch causes the compiler to list inherited invariants,
 preconditions, and postconditions from Type_Invariant'Class, Invariant'Class,
 Pre'Class, and Post'Class aspects. Also list inherited subtype predicates.
-These messages are not automatically turned on by the use of @option{-gnatwa}.
 
 @item -gnatw.L
 @emph{Suppress listing of inherited aspects.}
@@ -5407,7 +5458,6 @@ an initialization value or with one or more assignment statements) but
 whose value is never read. The warning is suppressed for volatile
 variables and also for variables that are renamings of other variables
 or for which an address clause is given.
-This warning can also be turned on using @option{-gnatwa}.
 The default is that these warnings are not given.
 
 @item -gnatwM
@@ -5449,9 +5499,7 @@ use of @option{-gnatg}.
 @cindex Atomic Synchronization, warnings
 This switch actives warnings when an access to an atomic variable
 requires the generation of atomic synchronization code. These
-warnings are off by default and this warning is not included
-in @code{-gnatwa}.
-
+warnings are off by default.
 @item -gnatw.N
 @emph{Suppress warnings on atomic synchronization.}
 @cindex @option{-gnatw.n} (@command{gcc})
@@ -5466,7 +5514,6 @@ requires the generation of atomic synchronization code.
 This switch activates warnings for possibly unintended initialization
 effects of defining address clauses that cause one variable to overlap
 another. The default is that such warnings are generated.
-This warning can also be turned on using @option{-gnatwa}.
 
 @item -gnatwO
 @emph{Suppress warnings on address clause overlays.}
@@ -5486,8 +5533,7 @@ mode formal, the warning is issued by default (controlled by -gnatwu).
 The warning is suppressed for volatile
 variables and also for variables that are renamings of other variables
 or for which an address clause is given.
-The default is that these warnings are not given. Note that this warning
-is not included in -gnatwa, it must be activated explicitly.
+The default is that these warnings are not given.
 
 @item -gnatw.O
 @emph{Disable warnings on modified but unreferenced out parameters.}
@@ -5505,7 +5551,6 @@ This switch activates warnings for failure of front end inlining
 many reasons for not being able to inline a call, including most
 commonly that the call is too complex to inline. The default is
 that such warnings are not given.
-This warning can also be turned on using @option{-gnatwa}.
 Warnings on ineffective inlining by the gcc back-end can be activated
 separately, using the gcc switch -Winline.
 
@@ -5526,9 +5571,7 @@ match the names of the formals, but are in a different order. The
 warning is suppressed if any use of named parameter notation is used,
 so this is the appropriate way to suppress a false positive (and
 serves to emphasize that the "misordering" is deliberate). The
-default is
-that such warnings are not given.
-This warning can also be turned on using @option{-gnatwa}.
+default is that such warnings are not given.
 
 @item -gnatw.P
 @emph{Suppress warnings on parameter ordering.}
@@ -5548,7 +5591,6 @@ quite likely ((-x) mod 5) was intended. In such situations it seems best to
 follow the rule of always parenthesizing to make the association clear, and
 this warning switch warns if such parentheses are not present. The default
 is that these warnings are given.
-This warning can also be turned on using @option{-gnatwa}.
 
 @item -gnatwQ
 @emph{Suppress warnings on questionable missing parentheses.}
@@ -5583,7 +5625,6 @@ to be non-negative
 Comparison of boolean expressions to an explicit True value.
 @end itemize
 
-This warning can also be turned on using @option{-gnatwa}.
 The default is that warnings for redundant constructs are not given.
 
 @item -gnatwR
@@ -5597,8 +5638,7 @@ This switch suppresses warnings for redundant constructs.
 This switch activates warnings for an object renaming that renames a
 function call, which is equivalent to a constant declaration (as
 opposed to renaming the function itself).  The default is that these
-warnings are given.  This warning can also be turned on using
-@option{-gnatwa}.
+warnings are given.
 
 @item -gnatw.R
 @emph{Suppress warnings for object renaming function.}
@@ -5631,7 +5671,6 @@ specified by an explicit size clause for the component type. A
 warning is similarly given in the array case if a specified
 component size overrides an explicit size clause for the array
 component type.
-Note that @option{-gnatwa} does not affect the setting of this warning option.
 
 @item -gnatw.S
 @emph{Suppress warnings on overridden size clauses.}
@@ -5647,8 +5686,7 @@ warnings when an array component size overrides a size clause.
 @cindex Deleted code, warnings
 This switch activates warnings for tracking of code in conditionals (IF and
 CASE statements) that is detected to be dead code which cannot be executed, and
-which is removed by the front end. This warning is off by default, and is not
-turned on by @option{-gnatwa}, it has to be turned on explicitly. This may be
+which is removed by the front end. This warning is off by default. This may be
 useful for detecting deactivated code in certified applications.
 
 @item -gnatwT
@@ -5667,7 +5705,7 @@ or contract case for this function mentions the result of the function.
 A procedure postcondition or contract case is suspicious when it only
 refers to the pre-state of the procedure, because in that case it should
 rather be expressed as a precondition. The default is that such warnings
-are not generated. This warning can also be turned on using @option{-gnatwa}.
+are not generated.
 
 @item -gnatw.T
 @emph{Suppress warnings on suspicious contracts.}
@@ -5694,7 +5732,6 @@ a warning is also generated, noting that the
 such warnings are not generated.
 This switch also activates warnings on unreferenced formals
 (it includes the effect of @option{-gnatwf}).
-This warning can also be turned on using @option{-gnatwa}.
 
 @item -gnatwU
 @emph{Suppress warnings on unused entities.}
@@ -5715,7 +5752,6 @@ which the type is declared, or its body or subunits.) Please refer to
 the description of pragma @code{Ordered} in the
 @cite{@value{EDITION} Reference Manual} for further details.
 The default is that such warnings are not generated.
-This warning is not automatically turned on by the use of @option{-gnatwa}.
 
 @item -gnatw.U
 @emph{Deactivate warnings on unordered enumeration types.}
@@ -5730,7 +5766,6 @@ that no warnings are given for comparisons or subranges for any type.
 This switch activates warnings for access to variables which
 may not be properly initialized. The default is that
 such warnings are generated.
-This warning can also be turned on using @option{-gnatwa}.
 
 @item -gnatwV
 @emph{Suppress warnings on unassigned variables.}
@@ -5758,8 +5793,7 @@ just informational messages) about the effects of non-default bit-order
 on records to which a component clause is applied. The effect of specifying
 non-default bit ordering is a bit subtle (and changed with Ada 2005), so
 these messages, which are given by default, are useful in understanding the
-exact consequences of using this feature. These messages
-can also be turned on using @option{-gnatwa}
+exact consequences of using this feature.
 
 @item -gnatw.V
 @emph{Suppress info messages for non-default bit order.}
@@ -5775,7 +5809,6 @@ This switch activates warnings for indexing an unconstrained string parameter
 with a literal or S'Length. This is a case where the code is assuming that the
 low bound is one, which is in general not true (for example when a slice is
 passed). The default is that such warnings are generated.
-This warning can also be turned on using @option{-gnatwa}.
 
 @item -gnatwW
 @emph{Suppress warnings on wrong low bound assumption.}
@@ -5799,11 +5832,11 @@ as shown in the following example.
 This switch activates warnings for use of @code{pragma Warnings (Off, entity)}
 where either the pragma is entirely useless (because it suppresses no
 warnings), or it could be replaced by @code{pragma Unreferenced} or
-@code{pragma Unmodified}. The default is that these warnings are not given.
-Note that this warning is not included in -gnatwa, it must be
-activated explicitly. Also activates warnings for the case of
+@code{pragma Unmodified}.
+Also activates warnings for the case of
 Warnings (Off, String), where either there is no matching
 Warnings (On, String), or the Warnings (Off) did not suppress any warning.
+The default is that these warnings are not given.
 
 @item -gnatw.W
 @emph{Suppress warnings on unnecessary Warnings Off pragmas}
@@ -5821,7 +5854,6 @@ default parameters in a convention C procedure is dubious
 because the C compiler cannot supply the proper default, so
 a warning is issued. The default is that such warnings are
 generated.
-This warning can also be turned on using @option{-gnatwa}.
 
 @item -gnatwX
 @emph{Suppress warnings on Export/Import pragmas.}
@@ -5858,7 +5890,6 @@ switch activates several warnings to help in identifying
 and correcting such incompatibilities. The default is that
 these warnings are generated. Note that at one point Ada 2005
 was called Ada 0Y, hence the choice of character.
-This warning can also be turned on using @option{-gnatwa}.
 
 @item -gnatwY
 @emph{Disable warnings for Ada compatibility issues.}
@@ -5896,7 +5927,6 @@ sizes. The default
 is that such warnings are generated. Warnings are also
 generated for subprogram pointers with different conventions,
 and, on VMS only, for data pointers with different conventions.
-This warning can also be turned on using @option{-gnatwa}.
 
 @item -gnatwZ
 @emph{Suppress warnings on unchecked conversions.}
@@ -5914,7 +5944,6 @@ specified @code{Size} and @code{Alignment} attributes where the
 size is not a multiple of the alignment, resulting in an object
 size that is greater than the specified size. The default
 is that such warnings are generated.
-This warning can also be turned on using @option{-gnatwa}.
 
 @item -gnatw.Z
 @emph{Suppress warnings for size not a multiple of alignment.}
@@ -7251,7 +7280,7 @@ UTF-8 encoding (brackets encoding also recognized)
 Brackets encoding only (default value)
 @end table
 For full details on these encoding
-methods see @ref{Wide Character Encodings}.
+methods see @ref{Wide_Character Encodings}.
 Note that brackets coding is always accepted, even if one of the other
 options is specified, so for example @option{-gnatW8} specifies that both
 brackets and UTF-8 encodings will be recognized. The units that are
@@ -8535,13 +8564,40 @@ Require all source files to be present.
 @cindex @option{^-S^/INITIALIZE_SCALARS^} (@command{gnatbind})
 Specifies the value to be used when detecting uninitialized scalar
 objects with pragma Initialize_Scalars.
-The @var{xxx} ^string specified with the switch^option^ may be either
+The @var{xxx} ^string specified with the switch^option^ is one of:
 @itemize @bullet
-@item ``@option{^in^INVALID^}'' requesting an invalid value where possible
-@item ``@option{^lo^LOW^}'' for the lowest possible value
-@item ``@option{^hi^HIGH^}'' for the highest possible value
-@item ``@option{@var{xx}}'' for a value consisting of repeated bytes with the
-value @code{16#@var{xx}#} (i.e., @var{xx} is a string of two hexadecimal digits).
+
+@item ``@option{^in^INVALID^}'' for an invalid value
+If zero is invalid for the discrete type in question,
+then the scalar value is set to all zero bits.
+For signed discrete types, the largest possible negative value of
+the underlying scalar is set (i.e. a one bit followed by all zero bits).
+For unsigned discrete types, the underlying scalar value is set to all
+one bits. For floating-point types, a NaN value is set
+(see body of package System.Scalar_Values for exact values).
+
+@item ``@option{^lo^LOW^}'' for low value
+If zero is invalid for the discrete type in question,
+then the scalar value is set to all zero bits.
+For signed discrete types, the largest possible negative value of
+the underlying scalar is set (i.e. a one bit followed by all zero bits).
+For unsigned discrete types, the underlying scalar value is set to all
+zero bits. For floating-point, a small value is set
+(see body of package System.Scalar_Values for exact values).
+
+@item ``@option{^hi^HIGH^}'' for high value
+If zero is invalid for the discrete type in question,
+then the scalar value is set to all one bits.
+For signed discrete types, the largest possible positive value of
+the underlying scalar is set (i.e. a zero bit followed by all one bits).
+For unsigned discrete types, the underlying scalar value is set to all
+one bits. For floating-point, a large value is set
+(see body of package System.Scalar_Values for exact values).
+
+@item ``@option{@var{xx}}'' for hex value (two hex digits)
+The underlying scalar is set to a value consisting of repeated bytes, whose
+value corresponds to the given value. For example if @option{BF} is given,
+then a 32-bit scalar value will be set to the bit patterm 16#BFBFBFBF#.
 @end itemize
 
 In addition, you can specify @option{-Sev} to indicate that the value is
@@ -10912,7 +10968,7 @@ in the loop.  Consider for example the procedure:
 @noindent
 By default, the compiler cannot unconditionally vectorize the loop because
 assigning to a component of the array designated by R in one iteration could
-change the value read from the components of the arrays designated by X or Y
+change the value read from the components of the array designated by X or Y
 in a later iteration.  As a result, the compiler will generate two versions
 of the loop in the object code, one vectorized and the other not vectorized,
 as well as a test to select the appropriate version at run time.  This can
@@ -11417,6 +11473,12 @@ analyse, and analyses only these sources.
 After a full successful build of the main subprogram @code{gnatelim} can be
 called without  specifying sources to analyse, in this case it computes
 the source closure of the main unit from the @file{ALI} files.
+
+If the set of sources to be processed by @code{gnatelim} contains sources with
+preprocessing directives
+then the needed options should be provided to run preprocessor as a part of
+the @command{gnatelim} call, and the generated set of pragmas @code{Eliminate}
+will correspond to preprocessed sources.
 
 The following command will create the set of @file{ALI} files needed for
 @code{gnatelim}:
@@ -12257,23 +12319,28 @@ directory is searched for a file whose name is @file{gnat.adc}. If
 this file is present, it is expected to contain one or more
 configuration pragmas that will be applied to the current compilation.
 However, if the switch @option{-gnatA} is used, @file{gnat.adc} is not
-considered.
+considered. When taken into account, @file{gnat.adc} is added to the
+dependencies, so that if @file{gnat.adc} is modified later, an invocation of
+@command{gnatmake} will recompile the source.
 
 Configuration pragmas may be entered into the @file{gnat.adc} file
 either by running @code{gnatchop} on a source file that consists only of
-configuration pragmas, or more conveniently  by
-direct editing of the @file{gnat.adc} file, which is a standard format
-source file.
+configuration pragmas, or more conveniently by direct editing of the
+@file{gnat.adc} file, which is a standard format source file.
 
 In addition to @file{gnat.adc}, additional files containing configuration
 pragmas may be applied to the current compilation using the switch
-@option{-gnatec}@var{path}. @var{path} must designate an existing file that
+@option{-gnatec=}@var{path}. @var{path} must designate an existing file that
 contains only configuration pragmas. These configuration pragmas are
 in addition to those found in @file{gnat.adc} (provided @file{gnat.adc}
 is present and switch @option{-gnatA} is not used).
 
-It is allowed to specify several switches @option{-gnatec}, all of which
+It is allowable to specify several switches @option{-gnatec=}, all of which
 will be taken into account.
+
+Files containing configuration pragmas specified with switches
+@option{-gnatec=} are added to the dependencies, unless they contain
+only pragmas Source_File_Name_Project.
 
 If you are using project file, a separate mechanism is provided using
 project attributes, see @ref{Specifying Configuration Pragmas} for more
@@ -15637,6 +15704,13 @@ Project Files}). Another possibility is to specify the source search
 path and needed configuration files in @option{-cargs} section of @command{gnatmetric}
 call, see the description of the @command{gnatmetric} switches below.
 
+If the set of sources to be processed by @code{gnatmetric} contains sources with
+preprocessing directives
+then the needed options should be provided to run preprocessor as a part of
+the @command{gnatmetric} call, and the computed metrics
+will correspond to preprocessed sources.
+
+
 The @command{gnatmetric} command has the form
 
 @smallexample
@@ -16153,14 +16227,17 @@ and quantified expressions. For each body, we compute three metric values:
 @itemize @bullet
 @item
 the complexity introduced by control
-statements only, without taking into account short-circuit forms,
+statements only, without taking into account short-circuit forms
+(referred as @code{statement complexity} in @command{gnatmetric} output),
 
 @item
-the complexity introduced by short-circuit control forms only, and
+the complexity introduced by short-circuit control forms only
+(referred as @code{expression complexity} in @command{gnatmetric} output), and
 
 @item
 the total
-cyclomatic complexity, which is the sum of these two values.
+cyclomatic complexity, which is the sum of these two values
+(referred as @code{cyclomatic complexity} in @command{gnatmetric} output).
 @end itemize
 
 @noindent
@@ -19373,6 +19450,11 @@ Project Files}). Another possibility is to specify the source search
 path and needed configuration files in @option{-cargs} section of @command{gnatstub}
 call, see the description of the @command{gnatstub} switches below.
 
+If the @command{gnatstub} argument source contains preprocessing directives
+then the needed options should be provided to run preprocessor as a part of
+the @command{gnatstub} call, and the generated body stub will correspond to
+the preprocessed source.
+
 By default, all the program unit body stubs generated by @code{gnatstub}
 raise the predefined @code{Program_Error} exception, which will catch
 accidental calls of generated stubs. This behavior can be changed with
@@ -19757,7 +19839,9 @@ Suppresses noncritical output messages.
 
 @item -v
 @cindex @option{-v} (@command{gnattest})
-Verbose mode: generates version information.
+Verbose mode: generates version information if specified by itself on the
+command line.  If specified via GNATtest_Switches, produces output
+about the execution of the tool.
 
 @item --validate-type-extensions
 @cindex @option{--validate-type-extensions} (@command{gnattest})
@@ -19777,8 +19861,8 @@ Specifies whether or not passed tests should be shown. @var{val} can be either
 
 @item --tests-root=@var{dirname}
 @cindex @option{--tests-root} (@command{gnattest})
-The directory hierarchy of tested sources is recreated in the @var{dirname}
-directory, and test packages are placed in corresponding directories.
+The hierarchy of source directories, if any, is recreated in the @var{dirname}
+directory, with test packages placed in directories corresponding to those of the sources.
 If the @var{dirname} is a relative path, it is considered relative to the object
 directory of the project file. When all sources from all projects are taken
 recursively from all projects, directory hierarchies of tested sources are
@@ -19787,7 +19871,10 @@ placed accordingly.
 
 @item --subdir=@var{dirname}
 @cindex @option{--subdir} (@command{gnattest})
-Test packages are placed in subdirectories.
+Test packages are placed in a subdirectory of the corresponding source directory,
+with the name @var{dirname}. Thus, each set of unit tests is located in a subdirectory of the
+code under test.  If the sources are in separate directories, each source directory
+has a test subdirectory named @var{dirname}.
 
 @item --tests-dir=@var{dirname}
 @cindex @option{--tests-dir} (@command{gnattest})

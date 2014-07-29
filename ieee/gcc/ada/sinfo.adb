@@ -1400,6 +1400,15 @@ package body Sinfo is
       return Flag4 (N);
    end From_At_Mod;
 
+   function From_Conditional_Expression
+      (N : Node_Id) return Boolean is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Case_Statement
+        or else NT (N).Nkind = N_If_Statement);
+      return Flag1 (N);
+   end From_Conditional_Expression;
+
    function From_Default
       (N : Node_Id) return Boolean is
    begin
@@ -2373,6 +2382,14 @@ package body Sinfo is
       return Flag13 (N);
    end Null_Present;
 
+   function Null_Excluding_Subtype
+      (N : Node_Id) return Boolean is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Access_To_Object_Definition);
+      return Flag16 (N);
+   end Null_Excluding_Subtype;
+
    function Null_Exclusion_Present
       (N : Node_Id) return Boolean is
    begin
@@ -3146,6 +3163,22 @@ package body Sinfo is
         or else NT (N).Nkind = N_Full_Type_Declaration);
       return Node3 (N);
    end Type_Definition;
+
+   function Uneval_Old_Accept
+     (N : Node_Id) return Boolean is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Pragma);
+      return Flag7 (N);
+   end Uneval_Old_Accept;
+
+   function Uneval_Old_Warn
+     (N : Node_Id) return Boolean is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Pragma);
+      return Flag18 (N);
+   end Uneval_Old_Warn;
 
    function Unit
       (N : Node_Id) return Node_Id is
@@ -4238,7 +4271,7 @@ package body Sinfo is
    begin
       pragma Assert (False
         or else NT (N).Nkind = N_If_Expression);
-      Set_List3 (N, Val); -- semantic field, no parent set
+      Set_List3_With_Parent (N, Val); -- semantic field, but needs parents
    end Set_Else_Actions;
 
    procedure Set_Else_Statements
@@ -4573,6 +4606,15 @@ package body Sinfo is
         or else NT (N).Nkind = N_Attribute_Definition_Clause);
       Set_Flag4 (N, Val);
    end Set_From_At_Mod;
+
+   procedure Set_From_Conditional_Expression
+      (N : Node_Id; Val : Boolean := True) is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Case_Statement
+        or else NT (N).Nkind = N_If_Statement);
+      Set_Flag1 (N, Val);
+   end Set_From_Conditional_Expression;
 
    procedure Set_From_Default
       (N : Node_Id; Val : Boolean := True) is
@@ -5547,6 +5589,14 @@ package body Sinfo is
       Set_Flag13 (N, Val);
    end Set_Null_Present;
 
+   procedure Set_Null_Excluding_Subtype
+      (N : Node_Id; Val : Boolean := True) is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Access_To_Object_Definition);
+      Set_Flag16 (N, Val);
+   end Set_Null_Excluding_Subtype;
+
    procedure Set_Null_Exclusion_Present
       (N : Node_Id; Val : Boolean := True) is
    begin
@@ -6266,7 +6316,7 @@ package body Sinfo is
    begin
       pragma Assert (False
         or else NT (N).Nkind = N_If_Expression);
-      Set_List2 (N, Val); -- semantic field, no parent set
+      Set_List2_With_Parent (N, Val); -- semantic field, but needs parents
    end Set_Then_Actions;
 
    procedure Set_Then_Statements
@@ -6312,6 +6362,22 @@ package body Sinfo is
         or else NT (N).Nkind = N_Freeze_Entity);
       Set_Elist3 (N, Val); -- semantic field, no parent set
    end Set_TSS_Elist;
+
+   procedure Set_Uneval_Old_Accept
+     (N : Node_Id; Val : Boolean := True) is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Pragma);
+      Set_Flag7 (N, Val);
+   end Set_Uneval_Old_Accept;
+
+   procedure Set_Uneval_Old_Warn
+     (N : Node_Id; Val : Boolean := True) is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Pragma);
+      Set_Flag18 (N, Val);
+   end Set_Uneval_Old_Warn;
 
    procedure Set_Type_Definition
       (N : Node_Id; Val : Node_Id) is
