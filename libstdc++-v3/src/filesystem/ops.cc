@@ -515,9 +515,9 @@ namespace
     {
 #ifdef _GLIBCXX_HAVE_SYS_STAT_H
       struct ::stat st;
-      if (int err = ::stat(p.c_str(), &st))
+      if (::stat(p.c_str(), &st))
 	{
-	  ec.assign(err, std::generic_category());
+	  ec.assign(errno, std::generic_category());
 	  return deflt;
 	}
       ec.clear();
@@ -652,9 +652,9 @@ fs::path fs::read_symlink(const path& p, error_code& ec)
 {
 #ifdef _GLIBCXX_HAVE_SYS_STAT_H
   struct ::stat st;
-  if (int err = ::lstat(p.c_str(), &st))
+  if (::lstat(p.c_str(), &st))
     {
-      ec.assign(err, std::generic_category());
+      ec.assign(errno, std::generic_category());
       return {};
     }
   std::string buf(st.st_size, '\0');
@@ -806,8 +806,9 @@ fs::status(const fs::path& p, std::error_code& ec) noexcept
 {
   file_status status;
   struct ::stat st;
-  if (int err = ::stat(p.c_str(), &st))
+  if (::stat(p.c_str(), &st))
     {
+      int err = errno;
       ec.assign(err, std::generic_category());
       if (is_not_found_errno(err))
 	status = file_status{file_type::not_found};
@@ -825,8 +826,9 @@ fs::symlink_status(const fs::path& p, std::error_code& ec) noexcept
 {
   file_status status;
   struct ::stat st;
-  if (int err = ::lstat(p.c_str(), &st))
+  if (::lstat(p.c_str(), &st))
     {
+      int err = errno;
       ec.assign(err, std::generic_category());
       if (is_not_found_errno(err))
 	status = file_status{file_type::not_found};
