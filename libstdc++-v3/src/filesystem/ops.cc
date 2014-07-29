@@ -472,7 +472,19 @@ fs::create_directories(const path& p)
 bool
 fs::create_directories(const path& p, error_code& ec) noexcept
 {
-  // TODO
+  std::stack<path> missing;
+  path pp = p;
+  ec.clear();
+  while (!p.empty() && !exists(pp, ec) && !ec.value())
+    {
+      missing.push(pp);
+      pp = pp.parent_path();
+    }
+  while (!missing.empty() && !ec.value())
+    {
+      create_directory(missing.top(), ec);
+      missing.pop();
+    }
 }
 
 namespace
