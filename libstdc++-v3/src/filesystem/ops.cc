@@ -161,7 +161,17 @@ void
 fs::copy_symlink(const path& existing_symlink, const path& new_symlink,
 		 error_code& ec) noexcept
 {
-  // TODO
+  auto p = read_symlink(existing_symlink, ec);
+  if (ec.value())
+    return;
+#ifdef _GLIBCXX_FILESYSTEM_IS_WINDOWS
+  if (is_directory(p))
+    {
+      create_directory_symlink(p, new_symlink, ec);
+      return;
+    }
+#endif
+  create_symlink(p, new_symlink, ec);
 }
 
 
