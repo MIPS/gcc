@@ -96,10 +96,9 @@ typedef struct __hsa_kernel_desc_
   const char *filename;
   const char *name;
   uint64_t nargs;
-  void *kernel;
+  okra_context_t *kernel;
+  okra_context_t *context;
 } __hsa_kernel_desc;
-
-static okra_context_t *okracontext;
 
 void * __hsa_launch_kernel (__hsa_kernel_desc *, __hsa_launch_attrs *attrs,
 			    __hsa_kernelarg *args);
@@ -126,23 +125,27 @@ __hsa_launch_kernel (__hsa_kernel_desc * _kd, __hsa_launch_attrs *attrs,
 	debug = -1;
     }
 
+  if (_kd->context)
+    context = _kd->context ;
+  else {
+    status = _okra_get_context(&context);
+    if (status != OKRA_SUCCESS)
+      {
+          printf( "Unable to create context\n");
+          return NULL;
+      }
+      _kd->context = context ;
+    }
   if (_kd->kernel)
     {
       kernel = _kd->kernel;
-      context = okracontext;
     }
   else
     {
       char* hsailStr = NULL;
       const char* fileName = _kd->filename;
       if (_kd->filename[0] == 0)
-	fileName = "hsakernel.hsail"; 
-      status = _okra_get_context(&context);
-      if (status != OKRA_SUCCESS)
-	{
-	  printf( "Unable to create context\n"); 
-	  return NULL;
-	}
+	fileName = "hsakernel.hsail";
       hsailStr= buildStringFromSourceFile(fileName);
       status = _okra_kernel_create(context, hsailStr, _kd->name, &kernel);
       free(hsailStr);
@@ -152,7 +155,6 @@ __hsa_launch_kernel (__hsa_kernel_desc * _kd, __hsa_launch_attrs *attrs,
 	  return NULL;
 	}
       _kd->kernel = kernel;
-      okracontext = context;
     }
 
   _okra_clear_args (kernel);
@@ -162,8 +164,8 @@ __hsa_launch_kernel (__hsa_kernel_desc * _kd, __hsa_launch_attrs *attrs,
   }
   /* set launch dimensions */
   range.dimension = 1;
-  range.global_size[0] = 1;
-  range.group_size[0] = 1;
+  range.global_size[0] = 256;
+  range.group_size[0] = 16;
   if (debug > 0)
     printf ("HSA: launching kernel %s\n", _kd->name);
   status = _okra_execute_kernel (context, kernel, &range);

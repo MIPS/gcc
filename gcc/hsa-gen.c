@@ -1942,6 +1942,10 @@ init_hsa_functions (void)
 		  get_identifier ("kernel"), ptr_type_node);
   DECL_CHAIN (f) = fields;
   fields = f;
+  f = build_decl (BUILTINS_LOCATION, FIELD_DECL,
+                  get_identifier ("context"), ptr_type_node);
+  DECL_CHAIN (f) = fields;
+  fields = f;
 
   finish_builtin_struct (hsa_kernel_desc_type, "__hsa_kernel_desc",
 			 fields, NULL_TREE);
@@ -1990,6 +1994,7 @@ wrap_hsa (void)
 	    str = build_string_literal (slen + 2, tmpname);
 	    CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, str);
 	    CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, size_int (gimple_call_num_args (gsi_stmt (gsi))));
+	    CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, null_pointer_node);
 	    CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, null_pointer_node);
 
 	    tree initval = build_constructor (hsa_kernel_desc_type, v);

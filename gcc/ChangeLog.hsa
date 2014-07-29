@@ -1,3 +1,11 @@
+2014-07-29  Ganesh Gopalasubramanian  <Ganesh.Gopalasubramanian@amd.com>
+	    Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-gen.c (init_hsa_functions): Add context
+	to hsa_kernel_desc_type.
+	(wrap_hsa): Add context field to generated kernel description
+	constructor.
+
 2014-06-18  Martin Jambor  <mjambor@suse.cz>
 
 	* hsa.h: Removed keyword struct from the parameter all is_a_helper
