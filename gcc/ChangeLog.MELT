@@ -1,7 +1,11 @@
 
 2014-07-29  Basile Starynkevitch  <basile@starynkevitch.net>
 
-	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.1
+	* melt/generated/*: Regenerate all.
+
+2014-07-29  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.1.0+
 
 	* melt/melt-macro.melt (class_source_compile_diagnostic): New
 	class with scdiag_msg & scdiag_expr fields.
