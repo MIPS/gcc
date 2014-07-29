@@ -8052,9 +8052,10 @@ get_def_noter_for_expr_with_code (tree name, enum tree_code code)
 }
 
 /* Try to expand the conditional expression which is represented by
-   TREEOP0 ? TREEOP1 : TREEOP2 as treeop1 & -(treeop0) if treeop2 is 0 or treeop2 & -(!treeop0).
-   If succeseds return the rtl reg which represents the result.  Otherwise return
-   NULL_RTL.  */
+   TREEOP0 ? TREEOP1 : TREEOP2 as
+   treeop1 & -(treeop0) if treeop2 is 0 or treeop2 & -(!treeop0).
+   If success, return the rtl reg which represents the result.  Otherwise
+   return NULL_RTL.  */
 
 static rtx
 expand_cond_expr_using_mask (tree treeop0, tree treeop1, tree treeop2)
@@ -8124,11 +8125,11 @@ expand_cond_expr_using_mask (tree treeop0, tree treeop1, tree treeop2)
   return expand_binop (mode, and_optab, op0, opN, target, 0,
 		       OPTAB_LIB_WIDEN);
 
-  
+
 }
 
 /* Try to expand the conditional expression which is represented by
-   TREEOP0 ? TREEOP1 : TREEOP2 using conditonal adds.  If succeseds
+   TREEOP0 ? TREEOP1 : TREEOP2 using conditonal adds.  If success,
    return the rtl reg which represents the result.  Otherwise return
    NULL_RTL.  */
 
@@ -8152,7 +8153,7 @@ expand_cond_expr_using_addcc (tree treeop0, tree treeop1, tree treeop2)
 
   /* Handle 0/1 specially because boolean types and precision of one types,
      will cause the diff to always be 1.  Note this really should have
-     simplified before reaching here.  */
+     been simplified before reaching here.  */
   /* A ? 1 : 0 is just (type)(A!=0). */
   if (integer_zerop (treeop2) && integer_onep (treeop1))
     {
@@ -8177,7 +8178,8 @@ expand_cond_expr_using_addcc (tree treeop0, tree treeop1, tree treeop2)
     diff = int_const_binop (MINUS_EXPR, treeop1, treeop2);
   /* A ? b : b+c can be expanded as b + (!A)*(c) */
   else if (TREE_CODE (treeop2) == SSA_NAME
-	   && (srcstmt = get_def_noter_for_expr_with_code (treeop2, PLUS_EXPR)))
+	   && (srcstmt =
+                 get_def_noter_for_expr_with_code (treeop2, PLUS_EXPR)))
     {
       tree newop0;
       if (gimple_assign_rhs1 (srcstmt) == treeop1)
@@ -8200,7 +8202,8 @@ expand_cond_expr_using_addcc (tree treeop0, tree treeop1, tree treeop2)
     }
   /* A ? b + c : b can be expanded as b + (!A)*(c) */
   else if (TREE_CODE (treeop1) == SSA_NAME
-	   && (srcstmt = get_def_noter_for_expr_with_code (treeop1, PLUS_EXPR)))
+	   && (srcstmt =
+                 get_def_noter_for_expr_with_code (treeop1, PLUS_EXPR)))
     {
       if (gimple_assign_rhs1 (srcstmt) == treeop2)
         diff = gimple_assign_rhs2 (srcstmt);
@@ -8247,7 +8250,7 @@ expand_cond_expr_using_addcc (tree treeop0, tree treeop1, tree treeop2)
       enum insn_code icode;
       icode = optab_handler (cstore_optab, comparison_mode);
       if (icode == CODE_FOR_nothing)
-	return NULL_RTX; 
+	return NULL_RTX;
 
       if (integer_onep (diff))
 	add = true;
@@ -8255,7 +8258,7 @@ expand_cond_expr_using_addcc (tree treeop0, tree treeop1, tree treeop2)
 				  &comparison_mode, &comparison_code);
       tmp = emit_cstore (target, icode, NE, CCmode, CCmode,
 			     0, tmp, const0_rtx, 1, word_mode);
-      
+
       return expand_normal (tmp);
     }
 #endif
