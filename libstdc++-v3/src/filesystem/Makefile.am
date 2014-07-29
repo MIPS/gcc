@@ -42,7 +42,7 @@ libstdc__fs_la_SOURCES = $(sources)
 # as the occasion call for it.
 AM_CXXFLAGS = \
 	$(glibcxx_lt_pic_flag) $(glibcxx_compiler_shared_flag) \
-	-std=gnu++14 $(XTEMPLATE_FLAGS) \
+	-std=gnu++14 \
 	$(WARN_CXXFLAGS) $(OPTIMIZE_CXXFLAGS)  $(CONFIG_CXXFLAGS)
 
 AM_MAKEFLAGS = \
