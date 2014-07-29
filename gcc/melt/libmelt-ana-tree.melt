@@ -197,6 +197,24 @@
   }#
 )
 
+(defcmatcher tree_function_decl_named_of_type 
+  (:tree tr) 				;matched
+  ;; output 
+  (:cstring funame
+   :tree trtype
+   )
+  treefunam				;state symbol
+  :doc #{$TREE_FUNCTION_DECL_NAMED_OF_TYPE match a function declaration extracting its name $FUNAME and type tree decl $TRTYPE}#
+  ;; test expansion
+  #{ /*  tree_function_decl_named_of_type $TREEFUNAM ? */ (($TR) && TREE_CODE($TR) == FUNCTION_DECL) }#
+  ;; fill expansion
+  #{/*  tree_function_decl_named_of_type $TREEFUNAM ! */ 
+   $FUNAME = NULL;
+   if (DECL_NAME($tr))
+     $FUNAME = IDENTIFIER_POINTER(DECL_NAME($TR)); 
+   $TRTYPE = TREE_TYPE($TR); 
+  }#
+)
 ;; match a function decl of a given name
 (defcmatcher tree_function_decl_of_name 
   (:tree tr :cstring fname) 				;matched
@@ -211,8 +229,33 @@
      && !strcmp($fname, IDENTIFIER_POINTER(DECL_NAME($TR)))) }#
   ;; fill expansion
   #{ /* tree_function_decl_of_name  $TREEFUNOFNAM ! */
-   $TFUNNAME = DECL_NAME($TR);
-   $TTRRESULT = DECL_RESULT($TR); 
+   $TFUNNAME = DECL_NAME ($TR);
+   $TTRRESULT = DECL_RESULT ($TR); 
+  }#
+)
+
+
+;; match a function decl of a given name
+(defcmatcher tree_function_decl_of_type_and_result 
+  (:tree tr :cstring fname) 				;matched
+  ;; output 
+  (:tree tfunname
+   :tree tftype
+   :tree ttrresult
+   )
+  treefunoftypres				;state symbol
+  :doc #{$TREE_FUNCTION_DECL_OF_TYPE_AND_RESULT match a function
+  declaration tree $TR for function named $FNAME extracting the tree
+  name $TFUNAME, tree type $TFTYPE, and result tree $TTRRESULT}#
+  ;; test expansion
+  #{ /* tree_function_decl_of_type_and_result $TREEFUNOFTYPRES ?*/ (($TR) 
+     && TREE_CODE($TR) == FUNCTION_DECL && DECL_NAME($TR) 
+     && !strcmp($FNAME, IDENTIFIER_POINTER(DECL_NAME($TR)))) }#
+  ;; fill expansion
+  #{ /* tree_function_decl_of_type_and_result $TREEFUNOFTYPRES ! */
+   $TFUNNAME = DECL_NAME ($TR);
+   $TFTYPE = TREE_TYPE ($TR); 
+   $TTRRESULT = DECL_RESULT ($TR); 
   }#
 )
 
@@ -2010,8 +2053,10 @@ melt_pragma_process_callback(struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_fixed_point_type
  tree_float_type_node 
  tree_function_decl 
+ tree_function_decl_named_of_type
  tree_function_decl_named
  tree_function_decl_of_name
+ tree_function_decl_of_type_and_result
  tree_function_type
  tree_identifier
  tree_indirect_reference

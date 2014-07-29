@@ -2371,7 +2371,7 @@ exit, in last place.}#
 (defun add_pragma_handler (ph)
   :doc #{Internal utility to add a pragma handler $PH which should be
   a $CLASS_GCC_PRAGMA. See also $REGISTER_EXPANDED_PRAGMA and
-  $REGISTER_PLAIN_PRAGMA from @file{xtramelt-ana-tree.melt}.}#
+  $REGISTER_PLAIN_PRAGMA from @file{libmelt-ana-tree.melt}.}#
   (debug "add_pragma_handler start ph=" ph
 	 " pragma_handler_tuple=" pragma_handler_tuple)
   (assert_msg "check ph" (is_a ph class_gcc_pragma))

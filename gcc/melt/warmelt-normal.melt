@@ -4771,16 +4771,16 @@ source location.}#
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;; normalize the compile_warning
-(defun normexp_compilewarning  (recv env ncx psloc)
+(defun normexp_compile_warning  (recv env ncx psloc)
   (debug "normexp_compile_warning recv=" recv)
-  (assert_msg "check compilewarn recv" (is_a recv class_source_compilewarning) recv)
+  (assert_msg "check compilewarn recv" (is_a recv class_source_compile_warning) recv)
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
-  (let ((sloc   (unsafe_get_field :loca_location recv)) 
-	(swmsg (unsafe_get_field :scwarn_msg recv))
-	(swexp (unsafe_get_field :scwarn_expr recv))
+  (let ((sloc  (unsafe_get_field :loca_location recv)) 
+	(swmsg (unsafe_get_field :scdiag_msg recv))
+	(swexp (unsafe_get_field :scdiag_expr recv))
 	)
-    (warning_strv sloc "COMPILE_WARNING:" swmsg)
+    (warning_at sloc "COMPILE_WARNING: $1" swmsg)
     (multicall 
      (nexp nbind)
      (normal_exp swexp env ncx sloc)
@@ -4788,9 +4788,33 @@ source location.}#
      (return nexp nbind)
      )))
 
-(Install_method class_source_compilewarning normal_exp normexp_compilewarning)
-(install_method class_source_compilewarning get_ctype 
-		(lambda (recv env) (get_ctype (unsafe_get_field :scwarn_expr recv) env)))
+(install_method class_source_compile_warning normal_exp normexp_compile_warning)
+(install_method class_source_compile_warning get_ctype 
+		(lambda (recv env) (get_ctype (get_field :scdiag_expr recv) env)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;; normalize the compile_error
+(defun normexp_compile_error  (recv env ncx psloc)
+  (debug "normexp_compile_error recv=" recv)
+  (assert_msg "check compileerror recv" (is_a recv class_source_compile_error) recv)
+  (assert_msg "check env" (is_a env class_environment) env)
+  (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
+  (let ((sloc  (unsafe_get_field :loca_location recv)) 
+	(swmsg (unsafe_get_field :scdiag_msg recv))
+	(swexp (unsafe_get_field :scdiag_expr recv))
+	)
+    (error_at sloc "COMPILE_ERROR: $1" swmsg)
+    (multicall 
+     (nexp nbind)
+     (normal_exp swexp env ncx sloc)
+     (debug "normexp_compile_error nesult nexp=" nexp " nbind=" nbind)
+     (return nexp nbind)
+     )))
+
+(install_method class_source_compile_error normal_exp normexp_compile_error)
+(install_method class_source_compile_error get_ctype 
+		(lambda (recv env) (get_ctype (get_field :scdiag_expr recv) env)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;; replace in a tupe of normalized stuff the last with a return 
 ;;;;;; for normalization of defun-s or lambda-s

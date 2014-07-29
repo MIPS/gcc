@@ -1,4 +1,29 @@
 
+2014-07-29  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.1
+
+	* melt/melt-macro.melt (class_source_compile_diagnostic): New
+	class with scdiag_msg & scdiag_expr fields.
+	(class_source_compilewarning): Rename as...
+	(class_source_compile_warning, class_source_compile_errors): New
+	subclass of class_source_compile_diagnostic
+	(mexpand_compile_warning): Use error_at.
+	(mexpand_compile_error): New expander for ...
+	(compile_error): New language macro.
+
+	* melt/melt-normal.melt (normexp_compilewarning): Renamed as...
+	(normexp_compile_warning): Use scdiag_msg & scdiag_expr.
+	(normexp_compile_error): New method for normal_exp on
+	class_source_compile_error
+
+	* melt/warmelt-hooks.melt (add_pragma_handler): Mention
+	@file{libmelt-ana-tree.melt} not @file{xtramelt-ana-tree.melt} in
+	documentation.
+
+	* melt/libmelt-ana-tree.melt (tree_function_decl_named_of_type)
+	(tree_function_decl_of_type_and_result): New cmatchers.
+
 2014-07-27  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.1

@@ -1201,12 +1201,26 @@ $EXIT loops. The field $SEXI_BODY is the body sequence.}#
   :fields ( sexi_body			;tuple for body
 	    ))
 
-(compile_warning "should document below.")
-;; compile time warning
-(defclass class_source_compilewarning
+;; compile time diagnostics
+(defclass class_source_compile_diagnostic
+  :doc #{The interal abstract $CLASS_SOURCE_COMPILER_DIAGNOSTIC is for
+  compile time diagnostic message.}#
   :super class_source
+  :fields (scdiag_msg
+	   scdiag_expr))
+
+;; compile time warning
+(defclass class_source_compile_warning
+  :doc #{The interal abstract $CLASS_SOURCE_COMPILER_WARNING is for
+  compile time diagnostic message.}#
+  :super class_source_compile_diagnostic
   :fields (scwarn_msg
 	   scwarn_expr))
+(export_synonym class_source_compilewarning class_source_compile_warning)
+;; compile time error
+(defclass class_source_compile_error
+  :super class_source_compile_diagnostic
+  :fields ())
 
 ;; the fresh current module environment box, returning the newly build
 ;; module environment result of the generated initial routine
@@ -7929,7 +7943,7 @@ remain.}#)
 	 )
     (if (not (is_string xmsg))
 	(progn
-	  (error_plain loc "missing message string in (COMPILE_WARNING <msg> <exp>)"_)
+	  (error_at loc "missing message string in (COMPILE_WARNING <msg> <exp>)"_)
 	  (return ())))
     (setq curpair (pair_tail curpair))
     (let ( (sexp (pair_head curpair))
@@ -7937,9 +7951,11 @@ remain.}#)
 	   )
       (setq curpair (pair_tail curpair))
       (if (notnull curpair)
-	  (error_plain loc "too many arguments in (COMPILE_WARNING <msg> [<exp>])"_))
-      (let ( (res (instance  class_source_compilewarning
+	  (error_at loc "too many arguments in (COMPILE_WARNING <msg> [<exp>])"_))
+      (let ( (res (instance  class_source_compile_warning
 			     :loca_location loc
+			     :scdiag_msg xmsg
+			     :scdiag_expr xexp
 			     :scwarn_msg xmsg
 			     :scwarn_expr xexp
 			     ))
@@ -7951,6 +7967,46 @@ remain.}#)
 (export_macro compile_warning mexpand_compile_warning
  :doc #{The $COMPILE_WARNING syntax issues a warning, inspired by GCC
  #warning. Syntax is (COMPILE_WARNING <string> [<expression>]).}#)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; compile time error (compile_error msg expr)
+;; we don't issue the error at expansion phase, but at normalization phase.
+(defun mexpand_compile_error (sexpr env mexpander modctx)
+  (debug "mexpand_compile_error sexpr" sexpr)
+  (assert_msg "check sexpr" (is_a sexpr class_sexpr) sexpr)
+  (assert_msg "check modctx" (is_object modctx) modctx)
+  (if (null mexpander) (setq mexpander macroexpand_1))
+  (let ( (cont (unsafe_get_field :sexp_contents sexpr))
+	 (loc  (unsafe_get_field :loca_location sexpr))
+	 (curpair (pair_tail (list_first cont))) 
+	 (smsg (pair_head curpair))
+	 (xmsg (mexpander smsg env mexpander modctx))
+	 )
+    (if (not (is_string xmsg))
+	(progn
+	  (error_at loc "missing message string in (COMPILE_ERROR <msg> <exp>)"_)
+	  (return ())))
+    (setq curpair (pair_tail curpair))
+    (let ( (sexp (pair_head curpair))
+	   (xexp (mexpander sexp env mexpander modctx))
+	   )
+      (setq curpair (pair_tail curpair))
+      (if (notnull curpair)
+	  (error_at loc "too many arguments in (COMPILE_ERROR <msg> [<exp>])"_))
+      (let ( (res (instance  class_source_compile_error
+			     :loca_location loc
+			     :scdiag_msg xmsg
+			     :scdiag_expr xexp
+			     ))
+	     )
+	(debug "mexpand_compile_error result" res)
+	(return res)
+	))))
+(install_initial_macro 'compile_error mexpand_compile_error)
+(export_macro compile_error mexpand_compile_error
+ :doc #{The $COMPILE_ERROR syntax issues an error, inspired by GCC
+ #error. Syntax is (COMPILE_ERROR <string> [<expression>]). May be
+ useful in macros or with $GCCIF.}#)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; assert_msg macro is expanded into other src..
@@ -8670,7 +8726,9 @@ $CURRENT_MODULE_ENVIRONMENT_REFERENCE. Was previously called incorrectly
  class_source_code_string
  class_source_codechunk
  class_source_comment
- class_source_compilewarning
+ class_source_compile_diagnostic
+ class_source_compile_error
+ class_source_compile_warning
  class_source_constant_box
  class_source_cppif
  class_source_current_module_environment_reference
