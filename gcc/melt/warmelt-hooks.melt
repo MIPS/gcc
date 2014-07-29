@@ -2342,6 +2342,7 @@ exit, in last place.}#
 (defun register_pragma_processor (pfun)
   (debug "register_pragma_processor pfun=" pfun " pragma_processor=" pragma_processor)
   (assert_msg "check no pragma_processor" (null pragma_processor) pragma_processor)
+  (shortbacktrace_dbg "register_pragma_processor" 12)
   (if (is_closure pfun)
       (setq pragma_processor pfun))
   )
@@ -2353,6 +2354,7 @@ exit, in last place.}#
   :doc #{$HOOK_PROCESS_PRAGMA is an internal hook to process a pragma.}#
   (let ( (ph (multiple_nth pragma_handler_tuple lix))
 	 )
+    (shortbacktrace_dbg "hook_process_pragma" 12)
     (debug "hook_process_pragma lix=" lix " ph=" ph)
     (assert_msg "check ph" (is_a ph class_gcc_pragma))
     ((get_field :gccpragma_handler ph) ph)
@@ -2364,6 +2366,7 @@ exit, in last place.}#
   :predef HOOK_REGISTER_PRAGMAS
   (debug "hook_register_pragmas start pragma_processor=" pragma_processor
 	 "pragma_handler_tuple=" pragma_handler_tuple)
+  (shortbacktrace_dbg "hook_register_pragmas" 12)
   (if (is_closure pragma_processor)
       (pragma_processor pragma_handler_tuple))
   )
@@ -2374,6 +2377,7 @@ exit, in last place.}#
   $REGISTER_PLAIN_PRAGMA from @file{libmelt-ana-tree.melt}.}#
   (debug "add_pragma_handler start ph=" ph
 	 " pragma_handler_tuple=" pragma_handler_tuple)
+  (shortbacktrace_dbg "add_pragma_handler" 12)
   (assert_msg "check ph" (is_a ph class_gcc_pragma))
   (if (null pragma_handler_tuple)
       (setq pragma_handler_tuple (make_multiple discr_multiple 16)))  
@@ -2411,6 +2415,8 @@ exit, in last place.}#
 (defun remove_pragma_handler (ph)
   :doc #{Utility to remove a pragma handler $PH which should be a
   $CLASS_GCC_PRAGMA or a boxed integer.}#
+  (debug "remove_pragma_handler ph=" ph)
+  (shortbacktrace_dbg "remove_pragma_handler" 12)
   (if (is_integerbox ph)
       (setq ph (multiple_nth pragma_handler_tuple (get_int ph))))
   (if (is_a ph class_gcc_pragma)
@@ -2956,6 +2962,9 @@ exit, in last place.}#
    ( (not (is_string service))
      (warning_at () "connect_to_server invalid service $1" service)
      (return))
+   ( (>i (string_length service) 100)
+     (warning_at () "connect_to_server too long service $1, more than 100 chars" service)
+     (return))
    ;; unix-like socket with /
    ( (expr_chunk unixsockslash_chk :long
 		 #{/* connect_to_server $UNIXSOCKSLASH_CHK */ strchr (melt_string_str ($SERVICE), '/') != NULL}#)
@@ -3016,7 +3025,7 @@ exit, in last place.}#
 		   const char* servicestr = melt_string_str ($SERVICE);
 		   if ((sscanf(servicestr, "localhost:%d", &locportnum)>0
 		        || sscanf(servicestr, ":%d%n", &locportnum, &pos)>0)
-		       && locportnum>0 && pos>=strlen(servicestr)) {
+		       && locportnum>0 && pos>=(int)strlen(servicestr)) {
 		     struct sockaddr_in sain;
 		     memset (&sain, 0, sizeof (sain));
 		     servicestr = NULL;

@@ -10989,15 +10989,15 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
 
   /* Transform the colon-separated modstr into the vector of strings melt_asked_modes_vector */
   {
-    const char* colon = NULL;
+    const char* colon = NULL, *curmodstr = NULL;
     std::string curmod;
-    for ( ;
-	 modstr != NULL && (colon=strchr(modstr, ':'), *modstr);
-	  modstr = colon?(colon+1):NULL) {
+    for (curmodstr = modstr ;
+	 curmodstr != NULL && (colon=strchr(curmodstr, ':'), *curmodstr);
+	  curmodstr = colon?(colon+1):NULL) {
       if (colon)
-	curmod.assign(modstr, colon-modstr-1);
+	curmod.assign(curmodstr, colon-curmodstr-1);
       else
-	curmod.assign(modstr);
+	curmod.assign(curmodstr);
       melt_asked_modes_vector.push_back (curmod);
       debugeprintf("melt_really_initialize curmod='%s' #%d", curmod.c_str(),
 		   (int)melt_asked_modes_vector.size());
@@ -11140,7 +11140,7 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
       fprintf (stderr, "MELT plugin {%s} initialized for mode %s [%d modules]\n",
                versionstr, modstr, Melt_Module::nb_modules());
 #else
-      fprintf (stderr, "GCC-MELT {%s} initialized for mode %s [%d modules]\n",
+      fprintf (stderr, "MELT branch {%s} initialized for mode %s [%d modules]\n",
                versionstr, modstr, Melt_Module::nb_modules());
 #endif /*MELT_IS_PLUGIN*/
       fflush (stderr);

@@ -1,6 +1,24 @@
 
 2014-07-29  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.cc (melt_really_initialize): Use a curmodstr, dont
+	change modstr.
+
+	* melt/warmelt-hooks.melt (register_pragma_processor)
+	(hook_register_pragmas, remove_pragma_handler): More debug.
+	(connect_to_server): Check the length of the service string.
+
+	* melt/libmelt-ana-tree.melt (melt_register_pragmas_callback): Add
+	counter & debug.
+	(melt_pragma_process_callback): Add debug.
+	(register_expanded_pragma, register_plain_pragma): Check name and
+	correctly extract its namestr.
+	(real_pragma_processor): More debug.
+
+	* testsuite/melt/tpragma-1.melt: Improve command in comment.
+
+2014-07-29  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/melt-macro.melt (class_source_compile_warning): Remove old
 	scwarn_msg & scwarn_expr fields.
 	(mexpand_compile_warning): Likewise.

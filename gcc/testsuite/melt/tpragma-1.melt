@@ -2,18 +2,26 @@
 ;; this sample code is in the public domain
 #| run in buildir/gcc
  ln -s $GCCMELT_SOURCE/gcc/testsuite/melt/tpragma-1.melt
+ ln -s $GCCMELT_SOURCE/gcc/testsuite/melt/tpragmacode-1.c
 
- ./cc1 -fmelt-mode=runfile @meltbuild-common.args -Iinclude/ \
-    -fmelt-init=@warmelt.quicklybuilt -fmelt-arg=tpragma-1.melt \
+ ./cc1 -std=c99 -fmelt-mode=runfile @meltbuild-common.args -Iinclude/ \
+    -fmelt-init=@melt-default-modules.quicklybuilt -fmelt-arg=tpragma-1.melt \
     tpragmacode-1.c
 
 or in a MELT module
 
-gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
+gcc -std=c99 -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
     -fplugin-arg-melt-init=@melt-default-modules.quicklybuilt -fplugin-arg-melt-arg=tpragma-1.melt \
      -c -O tpragmacode-1.c -o /dev/null
 |#
 (module_is_gpl_compatible "public domain")
+(debug "start " "of tpragma-1 ~~**" "~~**" "~~**" "\n\n\n")
 (defun my_pragma_handler_1 (ph)
-       (debug "my_pragma_handler_1 ph=" ph)
+  (debug "my_pragma_handler_1 ph=" ph)
+  (shortbacktrace_dbg "my_pragma_handler_1" 15)
+  (inform_at () "my_pragma_handler_1!")
 )
+(register_expanded_pragma 'testgccmelt 'test1
+			  my_pragma_handler_1
+			  :true)
+(debug "tpragma-1" " class_gcc_expanded_pragma=" class_gcc_expanded_pragma)

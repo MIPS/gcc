@@ -1712,13 +1712,19 @@ c_register_pragma_with_data (const char *space, const char *name,
  melt_register_pragmas_callback (void* gccdata ATTRIBUTE_UNUSED,
 			        void* userdata ATTRIBUTE_UNUSED)
  {
+   static long countregpragma;
+   countregpragma++;
+   debugeprintf ("melt_register_pragmas_callback calling MELT hook_register_pragmas #%ld", 
+		 countregpragma++);
+   gcc_assert (countregpragma > 0);
    melthookproc_HOOK_REGISTER_PRAGMAS ();
    } /* end of melt_register_pragmas_callback */
 
 static void
-melt_pragma_process_callback(struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
+melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
 {
    long ix = (long) data;
+   debugeprintf ("melt_pragma_process_callback ix=%ld calling MELT hook_process_pragma", ix);
    melthookproc_HOOK_PROCESS_PRAGMA(ix);
 }
 
@@ -1857,21 +1863,28 @@ melt_pragma_process_callback(struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
     (error_at () "register_expanded_pragma bad space for name $1"
 	      name)
     (return))
-  (when (is_not_a name class_named)
-    (error_at () "register_expanded_pragma bad name $1"
-	      name)
-    (return))
-  (unless (is_closure fun)
-    (error_at () "register_expanded_pragma fail in space $1 name $2 - non closure fun"
-	      space name)
-    (return))
-  (let ( (ph (instance class_gcc_expanded_pragma
-		       :named_name name
-		       :gccpragma_handler fun
-		       :gccpragma_space space
-		       :gccpragma_data data))
+  (let ( (namestr
+	  (cond 
+	   ((is_string name) name)
+	   ((is_a name class_named) (get_field :named_name name))
+	   (:else
+	    (error_at () "register_expanded_pragma invalid name $1 for space $2" name space)
+	    (return))))
 	 )
-    (add_pragma_handler ph)
+    (unless (is_closure fun)
+      (error_at () "register_expanded_pragma fail in space $1 name $2 - non closure fun"
+		space name)
+      (return))
+    (let ( (ph (instance class_gcc_expanded_pragma
+			 :named_name namestr
+			 :gccpragma_handler fun
+			 :gccpragma_space space
+			 :gccpragma_data data))
+	   )
+      (debug "register_expanded_pragma ph=" ph "; name=" name)
+      (add_pragma_handler ph)
+      (debug "register_expanded_pragma added ph=" ph "; name=" name)
+      )
     )
   )
 
@@ -1890,27 +1903,33 @@ melt_pragma_process_callback(struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
     (error_at () "register_plain_pragma bad space for name $1"
 	      name)
     (return))
-  (when (is_not_a name class_named)
-    (error_at () "register_plain_pragma bad name $1"
-	      name)
-    (return))
-  (unless (is_closure fun)
-    (error_at () "register_plain_pragma fail in space $1 name $2 - non closure fun"
-	      space name)
-    (return))
-  (let ( (ph (instance class_gcc_plain_pragma
-		       :named_name name
-		       :gccpragma_handler fun
-		       :gccpragma_space space
-		       :gccpragma_data data))
+  (let ( (namestr
+	  (cond 
+	   ((is_string name) name)
+	   ((is_a name class_named) (get_field :named_name name))
+	   (:else
+	    (error_at () "register_plain_pragma invalid name $1 for space $2" name space)
+	    (return))))
 	 )
-    (add_pragma_handler ph)
+    (unless (is_closure fun)
+      (error_at () "register_plain_pragma fail in space $1 name $2 - non closure fun"
+		space name)
+      (return))
+    (let ( (ph (instance class_gcc_plain_pragma
+			 :named_name namestr
+			 :gccpragma_handler fun
+			 :gccpragma_space space
+			 :gccpragma_data data))
+	   )
+      (add_pragma_handler ph)
+      )
     )
   )
 
-
 (defun real_pragma_processor (pragmatup)
   (debug "real_pragma_processor start pragmatup=" pragmatup)
+  (shortbacktrace_dbg "real_pragma_processor" 15)
+  (assert_msg "real_pragma_processor check pragmatup" (is_multiple_or_null pragmatup) pragmatup)
   (foreach_in_multiple
    (pragmatup)
    (curpragma :long ix)
@@ -1930,6 +1949,7 @@ melt_pragma_process_callback(struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
 	(code_chunk
 	 plainpragma_chk
 	 #{ /* real_pragma_processor $PLAINPRAGMA_CHK */
+	 debugeprintf ("real_pragma_processor $PLAINPRAGMA_CHK lix=%ld", $LIX);
 	 c_register_pragma_with_data
 	   (melt_string_str ($SPACESTR),
 	    melt_string_str ($NAMESTR),
@@ -1951,6 +1971,7 @@ melt_pragma_process_callback(struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
 	(code_chunk
 	 expandedpragma_chk
 	 #{ /* real_pragma_processor $EXPANDEDPRAGMA_CHK */
+	 debugeprintf ("real_pragma_processor $EXPANDEDPRAGMA_CHK lix=%ld", $LIX);
 	 c_register_pragma_with_expansion_and_data
            (melt_string_str ($SPACESTR),
             melt_string_str ($NAMESTR),
