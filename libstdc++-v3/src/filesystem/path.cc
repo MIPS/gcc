@@ -263,13 +263,13 @@ path::has_relative_path() const
 bool
 path::has_parent_path() const
 {
-  return false; // TODO
+  return _M_cmpts.size() > 1;
 }
 
 bool
 path::has_filename() const
 {
-  return false; // TODO
+  return !empty();
 }
 
 bool
