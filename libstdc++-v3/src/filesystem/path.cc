@@ -31,26 +31,37 @@ constexpr path::value_type path::preferred_separator;
 path&
 path::remove_filename()
 {
-  // TODO find filename cmpt, erase from list,
-  // use string::erase to remove tail of _M_pathname
+  if (_M_type == _Type::_Multi)
+    {
+      if (!_M_cmpts.empty())
+	{
+	  auto cmpt = --_M_cmpts.end();
+	  _M_pathname.erase(cmpt->_M_pos);
+	  _M_cmpts.erase(cmpt);
+	  _M_trim();
+	}
+    }
+  else
+    clear();
   return *this;
 }
 
 path&
-path::replace_filename(const path& __replacement)
+path::replace_filename(const path& replacement)
 {
-  // TODO find filename cmpt, replace in list
-  // use string::assign to replace tail of _M_pathname
-  (void)__replacement;
+  remove_filename();
+  operator/=(replacement);
   return *this;
 }
 
 path&
-path::replace_extension(const path& __replacement)
+path::replace_extension(const path& replacement)
 {
-  // TODO find filename cmpt, use _M_split_filename,
-  // use string::assign to replace tail of _M_pathname
-  (void)__replacement;
+  path fname = _M_split_filename(filename(), _Split::_Stem);
+  if (!replacement.empty() && replacement.native()[0] != '.')
+    fname._M_pathname += '.';
+  // TODO fname += replacement;
+  replace_filename(fname);
   return *this;
 }
 
