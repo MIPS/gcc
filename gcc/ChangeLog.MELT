@@ -1,6 +1,12 @@
 
 2014-07-30  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/libmelt-ana-tree.melt (real_pragma_processor): The space
+	can be nil, even now the caller is setting it by default to
+	:melt... Also, more debugging.
+
+2014-07-30  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.cc (melt_cbreak_at, melt_sparebreakpoint_0_at)
 	(melt_sparebreakpoint_1_at, melt_sparebreakpoint_2_at): Add
 	comment.

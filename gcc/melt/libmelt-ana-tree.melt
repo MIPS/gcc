@@ -1965,22 +1965,29 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
     ( (null curpragma)
       (void))
     ( (is_a curpragma class_gcc_plain_pragma)
+      (debug "real_pragma_processor plain curpragma=" curpragma)
       (let ( (:long lix (get_int curpragma) )
 	     (namestr (get_field :named_name curpragma))
 	     (space (get_field :gccpragma_space curpragma))
-	     (spacestr (get_field :named_name space))
+	     (spacestr (if space (get_field :named_name space)))
 	     )
 	(debug "real_pragma_processor plainpragma lix=" lix 
 	       "; spacestr=" spacestr " namestr=" namestr)
 	(assert_msg "check lix" (==i lix ix) lix ix curpragma)
-	(assert_msg "check spacestr" (>i (string_length spacestr) 0) space curpragma)
+	(assert_msg "check spacestr" (or (null spacestr)
+					 (>i (string_length spacestr) 0))
+		    space curpragma)
 	(assert_msg "check namestr" (>i (string_length namestr) 0) namestr curpragma)
 	(code_chunk plainpragma_chk
 	 #{ /* real_pragma_processor $PLAINPRAGMA_CHK */
 	 debugeprintf ("real_pragma_processor $PLAINPRAGMA_CHK lix=%ld", $LIX);
 	 // we internize the space and name strings
-	 const char*internedspace = melt_intern_cstring (melt_string_str ($SPACESTR));
-	 const char*internedname =  melt_intern_cstring (melt_string_str ($NAMESTR));
+	 const char*internedspace = 
+            ($SPACESTR)?(melt_intern_cstring (melt_string_str ($SPACESTR))):NULL;
+	 const char*internedname = 
+            melt_intern_cstring (melt_string_str ($NAMESTR));
+	 debugeprintf ("real_pragma_processor $PLAINPRAGMA_CHK internedspace=%s internedname=%s", 
+		       internedspace, internedname);
 	 c_register_pragma_with_data
 	    (internedspace, internedname, melt_pragma_process_callback,
 	     (void*) $LIX);
@@ -1990,22 +1997,29 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
 	)
       )
     ( (is_a curpragma class_gcc_expanded_pragma)
+      (debug "real_pragma_processor expanded curpragma=" curpragma)
       (let ( (:long lix (get_int curpragma))
 	     (namestr (get_field :named_name curpragma))
 	     (space (get_field :gccpragma_space curpragma))
-	     (spacestr (get_field :named_name space))
+	     (spacestr (if space (get_field :named_name space)))
 	     )
 	(debug "real_pragma_processor expandedpragma lix=" lix 
 	       "; spacestr=" spacestr " namestr=" namestr)
 	(assert_msg "check lix" (==i lix ix) lix ix curpragma)
-	(assert_msg "check spacestr" (>i (string_length spacestr) 0) space curpragma)
+	(assert_msg "check spacestr" (or (null spacestr)
+					 (>i (string_length spacestr) 0)) 
+		    space curpragma)
 	(assert_msg "check namestr" (>i (string_length namestr) 0) namestr curpragma)
 	(code_chunk expandedpragma_chk
 	 #{ /* real_pragma_processor $EXPANDEDPRAGMA_CHK */
 	 debugeprintf ("real_pragma_processor $EXPANDEDPRAGMA_CHK lix=%ld", $LIX);
 	 // we internize the space and name strings
-	 const char*internedspace = melt_intern_cstring (melt_string_str ($SPACESTR));
-	 const char*internedname =  melt_intern_cstring (melt_string_str ($NAMESTR));
+	 const char*internedspace
+	    = ($SPACESTR)?(melt_intern_cstring (melt_string_str ($SPACESTR))):NULL;
+	 const char*internedname
+            =  melt_intern_cstring (melt_string_str ($NAMESTR));
+	 debugeprintf ("real_pragma_processor $EXPANDEDPRAGMA_CHK internedspace=%s internedname=%s", 
+		       internedspace, internedname);
 	 c_register_pragma_with_expansion_and_data
            (internedspace, internedname,
             melt_pragma_process_callback,
