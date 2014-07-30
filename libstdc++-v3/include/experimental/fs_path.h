@@ -613,15 +613,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   /// An iterator for the components of a path
   class path::iterator
   {
-    const path* 		_M_path;
-    path::_List::const_iterator _M_cur;
-
-    explicit
-    iterator(const path* __path, path::_List::const_iterator __iter)
-    : _M_path(__path), _M_cur(__iter) { }
-
-    friend class path;
-
   public:
     using difference_type	= std::ptrdiff_t;
     using value_type		= path;
@@ -629,7 +620,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     using pointer		= const path*;
     using iterator_category	= std::bidirectional_iterator_tag;
 
-    iterator() : _M_path(nullptr), _M_cur() { }
+    iterator() : _M_path(nullptr), _M_cur(), _M_at_end() { }
 
     iterator(const iterator&) = default;
     iterator& operator=(const iterator&) = default;
@@ -637,17 +628,34 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     reference operator*() const;
     pointer   operator->() const { return std::__addressof(**this); }
 
-    iterator& operator++() { ++_M_cur; return *this; }
+    iterator& operator++();
     iterator  operator++(int) { auto __tmp = *this; ++_M_cur; return __tmp; }
 
-    iterator& operator--() { --_M_cur; return *this; }
+    iterator& operator--();
     iterator  operator--(int) { auto __tmp = *this; --_M_cur; return __tmp; }
 
     friend bool operator==(const iterator& __lhs, const iterator& __rhs)
-    { return __lhs._M_cur == __rhs._M_cur; }
+    { return __lhs.equals(__rhs); }
 
     friend bool operator!=(const iterator& __lhs, const iterator& __rhs)
-    { return __lhs._M_cur != __rhs._M_cur; }
+    { return !__lhs.equals(__rhs); }
+
+  private:
+    friend class path;
+
+    iterator(const path* __path, path::_List::const_iterator __iter)
+    : _M_path(__path), _M_cur(__iter), _M_at_end()
+    { }
+
+    iterator(const path* __path, bool __at_end)
+    : _M_path(__path), _M_cur(), _M_at_end(__at_end)
+    { }
+
+    bool equals(iterator) const;
+
+    const path* 		_M_path;
+    path::_List::const_iterator _M_cur;
+    bool			_M_at_end;  // only used when type != _Multi
   };
 
 
@@ -758,20 +766,76 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   inline path::iterator
   path::begin() const
-  { return iterator(this, _M_cmpts.begin()); }
+  {
+    if (_M_type == _Type::_Multi)
+      return iterator(this, _M_cmpts.begin());
+    return iterator(this, false);
+  }
 
   inline path::iterator
   path::end() const
-  { return iterator(this, _M_cmpts.end()); }
+  {
+    if (_M_type == _Type::_Multi)
+      return iterator(this, _M_cmpts.end());
+    return iterator(this, true);
+  }
+
+  inline path::iterator&
+  path::iterator::operator++()
+  {
+    _GLIBCXX_DEBUG_ASSERT(_M_path != nullptr);
+    if (_M_path->_M_type == _Type::_Multi)
+      {
+	_GLIBCXX_DEBUG_ASSERT(_M_cur != _M_path->_M_cmpts.end());
+	++_M_cur;
+      }
+    else
+      {
+	_GLIBCXX_DEBUG_ASSERT(!_M_at_end);
+	_M_at_end = true;
+      }
+    return *this;
+  }
+
+  inline path::iterator&
+  path::iterator::operator--()
+  {
+    _GLIBCXX_DEBUG_ASSERT(_M_path != nullptr);
+    if (_M_path->_M_type == _Type::_Multi)
+      {
+	_GLIBCXX_DEBUG_ASSERT(_M_cur != _M_path->_M_cmpts.begin());
+	--_M_cur;
+      }
+    else
+      {
+	_GLIBCXX_DEBUG_ASSERT(_M_at_end);
+	_M_at_end = false;
+      }
+    return *this;
+  }
 
   inline path::iterator::reference
   path::iterator::operator*() const
   {
     _GLIBCXX_DEBUG_ASSERT(_M_path != nullptr);
-    _GLIBCXX_DEBUG_ASSERT(_M_cur != _M_path->_M_cmpts.end());
-    if (_M_path->_M_cmpts.empty())
-      return *_M_path;
-    return *_M_cur;
+    if (_M_path->_M_type == _Type::_Multi)
+      {
+	_GLIBCXX_DEBUG_ASSERT(_M_cur != _M_path->_M_cmpts.end());
+	return *_M_cur;
+      }
+    return *_M_path;
+  }
+
+  inline bool
+  path::iterator::equals(iterator __rhs) const
+  {
+    if (_M_path != __rhs._M_path)
+      return false;
+    if (_M_path == nullptr)
+      return true;
+    if (_M_path->_M_type == path::_Type::_Multi)
+      return _M_cur == __rhs._M_cur;
+    return _M_at_end == __rhs._M_at_end;
   }
 
   // @} group filesystem
