@@ -169,7 +169,9 @@ path
 path::relative_path() const
 {
   path __ret;
-  if (!_M_cmpts.empty())
+  if (_M_type == _Type::_Filename)
+    __ret = *this;
+  else if (!_M_cmpts.empty())
     {
       auto __it = _M_cmpts.begin();
       if (__it->_M_type == _Type::_Root_name)
