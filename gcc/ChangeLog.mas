@@ -1,3 +1,7 @@
+2014-07-30  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	* genmatch.c (print_operand): Adjust to use dyn_cast.
+
 2014-07-28  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 
 	* genmatch.c (is-a.h): Include.

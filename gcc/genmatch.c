@@ -448,9 +448,8 @@ struct decision_tree
 DEBUG_FUNCTION void
 print_operand (operand *o, FILE *f = stderr, bool flattened = false)
 {
-  if (is_a<capture *> (o))
+  if (capture *c = dyn_cast<capture *> (o))
     {
-      capture *c = as_a<capture *> (o); 
       fprintf (f, "@%s", c->where);
       if (c->what && flattened == false) 
 	{
@@ -460,15 +459,14 @@ print_operand (operand *o, FILE *f = stderr, bool flattened = false)
 	}
     }
 
-  else if (is_a<predicate *> (o))
-    fprintf (f, "%s", (as_a<predicate *> (o))->ident);
+  else if (predicate *p = dyn_cast<predicate *> (o))
+    fprintf (f, "%s", p->ident);
 
   else if (is_a<c_expr *> (o))
     fprintf (f, "c_expr");
 
-  else if (is_a<expr *> (o))
+  else if (expr *e = dyn_cast<expr *> (o))
     {
-      expr *e = as_a<expr *> (o); 
       fprintf (f, "(%s", e->operation->op->id);
 
       if (flattened == false)
