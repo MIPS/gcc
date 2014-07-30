@@ -295,67 +295,65 @@ path::_M_split_cmpts()
 
 #ifdef _GLIBCXX_FILESYSTEM_IS_WINDOWS
   // identify disk designators like "C:/"
-  auto __is_disk_designator = [](string_type const& __str) {
-      return __str.size() == 2 && __str.back() == L':';
+  auto is_disk_designator = [](string_type const& str) {
+      return str.size() == 2 && str.back() == L':';
   };
   // identify UNCs like "//servername/sharename"
-  auto __is_unc = [](string_type const& __str) {
-      return __str.size() > 1
-        && _S_is_dir_sep(__str[0]) && _S_is_dir_sep(__str[1]);
+  auto is_unc = [](string_type const& str) {
+      return str.size() > 1
+        && _S_is_dir_sep(str[0]) && _S_is_dir_sep(str[1]);
   };
 #else
-  auto __is_disk_designator = [](string_type const&) { return false; };
-  auto __is_unc = [](string_type const&) { return false; };
+  auto is_disk_designator = [](string_type const&) { return false; };
+  auto is_unc = [](string_type const&) { return false; };
 #endif
 
-  string_type __elem;
-  size_t __pos = -1;
+  string_type elem;
+  size_t pos = -1;
 
-  for (value_type& __ch : _M_pathname)
+  for (value_type& ch : _M_pathname)
     {
-      if (_S_is_dir_sep(__ch))
+      if (_S_is_dir_sep(ch))
         {
-          if (!__elem.empty())
+          if (!elem.empty())
             {
               if (_M_cmpts.empty())
                 {
-                  if (__is_unc(_M_pathname))
-                    _M_cmpts.emplace_back(_M_pathname.substr(0, 2) + __elem,
+                  if (is_unc(_M_pathname))
+                    _M_cmpts.emplace_back(_M_pathname.substr(0, 2) + elem,
                                           _Type::_Root_name, 0);
                   else if (_S_is_dir_sep(_M_pathname[0]))
                     {
                       _M_cmpts.emplace_back(_M_pathname.substr(0, 1),
                                             _Type::_Root_dir, 0);
-                      _M_cmpts.emplace_back(std::move(__elem),
-                                            _Type::_Filename, __pos);
+                      _M_cmpts.emplace_back(std::move(elem),
+                                            _Type::_Filename, pos);
                     }
-                  else if (__is_disk_designator(__elem))
-                      _M_cmpts.emplace_back(std::move(__elem),
+                  else if (is_disk_designator(elem))
+                      _M_cmpts.emplace_back(std::move(elem),
                                             _Type::_Root_name, 0);
                   else
-                    _M_cmpts.emplace_back(std::move(__elem),
-                                          _Type::_Filename, __pos);
+                    _M_cmpts.emplace_back(std::move(elem),
+                                          _Type::_Filename, pos);
                 }
               else
-                _M_cmpts.emplace_back(std::move(__elem), _Type::_Filename,
-                                      __pos);
-              __elem.clear();
+                _M_cmpts.emplace_back(std::move(elem), _Type::_Filename, pos);
+              elem.clear();
             }
           else if (_M_cmpts.size() == 0
 	      || (_M_cmpts.size() == 1
 		&& _M_cmpts.front()._M_type == _Type::_Root_name))
             {
-              _M_cmpts.emplace_back(string_type{1, __ch},
-                                    _Type::_Root_dir,
-                                    &__ch - _M_pathname.data());
+              _M_cmpts.emplace_back(string_type(1, ch), _Type::_Root_dir,
+                                    &ch - _M_pathname.data());
             }
           // else adjacent dir separators, ignore
         }
       else
         {
-          if (__elem.empty())
-            __pos = &__ch - _M_pathname.data();
-          __elem += __ch;
+          if (elem.empty())
+            pos = &ch - _M_pathname.data();
+          elem += ch;
         }
     }
 
@@ -364,12 +362,18 @@ path::_M_split_cmpts()
       if (_M_cmpts.empty())
         _M_type = _Type::_Root_dir;
       else if (_M_cmpts.back()._M_type == _Type::_Filename)
-        _M_cmpts.emplace_back(string_type{1, '.'}, _Type::_Filename,
-                              string_type::npos);
+        _M_cmpts.emplace_back(string_type(1, '.'), _Type::_Filename,
+                              _M_pathname.size() - 1);
     }
-  else if (!__elem.empty())
-    _M_cmpts.emplace_back(std::move(__elem), _Type::_Filename, __pos);
+  else if (!elem.empty())
+    _M_cmpts.emplace_back(std::move(elem), _Type::_Filename, pos);
 
+  _M_trim();
+}
+
+void
+path::_M_trim()
+{
   if (_M_cmpts.size() == 1)
     {
       _M_type = _M_cmpts.front()._M_type;

@@ -405,6 +405,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     }
 
     void _M_split_cmpts();
+    void _M_trim();
 
     string_type _M_pathname;
 
