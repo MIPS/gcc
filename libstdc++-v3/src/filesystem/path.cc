@@ -197,19 +197,19 @@ path::parent_path() const
 }
 
 path
-path::_M_split_filename(path __filename, _Split __which) const
+path::_M_split_filename(path filename, _Split which) const
 {
-  auto __pos = string_type::npos;
-  if (__filename._M_pathname.size() < 3
-      && __filename._M_pathname.find_first_not_of('.') == string_type::npos)
-    __pos = __filename._M_pathname.size();
+  auto pos = string_type::npos;
+  if (filename._M_pathname.size() < 3
+      && filename._M_pathname.find_first_not_of('.') == string_type::npos)
+    pos = filename._M_pathname.size();
   else
-    __pos = __filename._M_pathname.find_last_of('.');
-  if (__which == _Split::_Stem)
-    __filename._M_pathname.erase(__pos);
+    pos = filename._M_pathname.find_last_of('.');
+  if (which == _Split::_Stem)
+    filename._M_pathname.erase(pos);
   else
-    __filename._M_pathname.erase(0, __pos);
-  return __filename;
+    filename._M_pathname.erase(0, pos);
+  return filename;
 }
 
 bool
