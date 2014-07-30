@@ -1,3 +1,14 @@
+2014-7-30  Braden Obrzut  <admin@maniacsvault.net>
+	* gcc/cp/parser.c (cp_parser_trailing_requirements): Handle requires
+	keyword manually so that we can push function parameters back into
+	scope.
+	* gcc/cp/decl.c (push_function_parms): New. Recovers and reopens
+	function parameter scope from declarator.
+	* gcc/testsuite/g++.dg/concepts/req*.C: New tests.
+
+2014-07-30  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/testsuite/g++.dg/concepts/test.C: Removed.
+
 2014-07-28  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/cp-tree.h (more_constraints): Remove
 	(subsumes_constraints): Renamed from more_constraints

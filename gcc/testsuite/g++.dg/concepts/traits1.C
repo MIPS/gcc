@@ -79,21 +79,21 @@ void f18() requires Enum<void>();
 
 
 int main() { 
-  f1(); // { dg-error "cannot" }
-  f2(); // { dg-error "cannot" }
-  f3(); // { dg-error "cannot" }
-  f4(); // { dg-error "cannot" }
-  f5(); // { dg-error "cannot" }
-  f6(); // { dg-error "cannot" }
-  f7(); // { dg-error "cannot" }
-  f8(); // { dg-error "cannot" }
-  f9(); // { dg-error "cannot" }
-  f10(); // { dg-error "cannot" }
-  f11(); // { dg-error "cannot" }
-  f12(); // { dg-error "cannot" }
-  f13(); // { dg-error "cannot" }
-  f14(); // { dg-error "cannot" }
-  f15(); // { dg-error "cannot" }
-  f16(); // { dg-error "cannot" }
-  f17(); // { dg-error "cannot" }
+  f1(); // { dg-error "cannot call" }
+  f2(); // { dg-error "cannot call" }
+  f3(); // { dg-error "cannot call" }
+  f4(); // { dg-error "cannot call" }
+  f5(); // { dg-error "cannot call" }
+  f6(); // { dg-error "cannot call" }
+  f7(); // { dg-error "cannot call" }
+  f8(); // { dg-error "cannot call" }
+  f9(); // { dg-error "cannot call" }
+  f10(); // { dg-error "cannot call" }
+  f11(); // { dg-error "cannot call" }
+  f12(); // { dg-error "cannot call" }
+  f13(); // { dg-error "cannot call" }
+  f14(); // { dg-error "cannot call" }
+  f15(); // { dg-error "cannot call" }
+  f16(); // { dg-error "cannot call" }
+  f17(); // { dg-error "cannot call" }
 }

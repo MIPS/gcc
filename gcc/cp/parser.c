@@ -16982,13 +16982,21 @@ struct cp_manage_requirements {
 static tree
 cp_parser_trailing_requirements (cp_parser *parser, cp_declarator *decl) 
 {
-  // A function declaration may have a trailing requires-clause.
   if (function_declarator_p (decl))
-    if (tree reqs = cp_parser_requires_clause_opt (parser))
-      current_template_reqs = save_trailing_requirements (reqs);
+    {
+      if (cp_lexer_next_token_is_keyword (parser->lexer, RID_REQUIRES))
+        {
+          ++cp_unevaluated_operand;
+          push_function_parms (decl);
+          cp_lexer_consume_token (parser->lexer);
+          tree reqs = cp_parser_requires_clause (parser);
+          current_template_reqs = save_trailing_requirements (reqs);
+          finish_scope();
+          --cp_unevaluated_operand;
+        }
+    }
   return current_template_reqs;
 }
-
 
 /* Declarators [gram.dcl.decl] */
 
