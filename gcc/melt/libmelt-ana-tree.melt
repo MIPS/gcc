@@ -1823,8 +1823,11 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
 
 (defun pragma_lex ()
   :doc #{Thin wrapper around @code{pragma_lex} from
-  @code{c-family/c-pragma.h}, to be called from pragma handling. Returns
-  the type, as a symbol, and secondarily the tree.}#
+  @code{c-family/c-pragma.h}, to be called from pragma handling to get
+  some lexemes @b{inside pragmas}. Returns the type, as a symbol, and
+  secondarily the tree. See also $REGISTER_PLAIN_PRAGMA and
+  $REGISTER_EXPANDED_PRAGMA, since you should call this $PRAGMA_LEX
+  only within your functions registered that way.}#
   (let ( (:long trtyperank -1)
 	 (:tree tr (null_tree))
 	 )
@@ -1869,7 +1872,11 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
   @code{c_register_pragma_with_expansion_and_data} in given
   $SPACE (default is :melt) with a given $NAME and closure $FUN and
   $DATA. Return a newly added instance of
-  $CLASS_GCC_EXPANDED_PRAGMA. See also $REGISTER_PLAIN_PRAGMA.}#
+  $CLASS_GCC_EXPANDED_PRAGMA. See also $REGISTER_PLAIN_PRAGMA and use
+  $PRAGMA_LEX to get lexemes inside the pragma from $FUN. Use with parcimony, 
+  some versions of GCC accept only two dozens of plugin pragmas.}#
+  ;; the two dozens is related to the gcc_assert (id < 64) of
+  ;; function c_register_pragma_1 in gcc/c-family/c-pragma.c of GCC4.9
   (debug "register_expanded_pragma start space=" space " name=" name " fun=" fun " data=" data)
   (check_c_frontend 'register_expanded_pragma "start")
   (ensure_cpp_ttype_tuple)
@@ -1908,8 +1915,12 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
   :doc #{Register a plain (unexpanded) pragma using
   @code{c_register_pragma_with_expansion_and_data} in given
   $SPACE (default is :melt) with a given $NAME and closure $FUN and
-  $DATA. Return a newly added instance of
-  $CLASS_GCC_PLAIN_PRAGMA. See also $REGISTER_EXPANDED_PRAGMA.}#
+  $DATA. Return a newly added instance of $CLASS_GCC_PLAIN_PRAGMA. See
+  also $REGISTER_EXPANDED_PRAGMA and use $PRAGMA_LEX to get lexemes
+  inside the pragma from $FUN. Use with parcimony, 
+  some versions of GCC accept only two dozens of plugin pragmas.}#
+  ;; the two dozens is related to the gcc_assert (id < 64) of
+  ;; function c_register_pragma_1 in gcc/c-family/c-pragma.c
   (debug "register_plain_pragma start space=" space " name=" name " fun=" fun " data=" data)
   (check_c_frontend 'register_plain_pragma "start")
   (ensure_cpp_ttype_tuple)
@@ -1962,17 +1973,19 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
 	(debug "real_pragma_processor plainpragma lix=" lix 
 	       "; spacestr=" spacestr " namestr=" namestr)
 	(assert_msg "check lix" (==i lix ix) lix ix curpragma)
-	(assert_msg "check spacestr" (is_string spacestr) space curpragma)
-	(assert_msg "check namestr" (is_string namestr) namestr curpragma)
-	(code_chunk
-	 plainpragma_chk
+	(assert_msg "check spacestr" (>i (string_length spacestr) 0) space curpragma)
+	(assert_msg "check namestr" (>i (string_length namestr) 0) namestr curpragma)
+	(code_chunk plainpragma_chk
 	 #{ /* real_pragma_processor $PLAINPRAGMA_CHK */
 	 debugeprintf ("real_pragma_processor $PLAINPRAGMA_CHK lix=%ld", $LIX);
+	 // we internize the space and name strings
+	 const char*internedspace = melt_intern_cstring (melt_string_str ($SPACESTR));
+	 const char*internedname =  melt_intern_cstring (melt_string_str ($NAMESTR));
 	 c_register_pragma_with_data
-	   (melt_string_str ($SPACESTR),
-	    melt_string_str ($NAMESTR),
-	    melt_pragma_process_callback,
-	    (void*) $LIX);
+	    (internedspace, internedname, melt_pragma_process_callback,
+	     (void*) $LIX);
+	 debugeprintf ("real_pragma_processor $PLAINPRAGMA_CHK registered pragma space %s name %s lix#%ld",
+		      internedspace, internedname, $LIX);
 	 }#)
 	)
       )
@@ -1985,17 +1998,20 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
 	(debug "real_pragma_processor expandedpragma lix=" lix 
 	       "; spacestr=" spacestr " namestr=" namestr)
 	(assert_msg "check lix" (==i lix ix) lix ix curpragma)
-	(assert_msg "check spacestr" (is_string spacestr) space curpragma)
-	(assert_msg "check namestr" (is_string namestr) namestr curpragma)
-	(code_chunk
-	 expandedpragma_chk
+	(assert_msg "check spacestr" (>i (string_length spacestr) 0) space curpragma)
+	(assert_msg "check namestr" (>i (string_length namestr) 0) namestr curpragma)
+	(code_chunk expandedpragma_chk
 	 #{ /* real_pragma_processor $EXPANDEDPRAGMA_CHK */
 	 debugeprintf ("real_pragma_processor $EXPANDEDPRAGMA_CHK lix=%ld", $LIX);
+	 // we internize the space and name strings
+	 const char*internedspace = melt_intern_cstring (melt_string_str ($SPACESTR));
+	 const char*internedname =  melt_intern_cstring (melt_string_str ($NAMESTR));
 	 c_register_pragma_with_expansion_and_data
-           (melt_string_str ($SPACESTR),
-            melt_string_str ($NAMESTR),
+           (internedspace, internedname,
             melt_pragma_process_callback,
             (void*) $LIX) ;
+	 debugeprintf ("real_pragma_processor $EXPANDEDPRAGMA_CHK registered pragma space %s name %s lix#%ld",
+		       internedspace, internedname, $LIX);
 	 }#)
 	)
       )

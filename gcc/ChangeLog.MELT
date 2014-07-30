@@ -1,4 +1,23 @@
 
+2014-07-30  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.cc (melt_cbreak_at, melt_sparebreakpoint_0_at)
+	(melt_sparebreakpoint_1_at, melt_sparebreakpoint_2_at): Add
+	comment.
+
+	* melt/warmelt-hooks.melt (register_pragma_processor)
+	(hook_process_pragma, hook_register_pragmas): More debug.
+
+	* melt/libmelt-ana-tree.melt (pragma_lex): Improve documentation.
+	(register_plain_pragma, register_expanded_pragma): Likewise.  Use
+	interned strings as arguments to c_register_pragma_with_data &
+	c_register_pragma_with_expansion_and_data.
+
+	* testsuite/melt/tpragma-1.melt: Should compile with -Wall, and
+	adding a chunk for melt_cbreak.
+
+	* testsuite/melt/tpragmacode-1.c: Use twice the pragma.
+
 2014-07-29  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* testsuite/melt/tpragmacode-1.c: Add a zerofun function.

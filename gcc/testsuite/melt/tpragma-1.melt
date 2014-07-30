@@ -6,13 +6,13 @@
 
  ./cc1 -std=c99 -fmelt-mode=runfile @meltbuild-common.args -Iinclude/ \
     -fmelt-init=@melt-default-modules.quicklybuilt -fmelt-arg=tpragma-1.melt \
-    tpragmacode-1.c
+    -Wall tpragmacode-1.c
 
 or in a MELT module
 
 gcc -std=c99 -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
     -fplugin-arg-melt-init=@melt-default-modules.quicklybuilt -fplugin-arg-melt-arg=tpragma-1.melt \
-     -c -O tpragmacode-1.c -o /dev/null
+     -Wall -c -O tpragmacode-1.c -o /dev/null
 |#
 (module_is_gpl_compatible "public domain")
 (debug "start " "of tpragma-1 ~~**" "~~**" "~~**" "\n\n\n")
@@ -25,3 +25,6 @@ gcc -std=c99 -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args
 			  my_pragma_handler_1
 			  :true)
 (debug "tpragma-1" " class_gcc_expanded_pragma=" class_gcc_expanded_pragma)
+(code_chunk tpragma1break_chk
+   #{ /* $TPRAGMA1BREAK_CHK */ melt_cbreak("ending tpragma1"); 
+}#)

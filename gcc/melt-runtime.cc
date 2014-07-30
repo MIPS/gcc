@@ -1283,7 +1283,7 @@ melt_caught_assign_at (void *ptr, const char *fil, int lin,
                 msg);
 }
 
-static long nbcbreak;
+static unsigned long nbcbreak;
 
 void
 melt_cbreak_at (const char *msg, const char *fil, int lin)
@@ -1291,6 +1291,7 @@ melt_cbreak_at (const char *msg, const char *fil, int lin)
   nbcbreak++;
   debugeprintf_raw ("%s:%d: CBREAK#%ld %s\n", melt_basename (fil), lin, nbcbreak,
                     msg);
+  gcc_assert (nbcbreak>0);  // useless, but you can put a GDB breakpoint here
 }
 
 #endif /*ENABLE_CHECKING*/
@@ -13349,7 +13350,7 @@ melt_sparebreakpoint_0_at (const char*fil, int lin, void*ptr, const char*msg)
             melt_basename (fil), lin, msg);
   melt_dbgshortbacktrace(msgbuf, 20);
   debugeprintf ("melt_sparebreakpoint_0_at msg %s", msg);
-  gcc_assert (fil != NULL);
+  gcc_assert (fil != NULL); // useless, but can put a GDB breakpoint here
 }
 
 void
@@ -13362,7 +13363,7 @@ melt_sparebreakpoint_1_at (const char*fil, int lin, void*ptr, const char*msg)
             melt_basename (fil), lin, msg);
   melt_dbgshortbacktrace(msgbuf, 20);
   debugeprintf ("melt_sparebreakpoint_1_at msg %s", msg);
-  gcc_assert (fil != NULL);
+  gcc_assert (fil != NULL); // useless, but can put a GDB breakpoint here
 }
 
 void
@@ -13375,7 +13376,7 @@ melt_sparebreakpoint_2_at (const char*fil, int lin, void*ptr, const char*msg)
             melt_basename (fil), lin, msg);
   melt_dbgshortbacktrace(msgbuf, 20);
   debugeprintf ("melt_sparebreakpoint_2_at msg %s", msg);
-  gcc_assert (fil != NULL);
+  gcc_assert (fil != NULL); // useless, but can put a GDB breakpoint here
 }
 
 /* To be called from the gdb debugger only */
