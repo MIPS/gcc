@@ -144,6 +144,8 @@ begin
 
       Prag : Node_Id;
 
+      Temp_File : Boolean;
+
    begin
       --  We always analyze config files with style checks off, since
       --  we don't want a miscellaneous gnat.adc that is around to
@@ -164,9 +166,23 @@ begin
          Name_Len := 8;
          Source_gnat_adc := Load_Config_File (Name_Enter);
 
+         --  Case of gnat.adc file present
+
          if Source_gnat_adc /= No_Source_File then
+
+            --  Parse the gnat.adc file for configuration pragmas
+
             Initialize_Scanner (No_Unit, Source_gnat_adc);
             Config_Pragmas := Par (Configuration_Pragmas => True);
+
+            --  We unconditionally add a compilation dependency for gnat.adc
+            --  so that if it changes, we force a recompilation. This is a
+            --  fairly recent (2014-03-28) change.
+
+            Prepcomp.Add_Dependency (Source_gnat_adc);
+
+         --  Case of no gnat.adc file present
+
          else
             Config_Pragmas := Empty_List;
          end if;
@@ -193,16 +209,42 @@ begin
       --  Now deal with specified config pragmas files if there are any
 
       if Opt.Config_File_Names /= null then
+
+         --  Loop through config pragmas files
+
          for Index in Opt.Config_File_Names'Range loop
+
+            --  See if extension is .TMP/.tmp indicating a temporary config
+            --  file (which we ignore from the dependency point of view).
+
             Name_Len := Config_File_Names (Index)'Length;
             Name_Buffer (1 .. Name_Len) := Config_File_Names (Index).all;
+            Temp_File :=
+              Name_Len > 4
+                and then
+                  (Name_Buffer (Name_Len - 3 .. Name_Len) = ".TMP"
+                     or else
+                   Name_Buffer (Name_Len - 3 .. Name_Len) = ".tmp");
+
+            --  Load the file, error if we did not find it
+
             Source_Config_File := Load_Config_File (Name_Enter);
 
             if Source_Config_File = No_Source_File then
                Osint.Fail
                  ("cannot find configuration pragmas file "
                   & Config_File_Names (Index).all);
+
+            --  If we did find the file, and it is not a temporary file, then
+            --  we unconditionally add a compilation dependency for it so
+            --  that if it changes, we force a recompilation. This is a
+            --  fairly recent (2014-03-28) change.
+
+            elsif not Temp_File then
+               Prepcomp.Add_Dependency (Source_Config_File);
             end if;
+
+            --  Parse the config pragmas file, and accumulate results
 
             Initialize_Scanner (No_Unit, Source_Config_File);
             Append_List_To
@@ -234,6 +276,20 @@ begin
 
       Opt.Suppress_Options := Scope_Suppress;
    end;
+
+   --  If a target dependency info file has been read through switch -gnateT=,
+   --  add it to the dependencies.
+
+   if Target_Dependent_Info_Read_Name /= null then
+      declare
+         Index : Source_File_Index;
+      begin
+         Name_Len := 0;
+         Add_Str_To_Name_Buffer (Target_Dependent_Info_Read_Name.all);
+         Index := Load_Config_File (Name_Enter);
+         Prepcomp.Add_Dependency (Index);
+      end;
+   end if;
 
    --  This is where we can capture the value of the compilation unit specific
    --  restrictions that have been set by the config pragma files (or from

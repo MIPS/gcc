@@ -250,14 +250,6 @@ package Sem_Util is
       Related_Nod : Node_Id);
    --  Check wrong use of dynamically tagged expression
 
-   procedure Check_Expression_Against_Static_Predicate
-     (Expr : Node_Id;
-      Typ  : Entity_Id);
-   --  Determine whether an arbitrary expression satisfies the static predicate
-   --  of a type. The routine does nothing if Expr is not known at compile time
-   --  or Typ lacks a static predicate, otherwise it may emit a warning if the
-   --  expression is prohibited by the predicate.
-
    procedure Check_Fully_Declared (T : Entity_Id; N : Node_Id);
    --  Verify that the full declaration of type T has been seen. If not, place
    --  error message on node N. Used in object declarations, type conversions
@@ -452,6 +444,11 @@ package Sem_Util is
    --  specification. If the declaration has a defining unit name, then the
    --  defining entity is obtained from the defining unit name ignoring any
    --  child unit prefixes.
+   --
+   --  Iterator loops also have a defining entity, which holds the list of
+   --  local entities declared during loop expansion. These entities need
+   --  debugging information, generated through QUalify_Entity_Names, and
+   --  the loop declaration must be placed in the table Name_Qualify_Units.
 
    function Denotes_Discriminant
      (N                : Node_Id;
@@ -887,6 +884,9 @@ package Sem_Util is
    --  as an access type internally, this function tests only for access types
    --  known to the programmer. See also Has_Tagged_Component.
 
+      function Has_Defaulted_Discriminants (Typ : Entity_Id) return Boolean;
+      --  Simple predicate to test for defaulted discriminants
+
    type Alignment_Result is (Known_Compatible, Unknown, Known_Incompatible);
    --  Result of Has_Compatible_Alignment test, description found below. Note
    --  that the values are arranged in increasing order of problematicness.
@@ -1202,16 +1202,6 @@ package Sem_Util is
    function Is_Iterator (Typ : Entity_Id) return Boolean;
    --  AI05-0139-2: Check whether Typ is one of the predefined interfaces in
    --  Ada.Iterator_Interfaces, or it is derived from one.
-
-   function Is_Junk_Name (N : Name_Id) return Boolean;
-   --  Returns True if the given name contains any of the following substrings
-   --    discard
-   --    dummy
-   --    ignore
-   --    junk
-   --    unused
-   --  Used to suppress warnings on names matching these patterns. The contents
-   --  of Name_Buffer and Name_Len are desteoyed by this call.
 
    type Is_LHS_Result is (Yes, No, Unknown);
    function Is_LHS (N : Node_Id) return Is_LHS_Result;
@@ -1582,11 +1572,6 @@ package Sem_Util is
    --  Note that the result produced is always an expression, not a parameter
    --  association node, even if named notation was used.
 
-   function No_Scalar_Parts (T : Entity_Id) return Boolean;
-   --  Tests if type T can be determined at compile time to have no scalar
-   --  parts in the sense of the Valid_Scalars attribute. Returns True if
-   --  this is the case, meaning that the result of Valid_Scalars is True.
-
    procedure Normalize_Actuals
      (N       : Node_Id;
       S       : Entity_Id;
@@ -1628,6 +1613,12 @@ package Sem_Util is
    --  the presence of 'Class, which results in one of the special names
    --  Name_uPre, Name_uPost, Name_uInvariant, or Name_uType_Invariant being
    --  returned to represent the corresponding aspects with x'Class names.
+
+   function Predicate_Tests_On_Arguments (Subp : Entity_Id) return Boolean;
+   --  Subp is the entity for a subprogram call. This function returns True if
+   --  predicate tests are required for the arguments in this call (this is the
+   --  normal case). It returns False for special cases where these predicate
+   --  tests should be skipped (see body for details).
 
    function Primitive_Names_Match (E1, E2 : Entity_Id) return Boolean;
    --  Returns True if the names of both entities correspond with matching
@@ -1767,6 +1758,12 @@ package Sem_Util is
    --  Save the current SPARK_Mode in effect in Mode. Establish the SPARK_Mode
    --  (if any) of a package or a subprogram denoted by Context. This routine
    --  must be used in tandem with Restore_SPARK_Mode.
+
+   function Scalar_Part_Present (T : Entity_Id) return Boolean;
+   --  Tests if type T can be determined at compile time to have at least one
+   --  scalar part in the sense of the Valid_Scalars attribute. Returns True if
+   --  this is the case, and False if no scalar parts are present (meaning that
+   --  the result of Valid_Scalars applied to T is always vacuously True).
 
    function Scope_Within_Or_Same (Scope1, Scope2 : Entity_Id) return Boolean;
    --  Determines if the entity Scope1 is the same as Scope2, or if it is

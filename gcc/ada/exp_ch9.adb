@@ -4755,7 +4755,8 @@ package body Exp_Ch9 is
                   --  case of limited type. We cannot assign it unless the
                   --  Assignment_OK flag is set first. An out formal of an
                   --  access type must also be initialized from the actual,
-                  --  as stated in RM 6.4.1 (13).
+                  --  as stated in RM 6.4.1 (13), but no constraint is applied
+                  --  before the call.
 
                   if Ekind (Formal) /= E_Out_Parameter
                     or else Is_Access_Type (Etype (Formal))
@@ -4767,6 +4768,13 @@ package body Exp_Ch9 is
                        Make_Assignment_Statement (Loc,
                          Name => N_Var,
                          Expression => Relocate_Node (Actual)));
+
+                     --  If actual is an out parameter of a null-excluding
+                     --  access type, there is access check on entry, so set
+                     --  Suppress_Assignment_Checks on the generated statement
+                     --  that assigns the actual to the parameter block
+
+                     Set_Suppress_Assignment_Checks (Last (Stats));
                   end if;
 
                   Append (N_Node, Decls);
@@ -11675,7 +11683,7 @@ package body Exp_Ch9 is
       if Present (Taskdef)
         and then Has_Storage_Size_Pragma (Taskdef)
         and then
-          Is_Static_Expression
+          Is_OK_Static_Expression
             (Expression
                (First (Pragma_Argument_Associations
                          (Get_Rep_Pragma (TaskId, Name_Storage_Size)))))

@@ -440,6 +440,9 @@ package body Exp_Prag is
 
                --  Generate a temporary to capture the value of the prefix:
                --    Temp : <Pref type>;
+               --  Place that temporary at the beginning of declarations, to
+               --  prevent anomalies in the GNATprove flow-analysis pass in
+               --  the precondition procedure that follows.
 
                Decl :=
                  Make_Object_Declaration (Loc,
@@ -448,7 +451,7 @@ package body Exp_Prag is
                      New_Occurrence_Of (Etype (Pref), Loc));
                Set_No_Initialization (Decl);
 
-               Append_To (Decls, Decl);
+               Prepend_To (Decls, Decl);
 
                --  Evaluate the prefix, generate:
                --    Temp := <Pref>;
@@ -990,8 +993,8 @@ package body Exp_Prag is
 
       --  Case where we generate a direct raise
 
-      if ((Debug_Flag_Dot_G or else
-                              Restriction_Active (No_Exception_Propagation))
+      if ((Debug_Flag_Dot_G
+             or else Restriction_Active (No_Exception_Propagation))
            and then Present (Find_Local_Handler (RTE (RE_Assert_Failure), N)))
         or else (Opt.Exception_Locations_Suppressed and then No (Arg3 (N)))
       then
@@ -1073,12 +1076,10 @@ package body Exp_Prag is
 
          Rewrite (N,
            Make_If_Statement (Loc,
-             Condition =>
-               Make_Op_Not (Loc,
-                 Right_Opnd => Cond),
+             Condition       => Make_Op_Not (Loc, Right_Opnd => Cond),
              Then_Statements => New_List (
                Make_Procedure_Call_Statement (Loc,
-                 Name =>
+                 Name                   =>
                    New_Occurrence_Of (RTE (RE_Raise_Assert_Failure), Loc),
                  Parameter_Associations => New_List (Relocate_Node (Msg))))));
       end if;
@@ -1146,15 +1147,13 @@ package body Exp_Prag is
          Set_All_Upper_Case;
 
          Psect :=
-           Make_String_Literal (Eloc,
-             Strval => String_From_Name_Buffer);
+           Make_String_Literal (Eloc, Strval => String_From_Name_Buffer);
 
       else
          Get_Name_String (Chars (Internal));
          Set_All_Upper_Case;
          Psect :=
-           Make_String_Literal (Iloc,
-             Strval => String_From_Name_Buffer);
+           Make_String_Literal (Iloc, Strval => String_From_Name_Buffer);
       end if;
 
       Ploc := Sloc (Psect);
@@ -1173,7 +1172,6 @@ package body Exp_Prag is
                    Strval => "common_object")),
              Make_Pragma_Argument_Association (Ploc,
                Expression => New_Copy_Tree (Psect)))));
-
    end Expand_Pragma_Common_Object;
 
    ---------------------------------------
@@ -1298,17 +1296,17 @@ package body Exp_Prag is
    -- Expand_Pragma_Import_Export_Exception --
    -------------------------------------------
 
-   --  For a VMS exception fix up the language field with "VMS"
-   --  instead of "Ada" (gigi needs this), create a constant that will be the
-   --  value of the VMS condition code and stuff the Interface_Name field
-   --  with the unexpanded name of the exception (if not already set).
-   --  For a Ada exception, just stuff the Interface_Name field
-   --  with the unexpanded name of the exception (if not already set).
+   --  For a VMS exception fix up the language field with "VMS" instead of
+   --  "Ada" (gigi needs this), create a constant that will be the value of
+   --  the VMS condition code and stuff the Interface_Name field with the
+   --  unexpanded name of the exception (if not already set). For a Ada
+   --  exception, just stuff the Interface_Name field with the unexpanded
+   --  name of the exception (if not already set).
 
    procedure Expand_Pragma_Import_Export_Exception (N : Node_Id) is
    begin
-      --  This pragma is only effective on OpenVMS systems, it was ignored
-      --  on non-VMS systems, and we need to ignore it here as well.
+      --  This pragma is only effective on OpenVMS systems, it was ignored on
+      --  non-VMS systems, and we need to ignore it here as well.
 
       if not OpenVMS_On_Target then
          return;

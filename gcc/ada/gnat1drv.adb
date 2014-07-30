@@ -82,6 +82,7 @@ with Usage;
 with Validsw;  use Validsw;
 
 with System.Assertions;
+with System.OS_Lib;
 
 --------------
 -- Gnat1drv --
@@ -333,6 +334,12 @@ procedure Gnat1drv is
 
          Front_End_Inlining := False;
          Inline_Active      := False;
+
+         --  Issue warnings for failure to inline subprograms, as otherwise
+         --  expected in GNATprove mode for the local subprograms without
+         --  contracts.
+
+         Ineffective_Inline_Warnings := True;
 
          --  Disable front-end optimizations, to keep the tree as close to the
          --  source code as possible, and also to avoid inconsistencies between
@@ -831,6 +838,10 @@ begin
       Sem_Elim.Initialize;
       Sem_Eval.Initialize;
       Sem_Type.Init_Interp_Tables;
+
+      --  Capture compilation date and time
+
+      Opt.Compilation_Time := System.OS_Lib.Current_Time_String;
 
       --  Acquire target parameters from system.ads (source of package System)
 

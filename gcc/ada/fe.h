@@ -55,8 +55,7 @@ extern char Fold_Lower[], Fold_Upper[];
 #define Debug_Flag_NN debug__debug_flag_nn
 extern Boolean Debug_Flag_NN;
 
-/* einfo: We will be setting Esize for types, Component_Bit_Offset for fields,
-   Alignment for types and objects, Component_Size for array types.  */
+/* einfo: */
 
 #define Set_Alignment			einfo__set_alignment
 #define Set_Component_Bit_Offset	einfo__set_component_bit_offset
@@ -201,6 +200,11 @@ extern Boolean No_Exception_Handlers_Set   (void);
 extern void Check_No_Implicit_Heap_Alloc   (Node_Id);
 extern void Check_Elaboration_Code_Allowed (Node_Id);
 extern void Check_Implicit_Dynamic_Code_Allowed (Node_Id);
+
+/* sem_aggr:  */
+#define Is_Others_Aggregate    sem_aggr__is_others_aggregate
+
+extern Boolean Is_Others_Aggregate (Node_Id);
 
 /* sem_aux:  */
 

@@ -666,51 +666,58 @@ package body Clean is
             Canonical_Case_File_Name (Archive_Name);
             Canonical_Case_File_Name (DLL_Name);
 
-            Change_Dir (Lib_Directory);
-            Open (Direc, ".");
+            if Is_Directory (Lib_Directory) then
+               Change_Dir (Lib_Directory);
+               Open (Direc, ".");
 
-            --  For each regular file in the directory, if switch -n has not
-            --  been specified, make it writable and delete the file if it is
-            --  the library file.
+               --  For each regular file in the directory, if switch -n has not
+               --  not been specified, make it writable and delete the file if
+               --  it is the library file.
 
-            loop
-               Read (Direc, Name, Last);
-               exit when Last = 0;
+               loop
+                  Read (Direc, Name, Last);
+                  exit when Last = 0;
 
-               declare
-                  Filename : constant String := Name (1 .. Last);
+                  declare
+                     Filename : constant String := Name (1 .. Last);
 
-               begin
-                  if Is_Regular_File (Filename)
-                    or else Is_Symbolic_Link (Filename)
-                  then
-                     Canonical_Case_File_Name (Name (1 .. Last));
-                     Delete_File := False;
-
-                     if (Project.Library_Kind = Static
-                          and then Name (1 .. Last) =  Archive_Name)
-                       or else
-                         ((Project.Library_Kind = Dynamic
-                             or else
-                           Project.Library_Kind = Relocatable)
-                          and then
-                            (Name (1 .. Last) = DLL_Name
-                               or else
-                             Name (1 .. Last) = Minor.all
-                               or else
-                             Name (1 .. Last) = Major.all))
+                  begin
+                     if Is_Regular_File (Filename)
+                       or else Is_Symbolic_Link (Filename)
                      then
-                        if not Do_Nothing then
-                           Set_Writable (Filename);
+                        Canonical_Case_File_Name (Name (1 .. Last));
+                        Delete_File := False;
+
+                        if (Project.Library_Kind = Static
+                             and then Name (1 .. Last) =  Archive_Name)
+                          or else
+                            ((Project.Library_Kind = Dynamic
+                                or else
+                              Project.Library_Kind = Relocatable)
+                             and then
+                               (Name (1 .. Last) = DLL_Name
+                                  or else
+                                Name (1 .. Last) = Minor.all
+                                  or else
+                                Name (1 .. Last) = Major.all))
+                        then
+                           if not Do_Nothing then
+                              Set_Writable (Filename);
+                           end if;
+
+                           Delete (Lib_Directory, Filename);
                         end if;
-
-                        Delete (Lib_Directory, Filename);
                      end if;
-                  end if;
-               end;
-            end loop;
+                  end;
+               end loop;
 
-            Close (Direc);
+               Close (Direc);
+            end if;
+
+            if not Is_Directory (Lib_ALI_Directory) then
+               --  Nothing more to do, return now
+               return;
+            end if;
 
             Change_Dir (Lib_ALI_Directory);
             Open (Direc, ".");
@@ -733,11 +740,12 @@ package body Clean is
                      if Last > 4 and then Name (Last - 3 .. Last) = ".ali" then
                         declare
                            Unit : Unit_Index;
+
                         begin
                            --  Compare with ALI file names of the project
 
-                           Unit := Units_Htable.Get_First
-                             (Project_Tree.Units_HT);
+                           Unit :=
+                             Units_Htable.Get_First (Project_Tree.Units_HT);
                            while Unit /= No_Unit_Index loop
                               if Unit.File_Names (Impl) /= null
                                 and then Unit.File_Names (Impl).Project /=
@@ -749,9 +757,10 @@ package body Clean is
                                  then
                                     Get_Name_String
                                       (Unit.File_Names (Impl).File);
-                                    Name_Len := Name_Len -
-                                      File_Extension
-                                        (Name (1 .. Name_Len))'Length;
+                                    Name_Len :=
+                                      Name_Len -
+                                        File_Extension
+                                          (Name (1 .. Name_Len))'Length;
                                     if Name_Buffer (1 .. Name_Len) =
                                          Name (1 .. Last - 4)
                                     then
@@ -765,8 +774,7 @@ package body Clean is
                                            (Unit.File_Names (Spec).Project) =
                                                                     Project
                               then
-                                 Get_Name_String
-                                   (Unit.File_Names (Spec).File);
+                                 Get_Name_String (Unit.File_Names (Spec).File);
                                  Name_Len :=
                                    Name_Len -
                                      File_Extension
@@ -860,7 +868,10 @@ package body Clean is
          Processed_Projects.Increment_Last;
          Processed_Projects.Table (Processed_Projects.Last) := Project;
 
-         if Project.Object_Directory /= No_Path_Information then
+         if Project.Object_Directory /= No_Path_Information
+           and then Is_Directory
+                      (Get_Name_String (Project.Object_Directory.Display_Name))
+         then
             declare
                Obj_Dir : constant String :=
                  Get_Name_String (Project.Object_Directory.Display_Name);
@@ -894,8 +905,9 @@ package body Clean is
                              (Unit.File_Names (Impl).Project, Project))
                        or else
                          (Unit.File_Names (Spec) /= null
-                          and then In_Extension_Chain
-                            (Unit.File_Names (Spec).Project, Project))
+                           and then
+                             In_Extension_Chain
+                               (Unit.File_Names (Spec).Project, Project))
                      then
                         if Unit.File_Names (Impl) /= null then
                            File_Name1 := Unit.File_Names (Impl).File;
@@ -932,17 +944,17 @@ package body Clean is
 
                         declare
                            Asm : constant String :=
-                             Assembly_File_Name (Lib_File);
+                                   Assembly_File_Name (Lib_File);
                            ALI : constant String :=
-                             ALI_File_Name      (Lib_File);
+                                   ALI_File_Name      (Lib_File);
                            Obj : constant String :=
-                             Object_File_Name   (Lib_File);
+                                   Object_File_Name   (Lib_File);
                            Adt : constant String :=
-                             Tree_File_Name     (Lib_File);
+                                   Tree_File_Name     (Lib_File);
                            Deb : constant String :=
-                             Debug_File_Name    (File_Name1);
+                                   Debug_File_Name    (File_Name1);
                            Rep : constant String :=
-                             Repinfo_File_Name  (File_Name1);
+                                   Repinfo_File_Name  (File_Name1);
                            Del : Boolean := True;
 
                         begin
@@ -1188,7 +1200,11 @@ package body Clean is
                   end;
                end if;
 
-               if Project.Object_Directory /= No_Path_Information then
+               if Project.Object_Directory /= No_Path_Information
+                 and then
+                   Is_Directory
+                     (Get_Name_String (Project.Object_Directory.Display_Name))
+               then
                   Delete_Binder_Generated_Files
                     (Get_Name_String (Project.Object_Directory.Display_Name),
                      Strip_Suffix (Main_Source_File));
@@ -1798,8 +1814,7 @@ package body Clean is
                            declare
                               Prj : constant String := Arg (3 .. Arg'Last);
                            begin
-                              if Prj'Length > 1 and then
-                                Prj (Prj'First) = '='
+                              if Prj'Length > 1 and then Prj (Prj'First) = '='
                               then
                                  Project_File_Name :=
                                    new String'

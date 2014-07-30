@@ -1013,6 +1013,49 @@ package body Exp_Util is
       end if;
    end Build_Runtime_Call;
 
+   ------------------------
+   -- Build_SS_Mark_Call --
+   ------------------------
+
+   function Build_SS_Mark_Call
+     (Loc  : Source_Ptr;
+      Mark : Entity_Id) return Node_Id
+   is
+   begin
+      --  Generate:
+      --    Mark : constant Mark_Id := SS_Mark;
+
+      return
+        Make_Object_Declaration (Loc,
+          Defining_Identifier => Mark,
+          Constant_Present    => True,
+          Object_Definition   =>
+            New_Occurrence_Of (RTE (RE_Mark_Id), Loc),
+          Expression          =>
+            Make_Function_Call (Loc,
+              Name => New_Occurrence_Of (RTE (RE_SS_Mark), Loc)));
+   end Build_SS_Mark_Call;
+
+   ---------------------------
+   -- Build_SS_Release_Call --
+   ---------------------------
+
+   function Build_SS_Release_Call
+     (Loc  : Source_Ptr;
+      Mark : Entity_Id) return Node_Id
+   is
+   begin
+      --  Generate:
+      --    SS_Release (Mark);
+
+      return
+        Make_Procedure_Call_Statement (Loc,
+          Name                   =>
+            New_Occurrence_Of (RTE (RE_SS_Release), Loc),
+          Parameter_Associations => New_List (
+            New_Occurrence_Of (Mark, Loc)));
+   end Build_SS_Release_Call;
+
    ----------------------------
    -- Build_Task_Array_Image --
    ----------------------------
@@ -1980,7 +2023,7 @@ package body Exp_Util is
             --  if the list is empty, corresponding to a False predicate, then
             --  no choices are inserted.
 
-            P := First (Static_Predicate (Entity (Choice)));
+            P := First (Static_Discrete_Predicate (Entity (Choice)));
             while Present (P) loop
 
                --  If low bound and high bounds are equal, copy simple choice
@@ -3435,9 +3478,8 @@ package body Exp_Util is
                    or else Etype (Assoc_Node) /= Standard_Void_Type)
         and then Nkind (Assoc_Node) /= N_Procedure_Call_Statement
         and then (Nkind (Assoc_Node) /= N_Attribute_Reference
-                   or else
-                     not Is_Procedure_Attribute_Name
-                           (Attribute_Name (Assoc_Node)))
+                   or else not Is_Procedure_Attribute_Name
+                                 (Attribute_Name (Assoc_Node)))
       then
          N := Assoc_Node;
          P := Parent (Assoc_Node);
@@ -4652,8 +4694,7 @@ package body Exp_Util is
                if Nkind (Stmt) = N_Object_Declaration
                  and then Present (Expression (Stmt))
                  and then Nkind (Expression (Stmt)) = N_Reference
-                 and then Nkind (Prefix (Expression (Stmt))) =
-                            N_Function_Call
+                 and then Nkind (Prefix (Expression (Stmt))) = N_Function_Call
                then
                   Call := Prefix (Expression (Stmt));
 
@@ -5043,18 +5084,6 @@ package body Exp_Util is
          return False;
       end if;
 
-      --  Always assume the worst for a nested record component with a
-      --  component clause, which gigi/gcc does not appear to handle well.
-      --  It is not clear why this special test is needed at all ???
-
-      if Nkind (Prefix (N)) = N_Selected_Component
-        and then Nkind (Prefix (Prefix (N))) = N_Selected_Component
-        and then
-          Present (Component_Clause (Entity (Selector_Name (Prefix (N)))))
-      then
-         return True;
-      end if;
-
       --  We only need to worry if the target has strict alignment
 
       if not Target_Strict_Alignment then
@@ -5438,6 +5467,8 @@ package body Exp_Util is
             --  that it is common and reasonable for code to be deleted in
             --  instances for various reasons.
 
+            --  Could we use Is_Statically_Unevaluated here???
+
             if Nkind (Parent (N)) = N_If_Statement then
                declare
                   C : constant Node_Id := Condition (Parent (N));
@@ -5486,6 +5517,7 @@ package body Exp_Util is
 
             declare
                E : Entity_Id := First_Entity (Defining_Entity (N));
+
             begin
                while Present (E) loop
                   if Ekind (E) = E_Operator then
@@ -5501,7 +5533,7 @@ package body Exp_Util is
 
          elsif Nkind (N) = N_If_Statement then
             Kill_Dead_Code (Then_Statements (N));
-            Kill_Dead_Code (Elsif_Parts (N));
+            Kill_Dead_Code (Elsif_Parts     (N));
             Kill_Dead_Code (Else_Statements (N));
 
          elsif Nkind (N) = N_Loop_Statement then
@@ -5534,8 +5566,10 @@ package body Exp_Util is
    procedure Kill_Dead_Code (L : List_Id; Warn : Boolean := False) is
       N : Node_Id;
       W : Boolean;
+
    begin
       W := Warn;
+
       if Is_Non_Empty_List (L) then
          N := First (L);
          while Present (N) loop
@@ -6761,7 +6795,7 @@ package body Exp_Util is
                Analyze (Block);
             end if;
 
-         when others                       =>
+         when others =>
             null;
       end case;
    end Process_Statements_For_Controlled_Objects;
@@ -6773,6 +6807,7 @@ package body Exp_Util is
    function Power_Of_Two (N : Node_Id) return Nat is
       Typ : constant Entity_Id := Etype (N);
       pragma Assert (Is_Integer_Type (Typ));
+
       Siz : constant Nat := UI_To_Int (Esize (Typ));
       Val : Uint;
 
@@ -7441,9 +7476,7 @@ package body Exp_Util is
             elsif Is_Access_Type (Obj_Typ)
               and then Present (Status_Flag_Or_Transient_Decl (Obj_Id))
               and then Nkind (Status_Flag_Or_Transient_Decl (Obj_Id)) =
-                                N_Object_Declaration
-              and then Is_Finalizable_Transient
-                         (Status_Flag_Or_Transient_Decl (Obj_Id), Decl)
+                                                        N_Object_Declaration
             then
                return True;
 
@@ -7464,9 +7497,8 @@ package body Exp_Util is
             --  treated as controlled since they require manual cleanup.
 
             elsif Ekind (Obj_Id) = E_Variable
-              and then
-                (Is_Simple_Protected_Type (Obj_Typ)
-                  or else Has_Simple_Protected_Object (Obj_Typ))
+              and then (Is_Simple_Protected_Type (Obj_Typ)
+                         or else Has_Simple_Protected_Object (Obj_Typ))
             then
                return True;
             end if;
@@ -7529,9 +7561,7 @@ package body Exp_Util is
                   and then not Is_Access_Subprogram_Type (Typ)
                   and then Needs_Finalization
                              (Available_View (Designated_Type (Typ))))
-               or else
-                (Is_Type (Typ)
-                  and then Needs_Finalization (Typ)))
+                or else (Is_Type (Typ) and then Needs_Finalization (Typ)))
               and then Requires_Cleanup_Actions
                          (Actions (Decl), Lib_Level, Nested_Constructs)
             then
@@ -7756,7 +7786,8 @@ package body Exp_Util is
       if Ialign /= No_Uint and then Ialign > Maximum_Alignment then
          return True;
 
-      elsif Ialign /= No_Uint and then Oalign /= No_Uint
+      elsif Ialign /= No_Uint
+        and then Oalign /= No_Uint
         and then Ialign <= Oalign
       then
          return True;
@@ -7920,6 +7951,50 @@ package body Exp_Util is
             --  pick up bogus indications of the wrong constant value.
 
             Set_Current_Value (Ent, Empty);
+
+            --  If the subprogram is in the current declarative part and
+            --  'access has been applied to it, generate an elaboration
+            --  check at the beginning of the declarations of the body.
+
+            if Nkind (N) = N_Subprogram_Body
+              and then Address_Taken (Spec_Id)
+              and then
+                Ekind_In (Scope (Spec_Id), E_Block, E_Procedure, E_Function)
+            then
+               declare
+                  Loc   : constant Source_Ptr := Sloc (N);
+                  Decls : constant List_Id    := Declarations (N);
+                  Chk   : Node_Id;
+
+               begin
+                  --  No need to generate this check if first entry in the
+                  --  declaration list is a raise of Program_Error now.
+
+                  if Present (Decls)
+                    and then Nkind (First (Decls)) = N_Raise_Program_Error
+                  then
+                     return;
+                  end if;
+
+                  --  Otherwise generate the check
+
+                  Chk :=
+                    Make_Raise_Program_Error (Loc,
+                      Condition =>
+                        Make_Op_Eq (Loc,
+                          Left_Opnd  => New_Occurrence_Of (Ent, Loc),
+                          Right_Opnd => Make_Integer_Literal (Loc, Uint_0)),
+                      Reason    => PE_Access_Before_Elaboration);
+
+                  if No (Decls) then
+                     Set_Declarations (N, New_List (Chk));
+                  else
+                     Prepend (Chk, Decls);
+                  end if;
+
+                  Analyze (Chk);
+               end;
+            end if;
          end if;
       end if;
    end Set_Elaboration_Flag;
@@ -8327,7 +8402,7 @@ package body Exp_Util is
 
          when N_Range =>
             return Side_Effect_Free (Low_Bound (N),  Name_Req, Variable_Ref)
-                      and then
+                     and then
                    Side_Effect_Free (High_Bound (N), Name_Req, Variable_Ref);
 
          --  A slice is side effect free if it is a side effect free
@@ -8698,7 +8773,6 @@ package body Exp_Util is
       Loc   : constant Source_Ptr := Sloc (N);
       Stseq : constant Node_Id    := Handled_Statement_Sequence (N);
       Stmts : constant List_Id    := Statements (Stseq);
-
    begin
       if Abort_Allowed then
          Prepend_To (Stmts, Build_Runtime_Call (Loc, RE_Abort_Defer));

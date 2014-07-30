@@ -486,6 +486,12 @@ package Sem is
       Save_SPARK_Mode_Pragma : Node_Id;
       --  Setting of SPARK_Mode_Pragma on entry to restore on exit
 
+      Save_Default_SSO : Character;
+      --  Setting of Default_SSO on entry to restore on exit
+
+      Save_Uneval_Old : Character;
+      --  Setting of Uneval_Old on entry to restore on exit
+
       Is_Transient : Boolean;
       --  Marks transient scopes (see Exp_Ch7 body for details)
 
@@ -532,6 +538,9 @@ package Sem is
       --  Standard_Standard can be pushed anew on the scope stack to start a
       --  new active section (see comment above).
 
+      Locked_Shared_Objects : Elist_Id;
+      --  List of shared passive protected objects that have been locked in
+      --  this transient scope (always No_Elist for non-transient scopes).
    end record;
 
    package Scope_Stack is new Table.Table (

@@ -236,14 +236,17 @@ package body Treepr is
       end case;
    end p;
 
+   ---------
+   -- par --
+   ---------
+
+   function par (N : Union_Id) return Node_Or_Entity_Id renames p;
+
    --------
    -- pe --
    --------
 
-   procedure pe (E : Elist_Id) is
-   begin
-      Print_Tree_Elist (E);
-   end pe;
+   procedure pe (N : Union_Id) renames pn;
 
    --------
    -- pl --
@@ -327,10 +330,13 @@ package body Treepr is
    -- pp --
    --------
 
-   procedure pp (N : Union_Id) is
-   begin
-      pn (N);
-   end pp;
+   procedure pp (N : Union_Id) renames pn;
+
+   ---------
+   -- ppp --
+   ---------
+
+   procedure ppp (N : Union_Id) renames pt;
 
    ----------------
    -- Print_Char --
@@ -1583,19 +1589,19 @@ package body Treepr is
    -- pt --
    --------
 
-   procedure pt (N : Node_Id) is
+   procedure pt (N : Union_Id) is
    begin
-      Print_Node_Subtree (N);
+      case N is
+         when List_Low_Bound .. List_High_Bound - 1 =>
+            Print_List_Subtree (List_Id (N));
+         when Node_Range =>
+            Print_Node_Subtree (Node_Id (N));
+         when Elist_Range =>
+            Print_Elist_Subtree (Elist_Id (N));
+         when others =>
+            pp (N);
+      end case;
    end pt;
-
-   ---------
-   -- ppp --
-   ---------
-
-   procedure ppp (N : Node_Id) is
-   begin
-      pt (N);
-   end ppp;
 
    -------------------
    -- Serial_Number --

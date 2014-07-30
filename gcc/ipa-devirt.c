@@ -141,7 +141,7 @@ static bool odr_violation_reported = false;
 /* Dummy polymorphic call context.  */
 
 const ipa_polymorphic_call_context ipa_dummy_polymorphic_call_context
-   = {0, NULL, false, true};
+   = {0, 0, NULL, NULL, false, true, true};
 
 /* Pointer set of all call targets appearing in the cache.  */
 static pointer_set_t *cached_polymorphic_call_targets;
@@ -174,6 +174,8 @@ struct GTY(()) odr_type_d
   /* Did we report ODR violation here?  */
   bool odr_violated;
 };
+
+static bool contains_type_p (tree, HOST_WIDE_INT, tree);
 
 
 /* Return true if BINFO corresponds to a type with virtual methods. 
@@ -1613,7 +1615,7 @@ struct polymorphic_call_target_d
   ipa_polymorphic_call_context context;
   odr_type type;
   vec <cgraph_node *> targets;
-  int nonconstruction_targets;
+  int speculative_targets;
   bool complete;
 };
 
@@ -1641,8 +1643,16 @@ polymorphic_call_target_hasher::hash (const value_type *odr_query)
   hash = iterative_hash_hashval_t (TYPE_UID (odr_query->context.outer_type),
 				   hash);
   hash = iterative_hash_host_wide_int (odr_query->context.offset, hash);
+  if (odr_query->context.speculative_outer_type)
+    {
+      hash = iterative_hash_hashval_t
+	       (TYPE_UID (odr_query->context.speculative_outer_type), hash);
+      hash = iterative_hash_host_wide_int (odr_query->context.speculative_offset,
+					   hash);
+    }
   return iterative_hash_hashval_t
-	    (((int)odr_query->context.maybe_in_construction << 1)
+	    (((int)odr_query->context.maybe_in_construction << 2)
+	     | ((int)odr_query->context.speculative_maybe_derived_type << 1)
 	     | (int)odr_query->context.maybe_derived_type, hash);
 }
 
@@ -1654,10 +1664,14 @@ polymorphic_call_target_hasher::equal (const value_type *t1,
 {
   return (t1->type == t2->type && t1->otr_token == t2->otr_token
 	  && t1->context.offset == t2->context.offset
+	  && t1->context.speculative_offset == t2->context.speculative_offset
 	  && t1->context.outer_type == t2->context.outer_type
+	  && t1->context.speculative_outer_type == t2->context.speculative_outer_type
 	  && t1->context.maybe_in_construction
 	      == t2->context.maybe_in_construction
-	  && t1->context.maybe_derived_type == t2->context.maybe_derived_type);
+	  && t1->context.maybe_derived_type == t2->context.maybe_derived_type
+	  && (t1->context.speculative_maybe_derived_type
+	      == t2->context.speculative_maybe_derived_type));
 }
 
 /* Remove entry in polymorphic call target cache hash.  */
@@ -1750,9 +1764,42 @@ get_class_context (ipa_polymorphic_call_context *context,
 {
   tree type = context->outer_type;
   HOST_WIDE_INT offset = context->offset;
+  bool speculative = false;
+  bool speculation_valid = false;
+  bool valid = false;
 
+ if (!context->outer_type)
+   {
+     type = context->outer_type = expected_type;
+     context->offset = offset = 0;
+   }
+  /* See if speculative type seem to be derrived from outer_type.
+     Then speculation is valid only if it really is a derivate and derived types
+     are allowed.  
+
+     The test does not really look for derivate, but also accepts the case where
+     outer_type is a field of speculative_outer_type.  In this case eiter
+     MAYBE_DERIVED_TYPE is false and we have full non-speculative information or
+     the loop bellow will correctly update SPECULATIVE_OUTER_TYPE
+     and SPECULATIVE_MAYBE_DERIVED_TYPE.  */
+  if (context->speculative_outer_type
+      && context->speculative_offset >= context->offset
+      && contains_type_p (context->speculative_outer_type,
+			  context->offset - context->speculative_offset,
+			  context->outer_type))
+    speculation_valid = context->maybe_derived_type;
+  else
+    {
+      context->speculative_outer_type = NULL;
+      context->speculative_offset = 0;
+      context->speculative_maybe_derived_type = false;
+    }
+			       
   /* Find the sub-object the constant actually refers to and mark whether it is
-     an artificial one (as opposed to a user-defined one).  */
+     an artificial one (as opposed to a user-defined one).
+
+     This loop is performed twice; first time for outer_type and second time
+     for speculative_outer_type.  The second iteration has SPECULATIVE set.  */
   while (true)
     {
       HOST_WIDE_INT pos, size;
@@ -1760,14 +1807,57 @@ get_class_context (ipa_polymorphic_call_context *context,
 
       /* On a match, just return what we found.  */
       if (TREE_CODE (type) == TREE_CODE (expected_type)
+	  && (!in_lto_p
+	      || (TREE_CODE (type) == RECORD_TYPE
+		  && TYPE_BINFO (type)
+		  && polymorphic_type_binfo_p (TYPE_BINFO (type))))
 	  && types_same_for_odr (type, expected_type))
 	{
-	  /* Type can not contain itself on an non-zero offset.  In that case
-	     just give up.  */
-	  if (offset != 0)
-	    goto give_up;
-	  gcc_assert (offset == 0);
-	  return true;
+	  if (speculative)
+	    {
+	      gcc_assert (speculation_valid);
+	      gcc_assert (valid);
+
+	      /* If we did not match the offset, just give up on speculation.  */
+	      if (offset != 0
+		  || (types_same_for_odr (context->speculative_outer_type,
+					  context->outer_type)
+		      && (context->maybe_derived_type
+			  == context->speculative_maybe_derived_type)))
+		{
+		  context->speculative_outer_type = NULL;
+		  context->speculative_offset = 0;
+		}
+	      return true;
+	    }
+	  else
+	    {
+	      /* Type can not contain itself on an non-zero offset.  In that case
+		 just give up.  */
+	      if (offset != 0)
+		{
+		  valid = false;
+		  goto give_up;
+		}
+	      valid = true;
+	      /* If speculation is not valid or we determined type precisely,
+		 we are done.  */
+	      if (!speculation_valid
+		  || !context->maybe_derived_type)
+		{
+		  context->speculative_outer_type = NULL;
+		  context->speculative_offset = 0;
+	          return true;
+		}
+	      /* Otherwise look into speculation now.  */
+	      else
+		{
+		  speculative = true;
+		  type = context->speculative_outer_type;
+		  offset = context->speculative_offset;
+		  continue;
+		}
+	    }
 	}
 
       /* Walk fields and find corresponding on at OFFSET.  */
@@ -1792,11 +1882,20 @@ get_class_context (ipa_polymorphic_call_context *context,
 	  /* DECL_ARTIFICIAL represents a basetype.  */
 	  if (!DECL_ARTIFICIAL (fld))
 	    {
-	      context->outer_type = type;
-	      context->offset = offset;
-	      /* As soon as we se an field containing the type,
-		 we know we are not looking for derivations.  */
-	      context->maybe_derived_type = false;
+	      if (!speculative)
+		{
+		  context->outer_type = type;
+		  context->offset = offset;
+		  /* As soon as we se an field containing the type,
+		     we know we are not looking for derivations.  */
+		  context->maybe_derived_type = false;
+		}
+	      else
+		{
+		  context->speculative_outer_type = type;
+		  context->speculative_offset = offset;
+		  context->speculative_maybe_derived_type = false;
+		}
 	    }
 	}
       else if (TREE_CODE (type) == ARRAY_TYPE)
@@ -1809,9 +1908,18 @@ get_class_context (ipa_polymorphic_call_context *context,
 	    goto give_up;
 	  offset = offset % tree_to_shwi (TYPE_SIZE (subtype));
 	  type = subtype;
-	  context->outer_type = type;
-	  context->offset = offset;
-	  context->maybe_derived_type = false;
+	  if (!speculative)
+	    {
+	      context->outer_type = type;
+	      context->offset = offset;
+	      context->maybe_derived_type = false;
+	    }
+	  else
+	    {
+	      context->speculative_outer_type = type;
+	      context->speculative_offset = offset;
+	      context->speculative_maybe_derived_type = false;
+	    }
 	}
       /* Give up on anything else.  */
       else
@@ -1821,6 +1929,11 @@ get_class_context (ipa_polymorphic_call_context *context,
   /* If we failed to find subtype we look for, give up and fall back to the
      most generic query.  */
 give_up:
+  context->speculative_outer_type = NULL;
+  context->speculative_offset = 0;
+  context->speculative_maybe_derived_type = false;
+  if (valid)
+    return true;
   context->outer_type = expected_type;
   context->offset = 0;
   context->maybe_derived_type = true;
@@ -1831,7 +1944,8 @@ give_up:
   if ((TREE_CODE (type) != RECORD_TYPE
        || !TYPE_BINFO (type)
        || !polymorphic_type_binfo_p (TYPE_BINFO (type)))
-      && (TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST
+      && (!TYPE_SIZE (type)
+	  || TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST
 	  || (offset + tree_to_uhwi (TYPE_SIZE (expected_type)) <=
 	      tree_to_uhwi (TYPE_SIZE (type)))))
     return true;
@@ -1844,9 +1958,9 @@ static bool
 contains_type_p (tree outer_type, HOST_WIDE_INT offset,
 		 tree otr_type)
 {
-  ipa_polymorphic_call_context context = {offset,
+  ipa_polymorphic_call_context context = {offset, 0,
 					  TYPE_MAIN_VARIANT (outer_type),
-					  false, true};
+					  NULL, false, true, false};
   return get_class_context (&context, otr_type);
 }
 
@@ -2054,6 +2168,9 @@ get_polymorphic_call_info_for_decl (ipa_polymorphic_call_context *context,
 
   context->outer_type = TYPE_MAIN_VARIANT (TREE_TYPE (base));
   context->offset = offset;
+  context->speculative_outer_type = NULL;
+  context->speculative_offset = 0;
+  context->speculative_maybe_derived_type = true;
   /* Make very conservative assumption that all objects
      may be in construction. 
      TODO: ipa-prop already contains code to tell better. 
@@ -2093,6 +2210,26 @@ get_polymorphic_call_info_from_invariant (ipa_polymorphic_call_context *context,
   return true;
 }
 
+/* See if OP is SSA name initialized as a copy or by single assignment.
+   If so, walk the SSA graph up.  */
+
+static tree
+walk_ssa_copies (tree op)
+{
+  STRIP_NOPS (op);
+  while (TREE_CODE (op) == SSA_NAME
+	 && !SSA_NAME_IS_DEFAULT_DEF (op)
+	 && SSA_NAME_DEF_STMT (op)
+	 && gimple_assign_single_p (SSA_NAME_DEF_STMT (op)))
+    {
+      if (gimple_assign_load_p (SSA_NAME_DEF_STMT (op)))
+	return op;
+      op = gimple_assign_rhs1 (SSA_NAME_DEF_STMT (op));
+      STRIP_NOPS (op);
+    }
+  return op;
+}
+
 /* Given REF call in FNDECL, determine class of the polymorphic
    call (OTR_TYPE), its token (OTR_TOKEN) and CONTEXT.
    CALL is optional argument giving the actual statement (usually call) where
@@ -2112,6 +2249,9 @@ get_polymorphic_call_info (tree fndecl,
   *otr_token = tree_to_uhwi (OBJ_TYPE_REF_TOKEN (ref));
 
   /* Set up basic info in case we find nothing interesting in the analysis.  */
+  context->speculative_outer_type = NULL;
+  context->speculative_offset = 0;
+  context->speculative_maybe_derived_type = true;
   context->outer_type = TYPE_MAIN_VARIANT (*otr_type);
   context->offset = 0;
   base_pointer = OBJ_TYPE_REF_OBJECT (ref);
@@ -2121,15 +2261,8 @@ get_polymorphic_call_info (tree fndecl,
   /* Walk SSA for outer object.  */
   do 
     {
-      if (TREE_CODE (base_pointer) == SSA_NAME
-	  && !SSA_NAME_IS_DEFAULT_DEF (base_pointer)
-	  && SSA_NAME_DEF_STMT (base_pointer)
-	  && gimple_assign_single_p (SSA_NAME_DEF_STMT (base_pointer)))
-	{
-	  base_pointer = gimple_assign_rhs1 (SSA_NAME_DEF_STMT (base_pointer));
-	  STRIP_NOPS (base_pointer);
-	}
-      else if (TREE_CODE (base_pointer) == ADDR_EXPR)
+      base_pointer = walk_ssa_copies (base_pointer);
+      if (TREE_CODE (base_pointer) == ADDR_EXPR)
 	{
 	  HOST_WIDE_INT size, max_size;
 	  HOST_WIDE_INT offset2;
@@ -2175,7 +2308,7 @@ get_polymorphic_call_info (tree fndecl,
 						     context->outer_type,
 						     call,
 						     current_function_decl);
-		  return NULL;
+		  return base_pointer;
 		}
 	      else
 		break;
@@ -2258,6 +2391,35 @@ get_polymorphic_call_info (tree fndecl,
 	  context->maybe_in_construction = false;
           return base_pointer;
 	}
+    }
+
+  tree base_type = TREE_TYPE (base_pointer);
+
+  if (TREE_CODE (base_pointer) == SSA_NAME
+      && SSA_NAME_IS_DEFAULT_DEF (base_pointer)
+      && TREE_CODE (SSA_NAME_VAR (base_pointer)) != PARM_DECL)
+    {
+      /* Use OTR_TOKEN = INT_MAX as a marker of probably type inconsistent
+	 code sequences; we arrange the calls to be builtin_unreachable
+	 later.  */
+      *otr_token = INT_MAX;
+      return base_pointer;
+    }
+  if (TREE_CODE (base_pointer) == SSA_NAME
+      && SSA_NAME_DEF_STMT (base_pointer)
+      && gimple_assign_single_p (SSA_NAME_DEF_STMT (base_pointer)))
+    base_type = TREE_TYPE (gimple_assign_rhs1
+			    (SSA_NAME_DEF_STMT (base_pointer)));
+ 
+  if (POINTER_TYPE_P (base_type)
+      && contains_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (base_type)),
+			  context->offset,
+			  *otr_type))
+    {
+      context->speculative_outer_type = TYPE_MAIN_VARIANT
+					  (TREE_TYPE (base_type));
+      context->speculative_offset = context->offset;
+      context->speculative_maybe_derived_type = true;
     }
   /* TODO: There are multiple ways to derive a type.  For instance
      if BASE_POINTER is passed to an constructor call prior our refernece.
@@ -2360,9 +2522,10 @@ devirt_variable_node_removal_hook (varpool_node *n,
    in the target cache.  If user needs to visit every target list
    just once, it can memoize them.
 
-   NONCONSTRUCTION_TARGETS specify number of targets with asumption that
-   the type is not in the construction.  Those targets appear first in the
-   vector returned.
+   SPECULATION_TARGETS specify number of targets that are speculatively
+   likely.  These include targets specified by the speculative part
+   of polymoprhic call context and also exclude all targets for classes
+   in construction.
 
    Returned vector is placed into cache.  It is NOT caller's responsibility
    to free it.  The vector can be freed on cgraph_remove_node call if
@@ -2374,7 +2537,7 @@ possible_polymorphic_call_targets (tree otr_type,
 				   ipa_polymorphic_call_context context,
 			           bool *completep,
 			           void **cache_token,
-				   int *nonconstruction_targetsp)
+				   int *speculative_targetsp)
 {
   static struct cgraph_node_hook_list *node_removal_hook_holder;
   pointer_set_t *inserted;
@@ -2399,8 +2562,8 @@ possible_polymorphic_call_targets (tree otr_type,
 	*completep = false;
       if (cache_token)
 	*cache_token = NULL;
-      if (nonconstruction_targetsp)
-	*nonconstruction_targetsp = 0;
+      if (speculative_targetsp)
+	*speculative_targetsp = 0;
       return nodes;
     }
 
@@ -2411,8 +2574,8 @@ possible_polymorphic_call_targets (tree otr_type,
 	*completep = true;
       if (cache_token)
 	*cache_token = NULL;
-      if (nonconstruction_targetsp)
-	*nonconstruction_targetsp = 0;
+      if (speculative_targetsp)
+	*speculative_targetsp = 0;
       return nodes;
     }
 
@@ -2423,15 +2586,15 @@ possible_polymorphic_call_targets (tree otr_type,
 	      || TYPE_MAIN_VARIANT (context.outer_type) == context.outer_type);
 
   /* Lookup the outer class type we want to walk.  */
-  if (context.outer_type
+  if ((context.outer_type || context.speculative_outer_type)
       && !get_class_context (&context, otr_type))
     {
       if (completep)
 	*completep = false;
       if (cache_token)
 	*cache_token = NULL;
-      if (nonconstruction_targetsp)
-	*nonconstruction_targetsp = 0;
+      if (speculative_targetsp)
+	*speculative_targetsp = 0;
       return nodes;
     }
 
@@ -2480,8 +2643,8 @@ possible_polymorphic_call_targets (tree otr_type,
     {
       if (completep)
 	*completep = (*slot)->complete;
-      if (nonconstruction_targetsp)
-	*nonconstruction_targetsp = (*slot)->nonconstruction_targets;
+      if (speculative_targetsp)
+	*speculative_targetsp = (*slot)->speculative_targets;
       return (*slot)->targets;
     }
 
@@ -2495,9 +2658,56 @@ possible_polymorphic_call_targets (tree otr_type,
   (*slot)->type = type;
   (*slot)->otr_token = otr_token;
   (*slot)->context = context;
+  (*slot)->speculative_targets = 0;
 
   inserted = pointer_set_create ();
   matched_vtables = pointer_set_create ();
+
+  if (context.speculative_outer_type)
+    {
+      odr_type speculative_outer_type;
+      speculative_outer_type = get_odr_type (context.speculative_outer_type, true);
+      if (TYPE_FINAL_P (speculative_outer_type->type))
+	context.speculative_maybe_derived_type = false;
+      binfo = get_binfo_at_offset (TYPE_BINFO (speculative_outer_type->type),
+				   context.speculative_offset, otr_type);
+      if (binfo)
+	target = gimple_get_virt_method_for_binfo (otr_token, binfo,
+						   &can_refer);
+      else
+	target = NULL;
+
+      if (target)
+	{
+	  /* In the case we get complete method, we don't need 
+	     to walk derivations.  */
+	  if (DECL_FINAL_P (target))
+	    context.speculative_maybe_derived_type = false;
+	}
+      if (type_possibly_instantiated_p (speculative_outer_type->type))
+	maybe_record_node (nodes, target, inserted, can_refer, &complete);
+      if (binfo)
+	pointer_set_insert (matched_vtables, BINFO_VTABLE (binfo));
+      /* Next walk recursively all derived types.  */
+      if (context.speculative_maybe_derived_type)
+	{
+	  /* For anonymous namespace types we can attempt to build full type.
+	     All derivations must be in this unit (unless we see partial unit).  */
+	  if (!type->all_derivations_known)
+	    complete = false;
+	  for (i = 0; i < speculative_outer_type->derived_types.length(); i++)
+	    possible_polymorphic_call_targets_1 (nodes, inserted,
+						 matched_vtables,
+						 otr_type,
+						 speculative_outer_type->derived_types[i],
+						 otr_token, speculative_outer_type->type,
+						 context.speculative_offset, &complete,
+						 bases_to_consider,
+						 false);
+	}
+      /* Finally walk bases, if asked to.  */
+      (*slot)->speculative_targets = nodes.length();
+    }
 
   /* First see virtual method of type itself.  */
   binfo = get_binfo_at_offset (TYPE_BINFO (outer_type->type),
@@ -2555,7 +2765,8 @@ possible_polymorphic_call_targets (tree otr_type,
     }
 
   /* Finally walk bases, if asked to.  */
-  (*slot)->nonconstruction_targets = nodes.length();
+  if (!(*slot)->speculative_targets)
+    (*slot)->speculative_targets = nodes.length();
 
   /* Destructors are never called through construction virtual tables,
      because the type is always known.  One of entries may be cxa_pure_virtual
@@ -2584,8 +2795,8 @@ possible_polymorphic_call_targets (tree otr_type,
   (*slot)->complete = complete;
   if (completep)
     *completep = complete;
-  if (nonconstruction_targetsp)
-    *nonconstruction_targetsp = (*slot)->nonconstruction_targets;
+  if (speculative_targetsp)
+    *speculative_targetsp = (*slot)->speculative_targets;
 
   pointer_set_destroy (inserted);
   pointer_set_destroy (matched_vtables);
@@ -2605,13 +2816,13 @@ dump_possible_polymorphic_call_targets (FILE *f,
   bool final;
   odr_type type = get_odr_type (TYPE_MAIN_VARIANT (otr_type), false);
   unsigned int i;
-  int nonconstruction;
+  int speculative;
 
   if (!type)
     return;
   targets = possible_polymorphic_call_targets (otr_type, otr_token,
 					       ctx,
-					       &final, NULL, &nonconstruction);
+					       &final, NULL, &speculative);
   fprintf (f, "  Targets of polymorphic call of type %i:", type->id);
   print_generic_expr (f, type->type, TDF_SLIM);
   fprintf (f, " token %i\n", (int)otr_token);
@@ -2622,18 +2833,25 @@ dump_possible_polymorphic_call_targets (FILE *f,
       fprintf (f, " at offset "HOST_WIDE_INT_PRINT_DEC"\n",
 	       ctx.offset);
     }
+  if (ctx.speculative_outer_type)
+    {
+      fprintf (f, "    Speculatively contained in type:");
+      print_generic_expr (f, ctx.speculative_outer_type, TDF_SLIM);
+      fprintf (f, " at offset "HOST_WIDE_INT_PRINT_DEC"\n",
+	       ctx.speculative_offset);
+    }
 
-  fprintf (f, "    %s%s%s\n      ",
+  fprintf (f, "    %s%s%s%s\n      ",
 	   final ? "This is a complete list." :
 	   "This is partial list; extra targets may be defined in other units.",
 	   ctx.maybe_in_construction ? " (base types included)" : "",
-	   ctx.maybe_derived_type ? " (derived types included)" : "");
+	   ctx.maybe_derived_type ? " (derived types included)" : "",
+	   ctx.speculative_maybe_derived_type ? " (speculative derived types included)" : "");
   for (i = 0; i < targets.length (); i++)
     {
       char *name = NULL;
-      if (i == (unsigned)nonconstruction)
-	fprintf (f, "\n     If the type is in construction,"
-		 " then additional tarets are:\n"
+      if (i == (unsigned)speculative)
+	fprintf (f, "\n     Targets that are not likely:\n"
 		 "      ");
       if (in_lto_p)
 	name = cplus_demangle_v3 (targets[i]->asm_name (), 0);
@@ -2763,10 +2981,10 @@ ipa_devirt (void)
 	    struct cgraph_node *likely_target = NULL;
 	    void *cache_token;
 	    bool final;
-	    int nonconstruction_targets;
+	    int speculative_targets;
 	    vec <cgraph_node *>targets
 	       = possible_polymorphic_call_targets
-		    (e, &final, &cache_token, &nonconstruction_targets);
+		    (e, &final, &cache_token, &speculative_targets);
 	    unsigned int i;
 
 	    if (dump_file)
@@ -2805,7 +3023,7 @@ ipa_devirt (void)
 		{
 		  if (likely_target)
 		    {
-		      if (i < (unsigned) nonconstruction_targets)
+		      if (i < (unsigned) speculative_targets)
 			{
 			  likely_target = NULL;
 			  if (dump_file)

@@ -279,7 +279,6 @@ package body System.OS_Lib is
    procedure Close (FD : File_Descriptor) is
       use CRTL;
       Discard : constant int := close (int (FD));
-      pragma Unreferenced (Discard);
    begin
       null;
    end Close;
@@ -887,6 +886,26 @@ package body System.OS_Lib is
          end if;
       end loop File_Loop;
    end Create_Temp_File_Internal;
+
+   -------------------------
+   -- Current_Time_String --
+   -------------------------
+
+   function Current_Time_String return String is
+      subtype S23 is String (1 .. 23);
+      --  Holds current time in ISO 8601 format YYYY-MM-DD HH:MM:SS.SS + NUL
+
+      procedure Current_Time_String (Time : System.Address);
+      pragma Import (C, Current_Time_String, "__gnat_current_time_string");
+      --  Puts current time into Time in above ISO 8601 format
+
+      Result23 : aliased S23;
+      --  Current time in ISO 8601 format
+
+   begin
+      Current_Time_String (Result23'Address);
+      return Result23 (1 .. 19);
+   end Current_Time_String;
 
    -----------------
    -- Delete_File --

@@ -84,6 +84,14 @@ package body Exp_Attr is
    --  value returned is the entity of the constructed function body. We do not
    --  bother to generate a separate spec for this subprogram.
 
+   function Build_Record_VS_Func
+     (R_Type : Entity_Id;
+      Nod    : Node_Id) return Entity_Id;
+   --  Build function to test Valid_Scalars for record type A_Type. Nod is the
+   --  Valid_Scalars attribute node, used to insert the function body, and the
+   --  value returned is the entity of the constructed function body. We do not
+   --  bother to generate a separate spec for this subprogram.
+
    procedure Compile_Stream_Body_In_Scope
      (N     : Node_Id;
       Decl  : Node_Id;
@@ -202,10 +210,10 @@ package body Exp_Attr is
       Nod    : Node_Id) return Entity_Id
    is
       Loc        : constant Source_Ptr := Sloc (Nod);
+      Func_Id    : constant Entity_Id  := Make_Temporary (Loc, 'V');
       Comp_Type  : constant Entity_Id  := Component_Type (A_Type);
       Body_Stmts : List_Id;
       Index_List : List_Id;
-      Func_Id    : Entity_Id;
       Formals    : List_Id;
 
       function Test_Component return List_Id;
@@ -298,8 +306,6 @@ package body Exp_Attr is
 
    begin
       Index_List := New_List;
-      Func_Id := Make_Defining_Identifier (Loc, New_Internal_Name ('V'));
-
       Body_Stmts := Test_One_Dimension (1);
 
       --  Parameter is always (A : A_Typ)
@@ -333,8 +339,278 @@ package body Exp_Attr is
          Set_Debug_Info_Off (Func_Id);
       end if;
 
+      Set_Is_Pure (Func_Id);
       return Func_Id;
    end Build_Array_VS_Func;
+
+   --------------------------
+   -- Build_Record_VS_Func --
+   --------------------------
+
+   --  Generates:
+
+   --    function _Valid_Scalars (X : T) return Boolean is
+   --    begin
+   --       --  Check discriminants
+
+   --       if not X.D1'Valid_Scalars or else
+   --          not X.D2'Valid_Scalars or else
+   --         ...
+   --       then
+   --          return False;
+   --       end if;
+
+   --       --  Check components
+
+   --       if not X.C1'Valid_Scalars or else
+   --          not X.C2'Valid_Scalars or else
+   --          ...
+   --       then
+   --          return False;
+   --       end if;
+
+   --       --  Check variant part
+
+   --       case X.D1 is
+   --          when V1 =>
+   --             if not X.C2'Valid_Scalars or else
+   --                not X.C3'Valid_Scalars or else
+   --               ...
+   --             then
+   --                return False;
+   --             end if;
+   --          ...
+   --          when Vn =>
+   --             if not X.Cn'Valid_Scalars or else
+   --               ...
+   --             then
+   --                return False;
+   --             end if;
+   --       end case;
+
+   --       return True;
+   --    end _Valid_Scalars;
+
+   function Build_Record_VS_Func
+     (R_Type : Entity_Id;
+      Nod    : Node_Id) return Entity_Id
+   is
+      Loc     : constant Source_Ptr := Sloc (R_Type);
+      Func_Id : constant Entity_Id  := Make_Temporary (Loc, 'V');
+      X       : constant Entity_Id  := Make_Defining_Identifier (Loc, Name_X);
+
+      function Make_VS_Case
+        (E      : Entity_Id;
+         CL     : Node_Id;
+         Discrs : Elist_Id := New_Elmt_List) return List_Id;
+      --  Building block for variant valid scalars. Given a Component_List node
+      --  CL, it generates an 'if' followed by a 'case' statement that compares
+      --  all components of local temporaries named X and Y (that are declared
+      --  as formals at some upper level). E provides the Sloc to be used for
+      --  the generated code.
+
+      function Make_VS_If
+        (E : Entity_Id;
+         L : List_Id) return Node_Id;
+      --  Building block for variant validate scalars. Given the list, L, of
+      --  components (or discriminants) L, it generates a return statement that
+      --  compares all components of local temporaries named X and Y (that are
+      --  declared as formals at some upper level). E provides the Sloc to be
+      --  used for the generated code.
+
+      ------------------
+      -- Make_VS_Case --
+      ------------------
+
+      --  <Make_VS_If on shared components>
+
+      --  case X.D1 is
+      --     when V1 => <Make_VS_Case> on subcomponents
+      --     ...
+      --     when Vn => <Make_VS_Case> on subcomponents
+      --  end case;
+
+      function Make_VS_Case
+        (E      : Entity_Id;
+         CL     : Node_Id;
+         Discrs : Elist_Id := New_Elmt_List) return List_Id
+      is
+         Loc      : constant Source_Ptr := Sloc (E);
+         Result   : constant List_Id    := New_List;
+         Variant  : Node_Id;
+         Alt_List : List_Id;
+
+      begin
+         Append_To (Result, Make_VS_If (E, Component_Items (CL)));
+
+         if No (Variant_Part (CL)) then
+            return Result;
+         end if;
+
+         Variant := First_Non_Pragma (Variants (Variant_Part (CL)));
+
+         if No (Variant) then
+            return Result;
+         end if;
+
+         Alt_List := New_List;
+         while Present (Variant) loop
+            Append_To (Alt_List,
+              Make_Case_Statement_Alternative (Loc,
+                Discrete_Choices => New_Copy_List (Discrete_Choices (Variant)),
+                Statements =>
+                  Make_VS_Case (E, Component_List (Variant), Discrs)));
+            Next_Non_Pragma (Variant);
+         end loop;
+
+         Append_To (Result,
+           Make_Case_Statement (Loc,
+             Expression =>
+               Make_Selected_Component (Loc,
+                 Prefix        => Make_Identifier (Loc, Name_X),
+                 Selector_Name => New_Copy (Name (Variant_Part (CL)))),
+             Alternatives => Alt_List));
+
+         return Result;
+      end Make_VS_Case;
+
+      ----------------
+      -- Make_VS_If --
+      ----------------
+
+      --  Generates:
+
+      --    if
+      --      not X.C1'Valid_Scalars
+      --        or else
+      --      not X.C2'Valid_Scalars
+      --        ...
+      --    then
+      --       return False;
+      --    end if;
+
+      --  or a null statement if the list L is empty
+
+      function Make_VS_If
+        (E : Entity_Id;
+         L : List_Id) return Node_Id
+      is
+         Loc        : constant Source_Ptr := Sloc (E);
+         C          : Node_Id;
+         Def_Id     : Entity_Id;
+         Field_Name : Name_Id;
+         Cond       : Node_Id;
+
+      begin
+         if No (L) then
+            return Make_Null_Statement (Loc);
+
+         else
+            Cond := Empty;
+
+            C := First_Non_Pragma (L);
+            while Present (C) loop
+               Def_Id := Defining_Identifier (C);
+               Field_Name := Chars (Def_Id);
+
+               --  The tags need not be checked since they will always be valid
+
+               --  Note also that in the following, we use Make_Identifier for
+               --  the component names. Use of New_Occurrence_Of to identify
+               --  the components would be incorrect because wrong entities for
+               --  discriminants could be picked up in the private type case.
+
+               --  Don't bother with abstract parent in interface case
+
+               if Field_Name = Name_uParent
+                 and then Is_Interface (Etype (Def_Id))
+               then
+                  null;
+
+               --  Don't bother with tag, always valid, and not scalar anyway
+
+               elsif Field_Name = Name_uTag then
+                  null;
+
+               --  Don't bother with component with no scalar components
+
+               elsif not Scalar_Part_Present (Etype (Def_Id)) then
+                  null;
+
+               --  Normal case, generate Valid_Scalars attribute reference
+
+               else
+                  Evolve_Or_Else (Cond,
+                    Make_Op_Not (Loc,
+                      Right_Opnd =>
+                        Make_Attribute_Reference (Loc,
+                          Prefix =>
+                            Make_Selected_Component (Loc,
+                              Prefix        =>
+                                Make_Identifier (Loc, Name_X),
+                              Selector_Name =>
+                                Make_Identifier (Loc, Field_Name)),
+                          Attribute_Name => Name_Valid_Scalars)));
+               end if;
+
+               Next_Non_Pragma (C);
+            end loop;
+
+            if No (Cond) then
+               return Make_Null_Statement (Loc);
+
+            else
+               return
+                 Make_Implicit_If_Statement (E,
+                   Condition       => Cond,
+                   Then_Statements => New_List (
+                     Make_Simple_Return_Statement (Loc,
+                       Expression =>
+                         New_Occurrence_Of (Standard_False, Loc))));
+            end if;
+         end if;
+      end Make_VS_If;
+
+      --  Local Declarations
+
+      Def    : constant Node_Id := Parent (R_Type);
+      Comps  : constant Node_Id := Component_List (Type_Definition (Def));
+      Stmts  : constant List_Id := New_List;
+      Pspecs : constant List_Id := New_List;
+
+   begin
+      Append_To (Pspecs,
+        Make_Parameter_Specification (Loc,
+          Defining_Identifier => X,
+          Parameter_Type      => New_Occurrence_Of (R_Type, Loc)));
+
+      Append_To (Stmts,
+        Make_VS_If (R_Type, Discriminant_Specifications (Def)));
+      Append_List_To (Stmts, Make_VS_Case (R_Type, Comps));
+
+      Append_To (Stmts,
+        Make_Simple_Return_Statement (Loc,
+          Expression => New_Occurrence_Of (Standard_True, Loc)));
+
+      Insert_Action (Nod,
+        Make_Subprogram_Body (Loc,
+          Specification =>
+            Make_Function_Specification (Loc,
+              Defining_Unit_Name       => Func_Id,
+              Parameter_Specifications => Pspecs,
+              Result_Definition => New_Occurrence_Of (Standard_Boolean, Loc)),
+          Declarations               => New_List,
+          Handled_Statement_Sequence =>
+            Make_Handled_Sequence_Of_Statements (Loc, Statements => Stmts)),
+        Suppress => Discriminant_Check);
+
+      if not Debug_Generated_Code then
+         Set_Debug_Info_Off (Func_Id);
+      end if;
+
+      Set_Is_Pure (Func_Id);
+      return Func_Id;
+   end Build_Record_VS_Func;
 
    ----------------------------------
    -- Compile_Stream_Body_In_Scope --
@@ -2872,11 +3148,28 @@ package body Exp_Attr is
             Rewrite (N,
               Make_Attribute_Reference (Loc,
                 Attribute_Name => Name_First,
-                Prefix => New_Occurrence_Of (Get_Index_Subtype (N), Loc)));
+                Prefix         =>
+                  New_Occurrence_Of (Get_Index_Subtype (N), Loc)));
             Analyze_And_Resolve (N, Typ);
+
+         --  For access type, apply access check as needed
 
          elsif Is_Access_Type (Ptyp) then
             Apply_Access_Check (N);
+
+         --  For scalar type, if low bound is a reference to an entity, just
+         --  replace with a direct reference. Note that we can only have a
+         --  reference to a constant entity at this stage, anything else would
+         --  have already been rewritten.
+
+         elsif Is_Scalar_Type (Ptyp) then
+            declare
+               Lo : constant Node_Id := Type_Low_Bound (Ptyp);
+            begin
+               if Is_Entity_Name (Lo) then
+                  Rewrite (N, New_Occurrence_Of (Entity (Lo), Loc));
+               end if;
+            end;
          end if;
 
       ---------------
@@ -3246,13 +3539,10 @@ package body Exp_Attr is
          --  container). In that case rewrite the attribute as a Raise to
          --  prevent any run-time use.
 
-         --  This is not an explicit raise, the Reason code is wrong, we most
-         --  likely need a new Reason code ???
-
          if Restriction_Active (No_Streams) then
             Rewrite (N,
               Make_Raise_Program_Error (Sloc (N),
-                Reason => PE_Explicit_Raise));
+                Reason => PE_Stream_Operation_Not_Allowed));
             Set_Etype (N, B_Type);
             return;
          end if;
@@ -3538,8 +3828,24 @@ package body Exp_Attr is
                 Prefix => New_Occurrence_Of (Get_Index_Subtype (N), Loc)));
             Analyze_And_Resolve (N, Typ);
 
+         --  For access type, apply access check as needed
+
          elsif Is_Access_Type (Ptyp) then
             Apply_Access_Check (N);
+
+         --  For scalar type, if low bound is a reference to an entity, just
+         --  replace with a direct reference. Note that we can only have a
+         --  reference to a constant entity at this stage, anything else would
+         --  have already been rewritten.
+
+         elsif Is_Scalar_Type (Ptyp) then
+            declare
+               Hi : constant Node_Id := Type_High_Bound (Ptyp);
+            begin
+               if Is_Entity_Name (Hi) then
+                  Rewrite (N, New_Occurrence_Of (Entity (Hi), Loc));
+               end if;
+            end;
          end if;
 
       --------------
@@ -4248,7 +4554,7 @@ package body Exp_Attr is
          if Restriction_Active (No_Streams) then
             Rewrite (N,
               Make_Raise_Program_Error (Sloc (N),
-                Reason => PE_Explicit_Raise));
+                Reason => PE_Stream_Operation_Not_Allowed));
             Set_Etype (N, Standard_Void_Type);
             return;
          end if;
@@ -4888,7 +5194,7 @@ package body Exp_Attr is
          if Restriction_Active (No_Streams) then
             Rewrite (N,
               Make_Raise_Program_Error (Sloc (N),
-                Reason => PE_Explicit_Raise));
+                Reason => PE_Stream_Operation_Not_Allowed));
             Set_Etype (N, B_Type);
             return;
          end if;
@@ -6010,7 +6316,6 @@ package body Exp_Attr is
          --  it here.
 
          elsif Do_Range_Check (First (Exprs)) then
-            Set_Do_Range_Check (First (Exprs), False);
             Generate_Range_Check (First (Exprs), Etyp, CE_Range_Check_Failed);
          end if;
       end Val;
@@ -6348,21 +6653,25 @@ package body Exp_Attr is
             Ftyp := Ptyp;
          end if;
 
+         --  Replace by True if no scalar parts
+
+         if not Scalar_Part_Present (Ftyp) then
+            Rewrite (N, New_Occurrence_Of (Standard_True, Loc));
+
          --  For scalar types, Valid_Scalars is the same as Valid
 
-         if Is_Scalar_Type (Ftyp) then
+         elsif Is_Scalar_Type (Ftyp) then
             Rewrite (N,
               Make_Attribute_Reference (Loc,
                 Attribute_Name => Name_Valid,
                 Prefix         => Pref));
-            Analyze_And_Resolve (N, Standard_Boolean);
 
          --  For array types, we construct a function that determines if there
          --  are any non-valid scalar subcomponents, and call the function.
          --  We only do this for arrays whose component type needs checking
 
          elsif Is_Array_Type (Ftyp)
-           and then not No_Scalar_Parts (Component_Type (Ftyp))
+           and then Scalar_Part_Present (Component_Type (Ftyp))
          then
             Rewrite (N,
               Make_Function_Call (Loc,
@@ -6370,14 +6679,25 @@ package body Exp_Attr is
                   New_Occurrence_Of (Build_Array_VS_Func (Ftyp, N), Loc),
                 Parameter_Associations => New_List (Pref)));
 
-            Analyze_And_Resolve (N, Standard_Boolean);
+         --  For record types, we construct a function that determines if there
+         --  are any non-valid scalar subcomponents, and call the function.
 
-         --  For record types, we build a big if expression, applying Valid or
-         --  Valid_Scalars as appropriate to all relevant components.
-
-         elsif (Is_Record_Type (Ptyp) or else Has_Discriminants (Ptyp))
-           and then not No_Scalar_Parts (Ptyp)
+         elsif Is_Record_Type (Ftyp)
+            and then Nkind (Type_Definition (Declaration_Node (Ftyp))) =
+                                                        N_Record_Definition
          then
+            Rewrite (N,
+              Make_Function_Call (Loc,
+                Name                   =>
+                  New_Occurrence_Of (Build_Record_VS_Func (Ftyp, N), Loc),
+              Parameter_Associations => New_List (Pref)));
+
+         --  Other record types or types with discriminants
+
+         elsif Is_Record_Type (Ftyp) or else Has_Discriminants (Ptyp) then
+
+            --  Build expression with list of equality tests
+
             declare
                C : Entity_Id;
                X : Node_Id;
@@ -6387,7 +6707,7 @@ package body Exp_Attr is
                X := New_Occurrence_Of (Standard_True, Loc);
                C := First_Component_Or_Discriminant (Ptyp);
                while Present (C) loop
-                  if No_Scalar_Parts (Etype (C)) then
+                  if not Scalar_Part_Present (Etype (C)) then
                      goto Continue;
                   elsif Is_Scalar_Type (Etype (C)) then
                      A := Name_Valid;
@@ -6412,16 +6732,18 @@ package body Exp_Attr is
                end loop;
 
                Rewrite (N, X);
-               Analyze_And_Resolve (N, Standard_Boolean);
             end;
 
-         --  For all other types, result is True (but not static)
+         --  For all other types, result is True
 
          else
             Rewrite (N, New_Occurrence_Of (Standard_Boolean, Loc));
-            Analyze_And_Resolve (N, Standard_Boolean);
-            Set_Is_Static_Expression (N, False);
          end if;
+
+         --  Result is always boolean, but never static
+
+         Analyze_And_Resolve (N, Standard_Boolean);
+         Set_Is_Static_Expression (N, False);
       end Valid_Scalars;
 
       -----------
@@ -6601,7 +6923,7 @@ package body Exp_Attr is
          if Restriction_Active (No_Streams) then
             Rewrite (N,
               Make_Raise_Program_Error (Sloc (N),
-                Reason => PE_Explicit_Raise));
+                Reason => PE_Stream_Operation_Not_Allowed));
             Set_Etype (N, U_Type);
             return;
          end if;

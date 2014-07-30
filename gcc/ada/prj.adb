@@ -141,8 +141,7 @@ package body Prj is
       while Last + S'Length > To'Last loop
          declare
             New_Buffer : constant  String_Access :=
-                           new String (1 .. 2 * Last);
-
+                           new String (1 .. 2 * To'Length);
          begin
             New_Buffer (1 .. Last) := To (1 .. Last);
             Free (To);
@@ -1715,7 +1714,7 @@ package body Prj is
             Context : Project_Context;
             Dummy   : in out Boolean)
          is
-            pragma Unreferenced (Dummy, Tree);
+            pragma Unreferenced (Tree);
 
             List : Project_List;
             Prj2 : Project_Id;
@@ -2102,7 +2101,7 @@ package body Prj is
 
          if Project.Qualifier in Aggregate_Project then
             Ctx :=
-              (In_Aggregate_Lib      => True,
+              (In_Aggregate_Lib      => Project.Qualifier = Aggregate_Library,
                From_Encapsulated_Lib =>
                  Context.From_Encapsulated_Lib
                    or else Project.Standalone_Library = Encapsulated);

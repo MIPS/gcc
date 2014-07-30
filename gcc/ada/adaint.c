@@ -516,7 +516,7 @@ __gnat_to_os_time (OS_Time *p_time, int year, int month, int day,
   v.tm_hour  = hours;
   v.tm_min   = mins;
   v.tm_sec   = secs;
-  v.tm_isdst = 0;
+  v.tm_isdst = -1;
 
   /* returns -1 of failing, this is s-os_lib Invalid_Time */
 
@@ -1361,14 +1361,18 @@ __gnat_tmp_name (char *tmp_filename)
   }
 
 #elif defined (linux) || defined (__FreeBSD__) || defined (__NetBSD__) \
-  || defined (__OpenBSD__) || defined(__GLIBC__)
+  || defined (__OpenBSD__) || defined(__GLIBC__) || defined (__ANDROID__)
 #define MAX_SAFE_PATH 1000
   char *tmpdir = getenv ("TMPDIR");
 
   /* If tmpdir is longer than MAX_SAFE_PATH, revert to default value to avoid
      a buffer overflow.  */
   if (tmpdir == NULL || strlen (tmpdir) > MAX_SAFE_PATH)
+#ifdef __ANDROID__
+    strcpy (tmp_filename, "/cache/gnat-XXXXXX");
+#else
     strcpy (tmp_filename, "/tmp/gnat-XXXXXX");
+#endif
   else
     sprintf (tmp_filename, "%s/gnat-XXXXXX", tmpdir);
 
