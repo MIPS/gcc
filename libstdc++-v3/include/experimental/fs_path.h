@@ -406,6 +406,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
     void _M_split_cmpts();
     void _M_trim();
+    void _M_add_root_name(size_t n);
+    void _M_add_root_dir(size_t pos);
+    void _M_add_filename(size_t pos, size_t n);
 
     string_type _M_pathname;
 

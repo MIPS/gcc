@@ -304,82 +304,100 @@ path::_M_split_cmpts()
   if (_M_pathname.empty())
     return;
 
+  size_t pos = 0;
+  const size_t len = _M_pathname.size();
+
+  // look for root name or root directory
+  if (_S_is_dir_sep(_M_pathname[0]))
+    {
+      // look for root name, such as "//" or "//foo"
+      if (len > 1 && _M_pathname[1] == _M_pathname[0])
+	{
+	  if (len == 2)
+	    {
+	      // entire path is just "//"
+	      _M_type = _Type::_Root_name;
+	      return;
+	    }
+
+	  if (!_S_is_dir_sep(_M_pathname[2]))
+	    {
+	      // got root name, find its end
+	      pos = 3;
+	      while (pos < len && !_S_is_dir_sep(_M_pathname[pos]))
+		++pos;
+	      _M_add_root_name(pos);
+	      if (pos < len) // also got root directory
+		_M_add_root_dir(pos);
+	    }
+	  else
+	    {
+	      // got something like "///foo" which is just a root directory
+	      // composed of multiple redundant directory separators
+	      _M_add_root_dir(0);
+	    }
+	}
+      else // got root directory
+	_M_add_root_dir(0);
+      ++pos;
+    }
 #ifdef _GLIBCXX_FILESYSTEM_IS_WINDOWS
-  // identify disk designators like "C:/"
-  auto is_disk_designator = [](string_type const& str) {
-      return str.size() == 2 && str.back() == L':';
-  };
-  // identify UNCs like "//servername/sharename"
-  auto is_unc = [](string_type const& str) {
-      return str.size() > 1
-        && _S_is_dir_sep(str[0]) && _S_is_dir_sep(str[1]);
-  };
-#else
-  auto is_disk_designator = [](string_type const&) { return false; };
-  auto is_unc = [](string_type const&) { return false; };
+  else if (len > 1 && _M_pathname[1] == L':')
+    {
+      // got disk designator
+      _M_add_root_name(2);
+      if (len > 2 && _S_is_dir_sep(_M_pathname[2]))
+	_M_add_root_dir(2);
+      pos = 2;
+    }
 #endif
 
-  string_type elem;
-  size_t pos = -1;
-
-  for (value_type& ch : _M_pathname)
+  size_t back = pos;
+  while (pos < len)
     {
-      if (_S_is_dir_sep(ch))
-        {
-          if (!elem.empty())
-            {
-              if (_M_cmpts.empty())
-                {
-                  if (is_unc(_M_pathname))
-                    _M_cmpts.emplace_back(_M_pathname.substr(0, 2) + elem,
-                                          _Type::_Root_name, 0);
-                  else if (_S_is_dir_sep(_M_pathname[0]))
-                    {
-                      _M_cmpts.emplace_back(_M_pathname.substr(0, 1),
-                                            _Type::_Root_dir, 0);
-                      _M_cmpts.emplace_back(std::move(elem),
-                                            _Type::_Filename, pos);
-                    }
-                  else if (is_disk_designator(elem))
-                      _M_cmpts.emplace_back(std::move(elem),
-                                            _Type::_Root_name, 0);
-                  else
-                    _M_cmpts.emplace_back(std::move(elem),
-                                          _Type::_Filename, pos);
-                }
-              else
-                _M_cmpts.emplace_back(std::move(elem), _Type::_Filename, pos);
-              elem.clear();
-            }
-          else if (_M_cmpts.size() == 0
-	      || (_M_cmpts.size() == 1
-		&& _M_cmpts.front()._M_type == _Type::_Root_name))
-            {
-              _M_cmpts.emplace_back(string_type(1, ch), _Type::_Root_dir,
-                                    &ch - _M_pathname.data());
-            }
-          // else adjacent dir separators, ignore
-        }
+      if (_S_is_dir_sep(_M_pathname[pos]))
+	{
+	  if (back != pos)
+	    _M_add_filename(back, pos - back);
+	  back = ++pos;
+	}
       else
-        {
-          if (elem.empty())
-            pos = &ch - _M_pathname.data();
-          elem += ch;
-        }
+	++pos;
     }
 
-  if (_S_is_dir_sep(_M_pathname.back()))
+  if (back != pos)
+    _M_add_filename(back, pos - back);
+  else if (_S_is_dir_sep(_M_pathname.back()))
     {
-      if (_M_cmpts.empty())
-        _M_type = _Type::_Root_dir;
-      else if (_M_cmpts.back()._M_type == _Type::_Filename)
-        _M_cmpts.emplace_back(string_type(1, '.'), _Type::_Filename,
-                              _M_pathname.size() - 1);
+      // [path.itr]/8
+      // "Dot, if one or more trailing non-root slash characters are present."
+      if (_M_cmpts.back()._M_type == _Type::_Filename)
+	{
+	  const auto& last = _M_cmpts.back();
+	  pos = last._M_pos + last._M_pathname.size();
+	  _M_cmpts.emplace_back(string_type(1, '.'), _Type::_Filename, pos);
+	}
     }
-  else if (!elem.empty())
-    _M_cmpts.emplace_back(std::move(elem), _Type::_Filename, pos);
 
   _M_trim();
+}
+
+void
+path::_M_add_root_name(size_t n)
+{
+  _M_cmpts.emplace_back(_M_pathname.substr(0, n), _Type::_Root_name, 0);
+}
+
+void
+path::_M_add_root_dir(size_t pos)
+{
+  _M_cmpts.emplace_back(_M_pathname.substr(pos, 1), _Type::_Root_dir, pos);
+}
+
+void
+path::_M_add_filename(size_t pos, size_t n)
+{
+  _M_cmpts.emplace_back(_M_pathname.substr(pos, n), _Type::_Filename, pos);
 }
 
 void
