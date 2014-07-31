@@ -57,11 +57,24 @@ path::replace_filename(const path& replacement)
 path&
 path::replace_extension(const path& replacement)
 {
-  path fname = _M_split_filename(filename(), _Split::_Stem);
+  auto ext = _M_find_extension();
+  if (ext.first && ext.second != string_type::npos)
+    {
+      if (ext.first == &_M_pathname)
+	_M_pathname.erase(ext.second);
+      else
+	{
+	  const auto& back = _M_cmpts.back();
+	  if (ext.first != &back._M_pathname)
+	    _GLIBCXX_THROW_OR_ABORT(
+		std::logic_error("path::replace_extension failed"));
+	  _M_pathname.erase(back._M_pos + ext.second);
+	}
+    }
   if (!replacement.empty() && replacement.native()[0] != '.')
-    fname._M_pathname += '.';
-  // TODO fname += replacement;
-  replace_filename(fname);
+    _M_pathname += '.';
+  _M_pathname += replacement.native();
+  _M_split_cmpts();
   return *this;
 }
 
@@ -198,22 +211,6 @@ path::parent_path() const
   return __ret;
 }
 
-path
-path::_M_split_filename(path filename, _Split which) const
-{
-  auto pos = string_type::npos;
-  if (filename._M_pathname.size() < 3
-      && filename._M_pathname.find_first_not_of('.') == string_type::npos)
-    pos = filename._M_pathname.size();
-  else
-    pos = filename._M_pathname.find_last_of('.');
-  if (which == _Split::_Stem)
-    filename._M_pathname.erase(pos);
-  else
-    filename._M_pathname.erase(0, pos);
-  return filename;
-}
-
 bool
 path::has_root_name() const
 {
@@ -285,16 +282,35 @@ path::has_filename() const
   return !empty();
 }
 
-bool
-path::has_stem() const
+std::pair<const path::string_type*, std::size_t>
+path::_M_find_extension() const
 {
-  return false; // TODO
-}
+  const std::string* s = nullptr;
 
-bool
-path::has_extension() const
-{
-  return false; // TODO
+  if (_M_type != _Type::_Multi)
+    s = &_M_pathname;
+  else if (!_M_cmpts.empty())
+    {
+      const auto& c = _M_cmpts.back();
+      if (c._M_type == _Type::_Filename)
+	s = &c._M_pathname;
+    }
+
+  if (s)
+    {
+      if (auto sz = s->size())
+	{
+	  if (sz <= 2 && (*s)[0] == '.')
+	    {
+	      if (sz == 1 || (*s)[1] == '.')  // filename is "." or ".."
+		return { s, string_type::npos };
+	      else
+		return { s, 0 };  // filename is like ".?"
+	    }
+	  return { s, s->rfind('.') };
+	}
+    }
+  return {};
 }
 
 void

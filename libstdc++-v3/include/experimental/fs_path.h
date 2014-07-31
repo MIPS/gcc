@@ -370,7 +370,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       return *this;
     }
 
-    path _M_split_filename(path, _Split) const;
+    pair<const string_type*, size_t> _M_find_extension() const;
 
     template<typename _CharT, typename = value_type>
       struct _Cvt;
@@ -748,17 +748,41 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   inline path
   path::stem() const
-  { return _M_split_filename(filename(), _Split::_Stem); }
+  {
+    auto ext = _M_find_extension();
+    if (ext.first && ext.second != 0)
+      return path{ext.first->substr(0, ext.second)};
+    return {};
+  }
 
   inline path
   path::extension() const
-  { return _M_split_filename(filename(), _Split::_Extension); }
+  {
+    auto ext = _M_find_extension();
+    if (ext.first && ext.second != string_type::npos)
+      return path{ext.first->substr(ext.second)};
+    return {};
+  }
+
+  inline bool
+  path::has_stem() const
+  {
+    auto ext = _M_find_extension();
+    return ext.first && ext.second != 0;
+  }
+
+  inline bool
+  path::has_extension() const
+  {
+    auto ext = _M_find_extension();
+    return ext.first && ext.second != string_type::npos;
+  }
 
   inline bool
   path::is_absolute() const
   {
 #ifdef _GLIBCXX_FILESYSTEM_IS_WINDOWS
-    return false; // TODO
+    return has_root_name();
 #else
     return has_root_directory();
 #endif
