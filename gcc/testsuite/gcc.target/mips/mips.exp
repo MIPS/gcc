@@ -1218,7 +1218,9 @@ proc mips-dg-options { args } {
 	}
 	if { $isa_rev < 1 } {
 	    mips_make_test_option options "-mno-paired-single"
-	    mips_make_test_option options "-mno-odd-spreg"
+	    if { ![mips_have_test_option_p options "-mgp64"] } {
+		mips_make_test_option options "-mno-odd-spreg"
+	    }
 	}
 	if { $isa_rev < 2 } {
 	    if { $gp_size == 32 } {
