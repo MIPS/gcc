@@ -99,7 +99,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
     void assign(const filesystem::path& __p) { _M_path = __p; }
 
-    // TODO is this the same as _M_path.replace_filename(__p) ?
     void
     replace_filename(const filesystem::path& __p)
     { _M_path = _M_path.parent_path() / __p; }
