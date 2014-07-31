@@ -1,0 +1,44 @@
+/* match-and-simplify patterns for builtin functions
+   Copyright (C) 2014 Free Software Foundation, Inc.
+
+This file is part of GCC.
+
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 3, or (at your option) any later
+version.
+
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
+
+You should have received a copy of the GNU General Public License
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
+
+
+/* One builtin function to atom.  */
+(match_and_simplify
+  (BUILT_IN_SQRT (mult @0 @0))
+  @0)
+/* One builtin function to builtin function.  */
+(match_and_simplify
+  (BUILT_IN_CABS (complex:c @0 real_zerop))
+  (BUILT_IN_FABS @0))
+/* One builtin function to expr.  */
+(match_and_simplify
+  (BUILT_IN_CABS (complex @0 @0))
+  (mult (BUILT_IN_FABS @0) { build_real (TREE_TYPE (@0), real_value_truncate (TYPE_MODE (TREE_TYPE (@0)), dconst_sqrt2 ())); }))
+/* One nested fn.  */
+(match_and_simplify
+  (mult:c (BUILT_IN_POW @0 @1) @0)
+  (BUILT_IN_POW @0 (PLUS_EXPR @1 { build_one_cst (TREE_TYPE (@1)); })))
+(match_and_simplify
+  (BUILT_IN_POW @0 REAL_CST_P@1)
+  /* This needs to be conditionalized on flag_unsafe_math_optimizations,
+     but we keep it for now to exercise function re-optimization.
+     It makes gcc.dg/pr43419.c FAIL execution though.  */
+  (if (REAL_VALUES_EQUAL (TREE_REAL_CST (@1), dconsthalf)))
+  (BUILT_IN_SQRT @0))
+

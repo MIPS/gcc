@@ -1,5 +1,15 @@
 2014-07-30  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 
+	* match-bitwise.pd: New file, split out from match.pd.
+	* match-plusminus.pd: Likewise.
+	* match-constant-folding.pd: Likewise.
+	* match-builtin.pd: Likewise.
+	* match-rotate.pd: Likewise.
+	* match.pd: Move contend to individual files based on
+	pattern origin and include them.
+
+2014-07-30  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
 	* genmatch.c (print_operand): Adjust to use dyn_cast.
 
 2014-07-28  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>

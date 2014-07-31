@@ -1,0 +1,108 @@
+/* match-and-simplify patterns for associate_plusminus
+   Copyright (C) 2014 Free Software Foundation, Inc.
+
+This file is part of GCC.
+
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 3, or (at your option) any later
+version.
+
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
+
+You should have received a copy of the GNU General Public License
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
+
+/* ???  Have match_and_simplify groups guarded with common
+   predicates on the outermost type?  */
+
+/* Contract negates.  */
+(match_and_simplify
+  (plus:c @0 (negate @1))
+  (if (!TYPE_SATURATING (type)))
+  (minus @0 @1))
+(match_and_simplify
+  (minus @0 (negate @1))
+  (if (!TYPE_SATURATING (type)))
+  (plus @0 @1))
+
+
+/* Match patterns that allow contracting a plus-minus pair
+   irrespective of overflow issues.
+   ???  !TYPE_SATURATING condition missing.
+   ???  !FLOAT_TYPE_P && !FIXED_POINT_TYPE_P condition missing
+   because of saturation to +-Inf.  */
+
+(if (!TYPE_SATURATING (type)
+    && !FLOAT_TYPE_P (type) && !FIXED_POINT_TYPE_P (type))
+  (match_and_simplify
+    (minus (plus @0 @1) @0)
+    @1)
+
+  (match_and_simplify
+    (minus (minus @0 @1) @0)
+    (negate @1))
+
+  (match_and_simplify
+    (minus (plus @0 @1) @1)
+    @0)
+
+  (match_and_simplify
+    (plus:c (minus @0 @1) @1)
+    @0))
+
+/* (CST +- A) +- CST -> CST' +- A.  */
+/* match_and_simplify handles constant folding for us so we can
+   implement these as re-association patterns.
+   Watch out for operand order and constant canonicalization
+   we do!  A - CST -> A + -CST, CST + A -> A + CST.  */
+(match_and_simplify
+  (plus (plus @0 INTEGER_CST_P@1) INTEGER_CST_P@2)
+  /* If the constant operation overflows we cannot do the transform
+     as we would introduce undefined overflow, for example
+     with (a - 1) + INT_MIN.  */
+  (if (!TREE_OVERFLOW (@1 = int_const_binop (PLUS_EXPR, @1, @2))))
+  (plus @0 @1))
+(match_and_simplify
+  (plus (minus INTEGER_CST_P@0 @1) INTEGER_CST_P@2)
+  (minus (plus @0 @2) @1))
+/* TODO:
+   (A +- CST) +- CST  ->  A +- CST
+   ~A + A             ->  -1
+   ~A + 1             ->  -A
+   A - (A +- B)       ->  -+ B
+   A +- (B +- A)      ->  +- B
+   CST +- (CST +- A)  ->  CST +- A
+   CST +- (A +- CST)  ->  CST +- A
+   A + ~A             ->  -1
+   (T)(P + A) - (T)P  -> (T)A
+ */
+
+/* ~A + A -> -1 */
+(match_and_simplify
+  (plus:c (bit_not @0) @0)
+  { build_all_ones_cst (type); })
+
+/* ~A + 1 -> -A */
+(match_and_simplify
+  (plus (bit_not integral_op_p@0) integer_onep)
+  (negate @0)) 
+
+/* A - (A +- B) -> -+ B */
+(match_and_simplify
+  (minus @0 (plus:c @0 @1))
+  (negate @1))
+(match_and_simplify
+  (minus @0 (minus @0 @1))
+  @1)
+
+/* (T)(P + A) - (T)P -> (T) A */
+(match_and_simplify
+  (minus (convert (pointer_plus @0 @1))
+	 (convert @0))
+  (convert @1)) 
+
