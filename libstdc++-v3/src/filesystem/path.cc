@@ -447,9 +447,3 @@ path::_S_convert_loc(const char* __first, const char* __last,
 	"Cannot convert character sequence",
 	std::make_error_code(errc::illegal_byte_sequence)));
 }
-
-#if 0
-// template class std::list<path::_Cmpt>;
-
-template void std::list<path::_Cmpt>::_M_assign_dispatch<std::experimental::filesystem::v1::path::_Cmpt const*>(path::_Cmpt const*, path::_Cmpt const*, std::__false_type);
-#endif

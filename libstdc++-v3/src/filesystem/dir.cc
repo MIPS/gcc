@@ -398,20 +398,3 @@ fs::recursive_directory_iterator::_M_push(_Dir&& dir, error_code* ec)
   // N.B. This creates a reference cycle in _M_dirs
   top.second = directory_iterator{ shared_ptr<_Dir>{_M_dirs, &top.first}, ec };
 }
-
-#if 0
-template void std::deque<Dir_iter_pair>::_M_pop_back_aux();
-template void std::deque<Dir_iter_pair>::_M_destroy_data_aux(iterator, iterator);
-template void std::deque<Dir_iter_pair>::_M_reserve_map_at_back(size_t);
-template void std::deque<Dir_iter_pair>::_M_reallocate_map(size_t, bool);
-template void std::deque<Dir_iter_pair>::emplace_back<fs::_Dir, fs::directory_iterator>(fs::_Dir&&, fs::directory_iterator&&);
-template void std::deque<Dir_iter_pair>::_M_push_back_aux<fs::_Dir, fs::directory_iterator>(fs::_Dir&&, fs::directory_iterator&&);
-template std::_Deque_base<Dir_iter_pair, std::allocator<Dir_iter_pair>>::~_Deque_base();
-template void std::_Deque_base<Dir_iter_pair, std::allocator<Dir_iter_pair>>::_M_initialize_map(size_t);
-
-inline template class std::_Sp_counted_base<__gnu_cxx::__default_lock_policy>;
-inline template class std::_Sp_counted_ptr_inplace<fs::recursive_directory_iterator::_Dir_stack, std::allocator<fs::recursive_directory_iterator::_Dir_stack>, __gnu_cxx::__default_lock_policy>;
-// template void* std::_Sp_counted_ptr_inplace<fs::recursive_directory_iterator::_Dir_stack, std::allocator<fs::recursive_directory_iterator::_Dir_stack>, __gnu_cxx::__default_lock_policy>::_M_get_deleter(std::type_info const&) noexcept;
-inline template class std::_Sp_counted_ptr_inplace<fs::_Dir, std::allocator<fs::_Dir>, __gnu_cxx::__default_lock_policy>;
-template void* std::_Sp_counted_ptr_inplace<fs::_Dir, std::allocator<fs::_Dir>, __gnu_cxx::__default_lock_policy>::_M_get_deleter(std::type_info const&) noexcept;
-#endif
