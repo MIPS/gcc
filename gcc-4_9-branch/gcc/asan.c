@@ -2588,21 +2588,25 @@ execute_sanopt (void)
   FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator gsi;
-      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); )
 	{
 	  gimple stmt = gsi_stmt (gsi);
+	  bool no_next = false;
 
 	  if (!is_gimple_call (stmt))
-	    continue;
+	    {
+	      gsi_next (&gsi);
+	      continue;
+	    }
 
 	  if (gimple_call_internal_p (stmt))
 	    switch (gimple_call_internal_fn (stmt))
 	      {
 	      case IFN_UBSAN_NULL:
-		ubsan_expand_null_ifn (gsi);
+		no_next = ubsan_expand_null_ifn (&gsi);
 		break;
 	      case IFN_UBSAN_BOUNDS:
-		ubsan_expand_bounds_ifn (&gsi);
+		no_next = ubsan_expand_bounds_ifn (&gsi);
 		break;
 	      default:
 		break;
@@ -2615,9 +2619,8 @@ execute_sanopt (void)
 	      fprintf (dump_file, "\n");
 	    }
 
-	  /* ubsan_expand_bounds_ifn might move us to the end of the BB.  */
-	  if (gsi_end_p (gsi))
-	    break;
+	  if (!no_next)
+	    gsi_next (&gsi);
 	}
     }
   return 0;
