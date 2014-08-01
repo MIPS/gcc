@@ -102,7 +102,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
     template<typename _Tp1, typename _Tp2 = void>
       using _Path = typename
-	std::enable_if<__constructible_from<_Tp1, _Tp2>::value, path>::type;
+	std::enable_if<__and_<__not_<is_same<_Tp1, path>>,
+			      __constructible_from<_Tp1, _Tp2>>::value,
+		       path>::type;
 
     template<typename _Source>
       static _Source
@@ -220,7 +222,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       append(_InputIterator __first, _InputIterator __last)
       { return _M_append( _S_convert(__first, __last) ); }
 
-    // concatenation TODO
+    // concatenation
 
     path& operator+=(const path& __x);
     path& operator+=(const string_type& __x);
@@ -229,7 +231,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
     template<typename _Source>
       _Path<_Source>&
-      operator+=(_Source const& __x);
+      operator+=(_Source const& __x) { return concat(__x); }
 
     template<typename _CharT>
       path&
@@ -237,11 +239,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
     template<typename _Source>
       _Path<_Source>&
-      concat(_Source const& __x);
+      concat(_Source const& __x)
+      { return concat(_S_range_begin(__x), _S_range_end(__x)); }
 
     template<typename _InputIterator>
       _Path<_InputIterator, _InputIterator>&
-      concat(_InputIterator __first, _InputIterator __last);
+      concat(_InputIterator __first, _InputIterator __last)
+      { return operator+=( _S_convert(__first, __last) ); }
 
     // modifiers
 
@@ -668,6 +672,44 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     __p.clear();
     return *this;
   }
+
+  inline path&
+  path::operator+=(const path& __p)
+  {
+    return operator+=(__p.native());
+  }
+
+  inline path&
+  path::operator+=(const string_type& __x)
+  {
+    _M_pathname += __x;
+    _M_split_cmpts();
+    return *this;
+  }
+
+  inline path&
+  path::operator+=(const value_type* __x)
+  {
+    _M_pathname += __x;
+    _M_split_cmpts();
+    return *this;
+  }
+
+  inline path&
+  path::operator+=(value_type __x)
+  {
+    _M_pathname += __x;
+    _M_split_cmpts();
+    return *this;
+  }
+
+  template<typename _CharT>
+    inline path&
+    path::operator+=(_CharT __x)
+    {
+      auto* __addr = std::addressof(__x);
+      return concat(__addr, __addr + 1);
+    }
 
   inline path&
   path::make_preferred()
