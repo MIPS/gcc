@@ -447,3 +447,21 @@ path::_S_convert_loc(const char* __first, const char* __last,
 	"Cannot convert character sequence",
 	std::make_error_code(errc::illegal_byte_sequence)));
 }
+
+std::size_t
+std::experimental::filesystem::hash_value(const path& p) noexcept
+{
+  // [path.non-member]
+  // "If for two paths, p1 == p2 then hash_value(p1) == hash_value(p2)."
+  // Equality works as if by traversing the range [begin(), end()), meaning
+  // e.g. path("a//b") == path("a/b"), so we cannot simply hash _M_pathname
+  // but need to iterate over individual elements. Use the hash_combine from
+  // http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n3876.pdf
+  size_t seed = 0;
+  for (const auto& x : p)
+    {
+      seed ^= std::hash<path::string_type>()(x.native()) + 0x9e3779b9
+	+ (seed<<6) + (seed>>2);
+    }
+  return seed;
+}
