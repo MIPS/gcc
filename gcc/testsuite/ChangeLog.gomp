@@ -1,3 +1,7 @@
+2014-08-01  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gfortran.dg/gomp/map-1.f90 (test): Update error reporting.
+
 2014-07-24  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gfortran.dg/goacc/reduction-2.f95: New test.

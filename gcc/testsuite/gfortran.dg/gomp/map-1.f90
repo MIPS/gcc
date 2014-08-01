@@ -45,7 +45,7 @@ subroutine test(aas)
   !$omp target map(j(0:)) ! { dg-warning "out of bounds" }
   !$omp end target
 
-  !$omp target map(j(5:4)) ! { dg-error "Lower bound of OpenMP array section in greater than upper" "" { xfail *-*-* } }
+  !$omp target map(j(5:4))
   !$omp end target
 
   !$omp target map(j(5:))
@@ -93,16 +93,17 @@ subroutine test(aas)
   !$omp end target
 
   !$omp target map(tt%i) ! { dg-error "Syntax error in OpenMP variable list" }
-  !$omp end target ! { dg-bogus "Unexpected !\\\$OMP END TARGET statement" "" { xfail *-*-* } }
+  !$omp end target ! { dg-error "Unexpected !\\\$OMP END TARGET statement" }
 
   !$omp target map(tt%j) ! { dg-error "Syntax error in OpenMP variable list" }
-  !$omp end target ! { dg-bogus "Unexpected !\\\$OMP END TARGET statement" "" { xfail *-*-* } }
+  !$omp end target ! { dg-error "Unexpected !\\\$OMP END TARGET statement" }
 
-  !$omp target map(tt%j(1)) ! { dg-bogus "Syntax error in OpenMP variable list" "" { xfail *-*-* } }
-  !$omp end target ! { dg-bogus "Unexpected !\\\$OMP END TARGET statement" "" { xfail *-*-* } }
+  ! broken test
+  !$omp target map(tt%j(1)) ! { dg-error "Syntax error in OpenMP variable list" }
+  !$omp end target ! { dg-error "Unexpected !\\\$OMP END TARGET statement" }
 
-  !$omp target map(tt%j(1:)) ! { dg-bogus "Syntax error in OpenMP variable list" "" { xfail *-*-* } }
-  !$omp end target ! { dg-bogus "Unexpected !\\\$OMP END TARGET statement" "" { xfail *-*-* } }
+  !$omp target map(tt%j(1:)) ! { dg-error "Syntax error in OpenMP variable list" }
+  !$omp end target ! { dg-error "Unexpected !\\\$OMP END TARGET statement" }
 
   !$omp target map(tp) ! { dg-error "THREADPRIVATE object 'tp' in MAP clause" }
   !$omp end target
