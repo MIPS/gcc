@@ -461,7 +461,7 @@ package body Exp_Util is
 
          Utyp := Underlying_Type (Base_Type (Utyp));
 
-         --  Deal with non-tagged derivation of private views. If the parent is
+         --  Deal with untagged derivation of private views. If the parent is
          --  now known to be protected, the finalization routine is the one
          --  defined on the corresponding record of the ancestor (corresponding
          --  records do not automatically inherit operations, but maybe they
@@ -786,7 +786,7 @@ package body Exp_Util is
          if Is_Allocate or else not Is_Class_Wide_Type (Desig_Typ) then
             Append_To (Actuals, New_Occurrence_Of (Alig_Id, Loc));
 
-         --  For deallocation of class wide types we obtain the value of
+         --  For deallocation of class-wide types we obtain the value of
          --  alignment from the Type Specific Record of the deallocated object.
          --  This is needed because the frontend expansion of class-wide types
          --  into equivalent types confuses the backend.
@@ -1791,11 +1791,12 @@ package body Exp_Util is
    -----------------------
 
    function Duplicate_Subexpr
-     (Exp      : Node_Id;
-      Name_Req : Boolean := False) return Node_Id
+     (Exp          : Node_Id;
+      Name_Req     : Boolean := False;
+      Renaming_Req : Boolean := False) return Node_Id
    is
    begin
-      Remove_Side_Effects (Exp, Name_Req);
+      Remove_Side_Effects (Exp, Name_Req, Renaming_Req);
       return New_Copy_Tree (Exp);
    end Duplicate_Subexpr;
 
@@ -1804,12 +1805,14 @@ package body Exp_Util is
    ---------------------------------
 
    function Duplicate_Subexpr_No_Checks
-     (Exp      : Node_Id;
-      Name_Req : Boolean := False) return Node_Id
+     (Exp          : Node_Id;
+      Name_Req     : Boolean := False;
+      Renaming_Req : Boolean := False) return Node_Id
    is
       New_Exp : Node_Id;
+
    begin
-      Remove_Side_Effects (Exp, Name_Req);
+      Remove_Side_Effects (Exp, Name_Req, Renaming_Req);
       New_Exp := New_Copy_Tree (Exp);
       Remove_Checks (New_Exp);
       return New_Exp;
@@ -1820,12 +1823,14 @@ package body Exp_Util is
    -----------------------------------
 
    function Duplicate_Subexpr_Move_Checks
-     (Exp      : Node_Id;
-      Name_Req : Boolean := False) return Node_Id
+     (Exp          : Node_Id;
+      Name_Req     : Boolean := False;
+      Renaming_Req : Boolean := False) return Node_Id
    is
       New_Exp : Node_Id;
+
    begin
-      Remove_Side_Effects (Exp, Name_Req);
+      Remove_Side_Effects (Exp, Name_Req, Renaming_Req);
       New_Exp := New_Copy_Tree (Exp);
       Remove_Checks (Exp);
       return New_Exp;
@@ -3228,6 +3233,53 @@ package body Exp_Util is
       end;
    end Get_Current_Value_Condition;
 
+   -------------------------------------------------
+   -- Get_First_Parent_With_Ext_Axioms_For_Entity --
+   -------------------------------------------------
+
+   function Get_First_Parent_With_Ext_Axioms_For_Entity
+     (E : Entity_Id) return Entity_Id is
+
+      Decl : Node_Id;
+
+   begin
+      if Ekind (E) = E_Package then
+         if Nkind (Parent (E)) = N_Defining_Program_Unit_Name then
+            Decl := Parent (Parent (E));
+         else
+            Decl := Parent (E);
+         end if;
+      end if;
+
+      --  E is the package which is externally axiomatized
+
+      if Ekind (E) = E_Package
+        and then Has_Annotate_Pragma_For_External_Axiomatization (E)
+      then
+         return E;
+
+         --  E is a package instance, in which case it is axiomatized iff the
+         --  corresponding generic package is Axiomatized.
+
+      elsif Ekind (E) = E_Package
+        and then Present (Generic_Parent (Decl))
+      then
+         return Get_First_Parent_With_Ext_Axioms_For_Entity
+           (Generic_Parent (Decl));
+
+         --  Otherwise, look at E's scope instead if present
+
+      elsif Present (Scope (E)) then
+         return Get_First_Parent_With_Ext_Axioms_For_Entity
+             (Scope (E));
+
+         --  Else there is no such axiomatized package
+
+      else
+         return Empty;
+      end if;
+   end Get_First_Parent_With_Ext_Axioms_For_Entity;
+
    ---------------------
    -- Get_Stream_Size --
    ---------------------
@@ -3270,6 +3322,122 @@ package body Exp_Util is
          return False;
       end if;
    end Has_Access_Constraint;
+
+   -----------------------------------------------------
+   -- Has_Annotate_Pragma_For_External_Axiomatization --
+   -----------------------------------------------------
+
+   function Has_Annotate_Pragma_For_External_Axiomatization
+     (E : Entity_Id) return Boolean
+   is
+      function Is_Annotate_Pragma_For_External_Axiomatization
+        (N : Node_Id) return Boolean;
+      --  Returns whether N is
+      --    pragma Annotate (GNATprove, External_Axiomatization);
+
+      ----------------------------------------------------
+      -- Is_Annotate_Pragma_For_External_Axiomatization --
+      ----------------------------------------------------
+
+      --  The general form of pragma Annotate is
+
+      --    pragma Annotate (IDENTIFIER [, IDENTIFIER {, ARG}]);
+      --    ARG ::= NAME | EXPRESSION
+
+      --  The first two arguments are by convention intended to refer to an
+      --  external tool and a tool-specific function. These arguments are
+      --  not analyzed.
+
+      --  The following is used to annotate a package specification which
+      --  GNATprove should treat specially, because the axiomatization of
+      --  this unit is given by the user instead of being automatically
+      --  generated.
+
+      --    pragma Annotate (GNATprove, External_Axiomatization);
+
+      function Is_Annotate_Pragma_For_External_Axiomatization
+        (N : Node_Id) return Boolean
+      is
+         Name_GNATprove               : constant String :=
+                                          "gnatprove";
+         Name_External_Axiomatization : constant String :=
+                                          "external_axiomatization";
+         --  Special names
+
+      begin
+         if Nkind (N) = N_Pragma
+           and then Get_Pragma_Id (Pragma_Name (N)) = Pragma_Annotate
+           and then List_Length (Pragma_Argument_Associations (N)) = 2
+         then
+            declare
+               Arg1 : constant Node_Id :=
+                        First (Pragma_Argument_Associations (N));
+               Arg2 : constant Node_Id := Next (Arg1);
+               Nam1 : Name_Id;
+               Nam2 : Name_Id;
+
+            begin
+               --  Fill in Name_Buffer with Name_GNATprove first, and then with
+               --  Name_External_Axiomatization so that Name_Find returns the
+               --  corresponding name. This takes care of all possible casings.
+
+               Name_Len := 0;
+               Add_Str_To_Name_Buffer (Name_GNATprove);
+               Nam1 := Name_Find;
+
+               Name_Len := 0;
+               Add_Str_To_Name_Buffer (Name_External_Axiomatization);
+               Nam2 := Name_Find;
+
+               return Chars (Get_Pragma_Arg (Arg1)) = Nam1
+                         and then
+                      Chars (Get_Pragma_Arg (Arg2)) = Nam2;
+            end;
+
+         else
+            return False;
+         end if;
+      end Is_Annotate_Pragma_For_External_Axiomatization;
+
+      --  Local variables
+
+      Decl      : Node_Id;
+      Vis_Decls : List_Id;
+      N         : Node_Id;
+
+   --  Start of processing for Has_Annotate_Pragma_For_External_Axiomatization
+
+   begin
+      if Nkind (Parent (E)) = N_Defining_Program_Unit_Name then
+         Decl := Parent (Parent (E));
+      else
+         Decl := Parent (E);
+      end if;
+
+      Vis_Decls := Visible_Declarations (Decl);
+
+      N := First (Vis_Decls);
+      while Present (N) loop
+
+         --  Skip declarations generated by the frontend. Skip all pragmas
+         --  that are not the desired Annotate pragma. Stop the search on
+         --  the first non-pragma source declaration.
+
+         if Comes_From_Source (N) then
+            if Nkind (N) = N_Pragma then
+               if Is_Annotate_Pragma_For_External_Axiomatization (N) then
+                  return True;
+               end if;
+            else
+               return False;
+            end if;
+         end if;
+
+         Next (N);
+      end loop;
+
+      return False;
+   end Has_Annotate_Pragma_For_External_Axiomatization;
 
    ----------------------------------
    -- Has_Following_Address_Clause --
@@ -5860,10 +6028,14 @@ package body Exp_Util is
 
       Set_Is_Class_Wide_Equivalent_Type (Equiv_Type);
 
+      --  A class-wide equivalent type does not require initialization
+
+      Set_Suppress_Initialization (Equiv_Type);
+
       if not Is_Interface (Root_Typ) then
          Append_To (Comp_List,
            Make_Component_Declaration (Loc,
-             Defining_Identifier =>
+             Defining_Identifier  =>
                Make_Defining_Identifier (Loc, Name_uParent),
              Component_Definition =>
                Make_Component_Definition (Loc,
@@ -5882,9 +6054,9 @@ package body Exp_Util is
       Append_To (List_Def,
         Make_Full_Type_Declaration (Loc,
           Defining_Identifier => Equiv_Type,
-          Type_Definition =>
+          Type_Definition     =>
             Make_Record_Definition (Loc,
-              Component_List =>
+              Component_List  =>
                 Make_Component_List (Loc,
                   Component_Items => Comp_List,
                   Variant_Part    => Empty))));
@@ -6093,7 +6265,7 @@ package body Exp_Util is
    --  2. If Expr is a unconstrained discriminated type expression, creates
    --    Unc_Type(Expr.Discr1, ... , Expr.Discr_n)
 
-   --  3. If Expr is class-wide, creates an implicit class wide subtype
+   --  3. If Expr is class-wide, creates an implicit class-wide subtype
 
    function Make_Subtype_From_Expr
      (E       : Node_Id;
@@ -6182,8 +6354,8 @@ package body Exp_Util is
 
             if Expander_Active and then Tagged_Type_Expansion then
 
-               --  If this is the class_wide type of a completion that is a
-               --  record subtype, set the type of the class_wide type to be
+               --  If this is the class-wide type of a completion that is a
+               --  record subtype, set the type of the class-wide type to be
                --  the full base type, for use in the expanded code for the
                --  equivalent type. Should this be done earlier when the
                --  completion is analyzed ???
@@ -6934,6 +7106,7 @@ package body Exp_Util is
    procedure Remove_Side_Effects
      (Exp          : Node_Id;
       Name_Req     : Boolean := False;
+      Renaming_Req : Boolean := False;
       Variable_Ref : Boolean := False)
    is
       Loc          : constant Source_Ptr      := Sloc (Exp);
@@ -7019,14 +7192,30 @@ package body Exp_Util is
             Set_Analyzed (Prefix (Exp), False);
          end if;
 
-         E :=
-           Make_Object_Declaration (Loc,
-             Defining_Identifier => Def_Id,
-             Object_Definition   => New_Occurrence_Of (Exp_Type, Loc),
-             Constant_Present    => True,
-             Expression          => Relocate_Node (Exp));
+         --  Generate:
+         --    Rnn : Exp_Type renames Expr;
 
-         Set_Assignment_OK (E);
+         if Renaming_Req then
+            E :=
+              Make_Object_Renaming_Declaration (Loc,
+                Defining_Identifier => Def_Id,
+                Subtype_Mark        => New_Occurrence_Of (Exp_Type, Loc),
+                Name                => Relocate_Node (Exp));
+
+         --  Generate:
+         --    Rnn : constant Exp_Type := Expr;
+
+         else
+            E :=
+              Make_Object_Declaration (Loc,
+                Defining_Identifier => Def_Id,
+                Object_Definition   => New_Occurrence_Of (Exp_Type, Loc),
+                Constant_Present    => True,
+                Expression          => Relocate_Node (Exp));
+
+            Set_Assignment_OK (E);
+         end if;
+
          Insert_Action (Exp, E);
 
       --  If the expression has the form v.all then we can just capture the

@@ -49,7 +49,7 @@ package body Debug is
    --  dj   Suppress "junk null check" for access parameter values
    --  dk   Generate GNATBUG message on abort, even if previous errors
    --  dl   Generate unit load trace messages
-   --  dm   Allow VMS features even if not OpenVMS version
+   --  dm
    --  dn   Generate messages for node/list allocation
    --  do   Print source from tree (original code only)
    --  dp   Generate messages for parser scope stack push/pops
@@ -101,7 +101,7 @@ package body Debug is
    --  d.h
    --  d.i  Ignore Warnings pragmas
    --  d.j  Generate listing of frontend inlined calls
-   --  d.k  Enable new support for frontend inlining
+   --  d.k
    --  d.l  Use Ada 95 semantics for limited function returns
    --  d.m  For -gnatl, print full source only for main unit
    --  d.n  Print source file names
@@ -116,7 +116,7 @@ package body Debug is
    --  d.w  Do not check for infinite loops
    --  d.x  No exception handlers
    --  d.y
-   --  d.z
+   --  d.z  Restore previous support for frontend handling of Inline_Always
 
    --  d.A  Read/write Aspect_Specifications hash table to tree
    --  d.B
@@ -141,9 +141,9 @@ package body Debug is
    --  d.U  Ignore indirect calls for static elaboration
    --  d.V
    --  d.W  Print out debugging information for Walk_Library_Items
-   --  d.X
+   --  d.X  Old treatment of indexing aspects
    --  d.Y
-   --  d.Z
+   --  d.Z  Do not enable expansion in configurable run-time mode
 
    --  d1   Error msgs have node numbers where possible
    --  d2   Eliminate error flags in verbose form error messages
@@ -280,14 +280,6 @@ package body Debug is
    --  dl   Generate unit load trace messages. A line of traceback output is
    --       generated each time a request is made to the library manager to
    --       load a new unit.
-
-   --  dm   Some features are permitted only in OpenVMS ports of GNAT (e.g.
-   --       the specification of passing by descriptor). Normally any use
-   --       of these features will be flagged as an error, but this debug
-   --       flag allows acceptance of these features in non OpenVMS ports.
-   --       Of course they may not have any useful effect, and in particular
-   --       attempting to generate code with this flag set may blow up.
-   --       The flag also forces the use of 64-bits for Long_Integer.
 
    --  dn   Generate messages for node/list allocation. Each time a node or
    --       list header is allocated, a line of output is generated. Certain
@@ -541,10 +533,6 @@ package body Debug is
    --       to the backend. This is useful to locate skipped calls that must be
    --       inlined by the frontend.
 
-   --  d.k  Enable new semantics of frontend inlining. This is useful to test
-   --       this new feature in all the platforms. What *is* this new semantics
-   --       which doesn't seem to be documented anywhere???
-
    --  d.l  Use Ada 95 semantics for limited function returns. This may be
    --       used to work around the incompatibility introduced by AI-318-2.
    --       It is useful only in -gnat05 mode.
@@ -593,6 +581,13 @@ package body Debug is
    --       handlers to be eliminated from the generated code. They are still
    --       fully compiled and analyzed, they just get eliminated from the
    --       code generation step.
+
+   --  d.z  Restore previous front-end support for Inline_Always. In default
+   --       mode, for targets that use the GCC back end (i.e. currently all
+   --       targets except AAMP, .NET, JVM, and GNATprove), Inline_Always is
+   --       handled by the back end. Use of this switch restores the previous
+   --       handling of Inline_Always by the front end on such targets. For the
+   --       targets that do not use the GCC back end, this switch is ignored.
 
    --  d.A  There seems to be a problem with ASIS if we activate the circuit
    --       for reading and writing the aspect specification hash table, so
@@ -684,6 +679,18 @@ package body Debug is
    --  d.W  Print out debugging information for Walk_Library_Items, including
    --       the order in which units are walked. This is primarily for use in
    --       debugging CodePeer mode.
+
+   --  d.X  A previous version of GNAT allowed indexing aspects to be
+   --       redefined on derived container types, while the default iterator
+   --       was inherited from the aprent type. This non-standard extension
+   --       is preserved temporarily for use by the modelling project under
+   --       debug flag d.X.
+
+   --  d.Z  Normally we always enable expansion in configurable run-time mode
+   --       to make sure we get error messages about unsupported features even
+   --       when compiling in -gnatc mode. But expansion is turned off in this
+   --       case if debug flag -gnatd.Z is used. This is to deal with the case
+   --       where we discover difficulties in this new processing.
 
    --  d1   Error messages have node numbers where possible. Normally error
    --       messages have only source locations. This option is useful when
@@ -787,7 +794,9 @@ package body Debug is
 
    --  dn  Do not delete temporary files created by gnatmake at the end
    --      of execution, such as temporary config pragma files, mapping
-   --      files or project path files.
+   --      files or project path files. This debug switch is equivalent to
+   --      the standard switch --keep-temp-files. We retain the debug switch
+   --      for back compatibility with past usage.
 
    --  dp  Prints the Q used by routine Make.Compile_Sources every time
    --      we go around the main compile loop of Make.Compile_Sources
@@ -813,7 +822,9 @@ package body Debug is
 
    --  dn  Do not delete temporary files created by gprbuild at the end
    --      of execution, such as temporary config pragma files, mapping
-   --      files or project path files.
+   --      files or project path files. This debug switch is equivalent to
+   --      the standard switch --keep-temp-files. We retain the debug switch
+   --      for back compatibility with past usage.
 
    --  dt  When a time stamp mismatch has been found for an ALI file,
    --      display the source file name, the time stamp expected and

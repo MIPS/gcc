@@ -23,9 +23,8 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Hostparm;
-with Opt;      use Opt;
-with Tree_IO;  use Tree_IO;
+with Opt;     use Opt;
+with Tree_IO; use Tree_IO;
 
 package body Osint.C is
 
@@ -127,12 +126,7 @@ package body Osint.C is
    begin
       Get_Name_String (Src);
 
-      if Hostparm.OpenVMS then
-         Name_Buffer (Name_Len + 1) := '_';
-      else
-         Name_Buffer (Name_Len + 1) := '.';
-      end if;
-
+      Name_Buffer (Name_Len + 1) := '.';
       Name_Len := Name_Len + 1;
       Name_Buffer (Name_Len + 1 .. Name_Len + Suffix'Length) := Suffix;
       Name_Len := Name_Len + Suffix'Length;
@@ -202,6 +196,16 @@ package body Osint.C is
       Delete_File (Name_Buffer (1 .. Name_Len), Dummy);
       Create_File_And_Check (Output_FD, Text);
    end Create_Output_Library_Info;
+
+   ------------------------------
+   -- Open_Output_Library_Info --
+   ------------------------------
+
+   procedure Open_Output_Library_Info is
+   begin
+      Set_Library_Info_Name;
+      Open_File_To_Append_And_Check (Output_FD, Text);
+   end Open_Output_Library_Info;
 
    -------------------------
    -- Create_Repinfo_File --

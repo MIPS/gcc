@@ -37,7 +37,6 @@ with Einfo;    use Einfo;
 with Erroutc;  use Erroutc;
 with Fname;    use Fname;
 with Gnatvsn;  use Gnatvsn;
-with Hostparm; use Hostparm;
 with Lib;      use Lib;
 with Opt;      use Opt;
 with Nlists;   use Nlists;
@@ -190,14 +189,6 @@ package body Errout is
    --  should have 'Class appended to its name (see Add_Class procedure), and
    --  is otherwise unchanged.
 
-   procedure VMS_Convert;
-   --  This procedure has no effect if called when the host is not OpenVMS. If
-   --  the host is indeed OpenVMS, then the error message stored in Msg_Buffer
-   --  is scanned for appearances of switch names which need converting to
-   --  corresponding VMS qualifier names. See Gnames/Vnames table in Errout
-   --  spec for precise definition of the conversion that is performed by this
-   --  routine in OpenVMS mode.
-
    function Warn_Insertion return String;
    --  This is called for warning messages only (so Warning_Msg_Char is set)
    --  and returns a corresponding string to use at the beginning of generated
@@ -270,8 +261,12 @@ package body Errout is
                M.Deleted := True;
                Warnings_Detected := Warnings_Detected - 1;
 
+               if M.Info then
+                  Info_Messages := Info_Messages - 1;
+               end if;
+
                if M.Warn_Err then
-                  Warnings_Treated_As_Errors := Warnings_Treated_As_Errors + 1;
+                  Warnings_Treated_As_Errors := Warnings_Treated_As_Errors - 1;
                end if;
             end if;
 
@@ -1141,6 +1136,10 @@ package body Errout is
       if Errors.Table (Cur_Msg).Warn or else Errors.Table (Cur_Msg).Style then
          Warnings_Detected := Warnings_Detected + 1;
 
+         if Errors.Table (Cur_Msg).Info then
+            Info_Messages := Info_Messages + 1;
+         end if;
+
       else
          Total_Errors_Detected := Total_Errors_Detected + 1;
 
@@ -1349,8 +1348,12 @@ package body Errout is
             Errors.Table (E).Deleted := True;
             Warnings_Detected := Warnings_Detected - 1;
 
+            if Errors.Table (E).Info then
+               Info_Messages := Info_Messages - 1;
+            end if;
+
             if Errors.Table (E).Warn_Err then
-               Warnings_Treated_As_Errors := Warnings_Treated_As_Errors + 1;
+               Warnings_Treated_As_Errors := Warnings_Treated_As_Errors - 1;
             end if;
          end if;
       end Delete_Warning;
@@ -1575,6 +1578,7 @@ package body Errout is
       Total_Errors_Detected := 0;
       Warnings_Treated_As_Errors := 0;
       Warnings_Detected := 0;
+      Info_Messages := 0;
       Warnings_As_Errors_Count := 0;
       Cur_Msg := No_Error_Msg;
       List_Pragmas.Init;
@@ -1665,8 +1669,7 @@ package body Errout is
       begin
          --  Extra blank line if error messages or source listing were output
 
-         if Total_Errors_Detected + Warnings_Detected > 0
-           or else Full_List
+         if Total_Errors_Detected + Warnings_Detected > 0 or else Full_List
          then
             Write_Eol;
          end if;
@@ -1675,13 +1678,8 @@ package body Errout is
          --  This normally goes to Standard_Output. The exception is when brief
          --  mode is not set, verbose mode (or full list mode) is set, and
          --  there are errors. In this case we send the message to standard
-         --  error to make sure that *something* appears on standard error in
-         --  an error situation.
-
-         --  Formerly, only the "# errors" suffix was sent to stderr, whereas
-         --  "# lines:" appeared on stdout. This caused problems on VMS when
-         --  the stdout buffer was flushed, giving an extra line feed after
-         --  the prefix.
+         --  error to make sure that *something* appears on standard error
+         --  in an error situation.
 
          if Total_Errors_Detected + Warnings_Detected /= 0
            and then not Brief_Output
@@ -1716,12 +1714,12 @@ package body Errout is
             Write_Str (" errors");
          end if;
 
-         if Warnings_Detected /= 0 then
+         if Warnings_Detected - Info_Messages /= 0 then
             Write_Str (", ");
             Write_Int (Warnings_Detected);
             Write_Str (" warning");
 
-            if Warnings_Detected /= 1 then
+            if Warnings_Detected - Info_Messages /= 1 then
                Write_Char ('s');
             end if;
 
@@ -1738,6 +1736,16 @@ package body Errout is
                Write_Str (" (");
                Write_Int (Warnings_Treated_As_Errors);
                Write_Str (" treated as errors)");
+            end if;
+         end if;
+
+         if Info_Messages /= 0 then
+            Write_Str (", ");
+            Write_Int (Info_Messages);
+            Write_Str (" info message");
+
+            if Info_Messages > 1 then
+               Write_Char ('s');
             end if;
          end if;
 
@@ -2041,8 +2049,9 @@ package body Errout is
       Write_Max_Errors;
 
       if Warning_Mode = Treat_As_Error then
-         Total_Errors_Detected := Total_Errors_Detected + Warnings_Detected;
-         Warnings_Detected := 0;
+         Total_Errors_Detected :=
+           Total_Errors_Detected + Warnings_Detected - Info_Messages;
+         Warnings_Detected := Info_Messages;
       end if;
    end Output_Messages;
 
@@ -2214,6 +2223,11 @@ package body Errout is
                and then not Errors.Table (E).Uncond
             then
                Warnings_Detected := Warnings_Detected - 1;
+
+               if Errors.Table (E).Info then
+                  Info_Messages := Info_Messages - 1;
+               end if;
+
                return True;
 
             --  No removal required
@@ -2331,9 +2345,7 @@ package body Errout is
       --  Loop through file names to find matching one. This is a bit slow, but
       --  we only do it in error situations so it is not so terrible. Note that
       --  if the loop does not exit, then the desired case will be left set to
-      --  Mixed_Case, this can happen if the name was not in canonical form,
-      --  and gets canonicalized on VMS. Possibly we could fix this by
-      --  unconditionally canonicalizing these names ???
+      --  Mixed_Case, this can happen if the name was not in canonical form.
 
       for J in 1 .. Last_Source_File loop
          Get_Name_String (Full_Debug_Name (J));
@@ -2980,8 +2992,6 @@ package body Errout is
                Set_Msg_Char (C);
          end case;
       end loop;
-
-      VMS_Convert;
    end Set_Msg_Text;
 
    ----------------
@@ -3291,55 +3301,6 @@ package body Errout is
          Set_Msg_Char ('"');
       end if;
    end Unwind_Internal_Type;
-
-   -----------------
-   -- VMS_Convert --
-   -----------------
-
-   procedure VMS_Convert is
-      P : Natural;
-      L : Natural;
-      N : Natural;
-
-   begin
-      if not OpenVMS then
-         return;
-      end if;
-
-      P := Msg_Buffer'First;
-      loop
-         if P >= Msglen then
-            return;
-         end if;
-
-         if Msg_Buffer (P) = '-' then
-            for G in Gnames'Range loop
-               L := Gnames (G)'Length;
-
-               --  See if we have "-ggg switch", where ggg is Gnames entry
-
-               if P + L + 7 <= Msglen
-                 and then Msg_Buffer (P + 1 .. P + L) = Gnames (G).all
-                 and then Msg_Buffer (P + L + 1 .. P + L + 7) = " switch"
-               then
-                  --  Replace by "/vvv qualifier", where vvv is Vnames entry
-
-                  N := Vnames (G)'Length;
-                  Msg_Buffer (P + N + 11 .. Msglen + N - L + 3) :=
-                    Msg_Buffer (P + L + 8 .. Msglen);
-                  Msg_Buffer (P) := '/';
-                  Msg_Buffer (P + 1 .. P + N) := Vnames (G).all;
-                  Msg_Buffer (P + N + 1 .. P + N + 10) := " qualifier";
-                  P := P + N + 10;
-                  Msglen := Msglen + N - L + 3;
-                  exit;
-               end if;
-            end loop;
-         end if;
-
-         P := P + 1;
-      end loop;
-   end VMS_Convert;
 
    --------------------
    -- Warn_Insertion --

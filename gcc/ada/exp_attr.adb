@@ -38,7 +38,6 @@ with Exp_Pakd; use Exp_Pakd;
 with Exp_Strm; use Exp_Strm;
 with Exp_Tss;  use Exp_Tss;
 with Exp_Util; use Exp_Util;
-with Exp_VFpt; use Exp_VFpt;
 with Fname;    use Fname;
 with Freeze;   use Freeze;
 with Gnatvsn;  use Gnatvsn;
@@ -106,6 +105,8 @@ package body Exp_Attr is
    --  We suppress checks for array/record reads, since the rule is that these
    --  are like assignments, out of range values due to uninitialized storage,
    --  or other invalid values do NOT cause a Constraint_Error to be raised.
+   --  If we are within an instance body all visibility has been established
+   --  already and there is no need to install the package.
 
    procedure Expand_Access_To_Protected_Op
      (N    : Node_Id;
@@ -458,14 +459,14 @@ package body Exp_Attr is
             Append_To (Alt_List,
               Make_Case_Statement_Alternative (Loc,
                 Discrete_Choices => New_Copy_List (Discrete_Choices (Variant)),
-                Statements =>
+                Statements       =>
                   Make_VS_Case (E, Component_List (Variant), Discrs)));
             Next_Non_Pragma (Variant);
          end loop;
 
          Append_To (Result,
            Make_Case_Statement (Loc,
-             Expression =>
+             Expression   =>
                Make_Selected_Component (Loc,
                  Prefix        => Make_Identifier (Loc, Name_X),
                  Selector_Name => New_Copy (Name (Variant_Part (CL)))),
@@ -630,6 +631,11 @@ package body Exp_Attr is
       if Is_Hidden (Arr)
         and then not In_Open_Scopes (Scop)
         and then Ekind (Scop) = E_Package
+
+        --  If we are within an instance body, then all visibility has been
+        --  established already and there is no need to install the package.
+
+        and then not In_Instance_Body
       then
          Push_Scope (Scop);
          Install_Visible_Declarations (Scop);
@@ -1113,7 +1119,13 @@ package body Exp_Attr is
 
          --  While loops are transformed into:
 
-         --    if <Condition> then
+         --    function Fnn return Boolean is
+         --    begin
+         --       <condition actions>
+         --       return <condition>;
+         --    end Fnn;
+
+         --    if Fnn then
          --       declare
          --          Temp1 : constant <type of Pref1> := <Pref1>;
          --          . . .
@@ -1121,7 +1133,7 @@ package body Exp_Attr is
          --       begin
          --          loop
          --             <original source statements with attribute rewrites>
-         --             exit when not <Condition>;
+         --             exit when not Fnn;
          --          end loop;
          --       end;
          --    end if;
@@ -1131,23 +1143,81 @@ package body Exp_Attr is
 
          elsif Present (Condition (Scheme)) then
             declare
-               Cond : constant Node_Id := Condition (Scheme);
+               Func_Decl : Node_Id;
+               Func_Id   : Entity_Id;
+               Stmts     : List_Id;
 
             begin
+               --  Wrap the condition of the while loop in a Boolean function.
+               --  This avoids the duplication of the same code which may lead
+               --  to gigi issues with respect to multiple declaration of the
+               --  same entity in the presence of side effects or checks. Note
+               --  that the condition actions must also be relocated to the
+               --  wrapping function.
+
+               --  Generate:
+               --    <condition actions>
+               --    return <condition>;
+
+               if Present (Condition_Actions (Scheme)) then
+                  Stmts := Condition_Actions (Scheme);
+               else
+                  Stmts := New_List;
+               end if;
+
+               Append_To (Stmts,
+                 Make_Simple_Return_Statement (Loc,
+                   Expression => Relocate_Node (Condition (Scheme))));
+
+               --  Generate:
+               --    function Fnn return Boolean is
+               --    begin
+               --       <Stmts>
+               --    end Fnn;
+
+               Func_Id   := Make_Temporary (Loc, 'F');
+               Func_Decl :=
+                 Make_Subprogram_Body (Loc,
+                   Specification              =>
+                     Make_Function_Specification (Loc,
+                       Defining_Unit_Name => Func_Id,
+                       Result_Definition  =>
+                         New_Occurrence_Of (Standard_Boolean, Loc)),
+                   Declarations               => Empty_List,
+                   Handled_Statement_Sequence =>
+                     Make_Handled_Sequence_Of_Statements (Loc,
+                       Statements => Stmts));
+
+               --  The function is inserted before the related loop. Make sure
+               --  to analyze it in the context of the loop's enclosing scope.
+
+               Push_Scope (Scope (Loop_Id));
+               Insert_Action (Loop_Stmt, Func_Decl);
+               Pop_Scope;
+
                --  Transform the original while loop into an infinite loop
                --  where the last statement checks the negated condition. This
                --  placement ensures that the condition will not be evaluated
                --  twice on the first iteration.
 
+               Set_Iteration_Scheme (Loop_Stmt, Empty);
+               Scheme := Empty;
+
                --  Generate:
-               --    exit when not <Cond>:
+               --    exit when not Fnn;
 
                Append_To (Statements (Loop_Stmt),
                  Make_Exit_Statement (Loc,
-                   Condition => Make_Op_Not (Loc, New_Copy_Tree (Cond))));
+                   Condition =>
+                     Make_Op_Not (Loc,
+                       Right_Opnd =>
+                         Make_Function_Call (Loc,
+                           Name => New_Occurrence_Of (Func_Id, Loc)))));
 
                Build_Conditional_Block (Loc,
-                 Cond      => Relocate_Node (Cond),
+                 Cond      =>
+                   Make_Function_Call (Loc,
+                     Name => New_Occurrence_Of (Func_Id, Loc)),
                  Loop_Stmt => Relocate_Node (Loop_Stmt),
                  If_Stmt   => Result,
                  Blk_Stmt  => Blk);
@@ -1282,8 +1352,6 @@ package body Exp_Attr is
 
       --  Step 4: Analyze all bits
 
-      Rewrite (N, New_Occurrence_Of (Temp_Id, Loc));
-
       Installed := Current_Scope = Scope (Loop_Id);
 
       --  Depending on the pracement of attribute 'Loop_Entry relative to the
@@ -1298,19 +1366,6 @@ package body Exp_Attr is
 
       if Present (Result) then
          Rewrite (Loop_Stmt, Result);
-
-         --  The insertion of condition actions associated with an iteration
-         --  scheme is usually done by the expansion of loop statements. The
-         --  expansion of Loop_Entry however reuses the iteration scheme to
-         --  build an if statement. As a result any condition actions must be
-         --  inserted before the if statement to avoid references before
-         --  declaration.
-
-         if Present (Scheme) and then Present (Condition_Actions (Scheme)) then
-            Insert_Actions (Loop_Stmt, Condition_Actions (Scheme));
-            Set_Condition_Actions (Scheme, No_List);
-         end if;
-
          Analyze (Loop_Stmt);
 
       --  The conditional block was analyzed when a previous 'Loop_Entry was
@@ -1321,6 +1376,7 @@ package body Exp_Attr is
          Analyze (Temp_Decl);
       end if;
 
+      Rewrite (N, New_Occurrence_Of (Temp_Id, Loc));
       Analyze (N);
 
       if not Installed then
@@ -2197,70 +2253,6 @@ package body Exp_Attr is
             Apply_Universal_Integer_Attribute_Checks (N);
          end if;
       end Alignment;
-
-      ---------------
-      -- AST_Entry --
-      ---------------
-
-      when Attribute_AST_Entry => AST_Entry : declare
-         Ttyp : Entity_Id;
-         T_Id : Node_Id;
-         Eent : Entity_Id;
-
-         Entry_Ref : Node_Id;
-         --  The reference to the entry or entry family
-
-         Index : Node_Id;
-         --  The index expression for an entry family reference, or
-         --  the Empty if Entry_Ref references a simple entry.
-
-      begin
-         if Nkind (Pref) = N_Indexed_Component then
-            Entry_Ref := Prefix (Pref);
-            Index := First (Expressions (Pref));
-         else
-            Entry_Ref := Pref;
-            Index := Empty;
-         end if;
-
-         --  Get expression for Task_Id and the entry entity
-
-         if Nkind (Entry_Ref) = N_Selected_Component then
-            T_Id :=
-              Make_Attribute_Reference (Loc,
-                Attribute_Name => Name_Identity,
-                Prefix         => Prefix (Entry_Ref));
-
-            Ttyp := Etype (Prefix (Entry_Ref));
-            Eent := Entity (Selector_Name (Entry_Ref));
-
-         else
-            T_Id :=
-              Make_Function_Call (Loc,
-                Name => New_Occurrence_Of (RTE (RE_Current_Task), Loc));
-
-            Eent  := Entity (Entry_Ref);
-
-            --  We have to find the enclosing task to get the task type
-            --  There must be one, since we already validated this earlier
-
-            Ttyp := Current_Scope;
-            while not Is_Task_Type (Ttyp) loop
-               Ttyp := Scope (Ttyp);
-            end loop;
-         end if;
-
-         --  Now rewrite the attribute with a call to Create_AST_Handler
-
-         Rewrite (N,
-           Make_Function_Call (Loc,
-             Name => New_Occurrence_Of (RTE (RE_Create_AST_Handler), Loc),
-             Parameter_Associations => New_List (
-               T_Id,
-               Entry_Index_Expression (Loc, Eent, Index, Ttyp))));
-
-         Analyze_And_Resolve (N, RTE (RE_AST_Handler));
-      end AST_Entry;
 
       ---------
       -- Bit --
@@ -4076,10 +4068,13 @@ package body Exp_Attr is
       -------------
 
       --  Transforms 'Machine into a call to the floating-point attribute
-      --  function Machine in Fat_xxx (where xxx is the root type)
+      --  function Machine in Fat_xxx (where xxx is the root type).
+      --  Expansion is avoided for cases the back end can handle directly.
 
       when Attribute_Machine =>
-         Expand_Fpt_Attribute_R (N);
+         if not Is_Inline_Floating_Point_Attribute (N) then
+            Expand_Fpt_Attribute_R (N);
+         end if;
 
       ----------------------
       -- Machine_Rounding --
@@ -4343,10 +4338,13 @@ package body Exp_Attr is
       -----------
 
       --  Transforms 'Model into a call to the floating-point attribute
-      --  function Model in Fat_xxx (where xxx is the root type)
+      --  function Model in Fat_xxx (where xxx is the root type).
+      --  Expansion is avoided for cases the back end can handle directly.
 
       when Attribute_Model =>
-         Expand_Fpt_Attribute_R (N);
+         if not Is_Inline_Floating_Point_Attribute (N) then
+            Expand_Fpt_Attribute_R (N);
+         end if;
 
       -----------------
       -- Object_Size --
@@ -5419,9 +5417,12 @@ package body Exp_Attr is
 
       --  Transforms 'Rounding into a call to the floating-point attribute
       --  function Rounding in Fat_xxx (where xxx is the root type)
+      --  Expansion is avoided for cases the back end can handle directly.
 
       when Attribute_Rounding =>
-         Expand_Fpt_Attribute_R (N);
+         if not Is_Inline_Floating_Point_Attribute (N) then
+            Expand_Fpt_Attribute_R (N);
+         end if;
 
       -------------
       -- Scaling --
@@ -6408,12 +6409,6 @@ package body Exp_Attr is
             begin
                case Float_Rep (Btyp) is
 
-                  --  For vax fpt types, call appropriate routine in special
-                  --  vax floating point unit. No need to worry about loads in
-                  --  this case, since these types have no signalling NaN's.
-
-                  when VAX_Native => Expand_Vax_Valid (N);
-
                   --  The AAMP back end handles Valid for floating-point types
 
                   when AAMP =>
@@ -7399,78 +7394,36 @@ package body Exp_Attr is
       Fat_Type : out Entity_Id;
       Fat_Pkg  : out RE_Id)
    is
-      Btyp : constant Entity_Id := Base_Type (T);
       Rtyp : constant Entity_Id := Root_Type (T);
-      Digs : constant Nat       := UI_To_Int (Digits_Value (Btyp));
 
    begin
-      --  If the base type is VAX float, then get appropriate VAX float type
+      --  All we do is use the root type (historically this dealt with
+      --  VAX-float .. to be cleaned up further later ???)
 
-      if Vax_Float (Btyp) then
-         case Digs is
-            when 6 =>
-               Fat_Type := RTE (RE_Fat_VAX_F);
-               Fat_Pkg  := RE_Attr_VAX_F_Float;
+      Fat_Type := Rtyp;
 
-            when 9 =>
-               Fat_Type := RTE (RE_Fat_VAX_D);
-               Fat_Pkg  := RE_Attr_VAX_D_Float;
+      if Fat_Type = Standard_Short_Float then
+         Fat_Pkg := RE_Attr_Short_Float;
 
-            when 15 =>
-               Fat_Type := RTE (RE_Fat_VAX_G);
-               Fat_Pkg  := RE_Attr_VAX_G_Float;
+      elsif Fat_Type = Standard_Float then
+         Fat_Pkg := RE_Attr_Float;
 
-            when others =>
-               raise Program_Error;
-         end case;
+      elsif Fat_Type = Standard_Long_Float then
+         Fat_Pkg := RE_Attr_Long_Float;
 
-      --  If root type is VAX float, this is the case where the library has
-      --  been recompiled in VAX float mode, and we have an IEEE float type.
-      --  This is when we use the special IEEE Fat packages.
-
-      elsif Vax_Float (Rtyp) then
-         case Digs is
-            when 6 =>
-               Fat_Type := RTE (RE_Fat_IEEE_Short);
-               Fat_Pkg  := RE_Attr_IEEE_Short;
-
-            when 15 =>
-               Fat_Type := RTE (RE_Fat_IEEE_Long);
-               Fat_Pkg  := RE_Attr_IEEE_Long;
-
-            when others =>
-               raise Program_Error;
-         end case;
-
-      --  If neither the base type nor the root type is VAX_Native then VAX
-      --  float is out of the picture, and we can just use the root type.
-
-      else
-         Fat_Type := Rtyp;
-
-         if Fat_Type = Standard_Short_Float then
-            Fat_Pkg := RE_Attr_Short_Float;
-
-         elsif Fat_Type = Standard_Float then
-            Fat_Pkg := RE_Attr_Float;
-
-         elsif Fat_Type = Standard_Long_Float then
-            Fat_Pkg := RE_Attr_Long_Float;
-
-         elsif Fat_Type = Standard_Long_Long_Float then
-            Fat_Pkg := RE_Attr_Long_Long_Float;
+      elsif Fat_Type = Standard_Long_Long_Float then
+         Fat_Pkg := RE_Attr_Long_Long_Float;
 
          --  Universal real (which is its own root type) is treated as being
          --  equivalent to Standard.Long_Long_Float, since it is defined to
          --  have the same precision as the longest Float type.
 
-         elsif Fat_Type = Universal_Real then
-            Fat_Type := Standard_Long_Long_Float;
-            Fat_Pkg := RE_Attr_Long_Long_Float;
+      elsif Fat_Type = Universal_Real then
+         Fat_Type := Standard_Long_Long_Float;
+         Fat_Pkg := RE_Attr_Long_Long_Float;
 
-         else
-            raise Program_Error;
-         end if;
+      else
+         raise Program_Error;
       end if;
    end Find_Fat_Info;
 
@@ -8001,17 +7954,44 @@ package body Exp_Attr is
    function Is_Inline_Floating_Point_Attribute (N : Node_Id) return Boolean is
       Id : constant Attribute_Id := Get_Attribute_Id (Attribute_Name (N));
 
+      function Is_GCC_Target return Boolean;
+      --  Return True if we are using a GCC target/back-end
+      --  ??? Note: the implementation is kludgy/fragile
+
+      -------------------
+      -- Is_GCC_Target --
+      -------------------
+
+      function Is_GCC_Target return Boolean is
+      begin
+         return VM_Target = No_VM and then not CodePeer_Mode
+           and then not AAMP_On_Target;
+      end Is_GCC_Target;
+
+   --  Start of processing for Exp_Attr
+
    begin
-      if Nkind (Parent (N)) /= N_Type_Conversion
+      --  Machine and Model can be expanded by the GCC backend only
+
+      if Id = Attribute_Machine or else Id = Attribute_Model then
+         return Is_GCC_Target;
+
+      --  Remaining cases handled by all back ends are Rounding and Truncation
+      --  when appearing as the operand of a conversion to some integer type.
+
+      elsif Nkind (Parent (N)) /= N_Type_Conversion
         or else not Is_Integer_Type (Etype (Parent (N)))
       then
          return False;
       end if;
 
-      --  Should also support 'Machine_Rounding and 'Unbiased_Rounding, but
-      --  required back end support has not been implemented yet ???
+      --  Here we are in the integer conversion context
 
-      return Id = Attribute_Truncation;
+      --  Very probably we should also recognize the cases of Machine_Rounding
+      --  and unbiased rounding in this conversion context, but the back end is
+      --  not yet prepared to handle these cases ???
+
+      return Id = Attribute_Rounding or else Id = Attribute_Truncation;
    end Is_Inline_Floating_Point_Attribute;
 
 end Exp_Attr;

@@ -709,10 +709,6 @@ Wreorder
 C++ ObjC++ Var(warn_reorder) Warning LangEnabledBy(C++ ObjC++,Wall)
 Warn when the compiler reorders code
 
-Wreturn-local-addr
-C ObjC C++ ObjC++ Var(warn_return_local_addr) Init(1) Warning
-Warn about returning a pointer/reference to a local or temporary variable.
-
 Wreturn-type
 C ObjC C++ ObjC++ Var(warn_return_type) Warning LangEnabledBy(C ObjC C++ ObjC++,Wall)
 Warn whenever a function's return type defaults to \"int\" (C), or about inconsistent return types (C++)
@@ -1275,10 +1271,6 @@ When \"signed\" or \"unsigned\" is not given make the bitfield unsigned
 funsigned-char
 C ObjC C++ ObjC++ LTO Var(flag_signed_char, 0)
 Make \"char\" unsigned by default
-
-fuse-all-virtuals
-C++ ObjC++ Var(flag_use_all_virtuals) Init(1)
-Treat all virtual functions as odr-used
 
 fuse-cxa-atexit
 C++ ObjC++ Var(flag_use_cxa_atexit) Init(DEFAULT_USE_CXA_ATEXIT)

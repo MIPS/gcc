@@ -43,7 +43,6 @@ with Exp_Pakd; use Exp_Pakd;
 with Exp_Prag; use Exp_Prag;
 with Exp_Tss;  use Exp_Tss;
 with Exp_Util; use Exp_Util;
-with Exp_VFpt; use Exp_VFpt;
 with Fname;    use Fname;
 with Freeze;   use Freeze;
 with Inline;   use Inline;
@@ -52,7 +51,6 @@ with Namet;    use Namet;
 with Nlists;   use Nlists;
 with Nmake;    use Nmake;
 with Opt;      use Opt;
-with Output;   use Output;
 with Restrict; use Restrict;
 with Rident;   use Rident;
 with Rtsfind;  use Rtsfind;
@@ -70,7 +68,6 @@ with Sem_Res;  use Sem_Res;
 with Sem_SCIL; use Sem_SCIL;
 with Sem_Util; use Sem_Util;
 with Sinfo;    use Sinfo;
-with Sinput;   use Sinput;
 with Snames;   use Snames;
 with Stand;    use Stand;
 with Stringt;  use Stringt;
@@ -1979,7 +1976,6 @@ package body Exp_Ch6 is
    --    Rewrite call to predefined operator as operator
    --    Replace actuals to in-out parameters that are numeric conversions,
    --     with explicit assignment to temporaries before and after the call.
-   --    Remove optional actuals if First_Optional_Parameter specified.
 
    --   Note that the list of actuals has been filled with default expressions
    --   during semantic analysis of the call. Only the extra actuals required
@@ -2016,7 +2012,7 @@ package body Exp_Ch6 is
       --  entity and Orig_Subp is the entity of the call node N.
 
       function Inherited_From_Formal (S : Entity_Id) return Entity_Id;
-      --  Within an instance, a type derived from a non-tagged formal derived
+      --  Within an instance, a type derived from an untagged formal derived
       --  type inherits from the original parent, not from the actual. The
       --  current derivation mechanism has the derived type inherit from the
       --  actual, which is only correct outside of the instance. If the
@@ -2113,9 +2109,6 @@ package body Exp_Ch6 is
          --  then register the enclosing unit of Subp to Inlined_Bodies so that
          --  the body of Subp can be retrieved and analyzed by the backend.
 
-         procedure Register_Backend_Call (N : Node_Id);
-         --  Append N to the list Backend_Calls
-
          -----------------------
          -- Do_Backend_Inline --
          -----------------------
@@ -2173,19 +2166,6 @@ package body Exp_Ch6 is
                end;
             end if;
          end Do_Backend_Inline;
-
-         ---------------------------
-         -- Register_Backend_Call --
-         ---------------------------
-
-         procedure Register_Backend_Call (N : Node_Id) is
-         begin
-            if Backend_Calls = No_Elist then
-               Backend_Calls := New_Elmt_List;
-            end if;
-
-            Append_Elmt (N, To => Backend_Calls);
-         end Register_Backend_Call;
 
       --  Start of processing for Do_Inline
 
@@ -3846,9 +3826,14 @@ package body Exp_Ch6 is
             return;
          end if;
 
-         --  Handle inlining (old semantics)
+         --  Handle inlining. No action needed if the subprogram is not inlined
 
-         if Is_Inlined (Subp) and then not Debug_Flag_Dot_K then
+         if not Is_Inlined (Subp) then
+            null;
+
+         --  Handle frontend inlining
+
+         elsif not Back_End_Inlining then
             Inlined_Subprogram : declare
                Bod         : Node_Id;
                Must_Inline : Boolean := False;
@@ -3934,9 +3919,21 @@ package body Exp_Ch6 is
                end if;
             end Inlined_Subprogram;
 
-         --  Handle inlining (new semantics)
+         --  Back end inlining: let the back end handle it
 
-         elsif Is_Inlined (Subp) then
+         elsif No (Unit_Declaration_Node (Subp))
+           or else Nkind (Unit_Declaration_Node (Subp)) /=
+                                                 N_Subprogram_Declaration
+           or else No (Body_To_Inline (Unit_Declaration_Node (Subp)))
+         then
+            Add_Inlined_Body (Subp);
+            Register_Backend_Call (Call_Node);
+
+         --  Frontend expansion of supported functions returning unconstrained
+         --  types and simple renamings inlined by the frontend (see Freeze.
+         --  Build_Renamed_Entity).
+
+         else
             declare
                Spec : constant Node_Id := Unit_Declaration_Node (Subp);
 
@@ -4022,150 +4019,6 @@ package body Exp_Ch6 is
          then
             Establish_Transient_Scope (Call_Node, Sec_Stack => True);
          end if;
-      end if;
-
-      --  Test for First_Optional_Parameter, and if so, truncate parameter list
-      --  if there are optional parameters at the trailing end.
-      --  Note: we never delete procedures for call via a pointer.
-
-      if (Ekind (Subp) = E_Procedure or else Ekind (Subp) = E_Function)
-        and then Present (First_Optional_Parameter (Subp))
-      then
-         declare
-            Last_Keep_Arg : Node_Id;
-
-         begin
-            --  Last_Keep_Arg will hold the last actual that should be kept.
-            --  If it remains empty at the end, it means that all parameters
-            --  are optional.
-
-            Last_Keep_Arg := Empty;
-
-            --  Find first optional parameter, must be present since we checked
-            --  the validity of the parameter before setting it.
-
-            Formal := First_Formal (Subp);
-            Actual := First_Actual (Call_Node);
-            while Formal /= First_Optional_Parameter (Subp) loop
-               Last_Keep_Arg := Actual;
-               Next_Formal (Formal);
-               Next_Actual (Actual);
-            end loop;
-
-            --  We have Formal and Actual pointing to the first potentially
-            --  droppable argument. We can drop all the trailing arguments
-            --  whose actual matches the default. Note that we know that all
-            --  remaining formals have defaults, because we checked that this
-            --  requirement was met before setting First_Optional_Parameter.
-
-            --  We use Fully_Conformant_Expressions to check for identity
-            --  between formals and actuals, which may miss some cases, but
-            --  on the other hand, this is only an optimization (if we fail
-            --  to truncate a parameter it does not affect functionality).
-            --  So if the default is 3 and the actual is 1+2, we consider
-            --  them unequal, which hardly seems worrisome.
-
-            while Present (Formal) loop
-               if not Fully_Conformant_Expressions
-                    (Actual, Default_Value (Formal))
-               then
-                  Last_Keep_Arg := Actual;
-               end if;
-
-               Next_Formal (Formal);
-               Next_Actual (Actual);
-            end loop;
-
-            --  If no arguments, delete entire list, this is the easy case
-
-            if No (Last_Keep_Arg) then
-               Set_Parameter_Associations (Call_Node, No_List);
-               Set_First_Named_Actual (Call_Node, Empty);
-
-            --  Case where at the last retained argument is positional. This
-            --  is also an easy case, since the retained arguments are already
-            --  in the right form, and we don't need to worry about the order
-            --  of arguments that get eliminated.
-
-            elsif Is_List_Member (Last_Keep_Arg) then
-               while Present (Next (Last_Keep_Arg)) loop
-                  Discard_Node (Remove_Next (Last_Keep_Arg));
-               end loop;
-
-               Set_First_Named_Actual (Call_Node, Empty);
-
-            --  This is the annoying case where the last retained argument
-            --  is a named parameter. Since the original arguments are not
-            --  in declaration order, we may have to delete some fairly
-            --  random collection of arguments.
-
-            else
-               declare
-                  Temp   : Node_Id;
-                  Passoc : Node_Id;
-
-               begin
-                  --  First step, remove all the named parameters from the
-                  --  list (they are still chained using First_Named_Actual
-                  --  and Next_Named_Actual, so we have not lost them).
-
-                  Temp := First (Parameter_Associations (Call_Node));
-
-                  --  Case of all parameters named, remove them all
-
-                  if Nkind (Temp) = N_Parameter_Association then
-                     --  Suppress warnings to avoid warning on possible
-                     --  infinite loop (because Call_Node is not modified).
-
-                     pragma Warnings (Off);
-                     while Is_Non_Empty_List
-                             (Parameter_Associations (Call_Node))
-                     loop
-                        Temp :=
-                          Remove_Head (Parameter_Associations (Call_Node));
-                     end loop;
-                     pragma Warnings (On);
-
-                  --  Case of mixed positional/named, remove named parameters
-
-                  else
-                     while Nkind (Next (Temp)) /= N_Parameter_Association loop
-                        Next (Temp);
-                     end loop;
-
-                     while Present (Next (Temp)) loop
-                        Remove (Next (Temp));
-                     end loop;
-                  end if;
-
-                  --  Now we loop through the named parameters, till we get
-                  --  to the last one to be retained, adding them to the list.
-                  --  Note that the Next_Named_Actual list does not need to be
-                  --  touched since we are only reordering them on the actual
-                  --  parameter association list.
-
-                  Passoc := Parent (First_Named_Actual (Call_Node));
-                  loop
-                     Temp := Relocate_Node (Passoc);
-                     Append_To
-                       (Parameter_Associations (Call_Node), Temp);
-                     exit when
-                       Last_Keep_Arg = Explicit_Actual_Parameter (Passoc);
-                     Passoc := Parent (Next_Named_Actual (Passoc));
-                  end loop;
-
-                  Set_Next_Named_Actual (Temp, Empty);
-
-                  loop
-                     Temp := Next_Named_Actual (Passoc);
-                     exit when No (Temp);
-                     Set_Next_Named_Actual
-                       (Passoc, Next_Named_Actual (Parent (Temp)));
-                  end loop;
-               end;
-
-            end if;
-         end;
       end if;
    end Expand_Call;
 
@@ -5199,21 +5052,6 @@ package body Exp_Ch6 is
    procedure Expand_N_Function_Call (N : Node_Id) is
    begin
       Expand_Call (N);
-
-      --  If the return value of a foreign compiled function is VAX Float, then
-      --  expand the return (adjusts the location of the return value on
-      --  Alpha/VMS, no-op everywhere else).
-      --  Comes_From_Source intercepts recursive expansion.
-
-      if Nkind (N) = N_Function_Call
-        and then Vax_Float (Etype (N))
-        and then Present (Name (N))
-        and then Present (Entity (Name (N)))
-        and then Has_Foreign_Convention (Entity (Name (N)))
-        and then Comes_From_Source (Parent (N))
-      then
-         Expand_Vax_Foreign_Return (N);
-      end if;
    end Expand_N_Function_Call;
 
    ---------------------------------------
@@ -9660,76 +9498,5 @@ package body Exp_Ch6 is
          return False;
       end if;
    end Needs_Result_Accessibility_Level;
-
-   ------------------------
-   -- List_Inlining_Info --
-   ------------------------
-
-   procedure List_Inlining_Info is
-      Elmt  : Elmt_Id;
-      Nod   : Node_Id;
-      Count : Nat;
-
-   begin
-      if not Debug_Flag_Dot_J then
-         return;
-      end if;
-
-      --  Generate listing of calls inlined by the frontend
-
-      if Present (Inlined_Calls) then
-         Count := 0;
-         Elmt  := First_Elmt (Inlined_Calls);
-         while Present (Elmt) loop
-            Nod := Node (Elmt);
-
-            if In_Extended_Main_Code_Unit (Nod) then
-               Count := Count + 1;
-
-               if Count = 1 then
-                  Write_Str ("Listing of frontend inlined calls");
-                  Write_Eol;
-               end if;
-
-               Write_Str ("  ");
-               Write_Int (Count);
-               Write_Str (":");
-               Write_Location (Sloc (Nod));
-               Write_Str (":");
-               Output.Write_Eol;
-            end if;
-
-            Next_Elmt (Elmt);
-         end loop;
-      end if;
-
-      --  Generate listing of calls passed to the backend
-
-      if Present (Backend_Calls) then
-         Count := 0;
-
-         Elmt := First_Elmt (Backend_Calls);
-         while Present (Elmt) loop
-            Nod := Node (Elmt);
-
-            if In_Extended_Main_Code_Unit (Nod) then
-               Count := Count + 1;
-
-               if Count = 1 then
-                  Write_Str ("Listing of inlined calls passed to the backend");
-                  Write_Eol;
-               end if;
-
-               Write_Str ("  ");
-               Write_Int (Count);
-               Write_Str (":");
-               Write_Location (Sloc (Nod));
-               Output.Write_Eol;
-            end if;
-
-            Next_Elmt (Elmt);
-         end loop;
-      end if;
-   end List_Inlining_Info;
 
 end Exp_Ch6;

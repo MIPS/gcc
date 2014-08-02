@@ -936,7 +936,7 @@ package body Exp_Ch7 is
             --  The default choice is the global pool
 
             else
-               Pool_Id := Get_Global_Pool_For_Access_Type (Ptr_Typ);
+               Pool_Id := RTE (RE_Global_Pool_Object);
                Set_Associated_Storage_Pool (Ptr_Typ, Pool_Id);
             end if;
 
@@ -2448,6 +2448,15 @@ package body Exp_Ch7 is
 
                   Next (Stmt);
                end loop;
+
+            --  Nothing to do for an object with supporessed initialization.
+            --  Note that this check is not performed at the beginning of the
+            --  routine because a declaration marked with No_Initialization
+            --  may still be initialized by a build-in-place call (the case
+            --  above).
+
+            elsif No_Initialization (Decl) then
+               return;
 
             --  In all other cases the initialization calls follow the related
             --  object. The general structure of object initialization built by
@@ -4486,25 +4495,6 @@ package body Exp_Ch7 is
       end loop;
    end Find_Node_To_Be_Wrapped;
 
-   -------------------------------------
-   -- Get_Global_Pool_For_Access_Type --
-   -------------------------------------
-
-   function Get_Global_Pool_For_Access_Type (T : Entity_Id) return Entity_Id is
-   begin
-      --  Access types whose size is smaller than System.Address size can exist
-      --  only on VMS. We can't use the usual global pool which returns an
-      --  object of type Address as truncation will make it invalid. To handle
-      --  this case, VMS has a dedicated global pool that returns addresses
-      --  that fit into 32 bit accesses.
-
-      if Opt.True_VMS_Target and then Esize (T) = 32 then
-         return RTE (RE_Global_Pool_32_Object);
-      else
-         return RTE (RE_Global_Pool_Object);
-      end if;
-   end Get_Global_Pool_For_Access_Type;
-
    ----------------------------------
    -- Has_New_Controlled_Component --
    ----------------------------------
@@ -5079,7 +5069,7 @@ package body Exp_Ch7 is
       Utyp := Underlying_Type (Base_Type (Utyp));
       Set_Assignment_OK (Ref);
 
-      --  Deal with non-tagged derivation of private views
+      --  Deal with untagged derivation of private views
 
       if Is_Untagged_Derivation (Typ) then
          Utyp := Underlying_Type (Root_Type (Base_Type (Typ)));
@@ -7284,7 +7274,7 @@ package body Exp_Ch7 is
       Utyp := Underlying_Type (Base_Type (Utyp));
       Set_Assignment_OK (Ref);
 
-      --  Deal with non-tagged derivation of private views. If the parent type
+      --  Deal with untagged derivation of private views. If the parent type
       --  is a protected type, Deep_Finalize is found on the corresponding
       --  record of the ancestor.
 
@@ -7751,7 +7741,7 @@ package body Exp_Ch7 is
 
       Utyp := Underlying_Type (Base_Type (Utyp));
 
-      --  Deal with non-tagged derivation of private views
+      --  Deal with untagged derivation of private views
 
       if Is_Untagged_Derivation (Typ) and then not Is_Conc then
          Utyp := Underlying_Type (Root_Type (Base_Type (Typ)));
@@ -7878,7 +7868,7 @@ package body Exp_Ch7 is
 
       Utyp := Underlying_Type (Base_Type (Utyp));
 
-      --  Deal with non-tagged derivation of private views. If the parent is
+      --  Deal with untagged derivation of private views. If the parent is
       --  now known to be protected, the finalization routine is the one
       --  defined on the corresponding record of the ancestor (corresponding
       --  records do not automatically inherit operations, but maybe they

@@ -106,7 +106,7 @@ package body Sem_Ch6 is
    procedure Analyze_Null_Procedure
      (N             : Node_Id;
       Is_Completion : out Boolean);
-   --  A null procedure can be a declaration or (Ada 2012) a completion.
+   --  A null procedure can be a declaration or (Ada 2012) a completion
 
    procedure Analyze_Return_Statement (N : Node_Id);
    --  Common processing for simple and extended return statements
@@ -473,34 +473,45 @@ package body Sem_Ch6 is
             Id    : constant Entity_Id := Defining_Entity (N);
 
          begin
-            if Nkind (Par) = N_Package_Specification
-              and then Decls = Visible_Declarations (Par)
-              and then Present (Private_Declarations (Par))
-              and then not Is_Empty_List (Private_Declarations (Par))
+            --  If this is a wrapper created for in an instance for a formal
+            --  subprogram, insert body after declaration, to be analyzed when
+            --  the enclosing instance is analyzed.
+
+            if GNATprove_Mode
+              and then Is_Generic_Actual_Subprogram (Defining_Entity (N))
             then
-               Decls := Private_Declarations (Par);
-            end if;
+               Insert_After (N, New_Body);
 
-            Insert_After (Last (Decls), New_Body);
-            Push_Scope (Id);
-            Install_Formals (Id);
-
-            --  Preanalyze the expression for name capture, except in an
-            --  instance, where this has been done during generic analysis,
-            --  and will be redone when analyzing the body.
-
-            declare
-               Expr : constant Node_Id := Expression (Ret);
-
-            begin
-               Set_Parent (Expr, Ret);
-
-               if not In_Instance then
-                  Preanalyze_Spec_Expression (Expr, Etype (Id));
+            else
+               if Nkind (Par) = N_Package_Specification
+                 and then Decls = Visible_Declarations (Par)
+                 and then Present (Private_Declarations (Par))
+                 and then not Is_Empty_List (Private_Declarations (Par))
+               then
+                  Decls := Private_Declarations (Par);
                end if;
-            end;
 
-            End_Scope;
+               Insert_After (Last (Decls), New_Body);
+               Push_Scope (Id);
+               Install_Formals (Id);
+
+               --  Preanalyze the expression for name capture, except in an
+               --  instance, where this has been done during generic analysis,
+               --  and will be redone when analyzing the body.
+
+               declare
+                  Expr : constant Node_Id := Expression (Ret);
+
+               begin
+                  Set_Parent (Expr, Ret);
+
+                  if not In_Instance then
+                     Preanalyze_Spec_Expression (Expr, Etype (Id));
+                  end if;
+               end;
+
+               End_Scope;
+            end if;
          end;
       end if;
 
@@ -1310,12 +1321,16 @@ package body Sem_Ch6 is
       --  Create new entities for body and formals
 
       Set_Defining_Unit_Name (Specification (Null_Body),
-        Make_Defining_Identifier (Loc, Chars (Defining_Entity (N))));
+        Make_Defining_Identifier
+          (Sloc (Defining_Entity (N)),
+           Chars (Defining_Entity (N))));
 
       Form := First (Parameter_Specifications (Specification (Null_Body)));
       while Present (Form) loop
          Set_Defining_Identifier (Form,
-           Make_Defining_Identifier (Loc, Chars (Defining_Identifier (Form))));
+           Make_Defining_Identifier
+             (Sloc (Defining_Identifier (Form)),
+              Chars (Defining_Identifier (Form))));
          Next (Form);
       end loop;
 
@@ -1391,19 +1406,14 @@ package body Sem_Ch6 is
          end if;
 
       else
-         --  The null procedure is a completion
+         --  The null procedure is a completion. We unconditionally rewrite
+         --  this as a null body (even if expansion is not active), because
+         --  there are various error checks that are applied on this body
+         --  when it is analyzed (e.g. correct aspect placement).
 
          Is_Completion := True;
-
-         if Expander_Active then
-            Rewrite (N, Null_Body);
-            Analyze (N);
-
-         else
-            Designator := Analyze_Subprogram_Specification (Spec);
-            Set_Has_Completion (Designator);
-            Set_Has_Completion (Prev);
-         end if;
+         Rewrite (N, Null_Body);
+         Analyze (N);
       end if;
    end Analyze_Null_Procedure;
 
@@ -3551,44 +3561,75 @@ package body Sem_Ch6 is
       --  mode where we want to expand some calls in place, even with expansion
       --  disabled, since the inlining eases formal verification.
 
-      --  Old semantics
-
-      if not Debug_Flag_Dot_K then
-         if Present (Spec_Id)
-           and then Expander_Active
-           and then
-             (Has_Pragma_Inline_Always (Spec_Id)
-              or else (Has_Pragma_Inline (Spec_Id) and Front_End_Inlining))
-         then
-            Build_Body_To_Inline (N, Spec_Id);
-
-         --  In GNATprove mode, inline only when there is a separate subprogram
-         --  declaration for now, as inlining of subprogram bodies acting as
-         --  declarations, or subprogram stubs, are not supported by frontend
-         --  inlining. This inlining should occur after analysis of the body,
-         --  so that it is known whether the value of SPARK_Mode applicable to
-         --  the body, which can be defined by a pragma inside the body.
-
-         elsif GNATprove_Mode
-           and then Full_Analysis
-           and then not Inside_A_Generic
-           and then Present (Spec_Id)
-           and then
-             Nkind (Parent (Parent (Spec_Id))) = N_Subprogram_Declaration
-           and then Can_Be_Inlined_In_GNATprove_Mode (Spec_Id, Body_Id)
-           and then not Body_Has_Contract
-         then
-            Build_Body_To_Inline (N, Spec_Id);
-         end if;
-
-      --  New semantics (enabled by debug flag gnatd.k for testing)
-
-      elsif Expander_Active
+      if not GNATprove_Mode
+        and then Expander_Active
         and then Serious_Errors_Detected = 0
         and then Present (Spec_Id)
         and then Has_Pragma_Inline (Spec_Id)
       then
-         Check_And_Build_Body_To_Inline (N, Spec_Id, Body_Id);
+         --  Legacy implementation (relying on frontend inlining)
+
+         if not Back_End_Inlining then
+            if Has_Pragma_Inline_Always (Spec_Id)
+              or else (Has_Pragma_Inline (Spec_Id) and Front_End_Inlining)
+            then
+               Build_Body_To_Inline (N, Spec_Id);
+            end if;
+
+         --  New implementation (relying on backend inlining). Enabled by
+         --  debug flag gnatd.z for testing
+
+         else
+            if Has_Pragma_Inline_Always (Spec_Id)
+              or else Optimization_Level > 0
+            then
+               --  Handle function returning an unconstrained type
+
+               if Comes_From_Source (Body_Id)
+                 and then Ekind (Spec_Id) = E_Function
+                 and then Returns_Unconstrained_Type (Spec_Id)
+               then
+                  Check_And_Split_Unconstrained_Function (N, Spec_Id, Body_Id);
+
+               else
+                  declare
+                     Subp_Body : constant Node_Id :=
+                                   Unit_Declaration_Node (Body_Id);
+                     Subp_Decl : constant List_Id := Declarations (Subp_Body);
+
+                  begin
+                     --  Do not pass inlining to the backend if the subprogram
+                     --  has declarations or statements which cannot be inlined
+                     --  by the backend. This check is done here to emit an
+                     --  error instead of the generic warning message reported
+                     --  by the GCC backend (ie. "function might not be
+                     --  inlinable").
+
+                     if Present (Subp_Decl)
+                       and then Has_Excluded_Declaration (Spec_Id, Subp_Decl)
+                     then
+                        null;
+
+                     elsif Has_Excluded_Statement
+                             (Spec_Id,
+                              Statements
+                                (Handled_Statement_Sequence (Subp_Body)))
+                     then
+                        null;
+
+                     --  If the backend inlining is available then at this
+                     --  stage we only have to mark the subprogram as inlined.
+                     --  The expander will take care of registering it in the
+                     --  table of subprograms inlined by the backend a part of
+                     --  processing calls to it (cf. Expand_Call)
+
+                     else
+                        Set_Is_Inlined (Spec_Id);
+                     end if;
+                  end;
+               end if;
+            end if;
+         end if;
 
       --  In GNATprove mode, inline only when there is a separate subprogram
       --  declaration for now, as inlining of subprogram bodies acting as
@@ -3605,7 +3646,7 @@ package body Sem_Ch6 is
         and then Can_Be_Inlined_In_GNATprove_Mode (Spec_Id, Body_Id)
         and then not Body_Has_Contract
       then
-         Check_And_Build_Body_To_Inline (N, Spec_Id, Body_Id);
+         Build_Body_To_Inline (N, Spec_Id);
       end if;
 
       --  Ada 2005 (AI-262): In library subprogram bodies, after the analysis
@@ -7067,8 +7108,8 @@ package body Sem_Ch6 is
       Obj_Decl : Node_Id;
 
    begin
-      --  This check applies only if we have a subprogram declaration with a
-      --  non-tagged record type.
+      --  This check applies only if we have a subprogram declaration with an
+      --  untagged record type.
 
       if Nkind (Decl) /= N_Subprogram_Declaration
         or else not Is_Record_Type (Typ)
@@ -7233,21 +7274,38 @@ package body Sem_Ch6 is
          --  Check that the types of corresponding formals have the same
          --  generic actual if any. We have to account for subtypes of a
          --  generic formal, declared between a spec and a body, which may
-         --  appear distinct in an instance but matched in the generic.
+         --  appear distinct in an instance but matched in the generic, and
+         --  the subtype may be used either in the spec or the body of the
+         --  subprogram being checked.
 
          -------------------------
          -- Same_Generic_Actual --
          -------------------------
 
          function Same_Generic_Actual (T1, T2 : Entity_Id) return Boolean is
+
+            function Is_Declared_Subtype (S1, S2 : Entity_Id) return Boolean;
+            --  Predicate to check whether S1 is a subtype of S2 in the source
+            --  of the instance.
+
+            -------------------------
+            -- Is_Declared_Subtype --
+            -------------------------
+
+            function Is_Declared_Subtype (S1, S2 : Entity_Id) return Boolean is
+            begin
+               return Comes_From_Source (Parent (S1))
+                 and then Nkind (Parent (S1)) = N_Subtype_Declaration
+                 and then Is_Entity_Name (Subtype_Indication (Parent (S1)))
+                 and then Entity (Subtype_Indication (Parent (S1))) = S2;
+            end Is_Declared_Subtype;
+
+         --  Start of processing for Same_Generic_Actual
+
          begin
             return Is_Generic_Actual_Type (T1) = Is_Generic_Actual_Type (T2)
-              or else
-                (Present (Parent (T1))
-                  and then Comes_From_Source (Parent (T1))
-                  and then Nkind (Parent (T1)) = N_Subtype_Declaration
-                  and then Is_Entity_Name (Subtype_Indication (Parent (T1)))
-                  and then Entity (Subtype_Indication (Parent (T1))) = T2);
+              or else Is_Declared_Subtype (T1, T2)
+              or else Is_Declared_Subtype (T2, T1);
          end Same_Generic_Actual;
 
       --  Start of processing for Different_Generic_Profile
@@ -9866,7 +9924,7 @@ package body Sem_Ch6 is
                      then
                         Append_Elmt
                           (Current_Scope,
-                             Private_Dependents (Base_Type (Formal_Type)));
+                           To => Private_Dependents (Base_Type (Formal_Type)));
 
                         --  Freezing is delayed to ensure that Register_Prim
                         --  will get called for this operation, which is needed
@@ -10096,21 +10154,22 @@ package body Sem_Ch6 is
                     ("function cannot have parameter of mode `OUT` or "
                      & "`IN OUT`", Formal);
 
-               --  A function cannot have a volatile formal parameter
-               --  (SPARK RM 7.1.3(10)).
+               --  A function cannot have an effectively volatile formal
+               --  parameter (SPARK RM 7.1.3(10)).
 
-               elsif Is_SPARK_Volatile (Formal) then
+               elsif Is_Effectively_Volatile (Formal) then
                   Error_Msg_N
                     ("function cannot have a volatile formal parameter",
                      Formal);
                end if;
 
-            --  A procedure cannot have a formal parameter of mode IN because
-            --  it behaves as a constant (SPARK RM 7.1.3(6)).
+            --  A procedure cannot have an effectively volatile formal
+            --  parameter of mode IN because it behaves as a constant
+            --  (SPARK RM 7.1.3(6)).
 
             elsif Ekind (Scope (Formal)) = E_Procedure
               and then Ekind (Formal) = E_In_Parameter
-              and then Is_SPARK_Volatile (Formal)
+              and then Is_Effectively_Volatile (Formal)
             then
                Error_Msg_N
                  ("formal parameter of mode `IN` cannot be volatile", Formal);

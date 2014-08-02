@@ -79,6 +79,16 @@ package Makeutl is
    Create_Map_File_Switch : constant String := "--create-map-file";
    --  Switch to create a map file when an executable is linked
 
+   No_Exit_Message_Option : constant String := "--no-exit-message";
+   --  Switch to suppress exit error message when there are compilation
+   --  failures. This is useful when a tool, such as gnatprove, silently calls
+   --  the builder and does not want to pollute its output with error messages
+   --  coming from the builder. This is an internal switch.
+
+   Keep_Temp_Files_Option : constant String := "--keep-temp-files";
+   --  Switch to suppress deletion of temp files created by the builder.
+   --  Note that debug switch -gnatdn also has this effect.
+
    Load_Standard_Base : Boolean := True;
    --  False when gprbuild is called with --db-
 

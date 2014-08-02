@@ -1727,6 +1727,17 @@ package body Sem_Aggr is
                      if Is_Type (E) and then Has_Predicates (E) then
                         Freeze_Before (N, E);
 
+                        if Has_Dynamic_Predicate_Aspect (E) then
+                           Error_Msg_NE
+                             ("subtype& has dynamic predicate, not allowed "
+                              & "in aggregate choice", Choice, E);
+
+                        elsif not Is_OK_Static_Subtype (E) then
+                           Error_Msg_NE
+                             ("non-static subtype& has predicate, not allowed "
+                              & "in aggregate choice", Choice, E);
+                        end if;
+
                         --  If the subtype has a static predicate, replace the
                         --  original choice with the list of individual values
                         --  covered by the predicate.
@@ -1881,6 +1892,14 @@ package body Sem_Aggr is
 
                   elsif Nkind (Choice) = N_Subtype_Indication then
                      Resolve_Discrete_Subtype_Indication (Choice, Index_Base);
+
+                     if Has_Dynamic_Predicate_Aspect
+                       (Entity (Subtype_Mark (Choice)))
+                     then
+                        Error_Msg_NE ("subtype& has dynamic predicate, "
+                          & "not allowed in aggregate choice",
+                            Choice, Entity (Subtype_Mark (Choice)));
+                     end if;
 
                      --  Does the subtype indication evaluation raise CE?
 
@@ -2229,20 +2248,38 @@ package body Sem_Aggr is
                            Hi_Val := Table (J - 1).Highest;
 
                            if Lo_Val > Hi_Val + 1 then
-                              Choice := Table (J).Lo;
 
-                              if Hi_Val + 1 = Lo_Val - 1 then
-                                 Error_Msg_N
-                                   ("missing index value in array aggregate!",
-                                    Choice);
-                              else
-                                 Error_Msg_N
-                                   ("missing index values in array aggregate!",
-                                    Choice);
-                              end if;
+                              declare
+                                 Error_Node : Node_Id;
 
-                              Output_Bad_Choices
-                                (Hi_Val + 1, Lo_Val - 1, Choice);
+                              begin
+                                 --  If the choice is the bound of a range in
+                                 --  a subtype indication, it is not in the
+                                 --  source lists for the aggregate itself, so
+                                 --  post the error on the aggregate. Otherwise
+                                 --  post it on choice itself.
+
+                                 Choice := Table (J).Choice;
+
+                                 if Is_List_Member (Choice) then
+                                    Error_Node := Choice;
+                                 else
+                                    Error_Node := N;
+                                 end if;
+
+                                 if Hi_Val + 1 = Lo_Val - 1 then
+                                    Error_Msg_N
+                                      ("missing index value "
+                                       & "in array aggregate!", Error_Node);
+                                 else
+                                    Error_Msg_N
+                                      ("missing index values "
+                                       & "in array aggregate!", Error_Node);
+                                 end if;
+
+                                 Output_Bad_Choices
+                                   (Hi_Val + 1, Lo_Val - 1, Error_Node);
+                              end;
                            end if;
                         end loop;
                      end if;
@@ -3947,21 +3984,6 @@ package body Sem_Aggr is
          --  Typ is not a derived tagged type
 
          else
-            --  A type derived from an untagged private type whose full view
-            --  has discriminants is constructed as a record type but there
-            --  are no legal aggregates for it.
-
-            if Is_Derived_Type (Typ)
-              and then Has_Private_Ancestor (Typ)
-              and then Nkind (N) /= N_Extension_Aggregate
-            then
-               Error_Msg_Node_2 := Base_Type (Etype (Typ));
-               Error_Msg_NE
-                 ("no aggregate available for type& derived from "
-                  & "private type&", N, Typ);
-               return;
-            end if;
-
             Record_Def := Type_Definition (Parent (Base_Type (Typ)));
 
             if Null_Present (Record_Def) then
@@ -4344,13 +4366,12 @@ package body Sem_Aggr is
                            end if;
 
                            if Needs_Box then
-                              Append
-                                (Make_Component_Association (Loc,
-                                   Choices     =>
-                                     New_List (Make_Others_Choice (Loc)),
-                                   Expression  => Empty,
-                                      Box_Present => True),
-                                 Component_Associations (Aggr));
+                              Append_To (Component_Associations (Aggr),
+                                Make_Component_Association (Loc,
+                                  Choices     =>
+                                    New_List (Make_Others_Choice (Loc)),
+                                  Expression  => Empty,
+                                  Box_Present => True));
                            end if;
                         end Propagate_Discriminants;
 
@@ -4389,14 +4410,14 @@ package body Sem_Aggr is
                               while Present (Comp) loop
                                  if Ekind (Comp) = E_Component then
                                     if not Is_Record_Type (Etype (Comp)) then
-                                       Append
-                                         (Make_Component_Association (Loc,
+                                       Append_To
+                                         (Component_Associations (Expr),
+                                          Make_Component_Association (Loc,
                                             Choices     =>
                                               New_List
                                                (Make_Others_Choice (Loc)),
                                             Expression  => Empty,
-                                               Box_Present => True),
-                                          Component_Associations (Expr));
+                                               Box_Present => True));
                                     end if;
                                     exit;
                                  end if;

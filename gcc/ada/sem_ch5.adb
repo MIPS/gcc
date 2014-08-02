@@ -1698,6 +1698,28 @@ package body Sem_Ch5 is
       Typ : Entity_Id;
       Bas : Entity_Id;
 
+      procedure Check_Reverse_Iteration (Typ : Entity_Id);
+      --  For an iteration over a container, if the loop carries the Reverse
+      --  indicator, verify that the container type has an Iterate aspect that
+      --  implements the reversible iterator interface.
+
+      -----------------------------
+      -- Check_Reverse_Iteration --
+      -----------------------------
+
+      procedure Check_Reverse_Iteration (Typ : Entity_Id) is
+      begin
+         if Reverse_Present (N)
+           and then not Is_Array_Type (Typ)
+           and then not Is_Reversible_Iterator (Typ)
+         then
+            Error_Msg_NE
+              ("container type does not support reverse iteration", N, Typ);
+         end if;
+      end Check_Reverse_Iteration;
+
+   --   Start of processing for  Analyze_iterator_Specification
+
    begin
       Enter_Name (Def_Id);
 
@@ -1725,6 +1747,46 @@ package body Sem_Ch5 is
 
       if Of_Present (N) then
          Set_Related_Expression (Def_Id, Iter_Name);
+
+         --  For a container, the iterator is specified through the aspect.
+
+         if not Is_Array_Type (Etype (Iter_Name)) then
+            declare
+               Iterator : constant Entity_Id :=
+                            Find_Value_Of_Aspect
+                              (Etype (Iter_Name), Aspect_Default_Iterator);
+
+               I  : Interp_Index;
+               It : Interp;
+
+            begin
+               if No (Iterator) then
+                  null;   --  error reported below.
+
+               elsif not Is_Overloaded (Iterator) then
+                  Check_Reverse_Iteration (Etype (Iterator));
+
+               --  If Iterator is overloaded, use reversible iterator if
+               --  one is available.
+
+               elsif Is_Overloaded (Iterator) then
+                  Get_First_Interp (Iterator, I, It);
+                  while Present (It.Nam) loop
+                     if Ekind (It.Nam) = E_Function
+                       and then Is_Reversible_Iterator (Etype (It.Nam))
+                     then
+                        Set_Etype (Iterator, It.Typ);
+                        Set_Entity (Iterator, It.Nam);
+                        exit;
+                     end if;
+
+                     Get_Next_Interp (I, It);
+                  end loop;
+
+                  Check_Reverse_Iteration (Etype (Iterator));
+               end if;
+            end;
+         end if;
       end if;
 
       --  If the domain of iteration is an expression, create a declaration for
@@ -1750,17 +1812,43 @@ package body Sem_Ch5 is
         and then not ASIS_Mode
       then
          declare
-            Id   : constant Entity_Id := Make_Temporary (Loc, 'R', Iter_Name);
-            Decl : Node_Id;
+            Id    : constant Entity_Id := Make_Temporary (Loc, 'R', Iter_Name);
+            Decl  : Node_Id;
+            Act_S : Node_Id;
 
          begin
-            Typ := Etype (Iter_Name);
+
+            --  If the domain of iteration is an array component that depends
+            --  on a discriminant, create actual subtype for it. Pre-analysis
+            --  does not generate the actual subtype of a selected component.
+
+            if Nkind (Iter_Name) = N_Selected_Component
+              and then Is_Array_Type (Etype (Iter_Name))
+            then
+               Act_S :=
+                 Build_Actual_Subtype_Of_Component
+                   (Etype (Selector_Name (Iter_Name)), Iter_Name);
+               Insert_Action (N, Act_S);
+
+               if Present (Act_S) then
+                  Typ := Defining_Identifier (Act_S);
+               else
+                  Typ := Etype (Iter_Name);
+               end if;
+
+            else
+               Typ := Etype (Iter_Name);
+            end if;
 
             --  Protect against malformed iterator
 
             if Typ = Any_Type then
                Error_Msg_N ("invalid expression in loop iterator", Iter_Name);
                return;
+            end if;
+
+            if not Of_Present (N) then
+               Check_Reverse_Iteration (Typ);
             end if;
 
             --  The name in the renaming declaration may be a function call.
@@ -1823,6 +1911,10 @@ package body Sem_Ch5 is
 
          else
             Resolve (Iter_Name, Etype (Iter_Name));
+         end if;
+
+         if not Of_Present (N) then
+            Check_Reverse_Iteration (Etype (Iter_Name));
          end if;
       end if;
 
@@ -1985,16 +2077,16 @@ package body Sem_Ch5 is
          end if;
       end if;
 
-      --  A loop parameter cannot be volatile. This check is peformed only
-      --  when SPARK_Mode is on as it is not a standard Ada legality check
-      --  (SPARK RM 7.1.3(6)).
+      --  A loop parameter cannot be effectively volatile. This check is
+      --  peformed only when SPARK_Mode is on as it is not a standard Ada
+      --  legality check (SPARK RM 7.1.3(6)).
 
       --  Not clear whether this applies to element iterators, where the
       --  cursor is not an explicit entity ???
 
       if SPARK_Mode = On
         and then not Of_Present (N)
-        and then Is_SPARK_Volatile (Ent)
+        and then Is_Effectively_Volatile (Ent)
       then
          Error_Msg_N ("loop parameter cannot be volatile", Ent);
       end if;
@@ -2041,6 +2133,12 @@ package body Sem_Ch5 is
       --  that returns a controlled array, introduce an explicit declaration
       --  to capture the bounds, so that the function result can be finalized
       --  in timely fashion.
+
+      procedure Check_Predicate_Use (T : Entity_Id);
+      --  Diagnose Attempt to iterate through non-static predicate. Note that
+      --  a type with inherited predicates may have both static and dynamic
+      --  forms. In this case it is not sufficent to check the static predicate
+      --  function only, look for a dynamic predicate aspect as well.
 
       function Has_Call_Using_Secondary_Stack (N : Node_Id) return Boolean;
       --  N is the node for an arbitrary construct. This function searches the
@@ -2099,6 +2197,27 @@ package body Sem_Ch5 is
             end;
          end if;
       end Check_Controlled_Array_Attribute;
+
+      -------------------------
+      -- Check_Predicate_Use --
+      -------------------------
+
+      procedure Check_Predicate_Use (T : Entity_Id) is
+      begin
+         if Is_Discrete_Type (T)
+           and then Has_Predicates (T)
+           and then (not Has_Static_Predicate (T)
+                      or else Has_Dynamic_Predicate_Aspect (T))
+         then
+            Bad_Predicated_Subtype_Use
+              ("cannot use subtype& with non-static predicate for loop "
+               & "iteration", Discrete_Subtype_Definition (N),
+               T, Suggest_Static => True);
+
+         elsif Inside_A_Generic and then Is_Generic_Formal (T) then
+            Set_No_Dynamic_Predicate_On_Actual (T);
+         end if;
+      end Check_Predicate_Use;
 
       ------------------------------------
       -- Has_Call_Using_Secondary_Stack --
@@ -2391,16 +2510,23 @@ package body Sem_Ch5 is
          --  a)  a function call,
          --  b)  an identifier that is not a type,
          --  c)  an attribute reference 'Old (within a postcondition)
+         --  d)  an unchecked conversion
 
          --  then it is an iteration over a container. It was classified as
          --  a loop specification by the parser, and must be rewritten now
-         --  to activate container iteration.
+         --  to activate container iteration. The last case will occur within
+         --  an expanded inlined call, where the expansion wraps an actual in
+         --  an unchecked conversion when needed. The expression of the
+         --  conversion is always an object.
 
          if Nkind (DS_Copy) = N_Function_Call
            or else (Is_Entity_Name (DS_Copy)
                      and then not Is_Type (Entity (DS_Copy)))
            or else (Nkind (DS_Copy) = N_Attribute_Reference
-                     and then Attribute_Name (DS_Copy) = Name_Old)
+                     and then Nam_In (Attribute_Name (DS_Copy),
+                                      Name_Old, Name_Loop_Entry))
+           or else Nkind (DS_Copy) = N_Unchecked_Type_Conversion
+           or else Has_Aspect (Etype (DS_Copy), Aspect_Iterable)
          then
             --  This is an iterator specification. Rewrite it as such and
             --  analyze it to capture function calls that may require
@@ -2474,20 +2600,7 @@ package body Sem_Ch5 is
             Set_Etype  (DS, Entity (DS));
          end if;
 
-         --  Attempt to iterate through non-static predicate. Note that a type
-         --  with inherited predicates may have both static and dynamic forms.
-         --  In this case it is not sufficent to check the static predicate
-         --  function only, look for a dynamic predicate aspect as well.
-
-         if Is_Discrete_Type (Entity (DS))
-           and then Has_Predicates (Entity (DS))
-           and then (not Has_Static_Predicate (Entity (DS))
-                      or else Has_Dynamic_Predicate_Aspect (Entity (DS)))
-         then
-            Bad_Predicated_Subtype_Use
-              ("cannot use subtype& with non-static predicate for loop " &
-               "iteration", DS, Entity (DS), Suggest_Static => True);
-         end if;
+         Check_Predicate_Use (Entity (DS));
       end if;
 
       --  Error if not discrete type
@@ -2498,6 +2611,10 @@ package body Sem_Ch5 is
       end if;
 
       Check_Controlled_Array_Attribute (DS);
+
+      if Nkind (DS) = N_Subtype_Indication then
+         Check_Predicate_Use (Entity (Subtype_Mark (DS)));
+      end if;
 
       Make_Index (DS, N, In_Iter_Schm => True);
       Set_Ekind (Id, E_Loop_Parameter);
@@ -2710,11 +2827,11 @@ package body Sem_Ch5 is
          end;
       end if;
 
-      --  A loop parameter cannot be volatile. This check is peformed only
-      --  when SPARK_Mode is on as it is not a standard Ada legality check
-      --  (SPARK RM 7.1.3(6)).
+      --  A loop parameter cannot be effectively volatile. This check is
+      --  peformed only when SPARK_Mode is on as it is not a standard Ada
+      --  legality check (SPARK RM 7.1.3(6)).
 
-      if SPARK_Mode = On and then Is_SPARK_Volatile (Id) then
+      if SPARK_Mode = On and then Is_Effectively_Volatile (Id) then
          Error_Msg_N ("loop parameter cannot be volatile", Id);
       end if;
    end Analyze_Loop_Parameter_Specification;

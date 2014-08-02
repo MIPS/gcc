@@ -1,3 +1,40 @@
+2014-08-02  Trevor Saunders  <tsaunders@mozilla.com>
+
+	* cilk.c: Use hash_map instead of pointer_map.
+
+2014-08-02  Trevor Saunders  <tsaunders@mozilla.com>
+
+	* c-gimplify.c: Use hash_set instead of pointer_set.
+
+2014-08-01  Igor Zamyatin  <igor.zamyatin@intel.com>
+
+	PR middle-end/61455
+	* array-notation-common.c (extract_array_notation_exprs): Handling
+	of DECL_EXPR added.
+
+2014-08-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-common.h (min_align_of_type): Removed prototype.
+	* c-common.c (min_align_of_type): Removed.
+	* c-ubsan.h (ubsan_maybe_instrument_reference,
+	ubsan_maybe_instrument_member_call): New prototypes.
+	* c-ubsan.c: Include stor-layout.h and builtins.h.
+	(ubsan_maybe_instrument_reference_or_call,
+	ubsan_maybe_instrument_reference, ubsan_maybe_instrument_call): New
+	functions.
+
+2014-07-31  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR c++/60517
+	* c.opt (-Wreturn-local-addr): Move to common.opt.
+
+2014-07-30  Jason Merrill  <jason@redhat.com>
+
+	PR c++/61659
+	PR c++/61687
+	Revert:
+	* c.opt (-fuse-all-virtuals): New.
+
 2014-07-30  Tom Tromey  <tromey@redhat.com>
 
 	PR c/59855

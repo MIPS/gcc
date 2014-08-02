@@ -225,8 +225,7 @@ package body Sem_Res is
    --  operators, not ones that are intrinsic imports of back-end builtins.
 
    procedure Resolve_Intrinsic_Unary_Operator (N : Node_Id; Typ : Entity_Id);
-   --  Ditto, for unary operators (arithmetic ones and "not" on signed
-   --  integer types for VMS).
+   --  Ditto, for arithmetic unary operators
 
    procedure Rewrite_Operator_As_Call (N : Node_Id; Nam : Entity_Id);
    --  If an operator node resolves to a call to a user-defined operator,
@@ -259,7 +258,7 @@ package body Sem_Res is
    procedure Simplify_Type_Conversion (N : Node_Id);
    --  Called after N has been resolved and evaluated, but before range checks
    --  have been applied. Currently simplifies a combination of floating-point
-   --  to integer conversion and Truncation attribute.
+   --  to integer conversion and Rounding or Truncation attribute.
 
    function Unique_Fixed_Point_Type (N : Node_Id) return Entity_Id;
    --  A universal_fixed expression in an universal context is unambiguous if
@@ -1103,7 +1102,10 @@ package body Sem_Res is
                end if;
             end if;
 
-            Nam := New_Copy (N);
+            --  The node is the name of the parameterless call. Preserve its
+            --  descendants, which may be complex expressions.
+
+            Nam := Relocate_Node (N);
 
             --  If overloaded, overload set belongs to new copy
 
@@ -4326,21 +4328,24 @@ package body Sem_Res is
             end if;
 
             --  The following checks are only relevant when SPARK_Mode is on as
-            --  they are not standard Ada legality rule.
+            --  they are not standard Ada legality rule. Internally generated
+            --  temporaries are ignored.
 
             if SPARK_Mode = On
-              and then Is_SPARK_Volatile_Object (A)
+              and then Is_Effectively_Volatile_Object (A)
+              and then Comes_From_Source (A)
             then
-               --  A volatile object may act as an actual parameter when the
-               --  corresponding formal is of a non-scalar volatile type.
+               --  An effectively volatile object may act as an actual
+               --  parameter when the corresponding formal is of a non-scalar
+               --  volatile type.
 
                if Is_Volatile (Etype (F))
                  and then not Is_Scalar_Type (Etype (F))
                then
                   null;
 
-               --  A volatile object may act as an actual parameter in a call
-               --  to an instance of Unchecked_Conversion.
+               --  An effectively volatile object may act as an actual
+               --  parameter in a call to an instance of Unchecked_Conversion.
 
                elsif Is_Unchecked_Conversion_Instance (Nam) then
                   null;
@@ -4353,9 +4358,9 @@ package body Sem_Res is
 
                --  Detect an external variable with an enabled property that
                --  does not match the mode of the corresponding formal in a
-               --  procedure call.
-
-               --  why only procedure calls ???
+               --  procedure call. Functions are not considered because they
+               --  cannot have effectively volatile formal parameters in the
+               --  first place.
 
                if Ekind (Nam) = E_Procedure
                  and then Is_Entity_Name (A)
@@ -5224,7 +5229,7 @@ package body Sem_Res is
       Eval_Arithmetic_Op (N);
 
       --  In SPARK, a multiplication or division with operands of fixed point
-      --  types shall be qualified or explicitly converted to identify the
+      --  types must be qualified or explicitly converted to identify the
       --  result type.
 
       if (Is_Fixed_Point_Type (Etype (L))
@@ -5366,15 +5371,6 @@ package body Sem_Res is
    ------------------
 
    procedure Resolve_Call (N : Node_Id; Typ : Entity_Id) is
-      Loc     : constant Source_Ptr := Sloc (N);
-      Subp    : constant Node_Id    := Name (N);
-      Nam     : Entity_Id;
-      I       : Interp_Index;
-      It      : Interp;
-      Norm_OK : Boolean;
-      Scop    : Entity_Id;
-      Rtype   : Entity_Id;
-
       function Same_Or_Aliased_Subprograms
         (S : Entity_Id;
          E : Entity_Id) return Boolean;
@@ -5393,6 +5389,20 @@ package body Sem_Res is
       begin
          return S = E or else (Present (Subp_Alias) and then Subp_Alias = E);
       end Same_Or_Aliased_Subprograms;
+
+      --  Local variables
+
+      Loc      : constant Source_Ptr := Sloc (N);
+      Subp     : constant Node_Id    := Name (N);
+      Body_Id  : Entity_Id;
+      I        : Interp_Index;
+      It       : Interp;
+      Nam      : Entity_Id;
+      Nam_Decl : Node_Id;
+      Nam_UA   : Entity_Id;
+      Norm_OK  : Boolean;
+      Rtype    : Entity_Id;
+      Scop     : Entity_Id;
 
    --  Start of processing for Resolve_Call
 
@@ -5934,18 +5944,9 @@ package body Sem_Res is
       --  check for this by traversing the type in Check_Initialization_Call.
 
       if Is_Inlined (Nam)
-        and then Has_Pragma_Inline_Always (Nam)
-        and then Nkind (Unit_Declaration_Node (Nam)) = N_Subprogram_Declaration
-        and then Present (Body_To_Inline (Unit_Declaration_Node (Nam)))
-        and then not Debug_Flag_Dot_K
-      then
-         null;
-
-      elsif Is_Inlined (Nam)
         and then Has_Pragma_Inline (Nam)
         and then Nkind (Unit_Declaration_Node (Nam)) = N_Subprogram_Declaration
         and then Present (Body_To_Inline (Unit_Declaration_Node (Nam)))
-        and then Debug_Flag_Dot_K
       then
          null;
 
@@ -6212,30 +6213,27 @@ package body Sem_Res is
       Eval_Call (N);
       Check_Elab_Call (N);
 
-      --  In GNATprove mode, expansion is disabled, but we want to inline
-      --  some subprograms to facilitate formal verification. Indirect calls,
-      --  through a subprogram type, cannot be inlined. Inlining is only
-      --  performed for calls for which SPARK_Mode is On.
+      --  In GNATprove mode, expansion is disabled, but we want to inline some
+      --  subprograms to facilitate formal verification. Indirect calls through
+      --  a subprogram type or within a generic cannot be inlined. Inlining is
+      --  performed only for calls subject to SPARK_Mode on.
 
       if GNATprove_Mode
-        and then Is_Overloadable (Nam)
         and then SPARK_Mode = On
+        and then Is_Overloadable (Nam)
+        and then not Inside_A_Generic
       then
-         --  Retrieve the body to inline from the ultimate alias of Nam, if
-         --  there is one, otherwise calls that should be inlined end up not
-         --  being inlined.
+         Nam_UA   := Ultimate_Alias (Nam);
+         Nam_Decl := Unit_Declaration_Node (Nam_UA);
 
-         declare
-            Nam_UA : constant Entity_Id := Ultimate_Alias (Nam);
-            Decl   : constant Node_Id   := Unit_Declaration_Node (Nam_UA);
+         if Nkind (Nam_Decl) = N_Subprogram_Declaration then
+            Body_Id := Corresponding_Body (Nam_Decl);
 
-         begin
-            --  If the subprogram is not eligible for inlining in GNATprove
-            --  mode, do nothing.
+            --  Nothing to do if the subprogram is not eligible for inlining in
+            --  GNATprove mode.
 
-            if Nkind (Decl) /= N_Subprogram_Declaration
-              or else not Is_Inlined_Always (Nam_UA)
-              or else not Can_Be_Inlined_In_GNATprove_Mode (Nam_UA, Empty)
+            if not Is_Inlined_Always (Nam_UA)
+              or else not Can_Be_Inlined_In_GNATprove_Mode (Nam_UA, Body_Id)
             then
                null;
 
@@ -6254,7 +6252,7 @@ package body Sem_Res is
                --  With the one-pass inlining technique, a call cannot be
                --  inlined if the corresponding body has not been seen yet.
 
-               if No (Corresponding_Body (Decl)) then
+               if No (Body_Id) then
                   Error_Msg_NE
                     ("?no contextual analysis of & (body not seen yet)",
                      N, Nam);
@@ -6264,7 +6262,7 @@ package body Sem_Res is
                --  the subprogram is not suitable for inlining in GNATprove
                --  mode.
 
-               elsif No (Body_To_Inline (Decl)) then
+               elsif No (Body_To_Inline (Nam_Decl)) then
                   null;
 
                --  Calls cannot be inlined inside potentially unevaluated
@@ -6283,7 +6281,7 @@ package body Sem_Res is
                   Expand_Inlined_Call (N, Nam_UA, Nam);
                end if;
             end if;
-         end;
+         end if;
       end if;
 
       Warn_On_Overlapping_Actuals (Nam, N);
@@ -6785,33 +6783,33 @@ package body Sem_Res is
          Eval_Entity_Name (N);
       end if;
 
-      --  A volatile object subject to enabled properties Async_Writers or
-      --  Effective_Reads must appear in a specific context. The following
-      --  checks are only relevant when SPARK_Mode is on as they are not
-      --  standard Ada legality rules.
+      --  An effectively volatile object subject to enabled properties
+      --  Async_Writers or Effective_Reads must appear in a specific context.
+      --  The following checks are only relevant when SPARK_Mode is on as they
+      --  are not standard Ada legality rules.
 
       if SPARK_Mode = On
         and then Is_Object (E)
-        and then Is_SPARK_Volatile (E)
+        and then Is_Effectively_Volatile (E)
         and then Comes_From_Source (E)
         and then
           (Async_Writers_Enabled (E) or else Effective_Reads_Enabled (E))
       then
-         --  The volatile objects appears in a "non-interfering context" as
-         --  defined in SPARK RM 7.1.3(13).
+         --  The effectively volatile objects appears in a "non-interfering
+         --  context" as defined in SPARK RM 7.1.3(13).
 
          if Is_OK_Volatile_Context (Par, N) then
             null;
 
-         --  Assume that references to volatile objects that appear as actual
-         --  parameters in a procedure call are always legal. The full legality
-         --  check is done when the actuals are resolved.
+         --  Assume that references to effectively volatile objects that appear
+         --  as actual parameters in a procedure call are always legal. The
+         --  full legality check is done when the actuals are resolved.
 
          elsif Nkind (Par) = N_Procedure_Call_Statement then
             null;
 
          --  Otherwise the context causes a side effect with respect to the
-         --  volatile object.
+         --  effectively volatile object.
 
          else
             Error_Msg_N
@@ -7178,7 +7176,11 @@ package body Sem_Res is
                   New_Occurrence_Of (PPC_Wrapper (Nam), Loc),
                 Parameter_Associations => New_Actuals);
             Rewrite (N, New_Call);
-            Analyze_And_Resolve (N);
+
+            --  Preanalyze and resolve new call. Current procedure is called
+            --  from Resolve_Call, after which expansion will take place.
+
+            Preanalyze_And_Resolve (N);
             return;
          end;
       end if;
@@ -7998,11 +8000,10 @@ package body Sem_Res is
    --------------------------------
 
    procedure Resolve_Intrinsic_Operator  (N : Node_Id; Typ : Entity_Id) is
-      Btyp    : constant Entity_Id := Base_Type (Underlying_Type (Typ));
-      Op      : Entity_Id;
-      Orig_Op : constant Entity_Id := Entity (N);
-      Arg1    : Node_Id;
-      Arg2    : Node_Id;
+      Btyp : constant Entity_Id := Base_Type (Underlying_Type (Typ));
+      Op   : Entity_Id;
+      Arg1 : Node_Id;
+      Arg2 : Node_Id;
 
       function Convert_Operand (Opnd : Node_Id) return Node_Id;
       --  If the operand is a literal, it cannot be the expression in a
@@ -8082,31 +8083,19 @@ package body Sem_Res is
         or else Typ /= Etype (Right_Opnd (N))
       then
          --  Add explicit conversion where needed, and save interpretations in
-         --  case operands are overloaded. If the context is a VMS operation,
-         --  assert that the conversion is legal (the operands have the proper
-         --  types to select the VMS intrinsic). Note that in rare cases the
-         --  VMS operators may be visible, but the default System is being used
-         --  and Address is a private type.
+         --  case operands are overloaded.
 
          Arg1 := Convert_To (Typ, Left_Opnd  (N));
          Arg2 := Convert_To (Typ, Right_Opnd (N));
 
          if Nkind (Arg1) = N_Type_Conversion then
             Save_Interps (Left_Opnd (N), Expression (Arg1));
-
-            if Is_VMS_Operator (Orig_Op) then
-               Set_Conversion_OK (Arg1);
-            end if;
          else
             Save_Interps (Left_Opnd (N), Arg1);
          end if;
 
          if Nkind (Arg2) = N_Type_Conversion then
             Save_Interps (Right_Opnd (N), Expression (Arg2));
-
-            if Is_VMS_Operator (Orig_Op) then
-               Set_Conversion_OK (Arg2);
-            end if;
          else
             Save_Interps (Right_Opnd (N), Arg2);
          end if;
@@ -8178,18 +8167,13 @@ package body Sem_Res is
          B_Typ := Base_Type (Typ);
       end if;
 
-      --  OK if this is a VMS-specific intrinsic operation
-
-      if Is_VMS_Operator (Entity (N)) then
-         null;
-
       --  The following test is required because the operands of the operation
       --  may be literals, in which case the resulting type appears to be
       --  compatible with a signed integer type, when in fact it is compatible
       --  only with modular types. If the context itself is universal, the
       --  operation is illegal.
 
-      elsif not Valid_Boolean_Arg (Typ) then
+      if not Valid_Boolean_Arg (Typ) then
          Error_Msg_N ("invalid context for logical operation", N);
          Set_Etype (N, Any_Type);
          return;
@@ -8942,12 +8926,9 @@ package body Sem_Res is
          B_Typ := Base_Type (Typ);
       end if;
 
-      if Is_VMS_Operator (Entity (N)) then
-         null;
-
       --  Straightforward case of incorrect arguments
 
-      elsif not Valid_Boolean_Arg (Typ) then
+      if not Valid_Boolean_Arg (Typ) then
          Error_Msg_N ("invalid operand type for operator&", N);
          Set_Etype (N, Any_Type);
          return;
@@ -9841,14 +9822,27 @@ package body Sem_Res is
 
       --  Check bad use of type with predicates
 
-      if Has_Predicates (Etype (Drange)) then
-         Bad_Predicated_Subtype_Use
-           ("subtype& has predicate, not allowed in slice",
-            Drange, Etype (Drange));
+      declare
+         Subt : Entity_Id;
+
+      begin
+         if Nkind (Drange) = N_Subtype_Indication
+           and then Has_Predicates (Entity (Subtype_Mark (Drange)))
+         then
+            Subt := Entity (Subtype_Mark (Drange));
+         else
+            Subt := Etype (Drange);
+         end if;
+
+         if Has_Predicates (Subt) then
+            Bad_Predicated_Subtype_Use
+              ("subtype& has predicate, not allowed in slice", Drange, Subt);
+         end if;
+      end;
 
       --  Otherwise here is where we check suspicious indexes
 
-      elsif Nkind (Drange) = N_Range then
+      if Nkind (Drange) = N_Range then
          Warn_On_Suspicious_Index (Name, Low_Bound  (Drange));
          Warn_On_Suspicious_Index (Name, High_Bound (Drange));
       end if;
@@ -11090,29 +11084,36 @@ package body Sem_Res is
             Opnd_Typ   : constant Entity_Id := Etype (Operand);
 
          begin
-            if Is_Floating_Point_Type (Opnd_Typ)
-              and then
-                (Is_Integer_Type (Target_Typ)
-                   or else (Is_Fixed_Point_Type (Target_Typ)
-                              and then Conversion_OK (N)))
-              and then Nkind (Operand) = N_Attribute_Reference
-              and then Attribute_Name (Operand) = Name_Truncation
+            --  Special processing if the conversion is the expression of a
+            --  Rounding or Truncation attribute reference. In this case we
+            --  replace:
 
-            --  Special processing required if the conversion is the expression
-            --  of a Truncation attribute reference. In this case we replace:
-
-            --     ityp (ftyp'Truncation (x))
+            --     ityp (ftyp'Rounding (x)) or ityp (ftyp'Truncation (x))
 
             --  by
 
             --     ityp (x)
 
-            --  with the Float_Truncate flag set, which is more efficient.
+            --  with the Float_Truncate flag set to False or True respectively,
+            --  which is more efficient.
 
+            if Is_Floating_Point_Type (Opnd_Typ)
+              and then
+                (Is_Integer_Type (Target_Typ)
+                  or else (Is_Fixed_Point_Type (Target_Typ)
+                            and then Conversion_OK (N)))
+              and then Nkind (Operand) = N_Attribute_Reference
+              and then Nam_In (Attribute_Name (Operand), Name_Rounding,
+                                                         Name_Truncation)
             then
-               Rewrite (Operand,
-                 Relocate_Node (First (Expressions (Operand))));
-               Set_Float_Truncate (N, True);
+               declare
+                  Truncate : constant Boolean :=
+                               Attribute_Name (Operand) = Name_Truncation;
+               begin
+                  Rewrite (Operand,
+                    Relocate_Node (First (Expressions (Operand))));
+                  Set_Float_Truncate (N, Truncate);
+               end;
             end if;
          end;
       end if;
@@ -11516,13 +11517,6 @@ package body Sem_Res is
             --  this context, but which cannot be removed by type checking,
             --  because the context does not impose a type.
 
-            --  When compiling for VMS, spurious ambiguities can be produced
-            --  when arithmetic operations have a literal operand and return
-            --  System.Address or a descendant of it. These ambiguities are
-            --  otherwise resolved by the context, but for conversions there
-            --  is no context type and the removal of the spurious operations
-            --  must be done explicitly here.
-
             --  The node may be labelled overloaded, but still contain only one
             --  interpretation because others were discarded earlier. If this
             --  is the case, retain the single interpretation if legal.
@@ -11542,7 +11536,15 @@ package body Sem_Res is
                      Remove_Interp (I);
                   end if;
 
-                  if Present (System_Aux_Id)
+                  --  When compiling for a system where Address is of a visible
+                  --  integer type, spurious ambiguities can be produced when
+                  --  arithmetic operations have a literal operand and return
+                  --  System.Address or a descendant of it. These ambiguities
+                  --  are usually resolved by the context, but for conversions
+                  --  there is no context type and the removal of the spurious
+                  --  operations must be done explicitly here.
+
+                  if not Address_Is_Private
                     and then Is_Descendent_Of_Address (It.Typ)
                   then
                      Remove_Interp (I);

@@ -204,6 +204,7 @@ Implementation Defined Pragmas
 * Pragma Main::
 * Pragma Main_Storage::
 * Pragma No_Body::
+* Pragma No_Elaboration_Code_All::
 * Pragma No_Inline::
 * Pragma No_Return::
 * Pragma No_Run_Time::
@@ -309,6 +310,7 @@ Implementation Defined Aspects
 * Aspect Invariant::
 * Aspect Iterable::
 * Aspect Linker_Section::
+* Aspect No_Elaboration_Code_All::
 * Aspect Object_Size::
 * Aspect Part_Of::
 * Aspect Persistent_BSS::
@@ -1068,6 +1070,7 @@ consideration, the use of these pragmas should be minimized.
 * Pragma Main::
 * Pragma Main_Storage::
 * Pragma No_Body::
+* Pragma No_Elaboration_Code_All::
 * Pragma No_Inline::
 * Pragma No_Return::
 * Pragma No_Run_Time::
@@ -2882,13 +2885,7 @@ MECHANISM ::=
 MECHANISM_ASSOCIATION ::=
   [formal_parameter_NAME =>] MECHANISM_NAME
 
-MECHANISM_NAME ::=
-  Value
-| Reference
-| Descriptor [([Class =>] CLASS_NAME)]
-| Short_Descriptor [([Class =>] CLASS_NAME)]
-
-CLASS_NAME ::= ubs | ubsb | uba | s | sb | a
+MECHANISM_NAME ::= Value | Reference
 @end smallexample
 
 @noindent
@@ -2915,13 +2912,6 @@ exactly match the subtypes in the corresponding function specification,
 using positional notation to match parameters with subtype marks.
 The form with an @code{'Access} attribute can be used to match an
 anonymous access parameter.
-
-@cindex OpenVMS
-@cindex Passing by descriptor
-Passing by descriptor is supported only on the OpenVMS ports of GNAT@.
-The default behavior for Export_Function is to accept either 64bit or
-32bit descriptors unless short_descriptor is specified, then only 32bit
-descriptors are accepted.
 
 @cindex Suppressing external name
 Special treatment is given if the EXTERNAL is an explicit null
@@ -2987,13 +2977,7 @@ MECHANISM ::=
 MECHANISM_ASSOCIATION ::=
   [formal_parameter_NAME =>] MECHANISM_NAME
 
-MECHANISM_NAME ::=
-  Value
-| Reference
-| Descriptor [([Class =>] CLASS_NAME)]
-| Short_Descriptor [([Class =>] CLASS_NAME)]
-
-CLASS_NAME ::= ubs | ubsb | uba | s | sb | a
+MECHANISM_NAME ::= Value | Reference
 @end smallexample
 
 @noindent
@@ -3005,13 +2989,6 @@ present, @code{Convention Ada} is assumed, which is usually
 not what is wanted, so it is usually appropriate to use this
 pragma in conjunction with a @code{Export} or @code{Convention}
 pragma that specifies the desired foreign convention.
-
-@cindex OpenVMS
-@cindex Passing by descriptor
-Passing by descriptor is supported only on the OpenVMS ports of GNAT@.
-The default behavior for Export_Procedure is to accept either 64bit or
-32bit descriptors unless short_descriptor is specified, then only 32bit
-descriptors are accepted.
 
 @cindex Suppressing external name
 Special treatment is given if the EXTERNAL is an explicit null
@@ -3073,13 +3050,7 @@ MECHANISM ::=
 MECHANISM_ASSOCIATION ::=
   [formal_parameter_NAME =>] MECHANISM_NAME
 
-MECHANISM_NAME ::=
-  Value
-| Reference
-| Descriptor [([Class =>] CLASS_NAME)]
-| Short_Descriptor [([Class =>] CLASS_NAME)]
-
-CLASS_NAME ::= ubs | ubsb | uba | s | sb | a
+MECHANISM_NAME ::= Value | Reference
 @end smallexample
 
 @noindent
@@ -3096,13 +3067,6 @@ not what is wanted since the whole point of this pragma is to interface
 with foreign language functions, so it is usually appropriate to use this
 pragma in conjunction with a @code{Export} or @code{Convention}
 pragma that specifies the desired foreign convention.
-
-@cindex OpenVMS
-@cindex Passing by descriptor
-Passing by descriptor is supported only on the OpenVMS ports of GNAT@.
-The default behavior for Export_Valued_Procedure is to accept either 64bit or
-32bit descriptors unless short_descriptor is specified, then only 32bit
-descriptors are accepted.
 
 @cindex Suppressing external name
 Special treatment is given if the EXTERNAL is an explicit null
@@ -3425,17 +3389,8 @@ pragma Ident (static_string_EXPRESSION);
 @end smallexample
 
 @noindent
-This pragma provides a string identification in the generated object file,
-if the system supports the concept of this kind of identification string.
-This pragma is allowed only in the outermost declarative part or
-declarative items of a compilation unit. If more than one @code{Ident}
-pragma is given, only the last one processed is effective.
-@cindex OpenVMS
-On OpenVMS systems, the effect of the pragma is identical to the effect of
-the DEC Ada 83 pragma of the same name. Note that in DEC Ada 83, the
-maximum allowed length is 31 characters, so if it is important to
-maintain compatibility with this compiler, you should obey this length
-limit.
+This pragma is identical in effect to pragma @code{Comment}. It is provided
+for compatibility with other Ada compilers providing this pragma.
 
 @node Pragma Implementation_Defined
 @unnumberedsec Pragma Implementation_Defined
@@ -3607,8 +3562,7 @@ pragma Import_Function (
   [, [Parameter_Types          =>] PARAMETER_TYPES]
   [, [Result_Type              =>] SUBTYPE_MARK]
   [, [Mechanism                =>] MECHANISM]
-  [, [Result_Mechanism         =>] MECHANISM_NAME]
-  [, [First_Optional_Parameter =>] IDENTIFIER]);
+  [, [Result_Mechanism         =>] MECHANISM_NAME]);
 
 EXTERNAL_SYMBOL ::=
   IDENTIFIER
@@ -3632,10 +3586,6 @@ MECHANISM_ASSOCIATION ::=
 MECHANISM_NAME ::=
   Value
 | Reference
-| Descriptor [([Class =>] CLASS_NAME)]
-| Short_Descriptor [([Class =>] CLASS_NAME)]
-
-CLASS_NAME ::= ubs | ubsb | uba | s | sb | a | nca
 @end smallexample
 
 @noindent
@@ -3663,21 +3613,6 @@ applies to all parameters.  Otherwise you may specify a mechanism on a
 parameter by parameter basis using either positional or named
 notation.  If the mechanism is not specified, the default mechanism
 is used.
-
-@cindex OpenVMS
-@cindex Passing by descriptor
-Passing by descriptor is supported only on the OpenVMS ports of GNAT@.
-The default behavior for Import_Function is to pass a 64bit descriptor
-unless short_descriptor is specified, then a 32bit descriptor is passed.
-
-@code{First_Optional_Parameter} applies only to OpenVMS ports of GNAT@.
-It specifies that the designated parameter and all following parameters
-are optional, meaning that they are not passed at the generated code
-level (this is distinct from the notion of optional parameters in Ada
-where the parameters are passed anyway with the designated optional
-parameters).  All optional parameters must be of mode @code{IN} and have
-default parameter values that are either known at compile time
-expressions, or uses of the @code{'Null_Parameter} attribute.
 
 @node Pragma Import_Object
 @unnumberedsec Pragma Import_Object
@@ -3716,8 +3651,7 @@ pragma Import_Procedure (
      [Internal                 =>] LOCAL_NAME
   [, [External                 =>] EXTERNAL_SYMBOL]
   [, [Parameter_Types          =>] PARAMETER_TYPES]
-  [, [Mechanism                =>] MECHANISM]
-  [, [First_Optional_Parameter =>] IDENTIFIER]);
+  [, [Mechanism                =>] MECHANISM]);
 
 EXTERNAL_SYMBOL ::=
   IDENTIFIER
@@ -3738,13 +3672,7 @@ MECHANISM ::=
 MECHANISM_ASSOCIATION ::=
   [formal_parameter_NAME =>] MECHANISM_NAME
 
-MECHANISM_NAME ::=
-  Value
-| Reference
-| Descriptor [([Class =>] CLASS_NAME)]
-| Short_Descriptor [([Class =>] CLASS_NAME)]
-
-CLASS_NAME ::= ubs | ubsb | uba | s | sb | a | nca
+MECHANISM_NAME ::= Value | Reference
 @end smallexample
 
 @noindent
@@ -3763,8 +3691,7 @@ pragma Import_Valued_Procedure (
      [Internal                 =>] LOCAL_NAME
   [, [External                 =>] EXTERNAL_SYMBOL]
   [, [Parameter_Types          =>] PARAMETER_TYPES]
-  [, [Mechanism                =>] MECHANISM]
-  [, [First_Optional_Parameter =>] IDENTIFIER]);
+  [, [Mechanism                =>] MECHANISM]);
 
 EXTERNAL_SYMBOL ::=
   IDENTIFIER
@@ -3785,13 +3712,7 @@ MECHANISM ::=
 MECHANISM_ASSOCIATION ::=
   [formal_parameter_NAME =>] MECHANISM_NAME
 
-MECHANISM_NAME ::=
-  Value
-| Reference
-| Descriptor [([Class =>] CLASS_NAME)]
-| Short_Descriptor [([Class =>] CLASS_NAME)]
-
-CLASS_NAME ::= ubs | ubsb | uba | s | sb | a | nca
+MECHANISM_NAME ::= Value | Reference
 @end smallexample
 
 @noindent
@@ -4749,6 +4670,24 @@ such a way that a body needed before is no longer needed. The provision of a
 dummy body with a No_Body pragma ensures that there is no interference from
 earlier versions of the package body.
 
+@node Pragma No_Elaboration_Code_All
+@unnumberedsec Pragma No_Elaboration_Code_All
+@findex No_Elaboration_Code_All
+@noindent
+Syntax:
+
+@smallexample @c ada
+pragma No_Elaboration_Code_All [(program_unit_NAME)];
+@end smallexample
+
+@noindent
+This is a program unit pragma (there is also an equivalent aspect of the
+same name) that establishes the restriction @code{No_Elaboration_Code} for
+the current unit and any extended main source units (body and subunits.
+It also has has the effect of enforcing a transitive application of this
+aspect, so that if any unit is implicitly or explicitly WITH'ed by the
+current unit, it must also have the No_Elaboration_Code_All aspect set.
+
 @node Pragma No_Inline
 @unnumberedsec Pragma No_Inline
 @findex No_Inline
@@ -5330,7 +5269,7 @@ and whose type is potentially persistent. If no argument is given, then
 the pragma is a configuration pragma, and applies to all library level
 objects with no explicit initialization of potentially persistent types.
 
-A potentially persistent type is a scalar type, or a non-tagged,
+A potentially persistent type is a scalar type, or an untagged,
 non-discriminated record, all of whose components have no explicit
 initialization and are themselves of a potentially persistent type,
 or an array, all of whose constraints are static, and whose component
@@ -6435,11 +6374,8 @@ pragma Short_Descriptors
 @end smallexample
 
 @noindent
-In VMS versions of the compiler, this configuration pragma causes all
-occurrences of the mechanism types Descriptor[_xxx] to be treated as
-Short_Descriptor[_xxx]. This is helpful in porting legacy applications from a
-32-bit environment to a 64-bit environment. This pragma is ignored for non-VMS
-versions.
+This pragma is provided for compatibility with other Ada implementations. It
+is recognized but ignored by all current versions of GNAT.
 
 @node Pragma Simple_Storage_Pool_Type
 @unnumberedsec Pragma Simple_Storage_Pool_Type
@@ -8127,6 +8063,7 @@ clause.
 * Aspect Iterable::
 * Aspect Linker_Section::
 * Aspect Lock_Free::
+* Aspect No_Elaboration_Code_All::
 * Aspect Object_Size::
 * Aspect Part_Of::
 * Aspect Persistent_BSS::
@@ -8387,6 +8324,13 @@ This aspect is equivalent to an @code{Linker_Section} pragma.
 @findex Lock_Free
 @noindent
 This aspect is equivalent to pragma @code{Lock_Free}.
+
+@node Aspect No_Elaboration_Code_All
+@unnumberedsec Aspect No_Elaboration_Code_All
+@findex No_Elaboration_Code_All
+@noindent
+This aspect is equivalent to a @code{pragma No_Elaboration_Code_All}
+statement for a program unit.
 
 @node Aspect Object_Size
 @unnumberedsec Aspect Object_Size
@@ -9259,27 +9203,7 @@ meaning the first parameter) of @var{subprogram}.  The code returned is:
 by copy (value)
 @item 2
 by reference
-@item 3
-by descriptor (default descriptor class)
-@item 4
-by descriptor (UBS: unaligned bit string)
-@item 5
-by descriptor (UBSB: aligned bit string with arbitrary bounds)
-@item 6
-by descriptor (UBA: unaligned bit array)
-@item 7
-by descriptor (S: string, also scalar access type parameter)
-@item 8
-by descriptor (SB: string with arbitrary bounds)
-@item 9
-by descriptor (A: contiguous array)
-@item 10
-by descriptor (NCA: non-contiguous array)
 @end table
-
-@noindent
-Values from 3 through 10 are only relevant to Digital OpenVMS implementations.
-@cindex OpenVMS
 
 @node Attribute Null_Parameter
 @unnumberedsec Attribute Null_Parameter
@@ -11136,7 +11060,7 @@ This restriction can be useful in providing an initial filter for code
 developed using SPARK 2005, or in examining legacy code to see how far
 it is from meeting SPARK restrictions.
 
-The list below summarises the checks that are performed when this
+The list below summarizes the checks that are performed when this
 restriction is in force:
 @itemize @bullet
 @item No block statements
@@ -11196,7 +11120,7 @@ restriction is in force:
 @item Modular type modulus must be power of 2
 @item Base not allowed on subtype mark
 @item Unary operators not allowed on modular types (except not)
-@item Non-tagged record cannot be null
+@item Untagged record cannot be null
 @item No class-wide operations
 @item Initialization expressions must respect SPARK restrictions
 @item Non-static ranges not allowed except in iteration schemes

@@ -42,7 +42,6 @@ with Exp_Intr; use Exp_Intr;
 with Exp_Pakd; use Exp_Pakd;
 with Exp_Tss;  use Exp_Tss;
 with Exp_Util; use Exp_Util;
-with Exp_VFpt; use Exp_VFpt;
 with Freeze;   use Freeze;
 with Inline;   use Inline;
 with Lib;      use Lib;
@@ -2829,11 +2828,20 @@ package body Exp_Ch4 is
                            Rhs_Discr_Val));
                   end;
 
+               --  All cases other than comparing Unchecked_Union types
+
                else
-                  return
-                    Make_Function_Call (Loc,
-                      Name                   => New_Occurrence_Of (Eq_Op, Loc),
-                      Parameter_Associations => New_List (Lhs, Rhs));
+                  declare
+                     T : constant Entity_Id := Etype (First_Formal (Eq_Op));
+                  begin
+                     return
+                       Make_Function_Call (Loc,
+                         Name                   =>
+                           New_Occurrence_Of (Eq_Op, Loc),
+                         Parameter_Associations => New_List (
+                           OK_Convert_To (T, Lhs),
+                           OK_Convert_To (T, Rhs)));
+                  end;
                end if;
             end if;
 
@@ -4314,11 +4322,11 @@ package body Exp_Ch4 is
 
          if No (Associated_Storage_Pool (PtrT)) and then VM_Target = No_VM then
             if Present (Rel_Typ) then
-               Set_Associated_Storage_Pool (PtrT,
-                 Associated_Storage_Pool (Rel_Typ));
+               Set_Associated_Storage_Pool
+                 (PtrT, Associated_Storage_Pool (Rel_Typ));
             else
-               Set_Associated_Storage_Pool (PtrT,
-                 Get_Global_Pool_For_Access_Type (PtrT));
+               Set_Associated_Storage_Pool
+                 (PtrT, RTE (RE_Global_Pool_Object));
             end if;
          end if;
 
@@ -6446,12 +6454,6 @@ package body Exp_Ch4 is
                      Attribute_Name => Name_First)),
              Reason => CE_Overflow_Check_Failed));
       end if;
-
-      --  Vax floating-point types case
-
-      if Vax_Float (Etype (N)) then
-         Expand_Vax_Arith (N);
-      end if;
    end Expand_N_Op_Abs;
 
    ---------------------
@@ -6493,11 +6495,6 @@ package body Exp_Ch4 is
       if Is_Signed_Integer_Type (Typ) or else Is_Fixed_Point_Type (Typ) then
          Apply_Arithmetic_Overflow_Check (N);
          return;
-
-      --  Vax floating-point types case
-
-      elsif Vax_Float (Typ) then
-         Expand_Vax_Arith (N);
       end if;
    end Expand_N_Op_Add;
 
@@ -6706,12 +6703,6 @@ package body Exp_Ch4 is
 
       elsif Is_Integer_Type (Typ) then
          Apply_Divide_Checks (N);
-
-      --  Deal with Vax_Float
-
-      elsif Vax_Float (Typ) then
-         Expand_Vax_Arith (N);
-         return;
       end if;
    end Expand_N_Op_Divide;
 
@@ -7300,15 +7291,15 @@ package body Exp_Ch4 is
                Op_Name := Node (Prim);
 
             --  Find the type's predefined equality or an overriding
-            --  user- defined equality. The reason for not simply calling
+            --  user-defined equality. The reason for not simply calling
             --  Find_Prim_Op here is that there may be a user-defined
-            --  overloaded equality op that precedes the equality that we want,
-            --  so we have to explicitly search (e.g., there could be an
-            --  equality with two different parameter types).
+            --  overloaded equality op that precedes the equality that we
+            --  want, so we have to explicitly search (e.g., there could be
+            --  an equality with two different parameter types).
 
             else
                if Is_Class_Wide_Type (Typl) then
-                  Typl := Root_Type (Typl);
+                  Typl := Find_Specific_Type (Typl);
                end if;
 
                Prim := First_Elmt (Primitive_Operations (Typl));
@@ -7431,13 +7422,6 @@ package body Exp_Ch4 is
       --  Test if result is known at compile time
 
       Rewrite_Comparison (N);
-
-      --  If we still have comparison for Vax_Float, process it
-
-      if Vax_Float (Typl) and then Nkind (N) in N_Op_Compare  then
-         Expand_Vax_Comparison (N);
-         return;
-      end if;
 
       Optimize_Length_Comparison (N);
    end Expand_N_Op_Eq;
@@ -7843,13 +7827,6 @@ package body Exp_Ch4 is
 
       Rewrite_Comparison (N);
 
-      --  If we still have comparison, and Vax_Float type, process it
-
-      if Vax_Float (Typ1) and then Nkind (N) in N_Op_Compare then
-         Expand_Vax_Comparison (N);
-         return;
-      end if;
-
       Optimize_Length_Comparison (N);
    end Expand_N_Op_Ge;
 
@@ -7892,13 +7869,6 @@ package body Exp_Ch4 is
       end if;
 
       Rewrite_Comparison (N);
-
-      --  If we still have comparison, and Vax_Float type, process it
-
-      if Vax_Float (Typ1) and then Nkind (N) in N_Op_Compare then
-         Expand_Vax_Comparison (N);
-         return;
-      end if;
 
       Optimize_Length_Comparison (N);
    end Expand_N_Op_Gt;
@@ -7943,13 +7913,6 @@ package body Exp_Ch4 is
 
       Rewrite_Comparison (N);
 
-      --  If we still have comparison, and Vax_Float type, process it
-
-      if Vax_Float (Typ1) and then Nkind (N) in N_Op_Compare then
-         Expand_Vax_Comparison (N);
-         return;
-      end if;
-
       Optimize_Length_Comparison (N);
    end Expand_N_Op_Le;
 
@@ -7993,13 +7956,6 @@ package body Exp_Ch4 is
 
       Rewrite_Comparison (N);
 
-      --  If we still have comparison, and Vax_Float type, process it
-
-      if Vax_Float (Typ1) and then Nkind (N) in N_Op_Compare then
-         Expand_Vax_Comparison (N);
-         return;
-      end if;
-
       Optimize_Length_Comparison (N);
    end Expand_N_Op_Lt;
 
@@ -8033,11 +7989,6 @@ package body Exp_Ch4 is
              Right_Opnd => Right_Opnd (N)));
 
          Analyze_And_Resolve (N, Typ);
-
-      --  Vax floating-point types case
-
-      elsif Vax_Float (Etype (N)) then
-         Expand_Vax_Arith (N);
       end if;
    end Expand_N_Op_Minus;
 
@@ -8510,12 +8461,6 @@ package body Exp_Ch4 is
 
       elsif Is_Signed_Integer_Type (Etype (N)) then
          Apply_Arithmetic_Overflow_Check (N);
-
-      --  Deal with VAX float case
-
-      elsif Vax_Float (Typ) then
-         Expand_Vax_Arith (N);
-         return;
       end if;
    end Expand_N_Op_Multiply;
 
@@ -8553,13 +8498,6 @@ package body Exp_Ch4 is
          end if;
 
          Rewrite_Comparison (N);
-
-         --  If we still have comparison for Vax_Float, process it
-
-         if Vax_Float (Typ) and then Nkind (N) in N_Op_Compare  then
-            Expand_Vax_Comparison (N);
-            return;
-         end if;
 
       --  For all cases other than elementary types, we rewrite node as the
       --  negation of an equality operation, and reanalyze. The equality to be
@@ -8608,17 +8546,18 @@ package body Exp_Ch4 is
    ---------------------
 
    --  If the argument is other than a Boolean array type, there is no special
-   --  expansion required, except for VMS operations on signed integers.
+   --  expansion required, except for dealing with validity checks, and non-
+   --  standard boolean representations.
 
-   --  For the packed case, we call the special routine in Exp_Pakd, except
-   --  that if the component size is greater than one, we use the standard
-   --  routine generating a gruesome loop (it is so peculiar to have packed
-   --  arrays with non-standard Boolean representations anyway, so it does not
-   --  matter that we do not handle this case efficiently).
+   --  For the packed array case, we call the special routine in Exp_Pakd,
+   --  except that if the component size is greater than one, we use the
+   --  standard routine generating a gruesome loop (it is so peculiar to have
+   --  packed arrays with non-standard Boolean representations anyway, so it
+   --  does not matter that we do not handle this case efficiently).
 
-   --  For the unpacked case (and for the special packed case where we have non
-   --  standard Booleans, as discussed above), we generate and insert into the
-   --  tree the following function definition:
+   --  For the unpacked array case (and for the special packed case where we
+   --  have non standard Booleans, as discussed above), we generate and insert
+   --  into the tree the following function definition:
 
    --     function Nnnn (A : arr) is
    --       B : arr;
@@ -8656,49 +8595,6 @@ package body Exp_Ch4 is
          Set_Etype (N, Standard_Boolean);
          Adjust_Result_Type (N, Typ);
          return;
-      end if;
-
-      --  For the VMS "not" on signed integer types, use conversion to and from
-      --  a predefined modular type.
-
-      if Is_VMS_Operator (Entity (N)) then
-         declare
-            Rtyp : Entity_Id;
-            Utyp : Entity_Id;
-
-         begin
-            --  If this is a derived type, retrieve original VMS type so that
-            --  the proper sized type is used for intermediate values.
-
-            if Is_Derived_Type (Typ) then
-               Rtyp := First_Subtype (Etype (Typ));
-            else
-               Rtyp := Typ;
-            end if;
-
-            --  The proper unsigned type must have a size compatible with the
-            --  operand, to prevent misalignment.
-
-            if RM_Size (Rtyp) <= 8 then
-               Utyp := RTE (RE_Unsigned_8);
-
-            elsif RM_Size (Rtyp) <= 16 then
-               Utyp := RTE (RE_Unsigned_16);
-
-            elsif RM_Size (Rtyp) = RM_Size (Standard_Unsigned) then
-               Utyp := RTE (RE_Unsigned_32);
-
-            else
-               Utyp := RTE (RE_Long_Long_Unsigned);
-            end if;
-
-            Rewrite (N,
-              Unchecked_Convert_To (Typ,
-                Make_Op_Not (Loc,
-                  Unchecked_Convert_To (Utyp, Right_Opnd (N)))));
-            Analyze_And_Resolve (N, Typ);
-            return;
-         end;
       end if;
 
       --  Only array types need any other processing
@@ -9290,11 +9186,6 @@ package body Exp_Ch4 is
 
       if Is_Signed_Integer_Type (Typ) or else Is_Fixed_Point_Type (Typ) then
          Apply_Arithmetic_Overflow_Check (N);
-
-      --  VAX floating-point types case
-
-      elsif Vax_Float (Typ) then
-         Expand_Vax_Arith (N);
       end if;
    end Expand_N_Op_Subtract;
 
@@ -10953,70 +10844,78 @@ package body Exp_Ch4 is
 
       --  The only remaining step is to generate a range check if we still have
       --  a type conversion at this stage and Do_Range_Check is set. For now we
-      --  do this only for conversions of discrete types.
+      --  do this only for conversions of discrete types and for floating-point
+      --  conversions where the base types of source and target are the same.
 
-      if Nkind (N) = N_Type_Conversion
-        and then Is_Discrete_Type (Etype (N))
-      then
-         declare
-            Expr : constant Node_Id := Expression (N);
-            Ftyp : Entity_Id;
-            Ityp : Entity_Id;
+      if Nkind (N) = N_Type_Conversion then
 
-         begin
-            if Do_Range_Check (Expr)
-              and then Is_Discrete_Type (Etype (Expr))
+         --  For now we only support floating-point cases where the base types
+         --  of the target type and source expression are the same, so there's
+         --  potentially only a range check. Conversions where the source and
+         --  target have different base types are still TBD. ???
+
+         if Is_Floating_Point_Type (Etype (N))
+           and then
+             Base_Type (Etype (N)) = Base_Type (Etype (Expression (N)))
+         then
+            if Do_Range_Check (Expression (N))
+              and then Is_Floating_Point_Type (Target_Type)
             then
-               Set_Do_Range_Check (Expr, False);
+               Generate_Range_Check
+                 (Expression (N), Target_Type, CE_Range_Check_Failed);
+            end if;
 
-               --  Before we do a range check, we have to deal with treating a
-               --  fixed-point operand as an integer. The way we do this is
-               --  simply to do an unchecked conversion to an appropriate
-               --  integer type large enough to hold the result.
+         elsif Is_Discrete_Type (Etype (N)) then
+            declare
+               Expr : constant Node_Id := Expression (N);
+               Ftyp : Entity_Id;
+               Ityp : Entity_Id;
 
-               --  This code is not active yet, because we are only dealing
-               --  with discrete types so far ???
-
-               if Nkind (Expr) in N_Has_Treat_Fixed_As_Integer
-                 and then Treat_Fixed_As_Integer (Expr)
+            begin
+               if Do_Range_Check (Expr)
+                 and then Is_Discrete_Type (Etype (Expr))
                then
-                  Ftyp := Base_Type (Etype (Expr));
+                  Set_Do_Range_Check (Expr, False);
 
-                  if Esize (Ftyp) >= Esize (Standard_Integer) then
-                     Ityp := Standard_Long_Long_Integer;
-                  else
-                     Ityp := Standard_Integer;
+                  --  Before we do a range check, we have to deal with treating
+                  --  a fixed-point operand as an integer. The way we do this
+                  --  is simply to do an unchecked conversion to an appropriate
+                  --  integer type large enough to hold the result.
+
+                  --  This code is not active yet, because we are only dealing
+                  --  with discrete types so far ???
+
+                  if Nkind (Expr) in N_Has_Treat_Fixed_As_Integer
+                    and then Treat_Fixed_As_Integer (Expr)
+                  then
+                     Ftyp := Base_Type (Etype (Expr));
+
+                     if Esize (Ftyp) >= Esize (Standard_Integer) then
+                        Ityp := Standard_Long_Long_Integer;
+                     else
+                        Ityp := Standard_Integer;
+                     end if;
+
+                     Rewrite (Expr, Unchecked_Convert_To (Ityp, Expr));
                   end if;
 
-                  Rewrite (Expr, Unchecked_Convert_To (Ityp, Expr));
+                  --  Reset overflow flag, since the range check will include
+                  --  dealing with possible overflow, and generate the check.
+                  --  If Address is either a source type or target type,
+                  --  suppress range check to avoid typing anomalies when
+                  --  it is a visible integer type.
+
+                  Set_Do_Overflow_Check (N, False);
+
+                  if not Is_Descendent_Of_Address (Etype (Expr))
+                    and then not Is_Descendent_Of_Address (Target_Type)
+                  then
+                     Generate_Range_Check
+                       (Expr, Target_Type, CE_Range_Check_Failed);
+                  end if;
                end if;
-
-               --  Reset overflow flag, since the range check will include
-               --  dealing with possible overflow, and generate the check. If
-               --  Address is either a source type or target type, suppress
-               --  range check to avoid typing anomalies when it is a visible
-               --  integer type.
-
-               Set_Do_Overflow_Check (N, False);
-
-               if not Is_Descendent_Of_Address (Etype (Expr))
-                 and then not Is_Descendent_Of_Address (Target_Type)
-               then
-                  Generate_Range_Check
-                    (Expr, Target_Type, CE_Range_Check_Failed);
-               end if;
-            end if;
-         end;
-      end if;
-
-      --  Final step, if the result is a type conversion involving Vax_Float
-      --  types, then it is subject for further special processing.
-
-      if Nkind (N) = N_Type_Conversion
-        and then (Vax_Float (Operand_Type) or else Vax_Float (Target_Type))
-      then
-         Expand_Vax_Conversion (N);
-         goto Done;
+            end;
+         end if;
       end if;
 
       --  Here at end of processing

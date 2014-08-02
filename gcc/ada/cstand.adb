@@ -467,10 +467,9 @@ package body CStand is
 
       procedure Build_Exception (S : Standard_Entity_Type) is
       begin
-         Set_Ekind          (Standard_Entity (S), E_Exception);
-         Set_Etype          (Standard_Entity (S), Standard_Exception_Type);
-         Set_Exception_Code (Standard_Entity (S), Uint_0);
-         Set_Is_Public      (Standard_Entity (S), True);
+         Set_Ekind     (Standard_Entity (S), E_Exception);
+         Set_Etype     (Standard_Entity (S), Standard_Exception_Type);
+         Set_Is_Public (Standard_Entity (S), True);
 
          Decl :=
            Make_Exception_Declaration (Stloc,
@@ -740,17 +739,8 @@ package body CStand is
       Build_Signed_Integer_Type
         (Standard_Integer, Standard_Integer_Size);
 
-      declare
-         LIS : Nat;
-      begin
-         if Debug_Flag_M then
-            LIS := 64;
-         else
-            LIS := Standard_Long_Integer_Size;
-         end if;
-
-         Build_Signed_Integer_Type (Standard_Long_Integer, LIS);
-      end;
+      Build_Signed_Integer_Type
+        (Standard_Long_Integer, Standard_Long_Integer_Size);
 
       Build_Signed_Integer_Type
         (Standard_Long_Long_Integer, Standard_Long_Long_Integer_Size);
@@ -1599,7 +1589,6 @@ package body CStand is
          E_Id := Standard_Entity (S_Numeric_Error);
 
          Set_Ekind          (E_Id, E_Exception);
-         Set_Exception_Code (E_Id, Uint_0);
          Set_Etype          (E_Id, Standard_Exception_Type);
          Set_Is_Public      (E_Id);
          Set_Renamed_Entity (E_Id, Standard_Entity (S_Constraint_Error));
@@ -1616,12 +1605,11 @@ package body CStand is
       --  Abort_Signal is an entity that does not get made visible
 
       Abort_Signal := New_Standard_Entity;
-      Set_Chars          (Abort_Signal, Name_uAbort_Signal);
-      Set_Ekind          (Abort_Signal, E_Exception);
-      Set_Exception_Code (Abort_Signal, Uint_0);
-      Set_Etype          (Abort_Signal, Standard_Exception_Type);
-      Set_Scope          (Abort_Signal, Standard_Standard);
-      Set_Is_Public      (Abort_Signal, True);
+      Set_Chars     (Abort_Signal, Name_uAbort_Signal);
+      Set_Ekind     (Abort_Signal, E_Exception);
+      Set_Etype     (Abort_Signal, Standard_Exception_Type);
+      Set_Scope     (Abort_Signal, Standard_Standard);
+      Set_Is_Public (Abort_Signal, True);
       Decl :=
         Make_Exception_Declaration (Stloc,
           Defining_Identifier => Abort_Signal);
@@ -2134,11 +2122,6 @@ package body CStand is
       Exponent    : constant Uint := Emax - Mantissa;
 
    begin
-      --  Note: for the call from Cstand to initially create the types in
-      --  Standard, Float_Rep will never be VAX_Native. Circuitry in Sem_Vfpt
-      --  will adjust these types appropriately VAX_Native if a pragma
-      --  Float_Representation (VAX_Float) is used.
-
       H := Make_Float_Literal (Stloc, Radix, Significand, Exponent);
       L := Make_Float_Literal (Stloc, Radix, -Significand, Exponent);
 

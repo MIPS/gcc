@@ -74,17 +74,17 @@ package body Sem_Ch4 is
    --  operand has been analyzed. See Analyze_Concatenation for details.
 
    procedure Analyze_Expression (N : Node_Id);
-   --  For expressions that are not names, this is just a call to analyze.
-   --  If the expression is a name, it may be a call to a parameterless
-   --  function, and if so must be converted into an explicit call node
-   --  and analyzed as such. This deproceduring must be done during the first
-   --  pass of overload resolution, because otherwise a procedure call with
-   --  overloaded actuals may fail to resolve.
+   --  For expressions that are not names, this is just a call to analyze. If
+   --  the expression is a name, it may be a call to a parameterless function,
+   --  and if so must be converted into an explicit call node and analyzed as
+   --  such. This deproceduring must be done during the first pass of overload
+   --  resolution, because otherwise a procedure call with overloaded actuals
+   --  may fail to resolve.
 
    procedure Analyze_Operator_Call (N : Node_Id; Op_Id : Entity_Id);
-   --  Analyze a call of the form "+"(x, y), etc. The prefix of the call
-   --  is an operator name or an expanded name whose selector is an operator
-   --  name, and one possible interpretation is as a predefined operator.
+   --  Analyze a call of the form "+"(x, y), etc. The prefix of the call is an
+   --  operator name or an expanded name whose selector is an operator name,
+   --  and one possible interpretation is as a predefined operator.
 
    procedure Analyze_Overloaded_Selected_Component (N : Node_Id);
    --  If the prefix of a selected_component is overloaded, the proper
@@ -132,7 +132,7 @@ package body Sem_Ch4 is
    procedure Check_Misspelled_Selector
      (Prefix : Entity_Id;
       Sel    : Node_Id);
-   --  Give possible misspelling diagnostic if Sel is likely to be a mis-
+   --  Give possible misspelling message if Sel seems likely to be a mis-
    --  spelling of one of the selectors of the Prefix. This is called by
    --  Analyze_Selected_Component after producing an invalid selector error
    --  message.
@@ -147,16 +147,16 @@ package body Sem_Ch4 is
      (L, R  : Node_Id;
       Op_Id : Entity_Id;
       N     : Node_Id);
-   --  L and R are the operands of an arithmetic operator. Find
-   --  consistent pairs of interpretations for L and R that have a
-   --  numeric type consistent with the semantics of the operator.
+   --  L and R are the operands of an arithmetic operator. Find consistent
+   --  pairs of interpretations for L and R that have a numeric type consistent
+   --  with the semantics of the operator.
 
    procedure Find_Comparison_Types
      (L, R  : Node_Id;
       Op_Id : Entity_Id;
       N     : Node_Id);
-   --  L and R are operands of a comparison operator. Find consistent
-   --  pairs of interpretations for L and R.
+   --  L and R are operands of a comparison operator. Find consistent pairs of
+   --  interpretations for L and R.
 
    procedure Find_Concatenation_Types
      (L, R  : Node_Id;
@@ -1363,6 +1363,9 @@ package body Sem_Ch4 is
       Others_Present : Boolean;
       --  Indicates if Others was present
 
+      Wrong_Alt : Node_Id;
+      --  For error reporting
+
    --  Start of processing for Analyze_Case_Expression
 
    begin
@@ -1415,6 +1418,9 @@ package body Sem_Ch4 is
 
                if No (Alt) then
                   Add_One_Interp (N, It.Typ, It.Typ);
+
+               else
+                  Wrong_Alt := Alt;
                end if;
 
                Get_Next_Interp (I, It);
@@ -1435,9 +1441,18 @@ package body Sem_Ch4 is
       if Exp_Btype = Any_Discrete or else Exp_Btype = Any_Type then
          return;
 
+      --  Special casee message for character literal
+
       elsif Exp_Btype = Any_Character then
          Error_Msg_N
            ("character literal as case expression is ambiguous", Expr);
+         return;
+      end if;
+
+      if Etype (N) = Any_Type and then Present (Wrong_Alt) then
+         Error_Msg_N
+           ("type incompatible with that of previous alternatives",
+            Expression (Wrong_Alt));
          return;
       end if;
 
@@ -3187,10 +3202,9 @@ package body Sem_Ch4 is
             then
                --  The actual can be compatible with the formal, but we must
                --  also check that the context is not an address type that is
-               --  visibly an integer type, as is the case in VMS_64. In this
-               --  case the use of literals is illegal, except in the body of
-               --  descendents of system, where arithmetic operations on
-               --  address are of course used.
+               --  visibly an integer type. In this case the use of literals is
+               --  illegal, except in the body of descendents of system, where
+               --  arithmetic operations on address are of course used.
 
                if Has_Compatible_Type (Actual, Etype (Formal))
                  and then
@@ -4647,6 +4661,7 @@ package body Sem_Ch4 is
                end loop;
 
                if Present (Par) and then Is_Generic_Actual_Type (Par) then
+
                   --  Now look for component in ancestor types
 
                   Par := Generic_Parent_Type (Declaration_Node (Par));
@@ -4656,6 +4671,14 @@ package body Sem_Ch4 is
                        or else Par = Etype (Par);
                      Par := Etype (Par);
                   end loop;
+
+               --  In ASIS mode the generic parent type may be absent. Examine
+               --  the parent type directly for a component that may have been
+               --  visible in a parent generic unit.
+
+               elsif Is_Derived_Type (Prefix_Type) then
+                  Par := Etype (Prefix_Type);
+                  Find_Component_In_Instance (Par);
                end if;
             end;
 
@@ -4665,6 +4688,7 @@ package body Sem_Ch4 is
             if No (Entity (Sel)) then
                raise Program_Error;
             end if;
+
             return;
 
          --  Component not found, specialize error message when appropriate
@@ -6807,9 +6831,8 @@ package body Sem_Ch4 is
             --  Remove interpretations that treat literals as addresses. This
             --  is never appropriate, even when Address is defined as a visible
             --  Integer type. The reason is that we would really prefer Address
-            --  to behave as a private type, even in this case, which is there
-            --  only to accommodate oddities of VMS address sizes. If Address
-            --  is a visible integer type, we get lots of overload ambiguities.
+            --  to behave as a private type, even in this case. If Address is a
+            --  visible integer type, we get lots of overload ambiguities.
 
             if Nkind (N) in N_Binary_Op then
                declare
@@ -6959,6 +6982,7 @@ package body Sem_Ch4 is
       Exprs  : List_Id) return Boolean
    is
       Loc       : constant Source_Ptr := Sloc (N);
+      C_Type    : Entity_Id;
       Assoc     : List_Id;
       Disc      : Entity_Id;
       Func      : Entity_Id;
@@ -6966,6 +6990,14 @@ package body Sem_Ch4 is
       Indexing  : Node_Id;
 
    begin
+      C_Type := Etype (Prefix);
+
+      --  If indexing a class-wide container, obtain indexing primitive
+      --  from specific type.
+
+      if Is_Class_Wide_Type (C_Type) then
+         C_Type := Etype (Base_Type (C_Type));
+      end if;
 
       --  Check whether type has a specified indexing aspect
 
@@ -7013,10 +7045,10 @@ package body Sem_Ch4 is
       --  Additional machinery may be needed for types that have several user-
       --  defined Reference operations with different signatures ???
 
-      elsif Is_Derived_Type (Etype (Prefix))
+      elsif Is_Derived_Type (C_Type)
         and then Etype (First_Formal (Entity (Func_Name))) /= Etype (Prefix)
       then
-         Func := Find_Prim_Op (Etype (Prefix), Chars (Func_Name));
+         Func := Find_Prim_Op (C_Type, Chars (Func_Name));
          Func_Name := New_Occurrence_Of (Func, Loc);
       end if;
 

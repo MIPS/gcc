@@ -106,6 +106,7 @@ GNATBIND_FLAGS = -static -x
 ADA_CFLAGS =
 ADAFLAGS = -W -Wall -gnatpg -gnata
 FORCE_DEBUG_ADAFLAGS = -g
+NO_INLINE_ADAFLAGS = -fno-inline
 NO_SIBLING_ADAFLAGS = -fno-optimize-sibling-calls
 NO_REORDER_ADAFLAGS = -fno-toplevel-reorder
 GNATLIBFLAGS = -W -Wall -gnatpg -nostdinc
@@ -1642,28 +1643,32 @@ ifeq ($(strip $(filter-out cygwin% mingw32% pe,$(target_os))),)
   g-soliop.ads<g-soliop-mingw.ads \
   $(ATOMICS_TARGET_PAIRS)
 
-  ifeq ($(strip $(filter-out rtx_w32 rtx_rtss,$(THREAD_KIND))),)
-    LIBGNAT_TARGET_PAIRS += \
-    s-intman.adb<s-intman-dummy.adb \
-    s-osinte.ads<s-osinte-rtx.ads \
-    s-osprim.adb<s-osprim-rtx.adb \
-    s-taprop.adb<s-taprop-rtx.adb \
-    $(X86_TARGET_PAIRS)
+  LIBGNAT_TARGET_PAIRS += \
+  a-exetim.adb<a-exetim-mingw.adb \
+  a-exetim.ads<a-exetim-mingw.ads \
+  a-intnam.ads<a-intnam-mingw.ads \
+  g-sercom.adb<g-sercom-mingw.adb \
+  s-trasym.adb<s-trasym-dwarf.adb \
+  s-tsmona.adb<s-tsmona-mingw.adb \
+  s-interr.adb<s-interr-sigaction.adb \
+  s-intman.adb<s-intman-mingw.adb \
+  s-mudido.adb<s-mudido-affinity.adb \
+  s-osinte.ads<s-osinte-mingw.ads \
+  s-osprim.adb<s-osprim-mingw.adb \
+  s-taprop.adb<s-taprop-mingw.adb
 
-    EXTRA_GNATRTL_NONTASKING_OBJS = s-win32.o
-
-    ifeq ($(strip $(filter-out rtx_w32,$(THREAD_KIND))),)
-       LIBGNAT_TARGET_PAIRS += system.ads<system-rtx.ads
-
-       EH_MECHANISM=-gcc
+  ifeq ($(strip $(filter-out x86_64%,$(target_cpu))),)
+    ifeq ($(strip $(MULTISUBDIR)),/32)
+      LIBGNAT_TARGET_PAIRS += \
+        $(X86_TARGET_PAIRS) \
+        system.ads<system-mingw.ads
+      SO_OPTS= -m32 -Wl,-soname,
     else
-       LIBGNAT_TARGET_PAIRS += \
-       system.ads<system-rtx-rtss.ads \
-       s-parame.adb<s-parame-vxworks.adb
-
-       EH_MECHANISM=
+      LIBGNAT_TARGET_PAIRS += \
+        $(X86_64_TARGET_PAIRS) \
+        system.ads<system-mingw-x86_64.ads
+      SO_OPTS = -m64 -Wl,-soname,
     endif
-
   else
     LIBGNAT_TARGET_PAIRS += \
     a-exetim.adb<a-exetim-mingw.adb \
@@ -1690,31 +1695,24 @@ ifeq ($(strip $(filter-out cygwin% mingw32% pe,$(target_os))),)
 	SO_OPTS = -m64 -Wl,-soname,
       endif
     else
-      ifeq ($(strip $(MULTISUBDIR)),/64)
-	LIBGNAT_TARGET_PAIRS += \
-	  $(X86_64_TARGET_PAIRS) \
-	  system.ads<system-mingw-x86_64.ads
-	SO_OPTS = -m64 -Wl,-soname,
-      else
-	LIBGNAT_TARGET_PAIRS += \
-	  $(X86_TARGET_PAIRS) \
-	  system.ads<system-mingw.ads
-	SO_OPTS = -m32 -Wl,-soname,
-      endif
+      LIBGNAT_TARGET_PAIRS += \
+        $(X86_TARGET_PAIRS) \
+        system.ads<system-mingw.ads
+      SO_OPTS = -m32 -Wl,-soname,
     endif
-
-    EXTRA_GNATRTL_NONTASKING_OBJS = \
-	s-win32.o s-winext.o g-regist.o g-sse.o g-ssvety.o
-    EXTRA_GNATRTL_TASKING_OBJS = a-exetim.o
-    EXTRA_LIBGNAT_SRCS+=mingw32.h
-    MISCLIB = -lws2_32
-
-    # ??? This will be replaced by gnatlib-shared-dual-win32 when GNAT
-    # auto-import support for array/record will be done.
-    GNATLIB_SHARED = gnatlib-shared-win32
-
-    EH_MECHANISM=-gcc
   endif
+
+  EXTRA_GNATRTL_NONTASKING_OBJS = \
+    s-win32.o s-winext.o g-regist.o g-sse.o g-ssvety.o
+  EXTRA_GNATRTL_TASKING_OBJS = a-exetim.o
+  EXTRA_LIBGNAT_SRCS+=mingw32.h
+  MISCLIB = -lws2_32
+
+  # ??? This will be replaced by gnatlib-shared-dual-win32 when GNAT
+  # auto-import support for array/record will be done.
+  GNATLIB_SHARED = gnatlib-shared-win32
+
+  EH_MECHANISM=-gcc
 
   TOOLS_TARGET_PAIRS= \
   mlib-tgt-specific.adb<mlib-tgt-specific-mingw.adb \
@@ -2425,7 +2423,6 @@ ADA_EXCLUDE_SRCS =\
   s-bbthre.ads s-bbtiev.adb s-bbtiev.ads s-bbtime.adb s-bbtime.ads \
   s-bcprmu.adb s-bcprmu.ads s-btstch.adb s-btstch.ads \
   s-init.ads s-init.adb \
-  s-po32gl.adb s-po32gl.ads \
   s-stache.adb s-stache.ads \
   s-thread.ads \
   s-vxwext.adb s-vxwext.ads \
@@ -2542,11 +2539,6 @@ common-tools: ../stamp-tools
 		--GCC="$(GCC_LINK)" $(TOOLS_LIBS)
 	$(GNATLINK) -v gnatclean -o ../../gnatclean$(exeext) \
 		--GCC="$(GCC_LINK)" $(TOOLS_LIBS)
-
-../../gnatsym$(exeext): ../stamp-tools
-	$(GNATMAKE) -c $(ADA_INCLUDES) gnatsym --GCC="$(CC) $(ALL_ADAFLAGS)"
-	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) gnatsym
-	$(GNATLINK) -v gnatsym -o $@ --GCC="$(GCC_LINK)" $(TOOLS_LIBS)
 
 ../../gnatdll$(exeext): ../stamp-tools
 	$(GNATMAKE) -c $(ADA_INCLUDES) gnatdll --GCC="$(CC) $(ALL_ADAFLAGS)"
@@ -2889,35 +2881,6 @@ gnatlib-shared-darwin:
 	cd $(RTSDIR); dsymutil libgnat$(hyphen)$(LIBRARY_VERSION)$(soext)
 	cd $(RTSDIR); dsymutil libgnarl$(hyphen)$(LIBRARY_VERSION)$(soext)
 
-gnatlib-shared-vms:
-	$(MAKE) $(FLAGS_TO_PASS) \
-             GNATLIBFLAGS="$(GNATLIBFLAGS)" \
-	     GNATLIBCFLAGS="$(GNATLIBCFLAGS)" \
-	     GNATLIBCFLAGS_FOR_C="$(GNATLIBCFLAGS_FOR_C)" \
-	     MULTISUBDIR="$(MULTISUBDIR)" \
-	     THREAD_KIND="$(THREAD_KIND)" \
-             gnatlib
-	$(RM) $(RTSDIR)/libgna*$(soext)
-	cd $(RTSDIR) && \
-	../../gnatsym -s SYMVEC_$$$$.opt \
-	$(LIBGNAT_OBJS) $(GNATRTL_NONTASKING_OBJS) && \
-	../../xgcc -g -B../../ -shared -shared-libgcc \
-	   -o libgnat$(hyphen)$(LIBRARY_VERSION)$(soext) libgnat.a \
-	   sys\$$library:trace.exe \
-	   --for-linker=/noinform \
-	   --for-linker=SYMVEC_$$$$.opt \
-	   --for-linker=gsmatch=equal,$(GSMATCH_VERSION)
-	cd $(RTSDIR) && \
-	../../gnatsym -s SYMVEC_$$$$.opt \
-	$(GNATRTL_TASKING_OBJS) && \
-	../../xgcc -g -B../../ -shared -shared-libgcc \
-	   -o libgnarl$(hyphen)$(LIBRARY_VERSION)$(soext) \
-	   libgnarl.a libgnat$(hyphen)$(LIBRARY_VERSION)$(soext) \
-	   sys\$$library:trace.exe \
-	   --for-linker=/noinform \
-	   --for-linker=SYMVEC_$$$$.opt \
-	   --for-linker=gsmatch=equal,$(GSMATCH_VERSION)
-
 gnatlib-shared:
 	$(MAKE) $(FLAGS_TO_PASS) \
              GNATLIBFLAGS="$(GNATLIBFLAGS)" \
@@ -2997,25 +2960,17 @@ ADA_RTL_OBJ_DIR = $(libsubdir)/adalib
 
 # force no sibling call optimization on s-traceb.o so the number of stack
 # frames to be skipped when computing a call chain is not modified by
-# optimization.
+# optimization. We don't want inlining, either.
 
 s-traceb.o  : s-traceb.adb s-traceb.ads
-	$(CC) -c $(ALL_ADAFLAGS) $(FORCE_DEBUG_ADAFLAGS) \
+	$(CC) -c $(ALL_ADAFLAGS) $(FORCE_DEBUG_ADAFLAGS) $(NO_INLINE_ADAFLAGS) \
 	      $(NO_SIBLING_ADAFLAGS) $(ADA_INCLUDES) $< $(OUTPUT_OPTION)
 
-# force debugging information on s-tasdeb.o so that it is always
-# possible to set conditional breakpoints on tasks.
+# compile s-tasdeb.o without optimization and with debug info so that it is
+# always possible to set conditional breakpoints on tasks.
 
 s-tasdeb.o  : s-tasdeb.adb s-tasdeb.ads
 	$(CC) -c $(ALL_ADAFLAGS) $(FORCE_DEBUG_ADAFLAGS) -O0 $(ADA_INCLUDES) \
-	      $< $(OUTPUT_OPTION)
-
-# force debugging information on s-vaflop.o so that it is always
-# possible to call the VAX float debug print routines.
-# force at least -O so that the inline assembly works.
-
-s-vaflop.o  : s-vaflop.adb s-vaflop.ads
-	$(CC) -c -O $(ALL_ADAFLAGS) $(FORCE_DEBUG_ADAFLAGS) $(ADA_INCLUDES) \
 	      $< $(OUTPUT_OPTION)
 
 # force no function reordering on a-except.o because of the exclusion bounds

@@ -781,15 +781,63 @@ package body Sem_Util is
       Typ            : Entity_Id;
       Suggest_Static : Boolean := False)
    is
+      Gen            : Entity_Id;
+
    begin
-      if Has_Predicates (Typ) then
+      --  Avoid cascaded errors
+
+      if Error_Posted (N) then
+         return;
+      end if;
+
+      if Inside_A_Generic then
+         Gen := Current_Scope;
+         while Present (Gen) and then  Ekind (Gen) /= E_Generic_Package loop
+            Gen := Scope (Gen);
+         end loop;
+
+         if No (Gen) then
+            return;
+         end if;
+
+         if Is_Generic_Formal (Typ)
+           and then Is_Discrete_Type (Typ)
+         then
+            Set_No_Predicate_On_Actual (Typ);
+         end if;
+
+      elsif Has_Predicates (Typ) then
          if Is_Generic_Actual_Type (Typ) then
-            Error_Msg_Warn := SPARK_Mode /= On;
-            Error_Msg_FE (Msg & "<<", N, Typ);
-            Error_Msg_F ("\Program_Error [<<", N);
-            Insert_Action (N,
-              Make_Raise_Program_Error (Sloc (N),
-                Reason => PE_Bad_Predicated_Generic_Type));
+
+            --  The restriction on loop parameters is only that the type
+            --  should have no dynamic predicates.
+
+            if Nkind (Parent (N)) = N_Loop_Parameter_Specification
+              and then not Has_Dynamic_Predicate_Aspect (Typ)
+              and then Is_OK_Static_Subtype (Typ)
+            then
+               return;
+            end if;
+
+            Gen := Current_Scope;
+            while not Is_Generic_Instance (Gen) loop
+               Gen := Scope (Gen);
+            end loop;
+
+            pragma Assert (Present (Gen));
+
+            if Ekind (Gen) = E_Package and then In_Package_Body (Gen) then
+               Error_Msg_Warn := SPARK_Mode /= On;
+               Error_Msg_FE (Msg & "<<", N, Typ);
+               Error_Msg_F ("\Program_Error [<<", N);
+
+               Insert_Action (N,
+                 Make_Raise_Program_Error (Sloc (N),
+                   Reason => PE_Bad_Predicated_Generic_Type));
+
+            else
+               Error_Msg_FE (Msg & "<<", N, Typ);
+            end if;
 
          else
             Error_Msg_FE (Msg, N, Typ);
@@ -1834,11 +1882,7 @@ package body Sem_Util is
                      return Abandon;
                   end if;
 
-                  if Writable_Actuals_List = No_Elist then
-                     Writable_Actuals_List := New_Elmt_List;
-                  end if;
-
-                  Append_Elmt (N, Writable_Actuals_List);
+                  Append_New_Elmt (N, To => Writable_Actuals_List);
 
                else
                   if Identifiers_List = No_Elist then
@@ -2985,18 +3029,6 @@ package body Sem_Util is
          end if;
       end if;
    end Check_Unprotected_Access;
-
-   ---------------
-   -- Check_VMS --
-   ---------------
-
-   procedure Check_VMS (Construct : Node_Id) is
-   begin
-      if not OpenVMS_On_Target then
-         Error_Msg_N
-           ("this construct is allowed only in Open'V'M'S", Construct);
-      end if;
-   end Check_VMS;
 
    ------------------------
    -- Collect_Interfaces --
@@ -5932,6 +5964,32 @@ package body Sem_Util is
       end loop;
    end Find_Placement_In_State_Space;
 
+   ------------------------
+   -- Find_Specific_Type --
+   ------------------------
+
+   function Find_Specific_Type (CW : Entity_Id) return Entity_Id is
+      Typ : Entity_Id := Root_Type (CW);
+
+   begin
+      if Ekind (Typ) = E_Incomplete_Type then
+         if From_Limited_With (Typ) then
+            Typ := Non_Limited_View (Typ);
+         else
+            Typ := Full_View (Typ);
+         end if;
+      end if;
+
+      if Is_Private_Type (Typ)
+        and then not Is_Tagged_Type (Typ)
+        and then Present (Full_View (Typ))
+      then
+         return Full_View (Typ);
+      else
+         return Typ;
+      end if;
+   end Find_Specific_Type;
+
    -----------------------------
    -- Find_Static_Alternative --
    -----------------------------
@@ -6073,9 +6131,7 @@ package body Sem_Util is
             declare
                Comp : constant Entity_Id := Defining_Identifier (Comp_Item);
             begin
-               if not Is_Tag (Comp)
-                 and then Chars (Comp) /= Name_uParent
-               then
+               if not Is_Tag (Comp) and then Chars (Comp) /= Name_uParent then
                   Append_Elmt (Comp, Into);
                end if;
             end;
@@ -6735,6 +6791,23 @@ package body Sem_Util is
       return Strval (Expr_Value_S (Arg));
    end Get_Name_From_CTC_Pragma;
 
+   -----------------------
+   -- Get_Parent_Entity --
+   -----------------------
+
+   function Get_Parent_Entity (Unit : Node_Id) return Entity_Id is
+   begin
+      if Nkind (Unit) = N_Package_Body
+        and then Nkind (Original_Node (Unit)) = N_Package_Instantiation
+      then
+         return Defining_Entity
+                  (Specification (Instance_Spec (Original_Node (Unit))));
+      elsif Nkind (Unit) = N_Package_Instantiation then
+         return Defining_Entity (Specification (Instance_Spec (Unit)));
+      else
+         return Defining_Entity (Unit);
+      end if;
+   end Get_Parent_Entity;
    -------------------
    -- Get_Pragma_Id --
    -------------------
@@ -7355,9 +7428,7 @@ package body Sem_Util is
 
    function Has_Denormals (E : Entity_Id) return Boolean is
    begin
-      return Is_Floating_Point_Type (E)
-        and then Denorm_On_Target
-        and then not Vax_Float (E);
+      return Is_Floating_Point_Type (E) and then Denorm_On_Target;
    end Has_Denormals;
 
    -------------------------------------------
@@ -7579,9 +7650,10 @@ package body Sem_Util is
       --  Start of processing for Variable_Has_Enabled_Property
 
       begin
-         --  A non-volatile object can never possess external properties
+         --  A non-effectively volatile object can never possess external
+         --  properties.
 
-         if not Is_SPARK_Volatile (Item_Id) then
+         if not Is_Effectively_Volatile (Item_Id) then
             return False;
 
          --  External properties related to variables come in two flavors -
@@ -7624,10 +7696,11 @@ package body Sem_Util is
       elsif Ekind (Item_Id) = E_Variable then
          return Variable_Has_Enabled_Property;
 
-      --  Otherwise a property is enabled when the related object is volatile
+      --  Otherwise a property is enabled when the related item is effectively
+      --  volatile.
 
       else
-         return Is_SPARK_Volatile (Item_Id);
+         return Is_Effectively_Volatile (Item_Id);
       end if;
    end Has_Enabled_Property;
 
@@ -8189,10 +8262,13 @@ package body Sem_Util is
          end if;
 
          --  Check specifically for 10.2.1(11.4/2) exception: a controlled type
-         --  with a user defined Initialize procedure does not have PI.
+         --  with a user defined Initialize procedure does not have PI. If
+         --  the type is untagged, the control primitives come from a component
+         --  that has already been checked.
 
          if Has_PE
            and then Is_Controlled (E)
+           and then Is_Tagged_Type (E)
            and then Has_Overriding_Initialize (E)
          then
             Has_PE := False;
@@ -8309,9 +8385,7 @@ package body Sem_Util is
 
    function Has_Signed_Zeros (E : Entity_Id) return Boolean is
    begin
-      return Is_Floating_Point_Type (E)
-        and then Signed_Zeros_On_Target
-        and then not Vax_Float (E);
+      return Is_Floating_Point_Type (E) and then Signed_Zeros_On_Target;
    end Has_Signed_Zeros;
 
    -----------------------------
@@ -10088,6 +10162,70 @@ package body Sem_Util is
       end if;
    end Is_Descendent_Of;
 
+   -----------------------------
+   -- Is_Effectively_Volatile --
+   -----------------------------
+
+   function Is_Effectively_Volatile (Id : Entity_Id) return Boolean is
+   begin
+      if Is_Type (Id) then
+
+         --  An arbitrary type is effectively volatile when it is subject to
+         --  pragma Atomic or Volatile.
+
+         if Is_Volatile (Id) then
+            return True;
+
+         --  An array type is effectively volatile when it is subject to pragma
+         --  Atomic_Components or Volatile_Components or its compolent type is
+         --  effectively volatile.
+
+         elsif Is_Array_Type (Id) then
+            return
+              Has_Volatile_Components (Id)
+                or else
+              Is_Effectively_Volatile (Component_Type (Base_Type (Id)));
+
+         else
+            return False;
+         end if;
+
+      --  Otherwise Id denotes an object
+
+      else
+         return
+           Is_Volatile (Id)
+             or else Has_Volatile_Components (Id)
+             or else Is_Effectively_Volatile (Etype (Id));
+      end if;
+   end Is_Effectively_Volatile;
+
+   ------------------------------------
+   -- Is_Effectively_Volatile_Object --
+   ------------------------------------
+
+   function Is_Effectively_Volatile_Object (N : Node_Id) return Boolean is
+   begin
+      if Is_Entity_Name (N) then
+         return Is_Effectively_Volatile (Entity (N));
+
+      elsif Nkind (N) = N_Expanded_Name then
+         return Is_Effectively_Volatile (Entity (N));
+
+      elsif Nkind (N) = N_Indexed_Component then
+         return Is_Effectively_Volatile_Object (Prefix (N));
+
+      elsif Nkind (N) = N_Selected_Component then
+         return
+           Is_Effectively_Volatile_Object (Prefix (N))
+             or else
+           Is_Effectively_Volatile_Object (Selector_Name (N));
+
+      else
+         return False;
+      end if;
+   end Is_Effectively_Volatile_Object;
+
    ----------------------------
    -- Is_Expression_Function --
    ----------------------------
@@ -11462,41 +11600,6 @@ package body Sem_Util is
       end if;
    end Is_SPARK_Object_Reference;
 
-   -----------------------
-   -- Is_SPARK_Volatile --
-   -----------------------
-
-   function Is_SPARK_Volatile (Id : Entity_Id) return Boolean is
-   begin
-      return Is_Volatile (Id) or else Is_Volatile (Etype (Id));
-   end Is_SPARK_Volatile;
-
-   ------------------------------
-   -- Is_SPARK_Volatile_Object --
-   ------------------------------
-
-   function Is_SPARK_Volatile_Object (N : Node_Id) return Boolean is
-   begin
-      if Is_Entity_Name (N) then
-         return Is_SPARK_Volatile (Entity (N));
-
-      elsif Nkind (N) = N_Expanded_Name then
-         return Is_SPARK_Volatile (Entity (N));
-
-      elsif Nkind (N) = N_Indexed_Component then
-         return Is_SPARK_Volatile_Object (Prefix (N));
-
-      elsif Nkind (N) = N_Selected_Component then
-         return
-           Is_SPARK_Volatile_Object (Prefix (N))
-             or else
-           Is_SPARK_Volatile_Object (Selector_Name (N));
-
-      else
-         return False;
-      end if;
-   end Is_SPARK_Volatile_Object;
-
    ------------------
    -- Is_Statement --
    ------------------
@@ -11707,25 +11810,6 @@ package body Sem_Util is
 
       return False;
    end Is_Variable_Size_Record;
-
-   ---------------------
-   -- Is_VMS_Operator --
-   ---------------------
-
-   function Is_VMS_Operator (Op : Entity_Id) return Boolean is
-   begin
-      --  The VMS operators are declared in a child of System that is loaded
-      --  through pragma Extend_System. In some rare cases a program is run
-      --  with this extension but without indicating that the target is VMS.
-
-      return Ekind (Op) = E_Function
-        and then Is_Intrinsic_Subprogram (Op)
-        and then
-          ((Present_System_Aux and then Scope (Op) = System_Aux_Id)
-             or else
-              (True_VMS_Target
-                and then Scope (Scope (Op)) = RTU_Entity (System)));
-   end Is_VMS_Operator;
 
    -----------------
    -- Is_Variable --

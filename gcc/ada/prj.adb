@@ -23,7 +23,6 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Debug;
 with Opt;
 with Osint;    use Osint;
 with Output;   use Output;
@@ -187,7 +186,7 @@ package body Prj is
       pragma Warnings (Off, Dont_Care);
 
    begin
-      if not Debug.Debug_Flag_N then
+      if not Opt.Keep_Temporary_Files  then
          if Current_Verbosity = High then
             Write_Line ("Removing temp file: " & Get_Name_String (Path));
          end if;
@@ -217,7 +216,7 @@ package body Prj is
       Proj : Project_List;
 
    begin
-      if not Debug.Debug_Flag_N then
+      if not Opt.Keep_Temporary_Files then
          if Project_Tree /= null then
             Proj := Project_Tree.Projects;
             while Proj /= null loop
@@ -254,7 +253,7 @@ package body Prj is
       Path : Path_Name_Type;
 
    begin
-      if not Debug.Debug_Flag_N then
+      if not Opt.Keep_Temporary_Files then
          for Index in
            1 .. Temp_Files_Table.Last (Shared.Private_Part.Temp_Files)
          loop
@@ -276,8 +275,7 @@ package body Prj is
 
       --  If any of the environment variables ADA_PRJ_INCLUDE_FILE or
       --  ADA_PRJ_OBJECTS_FILE has been set, then reset their value to
-      --  the empty string. On VMS, this has the effect of deassigning
-      --  the logical names.
+      --  the empty string.
 
       if Shared.Private_Part.Current_Source_Path_File /= No_Path then
          Setenv (Project_Include_Path_File, "");

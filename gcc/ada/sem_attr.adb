@@ -536,18 +536,6 @@ package body Sem_Attr is
                end if;
             end;
 
-         --  Allow Address if the prefix is a reference to the AST_Entry
-         --  attribute. If expansion is active, the attribute will be
-         --  replaced by a function call, and address will work fine and
-         --  get the proper value, but if expansion is not active, then
-         --  the check here allows proper semantic analysis of the reference.
-
-         elsif Nkind (P) = N_Attribute_Reference
-           and then Attribute_Name (P) = Name_AST_Entry
-         then
-            Rewrite (N,
-                     New_Occurrence_Of (RTE (RE_Null_Address), Sloc (N)));
-
          --  Object is OK
 
          elsif Is_Object_Reference (P) then
@@ -2514,7 +2502,7 @@ package body Sem_Attr is
          --  parameterless call. Entry attributes are handled specially below.
 
          if Is_Entity_Name (P)
-           and then not Nam_In (Aname, Name_Count, Name_Caller, Name_AST_Entry)
+           and then not Nam_In (Aname, Name_Count, Name_Caller)
          then
             Check_Parameterless_Call (P);
          end if;
@@ -2522,10 +2510,10 @@ package body Sem_Attr is
          if Is_Overloaded (P) then
 
             --  Ada 2005 (AI-345): Since protected and task types have
-            --  primitive entry wrappers, the attributes Count, Caller and
-            --  AST_Entry require a context check
+            --  primitive entry wrappers, the attributes Count, and Caller
+            --  require a context check
 
-            if Nam_In (Aname, Name_Count, Name_Caller, Name_AST_Entry) then
+            if Nam_In (Aname, Name_Count, Name_Caller) then
                declare
                   Count : Natural := 0;
                   I     : Interp_Index;
@@ -2696,129 +2684,6 @@ package body Sem_Attr is
          end if;
 
          Set_Etype (N, RTE (RE_Asm_Output_Operand));
-
-      ---------------
-      -- AST_Entry --
-      ---------------
-
-      when Attribute_AST_Entry => AST_Entry : declare
-         Ent  : Entity_Id;
-         Pref : Node_Id;
-         Ptyp : Entity_Id;
-
-         Indexed : Boolean;
-         --  Indicates if entry family index is present. Note the coding
-         --  here handles the entry family case, but in fact it cannot be
-         --  executed currently, because pragma AST_Entry does not permit
-         --  the specification of an entry family.
-
-         procedure Bad_AST_Entry;
-         --  Signal a bad AST_Entry pragma
-
-         function OK_Entry (E : Entity_Id) return Boolean;
-         --  Checks that E is of an appropriate entity kind for an entry
-         --  (i.e. E_Entry if Index is False, or E_Entry_Family if Index
-         --  is set True for the entry family case). In the True case,
-         --  makes sure that Is_AST_Entry is set on the entry.
-
-         -------------------
-         -- Bad_AST_Entry --
-         -------------------
-
-         procedure Bad_AST_Entry is
-         begin
-            Error_Attr_P ("prefix for % attribute must be task entry");
-         end Bad_AST_Entry;
-
-         --------------
-         -- OK_Entry --
-         --------------
-
-         function OK_Entry (E : Entity_Id) return Boolean is
-            Result : Boolean;
-
-         begin
-            if Indexed then
-               Result := (Ekind (E) = E_Entry_Family);
-            else
-               Result := (Ekind (E) = E_Entry);
-            end if;
-
-            if Result then
-               if not Is_AST_Entry (E) then
-                  Error_Msg_Name_2 := Aname;
-                  Error_Attr ("% attribute requires previous % pragma", P);
-               end if;
-            end if;
-
-            return Result;
-         end OK_Entry;
-
-      --  Start of processing for AST_Entry
-
-      begin
-         Check_VMS (N);
-         Check_E0;
-
-         --  Deal with entry family case
-
-         if Nkind (P) = N_Indexed_Component then
-            Pref := Prefix (P);
-            Indexed := True;
-         else
-            Pref := P;
-            Indexed := False;
-         end if;
-
-         Ptyp := Etype (Pref);
-
-         if Ptyp = Any_Type or else Error_Posted (Pref) then
-            return;
-         end if;
-
-         --  If the prefix is a selected component whose prefix is of an
-         --  access type, then introduce an explicit dereference.
-         --  ??? Could we reuse Check_Dereference here?
-
-         if Nkind (Pref) = N_Selected_Component
-           and then Is_Access_Type (Ptyp)
-         then
-            Rewrite (Pref,
-              Make_Explicit_Dereference (Sloc (Pref),
-                Relocate_Node (Pref)));
-            Analyze_And_Resolve (Pref, Designated_Type (Ptyp));
-         end if;
-
-         --  Prefix can be of the form a.b, where a is a task object
-         --  and b is one of the entries of the corresponding task type.
-
-         if Nkind (Pref) = N_Selected_Component
-           and then OK_Entry (Entity (Selector_Name (Pref)))
-           and then Is_Object_Reference (Prefix (Pref))
-           and then Is_Task_Type (Etype (Prefix (Pref)))
-         then
-            null;
-
-         --  Otherwise the prefix must be an entry of a containing task,
-         --  or of a variable of the enclosing task type.
-
-         else
-            if Nkind_In (Pref, N_Identifier, N_Expanded_Name) then
-               Ent := Entity (Pref);
-
-               if not OK_Entry (Ent)
-                 or else not In_Open_Scopes (Scope (Ent))
-               then
-                  Bad_AST_Entry;
-               end if;
-
-            else
-               Bad_AST_Entry;
-            end if;
-         end if;
-
-         Set_Etype (N, RTE (RE_AST_Handler));
-      end AST_Entry;
 
       -----------------------------
       -- Atomic_Always_Lock_Free --
@@ -3118,9 +2983,7 @@ package body Sem_Attr is
             --  because it was valid in the generic unit. Ditto if this is
             --  an inlining of a function declared in an instance.
 
-            if In_Instance
-              or else In_Inlined_Body
-            then
+            if In_Instance or else In_Inlined_Body then
                return;
 
             --  For sure OK if we have a real private type itself, but must
@@ -3265,12 +3128,10 @@ package body Sem_Attr is
                   --  The prefix denotes either the task type, or else a
                   --  single task whose task type is being analyzed.
 
-                  if (Is_Type (Tsk)
-                      and then Tsk = S)
-
+                  if (Is_Type (Tsk) and then Tsk = S)
                     or else (not Is_Type (Tsk)
-                      and then Etype (Tsk) = S
-                      and then not (Comes_From_Source (S)))
+                              and then Etype (Tsk) = S
+                              and then not (Comes_From_Source (S)))
                   then
                      null;
                   else
@@ -3301,7 +3162,6 @@ package body Sem_Attr is
 
             begin
                Get_First_Interp (P, Index, It);
-
                while Present (It.Nam) loop
                   if It.Nam = Ent then
                      null;
@@ -3376,9 +3236,7 @@ package body Sem_Attr is
       when Attribute_Descriptor_Size =>
          Check_E0;
 
-         if not Is_Entity_Name (P)
-           or else not Is_Type (Entity (P))
-         then
+         if not Is_Entity_Name (P) or else not Is_Type (Entity (P)) then
             Error_Attr_P ("prefix of attribute % must denote a type");
          end if;
 
@@ -3682,8 +3540,8 @@ package body Sem_Attr is
          if Etype (P) =  Standard_Exception_Type then
             Set_Etype (N, RTE (RE_Exception_Id));
 
-         --  Ada 2005 (AI-345): Attribute 'Identity may be applied to
-         --  task interface class-wide types.
+         --  Ada 2005 (AI-345): Attribute 'Identity may be applied to task
+         --  interface class-wide types.
 
          elsif Is_Task_Type (Etype (P))
            or else (Is_Access_Type (Etype (P))
@@ -4169,24 +4027,24 @@ package body Sem_Attr is
            and then Entity (Identifier (Enclosing_Loop)) /= Loop_Id
          then
             Error_Attr_P
-              ("prefix of attribute % that applies to "
-               & "outer loop must denote an entity");
+              ("prefix of attribute % that applies to outer loop must denote "
+               & "an entity");
 
          elsif Is_Potentially_Unevaluated (P) then
             Uneval_Old_Msg;
          end if;
 
-         --  Finally, if the Loop_Entry attribute appears within a pragma
-         --  that is ignored, we replace P'Loop_Entity by P to avoid useless
-         --  generation of the loop entity variable. Note that in this case
-         --  the expression won't be executed anyway, and this substitution
-         --  keeps types happy!
-
-         --  We should really do this in the expander, but it's easier here
+         --  Replace the Loop_Entry attribute reference by its prefix if the
+         --  related pragma is ignored. This transformation is OK with respect
+         --  to typing because Loop_Entry's type is that of its prefix. This
+         --  early transformation also avoids the generation of a useless loop
+         --  entry constant.
 
          if Is_Ignored (Enclosing_Pragma) then
             Rewrite (N, Relocate_Node (P));
          end if;
+
+         Preanalyze_And_Resolve (P);
       end Loop_Entry;
 
       -------------
@@ -4664,7 +4522,10 @@ package body Sem_Attr is
          --  process of being preanalyzed. Perform the semantic checks now
          --  before the pragma is relocated and/or expanded.
 
-         if In_Spec_Expression then
+         --  For a generic subprogram, postconditions are preanalyzed as well
+         --  for name capture, and still appear within an aspect spec.
+
+         if In_Spec_Expression or Inside_A_Generic then
             Prag := N;
             while Present (Prag)
                and then not Nkind_In (Prag, N_Aspect_Specification,
@@ -4677,10 +4538,11 @@ package body Sem_Attr is
             end loop;
 
             --  In ASIS mode, the aspect itself is analyzed, in addition to the
-            --  corresponding pragma. Do not issue errors when analyzing the
-            --  aspect.
+            --  corresponding pragma. Don't issue errors when analyzing aspect.
 
-            if Nkind (Prag) = N_Aspect_Specification then
+            if Nkind (Prag) = N_Aspect_Specification
+              and then Chars (Identifier (Prag)) = Name_Post
+            then
                null;
 
             --  In all other cases the related context must be a pragma
@@ -6395,11 +6257,7 @@ package body Sem_Attr is
                   --  Mark this component as processed
 
                   else
-                     if No (Comps) then
-                        Comps := New_Elmt_List;
-                     end if;
-
-                     Append_Elmt (Comp_Or_Discr, Comps);
+                     Append_New_Elmt (Comp_Or_Discr, Comps);
                   end if;
                end if;
 
@@ -6918,9 +6776,6 @@ package body Sem_Attr is
       --  Computes the Fore value for the current attribute prefix, which is
       --  known to be a static fixed-point type. Used by Fore and Width.
 
-      function Is_VAX_Float (Typ : Entity_Id) return Boolean;
-      --  Determine whether Typ denotes a VAX floating point type
-
       function Mantissa return Uint;
       --  Returns the Mantissa value for the prefix type
 
@@ -7051,18 +6906,6 @@ package body Sem_Attr is
 
          return R;
       end Fore_Value;
-
-      ------------------
-      -- Is_VAX_Float --
-      ------------------
-
-      function Is_VAX_Float (Typ : Entity_Id) return Boolean is
-      begin
-         return
-           Is_Floating_Point_Type (Typ)
-             and then
-               (Float_Format = 'V' or else Float_Rep (Typ) = VAX_Native);
-      end Is_VAX_Float;
 
       --------------
       -- Mantissa --
@@ -7854,20 +7697,6 @@ package body Sem_Attr is
          end if;
       end Alignment_Block;
 
-      ---------------
-      -- AST_Entry --
-      ---------------
-
-      --  Can only be folded in No_Ast_Handler case
-
-      when Attribute_AST_Entry =>
-         if not Is_AST_Entry (P_Entity) then
-            Rewrite (N,
-              New_Occurrence_Of (RTE (RE_No_AST_Handler), Loc));
-         else
-            null;
-         end if;
-
       -----------------------------
       -- Atomic_Always_Lock_Free --
       -----------------------------
@@ -8099,16 +7928,6 @@ package body Sem_Attr is
             else
                Fold_Uint  (N, Expr_Value (Lo_Bound), Static);
             end if;
-
-         --  Replace VAX Float_Type'First with a reference to the temporary
-         --  which represents the low bound of the type. This transformation
-         --  is needed since the back end cannot evaluate 'First on VAX.
-
-         elsif Is_VAX_Float (P_Type)
-           and then Nkind (Lo_Bound) = N_Identifier
-         then
-            Rewrite (N, New_Occurrence_Of (Entity (Lo_Bound), Sloc (N)));
-            Analyze (N);
 
          else
             Check_Concurrent_Discriminant (Lo_Bound);
@@ -8352,16 +8171,6 @@ package body Sem_Attr is
             else
                Fold_Uint  (N, Expr_Value (Hi_Bound), Static);
             end if;
-
-         --  Replace VAX Float_Type'Last with a reference to the temporary
-         --  which represents the high bound of the type. This transformation
-         --  is needed since the back end cannot evaluate 'Last on VAX.
-
-         elsif Is_VAX_Float (P_Type)
-           and then Nkind (Hi_Bound) = N_Identifier
-         then
-            Rewrite (N, New_Occurrence_Of (Entity (Hi_Bound), Sloc (N)));
-            Analyze (N);
 
          else
             Check_Concurrent_Discriminant (Hi_Bound);
@@ -10832,16 +10641,6 @@ package body Sem_Attr is
                end;
             end if;
          end Address_Attribute;
-
-         ---------------
-         -- AST_Entry --
-         ---------------
-
-         --  Prefix of the AST_Entry attribute is an entry name which must
-         --  not be resolved, since this is definitely not an entry call.
-
-         when Attribute_AST_Entry =>
-            null;
 
          ------------------
          -- Body_Version --

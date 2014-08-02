@@ -1668,13 +1668,6 @@ package body Sem_Eval is
                          N_Null)
          then
             return True;
-
-         --  Any reference to Null_Parameter is known at compile time. No
-         --  other attribute references (that have not already been folded)
-         --  are known at compile time.
-
-         elsif K = N_Attribute_Reference then
-            return Attribute_Name (Op) = Name_Null_Parameter;
          end if;
       end if;
 
@@ -2657,11 +2650,7 @@ package body Sem_Eval is
          Right_Int : constant Uint := Expr_Value (Right);
 
       begin
-         --  VMS includes bitwise operations on signed types
-
-         if Is_Modular_Integer_Type (Etype (N))
-           or else Is_VMS_Operator (Entity (N))
-         then
+         if Is_Modular_Integer_Type (Etype (N)) then
             declare
                Left_Bits  : Bits (0 .. UI_To_Int (Esize (Etype (N))) - 1);
                Right_Bits : Bits (0 .. UI_To_Int (Esize (Etype (N))) - 1);
@@ -4035,13 +4024,6 @@ package body Sem_Eval is
          pragma Assert (Is_Fixed_Point_Type (Underlying_Type (Etype (N))));
          return Corresponding_Integer_Value (N);
 
-      --  Peculiar VMS case, if we have xxx'Null_Parameter, return zero
-
-      elsif Kind = N_Attribute_Reference
-        and then Attribute_Name (N) = Name_Null_Parameter
-      then
-         return Uint_0;
-
       --  Otherwise must be character literal
 
       else
@@ -4114,13 +4096,6 @@ package body Sem_Eval is
          pragma Assert (Is_Fixed_Point_Type (Underlying_Type (Etype (N))));
          Val := Corresponding_Integer_Value (N);
 
-      --  Peculiar VMS case, if we have xxx'Null_Parameter, return zero
-
-      elsif Kind = N_Attribute_Reference
-        and then Attribute_Name (N) = Name_Null_Parameter
-      then
-         Val := Uint_0;
-
       --  Otherwise must be character literal
 
       else
@@ -4182,18 +4157,12 @@ package body Sem_Eval is
       elsif Kind = N_Integer_Literal then
          return UR_From_Uint (Expr_Value (N));
 
-      --  Peculiar VMS case, if we have xxx'Null_Parameter, return 0.0
+      --  Here, we have a node that cannot be interpreted as a compile time
+      --  constant. That is definitely an error.
 
-      elsif Kind = N_Attribute_Reference
-        and then Attribute_Name (N) = Name_Null_Parameter
-      then
-         return Ureal_0;
+      else
+         raise Program_Error;
       end if;
-
-      --  If we fall through, we have a node that cannot be interpreted as a
-      --  compile time constant. That is definitely an error.
-
-      raise Program_Error;
    end Expr_Value_R;
 
    ------------------
@@ -5496,13 +5465,6 @@ package body Sem_Eval is
       then
          Set_Condition (Parent (N), Empty);
 
-      --  If the expression raising CE is a N_Raise_CE node, we can use that
-      --  one. We just preserve the type of the context.
-
-      elsif Nkind (Exp) = N_Raise_Constraint_Error then
-         Rewrite (N, Exp);
-         Set_Etype (N, Typ);
-
       --  Else build an explicit N_Raise_CE
 
       else
@@ -6117,9 +6079,24 @@ package body Sem_Eval is
       --  to get the information in the variable case as well.
 
    begin
+      --  If an error was posted on expression, then return Unknown, we do not
+      --  want cascaded errors based on some false analysis of a junk node.
+
+      if Error_Posted (N) then
+         return Unknown;
+
+      --  Expression that raises constraint error is an odd case. We certainly
+      --  do not want to consider it to be in range. It might make sense to
+      --  consider it always out of range, but this causes incorrect error
+      --  messages about static expressions out of range. So we just return
+      --  Unknown, which is always safe.
+
+      elsif Raises_Constraint_Error (N) then
+         return Unknown;
+
       --  Universal types have no range limits, so always in range
 
-      if Typ = Universal_Integer or else Typ = Universal_Real then
+      elsif Typ = Universal_Integer or else Typ = Universal_Real then
          return In_Range;
 
       --  Never known if not scalar type. Don't know if this can actually
@@ -6137,14 +6114,10 @@ package body Sem_Eval is
       elsif Is_Generic_Type (Typ) then
          return Unknown;
 
-      --  Never known unless we have a compile time known value
+      --  Case of a known compile time value, where we can check if it is in
+      --  the bounds of the given type.
 
-      elsif not Compile_Time_Known_Value (N) then
-         return Unknown;
-
-      --  General processing with a known compile time value
-
-      else
+      elsif Compile_Time_Known_Value (N) then
          declare
             Lo       : Node_Id;
             Hi       : Node_Id;
@@ -6210,6 +6183,20 @@ package body Sem_Eval is
                end if;
             end if;
          end;
+
+      --  Here for value not known at compile time. Case of expression subtype
+      --  is Typ or is a subtype of Typ, and we can assume expression is valid.
+      --  In this case we know it is in range without knowing its value.
+
+      elsif Assume_Valid
+        and then (Etype (N) = Typ or else Is_Subtype_Of (Etype (N), Typ))
+      then
+         return In_Range;
+
+      --  For all other cases, result is unknown
+
+      else
+         return Unknown;
       end if;
    end Test_In_Range;
 

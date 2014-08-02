@@ -389,10 +389,31 @@ package body Checks is
 
    procedure Activate_Overflow_Check (N : Node_Id) is
    begin
-      if not Nkind_In (N, N_Op_Rem, N_Op_Mod, N_Op_Plus) then
-         Set_Do_Overflow_Check (N, True);
-         Possible_Local_Raise (N, Standard_Constraint_Error);
+      --  Nothing to do for unconstrained floating-point types (the test for
+      --  Etype (N) being present seems necessary in some cases, should be
+      --  tracked down, but for now just ignore the check in this case ???)
+
+      if Present (Etype (N))
+        and then Is_Floating_Point_Type (Etype (N))
+        and then not Is_Constrained (Etype (N))
+
+        --  But do the check after all if float overflow checking enforced
+
+        and then not Check_Float_Overflow
+      then
+         return;
       end if;
+
+      --  Nothing to do for Rem/Mod/Plus (overflow not possible)
+
+      if Nkind_In (N, N_Op_Rem, N_Op_Mod, N_Op_Plus) then
+         return;
+      end if;
+
+      --  Otherwise set the flag
+
+      Set_Do_Overflow_Check (N, True);
+      Possible_Local_Raise (N, Standard_Constraint_Error);
    end Activate_Overflow_Check;
 
    --------------------------
@@ -1795,6 +1816,8 @@ package body Checks is
          if Do_Overflow_Check (N)
            and then not Overflow_Checks_Suppressed (Etype (N))
          then
+            Set_Do_Overflow_Check (N, False);
+
             --  Test for extremely annoying case of xxx'First divided by -1
             --  for division of signed integer types (only overflow case).
 
@@ -1855,6 +1878,8 @@ package body Checks is
          --  it is a Division_Check and not an Overflow_Check.
 
          if Do_Division_Check (N) then
+            Set_Do_Division_Check (N, False);
+
             if (not ROK) or else (Rlo <= 0 and then 0 <= Rhi) then
                Insert_Action (N,
                  Make_Raise_Constraint_Error (Loc,
@@ -5110,6 +5135,8 @@ package body Checks is
       Lo   : Uint;
       Hi   : Uint;
 
+      Do_Ovflow_Check : Boolean;
+
    begin
       if Debug_Flag_CC then
          w ("Enable_Overflow_Check for node ", Int (N));
@@ -5187,15 +5214,52 @@ package body Checks is
          --   c) The alternative is a lot of special casing in this routine
          --      which would partially duplicate Determine_Range processing.
 
-         if OK
-           and then Lo > Expr_Value (Type_Low_Bound  (Typ))
-           and then Hi < Expr_Value (Type_High_Bound (Typ))
-         then
-            if Debug_Flag_CC then
-               w ("No overflow check required");
+         if OK then
+            Do_Ovflow_Check := True;
+
+            --  Note that the following checks are quite deliberately > and <
+            --  rather than >= and <= as explained above.
+
+            if  Lo > Expr_Value (Type_Low_Bound  (Typ))
+                  and then
+                Hi < Expr_Value (Type_High_Bound (Typ))
+            then
+               Do_Ovflow_Check := False;
+
+            --  Despite the comments above, it is worth dealing specially with
+            --  division specially. The only case where integer division can
+            --  overflow is (largest negative number) / (-1). So we will do
+            --  an extra range analysis to see if this is possible.
+
+            elsif Nkind (N) = N_Op_Divide then
+               Determine_Range
+                 (Left_Opnd (N), OK, Lo, Hi, Assume_Valid => True);
+
+               if OK and then Lo > Expr_Value (Type_Low_Bound (Typ)) then
+                  Do_Ovflow_Check := False;
+
+               else
+                  Determine_Range
+                    (Right_Opnd (N), OK, Lo, Hi, Assume_Valid => True);
+
+                  if OK and then (Lo > Uint_Minus_1
+                                    or else
+                                  Hi < Uint_Minus_1)
+                  then
+                     Do_Ovflow_Check := False;
+                  end if;
+               end if;
             end if;
 
-            return;
+            --  If no overflow check required, we are done
+
+            if not Do_Ovflow_Check then
+               if Debug_Flag_CC then
+                  w ("No overflow check required");
+               end if;
+
+               return;
+            end if;
          end if;
       end if;
 
@@ -6055,7 +6119,7 @@ package body Checks is
 
       --  For an untagged derived type, use the discriminants of the parent
       --  which have been renamed in the derivation, possibly by a one-to-many
-      --  discriminant constraint. For non-tagged type, initially get the Etype
+      --  discriminant constraint. For untagged type, initially get the Etype
       --  of the prefix
 
       else
@@ -8460,14 +8524,7 @@ package body Checks is
    function Range_Checks_Suppressed (E : Entity_Id) return Boolean is
    begin
       if Present (E) then
-
-         --  Note: for now we always suppress range checks on Vax float types,
-         --  since Gigi does not know how to generate these checks.
-
-         if Vax_Float (E) then
-            return True;
-
-         elsif Kill_Range_Checks (E) then
+         if Kill_Range_Checks (E) then
             return True;
 
          elsif Checks_May_Be_Suppressed (E) then
@@ -8512,9 +8569,7 @@ package body Checks is
       declare
          Typ : constant Entity_Id := Etype (Expr);
       begin
-         if Vax_Float (Typ) then
-            return True;
-         elsif Checks_May_Be_Suppressed (Typ)
+         if Checks_May_Be_Suppressed (Typ)
            and then (Is_Check_Suppressed (Typ, Range_Check)
                        or else
                      Is_Check_Suppressed (Typ, Validity_Check))

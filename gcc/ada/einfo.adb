@@ -115,7 +115,6 @@ package body Einfo is
    --    RM_Size                         Uint13
 
    --    Alignment                       Uint14
-   --    First_Optional_Parameter        Node14
    --    Normalized_Position             Uint14
    --    Shadow_Entities                 List14
 
@@ -195,7 +194,6 @@ package body Einfo is
    --    Component_Size                  Uint22
    --    Corresponding_Remote_Type       Node22
    --    Enumeration_Rep_Expr            Node22
-   --    Exception_Code                  Uint22
    --    Original_Record_Component       Node22
    --    Private_View                    Node22
    --    Protected_Formal                Node22
@@ -271,6 +269,7 @@ package body Einfo is
    --  the spec of Einfo for further details.
 
    --    Is_Inlined_Always               Flag1
+   --    Is_Hidden_Non_Overridden_Subpgm Flag2
    --    Is_Frozen                       Flag4
    --    Has_Discriminants               Flag5
    --    Is_Dispatching_Operation        Flag6
@@ -412,9 +411,6 @@ package body Einfo is
    --    Is_Generic_Instance             Flag130
 
    --    No_Pool_Assigned                Flag131
-   --    Is_AST_Entry                    Flag132
-   --    Is_VMS_Exception                Flag133
-   --    Is_Optional_Parameter           Flag134
    --    Has_Aliased_Components          Flag135
    --    No_Strict_Aliasing              Flag136
    --    Is_Machine_Code_Subprogram      Flag137
@@ -569,10 +565,16 @@ package body Einfo is
    --    (SSO_Set_Low_By_Default)        Flag272
    --    (SSO_Set_Low_By_Default)        Flag273
 
-   --    (unused)                        Flag2
+   --    Is_Generic_Actual_Subprogram    Flag274
+   --    No_Predicate_On_Actual          Flag275
+   --    No_Dynamic_Predicate_On_Actual  Flag276
+
    --    (unused)                        Flag3
 
-   --    (unused)                        Flag274
+   --    (unused)                        Flag132
+   --    (unused)                        Flag133
+   --    (unused)                        Flag134
+
    --    (unused)                        Flag275
    --    (unused)                        Flag276
    --    (unused)                        Flag277
@@ -1181,12 +1183,6 @@ package body Einfo is
       return Uint12 (Id);
    end Esize;
 
-   function Exception_Code (Id : E) return Uint is
-   begin
-      pragma Assert (Ekind (Id) = E_Exception);
-      return Uint22 (Id);
-   end Exception_Code;
-
    function Extra_Accessibility (Id : E) return E is
    begin
       pragma Assert
@@ -1267,12 +1263,6 @@ package body Einfo is
       pragma Assert (Is_Enumeration_Type (Id));
       return Node17 (Id);
    end First_Literal;
-
-   function First_Optional_Parameter (Id : E) return E is
-   begin
-      pragma Assert (Ekind_In (Id, E_Function, E_Procedure));
-      return Node14 (Id);
-   end First_Optional_Parameter;
 
    function First_Private_Entity (Id : E) return E is
    begin
@@ -1900,12 +1890,6 @@ package body Einfo is
       return Flag15 (Id);
    end Is_Aliased;
 
-   function Is_AST_Entry (Id : E) return B is
-   begin
-      pragma Assert (Is_Entry (Id));
-      return Flag132 (Id);
-   end Is_AST_Entry;
-
    function Is_Asynchronous (Id : E) return B is
    begin
       pragma Assert (Ekind (Id) = E_Procedure or else Is_Type (Id));
@@ -2053,6 +2037,12 @@ package body Einfo is
       return Flag4 (Id);
    end Is_Frozen;
 
+   function Is_Generic_Actual_Subprogram (Id : E) return B is
+   begin
+      pragma Assert (Ekind (Id) = E_Function or else Ekind (Id) = E_Procedure);
+      return Flag274 (Id);
+   end Is_Generic_Actual_Subprogram;
+
    function Is_Generic_Actual_Type (Id : E) return B is
    begin
       pragma Assert (Is_Type (Id));
@@ -2074,6 +2064,11 @@ package body Einfo is
    begin
       return Flag57 (Id);
    end Is_Hidden;
+
+   function Is_Hidden_Non_Overridden_Subpgm (Id : E) return B is
+   begin
+      return Flag2 (Id);
+   end Is_Hidden_Non_Overridden_Subpgm;
 
    function Is_Hidden_Open_Scope (Id : E) return B is
    begin
@@ -2209,12 +2204,6 @@ package body Einfo is
       pragma Assert (Is_Formal (Id));
       return Flag226 (Id);
    end Is_Only_Out_Parameter;
-
-   function Is_Optional_Parameter (Id : E) return B is
-   begin
-      pragma Assert (Is_Formal (Id));
-      return Flag134 (Id);
-   end Is_Optional_Parameter;
 
    function Is_Package_Body_Entity (Id : E) return B is
    begin
@@ -2413,11 +2402,6 @@ package body Einfo is
       return Flag116 (Id);
    end Is_Visible_Lib_Unit;
 
-   function Is_VMS_Exception (Id : E) return B is
-   begin
-      return Flag133 (Id);
-   end Is_VMS_Exception;
-
    function Is_Volatile (Id : E) return B is
    begin
       pragma Assert (Nkind (Id) in N_Entity);
@@ -2567,11 +2551,23 @@ package body Einfo is
       return Node12 (Id);
    end Next_Inlined_Subprogram;
 
+   function No_Dynamic_Predicate_On_Actual (Id : E) return Boolean is
+   begin
+      pragma Assert (Is_Discrete_Type (Id));
+      return Flag276 (Id);
+   end No_Dynamic_Predicate_On_Actual;
+
    function No_Pool_Assigned (Id : E) return B is
    begin
       pragma Assert (Is_Access_Type (Id));
       return Flag131 (Root_Type (Id));
    end No_Pool_Assigned;
+
+   function No_Predicate_On_Actual (Id : E) return Boolean is
+   begin
+      pragma Assert (Is_Discrete_Type (Id));
+      return Flag275 (Id);
+   end No_Predicate_On_Actual;
 
    function No_Return (Id : E) return B is
    begin
@@ -3924,12 +3920,6 @@ package body Einfo is
       Set_Uint12 (Id, V);
    end Set_Esize;
 
-   procedure Set_Exception_Code (Id : E; V : U) is
-   begin
-      pragma Assert (Ekind (Id) = E_Exception);
-      Set_Uint22 (Id, V);
-   end Set_Exception_Code;
-
    procedure Set_Extra_Accessibility (Id : E; V : E) is
    begin
       pragma Assert
@@ -4004,12 +3994,6 @@ package body Einfo is
       pragma Assert (Is_Enumeration_Type (Id));
       Set_Node17 (Id, V);
    end Set_First_Literal;
-
-   procedure Set_First_Optional_Parameter (Id : E; V : E) is
-   begin
-      pragma Assert (Ekind_In (Id, E_Function, E_Procedure));
-      Set_Node14 (Id, V);
-   end Set_First_Optional_Parameter;
 
    procedure Set_First_Private_Entity (Id : E; V : E) is
    begin
@@ -4670,12 +4654,6 @@ package body Einfo is
       Set_Flag15 (Id, V);
    end Set_Is_Aliased;
 
-   procedure Set_Is_AST_Entry (Id : E; V : B := True) is
-   begin
-      pragma Assert (Is_Entry (Id));
-      Set_Flag132 (Id, V);
-   end Set_Is_AST_Entry;
-
    procedure Set_Is_Asynchronous (Id : E; V : B := True) is
    begin
       pragma Assert
@@ -4840,6 +4818,12 @@ package body Einfo is
       Set_Flag4 (Id, V);
    end Set_Is_Frozen;
 
+   procedure Set_Is_Generic_Actual_Subprogram (Id : E; V : B := True) is
+   begin
+      pragma Assert (Ekind (Id) = E_Function or else Ekind (Id) = E_Procedure);
+      Set_Flag274 (Id, V);
+   end Set_Is_Generic_Actual_Subprogram;
+
    procedure Set_Is_Generic_Actual_Type (Id : E; V : B := True) is
    begin
       pragma Assert (Is_Type (Id));
@@ -4861,6 +4845,12 @@ package body Einfo is
    begin
       Set_Flag57 (Id, V);
    end Set_Is_Hidden;
+
+   procedure Set_Is_Hidden_Non_Overridden_Subpgm (Id : E; V : B := True) is
+   begin
+      pragma Assert (Ekind_In (Id, E_Function, E_Procedure));
+      Set_Flag2 (Id, V);
+   end Set_Is_Hidden_Non_Overridden_Subpgm;
 
    procedure Set_Is_Hidden_Open_Scope (Id : E; V : B := True) is
    begin
@@ -4999,12 +4989,6 @@ package body Einfo is
       pragma Assert (Ekind (Id) = E_Out_Parameter);
       Set_Flag226 (Id, V);
    end Set_Is_Only_Out_Parameter;
-
-   procedure Set_Is_Optional_Parameter (Id : E; V : B := True) is
-   begin
-      pragma Assert (Is_Formal (Id));
-      Set_Flag134 (Id, V);
-   end Set_Is_Optional_Parameter;
 
    procedure Set_Is_Package_Body_Entity (Id : E; V : B := True) is
    begin
@@ -5214,12 +5198,6 @@ package body Einfo is
       Set_Flag116 (Id, V);
    end Set_Is_Visible_Lib_Unit;
 
-   procedure Set_Is_VMS_Exception (Id : E; V : B := True) is
-   begin
-      pragma Assert (Ekind (Id) = E_Exception);
-      Set_Flag133 (Id, V);
-   end Set_Is_VMS_Exception;
-
    procedure Set_Is_Volatile (Id : E; V : B := True) is
    begin
       pragma Assert (Nkind (Id) in N_Entity);
@@ -5366,11 +5344,23 @@ package body Einfo is
       Set_Node12 (Id, V);
    end Set_Next_Inlined_Subprogram;
 
+   procedure Set_No_Dynamic_Predicate_On_Actual (Id : E; V : B := True) is
+   begin
+      pragma Assert (Is_Discrete_Type (Id));
+      Set_Flag276 (Id, V);
+   end Set_No_Dynamic_Predicate_On_Actual;
+
    procedure Set_No_Pool_Assigned (Id : E; V : B := True) is
    begin
       pragma Assert (Is_Access_Type (Id) and then Is_Base_Type (Id));
       Set_Flag131 (Id, V);
    end Set_No_Pool_Assigned;
+
+   procedure Set_No_Predicate_On_Actual (Id : E; V : B := True) is
+   begin
+      pragma Assert (Is_Discrete_Type (Id));
+      Set_Flag275 (Id, V);
+   end Set_No_Predicate_On_Actual;
 
    procedure Set_No_Return (Id : E; V : B := True) is
    begin
@@ -7354,13 +7344,6 @@ package body Einfo is
                when others => return No_Uint;
             end case;
 
-         when VAX_Native =>
-            case Digs is
-               when  1 ..  9 => return 2**7 - 1;
-               when 10 .. 15 => return 2**10 - 1;
-               when others => return No_Uint;
-            end case;
-
          when AAMP =>
             return Uint_2 ** Uint_7 - Uint_1;
       end case;
@@ -7374,7 +7357,6 @@ package body Einfo is
    begin
       case Float_Rep (Id) is
          when IEEE_Binary => return Uint_3 - Machine_Emax_Value (Id);
-         when VAX_Native  => return -Machine_Emax_Value (Id);
          when AAMP        => return -Machine_Emax_Value (Id);
       end case;
    end Machine_Emin_Value;
@@ -7397,14 +7379,6 @@ package body Einfo is
                when others => return No_Uint;
             end case;
 
-         when VAX_Native =>
-            case Digs is
-               when  1 ..  6 => return Uint_24;
-               when  7 ..  9 => return UI_From_Int (56);
-               when 10 .. 15 => return UI_From_Int (53);
-               when others => return No_Uint;
-            end case;
-
          when AAMP =>
             case Digs is
                when  1 ..  6 => return Uint_24;
@@ -7421,7 +7395,7 @@ package body Einfo is
    function Machine_Radix_Value (Id : E) return U is
    begin
       case Float_Rep (Id) is
-         when IEEE_Binary | VAX_Native | AAMP =>
+         when IEEE_Binary | AAMP =>
             return Uint_2;
       end case;
    end Machine_Radix_Value;
@@ -8144,7 +8118,7 @@ package body Einfo is
       elsif Ekind (Id) in Incomplete_Or_Private_Kind then
 
          --  If we have an incomplete or private type with a full view,
-         --  then we return the Underlying_Type of this full view
+         --  then we return the Underlying_Type of this full view.
 
          if Present (Full_View (Id)) then
             if Id = Full_View (Id) then
@@ -8156,6 +8130,14 @@ package body Einfo is
             else
                return Underlying_Type (Full_View (Id));
             end if;
+
+         --  If we have a private type with an underlying full view, then we
+         --  return the Underlying_Type of this underlying full view.
+
+         elsif Ekind (Id) in Private_Kind
+           and then Present (Underlying_Full_View (Id))
+         then
+            return Underlying_Type (Underlying_Full_View (Id));
 
          --  If we have an incomplete entity that comes from the limited
          --  view then we return the Underlying_Type of its non-limited
@@ -8181,23 +8163,13 @@ package body Einfo is
             return Empty;
          end if;
 
-      --  For non-incomplete, non-private types, return the type itself
-      --  Also for entities that are not types at all return the entity
-      --  itself.
+      --  For non-incomplete, non-private types, return the type itself Also
+      --  for entities that are not types at all return the entity itself.
 
       else
          return Id;
       end if;
    end Underlying_Type;
-
-   ---------------
-   -- Vax_Float --
-   ---------------
-
-   function Vax_Float (Id : E) return B is
-   begin
-      return Is_Floating_Point_Type (Id) and then Float_Rep (Id) = VAX_Native;
-   end Vax_Float;
 
    ------------------------
    -- Write_Entity_Flags --
@@ -8354,7 +8326,6 @@ package body Einfo is
       W ("In_Package_Body",                 Flag48  (Id));
       W ("In_Private_Part",                 Flag45  (Id));
       W ("In_Use",                          Flag8   (Id));
-      W ("Is_AST_Entry",                    Flag132 (Id));
       W ("Is_Abstract_Subprogram",          Flag19  (Id));
       W ("Is_Abstract_Type",                Flag146  (Id));
       W ("Is_Local_Anonymous_Access",       Flag194 (Id));
@@ -8391,10 +8362,12 @@ package body Einfo is
       W ("Is_For_Access_Subtype",           Flag118 (Id));
       W ("Is_Formal_Subprogram",            Flag111 (Id));
       W ("Is_Frozen",                       Flag4   (Id));
+      W ("Is_Generic_Actual_Subprogram",    Flag274 (Id));
       W ("Is_Generic_Actual_Type",          Flag94  (Id));
       W ("Is_Generic_Instance",             Flag130 (Id));
       W ("Is_Generic_Type",                 Flag13  (Id));
       W ("Is_Hidden",                       Flag57  (Id));
+      W ("Is_Hidden_Non_Overridden_Subpgm", Flag2   (Id));
       W ("Is_Hidden_Open_Scope",            Flag171 (Id));
       W ("Is_Immediately_Visible",          Flag7   (Id));
       W ("Is_Implementation_Defined",       Flag254 (Id));
@@ -8420,7 +8393,6 @@ package body Einfo is
       W ("Is_Null_Init_Proc",               Flag178 (Id));
       W ("Is_Obsolescent",                  Flag153 (Id));
       W ("Is_Only_Out_Parameter",           Flag226 (Id));
-      W ("Is_Optional_Parameter",           Flag134 (Id));
       W ("Is_Package_Body_Entity",          Flag160 (Id));
       W ("Is_Packed",                       Flag51  (Id));
       W ("Is_Packed_Array_Impl_Type",       Flag138 (Id));
@@ -8454,7 +8426,6 @@ package body Einfo is
       W ("Is_Unchecked_Union",              Flag117 (Id));
       W ("Is_Underlying_Record_View",       Flag246 (Id));
       W ("Is_Unsigned_Type",                Flag144 (Id));
-      W ("Is_VMS_Exception",                Flag133 (Id));
       W ("Is_Valued_Procedure",             Flag127 (Id));
       W ("Is_Visible_Formal",               Flag206 (Id));
       W ("Is_Visible_Lib_Unit",             Flag116 (Id));
@@ -8472,7 +8443,9 @@ package body Einfo is
       W ("Needs_Debug_Info",                Flag147 (Id));
       W ("Needs_No_Actuals",                Flag22  (Id));
       W ("Never_Set_In_Source",             Flag115 (Id));
+      W ("No_Dynamic_Predicate_On_actual",  Flag276 (Id));
       W ("No_Pool_Assigned",                Flag131 (Id));
+      W ("No_Predicate_On_actual",          Flag275 (Id));
       W ("No_Return",                       Flag113 (Id));
       W ("No_Strict_Aliasing",              Flag136 (Id));
       W ("Non_Binary_Modulus",              Flag58  (Id));
@@ -8898,10 +8871,6 @@ package body Einfo is
               E_Loop_Parameter                             =>
             Write_Str ("Alignment");
 
-         when E_Function                                   |
-              E_Procedure                                  =>
-            Write_Str ("First_Optional_Parameter");
-
          when E_Component                                  |
               E_Discriminant                               =>
             Write_Str ("Normalized_Position");
@@ -9306,9 +9275,6 @@ package body Einfo is
 
          when E_Enumeration_Literal                        =>
             Write_Str ("Enumeration_Rep_Expr");
-
-         when E_Exception                                  =>
-            Write_Str ("Exception_Code");
 
          when E_Record_Type_With_Private                   |
               E_Record_Subtype_With_Private                |
