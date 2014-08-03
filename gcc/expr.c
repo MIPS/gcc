@@ -2705,6 +2705,7 @@ store_by_pieces_2 (insn_gen_fn genfun, machine_mode mode,
 {
   unsigned int size = GET_MODE_SIZE (mode);
   rtx to1, cst;
+  unsigned oldlen = data->len;
 
   while (data->len >= size)
     {
@@ -2734,6 +2735,24 @@ store_by_pieces_2 (insn_gen_fn genfun, machine_mode mode,
 	data->offset += size;
 
       data->len -= size;
+    }
+
+  /* If we have some data left and unalign accesses
+     are not slow, back up slightly and emit that constant */
+  if (data->len > 0
+      && oldlen >= size && !STRICT_ALIGNMENT
+      && !SLOW_UNALIGNED_ACCESS (mode, align)
+      && !MEM_VOLATILE_P (data->to)
+      && ceil_log2 (data->len) == exact_log2 (size)
+      && data->explicit_inc_to == 0
+      && !data->autinc_to
+      && !data->reverse)
+    {
+      unsigned offset = data->offset - (size - data->len);
+      to1 = adjust_address (data->to, mode, offset);
+      cst = (*data->constfun) (data->constfundata, offset, mode);
+      emit_insn ((*genfun) (to1, cst));
+      data->len = 0;
     }
 }
 
