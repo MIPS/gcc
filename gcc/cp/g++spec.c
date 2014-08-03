@@ -362,6 +362,15 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
 			   &new_decoded_options[j]);
 	  j++;
 	}
+#else
+      /* For linkers that don't support Bstatic/dynamic push the flag back
+         so that spec substitution can see it.  */
+      if (library > 1 && !static_link)
+        {
+          generate_option (OPT_static_libstdc__, NULL, 0, CL_DRIVER,
+                           &new_decoded_options[j]);
+          j++;
+        }
 #endif
     }
   if (saw_math)
