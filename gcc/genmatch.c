@@ -1473,7 +1473,7 @@ dt_simplify::gen_gimple (FILE *f)
   fprintf (f, "/* simplify %u */\n", pattern_no);
 
   fprintf (f, "{\n");
-  fprintf (f, "tree captures[4] ATTRIBUTE_UNUSED = {};\n");
+  fprintf (f, "tree captures[%u] ATTRIBUTE_UNUSED = {};\n", dt_simplify::capture_max);
 
   for (unsigned i = 0; i < dt_simplify::capture_max; ++i)
     if (indexes[i])
@@ -1538,7 +1538,7 @@ dt_simplify::gen_generic (FILE *f)
   fprintf (f, "/* simplify %u */\n", pattern_no);
 
   fprintf (f, "{\n");
-  fprintf (f, "tree captures[4] ATTRIBUTE_UNUSED = {};\n");
+  fprintf (f, "tree captures[%u] ATTRIBUTE_UNUSED = {};\n", dt_simplify::capture_max);
 
   for (unsigned i = 0; i < dt_simplify::capture_max; ++i)
     if (indexes[i])
