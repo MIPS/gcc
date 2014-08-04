@@ -754,7 +754,7 @@ ospace_frag'
 ac_user_opts='
 enable_option_checking
 with_build_libsubdir
-enable_accelerator
+enable_offload_targets
 enable_target_gcc_configure_flags
 enable_accelerator_gcc_configure_flags
 enable_gold
@@ -1476,9 +1476,8 @@ Optional Features:
   --disable-option-checking  ignore unrecognized --enable/--with options
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
-  --enable-accelerator[=ARG]
-                          build accelerator
-                          [ARG={no,auto-device-triplet,device-triplet}]
+  --enable-offload-targets=LIST
+                          enable offloading to devices from LIST
   --enable-target-gcc-configure-flags=FLAGS
                           additional flags for configuring the target GCC
                           [none]
@@ -2789,7 +2788,7 @@ host_libs="intl libiberty opcodes bfd readline tcl tk itcl libgui zlib libbacktr
 # binutils, gas and ld appear in that order because it makes sense to run
 # "make check" in that particular order.
 # If --enable-gold is used, "gold" may replace "ld".
-host_tools="texinfo flex bison binutils gas ld fixincludes accel-gcc gcc cgen sid sim gdb gprof etc expect dejagnu m4 utils guile fastjar gnattools"
+host_tools="texinfo flex bison binutils gas ld fixincludes gcc cgen sid sim gdb gprof etc expect dejagnu m4 utils guile fastjar gnattools"
 
 # libgcj represents the runtime libraries only used by gcj.
 libgcj="target-libffi \
@@ -2954,38 +2953,19 @@ case ${with_newlib} in
   yes) skipdirs=`echo " ${skipdirs} " | sed -e 's/ target-newlib / /'` ;;
 esac
 
-# Handle --enable-accelerator.  This is in top-level because both libgomp and
-# GCC proper need this information.
-# --disable-accelerator
-#   Default.  Do not build accelerator pieces, only support host execution.
-# --enable-accelerator=auto-device-triplet
-#   If possible, build accelerator pieces for 'device-triplet'.
-# --enable-accelerator=device-triplet
-#   Build accelerator pieces for 'device-triplet'.
-# Check whether --enable-accelerator was given.
-if test "${enable_accelerator+set}" = set; then :
-  enableval=$enable_accelerator; ENABLE_ACCELERATOR=$enableval
+offload_targets=
+
+# Check whether --enable-offload-targets was given.
+if test "${enable_offload_targets+set}" = set; then :
+  enableval=$enable_offload_targets;
+  if test x$enable_offload_targets = x; then
+    as_fn_error "no offload targets specified" "$LINENO" 5
+  fi
+
 else
-  ENABLE_ACCELERATOR=no
+  enable_offload_targets=
 fi
 
-accel_target_noncanonical=NONE
-case "${ENABLE_ACCELERATOR}" in
-  yes)
-    as_fn_error "--enable-accelerators must name accelerator" "$LINENO" 5
-    skipdirs="${skipdirs} accel-gcc"
-    ;;
-  no)
-    skipdirs="${skipdirs} accel-gcc"
-    ;;
-  auto-nvptx*|nvptx*)
-    accel_target_noncanonical=`echo "$ENABLE_ACCELERATOR" | sed -e s/auto-//g`
-    ;;
-  *)
-    as_fn_error "unrecognized accelerator" "$LINENO" 5
-    skipdirs="${skipdirs} accel-gcc"
-    ;;
-esac
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking accelerator target system type" >&5
 $as_echo_n "checking accelerator target system type... " >&6; }
@@ -6770,15 +6750,7 @@ done
 configdirs_all="$configdirs"
 configdirs=
 for i in ${configdirs_all} ; do
-  case $i in
-    accel-gcc)
-      confsrcdir=gcc
-      ;;
-    *)
-      confsrcdir=$i
-      ;;
-  esac
-  if test -f ${srcdir}/${confsrcdir}/configure ; then
+  if test -f ${srcdir}/$i/configure ; then
     configdirs="${configdirs} $i"
   fi
 done

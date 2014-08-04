@@ -1,3 +1,14 @@
+2014-08-04  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* Makefile.def (accel-gcc host module): Remove, and all of its
+	dependencies too.
+	* Makefile.in: Regenerate.
+	* configure.ac (host_tools): Remove accel-gcc.
+	(enable-accelerator): Remove handling for this option.
+	(enable-offload-targets): Handle this instead.
+	(configdirs): Revert previous changes.
+	* configure: Regenerate.
+
 2014-06-12  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* configure.ac (--enable-target-gcc-configure-flags)

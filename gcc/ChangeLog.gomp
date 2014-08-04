@@ -1,3 +1,15 @@
+2014-08-04  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* Makefile.in (tool_prefix): Remove.
+	(unlibsubdir): Change depending on enable_as_accelerator.
+	(GCC_TARGET_INSTALL_NAME): Revert previous change.
+	(install_driver): Rework offloading changes.
+	* configure.ac (tool_prefix): Remove.
+	(enable-as-accelerator-for): Don't require --enable-as-accelerator.
+	Update the program_transform_name.
+	(offload_targets): Add 'g' modifier to sed script.
+	* configure: Regenerate.
+
 2014-07-28  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* omp-low.c (get_base_type): New function.

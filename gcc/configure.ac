@@ -40,7 +40,6 @@ ACX_NONCANONICAL_TARGET
 
 # Used for constructing correct paths for offload compilers.
 real_target_noncanonical=${target_noncanonical}
-tool_prefix=$target_noncanonical
 accel_dir_suffix=
 
 # Determine the target- and build-specific subdirectories
@@ -904,15 +903,12 @@ AC_SUBST(enable_accelerator)
 AC_ARG_ENABLE(as-accelerator-for,
 [AS_HELP_STRING([--enable-as-accelerator-for], [build compiler as accelerator target for given host])],
 [
-  if test $enable_accelerator = no; then
-    echo "--enable-as-accelerator-for requires --enable-accelerator"
-    exit 1;
-  fi
   AC_DEFINE(ACCEL_COMPILER, 1,
    [Define if this compiler should be built and used as the target
     device compiler for OpenACC.])
   enable_as_accelerator=yes
-  tool_prefix=${enable_as_accelerator_for}-accel-${enable_accelerator}
+  sedscript="s#${target_noncanonical}#${enable_as_accelerator_for}-accel-${target_noncanonical}#"
+  program_transform_name=`echo $program_transform_name | sed $sedscript`
   accel_dir_suffix=/accel/${target_noncanonical}
   real_target_noncanonical=${enable_as_accelerator_for}
 ], [enable_as_accelerator=no])
@@ -933,7 +929,7 @@ AC_ARG_ENABLE(offload-targets,
   fi
 ], [enable_accelerator=no])
 AC_SUBST(enable_accelerator)
-offload_targets=`echo $offload_targets | sed -e 's#,#:#'`
+offload_targets=`echo $offload_targets | sed -e 's#,#:#g'`
 AC_DEFINE_UNQUOTED(OFFLOAD_TARGETS, "$offload_targets",
  [Define to hold the list of target names suitable for offloading.])
 if test x$offload_targets != x; then
@@ -5546,7 +5542,6 @@ AC_SUBST(c_target_objs)
 AC_SUBST(cxx_target_objs)
 AC_SUBST(fortran_target_objs)
 AC_SUBST(target_cpu_default)
-AC_SUBST(tool_prefix)
 AC_SUBST(real_target_noncanonical)
 AC_SUBST(accel_dir_suffix)
 

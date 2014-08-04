@@ -612,7 +612,6 @@ GMPINC
 GMPLIBS
 accel_dir_suffix
 real_target_noncanonical
-tool_prefix
 target_cpu_default
 fortran_target_objs
 cxx_target_objs
@@ -3209,7 +3208,6 @@ esac
 
 # Used for constructing correct paths for offload compilers.
 real_target_noncanonical=${target_noncanonical}
-tool_prefix=$target_noncanonical
 accel_dir_suffix=
 
 # Determine the target- and build-specific subdirectories
@@ -7429,15 +7427,12 @@ fi
 # Check whether --enable-as-accelerator-for was given.
 if test "${enable_as_accelerator_for+set}" = set; then :
   enableval=$enable_as_accelerator_for;
-  if test $enable_accelerator = no; then
-    echo "--enable-as-accelerator-for requires --enable-accelerator"
-    exit 1;
-  fi
 
 $as_echo "#define ACCEL_COMPILER 1" >>confdefs.h
 
   enable_as_accelerator=yes
-  tool_prefix=${enable_as_accelerator_for}-accel-${enable_accelerator}
+  sedscript="s#${target_noncanonical}#${enable_as_accelerator_for}-accel-${target_noncanonical}#"
+  program_transform_name=`echo $program_transform_name | sed $sedscript`
   accel_dir_suffix=/accel/${target_noncanonical}
   real_target_noncanonical=${enable_as_accelerator_for}
 
@@ -7465,7 +7460,7 @@ else
 fi
 
 
-offload_targets=`echo $offload_targets | sed -e 's#,#:#'`
+offload_targets=`echo $offload_targets | sed -e 's#,#:#g'`
 
 cat >>confdefs.h <<_ACEOF
 #define OFFLOAD_TARGETS "$offload_targets"
@@ -18119,7 +18114,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 18122 "configure"
+#line 18117 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -18225,7 +18220,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 18228 "configure"
+#line 18223 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -27889,7 +27884,6 @@ fi
 
 
 # Substitute configuration variables
-
 
 
 

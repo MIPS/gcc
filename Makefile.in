@@ -899,7 +899,6 @@ configure-host:  \
     maybe-configure-flex \
     maybe-configure-gas \
     maybe-configure-gcc \
-    maybe-configure-accel-gcc \
     maybe-configure-gmp \
     maybe-configure-mpfr \
     maybe-configure-mpc \
@@ -1020,7 +1019,6 @@ all-host: maybe-all-gas
 @if gcc-no-bootstrap
 all-host: maybe-all-gcc
 @endif gcc-no-bootstrap
-all-host: maybe-all-accel-gcc
 @if gmp-no-bootstrap
 all-host: maybe-all-gmp
 @endif gmp-no-bootstrap
@@ -1152,7 +1150,6 @@ info-host: maybe-info-fixincludes
 info-host: maybe-info-flex
 info-host: maybe-info-gas
 info-host: maybe-info-gcc
-info-host: maybe-info-accel-gcc
 info-host: maybe-info-gmp
 info-host: maybe-info-mpfr
 info-host: maybe-info-mpc
@@ -1237,7 +1234,6 @@ dvi-host: maybe-dvi-fixincludes
 dvi-host: maybe-dvi-flex
 dvi-host: maybe-dvi-gas
 dvi-host: maybe-dvi-gcc
-dvi-host: maybe-dvi-accel-gcc
 dvi-host: maybe-dvi-gmp
 dvi-host: maybe-dvi-mpfr
 dvi-host: maybe-dvi-mpc
@@ -1322,7 +1318,6 @@ pdf-host: maybe-pdf-fixincludes
 pdf-host: maybe-pdf-flex
 pdf-host: maybe-pdf-gas
 pdf-host: maybe-pdf-gcc
-pdf-host: maybe-pdf-accel-gcc
 pdf-host: maybe-pdf-gmp
 pdf-host: maybe-pdf-mpfr
 pdf-host: maybe-pdf-mpc
@@ -1407,7 +1402,6 @@ html-host: maybe-html-fixincludes
 html-host: maybe-html-flex
 html-host: maybe-html-gas
 html-host: maybe-html-gcc
-html-host: maybe-html-accel-gcc
 html-host: maybe-html-gmp
 html-host: maybe-html-mpfr
 html-host: maybe-html-mpc
@@ -1492,7 +1486,6 @@ TAGS-host: maybe-TAGS-fixincludes
 TAGS-host: maybe-TAGS-flex
 TAGS-host: maybe-TAGS-gas
 TAGS-host: maybe-TAGS-gcc
-TAGS-host: maybe-TAGS-accel-gcc
 TAGS-host: maybe-TAGS-gmp
 TAGS-host: maybe-TAGS-mpfr
 TAGS-host: maybe-TAGS-mpc
@@ -1577,7 +1570,6 @@ install-info-host: maybe-install-info-fixincludes
 install-info-host: maybe-install-info-flex
 install-info-host: maybe-install-info-gas
 install-info-host: maybe-install-info-gcc
-install-info-host: maybe-install-info-accel-gcc
 install-info-host: maybe-install-info-gmp
 install-info-host: maybe-install-info-mpfr
 install-info-host: maybe-install-info-mpc
@@ -1662,7 +1654,6 @@ install-pdf-host: maybe-install-pdf-fixincludes
 install-pdf-host: maybe-install-pdf-flex
 install-pdf-host: maybe-install-pdf-gas
 install-pdf-host: maybe-install-pdf-gcc
-install-pdf-host: maybe-install-pdf-accel-gcc
 install-pdf-host: maybe-install-pdf-gmp
 install-pdf-host: maybe-install-pdf-mpfr
 install-pdf-host: maybe-install-pdf-mpc
@@ -1747,7 +1738,6 @@ install-html-host: maybe-install-html-fixincludes
 install-html-host: maybe-install-html-flex
 install-html-host: maybe-install-html-gas
 install-html-host: maybe-install-html-gcc
-install-html-host: maybe-install-html-accel-gcc
 install-html-host: maybe-install-html-gmp
 install-html-host: maybe-install-html-mpfr
 install-html-host: maybe-install-html-mpc
@@ -1832,7 +1822,6 @@ installcheck-host: maybe-installcheck-fixincludes
 installcheck-host: maybe-installcheck-flex
 installcheck-host: maybe-installcheck-gas
 installcheck-host: maybe-installcheck-gcc
-installcheck-host: maybe-installcheck-accel-gcc
 installcheck-host: maybe-installcheck-gmp
 installcheck-host: maybe-installcheck-mpfr
 installcheck-host: maybe-installcheck-mpc
@@ -1917,7 +1906,6 @@ mostlyclean-host: maybe-mostlyclean-fixincludes
 mostlyclean-host: maybe-mostlyclean-flex
 mostlyclean-host: maybe-mostlyclean-gas
 mostlyclean-host: maybe-mostlyclean-gcc
-mostlyclean-host: maybe-mostlyclean-accel-gcc
 mostlyclean-host: maybe-mostlyclean-gmp
 mostlyclean-host: maybe-mostlyclean-mpfr
 mostlyclean-host: maybe-mostlyclean-mpc
@@ -2002,7 +1990,6 @@ clean-host: maybe-clean-fixincludes
 clean-host: maybe-clean-flex
 clean-host: maybe-clean-gas
 clean-host: maybe-clean-gcc
-clean-host: maybe-clean-accel-gcc
 clean-host: maybe-clean-gmp
 clean-host: maybe-clean-mpfr
 clean-host: maybe-clean-mpc
@@ -2087,7 +2074,6 @@ distclean-host: maybe-distclean-fixincludes
 distclean-host: maybe-distclean-flex
 distclean-host: maybe-distclean-gas
 distclean-host: maybe-distclean-gcc
-distclean-host: maybe-distclean-accel-gcc
 distclean-host: maybe-distclean-gmp
 distclean-host: maybe-distclean-mpfr
 distclean-host: maybe-distclean-mpc
@@ -2172,7 +2158,6 @@ maintainer-clean-host: maybe-maintainer-clean-fixincludes
 maintainer-clean-host: maybe-maintainer-clean-flex
 maintainer-clean-host: maybe-maintainer-clean-gas
 maintainer-clean-host: maybe-maintainer-clean-gcc
-maintainer-clean-host: maybe-maintainer-clean-accel-gcc
 maintainer-clean-host: maybe-maintainer-clean-gmp
 maintainer-clean-host: maybe-maintainer-clean-mpfr
 maintainer-clean-host: maybe-maintainer-clean-mpc
@@ -2312,7 +2297,6 @@ check-host:  \
     maybe-check-flex \
     maybe-check-gas \
     maybe-check-gcc \
-    maybe-check-accel-gcc \
     maybe-check-gmp \
     maybe-check-mpfr \
     maybe-check-mpc \
@@ -2423,7 +2407,6 @@ install-host-nogcc:  \
     maybe-install-fixincludes \
     maybe-install-flex \
     maybe-install-gas \
-    maybe-install-accel-gcc \
     maybe-install-gmp \
     maybe-install-mpfr \
     maybe-install-mpc \
@@ -2472,7 +2455,6 @@ install-host:  \
     maybe-install-flex \
     maybe-install-gas \
     maybe-install-gcc \
-    maybe-install-accel-gcc \
     maybe-install-gmp \
     maybe-install-mpfr \
     maybe-install-mpc \
@@ -2577,7 +2559,6 @@ install-strip-host:  \
     maybe-install-strip-flex \
     maybe-install-strip-gas \
     maybe-install-strip-gcc \
-    maybe-install-strip-accel-gcc \
     maybe-install-strip-gmp \
     maybe-install-strip-mpfr \
     maybe-install-strip-mpc \
@@ -10971,450 +10952,6 @@ maintainer-clean-gcc:
 	  || exit 1
 
 @endif gcc
-
-
-
-.PHONY: configure-accel-gcc maybe-configure-accel-gcc
-maybe-configure-accel-gcc:
-@if gcc-bootstrap
-configure-accel-gcc: stage_current
-@endif gcc-bootstrap
-@if accel-gcc
-maybe-configure-accel-gcc: configure-accel-gcc
-configure-accel-gcc: 
-	@: $(MAKE); $(unstage)
-	@r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	test ! -f $(HOST_SUBDIR)/accel-gcc/Makefile || exit 0; \
-	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/accel-gcc ; \
-	$(HOST_EXPORTS)  \
-	echo Configuring in $(HOST_SUBDIR)/accel-gcc; \
-	 \
-	this_target="$(accel_target_alias)"; \
-	 \
-	cd "$(HOST_SUBDIR)/accel-gcc" || exit 1; \
-	case $(srcdir) in \
-	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
-	  *) topdir=`echo $(HOST_SUBDIR)/accel-gcc/ | \
-		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
-	esac; \
-	module_srcdir=gcc; \
-	$(SHELL) \
-	  $$s/$$module_srcdir/configure \
-	  --srcdir=$${topdir}/$$module_srcdir \
-	  $(HOST_CONFIGARGS) --build=${build_alias} --host=${host_alias} \
-	  --target=$${this_target} --enable-as-accelerator-for=$(target_alias) @extra_accelerator_gcc_configure_flags@ \
-	  || exit 1
-@endif accel-gcc
-
-
-
-
-
-.PHONY: all-accel-gcc maybe-all-accel-gcc
-maybe-all-accel-gcc:
-@if gcc-bootstrap
-all-accel-gcc: stage_current
-@endif gcc-bootstrap
-@if accel-gcc
-TARGET-accel-gcc=all
-maybe-all-accel-gcc: all-accel-gcc
-all-accel-gcc: configure-accel-gcc
-	@: $(MAKE); $(unstage)
-	@r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS)  \
-	(cd $(HOST_SUBDIR)/accel-gcc && \
-	  $(MAKE) $(BASE_FLAGS_TO_PASS) $(EXTRA_HOST_FLAGS) $(STAGE1_FLAGS_TO_PASS) $(EXTRA_ACCELERATOR_GCC_FLAGS) \
-		$(TARGET-accel-gcc))
-@endif accel-gcc
-
-
-
-
-.PHONY: check-accel-gcc maybe-check-accel-gcc
-maybe-check-accel-gcc:
-@if accel-gcc
-maybe-check-accel-gcc: check-accel-gcc
-
-check-accel-gcc:
-	@: $(MAKE); $(unstage)
-	@r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
-	(cd $(HOST_SUBDIR)/accel-gcc && \
-	  $(MAKE) $(FLAGS_TO_PASS) $(EXTRA_ACCELERATOR_GCC_FLAGS) check)
-
-@endif accel-gcc
-
-.PHONY: install-accel-gcc maybe-install-accel-gcc
-maybe-install-accel-gcc:
-@if accel-gcc
-maybe-install-accel-gcc: install-accel-gcc
-
-install-accel-gcc: installdirs
-	@: $(MAKE); $(unstage)
-	@r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
-	(cd $(HOST_SUBDIR)/accel-gcc && \
-	  $(MAKE) $(FLAGS_TO_PASS) $(EXTRA_ACCELERATOR_GCC_FLAGS) install)
-
-@endif accel-gcc
-
-.PHONY: install-strip-accel-gcc maybe-install-strip-accel-gcc
-maybe-install-strip-accel-gcc:
-@if accel-gcc
-maybe-install-strip-accel-gcc: install-strip-accel-gcc
-
-install-strip-accel-gcc: installdirs
-	@: $(MAKE); $(unstage)
-	@r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
-	(cd $(HOST_SUBDIR)/accel-gcc && \
-	  $(MAKE) $(FLAGS_TO_PASS) $(EXTRA_ACCELERATOR_GCC_FLAGS) install-strip)
-
-@endif accel-gcc
-
-# Other targets (info, dvi, pdf, etc.)
-
-.PHONY: maybe-info-accel-gcc info-accel-gcc
-maybe-info-accel-gcc:
-@if accel-gcc
-maybe-info-accel-gcc: info-accel-gcc
-
-info-accel-gcc: \
-    configure-accel-gcc 
-	@: $(MAKE); $(unstage)
-	@[ -f ./accel-gcc/Makefile ] || exit 0; \
-	r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
-	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_ACCELERATOR_GCC_FLAGS); do \
-	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
-	done; \
-	echo "Doing info in accel-gcc" ; \
-	(cd $(HOST_SUBDIR)/accel-gcc && \
-	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
-	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
-	          "RANLIB=$${RANLIB}" \
-	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" "WINDMC=$${WINDMC}" \
-	          info) \
-	  || exit 1
-
-@endif accel-gcc
-
-.PHONY: maybe-dvi-accel-gcc dvi-accel-gcc
-maybe-dvi-accel-gcc:
-@if accel-gcc
-maybe-dvi-accel-gcc: dvi-accel-gcc
-
-dvi-accel-gcc: \
-    configure-accel-gcc 
-	@: $(MAKE); $(unstage)
-	@[ -f ./accel-gcc/Makefile ] || exit 0; \
-	r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
-	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_ACCELERATOR_GCC_FLAGS); do \
-	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
-	done; \
-	echo "Doing dvi in accel-gcc" ; \
-	(cd $(HOST_SUBDIR)/accel-gcc && \
-	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
-	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
-	          "RANLIB=$${RANLIB}" \
-	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" "WINDMC=$${WINDMC}" \
-	          dvi) \
-	  || exit 1
-
-@endif accel-gcc
-
-.PHONY: maybe-pdf-accel-gcc pdf-accel-gcc
-maybe-pdf-accel-gcc:
-@if accel-gcc
-maybe-pdf-accel-gcc: pdf-accel-gcc
-
-pdf-accel-gcc: \
-    configure-accel-gcc 
-	@: $(MAKE); $(unstage)
-	@[ -f ./accel-gcc/Makefile ] || exit 0; \
-	r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
-	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_ACCELERATOR_GCC_FLAGS); do \
-	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
-	done; \
-	echo "Doing pdf in accel-gcc" ; \
-	(cd $(HOST_SUBDIR)/accel-gcc && \
-	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
-	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
-	          "RANLIB=$${RANLIB}" \
-	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" "WINDMC=$${WINDMC}" \
-	          pdf) \
-	  || exit 1
-
-@endif accel-gcc
-
-.PHONY: maybe-html-accel-gcc html-accel-gcc
-maybe-html-accel-gcc:
-@if accel-gcc
-maybe-html-accel-gcc: html-accel-gcc
-
-html-accel-gcc: \
-    configure-accel-gcc 
-	@: $(MAKE); $(unstage)
-	@[ -f ./accel-gcc/Makefile ] || exit 0; \
-	r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
-	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_ACCELERATOR_GCC_FLAGS); do \
-	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
-	done; \
-	echo "Doing html in accel-gcc" ; \
-	(cd $(HOST_SUBDIR)/accel-gcc && \
-	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
-	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
-	          "RANLIB=$${RANLIB}" \
-	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" "WINDMC=$${WINDMC}" \
-	          html) \
-	  || exit 1
-
-@endif accel-gcc
-
-.PHONY: maybe-TAGS-accel-gcc TAGS-accel-gcc
-maybe-TAGS-accel-gcc:
-@if accel-gcc
-maybe-TAGS-accel-gcc: TAGS-accel-gcc
-
-TAGS-accel-gcc: \
-    configure-accel-gcc 
-	@: $(MAKE); $(unstage)
-	@[ -f ./accel-gcc/Makefile ] || exit 0; \
-	r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
-	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_ACCELERATOR_GCC_FLAGS); do \
-	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
-	done; \
-	echo "Doing TAGS in accel-gcc" ; \
-	(cd $(HOST_SUBDIR)/accel-gcc && \
-	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
-	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
-	          "RANLIB=$${RANLIB}" \
-	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" "WINDMC=$${WINDMC}" \
-	          TAGS) \
-	  || exit 1
-
-@endif accel-gcc
-
-.PHONY: maybe-install-info-accel-gcc install-info-accel-gcc
-maybe-install-info-accel-gcc:
-@if accel-gcc
-maybe-install-info-accel-gcc: install-info-accel-gcc
-
-install-info-accel-gcc: \
-    configure-accel-gcc \
-    info-accel-gcc 
-	@: $(MAKE); $(unstage)
-	@[ -f ./accel-gcc/Makefile ] || exit 0; \
-	r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
-	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_ACCELERATOR_GCC_FLAGS); do \
-	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
-	done; \
-	echo "Doing install-info in accel-gcc" ; \
-	(cd $(HOST_SUBDIR)/accel-gcc && \
-	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
-	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
-	          "RANLIB=$${RANLIB}" \
-	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" "WINDMC=$${WINDMC}" \
-	          install-info) \
-	  || exit 1
-
-@endif accel-gcc
-
-.PHONY: maybe-install-pdf-accel-gcc install-pdf-accel-gcc
-maybe-install-pdf-accel-gcc:
-@if accel-gcc
-maybe-install-pdf-accel-gcc: install-pdf-accel-gcc
-
-install-pdf-accel-gcc: \
-    configure-accel-gcc \
-    pdf-accel-gcc 
-	@: $(MAKE); $(unstage)
-	@[ -f ./accel-gcc/Makefile ] || exit 0; \
-	r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
-	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_ACCELERATOR_GCC_FLAGS); do \
-	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
-	done; \
-	echo "Doing install-pdf in accel-gcc" ; \
-	(cd $(HOST_SUBDIR)/accel-gcc && \
-	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
-	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
-	          "RANLIB=$${RANLIB}" \
-	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" "WINDMC=$${WINDMC}" \
-	          install-pdf) \
-	  || exit 1
-
-@endif accel-gcc
-
-.PHONY: maybe-install-html-accel-gcc install-html-accel-gcc
-maybe-install-html-accel-gcc:
-@if accel-gcc
-maybe-install-html-accel-gcc: install-html-accel-gcc
-
-install-html-accel-gcc: \
-    configure-accel-gcc \
-    html-accel-gcc 
-	@: $(MAKE); $(unstage)
-	@[ -f ./accel-gcc/Makefile ] || exit 0; \
-	r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
-	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_ACCELERATOR_GCC_FLAGS); do \
-	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
-	done; \
-	echo "Doing install-html in accel-gcc" ; \
-	(cd $(HOST_SUBDIR)/accel-gcc && \
-	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
-	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
-	          "RANLIB=$${RANLIB}" \
-	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" "WINDMC=$${WINDMC}" \
-	          install-html) \
-	  || exit 1
-
-@endif accel-gcc
-
-.PHONY: maybe-installcheck-accel-gcc installcheck-accel-gcc
-maybe-installcheck-accel-gcc:
-@if accel-gcc
-maybe-installcheck-accel-gcc: installcheck-accel-gcc
-
-installcheck-accel-gcc: \
-    configure-accel-gcc 
-	@: $(MAKE); $(unstage)
-	@[ -f ./accel-gcc/Makefile ] || exit 0; \
-	r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
-	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_ACCELERATOR_GCC_FLAGS); do \
-	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
-	done; \
-	echo "Doing installcheck in accel-gcc" ; \
-	(cd $(HOST_SUBDIR)/accel-gcc && \
-	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
-	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
-	          "RANLIB=$${RANLIB}" \
-	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" "WINDMC=$${WINDMC}" \
-	          installcheck) \
-	  || exit 1
-
-@endif accel-gcc
-
-.PHONY: maybe-mostlyclean-accel-gcc mostlyclean-accel-gcc
-maybe-mostlyclean-accel-gcc:
-@if accel-gcc
-maybe-mostlyclean-accel-gcc: mostlyclean-accel-gcc
-
-mostlyclean-accel-gcc: 
-	@: $(MAKE); $(unstage)
-	@[ -f ./accel-gcc/Makefile ] || exit 0; \
-	r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
-	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_ACCELERATOR_GCC_FLAGS); do \
-	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
-	done; \
-	echo "Doing mostlyclean in accel-gcc" ; \
-	(cd $(HOST_SUBDIR)/accel-gcc && \
-	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
-	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
-	          "RANLIB=$${RANLIB}" \
-	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" "WINDMC=$${WINDMC}" \
-	          mostlyclean) \
-	  || exit 1
-
-@endif accel-gcc
-
-.PHONY: maybe-clean-accel-gcc clean-accel-gcc
-maybe-clean-accel-gcc:
-@if accel-gcc
-maybe-clean-accel-gcc: clean-accel-gcc
-
-clean-accel-gcc: 
-	@: $(MAKE); $(unstage)
-	@[ -f ./accel-gcc/Makefile ] || exit 0; \
-	r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
-	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_ACCELERATOR_GCC_FLAGS); do \
-	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
-	done; \
-	echo "Doing clean in accel-gcc" ; \
-	(cd $(HOST_SUBDIR)/accel-gcc && \
-	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
-	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
-	          "RANLIB=$${RANLIB}" \
-	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" "WINDMC=$${WINDMC}" \
-	          clean) \
-	  || exit 1
-
-@endif accel-gcc
-
-.PHONY: maybe-distclean-accel-gcc distclean-accel-gcc
-maybe-distclean-accel-gcc:
-@if accel-gcc
-maybe-distclean-accel-gcc: distclean-accel-gcc
-
-distclean-accel-gcc: 
-	@: $(MAKE); $(unstage)
-	@[ -f ./accel-gcc/Makefile ] || exit 0; \
-	r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
-	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_ACCELERATOR_GCC_FLAGS); do \
-	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
-	done; \
-	echo "Doing distclean in accel-gcc" ; \
-	(cd $(HOST_SUBDIR)/accel-gcc && \
-	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
-	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
-	          "RANLIB=$${RANLIB}" \
-	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" "WINDMC=$${WINDMC}" \
-	          distclean) \
-	  || exit 1
-
-@endif accel-gcc
-
-.PHONY: maybe-maintainer-clean-accel-gcc maintainer-clean-accel-gcc
-maybe-maintainer-clean-accel-gcc:
-@if accel-gcc
-maybe-maintainer-clean-accel-gcc: maintainer-clean-accel-gcc
-
-maintainer-clean-accel-gcc: 
-	@: $(MAKE); $(unstage)
-	@[ -f ./accel-gcc/Makefile ] || exit 0; \
-	r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
-	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_ACCELERATOR_GCC_FLAGS); do \
-	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
-	done; \
-	echo "Doing maintainer-clean in accel-gcc" ; \
-	(cd $(HOST_SUBDIR)/accel-gcc && \
-	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
-	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
-	          "RANLIB=$${RANLIB}" \
-	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" "WINDMC=$${WINDMC}" \
-	          maintainer-clean) \
-	  || exit 1
-
-@endif accel-gcc
 
 
 
@@ -48846,7 +48383,6 @@ all-stage3-gcc: maybe-all-stage3-cloog
 all-stage4-gcc: maybe-all-stage4-cloog
 all-stageprofile-gcc: maybe-all-stageprofile-cloog
 all-stagefeedback-gcc: maybe-all-stagefeedback-cloog
-all-gcc: maybe-all-accel-gcc
 all-gcc: maybe-all-build-texinfo
 
 all-stage1-gcc: maybe-all-build-texinfo
@@ -48943,24 +48479,6 @@ all-stage3-gcc: maybe-all-stage3-lto-plugin
 all-stage4-gcc: maybe-all-stage4-lto-plugin
 all-stageprofile-gcc: maybe-all-stageprofile-lto-plugin
 all-stagefeedback-gcc: maybe-all-stagefeedback-lto-plugin
-all-accel-gcc: all-libiberty
-all-accel-gcc: maybe-all-intl
-all-accel-gcc: maybe-all-mpfr
-all-accel-gcc: maybe-all-mpc
-all-accel-gcc: maybe-all-cloog
-all-accel-gcc: maybe-all-accel-gcc
-all-accel-gcc: maybe-all-build-texinfo
-all-accel-gcc: maybe-all-build-bison
-all-accel-gcc: maybe-all-build-flex
-all-accel-gcc: maybe-all-build-libiberty
-all-accel-gcc: maybe-all-build-fixincludes
-all-accel-gcc: maybe-all-zlib
-all-accel-gcc: all-libbacktrace
-all-accel-gcc: all-libcpp
-all-accel-gcc: all-libdecnumber
-all-accel-gcc: maybe-all-libiberty
-all-accel-gcc: maybe-all-fixincludes
-all-accel-gcc: maybe-all-lto-plugin
 info-gcc: maybe-all-build-libiberty
 
 info-stage1-gcc: maybe-all-build-libiberty

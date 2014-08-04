@@ -141,7 +141,7 @@ host_libs="intl libiberty opcodes bfd readline tcl tk itcl libgui zlib libbacktr
 # binutils, gas and ld appear in that order because it makes sense to run
 # "make check" in that particular order.
 # If --enable-gold is used, "gold" may replace "ld".
-host_tools="texinfo flex bison binutils gas ld fixincludes accel-gcc gcc cgen sid sim gdb gprof etc expect dejagnu m4 utils guile fastjar gnattools"
+host_tools="texinfo flex bison binutils gas ld fixincludes gcc cgen sid sim gdb gprof etc expect dejagnu m4 utils guile fastjar gnattools"
 
 # libgcj represents the runtime libraries only used by gcj.
 libgcj="target-libffi \
@@ -286,36 +286,16 @@ case ${with_newlib} in
   yes) skipdirs=`echo " ${skipdirs} " | sed -e 's/ target-newlib / /'` ;;
 esac
 
-# Handle --enable-accelerator.  This is in top-level because both libgomp and
-# GCC proper need this information.
-# --disable-accelerator
-#   Default.  Do not build accelerator pieces, only support host execution.
-# --enable-accelerator=auto-device-triplet
-#   If possible, build accelerator pieces for 'device-triplet'.
-# --enable-accelerator=device-triplet
-#   Build accelerator pieces for 'device-triplet'.
-AC_ARG_ENABLE(accelerator,
-[AS_HELP_STRING([[--enable-accelerator[=ARG]]],
-		[build accelerator @<:@ARG={no,auto-device-triplet,device-triplet}@:>@])],
-ENABLE_ACCELERATOR=$enableval,
-ENABLE_ACCELERATOR=no)
-accel_target_noncanonical=NONE
-case "${ENABLE_ACCELERATOR}" in
-  yes)
-    AC_MSG_ERROR([--enable-accelerators must name accelerator])
-    skipdirs="${skipdirs} accel-gcc"
-    ;;
-  no)
-    skipdirs="${skipdirs} accel-gcc"
-    ;;
-  auto-nvptx*|nvptx*)
-    accel_target_noncanonical=`echo "$ENABLE_ACCELERATOR" | sed -e s/auto-//g`
-    ;;
-  *)
-    AC_MSG_ERROR([unrecognized accelerator])
-    skipdirs="${skipdirs} accel-gcc"
-    ;;
-esac
+offload_targets=
+
+AC_ARG_ENABLE(offload-targets,
+[AS_HELP_STRING([--enable-offload-targets=LIST],
+ [enable offloading to devices from LIST])],
+[
+  if test x$enable_offload_targets = x; then
+    AC_MSG_ERROR([no offload targets specified])
+  fi
+], [enable_offload_targets=])
 
 ACX_CANONICAL_ACCEL_TARGET
 
@@ -2187,15 +2167,7 @@ done
 configdirs_all="$configdirs"
 configdirs=
 for i in ${configdirs_all} ; do
-  case $i in
-    accel-gcc)
-      confsrcdir=gcc
-      ;;
-    *)
-      confsrcdir=$i
-      ;;
-  esac
-  if test -f ${srcdir}/${confsrcdir}/configure ; then
+  if test -f ${srcdir}/$i/configure ; then
     configdirs="${configdirs} $i"
   fi
 done
