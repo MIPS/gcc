@@ -4099,6 +4099,8 @@ proc check_effective_target_vect_unpack { } {
              || [istarget spu-*-*]
              || [istarget ia64-*-*]
              || [istarget aarch64*-*-*]
+             || ([istarget mips*-*-*]
+		 && [check_effective_target_mips_msa_nomips16_nomicromips])
              || ([istarget arm*-*-*] && [check_effective_target_arm_neon_ok]
 		 && [check_effective_target_arm_little_endian]) } {
             set et_vect_unpack_saved 1
