@@ -597,6 +597,31 @@ proper position among the other output files.  */
 #endif
 #endif
 
+/* Linker options for compressed debug sections.  */
+#if HAVE_LD_COMPRESS_DEBUG == 0
+/* No linker support.  */
+#define LINK_COMPRESS_DEBUG_SPEC \
+	" %{gz*:%e-gz is not supported in this configuration} "
+#elif HAVE_LD_COMPRESS_DEBUG == 1
+/* GNU style on input, GNU ld options.  Reject, not useful.  */
+#define LINK_COMPRESS_DEBUG_SPEC \
+	" %{gz*:%e-gz is not supported in this configuration} "
+#elif HAVE_LD_COMPRESS_DEBUG == 2
+/* GNU style, GNU gold options.  */
+#define LINK_COMPRESS_DEBUG_SPEC \
+	" %{gz|gz=zlib-gnu:" LD_COMPRESS_DEBUG_OPTION "=zlib}" \
+	" %{gz=none:"        LD_COMPRESS_DEBUG_OPTION "=none}" \
+	" %{gz=zlib:%e-gz=zlib is not supported in this configuration} "
+#elif HAVE_LD_COMPRESS_DEBUG == 3
+/* ELF gABI style.  */
+#define LINK_COMPRESS_DEBUG_SPEC \
+	" %{gz|gz=zlib:"  LD_COMPRESS_DEBUG_OPTION "=zlib}" \
+	" %{gz=none:"	  LD_COMPRESS_DEBUG_OPTION "=none}" \
+	" %{gz=zlib-gnu:" LD_COMPRESS_DEBUG_OPTION "=zlib-gnu} "
+#else
+#error Unknown value for HAVE_LD_COMPRESS_DEBUG.
+#endif
+
 /* config.h can define LIBGCC_SPEC to override how and when libgcc.a is
    included.  */
 #ifndef LIBGCC_SPEC
@@ -630,6 +655,33 @@ proper position among the other output files.  */
 #else
 #define ASM_MAP ""
 #endif
+
+/* Assembler options for compressed debug sections.  */
+#if HAVE_LD_COMPRESS_DEBUG < 2
+/* Reject if the linker cannot write compressed debug sections.  */
+#define ASM_COMPRESS_DEBUG_SPEC \
+	" %{gz*:%e-gz is not supported in this configuration} "
+#else /* HAVE_LD_COMPRESS_DEBUG >= 2 */
+#if HAVE_AS_COMPRESS_DEBUG == 0
+/* No assembler support.  Ignore silently.  */
+#define ASM_COMPRESS_DEBUG_SPEC \
+	" %{gz*:} "
+#elif HAVE_AS_COMPRESS_DEBUG == 1
+/* GNU style, GNU as options.  */
+#define ASM_COMPRESS_DEBUG_SPEC \
+	" %{gz|gz=zlib-gnu:" AS_COMPRESS_DEBUG_OPTION "}" \
+	" %{gz=none:"        AS_NO_COMPRESS_DEBUG_OPTION "}" \
+	" %{gz=zlib:%e-gz=zlib is not supported in this configuration} "
+#elif HAVE_AS_COMPRESS_DEBUG == 2
+/* ELF gABI style.  */
+#define ASM_COMPRESS_DEBUG_SPEC \
+	" %{gz|gz=zlib:"  AS_COMPRESS_DEBUG_OPTION "=zlib}" \
+	" %{gz=none:"	  AS_COMPRESS_DEBUG_OPTION "=none}" \
+	" %{gz=zlib-gnu:" AS_COMPRESS_DEBUG_OPTION "=zlib-gnu} "
+#else
+#error Unknown value for HAVE_AS_COMPRESS_DEBUG.
+#endif
+#endif /* HAVE_LD_COMPRESS_DEBUG >= 2 */
 
 /* Define ASM_DEBUG_SPEC to be a spec suitable for translating '-g'
    to the assembler.  */
@@ -727,8 +779,7 @@ proper position among the other output files.  */
 #ifndef SANITIZER_SPEC
 #define SANITIZER_SPEC "\
 %{!nostdlib:%{!nodefaultlibs:%{%:sanitize(address):" LIBASAN_SPEC "\
-    %{static:%ecannot specify -static with -fsanitize=address}\
-    %{%:sanitize(thread):%e-fsanitize=address is incompatible with -fsanitize=thread}}\
+    %{static:%ecannot specify -static with -fsanitize=address}}\
     %{%:sanitize(thread):" LIBTSAN_SPEC "\
     %{!pie:%{!shared:%e-fsanitize=thread linking must be done with -pie or -shared}}}\
     %{%:sanitize(undefined):" LIBUBSAN_SPEC "}\
@@ -761,8 +812,8 @@ proper position among the other output files.  */
     LINK_PLUGIN_SPEC \
    "%{flto|flto=*:%<fcompare-debug*} \
     %{flto} %{flto=*} %l " LINK_PIE_SPEC \
-   "%{fuse-ld=*:-fuse-ld=%*}\
-    %X %{o*} %{e*} %{N} %{n} %{r}\
+   "%{fuse-ld=*:-fuse-ld=%*} " LINK_COMPRESS_DEBUG_SPEC \
+   "%X %{o*} %{e*} %{N} %{n} %{r}\
     %{s} %{t} %{u*} %{z} %{Z} %{!nostdlib:%{!nostartfiles:%S}} " VTABLE_VERIFICATION_SPEC " \
     %{static:} %{L*} %(mfwrap) %(link_libgcc) " SANITIZER_EARLY_SPEC " %o\
     %{fopenmp|ftree-parallelize-loops=*:%:include(libgomp.spec)%(link_gomp)}\
@@ -885,6 +936,7 @@ static const char *asm_options =
    to the assembler equivalents.  */
 "%{v} %{w:-W} %{I*} "
 #endif
+ASM_COMPRESS_DEBUG_SPEC
 "%a %Y %{c:%W{o*}%{!o*:-o %w%b%O}}%{!c:-o %d%w%u%O}";
 
 static const char *invoke_as =
@@ -4842,7 +4894,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 		      {
 			saved_suffix
 			  = XNEWVEC (char, suffix_length
-				     + strlen (TARGET_OBJECT_SUFFIX));
+				     + strlen (TARGET_OBJECT_SUFFIX) + 1);
 			strncpy (saved_suffix, suffix, suffix_length);
 			strcpy (saved_suffix + suffix_length,
 				TARGET_OBJECT_SUFFIX);
@@ -7790,10 +7842,15 @@ set_multilib_dir (void)
 		q2++;
 	      if (*q2 == ':')
 		ml_end = q2;
-	      new_multilib_os_dir = XNEWVEC (char, ml_end - q);
-	      memcpy (new_multilib_os_dir, q + 1, ml_end - q - 1);
-	      new_multilib_os_dir[ml_end - q - 1] = '\0';
-	      multilib_os_dir = *new_multilib_os_dir ? new_multilib_os_dir : ".";
+	      if (ml_end - q == 1)
+		multilib_os_dir = xstrdup (".");
+	      else
+		{
+		  new_multilib_os_dir = XNEWVEC (char, ml_end - q);
+		  memcpy (new_multilib_os_dir, q + 1, ml_end - q - 1);
+		  new_multilib_os_dir[ml_end - q - 1] = '\0';
+		  multilib_os_dir = new_multilib_os_dir;
+		}
 
 	      if (q2 < end && *q2 == ':')
 		{
@@ -8166,7 +8223,9 @@ sanitize_spec_function (int argc, const char **argv)
     return NULL;
 
   if (strcmp (argv[0], "address") == 0)
-    return (flag_sanitize & SANITIZE_ADDRESS) ? "" : NULL;
+    return (flag_sanitize & SANITIZE_USER_ADDRESS) ? "" : NULL;
+  if (strcmp (argv[0], "kernel-address") == 0)
+    return (flag_sanitize & SANITIZE_KERNEL_ADDRESS) ? "" : NULL;
   if (strcmp (argv[0], "thread") == 0)
     return (flag_sanitize & SANITIZE_THREAD) ? "" : NULL;
   if (strcmp (argv[0], "undefined") == 0)

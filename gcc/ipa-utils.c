@@ -55,12 +55,12 @@ ipa_print_order (FILE* out,
   fprintf (out, "\n\n ordered call graph: %s\n", note);
 
   for (i = count - 1; i >= 0; i--)
-    dump_cgraph_node (out, order[i]);
+    order[i]->dump (out);
   fprintf (out, "\n");
   fflush (out);
 }
 
-
+
 struct searchc_env {
   struct cgraph_node **stack;
   int stack_size;
@@ -103,14 +103,14 @@ searchc (struct searchc_env* env, struct cgraph_node *v,
     {
       struct ipa_dfs_info * w_info;
       enum availability avail;
-      struct cgraph_node *w = cgraph_function_or_thunk_node (edge->callee, &avail);
+      struct cgraph_node *w = edge->callee->ultimate_alias_target (&avail);
 
       if (!w || (ignore_edge && ignore_edge (edge)))
         continue;
 
       if (w->aux
-	  && (avail > AVAIL_OVERWRITABLE
-	      || (env->allow_overwritable && avail == AVAIL_OVERWRITABLE)))
+	  && (avail > AVAIL_INTERPOSABLE
+	      || (env->allow_overwritable && avail == AVAIL_INTERPOSABLE)))
 	{
 	  w_info = (struct ipa_dfs_info *) w->aux;
 	  if (w_info->new_node)
@@ -184,11 +184,11 @@ ipa_reduced_postorder (struct cgraph_node **order,
 
   FOR_EACH_DEFINED_FUNCTION (node)
     {
-      enum availability avail = cgraph_function_body_availability (node);
+      enum availability avail = node->get_availability ();
 
-      if (avail > AVAIL_OVERWRITABLE
+      if (avail > AVAIL_INTERPOSABLE
 	  || (allow_overwritable
-	      && (avail == AVAIL_OVERWRITABLE)))
+	      && (avail == AVAIL_INTERPOSABLE)))
 	{
 	  /* Reuse the info if it is already there.  */
 	  struct ipa_dfs_info *info = (struct ipa_dfs_info *) node->aux;
@@ -240,10 +240,10 @@ ipa_free_postorder_info (void)
 /* Get the set of nodes for the cycle in the reduced call graph starting
    from NODE.  */
 
-vec<cgraph_node_ptr> 
+vec<cgraph_node *>
 ipa_get_nodes_in_cycle (struct cgraph_node *node)
 {
-  vec<cgraph_node_ptr> v = vNULL;
+  vec<cgraph_node *> v = vNULL;
   struct ipa_dfs_info *node_dfs_info;
   while (node)
     {
@@ -262,7 +262,7 @@ ipa_edge_within_scc (struct cgraph_edge *cs)
 {
   struct ipa_dfs_info *caller_dfs = (struct ipa_dfs_info *) cs->caller->aux;
   struct ipa_dfs_info *callee_dfs;
-  struct cgraph_node *callee = cgraph_function_node (cs->callee, NULL);
+  struct cgraph_node *callee = cs->callee->function_symbol ();
 
   callee_dfs = (struct ipa_dfs_info *) callee->aux;
   return (caller_dfs
@@ -289,7 +289,7 @@ ipa_reverse_postorder (struct cgraph_node **order)
   int order_pos = 0;
   struct cgraph_edge *edge;
   int pass;
-  struct ipa_ref *ref;
+  struct ipa_ref *ref = NULL;
 
   struct postorder_stack *stack =
     XCNEWVEC (struct postorder_stack, cgraph_n_nodes);
@@ -307,7 +307,7 @@ ipa_reverse_postorder (struct cgraph_node **order)
 	      || (!node->address_taken
 		  && !node->global.inlined_to
 		  && !node->alias && !node->thunk.thunk_p
-		  && !cgraph_only_called_directly_p (node))))
+		  && !node->only_called_directly_p ())))
 	{
 	  stack_size = 0;
           stack[stack_size].node = node;
@@ -329,16 +329,16 @@ ipa_reverse_postorder (struct cgraph_node **order)
 			 functions to non-always-inline functions.  */
 		      if (DECL_DISREGARD_INLINE_LIMITS (edge->caller->decl)
 			  && !DECL_DISREGARD_INLINE_LIMITS
-			    (cgraph_function_node (edge->callee, NULL)->decl))
+			    (edge->callee->function_symbol ()->decl))
 			node2 = NULL;
 		    }
-		  for (;ipa_ref_list_referring_iterate (&stack[stack_size].node->ref_list,
+		  for (; stack[stack_size].node->iterate_referring (
 						       stack[stack_size].ref,
 						       ref) && !node2;
 		       stack[stack_size].ref++)
 		    {
 		      if (ref->use == IPA_REF_ALIAS)
-			node2 = ipa_ref_referring_node (ref);
+			node2 = dyn_cast <cgraph_node *> (ref->referring);
 		    }
 		  if (!node2)
 		    break;
@@ -660,13 +660,8 @@ ipa_merge_profiles (struct cgraph_node *dst,
   if (dst->tp_first_run > src->tp_first_run && src->tp_first_run)
     dst->tp_first_run = src->tp_first_run;
 
-  if (src->profile_id)
-    {
-      if (!dst->profile_id)
-	dst->profile_id = src->profile_id;
-      else
-	gcc_assert (src->profile_id == dst->profile_id);
-    }
+  if (src->profile_id && !dst->profile_id)
+    dst->profile_id = src->profile_id;
 
   if (!dst->count)
     return;
@@ -712,8 +707,8 @@ ipa_merge_profiles (struct cgraph_node *dst,
       gcc_assert (!*slot);
       *slot = state;
     }
-  cgraph_get_body (src);
-  cgraph_get_body (dst);
+  src->get_body ();
+  dst->get_body ();
   srccfun = DECL_STRUCT_FUNCTION (src->decl);
   dstcfun = DECL_STRUCT_FUNCTION (dst->decl);
   if (n_basic_blocks_for_fn (srccfun)
@@ -814,7 +809,7 @@ ipa_merge_profiles (struct cgraph_node *dst,
 			     (dst->decl,
 			      gimple_bb (e->call_stmt));
 	}
-      cgraph_release_function_body (src);
+      src->release_body ();
       inline_update_overall_summary (dst);
     }
   /* TODO: if there is no match, we can scale up.  */
@@ -826,9 +821,8 @@ ipa_merge_profiles (struct cgraph_node *dst,
 bool
 recursive_call_p (tree func, tree dest)
 {
-  struct cgraph_node *dest_node = cgraph_get_create_node (dest);
-  struct cgraph_node *cnode = cgraph_get_create_node (func);
+  struct cgraph_node *dest_node = cgraph_node::get_create (dest);
+  struct cgraph_node *cnode = cgraph_node::get_create (func);
 
-  return symtab_semantically_equivalent_p (dest_node,
-					   cnode);
+  return dest_node->semantically_equivalent_p (cnode);
 }

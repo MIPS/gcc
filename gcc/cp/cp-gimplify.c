@@ -1198,6 +1198,27 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 	*stmt_p = size_one_node;
       return NULL;
     }    
+  else if (flag_sanitize & (SANITIZE_NULL | SANITIZE_ALIGNMENT))
+    {
+      if (TREE_CODE (stmt) == NOP_EXPR
+	  && TREE_CODE (TREE_TYPE (stmt)) == REFERENCE_TYPE)
+	ubsan_maybe_instrument_reference (stmt);
+      else if (TREE_CODE (stmt) == CALL_EXPR)
+	{
+	  tree fn = CALL_EXPR_FN (stmt);
+	  if (fn != NULL_TREE
+	      && !error_operand_p (fn)
+	      && POINTER_TYPE_P (TREE_TYPE (fn))
+	      && TREE_CODE (TREE_TYPE (TREE_TYPE (fn))) == METHOD_TYPE)
+	    {
+	      bool is_ctor
+		= TREE_CODE (fn) == ADDR_EXPR
+		  && TREE_CODE (TREE_OPERAND (fn, 0)) == FUNCTION_DECL
+		  && DECL_CONSTRUCTOR_P (TREE_OPERAND (fn, 0));
+	      ubsan_maybe_instrument_member_call (stmt, is_ctor);
+	    }
+	}
+    }
 
   pointer_set_insert (p_set, *stmt_p);
 
@@ -1221,7 +1242,7 @@ cp_genericize_tree (tree* t_p)
 
 /* If a function that should end with a return in non-void
    function doesn't obviously end with return, add ubsan
-   instrmentation code to verify it at runtime.  */
+   instrumentation code to verify it at runtime.  */
 
 static void
 cp_ubsan_maybe_instrument_return (tree fndecl)
@@ -1334,7 +1355,10 @@ cp_genericize (tree fndecl)
      walk_tree's hash functionality.  */
   cp_genericize_tree (&DECL_SAVED_TREE (fndecl));
 
-  if (flag_sanitize & SANITIZE_RETURN)
+  if (flag_sanitize & SANITIZE_RETURN
+      && current_function_decl != NULL_TREE
+      && !lookup_attribute ("no_sanitize_undefined",
+			    DECL_ATTRIBUTES (current_function_decl)))
     cp_ubsan_maybe_instrument_return (fndecl);
 
   /* Do everything else.  */
@@ -1592,7 +1616,7 @@ cxx_omp_predetermined_sharing (tree decl)
 /* Finalize an implicitly determined clause.  */
 
 void
-cxx_omp_finish_clause (tree c)
+cxx_omp_finish_clause (tree c, gimple_seq *)
 {
   tree decl, inner_type;
   bool make_shared = false;

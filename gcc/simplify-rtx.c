@@ -3076,6 +3076,7 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
 	 prefer left rotation, if op1 is from bitsize / 2 + 1 to
 	 bitsize - 1, use other direction of rotate with 1 .. bitsize / 2 - 1
 	 amount instead.  */
+#if defined(HAVE_rotate) && defined(HAVE_rotatert)
       if (CONST_INT_P (trueop1)
 	  && IN_RANGE (INTVAL (trueop1),
 		       GET_MODE_BITSIZE (mode) / 2 + (code == ROTATE),
@@ -3083,6 +3084,7 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
 	return simplify_gen_binary (code == ROTATE ? ROTATERT : ROTATE,
 				    mode, op0, GEN_INT (GET_MODE_BITSIZE (mode)
 							- INTVAL (trueop1)));
+#endif
       /* FALLTHRU */
     case ASHIFTRT:
       if (trueop1 == CONST0_RTX (mode))
@@ -3365,6 +3367,50 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
 	      subop1 = XEXP (trueop0, i1);
 
 	      return simplify_gen_binary (VEC_CONCAT, mode, subop0, subop1);
+	    }
+
+	  /* If we select one half of a vec_concat, return that.  */
+	  if (GET_CODE (trueop0) == VEC_CONCAT
+	      && CONST_INT_P (XVECEXP (trueop1, 0, 0)))
+	    {
+	      rtx subop0 = XEXP (trueop0, 0);
+	      rtx subop1 = XEXP (trueop0, 1);
+	      enum machine_mode mode0 = GET_MODE (subop0);
+	      enum machine_mode mode1 = GET_MODE (subop1);
+	      int li = GET_MODE_SIZE (GET_MODE_INNER (mode0));
+	      int l0 = GET_MODE_SIZE (mode0) / li;
+	      int l1 = GET_MODE_SIZE (mode1) / li;
+	      int i0 = INTVAL (XVECEXP (trueop1, 0, 0));
+	      if (i0 == 0 && !side_effects_p (op1) && mode == mode0)
+		{
+		  bool success = true;
+		  for (int i = 1; i < l0; ++i)
+		    {
+		      rtx j = XVECEXP (trueop1, 0, i);
+		      if (!CONST_INT_P (j) || INTVAL (j) != i)
+			{
+			  success = false;
+			  break;
+			}
+		    }
+		  if (success)
+		    return subop0;
+		}
+	      if (i0 == l0 && !side_effects_p (op0) && mode == mode1)
+		{
+		  bool success = true;
+		  for (int i = 1; i < l1; ++i)
+		    {
+		      rtx j = XVECEXP (trueop1, 0, i);
+		      if (!CONST_INT_P (j) || INTVAL (j) != i0 + i)
+			{
+			  success = false;
+			  break;
+			}
+		    }
+		  if (success)
+		    return subop1;
+		}
 	    }
 	}
 

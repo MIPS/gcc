@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -35,10 +35,12 @@
 --  This always occurs whether checks are suppressed or not. Dynamic range
 --  checks are, of course, not inserted if checks are suppressed.
 
+with Errout; use Errout;
 with Namet;  use Namet;
 with Table;
 with Types;  use Types;
 with Uintp;  use Uintp;
+with Urealp; use Urealp;
 
 package Checks is
 
@@ -49,9 +51,11 @@ package Checks is
    function Access_Checks_Suppressed          (E : Entity_Id) return Boolean;
    function Accessibility_Checks_Suppressed   (E : Entity_Id) return Boolean;
    function Alignment_Checks_Suppressed       (E : Entity_Id) return Boolean;
+   function Allocation_Checks_Suppressed      (E : Entity_Id) return Boolean;
    function Atomic_Synchronization_Disabled   (E : Entity_Id) return Boolean;
    function Discriminant_Checks_Suppressed    (E : Entity_Id) return Boolean;
    function Division_Checks_Suppressed        (E : Entity_Id) return Boolean;
+   function Duplicated_Tag_Checks_Suppressed  (E : Entity_Id) return Boolean;
    function Elaboration_Checks_Suppressed     (E : Entity_Id) return Boolean;
    function Index_Checks_Suppressed           (E : Entity_Id) return Boolean;
    function Length_Checks_Suppressed          (E : Entity_Id) return Boolean;
@@ -79,6 +83,53 @@ package Checks is
    --  Returns current overflow checking mode, taking into account whether
    --  we are inside an assertion expression.
 
+   ------------------------------------------
+   --  Control of Alignment Check Warnings --
+   ------------------------------------------
+
+   --  When we have address clauses, there is an issue of whether the address
+   --  specified is appropriate to the alignment. In the general case where the
+   --  address is dynamic, we generate a check and a possible warning (this
+   --  warning occurs for example if we have a restricted run time with the
+   --  restriction No_Exception_Propagation). We also issue this warning in
+   --  the case where the address is static, but we don't know the alignment
+   --  at the time we process the address clause. In such a case, we issue the
+   --  warning, but we may be able to find out later (after the back end has
+   --  annotated the actual alignment chosen) that the warning was not needed.
+
+   --  To deal with deleting these potentially annoying warnings, we save the
+   --  warning information in a table, and then delete the waranings in the
+   --  post compilation validation stage if we can tell that the check would
+   --  never fail (in general the back end will also optimize away the check
+   --  in such cases).
+
+   --  Table used to record information
+
+   type Alignment_Warnings_Record is record
+      E : Entity_Id;
+      --  Entity whose alignment possibly warrants a warning
+
+      A : Uint;
+      --  Compile time known value of address clause for which the alignment
+      --  is to be checked once we know the alignment.
+
+      W : Error_Msg_Id;
+      --  Id of warning message we might delete
+   end record;
+
+   package Alignment_Warnings is new Table.Table (
+     Table_Component_Type => Alignment_Warnings_Record,
+     Table_Index_Type     => Int,
+     Table_Low_Bound      => 0,
+     Table_Initial        => 10,
+     Table_Increment      => 200,
+     Table_Name           => "Alignment_Warnings");
+
+   procedure Validate_Alignment_Check_Warnings;
+   --  This routine is called after back annotation of type data to delete any
+   --  alignment warnings that turn out to be false alarms, based on knowing
+   --  the actual alignment, and a compile-time known alignment value.
+
    -------------------------------------------
    -- Procedures to Activate Checking Flags --
    -------------------------------------------
@@ -95,7 +146,9 @@ package Checks is
    --  Always call this routine rather than calling Set_Do_Overflow_Check to
    --  set an explicit value of True, to ensure handling the local raise case.
    --  Note that this call has no effect for MOD, REM, and unary "+" for which
-   --  overflow is never possible in any case.
+   --  overflow is never possible in any case. In addition, we do not set the
+   --  flag for unconstrained floating-point type operations, since we want to
+   --  allow for the generation of IEEE infinities in such cases.
 
    procedure Activate_Range_Check (N : Node_Id);
    pragma Inline (Activate_Range_Check);
@@ -195,8 +248,7 @@ package Checks is
 
    procedure Apply_Predicate_Check (N : Node_Id; Typ : Entity_Id);
    --  N is an expression to which a predicate check may need to be applied
-   --  for Typ, if Typ has a predicate function. The check is applied only
-   --  if the type of N does not match Typ.
+   --  for Typ, if Typ has a predicate function.
 
    procedure Apply_Type_Conversion_Checks (N : Node_Id);
    --  N is an N_Type_Conversion node. A type conversion actually involves
@@ -252,6 +304,20 @@ package Checks is
    --  assume that values are in range of their subtypes. If it is set to True,
    --  then this assumption is valid, if False, then processing is done using
    --  base types to allow invalid values.
+
+   procedure Determine_Range_R
+     (N            : Node_Id;
+      OK           : out Boolean;
+      Lo           : out Ureal;
+      Hi           : out Ureal;
+      Assume_Valid : Boolean := False);
+   --  Similar to Determine_Range, but for a node N of floating-point type. OK
+   --  is True on return only for IEEE floating-point types and only if we do
+   --  not have to worry about extended precision (i.e. on the x86, we must be
+   --  using -msse2 -mfpmath=sse). At the current time, this is used only in
+   --  GNATprove, though we could consider using it more generally in future.
+   --  For that to happen, the possibility of arguments of infinite or NaN
+   --  value should be taken into account, which is not the case currently.
 
    procedure Install_Null_Excluding_Check (N : Node_Id);
    --  Determines whether an access node requires a runtime access check and
@@ -610,12 +676,19 @@ package Checks is
    --  The Reason parameter is the exception code to be used for the exception
    --  if raised.
    --
-   --  Note on the relation of this routine to the Do_Range_Check flag. Mostly
-   --  for historical reasons, we often set the Do_Range_Check flag and then
-   --  later we call Generate_Range_Check if this flag is set. Most probably we
-   --  could eliminate this intermediate setting of the flag (historically the
-   --  back end dealt with range checks, using this flag to indicate if a check
-   --  was required, then we moved checks into the front end).
+   --  Note: if the expander is not active, or if we are in GNATprove mode,
+   --  then we do not generate explicit range code. Instead we just turn the
+   --  Do_Range_Check flag on, since in these cases that's what we want to see
+   --  in the tree (GNATprove in particular depends on this flag being set). If
+   --  we generate the actual range check, then we make sure the flag is off,
+   --  since the code we generate takes complete care of the check.
+   --
+   --  Historical note: We used to just pass on the Do_Range_Check flag to the
+   --  back end to generate the check, but now in code-generation mode we never
+   --  have this flag set, since the front end takes care of the check. The
+   --  normal processing flow now is that the analyzer typically turns on the
+   --  Do_Range_Check flag, and if it is set, this routine is called, which
+   --  turns the flag off in code-generation mode.
 
    procedure Generate_Index_Checks (N : Node_Id);
    --  This procedure is called to generate index checks on the subscripts for

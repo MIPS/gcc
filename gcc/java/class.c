@@ -991,7 +991,7 @@ build_utf8_ref (tree name)
 		       | SECTION_MERGE | (SECTION_ENTSIZE & decl_size));
 	  sprintf (buf, ".rodata.jutf8.%d", decl_size);
 	  switch_to_section (get_section (buf, flags, NULL));
-	  set_decl_section_name (decl, build_string (strlen (buf), buf));
+	  set_decl_section_name (decl, buf);
 	}
     }
 
@@ -1067,11 +1067,11 @@ build_classdollar_field (tree type)
       decl 
 	= build_decl (input_location,
 		      VAR_DECL, decl_name, 
-		      (build_type_variant 
+		      (build_qualified_type
 		       (build_pointer_type 
-			(build_type_variant (class_type_node, 
-					     /* const */ 1, 0)),
-			/* const */ 1, 0)));
+			(build_qualified_type (class_type_node,
+					       TYPE_QUAL_CONST)),
+			TYPE_QUAL_CONST)));
       TREE_STATIC (decl) = 1;
       TREE_CONSTANT (decl) = 1;
       TREE_READONLY (decl) = 1;
@@ -2815,8 +2815,7 @@ emit_register_classes_in_jcr_section (void)
   DECL_ARTIFICIAL (cdecl) = 1;
   DECL_IGNORED_P (cdecl) = 1;
   DECL_PRESERVE_P (cdecl) = 1;
-  set_decl_section_name (cdecl, build_string (strlen (JCR_SECTION_NAME),
-					      JCR_SECTION_NAME));
+  set_decl_section_name (cdecl, JCR_SECTION_NAME);
   pushdecl_top_level (cdecl);
   relayout_decl (cdecl);
   rest_of_decl_compilation (cdecl, 1, 0);

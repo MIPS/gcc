@@ -81,8 +81,8 @@
     operands[2] = GEN_INT (INTVAL (operands[2]) - offset);
   }
   [(set_attr "length" "2,2,2,2,2,2,2,4,4,4")
-   (set_attr "type" "alus_imm,alus_imm,alus_reg,alus_reg,alus_reg,
-		     alus_reg,alus_reg,multiple,multiple,multiple")]
+   (set_attr "type" "alus_imm,alus_imm,alus_sreg,alus_sreg,alus_sreg,
+		     alus_sreg,alus_sreg,multiple,multiple,multiple")]
 )
 
 ;; Reloading and elimination of the frame pointer can
@@ -118,7 +118,7 @@
   "sub\\t%0, %1, %2"
   [(set_attr "length" "2")
    (set_attr "conds" "set")
-   (set_attr "type" "alus_reg")]
+   (set_attr "type" "alus_sreg")]
 )
 
 ; Unfortunately with the Thumb the '&'/'0' trick can fails when operands
@@ -632,6 +632,25 @@
    (set_attr "type" "mov_reg,mov_imm,multiple,multiple,load1,store1,load1,store1,mov_reg")
    (set_attr "pool_range" "*,*,*,*,*,*,1018,*,*")
    (set_attr "conds" "set,clob,*,*,nocond,nocond,nocond,nocond,nocond")])
+
+; Split the load of 64-bit constant into two loads for high and low 32-bit parts respectively
+; to see if we can load them in fewer instructions or fewer cycles.
+; For the small 64-bit integer constants that satisfy constraint J, the instruction pattern
+; thumb1_movdi_insn has a better way to handle them.
+(define_split
+  [(set (match_operand:ANY64 0 "arm_general_register_operand" "")
+       (match_operand:ANY64 1 "const_double_operand" ""))]
+  "TARGET_THUMB1 && reload_completed && !satisfies_constraint_J (operands[1])"
+  [(set (match_dup 0) (match_dup 1))
+   (set (match_dup 2) (match_dup 3))]
+  "
+  operands[2] = gen_highpart (SImode, operands[0]);
+  operands[3] = gen_highpart_mode (SImode, GET_MODE (operands[0]),
+                                  operands[1]);
+  operands[0] = gen_lowpart (SImode, operands[0]);
+  operands[1] = gen_lowpart (SImode, operands[1]);
+  "
+)
 
 (define_split
   [(set (match_operand:SI 0 "register_operand" "")

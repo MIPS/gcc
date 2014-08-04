@@ -440,7 +440,7 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_1_PLUS, OPT_fshrink_wrap, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_fsplit_wide_types, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_ftree_ccp, NULL, 1 },
-    { OPT_LEVELS_1_PLUS, OPT_ftree_bit_ccp, NULL, 1 },
+    { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_ftree_bit_ccp, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_ftree_dce, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_ftree_dominator_opts, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_ftree_dse, NULL, 1 },
@@ -457,6 +457,7 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_fbranch_count_reg, NULL, 1 },
     { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_fmove_loop_invariants, NULL, 1 },
     { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_ftree_pta, NULL, 1 },
+    { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_fssa_phiopt, NULL, 1 },
 
     /* -O2 optimizations.  */
     { OPT_LEVELS_2_PLUS, OPT_finline_small_functions, NULL, 1 },
@@ -617,6 +618,13 @@ default_options_optimization (struct gcc_options *opts,
   maybe_set_param_value
     (PARAM_LOOP_INVARIANT_MAX_BBS_IN_LOOP,
      opt2 ? default_param_value (PARAM_LOOP_INVARIANT_MAX_BBS_IN_LOOP) : 1000,
+     opts->x_param_values, opts_set->x_param_values);
+
+  /* At -Ofast, allow store motion to introduce potential race conditions.  */
+  maybe_set_param_value
+    (PARAM_ALLOW_STORE_DATA_RACES,
+     opts->x_optimize_fast ? 1
+     : default_param_value (PARAM_ALLOW_STORE_DATA_RACES),
      opts->x_param_values, opts_set->x_param_values);
 
   if (opts->x_optimize_size)
@@ -861,6 +869,20 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
   /* The -gsplit-dwarf option requires -ggnu-pubnames.  */
   if (opts->x_dwarf_split_debug_info)
     opts->x_debug_generate_pub_sections = 2;
+
+  /* Userspace and kernel ASan conflict with each other and with TSan.  */
+
+  if ((flag_sanitize & SANITIZE_USER_ADDRESS)
+      && (flag_sanitize & SANITIZE_KERNEL_ADDRESS))
+    error_at (loc,
+              "-fsanitize=address is incompatible with "
+              "-fsanitize=kernel-address");
+
+  if ((flag_sanitize & SANITIZE_ADDRESS)
+      && (flag_sanitize & SANITIZE_THREAD))
+    error_at (loc,
+              "-fsanitize=address and -fsanitize=kernel-address "
+              "are incompatible with -fsanitize=thread");
 }
 
 #define LEFT_COLUMN	27
@@ -1446,7 +1468,10 @@ common_handle_option (struct gcc_options *opts,
 	      size_t len;
 	    } spec[] =
 	    {
-	      { "address", SANITIZE_ADDRESS, sizeof "address" - 1 },
+	      { "address", SANITIZE_ADDRESS | SANITIZE_USER_ADDRESS,
+		sizeof "address" - 1 },
+	      { "kernel-address", SANITIZE_ADDRESS | SANITIZE_KERNEL_ADDRESS,
+		sizeof "kernel-address" - 1 },
 	      { "thread", SANITIZE_THREAD, sizeof "thread" - 1 },
 	      { "leak", SANITIZE_LEAK, sizeof "leak" - 1 },
 	      { "shift", SANITIZE_SHIFT, sizeof "shift" - 1 },
@@ -1466,6 +1491,8 @@ common_handle_option (struct gcc_options *opts,
 		sizeof "float-divide-by-zero" - 1 },
 	      { "float-cast-overflow", SANITIZE_FLOAT_CAST,
 		sizeof "float-cast-overflow" - 1 },
+	      { "bounds", SANITIZE_BOUNDS, sizeof "bounds" - 1 },
+	      { "alignment", SANITIZE_ALIGNMENT, sizeof "alignment" - 1 },
 	      { NULL, 0, 0 }
 	    };
 	    const char *comma;
@@ -1511,6 +1538,25 @@ common_handle_option (struct gcc_options *opts,
 	   the null pointer checks.  */
 	if (flag_sanitize & SANITIZE_NULL)
 	  opts->x_flag_delete_null_pointer_checks = 0;
+
+	/* Kernel ASan implies normal ASan but does not yet support
+	   all features.  */
+	if (flag_sanitize & SANITIZE_KERNEL_ADDRESS)
+	  {
+	    maybe_set_param_value (PARAM_ASAN_INSTRUMENTATION_WITH_CALL_THRESHOLD, 0,
+				   opts->x_param_values,
+				   opts_set->x_param_values);
+	    maybe_set_param_value (PARAM_ASAN_GLOBALS, 0,
+				   opts->x_param_values,
+				   opts_set->x_param_values);
+	    maybe_set_param_value (PARAM_ASAN_STACK, 0,
+				   opts->x_param_values,
+				   opts_set->x_param_values);
+	    maybe_set_param_value (PARAM_ASAN_USE_AFTER_RETURN, 0,
+				   opts->x_param_values,
+				   opts_set->x_param_values);
+	  }
+
 	break;
       }
 
@@ -1868,6 +1914,11 @@ common_handle_option (struct gcc_options *opts,
     case OPT_gxcoff_:
       set_debug_level (XCOFF_DEBUG, code == OPT_gxcoff_, arg, opts, opts_set,
 		       loc);
+      break;
+
+    case OPT_gz:
+    case OPT_gz_:
+      /* Handled completely via specs.  */
       break;
 
     case OPT_pedantic_errors:

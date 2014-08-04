@@ -55,7 +55,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "cgraph.h"
 #include "tree-pass.h"
-#include "pointer-set.h"
+#include "hash-map.h"
 
 /* Main dataflow loop propagating comdat groups across
    the symbol table.  All references to SYMBOL are examined
@@ -64,7 +64,7 @@ along with GCC; see the file COPYING3.  If not see
 
 tree
 propagate_comdat_group (struct symtab_node *symbol,
-			tree newgroup, pointer_map <tree> &map)
+			tree newgroup, hash_map<symtab_node *, tree> &map)
 {
   int i;
   struct ipa_ref *ref;
@@ -72,7 +72,7 @@ propagate_comdat_group (struct symtab_node *symbol,
   /* Walk all references to SYMBOL, recursively dive into aliases.  */
 
   for (i = 0;
-       ipa_ref_list_referring_iterate (&symbol->ref_list, i, ref)
+       symbol->iterate_referring (i, ref)
        && newgroup != error_mark_node; i++)
     {
       struct symtab_node *symbol2 = ref->referring;
@@ -105,7 +105,7 @@ propagate_comdat_group (struct symtab_node *symbol,
 
       /* The actual merge operation.  */
 
-      tree *val2 = map.contains (symbol2);
+      tree *val2 = map.get (symbol2);
 
       if (val2 && *val2 != newgroup)
 	{
@@ -138,7 +138,7 @@ propagate_comdat_group (struct symtab_node *symbol,
 
         /* The actual merge operation.  */
 
-	tree *val2 = map.contains (symbol2);
+	tree *val2 = map.get (symbol2);
 
 	if (val2 && *val2 != newgroup)
 	  {
@@ -161,11 +161,11 @@ enqueue_references (symtab_node **first,
 		    symtab_node *symbol)
 {
   int i;
-  struct ipa_ref *ref;
+  struct ipa_ref *ref = NULL;
 
-  for (i = 0; ipa_ref_list_reference_iterate (&symbol->ref_list, i, ref); i++)
+  for (i = 0; symbol->iterate_reference (i, ref); i++)
     {
-      symtab_node *node = symtab_alias_ultimate_target (ref->referred, NULL);
+      symtab_node *node = ref->referred->ultimate_alias_target ();
       if (!node->aux && node->definition)
 	{
 	   node->aux = *first;
@@ -182,8 +182,7 @@ enqueue_references (symtab_node **first,
 	  enqueue_references (first, edge->callee);
 	else
 	  {
-	    symtab_node *node = symtab_alias_ultimate_target (edge->callee,
-							      NULL);
+	    symtab_node *node = edge->callee->ultimate_alias_target ();
 	    if (!node->aux && node->definition)
 	      {
 		 node->aux = *first;
@@ -204,7 +203,7 @@ set_comdat_group (symtab_node *symbol,
 
   gcc_assert (!symbol->get_comdat_group ());
   symbol->set_comdat_group (head->get_comdat_group ());
-  symtab_add_to_same_comdat_group (symbol, head);
+  symbol->add_to_same_comdat_group (head);
   return false;
 }
 
@@ -213,8 +212,8 @@ set_comdat_group (symtab_node *symbol,
 static unsigned int
 ipa_comdats (void)
 {
-  pointer_map<tree> map;
-  pointer_map<symtab_node *> comdat_head_map;
+  hash_map<symtab_node *, tree> map (251);
+  hash_map<tree, symtab_node *> comdat_head_map (251);
   symtab_node *symbol;
   bool comdat_group_seen = false;
   symtab_node *first = (symtab_node *) (void *) 1;
@@ -225,12 +224,12 @@ ipa_comdats (void)
      ERROR_MARK_NODE as bottom for the propagation.  */
 
   FOR_EACH_DEFINED_SYMBOL (symbol)
-    if (!symtab_real_symbol_p (symbol))
+    if (!symbol->real_symbol_p ())
       ;
     else if ((group = symbol->get_comdat_group ()) != NULL)
       {
-        *map.insert (symbol) = group;
-        *comdat_head_map.insert (group) = symbol;
+        map.put (symbol, group);
+        comdat_head_map.put (group, symbol);
 	comdat_group_seen = true;
 
 	/* Mark the symbol so we won't waste time visiting it for dataflow.  */
@@ -248,7 +247,7 @@ ipa_comdats (void)
 		 && (DECL_STATIC_CONSTRUCTOR (symbol->decl)
 		     || DECL_STATIC_DESTRUCTOR (symbol->decl))))
       {
-	*map.insert (symtab_alias_ultimate_target (symbol, NULL)) = error_mark_node;
+	map.put (symbol->ultimate_alias_target (), error_mark_node);
 
 	/* Mark the symbol so we won't waste time visiting it for dataflow.  */
 	symbol->aux = (symtab_node *) (void *) 1;
@@ -278,7 +277,7 @@ ipa_comdats (void)
       first = (symtab_node *)first->aux;
 
       /* Get current lattice value of SYMBOL.  */
-      val = map.contains (symbol);
+      val = map.get (symbol);
       if (val)
 	group = *val;
 
@@ -301,7 +300,7 @@ ipa_comdats (void)
       if (val)
 	*val = newgroup;
       else
-	*map.insert (symbol) = newgroup;
+	map.put (symbol, newgroup);
       enqueue_references (&first, symbol);
 
       /* We may need to revisit the symbol unless it is BOTTOM.  */
@@ -316,20 +315,21 @@ ipa_comdats (void)
       symbol->aux = NULL; 
       if (!symbol->get_comdat_group ()
 	  && !symbol->alias
-	  && symtab_real_symbol_p (symbol))
+	  && symbol->real_symbol_p ())
 	{
-	  tree group = *map.contains (symbol);
+	  tree group = *map.get (symbol);
 
 	  if (group == error_mark_node)
 	    continue;
 	  if (dump_file)
 	    {
 	      fprintf (dump_file, "Localizing symbol\n");
-	      dump_symtab_node (dump_file, symbol);
+	      symbol->dump (dump_file);
 	      fprintf (dump_file, "To group: %s\n", IDENTIFIER_POINTER (group));
 	    }
-	  symtab_for_node_and_aliases (symbol, set_comdat_group,
-				       *comdat_head_map.contains (group), true);
+	  symbol->call_for_symbol_and_aliases (set_comdat_group,
+					     *comdat_head_map.get (group),
+					     true);
 	}
     }
   return 0;
@@ -342,7 +342,6 @@ const pass_data pass_data_ipa_comdats =
   IPA_PASS, /* type */
   "comdats", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_IPA_COMDATS, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */

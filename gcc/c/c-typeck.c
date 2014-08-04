@@ -2731,6 +2731,16 @@ c_expr_sizeof_expr (location_t loc, struct c_expr expr)
   else
     {
       bool expr_const_operands = true;
+
+      if (TREE_CODE (expr.value) == PARM_DECL
+	  && C_ARRAY_PARAMETER (expr.value))
+	{
+	  if (warning_at (loc, OPT_Wsizeof_array_argument,
+			  "%<sizeof%> on array function parameter %qE will "
+			  "return size of %qT", expr.value,
+			  expr.original_type))
+	    inform (DECL_SOURCE_LOCATION (expr.value), "declared here");
+	}
       tree folded_expr = c_fully_fold (expr.value, require_constant_value,
 				       &expr_const_operands);
       ret.value = c_sizeof (loc, TREE_TYPE (folded_expr));
@@ -3402,7 +3412,8 @@ parser_build_binary_op (location_t location, enum tree_code code,
 			   code1, arg1.value, code2, arg2.value);
 
   if (warn_logical_not_paren
-      && code1 == TRUTH_NOT_EXPR)
+      && code1 == TRUTH_NOT_EXPR
+      && code2 != TRUTH_NOT_EXPR)
     warn_logical_not_parentheses (location, code, arg1.value, arg2.value);
 
   /* Warn about comparisons against string literals, with the exception
@@ -6188,7 +6199,8 @@ convert_for_assignment (location_t location, location_t expr_loc, tree type,
       else
 	/* Avoid warning about the volatile ObjC EH puts on decls.  */
 	if (!objc_ok)
-	  WARN_FOR_ASSIGNMENT (location, expr_loc, 0,
+	  WARN_FOR_ASSIGNMENT (location, expr_loc,
+			       OPT_Wincompatible_pointer_types,
 			       G_("passing argument %d of %qE from "
 				  "incompatible pointer type"),
 			       G_("assignment from incompatible pointer type"),
@@ -6211,7 +6223,8 @@ convert_for_assignment (location_t location, location_t expr_loc, tree type,
 	 or one that results from arithmetic, even including
 	 a cast to integer type.  */
       if (!null_pointer_constant)
-	WARN_FOR_ASSIGNMENT (location, expr_loc, 0,
+	WARN_FOR_ASSIGNMENT (location, expr_loc,
+			     OPT_Wint_conversion,
 			     G_("passing argument %d of %qE makes "
 				"pointer from integer without a cast"),
 			     G_("assignment makes pointer from integer "
@@ -6225,7 +6238,8 @@ convert_for_assignment (location_t location, location_t expr_loc, tree type,
     }
   else if (codel == INTEGER_TYPE && coder == POINTER_TYPE)
     {
-      WARN_FOR_ASSIGNMENT (location, expr_loc, 0,
+      WARN_FOR_ASSIGNMENT (location, expr_loc,
+			   OPT_Wint_conversion,
 			   G_("passing argument %d of %qE makes integer "
 			      "from pointer without a cast"),
 			   G_("assignment makes integer from pointer "
@@ -6942,6 +6956,7 @@ struct constructor_stack
   char outer;
   char incremental;
   char designated;
+  int designator_depth;
 };
 
 static struct constructor_stack *constructor_stack;
@@ -7113,6 +7128,7 @@ really_start_incremental_init (tree type)
   p->outer = 0;
   p->incremental = constructor_incremental;
   p->designated = constructor_designated;
+  p->designator_depth = designator_depth;
   p->next = 0;
   constructor_stack = p;
 
@@ -7262,6 +7278,7 @@ push_init_level (location_t loc, int implicit,
   p->outer = 0;
   p->incremental = constructor_incremental;
   p->designated = constructor_designated;
+  p->designator_depth = designator_depth;
   p->next = constructor_stack;
   p->range_stack = 0;
   constructor_stack = p;
@@ -7569,6 +7586,7 @@ pop_init_level (location_t loc, int implicit,
   constructor_erroneous = p->erroneous;
   constructor_incremental = p->incremental;
   constructor_designated = p->designated;
+  designator_depth = p->designator_depth;
   constructor_pending_elts = p->pending_elts;
   constructor_depth = p->depth;
   if (!p->implicit)
@@ -8638,6 +8656,15 @@ process_init_element (location_t loc, struct c_expr value, bool implicit,
   if (constructor_type == 0)
     return;
 
+  if (!implicit && warn_designated_init && !was_designated
+      && TREE_CODE (constructor_type) == RECORD_TYPE
+      && lookup_attribute ("designated_init",
+			   TYPE_ATTRIBUTES (constructor_type)))
+    warning_init (loc,
+		  OPT_Wdesignated_init,
+		  "positional initialization of field "
+		  "in %<struct%> declared with %<designated_init%> attribute");
+
   /* If we've exhausted any levels that didn't have braces,
      pop them now.  */
   while (constructor_stack->implicit)
@@ -9184,7 +9211,8 @@ c_finish_goto_ptr (location_t loc, tree expr)
 
 /* Generate a C `return' statement.  RETVAL is the expression for what
    to return, or a null pointer for `return;' with no value.  LOC is
-   the location of the return statement.  If ORIGTYPE is not NULL_TREE, it
+   the location of the return statement, or the location of the expression,
+   if the statement has any.  If ORIGTYPE is not NULL_TREE, it
    is the original type of RETVAL.  */
 
 tree
@@ -9322,8 +9350,12 @@ c_finish_return (location_t loc, tree retval, tree origtype)
 		    warning_at (loc, OPT_Wreturn_local_addr,
 				"function returns address of label");
 		  else
-		    warning_at (loc, OPT_Wreturn_local_addr,
-				"function returns address of local variable");
+		    {
+		      warning_at (loc, OPT_Wreturn_local_addr,
+				  "function returns address of local variable");
+		      tree zero = build_zero_cst (TREE_TYPE (res));
+		      t = build2 (COMPOUND_EXPR, TREE_TYPE (res), t, zero);
+		    }
 		}
 	      break;
 
@@ -12004,6 +12036,9 @@ c_finish_omp_clauses (tree clauses)
 		s = size_one_node;
 	      OMP_CLAUSE_LINEAR_STEP (c) = s;
 	    }
+	  else
+	    OMP_CLAUSE_LINEAR_STEP (c)
+	      = fold_convert (TREE_TYPE (t), OMP_CLAUSE_LINEAR_STEP (c));
 	  goto check_dup_generic;
 
 	check_dup_generic:

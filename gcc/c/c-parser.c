@@ -1204,7 +1204,8 @@ static struct c_expr c_parser_expression (c_parser *);
 static struct c_expr c_parser_expression_conv (c_parser *);
 static vec<tree, va_gc> *c_parser_expr_list (c_parser *, bool, bool,
 					     vec<tree, va_gc> **, location_t *,
-					     tree *, vec<location_t> *);
+					     tree *, vec<location_t> *,
+					     unsigned int * = NULL);
 static void c_parser_omp_construct (c_parser *);
 static void c_parser_omp_threadprivate (c_parser *);
 static void c_parser_omp_barrier (c_parser *);
@@ -1720,14 +1721,10 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 			      " initializer");
 		  init = convert_lvalue_to_rvalue (init_loc, init, true, true);
 		  tree init_type = TREE_TYPE (init.value);
-		  /* As with typeof, remove _Atomic and const
-		     qualifiers from atomic types.  */
+		  /* As with typeof, remove all qualifiers from atomic types.  */
 		  if (init_type != error_mark_node && TYPE_ATOMIC (init_type))
 		    init_type
-		      = c_build_qualified_type (init_type,
-						(TYPE_QUALS (init_type)
-						 & ~(TYPE_QUAL_ATOMIC
-						     | TYPE_QUAL_CONST)));
+		      = c_build_qualified_type (init_type, TYPE_UNQUALIFIED);
 		  bool vm_type = variably_modified_type_p (init_type,
 							   NULL_TREE);
 		  if (vm_type)
@@ -3024,16 +3021,11 @@ c_parser_typeof_specifier (c_parser *parser)
       if (was_vm)
 	ret.expr = c_fully_fold (expr.value, false, &ret.expr_const_operands);
       pop_maybe_used (was_vm);
-      /* For use in macros such as those in <stdatomic.h>, remove
-	 _Atomic and const qualifiers from atomic types.  (Possibly
-	 all qualifiers should be removed; const can be an issue for
-	 more macros using typeof than just the <stdatomic.h>
-	 ones.)  */
+      /* For use in macros such as those in <stdatomic.h>, remove all
+	 qualifiers from atomic types.  (const can be an issue for more macros
+	 using typeof than just the <stdatomic.h> ones.)  */
       if (ret.spec != error_mark_node && TYPE_ATOMIC (ret.spec))
-	ret.spec = c_build_qualified_type (ret.spec,
-					   (TYPE_QUALS (ret.spec)
-					    & ~(TYPE_QUAL_ATOMIC
-						| TYPE_QUAL_CONST)));
+	ret.spec = c_build_qualified_type (ret.spec, TYPE_UNQUALIFIED);
     }
   c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
   return ret;
@@ -4948,9 +4940,10 @@ c_parser_statement_after_labels (c_parser *parser)
 	    }
 	  else
 	    {
+	      location_t xloc = c_parser_peek_token (parser)->location;
 	      struct c_expr expr = c_parser_expression_conv (parser);
 	      mark_exp_read (expr.value);
-	      stmt = c_finish_return (loc, expr.value, expr.original_type);
+	      stmt = c_finish_return (xloc, expr.value, expr.original_type);
 	      goto expect_semicolon;
 	    }
 	  break;
@@ -7663,6 +7656,7 @@ c_parser_postfix_expression_after_primary (c_parser *parser,
   tree ident, idx;
   location_t sizeof_arg_loc[3];
   tree sizeof_arg[3];
+  unsigned int literal_zero_mask;
   unsigned int i;
   vec<tree, va_gc> *exprlist;
   vec<tree, va_gc> *origtypes = NULL;
@@ -7717,12 +7711,13 @@ c_parser_postfix_expression_after_primary (c_parser *parser,
 	      sizeof_arg[i] = NULL_TREE;
 	      sizeof_arg_loc[i] = UNKNOWN_LOCATION;
 	    }
+	  literal_zero_mask = 0;
 	  if (c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
 	    exprlist = NULL;
 	  else
 	    exprlist = c_parser_expr_list (parser, true, false, &origtypes,
 					   sizeof_arg_loc, sizeof_arg,
-					   &arg_loc);
+					   &arg_loc, &literal_zero_mask);
 	  c_parser_skip_until_found (parser, CPP_CLOSE_PAREN,
 				     "expected %<)%>");
 	  orig_expr = expr;
@@ -7732,6 +7727,19 @@ c_parser_postfix_expression_after_primary (c_parser *parser,
 					      expr.value, exprlist,
 					      sizeof_arg,
 					      sizeof_ptr_memacc_comptypes);
+	  if (warn_memset_transposed_args
+	      && TREE_CODE (expr.value) == FUNCTION_DECL
+	      && DECL_BUILT_IN_CLASS (expr.value) == BUILT_IN_NORMAL
+	      && DECL_FUNCTION_CODE (expr.value) == BUILT_IN_MEMSET
+	      && vec_safe_length (exprlist) == 3
+	      && integer_zerop ((*exprlist)[2])
+	      && (literal_zero_mask & (1 << 2)) != 0
+	      && (!integer_zerop ((*exprlist)[1])
+		  || (literal_zero_mask & (1 << 1)) == 0))
+	    warning_at (expr_loc, OPT_Wmemset_transposed_args,
+			"%<memset%> used with constant zero length parameter; "
+			"this could be due to transposed parameters");
+
 	  expr.value
 	    = c_build_function_call_vec (expr_loc, arg_loc, expr.value,
 					 exprlist, origtypes);
@@ -7899,6 +7907,36 @@ c_parser_expression_conv (c_parser *parser)
   return expr;
 }
 
+/* Helper function of c_parser_expr_list.  Check if IDXth (0 based)
+   argument is a literal zero alone and if so, set it in literal_zero_mask.  */
+
+static inline void
+c_parser_check_literal_zero (c_parser *parser, unsigned *literal_zero_mask,
+			     unsigned int idx)
+{
+  if (idx >= HOST_BITS_PER_INT)
+    return;
+
+  c_token *tok = c_parser_peek_token (parser);
+  switch (tok->type)
+    {
+    case CPP_NUMBER:
+    case CPP_CHAR:
+    case CPP_WCHAR:
+    case CPP_CHAR16:
+    case CPP_CHAR32:
+      /* If a parameter is literal zero alone, remember it
+	 for -Wmemset-transposed-args warning.  */
+      if (integer_zerop (tok->value)
+	  && !TREE_OVERFLOW (tok->value)
+	  && (c_parser_peek_2nd_token (parser)->type == CPP_COMMA
+	      || c_parser_peek_2nd_token (parser)->type == CPP_CLOSE_PAREN))
+	*literal_zero_mask |= 1U << idx;
+    default:
+      break;
+    }
+}
+
 /* Parse a non-empty list of expressions.  If CONVERT_P, convert
    functions and arrays to pointers and lvalues to rvalues.  If
    FOLD_P, fold the expressions.  If LOCATIONS is non-NULL, save the
@@ -7913,7 +7951,8 @@ static vec<tree, va_gc> *
 c_parser_expr_list (c_parser *parser, bool convert_p, bool fold_p,
 		    vec<tree, va_gc> **p_orig_types,
 		    location_t *sizeof_arg_loc, tree *sizeof_arg,
-		    vec<location_t> *locations)
+		    vec<location_t> *locations,
+		    unsigned int *literal_zero_mask)
 {
   vec<tree, va_gc> *ret;
   vec<tree, va_gc> *orig_types;
@@ -7931,6 +7970,8 @@ c_parser_expr_list (c_parser *parser, bool convert_p, bool fold_p,
   if (sizeof_arg != NULL
       && c_parser_next_token_is_keyword (parser, RID_SIZEOF))
     cur_sizeof_arg_loc = c_parser_peek_2nd_token (parser)->location;
+  if (literal_zero_mask)
+    c_parser_check_literal_zero (parser, literal_zero_mask, 0);
   expr = c_parser_expr_no_commas (parser, NULL);
   if (convert_p)
     expr = convert_lvalue_to_rvalue (loc, expr, true, true);
@@ -7957,6 +7998,8 @@ c_parser_expr_list (c_parser *parser, bool convert_p, bool fold_p,
 	cur_sizeof_arg_loc = c_parser_peek_2nd_token (parser)->location;
       else
 	cur_sizeof_arg_loc = UNKNOWN_LOCATION;
+      if (literal_zero_mask)
+	c_parser_check_literal_zero (parser, literal_zero_mask, idx + 1);
       expr = c_parser_expr_no_commas (parser, NULL);
       if (convert_p)
 	expr = convert_lvalue_to_rvalue (loc, expr, true, true);
@@ -11910,8 +11953,17 @@ c_parser_omp_for_loop (location_t loc, c_parser *parser, enum tree_code code,
 			tree l = build_omp_clause (OMP_CLAUSE_LOCATION (*c),
 						   OMP_CLAUSE_LASTPRIVATE);
 			OMP_CLAUSE_DECL (l) = OMP_CLAUSE_DECL (*c);
-			OMP_CLAUSE_CHAIN (l) = clauses;
-			clauses = l;
+			if (code == OMP_SIMD)
+			  {
+			    OMP_CLAUSE_CHAIN (l)
+			      = cclauses[C_OMP_CLAUSE_SPLIT_FOR];
+			    cclauses[C_OMP_CLAUSE_SPLIT_FOR] = l;
+			  }
+			else
+			  {
+			    OMP_CLAUSE_CHAIN (l) = clauses;
+			    clauses = l;
+			  }
 			OMP_CLAUSE_SET_CODE (*c, OMP_CLAUSE_SHARED);
 		      }
 		  }
@@ -13557,7 +13609,7 @@ c_parser_omp_threadprivate (c_parser *parser)
 	{
 	  if (! DECL_THREAD_LOCAL_P (v))
 	    {
-	      DECL_TLS_MODEL (v) = decl_default_tls_model (v);
+	      set_decl_tls_model (v, decl_default_tls_model (v));
 	      /* If rtl has been already set for this var, call
 		 make_decl_rtl once again, so that encode_section_info
 		 has a chance to look at the new decl flags.  */
@@ -14097,7 +14149,7 @@ c_parser_array_notation (location_t loc, c_parser *parser, tree initial_index,
   tree value_tree = NULL_TREE, type = NULL_TREE, array_type = NULL_TREE;
   tree array_type_domain = NULL_TREE; 
 
-  if (array_value == error_mark_node)
+  if (array_value == error_mark_node || initial_index == error_mark_node)
     {
       /* No need to continue.  If either of these 2 were true, then an error
 	 must be emitted already.  Thus, no need to emit them twice.  */

@@ -797,7 +797,7 @@ extern int may_call_alloca;
   ((GET_CODE (X) == LABEL_REF 						\
    || (GET_CODE (X) == SYMBOL_REF && !SYMBOL_REF_TLS_MODEL (X))		\
    || GET_CODE (X) == CONST_INT						\
-   || (GET_CODE (X) == CONST && !pa_tls_referenced_p (X))		\
+   || (GET_CODE (X) == CONST && !tls_referenced_p (X))			\
    || GET_CODE (X) == HIGH) 						\
    && (reload_in_progress || reload_completed				\
        || ! pa_symbolic_expression_p (X)))
@@ -955,7 +955,7 @@ do {									     \
 /* Return a nonzero value if DECL has a section attribute.  */
 #define IN_NAMED_SECTION_P(DECL) \
   ((TREE_CODE (DECL) == FUNCTION_DECL || TREE_CODE (DECL) == VAR_DECL) \
-   && DECL_SECTION_NAME (DECL) != NULL_TREE)
+   && DECL_SECTION_NAME (DECL) != NULL)
 
 /* Define this macro if references to a symbol must be treated
    differently depending on something about the variable or

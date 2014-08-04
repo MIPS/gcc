@@ -304,7 +304,8 @@ package body Sem_Ch9 is
 
                            if Is_Scalar_Type (Etype (Attr))
                              and then Is_Scalar_Type (Etype (Prefix (Attr)))
-                             and then Is_Static_Subtype (Etype (Prefix (Attr)))
+                             and then
+                               Is_OK_Static_Subtype (Etype (Prefix (Attr)))
                            then
                               Para := First (Expressions (Attr));
 
@@ -389,7 +390,7 @@ package body Sem_Ch9 is
                      --  static function restricted.
 
                      elsif Kind = N_Attribute_Reference
-                       and then not Is_Static_Expression (N)
+                       and then not Is_OK_Static_Expression (N)
                        and then not Is_Static_Function (N)
                      then
                         if Lock_Free_Given then
@@ -427,7 +428,7 @@ package body Sem_Ch9 is
                      --  Non-static function calls restricted
 
                      elsif Kind = N_Function_Call
-                       and then not Is_Static_Expression (N)
+                       and then not Is_OK_Static_Expression (N)
                      then
                         if Lock_Free_Given then
                            Error_Msg_N
@@ -1557,7 +1558,7 @@ package body Sem_Ch9 is
                goto Skip_LB;
             end if;
 
-            if Is_Static_Expression (LBR)
+            if Is_OK_Static_Expression (LBR)
               and then Expr_Value (LBR) < LB
             then
                Error_Msg_Uint_1 := LB;
@@ -1583,7 +1584,7 @@ package body Sem_Ch9 is
                goto Skip_UB;
             end if;
 
-            if Is_Static_Expression (UBR)
+            if Is_OK_Static_Expression (UBR)
               and then Expr_Value (UBR) > UB
             then
                Error_Msg_Uint_1 := UB;
@@ -1911,6 +1912,11 @@ package body Sem_Ch9 is
            or else Has_Task (Etype (E))
          then
             Set_Has_Task (Current_Scope);
+
+         elsif Is_Protected_Type (Etype (E))
+           or else Has_Protected (Etype (E))
+         then
+            Set_Has_Protected (Current_Scope);
          end if;
 
          Next_Entity (E);
@@ -1957,6 +1963,7 @@ package body Sem_Ch9 is
 
       Set_Ekind              (T, E_Protected_Type);
       Set_Is_First_Subtype   (T, True);
+      Set_Has_Protected      (T, True);
       Init_Size_Align        (T);
       Set_Etype              (T, T);
       Set_Has_Delayed_Freeze (T, True);
@@ -2436,10 +2443,11 @@ package body Sem_Ch9 is
 
       --  AI05-0225: the target protected object of a requeue must be a
       --  variable. This is a binding interpretation that applies to all
-      --  versions of the language.
+      --  versions of the language. Note that the subprogram does not have
+      --  to be a protected operation: it can be an primitive implemented
+      --  by entry with a formal that is a protected interface.
 
       if Present (Target_Obj)
-        and then Ekind (Scope (Entry_Id)) in Protected_Kind
         and then not Is_Variable (Target_Obj)
       then
          Error_Msg_N
@@ -2888,6 +2896,17 @@ package body Sem_Ch9 is
    begin
       Check_Restriction (No_Tasking, N);
       Tasking_Used := True;
+
+      --  The sequential partition elaboration policy is supported only in the
+      --  restricted profile.
+
+      if Partition_Elaboration_Policy = 'S'
+        and then not Restricted_Profile
+      then
+         Error_Msg_N
+           ("sequential elaboration supported only in restricted profile", N);
+      end if;
+
       T := Find_Type_Name (N);
       Generate_Definition (T);
 
@@ -3327,8 +3346,8 @@ package body Sem_Ch9 is
 
                if Present (Iface) then
                   Error_Msg_NE
-                    ("interface & not implemented by full type " &
-                     "(RM-2005 7.3 (7.3/2))", Priv_T, Iface);
+                    ("interface in partial view& not implemented by full "
+                     & "type (RM-2005 7.3 (7.3/2))", T, Iface);
                end if;
 
                Iface := Find_Hidden_Interface (Full_T_Ifaces, Priv_T_Ifaces);

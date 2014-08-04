@@ -180,9 +180,17 @@ package body Sem_Ch7 is
 
    procedure Analyze_Package_Body_Contract (Body_Id : Entity_Id) is
       Spec_Id : constant Entity_Id := Spec_Entity (Body_Id);
+      Mode    : SPARK_Mode_Type;
       Prag    : Node_Id;
 
    begin
+      --  Due to the timing of contract analysis, delayed pragmas may be
+      --  subject to the wrong SPARK_Mode, usually that of the enclosing
+      --  context. To remedy this, restore the original SPARK_Mode of the
+      --  related package body.
+
+      Save_SPARK_Mode_And_Set (Body_Id, Mode);
+
       Prag := Get_Pragma (Body_Id, Pragma_Refined_State);
 
       --  The analysis of pragma Refined_State detects whether the spec has
@@ -200,6 +208,11 @@ package body Sem_Ch7 is
       then
          Error_Msg_N ("package & requires state refinement", Spec_Id);
       end if;
+
+      --  Restore the SPARK_Mode of the enclosing context after all delayed
+      --  pragmas have been analyzed.
+
+      Restore_SPARK_Mode (Mode);
    end Analyze_Package_Body_Contract;
 
    ---------------------------------
@@ -268,8 +281,7 @@ package body Sem_Ch7 is
       else
          Spec_Id := Current_Entity_In_Scope (Defining_Entity (N));
 
-         if Present (Spec_Id)
-           and then Is_Package_Or_Generic_Package (Spec_Id)
+         if Present (Spec_Id) and then Is_Package_Or_Generic_Package (Spec_Id)
          then
             Pack_Decl := Unit_Declaration_Node (Spec_Id);
 
@@ -688,8 +700,7 @@ package body Sem_Ch7 is
                         --  of accessing global entities.
 
                         if Has_Pragma_Inline (E) then
-                           if Outer
-                             and then Check_Subprogram_Refs (D) = OK
+                           if Outer and then Check_Subprogram_Refs (D) = OK
                            then
                               Has_Referencer_Except_For_Subprograms := True;
                            else
@@ -711,8 +722,7 @@ package body Sem_Ch7 is
                            end if;
 
                            if Has_Pragma_Inline (E) or else Is_Inlined (E) then
-                              if Outer
-                                and then Check_Subprogram_Refs (D) = OK
+                              if Outer and then Check_Subprogram_Refs (D) = OK
                               then
                                  Has_Referencer_Except_For_Subprograms := True;
                               else
@@ -839,9 +849,17 @@ package body Sem_Ch7 is
    ------------------------------
 
    procedure Analyze_Package_Contract (Pack_Id : Entity_Id) is
+      Mode : SPARK_Mode_Type;
       Prag : Node_Id;
 
    begin
+      --  Due to the timing of contract analysis, delayed pragmas may be
+      --  subject to the wrong SPARK_Mode, usually that of the enclosing
+      --  context. To remedy this, restore the original SPARK_Mode of the
+      --  related package.
+
+      Save_SPARK_Mode_And_Set (Pack_Id, Mode);
+
       --  Analyze the initialization related pragmas. Initializes must come
       --  before Initial_Condition due to item dependencies.
 
@@ -867,6 +885,11 @@ package body Sem_Ch7 is
             Check_Missing_Part_Of (Pack_Id);
          end if;
       end if;
+
+      --  Restore the SPARK_Mode of the enclosing context after all delayed
+      --  pragmas have been analyzed.
+
+      Restore_SPARK_Mode (Mode);
    end Analyze_Package_Contract;
 
    ---------------------------------
@@ -1864,7 +1887,7 @@ package body Sem_Ch7 is
                end if;
 
             else
-               --  Non-tagged type, scan forward to locate inherited hidden
+               --  For untagged type, scan forward to locate inherited hidden
                --  operations.
 
                Prim_Op := Next_Entity (E);
@@ -1956,10 +1979,19 @@ package body Sem_Ch7 is
             Write_Eol;
          end if;
 
-         if not Is_Child_Unit (Id) then
+         if Is_Child_Unit (Id) then
+            null;
+
+         --  Do not enter implicitly inherited non-overridden subprograms of
+         --  a tagged type back into visibility if they have non-conformant
+         --  homographs (Ada RM 8.3 12.3/2).
+
+         elsif Is_Hidden_Non_Overridden_Subpgm (Id) then
+            null;
+
+         else
             Set_Is_Immediately_Visible (Id);
          end if;
-
       end if;
    end Install_Package_Entity;
 
@@ -1996,8 +2028,7 @@ package body Sem_Ch7 is
             --  field. This field will be empty if the entity has already been
             --  installed due to a previous call.
 
-            if Present (Full_View (Priv))
-              and then Is_Visible_Dependent (Priv)
+            if Present (Full_View (Priv)) and then Is_Visible_Dependent (Priv)
             then
                if Is_Private_Type (Priv) then
                   Deps := Private_Dependents (Priv);
@@ -2343,11 +2374,14 @@ package body Sem_Ch7 is
 
          if Priv_Is_Base_Type then
             Set_Is_Controlled (Priv, Is_Controlled (Base_Type (Full)));
-            Set_Finalize_Storage_Only (Priv, Finalize_Storage_Only
-                                                           (Base_Type (Full)));
-            Set_Has_Task (Priv, Has_Task (Base_Type (Full)));
-            Set_Has_Controlled_Component (Priv, Has_Controlled_Component
-                                                           (Base_Type (Full)));
+            Set_Finalize_Storage_Only
+                              (Priv, Finalize_Storage_Only
+                                                   (Base_Type (Full)));
+            Set_Has_Task      (Priv, Has_Task      (Base_Type (Full)));
+            Set_Has_Protected (Priv, Has_Protected (Base_Type (Full)));
+            Set_Has_Controlled_Component
+                              (Priv, Has_Controlled_Component
+                                                   (Base_Type (Full)));
          end if;
 
          Set_Freeze_Node (Priv, Freeze_Node (Full));
@@ -2431,9 +2465,9 @@ package body Sem_Ch7 is
               or else Type_In_Use (Etype (Id))
               or else Type_In_Use (Etype (First_Formal (Id)))
               or else (Present (Next_Formal (First_Formal (Id)))
-                         and then
-                           Type_In_Use
-                             (Etype (Next_Formal (First_Formal (Id))))));
+                        and then
+                          Type_In_Use
+                            (Etype (Next_Formal (First_Formal (Id))))));
          else
             if In_Use (P) and then not Is_Hidden (Id) then
 
@@ -2614,7 +2648,7 @@ package body Sem_Ch7 is
             --  The following test may be redundant, as this is already
             --  diagnosed in sem_ch3. ???
 
-            if  Is_Indefinite_Subtype (Full)
+            if Is_Indefinite_Subtype (Full)
               and then not Is_Indefinite_Subtype (Id)
             then
                Error_Msg_Sloc := Sloc (Parent (Id));
@@ -2789,8 +2823,7 @@ package body Sem_Ch7 is
       elsif Ekind_In (P, E_Generic_Package, E_Package)
         and then not Ignore_Abstract_State
         and then Present (Abstract_States (P))
-        and then
-            not Is_Null_State (Node (First_Elmt (Abstract_States (P))))
+        and then not Is_Null_State (Node (First_Elmt (Abstract_States (P))))
       then
          return True;
       end if;
@@ -2885,13 +2918,12 @@ package body Sem_Ch7 is
       --  Body required if library package with pragma Elaborate_Body
 
       elsif Has_Pragma_Elaborate_Body (P) then
-         Error_Msg_N
-           ("?Y?info: & requires body (Elaborate_Body)", P);
+         Error_Msg_N ("info: & requires body (Elaborate_Body)?Y?", P);
 
       --  Body required if subprogram
 
       elsif Is_Subprogram (P) or else Is_Generic_Subprogram (P) then
-         Error_Msg_N ("?Y?info: & requires body (subprogram case)", P);
+         Error_Msg_N ("info: & requires body (subprogram case)?Y?", P);
 
       --  Body required if generic parent has Elaborate_Body
 
@@ -2904,7 +2936,7 @@ package body Sem_Ch7 is
          begin
             if Has_Pragma_Elaborate_Body (G_P) then
                Error_Msg_N
-                 ("?Y?info: & requires body (generic parent Elaborate_Body)",
+                 ("info: & requires body (generic parent Elaborate_Body)?Y?",
                   P);
             end if;
          end;
@@ -2918,11 +2950,10 @@ package body Sem_Ch7 is
 
       elsif Ekind_In (P, E_Generic_Package, E_Package)
         and then Present (Abstract_States (P))
-        and then
-          not Is_Null_State (Node (First_Elmt (Abstract_States (P))))
+        and then not Is_Null_State (Node (First_Elmt (Abstract_States (P))))
       then
          Error_Msg_N
-           ("?Y?info: & requires body (non-null abstract state aspect)", P);
+           ("info: & requires body (non-null abstract state aspect)?Y?", P);
       end if;
 
       --  Otherwise search entity chain for entity requiring completion
@@ -2981,12 +3012,10 @@ package body Sem_Ch7 is
            or else
              (Is_Generic_Subprogram (E)
                and then not Has_Completion (E))
-
          then
             Error_Msg_Node_2 := E;
             Error_Msg_NE
-              ("?Y?info: & requires body (& requires completion)",
-               E, P);
+              ("info: & requires body (& requires completion)?Y?", E, P);
 
          --  Entity that does not require completion
 

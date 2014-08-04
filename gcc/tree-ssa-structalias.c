@@ -1927,25 +1927,26 @@ equiv_class_hasher::equal (const value_type *eql1, const compare_type *eql2)
 
 /* A hashtable for mapping a bitmap of labels->pointer equivalence
    classes.  */
-static hash_table <equiv_class_hasher> pointer_equiv_class_table;
+static hash_table<equiv_class_hasher> *pointer_equiv_class_table;
 
 /* A hashtable for mapping a bitmap of labels->location equivalence
    classes.  */
-static hash_table <equiv_class_hasher> location_equiv_class_table;
+static hash_table<equiv_class_hasher> *location_equiv_class_table;
 
 /* Lookup a equivalence class in TABLE by the bitmap of LABELS with
    hash HAS it contains.  Sets *REF_LABELS to the bitmap LABELS
    is equivalent to.  */
 
 static equiv_class_label *
-equiv_class_lookup_or_add (hash_table <equiv_class_hasher> table, bitmap labels)
+equiv_class_lookup_or_add (hash_table<equiv_class_hasher> *table,
+			   bitmap labels)
 {
   equiv_class_label **slot;
   equiv_class_label ecl;
 
   ecl.labels = labels;
   ecl.hashcode = bitmap_hash (labels);
-  slot = table.find_slot_with_hash (&ecl, ecl.hashcode, INSERT);
+  slot = table->find_slot (&ecl, INSERT);
   if (!*slot)
     {
       *slot = XNEW (struct equiv_class_label);
@@ -2281,8 +2282,9 @@ perform_var_substitution (constraint_graph_t graph)
   struct scc_info *si = init_scc_info (size);
 
   bitmap_obstack_initialize (&iteration_obstack);
-  pointer_equiv_class_table.create (511);
-  location_equiv_class_table.create (511);
+  pointer_equiv_class_table = new hash_table<equiv_class_hasher> (511);
+  location_equiv_class_table
+    = new hash_table<equiv_class_hasher> (511);
   pointer_equiv_class = 1;
   location_equiv_class = 1;
 
@@ -2415,8 +2417,10 @@ free_var_substitution_info (struct scc_info *si)
   free (graph->points_to);
   free (graph->eq_rep);
   sbitmap_free (graph->direct_nodes);
-  pointer_equiv_class_table.dispose ();
-  location_equiv_class_table.dispose ();
+  delete pointer_equiv_class_table;
+  pointer_equiv_class_table = NULL;
+  delete location_equiv_class_table;
+  location_equiv_class_table = NULL;
   bitmap_obstack_release (&iteration_obstack);
 }
 
@@ -2927,10 +2931,10 @@ get_constraint_for_ssa_var (tree t, vec<ce_s> *results, bool address_p)
   if (TREE_CODE (t) == VAR_DECL
       && (TREE_STATIC (t) || DECL_EXTERNAL (t)))
     {
-      varpool_node *node = varpool_get_node (t);
+      varpool_node *node = varpool_node::get (t);
       if (node && node->alias && node->analyzed)
 	{
-	  node = varpool_variable_node (node, NULL);
+	  node = node->ultimate_alias_target ();
 	  t = node->decl;
 	}
     }
@@ -5646,6 +5650,7 @@ create_variable_info_for_1 (tree decl, const char *name)
   auto_vec<fieldoff_s> fieldstack;
   fieldoff_s *fo;
   unsigned int i;
+  varpool_node *vnode;
 
   if (!declsize
       || !tree_fits_uhwi_p (declsize))
@@ -5667,7 +5672,8 @@ create_variable_info_for_1 (tree decl, const char *name)
 	 in IPA mode.  Else we'd have to parse arbitrary initializers.  */
       && !(in_ipa_mode
 	   && is_global_var (decl)
-	   && DECL_INITIAL (decl)))
+	   && (vnode = varpool_node::get (decl))
+	   && vnode->get_constructor ()))
     {
       fieldoff_s *fo = NULL;
       bool notokay = false;
@@ -5785,21 +5791,21 @@ create_variable_info_for (tree decl, const char *name)
 	 for it.  */
       else
 	{
-	  varpool_node *vnode = varpool_get_node (decl);
+	  varpool_node *vnode = varpool_node::get (decl);
 
 	  /* For escaped variables initialize them from nonlocal.  */
-	  if (!varpool_all_refs_explicit_p (vnode))
+	  if (!vnode->all_refs_explicit_p ())
 	    make_copy_constraint (vi, nonlocal_id);
 
 	  /* If this is a global variable with an initializer and we are in
 	     IPA mode generate constraints for it.  */
-	  if (DECL_INITIAL (decl)
+	  if (vnode->get_constructor ()
 	      && vnode->definition)
 	    {
 	      auto_vec<ce_s> rhsc;
 	      struct constraint_expr lhs, *rhsp;
 	      unsigned i;
-	      get_constraint_for_rhs (DECL_INITIAL (decl), &rhsc);
+	      get_constraint_for_rhs (vnode->get_constructor (), &rhsc);
 	      lhs.var = vi->id;
 	      lhs.offset = 0;
 	      lhs.type = SCALAR;
@@ -5807,7 +5813,7 @@ create_variable_info_for (tree decl, const char *name)
 		process_constraint (new_constraint (lhs, *rhsp));
 	      /* If this is a variable that escapes from the unit
 		 the initializer escapes as well.  */
-	      if (!varpool_all_refs_explicit_p (vnode))
+	      if (!vnode->all_refs_explicit_p ())
 		{
 		  lhs.var = escaped_id;
 		  lhs.offset = 0;
@@ -5974,7 +5980,7 @@ shared_bitmap_hasher::equal (const value_type *sbi1, const compare_type *sbi2)
 
 /* Shared_bitmap hashtable.  */
 
-static hash_table <shared_bitmap_hasher> shared_bitmap_table;
+static hash_table<shared_bitmap_hasher> *shared_bitmap_table;
 
 /* Lookup a bitmap in the shared bitmap hashtable, and return an already
    existing instance if there is one, NULL otherwise.  */
@@ -5988,8 +5994,7 @@ shared_bitmap_lookup (bitmap pt_vars)
   sbi.pt_vars = pt_vars;
   sbi.hashcode = bitmap_hash (pt_vars);
 
-  slot = shared_bitmap_table.find_slot_with_hash (&sbi, sbi.hashcode,
-						  NO_INSERT);
+  slot = shared_bitmap_table->find_slot (&sbi, NO_INSERT);
   if (!slot)
     return NULL;
   else
@@ -6008,7 +6013,7 @@ shared_bitmap_add (bitmap pt_vars)
   sbi->pt_vars = pt_vars;
   sbi->hashcode = bitmap_hash (pt_vars);
 
-  slot = shared_bitmap_table.find_slot_with_hash (sbi, sbi->hashcode, INSERT);
+  slot = shared_bitmap_table->find_slot (sbi, INSERT);
   gcc_assert (!*slot);
   *slot = sbi;
 }
@@ -6103,6 +6108,10 @@ find_what_var_points_to (varinfo_t orig_vi)
 		pt->ipa_escaped = 1;
 	      else
 		pt->escaped = 1;
+	      /* Expand some special vars of ESCAPED in-place here.  */
+	      varinfo_t evi = get_varinfo (find (escaped_id));
+	      if (bitmap_bit_p (evi->solution, nonlocal_id))
+		pt->nonlocal = 1;
 	    }
 	  else if (vi->id == nonlocal_id)
 	    pt->nonlocal = 1;
@@ -6682,7 +6691,7 @@ init_alias_vars (void)
   call_stmt_vars = pointer_map_create ();
 
   memset (&stats, 0, sizeof (stats));
-  shared_bitmap_table.create (511);
+  shared_bitmap_table = new hash_table<shared_bitmap_hasher> (511);
   init_base_vars ();
 
   gcc_obstack_init (&fake_var_decl_obstack);
@@ -6930,7 +6939,8 @@ delete_points_to_sets (void)
 {
   unsigned int i;
 
-  shared_bitmap_table.dispose ();
+  delete shared_bitmap_table;
+  shared_bitmap_table = NULL;
   if (dump_file && (dump_flags & TDF_STATS))
     fprintf (dump_file, "Points to sets created:%d\n",
 	     stats.points_to_sets_created);
@@ -7011,7 +7021,6 @@ const pass_data pass_data_build_alias =
   GIMPLE_PASS, /* type */
   "alias", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  false, /* has_execute */
   TV_NONE, /* tv_id */
   ( PROP_cfg | PROP_ssa ), /* properties_required */
   0, /* properties_provided */
@@ -7050,7 +7059,6 @@ const pass_data pass_data_build_ealias =
   GIMPLE_PASS, /* type */
   "ealias", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  false, /* has_execute */
   TV_NONE, /* tv_id */
   ( PROP_cfg | PROP_ssa ), /* properties_required */
   0, /* properties_provided */
@@ -7109,7 +7117,7 @@ ipa_pta_execute (void)
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      dump_symtab (dump_file);
+      symtab_node::dump_table (dump_file);
       fprintf (dump_file, "\n");
     }
 
@@ -7120,15 +7128,16 @@ ipa_pta_execute (void)
       /* Nodes without a body are not interesting.  Especially do not
          visit clones at this point for now - we get duplicate decls
 	 there for inline clones at least.  */
-      if (!cgraph_function_with_gimple_body_p (node) || node->clone_of)
+      if (!node->has_gimple_body_p () || node->clone_of)
 	continue;
-      cgraph_get_body (node);
+      node->get_body ();
 
       gcc_assert (!node->clone_of);
 
       vi = create_function_info_for (node->decl,
 			             alias_get_name (node->decl));
-      cgraph_for_node_and_aliases (node, associate_varinfo_to_alias, vi, true);
+      node->call_for_symbol_thunks_and_aliases
+	(associate_varinfo_to_alias, vi, true);
     }
 
   /* Create constraints for global variables and their initializers.  */
@@ -7155,7 +7164,7 @@ ipa_pta_execute (void)
       basic_block bb;
 
       /* Nodes without a body are not interesting.  */
-      if (!cgraph_function_with_gimple_body_p (node) || node->clone_of)
+      if (!node->has_gimple_body_p () || node->clone_of)
 	continue;
 
       if (dump_file)
@@ -7259,7 +7268,7 @@ ipa_pta_execute (void)
       basic_block bb;
 
       /* Nodes without a body are not interesting.  */
-      if (!cgraph_function_with_gimple_body_p (node) || node->clone_of)
+      if (!node->has_gimple_body_p () || node->clone_of)
 	continue;
 
       fn = DECL_STRUCT_FUNCTION (node->decl);
@@ -7422,7 +7431,6 @@ const pass_data pass_data_ipa_pta =
   SIMPLE_IPA_PASS, /* type */
   "pta", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_IPA_PTA, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */

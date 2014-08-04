@@ -71,6 +71,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "hard-reg-set.h"
 #include "regs.h"
+#include "rtlhash.h"
 #include "insn-config.h"
 #include "reload.h"
 #include "function.h"
@@ -3277,7 +3278,7 @@ static void gen_scheduled_generic_parms_dies (void);
 
 static const char *comp_dir_string (void);
 
-static hashval_t hash_loc_operands (dw_loc_descr_ref, hashval_t);
+static void hash_loc_operands (dw_loc_descr_ref, inchash::hash &);
 
 /* enum for tracking thread-local variables whose address is really an offset
    relative to the TLS pointer, which will need link-time relocation, but will
@@ -4190,17 +4191,22 @@ static hashval_t
 addr_table_entry_do_hash (const void *x)
 {
   const addr_table_entry *a = (const addr_table_entry *) x;
+  inchash::hash hstate;
   switch (a->kind)
     {
       case ate_kind_rtx:
-        return iterative_hash_rtx (a->addr.rtl, 0);
+	hstate.add_int (0);
+	break;
       case ate_kind_rtx_dtprel:
-        return iterative_hash_rtx (a->addr.rtl, 1);
+	hstate.add_int (1);
+	break;
       case ate_kind_label:
         return htab_hash_string (a->addr.label);
       default:
         gcc_unreachable ();
     }
+  inchash::add_rtx (a->addr.rtl, hstate);
+  return hstate.end ();
 }
 
 /* Determine equality for two address_table_entries.  */
@@ -4283,13 +4289,10 @@ add_addr_table_entry (void *addr, enum ate_kind kind)
 static void
 remove_addr_table_entry (addr_table_entry *entry)
 {
-  addr_table_entry *node;
-
   gcc_assert (dwarf_split_debug_info && addr_index_table);
-  node = (addr_table_entry *) htab_find (addr_index_table, entry);
   /* After an index is assigned, the table is frozen.  */
-  gcc_assert (node->refcount > 0 && node->index == NO_INDEX_ASSIGNED);
-  node->refcount--;
+  gcc_assert (entry->refcount > 0 && entry->index == NO_INDEX_ASSIGNED);
+  entry->refcount--;
 }
 
 /* Given a location list, remove all addresses it refers to from the
@@ -5547,11 +5550,13 @@ static inline void
 loc_checksum (dw_loc_descr_ref loc, struct md5_ctx *ctx)
 {
   int tem;
-  hashval_t hash = 0;
+  inchash::hash hstate;
+  hashval_t hash;
 
   tem = (loc->dtprel << 8) | ((unsigned int) loc->dw_loc_opc);
   CHECKSUM (tem);
-  hash = hash_loc_operands (loc, hash);
+  hash_loc_operands (loc, hstate);
+  hash = hstate.end();
   CHECKSUM (hash);
 }
 
@@ -5761,11 +5766,13 @@ loc_checksum_ordered (dw_loc_descr_ref loc, struct md5_ctx *ctx)
   /* Otherwise, just checksum the raw location expression.  */
   while (loc != NULL)
     {
-      hashval_t hash = 0;
+      inchash::hash hstate;
+      hashval_t hash;
 
       CHECKSUM_ULEB128 (loc->dtprel);
       CHECKSUM_ULEB128 (loc->dw_loc_opc);
-      hash = hash_loc_operands (loc, hash);
+      hash_loc_operands (loc, hstate);
+      hash = hstate.end ();
       CHECKSUM (hash);
       loc = loc->dw_loc_next;
     }
@@ -6745,21 +6752,21 @@ cu_hash_table_entry_hasher::remove (value_type *entry)
     }
 }
 
-typedef hash_table <cu_hash_table_entry_hasher> cu_hash_type;
+typedef hash_table<cu_hash_table_entry_hasher> cu_hash_type;
 
 /* Check whether we have already seen this CU and set up SYM_NUM
    accordingly.  */
 static int
-check_duplicate_cu (dw_die_ref cu, cu_hash_type htable, unsigned int *sym_num)
+check_duplicate_cu (dw_die_ref cu, cu_hash_type *htable, unsigned int *sym_num)
 {
   struct cu_hash_table_entry dummy;
   struct cu_hash_table_entry **slot, *entry, *last = &dummy;
 
   dummy.max_comdat_num = 0;
 
-  slot = htable.find_slot_with_hash (cu,
-				     htab_hash_string (cu->die_id.die_symbol),
-				     INSERT);
+  slot = htable->find_slot_with_hash (cu,
+				      htab_hash_string (cu->die_id.die_symbol),
+				      INSERT);
   entry = *slot;
 
   for (; entry; last = entry, entry = entry->next)
@@ -6785,14 +6792,14 @@ check_duplicate_cu (dw_die_ref cu, cu_hash_type htable, unsigned int *sym_num)
 
 /* Record SYM_NUM to record of CU in HTABLE.  */
 static void
-record_comdat_symbol_number (dw_die_ref cu, cu_hash_type htable,
+record_comdat_symbol_number (dw_die_ref cu, cu_hash_type *htable,
 			     unsigned int sym_num)
 {
   struct cu_hash_table_entry **slot, *entry;
 
-  slot = htable.find_slot_with_hash (cu,
-				     htab_hash_string (cu->die_id.die_symbol),
-				     NO_INSERT);
+  slot = htable->find_slot_with_hash (cu,
+				      htab_hash_string (cu->die_id.die_symbol),
+				      NO_INSERT);
   entry = *slot;
 
   entry->max_comdat_num = sym_num;
@@ -6808,7 +6815,6 @@ break_out_includes (dw_die_ref die)
   dw_die_ref c;
   dw_die_ref unit = NULL;
   limbo_die_node *node, **pnode;
-  cu_hash_type cu_hash_table;
 
   c = die->die_child;
   if (c) do {
@@ -6841,7 +6847,7 @@ break_out_includes (dw_die_ref die)
 #endif
 
   assign_symbol_names (die);
-  cu_hash_table.create (10);
+  cu_hash_type cu_hash_table (10);
   for (node = limbo_die_list, pnode = &limbo_die_list;
        node;
        node = node->next)
@@ -6849,7 +6855,7 @@ break_out_includes (dw_die_ref die)
       int is_dupl;
 
       compute_section_prefix (node->die);
-      is_dupl = check_duplicate_cu (node->die, cu_hash_table,
+      is_dupl = check_duplicate_cu (node->die, &cu_hash_table,
 			&comdat_symbol_number);
       assign_symbol_names (node->die);
       if (is_dupl)
@@ -6857,11 +6863,10 @@ break_out_includes (dw_die_ref die)
       else
 	{
 	  pnode = &node->next;
-	  record_comdat_symbol_number (node->die, cu_hash_table,
+	  record_comdat_symbol_number (node->die, &cu_hash_table,
 		comdat_symbol_number);
 	}
     }
-  cu_hash_table.dispose ();
 }
 
 /* Return non-zero if this DIE is a declaration.  */
@@ -7070,7 +7075,7 @@ decl_table_entry_hasher::equal (const value_type *entry1,
   return entry1->orig == entry2;
 }
 
-typedef hash_table <decl_table_entry_hasher> decl_hash_type;
+typedef hash_table<decl_table_entry_hasher> decl_hash_type;
 
 /* Copy DIE and its ancestors, up to, but not including, the compile unit
    or type unit entry, to a new tree.  Adds the new tree to UNIT and returns
@@ -7078,7 +7083,8 @@ typedef hash_table <decl_table_entry_hasher> decl_hash_type;
    to check if the ancestor has already been copied into UNIT.  */
 
 static dw_die_ref
-copy_ancestor_tree (dw_die_ref unit, dw_die_ref die, decl_hash_type decl_table)
+copy_ancestor_tree (dw_die_ref unit, dw_die_ref die,
+		    decl_hash_type *decl_table)
 {
   dw_die_ref parent = die->die_parent;
   dw_die_ref new_parent = unit;
@@ -7086,11 +7092,11 @@ copy_ancestor_tree (dw_die_ref unit, dw_die_ref die, decl_hash_type decl_table)
   decl_table_entry **slot = NULL;
   struct decl_table_entry *entry = NULL;
 
-  if (decl_table.is_created ())
+  if (decl_table)
     {
       /* Check if the entry has already been copied to UNIT.  */
-      slot = decl_table.find_slot_with_hash (die, htab_hash_pointer (die),
-					     INSERT);
+      slot = decl_table->find_slot_with_hash (die, htab_hash_pointer (die),
+					      INSERT);
       if (*slot != HTAB_EMPTY_ENTRY)
         {
           entry = *slot;
@@ -7116,7 +7122,7 @@ copy_ancestor_tree (dw_die_ref unit, dw_die_ref die, decl_hash_type decl_table)
   copy = clone_as_declaration (die);
   add_child_die (new_parent, copy);
 
-  if (decl_table.is_created ())
+  if (decl_table)
     {
       /* Record the pointer to the copy.  */
       entry->copy = copy;
@@ -7171,7 +7177,7 @@ copy_declaration_context (dw_die_ref unit, dw_die_ref die)
   if (decl->die_parent != NULL
       && !is_unit_die (decl->die_parent))
     {
-      new_decl = copy_ancestor_tree (unit, decl, decl_hash_type ());
+      new_decl = copy_ancestor_tree (unit, decl, NULL);
       if (new_decl != NULL)
         {
           remove_AT (new_decl, DW_AT_signature);
@@ -7396,7 +7402,7 @@ break_out_comdat_types (dw_die_ref die)
    Enter all the cloned children into the hash table decl_table.  */
 
 static dw_die_ref
-clone_tree_partial (dw_die_ref die, decl_hash_type decl_table)
+clone_tree_partial (dw_die_ref die, decl_hash_type *decl_table)
 {
   dw_die_ref c;
   dw_die_ref clone;
@@ -7408,8 +7414,8 @@ clone_tree_partial (dw_die_ref die, decl_hash_type decl_table)
   else
     clone = clone_die (die);
 
-  slot = decl_table.find_slot_with_hash (die,
-					 htab_hash_pointer (die), INSERT);
+  slot = decl_table->find_slot_with_hash (die,
+					  htab_hash_pointer (die), INSERT);
 
   /* Assert that DIE isn't in the hash table yet.  If it would be there
      before, the ancestors would be necessarily there as well, therefore
@@ -7433,7 +7439,7 @@ clone_tree_partial (dw_die_ref die, decl_hash_type decl_table)
    type_unit).  */
 
 static void
-copy_decls_walk (dw_die_ref unit, dw_die_ref die, decl_hash_type decl_table)
+copy_decls_walk (dw_die_ref unit, dw_die_ref die, decl_hash_type *decl_table)
 {
   dw_die_ref c;
   dw_attr_ref a;
@@ -7450,8 +7456,9 @@ copy_decls_walk (dw_die_ref unit, dw_die_ref die, decl_hash_type decl_table)
           if (targ->die_mark != 0 || targ->comdat_type_p)
             continue;
 
-          slot = decl_table.find_slot_with_hash (targ, htab_hash_pointer (targ),
-						 INSERT);
+          slot = decl_table->find_slot_with_hash (targ,
+						  htab_hash_pointer (targ),
+						  INSERT);
 
           if (*slot != HTAB_EMPTY_ENTRY)
             {
@@ -7530,12 +7537,9 @@ copy_decls_walk (dw_die_ref unit, dw_die_ref die, decl_hash_type decl_table)
 static void
 copy_decls_for_unworthy_types (dw_die_ref unit)
 {
-  decl_hash_type decl_table;
-
   mark_dies (unit);
-  decl_table.create (10);
-  copy_decls_walk (unit, unit, decl_table);
-  decl_table.dispose ();
+  decl_hash_type decl_table (10);
+  copy_decls_walk (unit, unit, &decl_table);
   unmark_dies (unit);
 }
 
@@ -7627,18 +7631,18 @@ external_ref_hasher::equal (const value_type *r1, const compare_type *r2)
   return r1->type == r2->type;
 }
 
-typedef hash_table <external_ref_hasher> external_ref_hash_type;
+typedef hash_table<external_ref_hasher> external_ref_hash_type;
 
 /* Return a pointer to the external_ref for references to DIE.  */
 
 static struct external_ref *
-lookup_external_ref (external_ref_hash_type map, dw_die_ref die)
+lookup_external_ref (external_ref_hash_type *map, dw_die_ref die)
 {
   struct external_ref ref, *ref_p;
   external_ref **slot;
 
   ref.type = die;
-  slot = map.find_slot (&ref, INSERT);
+  slot = map->find_slot (&ref, INSERT);
   if (*slot != HTAB_EMPTY_ENTRY)
     return *slot;
 
@@ -7654,7 +7658,7 @@ lookup_external_ref (external_ref_hash_type map, dw_die_ref die)
    references, remember how many we've seen.  */
 
 static void
-optimize_external_refs_1 (dw_die_ref die, external_ref_hash_type map)
+optimize_external_refs_1 (dw_die_ref die, external_ref_hash_type *map)
 {
   dw_die_ref c;
   dw_attr_ref a;
@@ -7725,13 +7729,12 @@ dwarf2_build_local_stub (external_ref **slot, dw_die_ref data)
    them which will be applied in build_abbrev_table.  This is useful because
    references to local DIEs are smaller.  */
 
-static external_ref_hash_type
+static external_ref_hash_type *
 optimize_external_refs (dw_die_ref die)
 {
-  external_ref_hash_type map;
-  map.create (10);
+  external_ref_hash_type *map = new external_ref_hash_type (10);
   optimize_external_refs_1 (die, map);
-  map.traverse <dw_die_ref, dwarf2_build_local_stub> (die);
+  map->traverse <dw_die_ref, dwarf2_build_local_stub> (die);
   return map;
 }
 
@@ -7741,7 +7744,7 @@ optimize_external_refs (dw_die_ref die)
    die are visited recursively.  */
 
 static void
-build_abbrev_table (dw_die_ref die, external_ref_hash_type extern_map)
+build_abbrev_table (dw_die_ref die, external_ref_hash_type *extern_map)
 {
   unsigned long abbrev_id;
   unsigned int n_alloc;
@@ -8950,7 +8953,6 @@ output_comp_unit (dw_die_ref die, int output_if_empty)
 {
   const char *secname, *oldsym;
   char *tmp;
-  external_ref_hash_type extern_map;
 
   /* Unless we are outputting main CU, we may throw away empty ones.  */
   if (!output_if_empty && die->die_child == NULL)
@@ -8963,11 +8965,11 @@ output_comp_unit (dw_die_ref die, int output_if_empty)
      this CU so we know which get local refs.  */
   mark_dies (die);
 
-  extern_map = optimize_external_refs (die);
+  external_ref_hash_type *extern_map = optimize_external_refs (die);
 
   build_abbrev_table (die, extern_map);
 
-  extern_map.dispose ();
+  delete extern_map;
 
   /* Initialize the beginning DIE offset - and calculate sizes/offsets.  */
   next_die_offset = DWARF_COMPILE_UNIT_HEADER_SIZE;
@@ -9142,16 +9144,16 @@ output_comdat_type_unit (comdat_type_node *node)
 #if defined (OBJECT_FORMAT_ELF)
   tree comdat_key;
 #endif
-  external_ref_hash_type extern_map;
 
   /* First mark all the DIEs in this CU so we know which get local refs.  */
   mark_dies (node->root_die);
 
-  extern_map = optimize_external_refs (node->root_die);
+  external_ref_hash_type *extern_map = optimize_external_refs (node->root_die);
 
   build_abbrev_table (node->root_die, extern_map);
 
-  extern_map.dispose ();
+  delete extern_map;
+  extern_map = NULL;
 
   /* Initialize the beginning DIE offset - and calculate sizes/offsets.  */
   next_die_offset = DWARF_COMDAT_TYPE_UNIT_HEADER_SIZE;
@@ -13614,15 +13616,9 @@ secname_for_decl (const_tree decl)
   if (VAR_OR_FUNCTION_DECL_P (decl)
       && (DECL_EXTERNAL (decl) || TREE_PUBLIC (decl) || TREE_STATIC (decl))
       && DECL_SECTION_NAME (decl))
-    {
-      tree sectree = DECL_SECTION_NAME (decl);
-      secname = TREE_STRING_POINTER (sectree);
-    }
+    secname = DECL_SECTION_NAME (decl);
   else if (current_function_decl && DECL_SECTION_NAME (current_function_decl))
-    {
-      tree sectree = DECL_SECTION_NAME (current_function_decl);
-      secname = TREE_STRING_POINTER (sectree);
-    }
+    secname = DECL_SECTION_NAME (current_function_decl);
   else if (cfun && in_cold_section_p)
     secname = crtl->subsections.cold_section_label;
   else
@@ -15374,7 +15370,7 @@ reference_to_unused (tree * tp, int * walk_subtrees,
     return *tp;
   else if (TREE_CODE (*tp) == VAR_DECL)
     {
-      varpool_node *node = varpool_get_node (*tp);
+      varpool_node *node = varpool_node::get (*tp);
       if (!node || !node->definition)
 	return *tp;
     }
@@ -15385,7 +15381,7 @@ reference_to_unused (tree * tp, int * walk_subtrees,
          optimizing and gimplifying the CU by now.
 	 So if *TP has no call graph node associated
 	 to it, it means *TP will not be emitted.  */
-      if (!cgraph_get_node (*tp))
+      if (!cgraph_node::get (*tp))
 	return *tp;
     }
   else if (TREE_CODE (*tp) == STRING_CST && !TREE_ASM_WRITTEN (*tp))
@@ -16798,10 +16794,9 @@ add_src_coords_attributes (dw_die_ref die, tree decl)
 static void
 add_linkage_name (dw_die_ref die, tree decl)
 {
-  if (debug_info_level > DINFO_LEVEL_TERSE
+  if (debug_info_level > DINFO_LEVEL_NONE
       && (TREE_CODE (decl) == FUNCTION_DECL || TREE_CODE (decl) == VAR_DECL)
       && TREE_PUBLIC (decl)
-      && !DECL_ABSTRACT (decl)
       && !(TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl))
       && die->die_tag != DW_TAG_member)
     {
@@ -18067,7 +18062,7 @@ premark_types_used_by_global_vars_helper (void **slot,
     {
       /* Ask cgraph if the global variable really is to be emitted.
          If yes, then we'll keep the DIE of ENTRY->TYPE.  */
-      varpool_node *node = varpool_get_node (entry->var_decl);
+      varpool_node *node = varpool_node::get (entry->var_decl);
       if (node && node->definition)
 	{
 	  die->die_perennial_p = 1;
@@ -21899,7 +21894,7 @@ macinfo_entry_hasher::equal (const value_type *entry1,
   return !strcmp (entry1->info, entry2->info);
 }
 
-typedef hash_table <macinfo_entry_hasher> macinfo_hash_type;
+typedef hash_table<macinfo_entry_hasher> macinfo_hash_type;
 
 /* Output a single .debug_macinfo entry.  */
 
@@ -21989,7 +21984,7 @@ output_macinfo_op (macinfo_entry *ref)
 
 static unsigned
 optimize_macinfo_range (unsigned int idx, vec<macinfo_entry, va_gc> *files,
-			macinfo_hash_type *macinfo_htab)
+			macinfo_hash_type **macinfo_htab)
 {
   macinfo_entry *first, *second, *cur, *inc;
   char linebuf[sizeof (HOST_WIDE_INT) * 3 + 1];
@@ -22076,10 +22071,10 @@ optimize_macinfo_range (unsigned int idx, vec<macinfo_entry, va_gc> *files,
   inc->code = DW_MACRO_GNU_transparent_include;
   inc->lineno = 0;
   inc->info = ggc_strdup (grp_name);
-  if (!macinfo_htab->is_created ())
-    macinfo_htab->create (10);
+  if (!*macinfo_htab)
+    *macinfo_htab = new macinfo_hash_type (10);
   /* Avoid emitting duplicates.  */
-  slot = macinfo_htab->find_slot (inc, INSERT);
+  slot = (*macinfo_htab)->find_slot (inc, INSERT);
   if (*slot != NULL)
     {
       inc->code = 0;
@@ -22099,7 +22094,7 @@ optimize_macinfo_range (unsigned int idx, vec<macinfo_entry, va_gc> *files,
   else
     {
       *slot = inc;
-      inc->lineno = macinfo_htab->elements ();
+      inc->lineno = (*macinfo_htab)->elements ();
       output_macinfo_op (inc);
     }
   return count;
@@ -22150,7 +22145,7 @@ output_macinfo (void)
   unsigned long length = vec_safe_length (macinfo_table);
   macinfo_entry *ref;
   vec<macinfo_entry, va_gc> *files = NULL;
-  macinfo_hash_type macinfo_htab;
+  macinfo_hash_type *macinfo_htab = NULL;
 
   if (! length)
     return;
@@ -22223,10 +22218,11 @@ output_macinfo (void)
       ref->code = 0;
     }
 
-  if (!macinfo_htab.is_created ())
+  if (!macinfo_htab)
     return;
 
-  macinfo_htab.dispose ();
+  delete macinfo_htab;
+  macinfo_htab = NULL;
 
   /* If any DW_MACRO_GNU_transparent_include were used, on those
      DW_MACRO_GNU_transparent_include entries terminate the
@@ -23299,11 +23295,16 @@ resolve_addr_in_expr (dw_loc_descr_ref loc)
 	break;
       case DW_OP_GNU_addr_index:
       case DW_OP_GNU_const_index:
-	if ((loc->dw_loc_opc == DW_OP_GNU_addr_index
-	     || (loc->dw_loc_opc == DW_OP_GNU_const_index && loc->dtprel))
-	    && resolve_one_addr (&loc->dw_loc_oprnd1.val_entry->addr.rtl,
-				 NULL))
-	  return false;
+	if (loc->dw_loc_opc == DW_OP_GNU_addr_index
+            || (loc->dw_loc_opc == DW_OP_GNU_const_index && loc->dtprel))
+          {
+            rtx rtl = loc->dw_loc_oprnd1.val_entry->addr.rtl;
+            if (resolve_one_addr (&rtl, NULL))
+              return false;
+            remove_addr_table_entry (loc->dw_loc_oprnd1.val_entry);
+            loc->dw_loc_oprnd1.val_entry =
+                add_addr_table_entry (rtl, ate_kind_rtx);
+          }
 	break;
       case DW_OP_const4u:
       case DW_OP_const8u:
@@ -23628,10 +23629,10 @@ resolve_addr (dw_die_ref die)
    This pass tries to share identical local lists in .debug_loc
    section.  */
 
-/* Iteratively hash operands of LOC opcode.  */
+/* Iteratively hash operands of LOC opcode into HSTATE.  */
 
-static hashval_t
-hash_loc_operands (dw_loc_descr_ref loc, hashval_t hash)
+static void
+hash_loc_operands (dw_loc_descr_ref loc, inchash::hash &hstate)
 {
   dw_val_ref val1 = &loc->dw_loc_oprnd1;
   dw_val_ref val2 = &loc->dw_loc_oprnd2;
@@ -23690,7 +23691,7 @@ hash_loc_operands (dw_loc_descr_ref loc, hashval_t hash)
     case DW_OP_piece:
     case DW_OP_deref_size:
     case DW_OP_xderef_size:
-      hash = iterative_hash_object (val1->v.val_int, hash);
+      hstate.add_object (val1->v.val_int);
       break;
     case DW_OP_skip:
     case DW_OP_bra:
@@ -23699,36 +23700,35 @@ hash_loc_operands (dw_loc_descr_ref loc, hashval_t hash)
 
 	gcc_assert (val1->val_class == dw_val_class_loc);
 	offset = val1->v.val_loc->dw_loc_addr - (loc->dw_loc_addr + 3);
-	hash = iterative_hash_object (offset, hash);
+	hstate.add_object (offset);
       }
       break;
     case DW_OP_implicit_value:
-      hash = iterative_hash_object (val1->v.val_unsigned, hash);
+      hstate.add_object (val1->v.val_unsigned);
       switch (val2->val_class)
 	{
 	case dw_val_class_const:
-	  hash = iterative_hash_object (val2->v.val_int, hash);
+	  hstate.add_object (val2->v.val_int);
 	  break;
 	case dw_val_class_vec:
 	  {
 	    unsigned int elt_size = val2->v.val_vec.elt_size;
 	    unsigned int len = val2->v.val_vec.length;
 
-	    hash = iterative_hash_object (elt_size, hash);
-	    hash = iterative_hash_object (len, hash);
-	    hash = iterative_hash (val2->v.val_vec.array,
-				   len * elt_size, hash);
+	    hstate.add_int (elt_size);
+	    hstate.add_int (len);
+	    hstate.add (val2->v.val_vec.array, len * elt_size);
 	  }
 	  break;
 	case dw_val_class_const_double:
-	  hash = iterative_hash_object (val2->v.val_double.low, hash);
-	  hash = iterative_hash_object (val2->v.val_double.high, hash);
+	  hstate.add_object (val2->v.val_double.low);
+	  hstate.add_object (val2->v.val_double.high);
 	  break;
 	case dw_val_class_wide_int:
-	  hash = iterative_hash_object (*val2->v.val_wide, hash);
+	  hstate.add_object (*val2->v.val_wide);
 	  break;
-	case dw_val_class_addr:
-	  hash = iterative_hash_rtx (val2->v.val_addr, hash);
+	case dw_val_class_addr:	
+	  inchash::add_rtx (val2->v.val_addr, hstate);
 	  break;
 	default:
 	  gcc_unreachable ();
@@ -23736,17 +23736,17 @@ hash_loc_operands (dw_loc_descr_ref loc, hashval_t hash)
       break;
     case DW_OP_bregx:
     case DW_OP_bit_piece:
-      hash = iterative_hash_object (val1->v.val_int, hash);
-      hash = iterative_hash_object (val2->v.val_int, hash);
+      hstate.add_object (val1->v.val_int);
+      hstate.add_object (val2->v.val_int);
       break;
     case DW_OP_addr:
     hash_addr:
       if (loc->dtprel)
 	{
 	  unsigned char dtprel = 0xd1;
-	  hash = iterative_hash_object (dtprel, hash);
+	  hstate.add_object (dtprel);
 	}
-      hash = iterative_hash_rtx (val1->v.val_addr, hash);
+      inchash::add_rtx (val1->v.val_addr, hstate);
       break;
     case DW_OP_GNU_addr_index:
     case DW_OP_GNU_const_index:
@@ -23754,16 +23754,16 @@ hash_loc_operands (dw_loc_descr_ref loc, hashval_t hash)
         if (loc->dtprel)
           {
             unsigned char dtprel = 0xd1;
-            hash = iterative_hash_object (dtprel, hash);
+	    hstate.add_object (dtprel);
           }
-        hash = iterative_hash_rtx (val1->val_entry->addr.rtl, hash);
+        inchash::add_rtx (val1->val_entry->addr.rtl, hstate);
       }
       break;
     case DW_OP_GNU_implicit_pointer:
-      hash = iterative_hash_object (val2->v.val_int, hash);
+      hstate.add_int (val2->v.val_int);
       break;
     case DW_OP_GNU_entry_value:
-      hash = hash_loc_operands (val1->v.val_loc, hash);
+      hstate.add_object (val1->v.val_loc);
       break;
     case DW_OP_GNU_regval_type:
     case DW_OP_GNU_deref_type:
@@ -23772,16 +23772,16 @@ hash_loc_operands (dw_loc_descr_ref loc, hashval_t hash)
 	  = get_AT_unsigned (val2->v.val_die_ref.die, DW_AT_byte_size);
 	unsigned int encoding
 	  = get_AT_unsigned (val2->v.val_die_ref.die, DW_AT_encoding);
-	hash = iterative_hash_object (val1->v.val_int, hash);
-	hash = iterative_hash_object (byte_size, hash);
-	hash = iterative_hash_object (encoding, hash);
+	hstate.add_object (val1->v.val_int);
+	hstate.add_object (byte_size);
+	hstate.add_object (encoding);
       }
       break;
     case DW_OP_GNU_convert:
     case DW_OP_GNU_reinterpret:
       if (val1->val_class == dw_val_class_unsigned_const)
 	{
-	  hash = iterative_hash_object (val1->v.val_unsigned, hash);
+	  hstate.add_object (val1->v.val_unsigned);
 	  break;
 	}
       /* FALLTHRU */
@@ -23791,33 +23791,32 @@ hash_loc_operands (dw_loc_descr_ref loc, hashval_t hash)
 	  = get_AT_unsigned (val1->v.val_die_ref.die, DW_AT_byte_size);
 	unsigned int encoding
 	  = get_AT_unsigned (val1->v.val_die_ref.die, DW_AT_encoding);
-	hash = iterative_hash_object (byte_size, hash);
-	hash = iterative_hash_object (encoding, hash);
+	hstate.add_object (byte_size);
+	hstate.add_object (encoding);
 	if (loc->dw_loc_opc != DW_OP_GNU_const_type)
 	  break;
-	hash = iterative_hash_object (val2->val_class, hash);
+	hstate.add_object (val2->val_class);
 	switch (val2->val_class)
 	  {
 	  case dw_val_class_const:
-	    hash = iterative_hash_object (val2->v.val_int, hash);
+	    hstate.add_object (val2->v.val_int);
 	    break;
 	  case dw_val_class_vec:
 	    {
 	      unsigned int elt_size = val2->v.val_vec.elt_size;
 	      unsigned int len = val2->v.val_vec.length;
 
-	      hash = iterative_hash_object (elt_size, hash);
-	      hash = iterative_hash_object (len, hash);
-	      hash = iterative_hash (val2->v.val_vec.array,
-				     len * elt_size, hash);
+	      hstate.add_object (elt_size);
+	      hstate.add_object (len);
+	      hstate.add (val2->v.val_vec.array, len * elt_size);
 	    }
 	    break;
 	  case dw_val_class_const_double:
-	    hash = iterative_hash_object (val2->v.val_double.low, hash);
-	    hash = iterative_hash_object (val2->v.val_double.high, hash);
+	    hstate.add_object (val2->v.val_double.low);
+	    hstate.add_object (val2->v.val_double.high);
 	    break;
 	  case dw_val_class_wide_int:
-	    hash = iterative_hash_object (*val2->v.val_wide, hash);
+	    hstate.add_object (*val2->v.val_wide);
 	    break;
 	  default:
 	    gcc_unreachable ();
@@ -23829,13 +23828,12 @@ hash_loc_operands (dw_loc_descr_ref loc, hashval_t hash)
       /* Other codes have no operands.  */
       break;
     }
-  return hash;
 }
 
-/* Iteratively hash the whole DWARF location expression LOC.  */
+/* Iteratively hash the whole DWARF location expression LOC into HSTATE.  */
 
-static inline hashval_t
-hash_locs (dw_loc_descr_ref loc, hashval_t hash)
+static inline void
+hash_locs (dw_loc_descr_ref loc, inchash::hash &hstate)
 {
   dw_loc_descr_ref l;
   bool sizes_computed = false;
@@ -23845,15 +23843,14 @@ hash_locs (dw_loc_descr_ref loc, hashval_t hash)
   for (l = loc; l != NULL; l = l->dw_loc_next)
     {
       enum dwarf_location_atom opc = l->dw_loc_opc;
-      hash = iterative_hash_object (opc, hash);
+      hstate.add_object (opc);
       if ((opc == DW_OP_skip || opc == DW_OP_bra) && !sizes_computed)
 	{
 	  size_of_locs (loc);
 	  sizes_computed = true;
 	}
-      hash = hash_loc_operands (l, hash);
+      hash_loc_operands (l, hstate);
     }
-  return hash;
 }
 
 /* Compute hash of the whole location list LIST_HEAD.  */
@@ -23862,18 +23859,17 @@ static inline void
 hash_loc_list (dw_loc_list_ref list_head)
 {
   dw_loc_list_ref curr = list_head;
-  hashval_t hash = 0;
+  inchash::hash hstate;
 
   for (curr = list_head; curr != NULL; curr = curr->dw_loc_next)
     {
-      hash = iterative_hash (curr->begin, strlen (curr->begin) + 1, hash);
-      hash = iterative_hash (curr->end, strlen (curr->end) + 1, hash);
+      hstate.add (curr->begin, strlen (curr->begin) + 1);
+      hstate.add (curr->end, strlen (curr->end) + 1);
       if (curr->section)
-	hash = iterative_hash (curr->section, strlen (curr->section) + 1,
-			       hash);
-      hash = hash_locs (curr->expr, hash);
+	hstate.add (curr->section, strlen (curr->section) + 1);
+      hash_locs (curr->expr, hstate);
     }
-  list_head->hash = hash;
+  list_head->hash = hstate.end ();
 }
 
 /* Return true if X and Y opcodes have the same operands.  */
@@ -24088,14 +24084,14 @@ loc_list_hasher::equal (const value_type *a, const compare_type *b)
   return a == NULL && b == NULL;
 }
 
-typedef hash_table <loc_list_hasher> loc_list_hash_type;
+typedef hash_table<loc_list_hasher> loc_list_hash_type;
 
 
 /* Recursively optimize location lists referenced from DIE
    children and share them whenever possible.  */
 
 static void
-optimize_location_lists_1 (dw_die_ref die, loc_list_hash_type htab)
+optimize_location_lists_1 (dw_die_ref die, loc_list_hash_type *htab)
 {
   dw_die_ref c;
   dw_attr_ref a;
@@ -24109,7 +24105,7 @@ optimize_location_lists_1 (dw_die_ref die, loc_list_hash_type htab)
 	/* TODO: perform some optimizations here, before hashing
 	   it and storing into the hash table.  */
 	hash_loc_list (list);
-	slot = htab.find_slot_with_hash (list, list->hash, INSERT);
+	slot = htab->find_slot_with_hash (list, list->hash, INSERT);
 	if (*slot == NULL)
 	  *slot = list;
 	else
@@ -24158,10 +24154,8 @@ index_location_lists (dw_die_ref die)
 static void
 optimize_location_lists (dw_die_ref die)
 {
-  loc_list_hash_type htab;
-  htab.create (500);
-  optimize_location_lists_1 (die, htab);
-  htab.dispose ();
+  loc_list_hash_type htab (500);
+  optimize_location_lists_1 (die, &htab);
 }
 
 /* Output stuff that dwarf requires at the end of every file,
@@ -24172,7 +24166,6 @@ dwarf2out_finish (const char *filename)
 {
   limbo_die_node *node, *next_node;
   comdat_type_node *ctnode;
-  hash_table <comdat_type_hasher> comdat_type_table;
   unsigned int i;
   dw_die_ref main_comp_unit_die;
 
@@ -24405,18 +24398,23 @@ dwarf2out_finish (const char *filename)
 		   dwarf_strict ? DW_AT_macro_info : DW_AT_GNU_macros,
 		   macinfo_section_label);
 
-  if (dwarf_split_debug_info && addr_index_table != NULL)
+  if (dwarf_split_debug_info)
     {
       /* optimize_location_lists calculates the size of the lists,
          so index them first, and assign indices to the entries.
          Although optimize_location_lists will remove entries from
          the table, it only does so for duplicates, and therefore
          only reduces ref_counts to 1.  */
-      unsigned int index = 0;
       index_location_lists (comp_unit_die ());
-      htab_traverse_noresize (addr_index_table,
-                              index_addr_table_entry, &index);
+
+      if (addr_index_table != NULL)
+        {
+          unsigned int index = 0;
+          htab_traverse_noresize (addr_index_table,
+                                  index_addr_table_entry, &index);
+        }
     }
+
   if (have_location_lists)
     optimize_location_lists (comp_unit_die ());
 
@@ -24441,7 +24439,7 @@ dwarf2out_finish (const char *filename)
   for (node = limbo_die_list; node; node = node->next)
     output_comp_unit (node->die, 0);
 
-  comdat_type_table.create (100);
+  hash_table<comdat_type_hasher> comdat_type_table (100);
   for (ctnode = comdat_type_list; ctnode != NULL; ctnode = ctnode->next)
     {
       comdat_type_node **slot = comdat_type_table.find_slot (ctnode, INSERT);
@@ -24462,7 +24460,6 @@ dwarf2out_finish (const char *filename)
       output_comdat_type_unit (ctnode);
       *slot = ctnode;
     }
-  comdat_type_table.dispose ();
 
   /* The AT_pubnames attribute needs to go in all skeleton dies, including
      both the main_cu and all skeleton TUs.  Making this call unconditional

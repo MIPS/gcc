@@ -2787,6 +2787,9 @@ check_explicit_specialization (tree declarator,
 	       It's just the name of an instantiation.  But, it's not
 	       a request for an instantiation, either.  */
 	    SET_DECL_IMPLICIT_INSTANTIATION (decl);
+	  else
+	    /* A specialization is not necessarily COMDAT.  */
+	    DECL_COMDAT (decl) = DECL_DECLARED_INLINE_P (decl);
 
 	  /* Register this specialization so that we can find it
 	     again.  */
@@ -4418,7 +4421,8 @@ check_default_tmpl_args (tree decl, tree parms, bool is_primary,
      in the template-parameter-list of the definition of a member of a
      class template.  */
 
-  if (TREE_CODE (CP_DECL_CONTEXT (decl)) == FUNCTION_DECL)
+  if (TREE_CODE (CP_DECL_CONTEXT (decl)) == FUNCTION_DECL
+      || (TREE_CODE (decl) == FUNCTION_DECL && DECL_LOCAL_FUNCTION_P (decl)))
     /* You can't have a function template declaration in a local
        scope, nor you can you define a member of a class template in a
        local scope.  */
@@ -5016,6 +5020,14 @@ template arguments to %qD do not match original template %qD",
 	DECL_TEMPLATE_INFO (decl) = info;
     }
 
+  if (flag_implicit_templates
+      && !is_friend
+      && VAR_OR_FUNCTION_DECL_P (decl))
+    /* Set DECL_COMDAT on template instantiations; if we force
+       them to be emitted by explicit instantiation or -frepo,
+       mark_needed will tell cgraph to do the right thing.  */
+    DECL_COMDAT (decl) = true;
+
   return DECL_TEMPLATE_RESULT (tmpl);
 }
 
@@ -5350,6 +5362,10 @@ check_valid_ptrmem_cst_expr (tree type, tree expr,
     return true;
   if (cxx_dialect >= cxx11 && null_member_pointer_value_p (expr))
     return true;
+  if (processing_template_decl
+      && TREE_CODE (expr) == ADDR_EXPR
+      && TREE_CODE (TREE_OPERAND (expr, 0)) == OFFSET_REF)
+    return true;
   if (complain & tf_error)
     {
       error ("%qE is not a valid template argument for type %qT",
@@ -5512,13 +5528,21 @@ unify_method_type_error (bool explain_p, tree arg)
 }
 
 static int
-unify_arity (bool explain_p, int have, int wanted)
+unify_arity (bool explain_p, int have, int wanted, bool least_p = false)
 {
   if (explain_p)
-    inform_n (input_location, wanted,
-	      "  candidate expects %d argument, %d provided",
-	      "  candidate expects %d arguments, %d provided",
-	      wanted, have);
+    {
+      if (least_p)
+	inform_n (input_location, wanted,
+		  "  candidate expects at least %d argument, %d provided",
+		  "  candidate expects at least %d arguments, %d provided",
+		  wanted, have);
+      else
+	inform_n (input_location, wanted,
+		  "  candidate expects %d argument, %d provided",
+		  "  candidate expects %d arguments, %d provided",
+		  wanted, have);
+    }
   return 1;
 }
 
@@ -5529,9 +5553,10 @@ unify_too_many_arguments (bool explain_p, int have, int wanted)
 }
 
 static int
-unify_too_few_arguments (bool explain_p, int have, int wanted)
+unify_too_few_arguments (bool explain_p, int have, int wanted,
+			 bool least_p = false)
 {
-  return unify_arity (explain_p, have, wanted);
+  return unify_arity (explain_p, have, wanted, least_p);
 }
 
 static int
@@ -6463,13 +6488,16 @@ convert_template_argument (tree parm,
 		     "parameter list for %qD",
 		     i + 1, in_decl);
 	      if (is_type)
-		error ("  expected a constant of type %qT, got %qT",
-		       TREE_TYPE (parm),
-		       (DECL_P (arg) ? DECL_NAME (arg) : orig_arg));
+		inform (input_location,
+			"  expected a constant of type %qT, got %qT",
+			TREE_TYPE (parm),
+			(DECL_P (arg) ? DECL_NAME (arg) : orig_arg));
 	      else if (requires_tmpl_type)
-		error ("  expected a class template, got %qE", orig_arg);
+		inform (input_location,
+			"  expected a class template, got %qE", orig_arg);
 	      else
-		error ("  expected a type, got %qE", orig_arg);
+		inform (input_location,
+			"  expected a type, got %qE", orig_arg);
 	    }
 	}
       return error_mark_node;
@@ -6482,9 +6510,11 @@ convert_template_argument (tree parm,
 		 "parameter list for %qD",
 		 i + 1, in_decl);
 	  if (is_tmpl_type)
-	    error ("  expected a type, got %qT", DECL_NAME (arg));
+	    inform (input_location,
+		    "  expected a type, got %qT", DECL_NAME (arg));
 	  else
-	    error ("  expected a class template, got %qT", orig_arg);
+	    inform (input_location,
+		    "  expected a class template, got %qT", orig_arg);
 	}
       return error_mark_node;
     }
@@ -6532,8 +6562,9 @@ convert_template_argument (tree parm,
 		      error ("type/value mismatch at argument %d in "
 			     "template parameter list for %qD",
 			     i + 1, in_decl);
-		      error ("  expected a template of type %qD, got %qT",
-			     parm, orig_arg);
+		      inform (input_location,
+			      "  expected a template of type %qD, got %qT",
+			      parm, orig_arg);
 		    }
 
 		  val = error_mark_node;
@@ -7383,9 +7414,7 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
       templ = TYPE_TI_TEMPLATE (d1);
       d1 = DECL_NAME (templ);
     }
-  else if (TREE_CODE (d1) == TEMPLATE_DECL
-           && DECL_TEMPLATE_RESULT (d1)
-	   && TREE_CODE (DECL_TEMPLATE_RESULT (d1)) == TYPE_DECL)
+  else if (DECL_TYPE_TEMPLATE_P (d1))
     {
       templ = d1;
       d1 = DECL_NAME (templ);
@@ -16496,8 +16525,9 @@ unify_one_argument (tree tparms, tree targs, tree parm, tree arg,
 	maybe_adjust_types_for_deduction (strict, &parm, &arg, arg_expr);
     }
   else
-    gcc_assert ((TYPE_P (parm) || TREE_CODE (parm) == TEMPLATE_DECL)
-		== (TYPE_P (arg) || TREE_CODE (arg) == TEMPLATE_DECL));
+    if ((TYPE_P (parm) || TREE_CODE (parm) == TEMPLATE_DECL)
+	!= (TYPE_P (arg) || TREE_CODE (arg) == TEMPLATE_DECL))
+      return unify_template_argument_mismatch (explain_p, parm, arg);
 
   /* For deduction from an init-list we need the actual list.  */
   if (arg_expr && BRACE_ENCLOSED_INITIALIZER_P (arg_expr))
@@ -16605,18 +16635,26 @@ type_unification_real (tree tparms,
      are present, and the parm list isn't variadic.  */
   if (ia < nargs && parms == void_list_node)
     return unify_too_many_arguments (explain_p, nargs, ia);
-  /* Fail if parms are left and they don't have default values.  */
+  /* Fail if parms are left and they don't have default values and
+     they aren't all deduced as empty packs (c++/57397).  This is
+     consistent with sufficient_parms_p.  */
   if (parms && parms != void_list_node
       && TREE_PURPOSE (parms) == NULL_TREE)
     {
       unsigned int count = nargs;
       tree p = parms;
-      while (p && p != void_list_node)
+      bool type_pack_p;
+      do
 	{
-	  count++;
+	  type_pack_p = TREE_CODE (TREE_VALUE (p)) == TYPE_PACK_EXPANSION;
+	  if (!type_pack_p)
+	    count++;
 	  p = TREE_CHAIN (p);
 	}
-      return unify_too_few_arguments (explain_p, ia, count);
+      while (p && p != void_list_node);
+      if (count != nargs)
+	return unify_too_few_arguments (explain_p, ia, count,
+					type_pack_p);
     }
 
   if (!subr)
@@ -16833,7 +16871,16 @@ resolve_overloaded_unification (tree tparms,
       int i = TREE_VEC_LENGTH (targs);
       for (; i--; )
 	if (TREE_VEC_ELT (tempargs, i))
-	  TREE_VEC_ELT (targs, i) = TREE_VEC_ELT (tempargs, i);
+	  {
+	    tree old = TREE_VEC_ELT (targs, i);
+	    tree new_ = TREE_VEC_ELT (tempargs, i);
+	    if (new_ && old && ARGUMENT_PACK_P (old)
+		&& ARGUMENT_PACK_EXPLICIT_ARGS (old))
+	      /* Don't forget explicit template arguments in a pack.  */
+	      ARGUMENT_PACK_EXPLICIT_ARGS (new_)
+		= ARGUMENT_PACK_EXPLICIT_ARGS (old);
+	    TREE_VEC_ELT (targs, i) = new_;
+	  }
     }
   if (good)
     return true;
@@ -17167,6 +17214,11 @@ check_cv_quals_for_unify (int strict, tree arg, tree parm)
 {
   int arg_quals = cp_type_quals (arg);
   int parm_quals = cp_type_quals (parm);
+
+  /* DR 1584: cv-qualification of a deduced function type is
+     ignored; see 8.3.5 [dcl.fct].  */
+  if (TREE_CODE (arg) == FUNCTION_TYPE)
+    return 1;
 
   if (TREE_CODE (parm) == TEMPLATE_TYPE_PARM
       && !(strict & UNIFY_ALLOW_OUTER_MORE_CV_QUAL))
@@ -18089,6 +18141,8 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict,
 			TYPE_PTRMEMFUNC_FN_TYPE (arg),
 			strict, explain_p);
 	}
+      else if (TYPE_PTRMEMFUNC_P (arg))
+	return unify_type_mismatch (explain_p, parm, arg);
 
       if (CLASSTYPE_TEMPLATE_INFO (parm))
 	{
@@ -19747,11 +19801,6 @@ instantiate_decl (tree d, int defer_ok,
   if (external_p && !always_instantiate_p (d))
     return d;
 
-  /* Any local class members should be instantiated from the TAG_DEFN
-     with defer_ok == 0.  */
-  gcc_checking_assert (!defer_ok || !decl_function_context (d)
-		       || LAMBDA_TYPE_P (DECL_CONTEXT (d)));
-
   gen_tmpl = most_general_template (tmpl);
   gen_args = DECL_TI_ARGS (d);
 
@@ -21072,7 +21121,12 @@ type_dependent_expression_p (tree expression)
 	return true;
 
       if (BASELINK_P (expression))
-	expression = BASELINK_FUNCTIONS (expression);
+	{
+	  if (BASELINK_OPTYPE (expression)
+	      && dependent_type_p (BASELINK_OPTYPE (expression)))
+	    return true;
+	  expression = BASELINK_FUNCTIONS (expression);
+	}
 
       if (TREE_CODE (expression) == TEMPLATE_ID_EXPR)
 	{

@@ -203,7 +203,7 @@ static void push_regs (HARD_REG_SET *, int);
 static int calc_live_regs (HARD_REG_SET *);
 static HOST_WIDE_INT rounded_frame_size (int);
 static bool sh_frame_pointer_required (void);
-static void sh_emit_mode_set (int, int, HARD_REG_SET);
+static void sh_emit_mode_set (int, int, int, HARD_REG_SET);
 static int sh_mode_needed (int, rtx);
 static int sh_mode_after (int, int, rtx);
 static int sh_mode_entry (int);
@@ -1758,7 +1758,8 @@ prepare_move_operands (rtx operands[], enum machine_mode mode)
       else
 	opc = NULL_RTX;
 
-      if ((tls_kind = tls_symbolic_operand (op1, Pmode)) != TLS_MODEL_NONE)
+      if (! reload_in_progress && ! reload_completed
+	  && (tls_kind = tls_symbolic_operand (op1, Pmode)) != TLS_MODEL_NONE)
 	{
 	  rtx tga_op1, tga_ret, tmp, tmp2;
 
@@ -10286,6 +10287,10 @@ sh_legitimate_index_p (enum machine_mode mode, rtx op, bool consider_sh2a,
 static bool
 sh_legitimate_address_p (enum machine_mode mode, rtx x, bool strict)
 {
+  if (! ALLOW_INDEXED_ADDRESS
+      && GET_CODE (x) == PLUS && REG_P (XEXP (x, 0)) && REG_P (XEXP (x, 1)))
+    return false;
+
   if (REG_P (x) && REGNO (x) == GBR_REG)
     return true;
 
@@ -10514,6 +10519,28 @@ sh_legitimize_reload_address (rtx *p, enum machine_mode mode, int opnum,
 {
   enum reload_type type = (enum reload_type) itype;
   const int mode_sz = GET_MODE_SIZE (mode);
+
+  if (! ALLOW_INDEXED_ADDRESS
+      && GET_CODE (*p) == PLUS
+      && REG_P (XEXP (*p, 0)) && REG_P (XEXP (*p, 1)))
+    {
+      *p = copy_rtx (*p);
+      push_reload (*p, NULL_RTX, p, NULL,
+		   BASE_REG_CLASS, Pmode, VOIDmode, 0, 0, opnum, type);
+      return true;
+    }
+
+  if (! ALLOW_INDEXED_ADDRESS
+      && GET_CODE (*p) == PLUS
+      && GET_CODE (XEXP (*p, 0)) == PLUS)
+    {
+      rtx sum = gen_rtx_PLUS (Pmode, XEXP (XEXP (*p, 0), 0),
+				     XEXP (XEXP (*p, 0), 1));
+      *p = gen_rtx_PLUS (Pmode, sum, XEXP (*p, 1));
+      push_reload (sum, NULL_RTX, &XEXP (*p, 0), NULL,
+		   BASE_REG_CLASS, Pmode, VOIDmode, 0, 0, opnum, type);
+      return true;
+    }
 
   if (TARGET_SHMEDIA)
     return false;
@@ -13582,9 +13609,17 @@ sh_try_omit_signzero_extend (rtx extended_op, rtx insn)
 
 static void
 sh_emit_mode_set (int entity ATTRIBUTE_UNUSED, int mode,
-		  HARD_REG_SET regs_live)
+		  int prev_mode, HARD_REG_SET regs_live)
 {
-  fpscr_set_from_mem (mode, regs_live);
+  if ((TARGET_SH4A_FP || TARGET_SH4_300)
+      && prev_mode != FP_MODE_NONE && prev_mode != mode)
+    {
+      emit_insn (gen_toggle_pr ());
+      if (TARGET_FMOVD)
+	emit_insn (gen_toggle_sz ());
+    }
+  else
+    fpscr_set_from_mem (mode, regs_live);
 }
 
 static int

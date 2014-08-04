@@ -619,6 +619,13 @@ extern const char *constant_string_class_name;
 /* C++ language option variables.  */
 
 
+/* Return TRUE if one of {flag_abi_version,flag_abi_compat_version} is
+   less than N and the other is at least N, for use by -Wabi.  */
+#define abi_version_crosses(N)			\
+  (abi_version_at_least(N)			\
+   != (flag_abi_compat_version == 0		\
+       || flag_abi_compat_version >= (N)))
+
 /* Nonzero means generate separate instantiation control files and
    juggle them at link time.  */
 
@@ -633,8 +640,10 @@ enum cxx_dialect {
   /* C++11  */
   cxx0x,
   cxx11 = cxx0x,
-  /* C++1y (C++17?) */
-  cxx1y
+  /* C++1y (C++14?) */
+  cxx1y,
+  /* C++1z (C++17?) */
+  cxx1z
 };
 
 /* The C++ dialect being used. C++98 is the default.  */
@@ -753,7 +762,6 @@ extern tree c_wrap_maybe_const (tree, bool);
 extern tree c_save_expr (tree);
 extern tree c_common_truthvalue_conversion (location_t, tree);
 extern void c_apply_type_quals_to_decl (int, tree);
-extern unsigned int min_align_of_type (tree);
 extern tree c_sizeof_or_alignof_type (location_t, tree, bool, bool, int);
 extern tree c_alignof_expr (location_t, tree);
 /* Print an error message for invalid operands to arith operation CODE.
@@ -828,6 +836,7 @@ extern bool c_common_post_options (const char **);
 extern bool c_common_init (void);
 extern void c_common_finish (void);
 extern void c_common_parse_file (void);
+extern FILE *get_dump_info (int, int *);
 extern alias_set_type c_common_get_alias_set (tree);
 extern void c_register_builtin_type (tree, const char*);
 extern bool c_promoting_integer_type_p (const_tree);

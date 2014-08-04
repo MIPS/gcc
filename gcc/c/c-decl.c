@@ -2294,7 +2294,7 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
   /* Merge the threadprivate attribute.  */
   if (TREE_CODE (olddecl) == VAR_DECL && C_DECL_THREADPRIVATE_P (olddecl))
     {
-      DECL_TLS_MODEL (newdecl) = DECL_TLS_MODEL (olddecl);
+      set_decl_tls_model (newdecl, DECL_TLS_MODEL (olddecl));
       C_DECL_THREADPRIVATE_P (newdecl) = 1;
     }
 
@@ -2305,7 +2305,7 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 	 must be done later in decl_attributes since we are called
 	 before attributes are assigned.  */
       if ((DECL_EXTERNAL (olddecl) || TREE_PUBLIC (olddecl) || TREE_STATIC (olddecl))
-	  && DECL_SECTION_NAME (newdecl) == NULL_TREE
+	  && DECL_SECTION_NAME (newdecl) == NULL
 	  && DECL_SECTION_NAME (olddecl))
 	set_decl_section_name (newdecl, DECL_SECTION_NAME (olddecl));
 
@@ -2575,13 +2575,20 @@ duplicate_decls (tree newdecl, tree olddecl)
 
   merge_decls (newdecl, olddecl, newtype, oldtype);
 
-  /* The NEWDECL will no longer be needed.  */
+  /* The NEWDECL will no longer be needed.
+
+     Before releasing the node, be sure to remove function from symbol
+     table that might have been inserted there to record comdat group.
+     Be sure to however do not free DECL_STRUCT_FUNCTION because this
+     structure is shared in between NEWDECL and OLDECL.  */
+  if (TREE_CODE (newdecl) == FUNCTION_DECL)
+    DECL_STRUCT_FUNCTION (newdecl) = NULL;
   if (TREE_CODE (newdecl) == FUNCTION_DECL
       || TREE_CODE (newdecl) == VAR_DECL)
     {
-      struct symtab_node *snode = symtab_get_node (newdecl);
+      struct symtab_node *snode = symtab_node::get (newdecl);
       if (snode)
-	symtab_remove_node (snode);
+	snode->remove ();
     }
   ggc_free (newdecl);
   return true;
@@ -2944,18 +2951,18 @@ pushdecl_top_level (tree x)
 }
 
 static void
-implicit_decl_warning (tree id, tree olddecl)
+implicit_decl_warning (location_t loc, tree id, tree olddecl)
 {
   if (warn_implicit_function_declaration)
     {
       bool warned;
 
       if (flag_isoc99)
-	warned = pedwarn (input_location, OPT_Wimplicit_function_declaration,
+	warned = pedwarn (loc, OPT_Wimplicit_function_declaration,
 			  "implicit declaration of function %qE", id);
       else
-	warned = warning (OPT_Wimplicit_function_declaration,
-			  G_("implicit declaration of function %qE"), id);
+	warned = warning_at (loc, OPT_Wimplicit_function_declaration,
+			     G_("implicit declaration of function %qE"), id);
       if (olddecl && warned)
 	locate_old_decl (olddecl);
     }
@@ -3008,7 +3015,7 @@ implicitly_declare (location_t loc, tree functionid)
 	     then recycle the old declaration but with the new type.  */
 	  if (!C_DECL_IMPLICIT (decl))
 	    {
-	      implicit_decl_warning (functionid, decl);
+	      implicit_decl_warning (loc, functionid, decl);
 	      C_DECL_IMPLICIT (decl) = 1;
 	    }
 	  if (DECL_BUILT_IN (decl))
@@ -3045,7 +3052,7 @@ implicitly_declare (location_t loc, tree functionid)
   DECL_EXTERNAL (decl) = 1;
   TREE_PUBLIC (decl) = 1;
   C_DECL_IMPLICIT (decl) = 1;
-  implicit_decl_warning (functionid, 0);
+  implicit_decl_warning (loc, functionid, 0);
   asmspec_tree = maybe_apply_renaming_pragma (decl, /*asmname=*/NULL);
   if (asmspec_tree)
     set_user_assembler_name (decl, TREE_STRING_POINTER (asmspec_tree));
@@ -5505,7 +5512,11 @@ grokdeclarator (const struct c_declarator *declarator,
 		    this_size_varies = size_varies = true;
 		    warn_variable_length_array (name, size);
 		    if (flag_sanitize & SANITIZE_VLA
-		        && decl_context == NORMAL)
+		        && decl_context == NORMAL
+			&& current_function_decl != NULL_TREE
+			&& !lookup_attribute ("no_sanitize_undefined",
+					      DECL_ATTRIBUTES
+						(current_function_decl)))
 		      {
 			/* Evaluate the array size only once.  */
 			size = c_save_expr (size);
@@ -6092,6 +6103,7 @@ grokdeclarator (const struct c_declarator *declarator,
     if (decl_context == PARM)
       {
 	tree promoted_type;
+	bool array_parameter_p = false;
 
 	/* A parameter declared as an array of T is really a pointer to T.
 	   One declared as a function is really a pointer to a function.  */
@@ -6113,6 +6125,7 @@ grokdeclarator (const struct c_declarator *declarator,
 			  "attributes in parameter array declarator ignored");
 
 	    size_varies = false;
+	    array_parameter_p = true;
 	  }
 	else if (TREE_CODE (type) == FUNCTION_TYPE)
 	  {
@@ -6137,6 +6150,7 @@ grokdeclarator (const struct c_declarator *declarator,
 			   PARM_DECL, declarator->u.id, type);
 	if (size_varies)
 	  C_DECL_VARIABLE_SIZE (decl) = 1;
+	C_ARRAY_PARAMETER (decl) = array_parameter_p;
 
 	/* Compute the type actually passed in the parmlist,
 	   for the case where there is no prototype.
@@ -6345,7 +6359,7 @@ grokdeclarator (const struct c_declarator *declarator,
 	  }
 
 	if (threadp)
-	  DECL_TLS_MODEL (decl) = decl_default_tls_model (decl);
+	  set_decl_tls_model (decl, decl_default_tls_model (decl));
       }
 
     if ((storage_class == csc_extern
@@ -7076,7 +7090,7 @@ is_duplicate_field (tree x, tree y)
 
 static void
 detect_field_duplicates_hash (tree fieldlist,
-			      hash_table <pointer_hash <tree_node> > htab)
+			      hash_table<pointer_hash <tree_node> > *htab)
 {
   tree x, y;
   tree_node **slot;
@@ -7084,7 +7098,7 @@ detect_field_duplicates_hash (tree fieldlist,
   for (x = fieldlist; x ; x = DECL_CHAIN (x))
     if ((y = DECL_NAME (x)) != 0)
       {
-	slot = htab.find_slot (y, INSERT);
+	slot = htab->find_slot (y, INSERT);
 	if (*slot)
 	  {
 	    error ("duplicate member %q+D", x);
@@ -7104,7 +7118,7 @@ detect_field_duplicates_hash (tree fieldlist,
 	    && TREE_CODE (TYPE_NAME (TREE_TYPE (x))) == TYPE_DECL)
 	  {
 	    tree xn = DECL_NAME (TYPE_NAME (TREE_TYPE (x)));
-	    slot = htab.find_slot (xn, INSERT);
+	    slot = htab->find_slot (xn, INSERT);
 	    if (*slot)
 	      error ("duplicate member %q+D", TYPE_NAME (TREE_TYPE (x)));
 	    *slot = xn;
@@ -7176,11 +7190,8 @@ detect_field_duplicates (tree fieldlist)
     }
   else
     {
-      hash_table <pointer_hash <tree_node> > htab;
-      htab.create (37);
-
-      detect_field_duplicates_hash (fieldlist, htab);
-      htab.dispose ();
+      hash_table<pointer_hash <tree_node> > htab (37);
+      detect_field_duplicates_hash (fieldlist, &htab);
     }
 }
 
@@ -8688,7 +8699,7 @@ finish_function (void)
 	     This should be cleaned up later and this conditional removed.  */
 	  if (cgraph_global_info_ready)
 	    {
-	      cgraph_add_new_function (fndecl, false);
+	      cgraph_node::add_new_function (fndecl, false);
 	      return;
 	    }
 	  cgraph_finalize_function (fndecl, false);
@@ -8698,7 +8709,7 @@ finish_function (void)
 	  /* Register this function with cgraph just far enough to get it
 	    added to our parent's nested function list.  Handy, since the
 	    C front end doesn't have such a list.  */
-	  (void) cgraph_get_create_node (fndecl);
+	  (void) cgraph_node::get_create (fndecl);
 	}
     }
 

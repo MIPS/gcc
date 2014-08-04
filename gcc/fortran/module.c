@@ -190,6 +190,9 @@ static gzFile module_fp;
 static const char *module_name;
 static gfc_use_list *module_list;
 
+/* If we're reading an intrinsic module, this is its ID.  */
+static intmod_id current_intmod;
+
 /* Content of module.  */
 static char* module_content;
 
@@ -1877,7 +1880,7 @@ typedef enum
   AB_IS_BIND_C, AB_IS_C_INTEROP, AB_IS_ISO_C, AB_ABSTRACT, AB_ZERO_COMP,
   AB_IS_CLASS, AB_PROCEDURE, AB_PROC_POINTER, AB_ASYNCHRONOUS, AB_CODIMENSION,
   AB_COARRAY_COMP, AB_VTYPE, AB_VTAB, AB_CONTIGUOUS, AB_CLASS_POINTER,
-  AB_IMPLICIT_PURE, AB_ARTIFICIAL, AB_UNLIMITED_POLY
+  AB_IMPLICIT_PURE, AB_ARTIFICIAL, AB_UNLIMITED_POLY, AB_OMP_DECLARE_TARGET
 }
 ab_attribute;
 
@@ -1932,6 +1935,7 @@ static const mstring attr_bits[] =
     minit ("CLASS_POINTER", AB_CLASS_POINTER),
     minit ("IMPLICIT_PURE", AB_IMPLICIT_PURE),
     minit ("UNLIMITED_POLY", AB_UNLIMITED_POLY),
+    minit ("OMP_DECLARE_TARGET", AB_OMP_DECLARE_TARGET),
     minit (NULL, -1)
 };
 
@@ -2110,6 +2114,8 @@ mio_symbol_attribute (symbol_attribute *attr)
 	MIO_NAME (ab_attribute) (AB_VTYPE, attr_bits);
       if (attr->vtab)
 	MIO_NAME (ab_attribute) (AB_VTAB, attr_bits);
+      if (attr->omp_declare_target)
+	MIO_NAME (ab_attribute) (AB_OMP_DECLARE_TARGET, attr_bits);
 
       mio_rparen ();
 
@@ -2272,6 +2278,9 @@ mio_symbol_attribute (symbol_attribute *attr)
 	      break;
 	    case AB_VTAB:
 	      attr->vtab = 1;
+	      break;
+	    case AB_OMP_DECLARE_TARGET:
+	      attr->omp_declare_target = 1;
 	      break;
 	    }
 	}
@@ -3130,6 +3139,7 @@ static const mstring intrinsics[] =
     minit ("LE", INTRINSIC_LE_OS),
     minit ("NOT", INTRINSIC_NOT),
     minit ("PARENTHESES", INTRINSIC_PARENTHESES),
+    minit ("USER", INTRINSIC_USER),
     minit (NULL, -1)
 };
 
@@ -3166,7 +3176,8 @@ fix_mio_expr (gfc_expr *e)
 	  && !e->symtree->n.sym->attr.dummy)
 	e->symtree = ns_st;
     }
-  else if (e->expr_type == EXPR_FUNCTION && e->value.function.name)
+  else if (e->expr_type == EXPR_FUNCTION
+	   && (e->value.function.name || e->value.function.isym))
     {
       gfc_symbol *sym;
 
@@ -3281,6 +3292,32 @@ mio_expr (gfc_expr **ep)
 	  mio_expr (&e->value.op.op2);
 	  break;
 
+	case INTRINSIC_USER:
+	  /* INTRINSIC_USER should not appear in resolved expressions,
+	     though for UDRs we need to stream unresolved ones.  */
+	  if (iomode == IO_OUTPUT)
+	    write_atom (ATOM_STRING, e->value.op.uop->name);
+	  else
+	    {
+	      char *name = read_string ();
+	      const char *uop_name = find_use_name (name, true);
+	      if (uop_name == NULL)
+		{
+		  size_t len = strlen (name);
+		  char *name2 = XCNEWVEC (char, len + 2);
+		  memcpy (name2, name, len);
+		  name2[len] = ' ';
+		  name2[len + 1] = '\0';
+		  free (name);
+		  uop_name = name = name2;
+		}
+	      e->value.op.uop = gfc_get_uop (uop_name);
+	      free (name);
+	    }
+	  mio_expr (&e->value.op.op1);
+	  mio_expr (&e->value.op.op2);
+	  break;
+
 	default:
 	  bad_module ("Bad operator");
 	}
@@ -3299,6 +3336,8 @@ mio_expr (gfc_expr **ep)
 	    flag = 1;
 	  else if (e->ref)
 	    flag = 2;
+	  else if (e->value.function.isym == NULL)
+	    flag = 3;
 	  else
 	    flag = 0;
 	  mio_integer (&flag);
@@ -3310,6 +3349,8 @@ mio_expr (gfc_expr **ep)
 	    case 2:
 	      mio_ref_list (&e->ref);
 	      break;
+	    case 3:
+	      break;
 	    default:
 	      write_atom (ATOM_STRING, e->value.function.isym->name);
 	    }
@@ -3317,7 +3358,10 @@ mio_expr (gfc_expr **ep)
       else
 	{
 	  require_atom (ATOM_STRING);
-	  e->value.function.name = gfc_get_string (atom_string);
+	  if (atom_string[0] == '\0')
+	    e->value.function.name = NULL;
+	  else
+	    e->value.function.name = gfc_get_string (atom_string);
 	  free (atom_string);
 
 	  mio_integer (&flag);
@@ -3328,6 +3372,8 @@ mio_expr (gfc_expr **ep)
 	      break;
 	    case 2:
 	      mio_ref_list (&e->ref);
+	      break;
+	    case 3:
 	      break;
 	    default:
 	      require_atom (ATOM_STRING);
@@ -4053,7 +4099,10 @@ mio_symbol (gfc_symbol *sym)
   else
     {
       mio_integer (&intmod);
-      sym->from_intmod = (intmod_id) intmod;
+      if (current_intmod)
+	sym->from_intmod = current_intmod;
+      else
+	sym->from_intmod = (intmod_id) intmod;
     }
   
   mio_integer (&(sym->intmod_sym_id));
@@ -6690,6 +6739,7 @@ gfc_use_module (gfc_use_list *module)
   module_name = module->module_name;
   gfc_rename_list = module->rename;
   only_flag = module->only_flag;
+  current_intmod = INTMOD_NONE;
 
   filename = XALLOCAVEC (char, strlen (module_name) + strlen (MODULE_EXTENSION)
 			       + 1);
@@ -6734,6 +6784,26 @@ gfc_use_module (gfc_use_list *module)
       if (module_fp == NULL && module->intrinsic)
 	gfc_fatal_error ("Can't find an intrinsic module named '%s' at %C",
 			 module_name);
+
+      /* Check for the IEEE modules, so we can mark their symbols
+	 accordingly when we read them.  */
+      if (strcmp (module_name, "ieee_features") == 0
+	  && gfc_notify_std (GFC_STD_F2003, "IEEE_FEATURES module at %C"))
+	{
+	  current_intmod = INTMOD_IEEE_FEATURES;
+	}
+      else if (strcmp (module_name, "ieee_exceptions") == 0
+	       && gfc_notify_std (GFC_STD_F2003,
+				  "IEEE_EXCEPTIONS module at %C"))
+	{
+	  current_intmod = INTMOD_IEEE_EXCEPTIONS;
+	}
+      else if (strcmp (module_name, "ieee_arithmetic") == 0
+	       && gfc_notify_std (GFC_STD_F2003,
+				  "IEEE_ARITHMETIC module at %C"))
+	{
+	  current_intmod = INTMOD_IEEE_ARITHMETIC;
+	}
     }
 
   if (module_fp == NULL)

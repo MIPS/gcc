@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -41,14 +41,12 @@ with Rident;   use Rident;
 with Rtsfind;  use Rtsfind;
 with Sem;      use Sem;
 with Sem_Ch8;  use Sem_Ch8;
-with Sem_Res;  use Sem_Res;
 with Sem_Util; use Sem_Util;
 with Sinfo;    use Sinfo;
 with Sinput;   use Sinput;
 with Snames;   use Snames;
 with Stringt;  use Stringt;
 with Stand;    use Stand;
-with Targparm; use Targparm;
 with Tbuild;   use Tbuild;
 with Uintp;    use Uintp;
 with Validsw;  use Validsw;
@@ -68,7 +66,6 @@ package body Exp_Prag is
    procedure Expand_Pragma_Check                   (N : Node_Id);
    procedure Expand_Pragma_Common_Object           (N : Node_Id);
    procedure Expand_Pragma_Import_Or_Interface     (N : Node_Id);
-   procedure Expand_Pragma_Import_Export_Exception (N : Node_Id);
    procedure Expand_Pragma_Inspection_Point        (N : Node_Id);
    procedure Expand_Pragma_Interrupt_Priority      (N : Node_Id);
    procedure Expand_Pragma_Loop_Variant            (N : Node_Id);
@@ -440,6 +437,9 @@ package body Exp_Prag is
 
                --  Generate a temporary to capture the value of the prefix:
                --    Temp : <Pref type>;
+               --  Place that temporary at the beginning of declarations, to
+               --  prevent anomalies in the GNATprove flow-analysis pass in
+               --  the precondition procedure that follows.
 
                Decl :=
                  Make_Object_Declaration (Loc,
@@ -448,7 +448,7 @@ package body Exp_Prag is
                      New_Occurrence_Of (Etype (Pref), Loc));
                Set_No_Initialization (Decl);
 
-               Append_To (Decls, Decl);
+               Prepend_To (Decls, Decl);
 
                --  Evaluate the prefix, generate:
                --    Temp := <Pref>;
@@ -815,14 +815,8 @@ package body Exp_Prag is
             when Pragma_Common_Object =>
                Expand_Pragma_Common_Object (N);
 
-            when Pragma_Export_Exception =>
-               Expand_Pragma_Import_Export_Exception (N);
-
             when Pragma_Import =>
                Expand_Pragma_Import_Or_Interface (N);
-
-            when Pragma_Import_Exception =>
-               Expand_Pragma_Import_Export_Exception (N);
 
             when Pragma_Inspection_Point =>
                Expand_Pragma_Inspection_Point (N);
@@ -916,17 +910,23 @@ package body Exp_Prag is
    --------------------------
 
    procedure Expand_Pragma_Check (N : Node_Id) is
-      Loc  : constant Source_Ptr := Sloc (N);
-      --  Location of the pragma node. Note: it is important to use this
-      --  location (and not the location of the expression) for the generated
-      --  statements, otherwise the implicit return statement in the body
-      --  of a pre/postcondition subprogram may inherit the source location
-      --  of part of the expression, which causes confusing debug information
-      --  to be generated, which interferes with coverage analysis tools.
-
       Cond : constant Node_Id := Arg2 (N);
       Nam  : constant Name_Id := Chars (Arg1 (N));
       Msg  : Node_Id;
+
+      Loc : constant Source_Ptr := Sloc (First_Node (Cond));
+      --  Source location used in the case of a failed assertion: point to the
+      --  failing condition, not Loc. Note that the source location of the
+      --  expression is not usually the best choice here, because it points to
+      --  the location of the topmost tree node, which may be an operator in
+      --  the middle of the source text of the expression. For example, it gets
+      --  located on the last AND keyword in a chain of boolean expressiond
+      --  AND'ed together. It is best to put the message on the first character
+      --  of the condition, which is the effect of the First_Node call here.
+      --  This source location is used to build the default exception message,
+      --  and also as the sloc of the call to the runtime subprogram raising
+      --  Assert_Failure, so that coverage analysis tools can relate the
+      --  call to the failed check.
 
    begin
       --  Nothing to do if pragma is ignored
@@ -985,19 +985,16 @@ package body Exp_Prag is
       --  Case where we generate a direct raise
 
       if ((Debug_Flag_Dot_G
-           or else Restriction_Active (No_Exception_Propagation))
-          and then Present (Find_Local_Handler (RTE (RE_Assert_Failure), N)))
+             or else Restriction_Active (No_Exception_Propagation))
+           and then Present (Find_Local_Handler (RTE (RE_Assert_Failure), N)))
         or else (Opt.Exception_Locations_Suppressed and then No (Arg3 (N)))
       then
          Rewrite (N,
            Make_If_Statement (Loc,
-             Condition =>
-               Make_Op_Not (Loc,
-                 Right_Opnd => Cond),
+             Condition       => Make_Op_Not (Loc, Right_Opnd => Cond),
              Then_Statements => New_List (
                Make_Raise_Statement (Loc,
-                 Name =>
-                   New_Occurrence_Of (RTE (RE_Assert_Failure), Loc)))));
+                 Name => New_Occurrence_Of (RTE (RE_Assert_Failure), Loc)))));
 
       --  Case where we call the procedure
 
@@ -1011,15 +1008,7 @@ package body Exp_Prag is
 
          else
             declare
-               Msg_Loc : constant String :=
-                           Build_Location_String (Sloc (First_Node (Cond)));
-               --  Source location used in the case of a failed assertion:
-               --  point to the failing condition, not Loc. Note that the
-               --  source location of the expression is not usually the best
-               --  choice here. For example, it gets located on the last AND
-               --  keyword in a chain of boolean expressiond AND'ed together.
-               --  It is best to put the message on the first character of the
-               --  condition, which is the effect of the First_Node call here.
+               Loc_Str : constant String := Build_Location_String (Loc);
 
             begin
                Name_Len := 0;
@@ -1066,7 +1055,7 @@ package body Exp_Prag is
 
                --  In all cases, add location string
 
-               Add_Str_To_Name_Buffer (Msg_Loc);
+               Add_Str_To_Name_Buffer (Loc_Str);
 
                --  Build the message
 
@@ -1078,12 +1067,10 @@ package body Exp_Prag is
 
          Rewrite (N,
            Make_If_Statement (Loc,
-             Condition =>
-               Make_Op_Not (Loc,
-                 Right_Opnd => Cond),
+             Condition       => Make_Op_Not (Loc, Right_Opnd => Cond),
              Then_Statements => New_List (
                Make_Procedure_Call_Statement (Loc,
-                 Name =>
+                 Name                   =>
                    New_Occurrence_Of (RTE (RE_Raise_Assert_Failure), Loc),
                  Parameter_Associations => New_List (Relocate_Node (Msg))))));
       end if;
@@ -1151,15 +1138,13 @@ package body Exp_Prag is
          Set_All_Upper_Case;
 
          Psect :=
-           Make_String_Literal (Eloc,
-             Strval => String_From_Name_Buffer);
+           Make_String_Literal (Eloc, Strval => String_From_Name_Buffer);
 
       else
          Get_Name_String (Chars (Internal));
          Set_All_Upper_Case;
          Psect :=
-           Make_String_Literal (Iloc,
-             Strval => String_From_Name_Buffer);
+           Make_String_Literal (Iloc, Strval => String_From_Name_Buffer);
       end if;
 
       Ploc := Sloc (Psect);
@@ -1178,7 +1163,6 @@ package body Exp_Prag is
                    Strval => "common_object")),
              Make_Pragma_Argument_Association (Ploc,
                Expression => New_Copy_Tree (Psect)))));
-
    end Expand_Pragma_Common_Object;
 
    ---------------------------------------
@@ -1298,176 +1282,6 @@ package body Exp_Prag is
          null;
       end if;
    end Expand_Pragma_Import_Or_Interface;
-
-   -------------------------------------------
-   -- Expand_Pragma_Import_Export_Exception --
-   -------------------------------------------
-
-   --  For a VMS exception fix up the language field with "VMS"
-   --  instead of "Ada" (gigi needs this), create a constant that will be the
-   --  value of the VMS condition code and stuff the Interface_Name field
-   --  with the unexpanded name of the exception (if not already set).
-   --  For a Ada exception, just stuff the Interface_Name field
-   --  with the unexpanded name of the exception (if not already set).
-
-   procedure Expand_Pragma_Import_Export_Exception (N : Node_Id) is
-   begin
-      --  This pragma is only effective on OpenVMS systems, it was ignored
-      --  on non-VMS systems, and we need to ignore it here as well.
-
-      if not OpenVMS_On_Target then
-         return;
-      end if;
-
-      declare
-         Id     : constant Entity_Id := Entity (Arg1 (N));
-         Call   : constant Node_Id := Register_Exception_Call (Id);
-         Loc    : constant Source_Ptr := Sloc (N);
-
-      begin
-         if Present (Call) then
-            declare
-               Excep_Internal : constant Node_Id := Make_Temporary (Loc, 'V');
-               Export_Pragma  : Node_Id;
-               Excep_Alias    : Node_Id;
-               Excep_Object   : Node_Id;
-               Excep_Image    : String_Id;
-               Exdata         : List_Id;
-               Lang_Char      : Node_Id;
-               Code           : Node_Id;
-
-            begin
-               --  Compute the symbol for the code of the condition
-
-               if Present (Interface_Name (Id)) then
-                  Excep_Image := Strval (Interface_Name (Id));
-               else
-                  Get_Name_String (Chars (Id));
-                  Set_All_Upper_Case;
-                  Excep_Image := String_From_Name_Buffer;
-               end if;
-
-               Exdata := Component_Associations (Expression (Parent (Id)));
-
-               if Is_VMS_Exception (Id) then
-                  Lang_Char := Next (First (Exdata));
-
-                  --  Change the one-character language designator to 'V'
-
-                  Rewrite (Expression (Lang_Char),
-                    Make_Character_Literal (Loc,
-                      Chars => Name_uV,
-                      Char_Literal_Value =>
-                        UI_From_Int (Character'Pos ('V'))));
-                  Analyze (Expression (Lang_Char));
-
-                  if Exception_Code (Id) /= No_Uint then
-
-                     --  The code for the exception is present. Create a linker
-                     --  alias to define the symbol.
-
-                     Code :=
-                       Unchecked_Convert_To (RTE (RE_Address),
-                         Make_Integer_Literal (Loc,
-                           Intval => Exception_Code (Id)));
-
-                     --  Declare a dummy object
-
-                     Excep_Object :=
-                       Make_Object_Declaration (Loc,
-                         Defining_Identifier => Excep_Internal,
-                         Object_Definition   =>
-                           New_Occurrence_Of (RTE (RE_Address), Loc));
-
-                     Insert_Action (N, Excep_Object);
-                     Analyze (Excep_Object);
-
-                     --  Clear severity bits
-
-                     Start_String;
-                     Store_String_Int
-                       (UI_To_Int (Exception_Code (Id)) / 8 * 8);
-
-                     --  Insert a pragma Linker_Alias to set the value of the
-                     --  dummy object symbol.
-
-                     Excep_Alias :=
-                       Make_Pragma (Loc,
-                         Chars                        => Name_Linker_Alias,
-                         Pragma_Argument_Associations => New_List (
-                           Make_Pragma_Argument_Association (Loc,
-                             Expression =>
-                               New_Occurrence_Of (Excep_Internal, Loc)),
-
-                           Make_Pragma_Argument_Association (Loc,
-                             Expression =>
-                               Make_String_Literal (Loc, End_String))));
-
-                     Insert_Action (N, Excep_Alias);
-                     Analyze (Excep_Alias);
-
-                     --  Insert a pragma Export to give a Linker_Name to the
-                     --  dummy object.
-
-                     Export_Pragma :=
-                       Make_Pragma (Loc,
-                         Chars                        => Name_Export,
-                         Pragma_Argument_Associations => New_List (
-                           Make_Pragma_Argument_Association (Loc,
-                             Expression => Make_Identifier (Loc, Name_C)),
-
-                           Make_Pragma_Argument_Association (Loc,
-                             Expression =>
-                               New_Occurrence_Of (Excep_Internal, Loc)),
-
-                           Make_Pragma_Argument_Association (Loc,
-                             Expression =>
-                               Make_String_Literal (Loc, Excep_Image)),
-
-                           Make_Pragma_Argument_Association (Loc,
-                             Expression =>
-                               Make_String_Literal (Loc, Excep_Image))));
-
-                     Insert_Action (N, Export_Pragma);
-                     Analyze (Export_Pragma);
-
-                  else
-                     Code :=
-                        Make_Function_Call (Loc,
-                          Name                   =>
-                            New_Occurrence_Of (RTE (RE_Import_Address), Loc),
-                          Parameter_Associations => New_List
-                            (Make_String_Literal (Loc,
-                              Strval => Excep_Image)));
-                  end if;
-
-                  --  Generate the call to Register_VMS_Exception
-
-                  Rewrite (Call,
-                    Make_Procedure_Call_Statement (Loc,
-                      Name => New_Occurrence_Of
-                                (RTE (RE_Register_VMS_Exception), Loc),
-                      Parameter_Associations => New_List (
-                        Code,
-                        Unchecked_Convert_To (RTE (RE_Exception_Data_Ptr),
-                          Make_Attribute_Reference (Loc,
-                            Prefix         => New_Occurrence_Of (Id, Loc),
-                            Attribute_Name => Name_Unrestricted_Access)))));
-
-                  Analyze_And_Resolve (Code, RTE (RE_Address));
-                  Analyze (Call);
-               end if;
-
-               if No (Interface_Name (Id)) then
-                  Set_Interface_Name (Id,
-                     Make_String_Literal
-                       (Sloc => Loc,
-                        Strval => Excep_Image));
-               end if;
-            end;
-         end if;
-      end;
-   end Expand_Pragma_Import_Export_Exception;
 
    ------------------------------------
    -- Expand_Pragma_Inspection_Point --

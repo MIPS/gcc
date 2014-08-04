@@ -126,6 +126,7 @@ c-common.h, not after.
    0: TYPE_DEPENDENT_P
    1: TYPE_HAS_USER_CONSTRUCTOR.
    2: TYPE_HAS_LATE_RETURN_TYPE (in FUNCTION_TYPE, METHOD_TYPE)
+      TYPE_PTRMEMFUNC_FLAG (in RECORD_TYPE)
    3: TYPE_FOR_JAVA.
    4: TYPE_HAS_NONTRIVIAL_DESTRUCTOR
    5: CLASS_TYPE_P (in RECORD_TYPE and UNION_TYPE)
@@ -145,6 +146,7 @@ c-common.h, not after.
       DECL_MEMBER_TEMPLATE_P (in TEMPLATE_DECL)
       USING_DECL_TYPENAME_P (in USING_DECL)
       DECL_VLA_CAPTURE_P (in FIELD_DECL)
+      DECL_ARRAY_PARAMETER_P (in PARM_DECL)
    2: DECL_THIS_EXTERN (in VAR_DECL or FUNCTION_DECL).
       DECL_IMPLICIT_TYPEDEF_P (in a TYPE_DECL)
    3: DECL_IN_AGGR_P.
@@ -358,6 +360,12 @@ typedef struct ptrmem_cst * ptrmem_cst_t;
 struct GTY(()) tree_overload {
   struct tree_common common;
   tree function;
+};
+
+struct GTY(()) tree_template_decl {
+  struct tree_decl_common common;
+  tree arguments;
+  tree result;
 };
 
 /* Returns true iff NODE is a BASELINK.  */
@@ -794,6 +802,7 @@ enum cp_tree_node_structure_enum {
   TS_CP_BINDING,
   TS_CP_OVERLOAD,
   TS_CP_BASELINK,
+  TS_CP_TEMPLATE_DECL,
   TS_CP_WRAPPER,
   TS_CP_DEFAULT_ARG,
   TS_CP_DEFERRED_NOEXCEPT,
@@ -815,6 +824,7 @@ union GTY((desc ("cp_tree_node_structure (&%h)"),
   struct ptrmem_cst GTY ((tag ("TS_CP_PTRMEM"))) ptrmem;
   struct tree_overload GTY ((tag ("TS_CP_OVERLOAD"))) overload;
   struct tree_baselink GTY ((tag ("TS_CP_BASELINK"))) baselink;
+  struct tree_template_decl GTY ((tag ("TS_CP_TEMPLATE_DECL"))) template_decl;
   struct tree_default_arg GTY ((tag ("TS_CP_DEFAULT_ARG"))) default_arg;
   struct tree_deferred_noexcept GTY ((tag ("TS_CP_DEFERRED_NOEXCEPT"))) deferred_noexcept;
   struct lang_identifier GTY ((tag ("TS_CP_IDENTIFIER"))) identifier;
@@ -2048,6 +2058,8 @@ struct GTY(()) lang_decl_fn {
 struct GTY(()) lang_decl_ns {
   struct lang_decl_base base;
   cp_binding_level *level;
+  tree ns_using;
+  tree ns_users;
 };
 
 /* DECL_LANG_SPECIFIC for parameters.  */
@@ -2580,16 +2592,16 @@ struct GTY(()) lang_decl {
 /* For a NAMESPACE_DECL: the list of using namespace directives
    The PURPOSE is the used namespace, the value is the namespace
    that is the common ancestor.  */
-#define DECL_NAMESPACE_USING(NODE) DECL_VINDEX (NAMESPACE_DECL_CHECK (NODE))
+#define DECL_NAMESPACE_USING(NODE) (LANG_DECL_NS_CHECK (NODE)->ns_using)
 
 /* In a NAMESPACE_DECL, the DECL_INITIAL is used to record all users
    of a namespace, to record the transitive closure of using namespace.  */
-#define DECL_NAMESPACE_USERS(NODE) DECL_INITIAL (NAMESPACE_DECL_CHECK (NODE))
+#define DECL_NAMESPACE_USERS(NODE) (LANG_DECL_NS_CHECK (NODE)->ns_users)
 
 /* In a NAMESPACE_DECL, the list of namespaces which have associated
    themselves with this one.  */
 #define DECL_NAMESPACE_ASSOCIATIONS(NODE) \
-  (NAMESPACE_DECL_CHECK (NODE)->decl_non_common.saved_tree)
+  DECL_INITIAL (NAMESPACE_DECL_CHECK (NODE))
 
 /* In a NAMESPACE_DECL, points to the original namespace if this is
    a namespace alias.  */
@@ -3559,11 +3571,10 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
    function type.  */
 #define TYPE_PTRMEMFUNC_P(NODE)		\
   (TREE_CODE (NODE) == RECORD_TYPE	\
-   && TYPE_LANG_SPECIFIC (NODE)		\
    && TYPE_PTRMEMFUNC_FLAG (NODE))
 
 #define TYPE_PTRMEMFUNC_FLAG(NODE) \
-  (LANG_TYPE_CLASS_CHECK (NODE)->ptrmemfunc_flag)
+  (TYPE_LANG_FLAG_2 (RECORD_TYPE_CHECK (NODE)))
 
 /* Returns true if NODE is a pointer-to-member.  */
 #define TYPE_PTRMEM_P(NODE) \
@@ -3679,6 +3690,11 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 #define DECL_VLA_CAPTURE_P(NODE) \
   DECL_LANG_FLAG_1 (FIELD_DECL_CHECK (NODE))
 
+/* Nonzero for PARM_DECL node means that this is an array function
+   parameter, i.e, a[] rather than *a.  */
+#define DECL_ARRAY_PARAMETER_P(NODE) \
+  DECL_LANG_FLAG_1 (PARM_DECL_CHECK (NODE))
+
 /* Nonzero for FIELD_DECL node means that this field is a base class
    of the parent object, as opposed to a member field.  */
 #define DECL_FIELD_IS_BASE(NODE) \
@@ -3745,16 +3761,22 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
    parameter).  The TREE_PURPOSE is the default value, if any.  The
    TEMPLATE_PARM_INDEX for the parameter is available as the
    DECL_INITIAL (for a PARM_DECL) or as the TREE_TYPE (for a
-   TYPE_DECL).  */
+   TYPE_DECL). 
+
+   FIXME: CONST_CAST_TREE is a hack that hopefully will go away after
+   tree is converted to C++ class hiearchy.  */
 #define DECL_TEMPLATE_PARMS(NODE)       \
-  TEMPLATE_DECL_CHECK (NODE)->decl_non_common.arguments
+   ((struct tree_template_decl *)CONST_CAST_TREE (TEMPLATE_DECL_CHECK (NODE)))->arguments
 #define DECL_INNERMOST_TEMPLATE_PARMS(NODE) \
    INNERMOST_TEMPLATE_PARMS (DECL_TEMPLATE_PARMS (NODE))
 #define DECL_NTPARMS(NODE) \
    TREE_VEC_LENGTH (DECL_INNERMOST_TEMPLATE_PARMS (NODE))
-/* For function, method, class-data templates.  */
+/* For function, method, class-data templates.
+
+   FIXME: CONST_CAST_TREE is a hack that hopefully will go away after
+   tree is converted to C++ class hiearchy.  */
 #define DECL_TEMPLATE_RESULT(NODE)      \
-  DECL_RESULT_FLD (TEMPLATE_DECL_CHECK (NODE))
+   ((struct tree_template_decl *)CONST_CAST_TREE(TEMPLATE_DECL_CHECK (NODE)))->result
 /* For a function template at namespace scope, DECL_TEMPLATE_INSTANTIATIONS
    lists all instantiations and specializations of the function so that
    tsubst_friend_function can reassign them to another template if we find
@@ -3784,7 +3806,7 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 
    This list is not used for other templates.  */
 #define DECL_TEMPLATE_INSTANTIATIONS(NODE) \
-  DECL_VINDEX (TEMPLATE_DECL_CHECK (NODE))
+  DECL_SIZE_UNIT (TEMPLATE_DECL_CHECK (NODE))
 
 /* For a class template, this list contains the partial
    specializations of this template.  (Full specializations are not
@@ -4178,6 +4200,10 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 /* True if SIZEOF_EXPR argument is type.  */
 #define SIZEOF_EXPR_TYPE_P(NODE) \
   TREE_LANG_FLAG_0 (SIZEOF_EXPR_CHECK (NODE))
+
+/* True if INTEGER_CST is a zero literal seen in function argument list.  */
+#define LITERAL_ZERO_P(NODE) \
+  (INTEGER_CST_CHECK (NODE)->base.nothrow_flag)
 
 /* An enumeration of the kind of tags that C++ accepts.  */
 enum tag_types {
@@ -6228,7 +6254,7 @@ extern tree cxx_omp_clause_default_ctor		(tree, tree, tree);
 extern tree cxx_omp_clause_copy_ctor		(tree, tree, tree);
 extern tree cxx_omp_clause_assign_op		(tree, tree, tree);
 extern tree cxx_omp_clause_dtor			(tree, tree);
-extern void cxx_omp_finish_clause		(tree);
+extern void cxx_omp_finish_clause		(tree, gimple_seq *);
 extern bool cxx_omp_privatize_by_reference	(const_tree);
 
 /* in name-lookup.c */

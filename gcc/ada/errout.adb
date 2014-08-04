@@ -37,7 +37,6 @@ with Einfo;    use Einfo;
 with Erroutc;  use Erroutc;
 with Fname;    use Fname;
 with Gnatvsn;  use Gnatvsn;
-with Hostparm; use Hostparm;
 with Lib;      use Lib;
 with Opt;      use Opt;
 with Nlists;   use Nlists;
@@ -156,11 +155,12 @@ package body Errout is
    --  variables Msg_Buffer are set on return Msglen.
 
    procedure Set_Posted (N : Node_Id);
-   --  Sets the Error_Posted flag on the given node, and all its parents
-   --  that are subexpressions and then on the parent non-subexpression
-   --  construct that contains the original expression (this reduces the
-   --  number of cascaded messages). Note that this call only has an effect
-   --  for a serious error. For a non-serious error, it has no effect.
+   --  Sets the Error_Posted flag on the given node, and all its parents that
+   --  are subexpressions and then on the parent non-subexpression construct
+   --  that contains the original expression. If that parent is a named
+   --  association, the flag is further propagated to its parent. This is done
+   --  in order to guard against cascaded errors. Note that this call has an
+   --  effect for a serious error only.
 
    procedure Set_Qualification (N : Nat; E : Entity_Id);
    --  Outputs up to N levels of qualification for the given entity. For
@@ -189,13 +189,16 @@ package body Errout is
    --  should have 'Class appended to its name (see Add_Class procedure), and
    --  is otherwise unchanged.
 
-   procedure VMS_Convert;
-   --  This procedure has no effect if called when the host is not OpenVMS. If
-   --  the host is indeed OpenVMS, then the error message stored in Msg_Buffer
-   --  is scanned for appearances of switch names which need converting to
-   --  corresponding VMS qualifier names. See Gnames/Vnames table in Errout
-   --  spec for precise definition of the conversion that is performed by this
-   --  routine in OpenVMS mode.
+   function Warn_Insertion return String;
+   --  This is called for warning messages only (so Warning_Msg_Char is set)
+   --  and returns a corresponding string to use at the beginning of generated
+   --  auxiliary messages, such as "in instantiation at ...".
+   --    'a' .. 'z'   returns "?x?"
+   --    'A' .. 'Z'   returns "?X?"
+   --    '*'          returns "?*?"
+   --    '$'          returns "?$?info: "
+   --    ' '          returns " "
+   --  No other settings are valid
 
    -----------------------
    -- Change_Error_Text --
@@ -237,6 +240,38 @@ package body Errout is
          return Erroutc.Compilation_Errors;
       end if;
    end Compilation_Errors;
+
+   --------------------------------------
+   -- Delete_Warning_And_Continuations --
+   --------------------------------------
+
+   procedure Delete_Warning_And_Continuations (Msg : Error_Msg_Id) is
+      Id : Error_Msg_Id;
+
+   begin
+      pragma Assert (not Errors.Table (Msg).Msg_Cont);
+
+      Id := Msg;
+      loop
+         declare
+            M : Error_Msg_Object renames Errors.Table (Id);
+
+         begin
+            if not M.Deleted then
+               M.Deleted := True;
+               Warnings_Detected := Warnings_Detected - 1;
+
+               if M.Warn_Err then
+                  Warnings_Treated_As_Errors := Warnings_Treated_As_Errors + 1;
+               end if;
+            end if;
+
+            Id := M.Next;
+            exit when Id = No_Error_Msg;
+            exit when not Errors.Table (Id).Msg_Cont;
+         end;
+      end loop;
+   end Delete_Warning_And_Continuations;
 
    ---------------
    -- Error_Msg --
@@ -282,7 +317,7 @@ package body Errout is
       --  Start of processing for new message
 
       Sindex := Get_Source_File_Index (Flag_Location);
-      Test_Style_Warning_Serious_Unconditional_Msg (Msg);
+      Prescan_Message (Msg);
       Orig_Loc := Original_Location (Flag_Location);
 
       --  If the current location is in an instantiation, the issue arises of
@@ -332,8 +367,7 @@ package body Errout is
       --  that style checks are not considered warning messages for this
       --  purpose.
 
-      if Is_Warning_Msg
-        and then Warnings_Suppressed (Orig_Loc) /= No_String
+      if Is_Warning_Msg and then Warnings_Suppressed (Orig_Loc) /= No_String
       then
          return;
 
@@ -438,9 +472,9 @@ package body Errout is
                --  Case of inlined body
 
                if Inlined_Body (X) then
-                  if Is_Warning_Msg or else Is_Style_Msg then
+                  if Is_Warning_Msg or Is_Style_Msg then
                      Error_Msg_Internal
-                       ("?in inlined body #",
+                       (Warn_Insertion & "in inlined body #",
                         Actual_Error_Loc, Flag_Location, Msg_Cont_Status);
                   else
                      Error_Msg_Internal
@@ -453,7 +487,7 @@ package body Errout is
                else
                   if Is_Warning_Msg or else Is_Style_Msg then
                      Error_Msg_Internal
-                       ("?in instantiation #",
+                       (Warn_Insertion & "in instantiation #",
                         Actual_Error_Loc, Flag_Location, Msg_Cont_Status);
                   else
                      Error_Msg_Internal
@@ -732,7 +766,6 @@ package body Errout is
       Continuation_New_Line := False;
       Suppress_Message := False;
       Kill_Message := False;
-      Warning_Msg_Char := ' ';
       Set_Msg_Text (Msg, Sptr);
 
       --  Kill continuation if parent message killed
@@ -944,6 +977,7 @@ package body Errout is
           Line     => Get_Physical_Line_Number (Sptr),
           Col      => Get_Column_Number (Sptr),
           Warn     => Is_Warning_Msg,
+          Info     => Is_Info_Msg,
           Warn_Err => False, -- reset below
           Warn_Chr => Warning_Msg_Char,
           Style    => Is_Style_Msg,
@@ -1107,6 +1141,14 @@ package body Errout is
          end if;
       end if;
 
+      --  Record warning message issued
+
+      if Errors.Table (Cur_Msg).Warn
+        and then not Errors.Table (Cur_Msg).Msg_Cont
+      then
+         Warning_Msg := Cur_Msg;
+      end if;
+
       --  If too many warnings turn off warnings
 
       if Maximum_Messages /= 0 then
@@ -1159,7 +1201,7 @@ package body Errout is
          return;
       end if;
 
-      Test_Style_Warning_Serious_Unconditional_Msg (Msg);
+      Prescan_Message (Msg);
 
       --  Special handling for warning messages
 
@@ -1286,7 +1328,7 @@ package body Errout is
       F   : Error_Msg_Id;
 
       procedure Delete_Warning (E : Error_Msg_Id);
-      --  Delete a message if not already deleted and adjust warning count
+      --  Delete a warning msg if not already deleted and adjust warning count
 
       --------------------
       -- Delete_Warning --
@@ -1297,10 +1339,14 @@ package body Errout is
          if not Errors.Table (E).Deleted then
             Errors.Table (E).Deleted := True;
             Warnings_Detected := Warnings_Detected - 1;
+
+            if Errors.Table (E).Warn_Err then
+               Warnings_Treated_As_Errors := Warnings_Treated_As_Errors + 1;
+            end if;
          end if;
       end Delete_Warning;
 
-   --  Start of message for Finalize
+   --  Start of processing for Finalize
 
    begin
       --  Set Prev pointers
@@ -1350,11 +1396,12 @@ package body Errout is
             then
                Delete_Warning (Cur);
 
-               --  If this is a continuation, delete previous messages
+               --  If this is a continuation, delete previous parts of message
 
                F := Cur;
                while Errors.Table (F).Msg_Cont loop
                   F := Errors.Table (F).Prev;
+                  exit when F = No_Error_Msg;
                   Delete_Warning (F);
                end loop;
 
@@ -1622,11 +1669,6 @@ package body Errout is
          --  error to make sure that *something* appears on standard error in
          --  an error situation.
 
-         --  Formerly, only the "# errors" suffix was sent to stderr, whereas
-         --  "# lines:" appeared on stdout. This caused problems on VMS when
-         --  the stdout buffer was flushed, giving an extra line feed after
-         --  the prefix.
-
          if Total_Errors_Detected + Warnings_Detected /= 0
            and then not Brief_Output
            and then (Verbose_Mode or Full_List)
@@ -1705,9 +1747,11 @@ package body Errout is
             Write_Name (Full_File_Name (Sfile));
 
             if not Debug_Flag_7 then
-               Write_Str (" (source file time stamp: ");
+               Write_Eol;
+               Write_Str ("Source file time stamp: ");
                Write_Time_Stamp (Sfile);
-               Write_Char (')');
+               Write_Eol;
+               Write_Str ("Compiled at: " & Compilation_Time);
             end if;
 
             Write_Eol;
@@ -1841,8 +1885,14 @@ package body Errout is
 
               and then
                 (No (Cunit_Entity (U))
-                   or else Comes_From_Source (Cunit_Entity (U))
-                   or else not Is_Subprogram (Cunit_Entity (U)))
+                  or else Comes_From_Source (Cunit_Entity (U))
+                  or else not Is_Subprogram (Cunit_Entity (U)))
+
+              --  If the compilation unit associated with this unit does not
+              --  come from source, it means it is an instantiation that should
+              --  not be included in the source listing.
+
+              and then Comes_From_Source (Cunit (U))
             then
                declare
                   Sfile : constant Source_File_Index := Source_Index (U);
@@ -1883,8 +1933,8 @@ package body Errout is
 
                         Err_Flag :=
                           E /= No_Error_Msg
-                          and then Errors.Table (E).Line = N
-                          and then Errors.Table (E).Sfile = Sfile;
+                            and then Errors.Table (E).Line = N
+                            and then Errors.Table (E).Sfile = Sfile;
 
                         Output_Source_Line (N, Sfile, Err_Flag);
 
@@ -2267,9 +2317,7 @@ package body Errout is
       --  Loop through file names to find matching one. This is a bit slow, but
       --  we only do it in error situations so it is not so terrible. Note that
       --  if the loop does not exit, then the desired case will be left set to
-      --  Mixed_Case, this can happen if the name was not in canonical form,
-      --  and gets canonicalized on VMS. Possibly we could fix this by
-      --  unconditionally canonicalizing these names ???
+      --  Mixed_Case, this can happen if the name was not in canonical form.
 
       for J in 1 .. Last_Source_File loop
          Get_Name_String (Full_Debug_Name (J));
@@ -2745,19 +2793,21 @@ package body Errout is
       C : Character;   -- Current character
       P : Natural;     -- Current index;
 
-      procedure Set_Msg_Insertion_Warning (C : Character);
-      --  Deal with ? ?? ?x? ?X? insertion sequences (also < << <x< <X<). The
-      --  caller has already bumped the pointer past the initial ? or < and C
-      --  is set to this initial character (? or <).
+      procedure Skip_Msg_Insertion_Warning (C : Character);
+      --  Deal with ? ?? ?x? ?X? ?*? ?$? insertion sequences (and the same
+      --  sequences using < instead of ?). The caller has already bumped
+      --  the pointer past the initial ? or < and C is set to this initial
+      --  character (? or <). This procedure skips past the rest of the
+      --  sequence. We do not need to set Msg_Insertion_Char, since this
+      --  was already done during the message prescan.
 
-      -------------------------------
-      -- Set_Msg_Insertion_Warning --
-      -------------------------------
+      --------------------------------
+      -- Skip_Msg_Insertion_Warning --
+      --------------------------------
 
-      procedure Set_Msg_Insertion_Warning (C : Character) is
+      procedure Skip_Msg_Insertion_Warning (C : Character) is
       begin
          if P <= Text'Last and then Text (P) = C then
-            Warning_Msg_Char := '?';
             P := P + 1;
 
          elsif P + 1 <= Text'Last
@@ -2765,15 +2815,14 @@ package body Errout is
                        or else
                      Text (P) in 'A' .. 'Z'
                        or else
-                     Text (P) = '*')
+                     Text (P) = '*'
+                       or else
+                     Text (P) = '$')
            and then Text (P + 1) = C
          then
-            Warning_Msg_Char := Text (P);
             P := P + 2;
-         else
-            Warning_Msg_Char := ' ';
          end if;
-      end Set_Msg_Insertion_Warning;
+      end Skip_Msg_Insertion_Warning;
 
    --  Start of processing for Set_Msg_Text
 
@@ -2782,7 +2831,21 @@ package body Errout is
       Msglen := 0;
       Flag_Source := Get_Source_File_Index (Flag);
 
-      P := Text'First;
+      --  Skip info: at start, we have recorded this in Is_Info_Msg, and this
+      --  will be used (Info field in error message object) to put back the
+      --  string when it is printed. We need to do this, or we get confused
+      --  with instantiation continuations.
+
+      if Text'Length > 6
+        and then Text (Text'First .. Text'First + 5) = "info: "
+      then
+         P := Text'First + 6;
+      else
+         P := Text'First;
+      end if;
+
+      --  Loop through characters of message
+
       while P <= Text'Last loop
          C := Text (P);
          P := P + 1;
@@ -2846,16 +2909,10 @@ package body Errout is
                null; -- already dealt with
 
             when '?' =>
-               Set_Msg_Insertion_Warning ('?');
+               Skip_Msg_Insertion_Warning ('?');
 
             when '<' =>
-
-               --  Note: the prescan already set Is_Warning_Msg True if and
-               --  only if Error_Msg_Warn is set to True. If Error_Msg_Warn
-               --  is False, the call to Set_Msg_Insertion_Warning here does
-               --  no harm, since Warning_Msg_Char is ignored in that case.
-
-               Set_Msg_Insertion_Warning ('<');
+               Skip_Msg_Insertion_Warning ('<');
 
             when '|' =>
                null; -- already dealt with
@@ -2907,8 +2964,6 @@ package body Errout is
                Set_Msg_Char (C);
          end case;
       end loop;
-
-      VMS_Convert;
    end Set_Msg_Text;
 
    ----------------
@@ -2936,6 +2991,15 @@ package body Errout is
             Set_Error_Posted (P);
             exit when Nkind (P) not in N_Subexpr;
          end loop;
+
+         if Nkind_In (P, N_Pragma_Argument_Association,
+                         N_Component_Association,
+                         N_Discriminant_Association,
+                         N_Generic_Association,
+                         N_Parameter_Association)
+         then
+            Set_Error_Posted (Parent (P));
+         end if;
 
          --  A special check, if we just posted an error on an attribute
          --  definition clause, then also set the entity involved as posted.
@@ -3039,6 +3103,32 @@ package body Errout is
 
       return False;
    end Special_Msg_Delete;
+
+   -----------------
+   -- SPARK_Msg_N --
+   -----------------
+
+   procedure SPARK_Msg_N (Msg : String; N : Node_Or_Entity_Id) is
+   begin
+      if SPARK_Mode = On then
+         Error_Msg_N (Msg, N);
+      end if;
+   end SPARK_Msg_N;
+
+   ------------------
+   -- SPARK_Msg_NE --
+   ------------------
+
+   procedure SPARK_Msg_NE
+     (Msg : String;
+      N   : Node_Or_Entity_Id;
+      E   : Node_Or_Entity_Id)
+   is
+   begin
+      if SPARK_Mode = On then
+         Error_Msg_NE (Msg, N, E);
+      end if;
+   end SPARK_Msg_NE;
 
    --------------------------
    -- Unwind_Internal_Type --
@@ -3184,53 +3274,22 @@ package body Errout is
       end if;
    end Unwind_Internal_Type;
 
-   -----------------
-   -- VMS_Convert --
-   -----------------
+   --------------------
+   -- Warn_Insertion --
+   --------------------
 
-   procedure VMS_Convert is
-      P : Natural;
-      L : Natural;
-      N : Natural;
-
+   function Warn_Insertion return String is
    begin
-      if not OpenVMS then
-         return;
-      end if;
-
-      P := Msg_Buffer'First;
-      loop
-         if P >= Msglen then
-            return;
-         end if;
-
-         if Msg_Buffer (P) = '-' then
-            for G in Gnames'Range loop
-               L := Gnames (G)'Length;
-
-               --  See if we have "-ggg switch", where ggg is Gnames entry
-
-               if P + L + 7 <= Msglen
-                 and then Msg_Buffer (P + 1 .. P + L) = Gnames (G).all
-                 and then Msg_Buffer (P + L + 1 .. P + L + 7) = " switch"
-               then
-                  --  Replace by "/vvv qualifier", where vvv is Vnames entry
-
-                  N := Vnames (G)'Length;
-                  Msg_Buffer (P + N + 11 .. Msglen + N - L + 3) :=
-                    Msg_Buffer (P + L + 8 .. Msglen);
-                  Msg_Buffer (P) := '/';
-                  Msg_Buffer (P + 1 .. P + N) := Vnames (G).all;
-                  Msg_Buffer (P + N + 1 .. P + N + 10) := " qualifier";
-                  P := P + N + 10;
-                  Msglen := Msglen + N - L + 3;
-                  exit;
-               end if;
-            end loop;
-         end if;
-
-         P := P + 1;
-      end loop;
-   end VMS_Convert;
+      case Warning_Msg_Char is
+         when '?' =>
+            return "??";
+         when 'a' .. 'z' | 'A' .. 'Z' | '*' | '$' =>
+            return '?' & Warning_Msg_Char & '?';
+         when ' ' =>
+            return "?";
+         when others =>
+            raise Program_Error;
+      end case;
+   end Warn_Insertion;
 
 end Errout;

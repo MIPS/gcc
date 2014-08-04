@@ -145,7 +145,7 @@ id_base::equal (const value_type *op1,
 	  && strcmp (op1->id, op2->id) == 0);
 }
 
-static hash_table<id_base> operators;
+static hash_table<id_base> *operators;
 
 id_base::id_base (id_kind kind_, const char *id_)
 {
@@ -184,7 +184,7 @@ add_operator (enum tree_code code, const char *id,
       && strcmp (tcc, "tcc_reference") != 0)
     return;
   operator_id *op = new operator_id (code, id, nargs);
-  id_base **slot = operators.find_slot_with_hash (op, op->hashval, INSERT);
+  id_base **slot = operators->find_slot_with_hash (op, op->hashval, INSERT);
   if (*slot)
     fatal ("duplicate id definition");
   *slot = op;
@@ -194,7 +194,7 @@ static void
 add_builtin (enum built_in_function code, const char *id)
 {
   fn_id *fn = new fn_id (code, id);
-  id_base **slot = operators.find_slot_with_hash (fn, fn->hashval, INSERT);
+  id_base **slot = operators->find_slot_with_hash (fn, fn->hashval, INSERT);
   if (*slot)
     fatal ("duplicate id definition");
   *slot = fn;
@@ -295,7 +295,7 @@ e_operation::e_operation (const char *id, bool is_commutative_, bool add_new_id)
   is_commutative = is_commutative_;
   id_base tem (id_base::CODE, id);
 
-  op = operators.find_with_hash (&tem, tem.hashval);
+  op = operators->find_with_hash (&tem, tem.hashval);
   if (op)
     return;
 
@@ -304,7 +304,7 @@ e_operation::e_operation (const char *id, bool is_commutative_, bool add_new_id)
   for (unsigned i = 0; i < strlen (id2); ++i)
     id2[i] = TOUPPER (id2[i]);
   new (&tem) id_base (id_base::CODE, id2);
-  op = operators.find_with_hash (&tem, tem.hashval);
+  op = operators->find_with_hash (&tem, tem.hashval);
   if (op)
     {
       free (id2);
@@ -315,7 +315,7 @@ e_operation::e_operation (const char *id, bool is_commutative_, bool add_new_id)
   id2 = (char *)xrealloc (id2, strlen (id2) + sizeof ("_EXPR") + 1);
   strcat (id2, "_EXPR");
   new (&tem) id_base (id_base::CODE, id2);
-  op = operators.find_with_hash (&tem, tem.hashval);
+  op = operators->find_with_hash (&tem, tem.hashval);
   if (op)
     {
       free (id2);
@@ -326,7 +326,7 @@ e_operation::e_operation (const char *id, bool is_commutative_, bool add_new_id)
     fatal ("%s is not an operator/built-in function", id);
 
   op = new id_base (id_base::USER_DEFINED, id);
-  operators.find_slot_with_hash (op, op->hashval, INSERT);
+  operators->find_slot_with_hash (op, op->hashval, INSERT);
 }
 
 struct simplify {
@@ -2223,7 +2223,7 @@ main(int argc, char **argv)
     }
 
   line_table = XCNEW (struct line_maps);
-  linemap_init (line_table);
+  linemap_init (line_table, 0);
   line_table->reallocator = xrealloc;
   line_table->round_alloc_size = round_alloc_size;
 
@@ -2236,7 +2236,7 @@ main(int argc, char **argv)
   cpp_define (r, gimple ? "GIMPLE=1": "GENERIC=1");
 
   /* Pre-seed operators.  */
-  operators.create (1024);
+  operators = new hash_table<id_base> (1024);
 #define DEFTREECODE(SYM, STRING, TYPE, NARGS) \
   add_operator (SYM, # SYM, # TYPE, NARGS);
 #define END_OF_BASE_TREE_CODES
@@ -2288,6 +2288,8 @@ main(int argc, char **argv)
 
   cpp_finish (r, NULL);
   cpp_destroy (r);
+
+  delete operators;
 
   return 0;
 }

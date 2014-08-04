@@ -57,6 +57,8 @@ get_scalar_to_descriptor_type (tree scalar, symbol_attribute attr)
   else
     akind = GFC_ARRAY_ASSUMED_SHAPE_CONT;
 
+  if (POINTER_TYPE_P (TREE_TYPE (scalar)))
+    scalar = TREE_TYPE (scalar);
   return gfc_get_array_type_bounds (TREE_TYPE (scalar), 0, 0, NULL, NULL, 1,
 				    akind, !(attr.pointer || attr.target));
 }
@@ -562,7 +564,7 @@ gfc_conv_intrinsic_to_class (gfc_se *parmse, gfc_expr *e,
   var = gfc_create_var (tmp, "class");
 
   /* Set the vptr.  */
-  ctree =  gfc_class_vptr_get (var);
+  ctree = gfc_class_vptr_get (var);
 
   vtab = gfc_find_vtab (&e->ts);
   gcc_assert (vtab);
@@ -571,7 +573,7 @@ gfc_conv_intrinsic_to_class (gfc_se *parmse, gfc_expr *e,
 		  fold_convert (TREE_TYPE (ctree), tmp));
 
   /* Now set the data field.  */
-  ctree =  gfc_class_data_get (var);
+  ctree = gfc_class_data_get (var);
   if (parmse->ss && parmse->ss->info->useflags)
     {
       /* For an array reference in an elemental procedure call we need
@@ -587,7 +589,16 @@ gfc_conv_intrinsic_to_class (gfc_se *parmse, gfc_expr *e,
 	{
 	  parmse->ss = NULL;
 	  gfc_conv_expr_reference (parmse, e);
-	  tmp = fold_convert (TREE_TYPE (ctree), parmse->expr);
+	  if (class_ts.u.derived->components->as
+	      && class_ts.u.derived->components->as->type == AS_ASSUMED_RANK)
+	    {
+	      tmp = gfc_conv_scalar_to_descriptor (parmse, parmse->expr,
+						   gfc_expr_attr (e));
+	      tmp = fold_build1_loc (input_location, VIEW_CONVERT_EXPR,
+				     TREE_TYPE (ctree), tmp);
+	    }
+	  else
+	      tmp = fold_convert (TREE_TYPE (ctree), parmse->expr);
 	  gfc_add_modify (&parmse->pre, ctree, tmp);
 	}
       else
@@ -595,7 +606,14 @@ gfc_conv_intrinsic_to_class (gfc_se *parmse, gfc_expr *e,
 	  parmse->ss = ss;
 	  parmse->use_offset = 1;
 	  gfc_conv_expr_descriptor (parmse, e);
-	  gfc_add_modify (&parmse->pre, ctree, parmse->expr);
+	  if (class_ts.u.derived->components->as->rank != e->rank)
+	    {
+	      tmp = fold_build1_loc (input_location, VIEW_CONVERT_EXPR,
+				     TREE_TYPE (ctree), parmse->expr);
+	      gfc_add_modify (&parmse->pre, ctree, tmp);
+	    }
+	  else
+	    gfc_add_modify (&parmse->pre, ctree, parmse->expr);
 	}
     }
 
@@ -1384,8 +1402,8 @@ gfc_get_expr_charlen (gfc_expr *e)
 
 /* Return for an expression the backend decl of the coarray.  */
 
-static tree
-get_tree_for_caf_expr (gfc_expr *expr)
+tree
+gfc_get_tree_for_caf_expr (gfc_expr *expr)
 {
   tree caf_decl;
   bool found;
@@ -4807,11 +4825,12 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	  tree caf_decl, caf_type;
 	  tree offset, tmp2;
 
-	  caf_decl = get_tree_for_caf_expr (e);
+	  caf_decl = gfc_get_tree_for_caf_expr (e);
 	  caf_type = TREE_TYPE (caf_decl);
 
 	  if (GFC_DESCRIPTOR_TYPE_P (caf_type)
-	      && GFC_TYPE_ARRAY_AKIND (caf_type) == GFC_ARRAY_ALLOCATABLE)
+	      && (GFC_TYPE_ARRAY_AKIND (caf_type) == GFC_ARRAY_ALLOCATABLE
+		  || GFC_TYPE_ARRAY_AKIND (caf_type) == GFC_ARRAY_POINTER))
 	    tmp = gfc_conv_descriptor_token (caf_decl);
 	  else if (DECL_LANG_SPECIFIC (caf_decl)
 		   && GFC_DECL_TOKEN (caf_decl) != NULL_TREE)
@@ -6515,7 +6534,7 @@ gfc_conv_expr_reference (gfc_se * se, gfc_expr * expr)
 
       tmp = build_fold_indirect_ref_loc (input_location, se->expr);
       tmp = gfc_deallocate_alloc_comp (expr->ts.u.derived, tmp, expr->rank);
-      
+
       /* The components shall be deallocated before
          their containing entity.  */
       gfc_prepend_expr_to_block (&se->post, tmp);
@@ -7299,7 +7318,7 @@ fcncall_realloc_result (gfc_se *se, int rank)
 
   res_desc = gfc_evaluate_now (desc, &se->pre);
   gfc_conv_descriptor_data_set (&se->pre, res_desc, null_pointer_node);
-  se->expr = gfc_build_addr_expr (TREE_TYPE (se->expr), res_desc);
+  se->expr = gfc_build_addr_expr (NULL_TREE, res_desc);
 
   /* Free the lhs after the function call and copy the result data to
      the lhs descriptor.  */

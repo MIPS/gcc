@@ -414,11 +414,12 @@ mips*-*-*)
 nds32*)
 	cpu_type=nds32
 	extra_headers="nds32_intrinsic.h"
+	extra_objs="nds32-cost.o nds32-intrinsic.o nds32-isr.o nds32-md-auxiliary.o nds32-pipelines-auxiliary.o nds32-predicates.o nds32-memory-manipulation.o nds32-fp-as-gp.o"
 	;;
 nios2-*-*)
 	cpu_type=nios2
 	extra_options="${extra_options} g.opt"
-	;;	
+	;;
 picochip-*-*)
         cpu_type=picochip
         ;;
@@ -1012,7 +1013,7 @@ arm*-*-linux-*)			# ARM GNU/Linux with ELF
 	    ;;
 	esac
 	tmake_file="${tmake_file} arm/t-arm arm/t-arm-elf arm/t-bpabi arm/t-linux-eabi"
-	tm_file="$tm_file arm/bpabi.h arm/linux-eabi.h arm/aout.h arm/arm.h"
+	tm_file="$tm_file arm/bpabi.h arm/linux-eabi.h arm/aout.h vxworks-dummy.h arm/arm.h"
 	# Define multilib configuration for arm-linux-androideabi.
 	case ${target} in
 	*-androideabi)
@@ -1120,8 +1121,7 @@ cris-*-elf | cris-*-none)
 	;;
 crisv32-*-linux* | cris-*-linux*)
 	tm_file="dbxelf.h elfos.h ${tm_file} gnu-user.h linux.h glibc-stdint.h cris/linux.h"
-	# We need to avoid using t-linux, so override default tmake_file
-	tmake_file="cris/t-cris cris/t-linux t-slibgcc t-linux"
+	tmake_file="${tmake_file} cris/t-cris cris/t-linux"
 	extra_options="${extra_options} cris/linux.opt"
 	case $target in
 	  cris-*-*)
@@ -1167,6 +1167,12 @@ moxie-*-uclinux*)
 moxie-*-rtems*)
 	tmake_file="${tmake_file} moxie/t-moxie"
 	tm_file="moxie/moxie.h dbxelf.h elfos.h moxie/rtems.h rtems.h newlib-stdint.h"
+	;;
+moxie-*-moxiebox*)
+	gas=yes
+	gnu_ld=yes
+	tm_file="${tm_file} dbxelf.h elfos.h moxie/moxiebox.h newlib-stdint.h"
+	tmake_file="${tmake_file} moxie/t-moxiebox"
 	;;
 h8300-*-rtems*)
 	tmake_file="${tmake_file} h8300/t-h8300 h8300/t-rtems"
@@ -2117,13 +2123,13 @@ nds32le-*-*)
 	target_cpu_default="0"
 	tm_defines="${tm_defines}"
 	tm_file="dbxelf.h elfos.h newlib-stdint.h ${tm_file}"
-	tmake_file="nds32/t-mlibs"
+	tmake_file="nds32/t-nds32 nds32/t-mlibs"
 	;;
 nds32be-*-*)
 	target_cpu_default="0|MASK_BIG_ENDIAN"
 	tm_defines="${tm_defines} TARGET_BIG_ENDIAN_DEFAULT=1"
 	tm_file="dbxelf.h elfos.h newlib-stdint.h ${tm_file}"
-	tmake_file="nds32/t-mlibs"
+	tmake_file="nds32/t-nds32 nds32/t-mlibs"
 	;;
 nios2-*-*)
 	tm_file="elfos.h ${tm_file}"
@@ -2135,6 +2141,10 @@ nios2-*-*)
 	nios2-*-elf*)
 		tm_file="${tm_file} newlib-stdint.h nios2/elf.h"
 		extra_options="${extra_options} nios2/elf.opt"
+		;;
+	nios2-*-rtems*)
+		tm_file="${tm_file} newlib-stdint.h nios2/rtems.h rtems.h"
+		tmake_file="${tmake_file} t-rtems nios2/t-rtems"
 		;;
         esac
 	;;
@@ -2242,7 +2252,7 @@ powerpc-*-rtems*)
 	tmake_file="${tmake_file} rs6000/t-fprules rs6000/t-rtems rs6000/t-ppccomm"
 	;;
 powerpc*-*-linux*)
-	tm_file="${tm_file} dbxelf.h elfos.h freebsd-spec.h rs6000/sysv4.h"
+	tm_file="${tm_file} dbxelf.h elfos.h gnu-user.h freebsd-spec.h rs6000/sysv4.h"
 	extra_options="${extra_options} rs6000/sysv4.opt"
 	tmake_file="rs6000/t-fprules rs6000/t-ppcos ${tmake_file} rs6000/t-ppccomm"
 	extra_objs="$extra_objs rs6000-linux.o"
@@ -3560,7 +3570,13 @@ case "${target}" in
 		esac
 
 		if test "x$with_arch" != x && test "x$with_cpu" != x; then
-			echo "Warning: --with-arch overrides --with-cpu=$with_cpu" 1>&2
+			echo "Switch \"--with-arch\" may not be used with switch \"--with-cpu\""  1>&2
+			exit 1
+		fi
+
+		if test "x$with_cpu" != x && test "x$with_tune" != x; then
+			echo "Switch \"--with-tune\" may not be used with switch \"--with-cpu\""  1>&2
+			exit 1
 		fi
 
 		# Add extra multilibs

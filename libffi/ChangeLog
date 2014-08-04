@@ -1,3 +1,13 @@
+2014-07-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	* src/alpha/ffi.c: Do not include stdlib.h.
+	(ffi_closure_osf_inner) <default>: Use FFI_ASSERT instead of abort.
+
+2014-07-04  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* testsuite/lib/libffi.exp (libffi-dg-runtest): Change interface
+	match to dg-runtest's.
+
 2014-05-20  Sebastian Huber  <sebastian.huber@embedded-brains.de>
 
 	* testsuite/lib/libffi.exp (load_gcc_lib): Register loaded libs.

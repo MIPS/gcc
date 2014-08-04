@@ -380,6 +380,7 @@ static tree handle_omp_declare_simd_attribute (tree *, tree, tree, int,
 					       bool *);
 static tree handle_omp_declare_target_attribute (tree *, tree, tree, int,
 						 bool *);
+static tree handle_designated_init_attribute (tree *, tree, tree, int, bool *);
 
 static void check_function_nonnull (tree, int, tree *);
 static void check_nonnull_arg (void *, tree, unsigned HOST_WIDE_INT);
@@ -773,6 +774,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_alloc_align_attribute, false },
   { "assume_aligned",	      1, 2, false, true, true,
 			      handle_assume_aligned_attribute, false },
+  { "designated_init",        0, 0, false, true, false,
+			      handle_designated_init_attribute, false },
   { NULL,                     0, 0, false, false, false, NULL, false }
 };
 
@@ -4962,26 +4965,6 @@ c_common_get_alias_set (tree t)
   return -1;
 }
 
-/* Return the least alignment required for type TYPE.  */
-
-unsigned int
-min_align_of_type (tree type)
-{
-  unsigned int align = TYPE_ALIGN (type);
-  align = MIN (align, BIGGEST_ALIGNMENT);
-#ifdef BIGGEST_FIELD_ALIGNMENT
-  align = MIN (align, BIGGEST_FIELD_ALIGNMENT);
-#endif
-  unsigned int field_align = align;
-#ifdef ADJUST_FIELD_ALIGN
-  tree field = build_decl (UNKNOWN_LOCATION, FIELD_DECL, NULL_TREE,
-			   type);
-  field_align = ADJUST_FIELD_ALIGN (field, field_align);
-#endif
-  align = MIN (align, field_align);
-  return align / BITS_PER_UNIT;
-}
-
 /* Compute the value of 'sizeof (TYPE)' or '__alignof__ (TYPE)', where
    the IS_SIZEOF parameter indicates which operator is being applied.
    The COMPLAIN flag controls whether we should diagnose possibly
@@ -6575,9 +6558,11 @@ handle_noreturn_attribute (tree *node, tree name, tree ARG_UNUSED (args),
   else if (TREE_CODE (type) == POINTER_TYPE
 	   && TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE)
     TREE_TYPE (*node)
-      = build_pointer_type
-	(build_type_variant (TREE_TYPE (type),
-			     TYPE_READONLY (TREE_TYPE (type)), 1));
+      = (build_qualified_type
+	 (build_pointer_type
+	  (build_type_variant (TREE_TYPE (type),
+			       TYPE_READONLY (TREE_TYPE (type)), 1)),
+	  TYPE_QUALS (type)));
   else
     {
       warning (OPT_Wattributes, "%qE attribute ignored", name);
@@ -6988,9 +6973,11 @@ handle_const_attribute (tree *node, tree name, tree ARG_UNUSED (args),
   else if (TREE_CODE (type) == POINTER_TYPE
 	   && TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE)
     TREE_TYPE (*node)
-      = build_pointer_type
-	(build_type_variant (TREE_TYPE (type), 1,
-			     TREE_THIS_VOLATILE (TREE_TYPE (type))));
+      = (build_qualified_type
+	 (build_pointer_type
+	  (build_type_variant (TREE_TYPE (type), 1,
+			       TREE_THIS_VOLATILE (TREE_TYPE (type)))),
+	  TYPE_QUALS (type)));
   else
     {
       warning (OPT_Wattributes, "%qE attribute ignored", name);
@@ -7426,8 +7413,8 @@ handle_section_attribute (tree *node, tree ARG_UNUSED (name), tree args,
 
 	  /* The decl may have already been given a section attribute
 	     from a previous declaration.  Ensure they match.  */
-	  else if (DECL_SECTION_NAME (decl) != NULL_TREE
-		   && strcmp (TREE_STRING_POINTER (DECL_SECTION_NAME (decl)),
+	  else if (DECL_SECTION_NAME (decl) != NULL
+		   && strcmp (DECL_SECTION_NAME (decl),
 			      TREE_STRING_POINTER (TREE_VALUE (args))) != 0)
 	    {
 	      error ("section of %q+D conflicts with previous declaration",
@@ -7442,7 +7429,8 @@ handle_section_attribute (tree *node, tree ARG_UNUSED (name), tree args,
 	      *no_add_attrs = true;
 	    }
 	  else
-	    set_decl_section_name (decl, TREE_VALUE (args));
+	    set_decl_section_name (decl,
+				   TREE_STRING_POINTER (TREE_VALUE (args)));
 	}
       else
 	{
@@ -8035,7 +8023,7 @@ handle_tls_model_attribute (tree *node, tree name, tree args,
   else
     error ("tls_model argument must be one of \"local-exec\", \"initial-exec\", \"local-dynamic\" or \"global-dynamic\"");
 
-  DECL_TLS_MODEL (decl) = kind;
+  set_decl_tls_model (decl, kind);
   return NULL_TREE;
 }
 
@@ -9270,6 +9258,21 @@ handle_returns_nonnull_attribute (tree *node, tree, tree, int,
   return NULL_TREE;
 }
 
+/* Handle a "designated_init" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_designated_init_attribute (tree *node, tree name, tree, int,
+				  bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) != RECORD_TYPE)
+    {
+      error ("%qE attribute is only valid on %<struct%> type", name);
+      *no_add_attrs = true;
+    }
+  return NULL_TREE;
+}
+
 
 /* Check for valid arguments being passed to a function with FNTYPE.
    There are NARGS arguments in the array ARGARRAY.  */
@@ -10470,7 +10473,8 @@ get_atomic_generic_size (location_t loc, tree function,
 		    function);
 	  return 0;
 	}
-      size = tree_to_uhwi (TYPE_SIZE_UNIT (TREE_TYPE (type)));
+      tree type_size = TYPE_SIZE_UNIT (TREE_TYPE (type));
+      size = type_size ? tree_to_uhwi (type_size) : 0;
       if (size != size_0)
 	{
 	  error_at (loc, "size mismatch in argument %d of %qE", x + 1,

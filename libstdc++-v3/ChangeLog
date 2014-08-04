@@ -1,3 +1,394 @@
+2014-07-29  Jonathan Wakely  <jwakely@redhat.com>
+
+	* python/libstdcxx/v6/printers.py
+	(SingleObjContainerPrinter._contained): Use compatibility mixin.
+
+2014-07-29  François Dumont  <fdumont@gcc.gnu.org>
+
+	* testsuite/util/testsuite_allocator.h
+	(tracker_allocator_counter::allocate): Remove new invocation, only
+	collect information.
+	(tracker_allocator_counter::deallocate): Remove delete invocation, only
+	collect information.
+	(check_inconsistent_alloc_value_type): New.
+	(tracker_allocator): Transform as a facade for any allocator type.
+	(uneq_allocator): Likewise.
+	(propagating_allocator): Likewise.
+	* testsuite/23_containers/forward_list/debug/move_assign_neg.cc: Use an
+	explicitly non propagating allocator.
+	* testsuite/23_containers/map/debug/move_assign_neg.cc: Likewise.
+	* testsuite/23_containers/multimap/debug/move_assign_neg.cc: likewise.
+	* testsuite/23_containers/multiset/debug/move_assign_neg.cc: Likewise.
+	* testsuite/23_containers/set/debug/move_assign_neg.cc: Likewise.
+	* testsuite/23_containers/unordered_map/debug/move_assign_neg.cc:
+	Likewise.
+	* testsuite/23_containers/unordered_multimap/debug/move_assign_neg.cc:
+	Likewise.
+	* testsuite/23_containers/unordered_multiset/debug/move_assign_neg.cc:
+	Likewise.
+	* testsuite/23_containers/unordered_set/debug/move_assign_neg.cc:
+	Likewise.
+	* testsuite/23_containers/vector/debug/move_assign_neg.cc: Likewise.
+
+2014-07-29  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/61946
+	* include/ext/rope (rope::rope(char_producer<_CharT>*, size_t, bool,
+	const allocator_type&)): Pass non-const allocator to
+	_S_new_RopeFunction.
+	* testsuite/ext/rope/61946.cc: New.
+
+	PR libstdc++/61947
+	* include/std/tuple (_Head_base): Use allocator_arg_t parameters to
+	disambiguate unary constructors.
+	(_Tuple_impl): Pass allocator_arg_t arguments.
+	* testsuite/20_util/tuple/61947.cc: New.
+	* testsuite/20_util/uses_allocator/cons_neg.cc: Adjust dg-error line.
+
+2014-07-29  Ed Smith-Rowland  <3dw4rd@verizon.net>
+
+	PR libstdc++/60037 - SIGFPE in std::generate_canonical<unsigned int...>
+	* include/bits/random.h (_Adaptor): static_assert for non floating-point
+	result type.
+	* include/bits/random.tcc (generate_canonical): Ditto.
+	* include/ext/random.tcc (hypergeometric_distribution::operator()):
+	Use double as a rng result type.
+	* testsuite/26_numerics/random/pr60037-neg.cc: New.
+	* testsuite/ext/random/hypergeometric_distribution/pr60037.cc: New.
+
+2014-07-25  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/abi/post/alpha-linux-gnu/baseline_symbols.txt: Update.
+
+2014-07-25  Ed Smith-Rowland  <3dw4rd@verizon.net>
+
+	* include/experimental/string_view: Make the literal operators
+	constexpr like the ctors they call.
+
+2014-07-23  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/abi/post/x86_64-linux-gnu/x32/baseline_symbols.txt: Update.
+
+2014-07-23  Jonathan Wakely  <jwakely@redhat.com>
+
+	* python/libstdcxx/v6/printers.py (StdExpAnyPrinter): Convert type
+	to string instead of using gdb.Type.name attribute.
+
+2014-07-19  Jonathan Wakely  <jwakely@redhat.com>
+
+	* acinclude.m4 (GLIBCXX_CHECK_SDT_H): Replace AC_MSG_RESULT with
+	AC_MSG_CHECKING.
+
+2014-07-18  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/61835
+	* python/libstdcxx/v6/printers.py (TemplateTypePrinter): Use
+	raw string.
+	(SingleObjContainerPrinter): Check if type printers are in use.
+
+2014-07-16  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/ext/random: Minor formatting and cosmetic tweaks.
+	(uniform_on_sphere_distribution<>::operator==
+	(const uniform_on_sphere_distribution&,
+	const uniform_on_sphere_distribution&)): Compare the _M_nds.
+	(uniform_on_sphere_distribution<>::reset): Reset _M_nd.
+	(operator!=(const uniform_on_sphere_distribution&,
+	const uniform_on_sphere_distribution&)): Adjust.
+	* include/ext/random.tcc: Minor cosmetc tweaks.
+
+2014-07-15  Jonathan Wakely  <jwakely@redhat.com>
+
+	* python/libstdcxx/v6/printers.py (TemplateTypePrinter): Add type
+	printer for class templates.
+	(register_type_printers): Use TemplateTypePrinter for containers
+	and other class templates with default template arguments.
+	* testsuite/libstdc++-prettyprinters/whatis.cc: Test new recognizers.
+
+	* python/libstdcxx/v6/printers.py (SingleObjContainerPrinter): New
+	base class for experimental::any and experimental::optional printers.
+	(StdExpAnyPrinter, StdExpOptionalPrinter, StdExpStringViewPrinter):
+	New printers for Fundamentals TS types.
+	* testsuite/libstdc++-prettyprinters/libfundts.cc: New.
+
+2014-07-15  Tim Shen  <timshen@google.com>
+
+	PR libstdc++/61720
+	* include/bits/regex_executor.tcc (_Executor<>::_M_main_dispatch):
+	Clear match queue for next use.
+	* testsuite/28_regex/algorithms/regex_search/61720.cc: New file.
+
+2014-07-14  Ulrich Drepper  <drepper@gmail.com>
+
+	* include/ext/random.tcc: Unfortunately more fixes for
+	operator>> and operator<< for uniform_on_sphere_distribution.
+
+2014-07-13  Ulrich Drepper  <drepper@gmail.com>
+
+	* include/ext/random.tcc: Fix operator>> and operator<< for
+	uniform_on_sphere_distribution.
+
+2014-07-12  Ulrich Drepper  <drepper@gmail.com>
+
+	* include/ext/random: Add uniform_on_sphere_distribution definition.
+	* include/ext/random.tcc: Add out-of-band member function definitions
+	for uniform_on_sphere_distribution.
+	* testsuite/ext/random/uniform_on_sphere_distribution/
+	cons/default.cc: New file.
+	* testsuite/ext/random/uniform_on_sphere_distribution/
+	operators/equal.cc: New file.
+	* testsuite/ext/random/uniform_on_sphere_distribution/
+	operators/inequal.cc: New file.
+	* testsuite/ext/random/uniform_on_sphere_distribution/
+	operators/serialize.cc: New file.
+
+2014-07-11  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	Add the logistic_distribution as an extension.
+	* include/ext/random: Add the logistic_distribution.
+	* include/ext/random.tcc: Add the logistic_distribution.
+	* testsuite/ext/random/logistic_distribution/cons/parms.cc: New.
+	* testsuite/ext/random/logistic_distribution/cons/default.cc: New.
+	* testsuite/ext/random/logistic_distribution/requirements/typedefs.cc:
+	New.
+	* testsuite/ext/random/logistic_distribution/operators/inequal.cc: New.
+	* testsuite/ext/random/logistic_distribution/operators/equal.cc: New.
+	* testsuite/ext/random/logistic_distribution/operators/serialize.cc:
+	New.
+
+2014-07-11  Samuel Bronson  <naesten@gmail.com>
+
+	* testsuite/lib/libstdc++.exp  (libstdc++_init): Set $GCC_COLORS=""
+	instead of insisting that GCC understand -fdiagnostics-color=never
+
+	* testsuite/lib/gdb-test.exp (gdb-test): Turn off GDB's auto-load,
+	list loaded libs.
+
+2014-07-11  Samuel Bronson  <naesten@gmail.com>
+	    Matthias Klose  <doko@ubuntu.com>
+
+	PR libstdc++/58962
+	* python/libstdcxx/v6/printers.py: Port to Python 2+3
+	(imap): New compat function.
+	(izip): Likewise.
+	(Iterator): New mixin to allow writing iterators in Python 3 style
+	regardless of which version we're running on.
+	[Python3] (long) New compat alias for "int".
+	* testsuite/lib/gdb-test.exp: Port to Python 2+3 (print syntax)
+
+2014-07-10  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/experimental/any (any::_Manager_alloc::_Data): Reorder
+	tuple members to simplify pretty printing.
+	(any::_Manager_alloc::_Data::_M_construct): Fix uses-allocator
+	construction.
+	* testsuite/experimental/any/cons/4.cc: New.
+
+2014-07-09  Jason Merrill  <jason@redhat.com>
+
+	PR libstdc++/61728
+	* libsupc++/cxxabi.h: Define __pbase_type_info::__pointer_catch here.
+	* libsupc++/tinfo.h: Not here.
+
+2014-07-08  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/allocated_ptr.h (__allocated_ptr::operator=): Add
+	missing return.
+	* include/experimental/any: Remove unused header.
+	* include/std/functional (_Maybe_wrap_member_pointer): Fix comments.
+	* testsuite/experimental/any/misc/any_cast_neg.cc: Adjust dg-error.
+	* testsuite/util/testsuite_regex.h: Move include guard.
+
+2014-07-01  Tim Shen  <timshen@google.com>
+
+	PR libstdc++/61601
+	PR libstdc++/61582
+	* include/bits/regex_automaton.h (_NFA<>::_M_insert_state): Add
+	a NFA state limit. If it's exceeded, regex_constants::error_space
+	will be throwed.
+	* include/bits/regex_automaton.tcc (_StateSeq<>::_M_clone): Use
+	map (which is sparse) instead of vector. This reduce n times clones'
+	cost from O(n^2) to O(n).
+	* include/std/regex: Add map dependency.
+	* testsuite/28_regex/algorithms/regex_match/ecma/char/61601.cc: New
+	testcase.
+
+2014-07-01  Tim Shen  <timshen@google.com>
+
+	PR libstdc++/61424
+	* include/bits/regex.tcc (__regex_algo_impl<>): Use DFS for ECMAScript,
+	not just regex containing back-references.
+	* include/bits/regex_compiler.tcc (_Compiler<>::_M_disjunction):
+	exchange _M_next and _M_alt for alternative operator,
+	making matching from left to right.
+	* include/bits/regex_executor.h (_State_info<>::_M_get_sol_pos):
+	Add position tracking fom DFS.
+	* include/bits/regex_executor.tcc (_Executor<>::_M_main_dispatch,
+	_Executor<>::_M_dfs): Likewise.
+	* include/bits/regex_scanner.h: Remove unused enum entry.
+	* testsuite/28_regex/algorithms/regex_search/61424.cc: New
+	testcase from PR.
+
+2014-06-30  Jason Merrill  <jason@redhat.com>
+
+	* libsupc++/cxxabi.h (class __pbase_type_info): __pointer_catch
+	is pure, not inline.
+
+2014-06-28  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	Revert:
+	2014-06-18  Paolo Carlini  <paolo.carlini@oracle.com>
+		    Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR libstdc++/61536
+	* config/abi/pre/gnu.ver: Adjust for out of line comparisons.
+
+	2014-06-08  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* config/abi/pre/gnu.ver: Tighten some patterns; tidy.
+
+2014-06-26  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/shared_ptr_base.h (__shared_ptr::_Deleter): Fix
+	parameter type.
+
+2014-06-25  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/alloc_traits.h (__alloc_rebind): Define alias template.
+	* include/bits/forward_list.h (_Fwd_list_base): Use __alloc_rebind.
+	* include/bits/hashtable_policy.h (_Insert_base, _Hashtable_alloc):
+	Likewise.
+	* include/ext/alloc_traits.h: Fix comment.
+
+	* include/Makefile.am: Add new header.
+	* include/Makefile.in: Regenerate.
+	* include/bits/allocated_ptr.h (__allocated_ptr, __allocate_guarded):
+	New RAII utilities for working with allocators.
+	* include/bits/shared_ptr_base.h (_Sp_counted_deleter): Define
+	__allocator_type typedef and use new __allocated_ptr type.
+	(_Sp_counted_ptr_inplace): Likewise.
+	(__shared_count::__shared_count, __shared_ptr::__shared_ptr): Use
+	__allocate_guarded to to simplify exception handling.
+	* include/experimental/any (any::_Manager_alloc::_S_alloc): Likewise.
+	* include/std/future (_Result_alloc::_M_destroy): Likewise.
+	(_Result_alloc::_S_allocate_result): Likewise.
+	* testsuite/20_util/shared_ptr/cons/43820_neg.cc: Adjust line number.
+	* testsuite/20_util/shared_ptr/cons/void_neg.cc: Likewise.
+	* testsuite/20_util/shared_ptr/creation/no_rtti.cc: New.
+	* testsuite/20_util/shared_ptr/creation/alloc.cc: Test allocator
+	with fancy pointer.
+	* testsuite/30_threads/promise/cons/alloc.cc: Likewise.
+
+	* testsuite/20_util/shared_ptr/creation/alloc.cc: Fix use of test
+	allocator.
+	* testsuite/20_util/shared_ptr/creation/no_rtti.cc: Likewise.
+	* testsuite/30_threads/promise/cons/alloc.cc: Likewise.
+
+2014-06-24  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/functexcept.h (__throw_out_of_range_fmt): Change
+	attribute to __gnu_printf__ archetype to prevent warnings for "%zu".
+	* include/bits/locale_facets_nonio.tcc (time_get::do_get_weekday):
+	Remove unused typedef.
+	(time_get::do_get_monthname): Likewise.
+	* include/bits/stl_tree.h: Add system_header pragma.
+	* include/ext/stdio_sync_filebuf.h (stdio_sync_filebuf::file): Remove
+	redundant const-qualifier.
+	* include/std/complex (complex::__rep): Use _GLIBCXX_CONSTEXPR macro
+	instead of _GLIBCXX_USE_CONSTEXPR.
+
+2014-06-23  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/parse_numbers.h (_Number_help): Fix divide-by-zero.
+	* include/std/chrono (_Checked_integral_constant): Allow zero.
+	* testsuite/20_util/duration/literals/values.cc: Test non-positive
+	values and digit separators.
+	* include/experimental/any
+
+	PR libstdc++/61532
+	* testsuite/20_util/make_signed/requirements/typedefs-1.cc: Do not
+	apply the signed specifier to wchar_t.
+	* testsuite/20_util/make_signed/requirements/typedefs-2.cc: Likewise.
+	* testsuite/20_util/make_unsigned/requirements/typedefs-1.cc: Check
+	cv-qualifier and size.
+	* testsuite/20_util/make_unsigned/requirements/typedefs-2.cc:
+	Likewise.
+
+	* include/experimental/any (any_v1): Rename namespace to
+	fundamentals_v1. Change string returned by bad_any_cast::what().
+	* include/experimental/optional (fundamentals_v1): Add namespace.
+	* include/experimental/string_view (fundamentals_v1): Likewise.
+	* testsuite/experimental/any/typedefs.cc: New.
+	* testsuite/experimental/optional/typedefs.cc: New.
+	* testsuite/experimental/string_view/typedefs.cc: New.
+
+2014-06-18  Paolo Carlini  <paolo.carlini@oracle.com>
+	    Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR libstdc++/61536
+	* config/abi/pre/gnu.ver: Adjust for out of line comparisons.
+
+2014-06-14  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/manual/status_cxx2014.xml: Update Fundamentals TS status.
+	* include/Makefile.am: Add new header.
+	* include/Makefile.in: Regenerate.
+	* include/experimental/any: New.
+	* include/ext/aligned_buffer.h (__aligned_buffer(nullptr_t)): New
+	constructor.
+	* testsuite/experimental/any/assign/1.cc: New.
+	* testsuite/experimental/any/assign/2.cc: New.
+	* testsuite/experimental/any/cons/1.cc: New.
+	* testsuite/experimental/any/cons/2.cc: New.
+	* testsuite/experimental/any/cons/3.cc: New.
+	* testsuite/experimental/any/misc/any_cast.cc: New.
+	* testsuite/experimental/any/misc/any_cast_neg.cc: New.
+	* testsuite/experimental/any/misc/any_cast_no_rtti.cc: New.
+	* testsuite/experimental/any/misc/swap.cc: New.
+	* testsuite/experimental/any/modifiers/1.cc: New.
+	* testsuite/experimental/any/observers/type.cc: New.
+
+	* doc/doxygen/user.cfg.in (INPUT): Add C++14 headers.
+	* include/bits/random.h (subtract_with_carry_engine): Fix Doxygen
+	warnings.
+	* include/bits/shared_ptr.h (shared_ptr): Likewise.
+	* include/bits/unordered_map.h (unordered_map, unordered_multimap):
+	Likewise.
+	* include/bits/unordered_set.h (unordered_set, unordered_multiset):
+	Likewise.
+	* include/parallel/list_partition.h (__parallel::list_partition):
+	Likewise.
+	* include/std/iomanip (quoted): Likewise.
+	* include/tr2/dynamic_bitset (dynamic_bitset): Likewise.
+
+	* doc/xml/api.xml: Link to more recent API docs.
+	* include/bits/allocator.h: Fix link in doxygen comment.
+	* include/bits/char_traits.h: Likewise.
+	* include/bits/ios_base.h: Likewise.
+	* include/bits/stl_map.h: Likewise.
+	* include/bits/stl_multimap.h: Likewise.
+	* include/bits/stl_multiset.h: Likewise.
+	* include/bits/stl_set.h: Likewise.
+	* include/bits/unordered_map.h: Likewise.
+	* include/bits/unordered_set.h: Likewise.
+	* include/ext/mt_allocator.h: Likewise.
+	* include/std/fstream: Likewise.
+	* include/std/iosfwd: Likewise.
+	* include/std/ostream: Likewise.
+	* include/std/sstream: Likewise.
+	* include/std/streambuf: Likewise.
+	* doc/html/*: Regenerate.
+
+	* include/experimental/any (any_cast): Combine duplicate doxygen
+	comments.
+	* include/experimental/string_view (basic_string_view): Update
+	doxygen comment.
+	* include/std/bitset (bitset): Move to Doxygen 'utilities' group.
+	* include/tr2/dynamic_bitset (_Bool2UChar): Remove unused templates.
+	(dynamic_bitset): Improve Doxygen comments.
+	* include/tr2/dynamic_bitset.tcc (operator>>): Improve Doxygen
+	comment.
+
 2014-06-11  Maciej W. Rozycki  <macro@codesourcery.com>
 
 	* testsuite/27_io/basic_ostream/inserters_arithmetic/wchar_t/4402.cc
@@ -294,10 +685,10 @@
 
 2014-05-20  Cesar Philippidis  <cesar@codesourcery.com>
 
-	* scripts/testsuite_flags.in (cxxflags): Remove @CXXFLAGS@ since 
+	* scripts/testsuite_flags.in (cxxflags): Remove @CXXFLAGS@ since
 	libstdc++.exp imports those flags via getenv.
-	* testsuite/lib/libstdc++.exp (libstdc++_init): Ensure that 
-	CXXFLAGS contains a '-O' flag. 
+	* testsuite/lib/libstdc++.exp (libstdc++_init): Ensure that
+	CXXFLAGS contains a '-O' flag.
 
 2014-05-20  Alexey Merzlyakov  <alexey.merzlyakov@samsung.com>
 

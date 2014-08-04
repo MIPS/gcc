@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -165,6 +165,9 @@ package body Sem is
 
          when N_Component_Declaration =>
             Analyze_Component_Declaration (N);
+
+         when N_Compound_Statement =>
+            Analyze_Compound_Statement (N);
 
          when N_Conditional_Entry_Call =>
             Analyze_Conditional_Entry_Call (N);
@@ -1265,7 +1268,6 @@ package body Sem is
            Next     => Suppress_Stack_Entries);
       Suppress_Stack_Entries := Global_Suppress_Stack_Top;
       return;
-
    end Push_Global_Suppress_Stack_Entry;
 
    -------------------------------------
@@ -1480,13 +1482,7 @@ package body Sem is
             null;
 
          else
-            --  Initialize if first time
-
-            if No (Comp_Unit_List) then
-               Comp_Unit_List := New_Elmt_List;
-            end if;
-
-            Append_Elmt (Comp_Unit, Comp_Unit_List);
+            Append_New_Elmt (Comp_Unit, To => Comp_Unit_List);
 
             if Debug_Unit_Walk then
                Write_Str ("Appending ");

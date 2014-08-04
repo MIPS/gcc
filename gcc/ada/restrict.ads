@@ -72,7 +72,7 @@ package Restrict is
    --  restriction to the binder.
 
    --  The following declarations establish a mapping between restriction
-   --  identifiers, and the names of corresponding restriction library units.
+   --  identifiers, and the names of corresponding restricted library units.
 
    type Unit_Entry is record
       Res_Id : Restriction_Id;
@@ -129,6 +129,8 @@ package Restrict is
       No_Implicit_Loops                  => True,
       No_Initialize_Scalars              => True,
       No_Local_Protected_Objects         => True,
+      No_Long_Long_Integers              => True,
+      No_Multiple_Elaboration            => True,
       No_Protected_Type_Allocators       => True,
       No_Relative_Delay                  => True,
       No_Requeue_Statements              => True,
@@ -192,10 +194,15 @@ package Restrict is
    --  For abort to be allowed, either No_Abort_Statements must be False,
    --  or Max_Asynchronous_Select_Nesting must be non-zero.
 
-   procedure Check_Compiler_Unit (N : Node_Id);
-   --  If unit N is in a unit that has a pragma Compiler_Unit, then a message
-   --  is posted on node N noting use of a construct that is not permitted in
-   --  the compiler.
+   procedure Check_Compiler_Unit (Feature : String; N : Node_Id);
+   --  If unit N is in a unit that has a pragma Compiler_Unit_Warning, then
+   --  a message is posted on node N noting use of the given feature is not
+   --  permitted in the compiler (bootstrap considerations).
+
+   procedure Check_Compiler_Unit (Feature : String; Loc : Source_Ptr);
+   --  If unit N is in a unit that has a pragma Compiler_Unit_Warning, then a
+   --  message is posted at location Loc noting use of the given feature is not
+   --  permitted in the compiler (bootstrap considerations).
 
    procedure Check_Restricted_Unit (U : Unit_Name_Type; N : Node_Id);
    --  Checks if loading of unit U is prohibited by the setting of some
@@ -329,6 +336,7 @@ package Restrict is
    --  Id is a node whose Chars field contains the name of a restriction.
    --  If it is one of synonyms that we allow for historical purposes (for
    --  list see System.Rident), then the proper official name is returned.
+   --  In addition, No_Elaboration_Code_All returns Name_No_Elaboration_Code.
    --  Otherwise the Chars field of the argument is returned unchanged.
 
    function Restriction_Active (R : All_Restrictions) return Boolean;

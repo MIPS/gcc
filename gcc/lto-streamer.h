@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "plugin-api.h"
 #include "hash-table.h"
+#include "hash-map.h"
 #include "target.h"
 #include "cgraph.h"
 #include "vec.h"
@@ -472,7 +473,7 @@ struct GTY(()) lto_tree_ref_table
 
 struct lto_tree_ref_encoder
 {
-  pointer_map<unsigned> *tree_hash_table;	/* Maps pointers to indices. */
+  hash_map<tree, unsigned> *tree_hash_table;	/* Maps pointers to indices. */
   vec<tree> trees;			/* Maps indices to pointers. */
 };
 
@@ -682,11 +683,11 @@ struct output_block
 
   /* The hash table that contains the set of strings we have seen so
      far and the indexes assigned to them.  */
-  hash_table <string_slot_hasher> string_hash_table;
+  hash_table<string_slot_hasher> *string_hash_table;
 
-  /* The current cgraph_node that we are currently serializing.  Null
+  /* The current symbol that we are currently serializing.  Null
      if we are serializing something else.  */
-  struct cgraph_node *cgraph_node;
+  struct symtab_node *symbol;
 
   /* These are the last file and line that were seen in the stream.
      If the current node differs from these, it needs to insert
@@ -694,9 +695,6 @@ struct output_block
   const char *current_file;
   int current_line;
   int current_col;
-
-  /* True if writing globals and types.  */
-  bool global;
 
   /* Cache of nodes written in this section.  */
   struct streamer_tree_cache_d *writer_cache;
@@ -713,21 +711,11 @@ struct data_in
   /* The global decls and types.  */
   struct lto_file_decl_data *file_data;
 
-  /* All of the labels.  */
-  tree *labels;
-
   /* The string table.  */
   const char *strings;
 
   /* The length of the string table.  */
   unsigned int strings_len;
-
-  /* Number of named labels.  Used to find the index of unnamed labels
-     since they share space with the named labels.  */
-  unsigned int num_named_labels;
-
-  /* Number of unnamed labels.  */
-  unsigned int num_unnamed_labels;
 
   /* Maps each reference number to the resolution done by the linker. */
   vec<ld_plugin_symbol_resolution_t> globals_resolution;
@@ -776,9 +764,8 @@ extern void lto_value_range_error (const char *,
 /* In lto-section-out.c  */
 extern void lto_begin_section (const char *, bool);
 extern void lto_end_section (void);
+extern void lto_write_data (const void *, unsigned int);
 extern void lto_write_stream (struct lto_output_stream *);
-extern void lto_output_data_stream (struct lto_output_stream *, const void *,
-				    size_t);
 extern bool lto_output_decl_index (struct lto_output_stream *,
 			    struct lto_tree_ref_encoder *,
 			    tree, unsigned int *);
@@ -829,6 +816,9 @@ extern void lto_reader_init (void);
 extern void lto_input_function_body (struct lto_file_decl_data *,
 				     struct cgraph_node *,
 				     const char *);
+extern void lto_input_variable_constructor (struct lto_file_decl_data *,
+					    struct varpool_node *,
+					    const char *);
 extern void lto_input_constructors_and_inits (struct lto_file_decl_data *,
 					      const char *);
 extern void lto_input_toplevel_asms (struct lto_file_decl_data *, int);
@@ -887,7 +877,7 @@ bool referenced_from_other_partition_p (struct ipa_ref_list *,
 				        lto_symtab_encoder_t);
 bool reachable_from_other_partition_p (struct cgraph_node *,
 				       lto_symtab_encoder_t);
-bool referenced_from_this_partition_p (struct ipa_ref_list *,
+bool referenced_from_this_partition_p (struct symtab_node *,
 					lto_symtab_encoder_t);
 bool reachable_from_this_partition_p (struct cgraph_node *,
 				      lto_symtab_encoder_t);
@@ -994,7 +984,7 @@ lto_tag_check_range (enum LTO_tags actual, enum LTO_tags tag1,
 static inline void
 lto_init_tree_ref_encoder (struct lto_tree_ref_encoder *encoder)
 {
-  encoder->tree_hash_table = new pointer_map<unsigned>;
+  encoder->tree_hash_table = new hash_map<tree, unsigned> (251);
   encoder->trees.create (0);
 }
 
@@ -1005,8 +995,8 @@ static inline void
 lto_destroy_tree_ref_encoder (struct lto_tree_ref_encoder *encoder)
 {
   /* Hash table may be delete already.  */
-  if (encoder->tree_hash_table)
-    delete encoder->tree_hash_table;
+  delete encoder->tree_hash_table;
+  encoder->tree_hash_table = NULL;
   encoder->trees.release ();
 }
 
@@ -1071,14 +1061,14 @@ lsei_node (lto_symtab_encoder_iterator lsei)
 static inline struct cgraph_node *
 lsei_cgraph_node (lto_symtab_encoder_iterator lsei)
 {
-  return cgraph (lsei.encoder->nodes[lsei.index].node);
+  return dyn_cast<cgraph_node *> (lsei.encoder->nodes[lsei.index].node);
 }
 
 /* Return the node pointed to by LSI.  */
 static inline varpool_node *
 lsei_varpool_node (lto_symtab_encoder_iterator lsei)
 {
-  return varpool (lsei.encoder->nodes[lsei.index].node);
+  return dyn_cast<varpool_node *> (lsei.encoder->nodes[lsei.index].node);
 }
 
 /* Return the cgraph node corresponding to REF using ENCODER.  */

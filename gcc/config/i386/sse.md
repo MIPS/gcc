@@ -5892,9 +5892,10 @@
 	      (match_operand 5  "const_0_to_15_operand")]))
 	  (match_operand:<ssequartermode> 6 "memory_operand" "0")
 	  (match_operand:QI 7 "register_operand" "Yk")))]
-  "TARGET_AVX512F && (INTVAL (operands[2]) = INTVAL (operands[3]) - 1)
-  && (INTVAL (operands[3]) = INTVAL (operands[4]) - 1)
-  && (INTVAL (operands[4]) = INTVAL (operands[5]) - 1)"
+  "TARGET_AVX512F
+   && (INTVAL (operands[2]) == (INTVAL (operands[3]) - 1)
+       && INTVAL (operands[3]) == (INTVAL (operands[4]) - 1)
+       && INTVAL (operands[4]) == (INTVAL (operands[5]) - 1))"
 {
   operands[2] = GEN_INT ((INTVAL (operands[2])) >> 2);
   return "vextract<shuffletype>32x4\t{%2, %1, %0%{%7%}|%0%{%7%}, %1, %2}";
@@ -5914,9 +5915,10 @@
             (match_operand 3  "const_0_to_15_operand")
             (match_operand 4  "const_0_to_15_operand")
             (match_operand 5  "const_0_to_15_operand")])))]
-  "TARGET_AVX512F && (INTVAL (operands[2]) = INTVAL (operands[3]) - 1)
-  && (INTVAL (operands[3]) = INTVAL (operands[4]) - 1)
-  && (INTVAL (operands[4]) = INTVAL (operands[5]) - 1)"
+  "TARGET_AVX512F
+   && (INTVAL (operands[2]) == (INTVAL (operands[3]) - 1)
+       && INTVAL (operands[3]) == (INTVAL (operands[4]) - 1)
+       && INTVAL (operands[4]) == (INTVAL (operands[5]) - 1))"
 {
   operands[2] = GEN_INT ((INTVAL (operands[2])) >> 2);
   return "vextract<shuffletype>32x4\t{%2, %1, %0<mask_operand6>|%0<mask_operand6>, %1, %2}";
@@ -8257,6 +8259,36 @@
   rtx t = gen_reg_rtx (V2DImode);
   emit_insn (gen_xop_pmacsdqh (t, operands[1], operands[2], operands[3]));
   emit_insn (gen_xop_pmacsdql (operands[0], operands[1], operands[2], t));
+  DONE;
+})
+
+(define_expand "usadv16qi"
+  [(match_operand:V4SI 0 "register_operand")
+   (match_operand:V16QI 1 "register_operand")
+   (match_operand:V16QI 2 "nonimmediate_operand")
+   (match_operand:V4SI 3 "nonimmediate_operand")]
+  "TARGET_SSE2"
+{
+  rtx t1 = gen_reg_rtx (V2DImode);
+  rtx t2 = gen_reg_rtx (V4SImode);
+  emit_insn (gen_sse2_psadbw (t1, operands[1], operands[2]));
+  convert_move (t2, t1, 0);
+  emit_insn (gen_addv4si3 (operands[0], t2, operands[3]));
+  DONE;
+})
+
+(define_expand "usadv32qi"
+  [(match_operand:V8SI 0 "register_operand")
+   (match_operand:V32QI 1 "register_operand")
+   (match_operand:V32QI 2 "nonimmediate_operand")
+   (match_operand:V8SI 3 "nonimmediate_operand")]
+  "TARGET_AVX2"
+{
+  rtx t1 = gen_reg_rtx (V4DImode);
+  rtx t2 = gen_reg_rtx (V8SImode);
+  emit_insn (gen_avx2_psadbw (t1, operands[1], operands[2]));
+  convert_move (t2, t1, 0);
+  emit_insn (gen_addv8si3 (operands[0], t2, operands[3]));
   DONE;
 })
 

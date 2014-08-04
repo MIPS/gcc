@@ -26,6 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "cgraph.h"
 #include "tree-pass.h"
+#include "hash-map.h"
 #include "pointer-set.h"
 #include "gimple-expr.h"
 #include "gimplify.h"
@@ -50,10 +51,9 @@ has_addr_references_p (struct cgraph_node *node,
 		       void *data ATTRIBUTE_UNUSED)
 {
   int i;
-  struct ipa_ref *ref;
+  struct ipa_ref *ref = NULL;
 
-  for (i = 0; ipa_ref_list_referring_iterate (&node->ref_list,
-					      i, ref); i++)
+  for (i = 0; node->iterate_referring (i, ref); i++)
     if (ref->use == IPA_REF_ADDR)
       return true;
   return false;
@@ -100,14 +100,14 @@ enqueue_node (symtab_node *node, symtab_node **first,
 /* Process references.  */
 
 static void
-process_references (struct ipa_ref_list *list,
+process_references (symtab_node *snode,
 		    symtab_node **first,
 		    bool before_inlining_p,
 		    struct pointer_set_t *reachable)
 {
   int i;
-  struct ipa_ref *ref;
-  for (i = 0; ipa_ref_list_reference_iterate (list, i, ref); i++)
+  struct ipa_ref *ref = NULL;
+  for (i = 0; snode->iterate_reference (i, ref); i++)
     {
       symtab_node *node = ref->referred;
 
@@ -193,13 +193,13 @@ walk_polymorphic_call_targets (pointer_set_t *reachable_call_targets,
 	  if (targets.length () == 1)
 	    target = targets[0];
 	  else
-	    target = cgraph_get_create_node
+	    target = cgraph_node::get_create
 		       (builtin_decl_implicit (BUILT_IN_UNREACHABLE));
 
 	  if (dump_enabled_p ())
             {
-              location_t locus = gimple_location (edge->call_stmt);
-              dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, locus,
+	      location_t locus = gimple_location (edge->call_stmt);
+	      dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, locus,
                                "devirtualizing call in %s/%i to %s/%i\n",
                                edge->caller->name (), edge->caller->order,
                                target->name (),
@@ -301,7 +301,7 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
       if (node->definition
 	  && !node->global.inlined_to
 	  && !node->in_other_partition
-	  && !cgraph_can_remove_if_no_direct_calls_and_refs_p (node))
+	  && !node->can_remove_if_no_direct_calls_and_refs_p ())
 	{
 	  gcc_assert (!node->global.inlined_to);
 	  pointer_set_insert (reachable, node);
@@ -313,7 +313,7 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 
   /* Mark variables that are obviously needed.  */
   FOR_EACH_DEFINED_VARIABLE (vnode)
-    if (!varpool_can_remove_if_no_refs (vnode)
+    if (!vnode->can_remove_if_no_refs_p()
 	&& !vnode->in_other_partition)
       {
 	pointer_set_insert (reachable, vnode);
@@ -338,7 +338,7 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	      && DECL_ABSTRACT_ORIGIN (node->decl))
 	    {
 	      struct cgraph_node *origin_node
-	      = cgraph_get_create_node (DECL_ABSTRACT_ORIGIN (node->decl));
+	      = cgraph_node::get_create (DECL_ABSTRACT_ORIGIN (node->decl));
 	      origin_node->used_as_abstract_origin = true;
 	      enqueue_node (origin_node, &first, reachable);
 	    }
@@ -352,13 +352,12 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	      for (next = node->same_comdat_group;
 		   next != node;
 		   next = next->same_comdat_group)
-		if (!symtab_comdat_local_p (next)
+		if (!next->comdat_local_p ()
 		    && !pointer_set_insert (reachable, next))
 		  enqueue_node (next, &first, reachable);
 	    }
 	  /* Mark references as reachable.  */
-	  process_references (&node->ref_list, &first,
-			      before_inlining_p, reachable);
+	  process_references (node, &first, before_inlining_p, reachable);
 	}
 
       if (cgraph_node *cnode = dyn_cast <cgraph_node *> (node))
@@ -395,10 +394,8 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 		      if (DECL_EXTERNAL (e->callee->decl)
 			  && e->callee->alias
 			  && before_inlining_p)
-			{
-		          pointer_set_insert (reachable,
-					      cgraph_function_node (e->callee));
-			}
+			pointer_set_insert (reachable,
+					    e->callee->function_symbol ());
 		      pointer_set_insert (reachable, e->callee);
 		    }
 		  enqueue_node (e->callee, &first, reachable);
@@ -445,8 +442,8 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	  && !vnode->alias
 	  && in_boundary_p)
 	{
-	  struct ipa_ref *ref;
-	  for (int i = 0; ipa_ref_list_reference_iterate (&node->ref_list, i, ref); i++)
+	  struct ipa_ref *ref = NULL;
+	  for (int i = 0; node->iterate_reference (i, ref); i++)
 	    enqueue_node (ref->referred, &first, reachable);
 	}
     }
@@ -461,14 +458,14 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	{
 	  if (file)
 	    fprintf (file, " %s/%i", node->name (), node->order);
-	  cgraph_remove_node (node);
+	  node->remove ();
 	  changed = true;
 	}
       /* If node is unreachable, remove its body.  */
       else if (!pointer_set_contains (reachable, node))
         {
 	  if (!pointer_set_contains (body_needed_for_clonning, node->decl))
-	    cgraph_release_function_body (node);
+	    node->release_body ();
 	  else if (!node->clone_of)
 	    gcc_assert (in_lto_p || DECL_RESULT (node->decl));
 	  if (node->definition)
@@ -490,14 +487,14 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 				    DECL_ATTRIBUTES (node->decl));
 	      if (!node->in_other_partition)
 		node->local.local = false;
-	      cgraph_node_remove_callees (node);
-	      symtab_remove_from_same_comdat_group (node);
-	      ipa_remove_all_references (&node->ref_list);
+	      node->remove_callees ();
+	      node->remove_from_same_comdat_group ();
+	      node->remove_all_references ();
 	      changed = true;
 	    }
 	}
       else
-	gcc_assert (node->clone_of || !cgraph_function_with_gimple_body_p (node)
+	gcc_assert (node->clone_of || !node->has_gimple_body_p ()
 		    || in_lto_p || DECL_RESULT (node->decl));
     }
 
@@ -530,7 +527,7 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	{
 	  if (file)
 	    fprintf (file, " %s/%i", vnode->name (), vnode->order);
-	  varpool_remove_node (vnode);
+	  vnode->remove ();
 	  changed = true;
 	}
       else if (!pointer_set_contains (reachable, vnode))
@@ -547,14 +544,14 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	  vnode->analyzed = false;
 	  vnode->aux = NULL;
 
-	  symtab_remove_from_same_comdat_group (vnode);
+	  vnode->remove_from_same_comdat_group ();
 
 	  /* Keep body if it may be useful for constant folding.  */
 	  if ((init = ctor_for_folding (vnode->decl)) == error_mark_node)
-	    varpool_remove_initializer (vnode);
+	    vnode->remove_initializer ();
 	  else
 	    DECL_INITIAL (vnode->decl) = init;
-	  ipa_remove_all_references (&vnode->ref_list);
+	  vnode->remove_all_references ();
 	}
       else
 	vnode->aux = NULL;
@@ -571,13 +568,14 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
     if (node->address_taken
 	&& !node->used_from_other_partition)
       {
-	if (!cgraph_for_node_and_aliases (node, has_addr_references_p, NULL, true))
+	if (!node->call_for_symbol_thunks_and_aliases
+	  (has_addr_references_p, NULL, true))
 	  {
 	    if (file)
 	      fprintf (file, " %s", node->name ());
 	    node->address_taken = false;
 	    changed = true;
-	    if (cgraph_local_node_p (node))
+	    if (node->local_p ())
 	      {
 		node->local.local = true;
 		if (file)
@@ -589,7 +587,7 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
     fprintf (file, "\n");
 
 #ifdef ENABLE_CHECKING
-  verify_symtab ();
+  symtab_node::verify_symtab_nodes ();
 #endif
 
   /* If we removed something, perhaps profile could be improved.  */
@@ -613,12 +611,11 @@ process_references (varpool_node *vnode,
   int i;
   struct ipa_ref *ref;
 
-  if (!varpool_all_refs_explicit_p (vnode)
+  if (!vnode->all_refs_explicit_p ()
       || TREE_THIS_VOLATILE (vnode->decl))
     *explicit_refs = false;
 
-  for (i = 0; ipa_ref_list_referring_iterate (&vnode->ref_list,
-					     i, ref)
+  for (i = 0; vnode->iterate_referring (i, ref)
 	      && *explicit_refs && (!*written || !*address_taken || !*read); i++)
     switch (ref->use)
       {
@@ -632,8 +629,8 @@ process_references (varpool_node *vnode,
 	*written = true;
 	break;
       case IPA_REF_ALIAS:
-	process_references (varpool (ref->referring), written, address_taken,
-			    read, explicit_refs);
+	process_references (dyn_cast<varpool_node *> (ref->referring), written,
+			    address_taken, read, explicit_refs);
 	break;
       }
 }
@@ -657,7 +654,7 @@ set_writeonly_bit (varpool_node *vnode, void *data ATTRIBUTE_UNUSED)
     {
       DECL_INITIAL (vnode->decl) = NULL;
       if (!vnode->alias)
-	ipa_remove_all_references (&vnode->ref_list);
+	vnode->remove_all_references ();
     }
   return false;
 }
@@ -705,7 +702,7 @@ ipa_discover_readonly_nonaddressable_vars (void)
 	  {
 	    if (TREE_ADDRESSABLE (vnode->decl) && dump_file)
 	      fprintf (dump_file, " %s (non-addressable)", vnode->name ());
-	    varpool_for_node_and_aliases (vnode, clear_addressable_bit, NULL, true);
+	    vnode->call_for_node_and_aliases (clear_addressable_bit, NULL, true);
 	  }
 	if (!address_taken && !written
 	    /* Making variable in explicit section readonly can cause section
@@ -715,13 +712,13 @@ ipa_discover_readonly_nonaddressable_vars (void)
 	  {
 	    if (!TREE_READONLY (vnode->decl) && dump_file)
 	      fprintf (dump_file, " %s (read-only)", vnode->name ());
-	    varpool_for_node_and_aliases (vnode, set_readonly_bit, NULL, true);
+	    vnode->call_for_node_and_aliases (set_readonly_bit, NULL, true);
 	  }
 	if (!vnode->writeonly && !read && !address_taken && written)
 	  {
 	    if (dump_file)
 	      fprintf (dump_file, " %s (write-only)", vnode->name ());
-	    varpool_for_node_and_aliases (vnode, set_writeonly_bit, NULL, true);
+	    vnode->call_for_node_and_aliases (set_writeonly_bit, NULL, true);
 	  }
       }
   if (dump_file)
@@ -737,7 +734,6 @@ const pass_data pass_data_ipa_free_inline_summary =
   SIMPLE_IPA_PASS, /* type */
   "*free_inline_summary", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_IPA_FREE_INLINE_SUMMARY, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -842,7 +838,7 @@ cgraph_build_static_cdtor_1 (char which, tree body, int priority, bool final)
 
   gimplify_function_tree (decl);
 
-  cgraph_add_new_function (decl, false);
+  cgraph_node::add_new_function (decl, false);
 
   set_cfun (NULL);
   current_function_decl = NULL;
@@ -878,7 +874,7 @@ record_cdtor_fn (struct cgraph_node *node)
     static_ctors.safe_push (node->decl);
   if (DECL_STATIC_DESTRUCTOR (node->decl))
     static_dtors.safe_push (node->decl);
-  node = cgraph_get_node (node->decl);
+  node = cgraph_node::get (node->decl);
   DECL_DISREGARD_INLINE_LIMITS (node->decl) = 1;
 }
 
@@ -1049,7 +1045,6 @@ const pass_data pass_data_ipa_cdtor_merge =
   IPA_PASS, /* type */
   "cdtor", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_CGRAPHOPT, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -1095,4 +1090,222 @@ ipa_opt_pass_d *
 make_pass_ipa_cdtor_merge (gcc::context *ctxt)
 {
   return new pass_ipa_cdtor_merge (ctxt);
+}
+
+/* Invalid pointer representing BOTTOM for single user dataflow.  */
+#define BOTTOM ((cgraph_node *)(size_t) 2)
+
+/* Meet operation for single user dataflow.
+   Here we want to associate variables with sigle function that may access it.
+
+   FUNCTION is current single user of a variable, VAR is variable that uses it.
+   Latttice is stored in SINGLE_USER_MAP.
+
+   We represent: 
+    - TOP by no entry in SIGNLE_USER_MAP
+    - BOTTOM by BOTTOM in AUX pointer (to save lookups)
+    - known single user by cgraph pointer in SINGLE_USER_MAP.  */
+
+cgraph_node *
+meet (cgraph_node *function, varpool_node *var,
+       hash_map<varpool_node *, cgraph_node *> &single_user_map)
+{
+  struct cgraph_node *user, **f;
+
+  if (var->aux == BOTTOM)
+    return BOTTOM;
+
+  f = single_user_map.get (var);
+  if (!f)
+    return function;
+  user = *f;
+  if (!function)
+    return user;
+  else if (function != user)
+    return BOTTOM;
+  else
+    return function;
+}
+
+/* Propagation step of single-use dataflow.
+
+   Check all uses of VNODE and see if they are used by single function FUNCTION.
+   SINGLE_USER_MAP represents the dataflow lattice.  */
+
+cgraph_node *
+propagate_single_user (varpool_node *vnode, cgraph_node *function,
+		       hash_map<varpool_node *, cgraph_node *> &single_user_map)
+{
+  int i;
+  struct ipa_ref *ref;
+
+  gcc_assert (!vnode->externally_visible);
+
+  /* If node is an alias, first meet with its target.  */
+  if (vnode->alias)
+    function = meet (function, vnode->get_alias_target (), single_user_map);
+
+  /* Check all users and see if they correspond to a single function.  */
+  for (i = 0; vnode->iterate_referring (i, ref) && function != BOTTOM; i++)
+    {
+      struct cgraph_node *cnode = dyn_cast <cgraph_node *> (ref->referring);
+      if (cnode)
+	{
+	  if (cnode->global.inlined_to)
+	    cnode = cnode->global.inlined_to;
+	  if (!function)
+	    function = cnode;
+	  else if (function != cnode)
+	    function = BOTTOM;
+	}
+      else
+        function = meet (function, dyn_cast <varpool_node *> (ref->referring), single_user_map);
+    }
+  return function;
+}
+
+/* Pass setting used_by_single_function flag.
+   This flag is set on variable when there is only one function that may possibly
+   referr to it.  */
+
+static unsigned int
+ipa_single_use (void)
+{
+  varpool_node *first = (varpool_node *) (void *) 1;
+  varpool_node *var;
+  hash_map<varpool_node *, cgraph_node *> single_user_map;
+
+  FOR_EACH_DEFINED_VARIABLE (var)
+    if (!var->all_refs_explicit_p ())
+      var->aux = BOTTOM;
+    else
+      {
+	/* Enqueue symbol for dataflow.  */
+        var->aux = first;
+	first = var;
+      }
+
+  /* The actual dataflow.  */
+
+  while (first != (void *) 1)
+    {
+      cgraph_node *user, *orig_user, **f;
+
+      var = first;
+      first = (varpool_node *)first->aux;
+
+      f = single_user_map.get (var);
+      if (f)
+	orig_user = *f;
+      else
+	orig_user = NULL;
+      user = propagate_single_user (var, orig_user, single_user_map);
+
+      gcc_checking_assert (var->aux != BOTTOM);
+
+      /* If user differs, enqueue all references.  */
+      if (user != orig_user)
+	{
+	  unsigned int i;
+	  ipa_ref *ref;
+
+	  single_user_map.put (var, user);
+
+	  /* Enqueue all aliases for re-processing.  */
+	  for (i = 0; var->iterate_referring (i, ref); i++)
+	    if (ref->use == IPA_REF_ALIAS
+		&& !ref->referring->aux)
+	      {
+		ref->referring->aux = first;
+		first = dyn_cast <varpool_node *> (ref->referring);
+	      }
+	  /* Enqueue all users for re-processing.  */
+	  for (i = 0; var->iterate_reference (i, ref); i++)
+	    if (!ref->referred->aux
+	        && ref->referred->definition
+		&& is_a <varpool_node *> (ref->referred))
+	      {
+		ref->referred->aux = first;
+		first = dyn_cast <varpool_node *> (ref->referred);
+	      }
+
+	  /* If user is BOTTOM, just punt on this var.  */
+	  if (user == BOTTOM)
+	    var->aux = BOTTOM;
+	  else
+	    var->aux = NULL;
+	}
+      else
+	var->aux = NULL;
+    }
+
+  FOR_EACH_DEFINED_VARIABLE (var)
+    {
+      if (var->aux != BOTTOM)
+	{
+#ifdef ENABLE_CHECKING
+	  if (!single_user_map.get (var))
+          gcc_assert (single_user_map.get (var));
+#endif
+	  if (dump_file)
+	    {
+	      fprintf (dump_file, "Variable %s/%i is used by single function\n",
+		       var->name (), var->order);
+	    }
+	  var->used_by_single_function = true;
+	}
+      var->aux = NULL;
+    }
+  return 0;
+}
+
+namespace {
+
+const pass_data pass_data_ipa_single_use =
+{
+  IPA_PASS, /* type */
+  "single-use", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  TV_CGRAPHOPT, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
+};
+
+class pass_ipa_single_use : public ipa_opt_pass_d
+{
+public:
+  pass_ipa_single_use (gcc::context *ctxt)
+    : ipa_opt_pass_d (pass_data_ipa_single_use, ctxt,
+		      NULL, /* generate_summary */
+		      NULL, /* write_summary */
+		      NULL, /* read_summary */
+		      NULL, /* write_optimization_summary */
+		      NULL, /* read_optimization_summary */
+		      NULL, /* stmt_fixup */
+		      0, /* function_transform_todo_flags_start */
+		      NULL, /* function_transform */
+		      NULL) /* variable_transform */
+  {}
+
+  /* opt_pass methods: */
+  virtual bool gate (function *);
+  virtual unsigned int execute (function *) { return ipa_single_use (); }
+
+}; // class pass_ipa_single_use
+
+bool
+pass_ipa_single_use::gate (function *)
+{
+  return optimize;
+}
+
+} // anon namespace
+
+ipa_opt_pass_d *
+make_pass_ipa_single_use (gcc::context *ctxt)
+{
+  return new pass_ipa_single_use (ctxt);
 }

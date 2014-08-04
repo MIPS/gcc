@@ -143,7 +143,7 @@ extern tree make_packable_type (tree type, bool in_record);
 extern tree make_type_from_size (tree type, tree size_tree, bool for_biased);
 
 /* Ensure that TYPE has SIZE and ALIGN.  Make and return a new padded type
-   if needed.  We have already verified that SIZE and TYPE are large enough.
+   if needed.  We have already verified that SIZE and ALIGN are large enough.
    GNAT_ENTITY is used to name the resulting record and to issue a warning.
    IS_COMPONENT_TYPE is true if this is being done for the component type of
    an array.  IS_USER_TYPE is true if the original type needs to be completed.
@@ -335,6 +335,9 @@ extern int double_float_alignment;
    types whose size is greater or equal to 64 bits, or 0 if this alignment
    is not specifically capped.  */
 extern int double_scalar_alignment;
+
+/* True if floating-point arithmetics may use wider intermediate results.  */
+extern bool fp_arith_may_widen;
 
 /* Data structures used to represent attributes.  */
 
@@ -449,7 +452,9 @@ enum inline_status_t
   /* No inlining is requested for the subprogram.  */
   is_disabled,
   /* Inlining is requested for the subprogram.  */
-  is_enabled
+  is_enabled,
+  /* Inlining is required for the subprogram.  */
+  is_required
 };
 
 extern GTY(()) tree gnat_std_decls[(int) ADT_LAST];
@@ -1016,6 +1021,12 @@ extern int fp_prec_to_size (int prec);
 
 /* Return the precision of the FP mode with size SIZE.  */
 extern int fp_size_to_prec (int size);
+
+/* Return whether GNAT_NODE is a defining identifier for a renaming that comes
+   from the parameter association for the instantiation of a generic.  We do
+   not want to emit source location for them: the code generated for their
+   initialization is likely to disturb debugging.  */
+extern bool renaming_from_generic_instantiation_p (Node_Id gnat_node);
 
 #ifdef __cplusplus
 extern "C" {

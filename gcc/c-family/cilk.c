@@ -171,7 +171,7 @@ call_graph_add_fn (tree fndecl)
   gcc_assert (cfun->decl == outer);
 
   push_cfun (f);
-  cgraph_create_node (fndecl);
+  cgraph_node::create (fndecl);
   pop_cfun_to (outer);
 }
 
@@ -314,6 +314,7 @@ create_cilk_helper_decl (struct wrapper_data *wd)
   tree block = make_node (BLOCK);
   DECL_INITIAL (fndecl) = block;
   TREE_USED (block) = 1;
+  BLOCK_SUPERCONTEXT (block) = fndecl;
   gcc_assert (!DECL_SAVED_TREE (fndecl));
 
   /* Inlining would defeat the purpose of this wrapper.

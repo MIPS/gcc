@@ -76,6 +76,9 @@ int double_float_alignment;
    is not specifically capped.  */
 int double_scalar_alignment;
 
+/* True if floating-point arithmetics may use wider intermediate results.  */
+bool fp_arith_may_widen = true;
+
 /* Tree nodes for the various types and decls we create.  */
 tree gnat_std_decls[(int) ADT_LAST];
 
@@ -94,6 +97,7 @@ static tree handle_nonnull_attribute (tree *, tree, tree, int, bool *);
 static tree handle_sentinel_attribute (tree *, tree, tree, int, bool *);
 static tree handle_noreturn_attribute (tree *, tree, tree, int, bool *);
 static tree handle_leaf_attribute (tree *, tree, tree, int, bool *);
+static tree handle_always_inline_attribute (tree *, tree, tree, int, bool *);
 static tree handle_malloc_attribute (tree *, tree, tree, int, bool *);
 static tree handle_type_generic_attribute (tree *, tree, tree, int, bool *);
 static tree handle_vector_size_attribute (tree *, tree, tree, int, bool *);
@@ -124,6 +128,8 @@ const struct attribute_spec gnat_internal_attribute_table[] =
   { "noreturn",     0, 0,  true,  false, false, handle_noreturn_attribute,
     false },
   { "leaf",         0, 0,  true,  false, false, handle_leaf_attribute,
+    false },
+  { "always_inline",0, 0,  true,  false, false, handle_always_inline_attribute,
     false },
   { "malloc",       0, 0,  true,  false, false, handle_malloc_attribute,
     false },
@@ -580,7 +586,7 @@ gnat_pushdecl (tree decl, Node_Id gnat_node)
   TREE_NO_WARNING (decl) = (No (gnat_node) || Warnings_Off (gnat_node));
 
   /* Set the location of DECL and emit a declaration for it.  */
-  if (Present (gnat_node))
+  if (Present (gnat_node) && !renaming_from_generic_instantiation_p (gnat_node))
     Sloc_to_locus (Sloc (gnat_node), &DECL_SOURCE_LOCATION (decl));
 
   add_decl_expr (decl, gnat_node);
@@ -1034,8 +1040,39 @@ pad_type_hash_eq (const void *p1, const void *p2)
     && TYPE_ADA_SIZE (type1) == TYPE_ADA_SIZE (type2);
 }
 
+/* Look up the padded TYPE in the hash table and return its canonical version
+   if it exists; otherwise, insert it into the hash table.  */
+
+static tree
+lookup_and_insert_pad_type (tree type)
+{
+  hashval_t hashcode;
+  struct pad_type_hash in, *h;
+  void **loc;
+
+  hashcode
+    = iterative_hash_object (TYPE_HASH (TREE_TYPE (TYPE_FIELDS (type))), 0);
+  hashcode = iterative_hash_expr (TYPE_SIZE (type), hashcode);
+  hashcode = iterative_hash_hashval_t (TYPE_ALIGN (type), hashcode);
+  hashcode = iterative_hash_expr (TYPE_ADA_SIZE (type), hashcode);
+
+  in.hash = hashcode;
+  in.type = type;
+  h = (struct pad_type_hash *)
+	htab_find_with_hash (pad_type_hash_table, &in, hashcode);
+  if (h)
+    return h->type;
+
+  h = ggc_alloc<pad_type_hash> ();
+  h->hash = hashcode;
+  h->type = type;
+  loc = htab_find_slot_with_hash (pad_type_hash_table, h, hashcode, INSERT);
+  *loc = (void *)h;
+  return NULL_TREE;
+}
+
 /* Ensure that TYPE has SIZE and ALIGN.  Make and return a new padded type
-   if needed.  We have already verified that SIZE and TYPE are large enough.
+   if needed.  We have already verified that SIZE and ALIGN are large enough.
    GNAT_ENTITY is used to name the resulting record and to issue a warning.
    IS_COMPONENT_TYPE is true if this is being done for the component type of
    an array.  IS_USER_TYPE is true if the original type needs to be completed.
@@ -1155,39 +1192,19 @@ maybe_pad_type (tree type, tree size, unsigned int align,
   /* Set the RM size if requested.  */
   if (set_rm_size)
     {
+      tree canonical_pad_type;
+
       SET_TYPE_ADA_SIZE (record, size ? size : orig_size);
 
       /* If the padded type is complete and has constant size, we canonicalize
 	 it by means of the hash table.  This is consistent with the language
 	 semantics and ensures that gigi and the middle-end have a common view
 	 of these padded types.  */
-      if (TREE_CONSTANT (TYPE_SIZE (record)))
+      if (TREE_CONSTANT (TYPE_SIZE (record))
+	  && (canonical_pad_type = lookup_and_insert_pad_type (record)))
 	{
-	  hashval_t hashcode;
-	  struct pad_type_hash in, *h;
-	  void **loc;
-
-	  hashcode = iterative_hash_object (TYPE_HASH (type), 0);
-	  hashcode = iterative_hash_expr (TYPE_SIZE (record), hashcode);
-	  hashcode = iterative_hash_hashval_t (TYPE_ALIGN (record), hashcode);
-	  hashcode = iterative_hash_expr (TYPE_ADA_SIZE (record), hashcode);
-
-	  in.hash = hashcode;
-	  in.type = record;
-	  h = (struct pad_type_hash *)
-		htab_find_with_hash (pad_type_hash_table, &in, hashcode);
-	  if (h)
-	    {
-	      record = h->type;
-	      goto built;
-	    }
-
-	  h = ggc_alloc<pad_type_hash> ();
-	  h->hash = hashcode;
-	  h->type = record;
-	  loc = htab_find_slot_with_hash (pad_type_hash_table, h, hashcode,
-					  INSERT);
-	  *loc = (void *)h;
+	  record = canonical_pad_type;
+	  goto built;
 	}
     }
 
@@ -1252,7 +1269,8 @@ built:
     {
       Node_Id gnat_error_node = Empty;
 
-      if (Is_Packed_Array_Type (gnat_entity))
+      /* For a packed array, post the message on the original array type.  */
+      if (Is_Packed_Array_Impl_Type (gnat_entity))
 	gnat_entity = Original_Array_Type (gnat_entity);
 
       if ((Ekind (gnat_entity) == E_Component
@@ -2476,9 +2494,7 @@ process_attributes (tree *node, struct attrib **attr_list, bool in_place,
       case ATTR_LINK_SECTION:
 	if (targetm_common.have_named_sections)
 	  {
-	    tree name = build_string (IDENTIFIER_LENGTH (attr->name),
-				      IDENTIFIER_POINTER (attr->name));
-	    set_decl_section_name (*node, name);
+	    set_decl_section_name (*node, IDENTIFIER_POINTER (attr->name));
 	    DECL_COMMON (*node) = 0;
 	  }
 	else
@@ -2497,7 +2513,7 @@ process_attributes (tree *node, struct attrib **attr_list, bool in_place,
 	break;
 
       case ATTR_THREAD_LOCAL_STORAGE:
-	DECL_TLS_MODEL (*node) = decl_default_tls_model (*node);
+	set_decl_tls_model (*node, decl_default_tls_model (*node));
 	DECL_COMMON (*node) = 0;
 	break;
       }
@@ -2549,6 +2565,37 @@ value_factor_p (tree value, HOST_WIDE_INT factor)
             || value_factor_p (TREE_OPERAND (value, 1), factor));
 
   return false;
+}
+
+/* Return whether GNAT_NODE is a defining identifier for a renaming that comes
+   from the parameter association for the instantiation of a generic.  We do
+   not want to emit source location for them: the code generated for their
+   initialization is likely to disturb debugging.  */
+
+bool
+renaming_from_generic_instantiation_p (Node_Id gnat_node)
+{
+  if (Nkind (gnat_node) != N_Defining_Identifier
+      || !IN (Ekind (gnat_node), Object_Kind)
+      || Comes_From_Source (gnat_node)
+      || !Present (Renamed_Object (gnat_node)))
+    return false;
+
+  /* Get the object declaration of the renamed object, if any and if the
+     renamed object is a mere identifier.  */
+  gnat_node = Renamed_Object (gnat_node);
+  if (Nkind (gnat_node) != N_Identifier)
+    return false;
+
+  gnat_node = Entity (gnat_node);
+  if (!Present (Parent (gnat_node)))
+    return false;
+
+  gnat_node = Parent (gnat_node);
+  return
+   (Present (gnat_node)
+    && Nkind (gnat_node) == N_Object_Declaration
+    && Present (Corresponding_Generic_Association (gnat_node)));
 }
 
 /* Return VALUE scaled by the biggest power-of-2 factor of EXPR.  */
@@ -2685,6 +2732,14 @@ create_subprog_decl (tree subprog_name, tree asm_name, tree subprog_type,
     case is_disabled:
       break;
 
+    case is_required:
+      if (Back_End_Inlining)
+        decl_attributes (&subprog_decl,
+				  tree_cons (get_identifier ("always_inline"),
+                    NULL_TREE, NULL_TREE),
+              ATTR_FLAG_TYPE_IN_PLACE);
+      /* ... fall through ... */
+
     case is_enabled:
       DECL_DECLARED_INLINE_P (subprog_decl) = 1;
       DECL_NO_INLINE_WARNING_P (subprog_decl) = artificial_flag;
@@ -2803,7 +2858,7 @@ rest_of_subprog_body_compilation (tree subprog_decl)
   else
     /* Register this function with cgraph just far enough to get it
        added to our parent's nested function list.  */
-    (void) cgraph_get_create_node (subprog_decl);
+    (void) cgraph_node::get_create (subprog_decl);
 }
 
 tree
@@ -5758,7 +5813,8 @@ gnat_write_global_declarations (void)
 		      void_type_node);
       DECL_HARD_REGISTER (dummy_global) = 1;
       TREE_STATIC (dummy_global) = 1;
-      node = varpool_node_for_decl (dummy_global);
+      node = varpool_node::get_create (dummy_global);
+      node->definition = 1;
       node->definition = 1;
       node->force_output = 1;
 
@@ -6352,8 +6408,7 @@ handle_noreturn_attribute (tree *node, tree name, tree ARG_UNUSED (args),
    struct attribute_spec.handler.  */
 
 static tree
-handle_leaf_attribute (tree *node, tree name,
-		       tree ARG_UNUSED (args),
+handle_leaf_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 		       int ARG_UNUSED (flags), bool *no_add_attrs)
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
@@ -6364,6 +6419,27 @@ handle_leaf_attribute (tree *node, tree name,
   if (!TREE_PUBLIC (*node))
     {
       warning (OPT_Wattributes, "%qE attribute has no effect", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle a "always_inline" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_always_inline_attribute (tree *node, tree name, tree ARG_UNUSED (args),
+				int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) == FUNCTION_DECL)
+    {
+      /* Set the attribute and mark it for disregarding inline limits.  */
+      DECL_DISREGARD_INLINE_LIMITS (*node) = 1;
+    }
+  else
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
     }
 

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2010-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 2010-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -64,9 +64,9 @@
 --       and fully analyzed (possibly with expansion) during the semantic
 --       analysis of subprogram bodies.
 
-with Namet;  use Namet;
-with Snames; use Snames;
-with Types;  use Types;
+with Namet;   use Namet;
+with Snames;  use Snames;
+with Types;   use Types;
 
 package Aspects is
 
@@ -77,6 +77,7 @@ package Aspects is
       Aspect_Abstract_State,                -- GNAT
       Aspect_Address,
       Aspect_Alignment,
+      Aspect_Annotate,                      -- GNAT
       Aspect_Attach_Handler,
       Aspect_Bit_Order,
       Aspect_Component_Size,
@@ -183,6 +184,7 @@ package Aspects is
       Aspect_Shared,                        -- GNAT (equivalent to Atomic)
       Aspect_Simple_Storage_Pool_Type,      -- GNAT
       Aspect_Suppress_Debug_Info,           -- GNAT
+      Aspect_Thread_Local_Storage,          -- GNAT
       Aspect_Unchecked_Union,
       Aspect_Universal_Aliasing,            -- GNAT
       Aspect_Unmodified,                    -- GNAT
@@ -192,7 +194,7 @@ package Aspects is
       Aspect_Volatile_Components,
 
       --  Aspects that have a static boolean value but don't correspond to
-      --  pragmas
+      --  pragmas with a single argument that it is the entity in question.
 
       Aspect_Lock_Free);                    -- GNAT
 
@@ -203,10 +205,14 @@ package Aspects is
    --  The following array indicates aspects that accept 'Class
 
    Class_Aspect_OK : constant array (Aspect_Id) of Boolean :=
-     (Aspect_Invariant      => True,
+     (Aspect_Input          => True,
+      Aspect_Invariant      => True,
+      Aspect_Output         => True,
       Aspect_Pre            => True,
       Aspect_Predicate      => True,
       Aspect_Post           => True,
+      Aspect_Read           => True,
+      Aspect_Write          => True,
       Aspect_Type_Invariant => True,
       others                => False);
 
@@ -214,6 +220,7 @@ package Aspects is
 
    Implementation_Defined_Aspect : constant array (Aspect_Id) of Boolean :=
      (Aspect_Abstract_State           => True,
+      Aspect_Annotate                 => True,
       Aspect_Async_Readers            => True,
       Aspect_Async_Writers            => True,
       Aspect_Contract_Cases           => True,
@@ -237,6 +244,7 @@ package Aspects is
       Aspect_Simple_Storage_Pool      => True,
       Aspect_Simple_Storage_Pool_Type => True,
       Aspect_Suppress_Debug_Info      => True,
+      Aspect_Thread_Local_Storage     => True,
       Aspect_Test_Case                => True,
       Aspect_Universal_Aliasing       => True,
       Aspect_Universal_Data           => True,
@@ -251,7 +259,8 @@ package Aspects is
    --  the same aspect attached to the same declaration are allowed.
 
    No_Duplicates_Allowed : constant array (Aspect_Id) of Boolean :=
-     (Aspect_Test_Case => False,
+     (Aspect_Annotate  => False,
+      Aspect_Test_Case => False,
       others           => True);
 
    --  The following subtype defines aspects corresponding to library unit
@@ -290,6 +299,7 @@ package Aspects is
       Aspect_Abstract_State          => Expression,
       Aspect_Address                 => Expression,
       Aspect_Alignment               => Expression,
+      Aspect_Annotate                => Expression,
       Aspect_Attach_Handler          => Expression,
       Aspect_Bit_Order               => Expression,
       Aspect_Component_Size          => Expression,
@@ -368,6 +378,7 @@ package Aspects is
       Aspect_Address                      => Name_Address,
       Aspect_Alignment                    => Name_Alignment,
       Aspect_All_Calls_Remote             => Name_All_Calls_Remote,
+      Aspect_Annotate                     => Name_Annotate,
       Aspect_Async_Readers                => Name_Async_Readers,
       Aspect_Async_Writers                => Name_Async_Writers,
       Aspect_Asynchronous                 => Name_Asynchronous,
@@ -454,6 +465,7 @@ package Aspects is
       Aspect_Stream_Size                  => Name_Stream_Size,
       Aspect_Suppress                     => Name_Suppress,
       Aspect_Suppress_Debug_Info          => Name_Suppress_Debug_Info,
+      Aspect_Thread_Local_Storage         => Name_Thread_Local_Storage,
       Aspect_Synchronization              => Name_Synchronization,
       Aspect_Test_Case                    => Name_Test_Case,
       Aspect_Type_Invariant               => Name_Type_Invariant,
@@ -531,6 +543,14 @@ package Aspects is
    --  information from the parent type, which must be frozen at that point
    --  (since freezing the derived type first freezes the parent type).
 
+   --  SPARK 2014 aspects do not follow the general delay mechanism as they
+   --  act as annotations and cannot modify the attributes of their related
+   --  constructs. To handle forward references in such aspects, the compiler
+   --  delays the analysis of their respective pragmas by collecting them in
+   --  N_Contract nodes. The pragmas are then analyzed at the end of the
+   --  declarative region which contains the related construct. For details,
+   --  see routines Analyze_xxx_In_Decl_Part.
+
    --  The following shows which aspects are delayed. There are three cases:
 
    type Delay_Type is
@@ -578,36 +598,27 @@ package Aspects is
      (No_Aspect                           => Always_Delay,
       Aspect_Address                      => Always_Delay,
       Aspect_All_Calls_Remote             => Always_Delay,
-      Aspect_Async_Readers                => Always_Delay,
-      Aspect_Async_Writers                => Always_Delay,
       Aspect_Asynchronous                 => Always_Delay,
       Aspect_Attach_Handler               => Always_Delay,
       Aspect_Constant_Indexing            => Always_Delay,
-      Aspect_Contract_Cases               => Always_Delay,
       Aspect_CPU                          => Always_Delay,
       Aspect_Default_Iterator             => Always_Delay,
       Aspect_Default_Value                => Always_Delay,
       Aspect_Default_Component_Value      => Always_Delay,
-      Aspect_Depends                      => Always_Delay,
       Aspect_Discard_Names                => Always_Delay,
       Aspect_Dispatching_Domain           => Always_Delay,
       Aspect_Dynamic_Predicate            => Always_Delay,
-      Aspect_Effective_Reads              => Always_Delay,
-      Aspect_Effective_Writes             => Always_Delay,
       Aspect_Elaborate_Body               => Always_Delay,
       Aspect_External_Name                => Always_Delay,
       Aspect_External_Tag                 => Always_Delay,
       Aspect_Export                       => Always_Delay,
       Aspect_Favor_Top_Level              => Always_Delay,
-      Aspect_Global                       => Always_Delay,
       Aspect_Implicit_Dereference         => Always_Delay,
       Aspect_Import                       => Always_Delay,
       Aspect_Independent                  => Always_Delay,
       Aspect_Independent_Components       => Always_Delay,
       Aspect_Inline                       => Always_Delay,
       Aspect_Inline_Always                => Always_Delay,
-      Aspect_Initial_Condition            => Always_Delay,
-      Aspect_Initializes                  => Always_Delay,
       Aspect_Input                        => Always_Delay,
       Aspect_Interrupt_Handler            => Always_Delay,
       Aspect_Interrupt_Priority           => Always_Delay,
@@ -631,9 +642,6 @@ package Aspects is
       Aspect_Pure                         => Always_Delay,
       Aspect_Pure_Function                => Always_Delay,
       Aspect_Read                         => Always_Delay,
-      Aspect_Refined_Depends              => Always_Delay,
-      Aspect_Refined_Global               => Always_Delay,
-      Aspect_Refined_State                => Always_Delay,
       Aspect_Relative_Deadline            => Always_Delay,
       Aspect_Remote_Access_Type           => Always_Delay,
       Aspect_Remote_Call_Interface        => Always_Delay,
@@ -647,6 +655,7 @@ package Aspects is
       Aspect_Stream_Size                  => Always_Delay,
       Aspect_Suppress                     => Always_Delay,
       Aspect_Suppress_Debug_Info          => Always_Delay,
+      Aspect_Thread_Local_Storage         => Always_Delay,
       Aspect_Type_Invariant               => Always_Delay,
       Aspect_Unchecked_Union              => Always_Delay,
       Aspect_Universal_Aliasing           => Always_Delay,
@@ -659,11 +668,24 @@ package Aspects is
       Aspect_Write                        => Always_Delay,
 
       Aspect_Abstract_State               => Never_Delay,
+      Aspect_Annotate                     => Never_Delay,
+      Aspect_Async_Readers                => Never_Delay,
+      Aspect_Async_Writers                => Never_Delay,
+      Aspect_Contract_Cases               => Never_Delay,
       Aspect_Convention                   => Never_Delay,
+      Aspect_Depends                      => Never_Delay,
       Aspect_Dimension                    => Never_Delay,
       Aspect_Dimension_System             => Never_Delay,
+      Aspect_Effective_Reads              => Never_Delay,
+      Aspect_Effective_Writes             => Never_Delay,
+      Aspect_Global                       => Never_Delay,
+      Aspect_Initial_Condition            => Never_Delay,
+      Aspect_Initializes                  => Never_Delay,
       Aspect_Part_Of                      => Never_Delay,
+      Aspect_Refined_Depends              => Never_Delay,
+      Aspect_Refined_Global               => Never_Delay,
       Aspect_Refined_Post                 => Never_Delay,
+      Aspect_Refined_State                => Never_Delay,
       Aspect_SPARK_Mode                   => Never_Delay,
       Aspect_Synchronization              => Never_Delay,
       Aspect_Test_Case                    => Never_Delay,

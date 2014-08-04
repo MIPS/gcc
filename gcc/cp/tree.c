@@ -102,6 +102,16 @@ lvalue_kind (const_tree ref)
     case IMAGPART_EXPR:
       return lvalue_kind (TREE_OPERAND (ref, 0));
 
+    case MEMBER_REF:
+    case DOTSTAR_EXPR:
+      if (TREE_CODE (ref) == MEMBER_REF)
+	op1_lvalue_kind = clk_ordinary;
+      else
+	op1_lvalue_kind = lvalue_kind (TREE_OPERAND (ref, 0));
+      if (TYPE_PTRMEMFUNC_P (TREE_TYPE (TREE_OPERAND (ref, 1))))
+	op1_lvalue_kind = clk_none;
+      return op1_lvalue_kind;
+
     case COMPONENT_REF:
       op1_lvalue_kind = lvalue_kind (TREE_OPERAND (ref, 0));
       /* Look at the member designator.  */
@@ -2082,8 +2092,8 @@ static tree
 verify_stmt_tree_r (tree* tp, int * /*walk_subtrees*/, void* data)
 {
   tree t = *tp;
-  hash_table <pointer_hash <tree_node> > *statements
-      = static_cast <hash_table <pointer_hash <tree_node> > *> (data);
+  hash_table<pointer_hash <tree_node> > *statements
+      = static_cast <hash_table<pointer_hash <tree_node> > *> (data);
   tree_node **slot;
 
   if (!STATEMENT_CODE_P (TREE_CODE (t)))
@@ -2106,10 +2116,8 @@ verify_stmt_tree_r (tree* tp, int * /*walk_subtrees*/, void* data)
 void
 verify_stmt_tree (tree t)
 {
-  hash_table <pointer_hash <tree_node> > statements;
-  statements.create (37);
+  hash_table<pointer_hash <tree_node> > statements (37);
   cp_walk_tree (&t, verify_stmt_tree_r, &statements, NULL);
-  statements.dispose ();
 }
 
 /* Check if the type T depends on a type with no linkage and if so, return
@@ -2345,7 +2353,8 @@ bot_replace (tree* t, int* /*walk_subtrees*/, void* data)
 	*t = (tree) n->value;
     }
   else if (TREE_CODE (*t) == PARM_DECL
-	   && DECL_NAME (*t) == this_identifier)
+	   && DECL_NAME (*t) == this_identifier
+	   && !DECL_CONTEXT (*t))
     {
       /* In an NSDMI we need to replace the 'this' parameter we used for
 	 parsing with the real one for this function.  */
@@ -3713,23 +3722,15 @@ decl_linkage (tree decl)
   if (TREE_CODE (decl) == CONST_DECL)
     return decl_linkage (TYPE_NAME (DECL_CONTEXT (decl)));
 
-  /* Some things that are not TREE_PUBLIC have external linkage, too.
-     For example, on targets that don't have weak symbols, we make all
-     template instantiations have internal linkage (in the object
-     file), but the symbols should still be treated as having external
-     linkage from the point of view of the language.  */
-  if (VAR_OR_FUNCTION_DECL_P (decl)
-      && DECL_COMDAT (decl))
-    return lk_external;
-
   /* Things in local scope do not have linkage, if they don't have
      TREE_PUBLIC set.  */
   if (decl_function_context (decl))
     return lk_none;
 
   /* Members of the anonymous namespace also have TREE_PUBLIC unset, but
-     are considered to have external linkage for language purposes.  DECLs
-     really meant to have internal linkage have DECL_THIS_STATIC set.  */
+     are considered to have external linkage for language purposes, as do
+     template instantiations on targets without weak symbols.  DECLs really
+     meant to have internal linkage have DECL_THIS_STATIC set.  */
   if (TREE_CODE (decl) == TYPE_DECL)
     return lk_external;
   if (VAR_OR_FUNCTION_DECL_P (decl))
@@ -4022,7 +4023,7 @@ cp_fix_function_decl_p (tree decl)
       && !DECL_THUNK_P (decl)
       && !DECL_EXTERNAL (decl))
     {
-      struct cgraph_node *node = cgraph_get_node (decl);
+      struct cgraph_node *node = cgraph_node::get (decl);
 
       /* Don't fix same_body aliases.  Although they don't have their own
 	 CFG, they share it with what they alias to.  */

@@ -25,7 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 extern int folding_initializer;
 
 /* Convert between trees and native memory representation.  */
-extern int native_encode_expr (const_tree, unsigned char *, int);
+extern int native_encode_expr (const_tree, unsigned char *, int, int off = -1);
 extern tree native_interpret_expr (tree, const unsigned char *, int);
 
 /* Fold constants as much as possible in an expression.
@@ -144,7 +144,7 @@ extern tree combine_comparisons (location_t, enum tree_code, enum tree_code,
 extern void debug_fold_checksum (const_tree);
 extern bool may_negate_without_overflow_p (const_tree);
 #define round_up(T,N) round_up_loc (UNKNOWN_LOCATION, T, N)
-extern tree round_up_loc (location_t, tree, int);
+extern tree round_up_loc (location_t, tree, unsigned int);
 #define round_down(T,N) round_down_loc (UNKNOWN_LOCATION, T, N)
 extern tree round_down_loc (location_t, tree, int);
 extern tree size_int_kind (HOST_WIDE_INT, enum size_type_kind);

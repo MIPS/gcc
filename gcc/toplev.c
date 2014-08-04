@@ -282,16 +282,7 @@ init_local_tick (void)
 static void
 init_random_seed (void)
 {
-  if (flag_random_seed)
-    {
-      char *endp;
-
-      /* When the driver passed in a hex number don't crc it again */
-      random_seed = strtoul (flag_random_seed, &endp, 0);
-      if (!(endp > flag_random_seed && *endp == 0))
-        random_seed = crc32_string (0, flag_random_seed);
-    }
-  else if (!random_seed)
+  if (!random_seed)
     random_seed = local_tick ^ getpid ();  /* Old racey fallback method */
 }
 
@@ -314,6 +305,15 @@ set_random_seed (const char *val)
 {
   const char *old = flag_random_seed;
   flag_random_seed = val;
+  if (flag_random_seed)
+    {
+      char *endp;
+
+      /* When the driver passed in a hex number don't crc it again */
+      random_seed = strtoul (flag_random_seed, &endp, 0);
+      if (!(endp > flag_random_seed && *endp == 0))
+        random_seed = crc32_string (0, flag_random_seed);
+    }
   return old;
 }
 
@@ -393,7 +393,7 @@ wrapup_global_declaration_2 (tree decl)
     {
       varpool_node *node;
       bool needed = true;
-      node = varpool_get_node (decl);
+      node = varpool_node::get (decl);
 
       if (!node && flag_ltrans)
 	needed = false;
@@ -1052,16 +1052,19 @@ output_stack_usage (void)
 
   if (warn_stack_usage >= 0)
     {
+      const location_t loc = DECL_SOURCE_LOCATION (current_function_decl);
+
       if (stack_usage_kind == DYNAMIC)
-	warning (OPT_Wstack_usage_, "stack usage might be unbounded");
+	warning_at (loc, OPT_Wstack_usage_, "stack usage might be unbounded");
       else if (stack_usage > warn_stack_usage)
 	{
 	  if (stack_usage_kind == DYNAMIC_BOUNDED)
-	    warning (OPT_Wstack_usage_, "stack usage might be %wd bytes",
-		     stack_usage);
+	    warning_at (loc,
+			OPT_Wstack_usage_, "stack usage might be %wd bytes",
+			stack_usage);
 	  else
-	    warning (OPT_Wstack_usage_, "stack usage is %wd bytes",
-		     stack_usage);
+	    warning_at (loc, OPT_Wstack_usage_, "stack usage is %wd bytes",
+			stack_usage);
 	}
     }
 }
@@ -1157,7 +1160,7 @@ general_init (const char *argv0)
   init_ggc ();
   init_stringpool ();
   line_table = ggc_alloc<line_maps> ();
-  linemap_init (line_table);
+  linemap_init (line_table, BUILTINS_LOCATION);
   line_table->reallocator = realloc_for_line_map;
   line_table->round_alloc_size = ggc_round_alloc_size;
   init_ttree ();
@@ -1290,11 +1293,11 @@ process_options (void)
     flag_ira_region
       = optimize_size || !optimize ? IRA_REGION_ONE : IRA_REGION_MIXED;
 
-  if (flag_strict_volatile_bitfields > 0 && !abi_version_at_least (2))
+  if (!abi_version_at_least (2))
     {
-      warning (0, "-fstrict-volatile-bitfields disabled; "
-	       "it is incompatible with ABI versions < 2");
-      flag_strict_volatile_bitfields = 0;
+      /* -fabi-version=1 support was removed after GCC 4.9.  */
+      error ("%<-fabi-version=1%> is no longer supported");
+      flag_abi_version = 2;
     }
 
   /* Unrolling all loops implies that standard loop unrolling must also
@@ -1552,9 +1555,18 @@ process_options (void)
     warn_stack_protect = 0;
 
   /* Address Sanitizer needs porting to each target architecture.  */
+
   if ((flag_sanitize & SANITIZE_ADDRESS)
-      && (targetm.asan_shadow_offset == NULL
-	  || !FRAME_GROWS_DOWNWARD))
+      && !FRAME_GROWS_DOWNWARD)
+    {
+      warning (0,
+	       "-fsanitize=address and -fsanitize=kernel-address "
+	       "are not supported for this target");
+      flag_sanitize &= ~SANITIZE_ADDRESS;
+    }
+
+  if ((flag_sanitize & SANITIZE_USER_ADDRESS)
+      && targetm.asan_shadow_offset == NULL)
     {
       warning (0, "-fsanitize=address not supported for this target");
       flag_sanitize &= ~SANITIZE_ADDRESS;
@@ -1583,14 +1595,6 @@ backend_init_target (void)
   /* Initialize alignment variables.  */
   init_alignments ();
 
-  /* This reinitializes hard_frame_pointer, and calls init_reg_modes_target()
-     to initialize reg_raw_mode[].  */
-  init_emit_regs ();
-
-  /* This invokes target hooks to set fixed_reg[] etc, which is
-     mode-dependent.  */
-  init_regs ();
-
   /* This depends on stack_pointer_rtx.  */
   init_fake_stack_mems ();
 
@@ -1612,6 +1616,10 @@ backend_init_target (void)
      on a mode change.  */
   init_expmed ();
   init_lower_subreg ();
+  init_set_costs ();
+
+  init_expr_target ();
+  ira_init ();
 
   /* We may need to recompute regno_save_code[] and regno_restore_code[]
      after a mode change as well.  */
@@ -1632,9 +1640,13 @@ backend_init (void)
   init_varasm_once ();
   save_register_info ();
 
-  /* Initialize the target-specific back end pieces.  */
-  ira_init_once ();
-  backend_init_target ();
+  /* Middle end needs this initialization for default mem attributes
+     used by early calls to make_decl_rtl.  */
+  init_emit_regs ();
+
+  /* Middle end needs this initialization for mode tables used to assign
+     modes to vector variables.  */
+  init_regs ();
 }
 
 /* Initialize excess precision settings.  */
@@ -1687,19 +1699,29 @@ lang_dependent_init_target (void)
      generated from the target machine description.  */
   init_optabs ();
 
-  /* The following initialization functions need to generate rtl, so
-     provide a dummy function context for them.  */
-  init_dummy_function_start ();
+  gcc_assert (!this_target_rtl->target_specific_initialized);
+}
 
-  /* Do the target-specific parts of expr initialization.  */
-  init_expr_target ();
+/* Perform initializations that are lang-dependent or target-dependent.
+   but matters only for late optimizations and RTL generation.  */
 
-  /* Although the actions of these functions are language-independent,
-     they use optabs, so we cannot call them from backend_init.  */
-  init_set_costs ();
-  ira_init ();
+void
+initialize_rtl (void)
+{
+  static int initialized_once;
 
-  expand_dummy_function_end ();
+  /* Initialization done just once per compilation, but delayed
+     till code generation.  */
+  if (!initialized_once)
+    ira_init_once ();
+  initialized_once = true;
+
+  /* Target specific RTL backend initialization.  */
+  if (!this_target_rtl->target_specific_initialized)
+    {
+      backend_init_target ();
+      this_target_rtl->target_specific_initialized = true;
+    }
 }
 
 /* Language-dependent initialization.  Returns nonzero on success.  */
@@ -1784,8 +1806,15 @@ target_reinit (void)
       regno_reg_rtx = NULL;
     }
 
-  /* Reinitialize RTL backend.  */
-  backend_init_target ();
+  this_target_rtl->target_specific_initialized = false;
+
+  /* This initializes hard_frame_pointer, and calls init_reg_modes_target()
+     to initialize reg_raw_mode[].  */
+  init_emit_regs ();
+
+  /* This invokes target hooks to set fixed_reg[] etc, which is
+     mode-dependent.  */
+  init_regs ();
 
   /* Reinitialize lang-dependent parts.  */
   lang_dependent_init_target ();

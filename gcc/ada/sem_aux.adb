@@ -32,7 +32,6 @@
 
 with Atree;  use Atree;
 with Einfo;  use Einfo;
-with Sinfo;  use Sinfo;
 with Snames; use Snames;
 with Stand;  use Stand;
 with Uintp;  use Uintp;
@@ -435,6 +434,52 @@ package body Sem_Aux is
       return Empty;
    end First_Tag_Component;
 
+   ---------------------
+   -- Get_Binary_Nkind --
+   ---------------------
+
+   function Get_Binary_Nkind (Op : Entity_Id) return Node_Kind is
+   begin
+      case Chars (Op) is
+         when Name_Op_Add =>
+            return N_Op_Add;
+         when Name_Op_Concat =>
+            return N_Op_Concat;
+         when Name_Op_Expon =>
+            return N_Op_Expon;
+         when Name_Op_Subtract =>
+            return N_Op_Subtract;
+         when Name_Op_Mod =>
+            return N_Op_Mod;
+         when Name_Op_Multiply =>
+            return N_Op_Multiply;
+         when Name_Op_Divide =>
+            return N_Op_Divide;
+         when Name_Op_Rem =>
+            return N_Op_Rem;
+         when Name_Op_And =>
+            return N_Op_And;
+         when Name_Op_Eq =>
+            return N_Op_Eq;
+         when Name_Op_Ge =>
+            return N_Op_Ge;
+         when Name_Op_Gt =>
+            return N_Op_Gt;
+         when Name_Op_Le =>
+            return N_Op_Le;
+         when Name_Op_Lt =>
+            return N_Op_Lt;
+         when Name_Op_Ne =>
+            return N_Op_Ne;
+         when Name_Op_Or =>
+            return N_Op_Or;
+         when Name_Op_Xor =>
+            return N_Op_Xor;
+         when others =>
+            raise Program_Error;
+      end case;
+   end Get_Binary_Nkind;
+
    ------------------
    -- Get_Rep_Item --
    ------------------
@@ -602,6 +647,36 @@ package body Sem_Aux is
       return Empty;
    end Get_Rep_Pragma;
 
+   ---------------------
+   -- Get_Unary_Nkind --
+   ---------------------
+
+   function Get_Unary_Nkind (Op : Entity_Id) return Node_Kind is
+   begin
+      case Chars (Op) is
+         when Name_Op_Abs =>
+            return N_Op_Abs;
+         when Name_Op_Subtract =>
+            return N_Op_Minus;
+         when Name_Op_Not =>
+            return N_Op_Not;
+         when Name_Op_Add =>
+            return N_Op_Plus;
+         when others =>
+            raise Program_Error;
+      end case;
+   end Get_Unary_Nkind;
+
+   ---------------------------------
+   -- Has_External_Tag_Rep_Clause --
+   ---------------------------------
+
+   function Has_External_Tag_Rep_Clause (T : Entity_Id) return Boolean is
+   begin
+      pragma Assert (Is_Tagged_Type (T));
+      return Has_Rep_Item (T, Name_External_Tag, Check_Parents => False);
+   end Has_External_Tag_Rep_Clause;
+
    ------------------
    -- Has_Rep_Item --
    ------------------
@@ -665,6 +740,51 @@ package body Sem_Aux is
          return False;
       end if;
    end Has_Unconstrained_Elements;
+
+   ----------------------
+   -- Has_Variant_Part --
+   ----------------------
+
+   function Has_Variant_Part (Typ : Entity_Id) return Boolean is
+      FSTyp : Entity_Id;
+      Decl  : Node_Id;
+      TDef  : Node_Id;
+      CList : Node_Id;
+
+   begin
+      if not Is_Type (Typ) then
+         return False;
+      end if;
+
+      FSTyp := First_Subtype (Typ);
+
+      if not Has_Discriminants (FSTyp) then
+         return False;
+      end if;
+
+      --  Proceed with cautious checks here, return False if tree is not
+      --  as expected (may be caused by prior errors).
+
+      Decl := Declaration_Node (FSTyp);
+
+      if Nkind (Decl) /= N_Full_Type_Declaration then
+         return False;
+      end if;
+
+      TDef := Type_Definition (Decl);
+
+      if Nkind (TDef) /= N_Record_Definition then
+         return False;
+      end if;
+
+      CList := Component_List (TDef);
+
+      if Nkind (CList) /= N_Component_List then
+         return False;
+      else
+         return Present (Variant_Part (CList));
+      end if;
+   end Has_Variant_Part;
 
    ---------------------
    -- In_Generic_Body --

@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "tree-core.h"
 #include "wide-int.h"
+#include "inchash.h"
 
 /* These includes are required here because they provide declarations
    used by inline functions in this file.
@@ -1134,12 +1135,12 @@ extern void protected_set_expr_location (tree, location_t);
 #define ASSERT_EXPR_VAR(NODE)	TREE_OPERAND (ASSERT_EXPR_CHECK (NODE), 0)
 #define ASSERT_EXPR_COND(NODE)	TREE_OPERAND (ASSERT_EXPR_CHECK (NODE), 1)
 
-/* CALL_EXPR accessors.
- */
+/* CALL_EXPR accessors.  */
 #define CALL_EXPR_FN(NODE) TREE_OPERAND (CALL_EXPR_CHECK (NODE), 1)
 #define CALL_EXPR_STATIC_CHAIN(NODE) TREE_OPERAND (CALL_EXPR_CHECK (NODE), 2)
 #define CALL_EXPR_ARG(NODE, I) TREE_OPERAND (CALL_EXPR_CHECK (NODE), (I) + 3)
 #define call_expr_nargs(NODE) (VL_EXP_OPERAND_LENGTH (NODE) - 3)
+#define CALL_EXPR_IFN(NODE) (CALL_EXPR_CHECK (NODE)->base.u.ifn)
 
 /* CALL_EXPR_ARGP returns a pointer to the argument vector for NODE.
    We can't use &CALL_EXPR_ARG (NODE, 0) because that will complain if
@@ -1330,6 +1331,11 @@ extern void protected_set_expr_location (tree, location_t);
 #define OMP_CLAUSE_LINEAR_VARIABLE_STRIDE(NODE) \
   TREE_PROTECTED (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_LINEAR))
 
+/* True if a LINEAR clause is for an array or allocatable variable that
+   needs special handling by the frontend.  */
+#define OMP_CLAUSE_LINEAR_ARRAY(NODE) \
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_LINEAR)->base.deprecated_flag)
+
 #define OMP_CLAUSE_LINEAR_STEP(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_LINEAR), 1)
 
@@ -1499,6 +1505,11 @@ extern void protected_set_expr_location (tree, location_t);
    inlined function scope.  This is used in the debug output routines.  */
 
 #define BLOCK_SOURCE_LOCATION(NODE) (BLOCK_CHECK (NODE)->block.locus)
+
+/* This gives the location of the end of the block, useful to attach
+   code implicitly generated for outgoing paths.  */
+
+#define BLOCK_SOURCE_END_LOCATION(NODE) (BLOCK_CHECK (NODE)->block.end_locus)
 
 /* Define fields and accessors for nodes representing data types.  */
 
@@ -2386,12 +2397,12 @@ extern void decl_value_expr_insert (tree, tree);
 
 /* In a VAR_DECL, the model to use if the data should be allocated from
    thread-local storage.  */
-#define DECL_TLS_MODEL(NODE) (VAR_DECL_CHECK (NODE)->decl_with_vis.tls_model)
+#define DECL_TLS_MODEL(NODE) decl_tls_model (NODE)
 
 /* In a VAR_DECL, nonzero if the data should be allocated from
    thread-local storage.  */
 #define DECL_THREAD_LOCAL_P(NODE) \
-  (VAR_DECL_CHECK (NODE)->decl_with_vis.tls_model >= TLS_MODEL_REAL)
+  ((TREE_STATIC (NODE) || DECL_EXTERNAL (NODE)) && decl_tls_model (NODE) >= TLS_MODEL_REAL)
 
 /* In a non-local VAR_DECL with static storage duration, true if the
    variable has an initialization priority.  If false, the variable
@@ -2465,10 +2476,9 @@ extern void decl_fini_priority_insert (tree, priority_type);
    is the FUNCTION_DECL which this FUNCTION_DECL will replace as a virtual
    function.  When the class is laid out, this pointer is changed
    to an INTEGER_CST node which is suitable for use as an index
-   into the virtual function table.
-   C++ also uses this field in namespaces, hence the DECL_NON_COMMON_CHECK.  */
+   into the virtual function table. */
 #define DECL_VINDEX(NODE) \
-  (DECL_NON_COMMON_CHECK (NODE)->decl_non_common.vindex)
+  (FUNCTION_DECL_CHECK (NODE)->function_decl.vindex)
 
 /* In FUNCTION_DECL, holds the decl for the return value.  */
 #define DECL_RESULT(NODE) (FUNCTION_DECL_CHECK (NODE)->decl_non_common.result)
@@ -2480,7 +2490,7 @@ extern void decl_fini_priority_insert (tree, priority_type);
 /* In a FUNCTION_DECL, the saved representation of the body of the
    entire function.  */
 #define DECL_SAVED_TREE(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->decl_non_common.saved_tree)
+  (FUNCTION_DECL_CHECK (NODE)->function_decl.saved_tree)
 
 /* Nonzero in a FUNCTION_DECL means this function should be treated
    as if it were a malloc, meaning it returns a pointer that is
@@ -2612,13 +2622,9 @@ extern vec<tree, va_gc> **decl_debug_args_insert (tree);
 #define DECL_BUILT_IN_CLASS(NODE) \
    (FUNCTION_DECL_CHECK (NODE)->function_decl.built_in_class)
 
-/* In FUNCTION_DECL, a chain of ..._DECL nodes.
-   VAR_DECL and PARM_DECL reserve the arguments slot for language-specific
-   uses.  */
+/* In FUNCTION_DECL, a chain of ..._DECL nodes.  */
 #define DECL_ARGUMENTS(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->decl_non_common.arguments)
-#define DECL_ARGUMENT_FLD(NODE) \
-  (DECL_NON_COMMON_CHECK (NODE)->decl_non_common.arguments)
+   (FUNCTION_DECL_CHECK (NODE)->function_decl.arguments)
 
 /* In FUNCTION_DECL, the function specific target options to use when compiling
    this function.  */
@@ -3427,8 +3433,10 @@ tree_operand_check_code (const_tree __t, enum tree_code __code, int __i,
 extern tree decl_assembler_name (tree);
 extern tree decl_comdat_group (const_tree);
 extern tree decl_comdat_group_id (const_tree);
-extern tree decl_section_name (const_tree);
-extern void set_decl_section_name (tree, tree);
+extern const char *decl_section_name (const_tree);
+extern void set_decl_section_name (tree, const char *);
+extern enum tls_model decl_tls_model (const_tree);
+extern void set_decl_tls_model (tree, enum tls_model);
 
 /* Compute the number of bytes occupied by 'node'.  This routine only
    looks at TREE_CODE and, if the code is TREE_VEC, TREE_VEC_LENGTH.  */
@@ -3624,6 +3632,8 @@ extern tree build_call_expr_loc_array (location_t, tree, int, tree *);
 extern tree build_call_expr_loc_vec (location_t, tree, vec<tree, va_gc> *);
 extern tree build_call_expr_loc (location_t, tree, int, ...);
 extern tree build_call_expr (tree, int, ...);
+extern tree build_call_expr_internal_loc (location_t, enum internal_fn,
+					  tree, int, ...);
 extern tree build_string_literal (int, const char *);
 
 /* Construct various nodes representing data types.  */
@@ -4274,10 +4284,23 @@ extern int tree_log2 (const_tree);
 extern int tree_floor_log2 (const_tree);
 extern unsigned int tree_ctz (const_tree);
 extern int simple_cst_equal (const_tree, const_tree);
-extern hashval_t iterative_hash_expr (const_tree, hashval_t);
-extern hashval_t iterative_hash_host_wide_int (HOST_WIDE_INT, hashval_t);
-extern hashval_t iterative_hash_hashval_t (hashval_t, hashval_t);
-extern hashval_t iterative_hash_host_wide_int (HOST_WIDE_INT, hashval_t);
+
+namespace inchash
+{
+
+extern void add_expr (const_tree, hash &);
+
+}
+
+/* Compat version until all callers are converted. Return hash for
+   TREE with SEED.  */
+static inline hashval_t iterative_hash_expr(const_tree tree, hashval_t seed)
+{
+  inchash::hash hstate (seed);
+  inchash::add_expr (tree, hstate);
+  return hstate.end ();
+}
+
 extern int compare_tree_int (const_tree, unsigned HOST_WIDE_INT);
 extern int type_list_equal (const_tree, const_tree);
 extern int chain_member (const_tree, const_tree);
@@ -4303,9 +4326,9 @@ extern tree block_ultimate_origin (const_tree);
 extern tree get_binfo_at_offset (tree, HOST_WIDE_INT, tree);
 extern bool virtual_method_call_p (tree);
 extern tree obj_type_ref_class (tree ref);
-extern bool types_same_for_odr (tree type1, tree type2);
+extern bool types_same_for_odr (const_tree type1, const_tree type2);
 extern bool contains_bitfld_component_ref_p (const_tree);
-extern bool type_in_anonymous_namespace_p (tree);
+extern bool type_in_anonymous_namespace_p (const_tree);
 extern bool block_may_fallthru (const_tree);
 extern void using_eh_for_cleanups (void);
 extern bool using_eh_for_cleanups_p (void);
@@ -4337,10 +4360,6 @@ extern unsigned int tree_decl_map_hash (const void *);
 #define tree_int_map_eq tree_map_base_eq
 #define tree_int_map_hash tree_map_base_hash
 #define tree_int_map_marked_p tree_map_base_marked_p
-
-#define tree_priority_map_eq tree_map_base_eq
-#define tree_priority_map_hash tree_map_base_hash
-#define tree_priority_map_marked_p tree_map_base_marked_p
 
 #define tree_vec_map_eq tree_map_base_eq
 #define tree_vec_map_hash tree_decl_map_hash

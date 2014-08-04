@@ -2687,6 +2687,13 @@ exp_equiv_p (const_rtx x, const_rtx y, int validate, bool for_gcse)
 	     the same attributes share the same mem_attrs data structure.  */
 	  if (MEM_ATTRS (x) != MEM_ATTRS (y))
 	    return 0;
+
+	  /* If we are handling exceptions, we cannot consider two expressions
+	     with different trapping status as equivalent, because simple_mem
+	     might accept one and reject the other.  */
+	  if (cfun->can_throw_non_call_exceptions
+	      && (MEM_NOTRAP_P (x) != MEM_NOTRAP_P (y)))
+	    return 0;
 	}
       break;
 
@@ -6406,14 +6413,11 @@ cse_extended_basic_block (struct cse_basic_block_data *ebb_data)
 	 edge pointing to that bb.  */
       if (bb_has_eh_pred (bb))
 	{
-	  df_ref *def_rec;
+	  df_ref def;
 
-	  for (def_rec = df_get_artificial_defs (bb->index); *def_rec; def_rec++)
-	    {
-	      df_ref def = *def_rec;
-	      if (DF_REF_FLAGS (def) & DF_REF_AT_TOP)
-		invalidate (DF_REF_REG (def), GET_MODE (DF_REF_REG (def)));
-	    }
+	  FOR_EACH_ARTIFICIAL_DEF (def, bb->index)
+	    if (DF_REF_FLAGS (def) & DF_REF_AT_TOP)
+	      invalidate (DF_REF_REG (def), GET_MODE (DF_REF_REG (def)));
 	}
 
       optimize_this_for_speed_p = optimize_bb_for_speed_p (bb);
@@ -7497,7 +7501,6 @@ const pass_data pass_data_cse =
   RTL_PASS, /* type */
   "cse1", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_CSE, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -7569,7 +7572,6 @@ const pass_data pass_data_cse2 =
   RTL_PASS, /* type */
   "cse2", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_CSE2, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -7643,7 +7645,6 @@ const pass_data pass_data_cse_after_global_opts =
   RTL_PASS, /* type */
   "cse_local", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_CSE, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */

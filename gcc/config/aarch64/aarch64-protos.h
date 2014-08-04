@@ -200,6 +200,8 @@ bool aarch64_pad_arg_upward (enum machine_mode, const_tree);
 bool aarch64_pad_reg_upward (enum machine_mode, const_tree, bool);
 bool aarch64_regno_ok_for_base_p (int, bool);
 bool aarch64_regno_ok_for_index_p (int, bool);
+bool aarch64_simd_check_vect_par_cnst_half (rtx op, enum machine_mode mode,
+					    bool high);
 bool aarch64_simd_imm_scalar_p (rtx x, enum machine_mode mode);
 bool aarch64_simd_imm_zero_p (rtx, enum machine_mode);
 bool aarch64_simd_scalar_immediate_valid_for_move (rtx, enum machine_mode);
@@ -245,6 +247,7 @@ void aarch64_init_cumulative_args (CUMULATIVE_ARGS *, const_tree, rtx,
 void aarch64_init_expanders (void);
 void aarch64_print_operand (FILE *, rtx, char);
 void aarch64_print_operand_address (FILE *, rtx);
+void aarch64_emit_call_insn (rtx);
 
 /* Initialize builtins for SIMD intrinsics.  */
 void init_aarch64_simd_builtins (void);

@@ -414,6 +414,11 @@ gnat_init_gcc_fp (void)
     flag_trapping_math = 1;
   else if (!global_options_set.x_flag_trapping_math)
     flag_trapping_math = 0;
+
+  /* We don't care in Ada about errno, and it causes __builtin_sqrt to
+     to call the libm function rather than do it inline.  */
+  if (!global_options_set.x_flag_errno_math)
+    flag_errno_math = 0;
 }
 
 /* Print language-specific items in declaration NODE.  */
@@ -712,6 +717,9 @@ enumerate_modes (void (*f) (const char *, int, int, int, int, int, int, int))
     = { "float", "double", "long double" };
   int iloop;
 
+  /* We are going to compute it below.  */
+  fp_arith_may_widen = false;
+
   for (iloop = 0; iloop < NUM_MACHINE_MODES; iloop++)
     {
       enum machine_mode i = (enum machine_mode) iloop;
@@ -761,6 +769,15 @@ enumerate_modes (void (*f) (const char *, int, int, int, int, int, int, int))
 	  if (!fmt)
 	    continue;
 
+	  /* Be conservative and consider that floating-point arithmetics may
+	     use wider intermediate results as soon as there is an extended
+	     Motorola or Intel mode supported by the machine.  */
+	  if (fmt == &ieee_extended_motorola_format
+	      || fmt == &ieee_extended_intel_96_format
+	      || fmt == &ieee_extended_intel_96_round_53_format
+	      || fmt == &ieee_extended_intel_128_format)
+	    fp_arith_may_widen = true;
+
 	  if (fmt->b == 2)
 	    digs = (fmt->p - 1) * 1233 / 4096; /* scale by log (2) */
 
@@ -769,11 +786,6 @@ enumerate_modes (void (*f) (const char *, int, int, int, int, int, int, int))
 
 	  else
 	    gcc_unreachable();
-
-	  if (fmt == &vax_f_format
-	      || fmt == &vax_d_format
-	      || fmt == &vax_g_format)
-	    float_rep = VAX_Native;
 	}
 
       /* First register any C types for this mode that the front end

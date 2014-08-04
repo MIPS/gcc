@@ -320,7 +320,7 @@ uid_decl_hasher::equal (const value_type *a, const compare_type *b)
 
 /* Set of candidates.  */
 static bitmap candidate_bitmap;
-static hash_table <uid_decl_hasher> candidates;
+static hash_table<uid_decl_hasher> *candidates;
 
 /* For a candidate UID return the candidates decl.  */
 
@@ -329,7 +329,7 @@ candidate (unsigned uid)
 {
  tree_node t;
  t.decl_minimal.uid = uid;
- return candidates.find_with_hash (&t, static_cast <hashval_t> (uid));
+ return candidates->find_with_hash (&t, static_cast <hashval_t> (uid));
 }
 
 /* Bitmap of candidates which we should try to entirely scalarize away and
@@ -660,7 +660,8 @@ static void
 sra_initialize (void)
 {
   candidate_bitmap = BITMAP_ALLOC (NULL);
-  candidates.create (vec_safe_length (cfun->local_decls) / 2);
+  candidates = new hash_table<uid_decl_hasher>
+    (vec_safe_length (cfun->local_decls) / 2);
   should_scalarize_away_bitmap = BITMAP_ALLOC (NULL);
   cannot_scalarize_away_bitmap = BITMAP_ALLOC (NULL);
   gcc_obstack_init (&name_obstack);
@@ -690,7 +691,8 @@ static void
 sra_deinitialize (void)
 {
   BITMAP_FREE (candidate_bitmap);
-  candidates.dispose ();
+  delete candidates;
+  candidates = NULL;
   BITMAP_FREE (should_scalarize_away_bitmap);
   BITMAP_FREE (cannot_scalarize_away_bitmap);
   free_alloc_pool (access_pool);
@@ -707,9 +709,7 @@ static void
 disqualify_candidate (tree decl, const char *reason)
 {
   if (bitmap_clear_bit (candidate_bitmap, DECL_UID (decl)))
-    candidates.clear_slot (candidates.find_slot_with_hash (decl,
-							   DECL_UID (decl),
-							   NO_INSERT));
+    candidates->remove_elt_with_hash (decl, DECL_UID (decl));
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -1833,7 +1833,7 @@ maybe_add_sra_candidate (tree var)
     }
 
   bitmap_set_bit (candidate_bitmap, DECL_UID (var));
-  slot = candidates.find_slot_with_hash (var, DECL_UID (var), INSERT);
+  slot = candidates->find_slot_with_hash (var, DECL_UID (var), INSERT);
   *slot = var;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -3043,9 +3043,9 @@ enum assignment_mod_result { SRA_AM_NONE,       /* nothing done for the stmt */
    the same values as sra_modify_assign.  */
 
 static enum assignment_mod_result
-sra_modify_constructor_assign (gimple *stmt, gimple_stmt_iterator *gsi)
+sra_modify_constructor_assign (gimple stmt, gimple_stmt_iterator *gsi)
 {
-  tree lhs = gimple_assign_lhs (*stmt);
+  tree lhs = gimple_assign_lhs (stmt);
   struct access *acc;
   location_t loc;
 
@@ -3053,23 +3053,23 @@ sra_modify_constructor_assign (gimple *stmt, gimple_stmt_iterator *gsi)
   if (!acc)
     return SRA_AM_NONE;
 
-  if (gimple_clobber_p (*stmt))
+  if (gimple_clobber_p (stmt))
     {
       /* Remove clobbers of fully scalarized variables, otherwise
 	 do nothing.  */
       if (acc->grp_covered)
 	{
-	  unlink_stmt_vdef (*stmt);
+	  unlink_stmt_vdef (stmt);
 	  gsi_remove (gsi, true);
-	  release_defs (*stmt);
+	  release_defs (stmt);
 	  return SRA_AM_REMOVED;
 	}
       else
 	return SRA_AM_NONE;
     }
 
-  loc = gimple_location (*stmt);
-  if (vec_safe_length (CONSTRUCTOR_ELTS (gimple_assign_rhs1 (*stmt))) > 0)
+  loc = gimple_location (stmt);
+  if (vec_safe_length (CONSTRUCTOR_ELTS (gimple_assign_rhs1 (stmt))) > 0)
     {
       /* I have never seen this code path trigger but if it can happen the
 	 following should handle it gracefully.  */
@@ -3082,9 +3082,9 @@ sra_modify_constructor_assign (gimple *stmt, gimple_stmt_iterator *gsi)
   if (acc->grp_covered)
     {
       init_subtree_with_zero (acc, gsi, false, loc);
-      unlink_stmt_vdef (*stmt);
+      unlink_stmt_vdef (stmt);
       gsi_remove (gsi, true);
-      release_defs (*stmt);
+      release_defs (stmt);
       return SRA_AM_REMOVED;
     }
   else
@@ -3133,7 +3133,7 @@ contains_vce_or_bfcref_p (const_tree ref)
    copying.  */
 
 static enum assignment_mod_result
-sra_modify_assign (gimple *stmt, gimple_stmt_iterator *gsi)
+sra_modify_assign (gimple stmt, gimple_stmt_iterator *gsi)
 {
   struct access *lacc, *racc;
   tree lhs, rhs;
@@ -3142,10 +3142,10 @@ sra_modify_assign (gimple *stmt, gimple_stmt_iterator *gsi)
   location_t loc;
   gimple_stmt_iterator orig_gsi = *gsi;
 
-  if (!gimple_assign_single_p (*stmt))
+  if (!gimple_assign_single_p (stmt))
     return SRA_AM_NONE;
-  lhs = gimple_assign_lhs (*stmt);
-  rhs = gimple_assign_rhs1 (*stmt);
+  lhs = gimple_assign_lhs (stmt);
+  rhs = gimple_assign_rhs1 (stmt);
 
   if (TREE_CODE (rhs) == CONSTRUCTOR)
     return sra_modify_constructor_assign (stmt, gsi);
@@ -3154,9 +3154,9 @@ sra_modify_assign (gimple *stmt, gimple_stmt_iterator *gsi)
       || TREE_CODE (rhs) == IMAGPART_EXPR || TREE_CODE (lhs) == IMAGPART_EXPR
       || TREE_CODE (rhs) == BIT_FIELD_REF || TREE_CODE (lhs) == BIT_FIELD_REF)
     {
-      modify_this_stmt = sra_modify_expr (gimple_assign_rhs1_ptr (*stmt),
+      modify_this_stmt = sra_modify_expr (gimple_assign_rhs1_ptr (stmt),
 					  gsi, false);
-      modify_this_stmt |= sra_modify_expr (gimple_assign_lhs_ptr (*stmt),
+      modify_this_stmt |= sra_modify_expr (gimple_assign_lhs_ptr (stmt),
 					   gsi, true);
       return modify_this_stmt ? SRA_AM_MODIFIED : SRA_AM_NONE;
     }
@@ -3166,11 +3166,11 @@ sra_modify_assign (gimple *stmt, gimple_stmt_iterator *gsi)
   if (!lacc && !racc)
     return SRA_AM_NONE;
 
-  loc = gimple_location (*stmt);
+  loc = gimple_location (stmt);
   if (lacc && lacc->grp_to_be_replaced)
     {
       lhs = get_access_replacement (lacc);
-      gimple_assign_set_lhs (*stmt, lhs);
+      gimple_assign_set_lhs (stmt, lhs);
       modify_this_stmt = true;
       if (lacc->grp_partial_lhs)
 	force_gimple_rhs = true;
@@ -3206,7 +3206,7 @@ sra_modify_assign (gimple *stmt, gimple_stmt_iterator *gsi)
 	      && !contains_bitfld_component_ref_p (lhs))
 	    {
 	      lhs = build_ref_for_model (loc, lhs, 0, racc, gsi, false);
-	      gimple_assign_set_lhs (*stmt, lhs);
+	      gimple_assign_set_lhs (stmt, lhs);
 	    }
 	  else if (AGGREGATE_TYPE_P (TREE_TYPE (rhs))
 		   && !contains_vce_or_bfcref_p (rhs))
@@ -3238,7 +3238,7 @@ sra_modify_assign (gimple *stmt, gimple_stmt_iterator *gsi)
 	    drhs = fold_build1_loc (loc, VIEW_CONVERT_EXPR,
 				    TREE_TYPE (dlhs), drhs);
 	}
-      gimple ds = gimple_build_debug_bind (dlhs, drhs, *stmt);
+      gimple ds = gimple_build_debug_bind (dlhs, drhs, stmt);
       gsi_insert_before (gsi, ds, GSI_SAME_STMT);
     }
 
@@ -3276,10 +3276,10 @@ sra_modify_assign (gimple *stmt, gimple_stmt_iterator *gsi)
      This is what the first branch does.  */
 
   if (modify_this_stmt
-      || gimple_has_volatile_ops (*stmt)
+      || gimple_has_volatile_ops (stmt)
       || contains_vce_or_bfcref_p (rhs)
       || contains_vce_or_bfcref_p (lhs)
-      || stmt_ends_bb_p (*stmt))
+      || stmt_ends_bb_p (stmt))
     {
       if (access_has_children_p (racc))
 	generate_subtree_copies (racc->first_child, rhs, racc->offset, 0, 0,
@@ -3287,7 +3287,7 @@ sra_modify_assign (gimple *stmt, gimple_stmt_iterator *gsi)
       if (access_has_children_p (lacc))
 	{
 	  gimple_stmt_iterator alt_gsi = gsi_none ();
-	  if (stmt_ends_bb_p (*stmt))
+	  if (stmt_ends_bb_p (stmt))
 	    {
 	      alt_gsi = gsi_start_edge (single_non_eh_succ (gsi_bb (*gsi)));
 	      gsi = &alt_gsi;
@@ -3303,11 +3303,11 @@ sra_modify_assign (gimple *stmt, gimple_stmt_iterator *gsi)
       if (force_gimple_rhs)
 	rhs = force_gimple_operand_gsi (&orig_gsi, rhs, true, NULL_TREE,
 					true, GSI_SAME_STMT);
-      if (gimple_assign_rhs1 (*stmt) != rhs)
+      if (gimple_assign_rhs1 (stmt) != rhs)
 	{
 	  modify_this_stmt = true;
 	  gimple_assign_set_rhs_from_tree (&orig_gsi, rhs);
-	  gcc_assert (*stmt == gsi_stmt (orig_gsi));
+	  gcc_assert (stmt == gsi_stmt (orig_gsi));
 	}
 
       return modify_this_stmt ? SRA_AM_MODIFIED : SRA_AM_NONE;
@@ -3330,7 +3330,7 @@ sra_modify_assign (gimple *stmt, gimple_stmt_iterator *gsi)
 	  sad.top_racc = racc;
 	  sad.old_gsi = *gsi;
 	  sad.new_gsi = gsi;
-	  sad.loc = gimple_location (*stmt);
+	  sad.loc = gimple_location (stmt);
 	  sad.refreshed = SRA_UDH_NONE;
 
 	  if (lacc->grp_read && !lacc->grp_covered)
@@ -3340,9 +3340,9 @@ sra_modify_assign (gimple *stmt, gimple_stmt_iterator *gsi)
 	  if (sad.refreshed != SRA_UDH_RIGHT)
 	    {
 	      gsi_next (gsi);
-	      unlink_stmt_vdef (*stmt);
+	      unlink_stmt_vdef (stmt);
 	      gsi_remove (&sad.old_gsi, true);
-	      release_defs (*stmt);
+	      release_defs (stmt);
 	      sra_stats.deleted++;
 	      return SRA_AM_REMOVED;
 	    }
@@ -3355,15 +3355,15 @@ sra_modify_assign (gimple *stmt, gimple_stmt_iterator *gsi)
 	      if (dump_file)
 		{
 		  fprintf (dump_file, "Removing load: ");
-		  print_gimple_stmt (dump_file, *stmt, 0, 0);
+		  print_gimple_stmt (dump_file, stmt, 0, 0);
 		}
 	      generate_subtree_copies (racc->first_child, lhs,
 				       racc->offset, 0, 0, gsi,
 				       false, false, loc);
-	      gcc_assert (*stmt == gsi_stmt (*gsi));
-	      unlink_stmt_vdef (*stmt);
+	      gcc_assert (stmt == gsi_stmt (*gsi));
+	      unlink_stmt_vdef (stmt);
 	      gsi_remove (gsi, true);
-	      release_defs (*stmt);
+	      release_defs (stmt);
 	      sra_stats.deleted++;
 	      return SRA_AM_REMOVED;
 	    }
@@ -3414,7 +3414,7 @@ sra_modify_function_body (void)
 	      break;
 
 	    case GIMPLE_ASSIGN:
-	      assign_result = sra_modify_assign (&stmt, &gsi);
+	      assign_result = sra_modify_assign (stmt, &gsi);
 	      modified |= assign_result == SRA_AM_MODIFIED;
 	      deleted = assign_result == SRA_AM_REMOVED;
 	      break;
@@ -3574,7 +3574,6 @@ const pass_data pass_data_sra_early =
   GIMPLE_PASS, /* type */
   "esra", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_TREE_SRA, /* tv_id */
   ( PROP_cfg | PROP_ssa ), /* properties_required */
   0, /* properties_provided */
@@ -3611,7 +3610,6 @@ const pass_data pass_data_sra =
   GIMPLE_PASS, /* type */
   "sra", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_TREE_SRA, /* tv_id */
   ( PROP_cfg | PROP_ssa ), /* properties_required */
   0, /* properties_provided */
@@ -3792,7 +3790,7 @@ find_param_candidates (void)
 	continue;
 
       bitmap_set_bit (candidate_bitmap, DECL_UID (parm));
-      slot = candidates.find_slot_with_hash (parm, DECL_UID (parm), INSERT);
+      slot = candidates->find_slot_with_hash (parm, DECL_UID (parm), INSERT);
       *slot = parm;
 
       ret = true;
@@ -4581,17 +4579,15 @@ replace_removed_params_ssa_names (gimple stmt,
   return true;
 }
 
-/* If the statement pointed to by STMT_PTR contains any expressions that need
-   to replaced with a different one as noted by ADJUSTMENTS, do so.  Handle any
-   potential type incompatibilities (GSI is used to accommodate conversion
-   statements and must point to the statement).  Return true iff the statement
-   was modified.  */
+/* If the statement STMT contains any expressions that need to replaced with a
+   different one as noted by ADJUSTMENTS, do so.  Handle any potential type
+   incompatibilities (GSI is used to accommodate conversion statements and must
+   point to the statement).  Return true iff the statement was modified.  */
 
 static bool
-sra_ipa_modify_assign (gimple *stmt_ptr, gimple_stmt_iterator *gsi,
+sra_ipa_modify_assign (gimple stmt, gimple_stmt_iterator *gsi,
 		       ipa_parm_adjustment_vec adjustments)
 {
-  gimple stmt = *stmt_ptr;
   tree *lhs_p, *rhs_p;
   bool any;
 
@@ -4678,7 +4674,7 @@ ipa_sra_modify_function_body (ipa_parm_adjustment_vec adjustments)
 	      break;
 
 	    case GIMPLE_ASSIGN:
-	      modified |= sra_ipa_modify_assign (&stmt, &gsi, adjustments);
+	      modified |= sra_ipa_modify_assign (stmt, &gsi, adjustments);
 	      modified |= replace_removed_params_ssa_names (stmt, adjustments);
 	      break;
 
@@ -4888,8 +4884,8 @@ convert_callers (struct cgraph_node *node, tree old_decl,
 {
   basic_block this_block;
 
-  cgraph_for_node_and_aliases (node, convert_callers_for_node,
-			       &adjustments, false);
+  node->call_for_symbol_thunks_and_aliases (convert_callers_for_node,
+					  &adjustments, false);
 
   if (!encountered_recursive_call)
     return;
@@ -4934,10 +4930,10 @@ modify_function (struct cgraph_node *node, ipa_parm_adjustment_vec adjustments)
   /* This must be done after rebuilding cgraph edges for node above.
      Otherwise any recursive calls to node that are recorded in
      redirect_callers will be corrupted.  */
-  vec<cgraph_edge_p> redirect_callers = collect_callers_of_node (node);
-  new_node = cgraph_function_versioning (node, redirect_callers,
-					 NULL,
-					 NULL, false, NULL, NULL, "isra");
+  vec<cgraph_edge *> redirect_callers = node->collect_callers ();
+  new_node = node->create_version_clone_with_body (redirect_callers, NULL,
+						   NULL, false, NULL, NULL,
+						   "isra");
   redirect_callers.release ();
 
   push_cfun (DECL_STRUCT_FUNCTION (new_node->decl));
@@ -4945,7 +4941,7 @@ modify_function (struct cgraph_node *node, ipa_parm_adjustment_vec adjustments)
   cfg_changed = ipa_sra_modify_function_body (adjustments);
   sra_ipa_reset_debug_stmts (adjustments);
   convert_callers (new_node, node->decl, adjustments);
-  cgraph_make_node_local (new_node);
+  new_node->make_local ();
   return cfg_changed;
 }
 
@@ -4966,7 +4962,7 @@ has_caller_p (struct cgraph_node *node, void *data ATTRIBUTE_UNUSED)
 static bool
 ipa_sra_preliminary_function_checks (struct cgraph_node *node)
 {
-  if (!cgraph_node_can_be_local_p (node))
+  if (!node->can_be_local_p ())
     {
       if (dump_file)
 	fprintf (dump_file, "Function not local to this compilation unit.\n");
@@ -5010,7 +5006,7 @@ ipa_sra_preliminary_function_checks (struct cgraph_node *node)
       return false;
     }
 
-  if (!cgraph_for_node_and_aliases (node, has_caller_p, NULL, true))
+  if (!node->call_for_symbol_thunks_and_aliases (has_caller_p, NULL, true))
     {
       if (dump_file)
 	fprintf (dump_file,
@@ -5044,7 +5040,7 @@ ipa_sra_preliminary_function_checks (struct cgraph_node *node)
 static unsigned int
 ipa_early_sra (void)
 {
-  struct cgraph_node *node = cgraph_get_node (current_function_decl);
+  struct cgraph_node *node = cgraph_node::get (current_function_decl);
   ipa_parm_adjustment_vec adjustments;
   int ret = 0;
 
@@ -5061,9 +5057,8 @@ ipa_early_sra (void)
       goto simple_out;
     }
 
-  if (cgraph_for_node_and_aliases (node,
-				   some_callers_have_mismatched_arguments_p,
-				   NULL, true))
+  if (node->call_for_symbol_thunks_and_aliases
+       (some_callers_have_mismatched_arguments_p, NULL, true))
     {
       if (dump_file)
 	fprintf (dump_file, "There are callers with insufficient number of "
@@ -5128,7 +5123,6 @@ const pass_data pass_data_early_ipa_sra =
   GIMPLE_PASS, /* type */
   "eipa_sra", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_IPA_SRA, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */

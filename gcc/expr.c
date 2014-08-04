@@ -6581,7 +6581,7 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
 	{
 	  HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (exp));
 	  rtx temp_target;
-	  if (mode == BLKmode)
+	  if (mode == BLKmode || mode == VOIDmode)
 	    mode = smallest_mode_for_size (size * BITS_PER_UNIT, MODE_INT);
 	  temp_target = gen_reg_rtx (mode);
 	  emit_group_store (temp_target, temp, TREE_TYPE (exp), size);
@@ -9097,6 +9097,20 @@ expand_expr_real_2 (sepops ops, rtx target, enum machine_mode tmode,
       return temp;
 
     case DOT_PROD_EXPR:
+      {
+	tree oprnd0 = treeop0;
+	tree oprnd1 = treeop1;
+	tree oprnd2 = treeop2;
+	rtx op2;
+
+	expand_operands (oprnd0, oprnd1, NULL_RTX, &op0, &op1, EXPAND_NORMAL);
+	op2 = expand_normal (oprnd2);
+	target = expand_widen_pattern_expr (ops, op0, op1, op2,
+					    target, unsignedp);
+	return target;
+      }
+
+      case SAD_EXPR:
       {
 	tree oprnd0 = treeop0;
 	tree oprnd1 = treeop1;

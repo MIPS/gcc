@@ -386,7 +386,7 @@ pre_ldst_expr_hasher::equal (const value_type *ptr1,
 }
 
 /* Hashtable for the load/store memory refs.  */
-static hash_table <pre_ldst_expr_hasher> pre_ldst_table;
+static hash_table<pre_ldst_expr_hasher> *pre_ldst_table;
 
 /* Bitmap containing one bit for each register in the program.
    Used when performing GCSE to track which registers have been set since
@@ -2961,16 +2961,16 @@ update_bb_reg_pressure (basic_block bb, rtx from)
 {
   rtx dreg, insn;
   basic_block succ_bb;
-  df_ref *op, op_ref;
+  df_ref use, op_ref;
   edge succ;
   edge_iterator ei;
   int decreased_pressure = 0;
   int nregs;
   enum reg_class pressure_class;
-  
-  for (op = DF_INSN_USES (from); *op; op++)
+
+  FOR_EACH_INSN_USE (use, from)
     {
-      dreg = DF_REF_REAL_REG (*op);
+      dreg = DF_REF_REAL_REG (use);
       /* The live range of register is shrunk only if it isn't:
 	 1. referred on any path from the end of this block to EXIT, or
 	 2. referred by insns other than FROM in this block.  */
@@ -3593,17 +3593,17 @@ calculate_bb_reg_pressure (void)
 	{
 	  rtx dreg;
 	  int regno;
-	  df_ref *def_rec, *use_rec;
+	  df_ref def, use;
 
 	  if (! NONDEBUG_INSN_P (insn))
 	    continue;
 
-	  for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
+	  FOR_EACH_INSN_DEF (def, insn)
 	    {
-	      dreg = DF_REF_REAL_REG (*def_rec);
+	      dreg = DF_REF_REAL_REG (def);
 	      gcc_assert (REG_P (dreg));
 	      regno = REGNO (dreg);
-	      if (!(DF_REF_FLAGS (*def_rec) 
+	      if (!(DF_REF_FLAGS (def)
 		    & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
 		{
 		  if (bitmap_clear_bit (curr_regs_live, regno))
@@ -3611,9 +3611,9 @@ calculate_bb_reg_pressure (void)
 		}
 	    }
 
-	  for (use_rec = DF_INSN_USES (insn); *use_rec; use_rec++)
+	  FOR_EACH_INSN_USE (use, insn)
 	    {
-	      dreg = DF_REF_REAL_REG (*use_rec);
+	      dreg = DF_REF_REAL_REG (use);
 	      gcc_assert (REG_P (dreg));
 	      regno = REGNO (dreg);
 	      if (bitmap_set_bit (curr_regs_live, regno))
@@ -3762,7 +3762,7 @@ ldst_entry (rtx x)
 		   NULL,  /*have_reg_qty=*/false);
 
   e.pattern = x;
-  slot = pre_ldst_table.find_slot_with_hash (&e, hash, INSERT);
+  slot = pre_ldst_table->find_slot_with_hash (&e, hash, INSERT);
   if (*slot)
     return *slot;
 
@@ -3800,8 +3800,8 @@ free_ldst_entry (struct ls_expr * ptr)
 static void
 free_ld_motion_mems (void)
 {
-  if (pre_ldst_table.is_created ())
-    pre_ldst_table.dispose ();
+  delete pre_ldst_table;
+  pre_ldst_table = NULL;
 
   while (pre_ldst_mems)
     {
@@ -3857,10 +3857,10 @@ find_rtx_in_ldst (rtx x)
 {
   struct ls_expr e;
   ls_expr **slot;
-  if (!pre_ldst_table.is_created ())
+  if (!pre_ldst_table)
     return NULL;
   e.pattern = x;
-  slot = pre_ldst_table.find_slot (&e, NO_INSERT);
+  slot = pre_ldst_table->find_slot (&e, NO_INSERT);
   if (!slot || (*slot)->invalid)
     return NULL;
   return *slot;
@@ -3951,7 +3951,7 @@ compute_ld_motion_mems (void)
   rtx insn;
 
   pre_ldst_mems = NULL;
-  pre_ldst_table.create (13);
+  pre_ldst_table = new hash_table<pre_ldst_expr_hasher> (13);
 
   FOR_EACH_BB_FN (bb, cfun)
     {
@@ -4053,7 +4053,7 @@ trim_ld_motion_mems (void)
       else
 	{
 	  *last = ptr->next;
-	  pre_ldst_table.remove_elt_with_hash (ptr, ptr->hash_index);
+	  pre_ldst_table->remove_elt_with_hash (ptr, ptr->hash_index);
 	  free_ldst_entry (ptr);
 	  ptr = * last;
 	}
@@ -4195,7 +4195,6 @@ const pass_data pass_data_rtl_pre =
   RTL_PASS, /* type */
   "rtl pre", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_PRE, /* tv_id */
   PROP_cfglayout, /* properties_required */
   0, /* properties_provided */
@@ -4246,7 +4245,6 @@ const pass_data pass_data_rtl_hoist =
   RTL_PASS, /* type */
   "hoist", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_HOIST, /* tv_id */
   PROP_cfglayout, /* properties_required */
   0, /* properties_provided */
