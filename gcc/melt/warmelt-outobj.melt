@@ -7754,7 +7754,7 @@ if (1) return;
    ((null src)
     (return))
    ((is_string src)
-    (inform_at "reading from MELT source file $1" src)
+    (inform_at () "reading from MELT source file $1" src)
     (list_append2list rlist (read_file src)))
    ((is_list src)
     (foreach_pair_component_in_list 

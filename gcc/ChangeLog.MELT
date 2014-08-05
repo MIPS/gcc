@@ -1,6 +1,11 @@
 
 2014-08-05  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-outobj.melt (read_melt_expressions): Correct bad
+	inform_at call...
+
+2014-08-05  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-outobj.melt (read_melt_expressions): Improve
 	diagnostic messages.
 
