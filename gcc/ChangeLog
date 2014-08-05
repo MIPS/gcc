@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 2014-02-24  Zhenqiang Chen  <zhenqiang.chen@linaro.org>
 
 	* cfgexpand.c (expand_gimple_cond): Check ccmp support.
@@ -23,7 +22,7 @@
 	Define hooks.
 	* targhooks.c (default_select_ccmp_cmp_order): New function.
 	* targhooks.h (default_select_ccmp_cmp_order): New prototypes.
-=======
+
 2014-08-01  Jan Hubicka  <hubicka@ucw.cz>
 
 	* doc/invoke.texi (Wsuggest-final-types, Wsuggest-final-methods): Document.
@@ -346,7 +345,6 @@
 	* tree-loop-distribution.c (dot_rdg): Autoconfize popen use.
 	* configure: Regenerate.
 	* config.in:  Regenerate.
->>>>>>> origin/upstream
 
 2014-07-30  Martin Jambor  <mjambor@suse.cz>
 
