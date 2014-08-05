@@ -33,11 +33,11 @@ test01()
   p += "bar";
   VERIFY( p.filename() == "foobar" );
   p += '/';
-  VERIFY( p.parent_path() == "foobar" && p.filename().empty() );
+  VERIFY( p.parent_path() == "/foobar" && p.filename() == "." );
   p += L"baz.txt";
   VERIFY( p.filename() == "baz.txt" );
   p.concat("/dir/");
-  VERIFY( p.parent_path() == "dir" && p.filename().empty() );
+  VERIFY( p.parent_path() == "/foobar/baz.txt/dir" && p.filename() == "." );
   std::string file = "file";
   p.concat(file.begin(), file.end());
   VERIFY( p.filename() == "file" );
