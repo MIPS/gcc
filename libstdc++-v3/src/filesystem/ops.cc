@@ -485,6 +485,7 @@ fs::create_directories(const path& p, error_code& ec) noexcept
       create_directory(missing.top(), ec);
       missing.pop();
     }
+  return missing.empty();
 }
 
 namespace
