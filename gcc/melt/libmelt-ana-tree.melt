@@ -1220,6 +1220,34 @@
   }#)
 
 
+(defcmatcher tree_union_type
+  (:tree tr)
+  (:tree type)
+  treeplunityp
+  :doc #{$TREE_UNION_TYPE match a plain union type tree $TR extracting its $TYPE}#
+
+  #{ /* tree_union_type $TREEPLUNITYP ? */
+       (($TR) && TREE_CODE ($TR) == UNION_TYPE)
+  }#
+  #{ /* tree_union_type  $TREEPLUNITYP ! */
+       $TYPE = TYPE_NAME ($TR);
+  }#)
+
+(defcmatcher tree_union_type_with_fields
+  (:tree tr)
+  (:tree type tfields)
+  tplunityfld
+  :doc #{$TREE_UNION_TYPE_WITH_FIELDS match a plain union type tree $TR extracting its $TYPE & $TFIELDS}#
+
+  #{  /* tree_union_type_with_fields $TPLUNITYFLD ? */
+       (($TR) && TREE_CODE ($TR) == UNION_TYPE)
+  }#
+  #{ /* tree_union_type_with_fields $TPLUNITYFLD ! */
+       $TYPE = TYPE_NAME ($TR);
+       $TFIELDS = TYPE_FIELDS ($TR);
+  }#)
+
+
 (defcmatcher tree_array_type
   (:tree tr)
   (:tree telemtype tdomaintype)
@@ -2161,6 +2189,8 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_pointer_type
  tree_pointer_type_p
  tree_ptr_type_node 
+ tree_qual_union_type
+ tree_qual_union_type_with_fields
  tree_real_cst
  tree_real_type
  tree_record_type
@@ -2184,6 +2214,8 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_type_p
  tree_types_compatible_p
  tree_uid
+ tree_union_type
+ tree_union_type_with_fields
  tree_unsigned_char_type_node 
  tree_unsigned_type_node
  tree_useless_type_conversion_p 

@@ -1,6 +1,12 @@
 
 2014-08-05  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/libmelt-ana-tree.melt (tree_qual_union_type)
+	(tree_qual_union_type_with_fields): Exported.
+	(tree_union_type, tree_union_type_with_fields): New.
+
+2014-08-05  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{tpragma-1 test is ok}}
 	* testsuite/melt/tpragma-1.melt: Improve command in comment.
 
