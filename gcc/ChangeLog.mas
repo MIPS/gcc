@@ -1,3 +1,9 @@
+2014-08-05  Richard Biener  <rguenther@suse.de>
+
+	* doc/match-and-simplify.texi: New file.
+	* doc/gccint.texi: Include match-and-simplify.texi.
+	* Makefile.in (TEXI_GCCINT_FILES): Add match-and-simplify.texi.
+
 2014-08-05  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 
 	* genmatch.c (capture_max): Change value to 6.
