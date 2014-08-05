@@ -73,4 +73,14 @@ int plusminus_8(int x)
 }
 /* { dg-final { scan-tree-dump "gimple_match_and_simplified to plusminus_8_val_\\d\+ = 7 - x_\\d\+\\(D\\)" "forwprop1" } } */
 
+/* ptr1 p+ (ptr2 - ptr1) -> ptr2 */
+unsigned char *
+plusminus_9(unsigned char *ptr1, unsigned char *ptr2)
+{
+  long t1 = ptr2 - ptr1;
+  unsigned char *plusminus_9_val = ptr1 + t1;
+  return plusminus_9_val;
+}
+/* { dg-final { scan-tree-dump "gimple_match_and_simplified to plusminus_9_val_\\d\+ = ptr2" "forwprop1" } } */
+
 /* { dg-final { cleanup-tree-dump "forwprop2" } } */

@@ -1,3 +1,11 @@
+2014-08-05  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	* genmatch.c (capture_max): Change value to 6.
+	(match-plusminus.pd): Add new patterns.
+
+	testsuite/
+	* gcc.dg/tree-ssa/match-plusminus.c (plusminus_9): New test-case.
+
 2014-08-04  Richard Biener  <rguenther@suse.de>
 
 	Merge from trunk r211444 through r213455.
