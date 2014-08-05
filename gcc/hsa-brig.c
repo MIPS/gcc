@@ -570,7 +570,8 @@ bittype_for_type (BrigType16_t t)
       return BRIG_TYPE_B128;
 
     default:
-      gcc_unreachable ();
+      gcc_assert (seen_error ());
+      return t;
     }
 }
 /* Map a normal HSAIL type to the type of the equivalent BRIG operand
@@ -746,9 +747,6 @@ emit_immediate_operand (hsa_op_immed *imm)
 
   switch (imm->type)
     {
-      /* FIXME: Implement the unreachables below.  And also the implemented
-	 parts seem too hacky.  */
-
     case BRIG_TYPE_U8:
     case BRIG_TYPE_S8:
       len = 1;
@@ -761,7 +759,10 @@ emit_immediate_operand (hsa_op_immed *imm)
       break;
 
     case BRIG_TYPE_F16:
-      gcc_unreachable ();
+      sorry ("Support for HSA does not implement immediate 16 bit FPU "
+	     "operands");
+      len = 2;
+      break;
 
     case BRIG_TYPE_U32:
     case BRIG_TYPE_S32:
@@ -808,7 +809,10 @@ emit_immediate_operand (hsa_op_immed *imm)
     case BRIG_TYPE_U16X2:
     case BRIG_TYPE_S16X2:
     case BRIG_TYPE_F16X2:
-      gcc_unreachable ();
+      len = 4;
+      sorry ("Support for HSA does not implement immediate 32bit "
+	     "vector operands. ");
+      break;
 
     case BRIG_TYPE_U8X8:
     case BRIG_TYPE_S8X8:
@@ -818,6 +822,11 @@ emit_immediate_operand (hsa_op_immed *imm)
     case BRIG_TYPE_U32X2:
     case BRIG_TYPE_S32X2:
     case BRIG_TYPE_F32X2:
+      len = 8;
+      sorry ("Support for HSA does not implement immediate 32bit "
+	     "vector operands. ");
+      break;
+
     default:
       gcc_unreachable ();
     }

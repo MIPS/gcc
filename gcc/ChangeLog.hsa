@@ -1,3 +1,29 @@
+2014-08-05  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-gen.c (hsa_deinit_data_for_cfun): Clear aux of all basic
+	blocks.
+	(hsa_type_for_scalar_tree_type): Add calls to sorry.
+	(get_symbol_for_decl): Make assert also a non-checking one.  Add
+	calls to sorry.
+	(hsa_reg_for_gimple_ssa): Make an assert checking-only.
+	(gen_hsa_addr): Add calls to sorry.  Remove an unnecessary assert.
+	(gen_hsa_addr_insns): Move an assert to an earlier spot.
+	(gen_hsa_insns_for_load): Made return type void.  Adapted all callers.
+	Add calls to sorry.
+	(gen_hsa_insns_for_single_assignment): Recognize non-scalar memory
+	moves as such and sorry about them.p
+	(gen_hsa_cmp_insn_from_gimple): Add calls to sorry.
+	(gen_hsa_insns_for_operation_assignment): Likewise.
+	(gen_hsa_insns_for_call): Likewise.  Make sure there is a LHS.
+	(gen_hsa_insns_for_gimple_stmt): Add calls to sorry.
+	(gen_hsa_phi_from_gimple_phi): Likewise.
+	(gen_body_from_gimple): Bail out on seen errors.
+	(gen_function_parameters): Add calls to sorry.
+	(generate_hsa): Bail out on seen errors.
+	* hsa-brig.c (bittype_for_type): Turn gcc_unreachable into assert
+	of seen_error.
+	(emit_immediate_operand): Add calls to sorry.
+
 2014-07-29  Ganesh Gopalasubramanian  <Ganesh.Gopalasubramanian@amd.com>
 	    Martin Jambor  <mjambor@suse.cz>
 
