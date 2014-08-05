@@ -1,4 +1,11 @@
 
+2014-08-05  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{tpragma-1 test is ok}}
+	* testsuite/melt/tpragma-1.melt: Improve command in comment.
+
+	* testsuite/melt/tpragmacode-1.c: Invoke the right pragma!
+
 2014-07-30  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/libmelt-ana-tree.melt (real_pragma_processor): The space
