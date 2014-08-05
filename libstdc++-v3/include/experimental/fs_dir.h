@@ -256,7 +256,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     recursive_directory_iterator(
         recursive_directory_iterator&&) noexcept = default;
 
-    ~recursive_directory_iterator() = default;
+    ~recursive_directory_iterator();
 
     // observers
     directory_options  options() const { return _M_options; }
@@ -268,7 +268,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
     // modifiers
     recursive_directory_iterator&
-      operator=(const recursive_directory_iterator& rhs);
+      operator=(const recursive_directory_iterator& rhs) noexcept;
     recursive_directory_iterator&
       operator=(recursive_directory_iterator&& rhs) noexcept;
 
@@ -291,15 +291,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
                const recursive_directory_iterator& __rhs)
     { return __lhs._M_dirs == __rhs._M_dirs; }
 
-
   private:
     recursive_directory_iterator(const path&, directory_options, error_code*);
 
-    void _M_push(_Dir&&, error_code*);
-
     struct _Dir_stack;
-    // using _Dir_iter = std::pair<_Dir, directory_iterator>;
-    // using _Dir_stack = std::stack<_Dir_iter, std::vector<_Dir_iter>>;
     std::shared_ptr<_Dir_stack> _M_dirs;
     directory_options _M_options;
     bool _M_pending;

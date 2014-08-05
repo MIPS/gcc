@@ -242,10 +242,9 @@ fs::directory_iterator::increment(error_code& ec) noexcept
 
 using Dir_iter_pair = std::pair<fs::_Dir, fs::directory_iterator>;
 
-struct fs::recursive_directory_iterator::_Dir_stack : std::stack<Dir_iter_pair>
+struct fs::recursive_directory_iterator::_Dir_stack : std::stack<_Dir>
 {
-  // need to empty the stack first, to break reference cycles
-  ~_Dir_stack() { c.clear(); }
+  void clear() { c.clear(); }
 };
 
 fs::recursive_directory_iterator::
@@ -256,8 +255,8 @@ recursive_directory_iterator(const path& p, directory_options options,
   if (DIR* dirp = ::opendir(p.c_str()))
     {
       _M_dirs = std::make_shared<_Dir_stack>();
-      _M_push( _Dir{ dirp, p }, ec );
-      if (ec && ec->value())
+      _M_dirs->push(_Dir{ dirp, p });
+      if (!_M_dirs->top().advance(ec))
 	_M_dirs.reset();
     }
   else
@@ -276,6 +275,8 @@ recursive_directory_iterator(const path& p, directory_options options,
     }
 }
 
+fs::recursive_directory_iterator::~recursive_directory_iterator() = default;
+
 int
 fs::recursive_directory_iterator::depth() const
 {
@@ -285,8 +286,16 @@ fs::recursive_directory_iterator::depth() const
 const fs::directory_entry&
 fs::recursive_directory_iterator::operator*() const
 {
-  return *_M_dirs->top().second;
+  return _M_dirs->top().entry;
 }
+
+fs::recursive_directory_iterator&
+fs::recursive_directory_iterator::
+operator=(const recursive_directory_iterator& other) noexcept = default;
+
+fs::recursive_directory_iterator&
+fs::recursive_directory_iterator::
+operator=(recursive_directory_iterator&& other) noexcept = default;
 
 fs::recursive_directory_iterator&
 fs::recursive_directory_iterator::operator++()
@@ -338,26 +347,24 @@ fs::recursive_directory_iterator::increment(error_code& ec) noexcept
     }
 
   auto& top = _M_dirs->top();
-  directory_iterator* cur = &top.second;
 
-  if (std::exchange(_M_pending, true) && recurse(top.first, _M_options, ec))
+  if (std::exchange(_M_pending, true) && recurse(top, _M_options, ec))
     {
-      _Dir dir = opendir((*cur)->path(), _M_options, &ec);
+      _Dir dir = opendir(top.entry.path(), _M_options, &ec);
       if (ec.value())
 	return *this;
       if (dir.dirp)
 	{
-	  _M_push(std::move(dir), &ec);
-	  if (ec.value())
-	    return *this;
-	  if (_M_dirs->top().second == directory_iterator())
+	  _M_dirs->push(std::move(dir));
+	  if (!_M_dirs->top().advance(&ec)) // dir is empty
 	    pop();
 	  return *this;
 	}
       // else skip permission denied and continue in parent dir
     }
 
-  while (++*cur == directory_iterator())
+  ec.clear();
+  while (!_M_dirs->top().advance(&ec) && !ec.value())
     {
       _M_dirs->pop();
       if (_M_dirs->empty())
@@ -365,7 +372,6 @@ fs::recursive_directory_iterator::increment(error_code& ec) noexcept
 	  _M_dirs.reset();
 	  return *this;
 	}
-      cur = &_M_dirs->top().second;
     }
   return *this;
 }
@@ -385,16 +391,5 @@ fs::recursive_directory_iterator::pop()
 	_M_dirs.reset();
 	return;
       }
-  } while (++_M_dirs->top().second == directory_iterator());
-}
-
-void
-fs::recursive_directory_iterator::_M_push(_Dir&& dir, error_code* ec)
-{
-  if (!dir.dirp)
-    return;
-  _M_dirs->emplace(std::move(dir), directory_iterator{});
-  auto& top = _M_dirs->top();
-  // N.B. This creates a reference cycle in _M_dirs
-  top.second = directory_iterator{ shared_ptr<_Dir>{_M_dirs, &top.first}, ec };
+  } while (!_M_dirs->top().advance(nullptr));
 }
