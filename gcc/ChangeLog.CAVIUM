@@ -1,5 +1,17 @@
 2014-08-04  Andrew Pinski  <apinski@cavium.com>
 
+	* expr.c (move_by_pieces):
+	Take the min of max_size and len to speed up things
+	and to take advatage of the mode in move_by_pieces_1.
+	(move_by_pieces_1): Write the leftovers using an overlapping
+	memory locations to reduce the number of writes.
+	(store_by_pieces_1): Take the min of max_size and len to speed up things
+	and to take advatage of the mode in store_by_pieces_2.
+	(store_by_pieces_2): Remove the restriction on the oldlen is at
+	least the size.
+
+2014-08-04  Andrew Pinski  <apinski@cavium.com>
+
 	* gcc/expr.c (store_by_pieces_2): Fix argument to SLOW_UNALIGNED_ACCESS,
 	the alignment in this case is always 1.
 

@@ -878,6 +878,9 @@ move_by_pieces (rtx to, rtx from, unsigned HOST_WIDE_INT len,
   if (data.reverse) data.offset = len;
   data.len = len;
 
+  /* Use the MIN of the length and the max size we can use. */
+  max_size = max_size > (len + 1) ? (len + 1) : max_size;
+
   /* If copying requires more than two move insns,
      copy addresses to registers (to make displacements shorter)
      and use post-increment if available.  */
@@ -1074,6 +1077,32 @@ move_by_pieces_1 (insn_gen_fn genfun, machine_mode mode,
 	data->offset += size;
 
       data->len -= size;
+    }
+
+  /* If we have some data left and unalign accesses
+     are not slow, back up slightly and emit the move. */
+  if (data->len > 0
+      && !STRICT_ALIGNMENT
+      && !SLOW_UNALIGNED_ACCESS (mode, 1)
+      /* Not a stack push */
+      && data->to
+      /* Neither side is volatile memory. */
+      && !MEM_VOLATILE_P (data->to)
+      && !MEM_VOLATILE_P (data->from)
+      && ceil_log2 (data->len) == exact_log2 (size)
+      /* No incrementing of the to or from. */
+      && data->explicit_inc_to == 0
+      && data->explicit_inc_from == 0
+      /* No auto-incrementing of the to or from. */
+      && !data->autinc_to
+      && !data->autinc_from
+      && !data->reverse)
+    {
+      unsigned offset = data->offset - (size - data->len);
+      to1 = adjust_address (data->to, mode, offset);
+      from1 = adjust_address (data->from, mode, offset);
+      emit_insn ((*genfun) (to1, from1));
+      data->len = 0;
     }
 }
 
@@ -2638,6 +2667,9 @@ store_by_pieces_1 (struct store_by_pieces_d *data ATTRIBUTE_UNUSED,
   if (data->reverse)
     data->offset = data->len;
 
+  /* Use the MIN of the length and the max size we can use. */
+  max_size = max_size > (data->len + 1) ? (data->len + 1)  : max_size;
+
   /* If storing requires more than two move insns,
      copy addresses to registers (to make displacements shorter)
      and use post-increment if available.  */
@@ -2705,7 +2737,6 @@ store_by_pieces_2 (insn_gen_fn genfun, machine_mode mode,
 {
   unsigned int size = GET_MODE_SIZE (mode);
   rtx to1, cst;
-  unsigned oldlen = data->len;
 
   while (data->len >= size)
     {
@@ -2738,9 +2769,9 @@ store_by_pieces_2 (insn_gen_fn genfun, machine_mode mode,
     }
 
   /* If we have some data left and unalign accesses
-     are not slow, back up slightly and emit that constant */
+     are not slow, back up slightly and emit that constant.  */
   if (data->len > 0
-      && oldlen >= size && !STRICT_ALIGNMENT
+      && !STRICT_ALIGNMENT
       && !SLOW_UNALIGNED_ACCESS (mode, 1)
       && !MEM_VOLATILE_P (data->to)
       && ceil_log2 (data->len) == exact_log2 (size)

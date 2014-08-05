@@ -695,7 +695,7 @@ do {									     \
    standard name to implement the copy.  This logic does not apply when
    targeting -mstrict-align, so keep a sensible default in that case.  */
 #define MOVE_RATIO(speed) \
-  (!STRICT_ALIGNMENT ? 2 : (((speed) ? 15 : AARCH64_CALL_RATIO) / 2))
+  (((speed) ? 15 : AARCH64_CALL_RATIO) / 2)
 
 /* For CLEAR_RATIO, when optimizing for size, give a better estimate
    of the length of a memset call, but use the default otherwise.  */

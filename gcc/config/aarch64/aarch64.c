@@ -10003,6 +10003,7 @@ aarch64_expand_movmem (rtx *operands)
   rtx src = operands[1];
   rtx base;
   bool speed_p = !optimize_function_for_size_p (cfun);
+  return false;
 
   /* When optimizing for size, give a better estimate of the length of a
      memcpy call, but use the default otherwise.  */
