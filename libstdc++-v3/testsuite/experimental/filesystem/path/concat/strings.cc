@@ -45,6 +45,6 @@ test01()
 
 int
 main()
-{ 
+{
   test01();
 }

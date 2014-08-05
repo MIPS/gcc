@@ -50,7 +50,7 @@ test02()
 
 int
 main()
-{ 
+{
   test01();
   test02();
 }
