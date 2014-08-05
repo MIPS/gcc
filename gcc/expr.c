@@ -2741,7 +2741,7 @@ store_by_pieces_2 (insn_gen_fn genfun, machine_mode mode,
      are not slow, back up slightly and emit that constant */
   if (data->len > 0
       && oldlen >= size && !STRICT_ALIGNMENT
-      && !SLOW_UNALIGNED_ACCESS (mode, align)
+      && !SLOW_UNALIGNED_ACCESS (mode, 1)
       && !MEM_VOLATILE_P (data->to)
       && ceil_log2 (data->len) == exact_log2 (size)
       && data->explicit_inc_to == 0

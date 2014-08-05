@@ -1,3 +1,8 @@
+2014-08-04  Andrew Pinski  <apinski@cavium.com>
+
+	* gcc/expr.c (store_by_pieces_2): Fix argument to SLOW_UNALIGNED_ACCESS,
+	the alignment in this case is always 1.
+
 2014-08-03  Andrew Pinski  <apinski@cavium.com>
 
 	Bug #11691
