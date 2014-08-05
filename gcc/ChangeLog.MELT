@@ -1,6 +1,11 @@
 
 2014-08-05  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-outobj.melt (read_melt_expressions): Improve
+	diagnostic messages.
+
+2014-08-05  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/libmelt-ana-tree.melt (tree_qual_union_type)
 	(tree_qual_union_type_with_fields): Exported.
 	(tree_union_type, tree_union_type_with_fields): New.

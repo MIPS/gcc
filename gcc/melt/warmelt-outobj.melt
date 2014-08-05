@@ -7754,7 +7754,7 @@ if (1) return;
    ((null src)
     (return))
    ((is_string src)
-    (informsg_strv "reading from MELT file source" src)
+    (inform_at "reading from MELT source file $1" src)
     (list_append2list rlist (read_file src)))
    ((is_list src)
     (foreach_pair_component_in_list 
@@ -7776,8 +7776,8 @@ if (1) return;
       (assert_msg "check xsrc" (or (is_a xsrc class_sexpr) (is_a xsrc class_symbol)) xsrc)
       (list_append rlist xsrc)))
    (:else
-    (error_strv () "invalid MELT expression to read, with discriminant" 
-		(get_field :named_name (discrim src))))
+    (error_at () "invalid MELT expression $1 to read, with discriminant $2" 
+		src (get_field :named_name (discrim src))))
    ))
     
 ;;;;;;;;;;;;;;;;
