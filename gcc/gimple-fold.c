@@ -1263,7 +1263,7 @@ gimple_fold_call (gimple_stmt_iterator *gsi, bool inplace)
    distinguishes both cases.  */
 
 static bool
-fold_stmt_1 (gimple_stmt_iterator *gsi, bool inplace)
+fold_stmt_1 (gimple_stmt_iterator *gsi, bool inplace, tree (*valueize) (tree))
 {
   bool changed = false;
   gimple stmt = gsi_stmt (*gsi);
@@ -1407,9 +1407,12 @@ fold_stmt_1 (gimple_stmt_iterator *gsi, bool inplace)
 
   /* Dispatch to pattern-based folding.
      ???  Do this after the previous stuff as fold_stmt is used to make
-     stmts valid gimple again via maybe_fold_reference of ops.  */
+     stmts valid gimple again via maybe_fold_reference of ops.
+     ???  Use a lower-level API using a NULL sequence for inplace
+     operation, basically inline gimple_simplify (gsi)
+     as we are the only caller.  */
   if (!inplace
-      && gimple_match_and_simplify (gsi, NULL))
+      && gimple_simplify (gsi, valueize))
     changed = true;
 
   return changed;
@@ -1425,7 +1428,13 @@ fold_stmt_1 (gimple_stmt_iterator *gsi, bool inplace)
 bool
 fold_stmt (gimple_stmt_iterator *gsi)
 {
-  return fold_stmt_1 (gsi, false);
+  return fold_stmt_1 (gsi, false, NULL);
+}
+
+bool
+fold_stmt (gimple_stmt_iterator *gsi, tree (*valueize) (tree))
+{
+  return fold_stmt_1 (gsi, false, valueize);
 }
 
 /* Perform the minimal folding on statement *GSI.  Only operations like
@@ -1440,7 +1449,7 @@ bool
 fold_stmt_inplace (gimple_stmt_iterator *gsi)
 {
   gimple stmt = gsi_stmt (*gsi);
-  bool changed = fold_stmt_1 (gsi, true);
+  bool changed = fold_stmt_1 (gsi, true, NULL);
   gcc_assert (gsi_stmt (*gsi) == stmt);
   return changed;
 }
@@ -2806,7 +2815,7 @@ gimple_fold_stmt_to_constant_1 (gimple stmt, tree (*valueize) (tree))
   tree lhs = gimple_get_lhs (stmt);
   if (lhs)
     {
-      tree res = gimple_match_and_simplify (lhs, NULL, valueize);
+      tree res = gimple_simplify (lhs, NULL, valueize);
       if (res)
 	{
 	  if (dump_file && dump_flags & TDF_DETAILS)
@@ -3721,7 +3730,7 @@ gimple_build (gimple_seq *seq, location_t loc,
 	      enum tree_code code, tree type, tree op0,
 	      tree (*valueize)(tree))
 {
-  tree res = gimple_match_and_simplify (code, type, op0, seq, valueize);
+  tree res = gimple_simplify (code, type, op0, seq, valueize);
   if (!res)
     {
       res = make_ssa_name (type, NULL);
@@ -3751,7 +3760,7 @@ gimple_build (gimple_seq *seq, location_t loc,
 	      enum tree_code code, tree type, tree op0, tree op1,
 	      tree (*valueize)(tree))
 {
-  tree res = gimple_match_and_simplify (code, type, op0, op1, seq, valueize);
+  tree res = gimple_simplify (code, type, op0, op1, seq, valueize);
   if (!res)
     {
       res = make_ssa_name (type, NULL);
@@ -3774,8 +3783,8 @@ gimple_build (gimple_seq *seq, location_t loc,
 	      enum tree_code code, tree type, tree op0, tree op1, tree op2,
 	      tree (*valueize)(tree))
 {
-  tree res = gimple_match_and_simplify (code, type, op0, op1, op2,
-					seq, valueize);
+  tree res = gimple_simplify (code, type, op0, op1, op2,
+			      seq, valueize);
   if (!res)
     {
       res = make_ssa_name (type, NULL);
@@ -3804,7 +3813,7 @@ gimple_build (gimple_seq *seq, location_t loc,
 	      enum built_in_function fn, tree type, tree arg0,
 	      tree (*valueize)(tree))
 {
-  tree res = gimple_match_and_simplify (fn, type, arg0, seq, valueize);
+  tree res = gimple_simplify (fn, type, arg0, seq, valueize);
   if (!res)
     {
       res = make_ssa_name (type, NULL);

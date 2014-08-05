@@ -8,6 +8,6 @@ double realimag_1(double x)
   double realimag_1_val = __real t1;
   return realimag_1_val;
 }
-/* { dg-final { scan-tree-dump "gimple_match_and_simplified to realimag_1_val_\\d\+ = x_\\d\+\\(D\\)" "forwprop1" } } */
+/* { dg-final { scan-tree-dump "gimple_simplified to realimag_1_val_\\d\+ = x_\\d\+\\(D\\)" "forwprop1" } } */
 
 /* { dg-final { cleanup-tree-dump "forwprop2" } } */

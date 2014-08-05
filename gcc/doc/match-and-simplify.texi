@@ -38,19 +38,19 @@ The main GIMPLE API entry to the expression simplifications mimics
 that of the GENERIC fold_@{unary,binary,ternary@} API:
 
 @deftypefn
-tree gimple_match_and_simplify (enum tree_code, tree, tree,
+tree gimple_simplify (enum tree_code, tree, tree,
                                 gimple_seq *, tree (*)(tree));
 @end deftypefn
 @deftypefn
-tree gimple_match_and_simplify (enum tree_code, tree, tree, tree,
+tree gimple_simplify (enum tree_code, tree, tree, tree,
                                 gimple_seq *, tree (*)(tree));
 @end deftypefn
 @deftypefn
-tree gimple_match_and_simplify (enum tree_code, tree, tree, tree, tree,
+tree gimple_simplify (enum tree_code, tree, tree, tree, tree,
                                 gimple_seq *, tree (*)(tree));
 @end deftypefn
 @deftypefn
-tree gimple_match_and_simplify (enum built_in_function, tree, tree,
+tree gimple_simplify (enum built_in_function, tree, tree,
                                 gimple_seq *, tree (*)(tree));
 @end deftypefn
 
@@ -63,7 +63,7 @@ tie simplifications to a SSA lattice.
 In addition to those APIs a fold_stmt-like interface is provided with
 
 @deftypefn
-bool gimple_match_and_simplify (gimple_stmt_iterator *, tree (*)(tree));
+bool gimple_simplify (gimple_stmt_iterator *, tree (*)(tree));
 @end deftypefn
 
 which also has the additional valueization hook.
@@ -103,13 +103,13 @@ domain-specific languages GCC uses.  Thus it is lispy.  Lets start
 with an example from the match.pd file on the branch:
 
 @smallexample
-(match_and_simplify
+(simplify
   (bit_and @@0 integer_all_onesp)
   @@0)
 @end smallexample
 
 This example contains all required parts of an expression simplification.
-A simplification is wrapped inside a @code{(match_and_simplify ...)} expression.
+A simplification is wrapped inside a @code{(simplify ...)} expression.
 That contains at least two operands - an expression that is matched
 with the GIMPLE or GENERIC IL and a replacement expression that is
 returned if the match was successful.
@@ -123,7 +123,7 @@ you refer to it in other places of the match-and-simplify.  In the
 above example it is refered to in the replacement expression.
 
 @smallexample
-(match_and_simplify
+(simplify
   (bit_xor @@0 @@0)
   @{ build_zero_cst (type); @})
 @end smallexample
@@ -134,7 +134,7 @@ operands written in C code.  These can be used in the expression
 replacements and are supposed to evaluate to a tree node.
 
 @smallexample
-(match_and_simplify
+(simplify
   (trunc_mod integer_zerop@@0 @@1)
   (if (!integer_zerop (@@1)))
   @@0)
@@ -145,7 +145,7 @@ which is also predicated with @code{integer_zerop}.  Expression operands
 may be either expressions, predicates or captures.  Captures
 can be unconstrained or capture expresions or predicates.
 
-This example introduces an optional operand of match_and_simplify,
+This example introduces an optional operand of simplify,
 the if-expression.  This condition is evaluated after the
 expression matched in the IL and is required to evaluate to true
 to enable the replacement expression.  The expression operand
@@ -153,7 +153,7 @@ of the @code{if} is a standard C expression which may contain references
 to captures.
 
 @smallexample
-(match_and_simplify
+(simplify
   (bit_and:c integral_op_p@@0 (bit_ior:c (bit_not @@0) @@1))
   (bit_and @@1 @@0))
 @end smallexample
@@ -176,7 +176,7 @@ Two more features exist to avoid too much repetition.
 
 @smallexample
 (for op in plus pointer_plus minus bit_ior bit_xor
-  (match_and_simplify
+  (simplify
     (op @@0 integer_zerop)
     @@0))
 @end smallexample
@@ -187,10 +187,10 @@ operator specified, substituting @code{op}.
 @smallexample
 (if (!TYPE_SATURATING (type)
      && !FLOAT_TYPE_P (type) && !FIXED_POINT_TYPE_P (type))
-  (match_and_simplify
+  (simplify
     (minus (plus @@0 @@1) @@0)
     @@1)
-  (match_and_simplify
+  (simplify
     (minus (minus @@0 @@1) @@0)
     (negate @@1)))
 @end smallexample

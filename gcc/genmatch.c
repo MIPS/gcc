@@ -87,12 +87,12 @@ output_line_directive (FILE *f, source_location location)
      transform = 'match_and_transform' name expr genop
 
      Match and simplify (A + B) - B -> A
-     (define_match_and_simplify foo
+     (simplify foo
        (PLUS_EXPR (MINUS_EXPR integral_op_p@0 @1) @1)
        @0)
 
      Match and simplify (CST + A) + CST to CST' + A
-     (define_match_and_simplify bar
+     (simplify bar
        (PLUS_EXPR INTEGER_CST_P@0 (PLUS_EXPR @1 INTEGER_CST_P@2))
        (PLUS_EXPR { int_const_binop (PLUS_EXPR, captures[0], captures[2]); } @1))
 */
@@ -694,7 +694,7 @@ expr::gen_transform (FILE *f, const char *dest, bool gimple)
 	 fail if seq == NULL.  */
       fprintf (f, "  if (!seq)\n"
 	       "    {\n"
-	       "      res = gimple_match_and_simplify (%s, TREE_TYPE (ops[0])",
+	       "      res = gimple_simplify (%s, TREE_TYPE (ops[0])",
 	       operation->op->id);
       for (unsigned i = 0; i < ops.length (); ++i)
 	fprintf (f, ", ops[%u]", i);
@@ -1610,9 +1610,9 @@ decision_tree::gen_gimple (FILE *f)
   for (unsigned n = 1; n <= 3; ++n)
     {
       fprintf (f, "\nstatic bool\n"
-	       "gimple_match_and_simplify (code_helper *res_code, tree *res_ops,\n"
-	       "                           gimple_seq *seq, tree (*valueize)(tree),\n"
-	       "                           code_helper code, tree type");
+	       "gimple_simplify (code_helper *res_code, tree *res_ops,\n"
+	       "                 gimple_seq *seq, tree (*valueize)(tree),\n"
+	       "                 code_helper code, tree type");
       for (unsigned i = 0; i < n; ++i)
 	fprintf (f, ", tree op%d", i);
       fprintf (f, ")\n");
@@ -1648,7 +1648,7 @@ decision_tree::gen_generic (FILE *f)
   for (unsigned n = 1; n <= 3; ++n)
     {
       fprintf (f, "\ntree\n"
-	       "generic_match_and_simplify (enum tree_code code, tree type ATTRIBUTE_UNUSED");
+	       "generic_simplify (enum tree_code code, tree type ATTRIBUTE_UNUSED");
       for (unsigned i = 0; i < n; ++i)
 	fprintf (f, ", tree op%d", i);
       fprintf (f, ")\n");
@@ -2045,11 +2045,11 @@ parse_op (cpp_reader *r)
 }
 
 /* Parse
-     (define_match_and_simplify "<ident>"
+     (simplify "<ident>"
         <op> <op>)  */
 
 static simplify *
-parse_match_and_simplify (cpp_reader *r, source_location match_location)
+parse_simplify (cpp_reader *r, source_location match_location)
 {
   const cpp_token *token = peek (r);
   const char *id;
@@ -2182,14 +2182,14 @@ parse_pattern (cpp_reader *r, vec<simplify *>& simplifiers)
   eat_token (r, CPP_OPEN_PAREN);
   const cpp_token *token = peek (r);
   const char *id = get_ident (r);
-  if (strcmp (id, "match_and_simplify") == 0)
-    simplifiers.safe_push (parse_match_and_simplify (r, token->src_loc));
+  if (strcmp (id, "simplify") == 0)
+    simplifiers.safe_push (parse_simplify (r, token->src_loc));
   else if (strcmp (id, "for") == 0)
     parse_for (r, token->src_loc, simplifiers); 
   else if (strcmp (id, "if") == 0)
     parse_if (r, simplifiers);
   else
-    fatal_at (token, "expected 'match_and_simplify' or 'for'");
+    fatal_at (token, "expected 'simplify' or 'for' or 'if'");
 
   eat_token (r, CPP_CLOSE_PAREN);
 }

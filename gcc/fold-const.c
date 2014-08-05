@@ -7793,8 +7793,8 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
   gcc_assert (IS_EXPR_CODE_CLASS (kind)
 	      && TREE_CODE_LENGTH (code) == 1);
 
-  extern tree generic_match_and_simplify (enum tree_code, tree, tree);
-  tem = generic_match_and_simplify (code, type, op0);
+  extern tree generic_simplify (enum tree_code, tree, tree);
+  tem = generic_simplify (code, type, op0);
   if (tem)
     return tem;
 
@@ -10086,8 +10086,8 @@ fold_binary_loc (location_t loc,
 	      && op0 != NULL_TREE
 	      && op1 != NULL_TREE);
 
-  extern tree generic_match_and_simplify (enum tree_code, tree, tree, tree);
-  tem = generic_match_and_simplify (code, type, op0, op1);
+  extern tree generic_simplify (enum tree_code, tree, tree, tree);
+  tem = generic_simplify (code, type, op0, op1);
   if (tem)
     return tem;
 
@@ -14035,8 +14035,8 @@ fold_ternary_loc (location_t loc, enum tree_code code, tree type,
   gcc_assert (IS_EXPR_CODE_CLASS (kind)
 	      && TREE_CODE_LENGTH (code) == 3);
 
-  extern tree generic_match_and_simplify (enum tree_code, tree, tree, tree, tree);
-  tem = generic_match_and_simplify (code, type, op0, op1, op2);
+  extern tree generic_simplify (enum tree_code, tree, tree, tree, tree);
+  tem = generic_simplify (code, type, op0, op1, op2);
   if (tem)
     return tem;
 

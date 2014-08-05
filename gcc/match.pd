@@ -39,7 +39,7 @@ along with GCC; see the file COPYING3.  If not see
    expansion which folds a POINTER_PLUS_EXPR and doesn't expect
    an ADDR_EXPR in return.  */
 #if GIMPLE
-(match_and_simplify
+(simplify
   (pointer_plus (addr@2 @0) INTEGER_CST_P@1)
   (if (is_gimple_min_invariant (@2)))
   {
@@ -64,26 +64,26 @@ along with GCC; see the file COPYING3.  If not see
      Fold (X << C1) & C2 into (X << C1) & (C2 | ((1 << C1) - 1))
      (X >> C1) & C2 into (X >> C1) & (C2 | ~((type) -1 >> C1))
      if the new mask might be further optimized.  */
-(match_and_simplify
+(simplify
   (bit_and (rshift@0 @1 INTEGER_CST_P@2) integer_onep)
   (if (compare_tree_int (@2, TYPE_PRECISION (TREE_TYPE (@1)) - 1) == 0))
   @0)
 
 /* COMPLEX_EXPR and REALPART/IMAGPART_EXPR cancellations.  */
-(match_and_simplify
+(simplify
   (complex (realpart @0) (imagpart @0))
   @0)
-(match_and_simplify
+(simplify
   (realpart (complex @0 @1))
   @0)
-(match_and_simplify
+(simplify
   (imagpart (complex @0 @1))
   @1)
 
 /* One unary pattern.  */
 
 /* fold_negate_exprs convert - (~A) to A + 1.  */
-(match_and_simplify
+(simplify
   (negate (bit_not integral_op_p@0))
   (plus @0 { build_int_cst (TREE_TYPE (@0), 1); } ))
 
@@ -91,13 +91,13 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Due to COND_EXPRs weirdness in GIMPLE the following won't work
    without some hacks in the code generator.  */
-(match_and_simplify
+(simplify
   (cond (bit_not @0) @1 @2)
   (cond @0 @2 @1))
 
 /* match-and-simplify handles constant folding so we
    can just do the decomposition here.  */
-(match_and_simplify
+(simplify
   (fma INTEGER_CST_P@0 INTEGER_CST_P@1 @3)
   (plus (mult @0 @1) @3))
 

@@ -3592,7 +3592,7 @@ simplify_mult (gimple_stmt_iterator *gsi)
 
 static vec<tree> lattice;
 
-/* Primitive "lattice" function for gimple_match_and_simplify to discard
+/* Primitive "lattice" function for gimple_simplify to discard
    matches on names whose definition contains abnormal SSA names.  */
 
 static tree
@@ -3664,15 +3664,16 @@ pass_forwprop::execute (function *fun)
 	{
 	  gimple stmt = gsi_stmt (gsi);
 
-	  if (gimple_match_and_simplify (&gsi, fwprop_ssa_val))
+	  if (fold_stmt (&gsi, fwprop_ssa_val))
 	    {
 	      stmt = gsi_stmt (gsi);
 	      if (maybe_clean_or_replace_eh_stmt (stmt, stmt)
 		  && gimple_purge_dead_eh_edges (bb))
 		cfg_changed = true;
+	      update_stmt (stmt);
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		{
-		  fprintf (dump_file, "gimple_match_and_simplified to ");
+		  fprintf (dump_file, "gimple_simplified to ");
 		  print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
 		}
 	    }

@@ -1,5 +1,36 @@
 2014-08-05  Richard Biener  <rguenther@suse.de>
 
+	* doc/match-and-simplify.texi: s/match_and_simplify/simplify/g
+	* fold-const.c: Likewise.
+	* genmatch.c: Likewise.
+	* gimple-fold.c: Likewise.
+	* gimple-fold.h: Likewise.
+	* gimple-match-head.c: Likewise.
+	* match-bitwise.pd: Likewise.
+	* match-builtin.pd: Likewise.
+	* match-constant-folding.pd: Likewise.
+	* match-plusminus.pd: Likewise.
+	* match-rotate.pd: Likewise.
+	* match.pd: Likewise.
+	* tree-ssa-forwprop.c: Likewise.
+	* tree-ssa-sccvn.c: Likewise.
+
+	* gimple-fold.c (fold_stmt): Add overload with valueize parameter.
+	* gimple-fold.h (fold_stmt): Declare it.
+	* tree-ssa-forwprop.c (pass_forwprop::execute): Use fold_stmt API.
+	* tree-ssa-sccvn.c (try_to_simplify): Use
+	gimple_fold_stmt_to_constant_1 API.
+
+	* testsuite/gcc.dg/tree-ssa/match-1.c:
+	s/match_and_simplified/simplified/g
+	* testsuite/gcc.dg/tree-ssa/match-bitwise.c: Likewise
+	* testsuite/gcc.dg/tree-ssa/match-plusminus.c: Likewise
+	* testsuite/gcc.dg/tree-ssa/match-realimag.c: Likewise
+	* testsuite/gcc.dg/tree-ssa/match-rotate.c: Likewise
+	* testsuite/gcc.dg/tree-ssa/pr52631.c: Likewise
+
+2014-08-05  Richard Biener  <rguenther@suse.de>
+
 	* doc/match-and-simplify.texi: New file.
 	* doc/gccint.texi: Include match-and-simplify.texi.
 	* Makefile.in (TEXI_GCCINT_FILES): Add match-and-simplify.texi.

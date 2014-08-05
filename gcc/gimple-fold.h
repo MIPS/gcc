@@ -27,6 +27,7 @@ extern tree get_symbol_constant_value (tree);
 extern void gimplify_and_update_call_from_tree (gimple_stmt_iterator *, tree);
 extern tree gimple_fold_builtin (gimple);
 extern bool fold_stmt (gimple_stmt_iterator *);
+extern bool fold_stmt (gimple_stmt_iterator *, tree (*) (tree));
 extern bool fold_stmt_inplace (gimple_stmt_iterator *);
 extern tree maybe_fold_and_comparisons (enum tree_code, tree, tree, 
 					enum tree_code, tree, tree);
@@ -108,17 +109,17 @@ gimple_convert (gimple_seq *seq, tree type, tree op)
    in the sequence.  */
 
 /* In gimple-match.c.  */
-tree gimple_match_and_simplify (enum tree_code, tree, tree,
-				gimple_seq *, tree (*)(tree));
-tree gimple_match_and_simplify (enum tree_code, tree, tree, tree,
-				gimple_seq *, tree (*)(tree));
-tree gimple_match_and_simplify (enum tree_code, tree, tree, tree, tree,
-				gimple_seq *, tree (*)(tree));
-tree gimple_match_and_simplify (enum built_in_function, tree, tree,
-				gimple_seq *, tree (*)(tree));
+tree gimple_simplify (enum tree_code, tree, tree,
+		      gimple_seq *, tree (*)(tree));
+tree gimple_simplify (enum tree_code, tree, tree, tree,
+		      gimple_seq *, tree (*)(tree));
+tree gimple_simplify (enum tree_code, tree, tree, tree, tree,
+		      gimple_seq *, tree (*)(tree));
+tree gimple_simplify (enum built_in_function, tree, tree,
+		      gimple_seq *, tree (*)(tree));
 /* The following two APIs are an artifact and should vanish in favor
    of the existing gimple_fold_stmt_to_constant and fold_stmt APIs.  */
-tree gimple_match_and_simplify (tree, gimple_seq *, tree (*)(tree));
-bool gimple_match_and_simplify (gimple_stmt_iterator *, tree (*)(tree));
+tree gimple_simplify (tree, gimple_seq *, tree (*)(tree));
+bool gimple_simplify (gimple_stmt_iterator *, tree (*)(tree));
 
 #endif  /* GCC_GIMPLE_FOLD_H */

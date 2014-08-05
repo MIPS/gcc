@@ -19,22 +19,22 @@ along with GCC; see the file COPYING3.  If not see
 
 
 /* One builtin function to atom.  */
-(match_and_simplify
+(simplify
   (BUILT_IN_SQRT (mult @0 @0))
   @0)
 /* One builtin function to builtin function.  */
-(match_and_simplify
+(simplify
   (BUILT_IN_CABS (complex:c @0 real_zerop))
   (BUILT_IN_FABS @0))
 /* One builtin function to expr.  */
-(match_and_simplify
+(simplify
   (BUILT_IN_CABS (complex @0 @0))
   (mult (BUILT_IN_FABS @0) { build_real (TREE_TYPE (@0), real_value_truncate (TYPE_MODE (TREE_TYPE (@0)), dconst_sqrt2 ())); }))
 /* One nested fn.  */
-(match_and_simplify
+(simplify
   (mult:c (BUILT_IN_POW @0 @1) @0)
   (BUILT_IN_POW @0 (PLUS_EXPR @1 { build_one_cst (TREE_TYPE (@1)); })))
-(match_and_simplify
+(simplify
   (BUILT_IN_POW @0 REAL_CST_P@1)
   /* This needs to be conditionalized on flag_unsafe_math_optimizations,
      but we keep it for now to exercise function re-optimization.

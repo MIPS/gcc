@@ -37,66 +37,66 @@ along with GCC; see the file COPYING3.  If not see
 */
 
 /* x & x -> x */
-(match_and_simplify
+(simplify
   (bit_and integral_op_p@0 @0)
   @0)
 
 /* x & ~x -> 0 */
-(match_and_simplify
+(simplify
   (bit_and:c integral_op_p@0 (bit_not @0))
   { build_int_cst (type, 0); })
 
 /* ~x & ~y -> ~(x | y) */
-(match_and_simplify
+(simplify
   (bit_and (bit_not integral_op_p@0) (bit_not @1))
   (bit_not (bit_ior @0 @1)))
 
 /* ~x | ~y -> ~(x & y) */
-(match_and_simplify
+(simplify
   (bit_ior (bit_not integral_op_p@0) (bit_not @1))
   (bit_not (bit_and @0 @1)))
 
 /* x & (~x | y) -> y & x */
-(match_and_simplify
+(simplify
   (bit_and:c integral_op_p@0 (bit_ior:c (bit_not @0) @1))
   (bit_and @1 @0))
 
 /* (x | CST1) & CST2 -> (x & CST2) | (CST1 & CST2) */
-(match_and_simplify
+(simplify
   (bit_and (bit_ior integral_op_p@0 INTEGER_CST_P@1) INTEGER_CST_P@2)
   (bit_ior (bit_and @0 @2) (bit_and @1 @2)))
 
 /* x ^ ~0 -> ~x */
-(match_and_simplify
+(simplify
   (bit_xor @0 integer_all_onesp@1)
   (bit_not @0))
 
 /* (x | y) & x -> x */
-(match_and_simplify
+(simplify
   (bit_and:c (bit_ior integral_op_p@0 @1) @0)
   @0)
 
 /* (x & y) | x -> x */
-(match_and_simplify
+(simplify
   (bit_ior:c (bit_and integral_op_p@0 @1) @0)
   @0)
 
 /* (~x | y) & x -> x & y */
-(match_and_simplify
+(simplify
   (bit_and:c (bit_ior:c (bit_not integral_op_p@0) @1) @0)
   (bit_and @0 @1))
 
 /* (~x & y) | x -> x | y */
-(match_and_simplify
+(simplify
   (bit_ior:c (bit_and:c (bit_not integral_op_p@0) @1) @0)
   (bit_ior @0 @1))
 
 /* ~~x -> x */
-(match_and_simplify
+(simplify
   (bit_not (bit_not integral_op_p@0))
   @0)
 
 /* ((a & b) & ~a) -> 0 */
-(match_and_simplify
+(simplify
   (bit_and:c (bit_and integral_op_p@0 @1) (bit_not @0))
   { build_int_cst (type, 0); })

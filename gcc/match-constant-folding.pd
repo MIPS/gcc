@@ -18,48 +18,48 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 (for op in plus pointer_plus minus bit_ior bit_xor
-  (match_and_simplify
+  (simplify
     (op @0 integer_zerop)
     @0))
 
-(match_and_simplify
+(simplify
   (minus @0 @0)
   { build_zero_cst (type); })
 
-(match_and_simplify
+(simplify
   (mult @0 integer_zerop@1)
   @1)
 
 /* Make sure to preserve divisions by zero.  This is the reason why
    we don't simplify x / x to 1 or 0 / x to 0.  */
 (for op in mult trunc_div ceil_div floor_div round_div
-  (match_and_simplify
+  (simplify
     (op @0 integer_onep)
     @0))
 
-(match_and_simplify
+(simplify
   (trunc_mod @0 integer_onep)
   { build_zero_cst (type); })
 /* Same applies to modulo operations, but fold is inconsistent here
    and simplifies 0 % x to 0.  */
-(match_and_simplify
+(simplify
   (trunc_mod integer_zerop@0 @1)
   (if (!integer_zerop (@1)))
   @0)
 
-(match_and_simplify
+(simplify
   (bit_ior @0 integer_all_onesp@1)
   @1)
 
-(match_and_simplify
+(simplify
   (bit_and @0 integer_all_onesp)
   @0)
 
-(match_and_simplify
+(simplify
   (bit_and @0 integer_zerop@1)
   @1)
 
-(match_and_simplify
+(simplify
   (bit_xor @0 @0)
   { build_zero_cst (type); })
 
