@@ -158,8 +158,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     template<typename _Source,
 	     typename _Require = _Path<_Source>>  
       path(_Source const& __source)
-      : path(_S_range_begin(__source), _S_range_end(__source))
-      { }
+      : _M_pathname(_S_convert(_S_range_begin(__source),
+			       _S_range_end(__source)))
+      { _M_split_cmpts(); }
 
     template<typename _InputIterator,
 	     typename _Require = _Path<_InputIterator, _InputIterator>>
@@ -171,8 +172,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	     typename _Require = _Path<_Source>,
 	     typename _Require2 = __value_type_is_char<_Source>>
       path(_Source const& __source, const locale& __loc)
-      : path(_S_range_begin(__source), _S_range_end(__source), __loc)
-      { }
+      : _M_pathname(_S_convert_loc(_S_range_begin(__source),
+				   _S_range_end(__source), __loc))
+      { _M_split_cmpts(); }
 
     template<typename _InputIterator,
 	     typename _Require = _Path<_InputIterator, _InputIterator>,
@@ -210,17 +212,20 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     template <class _Source>
       _Path<_Source>&
       operator/=(_Source const& __source)
-      { return append(_S_range_begin(__source), _S_range_end(__source)); }
+      { return append(__source); }
 
     template<typename _Source>
       _Path<_Source>&
       append(_Source const& __source)
-      { return append(_S_range_begin(__source), _S_range_end(__source)); }
+      {
+	return _M_append(_S_convert(_S_range_begin(__source),
+				    _S_range_end(__source)));
+      }
 
     template<typename _InputIterator>
       _Path<_InputIterator, _InputIterator>&
       append(_InputIterator __first, _InputIterator __last)
-      { return _M_append( _S_convert(__first, __last) ); }
+      { return _M_append(_S_convert(__first, __last)); }
 
     // concatenation
 
@@ -234,18 +239,18 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       operator+=(_Source const& __x) { return concat(__x); }
 
     template<typename _CharT>
-      path&
+      _Path<_CharT*, _CharT*>&
       operator+=(_CharT __x);
 
     template<typename _Source>
       _Path<_Source>&
       concat(_Source const& __x)
-      { return concat(_S_range_begin(__x), _S_range_end(__x)); }
+      { return *this += _S_convert(_S_range_begin(__x), _S_range_end(__x)); }
 
     template<typename _InputIterator>
       _Path<_InputIterator, _InputIterator>&
       concat(_InputIterator __first, _InputIterator __last)
-      { return operator+=( _S_convert(__first, __last) ); }
+      { return *this += _S_convert(__first, __last); }
 
     // modifiers
 
@@ -336,32 +341,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       _GLIBCXX_DEBUG_ASSERT(_M_type != _Type::_Multi);
     }
 
-    path(const value_type* __src, __null_terminated)
-    : _M_pathname(__src)
-    { _M_split_cmpts(); }
-
-    template<typename _InputIterator>
-      path(_InputIterator __src, __null_terminated)
-      {
-	using _Tp = typename std::iterator_traits<_InputIterator>::value_type;
-	std::basic_string<_Tp> __tmp;
-	while (*__src != _Tp{})
-	  __tmp.push_back(*__src++);
-	_M_pathname = _S_convert(__tmp.data(), __tmp.data() + __tmp.size());
-	_M_split_cmpts();
-      }
-
-    template<typename _InputIterator>
-      path(_InputIterator __src, __null_terminated, const std::locale& __loc)
-      {
-	std::string __tmp;
-	while (*__src != '\0')
-	  __tmp.push_back(*__src++);
-	_M_pathname
-	  = _S_convert_loc(__tmp.data(), __tmp.data() + __tmp.size(), __loc);
-	_M_split_cmpts();
-      }
-
     enum class _Split { _Stem, _Extension };
 
     path& _M_append(const string_type& __str)
@@ -379,12 +358,31 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     template<typename _CharT, typename = value_type>
       struct _Cvt;
 
+    static string_type
+    _S_convert(value_type* __src, __null_terminated)
+    { return string_type(__src); }
+
+    static string_type
+    _S_convert(const value_type* __src, __null_terminated)
+    { return string_type(__src); }
+
     template<typename _Iter>
       static string_type
       _S_convert(_Iter __first, _Iter __last)
       {
 	using __value_type = typename std::iterator_traits<_Iter>::value_type;
 	return _Cvt<__value_type>::_S_convert(__first, __last);
+      }
+
+    template<typename _InputIterator>
+      static string_type
+      _S_convert(_InputIterator __src, __null_terminated)
+      {
+	using _Tp = typename std::iterator_traits<_InputIterator>::value_type;
+	std::basic_string<_Tp> __tmp;
+	while (*__src != _Tp{})
+	  __tmp.push_back(*__src++);
+	return _S_convert(__tmp.data(), __tmp.data() + __tmp.size());
       }
 
     static string_type
@@ -395,8 +393,19 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       static string_type
       _S_convert_loc(_Iter __first, _Iter __last, const std::locale& __loc)
       {
-        const std::string __str(__first, __last);
+	const std::string __str(__first, __last);
 	return _S_convert_loc(__str.data(), __str.data()+__str.size(), __loc);
+      }
+
+    template<typename _InputIterator>
+      static string_type
+      _S_convert_loc(_InputIterator __src, __null_terminated,
+		     const std::locale& __loc)
+      {
+	std::string __tmp;
+	while (*__src != '\0')
+	  __tmp.push_back(*__src++);
+	return _S_convert_loc(__tmp.data(), __tmp.data()+__tmp.size(), __loc);
       }
 
     bool _S_is_dir_sep(value_type __ch)
@@ -704,7 +713,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   }
 
   template<typename _CharT>
-    inline path&
+    inline path::_Path<_CharT*, _CharT*>&
     path::operator+=(_CharT __x)
     {
       auto* __addr = std::addressof(__x);
