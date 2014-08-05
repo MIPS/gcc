@@ -2156,7 +2156,11 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
   if (symbol_rank (formal) == actual->rank || symbol_rank (formal) == -1)
     return 1;
 
+  /* Only check ranks compatibility, when the actual argument is not a
+     reference of an array (foo(i)). A reference into an array is assumed
+     when actual->ref is non null. */
   if (actual->ts.type == BT_CLASS && CLASS_DATA (actual)->as
+        && !actual->ref
 	&& CLASS_DATA (actual)->as->rank == symbol_rank (formal))
     return 1;
 
