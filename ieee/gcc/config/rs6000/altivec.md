@@ -3478,7 +3478,7 @@
    (set (match_operand:V16QI 0 "register_operand" "")
 	(unspec:V16QI [(match_dup 2)
 		       (match_dup 3)
-		       (const_int 15)] UNSPEC_VLSDOI))]
+		       (const_int 15)] UNSPEC_VSLDOI))]
   "TARGET_ALTIVEC"
 {
   if (can_create_pseudo_p ())
