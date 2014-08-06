@@ -1,5 +1,9 @@
 2014-08-06  Richard Biener  <rguenther@suse.de>
 
+	* tree-cfg.c (replace_uses_by): Clarify added comment.
+
+2014-08-06  Richard Biener  <rguenther@suse.de>
+
 	* tree-cfg.c (no_follow_ssa_edges): New function.
 	(replace_uses_by): Do not follow SSA edges when folding the
 	stmt.
