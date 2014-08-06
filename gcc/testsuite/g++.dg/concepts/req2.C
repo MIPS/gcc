@@ -7,8 +7,8 @@ template<typename T>
 
 void f1 (auto a) requires Class<decltype(a)>() { }
 
-  // FIXME: This is generating excess errors related to pretty
-  // printing the trailing requires expression.
+// FIXME: This is generating excess errors related to pretty
+// printing the trailing requires expression.
 void f2(auto a) 
   requires requires (decltype(a) x) { -x; } 
 { } 

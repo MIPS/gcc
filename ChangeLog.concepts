@@ -1,4 +1,15 @@
-2014-7-30  Braden Obrzut  <admin@maniacsvault.net>
+2014-08-06  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/cp/constraints.c (tsubst_requires_body, instantiate_requirements):
+	Lift the unevaluated operand guard to the entire constraint expression.
+	(check_satisfied, all_constraints_satisfied, 
+	any_conjunctions_satisfied): Rewrite constraint checking to use
+	atomic constraints. Prevents instantiation of concepts.
+	(check_diagnostic_constraints): Recursively decompose and check
+	constraints for fine-grain diagnostics.
+	(diagnose_*): Use new constraint checking function.
+	
+
+2014-07-30  Braden Obrzut  <admin@maniacsvault.net>
 	* gcc/cp/parser.c (cp_parser_trailing_requirements): Handle requires
 	keyword manually so that we can push function parameters back into
 	scope.

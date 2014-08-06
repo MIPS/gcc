@@ -1117,7 +1117,6 @@ tsubst_local_parms (tree t,
 tree
 tsubst_requirement_body (tree t, tree args, tree in_decl)
 {
-  cp_unevaluated guard;
   tree r = NULL_TREE;
   while (t)
     {
@@ -1142,6 +1141,7 @@ tsubst_requires_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
   tree r = tsubst_requirement_body (TREE_OPERAND (t, 1), args, in_decl);
   return finish_requires_expr (p, r);
 }
+
 
 // Substitute ARGS into the valid-expr expression T.
 tree
@@ -1207,6 +1207,7 @@ tsubst_nested_req (tree t, tree args, tree in_decl)
 tree
 instantiate_requirements (tree reqs, tree args, bool do_not_fold)
 {
+  cp_unevaluated guard;
   if (do_not_fold)
     ++processing_template_decl;
   tree r = tsubst_expr (reqs, args, tf_none, NULL_TREE, false);
@@ -1248,22 +1249,55 @@ tsubst_constraint_info (tree ci, tree args)
 // evaluation of constraints.
 
 namespace {
-// Returns true if the requirements expression REQS is satisfied
-// and false otherwise. The requirements are checked by simply 
-// evaluating REQS as a constant expression.
-static inline bool
-check_requirements (tree reqs)
+// Returns true iff the atomic constraint, REQ, is satisfied. This
+// is the case when substitution succeeds and the resulting expression
+// evaluates to true.
+static bool
+check_satisfied (tree req, tree args) 
 {
+  // Instantiate and evaluate the requirements. 
+  req = instantiate_requirements (req, args, false);
+  if (req == error_mark_node)
+    return false;
+
   // Reduce any remaining TRAIT_EXPR nodes before evaluating.
-  reqs = fold_non_dependent_expr (reqs);
+  req = fold_non_dependent_expr (req);
 
   // Requirements are satisfied when REQS evaluates to true.
-  return cxx_constant_value (reqs) == boolean_true_node;
+  tree result = cxx_constant_value (req);
+
+  return result == boolean_true_node;
 }
 
-// Returns true if the requirements expression REQS is satisfied 
-// and false otherwise. The requirements are checked by first
-// instantiating REQS and then evaluating it as a constant expression.
+// Returns true iff all atomic constraints in the list are satisfied.
+static bool
+all_constraints_satisfied (tree reqs, tree args)
+{
+  int n = TREE_VEC_LENGTH (reqs);
+  for (int i = 0; i < n; ++i)
+    {
+      tree req = TREE_VEC_ELT (reqs, i);
+      if (!check_satisfied (req, args))
+        return false;
+    }
+  return true;
+}
+
+// Returns true if any conjunction of assumed requirements are satisfied.
+static bool
+any_conjunctions_satisfied (tree reqs, tree args)
+{
+  int n = TREE_VEC_LENGTH (reqs);
+  for (int i = 0; i < n; ++i)
+    {
+      tree con = TREE_VEC_ELT (reqs, i);
+      if (all_constraints_satisfied (con, args))
+        return true;
+    }
+  return false;
+}
+
+// Returns true iff the assumptions in REQS are satisfied.
 static inline bool
 check_requirements (tree reqs, tree args)
 {
@@ -1272,11 +1306,7 @@ check_requirements (tree reqs, tree args)
   if (args && uses_template_parms (args))
     return true;
 
-  // Instantiate and evaluate the requirements. 
-  reqs = instantiate_requirements (reqs, args, false);
-  if (reqs == error_mark_node)
-    return false;
-  return check_requirements (reqs);
+  return any_conjunctions_satisfied (reqs, args);
 }
 } // namespace
 
@@ -1295,7 +1325,7 @@ check_constraints (tree cinfo)
   // all remaining expressions that are not constant expressions
   // (e.g., template-id expressions).
   else
-    return check_requirements (CI_ASSOCIATED_REQS (cinfo), NULL_TREE);
+    return check_requirements (CI_ASSUMPTIONS (cinfo), NULL_TREE);
 }
 
 // Check the constraints in CINFO against the given ARGS, returning
@@ -1309,8 +1339,9 @@ check_constraints (tree cinfo, tree args)
   // Invlaid requirements cannot be satisfied.
   else if (!valid_requirements_p (cinfo))
     return false;
-  else
-    return check_requirements (CI_ASSOCIATED_REQS (cinfo), args);
+  else {
+    return check_requirements (CI_ASSUMPTIONS (cinfo), args);
+  }
 }
 
 // Check the constraints of the declaration or type T, against 
@@ -1320,6 +1351,13 @@ bool
 check_template_constraints (tree t, tree args)
 {
   return check_constraints (get_constraints (t), args);
+}
+
+bool
+check_diagnostic_constraints (tree t, tree args)
+{
+  tree reqs = decompose_assumptions (reduce_requirements (t));
+  return check_requirements (reqs, args);
 }
 
 // -------------------------------------------------------------------------- //
@@ -1381,7 +1419,7 @@ void diagnose_node (location_t, tree, tree);
 void
 diagnose_trait (location_t loc, tree t, tree args)
 {
-  if (check_requirements (t, args))
+  if (check_diagnostic_constraints (t, args))
     return;
 
   tree subst = instantiate_requirements (t, args, true);
@@ -1498,7 +1536,7 @@ diagnose_check (location_t loc, tree t, tree args)
 void
 diagnose_call (location_t loc, tree t, tree args)
 {
-  if (check_requirements (t, args))
+  if (check_diagnostic_constraints (t, args))
     return;
 
   // If this is a concept, we're going to recurse.
@@ -1513,7 +1551,7 @@ diagnose_call (location_t loc, tree t, tree args)
 void
 diagnose_requires (location_t loc, tree t, tree args)
 {
-  if (check_requirements (t, args))
+  if (check_diagnostic_constraints (t, args))
     return;
 
   tree subst = instantiate_requirements (t, args, true);
@@ -1537,7 +1575,7 @@ diagnose_requires (location_t loc, tree t, tree args)
 static void
 diagnose_validexpr (location_t loc, tree t, tree args)
 {
-  if (check_requirements (t, args))
+  if (check_diagnostic_constraints (t, args))
     return;
   inform (loc, "    %qE is not a valid expression", TREE_OPERAND (t, 0));
 }
@@ -1545,7 +1583,7 @@ diagnose_validexpr (location_t loc, tree t, tree args)
 static void
 diagnose_validtype (location_t loc, tree t, tree args)
 {
-  if (check_requirements (t, args))
+  if (check_diagnostic_constraints (t, args))
     return;
 
   // Substitute into the qualified name.
@@ -1566,7 +1604,7 @@ diagnose_validtype (location_t loc, tree t, tree args)
 static void
 diagnose_constexpr (location_t loc, tree t, tree args)
 {
-  if (check_requirements (t, args))
+  if (check_diagnostic_constraints (t, args))
     return;
   inform (loc, "    %qE is not a constant expression", TREE_OPERAND (t, 0));
 }
@@ -1574,7 +1612,7 @@ diagnose_constexpr (location_t loc, tree t, tree args)
 static void
 diagnose_noexcept (location_t loc, tree t, tree args)
 {
-  if (check_requirements (t, args))
+  if (check_diagnostic_constraints (t, args))
     return;
   inform (loc, "    %qE propagates exceptions", TREE_OPERAND (t, 0)); 
 }
@@ -1583,7 +1621,7 @@ diagnose_noexcept (location_t loc, tree t, tree args)
 void
 diagnose_other (location_t loc, tree t, tree args)
 {
-  if (check_requirements (t, args))
+  if (check_diagnostic_constraints (t, args))
     return;
   inform (loc, "  %qE evaluated to false", t);
 }
