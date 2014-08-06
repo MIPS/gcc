@@ -73,6 +73,14 @@ static int max_mode_int_precision =
 static int graphite_expression_type_precision = 128 <= max_mode_int_precision ?
 						128 : max_mode_int_precision;
 
+struct ast_build_info
+{
+  ast_build_info()
+    : is_parallelizable(false)
+  { };
+  bool is_parallelizable;
+};
+
 /* Converts a GMP constant VAL to a tree and returns it.  */
 
 static tree
@@ -122,10 +130,16 @@ gcc_expression_from_isl_expression (tree type, __isl_take isl_ast_expr *,
 				    ivs_params &ip);
 
 /* Return the tree variable that corresponds to the given isl ast identifier
- expression (an isl_ast_expr of type isl_ast_expr_id).  */
+   expression (an isl_ast_expr of type isl_ast_expr_id).
+
+   FIXME: We should replace blind conversation of id's type with derivation
+   of the optimal type when we get the corresponding isl support. Blindly
+   converting type sizes may be problematic when we switch to smaller
+   types.  */
 
 static tree
-gcc_expression_from_isl_ast_expr_id (__isl_keep isl_ast_expr *expr_id,
+gcc_expression_from_isl_ast_expr_id (tree type,
+				     __isl_keep isl_ast_expr *expr_id,
 				     ivs_params &ip)
 {
   gcc_assert (isl_ast_expr_get_type (expr_id) == isl_ast_expr_id);
@@ -136,7 +150,7 @@ gcc_expression_from_isl_ast_expr_id (__isl_keep isl_ast_expr *expr_id,
   gcc_assert (res != ip.end () &&
               "Could not map isl_id to tree expression");
   isl_ast_expr_free (expr_id);
-  return res->second;
+  return fold_convert (type, res->second);
 }
 
 /* Converts an isl_ast_expr_int expression E to a GCC expression tree of
@@ -351,7 +365,7 @@ gcc_expression_from_isl_expression (tree type, __isl_take isl_ast_expr *expr,
   switch (isl_ast_expr_get_type (expr))
     {
     case isl_ast_expr_id:
-      return gcc_expression_from_isl_ast_expr_id (expr, ip);
+      return gcc_expression_from_isl_ast_expr_id (type, expr, ip);
 
     case isl_ast_expr_int:
       return gcc_expression_from_isl_expr_int (type, expr);
@@ -429,7 +443,15 @@ translate_isl_ast_for_loop (loop_p context_loop,
   redirect_edge_succ_nodup (next_e, after);
   set_immediate_dominator (CDI_DOMINATORS, next_e->dest, next_e->src);
 
-  /* TODO: Add checking for the loop parallelism.  */
+  if (flag_loop_parallelize_all)
+  {
+    isl_id *id = isl_ast_node_get_annotation (node_for);
+    gcc_assert (id);
+    ast_build_info *for_info = (ast_build_info *) isl_id_get_user (id);
+    loop->can_be_parallel = for_info->is_parallelizable;
+    free (for_info);
+    isl_id_free (id);
+  }
 
   return last_e;
 }
@@ -828,6 +850,42 @@ generate_isl_schedule (scop_p scop)
   return schedule_isl;
 }
 
+/* This method is executed before the construction of a for node.  */
+static __isl_give isl_id *
+ast_build_before_for (__isl_keep isl_ast_build *build, void *user)
+{
+  isl_union_map *dependences = (isl_union_map *) user;
+  ast_build_info *for_info = XNEW (struct ast_build_info);
+  isl_union_map *schedule = isl_ast_build_get_schedule (build);
+  isl_space *schedule_space = isl_ast_build_get_schedule_space (build);
+  int dimension = isl_space_dim (schedule_space, isl_dim_out);
+  for_info->is_parallelizable =
+    !carries_deps (schedule, dependences, dimension);
+  isl_union_map_free (schedule);
+  isl_space_free (schedule_space);
+  isl_id *id = isl_id_alloc (isl_ast_build_get_ctx (build), "", for_info);
+  return id;
+}
+
+/* Set the separate option for all dimensions.
+   This helps to reduce control overhead.  */
+
+static __isl_give isl_ast_build *
+set_options (__isl_take isl_ast_build *control,
+	     __isl_keep isl_union_map *schedule)
+{
+  isl_ctx *ctx = isl_union_map_get_ctx (schedule);
+  isl_space *range_space = isl_space_set_alloc (ctx, 0, 1);
+  range_space =
+    isl_space_set_tuple_name (range_space, isl_dim_set, "separate");
+  isl_union_set *range =
+    isl_union_set_from_set (isl_set_universe (range_space));  
+  isl_union_set *domain = isl_union_map_range (isl_union_map_copy (schedule));
+  domain = isl_union_set_universe (domain);
+  isl_union_map *options = isl_union_map_from_domain_and_range (domain, range);
+  return isl_ast_build_set_options (control, options);
+}
+
 static __isl_give isl_ast_node *
 scop_to_isl_ast (scop_p scop, ivs_params &ip)
 {
@@ -840,8 +898,19 @@ scop_to_isl_ast (scop_p scop, ivs_params &ip)
   add_parameters_to_ivs_params (scop, ip);
   isl_union_map *schedule_isl = generate_isl_schedule (scop);
   isl_ast_build *context_isl = generate_isl_context (scop);
+  context_isl = set_options (context_isl, schedule_isl);
+  isl_union_map *dependences = NULL;
+  if (flag_loop_parallelize_all)
+  {
+    dependences = scop_get_dependences (scop);
+    context_isl =
+      isl_ast_build_set_before_each_for (context_isl, ast_build_before_for,
+					 dependences);
+  }
   isl_ast_node *ast_isl = isl_ast_build_ast_from_schedule (context_isl,
 							   schedule_isl);
+  if(dependences)
+    isl_union_map_free (dependences);
   isl_ast_build_free (context_isl);
   return ast_isl;
 }
@@ -902,7 +971,20 @@ graphite_regenerate_ast_isl (scop_p scop)
   ivs_params_clear (ip);
   isl_ast_node_free (root_node);
   timevar_pop (TV_GRAPHITE_CODE_GEN);
-  /* TODO: Add dump  */
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      loop_p loop;
+      int num_no_dependency = 0;
+
+      FOR_EACH_LOOP (loop, 0)
+	if (loop->can_be_parallel)
+	  num_no_dependency++;
+
+      fprintf (dump_file, "\n%d loops carried no dependency.\n",
+	       num_no_dependency);
+    }
+
   return !graphite_regenerate_error;
 }
 #endif

@@ -40,6 +40,7 @@ with Namet;  use Namet;
 with Table;
 with Types;  use Types;
 with Uintp;  use Uintp;
+with Urealp; use Urealp;
 
 package Checks is
 
@@ -144,8 +145,19 @@ package Checks is
    --  Sets Do_Overflow_Check flag in node N, and handles possible local raise.
    --  Always call this routine rather than calling Set_Do_Overflow_Check to
    --  set an explicit value of True, to ensure handling the local raise case.
-   --  Note that this call has no effect for MOD, REM, and unary "+" for which
-   --  overflow is never possible in any case.
+   --  Note that for discrete types, this call has no effect for MOD, REM, and
+   --  unary "+" for which overflow is never possible in any case.
+   --
+   --  Note: for the discrete-type case, it is legitimate to call this routine
+   --  on an unanalyzed node where the Etype field is not set. However, for the
+   --  floating-point case, Etype must be set (to a floating-point type).
+   --
+   --  For floating-point, we set the flag if we have automatic overflow checks
+   --  on the target, or if Check_Float_Overflow mode is set. For the floating-
+   --  point case, we ignore all the unary operators ("+", "-", and abs) since
+   --  none of these can result in overflow. If there are no overflow checks on
+   --  the target, and Check_Float_Overflow mode is not set, then the call has
+   --  no effect, since in such cases we want to generate NaN's and infinities.
 
    procedure Activate_Range_Check (N : Node_Id);
    pragma Inline (Activate_Range_Check);
@@ -301,6 +313,20 @@ package Checks is
    --  assume that values are in range of their subtypes. If it is set to True,
    --  then this assumption is valid, if False, then processing is done using
    --  base types to allow invalid values.
+
+   procedure Determine_Range_R
+     (N            : Node_Id;
+      OK           : out Boolean;
+      Lo           : out Ureal;
+      Hi           : out Ureal;
+      Assume_Valid : Boolean := False);
+   --  Similar to Determine_Range, but for a node N of floating-point type. OK
+   --  is True on return only for IEEE floating-point types and only if we do
+   --  not have to worry about extended precision (i.e. on the x86, we must be
+   --  using -msse2 -mfpmath=sse). At the current time, this is used only in
+   --  GNATprove, though we could consider using it more generally in future.
+   --  For that to happen, the possibility of arguments of infinite or NaN
+   --  value should be taken into account, which is not the case currently.
 
    procedure Install_Null_Excluding_Check (N : Node_Id);
    --  Determines whether an access node requires a runtime access check and
@@ -666,12 +692,12 @@ package Checks is
    --  we generate the actual range check, then we make sure the flag is off,
    --  since the code we generate takes complete care of the check.
    --
-   --  Historical note: We used to just pass ono the Do_Range_Check flag to the
-   --  back end to generate the check, but now in code generation mode we never
+   --  Historical note: We used to just pass on the Do_Range_Check flag to the
+   --  back end to generate the check, but now in code-generation mode we never
    --  have this flag set, since the front end takes care of the check. The
    --  normal processing flow now is that the analyzer typically turns on the
    --  Do_Range_Check flag, and if it is set, this routine is called, which
-   --  turns the flag off in code generation mode.
+   --  turns the flag off in code-generation mode.
 
    procedure Generate_Index_Checks (N : Node_Id);
    --  This procedure is called to generate index checks on the subscripts for

@@ -38,6 +38,7 @@ with Exp_Ch11; use Exp_Ch11;
 with Exp_Dbug; use Exp_Dbug;
 with Exp_Dist; use Exp_Dist;
 with Exp_Disp; use Exp_Disp;
+with Exp_Prag; use Exp_Prag;
 with Exp_Tss;  use Exp_Tss;
 with Exp_Util; use Exp_Util;
 with Freeze;   use Freeze;
@@ -130,9 +131,14 @@ package body Exp_Ch7 is
    --  pointers of N until it find the appropriate node to wrap. If it returns
    --  Empty, it means that no transient scope is needed in this context.
 
-   procedure Insert_Actions_In_Scope_Around (N : Node_Id);
+   procedure Insert_Actions_In_Scope_Around
+     (N         : Node_Id;
+      Clean     : Boolean;
+      Manage_SS : Boolean);
    --  Insert the before-actions kept in the scope stack before N, and the
-   --  after-actions after N, which must be a member of a list.
+   --  after-actions after N, which must be a member of a list. If flag Clean
+   --  is set, insert any cleanup actions. If flag Manage_SS is set, insert
+   --  calls to mark and release the secondary stack.
 
    function Make_Transient_Block
      (Loc    : Source_Ptr;
@@ -373,11 +379,6 @@ package body Exp_Ch7 is
    function Enclosing_Function (E : Entity_Id) return Entity_Id;
    --  Given an arbitrary entity, traverse the scope chain looking for the
    --  first enclosing function. Return Empty if no function was found.
-
-   procedure Expand_Pragma_Initial_Condition (N : Node_Id);
-   --  Subsidiary to the expansion of package specs and bodies. Generate a
-   --  runtime check needed to verify the assumption introduced by pragma
-   --  Initial_Condition. N denotes the package spec or body.
 
    function Make_Call
      (Loc       : Source_Ptr;
@@ -870,9 +871,7 @@ package body Exp_Ch7 is
       --  types where the designated type is explicitly derived from [Limited_]
       --  Controlled.
 
-      elsif VM_Target /= No_VM
-        and then not Is_Controlled (Desig_Typ)
-      then
+      elsif VM_Target /= No_VM and then not Is_Controlled (Desig_Typ) then
          return;
 
       --  Do not create finalization masters in SPARK mode because they result
@@ -933,7 +932,7 @@ package body Exp_Ch7 is
             --  The default choice is the global pool
 
             else
-               Pool_Id := Get_Global_Pool_For_Access_Type (Ptr_Typ);
+               Pool_Id := RTE (RE_Global_Pool_Object);
                Set_Associated_Storage_Pool (Ptr_Typ, Pool_Id);
             end if;
 
@@ -1476,12 +1475,7 @@ package body Exp_Ch7 is
          --  Release the secondary stack mark
 
          if Present (Mark_Id) then
-            Append_To (Finalizer_Stmts,
-              Make_Procedure_Call_Statement (Loc,
-                Name                   =>
-                  New_Occurrence_Of (RTE (RE_SS_Release), Loc),
-                Parameter_Associations => New_List (
-                  New_Occurrence_Of (Mark_Id, Loc))));
+            Append_To (Finalizer_Stmts, Build_SS_Release_Call (Loc, Mark_Id));
          end if;
 
          --  Protect the statements with abort defer/undefer. This is only when
@@ -1609,7 +1603,7 @@ package body Exp_Ch7 is
             --  When the finalizer acts solely as a clean up routine, the body
             --  is inserted right after the spec.
 
-            if Acts_As_Clean and then not Has_Ctrl_Objs then
+            if Acts_As_Clean and not Has_Ctrl_Objs then
                Insert_After (Fin_Spec, Fin_Body);
 
             --  In all other cases the body is inserted after either:
@@ -1817,7 +1811,7 @@ package body Exp_Ch7 is
                elsif Is_Access_Type (Obj_Typ)
                  and then Present (Status_Flag_Or_Transient_Decl (Obj_Id))
                  and then Nkind (Status_Flag_Or_Transient_Decl (Obj_Id)) =
-                                   N_Object_Declaration
+                                                       N_Object_Declaration
                then
                   Processing_Actions (Has_No_Init => True);
 
@@ -1867,9 +1861,8 @@ package body Exp_Ch7 is
 
                elsif Ekind (Obj_Id) = E_Variable
                  and then not In_Library_Level_Package_Body (Obj_Id)
-                 and then
-                   (Is_Simple_Protected_Type (Obj_Typ)
-                     or else Has_Simple_Protected_Object (Obj_Typ))
+                 and then (Is_Simple_Protected_Type (Obj_Typ)
+                            or else Has_Simple_Protected_Object (Obj_Typ))
                then
                   Processing_Actions (Is_Protected => True);
                end if;
@@ -2205,7 +2198,7 @@ package body Exp_Ch7 is
 
             --  For constrained or tagged results escalate the condition to
             --  include the allocation format. Generate:
-            --
+
             --    if BIPallocform > Secondary_Stack'Pos
             --      and then BIPfinalizationmaster /= null
             --    then
@@ -2451,6 +2444,15 @@ package body Exp_Ch7 is
 
                   Next (Stmt);
                end loop;
+
+            --  Nothing to do for an object with supporessed initialization.
+            --  Note that this check is not performed at the beginning of the
+            --  routine because a declaration marked with No_Initialization
+            --  may still be initialized by a build-in-place call (the case
+            --  above).
+
+            elsif No_Initialization (Decl) then
+               return;
 
             --  In all other cases the initialization calls follow the related
             --  object. The general structure of object initialization built by
@@ -2941,13 +2943,13 @@ package body Exp_Ch7 is
         and then
           (not Is_Library_Level_Entity (Spec_Id)
 
-             --  Nested packages are considered to be library level entities,
-             --  but do not need to be processed separately. True library level
-             --  packages have a scope value of 1.
+            --  Nested packages are considered to be library level entities,
+            --  but do not need to be processed separately. True library level
+            --  packages have a scope value of 1.
 
-             or else Scope_Depth_Value (Spec_Id) /= Uint_1
-             or else (Is_Generic_Instance (Spec_Id)
-                       and then Package_Instantiation (Spec_Id) /= N))
+            or else Scope_Depth_Value (Spec_Id) /= Uint_1
+            or else (Is_Generic_Instance (Spec_Id)
+                      and then Package_Instantiation (Spec_Id) /= N))
       then
          return;
       end if;
@@ -3141,7 +3143,6 @@ package body Exp_Ch7 is
       Decl : Node_Id;
 
       Dummy : Entity_Id;
-      pragma Unreferenced (Dummy);
       --  This variable captures an unused dummy internal entity, see the
       --  comment associated with its use.
 
@@ -3457,8 +3458,7 @@ package body Exp_Ch7 is
    begin
       if Has_Discriminants (U_Typ)
         and then Nkind (Parent (U_Typ)) = N_Full_Type_Declaration
-        and then
-          Nkind (Type_Definition (Parent (U_Typ))) = N_Record_Definition
+        and then Nkind (Type_Definition (Parent (U_Typ))) = N_Record_Definition
         and then
           Present
             (Variant_Part (Component_List (Type_Definition (Parent (U_Typ)))))
@@ -3963,15 +3963,7 @@ package body Exp_Ch7 is
          if Needs_Sec_Stack_Mark then
             Mark := Make_Temporary (Loc, 'M');
 
-            Append_To (New_Decls,
-              Make_Object_Declaration (Loc,
-                Defining_Identifier => Mark,
-                Object_Definition   =>
-                  New_Occurrence_Of (RTE (RE_Mark_Id), Loc),
-                Expression          =>
-                  Make_Function_Call (Loc,
-                    Name => New_Occurrence_Of (RTE (RE_SS_Mark), Loc))));
-
+            Append_To (New_Decls, Build_SS_Mark_Call (Loc, Mark));
             Set_Uses_Sec_Stack (Scop, False);
          end if;
 
@@ -4267,88 +4259,6 @@ package body Exp_Ch7 is
       end if;
    end Expand_N_Package_Declaration;
 
-   -------------------------------------
-   -- Expand_Pragma_Initial_Condition --
-   -------------------------------------
-
-   procedure Expand_Pragma_Initial_Condition (N : Node_Id) is
-      Loc       : constant Source_Ptr := Sloc (N);
-      Check     : Node_Id;
-      Expr      : Node_Id;
-      Init_Cond : Node_Id;
-      List      : List_Id;
-      Pack_Id   : Entity_Id;
-
-   begin
-      if Nkind (N) = N_Package_Body then
-         Pack_Id := Corresponding_Spec (N);
-
-         if Present (Handled_Statement_Sequence (N)) then
-            List := Statements (Handled_Statement_Sequence (N));
-
-         --  The package body lacks statements, create an empty list
-
-         else
-            List := New_List;
-
-            Set_Handled_Statement_Sequence (N,
-              Make_Handled_Sequence_Of_Statements (Loc, Statements => List));
-         end if;
-
-      elsif Nkind (N) = N_Package_Declaration then
-         Pack_Id := Defining_Entity (N);
-
-         if Present (Visible_Declarations (Specification (N))) then
-            List := Visible_Declarations (Specification (N));
-
-         --  The package lacks visible declarations, create an empty list
-
-         else
-            List := New_List;
-
-            Set_Visible_Declarations (Specification (N), List);
-         end if;
-
-      --  This routine should not be used on anything other than packages
-
-      else
-         raise Program_Error;
-      end if;
-
-      Init_Cond := Get_Pragma (Pack_Id, Pragma_Initial_Condition);
-
-      --  The caller should check whether the package is subject to pragma
-      --  Initial_Condition.
-
-      pragma Assert (Present (Init_Cond));
-
-      Expr :=
-        Get_Pragma_Arg (First (Pragma_Argument_Associations (Init_Cond)));
-
-      --  The assertion expression was found to be illegal, do not generate the
-      --  runtime check as it will repeat the illegality.
-
-      if Error_Posted (Init_Cond) or else Error_Posted (Expr) then
-         return;
-      end if;
-
-      --  Generate:
-      --    pragma Check (Initial_Condition, <Expr>);
-
-      Check :=
-        Make_Pragma (Loc,
-          Chars                        => Name_Check,
-          Pragma_Argument_Associations => New_List (
-            Make_Pragma_Argument_Association (Loc,
-              Expression => Make_Identifier (Loc, Name_Initial_Condition)),
-
-            Make_Pragma_Argument_Association (Loc,
-              Expression => New_Copy_Tree (Expr))));
-
-      Append_To (List, Check);
-      Analyze (Check);
-   end Expand_Pragma_Initial_Condition;
-
    -----------------------------
    -- Find_Node_To_Be_Wrapped --
    -----------------------------
@@ -4499,25 +4409,6 @@ package body Exp_Ch7 is
       end loop;
    end Find_Node_To_Be_Wrapped;
 
-   -------------------------------------
-   -- Get_Global_Pool_For_Access_Type --
-   -------------------------------------
-
-   function Get_Global_Pool_For_Access_Type (T : Entity_Id) return Entity_Id is
-   begin
-      --  Access types whose size is smaller than System.Address size can exist
-      --  only on VMS. We can't use the usual global pool which returns an
-      --  object of type Address as truncation will make it invalid. To handle
-      --  this case, VMS has a dedicated global pool that returns addresses
-      --  that fit into 32 bit accesses.
-
-      if Opt.True_VMS_Target and then Esize (T) = 32 then
-         return RTE (RE_Global_Pool_32_Object);
-      else
-         return RTE (RE_Global_Pool_Object);
-      end if;
-   end Get_Global_Pool_For_Access_Type;
-
    ----------------------------------
    -- Has_New_Controlled_Component --
    ----------------------------------
@@ -4590,11 +4481,17 @@ package body Exp_Ch7 is
    -- Insert_Actions_In_Scope_Around --
    ------------------------------------
 
-   procedure Insert_Actions_In_Scope_Around (N : Node_Id) is
-      Act_After   : constant List_Id :=
-        Scope_Stack.Table (Scope_Stack.Last).Actions_To_Be_Wrapped (After);
+   procedure Insert_Actions_In_Scope_Around
+     (N         : Node_Id;
+      Clean     : Boolean;
+      Manage_SS : Boolean)
+   is
       Act_Before  : constant List_Id :=
         Scope_Stack.Table (Scope_Stack.Last).Actions_To_Be_Wrapped (Before);
+      Act_After   : constant List_Id :=
+        Scope_Stack.Table (Scope_Stack.Last).Actions_To_Be_Wrapped (After);
+      Act_Cleanup : constant List_Id :=
+        Scope_Stack.Table (Scope_Stack.Last).Actions_To_Be_Wrapped (Cleanup);
       --  Note: We used to use renamings of Scope_Stack.Table (Scope_Stack.
       --  Last), but this was incorrect as Process_Transient_Object may
       --  introduce new scopes and cause a reallocation of Scope_Stack.Table.
@@ -4931,6 +4828,14 @@ package body Exp_Ch7 is
             Next (Stmt);
          end loop;
 
+         if Clean then
+            if Present (Prev_Fin) then
+               Insert_List_Before_And_Analyze (Prev_Fin, Act_Cleanup);
+            else
+               Insert_List_After_And_Analyze (Fin_Insrt, Act_Cleanup);
+            end if;
+         end if;
+
          --  Generate:
          --    if Raised and then not Abort then
          --       Raise_From_Controlled_Operation (E);
@@ -4942,86 +4847,101 @@ package body Exp_Ch7 is
          end if;
       end Process_Transient_Objects;
 
+      --  Local variables
+
+      Loc          : constant Source_Ptr := Sloc (N);
+      Node_To_Wrap : constant Node_Id    := Node_To_Be_Wrapped;
+      First_Obj    : Node_Id;
+      Last_Obj     : Node_Id;
+      Mark_Id      : Entity_Id;
+      Target       : Node_Id;
+
    --  Start of processing for Insert_Actions_In_Scope_Around
 
    begin
-      if No (Act_Before) and then No (Act_After) then
+      if No (Act_Before) and then No (Act_After) and then No (Act_Cleanup) then
          return;
       end if;
 
-      declare
-         Node_To_Wrap : constant Node_Id := Node_To_Be_Wrapped;
-         First_Obj    : Node_Id;
-         Last_Obj     : Node_Id;
-         Target       : Node_Id;
+      --  If the node to be wrapped is the trigger of an asynchronous select,
+      --  it is not part of a statement list. The actions must be inserted
+      --  before the select itself, which is part of some list of statements.
+      --  Note that the triggering alternative includes the triggering
+      --  statement and an optional statement list. If the node to be
+      --  wrapped is part of that list, the normal insertion applies.
 
-      begin
-         --  If the node to be wrapped is the trigger of an asynchronous
-         --  select, it is not part of a statement list. The actions must be
-         --  inserted before the select itself, which is part of some list of
-         --  statements. Note that the triggering alternative includes the
-         --  triggering statement and an optional statement list. If the node
-         --  to be wrapped is part of that list, the normal insertion applies.
+      if Nkind (Parent (Node_To_Wrap)) = N_Triggering_Alternative
+        and then not Is_List_Member (Node_To_Wrap)
+      then
+         Target := Parent (Parent (Node_To_Wrap));
+      else
+         Target := N;
+      end if;
 
-         if Nkind (Parent (Node_To_Wrap)) = N_Triggering_Alternative
-           and then not Is_List_Member (Node_To_Wrap)
-         then
-            Target := Parent (Parent (Node_To_Wrap));
-         else
-            Target := N;
-         end if;
+      First_Obj := Target;
+      Last_Obj  := Target;
 
-         First_Obj := Target;
-         Last_Obj  := Target;
+      --  Add all actions associated with a transient scope into the main tree.
+      --  There are several scenarios here:
 
-         --  Add all actions associated with a transient scope into the main
-         --  tree. There are several scenarios here:
+      --       +--- Before ----+        +----- After ---+
+      --    1) First_Obj ....... Target ........ Last_Obj
 
-         --       +--- Before ----+        +----- After ---+
-         --    1) First_Obj ....... Target ........ Last_Obj
+      --    2) First_Obj ....... Target
 
-         --    2) First_Obj ....... Target
+      --    3)                   Target ........ Last_Obj
 
-         --    3)                   Target ........ Last_Obj
+      --  Flag declarations are inserted before the first object
 
-         if Present (Act_Before) then
+      if Present (Act_Before) then
+         First_Obj := First (Act_Before);
+         Insert_List_Before (Target, Act_Before);
+      end if;
 
-            --  Flag declarations are inserted before the first object
+      --  Finalization calls are inserted after the last object
 
-            First_Obj := First (Act_Before);
+      if Present (Act_After) then
+         Last_Obj := Last (Act_After);
+         Insert_List_After (Target, Act_After);
+      end if;
 
-            Insert_List_Before (Target, Act_Before);
-         end if;
+      --  Mark and release the secondary stack when the context warrants it
 
-         if Present (Act_After) then
+      if Manage_SS then
+         Mark_Id := Make_Temporary (Loc, 'M');
 
-            --  Finalization calls are inserted after the last object
+         --  Generate:
+         --    Mnn : constant Mark_Id := SS_Mark;
 
-            Last_Obj := Last (Act_After);
+         Insert_Before_And_Analyze
+           (First_Obj, Build_SS_Mark_Call (Loc, Mark_Id));
 
-            Insert_List_After (Target, Act_After);
-         end if;
+         --  Generate:
+         --    SS_Release (Mnn);
 
-         --  Check for transient controlled objects associated with Target and
-         --  generate the appropriate finalization actions for them.
+         Insert_After_And_Analyze
+           (Last_Obj, Build_SS_Release_Call (Loc, Mark_Id));
+      end if;
 
-         Process_Transient_Objects
-           (First_Object => First_Obj,
-            Last_Object  => Last_Obj,
-            Related_Node => Target);
+      --  Check for transient controlled objects associated with Target and
+      --  generate the appropriate finalization actions for them.
 
-         --  Reset the action lists
+      Process_Transient_Objects
+        (First_Object => First_Obj,
+         Last_Object  => Last_Obj,
+         Related_Node => Target);
 
-         if Present (Act_Before) then
-            Scope_Stack.Table (Scope_Stack.Last).
-              Actions_To_Be_Wrapped (Before) := No_List;
-         end if;
+      --  Reset the action lists
 
-         if Present (Act_After) then
-            Scope_Stack.Table (Scope_Stack.Last).
-              Actions_To_Be_Wrapped (After) := No_List;
-         end if;
-      end;
+      Scope_Stack.Table
+        (Scope_Stack.Last).Actions_To_Be_Wrapped (Before) := No_List;
+      Scope_Stack.Table
+        (Scope_Stack.Last).Actions_To_Be_Wrapped (After)  := No_List;
+
+      if Clean then
+         Scope_Stack.Table
+           (Scope_Stack.Last).Actions_To_Be_Wrapped (Cleanup) := No_List;
+      end if;
    end Insert_Actions_In_Scope_Around;
 
    ------------------------------
@@ -5063,7 +4983,7 @@ package body Exp_Ch7 is
       Utyp := Underlying_Type (Base_Type (Utyp));
       Set_Assignment_OK (Ref);
 
-      --  Deal with non-tagged derivation of private views
+      --  Deal with untagged derivation of private views
 
       if Is_Untagged_Derivation (Typ) then
          Utyp := Underlying_Type (Root_Type (Base_Type (Typ)));
@@ -6984,9 +6904,7 @@ package body Exp_Ch7 is
 
          --    Deep_Finalize (Obj._parent, False);
 
-         if Is_Tagged_Type (Typ)
-           and then Is_Derived_Type (Typ)
-         then
+         if Is_Tagged_Type (Typ) and then Is_Derived_Type (Typ) then
             declare
                Par_Typ  : constant Entity_Id := Parent_Field_Type (Typ);
                Call     : Node_Id;
@@ -7041,9 +6959,7 @@ package body Exp_Ch7 is
          --  Finalize the object. This action must be performed first before
          --  all components have been finalized.
 
-         if Is_Controlled (Typ)
-           and then not Is_Local
-         then
+         if Is_Controlled (Typ) and then not Is_Local then
             declare
                Fin_Stmt : Node_Id;
                Proc     : Entity_Id;
@@ -7272,7 +7188,7 @@ package body Exp_Ch7 is
       Utyp := Underlying_Type (Base_Type (Utyp));
       Set_Assignment_OK (Ref);
 
-      --  Deal with non-tagged derivation of private views. If the parent type
+      --  Deal with untagged derivation of private views. If the parent type
       --  is a protected type, Deep_Finalize is found on the corresponding
       --  record of the ancestor.
 
@@ -7739,11 +7655,9 @@ package body Exp_Ch7 is
 
       Utyp := Underlying_Type (Base_Type (Utyp));
 
-      --  Deal with non-tagged derivation of private views
+      --  Deal with untagged derivation of private views
 
-      if Is_Untagged_Derivation (Typ)
-        and then not Is_Conc
-      then
+      if Is_Untagged_Derivation (Typ) and then not Is_Conc then
          Utyp := Underlying_Type (Root_Type (Base_Type (Typ)));
          Ref  := Unchecked_Convert_To (Utyp, Ref);
 
@@ -7868,7 +7782,7 @@ package body Exp_Ch7 is
 
       Utyp := Underlying_Type (Base_Type (Utyp));
 
-      --  Deal with non-tagged derivation of private views. If the parent is
+      --  Deal with untagged derivation of private views. If the parent is
       --  now known to be protected, the finalization routine is the one
       --  defined on the corresponding record of the ancestor (corresponding
       --  records do not automatically inherit operations, but maybe they
@@ -8006,9 +7920,11 @@ package body Exp_Ch7 is
       Set_Parent (Block, Par);
 
       --  Insert actions stuck in the transient scopes as well as all freezing
-      --  nodes needed by those actions.
+      --  nodes needed by those actions. Do not insert cleanup actions here,
+      --  they will be transferred to the newly created block.
 
-      Insert_Actions_In_Scope_Around (Action);
+      Insert_Actions_In_Scope_Around
+        (Action, Clean => False, Manage_SS => False);
 
       Insert := Prev (Action);
       if Present (Insert) then
@@ -8118,7 +8034,7 @@ package body Exp_Ch7 is
    --  declaration into a transient block as usual case, otherwise the object
    --  would be itself declared in the wrong scope. Therefore, all entities (if
    --  any) defined in the transient block are moved to the proper enclosing
-   --  scope, furthermore, if they are controlled variables they are finalized
+   --  scope. Furthermore, if they are controlled variables they are finalized
    --  right after the declaration. The finalization list of the transient
    --  scope is defined as a renaming of the enclosing one so during their
    --  initialization they will be attached to the proper finalization list.
@@ -8134,42 +8050,54 @@ package body Exp_Ch7 is
    --    [Deep_]Finalize (_v2);
 
    procedure Wrap_Transient_Declaration (N : Node_Id) is
-      Encl_S  : Entity_Id;
-      S       : Entity_Id;
-      Uses_SS : Boolean;
+      Curr_S : Entity_Id;
+      Encl_S : Entity_Id;
 
    begin
-      S := Current_Scope;
-      Encl_S := Scope (S);
+      Curr_S := Current_Scope;
+      Encl_S := Scope (Curr_S);
 
-      --  Insert Actions kept in the Scope stack
+      --  Insert all actions inluding cleanup generated while analyzing or
+      --  expanding the transient context back into the tree. Manage the
+      --  secondary stack when the object declaration appears in a library
+      --  level package [body]. This is not needed for .NET/JVM as those do
+      --  not support the secondary stack.
 
-      Insert_Actions_In_Scope_Around (N);
-
-      --  If the declaration is consuming some secondary stack, mark the
-      --  enclosing scope appropriately.
-
-      Uses_SS := Uses_Sec_Stack (S);
+      Insert_Actions_In_Scope_Around
+        (N         => N,
+         Clean     => True,
+         Manage_SS =>
+           VM_Target = No_VM
+             and then Uses_Sec_Stack (Curr_S)
+             and then Nkind (N) = N_Object_Declaration
+             and then Ekind_In (Encl_S, E_Package, E_Package_Body)
+             and then Is_Library_Level_Entity (Encl_S));
       Pop_Scope;
 
-      --  Put the local entities back in the enclosing scope, and set the
-      --  Is_Public flag appropriately.
+      --  Relocate local entities declared within the transient scope to the
+      --  enclosing scope. This action sets their Is_Public flag accordingly.
 
-      Transfer_Entities (S, Encl_S);
+      Transfer_Entities (Curr_S, Encl_S);
 
-      --  Mark the enclosing dynamic scope so that the sec stack will be
-      --  released upon its exit unless this is a function that returns on
-      --  the sec stack in which case this will be done by the caller.
+      --  Mark the enclosing dynamic scope to ensure that the secondary stack
+      --  is properly released upon exiting the said scope. This is not needed
+      --  for .NET/JVM as those do not support the secondary stack.
 
-      if VM_Target = No_VM and then Uses_SS then
-         S := Enclosing_Dynamic_Scope (S);
+      if VM_Target = No_VM and then Uses_Sec_Stack (Curr_S) then
+         Curr_S := Enclosing_Dynamic_Scope (Curr_S);
 
-         if Ekind (S) = E_Function
-           and then Requires_Transient_Scope (Etype (S))
+         --  Do not mark a function that returns on the secondary stack as the
+         --  reclamation is done by the caller.
+
+         if Ekind (Curr_S) = E_Function
+           and then Requires_Transient_Scope (Etype (Curr_S))
          then
             null;
+
+         --  Otherwise mark the enclosing dynamic scope
+
          else
-            Set_Uses_Sec_Stack (S);
+            Set_Uses_Sec_Stack (Curr_S);
             Check_Restriction (No_Secondary_Stack, N);
          end if;
       end if;
@@ -8192,11 +8120,11 @@ package body Exp_Ch7 is
       --    declare
       --       M : constant Mark_Id := SS_Mark;
       --       procedure Finalizer is ...  (See Build_Finalizer)
-      --
+
       --    begin
       --       Temp := <Expr>;                           --  general case
       --       Temp := (if <Expr> then True else False); --  boolean case
-      --
+
       --    at end
       --       Finalizer;
       --    end;

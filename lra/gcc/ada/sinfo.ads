@@ -577,6 +577,10 @@ package Sinfo is
    --       warning issued when generating code, to avoid formal verification
    --       of a partial unit.
 
+   --    4. Unconstrained types are not replaced by constrained types whose
+   --       bounds are generated from an expression: Expand_Subtype_From_Expr
+   --       should be noop.
+
    -----------------------
    -- Check Flag Fields --
    -----------------------
@@ -1061,7 +1065,9 @@ package Sinfo is
    --      Initialization expression for the initial value in an object
    --      declaration. In this case the Do_Range_Check flag is set on
    --      the initialization expression, and the check is against the
-   --      range of the type of the object being declared.
+   --      range of the type of the object being declared. This includes the
+   --      cases of expressions providing default discriminant values, and
+   --      expressions used to initialize record components.
 
    --      The expression of a type conversion. In this case the range check is
    --      against the target type of the conversion. See also the use of
@@ -1259,8 +1265,6 @@ package Sinfo is
    --  Float_Truncate (Flag11-Sem)
    --    A flag present in type conversion nodes. This is used for float to
    --    integer conversions where truncation is required rather than rounding.
-   --    Note that Gigi does not handle type conversions from real to integer
-   --    with rounding (see Expand_N_Type_Conversion).
 
    --  Forwards_OK (Flag5-Sem)
    --    A flag present in the N_Assignment_Statement node. It is used only
@@ -1625,7 +1629,7 @@ package Sinfo is
    --    when Raises_Constraint_Error is also set. In practice almost all cases
    --    where a static expression is required do not allow an expression which
    --    raises Constraint_Error, so almost always, callers should call the
-   --    Is_Ok_Static_Exprression routine instead of testing this flag. See
+   --    Is_Ok_Static_Expression routine instead of testing this flag. See
    --    spec of package Sem_Eval for full details on the use of this flag.
 
    --  Is_Subprogram_Descriptor (Flag16-Sem)
@@ -1685,6 +1689,8 @@ package Sinfo is
    --
    --     For a subunit, Library_Unit points to the compilation unit node of
    --     the parent body.
+   --     ??? not (always) true, in (at least some, maybe all?) cases it points
+   --     to the corresponding spec for the parent body.
    --
    --    Note that this field is not used to hold the parent pointer for child
    --    unit (which might in any case need to use it for some other purpose as
@@ -1887,21 +1893,6 @@ package Sinfo is
    --    this materialized list of choices, which is in standard format for a
    --    list of discrete choices, except that of course it cannot contain an
    --    N_Others_Choice entry.
-
-   --  Parameter_List_Truncated (Flag17-Sem)
-   --    Present in N_Function_Call and N_Procedure_Call_Statement nodes. Set
-   --    (for OpenVMS ports of GNAT only) if the parameter list is truncated
-   --    as a result of a First_Optional_Parameter specification in one of the
-   --    pragmas Import_Function, Import_Procedure, or Import_Valued_Procedure.
-   --    The truncation is done by the expander by removing trailing parameters
-   --    from the argument list, in accordance with the set of rules allowing
-   --    such parameter removal. In particular, parameters can be removed
-   --    working from the end of the parameter list backwards up to and
-   --    including the entry designated by First_Optional_Parameter in the
-   --    Import pragma. Parameters can be removed if they are implicit and the
-   --    default value is known at compile time value, including the use of
-   --    the Null_Parameter attribute, or if explicit parameter values are
-   --    present that match the corresponding defaults.
 
    --  Parent_Spec (Node4-Sem)
    --    For a library unit that is a child unit spec (package or subprogram
@@ -5156,7 +5147,6 @@ package Sinfo is
       --  Controlling_Argument (Node1-Sem) (set to Empty if not dispatching)
       --  Do_Tag_Check (Flag13-Sem)
       --  No_Elaboration_Check (Flag14-Sem)
-      --  Parameter_List_Truncated (Flag17-Sem)
       --  ABE_Is_Certain (Flag18-Sem)
       --  plus fields for expression
 
@@ -5188,7 +5178,6 @@ package Sinfo is
       --  Is_Expanded_Build_In_Place_Call (Flag11-Sem)
       --  Do_Tag_Check (Flag13-Sem)
       --  No_Elaboration_Check (Flag14-Sem)
-      --  Parameter_List_Truncated (Flag17-Sem)
       --  ABE_Is_Certain (Flag18-Sem)
       --  plus fields for expression
 
@@ -9433,9 +9422,6 @@ package Sinfo is
    function Parameter_Associations
      (N : Node_Id) return List_Id;    -- List3
 
-   function Parameter_List_Truncated
-     (N : Node_Id) return Boolean;    -- Flag17
-
    function Parameter_Specifications
      (N : Node_Id) return List_Id;    -- List3
 
@@ -10455,9 +10441,6 @@ package Sinfo is
 
    procedure Set_Parameter_Associations
      (N : Node_Id; Val : List_Id);            -- List3
-
-   procedure Set_Parameter_List_Truncated
-     (N : Node_Id; Val : Boolean := True);    -- Flag17
 
    procedure Set_Parameter_Specifications
      (N : Node_Id; Val : List_Id);            -- List3
@@ -12719,7 +12702,6 @@ package Sinfo is
    pragma Inline (Out_Present);
    pragma Inline (Parameter_Associations);
    pragma Inline (Parameter_Specifications);
-   pragma Inline (Parameter_List_Truncated);
    pragma Inline (Parameter_Type);
    pragma Inline (Parent_Spec);
    pragma Inline (Position);
@@ -13055,7 +13037,6 @@ package Sinfo is
    pragma Inline (Set_Others_Discrete_Choices);
    pragma Inline (Set_Out_Present);
    pragma Inline (Set_Parameter_Associations);
-   pragma Inline (Set_Parameter_List_Truncated);
    pragma Inline (Set_Parameter_Specifications);
    pragma Inline (Set_Parameter_Type);
    pragma Inline (Set_Parent_Spec);

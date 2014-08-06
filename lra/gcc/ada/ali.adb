@@ -108,7 +108,6 @@ package body ALI is
       --  ALI files that are read for a given processing run in gnatbind.
 
       Dynamic_Elaboration_Checks_Specified   := False;
-      Float_Format_Specified                 := ' ';
       Locking_Policy_Specified               := ' ';
       No_Normalize_Scalars_Specified         := False;
       No_Object_Specified                    := False;
@@ -876,7 +875,6 @@ package body ALI is
         First_Sdep                   => No_Sdep_Id,
         First_Specific_Dispatching   => Specific_Dispatching.Last + 1,
         First_Unit                   => No_Unit_Id,
-        Float_Format                 => 'I',
         Last_Interrupt_State         => Interrupt_States.Last,
         Last_Sdep                    => No_Sdep_Id,
         Last_Specific_Dispatching    => Specific_Dispatching.Last,
@@ -1090,12 +1088,6 @@ package body ALI is
                Partition_Elaboration_Policy_Specified := Getc;
                ALIs.Table (Id).Partition_Elaboration_Policy :=
                  Partition_Elaboration_Policy_Specified;
-
-            --  Processing for FD/FG/FI
-
-            elsif C = 'F' then
-               Float_Format_Specified := Getc;
-               ALIs.Table (Id).Float_Format := Float_Format_Specified;
 
             --  Processing for Lx
 
@@ -2185,20 +2177,30 @@ package body ALI is
                Notes.Table (Notes.Last).Pragma_Line := Get_Nat;
                Checkc (':');
                Notes.Table (Notes.Last).Pragma_Col  := Get_Nat;
-               Notes.Table (Notes.Last).Unit        := Units.Last;
+
+               if not At_Eol and then Nextc = ':' then
+                  Checkc (':');
+                  Notes.Table (Notes.Last).Pragma_Source_File :=
+                    Get_File_Name (Lower => True);
+               else
+                  Notes.Table (Notes.Last).Pragma_Source_File :=
+                    Units.Table (Units.Last).Sfile;
+               end if;
 
                if At_Eol then
                   Notes.Table (Notes.Last).Pragma_Args := No_Name;
 
                else
+                  --  Note: can't use Get_Name here as the remainder of the
+                  --  line is unstructured text whose syntax depends on the
+                  --  particular pragma used.
+
                   Checkc (' ');
 
                   Name_Len := 0;
                   while not At_Eol loop
                      Add_Char_To_Name_Buffer (Getc);
                   end loop;
-
-                  Notes.Table (Notes.Last).Pragma_Args := Name_Enter;
                end if;
 
                Skip_Eol;
