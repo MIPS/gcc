@@ -464,6 +464,37 @@ gimple_simplify (enum built_in_function fn, tree type,
   return maybe_push_res_to_seq (rcode, type, ops, seq);
 }
 
+tree
+gimple_simplify (enum built_in_function fn, tree type,
+		 tree arg0, tree arg1,
+		 gimple_seq *seq, tree (*valueize)(tree))
+{
+  if (constant_for_folding (arg0)
+      && constant_for_folding (arg1))
+    {
+      tree decl = builtin_decl_implicit (fn);
+      if (decl)
+	{
+	  tree res = fold_builtin_n (UNKNOWN_LOCATION, decl, &arg0, 2, false);
+	  if (res)
+	    {
+	      /* fold_builtin_n wraps the result inside a NOP_EXPR.  */
+	      STRIP_NOPS (res);
+	      res = fold_convert (type, res);
+	      if (CONSTANT_CLASS_P (res))
+		return res;
+	    }
+	}
+    }
+
+  code_helper rcode;
+  tree ops[3] = {};
+  if (!gimple_simplify (&rcode, ops, seq, valueize,
+			fn, type, arg0, arg1))
+    return NULL_TREE;
+  return maybe_push_res_to_seq (rcode, type, ops, seq);
+}
+
 static bool
 gimple_simplify (gimple stmt,
 		 code_helper *rcode, tree *ops,
