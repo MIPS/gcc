@@ -1074,7 +1074,7 @@ build_one_array (gimple swtch, int num, tree arr_index_type, gimple phi,
       DECL_ARTIFICIAL (decl) = 1;
       TREE_CONSTANT (decl) = 1;
       TREE_READONLY (decl) = 1;
-      varpool_finalize_decl (decl);
+      varpool_node::finalize_decl (decl);
 
       fetch = build4 (ARRAY_REF, value_type, decl, tidx, NULL_TREE,
 		      NULL_TREE);
@@ -1429,7 +1429,6 @@ const pass_data pass_data_convert_switch =
   GIMPLE_PASS, /* type */
   "switchconv", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_TREE_SWITCH_CONVERSION, /* tv_id */
   ( PROP_cfg | PROP_ssa ), /* properties_required */
   0, /* properties_provided */

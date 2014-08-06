@@ -1,3 +1,176 @@
+2014-08-02  Trevor Saunders  <tsaunders@mozilla.com>
+
+	* openmp.c, trans-decl.c: Use hash_set instead of pointer_set.
+
+2014-07-26  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/61881
+	PR fortran/61888
+	PR fortran/57305
+	* intrinsic.texi (SIZEOF): Document changed behavior
+	for polymorphic arrays.
+
+2014-07-26  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/61881
+	PR fortran/61888
+	PR fortran/57305
+	* check.c (gfc_check_sizeof): Permit for assumed type if and
+	only if it has an array descriptor.
+	* intrinsic.c (do_ts29113_check): Permit SIZEOF.
+	(add_functions): SIZEOF is an Inquiry function.
+	* intrinsic.texi (SIZEOF): Add note that only contiguous
+	arrays are permitted.
+	* trans-expr.c (gfc_conv_intrinsic_to_class): Handle assumed
+	rank.
+	* trans-intrinsic.c (gfc_conv_intrinsic_sizeof): Handle
+	assumed type + array descriptor, CLASS and assumed rank.
+	(gfc_conv_intrinsic_storage_size): Handle class arrays.
+
+2014-07-25  Tobias Burnus  <burnus@net-b.de>
+
+	* simplify.c (gfc_simplify_storage_size): Use proper
+	integer kind for the returned value.
+
+2014-07-24  Uros Bizjak  <ubizjak@gmail.com>
+
+	* intrinsic.texi (Intrinsic Procedures) <ATOMIC_DEFINE>: Move to
+	correct menu position to match sectioning.
+
+2014-06-15  Tobias Burnus  <burnus@net-b.de>
+
+	* symbol.c (check_conflict): Add codimension conflict with
+	pointer; fix cray-pointee check.
+
+2014-06-14  Tobias Burnus  <burnus@net-b.de>
+
+	* trans-intrinsic.c (conv_intrinsic_atomic_ref): Fix handling
+	for kind mismatch with -fcoarray=lib.
+
+2014-07-12  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/61780
+	* dependency.c (gfc_dep_resolver): Index the 'reverse' array so
+	that elements are skipped. This then correctly aligns 'reverse'
+	with the scalarizer loops.
+
+2014-07-12  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/61628
+	* trans-types.c (gfc_init_types): Fix data-type bug
+	with gfc_max_array_element_size.
+
+2014-07-12  Tobias Burnus  <burnus@net-b.de>
+
+	* libgfortran.h (libcaf_atomic_codes): Add.
+	* trans-decl.c (gfor_fndecl_caf_atomic_def,
+	gfor_fndecl_caf_atomic_ref, gfor_fndecl_caf_atomic_cas,
+	gfor_fndecl_caf_atomic_op): New variables.
+	(gfc_build_builtin_function_decls): Initialize them.
+	* trans.h (gfor_fndecl_caf_atomic_def,
+	gfor_fndecl_caf_atomic_ref, gfor_fndecl_caf_atomic_cas,
+	gfor_fndecl_caf_atomic_op): New variables.
+	* trans-intrinsic.c (conv_intrinsic_atomic_op,
+	conv_intrinsic_atomic_ref, conv_intrinsic_atomic_cas):
+	Add library calls with -fcoarray=lib.
+
+2014-07-12  Tobias Burnus  <burnus@net-b.de>
+
+	* check.c (gfc_check_atomic): Update for STAT=.
+	(gfc_check_atomic_def, gfc_check_atomic_ref): Update call.
+	(gfc_check_atomic_op, gfc_check_atomic_cas,
+	gfc_check_atomic_fetch_op): New.
+	* gfortran.h (gfc_isym_id): GFC_ISYM_ATOMIC_CAS, GFC_ISYM_ATOMIC_ADD,
+	GFC_ISYM_ATOMIC_AND, GFC_ISYM_ATOMIC_OR, GFC_ISYM_ATOMIC_XOR,
+	GFC_ISYM_ATOMIC_FETCH_ADD, GFC_ISYM_ATOMIC_FETCH_AND,
+	GFC_ISYM_ATOMIC_FETCH_OR and GFC_ISYM_ATOMIC_FETCH_XOR.
+	* intrinsic.c (add_subroutines): Handle them.
+	* intrinsic.texi: Add documentation for them.
+	(ATOMIC_REF, ATOMIC_DEFINE): Add STAT=.
+	(ISO_FORTRAN_ENV): Add STAT_FAILED_IMAGE.
+	* intrinsic.h (gfc_check_atomic_op, gfc_check_atomic_cas,
+	gfc_check_atomic_fetch_op): New
+	prototypes.
+	* libgfortran.h (libgfortran_stat_codes): Add GFC_STAT_FAILED_IMAGE.
+	* iso-fortran-env.def: Add it.
+	* trans-intrinsic.c (conv_intrinsic_atomic_op): Renamed from
+	conv_intrinsic_atomic_ref; handle more atomics.
+	(conv_intrinsic_atomic_def): Handle STAT=.
+	(conv_intrinsic_atomic_cas): New.
+	(gfc_conv_intrinsic_subroutine): Handle new atomics.
+
+2014-07-09  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* trans-array.c (gfc_build_constant_array_constructor): Build a
+	static decl manually.
+	* trans-decl.c (create_main_function): Likewise.
+
+2014-07-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/61459
+	PR fortran/58883
+	* trans-expr.c (fcncall_realloc_result): Use the natural type
+	for the address expression of 'res_desc'.
+
+2014-07-07  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* gfortran.texi (Fortran 2003 status): Fix grammar.
+
+2014-07-04  Tobias Burnus  <burnus@net-b.de>
+
+	* resolve.c (resolve_assoc_var): Fix corank setting.
+	* trans-array.c (gfc_conv_descriptor_token): Change assert.
+	for select-type temporaries.
+	* trans-decl.c (generate_coarray_sym_init): Skip for
+	attr.select_type_temporary.
+	* trans-expr.c (gfc_conv_procedure_call): Fix for
+	select-type temporaries.
+	* trans-intrinsic.c (get_caf_token_offset): Ditto.
+	(gfc_conv_intrinsic_caf_get, gfc_conv_intrinsic_caf_send): Set
+	the correct dtype.
+	* trans-types.h (gfc_get_dtype_rank_type): New.
+	* trans-types.c (gfc_get_dtype_rank_type): Ditto.
+
+2014-07-03  Tobias Burnus  <burnus@net-b.de>
+
+	* scanner.c (skip_free_comments): Fix indentation.
+
+2014-07-02  Jakub Jelinek  <jakub@redhat.com>
+	    Fritz Reese  <Reese-Fritz@zai.com>
+
+	* decl.c (variable_decl): Reject old style initialization
+	for derived type components.
+
+2014-06-29  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/36275
+	PR fortran/38839
+	* decl.c (check_bind_name_identifier): New function.
+	(gfc_match_bind_c): Match any constant expression as binding
+	label.
+	* match.c (gfc_match_name_C): Remove.
+
+2014-06-28  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/29383
+	* gfortran.h (gfc_simplify_ieee_selected_real_kind): New prototype.
+	* libgfortran.h (GFC_FPE_*): Use simple integer values, valid in
+	both C and Fortran.
+	* expr.c (gfc_check_init_expr): Simplify IEEE_SELECTED_REAL_KIND.
+	* simplify.c (gfc_simplify_ieee_selected_real_kind): New function.
+	* module.c (mio_symbol): Keep track of symbols which came from
+	intrinsic modules.
+	(gfc_use_module): Keep track of the IEEE modules.
+	* trans-decl.c (gfc_get_symbol_decl): Adjust code since
+	we have new intrinsic modules.
+	(gfc_build_builtin_function_decls): Build decls for
+	ieee_procedure_entry and ieee_procedure_exit.
+	(is_from_ieee_module, is_ieee_module_used, save_fp_state,
+	restore_fp_state): New functions.
+	(gfc_generate_function_code): Save and restore floating-point
+	state on procedure entry/exit, when IEEE modules are used.
+	* intrinsic.texi: Document the IEEE modules.
+
 2014-06-25  Tobias Burnus  <burnus@net-b.de>
 
 	* interface.c (check_intents): Fix diagnostic with

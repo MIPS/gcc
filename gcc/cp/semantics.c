@@ -2418,6 +2418,15 @@ finish_call_expr (tree fn, vec<tree, va_gc> **args, bool disallow_virtual,
   return result;
 }
 
+/* Instantiate a variable declaration from a TEMPLATE_ID_EXPR for use. */
+
+tree
+finish_template_variable (tree var)
+{
+  return instantiate_template (TREE_OPERAND (var, 0), TREE_OPERAND (var, 1),
+                               tf_error);
+}
+
 /* Finish a call to a postfix increment or decrement or EXPR.  (Which
    is indicated by CODE, which should be POSTINCREMENT_EXPR or
    POSTDECREMENT_EXPR.)  */
@@ -3579,6 +3588,11 @@ finish_id_expression (tree id_expression,
 	     a call to its wrapper.  */
 	  decl = build_cxx_call (wrap, 0, NULL, tf_warning_or_error);
 	}
+      else if (TREE_CODE (decl) == TEMPLATE_ID_EXPR
+	       && variable_template_p (TREE_OPERAND (decl, 0)))
+	{
+	  decl = finish_template_variable (decl);
+	}
       else if (scope)
 	{
 	  decl = (adjust_result_of_qualified_name_lookup
@@ -3949,7 +3963,6 @@ simplify_aggr_init_expr (tree *tp)
 				    AGGR_INIT_EXPR_ARGP (aggr_init_expr));
   TREE_NOTHROW (call_expr) = TREE_NOTHROW (aggr_init_expr);
   CALL_EXPR_LIST_INIT_P (call_expr) = CALL_EXPR_LIST_INIT_P (aggr_init_expr);
-  tree ret = call_expr;
 
   if (style == ctor)
     {
@@ -3965,7 +3978,7 @@ simplify_aggr_init_expr (tree *tp)
 	 expand_call{,_inline}.  */
       cxx_mark_addressable (slot);
       CALL_EXPR_RETURN_SLOT_OPT (call_expr) = true;
-      ret = build2 (INIT_EXPR, TREE_TYPE (ret), slot, ret);
+      call_expr = build2 (INIT_EXPR, TREE_TYPE (call_expr), slot, call_expr);
     }
   else if (style == pcc)
     {
@@ -3973,11 +3986,11 @@ simplify_aggr_init_expr (tree *tp)
 	 need to copy the returned value out of the static buffer into the
 	 SLOT.  */
       push_deferring_access_checks (dk_no_check);
-      ret = build_aggr_init (slot, ret,
-			     DIRECT_BIND | LOOKUP_ONLYCONVERTING,
-			     tf_warning_or_error);
+      call_expr = build_aggr_init (slot, call_expr,
+				   DIRECT_BIND | LOOKUP_ONLYCONVERTING,
+                                   tf_warning_or_error);
       pop_deferring_access_checks ();
-      ret = build2 (COMPOUND_EXPR, TREE_TYPE (slot), ret, slot);
+      call_expr = build2 (COMPOUND_EXPR, TREE_TYPE (slot), call_expr, slot);
     }
 
   if (AGGR_INIT_ZERO_FIRST (aggr_init_expr))
@@ -3985,10 +3998,11 @@ simplify_aggr_init_expr (tree *tp)
       tree init = build_zero_init (type, NULL_TREE,
 				   /*static_storage_p=*/false);
       init = build2 (INIT_EXPR, void_type_node, slot, init);
-      ret = build2 (COMPOUND_EXPR, TREE_TYPE (ret), init, ret);
+      call_expr = build2 (COMPOUND_EXPR, TREE_TYPE (call_expr),
+			  init, call_expr);
     }
 
-  *tp = ret;
+  *tp = call_expr;
 }
 
 /* Emit all thunks to FN that should be emitted when FN is emitted.  */
@@ -4028,13 +4042,16 @@ emit_associated_thunks (tree fn)
 }
 
 /* Returns true iff FUN is an instantiation of a constexpr function
-   template.  */
+   template or a defaulted constexpr function.  */
 
 static inline bool
 is_instantiation_of_constexpr (tree fun)
 {
-  return (DECL_TEMPLOID_INSTANTIATION (fun)
-	  && DECL_DECLARED_CONSTEXPR_P (DECL_TI_TEMPLATE (fun)));
+  return ((DECL_TEMPLOID_INSTANTIATION (fun)
+	   && DECL_DECLARED_CONSTEXPR_P (DECL_TI_TEMPLATE (fun)))
+	  || (DECL_DEFAULTED_FN (fun)
+	      && DECL_DECLARED_CONSTEXPR_P (fun)));
+
 }
 
 /* Generate RTL for FN.  */
@@ -5053,15 +5070,15 @@ clone_omp_udr (tree stmt, tree omp_decl1, tree omp_decl2,
 	       tree decl, tree placeholder)
 {
   copy_body_data id;
-  struct pointer_map_t *decl_map = pointer_map_create ();
+  hash_map<tree, tree> decl_map;
 
-  *pointer_map_insert (decl_map, omp_decl1) = placeholder;
-  *pointer_map_insert (decl_map, omp_decl2) = decl;
+  decl_map.put (omp_decl1, placeholder);
+  decl_map.put (omp_decl2, decl);
   memset (&id, 0, sizeof (id));
   id.src_fn = DECL_CONTEXT (omp_decl1);
   id.dst_fn = current_function_decl;
   id.src_cfun = DECL_STRUCT_FUNCTION (id.src_fn);
-  id.decl_map = decl_map;
+  id.decl_map = &decl_map;
 
   id.copy_decl = copy_decl_no_change;
   id.transform_call_graph_edges = CB_CGE_DUPLICATE;
@@ -5070,7 +5087,6 @@ clone_omp_udr (tree stmt, tree omp_decl1, tree omp_decl2,
   id.transform_lang_insert_block = NULL;
   id.eh_lp_nr = 0;
   walk_tree (&stmt, copy_tree_body_r, &id, NULL);
-  pointer_map_destroy (decl_map);
   return stmt;
 }
 
@@ -8138,7 +8154,7 @@ register_constexpr_fundef (tree fun, tree body)
 void
 explain_invalid_constexpr_fn (tree fun)
 {
-  static struct pointer_set_t *diagnosed;
+  static hash_set<tree> *diagnosed;
   tree body;
   location_t save_loc;
   /* Only diagnose defaulted functions or instantiations.  */
@@ -8146,8 +8162,8 @@ explain_invalid_constexpr_fn (tree fun)
       && !is_instantiation_of_constexpr (fun))
     return;
   if (diagnosed == NULL)
-    diagnosed = pointer_set_create ();
-  if (pointer_set_insert (diagnosed, fun) != 0)
+    diagnosed = new hash_set<tree>;
+  if (diagnosed->add (fun))
     /* Already explained.  */
     return;
 
@@ -8158,7 +8174,7 @@ explain_invalid_constexpr_fn (tree fun)
   if (is_valid_constexpr_fn (fun, true))
     {
       /* Then if it's OK, the body.  */
-      if (DECL_DEFAULTED_FN (fun))
+      if (!DECL_DECLARED_CONSTEXPR_P (fun))
 	explain_implicit_non_constexpr (fun);
       else
 	{
@@ -8629,11 +8645,24 @@ cxx_eval_call_expression (const constexpr_call *old_call, tree t,
 bool
 reduced_constant_expression_p (tree t)
 {
-  if (TREE_CODE (t) == PTRMEM_CST)
-    /* Even if we can't lower this yet, it's constant.  */
-    return true;
-  /* FIXME are we calling this too much?  */
-  return initializer_constant_valid_p (t, TREE_TYPE (t)) != NULL_TREE;
+  switch (TREE_CODE (t))
+    {
+    case PTRMEM_CST:
+      /* Even if we can't lower this yet, it's constant.  */
+      return true;
+
+    case CONSTRUCTOR:
+      /* And we need to handle PTRMEM_CST wrapped in a CONSTRUCTOR.  */
+      tree elt; unsigned HOST_WIDE_INT idx;
+      FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (t), idx, elt)
+	if (!reduced_constant_expression_p (elt))
+	  return false;
+      return true;
+
+    default:
+      /* FIXME are we calling this too much?  */
+      return initializer_constant_valid_p (t, TREE_TYPE (t)) != NULL_TREE;
+    }
 }
 
 /* Some expressions may have constant operands but are not constant

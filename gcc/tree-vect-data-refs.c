@@ -375,11 +375,14 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
 		.. = a[i+1];
 	     where we will end up loading { a[i], a[i+1] } once, make
 	     sure that inserting group loads before the first load and
-	     stores after the last store will do the right thing.  */
-	  if ((STMT_VINFO_GROUPED_ACCESS (stmtinfo_a)
-	       && GROUP_SAME_DR_STMT (stmtinfo_a))
-	      || (STMT_VINFO_GROUPED_ACCESS (stmtinfo_b)
-		  && GROUP_SAME_DR_STMT (stmtinfo_b)))
+	     stores after the last store will do the right thing.
+	     Similar for groups like
+	        a[i] = ...;
+		... = a[i];
+		a[i+1] = ...;
+	     where loads from the group interleave with the store.  */
+	  if (STMT_VINFO_GROUPED_ACCESS (stmtinfo_a)
+	      || STMT_VINFO_GROUPED_ACCESS (stmtinfo_b))
 	    {
 	      gimple earlier_stmt;
 	      earlier_stmt = get_earlier_stmt (DR_STMT (dra), DR_STMT (drb));
@@ -3218,7 +3221,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo,
 		      tree fndecl = gimple_call_fndecl (stmt), op;
 		      if (fndecl != NULL_TREE)
 			{
-			  struct cgraph_node *node = cgraph_get_node (fndecl);
+			  struct cgraph_node *node = cgraph_node::get (fndecl);
 			  if (node != NULL && node->simd_clones != NULL)
 			    {
 			      unsigned int j, n = gimple_call_num_args (stmt);
@@ -5687,10 +5690,10 @@ vect_can_force_dr_alignment_p (const_tree decl, unsigned int alignment)
 
       /* When compiling partition, be sure the symbol is not output by other
 	 partition.  */
-      snode = symtab_get_node (decl);
+      snode = symtab_node::get (decl);
       if (flag_ltrans
 	  && (snode->in_other_partition
-	      || symtab_get_symbol_partitioning_class (snode) == SYMBOL_DUPLICATE))
+	      || snode->get_partitioning_class () == SYMBOL_DUPLICATE))
 	return false;
     }
 
@@ -5704,13 +5707,13 @@ vect_can_force_dr_alignment_p (const_tree decl, unsigned int alignment)
      software projects.  */
   if (TREE_STATIC (decl) 
       && DECL_SECTION_NAME (decl) != NULL
-      && !symtab_get_node (decl)->implicit_section)
+      && !symtab_node::get (decl)->implicit_section)
     return false;
 
   /* If symbol is an alias, we need to check that target is OK.  */
   if (TREE_STATIC (decl))
     {
-      tree target = symtab_alias_ultimate_target (symtab_get_node (decl))->decl;
+      tree target = symtab_node::get (decl)->ultimate_alias_target ()->decl;
       if (target != decl)
 	{
 	  if (DECL_PRESERVE_P (target))

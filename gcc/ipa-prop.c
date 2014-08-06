@@ -62,6 +62,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "dbgcnt.h"
 #include "domwalk.h"
 #include "builtins.h"
+#include "calls.h"
 
 /* Intermediate information that we get from alias analysis about a particular
    parameter in a particular basic_block.  When a parameter or the memory it
@@ -88,7 +89,7 @@ struct param_aa_status
 struct ipa_bb_info
 {
   /* Call graph edges going out of this BB.  */
-  vec<cgraph_edge_p> cg_edges;
+  vec<cgraph_edge *> cg_edges;
   /* Alias analysis statuses of each formal parameter at this bb.  */
   vec<param_aa_status> param_aa_statuses;
 };
@@ -203,14 +204,15 @@ ipa_populate_param_decls (struct cgraph_node *node,
   for (parm = fnargs; parm; parm = DECL_CHAIN (parm))
     {
       descriptors[param_num].decl = parm;
-      descriptors[param_num].move_cost = estimate_move_cost (TREE_TYPE (parm));
+      descriptors[param_num].move_cost = estimate_move_cost (TREE_TYPE (parm),
+							     true);
       param_num++;
     }
 }
 
 /* Return how many formal parameters FNDECL has.  */
 
-static inline int
+int
 count_formal_params (tree fndecl)
 {
   tree parm;
@@ -438,11 +440,15 @@ static void
 ipa_set_jf_known_type (struct ipa_jump_func *jfunc, HOST_WIDE_INT offset,
 		       tree base_type, tree component_type)
 {
-  gcc_assert (TREE_CODE (component_type) == RECORD_TYPE
-	      && TYPE_BINFO (component_type));
+  /* Recording and propagating main variants increases change that types
+     will match.  */
+  base_type = TYPE_MAIN_VARIANT (base_type);
+  component_type = TYPE_MAIN_VARIANT (component_type);
+
+  gcc_assert (contains_polymorphic_type_p (base_type)
+	      && contains_polymorphic_type_p (component_type));
   if (!flag_devirtualize)
     return;
-  gcc_assert (BINFO_VTABLE (TYPE_BINFO (component_type)));
   jfunc->type = IPA_JF_KNOWN_TYPE;
   jfunc->value.known_type.offset = offset,
   jfunc->value.known_type.base_type = base_type;
@@ -529,10 +535,11 @@ ipa_set_ancestor_jf (struct ipa_jump_func *jfunc, HOST_WIDE_INT offset,
 {
   if (!flag_devirtualize)
     type_preserved = false;
-  gcc_assert (!type_preserved
-	      || (TREE_CODE (type) == RECORD_TYPE
-		  && TYPE_BINFO (type)
-		  && BINFO_VTABLE (TYPE_BINFO (type))));
+  if (!type_preserved)
+    type = NULL_TREE;
+  if (type)
+    type = TYPE_MAIN_VARIANT (type);
+  gcc_assert (!type_preserved || contains_polymorphic_type_p (type));
   jfunc->type = IPA_JF_ANCESTOR;
   jfunc->value.ancestor.formal_id = formal_id;
   jfunc->value.ancestor.offset = offset;
@@ -547,9 +554,26 @@ ipa_set_ancestor_jf (struct ipa_jump_func *jfunc, HOST_WIDE_INT offset,
 tree
 ipa_binfo_from_known_type_jfunc (struct ipa_jump_func *jfunc)
 {
+  if (!RECORD_OR_UNION_TYPE_P (jfunc->value.known_type.base_type))
+    return NULL_TREE;
+
   tree base_binfo = TYPE_BINFO (jfunc->value.known_type.base_type);
+
   if (!base_binfo)
     return NULL_TREE;
+  /* FIXME: At LTO we can't propagate to non-polymorphic type, because
+     we have no ODR equivalency on those.  This should be fixed by
+     propagating on types rather than binfos that would make type
+     matching here unnecesary.  */
+  if (in_lto_p
+      && (TREE_CODE (jfunc->value.known_type.component_type) != RECORD_TYPE
+	  || !TYPE_BINFO (jfunc->value.known_type.component_type)
+	  || !BINFO_VTABLE (TYPE_BINFO (jfunc->value.known_type.component_type))))
+    {
+      if (!jfunc->value.known_type.offset)
+	return base_binfo;
+      return NULL;
+    }
   return get_binfo_at_offset (base_binfo,
 			      jfunc->value.known_type.offset,
 			      jfunc->value.known_type.component_type);
@@ -628,7 +652,8 @@ stmt_may_be_vtbl_ptr_store (gimple stmt)
 {
   if (is_gimple_call (stmt))
     return false;
-  /* TODO: Skip clobbers, doing so triggers problem in PR60306.  */
+  if (gimple_clobber_p (stmt))
+    return false;
   else if (is_gimple_assign (stmt))
     {
       tree lhs = gimple_assign_lhs (stmt);
@@ -712,7 +737,9 @@ check_stmt_for_type_change (ao_ref *ao ATTRIBUTE_UNUSED, tree vdef, void *data)
   if (stmt_may_be_vtbl_ptr_store (stmt))
     {
       tree type;
+
       type = extr_type_from_vtbl_ptr_store (stmt, tci);
+      gcc_assert (!type || TYPE_MAIN_VARIANT (type) == type);
       if (tci->type_maybe_changed
 	  && type != tci->known_current_type)
 	tci->multiple_types_encountered = true;
@@ -724,47 +751,104 @@ check_stmt_for_type_change (ao_ref *ao ATTRIBUTE_UNUSED, tree vdef, void *data)
     return false;
 }
 
+/* See if ARG is PARAM_DECl describing instance passed by pointer
+   or reference in FUNCTION.  Return false if the dynamic type may change
+   in between beggining of the function until CALL is invoked.
 
+   Generally functions are not allowed to change type of such instances,
+   but they call destructors.  We assume that methods can not destroy the THIS
+   pointer.  Also as a special cases, constructor and destructors may change
+   type of the THIS pointer.  */
+
+static bool
+param_type_may_change_p (tree function, tree arg, gimple call)
+{
+  /* Pure functions can not do any changes on the dynamic type;
+     that require writting to memory.  */
+  if (flags_from_decl_or_type (function) & (ECF_PURE | ECF_CONST))
+    return false;
+  /* We need to check if we are within inlined consturctor
+     or destructor (ideally we would have way to check that the
+     inline cdtor is actually working on ARG, but we don't have
+     easy tie on this, so punt on all non-pure cdtors.
+     We may also record the types of cdtors and once we know type
+     of the instance match them.
+
+     Also code unification optimizations may merge calls from
+     different blocks making return values unreliable.  So
+     do nothing during late optimization.  */
+  if (DECL_STRUCT_FUNCTION (function)->after_inlining)
+    return true;
+  if (TREE_CODE (arg) == SSA_NAME
+      && SSA_NAME_IS_DEFAULT_DEF (arg)
+      && TREE_CODE (SSA_NAME_VAR (arg)) == PARM_DECL)
+    {
+      /* Normal (non-THIS) argument.  */
+      if ((SSA_NAME_VAR (arg) != DECL_ARGUMENTS (function)
+	   || TREE_CODE (TREE_TYPE (function)) != METHOD_TYPE)
+	  /* THIS pointer of an method - here we we want to watch constructors
+	     and destructors as those definitely may change the dynamic
+	     type.  */
+	  || (TREE_CODE (TREE_TYPE (function)) == METHOD_TYPE
+	      && !DECL_CXX_CONSTRUCTOR_P (function)
+	      && !DECL_CXX_DESTRUCTOR_P (function)
+	      && (SSA_NAME_VAR (arg) == DECL_ARGUMENTS (function))))
+	{
+	  /* Walk the inline stack and watch out for ctors/dtors.  */
+	  for (tree block = gimple_block (call); block && TREE_CODE (block) == BLOCK;
+	       block = BLOCK_SUPERCONTEXT (block))
+	    if (BLOCK_ABSTRACT_ORIGIN (block)
+	        && TREE_CODE (BLOCK_ABSTRACT_ORIGIN (block)) == FUNCTION_DECL)
+	      {
+		tree fn = BLOCK_ABSTRACT_ORIGIN (block);
+
+		if (flags_from_decl_or_type (fn) & (ECF_PURE | ECF_CONST))
+		  continue;
+		if (TREE_CODE (TREE_TYPE (fn)) == METHOD_TYPE
+		    && (DECL_CXX_CONSTRUCTOR_P (fn)
+		        || DECL_CXX_DESTRUCTOR_P (fn)))
+		  return true;
+	      }
+	  return false;
+	}
+    }
+  return true;
+}
 
 /* Detect whether the dynamic type of ARG of COMP_TYPE has changed (before
    callsite CALL) by looking for assignments to its virtual table pointer.  If
    it is, return true and fill in the jump function JFUNC with relevant type
    information or set it to unknown.  ARG is the object itself (not a pointer
    to it, unless dereferenced).  BASE is the base of the memory access as
-   returned by get_ref_base_and_extent, as is the offset.  */
+   returned by get_ref_base_and_extent, as is the offset. 
+
+   This is helper function for detect_type_change and detect_type_change_ssa
+   that does the heavy work which is usually unnecesary.  */
 
 static bool
-detect_type_change (tree arg, tree base, tree comp_type, gimple call,
-		    struct ipa_jump_func *jfunc, HOST_WIDE_INT offset)
+detect_type_change_from_memory_writes (tree arg, tree base, tree comp_type,
+				       gimple call, struct ipa_jump_func *jfunc,
+				       HOST_WIDE_INT offset)
 {
   struct type_change_info tci;
   ao_ref ao;
+  bool entry_reached = false;
 
   gcc_checking_assert (DECL_P (arg)
 		       || TREE_CODE (arg) == MEM_REF
 		       || handled_component_p (arg));
+
+  comp_type = TYPE_MAIN_VARIANT (comp_type);
+
   /* Const calls cannot call virtual methods through VMT and so type changes do
      not matter.  */
   if (!flag_devirtualize || !gimple_vuse (call)
       /* Be sure expected_type is polymorphic.  */
       || !comp_type
       || TREE_CODE (comp_type) != RECORD_TYPE
-      || !TYPE_BINFO (comp_type)
-      || !BINFO_VTABLE (TYPE_BINFO (comp_type)))
+      || !TYPE_BINFO (TYPE_MAIN_VARIANT (comp_type))
+      || !BINFO_VTABLE (TYPE_BINFO (TYPE_MAIN_VARIANT (comp_type))))
     return true;
-
-  /* C++ methods are not allowed to change THIS pointer unless they
-     are constructors or destructors.  */
-  if (TREE_CODE	(base) == MEM_REF
-      && TREE_CODE (TREE_OPERAND (base, 0)) == SSA_NAME
-      && SSA_NAME_IS_DEFAULT_DEF (TREE_OPERAND (base, 0))
-      && TREE_CODE (SSA_NAME_VAR (TREE_OPERAND (base, 0))) == PARM_DECL
-      && TREE_CODE (TREE_TYPE (current_function_decl)) == METHOD_TYPE
-      && !DECL_CXX_CONSTRUCTOR_P (current_function_decl)
-      && !DECL_CXX_DESTRUCTOR_P (current_function_decl)
-      && (SSA_NAME_VAR (TREE_OPERAND (base, 0))
-	  == DECL_ARGUMENTS (current_function_decl)))
-    return false;
 
   ao_ref_init (&ao, arg);
   ao.base = base;
@@ -779,18 +863,43 @@ detect_type_change (tree arg, tree base, tree comp_type, gimple call,
   tci.multiple_types_encountered = false;
 
   walk_aliased_vdefs (&ao, gimple_vuse (call), check_stmt_for_type_change,
-		      &tci, NULL);
+		      &tci, NULL, &entry_reached);
   if (!tci.type_maybe_changed)
     return false;
 
   if (!tci.known_current_type
       || tci.multiple_types_encountered
-      || offset != 0)
+      || offset != 0
+      /* When the walk reached function entry, it means that type
+	 is set along some paths but not along others.  */
+      || entry_reached)
     jfunc->type = IPA_JF_UNKNOWN;
   else
     ipa_set_jf_known_type (jfunc, 0, tci.known_current_type, comp_type);
 
   return true;
+}
+
+/* Detect whether the dynamic type of ARG of COMP_TYPE may have changed.
+   If it is, return true and fill in the jump function JFUNC with relevant type
+   information or set it to unknown.  ARG is the object itself (not a pointer
+   to it, unless dereferenced).  BASE is the base of the memory access as
+   returned by get_ref_base_and_extent, as is the offset.  */
+
+static bool
+detect_type_change (tree arg, tree base, tree comp_type, gimple call,
+		    struct ipa_jump_func *jfunc, HOST_WIDE_INT offset)
+{
+  if (!flag_devirtualize)
+    return false;
+
+  if (TREE_CODE	(base) == MEM_REF
+      && !param_type_may_change_p (current_function_decl,
+				   TREE_OPERAND (base, 0),
+				   call))
+    return false;
+  return detect_type_change_from_memory_writes (arg, base, comp_type,
+						call, jfunc, offset);
 }
 
 /* Like detect_type_change but ARG is supposed to be a non-dereferenced pointer
@@ -806,10 +915,14 @@ detect_type_change_ssa (tree arg, tree comp_type,
       || !POINTER_TYPE_P (TREE_TYPE (arg)))
     return false;
 
+  if (!param_type_may_change_p (current_function_decl, arg, call))
+    return false;
+
   arg = build2 (MEM_REF, ptr_type_node, arg,
 		build_int_cst (ptr_type_node, 0));
 
-  return detect_type_change (arg, arg, comp_type, call, jfunc, 0);
+  return detect_type_change_from_memory_writes (arg, arg, comp_type,
+						call, jfunc, 0);
 }
 
 /* Callback of walk_aliased_vdefs.  Flags that it has been invoked to the
@@ -1247,8 +1360,9 @@ compute_complex_assign_jump_func (struct func_body_info *fbi,
   index = ipa_get_param_decl_index (info, SSA_NAME_VAR (ssa));
   if (index >= 0 && param_type && POINTER_TYPE_P (param_type))
     {
-      bool type_p = !detect_type_change (op1, base, TREE_TYPE (param_type),
-					 call, jfunc, offset);
+      bool type_p = (contains_polymorphic_type_p (TREE_TYPE (param_type))
+		     && !detect_type_change (op1, base, TREE_TYPE (param_type),
+					     call, jfunc, offset));
       if (type_p || jfunc->type == IPA_JF_UNKNOWN)
 	ipa_set_ancestor_jf (jfunc, offset,
 			     type_p ? TREE_TYPE (param_type) : NULL, index,
@@ -1380,7 +1494,8 @@ compute_complex_ancestor_jump_func (struct func_body_info *fbi,
     }
 
   bool type_p = false;
-  if (param_type && POINTER_TYPE_P (param_type))
+  if (param_type && POINTER_TYPE_P (param_type)
+      && contains_polymorphic_type_p (TREE_TYPE (param_type)))
     type_p = !detect_type_change (obj, expr, TREE_TYPE (param_type),
 				  call, jfunc, offset);
   if (type_p || jfunc->type == IPA_JF_UNKNOWN)
@@ -1404,12 +1519,10 @@ compute_known_type_jump_func (tree op, struct ipa_jump_func *jfunc,
 
   if (!flag_devirtualize
       || TREE_CODE (op) != ADDR_EXPR
-      || TREE_CODE (TREE_TYPE (TREE_TYPE (op))) != RECORD_TYPE
+      || !contains_polymorphic_type_p (TREE_TYPE (TREE_TYPE (op)))
       /* Be sure expected_type is polymorphic.  */
       || !expected_type
-      || TREE_CODE (expected_type) != RECORD_TYPE
-      || !TYPE_BINFO (expected_type)
-      || !BINFO_VTABLE (TYPE_BINFO (expected_type)))
+      || !contains_polymorphic_type_p (expected_type))
     return;
 
   op = TREE_OPERAND (op, 0);
@@ -1417,11 +1530,15 @@ compute_known_type_jump_func (tree op, struct ipa_jump_func *jfunc,
   if (!DECL_P (base)
       || max_size == -1
       || max_size != size
-      || TREE_CODE (TREE_TYPE (base)) != RECORD_TYPE
-      || is_global_var (base))
+      || !contains_polymorphic_type_p (TREE_TYPE (base)))
     return;
 
-  if (detect_type_change (op, base, expected_type, call, jfunc, offset))
+  if (decl_maybe_in_construction_p (base, TREE_TYPE (base),
+				    call, current_function_decl)
+      /* Even if the var seems to be in construction by inline call stack,
+	 we may work out the actual type by walking memory writes.  */
+      && (!is_global_var (base)
+	  && detect_type_change (op, base, expected_type, call, jfunc, offset)))
     return;
 
   ipa_set_jf_known_type (jfunc, offset, TREE_TYPE (base),
@@ -1862,7 +1979,7 @@ ipa_compute_jump_functions_for_bb (struct func_body_info *fbi, basic_block bb)
 
       if (callee)
 	{
-	  cgraph_function_or_thunk_node (callee, NULL);
+	  callee->ultimate_alias_target ();
 	  /* We do not need to bother analyzing calls to unknown functions
 	     unless they may become known during lto/whopr.  */
 	  if (!callee->definition && !flag_lto)
@@ -1945,7 +2062,7 @@ ipa_note_param_call (struct cgraph_node *node, int param_index, gimple stmt)
 {
   struct cgraph_edge *cs;
 
-  cs = cgraph_edge (node, stmt);
+  cs = node->get_edge (stmt);
   cs->indirect_info->param_index = param_index;
   cs->indirect_info->agg_contents = 0;
   cs->indirect_info->member_ptr = 0;
@@ -2222,7 +2339,7 @@ ipa_analyze_call_uses (struct func_body_info *fbi, gimple call)
 
   /* If we previously turned the call into a direct call, there is
      no need to analyze.  */
-  struct cgraph_edge *cs = cgraph_edge (fbi->node, call);
+  struct cgraph_edge *cs = fbi->node->get_edge (call);
   if (cs && !cs->indirect_unknown_callee)
     return;
   if (TREE_CODE (target) == SSA_NAME)
@@ -2457,7 +2574,7 @@ ipa_intraprocedural_devirtualization (gimple call)
 #ifdef ENABLE_CHECKING
   if (fndecl)
     gcc_assert (possible_polymorphic_call_target_p
-		  (otr, cgraph_get_node (fndecl)));
+		  (otr, cgraph_node::get (fndecl)));
 #endif
   return fndecl;
 }
@@ -2681,14 +2798,14 @@ ipa_make_edge_direct_to_target (struct cgraph_edge *ie, tree target)
 	    }
 
 	  target = builtin_decl_implicit (BUILT_IN_UNREACHABLE);
-	  callee = cgraph_get_create_node (target);
+	  callee = cgraph_node::get_create (target);
 	  unreachable = true;
 	}
       else
-	callee = cgraph_get_node (target);
+	callee = cgraph_node::get (target);
     }
   else
-    callee = cgraph_get_node (target);
+    callee = cgraph_node::get (target);
 
   /* Because may-edges are not explicitely represented and vtable may be external,
      we may create the first reference to the object in the unit.  */
@@ -2711,7 +2828,7 @@ ipa_make_edge_direct_to_target (struct cgraph_edge *ie, tree target)
 		     ie->callee->order);
 	  return NULL;
 	}
-      callee = cgraph_get_create_node (target);
+      callee = cgraph_node::get_create (target);
     }
 
   if (!dbg_cnt (devirt))
@@ -2833,7 +2950,7 @@ cgraph_node_for_jfunc (struct ipa_jump_func *jfunc)
       || TREE_CODE (TREE_OPERAND (cst, 0)) != FUNCTION_DECL)
     return NULL;
 
-  return cgraph_get_node (TREE_OPERAND (cst, 0));
+  return cgraph_node::get (TREE_OPERAND (cst, 0));
 }
 
 
@@ -2918,7 +3035,7 @@ ipa_impossible_devirt_target (struct cgraph_edge *ie, tree target)
 		 ie->caller->name (), ie->caller->order);
     }
   tree new_target = builtin_decl_implicit (BUILT_IN_UNREACHABLE);
-  cgraph_get_create_node (new_target);
+  cgraph_node::get_create (new_target);
   return new_target;
 }
 
@@ -2955,7 +3072,7 @@ try_make_edge_direct_virtual_call (struct cgraph_edge *ie,
 	      if ((TREE_CODE (TREE_TYPE (target)) == FUNCTION_TYPE
 		   && DECL_FUNCTION_CODE (target) == BUILT_IN_UNREACHABLE)
 		  || !possible_polymorphic_call_target_p
-		       (ie, cgraph_get_node (target)))
+		       (ie, cgraph_node::get (target)))
 		target = ipa_impossible_devirt_target (ie, target);
 	      return ipa_make_edge_direct_to_target (ie, target);
 	    }
@@ -3001,7 +3118,7 @@ try_make_edge_direct_virtual_call (struct cgraph_edge *ie,
 
   if (target)
     {
-      if (!possible_polymorphic_call_target_p (ie, cgraph_get_node (target)))
+      if (!possible_polymorphic_call_target_p (ie, cgraph_node::get (target)))
 	target = ipa_impossible_devirt_target (ie, target);
       return ipa_make_edge_direct_to_target (ie, target);
     }
@@ -3018,7 +3135,7 @@ try_make_edge_direct_virtual_call (struct cgraph_edge *ie,
 static bool
 update_indirect_edges_after_inlining (struct cgraph_edge *cs,
 				      struct cgraph_node *node,
-				      vec<cgraph_edge_p> *new_edges)
+				      vec<cgraph_edge *> *new_edges)
 {
   struct ipa_edge_args *top;
   struct cgraph_edge *ie, *next_ie, *new_direct_edge;
@@ -3127,7 +3244,7 @@ update_indirect_edges_after_inlining (struct cgraph_edge *cs,
 static bool
 propagate_info_to_inlined_callees (struct cgraph_edge *cs,
 				   struct cgraph_node *node,
-				   vec<cgraph_edge_p> *new_edges)
+				   vec<cgraph_edge *> *new_edges)
 {
   struct cgraph_edge *e;
   bool res;
@@ -3195,7 +3312,7 @@ propagate_controlled_uses (struct cgraph_edge *cs)
 
 	      if (t && TREE_CODE (t) == ADDR_EXPR
 		  && TREE_CODE (TREE_OPERAND (t, 0)) == FUNCTION_DECL
-		  && (n = cgraph_get_node (TREE_OPERAND (t, 0)))
+		  && (n = cgraph_node::get (TREE_OPERAND (t, 0)))
 		  && (ref = new_root->find_reference (n, NULL, 0)))
 		{
 		  if (dump_file)
@@ -3221,7 +3338,7 @@ propagate_controlled_uses (struct cgraph_edge *cs)
 	      gcc_checking_assert (TREE_CODE (cst) == ADDR_EXPR
 				   && TREE_CODE (TREE_OPERAND (cst, 0))
 				   == FUNCTION_DECL);
-	      n = cgraph_get_node (TREE_OPERAND (cst, 0));
+	      n = cgraph_node::get (TREE_OPERAND (cst, 0));
 	      if (n)
 		{
 		  struct cgraph_node *clone;
@@ -3282,7 +3399,7 @@ propagate_controlled_uses (struct cgraph_edge *cs)
 
 bool
 ipa_propagate_indirect_call_infos (struct cgraph_edge *cs,
-				   vec<cgraph_edge_p> *new_edges)
+				   vec<cgraph_edge *> *new_edges)
 {
   bool changed;
   /* Do nothing if the preparation phase has not been carried out yet
@@ -3536,7 +3653,7 @@ ipa_node_duplication_hook (struct cgraph_node *src, struct cgraph_node *dst,
 static void
 ipa_add_new_function (struct cgraph_node *node, void *data ATTRIBUTE_UNUSED)
 {
-  if (cgraph_function_with_gimple_body_p (node))
+  if (node->has_gimple_body_p ())
     ipa_analyze_node (node);
 }
 
@@ -3873,7 +3990,7 @@ void
 ipa_modify_call_arguments (struct cgraph_edge *cs, gimple stmt,
 			   ipa_parm_adjustment_vec adjustments)
 {
-  struct cgraph_node *current_node = cgraph_get_node (current_function_decl);
+  struct cgraph_node *current_node = cgraph_node::get (current_function_decl);
   vec<tree> vargs;
   vec<tree, va_gc> **debug_args = NULL;
   gimple new_stmt;
@@ -4107,7 +4224,7 @@ ipa_modify_call_arguments (struct cgraph_edge *cs, gimple stmt,
     cgraph_set_call_stmt (cs, new_stmt);
   do
     {
-      ipa_record_stmt_references (current_node, gsi_stmt (gsi));
+      current_node->record_stmt_references (gsi_stmt (gsi));
       gsi_prev (&gsi);
     }
   while (gsi_stmt (gsi) != gsi_stmt (prev_gsi));
@@ -4576,6 +4693,7 @@ ipa_write_indirect_edge_info (struct output_block *ob,
   bp_pack_value (&bp, ii->by_ref, 1);
   bp_pack_value (&bp, ii->maybe_in_construction, 1);
   bp_pack_value (&bp, ii->maybe_derived_type, 1);
+  bp_pack_value (&bp, ii->speculative_maybe_derived_type, 1);
   streamer_write_bitpack (&bp);
 
   if (ii->polymorphic)
@@ -4583,6 +4701,9 @@ ipa_write_indirect_edge_info (struct output_block *ob,
       streamer_write_hwi (ob, ii->otr_token);
       stream_write_tree (ob, ii->otr_type, true);
       stream_write_tree (ob, ii->outer_type, true);
+      stream_write_tree (ob, ii->speculative_outer_type, true);
+      if (ii->speculative_outer_type)
+        streamer_write_hwi (ob, ii->speculative_offset);
     }
 }
 
@@ -4606,11 +4727,15 @@ ipa_read_indirect_edge_info (struct lto_input_block *ib,
   ii->by_ref = bp_unpack_value (&bp, 1);
   ii->maybe_in_construction = bp_unpack_value (&bp, 1);
   ii->maybe_derived_type = bp_unpack_value (&bp, 1);
+  ii->speculative_maybe_derived_type = bp_unpack_value (&bp, 1);
   if (ii->polymorphic)
     {
       ii->otr_token = (HOST_WIDE_INT) streamer_read_hwi (ib);
       ii->otr_type = stream_read_tree (ib, data_in);
       ii->outer_type = stream_read_tree (ib, data_in);
+      ii->speculative_outer_type = stream_read_tree (ib, data_in);
+      if (ii->speculative_outer_type)
+        ii->speculative_offset = (HOST_WIDE_INT) streamer_read_hwi (ib);
     }
 }
 
@@ -4732,12 +4857,12 @@ ipa_prop_write_jump_functions (void)
 
   ob = create_output_block (LTO_section_jump_functions);
   encoder = ob->decl_state->symtab_node_encoder;
-  ob->cgraph_node = NULL;
+  ob->symbol = NULL;
   for (lsei = lsei_start_function_in_partition (encoder); !lsei_end_p (lsei);
        lsei_next_function_in_partition (&lsei))
     {
       node = lsei_cgraph_node (lsei);
-      if (cgraph_function_with_gimple_body_p (node)
+      if (node->has_gimple_body_p ()
 	  && IPA_NODE_REF (node) != NULL)
 	count++;
     }
@@ -4749,7 +4874,7 @@ ipa_prop_write_jump_functions (void)
        lsei_next_function_in_partition (&lsei))
     {
       node = lsei_cgraph_node (lsei);
-      if (cgraph_function_with_gimple_body_p (node)
+      if (node->has_gimple_body_p ()
 	  && IPA_NODE_REF (node) != NULL)
         ipa_write_node_info (ob, node);
     }
@@ -4790,7 +4915,8 @@ ipa_prop_read_section (struct lto_file_decl_data *file_data, const char *data,
 
       index = streamer_read_uhwi (&ib_main);
       encoder = file_data->symtab_node_encoder;
-      node = cgraph (lto_symtab_encoder_deref (encoder, index));
+      node = dyn_cast<cgraph_node *> (lto_symtab_encoder_deref (encoder,
+								index));
       gcc_assert (node->definition);
       ipa_read_node_info (&ib_main, node, data_in);
     }
@@ -4908,12 +5034,12 @@ ipa_prop_write_all_agg_replacement (void)
 
   ob = create_output_block (LTO_section_ipcp_transform);
   encoder = ob->decl_state->symtab_node_encoder;
-  ob->cgraph_node = NULL;
+  ob->symbol = NULL;
   for (lsei = lsei_start_function_in_partition (encoder); !lsei_end_p (lsei);
        lsei_next_function_in_partition (&lsei))
     {
       node = lsei_cgraph_node (lsei);
-      if (cgraph_function_with_gimple_body_p (node)
+      if (node->has_gimple_body_p ()
 	  && ipa_get_agg_replacements_for_node (node) != NULL)
 	count++;
     }
@@ -4924,7 +5050,7 @@ ipa_prop_write_all_agg_replacement (void)
        lsei_next_function_in_partition (&lsei))
     {
       node = lsei_cgraph_node (lsei);
-      if (cgraph_function_with_gimple_body_p (node)
+      if (node->has_gimple_body_p ()
 	  && ipa_get_agg_replacements_for_node (node) != NULL)
 	write_agg_replacement_chain (ob, node);
     }
@@ -4966,7 +5092,8 @@ read_replacements_section (struct lto_file_decl_data *file_data,
 
       index = streamer_read_uhwi (&ib_main);
       encoder = file_data->symtab_node_encoder;
-      node = cgraph (lto_symtab_encoder_deref (encoder, index));
+      node = dyn_cast<cgraph_node *> (lto_symtab_encoder_deref (encoder,
+								index));
       gcc_assert (node->definition);
       read_agg_replacement_chain (&ib_main, node, data_in);
     }

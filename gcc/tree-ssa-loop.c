@@ -72,7 +72,6 @@ const pass_data pass_data_tree_loop =
   GIMPLE_PASS, /* type */
   "loop", /* name */
   OPTGROUP_LOOP, /* optinfo_flags */
-  false, /* has_execute */
   TV_TREE_LOOP, /* tv_id */
   PROP_cfg, /* properties_required */
   0, /* properties_provided */
@@ -110,7 +109,6 @@ const pass_data pass_data_tree_no_loop =
   GIMPLE_PASS, /* type */
   "no_loop", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  false, /* has_execute */
   TV_TREE_NOLOOP, /* tv_id */
   PROP_cfg, /* properties_required */
   0, /* properties_provided */
@@ -149,7 +147,6 @@ const pass_data pass_data_tree_loop_init =
   GIMPLE_PASS, /* type */
   "loopinit", /* name */
   OPTGROUP_LOOP, /* optinfo_flags */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   PROP_cfg, /* properties_required */
   0, /* properties_provided */
@@ -171,7 +168,7 @@ public:
 }; // class pass_tree_loop_init
 
 unsigned int
-pass_tree_loop_init::execute (function *fun)
+pass_tree_loop_init::execute (function *fun ATTRIBUTE_UNUSED)
 {
   loop_optimizer_init (LOOPS_NORMAL
 		       | LOOPS_HAVE_RECORDED_EXITS);
@@ -180,9 +177,6 @@ pass_tree_loop_init::execute (function *fun)
   /* We might discover new loops, e.g. when turning irreducible
      regions into reducible.  */
   scev_initialize ();
-
-  if (number_of_loops (fun) <= 1)
-    return 0;
 
   return 0;
 }
@@ -204,7 +198,6 @@ const pass_data pass_data_vectorize =
   GIMPLE_PASS, /* type */
   "vect", /* name */
   OPTGROUP_LOOP | OPTGROUP_VEC, /* optinfo_flags */
-  true, /* has_execute */
   TV_TREE_VECTORIZATION, /* tv_id */
   ( PROP_cfg | PROP_ssa ), /* properties_required */
   0, /* properties_provided */
@@ -256,7 +249,6 @@ const pass_data pass_data_check_data_deps =
   GIMPLE_PASS, /* type */
   "ckdd", /* name */
   OPTGROUP_LOOP, /* optinfo_flags */
-  true, /* has_execute */
   TV_CHECK_DATA_DEPS, /* tv_id */
   ( PROP_cfg | PROP_ssa ), /* properties_required */
   0, /* properties_provided */
@@ -305,7 +297,6 @@ const pass_data pass_data_scev_cprop =
   GIMPLE_PASS, /* type */
   "sccp", /* name */
   OPTGROUP_LOOP, /* optinfo_flags */
-  true, /* has_execute */
   TV_SCEV_CONST, /* tv_id */
   ( PROP_cfg | PROP_ssa ), /* properties_required */
   0, /* properties_provided */
@@ -345,7 +336,6 @@ const pass_data pass_data_record_bounds =
   GIMPLE_PASS, /* type */
   "*record_bounds", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_TREE_LOOP_BOUNDS, /* tv_id */
   ( PROP_cfg | PROP_ssa ), /* properties_required */
   0, /* properties_provided */
@@ -394,7 +384,6 @@ const pass_data pass_data_iv_optimize =
   GIMPLE_PASS, /* type */
   "ivopts", /* name */
   OPTGROUP_LOOP, /* optinfo_flags */
-  true, /* has_execute */
   TV_TREE_LOOP_IVOPTS, /* tv_id */
   ( PROP_cfg | PROP_ssa ), /* properties_required */
   0, /* properties_provided */
@@ -452,7 +441,6 @@ const pass_data pass_data_tree_loop_done =
   GIMPLE_PASS, /* type */
   "loopdone", /* name */
   OPTGROUP_LOOP, /* optinfo_flags */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   PROP_cfg, /* properties_required */
   0, /* properties_provided */

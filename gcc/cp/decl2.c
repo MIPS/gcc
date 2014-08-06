@@ -524,6 +524,8 @@ check_member_template (tree tmpl)
 	 with member templates.  */
       DECL_IGNORED_P (tmpl) = 1;
     }
+  else if (variable_template_p (tmpl))
+    /* OK */;
   else
     error ("template declaration of %q#D", decl);
 }
@@ -1804,7 +1806,7 @@ maybe_make_one_only (tree decl)
 
       if (VAR_P (decl))
 	{
-          varpool_node *node = varpool_node_for_decl (decl);
+	  varpool_node *node = varpool_node::get_create (decl);
 	  DECL_COMDAT (decl) = 1;
 	  /* Mark it needed so we don't forget to emit it.  */
           node->forced_by_abi = true;
@@ -1912,7 +1914,7 @@ import_export_class (tree ctype)
 static bool
 var_finalized_p (tree var)
 {
-  return varpool_node_for_decl (var)->definition;
+  return varpool_node::get_create (var)->definition;
 }
 
 /* DECL is a VAR_DECL or FUNCTION_DECL which, for whatever reason,
@@ -1928,12 +1930,18 @@ mark_needed (tree decl)
 	 If we know a method will be emitted in other TU and no new
 	 functions can be marked reachable, just use the external
 	 definition.  */
-      struct cgraph_node *node = cgraph_get_create_node (decl);
+      struct cgraph_node *node = cgraph_node::get_create (decl);
       node->forced_by_abi = true;
+
+      /* #pragma interface and -frepo code can call mark_needed for
+          maybe-in-charge 'tors; mark the clones as well.  */
+      tree clone;
+      FOR_EACH_CLONE (clone, decl)
+	mark_needed (clone);
     }
   else if (TREE_CODE (decl) == VAR_DECL)
     {
-      varpool_node *node = varpool_node_for_decl (decl);
+      varpool_node *node = varpool_node::get_create (decl);
       /* C++ frontend use mark_decl_references to force COMDAT variables
          to be output that might appear dead otherwise.  */
       node->forced_by_abi = true;
@@ -2044,9 +2052,9 @@ maybe_emit_vtables (tree ctype)
 	TREE_ASM_WRITTEN (vtbl) = 1;
       else if (DECL_ONE_ONLY (vtbl))
 	{
-	  current = varpool_node_for_decl (vtbl);
+	  current = varpool_node::get_create (vtbl);
 	  if (last)
-	    symtab_add_to_same_comdat_group (current, last);
+	    current->add_to_same_comdat_group (last);
 	  last = current;
 	}
     }
@@ -2116,7 +2124,7 @@ constrain_visibility (tree decl, int visibility, bool tmpl)
 	  if (TREE_CODE (decl) == FUNCTION_DECL
 	      || TREE_CODE (decl) == VAR_DECL)
 	    {
-	      struct symtab_node *snode = symtab_get_node (decl);
+	      struct symtab_node *snode = symtab_node::get (decl);
 
 	      if (snode)
 	        snode->set_comdat_group (NULL);
@@ -2719,17 +2727,7 @@ import_export_decl (tree decl)
     {
       /* The repository indicates that this entity should be defined
 	 here.  Make sure the back end honors that request.  */
-      if (VAR_P (decl))
-	mark_needed (decl);
-      else if (DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (decl)
-	       || DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (decl))
-	{
-	  tree clone;
-	  FOR_EACH_CLONE (clone, decl)
-	    mark_needed (clone);
-	}
-      else
-	mark_needed (decl);
+      mark_needed (decl);
       /* Output the definition as an ordinary strong definition.  */
       DECL_EXTERNAL (decl) = 0;
       DECL_INTERFACE_KNOWN (decl) = 1;
@@ -3652,7 +3650,7 @@ one_static_initialization_or_destruction (tree decl, tree init, bool initp)
 	  finish_expr_stmt (init);
 	  if (flag_sanitize & SANITIZE_ADDRESS)
 	    {
-	      varpool_node *vnode = varpool_get_node (decl);
+	      varpool_node *vnode = varpool_node::get (decl);
 	      if (vnode)
 		vnode->dynamically_initialized = 1;
 	    }
@@ -3929,11 +3927,11 @@ generate_ctor_and_dtor_functions_for_priority (splay_tree_node n, void * data)
    supported, collect and return all the functions for which we should
    emit a hidden alias.  */
 
-static struct pointer_set_t *
+static hash_set<tree> *
 collect_candidates_for_java_method_aliases (void)
 {
   struct cgraph_node *node;
-  struct pointer_set_t *candidates = NULL;
+  hash_set<tree> *candidates = NULL;
 
 #ifndef HAVE_GAS_HIDDEN
   return candidates;
@@ -3948,8 +3946,8 @@ collect_candidates_for_java_method_aliases (void)
 	  && TARGET_USE_LOCAL_THUNK_ALIAS_P (fndecl))
 	{
 	  if (candidates == NULL)
-	    candidates = pointer_set_create ();
-	  pointer_set_insert (candidates, fndecl);
+	    candidates = new hash_set<tree>;
+	  candidates->add (fndecl);
 	}
     }
 
@@ -3964,7 +3962,7 @@ collect_candidates_for_java_method_aliases (void)
    by collect_candidates_for_java_method_aliases.  */
 
 static void
-build_java_method_aliases (struct pointer_set_t *candidates)
+build_java_method_aliases (hash_set<tree> *candidates)
 {
   struct cgraph_node *node;
 
@@ -3977,7 +3975,7 @@ build_java_method_aliases (struct pointer_set_t *candidates)
       tree fndecl = node->decl;
 
       if (TREE_ASM_WRITTEN (fndecl)
-	  && pointer_set_contains (candidates, fndecl))
+	  && candidates->contains (fndecl))
 	{
 	  /* Mangle the name in a predictable way; we need to reference
 	     this from a java compiled object file.  */
@@ -4243,8 +4241,8 @@ handle_tls_init (void)
 	  if (single_init_fn == NULL_TREE)
 	    continue;
 	  cgraph_node *alias
-	    = cgraph_same_body_alias (cgraph_get_create_node (fn),
-				      single_init_fn, fn);
+	    = cgraph_node::get_create (fn)->create_same_body_alias
+		(single_init_fn, fn);
 	  gcc_assert (alias != NULL);
 	}
 #endif
@@ -4287,7 +4285,7 @@ cp_write_global_declarations (void)
   unsigned ssdf_count = 0;
   int retries = 0;
   tree decl;
-  struct pointer_set_t *candidates;
+  hash_set<tree> *candidates;
 
   locus = input_location;
   at_eof = 1;
@@ -4510,21 +4508,21 @@ cp_write_global_declarations (void)
 	    {
 	      struct cgraph_node *node, *next;
 
-	      node = cgraph_get_node (decl);
+	      node = cgraph_node::get (decl);
 	      if (node->cpp_implicit_alias)
-		node = cgraph_alias_target (node);
+		node = node->get_alias_target ();
 
-	      cgraph_for_node_and_aliases (node, clear_decl_external,
-					   NULL, true);
+	      node->call_for_symbol_thunks_and_aliases (clear_decl_external,
+						      NULL, true);
 	      /* If we mark !DECL_EXTERNAL one of the symbols in some comdat
 		 group, we need to mark all symbols in the same comdat group
 		 that way.  */
 	      if (node->same_comdat_group)
-		for (next = cgraph (node->same_comdat_group);
+		for (next = dyn_cast<cgraph_node *> (node->same_comdat_group);
 		     next != node;
-		     next = cgraph (next->same_comdat_group))
-	          cgraph_for_node_and_aliases (next, clear_decl_external,
-					       NULL, true);
+		     next = dyn_cast<cgraph_node *> (next->same_comdat_group))
+		  next->call_for_symbol_thunks_and_aliases (clear_decl_external,
+							  NULL, true);
 	    }
 
 	  /* If we're going to need to write this function out, and
@@ -4534,7 +4532,7 @@ cp_write_global_declarations (void)
 	  if (!DECL_EXTERNAL (decl)
 	      && decl_needed_p (decl)
 	      && !TREE_ASM_WRITTEN (decl)
-	      && !cgraph_get_node (decl)->definition)
+	      && !cgraph_node::get (decl)->definition)
 	    {
 	      /* We will output the function; no longer consider it in this
 		 loop.  */
@@ -4681,7 +4679,7 @@ cp_write_global_declarations (void)
   if (candidates)
     {
       build_java_method_aliases (candidates);
-      pointer_set_destroy (candidates);
+      delete candidates;
     }
 
   finish_repo ();

@@ -2523,7 +2523,6 @@ const pass_data pass_data_insert_vzeroupper =
   RTL_PASS, /* type */
   "vzeroupper", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -3268,12 +3267,13 @@ ix86_option_override_internal (bool main_args_p,
 	| PTA_FMA | PTA_PRFCHW | PTA_FXSR | PTA_XSAVE 
 	| PTA_XSAVEOPT | PTA_FSGSBASE},
      {"bdver4", PROCESSOR_BDVER4, CPU_BDVER4,
-        PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
-        | PTA_SSE4A | PTA_CX16 | PTA_ABM | PTA_SSSE3 | PTA_SSE4_1
-        | PTA_SSE4_2 | PTA_AES | PTA_PCLMUL | PTA_AVX | PTA_AVX2 
+	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
+	| PTA_SSE4A | PTA_CX16 | PTA_ABM | PTA_SSSE3 | PTA_SSE4_1
+	| PTA_SSE4_2 | PTA_AES | PTA_PCLMUL | PTA_AVX | PTA_AVX2 
 	| PTA_FMA4 | PTA_XOP | PTA_LWP | PTA_BMI | PTA_BMI2 
 	| PTA_TBM | PTA_F16C | PTA_FMA | PTA_PRFCHW | PTA_FXSR 
-	| PTA_XSAVE | PTA_XSAVEOPT | PTA_FSGSBASE},
+	| PTA_XSAVE | PTA_XSAVEOPT | PTA_FSGSBASE | PTA_RDRND
+	| PTA_MOVBE},
       {"btver1", PROCESSOR_BTVER1, CPU_GENERIC,
 	PTA_64BIT | PTA_MMX |  PTA_SSE  | PTA_SSE2 | PTA_SSE3
 	| PTA_SSSE3 | PTA_SSE4A |PTA_ABM | PTA_CX16 | PTA_PRFCHW
@@ -5039,8 +5039,11 @@ ix86_in_large_data_p (tree exp)
       HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (exp));
 
       /* If this is an incomplete type with size 0, then we can't put it
-	 in data because it might be too big when completed.  */
-      if (!size || size > ix86_section_threshold)
+	 in data because it might be too big when completed.  Also,
+	 int_size_in_bytes returns -1 if size can vary or is larger than
+	 an integer in which case also it is safer to assume that it goes in
+	 large data.  */
+      if (size <= 0 || size > ix86_section_threshold)
 	return true;
     }
 
@@ -5226,9 +5229,8 @@ x86_elf_aligned_common (FILE *file,
    ASM_OUTPUT_ALIGNED_BSS.  */
 
 void
-x86_output_aligned_bss (FILE *file, tree decl ATTRIBUTE_UNUSED,
-			const char *name, unsigned HOST_WIDE_INT size,
-			int align)
+x86_output_aligned_bss (FILE *file, tree decl, const char *name,
+		       	unsigned HOST_WIDE_INT size, int align)
 {
   if ((ix86_cmodel == CM_MEDIUM || ix86_cmodel == CM_MEDIUM_PIC)
       && size > (unsigned int)ix86_section_threshold)
@@ -5358,7 +5360,7 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
 static tree
 ix86_handle_cconv_attribute (tree *node, tree name,
 				   tree args,
-				   int flags ATTRIBUTE_UNUSED,
+				   int,
 				   bool *no_add_attrs)
 {
   if (TREE_CODE (*node) != FUNCTION_TYPE
@@ -5502,8 +5504,7 @@ ix86_handle_cconv_attribute (tree *node, tree name,
    attributes that we expect elsewhere.  */
 
 static tree
-ix86_handle_tm_regparm_attribute (tree *node, tree name ATTRIBUTE_UNUSED,
-    				  tree args ATTRIBUTE_UNUSED,
+ix86_handle_tm_regparm_attribute (tree *node, tree, tree,
 				  int flags, bool *no_add_attrs)
 {
   tree alt;
@@ -6579,7 +6580,7 @@ classify_argument (enum machine_mode mode, const_tree type,
 					   bit_offset);
 		  if (!num)
 		    return 0;
-		  for (i = 0; i < num; i++)
+		  for (i = 0; i < num && i < words; i++)
 		    classes[i] = merge_classes (subclasses[i], classes[i]);
 		}
 	    }
@@ -7542,7 +7543,7 @@ ix86_function_arg (cumulative_args_t cum_v, enum machine_mode omode,
 
 static bool
 ix86_pass_by_reference (cumulative_args_t cum_v, enum machine_mode mode,
-			const_tree type, bool named ATTRIBUTE_UNUSED)
+			const_tree type, bool)
 {
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
 
@@ -7971,8 +7972,7 @@ ix86_function_value_1 (const_tree valtype, const_tree fntype_or_decl,
 }
 
 static rtx
-ix86_function_value (const_tree valtype, const_tree fntype_or_decl,
-		     bool outgoing ATTRIBUTE_UNUSED)
+ix86_function_value (const_tree valtype, const_tree fntype_or_decl, bool)
 {
   enum machine_mode mode, orig_mode;
 
@@ -8313,8 +8313,7 @@ setup_incoming_varargs_ms_64 (CUMULATIVE_ARGS *cum)
 
 static void
 ix86_setup_incoming_varargs (cumulative_args_t cum_v, enum machine_mode mode,
-			     tree type, int *pretend_size ATTRIBUTE_UNUSED,
-			     int no_rtl)
+			     tree type, int *, int no_rtl)
 {
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
   CUMULATIVE_ARGS next_cum;
@@ -9190,7 +9189,7 @@ ix86_code_end (void)
 #endif
       if (USE_HIDDEN_LINKONCE)
 	{
-	  cgraph_create_node (decl)->set_comdat_group (DECL_ASSEMBLER_NAME (decl));
+	  cgraph_node::create (decl)->set_comdat_group (DECL_ASSEMBLER_NAME (decl));
 
 	  targetm.asm_out.unique_section (decl, 0);
 	  switch_to_section (get_named_section (decl, NULL, 0));
@@ -9556,7 +9555,7 @@ ix86_compute_frame_layout (struct ix86_frame *frame)
            && cfun->machine->use_fast_prologue_epilogue_nregs != frame->nregs)
     {
       int count = frame->nregs;
-      struct cgraph_node *node = cgraph_get_node (current_function_decl);
+      struct cgraph_node *node = cgraph_node::get (current_function_decl);
 
       cfun->machine->use_fast_prologue_epilogue_nregs = count;
 
@@ -11765,8 +11764,7 @@ ix86_expand_epilogue (int style)
 /* Reset from the function's potential modifications.  */
 
 static void
-ix86_output_function_epilogue (FILE *file ATTRIBUTE_UNUSED,
-			       HOST_WIDE_INT size ATTRIBUTE_UNUSED)
+ix86_output_function_epilogue (FILE *file ATTRIBUTE_UNUSED, HOST_WIDE_INT)
 {
   if (pic_offset_table_rtx)
     SET_REGNO (pic_offset_table_rtx, REAL_PIC_OFFSET_TABLE_REGNUM);
@@ -12388,9 +12386,7 @@ ix86_decompose_address (rtx addr, struct ix86_address *out)
    requires to two regs - that would mean more pseudos with longer
    lifetimes.  */
 static int
-ix86_address_cost (rtx x, enum machine_mode mode ATTRIBUTE_UNUSED,
-		   addr_space_t as ATTRIBUTE_UNUSED,
-		   bool speed ATTRIBUTE_UNUSED)
+ix86_address_cost (rtx x, enum machine_mode, addr_space_t, bool)
 {
   struct ix86_address parts;
   int cost = 1;
@@ -12457,7 +12453,7 @@ darwin_local_data_pic (rtx disp)
    satisfies CONSTANT_P.  */
 
 static bool
-ix86_legitimate_constant_p (enum machine_mode mode ATTRIBUTE_UNUSED, rtx x)
+ix86_legitimate_constant_p (enum machine_mode, rtx x)
 {
   switch (GET_CODE (x))
     {
@@ -12782,10 +12778,8 @@ legitimate_pic_address_disp_p (rtx disp)
    0 if it should not.  */
 
 bool
-ix86_legitimize_reload_address (rtx x,
-				enum machine_mode mode ATTRIBUTE_UNUSED,
-				int opnum, int type,
-				int ind_levels ATTRIBUTE_UNUSED)
+ix86_legitimize_reload_address (rtx x, enum machine_mode, int opnum, int type,
+			       	int)
 {
   /* Reload can generate:
 
@@ -12882,8 +12876,7 @@ ix86_validate_address_register (rtx op)
    be recognized.  */
 
 static bool
-ix86_legitimate_address_p (enum machine_mode mode ATTRIBUTE_UNUSED,
-		           rtx addr, bool strict)
+ix86_legitimate_address_p (enum machine_mode, rtx addr, bool strict)
 {
   struct ix86_address parts;
   rtx base, index, disp;
@@ -13823,8 +13816,7 @@ legitimize_pe_coff_symbol (rtx addr, bool inreg)
    See comments by legitimize_pic_address in i386.c for details.  */
 
 static rtx
-ix86_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
-			 enum machine_mode mode)
+ix86_legitimize_address (rtx x, rtx, enum machine_mode mode)
 {
   int changed = 0;
   unsigned log;
@@ -14740,7 +14732,7 @@ print_reg (rtx x, int code, FILE *file)
    pattern.  */
 
 static int
-get_some_local_dynamic_name_1 (rtx *px, void *data ATTRIBUTE_UNUSED)
+get_some_local_dynamic_name_1 (rtx *px, void *)
 {
   rtx x = *px;
 
@@ -16066,7 +16058,7 @@ output_387_binary_op (rtx insn, rtx *operands)
 /* Check if a 256bit AVX register is referenced inside of EXP.   */
 
 static int
-ix86_check_avx256_register (rtx *pexp, void *data ATTRIBUTE_UNUSED)
+ix86_check_avx256_register (rtx *pexp, void *)
 {
   rtx exp = *pexp;
 
@@ -16194,7 +16186,7 @@ ix86_mode_needed (int entity, rtx insn)
 /* Check if a 256bit AVX register is referenced in stores.   */
  
 static void
-ix86_check_avx256_stores (rtx dest, const_rtx set ATTRIBUTE_UNUSED, void *data)
+ix86_check_avx256_stores (rtx dest, const_rtx, void *data)
  {
    if (ix86_check_avx256_register (&dest, NULL))
     {
@@ -16322,7 +16314,7 @@ ix86_mode_exit (int entity)
 }
 
 static int
-ix86_mode_priority (int entity ATTRIBUTE_UNUSED, int n)
+ix86_mode_priority (int, int n)
 {
   return n;
 }
@@ -16447,7 +16439,8 @@ ix86_avx_emit_vzeroupper (HARD_REG_SET regs_live)
    are to be inserted.  */
 
 static void
-ix86_emit_mode_set (int entity, int mode, HARD_REG_SET regs_live)
+ix86_emit_mode_set (int entity, int mode, int prev_mode ATTRIBUTE_UNUSED,
+		    HARD_REG_SET regs_live)
 {
   switch (entity)
     {
@@ -18574,8 +18567,8 @@ ix86_dep_by_shift_count (const_rtx set_insn, const_rtx use_insn)
    appropriate constraints.  */
 
 bool
-ix86_unary_operator_ok (enum rtx_code code ATTRIBUTE_UNUSED,
-			enum machine_mode mode ATTRIBUTE_UNUSED,
+ix86_unary_operator_ok (enum rtx_code,
+			enum machine_mode,
 			rtx operands[2])
 {
   /* If one of operands is memory, source and destination must match.  */
@@ -18729,8 +18722,7 @@ ix86_expand_convert_uns_didf_sse (rtx target, rtx input)
 
 /* Not used, but eases macroization of patterns.  */
 void
-ix86_expand_convert_uns_sixf_sse (rtx target ATTRIBUTE_UNUSED,
-				  rtx input ATTRIBUTE_UNUSED)
+ix86_expand_convert_uns_sixf_sse (rtx, rtx)
 {
   gcc_unreachable ();
 }
@@ -19350,7 +19342,7 @@ ix86_expand_int_compare (enum rtx_code code, rtx op0, rtx op1)
    Return the appropriate mode to use.  */
 
 enum machine_mode
-ix86_fp_compare_mode (enum rtx_code code ATTRIBUTE_UNUSED)
+ix86_fp_compare_mode (enum rtx_code)
 {
   /* ??? In order to make all comparisons reversible, we do all comparisons
      non-trapping when compiling for IEEE.  Once gcc is able to distinguish
@@ -19565,7 +19557,7 @@ ix86_fp_comparison_cost (enum rtx_code code)
    (2 bytes, vs. 3 for fnstsw+sahf and at least 5 for fnstsw+test).  */
 
 enum ix86_fpcmp_strategy
-ix86_fp_comparison_strategy (enum rtx_code code ATTRIBUTE_UNUSED)
+ix86_fp_comparison_strategy (enum rtx_code)
 {
   /* Do fcomi/sahf based test when profitable.  */
 
@@ -25070,7 +25062,7 @@ assign_386_stack_local (enum machine_mode mode, enum ix86_stack_slot n)
 
   s->next = ix86_stack_locals;
   ix86_stack_locals = s;
-  return validize_mem (s->rtl);
+  return validize_mem (copy_rtx (s->rtl));
 }
 
 static void
@@ -25817,6 +25809,9 @@ ix86_macro_fusion_pair_p (rtx condgen, rtx condjmp)
   rtx compare_set = NULL_RTX, test_if, cond;
   rtx alu_set = NULL_RTX, addr = NULL_RTX;
 
+  if (!any_condjump_p (condjmp))
+    return false;
+
   if (get_attr_type (condgen) != TYPE_TEST
       && get_attr_type (condgen) != TYPE_ICMP
       && get_attr_type (condgen) != TYPE_INCDEC
@@ -26528,9 +26523,7 @@ core2i7_first_cycle_multipass_fini (void *_data)
 
 /* Prepare for scheduling pass.  */
 static void
-ix86_sched_init_global (FILE *dump ATTRIBUTE_UNUSED,
-			int verbose ATTRIBUTE_UNUSED,
-			int max_uid ATTRIBUTE_UNUSED)
+ix86_sched_init_global (FILE *, int, int)
 {
   /* Install scheduling hooks for current CPU.  Some of these hooks are used
      in time-critical parts of the scheduler, so we only set them up when
@@ -28991,7 +28984,7 @@ static const struct builtin_description bdesc_special_args[] =
   /* 80387 (for use internally for atomic compound assignment).  */
   { 0, CODE_FOR_fnstenv, "__builtin_ia32_fnstenv", IX86_BUILTIN_FNSTENV, UNKNOWN, (int) VOID_FTYPE_PVOID },
   { 0, CODE_FOR_fldenv, "__builtin_ia32_fldenv", IX86_BUILTIN_FLDENV, UNKNOWN, (int) VOID_FTYPE_PCVOID },
-  { 0, CODE_FOR_fnstsw, "__builtin_ia32_fnstsw", IX86_BUILTIN_FNSTSW, UNKNOWN, (int) VOID_FTYPE_PUSHORT },
+  { 0, CODE_FOR_fnstsw, "__builtin_ia32_fnstsw", IX86_BUILTIN_FNSTSW, UNKNOWN, (int) USHORT_FTYPE_VOID },
   { 0, CODE_FOR_fnclex, "__builtin_ia32_fnclex", IX86_BUILTIN_FNCLEX, UNKNOWN, (int) VOID_FTYPE_VOID },
 
   /* MMX */
@@ -32039,10 +32032,10 @@ ix86_get_function_versions_dispatcher (void *decl)
  
   gcc_assert (fn != NULL && DECL_FUNCTION_VERSIONED (fn));
 
-  node = cgraph_get_node (fn);
+  node = cgraph_node::get (fn);
   gcc_assert (node != NULL);
 
-  node_v = get_cgraph_node_version (node);
+  node_v = node->function_version ();
   gcc_assert (node_v != NULL);
  
   if (node_v->dispatcher_resolver != NULL)
@@ -32089,11 +32082,11 @@ ix86_get_function_versions_dispatcher (void *decl)
       /* Right now, the dispatching is done via ifunc.  */
       dispatch_decl = make_dispatcher_decl (default_node->decl);
 
-      dispatcher_node = cgraph_get_create_node (dispatch_decl);
+      dispatcher_node = cgraph_node::get_create (dispatch_decl);
       gcc_assert (dispatcher_node != NULL);
       dispatcher_node->dispatcher_function = 1;
       dispatcher_version_info
-	= insert_new_cgraph_node_version (dispatcher_node);
+	= dispatcher_node->insert_new_function_version ();
       dispatcher_version_info->next = default_version_info;
       dispatcher_node->definition = 1;
 
@@ -32202,8 +32195,8 @@ make_resolver_func (const tree default_decl,
   push_cfun (DECL_STRUCT_FUNCTION (decl));
   *empty_bb = init_lowered_empty_function (decl, false);
 
-  cgraph_add_new_function (decl, true);
-  cgraph_call_function_insertion_hooks (cgraph_get_create_node (decl));
+  cgraph_node::add_new_function (decl, true);
+  cgraph_node::get_create (decl)->call_function_insertion_hooks ();
 
   pop_cfun ();
 
@@ -32214,7 +32207,7 @@ make_resolver_func (const tree default_decl,
 
   /* Create the alias for dispatch to resolver here.  */
   /*cgraph_create_function_alias (dispatch_decl, decl);*/
-  cgraph_same_body_alias (NULL, dispatch_decl, decl);
+  cgraph_node::create_same_body_alias (dispatch_decl, decl);
   XDELETEVEC (resolver_name);
   return decl;
 }
@@ -32238,7 +32231,7 @@ ix86_generate_version_dispatcher_body (void *node_p)
 
   node = (cgraph_node *)node_p;
 
-  node_version_info = get_cgraph_node_version (node);
+  node_version_info = node->function_version ();
   gcc_assert (node->dispatcher_function
 	      && node_version_info != NULL);
 
@@ -32760,7 +32753,7 @@ ix86_init_builtins (void)
 /* Return the ix86 builtin for CODE.  */
 
 static tree
-ix86_builtin_decl (unsigned code, bool initialize_p ATTRIBUTE_UNUSED)
+ix86_builtin_decl (unsigned code, bool)
 {
   if (code >= IX86_BUILTIN_MAX)
     return error_mark_node;
@@ -34595,6 +34588,7 @@ ix86_expand_special_args_builtin (const struct builtin_description *d,
       break;
 
     case INT_FTYPE_VOID:
+    case USHORT_FTYPE_VOID:
     case UINT64_FTYPE_VOID:
     case UNSIGNED_FTYPE_VOID:
       nargs = 0;
@@ -35280,7 +35274,6 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
     case IX86_BUILTIN_FXRSTOR64:
     case IX86_BUILTIN_FNSTENV:
     case IX86_BUILTIN_FLDENV:
-    case IX86_BUILTIN_FNSTSW:
       mode0 = BLKmode;
       switch (fcode)
 	{
@@ -35301,10 +35294,6 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
 	  break;
 	case IX86_BUILTIN_FLDENV:
 	  icode = CODE_FOR_fldenv;
-	  break;
-	case IX86_BUILTIN_FNSTSW:
-	  icode = CODE_FOR_fnstsw;
-	  mode0 = HImode;
 	  break;
 	default:
 	  gcc_unreachable ();
@@ -36916,8 +36905,7 @@ ix86_vectorize_builtin_gather (const_tree mem_vectype,
    reciprocal of the function, or NULL_TREE if not available.  */
 
 static tree
-ix86_builtin_reciprocal (unsigned int fn, bool md_fn,
-			 bool sqrt ATTRIBUTE_UNUSED)
+ix86_builtin_reciprocal (unsigned int fn, bool md_fn, bool)
 {
   if (! (TARGET_SSE_MATH && !optimize_insn_for_size_p ()
 	 && flag_finite_math_only && !flag_trapping_math
@@ -38529,7 +38517,7 @@ x86_order_regs_for_local_alloc (void)
 static tree
 ix86_handle_callee_pop_aggregate_return (tree *node, tree name,
 					      tree args,
-					      int flags ATTRIBUTE_UNUSED,
+					      int,
 					      bool *no_add_attrs)
 {
   if (TREE_CODE (*node) != FUNCTION_TYPE
@@ -38579,9 +38567,8 @@ ix86_handle_callee_pop_aggregate_return (tree *node, tree name,
 /* Handle a "ms_abi" or "sysv" attribute; arguments as in
    struct attribute_spec.handler.  */
 static tree
-ix86_handle_abi_attribute (tree *node, tree name,
-			      tree args ATTRIBUTE_UNUSED,
-			      int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+ix86_handle_abi_attribute (tree *node, tree name, tree, int,
+			   bool *no_add_attrs)
 {
   if (TREE_CODE (*node) != FUNCTION_TYPE
       && TREE_CODE (*node) != METHOD_TYPE
@@ -38620,9 +38607,8 @@ ix86_handle_abi_attribute (tree *node, tree name,
 /* Handle a "ms_struct" or "gcc_struct" attribute; arguments as in
    struct attribute_spec.handler.  */
 static tree
-ix86_handle_struct_attribute (tree *node, tree name,
-			      tree args ATTRIBUTE_UNUSED,
-			      int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+ix86_handle_struct_attribute (tree *node, tree name, tree, int,
+			      bool *no_add_attrs)
 {
   tree *type = NULL;
   if (DECL_P (*node))
@@ -38654,9 +38640,8 @@ ix86_handle_struct_attribute (tree *node, tree name,
 }
 
 static tree
-ix86_handle_fndecl_attribute (tree *node, tree name,
-                              tree args ATTRIBUTE_UNUSED,
-                              int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+ix86_handle_fndecl_attribute (tree *node, tree name, tree, int,
+			      bool *no_add_attrs)
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
@@ -38734,9 +38719,8 @@ x86_this_parameter (tree function)
 /* Determine whether x86_output_mi_thunk can succeed.  */
 
 static bool
-x86_can_output_mi_thunk (const_tree thunk ATTRIBUTE_UNUSED,
-			 HOST_WIDE_INT delta ATTRIBUTE_UNUSED,
-			 HOST_WIDE_INT vcall_offset, const_tree function)
+x86_can_output_mi_thunk (const_tree, HOST_WIDE_INT, HOST_WIDE_INT vcall_offset,
+			 const_tree function)
 {
   /* 64-bit can handle anything.  */
   if (TARGET_64BIT)
@@ -38765,8 +38749,7 @@ x86_can_output_mi_thunk (const_tree thunk ATTRIBUTE_UNUSED,
    *(*this + vcall_offset) should be added to THIS.  */
 
 static void
-x86_output_mi_thunk (FILE *file,
-		     tree thunk ATTRIBUTE_UNUSED, HOST_WIDE_INT delta,
+x86_output_mi_thunk (FILE *file, tree, HOST_WIDE_INT delta,
 		     HOST_WIDE_INT vcall_offset, tree function)
 {
   rtx this_param = x86_this_parameter (function);
@@ -39420,7 +39403,7 @@ x86_extended_QIreg_mentioned_p (rtx insn)
 /* Return nonzero when P points to register encoded via REX prefix.
    Called via for_each_rtx.  */
 static int
-extended_reg_mentioned_1 (rtx *p, void *data ATTRIBUTE_UNUSED)
+extended_reg_mentioned_1 (rtx *p, void *)
 {
    unsigned int regno;
    if (!REG_P (*p))
@@ -41166,9 +41149,7 @@ ix86_c_mode_for_suffix (char suffix)
    with the old cc0-based compiler.  */
 
 static tree
-ix86_md_asm_clobbers (tree outputs ATTRIBUTE_UNUSED,
-		      tree inputs ATTRIBUTE_UNUSED,
-		      tree clobbers)
+ix86_md_asm_clobbers (tree, tree, tree clobbers)
 {
   clobbers = tree_cons (NULL_TREE, build_string (5, "flags"),
 			clobbers);
@@ -42375,8 +42356,7 @@ static const struct attribute_spec ix86_attribute_table[] =
 /* Implement targetm.vectorize.builtin_vectorization_cost.  */
 static int
 ix86_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
-                                 tree vectype,
-                                 int misalign ATTRIBUTE_UNUSED)
+                                 tree vectype, int)
 {
   unsigned elements;
 
@@ -43211,12 +43191,10 @@ expand_vec_perm_pblendv (struct expand_vec_perm_d *d)
   bool ok;
 
   /* Use the same checks as in expand_vec_perm_blend, but skipping
-     AVX2 as it requires more than 2 instructions for general case.  */
+     AVX and AVX2 as they require more than 2 instructions.  */
   if (d->one_operand_p)
     return false;
-  if (TARGET_AVX && (vmode == V4DFmode || vmode == V8SFmode))
-    ;
-  else if (TARGET_SSE4_1 && GET_MODE_SIZE (vmode) == 16)
+  if (TARGET_SSE4_1 && GET_MODE_SIZE (vmode) == 16)
     ;
   else
     return false;
@@ -46424,8 +46402,7 @@ has_dispatch (rtx insn, int action)
    enabled for other processors.  */
 
 static int
-ix86_reassociation_width (unsigned int opc ATTRIBUTE_UNUSED,
-			  enum machine_mode mode)
+ix86_reassociation_width (unsigned int, enum machine_mode mode)
 {
   int res = 1;
 
@@ -46522,7 +46499,7 @@ ix86_spill_class (reg_class_t rclass, enum machine_mode mode)
 /* Implement targetm.vectorize.init_cost.  */
 
 static void *
-ix86_init_cost (struct loop *loop_info ATTRIBUTE_UNUSED)
+ix86_init_cost (struct loop *)
 {
   unsigned *cost = XNEWVEC (unsigned, 3);
   cost[vect_prologue] = cost[vect_body] = cost[vect_epilogue] = 0;
@@ -46893,15 +46870,14 @@ ix86_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 		      hold_fnclex);
       *clear = build_call_expr (fnclex, 0);
       tree sw_var = create_tmp_var (short_unsigned_type_node, NULL);
-      mark_addressable (sw_var);
-      tree su_ptr = build_pointer_type (short_unsigned_type_node);
-      tree sw_addr = build1 (ADDR_EXPR, su_ptr, sw_var);
-      tree fnstsw_call = build_call_expr (fnstsw, 1, sw_addr);
+      tree fnstsw_call = build_call_expr (fnstsw, 0);
+      tree sw_mod = build2 (MODIFY_EXPR, short_unsigned_type_node,
+			    sw_var, fnstsw_call);
       tree exceptions_x87 = fold_convert (integer_type_node, sw_var);
       tree update_mod = build2 (MODIFY_EXPR, integer_type_node,
 				exceptions_var, exceptions_x87);
       *update = build2 (COMPOUND_EXPR, integer_type_node,
-			fnstsw_call, update_mod);
+			sw_mod, update_mod);
       tree update_fldenv = build_call_expr (fldenv, 1, fenv_addr);
       *update = build2 (COMPOUND_EXPR, void_type_node, *update, update_fldenv);
     }

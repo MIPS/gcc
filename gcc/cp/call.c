@@ -827,6 +827,12 @@ build_list_conv (tree type, tree ctor, int flags, tsubst_flags_t complain)
   /* But no narrowing conversions.  */
   flags |= LOOKUP_NO_NARROWING;
 
+  /* Can't make an array of these types.  */
+  if (TREE_CODE (elttype) == REFERENCE_TYPE
+      || TREE_CODE (elttype) == FUNCTION_TYPE
+      || VOID_TYPE_P (elttype))
+    return NULL;
+
   FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (ctor), i, val)
     {
       conversion *sub
@@ -1122,14 +1128,22 @@ standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
   to = strip_top_quals (to);
   from = strip_top_quals (from);
 
-  if ((TYPE_PTRFN_P (to) || TYPE_PTRMEMFUNC_P (to))
-      && expr && type_unknown_p (expr))
+  if (expr && type_unknown_p (expr))
     {
-      tsubst_flags_t tflags = tf_conv;
-      expr = instantiate_type (to, expr, tflags);
-      if (expr == error_mark_node)
-	return NULL;
-      from = TREE_TYPE (expr);
+      if (TYPE_PTRFN_P (to) || TYPE_PTRMEMFUNC_P (to))
+	{
+	  tsubst_flags_t tflags = tf_conv;
+	  expr = instantiate_type (to, expr, tflags);
+	  if (expr == error_mark_node)
+	    return NULL;
+	  from = TREE_TYPE (expr);
+	}
+      else if (TREE_CODE (to) == BOOLEAN_TYPE)
+	{
+	  /* Necessary for eg, TEMPLATE_ID_EXPRs (c++/50961).  */
+	  expr = resolve_nondeduced_context (expr);
+	  from = TREE_TYPE (expr);
+	}
     }
 
   fcode = TREE_CODE (from);
@@ -3631,7 +3645,8 @@ build_user_type_conversion_1 (tree totype, tree expr, int flags,
 
   /* It's OK to bind a temporary for converting constructor arguments, but
      not in converting the return value of a conversion operator.  */
-  convflags = ((flags & LOOKUP_NO_TEMP_BIND) | LOOKUP_NO_CONVERSION);
+  convflags = ((flags & LOOKUP_NO_TEMP_BIND) | LOOKUP_NO_CONVERSION
+	       | (flags & LOOKUP_NO_NARROWING));
   flags &= ~LOOKUP_NO_TEMP_BIND;
 
   if (ctors)
@@ -4810,6 +4825,7 @@ build_conditional_expr_1 (location_t loc, tree arg1, tree arg2, tree arg3,
     {
       conversion *conv2;
       conversion *conv3;
+      bool converted = false;
 
       /* Get the high-water mark for the CONVERSION_OBSTACK.  */
       p = conversion_obstack_alloc (0);
@@ -4856,6 +4872,7 @@ build_conditional_expr_1 (location_t loc, tree arg1, tree arg2, tree arg3,
 	     converted to X, the conversion will fail.  */
 	  if (error_operand_p (arg2))
 	    result = error_mark_node;
+	  converted = true;
 	}
       else if (conv3 && !conv3->bad_p)
 	{
@@ -4864,6 +4881,7 @@ build_conditional_expr_1 (location_t loc, tree arg1, tree arg2, tree arg3,
 	  arg3_type = TREE_TYPE (arg3);
 	  if (error_operand_p (arg3))
 	    result = error_mark_node;
+	  converted = true;
 	}
 
       /* Free all the conversions we allocated.  */
@@ -4887,8 +4905,7 @@ build_conditional_expr_1 (location_t loc, tree arg1, tree arg2, tree arg3,
 	 conditional expression failing altogether, even though,
 	 according to this step, the one operand could be converted to
 	 the type of the other.  */
-      if (((conv2 && !conv2->bad_p)
-	   || (conv3 && !conv3->bad_p))
+      if (converted
 	  && CLASS_TYPE_P (arg2_type)
 	  && cp_type_quals (arg2_type) != cp_type_quals (arg3_type))
 	arg2_type = arg3_type =
@@ -6115,9 +6132,11 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	{
 	  if (t->kind == ck_user && t->cand->reason)
 	    {
-	      permerror (loc, "invalid user-defined conversion "
-			 "from %qT to %qT", TREE_TYPE (expr), totype);
-	      print_z_candidate (loc, "candidate is:", t->cand);
+	      complained = permerror (loc, "invalid user-defined conversion "
+				      "from %qT to %qT", TREE_TYPE (expr),
+				      totype);
+	      if (complained)
+		print_z_candidate (loc, "candidate is:", t->cand);
 	      expr = convert_like_real (t, expr, fn, argnum, 1,
 					/*issue_conversion_warnings=*/false,
 					/*c_cast_p=*/false,
@@ -6128,7 +6147,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 					     complain);
 	      else
 		expr = cp_convert (totype, expr, complain);
-	      if (fn)
+	      if (complained && fn)
 		inform (DECL_SOURCE_LOCATION (fn),
 			"  initializing argument %P of %qD", argnum, fn);
 	      return expr;
@@ -6877,13 +6896,13 @@ mark_versions_used (tree fn)
 
   gcc_assert (TREE_CODE (fn) == FUNCTION_DECL);
 
-  node = cgraph_get_node (fn);
+  node = cgraph_node::get (fn);
   if (node == NULL)
     return;
 
   gcc_assert (node->dispatcher_function);
 
-  node_v = get_cgraph_node_version (node);
+  node_v = node->function_version ();
   if (node_v == NULL)
     return;
 
@@ -7462,6 +7481,11 @@ build_cxx_call (tree fn, int nargs, tree *argarray,
 	  || bif == BUILT_IN_CILKPLUS_SEC_REDUCE
 	  || bif == BUILT_IN_CILKPLUS_SEC_REDUCE_MUTATING)
 	{ 
+	  if (call_expr_nargs (fn) == 0)
+	    {
+	      error_at (EXPR_LOCATION (fn), "Invalid builtin arguments");
+	      return error_mark_node;
+	    }
 	  /* for bif == BUILT_IN_CILKPLUS_SEC_REDUCE_ALL_ZERO or
 	     BUILT_IN_CILKPLUS_SEC_REDUCE_ANY_ZERO or
 	     BUILT_IN_CILKPLUS_SEC_REDUCE_ANY_NONZERO or 
@@ -9768,7 +9792,6 @@ is_std_init_list (tree type)
   type = TYPE_MAIN_VARIANT (type);
   return (CLASS_TYPE_P (type)
 	  && CP_TYPE_CONTEXT (type) == std_node
-	  && CLASSTYPE_TEMPLATE_INFO (type)
 	  && strcmp (TYPE_NAME_STRING (type), "initializer_list") == 0);
 }
 

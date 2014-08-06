@@ -53,6 +53,35 @@ along with GCC; see the file COPYING3.  If not see
 #include "graphite-poly.h"
 #include "graphite-htab.h"
 
+isl_union_map *
+scop_get_dependences (scop_p scop)
+{
+  isl_union_map *dependences;
+
+  if (!scop->must_raw)
+    compute_deps (scop, SCOP_BBS (scop),
+		  &scop->must_raw, &scop->may_raw,
+		  &scop->must_raw_no_source, &scop->may_raw_no_source,
+		  &scop->must_war, &scop->may_war,
+		  &scop->must_war_no_source, &scop->may_war_no_source,
+		  &scop->must_waw, &scop->may_waw,
+		  &scop->must_waw_no_source, &scop->may_waw_no_source);
+
+  dependences = isl_union_map_copy (scop->must_raw);
+  dependences = isl_union_map_union (dependences,
+				     isl_union_map_copy (scop->must_war));
+  dependences = isl_union_map_union (dependences,
+				     isl_union_map_copy (scop->must_waw));
+  dependences = isl_union_map_union (dependences,
+				     isl_union_map_copy (scop->may_raw));
+  dependences = isl_union_map_union (dependences,
+				     isl_union_map_copy (scop->may_war));
+  dependences = isl_union_map_union (dependences,
+				     isl_union_map_copy (scop->may_waw));
+
+  return dependences;
+}
+
 /* Add the constraints from the set S to the domain of MAP.  */
 
 static isl_map *
@@ -263,6 +292,11 @@ apply_schedule_on_deps (__isl_keep isl_union_map *schedule,
   ux = isl_union_map_copy (deps);
   ux = isl_union_map_apply_domain (ux, isl_union_map_copy (trans));
   ux = isl_union_map_apply_range (ux, trans);
+  if (isl_union_map_is_empty (ux))
+    {
+      isl_union_map_free (ux);
+      return NULL;
+    }
   x = isl_map_from_union_map (ux);
 
   return x;
@@ -300,7 +334,7 @@ no_violations (__isl_keep isl_union_map *schedule,
    in which all the inputs before DEPTH occur at the same time as the
    output, and the input at DEPTH occurs before output.  */
 
-static bool
+bool
 carries_deps (__isl_keep isl_union_map *schedule,
 	      __isl_keep isl_union_map *deps,
 	      int depth)
@@ -315,6 +349,8 @@ carries_deps (__isl_keep isl_union_map *schedule,
     return false;
 
   x = apply_schedule_on_deps (schedule, deps);
+  if (x == NULL)
+    return false;
   space = isl_map_get_space (x);
   space = isl_space_range (space);
   lex = isl_map_lex_le (space);
@@ -424,24 +460,71 @@ subtract_commutative_associative_deps (scop_p scop,
 					  &x_may_waw_no_source);
 	gcc_assert (res == 0);
 
-	*must_raw = isl_union_map_subtract (*must_raw, x_must_raw);
-	*may_raw = isl_union_map_subtract (*may_raw, x_may_raw);
-	*must_raw_no_source = isl_union_map_subtract (*must_raw_no_source,
-						      x_must_raw_no_source);
-	*may_raw_no_source = isl_union_map_subtract (*may_raw_no_source,
-						     x_may_raw_no_source);
-	*must_war = isl_union_map_subtract (*must_war, x_must_war);
-	*may_war = isl_union_map_subtract (*may_war, x_may_war);
-	*must_war_no_source = isl_union_map_subtract (*must_war_no_source,
-						      x_must_war_no_source);
-	*may_war_no_source = isl_union_map_subtract (*may_war_no_source,
-						     x_may_war_no_source);
-	*must_waw = isl_union_map_subtract (*must_waw, x_must_waw);
-	*may_waw = isl_union_map_subtract (*may_waw, x_may_waw);
-	*must_waw_no_source = isl_union_map_subtract (*must_waw_no_source,
-						      x_must_waw_no_source);
-	*may_waw_no_source = isl_union_map_subtract (*may_waw_no_source,
-						     x_may_waw_no_source);
+	if (must_raw)
+	  *must_raw = isl_union_map_subtract (*must_raw, x_must_raw);
+	else
+	  isl_union_map_free (x_must_raw);
+
+	if (may_raw)
+	  *may_raw = isl_union_map_subtract (*may_raw, x_may_raw);
+	else
+	  isl_union_map_free (x_may_raw);
+
+	if (must_raw_no_source)
+	  *must_raw_no_source = isl_union_map_subtract (*must_raw_no_source,
+						        x_must_raw_no_source);
+	else
+	  isl_union_map_free (x_must_raw_no_source);
+
+	if (may_raw_no_source)
+	  *may_raw_no_source = isl_union_map_subtract (*may_raw_no_source,
+						       x_may_raw_no_source);
+	else
+	  isl_union_map_free (x_may_raw_no_source);
+
+	if (must_war)
+	  *must_war = isl_union_map_subtract (*must_war, x_must_war);
+	else
+	  isl_union_map_free (x_must_war);
+
+	if (may_war)
+	  *may_war = isl_union_map_subtract (*may_war, x_may_war);
+	else
+	  isl_union_map_free (x_may_war);
+
+	if (must_war_no_source)
+	  *must_war_no_source = isl_union_map_subtract (*must_war_no_source,
+						        x_must_war_no_source);
+	else
+	  isl_union_map_free (x_must_war_no_source);
+
+	if (may_war_no_source)
+	  *may_war_no_source = isl_union_map_subtract (*may_war_no_source,
+						       x_may_war_no_source);
+	else
+	  isl_union_map_free (x_may_war_no_source);
+
+	if (must_waw)
+	  *must_waw = isl_union_map_subtract (*must_waw, x_must_waw);
+	else
+	  isl_union_map_free (x_must_waw);
+
+	if (may_waw)
+	  *may_waw = isl_union_map_subtract (*may_waw, x_may_waw);
+	else
+	  isl_union_map_free (x_may_waw);
+
+	if (must_waw_no_source)
+	  *must_waw_no_source = isl_union_map_subtract (*must_waw_no_source,
+						        x_must_waw_no_source);
+	else
+	  isl_union_map_free (x_must_waw_no_source);
+
+	if (may_waw_no_source)
+	  *may_waw_no_source = isl_union_map_subtract (*may_waw_no_source,
+						       x_may_waw_no_source);
+	else
+	  isl_union_map_free (x_may_waw_no_source);
       }
 
   isl_union_map_free (original);

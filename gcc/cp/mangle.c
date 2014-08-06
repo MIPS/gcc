@@ -742,6 +742,10 @@ decl_mangling_context (tree decl)
   if (tcontext != NULL_TREE)
     return tcontext;
 
+  if (TREE_CODE (decl) == TEMPLATE_DECL
+      && DECL_TEMPLATE_RESULT (decl))
+    decl = DECL_TEMPLATE_RESULT (decl);
+
   if (TREE_CODE (decl) == TYPE_DECL
       && LAMBDA_TYPE_P (TREE_TYPE (decl)))
     {
@@ -3483,11 +3487,11 @@ mangle_decl (const tree decl)
       if (TREE_CODE (decl) == FUNCTION_DECL)
 	{
 	  /* Don't create an alias to an unreferenced function.  */
-	  if (struct cgraph_node *n = cgraph_get_node (decl))
-	    cgraph_same_body_alias (n, alias, decl);
+	  if (struct cgraph_node *n = cgraph_node::get (decl))
+	    n->create_same_body_alias (alias, decl);
 	}
       else
-	varpool_extra_name_alias (alias, decl);
+	varpool_node::create_extra_name_alias (alias, decl);
 #endif
     }
 }

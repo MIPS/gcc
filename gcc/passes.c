@@ -84,6 +84,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "pass_manager.h"
 #include "tree-ssa-live.h"  /* For remove_unused_locals.  */
 #include "tree-cfgcleanup.h"
+#include "hash-map.h"
 
 using namespace gcc;
 
@@ -238,7 +239,7 @@ rest_of_decl_compilation (tree decl,
 	  if (in_lto_p && !at_end)
 	    ;
 	  else if (finalize && TREE_CODE (decl) != FUNCTION_DECL)
-	    varpool_finalize_decl (decl);
+	    varpool_node::finalize_decl (decl);
 	}
 
 #ifdef ASM_FINISH_DECLARE_OBJECT
@@ -266,7 +267,7 @@ rest_of_decl_compilation (tree decl,
     ;
   else if (TREE_CODE (decl) == VAR_DECL && !DECL_EXTERNAL (decl)
 	   && TREE_STATIC (decl))
-    varpool_node_for_decl (decl);
+    varpool_node::get_create (decl);
 }
 
 /* Called after finishing a record, union or enumeral type.  */
@@ -344,7 +345,6 @@ const pass_data pass_data_early_local_passes =
   SIMPLE_IPA_PASS, /* type */
   "early_local_cleanups", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_EARLY_LOCAL, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -389,7 +389,6 @@ const pass_data pass_data_all_early_optimizations =
   GIMPLE_PASS, /* type */
   "early_optimizations", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  false, /* has_execute */
   TV_NONE, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -430,7 +429,6 @@ const pass_data pass_data_all_optimizations =
   GIMPLE_PASS, /* type */
   "*all_optimizations", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  false, /* has_execute */
   TV_OPTIMIZE, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -466,7 +464,6 @@ const pass_data pass_data_all_optimizations_g =
   GIMPLE_PASS, /* type */
   "*all_optimizations_g", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  false, /* has_execute */
   TV_OPTIMIZE, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -502,7 +499,6 @@ const pass_data pass_data_rest_of_compilation =
   RTL_PASS, /* type */
   "*rest_of_compilation", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  false, /* has_execute */
   TV_REST_OF_COMPILATION, /* tv_id */
   PROP_rtl, /* properties_required */
   0, /* properties_provided */
@@ -543,7 +539,6 @@ const pass_data pass_data_postreload =
   RTL_PASS, /* type */
   "*all-postreload", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  false, /* has_execute */
   TV_POSTRELOAD, /* tv_id */
   PROP_rtl, /* properties_required */
   0, /* properties_provided */
@@ -687,64 +682,47 @@ pass_manager::register_dump_files (opt_pass *pass)
   while (pass);
 }
 
-struct pass_registry
-{
-  const char* unique_name;
-  opt_pass *pass;
-};
-
 /* Helper for pass_registry hash table.  */
 
-struct pass_registry_hasher : typed_noop_remove <pass_registry>
+struct pass_registry_hasher : default_hashmap_traits
 {
-  typedef pass_registry value_type;
-  typedef pass_registry compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
+  static inline hashval_t hash (const char *);
+  static inline bool equal_keys (const char *, const char *);
 };
 
 /* Pass registry hash function.  */
 
 inline hashval_t
-pass_registry_hasher::hash (const value_type *s)
+pass_registry_hasher::hash (const char *name)
 {
-  return htab_hash_string (s->unique_name);
+  return htab_hash_string (name);
 }
 
 /* Hash equal function  */
 
 inline bool
-pass_registry_hasher::equal (const value_type *s1, const compare_type *s2)
+pass_registry_hasher::equal_keys (const char *s1, const char *s2)
 {
-  return !strcmp (s1->unique_name, s2->unique_name);
+  return !strcmp (s1, s2);
 }
 
-static hash_table<pass_registry_hasher> *name_to_pass_map;
+static hash_map<const char *, opt_pass *, pass_registry_hasher>
+  *name_to_pass_map;
 
 /* Register PASS with NAME.  */
 
 static void
 register_pass_name (opt_pass *pass, const char *name)
 {
-  struct pass_registry **slot;
-  struct pass_registry pr;
-
   if (!name_to_pass_map)
-    name_to_pass_map = new hash_table<pass_registry_hasher> (256);
+    name_to_pass_map
+      = new hash_map<const char *, opt_pass *, pass_registry_hasher> (256);
 
-  pr.unique_name = name;
-  slot = name_to_pass_map->find_slot (&pr, INSERT);
-  if (!*slot)
-    {
-      struct pass_registry *new_pr;
-
-      new_pr = XCNEW (struct pass_registry);
-      new_pr->unique_name = xstrdup (name);
-      new_pr->pass = pass;
-      *slot = new_pr;
-    }
-  else
+  if (name_to_pass_map->get (name))
     return; /* Ignore plugin passes.  */
+
+      const char *unique_name = xstrdup (name);
+      name_to_pass_map->put (unique_name, pass);
 }
 
 /* Map from pass id to canonicalized pass name.  */
@@ -754,15 +732,13 @@ static vec<char_ptr> pass_tab = vNULL;
 
 /* Callback function for traversing NAME_TO_PASS_MAP.  */
 
-int
-passes_pass_traverse (pass_registry **p, void *data ATTRIBUTE_UNUSED)
+bool
+passes_pass_traverse (const char *const &name, opt_pass *const &pass, void *)
 {
-  opt_pass *pass = (*p)->pass;
-
   gcc_assert (pass->static_pass_number > 0);
   gcc_assert (pass_tab.exists ());
 
-  pass_tab[pass->static_pass_number] = (*p)->unique_name;
+  pass_tab[pass->static_pass_number] = name;
 
   return 1;
 }
@@ -864,15 +840,11 @@ pass_manager::dump_passes () const
 static opt_pass *
 get_pass_by_name (const char *name)
 {
-  struct pass_registry **slot, pr;
+  opt_pass **p = name_to_pass_map->get (name);
+  if (p)
+    return *p;
 
-  pr.unique_name = name;
-  slot = name_to_pass_map->find_slot (&pr, NO_INSERT);
-
-  if (!slot || !*slot)
-    return NULL;
-
-  return (*slot)->pass;
+  return NULL;
 }
 
 
@@ -1108,7 +1080,7 @@ is_pass_explicitly_enabled_or_disabled (opt_pass *pass,
   if (!slot)
     return false;
 
-  cgraph_uid = func ? cgraph_get_node (func)->uid : 0;
+  cgraph_uid = func ? cgraph_node::get (func)->uid : 0;
   if (func && DECL_ASSEMBLER_NAME_SET_P (func))
     aname = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (func));
 
@@ -1506,7 +1478,7 @@ do_per_function (void (*callback) (function *, void *data), void *data)
     {
       struct cgraph_node *node;
       FOR_EACH_DEFINED_FUNCTION (node)
-	if (node->analyzed && gimple_has_body_p (node->decl)
+	if (node->analyzed && (gimple_has_body_p (node->decl) && !in_lto_p)
 	    && (!node->clone_of || node->decl != node->clone_of->decl))
 	  callback (DECL_STRUCT_FUNCTION (node->decl), data);
     }
@@ -1516,7 +1488,7 @@ do_per_function (void (*callback) (function *, void *data), void *data)
    keep the array visible to garbage collector to avoid reading collected
    out nodes.  */
 static int nnodes;
-static GTY ((length ("nnodes"))) cgraph_node_ptr *order;
+static GTY ((length ("nnodes"))) cgraph_node **order;
 
 /* If we are in IPA mode (i.e., current_function_decl is NULL), call
    function CALLBACK for every function in the call graph.  Otherwise,
@@ -1532,7 +1504,7 @@ do_per_function_toporder (void (*callback) (function *, void *data), void *data)
   else
     {
       gcc_assert (!order);
-      order = ggc_vec_alloc<cgraph_node_ptr> (cgraph_n_nodes);
+      order = ggc_vec_alloc<cgraph_node *> (cgraph_n_nodes);
       nnodes = ipa_reverse_postorder (order);
       for (i = nnodes - 1; i >= 0; i--)
         order[i]->process = 1;
@@ -1543,7 +1515,7 @@ do_per_function_toporder (void (*callback) (function *, void *data), void *data)
 	  /* Allow possibly removed nodes to be garbage collected.  */
 	  order[i] = NULL;
 	  node->process = 0;
-	  if (cgraph_function_with_gimple_body_p (node))
+	  if (node->has_gimple_body_p ())
 	    callback (DECL_STRUCT_FUNCTION (node->decl), data);
 	}
     }
@@ -1846,7 +1818,7 @@ execute_todo (unsigned int flags)
   if ((flags & TODO_dump_symtab) && dump_file && !current_function_decl)
     {
       gcc_assert (!cfun);
-      dump_symtab (dump_file);
+      symtab_node::dump_table (dump_file);
       /* Flush the file.  If verification fails, we won't be able to
 	 close the file before aborting.  */
       fflush (dump_file);
@@ -2043,7 +2015,7 @@ execute_all_ipa_transforms (void)
   struct cgraph_node *node;
   if (!cfun)
     return;
-  node = cgraph_get_node (current_function_decl);
+  node = cgraph_node::get (current_function_decl);
 
   if (node->ipa_transforms_to_apply.exists ())
     {
@@ -2130,13 +2102,13 @@ execute_one_pass (opt_pass *pass)
       bool applied = false;
       FOR_EACH_DEFINED_FUNCTION (node)
 	if (node->analyzed
-	    && cgraph_function_with_gimple_body_p (node)
+	    && node->has_gimple_body_p ()
 	    && (!node->clone_of || node->decl != node->clone_of->decl))
 	  {
 	    if (!node->global.inlined_to
 		&& node->ipa_transforms_to_apply.exists ())
 	      {
-		cgraph_get_body (node);
+		node->get_body ();
 		push_cfun (DECL_STRUCT_FUNCTION (node->decl));
 		execute_all_ipa_transforms ();
 		rebuild_cgraph_edges ();
@@ -2174,11 +2146,8 @@ execute_one_pass (opt_pass *pass)
     timevar_push (pass->tv_id);
 
   /* Do it!  */
-  if (pass->has_execute)
-    {
-      todo_after = pass->execute (cfun);
-      do_per_function (clear_last_verified, NULL);
-    }
+  todo_after = pass->execute (cfun);
+  do_per_function (clear_last_verified, NULL);
 
   /* Stop timevar.  */
   if (pass->tv_id != TV_NONE)
@@ -2351,7 +2320,7 @@ ipa_write_summaries (void)
     {
       struct cgraph_node *node = order[i];
 
-      if (cgraph_function_with_gimple_body_p (node))
+      if (node->has_gimple_body_p ())
 	{
 	  /* When streaming out references to statements as part of some IPA
 	     pass summary, the statements need to have uids assigned and the
@@ -2679,13 +2648,13 @@ bool
 function_called_by_processed_nodes_p (void)
 {
   struct cgraph_edge *e;
-  for (e = cgraph_get_node (current_function_decl)->callers;
+  for (e = cgraph_node::get (current_function_decl)->callers;
        e;
        e = e->next_caller)
     {
       if (e->caller->decl == current_function_decl)
         continue;
-      if (!cgraph_function_with_gimple_body_p (e->caller))
+      if (!e->caller->has_gimple_body_p ())
         continue;
       if (TREE_ASM_WRITTEN (e->caller->decl))
         continue;
@@ -2695,7 +2664,7 @@ function_called_by_processed_nodes_p (void)
   if (dump_file && e)
     {
       fprintf (dump_file, "Already processed call to:\n");
-      dump_cgraph_node (dump_file, e->caller);
+      e->caller->dump (dump_file);
     }
   return e != NULL;
 }

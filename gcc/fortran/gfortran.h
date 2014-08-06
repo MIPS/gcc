@@ -332,8 +332,17 @@ enum gfc_isym_id
   GFC_ISYM_ATAN,
   GFC_ISYM_ATAN2,
   GFC_ISYM_ATANH,
+  GFC_ISYM_ATOMIC_ADD,
+  GFC_ISYM_ATOMIC_AND,
+  GFC_ISYM_ATOMIC_CAS,
   GFC_ISYM_ATOMIC_DEF,
+  GFC_ISYM_ATOMIC_FETCH_ADD,
+  GFC_ISYM_ATOMIC_FETCH_AND,
+  GFC_ISYM_ATOMIC_FETCH_OR,
+  GFC_ISYM_ATOMIC_FETCH_XOR,
+  GFC_ISYM_ATOMIC_OR,
   GFC_ISYM_ATOMIC_REF,
+  GFC_ISYM_ATOMIC_XOR,
   GFC_ISYM_BGE,
   GFC_ISYM_BGT,
   GFC_ISYM_BIT_SIZE,
@@ -678,7 +687,8 @@ iso_c_binding_symbol;
 
 typedef enum
 {
-  INTMOD_NONE = 0, INTMOD_ISO_FORTRAN_ENV, INTMOD_ISO_C_BINDING
+  INTMOD_NONE = 0, INTMOD_ISO_FORTRAN_ENV, INTMOD_ISO_C_BINDING,
+  INTMOD_IEEE_FEATURES, INTMOD_IEEE_EXCEPTIONS, INTMOD_IEEE_ARITHMETIC
 }
 intmod_id;
 
@@ -2869,6 +2879,8 @@ gfc_formal_arglist *gfc_sym_get_dummy_args (gfc_symbol *);
 
 /* intrinsic.c -- true if working in an init-expr, false otherwise.  */
 extern bool gfc_init_expr_flag;
+
+gfc_expr *gfc_simplify_ieee_selected_real_kind (gfc_expr *);
 
 /* Given a symbol that we have decided is intrinsic, mark it as such
    by placing it into a special module that is otherwise impossible to

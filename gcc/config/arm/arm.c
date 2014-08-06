@@ -92,7 +92,6 @@ static rtx arm_legitimize_address (rtx, rtx, enum machine_mode);
 static reg_class_t arm_preferred_reload_class (rtx, reg_class_t);
 static rtx thumb_legitimize_address (rtx, rtx, enum machine_mode);
 inline static int thumb1_index_register_rtx_p (rtx, int);
-static bool arm_legitimate_address_p (enum machine_mode, rtx, bool);
 static int thumb_far_jump_used_p (void);
 static bool thumb_force_lr_save (void);
 static unsigned arm_size_return_regs (void);
@@ -1177,6 +1176,107 @@ const struct cpu_cost_table cortexa8_extra_costs =
   }
 };
 
+const struct cpu_cost_table cortexa5_extra_costs =
+{
+  /* ALU */
+  {
+    0,			/* arith.  */
+    0,			/* logical.  */
+    COSTS_N_INSNS (1),	/* shift.  */
+    COSTS_N_INSNS (1),	/* shift_reg.  */
+    COSTS_N_INSNS (1),	/* arith_shift.  */
+    COSTS_N_INSNS (1),	/* arith_shift_reg.  */
+    COSTS_N_INSNS (1),	/* log_shift.  */
+    COSTS_N_INSNS (1),	/* log_shift_reg.  */
+    COSTS_N_INSNS (1),	/* extend.  */
+    COSTS_N_INSNS (1),	/* extend_arith.  */
+    COSTS_N_INSNS (1),	/* bfi.  */
+    COSTS_N_INSNS (1),	/* bfx.  */
+    COSTS_N_INSNS (1),	/* clz.  */
+    COSTS_N_INSNS (1),	/* rev.  */
+    0,			/* non_exec.  */
+    true		/* non_exec_costs_exec.  */
+  },
+
+  {
+    /* MULT SImode */
+    {
+      0,			/* simple.  */
+      COSTS_N_INSNS (1),	/* flag_setting.  */
+      COSTS_N_INSNS (1),	/* extend.  */
+      COSTS_N_INSNS (1),	/* add.  */
+      COSTS_N_INSNS (1),	/* extend_add.  */
+      COSTS_N_INSNS (7)		/* idiv.  */
+    },
+    /* MULT DImode */
+    {
+      0,			/* simple (N/A).  */
+      0,			/* flag_setting (N/A).  */
+      COSTS_N_INSNS (1),	/* extend.  */
+      0,			/* add.  */
+      COSTS_N_INSNS (2),	/* extend_add.  */
+      0				/* idiv (N/A).  */
+    }
+  },
+  /* LD/ST */
+  {
+    COSTS_N_INSNS (1),	/* load.  */
+    COSTS_N_INSNS (1),	/* load_sign_extend.  */
+    COSTS_N_INSNS (6),	/* ldrd.  */
+    COSTS_N_INSNS (1),	/* ldm_1st.  */
+    1,			/* ldm_regs_per_insn_1st.  */
+    2,			/* ldm_regs_per_insn_subsequent.  */
+    COSTS_N_INSNS (2),	/* loadf.  */
+    COSTS_N_INSNS (4),	/* loadd.  */
+    COSTS_N_INSNS (1),	/* load_unaligned.  */
+    COSTS_N_INSNS (1),	/* store.  */
+    COSTS_N_INSNS (3),	/* strd.  */
+    COSTS_N_INSNS (1),	/* stm_1st.  */
+    1,			/* stm_regs_per_insn_1st.  */
+    2,			/* stm_regs_per_insn_subsequent.  */
+    COSTS_N_INSNS (2),	/* storef.  */
+    COSTS_N_INSNS (2),	/* stored.  */
+    COSTS_N_INSNS (1)	/* store_unaligned.  */
+  },
+  {
+    /* FP SFmode */
+    {
+      COSTS_N_INSNS (15),	/* div.  */
+      COSTS_N_INSNS (3),	/* mult.  */
+      COSTS_N_INSNS (7),	/* mult_addsub. */
+      COSTS_N_INSNS (7),	/* fma.  */
+      COSTS_N_INSNS (3),	/* addsub.  */
+      COSTS_N_INSNS (3),	/* fpconst.  */
+      COSTS_N_INSNS (3),	/* neg.  */
+      COSTS_N_INSNS (3),	/* compare.  */
+      COSTS_N_INSNS (3),	/* widen.  */
+      COSTS_N_INSNS (3),	/* narrow.  */
+      COSTS_N_INSNS (3),	/* toint.  */
+      COSTS_N_INSNS (3),	/* fromint.  */
+      COSTS_N_INSNS (3)		/* roundint.  */
+    },
+    /* FP DFmode */
+    {
+      COSTS_N_INSNS (30),	/* div.  */
+      COSTS_N_INSNS (6),	/* mult.  */
+      COSTS_N_INSNS (10),	/* mult_addsub.  */
+      COSTS_N_INSNS (7),	/* fma.  */
+      COSTS_N_INSNS (3),	/* addsub.  */
+      COSTS_N_INSNS (3),	/* fpconst.  */
+      COSTS_N_INSNS (3),	/* neg.  */
+      COSTS_N_INSNS (3),	/* compare.  */
+      COSTS_N_INSNS (3),	/* widen.  */
+      COSTS_N_INSNS (3),	/* narrow.  */
+      COSTS_N_INSNS (3),	/* toint.  */
+      COSTS_N_INSNS (3),	/* fromint.  */
+      COSTS_N_INSNS (3)		/* roundint.  */
+    }
+  },
+  /* Vector */
+  {
+    COSTS_N_INSNS (1)	/* alu.  */
+  }
+};
 
 
 const struct cpu_cost_table cortexa7_extra_costs =
@@ -1798,7 +1898,7 @@ const struct tune_params arm_cortex_a57_tune =
 const struct tune_params arm_cortex_a5_tune =
 {
   arm_9e_rtx_costs,
-  NULL,
+  &cortexa5_extra_costs,
   NULL,						/* Sched adj cost.  */
   1,						/* Constant limit.  */
   1,						/* Max cond insns.  */
@@ -2618,10 +2718,6 @@ arm_option_override (void)
 
   if (TARGET_APCS_FLOAT)
     warning (0, "passing floating point arguments in fp regs not yet supported");
-
-  if (TARGET_LITTLE_WORDS)
-    warning (OPT_Wdeprecated, "%<mwords-little-endian%> is deprecated and "
-	     "will be removed in a future release");
 
   /* Initialize boolean versions of the flags, for use in the arm.md file.  */
   arm_arch3m = (insn_flags & FL_ARCH3M) != 0;
@@ -11614,8 +11710,9 @@ cortexa7_older_only (rtx insn)
 
   switch (get_attr_type (insn))
     {
-    case TYPE_ALU_REG:
-    case TYPE_ALUS_REG:
+    case TYPE_ALU_DSP_REG:
+    case TYPE_ALU_SREG:
+    case TYPE_ALUS_SREG:
     case TYPE_LOGIC_REG:
     case TYPE_LOGICS_REG:
     case TYPE_ADC_REG:
@@ -20684,30 +20781,47 @@ arm_get_frame_offsets (void)
 	{
 	  int reg = -1;
 
+	  /* Register r3 is caller-saved.  Normally it does not need to be
+	     saved on entry by the prologue.  However if we choose to save
+	     it for padding then we may confuse the compiler into thinking
+	     a prologue sequence is required when in fact it is not.  This
+	     will occur when shrink-wrapping if r3 is used as a scratch
+	     register and there are no other callee-saved writes.
+
+	     This situation can be avoided when other callee-saved registers
+	     are available and r3 is not mandatory if we choose a callee-saved
+	     register for padding.  */
+	  bool prefer_callee_reg_p = false;
+
 	  /* If it is safe to use r3, then do so.  This sometimes
 	     generates better code on Thumb-2 by avoiding the need to
 	     use 32-bit push/pop instructions.  */
           if (! any_sibcall_could_use_r3 ()
 	      && arm_size_return_regs () <= 12
 	      && (offsets->saved_regs_mask & (1 << 3)) == 0
-              && (TARGET_THUMB2
+	      && (TARGET_THUMB2
 		  || !(TARGET_LDRD && current_tune->prefer_ldrd_strd)))
 	    {
 	      reg = 3;
+	      if (!TARGET_THUMB2)
+		prefer_callee_reg_p = true;
 	    }
-	  else
-	    for (i = 4; i <= (TARGET_THUMB1 ? LAST_LO_REGNUM : 11); i++)
-	      {
-		/* Avoid fixed registers; they may be changed at
-		   arbitrary times so it's unsafe to restore them
-		   during the epilogue.  */
-		if (!fixed_regs[i]
-		    && (offsets->saved_regs_mask & (1 << i)) == 0)
-		  {
-		    reg = i;
-		    break;
-		  }
-	      }
+	  if (reg == -1
+	      || prefer_callee_reg_p)
+	    {
+	      for (i = 4; i <= (TARGET_THUMB1 ? LAST_LO_REGNUM : 11); i++)
+		{
+		  /* Avoid fixed registers; they may be changed at
+		     arbitrary times so it's unsafe to restore them
+		     during the epilogue.  */
+		  if (!fixed_regs[i]
+		      && (offsets->saved_regs_mask & (1 << i)) == 0)
+		    {
+		      reg = i;
+		      break;
+		    }
+		}
+	    }
 
 	  if (reg != -1)
 	    {
@@ -31534,6 +31648,15 @@ arm_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
   *update = build2 (COMPOUND_EXPR, void_type_node,
 		    build2 (COMPOUND_EXPR, void_type_node,
 			    reload_fenv, restore_fnenv), update_call);
+}
+
+/* return TRUE if x is a reference to a value in a constant pool */
+extern bool
+arm_is_constant_pool_ref (rtx x)
+{
+  return (MEM_P (x)
+	  && GET_CODE (XEXP (x, 0)) == SYMBOL_REF
+	  && CONSTANT_POOL_ADDRESS_P (XEXP (x, 0)));
 }
 
 #include "gt-arm.h"

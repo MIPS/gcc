@@ -80,8 +80,8 @@ static int ambi_op_p (enum tree_code);
 static int unary_op_p (enum tree_code);
 static void push_local_name (tree);
 static tree grok_reference_init (tree, tree, tree, int);
-static tree grokvardecl (tree, tree, const cp_decl_specifier_seq *,
-			 int, int, tree);
+static tree grokvardecl (tree, tree, tree, const cp_decl_specifier_seq *,
+			 int, int, int, tree);
 static int check_static_variable_definition (tree, tree);
 static void record_unknown_type (tree, const char *);
 static tree builtin_function_1 (tree, tree, bool);
@@ -1079,7 +1079,7 @@ decls_match (tree newdecl, tree olddecl)
 	      if (DECL_ASSEMBLER_NAME_SET_P (olddecl))
 	       mangle_decl (olddecl);
 	    }
-	  record_function_versions (olddecl, newdecl);
+	  cgraph_node::record_function_versions (olddecl, newdecl);
 	  return 0;
 	}
     }
@@ -1281,6 +1281,27 @@ check_concept_refinement (tree olddecl, tree newdecl)
   return false;
 }
 
+
+/* DECL is a redeclaration of a function or function template.  If
+   it does have default arguments issue a diagnostic.  Note: this
+   function is used to enforce the requirements in C++11 8.3.6 about
+   no default arguments in redeclarations.  */
+
+static void
+check_redeclaration_no_default_args (tree decl)
+{
+  gcc_assert (DECL_DECLARES_FUNCTION_P (decl));
+
+  for (tree t = FUNCTION_FIRST_USER_PARMTYPE (decl);
+       t && t != void_list_node; t = TREE_CHAIN (t))
+    if (TREE_PURPOSE (t))
+      {
+	permerror (input_location,
+		   "redeclaration of %q#D may not have default "
+		   "arguments", decl);
+	return;
+      }
+}
 
 #define GNU_INLINE_P(fn) (DECL_DECLARED_INLINE_P (fn)			\
 			  && lookup_attribute ("gnu_inline",		\
@@ -1762,31 +1783,23 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	;
       else if (TREE_CODE (olddecl) == FUNCTION_DECL)
 	{
-	  tree t1 = TYPE_ARG_TYPES (TREE_TYPE (olddecl));
-	  tree t2 = TYPE_ARG_TYPES (TREE_TYPE (newdecl));
-	  int i = 1;
-
-	  if (TREE_CODE (TREE_TYPE (newdecl)) == METHOD_TYPE)
-	    t1 = TREE_CHAIN (t1), t2 = TREE_CHAIN (t2);
-
-	  if (TREE_CODE (TREE_TYPE (newdecl)) == METHOD_TYPE
-	      && CLASSTYPE_TEMPLATE_INFO (CP_DECL_CONTEXT (newdecl)))
-	    {
-	      /* C++11 8.3.6/6.
-		 Default arguments for a member function of a class template
-		 shall be specified on the initial declaration of the member
-		 function within the class template.  */
-	      for (; t2 && t2 != void_list_node; t2 = TREE_CHAIN (t2))
-		if (TREE_PURPOSE (t2))
-		  {
-		    permerror (input_location,
-			       "redeclaration of %q#D may not have default "
-			       "arguments", newdecl);
-		    break;
-		  }
-	    }
+	  /* Note: free functions, as TEMPLATE_DECLs, are handled below.  */
+	  if (DECL_FUNCTION_MEMBER_P (olddecl)
+	      && (/* grokfndecl passes member function templates too
+		     as FUNCTION_DECLs.  */
+		  DECL_TEMPLATE_INFO (olddecl)
+		  /* C++11 8.3.6/6.
+		     Default arguments for a member function of a class
+		     template shall be specified on the initial declaration
+		     of the member function within the class template.  */
+		  || CLASSTYPE_TEMPLATE_INFO (CP_DECL_CONTEXT (olddecl))))
+	    check_redeclaration_no_default_args (newdecl);
 	  else
 	    {
+	      tree t1 = FUNCTION_FIRST_USER_PARMTYPE (olddecl);
+	      tree t2 = FUNCTION_FIRST_USER_PARMTYPE (newdecl);
+	      int i = 1;
+
 	      for (; t1 && t1 != void_list_node;
 		   t1 = TREE_CHAIN (t1), t2 = TREE_CHAIN (t2), i++)
 		if (TREE_PURPOSE (t1) && TREE_PURPOSE (t2))
@@ -1923,6 +1936,12 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 
       if (DECL_FUNCTION_TEMPLATE_P (newdecl))
 	{
+	  /* Per C++11 8.3.6/4, default arguments cannot be added in later
+	     declarations of a function template.  */
+	  check_redeclaration_no_default_args (newdecl);
+
+	  check_default_args (newdecl);
+
 	  if (GNU_INLINE_P (old_result) != GNU_INLINE_P (new_result)
 	      && DECL_INITIAL (new_result))
 	    {
@@ -2130,10 +2149,11 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
     {
       struct symtab_node *symbol;
       if (TREE_CODE (olddecl) == FUNCTION_DECL)
-	symbol = cgraph_get_create_node (newdecl);
+	symbol = cgraph_node::get_create (newdecl);
       else
-	symbol = varpool_node_for_decl (newdecl);
-      symbol->set_comdat_group (symtab_get_node (olddecl)->get_comdat_group ());
+	symbol = varpool_node::get_create (newdecl);
+      symbol->set_comdat_group (symtab_node::get
+	(olddecl)->get_comdat_group ());
     }
 
   DECL_DEFER_OUTPUT (newdecl) |= DECL_DEFER_OUTPUT (olddecl);
@@ -2252,6 +2272,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 		      olddecl);
 
 	  SET_DECL_TEMPLATE_SPECIALIZATION (olddecl);
+	  DECL_COMDAT (newdecl) = DECL_DECLARED_INLINE_P (olddecl);
 
 	  /* Don't propagate visibility from the template to the
 	     specialization here.  We'll do that in determine_visibility if
@@ -2438,13 +2459,13 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
       DECL_FUNCTION_VERSIONED (newdecl) = 1;
       /* newdecl will be purged after copying to olddecl and is no longer
          a version.  */
-      delete_function_version (newdecl);
+      cgraph_node::delete_function_version (newdecl);
     }
 
   if (TREE_CODE (newdecl) == FUNCTION_DECL)
     {
       int function_size;
-      struct symtab_node *snode = symtab_get_node (olddecl);
+      struct symtab_node *snode = symtab_node::get (olddecl);
 
       function_size = sizeof (struct tree_decl_common);
 
@@ -2506,7 +2527,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 
             if (TREE_CODE (olddecl) == VAR_DECL
 		&& (TREE_STATIC (olddecl) || TREE_PUBLIC (olddecl) || DECL_EXTERNAL (olddecl)))
-	      snode = symtab_get_node (olddecl);
+	      snode = symtab_node::get (olddecl);
 	    memcpy ((char *) olddecl + sizeof (struct tree_decl_common),
 		    (char *) newdecl + sizeof (struct tree_decl_common),
 		    size - sizeof (struct tree_decl_common)
@@ -2558,9 +2579,9 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
   if (TREE_CODE (newdecl) == FUNCTION_DECL
       || TREE_CODE (newdecl) == VAR_DECL)
     {
-      struct symtab_node *snode = symtab_get_node (newdecl);
+      struct symtab_node *snode = symtab_node::get (newdecl);
       if (snode)
-	symtab_remove_node (snode);
+	snode->remove ();
     }
 
   ggc_free (newdecl);
@@ -4739,6 +4760,10 @@ start_decl (const cp_declarator *declarator,
       if (DECL_LANG_SPECIFIC (decl) && DECL_USE_TEMPLATE (decl))
 	{
 	  SET_DECL_TEMPLATE_SPECIALIZATION (decl);
+	  if (TREE_CODE (decl) == FUNCTION_DECL)
+	    DECL_COMDAT (decl) = DECL_DECLARED_INLINE_P (decl);
+	  else
+	    DECL_COMDAT (decl) = false;
 
 	  /* [temp.expl.spec] An explicit specialization of a static data
 	     member of a template is a definition if the declaration
@@ -5813,8 +5838,7 @@ check_initializer (tree decl, tree init, int flags, vec<tree, va_gc> **cleanups)
 	  else
 	    {
 	      init = reshape_init (type, init, tf_warning_or_error);
-	      if (SCALAR_TYPE_P (type))
-		check_narrowing (type, init);
+	      flags |= LOOKUP_NO_NARROWING;
 	    }
 	}
       else if (TREE_CODE (init) == TREE_LIST
@@ -5870,11 +5894,8 @@ check_initializer (tree decl, tree init, int flags, vec<tree, va_gc> **cleanups)
 	      /* Declared constexpr, but no suitable initializer; massage
 		 init appropriately so we can pass it into store_init_value
 		 for the error.  */
-	      if (init && BRACE_ENCLOSED_INITIALIZER_P (init))
-		init = finish_compound_literal (type, init,
-						tf_warning_or_error);
-	      else if (CLASS_TYPE_P (type)
-		       && (!init || TREE_CODE (init) == TREE_LIST))
+	      if (CLASS_TYPE_P (type)
+		  && (!init || TREE_CODE (init) == TREE_LIST))
 		{
 		  init = build_functional_cast (type, init, tf_none);
 		  if (TREE_CODE (init) == TARGET_EXPR)
@@ -7818,7 +7839,10 @@ grokfndecl (tree ctype,
 
   /* If the declaration was declared inline, mark it as such.  */
   if (inlinep)
-    DECL_DECLARED_INLINE_P (decl) = 1;
+    {
+      DECL_DECLARED_INLINE_P (decl) = 1;
+      DECL_COMDAT (decl) = 1;
+    }
   if (inlinep & 2)
     DECL_DECLARED_CONSTEXPR_P (decl) = true;
 
@@ -8105,9 +8129,11 @@ set_linkage_for_static_data_member (tree decl)
 static tree
 grokvardecl (tree type,
 	     tree name,
+	     tree orig_declarator,
 	     const cp_decl_specifier_seq *declspecs,
 	     int initialized,
 	     int constp,
+	     int template_count,
 	     tree scope)
 {
   tree decl;
@@ -8137,7 +8163,10 @@ grokvardecl (tree type,
 	  || (TREE_CODE (scope) == NAMESPACE_DECL
 	      && current_lang_name != lang_name_cplusplus)
 	  /* Similarly for static data members.  */
-	  || TYPE_P (scope)))
+	  || TYPE_P (scope)
+	  /* Similarly for explicit specializations.  */
+	  || (orig_declarator
+	      && TREE_CODE (orig_declarator) == TEMPLATE_ID_EXPR)))
     decl = build_lang_decl (VAR_DECL, name, type);
   else
     decl = build_decl (input_location, VAR_DECL, name, type);
@@ -8205,7 +8234,12 @@ grokvardecl (tree type,
   else
     DECL_INTERFACE_KNOWN (decl) = 1;
 
-  return decl;
+  // Handle explicit specializations and instantiations of variable templates.
+  if (orig_declarator)
+    decl = check_explicit_specialization (orig_declarator, decl,
+					  template_count, 0);
+
+  return decl != error_mark_node ? decl : NULL_TREE;
 }
 
 /* Create and return a canonical pointer to member function type, for
@@ -8234,13 +8268,10 @@ build_ptrmemfunc_type (tree type)
     unqualified_variant
       = build_ptrmemfunc_type (TYPE_MAIN_VARIANT (type));
 
-  t = make_class_type (RECORD_TYPE);
-  xref_basetypes (t, NULL_TREE);
+  t = make_node (RECORD_TYPE);
 
-  /* Let the front end know this is a pointer to member function...  */
+  /* Let the front end know this is a pointer to member function.  */
   TYPE_PTRMEMFUNC_FLAG (t) = 1;
-  /* ... and not really a class type.  */
-  SET_CLASS_TYPE_P (t, 0);
 
   field = build_decl (input_location, FIELD_DECL, pfn_identifier, type);
   fields = field;
@@ -8270,7 +8301,6 @@ build_ptrmemfunc_type (tree type)
       TYPE_MAIN_VARIANT (t) = unqualified_variant;
       TYPE_NEXT_VARIANT (t) = TYPE_NEXT_VARIANT (unqualified_variant);
       TYPE_NEXT_VARIANT (unqualified_variant) = t;
-      TREE_TYPE (TYPE_BINFO (t)) = t;
     }
 
   /* Cache this pointer-to-member type so that we can find it again
@@ -8366,7 +8396,7 @@ check_static_variable_definition (tree decl, tree type)
 static tree
 stabilize_save_expr_r (tree *expr_p, int *walk_subtrees, void *data)
 {
-  struct pointer_set_t *pset = (struct pointer_set_t *)data;
+  hash_set<tree> *pset = (hash_set<tree> *)data;
   tree expr = *expr_p;
   if (TREE_CODE (expr) == SAVE_EXPR)
     {
@@ -8386,10 +8416,9 @@ stabilize_save_expr_r (tree *expr_p, int *walk_subtrees, void *data)
 static void
 stabilize_vla_size (tree size)
 {
-  struct pointer_set_t *pset = pointer_set_create ();
+  hash_set<tree> pset;
   /* Break out any function calls into temporary variables.  */
-  cp_walk_tree (&size, stabilize_save_expr_r, pset, pset);
-  pointer_set_destroy (pset);
+  cp_walk_tree (&size, stabilize_save_expr_r, &pset, &pset);
 }
 
 /* Helper function for compute_array_index_type.  Look for SIZEOF_EXPR
@@ -8630,7 +8659,11 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
 			     throw_bad_array_length (), void_node);
 	      finish_expr_stmt (comp);
 	    }
-	  else if (flag_sanitize & SANITIZE_VLA)
+	  else if (flag_sanitize & SANITIZE_VLA
+		   && current_function_decl != NULL_TREE
+		   && !lookup_attribute ("no_sanitize_undefined",
+					 DECL_ATTRIBUTES
+					   (current_function_decl)))
 	    {
 	      /* From C++1y onwards, we throw an exception on a negative
 		 length size of an array; see above.  */
@@ -8702,9 +8735,11 @@ create_array_type_for_decl (tree name, tree type, tree size)
 
   /* 8.3.4/1: If the type of the identifier of D contains the auto
      type-specifier, the program is ill-formed.  */
-  if (pedantic && type_uses_auto (type))
-    pedwarn (input_location, OPT_Wpedantic,
-	     "declaration of %qD as array of %<auto%>", name);
+  if (type_uses_auto (type))
+    {
+      error ("%qD declared as array of %qT", name, type);
+      return error_mark_node;
+    }
 
   /* If there are some types which cannot be array elements,
      issue an error-message and return.  */
@@ -8762,14 +8797,6 @@ create_array_type_for_decl (tree name, tree type, tree size)
   if (cxx_dialect >= cxx1y && array_of_runtime_bound_p (type)
       && (flag_iso || warn_vla > 0))
     pedwarn (input_location, OPT_Wvla, "array of array of runtime bound");
-
-  /* 8.3.4p1: ...if the type of the identifier of D contains the auto
-     type-specifier, the program is ill-formed.  */
-  if (type_uses_auto (type))
-    {
-      error ("%qD declared as array of %qT", name, type);
-      return error_mark_node;
-    }
 
   /* Figure out the index type for the array.  */
   if (size)
@@ -8977,6 +9004,7 @@ grokdeclarator (const cp_declarator *declarator,
   bool typedef_p = decl_spec_seq_has_spec_p (declspecs, ds_typedef);
   bool constexpr_p = decl_spec_seq_has_spec_p (declspecs, ds_constexpr);
   bool late_return_type_p = false;
+  bool array_parameter_p = false;
   source_location saved_loc = input_location;
   const char *errmsg;
 
@@ -9111,8 +9139,13 @@ grokdeclarator (const cp_declarator *declarator,
 		  dname = fns;
 		  if (!identifier_p (dname))
 		    {
-		      gcc_assert (is_overloaded_fn (dname));
-		      dname = DECL_NAME (get_first_fn (dname));
+		      if (variable_template_p (dname))
+			dname = DECL_NAME (dname);
+		      else
+		        {
+		          gcc_assert (is_overloaded_fn (dname));
+		          dname = DECL_NAME (get_first_fn (dname));
+		        }
 		    }
 		}
 		/* Fall through.  */
@@ -9806,8 +9839,11 @@ grokdeclarator (const cp_declarator *declarator,
 				    "-std=gnu++1y");
 			  }
 			else if (virtualp)
-			  error ("virtual function cannot "
-				 "have deduced return type");
+			  {
+			    error ("virtual function cannot "
+				   "have deduced return type");
+			    virtualp = false;
+			  }
 		      }
 		    else if (!is_auto (type))
 		      {
@@ -10159,7 +10195,8 @@ grokdeclarator (const cp_declarator *declarator,
 
   if (unqualified_id && TREE_CODE (unqualified_id) == TEMPLATE_ID_EXPR
       && TREE_CODE (type) != FUNCTION_TYPE
-      && TREE_CODE (type) != METHOD_TYPE)
+      && TREE_CODE (type) != METHOD_TYPE
+      && !variable_template_p (TREE_OPERAND (unqualified_id, 0)))
     {
       error ("template-id %qD used as a declarator",
 	     unqualified_id);
@@ -10292,9 +10329,16 @@ grokdeclarator (const cp_declarator *declarator,
 
   if (explicitp == 1 || (explicitp && friendp))
     {
-      /* [dcl.fct.spec] The explicit specifier shall only be used in
-	 declarations of constructors within a class definition.  */
-      error ("only declarations of constructors can be %<explicit%>");
+      /* [dcl.fct.spec] (C++11) The explicit specifier shall be used only
+	 in the declaration of a constructor or conversion function within
+	 a class definition.  */
+      if (!current_class_type)
+	error ("%<explicit%> outside class declaration");
+      else if (friendp)
+	error ("%<explicit%> in friend declaration");
+      else
+	error ("only declarations of constructors and conversion operators "
+	       "can be %<explicit%>");
       explicitp = 0;
     }
 
@@ -10630,6 +10674,7 @@ grokdeclarator (const cp_declarator *declarator,
 	  /* Transfer const-ness of array into that of type pointed to.  */
 	  type = build_pointer_type (TREE_TYPE (type));
 	  type_quals = TYPE_UNQUALIFIED;
+	  array_parameter_p = true;
 	}
       else if (TREE_CODE (type) == FUNCTION_TYPE)
 	type = build_pointer_type (type);
@@ -10650,6 +10695,7 @@ grokdeclarator (const cp_declarator *declarator,
     if (decl_context == PARM)
       {
 	decl = cp_build_parm_decl (unqualified_id, type);
+	DECL_ARRAY_PARAMETER_P (decl) = array_parameter_p;
 
 	bad_specifiers (decl, BSP_PARM, virtualp,
 			memfn_quals != TYPE_UNQUALIFIED,
@@ -11069,11 +11115,15 @@ grokdeclarator (const cp_declarator *declarator,
 	  }
 	
 	/* An uninitialized decl with `extern' is a reference.  */
-	decl = grokvardecl (type, unqualified_id,
+	decl = grokvardecl (type, dname, unqualified_id,
 			    declspecs,
 			    initialized,
 			    (type_quals & TYPE_QUAL_CONST) != 0,
+			    template_count,
 			    ctype ? ctype : in_namespace);
+	if (decl == NULL_TREE)
+	  return error_mark_node;
+
 	bad_specifiers (decl, BSP_VAR, virtualp,
 			memfn_quals != TYPE_UNQUALIFIED,
 			inlinep, friendp, raises != NULL_TREE);
@@ -14455,6 +14505,7 @@ grokmethod (cp_decl_specifier_seq *declspecs,
 
   check_template_shadow (fndecl);
 
+  DECL_COMDAT (fndecl) = 1;
   DECL_DECLARED_INLINE_P (fndecl) = 1;
   DECL_NO_INLINE_WARNING_P (fndecl) = 1;
 
@@ -14715,6 +14766,7 @@ cp_tree_node_structure (union lang_tree_node * t)
     case TEMPLATE_PARM_INDEX:	return TS_CP_TPI;
     case PTRMEM_CST:		return TS_CP_PTRMEM;
     case BASELINK:		return TS_CP_BASELINK;
+    case TEMPLATE_DECL:		return TS_CP_TEMPLATE_DECL;
     case STATIC_ASSERT:		return TS_CP_STATIC_ASSERT;
     case ARGUMENT_PACK_SELECT:  return TS_CP_ARGUMENT_PACK_SELECT;
     case TRAIT_EXPR:		return TS_CP_TRAIT_EXPR;

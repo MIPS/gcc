@@ -30,7 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "timevar.h"
 #include "dumpfile.h"
-#include "pointer-set.h"
+#include "hash-set.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
@@ -542,16 +542,26 @@ simplify_control_stmt_condition (edge e,
       /* Get the current value of both operands.  */
       if (TREE_CODE (op0) == SSA_NAME)
 	{
-          tree tmp = SSA_NAME_VALUE (op0);
-	  if (tmp)
-	    op0 = tmp;
+	  for (int i = 0; i < 2; i++)
+	    {
+	      if (TREE_CODE (op0) == SSA_NAME
+		  && SSA_NAME_VALUE (op0))
+		op0 = SSA_NAME_VALUE (op0);
+	      else
+		break;
+	    }
 	}
 
       if (TREE_CODE (op1) == SSA_NAME)
 	{
-	  tree tmp = SSA_NAME_VALUE (op1);
-	  if (tmp)
-	    op1 = tmp;
+	  for (int i = 0; i < 2; i++)
+	    {
+	      if (TREE_CODE (op1) == SSA_NAME
+		  && SSA_NAME_VALUE (op1))
+		op1 = SSA_NAME_VALUE (op1);
+	      else
+		break;
+	    }
 	}
 
       if (handle_dominating_asserts)
@@ -625,10 +635,17 @@ simplify_control_stmt_condition (edge e,
 	 It is possible to get loops in the SSA_NAME_VALUE chains
 	 (consider threading the backedge of a loop where we have
 	 a loop invariant SSA_NAME used in the condition.  */
-      if (cached_lhs
-	  && TREE_CODE (cached_lhs) == SSA_NAME
-	  && SSA_NAME_VALUE (cached_lhs))
-	cached_lhs = SSA_NAME_VALUE (cached_lhs);
+      if (cached_lhs)
+	{
+	  for (int i = 0; i < 2; i++)
+	    {
+	      if (TREE_CODE (cached_lhs) == SSA_NAME
+		  && SSA_NAME_VALUE (cached_lhs))
+		cached_lhs = SSA_NAME_VALUE (cached_lhs);
+	      else
+		break;
+	    }
+	}
 
       /* If we're dominated by a suitable ASSERT_EXPR, then
 	 update CACHED_LHS appropriately.  */
@@ -676,13 +693,13 @@ propagate_threaded_block_debug_into (basic_block dest, basic_block src)
     }
 
   auto_vec<tree, alloc_count> fewvars;
-  pointer_set_t *vars = NULL;
+  hash_set<tree> *vars = NULL;
 
   /* If we're already starting with 3/4 of alloc_count, go for a
-     pointer_set, otherwise start with an unordered stack-allocated
+     hash_set, otherwise start with an unordered stack-allocated
      VEC.  */
   if (i * 4 > alloc_count * 3)
-    vars = pointer_set_create ();
+    vars = new hash_set<tree>;
 
   /* Now go through the initial debug stmts in DEST again, this time
      actually inserting in VARS or FEWVARS.  Don't bother checking for
@@ -703,7 +720,7 @@ propagate_threaded_block_debug_into (basic_block dest, basic_block src)
 	gcc_unreachable ();
 
       if (vars)
-	pointer_set_insert (vars, var);
+	vars->add (var);
       else
 	fewvars.quick_push (var);
     }
@@ -737,7 +754,7 @@ propagate_threaded_block_debug_into (basic_block dest, basic_block src)
 	     or somesuch.  Adding `&& bb == src' to the condition
 	     below will preserve all potentially relevant debug
 	     notes.  */
-	  if (vars && pointer_set_insert (vars, var))
+	  if (vars && vars->add (var))
 	    continue;
 	  else if (!vars)
 	    {
@@ -752,11 +769,11 @@ propagate_threaded_block_debug_into (basic_block dest, basic_block src)
 		fewvars.quick_push (var);
 	      else
 		{
-		  vars = pointer_set_create ();
+		  vars = new hash_set<tree>;
 		  for (i = 0; i < alloc_count; i++)
-		    pointer_set_insert (vars, fewvars[i]);
+		    vars->add (fewvars[i]);
 		  fewvars.release ();
-		  pointer_set_insert (vars, var);
+		  vars->add (var);
 		}
 	    }
 
@@ -769,7 +786,7 @@ propagate_threaded_block_debug_into (basic_block dest, basic_block src)
   while (bb != src && single_pred_p (bb));
 
   if (vars)
-    pointer_set_destroy (vars);
+    delete vars;
   else if (fewvars.exists ())
     fewvars.release ();
 }

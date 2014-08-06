@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "tree-inline.h"
+#include "inchash.h"
 #include "hash-table.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -4371,7 +4372,7 @@ eliminate_dom_walker::before_dom_children (basic_block b)
 		      dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, loc,
 				       "converting indirect call to "
 				       "function %s\n",
-				       cgraph_get_node (fn)->name ());
+				       cgraph_node::get (fn)->name ());
 		    }
 		  gimple_call_set_fndecl (stmt, fn);
 		  gimple_set_modified (stmt, true);
@@ -4756,7 +4757,6 @@ const pass_data pass_data_pre =
   GIMPLE_PASS, /* type */
   "pre", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_TREE_PRE, /* tv_id */
   /* PROP_no_crit_edges is ensured by placing pass_split_crit_edges before
      pass_pre.  */
@@ -4873,7 +4873,6 @@ const pass_data pass_data_fre =
   GIMPLE_PASS, /* type */
   "fre", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_TREE_FRE, /* tv_id */
   ( PROP_cfg | PROP_ssa ), /* properties_required */
   0, /* properties_provided */

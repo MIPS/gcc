@@ -71,6 +71,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "hard-reg-set.h"
 #include "regs.h"
+#include "rtlhash.h"
 #include "insn-config.h"
 #include "reload.h"
 #include "function.h"
@@ -3277,7 +3278,7 @@ static void gen_scheduled_generic_parms_dies (void);
 
 static const char *comp_dir_string (void);
 
-static hashval_t hash_loc_operands (dw_loc_descr_ref, hashval_t);
+static void hash_loc_operands (dw_loc_descr_ref, inchash::hash &);
 
 /* enum for tracking thread-local variables whose address is really an offset
    relative to the TLS pointer, which will need link-time relocation, but will
@@ -4190,17 +4191,22 @@ static hashval_t
 addr_table_entry_do_hash (const void *x)
 {
   const addr_table_entry *a = (const addr_table_entry *) x;
+  inchash::hash hstate;
   switch (a->kind)
     {
       case ate_kind_rtx:
-        return iterative_hash_rtx (a->addr.rtl, 0);
+	hstate.add_int (0);
+	break;
       case ate_kind_rtx_dtprel:
-        return iterative_hash_rtx (a->addr.rtl, 1);
+	hstate.add_int (1);
+	break;
       case ate_kind_label:
         return htab_hash_string (a->addr.label);
       default:
         gcc_unreachable ();
     }
+  inchash::add_rtx (a->addr.rtl, hstate);
+  return hstate.end ();
 }
 
 /* Determine equality for two address_table_entries.  */
@@ -4283,13 +4289,10 @@ add_addr_table_entry (void *addr, enum ate_kind kind)
 static void
 remove_addr_table_entry (addr_table_entry *entry)
 {
-  addr_table_entry *node;
-
   gcc_assert (dwarf_split_debug_info && addr_index_table);
-  node = (addr_table_entry *) htab_find (addr_index_table, entry);
   /* After an index is assigned, the table is frozen.  */
-  gcc_assert (node->refcount > 0 && node->index == NO_INDEX_ASSIGNED);
-  node->refcount--;
+  gcc_assert (entry->refcount > 0 && entry->index == NO_INDEX_ASSIGNED);
+  entry->refcount--;
 }
 
 /* Given a location list, remove all addresses it refers to from the
@@ -5547,11 +5550,13 @@ static inline void
 loc_checksum (dw_loc_descr_ref loc, struct md5_ctx *ctx)
 {
   int tem;
-  hashval_t hash = 0;
+  inchash::hash hstate;
+  hashval_t hash;
 
   tem = (loc->dtprel << 8) | ((unsigned int) loc->dw_loc_opc);
   CHECKSUM (tem);
-  hash = hash_loc_operands (loc, hash);
+  hash_loc_operands (loc, hstate);
+  hash = hstate.end();
   CHECKSUM (hash);
 }
 
@@ -5761,11 +5766,13 @@ loc_checksum_ordered (dw_loc_descr_ref loc, struct md5_ctx *ctx)
   /* Otherwise, just checksum the raw location expression.  */
   while (loc != NULL)
     {
-      hashval_t hash = 0;
+      inchash::hash hstate;
+      hashval_t hash;
 
       CHECKSUM_ULEB128 (loc->dtprel);
       CHECKSUM_ULEB128 (loc->dw_loc_opc);
-      hash = hash_loc_operands (loc, hash);
+      hash_loc_operands (loc, hstate);
+      hash = hstate.end ();
       CHECKSUM (hash);
       loc = loc->dw_loc_next;
     }
@@ -15363,7 +15370,7 @@ reference_to_unused (tree * tp, int * walk_subtrees,
     return *tp;
   else if (TREE_CODE (*tp) == VAR_DECL)
     {
-      varpool_node *node = varpool_get_node (*tp);
+      varpool_node *node = varpool_node::get (*tp);
       if (!node || !node->definition)
 	return *tp;
     }
@@ -15374,7 +15381,7 @@ reference_to_unused (tree * tp, int * walk_subtrees,
          optimizing and gimplifying the CU by now.
 	 So if *TP has no call graph node associated
 	 to it, it means *TP will not be emitted.  */
-      if (!cgraph_get_node (*tp))
+      if (!cgraph_node::get (*tp))
 	return *tp;
     }
   else if (TREE_CODE (*tp) == STRING_CST && !TREE_ASM_WRITTEN (*tp))
@@ -18055,7 +18062,7 @@ premark_types_used_by_global_vars_helper (void **slot,
     {
       /* Ask cgraph if the global variable really is to be emitted.
          If yes, then we'll keep the DIE of ENTRY->TYPE.  */
-      varpool_node *node = varpool_get_node (entry->var_decl);
+      varpool_node *node = varpool_node::get (entry->var_decl);
       if (node && node->definition)
 	{
 	  die->die_perennial_p = 1;
@@ -23288,11 +23295,16 @@ resolve_addr_in_expr (dw_loc_descr_ref loc)
 	break;
       case DW_OP_GNU_addr_index:
       case DW_OP_GNU_const_index:
-	if ((loc->dw_loc_opc == DW_OP_GNU_addr_index
-	     || (loc->dw_loc_opc == DW_OP_GNU_const_index && loc->dtprel))
-	    && resolve_one_addr (&loc->dw_loc_oprnd1.val_entry->addr.rtl,
-				 NULL))
-	  return false;
+	if (loc->dw_loc_opc == DW_OP_GNU_addr_index
+            || (loc->dw_loc_opc == DW_OP_GNU_const_index && loc->dtprel))
+          {
+            rtx rtl = loc->dw_loc_oprnd1.val_entry->addr.rtl;
+            if (resolve_one_addr (&rtl, NULL))
+              return false;
+            remove_addr_table_entry (loc->dw_loc_oprnd1.val_entry);
+            loc->dw_loc_oprnd1.val_entry =
+                add_addr_table_entry (rtl, ate_kind_rtx);
+          }
 	break;
       case DW_OP_const4u:
       case DW_OP_const8u:
@@ -23617,10 +23629,10 @@ resolve_addr (dw_die_ref die)
    This pass tries to share identical local lists in .debug_loc
    section.  */
 
-/* Iteratively hash operands of LOC opcode.  */
+/* Iteratively hash operands of LOC opcode into HSTATE.  */
 
-static hashval_t
-hash_loc_operands (dw_loc_descr_ref loc, hashval_t hash)
+static void
+hash_loc_operands (dw_loc_descr_ref loc, inchash::hash &hstate)
 {
   dw_val_ref val1 = &loc->dw_loc_oprnd1;
   dw_val_ref val2 = &loc->dw_loc_oprnd2;
@@ -23679,7 +23691,7 @@ hash_loc_operands (dw_loc_descr_ref loc, hashval_t hash)
     case DW_OP_piece:
     case DW_OP_deref_size:
     case DW_OP_xderef_size:
-      hash = iterative_hash_object (val1->v.val_int, hash);
+      hstate.add_object (val1->v.val_int);
       break;
     case DW_OP_skip:
     case DW_OP_bra:
@@ -23688,36 +23700,35 @@ hash_loc_operands (dw_loc_descr_ref loc, hashval_t hash)
 
 	gcc_assert (val1->val_class == dw_val_class_loc);
 	offset = val1->v.val_loc->dw_loc_addr - (loc->dw_loc_addr + 3);
-	hash = iterative_hash_object (offset, hash);
+	hstate.add_object (offset);
       }
       break;
     case DW_OP_implicit_value:
-      hash = iterative_hash_object (val1->v.val_unsigned, hash);
+      hstate.add_object (val1->v.val_unsigned);
       switch (val2->val_class)
 	{
 	case dw_val_class_const:
-	  hash = iterative_hash_object (val2->v.val_int, hash);
+	  hstate.add_object (val2->v.val_int);
 	  break;
 	case dw_val_class_vec:
 	  {
 	    unsigned int elt_size = val2->v.val_vec.elt_size;
 	    unsigned int len = val2->v.val_vec.length;
 
-	    hash = iterative_hash_object (elt_size, hash);
-	    hash = iterative_hash_object (len, hash);
-	    hash = iterative_hash (val2->v.val_vec.array,
-				   len * elt_size, hash);
+	    hstate.add_int (elt_size);
+	    hstate.add_int (len);
+	    hstate.add (val2->v.val_vec.array, len * elt_size);
 	  }
 	  break;
 	case dw_val_class_const_double:
-	  hash = iterative_hash_object (val2->v.val_double.low, hash);
-	  hash = iterative_hash_object (val2->v.val_double.high, hash);
+	  hstate.add_object (val2->v.val_double.low);
+	  hstate.add_object (val2->v.val_double.high);
 	  break;
 	case dw_val_class_wide_int:
-	  hash = iterative_hash_object (*val2->v.val_wide, hash);
+	  hstate.add_object (*val2->v.val_wide);
 	  break;
-	case dw_val_class_addr:
-	  hash = iterative_hash_rtx (val2->v.val_addr, hash);
+	case dw_val_class_addr:	
+	  inchash::add_rtx (val2->v.val_addr, hstate);
 	  break;
 	default:
 	  gcc_unreachable ();
@@ -23725,17 +23736,17 @@ hash_loc_operands (dw_loc_descr_ref loc, hashval_t hash)
       break;
     case DW_OP_bregx:
     case DW_OP_bit_piece:
-      hash = iterative_hash_object (val1->v.val_int, hash);
-      hash = iterative_hash_object (val2->v.val_int, hash);
+      hstate.add_object (val1->v.val_int);
+      hstate.add_object (val2->v.val_int);
       break;
     case DW_OP_addr:
     hash_addr:
       if (loc->dtprel)
 	{
 	  unsigned char dtprel = 0xd1;
-	  hash = iterative_hash_object (dtprel, hash);
+	  hstate.add_object (dtprel);
 	}
-      hash = iterative_hash_rtx (val1->v.val_addr, hash);
+      inchash::add_rtx (val1->v.val_addr, hstate);
       break;
     case DW_OP_GNU_addr_index:
     case DW_OP_GNU_const_index:
@@ -23743,16 +23754,16 @@ hash_loc_operands (dw_loc_descr_ref loc, hashval_t hash)
         if (loc->dtprel)
           {
             unsigned char dtprel = 0xd1;
-            hash = iterative_hash_object (dtprel, hash);
+	    hstate.add_object (dtprel);
           }
-        hash = iterative_hash_rtx (val1->val_entry->addr.rtl, hash);
+        inchash::add_rtx (val1->val_entry->addr.rtl, hstate);
       }
       break;
     case DW_OP_GNU_implicit_pointer:
-      hash = iterative_hash_object (val2->v.val_int, hash);
+      hstate.add_int (val2->v.val_int);
       break;
     case DW_OP_GNU_entry_value:
-      hash = hash_loc_operands (val1->v.val_loc, hash);
+      hstate.add_object (val1->v.val_loc);
       break;
     case DW_OP_GNU_regval_type:
     case DW_OP_GNU_deref_type:
@@ -23761,16 +23772,16 @@ hash_loc_operands (dw_loc_descr_ref loc, hashval_t hash)
 	  = get_AT_unsigned (val2->v.val_die_ref.die, DW_AT_byte_size);
 	unsigned int encoding
 	  = get_AT_unsigned (val2->v.val_die_ref.die, DW_AT_encoding);
-	hash = iterative_hash_object (val1->v.val_int, hash);
-	hash = iterative_hash_object (byte_size, hash);
-	hash = iterative_hash_object (encoding, hash);
+	hstate.add_object (val1->v.val_int);
+	hstate.add_object (byte_size);
+	hstate.add_object (encoding);
       }
       break;
     case DW_OP_GNU_convert:
     case DW_OP_GNU_reinterpret:
       if (val1->val_class == dw_val_class_unsigned_const)
 	{
-	  hash = iterative_hash_object (val1->v.val_unsigned, hash);
+	  hstate.add_object (val1->v.val_unsigned);
 	  break;
 	}
       /* FALLTHRU */
@@ -23780,33 +23791,32 @@ hash_loc_operands (dw_loc_descr_ref loc, hashval_t hash)
 	  = get_AT_unsigned (val1->v.val_die_ref.die, DW_AT_byte_size);
 	unsigned int encoding
 	  = get_AT_unsigned (val1->v.val_die_ref.die, DW_AT_encoding);
-	hash = iterative_hash_object (byte_size, hash);
-	hash = iterative_hash_object (encoding, hash);
+	hstate.add_object (byte_size);
+	hstate.add_object (encoding);
 	if (loc->dw_loc_opc != DW_OP_GNU_const_type)
 	  break;
-	hash = iterative_hash_object (val2->val_class, hash);
+	hstate.add_object (val2->val_class);
 	switch (val2->val_class)
 	  {
 	  case dw_val_class_const:
-	    hash = iterative_hash_object (val2->v.val_int, hash);
+	    hstate.add_object (val2->v.val_int);
 	    break;
 	  case dw_val_class_vec:
 	    {
 	      unsigned int elt_size = val2->v.val_vec.elt_size;
 	      unsigned int len = val2->v.val_vec.length;
 
-	      hash = iterative_hash_object (elt_size, hash);
-	      hash = iterative_hash_object (len, hash);
-	      hash = iterative_hash (val2->v.val_vec.array,
-				     len * elt_size, hash);
+	      hstate.add_object (elt_size);
+	      hstate.add_object (len);
+	      hstate.add (val2->v.val_vec.array, len * elt_size);
 	    }
 	    break;
 	  case dw_val_class_const_double:
-	    hash = iterative_hash_object (val2->v.val_double.low, hash);
-	    hash = iterative_hash_object (val2->v.val_double.high, hash);
+	    hstate.add_object (val2->v.val_double.low);
+	    hstate.add_object (val2->v.val_double.high);
 	    break;
 	  case dw_val_class_wide_int:
-	    hash = iterative_hash_object (*val2->v.val_wide, hash);
+	    hstate.add_object (*val2->v.val_wide);
 	    break;
 	  default:
 	    gcc_unreachable ();
@@ -23818,13 +23828,12 @@ hash_loc_operands (dw_loc_descr_ref loc, hashval_t hash)
       /* Other codes have no operands.  */
       break;
     }
-  return hash;
 }
 
-/* Iteratively hash the whole DWARF location expression LOC.  */
+/* Iteratively hash the whole DWARF location expression LOC into HSTATE.  */
 
-static inline hashval_t
-hash_locs (dw_loc_descr_ref loc, hashval_t hash)
+static inline void
+hash_locs (dw_loc_descr_ref loc, inchash::hash &hstate)
 {
   dw_loc_descr_ref l;
   bool sizes_computed = false;
@@ -23834,15 +23843,14 @@ hash_locs (dw_loc_descr_ref loc, hashval_t hash)
   for (l = loc; l != NULL; l = l->dw_loc_next)
     {
       enum dwarf_location_atom opc = l->dw_loc_opc;
-      hash = iterative_hash_object (opc, hash);
+      hstate.add_object (opc);
       if ((opc == DW_OP_skip || opc == DW_OP_bra) && !sizes_computed)
 	{
 	  size_of_locs (loc);
 	  sizes_computed = true;
 	}
-      hash = hash_loc_operands (l, hash);
+      hash_loc_operands (l, hstate);
     }
-  return hash;
 }
 
 /* Compute hash of the whole location list LIST_HEAD.  */
@@ -23851,18 +23859,17 @@ static inline void
 hash_loc_list (dw_loc_list_ref list_head)
 {
   dw_loc_list_ref curr = list_head;
-  hashval_t hash = 0;
+  inchash::hash hstate;
 
   for (curr = list_head; curr != NULL; curr = curr->dw_loc_next)
     {
-      hash = iterative_hash (curr->begin, strlen (curr->begin) + 1, hash);
-      hash = iterative_hash (curr->end, strlen (curr->end) + 1, hash);
+      hstate.add (curr->begin, strlen (curr->begin) + 1);
+      hstate.add (curr->end, strlen (curr->end) + 1);
       if (curr->section)
-	hash = iterative_hash (curr->section, strlen (curr->section) + 1,
-			       hash);
-      hash = hash_locs (curr->expr, hash);
+	hstate.add (curr->section, strlen (curr->section) + 1);
+      hash_locs (curr->expr, hstate);
     }
-  list_head->hash = hash;
+  list_head->hash = hstate.end ();
 }
 
 /* Return true if X and Y opcodes have the same operands.  */
@@ -24391,18 +24398,23 @@ dwarf2out_finish (const char *filename)
 		   dwarf_strict ? DW_AT_macro_info : DW_AT_GNU_macros,
 		   macinfo_section_label);
 
-  if (dwarf_split_debug_info && addr_index_table != NULL)
+  if (dwarf_split_debug_info)
     {
       /* optimize_location_lists calculates the size of the lists,
          so index them first, and assign indices to the entries.
          Although optimize_location_lists will remove entries from
          the table, it only does so for duplicates, and therefore
          only reduces ref_counts to 1.  */
-      unsigned int index = 0;
       index_location_lists (comp_unit_die ());
-      htab_traverse_noresize (addr_index_table,
-                              index_addr_table_entry, &index);
+
+      if (addr_index_table != NULL)
+        {
+          unsigned int index = 0;
+          htab_traverse_noresize (addr_index_table,
+                                  index_addr_table_entry, &index);
+        }
     }
+
   if (have_location_lists)
     optimize_location_lists (comp_unit_die ());
 

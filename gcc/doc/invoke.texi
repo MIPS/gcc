@@ -189,7 +189,8 @@ in the following sections.
 -fno-pretty-templates @gol
 -frepo  -fno-rtti  -fstats  -ftemplate-backtrace-limit=@var{n} @gol
 -ftemplate-depth=@var{n} @gol
--fno-threadsafe-statics -fuse-cxa-atexit  -fno-weak  -nostdinc++ @gol
+-fno-threadsafe-statics  -fuse-cxa-atexit @gol
+-fno-weak  -nostdinc++ @gol
 -fvisibility-inlines-hidden @gol
 -fvtable-verify=@var{std|preinit|none} @gol
 -fvtv-counts -fvtv-debug @gol
@@ -243,33 +244,34 @@ Objective-C and Objective-C++ Dialects}.
 -Wc++-compat -Wc++11-compat -Wcast-align  -Wcast-qual  @gol
 -Wchar-subscripts -Wclobbered  -Wcomment -Wconditionally-supported  @gol
 -Wconversion -Wcoverage-mismatch -Wdate-time -Wdelete-incomplete -Wno-cpp  @gol
--Wno-deprecated -Wno-deprecated-declarations -Wdisabled-optimization  @gol
--Wno-discarded-qualifiers @gol
+-Wno-deprecated -Wno-deprecated-declarations -Wno-designated-init @gol
+-Wdisabled-optimization -Wno-discarded-qualifiers @gol
 -Wno-div-by-zero -Wdouble-promotion -Wempty-body  -Wenum-compare @gol
 -Wno-endif-labels -Werror  -Werror=* @gol
 -Wfatal-errors  -Wfloat-equal  -Wformat  -Wformat=2 @gol
 -Wno-format-contains-nul -Wno-format-extra-args -Wformat-nonliteral @gol
 -Wformat-security  -Wformat-signedness  -Wformat-y2k @gol
 -Wframe-larger-than=@var{len} -Wno-free-nonheap-object -Wjump-misses-init @gol
--Wignored-qualifiers @gol
+-Wignored-qualifiers  -Wincompatible-pointer-types @gol
 -Wimplicit  -Wimplicit-function-declaration  -Wimplicit-int @gol
--Winit-self  -Winline @gol
+-Winit-self  -Winline  -Wno-int-conversion @gol
 -Wno-int-to-pointer-cast -Wno-invalid-offsetof @gol
 -Winvalid-pch -Wlarger-than=@var{len}  -Wunsafe-loop-optimizations @gol
 -Wlogical-op -Wlogical-not-parentheses -Wlong-long @gol
--Wmain -Wmaybe-uninitialized -Wmissing-braces  -Wmissing-field-initializers @gol
--Wmissing-include-dirs @gol
--Wno-multichar  -Wnonnull  -Wno-overflow -Wopenmp-simd @gol
+-Wmain -Wmaybe-uninitialized -Wmemset-transposed-args -Wmissing-braces @gol
+-Wmissing-field-initializers -Wmissing-include-dirs @gol
+-Wno-multichar  -Wnonnull  -Wodr  -Wno-overflow  -Wopenmp-simd @gol
 -Woverlength-strings  -Wpacked  -Wpacked-bitfield-compat  -Wpadded @gol
 -Wparentheses  -Wpedantic-ms-format -Wno-pedantic-ms-format @gol
 -Wpointer-arith  -Wno-pointer-to-int-cast @gol
 -Wredundant-decls  -Wno-return-local-addr @gol
 -Wreturn-type  -Wsequence-point  -Wshadow  -Wno-shadow-ivar @gol
 -Wsign-compare  -Wsign-conversion -Wfloat-conversion @gol
--Wsizeof-pointer-memaccess @gol
+-Wsizeof-pointer-memaccess  -Wsizeof-array-argument @gol
 -Wstack-protector -Wstack-usage=@var{len} -Wstrict-aliasing @gol
 -Wstrict-aliasing=n @gol -Wstrict-overflow -Wstrict-overflow=@var{n} @gol
 -Wsuggest-attribute=@r{[}pure@r{|}const@r{|}noreturn@r{|}format@r{]} @gol
+-Wsuggest-final-types @gol -Wsuggest-final-methods @gol
 -Wmissing-format-attribute @gol
 -Wswitch  -Wswitch-default  -Wswitch-enum -Wswitch-bool -Wsync-nand @gol
 -Wsystem-headers  -Wtrampolines  -Wtrigraphs  -Wtype-limits  -Wundef @gol
@@ -463,7 +465,7 @@ Objective-C and Objective-C++ Dialects}.
 -static-libasan -static-libtsan -static-liblsan -static-libubsan @gol
 -shared -shared-libgcc  -symbolic @gol
 -T @var{script}  -Wl,@var{option}  -Xlinker @var{option} @gol
--u @var{symbol}}
+-u @var{symbol} -z @var{keyword}}
 
 @item Directory Options
 @xref{Directory Options,,Options for Directory Search}.
@@ -518,7 +520,7 @@ Objective-C and Objective-C++ Dialects}.
 -mapcs-float  -mno-apcs-float @gol
 -mapcs-reentrant  -mno-apcs-reentrant @gol
 -msched-prolog  -mno-sched-prolog @gol
--mlittle-endian  -mbig-endian  -mwords-little-endian @gol
+-mlittle-endian  -mbig-endian @gol
 -mfloat-abi=@var{name} @gol
 -mfp16-format=@var{name}
 -mthumb-interwork  -mno-thumb-interwork @gol
@@ -4192,6 +4194,25 @@ case, and some functions for which @code{format} attributes are
 appropriate may not be detected.
 @end table
 
+@item -Wsuggest-final-types
+@opindex Wno-suggest-final-types
+@opindex Wsuggest-final-types
+Warn about types with virtual methods where code quality would be improved
+if the type was declared with C++11 final specifier, or, if possible,
+declared in anonymous namespace. This allows GCC to devritualize more aggressively
+the polymorphic calls. This warning is more effective with link time optimization,
+where the information about the class hiearchy graph is more complete.
+
+@item -Wsuggest-final-methods
+@opindex Wno-suggest-final-methods
+@opindex Wsuggest-final-methods
+Warn about virtual methods where code quality would be improved if the method
+was declared with C++11 final specifier, or, if possible, its type was declared
+in the anonymous namespace or with final specifier. This warning is more
+effective with link time optimization, where the information about the class
+hiearchy graph is more complete. It is recommended to first consider suggestins
+of @option{-Wsuggest-final-types} and then rebuild with new annotations.
+
 @item -Warray-bounds
 @opindex Wno-array-bounds
 @opindex Warray-bounds
@@ -4199,14 +4220,28 @@ This option is only active when @option{-ftree-vrp} is active
 (default for @option{-O2} and above). It warns about subscripts to arrays
 that are always out of bounds. This warning is enabled by @option{-Wall}.
 
-@item -Wno-discarded-qualifiers
+@item -Wno-discarded-qualifiers @r{(C and Objective-C only)}
 @opindex Wno-discarded-qualifiers
 @opindex Wdiscarded-qualifiers
 Do not warn if type qualifiers on pointers are being discarded.
 Typically, the compiler will warn if a @code{const char *} variable is
 passed to a function that takes @code{char *} parameter.  This option
-can be used to suppress such a warning.  This warning is only supported
-for C.
+can be used to suppress such a warning.
+
+@item -Wno-incompatible-pointer-types @r{(C and Objective-C only)}
+@opindex Wno-incompatible-pointer-types
+@opindex Wincompatible-pointer-types
+Do not warn when there is a conversion between pointers that have incompatible
+types.  This warning is for cases not covered by @option{-Wno-pointer-sign},
+which warns for pointer argument passing or assignment with different signedness
+
+@item -Wno-int-conversion @r{(C and Objective-C only)}
+@opindex Wno-int-conversion
+@opindex Wint-conversion
+Do not warn about incompatible integer to pointer and pointer to integer
+conversions.  This warning is about implicit conversions; for explicit
+conversions the warnings @option{-Wno-int-to-pointer-cast} and
+@option{-Wno-pointer-to-int-cast} may be used.
 
 @item -Wno-div-by-zero
 @opindex Wno-div-by-zero
@@ -4662,6 +4697,25 @@ but a pointer, and suggests a possible fix, or about
 @code{memcpy (&foo, ptr, sizeof (&foo));}.  This warning is enabled by
 @option{-Wall}.
 
+@item -Wsizeof-array-argument
+@opindex Wsizeof-array-argument
+@opindex Wno-sizeof-array-argument
+Warn when the @code{sizeof} operator is applied to a parameter that is
+declared as an array in a function definition.  This warning is enabled by
+default for C and C++ programs.
+
+@item -Wmemset-transposed-args
+@opindex Wmemset-transposed-args
+@opindex Wno-memset-transposed-args
+Warn for suspicious calls to the @code{memset} built-in function, if the
+second argument is not zero and the third argument is zero.  This warns e.g.@
+about @code{memset (buf, sizeof buf, 0)} where most probably
+@code{memset (buf, 0, sizeof buf)} was meant instead.  The diagnostics
+is only emitted if the third argument is literal zero, if it is some expression
+that is folded to zero, or e.g. a cast of zero to some type etc., it
+is far less likely that user has mistakenly exchanged the arguments and
+no warning is emitted.  This warning is enabled by @option{-Wall}.
+
 @item -Waddress
 @opindex Waddress
 @opindex Wno-address
@@ -4882,6 +4936,12 @@ attribute.
 @opindex Wno-overflow
 @opindex Woverflow
 Do not warn about compile-time overflow in constant expressions.
+
+@item -Wno-odr
+@opindex Wno-odr
+@opindex Wodr
+Warn about One Definition Rule violations during link-time optimization.
+Requires @option{-flto-odr-type-merging} to be enabled.  Enabled by default.
 
 @item -Wopenmp-simd
 @opindex Wopenm-simd
@@ -5130,6 +5190,12 @@ a suffix.  When used together with @option{-Wsystem-headers} it
 warns about such constants in system header files.  This can be useful
 when preparing code to use with the @code{FLOAT_CONST_DECIMAL64} pragma
 from the decimal floating-point extension to C99.
+
+@item -Wno-designated-init @r{(C and Objective-C only)}
+Suppress warnings when a positional initializer is used to initialize
+a structure that has been marked with the @code{designated_init}
+attribute.
+
 @end table
 
 @node Debugging Options
@@ -5355,6 +5421,11 @@ more details.  The run-time behavior can be influenced using the
 @url{https://code.google.com/p/address-sanitizer/wiki/Flags#Run-time_flags} for
 a list of supported options.
 
+@item -fsanitize=kernel-address
+@opindex fsanitize=kernel-address
+Enable AddressSanitizer for Linux kernel.
+See @uref{http://code.google.com/p/address-sanitizer/wiki/AddressSanitizerForKernel} for more details.
+
 @item -fsanitize=thread
 @opindex fsanitize=thread
 Enable ThreadSanitizer, a fast data race detector.
@@ -5386,26 +5457,22 @@ at runtime.  Current suboptions are:
 
 @item -fsanitize=shift
 @opindex fsanitize=shift
-
 This option enables checking that the result of a shift operation is
 not undefined.  Note that what exactly is considered undefined differs
 slightly between C and C++, as well as between ISO C90 and C99, etc.
 
 @item -fsanitize=integer-divide-by-zero
 @opindex fsanitize=integer-divide-by-zero
-
 Detect integer division by zero as well as @code{INT_MIN / -1} division.
 
 @item -fsanitize=unreachable
 @opindex fsanitize=unreachable
-
 With this option, the compiler will turn the @code{__builtin_unreachable}
 call into a diagnostics message call instead.  When reaching the
 @code{__builtin_unreachable} call, the behavior is undefined.
 
 @item -fsanitize=vla-bound
 @opindex fsanitize=vla-bound
-
 This option instructs the compiler to check that the size of a variable
 length array is positive.  This option does not have any effect in
 @option{-std=c++1y} mode, as the standard requires the exception be thrown
@@ -5413,15 +5480,14 @@ instead.
 
 @item -fsanitize=null
 @opindex fsanitize=null
-
 This option enables pointer checking.  Particularly, the application
 built with this option turned on will issue an error message when it
 tries to dereference a NULL pointer, or if a reference (possibly an
-rvalue reference) is bound to a NULL pointer.
+rvalue reference) is bound to a NULL pointer, or if a method is invoked
+on an object pointed by a NULL pointer.
 
 @item -fsanitize=return
 @opindex fsanitize=return
-
 This option enables return statement checking.  Programs
 built with this option turned on will issue an error message
 when the end of a non-void function is reached without actually
@@ -5429,7 +5495,6 @@ returning a value.  This option works in C++ only.
 
 @item -fsanitize=signed-integer-overflow
 @opindex fsanitize=signed-integer-overflow
-
 This option enables signed integer overflow checking.  We check that
 the result of @code{+}, @code{*}, and both unary and binary @code{-}
 does not overflow in the signed arithmetics.  Note, integer promotion
@@ -5440,15 +5505,21 @@ signed char a = SCHAR_MAX;
 a++;
 @end smallexample
 
-@end table
+@item -fsanitize=bounds
+@opindex fsanitize=bounds
+This option enables instrumentation of array bounds.  Various out of bounds
+accesses are detected.  Flexible array members and initializers of variables
+with static storage are not instrumented.
 
-While @option{-ftrapv} causes traps for signed overflows to be emitted,
-@option{-fsanitize=undefined} gives a diagnostic message.
-This currently works only for the C family of languages.
+@item -fsanitize=alignment
+@opindex fsanitize=alignment
+
+This option enables checking of alignment of pointers when they are
+dereferenced, or when a reference is bound to insufficiently aligned target,
+or when a method or constructor is invoked on insufficiently aligned object.
 
 @item -fsanitize=float-divide-by-zero
 @opindex fsanitize=float-divide-by-zero
-
 Detect floating-point division by zero.  Unlike other similar options,
 @option{-fsanitize=float-divide-by-zero} is not enabled by
 @option{-fsanitize=undefined}, since floating-point division by zero can
@@ -5456,17 +5527,15 @@ be a legitimate way of obtaining infinities and NaNs.
 
 @item -fsanitize=float-cast-overflow
 @opindex fsanitize=float-cast-overflow
-
 This option enables floating-point type to integer conversion checking.
 We check that the result of the conversion does not overflow.
 This option does not work well with @code{FE_INVALID} exceptions enabled.
 
-@item -fsanitize=bounds
-@opindex fsanitize=bounds
+@end table
 
-This option enables instrumentation of array bounds.  Various out of bounds
-accesses are detected.  Flexible array members are not instrumented, as well
-as initializers of variables with static storage.
+While @option{-ftrapv} causes traps for signed overflows to be emitted,
+@option{-fsanitize=undefined} gives a diagnostic message.
+This currently works only for the C family of languages.
 
 @item -fsanitize-recover
 @opindex fsanitize-recover
@@ -6910,25 +6979,31 @@ compilation time.
 @option{-O} turns on the following optimization flags:
 @gccoptlist{
 -fauto-inc-dec @gol
+-fbranch-count-reg @gol
+-fcombine-stack-adjustments @gol
 -fcompare-elim @gol
 -fcprop-registers @gol
 -fdce @gol
 -fdefer-pop @gol
 -fdelayed-branch @gol
 -fdse @gol
+-fforward-propagate @gol
 -fguess-branch-probability @gol
 -fif-conversion2 @gol
 -fif-conversion @gol
+-finline-functions-called-once @gol
 -fipa-pure-const @gol
 -fipa-profile @gol
 -fipa-reference @gol
--fmerge-constants
+-fmerge-constants @gol
+-fmove-loop-invariants @gol
+-fshrink-wrap @gol
 -fsplit-wide-types @gol
 -ftree-bit-ccp @gol
--ftree-builtin-call-dce @gol
 -ftree-ccp @gol
 -fssa-phiopt @gol
 -ftree-ch @gol
+-ftree-copy-prop @gol
 -ftree-copyrename @gol
 -ftree-dce @gol
 -ftree-dominator-opts @gol
@@ -6936,6 +7011,7 @@ compilation time.
 -ftree-forwprop @gol
 -ftree-fre @gol
 -ftree-phiprop @gol
+-ftree-sink @gol
 -ftree-slsr @gol
 -ftree-sra @gol
 -ftree-pta @gol
@@ -6967,19 +7043,23 @@ also turns on the following optimization flags:
 -fhoist-adjacent-loads @gol
 -finline-small-functions @gol
 -findirect-inlining @gol
+-fipa-cp @gol
 -fipa-sra @gol
 -fisolate-erroneous-paths-dereference @gol
 -foptimize-sibling-calls @gol
+-foptimize-strlen @gol
 -fpartial-inlining @gol
 -fpeephole2 @gol
--freorder-blocks  -freorder-functions @gol
+-freorder-blocks -freorder-blocks-and-partition -freorder-functions @gol
 -frerun-cse-after-loop  @gol
 -fsched-interblock  -fsched-spec @gol
 -fschedule-insns  -fschedule-insns2 @gol
 -fstrict-aliasing -fstrict-overflow @gol
+-ftree-builtin-call-dce @gol
 -ftree-switch-conversion -ftree-tail-merge @gol
 -ftree-pre @gol
--ftree-vrp}
+-ftree-vrp @gol
+-fuse-caller-save}
 
 Please note the warning under @option{-fgcse} about
 invoking @option{-O2} on programs that use computed gotos.
@@ -6990,6 +7070,7 @@ Optimize yet more.  @option{-O3} turns on all optimizations specified
 by @option{-O2} and also turns on the @option{-finline-functions},
 @option{-funswitch-loops}, @option{-fpredictive-commoning},
 @option{-fgcse-after-reload}, @option{-ftree-loop-vectorize},
+@option{-ftree-loop-distribute-patterns},
 @option{-ftree-slp-vectorize}, @option{-fvect-cost-model},
 @option{-ftree-partial-pre} and @option{-fipa-cp-clone} options.
 
@@ -7101,6 +7182,14 @@ Enabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}.
 Optimize sibling and tail recursive calls.
 
 Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
+
+@item -foptimize-strlen
+@opindex foptimize-strlen
+Optimize various standard C string functions (e.g. @code{strlen},
+@code{strchr} or @code{strcpy}) and
+their _FORTIFY_SOURCE counterparts into faster alternatives.
+
+Enabled at levels @option{-O2}, @option{-O3}.
 
 @item -fno-inline
 @opindex fno-inline
@@ -7266,6 +7355,8 @@ but instead generate a sequence of instructions that decrement a
 register, compare it against zero, then branch based upon the result.
 This option is only meaningful on architectures that support such
 instructions, which include x86, PowerPC, IA-64 and S/390.
+
+Enabled by default at -O1 and higher.
 
 The default is @option{-fbranch-count-reg}.
 
@@ -9551,7 +9642,7 @@ before applying @option{--param inline-unit-growth}.  The default is 10000.
 @item inline-unit-growth
 Specifies maximal overall growth of the compilation unit caused by inlining.
 The default value is 30 which limits unit growth to 1.3 times the original
-size. Cold functions (either marked cold via an attribibute or by profile
+size. Cold functions (either marked cold via an attribute or by profile
 feedback) are not accounted into the unit size.
 
 @item ipcp-unit-growth
@@ -9617,6 +9708,14 @@ Deeper chains are still handled by late inlining.
 @itemx comdat-sharing-probability
 Probability (in percent) that C++ inline function with comdat visibility
 are shared across multiple compilation units.  The default value is 20.
+
+@item profile-func-internal-id
+@itemx profile-func-internal-id
+A parameter to control whether to use function internal id in profile
+database lookup. If the value is 0, the compiler will use id that
+is based on function assembler name and filename, which makes old profile
+data more tolerant to source changes such as function reordering etc.
+The default value is 0.
 
 @item min-vect-loop-bound
 The minimum number of iterations under which loops are not vectorized
@@ -9966,6 +10065,10 @@ The maximum size measured as number of RTLs that can be recorded in an expressio
 in combiner for a pseudo register as last known value of that register.  The default
 is 10000.
 
+@item max-combine-insns
+The maximum number of instructions the RTL combiner tries to combine.
+The default value is 2 at @option{-Og} and 4 otherwise.
+
 @item integer-share-limit
 Small integer constants can use a shared data structure, reducing the
 compiler's memory usage and increasing its speed.  This sets the maximum
@@ -10163,13 +10266,13 @@ number of such values per one parameter.
 @item ipa-cp-loop-hint-bonus
 When IPA-CP determines that a cloning candidate would make the number
 of iterations of a loop known, it adds a bonus of
-@option{ipa-cp-loop-hint-bonus} bonus to the profitability score of
+@option{ipa-cp-loop-hint-bonus} to the profitability score of
 the candidate.
 
 @item ipa-cp-array-index-hint-bonus
 When IPA-CP determines that a cloning candidate would make the index of
 an array access known, it adds a bonus of
-@option{ipa-cp-array-index-hint-bonus} bonus to the profitability
+@option{ipa-cp-array-index-hint-bonus} to the profitability
 score of the candidate.
 
 @item ipa-max-aa-steps
@@ -10650,6 +10753,12 @@ linker.  When using the GNU linker, you can also get the same effect with
 Pretend the symbol @var{symbol} is undefined, to force linking of
 library modules to define it.  You can use @option{-u} multiple times with
 different symbols to force loading of additional library modules.
+
+@item -z @var{keyword}
+@opindex z
+@option{-z} is passed directly on to the linker along with the keyword
+@var{keyword}. See the section in the documentation of your linker for
+permitted values and their meanings.
 @end table
 
 @node Directory Options
@@ -12388,15 +12497,6 @@ the default for all standard configurations.
 Generate code for a processor running in big-endian mode; the default is
 to compile code for a little-endian processor.
 
-@item -mwords-little-endian
-@opindex mwords-little-endian
-This option only applies when generating code for big-endian processors.
-Generate code for a little-endian word order but a big-endian byte
-order.  That is, a byte order of the form @samp{32107654}.  Note: this
-option should only be used if you require compatibility with code for
-big-endian ARM processors generated by versions of the compiler prior to
-2.8.  This option is now deprecated.
-
 @item -march=@var{name}
 @opindex march
 This specifies the name of the target ARM architecture.  GCC uses this
@@ -13060,6 +13160,14 @@ the scheme @code{__AVR_@var{Device}__} where @var{Device} is
 the device name as from the AVR user manual. The difference between
 @var{Device} in the built-in macro and @var{device} in
 @code{-mmcu=@var{device}} is that the latter is always lowercase.
+
+If @var{device} is not a device but only a core architecture like
+@code{avr51}, this macro will not be defined.
+
+@item   __AVR_DEVICE_NAME__
+Setting @code{-mmcu=@var{device}} defines this built-in macro to
+the device's name. For example, with @code{-mmcu=atmega8} the macro
+will be defined to @code{atmega8}.
 
 If @var{device} is not a device but only a core architecture like
 @code{avr51}, this macro will not be defined.

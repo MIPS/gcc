@@ -74,7 +74,7 @@ along with GCC; see the file COPYING3.  If not see
 static tree
 ubsan_walk_array_refs_r (tree *tp, int *walk_subtrees, void *data)
 {
-  struct pointer_set_t *pset = (struct pointer_set_t *) data;
+  hash_set<tree> *pset = (hash_set<tree> *) data;
 
   /* Since walk_tree doesn't call the callback function on the decls
      in BIND_EXPR_VARS, we have to walk them manually.  */
@@ -116,10 +116,9 @@ c_genericize (tree fndecl)
 
   if (flag_sanitize & SANITIZE_BOUNDS)
     {
-      struct pointer_set_t *pset = pointer_set_create ();
-      walk_tree (&DECL_SAVED_TREE (fndecl), ubsan_walk_array_refs_r, pset,
-		 pset);
-      pointer_set_destroy (pset);
+      hash_set<tree> pset;
+      walk_tree (&DECL_SAVED_TREE (fndecl), ubsan_walk_array_refs_r, &pset,
+		 &pset);
     }
 
   /* Dump the C-specific tree IR.  */
@@ -143,7 +142,7 @@ c_genericize (tree fndecl)
     }
 
   /* Dump all nested functions now.  */
-  cgn = cgraph_get_create_node (fndecl);
+  cgn = cgraph_node::get_create (fndecl);
   for (cgn = cgn->nested; cgn ; cgn = cgn->next_nested)
     c_genericize (cgn->decl);
 }
@@ -240,9 +239,7 @@ c_gimplify_expr (tree *expr_p, gimple_seq *pre_p ATTRIBUTE_UNUSED,
 	tree type = TREE_TYPE (TREE_OPERAND (*expr_p, 0));
 	if (INTEGRAL_TYPE_P (type) && c_promoting_integer_type_p (type))
 	  {
-	    if (TYPE_OVERFLOW_UNDEFINED (type)
-		|| ((flag_sanitize & SANITIZE_SI_OVERFLOW)
-		    && !TYPE_OVERFLOW_WRAPS (type)))
+	    if (!TYPE_OVERFLOW_WRAPS (type))
 	      type = unsigned_type_for (type);
 	    return gimplify_self_mod_expr (expr_p, pre_p, post_p, 1, type);
 	  }

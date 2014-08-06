@@ -443,7 +443,7 @@ struct lto_encoder_entry
 struct lto_symtab_encoder_d
 {
   vec<lto_encoder_entry> nodes;
-  pointer_map_t *map;
+  hash_map<symtab_node *, size_t> *map;
 };
 
 typedef struct lto_symtab_encoder_d *lto_symtab_encoder_t;
@@ -685,9 +685,9 @@ struct output_block
      far and the indexes assigned to them.  */
   hash_table<string_slot_hasher> *string_hash_table;
 
-  /* The current cgraph_node that we are currently serializing.  Null
+  /* The current symbol that we are currently serializing.  Null
      if we are serializing something else.  */
-  struct cgraph_node *cgraph_node;
+  struct symtab_node *symbol;
 
   /* These are the last file and line that were seen in the stream.
      If the current node differs from these, it needs to insert
@@ -695,9 +695,6 @@ struct output_block
   const char *current_file;
   int current_line;
   int current_col;
-
-  /* True if writing globals and types.  */
-  bool global;
 
   /* Cache of nodes written in this section.  */
   struct streamer_tree_cache_d *writer_cache;
@@ -714,21 +711,11 @@ struct data_in
   /* The global decls and types.  */
   struct lto_file_decl_data *file_data;
 
-  /* All of the labels.  */
-  tree *labels;
-
   /* The string table.  */
   const char *strings;
 
   /* The length of the string table.  */
   unsigned int strings_len;
-
-  /* Number of named labels.  Used to find the index of unnamed labels
-     since they share space with the named labels.  */
-  unsigned int num_named_labels;
-
-  /* Number of unnamed labels.  */
-  unsigned int num_unnamed_labels;
 
   /* Maps each reference number to the resolution done by the linker. */
   vec<ld_plugin_symbol_resolution_t> globals_resolution;
@@ -777,9 +764,8 @@ extern void lto_value_range_error (const char *,
 /* In lto-section-out.c  */
 extern void lto_begin_section (const char *, bool);
 extern void lto_end_section (void);
+extern void lto_write_data (const void *, unsigned int);
 extern void lto_write_stream (struct lto_output_stream *);
-extern void lto_output_data_stream (struct lto_output_stream *, const void *,
-				    size_t);
 extern bool lto_output_decl_index (struct lto_output_stream *,
 			    struct lto_tree_ref_encoder *,
 			    tree, unsigned int *);
@@ -830,6 +816,9 @@ extern void lto_reader_init (void);
 extern void lto_input_function_body (struct lto_file_decl_data *,
 				     struct cgraph_node *,
 				     const char *);
+extern void lto_input_variable_constructor (struct lto_file_decl_data *,
+					    struct varpool_node *,
+					    const char *);
 extern void lto_input_constructors_and_inits (struct lto_file_decl_data *,
 					      const char *);
 extern void lto_input_toplevel_asms (struct lto_file_decl_data *, int);
@@ -1043,8 +1032,8 @@ static inline int
 lto_symtab_encoder_lookup (lto_symtab_encoder_t encoder,
 			   symtab_node *node)
 {
-  void **slot = pointer_map_contains (encoder->map, node);
-  return (slot && *slot ? (size_t) *(slot) - 1 : LCC_NOT_FOUND);
+  size_t *slot = encoder->map->get (node);
+  return (slot && *slot ? *(slot) - 1 : LCC_NOT_FOUND);
 }
 
 /* Return true if iterator LSE points to nothing.  */
@@ -1072,14 +1061,14 @@ lsei_node (lto_symtab_encoder_iterator lsei)
 static inline struct cgraph_node *
 lsei_cgraph_node (lto_symtab_encoder_iterator lsei)
 {
-  return cgraph (lsei.encoder->nodes[lsei.index].node);
+  return dyn_cast<cgraph_node *> (lsei.encoder->nodes[lsei.index].node);
 }
 
 /* Return the node pointed to by LSI.  */
 static inline varpool_node *
 lsei_varpool_node (lto_symtab_encoder_iterator lsei)
 {
-  return varpool (lsei.encoder->nodes[lsei.index].node);
+  return dyn_cast<varpool_node *> (lsei.encoder->nodes[lsei.index].node);
 }
 
 /* Return the cgraph node corresponding to REF using ENCODER.  */

@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "internal-fn.h"
 #include "gimple-expr.h"
 #include "is-a.h"
+#include "inchash.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -347,9 +348,10 @@ struct asan_mem_ref_hasher
 inline hashval_t
 asan_mem_ref_hasher::hash (const asan_mem_ref *mem_ref)
 {
-  hashval_t h = iterative_hash_expr (mem_ref->start, 0);
-  h = iterative_hash_host_wide_int (mem_ref->access_size, h);
-  return h;
+  inchash::hash hstate;
+  inchash::add_expr (mem_ref->start, hstate);
+  hstate.add_wide_int (mem_ref->access_size);
+  return hstate.end ();
 }
 
 /* Compare two memory references.  We accept the length of either
@@ -1302,7 +1304,7 @@ asan_protect_global (tree decl)
 	 to be an array of such vars, putting padding in there
 	 breaks this assumption.  */
       || (DECL_SECTION_NAME (decl) != NULL
-	  && !symtab_get_node (decl)->implicit_section)
+	  && !symtab_node::get (decl)->implicit_section)
       || DECL_SIZE (decl) == 0
       || ASAN_RED_ZONE_SIZE * BITS_PER_UNIT > MAX_OFILE_ALIGNMENT
       || !valid_constant_size_p (DECL_SIZE_UNIT (decl))
@@ -1931,7 +1933,7 @@ instrument_derefs (gimple_stmt_iterator *iter, tree t,
 	{
 	  /* For static vars if they are known not to be dynamically
 	     initialized, they will be always accessible.  */
-	  varpool_node *vnode = varpool_get_node (inner);
+	  varpool_node *vnode = varpool_node::get (inner);
 	  if (vnode && !vnode->dynamically_initialized)
 	    return;
 	}
@@ -2026,6 +2028,7 @@ instrument_strlen_call (gimple_stmt_iterator *iter)
 
   location_t loc = gimple_location (call);
   tree str_arg = gimple_call_arg (call, 0);
+  bool start_instrumented = has_mem_ref_been_instrumented (str_arg, 1);
 
   tree cptr_type = build_pointer_type (char_type_node);
   gimple str_arg_ssa =
@@ -2037,7 +2040,8 @@ instrument_strlen_call (gimple_stmt_iterator *iter)
 
   build_check_stmt (loc, gimple_assign_lhs (str_arg_ssa), NULL_TREE, 1, iter,
 		    /*non_zero_len_p*/true, /*before_p=*/true,
-		    /*is_store=*/false, /*is_scalar_access*/true, /*align*/0);
+		    /*is_store=*/false, /*is_scalar_access*/true, /*align*/0,
+		    start_instrumented, start_instrumented);
 
   gimple g =
     gimple_build_assign_with_ops (POINTER_PLUS_EXPR,
@@ -2381,7 +2385,7 @@ asan_add_global (tree decl, tree type, vec<constructor_elt, va_gc> *v)
 			  fold_convert (const_ptr_type_node, str_cst));
   CONSTRUCTOR_APPEND_ELT (vinner, NULL_TREE,
 			  fold_convert (const_ptr_type_node, module_name_cst));
-  varpool_node *vnode = varpool_get_node (decl);
+  varpool_node *vnode = varpool_node::get (decl);
   int has_dynamic_init = vnode ? vnode->dynamically_initialized : 0;
   CONSTRUCTOR_APPEND_ELT (vinner, NULL_TREE,
 			  build_int_cst (uptr, has_dynamic_init));
@@ -2593,7 +2597,7 @@ asan_finish_file (void)
       TREE_CONSTANT (ctor) = 1;
       TREE_STATIC (ctor) = 1;
       DECL_INITIAL (var) = ctor;
-      varpool_assemble_decl (varpool_node_for_decl (var));
+      varpool_node::finalize_decl (var);
 
       fn = builtin_decl_implicit (BUILT_IN_ASAN_REGISTER_GLOBALS);
       tree gcount_tree = build_int_cst (pointer_sized_int_node, gcount);
@@ -2642,7 +2646,6 @@ const pass_data pass_data_asan =
   GIMPLE_PASS, /* type */
   "asan", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   ( PROP_ssa | PROP_cfg | PROP_gimple_leh ), /* properties_required */
   0, /* properties_provided */
@@ -2680,7 +2683,6 @@ const pass_data pass_data_asan_O0 =
   GIMPLE_PASS, /* type */
   "asan0", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   ( PROP_ssa | PROP_cfg | PROP_gimple_leh ), /* properties_required */
   0, /* properties_provided */
@@ -2719,7 +2721,6 @@ const pass_data pass_data_sanopt =
   GIMPLE_PASS, /* type */
   "sanopt", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   ( PROP_ssa | PROP_cfg | PROP_gimple_leh ), /* properties_required */
   0, /* properties_provided */
@@ -2749,21 +2750,25 @@ pass_sanopt::execute (function *fun)
   FOR_EACH_BB_FN (bb, fun)
     {
       gimple_stmt_iterator gsi;
-      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); )
 	{
 	  gimple stmt = gsi_stmt (gsi);
+	  bool no_next = false;
 
 	  if (!is_gimple_call (stmt))
-	    continue;
+	    {
+	      gsi_next (&gsi);
+	      continue;
+	    }
 
 	  if (gimple_call_internal_p (stmt))
 	    switch (gimple_call_internal_fn (stmt))
 	      {
 	      case IFN_UBSAN_NULL:
-		ubsan_expand_null_ifn (gsi);
+		no_next = ubsan_expand_null_ifn (&gsi);
 		break;
 	      case IFN_UBSAN_BOUNDS:
-		ubsan_expand_bounds_ifn (&gsi);
+		no_next = ubsan_expand_bounds_ifn (&gsi);
 		break;
 	      default:
 		break;
@@ -2776,9 +2781,8 @@ pass_sanopt::execute (function *fun)
 	      fprintf (dump_file, "\n");
 	    }
 
-	  /* ubsan_expand_bounds_ifn might move us to the end of the BB.  */
-	  if (gsi_end_p (gsi))
-	    break;
+	  if (!no_next)
+	    gsi_next (&gsi);
 	}
     }
   return 0;

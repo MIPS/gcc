@@ -1,3 +1,262 @@
+2014-08-02  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/15339
+	* testsuite/26_numerics/headers/complex/synopsis.cc: Fix.
+
+2014-08-01  Zifei Tong  <zifeitong@gmail.com>
+
+	* libsupc++/atexit_thread.cc (HAVE___CXA_THREAD_ATEXIT_IMPL): Add
+	_GLIBCXX_ prefix to macro.
+
+2014-07-29  Jonathan Wakely  <jwakely@redhat.com>
+
+	* python/libstdcxx/v6/printers.py
+	(SingleObjContainerPrinter._contained): Use compatibility mixin.
+
+2014-07-29  François Dumont  <fdumont@gcc.gnu.org>
+
+	* testsuite/util/testsuite_allocator.h
+	(tracker_allocator_counter::allocate): Remove new invocation, only
+	collect information.
+	(tracker_allocator_counter::deallocate): Remove delete invocation, only
+	collect information.
+	(check_inconsistent_alloc_value_type): New.
+	(tracker_allocator): Transform as a facade for any allocator type.
+	(uneq_allocator): Likewise.
+	(propagating_allocator): Likewise.
+	* testsuite/23_containers/forward_list/debug/move_assign_neg.cc: Use an
+	explicitly non propagating allocator.
+	* testsuite/23_containers/map/debug/move_assign_neg.cc: Likewise.
+	* testsuite/23_containers/multimap/debug/move_assign_neg.cc: likewise.
+	* testsuite/23_containers/multiset/debug/move_assign_neg.cc: Likewise.
+	* testsuite/23_containers/set/debug/move_assign_neg.cc: Likewise.
+	* testsuite/23_containers/unordered_map/debug/move_assign_neg.cc:
+	Likewise.
+	* testsuite/23_containers/unordered_multimap/debug/move_assign_neg.cc:
+	Likewise.
+	* testsuite/23_containers/unordered_multiset/debug/move_assign_neg.cc:
+	Likewise.
+	* testsuite/23_containers/unordered_set/debug/move_assign_neg.cc:
+	Likewise.
+	* testsuite/23_containers/vector/debug/move_assign_neg.cc: Likewise.
+
+2014-07-29  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/61946
+	* include/ext/rope (rope::rope(char_producer<_CharT>*, size_t, bool,
+	const allocator_type&)): Pass non-const allocator to
+	_S_new_RopeFunction.
+	* testsuite/ext/rope/61946.cc: New.
+
+	PR libstdc++/61947
+	* include/std/tuple (_Head_base): Use allocator_arg_t parameters to
+	disambiguate unary constructors.
+	(_Tuple_impl): Pass allocator_arg_t arguments.
+	* testsuite/20_util/tuple/61947.cc: New.
+	* testsuite/20_util/uses_allocator/cons_neg.cc: Adjust dg-error line.
+
+2014-07-29  Ed Smith-Rowland  <3dw4rd@verizon.net>
+
+	PR libstdc++/60037 - SIGFPE in std::generate_canonical<unsigned int...>
+	* include/bits/random.h (_Adaptor): static_assert for non floating-point
+	result type.
+	* include/bits/random.tcc (generate_canonical): Ditto.
+	* include/ext/random.tcc (hypergeometric_distribution::operator()):
+	Use double as a rng result type.
+	* testsuite/26_numerics/random/pr60037-neg.cc: New.
+	* testsuite/ext/random/hypergeometric_distribution/pr60037.cc: New.
+
+2014-07-25  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/abi/post/alpha-linux-gnu/baseline_symbols.txt: Update.
+
+2014-07-25  Ed Smith-Rowland  <3dw4rd@verizon.net>
+
+	* include/experimental/string_view: Make the literal operators
+	constexpr like the ctors they call.
+
+2014-07-23  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/abi/post/x86_64-linux-gnu/x32/baseline_symbols.txt: Update.
+
+2014-07-23  Jonathan Wakely  <jwakely@redhat.com>
+
+	* python/libstdcxx/v6/printers.py (StdExpAnyPrinter): Convert type
+	to string instead of using gdb.Type.name attribute.
+
+2014-07-19  Jonathan Wakely  <jwakely@redhat.com>
+
+	* acinclude.m4 (GLIBCXX_CHECK_SDT_H): Replace AC_MSG_RESULT with
+	AC_MSG_CHECKING.
+
+2014-07-18  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/61835
+	* python/libstdcxx/v6/printers.py (TemplateTypePrinter): Use
+	raw string.
+	(SingleObjContainerPrinter): Check if type printers are in use.
+
+2014-07-16  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/ext/random: Minor formatting and cosmetic tweaks.
+	(uniform_on_sphere_distribution<>::operator==
+	(const uniform_on_sphere_distribution&,
+	const uniform_on_sphere_distribution&)): Compare the _M_nds.
+	(uniform_on_sphere_distribution<>::reset): Reset _M_nd.
+	(operator!=(const uniform_on_sphere_distribution&,
+	const uniform_on_sphere_distribution&)): Adjust.
+	* include/ext/random.tcc: Minor cosmetc tweaks.
+
+2014-07-15  Jonathan Wakely  <jwakely@redhat.com>
+
+	* python/libstdcxx/v6/printers.py (TemplateTypePrinter): Add type
+	printer for class templates.
+	(register_type_printers): Use TemplateTypePrinter for containers
+	and other class templates with default template arguments.
+	* testsuite/libstdc++-prettyprinters/whatis.cc: Test new recognizers.
+
+	* python/libstdcxx/v6/printers.py (SingleObjContainerPrinter): New
+	base class for experimental::any and experimental::optional printers.
+	(StdExpAnyPrinter, StdExpOptionalPrinter, StdExpStringViewPrinter):
+	New printers for Fundamentals TS types.
+	* testsuite/libstdc++-prettyprinters/libfundts.cc: New.
+
+2014-07-15  Tim Shen  <timshen@google.com>
+
+	PR libstdc++/61720
+	* include/bits/regex_executor.tcc (_Executor<>::_M_main_dispatch):
+	Clear match queue for next use.
+	* testsuite/28_regex/algorithms/regex_search/61720.cc: New file.
+
+2014-07-14  Ulrich Drepper  <drepper@gmail.com>
+
+	* include/ext/random.tcc: Unfortunately more fixes for
+	operator>> and operator<< for uniform_on_sphere_distribution.
+
+2014-07-13  Ulrich Drepper  <drepper@gmail.com>
+
+	* include/ext/random.tcc: Fix operator>> and operator<< for
+	uniform_on_sphere_distribution.
+
+2014-07-12  Ulrich Drepper  <drepper@gmail.com>
+
+	* include/ext/random: Add uniform_on_sphere_distribution definition.
+	* include/ext/random.tcc: Add out-of-band member function definitions
+	for uniform_on_sphere_distribution.
+	* testsuite/ext/random/uniform_on_sphere_distribution/
+	cons/default.cc: New file.
+	* testsuite/ext/random/uniform_on_sphere_distribution/
+	operators/equal.cc: New file.
+	* testsuite/ext/random/uniform_on_sphere_distribution/
+	operators/inequal.cc: New file.
+	* testsuite/ext/random/uniform_on_sphere_distribution/
+	operators/serialize.cc: New file.
+
+2014-07-11  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	Add the logistic_distribution as an extension.
+	* include/ext/random: Add the logistic_distribution.
+	* include/ext/random.tcc: Add the logistic_distribution.
+	* testsuite/ext/random/logistic_distribution/cons/parms.cc: New.
+	* testsuite/ext/random/logistic_distribution/cons/default.cc: New.
+	* testsuite/ext/random/logistic_distribution/requirements/typedefs.cc:
+	New.
+	* testsuite/ext/random/logistic_distribution/operators/inequal.cc: New.
+	* testsuite/ext/random/logistic_distribution/operators/equal.cc: New.
+	* testsuite/ext/random/logistic_distribution/operators/serialize.cc:
+	New.
+
+2014-07-11  Samuel Bronson  <naesten@gmail.com>
+
+	* testsuite/lib/libstdc++.exp  (libstdc++_init): Set $GCC_COLORS=""
+	instead of insisting that GCC understand -fdiagnostics-color=never
+
+	* testsuite/lib/gdb-test.exp (gdb-test): Turn off GDB's auto-load,
+	list loaded libs.
+
+2014-07-11  Samuel Bronson  <naesten@gmail.com>
+	    Matthias Klose  <doko@ubuntu.com>
+
+	PR libstdc++/58962
+	* python/libstdcxx/v6/printers.py: Port to Python 2+3
+	(imap): New compat function.
+	(izip): Likewise.
+	(Iterator): New mixin to allow writing iterators in Python 3 style
+	regardless of which version we're running on.
+	[Python3] (long) New compat alias for "int".
+	* testsuite/lib/gdb-test.exp: Port to Python 2+3 (print syntax)
+
+2014-07-10  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/experimental/any (any::_Manager_alloc::_Data): Reorder
+	tuple members to simplify pretty printing.
+	(any::_Manager_alloc::_Data::_M_construct): Fix uses-allocator
+	construction.
+	* testsuite/experimental/any/cons/4.cc: New.
+
+2014-07-09  Jason Merrill  <jason@redhat.com>
+
+	PR libstdc++/61728
+	* libsupc++/cxxabi.h: Define __pbase_type_info::__pointer_catch here.
+	* libsupc++/tinfo.h: Not here.
+
+2014-07-08  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/allocated_ptr.h (__allocated_ptr::operator=): Add
+	missing return.
+	* include/experimental/any: Remove unused header.
+	* include/std/functional (_Maybe_wrap_member_pointer): Fix comments.
+	* testsuite/experimental/any/misc/any_cast_neg.cc: Adjust dg-error.
+	* testsuite/util/testsuite_regex.h: Move include guard.
+
+2014-07-01  Tim Shen  <timshen@google.com>
+
+	PR libstdc++/61601
+	PR libstdc++/61582
+	* include/bits/regex_automaton.h (_NFA<>::_M_insert_state): Add
+	a NFA state limit. If it's exceeded, regex_constants::error_space
+	will be throwed.
+	* include/bits/regex_automaton.tcc (_StateSeq<>::_M_clone): Use
+	map (which is sparse) instead of vector. This reduce n times clones'
+	cost from O(n^2) to O(n).
+	* include/std/regex: Add map dependency.
+	* testsuite/28_regex/algorithms/regex_match/ecma/char/61601.cc: New
+	testcase.
+
+2014-07-01  Tim Shen  <timshen@google.com>
+
+	PR libstdc++/61424
+	* include/bits/regex.tcc (__regex_algo_impl<>): Use DFS for ECMAScript,
+	not just regex containing back-references.
+	* include/bits/regex_compiler.tcc (_Compiler<>::_M_disjunction):
+	exchange _M_next and _M_alt for alternative operator,
+	making matching from left to right.
+	* include/bits/regex_executor.h (_State_info<>::_M_get_sol_pos):
+	Add position tracking fom DFS.
+	* include/bits/regex_executor.tcc (_Executor<>::_M_main_dispatch,
+	_Executor<>::_M_dfs): Likewise.
+	* include/bits/regex_scanner.h: Remove unused enum entry.
+	* testsuite/28_regex/algorithms/regex_search/61424.cc: New
+	testcase from PR.
+
+2014-06-30  Jason Merrill  <jason@redhat.com>
+
+	* libsupc++/cxxabi.h (class __pbase_type_info): __pointer_catch
+	is pure, not inline.
+
+2014-06-28  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	Revert:
+	2014-06-18  Paolo Carlini  <paolo.carlini@oracle.com>
+		    Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR libstdc++/61536
+	* config/abi/pre/gnu.ver: Adjust for out of line comparisons.
+
+	2014-06-08  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* config/abi/pre/gnu.ver: Tighten some patterns; tidy.
+
 2014-06-26  Jonathan Wakely  <jwakely@redhat.com>
 
 	* include/bits/shared_ptr_base.h (__shared_ptr::_Deleter): Fix
@@ -54,7 +313,7 @@
 	* include/std/chrono (_Checked_integral_constant): Allow zero.
 	* testsuite/20_util/duration/literals/values.cc: Test non-positive
 	values and digit separators.
-	* include/experimental/any 
+	* include/experimental/any
 
 	PR libstdc++/61532
 	* testsuite/20_util/make_signed/requirements/typedefs-1.cc: Do not
@@ -436,10 +695,10 @@
 
 2014-05-20  Cesar Philippidis  <cesar@codesourcery.com>
 
-	* scripts/testsuite_flags.in (cxxflags): Remove @CXXFLAGS@ since 
+	* scripts/testsuite_flags.in (cxxflags): Remove @CXXFLAGS@ since
 	libstdc++.exp imports those flags via getenv.
-	* testsuite/lib/libstdc++.exp (libstdc++_init): Ensure that 
-	CXXFLAGS contains a '-O' flag. 
+	* testsuite/lib/libstdc++.exp (libstdc++_init): Ensure that
+	CXXFLAGS contains a '-O' flag.
 
 2014-05-20  Alexey Merzlyakov  <alexey.merzlyakov@samsung.com>
 

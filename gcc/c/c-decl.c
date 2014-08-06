@@ -59,7 +59,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "hash-table.h"
 #include "langhooks-def.h"
-#include "pointer-set.h"
+#include "hash-set.h"
 #include "plugin.h"
 #include "c-family/c-ada-spec.h"
 #include "cilk.h"
@@ -2575,13 +2575,20 @@ duplicate_decls (tree newdecl, tree olddecl)
 
   merge_decls (newdecl, olddecl, newtype, oldtype);
 
-  /* The NEWDECL will no longer be needed.  */
+  /* The NEWDECL will no longer be needed.
+
+     Before releasing the node, be sure to remove function from symbol
+     table that might have been inserted there to record comdat group.
+     Be sure to however do not free DECL_STRUCT_FUNCTION because this
+     structure is shared in between NEWDECL and OLDECL.  */
+  if (TREE_CODE (newdecl) == FUNCTION_DECL)
+    DECL_STRUCT_FUNCTION (newdecl) = NULL;
   if (TREE_CODE (newdecl) == FUNCTION_DECL
       || TREE_CODE (newdecl) == VAR_DECL)
     {
-      struct symtab_node *snode = symtab_get_node (newdecl);
+      struct symtab_node *snode = symtab_node::get (newdecl);
       if (snode)
-	symtab_remove_node (snode);
+	snode->remove ();
     }
   ggc_free (newdecl);
   return true;
@@ -2944,18 +2951,18 @@ pushdecl_top_level (tree x)
 }
 
 static void
-implicit_decl_warning (tree id, tree olddecl)
+implicit_decl_warning (location_t loc, tree id, tree olddecl)
 {
   if (warn_implicit_function_declaration)
     {
       bool warned;
 
       if (flag_isoc99)
-	warned = pedwarn (input_location, OPT_Wimplicit_function_declaration,
+	warned = pedwarn (loc, OPT_Wimplicit_function_declaration,
 			  "implicit declaration of function %qE", id);
       else
-	warned = warning (OPT_Wimplicit_function_declaration,
-			  G_("implicit declaration of function %qE"), id);
+	warned = warning_at (loc, OPT_Wimplicit_function_declaration,
+			     G_("implicit declaration of function %qE"), id);
       if (olddecl && warned)
 	locate_old_decl (olddecl);
     }
@@ -3008,7 +3015,7 @@ implicitly_declare (location_t loc, tree functionid)
 	     then recycle the old declaration but with the new type.  */
 	  if (!C_DECL_IMPLICIT (decl))
 	    {
-	      implicit_decl_warning (functionid, decl);
+	      implicit_decl_warning (loc, functionid, decl);
 	      C_DECL_IMPLICIT (decl) = 1;
 	    }
 	  if (DECL_BUILT_IN (decl))
@@ -3045,7 +3052,7 @@ implicitly_declare (location_t loc, tree functionid)
   DECL_EXTERNAL (decl) = 1;
   TREE_PUBLIC (decl) = 1;
   C_DECL_IMPLICIT (decl) = 1;
-  implicit_decl_warning (functionid, 0);
+  implicit_decl_warning (loc, functionid, 0);
   asmspec_tree = maybe_apply_renaming_pragma (decl, /*asmname=*/NULL);
   if (asmspec_tree)
     set_user_assembler_name (decl, TREE_STRING_POINTER (asmspec_tree));
@@ -5505,7 +5512,11 @@ grokdeclarator (const struct c_declarator *declarator,
 		    this_size_varies = size_varies = true;
 		    warn_variable_length_array (name, size);
 		    if (flag_sanitize & SANITIZE_VLA
-		        && decl_context == NORMAL)
+		        && decl_context == NORMAL
+			&& current_function_decl != NULL_TREE
+			&& !lookup_attribute ("no_sanitize_undefined",
+					      DECL_ATTRIBUTES
+						(current_function_decl)))
 		      {
 			/* Evaluate the array size only once.  */
 			size = c_save_expr (size);
@@ -6092,6 +6103,7 @@ grokdeclarator (const struct c_declarator *declarator,
     if (decl_context == PARM)
       {
 	tree promoted_type;
+	bool array_parameter_p = false;
 
 	/* A parameter declared as an array of T is really a pointer to T.
 	   One declared as a function is really a pointer to a function.  */
@@ -6113,6 +6125,7 @@ grokdeclarator (const struct c_declarator *declarator,
 			  "attributes in parameter array declarator ignored");
 
 	    size_varies = false;
+	    array_parameter_p = true;
 	  }
 	else if (TREE_CODE (type) == FUNCTION_TYPE)
 	  {
@@ -6137,6 +6150,7 @@ grokdeclarator (const struct c_declarator *declarator,
 			   PARM_DECL, declarator->u.id, type);
 	if (size_varies)
 	  C_DECL_VARIABLE_SIZE (decl) = 1;
+	C_ARRAY_PARAMETER (decl) = array_parameter_p;
 
 	/* Compute the type actually passed in the parmlist,
 	   for the case where there is no prototype.
@@ -7207,17 +7221,17 @@ warn_cxx_compat_finish_struct (tree fieldlist)
   if (!struct_parse_info->typedefs_seen.is_empty ()
       && fieldlist != NULL_TREE)
     {
-      /* Use a pointer_set using the name of the typedef.  We can use
-	 a pointer_set because identifiers are interned.  */
-      struct pointer_set_t *tset = pointer_set_create ();
+      /* Use a hash_set<tree> using the name of the typedef.  We can use
+	 a hash_set<tree> because identifiers are interned.  */
+      hash_set<tree> tset;
 
       FOR_EACH_VEC_ELT (struct_parse_info->typedefs_seen, ix, x)
-	pointer_set_insert (tset, DECL_NAME (x));
+	tset.add (DECL_NAME (x));
 
       for (x = fieldlist; x != NULL_TREE; x = DECL_CHAIN (x))
 	{
 	  if (DECL_NAME (x) != NULL_TREE
-	      && pointer_set_contains (tset, DECL_NAME (x)))
+	      && tset.contains (DECL_NAME (x)))
 	    {
 	      warning_at (DECL_SOURCE_LOCATION (x), OPT_Wc___compat,
 			  ("using %qD as both field and typedef name is "
@@ -7227,8 +7241,6 @@ warn_cxx_compat_finish_struct (tree fieldlist)
 		 the typedef name is used.  */
 	    }
 	}
-
-      pointer_set_destroy (tset);
     }
 
   /* For each field which has a binding and which was not defined in
@@ -8175,7 +8187,7 @@ store_parm_decls_oldstyle (tree fndecl, const struct c_arg_info *arg_info)
   struct c_binding *b;
   tree parm, decl, last;
   tree parmids = arg_info->parms;
-  struct pointer_set_t *seen_args = pointer_set_create ();
+  hash_set<tree> seen_args;
 
   if (!in_system_header_at (input_location))
     warning_at (DECL_SOURCE_LOCATION (fndecl),
@@ -8206,7 +8218,7 @@ store_parm_decls_oldstyle (tree fndecl, const struct c_arg_info *arg_info)
 		      "%qD declared as a non-parameter", decl);
 	  /* If the declaration is already marked, we have a duplicate
 	     name.  Complain and ignore the duplicate.  */
-	  else if (pointer_set_contains (seen_args, decl))
+	  else if (seen_args.contains (decl))
 	    {
 	      error_at (DECL_SOURCE_LOCATION (decl),
 			"multiple parameters named %qD", decl);
@@ -8255,7 +8267,7 @@ store_parm_decls_oldstyle (tree fndecl, const struct c_arg_info *arg_info)
 	}
 
       TREE_PURPOSE (parm) = decl;
-      pointer_set_insert (seen_args, decl);
+      seen_args.add (decl);
     }
 
   /* Now examine the parms chain for incomplete declarations
@@ -8275,7 +8287,7 @@ store_parm_decls_oldstyle (tree fndecl, const struct c_arg_info *arg_info)
 	  TREE_TYPE (parm) = error_mark_node;
 	}
 
-      if (!pointer_set_contains (seen_args, parm))
+      if (!seen_args.contains (parm))
 	{
 	  error_at (DECL_SOURCE_LOCATION (parm),
 		    "declaration for parameter %qD but no such parameter",
@@ -8309,8 +8321,6 @@ store_parm_decls_oldstyle (tree fndecl, const struct c_arg_info *arg_info)
 	  }
       DECL_CHAIN (last) = 0;
     }
-
-  pointer_set_destroy (seen_args);
 
   /* If there was a previous prototype,
      set the DECL_ARG_TYPE of each argument according to
@@ -8685,7 +8695,7 @@ finish_function (void)
 	     This should be cleaned up later and this conditional removed.  */
 	  if (cgraph_global_info_ready)
 	    {
-	      cgraph_add_new_function (fndecl, false);
+	      cgraph_node::add_new_function (fndecl, false);
 	      return;
 	    }
 	  cgraph_finalize_function (fndecl, false);
@@ -8695,7 +8705,7 @@ finish_function (void)
 	  /* Register this function with cgraph just far enough to get it
 	    added to our parent's nested function list.  Handy, since the
 	    C front end doesn't have such a list.  */
-	  (void) cgraph_get_create_node (fndecl);
+	  (void) cgraph_node::get_create (fndecl);
 	}
     }
 
