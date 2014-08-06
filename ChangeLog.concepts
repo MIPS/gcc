@@ -1,4 +1,8 @@
 2014-08-06  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/testsuite/g++.dg/concepts/concepts.exp: Add missing argument
+	to g++-dg-runtest.
+
+2014-08-06  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/constraints.c (tsubst_requires_body, instantiate_requirements):
 	Lift the unevaluated operand guard to the entire constraint expression.
 	(check_satisfied, all_constraints_satisfied, 
