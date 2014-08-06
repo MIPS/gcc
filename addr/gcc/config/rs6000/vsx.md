@@ -229,6 +229,16 @@
 			     (V2DF	"V4DF")
 			     (V1TI	"V2TI")])
 
+;; Map register class for 64-bit element in 128-bit vector for direct moves
+;; to/from gprs
+(define_mode_attr VS_64dm [(V2DF	"wk")
+			   (V2DI	"wj")])
+
+;; Map register class for 64-bit element in 128-bit vector for normal register
+;; to register moves
+(define_mode_attr VS_64reg [(V2DF	"ws")
+			    (V2DI	"wi")])
+
 ;; Constants for creating unspecs
 (define_c_enum "unspec"
   [UNSPEC_VSX_CONCAT
@@ -257,7 +267,7 @@
 ;; The patterns for LE permuted loads and stores come before the general
 ;; VSX moves so they match first.
 (define_insn_and_split "*vsx_le_perm_load_<mode>"
-  [(set (match_operand:VSX_LE 0 "vsx_register_operand" "=wa")
+  [(set (match_operand:VSX_LE 0 "vsx_register_operand" "=<VSa>")
         (match_operand:VSX_LE 1 "memory_operand" "Z"))]
   "!BYTES_BIG_ENDIAN && TARGET_VSX"
   "#"
@@ -280,7 +290,7 @@
    (set_attr "length" "8")])
 
 (define_insn_and_split "*vsx_le_perm_load_<mode>"
-  [(set (match_operand:VSX_W 0 "vsx_register_operand" "=wa")
+  [(set (match_operand:VSX_W 0 "vsx_register_operand" "=<VSa>")
         (match_operand:VSX_W 1 "memory_operand" "Z"))]
   "!BYTES_BIG_ENDIAN && TARGET_VSX"
   "#"
@@ -372,7 +382,7 @@
 
 (define_insn "*vsx_le_perm_store_<mode>"
   [(set (match_operand:VSX_LE 0 "memory_operand" "=Z")
-        (match_operand:VSX_LE 1 "vsx_register_operand" "+wa"))]
+        (match_operand:VSX_LE 1 "vsx_register_operand" "+<VSa>"))]
   "!BYTES_BIG_ENDIAN && TARGET_VSX"
   "#"
   [(set_attr "type" "vecstore")
@@ -417,7 +427,7 @@
 
 (define_insn "*vsx_le_perm_store_<mode>"
   [(set (match_operand:VSX_W 0 "memory_operand" "=Z")
-        (match_operand:VSX_W 1 "vsx_register_operand" "+wa"))]
+        (match_operand:VSX_W 1 "vsx_register_operand" "+<VSa>"))]
   "!BYTES_BIG_ENDIAN && TARGET_VSX"
   "#"
   [(set_attr "type" "vecstore")
@@ -1382,18 +1392,18 @@
 ;; xxpermdi for little endian loads and stores.  We need several of
 ;; these since the form of the PARALLEL differs by mode.
 (define_insn "*vsx_xxpermdi2_le_<mode>"
-  [(set (match_operand:VSX_LE 0 "vsx_register_operand" "=wa")
+  [(set (match_operand:VSX_LE 0 "vsx_register_operand" "=<VSa>")
         (vec_select:VSX_LE
-          (match_operand:VSX_LE 1 "vsx_register_operand" "wa")
+          (match_operand:VSX_LE 1 "vsx_register_operand" "<VSa>")
           (parallel [(const_int 1) (const_int 0)])))]
   "!BYTES_BIG_ENDIAN && VECTOR_MEM_VSX_P (<MODE>mode)"
   "xxpermdi %x0,%x1,%x1,2"
   [(set_attr "type" "vecperm")])
 
 (define_insn "*vsx_xxpermdi4_le_<mode>"
-  [(set (match_operand:VSX_W 0 "vsx_register_operand" "=wa")
+  [(set (match_operand:VSX_W 0 "vsx_register_operand" "=<VSa>")
         (vec_select:VSX_W
-          (match_operand:VSX_W 1 "vsx_register_operand" "wa")
+          (match_operand:VSX_W 1 "vsx_register_operand" "<VSa>")
           (parallel [(const_int 2) (const_int 3)
                      (const_int 0) (const_int 1)])))]
   "!BYTES_BIG_ENDIAN && VECTOR_MEM_VSX_P (<MODE>mode)"
@@ -1431,7 +1441,7 @@
 ;; lxvd2x for little endian loads.  We need several of
 ;; these since the form of the PARALLEL differs by mode.
 (define_insn "*vsx_lxvd2x2_le_<mode>"
-  [(set (match_operand:VSX_LE 0 "vsx_register_operand" "=wa")
+  [(set (match_operand:VSX_LE 0 "vsx_register_operand" "=<VSa>")
         (vec_select:VSX_LE
           (match_operand:VSX_LE 1 "memory_operand" "Z")
           (parallel [(const_int 1) (const_int 0)])))]
@@ -1440,7 +1450,7 @@
   [(set_attr "type" "vecload")])
 
 (define_insn "*vsx_lxvd2x4_le_<mode>"
-  [(set (match_operand:VSX_W 0 "vsx_register_operand" "=wa")
+  [(set (match_operand:VSX_W 0 "vsx_register_operand" "=<VSa>")
         (vec_select:VSX_W
           (match_operand:VSX_W 1 "memory_operand" "Z")
           (parallel [(const_int 2) (const_int 3)
@@ -1482,7 +1492,7 @@
 (define_insn "*vsx_stxvd2x2_le_<mode>"
   [(set (match_operand:VSX_LE 0 "memory_operand" "=Z")
         (vec_select:VSX_LE
-          (match_operand:VSX_LE 1 "vsx_register_operand" "wa")
+          (match_operand:VSX_LE 1 "vsx_register_operand" "<VSa>")
           (parallel [(const_int 1) (const_int 0)])))]
   "!BYTES_BIG_ENDIAN && VECTOR_MEM_VSX_P (<MODE>mode)"
   "stxvd2x %x1,%y0"
@@ -1491,7 +1501,7 @@
 (define_insn "*vsx_stxvd2x4_le_<mode>"
   [(set (match_operand:VSX_W 0 "memory_operand" "=Z")
         (vec_select:VSX_W
-          (match_operand:VSX_W 1 "vsx_register_operand" "wa")
+          (match_operand:VSX_W 1 "vsx_register_operand" "<VSa>")
           (parallel [(const_int 2) (const_int 3)
                      (const_int 0) (const_int 1)])))]
   "!BYTES_BIG_ENDIAN && VECTOR_MEM_VSX_P (<MODE>mode)"
@@ -1543,11 +1553,12 @@
 
 ;; Set the element of a V2DI/VD2F mode
 (define_insn "vsx_set_<mode>"
-  [(set (match_operand:VSX_D 0 "vsx_register_operand" "=wd,?wa")
-	(unspec:VSX_D [(match_operand:VSX_D 1 "vsx_register_operand" "wd,wa")
-		       (match_operand:<VS_scalar> 2 "vsx_register_operand" "ws,wa")
-		       (match_operand:QI 3 "u5bit_cint_operand" "i,i")]
-		      UNSPEC_VSX_SET))]
+  [(set (match_operand:VSX_D 0 "vsx_register_operand" "=wd,?<VSa>")
+	(unspec:VSX_D
+	 [(match_operand:VSX_D 1 "vsx_register_operand" "wd,<VSa>")
+	  (match_operand:<VS_scalar> 2 "vsx_register_operand" "<VS_64reg>,<VSa>")
+	  (match_operand:QI 3 "u5bit_cint_operand" "i,i")]
+	 UNSPEC_VSX_SET))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
 {
   int idx_first = BYTES_BIG_ENDIAN ? 0 : 1;
@@ -1572,11 +1583,11 @@
 ;; Optimize cases were we can do a simple or direct move.
 ;; Or see if we can avoid doing the move at all
 (define_insn "*vsx_extract_<mode>_internal1"
-  [(set (match_operand:<VS_scalar> 0 "register_operand" "=d,ws,?wa,r")
+  [(set (match_operand:<VS_scalar> 0 "register_operand" "=d,<VS_64reg>,r")
 	(vec_select:<VS_scalar>
-	 (match_operand:VSX_D 1 "register_operand" "d,wd,wa,wm")
+	 (match_operand:VSX_D 1 "register_operand" "d,<VS_64reg>,<VS_64dm>")
 	 (parallel
-	  [(match_operand:QI 2 "vsx_scalar_64bit" "wD,wD,wD,wD")])))]
+	  [(match_operand:QI 2 "vsx_scalar_64bit" "wD,wD,wD")])))]
   "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_POWERPC64 && TARGET_DIRECT_MOVE"
 {
   int op0_regno = REGNO (operands[0]);
@@ -1593,14 +1604,14 @@
 
   return "xxlor %x0,%x1,%x1";
 }
-  [(set_attr "type" "fp,vecsimple,vecsimple,mftgpr")
+  [(set_attr "type" "fp,vecsimple,mftgpr")
    (set_attr "length" "4")])
 
 (define_insn "*vsx_extract_<mode>_internal2"
-  [(set (match_operand:<VS_scalar> 0 "vsx_register_operand" "=d,ws,ws,?wa")
+  [(set (match_operand:<VS_scalar> 0 "vsx_register_operand" "=d,<VS_64reg>,<VS_64reg>")
 	(vec_select:<VS_scalar>
-	 (match_operand:VSX_D 1 "vsx_register_operand" "d,wd,wd,wa")
-	 (parallel [(match_operand:QI 2 "u5bit_cint_operand" "wD,wD,i,i")])))]
+	 (match_operand:VSX_D 1 "vsx_register_operand" "d,wd,wd")
+	 (parallel [(match_operand:QI 2 "u5bit_cint_operand" "wD,wD,i")])))]
   "VECTOR_MEM_VSX_P (<MODE>mode)
    && (!TARGET_POWERPC64 || !TARGET_DIRECT_MOVE
        || INTVAL (operands[2]) != VECTOR_ELEMENT_SCALAR_64BIT)"
@@ -1628,7 +1639,7 @@
   operands[3] = GEN_INT (fldDM);
   return "xxpermdi %x0,%x1,%x1,%3";
 }
-  [(set_attr "type" "fp,vecsimple,vecperm,vecperm")
+  [(set_attr "type" "fp,vecsimple,vecperm")
    (set_attr "length" "4")])
 
 ;; Optimize extracting a single scalar element from memory if the scalar is in
@@ -1651,7 +1662,7 @@
 (define_insn "*vsx_extract_<mode>_store"
   [(set (match_operand:<VS_scalar> 0 "memory_operand" "=m,Z,?Z")
 	(vec_select:<VS_scalar>
-	 (match_operand:VSX_D 1 "register_operand" "d,wd,wa")
+	 (match_operand:VSX_D 1 "register_operand" "d,wd,<VSa>")
 	 (parallel [(match_operand:QI 2 "vsx_scalar_64bit" "wD,wD,wD")])))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
   "@
@@ -1665,7 +1676,7 @@
 (define_insn_and_split "vsx_extract_v4sf"
   [(set (match_operand:SF 0 "vsx_register_operand" "=f,f")
 	(vec_select:SF
-	 (match_operand:V4SF 1 "vsx_register_operand" "wa,wa")
+	 (match_operand:V4SF 1 "vsx_register_operand" "<VSa>,<VSa>")
 	 (parallel [(match_operand:QI 2 "u5bit_cint_operand" "O,i")])))
    (clobber (match_scratch:V4SF 3 "=X,0"))]
   "VECTOR_UNIT_VSX_P (V4SFmode)"
@@ -1848,9 +1859,9 @@
 
 ;; V2DF/V2DI splat
 (define_insn "vsx_splat_<mode>"
-  [(set (match_operand:VSX_D 0 "vsx_register_operand" "=wd,wd,wd,?wa,?wa,?wa")
+  [(set (match_operand:VSX_D 0 "vsx_register_operand" "=wd,wd,wd,?<VSa>,?<VSa>,?<VSa>")
 	(vec_duplicate:VSX_D
-	 (match_operand:<VS_scalar> 1 "splat_input_operand" "ws,f,Z,wa,wa,Z")))]
+	 (match_operand:<VS_scalar> 1 "splat_input_operand" "<VS_64reg>,f,Z,<VSa>,<VSa>,Z")))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
   "@
    xxpermdi %x0,%x1,%x1,0
@@ -1863,10 +1874,10 @@
 
 ;; V4SF/V4SI splat
 (define_insn "vsx_xxspltw_<mode>"
-  [(set (match_operand:VSX_W 0 "vsx_register_operand" "=wf,?wa")
+  [(set (match_operand:VSX_W 0 "vsx_register_operand" "=wf,?<VSa>")
 	(vec_duplicate:VSX_W
 	 (vec_select:<VS_scalar>
-	  (match_operand:VSX_W 1 "vsx_register_operand" "wf,wa")
+	  (match_operand:VSX_W 1 "vsx_register_operand" "wf,<VSa>")
 	  (parallel
 	   [(match_operand:QI 2 "u5bit_cint_operand" "i,i")]))))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
@@ -1879,8 +1890,8 @@
   [(set_attr "type" "vecperm")])
 
 (define_insn "vsx_xxspltw_<mode>_direct"
-  [(set (match_operand:VSX_W 0 "vsx_register_operand" "=wf,?wa")
-        (unspec:VSX_W [(match_operand:VSX_W 1 "vsx_register_operand" "wf,wa")
+  [(set (match_operand:VSX_W 0 "vsx_register_operand" "=wf,?<VSa>")
+        (unspec:VSX_W [(match_operand:VSX_W 1 "vsx_register_operand" "wf,<VSa>")
                        (match_operand:QI 2 "u5bit_cint_operand" "i,i")]
                       UNSPEC_VSX_XXSPLTW))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
@@ -1889,11 +1900,11 @@
 
 ;; V4SF/V4SI interleave
 (define_insn "vsx_xxmrghw_<mode>"
-  [(set (match_operand:VSX_W 0 "vsx_register_operand" "=wf,?wa")
+  [(set (match_operand:VSX_W 0 "vsx_register_operand" "=wf,?<VSa>")
         (vec_select:VSX_W
 	  (vec_concat:<VS_double>
-	    (match_operand:VSX_W 1 "vsx_register_operand" "wf,wa")
-	    (match_operand:VSX_W 2 "vsx_register_operand" "wf,wa"))
+	    (match_operand:VSX_W 1 "vsx_register_operand" "wf,<VSa>")
+	    (match_operand:VSX_W 2 "vsx_register_operand" "wf,<VSa>"))
 	  (parallel [(const_int 0) (const_int 4)
 		     (const_int 1) (const_int 5)])))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
@@ -1906,11 +1917,11 @@
   [(set_attr "type" "vecperm")])
 
 (define_insn "vsx_xxmrglw_<mode>"
-  [(set (match_operand:VSX_W 0 "vsx_register_operand" "=wf,?wa")
+  [(set (match_operand:VSX_W 0 "vsx_register_operand" "=wf,?<VSa>")
 	(vec_select:VSX_W
 	  (vec_concat:<VS_double>
-	    (match_operand:VSX_W 1 "vsx_register_operand" "wf,wa")
-	    (match_operand:VSX_W 2 "vsx_register_operand" "wf,?wa"))
+	    (match_operand:VSX_W 1 "vsx_register_operand" "wf,<VSa>")
+	    (match_operand:VSX_W 2 "vsx_register_operand" "wf,?<VSa>"))
 	  (parallel [(const_int 2) (const_int 6)
 		     (const_int 3) (const_int 7)])))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
@@ -1924,9 +1935,9 @@
 
 ;; Shift left double by word immediate
 (define_insn "vsx_xxsldwi_<mode>"
-  [(set (match_operand:VSX_L 0 "vsx_register_operand" "=wa")
-	(unspec:VSX_L [(match_operand:VSX_L 1 "vsx_register_operand" "wa")
-		       (match_operand:VSX_L 2 "vsx_register_operand" "wa")
+  [(set (match_operand:VSX_L 0 "vsx_register_operand" "=<VSa>")
+	(unspec:VSX_L [(match_operand:VSX_L 1 "vsx_register_operand" "<VSa>")
+		       (match_operand:VSX_L 2 "vsx_register_operand" "<VSa>")
 		       (match_operand:QI 3 "u5bit_cint_operand" "i")]
 		      UNSPEC_VSX_SLDWI))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"

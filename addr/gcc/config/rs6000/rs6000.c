@@ -2051,6 +2051,7 @@ rs6000_debug_reg_global (void)
 	   "wg reg_class = %s\n"
 	   "wi reg_class = %s\n"
 	   "wj reg_class = %s\n"
+	   "wk reg_class = %s\n"
 	   "wl reg_class = %s\n"
 	   "wm reg_class = %s\n"
 	   "wr reg_class = %s\n"
@@ -2072,6 +2073,7 @@ rs6000_debug_reg_global (void)
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wg]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wi]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wj]],
+	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wk]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wl]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wm]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wr]],
@@ -2688,6 +2690,8 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
   if (TARGET_DIRECT_MOVE)
     {
       rs6000_constraints[RS6000_CONSTRAINT_wj] = FLOAT_REGS;
+      rs6000_constraints[RS6000_CONSTRAINT_wk]
+	= (TARGET_UPPER_REGS_DF) ? VSX_REGS : FLOAT_REGS;
       rs6000_constraints[RS6000_CONSTRAINT_wm] = VSX_REGS;
     }
 

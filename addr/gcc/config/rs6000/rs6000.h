@@ -1479,6 +1479,7 @@ enum r6000_reg_class_enum {
   RS6000_CONSTRAINT_wg,		/* FPR register for -mmfpgpr */
   RS6000_CONSTRAINT_wi,		/* FPR/VSX register to hold DImode */
   RS6000_CONSTRAINT_wj,		/* FPR/VSX register for DImode direct moves. */
+  RS6000_CONSTRAINT_wk,		/* FPR/VSX register for DFmode direct moves. */
   RS6000_CONSTRAINT_wl,		/* FPR register for LFIWAX */
   RS6000_CONSTRAINT_wm,		/* VSX register for direct move */
   RS6000_CONSTRAINT_wr,		/* GPR register if 64-bit  */
