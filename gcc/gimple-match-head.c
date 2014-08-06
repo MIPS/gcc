@@ -305,6 +305,17 @@ maybe_push_res_to_seq (code_helper rcode, tree type, tree *ops,
 	return NULL_TREE;
       if (!res)
 	res = make_ssa_name (type, NULL);
+      /* Play safe and do not allow abnormals to be mentioned in
+         newly created statements.  */
+      if ((TREE_CODE (ops[0]) == SSA_NAME
+	   && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[0]))
+	  || (ops[1]
+	      && TREE_CODE (ops[1]) == SSA_NAME
+	      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[1]))
+	  || (ops[2]
+	      && TREE_CODE (ops[2]) == SSA_NAME
+	      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[2])))
+	return NULL_TREE;
       gimple new_stmt = gimple_build_assign_with_ops (rcode, res,
 						      ops[0], ops[1], ops[2]);
       gimple_seq_add_stmt_without_update (seq, new_stmt);
@@ -321,6 +332,17 @@ maybe_push_res_to_seq (code_helper rcode, tree type, tree *ops,
 	res = make_ssa_name (type, NULL);
       unsigned nargs = type_num_arguments (TREE_TYPE (decl));
       gcc_assert (nargs <= 3);
+      /* Play safe and do not allow abnormals to be mentioned in
+         newly created statements.  */
+      if ((TREE_CODE (ops[0]) == SSA_NAME
+	   && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[0]))
+	  || (nargs >= 2
+	      && TREE_CODE (ops[1]) == SSA_NAME
+	      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[1]))
+	  || (nargs == 3
+	      && TREE_CODE (ops[2]) == SSA_NAME
+	      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[2])))
+	return NULL_TREE;
       gimple new_stmt = gimple_build_call (decl, nargs, ops[0], ops[1], ops[2]);
       gimple_call_set_lhs (new_stmt, res);
       gimple_seq_add_stmt_without_update (seq, new_stmt);
@@ -414,8 +436,8 @@ gimple_simplify (enum tree_code code, tree type,
 
 tree
 gimple_simplify (enum built_in_function fn, tree type,
-			   tree arg0,
-			   gimple_seq *seq, tree (*valueize)(tree))
+		 tree arg0,
+		 gimple_seq *seq, tree (*valueize)(tree))
 {
   if (constant_for_folding (arg0))
     {
@@ -683,6 +705,17 @@ gimple_simplify (gimple_stmt_iterator *gsi, tree (*valueize)(tree))
   if (is_gimple_assign (stmt)
       && rcode.is_tree_code ())
     {
+      /* Play safe and do not allow abnormals to be mentioned in
+         newly created statements.  */
+      if ((TREE_CODE (ops[0]) == SSA_NAME
+	   && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[0]))
+	  || (ops[1]
+	      && TREE_CODE (ops[1]) == SSA_NAME
+	      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[1]))
+	  || (ops[2]
+	      && TREE_CODE (ops[2]) == SSA_NAME
+	      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[2])))
+	return false;
       gimple_assign_set_rhs_with_ops_1 (gsi, rcode, ops[0], ops[1], ops[2]);
       update_stmt (gsi_stmt (*gsi));
     }

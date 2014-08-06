@@ -1681,6 +1681,14 @@ gimple_can_merge_blocks_p (basic_block a, basic_block b)
   return true;
 }
 
+/* ???  Maybe this should be a generic overload of fold_stmt.  */
+
+static tree
+no_follow_ssa_edges (tree)
+{
+  return NULL_TREE;
+}
+
 /* Replaces all uses of NAME by VAL.  */
 
 void
@@ -1737,7 +1745,16 @@ replace_uses_by (tree name, tree val)
 		  recompute_tree_invariant_for_addr_expr (op);
 	      }
 
-	  if (fold_stmt (&gsi))
+	  /* If we have sth like
+	       neighbor_29 = <name> + -1;
+	       _33 = <name> + neighbor_29;
+	     and end up visiting _33 first then folding will
+	     simplify the stmt to _33 = <name>; and the new
+	     immediate use will be inserted before the stmt
+	     iterator marker and thus we fail to visit it
+	     again, ICEing within the has_zero_uses assert.
+	     Avoid that by never following SSA edges.  */
+	  if (fold_stmt (&gsi, no_follow_ssa_edges))
 	    stmt = gsi_stmt (gsi);
 
 	  if (maybe_clean_or_replace_eh_stmt (orig_stmt, stmt))
