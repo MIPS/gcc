@@ -601,6 +601,9 @@ static const struct attribute_spec sh_attribute_table[] =
 #undef  TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO	sh_encode_section_info
 
+#undef TARGET_LRA_P
+#define TARGET_LRA_P hook_bool_void_true
+
 #undef TARGET_SECONDARY_RELOAD
 #define TARGET_SECONDARY_RELOAD sh_secondary_reload
 
