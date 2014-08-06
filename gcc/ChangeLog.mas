@@ -1,5 +1,10 @@
 2014-08-06  Richard Biener  <rguenther@suse.de>
 
+	* gimple-fold.c (gimple_build): Allow to be called from
+	non-SSA context.
+
+2014-08-06  Richard Biener  <rguenther@suse.de>
+
 	* genmatch.c (gen_transform): Add depth parameter everywhere.
 	(expr::gen_transform): Make a depth dependent ops[] array
 	name and increase depth for siblings.

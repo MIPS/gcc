@@ -3733,7 +3733,10 @@ gimple_build (gimple_seq *seq, location_t loc,
   tree res = gimple_simplify (code, type, op0, seq, valueize);
   if (!res)
     {
-      res = make_ssa_name (type, NULL);
+      if (gimple_in_ssa_p (cfun))
+	res = make_ssa_name (type, NULL);
+      else
+	res = create_tmp_reg (type, NULL);
       gimple stmt;
       if (code == REALPART_EXPR
 	  || code == IMAGPART_EXPR
@@ -3763,7 +3766,10 @@ gimple_build (gimple_seq *seq, location_t loc,
   tree res = gimple_simplify (code, type, op0, op1, seq, valueize);
   if (!res)
     {
-      res = make_ssa_name (type, NULL);
+      if (gimple_in_ssa_p (cfun))
+	res = make_ssa_name (type, NULL);
+      else
+	res = create_tmp_reg (type, NULL);
       gimple stmt = gimple_build_assign_with_ops (code, res, op0, op1);
       gimple_set_location (stmt, loc);
       gimple_seq_add_stmt_without_update (seq, stmt);
@@ -3787,7 +3793,10 @@ gimple_build (gimple_seq *seq, location_t loc,
 			      seq, valueize);
   if (!res)
     {
-      res = make_ssa_name (type, NULL);
+      if (gimple_in_ssa_p (cfun))
+	res = make_ssa_name (type, NULL);
+      else
+	res = create_tmp_reg (type, NULL);
       gimple stmt;
       if (code == BIT_FIELD_REF)
 	stmt = gimple_build_assign_with_ops (code, res,
@@ -3816,7 +3825,10 @@ gimple_build (gimple_seq *seq, location_t loc,
   tree res = gimple_simplify (fn, type, arg0, seq, valueize);
   if (!res)
     {
-      res = make_ssa_name (type, NULL);
+      if (gimple_in_ssa_p (cfun))
+	res = make_ssa_name (type, NULL);
+      else
+	res = create_tmp_reg (type, NULL);
       tree decl = builtin_decl_implicit (fn);
       gimple stmt = gimple_build_call (decl, 1, arg0);
       gimple_call_set_lhs (stmt, res);
