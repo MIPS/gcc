@@ -1240,16 +1240,22 @@ package body Sem_Eval is
             return Unknown;
          end if;
 
-         --  Replace types by base types for the case of entities which are not
+         --  Replace types by base types for the case of values which are not
          --  known to have valid representations. This takes care of properly
          --  dealing with invalid representations.
 
-         if not Assume_Valid and then not Assume_No_Invalid_Values then
-            if Is_Entity_Name (L) and then not Is_Known_Valid (Entity (L)) then
+         if not Assume_Valid then
+            if not (Is_Entity_Name (L)
+                     and then (Is_Known_Valid (Entity (L))
+                                or else Assume_No_Invalid_Values))
+            then
                Ltyp := Underlying_Type (Base_Type (Ltyp));
             end if;
 
-            if Is_Entity_Name (R) and then not Is_Known_Valid (Entity (R)) then
+            if not (Is_Entity_Name (R)
+                     and then (Is_Known_Valid (Entity (R))
+                                or else Assume_No_Invalid_Values))
+            then
                Rtyp := Underlying_Type (Base_Type (Rtyp));
             end if;
          end if;
@@ -1662,13 +1668,6 @@ package body Sem_Eval is
                          N_Null)
          then
             return True;
-
-         --  Any reference to Null_Parameter is known at compile time. No
-         --  other attribute references (that have not already been folded)
-         --  are known at compile time.
-
-         elsif K = N_Attribute_Reference then
-            return Attribute_Name (Op) = Name_Null_Parameter;
          end if;
       end if;
 
@@ -2128,7 +2127,7 @@ package body Sem_Eval is
          Alt := First (Alternatives (N));
          Search : loop
 
-            --  We must find a match among the alternatives, If not this must
+            --  We must find a match among the alternatives. If not, this must
             --  be due to other errors, so just ignore, leaving as non-static.
 
             if No (Alt) then
@@ -2381,7 +2380,7 @@ package body Sem_Eval is
          return;
       end if;
 
-      --  If condition raises constraint error then we have already signalled
+      --  If condition raises constraint error then we have already signaled
       --  an error, and we just propagate to the result and do not fold.
 
       if Raises_Constraint_Error (Condition) then
@@ -2651,11 +2650,7 @@ package body Sem_Eval is
          Right_Int : constant Uint := Expr_Value (Right);
 
       begin
-         --  VMS includes bitwise operations on signed types
-
-         if Is_Modular_Integer_Type (Etype (N))
-           or else Is_VMS_Operator (Entity (N))
-         then
+         if Is_Modular_Integer_Type (Etype (N)) then
             declare
                Left_Bits  : Bits (0 .. UI_To_Int (Esize (Etype (N))) - 1);
                Right_Bits : Bits (0 .. UI_To_Int (Esize (Etype (N))) - 1);
@@ -3666,16 +3661,11 @@ package body Sem_Eval is
       --  Test for illegal Ada 95 cases. A string literal is illegal in Ada 95
       --  if its bounds are outside the index base type and this index type is
       --  static. This can happen in only two ways. Either the string literal
-      --  is too long, or it is null, and the lower bound is type'First. In
-      --  either case it is the upper bound that is out of range of the index
-      --  type.
+      --  is too long, or it is null, and the lower bound is type'First. Either
+      --  way it is the upper bound that is out of range of the index type.
+
       if Ada_Version >= Ada_95 then
-         if Root_Type (Bas) = Standard_String
-              or else
-            Root_Type (Bas) = Standard_Wide_String
-              or else
-            Root_Type (Bas) = Standard_Wide_Wide_String
-         then
+         if Is_Standard_String_Type (Bas) then
             Xtp := Standard_Positive;
          else
             Xtp := Etype (First_Index (Bas));
@@ -4029,13 +4019,6 @@ package body Sem_Eval is
          pragma Assert (Is_Fixed_Point_Type (Underlying_Type (Etype (N))));
          return Corresponding_Integer_Value (N);
 
-      --  Peculiar VMS case, if we have xxx'Null_Parameter, return zero
-
-      elsif Kind = N_Attribute_Reference
-        and then Attribute_Name (N) = Name_Null_Parameter
-      then
-         return Uint_0;
-
       --  Otherwise must be character literal
 
       else
@@ -4108,13 +4091,6 @@ package body Sem_Eval is
          pragma Assert (Is_Fixed_Point_Type (Underlying_Type (Etype (N))));
          Val := Corresponding_Integer_Value (N);
 
-      --  Peculiar VMS case, if we have xxx'Null_Parameter, return zero
-
-      elsif Kind = N_Attribute_Reference
-        and then Attribute_Name (N) = Name_Null_Parameter
-      then
-         Val := Uint_0;
-
       --  Otherwise must be character literal
 
       else
@@ -4176,18 +4152,12 @@ package body Sem_Eval is
       elsif Kind = N_Integer_Literal then
          return UR_From_Uint (Expr_Value (N));
 
-      --  Peculiar VMS case, if we have xxx'Null_Parameter, return 0.0
+      --  Here, we have a node that cannot be interpreted as a compile time
+      --  constant. That is definitely an error.
 
-      elsif Kind = N_Attribute_Reference
-        and then Attribute_Name (N) = Name_Null_Parameter
-      then
-         return Ureal_0;
+      else
+         raise Program_Error;
       end if;
-
-      --  If we fall through, we have a node that cannot be interpreted as a
-      --  compile time constant. That is definitely an error.
-
-      raise Program_Error;
    end Expr_Value_R;
 
    ------------------
@@ -4980,9 +4950,9 @@ package body Sem_Eval is
       --  non-static or raise Constraint_Error, return Non_Static.
       --
       --  Otherwise check if the selecting expression matches any of the given
-      --  discrete choices. If so the alternative is executed and we return
-      --  Open, otherwise, the alternative can never be executed, and so we
-      --  return Closed.
+      --  discrete choices. If so, the alternative is executed and we return
+      --  Match, otherwise, the alternative can never be executed, and so we
+      --  return No_Match.
 
       ---------------------------------
       -- Check_Case_Expr_Alternative --
@@ -4998,7 +4968,7 @@ package body Sem_Eval is
       begin
          pragma Assert (Nkind (Case_Exp) = N_Case_Expression);
 
-         --  Check selecting expression is static
+         --  Check that selecting expression is static
 
          if not Is_OK_Static_Expression (Expression (Case_Exp)) then
             return Non_Static;
@@ -5014,7 +4984,7 @@ package body Sem_Eval is
          Choice := First (Discrete_Choices (CEA));
          while Present (Choice) loop
 
-            --  Check various possibilities for choice, returning Closed if we
+            --  Check various possibilities for choice, returning Match if we
             --  find the selecting value matches any of the choices. Note that
             --  we know we are the last choice, so we don't have to keep going.
 
@@ -5048,8 +5018,8 @@ package body Sem_Eval is
             Next (Choice);
          end loop;
 
-         --  If we get through that loop then all choices were static, and
-         --  none of them matched the selecting expression. So return Closed.
+         --  If we get through that loop then all choices were static, and none
+         --  of them matched the selecting expression. So return No_Match.
 
          return No_Match;
       end Check_Case_Expr_Alternative;
@@ -5125,11 +5095,11 @@ package body Sem_Eval is
 
          --  This refers to cases like
 
-         --    (if 1 then 1 elsif 1/0=2 then 2 else 3)
+         --    (if True then 1 elsif 1/0=2 then 2 else 3)
 
          --  But we expand elsif's out anyway, so the above looks like:
 
-         --    (if 1 then 1 else (if 1/0=2 then 2 else 3))
+         --    (if True then 1 else (if 1/0=2 then 2 else 3))
 
          --  So for us this is caught by the above check for the 32.3 case.
 
@@ -5280,15 +5250,22 @@ package body Sem_Eval is
       --  If we have the static expression case, then this is an illegality
       --  in Ada 95 mode, except that in an instance, we never generate an
       --  error (if the error is legitimate, it was already diagnosed in the
-      --  template). The expression to compute the length of a packed array is
-      --  attached to the array type itself, and deserves a separate message.
+      --  template).
 
       if Is_Static_Expression (N)
         and then not In_Instance
         and then not In_Inlined_Body
         and then Ada_Version >= Ada_95
       then
-         if Nkind (Parent (N)) = N_Defining_Identifier
+         --  No message if we are statically unevaluated
+
+         if Is_Statically_Unevaluated (N) then
+            null;
+
+         --  The expression to compute the length of a packed array is attached
+         --  to the array type itself, and deserves a separate message.
+
+         elsif Nkind (Parent (N)) = N_Defining_Identifier
            and then Is_Array_Type (Parent (N))
            and then Present (Packed_Array_Impl_Type (Parent (N)))
            and then Present (First_Rep_Item (Parent (N)))
@@ -5297,6 +5274,8 @@ package body Sem_Eval is
              ("length of packed array must not exceed Integer''Last",
               First_Rep_Item (Parent (N)));
             Rewrite (N, Make_Integer_Literal (Sloc (N), Uint_1));
+
+         --  All cases except the special array case
 
          else
             Apply_Compile_Time_Constraint_Error
@@ -5480,13 +5459,6 @@ package body Sem_Eval is
                    UI_From_Int (RT_Exception_Code'Pos (CE_Range_Check_Failed))
       then
          Set_Condition (Parent (N), Empty);
-
-      --  If the expression raising CE is a N_Raise_CE node, we can use that
-      --  one. We just preserve the type of the context.
-
-      elsif Nkind (Exp) = N_Raise_Constraint_Error then
-         Rewrite (N, Exp);
-         Set_Etype (N, Typ);
 
       --  Else build an explicit N_Raise_CE
 
@@ -6102,9 +6074,24 @@ package body Sem_Eval is
       --  to get the information in the variable case as well.
 
    begin
+      --  If an error was posted on expression, then return Unknown, we do not
+      --  want cascaded errors based on some false analysis of a junk node.
+
+      if Error_Posted (N) then
+         return Unknown;
+
+      --  Expression that raises constraint error is an odd case. We certainly
+      --  do not want to consider it to be in range. It might make sense to
+      --  consider it always out of range, but this causes incorrect error
+      --  messages about static expressions out of range. So we just return
+      --  Unknown, which is always safe.
+
+      elsif Raises_Constraint_Error (N) then
+         return Unknown;
+
       --  Universal types have no range limits, so always in range
 
-      if Typ = Universal_Integer or else Typ = Universal_Real then
+      elsif Typ = Universal_Integer or else Typ = Universal_Real then
          return In_Range;
 
       --  Never known if not scalar type. Don't know if this can actually
@@ -6122,14 +6109,10 @@ package body Sem_Eval is
       elsif Is_Generic_Type (Typ) then
          return Unknown;
 
-      --  Never known unless we have a compile time known value
+      --  Case of a known compile time value, where we can check if it is in
+      --  the bounds of the given type.
 
-      elsif not Compile_Time_Known_Value (N) then
-         return Unknown;
-
-      --  General processing with a known compile time value
-
-      else
+      elsif Compile_Time_Known_Value (N) then
          declare
             Lo       : Node_Id;
             Hi       : Node_Id;
@@ -6195,6 +6178,32 @@ package body Sem_Eval is
                end if;
             end if;
          end;
+
+      --  Here for value not known at compile time. Case of expression subtype
+      --  is Typ or is a subtype of Typ, and we can assume expression is valid.
+      --  In this case we know it is in range without knowing its value.
+
+      elsif Assume_Valid
+        and then (Etype (N) = Typ or else Is_Subtype_Of (Etype (N), Typ))
+      then
+         return In_Range;
+
+      --  Another special case. For signed integer types, if the target type
+      --  has Is_Known_Valid set, and the source type does not have a larger
+      --  size, then the source value must be in range. We exclude biased
+      --  types, because they bizarrely can generate out of range values.
+
+      elsif Is_Signed_Integer_Type (Etype (N))
+        and then Is_Known_Valid (Typ)
+        and then Esize (Etype (N)) <= Esize (Typ)
+        and then not Has_Biased_Representation (Etype (N))
+      then
+         return In_Range;
+
+      --  For all other cases, result is unknown
+
+      else
+         return Unknown;
       end if;
    end Test_In_Range;
 

@@ -131,9 +131,8 @@ package Inline is
      Table_Increment      => Alloc.Pending_Instantiations_Increment,
      Table_Name           => "Pending_Descriptor");
 
-   Inlined_Calls : Elist_Id := No_Elist;
-   Backend_Calls : Elist_Id := No_Elist;
-   --  List of frontend inlined calls and inline calls passed to the backend
+   --  The following should be initialized in an init call in Frontend, we
+   --  have thoughts of making the frontend reusable in future ???
 
    -----------------
    -- Subprograms --
@@ -160,7 +159,7 @@ package Inline is
    --  At end of compilation, analyze the bodies of all units that contain
    --  inlined subprograms that are actually called.
 
-   procedure Build_Body_To_Inline (N : Node_Id; Subp : Entity_Id);
+   procedure Build_Body_To_Inline (N : Node_Id; Spec_Id : Entity_Id);
    --  If a subprogram has pragma Inline and inlining is active, use generic
    --  machinery to build an unexpanded body for the subprogram. This body is
    --  subsequently used for inline expansions at call sites. If subprogram can
@@ -178,16 +177,17 @@ package Inline is
    --  This procedure is called if the node N, an instance of a call to
    --  subprogram Subp, cannot be inlined. Msg is the message to be issued,
    --  which ends with ? (it does not end with ?p?, this routine takes care of
-   --  the need to change ? to ?p?). Temporarily the behavior of this routine
-   --  depends on the value of -gnatd.k:
+   --  the need to change ? to ?p?). The behavior of this routine depends on
+   --  the value of Back_End_Inlining:
    --
-   --    * If -gnatd.k is not set (ie. old inlining model) then if Subp has
-   --      a pragma Always_Inlined, then an error message is issued (by
-   --      removing the last character of Msg). If Subp is not Always_Inlined,
-   --      then a warning is issued if the flag Ineffective_Inline_Warnings
-   --      is set, adding ?p to the msg, and if not, the call has no effect.
+   --    * If Back_End_Inlining is not set (ie. legacy frontend inlining model)
+   --      then if Subp has a pragma Always_Inlined, then an error message is
+   --      issued (by removing the last character of Msg). If Subp is not
+   --      Always_Inlined, then a warning is issued if the flag Ineffective_
+   --      Inline_Warnings is set, adding ?p to the msg, and if not, the call
+   --      has no effect.
    --
-   --    * If -gnatd.k is set (ie. new inlining model) then:
+   --    * If Back_End_Inlining is set then:
    --      - If Is_Serious is true, then an error is reported (by removing the
    --        last character of Msg);
    --
@@ -203,7 +203,7 @@ package Inline is
    --          flag Ineffective_Inline_Warnings is set (adding p?); otherwise
    --          no effect since inlining may be performed by the backend.
 
-   procedure Check_And_Build_Body_To_Inline
+   procedure Check_And_Split_Unconstrained_Function
      (N       : Node_Id;
       Spec_Id : Entity_Id;
       Body_Id : Entity_Id);
@@ -231,6 +231,25 @@ package Inline is
    --  expressions in the body must be converted to the desired type (which
    --  is simply not noted in the tree without inline expansion).
 
+   function Has_Excluded_Declaration
+     (Subp  : Entity_Id;
+      Decls : List_Id) return Boolean;
+   --  Check a list of declarations, Decls, that make the inlining of Subp not
+   --  worthwhile
+
+   function Has_Excluded_Statement
+     (Subp  : Entity_Id;
+      Stats : List_Id) return Boolean;
+   --  Check a list of statements, Stats, that make inlining of Subp not
+   --  worthwhile, including any tasking statement, nested at any level.
+
+   procedure List_Inlining_Info;
+   --  Generate listing of calls inlined by the frontend plus listing of
+   --  calls to inline subprograms passed to the backend.
+
+   procedure Register_Backend_Call (N : Node_Id);
+   --  Append N to the list Backend_Calls
+
    procedure Remove_Dead_Instance (N : Node_Id);
    --  If an instantiation appears in unreachable code, delete the pending
    --  body instance.
@@ -238,8 +257,11 @@ package Inline is
    function Can_Be_Inlined_In_GNATprove_Mode
      (Spec_Id : Entity_Id;
       Body_Id : Entity_Id) return Boolean;
-   --  Returns True if the subprogram identified by Spec_Id (possibly Empty)
-   --  and Body_Id (not Empty) can be inlined in GNATprove mode. GNATprove
-   --  relies on this to adapt its treatment of the subprogram.
+   --  Returns True if the subprogram identified by Spec_Id and Body_Id can
+   --  be inlined in GNATprove mode. One but not both of Spec_Id and Body_Id
+   --  can be Empty. Body_Id is Empty when doing a partial check on a call
+   --  to a subprogram whose body has not been seen yet, to know whether this
+   --  subprogram could possibly be inlined. GNATprove relies on this to adapt
+   --  its treatment of the subprogram.
 
 end Inline;

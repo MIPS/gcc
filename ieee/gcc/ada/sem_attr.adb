@@ -65,6 +65,7 @@ with Sem_Util; use Sem_Util;
 with Stand;    use Stand;
 with Sinfo;    use Sinfo;
 with Sinput;   use Sinput;
+with System;
 with Stringt;  use Stringt;
 with Style;
 with Stylesw;  use Stylesw;
@@ -320,7 +321,7 @@ package body Sem_Attr is
       --  Verify that prefix of attribute N is a float type and that
       --  two attribute expressions are present
 
-      procedure Check_SPARK_Restriction_On_Attribute;
+      procedure Check_SPARK_05_Restriction_On_Attribute;
       --  Issue an error in formal mode because attribute N is allowed
 
       procedure Check_Integer_Type;
@@ -535,18 +536,6 @@ package body Sem_Attr is
                   Error_Attr ("invalid prefix for % attribute", P);
                end if;
             end;
-
-         --  Allow Address if the prefix is a reference to the AST_Entry
-         --  attribute. If expansion is active, the attribute will be
-         --  replaced by a function call, and address will work fine and
-         --  get the proper value, but if expansion is not active, then
-         --  the check here allows proper semantic analysis of the reference.
-
-         elsif Nkind (P) = N_Attribute_Reference
-           and then Attribute_Name (P) = Name_AST_Entry
-         then
-            Rewrite (N,
-                     New_Occurrence_Of (RTE (RE_Null_Address), Sloc (N)));
 
          --  Object is OK
 
@@ -767,7 +756,7 @@ package body Sem_Attr is
       --  Start of processing for Analyze_Access_Attribute
 
       begin
-         Check_SPARK_Restriction_On_Attribute;
+         Check_SPARK_05_Restriction_On_Attribute;
          Check_E0;
 
          if Nkind (P) = N_Character_Literal then
@@ -1016,7 +1005,13 @@ package body Sem_Attr is
                   --  pointer can be used to modify the variable, and we might
                   --  not detect this, leading to some junk warnings.
 
-                  Set_Never_Set_In_Source (Ent, False);
+                  --  We only do this for source references, since otherwise
+                  --  we can suppress warnings, e.g. from the unrestricted
+                  --  access generated for validity checks in -gnatVa mode.
+
+                  if Comes_From_Source (N) then
+                     Set_Never_Set_In_Source (Ent, False);
+                  end if;
 
                   --  Mark entity as address taken, and kill current values
 
@@ -1816,14 +1811,14 @@ package body Sem_Attr is
       end Check_Scalar_Type;
 
       ------------------------------------------
-      -- Check_SPARK_Restriction_On_Attribute --
+      -- Check_SPARK_05_Restriction_On_Attribute --
       ------------------------------------------
 
-      procedure Check_SPARK_Restriction_On_Attribute is
+      procedure Check_SPARK_05_Restriction_On_Attribute is
       begin
          Error_Msg_Name_1 := Aname;
-         Check_SPARK_Restriction ("attribute % is not allowed", P);
-      end Check_SPARK_Restriction_On_Attribute;
+         Check_SPARK_05_Restriction ("attribute % is not allowed", P);
+      end Check_SPARK_05_Restriction_On_Attribute;
 
       ---------------------------
       -- Check_Standard_Prefix --
@@ -2514,7 +2509,7 @@ package body Sem_Attr is
          --  parameterless call. Entry attributes are handled specially below.
 
          if Is_Entity_Name (P)
-           and then not Nam_In (Aname, Name_Count, Name_Caller, Name_AST_Entry)
+           and then not Nam_In (Aname, Name_Count, Name_Caller)
          then
             Check_Parameterless_Call (P);
          end if;
@@ -2522,10 +2517,10 @@ package body Sem_Attr is
          if Is_Overloaded (P) then
 
             --  Ada 2005 (AI-345): Since protected and task types have
-            --  primitive entry wrappers, the attributes Count, Caller and
-            --  AST_Entry require a context check
+            --  primitive entry wrappers, the attributes Count, and Caller
+            --  require a context check
 
-            if Nam_In (Aname, Name_Count, Name_Caller, Name_AST_Entry) then
+            if Nam_In (Aname, Name_Count, Name_Caller) then
                declare
                   Count : Natural := 0;
                   I     : Interp_Index;
@@ -2568,7 +2563,7 @@ package body Sem_Attr is
         and then not In_Open_Scopes (Scope (P_Type))
         and then not In_Spec_Expression
       then
-         Check_SPARK_Restriction ("invisible attribute of type", N);
+         Check_SPARK_05_Restriction ("invisible attribute of type", N);
       end if;
 
       --  Remaining processing depends on attribute
@@ -2697,129 +2692,6 @@ package body Sem_Attr is
 
          Set_Etype (N, RTE (RE_Asm_Output_Operand));
 
-      ---------------
-      -- AST_Entry --
-      ---------------
-
-      when Attribute_AST_Entry => AST_Entry : declare
-         Ent  : Entity_Id;
-         Pref : Node_Id;
-         Ptyp : Entity_Id;
-
-         Indexed : Boolean;
-         --  Indicates if entry family index is present. Note the coding
-         --  here handles the entry family case, but in fact it cannot be
-         --  executed currently, because pragma AST_Entry does not permit
-         --  the specification of an entry family.
-
-         procedure Bad_AST_Entry;
-         --  Signal a bad AST_Entry pragma
-
-         function OK_Entry (E : Entity_Id) return Boolean;
-         --  Checks that E is of an appropriate entity kind for an entry
-         --  (i.e. E_Entry if Index is False, or E_Entry_Family if Index
-         --  is set True for the entry family case). In the True case,
-         --  makes sure that Is_AST_Entry is set on the entry.
-
-         -------------------
-         -- Bad_AST_Entry --
-         -------------------
-
-         procedure Bad_AST_Entry is
-         begin
-            Error_Attr_P ("prefix for % attribute must be task entry");
-         end Bad_AST_Entry;
-
-         --------------
-         -- OK_Entry --
-         --------------
-
-         function OK_Entry (E : Entity_Id) return Boolean is
-            Result : Boolean;
-
-         begin
-            if Indexed then
-               Result := (Ekind (E) = E_Entry_Family);
-            else
-               Result := (Ekind (E) = E_Entry);
-            end if;
-
-            if Result then
-               if not Is_AST_Entry (E) then
-                  Error_Msg_Name_2 := Aname;
-                  Error_Attr ("% attribute requires previous % pragma", P);
-               end if;
-            end if;
-
-            return Result;
-         end OK_Entry;
-
-      --  Start of processing for AST_Entry
-
-      begin
-         Check_VMS (N);
-         Check_E0;
-
-         --  Deal with entry family case
-
-         if Nkind (P) = N_Indexed_Component then
-            Pref := Prefix (P);
-            Indexed := True;
-         else
-            Pref := P;
-            Indexed := False;
-         end if;
-
-         Ptyp := Etype (Pref);
-
-         if Ptyp = Any_Type or else Error_Posted (Pref) then
-            return;
-         end if;
-
-         --  If the prefix is a selected component whose prefix is of an
-         --  access type, then introduce an explicit dereference.
-         --  ??? Could we reuse Check_Dereference here?
-
-         if Nkind (Pref) = N_Selected_Component
-           and then Is_Access_Type (Ptyp)
-         then
-            Rewrite (Pref,
-              Make_Explicit_Dereference (Sloc (Pref),
-                Relocate_Node (Pref)));
-            Analyze_And_Resolve (Pref, Designated_Type (Ptyp));
-         end if;
-
-         --  Prefix can be of the form a.b, where a is a task object
-         --  and b is one of the entries of the corresponding task type.
-
-         if Nkind (Pref) = N_Selected_Component
-           and then OK_Entry (Entity (Selector_Name (Pref)))
-           and then Is_Object_Reference (Prefix (Pref))
-           and then Is_Task_Type (Etype (Prefix (Pref)))
-         then
-            null;
-
-         --  Otherwise the prefix must be an entry of a containing task,
-         --  or of a variable of the enclosing task type.
-
-         else
-            if Nkind_In (Pref, N_Identifier, N_Expanded_Name) then
-               Ent := Entity (Pref);
-
-               if not OK_Entry (Ent)
-                 or else not In_Open_Scopes (Scope (Ent))
-               then
-                  Bad_AST_Entry;
-               end if;
-
-            else
-               Bad_AST_Entry;
-            end if;
-         end if;
-
-         Set_Etype (N, RTE (RE_AST_Handler));
-      end AST_Entry;
-
       -----------------------------
       -- Atomic_Always_Lock_Free --
       -----------------------------
@@ -2861,7 +2733,7 @@ package body Sem_Attr is
 
          if Nkind (Parent (N)) /= N_Attribute_Reference then
             Error_Msg_Name_1 := Aname;
-            Check_SPARK_Restriction
+            Check_SPARK_05_Restriction
               ("attribute% is only allowed as prefix of another attribute", P);
          end if;
 
@@ -3118,9 +2990,7 @@ package body Sem_Attr is
             --  because it was valid in the generic unit. Ditto if this is
             --  an inlining of a function declared in an instance.
 
-            if In_Instance
-              or else In_Inlined_Body
-            then
+            if In_Instance or else In_Inlined_Body then
                return;
 
             --  For sure OK if we have a real private type itself, but must
@@ -3265,12 +3135,10 @@ package body Sem_Attr is
                   --  The prefix denotes either the task type, or else a
                   --  single task whose task type is being analyzed.
 
-                  if (Is_Type (Tsk)
-                      and then Tsk = S)
-
+                  if (Is_Type (Tsk) and then Tsk = S)
                     or else (not Is_Type (Tsk)
-                      and then Etype (Tsk) = S
-                      and then not (Comes_From_Source (S)))
+                              and then Etype (Tsk) = S
+                              and then not (Comes_From_Source (S)))
                   then
                      null;
                   else
@@ -3301,7 +3169,6 @@ package body Sem_Attr is
 
             begin
                Get_First_Interp (P, Index, It);
-
                while Present (It.Nam) loop
                   if It.Nam = Ent then
                      null;
@@ -3330,21 +3197,56 @@ package body Sem_Attr is
       -- Default_Bit_Order --
       -----------------------
 
-      when Attribute_Default_Bit_Order => Default_Bit_Order :
+      when Attribute_Default_Bit_Order => Default_Bit_Order : declare
+         Target_Default_Bit_Order : System.Bit_Order;
+
       begin
          Check_Standard_Prefix;
 
          if Bytes_Big_Endian then
-            Rewrite (N,
-              Make_Integer_Literal (Loc, False_Value));
+            Target_Default_Bit_Order := System.High_Order_First;
          else
-            Rewrite (N,
-              Make_Integer_Literal (Loc, True_Value));
+            Target_Default_Bit_Order := System.Low_Order_First;
          end if;
+
+         Rewrite (N,
+           Make_Integer_Literal (Loc,
+             UI_From_Int (System.Bit_Order'Pos (Target_Default_Bit_Order))));
 
          Set_Etype (N, Universal_Integer);
          Set_Is_Static_Expression (N);
       end Default_Bit_Order;
+
+      ----------------------------------
+      -- Default_Scalar_Storage_Order --
+      ----------------------------------
+
+      when Attribute_Default_Scalar_Storage_Order => Default_SSO : declare
+         RE_Default_SSO : RE_Id;
+
+      begin
+         Check_Standard_Prefix;
+
+         case Opt.Default_SSO is
+            when ' ' =>
+               if Bytes_Big_Endian then
+                  RE_Default_SSO := RE_High_Order_First;
+               else
+                  RE_Default_SSO := RE_Low_Order_First;
+               end if;
+
+            when 'H' =>
+               RE_Default_SSO := RE_High_Order_First;
+
+            when 'L' =>
+               RE_Default_SSO := RE_Low_Order_First;
+
+            when others =>
+               raise Program_Error;
+         end case;
+
+         Rewrite (N, New_Occurrence_Of (RTE (RE_Default_SSO), Loc));
+      end Default_SSO;
 
       --------------
       -- Definite --
@@ -3376,9 +3278,7 @@ package body Sem_Attr is
       when Attribute_Descriptor_Size =>
          Check_E0;
 
-         if not Is_Entity_Name (P)
-           or else not Is_Type (Entity (P))
-         then
+         if not Is_Entity_Name (P) or else not Is_Type (Entity (P)) then
             Error_Attr_P ("prefix of attribute % must denote a type");
          end if;
 
@@ -3682,8 +3582,8 @@ package body Sem_Attr is
          if Etype (P) =  Standard_Exception_Type then
             Set_Etype (N, RTE (RE_Exception_Id));
 
-         --  Ada 2005 (AI-345): Attribute 'Identity may be applied to
-         --  task interface class-wide types.
+         --  Ada 2005 (AI-345): Attribute 'Identity may be applied to task
+         --  interface class-wide types.
 
          elsif Is_Task_Type (Etype (P))
            or else (Is_Access_Type (Etype (P))
@@ -3713,7 +3613,7 @@ package body Sem_Attr is
 
       when Attribute_Image => Image :
       begin
-         Check_SPARK_Restriction_On_Attribute;
+         Check_SPARK_05_Restriction_On_Attribute;
          Check_Scalar_Type;
          Set_Etype (N, Standard_String);
 
@@ -4169,24 +4069,24 @@ package body Sem_Attr is
            and then Entity (Identifier (Enclosing_Loop)) /= Loop_Id
          then
             Error_Attr_P
-              ("prefix of attribute % that applies to "
-               & "outer loop must denote an entity");
+              ("prefix of attribute % that applies to outer loop must denote "
+               & "an entity");
 
          elsif Is_Potentially_Unevaluated (P) then
             Uneval_Old_Msg;
          end if;
 
-         --  Finally, if the Loop_Entry attribute appears within a pragma
-         --  that is ignored, we replace P'Loop_Entity by P to avoid useless
-         --  generation of the loop entity variable. Note that in this case
-         --  the expression won't be executed anyway, and this substitution
-         --  keeps types happy!
-
-         --  We should really do this in the expander, but it's easier here
+         --  Replace the Loop_Entry attribute reference by its prefix if the
+         --  related pragma is ignored. This transformation is OK with respect
+         --  to typing because Loop_Entry's type is that of its prefix. This
+         --  early transformation also avoids the generation of a useless loop
+         --  entry constant.
 
          if Is_Ignored (Enclosing_Pragma) then
             Rewrite (N, Relocate_Node (P));
          end if;
+
+         Preanalyze_And_Resolve (P);
       end Loop_Entry;
 
       -------------
@@ -4664,7 +4564,10 @@ package body Sem_Attr is
          --  process of being preanalyzed. Perform the semantic checks now
          --  before the pragma is relocated and/or expanded.
 
-         if In_Spec_Expression then
+         --  For a generic subprogram, postconditions are preanalyzed as well
+         --  for name capture, and still appear within an aspect spec.
+
+         if In_Spec_Expression or Inside_A_Generic then
             Prag := N;
             while Present (Prag)
                and then not Nkind_In (Prag, N_Aspect_Specification,
@@ -4677,10 +4580,11 @@ package body Sem_Attr is
             end loop;
 
             --  In ASIS mode, the aspect itself is analyzed, in addition to the
-            --  corresponding pragma. Do not issue errors when analyzing the
-            --  aspect.
+            --  corresponding pragma. Don't issue errors when analyzing aspect.
 
-            if Nkind (Prag) = N_Aspect_Specification then
+            if Nkind (Prag) = N_Aspect_Specification
+              and then Chars (Identifier (Prag)) = Name_Post
+            then
                null;
 
             --  In all other cases the related context must be a pragma
@@ -4908,7 +4812,7 @@ package body Sem_Attr is
          if Is_Boolean_Type (P_Type) then
             Error_Msg_Name_1 := Aname;
             Error_Msg_Name_2 := Chars (P_Type);
-            Check_SPARK_Restriction
+            Check_SPARK_05_Restriction
               ("attribute% is not allowed for type%", P);
          end if;
 
@@ -4934,7 +4838,8 @@ package body Sem_Attr is
          if Is_Real_Type (P_Type) or else Is_Boolean_Type (P_Type) then
             Error_Msg_Name_1 := Aname;
             Error_Msg_Name_2 := Chars (P_Type);
-            Check_SPARK_Restriction ("attribute% is not allowed for type%", P);
+            Check_SPARK_05_Restriction
+              ("attribute% is not allowed for type%", P);
          end if;
 
          Resolve (E1, P_Base_Type);
@@ -4945,10 +4850,8 @@ package body Sem_Attr is
          --  make an exception in Check_Float_Overflow mode.
 
          if Is_Floating_Point_Type (P_Type) then
-            if Check_Float_Overflow
-              and then not Range_Checks_Suppressed (P_Base_Type)
-            then
-               Enable_Range_Check (E1);
+            if not Range_Checks_Suppressed (P_Base_Type) then
+               Set_Do_Range_Check (E1);
             end if;
 
          --  If not modular type, test for overflow check required
@@ -5827,7 +5730,8 @@ package body Sem_Attr is
          if Is_Real_Type (P_Type) or else Is_Boolean_Type (P_Type) then
             Error_Msg_Name_1 := Aname;
             Error_Msg_Name_2 := Chars (P_Type);
-            Check_SPARK_Restriction ("attribute% is not allowed for type%", P);
+            Check_SPARK_05_Restriction
+              ("attribute% is not allowed for type%", P);
          end if;
 
          Resolve (E1, P_Base_Type);
@@ -5838,10 +5742,8 @@ package body Sem_Attr is
          --  make an exception in Check_Float_Overflow mode.
 
          if Is_Floating_Point_Type (P_Type) then
-            if Check_Float_Overflow
-              and then not Range_Checks_Suppressed (P_Base_Type)
-            then
-               Enable_Range_Check (E1);
+            if not Range_Checks_Suppressed (P_Base_Type) then
+               Set_Do_Range_Check (E1);
             end if;
 
          --  If not modular type, test for overflow check required
@@ -6220,69 +6122,158 @@ package body Sem_Attr is
       ------------
 
       when Attribute_Update => Update : declare
+         Common_Typ : Entity_Id;
+         --  The common type of a multiple component update for a record
+
          Comps : Elist_Id := No_Elist;
-         Expr  : Node_Id;
+         --  A list used in the resolution of a record update. It contains the
+         --  entities of all record components processed so far.
 
-         procedure Check_Component_Reference
-           (Comp : Entity_Id;
-            Typ  : Entity_Id);
-         --  Comp is a record component (possibly a discriminant) and Typ is a
-         --  record type. Determine whether Comp is a legal component of Typ.
-         --  Emit an error if Comp mentions a discriminant or is not a unique
-         --  component reference in the update aggregate.
+         procedure Analyze_Array_Component_Update (Assoc : Node_Id);
+         --  Analyze and resolve array_component_association Assoc against the
+         --  index of array type P_Type.
 
-         -------------------------------
-         -- Check_Component_Reference --
-         -------------------------------
+         procedure Analyze_Record_Component_Update (Comp : Node_Id);
+         --  Analyze and resolve record_component_association Comp against
+         --  record type P_Type.
 
-         procedure Check_Component_Reference
-           (Comp : Entity_Id;
-            Typ  : Entity_Id)
-         is
-            Comp_Name : constant Name_Id := Chars (Comp);
+         ------------------------------------
+         -- Analyze_Array_Component_Update --
+         ------------------------------------
 
-            function Is_Duplicate_Component return Boolean;
-            --  Determine whether component Comp already appears in list Comps
+         procedure Analyze_Array_Component_Update (Assoc : Node_Id) is
+            Expr      : Node_Id;
+            High      : Node_Id;
+            Index     : Node_Id;
+            Index_Typ : Entity_Id;
+            Low       : Node_Id;
 
-            ----------------------------
-            -- Is_Duplicate_Component --
-            ----------------------------
+         begin
+            --  The current association contains a sequence of indexes denoting
+            --  an element of a multidimensional array:
 
-            function Is_Duplicate_Component return Boolean is
-               Comp_Elmt : Elmt_Id;
+            --    (Index_1, ..., Index_N)
 
-            begin
-               if Present (Comps) then
-                  Comp_Elmt := First_Elmt (Comps);
-                  while Present (Comp_Elmt) loop
-                     if Chars (Node (Comp_Elmt)) = Comp_Name then
-                        return True;
+            --  Examine each individual index and resolve it against the proper
+            --  index type of the array.
+
+            if Nkind (First (Choices (Assoc))) = N_Aggregate then
+               Expr := First (Choices (Assoc));
+               while Present (Expr) loop
+
+                  --  The use of others is illegal (SPARK RM 4.4.1(12))
+
+                  if Nkind (Expr) = N_Others_Choice then
+                     Error_Attr
+                       ("others choice not allowed in attribute %", Expr);
+
+                  --  Otherwise analyze and resolve all indexes
+
+                  else
+                     Index     := First (Expressions (Expr));
+                     Index_Typ := First_Index (P_Type);
+                     while Present (Index) and then Present (Index_Typ) loop
+                        Analyze_And_Resolve (Index, Etype (Index_Typ));
+                        Next (Index);
+                        Next_Index (Index_Typ);
+                     end loop;
+
+                     --  Detect a case where the association either lacks an
+                     --  index or contains an extra index.
+
+                     if Present (Index) or else Present (Index_Typ) then
+                        Error_Msg_N
+                          ("dimension mismatch in index list", Assoc);
                      end if;
+                  end if;
 
-                     Next_Elmt (Comp_Elmt);
-                  end loop;
+                  Next (Expr);
+               end loop;
+
+            --  The current association denotes either a single component or a
+            --  range of components of a one dimensional array:
+
+            --    1, 2 .. 5
+
+            --  Resolve the index or its high and low bounds (if range) against
+            --  the proper index type of the array.
+
+            else
+               Index     := First (Choices (Assoc));
+               Index_Typ := First_Index (P_Type);
+
+               if Present (Next_Index (Index_Typ)) then
+                  Error_Msg_N ("too few subscripts in array reference", Assoc);
                end if;
 
-               return False;
-            end Is_Duplicate_Component;
+               while Present (Index) loop
 
-            --  Local variables
+                  --  The use of others is illegal (SPARK RM 4.4.1(12))
 
+                  if Nkind (Index) = N_Others_Choice then
+                     Error_Attr
+                       ("others choice not allowed in attribute %", Index);
+
+                  --  The index denotes a range of elements
+
+                  elsif Nkind (Index) = N_Range then
+                     Low  := Low_Bound  (Index);
+                     High := High_Bound (Index);
+
+                     Analyze_And_Resolve (Low,  Etype (Index_Typ));
+                     Analyze_And_Resolve (High, Etype (Index_Typ));
+
+                     --  Add a range check to ensure that the bounds of the
+                     --  range are within the index type when this cannot be
+                     --  determined statically.
+
+                     if not Is_OK_Static_Expression (Low) then
+                        Set_Do_Range_Check (Low);
+                     end if;
+
+                     if not Is_OK_Static_Expression (High) then
+                        Set_Do_Range_Check (High);
+                     end if;
+
+                  --  Otherwise the index denotes a single element
+
+                  else
+                     Analyze_And_Resolve (Index, Etype (Index_Typ));
+
+                     --  Add a range check to ensure that the index is within
+                     --  the index type when it is not possible to determine
+                     --  this statically.
+
+                     if not Is_OK_Static_Expression (Index) then
+                        Set_Do_Range_Check (Index);
+                     end if;
+                  end if;
+
+                  Next (Index);
+               end loop;
+            end if;
+         end Analyze_Array_Component_Update;
+
+         -------------------------------------
+         -- Analyze_Record_Component_Update --
+         -------------------------------------
+
+         procedure Analyze_Record_Component_Update (Comp : Node_Id) is
+            Comp_Name     : constant Name_Id := Chars (Comp);
+            Base_Typ      : Entity_Id;
             Comp_Or_Discr : Entity_Id;
-
-         --  Start of processing for Check_Component_Reference
 
          begin
             --  Find the discriminant or component whose name corresponds to
             --  Comp. A simple character comparison is sufficient because all
             --  visible names within a record type are unique.
 
-            Comp_Or_Discr := First_Entity (Typ);
+            Comp_Or_Discr := First_Entity (P_Type);
             while Present (Comp_Or_Discr) loop
                if Chars (Comp_Or_Discr) = Comp_Name then
 
-                  --  Record component entity and type in the given aggregate
-                  --  choice, for subsequent resolution.
+                  --  Decorate the component reference by setting its entity
+                  --  and type for resolution purposes.
 
                   Set_Entity (Comp, Comp_Or_Discr);
                   Set_Etype  (Comp, Etype (Comp_Or_Discr));
@@ -6292,7 +6283,7 @@ package body Sem_Attr is
                Comp_Or_Discr := Next_Entity (Comp_Or_Discr);
             end loop;
 
-            --  Diagnose possible illegal references
+            --  Diagnose an illegal reference
 
             if Present (Comp_Or_Discr) then
                if Ekind (Comp_Or_Discr) = E_Discriminant then
@@ -6300,17 +6291,13 @@ package body Sem_Attr is
                     ("attribute % may not modify record discriminants", Comp);
 
                else pragma Assert (Ekind (Comp_Or_Discr) = E_Component);
-                  if Is_Duplicate_Component then
-                     Error_Msg_NE ("component & already updated", Comp, Comp);
+                  if Contains (Comps, Comp_Or_Discr) then
+                     Error_Msg_N ("component & already updated", Comp);
 
                   --  Mark this component as processed
 
                   else
-                     if No (Comps) then
-                        Comps := New_Elmt_List;
-                     end if;
-
-                     Append_Elmt (Comp, Comps);
+                     Append_New_Elmt (Comp_Or_Discr, Comps);
                   end if;
                end if;
 
@@ -6318,16 +6305,34 @@ package body Sem_Attr is
             --  the record type.
 
             else
-               Error_Msg_NE
-                 ("& is not a component of aggregate subtype", Comp, Comp);
+               Error_Msg_N ("& is not a component of aggregate subtype", Comp);
             end if;
-         end Check_Component_Reference;
+
+            --  Verify the consistency of types when the current component is
+            --  part of a miltiple component update.
+
+            --    Comp_1, ..., Comp_N => <value>
+
+            if Present (Etype (Comp)) then
+               Base_Typ := Base_Type (Etype (Comp));
+
+               --  Save the type of the first component reference as the
+               --  remaning references (if any) must resolve to this type.
+
+               if No (Common_Typ) then
+                  Common_Typ := Base_Typ;
+
+               elsif Base_Typ /= Common_Typ then
+                  Error_Msg_N
+                    ("components in choice list must have same type", Comp);
+               end if;
+            end if;
+         end Analyze_Record_Component_Update;
 
          --  Local variables
 
-         Assoc     : Node_Id;
-         Comp      : Node_Id;
-         Comp_Type : Entity_Id;
+         Assoc : Node_Id;
+         Comp  : Node_Id;
 
       --  Start of processing for Update
 
@@ -6353,128 +6358,64 @@ package body Sem_Attr is
          --  choices. Perform the following checks:
 
          --    1) Legality of "others" in all cases
-         --    2) Component legality for records
+         --    2) Legality of <>
+         --    3) Component legality for arrays
+         --    4) Component legality for records
 
          --  The remaining checks are performed on the expanded attribute
 
          Assoc := First (Component_Associations (E1));
          while Present (Assoc) loop
-            Comp := First (Choices (Assoc));
-            Analyze (Expression (Assoc));
-            Comp_Type := Empty;
-            while Present (Comp) loop
-               if Nkind (Comp) = N_Others_Choice then
-                  Error_Attr
-                    ("others choice not allowed in attribute %", Comp);
 
-               elsif Is_Array_Type (P_Type) then
-                  declare
-                     Index      : Node_Id;
-                     Index_Type : Entity_Id;
-                     Lo, Hi     : Node_Id;
+            --  The use of <> is illegal (SPARK RM 4.4.1(1))
 
-                  begin
-                     if Nkind (First (Choices (Assoc))) /= N_Aggregate then
+            if Box_Present (Assoc) then
+               Error_Attr
+                 ("default initialization not allowed in attribute %", Assoc);
 
-                        --  Choices denote separate components of one-
-                        --  dimensional array.
+            --  Otherwise process the association
 
-                        Index_Type := First_Index (P_Type);
+            else
+               Analyze (Expression (Assoc));
 
-                        if Present (Next_Index (Index_Type)) then
-                           Error_Msg_N
-                             ("too few subscripts in array reference", Comp);
-                        end if;
-
-                        Index := First (Choices (Assoc));
-                        while Present (Index) loop
-                           if Nkind (Index) = N_Range then
-                              Lo := Low_Bound  (Index);
-                              Hi := High_Bound (Index);
-
-                              Analyze_And_Resolve (Lo, Etype (Index_Type));
-
-                              if not Is_OK_Static_Expression (Lo) then
-                                 Set_Do_Range_Check (Lo);
-                              end if;
-
-                              Analyze_And_Resolve (Hi, Etype (Index_Type));
-
-                              if not Is_OK_Static_Expression (Hi) then
-                                 Set_Do_Range_Check (Hi);
-                              end if;
-
-                           else
-                              Analyze_And_Resolve (Index, Etype (Index_Type));
-
-                              if not Is_OK_Static_Expression (Index) then
-                                 Set_Do_Range_Check (Index);
-                              end if;
-                           end if;
-
-                           Next (Index);
-                        end loop;
-
-                     --  Choice is a sequence of indexes for each dimension
-
-                     else
-                        Expr := First (Choices (Assoc));
-                        while Present (Expr) loop
-                           Index_Type := First_Index (P_Type);
-                           Index := First (Expressions (Expr));
-                           while Present (Index_Type)
-                             and then Present (Index)
-                           loop
-                              Analyze_And_Resolve (Index, Etype (Index_Type));
-                              Next_Index (Index_Type);
-                              Next (Index);
-                           end loop;
-
-                           if Present (Index) or else Present (Index_Type) then
-                              Error_Msg_N
-                                ("dimension mismatch in index list", Assoc);
-                           end if;
-
-                           Next (Expr);
-                        end loop;
-                     end if;
-                  end;
+               if Is_Array_Type (P_Type) then
+                  Analyze_Array_Component_Update (Assoc);
 
                elsif Is_Record_Type (P_Type) then
 
-                  --  Make sure we have an identifier. Old SPARK allowed
-                  --  a component selection e.g. A.B in the corresponding
-                  --  context, but we do not yet permit this for 'Update.
+                  --  Reset the common type used in a multiple component update
+                  --  as we are processing the contents of a new association.
 
-                  if Nkind (Comp) /= N_Identifier then
-                     Error_Msg_N ("name should be identifier or OTHERS", Comp);
-                  else
-                     Check_Component_Reference (Comp, P_Type);
+                  Common_Typ := Empty;
 
-                     --  Verify that all choices in an association denote
-                     --  components of the same type.
+                  Comp := First (Choices (Assoc));
+                  while Present (Comp) loop
+                     if Nkind (Comp) = N_Identifier then
+                        Analyze_Record_Component_Update (Comp);
 
-                     if No (Etype (Comp)) then
-                        null;
+                     --  The use of others is illegal (SPARK RM 4.4.1(5))
 
-                     elsif No (Comp_Type) then
-                        Comp_Type := Base_Type (Etype (Comp));
+                     elsif Nkind (Comp) = N_Others_Choice then
+                        Error_Attr
+                          ("others choice not allowed in attribute %", Comp);
 
-                     elsif Comp_Type /= Base_Type (Etype (Comp)) then
+                     --  The name of a record component cannot appear in any
+                     --  other form.
+
+                     else
                         Error_Msg_N
-                          ("components in choice list must have same type",
-                           Assoc);
+                          ("name should be identifier or OTHERS", Comp);
                      end if;
-                  end if;
-               end if;
 
-               Next (Comp);
-            end loop;
+                     Next (Comp);
+                  end loop;
+               end if;
+            end if;
 
             Next (Assoc);
          end loop;
 
-         --  The type of attribute Update is that of the prefix
+         --  The type of attribute 'Update is that of the prefix
 
          Set_Etype (N, P_Type);
       end Update;
@@ -6491,7 +6432,7 @@ package body Sem_Attr is
          if Is_Boolean_Type (P_Type) then
             Error_Msg_Name_1 := Aname;
             Error_Msg_Name_2 := Chars (P_Type);
-            Check_SPARK_Restriction
+            Check_SPARK_05_Restriction
               ("attribute% is not allowed for type%", P);
          end if;
 
@@ -6546,12 +6487,23 @@ package body Sem_Attr is
       when Attribute_Valid_Scalars =>
          Check_E0;
          Check_Object_Reference (P);
-
-         if No_Scalar_Parts (P_Type) then
-            Error_Attr_P ("??attribute % always True, no scalars to check");
-         end if;
-
          Set_Etype (N, Standard_Boolean);
+
+         --  Following checks are only for source types
+
+         if Comes_From_Source (N) then
+            if not Scalar_Part_Present (P_Type) then
+               Error_Attr_P
+                 ("??attribute % always True, no scalars to check");
+            end if;
+
+            --  Not allowed for unchecked union type
+
+            if Has_Unchecked_Union (P_Type) then
+               Error_Attr_P
+                 ("attribute % not allowed for Unchecked_Union type");
+            end if;
+         end if;
 
       -----------
       -- Value --
@@ -6559,7 +6511,7 @@ package body Sem_Attr is
 
       when Attribute_Value => Value :
       begin
-         Check_SPARK_Restriction_On_Attribute;
+         Check_SPARK_05_Restriction_On_Attribute;
          Check_E1;
          Check_Scalar_Type;
 
@@ -6638,7 +6590,7 @@ package body Sem_Attr is
 
       when Attribute_Wide_Image => Wide_Image :
       begin
-         Check_SPARK_Restriction_On_Attribute;
+         Check_SPARK_05_Restriction_On_Attribute;
          Check_Scalar_Type;
          Set_Etype (N, Standard_Wide_String);
          Check_E1;
@@ -6681,7 +6633,7 @@ package body Sem_Attr is
 
       when Attribute_Wide_Value => Wide_Value :
       begin
-         Check_SPARK_Restriction_On_Attribute;
+         Check_SPARK_05_Restriction_On_Attribute;
          Check_E1;
          Check_Scalar_Type;
 
@@ -6738,7 +6690,7 @@ package body Sem_Attr is
       ----------------
 
       when Attribute_Wide_Width =>
-         Check_SPARK_Restriction_On_Attribute;
+         Check_SPARK_05_Restriction_On_Attribute;
          Check_E0;
          Check_Scalar_Type;
          Set_Etype (N, Universal_Integer);
@@ -6748,7 +6700,7 @@ package body Sem_Attr is
       -----------
 
       when Attribute_Width =>
-         Check_SPARK_Restriction_On_Attribute;
+         Check_SPARK_05_Restriction_On_Attribute;
          Check_E0;
          Check_Scalar_Type;
          Set_Etype (N, Universal_Integer);
@@ -6863,9 +6815,6 @@ package body Sem_Attr is
       function Fore_Value return Nat;
       --  Computes the Fore value for the current attribute prefix, which is
       --  known to be a static fixed-point type. Used by Fore and Width.
-
-      function Is_VAX_Float (Typ : Entity_Id) return Boolean;
-      --  Determine whether Typ denotes a VAX floating point type
 
       function Mantissa return Uint;
       --  Returns the Mantissa value for the prefix type
@@ -6997,18 +6946,6 @@ package body Sem_Attr is
 
          return R;
       end Fore_Value;
-
-      ------------------
-      -- Is_VAX_Float --
-      ------------------
-
-      function Is_VAX_Float (Typ : Entity_Id) return Boolean is
-      begin
-         return
-           Is_Floating_Point_Type (Typ)
-             and then
-               (Float_Format = 'V' or else Float_Rep (Typ) = VAX_Native);
-      end Is_VAX_Float;
 
       --------------
       -- Mantissa --
@@ -7343,13 +7280,19 @@ package body Sem_Attr is
 
       --  If we are asked to evaluate an attribute where the prefix is a
       --  non-frozen generic actual type whose RM_Size is still set to zero,
-      --  then abandon the effort. It seems wrong that this can ever happen,
-      --  but we see it happen, so this is a defense! ???
+      --  then abandon the effort.
 
       if Is_Type (P_Entity)
         and then (not Is_Frozen (P_Entity)
                    and then Is_Generic_Actual_Type (P_Entity)
                    and then RM_Size (P_Entity) = 0)
+
+        --  However, the attribute Unconstrained_Array must be evaluated,
+        --  since it is documented to be a static attribute (and can for
+        --  example appear in a Compile_Time_Warning pragma). The frozen
+        --  status of the type does not affect its evaluation.
+
+        and then Id /= Attribute_Unconstrained_Array
       then
          return;
       end if;
@@ -7794,20 +7737,6 @@ package body Sem_Attr is
          end if;
       end Alignment_Block;
 
-      ---------------
-      -- AST_Entry --
-      ---------------
-
-      --  Can only be folded in No_Ast_Handler case
-
-      when Attribute_AST_Entry =>
-         if not Is_AST_Entry (P_Entity) then
-            Rewrite (N,
-              New_Occurrence_Of (RTE (RE_No_AST_Handler), Loc));
-         else
-            null;
-         end if;
-
       -----------------------------
       -- Atomic_Always_Lock_Free --
       -----------------------------
@@ -7886,6 +7815,12 @@ package body Sem_Attr is
       --  could be handled at compile time. To be looked at later.
 
       when Attribute_Constrained =>
+
+         --  The expander might fold it and set the static flag accordingly,
+         --  but with expansion disabled (as in ASIS), it remains as an
+         --  attribute reference, and this reference is not static.
+
+         Set_Is_Static_Expression (N, False);
          null;
 
       ---------------
@@ -8039,16 +7974,6 @@ package body Sem_Attr is
             else
                Fold_Uint  (N, Expr_Value (Lo_Bound), Static);
             end if;
-
-         --  Replace VAX Float_Type'First with a reference to the temporary
-         --  which represents the low bound of the type. This transformation
-         --  is needed since the back end cannot evaluate 'First on VAX.
-
-         elsif Is_VAX_Float (P_Type)
-           and then Nkind (Lo_Bound) = N_Identifier
-         then
-            Rewrite (N, New_Occurrence_Of (Entity (Lo_Bound), Sloc (N)));
-            Analyze (N);
 
          else
             Check_Concurrent_Discriminant (Lo_Bound);
@@ -8292,16 +8217,6 @@ package body Sem_Attr is
             else
                Fold_Uint  (N, Expr_Value (Hi_Bound), Static);
             end if;
-
-         --  Replace VAX Float_Type'Last with a reference to the temporary
-         --  which represents the high bound of the type. This transformation
-         --  is needed since the back end cannot evaluate 'Last on VAX.
-
-         elsif Is_VAX_Float (P_Type)
-           and then Nkind (Hi_Bound) = N_Identifier
-         then
-            Rewrite (N, New_Occurrence_Of (Entity (Hi_Bound), Sloc (N)));
-            Analyze (N);
 
          else
             Check_Concurrent_Discriminant (Hi_Bound);
@@ -9661,66 +9576,67 @@ package body Sem_Attr is
       --  Note that in some cases, the values have already been folded as
       --  a result of the processing in Analyze_Attribute.
 
-      when Attribute_Abort_Signal               |
-           Attribute_Access                     |
-           Attribute_Address                    |
-           Attribute_Address_Size               |
-           Attribute_Asm_Input                  |
-           Attribute_Asm_Output                 |
-           Attribute_Base                       |
-           Attribute_Bit_Order                  |
-           Attribute_Bit_Position               |
-           Attribute_Callable                   |
-           Attribute_Caller                     |
-           Attribute_Class                      |
-           Attribute_Code_Address               |
-           Attribute_Compiler_Version           |
-           Attribute_Count                      |
-           Attribute_Default_Bit_Order          |
-           Attribute_Elaborated                 |
-           Attribute_Elab_Body                  |
-           Attribute_Elab_Spec                  |
-           Attribute_Elab_Subp_Body             |
-           Attribute_Enabled                    |
-           Attribute_External_Tag               |
-           Attribute_Fast_Math                  |
-           Attribute_First_Bit                  |
-           Attribute_Input                      |
-           Attribute_Last_Bit                   |
-           Attribute_Library_Level              |
-           Attribute_Maximum_Alignment          |
-           Attribute_Old                        |
-           Attribute_Output                     |
-           Attribute_Partition_ID               |
-           Attribute_Pool_Address               |
-           Attribute_Position                   |
-           Attribute_Priority                   |
-           Attribute_Read                       |
-           Attribute_Result                     |
-           Attribute_Scalar_Storage_Order       |
-           Attribute_Simple_Storage_Pool        |
-           Attribute_Storage_Pool               |
-           Attribute_Storage_Size               |
-           Attribute_Storage_Unit               |
-           Attribute_Stub_Type                  |
-           Attribute_System_Allocator_Alignment |
-           Attribute_Tag                        |
-           Attribute_Target_Name                |
-           Attribute_Terminated                 |
-           Attribute_To_Address                 |
-           Attribute_Type_Key                   |
-           Attribute_UET_Address                |
-           Attribute_Unchecked_Access           |
-           Attribute_Universal_Literal_String   |
-           Attribute_Unrestricted_Access        |
-           Attribute_Valid                      |
-           Attribute_Valid_Scalars              |
-           Attribute_Value                      |
-           Attribute_Wchar_T_Size               |
-           Attribute_Wide_Value                 |
-           Attribute_Wide_Wide_Value            |
-           Attribute_Word_Size                  |
-           Attribute_Write                      =>
+      when Attribute_Abort_Signal                 |
+           Attribute_Access                       |
+           Attribute_Address                      |
+           Attribute_Address_Size                 |
+           Attribute_Asm_Input                    |
+           Attribute_Asm_Output                   |
+           Attribute_Base                         |
+           Attribute_Bit_Order                    |
+           Attribute_Bit_Position                 |
+           Attribute_Callable                     |
+           Attribute_Caller                       |
+           Attribute_Class                        |
+           Attribute_Code_Address                 |
+           Attribute_Compiler_Version             |
+           Attribute_Count                        |
+           Attribute_Default_Bit_Order            |
+           Attribute_Default_Scalar_Storage_Order |
+           Attribute_Elaborated                   |
+           Attribute_Elab_Body                    |
+           Attribute_Elab_Spec                    |
+           Attribute_Elab_Subp_Body               |
+           Attribute_Enabled                      |
+           Attribute_External_Tag                 |
+           Attribute_Fast_Math                    |
+           Attribute_First_Bit                    |
+           Attribute_Input                        |
+           Attribute_Last_Bit                     |
+           Attribute_Library_Level                |
+           Attribute_Maximum_Alignment            |
+           Attribute_Old                          |
+           Attribute_Output                       |
+           Attribute_Partition_ID                 |
+           Attribute_Pool_Address                 |
+           Attribute_Position                     |
+           Attribute_Priority                     |
+           Attribute_Read                         |
+           Attribute_Result                       |
+           Attribute_Scalar_Storage_Order         |
+           Attribute_Simple_Storage_Pool          |
+           Attribute_Storage_Pool                 |
+           Attribute_Storage_Size                 |
+           Attribute_Storage_Unit                 |
+           Attribute_Stub_Type                    |
+           Attribute_System_Allocator_Alignment   |
+           Attribute_Tag                          |
+           Attribute_Target_Name                  |
+           Attribute_Terminated                   |
+           Attribute_To_Address                   |
+           Attribute_Type_Key                     |
+           Attribute_UET_Address                  |
+           Attribute_Unchecked_Access             |
+           Attribute_Universal_Literal_String     |
+           Attribute_Unrestricted_Access          |
+           Attribute_Valid                        |
+           Attribute_Valid_Scalars                |
+           Attribute_Value                        |
+           Attribute_Wchar_T_Size                 |
+           Attribute_Wide_Value                   |
+           Attribute_Wide_Wide_Value              |
+           Attribute_Word_Size                    |
+           Attribute_Write                        =>
 
          raise Program_Error;
       end case;
@@ -10773,16 +10689,6 @@ package body Sem_Attr is
             end if;
          end Address_Attribute;
 
-         ---------------
-         -- AST_Entry --
-         ---------------
-
-         --  Prefix of the AST_Entry attribute is an entry name which must
-         --  not be resolved, since this is definitely not an entry call.
-
-         when Attribute_AST_Entry =>
-            null;
-
          ------------------
          -- Body_Version --
          ------------------
@@ -11044,7 +10950,7 @@ package body Sem_Attr is
                if Is_Array_Type (Typ) then
                   Assoc := First (Component_Associations (Aggr));
                   while Present (Assoc) loop
-                     Expr  := Expression (Assoc);
+                     Expr := Expression (Assoc);
                      Resolve (Expr, Component_Type (Typ));
 
                      --  For scalar array components set Do_Range_Check when
@@ -11128,10 +11034,6 @@ package body Sem_Attr is
                   end loop;
                end if;
             end;
-
-            --  Premature return requires comment ???
-
-            return;
 
          ---------
          -- Val --

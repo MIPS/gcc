@@ -29,14 +29,13 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Ada.Exceptions.Traceback;
 with GNAT.IO; use GNAT.IO;
 
 with System.Address_Image;
 with System.Memory;     use System.Memory;
 with System.Soft_Links; use System.Soft_Links;
 
-with System.Traceback_Entries; use System.Traceback_Entries;
+with System.Traceback_Entries;
 
 with GNAT.HTable;
 with GNAT.Traceback; use GNAT.Traceback;
@@ -107,8 +106,7 @@ package body GNAT.Debug_Pools is
    type Header is range 1 .. 1023;
    --  Number of elements in the hash-table
 
-   type Tracebacks_Array_Access
-      is access GNAT.Traceback.Tracebacks_Array;
+   type Tracebacks_Array_Access is access Tracebacks_Array;
 
    type Traceback_Kind is (Alloc, Dealloc, Indirect_Alloc, Indirect_Dealloc);
 
@@ -307,8 +305,8 @@ package body GNAT.Debug_Pools is
    Code_Address_For_Deallocate_End  : System.Address;
    Code_Address_For_Dereference_End : System.Address;
    --  Taking the address of the above procedures will not work on some
-   --  architectures (HPUX and VMS for instance). Thus we do the same thing
-   --  that is done in a-except.adb, and get the address of labels instead
+   --  architectures (HPUX for instance). Thus we do the same thing that
+   --  is done in a-except.adb, and get the address of labels instead.
 
    procedure Skip_Levels
      (Depth               : Natural;
@@ -322,6 +320,11 @@ package body GNAT.Debug_Pools is
    --  first one in Ignored_Frame_Start .. Ignored_Frame_End (basically
    --  addresses internal to this package). Depth is the number of levels that
    --  the user is interested in.
+
+   package STBE renames System.Traceback_Entries;
+
+   function PC_For (TB_Entry : STBE.Traceback_Entry) return System.Address
+     renames STBE.PC_For;
 
    -----------
    -- Align --
@@ -373,7 +376,7 @@ package body GNAT.Debug_Pools is
    -----------
 
    function Equal (K1, K2 : Tracebacks_Array_Access) return Boolean is
-      use Ada.Exceptions.Traceback;
+      use type Tracebacks_Array;
    begin
       return K1.all = K2.all;
    end Equal;

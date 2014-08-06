@@ -114,6 +114,10 @@ package body Sem_Case is
       Others_Present : Boolean;
       Case_Node      : Node_Id)
    is
+      Predicate_Error : Boolean;
+      --  Flag to prevent cascaded errors when a static predicate is known to
+      --  be violated by one choice.
+
       procedure Check_Against_Predicate
         (Pred    : in out Node_Id;
          Choice  : Choice_Bounds;
@@ -433,9 +437,10 @@ package body Sem_Case is
                   Error := True;
 
                --  The previous choice covered part of the static predicate set
+               --  but there is a gap after Prev_Hi.
 
                else
-                  Missing_Choice (Prev_Hi, Choice_Lo - 1);
+                  Missing_Choice (Prev_Hi + 1, Choice_Lo - 1);
                   Error := True;
                end if;
             end if;
@@ -455,12 +460,33 @@ package body Sem_Case is
             return;
          end if;
 
-         --  Case of only one value that is missing
+         --  Case of only one value that is duplicated
 
          if Lo = Hi then
+
+            --  Integer type
+
             if Is_Integer_Type (Bounds_Type) then
-               Error_Msg_Uint_1 := Lo;
-               Error_Msg_N ("duplication of choice value: ^#!", C);
+
+               --  We have an integer value, Lo, but if the given choice
+               --  placement is a constant with that value, then use the
+               --  name of that constant instead in the message:
+
+               if Nkind (C) = N_Identifier
+                 and then Compile_Time_Known_Value (C)
+                 and then Expr_Value (C) = Lo
+               then
+                  Error_Msg_N ("duplication of choice value: &#!", C);
+
+               --  Not that special case, so just output the integer value
+
+               else
+                  Error_Msg_Uint_1 := Lo;
+                  Error_Msg_N ("duplication of choice value: ^#!", C);
+               end if;
+
+            --  Enumeration type
+
             else
                Error_Msg_Name_1 := Choice_Image (Lo, Bounds_Type);
                Error_Msg_N ("duplication of choice value: %#!", C);
@@ -469,10 +495,38 @@ package body Sem_Case is
          --  More than one choice value, so print range of values
 
          else
+            --  Integer type
+
             if Is_Integer_Type (Bounds_Type) then
-               Error_Msg_Uint_1 := Lo;
-               Error_Msg_Uint_2 := Hi;
-               Error_Msg_N ("duplication of choice values: ^ .. ^#!", C);
+
+               --  Similar to the above, if C is a range of known values which
+               --  match Lo and Hi, then use the names. We have to go to the
+               --  original nodes, since the values will have been rewritten
+               --  to their integer values.
+
+               if Nkind (C) = N_Range
+                 and then Nkind (Original_Node (Low_Bound  (C))) = N_Identifier
+                 and then Nkind (Original_Node (High_Bound (C))) = N_Identifier
+                 and then Compile_Time_Known_Value (Low_Bound (C))
+                 and then Compile_Time_Known_Value (High_Bound (C))
+                 and then Expr_Value (Low_Bound (C))  = Lo
+                 and then Expr_Value (High_Bound (C)) = Hi
+               then
+                  Error_Msg_Node_2 := Original_Node (High_Bound (C));
+                  Error_Msg_N
+                    ("duplication of choice values: & .. &#!",
+                     Original_Node (Low_Bound (C)));
+
+               --  Not that special case, output integer values
+
+               else
+                  Error_Msg_Uint_1 := Lo;
+                  Error_Msg_Uint_2 := Hi;
+                  Error_Msg_N ("duplication of choice values: ^ .. ^#!", C);
+               end if;
+
+            --  Enumeration type
+
             else
                Error_Msg_Name_1 := Choice_Image (Lo, Bounds_Type);
                Error_Msg_Name_2 := Choice_Image (Hi, Bounds_Type);
@@ -561,6 +615,10 @@ package body Sem_Case is
          Missing_Choice (Value1, Expr_Value (Value2));
       end Missing_Choice;
 
+      --------------------
+      -- Missing_Choice --
+      --------------------
+
       procedure Missing_Choice (Value1 : Uint; Value2 : Uint) is
          Msg_Sloc : constant Source_Ptr := Sloc (Case_Node);
 
@@ -575,6 +633,12 @@ package body Sem_Case is
          --  we don't want to complain in this case.
 
          elsif Value1 > Value2 then
+            return;
+
+         --  If predicate is already known to be violated, do no check for
+         --  coverage error, to prevent cascaded messages.
+
+         elsif Predicate_Error then
             return;
          end if;
 
@@ -671,6 +735,8 @@ package body Sem_Case is
          return;
       end if;
 
+      Predicate_Error := False;
+
       --  Choice_Table must start at 0 which is an unused location used by the
       --  sorting algorithm. However the first valid position for a discrete
       --  choice is 1.
@@ -713,12 +779,21 @@ package body Sem_Case is
                Error   => Error);
 
             --  The analysis detected an illegal intersection between a choice
-            --  and a static predicate set.
+            --  and a static predicate set. Do not examine other choices unless
+            --  all errors are requested.
 
             if Error then
-               return;
+               Predicate_Error := True;
+
+               if not All_Errors_Mode then
+                  return;
+               end if;
             end if;
          end loop;
+
+         if Predicate_Error then
+            return;
+         end if;
 
          --  The choices may legally cover some of the static predicate sets,
          --  but not all. Emit an error for each non-covered set.
@@ -1462,6 +1537,7 @@ package body Sem_Case is
 
                            if not Is_Discrete_Type (E)
                              or else not Has_Static_Predicate (E)
+                             or else Has_Dynamic_Predicate_Aspect (E)
                            then
                               Bad_Predicated_Subtype_Use
                                 ("cannot use subtype& with non-static "
