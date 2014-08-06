@@ -1,5 +1,9 @@
 2014-08-06  Richard Biener  <rguenther@suse.de>
 
+	* gimple-match-head.c (gimple_simplify): Fix implementation.
+
+2014-08-06  Richard Biener  <rguenther@suse.de>
+
 	* gimple-fold.h (gimple_simplify): Add two-parameter builtin
 	function overload.
 	* gimple-match-head.c (gimple_simplify): Implement it.

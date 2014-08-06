@@ -475,7 +475,10 @@ gimple_simplify (enum built_in_function fn, tree type,
       tree decl = builtin_decl_implicit (fn);
       if (decl)
 	{
-	  tree res = fold_builtin_n (UNKNOWN_LOCATION, decl, &arg0, 2, false);
+	  tree args[2];
+	  args[0] = arg0;
+	  args[1] = arg1;
+	  tree res = fold_builtin_n (UNKNOWN_LOCATION, decl, args, 2, false);
 	  if (res)
 	    {
 	      /* fold_builtin_n wraps the result inside a NOP_EXPR.  */
