@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 
 (simplify
   (minus @0 @0)
+  (if (!HONOR_NANS (TYPE_MODE (type))))
   { build_zero_cst (type); })
 
 (simplify
