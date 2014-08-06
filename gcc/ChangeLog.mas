@@ -1,5 +1,10 @@
 2014-08-06  Richard Biener  <rguenther@suse.de>
 
+	* tree-ssa-forwprop.c (pass_forwprop::execute): Properly
+	clean EH info on folded stmts.
+
+2014-08-06  Richard Biener  <rguenther@suse.de>
+
 	* match-constant-folding.pd (minus @0 @0): Restrict to
 	modes without NaNs.
 

@@ -3663,11 +3663,12 @@ pass_forwprop::execute (function *fun)
 	   !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  gimple stmt = gsi_stmt (gsi);
+	  gimple orig_stmt = stmt;
 
 	  if (fold_stmt (&gsi, fwprop_ssa_val))
 	    {
 	      stmt = gsi_stmt (gsi);
-	      if (maybe_clean_or_replace_eh_stmt (stmt, stmt)
+	      if (maybe_clean_or_replace_eh_stmt (orig_stmt, stmt)
 		  && gimple_purge_dead_eh_edges (bb))
 		cfg_changed = true;
 	      update_stmt (stmt);
