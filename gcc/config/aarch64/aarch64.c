@@ -10310,6 +10310,48 @@ aarch64_gen_ccmp_next (rtx prev, int cmp_code, rtx op0, rtx op1, int bit_code)
   return target;
 }
 
+/* Return true if the unaligned access is slower than
+   doing a byte loads and followed by inserts.  */
+bool
+aarch64_slow_unaligned_access (enum machine_mode mode, int align)
+{
+  if (TARGET_STRICT_ALIGN)
+    return true;
+
+  if (aarch64_tune != thunder || optimize_size)
+    return false;
+
+  if (align >= (int)GET_MODE_ALIGNMENT (mode))
+    return false;
+
+  return true;
+}
+
+bool
+aarch64_move_by_pieces_p (unsigned HOST_WIDE_INT size, int align)
+{
+   /* We should allow the tree-level optimisers to do such
+      moves by pieces, as it often exposes other optimization
+      opportunities. */
+  if (!currently_expanding_to_rtl)
+    {
+      if (align < 32)
+	return size < 4;
+      return size <= MOVE_MAX * 4;
+    }
+
+  /* If we have slow unaligned access for DI mode, return
+     something different than the default. */
+  if (!TARGET_STRICT_ALIGN
+      && aarch64_slow_unaligned_access (SImode, align))
+    return size <= MOVE_MAX * 4;
+
+  /* The default value.  If this becomes a target hook, we should
+     call the default definition instead.  */
+  return (move_by_pieces_ninsns (size, align, MOVE_MAX_PIECES + 1)
+	  < (unsigned int) MOVE_RATIO (optimize_insn_for_speed_p ()));
+}
+
 #undef TARGET_GEN_CCMP_FIRST
 #define TARGET_GEN_CCMP_FIRST aarch64_gen_ccmp_first
 

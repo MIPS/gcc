@@ -689,13 +689,9 @@ do {									     \
 #define AARCH64_CALL_RATIO 8
 
 /* MOVE_RATIO dictates when we will use the move_by_pieces infrastructure.
-   move_by_pieces will continually copy the largest safe chunks.  So a
-   7-byte copy is a 4-byte + 2-byte + byte copy.  This proves inefficient
-   for both size and speed of copy, so we will instead use the "movmem"
-   standard name to implement the copy.  This logic does not apply when
-   targeting -mstrict-align, so keep a sensible default in that case.  */
+   move_by_pieces will continually copy the largest safe chunks.  */
 #define MOVE_RATIO(speed) \
-  (((speed) ? 15 : AARCH64_CALL_RATIO) / 2)
+  ((speed) ? 15 : AARCH64_CALL_RATIO)
 
 /* For CLEAR_RATIO, when optimizing for size, give a better estimate
    of the length of a memset call, but use the default otherwise.  */
@@ -707,6 +703,8 @@ do {									     \
    the constant.  */
 #define SET_RATIO(speed) \
   ((speed) ? 15 : AARCH64_CALL_RATIO - 2)
+
+#define MOVE_BY_PIECES_P(SIZE, ALIGN) aarch64_move_by_pieces_p (SIZE, ALIGN)
 
 /* STORE_BY_PIECES_P can be used when copying a constant string, but
    in that case each 64-bit chunk takes 5 insns instead of 2 (LDR/STR).
@@ -737,6 +735,8 @@ do {									     \
 /* Define this macro to be non-zero if instructions will fail to work
    if given data not on the nominal alignment.  */
 #define STRICT_ALIGNMENT		TARGET_STRICT_ALIGN
+
+#define SLOW_UNALIGNED_ACCESS(MODE, ALIGN)  aarch64_slow_unaligned_access(MODE, ALIGN)
 
 /* Define this macro to be non-zero if accessing less than a word of
    memory is no faster than accessing a word of memory, i.e., if such

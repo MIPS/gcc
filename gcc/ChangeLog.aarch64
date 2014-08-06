@@ -1,5 +1,16 @@
 2014-08-05  Andrew Pinski  <apinski@cavium.com>
 
+	* config/aarch64/aarch64-protos.h (aarch64_slow_unaligned_access): New declaration.
+	(aarch64_move_by_pieces_p): Likewise.
+	* config/aarch64/aarch64.c (aarch64_slow_unaligned_access): New function.
+	(aarch64_move_by_pieces_p): Likewise.
+	* config/aarch64/aarch64.h (MOVE_RATIO): Remove old comment.
+	Also don't divide by 2.
+	(MOVE_BY_PIECES_P): New define.
+	(SLOW_UNALIGNED_ACCESS): New define.
+
+2014-08-05  Andrew Pinski  <apinski@cavium.com>
+
 	Part of bug 11692
 	* config/aarch64/aarch64.h (STORE_BY_PIECES_P): For now return true
 	if the size is less than or equal to 1.
