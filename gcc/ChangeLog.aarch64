@@ -1,3 +1,14 @@
+2014-08-07  Andrew Pinski  <apinski@cavium.com>
+
+	* config/aarch64/thunder.md: rename to ...
+	* config/aarch64/thunderx.md: This.  Also
+	replace all thunder with thunderx.
+	* config/aarch64/aarch64-cores.def: Rename thunder
+	to thunderx.
+	* config/aarch64/aarch64-tune.md: Likewise.
+	* config/aarch64/aarch64.c: Likewise.
+	* config/aarch64/aarch64.md: Likewise.
+
 2014-08-05  Andrew Pinski  <apinski@cavium.com>
 
 	* config/aarch64/aarch64-protos.h (aarch64_slow_unaligned_access): New declaration.

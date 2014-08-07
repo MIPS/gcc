@@ -165,7 +165,7 @@ unsigned long aarch64_tune_flags = 0;
 #define NAMED_PARAM(NAME, VAL) (VAL)
 #endif
 
-const struct cpu_cost_table thunder_extra_costs=
+const struct cpu_cost_table thunderx_extra_costs=
 {
   /* ALU */
   {
@@ -325,7 +325,7 @@ static const struct cpu_regmove_cost generic_regmove_cost =
 #if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
 __extension__
 #endif
-static const struct cpu_regmove_cost thunder_regmove_cost =
+static const struct cpu_regmove_cost thunderx_regmove_cost =
 {
   NAMED_PARAM (GP2GP, 1),
   NAMED_PARAM (GP2FP, 2),
@@ -381,7 +381,7 @@ static const struct prefetch_cost generic_prefetch_costs = {
   false
 };
 
-static const struct prefetch_cost thunder_prefetch_costs = {
+static const struct prefetch_cost thunderx_prefetch_costs = {
   8, /* 8 simultaneous loads can be happening  */
   32, /*L1D == 32k */
   16*1024, /* 16MB L2 */
@@ -421,13 +421,13 @@ static const struct tune_params cortexa53_tunings =
 __extension__
 #endif
 
-static const struct tune_params thunder_tunings =
+static const struct tune_params thunderx_tunings =
 {
-  &thunder_extra_costs,
+  &thunderx_extra_costs,
   &generic_addrcost_table,
-  &thunder_regmove_cost,
+  &thunderx_regmove_cost,
   &generic_vector_cost,
-  &thunder_prefetch_costs,
+  &thunderx_prefetch_costs,
   NAMED_PARAM (memmov_cost, 3),
   NAMED_PARAM (issue_rate, 2),
   NAMED_PARAM (align, 8)
@@ -6233,14 +6233,14 @@ aarch64_sched_issue_rate (void)
 static bool
 aarch64_macro_fusion_p (void)
 {
-  return aarch64_tune == thunder;
+  return aarch64_tune == thunderx;
 }
 
 /* Return is the pair of instructions are macro fusion pairs. */
 static bool
 aarch64_macro_fusion_pair (rtx condgen, rtx)
 {
-  if (aarch64_tune != thunder)
+  if (aarch64_tune != thunderx)
     return false;
 
   /* This misses some of them due to easy shift
@@ -10318,7 +10318,7 @@ aarch64_slow_unaligned_access (enum machine_mode mode, int align)
   if (TARGET_STRICT_ALIGN)
     return true;
 
-  if (aarch64_tune != thunder || optimize_size)
+  if (aarch64_tune != thunderx || optimize_size)
     return false;
 
   if (align >= (int)GET_MODE_ALIGNMENT (mode))
