@@ -1,3 +1,8 @@
+2014-08-07  Richard Biener  <rguenther@suse.de>
+
+	* tree-ssa-sccvn.c (fully_constant_vn_reference_p): Use
+	gimple_simplify instead of building a GENERIC call expr.
+
 2014-08-06  Richard Biener  <rguenther@suse.de>
 
 	* gimple-match-head.c (gimple_simplify): Fix implementation.

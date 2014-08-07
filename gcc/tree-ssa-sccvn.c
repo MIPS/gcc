@@ -1236,7 +1236,7 @@ fully_constant_vn_reference_p (vn_reference_t ref)
   if (op->opcode == CALL_EXPR
       && TREE_CODE (op->op0) == ADDR_EXPR
       && TREE_CODE (TREE_OPERAND (op->op0, 0)) == FUNCTION_DECL
-      && DECL_BUILT_IN (TREE_OPERAND (op->op0, 0))
+      && DECL_BUILT_IN_CLASS (TREE_OPERAND (op->op0, 0)) == BUILT_IN_NORMAL
       && operands.length () >= 2
       && operands.length () <= 3)
     {
@@ -1256,13 +1256,15 @@ fully_constant_vn_reference_p (vn_reference_t ref)
 	anyconst = true;
       if (anyconst)
 	{
-	  tree folded = build_call_expr (TREE_OPERAND (op->op0, 0),
-					 arg1 ? 2 : 1,
-					 arg0->op0,
-					 arg1 ? arg1->op0 : NULL);
-	  if (folded
-	      && TREE_CODE (folded) == NOP_EXPR)
-	    folded = TREE_OPERAND (folded, 0);
+	  enum built_in_function fcode
+	    = DECL_FUNCTION_CODE (TREE_OPERAND (op->op0, 0));
+	  tree folded;
+	  if (arg1)
+	    folded = gimple_simplify (fcode, op->type, arg0->op0, arg1->op0,
+				      NULL, vn_valueize);
+	  else
+	    folded = gimple_simplify (fcode, op->type, arg0->op0,
+				      NULL, vn_valueize);
 	  if (folded
 	      && is_gimple_min_invariant (folded))
 	    return folded;
