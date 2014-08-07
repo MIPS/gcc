@@ -1,6 +1,4 @@
-// { dg-options "-std=gnu++1y" }
-
-// Copyright (C) 2013-2014 Free Software Foundation, Inc.
+// Copyright (C) 2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -17,29 +15,17 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-// string_view operations
+// { dg-do compile }
 
-#include <experimental/string_view>
-#include <testsuite_hooks.h>
+#include <ext/rope>
 
-int
-test01()
+struct empty_char_prod : __gnu_cxx::char_producer<char>
 {
-  bool test [[gnu::unused]] = true;
+  virtual void operator()(size_t, size_t, char*) {}
+};
 
-  std::experimental::wstring_view empty;
-
-  VERIFY( empty.size() == 0 );
-  const std::experimental::wstring_view::value_type* p = empty.data();
-  VERIFY( p == nullptr );
-
-  return 0;
-}
-
-int
-main()
-{ 
-  test01();
-
-  return 0;
+int main ()
+{
+  empty_char_prod* ecp = new empty_char_prod;
+  __gnu_cxx::crope excrope( ecp, 10L, true );
 }

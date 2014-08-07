@@ -1,3 +1,37 @@
+2014-08-06  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR debug/61923
+	* gcc.target/i386/pr61923.c: New test.
+
+2014-08-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/61801
+	* gcc.target/i386/pr61801.c: Rewritten.
+
+2014-08-04  Rohit  <rohitarulraj@freescale.com>
+
+	PR target/60102
+	* gcc.target/powerpc/pr60102.c: New testcase.
+
+2014-08-01  Igor Zamyatin  <igor.zamyatin@intel.com>
+
+	PR other/61963
+	* c-c++-common/cilk-plus/AN/pr61963.c: New test.
+
+2014-08-01  Igor Zamyatin  <igor.zamyatin@intel.com>
+
+	PR middle-end/61455
+	* c-c++-common/cilk-plus/AN/pr61455.c: New test.
+	* c-c++-common/cilk-plus/AN/pr61455-2.c: Likewise.
+
+2014-08-01  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	Backport from mainline
+	2014-06-13  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR tree-optimization/61375
+	* gcc.c-torture/execute/pr61375-1.c: New test.
+
 2014-08-01  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-c++-common/ubsan/align-1.c: New test.

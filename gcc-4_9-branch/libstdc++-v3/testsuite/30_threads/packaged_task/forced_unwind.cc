@@ -1,6 +1,10 @@
-// { dg-options "-std=gnu++1y" }
+// { dg-do run { target *-*-linux* *-*-gnu* } }
+// { dg-options " -std=gnu++11 -pthread" { target *-*-linux* *-*-gnu* } }
+// { dg-require-cstdint "" }
+// { dg-require-gthreads "" }
+// { dg-require-atomic-builtins "" }
 
-// Copyright (C) 2013-2014 Free Software Foundation, Inc.
+// Copyright (C) 2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -17,29 +21,28 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-// string_view operations
+// Test (non-standard) handling of __forced_unwind exception.
 
-#include <experimental/string_view>
+#include <future>
+#include <stdexcept>
+#include <pthread.h>
 #include <testsuite_hooks.h>
 
-int
-test01()
+void f() { pthread_exit(nullptr); }
+
+int main()
 {
-  bool test [[gnu::unused]] = true;
-
-  std::experimental::wstring_view empty;
-
-  VERIFY( empty.size() == 0 );
-  const std::experimental::wstring_view::value_type* p = empty.data();
-  VERIFY( p == nullptr );
-
-  return 0;
-}
-
-int
-main()
-{ 
-  test01();
-
-  return 0;
+  std::packaged_task<void()> p(f);
+  auto fut = p.get_future();
+  std::thread t(std::move(p));
+  try
+  {
+    fut.get();
+    throw std::logic_error("Unreachable");
+  }
+  catch (const std::future_error& e)
+  {
+    VERIFY( e.code() == std::future_errc::broken_promise );
+  }
+  t.join();
 }
