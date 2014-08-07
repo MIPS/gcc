@@ -1,13 +1,9 @@
 2014-08-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	* config/rs6000/rs6000.md (mov<mode>_hardfloat): Remove direct
-	move for SDmode.  SDmode isn't used that much, and SFmode direct
-	move has to be done with multiple instructions.
-
-2014-08-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
-
-	* config/rs6000/constraints.md (wi constraint): New constraint,
-	for VSX/FP registers that can handle 64-bit integers.
+	* config/rs6000/constraints.md (wh constraint): New constraint,
+	for FP registers if direct move is available.
+	(wi constraint): New constraint, for VSX/FP registers that can
+	handle 64-bit integers.
 	(wj constraint): New constraint for VSX/FP registers that can
 	handle 64-bit integers for direct moves.
 	(wk constraint): New constraint for VSX/FP registers that can
@@ -20,9 +16,9 @@
 	(rs6000_hard_regno_mode_ok): Use scalar_in_vmx_p field.
 	(rs6000_setup_reg_addr_masks): Likewise.
 	(rs6000_debug_print_mode): Add debug support for scalar_in_vmx_p
-	field, and wi/wj/wk constraints.
+	field, and wh/wi/wj/wk constraints.
 	(rs6000_init_hard_regno_mode_ok): Setup scalar_in_vmx_p field, and
-	the wi/wj/wk constraints.
+	the wh/wi/wj/wk constraints.
 	(rs6000_preferred_reload_class): If SFmode/DFmode can go in the
 	upper registers, prefer VSX registers unless the operation is a
 	memory operation with REG+OFFSET addressing.
@@ -104,13 +100,13 @@
 	(vsx_xscvspdpn): Likewise.
 	(vsx_xscvdpspn_scalar): Likewise.
 
-	* config/rs6000/rs6000.h (enum rs6000_reg_class_enum): Add wi, wj,
-	and wk constraints.
+	* config/rs6000/rs6000.h (enum rs6000_reg_class_enum): Add wh, wi,
+	wj, and wk constraints.
 	(GPR_REG_CLASS_P): New helper macro for register classes targeting
 	general purpose registers.
 
-	* config/rs6000/rs6000.md (f32_dm): Use FLOAT_REGS for SDmode
-	direct moves, not VSX_REGS.
+	* config/rs6000/rs6000.md (f32_dm): Use wh constraint for SDmode
+	direct moves.
 	(zero_extendsidi2_lfiwz): Use wj constraint for direct move of
 	DImode instead of wm.  Use wk constraint for direct move of DFmode
 	instead of wm.
@@ -119,8 +115,8 @@
 	(lfiwzx): Likewise.
 	(movdi_internal64): Likewise.
 
-	* doc/md.texi (PowerPC and IBM RS6000): Document wi, wj, and wk
-	constraints. Make the wy constraint documentation match
+	* doc/md.texi (PowerPC and IBM RS6000): Document wh, wi, wj, and
+	wk constraints. Make the wy constraint documentation match them
 	implementation.
 
 2014-08-06  Michael Meissner  <meissner@linux.vnet.ibm.com>

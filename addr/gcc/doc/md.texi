@@ -2132,6 +2132,9 @@ VSX vector register to hold vector float data or NO_REGS.
 @item wg
 If @option{-mmfpgpr} was used, a floating point register or NO_REGS.
 
+@item wh
+Floating point register if direct moves are available, or NO_REGS.
+
 @item wi
 FP or VSX register to hold 64-bit integers or NO_REGS.
 

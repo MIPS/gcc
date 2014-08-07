@@ -2634,40 +2634,46 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	f  - Register class to use with traditional SFmode instructions.
 	v  - Altivec register.
 	wa - Any VSX register.
+	wc - Reserved to represent individual CR bits (used in LLVM).
 	wd - Preferred register class for V2DFmode.
 	wf - Preferred register class for V4SFmode.
 	wg - Float register for power6x move insns.
+	wh - FP register for direct move instructions.
+	wi - FP or VSX register to hold 64-bit integers.
+	wj - FP or VSX register to hold 64-bit integers for direct moves.
+	wk - FP or VSX register to hold 64-bit doubles for direct moves.
 	wl - Float register if we can do 32-bit signed int loads.
 	wm - VSX register for ISA 2.07 direct move operations.
+	wn - always NO_REGS.
 	wr - GPR if 64-bit mode is permitted.
 	ws - Register class to do ISA 2.06 DF operations.
+	wt - VSX register for TImode in VSX registers.
 	wu - Altivec register for ISA 2.07 VSX SF/SI load/stores.
 	wv - Altivec register for ISA 2.06 VSX DF/DI load/stores.
-	wt - VSX register for TImode in VSX registers.
 	ww - Register class to do SF conversions in with VSX operations.
 	wx - Float register if we can do 32-bit int stores.
 	wy - Register class to do ISA 2.07 SF operations.
 	wz - Float register if we can do 32-bit unsigned int loads.  */
 
   if (TARGET_HARD_FLOAT && TARGET_FPRS)
-    rs6000_constraints[RS6000_CONSTRAINT_f] = FLOAT_REGS;
+    rs6000_constraints[RS6000_CONSTRAINT_f] = FLOAT_REGS;	/* SFmode  */
 
   if (TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT)
     {
-      rs6000_constraints[RS6000_CONSTRAINT_d]  = FLOAT_REGS;
-      rs6000_constraints[RS6000_CONSTRAINT_wi] = FLOAT_REGS;
+      rs6000_constraints[RS6000_CONSTRAINT_d]  = FLOAT_REGS;	/* DFmode  */
+      rs6000_constraints[RS6000_CONSTRAINT_wi] = FLOAT_REGS;	/* DImode  */
     }
 
   if (TARGET_VSX)
     {
       rs6000_constraints[RS6000_CONSTRAINT_wa] = VSX_REGS;
-      rs6000_constraints[RS6000_CONSTRAINT_wd] = VSX_REGS;
-      rs6000_constraints[RS6000_CONSTRAINT_wf] = VSX_REGS;
+      rs6000_constraints[RS6000_CONSTRAINT_wd] = VSX_REGS;	/* V2DFmode  */
+      rs6000_constraints[RS6000_CONSTRAINT_wf] = VSX_REGS;	/* V4SFmode  */
 
       if (TARGET_VSX_TIMODE)
-	rs6000_constraints[RS6000_CONSTRAINT_wt] = VSX_REGS;
+	rs6000_constraints[RS6000_CONSTRAINT_wt] = VSX_REGS;	/* TImode  */
 
-      if (TARGET_UPPER_REGS_DF)
+      if (TARGET_UPPER_REGS_DF)					/* DFmode  */
 	{
 	  rs6000_constraints[RS6000_CONSTRAINT_ws] = VSX_REGS;
 	  rs6000_constraints[RS6000_CONSTRAINT_wv] = ALTIVEC_REGS;
@@ -2681,24 +2687,26 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
   if (TARGET_ALTIVEC)
     rs6000_constraints[RS6000_CONSTRAINT_v] = ALTIVEC_REGS;
 
-  if (TARGET_MFPGPR)
+  if (TARGET_MFPGPR)						/* DFmode  */
     rs6000_constraints[RS6000_CONSTRAINT_wg] = FLOAT_REGS;
 
   if (TARGET_LFIWAX)
-    rs6000_constraints[RS6000_CONSTRAINT_wl] = FLOAT_REGS;
+    rs6000_constraints[RS6000_CONSTRAINT_wl] = FLOAT_REGS;	/* DImode  */
 
   if (TARGET_DIRECT_MOVE)
     {
-      rs6000_constraints[RS6000_CONSTRAINT_wj] = FLOAT_REGS;
-      rs6000_constraints[RS6000_CONSTRAINT_wk]
-	= (TARGET_UPPER_REGS_DF) ? VSX_REGS : FLOAT_REGS;
+      rs6000_constraints[RS6000_CONSTRAINT_wh] = FLOAT_REGS;
+      rs6000_constraints[RS6000_CONSTRAINT_wj]			/* DImode  */
+	= rs6000_constraints[RS6000_CONSTRAINT_wi];
+      rs6000_constraints[RS6000_CONSTRAINT_wk]			/* DFmode  */
+	= rs6000_constraints[RS6000_CONSTRAINT_ws];
       rs6000_constraints[RS6000_CONSTRAINT_wm] = VSX_REGS;
     }
 
   if (TARGET_POWERPC64)
     rs6000_constraints[RS6000_CONSTRAINT_wr] = GENERAL_REGS;
 
-  if (TARGET_P8_VECTOR && TARGET_UPPER_REGS_SF)
+  if (TARGET_P8_VECTOR && TARGET_UPPER_REGS_SF)			/* SFmode  */
     {
       rs6000_constraints[RS6000_CONSTRAINT_wu] = ALTIVEC_REGS;
       rs6000_constraints[RS6000_CONSTRAINT_wy] = VSX_REGS;
@@ -2713,10 +2721,10 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
     rs6000_constraints[RS6000_CONSTRAINT_ww] = FLOAT_REGS;
 
   if (TARGET_STFIWX)
-    rs6000_constraints[RS6000_CONSTRAINT_wx] = FLOAT_REGS;
+    rs6000_constraints[RS6000_CONSTRAINT_wx] = FLOAT_REGS;	/* DImode  */
 
   if (TARGET_LFIWZX)
-    rs6000_constraints[RS6000_CONSTRAINT_wz] = FLOAT_REGS;
+    rs6000_constraints[RS6000_CONSTRAINT_wz] = FLOAT_REGS;	/* DImode  */
 
   /* Set up the reload helper and direct move functions.  */
   if (TARGET_VSX || TARGET_ALTIVEC)
