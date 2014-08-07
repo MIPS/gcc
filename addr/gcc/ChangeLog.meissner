@@ -1,3 +1,9 @@
+2014-08-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.md (mov<mode>_hardfloat): Remove direct
+	move for SDmode.  SDmode isn't used that much, and SFmode direct
+	move has to be done with multiple instructions.
+
 2014-08-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/constraints.md (wi constraint): New constraint,
