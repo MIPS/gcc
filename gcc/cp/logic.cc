@@ -506,7 +506,7 @@ subsumes_constraints_nonnull (tree left, tree right)
   // Check that the required expression in RIGHT is subsumed by each
   // subgoal in the assumptions of LEFT.
   tree as = CI_ASSUMPTIONS (left);
-  tree c = reduce_requirements (CI_ASSOCIATED_REQS (right));
+  tree c = CI_ASSOCIATED_REQS (right);
   for (int i = 0; i < TREE_VEC_LENGTH (as); ++i)
     if (!subsumes_prop (TREE_VEC_ELT (as, i), c))
       return false;

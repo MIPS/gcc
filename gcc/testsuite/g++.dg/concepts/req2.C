@@ -16,6 +16,6 @@ void f2(auto a)
 struct S { } s;
 
 int main() {
-  f1(0); // { dg-error "matching" }
-  f2((void*)0); // { dg-error "matching" }
+  f1(0); // { dg-error "cannot call" }
+  f2((void*)0); // { dg-error "cannot call" }
 }

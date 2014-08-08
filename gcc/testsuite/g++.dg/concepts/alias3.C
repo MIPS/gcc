@@ -9,5 +9,5 @@ template<typename T>
 
 int main()
 {
-  X<int> x1; // { dg-error "deduction|invalid" }
+  X<int> x1; // { dg-error "constraint|invalid" }
 }

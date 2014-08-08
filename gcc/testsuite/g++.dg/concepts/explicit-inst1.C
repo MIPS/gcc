@@ -5,10 +5,10 @@ template<typename T>
 
 template<typename T>
   requires C<T>()
-    struct S { };
+    struct Test { };
 
 struct X { };
 
-S<int> sx; // { dg-error "constraint|invalid" }
+template struct Test<X>;
 
 int main() { }

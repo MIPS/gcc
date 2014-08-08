@@ -13,6 +13,6 @@ template<One T> struct S4<T> { }; // Should never be usable.
 struct one_type { char x[4]; };
 
 // Constraints are checked even when decls are not instantiatied.
-S4<one_type>* x4b; // { dg-error "deduction|invalid" }
+S4<one_type>* x4b; // { dg-error "constraint|invalid" }
 
 int main() { }

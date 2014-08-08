@@ -30,8 +30,8 @@ template<typename T>
   };
 
 int main() { 
-  f1('a'); // { dg-error "matching" }
-  f2(0);   // { dg-error "matching" }
+  f1('a'); // { dg-error "cannot call" }
+  f2(0);   // { dg-error "cannot call" }
 
   S<int> s;
   s.f1('a'); // { dg-error "matching" }

@@ -63,11 +63,11 @@ join_requirements (tree_code c, tree a, tree b)
 // expression with  NULL_TREE is an identity operation. That is, for some 
 // non-null A,
 //
-//    conjoin_requirements(a, NULL_TREE) == a
+//    conjoin_constraints(a, NULL_TREE) == a
 //
 // If both A and B are NULL_TREE, the result is also NULL_TREE.
 tree
-conjoin_requirements (tree a, tree b)
+conjoin_constraints (tree a, tree b)
 {
   if (a)
     return b ? join_requirements (TRUTH_ANDIF_EXPR, a, b) : a;
@@ -80,12 +80,12 @@ conjoin_requirements (tree a, tree b)
 // Transform the list of expressions in the T into a conjunction
 // of requirements. T must be a TREE_VEC.
 tree 
-conjoin_requirements (tree t)
+conjoin_constraints (tree t)
 {
   gcc_assert (TREE_CODE (t) == TREE_VEC);
   tree r = NULL_TREE;
   for (int i = 0; i < TREE_VEC_LENGTH (t); ++i)
-    r = conjoin_requirements (r, TREE_VEC_ELT (t, i));
+    r = conjoin_constraints (r, TREE_VEC_ELT (t, i));
   return r;
 }
 
@@ -234,25 +234,25 @@ deduce_constrained_parameter (tree call, tree& check, tree& proto)
 namespace {
 
 // Helper functions
-static tree reduce_node (tree);
-static tree reduce_expr (tree);
-static tree reduce_stmt (tree);
-static tree reduce_decl (tree);
-static tree reduce_misc (tree);
-
-static tree reduce_logical     (tree);
-static tree reduce_call        (tree);
-static tree reduce_requires    (tree);
-static tree reduce_expr_req    (tree);
-static tree reduce_type_req    (tree);
-static tree reduce_nested_req  (tree);
-static tree reduce_template_id (tree);
-static tree reduce_stmt_list   (tree);
+tree normalize_constraints (tree);
+tree normalize_node (tree);
+tree normalize_expr (tree);
+tree normalize_stmt (tree);
+tree normalize_decl (tree);
+tree normalize_misc (tree);
+tree normalize_logical (tree);
+tree normalize_call(tree);
+tree normalize_requires (tree);
+tree normalize_expr_req (tree);
+tree normalize_type_req (tree);
+tree normalize_nested_req (tree);
+tree normalize_template_id (tree);
+tree normalize_stmt_list (tree);
 
 // Reduce the requirement T into a logical formula written in terms of
 // atomic propositions.
 tree 
-reduce_node (tree t)
+normalize_node (tree t)
 {
   switch (TREE_CODE_CLASS (TREE_CODE (t))) 
     {
@@ -260,16 +260,16 @@ reduce_node (tree t)
     case tcc_binary:
     case tcc_expression:
     case tcc_vl_exp:
-      return reduce_expr (t);
+      return normalize_expr (t);
     
     case tcc_statement:   
-      return reduce_stmt (t);
+      return normalize_stmt (t);
     
     case tcc_declaration: 
-      return reduce_decl (t);
+      return normalize_decl (t);
     
     case tcc_exceptional: 
-      return reduce_misc (t);
+      return normalize_misc (t);
     
     // These kinds of expressions are atomic.
     case tcc_constant:
@@ -285,37 +285,37 @@ reduce_node (tree t)
 
 // Reduction rules for the expression node T.
 tree
-reduce_expr (tree t)
+normalize_expr (tree t)
 {
   switch (TREE_CODE (t))
     {
     case TRUTH_ANDIF_EXPR:
     case TRUTH_ORIF_EXPR:  
-      return reduce_logical (t);
+      return normalize_logical (t);
 
     case CALL_EXPR:        
-      return reduce_call (t);
+      return normalize_call (t);
 
     case REQUIRES_EXPR:
-      return reduce_requires (t);
+      return normalize_requires (t);
 
     case EXPR_REQ:
-      return reduce_expr_req (t);
+      return normalize_expr_req (t);
 
     case TYPE_REQ:
-      return reduce_type_req (t);
+      return normalize_type_req (t);
 
     case NESTED_REQ:
-      return reduce_nested_req (t);
+      return normalize_nested_req (t);
 
     case TEMPLATE_ID_EXPR: 
-      return reduce_template_id (t);
+      return normalize_template_id (t);
 
     case CAST_EXPR:
-      return reduce_node (TREE_VALUE (TREE_OPERAND (t, 0)));
+      return normalize_node (TREE_VALUE (TREE_OPERAND (t, 0)));
     
     case BIND_EXPR:        
-      return reduce_node (BIND_EXPR_BODY (t));
+      return normalize_node (BIND_EXPR_BODY (t));
 
     // Do not recurse.
     case TAG_DEFN:         
@@ -330,13 +330,13 @@ reduce_expr (tree t)
 
 // Reduction rules for the statement T.
 tree
-reduce_stmt (tree t)
+normalize_stmt (tree t)
 {
   switch (TREE_CODE (t))
     {
     // Reduce the returned expression.
     case RETURN_EXPR:
-      return reduce_node (TREE_OPERAND (t, 0));
+      return normalize_node (TREE_OPERAND (t, 0));
 
     // These statements do not introduce propositions
     // in the constraints language. Do not recurse.
@@ -352,7 +352,7 @@ reduce_stmt (tree t)
 
 // Reduction rules for the declaration T.
 tree
-reduce_decl (tree t)
+normalize_decl (tree t)
 {
   switch (TREE_CODE (t))
     {
@@ -368,7 +368,7 @@ reduce_decl (tree t)
 
 // Reduction rules for the node T.
 tree
-reduce_misc (tree t)
+normalize_misc (tree t)
 {
   switch (TREE_CODE (t))
     {
@@ -378,7 +378,7 @@ reduce_misc (tree t)
       return t;
 
     case STATEMENT_LIST:
-      return reduce_stmt_list (t);
+      return normalize_stmt_list (t);
     
     default:
       gcc_unreachable ();
@@ -391,10 +391,10 @@ reduce_misc (tree t)
 // Generate a new expression from the reduced operands. If either operand
 // cannot be reduced, then the resulting expression is null.
 tree
-reduce_logical (tree t)
+normalize_logical (tree t)
 {
-  tree l = reduce_expr (TREE_OPERAND (t, 0));
-  tree r = reduce_expr (TREE_OPERAND (t, 1));
+  tree l = normalize_expr (TREE_OPERAND (t, 0));
+  tree r = normalize_expr (TREE_OPERAND (t, 1));
   if (l && r)
     {
       t = copy_node (t);
@@ -411,7 +411,7 @@ reduce_logical (tree t)
 // If T is a call to a constraint instantiate its definition and
 // recursively reduce its returned expression.
 tree
-reduce_call (tree t)
+normalize_call (tree t)
 {
   // Is the function call actually a constraint check?
   tree check = resolve_constraint_check (t);
@@ -422,7 +422,7 @@ reduce_call (tree t)
   tree args = TREE_PURPOSE (check);
 
   // Reduce the body of the function into the constriants language.
-  tree body = reduce_requirements (DECL_SAVED_TREE (fn));
+  tree body = normalize_constraints (DECL_SAVED_TREE (fn));
   if (!body)
     {
       error ("could not inline requirements from %qD", fn);
@@ -430,7 +430,7 @@ reduce_call (tree t)
     }
 
   // Instantiate the reduced results using the deduced args.
-  tree result = instantiate_requirements (body, args, false);
+  tree result = tsubst_constraint_expr (body, args, false);
   if (result == error_mark_node)
     {
       error ("could not instantiate requirements from %qD", fn);
@@ -450,7 +450,7 @@ reduce_call (tree t)
 // Where Foo<T> should actually be written as Foo<T>(). Generate an
 // error and suggest the improved writing.
 tree
-reduce_template_id (tree t)
+normalize_template_id (tree t)
 {
   vec<tree, va_gc>* args = NULL;
   tree c = finish_call_expr (t, &args, true, false, 0);
@@ -467,25 +467,25 @@ reduce_template_id (tree t)
 // Reduce an expression requirement as a conjunction of its
 // individual constraints.
 tree
-reduce_expr_req (tree t) 
+normalize_expr_req (tree t) 
 {
   tree r = NULL_TREE;
   for (tree l = TREE_OPERAND (t, 0); l; l = TREE_CHAIN (l))
-    r = conjoin_requirements (r, reduce_expr (TREE_VALUE (l)));
+    r = conjoin_constraints (r, normalize_expr (TREE_VALUE (l)));
   return r;
 }
 
 // Reduce a type requirement by returing its underlying
 // constraint.
 tree
-reduce_type_req (tree t) 
+normalize_type_req (tree t) 
 {
   return TREE_OPERAND (t, 0);
 }
 
 // Reduce a nested requireemnt by returing its only operand.
 tree
-reduce_nested_req (tree t) 
+normalize_nested_req (tree t) 
 {
   return TREE_OPERAND (t, 0);
 }
@@ -494,10 +494,10 @@ reduce_nested_req (tree t)
 // rewriting the list of requirements so that we end up with a
 // list of expressions, some of which may be conjunctions.
 tree
-reduce_requires (tree t)
+normalize_requires (tree t)
 {
   for (tree l = TREE_OPERAND (t, 1); l; l = TREE_CHAIN (l))
-    TREE_VALUE (l) = reduce_expr (TREE_VALUE (l));
+    TREE_VALUE (l) = normalize_expr (TREE_VALUE (l));
   return t;
 }
 
@@ -510,34 +510,35 @@ reduce_requires (tree t)
 // statement. The primary purpose of these rules is to filter those
 // non-return statements from the constraints language.
 tree
-reduce_stmt_list (tree stmts)
+normalize_stmt_list (tree stmts)
 {
   tree lhs = NULL_TREE;
   tree_stmt_iterator i = tsi_start (stmts);
   while (!tsi_end_p (i))
     {
-      if (tree rhs = reduce_node (tsi_stmt (i)))
-        lhs = conjoin_requirements (lhs, rhs);
+      if (tree rhs = normalize_node (tsi_stmt (i)))
+        lhs = conjoin_constraints (lhs, rhs);
       tsi_next (&i);
     }
   return lhs;
 }
 
-} // end namespace
-
 // Reduce the requirement REQS into a logical formula written in terms of
 // atomic propositions.
 tree
-reduce_requirements (tree reqs)
+normalize_constraints (tree reqs)
 {
   if (!reqs)
     return NULL_TREE;
 
   ++processing_template_decl;
-  tree expr = reduce_node (reqs);
+  tree expr = normalize_node (reqs);
   --processing_template_decl;
   return expr;
 }
+
+} // end namespace
+
 
 // -------------------------------------------------------------------------- //
 // Constraint Semantic Processing
@@ -567,14 +568,14 @@ set_constraints (tree t, tree ci)
 // parameter list PARMS. Note that the requirements are stored in
 // the TYPE of each tree node.
 tree
-get_shorthand_requirements (tree parms)
+get_shorthand_constraints (tree parms)
 {
   tree reqs = NULL_TREE;
   parms = INNERMOST_TEMPLATE_PARMS (parms);
   for (int i = 0; i < TREE_VEC_LENGTH (parms); ++i)
     {
       tree parm = TREE_VEC_ELT (parms, i);
-      reqs = conjoin_requirements(reqs, TEMPLATE_PARM_CONSTRAINTS (parm));
+      reqs = conjoin_constraints(reqs, TEMPLATE_PARM_CONSTRAINTS (parm));
     }
   return reqs;
 }
@@ -590,7 +591,7 @@ build_constraint_info ()
 // Create a constraint info object, initialized with the given template
 // requirements.
 inline tree
-init_leading_requirements (tree reqs)
+init_leading_constraints (tree reqs)
 {
   tree_constraint_info* ci = build_constraint_info ();
   ci->leading_reqs = reqs;
@@ -600,7 +601,7 @@ init_leading_requirements (tree reqs)
 // Initialize a constraint info object, initialized with the given
 // trailing requirements.
 inline tree
-init_trailing_requirements (tree reqs)
+init_trailing_constraints (tree reqs)
 {
   tree_constraint_info* ci = build_constraint_info ();
   ci->trailing_reqs = reqs;
@@ -609,9 +610,9 @@ init_trailing_requirements (tree reqs)
 
 // Upodate the template requiremnets.
 inline tree
-update_leading_requirements (tree ci, tree reqs) {
+update_leading_constraints (tree ci, tree reqs) {
   tree& current = CI_LEADING_REQS (ci);
-  current = conjoin_requirements (current, reqs);
+  current = conjoin_constraints (current, reqs);
   return ci;
 }
 
@@ -619,7 +620,7 @@ update_leading_requirements (tree ci, tree reqs) {
 // traling requirements cannot be updated once set: no other reqiurements
 // can be found after parsing a trailing requires-clause.
 inline tree
-update_trailing_requirements (tree ci, tree reqs) {
+update_trailing_constraints (tree ci, tree reqs) {
   gcc_assert(CI_TRAILING_REQS (ci) == NULL_TREE);
   CI_TRAILING_REQS (ci) = reqs;
   return ci;
@@ -634,14 +635,14 @@ update_trailing_requirements (tree ci, tree reqs) {
 // constrained type specifiers in a parameter list. These update the
 // template requirements after the template header has been parsed.
 tree
-save_leading_requirements (tree reqs)
+save_leading_constraints (tree reqs)
 {
   if (!reqs || reqs == error_mark_node)
     return NULL_TREE;
   else if (!current_template_reqs)
-    return init_leading_requirements (reqs);
+    return init_leading_constraints (reqs);
   else
-    return update_leading_requirements (current_template_reqs, reqs);
+    return update_leading_constraints (current_template_reqs, reqs);
 }
 
 // Return a constraint info object containing saved trailing requirements.
@@ -649,21 +650,21 @@ save_leading_requirements (tree reqs)
 // existing requirements. Otherwise, an empty constraint-info object
 // holding only these trailing requirements is returned.
 tree
-save_trailing_requirements (tree reqs)
+save_trailing_constraints (tree reqs)
 {
   if (!reqs || reqs == error_mark_node)
     return NULL_TREE;
   else if (!current_template_reqs)
-    return init_trailing_requirements (reqs);
+    return init_trailing_constraints (reqs);
   else
-    return update_trailing_requirements (current_template_reqs, reqs);
+    return update_trailing_constraints (current_template_reqs, reqs);
 }
 
 // Finish the template requirements, by computing the associated
 // constrains (the conjunction of template and trailing requirements),
 // and then decomposing that into sets of atomic propositions.
 tree
-finish_template_requirements (tree ci)
+finish_template_constraints (tree ci)
 {
   if (!ci || ci == error_mark_node)
     return NULL_TREE;
@@ -678,11 +679,10 @@ finish_template_requirements (tree ci)
   // are ill-formed, this is a hard error.
   tree r1 = CI_LEADING_REQS (ci);
   tree r2 = CI_TRAILING_REQS (ci);
-  tree assoc = conjoin_requirements (r1, r2);
-  CI_ASSOCIATED_REQS (ci) = assoc;
+  tree reqs = normalize_constraints (conjoin_constraints (r1, r2));
+  CI_ASSOCIATED_REQS (ci) = reqs;
 
   // Decompose those expressions into sets of atomic constraints. 
-  tree reqs = reduce_requirements (assoc);
   CI_ASSUMPTIONS (ci) = decompose_assumptions (reqs);
   return ci;
 }
@@ -994,7 +994,7 @@ build_constrained_parameter (tree fn, tree proto, tree args)
   return decl;
 }
 
-// Create a requirement expression for the given DECL that evaluates the
+// Create a constraint expression for the given DECL that evaluates the
 // requirements specified by CONSTR, a TYPE_DECL that contains all the 
 // information necessary to build the requirements (see finish_concept_name 
 // for the layout of that TYPE_DECL).
@@ -1002,7 +1002,7 @@ build_constrained_parameter (tree fn, tree proto, tree args)
 // Note that the constraints are neither reduced nor decomposed. That is
 // done only after the requires clause has been parsed (or not).
 tree
-finish_shorthand_requirement (tree decl, tree constr)
+finish_shorthand_constraint (tree decl, tree constr)
 {
   // No requirements means no constraints.
   if (!constr)
@@ -1176,7 +1176,7 @@ tsubst_expr_req (tree t, tree args, tree in_decl)
   for (tree l = TREE_OPERAND (t, 0); l; l = TREE_CHAIN (l))
     {
       tree e = tsubst_expr (TREE_VALUE (l), args, tf_none, in_decl, false);
-      r = conjoin_requirements (r, e);
+      r = conjoin_constraints (r, e);
     }
   return r;
 }
@@ -1205,7 +1205,7 @@ tsubst_nested_req (tree t, tree args, tree in_decl)
 // if parsing a template declaration, which causes the resulting expression
 // to not be folded.
 tree
-instantiate_requirements (tree reqs, tree args, bool do_not_fold)
+tsubst_constraint_expr (tree reqs, tree args, bool do_not_fold)
 {
   cp_unevaluated guard;
   if (do_not_fold)
@@ -1227,17 +1227,16 @@ tsubst_constraint_info (tree ci, tree args)
   // Substitute into the various constraint fields.
   tree_constraint_info* result = build_constraint_info ();
   if (tree r = CI_LEADING_REQS (ci))
-    result->leading_reqs = instantiate_requirements (r, args, true);
+    result->leading_reqs = tsubst_constraint_expr (r, args, true);
   if (tree r = CI_TRAILING_REQS (ci))
-    result->trailing_reqs = instantiate_requirements (r, args, true);
+    result->trailing_reqs = tsubst_constraint_expr (r, args, true);
 
-  // Build the associated requiremnts.
-  result->associated_reqs = 
-      conjoin_requirements (result->leading_reqs, result->trailing_reqs);
+  // Build the normalized associated requiremnts.
+  tree r = conjoin_constraints (result->leading_reqs, result->trailing_reqs);
+  result->associated_reqs = normalize_constraints (r);
   
   // Analyze the resulting constraints.
   // TODO: Is this actually necessary if the constraints are non-dependent?
-  // Presumably not since we'd never actually look at them, right?
   result->assumptions = decompose_assumptions (result->associated_reqs);
   return (tree)result;
 }
@@ -1255,8 +1254,13 @@ namespace {
 static bool
 check_satisfied (tree req, tree args) 
 {
+  // If any arguments are dependent, then we can't check the
+  // requirements. Just return true.
+  if (args && uses_template_parms (args))
+    return true;
+
   // Instantiate and evaluate the requirements. 
-  req = instantiate_requirements (req, args, false);
+  req = tsubst_constraint_expr (req, args, false);
   if (req == error_mark_node)
     return false;
 
@@ -1269,45 +1273,6 @@ check_satisfied (tree req, tree args)
   return result == boolean_true_node;
 }
 
-// Returns true iff all atomic constraints in the list are satisfied.
-static bool
-all_constraints_satisfied (tree reqs, tree args)
-{
-  int n = TREE_VEC_LENGTH (reqs);
-  for (int i = 0; i < n; ++i)
-    {
-      tree req = TREE_VEC_ELT (reqs, i);
-      if (!check_satisfied (req, args))
-        return false;
-    }
-  return true;
-}
-
-// Returns true if any conjunction of assumed requirements are satisfied.
-static bool
-any_conjunctions_satisfied (tree reqs, tree args)
-{
-  int n = TREE_VEC_LENGTH (reqs);
-  for (int i = 0; i < n; ++i)
-    {
-      tree con = TREE_VEC_ELT (reqs, i);
-      if (all_constraints_satisfied (con, args))
-        return true;
-    }
-  return false;
-}
-
-// Returns true iff the assumptions in REQS are satisfied.
-static inline bool
-check_requirements (tree reqs, tree args)
-{
-  // If any arguments are dependent, then we can't check the
-  // requirements. Just return true.
-  if (args && uses_template_parms (args))
-    return true;
-
-  return any_conjunctions_satisfied (reqs, args);
-}
 } // namespace
 
 // Check the instantiated declaration constraints.
@@ -1325,7 +1290,7 @@ check_constraints (tree cinfo)
   // all remaining expressions that are not constant expressions
   // (e.g., template-id expressions).
   else
-    return check_requirements (CI_ASSUMPTIONS (cinfo), NULL_TREE);
+    return check_satisfied (CI_ASSOCIATED_REQS (cinfo), NULL_TREE);
 }
 
 // Check the constraints in CINFO against the given ARGS, returning
@@ -1340,7 +1305,7 @@ check_constraints (tree cinfo, tree args)
   else if (!valid_requirements_p (cinfo))
     return false;
   else {
-    return check_requirements (CI_ASSUMPTIONS (cinfo), args);
+    return check_satisfied (CI_ASSOCIATED_REQS (cinfo), args);
   }
 }
 
@@ -1351,13 +1316,6 @@ bool
 check_template_constraints (tree t, tree args)
 {
   return check_constraints (get_constraints (t), args);
-}
-
-bool
-check_diagnostic_constraints (tree t, tree args)
-{
-  tree reqs = decompose_assumptions (reduce_requirements (t));
-  return check_requirements (reqs, args);
 }
 
 // -------------------------------------------------------------------------- //
@@ -1413,6 +1371,15 @@ more_constrained (tree a, tree b) {
 
 namespace {
 
+// Given an arbitrary constraint expression, normalize it and
+// then check it. We have to normalize so we don't accidentally
+// instantiate concept declarations.
+inline bool
+check_diagnostic_constraints (tree reqs, tree args)
+{
+  return check_satisfied (normalize_constraints (reqs), args);
+}
+
 void diagnose_node (location_t, tree, tree);
 
 // Diagnose a constraint failure for type trait expressions.
@@ -1422,7 +1389,7 @@ diagnose_trait (location_t loc, tree t, tree args)
   if (check_diagnostic_constraints (t, args))
     return;
 
-  tree subst = instantiate_requirements (t, args, true);
+  tree subst = tsubst_constraint_expr (t, args, true);
 
   if (subst == error_mark_node)
     {
@@ -1527,7 +1494,7 @@ diagnose_check (location_t loc, tree t, tree args)
 
   // Locally instantiate the body with the call's template args, 
   // and recursively diagnose.
-  body = instantiate_requirements (body, targs, true);
+  body = tsubst_constraint_expr (body, targs, true);
   
   diagnose_node (loc, body, args);
 }
@@ -1554,7 +1521,7 @@ diagnose_requires (location_t loc, tree t, tree args)
   if (check_diagnostic_constraints (t, args))
     return;
 
-  tree subst = instantiate_requirements (t, args, true);
+  tree subst = tsubst_constraint_expr (t, args, true);
 
   // Print the header for the requires expression.
   tree parms = TREE_OPERAND (subst, 0);

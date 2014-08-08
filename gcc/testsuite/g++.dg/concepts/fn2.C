@@ -10,9 +10,9 @@ template<typename T>
 // Non-dependent args are checked even in dependent scope.
 template<typename T>
   void h(T x) {
-    f(0); // { dg-error "matching" }
+    f(0); // { dg-error "cannot call" }
   }
 
 int main() {
-  f(0); // { dg-error "matching" }
+  f(0); // { dg-error "cannot call" }
 }

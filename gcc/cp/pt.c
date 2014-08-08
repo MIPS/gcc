@@ -3887,7 +3887,7 @@ process_template_parm (tree list, location_t parm_loc, tree parm,
 	= is_parameter_pack;
 
       // Build requirements for the parameter.
-      reqs = finish_shorthand_requirement (parm, constr);        
+      reqs = finish_shorthand_constraint (parm, constr);        
     }
   else
     {
@@ -3922,7 +3922,7 @@ process_template_parm (tree list, location_t parm_loc, tree parm,
       TYPE_CANONICAL (t) = canonical_type_parameter (t);
 
       // Build requirements for the type/template parameter.
-      reqs = finish_shorthand_requirement (parm, constr);
+      reqs = finish_shorthand_constraint (parm, constr);
     }
   DECL_ARTIFICIAL (decl) = 1;
   SET_DECL_TEMPLATE_PARM_P (decl);
@@ -4183,7 +4183,7 @@ build_template_decl (tree decl, tree parms, tree constr, bool member_template_p)
   DECL_CONTEXT (tmpl) = DECL_CONTEXT (decl);
   DECL_SOURCE_LOCATION (tmpl) = DECL_SOURCE_LOCATION (decl);
   DECL_MEMBER_TEMPLATE_P (tmpl) = member_template_p;
-  set_constraints (tmpl, finish_template_requirements (constr));
+  set_constraints (tmpl, finish_template_constraints (constr));
 
   return tmpl;
 }
@@ -7979,7 +7979,7 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
           // anywhere else.
           if (complain & tf_error)
             {
-              error ("template argument deduction failure");
+              error ("template constraint failure");
               diagnose_constraints (input_location, gen_tmpl, arglist);
             }
           return error_mark_node;
@@ -10081,7 +10081,7 @@ tsubst_pack_conjunction (tree t, tree args, tsubst_flags_t complain,
     }
 
   // Conjoin requirements. An empty conjunction is equivalent to ture.
-  if (tree reqs = conjoin_requirements (terms))
+  if (tree reqs = conjoin_constraints (terms))
     return reqs;
   else
     return boolean_true_node;
@@ -16513,15 +16513,6 @@ fn_type_unification (tree fn,
     {
       unify_inconsistent_template_template_parameters (explain_p);
       goto fail;
-    }
-
-  // All is well so far. Now, check that the template constraints
-  // are satisfied.
-  if (!check_template_constraints (fn, targs)) 
-    {
-      if (explain_p)
-        diagnose_constraints (DECL_SOURCE_LOCATION (fn), fn, targs);
-      return error_mark_node;
     }
 
   /* All is well so far.  Now, check:

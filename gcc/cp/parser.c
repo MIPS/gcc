@@ -13642,10 +13642,10 @@ cp_parser_type_parameter (cp_parser* parser, bool *is_parameter_pack)
         // If template requirements are present, parse them.
           if (flag_concepts)
           {
-            tree reqs = get_shorthand_requirements (current_template_parms);
+            tree reqs = get_shorthand_constraints (current_template_parms);
             if (tree r = cp_parser_requires_clause_opt (parser))
-              reqs = conjoin_requirements (reqs, r);
-            current_template_reqs = save_leading_requirements (reqs);
+              reqs = conjoin_constraints (reqs, r);
+            current_template_reqs = save_leading_constraints (reqs);
 
             // Attach the constraints to the parameter list.
             TEMPLATE_PARMS_CONSTRAINTS (current_template_parms) 
@@ -17103,7 +17103,7 @@ cp_parser_trailing_requirements (cp_parser *parser, cp_declarator *decl)
           push_function_parms (decl);
           cp_lexer_consume_token (parser->lexer);
           tree reqs = cp_parser_requires_clause (parser);
-          current_template_reqs = save_trailing_requirements (reqs);
+          current_template_reqs = save_trailing_constraints (reqs);
           finish_scope();
           --cp_unevaluated_operand;
         }
@@ -24139,10 +24139,10 @@ cp_parser_template_declaration_after_export (cp_parser* parser, bool member_p)
   // Manage template requirements
   if (flag_concepts)
     {
-      tree reqs = get_shorthand_requirements (current_template_parms);
+      tree reqs = get_shorthand_constraints (current_template_parms);
       if (tree r = cp_parser_requires_clause_opt (parser))
-        reqs = conjoin_requirements (reqs, r);
-      current_template_reqs = save_leading_requirements (reqs);
+        reqs = conjoin_constraints (reqs, r);
+      current_template_reqs = save_leading_constraints (reqs);
 
       // Attach the constraints to the template parameter list.
       // This is used to pass template requirements to out-of-class
@@ -33313,7 +33313,7 @@ synthesize_implicit_template_parm  (cp_parser *parser, tree constr)
 
   // If the invented parameter was constrained, save the constraint.
   if (tree reqs = TEMPLATE_PARM_CONSTRAINTS (tree_last (new_parm)))
-    current_template_reqs = save_leading_requirements (reqs);
+    current_template_reqs = save_leading_constraints (reqs);
 
   // Chain the new parameter to the list of implicit parameters.
   if (parser->implicit_template_parms)

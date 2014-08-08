@@ -7542,7 +7542,7 @@ declare_simd_adjust_this (tree *tp, int *walk_subtrees, void *data)
 
 // Returns the there leading template requirements if they exist.
 static inline tree
-get_leading_template_requirements () 
+get_leading_constraints () 
 {
   return current_template_reqs ? 
     CI_LEADING_REQS (current_template_reqs) : NULL_TREE;
@@ -7571,8 +7571,8 @@ adjust_out_of_class_fn_requirements (tree ctype)
       if (tree ci = TEMPLATE_PARMS_CONSTRAINTS (current_template_parms))
         {
           tree reqs = CI_LEADING_REQS (ci);
-          if (reqs && !get_leading_template_requirements ())
-            current_template_reqs = save_leading_requirements (reqs);
+          if (reqs && !get_leading_constraints ())
+            current_template_reqs = save_leading_constraints (reqs);
         }
     }
   else if (current_template_parms)
@@ -7584,10 +7584,10 @@ adjust_out_of_class_fn_requirements (tree ctype)
           {
             tree r2 = CI_LEADING_REQS (current_template_reqs);
             CI_LEADING_REQS (current_template_reqs) = 
-                conjoin_requirements (r1, r2);
+                conjoin_constraints (r1, r2);
           }
         else
-          current_template_reqs = save_leading_requirements (r1);
+          current_template_reqs = save_leading_constraints (r1);
       }
   }
 }
@@ -7648,7 +7648,7 @@ grokfndecl (tree ctype,
 
   // Possibly adjust the template requirements for out-of-class
   // function definitions. This guarantees that current_template_reqs
-  // will be fully completed before calling finish_template_requirements.
+  // will be fully completed before calling finish_template_constraints.
   // verbatim ("%d", processing_template_decl);
   if (flag_concepts)
     adjust_out_of_class_fn_requirements (ctype);
@@ -7659,7 +7659,7 @@ grokfndecl (tree ctype,
   if (current_template_reqs)
     {
       current_template_reqs
-          = finish_template_requirements (current_template_reqs);
+          = finish_template_constraints (current_template_reqs);
       set_constraints (decl, current_template_reqs);
     }
 
@@ -12471,7 +12471,7 @@ xref_tag_1 (enum tag_types tag_code, tree name,
           // since a class doesn't have trailing requirements.
           if (current_template_reqs)
             current_template_reqs = 
-                finish_template_requirements (current_template_reqs);
+                finish_template_constraints (current_template_reqs);
 	  if (!redeclare_class_template (t, 
                                    current_template_parms, 
                                    current_template_reqs))

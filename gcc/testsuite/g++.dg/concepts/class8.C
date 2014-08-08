@@ -7,7 +7,7 @@ template<C T> struct S;
 
 struct X { };
 
-// Not a valid declaration, int does not satisfy C.
-template<> struct S<int> { }; // { dg-error "deduction" }
+// Not a valid explicit specialization, int does not satisfy C.
+template<> struct S<int> { }; // { dg-error "constraint" }
 
 int main() { }

@@ -1,8 +1,35 @@
+2014-08-08  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
+	* gcc/cp/logic.cc (subsumes_constraints_nonnull): Don't re-normalize
+	constraints, it's already been done.
+	* gcc/cp/cp-tree.h (*_requirement[s]): Renamed to *_constraint[s] to
+	reflect wording in specification. Removed reduce_requirements.
+	* gcc/cp/pt.c (process_template_parm, tsubst_pack_conjunction): Update 
+	from renaming.
+	(fn_type_unification): Remove constraint check.
+	* gcc/cp/parser.c (cp_parser_type_parameter, 
+	cp_parser_trailing_requirements, 
+	cp_parser_template_declaration_after_export,
+	synthesize_implicit_template_parm): Update from renaming.
+	* gcc/cp/constraint.cc: Renamed a lot of functions to reflect wording
+	in specification.
+	(finish_template_constraints): Normalize associated constraints.
+	(tsubst_constraint_expr): Renamed from instantiate_requirements.
+	Normalize associated constraints.
+	(check_satisfied): Return true if the arguments refer to template
+	parameters.
+	(all_constraints_satisfied, any_conjunctions_satisfied,
+	check_requirements): No longer needed.
+	(check_diagnostic_constraints): Just normalize the expression, don't
+	decompose it.
+
 2014-08-06  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	* gcc/testsuite/g++.dg/concepts/concepts.exp: Add missing argument
 	to g++-dg-runtest.
 
 2014-08-06  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	* gcc/cp/constraints.c (tsubst_requires_body, instantiate_requirements):
 	Lift the unevaluated operand guard to the entire constraint expression.
 	(check_satisfied, all_constraints_satisfied, 
@@ -14,6 +41,7 @@
 	
 
 2014-07-30  Braden Obrzut  <admin@maniacsvault.net>
+	
 	* gcc/cp/parser.c (cp_parser_trailing_requirements): Handle requires
 	keyword manually so that we can push function parameters back into
 	scope.
@@ -22,9 +50,11 @@
 	* gcc/testsuite/g++.dg/concepts/req*.C: New tests.
 
 2014-07-30  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/testsuite/g++.dg/concepts/test.C: Removed.
 
 2014-07-28  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/cp/cp-tree.h (more_constraints): Remove
 	(subsumes_constraints): Renamed from more_constraints
 	(more_constrained): Repurposed
@@ -43,12 +73,14 @@
 	(more_constrained): New.
 
 2014-07-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/cp/typeck.c (cp_build_function_call_vec): Emit diagnostic
 	at the input location.
 	* gcc/cp/error.c (dump_template_decl): Constraints are never invalid
 	in this way. Also fixes brace warning.
 
 2014-07-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/cp/tree.c (cp_tree_equal): compare constraint infos by
 	their associated constraints (patch by Braden Obrzut).
 	* gcc/cp/logic.c (decompose_assumptions): Don't decompose errors.
@@ -137,6 +169,7 @@
 	* gcc/testsuite/g++.dg/concepts/*: New tests.
 
 2014-06-28  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/c-family/c.opt (flag_concepts): Don't enable by default.
 	* gcc/c-family/c-opts.c (set_std_cxx1z): Enable concepts if
 	-std=cxx1z is selected.
@@ -147,6 +180,7 @@
 	* gcc/testsuite/g++.dg/concepts/*.C: Update build flags.
 
 2014-06-28  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/cp/cp-tree.h (DECL_CONSTRAINTS): Remove this macro; use
 	get_constraints instead.
 	(set_constraints): new.
@@ -175,12 +209,14 @@
 	* gcc/testsuite/g++.dg/concepts/partial-spec.C: New.
 
 2014-06-25  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/cp/parser.c (cp_parser_requires_clause): Don't fold expressions
 	when parsing a requires-clause.
 	* gcc/cp/constraint.cc (reduce_requirements): Don't fold
 	expressions during constraint normalization.
 
 2014-06-24  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/cp/parser.c (cp_maybe_constrained_type_specifier): Defer
 	handling the BASELINK check until concept-resolution in order to
 	allow member conceps.
@@ -194,15 +230,18 @@
 	* gcc/testuite/g++.dg/concepts/mem-concept-err.C: New test.
 
 2014-06-24  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/cp/error.c (dump_expr): Pretty print placeholder to improve
 	debug output.
 
 2014-06-17  Braden Obrzut  <admin@maniacsvault.net>
+	
 	* gcc/cp/parser.c (cp_maybe_constrained_type_specifier): If getting
 	a baselink, use the referred-to function/overload declarations rather
 	than asserting.
 
 2014-06-12  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/cp/constraint.cc (deduce_constrained_parameter): Refactor
 	common deduction framework into separate function.
 	(build_call_check): New.
@@ -225,6 +264,7 @@
 	* gcc/testuite/g++.dg/concepts/concepts.exp: Add missing test driver.
 
 2014-06-12  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/cp/parser.c (cp_check_type_concept): New.
 	(cp_check_concept_name): Remove redundant condition from check.
 	Diagnose misuse of non-type concepts in constrained type specifiers.
@@ -235,6 +275,7 @@
 	diagnosing ill-formed programs.
 
 2014-06-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/cp/cp-tree.h (build_constrained_parameter): Renamed fro
 	describe_tempalte_parm.
 	* gcc/cp/parser.c (cp_check_constrained_type_parm): New. Prevent
@@ -271,10 +312,12 @@
 
 
 2014-03-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/testuite/g++.dg/concepts/fn1.C: New test.
 	* gcc/testuite/g++.dg/concepts/fn2.C: New test.
 
 2013-11-012  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/cp/parser.c (synthesize_implicit_template_parm): Allow concepts
 	to declare implicit template parameters. Only synthesize new parameters
 	if the concept name is new.
@@ -283,50 +326,61 @@
 	constraint.cc.
 
 2013-11-012  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/cp/pt.c (tsubst_copy): Expand pack expansions as conjunctions.
 
 2013-11-012  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/cp/pt.c (tsubst_pack_conjunction): Don't try to conjoin
 	dependent expressions.
 
 2013-11-012  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/cp/semantics.c (fixup_template_type): Compare primary template
 	types to specializations using structural types so we don't run into
 	canonical type errors with constrained specializations.
 
 2013-11-08  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/cp/pt.c (add_inherited_template_parms): Instantiate requirements
 	in a processing template decl context.
 
 2013-11-05  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/cp/semantics.c (fixup_template_type): Add a same-type check
 	for specialiations so we don't accidentally match non-dependent
 	specializations having a different type.
 
 2013-10-26  Ville Voutilainen  <ville.voutilainen@gmail.com>
+	
 	* gcc/cp/decl.c (grokdeclarator): Reject concept keyword
 	in typedefs, function parameters, data members, non-static
 	member functions and variables. Allow static member functions
 	to be concepts.
 
 2013-10-30  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/cp/semantics.c (fixup_template_type): Don't emit errors when
 	no templates can be found with matching constraints.
 
 2013-10-25  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/cp/parsre.c (cp_parser_requires_expression): Gracefully
 	fail when parsing a requires expr outside a template.
 
 2013-10-24  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/cp/c-common.c (c_common_r): Remove unused keywords "assume",
 	"axiom", and "forall".
 	* gcc/cp/c-common.h (rid): Removed unused reserved word ids.
 
 2013-10-24  Edward Smith-Rowland  <3dw4rd@verizon.net>
+	
 	* gcc/cp/typeck.c (cp_build_function_call_vec): Use unused variable 
 	loc.
 
 2013-10-23  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/cp/class.c (get_member_fntemplate): New.
 	(are_constrained_member_overloads): Only get a template declaration
 	if the member function is, in fact, a template or temploid.
@@ -337,12 +391,14 @@
 	check_explicit_specialization.
 
 2013-10-22  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/c-family/c-common.c (cxx_dialect): Make the default
 	language C++11.
 	* gcc/cp/constraint.cc (check_constrained_friend): Don't assert
 	on error_mark_node.
 
 2013-10-16  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/cp/logic.cc (left_requires), (decompose_left): Add
 	decomposition rules for requires expressions.
 	(subsumes_requires), (subsumes_prop): Add subsumption rules for
@@ -351,11 +407,13 @@
 	requirements.
 
 2013-10-16  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/cp/constraint.cc (finish_concept_name): Allow functions with
 	the same name as concepts to resolve as call expressions in the
 	usual way.
 
 2013-10-16  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/cp/constraint.cc (conjoin_requiremens): New.
 	(resolve_constraint_check): Filter non-concept candidates before
 	coercing arguments. Perform deduction in a template-decl processing
@@ -385,6 +443,7 @@
 	* gcc/cp/cp-tree.h (TEMPLATE_PARM_CONSTRAINTS): New.
 
 2013-10-07  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/cp/cp-tree.h (check_constrained_friend): Take requirements as
 	an argument.
 	* gcc/cp/constraints.cc (check_constrained_friend): Do not diagnose
@@ -393,6 +452,7 @@
 	requirements to check_constrained_friend.
 
 2013-10-07  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/cp/parser.c (cp_parser_member_declaration): Check that
 	a constrained friend definition is valid.
 	* gcc/cp/decl.c (grokfndecl): Disallow constrained friend template
@@ -407,6 +467,7 @@
 	is_constrainable_non_template_fn.
 
 2013-09-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	* gcc/cp/cp-tree.h (TEMPLATE_PARMS_CONSTRAINTS): New.
 	* gcc/cp/parser.c (cp_parser_template_declaration_after_export),
 	(cp_parser_type_parameter): Use TEMPLATE_PARMS_CONSTRAINTS.
@@ -414,11 +475,13 @@
 	TEMPLATE_PARMS_CONSTRAINTS.
 
 2013-09-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/cp/cxx-pretty-print.c (pp_cxx_compound_requirement),
 	(pp_cxx_type_requirement), (pp_cxx_validtype_expr): Use 
 	pp->type_id() instead of pp_cxx_type_id().
 
 2013-09-09  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	* gcc/cp/pt.c (get_class_bindings): Pass the partial specialization
 	for constraint evaluation. Evaluate constraints, resulting in
 	deduction failure on error.
@@ -460,6 +523,7 @@
 	same constraints.
 
 2013-07-26  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/cp/semantics.c (trait_expr_value): Evaluate __is_same_as.
 	(finish_trait_expr): Check __is_same_as and __is_convertible_to.
 	* gcc/cp/constraint.cc (diagnose_trait): Diagnose failures in
@@ -471,10 +535,12 @@
 	__is_same_as trait.
 
 2013-07-26  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	* gcc/cp/tree.c (cp_walk_subtrees): Don't recurse through the
 	requires expr parameter list.
 
 2013-07-25  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/cp/parser.c (cp_parser_requires_expr): Update parser using new
 	requires expression nodes. Renamed some grammar productions to better 
 	reflect the representation of the syntax. Create a new scope for 
@@ -522,14 +588,17 @@
 	(diagnose_constraints): Rename and handle requires expressions.
 
 2013-07-01  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/cp/error.c (cp_printer): Fix unnecessary whitespace change.
 	* gcc/cp/constraint.cc (diagnose_node): Don't fail diagnosing
 	disjunctions.
 
 2013-07-01  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/cp/class.c (are_constrained_member_overloads): Fix doc typos.
 
 2013-06-24  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/cp/parser.c (cp_parser_init_declarator): Parse template
 	requirements for out-of-class member definitions.
 	* gcc/cp/decl2.c (check_classfn): Include match out-of-class
@@ -538,6 +607,7 @@
 	(more_constrained). Use get_constraints. 
 
 2013-06-24  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/cp/cp-tree.h (tree_template_info). Remove constraint from 
 	template info.
 	(check_template_info): Removed (unused).
@@ -586,6 +656,7 @@
 	functions.
 
 2013-06-21  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/cp/parser.c (cp_parser_requires_clause): Pulled out of
 	cp_parser_requires_clause_opt for reuse in the requires expr parser.
 	(cp_parser_requires_expression): New, along with a family of
@@ -603,6 +674,7 @@
 	(finish_noexcept_requirement): New.
 
 2013-06-21  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/cp/error.c (subst_to_string): Allow this to be called explicitly
 	passing template parameters in the TREE_TYPE and with a null 
 	TREE_PURPOSE.
@@ -614,6 +686,7 @@
 	constraint failures.
 
 2013-06-18  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/cp/class.c (are_constrained_member_overloads): New.
 	(add_method): Allow overloading of constrained member functions.
 	* gcc/cp/call.c (rejection_reason_code): New rr_constraint_failure.
@@ -723,6 +796,7 @@
 	are only enabled when concepts are enabled.
 
 2013-06-01  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	* gcc/system.h (cstdlib): Include <cstdlib> to avoid poisoned
 	declaration errors.
 	* gcc/c-family/common.c (c_common_r): Added __is_same_as intrinsic,
@@ -795,6 +869,7 @@
 	* gcc/cp/constraints.cc: New.
 
 2013-03-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
 	* gcc/cp/Make-lang.in: Add constraint.c
 	* gcc/cp/constraint.c: New
 	(conjoin_requirements): New

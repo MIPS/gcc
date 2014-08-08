@@ -15,9 +15,9 @@ void f(Same<int> q) { }
 void g(Type a, Same<decltype(a)> b) { }
 
 int main() {
-  S1<char> s1;      // { dg-error "deduction|invalid" }
-  S2<int, char> s2; // { dg-error "deduction|invalid" }
+  S1<char> s1;      // { dg-error "constraint|invalid" }
+  S2<int, char> s2; // { dg-error "constraint|invalid" }
 
-  f('a');    // { dg-error "matching" }
-  g(0, 'a'); // { dg-error "matching" }
+  f('a');    // { dg-error "cannot" }
+  g(0, 'a'); // { dg-error "cannot" }
 }

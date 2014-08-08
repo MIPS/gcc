@@ -6079,10 +6079,6 @@ extern tree maybe_resolve_dummy			(tree, bool);
 extern tree nonlambda_method_basetype		(void);
 extern void maybe_add_lambda_conv_op            (tree);
 extern bool is_lambda_ignored_entity            (tree);
-extern tree finish_template_requirements        (tree);
-extern tree save_leading_requirements           (tree);
-extern tree save_trailing_requirements          (tree);
-extern bool valid_requirements_p                (tree);
 
 /* in tree.c */
 extern int cp_tree_operand_length		(const_tree);
@@ -6415,20 +6411,23 @@ extern void suggest_alternatives_for            (location_t, tree);
 extern tree strip_using_decl                    (tree);
 
 /* in constraint.cc */
-extern tree conjoin_requirements                (tree, tree);
-extern tree conjoin_requirements                (tree);
-extern tree reduce_requirements                 (tree);
+extern tree conjoin_constraints                 (tree, tree);
+extern tree conjoin_constraints                 (tree);
 extern tree get_constraints                     (tree);
 extern void set_constraints                     (tree, tree);
-extern tree get_shorthand_requirements          (tree);
+extern tree get_shorthand_constraints           (tree);
 
 extern tree build_concept_check                 (tree, tree, tree = NULL_TREE);
 extern tree build_constrained_parameter         (tree, tree, tree = NULL_TREE);
 extern bool deduce_constrained_parameter        (tree, tree&, tree&);
 extern tree resolve_constraint_check            (tree);
 
+extern tree finish_template_constraints         (tree);
+extern tree save_leading_constraints            (tree);
+extern tree save_trailing_constraints           (tree);
+extern bool valid_requirements_p                (tree);
 extern tree finish_concept_name                 (tree);
-extern tree finish_shorthand_requirement        (tree, tree);
+extern tree finish_shorthand_constraint         (tree, tree);
 extern tree finish_requires_expr                (tree, tree);
 extern tree finish_expr_requirement             (tree, tree, tree);
 extern tree finish_expr_requirement             (tree);
@@ -6439,8 +6438,6 @@ extern tree finish_noexcept_requirement         (tree);
 extern tree finish_validexpr_expr               (tree);
 extern tree finish_validtype_expr               (tree);
 extern tree finish_constexpr_expr               (tree);
-extern tree finish_concept_name                 (tree);
-extern tree finish_shorthand_requirement        (tree, tree);
 
 extern void check_constrained_friend            (tree, tree);
 
@@ -6452,8 +6449,8 @@ extern tree tsubst_expr_req                     (tree, tree, tree);
 extern tree tsubst_type_req                     (tree, tree, tree);
 extern tree tsubst_nested_req                   (tree, tree, tree);
 
-extern tree instantiate_requirements            (tree, tree, bool);
 extern tree tsubst_constraint_info              (tree, tree);
+extern tree tsubst_constraint_expr              (tree, tree, bool);
 
 extern bool check_constraints                   (tree);
 extern bool check_constraints                   (tree, tree);
