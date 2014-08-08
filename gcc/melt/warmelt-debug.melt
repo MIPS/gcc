@@ -212,7 +212,7 @@ See $MELT_NEED_DBGLIM.}#
 	;; if we don't have a dumpfile, use stderr; this may also
 	;; happens when the dumpf exists, but its dump_file is null.
 	(code_chunk
-	 ensuregoodout #{/* melt_debug_fun $ENSUREGOODOUT*/ {
+	 ensuregoodout_chk #{/* melt_debug_fun $ENSUREGOODOUT_CHK*/ {
 	 static int nbwarn		;
 	 if (melt_get_file ((melt_ptr_t) $OUT) == NULL) {
 	   gcc_assert (melt_get_file ((melt_ptr_t) $STDERRF) == stderr) ;
@@ -222,7 +222,7 @@ See $MELT_NEED_DBGLIM.}#
 		   "MELT debug output goes to stderr because we have no dump_file.") ;
 	   }
 	 }
-	 } /* end melt_debug_fun $ENSUREGOODOUT*/ }#)
+	 } /* end melt_debug_fun $ENSUREGOODOUT_CHK*/ }#)
 	(if (null out)
 	    (setq out stderrf))
 	;; it may happen that OUT is null, e.g. because the dumpfile &
@@ -372,7 +372,14 @@ See $MELT_NEED_DBGLIM.}#
 	     (add2out_strconst out " .##.")
 	     (add2out_indentnl out 0))
 	   (add2out_indentnl out 0)
-	   )))))
+	   ;;we need to flush the output
+	   (code_chunk
+	    finalflush_chk
+	    #{ /* melt_debug_fun $FINALFLUSH_CHK */
+	       melt_flush (melt_get_file ($OUT));
+	    }#)
+	   ))
+	)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
