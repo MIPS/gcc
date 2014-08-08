@@ -290,17 +290,16 @@ is_a_helper <expr *>::test (operand *op)
   return op->type == operand::OP_EXPR;
 }
 
-
-e_operation::e_operation (const char *id, bool is_commutative_, bool add_new_id)
+id_base *
+get_operator (const char *id)
 {
-  is_commutative = is_commutative_;
   id_base tem (id_base::CODE, id);
 
-  op = operators->find_with_hash (&tem, tem.hashval);
+  id_base *op = operators->find_with_hash (&tem, tem.hashval);
   if (op)
-    return;
+    return op; 
 
-  /* Try all-uppercase.  */
+   /* Try all-uppercase.  */
   char *id2 = xstrdup (id);
   for (unsigned i = 0; i < strlen (id2); ++i)
     id2[i] = TOUPPER (id2[i]);
@@ -309,7 +308,7 @@ e_operation::e_operation (const char *id, bool is_commutative_, bool add_new_id)
   if (op)
     {
       free (id2);
-      return;
+      return op;
     }
 
   /* Try _EXPR appended.  */
@@ -320,8 +319,18 @@ e_operation::e_operation (const char *id, bool is_commutative_, bool add_new_id)
   if (op)
     {
       free (id2);
-      return;
+      return op;
     }
+
+  return 0;
+}
+
+e_operation::e_operation (const char *id, bool is_commutative_, bool add_new_id)
+{
+  is_commutative = is_commutative_;
+  op = get_operator (id);
+  if (op)
+    return;
 
   if (add_new_id == false)
     fatal ("%s is not an operator/built-in function", id);
@@ -2104,6 +2113,9 @@ parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers)
 {
   const char *user_id = get_ident (r);
   eat_ident (r, "in");
+
+  if (get_operator (user_id) != 0)
+    fatal_at (peek (r), "%s is an operator, cannot be used as variable in for", user_id);
 
   vec<const char *> opers = vNULL;
 

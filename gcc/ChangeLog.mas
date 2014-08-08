@@ -1,3 +1,9 @@
+2014-08-08  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	* genmatch.c (get_operator): New function.
+	(e_operation::e_operation): Adjust to call get_operator.
+	(parse_for): Add call to get_operator.
+
 2014-08-07  Richard Biener  <rguenther@suse.de>
 
 	* tree-ssa-sccvn.c (fully_constant_vn_reference_p): Use
