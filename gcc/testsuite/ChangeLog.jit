@@ -1,5 +1,12 @@
 2014-08-08  David Malcolm  <dmalcolm@redhat.com>
 
+	* jit.dg/test-combination.c (create_code): Add missing calls to
+	create_code_quadratic and create_code_reading_struct.
+	(verify_code): Add missing calls to verify_code_quadratic and
+	verify_code_reading_struct.
+
+2014-08-08  David Malcolm  <dmalcolm@redhat.com>
+
 	* jit.dg/test-calling-function-ptr.c: New test case.
 	* jit.dg/test-combination.c: Add test-calling-function-ptr.c.
 	* jit.dg/test-error-call-through-ptr-with-mismatching-args.c: New

@@ -166,6 +166,8 @@ create_code (gcc_jit_context *ctxt, void * user_data)
   create_code_functions (ctxt, user_data);
   create_code_hello_world (ctxt, user_data);
   create_code_linked_list (ctxt, user_data);
+  create_code_quadratic (ctxt, user_data);
+  create_code_reading_struct  (ctxt, user_data);
   create_code_string_literal (ctxt, user_data);
   create_code_sum_of_squares (ctxt, user_data);
   create_code_types (ctxt, user_data);
@@ -188,6 +190,8 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
   verify_code_functions (ctxt, result);
   verify_code_hello_world (ctxt, result);
   verify_code_linked_list (ctxt, result);
+  verify_code_quadratic (ctxt, result);
+  verify_code_reading_struct (ctxt, result);
   verify_code_string_literal (ctxt, result);
   verify_code_sum_of_squares (ctxt, result);
   verify_code_types (ctxt, result);
