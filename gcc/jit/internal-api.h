@@ -85,7 +85,9 @@ namespace recording {
   class type;
   class function_type;
   class field;
+  class compound_type;
   class struct_;
+  class union_;
   class fields;
   class function;
   class block;
@@ -101,7 +103,7 @@ namespace playback {
   class location;
   class type;
   class field;
-  class struct_;
+  class compound_type;
   class function;
   class block;
   class rvalue;
@@ -191,6 +193,10 @@ public:
   struct_ *
   new_struct_type (location *loc,
 		   const char *name);
+
+  union_ *
+  new_union_type (location *loc,
+		  const char *name);
 
   type *
   new_function_ptr_type (location *loc,
@@ -347,7 +353,7 @@ private:
   vec<memento *> m_mementos;
 
   /* Specific recordings, for use by dump_to_file.  */
-  vec<struct_ *> m_structs;
+  vec<compound_type *> m_compound_types;
   vec<function *> m_functions;
 
   type *m_basic_types[NUM_GCC_JIT_TYPES];
@@ -748,8 +754,8 @@ public:
 
   type * get_type () const { return m_type; }
 
-  struct_ * get_container () const { return m_container; }
-  void set_container (struct_ *c) { m_container = c; }
+  compound_type * get_container () const { return m_container; }
+  void set_container (compound_type *c) { m_container = c; }
 
   void replay_into (replayer *);
 
@@ -768,22 +774,19 @@ private:
   location *m_loc;
   type *m_type;
   string *m_name;
-  struct_ *m_container;
+  compound_type *m_container;
 };
 
-class struct_ : public type
+/* Base class for struct_ and union_ */
+class compound_type : public type
 {
 public:
-  struct_ (context *ctxt,
-	   location *loc,
-	   string *name);
-
-  struct_ *dyn_cast_struct () { return this; }
-
-  type *
-  as_type () { return this; }
+  compound_type (context *ctxt,
+		 location *loc,
+		 string *name);
 
   string *get_name () const { return m_name; }
+  location *get_loc () const { return m_loc; }
   fields * get_fields () { return m_fields; }
 
   void
@@ -799,16 +802,11 @@ public:
   type *is_pointer () { return NULL; }
   type *is_array () { return NULL; }
 
-  void replay_into (replayer *r);
-
-  playback::struct_ *
-  playback_struct ()
+  playback::compound_type *
+  playback_compound_type ()
   {
-    return static_cast <playback::struct_ *> (m_playback_obj);
+    return static_cast <playback::compound_type *> (m_playback_obj);
   }
-
-private:
-  string * make_debug_string ();
 
 private:
   location *m_loc;
@@ -816,11 +814,30 @@ private:
   fields *m_fields;
 };
 
+class struct_ : public compound_type
+{
+public:
+  struct_ (context *ctxt,
+	   location *loc,
+	   string *name);
+
+  struct_ *dyn_cast_struct () { return this; }
+
+  type *
+  as_type () { return this; }
+
+  void replay_into (replayer *r);
+
+private:
+  string * make_debug_string ();
+
+};
+
 // memento of struct_::set_fields
 class fields : public memento
 {
 public:
-  fields (struct_ *struct_,
+  fields (compound_type *struct_or_union,
 	  int num_fields,
 	  field **fields);
 
@@ -832,8 +849,26 @@ private:
   string * make_debug_string ();
 
 private:
-  struct_ *m_struct;
+  compound_type *m_struct_or_union;
   vec<field *> m_fields;
+};
+
+class union_ : public compound_type
+{
+public:
+  union_ (context *ctxt,
+	  location *loc,
+	  string *name);
+
+  void replay_into (replayer *r);
+
+private:
+  string * make_debug_string ();
+
+private:
+  location *m_loc;
+  string *m_name;
+  fields *m_fields;
 };
 
 class rvalue : public memento
@@ -1674,9 +1709,10 @@ public:
 	     type *type,
 	     const char *name);
 
-  struct_ *
-  new_struct_type (location *loc,
-		   const char *name);
+  compound_type *
+  new_compound_type (location *loc,
+		     const char *name,
+		     bool is_struct); /* else is union */
 
   type *
   new_function_type (type *return_type,
@@ -1899,10 +1935,10 @@ private:
   tree m_inner;
 };
 
-class struct_ : public type
+class compound_type : public type
 {
 public:
-  struct_ (tree inner)
+  compound_type (tree inner)
     : type (inner)
   {}
 

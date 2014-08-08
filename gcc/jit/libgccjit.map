@@ -40,6 +40,7 @@
     gcc_jit_context_new_string_literal;
     gcc_jit_context_new_struct_type;
     gcc_jit_context_new_unary_op;
+    gcc_jit_context_new_union_type;
     gcc_jit_context_null;
     gcc_jit_context_one;
     gcc_jit_context_release;

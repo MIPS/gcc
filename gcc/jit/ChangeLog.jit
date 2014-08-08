@@ -1,5 +1,106 @@
 2014-08-08  David Malcolm  <dmalcolm@redhat.com>
 
+	* libgccjit.h (gcc_jit_context_new_union_type): New entrypoint.
+	(gcc_jit_lvalue_access_field): Rename first param from "struct_"
+	to "struct_or_union".
+	(gcc_jit_rvalue_access_field): Likewise.
+
+	* libgccjit.c (gcc_jit_context_new_union_type): New entrypoint.
+
+	* libgccjit.map (gcc_jit_context_new_union_type): New entrypoint.
+
+	* internal-api.h (gcc::jit::recording::compound_type): New class
+	(gcc::jit::recording::union): New class.
+	(gcc::jit::playback::struct_): Rename this class to...
+	(gcc::jit::playback::compound_type): ...this.
+	(gcc::jit::recording::context::new_union_type): New method.
+	(gcc::jit::recording::context): Rename field "m_structs" to
+	"m_compound_types", generalizing from a vec <struct_ *> to a
+	vec<compound_type *>.
+	(gcc::jit::recording::field): Update field m_container from
+	struct * to container_type *.
+	(gcc::jit::recording::field::get_container): Generalize from
+	struct_ * to container_type *.
+	(gcc::jit::recording::field::set_container): Likewise.
+	(gcc::jit::recording::compound_type): New subclass of type, to
+	be a superclass of existing class struct_ and new class union_.
+	(gcc::jit::recording::struct_::get_name): Move to...
+	(gcc::jit::recording::compound_type::get_name): ...here.
+	(gcc::jit::recording::struct_::get_loc): Move to...
+	(gcc::jit::recording::compound_type::get_loc): ...here.
+	(gcc::jit::recording::struct_::set_fields): Move to...
+	(gcc::jit::recording::compound_type::set_fields): ...here.
+	(gcc::jit::recording::struct_::dereference): Move to...
+	(gcc::jit::recording::compound_type::dereference): ...here.
+	(gcc::jit::recording::struct_::is_int): Move to...
+	(gcc::jit::recording::compound_type::is_int): ...here.
+	(gcc::jit::recording::struct_::is_float): Move to...
+	(gcc::jit::recording::compound_type::is_float): ...here.
+	(gcc::jit::recording::struct_::is_bool): Move to...
+	(gcc::jit::recording::compound_type::is_bool): ...here.
+	(gcc::jit::recording::struct_::is_pointer): Move to...
+	(gcc::jit::recording::compound_type::is_pointer): ...here.
+	(gcc::jit::recording::struct_::is_array): Move to...
+	(gcc::jit::recording::compound_type::is_array): ...here.
+	(gcc::jit::recording::struct_::playback_struct): Move to...
+	(gcc::jit::recording::compound_type::playback_compound_type):
+	...here, renaming and updating return type.
+	(gcc::jit::recording::struct_): Inherit from compound_type,
+	rather than just type.
+	(gcc::jit::recording::fields): Update to work on compound_type *
+	rather than struct_ *, renaming "m_struct" to "m_struct_or_union".
+	(gcc::jit::recording::union): New subclass of compound_type.
+	(gcc::jit::playback::context::new_struct_type): Generalize by
+	renaming to...
+	(gcc::jit::playback::context::new_compound_type): ...this, and
+	and an "is_struct" bool param.
+	(gcc::jit::playback::struct_): Generalize by renaming class to...
+	(gcc::jit::playback::compound_type): ...this.
+
+	* internal-api.c (gcc::jit::recording::context::context): Rename
+	field "m_structs" to "m_compound_types".
+	(gcc::jit::recording::context::new_struct_type): Likewise.
+	(gcc::jit::recording::context::new_union_type): New method.
+	(gcc::jit::recording::context::dump_to_file): Field "m_structs"
+	is renamed "m_compound_types" and changes type from struct_ *
+	to compound_type *.
+	(gcc::jit::recording::compound_type::compound_type): New ctor,
+	built from old body of gcc::jit::recording::struct_::struct_.
+	(gcc::jit::recording::struct_::set_fields): Move class to...
+	(gcc::jit::recording::compound_type::set_fields): ... here.
+	(gcc::jit::recording::struct_::dereference): Move class to...
+	(gcc::jit::recording::compound_type::dereference): ...here.
+	(gcc::jit::recording::struct_::struct_): Reimplement by calling
+	base class ctor.
+	(gcc::jit::recording::struct_::replay_into): The playback hook
+	is now "new_compound_type" and adds a bool, with true for
+	"is_struct" (vs a union).
+	(gcc::jit::recording::struct_::make_debug_string): "m_name" is
+	now moved to base class and private, so use an accessor.
+	(gcc::jit::recording::union_::union_): New function.
+	(gcc::jit::recording::union_::replay_into): New function.
+	(gcc::jit::recording::union_::make_debug_string): New function.
+	(gcc::jit::recording::fields::fields): Update first param from
+	struct_ * to compound_type *, and rename field "m_struct" to
+	"m_struct_or_union".
+	(gcc::jit::recording::fields::replay_into): "m_struct" is now
+	"m_struct_or_union" and has a playback_compound_type rather
+	than a playback_struct.
+	(gcc::jit::recording::fields::write_to_dump): Update for
+	renaming of m_struct to m_struct_or_union.
+	(gcc::jit::playback::context::new_struct_type): Rename method
+	to...
+	(gcc::jit::playback::context::new_compound_type): this,
+	generalizing so that it can make unions as well as structs; the
+	underlying playback type is now called "compound_type".
+	(gcc::jit::playback::struct_::set_fields): This method's class has
+	changed name, so this is now...
+	(gcc::jit::playback::compound_type::set_fields): ...this method.
+
+	* TODO.rst: Unions are done.
+
+2014-08-08  David Malcolm  <dmalcolm@redhat.com>
+
 	* TODO.rst: Function ptrs are done.
 	* internal-api.c
 	(gcc::jit::recording::context::new_function_ptr_type): New method.

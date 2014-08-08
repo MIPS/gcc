@@ -462,6 +462,36 @@ gcc_jit_struct_set_fields (gcc_jit_struct *struct_type,
 }
 
 gcc_jit_type *
+gcc_jit_context_new_union_type (gcc_jit_context *ctxt,
+				gcc_jit_location *loc,
+				const char *name,
+				int num_fields,
+				gcc_jit_field **fields)
+{
+  RETURN_NULL_IF_FAIL (ctxt, NULL, NULL, "NULL context");
+  RETURN_NULL_IF_FAIL (name, ctxt, loc, "NULL name");
+  if (num_fields)
+    RETURN_NULL_IF_FAIL (fields, ctxt, loc, "NULL fields ptr");
+  for (int i = 0; i < num_fields; i++)
+    {
+      RETURN_NULL_IF_FAIL (fields[i], ctxt, loc, "NULL field ptr");
+      RETURN_NULL_IF_FAIL_PRINTF2 (
+	NULL == fields[i]->get_container (),
+	ctxt, loc,
+	"%s is already a field of %s",
+	fields[i]->get_debug_string (),
+	fields[i]->get_container ()->get_debug_string ());
+    }
+
+  gcc::jit::recording::union_ *result =
+    ctxt->new_union_type (loc, name);
+  result->set_fields (loc,
+		      num_fields,
+		      (gcc::jit::recording::field **)fields);
+  return (gcc_jit_type *) (result);
+}
+
+gcc_jit_type *
 gcc_jit_context_new_function_ptr_type (gcc_jit_context *ctxt,
 				       gcc_jit_location *loc,
 				       gcc_jit_type *return_type,

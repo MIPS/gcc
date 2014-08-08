@@ -13,11 +13,6 @@ Initial Release
 * enums and ABI: give enums specific numbers, in ranges, to make it
   possible to maintain a logical ordering whilst preserving ABI.
 
-* more language features:
-
-  * more types:
-    * unions
-
 * expose the statements in the API? (mostly so they can be stringified?)
 
 * support more arithmetic ops and comparison modes

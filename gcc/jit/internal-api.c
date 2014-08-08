@@ -134,7 +134,7 @@ recording::context::context (context *parent_ctxt)
   : m_parent_ctxt (parent_ctxt),
     m_error_count (0),
     m_mementos (),
-    m_structs (),
+    m_compound_types (),
     m_functions (),
     m_FILE_type (NULL),
     m_builtins_manager(NULL)
@@ -377,7 +377,17 @@ recording::context::new_struct_type (recording::location *loc,
 {
   recording::struct_ *result = new struct_ (this, loc, new_string (name));
   record (result);
-  m_structs.safe_push (result);
+  m_compound_types.safe_push (result);
+  return result;
+}
+
+recording::union_ *
+recording::context::new_union_type (recording::location *loc,
+				    const char *name)
+{
+  recording::union_ *result = new union_ (this, loc, new_string (name));
+  record (result);
+  m_compound_types.safe_push (result);
   return result;
 }
 
@@ -695,15 +705,15 @@ recording::context::dump_to_file (const char *path, bool update_locations)
   int i;
   dump d (*this, path, update_locations);
 
-  /* Forward declaration of structs.  */
-  struct_ *st;
-  FOR_EACH_VEC_ELT (m_structs, i, st)
+  /* Forward declaration of structs and unions.  */
+  compound_type *st;
+  FOR_EACH_VEC_ELT (m_compound_types, i, st)
     {
       d.write ("%s;\n\n", st->get_debug_string ());
     }
 
   /* Content of structs, where set.  */
-  FOR_EACH_VEC_ELT (m_structs, i, st)
+  FOR_EACH_VEC_ELT (m_compound_types, i, st)
     if (st->get_fields ())
       {
 	st->get_fields ()->write_to_dump (d);
@@ -1294,10 +1304,10 @@ recording::field::make_debug_string ()
   return m_name;
 }
 
-/* gcc::jit::recording::struct_:: */
-recording::struct_::struct_ (context *ctxt,
-			     location *loc,
-			     string *name)
+/* gcc::jit::recording::compound_type */
+recording::compound_type::compound_type (context *ctxt,
+					 location *loc,
+					 string *name)
 : type (ctxt),
   m_loc (loc),
   m_name (name),
@@ -1306,9 +1316,9 @@ recording::struct_::struct_ (context *ctxt,
 }
 
 void
-recording::struct_::set_fields (location *loc,
-				int num_fields,
-				field **field_array)
+recording::compound_type::set_fields (location *loc,
+				      int num_fields,
+				      field **field_array)
 {
   m_loc = loc;
   gcc_assert (NULL == m_fields);
@@ -1318,38 +1328,71 @@ recording::struct_::set_fields (location *loc,
 }
 
 recording::type *
-recording::struct_::dereference ()
+recording::compound_type::dereference ()
 {
   return NULL; /* not a pointer */
+}
+
+/* gcc::jit::recording::struct_:: */
+recording::struct_::struct_ (context *ctxt,
+			     location *loc,
+			     string *name)
+: compound_type (ctxt, loc, name)
+{
 }
 
 void
 recording::struct_::replay_into (replayer *r)
 {
   set_playback_obj (
-    r->new_struct_type (playback_location (r, m_loc),
-			m_name->c_str ()));
+    r->new_compound_type (playback_location (r, get_loc ()),
+			  get_name ()->c_str (),
+			  true /* is_struct */));
 }
 
 recording::string *
 recording::struct_::make_debug_string ()
 {
   return string::from_printf (m_ctxt,
-			      "struct %s", m_name->c_str ());
+			      "struct %s", get_name ()->c_str ());
+}
+
+/* gcc::jit::recording::union_:: */
+recording::union_::union_ (context *ctxt,
+			   location *loc,
+			   string *name)
+: compound_type (ctxt, loc, name)
+{
+}
+
+void
+recording::union_::replay_into (replayer *r)
+{
+  set_playback_obj (
+    r->new_compound_type (playback_location (r, get_loc ()),
+			  get_name ()->c_str (),
+			  false /* is_struct */));
+}
+
+recording::string *
+recording::union_::make_debug_string ()
+{
+  return string::from_printf (m_ctxt,
+			      "union %s", get_name ()->c_str ());
 }
 
 /* gcc::jit::recording::fields:: */
-recording::fields::fields (struct_ *struct_,
+recording::fields::fields (compound_type *struct_or_union,
 			   int num_fields,
 			   field **fields)
-: memento (struct_->m_ctxt),
-  m_struct (struct_),
+: memento (struct_or_union->m_ctxt),
+  m_struct_or_union (struct_or_union),
   m_fields ()
 {
   for (int i = 0; i < num_fields; i++)
     {
       gcc_assert (fields[i]->get_container () == NULL);
-      fields[i]->set_container (m_struct);
+      fields[i]->set_container (m_struct_or_union);
       m_fields.safe_push (fields[i]);
     }
 }
@@ -1361,7 +1404,7 @@ recording::fields::replay_into (replayer *)
   playback_fields.create (m_fields.length ());
   for (unsigned i = 0; i < m_fields.length (); i++)
     playback_fields.safe_push (m_fields[i]->playback_field ());
-  m_struct->playback_struct ()->set_fields (playback_fields);
+  m_struct_or_union->playback_compound_type ()->set_fields (playback_fields);
 }
 
 void
@@ -1370,7 +1413,7 @@ recording::fields::write_to_dump (dump &d)
   int i;
   field *f;
 
-  d.write ("%s\n{\n", m_struct->get_debug_string ());
+  d.write ("%s\n{\n", m_struct_or_union->get_debug_string ());
   FOR_EACH_VEC_ELT (m_fields, i, f)
     f->write_to_dump (d);
   d.write ("};\n");
@@ -2685,27 +2728,28 @@ new_field (location *loc,
   return new field (decl);
 }
 
-playback::struct_ *
+playback::compound_type *
 playback::context::
-new_struct_type (location *loc,
-		 const char *name)
+new_compound_type (location *loc,
+		   const char *name,
+		   bool is_struct) /* else is union */
 {
   gcc_assert (name);
 
   /* Compare with c/c-decl.c: start_struct. */
 
-  tree t = make_node (RECORD_TYPE);
+  tree t = make_node (is_struct ? RECORD_TYPE : UNION_TYPE);
   TYPE_NAME (t) = get_identifier (name);
   TYPE_SIZE (t) = 0;
 
   if (loc)
     set_tree_location (t, loc);
 
-  return new struct_ (t);
+  return new compound_type (t);
 }
 
 void
-playback::struct_::set_fields (const vec<playback::field *> &fields)
+playback::compound_type::set_fields (const vec<playback::field *> &fields)
 {
   /* Compare with c/c-decl.c: finish_struct. */
   tree t = as_tree ();

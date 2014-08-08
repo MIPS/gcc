@@ -436,6 +436,14 @@ gcc_jit_struct_set_fields (gcc_jit_struct *struct_type,
 			   int num_fields,
 			   gcc_jit_field **fields);
 
+/* Unions work similarly to structs.  */
+extern gcc_jit_type *
+gcc_jit_context_new_union_type (gcc_jit_context *ctxt,
+				gcc_jit_location *loc,
+				const char *name,
+				int num_fields,
+				gcc_jit_field **fields);
+
 /* Function pointers. */
 
 extern gcc_jit_type *
@@ -753,7 +761,7 @@ gcc_jit_context_new_array_access (gcc_jit_context *ctxt,
       (EXPR).field = ...;
    in C.  */
 extern gcc_jit_lvalue *
-gcc_jit_lvalue_access_field (gcc_jit_lvalue *struct_,
+gcc_jit_lvalue_access_field (gcc_jit_lvalue *struct_or_union,
 			     gcc_jit_location *loc,
 			     gcc_jit_field *field);
 
@@ -761,7 +769,7 @@ gcc_jit_lvalue_access_field (gcc_jit_lvalue *struct_,
       (EXPR).field
    in C.  */
 extern gcc_jit_rvalue *
-gcc_jit_rvalue_access_field (gcc_jit_rvalue *struct_,
+gcc_jit_rvalue_access_field (gcc_jit_rvalue *struct_or_union,
 			     gcc_jit_location *loc,
 			     gcc_jit_field *field);
 

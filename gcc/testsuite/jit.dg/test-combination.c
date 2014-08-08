@@ -14,6 +14,13 @@
 #undef create_code
 #undef verify_code
 
+/* test-accessing-union.c */
+#define create_code create_code_accessing_union
+#define verify_code verify_code_accessing_union
+#include "test-accessing-union.c"
+#undef create_code
+#undef verify_code
+
 /* test-array-as-pointer.c */
 #define create_code create_code_array_as_pointer
 #define verify_code verify_code_array_as_pointer
@@ -155,6 +162,7 @@ void
 create_code (gcc_jit_context *ctxt, void * user_data)
 {
   create_code_accessing_struct (ctxt, user_data);
+  create_code_accessing_union (ctxt, user_data);
   create_code_array_as_pointer (ctxt, user_data);
   create_code_arrays (ctxt, user_data);
   create_code_calling_external_function (ctxt, user_data);
@@ -179,6 +187,7 @@ void
 verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
 {
   verify_code_accessing_struct (ctxt, result);
+  verify_code_accessing_union (ctxt, result);
   verify_code_array_as_pointer (ctxt, result);
   verify_code_arrays (ctxt, result);
   verify_code_calling_external_function (ctxt, result);
