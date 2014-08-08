@@ -1,6 +1,10 @@
 
 2014-08-08  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/generated/*: Regenerated.
+
+2014-08-08  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{tcalljsonrpc-1 works again}}
 	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.1.1rc0
 

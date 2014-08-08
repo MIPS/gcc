@@ -27,46 +27,46 @@ melt_ptr_t melt_code_to_ctype (int code)
     switch (code)
         {
 
-        /* #1: CTYPE_BASIC_BLOCK */
+            /* #1: CTYPE_BASIC_BLOCK */
         case MELTBPAR_BB:
             return MELT_PREDEF(CTYPE_BASIC_BLOCK);
-        /* #2: CTYPE_BITMAP */
+            /* #2: CTYPE_BITMAP */
         case MELTBPAR_BITMAP:
             return MELT_PREDEF(CTYPE_BITMAP);
-        /* #3: CTYPE_CSTRING */
+            /* #3: CTYPE_CSTRING */
         case MELTBPAR_CSTRING:
             return MELT_PREDEF(CTYPE_CSTRING);
-        /* #4: CTYPE_DOUBLE */
+            /* #4: CTYPE_DOUBLE */
         case MELTBPAR_DOUBLE:
             return MELT_PREDEF(CTYPE_DOUBLE);
-        /* #5: CTYPE_EDGE */
+            /* #5: CTYPE_EDGE */
         case MELTBPAR_EDGE:
             return MELT_PREDEF(CTYPE_EDGE);
-        /* #6: CTYPE_GIMPLE */
+            /* #6: CTYPE_GIMPLE */
         case MELTBPAR_GIMPLE:
             return MELT_PREDEF(CTYPE_GIMPLE);
-        /* #7: CTYPE_GIMPLE_SEQ */
+            /* #7: CTYPE_GIMPLE_SEQ */
         case MELTBPAR_GIMPLESEQ:
             return MELT_PREDEF(CTYPE_GIMPLE_SEQ);
-        /* #8: CTYPE_LONG */
+            /* #8: CTYPE_LONG */
         case MELTBPAR_LONG:
             return MELT_PREDEF(CTYPE_LONG);
-        /* #9: CTYPE_LOOP */
+            /* #9: CTYPE_LOOP */
         case MELTBPAR_LOOP:
             return MELT_PREDEF(CTYPE_LOOP);
-        /* #10: CTYPE_RTVEC */
+            /* #10: CTYPE_RTVEC */
         case MELTBPAR_RTVEC:
             return MELT_PREDEF(CTYPE_RTVEC);
-        /* #11: CTYPE_RTX */
+            /* #11: CTYPE_RTX */
         case MELTBPAR_RTX:
             return MELT_PREDEF(CTYPE_RTX);
-        /* #12: CTYPE_TREE */
+            /* #12: CTYPE_TREE */
         case MELTBPAR_TREE:
             return MELT_PREDEF(CTYPE_TREE);
-        /* #13: CTYPE_VALUE */
+            /* #13: CTYPE_VALUE */
         case MELTBPAR_PTR:
             return MELT_PREDEF(CTYPE_VALUE);
-        /* #14: CTYPE_VOID */
+            /* #14: CTYPE_VOID */
 
         default:
             break;
@@ -86,162 +86,162 @@ const char* melt_obmag_string (int i)
         {
         case 0:
             return "MeltObMag!0" ;
-        /*gtyctype #1 CTYPE_BASIC_BLOCK*/
+            /*gtyctype #1 CTYPE_BASIC_BLOCK*/
         case MELTOBMAG_BASICBLOCK:
             return "MELTOBMAG_BASICBLOCK";
         case MELTOBMAG_MAPBASICBLOCKS:
             return "MELTOBMAG_MAPBASICBLOCKS";
 
-        /*gtyctype #2 CTYPE_BITMAP*/
+            /*gtyctype #2 CTYPE_BITMAP*/
         case MELTOBMAG_BITMAP:
             return "MELTOBMAG_BITMAP";
         case MELTOBMAG_MAPBITMAPS:
             return "MELTOBMAG_MAPBITMAPS";
 
-        /*gtyctype #3 CTYPE_CSTRING*/
-        /*runtypesupport_mag2str no boxed magic */
-        /*runtypesupport_mag2str no map magic */
+            /*gtyctype #3 CTYPE_CSTRING*/
+            /*runtypesupport_mag2str no boxed magic */
+            /*runtypesupport_mag2str no map magic */
 
-        /*gtyctype #4 CTYPE_DOUBLE*/
-        /*runtypesupport_mag2str no boxed magic */
-        /*runtypesupport_mag2str no map magic */
+            /*gtyctype #4 CTYPE_DOUBLE*/
+            /*runtypesupport_mag2str no boxed magic */
+            /*runtypesupport_mag2str no map magic */
 
-        /*gtyctype #5 CTYPE_EDGE*/
+            /*gtyctype #5 CTYPE_EDGE*/
         case MELTOBMAG_EDGE:
             return "MELTOBMAG_EDGE";
         case MELTOBMAG_MAPEDGES:
             return "MELTOBMAG_MAPEDGES";
 
-        /*gtyctype #6 CTYPE_GIMPLE*/
+            /*gtyctype #6 CTYPE_GIMPLE*/
         case MELTOBMAG_GIMPLE:
             return "MELTOBMAG_GIMPLE";
         case MELTOBMAG_MAPGIMPLES:
             return "MELTOBMAG_MAPGIMPLES";
 
-        /*gtyctype #7 CTYPE_GIMPLE_SEQ*/
+            /*gtyctype #7 CTYPE_GIMPLE_SEQ*/
         case MELTOBMAG_GIMPLESEQ:
             return "MELTOBMAG_GIMPLESEQ";
         case MELTOBMAG_MAPGIMPLESEQS:
             return "MELTOBMAG_MAPGIMPLESEQS";
 
-        /*gtyctype #8 CTYPE_LONG*/
-        /*runtypesupport_mag2str no boxed magic */
-        /*runtypesupport_mag2str no map magic */
+            /*gtyctype #8 CTYPE_LONG*/
+            /*runtypesupport_mag2str no boxed magic */
+            /*runtypesupport_mag2str no map magic */
 
-        /*gtyctype #9 CTYPE_LOOP*/
+            /*gtyctype #9 CTYPE_LOOP*/
         case MELTOBMAG_LOOP:
             return "MELTOBMAG_LOOP";
         case MELTOBMAG_MAPLOOPS:
             return "MELTOBMAG_MAPLOOPS";
 
-        /*gtyctype #10 CTYPE_RTVEC*/
+            /*gtyctype #10 CTYPE_RTVEC*/
         case MELTOBMAG_RTVEC:
             return "MELTOBMAG_RTVEC";
         case MELTOBMAG_MAPRTVECS:
             return "MELTOBMAG_MAPRTVECS";
 
-        /*gtyctype #11 CTYPE_RTX*/
+            /*gtyctype #11 CTYPE_RTX*/
         case MELTOBMAG_RTX:
             return "MELTOBMAG_RTX";
         case MELTOBMAG_MAPRTXS:
             return "MELTOBMAG_MAPRTXS";
 
-        /*gtyctype #12 CTYPE_TREE*/
+            /*gtyctype #12 CTYPE_TREE*/
         case MELTOBMAG_TREE:
             return "MELTOBMAG_TREE";
         case MELTOBMAG_MAPTREES:
             return "MELTOBMAG_MAPTREES";
 
-        /*gtyctype #13 CTYPE_VALUE*/
-        /*runtypesupport_mag2str no boxed magic */
-        /*runtypesupport_mag2str no map magic */
+            /*gtyctype #13 CTYPE_VALUE*/
+            /*runtypesupport_mag2str no boxed magic */
+            /*runtypesupport_mag2str no map magic */
 
-        /*gtyctype #14 CTYPE_VOID*/
-        /*runtypesupport_mag2str no boxed magic */
-        /*runtypesupport_mag2str no map magic */
+            /*gtyctype #14 CTYPE_VOID*/
+            /*runtypesupport_mag2str no boxed magic */
+            /*runtypesupport_mag2str no map magic */
 
 
-        /*valdesc #1 VALDESC_BUCKETLONGS*/
+            /*valdesc #1 VALDESC_BUCKETLONGS*/
         case MELTOBMAG_BUCKETLONGS:
             return "MELTOBMAG_BUCKETLONGS";
 
-        /*valdesc #2 VALDESC_CLOSURE*/
+            /*valdesc #2 VALDESC_CLOSURE*/
         case MELTOBMAG_CLOSURE:
             return "MELTOBMAG_CLOSURE";
 
-        /*valdesc #3 VALDESC_DECAY*/
+            /*valdesc #3 VALDESC_DECAY*/
         case MELTOBMAG_DECAY:
             return "MELTOBMAG_DECAY";
 
-        /*valdesc #4 VALDESC_DOUBLE*/
+            /*valdesc #4 VALDESC_DOUBLE*/
         case MELTOBMAG_DOUBLE:
             return "MELTOBMAG_DOUBLE";
 
-        /*valdesc #5 VALDESC_HOOK*/
+            /*valdesc #5 VALDESC_HOOK*/
         case MELTOBMAG_HOOK:
             return "MELTOBMAG_HOOK";
 
-        /*valdesc #6 VALDESC_INT*/
+            /*valdesc #6 VALDESC_INT*/
         case MELTOBMAG_INT:
             return "MELTOBMAG_INT";
 
-        /*valdesc #7 VALDESC_JSONOBJECT*/
+            /*valdesc #7 VALDESC_JSONOBJECT*/
         case MELTOBMAG_JSONOBJECT:
             return "MELTOBMAG_JSONOBJECT";
 
-        /*valdesc #8 VALDESC_LIST*/
+            /*valdesc #8 VALDESC_LIST*/
         case MELTOBMAG_LIST:
             return "MELTOBMAG_LIST";
 
-        /*valdesc #9 VALDESC_MAPOBJECTS*/
+            /*valdesc #9 VALDESC_MAPOBJECTS*/
         case MELTOBMAG_MAPOBJECTS:
             return "MELTOBMAG_MAPOBJECTS";
 
-        /*valdesc #10 VALDESC_MAPSTRINGS*/
+            /*valdesc #10 VALDESC_MAPSTRINGS*/
         case MELTOBMAG_MAPSTRINGS:
             return "MELTOBMAG_MAPSTRINGS";
 
-        /*valdesc #11 VALDESC_MIXBIGINT*/
+            /*valdesc #11 VALDESC_MIXBIGINT*/
         case MELTOBMAG_MIXBIGINT:
             return "MELTOBMAG_MIXBIGINT";
 
-        /*valdesc #12 VALDESC_MIXINT*/
+            /*valdesc #12 VALDESC_MIXINT*/
         case MELTOBMAG_MIXINT:
             return "MELTOBMAG_MIXINT";
 
-        /*valdesc #13 VALDESC_MIXLOC*/
+            /*valdesc #13 VALDESC_MIXLOC*/
         case MELTOBMAG_MIXLOC:
             return "MELTOBMAG_MIXLOC";
 
-        /*valdesc #14 VALDESC_MULTIPLE*/
+            /*valdesc #14 VALDESC_MULTIPLE*/
         case MELTOBMAG_MULTIPLE:
             return "MELTOBMAG_MULTIPLE";
 
-        /*valdesc #15 VALDESC_OBJECT*/
+            /*valdesc #15 VALDESC_OBJECT*/
         case MELTOBMAG_OBJECT:
             return "MELTOBMAG_OBJECT";
 
-        /*valdesc #16 VALDESC_PAIR*/
+            /*valdesc #16 VALDESC_PAIR*/
         case MELTOBMAG_PAIR:
             return "MELTOBMAG_PAIR";
 
-        /*valdesc #17 VALDESC_REAL*/
+            /*valdesc #17 VALDESC_REAL*/
         case MELTOBMAG_REAL:
             return "MELTOBMAG_REAL";
 
-        /*valdesc #18 VALDESC_ROUTINE*/
+            /*valdesc #18 VALDESC_ROUTINE*/
         case MELTOBMAG_ROUTINE:
             return "MELTOBMAG_ROUTINE";
 
-        /*valdesc #19 VALDESC_SPECIAL_DATA*/
+            /*valdesc #19 VALDESC_SPECIAL_DATA*/
         case MELTOBMAG_SPECIAL_DATA:
             return "MELTOBMAG_SPECIAL_DATA";
 
-        /*valdesc #20 VALDESC_STRBUF*/
+            /*valdesc #20 VALDESC_STRBUF*/
         case MELTOBMAG_STRBUF:
             return "MELTOBMAG_STRBUF";
 
-        /*valdesc #21 VALDESC_STRING*/
+            /*valdesc #21 VALDESC_STRING*/
         case MELTOBMAG_STRING:
             return "MELTOBMAG_STRING";
         default:
@@ -277,9 +277,9 @@ melt_forwarded_copy (melt_ptr_t p)
     switch (mag)   /* end of generated header */
         {
 
-        /* value descriptor forward copy for melt_forwarded_copy  */
+            /* value descriptor forward copy for melt_forwarded_copy  */
 
-        /*valdesc #1 VALDESC_BUCKETLONGS*/
+            /*valdesc #1 VALDESC_BUCKETLONGS*/
         case MELTOBMAG_BUCKETLONGS:
         {
             struct meltbucketlongs_st*src = (struct meltbucketlongs_st*) p;
@@ -1285,9 +1285,9 @@ melt_scanning (melt_ptr_t p)
     omagic = p->u_discr->meltobj_magic;
     switch (omagic)
         {
-        /* end of header from generate_runtypesupport_scanning*/
+            /* end of header from generate_runtypesupport_scanning*/
 
-        /*valdesc #1 VALDESC_BUCKETLONGS*/
+            /*valdesc #1 VALDESC_BUCKETLONGS*/
         case MELTOBMAG_BUCKETLONGS:
         {
             struct meltbucketlongs_st*src = (struct meltbucketlongs_st*) p;
@@ -1622,7 +1622,7 @@ melt_scanning (melt_ptr_t p)
                         } /*end if empty at */
                     MELT_FORWARDED (src->entab[ix].e_va);
                 } /*end for ix*/
-            };    /* end case MELTOBMAG_MAPBASICBLOCKS */
+        };    /* end case MELTOBMAG_MAPBASICBLOCKS */
         break;
         /*gtyctype #2 CTYPE_BITMAP*/
         case MELTOBMAG_BITMAP:
@@ -1651,7 +1651,7 @@ melt_scanning (melt_ptr_t p)
                         } /*end if empty at */
                     MELT_FORWARDED (src->entab[ix].e_va);
                 } /*end for ix*/
-            };    /* end case MELTOBMAG_MAPBITMAPS */
+        };    /* end case MELTOBMAG_MAPBITMAPS */
         break;
         /*gtyctype #3 CTYPE_EDGE*/
         case MELTOBMAG_EDGE:
@@ -1680,7 +1680,7 @@ melt_scanning (melt_ptr_t p)
                         } /*end if empty at */
                     MELT_FORWARDED (src->entab[ix].e_va);
                 } /*end for ix*/
-            };    /* end case MELTOBMAG_MAPEDGES */
+        };    /* end case MELTOBMAG_MAPEDGES */
         break;
         /*gtyctype #4 CTYPE_GIMPLE*/
         case MELTOBMAG_GIMPLE:
@@ -1709,7 +1709,7 @@ melt_scanning (melt_ptr_t p)
                         } /*end if empty at */
                     MELT_FORWARDED (src->entab[ix].e_va);
                 } /*end for ix*/
-            };    /* end case MELTOBMAG_MAPGIMPLES */
+        };    /* end case MELTOBMAG_MAPGIMPLES */
         break;
         /*gtyctype #5 CTYPE_GIMPLE_SEQ*/
         case MELTOBMAG_GIMPLESEQ:
@@ -1738,7 +1738,7 @@ melt_scanning (melt_ptr_t p)
                         } /*end if empty at */
                     MELT_FORWARDED (src->entab[ix].e_va);
                 } /*end for ix*/
-            };    /* end case MELTOBMAG_MAPGIMPLESEQS */
+        };    /* end case MELTOBMAG_MAPGIMPLESEQS */
         break;
         /*gtyctype #6 CTYPE_LOOP*/
         case MELTOBMAG_LOOP:
@@ -1767,7 +1767,7 @@ melt_scanning (melt_ptr_t p)
                         } /*end if empty at */
                     MELT_FORWARDED (src->entab[ix].e_va);
                 } /*end for ix*/
-            };    /* end case MELTOBMAG_MAPLOOPS */
+        };    /* end case MELTOBMAG_MAPLOOPS */
         break;
         /*gtyctype #7 CTYPE_RTVEC*/
         case MELTOBMAG_RTVEC:
@@ -1796,7 +1796,7 @@ melt_scanning (melt_ptr_t p)
                         } /*end if empty at */
                     MELT_FORWARDED (src->entab[ix].e_va);
                 } /*end for ix*/
-            };    /* end case MELTOBMAG_MAPRTVECS */
+        };    /* end case MELTOBMAG_MAPRTVECS */
         break;
         /*gtyctype #8 CTYPE_RTX*/
         case MELTOBMAG_RTX:
@@ -1825,7 +1825,7 @@ melt_scanning (melt_ptr_t p)
                         } /*end if empty at */
                     MELT_FORWARDED (src->entab[ix].e_va);
                 } /*end for ix*/
-            };    /* end case MELTOBMAG_MAPRTXS */
+        };    /* end case MELTOBMAG_MAPRTXS */
         break;
         /*gtyctype #9 CTYPE_TREE*/
         case MELTOBMAG_TREE:
@@ -1854,7 +1854,7 @@ melt_scanning (melt_ptr_t p)
                         } /*end if empty at */
                     MELT_FORWARDED (src->entab[ix].e_va);
                 } /*end for ix*/
-            };    /* end case MELTOBMAG_MAPTREES */
+        };    /* end case MELTOBMAG_MAPTREES */
         break;
         /* trailer generated by generate_runtypesupport_scanning */
         default:
@@ -2256,9 +2256,9 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
         {
 
 
-        /*** cloning 9 GTY-ed ctypes ***/
+            /*** cloning 9 GTY-ed ctypes ***/
 
-        /*cloning gtyctype #1 CTYPE_BASIC_BLOCK */
+            /*cloning gtyctype #1 CTYPE_BASIC_BLOCK */
         case MELTOBMAG_BASICBLOCK :   /* cloning boxed value CTYPE_BASIC_BLOCK */
         {
             struct meltbasicblock_st *src = (struct meltbasicblock_st *) srcvalv;
@@ -2642,8 +2642,8 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
         /*no cloning for VALDESC_HOOK*/
         case MELTOBMAG_HOOK:
             break;
-        /** cloning value descriptor #6 VALDESC_INT **/
-        /*default cloning for VALDESC_INT*/
+            /** cloning value descriptor #6 VALDESC_INT **/
+            /*default cloning for VALDESC_INT*/
         case MELTOBMAG_INT:
         {
             struct meltint_st *src = (struct meltint_st*) srcvalv;
@@ -2783,8 +2783,8 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
         /*no cloning for VALDESC_MIXBIGINT*/
         case MELTOBMAG_MIXBIGINT:
             break;
-        /** cloning value descriptor #12 VALDESC_MIXINT **/
-        /*default cloning for VALDESC_MIXINT*/
+            /** cloning value descriptor #12 VALDESC_MIXINT **/
+            /*default cloning for VALDESC_MIXINT*/
         case MELTOBMAG_MIXINT:
         {
             struct meltmixint_st *src = (struct meltmixint_st*) srcvalv;
@@ -2913,12 +2913,12 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
         /*no cloning for VALDESC_ROUTINE*/
         case MELTOBMAG_ROUTINE:
             break;
-        /** cloning value descriptor #19 VALDESC_SPECIAL_DATA **/
-        /*no cloning for VALDESC_SPECIAL_DATA*/
+            /** cloning value descriptor #19 VALDESC_SPECIAL_DATA **/
+            /*no cloning for VALDESC_SPECIAL_DATA*/
         case MELTOBMAG_SPECIAL_DATA:
             break;
-        /** cloning value descriptor #20 VALDESC_STRBUF **/
-        /*explicit cloning for VALDESC_STRBUF*/
+            /** cloning value descriptor #20 VALDESC_STRBUF **/
+            /*explicit cloning for VALDESC_STRBUF*/
         case MELTOBMAG_STRBUF:
         {
             struct meltstrbuf_st *src = (struct meltstrbuf_st*) srcvalv;
@@ -4294,5 +4294,5 @@ void melthookproc_HOOK_VALUE_EXPORTER(melt_ptr_t meltin_SYM_p0, melt_ptr_t melti
 
 /* end of code generated by generate_runtypesupport_predefined_hooks for 159 predefined */
 
-/*** End of code file meltbuild-sources/generated/meltrunsup-inc.cc generated on 2014 Jul 29
- * by GCC MELT 4.9.0 20140408 (experimental) [melt-branch revision 213176] MELT_1.1.0+ . ***/
+/*** End of code file meltbuild-sources/generated/meltrunsup-inc.cc generated on 2014 Aug 08
+ * by GCC MELT 4.9.0 20140408 (experimental) [melt-branch revision 213274] MELT_1.1.1rc0 . ***/
