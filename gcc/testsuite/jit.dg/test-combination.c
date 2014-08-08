@@ -35,6 +35,13 @@
 #undef create_code
 #undef verify_code
 
+/* test-calling-function-ptr.c */
+#define create_code create_code_calling_function_ptr
+#define verify_code verify_code_calling_function_ptr
+#include "test-calling-function-ptr.c"
+#undef create_code
+#undef verify_code
+
 /* test-dot-product.c */
 #define create_code create_code_dot_product
 #define verify_code verify_code_dot_product
@@ -151,6 +158,7 @@ create_code (gcc_jit_context *ctxt, void * user_data)
   create_code_array_as_pointer (ctxt, user_data);
   create_code_arrays (ctxt, user_data);
   create_code_calling_external_function (ctxt, user_data);
+  create_code_calling_function_ptr (ctxt, user_data);
   create_code_dot_product (ctxt, user_data);
   create_code_expressions (ctxt, user_data);
   create_code_factorial (ctxt, user_data);
@@ -172,6 +180,7 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
   verify_code_array_as_pointer (ctxt, result);
   verify_code_arrays (ctxt, result);
   verify_code_calling_external_function (ctxt, result);
+  verify_code_calling_function_ptr (ctxt, result);
   verify_code_dot_product (ctxt, result);
   verify_code_expressions (ctxt, result);
   verify_code_factorial (ctxt, result);

@@ -1,3 +1,50 @@
+2014-08-08  David Malcolm  <dmalcolm@redhat.com>
+
+	* TODO.rst: Function ptrs are done.
+	* internal-api.c
+	(gcc::jit::recording::context::new_function_ptr_type): New method.
+	(gcc::jit::recording::context::new_call_through_ptr): New method.
+	(gcc::jit::recording::memento_of_get_pointer::make_debug_string):
+	Add special-case handling of function pointer types.
+	(gcc::jit::recording::function_type::make_debug_string_with_ptr):
+	New method.
+	(gcc::jit::recording::function_type::make_debug_string):
+	Reimplement in terms of...
+	(gcc::jit::recording::function_type::make_debug_string_with): New
+	method, based on make_debug_string, but allowing for arbitrary
+	text between the return type and the parameters.
+	(gcc::jit::recording::call_through_ptr::call_through_ptr): New
+	method.
+	(gcc::jit::recording::call_through_ptr::replay_into): New method.
+	(gcc::jit::recording::call_through_ptr::make_debug_string): New
+	method.
+	(gcc::jit::playback::context::new_call): Reimplement in terms of...
+	(gcc::jit::playback::context::build_call): New method, using parts
+	of old implementation of new_call, so that we can share this
+	with...
+	(gcc::jit::playback::context::new_call_through_ptr): New method.
+	* internal-api.h
+	(gcc::jit::recording::context::new_function_ptr_type): New method.
+	(gcc::jit::recording::context::new_call_through_ptr): New method.
+	(gcc::jit::recording::type::dyn_cast_function_type): New method.
+	(gcc::jit::recording::function_type::dyn_cast_function_type): New
+	method.
+	(gcc::jit::recording::function_type::make_debug_string_with_ptr):
+	New method.
+	(gcc::jit::recording::function_type::make_debug_string_with): New
+	method.
+	(gcc::jit::recording::call_through_ptr): New subclass of rvalue.
+	(gcc::jit::playback::context::new_call_through_ptr): New method.
+	(gcc::jit::playback::context::build_call): New method.
+	* libgccjit.c (gcc_jit_context_new_function_ptr_type): New
+	function.
+	(gcc_jit_context_new_call_through_ptr): New function.
+	* libgccjit.h (gcc_jit_context_new_function_ptr_type): New
+	function.
+	(gcc_jit_context_new_call_through_ptr): New function.
+	* libgccjit.map (gcc_jit_context_new_call_through_ptr): New function.
+	(gcc_jit_context_new_function_ptr_type): New function.
+
 2014-07-25  David Malcolm  <dmalcolm@redhat.com>
 
 	* TODO.rst (error-checking): Remove various items that either

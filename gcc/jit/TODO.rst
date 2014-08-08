@@ -17,7 +17,6 @@ Initial Release
 
   * more types:
     * unions
-    * function ptrs
 
 * expose the statements in the API? (mostly so they can be stringified?)
 
@@ -30,10 +29,6 @@ Initial Release
                                   void *); /* need type information */
 
   so you can access "static" fns in your code.
-
-* ability to call an rvalue function pointer, perhaps keeping the
-  existing API to avoid needing to build a function ptr from a
-  function.
 
 * ability to turn a function into a function pointer::
 

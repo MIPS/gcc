@@ -436,6 +436,16 @@ gcc_jit_struct_set_fields (gcc_jit_struct *struct_type,
 			   int num_fields,
 			   gcc_jit_field **fields);
 
+/* Function pointers. */
+
+extern gcc_jit_type *
+gcc_jit_context_new_function_ptr_type (gcc_jit_context *ctxt,
+				       gcc_jit_location *loc,
+				       gcc_jit_type *return_type,
+				       int num_params,
+				       gcc_jit_type **param_types,
+				       int is_variadic);
+
 /**********************************************************************
  Constructing functions.
  **********************************************************************/
@@ -704,11 +714,21 @@ gcc_jit_context_new_comparison (gcc_jit_context *ctxt,
 				enum gcc_jit_comparison op,
 				gcc_jit_rvalue *a, gcc_jit_rvalue *b);
 
+/* Function calls.  */
+
+/* Call of a specific function.  */
 extern gcc_jit_rvalue *
 gcc_jit_context_new_call (gcc_jit_context *ctxt,
 			  gcc_jit_location *loc,
 			  gcc_jit_function *func,
 			  int numargs , gcc_jit_rvalue **args);
+
+/* Call through a function pointer.  */
+extern gcc_jit_rvalue *
+gcc_jit_context_new_call_through_ptr (gcc_jit_context *ctxt,
+				      gcc_jit_location *loc,
+				      gcc_jit_rvalue *fn_ptr,
+				      int numargs, gcc_jit_rvalue **args);
 
 /* Type-coercion.
 

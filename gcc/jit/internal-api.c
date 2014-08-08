@@ -381,6 +381,24 @@ recording::context::new_struct_type (recording::location *loc,
   return result;
 }
 
+recording::type *
+recording::context::new_function_ptr_type (recording::location *, /* unused loc */
+					   recording::type *return_type,
+					   int num_params,
+					   recording::type **param_types,
+					   int is_variadic)
+{
+  recording::function_type *fn_type =
+    new function_type (this,
+		       return_type,
+		       num_params,
+		       param_types,
+		       is_variadic);
+  record (fn_type);
+
+  /* Return a pointer-type to the the function type.  */
+  return fn_type->get_pointer ();
+}
 
 recording::param *
 recording::context::new_param (recording::location *loc,
@@ -524,6 +542,17 @@ recording::context::new_call (recording::location *loc,
 			      int numargs , recording::rvalue **args)
 {
   recording::rvalue *result = new call (this, loc, func, numargs, args);
+  record (result);
+  return result;
+}
+
+recording::rvalue *
+recording::context::new_call_through_ptr (recording::location *loc,
+					  recording::rvalue *fn_ptr,
+					  int numargs,
+					  recording::rvalue **args)
+  {
+  recording::rvalue *result = new call_through_ptr (this, loc, fn_ptr, numargs, args);
   record (result);
   return result;
 }
@@ -1076,6 +1105,12 @@ recording::memento_of_get_pointer::replay_into (replayer *)
 recording::string *
 recording::memento_of_get_pointer::make_debug_string ()
 {
+  /* Special-case function pointer types, to put the "*" in parens between
+     the return type and the params (for one level of dereferencing, at
+     least).  */
+  if (function_type *fn_type = m_other_type->dyn_cast_function_type ())
+    return fn_type->make_debug_string_with_ptr ();
+
   return string::from_printf (m_ctxt,
 			      "%s *", m_other_type->get_debug_string ());
 }
@@ -1173,7 +1208,19 @@ recording::function_type::replay_into (replayer *r)
 }
 
 recording::string *
+recording::function_type::make_debug_string_with_ptr ()
+{
+  return make_debug_string_with ("(*) ");
+}
+
+recording::string *
 recording::function_type::make_debug_string ()
+{
+  return make_debug_string_with ("");
+}
+
+recording::string *
+recording::function_type::make_debug_string_with (const char *insert)
 {
   /* First, build a buffer for the arguments.  */
   /* Calculate length of said buffer.  */
@@ -1214,8 +1261,9 @@ recording::function_type::make_debug_string ()
 
   /* ...and use it to get the string for the call as a whole.  */
   string *result = string::from_printf (m_ctxt,
-					"%s (%s)",
+					"%s %s(%s)",
 					m_return_type->get_debug_string (),
+					insert,
 					argbuf);
 
   delete[] argbuf;
@@ -2085,6 +2133,73 @@ recording::call::make_debug_string ()
   string *result = string::from_printf (m_ctxt,
 					"%s (%s)",
 					m_func->get_debug_string (),
+					argbuf);
+
+  delete[] argbuf;
+
+  return result;
+}
+
+recording::call_through_ptr::call_through_ptr (recording::context *ctxt,
+					       recording::location *loc,
+					       recording::rvalue *fn_ptr,
+					       int numargs,
+					       rvalue **args)
+: rvalue (ctxt, loc,
+	  fn_ptr->get_type ()->dereference ()
+	    ->as_a_function_type ()->get_return_type ()),
+  m_fn_ptr (fn_ptr),
+  m_args ()
+{
+  for (int i = 0; i< numargs; i++)
+    m_args.safe_push (args[i]);
+}
+
+void
+recording::call_through_ptr::replay_into (replayer *r)
+{
+  vec<playback::rvalue *> playback_args;
+  playback_args.create (m_args.length ());
+  for (unsigned i = 0; i< m_args.length (); i++)
+    playback_args.safe_push (m_args[i]->playback_rvalue ());
+
+  set_playback_obj (r->new_call_through_ptr (playback_location (r, m_loc),
+					     m_fn_ptr->playback_rvalue (),
+					     playback_args));
+}
+
+recording::string *
+recording::call_through_ptr::make_debug_string ()
+{
+  /* First, build a buffer for the arguments.  */
+  /* Calculate length of said buffer.  */
+  size_t sz = 1; /* nil terminator */
+  for (unsigned i = 0; i< m_args.length (); i++)
+    {
+      sz += strlen (m_args[i]->get_debug_string ());
+      sz += 2; /* ", " separator */
+    }
+
+  /* Now allocate and populate the buffer.  */
+  char *argbuf = new char[sz];
+  size_t len = 0;
+
+  for (unsigned i = 0; i< m_args.length (); i++)
+    {
+      strcpy (argbuf + len, m_args[i]->get_debug_string ());
+      len += strlen (m_args[i]->get_debug_string ());
+      if (i + 1 < m_args.length ())
+	{
+	  strcpy (argbuf + len, ", ");
+	  len += 2;
+	}
+    }
+  argbuf[len] = '\0';
+
+  /* ...and use it to get the string for the call as a whole.  */
+  string *result = string::from_printf (m_ctxt,
+					"%s (%s)",
+					m_fn_ptr->get_debug_string (),
 					argbuf);
 
   delete[] argbuf;
@@ -3034,33 +3149,25 @@ new_comparison (location *loc,
 
 playback::rvalue *
 playback::context::
-new_call (location *loc,
-	  function *func,
-	  vec<rvalue *> args)
+build_call (location *loc,
+	    tree fn_ptr,
+	    vec<rvalue *> args)
 {
-  tree fndecl;
   vec<tree, va_gc> *tree_args;
-
-  gcc_assert (func);
-
-  // FIXME: type checking
-  // FIXME: check num args and types
-
-  fndecl = func->as_fndecl ();
-
   vec_alloc (tree_args, args.length ());
   for (unsigned i = 0; i < args.length (); i++)
     tree_args->quick_push (args[i]->as_tree ());
 
-  tree fntype = TREE_TYPE (fndecl);
-  tree fn = build1 (ADDR_EXPR, build_pointer_type (fntype), fndecl);
-
   if (loc)
-    set_tree_location (fn, loc);
+    set_tree_location (fn_ptr, loc);
+
+  tree fn = TREE_TYPE (fn_ptr);
+  tree fn_type = TREE_TYPE (fn);
+  tree return_type = TREE_TYPE (fn_type);
 
   return new rvalue (this,
-		     build_call_vec (func->get_return_type_as_tree (),
-				     fn, tree_args));
+		     build_call_vec (return_type,
+				     fn_ptr, tree_args));
 
   /* see c-typeck.c: build_function_call
      which calls build_function_call_vec
@@ -3071,6 +3178,37 @@ new_call (location *loc,
     which is in tree.c
     (see also build_call_vec)
    */
+}
+
+playback::rvalue *
+playback::context::
+new_call (location *loc,
+	  function *func,
+	  vec<rvalue *> args)
+{
+  tree fndecl;
+
+  gcc_assert (func);
+
+  fndecl = func->as_fndecl ();
+
+  tree fntype = TREE_TYPE (fndecl);
+
+  tree fn = build1 (ADDR_EXPR, build_pointer_type (fntype), fndecl);
+
+  return build_call (loc, fn, args);
+}
+
+playback::rvalue *
+playback::context::
+new_call_through_ptr (location *loc,
+		      rvalue *fn_ptr,
+		      vec<rvalue *> args)
+{
+  gcc_assert (fn_ptr);
+  tree t_fn_ptr = fn_ptr->as_tree ();
+
+  return build_call (loc, t_fn_ptr, args);
 }
 
 tree

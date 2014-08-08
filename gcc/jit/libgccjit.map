@@ -23,11 +23,13 @@
     gcc_jit_context_new_array_type;
     gcc_jit_context_new_binary_op;
     gcc_jit_context_new_call;
+    gcc_jit_context_new_call_through_ptr;
     gcc_jit_context_new_cast;
     gcc_jit_context_new_child_context;
     gcc_jit_context_new_comparison;
     gcc_jit_context_new_field;
     gcc_jit_context_new_function;
+    gcc_jit_context_new_function_ptr_type;
     gcc_jit_context_new_global;
     gcc_jit_context_new_location;
     gcc_jit_context_new_opaque_struct;

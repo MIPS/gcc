@@ -192,6 +192,13 @@ public:
   new_struct_type (location *loc,
 		   const char *name);
 
+  type *
+  new_function_ptr_type (location *loc,
+			 type *return_type,
+			 int num_params,
+			 type **param_types,
+			 int is_variadic);
+
   param *
   new_param (location *loc,
 	     type *type,
@@ -251,6 +258,11 @@ public:
   new_call (location *loc,
 	    function *func,
 	    int numargs, rvalue **args);
+
+  rvalue *
+  new_call_through_ptr (location *loc,
+			rvalue *fn_ptr,
+			int numargs, rvalue **args);
 
   rvalue *
   new_cast (location *loc,
@@ -478,6 +490,7 @@ public:
   virtual type *dereference () = 0;
 
   /* Dynamic casts.  */
+  virtual function_type *dyn_cast_function_type () { return NULL; }
   virtual function_type *as_a_function_type() { gcc_unreachable (); return NULL; }
   virtual struct_ *dyn_cast_struct () { return NULL; }
 
@@ -692,6 +705,7 @@ public:
 		 int is_variadic);
 
   type *dereference ();
+  function_type *dyn_cast_function_type () { return this; }
   function_type *as_a_function_type () { return this; }
 
   bool is_int () const { return false; }
@@ -706,8 +720,11 @@ public:
   vec<type *> get_param_types () const { return m_param_types; }
   int is_variadic () const { return m_is_variadic; }
 
+  string * make_debug_string_with_ptr ();
+
  private:
   string * make_debug_string ();
+  string * make_debug_string_with (const char *);
 
 private:
   type *m_return_type;
@@ -1262,6 +1279,25 @@ private:
   vec<rvalue *> m_args;
 };
 
+class call_through_ptr : public rvalue
+{
+public:
+  call_through_ptr (context *ctxt,
+		    location *loc,
+		    rvalue *fn_ptr,
+		    int numargs,
+		    rvalue **args);
+
+  void replay_into (replayer *r);
+
+private:
+  string * make_debug_string ();
+
+private:
+  rvalue *m_fn_ptr;
+  vec<rvalue *> m_args;
+};
+
 class array_access : public lvalue
 {
 public:
@@ -1704,6 +1740,11 @@ public:
 	    vec<rvalue *> args);
 
   rvalue *
+  new_call_through_ptr (location *loc,
+			rvalue *fn_ptr,
+			vec<rvalue *> args);
+
+  rvalue *
   new_cast (location *loc,
 	    rvalue *expr,
 	    type *type_);
@@ -1778,6 +1819,11 @@ public:
 
 private:
   void dump_generated_code ();
+
+  rvalue *
+  build_call (location *loc,
+	      tree fn_ptr,
+	      vec<rvalue *> args);
 
   tree
   build_cast (location *loc,

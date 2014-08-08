@@ -1,3 +1,16 @@
+2014-08-08  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/test-calling-function-ptr.c: New test case.
+	* jit.dg/test-combination.c: Add test-calling-function-ptr.c.
+	* jit.dg/test-error-call-through-ptr-with-mismatching-args.c: New
+	test case.
+	* jit.dg/test-error-call-through-ptr-with-non-function.c: New test
+	case.
+	* jit.dg/test-error-call-through-ptr-with-non-pointer.c: New test
+	case.
+	* jit.dg/test-error-call-through-ptr-with-not-enough-args.c: New
+	test case.
+
 2014-07-25  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/test-error-index-not-a-numeric-type.c: New test case.

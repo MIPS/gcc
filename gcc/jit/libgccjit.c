@@ -461,6 +461,33 @@ gcc_jit_struct_set_fields (gcc_jit_struct *struct_type,
 			   (gcc::jit::recording::field **)fields);
 }
 
+gcc_jit_type *
+gcc_jit_context_new_function_ptr_type (gcc_jit_context *ctxt,
+				       gcc_jit_location *loc,
+				       gcc_jit_type *return_type,
+				       int num_params,
+				       gcc_jit_type **param_types,
+				       int is_variadic)
+{
+  RETURN_NULL_IF_FAIL (ctxt, NULL, loc, "NULL context");
+  RETURN_NULL_IF_FAIL (return_type, ctxt, loc, "NULL return_type");
+  RETURN_NULL_IF_FAIL (
+    (num_params == 0) || param_types,
+    ctxt, loc,
+    "NULL param_types creating function pointer type");
+  for (int i = 0; i < num_params; i++)
+    RETURN_NULL_IF_FAIL_PRINTF1 (
+      param_types[i],
+      ctxt, loc,
+      "NULL parameter type %i creating function pointer type", i);
+
+  return (gcc_jit_type*)
+    ctxt->new_function_ptr_type (loc, return_type,
+				 num_params,
+				 (gcc::jit::recording::type **)param_types,
+				 is_variadic);
+}
+
 /* Constructing functions.  */
 gcc_jit_param *
 gcc_jit_context_new_param (gcc_jit_context *ctxt,
@@ -887,6 +914,88 @@ gcc_jit_context_new_call (gcc_jit_context *ctxt,
 					   func,
 					   numargs,
 					   (gcc::jit::recording::rvalue **)args);
+}
+
+gcc_jit_rvalue *
+gcc_jit_context_new_call_through_ptr (gcc_jit_context *ctxt,
+				      gcc_jit_location *loc,
+				      gcc_jit_rvalue *fn_ptr,
+				      int numargs, gcc_jit_rvalue **args)
+{
+  RETURN_NULL_IF_FAIL (ctxt, NULL, loc, "NULL context");
+  RETURN_NULL_IF_FAIL (fn_ptr, ctxt, loc, "NULL fn_ptr");
+  if (numargs)
+    RETURN_NULL_IF_FAIL (args, ctxt, loc, "NULL args");
+
+  gcc::jit::recording::type *ptr_type = fn_ptr->get_type ()->dereference ();
+  RETURN_NULL_IF_FAIL_PRINTF2 (
+    ptr_type, ctxt, loc,
+    "fn_ptr is not a ptr: %s"
+    " type: %s",
+    fn_ptr->get_debug_string (),
+    fn_ptr->get_type ()->get_debug_string ());
+
+  gcc::jit::recording::function_type *fn_type =
+    ptr_type->dyn_cast_function_type();
+  RETURN_NULL_IF_FAIL_PRINTF2 (
+    fn_type, ctxt, loc,
+    "fn_ptr is not a function ptr: %s"
+    " type: %s",
+    fn_ptr->get_debug_string (),
+    fn_ptr->get_type ()->get_debug_string ());
+
+  int min_num_params = fn_type->get_param_types ().length ();
+  bool is_variadic = fn_type->is_variadic ();
+
+  RETURN_NULL_IF_FAIL_PRINTF3 (
+    numargs >= min_num_params,
+    ctxt, loc,
+    "not enough arguments to fn_ptr: %s"
+    " (got %i args, expected %i)",
+    fn_ptr->get_debug_string (),
+    numargs, min_num_params);
+
+  RETURN_NULL_IF_FAIL_PRINTF3 (
+    (numargs == min_num_params || is_variadic),
+    ctxt, loc,
+    "too many arguments to fn_ptr: %s"
+    " (got %i args, expected %i)",
+    fn_ptr->get_debug_string (),
+    numargs, min_num_params);
+
+  for (int i = 0; i < min_num_params; i++)
+    {
+      gcc::jit::recording::type *param_type = fn_type->get_param_types ()[i];
+      gcc_jit_rvalue *arg = args[i];
+
+      RETURN_NULL_IF_FAIL_PRINTF3 (
+	arg,
+	ctxt, loc,
+	"NULL argument %i to fn_ptr: %s"
+	" (type: %s)",
+	i + 1,
+	fn_ptr->get_debug_string (),
+	param_type->get_debug_string ());
+
+      RETURN_NULL_IF_FAIL_PRINTF6 (
+	compatible_types (param_type,
+			  arg->get_type ()),
+	ctxt, loc,
+	"mismatching types for argument %d of fn_ptr: %s:"
+	" assignment to param %d (type: %s) from %s (type: %s)",
+	i + 1,
+	fn_ptr->get_debug_string (),
+	i + 1,
+	param_type->get_debug_string (),
+	arg->get_debug_string (),
+	arg->get_type ()->get_debug_string ());
+    }
+
+  return (gcc_jit_rvalue *)(
+	    ctxt->new_call_through_ptr (loc,
+					fn_ptr,
+					numargs,
+					(gcc::jit::recording::rvalue **)args));
 }
 
 static bool
