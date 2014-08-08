@@ -41,7 +41,8 @@ int main(int argc, char* argv[])
     ////////////////////////////////////////////////////////////////////////
     // Run
 
-    std::clog << __FILE__ << ":" << __LINE__ << " running pid #" << (int)getpid() << std::endl;
+    std::clog << __FILE__ << ":" << __LINE__ << " running pid #" << (int)getpid()
+	      << " ip=" << ip << " port=" << port << std::endl;
     
     // now start the servers by running the event loop
     loop.run();

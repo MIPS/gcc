@@ -18,6 +18,8 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 (debug "tcalljsonrpc-1 " "before rpccall")
 (let ( (res (do_blocking_jsonrpc2_call '"localhost:8088" 'add (tuple '1 '2) 7650))
      )
-  (debug "tcalljsonrpc-1 " "got result res=" res))
+  (debug "tcalljsonrpc-1 " "got result res=" res)
+  (inform_at () "tcalljsonrpc-1 result $1" res)
+  )
 ;; eof tcalljsonrpc-1.melt
      

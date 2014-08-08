@@ -1,6 +1,18 @@
 
 2014-08-08  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{tcalljsonrpc-1 works again}}
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.1.1rc0
+
+	* melt/warmelt-hooks.melt (connect_to_server): Improve handling
+	for service like localhost:8880 ...
+
+	* testsuite/melt/tcalljsonrpc-1.melt: More debugging.
+
+	* testsuite/melt/tservjsonrpc-1.cc: More debugging.
+
+2014-08-08  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-debug.melt (melt_debug_fun): Add final flush.
 
 2014-08-05  Basile Starynkevitch  <basile@starynkevitch.net>

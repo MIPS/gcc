@@ -2554,15 +2554,20 @@ exit, in last place.}#
 	       $READCNT = read ($CURFD, rdbuf, sizeof(rdbuf)) ;
 	       if ($READCNT > 0)
 	         meltgc_add_out_raw_len ((melt_ptr_t) $SBUF, rdbuf, $READCNT) ;
-	       }#)
+		 }#)
+	      (debug "melt_invoke_input_callbacks" "after read curfd=" curfd ", readcnt=" readcnt
+		     ", sbuf=" sbuf "\n")
 	      (when (==i readcnt 0)
 		(list_append removelist curinch)
 		(setq curstate ()))
 	      (void)
 	      )
 	  (progn ;; should callback for eof close and remove from bucks
+	    (debug "melt_invoke_input_callbacks" " no curstate curinch=" curinch)
 	    (list_append removelist curinch)
 	    ))
+	(debug "melt_invoke_input_callbacks" " readcnt=" readcnt
+	       " sbuf=" sbuf ";\n curinch=" curinch)
 	(cond ( (is_a curinch class_paragraph_input_channel_handler)
 		;; loop to handle every 2-newline ended paragraph in the sbuf
 		(forever 
@@ -2602,7 +2607,7 @@ exit, in last place.}#
 		 )			;end scanloop
 		)
 	      ( (is_a curinch class_raw_input_channel_handler)
-		(debug "melt_invoke_input_callbacks raw sbuf=" sbuf)
+		(debug "melt_invoke_input_callbacks" " raw sbuf=" sbuf ";\n curinch=" curinch)
 		;; pass the sbuf to separate the EOF case
 	       (clos curinch sbuf)
 	       )
@@ -2960,8 +2965,9 @@ exit, in last place.}#
                      (int)$SERVICENUMFD, xstrerror(errno)) ;
             $(ignore (return ())) ;
           } ;
-          inform (UNKNOWN_LOCATION, "MELT connect_to_server with file descriptor #%d of peer %s",
-				    (int)$SERVICENUMFD, sahname) ;
+          inform (UNKNOWN_LOCATION,
+		  "MELT connect_to_server with file descriptor #%d of peer %s",
+		  (int)$SERVICENUMFD, sahname) ;
 	  }
         }#)
        (debug "connect_to_server service=" service " good peered file descriptor#" servicenumfd)
@@ -2988,6 +2994,8 @@ exit, in last place.}#
 #endif /*UNIX_PATH_MAX */
 		 struct sockaddr_un saun;
 		 memset (&saun, 0, sizeof(saun));
+		 debugeprintf("connect_to_server unix service %s",
+			      melt_string_str($SERVICE));
 		 if (strlen(melt_string_str($SERVICE))>=UNIX_PATH_MAX) {
 		    warning (0, "MELT connect_to_server: AF_UNIX too long path %s", melt_string_str($SERVICE));
 		    $(ignore (return ()));
@@ -3020,42 +3028,45 @@ exit, in last place.}#
 		 #{/* connect_to_server $UNIXSOCKSLASH_CHK */ strchr (melt_string_str ($SERVICE), ':') != NULL}#)
      (let ( (:long tcpsockfd -1)
 	    )
-       (code_chunk connecttcp_chk
-		   #{ /* connect_to_server $CONNECTTCP_CHK */
-		   int locportnum = -1;
-		   int pos = -1;
-		   struct addrinfo hints = { 0 };
-		   char remservicename[24] = { 0 };
-		   char remhostname[80] = { 0 };
-                   struct addrinfo *adinf = NULL;
-		   int gstatus = -1;
-		   static melt_connect_info_map_t coninfmap;
-		   Melt_connect_info conninfo;
-		   bool gotconninfo = false;
-		   const char* servicestr = melt_string_str ($SERVICE);
-		   if ((sscanf(servicestr, "localhost:%d", &locportnum)>0
-		        || sscanf(servicestr, ":%d%n", &locportnum, &pos)>0)
-		       && locportnum>0 && pos>=(int)strlen(servicestr)) {
-		     struct sockaddr_in sain;
-		     memset (&sain, 0, sizeof (sain));
-		     servicestr = NULL;
-		     sain.sin_family = AF_INET;
-		     sain.sin_port = htons ((int)locportnum);
-		     sain.sin_addr.s_addr = htonl (INADDR_LOOPBACK);
-		     $TCPSOCKFD = (long) socket (AF_INET, SOCK_STREAM, IPPROTO_TCP);
-		     if ((int)$TCPSOCKFD<0) {
-		       warning (0, "MELT connect_to_server: localhost:%d socket failure: %s",
-				locportnum, xstrerror(errno));
-		       $(ignore (return ()));
-		     }
-		     if (connect ((int)$TCPSOCKFD, (const struct sockaddr*)&sain, (socklen_t)sizeof(sain))) {
-		        warning (0, "MELT connect_to_server: localhost:%d connect failure: %s",
-				 locportnum, xstrerror(errno));
-			(void) close((int)$TCPSOCKFD);
-			$(ignore (return ()));
-		     }
-		   }
-		   else { /* try IPv6 connection with getaddrinfo, <hostname>:<servicenameorport> */
+       (code_chunk
+	connecttcp_chk
+	#{ /* connect_to_server $CONNECTTCP_CHK */
+	int locportnum = -1;
+	int pos = -1;
+	struct addrinfo hints = { 0 };
+	char remservicename[24] = { 0 };
+	char remhostname[80] = { 0 };
+	struct addrinfo *adinf = NULL;
+	int gstatus = -1;
+	static melt_connect_info_map_t coninfmap;
+	Melt_connect_info conninfo;
+	bool gotconninfo = false;
+	const char* servicestr = melt_string_str ($SERVICE);
+	debugeprintf("connect_to_server TCPlike servicestr=%s", servicestr);
+	if ((sscanf(servicestr, "localhost:%d", &locportnum)>0
+	     || sscanf(servicestr, ":%d", &locportnum)>0)
+	    && locportnum>0) {
+	    debugeprintf("connect_to_server locportnum=%d", locportnum);
+	    struct sockaddr_in sain;
+	    memset (&sain, 0, sizeof (sain));
+	    servicestr = NULL;
+	    sain.sin_family = AF_INET;
+	    sain.sin_port = htons ((int)locportnum);
+	    sain.sin_addr.s_addr = htonl (INADDR_LOOPBACK);
+	    $TCPSOCKFD = (long) socket (AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	    if ((int)$TCPSOCKFD<0) {
+	      warning (0, "MELT connect_to_server: localhost:%d socket failure: %s",
+		       locportnum, xstrerror(errno));
+	      $(ignore (return ()));
+	    }
+	    if (connect ((int)$TCPSOCKFD, (const struct sockaddr*)&sain, (socklen_t)sizeof(sain))) {
+	       warning (0, "MELT connect_to_server: localhost:%d connect failure: %s",
+			locportnum, xstrerror(errno));
+	       (void) close((int)$TCPSOCKFD);
+	       $(ignore (return ()));
+	       }
+	     }
+	     else { /* try IPv6 connection with getaddrinfo, <hostname>:<servicenameorport> */
                      memset (&hints, 0, sizeof (hints));
 		     /// use the memoized connect info, if available
 		     {
@@ -3066,14 +3077,17 @@ exit, in last place.}#
 		         conninfo = iterconninfo->second;
 		         gotconninfo = true;
 		       }
+		       debugeprintf("connect_to_server gotconninfo=%d",
+				    (int) gotconninfo);
 		       if (strlen(servicestr) >= sizeof(remhostname)) {
 		          warning (0, "MELT connect_to_server: too long service name %s", servicestr);
 			  $(ignore (return ()));
 		       };
 		       const char* lastcolon = strrchr(servicestr, ':');
 		       gcc_assert (lastcolon != NULL && lastcolon > servicestr+1);
-		       strncpy(remhostname, servicestr, MIN(lastcolon-servicestr-1, sizeof(remhostname)));
+		       strncpy(remhostname, servicestr, MIN(lastcolon-servicestr, sizeof(remhostname)));
 		       strncpy(remservicename, lastcolon+1, sizeof(remservicename)-1);
+		       debugeprintf("connect_to_server remhostname=%s remservicename=%s", remhostname, remservicename);
 		       if (gotconninfo) { // cached network info from previous call
 		         gcc_assert (!strcmp(conninfo.mci_service.c_str(), melt_string_str($SERVICE)));
                          $TCPSOCKFD = (long) socket (conninfo.mci_family, conninfo.mci_socktype, conninfo.mci_protocol);
