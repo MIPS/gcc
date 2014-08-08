@@ -32,7 +32,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "alloc-pool.h"
 #include "gcov-io.h"
 #include "diagnostic.h"
-#include "pointer-set.h"
 
 /* Define when debugging the LTO streamer.  This causes the writer
    to output the numeric value for the memory address of the tree node
@@ -443,7 +442,7 @@ struct lto_encoder_entry
 struct lto_symtab_encoder_d
 {
   vec<lto_encoder_entry> nodes;
-  pointer_map_t *map;
+  hash_map<symtab_node *, size_t> *map;
 };
 
 typedef struct lto_symtab_encoder_d *lto_symtab_encoder_t;
@@ -561,7 +560,7 @@ struct GTY(()) lto_file_decl_data
   struct gcov_ctr_summary GTY((skip)) profile_info;
 
   /* Map assigning declarations their resolutions.  */
-  pointer_map_t * GTY((skip)) resolution_map;
+  hash_map<tree, ld_plugin_symbol_resolution> * GTY((skip)) resolution_map;
 };
 
 typedef struct lto_file_decl_data *lto_file_decl_data_ptr;
@@ -1032,8 +1031,8 @@ static inline int
 lto_symtab_encoder_lookup (lto_symtab_encoder_t encoder,
 			   symtab_node *node)
 {
-  void **slot = pointer_map_contains (encoder->map, node);
-  return (slot && *slot ? (size_t) *(slot) - 1 : LCC_NOT_FOUND);
+  size_t *slot = encoder->map->get (node);
+  return (slot && *slot ? *(slot) - 1 : LCC_NOT_FOUND);
 }
 
 /* Return true if iterator LSE points to nothing.  */

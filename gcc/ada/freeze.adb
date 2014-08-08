@@ -1256,12 +1256,19 @@ package body Freeze is
 
       function Find_Constant (Nod : Node_Id) return Traverse_Result is
       begin
+         --  When a constant is initialized with the result of a dispatching
+         --  call, the constant declaration is rewritten as a renaming of the
+         --  displaced function result. This scenario is not a premature use of
+         --  a constant even though the Has_Completion flag is not set.
+
          if Is_Entity_Name (Nod)
            and then Present (Entity (Nod))
            and then Ekind (Entity (Nod)) = E_Constant
+           and then Scope (Entity (Nod)) = Current_Scope
+           and then Nkind (Declaration_Node (Entity (Nod))) =
+                                                         N_Object_Declaration
            and then not Is_Imported (Entity (Nod))
            and then not Has_Completion (Entity (Nod))
-           and then Scope (Entity (Nod)) = Current_Scope
          then
             Error_Msg_NE
               ("premature use of& in call or instance", N, Entity (Nod));
@@ -1808,13 +1815,18 @@ package body Freeze is
    -------------------
 
    function Freeze_Entity (E : Entity_Id; N : Node_Id) return List_Id is
-      Loc    : constant Source_Ptr := Sloc (N);
+      Loc           : constant Source_Ptr := Sloc (N);
+      Comp          : Entity_Id;
+      F_Node        : Node_Id;
+      Indx          : Node_Id;
+      Formal        : Entity_Id;
+      Atype         : Entity_Id;
+
       Test_E : Entity_Id := E;
-      Comp   : Entity_Id;
-      F_Node : Node_Id;
-      Indx   : Node_Id;
-      Formal : Entity_Id;
-      Atype  : Entity_Id;
+      --  This could use a comment ???
+
+      Late_Freezing : Boolean := False;
+      --  Used to detect attempt to freeze function declared in another unit
 
       Result : List_Id := No_List;
       --  List of freezing actions, left at No_List if none
@@ -1854,6 +1866,16 @@ package body Freeze is
       --  Determine whether an arbitrary entity is subject to Boolean aspect
       --  Import and its value is specified as True.
 
+      procedure Late_Freeze_Subprogram (E : Entity_Id);
+      --  Following AI05-151, a function can return a limited view of a type
+      --  declared elsewhere. In that case the function cannot be frozen at
+      --  the end of its enclosing package. If its first use is in a different
+      --  unit, it cannot be frozen there, but if the call is legal the full
+      --  view of the return type is available and the subprogram can now be
+      --  frozen. However the freeze node cannot be inserted at the point of
+      --  call, but rather must go in the package holding the function, so that
+      --  the backend can process it in the proper context.
+
       procedure Wrap_Imported_Subprogram (E : Entity_Id);
       --  If E is an entity for an imported subprogram with pre/post-conditions
       --  then this procedure will create a wrapper to ensure that proper run-
@@ -1878,6 +1900,7 @@ package body Freeze is
 
       function After_Last_Declaration return Boolean is
          Spec : constant Node_Id := Parent (Current_Scope);
+
       begin
          if Nkind (Spec) = N_Package_Specification then
             if Present (Private_Declarations (Spec)) then
@@ -1887,6 +1910,7 @@ package body Freeze is
             else
                return False;
             end if;
+
          else
             return False;
          end if;
@@ -2006,8 +2030,7 @@ package body Freeze is
                      else
                         Error_Msg_N
                           ("current instance must be an immutably limited "
-                           & "type (RM-2012, 7.5 (8.1/3))",
-                           Prefix (N));
+                           & "type (RM-2012, 7.5 (8.1/3))", Prefix (N));
                      end if;
 
                      return Abandon;
@@ -2175,8 +2198,7 @@ package body Freeze is
                      Error_Msg_Name_1 := CN;
                      Error_Msg_Sloc := Sloc (Arr);
                      Error_Msg_N
-                       ("pragma Pack affects convention % components #??",
-                        PP);
+                       ("pragma Pack affects convention % components #??", PP);
                      Error_Msg_Name_1 := CN;
                      Error_Msg_N
                        ("\array components may not have % compatible "
@@ -2253,6 +2275,7 @@ package body Freeze is
                      Comp_Size_C : constant Node_Id :=
                                      Get_Attribute_Definition_Clause
                                        (Ent, Attribute_Component_Size);
+
                   begin
                      --  Warn if we have pack and component size so that the
                      --  pack is ignored.
@@ -2298,11 +2321,11 @@ package body Freeze is
 
                         if Present (Pack_Pragma) then
                            Error_Msg_N
-                             ("??pragma Pack causes component size "
-                              & "to be ^!", Pack_Pragma);
+                             ("??pragma Pack causes component size to be ^!",
+                              Pack_Pragma);
                            Error_Msg_N
-                             ("\??use Component_Size to set "
-                              & "desired value!", Pack_Pragma);
+                             ("\??use Component_Size to set desired value!",
+                              Pack_Pragma);
                         end if;
                      end if;
 
@@ -2524,8 +2547,7 @@ package body Freeze is
 
                      Ilen :=
                        Make_Attribute_Reference (Loc,
-                         Prefix         =>
-                           New_Occurrence_Of (Ityp, Loc),
+                         Prefix         => New_Occurrence_Of (Ityp, Loc),
                          Attribute_Name => Name_Range_Length);
                      Analyze_And_Resolve (Ilen);
 
@@ -2555,10 +2577,8 @@ package body Freeze is
 
             if Known_RM_Size (Arr) then
                declare
-                  SizC : constant Node_Id := Size_Clause (Arr);
-
+                  SizC    : constant Node_Id := Size_Clause (Arr);
                   Discard : Boolean;
-                  pragma Warnings (Off, Discard);
 
                begin
                   --  It is not clear if it is possible to have no size clause
@@ -3053,6 +3073,7 @@ package body Freeze is
 
                   if Will_Be_Frozen then
                      Undelay_Type (Comp);
+
                   else
                      if Present (Prev) then
                         Set_Next_Entity (Prev, Next_Entity (Comp));
@@ -3100,8 +3121,8 @@ package body Freeze is
                         if Is_Entity_Name (Expression (Alloc)) then
                            Freeze_And_Append
                              (Entity (Expression (Alloc)), N, Result);
-                        elsif
-                          Nkind (Expression (Alloc)) = N_Subtype_Indication
+
+                        elsif Nkind (Expression (Alloc)) = N_Subtype_Indication
                         then
                            Freeze_And_Append
                             (Entity (Subtype_Mark (Expression (Alloc))),
@@ -3256,7 +3277,7 @@ package body Freeze is
                  ("\??since no component clauses were specified", ADC);
 
             --  Here is where we do the processing to adjust component clauses
-            --  for reversed bit order.
+            --  for reversed bit order, when not using reverse SSO.
 
             elsif Reverse_Bit_Order (Rec)
               and then not Reverse_Storage_Order (Rec)
@@ -3626,6 +3647,25 @@ package body Freeze is
          return False;
       end Has_Boolean_Aspect_Import;
 
+      ----------------------------
+      -- Late_Freeze_Subprogram --
+      ----------------------------
+
+      procedure Late_Freeze_Subprogram (E : Entity_Id) is
+         Spec  : constant Node_Id :=
+                   Specification (Unit_Declaration_Node (Scope (E)));
+         Decls : List_Id;
+
+      begin
+         if Present (Private_Declarations (Spec)) then
+            Decls := Private_Declarations (Spec);
+         else
+            Decls := Visible_Declarations (Spec);
+         end if;
+
+         Append_List (Result, Decls);
+      end Late_Freeze_Subprogram;
+
       ------------------------------
       -- Wrap_Imported_Subprogram --
       ------------------------------
@@ -3694,8 +3734,7 @@ package body Freeze is
 
             --  Acquire copy of Inline pragma
 
-            Iprag :=
-              Copy_Separate_Tree (Import_Pragma (E));
+            Iprag := Copy_Separate_Tree (Import_Pragma (E));
 
             --  Fix up spec to be not imported any more
 
@@ -3812,8 +3851,12 @@ package body Freeze is
       then
          return No_List;
 
-      --  Generic types need no freeze node and have no delayed semantic
-      --  checks.
+      --  Formal subprograms are never frozen
+
+      elsif Is_Formal_Subprogram (E) then
+         return No_List;
+
+      --  Generic types are never frozen as they lack delayed semantic checks
 
       elsif Is_Generic_Type (E) then
          return No_List;
@@ -3975,7 +4018,7 @@ package body Freeze is
                   while Present (Formal) loop
                      F_Type := Etype (Formal);
 
-                     --  AI05-0151 : incomplete types can appear in a profile.
+                     --  AI05-0151: incomplete types can appear in a profile.
                      --  By the time the entity is frozen, the full view must
                      --  be available, unless it is a limited view.
 
@@ -4155,6 +4198,13 @@ package body Freeze is
 
                   if Ekind (E) = E_Function then
 
+                     --  Check whether function is declared elsewhere.
+
+                     Late_Freezing :=
+                       Get_Source_Unit (E) /= Get_Source_Unit (N)
+                         and then Returns_Limited_View (E)
+                         and then not In_Open_Scopes (Scope (E));
+
                      --  Freeze return type
 
                      R_Type := Etype (E);
@@ -4183,6 +4233,7 @@ package body Freeze is
                          Ekind (Non_Limited_View (R_Type)) = E_Incomplete_Type
                      then
                         Set_Is_Frozen (E, False);
+                        Set_Returns_Limited_View (E);
                         return Result;
                      end if;
 
@@ -4313,6 +4364,11 @@ package body Freeze is
               or else Is_Predefined_Dispatching_Operation (E)
             then
                Freeze_Subprogram (E);
+            end if;
+
+            if Late_Freezing then
+               Late_Freeze_Subprogram (E);
+               return No_List;
             end if;
 
             --  If warning on suspicious contracts then check for the case of
@@ -4970,7 +5026,7 @@ package body Freeze is
          --  view, we can retrieve the full view, but not the reverse).
          --  However, in order to freeze correctly, we need to freeze the full
          --  view. If we are freezing at the end of a scope (or within the
-         --  scope of the private type), the partial and full views will have
+         --  scope) of the private type, the partial and full views will have
          --  been swapped, the full view appears first in the entity chain and
          --  the swapping mechanism ensures that the pointers are properly set
          --  (on scope exit).
@@ -4979,6 +5035,11 @@ package body Freeze is
          --  freezing from another scope), we freeze the full view, and then
          --  set the pointers appropriately since we cannot rely on swapping to
          --  fix things up (subtypes in an outer scope might not get swapped).
+
+         --  If the full view is itself private, the above requirements apply
+         --  to the underlying full view instead of the full view. But there is
+         --  no swapping mechanism for the underlying full view so we need to
+         --  set the pointers appropriately in both cases.
 
          elsif Is_Incomplete_Or_Private_Type (E)
            and then not Is_Generic_Type (E)
@@ -5018,27 +5079,43 @@ package body Freeze is
                if Is_Frozen (Full_View (E)) then
                   Set_Has_Delayed_Freeze (E, False);
                   Set_Freeze_Node (E, Empty);
-                  Check_Debug_Info_Needed (E);
 
                --  Otherwise freeze full view and patch the pointers so that
-               --  the freeze node will elaborate both views in the back-end.
+               --  the freeze node will elaborate both views in the back end.
+               --  However, if full view is itself private, freeze underlying
+               --  full view instead and patch the pointers so that the freeze
+               --  node will elaborate the three views in the back end.
 
                else
                   declare
-                     Full : constant Entity_Id := Full_View (E);
+                     Full : Entity_Id := Full_View (E);
 
                   begin
                      if Is_Private_Type (Full)
                        and then Present (Underlying_Full_View (Full))
                      then
-                        Freeze_And_Append
-                          (Underlying_Full_View (Full), N, Result);
+                        Full := Underlying_Full_View (Full);
                      end if;
 
                      Freeze_And_Append (Full, N, Result);
 
-                     if Has_Delayed_Freeze (E) then
+                     if Full /= Full_View (E)
+                       and then Has_Delayed_Freeze (Full_View (E))
+                     then
                         F_Node := Freeze_Node (Full);
+
+                        if Present (F_Node) then
+                           Set_Freeze_Node (Full_View (E), F_Node);
+                           Set_Entity (F_Node, Full_View (E));
+
+                        else
+                           Set_Has_Delayed_Freeze (Full_View (E), False);
+                           Set_Freeze_Node (Full_View (E), Empty);
+                        end if;
+                     end if;
+
+                     if Has_Delayed_Freeze (E) then
+                        F_Node := Freeze_Node (Full_View (E));
 
                         if Present (F_Node) then
                            Set_Freeze_Node (E, F_Node);
@@ -5053,9 +5130,9 @@ package body Freeze is
                         end if;
                      end if;
                   end;
-
-                  Check_Debug_Info_Needed (E);
                end if;
+
+               Check_Debug_Info_Needed (E);
 
                --  AI-117 requires that the convention of a partial view be the
                --  same as the convention of the full view. Note that this is a
@@ -5080,6 +5157,35 @@ package body Freeze is
                   Set_Size_Info (E, Full_View (E));
                   Set_RM_Size   (E, RM_Size (Full_View (E)));
                end if;
+
+               return Result;
+
+            --  Case of underlying full view present
+
+            elsif Is_Private_Type (E)
+              and then Present (Underlying_Full_View (E))
+            then
+               if not Is_Frozen (Underlying_Full_View (E)) then
+                  Freeze_And_Append (Underlying_Full_View (E), N, Result);
+               end if;
+
+               --  Patch the pointers so that the freeze node will elaborate
+               --  both views in the back end.
+
+               if Has_Delayed_Freeze (E) then
+                  F_Node := Freeze_Node (Underlying_Full_View (E));
+
+                  if Present (F_Node) then
+                     Set_Freeze_Node (E, F_Node);
+                     Set_Entity (F_Node, E);
+
+                  else
+                     Set_Has_Delayed_Freeze (E, False);
+                     Set_Freeze_Node (E, Empty);
+                  end if;
+               end if;
+
+               Check_Debug_Info_Needed (E);
 
                return Result;
 
@@ -7394,9 +7500,17 @@ package body Freeze is
       if (Is_Record_Type (T) or else Is_Array_Type (T))
         and then Is_Base_Type (T)
       then
-         if (Bytes_Big_Endian and then SSO_Set_Low_By_Default (T))
-              or else
-            ((not Bytes_Big_Endian) and then SSO_Set_High_By_Default (T))
+         if ((Bytes_Big_Endian and then SSO_Set_Low_By_Default (T))
+               or else
+             ((not Bytes_Big_Endian) and then SSO_Set_High_By_Default (T)))
+
+           --  For a record type, if native bit order is specified explicitly,
+           --  then never set reverse SSO from default.
+
+           and then not
+             (Is_Record_Type (T)
+               and then Has_Rep_Item (T, Name_Bit_Order)
+               and then not Reverse_Bit_Order (T))
          then
             --  If flags cause reverse storage order, then set the result. Note
             --  that we would have ignored the pragma setting the non default
@@ -7404,6 +7518,14 @@ package body Freeze is
 
             pragma Assert (Support_Nondefault_SSO_On_Target);
             Set_Reverse_Storage_Order (T);
+
+            --  For a record type, also set reversed bit order. Note that if
+            --  a bit order has been specified explicitly, then this is a
+            --  no-op, as per the guard above.
+
+            if Is_Record_Type (T) then
+               Set_Reverse_Bit_Order (T);
+            end if;
          end if;
       end if;
    end Set_SSO_From_Default;

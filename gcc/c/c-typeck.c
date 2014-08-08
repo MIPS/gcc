@@ -40,7 +40,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "tree-iterator.h"
 #include "bitmap.h"
-#include "pointer-set.h"
 #include "basic-block.h"
 #include "gimple-expr.h"
 #include "gimplify.h"
@@ -3460,7 +3459,6 @@ pointer_diff (location_t loc, tree op0, tree op1)
   addr_space_t as0 = TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (op0)));
   addr_space_t as1 = TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (op1)));
   tree target_type = TREE_TYPE (TREE_TYPE (op0));
-  tree con0, con1, lit0, lit1;
   tree orig_op1 = op1;
 
   /* If the operands point into different address spaces, we need to
@@ -3490,57 +3488,12 @@ pointer_diff (location_t loc, tree op0, tree op1)
   else
     inttype = restype;
 
-
   if (TREE_CODE (target_type) == VOID_TYPE)
     pedwarn (loc, OPT_Wpointer_arith,
 	     "pointer of type %<void *%> used in subtraction");
   if (TREE_CODE (target_type) == FUNCTION_TYPE)
     pedwarn (loc, OPT_Wpointer_arith,
 	     "pointer to a function used in subtraction");
-
-  /* If the conversion to ptrdiff_type does anything like widening or
-     converting a partial to an integral mode, we get a convert_expression
-     that is in the way to do any simplifications.
-     (fold-const.c doesn't know that the extra bits won't be needed.
-     split_tree uses STRIP_SIGN_NOPS, which leaves conversions to a
-     different mode in place.)
-     So first try to find a common term here 'by hand'; we want to cover
-     at least the cases that occur in legal static initializers.  */
-  if (CONVERT_EXPR_P (op0)
-      && (TYPE_PRECISION (TREE_TYPE (op0))
-	  == TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (op0, 0)))))
-    con0 = TREE_OPERAND (op0, 0);
-  else
-    con0 = op0;
-  if (CONVERT_EXPR_P (op1)
-      && (TYPE_PRECISION (TREE_TYPE (op1))
-	  == TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (op1, 0)))))
-    con1 = TREE_OPERAND (op1, 0);
-  else
-    con1 = op1;
-
-  if (TREE_CODE (con0) == POINTER_PLUS_EXPR)
-    {
-      lit0 = TREE_OPERAND (con0, 1);
-      con0 = TREE_OPERAND (con0, 0);
-    }
-  else
-    lit0 = integer_zero_node;
-
-  if (TREE_CODE (con1) == POINTER_PLUS_EXPR)
-    {
-      lit1 = TREE_OPERAND (con1, 1);
-      con1 = TREE_OPERAND (con1, 0);
-    }
-  else
-    lit1 = integer_zero_node;
-
-  if (operand_equal_p (con0, con1, 0))
-    {
-      op0 = lit0;
-      op1 = lit1;
-    }
-
 
   /* First do the subtraction as integers;
      then drop through to build the divide operator.
@@ -11800,15 +11753,15 @@ c_clone_omp_udr (tree stmt, tree omp_decl1, tree omp_decl2,
 		 tree decl, tree placeholder)
 {
   copy_body_data id;
-  struct pointer_map_t *decl_map = pointer_map_create ();
+  hash_map<tree, tree> decl_map;
 
-  *pointer_map_insert (decl_map, omp_decl1) = placeholder;
-  *pointer_map_insert (decl_map, omp_decl2) = decl;
+  decl_map.put (omp_decl1, placeholder);
+  decl_map.put (omp_decl2, decl);
   memset (&id, 0, sizeof (id));
   id.src_fn = DECL_CONTEXT (omp_decl1);
   id.dst_fn = current_function_decl;
   id.src_cfun = DECL_STRUCT_FUNCTION (id.src_fn);
-  id.decl_map = decl_map;
+  id.decl_map = &decl_map;
 
   id.copy_decl = copy_decl_no_change;
   id.transform_call_graph_edges = CB_CGE_DUPLICATE;
@@ -11817,7 +11770,6 @@ c_clone_omp_udr (tree stmt, tree omp_decl1, tree omp_decl2,
   id.transform_lang_insert_block = NULL;
   id.eh_lp_nr = 0;
   walk_tree (&stmt, copy_tree_body_r, &id, NULL);
-  pointer_map_destroy (decl_map);
   return stmt;
 }
 

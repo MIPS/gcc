@@ -182,17 +182,6 @@ package body Sem_Ch13 is
    --  renaming_as_body. For tagged types, the specification is one of the
    --  primitive specs.
 
-   generic
-      with procedure Replace_Type_Reference (N : Node_Id);
-   procedure Replace_Type_References_Generic (N : Node_Id; T : Entity_Id);
-   --  This is used to scan an expression for a predicate or invariant aspect
-   --  replacing occurrences of the name of the subtype to which the aspect
-   --  applies with appropriate references to the parameter of the predicate
-   --  function or invariant procedure. The procedure passed as a generic
-   --  parameter does the actual replacement of node N, which is either a
-   --  simple direct reference to T, or a selected component that represents
-   --  an appropriately qualified occurrence of T.
-
    procedure Resolve_Iterable_Operation
      (N      : Node_Id;
       Cursor : Entity_Id;
@@ -1283,10 +1272,19 @@ package body Sem_Ch13 is
                --  the proper insertion point. As a result the order of pragmas
                --  is the same as the order of aspects.
 
+               --  As precondition pragmas generated from conjuncts in the
+               --  precondition aspect are presented in reverse order to
+               --  Insert_Pragma, insert them in the correct order here by not
+               --  skipping previously inserted precondition pragmas when the
+               --  current pragma is a precondition.
+
                Decl := First (Declarations (N));
                while Present (Decl) loop
                   if Nkind (Decl) = N_Pragma
                     and then From_Aspect_Specification (Decl)
+                    and then not (Get_Pragma_Id (Decl) = Pragma_Precondition
+                                    and then
+                                  Get_Pragma_Id (Prag) = Pragma_Precondition)
                   then
                      Next (Decl);
                   else
@@ -1408,7 +1406,7 @@ package body Sem_Ch13 is
                   if No (A) then
                      Error_Msg_N
                        ("missing Import/Export for Link/External name",
-                         Aspect);
+                        Aspect);
                   end if;
                end;
             end Analyze_Aspect_External_Or_Link_Name;
@@ -1850,67 +1848,92 @@ package body Sem_Ch13 is
                   --  pragma is one of Convention/Import/Export.
 
                   declare
-                     P_Name   : Name_Id;
-                     A_Name   : Name_Id;
-                     A        : Node_Id;
-                     Arg_List : List_Id;
-                     Found    : Boolean;
-                     L_Assoc  : Node_Id;
-                     E_Assoc  : Node_Id;
+                     Args : constant List_Id := New_List (
+                              Make_Pragma_Argument_Association (Sloc (Expr),
+                                Expression => Relocate_Node (Expr)),
+                              Make_Pragma_Argument_Association (Sloc (Ent),
+                                Expression => Ent));
+
+                     Imp_Exp_Seen : Boolean := False;
+                     --  Flag set when aspect Import or Export has been seen
+
+                     Imp_Seen : Boolean := False;
+                     --  Flag set when aspect Import has been seen
+
+                     Asp        : Node_Id;
+                     Asp_Nam    : Name_Id;
+                     Extern_Arg : Node_Id;
+                     Link_Arg   : Node_Id;
+                     Prag_Nam   : Name_Id;
 
                   begin
-                     P_Name   := Chars (Id);
-                     Found    := False;
-                     Arg_List := New_List;
-                     L_Assoc  := Empty;
-                     E_Assoc  := Empty;
+                     Extern_Arg := Empty;
+                     Link_Arg   := Empty;
+                     Prag_Nam   := Chars (Id);
 
-                     A := First (L);
-                     while Present (A) loop
-                        A_Name := Chars (Identifier (A));
+                     Asp := First (L);
+                     while Present (Asp) loop
+                        Asp_Nam := Chars (Identifier (Asp));
 
-                        if Nam_In (A_Name, Name_Import, Name_Export) then
-                           if Found then
-                              Error_Msg_N ("conflicting", A);
+                        --  Aspects Import and Export take precedence over
+                        --  aspect Convention. As a result the generated pragma
+                        --  must carry the proper interfacing aspect's name.
+
+                        if Nam_In (Asp_Nam, Name_Import, Name_Export) then
+                           if Imp_Exp_Seen then
+                              Error_Msg_N ("conflicting", Asp);
                            else
-                              Found := True;
+                              Imp_Exp_Seen := True;
+
+                              if Asp_Nam = Name_Import then
+                                 Imp_Seen := True;
+                              end if;
                            end if;
 
-                           P_Name := A_Name;
+                           Prag_Nam := Asp_Nam;
 
-                        elsif A_Name = Name_Link_Name then
-                           L_Assoc :=
-                             Make_Pragma_Argument_Association (Loc,
-                               Chars      => A_Name,
-                               Expression => Relocate_Node (Expression (A)));
+                        --  Aspect External_Name adds an extra argument to the
+                        --  generated pragma.
 
-                        elsif A_Name = Name_External_Name then
-                           E_Assoc :=
+                        elsif Asp_Nam = Name_External_Name then
+                           Extern_Arg :=
                              Make_Pragma_Argument_Association (Loc,
-                               Chars      => A_Name,
-                               Expression => Relocate_Node (Expression (A)));
+                               Chars      => Asp_Nam,
+                               Expression => Relocate_Node (Expression (Asp)));
+
+                        --  Aspect Link_Name adds an extra argument to the
+                        --  generated pragma.
+
+                        elsif Asp_Nam = Name_Link_Name then
+                           Link_Arg :=
+                             Make_Pragma_Argument_Association (Loc,
+                               Chars      => Asp_Nam,
+                               Expression => Relocate_Node (Expression (Asp)));
                         end if;
 
-                        Next (A);
+                        Next (Asp);
                      end loop;
 
-                     Arg_List := New_List (
-                       Make_Pragma_Argument_Association (Sloc (Expr),
-                         Expression => Relocate_Node (Expr)),
-                       Make_Pragma_Argument_Association (Sloc (Ent),
-                         Expression => Ent));
+                     --  Assemble the full argument list
 
-                     if Present (L_Assoc) then
-                        Append_To (Arg_List, L_Assoc);
+                     if Present (Extern_Arg) then
+                        Append_To (Args, Extern_Arg);
                      end if;
 
-                     if Present (E_Assoc) then
-                        Append_To (Arg_List, E_Assoc);
+                     if Present (Link_Arg) then
+                        Append_To (Args, Link_Arg);
                      end if;
 
                      Make_Aitem_Pragma
-                       (Pragma_Argument_Associations => Arg_List,
-                        Pragma_Name                  => P_Name);
+                       (Pragma_Argument_Associations => Args,
+                        Pragma_Name                  => Prag_Nam);
+
+                     --  Store the generated pragma Import in the related
+                     --  subprogram.
+
+                     if Imp_Seen and then Is_Subprogram (E) then
+                        Set_Import_Pragma (E, Aitem);
+                     end if;
                   end;
 
                --  CPU, Interrupt_Priority, Priority
@@ -2187,6 +2210,26 @@ package body Sem_Ch13 is
                   goto Continue;
                end Abstract_State;
 
+               --  Aspect Default_Internal_Condition is never delayed because
+               --  it is equivalent to a source pragma which appears after the
+               --  related private type. To deal with forward references, the
+               --  generated pragma is stored in the rep chain of the related
+               --  private type as types do not carry contracts. The pragma is
+               --  wrapped inside of a procedure at the freeze point of the
+               --  private type's full view.
+
+               when Aspect_Default_Initial_Condition =>
+                  Make_Aitem_Pragma
+                    (Pragma_Argument_Associations => New_List (
+                       Make_Pragma_Argument_Association (Loc,
+                         Expression => Relocate_Node (Expr))),
+                     Pragma_Name                  =>
+                       Name_Default_Initial_Condition);
+
+                  Decorate (Aspect, Aitem);
+                  Insert_Pragma (Aitem);
+                  goto Continue;
+
                --  Depends
 
                --  Aspect Depends is never delayed because it is equivalent to
@@ -2345,6 +2388,25 @@ package body Sem_Ch13 is
                   goto Continue;
                end Initializes;
 
+               --  Obsolescent
+
+               when Aspect_Obsolescent => declare
+                  Args : List_Id;
+
+               begin
+                  if No (Expr) then
+                     Args := No_List;
+                  else
+                     Args := New_List (
+                       Make_Pragma_Argument_Association (Sloc (Expr),
+                         Expression => Relocate_Node (Expr)));
+                  end if;
+
+                  Make_Aitem_Pragma
+                    (Pragma_Argument_Associations => Args,
+                     Pragma_Name                  => Chars (Id));
+               end;
+
                --  Part_Of
 
                when Aspect_Part_Of =>
@@ -2375,11 +2437,11 @@ package body Sem_Ch13 is
                          Expression => Relocate_Node (Expr))),
                      Pragma_Name                  => Name_SPARK_Mode);
 
-                  --  When the aspect appears on a package body, insert the
-                  --  generated pragma at the top of the body declarations to
-                  --  emulate the behavior of a source pragma.
+                  --  When the aspect appears on a package or a subprogram
+                  --  body, insert the generated pragma at the top of the body
+                  --  declarations to emulate the behavior of a source pragma.
 
-                  if Nkind (N) = N_Package_Body then
+                  if Nkind_In (N, N_Package_Body, N_Subprogram_Body) then
                      Decorate (Aspect, Aitem);
 
                      Decls := Declarations (N);
@@ -2392,11 +2454,14 @@ package body Sem_Ch13 is
                      Prepend_To (Decls, Aitem);
                      goto Continue;
 
-                  --  When the aspect is associated with package declaration,
-                  --  insert the generated pragma at the top of the visible
-                  --  declarations to emulate the behavior of a source pragma.
+                  --  When the aspect is associated with a [generic] package
+                  --  declaration, insert the generated pragma at the top of
+                  --  the visible declarations to emulate the behavior of a
+                  --  source pragma.
 
-                  elsif Nkind (N) = N_Package_Declaration then
+                  elsif Nkind_In (N, N_Generic_Package_Declaration,
+                                     N_Package_Declaration)
+                  then
                      Decorate (Aspect, Aitem);
 
                      Decls := Visible_Declarations (Specification (N));
@@ -2915,18 +2980,34 @@ package body Sem_Ch13 is
                      --  that verifed that there was a matching convention
                      --  is now obsolete.
 
-                     if A_Id = Aspect_Import then
-                        Set_Is_Imported (E);
+                     --  Resolve the expression of an Import or Export here,
+                     --  and require it to be of type Boolean and static. This
+                     --  is not quite right, because in general this should be
+                     --  delayed, but that seems tricky for these, because
+                     --  normally Boolean aspects are replaced with pragmas at
+                     --  the freeze point (in Make_Pragma_From_Boolean_Aspect),
+                     --  but in the case of these aspects we can't generate
+                     --  a simple pragma with just the entity name. ???
 
-                        --  An imported entity cannot have an explicit
-                        --  initialization.
+                     if not Present (Expr)
+                       or else Is_True (Static_Boolean (Expr))
+                     then
+                        if A_Id = Aspect_Import then
+                           Set_Is_Imported (E);
 
-                        if Nkind (N) = N_Object_Declaration
-                          and then Present (Expression (N))
-                        then
-                           Error_Msg_N
-                             ("imported entities cannot be initialized "
-                              & "(RM B.1(24))", Expression (N));
+                           --  An imported entity cannot have an explicit
+                           --  initialization.
+
+                           if Nkind (N) = N_Object_Declaration
+                             and then Present (Expression (N))
+                           then
+                              Error_Msg_N
+                                ("imported entities cannot be initialized "
+                                 & "(RM B.1(24))", Expression (N));
+                           end if;
+
+                        elsif A_Id = Aspect_Export then
+                           Set_Is_Exported (E);
                         end if;
                      end if;
 
@@ -3487,7 +3568,7 @@ package body Sem_Ch13 is
       ------------------------------
 
       procedure Check_Indexing_Functions is
-         Indexing_Found : Boolean;
+         Indexing_Found : Boolean := False;
 
          procedure Check_One_Function (Subp : Entity_Id);
          --  Check one possible interpretation. Sets Indexing_Found True if a
@@ -8687,25 +8768,27 @@ package body Sem_Ch13 is
 
          --  Here is the list of aspects that don't require delay analysis
 
-         when Aspect_Abstract_State       |
-              Aspect_Annotate             |
-              Aspect_Contract_Cases       |
-              Aspect_Dimension            |
-              Aspect_Dimension_System     |
-              Aspect_Implicit_Dereference |
-              Aspect_Initial_Condition    |
-              Aspect_Initializes          |
-              Aspect_Part_Of              |
-              Aspect_Post                 |
-              Aspect_Postcondition        |
-              Aspect_Pre                  |
-              Aspect_Precondition         |
-              Aspect_Refined_Depends      |
-              Aspect_Refined_Global       |
-              Aspect_Refined_Post         |
-              Aspect_Refined_State        |
-              Aspect_SPARK_Mode           |
-              Aspect_Test_Case            =>
+         when Aspect_Abstract_State            |
+              Aspect_Annotate                  |
+              Aspect_Contract_Cases            |
+              Aspect_Default_Initial_Condition |
+              Aspect_Dimension                 |
+              Aspect_Dimension_System          |
+              Aspect_Implicit_Dereference      |
+              Aspect_Initial_Condition         |
+              Aspect_Initializes               |
+              Aspect_Obsolescent               |
+              Aspect_Part_Of                   |
+              Aspect_Post                      |
+              Aspect_Postcondition             |
+              Aspect_Pre                       |
+              Aspect_Precondition              |
+              Aspect_Refined_Depends           |
+              Aspect_Refined_Global            |
+              Aspect_Refined_Post              |
+              Aspect_Refined_State             |
+              Aspect_SPARK_Mode                |
+              Aspect_Test_Case                 =>
             raise Program_Error;
 
       end case;
@@ -10505,9 +10588,10 @@ package body Sem_Ch13 is
         (Rep_Item : Node_Id) return Boolean
       is
       begin
-         return Nkind (Rep_Item) = N_Pragma
-           or else Present_In_Rep_Item
-                     (Entity (Rep_Item), Aspect_Rep_Item (Rep_Item));
+         return
+           Nkind (Rep_Item) = N_Pragma
+             or else Present_In_Rep_Item
+                       (Entity (Rep_Item), Aspect_Rep_Item (Rep_Item));
       end Is_Pragma_Or_Corr_Pragma_Present_In_Rep_Item;
 
    --  Start of processing for Inherit_Aspects_At_Freeze_Point
@@ -11696,7 +11780,7 @@ package body Sem_Ch13 is
                end loop;
             end if;
 
-            --  Continue for any other node kind
+         --  Continue for any other node kind
 
          else
             return OK;

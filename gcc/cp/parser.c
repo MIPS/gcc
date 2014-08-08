@@ -6376,7 +6376,7 @@ cp_parser_array_notation (location_t loc, cp_parser *parser, tree *init_index,
   parser->colon_corrects_to_scope_p = saved_colon_corrects;
 
   if (*init_index == error_mark_node || length_index == error_mark_node
-      || stride == error_mark_node)
+      || stride == error_mark_node || array_type == error_mark_node)
     {
       if (cp_lexer_peek_token (parser->lexer)->type == CPP_CLOSE_SQUARE)
 	cp_lexer_consume_token (parser->lexer);
@@ -13645,6 +13645,10 @@ cp_parser_template_id (cp_parser *parser,
 						   CPP_SCOPE));
       template_id
 	= finish_template_type (templ, arguments, entering_scope);
+    }
+  else if (variable_template_p (templ))
+    {
+      template_id = lookup_template_variable (templ, arguments);
     }
   else
     {
@@ -31938,10 +31942,7 @@ c_parse_file (void)
   static bool already_called = false;
 
   if (already_called)
-    {
-      sorry ("inter-module optimizations not implemented for C++");
-      return;
-    }
+    fatal_error ("inter-module optimizations not implemented for C++");
   already_called = true;
 
   the_parser = cp_parser_new ();

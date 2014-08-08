@@ -3,7 +3,7 @@
 --                         GNAT COMPILER COMPONENTS                         --
 --                                                                          --
 --                             S E M _ C H 1 0                              --
---     s                                                                     --
+--                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
 --          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
@@ -87,6 +87,10 @@ package body Sem_Ch10 is
    --  Check whether the source for the body of a compilation unit must be
    --  included in a standalone library.
 
+   procedure Check_No_Elab_Code_All (N : Node_Id);
+   --  Carries out possible tests for violation of No_Elab_Code all for withed
+   --  units in the Context_Items of unit N.
+
    procedure Check_Private_Child_Unit (N : Node_Id);
    --  If a with_clause mentions a private child unit, the compilation unit
    --  must be a member of the same family, as described in 10.1.2.
@@ -108,13 +112,6 @@ package body Sem_Ch10 is
    --  Generate cross-reference information for the parents of child units
    --  and of subunits. N is a defining_program_unit_name, and P_Id is the
    --  immediate parent scope.
-
-   function Get_Parent_Entity (Unit : Node_Id) return Entity_Id;
-   --  Get defining entity of parent unit of a child unit. In most cases this
-   --  is the defining entity of the unit, but for a child instance whose
-   --  parent needs a body for inlining, the instantiation node of the parent
-   --  has not yet been rewritten as a package declaration, and the entity has
-   --  to be retrieved from the Instance_Spec of the unit.
 
    function Has_With_Clause
      (C_Unit     : Node_Id;
@@ -1286,6 +1283,13 @@ package body Sem_Ch10 is
 
          Pop_Scope;
       end if;
+
+      --  If No_Elaboration_Code_All was encountered, this is where we do the
+      --  transitive test of with'ed units to make sure they have the aspect.
+      --  This is delayed till the end of analyzing the compilation unit to
+      --  ensure that the pragma/aspect, if present, has been analyzed.
+
+      Check_No_Elab_Code_All (N);
    end Analyze_Compilation_Unit;
 
    ---------------------
@@ -1327,7 +1331,7 @@ package body Sem_Ch10 is
 
       --  a) The first pass analyzes non-limited with-clauses and also any
       --     configuration pragmas (we need to get the latter analyzed right
-      --     away, since they can affect processing of subsequent items.
+      --     away, since they can affect processing of subsequent items).
 
       --  b) The second pass analyzes limited_with clauses (Ada 2005: AI-50217)
 
@@ -1350,28 +1354,6 @@ package body Sem_Ch10 is
 
                if Library_Unit (Item) /= Cunit (Current_Sem_Unit) then
                   Analyze (Item);
-
-                  --  This is the point at which we check for the case of an
-                  --  improper WITH from a unit with No_Elaboration_Code_All.
-
-                  if No_Elab_Code (Current_Sem_Unit) >=
-                       No_Elab_Code_All_Warn
-                  then
-                     if No_Elab_Code
-                          (Get_Source_Unit (Library_Unit (Item))) /=
-                             No_Elab_Code_All
-                     then
-                        Error_Msg_Warn :=
-                          No_Elab_Code (Current_Sem_Unit) =
-                            No_Elab_Code_All_Warn;
-                        Error_Msg_N
-                          ("<unit with No_Elaboration_Code_All has bad WITH",
-                           Item);
-                        Error_Msg_NE
-                          ("\<unit& does not have No_Elaboration_Code_All",
-                           Item, Entity (Name (Item)));
-                     end if;
-                  end if;
 
                --  Here for the case of a useless with for the main unit
 
@@ -2090,6 +2072,7 @@ package body Sem_Ch10 is
 
       begin
          Analyze_Context (N);
+         Check_No_Elab_Code_All (N);
 
          --  Make withed units immediately visible. If child unit, make the
          --  ultimate parent immediately visible.
@@ -3149,24 +3132,6 @@ package body Sem_Ch10 is
          Style.Check_Identifier (Pref, P_Name);
       end if;
    end Generate_Parent_References;
-
-   -----------------------
-   -- Get_Parent_Entity --
-   -----------------------
-
-   function Get_Parent_Entity (Unit : Node_Id) return Entity_Id is
-   begin
-      if Nkind (Unit) = N_Package_Body
-        and then Nkind (Original_Node (Unit)) = N_Package_Instantiation
-      then
-         return Defining_Entity
-                  (Specification (Instance_Spec (Original_Node (Unit))));
-      elsif Nkind (Unit) = N_Package_Instantiation then
-         return Defining_Entity (Specification (Instance_Spec (Unit)));
-      else
-         return Defining_Entity (Unit);
-      end if;
-   end Get_Parent_Entity;
 
    ---------------------
    -- Has_With_Clause --
@@ -6101,6 +6066,41 @@ package body Sem_Ch10 is
       Set_First_Private_Entity (Shadow_Pack, Private_Shadow);
       Set_Limited_View_Installed (Spec);
    end Build_Limited_Views;
+
+   ----------------------------
+   -- Check_No_Elab_Code_All --
+   ----------------------------
+
+   procedure Check_No_Elab_Code_All (N : Node_Id) is
+   begin
+      if Present (No_Elab_Code_All_Pragma)
+        and then In_Extended_Main_Source_Unit (N)
+        and then Present (Context_Items (N))
+      then
+         declare
+            CL : constant List_Id := Context_Items (N);
+            CI : Node_Id;
+
+         begin
+            CI := First (CL);
+            while Present (CI) loop
+               if Nkind (CI) = N_With_Clause
+                 and then not
+                   No_Elab_Code_All (Get_Source_Unit (Library_Unit (CI)))
+               then
+                  Error_Msg_Sloc := Sloc (No_Elab_Code_All_Pragma);
+                  Error_Msg_N
+                    ("violation of No_Elaboration_Code_All#", CI);
+                  Error_Msg_NE
+                    ("\unit& does not have No_Elaboration_Code_All",
+                     CI, Entity (Name (CI)));
+               end if;
+
+               Next (CI);
+            end loop;
+         end;
+      end if;
+   end Check_No_Elab_Code_All;
 
    -------------------------------
    -- Check_Body_Needed_For_SAL --

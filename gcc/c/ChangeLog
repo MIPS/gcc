@@ -1,3 +1,25 @@
+2014-08-07  Trevor Saunders  <tsaunders@mozilla.com>
+
+	* c-typeck.c: Remove include of pointer-set.h.
+
+2014-08-07  Marek Polacek  <polacek@redhat.com>
+
+	* c-typeck.c (pointer_diff): Remove P - (P + CST) optimization.
+
+2014-08-02  Trevor Saunders  <tsaunders@mozilla.com>
+
+	* c-typeck.c: Use hash_map instead of pointer_map.
+
+2014-08-02  Trevor Saunders  <tsaunders@mozilla.com>
+
+	* c-decl.c: Use hash_set instead of pointer_set.
+
+2014-08-01  Igor Zamyatin  <igor.zamyatin@intel.com>
+
+	PR middle-end/61455
+	* c-array-notation.c (expand_array_notations): Handling
+	of DECL_EXPR added.
+
 2014-07-31  Marc Glisse  <marc.glisse@inria.fr>
 
 	PR c++/60517

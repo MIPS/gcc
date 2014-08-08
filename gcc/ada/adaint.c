@@ -459,7 +459,20 @@ __gnat_try_lock (char *dir, char *file)
   S2WSC (wdir, dir, GNAT_MAX_PATH_LEN);
   S2WSC (wfile, file, GNAT_MAX_PATH_LEN);
 
+  /* ??? the code below crash on MingW64 for obscure reasons, a ticket
+     has been opened here:
+
+     https://sourceforge.net/p/mingw-w64/bugs/414/
+
+     As a workaround an equivalent set of code has been put in place below.
+
   _stprintf (wfull_path, _T("%s%c%s"), wdir, _T(DIR_SEPARATOR), wfile);
+  */
+
+  _tcscpy (wfull_path, wdir);
+  _tcscat (wfull_path, L"\\");
+  _tcscat (wfull_path, wfile);
+
   fd = _topen (wfull_path, O_CREAT | O_EXCL, 0600);
 #else
   char full_path[256];
@@ -1310,7 +1323,7 @@ win32_filetime (HANDLE h)
 
 /* As above but starting from a FILETIME.  */
 static void
-f2t (const FILETIME *ft, time_t *t)
+f2t (const FILETIME *ft, __time64_t *t)
 {
   union
   {
@@ -1319,7 +1332,7 @@ f2t (const FILETIME *ft, time_t *t)
   } t_write;
 
   t_write.ft_time = *ft;
-  *t = (time_t) (t_write.ull_time / 10000000ULL - w32_epoch_offset);
+  *t = (__time64_t) (t_write.ull_time / 10000000ULL - w32_epoch_offset);
 }
 #endif
 
@@ -1332,7 +1345,7 @@ __gnat_file_time_name_attr (char* name, struct file_attributes* attr)
 #if defined (_WIN32) && !defined (RTX)
       BOOL res;
       WIN32_FILE_ATTRIBUTE_DATA fad;
-      time_t ret = -1;
+      __time64_t ret = -1;
       TCHAR wname[GNAT_MAX_PATH_LEN];
       S2WSC (wname, name, GNAT_MAX_PATH_LEN);
 
@@ -1748,7 +1761,7 @@ __gnat_check_OWNER_ACL (TCHAR *wname,
   BOOL fAccessGranted = FALSE;
   HANDLE hToken = NULL;
   DWORD nLength = 0;
-  SECURITY_DESCRIPTOR* pSD = NULL;
+  PSECURITY_DESCRIPTOR pSD = NULL;
 
   GetFileSecurity
     (wname, OWNER_SECURITY_INFORMATION |
@@ -1808,7 +1821,7 @@ __gnat_check_OWNER_ACL (TCHAR *wname,
 
 static void
 __gnat_set_OWNER_ACL (TCHAR *wname,
-		      DWORD AccessMode,
+		      ACCESS_MODE AccessMode,
 		      DWORD AccessPermissions)
 {
   PACL pOldDACL = NULL;
@@ -2022,7 +2035,7 @@ __gnat_set_writable (char *name)
 #define S_OTHERS 4
 
 void
-__gnat_set_executable (char *name, int mode)
+__gnat_set_executable (char *name, int mode ATTRIBUTE_UNUSED)
 {
 #if defined (_WIN32) && !defined (RTX)
   TCHAR wname [GNAT_MAX_PATH_LEN + 2];
@@ -2177,7 +2190,7 @@ __gnat_portable_spawn (char *args[] ATTRIBUTE_UNUSED)
   strcat (args[0], args_0);
   strcat (args[0], "\"");
 
-  status = spawnvp (P_WAIT, args_0, (char* const*)args);
+  status = spawnvp (P_WAIT, args_0, (char ** const)args);
 
   /* restore previous value */
   free (args[0]);
@@ -2325,7 +2338,7 @@ add_handle (HANDLE h, int pid)
     {
       plist_max_length += 1000;
       HANDLES_LIST =
-        (void **) xrealloc (HANDLES_LIST, sizeof (HANDLE) * plist_max_length);
+        (HANDLE *) xrealloc (HANDLES_LIST, sizeof (HANDLE) * plist_max_length);
       PID_LIST =
         (int *) xrealloc (PID_LIST, sizeof (int) * plist_max_length);
     }
@@ -2445,7 +2458,6 @@ win32_wait (int *status)
   HANDLE *hl;
   HANDLE h;
   DWORD res;
-  int k;
   int hl_len;
 
   if (plist_length == 0)
@@ -2453,8 +2465,6 @@ win32_wait (int *status)
       errno = ECHILD;
       return -1;
     }
-
-  k = 0;
 
   /* -------------------- critical section -------------------- */
   (*Lock_Task) ();
@@ -2968,7 +2978,7 @@ __gnat_set_close_on_exec (int fd ATTRIBUTE_UNUSED,
     flags |= FD_CLOEXEC;
   else
     flags &= ~FD_CLOEXEC;
-  return fcntl (fd, F_SETFD, flags | FD_CLOEXEC);
+  return fcntl (fd, F_SETFD, flags);
 #elif defined(_WIN32)
   HANDLE h = (HANDLE) _get_osfhandle (fd);
   if (h == (HANDLE) -1)

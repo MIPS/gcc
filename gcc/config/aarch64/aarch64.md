@@ -141,12 +141,22 @@
 ; to share pipeline descriptions.
 (include "../arm/types.md")
 
+;; It is important to set the fp or simd attributes to yes when a pattern
+;; alternative uses the FP or SIMD register files, usually signified by use of
+;; the 'w' constraint.  This will ensure that the alternative will be
+;; disabled when compiling with -mgeneral-regs-only or with the +nofp/+nosimd
+;; architecture extensions.  If all the alternatives in a pattern use the
+;; FP or SIMD registers then the pattern predicate should include TARGET_FLOAT
+;; or TARGET_SIMD.
+
 ;; Attribute that specifies whether or not the instruction touches fp
-;; registers.
+;; registers.  When this is set to yes for an alternative, that alternative
+;; will be disabled when !TARGET_FLOAT.
 (define_attr "fp" "no,yes" (const_string "no"))
 
 ;; Attribute that specifies whether or not the instruction touches simd
-;; registers.
+;; registers.  When this is set to yes for an alternative, that alternative
+;; will be disabled when !TARGET_SIMD.
 (define_attr "simd" "no,yes" (const_string "no"))
 
 (define_attr "length" ""
@@ -1016,20 +1026,19 @@
   [(set_attr "type" "neon_store1_2reg<q>")]
 )
 
-;; Load pair with writeback.  This is primarily used in function epilogues
-;; when restoring [fp,lr]
+;; Load pair with post-index writeback.  This is primarily used in function
+;; epilogues.
 (define_insn "loadwb_pair<GPI:mode>_<P:mode>"
   [(parallel
     [(set (match_operand:P 0 "register_operand" "=k")
           (plus:P (match_operand:P 1 "register_operand" "0")
-                  (match_operand:P 4 "const_int_operand" "n")))
+                  (match_operand:P 4 "aarch64_mem_pair_offset" "n")))
      (set (match_operand:GPI 2 "register_operand" "=r")
-          (mem:GPI (plus:P (match_dup 1)
-                   (match_dup 4))))
+          (mem:GPI (match_dup 1)))
      (set (match_operand:GPI 3 "register_operand" "=r")
           (mem:GPI (plus:P (match_dup 1)
                    (match_operand:P 5 "const_int_operand" "n"))))])]
-  "INTVAL (operands[5]) == INTVAL (operands[4]) + GET_MODE_SIZE (<GPI:MODE>mode)"
+  "INTVAL (operands[5]) == GET_MODE_SIZE (<GPI:MODE>mode)"
   "ldp\\t%<w>2, %<w>3, [%1], %4"
   [(set_attr "type" "load2")]
 )
@@ -1038,25 +1047,24 @@
   [(parallel
     [(set (match_operand:P 0 "register_operand" "=k")
           (plus:P (match_operand:P 1 "register_operand" "0")
-                  (match_operand:P 4 "const_int_operand" "n")))
+                  (match_operand:P 4 "aarch64_mem_pair_offset" "n")))
      (set (match_operand:GPF 2 "register_operand" "=w")
-          (mem:GPF (plus:P (match_dup 1)
-                   (match_dup 4))))
+          (mem:GPF (match_dup 1)))
      (set (match_operand:GPF 3 "register_operand" "=w")
           (mem:GPF (plus:P (match_dup 1)
                    (match_operand:P 5 "const_int_operand" "n"))))])]
-  "INTVAL (operands[5]) == INTVAL (operands[4]) + GET_MODE_SIZE (<GPF:MODE>mode)"
+  "INTVAL (operands[5]) == GET_MODE_SIZE (<GPF:MODE>mode)"
   "ldp\\t%<w>2, %<w>3, [%1], %4"
   [(set_attr "type" "neon_load1_2reg")]
 )
 
-;; Store pair with writeback.  This is primarily used in function prologues
-;; when saving [fp,lr]
+;; Store pair with pre-index writeback.  This is primarily used in function
+;; prologues.
 (define_insn "storewb_pair<GPI:mode>_<P:mode>"
   [(parallel
     [(set (match_operand:P 0 "register_operand" "=&k")
           (plus:P (match_operand:P 1 "register_operand" "0")
-                  (match_operand:P 4 "const_int_operand" "n")))
+                  (match_operand:P 4 "aarch64_mem_pair_offset" "n")))
      (set (mem:GPI (plus:P (match_dup 0)
                    (match_dup 4)))
           (match_operand:GPI 2 "register_operand" "r"))
@@ -1072,7 +1080,7 @@
   [(parallel
     [(set (match_operand:P 0 "register_operand" "=&k")
           (plus:P (match_operand:P 1 "register_operand" "0")
-                  (match_operand:P 4 "const_int_operand" "n")))
+                  (match_operand:P 4 "aarch64_mem_pair_offset" "n")))
      (set (mem:GPF (plus:P (match_dup 0)
                    (match_dup 4)))
           (match_operand:GPF 2 "register_operand" "w"))
@@ -1956,7 +1964,8 @@
 							     GEN_INT (63)))));
     DONE;
   }
-  [(set_attr "type" "alu_sreg")]
+  [(set_attr "type" "alu_sreg")
+   (set_attr "simd" "no,yes")]
 )
 
 (define_insn "neg<mode>2"
@@ -3730,7 +3739,7 @@
         (match_operand:TX 1 "register_operand" "w"))
    (clobber (match_operand:DI 2 "register_operand" "=&r"))
   ]
-  ""
+  "TARGET_FLOAT"
   {
     rtx op0 = simplify_gen_subreg (TImode, operands[0], <MODE>mode, 0);
     rtx op1 = simplify_gen_subreg (TImode, operands[1], <MODE>mode, 0);
@@ -3748,7 +3757,7 @@
 (define_insn "aarch64_movdi_<mode>low"
   [(set (match_operand:DI 0 "register_operand" "=r")
         (truncate:DI (match_operand:TX 1 "register_operand" "w")))]
-  "reload_completed || reload_in_progress"
+  "TARGET_FLOAT && (reload_completed || reload_in_progress)"
   "fmov\\t%x0, %d1"
   [(set_attr "type" "f_mrc")
    (set_attr "length" "4")
@@ -3759,7 +3768,7 @@
         (truncate:DI
 	  (lshiftrt:TX (match_operand:TX 1 "register_operand" "w")
 		       (const_int 64))))]
-  "reload_completed || reload_in_progress"
+  "TARGET_FLOAT && (reload_completed || reload_in_progress)"
   "fmov\\t%x0, %1.d[1]"
   [(set_attr "type" "f_mrc")
    (set_attr "length" "4")
@@ -3769,7 +3778,7 @@
   [(set (zero_extract:TX (match_operand:TX 0 "register_operand" "+w")
                          (const_int 64) (const_int 64))
         (zero_extend:TX (match_operand:DI 1 "register_operand" "r")))]
-  "reload_completed || reload_in_progress"
+  "TARGET_FLOAT && (reload_completed || reload_in_progress)"
   "fmov\\t%0.d[1], %x1"
   [(set_attr "type" "f_mcr")
    (set_attr "length" "4")
@@ -3778,7 +3787,7 @@
 (define_insn "aarch64_mov<mode>low_di"
   [(set (match_operand:TX 0 "register_operand" "=w")
         (zero_extend:TX (match_operand:DI 1 "register_operand" "r")))]
-  "reload_completed || reload_in_progress"
+  "TARGET_FLOAT && (reload_completed || reload_in_progress)"
   "fmov\\t%d0, %x1"
   [(set_attr "type" "f_mcr")
    (set_attr "length" "4")
@@ -3786,9 +3795,9 @@
 
 (define_insn "aarch64_movtilow_tilow"
   [(set (match_operand:TI 0 "register_operand" "=w")
-        (zero_extend:TI 
+        (zero_extend:TI
 	  (truncate:DI (match_operand:TI 1 "register_operand" "w"))))]
-  "reload_completed || reload_in_progress"
+  "TARGET_FLOAT && (reload_completed || reload_in_progress)"
   "fmov\\t%d0, %d1"
   [(set_attr "type" "fmov")
    (set_attr "length" "4")

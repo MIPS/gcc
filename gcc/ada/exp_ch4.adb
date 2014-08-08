@@ -151,11 +151,11 @@ package body Exp_Ch4 is
       Bodies : List_Id) return Node_Id;
    --  Local recursive function used to expand equality for nested composite
    --  types. Used by Expand_Record/Array_Equality, Bodies is a list on which
-   --  to attach bodies of local functions that are created in the process.
-   --  It is the responsibility of the caller to insert those bodies at the
-   --  right place. Nod provides the Sloc value for generated code. Lhs and Rhs
-   --  are the left and right sides for the comparison, and Typ is the type of
-   --  the objects to compare.
+   --  to attach bodies of local functions that are created in the process. It
+   --  is the responsibility of the caller to insert those bodies at the right
+   --  place. Nod provides the Sloc value for generated code. Lhs and Rhs are
+   --  the left and right sides for the comparison, and Typ is the type of the
+   --  objects to compare.
 
    procedure Expand_Concatenate (Cnode : Node_Id; Opnds : List_Id);
    --  Routine to expand concatenation of a sequence of two or more operands
@@ -1124,10 +1124,11 @@ package body Exp_Ch4 is
                --  Inherit the allocation-related attributes from the original
                --  access type.
 
-               Set_Finalization_Master (Def_Id, Finalization_Master (PtrT));
+               Set_Finalization_Master
+                 (Def_Id, Finalization_Master (PtrT));
 
-               Set_Associated_Storage_Pool (Def_Id,
-                 Associated_Storage_Pool (PtrT));
+               Set_Associated_Storage_Pool
+                 (Def_Id, Associated_Storage_Pool (PtrT));
 
                --  Declare the object using the previous type declaration
 
@@ -2828,11 +2829,20 @@ package body Exp_Ch4 is
                            Rhs_Discr_Val));
                   end;
 
+               --  All cases other than comparing Unchecked_Union types
+
                else
-                  return
-                    Make_Function_Call (Loc,
-                      Name                   => New_Occurrence_Of (Eq_Op, Loc),
-                      Parameter_Associations => New_List (Lhs, Rhs));
+                  declare
+                     T : constant Entity_Id := Etype (First_Formal (Eq_Op));
+                  begin
+                     return
+                       Make_Function_Call (Loc,
+                         Name                   =>
+                           New_Occurrence_Of (Eq_Op, Loc),
+                         Parameter_Associations => New_List (
+                           OK_Convert_To (T, Lhs),
+                           OK_Convert_To (T, Rhs)));
+                  end;
                end if;
             end if;
 
@@ -4309,26 +4319,29 @@ package body Exp_Ch4 is
 
          --  Anonymous access-to-controlled types allocate on the global pool.
          --  Do not set this attribute on .NET/JVM since those targets do not
-         --  support pools.
+         --  support pools. Note that this is a "root type only" attribute.
 
          if No (Associated_Storage_Pool (PtrT)) and then VM_Target = No_VM then
             if Present (Rel_Typ) then
                Set_Associated_Storage_Pool
-                 (PtrT, Associated_Storage_Pool (Rel_Typ));
+                 (Root_Type (PtrT), Associated_Storage_Pool (Rel_Typ));
             else
                Set_Associated_Storage_Pool
-                 (PtrT, RTE (RE_Global_Pool_Object));
+                 (Root_Type (PtrT), RTE (RE_Global_Pool_Object));
             end if;
          end if;
 
          --  The finalization master must be inserted and analyzed as part of
          --  the current semantic unit. Note that the master is updated when
-         --  analysis changes current units.
+         --  analysis changes current units. Note that this is a "root type
+         --  only" attribute.
 
          if Present (Rel_Typ) then
-            Set_Finalization_Master (PtrT, Finalization_Master (Rel_Typ));
+            Set_Finalization_Master
+              (Root_Type (PtrT), Finalization_Master (Rel_Typ));
          else
-            Set_Finalization_Master (PtrT, Current_Anonymous_Master);
+            Set_Finalization_Master
+              (Root_Type (PtrT), Current_Anonymous_Master);
          end if;
       end if;
 
@@ -6487,6 +6500,10 @@ package body Exp_Ch4 is
          Apply_Arithmetic_Overflow_Check (N);
          return;
       end if;
+
+      --  Overflow checks for floating-point if -gnateF mode active
+
+      Check_Float_Op_Overflow (N);
    end Expand_N_Op_Add;
 
    ---------------------
@@ -6695,6 +6712,10 @@ package body Exp_Ch4 is
       elsif Is_Integer_Type (Typ) then
          Apply_Divide_Checks (N);
       end if;
+
+      --  Overflow checks for floating-point if -gnateF mode active
+
+      Check_Float_Op_Overflow (N);
    end Expand_N_Op_Divide;
 
    --------------------
@@ -8453,6 +8474,10 @@ package body Exp_Ch4 is
       elsif Is_Signed_Integer_Type (Etype (N)) then
          Apply_Arithmetic_Overflow_Check (N);
       end if;
+
+      --  Overflow checks for floating-point if -gnateF mode active
+
+      Check_Float_Op_Overflow (N);
    end Expand_N_Op_Multiply;
 
    --------------------
@@ -9178,6 +9203,10 @@ package body Exp_Ch4 is
       if Is_Signed_Integer_Type (Typ) or else Is_Fixed_Point_Type (Typ) then
          Apply_Arithmetic_Overflow_Check (N);
       end if;
+
+      --  Overflow checks for floating-point if -gnateF mode active
+
+      Check_Float_Op_Overflow (N);
    end Expand_N_Op_Subtract;
 
    ---------------------
@@ -10407,13 +10436,29 @@ package body Exp_Ch4 is
          --  If the level of the operand type is statically deeper than the
          --  level of the target type, then force Program_Error. Note that this
          --  can only occur for cases where the attribute is within the body of
-         --  an instantiation (otherwise the conversion will already have been
-         --  rejected as illegal). Note: warnings are issued by the analyzer
-         --  for the instance cases.
+         --  an instantiation, otherwise the conversion will already have been
+         --  rejected as illegal.
+
+         --  Note: warnings are issued by the analyzer for the instance cases
 
          elsif In_Instance_Body
-           and then Type_Access_Level (Operand_Type) >
-                    Type_Access_Level (Target_Type)
+
+           --  The case where the target type is an anonymous access type of
+           --  a discriminant is excluded, because the level of such a type
+           --  depends on the context and currently the level returned for such
+           --  types is zero, resulting in warnings about about check failures
+           --  in certain legal cases involving class-wide interfaces as the
+           --  designated type (some cases, such as return statements, are
+           --  checked at run time, but not clear if these are handled right
+           --  in general, see 3.10.2(12/2-12.5/3) ???).
+
+           and then
+             not (Ekind (Target_Type) = E_Anonymous_Access_Type
+                   and then Present (Associated_Node_For_Itype (Target_Type))
+                   and then Nkind (Associated_Node_For_Itype (Target_Type)) =
+                                                  N_Discriminant_Specification)
+           and then
+             Type_Access_Level (Operand_Type) > Type_Access_Level (Target_Type)
          then
             Raise_Accessibility_Error;
 
@@ -10835,60 +10880,80 @@ package body Exp_Ch4 is
 
       --  The only remaining step is to generate a range check if we still have
       --  a type conversion at this stage and Do_Range_Check is set. For now we
-      --  do this only for conversions of discrete types.
+      --  do this only for conversions of discrete types and for float-to-float
+      --  conversions.
 
-      if Nkind (N) = N_Type_Conversion
-        and then Is_Discrete_Type (Etype (N))
-      then
-         declare
-            Expr : constant Node_Id := Expression (N);
-            Ftyp : Entity_Id;
-            Ityp : Entity_Id;
+      if Nkind (N) = N_Type_Conversion then
 
-         begin
-            if Do_Range_Check (Expr)
-              and then Is_Discrete_Type (Etype (Expr))
+         --  For now we only support floating-point cases where both source
+         --  and target are floating-point types. Conversions where the source
+         --  and target involve integer or fixed-point types are still TBD,
+         --  though not clear whether those can even happen at this point, due
+         --  to transformations above. ???
+
+         if Is_Floating_Point_Type (Etype (N))
+           and then Is_Floating_Point_Type (Etype (Expression (N)))
+         then
+            if Do_Range_Check (Expression (N))
+              and then Is_Floating_Point_Type (Target_Type)
             then
-               Set_Do_Range_Check (Expr, False);
+               Generate_Range_Check
+                 (Expression (N), Target_Type, CE_Range_Check_Failed);
+            end if;
 
-               --  Before we do a range check, we have to deal with treating a
-               --  fixed-point operand as an integer. The way we do this is
-               --  simply to do an unchecked conversion to an appropriate
-               --  integer type large enough to hold the result.
+         --  Discrete-to-discrete conversions
 
-               --  This code is not active yet, because we are only dealing
-               --  with discrete types so far ???
+         elsif Is_Discrete_Type (Etype (N)) then
+            declare
+               Expr : constant Node_Id := Expression (N);
+               Ftyp : Entity_Id;
+               Ityp : Entity_Id;
 
-               if Nkind (Expr) in N_Has_Treat_Fixed_As_Integer
-                 and then Treat_Fixed_As_Integer (Expr)
+            begin
+               if Do_Range_Check (Expr)
+                 and then Is_Discrete_Type (Etype (Expr))
                then
-                  Ftyp := Base_Type (Etype (Expr));
+                  Set_Do_Range_Check (Expr, False);
 
-                  if Esize (Ftyp) >= Esize (Standard_Integer) then
-                     Ityp := Standard_Long_Long_Integer;
-                  else
-                     Ityp := Standard_Integer;
+                  --  Before we do a range check, we have to deal with treating
+                  --  a fixed-point operand as an integer. The way we do this
+                  --  is simply to do an unchecked conversion to an appropriate
+                  --  integer type large enough to hold the result.
+
+                  --  This code is not active yet, because we are only dealing
+                  --  with discrete types so far ???
+
+                  if Nkind (Expr) in N_Has_Treat_Fixed_As_Integer
+                    and then Treat_Fixed_As_Integer (Expr)
+                  then
+                     Ftyp := Base_Type (Etype (Expr));
+
+                     if Esize (Ftyp) >= Esize (Standard_Integer) then
+                        Ityp := Standard_Long_Long_Integer;
+                     else
+                        Ityp := Standard_Integer;
+                     end if;
+
+                     Rewrite (Expr, Unchecked_Convert_To (Ityp, Expr));
                   end if;
 
-                  Rewrite (Expr, Unchecked_Convert_To (Ityp, Expr));
+                  --  Reset overflow flag, since the range check will include
+                  --  dealing with possible overflow, and generate the check.
+                  --  If Address is either a source type or target type,
+                  --  suppress range check to avoid typing anomalies when
+                  --  it is a visible integer type.
+
+                  Set_Do_Overflow_Check (N, False);
+
+                  if not Is_Descendent_Of_Address (Etype (Expr))
+                    and then not Is_Descendent_Of_Address (Target_Type)
+                  then
+                     Generate_Range_Check
+                       (Expr, Target_Type, CE_Range_Check_Failed);
+                  end if;
                end if;
-
-               --  Reset overflow flag, since the range check will include
-               --  dealing with possible overflow, and generate the check. If
-               --  Address is either a source type or target type, suppress
-               --  range check to avoid typing anomalies when it is a visible
-               --  integer type.
-
-               Set_Do_Overflow_Check (N, False);
-
-               if not Is_Descendent_Of_Address (Etype (Expr))
-                 and then not Is_Descendent_Of_Address (Target_Type)
-               then
-                  Generate_Range_Check
-                    (Expr, Target_Type, CE_Range_Check_Failed);
-               end if;
-            end if;
-         end;
+            end;
+         end if;
       end if;
 
       --  Here at end of processing
@@ -11508,11 +11573,12 @@ package body Exp_Ch4 is
       Pool  : constant Entity_Id  := Associated_Storage_Pool (Typ);
       Pnod  : constant Node_Id    := Parent (N);
 
-      Addr  : Entity_Id;
-      Alig  : Entity_Id;
-      Deref : Node_Id;
-      Size  : Entity_Id;
-      Stmt  : Node_Id;
+      Addr      : Entity_Id;
+      Alig      : Entity_Id;
+      Deref     : Node_Id;
+      Size      : Entity_Id;
+      Size_Bits : Node_Id;
+      Stmt      : Node_Id;
 
    --  Start of processing for Insert_Dereference_Action
 
@@ -11563,23 +11629,36 @@ package body Exp_Ch4 is
           Prefix => Duplicate_Subexpr_Move_Checks (N));
       Set_Has_Dereference_Action (Deref);
 
-      Size := Make_Temporary (Loc, 'S');
+      Size_Bits :=
+        Make_Attribute_Reference (Loc,
+          Prefix         => Deref,
+          Attribute_Name => Name_Size);
 
+      --  Special case of an unconstrained array: need to add descriptor size
+
+      if Is_Array_Type (Desig)
+        and then not Is_Constrained (First_Subtype (Desig))
+      then
+         Size_Bits :=
+           Make_Op_Add (Loc,
+             Left_Opnd  =>
+               Make_Attribute_Reference (Loc,
+                 Prefix         =>
+                   New_Occurrence_Of (First_Subtype (Desig), Loc),
+                 Attribute_Name => Name_Descriptor_Size),
+             Right_Opnd => Size_Bits);
+      end if;
+
+      Size := Make_Temporary (Loc, 'S');
       Insert_Action (N,
         Make_Object_Declaration (Loc,
           Defining_Identifier => Size,
-
           Object_Definition   =>
             New_Occurrence_Of (RTE (RE_Storage_Count), Loc),
-
           Expression          =>
             Make_Op_Divide (Loc,
-              Left_Opnd   =>
-                Make_Attribute_Reference (Loc,
-                  Prefix         => Deref,
-                  Attribute_Name => Name_Size),
-               Right_Opnd =>
-                 Make_Integer_Literal (Loc, System_Storage_Unit))));
+              Left_Opnd  => Size_Bits,
+              Right_Opnd => Make_Integer_Literal (Loc, System_Storage_Unit))));
 
       --  Calculate the alignment of the dereferenced object. Generate:
       --    Alig : constant Storage_Count := <N>.all'Alignment;
@@ -11590,7 +11669,6 @@ package body Exp_Ch4 is
       Set_Has_Dereference_Action (Deref);
 
       Alig := Make_Temporary (Loc, 'A');
-
       Insert_Action (N,
         Make_Object_Declaration (Loc,
           Defining_Identifier => Alig,

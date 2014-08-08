@@ -119,10 +119,11 @@ package body Osint is
    --  failure
 
    procedure Find_File
-     (N     : File_Name_Type;
-      T     : File_Type;
-      Found : out File_Name_Type;
-      Attr  : access File_Attributes);
+     (N         : File_Name_Type;
+      T         : File_Type;
+      Found     : out File_Name_Type;
+      Attr      : access File_Attributes;
+      Full_Name : Boolean := False);
    --  A version of Find_File that also returns a cache of the file attributes
    --  for later reuse
 
@@ -722,6 +723,23 @@ package body Osint is
       end if;
    end Create_File_And_Check;
 
+   -----------------------------------
+   -- Open_File_To_Append_And_Check --
+   -----------------------------------
+
+   procedure Open_File_To_Append_And_Check
+     (Fdesc : out File_Descriptor;
+      Fmode : Mode)
+   is
+   begin
+      Output_File_Name := Name_Enter;
+      Fdesc := Open_Append (Name_Buffer'Address, Fmode);
+
+      if Fdesc = Invalid_FD then
+         Fail ("Cannot create: " & Name_Buffer (1 .. Name_Len));
+      end if;
+   end Open_File_To_Append_And_Check;
+
    ------------------------
    -- Current_File_Index --
    ------------------------
@@ -1136,13 +1154,14 @@ package body Osint is
    ---------------
 
    function Find_File
-     (N : File_Name_Type;
-      T : File_Type) return File_Name_Type
+     (N         : File_Name_Type;
+      T         : File_Type;
+      Full_Name : Boolean := False) return File_Name_Type
    is
       Attr  : aliased File_Attributes;
       Found : File_Name_Type;
    begin
-      Find_File (N, T, Found, Attr'Access);
+      Find_File (N, T, Found, Attr'Access, Full_Name);
       return Found;
    end Find_File;
 
@@ -1151,10 +1170,12 @@ package body Osint is
    ---------------
 
    procedure Find_File
-     (N     : File_Name_Type;
-      T     : File_Type;
-      Found : out File_Name_Type;
-      Attr  : access File_Attributes) is
+     (N         : File_Name_Type;
+      T         : File_Type;
+      Found     : out File_Name_Type;
+      Attr      : access File_Attributes;
+      Full_Name : Boolean := False)
+   is
    begin
       Get_Name_String (N);
 
@@ -1176,6 +1197,19 @@ package body Osint is
          then
             Found := N;
             Attr.all  := Unknown_Attributes;
+
+            if T = Config and then Full_Name then
+               declare
+                  Full_Path : constant String :=
+                                Normalize_Pathname (Get_Name_String (N));
+                  Full_Size : constant Natural := Full_Path'Length;
+               begin
+                  Name_Buffer (1 .. Full_Size) := Full_Path;
+                  Name_Len := Full_Size;
+                  Found := Name_Find;
+               end;
+            end if;
+
             return;
 
          --  If we are trying to find the current main file just look in the
@@ -2574,7 +2608,7 @@ package body Osint is
       --  For the call to Close
 
    begin
-      Current_Full_Source_Name  := Find_File (N, T);
+      Current_Full_Source_Name  := Find_File (N, T, Full_Name => True);
       Current_Full_Source_Stamp := File_Stamp (Current_Full_Source_Name);
 
       if Current_Full_Source_Name = No_File then

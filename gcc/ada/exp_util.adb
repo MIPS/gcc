@@ -1633,6 +1633,68 @@ package body Exp_Util is
       return Build_Task_Image_Function (Loc, Decls, Stats, Res);
    end Build_Task_Record_Image;
 
+   -----------------------------
+   -- Check_Float_Op_Overflow --
+   -----------------------------
+
+   procedure Check_Float_Op_Overflow (N : Node_Id) is
+   begin
+      --  Return if no check needed
+
+      if not Is_Floating_Point_Type (Etype (N))
+        or else not (Do_Overflow_Check (N) and then Check_Float_Overflow)
+
+        --  In CodePeer_Mode, rely on the overflow check flag being set instead
+        --  and do not expand the code for float overflow checking.
+
+        or else CodePeer_Mode
+      then
+         return;
+      end if;
+
+      --  Otherwise we replace the expression by
+
+      --  do Tnn : constant ftype := expression;
+      --     constraint_error when not Tnn'Valid;
+      --  in Tnn;
+
+      declare
+         Loc : constant Source_Ptr := Sloc (N);
+         Tnn : constant Entity_Id  := Make_Temporary (Loc, 'T', N);
+         Typ : constant Entity_Id  := Etype (N);
+
+      begin
+         --  Turn off the Do_Overflow_Check flag, since we are doing that work
+         --  right here. We also set the node as analyzed to prevent infinite
+         --  recursion from repeating the operation in the expansion.
+
+         Set_Do_Overflow_Check (N, False);
+         Set_Analyzed (N, True);
+
+         --  Do the rewrite to include the check
+
+         Rewrite (N,
+           Make_Expression_With_Actions (Loc,
+             Actions    => New_List (
+               Make_Object_Declaration (Loc,
+                 Defining_Identifier => Tnn,
+                 Object_Definition   => New_Occurrence_Of (Typ, Loc),
+                 Constant_Present    => True,
+                 Expression          => Relocate_Node (N)),
+               Make_Raise_Constraint_Error (Loc,
+                 Condition =>
+                   Make_Op_Not (Loc,
+                     Right_Opnd =>
+                       Make_Attribute_Reference (Loc,
+                         Prefix         => New_Occurrence_Of (Tnn, Loc),
+                         Attribute_Name => Name_Valid)),
+                 Reason    => CE_Overflow_Check_Failed)),
+             Expression => New_Occurrence_Of (Tnn, Loc)));
+
+         Analyze_And_Resolve (N, Typ);
+      end;
+   end Check_Float_Op_Overflow;
+
    ----------------------------------
    -- Component_May_Be_Bit_Aligned --
    ----------------------------------
@@ -1791,11 +1853,12 @@ package body Exp_Util is
    -----------------------
 
    function Duplicate_Subexpr
-     (Exp      : Node_Id;
-      Name_Req : Boolean := False) return Node_Id
+     (Exp          : Node_Id;
+      Name_Req     : Boolean := False;
+      Renaming_Req : Boolean := False) return Node_Id
    is
    begin
-      Remove_Side_Effects (Exp, Name_Req);
+      Remove_Side_Effects (Exp, Name_Req, Renaming_Req);
       return New_Copy_Tree (Exp);
    end Duplicate_Subexpr;
 
@@ -1804,12 +1867,14 @@ package body Exp_Util is
    ---------------------------------
 
    function Duplicate_Subexpr_No_Checks
-     (Exp      : Node_Id;
-      Name_Req : Boolean := False) return Node_Id
+     (Exp          : Node_Id;
+      Name_Req     : Boolean := False;
+      Renaming_Req : Boolean := False) return Node_Id
    is
       New_Exp : Node_Id;
+
    begin
-      Remove_Side_Effects (Exp, Name_Req);
+      Remove_Side_Effects (Exp, Name_Req, Renaming_Req);
       New_Exp := New_Copy_Tree (Exp);
       Remove_Checks (New_Exp);
       return New_Exp;
@@ -1820,12 +1885,14 @@ package body Exp_Util is
    -----------------------------------
 
    function Duplicate_Subexpr_Move_Checks
-     (Exp      : Node_Id;
-      Name_Req : Boolean := False) return Node_Id
+     (Exp          : Node_Id;
+      Name_Req     : Boolean := False;
+      Renaming_Req : Boolean := False) return Node_Id
    is
       New_Exp : Node_Id;
+
    begin
-      Remove_Side_Effects (Exp, Name_Req);
+      Remove_Side_Effects (Exp, Name_Req, Renaming_Req);
       New_Exp := New_Copy_Tree (Exp);
       Remove_Checks (Exp);
       return New_Exp;
@@ -3233,8 +3300,8 @@ package body Exp_Util is
    -------------------------------------------------
 
    function Get_First_Parent_With_Ext_Axioms_For_Entity
-     (E : Entity_Id) return Entity_Id is
-
+     (E : Entity_Id) return Entity_Id
+   is
       Decl : Node_Id;
 
    begin
@@ -3246,33 +3313,42 @@ package body Exp_Util is
          end if;
       end if;
 
-      --  E is the package which is externally axiomatized
+      --  E is the package or generic package which is externally axiomatized
 
-      if Ekind (E) = E_Package
+      if Ekind_In (E, E_Package, E_Generic_Package)
         and then Has_Annotate_Pragma_For_External_Axiomatization (E)
       then
          return E;
-
-         --  E is a package instance, in which case it is axiomatized iff the
-         --  corresponding generic package is Axiomatized.
-
-      elsif Ekind (E) = E_Package
-        and then Present (Generic_Parent (Decl))
-      then
-         return Get_First_Parent_With_Ext_Axioms_For_Entity
-           (Generic_Parent (Decl));
-
-         --  Otherwise, look at E's scope instead if present
-
-      elsif Present (Scope (E)) then
-         return Get_First_Parent_With_Ext_Axioms_For_Entity
-             (Scope (E));
-
-         --  Else there is no such axiomatized package
-
-      else
-         return Empty;
       end if;
+
+      --  If E's scope is axiomatized, E is axiomatized.
+
+      declare
+         First_Ax_Parent_Scope : Entity_Id := Empty;
+
+      begin
+         if Present (Scope (E)) then
+            First_Ax_Parent_Scope :=
+              Get_First_Parent_With_Ext_Axioms_For_Entity (Scope (E));
+         end if;
+
+         if Present (First_Ax_Parent_Scope) then
+            return First_Ax_Parent_Scope;
+         end if;
+
+         --  otherwise, if E is a package instance, it is axiomatized if the
+         --  corresponding generic package is axiomatized.
+
+         if Ekind (E) = E_Package
+           and then Present (Generic_Parent (Decl))
+         then
+            return
+              Get_First_Parent_With_Ext_Axioms_For_Entity
+                (Generic_Parent (Decl));
+         else
+            return Empty;
+         end if;
+      end;
    end Get_First_Parent_With_Ext_Axioms_For_Entity;
 
    ---------------------
@@ -5079,6 +5155,12 @@ package body Exp_Util is
       T  : constant Entity_Id := Etype (N);
 
    begin
+      --  Objects are never unaligned on VMs
+
+      if VM_Target /= No_VM then
+         return False;
+      end if;
+
       --  If renamed object, apply test to underlying object
 
       if Is_Entity_Name (N)
@@ -7101,6 +7183,7 @@ package body Exp_Util is
    procedure Remove_Side_Effects
      (Exp          : Node_Id;
       Name_Req     : Boolean := False;
+      Renaming_Req : Boolean := False;
       Variable_Ref : Boolean := False)
    is
       Loc          : constant Source_Ptr      := Sloc (Exp);
@@ -7186,14 +7269,30 @@ package body Exp_Util is
             Set_Analyzed (Prefix (Exp), False);
          end if;
 
-         E :=
-           Make_Object_Declaration (Loc,
-             Defining_Identifier => Def_Id,
-             Object_Definition   => New_Occurrence_Of (Exp_Type, Loc),
-             Constant_Present    => True,
-             Expression          => Relocate_Node (Exp));
+         --  Generate:
+         --    Rnn : Exp_Type renames Expr;
 
-         Set_Assignment_OK (E);
+         if Renaming_Req then
+            E :=
+              Make_Object_Renaming_Declaration (Loc,
+                Defining_Identifier => Def_Id,
+                Subtype_Mark        => New_Occurrence_Of (Exp_Type, Loc),
+                Name                => Relocate_Node (Exp));
+
+         --  Generate:
+         --    Rnn : constant Exp_Type := Expr;
+
+         else
+            E :=
+              Make_Object_Declaration (Loc,
+                Defining_Identifier => Def_Id,
+                Object_Definition   => New_Occurrence_Of (Exp_Type, Loc),
+                Constant_Present    => True,
+                Expression          => Relocate_Node (Exp));
+
+            Set_Assignment_OK (E);
+         end if;
+
          Insert_Action (Exp, E);
 
       --  If the expression has the form v.all then we can just capture the

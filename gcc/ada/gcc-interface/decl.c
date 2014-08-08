@@ -172,6 +172,7 @@ static tree get_rep_part (tree);
 static tree create_variant_part_from (tree, vec<variant_desc> , tree,
 				      tree, vec<subst_pair> );
 static void copy_and_substitute_in_size (tree, tree, vec<subst_pair> );
+static void add_parallel_type_for_packed_array (tree, Entity_Id);
 
 /* The relevant constituents of a subprogram binding to a GCC builtin.  Used
    to pass around calls performing profile compatibility checks.  */
@@ -488,15 +489,6 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
       goto object;
 
     case E_Exception:
-      /* We used to special case VMS exceptions here to directly map them to
-	 their associated condition code.  Since this code had to be masked
-	 dynamically to strip off the severity bits, this caused trouble in
-	 the GCC/ZCX case because the "type" pointers we store in the tables
-	 have to be static.  We now don't special case here anymore, and let
-	 the regular processing take place, which leaves us with a regular
-	 exception data object for VMS exceptions too.  The condition code
-	 mapping is taken care of by the front end and the bitmasking by the
-	 run-time library.  */
       goto object;
 
     case E_Component:
@@ -505,33 +497,28 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	/* The GNAT record where the component was defined.  */
 	Entity_Id gnat_record = Underlying_Type (Scope (gnat_entity));
 
-	/* If the entity is an inherited component (in the case of extended
-	   tagged record types), just return the original entity, which must
-	   be a FIELD_DECL.  Likewise for discriminants.  If the entity is a
-	   non-girder discriminant (in the case of derived untagged record
-	   types), return the stored discriminant it renames.  */
-	if (Present (Original_Record_Component (gnat_entity))
-	    && Original_Record_Component (gnat_entity) != gnat_entity)
+	/* If the entity is a discriminant of an extended tagged type used to
+	   rename a discriminant of the parent type, return the latter.  */
+	if (Is_Tagged_Type (gnat_record)
+	    && Present (Corresponding_Discriminant (gnat_entity)))
 	  {
 	    gnu_decl
-	      = gnat_to_gnu_entity (Original_Record_Component (gnat_entity),
+	      = gnat_to_gnu_entity (Corresponding_Discriminant (gnat_entity),
 				    gnu_expr, definition);
 	    saved = true;
 	    break;
 	  }
 
-	/* If this is a discriminant of an extended tagged type used to rename
-	   a discriminant of the parent type, return the latter.  */
-	else if (Present (Corresponding_Discriminant (gnat_entity)))
+	/* If the entity is an inherited component (in the case of extended
+	   tagged record types), just return the original entity, which must
+	   be a FIELD_DECL.  Likewise for discriminants.  If the entity is a
+	   non-girder discriminant (in the case of derived untagged record
+	   types), return the stored discriminant it renames.  */
+	else if (Present (Original_Record_Component (gnat_entity))
+		 && Original_Record_Component (gnat_entity) != gnat_entity)
 	  {
-	    /* If the derived type is untagged, then this is a non-girder
-	       discriminant and its Original_Record_Component must point to
-	       the stored discriminant it renames (i.e. we should have taken
-	       the previous branch).  */
-	    gcc_assert (Is_Tagged_Type (gnat_record));
-
 	    gnu_decl
-	      = gnat_to_gnu_entity (Corresponding_Discriminant (gnat_entity),
+	      = gnat_to_gnu_entity (Original_Record_Component (gnat_entity),
 				    gnu_expr, definition);
 	    saved = true;
 	    break;
@@ -1431,14 +1418,12 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		 && get_variant_part (TREE_TYPE (gnu_expr)) == NULL_TREE))
 	  gnu_expr = convert (gnu_type, gnu_expr);
 
-	/* If this name is external or there was a name specified, use it,
-	   Don't use the Interface_Name if there is an address clause
-	   (see CD30005).  */
+	/* If this name is external or a name was specified, use it, but don't
+	   use the Interface_Name with an address clause (see cd30005).  */
 	if ((Present (Interface_Name (gnat_entity))
 	     && No (Address_Clause (gnat_entity)))
 	    || (Is_Public (gnat_entity)
-		&& (!Is_Imported (gnat_entity)
-	            || Is_Exported (gnat_entity))))
+		&& (!Is_Imported (gnat_entity) || Is_Exported (gnat_entity))))
 	  gnu_ext_name = create_concat_name (gnat_entity, NULL);
 
 	/* If this is an aggregate constant initialized to a constant, force it
@@ -1754,20 +1739,16 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
       TREE_TYPE (gnu_type) = get_unpadded_type (Etype (gnat_entity));
 
       SET_TYPE_RM_MIN_VALUE
-	(gnu_type,
-	 convert (TREE_TYPE (gnu_type),
-		  elaborate_expression (Type_Low_Bound (gnat_entity),
-					gnat_entity, get_identifier ("L"),
-					definition, true,
-					Needs_Debug_Info (gnat_entity))));
+	(gnu_type, elaborate_expression (Type_Low_Bound (gnat_entity),
+					 gnat_entity, get_identifier ("L"),
+					 definition, true,
+					 Needs_Debug_Info (gnat_entity)));
 
       SET_TYPE_RM_MAX_VALUE
-	(gnu_type,
-	 convert (TREE_TYPE (gnu_type),
-		  elaborate_expression (Type_High_Bound (gnat_entity),
-					gnat_entity, get_identifier ("U"),
-					definition, true,
-					Needs_Debug_Info (gnat_entity))));
+	(gnu_type, elaborate_expression (Type_High_Bound (gnat_entity),
+					 gnat_entity, get_identifier ("U"),
+					 definition, true,
+					 Needs_Debug_Info (gnat_entity)));
 
       TYPE_BIASED_REPRESENTATION_P (gnu_type)
 	= Has_Biased_Representation (gnat_entity);
@@ -1790,12 +1771,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	= create_type_stub_decl (gnu_entity_name, gnu_type);
 
       /* For a packed array, make the original array type a parallel type.  */
-      if (debug_info_p
-	  && Is_Packed_Array_Impl_Type (gnat_entity)
-	  && present_gnu_tree (Original_Array_Type (gnat_entity)))
-	add_parallel_type (gnu_type,
-			   gnat_to_gnu_type
-			   (Original_Array_Type (gnat_entity)));
+      if (debug_info_p && Is_Packed_Array_Impl_Type (gnat_entity))
+	add_parallel_type_for_packed_array (gnu_type, gnat_entity);
 
     discrete_type:
 
@@ -1867,10 +1844,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	  if (debug_info_p)
 	    {
 	      /* Make the original array type a parallel type.  */
-	      if (present_gnu_tree (Original_Array_Type (gnat_entity)))
-		add_parallel_type (gnu_type,
-				   gnat_to_gnu_type
-				   (Original_Array_Type (gnat_entity)));
+	      add_parallel_type_for_packed_array (gnu_type, gnat_entity);
 
 	      rest_of_record_type_compilation (gnu_type);
 	    }
@@ -1947,20 +1921,16 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
       layout_type (gnu_type);
 
       SET_TYPE_RM_MIN_VALUE
-	(gnu_type,
-	 convert (TREE_TYPE (gnu_type),
-		  elaborate_expression (Type_Low_Bound (gnat_entity),
-					gnat_entity, get_identifier ("L"),
-					definition, true,
-					Needs_Debug_Info (gnat_entity))));
+	(gnu_type, elaborate_expression (Type_Low_Bound (gnat_entity),
+					 gnat_entity, get_identifier ("L"),
+					 definition, true,
+					 Needs_Debug_Info (gnat_entity)));
 
       SET_TYPE_RM_MAX_VALUE
-	(gnu_type,
-	 convert (TREE_TYPE (gnu_type),
-		  elaborate_expression (Type_High_Bound (gnat_entity),
-					gnat_entity, get_identifier ("U"),
-					definition, true,
-					Needs_Debug_Info (gnat_entity))));
+	(gnu_type, elaborate_expression (Type_High_Bound (gnat_entity),
+					 gnat_entity, get_identifier ("U"),
+					 definition, true,
+					 Needs_Debug_Info (gnat_entity)));
 
       /* Inherit our alias set from what we're a subtype of, as for
 	 integer subtypes.  */
@@ -2209,7 +2179,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	for (index = ndim - 1; index >= 0; index--)
 	  {
 	    tem = build_nonshared_array_type (tem, gnu_index_types[index]);
-	    if (Reverse_Storage_Order (gnat_entity))
+	    if (Reverse_Storage_Order (gnat_entity) && !GNAT_Mode)
 	      sorry ("non-default Scalar_Storage_Order");
 	    TYPE_MULTI_ARRAY_P (tem) = (index > 0);
 	    if (array_type_has_nonaliased_component (tem, gnat_entity))
@@ -2335,14 +2305,25 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	       gnat_base_index = Next_Index (gnat_base_index))
 	    {
 	      tree gnu_index_type = get_unpadded_type (Etype (gnat_index));
-	      tree gnu_orig_min = TYPE_MIN_VALUE (gnu_index_type);
-	      tree gnu_orig_max = TYPE_MAX_VALUE (gnu_index_type);
+	      tree gnu_index_base_type = get_base_type (gnu_index_type);
+	      tree gnu_orig_min
+		= convert (gnu_index_base_type,
+			   TYPE_MIN_VALUE (gnu_index_type));
+	      tree gnu_orig_max
+		= convert (gnu_index_base_type,
+			   TYPE_MAX_VALUE (gnu_index_type));
 	      tree gnu_min = convert (sizetype, gnu_orig_min);
 	      tree gnu_max = convert (sizetype, gnu_orig_max);
 	      tree gnu_base_index_type
 		= get_unpadded_type (Etype (gnat_base_index));
-	      tree gnu_base_orig_min = TYPE_MIN_VALUE (gnu_base_index_type);
-	      tree gnu_base_orig_max = TYPE_MAX_VALUE (gnu_base_index_type);
+	      tree gnu_base_index_base_type
+	        = get_base_type (gnu_base_index_type);
+	      tree gnu_base_orig_min
+		= convert (gnu_base_index_base_type,
+			   TYPE_MIN_VALUE (gnu_base_index_type));
+	      tree gnu_base_orig_max
+	        = convert (gnu_base_index_base_type,
+			   TYPE_MAX_VALUE (gnu_base_index_type));
 	      tree gnu_high;
 
 	      /* See if the base array type is already flat.  If it is, we
@@ -2655,11 +2636,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	     isn't artificial to make sure it is kept in the debug info.  */
 	  if (debug_info_p)
 	    {
-	      if (Is_Packed_Array_Impl_Type (gnat_entity)
-		  && present_gnu_tree (Original_Array_Type (gnat_entity)))
-		add_parallel_type (gnu_type,
-				   gnat_to_gnu_type
-				   (Original_Array_Type (gnat_entity)));
+	      if (Is_Packed_Array_Impl_Type (gnat_entity))
+		add_parallel_type_for_packed_array (gnu_type, gnat_entity);
 	      else
 		{
 		  tree gnu_base_decl
@@ -2933,7 +2911,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	gnu_type = make_node (tree_code_for_record_type (gnat_entity));
 	TYPE_NAME (gnu_type) = gnu_entity_name;
 	TYPE_PACKED (gnu_type) = (packed != 0) || has_rep;
-	if (Reverse_Storage_Order (gnat_entity))
+	if (Reverse_Storage_Order (gnat_entity) && !GNAT_Mode)
 	  sorry ("non-default Scalar_Storage_Order");
 	process_attributes (&gnu_type, &attr_list, true, gnat_entity);
 
@@ -4102,8 +4080,6 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	   PARM_DECL nodes are chained through the DECL_CHAIN field, so this
 	   actually is the head of this parameter list.  */
 	tree gnu_param_list = NULL_TREE;
-	/* Likewise for the stub associated with an exported procedure.  */
-	tree gnu_stub_param_list = NULL_TREE;
 	/* Non-null for subprograms containing parameters passed by copy-in
 	   copy-out (Ada In Out or Out parameters not passed by reference),
 	   in which case it is the list of nodes used to specify the values
@@ -4119,8 +4095,6 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	/* If an import pragma asks to map this subprogram to a GCC builtin,
 	   this is the builtin DECL node.  */
 	tree gnu_builtin_decl = NULL_TREE;
-	/* For the stub associated with an exported procedure.  */
-	tree gnu_stub_type = NULL_TREE, gnu_stub_name = NULL_TREE;
 	tree gnu_ext_name = create_concat_name (gnat_entity, NULL);
 	Entity_Id gnat_param;
 	enum inline_status_t inline_status
@@ -4148,7 +4122,6 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	bool return_by_direct_ref_p = false;
 	bool return_by_invisi_ref_p = false;
 	bool return_unconstrained_p = false;
-	bool has_stub = false;
 	int parmnum;
 
 	/* A parameter may refer to this type, so defer completion of any
@@ -4352,15 +4325,9 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	    /* Otherwise, see if a Mechanism was supplied that forced this
 	       parameter to be passed one way or another.  */
 	    else if (mech == Default
-		     || mech == By_Copy || mech == By_Reference)
+		     || mech == By_Copy
+		     || mech == By_Reference)
 	      ;
-	    else if (By_Descriptor_Last <= mech && mech <= By_Descriptor)
-	      mech = By_Descriptor;
-
-	    else if (By_Short_Descriptor_Last <= mech &&
-                     mech <= By_Short_Descriptor)
-	      mech = By_Short_Descriptor;
-
 	    else if (mech > 0)
 	      {
 		if (TREE_CODE (gnu_param_type) == UNCONSTRAINED_ARRAY_TYPE
@@ -4418,26 +4385,6 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 
 	    if (gnu_param)
 	      {
-		/* If it's an exported subprogram, we build a parameter list
-		   in parallel, in case we need to emit a stub for it.  */
-		if (Is_Exported (gnat_entity))
-		  {
-		    gnu_stub_param_list
-		      = chainon (gnu_param, gnu_stub_param_list);
-		    /* Change By_Descriptor parameter to By_Reference for
-		       the internal version of an exported subprogram.  */
-		    if (mech == By_Descriptor || mech == By_Short_Descriptor)
-		      {
-			gnu_param
-			  = gnat_to_gnu_param (gnat_param, By_Reference,
-					       gnat_entity, false,
-					       &copy_in_copy_out);
-			has_stub = true;
-		      }
-		    else
-		      gnu_param = copy_node (gnu_param);
-		  }
-
 		gnu_param_list = chainon (gnu_param, gnu_param_list);
 		Sloc_to_locus (Sloc (gnat_param),
 			       &DECL_SOURCE_LOCATION (gnu_param));
@@ -4572,8 +4519,6 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 
 	/* The lists have been built in reverse.  */
 	gnu_param_list = nreverse (gnu_param_list);
-	if (has_stub)
-	  gnu_stub_param_list = nreverse (gnu_stub_param_list);
 	gnu_cico_list = nreverse (gnu_cico_list);
 
 	if (kind == E_Function)
@@ -4586,13 +4531,6 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 				 gnu_cico_list, return_unconstrained_p,
 				 return_by_direct_ref_p,
 				 return_by_invisi_ref_p);
-
-	if (has_stub)
-	  gnu_stub_type
-	    = create_subprog_type (gnu_return_type, gnu_stub_param_list,
-				   gnu_cico_list, return_unconstrained_p,
-				   return_by_direct_ref_p,
-				   return_by_invisi_ref_p);
 
 	/* A subprogram (something that doesn't return anything) shouldn't
 	   be considered const since there would be no reason for such a
@@ -4608,9 +4546,6 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		| (volatile_flag ? TYPE_QUAL_VOLATILE : 0);
 
 	    gnu_type = change_qualified_type (gnu_type, quals);
-
-	    if (has_stub)
-	      gnu_stub_type = change_qualified_type (gnu_stub_type, quals);
 	  }
 
 	/* If we have a builtin decl for that function, use it.  Check if the
@@ -4683,39 +4618,11 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	  }
 	else
 	  {
-	    /* ??? When only the spec of a package is provided, downgrade
-	       is_required to is_enabled to avoid issuing an error later.  */
-	    if (inline_status == is_required)
-	      {
-		Node_Id gnat_body = Parent (Declaration_Node (gnat_entity));
-		if (Nkind (gnat_body) != N_Subprogram_Body
-		    && No (Corresponding_Body (gnat_body)))
-		  inline_status = is_enabled;
-	      }
-
-	    if (has_stub)
-	      {
-		gnu_stub_name = gnu_ext_name;
-		gnu_ext_name = create_concat_name (gnat_entity, "internal");
-		public_flag = false;
- 		artificial_flag = true;
-	      }
-
 	    gnu_decl
 	      = create_subprog_decl (gnu_entity_name, gnu_ext_name, gnu_type,
 				     gnu_param_list, inline_status,
 				     public_flag, extern_flag, artificial_flag,
 				     attr_list, gnat_entity);
-	    if (has_stub)
-	      {
-		tree gnu_stub_decl
-		  = create_subprog_decl (gnu_entity_name, gnu_stub_name,
-					 gnu_stub_type, gnu_stub_param_list,
-					 inline_status, true, extern_flag,
-					 false, attr_list, gnat_entity);
-		SET_DECL_FUNCTION_STUB (gnu_decl, gnu_stub_decl);
-	      }
-
 	    /* This is unrelated to the stub built right above.  */
 	    DECL_STUBBED_P (gnu_decl)
 	      = Convention (gnat_entity) == Convention_Stubbed;
@@ -4742,7 +4649,9 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	    ? Non_Limited_View (gnat_entity)
 	    : Present (Full_View (gnat_entity))
 	      ? Full_View (gnat_entity)
-	      : Underlying_Full_View (gnat_entity);
+	      : IN (kind, Private_Kind)
+		? Underlying_Full_View (gnat_entity)
+		: Empty;
 
 	/* If this is an incomplete type with no full view, it must be a Taft
 	   Amendment type, in which case we return a dummy type.  Otherwise,
@@ -5275,6 +5184,10 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
   if (!saved)
     save_gnu_tree (gnat_entity, gnu_decl, false);
 
+  /* Now we are sure gnat_entity has a corresponding ..._DECL node,
+     eliminate as many deferred computations as possible.  */
+  process_deferred_decl_context (false);
+
   /* If this is an enumeration or floating-point type, we were not able to set
      the bounds since they refer to the type.  These are always static.  */
   if ((kind == E_Enumeration_Type && Present (First_Literal (gnat_entity)))
@@ -5663,7 +5576,6 @@ gnat_to_gnu_param (Entity_Id gnat_param, Mechanism_Type mech,
 {
   tree gnu_param_name = get_entity_name (gnat_param);
   tree gnu_param_type = gnat_to_gnu_type (Etype (gnat_param));
-  tree gnu_param_type_alt = NULL_TREE;
   bool in_param = (Ekind (gnat_param) == E_In_Parameter);
   /* The parameter can be indirectly modified if its address is taken.  */
   bool ro_param = in_param && !Address_Taken (gnat_param);
@@ -5714,31 +5626,8 @@ gnat_to_gnu_param (Entity_Id gnat_param, Mechanism_Type mech,
       && Is_Descendent_Of_Address (Etype (gnat_param)))
     gnu_param_type = ptr_void_type_node;
 
-  /* VMS descriptors are themselves passed by reference.  */
-  if (mech == By_Short_Descriptor ||
-      (mech == By_Descriptor && TARGET_ABI_OPEN_VMS && !flag_vms_malloc64))
-    gnu_param_type
-      = build_pointer_type (build_vms_descriptor32 (gnu_param_type,
-						    Mechanism (gnat_param),
-						    gnat_subprog));
-  else if (mech == By_Descriptor)
-    {
-      /* Build both a 32-bit and 64-bit descriptor, one of which will be
-	 chosen in fill_vms_descriptor.  */
-      gnu_param_type_alt
-        = build_pointer_type (build_vms_descriptor32 (gnu_param_type,
-						      Mechanism (gnat_param),
-						      gnat_subprog));
-      gnu_param_type
-        = build_pointer_type (build_vms_descriptor (gnu_param_type,
-						    Mechanism (gnat_param),
-						    gnat_subprog));
-    }
-
   /* Arrays are passed as pointers to element type for foreign conventions.  */
-  else if (foreign
-	   && mech != By_Copy
-	   && TREE_CODE (gnu_param_type) == ARRAY_TYPE)
+  if (foreign && mech != By_Copy && TREE_CODE (gnu_param_type) == ARRAY_TYPE)
     {
       /* Strip off any multi-dimensional entries, then strip
 	 off the last array to get the component type.  */
@@ -5821,9 +5710,7 @@ gnat_to_gnu_param (Entity_Id gnat_param, Mechanism_Type mech,
   if (Ekind (gnat_param) == E_Out_Parameter
       && !by_ref
       && (by_return
-	  || (mech != By_Descriptor
-              && mech != By_Short_Descriptor
-	      && !POINTER_TYPE_P (gnu_param_type)
+	  || (!POINTER_TYPE_P (gnu_param_type)
 	      && !AGGREGATE_TYPE_P (gnu_param_type)
 	      && !Has_Default_Aspect (Etype (gnat_param))))
       && !(Is_Array_Type (Etype (gnat_param))
@@ -5835,15 +5722,9 @@ gnat_to_gnu_param (Entity_Id gnat_param, Mechanism_Type mech,
 				 ro_param || by_ref || by_component_ptr);
   DECL_BY_REF_P (gnu_param) = by_ref;
   DECL_BY_COMPONENT_PTR_P (gnu_param) = by_component_ptr;
-  DECL_BY_DESCRIPTOR_P (gnu_param)
-    = (mech == By_Descriptor || mech == By_Short_Descriptor);
   DECL_POINTS_TO_READONLY_P (gnu_param)
     = (ro_param && (by_ref || by_component_ptr));
   DECL_CAN_NEVER_BE_NULL_P (gnu_param) = Can_Never_Be_Null (gnat_param);
-
-  /* Save the alternate descriptor type, if any.  */
-  if (gnu_param_type_alt)
-    SET_DECL_PARM_ALT_TYPE (gnu_param, gnu_param_type_alt);
 
   /* If no Mechanism was specified, indicate what we're using, then
      back-annotate it.  */
@@ -6301,13 +6182,30 @@ elaborate_expression_1 (tree gnu_expr, Entity_Id gnat_entity, tree gnu_name,
   /* Now create it, possibly only for debugging purposes.  */
   if (use_variable || need_debug)
     {
+      /* The following variable creation can happen when processing the body of
+	 subprograms that are defined out of the extended main unit and
+	 inlined. In this case, we are not at the global scope, and thus the
+	 new variable must not be tagged "external", as we used to do here as
+	 long as definition == 0.  */
+      const bool external_flag = !definition && expr_global_p;
       tree gnu_decl
 	= create_var_decl_1
 	  (create_concat_name (gnat_entity, IDENTIFIER_POINTER (gnu_name)),
 	   NULL_TREE, TREE_TYPE (gnu_expr), gnu_expr, true, expr_public_p,
-	   !definition, expr_global_p, !need_debug, NULL, gnat_entity);
+	   external_flag, expr_global_p, !need_debug, NULL, gnat_entity);
 
-      if (use_variable)
+      DECL_ARTIFICIAL (gnu_decl) = 1;
+
+      /* Using this variable at debug time (if need_debug is true) requires a
+	 proper location.  The back-end will compute a location for this
+	 variable only if the variable is used by the generated code.
+	 Returning the variable ensures the caller will use it in generated
+	 code.  Note that there is no need for a location if the debug info
+	 contains an integer constant.
+	 FIXME: when the encoding-based debug scheme is dropped, move this
+	 condition to the top-level IF block: we will not need to create a
+	 variable anymore in such cases, then.  */
+      if (use_variable || (need_debug && !TREE_CONSTANT (gnu_expr)))
 	return gnu_decl;
     }
 
@@ -8646,6 +8544,28 @@ copy_and_substitute_in_size (tree new_type, tree old_type,
   /* Finalize the size.  */
   TYPE_SIZE (new_type) = variable_size (TYPE_SIZE (new_type));
   TYPE_SIZE_UNIT (new_type) = variable_size (TYPE_SIZE_UNIT (new_type));
+}
+
+/* Add a parallel type to GNU_TYPE, the translation of GNAT_ENTITY, which is
+   the implementation type of a packed array type (Is_Packed_Array_Impl_Type).
+   The parallel type is the original array type if it has been translated.  */
+
+static void
+add_parallel_type_for_packed_array (tree gnu_type, Entity_Id gnat_entity)
+{
+  Entity_Id gnat_original_array_type
+    = Underlying_Type (Original_Array_Type (gnat_entity));
+  tree gnu_original_array_type;
+
+  if (!present_gnu_tree (gnat_original_array_type))
+    return;
+
+  gnu_original_array_type = gnat_to_gnu_type (gnat_original_array_type);
+
+  if (TYPE_IS_DUMMY_P (gnu_original_array_type))
+    return;
+
+  add_parallel_type (gnu_type, gnu_original_array_type);
 }
 
 /* Given a type T, a FIELD_DECL F, and a replacement value R, return a

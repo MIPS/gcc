@@ -3604,7 +3604,10 @@ using the configuration pragma @code{Check_Policy}. In Ada 2012, it
 also activates all assertions defined in the RM as aspects: preconditions,
 postconditions, type invariants and (sub)type predicates. In all Ada modes,
 corresponding pragmas for type invariants and (sub)type predicates are
-also activated.
+also activated. The default is that all these assertions are disabled,
+and have no effect, other than being checked for syntactic validity, and
+in the case of subtype predicates, constructions such as membership tests
+still test predicates even if assertions are turned off.
 
 @item -gnatA
 @cindex @option{-gnatA} (@command{gcc})
@@ -4995,6 +4998,8 @@ treated as errors.
 The warning string still appears, but the warning messages are counted
 as errors, and prevent the generation of an object file. Note that this
 is the only -gnatw switch that affects the handling of style check messages.
+Note also that this switch has no effect on info (information) messages, which
+are not treated as errors if this switch is present.
 
 @item -gnatw.e
 @emph{Activate every optional warning}
@@ -14138,10 +14143,9 @@ tool argument.
 Incremental processing on a per-file basis. Source files are only
 processed if they have been modified, or if files they depend on have
 been modified. This is similar to the way gnatmake/gprbuild only
-compiles files that need to be recompiled. Note that in this mode
-@command{gnatpp} is acting in place of the compiler, so if a project
-file is used, the switches set for the compiler should not be set
-to switches recognized by @command{gcc}.
+compiles files that need to be recompiled. A project file is required
+in this mode, and the gnat driver (as in @command{gnat pretty}) is not
+supported.
 
 @item --pp-off=@var{xxx}
 @cindex @option{--pp-off} @command{gnatpp}
@@ -14575,10 +14579,8 @@ options:
 --incremental -- incremental processing on a per-file basis. Source files are
       only processed if they have been modified, or if files they depend
       on have been modified. This is similar to the way gnatmake/gprbuild
-      only compiles files that need to be recompiled. Note that in this mode
-      @command{gnat2xml} is acting in place of the compiler, so if a project
-      file is used, the switches set for the compiler should not be set
-      to switches recognized by @command{gcc}.
+      only compiles files that need to be recompiled. A project file
+      is required in this mode.
 
 -j@var{n} -- In @option{--incremental} mode, use @var{n} @command{gnat2xml}
       processes to perform XML generation in parallel. If @var{n} is 0, then

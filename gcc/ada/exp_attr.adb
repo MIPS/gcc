@@ -23,6 +23,7 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+with Aspects;  use Aspects;
 with Atree;    use Atree;
 with Checks;   use Checks;
 with Einfo;    use Einfo;
@@ -4858,10 +4859,9 @@ package body Exp_Attr is
       -- Pred --
       ----------
 
-      --  1. Deal with enumeration types with holes
-      --  2. For floating-point, generate call to attribute function and deal
-      --       with range checking if Check_Float_Overflow mode is set.
-      --  3. For other cases, deal with constraint checking
+      --  1. Deal with enumeration types with holes.
+      --  2. For floating-point, generate call to attribute function.
+      --  3. For other cases, deal with constraint checking.
 
       when Attribute_Pred => Pred :
       declare
@@ -4933,35 +4933,9 @@ package body Exp_Attr is
 
          --  For floating-point, we transform 'Pred into a call to the Pred
          --  floating-point attribute function in Fat_xxx (xxx is root type).
+         --  Note that this function takes care of the overflow case.
 
          elsif Is_Floating_Point_Type (Ptyp) then
-
-            --  Handle case of range check. The Do_Range_Check flag is set only
-            --  in Check_Float_Overflow mode, and what we need is a specific
-            --  check against typ'First, since that is the only overflow case.
-
-            declare
-               Expr : constant Node_Id := First (Exprs);
-            begin
-               if Do_Range_Check (Expr) then
-                  Set_Do_Range_Check (Expr, False);
-                  Insert_Action (N,
-                    Make_Raise_Constraint_Error (Loc,
-                      Condition =>
-                        Make_Op_Eq (Loc,
-                          Left_Opnd  => Duplicate_Subexpr (Expr),
-                          Right_Opnd =>
-                            Make_Attribute_Reference (Loc,
-                              Attribute_Name => Name_First,
-                              Prefix         =>
-                                New_Occurrence_Of (Base_Type (Ptyp), Loc))),
-                      Reason => CE_Overflow_Check_Failed),
-                  Suppress => All_Checks);
-               end if;
-            end;
-
-            --  Transform into call to attribute function
-
             Expand_Fpt_Attribute_R (N);
             Analyze_And_Resolve (N, Typ);
 
@@ -5888,9 +5862,9 @@ package body Exp_Attr is
       -- Succ --
       ----------
 
-      --  1. Deal with enumeration types with holes
-      --  2. For floating-point, generate call to attribute function
-      --  3. For other cases, deal with constraint checking
+      --  1. Deal with enumeration types with holes.
+      --  2. For floating-point, generate call to attribute function.
+      --  3. For other cases, deal with constraint checking.
 
       when Attribute_Succ => Succ : declare
          Etyp : constant Entity_Id := Base_Type (Ptyp);
@@ -5959,33 +5933,6 @@ package body Exp_Attr is
          --  floating-point attribute function in Fat_xxx (xxx is root type)
 
          elsif Is_Floating_Point_Type (Ptyp) then
-
-            --  Handle case of range check. The Do_Range_Check flag is set only
-            --  in Check_Float_Overflow mode, and what we need is a specific
-            --  check against typ'Last, since that is the only overflow case.
-
-            declare
-               Expr : constant Node_Id := First (Exprs);
-            begin
-               if Do_Range_Check (Expr) then
-                  Set_Do_Range_Check (Expr, False);
-                  Insert_Action (N,
-                    Make_Raise_Constraint_Error (Loc,
-                      Condition =>
-                        Make_Op_Eq (Loc,
-                          Left_Opnd  => Duplicate_Subexpr (Expr),
-                          Right_Opnd =>
-                            Make_Attribute_Reference (Loc,
-                              Attribute_Name => Name_Last,
-                              Prefix         =>
-                                New_Occurrence_Of (Base_Type (Ptyp), Loc))),
-                      Reason    => CE_Overflow_Check_Failed),
-                    Suppress => All_Checks);
-               end if;
-            end;
-
-            --  Transform into call to attribute function
-
             Expand_Fpt_Attribute_R (N);
             Analyze_And_Resolve (N, Typ);
 
@@ -6402,9 +6349,28 @@ package body Exp_Attr is
          --  code in the floating-point attribute run-time library.
 
          if Is_Floating_Point_Type (Ptyp) then
-            declare
+            Float_Valid : declare
                Pkg : RE_Id;
                Ftp : Entity_Id;
+
+               function Get_Fat_Entity (Nam : Name_Id) return Entity_Id;
+               --  Return entity for Pkg.Nam
+
+               --------------------
+               -- Get_Fat_Entity --
+               --------------------
+
+               function Get_Fat_Entity (Nam : Name_Id) return Entity_Id is
+                  Exp_Name : constant Node_Id :=
+                    Make_Selected_Component (Loc,
+                      Prefix        => New_Occurrence_Of (RTE (Pkg), Loc),
+                      Selector_Name => Make_Identifier (Loc, Nam));
+               begin
+                  Find_Selected_Component (Exp_Name);
+                  return Entity (Exp_Name);
+               end Get_Fat_Entity;
+
+            --  Start of processing for Float_Valid
 
             begin
                case Float_Rep (Btyp) is
@@ -6419,34 +6385,83 @@ package body Exp_Attr is
                   when IEEE_Binary =>
                      Find_Fat_Info (Ptyp, Ftp, Pkg);
 
-                     --  If the floating-point object might be unaligned, we
-                     --  need to call the special routine Unaligned_Valid,
-                     --  which makes the needed copy, being careful not to
-                     --  load the value into any floating-point register.
-                     --  The argument in this case is obj'Address (see
-                     --  Unaligned_Valid routine in Fat_Gen).
+                     --  If the prefix is a reverse SSO component, or is
+                     --  possibly unaligned, first create a temporary copy
+                     --  that is in native SSO, and properly aligned. Make it
+                     --  Volatile to prevent folding in the back-end. Note
+                     --  that we use an intermediate constrained string type
+                     --  to initialize the temporary, as the value at hand
+                     --  might be invalid, and in that case it cannot be copied
+                     --  using a floating point register.
 
-                     if Is_Possibly_Unaligned_Object (Pref) then
-                        Expand_Fpt_Attribute
-                          (N, Pkg, Name_Unaligned_Valid,
-                           New_List (
-                             Make_Attribute_Reference (Loc,
-                               Prefix => Relocate_Node (Pref),
-                               Attribute_Name => Name_Address)));
+                     if In_Reverse_Storage_Order_Object (Pref)
+                          or else
+                        Is_Possibly_Unaligned_Object (Pref)
+                     then
+                        declare
+                           Temp : constant Entity_Id :=
+                                    Make_Temporary (Loc, 'F');
 
-                     --  In the normal case where we are sure the object is
-                     --  aligned, we generate a call to Valid, and the argument
-                     --  in this case is obj'Unrestricted_Access (after
-                     --  converting obj to the right floating-point type).
+                           Fat_S : constant Entity_Id :=
+                                     Get_Fat_Entity (Name_S);
+                           --  Constrained string subtype of appropriate size
 
-                     else
-                        Expand_Fpt_Attribute
-                          (N, Pkg, Name_Valid,
-                           New_List (
-                             Make_Attribute_Reference (Loc,
-                               Prefix => Unchecked_Convert_To (Ftp, Pref),
-                               Attribute_Name => Name_Unrestricted_Access)));
+                           Fat_P : constant Entity_Id :=
+                                     Get_Fat_Entity (Name_P);
+                           --  Access to Fat_S
+
+                           Decl : constant Node_Id :=
+                                    Make_Object_Declaration (Loc,
+                                      Defining_Identifier => Temp,
+                                      Aliased_Present     => True,
+                                      Object_Definition   =>
+                                        New_Occurrence_Of (Ptyp, Loc));
+
+                        begin
+                           Set_Aspect_Specifications (Decl, New_List (
+                             Make_Aspect_Specification (Loc,
+                               Identifier =>
+                                 Make_Identifier (Loc, Name_Volatile))));
+
+                           Insert_Actions (N,
+                             New_List (
+                               Decl,
+
+                               Make_Assignment_Statement (Loc,
+                                 Name =>
+                                   Make_Explicit_Dereference (Loc,
+                                     Prefix =>
+                                       Unchecked_Convert_To (Fat_P,
+                                         Make_Attribute_Reference (Loc,
+                                           Prefix =>
+                                             New_Occurrence_Of (Temp, Loc),
+                                           Attribute_Name =>
+                                             Name_Unrestricted_Access))),
+                                 Expression =>
+                                   Unchecked_Convert_To (Fat_S,
+                                     Relocate_Node (Pref)))),
+
+                             Suppress => All_Checks);
+
+                           Rewrite (Pref, New_Occurrence_Of (Temp, Loc));
+                        end;
                      end if;
+
+                     --  We now have an object of the proper endianness and
+                     --  alignment, and can construct a Valid attribute.
+
+                     --  We make sure the prefix of this valid attribute is
+                     --  marked as not coming from source, to avoid losing
+                     --  warnings from 'Valid looking like a possible update.
+
+                     Set_Comes_From_Source (Pref, False);
+
+                     Expand_Fpt_Attribute
+                       (N, Pkg, Name_Valid,
+                        New_List (
+                          Make_Attribute_Reference (Loc,
+                            Prefix         => Unchecked_Convert_To (Ftp, Pref),
+                            Attribute_Name => Name_Unrestricted_Access)));
                end case;
 
                --  One more task, we still need a range check. Required
@@ -6462,10 +6477,10 @@ package body Exp_Attr is
                       Left_Opnd  => Relocate_Node (N),
                       Right_Opnd =>
                         Make_In (Loc,
-                          Left_Opnd => Convert_To (Btyp, Pref),
+                          Left_Opnd  => Convert_To (Btyp, Pref),
                           Right_Opnd => New_Occurrence_Of (Ptyp, Loc))));
                end if;
-            end;
+            end Float_Valid;
 
          --  Enumeration type with holes
 
@@ -7071,6 +7086,7 @@ package body Exp_Attr is
            Attribute_Class                        |
            Attribute_Compiler_Version             |
            Attribute_Default_Bit_Order            |
+           Attribute_Default_Scalar_Storage_Order |
            Attribute_Delta                        |
            Attribute_Denorm                       |
            Attribute_Digits                       |

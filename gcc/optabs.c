@@ -368,7 +368,7 @@ widen_operand (rtx op, enum machine_mode mode, enum machine_mode oldmode,
      a promoted object differs from our extension.  */
   if (! no_extend
       || (GET_CODE (op) == SUBREG && SUBREG_PROMOTED_VAR_P (op)
-	  && SUBREG_PROMOTED_UNSIGNED_P (op) == unsignedp))
+	  && SUBREG_CHECK_PROMOTED_SIGN (op, unsignedp)))
     return convert_modes (mode, oldmode, op, unsignedp);
 
   /* If MODE is no wider than a single word, we return a lowpart or paradoxical
@@ -7356,7 +7356,10 @@ expand_atomic_test_and_set (rtx target, rtx mem, enum memmodel model)
      perform the operation.  */
   if (!ret)
     {
-      emit_move_insn (subtarget, mem);
+      /* If the result is ignored skip the move to target.  */
+      if (subtarget != const0_rtx)
+        emit_move_insn (subtarget, mem);
+
       emit_move_insn (mem, trueval);
       ret = subtarget;
     }

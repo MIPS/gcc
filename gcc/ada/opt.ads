@@ -648,6 +648,20 @@ package Opt is
    --  GNAT
    --  Disable generation of ALI file
 
+   Follow_Links_For_Files : Boolean := False;
+   --  PROJECT MANAGER
+   --  Set to True (-eL) to process the project files in trusted mode. If
+   --  Follow_Links is False, it is assumed that the project doesn't contain
+   --  any file duplicated through symbolic links (although the latter are
+   --  still valid if they point to a file which is outside of the project),
+   --  and that no directory has a name which is a valid source name.
+
+   Follow_Links_For_Dirs : Boolean := False;
+   --  PROJECT MANAGER
+   --  Set to True if directories can be links in this project, and therefore
+   --  additional system calls must be performed to ensure that we always see
+   --  the same full name for each directory.
+
    Force_Checking_Of_Elaboration_Flags : Boolean := False;
    --  GNATBIND
    --  True if binding with forced checking of the elaboration flags
@@ -656,6 +670,13 @@ package Opt is
    Force_Compilations : Boolean := False;
    --  GNATMAKE, GPRMAKE, GPRBUILD
    --  Set to force recompilations even when the objects are up-to-date.
+
+   Front_End_Inlining : Boolean := False;
+   --  GNAT
+   --  Set True to activate inlining by front-end expansion (even on GCC
+   --  targets, where inlining is normally handled by the back end). Set by
+   --  the flag -gnatN (which is now considered obsolescent, since the GCC
+   --  back end can do a better job of inlining than the front end these days.
 
    Full_Path_Name_For_Brief_Errors : Boolean := False;
    --  PROJECT MANAGER
@@ -684,6 +705,10 @@ package Opt is
    --  True when switch -gnateG is used. When True, create in a file
    --  <source>.prep, if the source is preprocessed.
 
+   Generate_SCIL : Boolean := False;
+   --  GNAT
+   --  Set True to activate SCIL code generation.
+
    Generate_SCO : Boolean := False;
    --  GNAT
    --  True when switch -fdump-scos (or -gnateS) is used. When True, Source
@@ -704,10 +729,6 @@ package Opt is
    --  GNAT, GNATBIND
    --  True if a pragma Discard_Names appeared as a configuration pragma for
    --  the current compilation unit.
-
-   GNAT_Mode : Boolean := False;
-   --  GNAT
-   --  True if compiling in GNAT system mode (-gnatg switch)
 
    Identifier_Character_Set : Character;
    --  GNAT
@@ -731,6 +752,12 @@ package Opt is
    --  coding in the source program. This variable is initialized to the
    --  default value appropriate to the system (in Osint.Initialize), and then
    --  reset if a command line switch is used to change the setting.
+
+   Ignore_Pragma_SPARK_Mode : Boolean := False;
+   --  GNAT
+   --  Set True to ignore the semantics and effects of pragma SPARK_Mode when
+   --  the pragma appears inside an instance whose enclosing context is subject
+   --  to SPARK_Mode "off".
 
    Ignore_Rep_Clauses : Boolean := False;
    --  GNAT
@@ -802,34 +829,9 @@ package Opt is
    --  then elaboration flag checks are to be generated in the binder
    --  generated file.
 
-   Generate_SCIL : Boolean := False;
-   --  GNAT
-   --  Set True to activate SCIL code generation.
-
    Invalid_Value_Used : Boolean := False;
    --  GNAT
    --  Set True if a valid Invalid_Value attribute is encountered
-
-   Follow_Links_For_Files : Boolean := False;
-   --  PROJECT MANAGER
-   --  Set to True (-eL) to process the project files in trusted mode. If
-   --  Follow_Links is False, it is assumed that the project doesn't contain
-   --  any file duplicated through symbolic links (although the latter are
-   --  still valid if they point to a file which is outside of the project),
-   --  and that no directory has a name which is a valid source name.
-
-   Follow_Links_For_Dirs : Boolean := False;
-   --  PROJECT MANAGER
-   --  Set to True if directories can be links in this project, and therefore
-   --  additional system calls must be performed to ensure that we always see
-   --  the same full name for each directory.
-
-   Front_End_Inlining : Boolean := False;
-   --  GNAT
-   --  Set True to activate inlining by front-end expansion (even on GCC
-   --  targets, where inlining is normally handled by the back end). Set by
-   --  the flag -gnatN (which is now considered obsolescent, since the GCC
-   --  back end can do a better job of inlining than the front end these days.
 
    Inline_Processing_Required : Boolean := False;
    --  GNAT
@@ -1041,6 +1043,11 @@ package Opt is
    --  Set by preprocessor switch -a. Do not eliminate any source text. Implies
    --  Undefined_Symbols_Are_False. Useful to perform a syntax check on all
    --  branches of #if constructs.
+
+   No_Elab_Code_All_Pragma : Node_Id := Empty;
+   --  Set to point to a No_Elaboration_Code_All pragma or aspect encountered
+   --  in the spec of the extended main unit. Used to determine if we need to
+   --  do special tests for violation of this aspect.
 
    No_Main_Subprogram : Boolean := False;
    --  GNATMAKE, GNATBIND
@@ -2088,6 +2095,73 @@ package Opt is
    --  appropriately licensed unit to declare this as a Table failed with
    --  various elaboration circularities. Memory is getting cheap these days!
 
+   ---------------
+   -- GNAT_Mode --
+   ---------------
+
+   GNAT_Mode : Boolean := False;
+   --  GNAT
+   --  True if compiling in GNAT system mode (-gnatg switch)
+
+   --  Setting this switch has the following effects on the language that is
+   --  accepted. Note that several of the following have the effect of changing
+   --  an error to a warning. But warnings are usually treated as fatal errors
+   --  in -gnatg mode, so to actually take advantage of such a change, it is
+   --  necessary to add an explicit pragma Warnings (Off) in the source and
+   --  this requires clear documentation of why this is necessary.
+
+   --    The identifier character set is set to 'n' (7-bit ASCII)
+
+   --    Pragma Extend_System is ignored
+
+   --    Warning_Mode is set to Treat_As_Error (-gnatwe)
+
+   --    Standard style checks are set (See Set_GNAT_Style_Check_Options)
+
+   --    Standard warnings are turned on (see Set_GNAT_Mode_Warnings)
+
+   --    The Ada version is set to Ada 2012
+
+   --    Task priorities are always allowed to be in the range Any_Priority
+
+   --    Overflow checks are suppressed, overflow checking set to strict mode
+
+   --    ALI files are always generated for predefined generic packages
+
+   --    Obsolescent feature warnings are suppressed
+
+   --    Recompilation of children of GNAT, System, Ada, Interfaces is allowed
+
+   --    The Scalar_Storage_Order attribute applies to generic types
+
+   --    Categorization errors are treated as warnings rather than errors
+
+   --    Statements in preelaborated units give warnings rather than errors
+
+   --    Private objects are allowed in preelaborated units
+
+   --    Non-static constants in preelaborated units give warnings not errors
+
+   --    The warning about component size being ignored is suppressed
+
+   --    The warning about size clauses being ignored is suppressed
+
+   --    Initializing limited types gives a warning rather than an error
+
+   --    Copying of limited objects is allowed
+
+   --    Returning objects of limited types is allowed
+
+   --    Non-static call in preelaborated unit give a warning, not an error
+
+   --    Warnings on possible elaboration errors are suppressed
+
+   --    Warnings about packing being ignored are suppressed
+
+   --    Warnings in internal units are not suppressed (they normally are)
+
+   --    The only special comment sequence allowed is --!
+
    --------------------------
    -- Private Declarations --
    --------------------------
@@ -2146,4 +2220,7 @@ private
    --  Indicates which version of gcc is in use (3 = 3.x, 4 = 4.x). Note that
    --  gcc 2.8.1 (which used to be a value of 2) is no longer supported.
 
+   -------------------------
+   -- Effect of GNAT_Mode --
+   -------------------------
 end Opt;

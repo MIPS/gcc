@@ -403,7 +403,7 @@ package body Sem_Ch4 is
       Onode    : Node_Id;
 
    begin
-      Check_SPARK_Restriction ("allocator is not allowed", N);
+      Check_SPARK_05_Restriction ("allocator is not allowed", N);
 
       --  Deal with allocator restrictions
 
@@ -936,7 +936,7 @@ package body Sem_Ch4 is
             case Nkind (Actual) is
                when N_Parameter_Association =>
                   if Named_Seen then
-                     Check_SPARK_Restriction
+                     Check_SPARK_05_Restriction
                        ("named association cannot follow positional one",
                         Actual);
                      exit;
@@ -1363,6 +1363,9 @@ package body Sem_Ch4 is
       Others_Present : Boolean;
       --  Indicates if Others was present
 
+      Wrong_Alt : Node_Id;
+      --  For error reporting
+
    --  Start of processing for Analyze_Case_Expression
 
    begin
@@ -1415,6 +1418,9 @@ package body Sem_Ch4 is
 
                if No (Alt) then
                   Add_One_Interp (N, It.Typ, It.Typ);
+
+               else
+                  Wrong_Alt := Alt;
                end if;
 
                Get_Next_Interp (I, It);
@@ -1435,9 +1441,18 @@ package body Sem_Ch4 is
       if Exp_Btype = Any_Discrete or else Exp_Btype = Any_Type then
          return;
 
+      --  Special casee message for character literal
+
       elsif Exp_Btype = Any_Character then
          Error_Msg_N
            ("character literal as case expression is ambiguous", Expr);
+         return;
+      end if;
+
+      if Etype (N) = Any_Type and then Present (Wrong_Alt) then
+         Error_Msg_N
+           ("type incompatible with that of previous alternatives",
+            Expression (Wrong_Alt));
          return;
       end if;
 
@@ -1818,7 +1833,7 @@ package body Sem_Ch4 is
       --  source node check, because ???
 
       if Comes_From_Source (N) then
-         Check_SPARK_Restriction ("explicit dereference is not allowed", N);
+         Check_SPARK_05_Restriction ("explicit dereference is not allowed", N);
       end if;
 
       --  In formal verification mode, keep track of all reads and writes
@@ -2037,7 +2052,7 @@ package body Sem_Ch4 is
       end if;
 
       if Comes_From_Source (N) then
-         Check_SPARK_Restriction ("if expression is not allowed", N);
+         Check_SPARK_05_Restriction ("if expression is not allowed", N);
       end if;
 
       Else_Expr := Next (Then_Expr);
@@ -2872,7 +2887,7 @@ package body Sem_Ch4 is
 
    procedure Analyze_Null (N : Node_Id) is
    begin
-      Check_SPARK_Restriction ("null is not allowed", N);
+      Check_SPARK_05_Restriction ("null is not allowed", N);
 
       Set_Etype (N, Any_Access);
    end Analyze_Null;
@@ -3649,7 +3664,7 @@ package body Sem_Ch4 is
    --  Start of processing for Analyze_Quantified_Expression
 
    begin
-      Check_SPARK_Restriction ("quantified expression is not allowed", N);
+      Check_SPARK_05_Restriction ("quantified expression is not allowed", N);
 
       --  Create a scope to emulate the loop-like behavior of the quantified
       --  expression. The scope is needed to provide proper visibility of the
@@ -4862,7 +4877,7 @@ package body Sem_Ch4 is
 
    begin
       if Comes_From_Source (N) then
-         Check_SPARK_Restriction ("slice is not allowed", N);
+         Check_SPARK_05_Restriction ("slice is not allowed", N);
       end if;
 
       Analyze (P);
@@ -6457,11 +6472,16 @@ package body Sem_Ch4 is
                   if Address_Integer_Convert_OK (Etype (R), Etype (L)) then
                      Rewrite (R,
                        Unchecked_Convert_To (Etype (L), Relocate_Node (R)));
-                     Analyze_Arithmetic_Op (N);
 
+                     if Nkind_In (N, N_Op_Ge, N_Op_Gt, N_Op_Le, N_Op_Lt) then
+                        Analyze_Comparison_Op (N);
+                     else
+                        Analyze_Arithmetic_Op (N);
+                     end if;
                   else
                      Resolve (R, Etype (L));
                   end if;
+
                   return;
 
                elsif Is_Numeric_Type (Etype (R))
@@ -6470,7 +6490,13 @@ package body Sem_Ch4 is
                   if Address_Integer_Convert_OK (Etype (L), Etype (R)) then
                      Rewrite (L,
                        Unchecked_Convert_To (Etype (R), Relocate_Node (L)));
-                     Analyze_Arithmetic_Op (N);
+
+                     if Nkind_In (N, N_Op_Ge, N_Op_Gt, N_Op_Le, N_Op_Lt) then
+                        Analyze_Comparison_Op (N);
+                     else
+                        Analyze_Arithmetic_Op (N);
+                     end if;
+
                      return;
 
                   else
@@ -6494,7 +6520,12 @@ package body Sem_Ch4 is
                      Rewrite (R,
                        Unchecked_Convert_To (
                          Standard_Integer, Relocate_Node (R)));
-                     Analyze_Arithmetic_Op (N);
+
+                     if Nkind_In (N, N_Op_Ge, N_Op_Gt, N_Op_Le, N_Op_Lt) then
+                        Analyze_Comparison_Op (N);
+                     else
+                        Analyze_Arithmetic_Op (N);
+                     end if;
 
                      --  If this is an operand in an enclosing arithmetic
                      --  operation, Convert the result as an address so that
@@ -6569,6 +6600,14 @@ package body Sem_Ch4 is
                end if;
 
                return;
+
+            elsif Nkind_In (N, N_Op_Eq, N_Op_Ne) then
+               if Address_Integer_Convert_OK (Etype (R), Etype (L)) then
+                  Rewrite (R,
+                    Unchecked_Convert_To (Etype (L), Relocate_Node (R)));
+                  Analyze_Equality_Op (N);
+                  return;
+               end if;
             end if;
 
             --  If we fall through then just give general message. Note that in

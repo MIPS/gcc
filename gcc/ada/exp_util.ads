@@ -276,6 +276,13 @@ package Exp_Util is
    --  is false, the call is for a stand-alone object, and the generated
    --  function itself must do its own cleanups.
 
+   procedure Check_Float_Op_Overflow (N : Node_Id);
+   --  Called where we could have a floating-point binary operator where we
+   --  must check for infinities if we are operating in Check_Float_Overflow
+   --  mode. Note that we don't need to worry about unary operator cases,
+   --  since for floating-point, abs, unary "-", and unary "+" can never
+   --  case overflow.
+
    function Component_May_Be_Bit_Aligned (Comp : Entity_Id) return Boolean;
    --  This function is in charge of detecting record components that may
    --  cause trouble in the back end if an attempt is made to assign the
@@ -330,8 +337,9 @@ package Exp_Util is
    --  be the earliest point at which they are used.
 
    function Duplicate_Subexpr
-     (Exp      : Node_Id;
-      Name_Req : Boolean := False) return Node_Id;
+     (Exp          : Node_Id;
+      Name_Req     : Boolean := False;
+      Renaming_Req : Boolean := False) return Node_Id;
    --  Given the node for a subexpression, this function makes a logical copy
    --  of the subexpression, and returns it. This is intended for use when the
    --  expansion of an expression needs to repeat part of it. For example,
@@ -343,17 +351,25 @@ package Exp_Util is
    --  expression and the returned result then become references to this saved
    --  value. Exp must be analyzed on entry. On return, Exp is analyzed, but
    --  the caller is responsible for analyzing the returned copy after it is
-   --  attached to the tree. The Name_Req flag is set to ensure that the result
-   --  is suitable for use in a context requiring name (e.g. the prefix of an
-   --  attribute reference).
+   --  attached to the tree.
+   --
+   --  The Name_Req flag is set to ensure that the result is suitable for use
+   --  in a context requiring a name (for example, the prefix of an attribute
+   --  reference) (can't this just be a qualification in Ada 2012???).
+   --
+   --  The Renaming_Req flag is set to produce an object renaming declaration
+   --  rather than an object declaration. This is valid only if the expression
+   --  Exp designates a renamable object. This is used for example in the case
+   --  of an unchecked deallocation, to make sure the object gets set to null.
    --
    --  Note that if there are any run time checks in Exp, these same checks
    --  will be duplicated in the returned duplicated expression. The two
    --  following functions allow this behavior to be modified.
 
    function Duplicate_Subexpr_No_Checks
-     (Exp      : Node_Id;
-      Name_Req : Boolean := False) return Node_Id;
+     (Exp          : Node_Id;
+      Name_Req     : Boolean := False;
+      Renaming_Req : Boolean := False) return Node_Id;
    --  Identical in effect to Duplicate_Subexpr, except that Remove_Checks
    --  is called on the result, so that the duplicated expression does not
    --  include checks. This is appropriate for use when Exp, the original
@@ -361,8 +377,9 @@ package Exp_Util is
    --  expression, so that there is no need to repeat any checks.
 
    function Duplicate_Subexpr_Move_Checks
-     (Exp      : Node_Id;
-      Name_Req : Boolean := False) return Node_Id;
+     (Exp          : Node_Id;
+      Name_Req     : Boolean := False;
+      Renaming_Req : Boolean := False) return Node_Id;
    --  Identical in effect to Duplicate_Subexpr, except that Remove_Checks is
    --  called on Exp after the duplication is complete, so that the original
    --  expression does not include checks. In this case the result returned
@@ -808,6 +825,7 @@ package Exp_Util is
    procedure Remove_Side_Effects
      (Exp          : Node_Id;
       Name_Req     : Boolean := False;
+      Renaming_Req : Boolean := False;
       Variable_Ref : Boolean := False);
    --  Given the node for a subexpression, this function replaces the node if
    --  necessary by an equivalent subexpression that is guaranteed to be side
@@ -816,10 +834,12 @@ package Exp_Util is
    --  to which Exp is attached. Exp must be analyzed and resolved before the
    --  call and is analyzed and resolved on return. Name_Req may only be set to
    --  True if Exp has the form of a name, and the effect is to guarantee that
-   --  any replacement maintains the form of name. If Variable_Ref is set to
-   --  TRUE, a variable is considered as side effect (used in implementing
-   --  Force_Evaluation). Note: after call to Remove_Side_Effects, it is
-   --  safe to call New_Copy_Tree to obtain a copy of the resulting expression.
+   --  any replacement maintains the form of name. If Renaming_Req is set to
+   --  TRUE, the routine produces an object renaming reclaration capturing the
+   --  expression. If Variable_Ref is set to TRUE, a variable is considered as
+   --  side effect (used in implementing Force_Evaluation). Note: after call to
+   --  Remove_Side_Effects, it is safe to call New_Copy_Tree to obtain a copy
+   --  of the resulting expression.
 
    function Represented_As_Scalar (T : Entity_Id) return Boolean;
    --  Returns True iff the implementation of this type in code generation

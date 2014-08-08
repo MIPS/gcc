@@ -2497,10 +2497,12 @@ package body Exp_Ch9 is
               Make_Parameter_Specification (Loc,
                 Defining_Identifier =>
                   Make_Defining_Identifier (Loc,
-                    Chars          => Chars (Defining_Identifier (Formal))),
-                    In_Present     => In_Present  (Formal),
-                    Out_Present    => Out_Present (Formal),
-                    Parameter_Type => Param_Type));
+                    Chars                  => Chars
+                                             (Defining_Identifier (Formal))),
+                    In_Present             => In_Present  (Formal),
+                    Out_Present            => Out_Present (Formal),
+                    Null_Exclusion_Present => Null_Exclusion_Present (Formal),
+                    Parameter_Type         => Param_Type));
 
             Next (Formal);
          end loop;
@@ -8929,7 +8931,7 @@ package body Exp_Ch9 is
 
          function Non_Static_Bound (Bound : Node_Id) return Boolean is
          begin
-            if Is_Static_Expression (Bound) then
+            if Is_OK_Static_Expression (Bound) then
                return False;
 
             elsif Is_Entity_Name (Bound)
@@ -12816,6 +12818,14 @@ package body Exp_Ch9 is
          Concval := Prefix (Prefix (Nam));
          Ename   := Selector_Name (Prefix (Nam));
          Index   := First (Expressions (Nam));
+      end if;
+
+      --  Through indirection, the type may actually be a limited view of a
+      --  concurrent type. When compiling a call, the non-limited view of the
+      --  type is visible.
+
+      if From_Limited_With (Etype (Concval)) then
+         Set_Etype (Concval, Non_Limited_View (Etype (Concval)));
       end if;
    end Extract_Entry;
 

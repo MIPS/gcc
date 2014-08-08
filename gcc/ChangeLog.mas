@@ -1,3 +1,7 @@
+2014-08-08  Richard Biener  <rguenther@suse.de>
+
+	Merge from trunk r213455 through r213753.
+
 2014-08-08  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 
 	* genmatch.c (get_operator): New function.

@@ -1584,9 +1584,9 @@ begin
    Rules_Switches.Init;
    Rules_Switches.Set_Last (0);
 
-   --  Set AAMP_On_Target from the command name, for testing in
-   --  Osint.Program_Name to handle the mapping of GNAAMP tool names. We don't
-   --  extract it from system.ads, has there may be no default runtime.
+   --  Set AAMP_On_Target from command name, for testing in Osint.Program_Name
+   --  to handle the mapping of GNAAMP tool names. We don't extract it from
+   --  system.ads, as there may be no default runtime.
 
    Find_Program_Name;
    AAMP_On_Target := Name_Buffer (1 .. Name_Len) = "gnaampcmd";

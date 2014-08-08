@@ -371,9 +371,11 @@ procedure Gnat1drv is
 
          --  Detect overflow on unconstrained floating-point types, such as
          --  the predefined types Float, Long_Float and Long_Long_Float from
-         --  package Standard.
+         --  package Standard. Not necessary if float overflows are checked
+         --  (Machine_Overflow true), since appropriate Do_Overflow_Check flags
+         --  will be set in any case.
 
-         Check_Float_Overflow := True;
+         Check_Float_Overflow := not Machine_Overflows_On_Target;
 
          --  Set STRICT mode for overflow checks if not set explicitly. This
          --  prevents suppressing of overflow checks by default, in code down
@@ -872,7 +874,6 @@ begin
       if Operating_Mode /= Check_Syntax then
 
          --  Acquire target parameters from system.ads (package System source)
-         --  System).
 
          Targparm_Acquire : declare
             use Sinput;
@@ -1244,6 +1245,19 @@ begin
 
       Prepcomp.Add_Dependencies;
 
+      --  In gnatprove mode we're writing the ALI much earlier than usual
+      --  as flow analysis needs the file present in order to append its
+      --  own globals to it.
+
+      if GNATprove_Mode then
+
+         --  Note: In GNATprove mode, an "object" file is always generated as
+         --  the result of calling gnat1 or gnat2why, although this is not the
+         --  same as the object file produced for compilation.
+
+         Write_ALI (Object => True);
+      end if;
+
       --  Back end needs to explicitly unlock tables it needs to touch
 
       Atree.Lock;
@@ -1296,12 +1310,9 @@ begin
          Exit_Program (E_Errors);
       end if;
 
-      --  In GNATprove mode, an "object" file is always generated as the
-      --  result of calling gnat1 or gnat2why, although this is not the
-      --  same as the object file produced for compilation.
-
-      Write_ALI (Object => (Back_End_Mode = Generate_Object
-                             or else GNATprove_Mode));
+      if not GNATprove_Mode then
+         Write_ALI (Object => (Back_End_Mode = Generate_Object));
+      end if;
 
       if not Compilation_Errors then
 
