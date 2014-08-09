@@ -1,4 +1,9 @@
 
+2014-08-09  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-hooks.melt (connect_to_server): Compute the length
+	of an AF_UNIX socket address according to unix(7) man page.
+
 2014-08-08  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/generated/*: Regenerated.

@@ -3008,7 +3008,10 @@ exit, in last place.}#
 			    saun.sun_path, xstrerror(errno));
 		   $(ignore (return ()));
 		 };
-		 socklen_t saulen = sizeof(saun.sun_family) + strlen(saun.sun_path);
+		 // read man page unix(7)
+		 socklen_t saulen = offsetof(struct sockaddr_un, sun_path) + strlen(saun.sun_path) + 1;
+		 debugeprintf ("connect_to_server: connect sun_path %s saulen=%d",
+			       saun.sun_path, (int)saulen);
 		 if (connect ((int)$UNIXSOCKFD, (const struct sockaddr*)&saun, saulen)) {
 		   warning (0, "MELT connect_to_server: AF_UNIX %s connect failure: %s",
 			       saun.sun_path, xstrerror(errno));
