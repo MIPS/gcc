@@ -128,6 +128,11 @@ package body Sem_Res is
    --  for restriction No_Direct_Boolean_Operators. This procedure also handles
    --  the style check for Style_Check_Boolean_And_Or.
 
+   function Is_Atomic_Ref_With_Address (N : Node_Id) return Boolean;
+   --  N is either an indexed component or a selected component. This function
+   --  returns true if the prefix refers to an object that has an address
+   --  clause (the case in which we may want to issue a warning).
+
    function Is_Definite_Access_Type (E : Entity_Id) return Boolean;
    --  Determine whether E is an access type declared by an access declaration,
    --  and not an (anonymous) allocator type.
@@ -1130,6 +1135,29 @@ package body Sem_Res is
          Set_Etype (N, Any_String);
       end if;
    end Check_Parameterless_Call;
+
+   --------------------------------
+   -- Is_Atomic_Ref_With_Address --
+   --------------------------------
+
+   function Is_Atomic_Ref_With_Address (N : Node_Id) return Boolean is
+      Pref : constant Node_Id := Prefix (N);
+
+   begin
+      if not Is_Entity_Name (Pref) then
+         return False;
+
+      else
+         declare
+            Pent : constant Entity_Id := Entity (Pref);
+            Ptyp : constant Entity_Id := Etype (Pent);
+         begin
+            return not Is_Access_Type (Ptyp)
+              and then (Is_Atomic (Ptyp) or else Is_Atomic (Pent))
+              and then Present (Address_Clause (Pent));
+         end;
+      end if;
+   end Is_Atomic_Ref_With_Address;
 
    -----------------------------
    -- Is_Definite_Access_Type --
@@ -3885,7 +3913,7 @@ package body Sem_Res is
                --  conversions of objects), not general expressions.
 
                if Is_Actual_Tagged_Parameter (A) then
-                  if Is_SPARK_Object_Reference (A) then
+                  if Is_SPARK_05_Object_Reference (A) then
                      null;
 
                   elsif Nkind (A) = N_Type_Conversion then
@@ -3895,8 +3923,8 @@ package body Sem_Res is
                         Target_Typ  : constant Entity_Id := A_Typ;
 
                      begin
-                        if not Is_SPARK_Object_Reference (Operand) then
-                           Check_SPARK_Restriction
+                        if not Is_SPARK_05_Object_Reference (Operand) then
+                           Check_SPARK_05_Restriction
                              ("object required", Operand);
 
                         --  In formal mode, the only view conversions are those
@@ -3912,11 +3940,11 @@ package body Sem_Res is
                            if Ekind_In
                              (F, E_Out_Parameter, E_In_Out_Parameter)
                            then
-                              Check_SPARK_Restriction
+                              Check_SPARK_05_Restriction
                                 ("ancestor conversion is the only permitted "
                                  & "view conversion", A);
                            else
-                              Check_SPARK_Restriction
+                              Check_SPARK_05_Restriction
                                 ("ancestor conversion required", A);
                            end if;
 
@@ -3926,7 +3954,7 @@ package body Sem_Res is
                      end;
 
                   else
-                     Check_SPARK_Restriction ("object required", A);
+                     Check_SPARK_05_Restriction ("object required", A);
                   end if;
 
                --  In formal mode, the only view conversions are those
@@ -3935,7 +3963,7 @@ package body Sem_Res is
                elsif Nkind (A) = N_Type_Conversion
                  and then Ekind_In (F, E_Out_Parameter, E_In_Out_Parameter)
                then
-                  Check_SPARK_Restriction
+                  Check_SPARK_05_Restriction
                     ("ancestor conversion is the only permitted view "
                      & "conversion", A);
                end if;
@@ -5238,7 +5266,7 @@ package body Sem_Res is
         and then
           not Nkind_In (Parent (N), N_Qualified_Expression, N_Type_Conversion)
       then
-         Check_SPARK_Restriction
+         Check_SPARK_05_Restriction
            ("operation should be qualified or explicitly converted", N);
       end if;
 
@@ -5610,7 +5638,7 @@ package body Sem_Res is
 
         and then Ekind (Nam) /= E_Enumeration_Literal
       then
-         Check_SPARK_Restriction
+         Check_SPARK_05_Restriction
            ("call to subprogram cannot appear before its body", N);
       end if;
 
@@ -5780,7 +5808,7 @@ package body Sem_Res is
          if Restriction_Check_Required (SPARK_05)
            and then Same_Or_Aliased_Subprograms (Nam, Scop)
          then
-            Check_SPARK_Restriction
+            Check_SPARK_05_Restriction
               ("subprogram may not contain direct call to itself", N);
          end if;
 
@@ -6149,7 +6177,7 @@ package body Sem_Res is
         and then Is_Entity_Name (Name (N))
         and then Is_Inherited_Operation_For_Type (Entity (Name (N)), Etype (N))
       then
-         Check_SPARK_Restriction ("function not inherited", N);
+         Check_SPARK_05_Restriction ("function not inherited", N);
       end if;
 
       --  Implement rule in 12.5.1 (23.3/2): In an instance, if the actual is
@@ -6243,6 +6271,13 @@ package body Sem_Res is
             elsif In_Assertion_Expr /= 0 then
                Error_Msg_NE ("?no contextual analysis of &", N, Nam);
                Error_Msg_N ("\call appears in assertion expression", N);
+               Set_Is_Inlined_Always (Nam_UA, False);
+
+            --  Calls cannot be inlined inside default expressions
+
+            elsif In_Default_Expr then
+               Error_Msg_NE ("?no contextual analysis of &", N, Nam);
+               Error_Msg_N ("\call appears in default expression", N);
                Set_Is_Inlined_Always (Nam_UA, False);
 
             --  Inlining should not be performed during pre-analysis
@@ -6455,13 +6490,13 @@ package body Sem_Res is
       --  types or array types except String.
 
       if Is_Boolean_Type (T) then
-         Check_SPARK_Restriction
+         Check_SPARK_05_Restriction
            ("comparison is not defined on Boolean type", N);
 
       elsif Is_Array_Type (T)
         and then Base_Type (T) /= Standard_String
       then
-         Check_SPARK_Restriction
+         Check_SPARK_05_Restriction
            ("comparison is not defined on array types other than String", N);
       end if;
 
@@ -7507,7 +7542,7 @@ package body Sem_Res is
               and then Etype (R) /= Any_Composite  --  or else R in error
               and then not Matching_Static_Array_Bounds (Etype (L), Etype (R))
             then
-               Check_SPARK_Restriction
+               Check_SPARK_05_Restriction
                  ("array types should have matching static bounds", N);
             end if;
          end if;
@@ -7966,19 +8001,20 @@ package body Sem_Res is
          Eval_Indexed_Component (N);
       end if;
 
-      --  If the array type is atomic, and is packed, and we are in a left side
-      --  context, then this is worth a warning, since we have a situation
-      --  where the access to the component may cause extra read/writes of
-      --  the atomic array object, which could be considered unexpected.
+      --  If the array type is atomic, and the component is not atomic, then
+      --  this is worth a warning, since we have a situation where the access
+      --  to the component may cause extra read/writes of the atomic array
+      --  object, or partial word accesses, which could be unexpected.
 
       if Nkind (N) = N_Indexed_Component
-        and then (Is_Atomic (Array_Type)
-                   or else (Is_Entity_Name (Prefix (N))
-                             and then Is_Atomic (Entity (Prefix (N)))))
-        and then Is_Bit_Packed_Array (Array_Type)
-        and then Is_LHS (N) = Yes
+        and then Is_Atomic_Ref_With_Address (N)
+        and then not (Has_Atomic_Components (Array_Type)
+                       or else (Is_Entity_Name (Prefix (N))
+                                 and then Has_Atomic_Components
+                                            (Entity (Prefix (N)))))
+        and then not Is_Atomic (Component_Type (Array_Type))
       then
-         Error_Msg_N ("??assignment to component of packed atomic array",
+         Error_Msg_N ("??access to non-atomic component of atomic array",
                       Prefix (N));
          Error_Msg_N ("??\may cause unexpected accesses to atomic object",
                       Prefix (N));
@@ -8265,7 +8301,7 @@ package body Sem_Res is
               and then Right_Typ /= Any_Composite  --  or Right_Opnd in error
               and then not Matching_Static_Array_Bounds (Left_Typ, Right_Typ)
             then
-               Check_SPARK_Restriction
+               Check_SPARK_05_Restriction
                  ("array types should have matching static bounds", N);
             end if;
          end;
@@ -8564,7 +8600,7 @@ package body Sem_Res is
       end loop;
 
       if Base_Type (Etype (N)) /= Standard_String then
-         Check_SPARK_Restriction
+         Check_SPARK_05_Restriction
            ("result of concatenation should have type String", N);
       end if;
    end Resolve_Op_Concat;
@@ -8699,7 +8735,7 @@ package body Sem_Res is
 
       if Is_Character_Type (Etype (Arg)) then
          if not Is_OK_Static_Expression (Arg) then
-            Check_SPARK_Restriction
+            Check_SPARK_05_Restriction
               ("character operand for concatenation should be static", Arg);
          end if;
 
@@ -8708,7 +8744,7 @@ package body Sem_Res is
                   and then Is_Constant_Object (Entity (Arg)))
            and then not Is_OK_Static_Expression (Arg)
          then
-            Check_SPARK_Restriction
+            Check_SPARK_05_Restriction
               ("string operand for concatenation should be static", Arg);
          end if;
 
@@ -9019,7 +9055,7 @@ package body Sem_Res is
         and then Etype (Expr) /= Any_Composite  --  or else Expr in error
         and then not Matching_Static_Array_Bounds (Target_Typ, Etype (Expr))
       then
-         Check_SPARK_Restriction
+         Check_SPARK_05_Restriction
            ("array types should have matching static bounds", N);
       end if;
 
@@ -9051,6 +9087,16 @@ package body Sem_Res is
 
       Analyze_Dimension (N);
       Eval_Qualified_Expression (N);
+
+      --  If we still have a qualified expression after the static evaluation,
+      --  then apply a scalar range check if needed. The reason that we do this
+      --  after the Eval call is that otherwise, the application of the range
+      --  check may convert an illegal static expression and result in warning
+      --  rather than giving an error (e.g Integer'(Integer'Last + 1)).
+
+      if Nkind (N) = N_Qualified_Expression and then Is_Scalar_Type (Typ) then
+         Apply_Scalar_Range_Check (Expr, Typ);
+      end if;
    end Resolve_Qualified_Expression;
 
    ------------------------------
@@ -9276,7 +9322,7 @@ package body Sem_Res is
    procedure Resolve_Selected_Component (N : Node_Id; Typ : Entity_Id) is
       Comp  : Entity_Id;
       Comp1 : Entity_Id        := Empty; -- prevent junk warning
-      P     : constant Node_Id := Prefix  (N);
+      P     : constant Node_Id := Prefix (N);
       S     : constant Node_Id := Selector_Name (N);
       T     : Entity_Id        := Etype (P);
       I     : Interp_Index;
@@ -9453,22 +9499,22 @@ package body Sem_Res is
       --  Note: No Eval processing is required, because the prefix is of a
       --  record type, or protected type, and neither can possibly be static.
 
-      --  If the array type is atomic, and is packed, and we are in a left side
-      --  context, then this is worth a warning, since we have a situation
-      --  where the access to the component may cause extra read/writes of the
-      --  atomic array object, which could be considered unexpected.
+      --  If the record type is atomic, and the component is non-atomic, then
+      --  this is worth a warning, since we have a situation where the access
+      --  to the component may cause extra read/writes of the atomic array
+      --  object, or partial word accesses, both of which may be unexpected.
 
       if Nkind (N) = N_Selected_Component
-        and then (Is_Atomic (T)
-                   or else (Is_Entity_Name (Prefix (N))
-                             and then Is_Atomic (Entity (Prefix (N)))))
-        and then Is_Packed (T)
-        and then Is_LHS (N) = Yes
+        and then Is_Atomic_Ref_With_Address (N)
+        and then not Is_Atomic (Entity (S))
+        and then not Is_Atomic (Etype (Entity (S)))
       then
          Error_Msg_N
-           ("??assignment to component of packed atomic record", Prefix (N));
+           ("??access to non-atomic component of atomic record",
+            Prefix (N));
          Error_Msg_N
-           ("\??may cause unexpected accesses to atomic object", Prefix (N));
+           ("\??may cause unexpected accesses to atomic object",
+            Prefix (N));
       end if;
 
       Analyze_Dimension (N);
@@ -10228,7 +10274,7 @@ package body Sem_Res is
         and then Operand_Typ /= Any_Composite  --  or else Operand in error
         and then not Matching_Static_Array_Bounds (Target_Typ, Operand_Typ)
       then
-         Check_SPARK_Restriction
+         Check_SPARK_05_Restriction
            ("array types should have matching static bounds", N);
       end if;
 
@@ -10240,9 +10286,9 @@ package body Sem_Res is
         and then Is_Tagged_Type (Operand_Typ)
         and then not Is_Class_Wide_Type (Operand_Typ)
         and then Is_Ancestor (Target_Typ, Operand_Typ)
-        and then not Is_SPARK_Object_Reference (Operand)
+        and then not Is_SPARK_05_Object_Reference (Operand)
       then
-         Check_SPARK_Restriction ("object required", Operand);
+         Check_SPARK_05_Restriction ("object required", Operand);
       end if;
 
       Analyze_Dimension (N);
@@ -10315,11 +10361,11 @@ package body Sem_Res is
          --  odd subtype coming from the bounds).
 
          if (Is_Entity_Name (Orig_N)
-               and then
-                 (Etype (Entity (Orig_N)) = Orig_T
-                   or else
-                     (Ekind (Entity (Orig_N)) = E_Loop_Parameter
-                       and then Covers (Orig_T, Etype (Entity (Orig_N))))))
+              and then
+                (Etype (Entity (Orig_N)) = Orig_T
+                  or else
+                    (Ekind (Entity (Orig_N)) = E_Loop_Parameter
+                      and then Covers (Orig_T, Etype (Entity (Orig_N))))))
 
            --  If not an entity, then type of expression must match
 
@@ -10497,6 +10543,19 @@ package body Sem_Res is
             Apply_Predicate_Check (N, Target_Typ);
          end if;
       end if;
+
+      --  If at this stage we have a real to integer conversion, make sure
+      --  that the Do_Range_Check flag is set, because such conversions in
+      --  general need a range check. We only need this if expansion is off
+      --  or we are in GNATProve mode.
+
+      if Nkind (N) = N_Type_Conversion
+        and then (GNATprove_Mode or not Expander_Active)
+        and then Is_Integer_Type (Target_Typ)
+        and then Is_Real_Type (Operand_Typ)
+      then
+         Set_Do_Range_Check (Operand);
+      end if;
    end Resolve_Type_Conversion;
 
    ----------------------
@@ -10513,7 +10572,7 @@ package body Sem_Res is
    begin
       if Is_Modular_Integer_Type (Typ) and then Nkind (N) /= N_Op_Not then
          Error_Msg_Name_1 := Chars (Typ);
-         Check_SPARK_Restriction
+         Check_SPARK_05_Restriction
            ("unary operator not defined for modular type%", N);
       end if;
 

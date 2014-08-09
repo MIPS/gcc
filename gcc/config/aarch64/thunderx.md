@@ -128,7 +128,7 @@
 ;; Moves between fp are 2 cycles including min/max/select/abs/neg
 (define_insn_reservation "thunderx_fmov" 2
   (and (eq_attr "tune" "thunderx")
-       (eq_attr "type" "fmov,f_minmaxs,f_minmaxd,f_sels,f_seld,ffarithd,ffariths"))
+       (eq_attr "type" "fmov,f_minmaxs,f_minmaxd,fcsel,ffarithd,ffariths"))
   "thunderx_pipe1")
 
 (define_insn_reservation "thunderx_fmovgpr" 2

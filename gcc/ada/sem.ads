@@ -245,12 +245,18 @@ package Sem is
 
    In_Assertion_Expr : Nat := 0;
    --  This is set non-zero if we are within the expression of an assertion
-   --  pragma or aspect. It is a counter which is incremented at the start
-   --  of expanding such an expression, and decremented on completion of
-   --  expanding that expression. Probably a boolean would be good enough,
-   --  since we think that such expressions cannot nest, but that might not
-   --  be true in the future (e.g. if let expressions are added to Ada) so
-   --  we prepare for that future possibility by making it a counter.
+   --  pragma or aspect. It is a counter which is incremented at the start of
+   --  expanding such an expression, and decremented on completion of expanding
+   --  that expression. Probably a boolean would be good enough, since we think
+   --  that such expressions cannot nest, but that might not be true in the
+   --  future (e.g. if let expressions are added to Ada) so we prepare for that
+   --  future possibility by making it a counter. As with In_Spec_Expression,
+   --  it must be recursively saved and restored for a Semantics call.
+
+   In_Default_Expr : Boolean := False;
+   --  Switch to indicate that we are analyzing a default component expression.
+   --  As with In_Spec_Expression, it must be recursively saved and restored
+   --  for a Semantics call.
 
    In_Inlined_Body : Boolean := False;
    --  Switch to indicate that we are analyzing and resolving an inlined body.
@@ -677,13 +683,14 @@ package Sem is
    generic
       with procedure Action (Item : Node_Id);
    procedure Walk_Library_Items;
-   --  Primarily for use by CodePeer. Must be called after semantic analysis
-   --  (and expansion) are complete. Walks each relevant library item, calling
-   --  Action for each, in an order such that one will not run across forward
-   --  references. Each Item passed to Action is the declaration or body of
-   --  a library unit, including generics and renamings. The first item is
-   --  the N_Package_Declaration node for package Standard. Bodies are not
-   --  included, except for the main unit itself, which always comes last.
+   --  Primarily for use by CodePeer and GNATprove. Must be called after
+   --  semantic analysis (and expansion in the case of CodePeer) are complete.
+   --  Walks each relevant library item, calling Action for each, in an order
+   --  such that one will not run across forward references. Each Item passed
+   --  to Action is the declaration or body of a library unit, including
+   --  generics and renamings. The first item is the N_Package_Declaration node
+   --  for package Standard. Bodies are not included, except for the main unit
+   --  itself, which always comes last.
    --
    --  Item is never a subunit
    --

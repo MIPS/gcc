@@ -36,7 +36,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "attribs.h"
 #include "stor-layout.h"
 #include "calls.h"
-#include "pointer-set.h"
 #include "flags.h"
 #include "cp-tree.h"
 #include "decl.h"
@@ -524,6 +523,8 @@ check_member_template (tree tmpl)
 	 with member templates.  */
       DECL_IGNORED_P (tmpl) = 1;
     }
+  else if (variable_template_p (tmpl))
+    /* OK */;
   else
     error ("template declaration of %q#D", decl);
 }

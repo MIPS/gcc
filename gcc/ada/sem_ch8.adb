@@ -552,7 +552,7 @@ package body Sem_Ch8 is
       Nam : constant Node_Id := Name (N);
 
    begin
-      Check_SPARK_Restriction ("exception renaming is not allowed", N);
+      Check_SPARK_05_Restriction ("exception renaming is not allowed", N);
 
       Enter_Name (Id);
       Analyze (Nam);
@@ -658,7 +658,7 @@ package body Sem_Ch8 is
          return;
       end if;
 
-      Check_SPARK_Restriction ("generic renaming is not allowed", N);
+      Check_SPARK_05_Restriction ("generic renaming is not allowed", N);
 
       Generate_Definition (New_P);
 
@@ -836,7 +836,7 @@ package body Sem_Ch8 is
          return;
       end if;
 
-      Check_SPARK_Restriction ("object renaming is not allowed", N);
+      Check_SPARK_05_Restriction ("object renaming is not allowed", N);
 
       Set_Is_Pure (Id, Is_Pure (Current_Scope));
       Enter_Name (Id);
@@ -1845,12 +1845,12 @@ package body Sem_Ch8 is
       --
       --  The above is replaced the following wrapper/renaming combination:
       --
-      --    procedure Prim_Op (Param : Formal_Typ) is  --  wrapper
+      --    procedure Wrapper (Param : Formal_Typ) is  --  wrapper
       --    begin
       --       Prim_Op (Param);                        --  primitive
       --    end Wrapper;
       --
-      --    procedure Dummy (Param : Formal_Typ) renames Prim_Op;
+      --    procedure Prim_Op (Param : Formal_Typ) renames Wrapper;
       --
       --  This transformation applies only if there is no explicit visible
       --  class-wide operation at the point of the instantiation. Ren_Id is
@@ -1918,6 +1918,14 @@ package body Sem_Ch8 is
          --  Emit a continuation error message suggesting subprogram Subp_Id as
          --  a possible interpretation.
 
+         function Is_Intrinsic_Equality (Subp_Id : Entity_Id) return Boolean;
+         --  Determine whether subprogram Subp_Id denotes the intrinsic "="
+         --  operator.
+
+         function Is_Suitable_Candidate (Subp_Id : Entity_Id) return Boolean;
+         --  Determine whether subprogram Subp_Id is a suitable candidate for
+         --  the role of a wrapped subprogram.
+
          ----------------
          -- Build_Call --
          ----------------
@@ -1969,7 +1977,8 @@ package body Sem_Ch8 is
          function Build_Spec (Subp_Id : Entity_Id) return Node_Id is
             Params  : constant List_Id   := Copy_Parameter_List (Subp_Id);
             Spec_Id : constant Entity_Id :=
-                        Make_Defining_Identifier (Loc, Chars (Subp_Id));
+                        Make_Defining_Identifier (Loc,
+                          Chars => New_External_Name (Chars (Subp_Id), 'R'));
 
          begin
             if Ekind (Formal_Spec) = E_Procedure then
@@ -2087,25 +2096,70 @@ package body Sem_Ch8 is
          procedure Interpretation_Error (Subp_Id : Entity_Id) is
          begin
             Error_Msg_Sloc := Sloc (Subp_Id);
-            Error_Msg_NE
-              ("\\possible interpretation: & defined #", Spec, Formal_Spec);
+
+            if Is_Internal (Subp_Id) then
+               Error_Msg_NE
+                 ("\\possible interpretation: predefined & #",
+                  Spec, Formal_Spec);
+            else
+               Error_Msg_NE
+                 ("\\possible interpretation: & defined #", Spec, Formal_Spec);
+            end if;
          end Interpretation_Error;
+
+         ---------------------------
+         -- Is_Intrinsic_Equality --
+         ---------------------------
+
+         function Is_Intrinsic_Equality (Subp_Id : Entity_Id) return Boolean is
+         begin
+            return
+              Ekind (Subp_Id) = E_Operator
+                and then Chars (Subp_Id) = Name_Op_Eq
+                and then Is_Intrinsic_Subprogram (Subp_Id);
+         end Is_Intrinsic_Equality;
+
+         ---------------------------
+         -- Is_Suitable_Candidate --
+         ---------------------------
+
+         function Is_Suitable_Candidate (Subp_Id : Entity_Id) return Boolean is
+         begin
+            if No (Subp_Id) then
+               return False;
+
+            --  An intrinsic subprogram is never a good candidate. This is an
+            --  indication of a missing primitive, either defined directly or
+            --  inherited from a parent tagged type.
+
+            elsif Is_Intrinsic_Subprogram (Subp_Id) then
+               return False;
+
+            else
+               return True;
+            end if;
+         end Is_Suitable_Candidate;
 
          --  Local variables
 
          Actual_Typ : Entity_Id := Empty;
          --  The actual class-wide type for Formal_Typ
 
+         CW_Prim_OK : Boolean;
          CW_Prim_Op : Entity_Id;
-         --  The class-wide primitive (if any) which corresponds to the renamed
-         --  generic formal subprogram.
+         --  The class-wide subprogram (if available) which corresponds to the
+         --  renamed generic formal subprogram.
 
          Formal_Typ : Entity_Id := Empty;
-         --  The generic formal type (if any) with unknown discriminants
+         --  The generic formal type with unknown discriminants
 
+         Root_Prim_OK : Boolean;
          Root_Prim_Op : Entity_Id;
-         --  The root type primitive (if any) which corresponds to the renamed
-         --  generic formal subprogram.
+         --  The root type primitive (if available) which corresponds to the
+         --  renamed generic formal subprogram.
+
+         Root_Typ : Entity_Id := Empty;
+         --  The root type of Actual_Typ
 
          Body_Decl : Node_Id;
          Formal    : Node_Id;
@@ -2128,9 +2182,18 @@ package body Sem_Ch8 is
          end if;
 
          --  Analyze the renamed name, but do not resolve it. The resolution is
-         --  completed once a suitable primitive is found.
+         --  completed once a suitable subprogram is found.
 
          Analyze (Nam);
+
+         --  When the renamed name denotes the intrinsic operator equals, the
+         --  name must be treated as overloaded. This allows for a potential
+         --  match against the root type's predefined equality function.
+
+         if Is_Intrinsic_Equality (Entity (Nam)) then
+            Set_Is_Overloaded (Nam);
+            Collect_Interps   (Nam);
+         end if;
 
          --  Step 1: Find the generic formal type with unknown discriminants
          --  and its corresponding class-wide actual type from the renamed
@@ -2144,6 +2207,7 @@ package body Sem_Ch8 is
             then
                Formal_Typ := Etype (Formal);
                Actual_Typ := Get_Instance_Of (Formal_Typ);
+               Root_Typ   := Etype (Actual_Typ);
                exit;
             end if;
 
@@ -2157,13 +2221,15 @@ package body Sem_Ch8 is
 
          pragma Assert (Present (Formal_Typ));
 
-         --  Step 2: Find the proper primitive which corresponds to the renamed
-         --  generic formal subprogram.
+         --  Step 2: Find the proper class-wide subprogram or primitive which
+         --  corresponds to the renamed generic formal subprogram.
 
          CW_Prim_Op   := Find_Primitive (Actual_Typ);
-         Root_Prim_Op := Find_Primitive (Etype (Actual_Typ));
+         CW_Prim_OK   := Is_Suitable_Candidate (CW_Prim_Op);
+         Root_Prim_Op := Find_Primitive (Root_Typ);
+         Root_Prim_OK := Is_Suitable_Candidate (Root_Prim_Op);
 
-         --  The class-wide actual type has two primitives which correspond to
+         --  The class-wide actual type has two subprograms which correspond to
          --  the renamed generic formal subprogram:
 
          --    with procedure Prim_Op (Param : Formal_Typ);
@@ -2171,84 +2237,65 @@ package body Sem_Ch8 is
          --    procedure Prim_Op (Param : Actual_Typ);  --  may be inherited
          --    procedure Prim_Op (Param : Actual_Typ'Class);
 
-         --  Even though the declaration of the two primitives is legal, a call
-         --  to either one is ambiguous and therefore illegal.
+         --  Even though the declaration of the two subprograms is legal, a
+         --  call to either one is ambiguous and therefore illegal.
 
-         if Present (CW_Prim_Op) and then Present (Root_Prim_Op) then
+         if CW_Prim_OK and Root_Prim_OK then
 
-            --  Deal with abstract primitives
+            --  A user-defined primitive has precedence over a predefined one
 
-            if Is_Abstract_Subprogram (CW_Prim_Op)
-              or else Is_Abstract_Subprogram (Root_Prim_Op)
+            if Is_Internal (CW_Prim_Op)
+              and then not Is_Internal (Root_Prim_Op)
             then
-               --  An abstract subprogram cannot act as a generic actual, but
-               --  the partial parameterization of the instance may hide the
-               --  true nature of the actual. Emit an error when both options
-               --  are abstract.
-
-               if Is_Abstract_Subprogram (CW_Prim_Op)
-                 and then Is_Abstract_Subprogram (Root_Prim_Op)
-               then
-                  Error_Msg_NE
-                    ("abstract subprogram not allowed as generic actual",
-                     Spec, Formal_Spec);
-                  Interpretation_Error (CW_Prim_Op);
-                  Interpretation_Error (Root_Prim_Op);
-                  return;
-
-               --  Otherwise choose the non-abstract version
-
-               elsif Is_Abstract_Subprogram (Root_Prim_Op) then
-                  Prim_Op := CW_Prim_Op;
-
-               else pragma Assert (Is_Abstract_Subprogram (CW_Prim_Op));
-                  Prim_Op := Root_Prim_Op;
-               end if;
-
-            --  If one of the candidate primitives is intrinsic, choose the
-            --  other (which may also be intrinsic). Preference is given to
-            --  the primitive of the root type.
-
-            elsif Is_Intrinsic_Subprogram (CW_Prim_Op) then
                Prim_Op := Root_Prim_Op;
 
-            elsif Is_Intrinsic_Subprogram (Root_Prim_Op) then
+            elsif Is_Internal (Root_Prim_Op)
+              and then not Is_Internal (CW_Prim_Op)
+            then
                Prim_Op := CW_Prim_Op;
 
             elsif CW_Prim_Op = Root_Prim_Op then
                Prim_Op := Root_Prim_Op;
 
-            --  Otherwise there are two perfectly good candidates which satisfy
-            --  the profile of the renamed generic formal subprogram.
+            --  Otherwise both candidate subprograms are user-defined and
+            --  ambiguous.
 
             else
                Error_Msg_NE
                  ("ambiguous actual for generic subprogram &",
-                   Spec, Formal_Spec);
-               Interpretation_Error (CW_Prim_Op);
+                  Spec, Formal_Spec);
                Interpretation_Error (Root_Prim_Op);
+               Interpretation_Error (CW_Prim_Op);
                return;
             end if;
 
-         elsif Present (CW_Prim_Op) then
+         elsif CW_Prim_OK and not Root_Prim_OK then
             Prim_Op := CW_Prim_Op;
 
-         elsif Present (Root_Prim_Op) then
+         elsif not CW_Prim_OK and Root_Prim_OK then
             Prim_Op := Root_Prim_Op;
 
-         --  Otherwise there are no candidate primitives. Let the caller
+         --  An intrinsic equality may act as a suitable candidate in the case
+         --  of a null type extension where the parent's equality is hidden. A
+         --  call to an intrinsic equality is expanded as dispatching.
+
+         elsif Present (Root_Prim_Op)
+           and then Is_Intrinsic_Equality (Root_Prim_Op)
+         then
+            Prim_Op := Root_Prim_Op;
+
+         --  Otherwise there are no candidate subprograms. Let the caller
          --  diagnose the error.
 
          else
             return;
          end if;
 
-         --  Set the proper entity of the renamed generic formal subprogram
-         --  and reset its overloaded status now that resolution has finally
-         --  taken place.
+         --  At this point resolution has taken place and the name is no longer
+         --  overloaded. Mark the primitive as referenced.
 
-         Set_Entity        (Nam, Prim_Op);
-         Set_Is_Overloaded (Nam, False);
+         Set_Is_Overloaded (Name (N), False);
+         Set_Referenced    (Prim_Op);
 
          --  Step 3: Create the declaration and the body of the wrapper, insert
          --  all the pieces into the tree.
@@ -2256,6 +2303,15 @@ package body Sem_Ch8 is
          Spec_Decl :=
            Make_Subprogram_Declaration (Loc,
              Specification => Build_Spec (Ren_Id));
+         Insert_Before_And_Analyze (N, Spec_Decl);
+
+         --  If the operator carries an Eliminated pragma, indicate that the
+         --  wrapper is also to be eliminated, to prevent spurious error when
+         --  using gnatelim on programs that include box-initialization of
+         --  equality operators.
+
+         Wrap_Id := Defining_Entity (Spec_Decl);
+         Set_Is_Eliminated (Wrap_Id, Is_Eliminated (Prim_Op));
 
          Body_Decl :=
            Make_Subprogram_Body (Loc,
@@ -2270,9 +2326,6 @@ package body Sem_Ch8 is
                         Parameter_Specifications
                           (Specification (Spec_Decl))))));
 
-         Insert_Before_And_Analyze (N, Spec_Decl);
-         Wrap_Id := Defining_Entity (Spec_Decl);
-
          --  The generated body does not freeze and must be analyzed when the
          --  class-wide wrapper is frozen. The body is only needed if expansion
          --  is enabled.
@@ -2281,12 +2334,9 @@ package body Sem_Ch8 is
             Append_Freeze_Action (Wrap_Id, Body_Decl);
          end if;
 
-         --  Step 4: Once the proper actual type and primitive operation are
-         --  known, hide the renaming declaration from visibility by giving it
-         --  a dummy name.
+         --  Step 4: The subprogram renaming aliases the wrapper
 
-         Set_Defining_Unit_Name (Spec, Make_Temporary (Loc, 'R'));
-         Ren_Id := Analyze_Subprogram_Specification (Spec);
+         Rewrite (Nam, New_Occurrence_Of (Wrap_Id, Loc));
       end Build_Class_Wide_Wrapper;
 
       --------------------------
@@ -3382,7 +3432,7 @@ package body Sem_Ch8 is
    --  Start of processing for Analyze_Use_Package
 
    begin
-      Check_SPARK_Restriction ("use clause is not allowed", N);
+      Check_SPARK_05_Restriction ("use clause is not allowed", N);
 
       Set_Hidden_By_Use_Clause (N, No_Elist);
 
@@ -6344,12 +6394,13 @@ package body Sem_Ch8 is
 
       if Restriction_Check_Required (SPARK_05) then
          if Nkind (Selector_Name (N)) = N_Character_Literal then
-            Check_SPARK_Restriction
+            Check_SPARK_05_Restriction
               ("character literal cannot be prefixed", N);
          elsif Nkind (Selector_Name (N)) = N_Operator_Symbol
            and then Nkind (Parent (N)) /= N_Subprogram_Renaming_Declaration
          then
-            Check_SPARK_Restriction ("operator symbol cannot be prefixed", N);
+            Check_SPARK_05_Restriction
+              ("operator symbol cannot be prefixed", N);
          end if;
       end if;
 
@@ -6717,10 +6768,10 @@ package body Sem_Ch8 is
            and then Restriction_Check_Required (SPARK_05)
          then
             if Is_Subprogram (P_Name) then
-               Check_SPARK_Restriction
+               Check_SPARK_05_Restriction
                  ("prefix of expanded name cannot be a subprogram", P);
             elsif Ekind (P_Name) = E_Loop then
-               Check_SPARK_Restriction
+               Check_SPARK_05_Restriction
                  ("prefix of expanded name cannot be a loop statement", P);
             end if;
          end if;
@@ -6879,7 +6930,7 @@ package body Sem_Ch8 is
 
          elsif Attribute_Name (N) = Name_Base then
             Error_Msg_Name_1 := Name_Base;
-            Check_SPARK_Restriction
+            Check_SPARK_05_Restriction
               ("attribute% is only allowed as prefix of another attribute", N);
 
             if Ada_Version = Ada_83 and then Comes_From_Source (N) then

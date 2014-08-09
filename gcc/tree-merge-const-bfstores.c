@@ -68,7 +68,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "basic-block.h"
 #include "function.h"
 #include "gimple-pretty-print.h"
-#include "pointer-set.h"
+#include "hash-map.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
@@ -96,7 +96,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 #include "varasm.h"
 #include "stor-layout.h"
-#include "pointer-set.h"
 #include "hash-table.h"
 #include "basic-block.h"
 

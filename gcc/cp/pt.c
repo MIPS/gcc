@@ -34,7 +34,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "attribs.h"
 #include "stor-layout.h"
 #include "intl.h"
-#include "pointer-set.h"
 #include "flags.h"
 #include "cp-tree.h"
 #include "c-family/c-common.h"
@@ -1112,13 +1111,11 @@ retrieve_specialization (tree tmpl, tree args, hashval_t hash)
 static tree
 retrieve_local_specialization (tree tmpl)
 {
-  void **slot;
-
   if (local_specializations == NULL)
     return NULL_TREE;
 
-  slot = pointer_map_contains (local_specializations, tmpl);
-  return slot ? (tree) *slot : NULL_TREE;
+  tree *slot = local_specializations->get (tmpl);
+  return slot ? *slot : NULL_TREE;
 }
 
 /* Returns nonzero iff DECL is a specialization of TMPL.  */
@@ -1730,10 +1727,7 @@ reregister_specialization (tree spec, tree tinfo, tree new_spec)
 static void
 register_local_specialization (tree spec, tree tmpl)
 {
-  void **slot;
-
-  slot = pointer_map_insert (local_specializations, tmpl);
-  *slot = spec;
+  local_specializations->put (tmpl, spec);
 }
 
 /* TYPE is a class type.  Returns true if TYPE is an explicitly
@@ -1878,9 +1872,14 @@ determine_specialization (tree template_id,
   if (BASELINK_P (fns))
     fns = BASELINK_FUNCTIONS (fns);
 
-  if (!is_overloaded_fn (fns))
+  if (TREE_CODE (decl) == FUNCTION_DECL && !is_overloaded_fn (fns))
     {
       error ("%qD is not a function template", fns);
+      return error_mark_node;
+    }
+  else if (VAR_P (decl) && !variable_template_p (fns))
+    {
+      error ("%qD is not a variable template", fns);
       return error_mark_node;
     }
 
@@ -1892,7 +1891,9 @@ determine_specialization (tree template_id,
        b = b->level_chain)
     ++header_count;
 
-  for (; fns; fns = OVL_NEXT (fns))
+  if (variable_template_p (fns))
+    templates = tree_cons (explicit_targs, fns, templates);
+  else for (; fns; fns = OVL_NEXT (fns))
     {
       tree fn = OVL_CURRENT (fns);
 
@@ -2308,9 +2309,16 @@ check_template_variable (tree decl)
   tree ctx = CP_DECL_CONTEXT (decl);
   int wanted = num_template_headers_for_class (ctx);
   if (!TYPE_P (ctx) || !CLASSTYPE_TEMPLATE_INFO (ctx))
-    permerror (DECL_SOURCE_LOCATION (decl),
-	       "%qD is not a static data member of a class template", decl);
-  else if (template_header_count > wanted)
+    {
+      if (cxx_dialect < cxx1y)
+        pedwarn (DECL_SOURCE_LOCATION (decl), 0,
+                 "variable templates only available with "
+                 "-std=c++1y or -std=gnu++1y");
+
+      // Namespace-scope variable templates should have a template header.
+      ++wanted;
+    }
+  if (template_header_count > wanted)
     {
       bool warned = pedwarn (DECL_SOURCE_LOCATION (decl), 0,
 			     "too many template headers for %D (should be %d)",
@@ -2442,6 +2450,13 @@ check_explicit_specialization (tree declarator,
 
       /* Fall through.  */
     case tsk_expl_spec:
+      if (VAR_P (decl) && TREE_CODE (declarator) != TEMPLATE_ID_EXPR)
+        {
+           // In cases like template<> constexpr bool v = true;
+           error ("%qD is not a template variable", dname);
+           break;
+        }
+
       SET_DECL_TEMPLATE_SPECIALIZATION (decl);
       if (ctype)
 	member_specialization = 1;
@@ -2481,7 +2496,10 @@ check_explicit_specialization (tree declarator,
       gcc_unreachable ();
     }
 
-  if (specialization || member_specialization)
+  if ((specialization || member_specialization)
+      /* This doesn't apply to variable templates.  */
+      && (TREE_CODE (TREE_TYPE (decl)) == FUNCTION_TYPE
+          || TREE_CODE (TREE_TYPE (decl)) == METHOD_TYPE))
     {
       tree t = TYPE_ARG_TYPES (TREE_TYPE (decl));
       for (; t; t = TREE_CHAIN (t))
@@ -2566,6 +2584,10 @@ check_explicit_specialization (tree declarator,
       else if (ctype != NULL_TREE
 	       && (identifier_p (TREE_OPERAND (declarator, 0))))
 	{
+	  // Ignore variable templates.
+	  if (VAR_P (decl))
+	    return decl;
+
 	  /* Find the list of functions in ctype that have the same
 	     name as the declared function.  */
 	  tree name = TREE_OPERAND (declarator, 0);
@@ -2691,7 +2713,8 @@ check_explicit_specialization (tree declarator,
 	  /* If we thought that the DECL was a member function, but it
 	     turns out to be specializing a static member function,
 	     make DECL a static member function as well.  */
-	  if (DECL_STATIC_FUNCTION_P (tmpl)
+	  if (DECL_FUNCTION_TEMPLATE_P (tmpl)
+	      && DECL_STATIC_FUNCTION_P (tmpl)
 	      && DECL_NONSTATIC_MEMBER_FUNCTION_P (decl))
 	    revert_static_member_fn (decl);
 
@@ -2725,7 +2748,8 @@ check_explicit_specialization (tree declarator,
 
 	  /* Inherit default function arguments from the template
 	     DECL is specializing.  */
-	  copy_default_args_to_explicit_spec (decl);
+	  if (DECL_FUNCTION_TEMPLATE_P (tmpl))
+	    copy_default_args_to_explicit_spec (decl);
 
 	  /* This specialization has the same protection as the
 	     template it specializes.  */
@@ -2787,9 +2811,11 @@ check_explicit_specialization (tree declarator,
 	       It's just the name of an instantiation.  But, it's not
 	       a request for an instantiation, either.  */
 	    SET_DECL_IMPLICIT_INSTANTIATION (decl);
-	  else
+	  else if (TREE_CODE (decl) == FUNCTION_DECL)
 	    /* A specialization is not necessarily COMDAT.  */
 	    DECL_COMDAT (decl) = DECL_DECLARED_INLINE_P (decl);
+	  else if (TREE_CODE (decl) == VAR_DECL)
+	    DECL_COMDAT (decl) = false;
 
 	  /* Register this specialization so that we can find it
 	     again.  */
@@ -2797,6 +2823,7 @@ check_explicit_specialization (tree declarator,
 
 	  /* A 'structor should already have clones.  */
 	  gcc_assert (decl == error_mark_node
+		      || variable_template_p (tmpl)
 		      || !(DECL_CONSTRUCTOR_P (decl)
 			   || DECL_DESTRUCTOR_P (decl))
 		      || DECL_CLONED_FUNCTION_P (DECL_CHAIN (decl)));
@@ -4741,6 +4768,15 @@ push_template_decl_real (tree decl, bool is_friend)
 	       && TYPE_DECL_ALIAS_P (decl))
 	/* alias-declaration */
 	gcc_assert (!DECL_ARTIFICIAL (decl));
+      else if (VAR_P (decl))
+        {
+          if (!DECL_DECLARED_CONSTEXPR_P (decl))
+            {
+              sorry ("template declaration of non-constexpr variable %qD",
+		     decl);
+              return error_mark_node;
+            }
+        }
       else
 	{
 	  error ("template declaration of %q#D", decl);
@@ -7777,6 +7813,12 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
 	    }
 	}
 
+      if (OVERLOAD_TYPE_P (t)
+	  && !DECL_ALIAS_TEMPLATE_P (gen_tmpl))
+	if (tree attributes
+	    = lookup_attribute ("abi_tag", TYPE_ATTRIBUTES (template_type)))
+	  TYPE_ATTRIBUTES (t) = attributes;
+
       /* Let's consider the explicit specialization of a member
          of a class template specialization that is implicitly instantiated,
 	 e.g.:
@@ -7916,6 +7958,14 @@ lookup_template_class (tree d1, tree arglist, tree in_decl, tree context,
                                  entering_scope, complain);
   timevar_pop (TV_TEMPLATE_INST);
   return ret;
+}
+
+/* Return a TEMPLATE_ID_EXPR for the given variable template and ARGLIST. */
+
+tree
+lookup_template_variable (tree templ, tree arglist)
+{
+  return build2 (TEMPLATE_ID_EXPR, TREE_TYPE (templ), templ, arglist);
 }
 
 struct pair_fn_data
@@ -9722,7 +9772,7 @@ tsubst_pack_expansion (tree t, tree args, tsubst_flags_t complain,
   bool unsubstituted_packs = false;
   int i, len = -1;
   tree result;
-  struct pointer_map_t *saved_local_specializations = NULL;
+  hash_map<tree, tree> *saved_local_specializations = NULL;
   bool need_local_specializations = false;
   int levels;
 
@@ -9876,7 +9926,7 @@ tsubst_pack_expansion (tree t, tree args, tsubst_flags_t complain,
 	 case of recursive unification) might have bindings that we don't
 	 want to use or alter.  */
       saved_local_specializations = local_specializations;
-      local_specializations = pointer_map_create ();
+      local_specializations = new hash_map<tree, tree>;
     }
 
   /* For each argument in each argument pack, substitute into the
@@ -9925,7 +9975,7 @@ tsubst_pack_expansion (tree t, tree args, tsubst_flags_t complain,
 
   if (need_local_specializations)
     {
-      pointer_map_destroy (local_specializations);
+      delete local_specializations;
       local_specializations = saved_local_specializations;
     }
   
@@ -10484,7 +10534,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	if (PRIMARY_TEMPLATE_P (t))
 	  DECL_PRIMARY_TEMPLATE (r) = r;
 
-	if (TREE_CODE (decl) != TYPE_DECL)
+	if (TREE_CODE (decl) != TYPE_DECL && TREE_CODE (decl) != VAR_DECL)
 	  /* Record this non-type partial instantiation.  */
 	  register_specialization (r, t,
 				   DECL_TI_ARGS (DECL_TEMPLATE_RESULT (r)),
@@ -19172,7 +19222,11 @@ do_decl_instantiation (tree decl, tree storage)
       error ("explicit instantiation of non-template %q#D", decl);
       return;
     }
-  else if (VAR_P (decl))
+
+  bool var_templ = (DECL_TEMPLATE_INFO (decl)
+                    && variable_template_p (DECL_TI_TEMPLATE (decl)));
+
+  if (VAR_P (decl) && !var_templ)
     {
       /* There is an asymmetry here in the way VAR_DECLs and
 	 FUNCTION_DECLs are handled by grokdeclarator.  In the case of
@@ -19201,7 +19255,7 @@ do_decl_instantiation (tree decl, tree storage)
 	  return;
 	}
     }
-  else if (TREE_CODE (decl) != FUNCTION_DECL)
+  else if (TREE_CODE (decl) != FUNCTION_DECL && !var_templ)
     {
       error ("explicit instantiation of %q#D", decl);
       return;
@@ -19906,10 +19960,12 @@ instantiate_decl (tree d, int defer_ok,
 	  tree ns;
 	  tree init;
 	  bool const_init = false;
+	  bool enter_context = DECL_CLASS_SCOPE_P (d);
 
 	  ns = decl_namespace_context (d);
 	  push_nested_namespace (ns);
-	  push_nested_class (DECL_CONTEXT (d));
+	  if (enter_context)
+	    push_nested_class (DECL_CONTEXT (d));
 	  init = tsubst_expr (DECL_INITIAL (code_pattern),
 			      args,
 			      tf_warning_or_error, NULL_TREE,
@@ -19921,7 +19977,8 @@ instantiate_decl (tree d, int defer_ok,
 	  cp_finish_decl (d, init, /*init_const_expr_p=*/const_init,
 			  /*asmspec_tree=*/NULL_TREE,
 			  LOOKUP_ONLYCONVERTING);
-	  pop_nested_class ();
+	  if (enter_context)
+	    pop_nested_class ();
 	  pop_nested_namespace (ns);
 	}
 
@@ -20018,16 +20075,21 @@ instantiate_decl (tree d, int defer_ok,
       DECL_EXTERNAL (d) = 0;
 
       /* Enter the scope of D so that access-checking works correctly.  */
-      push_nested_class (DECL_CONTEXT (d));
+      bool enter_context = DECL_CLASS_SCOPE_P (d);
+      if (enter_context)
+        push_nested_class (DECL_CONTEXT (d));
+
       const_init = DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (code_pattern);
       cp_finish_decl (d, init, const_init, NULL_TREE, 0);
-      pop_nested_class ();
+
+      if (enter_context)
+        pop_nested_class ();
     }
   else if (TREE_CODE (d) == FUNCTION_DECL && DECL_DEFAULTED_FN (code_pattern))
     synthesize_method (d);
   else if (TREE_CODE (d) == FUNCTION_DECL)
     {
-      struct pointer_map_t *saved_local_specializations;
+      hash_map<tree, tree> *saved_local_specializations;
       tree subst_decl;
       tree tmpl_parm;
       tree spec_parm;
@@ -20038,7 +20100,7 @@ instantiate_decl (tree d, int defer_ok,
       saved_local_specializations = local_specializations;
 
       /* Set up the list of local specializations.  */
-      local_specializations = pointer_map_create ();
+      local_specializations = new hash_map<tree, tree>;
 
       /* Set up context.  */
       if (DECL_OMP_DECLARE_REDUCTION_P (code_pattern)
@@ -20102,7 +20164,7 @@ instantiate_decl (tree d, int defer_ok,
 	}
 
       /* We don't need the local specializations any more.  */
-      pointer_map_destroy (local_specializations);
+      delete local_specializations;
       local_specializations = saved_local_specializations;
 
       /* Finish the function.  */
