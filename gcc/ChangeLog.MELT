@@ -1,4 +1,8 @@
 
+2014-08-10  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-hooks.melt (do_blocking_jsonrpc2_call): More debug.
+
 2014-08-09  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-hooks.melt (connect_to_server): Compute the length

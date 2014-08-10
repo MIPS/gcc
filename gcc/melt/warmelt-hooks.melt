@@ -3826,11 +3826,17 @@ exit, in last place.}#
        }
        $SERVOUT = meltgc_new_file($DISCR_RAWFILE, sockfil); ;
        }#)
+      (debug "do_blocking_jsonrpc2_call servout=" servout " jreq=" jreq
+	     " outputtingjson=" 
+	     (let ( (sbuf (make_strbuf discr_strbuf)) )
+	       (output_json sbuf jreq)
+	       (strbuf2string discr_string sbuf)))
       (output_json servout jreq)
       (code_chunk 
        flushsockfile_chk
        #{ /* do_blocking_jsonrpc2_call $FLUSHSOCKFILE_CHK */
        melt_newlineflush (melt_get_file($SERVOUT));
+       $(debug "do_blocking_jsonrpc2_call flusshed servout=" servout)
        }#)
       (let (
 	    (:long begtime (relative_time_millisec))
