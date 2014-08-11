@@ -2,6 +2,7 @@
 2014-08-11  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/generated/*: Regenerated.
+	* melt/generated/warmelt-debug+03.cc: New file.
 
 2014-08-11  Basile Starynkevitch  <basile@starynkevitch.net>
 
