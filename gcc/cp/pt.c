@@ -11960,6 +11960,8 @@ tsubst_exception_specification (tree fntype,
   return new_specs;
 }
 
+extern int processing_constraint;
+
 /* Take the tree structure T and replace template parameters used
    therein with the argument vector ARGS.  IN_DECL is an associated
    decl for diagnostics.  If an error occurs, returns ERROR_MARK_NODE.
@@ -11994,7 +11996,7 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
   if (DECL_P (t))
     return tsubst_decl (t, args, complain);
 
-  if (args == NULL_TREE)
+  if (args == NULL_TREE && !processing_constraint)
     return t;
 
   code = TREE_CODE (t);

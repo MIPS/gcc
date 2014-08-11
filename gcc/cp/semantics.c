@@ -7011,6 +7011,7 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p,
       return type;
     }
 
+
   /* The type denoted by decltype(e) is defined as follows:  */
 
   expr = resolve_nondeduced_context (expr);
@@ -7386,7 +7387,7 @@ finish_trait_expr (cp_trait_kind kind, tree type1, tree type2)
 	      || kind == CPTK_IS_LITERAL_TYPE
 	      || kind == CPTK_IS_POD
 	      || kind == CPTK_IS_POLYMORPHIC
-        || kind == CPTK_IS_SAME_AS
+              || kind == CPTK_IS_SAME_AS
 	      || kind == CPTK_IS_STD_LAYOUT
 	      || kind == CPTK_IS_TRIVIAL
 	      || kind == CPTK_IS_UNION);

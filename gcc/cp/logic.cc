@@ -391,7 +391,7 @@ extract_assumptions (proof_state& s)
 tree
 decompose_assumptions (tree t)
 {
-  if (t == error_mark_node)
+  if (!t || t == error_mark_node)
     return t;
 
   // Create a proof state, and insert T as the sole assumption.

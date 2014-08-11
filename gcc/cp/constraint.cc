@@ -241,7 +241,7 @@ tree normalize_stmt (tree);
 tree normalize_decl (tree);
 tree normalize_misc (tree);
 tree normalize_logical (tree);
-tree normalize_call(tree);
+tree normalize_call (tree);
 tree normalize_requires (tree);
 tree normalize_expr_req (tree);
 tree normalize_type_req (tree);
@@ -1114,14 +1114,14 @@ tsubst_local_parms (tree t,
 }
 
 // Substitute ARGS into the requirement body (list of requirements), T.
+// Note that if any substitutions fail, then this is equivalent to 
+// returning false.
 tree
 tsubst_requirement_body (tree t, tree args, tree in_decl)
 {
   tree r = NULL_TREE;
   while (t)
     {
-      // If any substitutions fail, then this is equivalent to
-      // returning false.
       tree e = tsubst_expr (TREE_VALUE (t), args, tf_none, in_decl, false);
       if (e == error_mark_node)
         e = boolean_false_node;
@@ -1141,7 +1141,6 @@ tsubst_requires_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
   tree r = tsubst_requirement_body (TREE_OPERAND (t, 1), args, in_decl);
   return finish_requires_expr (p, r);
 }
-
 
 // Substitute ARGS into the valid-expr expression T.
 tree
@@ -1197,6 +1196,12 @@ tsubst_nested_req (tree t, tree args, tree in_decl)
   return tsubst_expr (TREE_OPERAND (t, 0), args, tf_none, in_decl, false);
 }
 
+// Used in various contexts to control substitution. In particular, when
+// non-zero, the substitution of NULL arguments into a type will still
+// process the type as if passing non-NULL arguments, allowing type
+// expressions to be fully elaborated during substitution.
+int processing_constraint;
+
 // Substitute the template arguments ARGS into the requirement
 // expression REQS. Errors resulting from substitution are not
 // diagnosed.
@@ -1208,11 +1213,13 @@ tree
 tsubst_constraint_expr (tree reqs, tree args, bool do_not_fold)
 {
   cp_unevaluated guard;
+  ++processing_constraint;
   if (do_not_fold)
     ++processing_template_decl;
   tree r = tsubst_expr (reqs, args, tf_none, NULL_TREE, false);
   if (do_not_fold)
     --processing_template_decl;
+  --processing_constraint;
   return r;
 }
 
@@ -1230,10 +1237,8 @@ tsubst_constraint_info (tree ci, tree args)
     result->leading_reqs = tsubst_constraint_expr (r, args, true);
   if (tree r = CI_TRAILING_REQS (ci))
     result->trailing_reqs = tsubst_constraint_expr (r, args, true);
-
-  // Build the normalized associated requiremnts.
-  tree r = conjoin_constraints (result->leading_reqs, result->trailing_reqs);
-  result->associated_reqs = normalize_constraints (r);
+  if (tree r = CI_ASSOCIATED_REQS (ci))
+    result->associated_reqs = tsubst_constraint_expr (r, args, true);
   
   // Analyze the resulting constraints.
   // TODO: Is this actually necessary if the constraints are non-dependent?
@@ -1269,7 +1274,6 @@ check_satisfied (tree req, tree args)
 
   // Requirements are satisfied when REQS evaluates to true.
   tree result = cxx_constant_value (req);
-
   return result == boolean_true_node;
 }
 
@@ -1677,7 +1681,14 @@ diagnose_constraints (location_t loc, tree decl, tree args)
       return;
     }
 
-  // Otherwiise, diagnose the actual failed constraints.
+  // If this is a specialization of a template, we want to diagnose
+  // the dependent constraints. Also update the template arguments.
+  if (DECL_USE_TEMPLATE (decl)) {
+    args = DECL_TI_ARGS (decl);    
+    decl = DECL_TI_TEMPLATE (decl);
+  }
+
+  // Otherwise, diagnose the actual failed constraints.
   if (TREE_CODE (decl) == TEMPLATE_DECL)
     inform (loc, "  constraints not satisfied %S", make_subst (decl, args));
   else
