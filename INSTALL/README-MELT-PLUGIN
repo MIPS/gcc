@@ -196,6 +196,20 @@ the subject line] and to <gcc-melt@googlegroups.com>
 
 
 ################################################################
+NEWS for 1.1.1 MELT plugin for GCC 4.8 & 4.9
+[[august, 11th, 2014]]
+
+Bug-fix release w.r.t. to MELT plugin 1.1
+
+   Bug fixes
+   =========
+
+connect_to_server works better for AF_UNIX socket.
+JSONRPC works better.
+double boxed and unboxed data works.
+pragma works better.
+
+################################################################
 NEWS for 1.1 MELT plugin for GCC 4.8 & 4.9
 [[july, 27th, 2014]]
 This is a major release (with perhaps some small incompatibilities
