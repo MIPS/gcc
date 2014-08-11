@@ -1,3 +1,17 @@
+2014-08-11  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	* genmatch.c (enum tree_code): Add new values CONVERT1, CONVERT2.
+	(lower_opt_convert): New function.
+	(lower_opt_convert): New function overloaded.
+	(lower_opt_convert): Likewise.
+	(lower_opt_convert): Likewise.
+	(remove_opt_convert): New function.
+	(has_opt_convert): Likewise.
+	(decision_tree::insert_operand): Adjust for capturing a capture.
+	(parse_for): Reject CONVERT1, CONVERT2.
+	(main): call add_operator.
+	call lower_opt_convert.
+
 2014-08-08  Richard Biener  <rguenther@suse.de>
 
 	Merge from trunk r213455 through r213753.

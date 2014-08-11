@@ -101,6 +101,8 @@ output_line_directive (FILE *f, source_location location)
 #define DEFTREECODE(SYM, STRING, TYPE, NARGS)   SYM,
 enum tree_code {
 #include "tree.def"
+CONVERT1,
+CONVERT2,
 MAX_TREE_CODES
 };
 #undef DEFTREECODE
@@ -199,6 +201,15 @@ add_builtin (enum built_in_function code, const char *id)
     fatal ("duplicate id definition");
   *slot = fn;
 }
+
+static bool
+operator==(id_base &id, enum tree_code code)
+{
+  if (id.kind != id_base::CODE)
+    return false;
+  return static_cast <operator_id&>(id).code == code;
+}
+
 
 
 /* The predicate expression tree structure.  */
@@ -600,6 +611,134 @@ lower_commutative (simplify *s, vec<simplify *>& simplifiers)
     }
 }
 
+operand *
+lower_opt_convert (operand *o, enum tree_code oper)
+{
+  if (capture *c = dyn_cast<capture *> (o))  
+    {
+      if (c->what)
+	return new capture (c->where, lower_opt_convert (c->what, oper));
+      else
+	return c;
+    }
+
+  if (!is_a<expr *> (o))
+    return o;
+
+  expr *e = as_a<expr *> (o);
+  if (*e->operation->op == oper)
+    {
+      expr *ne = new expr (new e_operation ("CONVERT_EXPR"));
+      ne->append_op (lower_opt_convert (e->ops[0], oper));
+      return ne; 
+    }
+
+  expr *ne = new expr (e->operation);
+  for (unsigned i = 0; i < e->ops.length (); ++i)
+    ne->append_op (lower_opt_convert (e->ops[i], oper));
+
+  return ne;
+}
+
+operand *
+remove_opt_convert (operand *o, enum tree_code oper)
+{
+  if (capture *c = dyn_cast<capture *> (o))
+    {
+      if (c->what)
+	return new capture (c->where, remove_opt_convert (c->what, oper));
+      else
+	return c;
+    }
+
+  if (!is_a<expr *> (o))
+    return o;
+
+  expr *e = as_a<expr *> (o);
+  if (*e->operation->op == oper)
+    return remove_opt_convert (e->ops[0], oper);
+
+  expr *ne = new expr (e->operation);
+  for (unsigned i = 0; i < e->ops.length (); ++i)
+    ne->append_op (remove_opt_convert (e->ops[i], oper));
+
+  return ne;
+}
+
+bool
+has_opt_convert (operand *o, enum tree_code oper)
+{
+  if (capture *c = dyn_cast<capture *> (o))
+    {
+      if (c->what)
+	return has_opt_convert (c->what, oper);
+      else
+	return false;
+    }
+
+  if (!is_a<expr *> (o))
+    return false;
+
+  expr *e = as_a<expr *> (o);
+  
+  if (*e->operation->op == oper)
+    return true;
+
+  for (unsigned i = 0; i < e->ops.length (); ++i)
+    if (has_opt_convert (e->ops[i], oper))
+      return true;
+
+  return false;
+}
+
+void
+lower_opt_convert (vec<operand *>& v, operand *o, enum tree_code oper) 
+{
+  if (has_opt_convert (o, oper))
+    {
+      v.safe_push (lower_opt_convert (o, oper));
+      v.safe_push (remove_opt_convert (o, oper));
+    }
+}
+
+vec<operand *>
+lower_opt_convert (operand *o)
+{
+  vec<operand *> v1 = vNULL, v2;
+  
+  v1.safe_push (o);
+  
+  enum tree_code opers[] = { CONVERT1, CONVERT2 };
+
+  for (unsigned i = 0; i < 2; ++i)
+    {
+      v2 = vNULL;
+      for (unsigned j = 0; j < v1.length (); ++j)
+	lower_opt_convert (v2, v1[j], opers[i]);
+
+      if (v2 != vNULL)
+	{
+	  v1 = vNULL;
+	  for (unsigned j = 0; j < v2.length (); ++j)
+	    v1.safe_push (v2[j]);
+	}
+    }
+  
+  return v1;
+}
+
+void
+lower_opt_convert (simplify *s, vec<simplify *>& simplifiers)
+{
+  vec<operand *> matchers = lower_opt_convert (s->match);
+  for (unsigned i = 0; i < matchers.length (); ++i)
+    {
+      simplify *ns = new simplify (s->name, matchers[i], s->match_location,
+				   s->result, s->result_location, s->ifexpr_vec);
+      simplifiers.safe_push (ns);
+    }
+}
+
 void
 check_operator (id_base *op, unsigned n_ops, const cpp_token *token = 0)
 {
@@ -816,6 +955,7 @@ decision_tree::cmp_node (dt_node *n1, dt_node *n2)
   if (!n1 || !n2 || n1->type != n2->type)
     return false;
 
+
   if (n1 == n2 || n1->type == dt_node::DT_TRUE)
     return true;
 
@@ -924,8 +1064,28 @@ decision_tree::insert_operand (dt_node *p, operand *o, dt_operand **indexes, uns
 	  if (c->what)
 	    {
 	      q = insert_operand (p, c->what, indexes, pos, parent);
-	      dt_operand temp (dt_node::DT_OPERAND, c->what, 0);
-	      elm = decision_tree::find_node (p->kids, &temp);
+	      
+	      if (capture *cc = dyn_cast<capture *> (c->what))
+		{
+		  unsigned cc_index = atoi (cc->where);
+		  dt_operand *match_op = indexes[cc_index];
+		  
+		  dt_operand temp (dt_node::DT_TRUE, 0, 0);
+		  elm = decision_tree::find_node (p->kids, &temp);
+
+		  if (elm == 0)
+		    {
+		      dt_operand temp (dt_node::DT_MATCH, 0, match_op);
+		      elm = decision_tree::find_node (p->kids, &temp);
+		    }
+		}
+	      else
+		{
+		  dt_operand temp (dt_node::DT_OPERAND, c->what, 0);
+		  elm = decision_tree::find_node (p->kids, &temp);
+		}
+	
+	      gcc_assert (elm);
 	    }
 	  else
 	    q = elm = p->append_true_op (parent, pos);
@@ -2125,7 +2285,11 @@ parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers)
       token = peek (r); 
       if (token->type != CPP_NAME)
 	break;
-      opers.safe_push (get_ident (r));
+      const char *id = get_ident (r);
+      id_base *idb = get_operator (id);
+      if (*idb == CONVERT1 || *idb == CONVERT2)
+	fatal_at (token, "convert1, convert2 cannot be used inside for");
+      opers.safe_push (id);
     }
 
   if (token->type == CPP_CLOSE_PAREN)
@@ -2254,6 +2418,8 @@ main(int argc, char **argv)
   add_operator (SYM, # SYM, # TYPE, NARGS);
 #define END_OF_BASE_TREE_CODES
 #include "tree.def"
+add_operator (CONVERT1, "CONVERT1", "tcc_unary", 1);
+add_operator (CONVERT2, "CONVERT2", "tcc_unary", 1);
 #undef END_OF_BASE_TREE_CODES
 #undef DEFTREECODE
 
@@ -2273,9 +2439,13 @@ main(int argc, char **argv)
   for (unsigned i = 0; i < simplifiers.length (); ++i)
     check_no_user_id (simplifiers[i]);
 
-  vec<simplify *> out_simplifiers = vNULL;
+  vec<simplify *> out_simplifiers0 = vNULL;
   for (unsigned i = 0; i < simplifiers.length (); ++i)
-    lower_commutative (simplifiers[i], out_simplifiers);
+    lower_opt_convert (simplifiers[i], out_simplifiers0);
+
+  vec<simplify *> out_simplifiers = vNULL;
+  for (unsigned i = 0; i < out_simplifiers0.length (); ++i)
+    lower_commutative (out_simplifiers0[i], out_simplifiers);
 
   if (verbose)
     for (unsigned i = 0; i < out_simplifiers.length (); ++i)
