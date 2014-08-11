@@ -3288,20 +3288,25 @@ exit, in last place.}#
 	  double x = 0.0 ;
 	  int lnum = melt_strbuf_peek_long_number($SBUF,0,&l) ;
 	  int ldbl = melt_strbuf_peek_double_number($SBUF,0,&x)	;
+	  debugeprintf("json_lexer $PARSEJSONNUM_CHK lnum=%d ldbl=%d l=%ld x=%g bulen=%ld",
+		       lnum, ldbl, l, x, $BULEN);
 	  if (lnum>0 && lnum>=ldbl && (long)lnum<$BULEN) {
-	  $EATLEN = (long)lnum ;
-	  $VAL = meltgc_new_int((meltobject_ptr_t)
-				MELT_PREDEF(DISCR_CONSTANT_INTEGER),
-				l) ;
+	    $EATLEN = (long)lnum ;
+	    debugeprintf("json_lexer $PARSEJSONNUM_CHK long number l=%ld eatlen=%ld", l, $EATLEN);
+	    $VAL = meltgc_new_int((meltobject_ptr_t)
+				  MELT_PREDEF(DISCR_CONSTANT_INTEGER),
+				  l) ;
 	  }
-	  else if (ldbl>0  && (long)lnum<$BULEN) {
-	  $EATLEN = (long)ldbl ;
-	  $VAL = meltgc_new_double((meltobject_ptr_t)
-				   MELT_PREDEF(DISCR_CONSTANT_DOUBLE),
-				   x) ;
+	  else if (ldbl>0 && (long)ldbl<$BULEN) {
+	    $EATLEN = (long)ldbl ;
+	    debugeprintf("json_lexer $PARSEJSONNUM_CHK double number x=%g eatlen=%ld", x, $EATLEN);
+	    $VAL = meltgc_new_double((meltobject_ptr_t)
+				     MELT_PREDEF(DISCR_CONSTANT_DOUBLE),
+				     x) ;
 	  }
 	  /* json_lexer end $PARSEJSONNUM_CHK */
 	  }#)
+	 (debug "json_lexer number eatlen=" eatlen " val=" val)
 	 (when eatlen
 	   (strbuf_consume sbuf eatlen)
 	   (debug "json_lexer number val=" val)

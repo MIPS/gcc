@@ -14,6 +14,7 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
      -c -O empty.c -o /dev/null
 |#
 (module_is_gpl_compatible "public domain")
+(debug "tjson-1" " start ~*" "~*" "~*" "\n")
 (let (
       (sbuf (make_strbuf discr_strbuf))
       (gotjson (lambda (js) (debug "gotjson js=" js)))
@@ -28,7 +29,7 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 		     ))
       )
   (debug "jparser=" jparser "\n inh=" inh)
-  (add2out sbuf "{\"jsonrpc\":\"2.0\", \"method\":\"hello\",\"params\":[1,null,true,\"a string with \\n in it\"]}")
+  (add2out sbuf "{\"jsonrpc\":\"2.0\", \"method\":\"hello\",\"params\":[1,null,true,\"a string with \\n in it\",3.14]}")
   (debug "sbuf=" sbuf)
   (json_parser_input_processor inh sbuf)
   (debug "done final jparser=" jparser)

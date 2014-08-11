@@ -2135,14 +2135,14 @@ $PUT_INT. See also $DISCR_INTEGER.}# )
   :doc #{The $DISCR_DOUBLE is the discriminant of boxed
   doubles (notably for JSON support). See also $CTYPE_DOUBLE.}#
   :predef DISCR_DOUBLE
- ;; :obj_num MELTOBMAG_DOUBLE 
+  :obj_num MELTOBMAG_DOUBLE 
   :disc_super discr_any_receiver
   :named_name '"DISCR_DOUBLE")
 
 ;;; the discriminant for constant doubles, like '123.4e5
 (definstance discr_constant_double class_discriminant
   :predef DISCR_CONSTANT_DOUBLE
- ;; :obj_num MELTOBMAG_DOUBLE
+  :obj_num MELTOBMAG_DOUBLE
   :disc_super discr_double
   :named_name '"DISCR_CONSTANT_DOUBLE"
   :doc #{The $DISCR_CONSTANT_DOUBLE is the discriminant for constant

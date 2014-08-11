@@ -1,4 +1,16 @@
 
+2014-08-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.1.rc1
+
+	* melt/warmelt-first.melt (discr_double, discr_constant_double):
+	Use MELTOBMAG_DOUBLE.
+
+	* melt/warmelt-hooks.melt (json_lexer): More debug.
+
+	* testsuite/melt/tjson-1.melt: add 3.14 to test parsing of double
+	numbers.
+
 2014-08-10  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-hooks.melt (do_blocking_jsonrpc2_call): More debug.
