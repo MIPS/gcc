@@ -81,6 +81,8 @@ extern void fatal_error (const char *, ...);
 #include <vector>
 #include <string>
 
+#include <math.h> /* for NAN */
+
 #include "gcc-plugin.h"
 
 /* We include toplev.h for the error routines. */
@@ -1319,6 +1321,14 @@ melt_get_real (melt_ptr_t v)
   return dconst0;
 }
 
+/* Unbox double value, or else NaN */
+static inline double
+melt_get_double(melt_ptr_t v)
+{
+  if (melt_magic_discr (v) == MELTOBMAG_DOUBLE)
+    return ((struct meltdouble_st*) v)->val;
+  return NAN;
+}
 
 static inline long
 melt_obj_hash (melt_ptr_t v)

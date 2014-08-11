@@ -1231,6 +1231,7 @@ Returns a boxed integer.}#
  C-comment encoding so no */.}# 
  #{/*add2sbuf_ccomconst*/ meltgc_add_strbuf_ccomment((melt_ptr_t) ($SBUF), $CSTR)}#)
 
+
 ;; primitive to add into a strbuf a string as C ident (nonalphanum
 ;; replaced by _)
 (defprimitive add2sbuf_cident (sbuf str) :void
@@ -1309,6 +1310,21 @@ strinbuffer $SBUF, take care to not overwrite an old file named $VNAM if it was 
    meltgc_add_out_raw ((melt_ptr_t) $OUT, locbuf);
   } /*end add2outmixloc*/
 }#)
+
+(defprimitive add2out_double (out :double x) :void
+  :doc #{Add to output $OUT the double $X.}#
+  #{/*add2out_double*/
+  char dblbuf[64];
+  memset (dblbuf, 0, sizeof(dblbuf));
+  snprintf(dblbuf, sizeof(dblbuf), "%.3f", $X);
+  if (strtod (dblbuf, NULL) != $X)
+    snprintf(dblbuf, sizeof(dblbuf), "%.7f", $X);
+  if (strtod (dblbuf, NULL) != $X)
+    snprintf(dblbuf, sizeof(dblbuf), "%.15f", $X);
+  meltgc_add_out_raw ((melt_ptr_t) $OUT, dblbuf);
+  /*end add2out_double*/}#)
+  
+     
 
 ;; primitive to add an indentation or space into a outbuf
 (defprimitive add2out_indent (out :long depth) :void
@@ -1426,6 +1442,8 @@ output $OUT. It is called by the $ADD2OUT variadic function.}#
 	    (v out vv))
 	   ((:long ll)
 	    (v out ll))
+	   ((:double xx)
+	    (v out xx))
 	   ((:cstring ss)
 	    (v out ss))
 	   ((:tree tt)
@@ -1449,6 +1467,8 @@ output $OUT. It is called by the $ADD2OUT variadic function.}#
 	(add_to_out v out)))
     ( (:long n)
       (add2out_longdec out n))
+    ( (:double x)
+      (add2out_double out x))
     ( (:cstring s)
       (add2out_strconst out s))
     ( :else
@@ -4088,6 +4108,7 @@ given object map $MAPO}#
  add2out_cencsubstring
  add2out_cident
  add2out_cidentprefix
+ add2out_double
  add2out_indent
  add2out_indentnl
  add2out_longdec

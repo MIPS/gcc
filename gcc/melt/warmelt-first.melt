@@ -4214,12 +4214,14 @@ $MELT_MAKE_FRESH_ENVIRONMENT_REFERENCE primitive. For gurus and MELT itself.}#
  discr_class_sequence                       
  discr_closure                        
  discr_constant_edge
- discr_constant_basic_block   
+ discr_constant_basic_block
+ discr_constant_double
  discr_constant_gimple
  discr_constant_gimple_seq
  discr_constant_integer
  discr_constant_loop
  discr_constant_tree
+ discr_double
  discr_edge
  discr_field_sequence                       
  discr_file

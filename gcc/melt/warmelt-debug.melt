@@ -670,6 +670,25 @@ $TORANK}#
      )))
 
 (install_method discr_integer dbg_output dbgout_integer_method)
+	
+;; double debug output
+(defun dbgout_double_method (self dbgi :long depth)
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
+  (let ( (dis (discrim self)) 
+	 (sbuf  (unsafe_get_field :dbgi_out dbgi))
+	 )
+    (cond 
+     ( (and (== dis discr_double) (>i depth 0))
+       (add2out_double sbuf (unbox :double self)))
+     ( (and (== dis discr_constant_double) (>i depth 0))
+       (add2out sbuf " #'" (unbox :double self)))
+     (:else
+      (add2sbuf_strconst sbuf " |")
+      (add2sbuf_string sbuf (unsafe_get_field :named_name dis))
+      (add2sbuf_strconst sbuf "#")
+      (add2out_double sbuf (unbox :double self)))
+     )))
+(install_method discr_double dbg_output dbgout_double_method)
 
 ;; mixint debug value
 (defun dbgout_mixint_method (self dbgi :long depth)

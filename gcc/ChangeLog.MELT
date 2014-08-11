@@ -1,6 +1,20 @@
 
 2014-08-11  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h: include <math.h>
+	(melt_get_double): New unboxing function.
+
+	* melt/warmelt-first.melt (discr_constant_double, discr_double):
+	Exported.
+
+	* melt/warmelt-base.melt (add2out_double): New.
+	(add2out): Handle :double data.
+
+	* melt/warmelt-debug.melt (dbgout_double_method): New method for
+	dbg_output on discr_double.
+
+2014-08-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.1.rc1
 
 	* melt/warmelt-first.melt (discr_double, discr_constant_double):
