@@ -12132,6 +12132,9 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 
 	r = NULL_TREE;
 
+        if (!args)
+          return t;
+
 	gcc_assert (TREE_VEC_LENGTH (args) > 0);
 	template_parm_level_and_index (t, &level, &idx); 
 

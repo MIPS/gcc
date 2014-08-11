@@ -1,13 +1,14 @@
 2014-08-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	
 	* gcc/cp/pt.c (tsubst): Don't short circuit substitution into
-	types when processing constraints.
+	types when processing constraints. Also, avoid asserting when
+        substituting into template parameters.
 	* gcc/cp/constraint.c (tsubst_constraint_expr): Indicate that
 	constraint processing is happening.
 	(tsubst_constraint_info): Just substitute directly into the
 	normalized constraints instead of re-normalizing.
 	(diagnose_constraints): Adjust template arguments when
-	diagnosing template constraint failiures.
+	diagnosing template constraint failures.
 	* gcc/cp/logic.cc (decompose_assumptions): Handle null assumptions.
 
 2014-08-08  Andrew Sutton  <andrew.n.sutton@gmail.com>
