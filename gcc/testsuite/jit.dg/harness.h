@@ -14,9 +14,22 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+/* test-threads.c use threads, but dejagnu.h isn't thread-safe; there's a
+   shared "buffer", and the counts of passed/failed etc are globals.
+
+   The solution is to use macros to rename "pass" and "fail", replacing them
+   with mutex-guarded alternatives.  */
+#ifdef MAKE_DEJAGNU_H_THREADSAFE
+#define pass dejagnu_pass
+#define fail dejagnu_fail
+#endif
+
 #include <dejagnu.h>
 
-#include "libgccjit.h"
+#ifdef MAKE_DEJAGNU_H_THREADSAFE
+#undef pass
+#undef fail
+#endif
 
 static char test[1024];
 
@@ -89,10 +102,10 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result);
 extern void check_string_value (const char *actual, const char *expected);
 
 /* Implement framework needed for turning the testcase hooks into an
-   executable.  test-combination.c combines multiple testcases into one
-   testcase, so we have TEST_COMBINATION as a way of temporarily turning
-   off this part of harness.h.  */
-#ifndef TEST_COMBINATION
+   executable.  test-combination.c and test-threads.c each combine multiple
+   testcases into larger testcases, so we have COMBINED_TEST as a way of
+   temporarily turning off this part of harness.h.  */
+#ifndef COMBINED_TEST
 
 void check_string_value (const char *actual, const char *expected)
 {
@@ -224,4 +237,4 @@ main (int argc, char **argv)
 }
 #endif /* #ifndef TEST_PROVIDES_MAIN */
 
-#endif /* #ifndef TEST_COMBINATION */
+#endif /* #ifndef COMBINED_TEST */

@@ -41,6 +41,11 @@ proc jit-dg-test { prog do_what extra_tool_flags } {
     verbose "  do_what: $do_what"
     verbose "  extra_tool_flags: $extra_tool_flags"
 
+    # test-threads.c needs to be linked against pthreads
+    if {[string match "*test-threads.c" $prog]} {
+	append extra_tool_flags " -lpthread"
+    }
+
     # Determine what to name the built executable.
     set output_file "[file rootname [file tail $prog]].exe"
     verbose "output_file: $output_file"

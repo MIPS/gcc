@@ -1,3 +1,17 @@
+2014-08-11  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/test-threads.c: New test case, running all of the
+	individual test cases in separate threads.
+	* jit.dg/test-combination.c: Move inclusion of the various
+	individual testcases into...
+	* jit.dg/all-non-failing-tests.h: ...this new file, and rename
+	TEST_COMBINATION to COMBINED_TEST.
+	* jit.dg/harness.h: Respond to new macro MAKE_DEJAGNU_H_THREADSAFE
+	by hacking up <dejagnu.h> to be threadsafe.  Rename
+	TEST_COMBINATION to COMBINED_TEST.
+	* jit.dg/jit.exp (proc jit-dg-test): Add "-lpthread" when building
+	test-threads.exe.
+
 2014-08-08  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/test-accessing-union.c: New test case.
