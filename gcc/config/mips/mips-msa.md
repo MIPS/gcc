@@ -1039,7 +1039,7 @@
     if (which_alternative == 1)
       {
 	operands[2] = CONST_VECTOR_ELT (operands[2], 0);
-	return "andi.b\t%w0,%w0,%B2";
+	return "andi.b\t%w0,%w1,%B2";
       }
     else
       return "and.v\t%w0,%w1,%w2";
