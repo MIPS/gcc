@@ -1,6 +1,10 @@
 
 2014-08-11  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/generated/*: Regenerated.
+
+2014-08-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.h: include <math.h>
 	(melt_get_double): New unboxing function.
 
