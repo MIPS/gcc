@@ -1,3 +1,8 @@
+2014-08-12  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	* genmatch.c (decision_tree::insert_operand): Adjust to allow
+	multiple capture.
+
 2014-08-11  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 
 	* genmatch.c (enum tree_code): Add new values CONVERT1, CONVERT2.

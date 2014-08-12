@@ -1052,7 +1052,7 @@ dt_node::append_simplify (simplify *s, unsigned pattern_no, dt_operand **indexes
 dt_node *
 decision_tree::insert_operand (dt_node *p, operand *o, dt_operand **indexes, unsigned pos, dt_node *parent) 
 {
-  dt_node *q, *elm;
+  dt_node *q, *elm = 0;
 
   if (o->type == operand::OP_CAPTURE)
     {
@@ -1062,38 +1062,42 @@ decision_tree::insert_operand (dt_node *p, operand *o, dt_operand **indexes, uns
       if (indexes[capt_index] == 0)
 	{
 	  if (c->what)
-	    {
-	      q = insert_operand (p, c->what, indexes, pos, parent);
-	      
-	      if (capture *cc = dyn_cast<capture *> (c->what))
-		{
-		  unsigned cc_index = atoi (cc->where);
-		  dt_operand *match_op = indexes[cc_index];
-		  
-		  dt_operand temp (dt_node::DT_TRUE, 0, 0);
-		  elm = decision_tree::find_node (p->kids, &temp);
-
-		  if (elm == 0)
-		    {
-		      dt_operand temp (dt_node::DT_MATCH, 0, match_op);
-		      elm = decision_tree::find_node (p->kids, &temp);
-		    }
-		}
-	      else
-		{
-		  dt_operand temp (dt_node::DT_OPERAND, c->what, 0);
-		  elm = decision_tree::find_node (p->kids, &temp);
-		}
-	
-	      gcc_assert (elm);
-	    }
+	    q = insert_operand (p, c->what, indexes, pos, parent);
 	  else
-	    q = elm = p->append_true_op (parent, pos);
+	    {
+	      q = elm = p->append_true_op (parent, pos);
+	      goto at_assert_elm;
+	    }
+	  // get to the last capture
+	  for (operand *what = c->what; what && is_a<capture *> (what); c = as_a<capture *> (what), what = c->what)
+	    ;
 
-	  gcc_assert (elm->type == dt_node::DT_TRUE || elm->type == dt_node::DT_OPERAND || elm->type == dt_node::DT_MATCH);
-	  indexes[capt_index] = static_cast<dt_operand *> (elm);
-	  return q;
-	}
+	  if (c->what == 0)
+	    {
+	      unsigned cc_index = atoi (c->where);
+	      dt_operand *match_op = indexes[cc_index];
+
+	      dt_operand temp (dt_node::DT_TRUE, 0, 0);
+	      elm = decision_tree::find_node (p->kids, &temp);
+
+	      if (elm == 0)
+		{
+		  dt_operand temp (dt_node::DT_MATCH, 0, match_op);
+		  elm = decision_tree::find_node (p->kids, &temp);
+		}
+	    }
+	  else 
+	    {
+	      dt_operand temp (dt_node::DT_OPERAND, c->what, 0);
+	      elm = decision_tree::find_node (p->kids, &temp);
+	    }
+	    
+at_assert_elm:
+	gcc_assert (elm);
+	gcc_assert (elm->type == dt_node::DT_TRUE || elm->type == dt_node::DT_OPERAND || elm->type == dt_node::DT_MATCH);
+	indexes[capt_index] = static_cast<dt_operand *> (elm);
+	return q;
+      }
       else
 	{
 	  p = p->append_match_op (indexes[capt_index], parent, pos);
