@@ -101,6 +101,12 @@ along with GCC; see the file COPYING3.  If not see
   (fma INTEGER_CST_P@0 INTEGER_CST_P@1 @3)
   (plus (mult @0 @1) @3))
 
+/* abs (abs (x)) -> abs (x) */
+(simplify
+  (abs (abs @0))
+  (abs @0))
+
+
 #include "match-plusminus.pd"
 #include "match-bitwise.pd"
 #include "match-rotate.pd"

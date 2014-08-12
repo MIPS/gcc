@@ -1,3 +1,10 @@
+2014-08-12  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	* match.pd: Add new pattern.
+
+	testsuite/
+	* match.c: New test-case.
+
 2014-08-12  Richard Biener  <rguenther@suse.de>
 
 	* genmatch.c (main): Fix pasto.
