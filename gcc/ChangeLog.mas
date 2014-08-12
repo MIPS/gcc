@@ -1,3 +1,11 @@
+2014-08-12  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (enum tree_code): Add CONVERT0.
+	(main): Likewise.
+	(parse_operation): Handle conditional converts specially.
+	(lower_opt_convert): Handle CONVERT0.
+	(parse_for): Likewise.
+
 2014-08-12  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 
 	* genmatch.c (decision_tree::insert_operand): Adjust to allow

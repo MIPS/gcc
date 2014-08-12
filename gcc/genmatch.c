@@ -101,6 +101,7 @@ output_line_directive (FILE *f, source_location location)
 #define DEFTREECODE(SYM, STRING, TYPE, NARGS)   SYM,
 enum tree_code {
 #include "tree.def"
+CONVERT0,
 CONVERT1,
 CONVERT2,
 MAX_TREE_CODES
@@ -708,9 +709,9 @@ lower_opt_convert (operand *o)
   
   v1.safe_push (o);
   
-  enum tree_code opers[] = { CONVERT1, CONVERT2 };
+  enum tree_code opers[] = { CONVERT0, CONVERT1, CONVERT2 };
 
-  for (unsigned i = 0; i < 2; ++i)
+  for (unsigned i = 0; i < 3; ++i)
     {
       v2 = vNULL;
       for (unsigned j = 0; j < v1.length (); ++j)
@@ -2069,7 +2070,25 @@ get_number (cpp_reader *r)
 static e_operation *
 parse_operation (cpp_reader *r)
 {
-  return new e_operation (get_ident (r));
+  const char *id = get_ident (r);
+  const cpp_token *token = peek (r);
+  if (token->type == CPP_QUERY
+      && !(token->flags & PREV_WHITE))
+    {
+      if (strcmp (id, "convert") == 0)
+	id = "convert0";
+      else if (strcmp  (id, "convert0") == 0)
+	;
+      else if (strcmp  (id, "convert1") == 0)
+	;
+      else
+	fatal_at (token, "non-convert operator conditionalized");
+      eat_token (r, CPP_QUERY);
+    }
+  else if (strcmp  (id, "convert0") == 0
+	   || strcmp  (id, "convert1") == 0)
+    fatal_at (token, "expected '?' after conditional operator");
+  return new e_operation (id);
 }
 
 static struct operand * parse_op (cpp_reader *r);
@@ -2291,8 +2310,8 @@ parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers)
 	break;
       const char *id = get_ident (r);
       id_base *idb = get_operator (id);
-      if (*idb == CONVERT1 || *idb == CONVERT2)
-	fatal_at (token, "convert1, convert2 cannot be used inside for");
+      if (*idb == CONVERT0 || *idb == CONVERT1 || *idb == CONVERT2)
+	fatal_at (token, "conditional operators cannot be used inside for");
       opers.safe_push (id);
     }
 
@@ -2422,6 +2441,7 @@ main(int argc, char **argv)
   add_operator (SYM, # SYM, # TYPE, NARGS);
 #define END_OF_BASE_TREE_CODES
 #include "tree.def"
+add_operator (CONVERT1, "CONVERT0", "tcc_unary", 1);
 add_operator (CONVERT1, "CONVERT1", "tcc_unary", 1);
 add_operator (CONVERT2, "CONVERT2", "tcc_unary", 1);
 #undef END_OF_BASE_TREE_CODES
