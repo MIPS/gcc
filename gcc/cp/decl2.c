@@ -36,7 +36,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "attribs.h"
 #include "stor-layout.h"
 #include "calls.h"
-#include "pointer-set.h"
 #include "flags.h"
 #include "cp-tree.h"
 #include "decl.h"
@@ -106,11 +105,6 @@ static GTY(()) vec<tree, va_gc> *no_linkage_decls;
 /* Nonzero if we're done parsing and into end-of-file activities.  */
 
 int at_eof;
-
-/* Nonzero if we've instantiated everything used directly, and now want to
-   mark all virtual functions as used so that they are available for
-   devirtualization.  */
-static int mark_all_virtuals;
 
 
 /* Return a member function type (a METHOD_TYPE), given FNTYPE (a
@@ -529,6 +523,8 @@ check_member_template (tree tmpl)
 	 with member templates.  */
       DECL_IGNORED_P (tmpl) = 1;
     }
+  else if (variable_template_p (tmpl))
+    /* OK */;
   else
     error ("template declaration of %q#D", decl);
 }
@@ -1930,6 +1926,12 @@ mark_needed (tree decl)
 	 definition.  */
       struct cgraph_node *node = cgraph_node::get_create (decl);
       node->forced_by_abi = true;
+
+      /* #pragma interface and -frepo code can call mark_needed for
+          maybe-in-charge 'tors; mark the clones as well.  */
+      tree clone;
+      FOR_EACH_CLONE (clone, decl)
+	mark_needed (clone);
     }
   else if (TREE_CODE (decl) == VAR_DECL)
     {
@@ -2014,15 +2016,6 @@ maybe_emit_vtables (tree ctype)
       if (DECL_COMDAT (primary_vtbl)
 	  && CLASSTYPE_DEBUG_REQUESTED (ctype))
 	note_debug_info_needed (ctype);
-      if (mark_all_virtuals && !DECL_ODR_USED (primary_vtbl))
-	{
-	  /* Make sure virtual functions get instantiated/synthesized so that
-	     they can be inlined after devirtualization even if the vtable is
-	     never emitted.  */
-	  mark_used (primary_vtbl);
-	  mark_vtable_entries (primary_vtbl);
-	  return true;
-	}
       return false;
     }
 
@@ -2728,17 +2721,7 @@ import_export_decl (tree decl)
     {
       /* The repository indicates that this entity should be defined
 	 here.  Make sure the back end honors that request.  */
-      if (VAR_P (decl))
-	mark_needed (decl);
-      else if (DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (decl)
-	       || DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (decl))
-	{
-	  tree clone;
-	  FOR_EACH_CLONE (clone, decl)
-	    mark_needed (clone);
-	}
-      else
-	mark_needed (decl);
+      mark_needed (decl);
       /* Output the definition as an ordinary strong definition.  */
       DECL_EXTERNAL (decl) = 0;
       DECL_INTERFACE_KNOWN (decl) = 1;
@@ -3938,11 +3921,11 @@ generate_ctor_and_dtor_functions_for_priority (splay_tree_node n, void * data)
    supported, collect and return all the functions for which we should
    emit a hidden alias.  */
 
-static struct pointer_set_t *
+static hash_set<tree> *
 collect_candidates_for_java_method_aliases (void)
 {
   struct cgraph_node *node;
-  struct pointer_set_t *candidates = NULL;
+  hash_set<tree> *candidates = NULL;
 
 #ifndef HAVE_GAS_HIDDEN
   return candidates;
@@ -3957,8 +3940,8 @@ collect_candidates_for_java_method_aliases (void)
 	  && TARGET_USE_LOCAL_THUNK_ALIAS_P (fndecl))
 	{
 	  if (candidates == NULL)
-	    candidates = pointer_set_create ();
-	  pointer_set_insert (candidates, fndecl);
+	    candidates = new hash_set<tree>;
+	  candidates->add (fndecl);
 	}
     }
 
@@ -3973,7 +3956,7 @@ collect_candidates_for_java_method_aliases (void)
    by collect_candidates_for_java_method_aliases.  */
 
 static void
-build_java_method_aliases (struct pointer_set_t *candidates)
+build_java_method_aliases (hash_set<tree> *candidates)
 {
   struct cgraph_node *node;
 
@@ -3986,7 +3969,7 @@ build_java_method_aliases (struct pointer_set_t *candidates)
       tree fndecl = node->decl;
 
       if (TREE_ASM_WRITTEN (fndecl)
-	  && pointer_set_contains (candidates, fndecl))
+	  && candidates->contains (fndecl))
 	{
 	  /* Mangle the name in a predictable way; we need to reference
 	     this from a java compiled object file.  */
@@ -4296,7 +4279,7 @@ cp_write_global_declarations (void)
   unsigned ssdf_count = 0;
   int retries = 0;
   tree decl;
-  struct pointer_set_t *candidates;
+  hash_set<tree> *candidates;
 
   locus = input_location;
   at_eof = 1;
@@ -4349,8 +4332,6 @@ cp_write_global_declarations (void)
      instantiated, etc., etc.  */
 
   emit_support_tinfos ();
-  int errs = errorcount + sorrycount;
-  bool explained_devirt = false;
 
   do
     {
@@ -4583,27 +4564,6 @@ cp_write_global_declarations (void)
 					 pending_statics->length ()))
 	reconsider = true;
 
-      if (flag_use_all_virtuals)
-	{
-	  if (!reconsider && !mark_all_virtuals)
-	    {
-	      mark_all_virtuals = true;
-	      reconsider = true;
-	      errs = errorcount + sorrycount;
-	    }
-	  else if (mark_all_virtuals
-		   && !explained_devirt
-		   && (errorcount + sorrycount > errs))
-	    {
-	      inform (global_dc->last_location, "this error is seen due to "
-		      "instantiation of all virtual functions, which the C++ "
-		      "standard says are always considered used; this is done "
-		      "to support devirtualization optimizations, but can be "
-		      "disabled with -fno-use-all-virtuals");
-	      explained_devirt = true;
-	    }
-	}
-
       retries++;
     }
   while (reconsider);
@@ -4713,7 +4673,7 @@ cp_write_global_declarations (void)
   if (candidates)
     {
       build_java_method_aliases (candidates);
-      pointer_set_destroy (candidates);
+      delete candidates;
     }
 
   finish_repo ();

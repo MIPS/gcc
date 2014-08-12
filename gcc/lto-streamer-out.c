@@ -32,6 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "input.h"
 #include "hashtab.h"
+#include "hash-set.h"
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -474,7 +475,7 @@ private:
   hash_scc (struct output_block *ob, unsigned first, unsigned size);
 
   unsigned int next_dfs_num;
-  struct pointer_map_t *sccstate;
+  hash_map<tree, sccs *> sccstate;
   struct obstack sccstate_obstack;
 };
 
@@ -482,7 +483,6 @@ DFS::DFS (struct output_block *ob, tree expr, bool ref_p, bool this_ref_p,
 	  bool single_p)
 {
   sccstack.create (0);
-  sccstate = pointer_map_create ();
   gcc_obstack_init (&sccstate_obstack);
   next_dfs_num = 1;
   DFS_write_tree (ob, NULL, expr, ref_p, this_ref_p, single_p);
@@ -491,7 +491,6 @@ DFS::DFS (struct output_block *ob, tree expr, bool ref_p, bool this_ref_p,
 DFS::~DFS ()
 {
   sccstack.release ();
-  pointer_map_destroy (sccstate);
   obstack_free (&sccstate_obstack, NULL);
 }
 
@@ -732,7 +731,7 @@ DFS::DFS_write_tree_body (struct output_block *ob,
 static hashval_t
 hash_tree (struct streamer_tree_cache_d *cache, hash_map<tree, hashval_t> *map, tree t)
 {
-  inchash hstate;
+  inchash::hash hstate;
 
 #define visit(SIBLING) \
   do { \
@@ -1313,7 +1312,6 @@ DFS::DFS_write_tree (struct output_block *ob, sccs *from_state,
 		     tree expr, bool ref_p, bool this_ref_p, bool single_p)
 {
   unsigned ix;
-  sccs **slot;
 
   /* Handle special cases.  */
   if (expr == NULL_TREE)
@@ -1327,7 +1325,7 @@ DFS::DFS_write_tree (struct output_block *ob, sccs *from_state,
   if (streamer_tree_cache_lookup (ob->writer_cache, expr, &ix))
     return;
 
-  slot = (sccs **)pointer_map_insert (sccstate, expr);
+  sccs **slot = &sccstate.get_or_insert (expr);
   sccs *cstate = *slot;
   if (!cstate)
     {
@@ -1872,7 +1870,6 @@ produce_asm (struct output_block *ob, tree fn)
   enum lto_section_type section_type = ob->section_type;
   struct lto_function_header header;
   char *section_name;
-  struct lto_output_stream *header_stream;
 
   if (section_type == LTO_section_function_body)
     {
@@ -1889,20 +1886,14 @@ produce_asm (struct output_block *ob, tree fn)
   memset (&header, 0, sizeof (struct lto_function_header));
 
   /* Write the header.  */
-  header.lto_header.major_version = LTO_major_version;
-  header.lto_header.minor_version = LTO_minor_version;
-
-  header.compressed_size = 0;
+  header.major_version = LTO_major_version;
+  header.minor_version = LTO_minor_version;
 
   if (section_type == LTO_section_function_body)
     header.cfg_size = ob->cfg_stream->total_size;
   header.main_size = ob->main_stream->total_size;
   header.string_size = ob->string_stream->total_size;
-
-  header_stream = XCNEW (struct lto_output_stream);
-  lto_output_data_stream (header_stream, &header, sizeof header);
-  lto_write_stream (header_stream);
-  free (header_stream);
+  lto_write_data (&header, sizeof header);
 
   /* Put all of the gimple and the string table out the asm file as a
      block of text.  */
@@ -2104,8 +2095,7 @@ lto_output_toplevel_asms (void)
   struct output_block *ob;
   struct asm_node *can;
   char *section_name;
-  struct lto_output_stream *header_stream;
-  struct lto_asm_header header;
+  struct lto_simple_header_with_strings header;
 
   if (! asm_nodes)
     return;
@@ -2131,16 +2121,12 @@ lto_output_toplevel_asms (void)
   memset (&header, 0, sizeof (header));
 
   /* Write the header.  */
-  header.lto_header.major_version = LTO_major_version;
-  header.lto_header.minor_version = LTO_minor_version;
+  header.major_version = LTO_major_version;
+  header.minor_version = LTO_minor_version;
 
   header.main_size = ob->main_stream->total_size;
   header.string_size = ob->string_stream->total_size;
-
-  header_stream = XCNEW (struct lto_output_stream);
-  lto_output_data_stream (header_stream, &header, sizeof (header));
-  lto_write_stream (header_stream);
-  free (header_stream);
+  lto_write_data (&header, sizeof header);
 
   /* Put all of the gimple and the string table out the asm file as a
      block of text.  */
@@ -2160,7 +2146,6 @@ copy_function_or_variable (struct symtab_node *node)
 {
   tree function = node->decl;
   struct lto_file_decl_data *file_data = node->lto_file_data;
-  struct lto_output_stream *output_stream = XCNEW (struct lto_output_stream);
   const char *data;
   size_t len;
   const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (function));
@@ -2181,8 +2166,7 @@ copy_function_or_variable (struct symtab_node *node)
   gcc_assert (data);
 
   /* Do a bit copy of the function body.  */
-  lto_output_data_stream (output_stream, data, len);
-  lto_write_stream (output_stream);
+  lto_write_data (data, len);
 
   /* Copy decls. */
   in_state =
@@ -2206,7 +2190,6 @@ copy_function_or_variable (struct symtab_node *node)
 
   lto_free_section_data (file_data, LTO_section_function_body, name,
 			 data, len);
-  free (output_stream);
   lto_end_section ();
 }
 
@@ -2348,15 +2331,15 @@ write_global_stream (struct output_block *ob,
 
 static void
 write_global_references (struct output_block *ob,
-			 struct lto_output_stream *ref_stream,
  			 struct lto_tree_ref_encoder *encoder)
 {
   tree t;
   uint32_t index;
   const uint32_t size = lto_tree_ref_encoder_size (encoder);
 
-  /* Write size as 32-bit unsigned. */
-  lto_output_data_stream (ref_stream, &size, sizeof (int32_t));
+  /* Write size and slot indexes as 32-bit unsigned numbers. */
+  uint32_t *data = XNEWVEC (uint32_t, size + 1);
+  data[0] = size;
 
   for (index = 0; index < size; index++)
     {
@@ -2365,8 +2348,11 @@ write_global_references (struct output_block *ob,
       t = lto_tree_ref_encoder_get_tree (encoder, index);
       streamer_tree_cache_lookup (ob->writer_cache, t, &slot_num);
       gcc_assert (slot_num != (unsigned)-1);
-      lto_output_data_stream (ref_stream, &slot_num, sizeof slot_num);
+      data[index + 1] = slot_num;
     }
+
+  lto_write_data (data, sizeof (int32_t) * (size + 1));
+  free (data);
 }
 
 
@@ -2389,7 +2375,6 @@ lto_output_decl_state_streams (struct output_block *ob,
 
 void
 lto_output_decl_state_refs (struct output_block *ob,
-			    struct lto_output_stream *out_stream,
 			    struct lto_out_decl_state *state)
 {
   unsigned i;
@@ -2401,10 +2386,10 @@ lto_output_decl_state_refs (struct output_block *ob,
   decl = (state->fn_decl) ? state->fn_decl : void_type_node;
   streamer_tree_cache_lookup (ob->writer_cache, decl, &ref);
   gcc_assert (ref != (unsigned)-1);
-  lto_output_data_stream (out_stream, &ref, sizeof (uint32_t));
+  lto_write_data (&ref, sizeof (uint32_t));
 
   for (i = 0;  i < LTO_N_DECL_STREAMS; i++)
-    write_global_references (ob, out_stream, &state->streams[i]);
+    write_global_references (ob, &state->streams[i]);
 }
 
 
@@ -2432,8 +2417,7 @@ lto_out_decl_state_written_size (struct lto_out_decl_state *state)
 
 static void
 write_symbol (struct streamer_tree_cache_d *cache,
-	      struct lto_output_stream *stream,
-	      tree t, struct pointer_set_t *seen, bool alias)
+	      tree t, hash_set<const char *> *seen, bool alias)
 {
   const char *name;
   enum gcc_plugin_symbol_kind kind;
@@ -2461,9 +2445,8 @@ write_symbol (struct streamer_tree_cache_d *cache,
      same name manipulations that ASM_OUTPUT_LABELREF does. */
   name = IDENTIFIER_POINTER ((*targetm.asm_out.mangle_assembler_name) (name));
 
-  if (pointer_set_contains (seen, name))
+  if (seen->add (name))
     return;
-  pointer_set_insert (seen, name);
 
   streamer_tree_cache_lookup (cache, t, &slot_num);
   gcc_assert (slot_num != (unsigned)-1);
@@ -2531,14 +2514,14 @@ write_symbol (struct streamer_tree_cache_d *cache,
   else
     comdat = "";
 
-  lto_output_data_stream (stream, name, strlen (name) + 1);
-  lto_output_data_stream (stream, comdat, strlen (comdat) + 1);
+  lto_write_data (name, strlen (name) + 1);
+  lto_write_data (comdat, strlen (comdat) + 1);
   c = (unsigned char) kind;
-  lto_output_data_stream (stream, &c, 1);
+  lto_write_data (&c, 1);
   c = (unsigned char) visibility;
-  lto_output_data_stream (stream, &c, 1);
-  lto_output_data_stream (stream, &size, 8);
-  lto_output_data_stream (stream, &slot_num, 4);
+  lto_write_data (&c, 1);
+  lto_write_data (&size, 8);
+  lto_write_data (&slot_num, 4);
 }
 
 /* Return true if NODE should appear in the plugin symbol table.  */
@@ -2588,16 +2571,13 @@ produce_symtab (struct output_block *ob)
 {
   struct streamer_tree_cache_d *cache = ob->writer_cache;
   char *section_name = lto_get_section_name (LTO_section_symtab, NULL, NULL);
-  struct pointer_set_t *seen;
-  struct lto_output_stream stream;
   lto_symtab_encoder_t encoder = ob->decl_state->symtab_node_encoder;
   lto_symtab_encoder_iterator lsei;
 
   lto_begin_section (section_name, false);
   free (section_name);
 
-  seen = pointer_set_create ();
-  memset (&stream, 0, sizeof (stream));
+  hash_set<const char *> seen;
 
   /* Write the symbol table.
      First write everything defined and then all declarations.
@@ -2609,7 +2589,7 @@ produce_symtab (struct output_block *ob)
 
       if (!output_symbol_p (node) || DECL_EXTERNAL (node->decl))
 	continue;
-      write_symbol (cache, &stream, node->decl, seen, false);
+      write_symbol (cache, node->decl, &seen, false);
     }
   for (lsei = lsei_start (encoder);
        !lsei_end_p (lsei); lsei_next (&lsei))
@@ -2618,11 +2598,8 @@ produce_symtab (struct output_block *ob)
 
       if (!output_symbol_p (node) || !DECL_EXTERNAL (node->decl))
 	continue;
-      write_symbol (cache, &stream, node->decl, seen, false);
+      write_symbol (cache, node->decl, &seen, false);
     }
-
-  lto_write_stream (&stream);
-  pointer_set_destroy (seen);
 
   lto_end_section ();
 }
@@ -2642,13 +2619,11 @@ produce_asm_for_decls (void)
   struct lto_decl_header header;
   char *section_name;
   struct output_block *ob;
-  struct lto_output_stream *header_stream, *decl_state_stream;
   unsigned idx, num_fns;
   size_t decl_state_size;
   int32_t num_decl_states;
 
   ob = create_output_block (LTO_section_decls);
-  ob->global = true;
 
   memset (&header, 0, sizeof (struct lto_decl_header));
 
@@ -2680,8 +2655,8 @@ produce_asm_for_decls (void)
       lto_output_decl_state_streams (ob, fn_out_state);
     }
 
-  header.lto_header.major_version = LTO_major_version;
-  header.lto_header.minor_version = LTO_minor_version;
+  header.major_version = LTO_major_version;
+  header.minor_version = LTO_minor_version;
 
   /* Currently not used.  This field would allow us to preallocate
      the globals vector, so that it need not be resized as it is extended.  */
@@ -2701,26 +2676,18 @@ produce_asm_for_decls (void)
   header.main_size = ob->main_stream->total_size;
   header.string_size = ob->string_stream->total_size;
 
-  header_stream = XCNEW (struct lto_output_stream);
-  lto_output_data_stream (header_stream, &header, sizeof header);
-  lto_write_stream (header_stream);
-  free (header_stream);
+  lto_write_data (&header, sizeof header);
 
   /* Write the main out-decl state, followed by out-decl states of
      functions. */
-  decl_state_stream = XCNEW (struct lto_output_stream);
   num_decl_states = num_fns + 1;
-  lto_output_data_stream (decl_state_stream, &num_decl_states,
-			  sizeof (num_decl_states));
-  lto_output_decl_state_refs (ob, decl_state_stream, out_state);
+  lto_write_data (&num_decl_states, sizeof (num_decl_states));
+  lto_output_decl_state_refs (ob, out_state);
   for (idx = 0; idx < num_fns; idx++)
     {
-      fn_out_state =
-	lto_function_decl_states[idx];
-      lto_output_decl_state_refs (ob, decl_state_stream, fn_out_state);
+      fn_out_state = lto_function_decl_states[idx];
+      lto_output_decl_state_refs (ob, fn_out_state);
     }
-  lto_write_stream (decl_state_stream);
-  free (decl_state_stream);
 
   lto_write_stream (ob->main_stream);
   lto_write_stream (ob->string_stream);
