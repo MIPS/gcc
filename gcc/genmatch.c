@@ -2441,7 +2441,7 @@ main(int argc, char **argv)
   add_operator (SYM, # SYM, # TYPE, NARGS);
 #define END_OF_BASE_TREE_CODES
 #include "tree.def"
-add_operator (CONVERT1, "CONVERT0", "tcc_unary", 1);
+add_operator (CONVERT0, "CONVERT0", "tcc_unary", 1);
 add_operator (CONVERT1, "CONVERT1", "tcc_unary", 1);
 add_operator (CONVERT2, "CONVERT2", "tcc_unary", 1);
 #undef END_OF_BASE_TREE_CODES

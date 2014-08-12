@@ -1,5 +1,9 @@
 2014-08-12  Richard Biener  <rguenther@suse.de>
 
+	* genmatch.c (main): Fix pasto.
+
+2014-08-12  Richard Biener  <rguenther@suse.de>
+
 	* genmatch.c (enum tree_code): Add CONVERT0.
 	(main): Likewise.
 	(parse_operation): Handle conditional converts specially.
