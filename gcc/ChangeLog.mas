@@ -1,3 +1,8 @@
+2014-08-13  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	testsuite/
+	* match-constant-folding.c: New test-case.
+
 2014-08-12  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 
 	* match.pd: Add new pattern.
