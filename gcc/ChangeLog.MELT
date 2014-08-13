@@ -1,7 +1,13 @@
 
 2014-08-13  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-base.melt (valdesc_double): The val should be
+	declared GTY((skip)) double.
+
+	* melt/generated/*: Regenerate all.
+
+2014-08-13  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.h (melt_get_double): Typo!
-	
+
 2014-08-13  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.1.1+
 	(melt_get_double): Commented debug.

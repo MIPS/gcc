@@ -4856,6 +4856,8 @@ meltlab_endgetargs:
                             snprintf(dblbuf, sizeof(dblbuf), "%.7f", /*_?*/ meltfram__.loc_DOUBLE__o0);
                         if (strtod (dblbuf, NULL) != /*_?*/ meltfram__.loc_DOUBLE__o0)
                             snprintf(dblbuf, sizeof(dblbuf), "%.15f", /*_?*/ meltfram__.loc_DOUBLE__o0);
+                        debugeprintf("add2out_double x=%g dblbuf=%s", /*_?*/ meltfram__.loc_DOUBLE__o0, dblbuf);
+                        //melt_cbreak("add2out_double");
                         meltgc_add_out_raw ((melt_ptr_t) /*_.SBUF__V9*/ meltfptr[8], dblbuf);
                         /*end add2out_double*/;
                     }
@@ -4990,6 +4992,8 @@ meltlab_endgetargs:
                                         snprintf(dblbuf, sizeof(dblbuf), "%.7f", /*_?*/ meltfram__.loc_DOUBLE__o2);
                                     if (strtod (dblbuf, NULL) != /*_?*/ meltfram__.loc_DOUBLE__o2)
                                         snprintf(dblbuf, sizeof(dblbuf), "%.15f", /*_?*/ meltfram__.loc_DOUBLE__o2);
+                                    debugeprintf("add2out_double x=%g dblbuf=%s", /*_?*/ meltfram__.loc_DOUBLE__o2, dblbuf);
+                                    //melt_cbreak("add2out_double");
                                     meltgc_add_out_raw ((melt_ptr_t) /*_.SBUF__V9*/ meltfptr[8], dblbuf);
                                     /*end add2out_double*/;
                                 }

@@ -2993,7 +2993,7 @@ typedef struct melthook_st *melthook_ptr_t;
   :valdesc_struct '"meltdouble_st"
   :valdesc_unionmem '"u_double"
   :valdesc_membchunk #{$' /* from VALDESC_DOUBLE in warmelt-base.melt */
-    double val;
+    double GTY ((skip)) val ;
   }#
   :valdesc_declchunk #{$' /* decl VALDESC_DOUBLE in warmelt-base.melt */
   typedef struct meltdouble_st *meltdouble_ptr_t;
