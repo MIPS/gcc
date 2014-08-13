@@ -1,6 +1,12 @@
 
 2014-08-13  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-hooks.melt (at_melt_attribute_first)
+	(at_melt_attribute_last): Improve :doc with missing closing brace
+	for @code...
+
+2014-08-13  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/generated/*: Regenerate.
 
 2014-08-13  Basile Starynkevitch  <basile@starynkevitch.net>

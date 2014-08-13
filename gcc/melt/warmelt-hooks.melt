@@ -2264,7 +2264,7 @@ bool  melthk_pass_execution_registered_flag;
 (defun at_melt_attribute_first (fun)
   :doc #{Use $AT_MELT_ATTRIBUTE_FIRST to register a function to be run
 at MELT attribute definition, in first place, for
-@code{__attribute__((melt(...))). See also $AT_MELT_ATTRIBUTE_LAST and $REGISTER_GCC_ATTRIBUTE.}#
+@code{__attribute__((melt(...)))}. See also $AT_MELT_ATTRIBUTE_LAST and $REGISTER_GCC_ATTRIBUTE.}#
   (let ( (firstlist (unsafe_get_field :delqu_first attribute_definer_delayed_queue))
 	 )
     (if (is_closure fun) (list_append firstlist fun)))
@@ -2274,7 +2274,7 @@ at MELT attribute definition, in first place, for
 (defun at_melt_attribute_last (fun)
   :doc #{Use $AT_MELT_ATTRIBUTE_LAST to register a function to be run
 at MELT attribute definition, in last place, for
-@code{__attribute__((melt(...))). See also $AT_MELT_ATTRIBUTE_FIRST.}#
+@code{__attribute__((melt(...)))}. See also $AT_MELT_ATTRIBUTE_FIRST.}#
   (let ( (lastlist (unsafe_get_field :delqu_last attribute_definer_delayed_queue))
 	 )
     (if (is_closure fun) (list_append lastlist fun)))
@@ -2290,8 +2290,7 @@ at MELT attribute definition, in last place, for
 ;;;;; uses tree but does not depend on tree operations, but needs the
 ;;;;; hook_handle_attribute predefined hook
 
-(cheader
-#{ /* cheader for attributes in warmelt-hooks.melt */
+(cheader #{ /* cheader for attributes in warmelt-hooks.melt */
 #if  MELT_GCC_VERSION >= 4009 /* GCC 4.9 or later */
 #include "attribs.h"
 #endif /*GCC 4.9*/
@@ -2299,12 +2298,18 @@ at MELT attribute definition, in last place, for
    (tree *node, tree name, tree args, int flags, bool *no_add_attrs);
 }#)
 
-(cimplement
-#{ /* cimplement for attributes in warmelt-hooks.melt */
+(cimplement #{ /* cimplement for attributes in warmelt-hooks.melt */
 tree  
 melt_attribute_handler_glue (tree *node, tree name, tree args, int flags, bool *no_add_attrs) {
-  melt_fatal_error ("unimplemented melt_attribute_handler_glue flags=%d", flags);
-  return NULL;
+   long out_no_add_attrs = (long)(no_add_attrs?(*no_add_attrs):0);
+   tree res =
+     melthookproc_HOOK_HANDLE_ATTRIBUTE (*node, name, args, flags,
+					 (long)(no_add_attrs?(*no_add_attrs):0),
+                                         node, 
+					 &out_no_add_attrs);
+   if (no_add_attrs) 
+     *no_add_attrs = out_no_add_attrs;
+   return res;
 } /* end melt_attribute_handler_glue */
 }#)
 
