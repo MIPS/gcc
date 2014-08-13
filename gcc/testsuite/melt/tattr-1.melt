@@ -1,0 +1,34 @@
+;; file tattr-1.melt -*- lisp -*-
+;; this sample code is in the public domain
+;; see also file tattrcode-1.c
+#| run in buildir/gcc
+ ln -s $GCCMELT_SOURCE/gcc/testsuite/melt/tattr-1.melt
+
+ ./cc1 -fmelt-mode=runfile @meltbuild-common.args -Iinclude/ \
+    -fmelt-init=@warmelt.quicklybuilt -fmelt-arg=tattr-1.melt \
+    tattrcode-1.c
+
+or in a MELT module
+
+gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
+    -fplugin-arg-melt-init=@melt-default-modules.quicklybuilt -fplugin-arg-melt-arg=tattr-1.melt \
+     -c -O tattrcode-1.c -o /dev/null
+|#
+(module_is_gpl_compatible "public domain")
+(defun tattr_handler ()
+  (debug "tattr_handler" " start")
+  (shortbacktrace_dbg "tattr_handler" 15)
+)
+
+(let ( (at (instance class_gcc_attribute
+		     :named_name '"testmelt"
+		     :gccattr_data (tuple 'some-data '22)
+		     :gccattr_handler tattr_handler
+		     ))
+       )
+  (debug "tattr-1" " registering at=" at)
+  (register_gcc_attribute at :min_length 1 :max_length 1 :function_type_required :true)
+  (debug "tattr-1" " registered at=" at)
+)
+
+;;; eof tattr-1.melt
