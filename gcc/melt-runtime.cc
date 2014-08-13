@@ -8974,7 +8974,8 @@ handle_melt_attribute(tree *node, tree name,
   return NULL_TREE;
 }
 
-static struct attribute_spec /* See tree.h for details.  */
+static struct attribute_spec /* See tree.h & attribs.h & tree-core.h
+				for details.  */
   melt_attr_spec =
 {
   "melt"                /*=name*/,
@@ -11992,7 +11993,7 @@ melt_open_ppfile (void)
   meltppbuffer = (char*) xcalloc (1, meltppbufsiz);
   meltppfile = open_memstream (&meltppbuffer, &meltppbufsiz);
   if (!meltppfile)
-    melt_fatal_error ("failed to open meltpp file in memory");
+    melt_fatal_error ("failed to open meltpp file in memory (%s)", xstrerror(errno));
 #else
   if (!meltppfilename)
     {

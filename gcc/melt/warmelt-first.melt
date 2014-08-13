@@ -1350,8 +1350,11 @@ an integer $I if $I is greater than $N.}#
 
 
 ;;; nullity test (for values)
-(defprimitive null (v) :long :doc #{Test that $V is the null value.}#
-  #{(($v) == NULL)}#)
+(defprimitive null (v) :long :doc #{Test that $V is the null value. Negated as @code{NON-NULL}.}#
+  #{(/*null*/($v) == NULL)}#)
+
+(defprimitive non-null (v) :long :doc #{Test that $V is not the null value. See also $NULL.}#
+  #{(/*not-null*/($v) == NULL)}#)
 
 ;; pattern to match null value
 (defcmatcher as_null
@@ -4172,6 +4175,7 @@ $MELT_MAKE_FRESH_ENVIRONMENT_REFERENCE primitive. For gurus and MELT itself.}#
  multiple_nth
  multiple_put_nth
  not
+ non-null
  null
  pair_head
  pair_tail

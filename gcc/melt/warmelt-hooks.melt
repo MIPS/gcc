@@ -2262,8 +2262,9 @@ bool  melthk_pass_execution_registered_flag;
     ))
 
 (defun at_melt_attribute_first (fun)
-  :doc #{Use $AT_MELT_ATTRIBUTE_FIRST to register a function to be run at MELT
-attribute definition, in first place.}#
+  :doc #{Use $AT_MELT_ATTRIBUTE_FIRST to register a function to be run
+at MELT attribute definition, in first place, for
+@code{__attribute__((melt(...))). See also $AT_MELT_ATTRIBUTE_LAST and $REGISTER_GCC_ATTRIBUTE.}#
   (let ( (firstlist (unsafe_get_field :delqu_first attribute_definer_delayed_queue))
 	 )
     (if (is_closure fun) (list_append firstlist fun)))
@@ -2271,13 +2272,205 @@ attribute definition, in first place.}#
 
 
 (defun at_melt_attribute_last (fun)
-  :doc #{Use $AT_MELT_ATTRIBUTE_FIRST to register a function to be run at MELT
-attribute definition, in last place.}#
+  :doc #{Use $AT_MELT_ATTRIBUTE_LAST to register a function to be run
+at MELT attribute definition, in last place, for
+@code{__attribute__((melt(...))). See also $AT_MELT_ATTRIBUTE_FIRST.}#
   (let ( (lastlist (unsafe_get_field :delqu_last attribute_definer_delayed_queue))
 	 )
     (if (is_closure fun) (list_append lastlist fun)))
   ) 
 
+(defclass class_gcc_attribute 
+  :super class_named
+  :doc #{The $CLASS_GCC_ATTRIBUTE describes general GCC attributes
+  known by MELT, in addition of the specially handled
+  @code{__attribute__((melt(...)))}..}#
+  :fields (gccattr_data
+	   gccattr_handler
+))
+(export_class class_gcc_attribute)
+
+(defmacro register_gcc_attribute (sexp env mexpander modctx)
+  :doc #{The variadic macro $REGISTER_GCC_ATTRIBUTE is registering a
+  GCC attribute $ATTR of $CLASS_GCC_ATTRIBUTE by expanding to a call to
+  $MELT_REGISTER_GCC_ATTRIBUTE_AT internal function. Memory used by the
+  attribute is never freed.  After it can occur variadically equivalents
+  of @code{struct attribute_spec} fields: @code{:MIN_LENGTH}
+  @var{minimal-length} (default 0).  @code{:MAX_LENGTH}
+  @var{maximal-length} (default -1).  @code{:DECL_REQUIRED}
+  @var{decl-required-flag}.  @code{:TYPE_REQUIRED}
+  @var{type-required-flag}.  @code{:FUNCTION_TYPE_REQUIRED}
+  @var{function-type-required-flag} @code{:AFFECTS_TYPE_IDENTITY}
+  @var{affects-type-identity-flag}. Notice that checking of variadic arguments happen at run-time. }# 
+  (debug "register_gcc_attribute macro sexp=" sexp "\n env=" debug_less env)
+  (let (
+	(sloc (get_field :loca_location sexp))
+	(sexcont (get_field :sexp_contents sexp))
+	(regatbnd (find_env env 'melt_register_gcc_attribute_at))
+	)
+    (unless regatbnd
+      (error_at sloc "REGISTER_GCC_ATTRIBUTE used when MELT_REGISTER_GCC_ATTRIBUTE_AT is unbound")
+      (return))
+    (let ( (xarglist (expand_pairlist_as_list (pair_tail (list_first sexcont)) env mexpander modctx))
+	   )
+      (debug "register_gcc_attribute macro xarglist=" xarglist)
+      (when (<i (list_length xarglist) 1)
+	(error_at sloc "REGISTER_GCC_ATTRIBUTE needs at least one argument")
+	(return))
+      (list_prepend xarglist sloc)
+      (debug "register_gcc_attribute macro prepended xarglist=" xarglist)
+      (let ( (res (instance class_source_apply
+			    :loca_location sloc
+			    :sapp_fun 'melt_register_gcc_attribute_at
+			    :sargop_args (list_to_multiple xarglist discr_multiple)))
+	     )
+	(debug "register_gcc_attribute macro returns res=" res)
+	(return res)
+      )
+    )))
+(export_macro register_gcc_attribute)
+
+(defun melt_register_gcc_attribute_at (loc attr :rest)
+  :doc #{The $MELT_REGISTER_GCC_ATTRIBUTE_AT is an internal variadic function,
+  used by $REGISTER_GCC_ATTRIBUTE macro.}#
+  (debug "melt_register_gcc_attribute_at" " start loc=" loc " attr=" attr)
+  (unless (is_a attr class_gcc_attribute)
+    (error_at loc "register_gcc_attribute got invalid attr $1" attr)
+    (return ()))
+  (let ( 
+        (name (get_field :named_name attr))
+        (min_length 0)
+	(max_length -1)
+	(decl_required_flag 0)
+	(type_required_flag 0)
+	(function_type_required_flag 0)
+	(affects_type_identity_flag 0)
+	)
+    (unless (is_string name)
+      (error_at loc "register_gcc_attribute got badly named attr $1" attr)
+      (return))
+    ;; variadic parsing loop
+    (forever 
+     argsloop
+     (variadic 
+      ;; end of args
+      (()
+       (exit argsloop))
+      ((:value key)
+       (match 
+	key
+	;; :min_length <number>
+	(:MIN_LENGTH
+	 (variadic 
+	  ((:long l)
+	   (setq min_length l))
+	  ((:value vl)
+	   (cond 
+	    ((is_integerbox vl)
+	     (setq min_length (unbox :long vl))
+	     (void))
+	    (:else
+	     (error_at loc "register_gcc_attribute for attr $1 got bad :MIN_LENGTH value" name)
+	     (return))))
+	  (:else
+	   (error_at loc "register_gcc_attribute for attr $1 got bad :MIN_LENGTH" name)
+	   (return))))
+	;; :max_length <number>
+	(:MAX_LENGTH
+	 (variadic 
+	  ((:long l)
+	   (setq max_length l))
+	  ((:value vl)
+	   (cond 
+	    ((is_integerbox vl)
+	     (setq max_length (unbox :long vl))
+	     (void))
+	    (:else
+	     (error_at loc "register_gcc_attribute for attr $1 got bad :MAX_LENGTH value" name)
+	     (return))))
+	  (:else
+	   (error_at loc "register_gcc_attribute for attr $1 got bad :MAX_LENGTH" name)
+	   (return))))
+	;; :decl_required <flag>
+	(:DECL_REQUIRED
+	 (variadic 
+	  ((:long l)
+	   (setq decl_required_flag l))
+	  ((:value vl)
+	   (cond 
+	    ((is_integerbox vl)
+	     (setq decl_required_flag (unbox :long vl))
+	     (void))
+	    (:else
+	     (setq decl_required_flag (non-null vl)))))
+	  (:else
+	   (error_at loc "register_gcc_attribute for attr $1 got bad :DECL_REQUIRED" name)
+	   (return))))	 
+	;; :type_required <flag>
+	(:TYPE_REQUIRED
+	 (variadic 
+	  ((:long l)
+	   (setq type_required_flag l))
+	  ((:value vl)
+	   (cond 
+	    ((is_integerbox vl)
+	     (setq type_required_flag (unbox :long vl))
+	     (void))
+	    (:else
+	     (setq type_required_flag (non-null vl)))))
+	  (:else
+	   (error_at loc "register_gcc_attribute for attr $1 got bad :TYPE_REQUIRED" name)
+	   (return))))	 	 
+	;; :function_type_required <flag>
+	(:FUNCTION_TYPE_REQUIRED
+	 (variadic 
+	  ((:long l)
+	   (setq function_type_required_flag l))
+	  ((:value vl)
+	   (cond 
+	    ((is_integerbox vl)
+	     (setq function_type_required_flag (unbox :long vl))
+	     (void)
+	     )
+	    (:else
+	     (setq function_type_required_flag (non-null vl)))))
+	  (:else
+	   (error_at loc "register_gcc_attribute for attr $1 got bad :FUNCTION_TYPE_REQUIRED" name)
+	   (return))))	 	 
+	;; :affects_type_identity <flag>
+	(:AFFECTS_TYPE_IDENTITY
+	 (variadic 
+	  ((:long l)
+	   (setq affects_type_identity_flag l))
+	  ((:value vl)
+	   (cond 
+	    ((is_integerbox vl)
+	     (setq affects_type_identity_flag (unbox :long vl))
+	     (void)
+	     )
+	    (:else
+	     (setq affects_type_identity_flag (non-null vl)))))
+	  (:else
+	   (error_at loc "register_gcc_attribute for attr $1 got bad :AFFECTS_TYPE_IDENTITY" name)
+	   (return))))	 
+	;; unexpected key
+	(?_
+	 (error_at loc  "register_gcc_attribute for attr $1 got unexpected key $2" name key)
+	 (return))
+	)
+       )
+      (:else
+       (error_at loc "register_gcc_attribute for $1 got invalid key" name)
+       (return))
+      )
+     )					; end forever argloop
+    ;;; should do something here
+    (error_at loc "unimplemented melt_register_gcc_attribute_at")
+    (assert_msg "@$@unimplemented melt_register_gcc_attribute_at")
+    )
+  )
+
+(export_values melt_register_gcc_attribute_at)
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
