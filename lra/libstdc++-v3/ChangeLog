@@ -1,3 +1,24 @@
+2014-08-13  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* Fix thinko in the last commit.
+
+2014-08-13  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/62118
+	* include/ext/random.tcc (uniform_on_sphere_helper<2, _RealType>::
+	operator()): Use std::hypot only when _GLIBCXX_USE_C99_MATH_TR1.
+
+2014-08-12  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/basic_string.h (getline): Qualify call to prevent ADL
+	and add overloads for rvalue streams.
+	* testsuite/21_strings/basic_string/inserters_extractors/char/12.cc:
+	New.
+	* testsuite/21_strings/basic_string/inserters_extractors/wchar_t/12.cc:
+	New.
+
+	* include/bits/basic_string.h (getline): Declare inline.
+
 2014-08-09  Ulrich Drepper  <drepper@gmail.com>
 
 	* include/ext/random.tcc (uniform_on_sphere_helper): Define.
