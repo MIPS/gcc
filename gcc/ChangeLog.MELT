@@ -1,5 +1,8 @@
 
 2014-08-13  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.1.2pre2.
+
+2014-08-13  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-hooks.melt (at_melt_attribute_first)
 	(at_melt_attribute_last): Improve :doc with missing closing brace
