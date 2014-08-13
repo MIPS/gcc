@@ -39,8 +39,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f1[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiDEBUG_h397460925; // forward declaration fromline 6566
-typedef Melt_InitialClassyFrame_WARMELTmiDEBUG_h397460925 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiDEBUG_h734283817; // forward declaration fromline 6566
+typedef Melt_InitialClassyFrame_WARMELTmiDEBUG_h734283817 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
 /*** 3 MELT called hook declarations ***/
@@ -340,7 +340,7 @@ MELT_EXTERN const char melt_module_is_gpl_compatible[];
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiDEBUG_h397460925 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiDEBUG_h734283817 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -964,7 +964,7 @@ meltlab_endgetargs:
         ;
         /*^compute*/
         /*_#NULL__L4*/ meltfnum[3] =
-            ((/*_.OUT__V8*/ meltfptr[4]) == NULL);;
+            (/*null*/(/*_.OUT__V8*/ meltfptr[4]) == NULL);;
         MELT_LOCATION("warmelt-debug.melt:415:/ cond");
         /*cond*/ if (/*_#NULL__L4*/ meltfnum[3]) /*then*/
             {
@@ -3299,7 +3299,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_5;
                         meltlab_count_5++;
-                        debugeprintf("objlabel_5 mtch1_*CLASS_NORMTESTER_SAME/23b4c16a. *CLASS_OBJLABELINSTR/2f8a5bf3. %ld", meltlab_count_5);
+                        debugeprintf("objlabel_5 mtch1_*CLASS_NORMTESTER_SAME/295d285a. *CLASS_OBJLABELINSTR/1c7ed6d3. %ld", meltlab_count_5);
 #endif
 
                         ;
@@ -3341,7 +3341,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_6;
                         meltlab_count_6++;
-                        debugeprintf("objlabel_6 mtch1_*CLASS_NORMTESTER_SUCCESS/9121cf4. *CLASS_OBJLABELINSTR/1fb773d5. %ld", meltlab_count_6);
+                        debugeprintf("objlabel_6 mtch1_*CLASS_NORMTESTER_SUCCESS/18e9d810. *CLASS_OBJLABELINSTR/2994aefc. %ld", meltlab_count_6);
 #endif
 
                         ;
@@ -3366,7 +3366,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_7;
                         meltlab_count_7++;
-                        debugeprintf("objlabel_7 mtch1_*CLASS_NORMTESTER_SAME/289921d8. *CLASS_OBJLABELINSTR/e05e54. %ld", meltlab_count_7);
+                        debugeprintf("objlabel_7 mtch1_*CLASS_NORMTESTER_SAME/3fbe9577. *CLASS_OBJLABELINSTR/16c8b845. %ld", meltlab_count_7);
 #endif
 
                         ;
@@ -3408,7 +3408,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_8;
                         meltlab_count_8++;
-                        debugeprintf("objlabel_8 mtch1_*CLASS_NORMTESTER_SUCCESS/950ae90. *CLASS_OBJLABELINSTR/3b8ad2f3. %ld", meltlab_count_8);
+                        debugeprintf("objlabel_8 mtch1_*CLASS_NORMTESTER_SUCCESS/234f5926. *CLASS_OBJLABELINSTR/2e3f08c0. %ld", meltlab_count_8);
 #endif
 
                         ;
@@ -3433,7 +3433,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_9;
                         meltlab_count_9++;
-                        debugeprintf("objlabel_9 mtch1_*CLASS_NORMTESTER_SUCCESS/169aedd3. *CLASS_OBJLABELINSTR/37fde711. %ld", meltlab_count_9);
+                        debugeprintf("objlabel_9 mtch1_*CLASS_NORMTESTER_SUCCESS/3f202ded. *CLASS_OBJLABELINSTR/1aedc95. %ld", meltlab_count_9);
 #endif
 
                         ;
@@ -3458,7 +3458,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_10;
                         meltlab_count_10++;
-                        debugeprintf("objlabel_10 mtch1__end_h814764643 *CLASS_OBJLABELINSTR/30905263. %ld", meltlab_count_10);
+                        debugeprintf("objlabel_10 mtch1__end_h1035362107 *CLASS_OBJLABELINSTR/3db65f3b. %ld", meltlab_count_10);
 #endif
 
                         ;

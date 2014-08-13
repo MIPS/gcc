@@ -39,8 +39,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f1[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiNORMAL_h966151284; // forward declaration fromline 6566
-typedef Melt_InitialClassyFrame_WARMELTmiNORMAL_h966151284 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiNORMAL_h995525637; // forward declaration fromline 6566
+typedef Melt_InitialClassyFrame_WARMELTmiNORMAL_h995525637 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
 /*** 4 MELT called hook declarations ***/
@@ -893,7 +893,7 @@ MELT_EXTERN const char melt_module_is_gpl_compatible[];
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiNORMAL_h966151284 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiNORMAL_h995525637 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -4941,7 +4941,7 @@ meltlab_endgetargs:
         ;
         /*^compute*/
         /*_#NULL__L5*/ meltfnum[1] =
-            ((/*_.TUP__V2*/ meltfptr[1]) == NULL);;
+            (/*null*/(/*_.TUP__V2*/ meltfptr[1]) == NULL);;
         MELT_LOCATION("warmelt-normal.melt:1372:/ cond");
         /*cond*/ if (/*_#NULL__L5*/ meltfnum[1]) /*then*/
             {
@@ -5567,7 +5567,7 @@ meltlab_endgetargs:
                                 MELT_CHECK_SIGNAL();
                                 ;
                                 /*_#NULL__L17*/ meltfnum[15] =
-                                    ((/*_.NBINDS__V26*/ meltfptr[22]) == NULL);;
+                                    (/*null*/(/*_.NBINDS__V26*/ meltfptr[22]) == NULL);;
                                 MELT_LOCATION("warmelt-normal.melt:1401:/ cond");
                                 /*cond*/ if (/*_#NULL__L17*/ meltfnum[15]) /*then*/
                                     {
@@ -13394,7 +13394,7 @@ meltlab_endgetargs:
         MELT_CHECK_SIGNAL();
         ;
         /*_#NULL__L8*/ meltfnum[1] =
-            ((/*_.FIXDAT__V21*/ meltfptr[20]) == NULL);;
+            (/*null*/(/*_.FIXDAT__V21*/ meltfptr[20]) == NULL);;
         MELT_LOCATION("warmelt-normal.melt:1656:/ cond");
         /*cond*/ if (/*_#NULL__L8*/ meltfnum[1]) /*then*/
             {

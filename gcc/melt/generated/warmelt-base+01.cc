@@ -40,8 +40,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f1[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiBASE_h891835503; // forward declaration fromline 6566
-typedef Melt_InitialClassyFrame_WARMELTmiBASE_h891835503 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiBASE_h785237014; // forward declaration fromline 6566
+typedef Melt_InitialClassyFrame_WARMELTmiBASE_h785237014 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
 /*** 3 MELT called hook declarations ***/
@@ -60,7 +60,7 @@ MELT_EXTERN void melthook_HOOK_VALUE_EXPORTER (melt_ptr_t melthookdatap, melt_pt
 /*** 2 extra MELT c-headers ***/
 
 
-/** MELT extra c-header 1 : h724549797 **/
+/** MELT extra c-header 1 : h914953260 **/
 
 
 /* C++ standard headers for multiple_sort */
@@ -70,7 +70,7 @@ MELT_EXTERN void melthook_HOOK_VALUE_EXPORTER (melt_ptr_t melthookdatap, melt_pt
 
 
 
-/** MELT extra c-header 2 : h857259170 **/
+/** MELT extra c-header 2 : h707556364 **/
 
 
 /* A compare structure used in multiple_sort for std::stable_sort;
@@ -371,7 +371,7 @@ MELT_EXTERN const char melt_module_is_gpl_compatible[];
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiBASE_h891835503 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiBASE_h785237014 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -3039,7 +3039,7 @@ meltlab_endgetargs:
             MELT_CHECK_SIGNAL();
             ;
             /*_#NULL__L1*/ meltfnum[0] =
-                ((/*_.V__V2*/ meltfptr[1]) == NULL);;
+                (/*null*/(/*_.V__V2*/ meltfptr[1]) == NULL);;
             MELT_LOCATION("warmelt-base.melt:1556:/ cond");
             /*cond*/ if (/*_#NULL__L1*/ meltfnum[0]) /*then*/
                 {
@@ -3968,7 +3968,7 @@ meltlab_endgetargs:
                                             MELT_CHECK_SIGNAL();
                                             ;
                                             /*_#NULL__L5*/ meltfnum[4] =
-                                                ((/*_.V__V3*/ meltfptr[2]) == NULL);;
+                                                (/*null*/(/*_.V__V3*/ meltfptr[2]) == NULL);;
                                             MELT_LOCATION("warmelt-base.melt:1593:/ cond");
                                             /*cond*/ if (/*_#NULL__L5*/ meltfnum[4]) /*then*/
                                                 {
@@ -4466,7 +4466,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
             static long meltlab_count_1;
             meltlab_count_1++;
-            debugeprintf("objlabel_1 mtch1_*CLASS_NORMTESTER_INSTANCE/3ea2ddb4. *CLASS_OBJLABELINSTR/1ca44f93. %ld", meltlab_count_1);
+            debugeprintf("objlabel_1 mtch1_*CLASS_NORMTESTER_INSTANCE/33b45db9. *CLASS_OBJLABELINSTR/15ed011. %ld", meltlab_count_1);
 #endif
 
             ;
@@ -4529,7 +4529,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
             static long meltlab_count_2;
             meltlab_count_2++;
-            debugeprintf("objlabel_2 mtch1_*CLASS_NORMTESTER_MATCHER/3512326d. *CLASS_OBJLABELINSTR/201fef41. %ld", meltlab_count_2);
+            debugeprintf("objlabel_2 mtch1_*CLASS_NORMTESTER_MATCHER/7057cc2. *CLASS_OBJLABELINSTR/de5ff4e. %ld", meltlab_count_2);
 #endif
 
             ;
@@ -4582,7 +4582,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
             static long meltlab_count_3;
             meltlab_count_3++;
-            debugeprintf("objlabel_3 mtch1_*CLASS_NORMTESTER_SUCCESS/233d8762. *CLASS_OBJLABELINSTR/1213982a. %ld", meltlab_count_3);
+            debugeprintf("objlabel_3 mtch1_*CLASS_NORMTESTER_SUCCESS/1cf7077c. *CLASS_OBJLABELINSTR/38145d79. %ld", meltlab_count_3);
 #endif
 
             ;
@@ -4700,7 +4700,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
             static long meltlab_count_4;
             meltlab_count_4++;
-            debugeprintf("objlabel_4 mtch1_*CLASS_NORMTESTER_SUCCESS/2245aa66. *CLASS_OBJLABELINSTR/886d743. %ld", meltlab_count_4);
+            debugeprintf("objlabel_4 mtch1_*CLASS_NORMTESTER_SUCCESS/21ac4f19. *CLASS_OBJLABELINSTR/6cf235a. %ld", meltlab_count_4);
 #endif
 
             ;
@@ -4785,7 +4785,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
             static long meltlab_count_5;
             meltlab_count_5++;
-            debugeprintf("objlabel_5 mtch1__end_h392006431 *CLASS_OBJLABELINSTR/175d8b1f. %ld", meltlab_count_5);
+            debugeprintf("objlabel_5 mtch1__end_h726554191 *CLASS_OBJLABELINSTR/2b4e564f. %ld", meltlab_count_5);
 #endif
 
             ;
@@ -5745,7 +5745,7 @@ meltlab_endgetargs:
                                             MELT_CHECK_SIGNAL();
                                             ;
                                             /*_#NULL__L3*/ meltfnum[2] =
-                                                ((/*_.TEST__V7*/ meltfptr[6]) == NULL);;
+                                                (/*null*/(/*_.TEST__V7*/ meltfptr[6]) == NULL);;
                                             MELT_LOCATION("warmelt-base.melt:1739:/ cond");
                                             /*cond*/ if (/*_#NULL__L3*/ meltfnum[2]) /*then*/
                                                 {

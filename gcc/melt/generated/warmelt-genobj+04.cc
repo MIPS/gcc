@@ -39,8 +39,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f4[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiGENOBJ_h1072354552; // forward declaration fromline 6566
-typedef Melt_InitialClassyFrame_WARMELTmiGENOBJ_h1072354552 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiGENOBJ_h113258900; // forward declaration fromline 6566
+typedef Melt_InitialClassyFrame_WARMELTmiGENOBJ_h113258900 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
 /*** 3 MELT called hook declarations ***/
@@ -1020,7 +1020,7 @@ MELT_EXTERN const char melt_module_is_gpl_compatible[];
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiGENOBJ_h1072354552 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiGENOBJ_h113258900 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -11273,7 +11273,7 @@ meltlab_endgetargs:
             MELT_CHECK_SIGNAL();
             ;
             /*_#NULL__L1*/ meltfnum[0] =
-                ((/*_.RECV__V2*/ meltfptr[1]) == NULL);;
+                (/*null*/(/*_.RECV__V2*/ meltfptr[1]) == NULL);;
             MELT_LOCATION("warmelt-genobj.melt:4699:/ cond");
             /*cond*/ if (/*_#NULL__L1*/ meltfnum[0]) /*then*/
                 {

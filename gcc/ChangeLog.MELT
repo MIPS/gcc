@@ -1,6 +1,10 @@
 
 2014-08-13  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/generated/*: Regenerate.
+
+2014-08-13  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{start adding generic GCC attribute support}}
 	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.1.2pre1.
 

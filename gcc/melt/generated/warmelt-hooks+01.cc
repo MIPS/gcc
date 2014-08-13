@@ -39,9 +39,9 @@ MELT_EXTERN const char meltrun_used_md5_melt_f1[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiHOOKS_h721971239; // forward declaration fromline 6566
-typedef Melt_InitialClassyFrame_WARMELTmiHOOKS_h721971239 Melt_InitialFrame;
-/*** 6 MELT module variables declarations ****/
+class Melt_InitialClassyFrame_WARMELTmiHOOKS_h252892284; // forward declaration fromline 6566
+typedef Melt_InitialClassyFrame_WARMELTmiHOOKS_h252892284 Melt_InitialFrame;
+/*** 7 MELT module variables declarations ****/
 MELT_EXTERN void melt_forwarding_module_data (void);
 MELT_EXTERN void melt_marking_module_data (void);
 
@@ -51,13 +51,13 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY melt_WARMELTmiHOOKS_module_var_flags[1];
 static inline melt_ptr_t
 melt_module_var_fetch (int ix)
 {
-    return (ix > 0  &&  ix <= 6)?melt_WARMELTmiHOOKS_module_var_ptr_tab[ix]:NULL;
+    return (ix > 0  &&  ix <= 7)?melt_WARMELTmiHOOKS_module_var_ptr_tab[ix]:NULL;
 }
 
 static inline void
 melt_module_var_put (int ix, melt_ptr_t val)
 {
-    if (ix > 0  &&  ix <= 6)
+    if (ix > 0  &&  ix <= 7)
         {
             melt_WARMELTmiHOOKS_module_var_ptr_tab[ix]= val;
             melt_WARMELTmiHOOKS_module_var_flags[ix/16] = true;
@@ -68,32 +68,39 @@ melt_module_var_put (int ix, melt_ptr_t val)
 enum
 {
     meltmodatix_none,
-    meltmodvarix_PRAGMA_PROCESSOR_symb = 1,
-    meltmodvarix_PRAGMA_HANDLER_TUPLE_symb = 2,
-    meltmodvarix_MELT_INPCHANBUCK_symb = 3,
-    meltmodvarix_JSON_NAME_DICT_symb = 4,
-    meltmodvarix_MELT_ALARMBUCKET_symb = 5,
-    meltmodvarix_MELT_CHILDBUCK_symb = 6,
+    meltmodvarix_GCC_ATTRIBUTE_DICT_symb = 1,
+    meltmodvarix_PRAGMA_PROCESSOR_symb = 2,
+    meltmodvarix_PRAGMA_HANDLER_TUPLE_symb = 3,
+    meltmodvarix_MELT_INPCHANBUCK_symb = 4,
+    meltmodvarix_JSON_NAME_DICT_symb = 5,
+    meltmodvarix_MELT_ALARMBUCKET_symb = 6,
+    meltmodvarix_MELT_CHILDBUCK_symb = 7,
     meltmodatix_last
 }; /* end MELT module variables indexes */
 
-/*** 3 MELT called hook declarations ***/
+/*** 5 MELT called hook declarations ***/
 
 /*declare MELT called hook #0 HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER **/
 MELT_EXTERN melt_ptr_t melthook_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER (melt_ptr_t melthookdatap, melt_ptr_t meltinp0_PREVENV, const char* meltinp1_MODULNAME);
 
-/*declare MELT called hook #1 HOOK_SYMBOL_IMPORTER **/
+/*declare MELT called hook #1 HOOK_MACRO_EXPORTER **/
+MELT_EXTERN void melthook_HOOK_MACRO_EXPORTER (melt_ptr_t melthookdatap, melt_ptr_t meltinp0_SYM, melt_ptr_t meltinp1_VAL, melt_ptr_t meltinp2_CONTENV);
+
+/*declare MELT called hook #2 HOOK_SYMBOL_IMPORTER **/
 MELT_EXTERN melt_ptr_t melthook_HOOK_SYMBOL_IMPORTER (melt_ptr_t melthookdatap, const char* meltinp0_SYMNAMESTR, const char* meltinp1_MODULENAMESTR, melt_ptr_t meltinp2_PARENV);
 
-/*declare MELT called hook #2 HOOK_VALUE_EXPORTER **/
+/*declare MELT called hook #3 HOOK_SYMBOL_IMPORTER **/
+MELT_EXTERN melt_ptr_t melthook_HOOK_SYMBOL_IMPORTER (melt_ptr_t melthookdatap, const char* meltinp0_SYMNAMESTR, const char* meltinp1_MODULENAMESTR, melt_ptr_t meltinp2_PARENV);
+
+/*declare MELT called hook #4 HOOK_VALUE_EXPORTER **/
 MELT_EXTERN void melthook_HOOK_VALUE_EXPORTER (melt_ptr_t melthookdatap, melt_ptr_t meltinp0_SYM, melt_ptr_t meltinp1_VAL, melt_ptr_t meltinp2_CONTENV);
 
-/*** end of 3 MELT called hook declarations ***/
+/*** end of 5 MELT called hook declarations ***/
 
-/*** 28 extra MELT c-headers ***/
+/*** 29 extra MELT c-headers ***/
 
 
-/** MELT extra c-header 1 : h556057305 **/
+/** MELT extra c-header 1 : h731538050 **/
 
 /* cheader for override gate in warmelt-hooks.melt */
 static void
@@ -114,7 +121,7 @@ melt_override_gate_callback (void* gccdata,
 
 
 
-/** MELT extra c-header 2 : h518729400 **/
+/** MELT extra c-header 2 : h458870414 **/
 
 /* flag for PLUGIN_OVERRIDE_GATE */
 MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_override_gate_registered_flag;
@@ -122,7 +129,7 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_override_gate_registered_flag;
 
 
 
-/** MELT extra c-header 3 : h590751445 **/
+/** MELT extra c-header 3 : h577687716 **/
 
 /* flag for PLUGIN_START_UNIT */
 MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_start_unit_registered_flag;
@@ -130,7 +137,7 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_start_unit_registered_flag;
 
 
 
-/** MELT extra c-header 4 : h743401628 **/
+/** MELT extra c-header 4 : h580646982 **/
 
 
 void MELT_MODULE_VISIBILITY
@@ -140,7 +147,7 @@ melt_startunithook_callback (void* gcc_data ATTRIBUTE_UNUSED,
 
 
 
-/** MELT extra c-header 5 : h237043933 **/
+/** MELT extra c-header 5 : h772702217 **/
 
 /* flag for PLUGIN_FINISH_UNIT */
 MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_finish_unit_registered_flag;
@@ -148,7 +155,7 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_finish_unit_registered_flag;
 
 
 
-/** MELT extra c-header 6 : h543586331 **/
+/** MELT extra c-header 6 : h899821591 **/
 
 
 void MELT_MODULE_VISIBILITY
@@ -158,7 +165,7 @@ melt_finishunithook_callback (void* gcc_data ATTRIBUTE_UNUSED,
 
 
 
-/** MELT extra c-header 7 : h708113231 **/
+/** MELT extra c-header 7 : h367603933 **/
 
 /* flag for PLUGIN_ALL_PASSES_START declare */
 MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_all_passes_start_registered_flag;
@@ -166,7 +173,7 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_all_passes_start_registered_flag
 
 
 
-/** MELT extra c-header 8 : h622373786 **/
+/** MELT extra c-header 8 : h508119409 **/
 
 
 void MELT_MODULE_VISIBILITY
@@ -176,7 +183,7 @@ melt_all_passes_start_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
 
 
 
-/** MELT extra c-header 9 : h396480236 **/
+/** MELT extra c-header 9 : h495295396 **/
 
 /* flag for PLUGIN_ALL_PASSES_END declare */
 MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_all_passes_end_registered_flag;
@@ -184,7 +191,7 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_all_passes_end_registered_flag;
 
 
 
-/** MELT extra c-header 10 : h428691340 **/
+/** MELT extra c-header 10 : h254600971 **/
 
 
 void MELT_MODULE_VISIBILITY
@@ -194,7 +201,7 @@ melt_all_passes_end_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
 
 
 
-/** MELT extra c-header 11 : h555093156 **/
+/** MELT extra c-header 11 : h552601242 **/
 
 /* flag for PLUGIN_ALL_IPA_PASSES_START declare */
 MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_all_ipa_passes_start_registered_flag;
@@ -202,7 +209,7 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_all_ipa_passes_start_registered_
 
 
 
-/** MELT extra c-header 12 : h631230392 **/
+/** MELT extra c-header 12 : h720940610 **/
 
 
 void MELT_MODULE_VISIBILITY
@@ -212,7 +219,7 @@ melt_all_ipa_passes_start_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
 
 
 
-/** MELT extra c-header 13 : h508119409 **/
+/** MELT extra c-header 13 : h686872583 **/
 
 /* flag for PLUGIN_ALL_IPA_PASSES_END declare */
 MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_all_ipa_passes_end_registered_flag;
@@ -220,7 +227,7 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_all_ipa_passes_end_registered_fl
 
 
 
-/** MELT extra c-header 14 : h225499869 **/
+/** MELT extra c-header 14 : h770193582 **/
 
 
 void MELT_MODULE_VISIBILITY
@@ -230,7 +237,7 @@ melt_all_ipa_passes_end_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
 
 
 
-/** MELT extra c-header 15 : h1037296947 **/
+/** MELT extra c-header 15 : h797359734 **/
 
 /* flag for PLUGIN_EARLY_GIMPLE_PASSES_START declare */
 MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_early_gimple_passes_start_registered_flag;
@@ -238,7 +245,7 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_early_gimple_passes_start_regist
 
 
 
-/** MELT extra c-header 16 : h1054714274 **/
+/** MELT extra c-header 16 : h224227161 **/
 
 
 void MELT_MODULE_VISIBILITY
@@ -248,7 +255,7 @@ melt_early_gimple_passes_start_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
 
 
 
-/** MELT extra c-header 17 : h720940610 **/
+/** MELT extra c-header 17 : h645886633 **/
 
 /* flag for PLUGIN_EARLY_GIMPLE_PASSES_END declare */
 MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_early_gimple_passes_end_registered_flag;
@@ -256,7 +263,7 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_early_gimple_passes_end_register
 
 
 
-/** MELT extra c-header 18 : h219196867 **/
+/** MELT extra c-header 18 : h420393222 **/
 
 
 void MELT_MODULE_VISIBILITY
@@ -266,7 +273,7 @@ melt_early_gimple_passes_end_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
 
 
 
-/** MELT extra c-header 19 : h815793149 **/
+/** MELT extra c-header 19 : h697294386 **/
 
 /* flag for PLUGIN_PRE_GENERICIZE declare */
 MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_pre_genericize_registered_flag;
@@ -274,7 +281,7 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_pre_genericize_registered_flag;
 
 
 
-/** MELT extra c-header 20 : h567778766 **/
+/** MELT extra c-header 20 : h895743690 **/
 
 
 void MELT_MODULE_VISIBILITY
@@ -284,7 +291,7 @@ melt_pre_genericize_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
 
 
 
-/** MELT extra c-header 21 : h408037740 **/
+/** MELT extra c-header 21 : h26280375 **/
 
 /* flag for PLUGIN_FINISH_TYPE declare */
 MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_finish_type_registered_flag;
@@ -292,7 +299,7 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_finish_type_registered_flag;
 
 
 
-/** MELT extra c-header 22 : h238294145 **/
+/** MELT extra c-header 22 : h580150145 **/
 
 
 void MELT_MODULE_VISIBILITY
@@ -302,7 +309,7 @@ melt_finish_type_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
 
 
 
-/** MELT extra c-header 23 : h35603192 **/
+/** MELT extra c-header 23 : h268741164 **/
 
 /* flag for PLUGIN_FINISH_DECL declare */
 MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_finish_decl_registered_flag;
@@ -310,7 +317,7 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_finish_decl_registered_flag;
 
 
 
-/** MELT extra c-header 24 : h143451350 **/
+/** MELT extra c-header 24 : h670830423 **/
 
 
 void MELT_MODULE_VISIBILITY
@@ -320,7 +327,7 @@ melt_finish_decl_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
 
 
 
-/** MELT extra c-header 25 : h785683271 **/
+/** MELT extra c-header 25 : h929485631 **/
 
 /* flag for PLUGIN_PASS_EXECUTION declare */
 MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_pass_execution_registered_flag;
@@ -328,7 +335,7 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_pass_execution_registered_flag;
 
 
 
-/** MELT extra c-header 26 : h4689753 **/
+/** MELT extra c-header 26 : h332979054 **/
 
 
 void MELT_MODULE_VISIBILITY
@@ -338,7 +345,19 @@ melt_pass_execution_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
 
 
 
-/** MELT extra c-header 27 : h261785218 **/
+/** MELT extra c-header 27 : h307416330 **/
+
+/* cheader for attributes in warmelt-hooks.melt */
+#if  MELT_GCC_VERSION >= 4009 /* GCC 4.9 or later */
+#include "attribs.h"
+#endif /*GCC 4.9*/
+MELT_EXTERN tree MELT_MODULE_VISIBILITY melt_attribute_handler_glue
+(tree *node, tree name, tree args, int flags, bool *no_add_attrs);
+
+
+
+
+/** MELT extra c-header 28 : h482369594 **/
 
 /* header from warmelt-hooks.melt for poll etc... */
 #include <poll.h>
@@ -349,7 +368,7 @@ melt_pass_execution_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
 
 
 
-/** MELT extra c-header 28 : h437795745 **/
+/** MELT extra c-header 29 : h999261840 **/
 
 /* headers before connect_to_server */
 #include <sys/socket.h>
@@ -375,7 +394,7 @@ typedef std::map<std::string,Melt_connect_info> melt_connect_info_map_t;
 /* end of headers for connect_to_server */
 
 
-/*** end of 28 extra MELT c-headers ***/
+/*** end of 29 extra MELT c-headers ***/
 
 /** start of declaration for hook melthook_HOOK_LOW_DEBUG_VALUE_AT**/
 
@@ -948,6 +967,36 @@ MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_73_WARMELTmiHOOKS_AT_MELT
 
 MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_74_WARMELTmiHOOKS_AT_MELT_ATTRIBUTE_LAST(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
 
+/** start of declaration for hook melthook_HOOK_HANDLE_ATTRIBUTE**/
+
+/** declaration of hook melthook_HOOK_HANDLE_ATTRIBUTE */
+MELT_EXTERN
+tree melthook_HOOK_HANDLE_ATTRIBUTE(melt_ptr_t melthookdatap,
+                                    tree meltinp0_IN_NODE,
+                                    tree meltinp1_NAME,
+                                    tree meltinp2_ARGS,
+                                    long meltinp3_FLAGS,
+                                    long meltinp4_IN_ADD_ATTRS,
+                                    tree* meltoutp0_OUT_NODE,
+                                    long* meltoutp1_OUT_ADD_ATTRS)
+;
+
+
+
+/** end of declaration for hook melthook_HOOK_HANDLE_ATTRIBUTE**/
+
+
+
+
+
+
+MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_76_WARMELTmiHOOKS_REGISTER_GCC_ATTRIBUTE(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
+
+
+
+
+MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_77_WARMELTmiHOOKS_MELT_REGISTER_GCC_ATTRIBUTE_AT(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
+
 /** start of declaration for hook melthook_HOOK_EXIT_FINALIZER**/
 
 /** declaration of hook melthook_HOOK_EXIT_FINALIZER */
@@ -964,17 +1013,17 @@ void melthook_HOOK_EXIT_FINALIZER(melt_ptr_t melthookdatap)
 
 
 
-MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_76_WARMELTmiHOOKS_AT_EXIT_FIRST(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
+MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_79_WARMELTmiHOOKS_AT_EXIT_FIRST(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
 
 
 
 
-MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_77_WARMELTmiHOOKS_AT_EXIT_LAST(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
+MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_80_WARMELTmiHOOKS_AT_EXIT_LAST(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
 
 
 
 
-MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_78_WARMELTmiHOOKS_REGISTER_PRAGMA_PROCESSOR(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
+MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_81_WARMELTmiHOOKS_REGISTER_PRAGMA_PROCESSOR(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
 
 /** start of declaration for hook melthook_HOOK_PROCESS_PRAGMA**/
 
@@ -1006,17 +1055,17 @@ void melthook_HOOK_REGISTER_PRAGMAS(melt_ptr_t melthookdatap)
 
 
 
-MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_81_WARMELTmiHOOKS_ADD_PRAGMA_HANDLER(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
+MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_84_WARMELTmiHOOKS_ADD_PRAGMA_HANDLER(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
 
 
 
 
-MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_82_WARMELTmiHOOKS_REMOVE_PRAGMA_HANDLER(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
+MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_85_WARMELTmiHOOKS_REMOVE_PRAGMA_HANDLER(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
 
 
 
 
-MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_83_WARMELTmiHOOKS_MELT_INVOKE_INPUT_CALLBACKS(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
+MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_86_WARMELTmiHOOKS_MELT_INVOKE_INPUT_CALLBACKS(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
 
 /** start of declaration for hook melthook_HOOK_POLL_INPUTS**/
 
@@ -1035,67 +1084,67 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
 
 
 
-MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_85_WARMELTmiHOOKS_IS_POLLING_INPUTS(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
+MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_88_WARMELTmiHOOKS_IS_POLLING_INPUTS(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
 
 
 
 
-MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_86_WARMELTmiHOOKS_EVERY_POLLING_INPUT(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
+MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_89_WARMELTmiHOOKS_EVERY_POLLING_INPUT(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
 
 
 
 
-MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_87_WARMELTmiHOOKS_GET_POLLING_INPUT(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
+MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_90_WARMELTmiHOOKS_GET_POLLING_INPUT(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
 
 
 
 
-MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_88_WARMELTmiHOOKS_REGISTER_PARAGRAPH_INPUT_CHANNEL_HANDLER(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
+MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_91_WARMELTmiHOOKS_REGISTER_PARAGRAPH_INPUT_CHANNEL_HANDLER(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
 
 
 
 
-MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_89_WARMELTmiHOOKS_REGISTER_RAW_INPUT_CHANNEL_HANDLER(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
+MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_92_WARMELTmiHOOKS_REGISTER_RAW_INPUT_CHANNEL_HANDLER(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
 
 
 
 
-MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_90_WARMELTmiHOOKS_CONNECT_TO_SERVER(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
+MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_93_WARMELTmiHOOKS_CONNECT_TO_SERVER(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
 
 
 
 
-MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_91_WARMELTmiHOOKS_JSON_LEXER(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
+MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_94_WARMELTmiHOOKS_JSON_LEXER(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
 
 
 
 
-MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_92_WARMELTmiHOOKS_JSON_STATE_ACCEPTING_JVALUE(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
+MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_95_WARMELTmiHOOKS_JSON_STATE_ACCEPTING_JVALUE(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
 
 
 
 
-MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_93_WARMELTmiHOOKS_MAKE_JSON_PARSER(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
+MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_96_WARMELTmiHOOKS_MAKE_JSON_PARSER(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
 
 
 
 
-MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_94_WARMELTmiHOOKS_JSON_PARSER_INPUT_PROCESSOR(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
+MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_97_WARMELTmiHOOKS_JSON_PARSER_INPUT_PROCESSOR(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
 
 
 
 
-MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_95_WARMELTmiHOOKS_DO_BLOCKING_JSONRPC2_CALL(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
+MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_98_WARMELTmiHOOKS_DO_BLOCKING_JSONRPC2_CALL(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
 
 
 
 
-MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_96_WARMELTmiHOOKS_LAMBDA_cl7(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
+MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_99_WARMELTmiHOOKS_LAMBDA_cl7(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
 
 
 
 
-MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_97_WARMELTmiHOOKS_LAMBDA_cl8(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
+MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_100_WARMELTmiHOOKS_LAMBDA_cl8(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
 
 /** start of declaration for hook melthook_HOOK_HANDLE_SIGIO**/
 
@@ -1126,12 +1175,12 @@ void melthook_HOOK_HANDLE_SIGALRM(melt_ptr_t melthookdatap)
 
 
 
-MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_100_WARMELTmiHOOKS_REGISTER_ALARM_TIMER(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
+MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_103_WARMELTmiHOOKS_REGISTER_ALARM_TIMER(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
 
 
 
 
-MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_101_WARMELTmiHOOKS_UNREGISTER_ALARM_TIMER(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
+MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_104_WARMELTmiHOOKS_UNREGISTER_ALARM_TIMER(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
 
 /** start of declaration for hook melthook_HOOK_HANDLE_SIGCHLD**/
 
@@ -1149,12 +1198,12 @@ void melthook_HOOK_HANDLE_SIGCHLD(melt_ptr_t melthookdatap)
 
 
 
-MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_103_WARMELTmiHOOKS_REGISTER_CHILD_PROCESS_HANDLER(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
+MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_106_WARMELTmiHOOKS_REGISTER_CHILD_PROCESS_HANDLER(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
 
 
 
 
-MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_104_WARMELTmiHOOKS_UNREGISTER_CHILD_PROCESS_HANDLER(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
+MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_107_WARMELTmiHOOKS_UNREGISTER_CHILD_PROCESS_HANDLER(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
 
 
 MELT_EXTERN void* melt_start_this_module (void*); /*mandatory start of module*/
@@ -1163,7 +1212,7 @@ MELT_EXTERN const char melt_module_is_gpl_compatible[];
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiHOOKS_h721971239 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiHOOKS_h252892284 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -1192,6 +1241,8 @@ void MELT_MODULE_VISIBILITY meltmod__WARMELTmiHOOKS__initialmeltchunk_11 (meltin
 void MELT_MODULE_VISIBILITY meltmod__WARMELTmiHOOKS__initialmeltchunk_12 (meltinitial_frame_t*, char*);
 void MELT_MODULE_VISIBILITY meltmod__WARMELTmiHOOKS__initialmeltchunk_13 (meltinitial_frame_t*, char*);
 void MELT_MODULE_VISIBILITY meltmod__WARMELTmiHOOKS__initialmeltchunk_14 (meltinitial_frame_t*, char*);
+void MELT_MODULE_VISIBILITY meltmod__WARMELTmiHOOKS__initialmeltchunk_15 (meltinitial_frame_t*, char*);
+void MELT_MODULE_VISIBILITY meltmod__WARMELTmiHOOKS__initialmeltchunk_16 (meltinitial_frame_t*, char*);
 
 
 /**** warmelt-hooks+01.cc implementations ****/
@@ -2734,7 +2785,7 @@ meltlab_endgetargs:
                     MELT_CHECK_SIGNAL();
                     ;
                     /*_#NULL__L2*/ meltfnum[1] =
-                        ((/*_.FIRSTLIST__V3*/ meltfptr[2]) == NULL);;
+                        (/*null*/(/*_.FIRSTLIST__V3*/ meltfptr[2]) == NULL);;
                     MELT_LOCATION("warmelt-hooks.melt:591:/ cond");
                     /*cond*/ if (/*_#NULL__L2*/ meltfnum[1]) /*then*/
                         {
@@ -3004,7 +3055,7 @@ meltlab_endgetargs:
                     MELT_CHECK_SIGNAL();
                     ;
                     /*_#NULL__L2*/ meltfnum[1] =
-                        ((/*_.LASTLIST__V3*/ meltfptr[2]) == NULL);;
+                        (/*null*/(/*_.LASTLIST__V3*/ meltfptr[2]) == NULL);;
                     MELT_LOCATION("warmelt-hooks.melt:614:/ cond");
                     /*cond*/ if (/*_#NULL__L2*/ meltfnum[1]) /*then*/
                         {
@@ -3398,7 +3449,7 @@ meltlab_endgetargs:
                     MELT_CHECK_SIGNAL();
                     ;
                     /*_#NULL__L2*/ meltfnum[1] =
-                        ((/*_.FIRSTLIST__V3*/ meltfptr[2]) == NULL);;
+                        (/*null*/(/*_.FIRSTLIST__V3*/ meltfptr[2]) == NULL);;
                     MELT_LOCATION("warmelt-hooks.melt:714:/ cond");
                     /*cond*/ if (/*_#NULL__L2*/ meltfnum[1]) /*then*/
                         {
@@ -3668,7 +3719,7 @@ meltlab_endgetargs:
                     MELT_CHECK_SIGNAL();
                     ;
                     /*_#NULL__L2*/ meltfnum[1] =
-                        ((/*_.LASTLIST__V3*/ meltfptr[2]) == NULL);;
+                        (/*null*/(/*_.LASTLIST__V3*/ meltfptr[2]) == NULL);;
                     MELT_LOCATION("warmelt-hooks.melt:737:/ cond");
                     /*cond*/ if (/*_#NULL__L2*/ meltfnum[1]) /*then*/
                         {
@@ -4062,7 +4113,7 @@ meltlab_endgetargs:
                     MELT_CHECK_SIGNAL();
                     ;
                     /*_#NULL__L2*/ meltfnum[1] =
-                        ((/*_.FIRSTLIST__V3*/ meltfptr[2]) == NULL);;
+                        (/*null*/(/*_.FIRSTLIST__V3*/ meltfptr[2]) == NULL);;
                     MELT_LOCATION("warmelt-hooks.melt:836:/ cond");
                     /*cond*/ if (/*_#NULL__L2*/ meltfnum[1]) /*then*/
                         {
@@ -4332,7 +4383,7 @@ meltlab_endgetargs:
                     MELT_CHECK_SIGNAL();
                     ;
                     /*_#NULL__L2*/ meltfnum[1] =
-                        ((/*_.LASTLIST__V3*/ meltfptr[2]) == NULL);;
+                        (/*null*/(/*_.LASTLIST__V3*/ meltfptr[2]) == NULL);;
                     MELT_LOCATION("warmelt-hooks.melt:859:/ cond");
                     /*cond*/ if (/*_#NULL__L2*/ meltfnum[1]) /*then*/
                         {
@@ -4726,7 +4777,7 @@ meltlab_endgetargs:
                     MELT_CHECK_SIGNAL();
                     ;
                     /*_#NULL__L2*/ meltfnum[1] =
-                        ((/*_.FIRSTLIST__V3*/ meltfptr[2]) == NULL);;
+                        (/*null*/(/*_.FIRSTLIST__V3*/ meltfptr[2]) == NULL);;
                     MELT_LOCATION("warmelt-hooks.melt:959:/ cond");
                     /*cond*/ if (/*_#NULL__L2*/ meltfnum[1]) /*then*/
                         {
@@ -4996,7 +5047,7 @@ meltlab_endgetargs:
                     MELT_CHECK_SIGNAL();
                     ;
                     /*_#NULL__L2*/ meltfnum[1] =
-                        ((/*_.LASTLIST__V3*/ meltfptr[2]) == NULL);;
+                        (/*null*/(/*_.LASTLIST__V3*/ meltfptr[2]) == NULL);;
                     MELT_LOCATION("warmelt-hooks.melt:982:/ cond");
                     /*cond*/ if (/*_#NULL__L2*/ meltfnum[1]) /*then*/
                         {
@@ -5390,7 +5441,7 @@ meltlab_endgetargs:
                     MELT_CHECK_SIGNAL();
                     ;
                     /*_#NULL__L2*/ meltfnum[1] =
-                        ((/*_.FIRSTLIST__V3*/ meltfptr[2]) == NULL);;
+                        (/*null*/(/*_.FIRSTLIST__V3*/ meltfptr[2]) == NULL);;
                     MELT_LOCATION("warmelt-hooks.melt:1082:/ cond");
                     /*cond*/ if (/*_#NULL__L2*/ meltfnum[1]) /*then*/
                         {
@@ -5661,7 +5712,7 @@ meltlab_endgetargs:
                     MELT_CHECK_SIGNAL();
                     ;
                     /*_#NULL__L2*/ meltfnum[1] =
-                        ((/*_.LASTLIST__V3*/ meltfptr[2]) == NULL);;
+                        (/*null*/(/*_.LASTLIST__V3*/ meltfptr[2]) == NULL);;
                     MELT_LOCATION("warmelt-hooks.melt:1105:/ cond");
                     /*cond*/ if (/*_#NULL__L2*/ meltfnum[1]) /*then*/
                         {

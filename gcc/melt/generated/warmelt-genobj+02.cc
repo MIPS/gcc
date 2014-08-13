@@ -39,8 +39,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f2[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiGENOBJ_h1072354552; // forward declaration fromline 6566
-typedef Melt_InitialClassyFrame_WARMELTmiGENOBJ_h1072354552 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiGENOBJ_h113258900; // forward declaration fromline 6566
+typedef Melt_InitialClassyFrame_WARMELTmiGENOBJ_h113258900 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
 /*** 3 MELT called hook declarations ***/
@@ -1020,7 +1020,7 @@ MELT_EXTERN const char melt_module_is_gpl_compatible[];
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiGENOBJ_h1072354552 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiGENOBJ_h113258900 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -4657,7 +4657,7 @@ meltlab_endgetargs:
         MELT_CHECK_SIGNAL();
         ;
         /*_#NULL__L7*/ meltfnum[0] =
-            ((/*_.SBND__V17*/ meltfptr[16]) == NULL);;
+            (/*null*/(/*_.SBND__V17*/ meltfptr[16]) == NULL);;
         MELT_LOCATION("warmelt-genobj.melt:2522:/ cond");
         /*cond*/ if (/*_#NULL__L7*/ meltfnum[0]) /*then*/
             {
@@ -4875,7 +4875,7 @@ meltlab_endgetargs:
         ;
         /*^compute*/
         /*_#NULL__L10*/ meltfnum[8] =
-            ((/*_.OVAR__V18*/ meltfptr[17]) == NULL);;
+            (/*null*/(/*_.OVAR__V18*/ meltfptr[17]) == NULL);;
         MELT_LOCATION("warmelt-genobj.melt:2526:/ cond");
         /*cond*/ if (/*_#NULL__L10*/ meltfnum[8]) /*then*/
             {
@@ -18293,7 +18293,7 @@ meltlab_endgetargs:
                     MELT_CHECK_SIGNAL();
                     ;
                     /*_#NULL__L36*/ meltfnum[9] =
-                        ((/*_.OBJCOMP__V67*/ meltfptr[34]) == NULL);;
+                        (/*null*/(/*_.OBJCOMP__V67*/ meltfptr[34]) == NULL);;
                     MELT_LOCATION("warmelt-genobj.melt:3021:/ cond");
                     /*cond*/ if (/*_#NULL__L36*/ meltfnum[9]) /*then*/
                         {

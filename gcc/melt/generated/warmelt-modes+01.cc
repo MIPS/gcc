@@ -39,8 +39,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f1[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiMODES_h733352190; // forward declaration fromline 6566
-typedef Melt_InitialClassyFrame_WARMELTmiMODES_h733352190 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiMODES_h838811309; // forward declaration fromline 6566
+typedef Melt_InitialClassyFrame_WARMELTmiMODES_h838811309 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
 /*** 4 MELT called hook declarations ***/
@@ -438,7 +438,7 @@ MELT_EXTERN const char melt_module_is_gpl_compatible[];
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiMODES_h733352190 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiMODES_h838811309 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -920,7 +920,7 @@ meltlabloop_WAITFUNLOOP_1:;/*^loopbody*/
                 }
                 ;
                 /*_#NULL__L4*/ meltfnum[0] =
-                    ((/*_.GET_POLLING_INPUT__V9*/ meltfptr[8]) == NULL);;
+                    (/*null*/(/*_.GET_POLLING_INPUT__V9*/ meltfptr[8]) == NULL);;
                 MELT_LOCATION("warmelt-modes.melt:402:/ cond");
                 /*cond*/ if (/*_#NULL__L4*/ meltfnum[0]) /*then*/
                     {
@@ -2869,7 +2869,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_1;
                         meltlab_count_1++;
-                        debugeprintf("objlabel_1 mtch1_*CLASS_NORMTESTER_INSTANCE/b46e28d. *CLASS_OBJLABELINSTR/214a8ea4. %ld", meltlab_count_1);
+                        debugeprintf("objlabel_1 mtch1_*CLASS_NORMTESTER_INSTANCE/2a349d9b. *CLASS_OBJLABELINSTR/101f31a7. %ld", meltlab_count_1);
 #endif
 
                         ;
@@ -2952,7 +2952,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_2;
                         meltlab_count_2++;
-                        debugeprintf("objlabel_2 mtch1_*CLASS_NORMTESTER_INSTANCE/107f0faf. *CLASS_OBJLABELINSTR/33dee7de. %ld", meltlab_count_2);
+                        debugeprintf("objlabel_2 mtch1_*CLASS_NORMTESTER_INSTANCE/3da7c6d4. *CLASS_OBJLABELINSTR/30082b35. %ld", meltlab_count_2);
 #endif
 
                         ;
@@ -3015,7 +3015,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_3;
                         meltlab_count_3++;
-                        debugeprintf("objlabel_3 mtch1_*CLASS_NORMTESTER_INSTANCE/3e70bcc7. *CLASS_OBJLABELINSTR/76dbf0c. %ld", meltlab_count_3);
+                        debugeprintf("objlabel_3 mtch1_*CLASS_NORMTESTER_INSTANCE/3c1abf93. *CLASS_OBJLABELINSTR/12a49ac9. %ld", meltlab_count_3);
 #endif
 
                         ;
@@ -3068,7 +3068,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_4;
                         meltlab_count_4++;
-                        debugeprintf("objlabel_4 mtch1_*CLASS_NORMTESTER_SUCCESS/24793d6a. *CLASS_OBJLABELINSTR/175997ba. %ld", meltlab_count_4);
+                        debugeprintf("objlabel_4 mtch1_*CLASS_NORMTESTER_SUCCESS/efdceee. *CLASS_OBJLABELINSTR/ba47a82. %ld", meltlab_count_4);
 #endif
 
                         ;
@@ -3613,7 +3613,7 @@ meltlab_endgetargs:
                                     ;
                                     /*^compute*/
                                     /*_#NULL__L15*/ meltfnum[14] =
-                                        ((/*_.CURANCSUBCL__V51*/ meltfptr[50]) == NULL);;
+                                        (/*null*/(/*_.CURANCSUBCL__V51*/ meltfptr[50]) == NULL);;
                                     MELT_LOCATION("warmelt-modes.melt:610:/ cond");
                                     /*cond*/ if (/*_#NULL__L15*/ meltfnum[14]) /*then*/
                                         {
@@ -3733,7 +3733,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_5;
                         meltlab_count_5++;
-                        debugeprintf("objlabel_5 mtch1_*CLASS_NORMTESTER_INSTANCE/14a15333. *CLASS_OBJLABELINSTR/cf19653. %ld", meltlab_count_5);
+                        debugeprintf("objlabel_5 mtch1_*CLASS_NORMTESTER_INSTANCE/dac66a4. *CLASS_OBJLABELINSTR/1b342a16. %ld", meltlab_count_5);
 #endif
 
                         ;
@@ -3816,7 +3816,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_6;
                         meltlab_count_6++;
-                        debugeprintf("objlabel_6 mtch1_*CLASS_NORMTESTER_INSTANCE/fcd5f5e. *CLASS_OBJLABELINSTR/23524c66. %ld", meltlab_count_6);
+                        debugeprintf("objlabel_6 mtch1_*CLASS_NORMTESTER_INSTANCE/1a717df0. *CLASS_OBJLABELINSTR/27e4a276. %ld", meltlab_count_6);
 #endif
 
                         ;
@@ -3879,7 +3879,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_7;
                         meltlab_count_7++;
-                        debugeprintf("objlabel_7 mtch1_*CLASS_NORMTESTER_SUCCESS/3b3209e0. *CLASS_OBJLABELINSTR/272cd8e2. %ld", meltlab_count_7);
+                        debugeprintf("objlabel_7 mtch1_*CLASS_NORMTESTER_SUCCESS/26d4da6b. *CLASS_OBJLABELINSTR/34bb98dd. %ld", meltlab_count_7);
 #endif
 
                         ;
@@ -4014,7 +4014,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_8;
                         meltlab_count_8++;
-                        debugeprintf("objlabel_8 mtch1_*CLASS_NORMTESTER_INSTANCE/1908b627. *CLASS_OBJLABELINSTR/387ac548. %ld", meltlab_count_8);
+                        debugeprintf("objlabel_8 mtch1_*CLASS_NORMTESTER_INSTANCE/37b1c314. *CLASS_OBJLABELINSTR/3f7d5f6e. %ld", meltlab_count_8);
 #endif
 
                         ;
@@ -4097,7 +4097,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_9;
                         meltlab_count_9++;
-                        debugeprintf("objlabel_9 mtch1_*CLASS_NORMTESTER_INSTANCE/836a653. *CLASS_OBJLABELINSTR/11909296. %ld", meltlab_count_9);
+                        debugeprintf("objlabel_9 mtch1_*CLASS_NORMTESTER_INSTANCE/26db02a5. *CLASS_OBJLABELINSTR/25655333. %ld", meltlab_count_9);
 #endif
 
                         ;
@@ -4160,7 +4160,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_10;
                         meltlab_count_10++;
-                        debugeprintf("objlabel_10 mtch1_*CLASS_NORMTESTER_SUCCESS/8533089. *CLASS_OBJLABELINSTR/3c33a9bf. %ld", meltlab_count_10);
+                        debugeprintf("objlabel_10 mtch1_*CLASS_NORMTESTER_SUCCESS/1cce3efd. *CLASS_OBJLABELINSTR/2b0d86c0. %ld", meltlab_count_10);
 #endif
 
                         ;
@@ -4295,7 +4295,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_11;
                         meltlab_count_11++;
-                        debugeprintf("objlabel_11 mtch1_*CLASS_NORMTESTER_INSTANCE/19aebe60. *CLASS_OBJLABELINSTR/2bd6ffe9. %ld", meltlab_count_11);
+                        debugeprintf("objlabel_11 mtch1_*CLASS_NORMTESTER_INSTANCE/2dd43ed2. *CLASS_OBJLABELINSTR/1eeeafd2. %ld", meltlab_count_11);
 #endif
 
                         ;
@@ -4368,7 +4368,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_12;
                         meltlab_count_12++;
-                        debugeprintf("objlabel_12 mtch1_*CLASS_NORMTESTER_INSTANCE/13b9a43e. *CLASS_OBJLABELINSTR/3f427e13. %ld", meltlab_count_12);
+                        debugeprintf("objlabel_12 mtch1_*CLASS_NORMTESTER_INSTANCE/f2358fd. *CLASS_OBJLABELINSTR/3e559a6d. %ld", meltlab_count_12);
 #endif
 
                         ;
@@ -4431,7 +4431,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_13;
                         meltlab_count_13++;
-                        debugeprintf("objlabel_13 mtch1_*CLASS_NORMTESTER_SUCCESS/20e07a6d. *CLASS_OBJLABELINSTR/629cef. %ld", meltlab_count_13);
+                        debugeprintf("objlabel_13 mtch1_*CLASS_NORMTESTER_SUCCESS/6a432b6. *CLASS_OBJLABELINSTR/3fa9dc20. %ld", meltlab_count_13);
 #endif
 
                         ;
@@ -4551,7 +4551,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_14;
                         meltlab_count_14++;
-                        debugeprintf("objlabel_14 mtch1_*CLASS_NORMTESTER_INSTANCE/6414cab. *CLASS_OBJLABELINSTR/16a5c1b0. %ld", meltlab_count_14);
+                        debugeprintf("objlabel_14 mtch1_*CLASS_NORMTESTER_INSTANCE/1839939a. *CLASS_OBJLABELINSTR/2d8c7578. %ld", meltlab_count_14);
 #endif
 
                         ;
@@ -4624,7 +4624,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_15;
                         meltlab_count_15++;
-                        debugeprintf("objlabel_15 mtch1_*CLASS_NORMTESTER_INSTANCE/1047839c. *CLASS_OBJLABELINSTR/1431a046. %ld", meltlab_count_15);
+                        debugeprintf("objlabel_15 mtch1_*CLASS_NORMTESTER_INSTANCE/8fbfe21. *CLASS_OBJLABELINSTR/2c059008. %ld", meltlab_count_15);
 #endif
 
                         ;
@@ -4687,7 +4687,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_16;
                         meltlab_count_16++;
-                        debugeprintf("objlabel_16 mtch1_*CLASS_NORMTESTER_SUCCESS/2c126676. *CLASS_OBJLABELINSTR/1eaf9e1b. %ld", meltlab_count_16);
+                        debugeprintf("objlabel_16 mtch1_*CLASS_NORMTESTER_SUCCESS/2d52fb43. *CLASS_OBJLABELINSTR/2fd03546. %ld", meltlab_count_16);
 #endif
 
                         ;
@@ -4807,7 +4807,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_17;
                         meltlab_count_17++;
-                        debugeprintf("objlabel_17 mtch1_*CLASS_NORMTESTER_INSTANCE/3c3bc578. *CLASS_OBJLABELINSTR/c220153. %ld", meltlab_count_17);
+                        debugeprintf("objlabel_17 mtch1_*CLASS_NORMTESTER_INSTANCE/23295ce. *CLASS_OBJLABELINSTR/25a052f0. %ld", meltlab_count_17);
 #endif
 
                         ;
@@ -4880,7 +4880,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_18;
                         meltlab_count_18++;
-                        debugeprintf("objlabel_18 mtch1_*CLASS_NORMTESTER_INSTANCE/29bcc047. *CLASS_OBJLABELINSTR/3eae4834. %ld", meltlab_count_18);
+                        debugeprintf("objlabel_18 mtch1_*CLASS_NORMTESTER_INSTANCE/24284678. *CLASS_OBJLABELINSTR/3be18d66. %ld", meltlab_count_18);
 #endif
 
                         ;
@@ -4943,7 +4943,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_19;
                         meltlab_count_19++;
-                        debugeprintf("objlabel_19 mtch1_*CLASS_NORMTESTER_SUCCESS/5fb4af7. *CLASS_OBJLABELINSTR/14d6aaca. %ld", meltlab_count_19);
+                        debugeprintf("objlabel_19 mtch1_*CLASS_NORMTESTER_SUCCESS/15661685. *CLASS_OBJLABELINSTR/134f7c3e. %ld", meltlab_count_19);
 #endif
 
                         ;
@@ -5063,7 +5063,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_20;
                         meltlab_count_20++;
-                        debugeprintf("objlabel_20 mtch1_*CLASS_NORMTESTER_INSTANCE/ba47301. *CLASS_OBJLABELINSTR/82e42a0. %ld", meltlab_count_20);
+                        debugeprintf("objlabel_20 mtch1_*CLASS_NORMTESTER_INSTANCE/21be4fd9. *CLASS_OBJLABELINSTR/3bcd913a. %ld", meltlab_count_20);
 #endif
 
                         ;
@@ -5136,7 +5136,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_21;
                         meltlab_count_21++;
-                        debugeprintf("objlabel_21 mtch1_*CLASS_NORMTESTER_INSTANCE/2ff9d1f8. *CLASS_OBJLABELINSTR/26b2c678. %ld", meltlab_count_21);
+                        debugeprintf("objlabel_21 mtch1_*CLASS_NORMTESTER_INSTANCE/1451b955. *CLASS_OBJLABELINSTR/3004aacb. %ld", meltlab_count_21);
 #endif
 
                         ;
@@ -5199,7 +5199,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_22;
                         meltlab_count_22++;
-                        debugeprintf("objlabel_22 mtch1_*CLASS_NORMTESTER_SUCCESS/1e384f2f. *CLASS_OBJLABELINSTR/2c6e002a. %ld", meltlab_count_22);
+                        debugeprintf("objlabel_22 mtch1_*CLASS_NORMTESTER_SUCCESS/2b0123b6. *CLASS_OBJLABELINSTR/21487c21. %ld", meltlab_count_22);
 #endif
 
                         ;
@@ -5319,7 +5319,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_23;
                         meltlab_count_23++;
-                        debugeprintf("objlabel_23 mtch1_*CLASS_NORMTESTER_INSTANCE/3f96d96b. *CLASS_OBJLABELINSTR/29c48d89. %ld", meltlab_count_23);
+                        debugeprintf("objlabel_23 mtch1_*CLASS_NORMTESTER_INSTANCE/39642d41. *CLASS_OBJLABELINSTR/2d740f04. %ld", meltlab_count_23);
 #endif
 
                         ;
@@ -5392,7 +5392,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_24;
                         meltlab_count_24++;
-                        debugeprintf("objlabel_24 mtch1_*CLASS_NORMTESTER_INSTANCE/1e520d2. *CLASS_OBJLABELINSTR/2f068bff. %ld", meltlab_count_24);
+                        debugeprintf("objlabel_24 mtch1_*CLASS_NORMTESTER_INSTANCE/22dd4c46. *CLASS_OBJLABELINSTR/26fcec83. %ld", meltlab_count_24);
 #endif
 
                         ;
@@ -5455,7 +5455,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_25;
                         meltlab_count_25++;
-                        debugeprintf("objlabel_25 mtch1_*CLASS_NORMTESTER_SUCCESS/3119645f. *CLASS_OBJLABELINSTR/e93855d. %ld", meltlab_count_25);
+                        debugeprintf("objlabel_25 mtch1_*CLASS_NORMTESTER_SUCCESS/24157600. *CLASS_OBJLABELINSTR/2886f7e8. %ld", meltlab_count_25);
 #endif
 
                         ;
@@ -5575,7 +5575,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_26;
                         meltlab_count_26++;
-                        debugeprintf("objlabel_26 mtch1_*CLASS_NORMTESTER_INSTANCE/17f3efda. *CLASS_OBJLABELINSTR/2771a7b7. %ld", meltlab_count_26);
+                        debugeprintf("objlabel_26 mtch1_*CLASS_NORMTESTER_INSTANCE/9513993. *CLASS_OBJLABELINSTR/3c6e768d. %ld", meltlab_count_26);
 #endif
 
                         ;
@@ -5648,7 +5648,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_27;
                         meltlab_count_27++;
-                        debugeprintf("objlabel_27 mtch1_*CLASS_NORMTESTER_INSTANCE/2088837f. *CLASS_OBJLABELINSTR/29de1a4e. %ld", meltlab_count_27);
+                        debugeprintf("objlabel_27 mtch1_*CLASS_NORMTESTER_INSTANCE/182fde51. *CLASS_OBJLABELINSTR/24b02a2. %ld", meltlab_count_27);
 #endif
 
                         ;
@@ -5711,7 +5711,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_28;
                         meltlab_count_28++;
-                        debugeprintf("objlabel_28 mtch1_*CLASS_NORMTESTER_SUCCESS/8314cb2. *CLASS_OBJLABELINSTR/21d5df0. %ld", meltlab_count_28);
+                        debugeprintf("objlabel_28 mtch1_*CLASS_NORMTESTER_SUCCESS/23d98bd7. *CLASS_OBJLABELINSTR/37cc0f9a. %ld", meltlab_count_28);
 #endif
 
                         ;
@@ -5793,7 +5793,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_29;
                         meltlab_count_29++;
-                        debugeprintf("objlabel_29 mtch1_*CLASS_NORMTESTER_INSTANCE/124878c0. *CLASS_OBJLABELINSTR/d4cce6b. %ld", meltlab_count_29);
+                        debugeprintf("objlabel_29 mtch1_*CLASS_NORMTESTER_INSTANCE/df4e349. *CLASS_OBJLABELINSTR/29de7a9a. %ld", meltlab_count_29);
 #endif
 
                         ;
@@ -5866,7 +5866,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_30;
                         meltlab_count_30++;
-                        debugeprintf("objlabel_30 mtch1_*CLASS_NORMTESTER_INSTANCE/1af6371a. *CLASS_OBJLABELINSTR/e2e6216. %ld", meltlab_count_30);
+                        debugeprintf("objlabel_30 mtch1_*CLASS_NORMTESTER_INSTANCE/34c4d5ef. *CLASS_OBJLABELINSTR/3c89d676. %ld", meltlab_count_30);
 #endif
 
                         ;
@@ -5929,7 +5929,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_31;
                         meltlab_count_31++;
-                        debugeprintf("objlabel_31 mtch1_*CLASS_NORMTESTER_SUCCESS/198855e2. *CLASS_OBJLABELINSTR/3995f459. %ld", meltlab_count_31);
+                        debugeprintf("objlabel_31 mtch1_*CLASS_NORMTESTER_SUCCESS/e56101c. *CLASS_OBJLABELINSTR/23fd84fe. %ld", meltlab_count_31);
 #endif
 
                         ;
@@ -6011,7 +6011,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_32;
                         meltlab_count_32++;
-                        debugeprintf("objlabel_32 mtch1_*CLASS_NORMTESTER_INSTANCE/20ac6a04. *CLASS_OBJLABELINSTR/dc34de8. %ld", meltlab_count_32);
+                        debugeprintf("objlabel_32 mtch1_*CLASS_NORMTESTER_INSTANCE/115dbdc8. *CLASS_OBJLABELINSTR/34dd36a2. %ld", meltlab_count_32);
 #endif
 
                         ;
@@ -6084,7 +6084,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_33;
                         meltlab_count_33++;
-                        debugeprintf("objlabel_33 mtch1_*CLASS_NORMTESTER_INSTANCE/544067c. *CLASS_OBJLABELINSTR/1bc41cfd. %ld", meltlab_count_33);
+                        debugeprintf("objlabel_33 mtch1_*CLASS_NORMTESTER_INSTANCE/288c3fcf. *CLASS_OBJLABELINSTR/fce036b. %ld", meltlab_count_33);
 #endif
 
                         ;
@@ -6147,7 +6147,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_34;
                         meltlab_count_34++;
-                        debugeprintf("objlabel_34 mtch1_*CLASS_NORMTESTER_SUCCESS/2bfcf406. *CLASS_OBJLABELINSTR/259c58df. %ld", meltlab_count_34);
+                        debugeprintf("objlabel_34 mtch1_*CLASS_NORMTESTER_SUCCESS/2e50d7fb. *CLASS_OBJLABELINSTR/b9bbe8e. %ld", meltlab_count_34);
 #endif
 
                         ;
@@ -6229,7 +6229,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_35;
                         meltlab_count_35++;
-                        debugeprintf("objlabel_35 mtch1_*CLASS_NORMTESTER_INSTANCE/3dac1cc3. *CLASS_OBJLABELINSTR/8d551b1. %ld", meltlab_count_35);
+                        debugeprintf("objlabel_35 mtch1_*CLASS_NORMTESTER_INSTANCE/84d4fd7. *CLASS_OBJLABELINSTR/15c2646. %ld", meltlab_count_35);
 #endif
 
                         ;
@@ -6292,7 +6292,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_36;
                         meltlab_count_36++;
-                        debugeprintf("objlabel_36 mtch1_*CLASS_NORMTESTER_INSTANCE/3d9f3137. *CLASS_OBJLABELINSTR/30b2b0. %ld", meltlab_count_36);
+                        debugeprintf("objlabel_36 mtch1_*CLASS_NORMTESTER_INSTANCE/34454c0a. *CLASS_OBJLABELINSTR/2c76369d. %ld", meltlab_count_36);
 #endif
 
                         ;
@@ -6355,7 +6355,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_37;
                         meltlab_count_37++;
-                        debugeprintf("objlabel_37 mtch1_*CLASS_NORMTESTER_SUCCESS/3758abb0. *CLASS_OBJLABELINSTR/3dd9c566. %ld", meltlab_count_37);
+                        debugeprintf("objlabel_37 mtch1_*CLASS_NORMTESTER_SUCCESS/31da8116. *CLASS_OBJLABELINSTR/386105e8. %ld", meltlab_count_37);
 #endif
 
                         ;
@@ -6597,7 +6597,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_38;
                         meltlab_count_38++;
-                        debugeprintf("objlabel_38 mtch1_*CLASS_NORMTESTER_SUCCESS/1c0f34c7. *CLASS_OBJLABELINSTR/35bfab9f. %ld", meltlab_count_38);
+                        debugeprintf("objlabel_38 mtch1_*CLASS_NORMTESTER_SUCCESS/34e446a1. *CLASS_OBJLABELINSTR/1927da3c. %ld", meltlab_count_38);
 #endif
 
                         ;
@@ -6731,7 +6731,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_39;
                         meltlab_count_39++;
-                        debugeprintf("objlabel_39 mtch1__end_h86659327 *CLASS_OBJLABELINSTR/52a50ff. %ld", meltlab_count_39);
+                        debugeprintf("objlabel_39 mtch1__end_h403966849 *CLASS_OBJLABELINSTR/18140b81. %ld", meltlab_count_39);
 #endif
 
                         ;
@@ -7690,7 +7690,7 @@ meltlab_endgetargs:
         ;
         /*^compute*/
         /*_#NULL__L3*/ meltfnum[0] =
-            ((/*_.FORMOCCLIST__V11*/ meltfptr[4]) == NULL);;
+            (/*null*/(/*_.FORMOCCLIST__V11*/ meltfptr[4]) == NULL);;
         MELT_LOCATION("warmelt-modes.melt:561:/ cond");
         /*cond*/ if (/*_#NULL__L3*/ meltfnum[0]) /*then*/
             {
@@ -8038,7 +8038,7 @@ meltlab_endgetargs:
         ;
         /*^compute*/
         /*_#NULL__L3*/ meltfnum[0] =
-            ((/*_.LOC__V10*/ meltfptr[8]) == NULL);;
+            (/*null*/(/*_.LOC__V10*/ meltfptr[8]) == NULL);;
         MELT_LOCATION("warmelt-modes.melt:809:/ cond");
         /*cond*/ if (/*_#NULL__L3*/ meltfnum[0]) /*then*/
             {
@@ -25383,7 +25383,7 @@ meltlab_endgetargs:
                     /*cond*/ if (
                         /*ifisa*/ melt_is_instance_of((melt_ptr_t)(
                                                           /*quasi.cur.mod.env.ref */
-                                                          /* check quasi.cur.mod.env.ref 851037981 */
+                                                          /* check quasi.cur.mod.env.ref 809656472 */
                                                           ((/*!konst_2*/ meltfrout->tabval[2]))
                                                       ),
                                                       (melt_ptr_t)((/*!CLASS_REFERENCE*/ meltfrout->tabval[3])))
@@ -25395,7 +25395,7 @@ meltlab_endgetargs:
                                 melt_ptr_t slot=NULL, obj=NULL;
                                 obj = (melt_ptr_t)(
                                           /*quasi.cur.mod.env.ref */
-                                          /* check quasi.cur.mod.env.ref 851037981 */
+                                          /* check quasi.cur.mod.env.ref 809656472 */
                                           ((/*!konst_2*/ meltfrout->tabval[2]))
                                       ) /*=obj*/;
                                 melt_object_get_field(slot,obj, 0, "REFERENCED_VALUE");

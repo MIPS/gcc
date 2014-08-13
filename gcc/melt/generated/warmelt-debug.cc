@@ -40,8 +40,8 @@ MELT_EXTERN const char meltrun_used_md5_melt[] = MELT_RUN_HASHMD5 /* from melt-r
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiDEBUG_h397460925; // forward declaration fromline 6566
-typedef Melt_InitialClassyFrame_WARMELTmiDEBUG_h397460925 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiDEBUG_h734283817; // forward declaration fromline 6566
+typedef Melt_InitialClassyFrame_WARMELTmiDEBUG_h734283817 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
 /*** 3 MELT called hook declarations ***/
@@ -341,7 +341,7 @@ MELT_EXTERN const char melt_module_is_gpl_compatible[];
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiDEBUG_h397460925 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiDEBUG_h734283817 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -497,7 +497,7 @@ meltlab_endgetargs:
         ;
         /*^compute*/
         /*_#NULL__L1*/ meltfnum[0] =
-            ((/*_.F__V2*/ meltfptr[1]) == NULL);;
+            (/*null*/(/*_.F__V2*/ meltfptr[1]) == NULL);;
         MELT_LOCATION("warmelt-debug.melt:118:/ cond");
         /*cond*/ if (/*_#NULL__L1*/ meltfnum[0]) /*then*/
             {
@@ -742,7 +742,7 @@ meltlab_endgetargs:
         ;
         /*^compute*/
         /*_#NULL__L1*/ meltfnum[0] =
-            ((/*_.F__V2*/ meltfptr[1]) == NULL);;
+            (/*null*/(/*_.F__V2*/ meltfptr[1]) == NULL);;
         MELT_LOCATION("warmelt-debug.melt:131:/ cond");
         /*cond*/ if (/*_#NULL__L1*/ meltfnum[0]) /*then*/
             {
@@ -987,7 +987,7 @@ meltlab_endgetargs:
         ;
         /*^compute*/
         /*_#NULL__L1*/ meltfnum[0] =
-            ((/*_.F__V2*/ meltfptr[1]) == NULL);;
+            (/*null*/(/*_.F__V2*/ meltfptr[1]) == NULL);;
         MELT_LOCATION("warmelt-debug.melt:144:/ cond");
         /*cond*/ if (/*_#NULL__L1*/ meltfnum[0]) /*then*/
             {
@@ -1232,7 +1232,7 @@ meltlab_endgetargs:
         ;
         /*^compute*/
         /*_#NULL__L1*/ meltfnum[0] =
-            ((/*_.F__V2*/ meltfptr[1]) == NULL);;
+            (/*null*/(/*_.F__V2*/ meltfptr[1]) == NULL);;
         MELT_LOCATION("warmelt-debug.melt:157:/ cond");
         /*cond*/ if (/*_#NULL__L1*/ meltfnum[0]) /*then*/
             {
@@ -1477,7 +1477,7 @@ meltlab_endgetargs:
         ;
         /*^compute*/
         /*_#NULL__L1*/ meltfnum[0] =
-            ((/*_.F__V2*/ meltfptr[1]) == NULL);;
+            (/*null*/(/*_.F__V2*/ meltfptr[1]) == NULL);;
         MELT_LOCATION("warmelt-debug.melt:170:/ cond");
         /*cond*/ if (/*_#NULL__L1*/ meltfnum[0]) /*then*/
             {
@@ -1722,7 +1722,7 @@ meltlab_endgetargs:
         ;
         /*^compute*/
         /*_#NULL__L1*/ meltfnum[0] =
-            ((/*_.F__V2*/ meltfptr[1]) == NULL);;
+            (/*null*/(/*_.F__V2*/ meltfptr[1]) == NULL);;
         MELT_LOCATION("warmelt-debug.melt:183:/ cond");
         /*cond*/ if (/*_#NULL__L1*/ meltfnum[0]) /*then*/
             {
@@ -2108,7 +2108,7 @@ meltlab_endgetargs:
                     MELT_CHECK_SIGNAL();
                     ;
                     /*_#NULL__L6*/ meltfnum[5] =
-                        ((/*_.OUT__V5*/ meltfptr[4]) == NULL);;
+                        (/*null*/(/*_.OUT__V5*/ meltfptr[4]) == NULL);;
                     MELT_LOCATION("warmelt-debug.melt:226:/ cond");
                     /*cond*/ if (/*_#NULL__L6*/ meltfnum[5]) /*then*/
                         {
@@ -2138,7 +2138,7 @@ meltlab_endgetargs:
                     ;
                     /*^compute*/
                     /*_#NULL__L7*/ meltfnum[6] =
-                        ((/*_.OUT__V5*/ meltfptr[4]) == NULL);;
+                        (/*null*/(/*_.OUT__V5*/ meltfptr[4]) == NULL);;
                     MELT_LOCATION("warmelt-debug.melt:231:/ cond");
                     /*cond*/ if (/*_#NULL__L7*/ meltfnum[6]) /*then*/
                         {
@@ -2602,7 +2602,7 @@ meltlabloop_ARGLOOP_1:;/*^loopbody*/
 #if MELTDEBUG_MATCHING
                                                                         static long meltlab_count_1;
                                                                         meltlab_count_1++;
-                                                                        debugeprintf("objlabel_1 mtch1_*CLASS_NORMTESTER_MATCHER/90e48db. *CLASS_OBJLABELINSTR/206ea66d. %ld", meltlab_count_1);
+                                                                        debugeprintf("objlabel_1 mtch1_*CLASS_NORMTESTER_MATCHER/2df0fa1e. *CLASS_OBJLABELINSTR/741f065. %ld", meltlab_count_1);
 #endif
 
                                                                         ;
@@ -2649,7 +2649,7 @@ meltlabloop_ARGLOOP_1:;/*^loopbody*/
 #if MELTDEBUG_MATCHING
                                                                         static long meltlab_count_2;
                                                                         meltlab_count_2++;
-                                                                        debugeprintf("objlabel_2 mtch1_*CLASS_NORMTESTER_SUCCESS/191036de. *CLASS_OBJLABELINSTR/1a13aa47. %ld", meltlab_count_2);
+                                                                        debugeprintf("objlabel_2 mtch1_*CLASS_NORMTESTER_SUCCESS/293b3c3. *CLASS_OBJLABELINSTR/1b2dd39. %ld", meltlab_count_2);
 #endif
 
                                                                         ;
@@ -2699,7 +2699,7 @@ meltlabloop_ARGLOOP_1:;/*^loopbody*/
 #if MELTDEBUG_MATCHING
                                                                         static long meltlab_count_3;
                                                                         meltlab_count_3++;
-                                                                        debugeprintf("objlabel_3 mtch1_*CLASS_NORMTESTER_SUCCESS/1a94f67f. *CLASS_OBJLABELINSTR/24251c14. %ld", meltlab_count_3);
+                                                                        debugeprintf("objlabel_3 mtch1_*CLASS_NORMTESTER_SUCCESS/d27a207. *CLASS_OBJLABELINSTR/239c966e. %ld", meltlab_count_3);
 #endif
 
                                                                         ;
@@ -2724,7 +2724,7 @@ meltlabloop_ARGLOOP_1:;/*^loopbody*/
 #if MELTDEBUG_MATCHING
                                                                         static long meltlab_count_4;
                                                                         meltlab_count_4++;
-                                                                        debugeprintf("objlabel_4 mtch1__end_h914163892 *CLASS_OBJLABELINSTR/367d08b4. %ld", meltlab_count_4);
+                                                                        debugeprintf("objlabel_4 mtch1__end_h894572789 *CLASS_OBJLABELINSTR/355218f5. %ld", meltlab_count_4);
 #endif
 
                                                                         ;
@@ -2788,7 +2788,7 @@ meltlabloop_ARGLOOP_1:;/*^loopbody*/
                                                                                 MELT_CHECK_SIGNAL();
                                                                                 ;
                                                                                 /*_#NULL__L23*/ meltfnum[16] =
-                                                                                    ((/*_.VAL__V29*/ meltfptr[28]) == NULL);;
+                                                                                    (/*null*/(/*_.VAL__V29*/ meltfptr[28]) == NULL);;
                                                                                 MELT_LOCATION("warmelt-debug.melt:277:/ cond");
                                                                                 /*cond*/ if (/*_#NULL__L23*/ meltfnum[16]) /*then*/
                                                                                     {
@@ -4606,7 +4606,7 @@ const char melt_module_is_gpl_compatible[]= "warmelt-debug: GPLv3+";
 /* the frame for initial routine */
 /** start of frame for melt_start_this_module of CLASS_INITIAL_MODULE_ROUTINEOBJ from 1518**/
 
-/*curframdeclclassy*/ class Melt_InitialClassyFrame_WARMELTmiDEBUG_h397460925// fromline 1531
+/*curframdeclclassy*/ class Melt_InitialClassyFrame_WARMELTmiDEBUG_h734283817// fromline 1531
     : public Melt_CallFrameWithValues<444>
 {
 public: /* fromline 1535*/
@@ -4621,24 +4621,24 @@ public: /* fromline 1535*/
         melt_mark_values ();
         melt_mark_stuff ();
     }; /*end melt_mark_ggc_data*/
-    Melt_InitialClassyFrame_WARMELTmiDEBUG_h397460925(meltclosure_ptr_t clos) //the closure constructor fromline 1593
+    Melt_InitialClassyFrame_WARMELTmiDEBUG_h734283817(meltclosure_ptr_t clos) //the closure constructor fromline 1593
         : Melt_CallFrameWithValues<444> (
 #if ENABLE_CHECKING /*fromline 1597*/
             __FILE__, __LINE__,
 #endif /* ENABLE_CHECKING fromline 1601*/
-            sizeof(Melt_InitialClassyFrame_WARMELTmiDEBUG_h397460925), clos) {};
-    Melt_InitialClassyFrame_WARMELTmiDEBUG_h397460925() //the constructor fromline 1605
+            sizeof(Melt_InitialClassyFrame_WARMELTmiDEBUG_h734283817), clos) {};
+    Melt_InitialClassyFrame_WARMELTmiDEBUG_h734283817() //the constructor fromline 1605
         : Melt_CallFrameWithValues<444> (
 #if ENABLE_CHECKING /*fromline 1609*/
             __FILE__, __LINE__,
 #endif /* ENABLE_CHECKING fromline 1613*/
-            sizeof(Melt_InitialClassyFrame_WARMELTmiDEBUG_h397460925)) {};
+            sizeof(Melt_InitialClassyFrame_WARMELTmiDEBUG_h734283817)) {};
 #if ENABLE_CHECKING /*fromline 1617*/
-    Melt_InitialClassyFrame_WARMELTmiDEBUG_h397460925(const char*fil, int lin) //the constructor fromline 1619
-        : Melt_CallFrameWithValues<444> (fil,lin, sizeof(Melt_InitialClassyFrame_WARMELTmiDEBUG_h397460925)) {};
+    Melt_InitialClassyFrame_WARMELTmiDEBUG_h734283817(const char*fil, int lin) //the constructor fromline 1619
+        : Melt_CallFrameWithValues<444> (fil,lin, sizeof(Melt_InitialClassyFrame_WARMELTmiDEBUG_h734283817)) {};
 #endif /* ENABLE_CHECKING fromline 1629*/
 
-}; // end  class Melt_InitialClassyFrame_WARMELTmiDEBUG_h397460925
+}; // end  class Melt_InitialClassyFrame_WARMELTmiDEBUG_h734283817
 
 
 /** end of frame for melt_start_this_module fromline 1660**/
@@ -5070,7 +5070,7 @@ static void melt_initialize_module_meltdata_WARMELTmiDEBUG (meltinitial_frame_t 
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr objmagic dobj_7__CLASS_DEBUG_INFORMATION", ((meltobject_ptr_t) (((melt_ptr_t)(MELT_PREDEF(CLASS_CLASS)))))->meltobj_magic == MELTOBMAG_OBJECT);
     meltcdat->dobj_7__CLASS_DEBUG_INFORMATION.meltobj_class = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(CLASS_CLASS))));
     meltcdat->dobj_7__CLASS_DEBUG_INFORMATION.obj_num = MELTOBMAG_OBJECT;
-    meltcdat->dobj_7__CLASS_DEBUG_INFORMATION.obj_hash = 190748142;
+    meltcdat->dobj_7__CLASS_DEBUG_INFORMATION.obj_hash = 862224674;
     meltcdat->dobj_7__CLASS_DEBUG_INFORMATION.obj_len = 8;
 
 
@@ -5115,7 +5115,7 @@ static void melt_initialize_module_meltdata_WARMELTmiDEBUG (meltinitial_frame_t 
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr objmagic dobj_13__DBGI_OUT", ((meltobject_ptr_t) (((melt_ptr_t)(MELT_PREDEF(CLASS_FIELD)))))->meltobj_magic == MELTOBMAG_OBJECT);
     meltcdat->dobj_13__DBGI_OUT.meltobj_class = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(CLASS_FIELD))));
     meltcdat->dobj_13__DBGI_OUT.obj_num = 0;
-    meltcdat->dobj_13__DBGI_OUT.obj_hash = 913569247;
+    meltcdat->dobj_13__DBGI_OUT.obj_hash = 167388096;
     meltcdat->dobj_13__DBGI_OUT.obj_len = 4;
 
 
@@ -5152,7 +5152,7 @@ static void melt_initialize_module_meltdata_WARMELTmiDEBUG (meltinitial_frame_t 
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr objmagic dobj_17__DBGI_OCCMAP", ((meltobject_ptr_t) (((melt_ptr_t)(MELT_PREDEF(CLASS_FIELD)))))->meltobj_magic == MELTOBMAG_OBJECT);
     meltcdat->dobj_17__DBGI_OCCMAP.meltobj_class = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(CLASS_FIELD))));
     meltcdat->dobj_17__DBGI_OCCMAP.obj_num = 1;
-    meltcdat->dobj_17__DBGI_OCCMAP.obj_hash = 253828224;
+    meltcdat->dobj_17__DBGI_OCCMAP.obj_hash = 103899223;
     meltcdat->dobj_17__DBGI_OCCMAP.obj_len = 4;
 
 
@@ -5189,7 +5189,7 @@ static void melt_initialize_module_meltdata_WARMELTmiDEBUG (meltinitial_frame_t 
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr objmagic dobj_21__DBGI_MAXDEPTH", ((meltobject_ptr_t) (((melt_ptr_t)(MELT_PREDEF(CLASS_FIELD)))))->meltobj_magic == MELTOBMAG_OBJECT);
     meltcdat->dobj_21__DBGI_MAXDEPTH.meltobj_class = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(CLASS_FIELD))));
     meltcdat->dobj_21__DBGI_MAXDEPTH.obj_num = 2;
-    meltcdat->dobj_21__DBGI_MAXDEPTH.obj_hash = 862224674;
+    meltcdat->dobj_21__DBGI_MAXDEPTH.obj_hash = 508046817;
     meltcdat->dobj_21__DBGI_MAXDEPTH.obj_len = 4;
 
 
@@ -5226,7 +5226,7 @@ static void melt_initialize_module_meltdata_WARMELTmiDEBUG (meltinitial_frame_t 
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr objmagic dobj_25__CLASS_DEBUG_OUTPUT_INFORMATION", ((meltobject_ptr_t) (((melt_ptr_t)(MELT_PREDEF(CLASS_CLASS)))))->meltobj_magic == MELTOBMAG_OBJECT);
     meltcdat->dobj_25__CLASS_DEBUG_OUTPUT_INFORMATION.meltobj_class = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(CLASS_CLASS))));
     meltcdat->dobj_25__CLASS_DEBUG_OUTPUT_INFORMATION.obj_num = MELTOBMAG_OBJECT;
-    meltcdat->dobj_25__CLASS_DEBUG_OUTPUT_INFORMATION.obj_hash = 199167803;
+    meltcdat->dobj_25__CLASS_DEBUG_OUTPUT_INFORMATION.obj_hash = 189450277;
     meltcdat->dobj_25__CLASS_DEBUG_OUTPUT_INFORMATION.obj_len = 8;
 
 
@@ -5270,7 +5270,7 @@ static void melt_initialize_module_meltdata_WARMELTmiDEBUG (meltinitial_frame_t 
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr isobj dobj_31__DEBUG_DEPTH", melt_magic_discr ((melt_ptr_t) (((melt_ptr_t)(MELT_PREDEF(CLASS_PRIMITIVE))))) == MELTOBMAG_OBJECT);
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr objmagic dobj_31__DEBUG_DEPTH", ((meltobject_ptr_t) (((melt_ptr_t)(MELT_PREDEF(CLASS_PRIMITIVE)))))->meltobj_magic == MELTOBMAG_OBJECT);
     meltcdat->dobj_31__DEBUG_DEPTH.meltobj_class = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(CLASS_PRIMITIVE))));
-    meltcdat->dobj_31__DEBUG_DEPTH.obj_hash = 402046780;
+    meltcdat->dobj_31__DEBUG_DEPTH.obj_hash = 704162738;
     meltcdat->dobj_31__DEBUG_DEPTH.obj_len = 5;
 
     /*inimult dtup_32_syDEBUG_DEPTH*/
@@ -5322,7 +5322,7 @@ static void melt_initialize_module_meltdata_WARMELTmiDEBUG (meltinitial_frame_t 
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr isobj dobj_38__MELT_REALLY_NEED_DEBUG", melt_magic_discr ((melt_ptr_t) (((melt_ptr_t)(MELT_PREDEF(CLASS_PRIMITIVE))))) == MELTOBMAG_OBJECT);
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr objmagic dobj_38__MELT_REALLY_NEED_DEBUG", ((meltobject_ptr_t) (((melt_ptr_t)(MELT_PREDEF(CLASS_PRIMITIVE)))))->meltobj_magic == MELTOBMAG_OBJECT);
     meltcdat->dobj_38__MELT_REALLY_NEED_DEBUG.meltobj_class = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(CLASS_PRIMITIVE))));
-    meltcdat->dobj_38__MELT_REALLY_NEED_DEBUG.obj_hash = 739720658;
+    meltcdat->dobj_38__MELT_REALLY_NEED_DEBUG.obj_hash = 1019584945;
     meltcdat->dobj_38__MELT_REALLY_NEED_DEBUG.obj_len = 5;
 
     /*inimult dtup_39_syMELT_REALLY_NEED_DEBUG*/
@@ -5359,7 +5359,7 @@ static void melt_initialize_module_meltdata_WARMELTmiDEBUG (meltinitial_frame_t 
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr objmagic dobj_43", ((meltobject_ptr_t) (((melt_ptr_t)(MELT_PREDEF(CLASS_FORMAL_BINDING)))))->meltobj_magic == MELTOBMAG_OBJECT);
     meltcdat->dobj_43.meltobj_class = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(CLASS_FORMAL_BINDING))));
     meltcdat->dobj_43.obj_num = 0;
-    meltcdat->dobj_43.obj_hash = 400553031;
+    meltcdat->dobj_43.obj_hash = 696147838;
     meltcdat->dobj_43.obj_len = 2;
 
 
@@ -5411,7 +5411,7 @@ static void melt_initialize_module_meltdata_WARMELTmiDEBUG (meltinitial_frame_t 
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr isobj dobj_49__MELT_HAS_FLAG_DEBUG_SET", melt_magic_discr ((melt_ptr_t) (((melt_ptr_t)(MELT_PREDEF(CLASS_PRIMITIVE))))) == MELTOBMAG_OBJECT);
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr objmagic dobj_49__MELT_HAS_FLAG_DEBUG_SET", ((meltobject_ptr_t) (((melt_ptr_t)(MELT_PREDEF(CLASS_PRIMITIVE)))))->meltobj_magic == MELTOBMAG_OBJECT);
     meltcdat->dobj_49__MELT_HAS_FLAG_DEBUG_SET.meltobj_class = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(CLASS_PRIMITIVE))));
-    meltcdat->dobj_49__MELT_HAS_FLAG_DEBUG_SET.obj_hash = 728314491;
+    meltcdat->dobj_49__MELT_HAS_FLAG_DEBUG_SET.obj_hash = 394033345;
     meltcdat->dobj_49__MELT_HAS_FLAG_DEBUG_SET.obj_len = 5;
 
     /*inimult dtup_50_syMELT_HAS_FLAG_DEBUG_SET*/
@@ -5463,7 +5463,7 @@ static void melt_initialize_module_meltdata_WARMELTmiDEBUG (meltinitial_frame_t 
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr isobj dobj_56__MELT_REALLY_NEED_DBGLIM", melt_magic_discr ((melt_ptr_t) (((melt_ptr_t)(MELT_PREDEF(CLASS_PRIMITIVE))))) == MELTOBMAG_OBJECT);
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr objmagic dobj_56__MELT_REALLY_NEED_DBGLIM", ((meltobject_ptr_t) (((melt_ptr_t)(MELT_PREDEF(CLASS_PRIMITIVE)))))->meltobj_magic == MELTOBMAG_OBJECT);
     meltcdat->dobj_56__MELT_REALLY_NEED_DBGLIM.meltobj_class = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(CLASS_PRIMITIVE))));
-    meltcdat->dobj_56__MELT_REALLY_NEED_DBGLIM.obj_hash = 416512809;
+    meltcdat->dobj_56__MELT_REALLY_NEED_DBGLIM.obj_hash = 844467091;
     meltcdat->dobj_56__MELT_REALLY_NEED_DBGLIM.obj_len = 5;
 
     /*inimult dtup_57_syMELT_REALLY_NEED_DBGLIM*/
@@ -5482,7 +5482,7 @@ static void melt_initialize_module_meltdata_WARMELTmiDEBUG (meltinitial_frame_t 
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr objmagic dobj_59", ((meltobject_ptr_t) (((melt_ptr_t)(MELT_PREDEF(CLASS_FORMAL_BINDING)))))->meltobj_magic == MELTOBMAG_OBJECT);
     meltcdat->dobj_59.meltobj_class = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(CLASS_FORMAL_BINDING))));
     meltcdat->dobj_59.obj_num = 0;
-    meltcdat->dobj_59.obj_hash = 898818963;
+    meltcdat->dobj_59.obj_hash = 543159662;
     meltcdat->dobj_59.obj_len = 2;
 
 
@@ -5511,7 +5511,7 @@ static void melt_initialize_module_meltdata_WARMELTmiDEBUG (meltinitial_frame_t 
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr objmagic dobj_62", ((meltobject_ptr_t) (((melt_ptr_t)(MELT_PREDEF(CLASS_FORMAL_BINDING)))))->meltobj_magic == MELTOBMAG_OBJECT);
     meltcdat->dobj_62.meltobj_class = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(CLASS_FORMAL_BINDING))));
     meltcdat->dobj_62.obj_num = 1;
-    meltcdat->dobj_62.obj_hash = 921817532;
+    meltcdat->dobj_62.obj_hash = 170571003;
     meltcdat->dobj_62.obj_len = 2;
 
 
@@ -5608,7 +5608,7 @@ static void melt_initialize_module_meltdata_WARMELTmiDEBUG (meltinitial_frame_t 
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr objmagic dobj_73", ((meltobject_ptr_t) (((melt_ptr_t)(MELT_PREDEF(CLASS_FORMAL_BINDING)))))->meltobj_magic == MELTOBMAG_OBJECT);
     meltcdat->dobj_73.meltobj_class = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(CLASS_FORMAL_BINDING))));
     meltcdat->dobj_73.obj_num = 0;
-    meltcdat->dobj_73.obj_hash = 398715461;
+    meltcdat->dobj_73.obj_hash = 154604355;
     meltcdat->dobj_73.obj_len = 2;
 
 
@@ -5637,7 +5637,7 @@ static void melt_initialize_module_meltdata_WARMELTmiDEBUG (meltinitial_frame_t 
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr objmagic dobj_76", ((meltobject_ptr_t) (((melt_ptr_t)(MELT_PREDEF(CLASS_FORMAL_BINDING)))))->meltobj_magic == MELTOBMAG_OBJECT);
     meltcdat->dobj_76.meltobj_class = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(CLASS_FORMAL_BINDING))));
     meltcdat->dobj_76.obj_num = 1;
-    meltcdat->dobj_76.obj_hash = 226071664;
+    meltcdat->dobj_76.obj_hash = 377424957;
     meltcdat->dobj_76.obj_len = 2;
 
     /*^iniobj*/
@@ -5648,7 +5648,7 @@ static void melt_initialize_module_meltdata_WARMELTmiDEBUG (meltinitial_frame_t 
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr objmagic dobj_77", ((meltobject_ptr_t) (((melt_ptr_t)(MELT_PREDEF(CLASS_FORMAL_BINDING)))))->meltobj_magic == MELTOBMAG_OBJECT);
     meltcdat->dobj_77.meltobj_class = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(CLASS_FORMAL_BINDING))));
     meltcdat->dobj_77.obj_num = 2;
-    meltcdat->dobj_77.obj_hash = 650037539;
+    meltcdat->dobj_77.obj_hash = 1005592430;
     meltcdat->dobj_77.obj_len = 2;
 
     /*inimult dtup_78_syDBG_OUTPUT*/
@@ -5662,7 +5662,7 @@ static void melt_initialize_module_meltdata_WARMELTmiDEBUG (meltinitial_frame_t 
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr isobj dobj_79__DBG_OUTPUT", melt_magic_discr ((melt_ptr_t) (/*_.CLASS_SELECTOR__V9*/ meltfptr[8])) == MELTOBMAG_OBJECT);
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr objmagic dobj_79__DBG_OUTPUT", ((meltobject_ptr_t) (/*_.CLASS_SELECTOR__V9*/ meltfptr[8]))->meltobj_magic == MELTOBMAG_OBJECT);
     meltcdat->dobj_79__DBG_OUTPUT.meltobj_class = (meltobject_ptr_t)(/*_.CLASS_SELECTOR__V9*/ meltfptr[8]);
-    meltcdat->dobj_79__DBG_OUTPUT.obj_hash = 439354554;
+    meltcdat->dobj_79__DBG_OUTPUT.obj_hash = 715355830;
     meltcdat->dobj_79__DBG_OUTPUT.obj_len = 4;
 
 
@@ -5699,7 +5699,7 @@ static void melt_initialize_module_meltdata_WARMELTmiDEBUG (meltinitial_frame_t 
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr objmagic dobj_83", ((meltobject_ptr_t) (((melt_ptr_t)(MELT_PREDEF(CLASS_FORMAL_BINDING)))))->meltobj_magic == MELTOBMAG_OBJECT);
     meltcdat->dobj_83.meltobj_class = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(CLASS_FORMAL_BINDING))));
     meltcdat->dobj_83.obj_num = 0;
-    meltcdat->dobj_83.obj_hash = 1009882353;
+    meltcdat->dobj_83.obj_hash = 803188755;
     meltcdat->dobj_83.obj_len = 2;
 
     /*^iniobj*/
@@ -5710,7 +5710,7 @@ static void melt_initialize_module_meltdata_WARMELTmiDEBUG (meltinitial_frame_t 
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr objmagic dobj_84", ((meltobject_ptr_t) (((melt_ptr_t)(MELT_PREDEF(CLASS_FORMAL_BINDING)))))->meltobj_magic == MELTOBMAG_OBJECT);
     meltcdat->dobj_84.meltobj_class = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(CLASS_FORMAL_BINDING))));
     meltcdat->dobj_84.obj_num = 1;
-    meltcdat->dobj_84.obj_hash = 1011959959;
+    meltcdat->dobj_84.obj_hash = 286144958;
     meltcdat->dobj_84.obj_len = 2;
 
     /*^iniobj*/
@@ -5721,7 +5721,7 @@ static void melt_initialize_module_meltdata_WARMELTmiDEBUG (meltinitial_frame_t 
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr objmagic dobj_85", ((meltobject_ptr_t) (((melt_ptr_t)(MELT_PREDEF(CLASS_FORMAL_BINDING)))))->meltobj_magic == MELTOBMAG_OBJECT);
     meltcdat->dobj_85.meltobj_class = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(CLASS_FORMAL_BINDING))));
     meltcdat->dobj_85.obj_num = 2;
-    meltcdat->dobj_85.obj_hash = 947837961;
+    meltcdat->dobj_85.obj_hash = 406899918;
     meltcdat->dobj_85.obj_len = 2;
 
     /*inimult dtup_86_syDBG_OUTPUTAGAIN*/
@@ -5735,7 +5735,7 @@ static void melt_initialize_module_meltdata_WARMELTmiDEBUG (meltinitial_frame_t 
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr isobj dobj_87__DBG_OUTPUTAGAIN", melt_magic_discr ((melt_ptr_t) (/*_.CLASS_SELECTOR__V9*/ meltfptr[8])) == MELTOBMAG_OBJECT);
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr objmagic dobj_87__DBG_OUTPUTAGAIN", ((meltobject_ptr_t) (/*_.CLASS_SELECTOR__V9*/ meltfptr[8]))->meltobj_magic == MELTOBMAG_OBJECT);
     meltcdat->dobj_87__DBG_OUTPUTAGAIN.meltobj_class = (meltobject_ptr_t)(/*_.CLASS_SELECTOR__V9*/ meltfptr[8]);
-    meltcdat->dobj_87__DBG_OUTPUTAGAIN.obj_hash = 1029865788;
+    meltcdat->dobj_87__DBG_OUTPUTAGAIN.obj_hash = 589092655;
     meltcdat->dobj_87__DBG_OUTPUTAGAIN.obj_len = 4;
 
 
@@ -5789,7 +5789,7 @@ static void melt_initialize_module_meltdata_WARMELTmiDEBUG (meltinitial_frame_t 
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr isobj dobj_93__TREE_DEBUG_FUNCONT", melt_magic_discr ((melt_ptr_t) (/*_.CLASS_REFERENCE__V10*/ meltfptr[9])) == MELTOBMAG_OBJECT);
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr objmagic dobj_93__TREE_DEBUG_FUNCONT", ((meltobject_ptr_t) (/*_.CLASS_REFERENCE__V10*/ meltfptr[9]))->meltobj_magic == MELTOBMAG_OBJECT);
     meltcdat->dobj_93__TREE_DEBUG_FUNCONT.meltobj_class = (meltobject_ptr_t)(/*_.CLASS_REFERENCE__V10*/ meltfptr[9]);
-    meltcdat->dobj_93__TREE_DEBUG_FUNCONT.obj_hash = 590670596;
+    meltcdat->dobj_93__TREE_DEBUG_FUNCONT.obj_hash = 1067836681;
     meltcdat->dobj_93__TREE_DEBUG_FUNCONT.obj_len = 1;
 
     /*inirout drout_94__REGISTER_TREE_DEBUG_FUN*/
@@ -5829,7 +5829,7 @@ static void melt_initialize_module_meltdata_WARMELTmiDEBUG (meltinitial_frame_t 
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr isobj dobj_98__GIMPLE_DEBUG_FUNCONT", melt_magic_discr ((melt_ptr_t) (/*_.CLASS_REFERENCE__V10*/ meltfptr[9])) == MELTOBMAG_OBJECT);
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr objmagic dobj_98__GIMPLE_DEBUG_FUNCONT", ((meltobject_ptr_t) (/*_.CLASS_REFERENCE__V10*/ meltfptr[9]))->meltobj_magic == MELTOBMAG_OBJECT);
     meltcdat->dobj_98__GIMPLE_DEBUG_FUNCONT.meltobj_class = (meltobject_ptr_t)(/*_.CLASS_REFERENCE__V10*/ meltfptr[9]);
-    meltcdat->dobj_98__GIMPLE_DEBUG_FUNCONT.obj_hash = 854563444;
+    meltcdat->dobj_98__GIMPLE_DEBUG_FUNCONT.obj_hash = 815848630;
     meltcdat->dobj_98__GIMPLE_DEBUG_FUNCONT.obj_len = 1;
 
     /*inirout drout_99__REGISTER_GIMPLE_DEBUG_FUN*/
@@ -5869,7 +5869,7 @@ static void melt_initialize_module_meltdata_WARMELTmiDEBUG (meltinitial_frame_t 
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr isobj dobj_103__GIMPLESEQ_DEBUG_FUNCONT", melt_magic_discr ((melt_ptr_t) (/*_.CLASS_REFERENCE__V10*/ meltfptr[9])) == MELTOBMAG_OBJECT);
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr objmagic dobj_103__GIMPLESEQ_DEBUG_FUNCONT", ((meltobject_ptr_t) (/*_.CLASS_REFERENCE__V10*/ meltfptr[9]))->meltobj_magic == MELTOBMAG_OBJECT);
     meltcdat->dobj_103__GIMPLESEQ_DEBUG_FUNCONT.meltobj_class = (meltobject_ptr_t)(/*_.CLASS_REFERENCE__V10*/ meltfptr[9]);
-    meltcdat->dobj_103__GIMPLESEQ_DEBUG_FUNCONT.obj_hash = 500611301;
+    meltcdat->dobj_103__GIMPLESEQ_DEBUG_FUNCONT.obj_hash = 113206899;
     meltcdat->dobj_103__GIMPLESEQ_DEBUG_FUNCONT.obj_len = 1;
 
     /*inirout drout_104__REGISTER_GIMPLESEQ_DEBUG_FUN*/
@@ -5909,7 +5909,7 @@ static void melt_initialize_module_meltdata_WARMELTmiDEBUG (meltinitial_frame_t 
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr isobj dobj_108__EDGE_DEBUG_FUNCONT", melt_magic_discr ((melt_ptr_t) (/*_.CLASS_REFERENCE__V10*/ meltfptr[9])) == MELTOBMAG_OBJECT);
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr objmagic dobj_108__EDGE_DEBUG_FUNCONT", ((meltobject_ptr_t) (/*_.CLASS_REFERENCE__V10*/ meltfptr[9]))->meltobj_magic == MELTOBMAG_OBJECT);
     meltcdat->dobj_108__EDGE_DEBUG_FUNCONT.meltobj_class = (meltobject_ptr_t)(/*_.CLASS_REFERENCE__V10*/ meltfptr[9]);
-    meltcdat->dobj_108__EDGE_DEBUG_FUNCONT.obj_hash = 427145114;
+    meltcdat->dobj_108__EDGE_DEBUG_FUNCONT.obj_hash = 227873605;
     meltcdat->dobj_108__EDGE_DEBUG_FUNCONT.obj_len = 1;
 
     /*inirout drout_109__REGISTER_EDGE_DEBUG_FUN*/
@@ -5949,7 +5949,7 @@ static void melt_initialize_module_meltdata_WARMELTmiDEBUG (meltinitial_frame_t 
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr isobj dobj_113__BASICBLOCK_DEBUG_FUNCONT", melt_magic_discr ((melt_ptr_t) (/*_.CLASS_REFERENCE__V10*/ meltfptr[9])) == MELTOBMAG_OBJECT);
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr objmagic dobj_113__BASICBLOCK_DEBUG_FUNCONT", ((meltobject_ptr_t) (/*_.CLASS_REFERENCE__V10*/ meltfptr[9]))->meltobj_magic == MELTOBMAG_OBJECT);
     meltcdat->dobj_113__BASICBLOCK_DEBUG_FUNCONT.meltobj_class = (meltobject_ptr_t)(/*_.CLASS_REFERENCE__V10*/ meltfptr[9]);
-    meltcdat->dobj_113__BASICBLOCK_DEBUG_FUNCONT.obj_hash = 122893853;
+    meltcdat->dobj_113__BASICBLOCK_DEBUG_FUNCONT.obj_hash = 1005669681;
     meltcdat->dobj_113__BASICBLOCK_DEBUG_FUNCONT.obj_len = 1;
 
     /*inirout drout_114__REGISTER_BASICBLOCK_DEBUG_FUN*/
@@ -5989,7 +5989,7 @@ static void melt_initialize_module_meltdata_WARMELTmiDEBUG (meltinitial_frame_t 
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr isobj dobj_118__LOOP_DEBUG_FUNCONT", melt_magic_discr ((melt_ptr_t) (/*_.CLASS_REFERENCE__V10*/ meltfptr[9])) == MELTOBMAG_OBJECT);
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr objmagic dobj_118__LOOP_DEBUG_FUNCONT", ((meltobject_ptr_t) (/*_.CLASS_REFERENCE__V10*/ meltfptr[9]))->meltobj_magic == MELTOBMAG_OBJECT);
     meltcdat->dobj_118__LOOP_DEBUG_FUNCONT.meltobj_class = (meltobject_ptr_t)(/*_.CLASS_REFERENCE__V10*/ meltfptr[9]);
-    meltcdat->dobj_118__LOOP_DEBUG_FUNCONT.obj_hash = 996542932;
+    meltcdat->dobj_118__LOOP_DEBUG_FUNCONT.obj_hash = 440791613;
     meltcdat->dobj_118__LOOP_DEBUG_FUNCONT.obj_len = 1;
 
     /*inirout drout_119__REGISTER_LOOP_DEBUG_FUN*/
@@ -6048,7 +6048,7 @@ static void melt_initialize_module_meltdata_WARMELTmiDEBUG (meltinitial_frame_t 
     if (MELT_LIKELY(!melt_prohibit_garbcoll)) melt_assertmsg("iniobj check.discr objmagic dobj_125__DISCR_DEBUG_CLOSURE", ((meltobject_ptr_t) (/*_.CLASS_DISCRIMINANT__V11*/ meltfptr[10]))->meltobj_magic == MELTOBMAG_OBJECT);
     meltcdat->dobj_125__DISCR_DEBUG_CLOSURE.meltobj_class = (meltobject_ptr_t)(/*_.CLASS_DISCRIMINANT__V11*/ meltfptr[10]);
     meltcdat->dobj_125__DISCR_DEBUG_CLOSURE.obj_num = MELTOBMAG_CLOSURE;
-    meltcdat->dobj_125__DISCR_DEBUG_CLOSURE.obj_hash = 352637518;
+    meltcdat->dobj_125__DISCR_DEBUG_CLOSURE.obj_hash = 879248875;
     meltcdat->dobj_125__DISCR_DEBUG_CLOSURE.obj_len = 5;
 
 
@@ -13693,14 +13693,14 @@ void meltmod__WARMELTmiDEBUG__initialmeltchunk_6 (meltinitial_frame_t* meltframp
         /*^cond*/
         /*cond*/ if (
             /*quasi.cur.mod.env.ref cur.mod.env.cont : at very start*/
-            /* check quasi.cur.mod.env.ref 921743821 */
+            /* check quasi.cur.mod.env.ref 120491944 */
             (/*_._CONTENV___V2*/ meltfptr[1])
         ) /*then*/
             {
                 /*^cond.then*/
                 /*_.OR___V403*/ meltfptr[402] =
                     /*quasi.cur.mod.env.ref cur.mod.env.cont : at very start*/
-                    /* check quasi.cur.mod.env.ref 921743821 */
+                    /* check quasi.cur.mod.env.ref 120491944 */
                     (/*_._CONTENV___V2*/ meltfptr[1])
                     ;;
             }
@@ -13743,31 +13743,31 @@ void meltmod__WARMELTmiDEBUG__initialmeltchunk_6 (meltinitial_frame_t* meltframp
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V60*/ meltfptr[59], /*_._VALDATA___V64*/ meltfptr[63],
                 /*quasi.cur.mod.env.ref norm.exp.val : CLASS_DEBUG_INFORMATION*/
-                /* check quasi.cur.mod.env.ref 96140776 */
+                /* check quasi.cur.mod.env.ref 478815209 */
                 (/*_._CONTENV___V2*/ meltfptr[1])
                                                   ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V74*/ meltfptr[73], /*_._VALDATA___V67*/ meltfptr[66],
                 /*quasi.cur.mod.env.ref norm.exp.val : DBGI_OUT*/
-                /* check quasi.cur.mod.env.ref 922306198 */
+                /* check quasi.cur.mod.env.ref 567078146 */
                 (/*_._CONTENV___V2*/ meltfptr[1])
                                                   ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V76*/ meltfptr[75], /*_._VALDATA___V69*/ meltfptr[68],
                 /*quasi.cur.mod.env.ref norm.exp.val : DBGI_OCCMAP*/
-                /* check quasi.cur.mod.env.ref 426261693 */
+                /* check quasi.cur.mod.env.ref 309840978 */
                 (/*_._CONTENV___V2*/ meltfptr[1])
                                                   ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V78*/ meltfptr[77], /*_._VALDATA___V71*/ meltfptr[70],
                 /*quasi.cur.mod.env.ref norm.exp.val : DBGI_MAXDEPTH*/
-                /* check quasi.cur.mod.env.ref 1057937400 */
+                /* check quasi.cur.mod.env.ref 193292190 */
                 (/*_._CONTENV___V2*/ meltfptr[1])
                                                   ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V80*/ meltfptr[79], /*_._VALDATA___V82*/ meltfptr[81],
                 /*quasi.cur.mod.env.ref norm.exp.val : CLASS_DEBUG_OUTPUT_INFORMATION*/
-                /* check quasi.cur.mod.env.ref 1010680581 */
+                /* check quasi.cur.mod.env.ref 93003007 */
                 (/*_._CONTENV___V2*/ meltfptr[1])
                                                   ) ;
         /*epilog*/
@@ -14379,7 +14379,7 @@ void meltmod__WARMELTmiDEBUG__initialmeltchunk_6 (meltinitial_frame_t* meltframp
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V325*/ meltfptr[324], /*_._VALCLO___V324*/ meltfptr[323],
                 /*quasi.cur.mod.env.ref norm.exp.val : DBGOUT_NAMEDOBJECT_METHOD*/
-                /* check quasi.cur.mod.env.ref 618930997 */
+                /* check quasi.cur.mod.env.ref 890385005 */
                 (/*_._CONTENV___V2*/ meltfptr[1])
                                                   ) ;
         /*epilog*/
@@ -14781,127 +14781,127 @@ void meltmod__WARMELTmiDEBUG__initialmeltchunk_6 (meltinitial_frame_t* meltframp
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V379*/ meltfptr[378], /*_._VALCLO___V187*/ meltfptr[186],
                 /*quasi.cur.mod.env.ref norm.exp.val : DBG_OUT*/
-                /* check quasi.cur.mod.env.ref 934595627 */
+                /* check quasi.cur.mod.env.ref 872201799 */
                 (/*_._CONTENV___V2*/ meltfptr[1])
                                                   ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V381*/ meltfptr[380], /*_._VALCLO___V189*/ meltfptr[188],
                 /*quasi.cur.mod.env.ref norm.exp.val : DBG_OUTOBJECT*/
-                /* check quasi.cur.mod.env.ref 862638251 */
+                /* check quasi.cur.mod.env.ref 384859939 */
                 (/*_._CONTENV___V2*/ meltfptr[1])
                                                   ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V124*/ meltfptr[123], /*_._VALDATA___V136*/ meltfptr[135],
                 /*quasi.cur.mod.env.ref norm.exp.val : DBG_OUTPUT*/
-                /* check quasi.cur.mod.env.ref 747015694 */
+                /* check quasi.cur.mod.env.ref 817294574 */
                 (/*_._CONTENV___V2*/ meltfptr[1])
                                                   ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V138*/ meltfptr[137], /*_._VALDATA___V144*/ meltfptr[143],
                 /*quasi.cur.mod.env.ref norm.exp.val : DBG_OUTPUTAGAIN*/
-                /* check quasi.cur.mod.env.ref 1054492352 */
+                /* check quasi.cur.mod.env.ref 563673213 */
                 (/*_._CONTENV___V2*/ meltfptr[1])
                                                   ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V383*/ meltfptr[382], /*_._VALCLO___V213*/ meltfptr[212],
                 /*quasi.cur.mod.env.ref norm.exp.val : DBGOUT_FIELDS*/
-                /* check quasi.cur.mod.env.ref 450804489 */
+                /* check quasi.cur.mod.env.ref 531426691 */
                 (/*_._CONTENV___V2*/ meltfptr[1])
                                                   ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V385*/ meltfptr[384], /*_._VALCLO___V215*/ meltfptr[214],
                 /*quasi.cur.mod.env.ref norm.exp.val : DBGOUTAGAIN_FIELDS*/
-                /* check quasi.cur.mod.env.ref 245543021 */
+                /* check quasi.cur.mod.env.ref 483703544 */
                 (/*_._CONTENV___V2*/ meltfptr[1])
                                                   ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V86*/ meltfptr[85], /*_._VALDATA___V88*/ meltfptr[87],
                 /*quasi.cur.mod.env.ref norm.exp.val : DEBUG_DEPTH*/
-                /* check quasi.cur.mod.env.ref 386370498 */
+                /* check quasi.cur.mod.env.ref 811134873 */
                 (/*_._CONTENV___V2*/ meltfptr[1])
                                                   ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V371*/ meltfptr[370], /*_.DEBUG_LESS__V5*/ meltfptr[4],
                 /*quasi.cur.mod.env.ref norm.exp.val : DEBUG_LESS*/
-                /* check quasi.cur.mod.env.ref 98378579 */
+                /* check quasi.cur.mod.env.ref 698994849 */
                 (/*_._CONTENV___V2*/ meltfptr[1])
                                                   ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V375*/ meltfptr[374], /*_.DEBUG_MORE__V6*/ meltfptr[5],
                 /*quasi.cur.mod.env.ref norm.exp.val : DEBUG_MORE*/
-                /* check quasi.cur.mod.env.ref 351735775 */
+                /* check quasi.cur.mod.env.ref 839323892 */
                 (/*_._CONTENV___V2*/ meltfptr[1])
                                                   ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V178*/ meltfptr[177], /*_._VALDATA___V182*/ meltfptr[181],
                 /*quasi.cur.mod.env.ref norm.exp.val : DISCR_DEBUG_CLOSURE*/
-                /* check quasi.cur.mod.env.ref 29384986 */
+                /* check quasi.cur.mod.env.ref 1054194211 */
                 (/*_._CONTENV___V2*/ meltfptr[1])
                                                   ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V387*/ meltfptr[386], /*_._VALCLO___V378*/ meltfptr[377],
                 /*quasi.cur.mod.env.ref norm.exp.val : DISPLAY_DEBUG_MESSAGE*/
-                /* check quasi.cur.mod.env.ref 328534452 */
+                /* check quasi.cur.mod.env.ref 1062121484 */
                 (/*_._CONTENV___V2*/ meltfptr[1])
                                                   ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V389*/ meltfptr[388], /*_._VALCLO___V191*/ meltfptr[190],
                 /*quasi.cur.mod.env.ref norm.exp.val : MELT_DEBUG_FUN*/
-                /* check quasi.cur.mod.env.ref 986294292 */
+                /* check quasi.cur.mod.env.ref 22258553 */
                 (/*_._CONTENV___V2*/ meltfptr[1])
                                                   ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V104*/ meltfptr[103], /*_._VALDATA___V106*/ meltfptr[105],
                 /*quasi.cur.mod.env.ref norm.exp.val : MELT_HAS_FLAG_DEBUG_SET*/
-                /* check quasi.cur.mod.env.ref 513722954 */
+                /* check quasi.cur.mod.env.ref 55220987 */
                 (/*_._CONTENV___V2*/ meltfptr[1])
                                                   ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V111*/ meltfptr[110], /*_._VALDATA___V113*/ meltfptr[112],
                 /*quasi.cur.mod.env.ref norm.exp.val : MELT_REALLY_NEED_DBGLIM*/
-                /* check quasi.cur.mod.env.ref 5347390 */
+                /* check quasi.cur.mod.env.ref 692721037 */
                 (/*_._CONTENV___V2*/ meltfptr[1])
                                                   ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V93*/ meltfptr[92], /*_._VALDATA___V95*/ meltfptr[94],
                 /*quasi.cur.mod.env.ref norm.exp.val : MELT_REALLY_NEED_DEBUG*/
-                /* check quasi.cur.mod.env.ref 541423045 */
+                /* check quasi.cur.mod.env.ref 696108773 */
                 (/*_._CONTENV___V2*/ meltfptr[1])
                                                   ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V391*/ meltfptr[390], /*_._VALCLO___V172*/ meltfptr[171],
                 /*quasi.cur.mod.env.ref norm.exp.val : REGISTER_BASICBLOCK_DEBUG_FUN*/
-                /* check quasi.cur.mod.env.ref 500565753 */
+                /* check quasi.cur.mod.env.ref 78260551 */
                 (/*_._CONTENV___V2*/ meltfptr[1])
                                                   ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V393*/ meltfptr[392], /*_._VALCLO___V167*/ meltfptr[166],
                 /*quasi.cur.mod.env.ref norm.exp.val : REGISTER_EDGE_DEBUG_FUN*/
-                /* check quasi.cur.mod.env.ref 410082554 */
+                /* check quasi.cur.mod.env.ref 278516066 */
                 (/*_._CONTENV___V2*/ meltfptr[1])
                                                   ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V395*/ meltfptr[394], /*_._VALCLO___V157*/ meltfptr[156],
                 /*quasi.cur.mod.env.ref norm.exp.val : REGISTER_GIMPLE_DEBUG_FUN*/
-                /* check quasi.cur.mod.env.ref 954526505 */
+                /* check quasi.cur.mod.env.ref 581817093 */
                 (/*_._CONTENV___V2*/ meltfptr[1])
                                                   ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V397*/ meltfptr[396], /*_._VALCLO___V162*/ meltfptr[161],
                 /*quasi.cur.mod.env.ref norm.exp.val : REGISTER_GIMPLESEQ_DEBUG_FUN*/
-                /* check quasi.cur.mod.env.ref 203931768 */
+                /* check quasi.cur.mod.env.ref 850293679 */
                 (/*_._CONTENV___V2*/ meltfptr[1])
                                                   ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V399*/ meltfptr[398], /*_._VALCLO___V177*/ meltfptr[176],
                 /*quasi.cur.mod.env.ref norm.exp.val : REGISTER_LOOP_DEBUG_FUN*/
-                /* check quasi.cur.mod.env.ref 340128457 */
+                /* check quasi.cur.mod.env.ref 951436043 */
                 (/*_._CONTENV___V2*/ meltfptr[1])
                                                   ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V401*/ meltfptr[400], /*_._VALCLO___V152*/ meltfptr[151],
                 /*quasi.cur.mod.env.ref norm.exp.val : REGISTER_TREE_DEBUG_FUN*/
-                /* check quasi.cur.mod.env.ref 341505746 */
+                /* check quasi.cur.mod.env.ref 990239340 */
                 (/*_._CONTENV___V2*/ meltfptr[1])
                                                   ) ;
         /*epilog*/
