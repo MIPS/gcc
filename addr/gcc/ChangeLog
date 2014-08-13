@@ -1,3 +1,69 @@
+2014-08-13  Chen Gang  gang.chen.5i5j@gmail.com
+
+	* microblaze/microblaze.md: Remove redundant '@' to avoid compiling
+	warning.
+
+2014-08-13  Roman Gareev  <gareevroman@gmail.com>
+
+	* gcc.dg/graphite/pr35356-2.c: Update according to the ISL code
+	generator.
+
+2014-08-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/62025
+	* sched-deps.c (find_inc): Check if inc_insn doesn't clobber
+	any registers that are used in mem_insn.
+
+2014-08-12  Steve Ellcey  <sellcey@mips.com>
+
+	* config/mips/mips.h (ASM_SPEC): Pass float options to assembler. 
+
+2014-08-12  Steve Ellcey  <sellcey@mips.com>
+
+	* config/mips/t-mti-elf (MULTILIB_OPTIONS): Remove fp64 multilib.
+	(MULTILIB_DIRNAMES): Ditto.
+	* config/mips/t-mti-elf (MULTILIB_OPTIONS): Ditto.
+	* config/mips/t-mti-elf (MULTILIB_EXCEPTIONS): Ditto.
+	* config/mips/t-mti-linux (MULTILIB_OPTIONS): Ditto.
+	* config/mips/t-mti-linux (MULTILIB_DIRNAMES): Ditto.
+	* config/mips/t-mti-linux (MULTILIB_EXCEPTIONS): Ditto.
+	* config/mips/mti-linux.h (SYSROOT_SUFFIX_SPEC): Ditto.
+
+2014-08-12  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR target/61413
+	* config/arm/arm.h (TARGET_CPU_CPP_BUILTINS): Fix definition
+	of __ARM_SIZEOF_WCHAR_T.
+
+2014-08-12  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR target/62098
+	* config/arm/vfp.md (*combine_vcvtf2i): Fix constraint.
+	Remove unnecessary attributes.
+
+2014-08-12  Yury Gribov  <y.gribov@samsung.com>
+
+	* internal-fn.c (init_internal_fns): Fix off-by-one.
+
+2014-08-12  Alexander Ivchenko  <alexander.ivchenko@intel.com>
+	    Maxim Kuznetsov  <maxim.kuznetsov@intel.com>
+	    Anna Tikhonova  <anna.tikhonova@intel.com>
+	    Ilya Tocar  <ilya.tocar@intel.com>
+	    Andrey Turetskiy  <andrey.turetskiy@intel.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+	    Kirill Yukhin  <kirill.yukhin@intel.com>
+	    Michael Zolotukhin  <michael.v.zolotukhin@intel.com>
+
+	* config/i386/i386.c (standard_sse_constant_opcode): Use
+	vpxord/vpternlog if avx512 is availible.
+
+2014-08-12  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR middle-end/62103
+	* gimple-fold.c (fold_ctor_reference): Don't fold in presence of
+	bitfields, that is when size doesn't match the size of type or the
+	size of the constructor.
+
 2014-08-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/constraints.md (wh constraint): New constraint,
@@ -118,12 +184,6 @@
 	* doc/md.texi (PowerPC and IBM RS6000): Document wh, wi, wj, and
 	wk constraints. Make the wy constraint documentation match them
 	implementation.
-
-2014-08-11  John Dave Anglin  <danglin@gcc.gnu.org>
-
-	PR target/62038
-	* config/pa/pa.c (pa_asm_output_mi_thunk): Use a branch with %r31 link
-	register.
 
 2014-08-11  Mircea Namolaru  <mircea.namolaru@inria.fr>
 
