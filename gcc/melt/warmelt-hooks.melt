@@ -2280,6 +2280,37 @@ at MELT attribute definition, in last place, for
     (if (is_closure fun) (list_append lastlist fun)))
   ) 
 
+
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;;; extended attribute support is in warmelt-hooks.melt since it
+;;;;; uses tree but does not depend on tree operations, but needs the
+;;;;; hook_handle_attribute predefined hook
+
+(cheader
+#{ /* cheader for attributes in warmelt-hooks.melt */
+#if  MELT_GCC_VERSION >= 4009 /* GCC 4.9 or later */
+#include "attribs.h"
+#endif /*GCC 4.9*/
+   MELT_EXTERN tree MELT_MODULE_VISIBILITY melt_attribute_handler_glue 
+   (tree *node, tree name, tree args, int flags, bool *no_add_attrs);
+}#)
+
+(cimplement
+#{ /* cimplement for attributes in warmelt-hooks.melt */
+tree  
+melt_attribute_handler_glue (tree *node, tree name, tree args, int flags, bool *no_add_attrs) {
+  melt_fatal_error ("unimplemented melt_attribute_handler_glue flags=%d", flags);
+  return NULL;
+} /* end melt_attribute_handler_glue */
+}#)
+
+
+(defvar gcc_attribute_dict)
+
 (defclass class_gcc_attribute 
   :super class_named
   :doc #{The $CLASS_GCC_ATTRIBUTE describes general GCC attributes
@@ -2289,6 +2320,18 @@ at MELT attribute definition, in last place, for
 	   gccattr_handler
 ))
 (export_class class_gcc_attribute)
+
+(defhook hook_handle_attribute    
+  (:tree in_node name args :long flags in_add_attrs)
+  (:tree out_node :long out_add_attrs)
+  :tree
+  :predef HOOK_HANDLE_ATTRIBUTE
+  (debug "hook_handle_attribute" " in_node=" in_node "; name=" name "; args=" args
+	 "; flags=" flags "; in_add_attrs=" in_add_attrs)
+  (assert_msg "@$@unimplemented hook_handle_attribute")
+  (return))
+  
+  
 
 (defmacro register_gcc_attribute (sexp env mexpander modctx)
   :doc #{The variadic macro $REGISTER_GCC_ATTRIBUTE is registering a
@@ -2337,6 +2380,16 @@ at MELT attribute definition, in last place, for
   (unless (is_a attr class_gcc_attribute)
     (error_at loc "register_gcc_attribute got invalid attr $1" attr)
     (return ()))
+  ;;
+  (when (get_int attr)
+    (error_at loc "register_gcc_attribute already registered #$1 attribute $2"
+	      (get_int attr)
+	      attr)
+    (return ()))
+  ;;
+  (unless (is_mapstring gcc_attribute_dict)
+    (setq gcc_attribute_dict (make_mapstring discr_string 31)))
+  ;;
   (let ( 
         (name (get_field :named_name attr))
         (min_length 0)
@@ -2345,9 +2398,14 @@ at MELT attribute definition, in last place, for
 	(type_required_flag 0)
 	(function_type_required_flag 0)
 	(affects_type_identity_flag 0)
+	(:long attix (+i (mapstring_count gcc_attribute_dict) 1))	       
 	)
+    (debug "register_gcc_attribute " "gcc_attribute_dict=" gcc_attribute_dict ";\n attix=" attix)
     (unless (is_string name)
       (error_at loc "register_gcc_attribute got badly named attr $1" attr)
+      (return))
+    (when (mapstring_getstr gcc_attribute_dict name)
+      (error_at loc "register_gcc_attribute got already named attr $1" name) 
       (return))
     ;; variadic parsing loop
     (forever 
@@ -2464,7 +2522,28 @@ at MELT attribute definition, in last place, for
        (return))
       )
      )					; end forever argloop
-    ;;; should do something here
+    (code_chunk
+     gccattr_chk
+     #{ /* ++ melt_register_gcc_attribute_at $GCCATTR_CHK start */
+     struct attribute_spec *atspec
+     /* will never be freed! */
+     = (struct attribute_spec*)xmalloc(sizeof(struct attribute_spec)) ;
+     if (!atspec)
+     melt_fatal_error("failed to allocate attribute_spec in melt_register_gcc_attribute_at (%s)",
+		      xstrerror(errno))	;
+     memset (atspec, 0, sizeof(struct attribute_spec)) ;
+     atspec->name = melt_intern_cstring (melt_string_str ($NAME)) ;
+     atspec->min_length = $MIN_LENGTH ;
+     atspec->max_length = $MAX_LENGTH ;
+     atspec->decl_required = $DECL_REQUIRED_FLAG ;
+     atspec->type_required = $TYPE_REQUIRED_FLAG ;
+     atspec->function_type_required = $FUNCTION_TYPE_REQUIRED_FLAG ;
+     atspec->affects_type_identity = $AFFECTS_TYPE_IDENTITY_FLAG ;
+     $(put_int attr attix)
+     $(mapstring_putstr gcc_attribute_dict name attr)
+     /* -- melt_register_gcc_attribute_at $GCCATTR_CHK end */
+     }#)
+;;; should do something here
     (error_at loc "unimplemented melt_register_gcc_attribute_at")
     (assert_msg "@$@unimplemented melt_register_gcc_attribute_at")
     )

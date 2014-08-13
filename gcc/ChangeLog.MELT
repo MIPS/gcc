@@ -1,12 +1,27 @@
 
 2014-08-13  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{start adding generic GCC attribute support}}
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.1.2pre1.
+
+	* melt-predef.list (HOOK_HANDLE_ATTRIBUTE): New.
+
+	* melt/warmelt-hooks.melt: Adding cheader & cimplement -notably
+	melt_attribute_handler_glue stub- for attributes.
+	(hook_handle_attribute): New predefined hook stub.
+	(melt_register_gcc_attribute_at): More but still incomplete.
+
+	* melt/libmelt-ana-tree.melt: Improve comment in cheader.
+
+2014-08-13  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.cc (melt_open_ppfile): Better error message on
 	failure.
 
 	* melt/warmelt-first.melt (non-null): New primitive.
 
-	* melt/warmelt-hooks (melt_register_gcc_attribute_at): New function.
+	* melt/warmelt-hooks.melt (melt_register_gcc_attribute_at): New
+	function.
 	(register_gcc_attribute): Becomes a macro.
 
 2014-08-13  Basile Starynkevitch  <basile@starynkevitch.net>
