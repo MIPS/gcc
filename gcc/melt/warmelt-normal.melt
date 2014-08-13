@@ -1241,6 +1241,7 @@ routine procedures.}#
 ;;; evaluation.
 ;;;;;;;;;;;;;;;;
 (defun normexp_any_object (recv env ncx psloc)
+  (debug "normexp_any_object" " recv=" recv)
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
   ;; we should normalize arbitrary objects into themselves. However,
@@ -1275,16 +1276,21 @@ routine procedures.}#
      $COLNUM = LOCATION_COLUMN(loc_$NORMIXLOC_CHK) ;
      /* normexp_mixed_location end $NORMIXLOC_CHK */}#)
     (debug "normexp_mixed_location" " filev=" filev "; linenum=" linenum "; colnum=" colnum)
-    (let ( (sprim (instance class_source_primitive
-			    :loca_location (or psloc recv)
+    (let (
+	  (sloc (or psloc recv))
+	  (sdiscr (instance class_source_fetch_predefined
+			    :loca_location sloc
+			    :sfepd_predef 'discr_mixed_integer))
+	  (sprim (instance class_source_primitive
+			    :loca_location sloc
 			    :sprim_oper make_mixint
-			    :sargop_args (tuple discr_mixed_integer filev (constant_box linenum))))
+			    :sargop_args (tuple sdiscr filev (constant_box linenum))))
 	   )
       (debug "normexp_mixed_location" " sprim=" sprim)
       (multicall
        (nres nbind)
        (normexp_primitive sprim env ncx psloc)
-       (debug "normexp_mixed_location" " result nres=" nres " nbind=" nbind)
+       (debug "normexp_mixed_location" " result nres=" nres "\n.. nbind=" nbind)
        (return nres nbind)
        )	 
       )
