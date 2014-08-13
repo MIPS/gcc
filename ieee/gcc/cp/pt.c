@@ -34,7 +34,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "attribs.h"
 #include "stor-layout.h"
 #include "intl.h"
-#include "pointer-set.h"
 #include "flags.h"
 #include "cp-tree.h"
 #include "c-family/c-common.h"
@@ -1112,13 +1111,11 @@ retrieve_specialization (tree tmpl, tree args, hashval_t hash)
 static tree
 retrieve_local_specialization (tree tmpl)
 {
-  void **slot;
-
   if (local_specializations == NULL)
     return NULL_TREE;
 
-  slot = pointer_map_contains (local_specializations, tmpl);
-  return slot ? (tree) *slot : NULL_TREE;
+  tree *slot = local_specializations->get (tmpl);
+  return slot ? *slot : NULL_TREE;
 }
 
 /* Returns nonzero iff DECL is a specialization of TMPL.  */
@@ -1730,10 +1727,7 @@ reregister_specialization (tree spec, tree tinfo, tree new_spec)
 static void
 register_local_specialization (tree spec, tree tmpl)
 {
-  void **slot;
-
-  slot = pointer_map_insert (local_specializations, tmpl);
-  *slot = spec;
+  local_specializations->put (tmpl, spec);
 }
 
 /* TYPE is a class type.  Returns true if TYPE is an explicitly
@@ -2817,9 +2811,11 @@ check_explicit_specialization (tree declarator,
 	       It's just the name of an instantiation.  But, it's not
 	       a request for an instantiation, either.  */
 	    SET_DECL_IMPLICIT_INSTANTIATION (decl);
-	  else
+	  else if (TREE_CODE (decl) == FUNCTION_DECL)
 	    /* A specialization is not necessarily COMDAT.  */
 	    DECL_COMDAT (decl) = DECL_DECLARED_INLINE_P (decl);
+	  else if (TREE_CODE (decl) == VAR_DECL)
+	    DECL_COMDAT (decl) = false;
 
 	  /* Register this specialization so that we can find it
 	     again.  */
@@ -4741,6 +4737,11 @@ push_template_decl_real (tree decl, bool is_friend)
 	}
       else if (TREE_CODE (decl) == FUNCTION_DECL)
 	{
+	  if (member_template_p)
+	    {
+	      if (DECL_OVERRIDE_P (decl) || DECL_FINAL_P (decl))
+		error ("member template %qD may not have virt-specifiers", decl);
+	    }
 	  if (DECL_DESTRUCTOR_P (decl))
 	    {
 	      /* [temp.mem]
@@ -7817,6 +7818,12 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
 	    }
 	}
 
+      if (OVERLOAD_TYPE_P (t)
+	  && !DECL_ALIAS_TEMPLATE_P (gen_tmpl))
+	if (tree attributes
+	    = lookup_attribute ("abi_tag", TYPE_ATTRIBUTES (template_type)))
+	  TYPE_ATTRIBUTES (t) = attributes;
+
       /* Let's consider the explicit specialization of a member
          of a class template specialization that is implicitly instantiated,
 	 e.g.:
@@ -7958,13 +7965,22 @@ lookup_template_class (tree d1, tree arglist, tree in_decl, tree context,
   return ret;
 }
 
-/* Return a TEMPLATE_ID_EXPR for the given variable template and ARGLIST. */
+/* Return a TEMPLATE_ID_EXPR for the given variable template and ARGLIST. 
+   If the ARGLIST refers to any template parameters, the type of the
+   expression is the unknown_type_node since the template-id could
+   refer to an explicit or partial specialization. */
 
 tree
 lookup_template_variable (tree templ, tree arglist)
 {
-  return build2 (TEMPLATE_ID_EXPR, TREE_TYPE (templ), templ, arglist);
+  tree type;
+  if (uses_template_parms (arglist))
+    type = unknown_type_node;
+  else
+    type = TREE_TYPE (templ);
+  return build2 (TEMPLATE_ID_EXPR, type, templ, arglist);
 }
+
 
 struct pair_fn_data
 {
@@ -9770,7 +9786,7 @@ tsubst_pack_expansion (tree t, tree args, tsubst_flags_t complain,
   bool unsubstituted_packs = false;
   int i, len = -1;
   tree result;
-  struct pointer_map_t *saved_local_specializations = NULL;
+  hash_map<tree, tree> *saved_local_specializations = NULL;
   bool need_local_specializations = false;
   int levels;
 
@@ -9924,7 +9940,7 @@ tsubst_pack_expansion (tree t, tree args, tsubst_flags_t complain,
 	 case of recursive unification) might have bindings that we don't
 	 want to use or alter.  */
       saved_local_specializations = local_specializations;
-      local_specializations = pointer_map_create ();
+      local_specializations = new hash_map<tree, tree>;
     }
 
   /* For each argument in each argument pack, substitute into the
@@ -9973,7 +9989,7 @@ tsubst_pack_expansion (tree t, tree args, tsubst_flags_t complain,
 
   if (need_local_specializations)
     {
-      pointer_map_destroy (local_specializations);
+      delete local_specializations;
       local_specializations = saved_local_specializations;
     }
   
@@ -20087,7 +20103,7 @@ instantiate_decl (tree d, int defer_ok,
     synthesize_method (d);
   else if (TREE_CODE (d) == FUNCTION_DECL)
     {
-      struct pointer_map_t *saved_local_specializations;
+      hash_map<tree, tree> *saved_local_specializations;
       tree subst_decl;
       tree tmpl_parm;
       tree spec_parm;
@@ -20098,7 +20114,7 @@ instantiate_decl (tree d, int defer_ok,
       saved_local_specializations = local_specializations;
 
       /* Set up the list of local specializations.  */
-      local_specializations = pointer_map_create ();
+      local_specializations = new hash_map<tree, tree>;
 
       /* Set up context.  */
       if (DECL_OMP_DECLARE_REDUCTION_P (code_pattern)
@@ -20162,7 +20178,7 @@ instantiate_decl (tree d, int defer_ok,
 	}
 
       /* We don't need the local specializations any more.  */
-      pointer_map_destroy (local_specializations);
+      delete local_specializations;
       local_specializations = saved_local_specializations;
 
       /* Finish the function.  */
