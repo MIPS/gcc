@@ -597,8 +597,8 @@ normalize_constraints (tree reqs)
 // The following functions are called by the parser and substitution rules
 // to create and evaluate constraint-related nodes.
 
-// Returns the template constraints of declaration T. If T is not a
-// template, this return NULL_TREE. Note that T must be non-null.
+// Returns the template constraints of declaration T. Note that 
+// T must be non-null.
 tree
 get_constraints (tree t)
 {

@@ -1,3 +1,24 @@
+2014-08-13  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
+	Implement deduction-based explicit instantiation and specialization.
+	* gcc/cp/call.c (joust): Allow all non-templates to be ordered by
+	constraints.
+	* gcc/cp/pt.c (get_class_bindings): Remove superfluous parameter and
+	move constraint check into most_specialized_class.
+	(most_constrained_function): Order functions with the same signatures
+	by their constraints.
+	(determine_specialization): Candidates must satisfy constraints. Also,
+	order non-template candidates by constraints. Improve diagnostics
+	for instances where candidates are rejected.
+	(more_specialized_inst): New. Compare function templates.
+	(most_specialized_instantiation): Refactor to use 
+	more_specialized_inst and order by constraints.
+	(most_specialized_class): Candidates must satisfy constraints.
+	* gcc/cp/decl.c (various) Cosmetic fixes.
+	(adjust_fn_constraints): Rewrite so that class template constraints
+	are not imposed on member function declarations.
+	* gcc/testsuite/g++.dg/concepts: New tests.
+
 2014-08-13  Braden Obrzut <admin@maniacsvault.net>
 
 	* gcc/cp/constraint.cc (deduce_constrained_parameter): Deduce concept

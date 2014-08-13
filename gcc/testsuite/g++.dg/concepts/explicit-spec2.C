@@ -3,11 +3,11 @@
 template<typename T>
   concept bool C() { return __is_class(T); }
 
-template<C T> struct S;
-
 struct X { };
 
-// Test explicit specialization
-template<> struct S<X> { };
+template<C T> struct S;
+template<> struct S<X> { void f() { } };
 
-int main() { }
+int main() { 
+  S<X> x; x.f();
+}

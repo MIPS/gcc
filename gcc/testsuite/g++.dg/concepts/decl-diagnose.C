@@ -18,4 +18,4 @@ struct X
   concept X(); // { dg-error "a constructor cannot be 'concept'" }
 };
 
-concept bool X2; // { dg-error "declared 'concept'" }
+concept bool X2; // { dg-error "uninitialized" }

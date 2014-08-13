@@ -144,7 +144,7 @@ static int unify (tree, tree, tree, tree, int, bool);
 static void add_pending_template (tree);
 static tree reopen_tinst_level (struct tinst_level *);
 static tree tsubst_initializer_list (tree, tree);
-static tree get_class_bindings (tree, tree, tree, tree, tree);
+static tree get_class_bindings (tree, tree, tree, tree);
 static tree coerce_template_parms (tree, tree, tree, tsubst_flags_t,
 				   bool, bool);
 static tree coerce_innermost_template_parms (tree, tree, tree, tsubst_flags_t,
@@ -1544,6 +1544,7 @@ register_specialization (tree spec, tree tmpl, tree args, bool is_friend,
 		 there were no definition, and vice versa.  */
 	      DECL_INITIAL (fn) = NULL_TREE;
 	      duplicate_decls (spec, fn, is_friend);
+
 	      /* The call to duplicate_decls will have applied
 		 [temp.expl.spec]:
 
@@ -1918,6 +1919,34 @@ print_candidates (tree fns)
   gcc_assert (str == NULL);
 }
 
+// Among candidates having the same signature, return the most constrained
+// or NULL_TREE if there is no best candidate. If the signatures of candidates 
+// vary (e.g., template specialization vs. member function), then there can
+// be no most constrained.
+static tree
+most_constrained_function (tree candidates)
+{
+  // Try to find the best candidate in a first pass.
+  tree champ = candidates;
+  for (tree c = TREE_CHAIN (champ); c; c = TREE_CHAIN (c))
+    {
+      int winner = more_constrained (TREE_VALUE (champ), TREE_VALUE (c));
+      if (winner == -1)
+        champ = c; // The candidate is more constrained
+      else if (winner == 0)
+        return NULL_TREE; // Neither is more constrained
+    }
+
+  // Verify that the champ is better than previous candidates.
+  for (tree c = candidates; c != champ; c = TREE_CHAIN (c)) {
+    if (!more_constrained (TREE_VALUE (champ), TREE_VALUE (c)))
+      return NULL_TREE;
+  }
+
+  return champ;
+}
+
+
 /* Returns the template (one of the functions given by TEMPLATE_ID)
    which can be specialized to match the indicated DECL with the
    explicit template args given in TEMPLATE_ID.  The DECL may be
@@ -1954,6 +1983,8 @@ determine_specialization (tree template_id,
   tree targs;
   tree explicit_targs;
   tree candidates = NULL_TREE;
+  tree rejections = NULL_TREE;
+
   /* A TREE_LIST of templates of which DECL may be a specialization.
      The TREE_VALUE of each node is a TEMPLATE_DECL.  The
      corresponding TREE_PURPOSE is the set of template arguments that,
@@ -2045,6 +2076,7 @@ determine_specialization (tree template_id,
 	     Notice that if header_count is zero, this is not a
 	     specialization but rather a template instantiation, so there
 	     is no check we can perform here.  */
+
 	  if (header_count && header_count != template_count + 1)
 	    continue;
 
@@ -2082,7 +2114,11 @@ determine_specialization (tree template_id,
 	  /* Function templates cannot be specializations; there are
 	     no partial specializations of functions.  Therefore, if
 	     the type of DECL does not match FN, there is no
-	     match.  */
+	     match.  
+
+             Note that it should never be the case that we have both
+             candidates added here, and for regular member functions
+             below. */
 	  if (tsk == tsk_template)
 	    {
 	      if (compparms (fn_arg_types, decl_arg_types))
@@ -2103,11 +2139,8 @@ determine_specialization (tree template_id,
 	       specialize TMPL will produce DECL.  */
 	    continue;
 
-	  // Make sure that the deduced arguments actually work. First,
-          // check that any template constraints are satisfied.
-          //
-          // TODO: Make sure that we get reasonable diagnostics for these
-          // kinds of failures.
+	  // The deduced arguments must satisfy the template constraints
+          // in order to be viable.
           if (!check_template_constraints (fn, targs))
             continue;
 
@@ -2158,6 +2191,7 @@ determine_specialization (tree template_id,
 	       of a template class.  This is not a candidate.  */
 	    continue;
 
+
 	  if (!same_type_p (TREE_TYPE (TREE_TYPE (decl)),
 			    TREE_TYPE (TREE_TYPE (fn))))
 	    /* The return types differ.  */
@@ -2169,11 +2203,23 @@ determine_specialization (tree template_id,
 	      && DECL_NONSTATIC_MEMBER_FUNCTION_P (decl))
 	    decl_arg_types = TREE_CHAIN (decl_arg_types);
 
-	  if (compparms (TYPE_ARG_TYPES (TREE_TYPE (fn)),
+	  if (!compparms (TYPE_ARG_TYPES (TREE_TYPE (fn)),
 			 decl_arg_types))
-	    /* They match!  */
-	    candidates = tree_cons (NULL_TREE, fn, candidates);
-	}
+            continue;
+
+          // If the deduced arguments do not satisfy the constraints,
+          // this is not a candidate. If it fails, record the
+          // rejected candidate.
+          tree targs = DECL_TI_ARGS (fn);
+          if (!check_template_constraints (fn, targs))
+          {
+            rejections = tree_cons (NULL_TREE, fn, rejections);
+            continue;
+          }
+
+          // Add the candidate.
+          candidates = tree_cons (NULL_TREE, fn, candidates);
+        }
     }
 
   if (templates && TREE_CHAIN (templates))
@@ -2217,11 +2263,26 @@ determine_specialization (tree template_id,
 	}
     }
 
+  // Concepts allows multiple declarations of member functions
+  // with the same signature. Like above, we need to rely on
+  // on the partial ordering of those candidates to determine which
+  // is the best.
+  if (flag_concepts && candidates && TREE_CHAIN (candidates))
+    {
+      if (tree cand = most_constrained_function (candidates))
+        {
+          candidates = cand;
+          TREE_CHAIN (cand) = NULL_TREE;
+        }
+    }
+
   if (templates == NULL_TREE && candidates == NULL_TREE)
     {
       error ("template-id %qD for %q+D does not match any template "
 	     "declaration", template_id, decl);
-      if (header_count && header_count != template_count + 1)
+      if (rejections)
+        print_candidates (rejections);
+      else if (header_count && header_count != template_count + 1)
 	inform (input_location, "saw %d %<template<>%>, need %d for "
 		"specializing a member function template",
 		header_count, template_count + 1);
@@ -2243,10 +2304,15 @@ determine_specialization (tree template_id,
     {
       tree fn = TREE_VALUE (candidates);
       *targs_out = copy_node (DECL_TI_ARGS (fn));
+
+      // Propagate the candidate's constraints to the declaration.
+      set_constraints (decl, get_constraints (fn));
+
       /* DECL is a re-declaration or partial instantiation of a template
 	 function.  */
       if (TREE_CODE (fn) == TEMPLATE_DECL)
 	return fn;
+
       /* It was a specialization of an ordinary member function in a
 	 template class.  */
       return DECL_TI_TEMPLATE (fn);
@@ -2263,6 +2329,11 @@ determine_specialization (tree template_id,
     }
   else
     *targs_out = TREE_PURPOSE (templates);
+  
+  // Associate the deduced constraints with the declaration.
+  if (tree ci = get_constraints (TREE_VALUE (templates)))
+    set_constraints (decl, tsubst_constraint_info (ci, *targs_out));
+
   return TREE_VALUE (templates);
 }
 
@@ -19184,7 +19255,7 @@ more_specialized_class (tree tmpl, tree pat1, tree pat2)
      types in the arguments, and we need our dependency check functions
      to behave correctly.  */
   ++processing_template_decl;
-  targs = get_class_bindings (tmpl, tmpl1, TREE_VALUE (pat1),
+  targs = get_class_bindings (tmpl, TREE_VALUE (pat1),
 			      CLASSTYPE_TI_ARGS (type1),
 			      CLASSTYPE_TI_ARGS (type2));
   if (targs)
@@ -19193,7 +19264,7 @@ more_specialized_class (tree tmpl, tree pat1, tree pat2)
       any_deductions = true;
     }
 
-  targs = get_class_bindings (tmpl, tmpl2, TREE_VALUE (pat2),
+  targs = get_class_bindings (tmpl, TREE_VALUE (pat2),
 			      CLASSTYPE_TI_ARGS (type2),
 			      CLASSTYPE_TI_ARGS (type1));
   if (targs)
@@ -19228,10 +19299,12 @@ more_specialized_class (tree tmpl, tree pat1, tree pat2)
         return -1;
     }
 
+
   // If still tied at this point, the most specialized is also
   // the most constrained. 
   if (!winner)
     return more_constrained (tmpl1, tmpl2);
+
   return winner;
 }
 
@@ -19293,8 +19366,7 @@ get_bindings (tree fn, tree decl, tree explicit_args, bool check_rettype)
    is bound to `double'.  */
 
 static tree
-get_class_bindings (tree tmpl, tree spec_tmpl, tree tparms, 
-                    tree spec_args, tree args)
+get_class_bindings (tree tmpl, tree tparms, tree spec_args, tree args)
 {
   int i, ntparms = TREE_VEC_LENGTH (tparms);
   tree deduced_args;
@@ -19352,13 +19424,35 @@ get_class_bindings (tree tmpl, tree spec_tmpl, tree tparms,
   if (!template_template_parm_bindings_ok_p (tparms, deduced_args))
     return NULL_TREE;
 
-  // Having computed and checked the binding, make sure that the
-  // deduced arguments actually satisfy the template constraints.
-  // If not, it is equivalent to having failed to compute the binding.
-  if (!check_template_constraints (spec_tmpl, deduced_args))
-    return NULL_TREE;  
-
   return deduced_args;
+}
+
+// Compare two function templates T! and T2 by deducing bindings 
+// from one against the other. If both deductions succeed, compare 
+// constraints to see which is more constrained.
+static int
+more_specialized_inst (tree t1, tree t2) 
+{
+  int fate = 0;
+  int count = 0;
+
+  if (get_bindings (t1, DECL_TEMPLATE_RESULT (t2), NULL_TREE, true))
+    {
+      --fate;
+      ++count;
+    }
+
+  if (get_bindings (t2, DECL_TEMPLATE_RESULT (t1), NULL_TREE, true))
+    {
+      ++fate;
+      ++count;
+    }
+
+  // If both deductions succeed, then one may be more constrained.
+  if (count == 2 && fate == 0)
+    fate = more_constrained (t1, t2);
+
+  return fate;
 }
 
 /* TEMPLATES is a TREE_LIST.  Each TREE_VALUE is a TEMPLATE_DECL.
@@ -19382,18 +19476,7 @@ most_specialized_instantiation (tree templates)
   champ = templates;
   for (fn = TREE_CHAIN (templates); fn; fn = TREE_CHAIN (fn))
     {
-      int fate = 0;
-
-      if (get_bindings (TREE_VALUE (champ),
-			DECL_TEMPLATE_RESULT (TREE_VALUE (fn)),
-			NULL_TREE, /*check_ret=*/true))
-	fate--;
-
-      if (get_bindings (TREE_VALUE (fn),
-			DECL_TEMPLATE_RESULT (TREE_VALUE (champ)),
-			NULL_TREE, /*check_ret=*/true))
-	fate++;
-
+      int fate = more_specialized_inst (TREE_VALUE (champ), TREE_VALUE (fn));
       if (fate == -1)
 	champ = fn;
       else if (!fate)
@@ -19410,17 +19493,13 @@ most_specialized_instantiation (tree templates)
   if (champ)
     /* Now verify that champ is better than everything earlier in the
        instantiation list.  */
-    for (fn = templates; fn != champ; fn = TREE_CHAIN (fn))
-      if (get_bindings (TREE_VALUE (champ),
-			DECL_TEMPLATE_RESULT (TREE_VALUE (fn)),
-			NULL_TREE, /*check_ret=*/true)
-	  || !get_bindings (TREE_VALUE (fn),
-			    DECL_TEMPLATE_RESULT (TREE_VALUE (champ)),
-			    NULL_TREE, /*check_ret=*/true))
-	{
-	  champ = NULL_TREE;
-	  break;
-	}
+    for (fn = templates; fn != champ; fn = TREE_CHAIN (fn)) {
+      if (more_specialized_inst (TREE_VALUE (champ), TREE_VALUE (fn)) != 1)
+      {
+        champ = NULL_TREE;
+        break;
+      }
+    }
 
   processing_template_decl--;
 
@@ -19555,15 +19634,18 @@ most_specialized_class (tree type, tsubst_flags_t complain)
 	return error_mark_node;
 
       tree parms = DECL_INNERMOST_TEMPLATE_PARMS (spec_tmpl);
-      spec_args = get_class_bindings (tmpl, spec_tmpl, parms,
-				      partial_spec_args,
-				      args);
+      spec_args = get_class_bindings (tmpl, parms, partial_spec_args, args);
       if (spec_args)
 	{
 	  if (outer_args)
 	    spec_args = add_to_template_args (outer_args, spec_args);
-	  list = tree_cons (spec_args, orig_parms, list);
-	  TREE_TYPE (list) = TREE_TYPE (t);
+
+          // Keep the candidate only if the constraints are satisfied.
+          if (check_template_constraints (spec_tmpl, spec_args))
+            {
+              list = tree_cons (spec_args, orig_parms, list);
+              TREE_TYPE (list) = TREE_TYPE (t);
+            }
 	}
     }
 

@@ -991,11 +991,6 @@ decls_match (tree newdecl, tree olddecl)
       if (t1 != t2)
 	return 0;
 
-      // Normal functions can be constraind. Two functions with the
-      // same type and different constraints are different functions.
-      tree c1 = get_constraints (newdecl);
-      tree c2 = get_constraints (olddecl);
-
       if (CP_DECL_CONTEXT (newdecl) != CP_DECL_CONTEXT (olddecl)
 	  && ! (DECL_EXTERN_C_P (newdecl)
 		&& DECL_EXTERN_C_P (olddecl)))
@@ -1013,6 +1008,11 @@ decls_match (tree newdecl, tree olddecl)
       /* A declaration with deduced return type should use its pre-deduction
 	 type for declaration matching.  */
       r2 = fndecl_declared_return_type (olddecl);
+
+      // Normal functions can be constraind. Two functions with the
+      // same type and different constraints are different functions.
+      tree c1 = get_constraints (newdecl);
+      tree c2 = get_constraints (olddecl);
 
       if (same_type_p (TREE_TYPE (f1), r2))
 	{
@@ -1041,7 +1041,7 @@ decls_match (tree newdecl, tree olddecl)
 	      TREE_TYPE (newdecl) = TREE_TYPE (olddecl);
 	    }
 #endif
-	  else {
+	  else
 	    types_match =
 	      compparms (p1, p2)
 	      && type_memfn_rqual (f1) == type_memfn_rqual (f2)
@@ -1049,7 +1049,6 @@ decls_match (tree newdecl, tree olddecl)
 	      && (TYPE_ATTRIBUTES (TREE_TYPE (newdecl)) == NULL_TREE
 	          || comp_type_attributes (TREE_TYPE (newdecl),
 					   TREE_TYPE (olddecl)) != 0);
-          }
 	}
       else
 	types_match = 0;
@@ -7564,24 +7563,54 @@ get_leading_constraints ()
 // parameter list. The adjustment makes them part of the current
 // template requirements.
 static void
-adjust_out_of_class_fn_requirements (tree ctype)
+adjust_fn_constraints (tree ctype)
 {
+  // When grokking a member function template, we are processing
+  // template decl at a depth greater than that of the member's
+  // enclosing class. That is, this case corresponds to the
+  // following declarations:
+  //
+  //    template<C T>
+  //    struct S {
+  //      template<D U> void f(U);
+  //    };
+  //
+  //    template<C T> template <D U> void S<T>::f(U) { }
+  //
+  // In both decls, the constraint D<U> is not the current leading
+  // constraint. Make it so.
+  //
+  // Note that for normal member functions, there are no leading
+  // requirements we need to gather.
   if (ctype && processing_template_decl > template_class_depth (ctype))
     {
       if (tree ci = TEMPLATE_PARMS_CONSTRAINTS (current_template_parms))
         {
+          // TODO: When do I ever have leading requirements for a
+          // member function template?
           tree reqs = CI_LEADING_REQS (ci);
           if (reqs && !get_leading_constraints ())
             current_template_reqs = save_leading_constraints (reqs);
         }
     }
-  else if (current_template_parms)
+
+  // Otherwise, this is just a regular function template. Like so:
+  //
+  //    template<C T> void f();
+  //
+  // Note that the constraint C<T> is not the current leading requirement
+  // at this point; it was stashed before the declarator was parsed.
+  // Make it the leading constraint.
+  else if (!ctype && current_template_parms)
   {
     if (tree ci = TEMPLATE_PARMS_CONSTRAINTS (current_template_parms))
       {
         tree r1 = CI_LEADING_REQS (ci);
         if (current_template_reqs)
           {
+            // TODO: As with above, when do I ever have leading
+            // requirements that aren't part of the template
+            // constraint.
             tree r2 = CI_LEADING_REQS (current_template_reqs);
             CI_LEADING_REQS (current_template_reqs) = 
                 conjoin_constraints (r1, r2);
@@ -7649,9 +7678,8 @@ grokfndecl (tree ctype,
   // Possibly adjust the template requirements for out-of-class
   // function definitions. This guarantees that current_template_reqs
   // will be fully completed before calling finish_template_constraints.
-  // verbatim ("%d", processing_template_decl);
   if (flag_concepts)
-    adjust_out_of_class_fn_requirements (ctype);
+    adjust_fn_constraints (ctype);
       
   // Check and normalize the template requirements for the declared
   // function. Note that these constraints are multiply associated

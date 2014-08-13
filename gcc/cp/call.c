@@ -9010,14 +9010,10 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn,
     }
 
     // C++ Concepts
-    // or, if not that,
-    // F1 and F2 are member functions of a class template specialization
-    // T, and M1 and M2 are member functions in the template of T
-    // corresponding to F1 and F2, and M1 is more constrained according
-    // to the partial ordering rules for constraints.
-    if (m1 && m2)
+    // or, if not that, F1 is more constrained than F2. 
+    if (flag_concepts)
       {
-        winner = more_constrained (m1, m2);
+        winner = more_constrained (cand1->fn, cand2->fn);
         if (winner)
           return winner;
       }
