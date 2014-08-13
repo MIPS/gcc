@@ -1332,7 +1332,7 @@ melt_get_double(melt_ptr_t v)
   }
   //debugeprintf("melt_get_double bad v@%p magic %d = %s", 
   //             (void*)v, melt_magic_discr (v), 
-	       melt_obmag_string(melt_magic_discr (v)));
+  //              melt_obmag_string(melt_magic_discr (v)));
   return NAN;
 }
 
