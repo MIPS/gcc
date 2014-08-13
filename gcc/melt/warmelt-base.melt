@@ -1321,6 +1321,8 @@ strinbuffer $SBUF, take care to not overwrite an old file named $VNAM if it was 
     snprintf(dblbuf, sizeof(dblbuf), "%.7f", $X);
   if (strtod (dblbuf, NULL) != $X)
     snprintf(dblbuf, sizeof(dblbuf), "%.15f", $X);
+  debugeprintf("add2out_double x=%g dblbuf=%s", $X, dblbuf);
+  //melt_cbreak("add2out_double");
   meltgc_add_out_raw ((melt_ptr_t) $OUT, dblbuf);
   /*end add2out_double*/}#)
   
@@ -2991,7 +2993,7 @@ typedef struct melthook_st *melthook_ptr_t;
   :valdesc_struct '"meltdouble_st"
   :valdesc_unionmem '"u_double"
   :valdesc_membchunk #{$' /* from VALDESC_DOUBLE in warmelt-base.melt */
-    long val;
+    double val;
   }#
   :valdesc_declchunk #{$' /* decl VALDESC_DOUBLE in warmelt-base.melt */
   typedef struct meltdouble_st *meltdouble_ptr_t;

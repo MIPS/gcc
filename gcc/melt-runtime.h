@@ -133,7 +133,7 @@ MELT_EXTERN int melt_count_runtime_extensions;
 /* The version string of MELT; this is parsed by make, so spaces are
    important, don't add spaces after the terminating double-quote!
    That version string is extracted by scripts or makefiles... */
-#define MELT_VERSION_STRING "1.1.1rc1"
+#define MELT_VERSION_STRING "1.1.1+"
 
 /* return a read only version string */
 extern const char* melt_version_str(void);
@@ -1325,8 +1325,14 @@ melt_get_real (melt_ptr_t v)
 static inline double
 melt_get_double(melt_ptr_t v)
 {
-  if (melt_magic_discr (v) == MELTOBMAG_DOUBLE)
+  if (melt_magic_discr (v) == MELTOBMAG_DOUBLE) {
+    // debugeprintf("melt_get_double good v@%p dbl=%g",
+    //	            (void*)v, ((struct meltdouble_st*) v)->val);
     return ((struct meltdouble_st*) v)->val;
+  }
+  //debugeprintf("melt_get_double bad v@%p magic %d = %s", 
+  //             (void*)v, melt_magic_discr (v), 
+	       melt_obmag_string(melt_magic_discr (v)));
   return NAN;
 }
 

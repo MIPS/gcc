@@ -1,0 +1,37 @@
+;; file tjson-3.melt -*- lisp -*-
+;; this sample code is in the public domain
+#| run in buildir/gcc
+ ln -sv $GCCMELT_SOURCE/gcc/testsuite/melt/tjson-3.melt
+
+ ./cc1 -fmelt-mode=runfile @meltbuild-common.args -Iinclude/ \
+    -fmelt-init=@warmelt.quicklybuilt -fmelt-arg=tjson-3.melt \
+     meltbuild-empty-file.c
+
+or in a MELT module
+
+gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
+    -fplugin-arg-melt-init=@melt-default-modules.quicklybuilt -fplugin-arg-melt-arg=tjson-3.melt \
+     -c -O empty.c -o /dev/null
+|#
+(module_is_gpl_compatible "public domain")
+(debug "tjson-3" " start ~*" "~*" "~*" "\n")
+(let (
+      (sbuf (make_strbuf discr_strbuf))
+      (gotjson (lambda (js) (debug "gotjson js=" js)))
+      (goterror (lambda (err)
+		  (debug "goterror err=" err)
+		  (assert_msg "failed jsonparsing err=" () err)))
+      (jparser (make_json_parser gotjson goterror ()))
+      (inh (instance class_raw_input_channel_handler
+		     :inch_sbuf sbuf
+		     :inch_clos ()
+		     :inch_data jparser
+		     ))
+      )
+  (debug "jparser=" jparser "\n inh=" inh)
+  (add2out sbuf "{\"cputime\":0.00883, \"elapsedtime\":0.386605024337769}")
+  (debug "sbuf=" sbuf)
+  (json_parser_input_processor inh sbuf)
+  (debug "done final jparser=" jparser)
+  )
+;; eof tjson-3.melt
