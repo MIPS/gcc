@@ -1,8 +1,36 @@
+2014-08-13  Braden Obrzut <admin@maniacsvault.net>
+
+	* gcc/cp/constraint.cc (deduce_constrained_parameter): Deduce concept
+	from variable concept template-id expressions.
+	(normalize_var): New.
+	(normalize_template_id): Identify variable concepts.
+	(build_concept_check): Handle variable concepts.
+	(finish_shorthand_requirement): Handle variable concepts.
+	(diagnose_var): New.
+	(diagnose_node): Identify variable concepts.
+	* gcc/cp/decl.c (grokvardecl): Pass concept flag through to
+	check_explicit_specialization.
+	(grokdeclarator): Allow variable concepts and pass concept flag through
+	grokvardecl.
+	* gcc/cp/parser.c (cp_is_constrained_parameter): Accept variable
+	concepts.
+	(cp_parser_nonclass_name): Accept variable concepts.
+	(get_concept_from_constraint): Handle variable concepts.
+	* gcc/cp/pt.c (tsubst_copy_and_build): Lookup variable templates.
+	(value_dependent_expression_p): Check requires expressions for value
+	dependence.
+	* gcc/cp/semantics.c (finish_call_expr): Don't instantiate variable
+	templates if processing a template declaration.
+	* gcc/testsuite/g++.dg/concepts/decl-diagnose.C: Change expected error
+	as variable concepts are now handled.
+	* gcc/testsuite/g++.dg/concepts/var-concepts1.C: New test.
+	* gcc/testsuite/g++.dg/concepts/var-concepts2.C: New test.
+
 2014-08-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	
 	* gcc/cp/pt.c (tsubst): Don't short circuit substitution into
 	types when processing constraints. Also, avoid asserting when
-        substituting into template parameters.
+	substituting into template parameters.
 	* gcc/cp/constraint.c (tsubst_constraint_expr): Indicate that
 	constraint processing is happening.
 	(tsubst_constraint_info): Just substitute directly into the

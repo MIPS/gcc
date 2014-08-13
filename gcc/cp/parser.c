@@ -13231,7 +13231,8 @@ cp_is_constrained_parameter (cp_parameter_declarator *parm)
           && TREE_CODE (decl) == TYPE_DECL 
           && DECL_INITIAL (decl)
           && DECL_SIZE_UNIT (decl)
-          && TREE_CODE (DECL_SIZE_UNIT (decl)) == FUNCTION_DECL);
+          && (TREE_CODE (DECL_SIZE_UNIT (decl)) == FUNCTION_DECL
+              || TREE_CODE (DECL_SIZE_UNIT (decl)) == VAR_DECL));
 }
 
 
@@ -15441,10 +15442,10 @@ cp_parser_nonclass_name (cp_parser* parser)
 
   // If we found an overload set, then it may refer to a concept-name.
   //
-  // TODO: The name could also refer to a variable template or an
-  // introduction (if followed by '{').
+  // TODO: The name could also refer to an introduction (if followed by '{').
   if (flag_concepts && 
-        (TREE_CODE (type_decl) == OVERLOAD || BASELINK_P (type_decl)))
+        (TREE_CODE (type_decl) == OVERLOAD || BASELINK_P (type_decl)
+         || variable_template_p (type_decl)))
   {
     // Determine whether the overload refers to a concept.
     if (tree decl = cp_maybe_concept_name (parser, type_decl))
@@ -33162,11 +33163,18 @@ tree_type_is_auto_or_concept (const_tree t)
 static tree
 get_concept_from_constraint (tree t)
 {
-  gcc_assert (TREE_CODE (t) == CALL_EXPR);
-  tree fn = CALL_EXPR_FN (t);
-  tree ovl = TREE_OPERAND (fn, 0);
-  tree tmpl = OVL_FUNCTION (ovl);
-  return DECL_TEMPLATE_RESULT (tmpl);
+  gcc_assert (TREE_CODE (t) == CALL_EXPR || TREE_CODE (t) == TEMPLATE_ID_EXPR);
+
+  // Variable concepts will be a TEMPLATE_ID_EXPR.
+  if (TREE_CODE (t) == TEMPLATE_ID_EXPR)
+    return DECL_TEMPLATE_RESULT (TREE_OPERAND (t, 0));
+  else
+    {
+      tree fn = CALL_EXPR_FN (t);
+      tree ovl = TREE_OPERAND (fn, 0);
+      tree tmpl = OVL_FUNCTION (ovl);
+      return DECL_TEMPLATE_RESULT (tmpl);
+    }
 }
 
 /* Add an implicit template type parameter to the CURRENT_TEMPLATE_PARMS

@@ -2423,6 +2423,9 @@ finish_call_expr (tree fn, vec<tree, va_gc> **args, bool disallow_virtual,
 tree
 finish_template_variable (tree var)
 {
+  if (processing_template_decl)
+    return var;
+
   return instantiate_template (TREE_OPERAND (var, 0), TREE_OPERAND (var, 1),
                                tf_error);
 }

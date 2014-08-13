@@ -14778,7 +14778,13 @@ tsubst_copy_and_build (tree t,
 	  }
 	else
 	  object = NULL_TREE;
-	templ = lookup_template_function (templ, targs);
+	if (variable_template_p (templ))
+	  {
+	    templ = lookup_template_variable (templ, targs);
+	    RETURN (finish_template_variable (templ));
+	  }
+	else
+	  templ = lookup_template_function (templ, targs);
 
 	if (object)
 	  RETURN (build3 (COMPONENT_REF, TREE_TYPE (templ),
@@ -21359,6 +21365,34 @@ value_dependent_expression_p (tree expression)
 	return (value_dependent_expression_p (op)
 		|| has_value_dependent_address (op));
       }
+
+    case REQUIRES_EXPR:
+      {
+        // Check if any parts of a requires expression are dependent.
+        tree req = TREE_OPERAND (expression, 1);
+        while (req != NULL_TREE)
+          {
+            tree op = TREE_OPERAND (TREE_VALUE (req), 0);
+
+            if (TREE_CODE (op) == TREE_LIST)
+              {
+                if (any_value_dependent_elements_p (op))
+                  return true;
+              }
+            else
+              {
+                if (value_dependent_expression_p (op))
+                  return true;
+              }
+            req = TREE_CHAIN (req);
+          }
+        return false;
+      }
+
+    case TYPE_REQ:
+    case VALIDEXPR_EXPR:
+    case VALIDTYPE_EXPR:
+      return type_dependent_expression_p (TREE_OPERAND (expression, 0));
 
     case CALL_EXPR:
       {

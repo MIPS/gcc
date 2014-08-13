@@ -198,29 +198,44 @@ resolve_constraint_check (tree call)
   return resolve_constraint_check (ovl, args);
 }
 
-// Given a call expression to a concept, possibly including a placeholder
-// argument, deduce the concept being checked and the prototype paraemter.
-// Returns true if the constraint and prototype can be deduced and false
-// otherwise. Note that the CHECK and PROTO arguments are set to NULL_TREE
-// if this returns false.
+// Given a call expression or template-id expression to a concept, EXPR,
+// possibly including a placeholder argument, deduce the concept being checked
+// and the prototype paraemter.  Returns true if the constraint and prototype
+// can be deduced and false otherwise. Note that the CHECK and PROTO arguments
+// are set to NULL_TREE if this returns false.
 bool
-deduce_constrained_parameter (tree call, tree& check, tree& proto)
+deduce_constrained_parameter (tree expr, tree& check, tree& proto)
 {
-  // Resolve the constraint check to deduce the declared parameter.
-  if (tree info = resolve_constraint_check (call))
+  if (TREE_CODE (expr) == TEMPLATE_ID_EXPR)
     {
-      // Get function and argument from the resolved check expression and
-      // the prototype parameter. Note that if the first argument was a
-      // pack, we need to extract the first element ot get the prototype.
-      check = TREE_VALUE (info);
-      tree arg = TREE_VEC_ELT (TREE_PURPOSE (info), 0);
-      if (ARGUMENT_PACK_P (arg))
-        arg = TREE_VEC_ELT (ARGUMENT_PACK_ARGS (arg), 0);
-      proto = TREE_TYPE (arg);
+      // Get the check and prototype parameter from the variable template.
+      tree decl = TREE_OPERAND (expr, 0);
+      tree parms = DECL_TEMPLATE_PARMS (decl);
+
+      check = DECL_TEMPLATE_RESULT (decl);
+      proto = TREE_VALUE (TREE_VEC_ELT (TREE_VALUE (parms), 0));
       return true;
     }
-  check = proto = NULL_TREE;
-  return false;
+  else if (TREE_CODE (expr) == CALL_EXPR)
+    {
+      // Resolve the constraint check to deduce the prototype parameter.
+      if (tree info = resolve_constraint_check (expr))
+        {
+          // Get function and argument from the resolved check expression and
+          // the prototype parameter. Note that if the first argument was a
+          // pack, we need to extract the first element ot get the prototype.
+          check = TREE_VALUE (info);
+          tree arg = TREE_VEC_ELT (TREE_PURPOSE (info), 0);
+          if (ARGUMENT_PACK_P (arg))
+            arg = TREE_VEC_ELT (ARGUMENT_PACK_ARGS (arg), 0);
+          proto = TREE_TYPE (arg);
+          return true;
+        }
+      check = proto = NULL_TREE;
+      return false;
+    }
+  else
+    gcc_unreachable ();
 }
 
 // -------------------------------------------------------------------------- //
@@ -246,6 +261,7 @@ tree normalize_requires (tree);
 tree normalize_expr_req (tree);
 tree normalize_type_req (tree);
 tree normalize_nested_req (tree);
+tree normalize_var (tree);
 tree normalize_template_id (tree);
 tree normalize_stmt_list (tree);
 
@@ -439,6 +455,36 @@ normalize_call (tree t)
   return result;
 }
 
+// Reduction rules for a variable template-id T.
+//
+// If T is a constraint, instantiate its initializer and recursively reduce its
+// expression.
+tree
+normalize_var (tree t)
+{
+  tree decl = DECL_TEMPLATE_RESULT (TREE_OPERAND (t, 0));
+  if (!DECL_DECLARED_CONCEPT_P (decl))
+    return t;
+
+  // Reduce the initializer of the variable into the constriants language.
+  tree body = normalize_constraints (DECL_INITIAL (decl));
+  if (!body)
+   {
+     error ("could not inline requirements from %qD", decl);
+     return error_mark_node;
+   }
+
+  // Instantiate the reduced results.
+  tree result = tsubst_constraint_expr (body, TREE_OPERAND (t, 1), false);
+  if (result == error_mark_node)
+    {
+      error ("could not instantiate requirements from %qD", decl);
+      return error_mark_node;
+    }
+
+  return result;
+}
+
 // Reduction rules for the template-id T.
 //
 // It turns out that we often get requirements being written like this:
@@ -452,15 +498,20 @@ normalize_call (tree t)
 tree
 normalize_template_id (tree t)
 {
-  vec<tree, va_gc>* args = NULL;
-  tree c = finish_call_expr (t, &args, true, false, 0);
+  if (variable_template_p (TREE_OPERAND (t, 0)))
+    return normalize_var (t);
+  else
+    {
+      vec<tree, va_gc>* args = NULL;
+      tree c = finish_call_expr (t, &args, true, false, 0);
 
-  // FIXME: input_location is probably wrong, but there's not necessarly
-  // an expr location with the tree.
-  error_at (input_location, "invalid requirement");
-  inform (input_location, "did you mean %qE", c);
+      // FIXME: input_location is probably wrong, but there's not necessarly
+      // an expr location with the tree.
+      error_at (input_location, "invalid requirement");
+      inform (input_location, "did you mean %qE", c);
 
-  return error_mark_node;
+      return error_mark_node;
+    }
 }
 
 
@@ -954,8 +1005,6 @@ build_call_check (tree id)
 // a function (overload set or baselink reffering to an overload set),
 // then ths builds the call expression  TARGET<ARG, REST>(). If REST is 
 // NULL_TREE, then the resulting check is just TARGET<ARG>().
-//
-// TODO: Allow TARGET to be a variable concept.
 tree
 build_concept_check (tree target, tree arg, tree rest) 
 {
@@ -970,8 +1019,16 @@ build_concept_check (tree target, tree arg, tree rest)
     for (int i = 0; i < n; ++i)
       TREE_VEC_ELT (targs, i + 1) = TREE_VEC_ELT (rest, i);
   SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT (targs, n + 1);
-  tree id = lookup_template_function (target, targs);
-  return build_call_check (id);
+  if (variable_template_p (target))
+    {
+      tree id = lookup_template_variable (target, targs);
+      return id;
+    }
+  else
+    {
+      tree id = lookup_template_function (target, targs);
+      return build_call_check (id);
+    }
 }
 
 // Returns a TYPE_DECL that contains sufficient information to build
@@ -1027,8 +1084,16 @@ finish_shorthand_constraint (tree decl, tree constr)
   // Build the concept check. If it the constraint needs to be applied
   // to all elements of the parameter pack, then expand make the constraint
   // an expansion.
-  tree ovl = build_overload (DECL_TI_TEMPLATE (con), NULL_TREE);
-  tree check = build_concept_check (ovl, arg, args);
+  tree check;
+  if (TREE_CODE (con) == VAR_DECL)
+    {
+      check = build_concept_check (DECL_TI_TEMPLATE (con), arg, args);
+    }
+  else
+    {
+      tree ovl = build_overload (DECL_TI_TEMPLATE (con), NULL_TREE);
+      check = build_concept_check (ovl, arg, args);
+    }
   if (apply_to_all_p)
     {
       check = make_pack_expansion (check);
@@ -1518,6 +1583,31 @@ diagnose_call (location_t loc, tree t, tree args)
     inform (loc, "  %qE evaluated to false", t);
 }
 
+// Diagnose constraint failures in a variable concept.
+void
+diagnose_var (location_t loc, tree t, tree args)
+{
+  // If the template-id isn't a variable template, it can't be a
+  // valid constraint.
+  if (!variable_template_p (TREE_OPERAND (t, 0)))
+    {
+      inform (loc, "  invalid constraint %qE", t);
+      return;
+    }
+
+  if (check_diagnostic_constraints (t, args))
+    return;
+
+  tree var = DECL_TEMPLATE_RESULT (TREE_OPERAND (t, 0));
+  tree body = DECL_INITIAL (var);
+  tree targs = TREE_OPERAND (t, 1);
+  tree subst = tsubst_constraint_expr (body, targs, true);
+
+  inform (loc, "  failure in constraint %q#D", DECL_TI_TEMPLATE (var));
+
+  diagnose_node (loc, subst, args);
+}
+
 // Diagnose specific constraint failures.
 void
 diagnose_requires (location_t loc, tree t, tree args)
@@ -1639,6 +1729,10 @@ diagnose_node (location_t loc, tree t, tree args)
 
     case NOEXCEPT_EXPR:
       diagnose_noexcept (loc, t, args);
+      break;
+
+    case TEMPLATE_ID_EXPR:
+      diagnose_var (loc, t, args);
       break;
 
     default:

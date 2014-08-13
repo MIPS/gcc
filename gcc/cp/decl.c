@@ -8132,7 +8132,7 @@ grokvardecl (tree type,
 	     tree orig_declarator,
 	     const cp_decl_specifier_seq *declspecs,
 	     int initialized,
-	     int constp,
+	     int flags,
 	     int template_count,
 	     tree scope)
 {
@@ -8140,6 +8140,9 @@ grokvardecl (tree type,
   tree explicit_scope;
 
   gcc_assert (!name || identifier_p (name));
+
+  bool constp = flags&1;
+  bool conceptp = flags&2;
 
   /* Compute the scope in which to place the variable, but remember
      whether or not that scope was explicitly specified by the user.   */
@@ -8237,7 +8240,7 @@ grokvardecl (tree type,
   // Handle explicit specializations and instantiations of variable templates.
   if (orig_declarator)
     decl = check_explicit_specialization (orig_declarator, decl,
-					  template_count, 0);
+					  template_count, conceptp * 8);
 
   return decl != error_mark_node ? decl : NULL_TREE;
 }
@@ -11104,21 +11107,12 @@ grokdeclarator (const cp_declarator *declarator,
     else
       {
 	/* It's a variable.  */
-
-	// TODO: This needs to be revisited once variable
-	// templates are supported
-	if (concept_p)
-	  {
-	    error ("variable %qE declared %<concept%>",
-		   unqualified_id);
-	    return error_mark_node;
-	  }
 	
 	/* An uninitialized decl with `extern' is a reference.  */
 	decl = grokvardecl (type, dname, unqualified_id,
 			    declspecs,
 			    initialized,
-			    (type_quals & TYPE_QUAL_CONST) != 0,
+			    ((type_quals & TYPE_QUAL_CONST) != 0) | (2 * concept_p),
 			    template_count,
 			    ctype ? ctype : in_namespace);
 	if (decl == NULL_TREE)
