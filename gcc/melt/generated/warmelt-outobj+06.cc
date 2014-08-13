@@ -4104,8 +4104,7 @@ ltstr[];\n\t     extern \"C\" const char melt_genversionstr[];\
 \n\t     extern \"C\" const int melt_lastsecfileindex;\
 \n\t     extern \"C\" const char melt_cumulated_hexmd5[];\
 \n\t     extern \"C\" const int melt_module_nb_module_vars;\
-\n\n\t     extern \"C\" {\n\t \
-    #endif /*__cplusplus */\n\t     ";
+\n\n\t     extern \"C\" {\n\t     #endif /*__cplusplus */\n\t     ";
             /*_.ADD2OUT__V38*/ meltfptr[37] =  melt_apply ((meltclosure_ptr_t)((/*!ADD2OUT*/ meltfrout->tabval[16])), (melt_ptr_t)(/*_.DEBUF__V13*/ meltfptr[11]), (MELTBPARSTR_CSTRING ""), argtab, "", (union meltparam_un*)0);
         }
         ;
@@ -6725,8 +6724,7 @@ ltstr[];\n\t     extern \"C\" const char melt_genversionstr[];\
  dlsym-ed */\nextern \"C\" const char melt_gen_timestamp[] ;\
 \nextern \"C\" const long long melt_gen_timenum ;\
 \nextern \"C\" const char melt_build_timestamp[] ;\
-\nextern \"C\" {\n#endif /*__cplusplu\
-s */\n\n\t\t ";
+\nextern \"C\" {\n#endif /*__cplusplus */\n\n\t\t ";
             /*_.ADD2OUT__V133*/ meltfptr[132] =  melt_apply ((meltclosure_ptr_t)((/*!ADD2OUT*/ meltfrout->tabval[16])), (melt_ptr_t)(/*_.TIBUF__V14*/ meltfptr[4]), (MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_CSTRING ""), argtab, "", (union meltparam_un*)0);
         }
         ;
@@ -6776,8 +6774,7 @@ s */\n\n\t\t ";
             /*^apply.arg*/
             argtab[0].meltbp_cstring =  "\n\t\t const char melt_build_timestamp[]= __DATE__ \"@\" __TIME__\
 \n\t\t #ifdef __cplusplus\n\t\t \" (in C++)\"\
-\n\t\t #else\n\t\t \" (in C)\"\n\t\t #endif /*__cplus\
-plus*/\n\t\t\t\t\t;\n\t\t ";
+\n\t\t #else\n\t\t \" (in C)\"\n\t\t #endif /*__cplusplus*/\n\t\t\t\t\t;\n\t\t ";
             /*_.ADD2OUT__V134*/ meltfptr[133] =  melt_apply ((meltclosure_ptr_t)((/*!ADD2OUT*/ meltfrout->tabval[16])), (melt_ptr_t)(/*_.TIBUF__V14*/ meltfptr[4]), (MELTBPARSTR_CSTRING ""), argtab, "", (union meltparam_un*)0);
         }
         ;
