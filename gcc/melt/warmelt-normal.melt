@@ -1257,7 +1257,40 @@ routine procedures.}#
     (error_at psloc 
 		"unimplemented normalization for literal object of $1"_ claname)
     (assert_msg "@$@ unimplemented normexp_any_object" () recv)))
-(install_method class_root normal_exp  normexp_any_object)
+(install_method class_root normal_exp normexp_any_object)
+
+
+(defun normexp_mixed_location (recv env ncx psloc)
+  (debug "normexp_mixed_location" " recv=" recv)
+  (let ( (filev ())
+	 (:long linenum 0)
+	 (:long colnum 0)
+	 )
+    (code_chunk 
+     normixloc_chk
+     #{ /* normexp_mixed_location start $NORMIXLOC_CHK */
+     source_location loc_$NORMIXLOC_CHK = melt_location_mixloc((melt_ptr_t)$RECV) ;
+     $FILEV = meltgc_cached_string_path_of_source_location (loc_$NORMIXLOC_CHK)	;
+     $LINENUM = LOCATION_LINE(loc_$NORMIXLOC_CHK)  ;
+     $COLNUM = LOCATION_COLUMN(loc_$NORMIXLOC_CHK) ;
+     /* normexp_mixed_location end $NORMIXLOC_CHK */}#)
+    (debug "normexp_mixed_location" " filev=" filev "; linenum=" linenum "; colnum=" colnum)
+    (let ( (sprim (instance class_source_primitive
+			    :loca_location (or psloc recv)
+			    :sprim_oper make_mixint
+			    :sargop_args (tuple discr_mixed_integer filev (constant_box linenum))))
+	   )
+      (debug "normexp_mixed_location" " sprim=" sprim)
+      (multicall
+       (nres nbind)
+       (normexp_primitive sprim env ncx psloc)
+       (debug "normexp_mixed_location" " result nres=" nres " nbind=" nbind)
+       (return nres nbind)
+       )	 
+      )
+    )
+  )
+(install_method discr_mixed_location normal_exp normexp_mixed_location)
 
 (defun normexp_any_value (recv env ncx psloc)
   (assert_msg "check env" (is_a env class_environment) env)

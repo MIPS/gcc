@@ -2,7 +2,8 @@
 ;; this sample code is in the public domain
 ;; see also file tattrcode-1.c
 #| run in buildir/gcc
- ln -s $GCCMELT_SOURCE/gcc/testsuite/melt/tattr-1.melt
+ ln -sv $GCCMELT_SOURCE/gcc/testsuite/melt/tattr-1.melt
+ ln -sv $GCCMELT_SOURCE/gcc/testsuite/melt/tattrcode-1.c
 
  ./cc1 -fmelt-mode=runfile @meltbuild-common.args -Iinclude/ \
     -fmelt-init=@warmelt.quicklybuilt -fmelt-arg=tattr-1.melt \

@@ -1,6 +1,13 @@
 
 2014-08-13  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-normal.melt (normexp_mixed_location): New method
+	for normal_exp on discr_mixed_location.
+
+	* testsuite/melt/tattr-1.melt: Improve comment.
+
+2014-08-13  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* testsuite/melt/tattr-1.melt: New file.
 	* testsuite/melt/tattrcode-1.c: New file.
 
