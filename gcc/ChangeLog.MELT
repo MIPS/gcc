@@ -1,5 +1,8 @@
 
 2014-08-14  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/generated/*: Regenerate.
+
+2014-08-14  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-hooks.melt (gcc_attribute_installer_list): New
 	variable.
 	(hook_install_attributes): More code, invoking closures in
