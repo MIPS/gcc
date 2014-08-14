@@ -125,6 +125,11 @@
   (and (match_code "const_int")
        (match_test "TARGET_VSX && (ival == VECTOR_ELEMENT_SCALAR_64BIT)")))
 
+;; GPR fusion address, validate for (lo_sum (high) (offset))
+(define_memory_constraint "wG"
+  "Memory operand suitable for GPR load fusion operations"
+  (match_operand 0 "fusion_gpr_mem_combo"))
+
 ;; Lq/stq validates the address for load/store quad
 (define_memory_constraint "wQ"
   "Memory operand suitable for the load/store quad instructions"

@@ -2183,6 +2183,9 @@ Floating point register if the LFIWZX instruction is enabled or NO_REGS.
 @item wD
 Int constant that is the element number of the 64-bit scalar in a vector.
 
+@item wG
+Memory operand suitable for GPR load fusion operations
+
 @item wQ
 A memory address that will work with the @code{lq} and @code{stq}
 instructions.

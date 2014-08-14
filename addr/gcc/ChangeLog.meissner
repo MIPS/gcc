@@ -1,3 +1,38 @@
+2014-08-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/constraints.md (wG): New memory constraint for
+	fusion of GPR loads with the addis instruction.
+
+	* config/rs6000/predicates.md (fusion_gpr_mem_load): Reorganize
+	code somewhat.
+	(fusion_gpr_mem_combo): New predicate to match a memory address
+	that includes both the high and low offsets added together for GPR
+	load fusion.
+
+	* config/rs6000/rs6000-protos.h (fusion_gpr_load_p): Change
+	calling signature.
+	(expand_fusion_gpr_load): Likewise.
+	(emit_fusion_gpr_load): Likewise.
+
+	* config/rs6000/rs6000.c (fusion_gpr_load_p): Drop peephole
+	support, in favor of only using peephole2.  Change the calling
+	sequence to pass arguments directly instead of passing operands.
+	(expand_fusion_gpr_load): Emit a single insn for the fused load,
+	rather than peephole2 emiting the modified addis instruction and
+	hoping peephole will catch that this is a fused load.  Generate
+	explicit sign extension during expansion, and do not handle it in
+	the fused insn.
+	(emit_fusion_gpr_load): Likewise.
+
+	* config/rs6000/rs6000.md (UNSPEC_FUSION_GPR): New unspec.
+	(gpr fusion peephole): Delete the peephole for power8 gpr fusion.
+	Modify the peephole2 to create a new insn for the fused load.  Add
+	support for the new insn.
+	(gpr fusion peephole2): Likewise.
+	(fusion_gpr_load_<mode>): Likewise.
+
+	* doc/md.texi (Machine Constraints): Document wG constraint.
+
 2014-08-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 213913.
