@@ -1,6 +1,16 @@
 
 2014-08-14  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h: include "plugin.h".
+
+	* melt/warmelt-hooks.melt (melt_register_gcc_attribute_at): Call
+	register_attribute. This should be moved to some closure passed to
+	at_melt_attribute_first or elsewhere....
+
+	* testsuite/melt/tattrcode-1.c: Attribute moved to function declaration.
+
+2014-08-14  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-normal.melt (normexp_mixed_location): Quote the
 	filename.
 

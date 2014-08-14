@@ -2545,6 +2545,7 @@ melt_attribute_handler_glue (tree *node, tree name, tree args, int flags, bool *
      atspec->function_type_required = $FUNCTION_TYPE_REQUIRED_FLAG ;
      atspec->affects_type_identity = $AFFECTS_TYPE_IDENTITY_FLAG ;
      atspec->handler = melt_attribute_handler_glue ;
+     register_attribute (atspec);
      $(put_int attr attix)
      $(mapstring_putstr gcc_attribute_dict name attr)
      /* -- melt_register_gcc_attribute_at $GCCATTR_CHK end */

@@ -2,6 +2,8 @@
 void emptyfun(void) {
 }
 
-int funwithattr(int x, int y) __attribute__((testmelt(1))) {
+int funwithattr(int x, int y) __attribute__((testmelt(1)));
+
+int funwithattr(int x, int y)  {
   return x+y;
 }

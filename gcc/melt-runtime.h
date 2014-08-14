@@ -84,6 +84,7 @@ extern void fatal_error (const char *, ...);
 #include <math.h> /* for NAN */
 
 #include "gcc-plugin.h"
+#include "plugin.h"
 
 /* We include toplev.h for the error routines. */
 #include "toplev.h"
