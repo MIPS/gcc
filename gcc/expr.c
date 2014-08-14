@@ -8262,7 +8262,7 @@ expand_cond_expr_using_addcc (tree treeop0, tree treeop1, tree treeop2)
                                       &comparison_mode, &comparison_code);
           rtx target = gen_reg_rtx (mode);
           tmp = emit_store_flag (target, comparison_code, op00, op01,
-                                 comparison_mode, 1, 1);
+                                 comparison_mode, unsignedp, 1);
           if (tmp)
             {
               seq = get_insns ();
@@ -8275,7 +8275,9 @@ expand_cond_expr_using_addcc (tree treeop0, tree treeop1, tree treeop2)
                                    op2, tmp, tmp, 0, OPTAB_LIB_WIDEN);
             }
             end_sequence();
-        } else {
+        }
+      else
+        {
           /* No conditional add or conditional store, so convert
              A ? CST1 : CST1 + 1 to CST1 + !A
              A ? CST1 : CST1 - 1 to CST1 - !A */
