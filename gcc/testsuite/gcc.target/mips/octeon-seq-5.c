@@ -1,5 +1,6 @@
 /* { dg-do compile } */
 /* { dg-options "-march=octeon -mgp64" } */
+/* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 /* We should be able to get seq followed by an add instead
    of a conditional move. */
 /* { dg-final { scan-assembler "seq\t" } } */

@@ -8215,6 +8215,8 @@ expand_cond_expr_using_addcc (tree treeop0, tree treeop1, tree treeop2)
   else
     return NULL_RTX;
 
+  /* Try to use a conditional add:
+     A ? CST1 : CST1 + CST2 generated as: add_cond<!A>, CST1, diff */
   start_sequence ();
 
   get_condition_from_operand (treeop0, &op00, &op01, &unsignedp,
@@ -8238,30 +8240,53 @@ expand_cond_expr_using_addcc (tree treeop0, tree treeop1, tree treeop2)
       return temp;
     }
 
-#if 0
-  /* FIXME: we need to expand this manually now due to ccmp. */
-  /* If addcc fails, then we should expanding it as treeop2 +- (A)
-     if the diff is either 1 or -1 (plus if 1 and minus is -1).  */
-  if ((integer_onep (diff) || integer_all_onesp (diff)))
+  /* No conditional add, so try to use conditional store:
+     A ? CST1 : CST1 + 1 generated as:
+       reg1 = cond_store<!A>; add reg1, reg1, CST1
+     A ? CST1 : CST1 - 1 generated as:
+       reg1 = cond_store<A>; add reg1, reg1, CST1 - 1 */
+  if (integer_onep (diff) || integer_all_onesp (diff))
     {
       bool add = false;
-      tree tmp, t;
-      rtx target = gen_reg_rtx (word_mode);
+      rtx tmp;
       enum insn_code icode;
-      icode = optab_handler (cstore_optab, comparison_mode);
-      if (icode == CODE_FOR_nothing)
-	return NULL_RTX;
 
       if (integer_onep (diff))
-	add = true;
-      get_condition_from_operand (treeop0, &op00, &op01, &unsignedp,
-				  &comparison_mode, &comparison_code);
-      tmp = emit_cstore (target, icode, NE, CCmode, CCmode,
-			     0, tmp, const0_rtx, 1, word_mode);
+        add = true;
 
-      return expand_normal (tmp);
-    }
-#endif
+      icode = optab_handler (cstore_optab, CCmode);
+      if (icode != CODE_FOR_nothing)
+        {
+          start_sequence();
+          get_condition_from_operand (treeop0, &op00, &op01, &unsignedp,
+                                      &comparison_mode, &comparison_code);
+          rtx target = gen_reg_rtx (mode);
+          tmp = emit_store_flag (target, comparison_code, op00, op01,
+                                 comparison_mode, 1, 1);
+          if (tmp)
+            {
+              seq = get_insns ();
+              end_sequence ();
+              emit_insn (seq);
+              // At this point, tmp is 0 or 1;
+              // if  add: op1 is +1, op2 is CST2 => add CST2, tmp
+              // if !add: op1 is -1, op2 is CST2 => sub CST2, tmp
+              return expand_binop (mode, add ? add_optab : sub_optab,
+                                   op2, tmp, tmp, 0, OPTAB_LIB_WIDEN);
+            }
+            end_sequence();
+        } else {
+          /* No conditional add or conditional store, so convert
+             A ? CST1 : CST1 + 1 to CST1 + !A
+             A ? CST1 : CST1 - 1 to CST1 - !A */
+          tree tmp, t;
+          t = fold_convert (TREE_TYPE (treeop0), integer_zero_node);
+          tmp = fold_build2 (NE_EXPR, TREE_TYPE (treeop0), treeop0, t);
+          tmp = fold_convert (type, tmp);
+          tmp = fold_build2 (add ? PLUS_EXPR : MINUS_EXPR, type, treeop2, tmp);
+          return expand_normal (tmp);
+        }
+    } // diff was +/- 1
 
   return NULL_RTX;
 }
