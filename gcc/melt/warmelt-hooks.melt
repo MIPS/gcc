@@ -2221,65 +2221,6 @@ bool  melthk_pass_execution_registered_flag;
        ))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; attribute definer hook
-;; private hook definer queue
-
-(definstance attribute_definer_delayed_queue class_delayed_queue
-  :named_name '"attribute_definer_delayed_queue"
-  :delqu_first (make_list discr_list)
-  :delqu_last (make_list discr_list)
-  )
-
-(defhook hook_melt_attribute_definer 
-  (:tree decl :tree name :value attrseq
-	 :cstring fileloc :long lineno)      
-  ()
-  :void
-  :predef HOOK_MELT_ATTRIBUTE_DEFINER
-  (let ( (firstlist (get_field :delqu_first attribute_definer_delayed_queue))
-	 (lastlist (get_field :delqu_last attribute_definer_delayed_queue))
-	 (revlastlist (make_list discr_list))
-	 (rescont (instance class_reference))
-	 )
-;;; call the first routines in natural order
-    (foreach_pair_component_in_list
-     (firstlist)
-     (curpair firstproc)
-     (if (is_closure firstproc)
-	 (firstproc attrseq rescont decl name fileloc lineno))
-     )
-;;; reverse the last list
-    (foreach_pair_component_in_list
-     (lastlist)
-     (curpair lastproc)
-     (if (is_closure lastproc) (list_prepend revlastlist lastproc))
-     )
-    (foreach_pair_component_in_list
-     (revlastlist)
-     (curpair lastproc)
-     (lastproc attrseq rescont decl name fileloc lineno)
-     )
-    ))
-
-(defun at_melt_attribute_first (fun)
-  :doc #{Use $AT_MELT_ATTRIBUTE_FIRST to register a function to be run
-at MELT attribute definition, in first place, for
-@code{__attribute__((melt(...)))}. See also $AT_MELT_ATTRIBUTE_LAST and $REGISTER_GCC_ATTRIBUTE.}#
-  (let ( (firstlist (unsafe_get_field :delqu_first attribute_definer_delayed_queue))
-	 )
-    (if (is_closure fun) (list_append firstlist fun)))
-  ) 
-
-
-(defun at_melt_attribute_last (fun)
-  :doc #{Use $AT_MELT_ATTRIBUTE_LAST to register a function to be run
-at MELT attribute definition, in last place, for
-@code{__attribute__((melt(...)))}. See also $AT_MELT_ATTRIBUTE_FIRST.}#
-  (let ( (lastlist (unsafe_get_field :delqu_last attribute_definer_delayed_queue))
-	 )
-    (if (is_closure fun) (list_append lastlist fun)))
-  ) 
-
 
 
 
@@ -2325,6 +2266,15 @@ melt_attribute_handler_glue (tree *node, tree name, tree args, int flags, bool *
 	   gccattr_handler
 ))
 (export_class class_gcc_attribute)
+
+(defhook hook_install_attributes
+  ()
+  ()
+  :void
+  :predef HOOK_INSTALL_ATTRIBUTES
+  (debug "hook_install_attributes" " start gcc_attribute_dict=" 
+	 gcc_attribute_dict)
+)
 
 (defhook hook_handle_attribute    
   (:tree in_node name args :long flags in_add_attrs)

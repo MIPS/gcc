@@ -8952,51 +8952,13 @@ end:
 
 
 
-/* handle a "melt" attribute
- */
-static tree
-handle_melt_attribute(tree *node, tree name,
-                      tree args,
-                      int flag ATTRIBUTE_UNUSED,
-                      bool *no_add_attrs ATTRIBUTE_UNUSED)
-{
-  tree decl = *node;
-  tree id = 0;
-  const char* attrstr = 0;
-  id = TREE_VALUE (args);
-  if (TREE_CODE (id) != STRING_CST)
-    {
-      error ("melt attribute argument not a string");
-      return NULL_TREE;
-    }
-  attrstr = TREE_STRING_POINTER (id);
-  melt_handle_melt_attribute (decl, name, attrstr, input_location);
-  return NULL_TREE;
-}
-
-static struct attribute_spec /* See tree.h & attribs.h & tree-core.h
-				for details.  */
-  melt_attr_spec =
-{
-  "melt"                /*=name*/,
-  1                     /*=min_length*/,
-  1                     /*=max_length*/,
-  true                  /*=decl_required*/,
-  false                 /*=type_required*/,
-  false                 /*=function_type_required*/,
-  handle_melt_attribute     /*=handler*/,
-#if MELT_GCC_VERSION >= 4007
-  false                     /*=affects_type_identity*/,
-#endif
-};
-
 
 /* the plugin callback to register melt attributes */
 static void
 melt_attribute_callback (void *gcc_data ATTRIBUTE_UNUSED,
                          void* user_data ATTRIBUTE_UNUSED)
 {
-  register_attribute(&melt_attr_spec);
+#warning should call HOOK_INSTALL_ATTRIBUTES
 }
 
 

@@ -1,6 +1,21 @@
 
 2014-08-14  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{Remove old melt attribute, replacing it by general attributes}}
+	* melt-predef.list (HOOK_INSTALL_ATTRIBUTES): New.
+	(HOOK_MELT_ATTRIBUTE_DEFINER): Poisoned.
+
+	* melt-runtime.cc (handle_melt_attribute): Remove function.
+	(melt_attr_spec): Remove variable.
+	(melt_attribute_callback): Should call the hook_install_attributes.
+
+	* melt/warmelt-hooks.melt (attribute_definer_delayed_queue)
+	(hook_melt_attribute_definer, at_melt_attribute_first)
+	(at_melt_attribute_last): Remove.
+	(hook_install_attributes): New stub.
+
+2014-08-14  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.h: include "plugin.h".
 
 	* melt/warmelt-hooks.melt (melt_register_gcc_attribute_at): Call
