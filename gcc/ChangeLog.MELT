@@ -1,5 +1,12 @@
 
 2014-08-14  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-hooks.melt (melt_register_gcc_attribute_at): More,
+	but still buggy - or a meta-bug around assignment of variables.
+
+	* testsuite/melt/tattr-1.melt: More debug. Don't work.
+
+
+2014-08-14  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerate.
 
 2014-08-14  Basile Starynkevitch  <basile@starynkevitch.net>

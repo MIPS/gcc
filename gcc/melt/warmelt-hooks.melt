@@ -2358,8 +2358,13 @@ melt_attribute_handler_glue (tree *node, tree name, tree args, int flags, bool *
 	      attr)
     (return ()))
   ;;
-  (unless (is_mapstring gcc_attribute_dict)
-    (setq gcc_attribute_dict (make_mapstring discr_string 31)))
+  (if (not (is_mapstring gcc_attribute_dict))
+      (let ( (atdic (make_mapstring discr_string 31)) )
+	(setq gcc_attribute_dict atdic)
+	(debug "melt_register_gcc_attribute_at" " atdic=" atdic)
+	))
+  (debug "melt_register_gcc_attribute_at" " gcc_attribute_dict=" gcc_attribute_dict)
+  (assert_msg "check gcc_attribute_dict" (is_mapstring gcc_attribute_dict) gcc_attribute_dict)
   ;;
   (let ( 
         (name (get_field :named_name attr))
@@ -2541,7 +2546,8 @@ melt_attribute_handler_glue (tree *node, tree name, tree args, int flags, bool *
        )
      );end append gcc_attribute_installer_list
     (mapstring_putstr gcc_attribute_dict name attr)
-    (debug "melt_register_gcc_attribute_at end attr=" attr)
+    (debug "melt_register_gcc_attribute_at end attr=" attr 
+	   ";\n gcc_attribute_dict=" gcc_attribute_dict)
     )
   )
 

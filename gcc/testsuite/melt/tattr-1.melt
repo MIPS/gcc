@@ -16,6 +16,7 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
      -c -O tattrcode-1.c -o /dev/null
 |#
 (module_is_gpl_compatible "public domain")
+(debug "tattr-1" " start ~*" "~*" "~*")
 (defun tattr_handler ()
   (debug "tattr_handler" " start")
   (shortbacktrace_dbg "tattr_handler" 15)
