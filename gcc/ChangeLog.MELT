@@ -1,6 +1,13 @@
 
 2014-08-14  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.cc (melt_handle_melt_attribute): Remove.
+
+	* melt/warmelt-base.melt (add2out_double): Remove commented
+	debugprintf.
+
+2014-08-14  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Remove old melt attribute, replacing it by general attributes}}
 	* melt-predef.list (HOOK_INSTALL_ATTRIBUTES): New.
 	(HOOK_MELT_ATTRIBUTE_DEFINER): Poisoned.

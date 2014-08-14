@@ -1321,8 +1321,6 @@ strinbuffer $SBUF, take care to not overwrite an old file named $VNAM if it was 
     snprintf(dblbuf, sizeof(dblbuf), "%.7f", $X);
   if (strtod (dblbuf, NULL) != $X)
     snprintf(dblbuf, sizeof(dblbuf), "%.15f", $X);
-  debugeprintf("add2out_double x=%g dblbuf=%s", $X, dblbuf);
-  //melt_cbreak("add2out_double");
   meltgc_add_out_raw ((melt_ptr_t) $OUT, dblbuf);
   /*end add2out_double*/}#)
   

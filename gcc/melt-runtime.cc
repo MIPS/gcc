@@ -13273,32 +13273,6 @@ tree meltgc_walktree_cb (tree*ptree, int*walksubtrees, void*data)
 
 
 
-/*****
- * called from handle_melt_attribute
- *****/
-
-void
-melt_handle_melt_attribute (tree decl, tree name, const char *attrstr,
-                            location_t loch)
-{
-  MELT_ENTERFRAME (1, NULL);
-#define seqv       meltfram__.mcfr_varptr[0]
-  if (!attrstr || !attrstr[0])
-    goto end;
-  MELT_LOCATION_HERE ("melt_handle_melt_attribute");
-  MELT_CHECK_SIGNAL ();
-  seqv = meltgc_read_from_rawstring (attrstr, "*melt-attr*", loch);
-  melthookproc_HOOK_MELT_ATTRIBUTE_DEFINER
-  (decl, name, (melt_ptr_t) seqv,
-   (loch==UNKNOWN_LOCATION)?"???":LOCATION_FILE(loch),
-   (loch==UNKNOWN_LOCATION)?(-1):LOCATION_LINE(loch)
-  );
-end:
-  MELT_EXITFRAME ();
-#undef seqv
-}
-
-
 
 
 #if ENABLE_CHECKING
