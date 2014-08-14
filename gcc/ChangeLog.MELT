@@ -1,5 +1,13 @@
 
 2014-08-14  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-hooks.melt (gcc_attribute_installer_list): New
+	variable.
+	(hook_install_attributes): More code, invoking closures in
+	gcc_attribute_installer_list.
+	(melt_gcc_register_gcc_attribute_at): Add closure to
+	gcc_attribute_installer_list.
+
+2014-08-14  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.1.2pre3.
 
 2014-08-14  Basile Starynkevitch  <basile@starynkevitch.net>

@@ -2256,6 +2256,8 @@ melt_attribute_handler_glue (tree *node, tree name, tree args, int flags, bool *
 
 
 (defvar gcc_attribute_dict)
+(defvar gcc_attribute_installer_list)
+(setq gcc_attribute_installer_list (make_list discr_list))
 
 (defclass class_gcc_attribute 
   :super class_named
@@ -2274,7 +2276,21 @@ melt_attribute_handler_glue (tree *node, tree name, tree args, int flags, bool *
   :predef HOOK_INSTALL_ATTRIBUTES
   (debug "hook_install_attributes" " start gcc_attribute_dict=" 
 	 gcc_attribute_dict)
-)
+  (if (null gcc_attribute_dict) 
+      (return))
+  (forever 
+   atloop
+   (unless (is_non_empty_list gcc_attribute_installer_list)
+     (exit atloop))
+   (let ( (clo1 (list_popfirst gcc_attribute_installer_list))
+	  )
+     (debug "hook_install_attributes" " loop clo1=" clo1)
+     (assert_msg "check clo1" (is_closure clo1) clo1)
+     (clo1)
+     )
+   )
+  (debug "hook_install_attributes" " final gcc_attribute_installer_list=" gcc_attribute_installer_list)
+  )
 
 (defhook hook_handle_attribute    
   (:tree in_node name args :long flags in_add_attrs)
@@ -2477,30 +2493,55 @@ melt_attribute_handler_glue (tree *node, tree name, tree args, int flags, bool *
        (return))
       )
      )					; end forever argloop
-    (code_chunk
-     gccattr_chk
-     #{ /* ++ melt_register_gcc_attribute_at $GCCATTR_CHK start */
-     struct attribute_spec *atspec
-     /* will never be freed! */
-       = (struct attribute_spec*)xmalloc(sizeof(struct attribute_spec)) ;
-     if (!atspec)
-       melt_fatal_error("failed to allocate attribute_spec in melt_register_gcc_attribute_at (%s)",
-			xstrerror(errno))	;
-     memset (atspec, 0, sizeof(struct attribute_spec)) ;
-     atspec->name = melt_intern_cstring (melt_string_str ($NAME)) ;
-     atspec->min_length = $MIN_LENGTH ;
-     atspec->max_length = $MAX_LENGTH ;
-     atspec->decl_required = $DECL_REQUIRED_FLAG ;
-     atspec->type_required = $TYPE_REQUIRED_FLAG ;
-     atspec->function_type_required = $FUNCTION_TYPE_REQUIRED_FLAG ;
-     atspec->affects_type_identity = $AFFECTS_TYPE_IDENTITY_FLAG ;
-     atspec->handler = melt_attribute_handler_glue ;
-     register_attribute (atspec);
-     $(put_int attr attix)
-     $(mapstring_putstr gcc_attribute_dict name attr)
-     /* -- melt_register_gcc_attribute_at $GCCATTR_CHK end */
-     }#)
-    (debug "melt_register_gcc_attribute_at" " end, attr=" attr)
+    (put_int attr attix)
+    ;; add the installing closure to the installer list
+    (list_append 
+     gcc_attribute_installer_list
+     ;; we are boxing all the parameters, since they are closed under lambda
+     (let ( (vminlength (constant_box min_length))
+	    (vmaxlength (constant_box max_length))
+	    (vdeclrequired (if decl_required_flag :true))
+	    (vtyperequired (if type_required_flag :true))
+	    (vfunctiontyperequired (if function_type_required_flag :true))
+	    (vaffectstypeidentity (if affects_type_identity_flag :true))
+	    )
+       (lambda ()
+	 (debug "melt_register_gcc_attribute_at/lambda attr=" attr)
+	 (let (
+	       (:long iminlength (get_int vminlength))
+	       (:long imaxlength (get_int vmaxlength))
+	       )
+	    (code_chunk
+	     gccattr_chk
+	     #{ /* ++ melt_register_gcc_attribute_at/lambda $GCCATTR_CHK start */
+	     struct attribute_spec *atspec
+	     /* will never be freed! */
+	     = (struct attribute_spec*)xmalloc(sizeof(struct attribute_spec)) ;
+	     if (!atspec)
+	       melt_fatal_error("failed to allocate attribute_spec in melt_register_gcc_attribute_at (%s)",
+	    		     xstrerror(errno)) ;
+	     memset (atspec, 0, sizeof(struct attribute_spec)) ;
+	     atspec->name = melt_intern_cstring (melt_string_str ($NAME)) ;
+	     atspec->min_length = (int) $IMINLENGTH ;
+	     atspec->max_length = (int) $IMAXLENGTH ;
+	     atspec->decl_required = $VDECLREQUIRED != NULL ;
+	     atspec->type_required = $VTYPEREQUIRED != NULL ;
+	     atspec->function_type_required = $VFUNCTIONTYPEREQUIRED != NULL ;
+	     atspec->affects_type_identity = $VAFFECTSTYPEIDENTITY != NULL ;
+	     atspec->handler = melt_attribute_handler_glue ;
+	     register_attribute (atspec) ;
+	     debugeprintf ("melt_register_gcc_attribute_at/lambda registered atspec=%p", 
+	    		(void*)atspec);
+	     /* -- melt_register_gcc_attribute_at/lambda $GCCATTR_CHK end */
+	     }#)
+	 )
+	 (debug "melt_register_gcc_attribute_at/lambda" " end, attr=" attr)
+	 (return)
+	 )
+       )
+     );end append gcc_attribute_installer_list
+    (mapstring_putstr gcc_attribute_dict name attr)
+    (debug "melt_register_gcc_attribute_at end attr=" attr)
     )
   )
 
