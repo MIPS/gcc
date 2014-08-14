@@ -1281,10 +1281,13 @@ routine procedures.}#
 	  (sdiscr (instance class_source_fetch_predefined
 			    :loca_location sloc
 			    :sfepd_predef 'discr_mixed_integer))
+	  (squofil (instance class_source_quote
+			     :loca_location sloc
+			     :squoted filev))
 	  (sprim (instance class_source_primitive
 			    :loca_location sloc
 			    :sprim_oper make_mixint
-			    :sargop_args (tuple sdiscr filev (constant_box linenum))))
+			    :sargop_args (tuple sdiscr squofil (constant_box linenum))))
 	   )
       (debug "normexp_mixed_location" " sprim=" sprim)
       (multicall

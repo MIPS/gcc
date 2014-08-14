@@ -1,4 +1,9 @@
 
+2014-08-14  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-normal.melt (normexp_mixed_location): Quote the
+	filename.
+
 2014-08-13  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/generated/*: Regenerate.
