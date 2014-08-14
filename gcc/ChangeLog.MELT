@@ -1,6 +1,10 @@
 
 2014-08-14  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-predef.list (HOOK_MELT_ATTRIBUTE_DEFINER): Remove.
+
+2014-08-14  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/generated/*: Regenerate.
 	* melt/generated/warmelt-hooks+04.cc: Removed.
 
