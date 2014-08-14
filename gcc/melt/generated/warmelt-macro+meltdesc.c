@@ -36,10 +36,10 @@ const char melt_versionmeltstr[]="1.1.2-pre2 [melt-branch_revision_213920]";
 /*MELTMODULENAME meltbuild-sources/warmelt-macro */
 const char melt_modulename[]="warmelt-macro";
 const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-unknown-linux-gnu/4.9.0/melt-modules\
-/1.1.2-pre1/warmelt-macro";
+/1.1.2-pre2/warmelt-macro";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="6347ab03f1577f9aa00aabda000fc6a5";
+const char melt_prepromd5meltrun[]="5a9da2caed1996a1588b68729e910339";
 /* hexmd5checksum of primary C++ file */
 const char melt_primaryhexmd5[]="4e1271bbf735300f3e2d6ede490dbffc";
 

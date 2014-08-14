@@ -1,6 +1,11 @@
 
 2014-08-14  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/generated/*: Regenerate.
+	* melt/generated/warmelt-hooks+04.cc: Removed.
+
+2014-08-14  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.cc (melt_handle_melt_attribute): Remove.
 
 	* melt/warmelt-base.melt (add2out_double): Remove commented

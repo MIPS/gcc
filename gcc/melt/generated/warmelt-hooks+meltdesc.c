@@ -36,35 +36,32 @@ const char melt_versionmeltstr[]="1.1.2-pre2 [melt-branch_revision_213920]";
 /*MELTMODULENAME meltbuild-sources/warmelt-hooks */
 const char melt_modulename[]="warmelt-hooks";
 const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-unknown-linux-gnu/4.9.0/melt-modules\
-/1.1.2-pre1/warmelt-hooks";
+/1.1.2-pre2/warmelt-hooks";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="6347ab03f1577f9aa00aabda000fc6a5";
+const char melt_prepromd5meltrun[]="5a9da2caed1996a1588b68729e910339";
 /* hexmd5checksum of primary C++ file */
-const char melt_primaryhexmd5[]="c0b52fd5c2abc31370b0b92f3cbdd2ac";
+const char melt_primaryhexmd5[]="491521ac30edb7d2072bdf2902c03f0a";
 
 /* hexmd5checksum of secondary C++ files */
 const char* const melt_secondaryhexmd5tab[]={
  /*nosecfile*/ (const char*)0,
- /*sechexmd5checksum meltbuild-sources/warmelt-hooks+01.cc #1 */ "68d0b39f634bee3858a061b7a87c1d4f",
- /*sechexmd5checksum meltbuild-sources/warmelt-hooks+02.cc #2 */ "8fce1de1c46c4d65d9dc90d52393b2ee",
- /*sechexmd5checksum meltbuild-sources/warmelt-hooks+03.cc #3 */ "7a61480646ec770a89259e8268056b45",
- /*sechexmd5checksum meltbuild-sources/warmelt-hooks+04.cc #4 */ "0c8d2959b346194fb56c20040047fc13",
- /*nosecfile*/ (const char*)0,
- /*nosecfile*/ (const char*)0,
+ /*sechexmd5checksum meltbuild-sources/warmelt-hooks+01.cc #1 */ "11388d2a7a67957b323d1223f0cd7918",
+ /*sechexmd5checksum meltbuild-sources/warmelt-hooks+02.cc #2 */ "0eac8ed2afa84632c49e9efcb658752e",
+ /*sechexmd5checksum meltbuild-sources/warmelt-hooks+03.cc #3 */ "1bd42c8c69b9a4196ffa6d319fd6f0a6",
  (const char*)0 };
 
 /* last index of secondary files */
-const int melt_lastsecfileindex=4;
+const int melt_lastsecfileindex=3;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="9fc7448e352b0857f8c1915e89a147ea" ;
+const char melt_cumulated_hexmd5[]="90e863dd3fb4b8c1d7110e312f7dd524" ;
 
 /* number of module variables */
 const int melt_module_nb_module_vars= 7;
 
 /* include the timestamp file */
-#define meltmod_WARMELTmiHOOKS_mds__9FC7448E352B0857F8C1915E89A147EA 1
+#define meltmod_WARMELTmiHOOKS_mds__90E863DD3FB4B8C1D7110E312F7DD524 1
 #include "warmelt-hooks+melttime.h"
 	 
 
