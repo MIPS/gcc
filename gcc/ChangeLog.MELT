@@ -1,5 +1,8 @@
 
 2014-08-14  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/generated/*: Regenerate.
+
+2014-08-14  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-predef.list (HOOK_MELT_ATTRIBUTE_DEFINER): Remove.
 
