@@ -1,0 +1,22 @@
+;; file tdefvar-4.melt -*- lisp -*-
+
+#| run in buildir/gcc
+ ln -s $GCCMELT_SOURCE/gcc/testsuite/melt/tdefvar-4.melt 
+
+ ./cc1 -fmelt-mode=rundebug  -fmelt-debug @meltbuild-common.args \
+    -fmelt-keep-temporary-files \
+    -fmelt-init=@warmelt.quicklybuilt \
+    -fmelt-arg=tdefvar-4.melt \
+    -fmelt-debugging=all meltbuild-empty-file.c
+|#
+
+(debug "start tdefvar-4 test " "~*" "~*" "~*" "~*" "~*" "\n")
+
+(defvar varfour)
+;(setq varfour 'initfour)
+(defun set-varfour (x)
+       (setq varfour x))
+(debug "before set-varfour varfour=" varfour)
+(set-varfour 'newfour)
+(debug "after set-varfour varfour=" varfour)
+;; eof tdefvar-4.melt

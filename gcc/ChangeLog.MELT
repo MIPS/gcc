@@ -1,4 +1,9 @@
 
+2014-08-15  Basile Starynkevitch  <basile@starynkevitch.net>
+	* testsuite/melt/tdefvar-4.melt: New file. Don't reproduce the
+	possible buf in melt_register_gcc_attribute_at... Seems to work!
+	Should be changed.
+
 2014-08-14  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-hooks.melt (melt_register_gcc_attribute_at): More,
 	but still buggy - or a meta-bug around assignment of variables.
