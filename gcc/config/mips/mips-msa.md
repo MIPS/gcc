@@ -74,9 +74,7 @@
   UNSPEC_MSA_FFQR
   UNSPEC_MSA_FILL
   UNSPEC_MSA_FLOG2
-  UNSPEC_MSA_FMAX
   UNSPEC_MSA_FMAX_A
-  UNSPEC_MSA_FMIN
   UNSPEC_MSA_FMIN_A
   UNSPEC_MSA_FRCP
   UNSPEC_MSA_FRINT
@@ -110,13 +108,9 @@
   UNSPEC_MSA_MADD_Q
   UNSPEC_MSA_MADDR_Q
   UNSPEC_MSA_MAX_A
-  UNSPEC_MSA_MAX_S
-  UNSPEC_MSA_MAX_U
   UNSPEC_MSA_MAXI_S
   UNSPEC_MSA_MAXI_U
   UNSPEC_MSA_MIN_A
-  UNSPEC_MSA_MIN_S
-  UNSPEC_MSA_MIN_U
   UNSPEC_MSA_MINI_S
   UNSPEC_MSA_MINI_U
   UNSPEC_MSA_MSUB_Q
@@ -631,6 +625,17 @@
      selects the last element of ws. We therefore swap the operands here. */
   emit_insn (gen_msa_vshf<mode> (operands[0], operands[3], operands[2],
 				 operands[1]));
+  DONE;
+})
+
+(define_expand "abs<mode>2"
+  [(set (match_operand:IMSA 0 "register_operand" "=f")
+	(abs:IMSA (match_operand:IMSA 1 "register_operand" "f")))]
+  "ISA_HAS_MSA"
+{
+  rtx reg = gen_reg_rtx (<MODE>mode);
+  emit_insn (gen_msa_ldi<mode> (reg, const0_rtx));
+  emit_insn (gen_msa_add_a_<msafmt> (operands[0], operands[1], reg));
   DONE;
 })
 
@@ -2232,22 +2237,20 @@
    (set_attr "mode"	"TI")
    (set_attr "msa_execunit"	"msa_eu_int_add")])
 
-(define_insn "msa_max_s_<msafmt>"
+(define_insn "smax<mode>3"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
-	(unspec:IMSA [(match_operand:IMSA 1 "register_operand" "f")
-		      (match_operand:IMSA 2 "register_operand" "f")]
-		     UNSPEC_MSA_MAX_S))]
+	(smax:IMSA (match_operand:IMSA 1 "register_operand" "f")
+		   (match_operand:IMSA 2 "register_operand" "f")))]
   "ISA_HAS_MSA"
   "max_s.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
    (set_attr "msa_execunit"	"msa_eu_int_add")])
 
-(define_insn "msa_max_u_<msafmt>"
+(define_insn "umax<mode>3"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
-	(unspec:IMSA [(match_operand:IMSA 1 "register_operand" "f")
-		      (match_operand:IMSA 2 "register_operand" "f")]
-		     UNSPEC_MSA_MAX_U))]
+	(umax:IMSA (match_operand:IMSA 1 "register_operand" "f")
+		   (match_operand:IMSA 2 "register_operand" "f")))]
   "ISA_HAS_MSA"
   "max_u.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
@@ -2287,22 +2290,20 @@
    (set_attr "mode"	"TI")
    (set_attr "msa_execunit"	"msa_eu_int_add")])
 
-(define_insn "msa_min_s_<msafmt>"
+(define_insn "smin<mode>3"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
-	(unspec:IMSA [(match_operand:IMSA 1 "register_operand" "f")
-		      (match_operand:IMSA 2 "register_operand" "f")]
-		     UNSPEC_MSA_MIN_S))]
+	(smin:IMSA (match_operand:IMSA 1 "register_operand" "f")
+		   (match_operand:IMSA 2 "register_operand" "f")))]
   "ISA_HAS_MSA"
   "min_s.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")
    (set_attr "msa_execunit"	"msa_eu_int_add")])
 
-(define_insn "msa_min_u_<msafmt>"
+(define_insn "umin<mode>3"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
-	(unspec:IMSA [(match_operand:IMSA 1 "register_operand" "f")
-		      (match_operand:IMSA 2 "register_operand" "f")]
-		     UNSPEC_MSA_MIN_U))]
+	(umin:IMSA (match_operand:IMSA 1 "register_operand" "f")
+		   (match_operand:IMSA 2 "register_operand" "f")))]
   "ISA_HAS_MSA"
   "min_u.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
