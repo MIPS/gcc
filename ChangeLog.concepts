@@ -1,5 +1,9 @@
 2014-08-13  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	* gcc/testsuite/g++.dg/concepts/explicit-spec6.C: New test.
+
+2014-08-13  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	Fix regression in bootstrap.
 	* gcc/cp/call.c (get_temploid): Removed. No longer called.
 	(joust): Remove unused variable declarations.
