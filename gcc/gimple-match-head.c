@@ -38,27 +38,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "tree-dfa.h"
 #include "builtins.h"
+#include "gimple-match.h"
 
 #define INTEGER_CST_P(node) (TREE_CODE(node) == INTEGER_CST)
 #define integral_op_p(node) INTEGRAL_TYPE_P(TREE_TYPE(node))
 #define REAL_CST_P(node) (TREE_CODE(node) == REAL_CST)
 
-
-/* Helper to transparently allow tree codes and builtin function codes
-   exist in one storage entity.  */
-class code_helper
-{
-public:
-  code_helper () {}
-  code_helper (tree_code code) : rep ((int) code) {}
-  code_helper (built_in_function fn) : rep (-(int) fn) {}
-  operator tree_code () const { return (tree_code) rep; }
-  operator built_in_function () const { return (built_in_function) -rep; }
-  bool is_tree_code () const { return rep > 0; }
-  bool is_fn_code () const { return rep < 0; }
-private:
-  int rep;
-};
 
 /* Forward declarations of the private auto-generated matchers.
    They expect valueized operands in canonical order and do not
@@ -290,9 +275,9 @@ gimple_resimplify3 (gimple_seq *seq,
    then the result will be always RES and even gimple values are
    pushed to SEQ.  */
 
-static tree
+tree
 maybe_push_res_to_seq (code_helper rcode, tree type, tree *ops,
-		       gimple_seq *seq, tree res = NULL_TREE)
+		       gimple_seq *seq, tree res)
 {
   if (rcode.is_tree_code ())
     {
@@ -350,6 +335,18 @@ maybe_push_res_to_seq (code_helper rcode, tree type, tree *ops,
     }
 }
 
+
+/* Public API overloads follow for operation being tree_code or
+   built_in_function and for one to three operands or arguments.
+   They return NULL_TREE if nothing could be simplified or
+   the resulting simplified value with parts pushed to SEQ.
+   If SEQ is NULL then if the simplification needs to create
+   new stmts it will fail.  If VALUEIZE is non-NULL then all
+   SSA names will be valueized using that hook prior to
+   applying simplifications.  */
+
+/* Unary ops.  */
+
 tree
 gimple_simplify (enum tree_code code, tree type,
 		 tree op0,
@@ -371,10 +368,12 @@ gimple_simplify (enum tree_code code, tree type,
   return maybe_push_res_to_seq (rcode, type, ops, seq);
 }
 
+/* Binary ops.  */
+
 tree
 gimple_simplify (enum tree_code code, tree type,
-			   tree op0, tree op1,
-			   gimple_seq *seq, tree (*valueize)(tree))
+		 tree op0, tree op1,
+		 gimple_seq *seq, tree (*valueize)(tree))
 {
   if (constant_for_folding (op0) && constant_for_folding (op1))
     {
@@ -401,6 +400,8 @@ gimple_simplify (enum tree_code code, tree type,
     return NULL_TREE;
   return maybe_push_res_to_seq (rcode, type, ops, seq);
 }
+
+/* Ternary ops.  */
 
 tree
 gimple_simplify (enum tree_code code, tree type,
@@ -434,6 +435,8 @@ gimple_simplify (enum tree_code code, tree type,
   return maybe_push_res_to_seq (rcode, type, ops, seq);
 }
 
+/* Builtin function with one argument.  */
+
 tree
 gimple_simplify (enum built_in_function fn, tree type,
 		 tree arg0,
@@ -463,6 +466,8 @@ gimple_simplify (enum built_in_function fn, tree type,
     return NULL_TREE;
   return maybe_push_res_to_seq (rcode, type, ops, seq);
 }
+
+/* Builtin function with two arguments.  */
 
 tree
 gimple_simplify (enum built_in_function fn, tree type,
@@ -498,7 +503,49 @@ gimple_simplify (enum built_in_function fn, tree type,
   return maybe_push_res_to_seq (rcode, type, ops, seq);
 }
 
-static bool
+/* Builtin function with three arguments.  */
+
+tree
+gimple_simplify (enum built_in_function fn, tree type,
+		 tree arg0, tree arg1, tree arg2,
+		 gimple_seq *seq, tree (*valueize)(tree))
+{
+  if (constant_for_folding (arg0)
+      && constant_for_folding (arg1)
+      && constant_for_folding (arg2))
+    {
+      tree decl = builtin_decl_implicit (fn);
+      if (decl)
+	{
+	  tree args[3];
+	  args[0] = arg0;
+	  args[1] = arg1;
+	  args[2] = arg2;
+	  tree res = fold_builtin_n (UNKNOWN_LOCATION, decl, args, 3, false);
+	  if (res)
+	    {
+	      /* fold_builtin_n wraps the result inside a NOP_EXPR.  */
+	      STRIP_NOPS (res);
+	      res = fold_convert (type, res);
+	      if (CONSTANT_CLASS_P (res))
+		return res;
+	    }
+	}
+    }
+
+  code_helper rcode;
+  tree ops[3] = {};
+  if (!gimple_simplify (&rcode, ops, seq, valueize,
+			fn, type, arg0, arg1, arg2))
+    return NULL_TREE;
+  return maybe_push_res_to_seq (rcode, type, ops, seq);
+}
+
+
+/* The main STMT based simplification entry.  It is used by the fold_stmt
+   and the fold_stmt_to_constant APIs.  */
+
+bool
 gimple_simplify (gimple stmt,
 		 code_helper *rcode, tree *ops,
 		 gimple_seq *seq, tree (*valueize)(tree))
@@ -686,92 +733,7 @@ gimple_simplify (gimple stmt,
 }
 
 
-/* Match and simplify on the defining statement of NAME using VALUEIZE
-   if not NULL to valueize SSA names in expressions.  NAME is expected
-   to be valueized already.  Appends statements for complex expression
-   results to SEQ or fails if that would be required and SEQ is NULL.
-   Returns the simplified value (which might be defined by stmts in
-   SEQ) or NULL_TREE if no simplification was possible.  */
-
-tree
-gimple_simplify (tree name, gimple_seq *seq, tree (*valueize)(tree))
-{
-  if (TREE_CODE (name) != SSA_NAME)
-    return NULL_TREE;
-
-  /* This function is supposed to return a valueization of name, thus
-     also allow simply returning an unsimplified RHS of its definition
-     statement.  */
-  gimple stmt = SSA_NAME_DEF_STMT (name);
-  if (gimple_assign_single_p (stmt))
-    {
-      tree rhs = gimple_assign_rhs1 (stmt);
-      if (TREE_CODE (rhs) == SSA_NAME)
-	{
-	  if (valueize)
-	    rhs = valueize (rhs);
-	  return rhs;
-	}
-      else if (is_gimple_min_invariant (rhs))
-	return rhs;
-    }
-
-  code_helper rcode;
-  tree ops[3] = {};
-  if (!gimple_simplify (stmt, &rcode, ops, seq, valueize))
-    return NULL_TREE;
-  return maybe_push_res_to_seq (rcode, TREE_TYPE (name), ops, seq);
-}
-
-/* Match and simplify on *GSI and replace that with the simplified stmt
-   sequence.  */
-
-bool
-gimple_simplify (gimple_stmt_iterator *gsi, tree (*valueize)(tree))
-{
-  gimple stmt = gsi_stmt (*gsi);
-  gimple_seq seq = NULL;
-  code_helper rcode;
-  tree ops[3] = {};
-  if (!gimple_simplify (stmt, &rcode, ops, &seq, valueize))
-    return false;
-
-  if (is_gimple_assign (stmt)
-      && rcode.is_tree_code ())
-    {
-      /* Play safe and do not allow abnormals to be mentioned in
-         newly created statements.  */
-      if ((TREE_CODE (ops[0]) == SSA_NAME
-	   && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[0]))
-	  || (ops[1]
-	      && TREE_CODE (ops[1]) == SSA_NAME
-	      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[1]))
-	  || (ops[2]
-	      && TREE_CODE (ops[2]) == SSA_NAME
-	      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[2])))
-	return false;
-      gimple_assign_set_rhs_with_ops_1 (gsi, rcode, ops[0], ops[1], ops[2]);
-      update_stmt (gsi_stmt (*gsi));
-    }
-  else if (gimple_has_lhs (stmt))
-    {
-      gimple_seq tail = NULL;
-      tree lhs = gimple_get_lhs (stmt);
-      maybe_push_res_to_seq (rcode, TREE_TYPE (lhs),
-			     ops, &tail, lhs);
-      gcc_assert (gimple_seq_singleton_p (tail));
-      gimple with = gimple_seq_first_stmt (tail);
-      gimple_set_vdef (with, gimple_vdef (stmt));
-      gimple_set_vuse (with, gimple_vuse (stmt));
-      gsi_replace (gsi, with, false);
-    }
-  else
-    /* Handle for example GIMPLE_COND, etc.  */
-    gcc_unreachable ();
-
-  gsi_insert_seq_before (gsi, seq, GSI_SAME_STMT);
-  return true;
-}
+/* Helper for the autogenerated code, valueize OP.  */
 
 static tree 
 do_valueize (tree (*valueize)(tree), tree op)

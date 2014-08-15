@@ -1,3 +1,18 @@
+2014-08-15  Richard Biener  <rguenther@suse.de>
+
+	* gimple-match.h: New file.
+	* gimple-fold.c: Include gimple-match.h.
+	(fold_stmt_1): Use stmt-based gimple_simplify API.
+	(gimple_fold_stmt_to_constant_1): Likewise.
+	* gimple-match-head.c: Include gimple-match.h.
+	(class code_helper): Move to gimple-match.h.
+	(maybe_push_res_to_seq): Export.
+	(gimple_simplify): Likewise.
+	(gimple_simplify): New overload for functions with tree arguments.
+	(gimple_simplify): Remove gsi and SSA name overloads.
+	* gimple-fold.h (gimple_simplify): Remove gsi and SSA name
+	overloads.
+
 2014-08-13  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 
 	testsuite/

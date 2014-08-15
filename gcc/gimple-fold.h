@@ -118,9 +118,7 @@ tree gimple_simplify (enum built_in_function, tree, tree,
 		      gimple_seq *, tree (*)(tree));
 tree gimple_simplify (enum built_in_function, tree, tree, tree,
 		      gimple_seq *, tree (*)(tree));
-/* The following two APIs are an artifact and should vanish in favor
-   of the existing gimple_fold_stmt_to_constant and fold_stmt APIs.  */
-tree gimple_simplify (tree, gimple_seq *, tree (*)(tree));
-bool gimple_simplify (gimple_stmt_iterator *, tree (*)(tree));
+tree gimple_simplify (enum built_in_function, tree, tree, tree, tree,
+		      gimple_seq *, tree (*)(tree));
 
 #endif  /* GCC_GIMPLE_FOLD_H */

@@ -55,6 +55,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "dbgcnt.h"
 #include "builtins.h"
 #include "output.h"
+#include "gimple-match.h"
+
 
 /* Return true when DECL can be referenced from current unit.
    FROM_DECL (if non-null) specify constructor of variable DECL was taken from.
@@ -2698,15 +2700,62 @@ fold_stmt_1 (gimple_stmt_iterator *gsi, bool inplace, tree (*valueize) (tree))
 
   /* Dispatch to pattern-based folding.
      ???  Do this after the previous stuff as fold_stmt is used to make
-     stmts valid gimple again via maybe_fold_reference of ops.
-     ???  Use a lower-level API using a NULL sequence for inplace
-     operation, basically inline gimple_simplify (gsi)
-     as we are the only caller.  */
-  if (!inplace
-      && gimple_simplify (gsi, valueize))
-    changed = true;
+     stmts valid gimple again via maybe_fold_reference of ops.  */
+  /* ???  Change "inplace" semantics to allow replacing a stmt if
+     no further stmts need to be inserted (basically disallow
+     creating of new SSA names).  */
+  if (inplace
+      && !is_gimple_assign (stmt))
+    return changed;
 
-  return changed;
+  gimple_seq seq = NULL;
+  code_helper rcode;
+  tree ops[3] = {};
+  if (!gimple_simplify (stmt, &rcode, ops, inplace ? NULL : &seq, valueize))
+    return changed;
+
+  if (is_gimple_assign (stmt)
+      && rcode.is_tree_code ())
+    {
+      if (inplace
+	  && gimple_num_ops (stmt) <= get_gimple_rhs_num_ops (rcode))
+	return changed;
+      /* Play safe and do not allow abnormals to be mentioned in
+         newly created statements.  */
+      if ((TREE_CODE (ops[0]) == SSA_NAME
+	   && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[0]))
+	  || (ops[1]
+	      && TREE_CODE (ops[1]) == SSA_NAME
+	      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[1]))
+	  || (ops[2]
+	      && TREE_CODE (ops[2]) == SSA_NAME
+	      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[2])))
+	return changed;
+      gimple_assign_set_rhs_with_ops_1 (gsi, rcode, ops[0], ops[1], ops[2]);
+    }
+  else
+    {
+      if (inplace)
+	return changed;
+      if (gimple_has_lhs (stmt))
+	{
+	  gimple_seq tail = NULL;
+	  tree lhs = gimple_get_lhs (stmt);
+	  maybe_push_res_to_seq (rcode, TREE_TYPE (lhs),
+				 ops, &tail, lhs);
+	  gcc_assert (gimple_seq_singleton_p (tail));
+	  gimple with = gimple_seq_first_stmt (tail);
+	  gimple_set_vdef (with, gimple_vdef (stmt));
+	  gimple_set_vuse (with, gimple_vuse (stmt));
+	  gsi_replace (gsi, with, false);
+	}
+      else
+	gcc_unreachable ();
+    }
+
+  if (!inplace)
+    gsi_insert_seq_before (gsi, seq, GSI_SAME_STMT);
+  return true;
 }
 
 /* Fold the statement pointed to by GSI.  In some cases, this function may
@@ -4103,24 +4152,29 @@ gimple_fold_stmt_to_constant_2 (gimple stmt, tree (*valueize) (tree))
 tree
 gimple_fold_stmt_to_constant_1 (gimple stmt, tree (*valueize) (tree))
 {
-  tree lhs = gimple_get_lhs (stmt);
-  if (lhs)
+  code_helper rcode;
+  tree ops[3] = {};
+  if (gimple_simplify (stmt, &rcode, ops, NULL, valueize)
+      && rcode.is_tree_code ()
+      && (TREE_CODE_LENGTH ((tree_code) rcode) == 0
+	  || ((tree_code) rcode) == ADDR_EXPR)
+      && is_gimple_val (ops[0]))
     {
-      tree res = gimple_simplify (lhs, NULL, valueize);
-      if (res)
+      tree res = ops[0];
+      if (dump_file && dump_flags & TDF_DETAILS)
 	{
-	  if (dump_file && dump_flags & TDF_DETAILS)
-	    {
-	      fprintf (dump_file, "Match-and-simplified ");
-	      print_gimple_expr (dump_file, stmt, 0, TDF_SLIM);
-	      fprintf (dump_file, " to ");
-	      print_generic_expr (dump_file, res, 0);
-	      fprintf (dump_file, "\n");
-	    }
-	  return res;
+	  fprintf (dump_file, "Match-and-simplified ");
+	  print_gimple_expr (dump_file, stmt, 0, TDF_SLIM);
+	  fprintf (dump_file, " to ");
+	  print_generic_expr (dump_file, res, 0);
+	  fprintf (dump_file, "\n");
 	}
+      return res;
     }
-  /* ???  For now, to avoid regressions.  */
+
+  /* ???  For now, to avoid regressions.  Notably gimple_simplfy
+     doesn't "simplify" s_1 = constant; or s_1 = name_2; by
+     returning a valueized RHS.  */
   return gimple_fold_stmt_to_constant_2 (stmt, valueize);
 }
 
