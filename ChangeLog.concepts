@@ -1,4 +1,10 @@
 2014-08-13  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fix regression in bootstrap.
+	* gcc/cp/call.c (get_temploid): Removed. No longer called.
+	(joust): Remove unused variable declarations.
+
+2014-08-13  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	
 	Implement deduction-based explicit instantiation and specialization.
 	* gcc/cp/call.c (joust): Allow all non-templates to be ordered by

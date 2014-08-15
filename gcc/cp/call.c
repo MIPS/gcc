@@ -8755,24 +8755,6 @@ add_warning (struct z_candidate *winner, struct z_candidate *loser)
   winner->warnings = cw;
 }
 
-// When a CANDidate function is a member function of a class template
-// specialization, return the temploid describing that function.
-// Returns NULL_TREE otherwise.
-static inline tree
-get_temploid (struct z_candidate *cand)
-{
-  gcc_assert (cand);
-  tree t = NULL_TREE;
-  if (!cand->template_decl)
-    {
-      if (DECL_P (cand->fn) && DECL_USE_TEMPLATE (cand->fn))
-        t = DECL_TI_TEMPLATE (cand->fn);
-      if (t && TREE_CODE (t) == TEMPLATE_INFO)
-        t = TI_TEMPLATE (t);
-    }
-    return t;
-}
-
 /* Compare two candidates for overloading as described in
    [over.match.best].  Return values:
 
@@ -8788,10 +8770,6 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn,
   int off1 = 0, off2 = 0;
   size_t i;
   size_t len;
-
-  // Try to get a temploid describing each candidate. 
-  tree m1 = get_temploid (cand1);
-  tree m2 = get_temploid (cand2);
 
   /* Candidates that involve bad conversions are always worse than those
      that don't.  */
