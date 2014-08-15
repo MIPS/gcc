@@ -1,5 +1,8 @@
 
 2014-08-15  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-hooks.melt (hook_handle_attribute): Compute the the
+	attribute object.
+2014-08-15  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-hooks.melt (hook_handle_attribute): Compute the name.
 
 	* testsuite/melt/tattr-1.melt: Comment that it should be compiled

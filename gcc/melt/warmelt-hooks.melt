@@ -2306,19 +2306,19 @@ melt_attribute_handler_glue (tree *pnode, tree name, tree args, int flags, bool 
 	 "; tr_name=" tr_name "; tr_args=" tr_args
 	 "; flags=" flags "; in_add_attrs=" in_add_attrs)
   (let (
-	(namev ())
+	(attrv ())
 	)
     (code_chunk getname_chk #{ /* hook_handle_attribute $GETNAME_CHK start */
 		melt_assertmsg ("check good name",
 				$TR_NAME
 				&& TREE_CODE($TR_NAME) == IDENTIFIER_NODE) ;
-		$NAMEV = meltgc_new_stringdup
-		((meltobject_ptr_t)MELT_PREDEF(DISCR_STRING),
+		$ATTRV = melt_get_mapstrings
+		((meltmapstrings_st*) $GCC_ATTRIBUTE_DICT,
 		 IDENTIFIER_POINTER($TR_NAME))	;
 		/* hook_handle_attribute $GETNAME_CHK end */
 		}#)
-    (debug "hook_handle_attribute " "namev=" namev)
-    (assert_msg "check namev" (is_string namev))
+    (debug "hook_handle_attribute " "attrv=" attrv)
+    (assert_msg "check attrv" (is_a attrv class_gcc_attribute))
     (assert_msg "@$@unimplemented hook_handle_attribute")
     (return))
   )
