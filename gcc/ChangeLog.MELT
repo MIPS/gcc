@@ -1,5 +1,16 @@
 
 2014-08-15  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.1.2pre4.
+
+	* melt/warmelt-hooks.melt (melt_attribute_handler_glue):
+	Re-enable call to hook_handle_attribute.
+
+2014-08-15  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/generated/*: Regenerate.
+
+2014-08-15  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-hooks.melt (melt_attribute_handler_glue):
 	Temporarily disable call to hook_handle_attribute, since...
 	(hook_handle_attribute): Change its signature.
