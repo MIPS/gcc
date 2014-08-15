@@ -485,6 +485,120 @@ odr_subtypes_equivalent_p (tree t1, tree t2, hash_set<tree> *visited)
   return types_same_for_odr (t1, t2);
 }
 
+/* Compare two virtual tables, PREVAILING and VTABLE and output ODR
+   violation warings.  */
+
+void
+compare_virtual_tables (varpool_node *prevailing, varpool_node *vtable)
+{
+  int n1, n2;
+  if (DECL_VIRTUAL_P (prevailing->decl) != DECL_VIRTUAL_P (vtable->decl))
+    {
+      odr_violation_reported = true;
+      if (DECL_VIRTUAL_P (prevailing->decl))
+	{
+	  varpool_node *tmp = prevailing;
+	  prevailing = vtable;
+	  vtable = tmp;
+	}
+      if (warning_at (DECL_SOURCE_LOCATION (TYPE_NAME (DECL_CONTEXT (vtable->decl))),
+		      OPT_Wodr,
+		      "virtual table of type %qD violates one definition rule",
+		      DECL_CONTEXT (vtable->decl)))
+	inform (DECL_SOURCE_LOCATION (prevailing->decl),
+		"variable of same assembler name as the virtual table is "
+		"defined in another translation unit");
+      return;
+    }
+  if (!prevailing->definition || !vtable->definition)
+    return;
+  for (n1 = 0, n2 = 0; true; n1++, n2++)
+    {
+      struct ipa_ref *ref1, *ref2;
+      bool end1, end2;
+      end1 = !prevailing->iterate_reference (n1, ref1);
+      end2 = !vtable->iterate_reference (n2, ref2);
+      if (end1 && end2)
+	return;
+      if (!end1 && !end2
+	  && DECL_ASSEMBLER_NAME (ref1->referred->decl)
+	     != DECL_ASSEMBLER_NAME (ref2->referred->decl)
+	  && !n2
+	  && !DECL_VIRTUAL_P (ref2->referred->decl)
+	  && DECL_VIRTUAL_P (ref1->referred->decl))
+	{
+	  if (warning_at (DECL_SOURCE_LOCATION (TYPE_NAME (DECL_CONTEXT (vtable->decl))), 0,
+			  "virtual table of type %qD contains RTTI information",
+			  DECL_CONTEXT (vtable->decl)))
+	    {
+	      inform (DECL_SOURCE_LOCATION (TYPE_NAME (DECL_CONTEXT (prevailing->decl))),
+		      "but is prevailed by one without from other translation unit");
+	      inform (DECL_SOURCE_LOCATION (TYPE_NAME (DECL_CONTEXT (prevailing->decl))),
+		      "RTTI will not work on this type");
+	    }
+	  n2++;
+          end2 = !vtable->iterate_reference (n2, ref2);
+	}
+      if (!end1 && !end2
+	  && DECL_ASSEMBLER_NAME (ref1->referred->decl)
+	     != DECL_ASSEMBLER_NAME (ref2->referred->decl)
+	  && !n1
+	  && !DECL_VIRTUAL_P (ref1->referred->decl)
+	  && DECL_VIRTUAL_P (ref2->referred->decl))
+	{
+	  n1++;
+          end1 = !vtable->iterate_reference (n1, ref1);
+	}
+      if (end1 || end2)
+	{
+	  if (end1)
+	    {
+	      varpool_node *tmp = prevailing;
+	      prevailing = vtable;
+	      vtable = tmp;
+	      ref1 = ref2;
+	    }
+	  if (warning_at (DECL_SOURCE_LOCATION
+			    (TYPE_NAME (DECL_CONTEXT (vtable->decl))), 0,
+			  "virtual table of type %qD violates "
+			  "one definition rule",
+			  DECL_CONTEXT (vtable->decl)))
+	    {
+	      inform (DECL_SOURCE_LOCATION
+		       (TYPE_NAME (DECL_CONTEXT (prevailing->decl))),
+		      "the conflicting type defined in another translation "
+		      "unit");
+	      inform (DECL_SOURCE_LOCATION
+		        (TYPE_NAME (DECL_CONTEXT (ref1->referring->decl))),
+		      "contains additional virtual method %qD",
+		      ref1->referred->decl);
+	    }
+	  return;
+	}
+      if (DECL_ASSEMBLER_NAME (ref1->referred->decl)
+	  != DECL_ASSEMBLER_NAME (ref2->referred->decl))
+	{
+	  if (warning_at (DECL_SOURCE_LOCATION
+			    (TYPE_NAME (DECL_CONTEXT (vtable->decl))), 0,
+			  "virtual table of type %qD violates "
+			  "one definition rule  ",
+			  DECL_CONTEXT (vtable->decl)))
+	    {
+	      inform (DECL_SOURCE_LOCATION 
+			(TYPE_NAME (DECL_CONTEXT (prevailing->decl))),
+		      "the conflicting type defined in another translation "
+		      "unit");
+	      inform (DECL_SOURCE_LOCATION (ref1->referred->decl),
+		      "virtual method %qD", ref1->referred->decl);
+	      inform (DECL_SOURCE_LOCATION (ref2->referred->decl),
+		      "ought to match virtual method %qD but does not",
+		      ref2->referred->decl);
+	      return;
+	    }
+	}
+    }
+}
+
 /* Output ODR violation warning about T1 and T2 with REASON.
    Display location of ST1 and ST2 if REASON speaks about field or
    method of the type.
@@ -2319,7 +2433,7 @@ get_polymorphic_call_info (tree fndecl,
 		     = decl_maybe_in_construction_p (base,
 						     context->outer_type,
 						     call,
-						     current_function_decl);
+						     fndecl);
 		  return base;
 		}
 	      else
@@ -2663,6 +2777,8 @@ check_stmt_for_type_change (ao_ref *ao ATTRIBUTE_UNUSED, tree vdef, void *data)
 			  * BITS_PER_UNIT;
 		op = TREE_OPERAND (op, 0);
 	      }
+	    else if (DECL_P (op))
+	      ;
 	    else
 	      {
                 tci->speculative = true;
@@ -2799,10 +2915,12 @@ get_dynamic_type (tree instance,
 		  /* Finally verify that what we found looks like read from OTR_OBJECT
 		     or from INSTANCE with offset OFFSET.  */
 		  if (base_ref
-		      && TREE_CODE (base_ref) == MEM_REF
-		      && ((offset2 == context->offset
-		           && TREE_OPERAND (base_ref, 0) == instance)
-			  || (!offset2 && TREE_OPERAND (base_ref, 0) == otr_object)))
+		      && ((TREE_CODE (base_ref) == MEM_REF
+		           && ((offset2 == context->offset
+		                && TREE_OPERAND (base_ref, 0) == instance)
+			       || (!offset2 && TREE_OPERAND (base_ref, 0) == otr_object)))
+			  || (DECL_P (instance) && base_ref == instance
+			      && offset2 == context->offset)))
 		    {
 		      stmt = SSA_NAME_DEF_STMT (ref);
 		      instance_ref = ref_exp;
@@ -2923,7 +3041,14 @@ get_dynamic_type (tree instance,
       && !function_entry_reached
       && !tci.multiple_types_encountered)
     {
-      if (!tci.speculative)
+      if (!tci.speculative
+	  /* Again in instances located in static storage we are interested only
+	     in constructor stores.  */
+	  || (context->outer_type
+	      && !tci.seen_unanalyzed_store
+	      && context->offset == tci.offset
+	      && types_same_for_odr (tci.known_current_type,
+				     context->outer_type)))
 	{
 	  context->outer_type = tci.known_current_type;
 	  context->offset = tci.known_current_offset;
