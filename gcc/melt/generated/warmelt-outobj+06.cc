@@ -39,8 +39,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f6[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h663544257; // forward declaration fromline 6566
-typedef Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h663544257 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h853307400; // forward declaration fromline 6566
+typedef Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h853307400 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
 /*** 3 MELT called hook declarations ***/
@@ -790,7 +790,7 @@ MELT_EXTERN const char melt_module_is_gpl_compatible[];
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h663544257 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h853307400 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -6776,7 +6776,8 @@ s */\n\n\t\t ";
             /*^apply.arg*/
             argtab[0].meltbp_cstring =  "\n\t\t const char melt_build_timestamp[]= __DATE__ \"@\" __TIME__\
 \n\t\t #ifdef __cplusplus\n\t\t \" (in C++)\"\
-\n\t\t #else\n\t\t \" (in C)\"\n\t\t #endif /*__cplusplus*/\n\t\t\t\t\t;\n\t\t ";
+\n\t\t #else\n\t\t \" (in C)\"\n\t\t #endif /*__cplus\
+plus*/\n\t\t\t\t\t;\n\t\t ";
             /*_.ADD2OUT__V134*/ meltfptr[133] =  melt_apply ((meltclosure_ptr_t)((/*!ADD2OUT*/ meltfrout->tabval[16])), (melt_ptr_t)(/*_.TIBUF__V14*/ meltfptr[4]), (MELTBPARSTR_CSTRING ""), argtab, "", (union meltparam_un*)0);
         }
         ;

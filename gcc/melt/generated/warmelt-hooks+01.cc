@@ -39,8 +39,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f1[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiHOOKS_h904868557; // forward declaration fromline 6566
-typedef Melt_InitialClassyFrame_WARMELTmiHOOKS_h904868557 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiHOOKS_h748231646; // forward declaration fromline 6566
+typedef Melt_InitialClassyFrame_WARMELTmiHOOKS_h748231646 Melt_InitialFrame;
 /*** 8 MELT module variables declarations ****/
 MELT_EXTERN void melt_forwarding_module_data (void);
 MELT_EXTERN void melt_marking_module_data (void);
@@ -79,7 +79,7 @@ enum
     meltmodatix_last
 }; /* end MELT module variables indexes */
 
-/*** 5 MELT called hook declarations ***/
+/*** 4 MELT called hook declarations ***/
 
 /*declare MELT called hook #0 HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER **/
 MELT_EXTERN melt_ptr_t melthook_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER (melt_ptr_t melthookdatap, melt_ptr_t meltinp0_PREVENV, const char* meltinp1_MODULNAME);
@@ -93,15 +93,12 @@ MELT_EXTERN melt_ptr_t melthook_HOOK_SYMBOL_IMPORTER (melt_ptr_t melthookdatap, 
 /*declare MELT called hook #3 HOOK_VALUE_EXPORTER **/
 MELT_EXTERN void melthook_HOOK_VALUE_EXPORTER (melt_ptr_t melthookdatap, melt_ptr_t meltinp0_SYM, melt_ptr_t meltinp1_VAL, melt_ptr_t meltinp2_CONTENV);
 
-/*declare MELT called hook #4 HOOK_VALUE_EXPORTER **/
-MELT_EXTERN void melthook_HOOK_VALUE_EXPORTER (melt_ptr_t melthookdatap, melt_ptr_t meltinp0_SYM, melt_ptr_t meltinp1_VAL, melt_ptr_t meltinp2_CONTENV);
-
-/*** end of 5 MELT called hook declarations ***/
+/*** end of 4 MELT called hook declarations ***/
 
 /*** 29 extra MELT c-headers ***/
 
 
-/** MELT extra c-header 1 : h905235819 **/
+/** MELT extra c-header 1 : h1069745017 **/
 
 /* cheader for override gate in warmelt-hooks.melt */
 static void
@@ -122,7 +119,7 @@ melt_override_gate_callback (void* gccdata,
 
 
 
-/** MELT extra c-header 2 : h493551784 **/
+/** MELT extra c-header 2 : h253649575 **/
 
 /* flag for PLUGIN_OVERRIDE_GATE */
 MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_override_gate_registered_flag;
@@ -130,7 +127,7 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_override_gate_registered_flag;
 
 
 
-/** MELT extra c-header 3 : h673854873 **/
+/** MELT extra c-header 3 : h90290473 **/
 
 /* flag for PLUGIN_START_UNIT */
 MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_start_unit_registered_flag;
@@ -138,7 +135,7 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_start_unit_registered_flag;
 
 
 
-/** MELT extra c-header 4 : h857981625 **/
+/** MELT extra c-header 4 : h18761770 **/
 
 
 void MELT_MODULE_VISIBILITY
@@ -148,7 +145,7 @@ melt_startunithook_callback (void* gcc_data ATTRIBUTE_UNUSED,
 
 
 
-/** MELT extra c-header 5 : h832727306 **/
+/** MELT extra c-header 5 : h178534977 **/
 
 /* flag for PLUGIN_FINISH_UNIT */
 MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_finish_unit_registered_flag;
@@ -156,7 +153,7 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_finish_unit_registered_flag;
 
 
 
-/** MELT extra c-header 6 : h234796212 **/
+/** MELT extra c-header 6 : h110788433 **/
 
 
 void MELT_MODULE_VISIBILITY
@@ -166,7 +163,7 @@ melt_finishunithook_callback (void* gcc_data ATTRIBUTE_UNUSED,
 
 
 
-/** MELT extra c-header 7 : h836475118 **/
+/** MELT extra c-header 7 : h725434079 **/
 
 /* flag for PLUGIN_ALL_PASSES_START declare */
 MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_all_passes_start_registered_flag;
@@ -174,7 +171,7 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_all_passes_start_registered_flag
 
 
 
-/** MELT extra c-header 8 : h220809850 **/
+/** MELT extra c-header 8 : h902105932 **/
 
 
 void MELT_MODULE_VISIBILITY
@@ -184,7 +181,7 @@ melt_all_passes_start_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
 
 
 
-/** MELT extra c-header 9 : h88293626 **/
+/** MELT extra c-header 9 : h357313593 **/
 
 /* flag for PLUGIN_ALL_PASSES_END declare */
 MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_all_passes_end_registered_flag;
@@ -192,7 +189,7 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_all_passes_end_registered_flag;
 
 
 
-/** MELT extra c-header 10 : h1051828712 **/
+/** MELT extra c-header 10 : h16536634 **/
 
 
 void MELT_MODULE_VISIBILITY
@@ -202,7 +199,7 @@ melt_all_passes_end_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
 
 
 
-/** MELT extra c-header 11 : h1041913315 **/
+/** MELT extra c-header 11 : h344995079 **/
 
 /* flag for PLUGIN_ALL_IPA_PASSES_START declare */
 MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_all_ipa_passes_start_registered_flag;
@@ -210,7 +207,7 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_all_ipa_passes_start_registered_
 
 
 
-/** MELT extra c-header 12 : h504470424 **/
+/** MELT extra c-header 12 : h143920960 **/
 
 
 void MELT_MODULE_VISIBILITY
@@ -220,7 +217,7 @@ melt_all_ipa_passes_start_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
 
 
 
-/** MELT extra c-header 13 : h668871369 **/
+/** MELT extra c-header 13 : h106231079 **/
 
 /* flag for PLUGIN_ALL_IPA_PASSES_END declare */
 MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_all_ipa_passes_end_registered_flag;
@@ -228,7 +225,7 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_all_ipa_passes_end_registered_fl
 
 
 
-/** MELT extra c-header 14 : h87964527 **/
+/** MELT extra c-header 14 : h933893778 **/
 
 
 void MELT_MODULE_VISIBILITY
@@ -238,7 +235,7 @@ melt_all_ipa_passes_end_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
 
 
 
-/** MELT extra c-header 15 : h505295784 **/
+/** MELT extra c-header 15 : h238294145 **/
 
 /* flag for PLUGIN_EARLY_GIMPLE_PASSES_START declare */
 MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_early_gimple_passes_start_registered_flag;
@@ -246,7 +243,7 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_early_gimple_passes_start_regist
 
 
 
-/** MELT extra c-header 16 : h159317462 **/
+/** MELT extra c-header 16 : h672544291 **/
 
 
 void MELT_MODULE_VISIBILITY
@@ -256,7 +253,7 @@ melt_early_gimple_passes_start_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
 
 
 
-/** MELT extra c-header 17 : h36723111 **/
+/** MELT extra c-header 17 : h119982616 **/
 
 /* flag for PLUGIN_EARLY_GIMPLE_PASSES_END declare */
 MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_early_gimple_passes_end_registered_flag;
@@ -264,7 +261,7 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_early_gimple_passes_end_register
 
 
 
-/** MELT extra c-header 18 : h105450915 **/
+/** MELT extra c-header 18 : h88237833 **/
 
 
 void MELT_MODULE_VISIBILITY
@@ -274,7 +271,7 @@ melt_early_gimple_passes_end_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
 
 
 
-/** MELT extra c-header 19 : h205939233 **/
+/** MELT extra c-header 19 : h1019341320 **/
 
 /* flag for PLUGIN_PRE_GENERICIZE declare */
 MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_pre_genericize_registered_flag;
@@ -282,7 +279,7 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_pre_genericize_registered_flag;
 
 
 
-/** MELT extra c-header 20 : h673708303 **/
+/** MELT extra c-header 20 : h860266678 **/
 
 
 void MELT_MODULE_VISIBILITY
@@ -292,7 +289,7 @@ melt_pre_genericize_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
 
 
 
-/** MELT extra c-header 21 : h402046780 **/
+/** MELT extra c-header 21 : h805444100 **/
 
 /* flag for PLUGIN_FINISH_TYPE declare */
 MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_finish_type_registered_flag;
@@ -300,7 +297,7 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_finish_type_registered_flag;
 
 
 
-/** MELT extra c-header 22 : h845020738 **/
+/** MELT extra c-header 22 : h720929772 **/
 
 
 void MELT_MODULE_VISIBILITY
@@ -310,7 +307,7 @@ melt_finish_type_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
 
 
 
-/** MELT extra c-header 23 : h34940691 **/
+/** MELT extra c-header 23 : h661373597 **/
 
 /* flag for PLUGIN_FINISH_DECL declare */
 MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_finish_decl_registered_flag;
@@ -318,7 +315,7 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_finish_decl_registered_flag;
 
 
 
-/** MELT extra c-header 24 : h8754036 **/
+/** MELT extra c-header 24 : h1029401627 **/
 
 
 void MELT_MODULE_VISIBILITY
@@ -328,7 +325,7 @@ melt_finish_decl_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
 
 
 
-/** MELT extra c-header 25 : h138532051 **/
+/** MELT extra c-header 25 : h966754191 **/
 
 /* flag for PLUGIN_PASS_EXECUTION declare */
 MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_pass_execution_registered_flag;
@@ -336,7 +333,7 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_pass_execution_registered_flag;
 
 
 
-/** MELT extra c-header 26 : h361512512 **/
+/** MELT extra c-header 26 : h707556364 **/
 
 
 void MELT_MODULE_VISIBILITY
@@ -346,19 +343,19 @@ melt_pass_execution_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
 
 
 
-/** MELT extra c-header 27 : h545799035 **/
+/** MELT extra c-header 27 : h701830363 **/
 
 /* cheader for attributes in warmelt-hooks.melt */
 #if  MELT_GCC_VERSION >= 4009 /* GCC 4.9 or later */
 #include "attribs.h"
 #endif /*GCC 4.9*/
 MELT_EXTERN tree MELT_MODULE_VISIBILITY melt_attribute_handler_glue
-(tree *node, tree name, tree args, int flags, bool *no_add_attrs);
+(tree *pnode, tree name, tree args, int flags, bool *no_add_attrs);
 
 
 
 
-/** MELT extra c-header 28 : h465413818 **/
+/** MELT extra c-header 28 : h240053078 **/
 
 /* header from warmelt-hooks.melt for poll etc... */
 #include <poll.h>
@@ -369,7 +366,7 @@ MELT_EXTERN tree MELT_MODULE_VISIBILITY melt_attribute_handler_glue
 
 
 
-/** MELT extra c-header 29 : h91444262 **/
+/** MELT extra c-header 29 : h264870404 **/
 
 /* headers before connect_to_server */
 #include <sys/socket.h>
@@ -958,13 +955,12 @@ void melthook_HOOK_INSTALL_ATTRIBUTES(melt_ptr_t melthookdatap)
 /** declaration of hook melthook_HOOK_HANDLE_ATTRIBUTE */
 MELT_EXTERN
 tree melthook_HOOK_HANDLE_ATTRIBUTE(melt_ptr_t melthookdatap,
-                                    tree meltinp0_IN_NODE,
-                                    tree meltinp1_NAME,
-                                    tree meltinp2_ARGS,
+                                    tree meltinp0_TR_IN_NODE,
+                                    tree meltinp1_TR_NAME,
+                                    tree meltinp2_TR_ARGS,
                                     long meltinp3_FLAGS,
-                                    long meltinp4_IN_ADD_ATTRS,
-                                    tree* meltoutp0_OUT_NODE,
-                                    long* meltoutp1_OUT_ADD_ATTRS)
+                                    tree* meltoutp0_TR_OUT_NODE,
+                                    long* meltoutp1_OUT_NO_ADD_ATTRS)
 ;
 
 
@@ -1203,7 +1199,7 @@ MELT_EXTERN const char melt_module_is_gpl_compatible[];
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiHOOKS_h904868557 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiHOOKS_h748231646 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
