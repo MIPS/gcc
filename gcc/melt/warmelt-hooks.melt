@@ -2242,19 +2242,20 @@ bool  melthk_pass_execution_registered_flag;
 (cimplement #{ /* cimplement for attributes in warmelt-hooks.melt */
 tree  
 melt_attribute_handler_glue (tree *pnode, tree name, tree args, int flags, bool *pno_add_attrs) {
-   long out_no_add_attrs = (long)(pno_add_attrs?(*pno_add_attrs):0);
+  tree res= NULL;
+  long out_no_add_attrs=0;
    debugeprintf("melt_attribute_handler_glue pnode@%p (*%p) name@%p args@%p flags=%d pno_add_attrs@%p"
 		" before HOOK_HANDLE_ATTRIBUTE",
 		(void*)pnode, (void*)*pnode, (void*)name, (void*)args, flags, (void*)pno_add_attrs);
-   tree res =
+#if 0 
+   res =
      melthookproc_HOOK_HANDLE_ATTRIBUTE (*pnode, name, args, flags,
-					 (long)(pno_add_attrs?(*pno_add_attrs):0),
                                          pnode, 
 					 &out_no_add_attrs);
-     debugeprintf("melt_attribute_handler_glue pnode@%p (*%p) res=%p after HOOK_HANDLE_ATTRIBUTE",
-		  (void*)pnode, (void*)*pnode, (void*)res);
-   if (pno_add_attrs) 
-     *pno_add_attrs = out_no_add_attrs;
+   debugeprintf("melt_attribute_handler_glue pnode@%p (*%p) res=%p after HOOK_HANDLE_ATTRIBUTE",
+		(void*)pnode, (void*)*pnode, (void*)res);
+#endif
+   *pno_add_attrs = out_no_add_attrs;
    return res;
 } /* end melt_attribute_handler_glue */
 }#)
@@ -2298,13 +2299,13 @@ melt_attribute_handler_glue (tree *pnode, tree name, tree args, int flags, bool 
   )
 
 (defhook hook_handle_attribute    
-  (:tree tr_in_node tr_name tr_args :long flags in_add_attrs)
-  (:tree tr_out_node :long out_add_attrs)
+  (:tree tr_in_node tr_name tr_args :long flags)
+  (:tree tr_out_node :long out_no_add_attrs)
   :tree
   :predef HOOK_HANDLE_ATTRIBUTE
   (debug "hook_handle_attribute" " tr_in_node=" tr_in_node
 	 "; tr_name=" tr_name "; tr_args=" tr_args
-	 "; flags=" flags "; in_add_attrs=" in_add_attrs)
+	 "; flags=" flags )
   (let (
 	(attrv ())
 	)
@@ -2314,13 +2315,46 @@ melt_attribute_handler_glue (tree *pnode, tree name, tree args, int flags, bool 
 				&& TREE_CODE($TR_NAME) == IDENTIFIER_NODE) ;
 		$ATTRV = melt_get_mapstrings
 		((meltmapstrings_st*) $GCC_ATTRIBUTE_DICT,
-		 IDENTIFIER_POINTER($TR_NAME))	;
+		 IDENTIFIER_POINTER($TR_NAME)) ;
 		/* hook_handle_attribute $GETNAME_CHK end */
 		}#)
     (debug "hook_handle_attribute " "attrv=" attrv)
     (assert_msg "check attrv" (is_a attrv class_gcc_attribute))
-    (assert_msg "@$@unimplemented hook_handle_attribute")
-    (return))
+    (let ( (handler (get_field :gccattr_handler attrv))
+	   (flaglist (make_list discr_list))
+	   )
+      (debug "hook_handle_attribute" " got handler=" handler
+	     "\n.. in attrv=" attrv)
+      (when (not (is_closure handler))
+	(debug "hook_handle_attribute" " bad handler in attrv=" attrv)
+	(error_at () "non closure handler in attribute $1" attrv)
+	(return))
+      (code_chunk makeflaglist_chk
+		  #{ /* hook_handle_attribute $MAKEFLAGLIST_CHK start */
+		  if ($FLAGS & ATTR_FLAG_DECL_NEXT)
+		    $(list_append flaglist :attr_flag_decl_next) ;
+		  if ($FLAGS & ATTR_FLAG_FUNCTION_NEXT)
+		    $(list_append flaglist :attr_flag_function_next) ;
+		  if ($FLAGS & ATTR_FLAG_ARRAY_NEXT)
+		    $(list_append flaglist :attr_flag_array_next) ;
+		  if ($FLAGS & ATTR_FLAG_TYPE_IN_PLACE)
+		    $(list_append flaglist :attr_flag_type_in_place) ;
+		  if ($FLAGS & ATTR_FLAG_BUILT_IN)
+		    $(list_append flaglist :attr_flag_built_in) ;
+		  /* hook_handle_attribute $MAKEFLAGLIST_CHK start */
+		  if ($FLAGS & ATTR_FLAG_CXX11)
+		    $(list_append flaglist :attr_flag_cxx11) ;
+		  /* hook_handle_attribute $MAKEFLAGLIST_CHK end */
+		  }#)
+      (debug "hook_handle_attribute" "flags=" flags "; flaglist=" flaglist)
+      (multicall
+       (stopv :tree tr_res tr_out_node)
+       (handler attrv tr_in_node tr_name tr_args)
+       (assert_msg "@$@unimplemented hook_handle_attribute")
+       (return)
+       )
+      )
+    )
   )
   
   

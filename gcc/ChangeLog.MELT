@@ -1,5 +1,10 @@
 
 2014-08-15  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-hooks.melt (melt_attribute_handler_glue):
+	Temporarily disable call to hook_handle_attribute, since...
+	(hook_handle_attribute): Change its signature.
+
+2014-08-15  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-hooks.melt (hook_handle_attribute): Compute the the
 	attribute object.
 2014-08-15  Basile Starynkevitch  <basile@starynkevitch.net>
