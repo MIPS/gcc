@@ -2359,7 +2359,7 @@ melt_attribute_handler_glue (tree *node, tree name, tree args, int flags, bool *
     (return ()))
   ;;
   (if (not (is_mapstring gcc_attribute_dict))
-      (let ( (atdic (make_mapstring discr_string 31)) )
+      (let ( (atdic (make_mapstring discr_map_strings 31)) )
 	(setq gcc_attribute_dict atdic)
 	(debug "melt_register_gcc_attribute_at" " atdic=" atdic)
 	))

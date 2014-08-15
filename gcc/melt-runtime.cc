@@ -8958,7 +8958,9 @@ static void
 melt_attribute_callback (void *gcc_data ATTRIBUTE_UNUSED,
                          void* user_data ATTRIBUTE_UNUSED)
 {
-#warning should call HOOK_INSTALL_ATTRIBUTES
+  debugeprintf("melt_attribute_callback before HOOK_INSTALL_ATTRIBUTES user_data@%p", user_data);
+  melthookproc_HOOK_INSTALL_ATTRIBUTES ();
+  debugeprintf("melt_attribute_callback after HOOK_INSTALL_ATTRIBUTES user_data@%p", user_data);
 }
 
 
