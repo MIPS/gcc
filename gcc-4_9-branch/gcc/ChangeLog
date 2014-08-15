@@ -1,3 +1,35 @@
+2014-08-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/62092
+	* gimplify.c (gimplify_adjust_omp_clauses_1): Don't remove
+	OMP_CLAUSE_SHARED for global vars if the global var is mentioned
+	in OMP_CLAUSE_MAP in some outer target region.
+
+2014-08-14  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from mainline
+	2014-08-04  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/61713
+	* gcc/optabs.c (expand_atomic_test_and_set): Do not try to emit
+	move to subtarget in serial version if result is ignored.
+
+2014-08-14  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	Backport from mainline
+	2014-08-12  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR middle-end/62103
+	* gimple-fold.c (fold_ctor_reference): Don't fold in presence of
+	bitfields, that is when size doesn't match the size of type or the
+	size of the constructor.
+
+2014-08-12  Felix Yang  <fei.yang0953@gmail.com>
+
+	PR tree-optimization/62073
+	* tree-vect-loop.c (vect_is_simple_reduction_1): Check that DEF1 has
+	a basic block.
+
 2014-08-12  Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/62025
