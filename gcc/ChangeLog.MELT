@@ -1,6 +1,14 @@
 
 2014-08-15  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-hooks.melt (class_gcc_attribute): Improve
+	documentation about handler.
+	(hook_handle_attribute): Invoke the handler.
+
+	* testsuite/melt/tattr-1.melt: More in the handler.
+
+2014-08-15  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.1.2pre4.
 
 	* melt/warmelt-hooks.melt (melt_attribute_handler_glue):

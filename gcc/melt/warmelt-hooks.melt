@@ -2251,8 +2251,8 @@ melt_attribute_handler_glue (tree *pnode, tree name, tree args, int flags, bool 
      melthookproc_HOOK_HANDLE_ATTRIBUTE (*pnode, name, args, flags,
                                          pnode, 
 					 &out_no_add_attrs);
-   debugeprintf("melt_attribute_handler_glue pnode@%p (*%p) res=%p after HOOK_HANDLE_ATTRIBUTE",
-		(void*)pnode, (void*)*pnode, (void*)res);
+   debugeprintf("melt_attribute_handler_glue pnode@%p (*%p) res=%p out_no_add_attrs=%ld after HOOK_HANDLE_ATTRIBUTE",
+		(void*)pnode, (void*)*pnode, (void*)res, out_no_add_attrs);
    *pno_add_attrs = out_no_add_attrs;
    return res;
 } /* end melt_attribute_handler_glue */
@@ -2266,8 +2266,17 @@ melt_attribute_handler_glue (tree *pnode, tree name, tree args, int flags, bool 
 (defclass class_gcc_attribute 
   :super class_named
   :doc #{The $CLASS_GCC_ATTRIBUTE describes general GCC attributes
-  known by MELT, in addition of the specially handled
-  @code{__attribute__((melt(...)))}..}#
+  known by MELT. Its $GCCATTR_DATA field can contain arbitrary data.
+  Its $GCCATTR_HANDER should be a closure (see @var{handler} field in
+  @code{attribute_spec} field of @file{gcc/tree-core.h} of GCC). The
+  closure is given the attribute, a list of flag keywords such as
+  @code{:attr_flag_decl_next}, @code{:attr_flag_function_next},
+  @code{:attr_flag_array_next}, @code{:attr_flag_type_in_place},
+  @code{:attr_flag_built_in}, @code{:attr_flag_cxx11},
+  the tree @var{node}, the tree @var{name}, and the
+  tree @var{args} as arguments, and should give a
+  primary boolean result value (non-nil to @var{no_add_attrs}) and
+  secondarily the tree @var{result} and the output tree @var{node}.}#
   :fields (gccattr_data
 	   gccattr_handler
 ))
@@ -2344,12 +2353,20 @@ melt_attribute_handler_glue (tree *pnode, tree name, tree args, int flags, bool 
 		    $(list_append flaglist :attr_flag_cxx11) ;
 		  /* hook_handle_attribute $MAKEFLAGLIST_CHK end */
 		  }#)
-      (debug "hook_handle_attribute" "flags=" flags "; flaglist=" flaglist)
+      (debug "hook_handle_attribute" "before handler flags=" flags "; flaglist=" flaglist)
       (multicall
        (stopv :tree tr_res tr_out_node)
-       (handler attrv tr_in_node tr_name tr_args)
-       (assert_msg "@$@unimplemented hook_handle_attribute")
-       (return)
+       (handler attrv flaglist tr_in_node tr_name tr_args)
+       (debug "hook_handle_attribute" " after handler stopv=" stopv
+	      "\n.. tr_res=" tr_res
+	      "\n.. tr_out_node=" tr_out_node)
+       (or tr_out_node
+	   (setq tr_out_node tr_in_node))
+       (setq out_no_add_attrs (non-null stopv))
+       (debug "hook_handle_attribute" " ending with tr_res=" tr_res
+	      "\n.. tr_out_node=" tr_out_node
+	      "\n.. out_no_add_attrs=" out_no_add_attrs)
+       (return tr_res)
        )
       )
     )

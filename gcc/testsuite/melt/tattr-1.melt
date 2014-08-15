@@ -17,9 +17,14 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 |#
 (module_is_gpl_compatible "public domain")
 (debug "tattr-1" " start ~*" "~*" "~*")
-(defun tattr_handler ()
-  (debug "tattr_handler" " start")
+(defun tattr_handler (attr flaglist :tree tr_node tr_name tr_args)
+  (debug "tattr_handler" " start attr=" attr
+	 "\n.. flaglist=" flaglist
+	 "\n.. tr_node=" tr_node
+	 "\n.. tr_name=" tr_name
+	 "\n.. tr_args=" tr_args)
   (shortbacktrace_dbg "tattr_handler" 15)
+  (assert_msg "tattr-1 unimpelemnted tattr_handler")
 )
 
 (let ( (at (instance class_gcc_attribute
