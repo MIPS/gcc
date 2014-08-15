@@ -6,7 +6,7 @@
  ln -sv $GCCMELT_SOURCE/gcc/testsuite/melt/tattrcode-1.c
 
  ./cc1 -fmelt-mode=runfile @meltbuild-common.args -Iinclude/ \
-    -fmelt-init=@warmelt.quicklybuilt -fmelt-arg=tattr-1.melt \
+    -fmelt-init=@melt-default-modules.quicklybuilt -fmelt-arg=tattr-1.melt \
     tattrcode-1.c
 
 or in a MELT module

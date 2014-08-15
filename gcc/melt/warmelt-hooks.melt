@@ -2236,20 +2236,25 @@ bool  melthk_pass_execution_registered_flag;
 #include "attribs.h"
 #endif /*GCC 4.9*/
    MELT_EXTERN tree MELT_MODULE_VISIBILITY melt_attribute_handler_glue 
-   (tree *node, tree name, tree args, int flags, bool *no_add_attrs);
+   (tree *pnode, tree name, tree args, int flags, bool *no_add_attrs);
 }#)
 
 (cimplement #{ /* cimplement for attributes in warmelt-hooks.melt */
 tree  
-melt_attribute_handler_glue (tree *node, tree name, tree args, int flags, bool *no_add_attrs) {
-   long out_no_add_attrs = (long)(no_add_attrs?(*no_add_attrs):0);
+melt_attribute_handler_glue (tree *pnode, tree name, tree args, int flags, bool *pno_add_attrs) {
+   long out_no_add_attrs = (long)(pno_add_attrs?(*pno_add_attrs):0);
+   debugeprintf("melt_attribute_handler_glue pnode@%p (*%p) name@%p args@%p flags=%d pno_add_attrs@%p"
+		" before HOOK_HANDLE_ATTRIBUTE",
+		(void*)pnode, (void*)*pnode, (void*)name, (void*)args, flags, (void*)pno_add_attrs);
    tree res =
-     melthookproc_HOOK_HANDLE_ATTRIBUTE (*node, name, args, flags,
-					 (long)(no_add_attrs?(*no_add_attrs):0),
-                                         node, 
+     melthookproc_HOOK_HANDLE_ATTRIBUTE (*pnode, name, args, flags,
+					 (long)(pno_add_attrs?(*pno_add_attrs):0),
+                                         pnode, 
 					 &out_no_add_attrs);
-   if (no_add_attrs) 
-     *no_add_attrs = out_no_add_attrs;
+     debugeprintf("melt_attribute_handler_glue pnode@%p (*%p) res=%p after HOOK_HANDLE_ATTRIBUTE",
+		  (void*)pnode, (void*)*pnode, (void*)res);
+   if (pno_add_attrs) 
+     *pno_add_attrs = out_no_add_attrs;
    return res;
 } /* end melt_attribute_handler_glue */
 }#)
@@ -2293,14 +2298,30 @@ melt_attribute_handler_glue (tree *node, tree name, tree args, int flags, bool *
   )
 
 (defhook hook_handle_attribute    
-  (:tree in_node name args :long flags in_add_attrs)
-  (:tree out_node :long out_add_attrs)
+  (:tree tr_in_node tr_name tr_args :long flags in_add_attrs)
+  (:tree tr_out_node :long out_add_attrs)
   :tree
   :predef HOOK_HANDLE_ATTRIBUTE
-  (debug "hook_handle_attribute" " in_node=" in_node "; name=" name "; args=" args
+  (debug "hook_handle_attribute" " tr_in_node=" tr_in_node
+	 "; tr_name=" tr_name "; tr_args=" tr_args
 	 "; flags=" flags "; in_add_attrs=" in_add_attrs)
-  (assert_msg "@$@unimplemented hook_handle_attribute")
-  (return))
+  (let (
+	(namev ())
+	)
+    (code_chunk getname_chk #{ /* hook_handle_attribute $GETNAME_CHK start */
+		melt_assertmsg ("check good name",
+				$TR_NAME
+				&& TREE_CODE($TR_NAME) == IDENTIFIER_NODE) ;
+		$NAMEV = meltgc_new_stringdup
+		((meltobject_ptr_t)MELT_PREDEF(DISCR_STRING),
+		 IDENTIFIER_POINTER($TR_NAME))	;
+		/* hook_handle_attribute $GETNAME_CHK end */
+		}#)
+    (debug "hook_handle_attribute " "namev=" namev)
+    (assert_msg "check namev" (is_string namev))
+    (assert_msg "@$@unimplemented hook_handle_attribute")
+    (return))
+  )
   
   
 

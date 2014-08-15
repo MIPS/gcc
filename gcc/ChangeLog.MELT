@@ -1,6 +1,13 @@
 
 2014-08-15  Basile Starynkevitch  <basile@starynkevitch.net>
-	{{tattr-1 is invoking unimplemented hhok_handle_attribute}}
+	* melt/warmelt-hooks.melt (hook_handle_attribute): Compute the name.
+
+	* testsuite/melt/tattr-1.melt: Comment that it should be compiled
+	with all the modules.
+
+2014-08-15  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{tattr-1 is invoking unimplemented hook_handle_attribute}}
 	* melt-runtime.cc (melt_attribute_callback): Call
 	HOOK_INSTALL_ATTRIBUTES.
 	* melt/warmelt-hooks.melt (melt_register_gcc_attribute_at): Make
