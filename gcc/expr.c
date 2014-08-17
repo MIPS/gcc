@@ -9940,7 +9940,7 @@ expand_ccmp_expr_1 (gimple g)
 }
 
 static rtx
-expand_ccmp_expr (gimple g)
+expand_ccmp_expr (gimple g, machine_mode mode)
 {
   rtx last = get_last_insn ();
   tree lhs = gimple_assign_lhs (g);
@@ -9959,9 +9959,9 @@ expand_ccmp_expr (gimple g)
       icode = optab_handler (cstore_optab, CCmode);
       if (icode != CODE_FOR_nothing)
 	{
-	  rtx target = gen_reg_rtx (word_mode);
+	  rtx target = gen_reg_rtx (mode);
 	  tmp = emit_cstore (target, icode, NE, CCmode, CCmode,
-			     0, tmp, const0_rtx, 1, word_mode);
+			     0, tmp, const0_rtx, 1, mode);
 	  if (tmp)
 	    return tmp;
 	}
@@ -10169,7 +10169,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	  if ((targetm.gen_ccmp_first != NULL) && ccmp_candidate_p (g))
 	    {
 	      gcc_checking_assert (targetm.gen_ccmp_next != NULL);
-	      r = expand_ccmp_expr (g);
+	      r = expand_ccmp_expr (g, mode);
 	    }
 
 	  if (!r)
