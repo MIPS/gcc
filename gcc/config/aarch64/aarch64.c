@@ -10283,9 +10283,11 @@ aarch64_gen_ccmp_first (int code, rtx op0, rtx op1)
   int unsignedp = code == LTU || code == LEU || code == GTU || code == GEU;
 
   if (!aarch64_convert_mode (&op0, &op1, unsignedp)
-      || !register_operand (op0, GET_MODE (op0))
-      || !aarch64_ccmp_operand (op1, GET_MODE (op1)))
+      || !register_operand (op0, GET_MODE (op0)))
     return NULL_RTX;
+
+  if (!aarch64_ccmp_operand (op1, GET_MODE (op1)))
+    op1 = force_reg (GET_MODE (op0), op1);
 
   mode = aarch64_code_to_ccmode ((enum rtx_code) code);
   if (mode == CCmode)
@@ -10306,9 +10308,11 @@ aarch64_gen_ccmp_next (rtx prev, int cmp_code, rtx op0, rtx op1, int bit_code)
 		  || cmp_code == GTU || cmp_code == GEU;
 
   if (!aarch64_convert_mode (&op0, &op1, unsignedp)
-      || !register_operand (op0, GET_MODE (op0))
-      || !aarch64_ccmp_operand (op1, GET_MODE (op1)))
+      || !register_operand (op0, GET_MODE (op0)))
     return NULL_RTX;
+
+  if (!aarch64_ccmp_operand (op1, GET_MODE (op1)))
+    op1 = force_reg (GET_MODE (op0), op1);
 
   cmp1 = gen_rtx_fmt_ee ((enum rtx_code) cmp_code, SImode, op0, op1);
 

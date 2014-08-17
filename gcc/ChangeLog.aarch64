@@ -1,3 +1,12 @@
+2014-08-16  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #11833
+	* config/aarch64/aarch64.c (aarch64_gen_ccmp_first):
+	Don't reject OP1 being aarch64_ccmp_operand instead
+	force into register if aarch64_ccmp_operand is false.
+	(aarch64_gen_ccmp_next): Likewise.
+	* testsuite/gcc.target/aarch64/ccmp-1.c: New testcase.
+
 2014-08-07  Andrew Pinski  <apinski@cavium.com>
 
 	* config/aarch64/thunder.md: rename to ...
