@@ -1,6 +1,10 @@
 
 2014-08-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.1.2pre5.
+
+2014-08-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/generated/*: Regenerate.
 
 2014-08-18  Basile Starynkevitch  <basile@starynkevitch.net>
