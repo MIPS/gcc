@@ -55,4 +55,68 @@ int c6(int x)
 }
 /* { dg-final { scan-tree-dump "Match-and-simplified x_\\d\+\\(D\\) \\* t1_\\d\+ to x_\\d\+\\(D\\)" "ccp1" } } */
 
+/* x / 1 -> x */
+int c7(int x)
+{
+  int t1 = 1;
+  int c7_val = x / t1;
+  return c7_val;
+}
+/* { dg-final { scan-tree-dump "Match-and-simplified x_\\d\+\\(D\\) / t1_\\d\+ to x_\\d\+\\(D\\)" "ccp1" } } */
+
+/* x % x -> 1 */
+int c8(int x)
+{
+  int t1 = x;
+  int c8_val = x % t1;
+  return c8_val;
+}
+/* { dg-final { scan-tree-dump "gimple_simplified to c8_val_\\d\+ = 0" "forwprop1" } } */
+
+/* x | 0 -> x */
+int c9(int x)
+{
+  int t1 = 0;
+  int c9_val = x | t1;
+  return c9_val;
+}
+/* { dg-final { scan-tree-dump "Match-and-simplified x_\\d\+\\(D\\) | t1_\\d\+ to x_\\d\+\\(D\\)" "ccp1" } } */
+
+/* x | -1 -> -1 */
+int c10(int x)
+{
+  int t1 = -1;
+  int c10_val = x | t1;
+  return c10_val;
+}
+/* { dg-final { scan-tree-dump "Match-and-simplified x_\\d\+\\(D\\) | t1_\\d\+ to -1" "ccp1" } } */
+
+/* x & -1 -> x */
+int c11(int x)
+{
+  int t1 = -1;
+  int c11_val = x & t1;
+  return c11_val;
+}
+/* { dg-final { scan-tree-dump "Match-and-simplified x_\\d\+\\(D\\) & t1_\\d\+ to x_\\d\+\\(D\\)" "ccp1" } } */
+
+/* x & 0 -> 0 */
+int c12(int x)
+{
+  int t1 = 0;
+  int c12_val = x & t1;
+  return c12_val;
+}
+/* { dg-final { scan-tree-dump "Match-and-simplified x_\\d\+\\(D\\) & t1_\\d\+ to 0" "ccp1" } } */
+
+/* x ^ 0 -> x */
+int c13(int x)
+{
+  int t1 = 0;
+  int c13_val = x ^ t1;
+  return c13_val;
+}
+/* { dg-final { scan-tree-dump "Match-and-simplified x_\\d\+\\(D\\) \\^ t1_\\d\+ to x_\\d\+\\(D\\)" "ccp1" } } */
+
+
 /* { dg-final { cleanup-tree-dump "forwprop2" } } */

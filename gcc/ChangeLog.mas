@@ -1,3 +1,8 @@
+2014-08-18  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	testsuite/
+	* match-constant-folding.c: Add more test-cases.
+
 2014-08-15  Richard Biener  <rguenther@suse.de>
 
 	* gimple-match.h: New file.
