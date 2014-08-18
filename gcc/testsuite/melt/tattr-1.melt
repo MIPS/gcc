@@ -36,7 +36,7 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 		     ))
        )
   (debug "tattr-1" " registering at=" at)
-  (register_gcc_attribute at :min_length 1 :max_length 4 :function_type_required :true)
+  (register_gcc_attribute at :min_length 1 :max_length 4)
   (debug "tattr-1" " registered at=" at)
 )
 

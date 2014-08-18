@@ -2243,17 +2243,20 @@ bool  melthk_pass_execution_registered_flag;
 tree  
 melt_attribute_handler_glue (tree *pnode, tree name, tree args, int flags, bool *pno_add_attrs) {
   tree res= NULL;
-  long out_no_add_attrs=0;
-   debugeprintf("melt_attribute_handler_glue pnode@%p (*%p) name@%p args@%p flags=%d pno_add_attrs@%p"
+  long out_no_add_attrs= (*pno_add_attrs);
+   debugeprintf("melt_attribute_handler_glue pnode@%p (*%p) name@%p args@%p flags=%d pno_add_attrs@%p: %ld"
 		" before HOOK_HANDLE_ATTRIBUTE",
-		(void*)pnode, (void*)*pnode, (void*)name, (void*)args, flags, (void*)pno_add_attrs);
+		(void*)pnode, (void*)*pnode, (void*)name, (void*)args, flags, (void*)pno_add_attrs, out_no_add_attrs);
    res =
      melthookproc_HOOK_HANDLE_ATTRIBUTE (*pnode, name, args, flags,
                                          pnode, 
 					 &out_no_add_attrs);
    debugeprintf("melt_attribute_handler_glue pnode@%p (*%p) res=%p out_no_add_attrs=%ld after HOOK_HANDLE_ATTRIBUTE",
 		(void*)pnode, (void*)*pnode, (void*)res, out_no_add_attrs);
-   *pno_add_attrs = out_no_add_attrs;
+   *pno_add_attrs = (bool)out_no_add_attrs;
+   debugeprintf("melt_attribute_handler_glue *pno_add_attrs=%d",
+		(int)(*pno_add_attrs));
+   melt_cbreak("ending melt_attribute_handler_glue");
    return res;
 } /* end melt_attribute_handler_glue */
 }#)
@@ -2275,7 +2278,7 @@ melt_attribute_handler_glue (tree *pnode, tree name, tree args, int flags, bool 
   @code{:attr_flag_built_in}, @code{:attr_flag_cxx11},
   the tree @var{node}, the tree @var{name}, and the
   tree @var{args} as arguments, and should give a
-  primary boolean result value (non-nil to @var{no_add_attrs}) and
+  primary boolean result value (non-nil to clear @var{no_add_attrs}) and
   secondarily the tree @var{result} and the output tree @var{node}.}#
   :fields (gccattr_data
 	   gccattr_handler
@@ -2355,14 +2358,14 @@ melt_attribute_handler_glue (tree *pnode, tree name, tree args, int flags, bool 
 		  }#)
       (debug "hook_handle_attribute" "before handler flags=" flags "; flaglist=" flaglist)
       (multicall
-       (stopv :tree tr_res tr_out_node)
+       (noaddv :tree tr_res tr_out_node)
        (handler attrv flaglist tr_in_node tr_name tr_args)
-       (debug "hook_handle_attribute" " after handler stopv=" stopv
+       (debug "hook_handle_attribute" " after handler noaddv=" noaddv
 	      "\n.. tr_res=" tr_res
 	      "\n.. tr_out_node=" tr_out_node)
        (or tr_out_node
 	   (setq tr_out_node tr_in_node))
-       (setq out_no_add_attrs (non-null stopv))
+       (setq out_no_add_attrs (non-null noaddv))
        (debug "hook_handle_attribute" " ending with tr_res=" tr_res
 	      "\n.. tr_out_node=" tr_out_node
 	      "\n.. out_no_add_attrs=" out_no_add_attrs)
@@ -2604,6 +2607,18 @@ melt_attribute_handler_glue (tree *pnode, tree name, tree args, int flags, bool 
 	     atspec->function_type_required = $VFUNCTIONTYPEREQUIRED != NULL ;
 	     atspec->affects_type_identity = $VAFFECTSTYPEIDENTITY != NULL ;
 	     atspec->handler = melt_attribute_handler_glue ;
+	     debugeprintf("melt_attribute_handler_glue/lambda atspec@%p "
+			  "name %s min_length %d, max_length %d",
+			  (void*)atspec,
+			  atspec->name, atspec->min_length, atspec->max_length);
+	     debugeprintf("decl_required %s, type_required %s,\n.. "
+			  "function_type_required %s, affects_type_identity %s,\n.. "
+			  "handler@%p",
+			  (atspec->decl_required)?"yes":"no",
+			  (atspec->type_required)?"yes":"no",
+			  (atspec->function_type_required)?"yes":"no",
+			  (atspec->affects_type_identity)?"yes":"no",
+			  (void*)atspec->handler);
 	     register_attribute (atspec) ;
 	     debugeprintf ("melt_register_gcc_attribute_at/lambda registered atspec=%p", 
 	    		(void*)atspec);
