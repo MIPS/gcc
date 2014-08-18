@@ -1,4 +1,11 @@
 
+2014-08-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/libmelt-ana-tree.melt (tree_chain_to_tuple): New function.
+	* testsuite/melt/tattr-1.melt: More in the handler, but still
+	crashing.
+	* testsuite/melt/tattrcode-1.c: More attribute arguments.
+
 2014-08-15  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-hooks.melt (class_gcc_attribute): Improve

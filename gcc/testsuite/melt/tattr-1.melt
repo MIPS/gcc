@@ -23,8 +23,10 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 	 "\n.. tr_node=" tr_node
 	 "\n.. tr_name=" tr_name
 	 "\n.. tr_args=" tr_args)
+  (debug "tattr_handler" " tree_chain_to_tuple:"
+	 (tree_chain_to_tuple discr_multiple tr_args))
   (shortbacktrace_dbg "tattr_handler" 15)
-  (assert_msg "tattr-1 unimpelemnted tattr_handler")
+  (return)
 )
 
 (let ( (at (instance class_gcc_attribute
@@ -34,7 +36,7 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
 		     ))
        )
   (debug "tattr-1" " registering at=" at)
-  (register_gcc_attribute at :min_length 1 :max_length 1 :function_type_required :true)
+  (register_gcc_attribute at :min_length 1 :max_length 4 :function_type_required :true)
   (debug "tattr-1" " registered at=" at)
 )
 

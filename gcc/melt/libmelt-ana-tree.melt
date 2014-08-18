@@ -147,6 +147,63 @@
 		chainon ($CHAIN1, $CHAIN2)
 	}#)
 
+(defun tree_chain_to_tuple (discr :tree tr)
+  :doc #{Make a boxed tree tuple of given $DISCR - default to
+  $DISCR_MULTIPLE from the chain starting at tree $TR, i.e. unfold a
+  tree chain into a tuple of boxed trees}#
+  (debug "tree_chain_to_tuple" " discr=" discr "; tr=" tr)
+  (if (null discr) (setq discr discr_multiple))
+  (if (is_not_a discr class_discriminant)
+      (return))
+  (if (expr_chunk
+       chdiscr_chk :long
+       #{ /* tree_chain_to_tuple $CHDISCR_CHK */
+       ((meltobject_ptr_t)$DISCR)->meltobj_magic != MELTOBMAG_MULTIPLE
+       }#)
+      (return))
+  (let ( (:long len 0)
+	 (:tree ctr tr)
+	 )
+    (forever
+     cntloop
+     (if (expr_chunk
+	  chcount_chk :long
+	  #{ /* tree_chain_to_tuple $CHCOUNT_CHK */
+	  !$CTR || !CODE_CONTAINS_STRUCT (TREE_CODE($CTR), TS_COMMON)
+	  }#)	 
+	 (exit cntloop))
+     (code_chunk chnext_chk
+		 #{ /* tree_chain_to_tuple $CHNEXT_CHK */
+		 $CTR = TREE_CHAIN($CTR);
+		 }#)
+     (setq len (+i len 1))
+     )
+    (let ( (tup (make_multiple discr len))
+	   (:long ix 0)
+	   )
+      (setq ctr tr)
+      (forever filltreeloop
+	       (debug "tree_chain_to_tuple" " loop ix=" ix "; ctr=" ctr)
+	       (code_chunk
+		exitfill_chk
+		#{ /* tree_chain_to_tuple $EXITFILL_CHK */
+		if (!$CTR || !CODE_CONTAINS_STRUCT (TREE_CODE($CTR), TS_COMMON))
+		$(exit filltreeloop)	;
+		}#)
+	       (multiple_put_nth tup ix (constant_box ctr))
+	       (code_chunk
+		nextchain_chk
+		#{ /* tree_chain_to_tuple $NEXTCHAIN_CHK */
+		$CTR = TREE_CHAIN($CTR)	;
+		}#)
+	       (setq ix (+i ix 1)))
+      (debug "tree_chain_to_tuple" " result tup=" tup)
+      (return tup)
+      )
+    )
+  )
+
+
 (defprimitive build_identifier_tree (name) :tree
 	:doc #{Create and returns a new IDENTIFIER_NODE tree whose
 	name is $NAME.}#
@@ -2138,6 +2195,7 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_chain_append
  tree_chain_join
  tree_chain_prepend
+ tree_chain_to_tuple
  tree_char_type_node 
  tree_complex_type
  tree_component_ref
