@@ -118,5 +118,13 @@ int c13(int x)
 }
 /* { dg-final { scan-tree-dump "Match-and-simplified x_\\d\+\\(D\\) \\^ t1_\\d\+ to x_\\d\+\\(D\\)" "ccp1" } } */
 
+/* x % 1 -> 0 */
+int c14(int x)
+{
+  int t1 = 1;
+  int c14_val = x % t1;
+  return c14_val;
+}
+/* { dg-final { scan-tree-dump "Match-and-simplified x_\\d\+\\(D\\) % t1_\\d\+ to 0" "ccp1" } } */
 
 /* { dg-final { cleanup-tree-dump "forwprop2" } } */

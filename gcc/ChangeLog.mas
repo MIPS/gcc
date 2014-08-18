@@ -1,4 +1,8 @@
 2014-08-18  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	* match-constant-folding.c: Add new test-case.
+
+2014-08-18  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 	Richard Biener  <rguenther@suse.de>
 
 	* match-comparison.pd: New file.
