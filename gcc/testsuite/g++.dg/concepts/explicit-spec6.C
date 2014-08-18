@@ -5,7 +5,7 @@ struct A {
     template<class T2> void f1(T, T2); // member template
     template<class T2> void f2(T, T2); // member template
 };
- 
+
 template<>
 template<class X1> void A<int>::f1(int, X1);
 

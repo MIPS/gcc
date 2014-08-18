@@ -1,5 +1,26 @@
 2014-08-13  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	* gcc/cp/parser.c (get_id_declarator, get_identifier): New helper
+	functions.s
+	(cp_check_constrained_type_parm): Don't fail on null declarators.
+	(cp_finish_constrained_parameter): Remove redundant processing for
+	checking declarations.
+	(cp_maybe_type_parameter, cp_declares_type_parameter, 
+	cp_declares_type_template_parameter, 
+	cp_declares_template_template_parameter): New helper functions for
+	determining when a parameter declaration is actually a constrained
+	template parameter.
+	(cp_parser_default_type_template_argument, 
+	cp_parser_default_template_template_argument): Parsing support
+	for argument types of default arguments.
+	(cp_parser_template_parameter): Finish constrained parameters
+	after all variadic and default arg checks.
+	(cp_parser_parameter_declaration): Parse default arguments
+	differently if the parameter actually declares a type parameter.
+	* gcc/testsuite/g++.dg/concepts: New tests.
+
+2014-08-13  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	* gcc/testsuite/g++.dg/concepts/explicit-spec6.C: New test.
 
 2014-08-13  Andrew Sutton  <andrew.n.sutton@gmail.com>
