@@ -3,9 +3,6 @@
 
 #include <cassert>
 
-// FIXME: This should be xfailed, but I'm not sure how to do that.
-
-void f() { }
-void f() requires true { };
+void f() requires true { }; // { dg-xfail-if "" { *-*-* } }
 
 int main() { }

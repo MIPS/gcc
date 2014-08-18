@@ -7687,8 +7687,12 @@ grokfndecl (tree ctype,
   if (current_template_reqs)
     {
       current_template_reqs
-          = finish_template_constraints (current_template_reqs);
+        = finish_template_constraints (current_template_reqs);
       set_constraints (decl, current_template_reqs);
+
+      // TODO: Disallow these until we resolve the linking issue.
+      if (current_template_reqs && !current_template_parms)
+        sorry("constrained regular function");
     }
 
   /* If we have an explicit location, use it, otherwise use whatever

@@ -7464,6 +7464,12 @@ resolve_address_of_overloaded_function (tree target_type,
 	    /* Instantiation failed.  */
 	    continue;
 
+          // Constraints must be satisfied. Note that this is done
+          // before return type deduction.
+          if (tree ci = get_constraints (instantiation))
+            if (!check_constraints (ci))
+                continue;
+
 	  /* And now force instantiation to do return type deduction.  */
 	  if (undeduced_auto_decl (instantiation))
 	    {

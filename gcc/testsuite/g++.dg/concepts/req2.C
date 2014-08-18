@@ -5,7 +5,7 @@
 template<typename T>
   concept bool Class () { return __is_class(T); }
 
-void f1 (auto a) requires Class<decltype(a)>() { }
+void f1(auto a) requires Class<decltype(a)>() { }
 
 // FIXME: This is generating excess errors related to pretty
 // printing the trailing requires expression.

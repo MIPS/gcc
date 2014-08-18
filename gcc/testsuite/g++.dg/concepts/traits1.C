@@ -1,5 +1,6 @@
 // { dg-options "-std=c++1z" }
 
+
 template<typename T>
   concept bool Nothrow_assignable() { return __has_nothrow_assign(T); }
 
@@ -57,43 +58,41 @@ template<typename T>
 template<typename T>
   concept bool Union() { return __is_union(T); }
 
-
-void f1() requires Nothrow_assignable<void>();
-void f2() requires Nothrow_copyable<void>();
-void f3() requires Nothrow_constructible<void>();
-void f4() requires Trivially_assignable<void>();
-void f5() requires Trivially_copyable<void>();
-void f6() requires Trivially_constructible<void>();
-void f7() requires Trivially_destructible<void>();
-void f8() requires Dynamically_destructible<void>();
-void f9() requires Class<void>();
-void f10() requires Empty<void>();
-void f11() requires Standard_layout<void>();
-void f12() requires Pod<void>();
-void f13() requires Trivial<void>();
-void f14() requires Polymorphic<void>();
-void f15() requires Abstract<void>();
-void f16() requires Final<void>();
-void f17() requires Union<void>();
-void f18() requires Enum<void>();
-
+template<Nothrow_assignable T> void f1() { }
+template<Nothrow_copyable T> void f2() { }
+template<Nothrow_constructible T> void f3() { }
+template<Trivially_assignable T> void f4() { }
+template<Trivially_copyable T> void f5() { }
+template<Trivially_constructible T> void f6() { }
+template<Trivially_destructible T> void f7() { }
+template<Dynamically_destructible T> void f8() { }
+template<Class T> void f9() { }
+template<Empty T> void f10() { }
+template<Standard_layout T> void f11() { }
+template<Pod T> void f12() { }
+template<Trivial T> void f13() { }
+template<Polymorphic T> void f14() { }
+template<Abstract T> void f15() { }
+template<Final T> void f16() { }
+template<Union T> void f17() { }
+template<Enum T> void f18() { }
 
 int main() { 
-  f1(); // { dg-error "cannot call" }
-  f2(); // { dg-error "cannot call" }
-  f3(); // { dg-error "cannot call" }
-  f4(); // { dg-error "cannot call" }
-  f5(); // { dg-error "cannot call" }
-  f6(); // { dg-error "cannot call" }
-  f7(); // { dg-error "cannot call" }
-  f8(); // { dg-error "cannot call" }
-  f9(); // { dg-error "cannot call" }
-  f10(); // { dg-error "cannot call" }
-  f11(); // { dg-error "cannot call" }
-  f12(); // { dg-error "cannot call" }
-  f13(); // { dg-error "cannot call" }
-  f14(); // { dg-error "cannot call" }
-  f15(); // { dg-error "cannot call" }
-  f16(); // { dg-error "cannot call" }
-  f17(); // { dg-error "cannot call" }
+  f1<void>(); // { dg-error "cannot call" }
+  f2<void>(); // { dg-error "cannot call" }
+  f3<void>(); // { dg-error "cannot call" }
+  f4<void>(); // { dg-error "cannot call" }
+  f5<void>(); // { dg-error "cannot call" }
+  f6<void>(); // { dg-error "cannot call" }
+  f7<void>(); // { dg-error "cannot call" }
+  f8<void>(); // { dg-error "cannot call" }
+  f9<void>(); // { dg-error "cannot call" }
+  f10<void>(); // { dg-error "cannot call" }
+  f11<void>(); // { dg-error "cannot call" }
+  f12<void>(); // { dg-error "cannot call" }
+  f13<void>(); // { dg-error "cannot call" }
+  f14<void>(); // { dg-error "cannot call" }
+  f15<void>(); // { dg-error "cannot call" }
+  f16<void>(); // { dg-error "cannot call" }
+  f17<void>(); // { dg-error "cannot call" }
 }

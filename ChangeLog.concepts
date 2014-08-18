@@ -1,5 +1,13 @@
 2014-08-13  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	* gcc/cp/class.c (resolve_address_of_overloaded_function): Check
+	constraints.
+	* gcc/cp/decl.c (grokfndecl): For now, disallow constrained
+	non-template functions.
+	* gcc/testsuite/g++.dg/concepts: New tests.
+
+2014-08-13  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	* gcc/cp/parser.c (get_id_declarator, get_identifier): New helper
 	functions.s
 	(cp_check_constrained_type_parm): Don't fail on null declarators.
