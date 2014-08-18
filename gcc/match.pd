@@ -112,6 +112,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "match-rotate.pd"
 #include "match-builtin.pd"
 #include "match-constant-folding.pd"
+#include "match-comparison.pd"
 
 /* ????s
 

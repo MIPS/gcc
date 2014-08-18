@@ -251,13 +251,24 @@ struct expr : public operand
 
 struct c_expr : public operand
 {
-  c_expr (cpp_reader *r_, vec<cpp_token> code_, unsigned nr_stmts_)
+  struct id_tab {
+    const char *id;
+    const char *oper;
+
+    id_tab (const char *id_, const char *oper_): id (id_), oper (oper_) {}
+  };
+
+
+  c_expr (cpp_reader *r_, vec<cpp_token> code_, unsigned nr_stmts_,
+	  vec<id_tab> ids_ = vNULL)
     : operand (OP_C_EXPR), r (r_), code (code_),
-      nr_stmts (nr_stmts_), fname (NULL) {}
+      nr_stmts (nr_stmts_), fname (NULL), ids (ids_) {}
   cpp_reader *r;
   vec<cpp_token> code;
   unsigned nr_stmts;
   char *fname;
+  vec<id_tab> ids;
+
   virtual void gen_transform (FILE *f, const char *, bool, int);
 };
 
@@ -771,6 +782,14 @@ replace_id (operand *o, const char *user_id, const char *oper)
       return nc;
     }
 
+  if (c_expr *ce = dyn_cast<c_expr *> (o))
+    {
+      id_base *idb = get_operator (oper);
+      vec<c_expr::id_tab> ids = ce->ids.copy ();
+      ids.safe_push (c_expr::id_tab (user_id, idb->id));
+      return new c_expr (ce->r, ce->code, ce->nr_stmts, ids);
+    }
+
   if (o->type != operand::OP_EXPR)
     return o;
 
@@ -911,6 +930,22 @@ c_expr::gen_transform (FILE *f, const char *dest, bool, int)
 
       if (token->flags & PREV_WHITE)
 	fputc (' ', f);
+
+      if (token->type == CPP_NAME)
+	{
+	  const char *id = (const char *) NODE_NAME (token->val.node.node);
+	  unsigned j;
+	  for (j = 0; j < ids.length (); ++j)
+	    {
+	    if (strcmp (id, ids[j].id) == 0)
+	      {
+		fprintf (f, "%s", ids[j].oper);
+		break;
+	      }
+	    }
+	  if (j < ids.length ())
+	    continue;
+	}
 
       /* Output the token as string.  */
       char *tk = (char *)cpp_token_as_text (r, token);
@@ -1912,6 +1947,24 @@ outline_c_exprs (FILE *f, struct operand *op)
 	      if (token->flags & PREV_WHITE)
 		fputc (' ', f);
 
+	      if (token->type == CPP_NAME)
+		{
+		  const char *id = (const char *) NODE_NAME (token->val.node.node);
+		  unsigned j;
+
+		  for (j = 0; j < e->ids.length (); ++j)
+		    {
+		      if (strcmp (id, e->ids[j].id) == 0)
+			{
+			  fprintf (f, "%s", e->ids[j].oper);
+			  break;
+			}
+		    }
+
+		  if (j < e->ids.length ())
+		    continue;
+		}
+
 	      /* Output the token as string.  */
 	      char *tk = (char *)cpp_token_as_text (e->r, token);
 	      fputs (tk, f);
@@ -2318,7 +2371,6 @@ parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers)
   if (token->type == CPP_CLOSE_PAREN)
     fatal_at (token, "no pattern defined in for");
 
-
   while (1)
     {
       const cpp_token *token = peek (r);
@@ -2327,17 +2379,22 @@ parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers)
       
       vec<simplify *> for_simplifiers = vNULL;
       parse_pattern (r, for_simplifiers);
-      
+
       for (unsigned i = 0; i < opers.length (); ++i)
 	{
+	  id_base *idb = get_operator (opers[i]);	      
+	  gcc_assert (idb);
+
 	  for (unsigned j = 0; j < for_simplifiers.length (); ++j)
 	    {
 	      simplify *s = for_simplifiers[j];
 	      operand *match_op = replace_id (s->match, user_id, opers[i]);
 	      operand *result_op = replace_id (s->result, user_id, opers[i]);
-
+	      vec<operand *> ifexpr_vec = vNULL;
+	      for (unsigned j = 0; j < s->ifexpr_vec.length (); ++j)
+		ifexpr_vec.safe_push (replace_id (s->ifexpr_vec[j], user_id, opers[i]));
 	      simplify *ns = new simplify (s->name, match_op, s->match_location,
-					   result_op, s->result_location, s->ifexpr_vec);
+					   result_op, s->result_location, ifexpr_vec);
 
 	      simplifiers.safe_push (ns);
 	    }

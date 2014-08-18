@@ -1,0 +1,17 @@
+(for op in eq ne
+  /* Simplify X * C1 CMP 0 to X CMP 0 if C1 is not zero.  */
+  (simplify
+    (op (mult @0 INTEGER_CST_P@1) integer_zerop@2)
+    /* In fold-const.c we have this and the following patterns
+       combined because there we can "compute" the operator
+       to use by using swap_tree_comparison.  */
+    (if (tree_int_cst_sgn (@1) > 0))
+    (op @0 @2))
+  (simplify
+    (op (mult @0 INTEGER_CST_P@1) integer_zerop@2)
+    (if (tree_int_cst_sgn (@1) < 0 && op == EQ_EXPR))
+    (ne @0 @2))
+  (simplify
+    (op (mult @0 INTEGER_CST_P@1) integer_zerop@2)
+    (if (tree_int_cst_sgn (@1) < 0 && op == NE_EXPR))
+    (eq @0 @2)))

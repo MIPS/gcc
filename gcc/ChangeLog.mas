@@ -1,4 +1,15 @@
 2014-08-18  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+	Richard Biener  <rguenther@suse.de>
+
+	* match-comparison.pd: New file.
+	* match.pd: Include match-comparison.pd.
+	* genmatch.c (c_expr): Add vec<id_tab> member.
+	(replace_id): Handle replacing in c_exprs.
+	(c_expr::gen_transform): Handle replacing identifiers.
+	(outline_c_exprs): Likewise.
+	(parse_for): Replace in if-exprs.
+
+2014-08-18  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 
 	* doc/match-and-simplify.texi: Add documentation for capturing
 	expressions.  Fix typo.
