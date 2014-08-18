@@ -22,7 +22,7 @@ tries to address several issues.
 To address these the project introduces a simple domain specific language
 to write expression simplifications from which code targeting GIMPLE
 and GENERIC is auto-generated.  The GENERIC variant follows the
-fold_buildN API while for the GIMPLE variant and to addres 2) new
+fold_buildN API while for the GIMPLE variant and to address 2) new
 APIs are introduced.
 
 @menu
@@ -151,6 +151,35 @@ expression matched in the IL and is required to evaluate to true
 to enable the replacement expression.  The expression operand
 of the @code{if} is a standard C expression which may contain references
 to captures.
+
+Captures can also be used for capturing results of sub-expressions.
+
+@smallexample
+#if GIMPLE
+(simplify
+  (pointer_plus (addr@@2 @@0) INTEGER_CST_P@@1)
+  (if (is_gimple_min_invariant (@@2)))
+  @{
+    HOST_WIDE_INT off;
+    tree base = get_addr_base_and_unit_offset (@@0, &off);
+    off += tree_to_uhwi (@@1);
+    /* Now with that we should be able to simply write
+       (addr (mem_ref (addr @@base) (plus @@off @@1)))  */
+    build1 (ADDR_EXPR, type,
+            build2 (MEM_REF, TREE_TYPE (TREE_TYPE (@@2)),
+                    build_fold_addr_expr (base),
+                    build_int_cst (ptr_type_node, off)));
+  @})
+#endif
+@end smallexample
+
+In the above example, @code{@@2} captures the result of the expression
+@code{(addr @@0)}.  For outermost expression only its type can be captured,
+and the keyword @code{type} is reserved for this purpose.  The above
+example also gives a way to conditionalize patterns to only apply
+to @code{GIMPLE} or @code{GENERIC} by means of using the pre-defined
+preprocessor macros @code{GIMPLE} and @code{GENERIC} and using
+preprocessor directives.
 
 @smallexample
 (simplify

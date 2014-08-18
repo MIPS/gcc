@@ -1,5 +1,10 @@
 2014-08-18  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 
+	* doc/match-and-simplify.texi: Add documentation for capturing
+	expressions.  Fix typo.
+
+2014-08-18  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
 	testsuite/
 	* match-constant-folding.c: Add more test-cases.
 
