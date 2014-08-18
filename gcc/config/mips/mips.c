@@ -14706,10 +14706,10 @@ AVAIL_NON_MIPS16 (msa, TARGET_MSA)
 #define CODE_FOR_msa_div_u_d CODE_FOR_udivv2di3
 #define CODE_FOR_msa_fadd_w CODE_FOR_addv4sf3
 #define CODE_FOR_msa_fadd_d CODE_FOR_addv2df3
-#define CODE_FOR_msa_ffint_s_w CODE_FOR_floatv4sfv4si2
-#define CODE_FOR_msa_ffint_s_d CODE_FOR_floatv2dfv2di2
-#define CODE_FOR_msa_ffint_u_w CODE_FOR_floatunsv4sfv4si2
-#define CODE_FOR_msa_ffint_u_d CODE_FOR_floatunsv2dfv2di2
+#define CODE_FOR_msa_ffint_s_w CODE_FOR_floatv4siv4sf2
+#define CODE_FOR_msa_ffint_s_d CODE_FOR_floatv2div2df2
+#define CODE_FOR_msa_ffint_u_w CODE_FOR_floatunsv4siv4sf2
+#define CODE_FOR_msa_ffint_u_d CODE_FOR_floatunsv2div2df2
 #define CODE_FOR_msa_fsub_w CODE_FOR_subv4sf3
 #define CODE_FOR_msa_fsub_d CODE_FOR_subv2df3
 #define CODE_FOR_msa_fmul_w CODE_FOR_mulv4sf3
@@ -19958,8 +19958,60 @@ mips_expand_vec_unpack (rtx operands[2], bool unsigned_p, bool high_p)
 {
   enum machine_mode imode = GET_MODE (operands[1]);
   rtx (*unpack) (rtx, rtx, rtx);
-  rtx (*cmpgt) (rtx, rtx, rtx);
+  rtx (*cmpFunc) (rtx, rtx, rtx);
   rtx tmp, dest, zero;
+
+  if (ISA_HAS_MSA)
+  {
+    switch (imode)
+      {
+      case V4SImode:
+	if (high_p)
+	  unpack = gen_msa_tc_ilvl_w;
+	else
+	  unpack = gen_msa_tc_ilvr_w;
+
+	cmpFunc = gen_msa_clti_si_w;
+	break;
+
+      case V8HImode:
+	if (high_p)
+	  unpack = gen_msa_tc_ilvl_h;
+	else
+	  unpack = gen_msa_tc_ilvr_h;
+
+	cmpFunc = gen_msa_clti_si_h;
+	break;
+
+      case V16QImode:
+	if (high_p)
+	  unpack = gen_msa_tc_ilvl_b;
+	else
+	  unpack = gen_msa_tc_ilvr_b;
+
+	cmpFunc = gen_msa_clti_si_b;
+	break;
+
+      default:
+	gcc_unreachable ();
+	break;
+      }
+
+    if (!unsigned_p)
+    {
+      /* Extract sign extention for each element comparing each element with
+	 immediate zero.  */
+      tmp = gen_reg_rtx (imode);
+      emit_insn (cmpFunc (tmp, operands[1], CONST0_RTX (imode)));
+    }
+    else
+    {
+      tmp = force_reg (imode, CONST0_RTX (imode));
+    }
+
+    emit_insn (unpack (operands[0], tmp, operands[1]));
+    return;
+  }
 
   switch (imode)
     {
@@ -19968,14 +20020,14 @@ mips_expand_vec_unpack (rtx operands[2], bool unsigned_p, bool high_p)
 	unpack = gen_loongson_punpckhbh;
       else
 	unpack = gen_loongson_punpcklbh;
-      cmpgt = gen_loongson_pcmpgtb;
+      cmpFunc = gen_loongson_pcmpgtb;
       break;
     case V4HImode:
       if (high_p)
 	unpack = gen_loongson_punpckhhw;
       else
 	unpack = gen_loongson_punpcklhw;
-      cmpgt = gen_loongson_pcmpgth;
+      cmpFunc = gen_loongson_pcmpgth;
       break;
     default:
       gcc_unreachable ();
@@ -19987,7 +20039,7 @@ mips_expand_vec_unpack (rtx operands[2], bool unsigned_p, bool high_p)
   else
     {
       tmp = gen_reg_rtx (imode);
-      emit_insn (cmpgt (tmp, zero, operands[1]));
+      emit_insn (cmpFunc (tmp, zero, operands[1]));
     }
 
   dest = gen_reg_rtx (imode);

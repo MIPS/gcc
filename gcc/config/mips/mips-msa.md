@@ -204,6 +204,11 @@
    (V2DI "V4SI")
    (V2DF "V4SF")])
 
+(define_mode_attr VDMODE
+  [(V4SI "V2DI")
+   (V8HI "V4SI")
+   (V16QI "V8HI")])
+
 ;; The attribute gives the integer vector mode with same size.
 (define_mode_attr VIMODE
   [(V2DF "V2DI")
@@ -300,6 +305,114 @@
   mips_expand_vector_init (operands[0], operands[1]);
   DONE;
 })
+
+(define_mode_attr hmsafmt
+  [(V2DI "w")
+   (V4SI "h")
+   (V8HI "b")])
+
+(define_expand "fixuns_trunc<FMSA:mode><mode_i>2"
+  [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
+        (unsigned_fix:<VIMODE> (match_operand:FMSA 1 "register_operand" "f")))]
+  "ISA_HAS_MSA"
+  {
+    emit_insn (gen_msa_ftrunc_u_<msafmt> (operands[0], operands[1]));
+    DONE;
+  })
+
+(define_expand "fix_trunc<FMSA:mode><mode_i>2"
+  [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
+        (fix:<VIMODE> (match_operand:FMSA 1 "register_operand" "f")))]
+  "ISA_HAS_MSA"
+  {
+    emit_insn (gen_msa_ftrunc_s_<msafmt> (operands[0], operands[1]));
+    DONE;
+  })
+
+;; pckev pattern with implicit type conversion.
+(define_insn "vec_pack_trunc_<mode>"
+   [(set (match_operand:<VHALFMODE> 0 "register_operand" "=f")
+        (unspec:<VHALFMODE> [(match_operand:IMSA_X 1 "register_operand" "f")
+			     (match_operand:IMSA_X 2 "register_operand" "f")]
+		UNSPEC_MSA_PCKEV))]
+  "ISA_HAS_MSA"
+  "pckev.<hmsafmt>\t%w0,%w2,%w1"
+  [(set_attr "alu_type"	"add")
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
+
+;; ilvr/ilvl patterns with implicit type conversion.
+(define_insn "msa_tc_ilvr_<msafmt>"
+  [(set (match_operand:<VDMODE> 0 "register_operand" "=f")
+	(unspec:<VDMODE> [(match_operand:INSVE 1 "register_operand" "f")
+		      (match_operand:INSVE 2 "register_operand" "f")]
+		      UNSPEC_MSA_ILVR))]
+  "ISA_HAS_MSA"
+  "ilvr.<msafmt>\t%w0,%w1,%w2"
+  [(set_attr "alu_type"	"add")
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
+
+(define_insn "msa_tc_ilvl_<msafmt>"
+  [(set (match_operand:<VDMODE> 0 "register_operand" "=f")
+	(unspec:<VDMODE> [(match_operand:INSVE 1 "register_operand" "f")
+		      (match_operand:INSVE 2 "register_operand" "f")]
+		     UNSPEC_MSA_ILVL))]
+  "ISA_HAS_MSA"
+  "ilvl.<msafmt>\t%w0,%w1,%w2"
+  [(set_attr "alu_type"	"add")
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
+
+(define_expand "vec_unpacks_hi_v4sf"
+  [(set (match_operand:V2DF 0 "register_operand" "=f")
+	(unspec:V2DF [(match_operand:V4SF 1 "register_operand" "f")]
+		     UNSPEC_MSA_FEXUPL))]
+  "ISA_HAS_MSA"
+  "")
+
+(define_expand "vec_unpacks_lo_v4sf"
+  [(set (match_operand:V2DF 0 "register_operand" "=f")
+	(unspec:V2DF [(match_operand:V4SF 1 "register_operand" "f")]
+		     UNSPEC_MSA_FEXUPR))]
+  "ISA_HAS_MSA"
+  "")
+
+(define_expand "vec_unpacks_hi_<mode>"
+  [(set (match_operand:<VDMODE> 0 "register_operand")
+	(match_operand:INSVE 1 "register_operand"))]
+  "ISA_HAS_MSA"
+  {
+    mips_expand_vec_unpack (operands, false/*unsigned_p*/, true/*high_p*/);
+    DONE;
+  })
+
+(define_expand "vec_unpacks_lo_<mode>"
+  [(set (match_operand:<VDMODE> 0 "register_operand")
+	(match_operand:INSVE 1 "register_operand"))]
+  "ISA_HAS_MSA"
+  {
+    mips_expand_vec_unpack (operands, false/*unsigned_p*/, false/*high_p*/);
+    DONE;
+  })
+
+(define_expand "vec_unpacku_hi_<mode>"
+  [(set (match_operand:<VDMODE> 0 "register_operand")
+	(match_operand:INSVE 1 "register_operand"))]
+  "ISA_HAS_MSA"
+  {
+    mips_expand_vec_unpack (operands, true/*unsigned_p*/, true/*high_p*/);
+    DONE;
+  })
+
+(define_expand "vec_unpacku_lo_<mode>"
+  [(set (match_operand:<VDMODE> 0 "register_operand")
+	(match_operand:INSVE 1 "register_operand"))]
+  "ISA_HAS_MSA"
+  {
+    mips_expand_vec_unpack (operands, true/*unsigned_p*/, false/*high_p*/);
+    DONE;
+  })
 
 (define_expand "vec_extract<mode>"
   [(match_operand:<UNITMODE> 0 "register_operand")
@@ -1847,7 +1960,7 @@
   [(V4SF "S2I")
    (V2DF "D2I")])
 
-(define_insn "float<FMSA:mode><fint>2"
+(define_insn "float<fint><FMSA:mode>2"
   [(set (match_operand:FMSA 0 "register_operand" "=f")
 	(float:FMSA (match_operand:<FINT> 1 "register_operand" "f")))]
   "ISA_HAS_MSA"
@@ -1857,7 +1970,7 @@
    (set_attr "mode"     "<UNITMODE>")
    (set_attr "msa_execunit" "msa_eu_float4")])
 
-(define_insn "floatuns<FMSA:mode><fint>2"
+(define_insn "floatuns<fint><FMSA:mode>2"
   [(set (match_operand:FMSA 0 "register_operand" "=f")
 	(unsigned_float:FMSA (match_operand:<FINT> 1 "register_operand" "f")))]
   "ISA_HAS_MSA"
