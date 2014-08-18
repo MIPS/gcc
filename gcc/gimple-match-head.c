@@ -668,6 +668,7 @@ gimple_simplify (gimple stmt,
 	}
     }
   else if (is_gimple_call (stmt)
+	   /* ???  This way we can't simplify calls with side-effects.  */
 	   && gimple_call_lhs (stmt) != NULL_TREE)
     {
       tree fn = gimple_call_fn (stmt);
@@ -724,6 +725,35 @@ gimple_simplify (gimple stmt,
 	    ops[1] = arg2;
 	    return gimple_resimplify2 (seq, rcode, type, ops, valueize);
 	  }
+	case 3:
+	  {
+	    tree arg1 = gimple_call_arg (stmt, 0);
+	    if (valueize && TREE_CODE (arg1) == SSA_NAME)
+	      {
+		arg1 = valueize (arg1);
+		if (!arg1)
+		  return false;
+	      }
+	    tree arg2 = gimple_call_arg (stmt, 1);
+	    if (valueize && TREE_CODE (arg2) == SSA_NAME)
+	      {
+		arg2 = valueize (arg2);
+		if (!arg2)
+		  return false;
+	      }
+	    tree arg3 = gimple_call_arg (stmt, 2);
+	    if (valueize && TREE_CODE (arg3) == SSA_NAME)
+	      {
+		arg3 = valueize (arg3);
+		if (!arg3)
+		  return false;
+	      }
+	    *rcode = DECL_FUNCTION_CODE (decl);
+	    ops[0] = arg1;
+	    ops[1] = arg2;
+	    ops[2] = arg3;
+	    return gimple_resimplify3 (seq, rcode, type, ops, valueize);
+	  }
 	default:
 	  return false;
 	}
@@ -742,3 +772,4 @@ do_valueize (tree (*valueize)(tree), tree op)
     return valueize (op);
   return op;
 }
+

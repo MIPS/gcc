@@ -1,3 +1,8 @@
+2014-08-18  Richard Biener  <rguenther@suse.de>
+
+	* gimple-match-head.c (gimple_simplify): Handle calls with
+	three arguments.
+
 2014-08-18  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 
 	* match-constant-folding.c: Add new test-case.
