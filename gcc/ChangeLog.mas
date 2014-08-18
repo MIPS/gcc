@@ -1,5 +1,11 @@
 2014-08-18  Richard Biener  <rguenther@suse.de>
 
+	* gimple-fold.c (gimple_build): Add function call overloads
+	with two and three arguments.
+	* gimple-fold.h (gimple_build): Likewise.
+
+2014-08-18  Richard Biener  <rguenther@suse.de>
+
 	* gimple-match-head.c (gimple_simplify): Handle calls with
 	three arguments.
 

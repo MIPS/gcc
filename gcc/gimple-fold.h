@@ -85,7 +85,25 @@ gimple_build (gimple_seq *seq,
 {
   return gimple_build (seq, UNKNOWN_LOCATION, fn, type, arg0);
 }
-
+tree gimple_build (gimple_seq *, location_t,
+		   enum built_in_function, tree, tree, tree,
+		   tree (*valueize) (tree) = NULL);
+inline tree
+gimple_build (gimple_seq *seq,
+	      enum built_in_function fn, tree type, tree arg0, tree arg1)
+{
+  return gimple_build (seq, UNKNOWN_LOCATION, fn, type, arg0, arg1);
+}
+tree gimple_build (gimple_seq *, location_t,
+		   enum built_in_function, tree, tree, tree, tree,
+		   tree (*valueize) (tree) = NULL);
+inline tree
+gimple_build (gimple_seq *seq,
+	      enum built_in_function fn, tree type,
+	      tree arg0, tree arg1, tree arg2)
+{
+  return gimple_build (seq, UNKNOWN_LOCATION, fn, type, arg0, arg1, arg2);
+}
 
 /* ???  Forward from gimple-expr.h.  */
 extern bool useless_type_conversion_p (tree, tree);
