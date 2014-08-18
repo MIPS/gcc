@@ -2242,20 +2242,26 @@ bool  melthk_pass_execution_registered_flag;
 (cimplement #{ /* cimplement for attributes in warmelt-hooks.melt */
 tree  
 melt_attribute_handler_glue (tree *pnode, tree name, tree args, int flags, bool *pno_add_attrs) {
-  tree res= NULL;
+  tree res= NULL_TREE;
+  tree orignode = *pnode;
+  tree outnode= NULL_TREE;
   long out_no_add_attrs= (*pno_add_attrs);
-   debugeprintf("melt_attribute_handler_glue pnode@%p (*%p) name@%p args@%p flags=%d pno_add_attrs@%p: %ld"
+   debugeprintf("melt_attribute_handler_glue pnode@%p orignode=%p outnode=%p name=%p args@%p flags=%d pno_add_attrs@%p: %ld"
 		" before HOOK_HANDLE_ATTRIBUTE",
-		(void*)pnode, (void*)*pnode, (void*)name, (void*)args, flags, (void*)pno_add_attrs, out_no_add_attrs);
+		(void*)pnode, (void*)orignode, (void*)outnode, 
+		(void*)name, (void*)args, flags, 
+		(void*)pno_add_attrs, out_no_add_attrs);
    res =
-     melthookproc_HOOK_HANDLE_ATTRIBUTE (*pnode, name, args, flags,
-                                         pnode, 
+     melthookproc_HOOK_HANDLE_ATTRIBUTE (orignode, name, args, flags,
+                                         &outnode, 
 					 &out_no_add_attrs);
-   debugeprintf("melt_attribute_handler_glue pnode@%p (*%p) res=%p out_no_add_attrs=%ld after HOOK_HANDLE_ATTRIBUTE",
-		(void*)pnode, (void*)*pnode, (void*)res, out_no_add_attrs);
+   debugeprintf("melt_attribute_handler_glue orignode=%p outnode=%p res=%p out_no_add_attrs=%ld after HOOK_HANDLE_ATTRIBUTE",
+		(void*)orignode, (void*)outnode, (void*)res, out_no_add_attrs);
+   if (outnode) 
+     *pnode = outnode;
    *pno_add_attrs = (bool)out_no_add_attrs;
-   debugeprintf("melt_attribute_handler_glue *pno_add_attrs=%d",
-		(int)(*pno_add_attrs));
+   debugeprintf("melt_attribute_handler_glue *pno_add_attrs=%d *pnode=%p",
+		(int)(*pno_add_attrs), (void*)(*pnode));
    melt_cbreak("ending melt_attribute_handler_glue");
    return res;
 } /* end melt_attribute_handler_glue */
