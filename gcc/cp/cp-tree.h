@@ -5957,6 +5957,7 @@ extern vec<tree> cx_error_context (void);
 extern bool is_unary_trait                      (cp_trait_kind);
 extern bool is_binary_trait                     (cp_trait_kind);
 extern bool is_this_parameter (tree);
+extern tree xvalue_result_type                  (tree);
 
 enum {
   BCS_NO_SCOPE = 1,

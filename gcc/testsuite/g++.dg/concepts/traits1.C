@@ -1,6 +1,5 @@
 // { dg-options "-std=c++1z" }
 
-
 template<typename T>
   concept bool Nothrow_assignable() { return __has_nothrow_assign(T); }
 

@@ -264,6 +264,8 @@ tree normalize_nested_req (tree);
 tree normalize_var (tree);
 tree normalize_template_id (tree);
 tree normalize_stmt_list (tree);
+tree normalize_cast (tree);
+tree normalize_atom (tree);
 
 // Reduce the requirement T into a logical formula written in terms of
 // atomic propositions.
@@ -328,7 +330,7 @@ normalize_expr (tree t)
       return normalize_template_id (t);
 
     case CAST_EXPR:
-      return normalize_node (TREE_VALUE (TREE_OPERAND (t, 0)));
+      return normalize_cast (t);
     
     case BIND_EXPR:        
       return normalize_node (BIND_EXPR_BODY (t));
@@ -339,7 +341,7 @@ normalize_expr (tree t)
 
     // Everything else is atomic.
     default:
-      return t;
+      return normalize_atom (t);
     }
 }
 
@@ -402,6 +404,34 @@ normalize_misc (tree t)
   return NULL_TREE;
 }
 
+// Check that the logical expression is not a user-defined operator.
+bool
+check_logical (tree t) 
+{
+  // We can't do much for type dependent expressions.
+  if (type_dependent_expression_p (t) || value_dependent_expression_p (t))
+    return true;
+
+  // Resolve the logical operator. Note that template processing is
+  // disabled so we get the actual call or target expression back.
+  // not_processing_template_sentinel sentinel;
+  tree arg1 = TREE_OPERAND (t, 0);
+  tree arg2 = TREE_OPERAND (t, 1);
+
+  tree ovl = NULL_TREE;
+  tree expr = build_new_op (input_location, TREE_CODE (t), LOOKUP_NORMAL, 
+                            arg1, arg2, /*arg3*/NULL_TREE, 
+                            &ovl, tf_none);
+  if (TREE_CODE (expr) != TREE_CODE (t))
+    {
+      error ("user-defined operator %qs in constraint %qE",
+             operator_name_info[TREE_CODE (t)].name, t);
+      ;
+      return false;
+    }
+  return true;
+}
+
 // Reduction rules for the binary logical expression T (&& and ||).
 //
 // Generate a new expression from the reduced operands. If either operand
@@ -409,14 +439,18 @@ normalize_misc (tree t)
 tree
 normalize_logical (tree t)
 {
+  if (!check_logical (t))
+    return NULL_TREE;
+
   tree l = normalize_expr (TREE_OPERAND (t, 0));
   tree r = normalize_expr (TREE_OPERAND (t, 1));
   if (l && r)
     {
-      t = copy_node (t);
-      TREE_OPERAND (t, 0) = l;
-      TREE_OPERAND (t, 1) = r;
-      return t;
+      tree result = copy_node (t);
+      SET_EXPR_LOCATION (result, EXPR_LOCATION (t));
+      TREE_OPERAND (result, 0) = l;
+      TREE_OPERAND (result, 1) = r;
+      return result;
     }
   else
     return NULL_TREE;
@@ -440,18 +474,13 @@ normalize_call (tree t)
   // Reduce the body of the function into the constriants language.
   tree body = normalize_constraints (DECL_SAVED_TREE (fn));
   if (!body)
-    {
-      error ("could not inline requirements from %qD", fn);
-      return error_mark_node;
-    }
+    return error_mark_node;
 
   // Instantiate the reduced results using the deduced args.
   tree result = tsubst_constraint_expr (body, args, false);
   if (result == error_mark_node)
-    {
-      error ("could not instantiate requirements from %qD", fn);
-      return error_mark_node;
-    }
+    return error_mark_node;
+
   return result;
 }
 
@@ -469,18 +498,12 @@ normalize_var (tree t)
   // Reduce the initializer of the variable into the constriants language.
   tree body = normalize_constraints (DECL_INITIAL (decl));
   if (!body)
-   {
-     error ("could not inline requirements from %qD", decl);
-     return error_mark_node;
-   }
+    return error_mark_node;
 
   // Instantiate the reduced results.
   tree result = tsubst_constraint_expr (body, TREE_OPERAND (t, 1), false);
   if (result == error_mark_node)
-    {
-      error ("could not instantiate requirements from %qD", decl);
-      return error_mark_node;
-    }
+    return error_mark_node;
 
   return result;
 }
@@ -572,6 +595,29 @@ normalize_stmt_list (tree stmts)
       tsi_next (&i);
     }
   return lhs;
+}
+
+// Normalize a cast expression.
+tree
+normalize_cast (tree t) 
+{
+  // return normalize_node (TREE_VALUE (TREE_OPERAND (t, 0)));
+  return normalize_atom (t);
+}
+
+// Normalize an atomic expression by performing some basic checks.
+// In particular, if the type is known, it must be convertible to
+// bool.
+tree
+normalize_atom (tree t) 
+{
+  if (!type_dependent_expression_p (t)) 
+    if (!can_convert (boolean_type_node, TREE_TYPE (t), tf_none))
+      {
+        error ("atomic constraint %qE is not convertible to %<bool%>", t);
+        return NULL_TREE;
+      }
+  return t;
 }
 
 // Reduce the requirement REQS into a logical formula written in terms of
@@ -1303,11 +1349,21 @@ tsubst_constraint_info (tree ci, tree args)
   if (tree r = CI_TRAILING_REQS (ci))
     result->trailing_reqs = tsubst_constraint_expr (r, args, true);
   if (tree r = CI_ASSOCIATED_REQS (ci))
-    result->associated_reqs = tsubst_constraint_expr (r, args, true);
+      result->associated_reqs = tsubst_constraint_expr (r, args, true);
+
+  // Re-normalize the constraints to ensure that we haven't picked
+  // any fatal errors when substituting.
+  if (!normalize_constraints (result->associated_reqs))
+    {
+      result->associated_reqs = error_mark_node;
+      result->assumptions = error_mark_node;
+    }
+  else
+    {
+      // Analyze the resulting constraints. 
+      result->assumptions = decompose_assumptions (result->associated_reqs);
+    }    
   
-  // Analyze the resulting constraints.
-  // TODO: Is this actually necessary if the constraints are non-dependent?
-  result->assumptions = decompose_assumptions (result->associated_reqs);
   return (tree)result;
 }
 

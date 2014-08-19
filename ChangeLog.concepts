@@ -1,5 +1,22 @@
 2014-08-14  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	Implement normalization checks.
+	* gcc/cp/constraint.cc (normalize_expr): Delegate cast and
+	atomic nodes to a dedicated function.
+	(check_logical): Check that an && or || does not resolve to a
+	user-defined function.
+	(normalize_logical): Check operators and save the locaiton of
+	the new expression.
+	(normalize_call, normalize_var): Remove spurios error messages.
+	(normalize_cast): New, delegates to normalize atom.
+	(normalize_atom): Check that instantiated expressions can be
+	converted to bool
+	(tsubst_constraint_info): Re-normalize the associated constraints
+	to check for post-substitution restrictions.
+	* gcc/cp/cp-tree.h (xvalue_result_type): Add to header.
+
+2014-08-14  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	* gcc/testsuite/g++.dg/concepts: Renamed ttp* to template-parm*,
 	and fixed them.
 

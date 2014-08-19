@@ -57,7 +57,6 @@ template<typename T>
 template<typename T>
   concept bool Union() { return __is_union(T); }
 
-
 template<Nothrow_assignable T> void f1();
 template<Nothrow_copyable T> void f2();
 template<Nothrow_constructible T> void f3();
