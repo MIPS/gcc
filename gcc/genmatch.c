@@ -1787,7 +1787,7 @@ dt_simplify::gen_generic (FILE *f)
 	    }
 	  /* Re-fold the toplevel result.  */
 	  if (e->operation->op->kind == id_base::CODE)
-	    fprintf (f, "  return fold_build%d (%s, TREE_TYPE (res_op0)",
+	    fprintf (f, "  return fold_build%d (%s, type",
 		     e->ops.length (), e->operation->op->id);
 	  else
 	    fprintf (f, "  return build_call_expr (builtin_decl_implicit (%s), %d",
