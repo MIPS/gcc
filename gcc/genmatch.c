@@ -1543,8 +1543,6 @@ dt_operand::gen_gimple (FILE *f)
   char opname[20];
   get_name (opname); 
 
-  fprintf (f, "{\n");
-
   unsigned n_braces = 0;
  
   if (type == DT_OPERAND)
@@ -1577,8 +1575,6 @@ dt_operand::gen_gimple (FILE *f)
 
   for (unsigned i = 0; i < n_braces; ++i)
     fprintf (f, "}\n");
-
-  fprintf (f, "}\n");
 }
 
 
@@ -1587,8 +1583,6 @@ dt_operand::gen_generic (FILE *f)
 {
   char opname[20];
   get_name (opname); 
-
-  fprintf (f, "{\n");
 
   unsigned n_braces = 0;
  
@@ -1619,8 +1613,6 @@ dt_operand::gen_generic (FILE *f)
 
   for (i = 0; i < n_braces; ++i)
     fprintf (f, "}\n");
-  
-  fprintf (f, "}\n");
 }
 
 void
