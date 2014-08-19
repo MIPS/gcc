@@ -35,7 +35,7 @@ along with GCC; see the file COPYING3.  If not see
   (mult:c (BUILT_IN_POW @0 @1) @0)
   (BUILT_IN_POW @0 (PLUS_EXPR @1 { build_one_cst (TREE_TYPE (@1)); })))
 (simplify
-  (BUILT_IN_POW @0 REAL_CST_P@1)
+  (BUILT_IN_POW @0 REAL_CST@1)
   /* This needs to be conditionalized on flag_unsafe_math_optimizations,
      but we keep it for now to exercise function re-optimization.
      It makes gcc.dg/pr43419.c FAIL execution though.  */

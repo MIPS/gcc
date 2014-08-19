@@ -61,14 +61,14 @@ along with GCC; see the file COPYING3.  If not see
    Watch out for operand order and constant canonicalization
    we do!  A - CST -> A + -CST, CST + A -> A + CST.  */
 (simplify
-  (plus (plus @0 INTEGER_CST_P@1) INTEGER_CST_P@2)
+  (plus (plus @0 INTEGER_CST@1) INTEGER_CST@2)
   /* If the constant operation overflows we cannot do the transform
      as we would introduce undefined overflow, for example
      with (a - 1) + INT_MIN.  */
   (if (!TREE_OVERFLOW (@1 = int_const_binop (PLUS_EXPR, @1, @2))))
   (plus @0 @1))
 (simplify
-  (plus (minus INTEGER_CST_P@0 @1) INTEGER_CST_P@2)
+  (plus (minus INTEGER_CST@0 @1) INTEGER_CST@2)
   (minus (plus @0 @2) @1))
 /* TODO:
    (A +- CST) +- CST  ->  A +- CST

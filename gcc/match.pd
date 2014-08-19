@@ -40,7 +40,7 @@ along with GCC; see the file COPYING3.  If not see
    an ADDR_EXPR in return.  */
 #if GIMPLE
 (simplify
-  (pointer_plus (addr@2 @0) INTEGER_CST_P@1)
+  (pointer_plus (addr@2 @0) INTEGER_CST@1)
   (if (is_gimple_min_invariant (@2)))
   {
     HOST_WIDE_INT off;
@@ -65,7 +65,7 @@ along with GCC; see the file COPYING3.  If not see
      (X >> C1) & C2 into (X >> C1) & (C2 | ~((type) -1 >> C1))
      if the new mask might be further optimized.  */
 (simplify
-  (bit_and (rshift@0 @1 INTEGER_CST_P@2) integer_onep)
+  (bit_and (rshift@0 @1 INTEGER_CST@2) integer_onep)
   (if (compare_tree_int (@2, TYPE_PRECISION (TREE_TYPE (@1)) - 1) == 0))
   @0)
 
@@ -98,7 +98,7 @@ along with GCC; see the file COPYING3.  If not see
 /* match-and-simplify handles constant folding so we
    can just do the decomposition here.  */
 (simplify
-  (fma INTEGER_CST_P@0 INTEGER_CST_P@1 @3)
+  (fma INTEGER_CST@0 INTEGER_CST@1 @3)
   (plus (mult @0 @1) @3))
 
 /* abs (abs (x)) -> abs (x) */

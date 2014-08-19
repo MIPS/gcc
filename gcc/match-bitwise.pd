@@ -63,7 +63,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* (x | CST1) & CST2 -> (x & CST2) | (CST1 & CST2) */
 (simplify
-  (bit_and (bit_ior integral_op_p@0 INTEGER_CST_P@1) INTEGER_CST_P@2)
+  (bit_and (bit_ior integral_op_p@0 INTEGER_CST@1) INTEGER_CST@2)
   (bit_ior (bit_and @0 @2) (bit_and @1 @2)))
 
 /* x ^ ~0 -> ~x */

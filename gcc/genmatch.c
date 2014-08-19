@@ -174,6 +174,21 @@ struct fn_id : public id_base
   enum built_in_function fn;
 };
 
+template<>
+template<>
+inline bool
+is_a_helper <fn_id *>::test (id_base *id)
+{
+  return id->kind == id_base::FN;
+}
+
+template<>
+template<>
+inline bool
+is_a_helper <operator_id *>::test (id_base *id)
+{
+  return id->kind == id_base::CODE;
+}
 
 static void
 add_operator (enum tree_code code, const char *id,
@@ -184,7 +199,9 @@ add_operator (enum tree_code code, const char *id,
       && strcmp (tcc, "tcc_comparison") != 0
       && strcmp (tcc, "tcc_expression") != 0
       /* For {REAL,IMAG}PART_EXPR and VIEW_CONVERT_EXPR.  */
-      && strcmp (tcc, "tcc_reference") != 0)
+      && strcmp (tcc, "tcc_reference") != 0
+      /* To have INTEGER_CST and friends as "predicate operators".  */
+      && strcmp (tcc, "tcc_constant") != 0)
     return;
   operator_id *op = new operator_id (code, id, nargs);
   id_base **slot = operators->find_slot_with_hash (op, op->hashval, INSERT);
@@ -580,6 +597,11 @@ commutate (operand *op)
     }
 
   expr *e = static_cast<expr *> (op);
+  if (e->ops.length () == 0)
+    {
+      ret.safe_push (e);
+      return ret;
+    }
 
   vec< vec<operand *> > ops_vector = vNULL;
   for (unsigned i = 0; i < e->ops.length (); ++i)
@@ -1391,6 +1413,9 @@ dt_node::get_expr_code (enum tree_code& code)
     return false;
 
   operator_id *opr = static_cast<operator_id *> (e->operation->op);
+  if (opr->nargs == 0)
+    return false;
+
   code = opr->code;
   return true;
 }
@@ -2272,7 +2297,24 @@ parse_op (cpp_reader *r)
       /* Remaining ops are either empty or predicates  */
       if (token->type == CPP_NAME)
 	{
-	  op = new predicate (get_ident (r));
+	  const char *id = get_ident (r);
+	  /* We support zero-operand operator names as predicates.  */
+	  id_base *opr = get_operator (id);
+	  if (opr)
+	    {
+	      if (operator_id *code = dyn_cast <operator_id *> (opr))
+		{
+		  if (code->nargs != 0)
+		    fatal_at (token, "using an operator with operands as predicate");
+		  /* Parse the zero-operand operator "predicates" as
+		     expression.  */
+		  op = new expr (new e_operation (id));
+		}
+	      else
+		fatal_at (token, "using an unsupported operator as predicate");
+	    }
+	  else
+	    op = new predicate (id);
 	  token = peek (r);
 	  if (token->flags & PREV_WHITE)
 	    return op;

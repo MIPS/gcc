@@ -1,5 +1,25 @@
 2014-08-19  Richard Biener  <rguenther@suse.de>
 
+	* genmatch.c (is_a_helper): Provide specializations for
+	fn_id and operator_id.
+	(add_operator): Collect tcc_constant codes.
+	(commutate): Special-case zero-operand expressions.
+	(dt_node::get_expr_code): Likewise.
+	(parse_op): When parsing an id allow zero-operand operators
+	as predicates, parsing as expression, and disallow any other
+	operator names.
+	* gimple-match-head.c (INTEGER_CST_P): Remove.
+	(REAL_CST_P): Likewise.
+	* match-bitwise.pd: Use INTEGER_CST instead of INTEGER_CST_P
+	and REAL_CST instead of REAL_CST_P.
+	* match-builtin.pd: Likewise.
+	* match-plusminus.pd: Likewise.
+	* match-rotate.pd: Likewise.
+	* match.pd: Likewise.
+	* match-comparison: Likewise.
+
+2014-08-19  Richard Biener  <rguenther@suse.de>
+
 	* genmatch.c (dt_simplify::gen_generic): Properly use the
 	specified type to generate the outermost expression.
 
