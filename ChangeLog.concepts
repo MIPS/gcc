@@ -1,5 +1,11 @@
 2014-08-14  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	Fix regression.
+	* gcc/cp/pt.c (value_dependent_expression_p): Don't assume
+	that all nodes have operands.
+
+2014-08-14  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	Implement normalization checks.
 	* gcc/cp/constraint.cc (normalize_expr): Delegate cast and
 	atomic nodes to a dedicated function.

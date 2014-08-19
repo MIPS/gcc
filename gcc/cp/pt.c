@@ -21454,18 +21454,9 @@ value_dependent_expression_p (tree expression)
         tree req = TREE_OPERAND (expression, 1);
         while (req != NULL_TREE)
           {
-            tree op = TREE_OPERAND (TREE_VALUE (req), 0);
-
-            if (TREE_CODE (op) == TREE_LIST)
-              {
-                if (any_value_dependent_elements_p (op))
-                  return true;
-              }
-            else
-              {
-                if (value_dependent_expression_p (op))
-                  return true;
-              }
+            tree r = TREE_VALUE (req);
+            if (value_dependent_expression_p (r))
+              return true;
             req = TREE_CHAIN (req);
           }
         return false;
