@@ -64,7 +64,7 @@ int c7(int x)
 }
 /* { dg-final { scan-tree-dump "Match-and-simplified x_\\d\+\\(D\\) / t1_\\d\+ to x_\\d\+\\(D\\)" "ccp1" } } */
 
-/* x % x -> 1 */
+/* x % x -> 0 */
 int c8(int x)
 {
   int t1 = x;

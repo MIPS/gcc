@@ -1,3 +1,8 @@
+2014-08-19  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	testsuite/
+	* gcc.dg/tree-ssa/match-constant-folding.c: Fix typo.
+
 2014-08-18  Richard Biener  <rguenther@suse.de>
 
 	* gimple-fold.c (gimple_build): Add function call overloads
