@@ -1,4 +1,10 @@
 
+2014-08-19  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-hooks.melt (do_blocking_jsonrpc2_call): Return the
+	strictly positive request processing time in milliseconds as
+	secondary result on success.
+
 2014-08-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{test tattr-1 is working}}

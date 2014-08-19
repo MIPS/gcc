@@ -4142,7 +4142,10 @@ exit, in last place.}#
   procedure call with TCP transport to given $SERVER with given
   $METHODNAME and given JSON parameters $JPARAMS with a timeout of
   $TIMEOUTMS milliseconds, at least 50 milliseconds, then close the
-  connection.}#
+  connection. On success the JSON result is given, and secondarily the
+  strictly positive time, in milliseconds, needed to make the JSONRPC
+  request. On failure, a warning is given, and nil is returned without
+  any secondary result.}#
   (debug "do_blocking_jsonrpc2_call server=" server 
 	 " methodname=" methodname ", jparams=" jparams 
 	 "\n.. timeoutms=" timeoutms)
@@ -4273,6 +4276,7 @@ exit, in last place.}#
 		 (jid (jsonobject_get_named jreply 'id))
 		 (jres (jsonobject_get_named jreply 'result))
 		 (jerr (jsonobject_get_named jreply 'error))
+		 (:long endtime (relative_time_millisec))
 		 )
 	  (debug "do_blocking_jsonrpc2_call got jreply=" jreply "; jid=" jid
 		 " jres=" jres " jerr=" jerr)
@@ -4289,8 +4293,11 @@ exit, in last place.}#
 			 methodname server jerr)
 	     (return ()))
 	   (:else
-	    (debug "do_blocking_jsonrpc2_call gives jres=" jres)
-	    (return jres))
+	    (let ( (:long reqtime (-i endtime begtime)) )
+	      (if (<=i reqtime 0) (setq reqtime 1))
+	      (debug "do_blocking_jsonrpc2_call gives jres=" jres 
+		     "; reqtime=" reqtime)
+	      (return jres reqtime)))
 	   )
 	))))))
 
