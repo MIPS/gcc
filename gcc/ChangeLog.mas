@@ -1,5 +1,11 @@
 2014-08-19  Richard Biener  <rguenther@suse.de>
 
+	* genmatch.c (decision_tree::gen_gimple): Use a switch statement
+	for the outermost level.
+	* gimple-match.h (code_helper::get_rep): New method.
+
+2014-08-19  Richard Biener  <rguenther@suse.de>
+
 	* genmatch.c (c_expr::output_code): New method.
 	(c_expr::gen_transform): Call it.
 	(outline_c_exprs): Likewise.

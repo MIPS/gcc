@@ -1869,7 +1869,8 @@ decision_tree::gen_gimple (FILE *f)
       fprintf (f, ")\n");
       fprintf (f, "{\n");
 
-      bool first = true;
+      fprintf (f, "switch (code.get_rep())\n"
+	       "{\n");
       for (unsigned i = 0; i < root->kids.length (); i++)
 	{
 	  dt_operand *dop = static_cast<dt_operand *>(root->kids[i]);
@@ -1877,15 +1878,20 @@ decision_tree::gen_gimple (FILE *f)
 	  if (e->ops.length () != n)
 	    continue;
 
-	  if (!first)
-	    fprintf (f, "else ");
-	  fprintf (f, "if (code == %s)\n", e->operation->op->id);
+	  if (*e->operation->op == CONVERT_EXPR
+	      || *e->operation->op == NOP_EXPR)
+	    fprintf (f, "CASE_CONVERT:\n");
+	  else
+	    fprintf (f, "case %s%s:\n",
+		     is_a <fn_id *> (e->operation->op) ? "-" : "",
+		     e->operation->op->id);
 	  fprintf (f, "{\n");
 	  dop->gen_gimple_kids (f); 
+	  fprintf (f, "  break;\n");
 	  fprintf (f, "}\n");
-
-	  first = false;
 	}
+      fprintf (f, "default:;\n"
+	       "}\n");
 
       fprintf (f, "return false;\n");
       fprintf (f, "}\n");

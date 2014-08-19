@@ -35,6 +35,7 @@ public:
   operator built_in_function () const { return (built_in_function) -rep; }
   bool is_tree_code () const { return rep > 0; }
   bool is_fn_code () const { return rep < 0; }
+  int get_rep () const { return rep; }
 private:
   int rep;
 };
