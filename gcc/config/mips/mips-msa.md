@@ -329,6 +329,14 @@
     DONE;
   })
 
+(define_expand "vec_pack_trunc_v2df"
+  [(set (match_operand:V4SF 0 "register_operand")
+	(unspec:V4SF [(match_operand:V2DF 1 "register_operand")
+		      (match_operand:V2DF 2 "register_operand")]
+		     UNSPEC_MSA_FEXDO))]
+  "ISA_HAS_MSA"
+  "")
+
 ;; pckev pattern with implicit type conversion.
 (define_insn "vec_pack_trunc_<mode>"
    [(set (match_operand:<VHALFMODE> 0 "register_operand" "=f")
