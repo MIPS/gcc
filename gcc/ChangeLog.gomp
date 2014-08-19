@@ -1,3 +1,25 @@
+2014-08-19  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* Makefile.in (GTFILES): Add omp-low.h.
+	* cgraphunit.c: Include omp-low.h.
+	(init_offload_var_table): New function.
+	(ipa_passes): Run ipa_write_summaries for target only when
+	offload_funcs or offload_vars is not empty.
+	* gengtype.c (ifiles): Add omp-low.h.
+	* lto/lto.c (read_cgraph_and_symbols): Call input_offload_tables.
+	* lto-cgraph.c: Include omp-low.h.
+	(output_offload_tables): New function.
+	(input_offload_tables): Likewise.
+	* lto-section-in.c (lto_section_name): Add offload_table.
+	* lto-streamer-out.c (lto_output): Call output_offload_tables.
+	* lto-streamer.h: Declare output_offload_tables
+	and input_offload_tables.
+	(lto_section_type): Add LTO_section_offload_table.
+	* omp-low.c: Define offload_funcs and offload_vars.
+	(expand_omp_target): Add child_fn to offload_funcs.
+	(omp_finish_file): Remove obsolete code.
+	* omp-low.h: Declare offload_funcs and offload_vars.
+
 2014-08-04  Bernd Schmidt  <bernds@codesourcery.com>
 
 	* Makefile.in (tool_prefix): Remove.

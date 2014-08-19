@@ -211,6 +211,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-nested.h"
 #include "gimplify.h"
 #include "dbgcnt.h"
+#include "omp-low.h"
 #include "lto-section-names.h"
 
 /* Queue of cgraph nodes scheduled to be added into cgraph.  This is a
@@ -2039,6 +2040,24 @@ output_in_order (void)
   free (nodes);
 }
 
+/* Collect all global variables with "omp declare target" attribute into
+   OFFLOAD_VARS.  It will be streamed out in ipa_write_summaries.  */
+
+static void
+init_offload_var_table (void)
+{
+  struct varpool_node *vnode;
+  FOR_EACH_DEFINED_VARIABLE (vnode)
+    {
+      if (!lookup_attribute ("omp declare target",
+			     DECL_ATTRIBUTES (vnode->decl))
+	  || TREE_CODE (vnode->decl) != VAR_DECL
+	  || DECL_SIZE (vnode->decl) == 0)
+	continue;
+      vec_safe_push (offload_vars, vnode->decl);
+    }
+}
+
 static void
 ipa_passes (void)
 {
@@ -2089,7 +2108,11 @@ ipa_passes (void)
 
   if (!in_lto_p)
     {
-      if (flag_openacc || flag_openmp)
+      init_offload_var_table ();
+
+      if ((flag_openacc || flag_openmp)
+	  && !(vec_safe_is_empty (offload_funcs)
+	       && vec_safe_is_empty (offload_vars)))
 	{
 	  section_name_prefix = OMP_SECTION_NAME_PREFIX;
 	  ipa_write_summaries (true);
