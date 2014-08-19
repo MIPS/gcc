@@ -4083,8 +4083,8 @@ proc check_effective_target_vect_pack_trunc { } {
              || [istarget x86_64-*-*]
              || [istarget aarch64*-*-*]
              || [istarget spu-*-*]
-             || ([istarget arm*-*-*] && [check_effective_target_arm_neon_ok]
-		 && [check_effective_target_arm_little_endian]) } {
+             || ([istarget mips*-*-*]
+                 && [check_effective_target_mips_msa]) } {
             set et_vect_pack_trunc_saved 1
         }
     }
