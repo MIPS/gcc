@@ -1,5 +1,11 @@
 2014-08-19  Richard Biener  <rguenther@suse.de>
 
+	* genmatch.c (c_expr::output_code): New method.
+	(c_expr::gen_transform): Call it.
+	(outline_c_exprs): Likewise.
+
+2014-08-19  Richard Biener  <rguenther@suse.de>
+
 	* genmatch.c (is_a_helper): Provide specializations for
 	fn_id and operator_id.
 	(add_operator): Collect tcc_constant codes.

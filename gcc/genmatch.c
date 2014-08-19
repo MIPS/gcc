@@ -287,6 +287,7 @@ struct c_expr : public operand
   vec<id_tab> ids;
 
   virtual void gen_transform (FILE *f, const char *, bool, int);
+  void output_code (FILE *f, bool);
 };
 
 struct capture : public operand
@@ -916,21 +917,9 @@ expr::gen_transform (FILE *f, const char *dest, bool gimple, int depth)
 }
 
 void
-c_expr::gen_transform (FILE *f, const char *dest, bool, int)
+c_expr::output_code (FILE *f, bool for_fn)
 {
-  /* If this expression has an outlined function variant, call it.  */
-  if (fname)
-    {
-      fprintf (f, "%s = %s (type, captures);\n", dest, fname);
-      return;
-    }
-
-  /* All multi-stmt expressions should have been outlined.  */
-  gcc_assert (nr_stmts <= 1);
-
-  if (nr_stmts == 1)
-    fprintf (f, "%s = ", dest);
-
+  unsigned stmt_nr = 1;
   for (unsigned i = 0; i < code.length (); ++i)
     {
       const cpp_token *token = &code[i];
@@ -972,10 +961,37 @@ c_expr::gen_transform (FILE *f, const char *dest, bool, int)
       /* Output the token as string.  */
       char *tk = (char *)cpp_token_as_text (r, token);
       fputs (tk, f);
+
+      if (token->type == CPP_SEMICOLON)
+	{
+	  stmt_nr++;
+	  if (for_fn && stmt_nr == nr_stmts)
+	    fputs ("\n return ", f);
+	  else
+	    fputc ('\n', f);
+	}
+    }
+}
+
+
+void
+c_expr::gen_transform (FILE *f, const char *dest, bool, int)
+{
+  /* If this expression has an outlined function variant, call it.  */
+  if (fname)
+    {
+      fprintf (f, "%s = %s (type, captures);\n", dest, fname);
+      return;
     }
 
+  /* All multi-stmt expressions should have been outlined.  Expressions
+     with nr_stmts == 0 are used for if-expressions.  */
+  gcc_assert (nr_stmts <= 1);
+
   if (nr_stmts == 1)
-    fprintf (f, "\n");
+    fprintf (f, "%s = ", dest);
+
+  output_code (f, false);
 }
 
 void
@@ -1949,60 +1965,7 @@ outline_c_exprs (FILE *f, struct operand *op)
 	  fprintf (f, "\nstatic tree\ncexprfn%d (tree type, tree *captures)\n",
 		   fnnr);
 	  fprintf (f, "{\n");
-	  unsigned stmt_nr = 1;
-	  for (unsigned i = 0; i < e->code.length (); ++i)
-	    {
-	      const cpp_token *token = &e->code[i];
-
-	      /* Replace captures for code-gen.  */
-	      if (token->type == CPP_ATSIGN)
-		{
-		  const cpp_token *n = &e->code[i+1];
-		  if (n->type == CPP_NUMBER
-		      && !(n->flags & PREV_WHITE))
-		    {
-		      if (token->flags & PREV_WHITE)
-			fputc (' ', f);
-		      fprintf (f, "captures[%s]", n->val.str.text);
-		      ++i;
-		      continue;
-		    }
-		}
-
-	      if (token->flags & PREV_WHITE)
-		fputc (' ', f);
-
-	      if (token->type == CPP_NAME)
-		{
-		  const char *id = (const char *) NODE_NAME (token->val.node.node);
-		  unsigned j;
-
-		  for (j = 0; j < e->ids.length (); ++j)
-		    {
-		      if (strcmp (id, e->ids[j].id) == 0)
-			{
-			  fprintf (f, "%s", e->ids[j].oper);
-			  break;
-			}
-		    }
-
-		  if (j < e->ids.length ())
-		    continue;
-		}
-
-	      /* Output the token as string.  */
-	      char *tk = (char *)cpp_token_as_text (e->r, token);
-	      fputs (tk, f);
-
-	      if (token->type == CPP_SEMICOLON)
-		{
-		  stmt_nr++;
-		  if (stmt_nr == e->nr_stmts)
-		    fputs ("\n return ", f);
-		  else
-		    fputc ('\n', f);
-		}
-	    }
+	  e->output_code (f, true);
 	  fprintf (f, "}\n");
 	  fnnr++;
 	}
