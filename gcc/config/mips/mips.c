@@ -15646,6 +15646,9 @@ static const struct mips_builtin_description mips_builtins[] = {
 /* Index I is the function declaration for mips_builtins[I], or null if the
    function isn't defined on this target.  */
 static GTY(()) tree mips_builtin_decls[ARRAY_SIZE (mips_builtins)];
+/* Get the index I of the function declaration for mips_builtin_decls[I]
+   using the instruction code or return null if not defined for the target.  */
+static GTY(()) int mips_get_builtin_decl_index[LAST_INSN_CODE];
 
 /* MODE is a vector mode whose elements have type TYPE.  Return the type
    of the vector itself.  */
@@ -15777,10 +15780,13 @@ mips_init_builtins (void)
     {
       d = &mips_builtins[i];
       if (d->avail ())
-	mips_builtin_decls[i]
-	  = add_builtin_function (d->name,
-				  mips_build_function_type (d->function_type),
-				  i, BUILT_IN_MD, NULL, NULL);
+        {
+          mips_builtin_decls[i]
+            = add_builtin_function (d->name,
+                                    mips_build_function_type (d->function_type),
+                                    i, BUILT_IN_MD, NULL, NULL);
+          mips_get_builtin_decl_index[d->icode] = i;
+        }
     }
 }
 
@@ -15792,6 +15798,51 @@ mips_builtin_decl (unsigned int code, bool initialize_p ATTRIBUTE_UNUSED)
   if (code >= ARRAY_SIZE (mips_builtins))
     return error_mark_node;
   return mips_builtin_decls[code];
+}
+
+/* Implement TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION.  */
+
+static tree
+mips_builtin_vectorized_function (tree fndecl, tree type_out,
+				  tree type_in)
+{
+  enum machine_mode in_mode, out_mode;
+  enum built_in_function fn = DECL_FUNCTION_CODE (fndecl);
+  int in_n, out_n;
+
+  if (TREE_CODE (type_out) != VECTOR_TYPE
+      || TREE_CODE (type_in) != VECTOR_TYPE
+      || DECL_BUILT_IN_CLASS (fndecl) != BUILT_IN_NORMAL
+      || !ISA_HAS_MSA)
+    return NULL_TREE;
+
+  out_mode = TYPE_MODE (TREE_TYPE (type_out));
+  out_n = TYPE_VECTOR_SUBPARTS (type_out);
+  in_mode = TYPE_MODE (TREE_TYPE (type_in));
+  in_n = TYPE_VECTOR_SUBPARTS (type_in);
+
+  /* INSN is the name of the associated instruction pattern, without the
+     leading CODE_FOR_.  */
+#define MIPS_GET_BUILTIN(INSN) \
+  mips_builtin_decls[mips_get_builtin_decl_index[CODE_FOR_##INSN]]
+
+  switch (fn)
+    {
+    case BUILT_IN_SQRT:
+      if (out_mode == DFmode && out_n == 2
+          && in_mode == DFmode && in_n == 2)
+        return MIPS_GET_BUILTIN (msa_fsqrt_d);
+      break;
+    case BUILT_IN_SQRTF:
+      if (out_mode == SFmode && out_n == 4
+          && in_mode == SFmode && in_n == 4)
+        return MIPS_GET_BUILTIN (msa_fsqrt_w);
+      break;
+    default:
+      break;
+    }
+
+  return NULL_TREE;
 }
 
 /* Take argument ARGNO from EXP's argument list and convert it into
@@ -21096,6 +21147,9 @@ mips_lra_p (void)
 #undef TARGET_MODE_REP_EXTENDED
 #define TARGET_MODE_REP_EXTENDED mips_mode_rep_extended
 
+#undef TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION
+#define TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION \
+  mips_builtin_vectorized_function
 #undef TARGET_VECTOR_MODE_SUPPORTED_P
 #define TARGET_VECTOR_MODE_SUPPORTED_P mips_vector_mode_supported_p
 
