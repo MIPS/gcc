@@ -3004,10 +3004,6 @@ finish_template_decl (tree parms)
 static tree
 fixup_template_type (tree type)
 {
-  // Don't try to fix non-class types.
-  if (!CLASS_TYPE_P (type))
-    return type;
-
   // Find the template parameter list at the a depth appropriate to
   // the scope we're trying to enter. 
   tree parms = current_template_parms;
@@ -3055,8 +3051,12 @@ finish_template_type (tree name, tree args, int entering_scope)
 				NULL_TREE, NULL_TREE, entering_scope,
 				tf_warning_or_error | tf_user);
 
-  // If entering a scope, correct the lookup to account for constraints.
-  if (entering_scope)
+  // If entering a scope of a template, correct the lookup to 
+  // account for constraints.
+  if (flag_concepts 
+      && entering_scope 
+      && CLASS_TYPE_P (type) 
+      && CLASSTYPE_IS_TEMPLATE (type))
     type = fixup_template_type (type);
 
   if (type == error_mark_node)

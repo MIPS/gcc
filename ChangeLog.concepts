@@ -1,5 +1,14 @@
 2014-08-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	Fixing regression in scoping rules for templates.
+	* gcc/cp/semantics.c (fixup_tmeplate_type): Lift check to
+	finish_template_type.
+	(finish_template_type): Only do this when concepts are enabled,
+	and also when the class is actually a template. For non-dependent
+	types there are no actions to be taken.
+
+2014-08-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	Additional declaration restrictions on variable concepts.
 	* gcc/cp/decl.c (is_concept_var): New.
 	(cp_finish_decl): Check for uninitialized variable
