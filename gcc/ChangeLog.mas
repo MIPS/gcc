@@ -1,5 +1,21 @@
 2014-08-20  Richard Biener  <rguenther@suse.de>
 
+	* genmatch.c (dt_node::get_expr_code, dt_node::is_gimple_expr,
+	dt_node::is_gimple_fn): Remove.
+	(dt_operand::kids_type, dt_operand::gtok_kids,
+	dt_operand::gen_generic_expr_expr, dt_operand::gen_generic_expr_fn):
+	Likewise.
+	(dt_operand::gen_gimple_expr_expr, dt_operand::gen_gimple_expr_fn):
+	Merge into ...
+	(dt_operand::gen_gimple_expr): ... this new function.
+	(is_a_helper): More specializations.
+	(expr::gen_transform): Add missing newline.
+	(dt_operand::gen_gimple_kids): Rewrite to use switch statements.
+	(dt_operand::gen_generic_expr): Adjust.
+	(dt_operand::gen_gimple): Likewise.
+
+2014-08-20  Richard Biener  <rguenther@suse.de>
+
 	* gimple-fold.c (fold_stmt_1): Use gsi_replace_with_seq_vops
 	helper to insert gimple_simplify result.
 
