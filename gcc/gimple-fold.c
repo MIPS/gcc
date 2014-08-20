@@ -2732,6 +2732,7 @@ fold_stmt_1 (gimple_stmt_iterator *gsi, bool inplace, tree (*valueize) (tree))
 	      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[2])))
 	return changed;
       gimple_assign_set_rhs_with_ops_1 (gsi, rcode, ops[0], ops[1], ops[2]);
+      gsi_insert_seq_before (gsi, seq, GSI_SAME_STMT);
     }
   else
     {
@@ -2739,22 +2740,15 @@ fold_stmt_1 (gimple_stmt_iterator *gsi, bool inplace, tree (*valueize) (tree))
 	return changed;
       if (gimple_has_lhs (stmt))
 	{
-	  gimple_seq tail = NULL;
 	  tree lhs = gimple_get_lhs (stmt);
 	  maybe_push_res_to_seq (rcode, TREE_TYPE (lhs),
-				 ops, &tail, lhs);
-	  gcc_assert (gimple_seq_singleton_p (tail));
-	  gimple with = gimple_seq_first_stmt (tail);
-	  gimple_set_vdef (with, gimple_vdef (stmt));
-	  gimple_set_vuse (with, gimple_vuse (stmt));
-	  gsi_replace (gsi, with, false);
+				 ops, &seq, lhs);
+	  gsi_replace_with_seq_vops (gsi, seq);
 	}
       else
 	gcc_unreachable ();
     }
 
-  if (!inplace)
-    gsi_insert_seq_before (gsi, seq, GSI_SAME_STMT);
   return true;
 }
 

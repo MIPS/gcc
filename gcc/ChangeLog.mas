@@ -1,5 +1,10 @@
 2014-08-20  Richard Biener  <rguenther@suse.de>
 
+	* gimple-fold.c (fold_stmt_1): Use gsi_replace_with_seq_vops
+	helper to insert gimple_simplify result.
+
+2014-08-20  Richard Biener  <rguenther@suse.de>
+
 	* match-comparison.pd (X * CST == 0 -> X == 0): Properly guard
 	with TYPE_OVERFLOW_UNDEFINED.
 
