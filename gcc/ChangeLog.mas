@@ -1,3 +1,8 @@
+2014-08-20  Richard Biener  <rguenther@suse.de>
+
+	* match-comparison.pd (X * CST == 0 -> X == 0): Properly guard
+	with TYPE_OVERFLOW_UNDEFINED.
+
 2014-08-19  Richard Biener  <rguenther@suse.de>
 
 	* genmatch.c (dt_operand::gen_gimple): Remove excessive
