@@ -5904,7 +5904,7 @@ proc check_vect_support_and_set_flags { } {
             set dg-do-what-default compile
         }
     } elseif { [istarget mips*-*-*] } {
-        if { ([check_effective_target_mpaired_single]
+        if { 0&& ([check_effective_target_mpaired_single]
                     || [check_effective_target_mips_loongson])
              && [check_effective_target_nomips16]
              && [check_effective_target_mpaired_single] } {
