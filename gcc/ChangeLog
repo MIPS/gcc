@@ -1,3 +1,10 @@
+2014-08-20  Andrew Pinski  <apinski@cavium.com>
+	    Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
+
+	* tree-vrp.c (simplify_stmt_using_ranges): Add case for
+	optimizing a case of multiplication.
+	(simplify_mult_ops_using_ranges): New.
+
 2014-02-24  Zhenqiang Chen  <zhenqiang.chen@linaro.org>
 
 	* cfgexpand.c (expand_gimple_cond): Check ccmp support.

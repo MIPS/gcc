@@ -8496,6 +8496,46 @@ varying:
   return SSA_PROP_VARYING;
 }
 
+static bool
+simplify_mult_ops_using_ranges (gimple_stmt_iterator * gsi, gimple stmt)
+{
+  enum tree_code rhs_code = gimple_assign_rhs_code (stmt);
+  tree op0, op1, lhs;
+
+  op0 = gimple_assign_rhs1 (stmt);
+  op1 = gimple_assign_rhs2 (stmt);
+  lhs = gimple_assign_lhs (stmt);
+
+  if (!op_with_boolean_value_range_p (op0)
+      && !op_with_boolean_value_range_p (op1))
+    return false;
+
+  if (rhs_code == MULT_EXPR)
+    {
+      if (op_with_boolean_value_range_p (op0))
+	{
+	  tree t = build_int_cst (TREE_TYPE (lhs), 0);
+	  tree tmp = build3 (COND_EXPR, TREE_TYPE (lhs),
+			     build2 (NE_EXPR, boolean_type_node, op0, t),
+			     op1, t);
+	  gimple new_assign = gimple_build_assign (lhs, tmp);
+	  gsi_replace (gsi, new_assign, true);
+	  return true;
+	}
+      if (op_with_boolean_value_range_p (op1))
+	{
+	  tree t = build_int_cst (TREE_TYPE (lhs), 0);
+	  tree tmp = build3 (COND_EXPR, TREE_TYPE (lhs),
+			     build2 (NE_EXPR, boolean_type_node, op1, t),
+			     op0, t);
+	  gimple new_assign = gimple_build_assign (lhs, tmp);
+	  gsi_replace (gsi, new_assign, true);
+	  return true;
+	}
+    }
+  return false;
+}
+
 /* Simplify boolean operations if the source is known
    to be already a boolean.  */
 static bool
@@ -9400,6 +9440,11 @@ simplify_stmt_using_ranges (gimple_stmt_iterator *gsi)
 	  if (INTEGRAL_TYPE_P (TREE_TYPE (rhs1))
 	      && integer_pow2p (gimple_assign_rhs2 (stmt)))
 	    return simplify_div_or_mod_using_ranges (stmt);
+	  break;
+
+	case MULT_EXPR:
+	  if (INTEGRAL_TYPE_P (TREE_TYPE (rhs1)))
+	    return simplify_mult_ops_using_ranges (gsi, stmt);
 	  break;
 
       /* Transform ABS (X) into X or -X as appropriate.  */
