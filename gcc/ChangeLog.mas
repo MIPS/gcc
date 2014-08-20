@@ -1,5 +1,10 @@
 2014-08-20  Richard Biener  <rguenther@suse.de>
 
+	* match-comparison.pd (X * C1 CMP 0 -> X CMP 0): Fix, complete
+	and simplify.
+
+2014-08-20  Richard Biener  <rguenther@suse.de>
+
 	* genmatch.c (dt_node::get_expr_code, dt_node::is_gimple_expr,
 	dt_node::is_gimple_fn): Remove.
 	(dt_operand::kids_type, dt_operand::gtok_kids,
