@@ -24,8 +24,8 @@ along with GCC; see the file COPYING3.  If not see
 
 (simplify
   (minus @0 @0)
-  (if (!HONOR_NANS (TYPE_MODE (type))))
-  { build_zero_cst (type); })
+  (if (!HONOR_NANS (TYPE_MODE (type)))
+   { build_zero_cst (type); }))
 
 (simplify
   (mult @0 integer_zerop@1)
@@ -45,8 +45,8 @@ along with GCC; see the file COPYING3.  If not see
    and simplifies 0 % x to 0.  */
 (simplify
   (trunc_mod integer_zerop@0 @1)
-  (if (!integer_zerop (@1)))
-  @0)
+  (if (!integer_zerop (@1))
+   @0))
 
 (simplify
   (bit_ior @0 integer_all_onesp@1)

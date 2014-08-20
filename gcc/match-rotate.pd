@@ -25,5 +25,5 @@ along with GCC; see the file COPYING3.  If not see
   (if (INTEGRAL_TYPE_P (type) && TYPE_UNSIGNED (type)
       && TYPE_PRECISION (type) == GET_MODE_PRECISION (TYPE_MODE (type))
       && tree_fits_uhwi_p (@1) && tree_fits_uhwi_p (@2)
-      && wi::eq_p (TYPE_PRECISION (type), wi::add (@1, @2))))
-  (lrotate @0 @1)))
+      && wi::eq_p (TYPE_PRECISION (type), wi::add (@1, @2)))
+   (lrotate @0 @1))))

@@ -41,7 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 #if GIMPLE
 (simplify
   (pointer_plus (addr@2 @0) INTEGER_CST@1)
-  (if (is_gimple_min_invariant (@2)))
+  (if (is_gimple_min_invariant (@2))
   {
     HOST_WIDE_INT off;
     tree base = get_addr_base_and_unit_offset (@0, &off);
@@ -52,7 +52,7 @@ along with GCC; see the file COPYING3.  If not see
             build2 (MEM_REF, TREE_TYPE (TREE_TYPE (@2)),
 	    	    build_fold_addr_expr (base),
 	            build_int_cst (ptr_type_node, off)));
-  })
+  }))
 #endif
 
 
@@ -66,8 +66,8 @@ along with GCC; see the file COPYING3.  If not see
      if the new mask might be further optimized.  */
 (simplify
   (bit_and (rshift@0 @1 INTEGER_CST@2) integer_onep)
-  (if (compare_tree_int (@2, TYPE_PRECISION (TREE_TYPE (@1)) - 1) == 0))
-  @0)
+  (if (compare_tree_int (@2, TYPE_PRECISION (TREE_TYPE (@1)) - 1) == 0)
+   @0))
 
 /* COMPLEX_EXPR and REALPART/IMAGPART_EXPR cancellations.  */
 (simplify

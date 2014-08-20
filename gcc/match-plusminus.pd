@@ -23,12 +23,12 @@ along with GCC; see the file COPYING3.  If not see
 /* Contract negates.  */
 (simplify
   (plus:c @0 (negate @1))
-  (if (!TYPE_SATURATING (type)))
-  (minus @0 @1))
+  (if (!TYPE_SATURATING (type))
+   (minus @0 @1)))
 (simplify
   (minus @0 (negate @1))
-  (if (!TYPE_SATURATING (type)))
-  (plus @0 @1))
+  (if (!TYPE_SATURATING (type))
+   (plus @0 @1)))
 
 
 /* Match patterns that allow contracting a plus-minus pair
@@ -65,8 +65,8 @@ along with GCC; see the file COPYING3.  If not see
   /* If the constant operation overflows we cannot do the transform
      as we would introduce undefined overflow, for example
      with (a - 1) + INT_MIN.  */
-  (if (!TREE_OVERFLOW (@1 = int_const_binop (PLUS_EXPR, @1, @2))))
-  (plus @0 @1))
+  (if (!TREE_OVERFLOW (@1 = int_const_binop (PLUS_EXPR, @1, @2)))
+   (plus @0 @1)))
 (simplify
   (plus (minus INTEGER_CST@0 @1) INTEGER_CST@2)
   (minus (plus @0 @2) @1))

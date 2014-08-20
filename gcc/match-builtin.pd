@@ -39,6 +39,6 @@ along with GCC; see the file COPYING3.  If not see
   /* This needs to be conditionalized on flag_unsafe_math_optimizations,
      but we keep it for now to exercise function re-optimization.
      It makes gcc.dg/pr43419.c FAIL execution though.  */
-  (if (REAL_VALUES_EQUAL (TREE_REAL_CST (@1), dconsthalf)))
-  (BUILT_IN_SQRT @0))
+  (if (REAL_VALUES_EQUAL (TREE_REAL_CST (@1), dconsthalf))
+      (BUILT_IN_SQRT @0)))
 

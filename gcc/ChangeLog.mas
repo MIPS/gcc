@@ -1,5 +1,17 @@
 2014-08-20  Richard Biener  <rguenther@suse.de>
 
+	* genmatch.c (parse_simplify): Change inner if parsing, allow
+	multiple ifs.
+	(parse_pattern): Adjust.
+	* match.pd: Adjust inner ifs.
+	* match-builtin.pd: Likewise.
+	* match-comparison.pd: Likewise.
+	* match-constant-folding.pd: Likewise.
+	* match-plusminus.pd: Likewise.
+	* match-rotate.pd: Likewise.
+
+2014-08-20  Richard Biener  <rguenther@suse.de>
+
 	* match-comparison.pd (X * C1 CMP 0 -> X CMP 0): Fix, complete
 	and simplify.
 

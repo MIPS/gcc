@@ -2227,8 +2227,9 @@ parse_op (cpp_reader *r)
      (simplify "<ident>"
         <op> <op>)  */
 
-static simplify *
-parse_simplify (cpp_reader *r, source_location match_location)
+static void
+parse_simplify (cpp_reader *r, source_location match_location,
+		vec<simplify *>& simplifiers)
 {
   const cpp_token *token = peek (r);
   const char *id;
@@ -2248,31 +2249,42 @@ parse_simplify (cpp_reader *r, source_location match_location)
 
   token = peek (r);
 
-  if (token->type != CPP_OPEN_PAREN)
-    return new simplify (id, match, match_location, parse_op (r), token->src_loc);
-
-  eat_token (r, CPP_OPEN_PAREN);
-
-  token = peek (r);
-  source_location result_loc = token->src_loc;
-
-  // ( expr )
-  if (peek_ident (r, "if") == 0)
+  operand *result = NULL;
+  source_location result_loc;
+  while (!result
+	 && token->type == CPP_OPEN_PAREN)
     {
-      operand *result = parse_expr (r);
+      eat_token (r, CPP_OPEN_PAREN);
+      if (peek_ident (r, "if"))
+	{
+	  vec<operand *> ifexprs = vNULL;
+	  eat_ident (r, "if");
+	  ifexprs.safe_push (parse_c_expr (r, CPP_OPEN_PAREN));
+	  /* ???  Support nested (if ...) here.  */
+	  token = peek (r);
+	  simplifiers.safe_push
+	      (new simplify (id, match, match_location, parse_op (r),
+			     token->src_loc, ifexprs));
+	}
+      else
+	{
+	  result_loc = token->src_loc;
+	  result = parse_expr (r);
+	}
       eat_token (r, CPP_CLOSE_PAREN);
-      return new simplify (id, match, match_location, result, result_loc); 
+      token = peek (r);
     }
 
-  // (if c-expr)
-  eat_ident (r, "if");
-  operand *ifexpr = parse_c_expr (r, CPP_OPEN_PAREN);
-  eat_token (r, CPP_CLOSE_PAREN);
+  if (!result
+      && token->type != CPP_CLOSE_PAREN)
+    {
+      result_loc = token->src_loc;
+      result = parse_op (r);
+    }
 
-  result_loc = peek (r)->src_loc;
-  simplify *s = new simplify (id, match, match_location, parse_op (r), result_loc);
-  s->ifexpr_vec.safe_push (ifexpr);
-  return s;
+  if (result)
+    simplifiers.safe_push
+	(new simplify (id, match, match_location, result, result_loc));
 }
 
 void parse_pattern (cpp_reader *, vec<simplify *>&);
@@ -2373,7 +2385,7 @@ parse_pattern (cpp_reader *r, vec<simplify *>& simplifiers)
   const cpp_token *token = peek (r);
   const char *id = get_ident (r);
   if (strcmp (id, "simplify") == 0)
-    simplifiers.safe_push (parse_simplify (r, token->src_loc));
+    parse_simplify (r, token->src_loc, simplifiers);
   else if (strcmp (id, "for") == 0)
     parse_for (r, token->src_loc, simplifiers); 
   else if (strcmp (id, "if") == 0)

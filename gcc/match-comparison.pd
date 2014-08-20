@@ -8,11 +8,9 @@
        to use only two patterns by swapping the operands instead
        of changing the comparison code.  */
     (if (TYPE_OVERFLOW_UNDEFINED (TREE_TYPE (@0))
-         && tree_int_cst_sgn (@1) > 0))
-    (op @0 @2))
-  (simplify
-    (op (mult @0 INTEGER_CST@1) integer_zerop@2)
+         && tree_int_cst_sgn (@1) > 0)
+     (op @0 @2))
     (if (TYPE_OVERFLOW_UNDEFINED (TREE_TYPE (@0))
-         && tree_int_cst_sgn (@1) < 0))
-    (op @2 @0)))
+         && tree_int_cst_sgn (@1) < 0)
+     (op @2 @0))))
 
