@@ -10851,6 +10851,8 @@ grokdeclarator (const cp_declarator *declarator,
                     error ("a constructor cannot be %<concept%>");
                     return error_mark_node;
                   }
+	    if (staticp && concept_p)
+	      error ("a concept cannot be a static member function");
 
 	    /* Tell grokfndecl if it needs to set TREE_PUBLIC on the node.  */
 	    function_context = (ctype != NULL_TREE) ?

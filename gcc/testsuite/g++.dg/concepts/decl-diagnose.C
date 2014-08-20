@@ -11,11 +11,11 @@ struct X
 {
   concept int f4(); // { dg-error "result must be bool|declared with function parameters" }
   concept bool f5(); // { dg-error "declared with function parameters" }
-  static concept bool f6();
+  static concept bool f6(); // { dg-error "a concept cannot be a static member function" }
   static concept bool x; // { dg-error "declared 'concept'" }
   concept int x2; // { dg-error "declared 'concept'" }
   concept ~X(); // { dg-error "a destructor cannot be 'concept'" }
   concept X(); // { dg-error "a constructor cannot be 'concept'" }
 };
 
-concept bool X2; // { dg-error "uninitialized" }
+// concept bool X2; // { dg-error "uninitialized" }

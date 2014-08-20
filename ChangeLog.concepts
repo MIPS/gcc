@@ -1,3 +1,12 @@
+2014-08-19  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Ban static member function concepts.
+	* gcc/cp/decl.c (grokdeclarator): Diagnose static member function 
+	concepts.
+	* g++.dg/concepts/decl-diagnose.C: Adjust.
+	* g++.dg/concepts/mem-concept-err.C: Adjust.
+	* g++.dg/concepts/mem-concept.C: Adjust.
+
 2014-08-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Fixes to variable concept implementation.
