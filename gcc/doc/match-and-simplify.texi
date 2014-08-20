@@ -34,24 +34,12 @@ APIs are introduced.
 @section GIMPLE API
 @cindex GIMPLE API
 
-The main GIMPLE API entry to the expression simplifications mimics
-that of the GENERIC fold_@{unary,binary,ternary@} API:
-
-@deftypefn
-tree gimple_simplify (enum tree_code, tree, tree,
-                                gimple_seq *, tree (*)(tree));
-@end deftypefn
-@deftypefn
-tree gimple_simplify (enum tree_code, tree, tree, tree,
-                                gimple_seq *, tree (*)(tree));
-@end deftypefn
-@deftypefn
-tree gimple_simplify (enum tree_code, tree, tree, tree, tree,
-                                gimple_seq *, tree (*)(tree));
-@end deftypefn
-@deftypefn
-tree gimple_simplify (enum built_in_function, tree, tree,
-                                gimple_seq *, tree (*)(tree));
+@deftypefn {GIMPLE function} tree gimple_simplify (enum tree_code, tree, tree, gimple_seq *, tree (*)(tree))
+@deftypefnx {GIMPLE function} tree gimple_simplify (enum tree_code, tree, tree, tree, gimple_seq *, tree (*)(tree))
+@deftypefnx {GIMPLE function} tree gimple_simplify (enum tree_code, tree, tree, tree, tree, gimple_seq *, tree (*)(tree))
+@deftypefnx {GIMPLE function} tree gimple_simplify (enum built_in_function, tree, tree, gimple_seq *, tree (*)(tree))
+The main GIMPLE API entry to the expression simplifications mimicing
+that of the GENERIC fold_@{unary,binary,ternary@} functions.
 @end deftypefn
 
 thus providing n-ary overloads for operation or function.  The
@@ -62,33 +50,17 @@ tie simplifications to a SSA lattice.
 
 In addition to those APIs a fold_stmt-like interface is provided with
 
-@deftypefn
-bool gimple_simplify (gimple_stmt_iterator *, tree (*)(tree));
+@deftypefn bool gimple_simplify (gimple_stmt_iterator *, tree (*)(tree));
 @end deftypefn
 
 which also has the additional valueization hook.
 
 Ontop of these a @code{fold_buildN}-like API for GIMPLE is introduced:
 
-@deftypefn
-tree gimple_build (gimple_seq *, location_t,
-                   enum tree_code, tree, tree,
-                   tree (*valueize) (tree) = NULL);
-@end deftypefn
-@deftypefn
-tree gimple_build (gimple_seq *, location_t,
-                   enum tree_code, tree, tree, tree,
-                   tree (*valueize) (tree) = NULL);
-@end deftypefn
-@deftypefn
-tree gimple_build (gimple_seq *, location_t,
-                   enum tree_code, tree, tree, tree, tree,
-                   tree (*valueize) (tree) = NULL);
-@end deftypefn
-@deftypefn
-tree gimple_build (gimple_seq *, location_t,
-                   enum built_in_function, tree, tree,
-                   tree (*valueize) (tree) = NULL);
+@deftypefn tree gimple_build (gimple_seq *, location_t, enum tree_code, tree, tree, tree (*valueize) (tree) = NULL);
+@deftypefnx tree gimple_build (gimple_seq *, location_t, enum tree_code, tree, tree, tree, tree (*valueize) (tree) = NULL);
+@deftypefnx tree gimple_build (gimple_seq *, location_t, enum tree_code, tree, tree, tree, tree, tree (*valueize) (tree) = NULL);
+@deftypefnx tree gimple_build (gimple_seq *, location_t, enum built_in_function, tree, tree, tree (*valueize) (tree) = NULL);
 @end deftypefn
 
 which is supposed to replace @code{force_gimple_operand (fold_buildN (...), ...)}.

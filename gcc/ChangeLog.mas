@@ -1,5 +1,9 @@
 2014-08-20  Richard Biener  <rguenther@suse.de>
 
+	* match-and-simplify.texi: Fix errors during pdf build.
+
+2014-08-20  Richard Biener  <rguenther@suse.de>
+
 	* genmatch.c (parse_simplify): Change inner if parsing, allow
 	multiple ifs.
 	(parse_pattern): Adjust.
