@@ -1,0 +1,23 @@
+// { dg-options "-std=c++1z" }
+
+template<typename T>
+  concept bool C1 = __is_class(T);
+
+template<typename T>
+  concept bool C2() { __is_class(T); }
+
+template<typename T>
+  constexpr bool C3 = __is_class(T);
+
+
+template<typename U>
+  requires C1<U>() 
+  void f1(U) { } // { dg-error "invalid constraint" }
+
+template<typename U>
+  requires C2<U>
+  void f2(U) { } // { dg-error "invalid constraint" }
+
+template<C3 T>  // { dg-error "not a type" }
+  void f(T) { } // { dg-error "declared void" }
+

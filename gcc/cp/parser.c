@@ -15410,8 +15410,8 @@ cp_parser_type_name (cp_parser* parser)
   return type_decl;
 }
 
-/// Returns true if proto is a type parameter, but not a template template
-/// parameter.
+// Returns true if proto is a type parameter, but not a template template
+// parameter.
 static bool
 cp_check_type_concept (tree fn, tree proto) 
 {
@@ -15423,8 +15423,8 @@ cp_check_type_concept (tree fn, tree proto)
   return true;
 }
 
-/// Returns true if the parser is in a context that allows the
-/// use of a constrained type specifier.
+// Returns true if the parser is in a context that allows the
+// use of a constrained type specifier.
 static inline bool
 cp_parser_allows_constrained_type_specifier (cp_parser *parser)
 {
@@ -15434,11 +15434,10 @@ cp_parser_allows_constrained_type_specifier (cp_parser *parser)
             || parser->in_result_type_constraint_p);
 }
 
-
 // Check if DECL and ARGS can form a constrained-type-specifier. If ARGS
 // is non-null, we try to form a concept check of the form DECL<?, ARGS>
 // where ? is a placeholder for any kind of template argument. If ARGS
-// is NULL, then we try to form a concept check of the form DEC<?>.
+// is NULL, then we try to form a concept check of the form DECL<?>.
 static tree
 cp_maybe_constrained_type_specifier (cp_parser *parser, tree decl, tree args)
 {
@@ -15451,7 +15450,7 @@ cp_maybe_constrained_type_specifier (cp_parser *parser, tree decl, tree args)
 
   // Try to build a call expression that evaluates the concept. This
   // can fail if the overload set refers only to non-templates.
-  tree placeholder = build_nt(PLACEHOLDER_EXPR);
+  tree placeholder = build_nt (PLACEHOLDER_EXPR);
   tree call = build_concept_check (decl, placeholder, args);
   if (call == error_mark_node)
     return NULL_TREE;
@@ -15552,8 +15551,9 @@ cp_parser_nonclass_name (cp_parser* parser)
   //
   // TODO: The name could also refer to an introduction (if followed by '{').
   if (flag_concepts && 
-        (TREE_CODE (type_decl) == OVERLOAD || BASELINK_P (type_decl)
-         || variable_template_p (type_decl)))
+        (TREE_CODE (type_decl) == OVERLOAD 
+         || BASELINK_P (type_decl)
+         || variable_concept_p (type_decl)))
   {
     // Determine whether the overload refers to a concept.
     if (tree decl = cp_maybe_concept_name (parser, type_decl))

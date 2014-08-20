@@ -456,6 +456,27 @@ normalize_logical (tree t)
     return NULL_TREE;
 }
 
+// Do a cursory investigation of the target in the call expression
+// with the aim of early diagnosis of ill-formed constraints.
+inline bool
+check_call (tree t) 
+{
+  tree target = CALL_EXPR_FN (t);
+  if (TREE_CODE (target) != TEMPLATE_ID_EXPR)
+    return true;
+  tree tmpl = TREE_OPERAND (target, 0);
+  if (TREE_CODE (tmpl) != TEMPLATE_DECL)
+    return true;
+  tree decl = DECL_TEMPLATE_RESULT (tmpl);
+  if (TREE_CODE (decl) == VAR_DECL && DECL_DECLARED_CONCEPT_P (decl))
+    {
+      error ("invalid constraint %qE", t);
+      inform (input_location, "did you mean %qE", target);
+      return false;
+    }
+  return true;
+}
+
 // Reduction rules for the call expression T.
 //
 // If T is a call to a constraint instantiate its definition and
@@ -463,10 +484,14 @@ normalize_logical (tree t)
 tree
 normalize_call (tree t)
 {
-  // Is the function call actually a constraint check?
+  if (!check_call (t))
+    return NULL_TREE;
+
+  // Is the function call actually a constraint check? If not, then it's
+  // an atom, and needs to be treated as such.
   tree check = resolve_constraint_check (t);
   if (!check)
-    return t;
+    return normalize_atom (t);
 
   tree fn = TREE_VALUE (check);
   tree args = TREE_PURPOSE (check);
@@ -521,22 +546,22 @@ normalize_var (tree t)
 tree
 normalize_template_id (tree t)
 {
-  if (variable_template_p (TREE_OPERAND (t, 0)))
+  tree tmpl = TREE_OPERAND (t, 0);
+  if (variable_concept_p (tmpl))
     return normalize_var (t);
   else
     {
-      vec<tree, va_gc>* args = NULL;
-      tree c = finish_call_expr (t, &args, true, false, 0);
-
       // FIXME: input_location is probably wrong, but there's not necessarly
       // an expr location with the tree.
-      error_at (input_location, "invalid requirement");
+      error_at (input_location, "invalid constraint %qE", t);
+
+      vec<tree, va_gc>* args = NULL;
+      tree c = finish_call_expr (t, &args, true, false, 0);
       inform (input_location, "did you mean %qE", c);
 
       return error_mark_node;
     }
 }
-
 
 // Reduce an expression requirement as a conjunction of its
 // individual constraints.
@@ -779,8 +804,12 @@ finish_template_constraints (tree ci)
   tree reqs = normalize_constraints (conjoin_constraints (r1, r2));
   CI_ASSOCIATED_REQS (ci) = reqs;
 
-  // Decompose those expressions into sets of atomic constraints. 
-  CI_ASSUMPTIONS (ci) = decompose_assumptions (reqs);
+  // If normalization succeeds, decompose those expressions into sets 
+  // of atomic constraints. Otherwise, mark this as an error.
+  if (reqs)
+    CI_ASSUMPTIONS (ci) = decompose_assumptions (reqs);
+  else
+    CI_ASSUMPTIONS (ci) = error_mark_node;
   return ci;
 }
 
@@ -1066,10 +1095,7 @@ build_concept_check (tree target, tree arg, tree rest)
       TREE_VEC_ELT (targs, i + 1) = TREE_VEC_ELT (rest, i);
   SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT (targs, n + 1);
   if (variable_template_p (target))
-    {
-      tree id = lookup_template_variable (target, targs);
-      return id;
-    }
+    return lookup_template_variable (target, targs);
   else
     {
       tree id = lookup_template_function (target, targs);

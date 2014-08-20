@@ -1,3 +1,18 @@
+2014-08-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fixes to variable concept implementation.
+	* gcc/cp/cp-tree.h (variable_concept_p): New.
+	* gcc/cp/parser.c (cp_parser_nonclass_name): Check for concepts,
+	not just templates.
+	* gcc/cp/decl.c (grokvardecl): Label concepts as concepts.
+	* gcc/cp/constraint.cc (check_call): New.
+	(normalize_call): Ensure that calls are probably to functions.
+	(normalize_template_id): Update diagnostics.
+	(finish_template_constraints): Mark assumptions as an error if
+	constraint normalization fails. This was causing normalization
+	to be run twice during the construction of a single declaration.
+	* gcc/testsuite/g++.dg/concepts: Update tests.
+
 2014-08-14  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Fix regression.

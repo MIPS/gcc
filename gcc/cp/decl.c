@@ -8264,6 +8264,10 @@ grokvardecl (tree type,
   else
     DECL_INTERFACE_KNOWN (decl) = 1;
 
+  // Mark the variable as a concept.
+  if (conceptp)
+    DECL_DECLARED_CONCEPT_P (decl) = true;
+
   // Handle explicit specializations and instantiations of variable templates.
   if (orig_declarator)
     decl = check_explicit_specialization (orig_declarator, decl,
