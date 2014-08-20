@@ -136,7 +136,7 @@ cgraph_clone_edge (struct cgraph_edge *e, struct cgraph_node *n,
 	{
 	  new_edge = n->create_indirect_edge (call_stmt,
 					      e->indirect_info->ecf_flags,
-					      count, freq);
+					      count, freq, false);
 	  *new_edge->indirect_info = *e->indirect_info;
 	}
     }
@@ -423,6 +423,7 @@ cgraph_node::create_clone (tree decl, gcov_type gcov_count, int freq,
   new_node->count = count;
   new_node->frequency = frequency;
   new_node->tp_first_run = tp_first_run;
+  new_node->tm_clone = tm_clone;
 
   new_node->clone.tree_map = NULL;
   new_node->clone.args_to_skip = args_to_skip;

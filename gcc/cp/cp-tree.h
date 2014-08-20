@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "hashtab.h"
 #include "vec.h"
+#include "hash-map.h"
 
 // Require that pointer P is non-null before returning.
 template<typename T>
@@ -1147,7 +1148,7 @@ struct GTY(()) saved_scope {
   cp_binding_level *class_bindings;
   cp_binding_level *bindings;
 
-  struct pointer_map_t *x_local_specializations;
+  hash_map<tree, tree> *GTY((skip)) x_local_specializations;
 
   struct saved_scope *prev;
 };
@@ -4530,7 +4531,7 @@ public:
   local_specialization_stack ();
   ~local_specialization_stack ();
 
-  struct pointer_map_t *saved;
+  hash_map<tree, tree> *saved;
 };
 
 /* in class.c */
@@ -6350,7 +6351,7 @@ extern int abstract_virtuals_error_sfinae	(tree, tree, tsubst_flags_t);
 extern int abstract_virtuals_error_sfinae	(abstract_class_use, tree, tsubst_flags_t);
 
 extern tree store_init_value			(tree, tree, vec<tree, va_gc>**, int);
-extern void check_narrowing			(tree, tree);
+extern bool check_narrowing			(tree, tree, tsubst_flags_t);
 extern tree digest_init				(tree, tree, tsubst_flags_t);
 extern tree digest_init_flags			(tree, tree, int);
 extern tree digest_nsdmi_init		        (tree, tree);

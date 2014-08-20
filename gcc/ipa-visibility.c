@@ -79,7 +79,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "cgraph.h"
 #include "tree-pass.h"
-#include "pointer-set.h"
 #include "calls.h"
 #include "gimple-expr.h"
 #include "varasm.h"
@@ -392,15 +391,17 @@ update_visibility_by_resolution_info (symtab_node * node)
 
   define = (node->resolution == LDPR_PREVAILING_DEF_IRONLY
 	    || node->resolution == LDPR_PREVAILING_DEF
+	    || node->resolution == LDPR_UNDEF
 	    || node->resolution == LDPR_PREVAILING_DEF_IRONLY_EXP);
 
   /* The linker decisions ought to agree in the whole group.  */
   if (node->same_comdat_group)
     for (symtab_node *next = node->same_comdat_group;
 	 next != node; next = next->same_comdat_group)
-      gcc_assert (!node->externally_visible
+      gcc_assert (!next->externally_visible
 		  || define == (next->resolution == LDPR_PREVAILING_DEF_IRONLY
 			        || next->resolution == LDPR_PREVAILING_DEF
+			        || next->resolution == LDPR_UNDEF
 			        || next->resolution == LDPR_PREVAILING_DEF_IRONLY_EXP));
 
   if (node->same_comdat_group)

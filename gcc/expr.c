@@ -68,6 +68,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-address.h"
 #include "cfgexpand.h"
 #include "builtins.h"
+#include "tree-ssa.h"
 
 #ifndef STACK_PUSH_CODE
 #ifdef STACK_GROWS_DOWNWARD
@@ -133,7 +134,7 @@ static void store_by_pieces_1 (struct store_by_pieces_d *, unsigned int);
 static void store_by_pieces_2 (insn_gen_fn, machine_mode,
 			       struct store_by_pieces_d *);
 static tree clear_storage_libcall_fn (int);
-static rtx compress_float_constant (rtx, rtx);
+static rtx_insn *compress_float_constant (rtx, rtx);
 static rtx get_subtarget (rtx);
 static void store_constructor_field (rtx, unsigned HOST_WIDE_INT,
 				     HOST_WIDE_INT, enum machine_mode,
@@ -329,7 +330,7 @@ convert_move (rtx to, rtx from, int unsignedp)
   if (GET_CODE (from) == SUBREG && SUBREG_PROMOTED_VAR_P (from)
       && (GET_MODE_PRECISION (GET_MODE (SUBREG_REG (from)))
 	  >= GET_MODE_PRECISION (to_mode))
-      && SUBREG_PROMOTED_UNSIGNED_P (from) == unsignedp)
+      && SUBREG_CHECK_PROMOTED_SIGN (from, unsignedp))
     from = gen_lowpart (to_mode, from), from_mode = to_mode;
 
   gcc_assert (GET_CODE (to) != SUBREG || !SUBREG_PROMOTED_VAR_P (to));
@@ -703,7 +704,7 @@ convert_modes (enum machine_mode mode, enum machine_mode oldmode, rtx x, int uns
 
   if (GET_CODE (x) == SUBREG && SUBREG_PROMOTED_VAR_P (x)
       && GET_MODE_SIZE (GET_MODE (SUBREG_REG (x))) >= GET_MODE_SIZE (mode)
-      && SUBREG_PROMOTED_UNSIGNED_P (x) == unsignedp)
+      && SUBREG_CHECK_PROMOTED_SIGN (x, unsignedp))
     x = gen_lowpart (mode, SUBREG_REG (x));
 
   if (GET_MODE (x) != VOIDmode)
@@ -3158,7 +3159,7 @@ emit_move_change_mode (enum machine_mode new_mode,
    an integer mode of the same size as MODE.  Returns the instruction
    emitted, or NULL if such a move could not be generated.  */
 
-static rtx
+static rtx_insn *
 emit_move_via_integer (enum machine_mode mode, rtx x, rtx y, bool force)
 {
   enum machine_mode imode;
@@ -3167,19 +3168,19 @@ emit_move_via_integer (enum machine_mode mode, rtx x, rtx y, bool force)
   /* There must exist a mode of the exact size we require.  */
   imode = int_mode_for_mode (mode);
   if (imode == BLKmode)
-    return NULL_RTX;
+    return NULL;
 
   /* The target must support moves in this mode.  */
   code = optab_handler (mov_optab, imode);
   if (code == CODE_FOR_nothing)
-    return NULL_RTX;
+    return NULL;
 
   x = emit_move_change_mode (imode, mode, x, force);
   if (x == NULL_RTX)
-    return NULL_RTX;
+    return NULL;
   y = emit_move_change_mode (imode, mode, y, force);
   if (y == NULL_RTX)
-    return NULL_RTX;
+    return NULL;
   return emit_insn (GEN_FCN (code) (x, y));
 }
 
@@ -3244,7 +3245,7 @@ emit_move_resolve_push (enum machine_mode mode, rtx x)
    X is known to satisfy push_operand, and MODE is known to be complex.
    Returns the last instruction emitted.  */
 
-rtx
+rtx_insn *
 emit_move_complex_push (enum machine_mode mode, rtx x, rtx y)
 {
   enum machine_mode submode = GET_MODE_INNER (mode);
@@ -3287,7 +3288,7 @@ emit_move_complex_push (enum machine_mode mode, rtx x, rtx y)
 /* A subroutine of emit_move_complex.  Perform the move from Y to X
    via two moves of the parts.  Returns the last instruction emitted.  */
 
-rtx
+rtx_insn *
 emit_move_complex_parts (rtx x, rtx y)
 {
   /* Show the output dies here.  This is necessary for SUBREGs
@@ -3306,7 +3307,7 @@ emit_move_complex_parts (rtx x, rtx y)
 /* A subroutine of emit_move_insn_1.  Generate a move from Y into X.
    MODE is known to be complex.  Returns the last instruction emitted.  */
 
-static rtx
+static rtx_insn *
 emit_move_complex (enum machine_mode mode, rtx x, rtx y)
 {
   bool try_int;
@@ -3346,7 +3347,7 @@ emit_move_complex (enum machine_mode mode, rtx x, rtx y)
 
   if (try_int)
     {
-      rtx ret;
+      rtx_insn *ret;
 
       /* For memory to memory moves, optimal behavior can be had with the
 	 existing block move logic.  */
@@ -3368,10 +3369,10 @@ emit_move_complex (enum machine_mode mode, rtx x, rtx y)
 /* A subroutine of emit_move_insn_1.  Generate a move from Y into X.
    MODE is known to be MODE_CC.  Returns the last instruction emitted.  */
 
-static rtx
+static rtx_insn *
 emit_move_ccmode (enum machine_mode mode, rtx x, rtx y)
 {
-  rtx ret;
+  rtx_insn *ret;
 
   /* Assume all MODE_CC modes are equivalent; if we have movcc, use it.  */
   if (mode != CCmode)
@@ -3428,11 +3429,12 @@ undefined_operand_subword_p (const_rtx op, int i)
    pattern.  Note that you will get better code if you define such
    patterns, even if they must turn into multiple assembler instructions.  */
 
-static rtx
+static rtx_insn *
 emit_move_multi_word (enum machine_mode mode, rtx x, rtx y)
 {
-  rtx last_insn = 0;
-  rtx seq, inner;
+  rtx_insn *last_insn = 0;
+  rtx_insn *seq;
+  rtx inner;
   bool need_clobber;
   int i;
 
@@ -3508,7 +3510,7 @@ emit_move_multi_word (enum machine_mode mode, rtx x, rtx y)
    Called just like emit_move_insn, but assumes X and Y
    are basically valid.  */
 
-rtx
+rtx_insn *
 emit_move_insn_1 (rtx x, rtx y)
 {
   enum machine_mode mode = GET_MODE (x);
@@ -3527,7 +3529,7 @@ emit_move_insn_1 (rtx x, rtx y)
   if (GET_MODE_CLASS (mode) == MODE_DECIMAL_FLOAT
       || ALL_FIXED_POINT_MODE_P (mode))
     {
-      rtx result = emit_move_via_integer (mode, x, y, true);
+      rtx_insn *result = emit_move_via_integer (mode, x, y, true);
 
       /* If we can't find an integer mode, use multi words.  */
       if (result)
@@ -3545,7 +3547,7 @@ emit_move_insn_1 (rtx x, rtx y)
      fits within a HOST_WIDE_INT.  */
   if (!CONSTANT_P (y) || GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT)
     {
-      rtx ret = emit_move_via_integer (mode, x, y, lra_in_progress);
+      rtx_insn *ret = emit_move_via_integer (mode, x, y, lra_in_progress);
 
       if (ret)
 	{
@@ -3564,12 +3566,13 @@ emit_move_insn_1 (rtx x, rtx y)
 
    Return the last instruction emitted.  */
 
-rtx
+rtx_insn *
 emit_move_insn (rtx x, rtx y)
 {
   enum machine_mode mode = GET_MODE (x);
   rtx y_cst = NULL_RTX;
-  rtx last_insn, set;
+  rtx_insn *last_insn;
+  rtx set;
 
   gcc_assert (mode != BLKmode
 	      && (GET_MODE (y) == mode || GET_MODE (y) == VOIDmode));
@@ -3627,7 +3630,7 @@ emit_move_insn (rtx x, rtx y)
    perform the extension directly from constant or memory, then emit the
    move as an extension.  */
 
-static rtx
+static rtx_insn *
 compress_float_constant (rtx x, rtx y)
 {
   enum machine_mode dstmode = GET_MODE (x);
@@ -3649,7 +3652,8 @@ compress_float_constant (rtx x, rtx y)
        srcmode = GET_MODE_WIDER_MODE (srcmode))
     {
       enum insn_code ic;
-      rtx trunc_y, last_insn;
+      rtx trunc_y;
+      rtx_insn *last_insn;
 
       /* Skip if the target can't extend this way.  */
       ic = can_extend_p (dstmode, srcmode, 0);
@@ -3709,7 +3713,7 @@ compress_float_constant (rtx x, rtx y)
       return last_insn;
     }
 
-  return NULL_RTX;
+  return NULL;
 }
 
 /* Pushing data onto the stack.  */
@@ -5202,25 +5206,25 @@ store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
 	  && GET_MODE_PRECISION (GET_MODE (target))
 	     == TYPE_PRECISION (TREE_TYPE (exp)))
 	{
-	  if (TYPE_UNSIGNED (TREE_TYPE (exp))
-	      != SUBREG_PROMOTED_UNSIGNED_P (target))
+	  if (!SUBREG_CHECK_PROMOTED_SIGN (target,
+					  TYPE_UNSIGNED (TREE_TYPE (exp))))
 	    {
 	      /* Some types, e.g. Fortran's logical*4, won't have a signed
 		 version, so use the mode instead.  */
 	      tree ntype
 		= (signed_or_unsigned_type_for
-		   (SUBREG_PROMOTED_UNSIGNED_P (target), TREE_TYPE (exp)));
+		   (SUBREG_PROMOTED_SIGN (target), TREE_TYPE (exp)));
 	      if (ntype == NULL)
 		ntype = lang_hooks.types.type_for_mode
 		  (TYPE_MODE (TREE_TYPE (exp)),
-		   SUBREG_PROMOTED_UNSIGNED_P (target));
+		   SUBREG_PROMOTED_SIGN (target));
 
 	      exp = fold_convert_loc (loc, ntype, exp);
 	    }
 
 	  exp = fold_convert_loc (loc, lang_hooks.types.type_for_mode
 				  (GET_MODE (SUBREG_REG (target)),
-				   SUBREG_PROMOTED_UNSIGNED_P (target)),
+				   SUBREG_PROMOTED_SIGN (target)),
 				  exp);
 
 	  inner_target = SUBREG_REG (target);
@@ -5234,14 +5238,14 @@ store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
       if (CONSTANT_P (temp) && GET_MODE (temp) == VOIDmode)
 	{
 	  temp = convert_modes (GET_MODE (target), TYPE_MODE (TREE_TYPE (exp)),
-				temp, SUBREG_PROMOTED_UNSIGNED_P (target));
+				temp, SUBREG_PROMOTED_SIGN (target));
 	  temp = convert_modes (GET_MODE (SUBREG_REG (target)),
 			        GET_MODE (target), temp,
-			        SUBREG_PROMOTED_UNSIGNED_P (target));
+				SUBREG_PROMOTED_SIGN (target));
 	}
 
       convert_move (SUBREG_REG (target), temp,
-		    SUBREG_PROMOTED_UNSIGNED_P (target));
+		    SUBREG_PROMOTED_SIGN (target));
 
       return NULL_RTX;
     }
@@ -9224,6 +9228,35 @@ expand_expr_real_2 (sepops ops, rtx target, enum machine_mode tmode,
 }
 #undef REDUCE_BIT_FIELD
 
+/* Return TRUE if value in SSA is zero and sign extended for wider mode MODE
+   using value range information stored.  Return FALSE otherwise.
+
+   This is used to check if SUBREG is zero and sign extended and to set
+   promoted mode SRP_SIGNED_AND_UNSIGNED to SUBREG.  */
+
+bool
+promoted_for_signed_and_unsigned_p (tree ssa, enum machine_mode mode)
+{
+  wide_int min, max;
+
+  if (ssa == NULL_TREE
+      || TREE_CODE (ssa) != SSA_NAME
+      || !INTEGRAL_TYPE_P (TREE_TYPE (ssa))
+      || (TYPE_PRECISION (TREE_TYPE (ssa)) != GET_MODE_PRECISION (mode)))
+    return false;
+
+  /* Return FALSE if value_range is not recorded for SSA.  */
+  if (get_range_info (ssa, &min, &max) != VR_RANGE)
+    return false;
+
+  /* Return true (to set SRP_SIGNED_AND_UNSIGNED to SUBREG) if MSB of the
+     smaller mode is not set (i.e.  MSB of ssa is not set).  */
+  if (!wi::neg_p (min, SIGNED) && !wi::neg_p(max, SIGNED))
+    return true;
+  else
+    return false;
+
+}
 
 /* Return TRUE if expression STMT is suitable for replacement.  
    Never consider memory loads as replaceable, because those don't ever lead 
@@ -9527,7 +9560,10 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 
 	  temp = gen_lowpart_SUBREG (mode, decl_rtl);
 	  SUBREG_PROMOTED_VAR_P (temp) = 1;
-	  SUBREG_PROMOTED_UNSIGNED_SET (temp, unsignedp);
+	  if (promoted_for_signed_and_unsigned_p (ssa_name, mode))
+	    SUBREG_PROMOTED_SET (temp, SRP_SIGNED_AND_UNSIGNED);
+	  else
+	    SUBREG_PROMOTED_SET (temp, unsignedp);
 	  return temp;
 	}
 

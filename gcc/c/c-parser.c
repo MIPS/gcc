@@ -1072,7 +1072,15 @@ disable_extension_diagnostics (void)
 	     | (flag_iso << 3)
 	     | (warn_long_long << 4)
 	     | (warn_cxx_compat << 5)
-	     | (warn_overlength_strings << 6));
+	     | (warn_overlength_strings << 6)
+	     /* warn_c90_c99_compat has three states: -1/0/1, so we must
+		play tricks to properly restore it.  */
+	     | ((warn_c90_c99_compat == 1) << 7)
+	     | ((warn_c90_c99_compat == -1) << 8)
+	     /* Similarly for warn_c99_c11_compat.  */
+	     | ((warn_c99_c11_compat == 1) << 9)
+	     | ((warn_c99_c11_compat == -1) << 10)
+	     );
   cpp_opts->cpp_pedantic = pedantic = 0;
   warn_pointer_arith = 0;
   cpp_opts->cpp_warn_traditional = warn_traditional = 0;
@@ -1080,6 +1088,8 @@ disable_extension_diagnostics (void)
   cpp_opts->cpp_warn_long_long = warn_long_long = 0;
   warn_cxx_compat = 0;
   warn_overlength_strings = 0;
+  warn_c90_c99_compat = 0;
+  warn_c99_c11_compat = 0;
   return ret;
 }
 
@@ -1096,6 +1106,9 @@ restore_extension_diagnostics (int flags)
   cpp_opts->cpp_warn_long_long = warn_long_long = (flags >> 4) & 1;
   warn_cxx_compat = (flags >> 5) & 1;
   warn_overlength_strings = (flags >> 6) & 1;
+  /* See above for why is this needed.  */
+  warn_c90_c99_compat = (flags >> 7) & 1 ? 1 : ((flags >> 8) & 1 ? -1 : 0);
+  warn_c99_c11_compat = (flags >> 9) & 1 ? 1 : ((flags >> 10) & 1 ? -1 : 0);
 }
 
 /* Possibly kinds of declarator to parse.  */
@@ -2002,15 +2015,12 @@ c_parser_static_assert_declaration_no_semi (c_parser *parser)
 
   gcc_assert (c_parser_next_token_is_keyword (parser, RID_STATIC_ASSERT));
   assert_loc = c_parser_peek_token (parser)->location;
-  if (!flag_isoc11)
-    {
-      if (flag_isoc99)
-	pedwarn (assert_loc, OPT_Wpedantic,
+  if (flag_isoc99)
+    pedwarn_c99 (assert_loc, OPT_Wpedantic,
 		 "ISO C99 does not support %<_Static_assert%>");
-      else
-	pedwarn (assert_loc, OPT_Wpedantic,
+  else
+    pedwarn_c99 (assert_loc, OPT_Wpedantic,
 		 "ISO C90 does not support %<_Static_assert%>");
-    }
   c_parser_consume_token (parser);
   if (!c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     return;
@@ -2375,15 +2385,12 @@ c_parser_declspecs (c_parser *parser, struct c_declspecs *specs,
 	     correct lvalue-to-rvalue conversions.  */
 	  if (flag_openmp)
 	    sorry ("%<_Atomic%> with OpenMP");
-	  if (!flag_isoc11)
-	    {
-	      if (flag_isoc99)
-		pedwarn (loc, OPT_Wpedantic,
+	  if (flag_isoc99)
+	    pedwarn_c99 (loc, OPT_Wpedantic,
 			 "ISO C99 does not support the %<_Atomic%> qualifier");
-	      else
-		pedwarn (loc, OPT_Wpedantic,
+	  else
+	    pedwarn_c99 (loc, OPT_Wpedantic,
 			 "ISO C90 does not support the %<_Atomic%> qualifier");
-	    }
 	  attrs_ok = true;
 	  tree value;
 	  value = c_parser_peek_token (parser)->value;
@@ -2545,8 +2552,9 @@ c_parser_enum_specifier (c_parser *parser)
 	    }
 	  if (c_parser_next_token_is (parser, CPP_CLOSE_BRACE))
 	    {
-	      if (seen_comma && !flag_isoc99)
-		pedwarn (comma_loc, OPT_Wpedantic, "comma at end of enumerator list");
+	      if (seen_comma)
+		pedwarn_c90 (comma_loc, OPT_Wpedantic,
+			     "comma at end of enumerator list");
 	      c_parser_consume_token (parser);
 	      break;
 	    }
@@ -3047,15 +3055,12 @@ c_parser_alignas_specifier (c_parser * parser)
   location_t loc = c_parser_peek_token (parser)->location;
   gcc_assert (c_parser_next_token_is_keyword (parser, RID_ALIGNAS));
   c_parser_consume_token (parser);
-  if (!flag_isoc11)
-    {
-      if (flag_isoc99)
-	pedwarn (loc, OPT_Wpedantic,
+  if (flag_isoc99)
+    pedwarn_c99 (loc, OPT_Wpedantic,
 		 "ISO C99 does not support %<_Alignas%>");
-      else
-	pedwarn (loc, OPT_Wpedantic,
+  else
+    pedwarn_c99 (loc, OPT_Wpedantic,
 		 "ISO C90 does not support %<_Alignas%>");
-    }
   if (!c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     return ret;
   if (c_parser_next_tokens_start_typename (parser, cla_prefer_id))
@@ -4348,9 +4353,9 @@ c_parser_initelt (c_parser *parser, struct obstack * braced_init_obstack)
 	{
 	  if (c_parser_next_token_is (parser, CPP_EQ))
 	    {
-	      if (!flag_isoc99)
-		pedwarn (des_loc, OPT_Wpedantic,
-			 "ISO C90 forbids specifying subobject to initialize");
+	      pedwarn_c90 (des_loc, OPT_Wpedantic,
+			   "ISO C90 forbids specifying subobject "
+			   "to initialize");
 	      c_parser_consume_token (parser);
 	    }
 	  else
@@ -4566,10 +4571,7 @@ c_parser_compound_statement_nostart (c_parser *parser)
 	  c_parser_declaration_or_fndef (parser, true, true, true, true,
 					 true, NULL, vNULL);
 	  if (last_stmt)
-	    pedwarn_c90 (loc,
-			 (pedantic && !flag_isoc99)
-			 ? OPT_Wpedantic
-			 : OPT_Wdeclaration_after_statement,
+	    pedwarn_c90 (loc, OPT_Wdeclaration_after_statement,
 			 "ISO C90 forbids mixed declarations and code");
 	  last_stmt = false;
 	}
@@ -4597,9 +4599,7 @@ c_parser_compound_statement_nostart (c_parser *parser)
 		 disable this diagnostic.  */
 	      restore_extension_diagnostics (ext);
 	      if (last_stmt)
-		pedwarn_c90 (loc, (pedantic && !flag_isoc99)
-			     ? OPT_Wpedantic
-			     : OPT_Wdeclaration_after_statement,
+		pedwarn_c90 (loc, OPT_Wdeclaration_after_statement,
 			     "ISO C90 forbids mixed declarations and code");
 	      last_stmt = false;
 	    }
@@ -6576,14 +6576,14 @@ c_parser_alignof_expression (c_parser *parser)
   /* A diagnostic is not required for the use of this identifier in
      the implementation namespace; only diagnose it for the C11
      spelling because of existing code using the other spellings.  */
-  if (!flag_isoc11 && is_c11_alignof)
+  if (is_c11_alignof)
     {
       if (flag_isoc99)
-	pedwarn (loc, OPT_Wpedantic, "ISO C99 does not support %qE",
-		 alignof_spelling);
+	pedwarn_c99 (loc, OPT_Wpedantic, "ISO C99 does not support %qE",
+		     alignof_spelling);
       else
-	pedwarn (loc, OPT_Wpedantic, "ISO C90 does not support %qE",
-		 alignof_spelling);
+	pedwarn_c99 (loc, OPT_Wpedantic, "ISO C90 does not support %qE",
+		     alignof_spelling);
     }
   c_parser_consume_token (parser);
   c_inhibit_evaluation_warnings++;
@@ -6742,15 +6742,12 @@ c_parser_generic_selection (c_parser *parser)
   gcc_assert (c_parser_next_token_is_keyword (parser, RID_GENERIC));
   generic_loc = c_parser_peek_token (parser)->location;
   c_parser_consume_token (parser);
-  if (!flag_isoc11)
-    {
-      if (flag_isoc99)
-	pedwarn (generic_loc, OPT_Wpedantic,
+  if (flag_isoc99)
+    pedwarn_c99 (generic_loc, OPT_Wpedantic,
 		 "ISO C99 does not support %<_Generic%>");
-      else
-	pedwarn (generic_loc, OPT_Wpedantic,
+  else
+    pedwarn_c99 (generic_loc, OPT_Wpedantic,
 		 "ISO C90 does not support %<_Generic%>");
-    }
 
   if (!c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     return error_expr;
@@ -7133,8 +7130,24 @@ c_parser_postfix_expression (c_parser *parser)
       switch (c_parser_peek_token (parser)->keyword)
 	{
 	case RID_FUNCTION_NAME:
+	  pedwarn (loc, OPT_Wpedantic,  "ISO C does not support "
+		   "%<__FUNCTION__%> predefined identifier");
+	  expr.value = fname_decl (loc,
+				   c_parser_peek_token (parser)->keyword,
+				   c_parser_peek_token (parser)->value);
+	  c_parser_consume_token (parser);
+	  break;
 	case RID_PRETTY_FUNCTION_NAME:
+	  pedwarn (loc, OPT_Wpedantic,  "ISO C does not support "
+		   "%<__PRETTY_FUNCTION__%> predefined identifier");
+	  expr.value = fname_decl (loc,
+				   c_parser_peek_token (parser)->keyword,
+				   c_parser_peek_token (parser)->value);
+	  c_parser_consume_token (parser);
+	  break;
 	case RID_C99_FUNCTION_NAME:
+	  pedwarn_c90 (loc, OPT_Wpedantic,  "ISO C90 does not support "
+		   "%<__func__%> predefined identifier");
 	  expr.value = fname_decl (loc,
 				   c_parser_peek_token (parser)->keyword,
 				   c_parser_peek_token (parser)->value);
@@ -7401,9 +7414,8 @@ c_parser_postfix_expression (c_parser *parser)
 		expr.value = error_mark_node;
 		break;
 	      }
-	    if (!flag_isoc99)
-	      pedwarn (loc, OPT_Wpedantic,
-		       "ISO C90 does not support complex types");
+	    pedwarn_c90 (loc, OPT_Wpedantic,
+			 "ISO C90 does not support complex types");
 	    expr.value = build2 (COMPLEX_EXPR,
 				 build_complex_type
 				   (TYPE_MAIN_VARIANT
@@ -7607,8 +7619,7 @@ c_parser_postfix_expression_after_paren_type (c_parser *parser,
       type = error_mark_node;
     }
 
-  if (!flag_isoc99)
-    pedwarn (start_loc, OPT_Wpedantic, "ISO C90 forbids compound literals");
+  pedwarn_c90 (start_loc, OPT_Wpedantic, "ISO C90 forbids compound literals");
   non_const = ((init.value && TREE_CODE (init.value) == CONSTRUCTOR)
 	       ? CONSTRUCTOR_NON_CONST (init.value)
 	       : init.original_code == C_MAYBE_CONST_EXPR);

@@ -368,7 +368,7 @@ widen_operand (rtx op, enum machine_mode mode, enum machine_mode oldmode,
      a promoted object differs from our extension.  */
   if (! no_extend
       || (GET_CODE (op) == SUBREG && SUBREG_PROMOTED_VAR_P (op)
-	  && SUBREG_PROMOTED_UNSIGNED_P (op) == unsignedp))
+	  && SUBREG_CHECK_PROMOTED_SIGN (op, unsignedp)))
     return convert_modes (mode, oldmode, op, unsignedp);
 
   /* If MODE is no wider than a single word, we return a lowpart or paradoxical
@@ -3959,12 +3959,12 @@ emit_libcall_block_1 (rtx insns, rtx target, rtx result, rtx equiv,
 	  if (! data.must_stay)
 	    {
 	      if (PREV_INSN (insn))
-		NEXT_INSN (PREV_INSN (insn)) = next;
+		SET_NEXT_INSN (PREV_INSN (insn)) = next;
 	      else
 		insns = next;
 
 	      if (next)
-		PREV_INSN (next) = PREV_INSN (insn);
+		SET_PREV_INSN (next) = PREV_INSN (insn);
 
 	      add_insn (insn);
 	    }

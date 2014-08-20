@@ -41,8 +41,6 @@ along with GCC; see the file COPYING3.  If not see
 #define permissive_error_option(DC) ((DC)->opt_permissive)
 
 /* Prototypes.  */
-static char *build_message_string (const char *, ...) ATTRIBUTE_PRINTF_1;
-
 static void error_recursion (diagnostic_context *) ATTRIBUTE_NORETURN;
 
 static void diagnostic_action_after_output (diagnostic_context *,
@@ -59,7 +57,7 @@ diagnostic_context *global_dc = &global_diagnostic_context;
 
 /* Return a malloc'd string containing MSG formatted a la printf.  The
    caller is responsible for freeing the memory.  */
-static char *
+char *
 build_message_string (const char *msg, ...)
 {
   char *str;
@@ -270,6 +268,7 @@ adjust_line (const char *line, int line_width,
   int right_margin = 10;
   int column = *column_p;
 
+  gcc_checking_assert (line_width >= column);
   right_margin = MIN (line_width - column, right_margin);
   right_margin = max_width - right_margin;
   if (line_width >= max_width && column > right_margin)
@@ -302,7 +301,7 @@ diagnostic_show_locus (diagnostic_context * context,
   context->last_location = diagnostic->location;
   s = expand_location_to_spelling_point (diagnostic->location);
   line = location_get_source_line (s, &line_width);
-  if (line == NULL)
+  if (line == NULL || s.column > line_width)
     return;
 
   max_width = context->caret_max_width;
@@ -584,6 +583,15 @@ diagnostic_classify_diagnostic (diagnostic_context *context,
   if (where != UNKNOWN_LOCATION)
     {
       int i;
+
+      /* Record the command-line status, so we can reset it back on DK_POP. */
+      if (old_kind == DK_UNSPECIFIED)
+	{
+	  old_kind = context->option_enabled (option_index,
+					      context->option_state)
+	    ? DK_WARNING : DK_IGNORED;
+	  context->classify_diagnostic[option_index] = old_kind;
+	}
 
       for (i = context->n_classification_history - 1; i >= 0; i --)
 	if (context->classification_history[i].option == option_index)

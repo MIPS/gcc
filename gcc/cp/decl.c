@@ -55,7 +55,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "debug.h"
 #include "timevar.h"
-#include "pointer-set.h"
 #include "splay-tree.h"
 #include "plugin.h"
 #include "cgraph.h"
@@ -5156,10 +5155,6 @@ maybe_commonize_var (tree decl)
 	    }
 	}
     }
-  else if (DECL_LANG_SPECIFIC (decl) && DECL_COMDAT (decl))
-    /* Set it up again; we might have set DECL_INITIAL since the last
-       time.  */
-    comdat_linkage (decl);
 }
 
 /* Issue an error message if DECL is an uninitialized const variable.  */
@@ -9977,8 +9972,6 @@ grokdeclarator (const cp_declarator *declarator,
 	      }
 	    else if (friendp)
 	      {
-		if (initialized)
-		  error ("can%'t initialize friend function %qs", name);
 		if (virtualp)
 		  {
 		    /* Cannot be both friend and virtual.  */
@@ -13204,14 +13197,32 @@ build_enumerator (tree name, tree value, tree enumtype, location_t loc)
       /* Validate and default VALUE.  */
       if (value != NULL_TREE)
 	{
-	  value = cxx_constant_value (value);
-
-	  if (TREE_CODE (value) != INTEGER_CST
-	      || ! INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (value)))
+	  if (!ENUM_UNDERLYING_TYPE (enumtype))
 	    {
-	      error ("enumerator value for %qD is not an integer constant",
-		     name);
-	      value = NULL_TREE;
+	      tree tmp_value = build_expr_type_conversion (WANT_INT | WANT_ENUM,
+							   value, true);
+	      if (tmp_value)
+		value = tmp_value;
+	    }
+	  else if (! INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (value)))
+	    value = perform_implicit_conversion_flags
+	      (ENUM_UNDERLYING_TYPE (enumtype), value, tf_warning_or_error,
+	       LOOKUP_IMPLICIT | LOOKUP_NO_NARROWING);
+
+	  if (value == error_mark_node)
+	    value = NULL_TREE;
+
+	  if (value != NULL_TREE)
+	    {
+	      value = cxx_constant_value (value);
+
+	      if (TREE_CODE (value) != INTEGER_CST
+		  || ! INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (value)))
+		{
+		  error ("enumerator value for %qD is not an integer constant",
+			 name);
+		  value = NULL_TREE;
+		}
 	    }
 	}
 

@@ -670,7 +670,7 @@ unsigned_reg_p (rtx op)
     return true;
 
   if (GET_CODE (op) == SUBREG
-      && SUBREG_PROMOTED_UNSIGNED_P (op))
+      && SUBREG_PROMOTED_SIGN (op))
     return true;
 
   return false;
@@ -2778,7 +2778,7 @@ rtx_referenced_p (rtx x, rtx body)
    *LABELP and the jump table to *TABLEP.  LABELP and TABLEP may be NULL.  */
 
 bool
-tablejump_p (const_rtx insn, rtx *labelp, rtx *tablep)
+tablejump_p (const_rtx insn, rtx *labelp, rtx_jump_table_data **tablep)
 {
   rtx label, table;
 
@@ -2793,7 +2793,7 @@ tablejump_p (const_rtx insn, rtx *labelp, rtx *tablep)
       if (labelp)
 	*labelp = label;
       if (tablep)
-	*tablep = table;
+	*tablep = as_a <rtx_jump_table_data *> (table);
       return true;
     }
   return false;
@@ -3009,6 +3009,22 @@ for_each_rtx (rtx *x, rtx_function f, void *data)
     return 0;
 
   return for_each_rtx_1 (*x, i, f, data);
+}
+
+/* Like "for_each_rtx", but for calling on an rtx_insn **.  */
+
+int
+for_each_rtx_in_insn (rtx_insn **insn, rtx_function f, void *data)
+{
+  rtx insn_as_rtx = *insn;
+  int result;
+
+  result = for_each_rtx (&insn_as_rtx, f, data);
+
+  if (insn_as_rtx != *insn)
+    *insn = safe_as_a <rtx_insn *> (insn_as_rtx);
+
+  return result;
 }
 
 
@@ -3778,14 +3794,15 @@ bool
 label_is_jump_target_p (const_rtx label, const_rtx jump_insn)
 {
   rtx tmp = JUMP_LABEL (jump_insn);
+  rtx_jump_table_data *table;
 
   if (label == tmp)
     return true;
 
-  if (tablejump_p (jump_insn, NULL, &tmp))
+  if (tablejump_p (jump_insn, NULL, &table))
     {
-      rtvec vec = XVEC (PATTERN (tmp),
-			GET_CODE (PATTERN (tmp)) == ADDR_DIFF_VEC);
+      rtvec vec = XVEC (PATTERN (table),
+			GET_CODE (PATTERN (table)) == ADDR_DIFF_VEC);
       int i, veclen = GET_NUM_ELEM (vec);
 
       for (i = 0; i < veclen; ++i)
@@ -4309,7 +4326,7 @@ nonzero_bits1 (const_rtx x, enum machine_mode mode, const_rtx known_x,
 	 been zero-extended, we know that at least the high-order bits
 	 are zero, though others might be too.  */
 
-      if (SUBREG_PROMOTED_VAR_P (x) && SUBREG_PROMOTED_UNSIGNED_P (x) > 0)
+      if (SUBREG_PROMOTED_VAR_P (x) && SUBREG_PROMOTED_UNSIGNED_P (x))
 	nonzero = GET_MODE_MASK (GET_MODE (x))
 		  & cached_nonzero_bits (SUBREG_REG (x), GET_MODE (x),
 					 known_x, known_mode, known_ret);
@@ -4619,7 +4636,7 @@ num_sign_bit_copies1 (const_rtx x, enum machine_mode mode, const_rtx known_x,
 	 and we are looking at it in a wider mode, we know that at least the
 	 high-order bits are known to be sign bit copies.  */
 
-      if (SUBREG_PROMOTED_VAR_P (x) && ! SUBREG_PROMOTED_UNSIGNED_P (x))
+      if (SUBREG_PROMOTED_VAR_P (x) && SUBREG_PROMOTED_SIGNED_P (x))
 	{
 	  num0 = cached_num_sign_bit_copies (SUBREG_REG (x), mode,
 					     known_x, known_mode, known_ret);

@@ -52,7 +52,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "reload.h"
 #include "cgraph.h"
-#include "pointer-set.h"
 #include "hash-table.h"
 #include "vec.h"
 #include "basic-block.h"
@@ -2593,6 +2592,9 @@ ix86_target_string (HOST_WIDE_INT isa, int flags, const char *arch,
     { "-mavx512er",	OPTION_MASK_ISA_AVX512ER },
     { "-mavx512cd",	OPTION_MASK_ISA_AVX512CD },
     { "-mavx512pf",	OPTION_MASK_ISA_AVX512PF },
+    { "-mavx512dq",	OPTION_MASK_ISA_AVX512DQ },
+    { "-mavx512bw",	OPTION_MASK_ISA_AVX512BW },
+    { "-mavx512vl",	OPTION_MASK_ISA_AVX512VL },
     { "-msse4a",	OPTION_MASK_ISA_SSE4A },
     { "-msse4.2",	OPTION_MASK_ISA_SSE4_2 },
     { "-msse4.1",	OPTION_MASK_ISA_SSE4_1 },
@@ -3123,6 +3125,9 @@ ix86_option_override_internal (bool main_args_p,
 #define PTA_CLFLUSHOPT		(HOST_WIDE_INT_1 << 47)
 #define PTA_XSAVEC		(HOST_WIDE_INT_1 << 48)
 #define PTA_XSAVES		(HOST_WIDE_INT_1 << 49)
+#define PTA_AVX512DQ		(HOST_WIDE_INT_1 << 50)
+#define PTA_AVX512BW		(HOST_WIDE_INT_1 << 51)
+#define PTA_AVX512VL		(HOST_WIDE_INT_1 << 52)
 
 #define PTA_CORE2 \
   (PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3 | PTA_SSSE3 \
@@ -3690,6 +3695,15 @@ ix86_option_override_internal (bool main_args_p,
 	if (processor_alias_table[i].flags & PTA_XSAVES
 	    && !(opts->x_ix86_isa_flags_explicit & OPTION_MASK_ISA_XSAVES))
 	  opts->x_ix86_isa_flags |= OPTION_MASK_ISA_XSAVES;
+	if (processor_alias_table[i].flags & PTA_AVX512DQ
+	    && !(opts->x_ix86_isa_flags_explicit & OPTION_MASK_ISA_AVX512DQ))
+	  opts->x_ix86_isa_flags |= OPTION_MASK_ISA_AVX512DQ;
+	if (processor_alias_table[i].flags & PTA_AVX512BW
+	    && !(opts->x_ix86_isa_flags_explicit & OPTION_MASK_ISA_AVX512BW))
+	  opts->x_ix86_isa_flags |= OPTION_MASK_ISA_AVX512BW;
+	if (processor_alias_table[i].flags & PTA_AVX512VL
+	    && !(opts->x_ix86_isa_flags_explicit & OPTION_MASK_ISA_AVX512VL))
+	  opts->x_ix86_isa_flags |= OPTION_MASK_ISA_AVX512VL;
 	if (processor_alias_table[i].flags & (PTA_PREFETCH_SSE | PTA_SSE))
 	  x86_prefetch_sse = true;
 
@@ -4546,6 +4560,9 @@ ix86_valid_target_attribute_inner_p (tree args, char *p_strings[],
     IX86_ATTR_ISA ("avx512pf",	OPT_mavx512pf),
     IX86_ATTR_ISA ("avx512er",	OPT_mavx512er),
     IX86_ATTR_ISA ("avx512cd",	OPT_mavx512cd),
+    IX86_ATTR_ISA ("avx512dq",	OPT_mavx512dq),
+    IX86_ATTR_ISA ("avx512bw",	OPT_mavx512bw),
+    IX86_ATTR_ISA ("avx512vl",	OPT_mavx512vl),
     IX86_ATTR_ISA ("mmx",	OPT_mmmx),
     IX86_ATTR_ISA ("pclmul",	OPT_mpclmul),
     IX86_ATTR_ISA ("popcnt",	OPT_mpopcnt),
@@ -8980,19 +8997,24 @@ standard_sse_constant_opcode (rtx insn, rtx x)
       switch (get_attr_mode (insn))
 	{
 	case MODE_XI:
-	case MODE_V16SF:
 	  return "vpxord\t%g0, %g0, %g0";
+	case MODE_V16SF:
+	  return TARGET_AVX512DQ ? "vxorps\t%g0, %g0, %g0"
+				 : "vpxord\t%g0, %g0, %g0";
 	case MODE_V8DF:
-	  return "vpxorq\t%g0, %g0, %g0";
+	  return TARGET_AVX512DQ ? "vxorpd\t%g0, %g0, %g0"
+				 : "vpxorq\t%g0, %g0, %g0";
 	case MODE_TI:
-	  return "%vpxor\t%0, %d0";
+	  return TARGET_AVX512VL ? "vpxord\t%t0, %t0, %t0"
+				 : "%vpxor\t%0, %d0";
 	case MODE_V2DF:
 	  return "%vxorpd\t%0, %d0";
 	case MODE_V4SF:
 	  return "%vxorps\t%0, %d0";
 
 	case MODE_OI:
-	  return "vpxor\t%x0, %x0, %x0";
+	  return TARGET_AVX512VL ? "vpxord\t%x0, %x0, %x0"
+				 : "vpxor\t%x0, %x0, %x0";
 	case MODE_V4DF:
 	  return "vxorpd\t%x0, %x0, %x0";
 	case MODE_V8SF:
@@ -9003,7 +9025,8 @@ standard_sse_constant_opcode (rtx insn, rtx x)
 	}
 
     case 2:
-      if (get_attr_mode (insn) == MODE_XI
+      if (TARGET_AVX512VL
+	  || get_attr_mode (insn) == MODE_XI
 	  || get_attr_mode (insn) == MODE_V8DF
 	  || get_attr_mode (insn) == MODE_V16SF)
 	return "vpternlogd\t{$0xFF, %g0, %g0, %g0|%g0, %g0, %g0, 0xFF}";
@@ -14678,7 +14701,7 @@ print_reg (rtx x, int code, FILE *file)
     case 8:
     case 4:
     case 12:
-      if (! ANY_FP_REG_P (x))
+      if (! ANY_FP_REG_P (x) && ! ANY_MASK_REG_P (x))
 	putc (code == 8 && TARGET_64BIT ? 'r' : 'e', file);
       /* FALLTHRU */
     case 16:
@@ -28098,6 +28121,12 @@ enum ix86_builtins
   IX86_BUILTIN_GATHERDIV8SI,
 
   /* AVX512F */
+  IX86_BUILTIN_SI512_SI256,
+  IX86_BUILTIN_PD512_PD256,
+  IX86_BUILTIN_PS512_PS256,
+  IX86_BUILTIN_SI512_SI,
+  IX86_BUILTIN_PD512_PD,
+  IX86_BUILTIN_PS512_PS,
   IX86_BUILTIN_ADDPD512,
   IX86_BUILTIN_ADDPS512,
   IX86_BUILTIN_ADDSD_ROUND,
@@ -29995,6 +30024,12 @@ static const struct builtin_description bdesc_args[] =
   { OPTION_MASK_ISA_BMI2, CODE_FOR_bmi2_pext_di3, "__builtin_ia32_pext_di", IX86_BUILTIN_PEXT64, UNKNOWN, (int) UINT64_FTYPE_UINT64_UINT64 },
 
   /* AVX512F */
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_si512_256si, "__builtin_ia32_si512_256si", IX86_BUILTIN_SI512_SI256, UNKNOWN, (int) V16SI_FTYPE_V8SI },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_ps512_256ps, "__builtin_ia32_ps512_256ps", IX86_BUILTIN_PS512_PS256, UNKNOWN, (int) V16SF_FTYPE_V8SF },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_pd512_256pd, "__builtin_ia32_pd512_256pd", IX86_BUILTIN_PD512_PD256, UNKNOWN, (int) V8DF_FTYPE_V4DF },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_si512_si, "__builtin_ia32_si512_si", IX86_BUILTIN_SI512_SI, UNKNOWN, (int) V16SI_FTYPE_V4SI },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_ps512_ps, "__builtin_ia32_ps512_ps", IX86_BUILTIN_PS512_PS, UNKNOWN, (int) V16SF_FTYPE_V4SF },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_pd512_pd, "__builtin_ia32_pd512_pd", IX86_BUILTIN_PD512_PD, UNKNOWN, (int) V8DF_FTYPE_V2DF },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_alignv16si_mask, "__builtin_ia32_alignd512_mask", IX86_BUILTIN_ALIGND512, UNKNOWN, (int) V16SI_FTYPE_V16SI_V16SI_INT_V16SI_HI },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_alignv8di_mask, "__builtin_ia32_alignq512_mask", IX86_BUILTIN_ALIGNQ512, UNKNOWN, (int) V8DI_FTYPE_V8DI_V8DI_INT_V8DI_QI },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_blendmv16si, "__builtin_ia32_blendmd_512_mask", IX86_BUILTIN_BLENDMD512, UNKNOWN, (int) V16SI_FTYPE_V16SI_V16SI_HI },
@@ -30013,7 +30048,7 @@ static const struct builtin_description bdesc_args[] =
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_compressv16sf_mask, "__builtin_ia32_compresssf512_mask", IX86_BUILTIN_COMPRESSPS512, UNKNOWN, (int) V16SF_FTYPE_V16SF_V16SF_HI },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_floatv8siv8df2_mask, "__builtin_ia32_cvtdq2pd512_mask", IX86_BUILTIN_CVTDQ2PD512, UNKNOWN, (int) V8DF_FTYPE_V8SI_V8DF_QI },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_vcvtps2ph512_mask,  "__builtin_ia32_vcvtps2ph512_mask", IX86_BUILTIN_CVTPS2PH512, UNKNOWN, (int) V16HI_FTYPE_V16SF_INT_V16HI_HI },
-  { OPTION_MASK_ISA_AVX512F, CODE_FOR_ufloatv8siv8df_mask, "__builtin_ia32_cvtudq2pd512_mask", IX86_BUILTIN_CVTUDQ2PD512, UNKNOWN, (int) V8DF_FTYPE_V8SI_V8DF_QI },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_ufloatv8siv8df2_mask, "__builtin_ia32_cvtudq2pd512_mask", IX86_BUILTIN_CVTUDQ2PD512, UNKNOWN, (int) V8DF_FTYPE_V8SI_V8DF_QI },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_cvtusi2sd32, "__builtin_ia32_cvtusi2sd32", IX86_BUILTIN_CVTUSI2SD32, UNKNOWN, (int) V2DF_FTYPE_V2DF_UINT },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_expandv8df_mask, "__builtin_ia32_expanddf512_mask", IX86_BUILTIN_EXPANDPD512, UNKNOWN, (int) V8DF_FTYPE_V8DF_V8DF_QI },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_expandv8df_maskz, "__builtin_ia32_expanddf512_maskz", IX86_BUILTIN_EXPANDPD512Z, UNKNOWN, (int) V8DF_FTYPE_V8DF_V8DF_QI },
@@ -33632,7 +33667,10 @@ ix86_expand_args_builtin (const struct builtin_description *d,
     case V16SI_FTYPE_V16SI:
     case V16SI_FTYPE_INT:
     case V16SF_FTYPE_FLOAT:
+    case V16SF_FTYPE_V8SF:
+    case V16SI_FTYPE_V8SI:
     case V16SF_FTYPE_V4SF:
+    case V16SI_FTYPE_V4SI:
     case V16SF_FTYPE_V16SF:
     case V8HI_FTYPE_V8DI:
     case V8UHI_FTYPE_V8UHI:
@@ -33645,6 +33683,7 @@ ix86_expand_args_builtin (const struct builtin_description *d,
     case V8DI_FTYPE_V8DI:
     case V8DF_FTYPE_DOUBLE:
     case V8DF_FTYPE_V4DF:
+    case V8DF_FTYPE_V2DF:
     case V8DF_FTYPE_V8DF:
     case V8DF_FTYPE_V8SI:
       nargs = 1;
@@ -34699,6 +34738,14 @@ ix86_expand_special_args_builtin (const struct builtin_description *d,
 	case CODE_FOR_avx512f_storev16si_mask:
 	case CODE_FOR_avx512f_storev8df_mask:
 	case CODE_FOR_avx512f_storev8di_mask:
+	case CODE_FOR_avx512vl_storev8sf_mask:
+	case CODE_FOR_avx512vl_storev8si_mask:
+	case CODE_FOR_avx512vl_storev4df_mask:
+	case CODE_FOR_avx512vl_storev4di_mask:
+	case CODE_FOR_avx512vl_storev4sf_mask:
+	case CODE_FOR_avx512vl_storev4si_mask:
+	case CODE_FOR_avx512vl_storev2df_mask:
+	case CODE_FOR_avx512vl_storev2di_mask:
 	  aligned_mem = true;
 	  break;
 	default:
@@ -34742,6 +34789,20 @@ ix86_expand_special_args_builtin (const struct builtin_description *d,
 	case CODE_FOR_avx512f_loadv16si_mask:
 	case CODE_FOR_avx512f_loadv8df_mask:
 	case CODE_FOR_avx512f_loadv8di_mask:
+	case CODE_FOR_avx512vl_loadv8sf_mask:
+	case CODE_FOR_avx512vl_loadv8si_mask:
+	case CODE_FOR_avx512vl_loadv4df_mask:
+	case CODE_FOR_avx512vl_loadv4di_mask:
+	case CODE_FOR_avx512vl_loadv4sf_mask:
+	case CODE_FOR_avx512vl_loadv4si_mask:
+	case CODE_FOR_avx512vl_loadv2df_mask:
+	case CODE_FOR_avx512vl_loadv2di_mask:
+	case CODE_FOR_avx512bw_loadv64qi_mask:
+	case CODE_FOR_avx512vl_loadv32qi_mask:
+	case CODE_FOR_avx512vl_loadv16qi_mask:
+	case CODE_FOR_avx512bw_loadv32hi_mask:
+	case CODE_FOR_avx512vl_loadv16hi_mask:
+	case CODE_FOR_avx512vl_loadv8hi_mask:
 	  aligned_mem = true;
 	  break;
 	default:
@@ -37370,6 +37431,11 @@ inline_secondary_memory_needed (enum reg_class class1, enum reg_class class2,
   if (FLOAT_CLASS_P (class1) != FLOAT_CLASS_P (class2))
     return true;
 
+  /* Between mask and general, we have moves no larger than word size.  */
+  if ((MAYBE_MASK_CLASS_P (class1) != MAYBE_MASK_CLASS_P (class2))
+      && (GET_MODE_SIZE (mode) > UNITS_PER_WORD))
+  return true;
+
   /* ??? This is a lie.  We do have moves between mmx/general, and for
      mmx/sse2.  But by saying we need secondary memory we discourage the
      register allocator from using the mmx registers unless needed.  */
@@ -37675,7 +37741,8 @@ ix86_hard_regno_mode_ok (int regno, enum machine_mode mode)
   if (STACK_REGNO_P (regno))
     return VALID_FP_MODE_P (mode);
   if (MASK_REGNO_P (regno))
-    return VALID_MASK_REG_MODE (mode);
+    return (VALID_MASK_REG_MODE (mode)
+	    || (TARGET_AVX512BW && VALID_MASK_AVX512BW_MODE (mode)));
   if (SSE_REGNO_P (regno))
     {
       /* We implement the move patterns for all vector modes into and
@@ -37690,6 +37757,15 @@ ix86_hard_regno_mode_ok (int regno, enum machine_mode mode)
 	  && (mode == XImode
 	      || VALID_AVX512F_REG_MODE (mode)
 	      || VALID_AVX512F_SCALAR_MODE (mode)))
+	return true;
+
+      /* TODO check for QI/HI scalars.  */
+      /* AVX512VL allows sse regs16+ for 128/256 bit modes.  */
+      if (TARGET_AVX512VL
+	  && (mode == OImode
+	      || mode == TImode
+	      || VALID_AVX256_REG_MODE (mode)
+	      || VALID_AVX512VL_128_REG_MODE (mode)))
 	return true;
 
       /* xmm16-xmm31 are only available for AVX-512.  */
@@ -46436,9 +46512,11 @@ ix86_preferred_simd_mode (enum machine_mode mode)
   switch (mode)
     {
     case QImode:
-      return (TARGET_AVX && !TARGET_PREFER_AVX128) ? V32QImode : V16QImode;
+      return TARGET_AVX512BW ? V64QImode :
+       (TARGET_AVX && !TARGET_PREFER_AVX128) ? V32QImode : V16QImode;
     case HImode:
-      return (TARGET_AVX && !TARGET_PREFER_AVX128) ? V16HImode : V8HImode;
+      return TARGET_AVX512BW ? V32HImode :
+       (TARGET_AVX && !TARGET_PREFER_AVX128) ? V16HImode : V8HImode;
     case SImode:
       return TARGET_AVX512F ? V16SImode :
 	(TARGET_AVX && !TARGET_PREFER_AVX128) ? V8SImode : V4SImode;
