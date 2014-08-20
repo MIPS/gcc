@@ -7,10 +7,9 @@
        to use by using swap_tree_comparison.  Here we manage
        to use only two patterns by swapping the operands instead
        of changing the comparison code.  */
-    (if (TYPE_OVERFLOW_UNDEFINED (TREE_TYPE (@0))
-         && tree_int_cst_sgn (@1) > 0)
-     (op @0 @2))
-    (if (TYPE_OVERFLOW_UNDEFINED (TREE_TYPE (@0))
-         && tree_int_cst_sgn (@1) < 0)
-     (op @2 @0))))
+    (if (TYPE_OVERFLOW_UNDEFINED (TREE_TYPE (@0)))
+     (if (tree_int_cst_sgn (@1) > 0)
+      (op @0 @2))
+     (if (tree_int_cst_sgn (@1) < 0)
+      (op @2 @0)))))
 

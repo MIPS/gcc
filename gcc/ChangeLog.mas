@@ -1,5 +1,11 @@
 2014-08-20  Richard Biener  <rguenther@suse.de>
 
+	* genmatch.c (copy_reverse): New function.
+	(parse_simplify): Support nested inner ifs.
+	* match-comparison.pd: Use nested inner ifs.
+
+2014-08-20  Richard Biener  <rguenther@suse.de>
+
 	* match-and-simplify.texi: Fix errors during pdf build.
 
 2014-08-20  Richard Biener  <rguenther@suse.de>

@@ -2223,9 +2223,23 @@ parse_op (cpp_reader *r)
   return op;
 }
 
+/* Return a reversed copy of V.  */
+
+static vec<operand *>
+copy_reverse (vec<operand *> v)
+{
+  vec<operand *> c = vNULL;
+  for (int i = v.length ()-1; i >= 0; --i)
+    c.safe_push (v[i]);
+  return c;
+}
+
 /* Parse
-     (simplify "<ident>"
-        <op> <op>)  */
+     'simplify' [ <ident> ] <expr> <result-op>
+   with
+     <result-op> = <op> | <cond-result>
+     <cond-result> = '(' 'if' '(' <c-expr> ')' <result-op> ')'
+   and fill SIMPLIFIERS with the results.  */
 
 static void
 parse_simplify (cpp_reader *r, source_location match_location,
@@ -2249,42 +2263,61 @@ parse_simplify (cpp_reader *r, source_location match_location,
 
   token = peek (r);
 
-  operand *result = NULL;
-  source_location result_loc;
-  while (!result
-	 && token->type == CPP_OPEN_PAREN)
+  auto_vec<operand *> ifexprs;
+  while (1)
     {
-      eat_token (r, CPP_OPEN_PAREN);
-      if (peek_ident (r, "if"))
+      if (token->type == CPP_OPEN_PAREN)
 	{
-	  vec<operand *> ifexprs = vNULL;
-	  eat_ident (r, "if");
-	  ifexprs.safe_push (parse_c_expr (r, CPP_OPEN_PAREN));
-	  /* ???  Support nested (if ...) here.  */
-	  token = peek (r);
-	  simplifiers.safe_push
-	      (new simplify (id, match, match_location, parse_op (r),
-			     token->src_loc, ifexprs));
+	  eat_token (r, CPP_OPEN_PAREN);
+	  if (peek_ident (r, "if"))
+	    {
+	      eat_ident (r, "if");
+	      ifexprs.safe_push (parse_c_expr (r, CPP_OPEN_PAREN));
+	    }
+	  else
+	    {
+	      simplifiers.safe_push
+		  (new simplify (id, match, match_location, parse_expr (r),
+				 token->src_loc, copy_reverse (ifexprs)));
+	      eat_token (r, CPP_CLOSE_PAREN);
+	      /* A "default" result closes the enclosing scope.  */
+	      if (ifexprs.length () > 0)
+		{
+		  eat_token (r, CPP_CLOSE_PAREN);
+		  ifexprs.pop ();
+		}
+	      else
+		return;
+	    }
+	}
+      else if (token->type == CPP_CLOSE_PAREN)
+	{
+	  /* Close a scope if requested.  */
+	  if (ifexprs.length () > 0)
+	    {
+	      eat_token (r, CPP_CLOSE_PAREN);
+	      ifexprs.pop ();
+	      token = peek (r);
+	    }
+	  else
+	    return;
 	}
       else
 	{
-	  result_loc = token->src_loc;
-	  result = parse_expr (r);
+	  simplifiers.safe_push
+	      (new simplify (id, match, match_location, parse_op (r),
+			     token->src_loc, copy_reverse (ifexprs)));
+	  /* A "default" result closes the enclosing scope.  */
+	  if (ifexprs.length () > 0)
+	    {
+	      eat_token (r, CPP_CLOSE_PAREN);
+	      ifexprs.pop ();
+	    }
+	  else
+	    return;
 	}
-      eat_token (r, CPP_CLOSE_PAREN);
       token = peek (r);
     }
-
-  if (!result
-      && token->type != CPP_CLOSE_PAREN)
-    {
-      result_loc = token->src_loc;
-      result = parse_op (r);
-    }
-
-  if (result)
-    simplifiers.safe_push
-	(new simplify (id, match, match_location, result, result_loc));
 }
 
 void parse_pattern (cpp_reader *, vec<simplify *>&);
