@@ -6259,6 +6259,16 @@ value_dependent_init_p (tree init)
   return false;
 }
 
+// Returns true if a DECL is VAR_DECL with the concept specifier. Note
+// that not all variables are decl-lang-specific.
+static inline bool
+is_concept_var (tree decl) 
+{
+  return VAR_P (decl) 
+         && DECL_LANG_SPECIFIC (decl)
+         && DECL_DECLARED_CONCEPT_P (decl);
+}
+
 /* Finish processing of a declaration;
    install its line number and initial value.
    If the length of an array type is not known before,
@@ -6435,6 +6445,8 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	    init = NULL_TREE;
 	  release_tree_vector (cleanups);
 	}
+      else if (!init && is_concept_var (decl))
+        error ("variable concept has no initializer");
       else if (!DECL_PRETTY_FUNCTION_P (decl))
 	{
 	  /* Deduce array size even if the initializer is dependent.  */
@@ -8264,9 +8276,17 @@ grokvardecl (tree type,
   else
     DECL_INTERFACE_KNOWN (decl) = 1;
 
-  // Mark the variable as a concept.
+  // Check that the variable can be safely declared as a concept.
   if (conceptp)
-    DECL_DECLARED_CONCEPT_P (decl) = true;
+    {
+      if (!processing_template_decl) 
+        {
+          error ("a non-template variable cannot be %<concept%>");
+          return NULL_TREE;
+        }
+      else
+        DECL_DECLARED_CONCEPT_P (decl) = true;
+    }
 
   // Handle explicit specializations and instantiations of variable templates.
   if (orig_declarator)

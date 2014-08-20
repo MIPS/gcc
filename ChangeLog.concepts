@@ -1,3 +1,12 @@
+2014-08-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Additional declaration restrictions on variable concepts.
+	* gcc/cp/decl.c (is_concept_var): New.
+	(cp_finish_decl): Check for uninitialized variable
+	concepts.
+	(grokvardecl): Don't set the concept flag for non-template variables.
+	* g++.dg/concepts/decl-diagnose.C: Add tests.
+
 2014-08-19  Ville Voutilainen  <ville.voutilainen@gmail.com>
 
 	Ban static member function concepts.

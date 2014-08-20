@@ -18,4 +18,12 @@ struct X
   concept X(); // { dg-error "a constructor cannot be 'concept'" }
 };
 
-// concept bool X2; // { dg-error "uninitialized" }
+concept bool X2; // { dg-error "non-template variable" }
+
+template<typename T>
+  concept bool X3; // { dg-error "has no initializer" }
+
+struct S {
+  template<typename T>
+    static concept bool C1 = true; // { dg-error "static data member" }
+};
