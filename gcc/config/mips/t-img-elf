@@ -17,20 +17,13 @@
 # <http://www.gnu.org/licenses/>.
 
 # The default build is mips32r6, hard-float big-endian.
-# A multilib for mips32r6+LE
-# A multilib for mips64r6
-# A multilib for mips64r6+LE
-# A multilib for mips32r6+LE+singlefloat+shortdouble
 
-MULTILIB_OPTIONS = mips64r6 EL msingle-float fshort-double
-MULTILIB_DIRNAMES = mips64r6 el sgl short
-MULTILIB_MATCHES = EL=mel EB=meb
+MULTILIB_OPTIONS = mips64r6/mips32r2/mips64r2 mmicromips EL mfp64 mnan=2008
+MULTILIB_DIRNAMES = mips64r6 mips32r2 mips64r2 micromips el fp64 nan2008
+MULTILIB_MATCHES = EL=mel EB=meb mips32r2=mips32r5 mips64r2=mips64r3 mips64r2=mips64r5
 
-# Don't build 64r6 with single-float
-MULTILIB_EXCEPTIONS += mips64r6/*msingle-float*
-MULTILIB_EXCEPTIONS += mips64r6/*fshort-double*
+MULTILIB_EXCEPTIONS += *mips64r6/mmicromips*
+MULTILIB_EXCEPTIONS += mmicromips*
 
-MULTILIB_EXCEPTIONS += msingle-float*
-MULTILIB_EXCEPTIONS += *msingle-float
-MULTILIB_EXCEPTIONS += fshort-double
-MULTILIB_EXCEPTIONS += EL/fshort-double
+MULTILIB_EXCEPTIONS += *mips32r6/*mfp64*
+MULTILIB_EXCEPTIONS += *mips64/*mfp64*
