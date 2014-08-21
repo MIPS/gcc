@@ -73,6 +73,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-nested.h"
 #include "tree-eh.h"
 #include "lto-section-names.h"
+#include "gimple-pretty-print.h"
 
 /* Lowering of OpenMP parallel and workshare constructs proceeds in two
    phases.  The first phase scans the function looking for OMP statements
@@ -13872,6 +13873,39 @@ loop_in_oacc_kernels_region_p (struct loop *loop, basic_block *region_entry,
 	    *region_exit = end_region;
 	  return true;
 	}
+    }
+
+  return false;
+}
+
+/* Return true if STMT is omp-lowered code.  */
+
+bool
+gimple_stmt_omp_lowering_p (gimple stmt)
+{
+  tree use;
+  ssa_op_iter iter;
+  const char *s;
+
+  FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_USE|SSA_OP_DEF)
+    {
+      if (SSA_NAME_IDENTIFIER (use) == NULL_TREE)
+	continue;
+      s = IDENTIFIER_POINTER (SSA_NAME_IDENTIFIER (use));
+
+      if (!(strcmp (".omp_data_i", s) == 0
+	    || strcmp (".omp_data_arr", s) == 0
+	    || strcmp (".omp_data_sizes", s) == 0
+	    || strcmp (".omp_data_kinds", s) == 0))
+	continue;
+
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  fprintf (dump_file, "Detected omp lowering code\n");
+	  print_gimple_stmt (dump_file, stmt, 0, dump_flags);
+	}
+
+      return true;
     }
 
   return false;

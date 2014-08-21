@@ -155,6 +155,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "wide-int-print.h"
 #include "builtins.h"
+#include "omp-low.h"
 
 
 /* Possible lattice values.  */
@@ -779,6 +780,9 @@ surely_varying_stmt_p (gimple stmt)
       && gimple_code (stmt) != GIMPLE_COND
       && gimple_code (stmt) != GIMPLE_SWITCH
       && gimple_code (stmt) != GIMPLE_CALL)
+    return true;
+
+  if (gimple_stmt_omp_lowering_p (stmt))
     return true;
 
   return false;

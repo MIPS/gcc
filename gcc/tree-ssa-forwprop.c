@@ -54,6 +54,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-propagate.h"
 #include "tree-ssa-dom.h"
 #include "builtins.h"
+#include "omp-low.h"
 
 /* This pass propagates the RHS of assignment statements into use
    sites of the LHS of the assignment.  It's basically a specialized
@@ -3638,7 +3639,8 @@ pass_forwprop::execute (function *fun)
 	  tree lhs, rhs;
 	  enum tree_code code;
 
-	  if (!is_gimple_assign (stmt))
+	  if (!is_gimple_assign (stmt)
+	      || gimple_stmt_omp_lowering_p (stmt))
 	    {
 	      gsi_next (&gsi);
 	      continue;
