@@ -624,6 +624,13 @@ extract_omp_for_data (gimple for_stmt, struct omp_for_data *fd,
       fd->loop.cond_code = LT_EXPR;
     }
 
+/* Atm expand_omp_for_static_chunk asserts, so use the nochunk variant by disabling
+   following snippet.
+   FIXME: This is the only hard-coded piece left of the patch series for oacc
+   kernels support. So, if this snippet is enabled, the patch series should show
+   no regressions.  If this snippet is disabled, the tests in the patch series
+   should pass.  */
+#if 0
   //TODO
   /* For OpenACC loops, force a chunk size of one, as this avoids the default
     scheduling where several subsequent iterations are being executed by the
@@ -633,6 +640,7 @@ extract_omp_for_data (gimple for_stmt, struct omp_for_data *fd,
       gcc_assert (fd->chunk_size == NULL_TREE);
       fd->chunk_size = build_int_cst (TREE_TYPE (fd->loop.v), 1);
     }
+#endif
 }
 
 
@@ -9151,6 +9159,24 @@ expand_omp (struct omp_region *region)
       switch (region->type)
 	{
 	case GIMPLE_OACC_KERNELS:
+	  /* KLUDGE: Add uses of omp_data_sizes and omp_data_types, to get the
+	     arrays through pass_build_ssa without being removed.  The uses are
+	     removed again in the parloops pass.  */
+	  {
+	    gimple_stmt_iterator gsi = gsi_last_bb (region->entry);
+	    gimple stmt = gsi_stmt (gsi);
+	    tree omp_data_sizes  = TREE_VEC_ELT (gimple_oacc_kernels_data_arg (stmt), 1);
+	    tree omp_data_types  = TREE_VEC_ELT (gimple_oacc_kernels_data_arg (stmt), 2);
+
+	    tree t = builtin_decl_explicit (BUILT_IN_USE);
+	    t = build_call_expr (t, 1, omp_data_sizes);
+	    force_gimple_operand_gsi (&gsi, t, true, NULL_TREE, true, GSI_SAME_STMT);
+
+	    t = builtin_decl_explicit (BUILT_IN_USE);
+	    t = build_call_expr (t, 1, omp_data_types);
+	    force_gimple_operand_gsi (&gsi, t, true, NULL_TREE, true, GSI_SAME_STMT);
+	  }
+	  break;
 	case GIMPLE_OACC_PARALLEL:
 	  expand_oacc_offload (region);
 	  break;

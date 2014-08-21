@@ -1600,7 +1600,8 @@ transform_to_exit_first_loop (struct loop *loop,
 
 static basic_block
 create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
-		      tree new_data, unsigned n_threads, location_t loc)
+		      tree new_data, unsigned n_threads, location_t loc,
+		      basic_block region_entry, bool oacc_kernels_p)
 {
   gimple_stmt_iterator gsi;
   basic_block bb, paral_bb, for_bb, ex_bb;
@@ -1612,15 +1613,42 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
   /* Prepare the GIMPLE_OMP_PARALLEL statement.  */
   bb = loop_preheader_edge (loop)->src;
   paral_bb = single_pred (bb);
-  gsi = gsi_last_bb (paral_bb);
+  if (!oacc_kernels_p)  
+    gsi = gsi_last_bb (paral_bb);
+  else
+    /* Make sure the oacc parallel is inserted on top of the oacc kernels
+       region.  */
+    gsi = gsi_last_bb (region_entry);
 
-  t = build_omp_clause (loc, OMP_CLAUSE_NUM_THREADS);
-  OMP_CLAUSE_NUM_THREADS_EXPR (t)
-    = build_int_cst (integer_type_node, n_threads);
-  stmt = gimple_build_omp_parallel (NULL, t, loop_fn, data);
-  gimple_set_location (stmt, loc);
+  if (!oacc_kernels_p)
+    {
+      t = build_omp_clause (loc, OMP_CLAUSE_NUM_THREADS);
+      OMP_CLAUSE_NUM_THREADS_EXPR (t)
+	= build_int_cst (integer_type_node, n_threads);
+      stmt = gimple_build_omp_parallel (NULL, t, loop_fn, data);
+      gimple_set_location (stmt, loc);
 
-  gsi_insert_after (&gsi, stmt, GSI_NEW_STMT);
+      gsi_insert_after (&gsi, stmt, GSI_NEW_STMT);
+    }
+  else
+    {
+      /* Create oacc parallel pragma based on oacc kernels pragma.  */
+      gimple kernels = last_stmt (region_entry);
+      stmt = gimple_build_oacc_parallel (NULL,
+					 gimple_oacc_kernels_clauses (kernels));
+      gimple_oacc_parallel_set_child_fn (stmt, gimple_oacc_kernels_child_fn (kernels));
+      gimple_oacc_parallel_set_data_arg (stmt, gimple_oacc_kernels_data_arg (kernels));
+
+      gimple_set_location (stmt, loc);
+
+      /* Insert oacc parallel pragma after the oacc kernels pragma.  */
+      {
+	gimple_stmt_iterator gsi2;
+	gsi2 = gsi;
+	gsi_insert_after (&gsi, stmt, GSI_NEW_STMT);
+	gsi_remove (&gsi2, true);
+      }
+    }
 
   /* Initialize NEW_DATA.  */
   if (data)
@@ -1636,12 +1664,18 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
       gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
     }
 
-  /* Emit GIMPLE_OMP_RETURN for GIMPLE_OMP_PARALLEL.  */
-  bb = split_loop_exit_edge (single_dom_exit (loop));
-  gsi = gsi_last_bb (bb);
-  stmt = gimple_build_omp_return (false);
-  gimple_set_location (stmt, loc);
-  gsi_insert_after (&gsi, stmt, GSI_NEW_STMT);
+  /* Skip insertion of OMP_RETURN for oacc_kernels_p.  We've already generated
+     one when lowering the oacc kernels directive in
+     pass_lower_omp/lower_omp(). */
+  if (!oacc_kernels_p)
+    {
+      /* Emit GIMPLE_OMP_RETURN for GIMPLE_OMP_PARALLEL.  */
+      bb = split_loop_exit_edge (single_dom_exit (loop));
+      gsi = gsi_last_bb (bb);
+      stmt = gimple_build_omp_return (false);
+      gimple_set_location (stmt, loc);
+      gsi_insert_after (&gsi, stmt, GSI_NEW_STMT);
+    }
 
   /* Extract data for GIMPLE_OMP_FOR.  */
   gcc_assert (loop->header == single_dom_exit (loop)->src);
@@ -1694,7 +1728,11 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
   t = build_omp_clause (loc, OMP_CLAUSE_SCHEDULE);
   OMP_CLAUSE_SCHEDULE_KIND (t) = OMP_CLAUSE_SCHEDULE_STATIC;
 
-  for_stmt = gimple_build_omp_for (NULL, GF_OMP_FOR_KIND_FOR, t, 1, NULL);
+  for_stmt = gimple_build_omp_for (NULL,
+				   (oacc_kernels_p
+				    ? GF_OMP_FOR_KIND_OACC_LOOP
+				    : GF_OMP_FOR_KIND_FOR),
+				   NULL_TREE, 1, NULL);
   gimple_set_location (for_stmt, loc);
   gimple_omp_for_set_index (for_stmt, 0, initvar);
   gimple_omp_for_set_initial (for_stmt, 0, cvar_init);
@@ -1725,7 +1763,7 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
   free_dominance_info (CDI_DOMINATORS);
   calculate_dominance_info (CDI_DOMINATORS);
 
-  return paral_bb;
+  return oacc_kernels_p ? region_entry : paral_bb;
 }
 
 /* Generates code to execute the iterations of LOOP in N_THREADS
@@ -1737,7 +1775,8 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
 static void
 gen_parallel_loop (struct loop *loop,
 		   reduction_info_table_type *reduction_list,
-		   unsigned n_threads, struct tree_niter_desc *niter)
+		   unsigned n_threads, struct tree_niter_desc *niter,
+		   basic_block region_entry, bool oacc_kernels_p)
 {
   tree many_iterations_cond, type, nit;
   tree arg_struct, new_arg_struct;
@@ -1869,11 +1908,21 @@ gen_parallel_loop (struct loop *loop,
   entry = loop_preheader_edge (loop);
   exit = single_dom_exit (loop);
 
-  eliminate_local_variables (entry, exit);
-  /* In the old loop, move all variables non-local to the loop to a structure
-     and back, and create separate decls for the variables used in loop.  */
-  separate_decls_in_region (entry, exit, reduction_list, &arg_struct,
-			    &new_arg_struct, &clsn_data);
+  /* This rewrites the body in terms of new variables.  This has already
+     been done for oacc_kernels_p in pass_lower_omp/lower_omp ().  */
+  if (!oacc_kernels_p)
+    {
+      eliminate_local_variables (entry, exit);
+      /* In the old loop, move all variables non-local to the loop to a structure
+	 and back, and create separate decls for the variables used in loop.  */
+      separate_decls_in_region (entry, exit, reduction_list, &arg_struct,
+				&new_arg_struct, &clsn_data);
+    }
+  else
+    {
+      arg_struct = NULL_TREE;
+      new_arg_struct = NULL_TREE;
+    }
 
   /* Create the parallel constructs.  */
   loc = UNKNOWN_LOCATION;
@@ -1881,7 +1930,8 @@ gen_parallel_loop (struct loop *loop,
   if (cond_stmt)
     loc = gimple_location (cond_stmt);
   parallel_head = create_parallel_loop (loop, create_loop_fn (loc), arg_struct,
-					new_arg_struct, n_threads, loc);
+					new_arg_struct, n_threads, loc,
+					region_entry, oacc_kernels_p);
   if (reduction_list->elements () > 0)
     create_call_for_reduction (loop, reduction_list, &clsn_data);
 
@@ -2128,7 +2178,7 @@ try_create_reduction_list (loop_p loop,
    otherwise.  */
 
 bool
-parallelize_loops (void)
+parallelize_loops (bool oacc_kernels_p)
 {
   unsigned n_threads = flag_tree_parallelize_loops;
   bool changed = false;
@@ -2137,6 +2187,7 @@ parallelize_loops (void)
   struct obstack parloop_obstack;
   HOST_WIDE_INT estimated;
   source_location loop_loc;
+  basic_block region_entry, region_exit;
 
   /* Do not parallelize loops in the functions created by parallelization.  */
   if (parallelized_function_p (cfun->decl))
@@ -2148,9 +2199,25 @@ parallelize_loops (void)
   reduction_info_table_type reduction_list (10);
   init_stmt_vec_info_vec ();
 
+  calculate_dominance_info (CDI_DOMINATORS);
+
   FOR_EACH_LOOP (loop, 0)
     {
       reduction_list.empty ();
+
+      if (oacc_kernels_p)
+	{
+	  if (!loop_in_oacc_kernels_region_p (loop, &region_entry, &region_exit))
+	    continue;
+	  else
+	    {
+	      if (dump_file && (dump_flags & TDF_DETAILS))
+		fprintf (dump_file,
+			 "Trying loop %d with header bb %d in oacc kernels region\n",
+			 loop->num, loop->header->index);
+	    }
+	}
+
       if (dump_file && (dump_flags & TDF_DETAILS))
       {
         fprintf (dump_file, "Trying loop %d as candidate\n",loop->num);
@@ -2220,8 +2287,21 @@ parallelize_loops (void)
 	  fprintf (dump_file, "\nloop at %s:%d: ",
 		   LOCATION_FILE (loop_loc), LOCATION_LINE (loop_loc));
       }
+
+      if (oacc_kernels_p)
+	{
+	  /* KLUDGE (see corresponding KLUDGE in expand_omp): Remove uses of
+	     omp_data_sizes and omp_data_types*/
+	  gimple_stmt_iterator gsi = gsi_last_bb (region_entry);
+	  gsi_prev (&gsi);
+	  gsi_remove (&gsi, true);
+	  gsi = gsi_last_bb (region_entry);
+	  gsi_prev (&gsi);
+	  gsi_remove (&gsi, true);
+	}
+
       gen_parallel_loop (loop, &reduction_list,
-			 n_threads, &niter_desc);
+			 n_threads, &niter_desc, region_entry, oacc_kernels_p);
     }
 
   free_stmt_vec_info_vec ();
@@ -2272,7 +2352,7 @@ pass_parallelize_loops::execute (function *fun)
   if (number_of_loops (fun) <= 1)
     return 0;
 
-  if (parallelize_loops ())
+  if (parallelize_loops (false))
     return TODO_cleanup_cfg | TODO_rebuild_alias;
   return 0;
 }
@@ -2285,5 +2365,52 @@ make_pass_parallelize_loops (gcc::context *ctxt)
   return new pass_parallelize_loops (ctxt);
 }
 
+
+namespace {
+
+const pass_data pass_data_parallelize_loops_oacc_kernels =
+{
+  GIMPLE_PASS, /* type */
+  "parloops_oacc_kernels", /* name */
+  OPTGROUP_LOOP, /* optinfo_flags */
+  TV_TREE_PARALLELIZE_LOOPS, /* tv_id */
+  ( PROP_cfg | PROP_ssa ), /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
+};
+
+class pass_parallelize_loops_oacc_kernels : public gimple_opt_pass
+{
+public:
+  pass_parallelize_loops_oacc_kernels (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_parallelize_loops_oacc_kernels, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  virtual bool gate (function *) { return flag_tree_parallelize_loops > 1; }
+  virtual unsigned int execute (function *);
+
+}; // class pass_parallelize_loops_oacc_kernels
+
+unsigned
+pass_parallelize_loops_oacc_kernels::execute (function *fun)
+{
+  if (number_of_loops (fun) <= 1)
+    return 0;
+
+  if (parallelize_loops (true))
+    return TODO_cleanup_cfg | TODO_rebuild_alias;
+  return 0;
+}
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_parallelize_loops_oacc_kernels (gcc::context *ctxt)
+{
+  return new pass_parallelize_loops_oacc_kernels (ctxt);
+}
 
 #include "gt-tree-parloops.h"
