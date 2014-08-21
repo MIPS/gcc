@@ -704,7 +704,8 @@ static void
 merge_blocks_move_successor_nojumps (basic_block a, basic_block b)
 {
   rtx barrier, real_b_end;
-  rtx label, table;
+  rtx label;
+  rtx_jump_table_data *table;
 
   /* If we are partitioning hot/cold basic blocks, we don't want to
      mess up unconditional or indirect jumps that cross between hot
@@ -726,7 +727,7 @@ merge_blocks_move_successor_nojumps (basic_block a, basic_block b)
   if (tablejump_p (BB_END (b), &label, &table)
       && prev_active_insn (label) == BB_END (b))
     {
-      BB_END (b) = table;
+      SET_BB_END (b) = table;
     }
 
   /* There had better have been a barrier there.  Delete it.  */
@@ -739,7 +740,7 @@ merge_blocks_move_successor_nojumps (basic_block a, basic_block b)
   reorder_insns_nobb (BB_HEAD (b), BB_END (b), BB_END (a));
 
   /* Restore the real end of b.  */
-  BB_END (b) = real_b_end;
+  SET_BB_END (b) = real_b_end;
 
   if (dump_file)
     fprintf (dump_file, "Moved block %d after %d and merged.\n",
@@ -1675,7 +1676,7 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
      Return true if they are identical.  */
     {
       rtx label1, label2;
-      rtx table1, table2;
+      rtx_jump_table_data *table1, *table2;
 
       if (tablejump_p (BB_END (bb1), &label1, &table1)
 	  && tablejump_p (BB_END (bb2), &label2, &table2)
@@ -1723,7 +1724,7 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
 		  rr.r1 = label1;
 		  rr.r2 = label2;
 		  rr.update_label_nuses = false;
-		  for_each_rtx (&BB_END (bb1), replace_label, &rr);
+		  for_each_rtx (&SET_BB_END (bb1), replace_label, &rr);
 
 		  match = (old_insns_match_p (mode, BB_END (bb1), BB_END (bb2))
 			   == dir_both);
@@ -1737,7 +1738,7 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
 		     from the instruction is deleted too.  */
 		  rr.r1 = label2;
 		  rr.r2 = label1;
-		  for_each_rtx (&BB_END (bb1), replace_label, &rr);
+		  for_each_rtx (&SET_BB_END (bb1), replace_label, &rr);
 
 		  return match;
 		}
@@ -1978,7 +1979,7 @@ try_crossjump_to_edge (int mode, edge e1, edge e2,
      so replace the references to TABLE1 by references to TABLE2.  */
     {
       rtx label1, label2;
-      rtx table1, table2;
+      rtx_jump_table_data *table1, *table2;
 
       if (tablejump_p (BB_END (osrc1), &label1, &table1)
 	  && tablejump_p (BB_END (osrc2), &label2, &table2)
@@ -2673,13 +2674,13 @@ try_optimize_cfg (int mode)
 				{
 				  if (BB_FOOTER (b))
 				    {
-				      BB_FOOTER (e->src) = BB_FOOTER (b);
-				      BB_FOOTER (b) = NULL;
+				      SET_BB_FOOTER (e->src) = BB_FOOTER (b);
+				      SET_BB_FOOTER (b) = NULL;
 				    }
 				  else
 				    {
 				      start_sequence ();
-				      BB_FOOTER (e->src) = emit_barrier ();
+				      SET_BB_FOOTER (e->src) = emit_barrier ();
 				      end_sequence ();
 				    }
 				}

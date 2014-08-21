@@ -287,13 +287,21 @@ Wbad-function-cast
 C ObjC Var(warn_bad_function_cast) Warning
 Warn about casting functions to incompatible types
 
+Wbool-compare
+C ObjC C++ ObjC++ Var(warn_bool_compare) Warning LangEnabledBy(C ObjC C++ ObjC++,Wall)
+Warn about boolean expression compared with an integer value different from true/false
+
 Wbuiltin-macro-redefined
 C ObjC C++ ObjC++ Warning
 Warn when a built-in preprocessor macro is undefined or redefined
 
 Wc90-c99-compat
-C ObjC Var(warn_c90_c99_compat) Warning
+C ObjC Var(warn_c90_c99_compat) Init(-1) Warning
 Warn about features not present in ISO C90, but present in ISO C99
+
+Wc99-c11-compat
+C ObjC Var(warn_c99_c11_compat) Init(-1) Warning
+Warn about features not present in ISO C99, but present in ISO C11
 
 Wc++-compat
 C ObjC Var(warn_cxx_compat) Warning
@@ -344,7 +352,7 @@ C++ ObjC++ Var(warn_ctor_dtor_privacy) Warning
 Warn when all constructors and destructors are private
 
 Wdeclaration-after-statement
-C ObjC Var(warn_declaration_after_statement) Warning
+C ObjC Var(warn_declaration_after_statement) Init(-1) Warning
 Warn when a declaration is found after a statement
 
 Wdelete-incomplete
@@ -830,8 +838,12 @@ C ObjC C++ ObjC++ Var(warn_unused_result) Init(1) Warning
 Warn if a caller of a function, marked with attribute warn_unused_result, does not use its return value
 
 Wvariadic-macros
-C ObjC C++ ObjC++ Var(cpp_warn_variadic_macros) Init(1) Warning
+C ObjC C++ ObjC++ CPP(warn_variadic_macros) Var(cpp_warn_variadic_macros) Warning LangEnabledBy(C ObjC C++ ObjC++,Wpedantic)
 Warn about using variadic macros
+
+Wvariadic-macros
+LangEnabledBy(C ObjC C++ ObjC++,Wtraditional)
+;
 
 Wvarargs
 C ObjC C++ ObjC++ Warning Var(warn_varargs) Init(1)

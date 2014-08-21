@@ -1631,7 +1631,7 @@ change_scope (rtx orig_insn, tree s1, tree s2)
   s = s1;
   while (s != com)
     {
-      rtx note = emit_note_before (NOTE_INSN_BLOCK_END, insn);
+      rtx_note *note = emit_note_before (NOTE_INSN_BLOCK_END, insn);
       NOTE_BLOCK (note) = s;
       s = BLOCK_SUPERCONTEXT (s);
     }
@@ -1653,7 +1653,8 @@ static void
 reemit_insn_block_notes (void)
 {
   tree cur_block = DECL_INITIAL (cfun->decl);
-  rtx insn, note;
+  rtx_insn *insn;
+  rtx_note *note;
 
   insn = get_insns ();
   for (; insn; insn = NEXT_INSN (insn))
@@ -1666,7 +1667,7 @@ reemit_insn_block_notes (void)
           for (tree s = cur_block; s != DECL_INITIAL (cfun->decl);
                s = BLOCK_SUPERCONTEXT (s))
             {
-              rtx note = emit_note_before (NOTE_INSN_BLOCK_END, insn);
+              rtx_note *note = emit_note_before (NOTE_INSN_BLOCK_END, insn);
               NOTE_BLOCK (note) = s;
               note = emit_note_after (NOTE_INSN_BLOCK_BEG, insn);
               NOTE_BLOCK (note) = s;
@@ -2856,12 +2857,12 @@ final_scan_insn (rtx insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 		   when generating a far jump in a delayed branch
 		   sequence.  */
 		note = NEXT_INSN (insn);
-		PREV_INSN (note) = prev;
-		NEXT_INSN (prev) = note;
-		NEXT_INSN (PREV_INSN (next)) = insn;
-		PREV_INSN (insn) = PREV_INSN (next);
-		NEXT_INSN (insn) = next;
-		PREV_INSN (next) = insn;
+		SET_PREV_INSN (note) = prev;
+		SET_NEXT_INSN (prev) = note;
+		SET_NEXT_INSN (PREV_INSN (next)) = insn;
+		SET_PREV_INSN (insn) = PREV_INSN (next);
+		SET_NEXT_INSN (insn) = next;
+		SET_PREV_INSN (next) = insn;
 	      }
 
 	    /* PEEPHOLE might have changed this.  */
@@ -4628,8 +4629,8 @@ rest_of_clean_state (void)
   for (insn = get_insns (); insn; insn = next)
     {
       next = NEXT_INSN (insn);
-      NEXT_INSN (insn) = NULL;
-      PREV_INSN (insn) = NULL;
+      SET_NEXT_INSN (insn) = NULL;
+      SET_PREV_INSN (insn) = NULL;
 
       if (final_output
 	  && (!NOTE_P (insn) ||

@@ -103,8 +103,8 @@ dk_to_ds (enum reg_note dk)
 void
 init_dep_1 (dep_t dep, rtx pro, rtx con, enum reg_note type, ds_t ds)
 {
-  DEP_PRO (dep) = pro;
-  DEP_CON (dep) = con;
+  SET_DEP_PRO (dep) = pro;
+  SET_DEP_CON (dep) = con;
   DEP_TYPE (dep) = type;
   DEP_STATUS (dep) = ds;
   DEP_COST (dep) = UNKNOWN_DEP_COST;
@@ -1416,7 +1416,7 @@ sd_copy_back_deps (rtx to, rtx from, bool resolved_p)
       dep_def _new_dep, *new_dep = &_new_dep;
 
       copy_dep (new_dep, dep);
-      DEP_CON (new_dep) = to;
+      SET_DEP_CON (new_dep) = to;
       sd_add_dep (new_dep, resolved_p);
     }
 }
@@ -4751,6 +4751,24 @@ find_inc (struct mem_inc_info *mii, bool backwards)
 			   "inc conflicts with store failure.\n");
 		goto next;
 	      }
+
+	  /* The inc instruction could have clobbers, make sure those
+	     registers are not used in mem insn.  */
+	  FOR_EACH_INSN_DEF (def, mii->inc_insn)
+	    if (!reg_overlap_mentioned_p (DF_REF_REG (def), mii->mem_reg0))
+	      {
+		df_ref use;
+		FOR_EACH_INSN_USE (use, mii->mem_insn)
+		  if (reg_overlap_mentioned_p (DF_REF_REG (def),
+					       DF_REF_REG (use)))
+		    {
+		      if (sched_verbose >= 5)
+			fprintf (sched_dump,
+				 "inc clobber used in store failure.\n");
+		      goto next;
+		    }
+	      }
+
 	  newaddr = mii->inc_input;
 	  if (mii->mem_index != NULL_RTX)
 	    newaddr = gen_rtx_PLUS (GET_MODE (newaddr), newaddr,
@@ -4895,6 +4913,26 @@ find_modifiable_mems (rtx head, rtx tail)
   if (success_in_block && sched_verbose >= 5)
     fprintf (sched_dump, "%d candidates for address modification found.\n",
 	     success_in_block);
+}
+
+rtx_insn *DEP_PRO (dep_t dep)
+{
+  return safe_as_a <rtx_insn *> (dep->pro);
+}
+
+rtx_insn *DEP_CON (dep_t dep)
+{
+  return safe_as_a <rtx_insn *> (dep->con);
+}
+
+rtx& SET_DEP_PRO (dep_t dep)
+{
+  return dep->pro;
+}
+
+rtx& SET_DEP_CON (dep_t dep)
+{
+  return dep->con;
 }
 
 #endif /* INSN_SCHEDULING */

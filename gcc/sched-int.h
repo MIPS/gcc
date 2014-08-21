@@ -250,8 +250,10 @@ struct _dep
 typedef struct _dep dep_def;
 typedef dep_def *dep_t;
 
-#define DEP_PRO(D) ((D)->pro)
-#define DEP_CON(D) ((D)->con)
+extern rtx_insn *DEP_PRO (dep_t dep);
+extern rtx_insn *DEP_CON (dep_t dep);
+extern rtx& SET_DEP_PRO (dep_t dep);
+extern rtx& SET_DEP_CON (dep_t dep);
 #define DEP_TYPE(D) ((D)->type)
 #define DEP_STATUS(D) ((D)->status)
 #define DEP_COST(D) ((D)->cost)
@@ -1366,7 +1368,7 @@ extern void sched_change_pattern (rtx, rtx);
 extern int sched_speculate_insn (rtx, ds_t, rtx *);
 extern void unlink_bb_notes (basic_block, basic_block);
 extern void add_block (basic_block, basic_block);
-extern rtx bb_note (basic_block);
+extern rtx_note *bb_note (basic_block);
 extern void concat_note_lists (rtx, rtx *);
 extern rtx sched_emit_insn (rtx);
 extern rtx get_ready_element (int);

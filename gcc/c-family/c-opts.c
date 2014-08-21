@@ -794,7 +794,8 @@ c_common_handle_option (size_t scode, const char *arg, int value,
     default:
       gcc_unreachable ();
     }
-  
+
+  cpp_handle_option_auto (&global_options, scode, cpp_opts);
   return result;
 }
 
@@ -1030,6 +1031,7 @@ c_common_post_options (const char **pfilename)
   cb->file_change = cb_file_change;
   cb->dir_change = cb_dir_change;
   cpp_post_options (parse_in);
+  init_global_opts_from_cpp (&global_options, cpp_get_options (parse_in));
 
   input_location = UNKNOWN_LOCATION;
 
@@ -1299,18 +1301,16 @@ sanitize_cpp_opts (void)
 
   /* Wlong-long is disabled by default. It is enabled by:
       [-Wpedantic | -Wtraditional] -std=[gnu|c]++98 ; or
-      [-Wpedantic | -Wtraditional] -std=non-c99 .
+      [-Wpedantic | -Wtraditional] -std=non-c99 ; or
+      -Wc90-c99-compat, if specified.
 
       Either -Wlong-long or -Wno-long-long override any other settings.  */
-  if (warn_long_long == -1)
+  if (warn_long_long == -1 && warn_c90_c99_compat != -1)
+    warn_long_long = warn_c90_c99_compat;
+  else if (warn_long_long == -1)
     warn_long_long = ((pedantic || warn_traditional)
 		      && (c_dialect_cxx () ? cxx_dialect == cxx98 : !flag_isoc99));
   cpp_opts->cpp_warn_long_long = warn_long_long;
-
-  /* Similarly with -Wno-variadic-macros.  No check for c99 here, since
-     this also turns off warnings about GCCs extension.  */
-  cpp_opts->warn_variadic_macros
-    = cpp_warn_variadic_macros && (pedantic || warn_traditional);
 
   /* If we're generating preprocessor output, emit current directory
      if explicitly requested or if debugging information is enabled.

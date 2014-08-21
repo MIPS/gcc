@@ -1295,7 +1295,8 @@ delete_related_insns (rtx insn)
 
   if (jump_to_label_p (insn))
     {
-      rtx lab = JUMP_LABEL (insn), lab_next;
+      rtx lab = JUMP_LABEL (insn);
+      rtx_jump_table_data *lab_next;
 
       if (LABEL_NUSES (lab) == 0)
 	/* This can delete NEXT or PREV,
@@ -1414,10 +1415,10 @@ delete_for_peephole (rtx from, rtx to)
 	  /* We don't do this all at once, because we
 	     must preserve all NOTEs.  */
 	  if (prev)
-	    NEXT_INSN (prev) = next;
+	    SET_NEXT_INSN (prev) = next;
 
 	  if (next)
-	    PREV_INSN (next) = prev;
+	    SET_PREV_INSN (next) = prev;
 	}
 
       if (insn == to)
