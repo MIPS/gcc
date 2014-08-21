@@ -6264,9 +6264,9 @@ value_dependent_init_p (tree init)
 static inline bool
 is_concept_var (tree decl) 
 {
-  return VAR_P (decl) 
-         && DECL_LANG_SPECIFIC (decl)
-         && DECL_DECLARED_CONCEPT_P (decl);
+  return (VAR_P (decl) 
+          && DECL_LANG_SPECIFIC (decl)
+          && DECL_DECLARED_CONCEPT_P (decl));
 }
 
 /* Finish processing of a declaration;
