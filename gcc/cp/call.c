@@ -5017,7 +5017,7 @@ build_conditional_expr_1 (location_t loc, tree arg1, tree arg2, tree arg3,
 					type_promotes_to (arg3_type)))))
         {
           if (complain & tf_warning)
-            warning_at (loc, 0, "enumeral and non-enumeral type in "
+            warning_at (loc, OPT_Wextra, "enumeral and non-enumeral type in "
 			"conditional expression");
         }
 
@@ -5318,7 +5318,17 @@ build_new_op_1 (location_t loc, enum tree_code code, int flags, tree arg1,
       /* These are saved for the sake of warn_logical_operator.  */
       code_orig_arg1 = TREE_CODE (arg1);
       code_orig_arg2 = TREE_CODE (arg2);
-
+      break;
+    case GT_EXPR:
+    case LT_EXPR:
+    case GE_EXPR:
+    case LE_EXPR:
+    case EQ_EXPR:
+    case NE_EXPR:
+      /* These are saved for the sake of maybe_warn_bool_compare.  */
+      code_orig_arg1 = TREE_CODE (TREE_TYPE (arg1));
+      code_orig_arg2 = TREE_CODE (TREE_TYPE (arg2));
+      break;
     default:
       break;
     }
@@ -5625,16 +5635,20 @@ build_new_op_1 (location_t loc, enum tree_code code, int flags, tree arg1,
       warn_logical_operator (loc, code, boolean_type_node,
 			     code_orig_arg1, arg1, code_orig_arg2, arg2);
       /* Fall through.  */
-    case PLUS_EXPR:
-    case MINUS_EXPR:
-    case MULT_EXPR:
-    case TRUNC_DIV_EXPR:
     case GT_EXPR:
     case LT_EXPR:
     case GE_EXPR:
     case LE_EXPR:
     case EQ_EXPR:
     case NE_EXPR:
+      if ((code_orig_arg1 == BOOLEAN_TYPE)
+	  ^ (code_orig_arg2 == BOOLEAN_TYPE))
+	maybe_warn_bool_compare (loc, code, arg1, arg2);
+      /* Fall through.  */
+    case PLUS_EXPR:
+    case MINUS_EXPR:
+    case MULT_EXPR:
+    case TRUNC_DIV_EXPR:
     case MAX_EXPR:
     case MIN_EXPR:
     case LSHIFT_EXPR:
@@ -6251,8 +6265,9 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 					  1, false, false, complain);
 	    if (sub == error_mark_node)
 	      return sub;
-	    if (!BRACE_ENCLOSED_INITIALIZER_P (val))
-	      check_narrowing (TREE_TYPE (sub), val);
+	    if (!BRACE_ENCLOSED_INITIALIZER_P (val)
+		&& !check_narrowing (TREE_TYPE (sub), val, complain))
+	      return error_mark_node;
 	    CONSTRUCTOR_APPEND_ELT (CONSTRUCTOR_ELTS (new_ctor), NULL_TREE, sub);
 	    if (!TREE_CONSTANT (sub))
 	      TREE_CONSTANT (new_ctor) = false;
@@ -6480,8 +6495,9 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
       break;
     }
 
-  if (convs->check_narrowing)
-    check_narrowing (totype, expr);
+  if (convs->check_narrowing
+      && !check_narrowing (totype, expr, complain))
+    return error_mark_node;
 
   if (issue_conversion_warnings)
     expr = cp_convert_and_check (totype, expr, complain);
@@ -6568,8 +6584,8 @@ convert_arg_to_ellipsis (tree arg, tsubst_flags_t complain)
 	 with no corresponding parameter is conditionally-supported, with
 	 implementation-defined semantics.
 
-	 We used to just warn here and do a bitwise copy, but now
-	 cp_expr_size will abort if we try to do that.
+	 We support it as pass-by-invisible-reference, just like a normal
+	 value parameter.
 
 	 If the call appears in the context of a sizeof expression,
 	 it is not potentially-evaluated.  */
@@ -6577,10 +6593,12 @@ convert_arg_to_ellipsis (tree arg, tsubst_flags_t complain)
 	  && (type_has_nontrivial_copy_init (arg_type)
 	      || TYPE_HAS_NONTRIVIAL_DESTRUCTOR (arg_type)))
 	{
-	  if (complain & tf_error)
-	    error_at (loc, "cannot pass objects of non-trivially-copyable "
-		      "type %q#T through %<...%>", arg_type);
-	  return error_mark_node;
+	  if (complain & tf_warning)
+	    warning (OPT_Wconditionally_supported,
+		     "passing objects of non-trivially-copyable "
+		     "type %q#T through %<...%> is conditionally supported",
+		     arg_type);
+	  return cp_build_addr_expr (arg, complain);
 	}
     }
 
@@ -6593,7 +6611,11 @@ tree
 build_x_va_arg (source_location loc, tree expr, tree type)
 {
   if (processing_template_decl)
-    return build_min (VA_ARG_EXPR, type, expr);
+    {
+      tree r = build_min (VA_ARG_EXPR, type, expr);
+      SET_EXPR_LOCATION (r, loc);
+      return r;
+    }
 
   type = complete_type_or_else (type, NULL_TREE);
 
@@ -6602,18 +6624,24 @@ build_x_va_arg (source_location loc, tree expr, tree type)
 
   expr = mark_lvalue_use (expr);
 
-  if (type_has_nontrivial_copy_init (type)
-      || TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type)
-      || TREE_CODE (type) == REFERENCE_TYPE)
+  if (TREE_CODE (type) == REFERENCE_TYPE)
     {
-      /* Remove reference types so we don't ICE later on.  */
-      tree type1 = non_reference (type);
-      /* conditionally-supported behavior [expr.call] 5.2.2/7.  */
-      error ("cannot receive objects of non-trivially-copyable type %q#T "
-	     "through %<...%>; ", type);
-      expr = convert (build_pointer_type (type1), null_node);
-      expr = cp_build_indirect_ref (expr, RO_NULL, tf_warning_or_error);
-      return expr;
+      error ("cannot receive reference type %qT through %<...%>", type);
+      return error_mark_node;
+    }
+
+  if (type_has_nontrivial_copy_init (type)
+      || TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type))
+    {
+      /* conditionally-supported behavior [expr.call] 5.2.2/7.  Let's treat
+	 it as pass by invisible reference.  */
+      warning_at (loc, OPT_Wconditionally_supported,
+		 "receiving objects of non-trivially-copyable type %q#T "
+		 "through %<...%> is conditionally-supported", type);
+
+      tree ref = cp_build_reference_type (type, false);
+      expr = build_va_arg (loc, expr, ref);
+      return convert_from_reference (expr);
     }
 
   return build_va_arg (loc, expr, type);

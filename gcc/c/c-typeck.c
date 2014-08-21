@@ -2510,7 +2510,7 @@ build_array_ref (location_t loc, tree array, tree index)
 	    return error_mark_node;
 	}
 
-      if (pedantic)
+      if (pedantic || warn_c90_c99_compat)
 	{
 	  tree foo = array;
 	  while (TREE_CODE (foo) == COMPONENT_REF)
@@ -2518,9 +2518,10 @@ build_array_ref (location_t loc, tree array, tree index)
 	  if (TREE_CODE (foo) == VAR_DECL && C_DECL_REGISTER (foo))
 	    pedwarn (loc, OPT_Wpedantic,
 		     "ISO C forbids subscripting %<register%> array");
-	  else if (!flag_isoc99 && !lvalue_p (foo))
-	    pedwarn (loc, OPT_Wpedantic,
-		     "ISO C90 forbids subscripting non-lvalue array");
+	  else if (!lvalue_p (foo))
+	    pedwarn_c90 (loc, OPT_Wpedantic,
+			 "ISO C90 forbids subscripting non-lvalue "
+			 "array");
 	}
 
       type = TREE_TYPE (TREE_TYPE (array));
@@ -4946,6 +4947,9 @@ build_c_cast (location_t loc, tree type, tree expr)
 	  || TREE_CODE (type) == UNION_TYPE)
 	pedwarn (loc, OPT_Wpedantic,
 		 "ISO C forbids casting nonscalar to the same type");
+
+      /* Convert to remove any qualifiers from VALUE's type.  */
+      value = convert (type, value);
     }
   else if (TREE_CODE (type) == UNION_TYPE)
     {
@@ -9219,9 +9223,12 @@ c_finish_return (location_t loc, tree retval, tree origtype)
       if ((warn_return_type || flag_isoc99)
 	  && valtype != 0 && TREE_CODE (valtype) != VOID_TYPE)
 	{
-	  pedwarn_c99 (loc, flag_isoc99 ? 0 : OPT_Wreturn_type,
-		       "%<return%> with no value, in "
-		       "function returning non-void");
+	  if (flag_isoc99)
+	    pedwarn (loc, 0, "%<return%> with no value, in "
+		     "function returning non-void");
+	  else
+	    warning_at (loc, OPT_Wreturn_type, "%<return%> with no value, "
+			"in function returning non-void");
 	  no_warning = true;
 	}
     }
@@ -10672,6 +10679,11 @@ build_binary_op (location_t location, enum tree_code code,
 	  result_type = type1;
 	  pedwarn (location, 0, "comparison between pointer and integer");
 	}
+      if ((TREE_CODE (TREE_TYPE (orig_op0)) == BOOLEAN_TYPE
+	   || truth_value_p (TREE_CODE (orig_op0)))
+	  ^ (TREE_CODE (TREE_TYPE (orig_op1)) == BOOLEAN_TYPE
+	     || truth_value_p (TREE_CODE (orig_op1))))
+	maybe_warn_bool_compare (location, code, orig_op0, orig_op1);
       break;
 
     case LE_EXPR:
@@ -10776,6 +10788,11 @@ build_binary_op (location_t location, enum tree_code code,
 	  result_type = type1;
 	  pedwarn (location, 0, "comparison between pointer and integer");
 	}
+      if ((TREE_CODE (TREE_TYPE (orig_op0)) == BOOLEAN_TYPE
+	   || truth_value_p (TREE_CODE (orig_op0)))
+	  ^ (TREE_CODE (TREE_TYPE (orig_op1)) == BOOLEAN_TYPE
+	     || truth_value_p (TREE_CODE (orig_op1))))
+	maybe_warn_bool_compare (location, code, orig_op0, orig_op1);
       break;
 
     default:

@@ -189,10 +189,7 @@ lto_output_location (struct output_block *ob, struct bitpack_d *bp,
   bp_pack_value (bp, ob->current_col != xloc.column, 1);
 
   if (ob->current_file != xloc.file)
-    bp_pack_var_len_unsigned (bp,
-	                      streamer_string_index (ob, xloc.file,
-						     strlen (xloc.file) + 1,
-						     true));
+    bp_pack_string (ob, bp, xloc.file, true);
   ob->current_file = xloc.file;
 
   if (ob->current_line != xloc.line)
@@ -651,9 +648,13 @@ DFS::DFS_write_tree_body (struct output_block *ob,
   if (CODE_CONTAINS_STRUCT (code, TS_BLOCK))
     {
       for (tree t = BLOCK_VARS (expr); t; t = TREE_CHAIN (t))
-	/* ???  FIXME.  See also streamer_write_chain.  */
-	if (!(VAR_OR_FUNCTION_DECL_P (t)
-	      && DECL_EXTERNAL (t)))
+	if (VAR_OR_FUNCTION_DECL_P (t)
+	    && DECL_EXTERNAL (t))
+	  /* We have to stream externals in the block chain as
+	     non-references.  See also
+	     tree-streamer-out.c:streamer_write_chain.  */
+	  DFS_write_tree (ob, expr_state, t, ref_p, false, single_p);
+	else
 	  DFS_follow_tree_edge (t);
 
       DFS_follow_tree_edge (BLOCK_SUPERCONTEXT (expr));
@@ -1886,10 +1887,8 @@ produce_asm (struct output_block *ob, tree fn)
   memset (&header, 0, sizeof (struct lto_function_header));
 
   /* Write the header.  */
-  header.lto_header.major_version = LTO_major_version;
-  header.lto_header.minor_version = LTO_minor_version;
-
-  header.compressed_size = 0;
+  header.major_version = LTO_major_version;
+  header.minor_version = LTO_minor_version;
 
   if (section_type == LTO_section_function_body)
     header.cfg_size = ob->cfg_stream->total_size;
@@ -2097,7 +2096,7 @@ lto_output_toplevel_asms (void)
   struct output_block *ob;
   struct asm_node *can;
   char *section_name;
-  struct lto_asm_header header;
+  struct lto_simple_header_with_strings header;
 
   if (! asm_nodes)
     return;
@@ -2123,8 +2122,8 @@ lto_output_toplevel_asms (void)
   memset (&header, 0, sizeof (header));
 
   /* Write the header.  */
-  header.lto_header.major_version = LTO_major_version;
-  header.lto_header.minor_version = LTO_minor_version;
+  header.major_version = LTO_major_version;
+  header.minor_version = LTO_minor_version;
 
   header.main_size = ob->main_stream->total_size;
   header.string_size = ob->string_stream->total_size;
@@ -2657,8 +2656,8 @@ produce_asm_for_decls (void)
       lto_output_decl_state_streams (ob, fn_out_state);
     }
 
-  header.lto_header.major_version = LTO_major_version;
-  header.lto_header.minor_version = LTO_minor_version;
+  header.major_version = LTO_major_version;
+  header.minor_version = LTO_minor_version;
 
   /* Currently not used.  This field would allow us to preallocate
      the globals vector, so that it need not be resized as it is extended.  */

@@ -20,7 +20,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "config.h"
 
-#ifdef HAVE_cloog
+#ifdef HAVE_isl
 #include <isl/set.h>
 #include <isl/map.h>
 #include <isl/union_map.h>
@@ -55,7 +55,7 @@ extern "C" {
 #include "tree-into-ssa.h"
 #include <map>
 
-#ifdef HAVE_cloog
+#ifdef HAVE_isl
 #include "graphite-poly.h"
 #include "graphite-isl-ast-to-gimple.h"
 
@@ -632,9 +632,9 @@ translate_isl_ast_node_user (__isl_keep isl_ast_node *node,
   gcc_assert (GBB_BB (gbb) != ENTRY_BLOCK_PTR_FOR_FN (cfun) &&
 	      "The entry block should not even appear within a scop");
 
-  loop_p loop = gbb_loop (gbb);
-  iv_map.create (loop->num + 1);
-  iv_map.safe_grow_cleared (loop->num + 1);
+  int nb_loops = number_of_loops (cfun);
+  iv_map.create (nb_loops);
+  iv_map.safe_grow_cleared (nb_loops);
 
   build_iv_mapping (iv_map, gbb, user_expr, ip, SCOP_REGION (pbb->scop));
   isl_ast_expr_free (user_expr);

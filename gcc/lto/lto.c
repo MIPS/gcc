@@ -1844,14 +1844,13 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
   const int decl_offset = sizeof (struct lto_decl_header);
   const int main_offset = decl_offset + header->decl_state_size;
   const int string_offset = main_offset + header->main_size;
-  struct lto_input_block ib_main;
   struct data_in *data_in;
   unsigned int i;
   const uint32_t *data_ptr, *data_end;
   uint32_t num_decl_states;
 
-  LTO_INIT_INPUT_BLOCK (ib_main, (const char *) data + main_offset, 0,
-			header->main_size);
+  lto_input_block ib_main ((const char *) data + main_offset,
+			   header->main_size);
 
   data_in = lto_data_in_create (decl_data, (const char *) data + string_offset,
 				header->string_size, resolutions);
@@ -3085,10 +3084,10 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
       symtab_node::dump_table (cgraph_dump_file);
     }
   lto_symtab_merge_symbols ();
-  /* Removal of unreacable symbols is needed to make verify_symtab to pass;
+  /* Removal of unreachable symbols is needed to make verify_symtab to pass;
      we are still having duplicated comdat groups containing local statics.
      We could also just remove them while merging.  */
-  symtab_remove_unreachable_nodes (false, dump_file);
+  symtab_remove_unreachable_nodes (true, dump_file);
   ggc_collect ();
   cgraph_state = CGRAPH_STATE_IPA_SSA;
 
@@ -3245,7 +3244,10 @@ do_whole_program_analysis (void)
   cgraph_state = CGRAPH_STATE_IPA_SSA;
 
   execute_ipa_pass_list (g->get_passes ()->all_regular_ipa_passes);
-  symtab_remove_unreachable_nodes (false, dump_file);
+#ifdef ENABLE_CHECKING
+  /* Verify that IPA passes cleans up after themselves.  */
+  gcc_assert (!symtab_remove_unreachable_nodes (false, dump_file));
+#endif
 
   if (cgraph_dump_file)
     {

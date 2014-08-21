@@ -24,12 +24,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "gfortran.h"
 #include "tree.h"
 #include "stringpool.h"
 #include "diagnostic-core.h"	/* For fatal_error.  */
 #include "langhooks.h"
 #include "flags.h"
-#include "gfortran.h"
 #include "arith.h"
 #include "constructor.h"
 #include "trans.h"
@@ -6260,7 +6260,9 @@ gfc_conv_structure (gfc_se * se, gfc_expr * expr, int init)
       else if (cm->ts.u.derived && strcmp (cm->name, "_size") == 0)
 	{
 	  val = TYPE_SIZE_UNIT (gfc_get_derived_type (cm->ts.u.derived));
-	  CONSTRUCTOR_APPEND_ELT (v, cm->backend_decl, val);
+	  CONSTRUCTOR_APPEND_ELT (v, cm->backend_decl,
+				  fold_convert (TREE_TYPE (cm->backend_decl),
+						val));
 	}
       else
 	{
@@ -7895,7 +7897,7 @@ is_runtime_conformable (gfc_expr *expr1, gfc_expr *expr2)
 	  for (a = expr2->value.function.actual; a != NULL; a = a->next)
 	    {
 	      e1 = a->expr;
-	      if (e1->rank > 0 && !is_runtime_conformable (expr1, e1))
+	      if (e1 && e1->rank > 0 && !is_runtime_conformable (expr1, e1))
 		return false;
 	    }
 	  return true;
@@ -7906,7 +7908,7 @@ is_runtime_conformable (gfc_expr *expr1, gfc_expr *expr2)
 	  for (a = expr2->value.function.actual; a != NULL; a = a->next)
 	    {
 	      e1 = a->expr;
-	      if (e1->rank > 0 && !is_runtime_conformable (expr1, e1))
+	      if (e1 && e1->rank > 0 && !is_runtime_conformable (expr1, e1))
 		return false;
 	    }
 	  return true;

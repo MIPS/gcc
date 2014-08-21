@@ -126,13 +126,13 @@ static struct
 } nop_pool = { NULL, 0, 0 };
 
 /* The pool for basic block notes.  */
-static rtx_vec_t bb_note_pool;
+static vec<rtx_note *> bb_note_pool;
 
 /* A NOP pattern used to emit placeholder insns.  */
 rtx nop_pattern = NULL_RTX;
 /* A special instruction that resides in EXIT_BLOCK.
    EXIT_INSN is successor of the insns that lead to EXIT_BLOCK.  */
-rtx exit_insn = NULL_RTX;
+rtx_insn *exit_insn = NULL;
 
 /* TRUE if while scheduling current region, which is loop, its preheader
    was removed.  */
@@ -207,7 +207,7 @@ blist_add (blist_t *lp, insn_t to, ilist_t ptr, deps_t dc)
   _list_add (lp);
   bnd = BLIST_BND (*lp);
 
-  BND_TO (bnd) = to;
+  SET_BND_TO (bnd) = to;
   BND_PTR (bnd) = ptr;
   BND_AV (bnd) = NULL;
   BND_AV1 (bnd) = NULL;
@@ -1179,7 +1179,7 @@ vinsn_init (vinsn_t vi, insn_t insn, bool force_unique_p)
   hash_rtx_callback_function hrcf;
   int insn_class;
 
-  VINSN_INSN_RTX (vi) = insn;
+  SET_VINSN_INSN_RTX (vi) = insn;
   VINSN_COUNT (vi) = 0;
   vi->cost = -1;
 
@@ -1423,16 +1423,16 @@ sel_move_insn (expr_t expr, int seqno, insn_t after)
 
   /* Assert that in move_op we disconnected this insn properly.  */
   gcc_assert (EXPR_VINSN (INSN_EXPR (insn)) != NULL);
-  PREV_INSN (insn) = after;
-  NEXT_INSN (insn) = next;
+  SET_PREV_INSN (insn) = after;
+  SET_NEXT_INSN (insn) = next;
 
-  NEXT_INSN (after) = insn;
-  PREV_INSN (next) = insn;
+  SET_NEXT_INSN (after) = insn;
+  SET_PREV_INSN (next) = insn;
 
   /* Update links from insn to bb and vice versa.  */
   df_insn_change_bb (insn, bb);
   if (BB_END (bb) == after)
-    BB_END (bb) = insn;
+    SET_BB_END (bb) = insn;
 
   prepare_insn_expr (insn, seqno);
   return insn;
@@ -3942,8 +3942,8 @@ sel_remove_insn (insn_t insn, bool only_disconnect, bool full_tidying)
   /* It is necessary to NULL these fields in case we are going to re-insert
      INSN into the insns stream, as will usually happen in the ONLY_DISCONNECT
      case, but also for NOPs that we will return to the nop pool.  */
-  PREV_INSN (insn) = NULL_RTX;
-  NEXT_INSN (insn) = NULL_RTX;
+  SET_PREV_INSN (insn) = NULL_RTX;
+  SET_NEXT_INSN (insn) = NULL_RTX;
   set_block_for_insn (insn, NULL);
 
   return tidy_control_flow (bb, full_tidying);
@@ -4530,10 +4530,10 @@ static struct
 /* Functions to work with control-flow graph.  */
 
 /* Return basic block note of BB.  */
-insn_t
+rtx_insn *
 sel_bb_head (basic_block bb)
 {
-  insn_t head;
+  rtx_insn *head;
 
   if (bb == EXIT_BLOCK_PTR_FOR_FN (cfun))
     {
@@ -4548,7 +4548,7 @@ sel_bb_head (basic_block bb)
       head = next_nonnote_insn (note);
 
       if (head && (BARRIER_P (head) || BLOCK_FOR_INSN (head) != bb))
-	head = NULL_RTX;
+	head = NULL;
     }
 
   return head;
@@ -4562,11 +4562,11 @@ sel_bb_head_p (insn_t insn)
 }
 
 /* Return last insn of BB.  */
-insn_t
+rtx_insn *
 sel_bb_end (basic_block bb)
 {
   if (sel_bb_empty_p (bb))
-    return NULL_RTX;
+    return NULL;
 
   gcc_assert (bb != EXIT_BLOCK_PTR_FOR_FN (cfun));
 
@@ -4620,7 +4620,7 @@ static void
 init_bb (basic_block bb)
 {
   remove_notes (bb_note (bb), BB_END (bb));
-  BB_NOTE_LIST (bb) = note_list;
+  SET_BB_NOTE_LIST (bb) = note_list;
 }
 
 void
@@ -4655,7 +4655,7 @@ sel_restore_notes (void)
 	{
 	  note_list = BB_NOTE_LIST (first);
 	  restore_other_notes (NULL, first);
-	  BB_NOTE_LIST (first) = NULL_RTX;
+	  SET_BB_NOTE_LIST (first) = NULL_RTX;
 
 	  FOR_BB_INSNS (first, insn)
 	    if (NONDEBUG_INSN_P (insn))
@@ -4976,17 +4976,17 @@ return_bb_to_pool (basic_block bb)
 }
 
 /* Get a bb_note from pool or return NULL_RTX if pool is empty.  */
-static rtx
+static rtx_note *
 get_bb_note_from_pool (void)
 {
   if (bb_note_pool.is_empty ())
-    return NULL_RTX;
+    return NULL;
   else
     {
-      rtx note = bb_note_pool.pop ();
+      rtx_note *note = bb_note_pool.pop ();
 
-      PREV_INSN (note) = NULL_RTX;
-      NEXT_INSN (note) = NULL_RTX;
+      SET_PREV_INSN (note) = NULL_RTX;
+      SET_NEXT_INSN (note) = NULL_RTX;
 
       return note;
     }
@@ -5263,8 +5263,8 @@ move_bb_info (basic_block merge_bb, basic_block empty_bb)
 {
   if (in_current_region_p (merge_bb))
     concat_note_lists (BB_NOTE_LIST (empty_bb),
-		       &BB_NOTE_LIST (merge_bb));
-  BB_NOTE_LIST (empty_bb) = NULL_RTX;
+		       &SET_BB_NOTE_LIST (merge_bb));
+  SET_BB_NOTE_LIST (empty_bb) = NULL_RTX;
 
 }
 
@@ -5341,7 +5341,7 @@ static basic_block
 sel_create_basic_block (void *headp, void *endp, basic_block after)
 {
   basic_block new_bb;
-  insn_t new_bb_note;
+  rtx_note *new_bb_note;
 
   gcc_assert (flag_sel_sched_pipelining_outer_loops
               || !last_added_blocks.exists ());
@@ -5719,10 +5719,10 @@ sel_unregister_cfg_hooks (void)
 
 /* Emit an insn rtx based on PATTERN.  If a jump insn is wanted,
    LABEL is where this jump should be directed.  */
-rtx
+rtx_insn *
 create_insn_rtx_from_pattern (rtx pattern, rtx label)
 {
-  rtx insn_rtx;
+  rtx_insn *insn_rtx;
 
   gcc_assert (!INSN_P (pattern));
 
@@ -5762,10 +5762,11 @@ create_vinsn_from_insn_rtx (rtx insn_rtx, bool force_unique_p)
 }
 
 /* Create a copy of INSN_RTX.  */
-rtx
+rtx_insn *
 create_copy_of_insn_rtx (rtx insn_rtx)
 {
-  rtx res, link;
+  rtx_insn *res;
+  rtx link;
 
   if (DEBUG_INSN_P (insn_rtx))
     return create_insn_rtx_from_pattern (copy_rtx (PATTERN (insn_rtx)),
@@ -5853,7 +5854,7 @@ setup_nop_and_exit_insns (void)
 void
 free_nop_and_exit_insns (void)
 {
-  exit_insn = NULL_RTX;
+  exit_insn = NULL;
   nop_pattern = NULL_RTX;
 }
 
@@ -6441,4 +6442,36 @@ sel_remove_loop_preheader (void)
     SET_LOOP_PREHEADER_BLOCKS (loop_outer (current_loop_nest),
 			       preheader_blocks);
 }
+
+rtx_insn *VINSN_INSN_RTX (vinsn_t vi)
+{
+  return safe_as_a <rtx_insn *> (vi->insn_rtx);
+}
+
+rtx& SET_VINSN_INSN_RTX (vinsn_t vi)
+{
+  return vi->insn_rtx;
+}
+
+rtx_insn *BB_NOTE_LIST (basic_block bb)
+{
+  rtx note_list = SEL_REGION_BB_INFO (bb)->note_list;
+  return safe_as_a <rtx_insn *> (note_list);
+}
+
+rtx& SET_BB_NOTE_LIST (basic_block bb)
+{
+  return SEL_REGION_BB_INFO (bb)->note_list;
+}
+
+rtx_insn *BND_TO (bnd_t bnd)
+{
+  return safe_as_a <rtx_insn *> (bnd->to);
+}
+
+insn_t& SET_BND_TO (bnd_t bnd)
+{
+  return bnd->to;
+}
+
 #endif
