@@ -329,13 +329,20 @@
     DONE;
   })
 
+;; for little endian it may have operands swapped
 (define_expand "vec_pack_trunc_v2df"
   [(set (match_operand:V4SF 0 "register_operand")
 	(unspec:V4SF [(match_operand:V2DF 1 "register_operand")
 		      (match_operand:V2DF 2 "register_operand")]
 		     UNSPEC_MSA_FEXDO))]
   "ISA_HAS_MSA"
-  "")
+  {
+    if (TARGET_LITTLE_ENDIAN)
+      emit_insn (gen_msa_fexdo_w (operands[0], operands[2], operands[1]));
+    else
+      emit_insn (gen_msa_fexdo_w (operands[0], operands[1], operands[2]));
+    DONE;
+  })
 
 ;; pckev pattern with implicit type conversion.
 (define_insn "vec_pack_trunc_<mode>"
