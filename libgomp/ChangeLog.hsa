@@ -1,3 +1,10 @@
+2014-08-21  Martin Jambor  <mjambor@suse.cz>
+
+	* hsaokra.c (buildStringFromSourceFile): Write error message to
+	stderr, removed trailing spaces and other formatting fixes.
+	(loadokra): Likewise.
+	(__hsa_launch_kernel): Likewise.
+
 2014-07-29  Ganesh Gopalasubramanian  <Ganesh.Gopalasubramanian@amd.com>
 
         * hsaokra.c (__hsa_launch_kernel): Save/restore context from

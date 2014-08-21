@@ -23,19 +23,19 @@ static char *buildStringFromSourceFile (const char* fname)
   FILE *fp;
   long filesize = 0;
   char *str;
-  fp=fopen(fname, "r");
+  fp=fopen (fname, "r");
   if (!fp)
     {
-      printf ("Unable to open the HSAIL string file %s\n", fname);
+      fprintf (stderr, "Unable to open the HSAIL string file %s\n", fname);
       return NULL;
     }
-  fseek(fp,0,SEEK_END); 
-  filesize=ftell(fp); 
-  rewind(fp);
-  str = (char *)malloc(filesize + 1);
-  fread( str, filesize , 1 , fp) ;
-  str[filesize] = (char)0;  // terminate
-  fclose(fp);
+  fseek (fp, 0, SEEK_END);
+  filesize = ftell (fp);
+  rewind (fp);
+  str = (char *) malloc (filesize + 1);
+  fread (str, filesize, 1, fp) ;
+  str[filesize] = (char) 0;
+  fclose (fp);
   return str;
 }
 
@@ -44,19 +44,19 @@ static bool
 loadokra (void)
 {
   if (okralib)
-    return okralib != (void*)-1;
+    return okralib != (void*) -1;
   okralib = dlopen("libokra_x86_64.so", RTLD_LAZY);
   if (!okralib)
     {
-      okralib = (void*)-1;
-      printf("...unable to load libokra_x86_64.so\n");
+      okralib = (void*) -1;
+      fprintf(stderr, "Unable to load libokra_x86_64.so\n");
       return false;
     }
-   _okra_get_context         = (okra_get_context_func_t)dlsym(okralib, "okra_get_context");
-   _okra_kernel_create       = (okra_kernel_create_func_t)dlsym(okralib, "okra_create_kernel");
-   _okra_push_pointer        = (okra_push_pointer_func_t)dlsym(okralib, "okra_push_pointer");
-   _okra_execute_kernel      = (okra_execute_kernel_func_t)dlsym(okralib, "okra_execute_kernel");
-   _okra_clear_args          = (okra_clear_args_func_t)dlsym(okralib, "okra_clear_args");
+   _okra_get_context         = (okra_get_context_func_t) dlsym(okralib, "okra_get_context");
+   _okra_kernel_create       = (okra_kernel_create_func_t) dlsym(okralib, "okra_create_kernel");
+   _okra_push_pointer        = (okra_push_pointer_func_t) dlsym(okralib, "okra_push_pointer");
+   _okra_execute_kernel      = (okra_execute_kernel_func_t) dlsym(okralib, "okra_execute_kernel");
+   _okra_clear_args          = (okra_clear_args_func_t) dlsym(okralib, "okra_clear_args");
 
    if (!_okra_get_context
        || !_okra_kernel_create
@@ -65,8 +65,8 @@ loadokra (void)
        || !_okra_clear_args)
      {
        dlclose (okralib);
-       okralib = (void*)-1;
-       printf ("can't find OKRA symbols\n");
+       okralib = (void*) -1;
+       fprintf (stderr, "Cannot find OKRA symbols\n");
        return false;
      }
 
@@ -131,8 +131,8 @@ __hsa_launch_kernel (__hsa_kernel_desc * _kd, __hsa_launch_attrs *attrs,
     status = _okra_get_context(&context);
     if (status != OKRA_SUCCESS)
       {
-          printf( "Unable to create context\n");
-          return NULL;
+	fprintf (stderr, "Unable to create context\n");
+	return NULL;
       }
       _kd->context = context ;
     }
@@ -151,7 +151,7 @@ __hsa_launch_kernel (__hsa_kernel_desc * _kd, __hsa_launch_attrs *attrs,
       free(hsailStr);
       if (status != OKRA_SUCCESS)
 	{
-	  printf( "Unable to create Kernel \n"); 
+	  fprintf (stderr, "Unable to create Kernel\n");
 	  return NULL;
 	}
       _kd->kernel = kernel;
@@ -167,12 +167,12 @@ __hsa_launch_kernel (__hsa_kernel_desc * _kd, __hsa_launch_attrs *attrs,
   range.global_size[0] = 256;
   range.group_size[0] = 16;
   if (debug > 0)
-    printf ("HSA: launching kernel %s\n", _kd->name);
+    fprintf (stderr, "HSA: launching kernel %s\n", _kd->name);
   status = _okra_execute_kernel (context, kernel, &range);
   if (status != OKRA_SUCCESS)
     {
-      printf( "Failed to launch kernel \n"); 
+      fprintf (stderr, "Failed to launch kernel\n");
       return NULL;
     }
-  return kernel; 
+  return kernel;
 }
