@@ -107,6 +107,19 @@ along with GCC; see the file COPYING3.  If not see
   (abs @0))
 
 
+/* From fold_unary.  */
+
+/* (T1)(~(T2) X)  -> ~(T1) X */
+(simplify
+ (convert (bit_not@0 (convert @1)))
+ (if (INTEGRAL_TYPE_P (type)
+      && INTEGRAL_TYPE_P (TREE_TYPE (@0))
+      && TYPE_PRECISION (type) == TYPE_PRECISION (TREE_TYPE (@0))
+      && INTEGRAL_TYPE_P (TREE_TYPE (@1))
+      && TYPE_PRECISION (type) <= TYPE_PRECISION (TREE_TYPE (@1)))
+  (bit_not (convert (bit_not @0)))))
+
+
 #include "match-plusminus.pd"
 #include "match-bitwise.pd"
 #include "match-rotate.pd"

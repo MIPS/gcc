@@ -1,5 +1,15 @@
 2014-08-21  Richard Biener  <rguenther@suse.de>
 
+	* genmatch.c (*::gen_transform): Add type parameter.
+	(expr::gen_transform): Handle conversion operators by
+	converting to the parent expression type.  Properly
+	pass down the expression type to children.
+	(dt_simplify::gen_gimple): Pass down 'type' to gen_transform.
+	(dt_simplify::gen_generic): Likewise.
+	* match.pd ((T1)(~(T2) X)  -> ~(T1) X): New pattern.
+
+2014-08-21  Richard Biener  <rguenther@suse.de>
+
 	* genmatch.c (dt_operand::gen_gimple_expr): Only match
 	non-reference-like GIMPLE single RHS.
 
