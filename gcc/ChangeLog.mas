@@ -1,5 +1,12 @@
 2014-08-21  Richard Biener  <rguenther@suse.de>
 
+	* genmatch.c (dt_simplify::gen): New function merged
+	from ...
+	(dt_simplify::gen_gimple, dt_simplify::gen_generic): ... these,
+	made to simple dispatchers.
+
+2014-08-21  Richard Biener  <rguenther@suse.de>
+
 	* genmatch.c (*::gen_transform): Add type parameter.
 	(expr::gen_transform): Handle conversion operators by
 	converting to the parent expression type.  Properly

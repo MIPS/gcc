@@ -457,8 +457,9 @@ struct dt_simplify: public dt_node
       indexes[i] = indexes_[i];
   }
 
-  virtual void gen_gimple (FILE *f);
-  virtual void gen_generic (FILE *f);
+  void gen (FILE *f, bool);
+  virtual void gen_gimple (FILE *f) { gen (f, true); }
+  virtual void gen_generic (FILE *f) { gen (f, false); }
 };
 
 template<>
@@ -1690,10 +1691,9 @@ dt_operand::gen_generic_kids (FILE *f)
 
 
 void
-dt_simplify::gen_gimple (FILE *f)
+dt_simplify::gen (FILE *f, bool gimple)
 {
-
-  fprintf (f, "/* simplify %u */\n", pattern_no);
+  output_line_directive (f, s->result_location);
 
   fprintf (f, "{\n");
   fprintf (f, "tree captures[%u] ATTRIBUTE_UNUSED = {};\n", dt_simplify::capture_max);
@@ -1708,20 +1708,24 @@ dt_simplify::gen_gimple (FILE *f)
   if (s->ifexpr_vec != vNULL)
     {
       fprintf (f, "if (");
-      // we add in LIFO order, so traverse backwards
-      for (unsigned i = s->ifexpr_vec.length (); i; --i)
-	{
-	  fprintf (f, "(");
-	  s->ifexpr_vec[i - 1]->gen_transform (f, NULL, true, 1, "type");
-	  fprintf (f, ")");
-	  if (i > 1)
-	    fprintf (f, " && ");
-	}
+      if (s->ifexpr_vec.length () == 1)
+	s->ifexpr_vec[0]->gen_transform (f, NULL, true, 1, "type");
+      else
+	// we add in LIFO order, so traverse backwards
+	for (unsigned i = s->ifexpr_vec.length (); i; --i)
+	  {
+	    fprintf (f, "(");
+	    s->ifexpr_vec[i - 1]->gen_transform (f, NULL, true, 1, "type");
+	    fprintf (f, ")");
+	    if (i > 1)
+	      fprintf (f, "\n&& ");
+	  }
       fprintf (f, ")\n");
       fprintf (f, "{\n");
     }
-      output_line_directive (f, s->result_location);
 
+  if (gimple)
+    {
       if (s->result->type == operand::OP_EXPR)
 	{
 	  expr *e = static_cast <expr *> (s->result);
@@ -1745,49 +1749,10 @@ dt_simplify::gen_gimple (FILE *f)
 	}
       else
 	gcc_unreachable ();
-
       fprintf (f, "return true;\n");
-      if (s->ifexpr_vec != vNULL)
-	fprintf (f, "}\n");
-
-  fprintf (f, "}\n");
-}
-
-
-void
-dt_simplify::gen_generic (FILE *f)
-{
-
-  fprintf (f, "/* simplify %u */\n", pattern_no);
-
-  fprintf (f, "{\n");
-  fprintf (f, "tree captures[%u] ATTRIBUTE_UNUSED = {};\n", dt_simplify::capture_max);
-
-  for (unsigned i = 0; i < dt_simplify::capture_max; ++i)
-    if (indexes[i])
-      {
-	char opname[20];
-	fprintf (f, "captures[%u] = %s;\n", i, indexes[i]->get_name (opname));
-      }
-
-  if (s->ifexpr_vec != vNULL)
-    {
-      fprintf (f, "if (\n");
-      // we add in LIFO order, so traverse backwards
-      for (unsigned i = s->ifexpr_vec.length (); i; --i)
-        {
-          fprintf (f, "(");
-          s->ifexpr_vec[i - 1]->gen_transform (f, NULL, false, 1, "type");
-          fprintf (f, ")");
-          if (i > 1)
-            fprintf (f, " && ");
-        }
-      fprintf (f, ")\n");
-      fprintf (f, "{\n");
     }
-
-      output_line_directive (f, s->result_location);
-
+  else /* GENERIC */
+    {
       if (s->result->type == operand::OP_EXPR)
 	{
 	  expr *e = static_cast <expr *> (s->result);
@@ -1818,13 +1783,13 @@ dt_simplify::gen_generic (FILE *f)
 	}
       else
 	gcc_unreachable ();
+    }
 
-      if (s->ifexpr_vec != vNULL)
-	fprintf (f, "}\n");
+  if (s->ifexpr_vec != vNULL)
+    fprintf (f, "}\n");
 
   fprintf (f, "}\n");
 }
-
 
 
 void
