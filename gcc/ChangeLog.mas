@@ -1,5 +1,10 @@
 2014-08-21  Richard Biener  <rguenther@suse.de>
 
+	* match.pd ((T1)(~(T2) X) -> ~(T1) X): Paste all comment
+	from fold-const.c, fix simplification result.
+
+2014-08-21  Richard Biener  <rguenther@suse.de>
+
 	Merge from trunk r213754 through r214265.
 
 2014-08-21  Richard Biener  <rguenther@suse.de>
