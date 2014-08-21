@@ -1,5 +1,11 @@
 2014-08-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
+	Add tests for constrained friends.
+	* gcc/testsuite/g++.dg/concepts/friend1.C: New.
+	* gcc/testsuite/g++.dg/concepts/friend2.C: New.
+
+2014-08-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
 	* gcc/cp/decl.c (is_concept_var): Coding style fix.
 
 2014-08-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
