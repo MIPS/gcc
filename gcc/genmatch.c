@@ -1297,8 +1297,19 @@ dt_operand::gen_gimple_expr (FILE *f)
 	{
 	  if (*id == REALPART_EXPR || *id == IMAGPART_EXPR
 	      || *id == BIT_FIELD_REF || *id == VIEW_CONVERT_EXPR)
-	    fprintf (f, "tree %s = TREE_OPERAND (gimple_assign_rhs1 (def_stmt), %i);\n",
-		     child_opname, i);
+	    {
+	      /* ???  If this is a memory operation we can't (and should not)
+		 match this.  The only sensible operand types are
+		 SSA names and invariants.  */
+	      fprintf (f, "tree %s = TREE_OPERAND (gimple_assign_rhs1 (def_stmt), %i);\n",
+		       child_opname, i);
+	      fprintf (f, "if ((TREE_CODE (%s) == SSA_NAME\n"
+		       "&& (%s = do_valueize (valueize, %s)))\n"
+		       "|| is_gimple_min_invariant (%s))\n"
+		       "{\n", child_opname, child_opname, child_opname,
+		       child_opname);
+	      continue;
+	    }
 	  else
 	    fprintf (f, "tree %s = gimple_assign_rhs%u (def_stmt);\n",
 		     child_opname, i + 1);

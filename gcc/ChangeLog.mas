@@ -1,3 +1,8 @@
+2014-08-21  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (dt_operand::gen_gimple_expr): Only match
+	non-reference-like GIMPLE single RHS.
+
 2014-08-20  Richard Biener  <rguenther@suse.de>
 
 	* genmatch.c (copy_reverse): New function.
