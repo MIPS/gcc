@@ -1115,11 +1115,6 @@ general_init (const char *argv0)
   /* Set a default printer.  Language specific initializations will
      override it later.  */
   tree_diagnostics_defaults (global_dc);
-  /* FIXME: This should probably be moved to C-family
-     language-specific initializations.  */
-  /* By default print macro expansion contexts in the diagnostic
-     finalizer -- for tokens resulting from macro expansion.  */
-  diagnostic_finalizer (global_dc) = virt_loc_aware_diagnostic_finalizer;
 
   global_dc->show_caret
     = global_options_init.x_flag_diagnostics_show_caret;
@@ -1275,15 +1270,15 @@ process_options (void)
   else
     aux_base_name = "gccaux";
 
-#ifndef HAVE_cloog
+#ifndef HAVE_isl
   if (flag_graphite
       || flag_graphite_identity
       || flag_loop_block
       || flag_loop_interchange
       || flag_loop_strip_mine
       || flag_loop_parallelize_all)
-    sorry ("Graphite loop optimizations cannot be used (-fgraphite, "
-	   "-fgraphite-identity, -floop-block, "
+    sorry ("Graphite loop optimizations cannot be used (ISL is not available)" 
+	   "(-fgraphite, -fgraphite-identity, -floop-block, "
 	   "-floop-interchange, -floop-strip-mine, -floop-parallelize-all, "
 	   "and -ftree-loop-linear)");
 #endif

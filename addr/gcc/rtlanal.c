@@ -2778,7 +2778,7 @@ rtx_referenced_p (rtx x, rtx body)
    *LABELP and the jump table to *TABLEP.  LABELP and TABLEP may be NULL.  */
 
 bool
-tablejump_p (const_rtx insn, rtx *labelp, rtx *tablep)
+tablejump_p (const_rtx insn, rtx *labelp, rtx_jump_table_data **tablep)
 {
   rtx label, table;
 
@@ -2793,7 +2793,7 @@ tablejump_p (const_rtx insn, rtx *labelp, rtx *tablep)
       if (labelp)
 	*labelp = label;
       if (tablep)
-	*tablep = table;
+	*tablep = as_a <rtx_jump_table_data *> (table);
       return true;
     }
   return false;
@@ -3009,6 +3009,22 @@ for_each_rtx (rtx *x, rtx_function f, void *data)
     return 0;
 
   return for_each_rtx_1 (*x, i, f, data);
+}
+
+/* Like "for_each_rtx", but for calling on an rtx_insn **.  */
+
+int
+for_each_rtx_in_insn (rtx_insn **insn, rtx_function f, void *data)
+{
+  rtx insn_as_rtx = *insn;
+  int result;
+
+  result = for_each_rtx (&insn_as_rtx, f, data);
+
+  if (insn_as_rtx != *insn)
+    *insn = safe_as_a <rtx_insn *> (insn_as_rtx);
+
+  return result;
 }
 
 
@@ -3668,7 +3684,7 @@ parms_set (rtx x, const_rtx pat ATTRIBUTE_UNUSED, void *data)
    found if CSE has eliminated some of them (e.g., an argument
    to the outer function is passed down as a parameter).
    Do not skip BOUNDARY.  */
-rtx
+rtx_insn *
 find_first_parameter_load (rtx call_insn, rtx boundary)
 {
   struct parms_set_data parm;
@@ -3730,7 +3746,7 @@ find_first_parameter_load (rtx call_insn, rtx boundary)
 	    break;
 	}
     }
-  return first_set;
+  return safe_as_a <rtx_insn *> (first_set);
 }
 
 /* Return true if we should avoid inserting code between INSN and preceding
@@ -3778,14 +3794,15 @@ bool
 label_is_jump_target_p (const_rtx label, const_rtx jump_insn)
 {
   rtx tmp = JUMP_LABEL (jump_insn);
+  rtx_jump_table_data *table;
 
   if (label == tmp)
     return true;
 
-  if (tablejump_p (jump_insn, NULL, &tmp))
+  if (tablejump_p (jump_insn, NULL, &table))
     {
-      rtvec vec = XVEC (PATTERN (tmp),
-			GET_CODE (PATTERN (tmp)) == ADDR_DIFF_VEC);
+      rtvec vec = XVEC (PATTERN (table),
+			GET_CODE (PATTERN (table)) == ADDR_DIFF_VEC);
       int i, veclen = GET_NUM_ELEM (vec);
 
       for (i = 0; i < veclen; ++i)

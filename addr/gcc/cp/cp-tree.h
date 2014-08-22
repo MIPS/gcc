@@ -3558,18 +3558,17 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
    && !(TREE_CODE (TREE_TYPE (NODE)) == FUNCTION_TYPE		\
 	|| TREE_CODE (TREE_TYPE (NODE)) == METHOD_TYPE))
 
-/* Returns true if NODE is a pointer to function.  */
+/* Returns true if NODE is a pointer to function type.  */
 #define TYPE_PTRFN_P(NODE)				\
   (TYPE_PTR_P (NODE)			                \
    && TREE_CODE (TREE_TYPE (NODE)) == FUNCTION_TYPE)
 
-/* Returns true if NODE is a reference to function.  */
+/* Returns true if NODE is a reference to function type.  */
 #define TYPE_REFFN_P(NODE)				\
   (TREE_CODE (NODE) == REFERENCE_TYPE			\
    && TREE_CODE (TREE_TYPE (NODE)) == FUNCTION_TYPE)
 
-/* Nonzero for _TYPE node means that this type is a pointer to member
-   function type.  */
+/* Returns true if NODE is a pointer to member function type.  */
 #define TYPE_PTRMEMFUNC_P(NODE)		\
   (TREE_CODE (NODE) == RECORD_TYPE	\
    && TYPE_PTRMEMFUNC_FLAG (NODE))
@@ -5154,6 +5153,7 @@ extern void resort_type_method_vec		(void *, void *,
 extern bool add_method				(tree, tree, tree);
 extern bool currently_open_class		(tree);
 extern tree currently_open_derived_class	(tree);
+extern tree outermost_open_class		(void);
 extern tree current_nonlambda_class_type	(void);
 extern tree finish_struct			(tree, tree);
 extern void finish_struct_1			(tree);
