@@ -30053,7 +30053,7 @@ static const struct builtin_description bdesc_args[] =
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_compressv16sf_mask, "__builtin_ia32_compresssf512_mask", IX86_BUILTIN_COMPRESSPS512, UNKNOWN, (int) V16SF_FTYPE_V16SF_V16SF_HI },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_floatv8siv8df2_mask, "__builtin_ia32_cvtdq2pd512_mask", IX86_BUILTIN_CVTDQ2PD512, UNKNOWN, (int) V8DF_FTYPE_V8SI_V8DF_QI },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_vcvtps2ph512_mask,  "__builtin_ia32_vcvtps2ph512_mask", IX86_BUILTIN_CVTPS2PH512, UNKNOWN, (int) V16HI_FTYPE_V16SF_INT_V16HI_HI },
-  { OPTION_MASK_ISA_AVX512F, CODE_FOR_ufloatv8siv8df_mask, "__builtin_ia32_cvtudq2pd512_mask", IX86_BUILTIN_CVTUDQ2PD512, UNKNOWN, (int) V8DF_FTYPE_V8SI_V8DF_QI },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_ufloatv8siv8df2_mask, "__builtin_ia32_cvtudq2pd512_mask", IX86_BUILTIN_CVTUDQ2PD512, UNKNOWN, (int) V8DF_FTYPE_V8SI_V8DF_QI },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_cvtusi2sd32, "__builtin_ia32_cvtusi2sd32", IX86_BUILTIN_CVTUSI2SD32, UNKNOWN, (int) V2DF_FTYPE_V2DF_UINT },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_expandv8df_mask, "__builtin_ia32_expanddf512_mask", IX86_BUILTIN_EXPANDPD512, UNKNOWN, (int) V8DF_FTYPE_V8DF_V8DF_QI },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_expandv8df_maskz, "__builtin_ia32_expanddf512_maskz", IX86_BUILTIN_EXPANDPD512Z, UNKNOWN, (int) V8DF_FTYPE_V8DF_V8DF_QI },
@@ -34743,6 +34743,14 @@ ix86_expand_special_args_builtin (const struct builtin_description *d,
 	case CODE_FOR_avx512f_storev16si_mask:
 	case CODE_FOR_avx512f_storev8df_mask:
 	case CODE_FOR_avx512f_storev8di_mask:
+	case CODE_FOR_avx512vl_storev8sf_mask:
+	case CODE_FOR_avx512vl_storev8si_mask:
+	case CODE_FOR_avx512vl_storev4df_mask:
+	case CODE_FOR_avx512vl_storev4di_mask:
+	case CODE_FOR_avx512vl_storev4sf_mask:
+	case CODE_FOR_avx512vl_storev4si_mask:
+	case CODE_FOR_avx512vl_storev2df_mask:
+	case CODE_FOR_avx512vl_storev2di_mask:
 	  aligned_mem = true;
 	  break;
 	default:
@@ -34786,6 +34794,20 @@ ix86_expand_special_args_builtin (const struct builtin_description *d,
 	case CODE_FOR_avx512f_loadv16si_mask:
 	case CODE_FOR_avx512f_loadv8df_mask:
 	case CODE_FOR_avx512f_loadv8di_mask:
+	case CODE_FOR_avx512vl_loadv8sf_mask:
+	case CODE_FOR_avx512vl_loadv8si_mask:
+	case CODE_FOR_avx512vl_loadv4df_mask:
+	case CODE_FOR_avx512vl_loadv4di_mask:
+	case CODE_FOR_avx512vl_loadv4sf_mask:
+	case CODE_FOR_avx512vl_loadv4si_mask:
+	case CODE_FOR_avx512vl_loadv2df_mask:
+	case CODE_FOR_avx512vl_loadv2di_mask:
+	case CODE_FOR_avx512bw_loadv64qi_mask:
+	case CODE_FOR_avx512vl_loadv32qi_mask:
+	case CODE_FOR_avx512vl_loadv16qi_mask:
+	case CODE_FOR_avx512bw_loadv32hi_mask:
+	case CODE_FOR_avx512vl_loadv16hi_mask:
+	case CODE_FOR_avx512vl_loadv8hi_mask:
 	  aligned_mem = true;
 	  break;
 	default:

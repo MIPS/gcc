@@ -240,8 +240,9 @@ Objective-C and Objective-C++ Dialects}.
 -pedantic-errors @gol
 -w  -Wextra  -Wall  -Waddress  -Waggregate-return  @gol
 -Waggressive-loop-optimizations -Warray-bounds @gol
+-Wbool-compare @gol
 -Wno-attributes -Wno-builtin-macro-redefined @gol
--Wc90-c99-compat @gol
+-Wc90-c99-compat -Wc99-c11-compat @gol
 -Wc++-compat -Wc++11-compat -Wcast-align  -Wcast-qual  @gol
 -Wchar-subscripts -Wclobbered  -Wcomment -Wconditionally-supported  @gol
 -Wconversion -Wcoverage-mismatch -Wdate-time -Wdelete-incomplete -Wno-cpp  @gol
@@ -4221,6 +4222,19 @@ This option is only active when @option{-ftree-vrp} is active
 (default for @option{-O2} and above). It warns about subscripts to arrays
 that are always out of bounds. This warning is enabled by @option{-Wall}.
 
+@item -Wbool-compare
+@opindex Wno-bool-compare
+@opindex Wbool-compare
+Warn about boolean expression compared with an integer value different from
+@code{true}/@code{false}.  For instance, the following comparison is
+always false:
+@smallexample
+int n = 5;
+@dots{}
+if ((n > 1) == 2) @{ @dots{} @}
+@end smallexample
+This warning is enabled by @option{-Wall}.
+
 @item -Wno-discarded-qualifiers @r{(C and Objective-C only)}
 @opindex Wno-discarded-qualifiers
 @opindex Wdiscarded-qualifiers
@@ -4527,6 +4541,16 @@ type, @code{bool} type, compound literals, designated initializers, and so
 on.  This option is independent of the standards mode.  Warnings are disabled
 in the expression that follows @code{__extension__}.
 
+@item -Wc99-c11-compat @r{(C and Objective-C only)}
+@opindex Wc99-c11-compat
+@opindex Wno-c99-c11-compat
+Warn about features not present in ISO C99, but present in ISO C11.
+For instance, warn about use of anonymous structures and unions,
+@code{_Atomic} type qualifier, @code{_Thread_local} storage-class specifier,
+@code{_Alignas} specifier, @code{Alignof} operator, @code{_Generic} keyword,
+and so on.  This option is independent of the standards mode.  Warnings are
+disabled in the expression that follows @code{__extension__}.
+
 @item -Wc++-compat @r{(C and Objective-C only)}
 Warn about ISO C constructs that are outside of the common subset of
 ISO C and ISO C++, e.g.@: request for implicit conversion from
@@ -4752,8 +4776,8 @@ bit-wise operator is likely to be expected.
 @opindex Wlogical-not-parentheses
 @opindex Wno-logical-not-parentheses
 Warn about logical not used on the left hand side operand of a comparison.
-This option does not warn if the LHS or RHS operand is of a boolean or
-a vector type.  Its purpose is to detect suspicious code like the following:
+This option does not warn if the RHS operand is of a boolean type.  Its
+purpose is to detect suspicious code like the following:
 @smallexample
 int a;
 @dots{}
@@ -5103,9 +5127,10 @@ modes.  To inhibit the warning messages, use @option{-Wno-long-long}.
 @item -Wvariadic-macros
 @opindex Wvariadic-macros
 @opindex Wno-variadic-macros
-Warn if variadic macros are used in pedantic ISO C90 mode, or the GNU
-alternate syntax when in pedantic ISO C99 mode.  This is default.
-To inhibit the warning messages, use @option{-Wno-variadic-macros}.
+Warn if variadic macros are used in ISO C90 mode, or if the GNU
+alternate syntax is used in ISO C99 mode.  This is enabled by either
+@option{-Wpedantic} or @option{-Wtraditional}.  To inhibit the warning
+messages, use @option{-Wno-variadic-macros}.
 
 @item -Wvarargs
 @opindex Wvarargs

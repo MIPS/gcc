@@ -1,3 +1,90 @@
+2014-08-22  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/62199
+	* parser.c (cp_parser_binary_expression): Check each LHS if it's
+	preceded with logical not.  Adjust call to
+	warn_logical_not_parentheses.
+
+2014-08-22  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR c++/57709
+	* name-lookup.c (pushdecl_maybe_friend_1): Do not warn if a
+	declaration shadows a function declaration, unless the former
+	declares a function, pointer to function or pointer to member
+	function, because this is a common and valid case in real-world
+	code.
+	* cp-tree.h (TYPE_PTRFN_P,TYPE_REFFN_P,TYPE_PTRMEMFUNC_P):
+	Improve description.
+
+2014-08-22  Jason Merrill  <jason@redhat.com>
+
+	PR c++/62129
+	* class.c (outermost_open_class): Fix logic.
+	* decl.c (complete_vars): Fix logic.
+
+2014-08-22  Jason Merrill  <jason@redhat.com>
+
+	PR c++/62129
+	* class.c (outermost_open_class): New.
+	* cp-tree.h: Declare it.
+	* decl.c (maybe_register_incomplete_var): Use it.
+	(complete_vars): Handle any constant variable.
+	* expr.c (cplus_expand_constant): Handle CONSTRUCTOR.
+
+2014-08-22  Igor Zamyatin  <igor.zamyatin@intel.com>
+
+	PR other/62008
+	* cp-array-notation.c (build_array_notation_ref): Added correct
+	handling of case with incorrect array.
+
+2014-08-21  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR fortran/44054
+	* error.c (cp_diagnostic_finalizer): Delete.
+	(init_error): Do not set diagnostic_finalizer here.
+
+2014-08-19  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/62153
+	* call.c (build_new_op_1): Remember the type of arguments for
+	a comparison.  If either operand of a comparison is a boolean
+	expression, call maybe_warn_bool_compare.
+
+2014-08-19  Jason Merrill  <jason@redhat.com>
+
+	PR tree-optimization/62091
+	* decl2.c (decl_needed_p): Return true for virtual functions when
+	devirtualizing.
+
+	PR lto/53808
+	PR c++/61659
+	* decl.c (maybe_commonize_var): Don't use DECL_COMDAT to trigger
+	comdat_linkage.
+
+2014-08-19  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* class.c (contains_empty_class_p): Remove.
+
+2014-08-18  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* parser.c (cp_parser_expression): Add default arguments.
+	(cp_parser_primary_expression, cp_parser_postfix_expression,
+	cp_parser_array_notation, cp_parser_postfix_open_square_expression,
+	cp_parser_unary_expression, cp_parser_direct_new_declarator,
+	cp_parser_question_colon_clause, cp_parser_assignment_operator_opt,
+	cp_parser_lambda_body, cp_parser_expression_statement,
+	cp_parser_condition, cp_parser_c_for, cp_parser_range_for,
+	cp_parser_iteration_statement, cp_parser_jump_statement,
+	cp_parser_decltype_expr, cp_parser_noexcept_specification_opt,
+	cp_parser_asm_operand_list, cp_parser_objc_message_receiver,
+	cp_parser_objc_synchronized_statement, cp_parser_objc_throw_statement,
+	cp_parser_omp_var_list_no_open, cp_parser_omp_clause_num_threads,
+	cp_parser_omp_clause_num_teams, cp_parser_omp_clause_thread_limit,
+	cp_parser_omp_clause_linear, cp_parser_omp_clause_device,
+	cp_parser_omp_atomic, cp_parser_omp_for_loop_init,
+	cp_parser_omp_for_loop, cp_parser_omp_declare_reduction_exprs,
+	cp_parser_transaction_expression): Adjust.
+
 2014-08-15  Jason Merrill  <jason@redhat.com>
 
 	PR c++/61566
