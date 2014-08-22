@@ -1,3 +1,33 @@
+2014-08-21  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/62214
+	* gfortran.dg/array_assignment_5.f90:  New test.
+
+2014-08-15  Tom de Vries  <tom@codesourcery.com>
+
+	Backport from mainline:
+	2014-08-14  Tom de Vries  <tom@codesourcery.com>
+
+	PR rtl-optimization/62004
+	PR rtl-optimization/62030
+	* gcc.dg/pr62004.c: New test.
+	* gcc.dg/pr62030.c: Same.
+	* gcc.target/mips/pr62030-octeon.c: Same.
+
+2014-08-13  Felix Yang  <fei.yang0953@gmail.com>
+
+	PR tree-optimization/62073
+	* gcc.dg/vect/pr62073.c: New test.
+
+2014-08-13  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	Backport from mainline
+	2014-08-12  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR middle-end/62103
+	* gcc.c-torture/execute/bitfld-6.c: New test.
+
 2014-08-10  Thomas Koenig  <tkoenig@gcc.gnu.org>
 
 	Backport from trunk

@@ -1,3 +1,70 @@
+2014-08-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport fro mainline
+	2014-08-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/62195
+	* doc/md.texi (Machine Constraints): Update PowerPC wi constraint
+	documentation to state it is only for VSX operations.
+
+	* config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok): Make wi
+	constraint only active if VSX.
+
+	* config/rs6000/rs6000.md (lfiwax): Use wj constraint instead of
+	wi cosntraint for ISA 2.07 lxsiwax/lxsiwzx instructions.
+	(lfiwzx): Likewise.
+
+2014-08-15  Tom de Vries  <tom@codesourcery.com>
+
+	Backport from mainline:
+	2014-08-14  Tom de Vries  <tom@codesourcery.com>
+
+	PR rtl-optimization/62004
+	PR rtl-optimization/62030
+	* ifcvt.c (rtx_interchangeable_p): New function.
+	(noce_try_move, noce_process_if_block): Use rtx_interchangeable_p.
+
+	2014-08-05  Richard Biener  <rguenther@suse.de>
+
+	* emit-rtl.h (mem_attrs_eq_p): Declare.
+	* emit-rtl.c (mem_attrs_eq_p): Export.
+
+2014-08-16  John David Anglin  <danglin@gcc.gnu.org>
+
+	Backport from trunk:
+	2014-04-06  John David Anglin  <danglin@gcc.gnu.org>
+
+	PR debug/55794
+	* config/pa/pa.c (pa_output_function_epilogue): Skip address and code
+	size accounting for thunks.
+	(pa_asm_output_mi_thunk): Use final_start_function() and
+	final_end_function() to output function start and end directives.
+
+2014-08-15  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport from mainline:
+	2014-08-15  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	* doc/invoke.texi (SH options): Document missing processor variant
+	options.  Remove references to Hitachi.  Undocument deprecated mspace
+	option.
+
+2014-08-13  Felix Yang  <fei.yang0953@gmail.com>
+
+	PR tree-optimization/62073
+	* tree-vect-loop.c (vect_is_simple_reduction_1): Check that DEF1 has
+	a basic block.
+
+2014-08-13  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	Backport from mainline
+	2014-08-12  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR middle-end/62103
+	* gimple-fold.c (fold_ctor_reference): Don't fold in presence of
+	bitfields, that is when size doesn't match the size of type or the
+	size of the constructor.
+
 2014-08-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Backport patch from mainline
