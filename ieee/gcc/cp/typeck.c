@@ -597,28 +597,34 @@ composite_pointer_type (tree t1, tree t2, tree arg1, tree arg2,
       tree attributes;
       tree result_type;
 
-      if (TYPE_PTRFN_P (t2) && (complain & tf_error))
-        {
-          switch (operation)
-              {
-              case CPO_COMPARISON:
-                pedwarn (input_location, OPT_Wpedantic, 
-                         "ISO C++ forbids comparison between "
-                         "pointer of type %<void *%> and pointer-to-function");
-                break;
-              case CPO_CONVERSION:
-                pedwarn (input_location, OPT_Wpedantic,
-                         "ISO C++ forbids conversion between "
-                         "pointer of type %<void *%> and pointer-to-function");
-                break;
-              case CPO_CONDITIONAL_EXPR:
-                pedwarn (input_location, OPT_Wpedantic,
-                         "ISO C++ forbids conditional expression between "
-                         "pointer of type %<void *%> and pointer-to-function");
-                break;
-              default:
-                gcc_unreachable ();
-              }
+      if (TYPE_PTRFN_P (t2))
+	{
+	  if (complain & tf_error)
+	    {
+	      switch (operation)
+		{
+		case CPO_COMPARISON:
+		  pedwarn (input_location, OPT_Wpedantic, 
+			   "ISO C++ forbids comparison between pointer "
+			   "of type %<void *%> and pointer-to-function");
+		  break;
+		case CPO_CONVERSION:
+		  pedwarn (input_location, OPT_Wpedantic,
+			   "ISO C++ forbids conversion between pointer "
+			   "of type %<void *%> and pointer-to-function");
+		  break;
+		case CPO_CONDITIONAL_EXPR:
+		  pedwarn (input_location, OPT_Wpedantic,
+			   "ISO C++ forbids conditional expression between "
+			   "pointer of type %<void *%> and "
+			   "pointer-to-function");
+		  break;
+		default:
+		  gcc_unreachable ();
+		}
+	    }
+	  else
+	    return error_mark_node;
         }
       result_type
 	= cp_build_qualified_type (void_type_node,
@@ -1148,7 +1154,7 @@ comp_template_parms_position (tree t1, tree t2)
 
   /* In C++14 we can end up comparing 'auto' to a normal template
      parameter.  Don't confuse them.  */
-  if (cxx_dialect >= cxx1y && (is_auto (t1) || is_auto (t2)))
+  if (cxx_dialect >= cxx14 && (is_auto (t1) || is_auto (t2)))
     return TYPE_IDENTIFIER (t1) == TYPE_IDENTIFIER (t2);
 
   return true;
@@ -1536,6 +1542,8 @@ cxx_sizeof_or_alignof_type (tree type, enum tree_code op, bool complain)
 	pedwarn (input_location, OPT_Wpointer_arith, 
 		 "invalid application of %qs to a member function", 
 		 operator_name_info[(int) op].name);
+      else
+	return error_mark_node;
       value = size_one_node;
     }
 
@@ -1558,10 +1566,10 @@ cxx_sizeof_or_alignof_type (tree type, enum tree_code op, bool complain)
       return value;
     }
 
-  if (cxx_dialect >= cxx1y && array_of_runtime_bound_p (type)
+  if (cxx_dialect >= cxx14 && array_of_runtime_bound_p (type)
       && (flag_iso || warn_vla > 0))
     {
-      if (complain & tf_warning_or_error)
+      if (complain)
 	pedwarn (input_location, OPT_Wvla,
 		 "taking sizeof array of runtime bound");
       else
@@ -3129,9 +3137,14 @@ cp_build_array_ref (location_t loc, tree array, tree idx,
 	    return error_mark_node;
 	}
 
-      if (!lvalue_p (array) && (complain & tf_error))
-	pedwarn (loc, OPT_Wpedantic, 
-	         "ISO C++ forbids subscripting non-lvalue array");
+      if (!lvalue_p (array))
+	{
+	  if (complain & tf_error)
+	    pedwarn (loc, OPT_Wpedantic, 
+		     "ISO C++ forbids subscripting non-lvalue array");
+	  else
+	    return error_mark_node;
+	}
 
       /* Note in C++ it is valid to subscript a `register' array, since
 	 it is valid to take the address of something with that
@@ -3467,10 +3480,14 @@ cp_build_function_call_vec (tree function, vec<tree, va_gc> **params,
       fndecl = function;
 
       /* Convert anything with function type to a pointer-to-function.  */
-      if (DECL_MAIN_P (function) && (complain & tf_error))
-	pedwarn (input_location, OPT_Wpedantic, 
-		 "ISO C++ forbids calling %<::main%> from within program");
-
+      if (DECL_MAIN_P (function))
+	{
+	  if (complain & tf_error)
+	    pedwarn (input_location, OPT_Wpedantic, 
+		     "ISO C++ forbids calling %<::main%> from within program");
+	  else
+	    return error_mark_node;
+	}
       function = build_addr_func (function, complain);
     }
   else
@@ -5509,7 +5526,7 @@ cp_build_addr_expr_1 (tree arg, bool strict_lvalue, tsubst_flags_t complain)
 
   if (argtype != error_mark_node)
     {
-      if (cxx_dialect >= cxx1y && array_of_runtime_bound_p (argtype)
+      if (cxx_dialect >= cxx14 && array_of_runtime_bound_p (argtype)
 	  && (flag_iso || warn_vla > 0))
 	{
 	  if (complain & tf_warning_or_error)
@@ -6331,7 +6348,7 @@ maybe_warn_about_useless_cast (tree type, tree expr, tsubst_flags_t complain)
       /* In C++14 mode, this interacts badly with force_paren_expr.  And it
 	 isn't necessary in any mode, because the code below handles
 	 glvalues properly.  For 4.9, just skip it in C++14 mode.  */
-      if (cxx_dialect < cxx1y && REFERENCE_REF_P (expr))
+      if (cxx_dialect < cxx14 && REFERENCE_REF_P (expr))
 	expr = TREE_OPERAND (expr, 0);
 
       if ((TREE_CODE (type) == REFERENCE_TYPE

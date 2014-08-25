@@ -231,6 +231,9 @@ const struct attribute_spec microblaze_attribute_table[] = {
 
 static int microblaze_interrupt_function_p (tree);
 
+static void microblaze_elf_asm_constructor (rtx, int) ATTRIBUTE_UNUSED;
+static void microblaze_elf_asm_destructor (rtx, int) ATTRIBUTE_UNUSED;
+
 section *sdata2_section;
 
 #ifdef HAVE_AS_TLS
@@ -2714,6 +2717,47 @@ microblaze_function_end_prologue (FILE * file)
     }
 }
 
+static void
+microblaze_elf_asm_cdtor (rtx symbol, int priority, bool is_ctor)
+{
+  section *s;
+
+  if (priority != DEFAULT_INIT_PRIORITY)
+    {
+      char buf[18];
+      sprintf (buf, "%s.%.5u",
+               is_ctor ? ".ctors" : ".dtors",
+               MAX_INIT_PRIORITY - priority);
+      s = get_section (buf, SECTION_WRITE, NULL_TREE);
+    }
+  else if (is_ctor)
+    s = ctors_section;
+  else
+    s = dtors_section;
+
+  switch_to_section (s);
+  assemble_align (POINTER_SIZE);
+  fputs ("\t.word\t", asm_out_file);
+  output_addr_const (asm_out_file, symbol);
+  fputs ("\n", asm_out_file);
+}
+
+/* Add a function to the list of static constructors.  */
+
+static void
+microblaze_elf_asm_constructor (rtx symbol, int priority)
+{
+  microblaze_elf_asm_cdtor (symbol, priority, /*is_ctor=*/true);
+}
+
+/* Add a function to the list of static destructors.  */
+
+static void
+microblaze_elf_asm_destructor (rtx symbol, int priority)
+{
+  microblaze_elf_asm_cdtor (symbol, priority, /*is_ctor=*/false);
+}
+
 /* Expand the prologue into a bunch of separate insns.  */
 
 void
@@ -3306,7 +3350,7 @@ microblaze_asm_output_ident (const char *string)
   int size;
   char *buf;
 
-  if (cgraph_state != CGRAPH_STATE_PARSING)
+  if (symtab->state != PARSING)
     return;
 
   size = strlen (string) + 1;
@@ -3316,7 +3360,7 @@ microblaze_asm_output_ident (const char *string)
     section_asm_op = READONLY_DATA_SECTION_ASM_OP;
 
   buf = ACONCAT ((section_asm_op, "\n\t.ascii \"", string, "\\0\"\n", NULL));
-  add_asm_node (build_string (strlen (buf), buf));
+  symtab->finalize_toplevel_asm (build_string (strlen (buf), buf));
 }
 
 static void

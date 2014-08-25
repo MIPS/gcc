@@ -1045,7 +1045,7 @@ bfin_load_pic_reg (rtx dest)
   struct cgraph_local_info *i = NULL;
   rtx addr;
  
-  i = cgraph_local_info (current_function_decl);
+  i = cgraph_node::local_info (current_function_decl);
  
   /* Functions local to the translation unit don't need to reload the
      pic reg, since the caller always passes a usable one.  */
@@ -1839,8 +1839,8 @@ bfin_function_ok_for_sibcall (tree decl ATTRIBUTE_UNUSED,
     /* Not enough information.  */
     return false;
  
-  this_func = cgraph_local_info (current_function_decl);
-  called_func = cgraph_local_info (decl);
+  this_func = cgraph_node::local_info (current_function_decl);
+  called_func = cgraph_node::local_info (decl);
   if (!called_func)
     return false;
   return !called_func->local || this_func->local;
@@ -3655,7 +3655,7 @@ hwloop_optimize (hwloop_info loop)
       last_insn = emit_insn_after (gen_forced_nop (), last_insn);
     }
 
-  loop->last_insn = last_insn;
+  loop->last_insn = safe_as_a <rtx_insn *> (last_insn);
 
   /* The loop is good for replacement.  */
   start_label = loop->start_label;
@@ -4058,10 +4058,10 @@ reorder_var_tracking_notes (void)
 		  while (queue)
 		    {
 		      rtx next_queue = PREV_INSN (queue);
-		      PREV_INSN (NEXT_INSN (insn)) = queue;
-		      NEXT_INSN (queue) = NEXT_INSN (insn);
-		      NEXT_INSN (insn) = queue;
-		      PREV_INSN (queue) = insn;
+		      SET_PREV_INSN (NEXT_INSN (insn)) = queue;
+		      SET_NEXT_INSN (queue) = NEXT_INSN (insn);
+		      SET_NEXT_INSN (insn) = queue;
+		      SET_PREV_INSN (queue) = insn;
 		      queue = next_queue;
 		    }
 		  in_bundle = false;
@@ -4074,10 +4074,10 @@ reorder_var_tracking_notes (void)
 	      if (in_bundle)
 		{
 		  rtx prev = PREV_INSN (insn);
-		  PREV_INSN (next) = prev;
-		  NEXT_INSN (prev) = next;
+		  SET_PREV_INSN (next) = prev;
+		  SET_NEXT_INSN (prev) = next;
 
-		  PREV_INSN (insn) = queue;
+		  SET_PREV_INSN (insn) = queue;
 		  queue = insn;
 		}
 	    }
