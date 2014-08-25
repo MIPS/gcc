@@ -108,7 +108,7 @@ static const char *output_multi_immediate (rtx *, const char *, const char *,
 static const char *shift_op (rtx, HOST_WIDE_INT *);
 static struct machine_function *arm_init_machine_status (void);
 static void thumb_exit (FILE *, int);
-static HOST_WIDE_INT get_jump_table_size (rtx);
+static HOST_WIDE_INT get_jump_table_size (rtx_jump_table_data *);
 static Mnode *move_minipool_fix_forward_ref (Mnode *, Mnode *, HOST_WIDE_INT);
 static Mnode *add_minipool_forward_ref (Mfix *);
 static Mnode *move_minipool_fix_backward_ref (Mnode *, Mnode *, HOST_WIDE_INT);
@@ -2989,6 +2989,10 @@ arm_option_override (void)
       /* If optimizing for size, bump the number of instructions that we
          are prepared to conditionally execute (even on a StrongARM).  */
       max_insns_skipped = 6;
+
+      /* For THUMB2, we limit the conditional sequence to one IT block.  */
+      if (TARGET_THUMB2)
+	max_insns_skipped = MAX_INSN_PER_IT_BLOCK;
     }
   else
     max_insns_skipped = current_tune->max_insns_skipped;
@@ -5131,7 +5135,7 @@ arm_get_pcs_model (const_tree type, const_tree decl)
 	     so we are free to use whatever conventions are
 	     appropriate.  */
 	  /* FIXME: remove CONST_CAST_TREE when cgraph is constified.  */
-	  struct cgraph_local_info *i = cgraph_local_info (CONST_CAST_TREE(decl));
+	  cgraph_local_info *i = cgraph_node::local_info (CONST_CAST_TREE(decl));
 	  if (i && i->local)
 	    return ARM_PCS_AAPCS_LOCAL;
 	}
@@ -16118,7 +16122,7 @@ Mfix *		minipool_barrier;
 #endif
 
 static HOST_WIDE_INT
-get_jump_table_size (rtx insn)
+get_jump_table_size (rtx_jump_table_data *insn)
 {
   /* ADDR_VECs only take room if read-only data does into the text
      section.  */
@@ -16706,7 +16710,7 @@ create_fix_barrier (Mfix *fix, HOST_WIDE_INT max_address)
 
   while (from && count < max_count)
     {
-      rtx tmp;
+      rtx_jump_table_data *tmp;
       int new_cost;
 
       /* This code shouldn't have been called if there was a natural barrier
@@ -17351,7 +17355,7 @@ arm_reorg (void)
 	push_minipool_barrier (insn, address);
       else if (INSN_P (insn))
 	{
-	  rtx table;
+	  rtx_jump_table_data *table;
 
 	  note_invalid_constants (insn, address, true);
 	  address += get_attr_length (insn);
