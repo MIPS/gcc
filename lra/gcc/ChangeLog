@@ -1,5 +1,641 @@
 2014-08-25  David Malcolm  <dmalcolm@redhat.com>
 
+	* config/picochip/picochip-protos.h (picochip_final_prescan_insn):
+	Strengthen param "insn" from rtx to rtx_insn *.
+	* config/picochip/picochip.c (picochip_current_prescan_insn):
+	Likewise for this variable.
+	(picochip_final_prescan_insn): Likewise for param "insn".
+
+2014-08-25  David Malcolm  <dmalcolm@redhat.com>
+
+	* config/pa/pa-protos.h (pa_output_call): Strengthen first param
+	from rtx to rtx_insn *.
+	(pa_output_indirect_call): Likewise.
+	(pa_adjust_insn_length): Likewise.
+	(pa_attr_length_millicode_call): Likewise.
+	(pa_attr_length_call): Likewise.
+	(pa_attr_length_indirect_call): Likewise.
+
+	* config/pa/pa.c (pa_adjust_insn_length): Likewise for param
+	"insn".
+	(pa_attr_length_millicode_call): Likewise.
+	(pa_attr_length_call): Likewise.
+	(pa_output_call): Likewise.
+	(pa_attr_length_indirect_call): Likewise.
+	(pa_output_indirect_call): Likewise.
+
+2014-08-25  David Malcolm  <dmalcolm@redhat.com>
+
+	* config/nds32/nds32-protos.h (nds32_adjust_insn_length):
+	Strengthen first param from rtx to rtx_insn *.
+	* config/nds32/nds32.c (nds32_adjust_insn_length): Likewise for
+	param "insn".
+
+2014-08-25  David Malcolm  <dmalcolm@redhat.com>
+
+	* config/mips/mips-protos.h (mips_emit_move): Strengthen return
+	type from rtx to rtx_insn *.
+	(mips_expand_call): Likewise.
+	(mips_adjust_insn_length): Likewise for first param.
+	(mips_output_conditional_branch): Likewise.
+	(mips_output_order_conditional_branch): Likewise.
+	(mips_final_prescan_insn): Likewise.
+
+	* config/mips/mips.c (SEQ_BEGIN): For now, add checked cast to
+	rtx_insn * for the SEQUENCE case.
+	(SEQ_END): Likewise.
+	(mips_emit_move): Strengthen return type from rtx to rtx_insn *.
+	(mips_emit_call_insn): Likewise, also for local "insn".
+	(mips16_gp_pseudo_reg): Likewise for local "scan".
+	(mips16_build_call_stub): Likewise for return type and for local
+	"insn".  Introduce a new local "pattern" so that "insn" can indeed
+	be an insn.
+	(mips_expand_call): Strengthen return type and local "insn" from
+	rtx to rtx_insn *.
+	(mips_block_move_loop): Strengthen local "label" from rtx to
+	rtx_code_label *.
+	(mips_expand_synci_loop): Likewise for locals "label",
+	"end_label".
+	(mips_set_frame_expr): Strengthen local "insn" from rtx to
+	rtx_insn *.
+	(mips16e_collect_argument_saves): Likewise for locals "insn",
+	"next".
+	(mips_find_gp_ref): Likewise for param of callback for "pred"
+	param, and for local "insn".
+	(mips_insn_has_inflexible_gp_ref_p): Likewise for param "insn".
+	(mips_insn_has_flexible_gp_ref_p): Likewise.
+	(mips_epilogue_emit_cfa_restores): Likewise for return type and
+	local "insn".
+	(mips_epilogue_set_cfa): Likewise for local "insn".
+	(mips_expand_epilogue): Likewise.
+	(mips_adjust_insn_length): Likewise for param "insn".
+	(mips_output_conditional_branch): Likewise.
+	(mips_output_order_conditional_branch): Likewise.
+	(struct mips_ls2): Likewise for fields "alu1_turn_enabled_insn",
+	"alu2_turn_enabled_insn", "falu1_turn_enabled_insn",
+	"falu2_turn_enabled_insn".
+	(mips_builtin_branch_and_move): Strengthen locals "true_label",
+	"done_label" from rtx to rtx_code_label *.
+	(struct mips16_constant): Likewise for field "label".
+	(mips16_add_constant): Likewise for return type.
+	(mips16_emit_constants_1): Strengthen return type and param "insn"
+	from rtx to rtx_insn *.
+	(mips16_emit_constants): Likewise for param "insn".
+	(mips16_insn_length): Likewise.
+	(mips16_rewrite_pool_constant): Strengthen local "label" from rtx
+	to rtx_code_label *.
+	(struct mips16_rewrite_pool_refs_info): Strengthen field "insn"
+	from rtx to rtx_insn *.
+	(mips16_lay_out_constants): Likewise for locals "insn", "barrier",
+	"jump".  Strengthen local "label" from rtx to rtx_code_label *.
+	(r10k_simplify_address): Strengthen param "insn" and local
+	"def_insn" from rtx to rtx_insn *.
+	(r10k_safe_address_p): Strengthen param "insn" from rtx to
+	rtx_insn *.
+	(r10k_needs_protection_p_1): Update target type of cast of data
+	from to rtx to rtx_insn *.
+	(r10k_needs_protection_p_store): Strengthen local "insn_ptr" from
+	rtx * to rtx_insn **.
+	(r10k_needs_protection_p): Strengthen param "insn" from rtx to
+	rtx_insn *.
+	(r10k_insert_cache_barriers): Likewise for locals "insn", "end".
+	(mips_call_expr_from_insn): Likewise for param "insn".
+	(mips_pic_call_symbol_from_set): Likewise for local "def_insn".
+	(mips_find_pic_call_symbol): Likewise for param "insn".
+	(mips_annotate_pic_calls): Likewise for local "insn".
+	(mips_sim_insn): Likewise for this variable.
+	(struct mips_sim): Likewise for field "insn" within elements of
+	last_set array.
+	(mips_sim_wait_reg): Likewise for param "insn".
+	(mips_sim_wait_regs): Likewise.
+	(mips_sim_wait_units): Likewise.
+	(mips_sim_wait_insn): Likewise.
+	(mips_sim_issue_insn): Likewise.
+	(mips_sim_finish_insn): Likewise.
+	(mips_seq_time): Likewise for param "seq" and local "insn".
+	(vr4130_avoid_branch_rt_conflict): Likewise for param "insn" and
+	locals "first", "second".
+	(vr4130_align_insns): Likewise for locals "insn", "subinsn",
+	"last", "last2", "next".
+	(mips_avoid_hazard): Likewise for params "after", "insn".
+	(mips_reorg_process_insns): Likewise for locals "insn",
+	"last_insn", "subinsn", "next_insn".
+	(mips_has_long_branch_p): Likewise for locals "insn", "subinsn".
+	(mips16_split_long_branches): Likewise for locals "insn" "jump",
+	"jump_sequence".
+	(mips_output_mi_thunk): Likewise for local "insn".
+	(mips_final_prescan_insn): Likewise for param "insn".
+
+2014-08-25  David Malcolm  <dmalcolm@redhat.com>
+
+	* config/microblaze/microblaze.c (microblaze_call_tls_get_addr):
+	Strengthen return type and local "insns" from rtx to rtx_insn *.
+	(microblaze_legitimize_tls_address): Likewise for local "insns".
+	(microblaze_block_move_loop): Strengthen local "label" from rtx
+	to rtx_code_label *.
+	(microblaze_expand_prologue): Strengthen two locals named "insn"
+	from rtx to rtx_insn *.
+	(microblaze_asm_output_mi_thunk): Likewise for local "insn".
+	(microblaze_expand_divide): Likewise for locals "jump", "cjump",
+	"insn".  Strengthen locals "div_label", "div_end_label" from rtx
+	to rtx_code_label *.
+
+2014-08-25  David Malcolm  <dmalcolm@redhat.com>
+
+	* config/mep/mep-protos.h (mep_mulr_source): Strengthen first
+	param from rtx to rtx_insn *.
+	(mep_reuse_lo): Likewise for third param.
+	(mep_use_post_modify_p): Likewise for first param.
+	(mep_core_address_length): Likewise.
+	(mep_cop_address_length): Likewise.
+	(mep_final_prescan_insn): Likewise.
+	(mep_store_data_bypass_p): Likewise for both params.
+	(mep_mul_hilo_bypass_p): Likewise.
+	(mep_ipipe_ldc_p): Likewise for param.
+
+	* config/mep/mep.c (mep_mulr_source): Likewise for param "insn".
+	(mep_rewrite_mult): Likewise.
+	(mep_rewrite_mulsi3): Likewise.
+	(mep_rewrite_maddsi3): Likewise.
+	(mep_reuse_lo_p_1): Likewise.
+	(mep_reuse_lo_p): Likewise.
+	(mep_frame_expr): Likewise.
+	(mep_make_parallel): Likewise for both params.
+	(mep_use_post_modify_p_1): Likewise for param "set_insn" and
+	local "insn".
+	(mep_use_post_modify_p): Likewise for param "insn".
+	(mep_core_address_length): Likewise.
+	(mep_cop_address_length): Likewise.
+	(mep_reg_set_in_function): Likewise for local "insn".
+	(mep_asm_without_operands_p): Likewise.
+	(F): Likewise for return type and param "x".
+	(add_constant): Likewise for local "insn".
+	(maybe_dead_move): Likewise for return type and local "insn".
+	(mep_expand_prologue): Likewise for local "insn".
+	(mep_final_prescan_insn): Likewise for param "insn".
+	(mep_reorg_regmove): Likewise for param "insns" and locals "insn",
+	"next", "follow", "x".
+	(mep_insert_repeat_label_last): Likewise for return type, param
+	"last_insn", and locals "next", "prev".  Strengthen param "label"
+	from rtx to rtx_code_label *.
+	(struct mep_doloop_begin): Strengthen field "insn" from rtx to
+	rtx_insn *.
+	(struct mep_doloop_end): Likewise for fields "insn" and
+	"fallthrough".
+	(mep_reorg_repeat): Likewise for param "insns" and local "insn".
+	Strengthen local "repeat_label" from rtx to rtx_code_label *.
+	(mep_invertable_branch_p): Strengthen param "insn" from rtx to
+	rtx_insn *.
+	(mep_invert_branch): Likewise for params "insn" and "after".
+	(mep_reorg_erepeat): Likewise for param "insns" and locals
+	"insn", "prev", "new_last", "barrier", "user".  Strengthen local
+	"l" from rtx to rtx_code_label *.
+	(mep_jmp_return_reorg): Strengthen param "insns" and local "insn"
+	from rtx to rtx_insn *.
+	(mep_reorg_addcombine): Likewise for param "insns" and locals
+	"i", "n".
+	(add_sp_insn_p): Likewise for param "insn".
+	(mep_reorg_noframe): Likewise for param "insns" and locals
+	"start_frame_insn", "end_frame_insn", "next".
+	(mep_reorg): Likewise for local "insns".
+	(mep_store_data_bypass_1): Likewise for param "prev".  Add checked
+	cast.
+	(mep_store_data_bypass_p): Likewise for params "prev", "insn".
+	(mep_mul_hilo_bypass_p): Likewise.
+	(mep_ipipe_ldc_p): Likewise for param "insn".
+	(mep_make_bundle): Likewise for return type, param "cop" and local
+	"insn", splitting out the latter into a new local "seq" for when it
+	is a SEQUENCE rather than an insn.
+	(core_insn_p): Likewise for param "insn".
+	(mep_bundle_insns): Likewise for param "insns" and locals "insn",
+	"last", "first", "note", "prev", "core_insn".
+
+2014-08-25  David Malcolm  <dmalcolm@redhat.com>
+
+	* config/m68k/m68k-protos.h (output_btst): Strengthen param 4 from
+	rtx to rtx_insn *.
+	(strict_low_part_peephole_ok): Likewise for param 2 "first_insn".
+	(m68k_final_prescan_insn): Likewise for first param.
+
+	* config/m68k/m68k.c (m68k_emit_movem): Likewise for return type.
+	(m68k_set_frame_related): Likewise for param "insn".
+	(output_btst): Likewise for param "insn".
+	(m68k_final_prescan_insn): Likewise.
+	(m68k_move_to_reg): Likewise for local "insn".
+	(m68k_call_tls_get_addr): Likewise for local "insns".
+	(m68k_call_m68k_read_tp): Likewise.
+	(strict_low_part_peephole_ok): Likewise for param "first_insn".
+	(m68k_output_mi_thunk): Likewise for local "insn".
+
+2014-08-25  David Malcolm  <dmalcolm@redhat.com>
+
+	* config/iq2000/iq2000-protos.h (final_prescan_insn): Strengthen
+	first param from rtx to rtx_insn *.
+	(iq2000_adjust_insn_length): Likewise.
+	(iq2000_output_conditional_branch): Likewise.
+	* config/iq2000/iq2000.c (final_prescan_insn): Likewise for param
+	"insn" and local "nop_insn".
+	(iq2000_annotate_frame_insn): Likewise for param "insn".
+	(iq2000_expand_prologue): Likewise for both locals "insn".
+	(iq2000_adjust_insn_length): Likewise for param "insn".
+	(iq2000_output_conditional_branch): Likewise.
+
+2014-08-25  David Malcolm  <dmalcolm@redhat.com>
+
+	* config/ia64/ia64.c (ia64_expand_tls_address): Strengthen local
+	"insns" from rtx to rtx_insn *.
+	(ia64_emit_cond_move): Likewise for locals "insn", "first".
+	(struct spill_fill_data): Likewise for field "init_after" and for
+	elements of array field "prev_insn".
+	(spill_restore_mem): Likewise for locals "insn", "first".
+	(do_spill): Likewise for local "insn".
+	(do_restore): Likewise.
+	(ia64_expand_prologue): Likewise.
+	(ia64_expand_epilogue): Likewise.
+	(emit_insn_group_barriers): Likewise for locals "insn",
+	"last_label".
+	(emit_all_insn_group_barriers): Likewise for locals "insn",
+	"last".
+	(dfa_stop_insn): Likewise for this global.
+	(dfa_pre_cycle_insn): Likewise.
+	(ia64_nop): Likewise.
+	(final_emit_insn_group_barriers): Likewise for locals "insn",
+	"last".
+	(emit_predicate_relation_info): Likewise for locals "head", "n",
+	"insn", "b", "a".
+	(ia64_reorg): Likewise for local "insn".
+	(ia64_output_mi_thunk): Likewise.
+	(expand_vec_perm_interleave_2): Likewise for local "seq".
+
+2014-08-25  David Malcolm  <dmalcolm@redhat.com>
+
+	* config/i386/i386-protos.h (ix86_avoid_lea_for_add): Strengthen
+	param 1 "insn" from rtx to rtx_insn *.
+	(ix86_use_lea_for_mov): Likewise.
+	(ix86_avoid_lea_for_addr): Likewise.
+	(ix86_split_lea_for_addr): Likewise.
+	(ix86_lea_for_add_ok): Likewise.
+	(ix86_output_call_insn): Likewise.
+
+	* config/i386/i386.c (ix86_va_start): Likewise for local "seq".
+	(ix86_get_drap_rtx): Likewise for locals "seq", "insn".
+	(ix86_output_function_epilogue): Likewise for locals "insn",
+	"deleted_debug_label".
+	(legitimize_tls_address): Likewise for local "insn".
+	(get_some_local_dynamic_name): Likewise.
+	(increase_distance): Likewise for params "prev", "next".
+	(distance_non_agu_define_in_bb): Likewise for params "insn",
+	"start" and locals "prev", "next".
+	(distance_non_agu_define): Likewise for param "insn".
+	(distance_agu_use_in_bb): Likewise for params "insn", "start" and
+	locals "next", "prev".
+	(distance_agu_use): Likewise for param "insn".
+	(ix86_lea_outperforms): Likewise.
+	(ix86_ok_to_clobber_flags): Likewise.
+	(ix86_avoid_lea_for_add): Likewise.
+	(ix86_use_lea_for_mov): Likewise.
+	(ix86_avoid_lea_for_addr): Likewise.
+	(find_nearest_reg_def): Likewise, also for locals "prev", "start".
+	(ix86_split_lea_for_addr): Likewise for param "insn".
+	(ix86_lea_for_add_ok): Likewise for param "insn".
+	(ix86_expand_carry_flag_compare): Likewise for local
+	"compare_seq".
+	(ix86_expand_int_movcc): Likewise.
+	(ix86_output_call_insn): Likewise for param "insn".
+	(ix86_output_call_insn): Likewise for local "i".
+	(x86_output_mi_thunk): Introduce local "insn", using it in place
+	of "tmp" when dealing with insns.
+	(ix86_avoid_jump_mispredicts): Likewise for locals "insn",
+	"start".
+	(ix86_pad_returns): Likewise for locals "ret", "prev".
+	(ix86_count_insn_bb): Likewise for local "insn".
+	(ix86_pad_short_function): Likewise for locals "ret", "insn".
+	(ix86_seh_fixup_eh_fallthru): Likewise for locals "insn", "next".
+	(ix86_vector_duplicate_value): Likewise for local "insn", "seq".
+	(expand_vec_perm_interleave2): Likewise for local "seq".
+	(expand_vec_perm_vperm2f128_vblend): Likewise.
+	(ix86_loop_unroll_adjust): Likewise for local "insn".  Convert
+	call to for_each_rtx with for_each_rtx_in_insn.
+
+2014-08-25  David Malcolm  <dmalcolm@redhat.com>
+
+	* config/i386/i386.c (setup_incoming_varargs_64): Strengthen local
+	"label" from rtx to rtx_code_label *.
+	(ix86_expand_prologue): Likewise.
+	(ix86_expand_split_stack_prologue): Likewise for locals "label",
+	"varargs_label".
+	(ix86_split_idivmod): Likewise for locals "end_label" and
+	"qimode_label".
+	(ix86_expand_branch): Likewise for local "label2".
+	(ix86_expand_aligntest): Likewise for return type and local "label".
+	(expand_set_or_movmem_via_loop): Likewise for locals "out_label" and
+	"top_label".
+	(expand_movmem_epilogue): Likewise for the various locals named
+	"label".
+	(expand_setmem_epilogue): Likewise.
+	(expand_small_movmem_or_setmem): Likewise for local "label".
+	(expand_set_or_movmem_prologue_epilogue_by_misaligned_moves):
+	Strengthen param "done_label" from rtx * to rtx_code_label **.
+	Strengthen locals "loop_label" and "label" from rtx to
+	rtx_code_label *.
+	(expand_set_or_movmem_prologue_epilogue_by_misaligned_moves):
+	Likewise for locals "loop_label", "label".
+	(ix86_expand_set_or_movmem): Likewise for locals "label",
+	"jump_around_label", "hot_label".
+	(ix86_expand_strlensi_unroll_1): Likewise for locals
+	"align_2_label", align_3_label", "align_4_label", "end_0_label",
+	"end_2_label".
+	(x86_emit_floatuns): Likewise for locals "neglab", "donelab".
+	(void ix86_emit_i387_log1p): Likewise for locals "label1",
+	"label2", "jump_label".
+	(ix86_expand_sse_compare_and_jump): Likewise for return type and
+	local "label".
+	(ix86_expand_lfloorceil): Likewise for local "label".
+	(ix86_expand_rint): Likewise.
+	(ix86_expand_floorceildf_32): Likewise.
+	(ix86_expand_floorceil): Likewise.
+	(ix86_expand_rounddf_32): Likewise.
+	(ix86_expand_trunc): Likewise.
+	(ix86_expand_truncdf_32): Likewise.
+	(ix86_expand_round): Likewise.
+
+2014-08-25  David Malcolm  <dmalcolm@redhat.com>
+
+	* config/h8300/h8300-protos.h (final_prescan_insn): Strengthen
+	first param from rtx to rtx_insn *.
+	(h8300_insn_length_from_table): Likewise.
+	* config/h8300/h8300.c (F): Likewise for return type and param
+	"x".
+	(Fpa): Add a checked cast to rtx_insn *.
+	(h8300_emit_stack_adjustment): Strengthen local "x" from rtx to
+	rtx_insn *.
+	(final_prescan_insn): Likewise for param "insn".
+	(h8300_binary_length): Likewise.
+	(h8300_insn_length_from_table): Likewise.
+
+2014-08-25  David Malcolm  <dmalcolm@redhat.com>
+
+	* config/epiphany/epiphany-protos.h (epiphany_final_prescan_insn):
+	Strengthen first param "insn" from rtx to rtx_insn *.
+
+	* config/epiphany/epiphany.c (epiphany_final_prescan_insn):
+	Likewise.
+	(frame_insn): Likewise for return type.  Introduce local "insn"
+	for use in place of local "x" for use as an rtx_insn *.
+	(frame_move_insn): Strengthen return type from rtx to rtx_insn *.
+	(epiphany_expand_prologue): Likewise for local "insn".
+	* config/epiphany/mode-switch-use.c (insert_uses): Likewise.
+	* config/epiphany/resolve-sw-modes.c
+	(pass_resolve_sw_modes::execute): Likewise for locals "insn" and
+	"seq".
+
+2014-08-25  David Malcolm  <dmalcolm@redhat.com>
+
+	* config/c6x/c6x-protos.h (c6x_get_unit_specifier): Strengthen
+	param from rtx to rtx_insn *.
+	(c6x_final_prescan_insn): Likewise for first param.
+
+	* config/c6x/c6x.c (c6x_current_insn): Likewise for this variable.
+	(c6x_output_mi_thunk): Replace use of NULL_RTX with NULL.
+	(c6x_expand_compare): Strengthen local "insns" from rtx to
+	rtx_insn *.
+	(c6x_get_unit_specifier): Likewise for param "insn".
+	(c6x_print_unit_specifier_field): Likewise.
+	(c6x_final_prescan_insn): Likewise.
+	(emit_add_sp_const): Likewise for local "insn".
+	(c6x_expand_prologue): Likewise.
+
+2014-08-25  David Malcolm  <dmalcolm@redhat.com>
+
+	* config/bfin/bfin-protos.h (asm_conditional_branch): Strengthen
+	param 1 from rtx to rtx_insn *.
+	* config/bfin/bfin.c (expand_prologue_reg_save): Likewise for
+	the various locals named "insn".
+	(expand_epilogue_reg_restore): Likewise.
+	(frame_related_constant_load): Likewise.
+	(add_to_reg): Likewise.
+	(emit_link_insn): Likewise.
+	(do_link): Likewise.
+	(expand_interrupt_handler_prologue): Likewise.
+	(branch_dest): Likewise for param "branch".
+	(asm_conditional_branch): Likewise for param "insn".
+	(gen_one_bundle): Likewise for elements of param "slot" and local
+	"t".
+	(bfin_gen_bundles): Likewise for locals "insn", "next" and
+	elements of local "slot".
+	(reorder_var_tracking_notes): Likewise for locals "insn", "next",
+	"queue", "next_queue", "prev".
+	(workaround_rts_anomaly): Likewise for locals "insn", "first_insn".
+	(add_sched_insns_for_speculation): Likewise for local "insn".
+
+2014-08-25  David Malcolm  <dmalcolm@redhat.com>
+
+	* config/avr/avr-protos.h (output_movqi): Strengthen first param
+	from rtx to rtx_insn *.
+	(output_movhi): Likewise.
+	(output_movsisf): Likewise.
+	(avr_out_tstsi): Likewise.
+	(avr_out_tsthi): Likewise.
+	(avr_out_tstpsi): Likewise.
+	(avr_out_compare): Likewise.
+	(avr_out_compare64): Likewise.
+	(avr_out_movpsi): Likewise.
+	(ashlqi3_out): Likewise.
+	(ashlhi3_out): Likewise.
+	(ashlsi3_out): Likewise.
+	(ashrqi3_out): Likewise.
+	(ashrhi3_out): Likewise.
+	(ashrsi3_out): Likewise.
+	(lshrqi3_out): Likewise.
+	(lshrhi3_out): Likewise.
+	(lshrsi3_out): Likewise.
+	(avr_out_ashlpsi3): Likewise.
+	(avr_out_ashrpsi3): Likewise.
+	(avr_out_lshrpsi3): Likewise.
+	(avr_out_fract): Likewise.
+	(avr_out_sbxx_branch): Likewise.
+	(avr_out_round): Likewise.
+	(avr_out_xload): Likewise.
+	(avr_out_movmem): Likewise.
+	(adjust_insn_length): Likewise.
+	(avr_out_lpm): Likewise.
+	(reg_unused_after): Likewise.
+	(_reg_unused_after): Likewise.
+	(avr_jump_mode): Likewise for second param.
+	(jump_over_one_insn): Likewise for first param.
+	(avr_final_prescan_insn): Likewise.
+	(out_shift_with_cnt): Likewise for second param.
+
+	* config/avr/avr.c (get_sequence_length): Likewise for param
+	"insns" and local "insn".
+	(emit_push_byte): Likewise for local "insn".
+	(emit_push_sfr): Likewise.
+	(avr_prologue_setup_frame): Likewise for locals "insn",
+	"fp_plus_insns", "sp_plus_insns".
+	(avr_expand_epilogue): Likewise for local "fp_plus_insns",
+	"sp_plus_insns".
+	(avr_jump_mode): Likewise for param "insn".
+	(avr_final_prescan_insn): Likewise.
+	(avr_find_unused_d_reg): Likewise.
+	(avr_out_lpm_no_lpmx): Likewise.
+	(avr_out_lpm): Likewise.
+	(avr_out_xload): Likewise.
+	(output_movqi): Likewise.
+	(output_movhi): Likewise.
+	(out_movqi_r_mr): Likewise.
+	(out_movhi_r_mr): Likewise.
+	(out_movsi_r_mr): Likewise.
+	(out_movsi_mr_r): Likewise.
+	(output_movsisf): Likewise.
+	(avr_out_load_psi): Likewise.
+	(avr_out_store_psi): Likewise.
+	(avr_out_movpsi): Likewise.
+	(out_movqi_mr_r): Likewise.
+	(avr_out_movhi_mr_r_xmega): Likewise.
+	(out_movhi_mr_r): Likewise.
+	(compare_condition): Likewise for param "insn" and local "next".
+	(compare_sign_p): Likewise for param "insn".
+	(compare_diff_p): Likewise.
+	(compare_eq_p): Likewise.
+	(avr_out_compare): Likewise.
+	(avr_out_compare64): Likewise.
+	(avr_out_tsthi): Likewise.
+	(avr_out_tstpsi): Likewise.
+	(avr_out_tstsi): Likewise.
+	(out_shift_with_cnt): Likewise.
+	(ashlqi3_out): Likewise.
+	(ashlhi3_out): Likewise.
+	(avr_out_ashlpsi3): Likewise.
+	(ashlsi3_out): Likewise.
+	(ashrqi3_out): Likewise.
+	(ashrhi3_out): Likewise.
+	(avr_out_ashrpsi3): Likewise.
+	(ashrsi3_out): Likewise.
+	(lshrqi3_out): Likewise.
+	(lshrhi3_out): Likewise.
+	(avr_out_lshrpsi3): Likewise.
+	(lshrsi3_out): Likewise.
+	(avr_out_fract): Likewise.
+	(avr_out_round): Likewise.
+	(avr_adjust_insn_length): Likewise.
+	(reg_unused_after): Likewise.
+	(_reg_unused_after): Likewise.
+	(avr_compare_pattern): Likewise.
+	(avr_reorg_remove_redundant_compare): Likewise for param "insn1"
+	and locals "branch1", "branch2", "insn2", "jump".
+	(avr_reorg): Likewise for local "insn".
+	(avr_2word_insn_p): Likewise for param "insn".
+	(jump_over_one_insn_p): Likewise.
+	(avr_out_sbxx_branch): Likewise.
+	(avr_out_movmem): Likewise.
+
+2014-08-25  David Malcolm  <dmalcolm@redhat.com>
+
+	* config/arm/arm-protos.h (arm_final_prescan_insn): Strengthen
+	param from rtx to rtx_insn *.
+	(thumb1_final_prescan_insn): Likewise.
+	(thumb2_final_prescan_insn): Likewise.
+
+	* config/arm/arm.c (emit_set_insn): Strengthen return type from
+	rtx to rtx_insn *.
+	(struct minipool_node): Likewise for field "insn".
+	(dump_minipool): Likewise for param "scan".
+	(create_fix_barrier): Likewise for local "from".  Strengthen local
+	"label" from rtx to rtx_code_label *.
+	(push_minipool_barrier): Strengthen param "insn" from rtx to
+	rtx_insn *.
+	(push_minipool_fix): Likewise.
+	(note_invalid_constants): Likewise.
+	(thumb2_reorg): Likewise for local "insn".
+	(arm_reorg): Likewise.
+	(thumb2_final_prescan_insn): Likewise for param
+	"insn" and local "first_insn".
+	(arm_final_prescan_insn): Likewise for param "insn" and locals
+	"start_insn", "this_insn".
+	(arm_debugger_arg_offset): Likewise for param "insn".
+	(thumb1_emit_multi_reg_push): Likewise for return type and local
+	"insn".
+	(thumb1_final_prescan_insn): Likewise for param "insn".
+	(thumb_far_jump_used_p): Likewise for local "insn".
+	(thumb1_expand_prologue): Likewise.
+	(arm_expand_epilogue_apcs_frame): Likewise.
+	(arm_expand_epilogue): Likewise for locals "insn", "tmp".
+	(arm_split_compare_and_swap): Strengthen locals "label1", "label2"
+	from rtx to rtx_code_label *.
+	(arm_split_atomic_op): Likewise for local "label".
+	(arm_emit_coreregs_64bit_shift): Likewise for local "done_label".
+
+2014-08-25  David Malcolm  <dmalcolm@redhat.com>
+
+	* config/arc/arc-protos.h (arc_final_prescan_insn): Strengthen
+	first param from rtx to rtx_insn *.
+	(arc_verify_short): Likewise.
+	(arc_short_long): Likewise.
+	(arc_need_delay): Likewise.
+
+	* config/arc/arc.c (struct arc_ccfsm): Likewise for field
+	"target_insn".
+	(arc_ccfsm_advance): Likewise for param "insn" and locals
+	"start_insn", "this_insn".
+	(arc_ccfsm_record_condition): Likewise for local "seq_insn".
+	(arc_ccfsm_post_advance): Likewise for param "insn".
+	(arc_next_active_insn): Likewise for return type and param "insn".
+	Convert NULL_RTX to NULL as appropriate.  Add a checked cast.
+	(arc_verify_short): Strengthen param "insn" from rtx to rtx_insn *.
+	(output_short_suffix): Likewise for local "insn".
+	(arc_final_prescan_insn): Likewise for param "insn".  Remove
+	now-redundant checked cast.
+	(arc_reorg): Strengthen locals "insn", "top_label", "lp", "prev",
+	"lp_simple", "next", "mov", "scan", "link_insn" from rtx to
+	rtx_insn *.  Add a checked cast.  Introduce local "lc_set_insn"
+	for use where lc_set became an insn.
+	(arc_adjust_insn_length): Strengthen locals "prev", "succ" from
+	rtx to rtx_insn *.
+	(arc_get_insn_variants): Likewise for local "prev".
+	(arc_ifcvt): Likewise for locals "insn", "seq", "prev", "pprev",
+	"next".
+	(arc_predicate_delay_insns): Likewise for local "insn".
+	(arc_pad_return): Likewise for local "prev".  For now, add a
+	checked cast when extracting the insn from "final_sequence".
+	(arc_short_long): Likewise for param "insn".
+	(arc_need_delay): Likewise for param "insn" and local "next".
+	(arc_label_align): Likewise for locals "prev", "next".
+
+2014-08-25  David Malcolm  <dmalcolm@redhat.com>
+
+	* config/alpha/alpha.c (alpha_emit_set_const): Strengthen local
+	"insn" from rtx to rtx_insn *.
+	(alpha_gp_save_rtx): Likewise for local "seq".
+	(alpha_instantiate_decls): Likewise for local "top".
+	(get_some_local_dynamic_name): Likewise for local "insn".
+	(alpha_does_function_need_gp): Likewise.
+	(set_frame_related_p): Likewise for return type and for locals
+	"seq" and "insn".
+	(emit_frame_store_1): Likewise for local "insn".
+	(alpha_expand_prologue): Likewise for locals "insn", "seq".
+	(alpha_end_function): Likewise for local "insn".
+	(alpha_output_mi_thunk_osf): Likewise.
+	(alphaev4_insn_pipe): Likewise for param "insn".
+	(alphaev5_insn_pipe): Likewise.
+	(alphaev4_next_group): Likewise for return type and param 1
+	"insn".
+	(alphaev5_next_group): Likewise.
+	(alpha_align_insns_1): Likewise for return type and param 1 of
+	callback param "next_group", and for locals "i", "next", "prev",
+	"where", "where2", "insn".
+
+2014-08-25  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* tree-nested.c (finalize_nesting_tree_1): Initialize temporary earlier
+	rather than modifying the stmt.
+
+2014-08-25  Jan-Benedict Glaw  <jbglaw@lug-owl.de>
+
+	* config/rs6000/rs6000.c (rs6000_return_in_msb): Fix fallout from
+	cgraph_state conversion.
+
+2014-08-25  David Malcolm  <dmalcolm@redhat.com>
+
 	* config/aarch64/aarch64.c (aarch64_load_symref_appropriately):
 	Strengthen local "insns" from rtx to rtx_insn *.
 	(aarch64_set_frame_expr): Likewise for local "insn".
@@ -32,7 +668,7 @@
 	(void remove_caller (void)): created from cgraph_edge_remove_caller
 	(void remove_callee (void)): created from cgraph_edge_remove_callee
 	(void set_call_stmt (gimple new_stmt, bool update_speculative = true)):
-	  created from cgraph_set_call_stmt	
+	  created from cgraph_set_call_stmt
 	(void redirect_callee (cgraph_node *n)): created from cgraph_redirect_edge_callee
 	(cgraph_edge *make_direct (cgraph_node *callee)): created from cgraph_make_edge_direct
 	(cgraph_edge *make_speculative (cgraph_node *n2, gcov_type direct_count,
@@ -45,7 +681,7 @@
 	(bool cannot_lead_to_return_p (void)): created from cannot_lead_to_return_p
 	(bool recursive_p (void)): created from cgraph_edge_recursive_p
 	(bool maybe_hot_p (void)): created from cgraph_maybe_hot_edge_p
-	(static unsigned int rebuild_edges (void)): created from rebuild_cgraph_edges 
+	(static unsigned int rebuild_edges (void)): created from rebuild_cgraph_edges
 	(static void rebuild_references (void)): created from cgraph_rebuild_references
 	* cgraph.h (symbol_table):
 	(create_reference): renamed from add_reference
