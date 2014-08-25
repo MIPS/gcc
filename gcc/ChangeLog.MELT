@@ -1,4 +1,8 @@
 
+2014-08-25  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/generated/*: Regenerate.
+
 2014-08-19  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-hooks.melt (do_blocking_jsonrpc2_call): Return the
