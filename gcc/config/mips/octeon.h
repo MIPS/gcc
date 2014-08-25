@@ -69,3 +69,10 @@ Boston, MA 02110-1301, USA.  */
       mips_output_aligned_decl_common ((STREAM), (DECL), (NAME), (SIZE),   \
 				       (ALIGN));			   \
    }
+
+// If mhard-float,etc. is not supplied default to soft float
+// except if -march=octeon3 is supplied then it is hard float
+#define OCTEON_COMMON_DRIVER_SELF_SPECS	\
+"%{!msoft-float:%{!mhard-float:%{!mno-float:	\
+   %{!march=octeon3: -msoft-float; \
+     march=octeon3: -mhard-float}}}}"

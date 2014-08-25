@@ -60,7 +60,9 @@ Boston, MA 02110-1301, USA.  */
    the kernel uses.  */
 
 #undef DRIVER_SELF_SPECS
-#define DRIVER_SELF_SPECS \
+#define DRIVER_SELF_SPECS		\
+BASE_DRIVER_SELF_SPECS,			\
+OCTEON_COMMON_DRIVER_SELF_SPECS,	\
 "%{mabi=64:%{!G*: -G0}}"
 
 /* Pass linker emulation mode for N32.  */

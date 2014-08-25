@@ -1,3 +1,10 @@
+2014-08-25  Andrew Pinski  <apinski@cavium.com>
+
+	* config/mips/octeon.h (OCTEON_COMMON_DRIVER_SELF_SPECS): New define.
+	* config/mips/octeon-elf.h (DRIVER_SELF_SPECS):
+	Include BASE_DRIVER_SELF_SPECS and OCTEON_COMMON_DRIVER_SELF_SPECS.
+	* config/mips/octeon-linux.h (DRIVER_SELF_SPECS): Define.
+
 2014-08-17  Andrew Pinski  <apinski@cavium.com>
 
 	Bug #11834
