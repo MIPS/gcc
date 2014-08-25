@@ -1443,6 +1443,15 @@ type node.}#
  ()
  #{ /* tree_short_unsigned_type_node : */ short_unsigned_type_node }#)
 
+;;; "bool"
+(defcmatcher tree_boolean_type_node (:tree tr) ()
+ nodetr
+ :doc #{$TREE_BOOLEAN_TYPE_NODE matches or gives the constant bool integer 
+type node.}#
+ #{ /* tree_boolean_type_node $NODETR ? */ $TR == boolean_type_node }#
+ ()
+ #{ /* tree_boolean_type_node : */ boolean_type_node }#)
+
 ;;; "int"
 (defcmatcher tree_integer_type_node (:tree tr) ()
  nodetr
@@ -1479,6 +1488,15 @@ type node.}#
  ()
  #{ /* tree_size_type_node : */ size_type_node }#)
 
+;;; "ssize_t"
+(defcmatcher tree_signed_size_type_node (:tree tr) ()
+ nodetr
+ :doc #{$TREE_SIGNED_SIZE_TYPE_NODE matches or gives the constant ssize_t integer 
+type node.}#
+ #{ /* tree_signed_size_type_node $NODETR ? */ $TR == signed_size_type_node }#
+ ()
+ #{ /* tree_signed_size_type_node : */ signed_size_type_node }#)
+
 ;;; "unsigned long"
 (defcmatcher tree_long_unsigned_type_node (:tree tr) ()
  nodetr
@@ -1487,6 +1505,33 @@ type node.}#
  #{ /* tree_long_unsigned_type_node $NODETR ? */ $TR == long_unsigned_type_node }#
  ()
  #{ /* tree_long_unsigned_type_node : */ long_unsigned_type_node }#)
+
+;;; "uint16_t"
+(defcmatcher tree_uint16_type_node (:tree tr) ()
+ nodetr
+ :doc #{$TREE_UINT16_TYPE_NODE matches or gives the constant uint16_t integer 
+type node.}#
+ #{ /* tree_uint16_type_node $NODETR ? */ $TR == uint16_type_node }#
+ ()
+ #{ /* tree_uint16_type_node : */ uint16_type_node }#)
+
+;;; "uint32_t"
+(defcmatcher tree_uint32_type_node (:tree tr) ()
+ nodetr
+ :doc #{$TREE_UINT16_TYPE_NODE matches or gives the constant uint32_t integer 
+type node.}#
+ #{ /* tree_uint32_type_node $NODETR ? */ $TR == uint32_type_node }#
+ ()
+ #{ /* tree_uint32_type_node : */ uint32_type_node }#)
+
+;;; "uint64_t"
+(defcmatcher tree_uint64_type_node (:tree tr) ()
+ nodetr
+ :doc #{$TREE_UINT16_TYPE_NODE matches or gives the constant uint64_t integer 
+type node.}#
+ #{ /* tree_uint64_type_node $NODETR ? */ $TR == uint64_type_node }#
+ ()
+ #{ /* tree_uint64_type_node : */ uint64_type_node }#)
 
 ;;; "long long"
 (defcmatcher tree_long_long_integer_type_node (:tree tr) ()
@@ -1577,15 +1622,6 @@ pointer type node.}#
  #{ /* tree_const_ptr_type_node $NODETR ? */ $TR == const_ptr_type_node }#
  ()
  #{ /* tree_const_ptr_type_node : */ const_ptr_type_node }#)
-
-;;; "bool"
-(defcmatcher tree_boolean_type_node (:tree tr) ()
- nodetr
- :doc #{$TREE_BOOLEAN_TYPE_NODE matches or gives the constant bool
- type node.}#
- #{ /* tree_boolean_type_node $NODETR ? */ $TR == boolean_type_node }#
- ()
- #{ /* tree_boolean_type_node : */ boolean_type_node }#)
 
 ;;; "true"
 (defcmatcher tree_boolean_true_node (:tree tr) ()
@@ -2263,6 +2299,7 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_short_integer_type_node 
  tree_short_unsigned_type_node 
  tree_signed_char_type_node 
+ tree_signed_size_type_node 
  tree_simple_ssa_name 
  tree_size_type_node 
  tree_ssa_name 
@@ -2275,6 +2312,9 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_type_p
  tree_types_compatible_p
  tree_uid
+ tree_uint16_type_node
+ tree_uint32_type_node
+ tree_uint64_type_node
  tree_union_type
  tree_union_type_with_fields
  tree_unsigned_char_type_node 

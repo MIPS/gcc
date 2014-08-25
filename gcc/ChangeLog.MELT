@@ -1,6 +1,12 @@
 
 2014-08-25  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/libmelt-ana-tree.melt (tree_signed_size_type_node)
+	(tree_uint16_type_node, tree_uint32_type_node)
+	(tree_uint64_type_node): New cmatchers.
+
+2014-08-25  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/generated/*: Regenerate.
 
 2014-08-19  Basile Starynkevitch  <basile@starynkevitch.net>
