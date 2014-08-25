@@ -1177,7 +1177,7 @@ c6x_function_ok_for_sibcall (tree decl, tree exp)
 	/* Not enough information.  */
 	return false;
 
-      this_func = cgraph_local_info (current_function_decl);
+      this_func = cgraph_node::local_info (current_function_decl);
       return this_func->local;
     }
 
@@ -2540,7 +2540,7 @@ must_reload_pic_reg_p (void)
   if (!TARGET_DSBT)
     return false;
 
-  i = cgraph_local_info (current_function_decl);
+  i = cgraph_node::local_info (current_function_decl);
 
   if ((crtl->uses_pic_offset_table || !crtl->is_leaf) && !i->local)
     return true;
@@ -5669,7 +5669,9 @@ hwloop_optimize (hwloop_info loop)
       schedule_ebbs_init ();
       set_modulo_params (sp_ii, max_parallel, n_real_insns,
 			 sploop_max_uid_iter0);
-      tmp_bb = schedule_ebb (BB_HEAD (bb), last_insn, true);
+      tmp_bb = schedule_ebb (BB_HEAD (bb),
+			     safe_as_a <rtx_insn *> (last_insn),
+			     true);
       schedule_ebbs_finish ();
 
       if (tmp_bb)
