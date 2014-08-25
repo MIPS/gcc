@@ -482,7 +482,7 @@ number $NUM opaque location number $LOC.}#
   #{melt_val_mixbigint((melt_ptr_t) $MB)}#)
 
 (defprimitive ppstrbuf_mixbigint (:value sbuf :long indent :value mb) :void
- :doc #{Pretty prints into string buffer $SBUF at indentation $INDENT the mixed bigint $MB.}#
+ :doc #{Pretty prints into string buffer or output $SBUF at indentation $INDENT the mixed bigint $MB.}#
  #{meltgc_ppstrbuf_mixbigint((melt_ptr_t) $SBUF,$INDENT,(melt_ptr_t) $MB);}#
 )
 
@@ -1603,6 +1603,9 @@ output $OUT. It is called by the $ADD2OUT variadic function.}#
 	  (add2out out "\"")
 	  (add2out_utf8json_encstring out v)
 	  (add2out out "\"")
+	  )
+	( (is_mixbigint v)
+	  (ppstrbuf_mixbigint out 0 v)
 	  )
 	(:else
 	 (output_as_json v out)))
