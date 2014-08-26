@@ -1,5 +1,10 @@
 2014-08-26  Richard Biener  <rguenther@suse.de>
 
+	* tree-ssa-loop-ivopts.c (ivuse_cmp): New function.
+	(rewrite_uses): Sort the vector of iv_uses after dominator order.
+
+2014-08-26  Richard Biener  <rguenther@suse.de>
+
 	* match.pd ((T1)(~(T2) X) -> ~(T1) X): Fix simplification
 	again.
 

@@ -6526,6 +6526,30 @@ rewrite_use (struct ivopts_data *data, struct iv_use *use, struct iv_cand *cand)
   update_stmt (use->stmt);
 }
 
+/* Compare routine for sorting the vector of iv_uses after dominance.  */
+
+static int
+ivuse_cmp (const void *a, const void *b)
+{
+  const struct iv_use *usea = *((const struct iv_use * const *)a);
+  const struct iv_use *useb = *((const struct iv_use * const *)b);
+  basic_block bba = gimple_bb (usea->stmt);
+  basic_block bbb = gimple_bb (useb->stmt);
+  if (bba == bbb)
+    {
+      if (usea->stmt == useb->stmt)
+	return 0;
+      if (gimple_uid (usea->stmt) > gimple_uid (useb->stmt))
+	return 1;
+      else
+	return -1;
+    }
+  else if (dominated_by_p (CDI_DOMINATORS, bba, bbb))
+    return 1;
+  else
+    return -1;
+}
+
 /* Rewrite the uses using the selected induction variables.  */
 
 static void
@@ -6534,6 +6558,9 @@ rewrite_uses (struct ivopts_data *data)
   unsigned i;
   struct iv_cand *cand;
   struct iv_use *use;
+
+  /* Sort uses so that dominating uses are processed first.  */
+  data->iv_uses.qsort (ivuse_cmp);
 
   for (i = 0; i < n_iv_uses (data); i++)
     {
