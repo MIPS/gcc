@@ -1,5 +1,8 @@
 
 2014-08-26  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.1.2pre6.
+
+2014-08-26  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-first.melt (melt_assert_failure_fun): Skip any
 	misunderstood stuff argument...
