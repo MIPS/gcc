@@ -3120,7 +3120,7 @@ for_each_inc_dec_find_mem (rtx *r, void *d)
   return 0;
 }
 
-/* Traverse *X looking for MEMs, and for autoinc operations within
+/* Traverse *INSN looking for MEMs, and for autoinc operations within
    them.  For each such autoinc operation found, call FN, passing it
    the innermost enclosing MEM, the operation itself, the RTX modified
    by the operation, two RTXs (the second may be NULL) that, once
@@ -3131,7 +3131,7 @@ for_each_inc_dec_find_mem (rtx *r, void *d)
    for_each_inc_dec.  */
 
 int
-for_each_inc_dec (rtx *x,
+for_each_inc_dec (rtx_insn **insn,
 		  for_each_inc_dec_fn fn,
 		  void *arg)
 {
@@ -3141,7 +3141,7 @@ for_each_inc_dec (rtx *x,
   data.arg = arg;
   data.mem = NULL;
 
-  return for_each_rtx (x, for_each_inc_dec_find_mem, &data);
+  return for_each_rtx_in_insn (insn, for_each_inc_dec_find_mem, &data);
 }
 
 
@@ -4985,11 +4985,12 @@ insn_rtx_cost (rtx pat, bool speed)
    and at INSN.  */
 
 rtx
-canonicalize_condition (rtx insn, rtx cond, int reverse, rtx *earliest,
+canonicalize_condition (rtx_insn *insn, rtx cond, int reverse,
+			rtx_insn **earliest,
 			rtx want_reg, int allow_cc_mode, int valid_at_insn_p)
 {
   enum rtx_code code;
-  rtx prev = insn;
+  rtx_insn *prev = insn;
   const_rtx set;
   rtx tem;
   rtx op0, op1;
@@ -5254,7 +5255,8 @@ canonicalize_condition (rtx insn, rtx cond, int reverse, rtx *earliest,
    VALID_AT_INSN_P is the same as for canonicalize_condition.  */
 
 rtx
-get_condition (rtx jump, rtx *earliest, int allow_cc_mode, int valid_at_insn_p)
+get_condition (rtx_insn *jump, rtx_insn **earliest, int allow_cc_mode,
+	       int valid_at_insn_p)
 {
   rtx cond;
   int reverse;

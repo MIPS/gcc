@@ -80,14 +80,13 @@ extern bool need_atomic_barrier_p (enum memmodel, bool);
 static inline rtx_insn *
 get_insns (void)
 {
-  rtx insn = crtl->emit.x_first_insn;
-  return safe_as_a <rtx_insn *> (insn);
+  return crtl->emit.x_first_insn;
 }
 
 /* Specify a new insn as the first in the chain.  */
 
 static inline void
-set_first_insn (rtx insn)
+set_first_insn (rtx_insn *insn)
 {
   gcc_checking_assert (!insn || !PREV_INSN (insn));
   crtl->emit.x_first_insn = insn;
@@ -98,14 +97,13 @@ set_first_insn (rtx insn)
 static inline rtx_insn *
 get_last_insn (void)
 {
-  rtx insn = crtl->emit.x_last_insn;
-  return safe_as_a <rtx_insn *> (insn);
+  return crtl->emit.x_last_insn;
 }
 
 /* Specify a new insn as the last in the chain.  */
 
 static inline void
-set_last_insn (rtx insn)
+set_last_insn (rtx_insn *insn)
 {
   gcc_checking_assert (!insn || !NEXT_INSN (insn));
   crtl->emit.x_last_insn = insn;

@@ -41,13 +41,13 @@ enum sched_pressure_algorithm
 };
 
 typedef vec<basic_block> bb_vec_t;
-typedef vec<rtx> insn_vec_t;
-typedef vec<rtx> rtx_vec_t;
+typedef vec<rtx_insn *> insn_vec_t;
+typedef vec<rtx_insn *> rtx_vec_t;
 
 extern void sched_init_bbs (void);
 
 extern void sched_extend_luids (void);
-extern void sched_init_insn_luid (rtx);
+extern void sched_init_insn_luid (rtx_insn *);
 extern void sched_init_luids (bb_vec_t);
 extern void sched_finish_luids (void);
 
@@ -218,10 +218,10 @@ struct dep_replacement
 struct _dep
 {
   /* Producer.  */
-  rtx pro;
+  rtx_insn *pro;
 
   /* Consumer.  */
-  rtx con;
+  rtx_insn *con;
 
   /* If nonnull, holds a pointer to information about how to break the
      dependency by making a replacement in one of the insns.  There is
@@ -250,10 +250,8 @@ struct _dep
 typedef struct _dep dep_def;
 typedef dep_def *dep_t;
 
-extern rtx_insn *DEP_PRO (dep_t dep);
-extern rtx_insn *DEP_CON (dep_t dep);
-extern rtx& SET_DEP_PRO (dep_t dep);
-extern rtx& SET_DEP_CON (dep_t dep);
+#define DEP_PRO(D) ((D)->pro)
+#define DEP_CON(D) ((D)->con)
 #define DEP_TYPE(D) ((D)->type)
 #define DEP_STATUS(D) ((D)->status)
 #define DEP_COST(D) ((D)->cost)
@@ -263,8 +261,8 @@ extern rtx& SET_DEP_CON (dep_t dep);
 
 /* Functions to work with dep.  */
 
-extern void init_dep_1 (dep_t, rtx, rtx, enum reg_note, ds_t);
-extern void init_dep (dep_t, rtx, rtx, enum reg_note);
+extern void init_dep_1 (dep_t, rtx_insn *, rtx_insn *, enum reg_note, ds_t);
+extern void init_dep (dep_t, rtx_insn *, rtx_insn *, enum reg_note);
 
 extern void sd_debug_dep (dep_t);
 
@@ -776,7 +774,7 @@ struct reg_use_data
   /* Regno used in the insn.  */
   int regno;
   /* Insn using the regno.  */
-  rtx insn;
+  rtx_insn *insn;
   /* Cyclic list of elements with the same regno.  */
   struct reg_use_data *next_regno_use;
   /* List of elements with the same insn.  */
@@ -1241,7 +1239,7 @@ struct sched_deps_info_def
   void (*compute_jump_reg_dependencies) (rtx, regset);
 
   /* Start analyzing insn.  */
-  void (*start_insn) (rtx);
+  void (*start_insn) (rtx_insn *);
 
   /* Finish analyzing insn.  */
   void (*finish_insn) (void);
@@ -1269,10 +1267,10 @@ struct sched_deps_info_def
 
   /* Note memory dependence of type DS between MEM1 and MEM2 (which is
      in the INSN2).  */
-  void (*note_mem_dep) (rtx mem1, rtx mem2, rtx insn2, ds_t ds);
+  void (*note_mem_dep) (rtx mem1, rtx mem2, rtx_insn *insn2, ds_t ds);
 
   /* Note a dependence of type DS from the INSN.  */
-  void (*note_dep) (rtx, ds_t ds);
+  void (*note_dep) (rtx_insn *, ds_t ds);
 
   /* Nonzero if we should use cselib for better alias analysis.  This
      must be 0 if the dependency information is used after sched_analyze
@@ -1346,10 +1344,10 @@ extern void get_ebb_head_tail (basic_block, basic_block,
 			       rtx_insn **, rtx_insn **);
 extern int no_real_insns_p (const_rtx, const_rtx);
 
-extern int insn_cost (rtx);
+extern int insn_cost (rtx_insn *);
 extern int dep_cost_1 (dep_t, dw_t);
 extern int dep_cost (dep_t);
-extern int set_priorities (rtx, rtx);
+extern int set_priorities (rtx_insn *, rtx_insn *);
 
 extern void sched_setup_bb_reg_pressure_info (basic_block, rtx);
 extern bool schedule_block (basic_block *, state_t);
@@ -1432,7 +1430,7 @@ extern bool sched_no_dce;
 
 extern void set_modulo_params (int, int, int, int);
 extern void record_delay_slot_pair (rtx_insn *, rtx_insn *, int, int);
-extern rtx real_insn_for_shadow (rtx);
+extern rtx_insn *real_insn_for_shadow (rtx_insn *);
 extern void discard_delay_pairs_above (int);
 extern void free_delay_pairs (void);
 extern void add_delay_dependencies (rtx_insn *);
@@ -1448,9 +1446,9 @@ extern void extend_regions (void);
 extern void rgn_make_new_region_out_of_new_block (basic_block);
 
 extern void compute_priorities (void);
-extern void increase_insn_priority (rtx, int);
+extern void increase_insn_priority (rtx_insn *, int);
 extern void debug_rgn_dependencies (int);
-extern void debug_dependencies (rtx, rtx);
+extern void debug_dependencies (rtx_insn *, rtx_insn *);
 extern void free_rgn_deps (void);
 extern int contributes_to_priority (rtx_insn *, rtx_insn *);
 extern void extend_rgns (int *, int *, sbitmap, int *);
@@ -1615,7 +1613,7 @@ extern void sd_add_dep (dep_t, bool);
 extern enum DEPS_ADJUST_RESULT sd_add_or_update_dep (dep_t, bool);
 extern void sd_resolve_dep (sd_iterator_def);
 extern void sd_unresolve_dep (sd_iterator_def);
-extern void sd_copy_back_deps (rtx, rtx, bool);
+extern void sd_copy_back_deps (rtx_insn *, rtx_insn *, bool);
 extern void sd_delete_dep (sd_iterator_def);
 extern void sd_debug_lists (rtx, sd_list_types_def);
 

@@ -101,10 +101,10 @@ dk_to_ds (enum reg_note dk)
 
 /* Init DEP with the arguments.  */
 void
-init_dep_1 (dep_t dep, rtx pro, rtx con, enum reg_note type, ds_t ds)
+init_dep_1 (dep_t dep, rtx_insn *pro, rtx_insn *con, enum reg_note type, ds_t ds)
 {
-  SET_DEP_PRO (dep) = pro;
-  SET_DEP_CON (dep) = con;
+  DEP_PRO (dep) = pro;
+  DEP_CON (dep) = con;
   DEP_TYPE (dep) = type;
   DEP_STATUS (dep) = ds;
   DEP_COST (dep) = UNKNOWN_DEP_COST;
@@ -117,7 +117,7 @@ init_dep_1 (dep_t dep, rtx pro, rtx con, enum reg_note type, ds_t ds)
    While most of the scheduler (including targets) only need the major type
    of the dependency, it is convenient to hide full dep_status from them.  */
 void
-init_dep (dep_t dep, rtx pro, rtx con, enum reg_note kind)
+init_dep (dep_t dep, rtx_insn *pro, rtx_insn *con, enum reg_note kind)
 {
   ds_t ds;
 
@@ -1403,7 +1403,7 @@ sd_unresolve_dep (sd_iterator_def sd_it)
 /* Make TO depend on all the FROM's producers.
    If RESOLVED_P is true add dependencies to the resolved lists.  */
 void
-sd_copy_back_deps (rtx to, rtx from, bool resolved_p)
+sd_copy_back_deps (rtx_insn *to, rtx_insn *from, bool resolved_p)
 {
   sd_list_types_def list_type;
   sd_iterator_def sd_it;
@@ -1416,7 +1416,7 @@ sd_copy_back_deps (rtx to, rtx from, bool resolved_p)
       dep_def _new_dep, *new_dep = &_new_dep;
 
       copy_dep (new_dep, dep);
-      SET_DEP_CON (new_dep) = to;
+      DEP_CON (new_dep) = to;
       sd_add_dep (new_dep, resolved_p);
     }
 }
@@ -1524,8 +1524,8 @@ add_dependence (rtx_insn *con, rtx_insn *pro, enum reg_note dep_type)
      condition.  */
   if (dep_type == REG_DEP_CONTROL)
     {
-      rtx real_pro = pro;
-      rtx other = real_insn_for_shadow (real_pro);
+      rtx_insn *real_pro = pro;
+      rtx_insn *other = real_insn_for_shadow (real_pro);
       rtx cond;
 
       if (other != NULL_RTX)
@@ -1801,11 +1801,11 @@ static rtx_insn *cur_insn = NULL;
 /* Implement hooks for haifa scheduler.  */
 
 static void
-haifa_start_insn (rtx insn)
+haifa_start_insn (rtx_insn *insn)
 {
   gcc_assert (insn && !cur_insn);
 
-  cur_insn = as_a <rtx_insn *> (insn);
+  cur_insn = insn;
 }
 
 static void
@@ -1833,7 +1833,7 @@ haifa_note_reg_use (int regno)
 }
 
 static void
-haifa_note_mem_dep (rtx mem, rtx pending_mem, rtx pending_insn, ds_t ds)
+haifa_note_mem_dep (rtx mem, rtx pending_mem, rtx_insn *pending_insn, ds_t ds)
 {
   if (!(ds & SPECULATIVE))
     {
@@ -1855,7 +1855,7 @@ haifa_note_mem_dep (rtx mem, rtx pending_mem, rtx pending_insn, ds_t ds)
 }
 
 static void
-haifa_note_dep (rtx elem, ds_t ds)
+haifa_note_dep (rtx_insn *elem, ds_t ds)
 {
   dep_def _dep;
   dep_t dep = &_dep;
@@ -1888,7 +1888,7 @@ note_reg_clobber (int r)
 }
 
 static void
-note_mem_dep (rtx m1, rtx m2, rtx e, ds_t ds)
+note_mem_dep (rtx m1, rtx m2, rtx_insn *e, ds_t ds)
 {
   if (sched_deps_info->note_mem_dep)
     sched_deps_info->note_mem_dep (m1, m2, e, ds);
@@ -1926,7 +1926,7 @@ ds_to_dt (ds_t ds)
 
 /* Allocate and return reg_use_data structure for REGNO and INSN.  */
 static struct reg_use_data *
-create_insn_reg_use (int regno, rtx insn)
+create_insn_reg_use (int regno, rtx_insn *insn)
 {
   struct reg_use_data *use;
 
@@ -1953,7 +1953,7 @@ create_insn_reg_set (int regno, rtx insn)
 
 /* Set up insn register uses for INSN and dependency context DEPS.  */
 static void
-setup_insn_reg_uses (struct deps_desc *deps, rtx insn)
+setup_insn_reg_uses (struct deps_desc *deps, rtx_insn *insn)
 {
   unsigned i;
   reg_set_iterator rsi;
@@ -1980,7 +1980,7 @@ setup_insn_reg_uses (struct deps_desc *deps, rtx insn)
       /* Create the cycle list of uses.  */
       for (list = reg_last->uses; list; list = XEXP (list, 1))
 	{
-	  use2 = create_insn_reg_use (i, XEXP (list, 0));
+	  use2 = create_insn_reg_use (i, as_a <rtx_insn *> (XEXP (list, 0)));
 	  next = use->next_regno_use;
 	  use->next_regno_use = use2;
 	  use2->next_regno_use = next;
@@ -2501,7 +2501,7 @@ sched_analyze_1 (struct deps_desc *deps, rtx x, rtx_insn *insn)
 	    {
 	      if (anti_dependence (XEXP (pending_mem, 0), t)
 		  && ! sched_insns_conditions_mutex_p (insn, XEXP (pending, 0)))
-		note_mem_dep (t, XEXP (pending_mem, 0), XEXP (pending, 0),
+		note_mem_dep (t, XEXP (pending_mem, 0), as_a <rtx_insn *> (XEXP (pending, 0)),
 			      DEP_ANTI);
 
 	      pending = XEXP (pending, 1);
@@ -2514,7 +2514,8 @@ sched_analyze_1 (struct deps_desc *deps, rtx x, rtx_insn *insn)
 	    {
 	      if (output_dependence (XEXP (pending_mem, 0), t)
 		  && ! sched_insns_conditions_mutex_p (insn, XEXP (pending, 0)))
-		note_mem_dep (t, XEXP (pending_mem, 0), XEXP (pending, 0),
+		note_mem_dep (t, XEXP (pending_mem, 0),
+			      as_a <rtx_insn *> (XEXP (pending, 0)),
 			      DEP_OUTPUT);
 
 	      pending = XEXP (pending, 1);
@@ -2646,7 +2647,8 @@ sched_analyze_2 (struct deps_desc *deps, rtx x, rtx_insn *insn)
 		if (read_dependence (XEXP (pending_mem, 0), t)
 		    && ! sched_insns_conditions_mutex_p (insn,
 							 XEXP (pending, 0)))
-		  note_mem_dep (t, XEXP (pending_mem, 0), XEXP (pending, 0),
+		  note_mem_dep (t, XEXP (pending_mem, 0),
+				as_a <rtx_insn *> (XEXP (pending, 0)),
 				DEP_ANTI);
 
 		pending = XEXP (pending, 1);
@@ -2660,7 +2662,8 @@ sched_analyze_2 (struct deps_desc *deps, rtx x, rtx_insn *insn)
 		if (true_dependence (XEXP (pending_mem, 0), VOIDmode, t)
 		    && ! sched_insns_conditions_mutex_p (insn,
 							 XEXP (pending, 0)))
-		  note_mem_dep (t, XEXP (pending_mem, 0), XEXP (pending, 0),
+		  note_mem_dep (t, XEXP (pending_mem, 0),
+				as_a <rtx_insn *> (XEXP (pending, 0)),
 				sched_deps_info->generate_spec_deps
 				? BEGIN_DATA | DEP_TRUE : DEP_TRUE);
 
@@ -4917,26 +4920,6 @@ find_modifiable_mems (rtx_insn *head, rtx_insn *tail)
   if (success_in_block && sched_verbose >= 5)
     fprintf (sched_dump, "%d candidates for address modification found.\n",
 	     success_in_block);
-}
-
-rtx_insn *DEP_PRO (dep_t dep)
-{
-  return safe_as_a <rtx_insn *> (dep->pro);
-}
-
-rtx_insn *DEP_CON (dep_t dep)
-{
-  return safe_as_a <rtx_insn *> (dep->con);
-}
-
-rtx& SET_DEP_PRO (dep_t dep)
-{
-  return dep->pro;
-}
-
-rtx& SET_DEP_CON (dep_t dep)
-{
-  return dep->con;
 }
 
 #endif /* INSN_SCHEDULING */

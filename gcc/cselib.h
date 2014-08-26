@@ -65,7 +65,7 @@ enum cselib_record_what
 };
 
 extern void (*cselib_discard_hook) (cselib_val *);
-extern void (*cselib_record_sets_hook) (rtx insn, struct cselib_set *sets,
+extern void (*cselib_record_sets_hook) (rtx_insn *insn, struct cselib_set *sets,
 					int n_sets);
 
 extern cselib_val *cselib_lookup (rtx, enum machine_mode,
@@ -75,7 +75,7 @@ extern cselib_val *cselib_lookup_from_insn (rtx, enum machine_mode,
 extern void cselib_init (int);
 extern void cselib_clear_table (void);
 extern void cselib_finish (void);
-extern void cselib_process_insn (rtx);
+extern void cselib_process_insn (rtx_insn *);
 extern bool fp_setter_insn (rtx);
 extern enum machine_mode cselib_reg_set_mode (const_rtx);
 extern int rtx_equal_for_cselib_p (rtx, rtx);

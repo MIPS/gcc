@@ -728,7 +728,7 @@ merge_blocks_move_successor_nojumps (basic_block a, basic_block b)
   if (tablejump_p (BB_END (b), &label, &table)
       && prev_active_insn (label) == BB_END (b))
     {
-      SET_BB_END (b) = table;
+      BB_END (b) = table;
     }
 
   /* There had better have been a barrier there.  Delete it.  */
@@ -741,7 +741,7 @@ merge_blocks_move_successor_nojumps (basic_block a, basic_block b)
   reorder_insns_nobb (BB_HEAD (b), BB_END (b), BB_END (a));
 
   /* Restore the real end of b.  */
-  SET_BB_END (b) = real_b_end;
+  BB_END (b) = real_b_end;
 
   if (dump_file)
     fprintf (dump_file, "Moved block %d after %d and merged.\n",
@@ -1725,7 +1725,7 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
 		  rr.r1 = label1;
 		  rr.r2 = label2;
 		  rr.update_label_nuses = false;
-		  for_each_rtx (&SET_BB_END (bb1), replace_label, &rr);
+		  for_each_rtx_in_insn (&BB_END (bb1), replace_label, &rr);
 
 		  match = (old_insns_match_p (mode, BB_END (bb1), BB_END (bb2))
 			   == dir_both);
@@ -1739,7 +1739,7 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
 		     from the instruction is deleted too.  */
 		  rr.r1 = label2;
 		  rr.r2 = label1;
-		  for_each_rtx (&SET_BB_END (bb1), replace_label, &rr);
+		  for_each_rtx_in_insn (&BB_END (bb1), replace_label, &rr);
 
 		  return match;
 		}
@@ -2291,7 +2291,8 @@ try_head_merge_bb (basic_block bb)
   bool changed, moveall;
   unsigned ix;
   rtx_insn *e0_last_head;
-  rtx cond, move_before;
+  rtx cond;
+  rtx_insn *move_before;
   unsigned nedges = EDGE_COUNT (bb->succs);
   rtx_insn *jump = BB_END (bb);
   regset live, live_union;
@@ -2455,7 +2456,7 @@ try_head_merge_bb (basic_block bb)
      with the final move.  */
   if (final_dest_bb != NULL)
     {
-      rtx move_upto;
+      rtx_insn *move_upto;
 
       moveall = can_move_insns_across (currptr[0], e0_last_head, move_before,
 				       jump, e0->dest, live_union,
@@ -2490,7 +2491,7 @@ try_head_merge_bb (basic_block bb)
 
   do
     {
-      rtx move_upto;
+      rtx_insn *move_upto;
       moveall = can_move_insns_across (currptr[0], e0_last_head,
 				       move_before, jump, e0->dest, live_union,
 				       NULL, &move_upto);
