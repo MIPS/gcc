@@ -1,3 +1,8 @@
+2014-08-26  Richard Biener  <rguenther@suse.de>
+
+	* match.pd ((T1)(~(T2) X) -> ~(T1) X): Fix simplification
+	again.
+
 2014-08-21  Richard Biener  <rguenther@suse.de>
 
 	* match.pd ((T1)(~(T2) X) -> ~(T1) X): Paste all comment

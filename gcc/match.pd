@@ -119,7 +119,7 @@ along with GCC; see the file COPYING3.  If not see
       && TYPE_PRECISION (type) == TYPE_PRECISION (TREE_TYPE (@0))
       && INTEGRAL_TYPE_P (TREE_TYPE (@1))
       && TYPE_PRECISION (type) <= TYPE_PRECISION (TREE_TYPE (@1)))
-  (bit_not (convert @0))))
+  (bit_not (convert @1))))
 
 
 #include "match-plusminus.pd"
