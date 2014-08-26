@@ -7655,7 +7655,7 @@ if (1) return;
 	     (set_ref referr (or v :true))))
 	  (litvalist 
 	   (list ()))	    ;first element of list is ignored, so null	  
-	  (macroenv 
+	  (macrofreshenv 
 	   (fresh_env env (tuple 'macro-extension nakedbasnam)))
 	  (newmodctx
 	   (instance class_running_extension_module_context
@@ -7663,7 +7663,7 @@ if (1) return;
 		     :mocx_expfieldict (make_mapstring discr_map_strings 71)
 		     :mocx_expclassdict (make_mapstring discr_map_strings 19)
 		     :mocx_initialenv env
-		     :mocx_macroenv macroenv
+		     :mocx_macroenv macrofreshenv
 		     :mocx_funcount (make_integerbox discr_integer 0)
 		     :mocx_filetuple ()
 		     :mocx_cheaderlist (make_list discr_list)

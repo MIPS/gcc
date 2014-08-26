@@ -1,6 +1,20 @@
 
 2014-08-26  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-built-script.tpl: Give some more blank lines between
+	stages.
+
+	* melt-built-script.sh: Regenerate.
+
+	* melt/warmelt-genobj.melt (compilobj_nrep_locsymocc): Give some
+	error message when something is wrong...
+
+	* melt/warmelt-outobj.melt
+	(melt_translate_run_macroexpansions_list): Use the
+	macrofreshenv...
+
+2014-08-26  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/generated/*: Regenerate.
 
 2014-08-26  Basile Starynkevitch  <basile@starynkevitch.net>

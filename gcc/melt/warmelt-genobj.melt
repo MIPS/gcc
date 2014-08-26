@@ -2521,6 +2521,7 @@
      (debug "compilobj_nrep_locsymocc sbnd=" sbnd " ovar=" ovar)
      (when (null sbnd)
        (debug "compilobj_nrep_locsymocc null sbnd lsyo=" lsyo " sym=" sym)
+       (error_at loc "bad mistyped MELT symbol occurrence $1 of type $2" sym oty)
        (assert_msg "locsymocc without binding" () lsyo)
 	   )
      (if (null ovar) 
@@ -2529,7 +2530,9 @@
 		  "\n.. locmap=" locmap 
 		  "\n.. lsyo=" lsyo 
 		  "\n.. gcx=" debug_less gcx)
-	   (assert_msg "compilobj_nrep_locsymocc null ovar without ctype_void" (== oty ctype_void) oty lsyo locmap)
+	   (when (!= oty ctype_void)
+	     (error_at loc "bad MELT symbol occurrence $1 of type $2" sym oty)
+	     (assert_msg "compilobj_nrep_locsymocc null ovar without ctype_void" (== oty ctype_void) oty lsyo locmap))
 	   )
        (assert_msg "compilobj_nrep_locsymocc check ovar"  (is_a ovar class_objlocv) ovar))
      (debug "compilobj_nrep_locsymocc end lsyo=" lsyo " gives ovar=" ovar)
