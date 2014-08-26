@@ -1,5 +1,18 @@
 2014-08-26  Richard Biener  <rguenther@suse.de>
 
+	* Makefile.in (gimple-match.o-warn): Add -Wno-unused-variable.
+	(generic-match.o-warn): Likewise.
+	* genmatch.c (struct if_or_with): New.
+	(struct simplify): Change ifexpr vector to a vector of
+	if_or_with.
+	(dt_simplify::gen): Adjust.
+	(parse_simplify): Parse (with {} op).
+	* match.pd ((T1)(~(T2)X) into ~(T1)X): Move to...
+	* match-conversions.pd: ...this new file.  Implement basic
+	conversion simplification.
+
+2014-08-26  Richard Biener  <rguenther@suse.de>
+
 	* tree-ssa-loop-ivopts.c (ivuse_cmp): New function.
 	(rewrite_uses): Sort the vector of iv_uses after dominator order.
 

@@ -107,20 +107,6 @@ along with GCC; see the file COPYING3.  If not see
   (abs @0))
 
 
-/* From fold_unary.  */
-
-/* Convert (T1)(~(T2)X) into ~(T1)X if T1 and T2 are integral types
-   of the same precision, and X is an integer type not narrower than
-   types T1 or T2, i.e. the cast (T2)X isn't an extension.  */
-(simplify
- (convert (bit_not@0 (convert @1)))
- (if (INTEGRAL_TYPE_P (type)
-      && INTEGRAL_TYPE_P (TREE_TYPE (@0))
-      && TYPE_PRECISION (type) == TYPE_PRECISION (TREE_TYPE (@0))
-      && INTEGRAL_TYPE_P (TREE_TYPE (@1))
-      && TYPE_PRECISION (type) <= TYPE_PRECISION (TREE_TYPE (@1)))
-  (bit_not (convert @1))))
-
 
 #include "match-plusminus.pd"
 #include "match-bitwise.pd"
@@ -128,6 +114,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "match-builtin.pd"
 #include "match-constant-folding.pd"
 #include "match-comparison.pd"
+#include "match-conversions.pd"
 
 /* ????s
 
