@@ -1315,7 +1315,10 @@ create it if not found.}#
 	       )
         (code_chunk failother_chk #{ /* melt_assert_failure_fun $FAILOTHER_CHK */
 		    fprintf (stderr, " $$%ld?%s?", $ARGCOUNT, melt_string_str($VCTYNAME));
+		    if ($ARGCOUNT % 4 == 0)
+		      fputc('\n', stderr);
 		    }#)
+	(variadic_skip 1)
 	)
       ))
     ))
