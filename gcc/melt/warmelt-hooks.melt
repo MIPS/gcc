@@ -3453,8 +3453,10 @@ exit, in last place.}#
 		       };
 		       const char* lastcolon = strrchr(servicestr, ':');
 		       gcc_assert (lastcolon != NULL && lastcolon > servicestr+1);
-		       strncpy(remhostname, servicestr, MIN(lastcolon-servicestr, sizeof(remhostname)));
-		       strncpy(remservicename, lastcolon+1, sizeof(remservicename)-1);
+		       strncpy (remhostname, servicestr,
+			       MIN((unsigned)(lastcolon-servicestr), (unsigned)sizeof(remhostname)));
+		       strncpy (remservicename, lastcolon+1,
+			        sizeof(remservicename)-1);
 		       debugeprintf("connect_to_server remhostname=%s remservicename=%s", remhostname, remservicename);
 		       if (gotconninfo) { // cached network info from previous call
 		         gcc_assert (!strcmp(conninfo.mci_service.c_str(), melt_string_str($SERVICE)));

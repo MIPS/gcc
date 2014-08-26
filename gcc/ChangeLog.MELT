@@ -1,4 +1,8 @@
 
+2014-08-26  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-hooks.melt (connect_to_server): Improve code chunk.
+
 2014-08-25  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-base.melt (output_json): Handle mixbigint case.
