@@ -1,5 +1,10 @@
 
 2014-08-27  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-outobj.melt (outpucod_procroutine)
+	(outpucod_initialmoduleroutine): Emit some more empty lines.
+
+
+2014-08-27  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerate.
 
 2014-08-27  Basile Starynkevitch  <basile@starynkevitch.net>

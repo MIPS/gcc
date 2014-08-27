@@ -1970,6 +1970,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (add2sbuf_strconst implbuf "*/")
     (add2sbuf_indentnl implbuf 0)
     (add2sbuf_indentnl implbuf 0)
+    (add2sbuf_indentnl implbuf 0)
     ;;
     (cond ( (>i (strbuf_usedlength declbuf) (/iraw (get_int !buffer_limit_cont) 2))
 	    (shortbacktrace_dbg "outpucod_procroutine huge declbuf" 10)
@@ -2144,6 +2145,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (add2sbuf_strconst implbuf "} /*end melt_initialize_module_meltdata_")
     (add2sbuf_cident implbuf omodnam)
     (add2sbuf_strconst implbuf "*/")
+    (add2sbuf_indentnl implbuf 0)
     (add2sbuf_indentnl implbuf 0)
     (add2sbuf_indentnl implbuf 0)
     ;; emit code to tell if we have debug
@@ -2357,7 +2359,9 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	 (add2sbuf_cident implbuf omodnam)
 	 (add2sbuf_strconst implbuf "__initialmeltchunk_")
 	 (add2sbuf_longdec implbuf chunkix)
-	 (add2sbuf_strconst implbuf " (meltinitial_frame_t* meltframptr__, char meltpredefinited[]) {")
+	 (add2sbuf_strconst implbuf " (meltinitial_frame_t* meltframptr__, char meltpredefinited[])")
+	 (add2sbuf_indentnl implbuf 0)
+	 (add2out_strconst implbuf "{")
 	 (add2sbuf_indentnl implbuf 0)
 	 (add2sbuf_strconst implbuf "#define meltfram__ (*meltframptr__)")
 	 (add2sbuf_indentnl implbuf 0)
@@ -2376,6 +2380,8 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	 (add2sbuf_strconst implbuf "__initialmeltchunk_")
 	 (add2sbuf_longdec implbuf chunkix)
 	 (add2sbuf_strconst implbuf "*/")
+	 (add2sbuf_indentnl implbuf 0)
+	 (add2sbuf_indentnl implbuf 0)
 	 (add2sbuf_indentnl implbuf 0)
 	 ;;
 	 (cond ( (>i (strbuf_usedlength implbuf) (/iraw (get_int !buffer_limit_cont) 2))
