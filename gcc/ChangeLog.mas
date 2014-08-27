@@ -1,3 +1,8 @@
+2014-08-27  Richard Biener  <rguenther@suse.de>
+
+	* fold-const.c (fold_binary_loc): Move dispatch to
+	generic_simplfy after folding of operations on two constants.
+
 2014-08-26  Richard Biener  <rguenther@suse.de>
 
 	* Makefile.in (gimple-match.o-warn): Add -Wno-unused-variable.

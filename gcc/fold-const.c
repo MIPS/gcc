@@ -10068,11 +10068,6 @@ fold_binary_loc (location_t loc,
 	      && op0 != NULL_TREE
 	      && op1 != NULL_TREE);
 
-  extern tree generic_simplify (enum tree_code, tree, tree, tree);
-  tem = generic_simplify (code, type, op0, op1);
-  if (tem)
-    return tem;
-
   arg0 = op0;
   arg1 = op1;
 
@@ -10129,6 +10124,11 @@ fold_binary_loc (location_t loc,
 	  return tem;
 	}
     }
+
+  extern tree generic_simplify (enum tree_code, tree, tree, tree);
+  tem = generic_simplify (code, type, op0, op1);
+  if (tem)
+    return tem;
 
   /* If this is a commutative operation, and ARG0 is a constant, move it
      to ARG1 to reduce the number of tests below.  */
