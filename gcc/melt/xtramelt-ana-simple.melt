@@ -930,6 +930,7 @@
 	  )
 	 )
        )
+      (inform_at () "just counted got $1 functions finally" (get_int jcnbfun))
       (return :true)
       )))
 
