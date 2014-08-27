@@ -1,4 +1,9 @@
 
+2014-08-27  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-hooks.melt (enable_pre_genericize): Uncomment the
+	registration for PLUGIN_PRE_GENERICIZE..
+
 2014-08-26  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-built-script.tpl: Give some more blank lines between

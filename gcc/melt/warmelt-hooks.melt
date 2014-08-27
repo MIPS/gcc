@@ -1283,10 +1283,8 @@ bool  melthk_pre_genericize_registered_flag;
    #{ /* enable_pre_genericize $enablepregen_chk */
    if (!melthk_pre_genericize_registered_flag) {
      melthk_pre_genericize_registered_flag = true;
-/*
-  register_callback (melt_plugin_name, PLUGIN_PRE_GENERICIZE,
-                     melt_pre_genericize_hook_callback, NULL);
-*/
+     register_callback (melt_plugin_name, PLUGIN_PRE_GENERICIZE,
+		        melt_pre_genericize_hook_callback, NULL);
    }
    }#)
 )
