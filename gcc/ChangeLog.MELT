@@ -1,5 +1,19 @@
 
 2014-08-27  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-build-script.tpl: Remove extra xtramelt-ana-simple for runtime test.
+
+	* melt-build-script.sh: Regenerate.
+
+	* melt-runtime.h: Add date to comment about basename.
+
+	* melt-runtime.cc: Add check for unicity of loaded modules.
+	(Melt_Module::_mm_map_): New static member variable.
+	(Melt_Module::module_of_name): New inline function.
+	(Melt_Module::Melt_Module): Add this to _mm_map_.
+	(Melt_Module::~Melt_Module): Remove this from _mm_map_.
+	(melt_load_module_index): Check against duplicate modules.
+
+2014-08-27  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{somehow instable, added justcountipa processing in the building}}
 	* melt-build-script.tpl: Add a justcount test which does not work very well.
 

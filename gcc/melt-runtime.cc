@@ -412,6 +412,7 @@ class Melt_Module
   friend void melt_minor_copying_garbage_collector (size_t);
   friend void* melt_dlsym_all  (const char*);
   static std::vector<Melt_Module*> _mm_vect_;
+  static std::map<std::string,Melt_Module*> _mm_map_;
   static int _mm_count_;
 protected:
   unsigned _mm_magic;
@@ -464,12 +465,20 @@ public:
     return _mm_vect_.size()-1;
   };
   static void initialize();
-  static Melt_Module* nth_module(int rk)
+  static Melt_Module* nth_module (int rk)
   {
     if (rk<0) rk +=  _mm_vect_.size();
     if (rk > 0 && rk < (int) _mm_vect_.size()) return _mm_vect_[rk];
     return NULL;
   };
+  static Melt_Module* module_of_name (const std::string& name) {
+    if (name.empty())
+      return NULL;
+    std::map<std::string,Melt_Module*>::const_iterator it = _mm_map_.find(name);
+    if (it == _mm_map_.end())
+      return NULL;
+    return it->second;
+  }
   void set_forwarding_routine (melt_forwarding_rout_t* r)
   {
     _mm_forwardrout = r;
@@ -528,6 +537,7 @@ class Melt_Extension_Module : public Melt_Module
 };				// end class Melt_Extension_Module
 
 std::vector<Melt_Module*> Melt_Module::_mm_vect_;
+std::map<std::string,Melt_Module*> Melt_Module::_mm_map_;
 int  Melt_Module::_mm_count_;
 
 void Melt_Module::initialize ()
@@ -563,6 +573,8 @@ Melt_Module::Melt_Module (unsigned magic, const char*modpath, const char* descrb
   gcc_assert (_mm_magic ==  MELT_MODULE_PLAIN_MAGIC || _mm_magic == MELT_MODULE_EXTENSION_MAGIC);
   _mm_vect_.push_back(this);
   _mm_count_++;
+  std::string modbasename = basename(descrbase);
+  _mm_map_[modbasename] = this;
 }
 
 Melt_Module::~Melt_Module()
@@ -581,6 +593,8 @@ Melt_Module::~Melt_Module()
       _mm_dlh = 0;
     }
   _mm_vect_[_mm_index] = NULL;
+  std::string modbasename = basename(_mm_descrbase.c_str());
+  _mm_map_.erase (modbasename);
   _mm_count_--;
 }
 
@@ -9211,6 +9225,16 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
   if (!ISALNUM (flavor[0])
       || strchr(flavor, '.') || strchr (flavor, '/') || strchr (flavor, '+'))
     melt_fatal_error ("invalid MELT flavor %s", flavor);
+  {
+    std::string modbase = basename(srcbase);
+    if (Melt_Module::module_of_name(modbase) != NULL)
+      {
+	error("MELT won't load twice a module of basename %s", modbase.c_str());
+	if (errorp)
+	  *errorp = "duplicate MELT module";
+	return -1;
+      }
+  }
   /* open and parse the descriptive file. */
   srcpath = concat (srcbase, MELT_DESC_FILESUFFIX, NULL);
   debugeprintf ("melt_load_module_index srcpath %s flavor %s", srcpath, flavor);

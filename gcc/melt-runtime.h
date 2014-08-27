@@ -97,8 +97,8 @@ extern void fatal_error (const char *, ...);
 #include "tree-pass.h"
 
 #ifndef basename
-/* I'm not proud of this, but this is needed to be able to do the
-   justcount test in melt-build-script.tpl... */
+/* [August 2014] I'm not proud of this, but this is needed to be able
+   to do the justcount test in melt-build-script.tpl... */
 extern "C++" const char* basename (const char*) __THROW;
 #endif
 
