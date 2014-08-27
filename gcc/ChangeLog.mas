@@ -1,5 +1,11 @@
 2014-08-27  Richard Biener  <rguenther@suse.de>
 
+	* genmatch.c (peek): Fail at unexpected EOF.
+	(main): Do not peek at the next token as we do expect
+	EOF at some point.
+
+2014-08-27  Richard Biener  <rguenther@suse.de>
+
 	* fold-const.c (fold_binary_loc): Move dispatch to
 	generic_simplfy after folding of operations on two constants.
 

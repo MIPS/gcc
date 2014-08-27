@@ -2005,6 +2005,11 @@ peek (cpp_reader *r)
     }
   while (token->type == CPP_PADDING
 	 && token->type != CPP_EOF);
+  /* If we peek at EOF this is a fatal error as it leaves the
+     cpp_reader in unusable state.  Assume we really wanted a
+     token and thus this EOF is unexpected.  */
+  if (token->type == CPP_EOF)
+    fatal_at (token, "unexpected end of file");
   return token;
 }
 
@@ -2553,8 +2558,13 @@ add_operator (CONVERT2, "CONVERT2", "tcc_unary", 1);
 
   vec<simplify *> simplifiers = vNULL;
 
-  while (peek (r)->type != CPP_EOF)
-    parse_pattern (r, simplifiers);
+  const cpp_token *token = next (r);
+  while (token->type != CPP_EOF)
+    {
+      _cpp_backup_tokens (r, 1);
+      parse_pattern (r, simplifiers);
+      token = next (r);
+    }
 
   for (unsigned i = 0; i < simplifiers.length (); ++i)
     check_no_user_id (simplifiers[i]);
