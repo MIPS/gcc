@@ -10258,7 +10258,7 @@ meltlab_endgetargs:
             memset(&argtab, 0, sizeof(argtab));
             /*^apply.arg*/
             argtab[0].meltbp_aptr = (melt_ptr_t*) &/*_.TUPLE___V41*/ meltfptr[38];
-            /*_.MACROENV__V43*/
+            /*_.MACROFRESHENV__V43*/
             meltfptr[39] =  melt_apply ((meltclosure_ptr_t)((/*!FRESH_ENV*/ meltfrout->tabval[8])), (melt_ptr_t)(/*_.ENV__V3*/ meltfptr[2]), (MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
         }
         ;
@@ -10352,7 +10352,7 @@ meltlab_endgetargs:
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MOCX_MACROENV", melt_magic_discr((melt_ptr_t)(/*_.INST__V58*/ meltfptr[57])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V58*/ meltfptr[57]), (5), (/*_.MACROENV__V30*/ meltfptr[29]), "MOCX_MACROENV");
+        melt_putfield_object((/*_.INST__V58*/ meltfptr[57]), (5), (/*_.MACROFRESHENV__V43*/ meltfptr[39]), "MOCX_MACROENV");
         ;
         /*^putslot*/
         /*putslot*/
@@ -12539,7 +12539,7 @@ meltlab_endgetargs:
         /*clear*/ /*_.TUPLE___V41*/
         meltfptr[38] = 0 ;
         /*^clear*/
-        /*clear*/ /*_.MACROENV__V43*/
+        /*clear*/ /*_.MACROFRESHENV__V43*/
         meltfptr[39] = 0 ;
         /*^clear*/
         /*clear*/ /*_.MAKE_MAPSTRING__V44*/

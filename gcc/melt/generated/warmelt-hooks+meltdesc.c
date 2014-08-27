@@ -36,32 +36,32 @@ const char melt_versionmeltstr[]="1.1.2-pre6 [melt-branch_revision_214414]";
 /*MELTMODULENAME meltbuild-sources/warmelt-hooks */
 const char melt_modulename[]="warmelt-hooks";
 const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-unknown-linux-gnu/4.9.0/melt-modules\
-/1.1.2-pre5/warmelt-hooks";
+/1.1.2-pre6/warmelt-hooks";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="92e0fc29777dcf98e056b853735da37b";
+const char melt_prepromd5meltrun[]="4c10a6e918d598ec7a110372fd4b679c";
 /* hexmd5checksum of primary C++ file */
-const char melt_primaryhexmd5[]="12c34c3905f8b371318e68687960cadb";
+const char melt_primaryhexmd5[]="393cffead4141530f654899dce46b998";
 
 /* hexmd5checksum of secondary C++ files */
 const char* const melt_secondaryhexmd5tab[]={
  /*nosecfile*/ (const char*)0,
- /*sechexmd5checksum meltbuild-sources/warmelt-hooks+01.cc #1 */ "5becb9f4473c54abcbcf030d961dc21c",
- /*sechexmd5checksum meltbuild-sources/warmelt-hooks+02.cc #2 */ "ac88551c270efcb5a8cf3c985046d8ee",
- /*sechexmd5checksum meltbuild-sources/warmelt-hooks+03.cc #3 */ "fca419316528d045f27d5aaaa12a670f",
+ /*sechexmd5checksum meltbuild-sources/warmelt-hooks+01.cc #1 */ "efb9cc938be39097e0d2507f86e0fe69",
+ /*sechexmd5checksum meltbuild-sources/warmelt-hooks+02.cc #2 */ "4aa5ad1444d19320a1396d4d79109321",
+ /*sechexmd5checksum meltbuild-sources/warmelt-hooks+03.cc #3 */ "7ad710bf4be5db194420e5210badac24",
  (const char*)0 };
 
 /* last index of secondary files */
 const int melt_lastsecfileindex=3;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="76db688ce8076ed7d7686cfb383a66c8" ;
+const char melt_cumulated_hexmd5[]="856752f80bc03daf04c79131c176ab56" ;
 
 /* number of module variables */
 const int melt_module_nb_module_vars= 8;
 
 /* include the timestamp file */
-#define meltmod_WARMELTmiHOOKS_mds__76DB688CE8076ED7D7686CFB383A66C8 1
+#define meltmod_WARMELTmiHOOKS_mds__856752F80BC03DAF04C79131C176AB56 1
 #include "warmelt-hooks+melttime.h"
 	 
 

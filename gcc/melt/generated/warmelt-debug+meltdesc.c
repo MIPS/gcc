@@ -36,10 +36,10 @@ const char melt_versionmeltstr[]="1.1.2-pre6 [melt-branch_revision_214414]";
 /*MELTMODULENAME meltbuild-sources/warmelt-debug */
 const char melt_modulename[]="warmelt-debug";
 const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-unknown-linux-gnu/4.9.0/melt-modules\
-/1.1.2-pre5/warmelt-debug";
+/1.1.2-pre6/warmelt-debug";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="92e0fc29777dcf98e056b853735da37b";
+const char melt_prepromd5meltrun[]="4c10a6e918d598ec7a110372fd4b679c";
 /* hexmd5checksum of primary C++ file */
 const char melt_primaryhexmd5[]="c18f00215cc476ee2ec4414f6e100005";
 
