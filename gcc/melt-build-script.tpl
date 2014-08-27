@@ -68,7 +68,9 @@ date +"/*empty file for MELT build %c*/" > meltbuild-empty-file.c
 function meltbuild_error () {
     echo MELT BUILD SCRIPT FAILURE: $@ >&2
     printenv >&2
-    pstree -a -l -p -s >&2
+    echo >&2
+    pstree -a -l -p -s $USER >&2
+    echo >&2
     sleep 1
     exit 1
 }
@@ -966,7 +968,7 @@ if [ ! -f $meltcheckruntime_stamp -o $meltcheckruntime_stamp -ot "$GCCMELT_RUNTI
    #@ [+(.(fromline))+] checkhello
     meltcheckhelloworld_args=meltbuild-checkhelloworld.args 
     meltcheckhelloworld_argstemp=$meltcheckhelloworld_args-tmp$$
-    echo ' -DGCCMELT_FROM_ARG="[+(.(fromline))+]"' > $meltcheckhelloworld_argstemp
+    echo ' -DGCCMELT_FROM_ARG="[+(.(fromline))+]" -DGCCMELT_CHECKHELLO' > $meltcheckhelloworld_argstemp
     meltbuild_arg mode=runfile >> $meltcheckhelloworld_argstemp
     meltbuild_arg workdir=meltbuild-workdir >>  $meltcheckhelloworld_argstemp
     meltbuild_arg module-makefile=$GCCMELT_MODULE_MK >>  $meltcheckhelloworld_argstemp
@@ -997,8 +999,37 @@ if [ ! -f $meltcheckruntime_stamp -o $meltcheckruntime_stamp -ot "$GCCMELT_RUNTI
     [ -f "$melt_final_library_stamp" ] || meltbuild_error [+(.(fromline))+] missing final library stamp "$melt_final_library_stamp"
     grep meltbuild-modules/ "$melt_final_translator_stamp" "$melt_final_library_stamp" < /dev/null >>   $meltcheckruntime_stamptemp
     echo "///end timestamp file $meltcheckruntime_stamp" >>   $meltcheckruntime_stamptemp
-    $GCCMELT_MOVE_IF_CHANGE  $meltcheckruntime_stamptemp $meltcheckruntime_stamp
-    meltbuild_info [+(.(fromline))+] done check runtime  $meltcheckruntime_stamp
+
+    echo
+    #@ [+(.(fromline))+] justcount
+    meltjustcount_args=meltbuild-justcount.args
+    meltjustcount_argstemp=$meltjustcount_args-tmp$$
+    echo  ' -DGCCMELT_FROM_ARG="[+(.(fromline))+]" -DGCCMELT_JUSTCOUNT' > $meltjustcount_argstemp
+    meltbuild_arg mode=justcountipa >> $meltjustcount_argstemp
+    meltbuild_arg workdir=meltbuild-workdir >>  $meltjustcount_argstemp
+    meltbuild_arg module-makefile=$GCCMELT_MODULE_MK >>  $meltjustcount_argstemp
+    meltbuild_arg tempdir=meltbuild-tempdir >> $meltjustcount_argstemp
+    meltbuild_arg source-path=meltbuild-sources >> $meltjustcount_argstemp
+    meltbuild_arg module-path=meltbuild-modules >> $meltjustcount_argstemp
+    meltbuild_arg "module-cflags=\"$GCCMELT_COMPILER_FLAGS\"" >> $meltjustcount_argstemp
+    echo " $GCCMELT_COMPILER_FLAGS" >>  $meltjustcount_argstemp
+    (echo -n " -I " ; ls -d /usr/include/`uname -m`* | head -1)  >>  $meltjustcount_argstemp
+    echo " -I /usr/include -I /usr/local/include " >>  $meltjustcount_argstemp
+    echo ' -O1 -I . -I meltbuild-sources/ meltbuild-sources/warmelt-macro.cc  -o /dev/null' >>  $meltjustcount_argstemp
+    cat $GCCMELT_JUSTCOUNT_ARGS < /dev/null >>  $meltjustcount_argstemp
+    $GCCMELT_MOVE_IF_CHANGE  $meltjustcount_argstemp $meltjustcount_args
+    [ -f "$meltjustcount_args" ] || meltbuild_error  [+(.(fromline))+] missing check justcount args  "$meltjustcount_args"
+   meltbuild_info [+(.(fromline))+] $meltjustcount_args  is
+   cat $meltjustcount_args < /dev/null >&2
+   echo
+   $GCCMELT_CC1PLUS_PREFIX $GCCMELT_CC1PLUS @$meltjustcount_args \
+	|| meltbuild_error [+(.(fromline))+] running justcount failed with arguments @$meltjustcount_args
+   meltbuild_info [+(.(fromline))+] done check justcount with $meltjustcount_args
+   echo
+
+   $GCCMELT_MOVE_IF_CHANGE  $meltcheckruntime_stamptemp $meltcheckruntime_stamp
+   meltbuild_info [+(.(fromline))+] done check runtime  $meltcheckruntime_stamp
+    
 else
     meltbuild_info [+(.(fromline))+] keeping runtime checks  $meltcheckruntime_stamp
 fi

@@ -1321,9 +1321,9 @@ unsigned int melthk_rtl_execute(void)
       $FUNTREE = $EACHCGRAFUNCFG#_dcl;
       $TMPV = NULL;
       /*  each_cgraph_fun_call_flow_graph this assert fails when in a pass without control flow graph */
-      melt_assertmsg ("no cfg in each_cgraph_fun_call_flow_graph $EACHCGRAFUNCFG",
+      melt_assertmsg ("no CFG in each_cgraph_fun_call_flow_graph $EACHCGRAFUNCFG",
 		   $EACHCGRAFUNCFG#_fun->cfg != NULL);
-#if MELT_GCC_VERSION == 4009
+#if MELT_GCC_VERSION >= 4009
       $EACHCGRAFUNCFG#_n_bb = n_basic_blocks_for_fn ($EACHCGRAFUNCFG#_fun);
 #else
       $EACHCGRAFUNCFG#_n_bb = n_basic_blocks_for_function ($EACHCGRAFUNCFG#_fun);

@@ -1,5 +1,26 @@
 
 2014-08-27  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{somehow instable, added justcountipa processing in the building}}
+	* melt-build-script.tpl: Add a justcount test which does not work very well.
+
+	* melt-build-script.sh: Regenerate.
+
+	* melt-runtime.h: Add the somehow shameful basename hack.
+
+	* melt-runtime.cc (melt_read_error): Remove, since renamed ...
+	(melt_read_failure): Better name for melt_read_error exception.
+	(meltppfilename): Only declared if needed.
+
+	* melt-module.mk: Updated copyright year and comment about
+	melt_compile_source routine.
+
+	* melt/libmelt-ana-base.melt (each_cgraph_fun_call_flow_graph):
+	Improve comment in assertion checking for CFG.
+
+	* melt/xtramelt-ana-simple.melt (justcountipa_docmd): installed
+	after visibility IPA pass. More notice messages.
+
+2014-08-27  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/xtramelt-ana-simple.melt (justcountipa_exec): Always
 	display a final message.
 

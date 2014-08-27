@@ -86,6 +86,8 @@ extern void fatal_error (const char *, ...);
 #include "gcc-plugin.h"
 #include "plugin.h"
 
+#include "string.h" /* for basename */
+
 /* We include toplev.h for the error routines. */
 #include "toplev.h"
 
@@ -93,6 +95,12 @@ extern void fatal_error (const char *, ...);
 #include "hwint.h"
 
 #include "tree-pass.h"
+
+#ifndef basename
+/* I'm not proud of this, but this is needed to be able to do the
+   justcount test in melt-build-script.tpl... */
+extern "C++" const char* basename (const char*) __THROW;
+#endif
 
 /* the MELT plugin name, useful for register_callback. */
 MELT_EXTERN const char* melt_plugin_name;

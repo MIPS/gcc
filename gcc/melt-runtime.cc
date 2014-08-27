@@ -6718,14 +6718,14 @@ struct melt_reading_st
   bool rhas_file_location;  /* true iff the string comes from a file */
 };
 
-class melt_read_error
+class melt_read_failure
 : public std::runtime_error {
   struct melt_reading_st* _md;
   std::string _srcfile;
   int _srclineno;
   mutable char _whatbuf[128];
 public:
-  melt_read_error(struct melt_reading_st*md,std::string file,int lineno)
+  melt_read_failure(struct melt_reading_st*md,std::string file,int lineno)
     : std::runtime_error("MELT read error") {
     gcc_assert (md != NULL && md->readmagic == MELT_READING_MAGIC);
     _md = md;
@@ -6733,7 +6733,7 @@ public:
     _srclineno = lineno;
     memset (_whatbuf, 0, sizeof(_whatbuf));
   };
-  ~melt_read_error() throw() {
+  ~melt_read_failure() throw() {
     _md = NULL;
     _srcfile.clear();
     _srclineno = 0;
@@ -6785,9 +6785,9 @@ static struct obstack melt_bstring_obstack;
 static void melt_linemap_compute_current_location (struct melt_reading_st *rd);
 
 static void melt_read_got_error_at (struct melt_reading_st*rd, const char* file, int line)
-  throw (melt_read_error);
+  throw (melt_read_failure);
 
-#define MELT_READ_ERROR(Fmt,...)    do {				\
+#define MELT_READ_FAILURE(Fmt,...)    do {				\
    melt_linemap_compute_current_location (rd);				\
    error_at(rd->rsrcloc, Fmt, ##__VA_ARGS__);				\
    melt_read_got_error_at(rd, melt_basename(__FILE__), __LINE__);	\
@@ -6833,7 +6833,7 @@ melt_linemap_compute_current_location (struct melt_reading_st* rd)
 
 static void
 melt_read_got_error_at (struct melt_reading_st*rd, const char* file, int line)
-  throw (melt_read_error)
+  throw (melt_read_failure)
 {
   gcc_assert (rd && rd->readmagic == MELT_READING_MAGIC);
   error ("MELT read error from %s:%d [MELT built %s, version %s]",
@@ -6845,7 +6845,7 @@ melt_read_got_error_at (struct melt_reading_st*rd, const char* file, int line)
 #if MELT_HAVE_DEBUG
   melt_dbgshortbacktrace ("MELT read error", 100);
 #endif
-  throw melt_read_error(rd,std::string(file),line);
+  throw melt_read_failure(rd,std::string(file),line);
 }
 
 static melt_ptr_t meltgc_readstring (struct melt_reading_st *rd);
@@ -7030,7 +7030,7 @@ melt_readsimplelong (struct melt_reading_st *rd)
       them thru strtol */
       r = strtol (&rdcurc (), &endp, 0);
       if (r == 0 && endp <= &rdcurc ())
-        MELT_READ_ERROR ("MELT: failed to read number %.20s", &rdcurc ());
+        MELT_READ_FAILURE ("MELT: failed to read number %.20s", &rdcurc ());
       rd->rcol += endp - &rdcurc ();
       return r;
     }
@@ -7045,7 +7045,7 @@ melt_readsimplelong (struct melt_reading_st *rd)
       many needless strcmp-s in that case, to be able to define the
       below simple macro */
       if (!nam)
-        MELT_READ_ERROR
+        MELT_READ_FAILURE
         ("MELT: magic number name expected after +%% or -%% for magic %s",
          nam);
 #define NUMNAM(N) else if (!strcmp(nam,#N)) r = (N)
@@ -7078,12 +7078,12 @@ melt_readsimplelong (struct melt_reading_st *rd)
       /** the fields' ranks of melt.h have been removed in rev126278 */
 #undef NUMNAM
       if (r < 0)
-        MELT_READ_ERROR ("MELT: bad magic number name %s", nam);
+        MELT_READ_FAILURE ("MELT: bad magic number name %s", nam);
       obstack_free (&melt_bname_obstack, nam);
       return neg ? -r : r;
     }
   else
-    MELT_READ_ERROR ("MELT: invalid number %.20s", &rdcurc ());
+    MELT_READ_FAILURE ("MELT: invalid number %.20s", &rdcurc ());
   return 0;
 }
 
@@ -7113,7 +7113,7 @@ readagain:
     }
   else if (c == '}' && rdfollowc(1) == '#')
     {
-      MELT_READ_ERROR ("MELT: unexpected }# in s-expr sequence %.30s ... started line %d",
+      MELT_READ_FAILURE ("MELT: unexpected }# in s-expr sequence %.30s ... started line %d",
                        &rdcurc (), startlin);
     }
   /* The lexing ##{ ... }# is to insert a macrostring inside the
@@ -7146,14 +7146,14 @@ readagain:
             }
         }
       if (!got)
-        MELT_READ_ERROR ("MELT: unexpected stuff in macrostring seq %.20s ... started line %d",
+        MELT_READ_FAILURE ("MELT: unexpected stuff in macrostring seq %.20s ... started line %d",
                          &rdcurc (), startlin);
       goto readagain;
     }
   got = FALSE;
   compv = meltgc_readval (rd, &got);
   if (!compv && !got)
-    MELT_READ_ERROR ("MELT: unexpected stuff in seq %.20s ... started line %d",
+    MELT_READ_FAILURE ("MELT: unexpected stuff in seq %.20s ... started line %d",
                      &rdcurc (), startlin);
   meltgc_append_list ((melt_ptr_t) seqv, (melt_ptr_t) compv);
   nbcomp++;
@@ -7231,7 +7231,7 @@ meltgc_readsexpr (struct melt_reading_st *rd, int endc)
 #define locmixv meltfram__.mcfr_varptr[2]
   gcc_assert (rd && rd->readmagic == MELT_READING_MAGIC);
   if (!endc || rdeof ())
-    MELT_READ_ERROR ("MELT: eof in s-expr (lin%d)", lineno);
+    MELT_READ_FAILURE ("MELT: eof in s-expr (lin%d)", lineno);
   (void) melt_skipspace_getc (rd, COMMENT_SKIP);
   melt_linemap_compute_current_location (rd);
   loc = rd->rsrcloc;
@@ -7340,7 +7340,7 @@ meltgc_readstring (struct melt_reading_st *rd)
               rdnext ();
               c = (char) strtol (&rdcurc (), &endc, 16);
               if (c == 0 && endc <= &rdcurc ())
-                MELT_READ_ERROR ("MELT: illegal hex \\x escape in string %.20s",
+                MELT_READ_FAILURE ("MELT: illegal hex \\x escape in string %.20s",
                                  &rdcurc ());
               if (*endc == ';')
                 endc++;
@@ -7355,7 +7355,7 @@ meltgc_readstring (struct melt_reading_st *rd)
                 {
                   int cc;
                   if (rdeof ())
-                    MELT_READ_ERROR
+                    MELT_READ_FAILURE
                     ("MELT: reached end of file in braced block string starting line %d",
                      linbrac);
                   cc = rdcurc ();
@@ -7369,7 +7369,7 @@ meltgc_readstring (struct melt_reading_st *rd)
             }
             break;
             default:
-              MELT_READ_ERROR
+              MELT_READ_FAILURE
               ("MELT: illegal escape sequence %.10s in string -- got \\%c (hex %x)",
                &rdcurc () - 1, c, c);
             }
@@ -7379,7 +7379,7 @@ meltgc_readstring (struct melt_reading_st *rd)
   if (c == '"')
     rdnext ();
   else
-    MELT_READ_ERROR ("MELT: unterminated string %.20s", &rdcurc ());
+    MELT_READ_FAILURE ("MELT: unterminated string %.20s", &rdcurc ());
   c = rdcurc ();
   if (c == '_' && !rdeof ())
     {
@@ -7615,7 +7615,7 @@ meltgc_readmacrostringsequence (struct melt_reading_st *rd)
   for(;;)
     {
       if (rdeof())
-        MELT_READ_ERROR("reached end of file in macrostring sequence started line %d; a }# is probably missing.",
+        MELT_READ_FAILURE("reached end of file in macrostring sequence started line %d; a }# is probably missing.",
                         lineno);
       if (!rdcurc())
         {
@@ -7765,7 +7765,7 @@ meltgc_readmacrostringsequence (struct melt_reading_st *rd)
                 }
             }
           /* any other dollar something is an error */
-          else MELT_READ_ERROR("unexpected dollar escape in macrostring %.4s started line %d",
+          else MELT_READ_FAILURE("unexpected dollar escape in macrostring %.4s started line %d",
                                  &rdcurc(), lineno);
         }
       else if ( ISALNUM(rdcurc()) || ISSPACE(rdcurc()) )
@@ -7824,7 +7824,7 @@ meltgc_readhashescape (struct melt_reading_st *rd)
   readv = NULL;
   c = rdcurc ();
   if (!c || rdeof ())
-    MELT_READ_ERROR ("MELT: eof in hashescape %.20s starting line %d", &rdcurc (), lineno);
+    MELT_READ_FAILURE ("MELT: eof in hashescape %.20s starting line %d", &rdcurc (), lineno);
   if (c == '\\')
     {
       rdnext ();
@@ -7856,7 +7856,7 @@ meltgc_readhashescape (struct melt_reading_st *rd)
           else if (!strcmp (nam, "esc"))
             c = 0x1b;
           else
-            MELT_READ_ERROR ("MELT: invalid char escape %s starting line %d", nam, lineno);
+            MELT_READ_FAILURE ("MELT: invalid char escape %s starting line %d", nam, lineno);
           obstack_free (&melt_bname_obstack, nam);
 char_escape:
           readv = meltgc_new_int ((meltobject_ptr_t) MELT_PREDEF (DISCR_CHARACTER_INTEGER), c);
@@ -7868,7 +7868,7 @@ char_escape:
           rdnext ();
           c = strtol (&rdcurc (), &endc, 16);
           if (c == 0 && endc <= &rdcurc ())
-            MELT_READ_ERROR ("MELT: illegal hex #\\x escape in char %.20s starting line %d",
+            MELT_READ_FAILURE ("MELT: illegal hex #\\x escape in char %.20s starting line %d",
                              &rdcurc (), lineno);
           rd->rcol += endc - &rdcurc ();
           goto char_escape;
@@ -7880,7 +7880,7 @@ char_escape:
           goto char_escape;
         }
       else
-        MELT_READ_ERROR ("MELT: unrecognized char escape #\\%s starting line %d",
+        MELT_READ_FAILURE ("MELT: unrecognized char escape #\\%s starting line %d",
                          &rdcurc (), lineno);
     }
   else if (c == '(')
@@ -7915,7 +7915,7 @@ char_escape:
       rdnext ();
       n = strtol (&rdcurc (), &endc, 2);
       if (n == 0 && endc <= &rdcurc ())
-        MELT_READ_ERROR ("MELT: bad binary number %s starting line %d", endc, lineno);
+        MELT_READ_FAILURE ("MELT: bad binary number %s starting line %d", endc, lineno);
       readv = meltgc_new_int ((meltobject_ptr_t) MELT_PREDEF (DISCR_INTEGER), n);
       melt_dbgread_value ("readhashescape readv=", readv);
     }
@@ -7927,7 +7927,7 @@ char_escape:
       rdnext ();
       n = strtol (&rdcurc (), &endc, 8);
       if (n == 0 && endc <= &rdcurc ())
-        MELT_READ_ERROR ("MELT: bad octal number %s starting line %d", endc, lineno);
+        MELT_READ_FAILURE ("MELT: bad octal number %s starting line %d", endc, lineno);
       readv = meltgc_new_int ((meltobject_ptr_t) MELT_PREDEF (DISCR_INTEGER), n);
       melt_dbgread_value ("readhashescape readv=", readv);
     }
@@ -7939,7 +7939,7 @@ char_escape:
       rdnext ();
       n = strtol (&rdcurc (), &endc, 10);
       if (n == 0 && endc <= &rdcurc ())
-        MELT_READ_ERROR ("MELT: bad decimal number %s starting line %d", endc, lineno);
+        MELT_READ_FAILURE ("MELT: bad decimal number %s starting line %d", endc, lineno);
       readv = meltgc_new_int ((meltobject_ptr_t) MELT_PREDEF (DISCR_INTEGER), n);
       melt_dbgread_value ("readhashescape readv=", readv);
     }
@@ -7951,7 +7951,7 @@ char_escape:
       rdnext ();
       n = strtol (&rdcurc (), &endc, 16);
       if (n == 0 && endc <= &rdcurc ())
-        MELT_READ_ERROR ("MELT: bad octal number %s starting line %d", endc, lineno);
+        MELT_READ_FAILURE ("MELT: bad octal number %s starting line %d", endc, lineno);
       readv = meltgc_new_int ((meltobject_ptr_t) MELT_PREDEF (DISCR_INTEGER), n);
       melt_dbgread_value ("readhashescape readv=", readv);
     }
@@ -7978,7 +7978,7 @@ char_escape:
       melt_dbgread_value ("readhashescape readv=", readv);
     }
   else
-    MELT_READ_ERROR ("MELT: invalid escape %.20s starting line %d", &rdcurc (), lineno);
+    MELT_READ_FAILURE ("MELT: invalid escape %.20s starting line %d", &rdcurc (), lineno);
   melt_dbgread_value ("readhashescape final readv=", readv);
   MELT_EXITFRAME ();
   return (melt_ptr_t) readv;
@@ -8058,7 +8058,7 @@ meltgc_readval (struct melt_reading_st *rd, bool * pgot)
     {
       readv = NULL;
       *pgot = FALSE;
-      MELT_READ_ERROR ("MELT: unexpected closing parenthesis %.20s", &rdcurc ());
+      MELT_READ_FAILURE ("MELT: unexpected closing parenthesis %.20s", &rdcurc ());
       goto end;
     }
   else if (c == '[')
@@ -8085,7 +8085,7 @@ meltgc_readval (struct melt_reading_st *rd, bool * pgot)
       compv = meltgc_readval (rd, &got);
       melt_dbgread_value ("readval quote compv=", compv);
       if (!got)
-        MELT_READ_ERROR ("MELT: expecting value after quote %.20s", &rdcurc ());
+        MELT_READ_FAILURE ("MELT: expecting value after quote %.20s", &rdcurc ());
       seqv = meltgc_new_list ((meltobject_ptr_t) MELT_PREDEF (DISCR_LIST));
       altv = melthookproc_HOOK_NAMED_SYMBOL ("quote", (long) MELT_CREATE);
       meltgc_append_list ((melt_ptr_t) seqv, (melt_ptr_t) altv);
@@ -8114,7 +8114,7 @@ meltgc_readval (struct melt_reading_st *rd, bool * pgot)
       compv = meltgc_readval (rd, &got);
       melt_dbgread_value ("readval exclaim compv=", compv);
       if (!got)
-        MELT_READ_ERROR ("MELT: expecting value after exclamation mark ! %.20s", &rdcurc ());
+        MELT_READ_FAILURE ("MELT: expecting value after exclamation mark ! %.20s", &rdcurc ());
       seqv = meltgc_new_list ((meltobject_ptr_t) MELT_PREDEF (DISCR_LIST));
       altv = melthookproc_HOOK_NAMED_SYMBOL ("exclaim", (long) MELT_CREATE);
       meltgc_append_list ((melt_ptr_t) seqv, (melt_ptr_t) altv);
@@ -8146,7 +8146,7 @@ meltgc_readval (struct melt_reading_st *rd, bool * pgot)
       compv = meltgc_readval (rd, &got);
       melt_dbgread_value ("readval backquote compv=", compv);
       if (!got)
-        MELT_READ_ERROR ("MELT: expecting value after backquote %.20s",
+        MELT_READ_FAILURE ("MELT: expecting value after backquote %.20s",
                          &rdcurc ());
       seqv = meltgc_new_list ((meltobject_ptr_t) MELT_PREDEF (DISCR_LIST));
       altv = melthookproc_HOOK_NAMED_SYMBOL ("backquote", (long) MELT_CREATE);
@@ -8171,7 +8171,7 @@ meltgc_readval (struct melt_reading_st *rd, bool * pgot)
       melt_dbgread_printf("readval comma curlocbuf=%s", curlocbuf);
       compv = meltgc_readval (rd, &got);
       if (!got)
-        MELT_READ_ERROR ("MELT: expecting value after comma %.20s", &rdcurc ());
+        MELT_READ_FAILURE ("MELT: expecting value after comma %.20s", &rdcurc ());
       seqv = meltgc_new_list ((meltobject_ptr_t) MELT_PREDEF (DISCR_LIST));
       altv = melthookproc_HOOK_NAMED_SYMBOL ("comma", (long) MELT_CREATE);
       meltgc_append_list ((melt_ptr_t) seqv, (melt_ptr_t) altv);
@@ -8195,7 +8195,7 @@ meltgc_readval (struct melt_reading_st *rd, bool * pgot)
       melt_dbgread_printf("readval atsign curlocbuf=%s", curlocbuf);
       compv = meltgc_readval (rd, &got);
       if (!got)
-        MELT_READ_ERROR ("MELT: expecting value after at %.20s", &rdcurc ());
+        MELT_READ_FAILURE ("MELT: expecting value after at %.20s", &rdcurc ());
       seqv = meltgc_new_list ((meltobject_ptr_t) MELT_PREDEF (DISCR_LIST));
       altv = melthookproc_HOOK_NAMED_SYMBOL ("at", (long) MELT_CREATE);
       meltgc_append_list ((melt_ptr_t) seqv, (melt_ptr_t) altv);
@@ -8219,7 +8219,7 @@ meltgc_readval (struct melt_reading_st *rd, bool * pgot)
       melt_dbgread_printf("readval question curlocbuf=%s", curlocbuf);
       compv = meltgc_readval (rd, &got);
       if (!got)
-        MELT_READ_ERROR ("MELT: expecting value after question %.20s", &rdcurc ());
+        MELT_READ_FAILURE ("MELT: expecting value after question %.20s", &rdcurc ());
       seqv = meltgc_new_list ((meltobject_ptr_t) MELT_PREDEF (DISCR_LIST));
       altv = melthookproc_HOOK_NAMED_SYMBOL ("question", (long) MELT_CREATE);
       meltgc_append_list ((melt_ptr_t) seqv, (melt_ptr_t) altv);
@@ -8232,13 +8232,13 @@ meltgc_readval (struct melt_reading_st *rd, bool * pgot)
   else if (c == ':')
     {
       if (!ISALPHA (rdfollowc(1)))
-        MELT_READ_ERROR ("MELT: colon should be followed by letter for keyword, but got %c",
+        MELT_READ_FAILURE ("MELT: colon should be followed by letter for keyword, but got %c",
                          rdfollowc(1));
       nam = melt_readsimplename (rd);
       readv = melthookproc_HOOK_NAMED_KEYWORD (nam, (long)MELT_CREATE);
       melt_dbgread_value ("readval keyword readv=", readv);
       if (!readv)
-        MELT_READ_ERROR ("MELT: unknown named keyword %s", nam);
+        MELT_READ_FAILURE ("MELT: unknown named keyword %s", nam);
       *pgot = TRUE;
       goto end;
     }
@@ -8745,7 +8745,7 @@ meltgc_read_file (const char *filnam, const char *locnam)
       valv = meltgc_readval (rd, &got);
       melt_dbgread_value("read_file valv=", valv);
       if (!got)
-        MELT_READ_ERROR ("MELT: no value read %.20s", &rdcurc ());
+        MELT_READ_FAILURE ("MELT: no value read %.20s", &rdcurc ());
       meltgc_append_list ((melt_ptr_t) seqv, (melt_ptr_t) valv);
     };
   if (rds.rfil)
@@ -8753,7 +8753,7 @@ meltgc_read_file (const char *filnam, const char *locnam)
   linemap_add (line_table, LC_LEAVE, false, NULL, 0);
   memset (&rds, 0, sizeof(rds));
   }
-  catch (melt_read_error readerr) {
+  catch (melt_read_failure readerr) {
     warning (0, "MELT reading of file %s failed line %d col %d - %s",
 	     filnamdup, rds.rlineno, rds.rcol, readerr.what());
     seqv = NULL;
@@ -8831,11 +8831,11 @@ meltgc_read_from_rawstring (const char *rawstr, const char *locnam,
         break;
       valv = meltgc_readval (rd, &got);
       if (!got)
-        MELT_READ_ERROR ("MELT: no value read %.20s", &rdcurc ());
+        MELT_READ_FAILURE ("MELT: no value read %.20s", &rdcurc ());
       meltgc_append_list ((melt_ptr_t) seqv, (melt_ptr_t) valv);
     };
   }
-  catch (melt_read_error readerr) {
+  catch (melt_read_failure readerr) {
     warning (0, "MELT reading of string %s line %d col %d failed - %s",
 	     melt_string_str ((melt_ptr_t) locnamv), rd->rlineno, rd->rcol, readerr.what());
     seqv = NULL;
@@ -8924,10 +8924,10 @@ meltgc_read_from_val (melt_ptr_t strv_p, melt_ptr_t locnam_p)
         break;
       valv = meltgc_readval (rd, &got);
       if (!got)
-        MELT_READ_ERROR ("MELT: no value read %.20s", &rdcurc ());
+        MELT_READ_FAILURE ("MELT: no value read %.20s", &rdcurc ());
       meltgc_append_list ((melt_ptr_t) seqv, (melt_ptr_t) valv);
     };
-  } catch (melt_read_error readerr)
+  } catch (melt_read_failure readerr)
     {
       warning (0, "MELT reading from value line %d col %d failed - %s",
 	       rd->rlineno, rd->rcol, readerr.what());
@@ -10496,7 +10496,7 @@ meltgc_load_modules_and_do_mode (void)
    **/
   debugeprintf ("meltgc_load_modules_and_do_mode before starting all new modules modatv=%p", (void*) modatv);
   modatv = meltgc_start_all_new_modules ((melt_ptr_t) modatv);
-  debugeprintf ("meltgc_load_modules_and_do_mode started all new modules modatv=%p", modatv);
+  debugeprintf ("meltgc_load_modules_and_do_mode started all new modules modatv=%p",  (void*) modatv);
 
   /* Then we load and start every extra module, if given */
   debugeprintf ("meltgc_load_modules_and_do_mode xtrastr %s lastmodix #%d",
@@ -11944,7 +11944,10 @@ void melt_warn_for_no_expected_secondary_results_at (const char*fil, int lin)
 char* meltppbuffer;
 size_t meltppbufsiz;
 FILE* meltppfile;
+
+#if !HAVE_OPEN_MEMSTREAM && !_GNU_SOURCE
 static char* meltppfilename;
+#endif
 
 
 /* open the melttppfile for pretty printing, return the old one */

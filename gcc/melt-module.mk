@@ -1,7 +1,7 @@
 ## file melt-module.mk
 ## a -*- Makefile -*- for GNU make. 
 
-# Copyright (C) 2009 - 2013 Free Software Foundation, Inc.
+# Copyright (C) 2009 - 2014 Free Software Foundation, Inc.
 # Contributed by Basile Starynkevitch  <basile@starynkevitch.net>
 # This file is part of GCC.
 
@@ -30,7 +30,7 @@
 #### to make moduledir/foo.so 
 
 .PHONY: melt_module melt_workspace
-### See also routine compile_gencsrc_to_binmodule of melt-runtime.c
+### See also routine melt_compile_source of melt-runtime.cc
 
 
 ## we export all make variables 
