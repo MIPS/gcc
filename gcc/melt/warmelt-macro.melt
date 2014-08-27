@@ -8276,11 +8276,6 @@ remain.}#)
 			    )) 
 	  )
       ;;
-      (if (>=i nbdbgarg 15)
-	  (let ( (strnbarg (string4out discr_string nbdbgarg))
-		 )
-	  (inform_strv loc "quite long (DEBUG ...), perhaps consider splitting it" strnbarg)
-	  ))
       ;;
       (debug "mexpand_debug dcall=" dcall " return dcppif=" dcppif)
       (return dcppif)

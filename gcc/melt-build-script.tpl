@@ -67,6 +67,7 @@ date +"/*empty file for MELT build %c*/" > meltbuild-empty-file.c
 ## we are using printenv and pstree to help debugging.
 function meltbuild_error () {
     echo MELT BUILD SCRIPT FAILURE: $@ >&2
+    printf '\n\n\n\n\n\n_________________________________________________\n\n' >&2
     printenv >&2
     echo >&2
     pstree -a -l -p -s $USER >&2
@@ -1003,7 +1004,7 @@ if [ ! -f $meltcheckruntime_stamp -o $meltcheckruntime_stamp -ot "$GCCMELT_RUNTI
     #@ [+(.(fromline))+] justcount
     meltjustcount_args=meltbuild-justcount.args
     meltjustcount_argstemp=$meltjustcount_args-tmp$$
-    echo  ' -DGCCMELT_FROM_ARG="[+(.(fromline))+]" -DGCCMELT_JUSTCOUNT' > $meltjustcount_argstemp
+    echo  ' -DGCCMELT_FROM_ARG="[+(.(fromline))+]" -DGCCMELT_JUSTCOUNT -fexceptions melt-runtime.i ' > $meltjustcount_argstemp
     meltbuild_arg mode=justcountipa >> $meltjustcount_argstemp
     meltbuild_arg workdir=meltbuild-workdir >>  $meltjustcount_argstemp
     meltbuild_arg module-makefile=$GCCMELT_MODULE_MK >>  $meltjustcount_argstemp
@@ -1011,10 +1012,7 @@ if [ ! -f $meltcheckruntime_stamp -o $meltcheckruntime_stamp -ot "$GCCMELT_RUNTI
     meltbuild_arg source-path=meltbuild-sources >> $meltjustcount_argstemp
     meltbuild_arg module-path=meltbuild-modules >> $meltjustcount_argstemp
     meltbuild_arg "module-cflags=\"$GCCMELT_COMPILER_FLAGS\"" >> $meltjustcount_argstemp
-    echo " $GCCMELT_COMPILER_FLAGS" >>  $meltjustcount_argstemp
-    (echo -n " -I " ; ls -d /usr/include/`uname -m`* | head -1)  >>  $meltjustcount_argstemp
-    echo " -I /usr/include -I /usr/local/include " >>  $meltjustcount_argstemp
-    echo ' -O1 -I . -I meltbuild-sources/ meltbuild-sources/warmelt-macro.cc  -o /dev/null' >>  $meltjustcount_argstemp
+    echo ' -O1  -o /dev/null' >>  $meltjustcount_argstemp
     cat $GCCMELT_JUSTCOUNT_ARGS < /dev/null >>  $meltjustcount_argstemp
     $GCCMELT_MOVE_IF_CHANGE  $meltjustcount_argstemp $meltjustcount_args
     [ -f "$meltjustcount_args" ] || meltbuild_error  [+(.(fromline))+] missing check justcount args  "$meltjustcount_args"

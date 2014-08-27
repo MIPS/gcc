@@ -2204,7 +2204,7 @@ bool  melthk_pass_execution_registered_flag;
 		donewellmode_chk
 		#{ /* hook_melt_do_initial_mode $DONEWELLMODE_CHK */
 		std::string curmodstr(melt_string_str($CURMODNAME)) ;
-		melt_done_modes_vector.push_back(curmodstr)	    ;
+		melt_done_modes_vector.push_back(curmodstr) ;
 		}#)
 	       )
 	      (:else
@@ -2213,7 +2213,7 @@ bool  melthk_pass_execution_registered_flag;
 		#{ /* hook_melt_do_initial_mode $FAILEDMODE_CHK */
 		warning(0, "MELT mode %s failed, so compilation disabled",
 			   melt_string_str($CURMODNAME)) ;
-		exit_after_options = TRUE		 ;
+		exit_after_options = TRUE ;
 		}#)
 	       )))))
        ))))

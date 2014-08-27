@@ -1,6 +1,24 @@
 
 2014-08-27  Basile Starynkevitch  <basile@starynkevitch.net>
-	* melt-build-script.tpl: Remove extra xtramelt-ana-simple for runtime test.
+
+	* melt-build-script.tpl: The justcount test can simply compile
+	melt-runtime.i...
+	(meltbuild_error): Show some spaces before detailed environment
+	info...
+
+	* melt-build-script.sh: Regenerate.
+
+	* melt/warmelt-macro.melt: Remove warning about very long DEBUG...
+
+	* melt/warmelt-hooks.melt (hook_melt_do_initial_mode): Improve
+	indentation in code chunk.
+
+	* melt/xtramelt-ana-simple.melt: Commented experiments about pass
+	insertion. See https://gcc.gnu.org/ml/gcc/2014-08/msg00281.html
+
+2014-08-27  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-build-script.tpl: Remove extra xtramelt-ana-simple for
+	runtime test.
 
 	* melt-build-script.sh: Regenerate.
 

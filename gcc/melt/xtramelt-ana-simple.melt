@@ -937,6 +937,7 @@
 
 (defun justcountipa_docmd (cmd moduldata)
   (debug "justcountipa_docmd start cmd=" cmd)
+  (inform_at () "MELT starting justcountipa")
   (let (
 	(jcdata (instance class_justcountipa_data
 			  :jcntipa_data ()
@@ -953,8 +954,8 @@
 			  :gccpass_data jcdata))
 	 )
     (debug "justcountipa_docmd ipass=" ipass)
-    ;; old pass location: :before '"*free_lang_data"
-    (install_melt_pass_in_gcc ipass :after '"visibility" -1)
+    ;;(install_melt_pass_in_gcc ipass :before '"*free_inline_summary" -1)
+    (install_melt_pass_in_gcc ipass :before '"*free_lang_data" -1)
     (debug "justcountipa_docmd inserted ipass=" ipass)
     (return :true)
     ))
