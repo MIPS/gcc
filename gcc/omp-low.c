@@ -5204,6 +5204,7 @@ expand_oacc_offload (struct omp_region *region)
     case GIMPLE_OACC_KERNELS:
       gimple_omp_child_fn = gimple_oacc_kernels_child_fn;
       gimple_omp_data_arg = gimple_oacc_kernels_data_arg;
+      gcc_assert (gimple_in_ssa_p (cfun));
       break;
     case GIMPLE_OACC_PARALLEL:
       gimple_omp_child_fn = gimple_oacc_parallel_child_fn;
@@ -5219,7 +5220,6 @@ expand_oacc_offload (struct omp_region *region)
 
   /* Supported by expand_omp_taskreg, but not here.  */
   gcc_assert (!child_cfun->cfg);
-  gcc_assert (!gimple_in_ssa_p (cfun));
 
   entry_bb = region->entry;
   exit_bb = region->exit;
@@ -5276,8 +5276,24 @@ expand_oacc_offload (struct omp_region *region)
 	  gcc_assert (parcopy_stmt != NULL);
 	  arg = DECL_ARGUMENTS (child_fn);
 
-	  gcc_assert (gimple_assign_lhs (parcopy_stmt) == arg);
-	  gsi_remove (&gsi, true);
+	  if (!gimple_in_ssa_p (cfun))
+	    {
+	      gcc_assert (gimple_assign_lhs (parcopy_stmt) == arg);
+	      gsi_remove (&gsi, true);
+	    }
+	  else
+	    {
+	      /* If we are in ssa form, we must load the value from the default
+		 definition of the argument.  That should not be defined now,
+		 since the argument is not used uninitialized.  */
+	      gcc_assert (ssa_default_def (cfun, arg) == NULL);
+	      tree narg = make_ssa_name (arg, gimple_build_nop ());
+	      set_ssa_default_def (cfun, arg, narg);
+	      /* ?? Is setting the subcode really necessary ??  */
+	      gimple_omp_set_subcode (parcopy_stmt, TREE_CODE (narg));
+	      gimple_assign_set_rhs1 (parcopy_stmt, narg);
+	      update_stmt (parcopy_stmt);
+	    }
 	}
 
       /* Declare local variables needed in CHILD_CFUN.  */
@@ -5324,7 +5340,15 @@ expand_oacc_offload (struct omp_region *region)
 
       /* Move the region into CHILD_CFUN.  */
 
-      block = gimple_block (entry_stmt);
+      if (gimple_in_ssa_p (cfun))
+	{
+	  init_tree_ssa (child_cfun);
+	  init_ssa_operands (child_cfun);
+	  child_cfun->gimple_df->in_ssa_p = true;
+	  block = NULL_TREE;
+	}
+      else
+	block = gimple_block (entry_stmt);
 
       new_bb = move_sese_region_to_fn (child_cfun, entry_bb, exit_bb, block);
       if (exit_bb)
@@ -5371,6 +5395,8 @@ expand_oacc_offload (struct omp_region *region)
 	  if (changed)
 	    cleanup_tree_cfg ();
 	}
+      if (gimple_in_ssa_p (cfun))
+	update_ssa (TODO_update_ssa);
       pop_cfun ();
     }
 
@@ -5528,6 +5554,8 @@ expand_oacc_offload (struct omp_region *region)
 			 t_num_gangs, t_num_workers, t_vector_length);
   gimple_set_location (g, gimple_location (entry_stmt));
   gsi_insert_before (&gsi, g, GSI_SAME_STMT);
+  if (gimple_in_ssa_p (cfun))
+    update_ssa (TODO_update_ssa_only_virtuals);
 }
 
 /* Expand the OpenMP parallel or task directive starting at REGION.  */
