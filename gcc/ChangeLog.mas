@@ -1,5 +1,13 @@
 2014-08-27  Richard Biener  <rguenther@suse.de>
 
+	* genmatch.c (is_conversion): New helper, add VIEW_CONVERT_EXPR
+	to the list of conversions.
+	(expr::gen_transform): Use it.
+	(dt_simplify::gen): Properly pass down NULL as the operand
+	type for outermost conversions.
+
+2014-08-27  Richard Biener  <rguenther@suse.de>
+
 	* genmatch.c (peek): Fail at unexpected EOF.
 	(main): Do not peek at the next token as we do expect
 	EOF at some point.

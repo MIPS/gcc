@@ -866,22 +866,27 @@ check_no_user_id (simplify *s)
   check_no_user_id (s->result);
 }
 
+bool
+is_conversion (id_base *op)
+{
+  return (*op == CONVERT_EXPR
+	  || *op == NOP_EXPR
+	  || *op == FLOAT_EXPR
+	  || *op == FIX_TRUNC_EXPR
+	  || *op == VIEW_CONVERT_EXPR);
+}
+
 /* Code gen off the AST.  */
 
 void
 expr::gen_transform (FILE *f, const char *dest, bool gimple, int depth,
 		     const char *in_type)
 {
-  bool is_conversion = false;
-  if (*operation->op == CONVERT_EXPR
-      || *operation->op == NOP_EXPR
-      || *operation->op == FLOAT_EXPR
-      || *operation->op == FIX_TRUNC_EXPR)
-    is_conversion = true;
+  bool conversion_p = is_conversion (operation->op);
 
   const char *type;
   char optype[20];
-  if (is_conversion)
+  if (conversion_p)
     /* For conversions we need to build the expression using the
        outer type passed in.  */
     type = in_type;
@@ -901,7 +906,7 @@ expr::gen_transform (FILE *f, const char *dest, bool gimple, int depth,
       char dest[32];
       snprintf (dest, 32, "  ops%d[%u]", depth, i);
       ops[i]->gen_transform (f, dest, gimple, depth + 1,
-			     is_conversion
+			     conversion_p
 			     /* If this op is a conversion its single
 			        operand has to know its type itself.  */
 			     ? NULL
@@ -1769,7 +1774,9 @@ dt_simplify::gen (FILE *f, bool gimple)
 	    {
 	      char dest[32];
 	      snprintf (dest, 32, "  res_ops[%d]", j);
-	      e->ops[j]->gen_transform (f, dest, true, 1, "type");
+	      e->ops[j]->gen_transform (f, dest, true, 1,
+					is_conversion (e->operation->op)
+					? NULL : "type");
 	    }
 	  /* Re-fold the toplevel result.  It's basically an embedded
 	     gimple_build w/o actually building the stmt.  */
@@ -1796,7 +1803,9 @@ dt_simplify::gen (FILE *f, bool gimple)
 	      fprintf (f, "   tree res_op%d;\n", j);
 	      char dest[32];
 	      snprintf (dest, 32, "  res_op%d", j);
-	      e->ops[j]->gen_transform (f, dest, false, 1, "type");
+	      e->ops[j]->gen_transform (f, dest, false, 1,
+					is_conversion (e->operation->op)
+					? NULL : "type");
 	    }
 	  /* Re-fold the toplevel result.  */
 	  if (e->operation->op->kind == id_base::CODE)
