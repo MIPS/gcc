@@ -1,5 +1,13 @@
 2014-08-28  Richard Biener  <rguenther@suse.de>
 
+	* tree-cfg.c (verify_gimple_assign_unary): Do not allow
+	NON_LVALUE_EXPR in gimple.
+	* genmatch.c (main): Always define GENERIC and GIMPLE.
+	* match-constant-folding.pd (x OP 0): Constrain when we
+	generate NON_LVALUE_EXPR further.
+
+2014-08-28  Richard Biener  <rguenther@suse.de>
+
 	Merge from trunk r214266 through r214675.
 
 2014-08-28  Richard Biener  <rguenther@suse.de>

@@ -2544,6 +2544,7 @@ main(int argc, char **argv)
   if (!cpp_read_main_file (r, input))
     return 1;
   cpp_define (r, gimple ? "GIMPLE=1": "GENERIC=1");
+  cpp_define (r, gimple ? "GENERIC=0": "GIMPLE=0");
 
   /* Pre-seed operators.  */
   operators = new hash_table<id_base> (1024);
