@@ -20,6 +20,13 @@ along with GCC; see the file COPYING3.  If not see
 (for op in plus pointer_plus minus bit_ior bit_xor
   (simplify
     (op @0 integer_zerop)
+    (if (!in_gimple_form)
+      /* ???  fold_binary adds non_lvalue here and "fixes" the C++
+	 run of Wsizeof-pointer-memaccess1.c, preserving enough of
+	 sizeof (&a) + 0 because sizeof (&a) is maybe_lvalue_p ()
+	 for no good reason.  The C frontend is fine as it doesn't
+	 fold too early.  */
+     (non_lvalue @0))
     @0))
 
 (simplify

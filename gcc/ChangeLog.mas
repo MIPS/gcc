@@ -1,3 +1,11 @@
+2014-08-28  Richard Biener  <rguenther@suse.de>
+
+	* match-constant-folding.pd (x + 0 -> x): Wrap result in
+	a NON_LVALUE_EXPR to account for the C++ frontend folding
+	too early, avoding some spurious testsuite FAILs.
+	* match-conversions.pd: Use convert where that's unconditionally
+	required.
+
 2014-08-27  Richard Biener  <rguenther@suse.de>
 
 	* genmatch.c (is_conversion): New helper, add VIEW_CONVERT_EXPR
