@@ -2061,11 +2061,11 @@ melt-runtime.o:  $(MELT_RUNTIME_CC) melt-run-md5.h melt-runtime-params-inc.c  $(
 	$(COMPILER) -c $(shell cat melt-runtime.args)  $(OUTPUT_OPTION)
 
 ## to debug the macros or to check the runtime, we may need this.
-melt-runtime.i: melt-runtime.args
+melt-runtime.ii: melt-runtime.args
 	$(COMPILER) -C -E  $(shell cat melt-runtime.args)  > $@-tmp
 	mv $@-tmp $@
 
-melt-runtime-raw.i: melt-runtime.i
+melt-runtime-raw.ii: melt-runtime.ii
 	grep -v '^#' $^ > $@-tmp
 	mv $@-tmp $@
 
@@ -4022,7 +4022,7 @@ $(srcdir)/melt-build-script.sh: $(srcdir)/melt-build-script.def $(srcdir)/melt-b
 
 ## melt.encap may need the include/stdint.h to compile & check the
 ## MELT runtime so depends upon stmp-int-hdrs ...
-melt.encap  meltgendoc.texi:  melt-build-settings.sh  melt-build-param.sh stmp-int-hdrs melt-runtime.i $(srcdir)/melt-build-script.sh $(melt_make_cc1_dependency) $(MELTBUILD_MKFILE) warmelt-predef.melt melt-predef.h $(wildcard $(srcdir)/melt/*.melt $(srcdir)/melt/generated/*.[ch]) melt-gendoc
+melt.encap  meltgendoc.texi:  melt-build-settings.sh  melt-build-param.sh stmp-int-hdrs melt-runtime.ii $(srcdir)/melt-build-script.sh $(melt_make_cc1_dependency) $(MELTBUILD_MKFILE) warmelt-predef.melt melt-predef.h $(wildcard $(srcdir)/melt/*.melt $(srcdir)/melt/generated/*.[ch]) melt-gendoc
 
 melt-clean:
 	$(RM) -rf meltbuild*
@@ -4186,7 +4186,7 @@ upgrade-warmelt: melt-build-settings.sh  melt-build-param.sh $(srcdir)/melt-buil
 	$(COMPILER) -H -I meltbuild-sources/generated/ -c  $(shell cat melt-runtime.args) -o /dev/null
 	@echo; echo upgrade-warmelt copy the generated files into the source tree
 	$(SHELL) $(srcdir)/melt-upgrade.sh $(realpath meltbuild-sources/) $(realpath $(srcdir))
-	$(RM) melt-runtime.o melt-runtime.i s-gtype */warmelt*.o
+	$(RM) melt-runtime.o melt-runtime.ii s-gtype */warmelt*.o
 	$(MAKE) s-gtype
 ## rebuild translator to be sure
 	@echo; echo upgrade-warmelt rebuilding melt-translator

@@ -359,6 +359,10 @@ melt.so melt-runtime.args: $(MELT_RUNTIME_CC) $(MELTGCC_RUNTIME_INCLUDES) \
 	$(GCCMELT_CXX) $(GCCMELT_CXXFLAGS) -fPIC  -shared  @melt-runtime.args \
 	      -o $@ $(MELTGCC_LIBES)
 
+melt-runtime.ii: melt-runtime.args
+	$(GCCMELT_CXX) $(GCCMELT_CXXFLAGS) -C -E @melt-runtime.args \
+	      -o $@ 
+
 
 melt-build-param.sh:  Makefile melt-mv-if-changed melt.so
 	date "+#file $@ generated %c%n" > $@-tmp
@@ -425,7 +429,7 @@ meltgendoc.texi:  melt-build-settings.sh  melt-build-param.sh melt-build-script.
 melt-clean:
 	$(RM) -rf meltbuild* melt-build-param.sh melt-build-settings.sh
 
-melt-translator: melt-build-settings.sh  melt-build-param.sh melt-build-script.sh $(melt_make_cc1_dependency) warmelt-predef.melt melt-predef.h $(wildcard melt/*.melt melt/generated/*.[ch]) melt.so
+melt-translator: melt-build-settings.sh  melt-build-param.sh melt-build-script.sh $(melt_make_cc1_dependency) warmelt-predef.melt melt-predef.h $(wildcard melt/*.melt melt/generated/*.[ch]) melt.so melt-runtime.ii
 	@echo melt-translator script $(realpath melt-build-script.sh) MAKE= $(MAKE) MAKEFLAGS= $(MAKEFLAGS)
 	+env GCCMELT_CXX="$(GCCMELT_CXX)" GCCMELT_MAKE="$(MAKE)" GCCMELT_MAKEFLAGS="$(MAKEFLAGS)" $(BASH) ./melt-build-script.sh translator
 
@@ -463,7 +467,7 @@ ifneq ($(filter 4.7.%, $(MELTGCC_VERSION)),)
 	$(RM) *4d7*
 endif
 
-bootstrap-melt: melt.so warmelt-predef.melt warmelt0 warmelt1 warmelt2 warmelt all-melt
+bootstrap-melt: melt.so warmelt-predef.melt warmelt0 warmelt1 warmelt2 warmelt all-melt  melt-runtime.ii
 
 warmelt-predef.melt: make-warmelt-predef.awk melt-predef.list
 	$(AWK) -f $^ > $@-tmp

@@ -936,7 +936,7 @@ if [ ! -f $meltcheckruntime_stamp -o $meltcheckruntime_stamp -ot "$GCCMELT_RUNTI
     -o $meltcheckruntime_stamp -ot "$GCCMELT_RUNTIME_CC" \
     -o $meltcheckruntime_stamp -ot $melt_final_extra_stamp ]; then
     #@ [+(.(fromline))+] checkruntime
-    if [ -f melt-no-check-runtime -o -n "$MELTGCC_NO_CHECK_RUNTIME" -o ! -f melt-runtime.i ]; then
+    if [ -f melt-no-check-runtime -o -n "$MELTGCC_NO_CHECK_RUNTIME" -o ! -f melt-runtime.ii ]; then
 	meltbuild_info [+(.(fromline))+] skipping check of MELT runtime
     else
 	meltcheckruntime_args=meltbuild-checkruntime.args 
@@ -950,7 +950,7 @@ if [ ! -f $meltcheckruntime_stamp -o $meltcheckruntime_stamp -ot "$GCCMELT_RUNTI
 	meltbuild_arg "module-cflags=\"$GCCMELT_COMPILER_FLAGS\"" >> $meltcheckruntime_argstemp
 	meltbuild_arg bootstrapping  >> $meltcheckruntime_argstemp
 	echo ' -o /dev/null' >> $meltcheckruntime_argstemp
-	echo melt-runtime.i >> $meltcheckruntime_argstemp
+	echo melt-runtime.ii >> $meltcheckruntime_argstemp
 	$GCCMELT_MOVE_IF_CHANGE  $meltcheckruntime_argstemp $meltcheckruntime_args
 	[ -f "$meltcheckruntime_args" ] || meltbuild_error  [+(.(fromline))+] missing check runtime args  "$meltcheckruntime_args"
 	meltbuild_info [+(.(fromline))+] $meltcheckruntime_args  is
@@ -1004,7 +1004,7 @@ if [ ! -f $meltcheckruntime_stamp -o $meltcheckruntime_stamp -ot "$GCCMELT_RUNTI
     #@ [+(.(fromline))+] justcount
     meltjustcount_args=meltbuild-justcount.args
     meltjustcount_argstemp=$meltjustcount_args-tmp$$
-    echo  ' -DGCCMELT_FROM_ARG="[+(.(fromline))+]" -DGCCMELT_JUSTCOUNT -fexceptions melt-runtime.i ' > $meltjustcount_argstemp
+    echo  ' -DGCCMELT_FROM_ARG="[+(.(fromline))+]" -DGCCMELT_JUSTCOUNT -fexceptions melt-runtime.ii ' > $meltjustcount_argstemp
     meltbuild_arg mode=justcountipa >> $meltjustcount_argstemp
     meltbuild_arg workdir=meltbuild-workdir >>  $meltjustcount_argstemp
     meltbuild_arg module-makefile=$GCCMELT_MODULE_MK >>  $meltjustcount_argstemp

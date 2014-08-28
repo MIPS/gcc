@@ -1,4 +1,8 @@
 
+2014-08-28  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* MELT-Plugin-Makefile: Use melt-runtime.ii...
+
 2014-07-27  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* MELT-Plugin-Makefile: Pass GCCMELT_CXX to every
