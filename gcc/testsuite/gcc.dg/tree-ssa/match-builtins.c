@@ -26,13 +26,4 @@ double test3 (double x)
 
 /* { dg-final { scan-tree-dump "gimple_simplified to \[^\n\r\]*pow \\(x_\\d\+\\(D\\), 6" "forwprop1" } } */
 
-double test4 (double w)
-{
-  double x = w * w;
-  double y = __builtin_pow (x, -0.5);
-  return y * x;
-}
-
-/* { dg-final { scan-tree-dump "gimple_simplified to \[^\n\r\]*= w_\\d\+\\(D\\)" "forwprop1" } } */
-
 /* { dg-final { cleanup-tree-dump "forwprop1" } } */

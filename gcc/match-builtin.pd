@@ -18,27 +18,103 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 
-/* One builtin function to atom.  */
-(simplify
-  (BUILT_IN_SQRT (mult @0 @0))
-  @0)
+/* ???  For math builtins we fail to properly repeat patterns for
+   all FP type kinds (sqrtf, sqrt, sqrtl).  And we fail to provide
+   a mechanism to iterate two ops in lock-step like
+   (for fn1 in sqrt sqrtf sqrtl and fn2 in pow powf powl ...)
+   if we were to do that repetition semi-manually.
+   We could also automagically use the type of the expr to
+   always do mathfn_built_in at code-gen time and always
+   automagically iterate over kinds (but that's bogus for
+   things like (convert (BUILT_IN_SQRT @0)) -> (BUILT_IN_SQRTF @0).  */
+
+
 /* One builtin function to builtin function.  */
 (simplify
   (BUILT_IN_CABS (complex:c @0 real_zerop))
-  (BUILT_IN_FABS @0))
+  (abs @0))
 /* One builtin function to expr.  */
 (simplify
   (BUILT_IN_CABS (complex @0 @0))
-  (mult (BUILT_IN_FABS @0) { build_real (TREE_TYPE (@0), real_value_truncate (TYPE_MODE (TREE_TYPE (@0)), dconst_sqrt2 ())); }))
+  (mult (abs @0) { build_real (TREE_TYPE (@0), real_value_truncate (TYPE_MODE (TREE_TYPE (@0)), dconst_sqrt2 ())); }))
 /* One nested fn.  */
 (simplify
   (mult:c (BUILT_IN_POW @0 @1) @0)
   (BUILT_IN_POW @0 (PLUS_EXPR @1 { build_one_cst (TREE_TYPE (@1)); })))
-(simplify
-  (BUILT_IN_POW @0 REAL_CST@1)
-  /* This needs to be conditionalized on flag_unsafe_math_optimizations,
-     but we keep it for now to exercise function re-optimization.
-     It makes gcc.dg/pr43419.c FAIL execution though.  */
-  (if (REAL_VALUES_EQUAL (TREE_REAL_CST (@1), dconsthalf))
-      (BUILT_IN_SQRT @0)))
 
+/* From fold_builtin_fabs and fold_builtin_abs.  */
+/* Fold a call to fabs, fabsf or fabsl, to abs, labs, llabs or imaxabs.  */
+(for fn in BUILT_IN_FABS BUILT_IN_FABSF BUILT_IN_FABSL BUILT_IN_ABS BUILT_IN_LABS BUILT_IN_LLABS BUILT_IN_IMAXABS
+ (simplify
+  (fn @0)
+  (abs @0)))
+
+/* From fold_builtin_pow.  */
+/* Optimize pow(1.0,y) = 1.0.  */
+(simplify
+ (BUILT_IN_POW real_onep@0 @1)
+ @0)
+(simplify
+ (BUILT_IN_POW @0 REAL_CST@1)
+ (with { REAL_VALUE_TYPE c = TREE_REAL_CST (@1); }
+  /* Optimize pow(x,0.0) = 1.0.  */
+  (if (REAL_VALUES_EQUAL (c, dconst0))
+   { build_real (type, dconst1); })
+  /* Optimize pow(x,1.0) = x.  */
+  (if (REAL_VALUES_EQUAL (c, dconst1))
+   @0)
+  /* Optimize pow(x,-1.0) = 1.0/x.  */
+  (if (REAL_VALUES_EQUAL (c, dconstm1))
+   (rdiv { build_real (type, dconst1); } @0))
+  /* Optimize pow(x,0.5) = sqrt(x).  */
+  (if (flag_unsafe_math_optimizations
+       && REAL_VALUES_EQUAL (c, dconsthalf))
+   (BUILT_IN_SQRT @0))
+  /* Optimize pow(x,1.0/3.0) = cbrt(x).  */
+  (with
+    { const REAL_VALUE_TYPE dconstroot
+        = real_value_truncate (TYPE_MODE (type), dconst_third ()); }
+    (if (flag_unsafe_math_optimizations
+	 && REAL_VALUES_EQUAL (c, dconstroot))
+     (BUILT_IN_CBRT @0)))))
+/* Strip sign ops from even integer powers.
+   ???  The code in builtins.c manages to perform this recursively
+   through the whole expression in arg0 of pow.  */
+(for sgnop in abs negate
+  (simplify
+    (BUILT_IN_POW (sgnop @0) REAL_CST@1)
+    (with
+      { 
+	REAL_VALUE_TYPE c = TREE_REAL_CST (@1);
+        HOST_WIDE_INT n = real_to_integer (&c);
+        REAL_VALUE_TYPE cint;
+        real_from_integer (&cint, VOIDmode, n, SIGNED);
+      }
+      (if (real_identical (&c, &cint)
+	   && (n & 1) == 0
+	   && flag_unsafe_math_optimizations)
+       (BUILT_IN_POW @0 @1)))))
+
+/* From fold_builtin_sqrt.  */
+(if (flag_unsafe_math_optimizations)
+ /* Optimize sqrt(expN(x)) = expN(x*0.5).  */
+ (for expfn in BUILT_IN_EXP10 BUILT_IN_POW10 BUILT_IN_EXP BUILT_IN_EXP2
+  (simplify
+   (BUILT_IN_SQRT (expfn @0))
+   (expfn (mult @0 { build_real (type, dconsthalf); }))))
+ /* Optimize sqrt(Nroot(x)) -> pow(x,1/(2*N)).  */
+ (for rootfn in BUILT_IN_SQRT BUILT_IN_CBRT
+  (simplify
+   (BUILT_IN_SQRT (rootfn @0))
+   (with
+    { REAL_VALUE_TYPE dconstroot;
+      if (BUILTIN_SQRT_P (rootfn)) dconstroot = dconsthalf;
+      else dconstroot = dconst_third ();
+      /* Adjust for the outer root.  */
+      SET_REAL_EXP (&dconstroot, REAL_EXP (&dconstroot) - 1);
+      dconstroot = real_value_truncate (TYPE_MODE (type), dconstroot); }
+    (BUILT_IN_POW @0 { build_real (type, dconstroot); }))))
+ /* Optimize sqrt(pow(x,y)) = pow(|x|,y*0.5).  */
+ (simplify
+  (BUILT_IN_SQRT (BUILT_IN_POW @0 @1))
+  (BUILT_IN_POW (abs @0) (mult @1 { build_real (TREE_TYPE (@1), dconsthalf); }))))

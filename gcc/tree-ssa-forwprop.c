@@ -3672,11 +3672,6 @@ pass_forwprop::execute (function *fun)
 		  && gimple_purge_dead_eh_edges (bb))
 		cfg_changed = true;
 	      update_stmt (stmt);
-	      if (dump_file && (dump_flags & TDF_DETAILS))
-		{
-		  fprintf (dump_file, "gimple_simplified to ");
-		  print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
-		}
 	    }
 
 	  /* Fill up the lattice.  */

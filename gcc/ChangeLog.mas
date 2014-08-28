@@ -1,5 +1,17 @@
 2014-08-28  Richard Biener  <rguenther@suse.de>
 
+	* gimple-fold.c (fold_stmt_1): Move gimple_simplify dispatch
+	first, add dumping here.
+	* tree-ssa-forwprop.c (pass_forwprop::execute): Remove dumping.
+	* match-builtin.pd: Implement more patterns and fix existing ones.
+
+	testsuite/
+	* gcc.dg/tree-ssa/match-1.c: Split into ...
+	* gcc.dg/tree-ssa/match-builtins.c: ... this ...
+	* tree-ssa/match-builtins-fast-math.c: ... and this.
+
+2014-08-28  Richard Biener  <rguenther@suse.de>
+
 	* tree-cfg.c (verify_gimple_assign_unary): Do not allow
 	NON_LVALUE_EXPR in gimple.
 	* genmatch.c (main): Always define GENERIC and GIMPLE.

@@ -2876,6 +2876,71 @@ fold_stmt_1 (gimple_stmt_iterator *gsi, bool inplace, tree (*valueize) (tree))
     default:;
     }
 
+  /* Dispatch to pattern-based folding.  */
+  /* ???  Change "inplace" semantics to allow replacing a stmt if
+     no further stmts need to be inserted (basically disallow
+     creating of new SSA names).  */
+  if (!inplace
+      || is_gimple_assign (stmt))
+    {
+      gimple_seq seq = NULL;
+      code_helper rcode;
+      tree ops[3] = {};
+      if (gimple_simplify (stmt, &rcode, ops, inplace ? NULL : &seq, valueize))
+	{
+	  if (is_gimple_assign (stmt)
+	      && rcode.is_tree_code ())
+	    {
+	      if ((!inplace
+		   || gimple_num_ops (stmt) <= get_gimple_rhs_num_ops (rcode))
+		  /* Play safe and do not allow abnormals to be mentioned in
+		     newly created statements.  */
+		  && !((TREE_CODE (ops[0]) == SSA_NAME
+			&& SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[0]))
+		       || (ops[1]
+			   && TREE_CODE (ops[1]) == SSA_NAME
+			   && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[1]))
+		       || (ops[2]
+			   && TREE_CODE (ops[2]) == SSA_NAME
+			   && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[2]))))
+		{
+		  gimple_assign_set_rhs_with_ops_1 (gsi, rcode,
+						    ops[0], ops[1], ops[2]);
+		  if (dump_file && (dump_flags & TDF_DETAILS))
+		    {
+		      fprintf (dump_file, "gimple_simplified to ");
+		      if (!gimple_seq_empty_p (seq))
+			print_gimple_seq (dump_file, seq, 0, TDF_SLIM);
+		      print_gimple_stmt (dump_file, gsi_stmt (*gsi),
+					 0, TDF_SLIM);
+		    }
+		  gsi_insert_seq_before (gsi, seq, GSI_SAME_STMT);
+		  changed = true;
+		}
+	    }
+	  else if (!inplace)
+	    {
+	      if (gimple_has_lhs (stmt))
+		{
+		  tree lhs = gimple_get_lhs (stmt);
+		  maybe_push_res_to_seq (rcode, TREE_TYPE (lhs),
+					 ops, &seq, lhs);
+		  if (dump_file && (dump_flags & TDF_DETAILS))
+		    {
+		      fprintf (dump_file, "gimple_simplified to ");
+		      print_gimple_seq (dump_file, seq, 0, TDF_SLIM);
+		    }
+		  gsi_replace_with_seq_vops (gsi, seq);
+		  changed = true;
+		}
+	      else
+		gcc_unreachable ();
+	    }
+	}
+    }
+
+  stmt = gsi_stmt (*gsi);
+
   /* Fold the main computation performed by the statement.  */
   switch (gimple_code (stmt))
     {
@@ -3012,58 +3077,7 @@ fold_stmt_1 (gimple_stmt_iterator *gsi, bool inplace, tree (*valueize) (tree))
 	}
     }
 
-  /* Dispatch to pattern-based folding.
-     ???  Do this after the previous stuff as fold_stmt is used to make
-     stmts valid gimple again via maybe_fold_reference of ops.  */
-  /* ???  Change "inplace" semantics to allow replacing a stmt if
-     no further stmts need to be inserted (basically disallow
-     creating of new SSA names).  */
-  if (inplace
-      && !is_gimple_assign (stmt))
-    return changed;
-
-  gimple_seq seq = NULL;
-  code_helper rcode;
-  tree ops[3] = {};
-  if (!gimple_simplify (stmt, &rcode, ops, inplace ? NULL : &seq, valueize))
-    return changed;
-
-  if (is_gimple_assign (stmt)
-      && rcode.is_tree_code ())
-    {
-      if (inplace
-	  && gimple_num_ops (stmt) <= get_gimple_rhs_num_ops (rcode))
-	return changed;
-      /* Play safe and do not allow abnormals to be mentioned in
-         newly created statements.  */
-      if ((TREE_CODE (ops[0]) == SSA_NAME
-	   && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[0]))
-	  || (ops[1]
-	      && TREE_CODE (ops[1]) == SSA_NAME
-	      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[1]))
-	  || (ops[2]
-	      && TREE_CODE (ops[2]) == SSA_NAME
-	      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[2])))
-	return changed;
-      gimple_assign_set_rhs_with_ops_1 (gsi, rcode, ops[0], ops[1], ops[2]);
-      gsi_insert_seq_before (gsi, seq, GSI_SAME_STMT);
-    }
-  else
-    {
-      if (inplace)
-	return changed;
-      if (gimple_has_lhs (stmt))
-	{
-	  tree lhs = gimple_get_lhs (stmt);
-	  maybe_push_res_to_seq (rcode, TREE_TYPE (lhs),
-				 ops, &seq, lhs);
-	  gsi_replace_with_seq_vops (gsi, seq);
-	}
-      else
-	gcc_unreachable ();
-    }
-
-  return true;
+  return changed;
 }
 
 /* Fold the statement pointed to by GSI.  In some cases, this function may
