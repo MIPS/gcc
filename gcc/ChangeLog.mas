@@ -1,5 +1,9 @@
 2014-08-28  Richard Biener  <rguenther@suse.de>
 
+	Merge from trunk r214266 through r214675.
+
+2014-08-28  Richard Biener  <rguenther@suse.de>
+
 	* match-constant-folding.pd (x + 0 -> x): Wrap result in
 	a NON_LVALUE_EXPR to account for the C++ frontend folding
 	too early, avoding some spurious testsuite FAILs.

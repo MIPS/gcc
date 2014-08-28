@@ -116,7 +116,7 @@ static bool done_preinclude;
 static void handle_OPT_d (const char *);
 static void set_std_cxx98 (int);
 static void set_std_cxx11 (int);
-static void set_std_cxx1y (int);
+static void set_std_cxx14 (int);
 static void set_std_cxx1z (int);
 static void set_std_c89 (int, int);
 static void set_std_c99 (int);
@@ -382,16 +382,11 @@ c_common_handle_option (size_t scode, const char *arg, int value,
       /* ??? Don't add new options here. Use LangEnabledBy in c.opt.  */
 
       cpp_opts->warn_trigraphs = value;
-      cpp_opts->warn_comments = value;
       cpp_opts->warn_num_sign_change = value;
       break;
 
     case OPT_Wbuiltin_macro_redefined:
       cpp_opts->warn_builtin_macro_redefined = value;
-      break;
-
-    case OPT_Wcomment:
-      cpp_opts->warn_comments = value;
       break;
 
     case OPT_Wc___compat:
@@ -421,12 +416,8 @@ c_common_handle_option (size_t scode, const char *arg, int value,
     case OPT_Wmissing_include_dirs:
       cpp_opts->warn_missing_include_dirs = value;
       break;
-
-    case OPT_Wmultichar:
-      cpp_opts->warn_multichar = value;
-      break;
-
     case OPT_Wnormalized_:
+      /* FIXME: Move all this to c.opt.  */
       if (kind == DK_ERROR)
 	{
 	  gcc_assert (!arg);
@@ -707,12 +698,12 @@ c_common_handle_option (size_t scode, const char *arg, int value,
 	}
       break;
 
-    case OPT_std_c__1y:
-    case OPT_std_gnu__1y:
+    case OPT_std_c__14:
+    case OPT_std_gnu__14:
       if (!preprocessing_asm_p)
 	{
-	  set_std_cxx1y (code == OPT_std_c__1y /* ISO */);
-	  if (code == OPT_std_c__1y)
+	  set_std_cxx14 (code == OPT_std_c__14 /* ISO */);
+	  if (code == OPT_std_c__14)
 	    cpp_opts->ext_numeric_literals = 0;
 	}
       break;
@@ -1310,7 +1301,6 @@ sanitize_cpp_opts (void)
 
   cpp_opts->unsigned_char = !flag_signed_char;
   cpp_opts->stdc_0_in_system_headers = STDC_0_IN_SYSTEM_HEADERS;
-  cpp_opts->warn_date_time = cpp_warn_date_time;
   cpp_opts->cpp_warn_c90_c99_compat = warn_c90_c99_compat;
 
   /* Wlong-long is disabled by default. It is enabled by:
@@ -1597,31 +1587,32 @@ set_std_cxx11 (int iso)
   cxx_dialect = cxx11;
 }
 
-/* Set the C++ 201y draft standard (without GNU extensions if ISO).  */
+/* Set the C++ 2014 draft standard (without GNU extensions if ISO).  */
 static void
-set_std_cxx1y (int iso)
+set_std_cxx14 (int iso)
 {
-  cpp_set_lang (parse_in, iso ? CLK_CXX1Y: CLK_GNUCXX1Y);
+  cpp_set_lang (parse_in, iso ? CLK_CXX14: CLK_GNUCXX14);
   flag_no_gnu_keywords = iso;
   flag_no_nonansi_builtin = iso;
   flag_iso = iso;
   /* C++11 includes the C99 standard library.  */
   flag_isoc94 = 1;
   flag_isoc99 = 1;
-  cxx_dialect = cxx1y;
+  cxx_dialect = cxx14;
 }
 
 /* Set the C++ 201z draft standard (without GNU extensions if ISO).  */
 static void
 set_std_cxx1z (int iso)
 {
-  cpp_set_lang (parse_in, iso ? CLK_CXX1Y: CLK_GNUCXX1Y);
+  cpp_set_lang (parse_in, iso ? CLK_CXX1Z: CLK_GNUCXX1Z);
   flag_no_gnu_keywords = iso;
   flag_no_nonansi_builtin = iso;
   flag_iso = iso;
   /* C++11 includes the C99 standard library.  */
   flag_isoc94 = 1;
   flag_isoc99 = 1;
+  flag_isoc11 = 1;
   cxx_dialect = cxx1z;
 }
 

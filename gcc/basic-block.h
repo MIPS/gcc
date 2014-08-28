@@ -39,7 +39,7 @@ struct GTY((user)) edge_def {
   /* Instructions queued on the edge.  */
   union edge_def_insns {
     gimple_seq g;
-    rtx r;
+    rtx_insn *r;
   } insns;
 
   /* Auxiliary info specific to a pass.  */
@@ -122,12 +122,12 @@ struct loop;
 struct GTY(()) rtl_bb_info {
   /* The first insn of the block is embedded into bb->il.x.  */
   /* The last insn of the block.  */
-  rtx end_;
+  rtx_insn *end_;
 
   /* In CFGlayout mode points to insn notes/jumptables to be placed just before
      and after the block.   */
-  rtx header_;
-  rtx footer_;
+  rtx_insn *header_;
+  rtx_insn *footer_;
 };
 
 struct GTY(()) gimple_bb_info {
@@ -185,7 +185,7 @@ struct GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb"))) basic_block_d
   union basic_block_il_dependent {
       struct gimple_bb_info GTY ((tag ("0"))) gimple;
       struct {
-        rtx head_;
+        rtx_insn *head_;
         struct rtl_bb_info * rtl;
       } GTY ((tag ("1"))) x;
     } GTY ((desc ("((%1.flags & BB_RTL) != 0)"))) il;
@@ -372,17 +372,10 @@ struct GTY(()) control_flow_graph {
    to rtx_insn.   Once the underlying fields are converted from rtx
    to rtx_insn, these can be converted back to macros.  */
 
-extern rtx_insn *BB_HEAD (const_basic_block bb);
-extern rtx& SET_BB_HEAD (basic_block bb);
-
-extern rtx_insn *BB_END (const_basic_block bb);
-extern rtx& SET_BB_END (basic_block bb);
-
-extern rtx_insn *BB_HEADER (const_basic_block bb);
-extern rtx& SET_BB_HEADER (basic_block bb);
-
-extern rtx_insn *BB_FOOTER (const_basic_block bb);
-extern rtx& SET_BB_FOOTER (basic_block bb);
+#define BB_HEAD(B)      (B)->il.x.head_
+#define BB_END(B)       (B)->il.x.rtl->end_
+#define BB_HEADER(B)    (B)->il.x.rtl->header_
+#define BB_FOOTER(B)    (B)->il.x.rtl->footer_
 
 /* Special block numbers [markers] for entry and exit.
    Neither of them is supposed to hold actual statements.  */
@@ -399,7 +392,7 @@ extern unsigned int free_bb_for_insn (void);
 extern void update_bb_for_insn (basic_block);
 
 extern void insert_insn_on_edge (rtx, edge);
-basic_block split_edge_and_insert (edge, rtx);
+basic_block split_edge_and_insert (edge, rtx_insn *);
 
 extern void commit_one_edge_insertion (edge e);
 extern void commit_edge_insertions (void);
@@ -412,8 +405,8 @@ extern void remove_edge_raw (edge);
 extern void redirect_edge_succ (edge, basic_block);
 extern edge redirect_edge_succ_nodup (edge, basic_block);
 extern void redirect_edge_pred (edge, basic_block);
-extern basic_block create_basic_block_structure (rtx, rtx, rtx_note *,
-						 basic_block);
+extern basic_block create_basic_block_structure (rtx_insn *, rtx_insn *,
+						 rtx_note *, basic_block);
 extern void clear_bb_flags (void);
 extern void dump_bb_info (FILE *, basic_block, int, int, bool, bool);
 extern void dump_edge_info (FILE *, edge, int, int);
@@ -821,10 +814,10 @@ enum replace_direction { dir_none, dir_forward, dir_backward, dir_both };
 
 /* In cfgcleanup.c.  */
 extern bool cleanup_cfg (int);
-extern int flow_find_cross_jump (basic_block, basic_block, rtx *, rtx *,
-                                 enum replace_direction*);
+extern int flow_find_cross_jump (basic_block, basic_block, rtx_insn **,
+				 rtx_insn **, enum replace_direction*);
 extern int flow_find_head_matching_sequence (basic_block, basic_block,
-					     rtx *, rtx *, int);
+					     rtx_insn **, rtx_insn **, int);
 
 extern bool delete_unreachable_blocks (void);
 

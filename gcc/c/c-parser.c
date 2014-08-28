@@ -1980,7 +1980,7 @@ c_parser_asm_definition (c_parser *parser)
 {
   tree asm_str = c_parser_simple_asm_expr (parser);
   if (asm_str)
-    add_asm_node (asm_str);
+    symtab->finalize_toplevel_asm (asm_str);
   c_parser_skip_until_found (parser, CPP_SEMICOLON, "expected %<;%>");
 }
 
@@ -14170,6 +14170,13 @@ c_parser_array_notation (location_t loc, c_parser *parser, tree initial_index,
   
   array_type = TREE_TYPE (array_value);
   gcc_assert (array_type);
+  if (TREE_CODE (array_type) != ARRAY_TYPE
+      && TREE_CODE (array_type) != POINTER_TYPE)
+    {
+      error_at (loc, "base of array section must be pointer or array type");
+      c_parser_skip_until_found (parser, CPP_CLOSE_SQUARE, NULL);
+      return error_mark_node;
+    }
   type = TREE_TYPE (array_type);
   token = c_parser_peek_token (parser);
    

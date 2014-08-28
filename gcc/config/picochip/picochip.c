@@ -98,9 +98,9 @@ unsigned int picochip_function_arg_boundary (enum machine_mode mode,
 
 int picochip_sched_lookahead (void);
 int picochip_sched_issue_rate (void);
-int picochip_sched_adjust_cost (rtx insn, rtx link,
-				       rtx dep_insn, int cost);
-int picochip_sched_reorder (FILE * file, int verbose, rtx * ready,
+int picochip_sched_adjust_cost (rtx_insn *insn, rtx link,
+				rtx_insn *dep_insn, int cost);
+int picochip_sched_reorder (FILE * file, int verbose, rtx_insn ** ready,
 				   int *n_readyp, int clock);
 
 void picochip_init_builtins (void);
@@ -164,7 +164,7 @@ static int picochip_vliw_continuation = 0;
    between final_prescan_insn and functions such as asm_output_opcode,
    and picochip_get_vliw_alu_id (which are otherwise unable to determine the
    current instruction. */
-static rtx picochip_current_prescan_insn;
+static rtx_insn *picochip_current_prescan_insn;
 
 static bool picochip_is_delay_slot_pending = 0;
 
@@ -3507,7 +3507,7 @@ picochip_reset_vliw (rtx insn)
 
 int
 picochip_sched_reorder (FILE * file, int verbose,
-			rtx * ready ATTRIBUTE_UNUSED,
+			rtx_insn ** ready ATTRIBUTE_UNUSED,
 			int *n_readyp ATTRIBUTE_UNUSED, int clock)
 {
 
@@ -3535,7 +3535,8 @@ picochip_sched_issue_rate (void)
 /* Adjust the scheduling cost between the two given instructions,
    which have the given dependency. */
 int
-picochip_sched_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
+picochip_sched_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep_insn,
+			    int cost)
 {
 
   if (TARGET_DEBUG)
@@ -3873,7 +3874,7 @@ picochip_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED,
 }
 
 void
-picochip_final_prescan_insn (rtx insn, rtx * opvec ATTRIBUTE_UNUSED,
+picochip_final_prescan_insn (rtx_insn *insn, rtx * opvec ATTRIBUTE_UNUSED,
 			     int num_operands ATTRIBUTE_UNUSED)
 {
   rtx local_insn;

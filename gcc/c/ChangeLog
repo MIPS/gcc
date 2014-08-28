@@ -1,3 +1,20 @@
+2014-08-27  Chen Gang  <gang.chen.5i5j@gmail.com>
+
+	* c-aux-info.c (gen_type): Resize 'buff' from 10 to 23 bytes,
+	with using HOST_WIDE_INT without truncation to 'int'
+
+2014-08-22  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/62199
+	* c-typeck.c (parser_build_binary_op): Adjust call to
+	warn_logical_not_parentheses.
+
+2014-08-22  Igor Zamyatin  <igor.zamyatin@intel.com>
+
+	PR other/62008
+	* c-parser.c (c_parser_array_notation): Check for correct
+	type of an array added.
+
 2014-08-19  Marek Polacek  <polacek@redhat.com>
 
 	PR c++/62153
