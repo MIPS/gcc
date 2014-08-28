@@ -1,5 +1,10 @@
 
 2014-08-28  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{justcount test fails on MELT branch}}
+	* melt-build-script.tpl: emit comments in modlis files.
+	* melt-build-script.sh: Regenerate.
+
+2014-08-28  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-build-script.tpl: Use melt-runtime.ii not melt-runtime.i
 
 	* melt-build-script.sh: Regenerate.

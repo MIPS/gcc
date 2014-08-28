@@ -791,9 +791,10 @@ if [ ! -f "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.[+flavor+].modlis" \
   #  [+ (. (fromline))+] module list [+flavor+] extra, with mode condition
  echo "# MELT extra modules with mode condition:" >> $melt_modlis_temp
  [+FOR melt_extra_file+]
- printf '#xtra [+base+]\n' >> $melt_modlis_temp
- $GAWK -F\" '/\(install_melt_mode /{if (length($2)>1) printf("?%s [+base+].[+flavor+]\n", $2);}' meltbuild-sources/[+base+].melt | sort -u >> $melt_modlis_temp
+ printf '# MELT extra module [+base+]\n' >> $melt_modlis_temp
+ $GAWK '-F\"' '/\(install_melt_mode /{if (length($2)>1) {nbmod++;printf("?%s [+base+].[+flavor+]\n", $2);}} END{printf("# %d MELT modes in [+base+]\n", nbmod);}' meltbuild-sources/[+base+].melt | sort -u >> $melt_modlis_temp
  [+ENDFOR melt_extra_file+]
+ echo "# end MELT module list $MELTGCCBUILTIN_DEFAULT_MODLIS.[+flavor+].modlis" >> $melt_modlis_temp
   $GCCMELT_MOVE_IF_CHANGE $melt_modlis_temp  "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.[+flavor+].modlis"
 else
   meltbuild_info  [+(.(fromline))+] keeping module list  "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.[+flavor+].modlis"  
