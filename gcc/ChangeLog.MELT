@@ -1,5 +1,15 @@
 
 2014-08-29  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{See https://gcc.gnu.org/ml/gcc/2014-08/msg00313.html}}
+	* melt-runtime.cc (meltgc_raw_put_mappointers): Slightly lower the
+	threshold above which the hash table is grown. Add more
+	gcc_assert-s.
+
+	* melt/xtramelt-ana-base.melt (justcountipa_docmd): Explicitly
+	clear the :ggcpass_data to avoid having edge hanging around and
+	later make the GGC marker crash.
+
+2014-08-29  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerate.
 
 2014-08-29  Basile Starynkevitch  <basile@starynkevitch.net>

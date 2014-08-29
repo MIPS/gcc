@@ -932,6 +932,10 @@
 	 )
        )
       (inform_at () "MELT just counted got $1 functions finally" (get_int jcnbfun))
+      ;; we really want to avoid keeping data containing indirectly
+      ;; stuff like edges.  this is needed otherwise GCC could
+      ;; crash. See https://gcc.gnu.org/ml/gcc/2014-08/msg00313.html
+      (put_fields pass :gccpass_data ())
       (return :true)
       )))
 

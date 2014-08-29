@@ -4519,7 +4519,7 @@ alloc_old_mappointer_small_entab:
       meltgc_touch (map_mappointerv);
     }
   else if ((len = melt_primtab[map_mappointerv->lenix]) <=
-           (5 * (cnt = map_mappointerv->count)) / 4
+           2 + (5 * (cnt = map_mappointerv->count)) / 4
            || (len <= 5 && cnt + 1 >= len))
     {
       int ix, newcnt = 0;
@@ -4549,7 +4549,7 @@ alloc_old_mappointer_entab:
           if (!curat || curat == (void *) HTAB_DELETED_ENTRY)
             continue;
           newix = unsafe_index_mappointer (newtab, curat, newlen);
-          gcc_assert (newix >= 0);
+          gcc_assert (newix >= 0 && newix < newlen);
           newtab[newix] = oldtab[ix];
           newcnt++;
         }
@@ -4563,7 +4563,7 @@ alloc_old_mappointer_entab:
       len = newlen;
     }
   ix = unsafe_index_mappointer (map_mappointerv->entab, attr, len);
-  gcc_assert (ix >= 0);
+  gcc_assert (ix >= 0 && ix < len);
   if (!map_mappointerv->entab[ix].e_at
       || map_mappointerv->entab[ix].e_at == HTAB_DELETED_ENTRY)
     {
