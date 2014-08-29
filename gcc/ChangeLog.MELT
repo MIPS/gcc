@@ -1,5 +1,8 @@
 
 2014-08-29  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/generated/*: Regenerate.
+
+2014-08-29  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{justcount test runs ok on MELT branch}}
 	* melt/warmelt-hooks.melt (hook_all_passes_end): clear
 	:sysdata_pass_dict...
