@@ -1,5 +1,13 @@
 
 2014-08-29  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{justcount test runs ok on MELT branch}}
+	* melt/warmelt-hooks.melt (hook_all_passes_end): clear
+	:sysdata_pass_dict...
+
+	* melt/libmelt-ana-base.melt (install_melt_pass_in_gcc): Improve
+	doc string.
+
+2014-08-29  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{See https://gcc.gnu.org/ml/gcc/2014-08/msg00313.html}}
 	* melt-runtime.cc (meltgc_raw_put_mappointers): Slightly lower the
 	threshold above which the hash table is grown. Add more

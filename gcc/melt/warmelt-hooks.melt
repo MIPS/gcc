@@ -673,7 +673,13 @@ bool  melthk_all_passes_end_registered_flag;
      (revlastlist)
      (revlastpair revlastproc)
      (setq res (revlastproc res))
-    )))
+     )
+    ;;; remove the entire the pass dictionnary, to help releasing some
+    ;;; resources
+    ;; see https://groups.google.com/d/msg/gcc-melt/Xd2_pi42GA0/oKEMjGimgB8J
+    ;; and  https://gcc.gnu.org/ml/gcc/2014-08/msg00313.html
+    (put_fields initial_system_data :sysdata_pass_dict ())
+    ))
 
 (cheader #{ 
  void MELT_MODULE_VISIBILITY 

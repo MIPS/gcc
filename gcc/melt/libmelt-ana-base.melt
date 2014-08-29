@@ -161,12 +161,13 @@ unsigned int melthk_rtl_execute(void)
 ;; new function to install a melt pass in gcc
 (defun install_melt_pass_in_gcc 
   (:value pass positioning refpassname :long refpassnum) 
-  :doc #{$INSTALL_MELT_PASS_IN_GCC is nstalling your GCC pass coded in
-  MELT. The $PASS should be an object, instance of a sub-class of
+  :doc #{$INSTALL_MELT_PASS_IN_GCC is installing your GCC pass coded
+  in MELT. The $PASS should be an object, instance of a sub-class of
   $CLASS_GCC_PASS, e.g. of $CLASS_GCC_GIMPLE_PASS. The $POSITIONNING
-  is :before or :after or :replace. The reference pass is given thru $REFPASSNAME
-  -a boxed string- and $REFPASSNUM. Usually $INSTALL_MELT_PASS_IN_GCC is
-  called from a mode initializer.}#
+  is :before or :after or :replace. The reference pass is given thru
+  $REFPASSNAME -a boxed string- and $REFPASSNUM. Usually
+  $INSTALL_MELT_PASS_IN_GCC is called from a mode initializer, see
+  also $INSTALL_MELT_MODE.}#
   (debug "install_melt_gcc_pass pass=" pass 
 	 " positioning=" positioning " refpassname=" refpassname " refpassnum=" refpassnum)
   ;; check that we have a mode
