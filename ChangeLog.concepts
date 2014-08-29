@@ -1,3 +1,10 @@
+2014-08-29  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fixing partial-template-id bug.
+	* gcc/cp/parser.c (cp_parser_type_name): If the returned type-decl
+	is actually a shorthand declaration, don't simulate an error.
+	* gcc/testsuite/g++.dg/concepts/template-parm10.C: New.
+
 2014-08-15  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Add tests for constrained friends.

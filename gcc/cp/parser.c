@@ -15394,11 +15394,16 @@ cp_parser_type_name (cp_parser* parser)
 	 Whereas [temp.names]/7 says:
 	 
 	     A simple-template-id that names a class template
-	     specialization is a class-name.  */
+	     specialization is a class-name. 
+
+         With concepts, this could also be a partial-concept-id that
+         declares a non-type template parameter. */
       if (type_decl != NULL_TREE
 	  && TREE_CODE (type_decl) == TYPE_DECL
 	  && TYPE_DECL_ALIAS_P (type_decl))
 	gcc_assert (DECL_TEMPLATE_INSTANTIATION (type_decl));
+      else if (cp_maybe_type_parameter (type_decl))
+        /* Don't do anything. */ ;
       else
 	cp_parser_simulate_error (parser);
 
@@ -15498,8 +15503,6 @@ cp_maybe_constrained_type_specifier (cp_parser *parser, tree decl, tree args)
 //   - it is an overload set containing a function concept taking a single
 //     type argument, or
 //   - it is a variable concept taking a single type argument
-//
-// TODO: DECL could be a variable concept.
 static tree
 cp_maybe_concept_name (cp_parser* parser, tree decl)
 {
@@ -15510,8 +15513,6 @@ cp_maybe_concept_name (cp_parser* parser, tree decl)
 // of the overload set denoted by TMPL, Args the sequence of ARGS, and
 // ? denote an unspecified template argument. If the template-id C<?, Args>
 // is valid, this denotes a partial-concept-id to be acted on.
-//
-// TODO: TMPL could be a variable concept.
 tree
 cp_maybe_partial_concept_id (cp_parser *parser, tree decl, tree args)
 {
