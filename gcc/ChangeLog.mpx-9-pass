@@ -1,4 +1,6 @@
-2013-11-06  Ilya Enkovich  <ilya.enkovich@intel.com>
+gcc/
+
+2014-06-05  Ilya Enkovich  <ilya.enkovich@intel.com>
 
 	* tree-chkp.c: New.
 	* tree-chkp.h: New.
@@ -25,7 +27,9 @@
 	* cppbuiltin.c (define_builtin_macros_for_compilation_flags): Add
 	__CHKP__ macro when Pointer Bounds Checker is on.
 	* passes.def (pass_ipa_chkp_versioning): New.
-	(pass_before_local_optimization_passes): New.
+	(pass_early_local_passes): Removed.
+	(pass_build_ssa_passes): New.
+	(pass_fixup_cfg): Moved to pass_chkp_instrumentation_passes.
 	(pass_chkp_instrumentation_passes): New.
 	(pass_ipa_chkp_produce_thunks): New.
 	(pass_local_optimization_passes): New.
@@ -36,19 +40,32 @@
 	(make_pass_ipa_chkp_produce_thunks): New.
 	(make_pass_chkp): New.
 	(make_pass_chkp_opt): New.
-	(make_pass_before_local_optimization_passes): New.
+	(make_pass_early_local_passes): Removed.
+	(make_pass_build_ssa_passes): New.
 	(make_pass_chkp_instrumentation_passes): New.
 	(make_pass_local_optimization_passes): New.
 	* tree.h (called_as_built_in): New.
 	* builtins.c (called_as_built_in): Not static anymore.
 	* passes.c (pass_manager::execute_early_local_passes): Execute
 	early passes in three steps.
-	(pass_data_before_local_optimization_passes): New.
-	(pass_before_local_optimization_passes): New.
+	(execute_all_early_local_passes): Removed.
+	(pass_data_early_local_passes): Removed.
+	(pass_early_local_passes): Removed.
+	(execute_build_ssa_passes): New.
+	(pass_data_build_ssa_passes): New.
+	(pass_build_ssa_passes): New.
 	(pass_data_chkp_instrumentation_passes): New.
 	(pass_chkp_instrumentation_passes): New.
 	(pass_data_local_optimization_passes): New.
 	(pass_local_optimization_passes): New.
-	(make_pass_before_local_optimization_passes): New.
+	(-make_pass_early_local_passes): Removed.
+	(make_pass_build_ssa_passes): New.
 	(make_pass_chkp_instrumentation_passes): New.
 	(make_pass_local_optimization_passes): New.
+
+gcc/testsuite
+
+2014-06-05  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* gcc.dg/pr37858.c: Replace early_local_cleanups pass name
+	with build_ssa_passes.

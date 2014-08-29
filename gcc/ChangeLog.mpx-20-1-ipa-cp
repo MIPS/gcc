@@ -1,6 +1,7 @@
-2013-11-13  Ilya Enkovich  <ilya.enkovich@intel.com>
+2014-06-11  Ilya Enkovich  <ilya.enkovich@intel.com>
 
-	* ipa-cp.c (initialize_node_lattices): Check original
-	version locality for instrumentation clones.
+	* cgraph.h (cgraph_local_p): New.
+	* ipa-cp.c (initialize_node_lattices): Use cgraph_local_p
+	to handle instrumentation clones properly.
 	(propagate_constants_accross_call): Do not propagate
 	through instrumentation thunks.

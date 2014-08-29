@@ -1,0 +1,4 @@
+2014-08-15  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* ipa-pure-const.c (propagate_pure_const): Support
+	IPA_REF_CHKP.

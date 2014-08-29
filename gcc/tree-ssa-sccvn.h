@@ -80,7 +80,9 @@ typedef const struct vn_phi_s *const_vn_phi_t;
 
 typedef struct vn_reference_op_struct
 {
-  enum tree_code opcode;
+  ENUM_BITFIELD(tree_code) opcode : 10;
+  /* 1 for instrumented calls.  */
+  unsigned with_bounds : 1;
   /* Constant offset this op adds or -1 if it is variable.  */
   HOST_WIDE_INT off;
   tree type;
@@ -140,8 +142,10 @@ vn_hash_type (tree type)
 static inline hashval_t
 vn_hash_constant_with_type (tree constant)
 {
-  return (iterative_hash_expr (constant, 0)
-	  + vn_hash_type (TREE_TYPE (constant)));
+  inchash::hash hstate;
+  inchash::add_expr (constant, hstate);
+  hstate.merge_hash (vn_hash_type (TREE_TYPE (constant)));
+  return hstate.end ();
 }
 
 /* Compare the constants C1 and C2 with distinguishing type incompatible

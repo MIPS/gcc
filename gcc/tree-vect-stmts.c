@@ -55,6 +55,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-vectorizer.h"
 #include "dumpfile.h"
 #include "cgraph.h"
+#include "builtins.h"
 
 /* For lang_hooks.types.type_for_mode.  */
 #include "langhooks.h"
@@ -974,9 +975,9 @@ vect_model_store_cost (stmt_vec_info stmt_info, int ncopies,
      include the cost of the permutes.  */
   if (!store_lanes_p && group_size > 1)
     {
-      /* Uses a high and low interleave operation for each needed permute.  */
-      
-      int nstmts = ncopies * exact_log2 (group_size) * group_size;
+      /* Uses a high and low interleave or shuffle operations for each
+	 needed permute.  */
+      int nstmts = ncopies * ceil_log2 (group_size) * group_size;
       inside_cost = record_stmt_cost (body_cost_vec, nstmts, vec_perm,
 				      stmt_info, 0, vect_body);
 
@@ -1091,10 +1092,11 @@ vect_model_load_cost (stmt_vec_info stmt_info, int ncopies,
      include the cost of the permutes.  */
   if (!load_lanes_p && group_size > 1)
     {
-      /* Uses an even and odd extract operations for each needed permute.  */
-      int nstmts = ncopies * exact_log2 (group_size) * group_size;
-      inside_cost += record_stmt_cost (body_cost_vec, nstmts, vec_perm,
-				       stmt_info, 0, vect_body);
+      /* Uses an even and odd extract operations or shuffle operations
+	 for each needed permute.  */
+      int nstmts = ncopies * ceil_log2 (group_size) * group_size;
+      inside_cost = record_stmt_cost (body_cost_vec, nstmts, vec_perm,
+				      stmt_info, 0, vect_body);
 
       if (dump_enabled_p ())
         dump_printf_loc (MSG_NOTE, vect_location,
@@ -2641,7 +2643,7 @@ vectorizable_simd_clone_call (gimple stmt, gimple_stmt_iterator *gsi,
   if (fndecl == NULL_TREE)
     return false;
 
-  struct cgraph_node *node = cgraph_get_node (fndecl);
+  struct cgraph_node *node = cgraph_node::get (fndecl);
   if (node == NULL || node->simd_clones == NULL)
     return false;
 
@@ -2724,7 +2726,7 @@ vectorizable_simd_clone_call (gimple stmt, gimple_stmt_iterator *gsi,
   unsigned int badness = 0;
   struct cgraph_node *bestn = NULL;
   if (STMT_VINFO_SIMD_CLONE_FNDECL (stmt_info))
-    bestn = cgraph_get_node (STMT_VINFO_SIMD_CLONE_FNDECL (stmt_info));
+    bestn = cgraph_node::get (STMT_VINFO_SIMD_CLONE_FNDECL (stmt_info));
   else
     for (struct cgraph_node *n = node->simd_clones; n != NULL;
 	 n = n->simdclone->next_clone)
@@ -2992,11 +2994,10 @@ vectorizable_simd_clone_call (gimple stmt, gimple_stmt_iterator *gsi,
 		      ? POINTER_PLUS_EXPR : PLUS_EXPR;
 		  tree type = POINTER_TYPE_P (TREE_TYPE (op))
 			      ? sizetype : TREE_TYPE (op);
-		  double_int cst
-		    = double_int::from_shwi
-			(bestn->simdclone->args[i].linear_step);
-		  cst *= double_int::from_uhwi (ncopies * nunits);
-		  tree tcst = double_int_to_tree (type, cst);
+		  widest_int cst
+		    = wi::mul (bestn->simdclone->args[i].linear_step,
+			       ncopies * nunits);
+		  tree tcst = wide_int_to_tree (type, cst);
 		  tree phi_arg = copy_ssa_name (op, NULL);
 		  new_stmt = gimple_build_assign_with_ops (code, phi_arg,
 							   phi_res, tcst);
@@ -3017,11 +3018,10 @@ vectorizable_simd_clone_call (gimple stmt, gimple_stmt_iterator *gsi,
 		      ? POINTER_PLUS_EXPR : PLUS_EXPR;
 		  tree type = POINTER_TYPE_P (TREE_TYPE (op))
 			      ? sizetype : TREE_TYPE (op);
-		  double_int cst
-		    = double_int::from_shwi
-			(bestn->simdclone->args[i].linear_step);
-		  cst *= double_int::from_uhwi (j * nunits);
-		  tree tcst = double_int_to_tree (type, cst);
+		  widest_int cst
+		    = wi::mul (bestn->simdclone->args[i].linear_step,
+			       j * nunits);
+		  tree tcst = wide_int_to_tree (type, cst);
 		  new_temp = make_ssa_name (TREE_TYPE (op), NULL);
 		  new_stmt
 		    = gimple_build_assign_with_ops (code, new_temp,

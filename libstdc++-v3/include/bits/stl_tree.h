@@ -58,6 +58,8 @@
 #ifndef _STL_TREE_H
 #define _STL_TREE_H 1
 
+#pragma GCC system_header
+
 #include <bits/stl_algobase.h>
 #include <bits/allocator.h>
 #include <bits/stl_function.h>
@@ -526,11 +528,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       _Link_type
       _M_end() _GLIBCXX_NOEXCEPT
-      { return static_cast<_Link_type>(&this->_M_impl._M_header); }
+      { return reinterpret_cast<_Link_type>(&this->_M_impl._M_header); }
 
       _Const_Link_type
       _M_end() const _GLIBCXX_NOEXCEPT
-      { return static_cast<_Const_Link_type>(&this->_M_impl._M_header); }
+      { return reinterpret_cast<_Const_Link_type>(&this->_M_impl._M_header); }
 
       static const_reference
       _S_value(_Const_Link_type __x)
@@ -1073,6 +1075,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     _Rb_tree<_Key, _Val, _KeyOfValue, _Compare, _Alloc>::
     _M_move_assign(_Rb_tree& __x)
     {
+      _M_impl._M_key_compare = __x._M_impl._M_key_compare;
       if (_Alloc_traits::_S_propagate_on_move_assign()
 	  || _Alloc_traits::_S_always_equal()
 	  || _M_get_Node_allocator() == __x._M_get_Node_allocator())

@@ -1,3 +1,16 @@
+2014-08-01  Arnaud Charlet  <charlet@adacore.com>
+
+	* update_web_docs_svn: Simplify build of gnat_ugn.
+
+2014-06-12  Richard Biener  <rguenther@suse.de>
+
+	* crontab: Remove 4.7 snapshot entry.
+	* update_version_svn: Update IGNORE_BRANCHES.
+
+2014-05-30  Jonathan Wakely  <jwakely@redhat.com>
+
+	* generate_libstdcxx_web_docs: New script.
+
 2014-04-11  Jakub Jelinek  <jakub@redhat.com>
 
 	* crontab: Enable snapshots from gcc-4_9-branch.

@@ -1307,7 +1307,7 @@ static struct binding_level *
 make_binding_level (void)
 {
   /* NOSTRICT */
-  return ggc_alloc_cleared_binding_level ();
+  return ggc_cleared_alloc<binding_level> ();
 }
 
 void
@@ -1646,7 +1646,7 @@ java_dup_lang_specific_decl (tree node)
     return;
 
   lang_decl_size = sizeof (struct lang_decl);
-  x = ggc_alloc_lang_decl (lang_decl_size);
+  x = ggc_alloc<struct lang_decl> ();
   memcpy (x, DECL_LANG_SPECIFIC (node), lang_decl_size);
   DECL_LANG_SPECIFIC (node) = x;
 }
@@ -1906,7 +1906,7 @@ java_mark_decl_local (tree decl)
   /* Double check that we didn't pass the function to the callgraph early.  */
   if (TREE_CODE (decl) == FUNCTION_DECL)
     {
-      struct cgraph_node *node = cgraph_get_node (decl);
+      struct cgraph_node *node = cgraph_node::get (decl);
       gcc_assert (!node || !node->definition);
     }
 #endif

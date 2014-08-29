@@ -122,11 +122,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-utils.h"
 #include "sreal.h"
 #include "cilk.h"
+#include "builtins.h"
 
 /* Statistics we collect about inlining algorithm.  */
 static int overall_size;
 static gcov_type max_count;
 static sreal max_count_real, max_relbenefit_real, half_int_min_real;
+static gcov_type spec_rem;
 
 /* Return false when inlining edge E would lead to violating
    limits on function unit growth or stack usage growth.  
@@ -145,7 +147,7 @@ static bool
 caller_growth_limits (struct cgraph_edge *e)
 {
   struct cgraph_node *to = e->caller;
-  struct cgraph_node *what = cgraph_function_or_thunk_node (e->callee, NULL);
+  struct cgraph_node *what = e->callee->ultimate_alias_target ();
   int newsize;
   int limit = 0;
   HOST_WIDE_INT stack_size_limit = 0, inlined_stack;
@@ -267,8 +269,7 @@ can_inline_edge_p (struct cgraph_edge *e, bool report,
 {
   bool inlinable = true;
   enum availability avail;
-  struct cgraph_node *callee
-    = cgraph_function_or_thunk_node (e->callee, &avail);
+  cgraph_node *callee = e->callee->ultimate_alias_target (&avail);
   tree caller_tree = DECL_FUNCTION_SPECIFIC_OPTIMIZATION (e->caller->decl);
   tree callee_tree
     = callee ? DECL_FUNCTION_SPECIFIC_OPTIMIZATION (callee->decl) : NULL;
@@ -300,7 +301,7 @@ can_inline_edge_p (struct cgraph_edge *e, bool report,
       e->inline_failed = CIF_FUNCTION_NOT_INLINABLE;
       inlinable = false;
     }
-  else if (avail <= AVAIL_OVERWRITABLE)
+  else if (avail <= AVAIL_INTERPOSABLE)
     {
       e->inline_failed = CIF_OVERWRITABLE;
       inlinable = false;
@@ -397,8 +398,7 @@ can_inline_edge_p (struct cgraph_edge *e, bool report,
 static bool
 can_early_inline_edge_p (struct cgraph_edge *e)
 {
-  struct cgraph_node *callee = cgraph_function_or_thunk_node (e->callee,
-							      NULL);
+  struct cgraph_node *callee = e->callee->ultimate_alias_target ();
   /* Early inliner might get called at WPA stage when IPA pass adds new
      function.  In this case we can not really do any of early inlining
      because function bodies are missing.  */
@@ -445,7 +445,7 @@ static bool
 want_early_inline_function_p (struct cgraph_edge *e)
 {
   bool want_inline = true;
-  struct cgraph_node *callee = cgraph_function_or_thunk_node (e->callee, NULL);
+  struct cgraph_node *callee = e->callee->ultimate_alias_target ();
 
   if (DECL_DISREGARD_INLINE_LIMITS (callee->decl))
     ;
@@ -563,7 +563,7 @@ static bool
 want_inline_small_function_p (struct cgraph_edge *e, bool report)
 {
   bool want_inline = true;
-  struct cgraph_node *callee = cgraph_function_or_thunk_node (e->callee, NULL);
+  struct cgraph_node *callee = e->callee->ultimate_alias_target ();
 
   if (DECL_DISREGARD_INLINE_LIMITS (callee->decl))
     ;
@@ -577,18 +577,21 @@ want_inline_small_function_p (struct cgraph_edge *e, bool report)
      inline cnadidate.  At themoment we allow inline hints to
      promote non-inline function to inline and we increase
      MAX_INLINE_INSNS_SINGLE 16fold for inline functions.  */
-  else if (!DECL_DECLARED_INLINE_P (callee->decl)
+  else if ((!DECL_DECLARED_INLINE_P (callee->decl)
+	   && (!e->count || !cgraph_maybe_hot_edge_p (e)))
 	   && inline_summary (callee)->min_size - inline_edge_summary (e)->call_stmt_size
 	      > MAX (MAX_INLINE_INSNS_SINGLE, MAX_INLINE_INSNS_AUTO))
     {
       e->inline_failed = CIF_MAX_INLINE_INSNS_AUTO_LIMIT;
       want_inline = false;
     }
-  else if (DECL_DECLARED_INLINE_P (callee->decl)
+  else if ((DECL_DECLARED_INLINE_P (callee->decl) || e->count)
 	   && inline_summary (callee)->min_size - inline_edge_summary (e)->call_stmt_size
 	      > 16 * MAX_INLINE_INSNS_SINGLE)
     {
-      e->inline_failed = CIF_MAX_INLINE_INSNS_AUTO_LIMIT;
+      e->inline_failed = (DECL_DECLARED_INLINE_P (callee->decl)
+			  ? CIF_MAX_INLINE_INSNS_SINGLE_LIMIT
+			  : CIF_MAX_INLINE_INSNS_AUTO_LIMIT);
       want_inline = false;
     }
   else
@@ -605,6 +608,7 @@ want_inline_small_function_p (struct cgraph_edge *e, bool report)
 	       && growth >= MAX_INLINE_INSNS_SINGLE
 	       && ((!big_speedup
 		    && !(hints & (INLINE_HINT_indirect_call
+				  | INLINE_HINT_known_hot
 				  | INLINE_HINT_loop_iterations
 				  | INLINE_HINT_array_index
 				  | INLINE_HINT_loop_stride)))
@@ -629,6 +633,7 @@ want_inline_small_function_p (struct cgraph_edge *e, bool report)
 	 inlining given function is very profitable.  */
       else if (!DECL_DECLARED_INLINE_P (callee->decl)
 	       && !big_speedup
+	       && !(hints & INLINE_HINT_known_hot)
 	       && growth >= ((hints & (INLINE_HINT_indirect_call
 				       | INLINE_HINT_loop_iterations
 			               | INLINE_HINT_array_index
@@ -815,22 +820,23 @@ has_caller_p (struct cgraph_node *node, void *data ATTRIBUTE_UNUSED)
 static bool
 want_inline_function_to_all_callers_p (struct cgraph_node *node, bool cold)
 {
-   struct cgraph_node *function = cgraph_function_or_thunk_node (node, NULL);
+   struct cgraph_node *function = node->ultimate_alias_target ();
    bool has_hot_call = false;
 
    /* Does it have callers?  */
-   if (!cgraph_for_node_and_aliases (node, has_caller_p, NULL, true))
+   if (!node->call_for_symbol_thunks_and_aliases (has_caller_p, NULL, true))
      return false;
    /* Already inlined?  */
    if (function->global.inlined_to)
      return false;
-   if (cgraph_function_or_thunk_node (node, NULL) != node)
+   if (node->ultimate_alias_target () != node)
      return false;
    /* Inlining into all callers would increase size?  */
    if (estimate_growth (node) > 0)
      return false;
    /* All inlines must be possible.  */
-   if (cgraph_for_node_and_aliases (node, check_callers, &has_hot_call, true))
+   if (node->call_for_symbol_thunks_and_aliases
+     (check_callers, &has_hot_call, true))
      return false;
    if (!cold && !has_hot_call)
      return false;
@@ -888,8 +894,7 @@ edge_badness (struct cgraph_edge *edge, bool dump)
 {
   gcov_type badness;
   int growth, edge_time;
-  struct cgraph_node *callee = cgraph_function_or_thunk_node (edge->callee,
-							      NULL);
+  struct cgraph_node *callee = edge->callee->ultimate_alias_target ();
   struct inline_summary *callee_info = inline_summary (callee);
   inline_hints hints;
 
@@ -1112,7 +1117,6 @@ reset_edge_caches (struct cgraph_node *node)
   struct cgraph_edge *edge;
   struct cgraph_edge *e = node->callees;
   struct cgraph_node *where = node;
-  int i;
   struct ipa_ref *ref;
 
   if (where->global.inlined_to)
@@ -1124,10 +1128,9 @@ reset_edge_caches (struct cgraph_node *node)
   for (edge = where->callers; edge; edge = edge->next_caller)
     if (edge->inline_failed)
       reset_edge_growth_cache (edge);
-  for (i = 0; ipa_ref_list_referring_iterate (&where->ref_list,
-					      i, ref); i++)
-    if (ref->use == IPA_REF_ALIAS)
-      reset_edge_caches (ipa_ref_referring_node (ref));
+
+  FOR_EACH_ALIAS (where, ref)
+    reset_edge_caches (dyn_cast <cgraph_node *> (ref->referring));
 
   if (!e)
     return;
@@ -1166,7 +1169,6 @@ update_caller_keys (fibheap_t heap, struct cgraph_node *node,
 		    struct cgraph_edge *check_inlinablity_for)
 {
   struct cgraph_edge *edge;
-  int i;
   struct ipa_ref *ref;
 
   if ((!node->alias && !inline_summary (node)->inlinable)
@@ -1175,13 +1177,11 @@ update_caller_keys (fibheap_t heap, struct cgraph_node *node,
   if (!bitmap_set_bit (updated_nodes, node->uid))
     return;
 
-  for (i = 0; ipa_ref_list_referring_iterate (&node->ref_list,
-					      i, ref); i++)
-    if (ref->use == IPA_REF_ALIAS)
-      {
-	struct cgraph_node *alias = ipa_ref_referring_node (ref);
-        update_caller_keys (heap, alias, updated_nodes, check_inlinablity_for);
-      }
+  FOR_EACH_ALIAS (node, ref)
+    {
+      struct cgraph_node *alias = dyn_cast <cgraph_node *> (ref->referring);
+      update_caller_keys (heap, alias, updated_nodes, check_inlinablity_for);
+    }
 
   for (edge = node->callers; edge; edge = edge->next_caller)
     if (edge->inline_failed)
@@ -1228,7 +1228,7 @@ update_callee_keys (fibheap_t heap, struct cgraph_node *node,
 	   growth chould have just increased and consequentely badness metric
            don't need updating.  */
 	if (e->inline_failed
-	    && (callee = cgraph_function_or_thunk_node (e->callee, &avail))
+	    && (callee = e->callee->ultimate_alias_target (&avail))
 	    && inline_summary (callee)->inlinable
 	    && avail >= AVAIL_AVAILABLE
 	    && !bitmap_bit_p (updated_nodes, callee->uid))
@@ -1271,8 +1271,8 @@ lookup_recursive_calls (struct cgraph_node *node, struct cgraph_node *where,
 
   for (e = where->callees; e; e = e->next_callee)
     if (e->callee == node
-	|| (cgraph_function_or_thunk_node (e->callee, &avail) == node
-	    && avail > AVAIL_OVERWRITABLE))
+	|| (e->callee->ultimate_alias_target (&avail) == node
+	    && avail > AVAIL_INTERPOSABLE))
       {
 	/* When profile feedback is available, prioritize by expected number
 	   of calls.  */
@@ -1293,7 +1293,7 @@ lookup_recursive_calls (struct cgraph_node *node, struct cgraph_node *where,
 
 static bool
 recursive_inlining (struct cgraph_edge *edge,
-		    vec<cgraph_edge_p> *new_edges)
+		    vec<cgraph_edge *> *new_edges)
 {
   int limit = PARAM_VALUE (PARAM_MAX_INLINE_INSNS_RECURSIVE_AUTO);
   fibheap_t heap;
@@ -1357,7 +1357,7 @@ recursive_inlining (struct cgraph_edge *edge,
       for (cnode = curr->caller;
 	   cnode->global.inlined_to; cnode = cnode->callers->caller)
 	if (node->decl
-	    == cgraph_function_or_thunk_node (curr->callee, NULL)->decl)
+	    == curr->callee->ultimate_alias_target ()->decl)
           depth++;
 
       if (!want_inline_self_recursive_call_p (curr, node, false, depth))
@@ -1381,9 +1381,9 @@ recursive_inlining (struct cgraph_edge *edge,
       if (!master_clone)
 	{
 	  /* We need original clone to copy around.  */
-	  master_clone = cgraph_clone_node (node, node->decl,
-					    node->count, CGRAPH_FREQ_BASE,
-					    false, vNULL, true, NULL, NULL);
+	  master_clone = node->create_clone (node->decl, node->count,
+	    CGRAPH_FREQ_BASE, false, vNULL,
+	    true, NULL, NULL);
 	  for (e = master_clone->callees; e; e = e->next_callee)
 	    if (!e->inline_failed)
 	      clone_inlined_nodes (e, true, false, NULL, CGRAPH_FREQ_BASE);
@@ -1418,9 +1418,9 @@ recursive_inlining (struct cgraph_edge *edge,
     {
       next = cgraph_next_function (node);
       if (node->global.inlined_to == master_clone)
-	cgraph_remove_node (node);
+	node->remove ();
     }
-  cgraph_remove_node (master_clone);
+  master_clone->remove ();
   return true;
 }
 
@@ -1435,7 +1435,7 @@ compute_max_insns (int insns)
   if (max_insns < PARAM_VALUE (PARAM_LARGE_UNIT_INSNS))
     max_insns = PARAM_VALUE (PARAM_LARGE_UNIT_INSNS);
 
-  return ((HOST_WIDEST_INT) max_insns
+  return ((int64_t) max_insns
 	  * (100 + PARAM_VALUE (PARAM_INLINE_UNIT_GROWTH)) / 100);
 }
 
@@ -1443,7 +1443,7 @@ compute_max_insns (int insns)
 /* Compute badness of all edges in NEW_EDGES and add them to the HEAP.  */
 
 static void
-add_new_edges_to_heap (fibheap_t heap, vec<cgraph_edge_p> new_edges)
+add_new_edges_to_heap (fibheap_t heap, vec<cgraph_edge *> new_edges)
 {
   while (new_edges.length () > 0)
     {
@@ -1479,7 +1479,7 @@ bool
 speculation_useful_p (struct cgraph_edge *e, bool anticipate_inlining)
 {
   enum availability avail;
-  struct cgraph_node *target = cgraph_function_or_thunk_node (e->callee, &avail);
+  struct cgraph_node *target = e->callee->ultimate_alias_target (&avail);
   struct cgraph_edge *direct, *indirect;
   struct ipa_ref *ref;
 
@@ -1533,6 +1533,7 @@ resolve_noninline_speculation (fibheap_t edge_heap, struct cgraph_edge *edge)
 				  ? node->global.inlined_to : node;
       bitmap updated_nodes = BITMAP_ALLOC (NULL);
 
+      spec_rem += edge->count;
       cgraph_resolve_speculation (edge, NULL);
       reset_edge_caches (where);
       inline_update_overall_summary (where);
@@ -1558,7 +1559,7 @@ inline_small_functions (void)
   fibheap_t edge_heap = fibheap_new ();
   bitmap updated_nodes = BITMAP_ALLOC (NULL);
   int min_size, max_size;
-  auto_vec<cgraph_edge_p> new_indirect_edges;
+  auto_vec<cgraph_edge *> new_indirect_edges;
   int initial_size = 0;
   struct cgraph_node **order = XCNEWVEC (struct cgraph_node *, cgraph_n_nodes);
   struct cgraph_edge_hook_list *edge_removal_hook_holder;
@@ -1579,13 +1580,16 @@ inline_small_functions (void)
   FOR_EACH_DEFINED_FUNCTION (node)
     if (!node->global.inlined_to)
       {
-	if (cgraph_function_with_gimple_body_p (node)
+	if (node->has_gimple_body_p ()
 	    || node->thunk.thunk_p)
 	  {
 	    struct inline_summary *info = inline_summary (node);
 	    struct ipa_dfs_info *dfs = (struct ipa_dfs_info *) node->aux;
 
-	    if (!DECL_EXTERNAL (node->decl))
+	    /* Do not account external functions, they will be optimized out
+	       if not inlined.  Also only count the non-cold portion of program.  */
+	    if (!DECL_EXTERNAL (node->decl)
+		&& node->frequency != NODE_FREQUENCY_UNLIKELY_EXECUTED)
 	      initial_size += info->size;
 	    info->growth = estimate_growth (node);
 	    if (dfs && dfs->next_cycle)
@@ -1708,7 +1712,7 @@ inline_small_functions (void)
 	  continue;
 	}
       
-      callee = cgraph_function_or_thunk_node (edge->callee, NULL);
+      callee = edge->callee->ultimate_alias_target ();
       growth = estimate_edge_growth (edge);
       if (dump_file)
 	{
@@ -1727,7 +1731,7 @@ inline_small_functions (void)
 		   badness,
 		   edge->frequency / (double)CGRAPH_FREQ_BASE);
 	  if (edge->count)
-	    fprintf (dump_file," Called "HOST_WIDEST_INT_PRINT_DEC"x\n",
+	    fprintf (dump_file," Called %"PRId64"x\n",
 		     edge->count);
 	  if (dump_flags & TDF_DETAILS)
 	    edge_badness (edge, true);
@@ -1874,7 +1878,7 @@ flatten_function (struct cgraph_node *node, bool early)
   for (e = node->callees; e; e = e->next_callee)
     {
       struct cgraph_node *orig_callee;
-      struct cgraph_node *callee = cgraph_function_or_thunk_node (e->callee, NULL);
+      struct cgraph_node *callee = e->callee->ultimate_alias_target ();
 
       /* We've hit cycle?  It is time to give up.  */
       if (callee->aux)
@@ -1961,6 +1965,8 @@ static bool
 inline_to_all_callers (struct cgraph_node *node, void *data)
 {
   int *num_calls = (int *)data;
+  bool callee_removed = false;
+
   while (node->callers && !node->global.inlined_to)
     {
       struct cgraph_node *caller = node->callers->caller;
@@ -1977,7 +1983,7 @@ inline_to_all_callers (struct cgraph_node *node, void *data)
 		   inline_summary (node->callers->caller)->size);
 	}
 
-      inline_call (node->callers, true, NULL, NULL, true);
+      inline_call (node->callers, true, NULL, NULL, true, &callee_removed);
       if (dump_file)
 	fprintf (dump_file,
 		 " Inlined into %s which now has %i size\n",
@@ -1987,10 +1993,136 @@ inline_to_all_callers (struct cgraph_node *node, void *data)
 	{
 	  if (dump_file)
 	    fprintf (dump_file, "New calls found; giving up.\n");
-	  return true;
+	  return callee_removed;
 	}
+      if (callee_removed)
+	return true;
     }
   return false;
+}
+
+/* Output overall time estimate.  */
+static void
+dump_overall_stats (void)
+{
+  int64_t sum_weighted = 0, sum = 0;
+  struct cgraph_node *node;
+
+  FOR_EACH_DEFINED_FUNCTION (node)
+    if (!node->global.inlined_to
+	&& !node->alias)
+      {
+	int time = inline_summary (node)->time;
+	sum += time;
+	sum_weighted += time * node->count;
+      }
+  fprintf (dump_file, "Overall time estimate: "
+	   "%"PRId64" weighted by profile: "
+	   "%"PRId64"\n", sum, sum_weighted);
+}
+
+/* Output some useful stats about inlining.  */
+
+static void
+dump_inline_stats (void)
+{
+  int64_t inlined_cnt = 0, inlined_indir_cnt = 0;
+  int64_t inlined_virt_cnt = 0, inlined_virt_indir_cnt = 0;
+  int64_t noninlined_cnt = 0, noninlined_indir_cnt = 0;
+  int64_t noninlined_virt_cnt = 0, noninlined_virt_indir_cnt = 0;
+  int64_t  inlined_speculative = 0, inlined_speculative_ply = 0;
+  int64_t indirect_poly_cnt = 0, indirect_cnt = 0;
+  int64_t reason[CIF_N_REASONS][3];
+  int i;
+  struct cgraph_node *node;
+
+  memset (reason, 0, sizeof (reason));
+  FOR_EACH_DEFINED_FUNCTION (node)
+  {
+    struct cgraph_edge *e;
+    for (e = node->callees; e; e = e->next_callee)
+      {
+	if (e->inline_failed)
+	  {
+	    reason[(int) e->inline_failed][0] += e->count;
+	    reason[(int) e->inline_failed][1] += e->frequency;
+	    reason[(int) e->inline_failed][2] ++;
+	    if (DECL_VIRTUAL_P (e->callee->decl))
+	      {
+		if (e->indirect_inlining_edge)
+		  noninlined_virt_indir_cnt += e->count;
+		else
+		  noninlined_virt_cnt += e->count;
+	      }
+	    else
+	      {
+		if (e->indirect_inlining_edge)
+		  noninlined_indir_cnt += e->count;
+		else
+		  noninlined_cnt += e->count;
+	      }
+	  }
+	else
+	  {
+	    if (e->speculative)
+	      {
+		if (DECL_VIRTUAL_P (e->callee->decl))
+		  inlined_speculative_ply += e->count;
+		else
+		  inlined_speculative += e->count;
+	      }
+	    else if (DECL_VIRTUAL_P (e->callee->decl))
+	      {
+		if (e->indirect_inlining_edge)
+		  inlined_virt_indir_cnt += e->count;
+		else
+		  inlined_virt_cnt += e->count;
+	      }
+	    else
+	      {
+		if (e->indirect_inlining_edge)
+		  inlined_indir_cnt += e->count;
+		else
+		  inlined_cnt += e->count;
+	      }
+	  }
+      }
+    for (e = node->indirect_calls; e; e = e->next_callee)
+      if (e->indirect_info->polymorphic)
+	indirect_poly_cnt += e->count;
+      else
+	indirect_cnt += e->count;
+  }
+  if (max_count)
+    {
+      fprintf (dump_file,
+	       "Inlined %"PRId64 " + speculative "
+	       "%"PRId64 " + speculative polymorphic "
+	       "%"PRId64 " + previously indirect "
+	       "%"PRId64 " + virtual "
+	       "%"PRId64 " + virtual and previously indirect "
+	       "%"PRId64 "\n" "Not inlined "
+	       "%"PRId64 " + previously indirect "
+	       "%"PRId64 " + virtual "
+	       "%"PRId64 " + virtual and previously indirect "
+	       "%"PRId64 " + stil indirect "
+	       "%"PRId64 " + still indirect polymorphic "
+	       "%"PRId64 "\n", inlined_cnt,
+	       inlined_speculative, inlined_speculative_ply,
+	       inlined_indir_cnt, inlined_virt_cnt, inlined_virt_indir_cnt,
+	       noninlined_cnt, noninlined_indir_cnt, noninlined_virt_cnt,
+	       noninlined_virt_indir_cnt, indirect_cnt, indirect_poly_cnt);
+      fprintf (dump_file,
+	       "Removed speculations %"PRId64 "\n",
+	       spec_rem);
+    }
+  dump_overall_stats ();
+  fprintf (dump_file, "\nWhy inlining failed?\n");
+  for (i = 0; i < CIF_N_REASONS; i++)
+    if (reason[i][2])
+      fprintf (dump_file, "%-50s: %8i calls, %8i freq, %"PRId64" count\n",
+	       cgraph_inline_failed_string ((cgraph_inline_failed_t) i),
+	       (int) reason[i][2], (int) reason[i][1], reason[i][0]);
 }
 
 /* Decide on the inlining.  We do so in the topological order to avoid
@@ -2045,6 +2177,8 @@ ipa_inline (void)
 	  flatten_function (node, false);
 	}
     }
+  if (dump_file)
+    dump_overall_stats ();
 
   inline_small_functions ();
 
@@ -2089,6 +2223,7 @@ ipa_inline (void)
 	      if (edge->speculative && !speculation_useful_p (edge, false))
 		{
 		  cgraph_resolve_speculation (edge, NULL);
+		  spec_rem += edge->count;
 		  update = true;
 		  remove_functions = true;
 		}
@@ -2105,10 +2240,11 @@ ipa_inline (void)
 	      && want_inline_function_to_all_callers_p (node, cold))
 	    {
 	      int num_calls = 0;
-	      cgraph_for_node_and_aliases (node, sum_callers,
-					   &num_calls, true);
-	      cgraph_for_node_and_aliases (node, inline_to_all_callers,
-					   &num_calls, true);
+	      node->call_for_symbol_thunks_and_aliases (sum_callers, &num_calls,
+						      true);
+	      while (node->call_for_symbol_thunks_and_aliases (inline_to_all_callers,
+							     &num_calls, true))
+		;
 	      remove_functions = true;
 	    }
 	}
@@ -2119,9 +2255,12 @@ ipa_inline (void)
     ipa_free_all_structures_after_iinln ();
 
   if (dump_file)
-    fprintf (dump_file,
-	     "\nInlined %i calls, eliminated %i functions\n\n",
-	     ncalls_inlined, nfunctions_inlined);
+    {
+      fprintf (dump_file,
+	       "\nInlined %i calls, eliminated %i functions\n\n",
+	       ncalls_inlined, nfunctions_inlined);
+      dump_inline_stats ();
+    }
 
   if (dump_file)
     dump_inline_summaries (dump_file);
@@ -2141,7 +2280,7 @@ inline_always_inline_functions (struct cgraph_node *node)
 
   for (e = node->callees; e; e = e->next_callee)
     {
-      struct cgraph_node *callee = cgraph_function_or_thunk_node (e->callee, NULL);
+      struct cgraph_node *callee = e->callee->ultimate_alias_target ();
       if (!DECL_DISREGARD_INLINE_LIMITS (callee->decl))
 	continue;
 
@@ -2189,7 +2328,7 @@ early_inline_small_functions (struct cgraph_node *node)
 
   for (e = node->callees; e; e = e->next_callee)
     {
-      struct cgraph_node *callee = cgraph_function_or_thunk_node (e->callee, NULL);
+      struct cgraph_node *callee = e->callee->ultimate_alias_target ();
       if (!inline_summary (callee)->inlinable
 	  || !e->inline_failed)
 	continue;
@@ -2231,10 +2370,38 @@ early_inline_small_functions (struct cgraph_node *node)
 /* Do inlining of small functions.  Doing so early helps profiling and other
    passes to be somewhat more effective and avoids some code duplication in
    later real inlining pass for testcases with very many function calls.  */
-static unsigned int
-early_inliner (void)
+
+namespace {
+
+const pass_data pass_data_early_inline =
 {
-  struct cgraph_node *node = cgraph_get_node (current_function_decl);
+  GIMPLE_PASS, /* type */
+  "einline", /* name */
+  OPTGROUP_INLINE, /* optinfo_flags */
+  TV_EARLY_INLINING, /* tv_id */
+  PROP_ssa, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
+};
+
+class pass_early_inline : public gimple_opt_pass
+{
+public:
+  pass_early_inline (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_early_inline, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  virtual unsigned int execute (function *);
+
+}; // class pass_early_inline
+
+unsigned int
+pass_early_inline::execute (function *fun)
+{
+  struct cgraph_node *node = cgraph_node::get (current_function_decl);
   struct cgraph_edge *edge;
   unsigned int todo = 0;
   int iterations = 0;
@@ -2253,9 +2420,9 @@ early_inliner (void)
     return 0;
 
 #ifdef ENABLE_CHECKING
-  verify_cgraph_node (node);
+  node->verify ();
 #endif
-  ipa_remove_all_references (&node->ref_list);
+  node->remove_all_references ();
 
   /* Even when not optimizing or not inlining inline always-inline
      functions.  */
@@ -2332,39 +2499,10 @@ early_inliner (void)
       timevar_pop (TV_INTEGRATION);
     }
 
-  cfun->always_inline_functions_inlined = true;
+  fun->always_inline_functions_inlined = true;
 
   return todo;
 }
-
-namespace {
-
-const pass_data pass_data_early_inline =
-{
-  GIMPLE_PASS, /* type */
-  "einline", /* name */
-  OPTGROUP_INLINE, /* optinfo_flags */
-  false, /* has_gate */
-  true, /* has_execute */
-  TV_EARLY_INLINING, /* tv_id */
-  PROP_ssa, /* properties_required */
-  0, /* properties_provided */
-  0, /* properties_destroyed */
-  0, /* todo_flags_start */
-  0, /* todo_flags_finish */
-};
-
-class pass_early_inline : public gimple_opt_pass
-{
-public:
-  pass_early_inline (gcc::context *ctxt)
-    : gimple_opt_pass (pass_data_early_inline, ctxt)
-  {}
-
-  /* opt_pass methods: */
-  unsigned int execute () { return early_inliner (); }
-
-}; // class pass_early_inline
 
 } // anon namespace
 
@@ -2381,8 +2519,6 @@ const pass_data pass_data_ipa_inline =
   IPA_PASS, /* type */
   "inline", /* name */
   OPTGROUP_INLINE, /* optinfo_flags */
-  false, /* has_gate */
-  true, /* has_execute */
   TV_IPA_INLINING, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -2408,7 +2544,7 @@ public:
   {}
 
   /* opt_pass methods: */
-  unsigned int execute () { return ipa_inline (); }
+  virtual unsigned int execute (function *) { return ipa_inline (); }
 
 }; // class pass_ipa_inline
 

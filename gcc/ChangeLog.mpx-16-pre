@@ -1,6 +1,8 @@
-2013-11-13  Ilya Enkovich  <ilya.enkovich@intel.com>
+2014-08-14  Ilya Enkovich  <ilya.enkovich@intel.com>
 
-	* tree-ssa-pre.c (create_component_ref_by_pieces_1): Store
-	CALL_WITH_BOUNDS_P for calls.
-	(copy_reference_ops_from_call): Restore CALL_WITH_BOUNDS_P
-	flag.
+	* tree-ssa-sccvn.h (vn_reference_op_struct): Transform opcode
+	into bit field and add with_bounds field.
+	* tree-ssa-sccvn.c (copy_reference_ops_from_call): Set
+	with_bounds field for instrumented calls.
+	* tree-ssa-pre.c (create_component_ref_by_pieces_1): Restore
+	CALL_WITH_BOUNDS_P flag for calls.

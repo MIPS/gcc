@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2010-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 2010-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -495,6 +495,7 @@ package body Aspects is
     Aspect_Address                      => Aspect_Address,
     Aspect_Alignment                    => Aspect_Alignment,
     Aspect_All_Calls_Remote             => Aspect_All_Calls_Remote,
+    Aspect_Annotate                     => Aspect_Annotate,
     Aspect_Async_Readers                => Aspect_Async_Readers,
     Aspect_Async_Writers                => Aspect_Async_Writers,
     Aspect_Asynchronous                 => Aspect_Asynchronous,
@@ -508,6 +509,7 @@ package body Aspects is
     Aspect_Convention                   => Aspect_Convention,
     Aspect_CPU                          => Aspect_CPU,
     Aspect_Default_Component_Value      => Aspect_Default_Component_Value,
+    Aspect_Default_Initial_Condition    => Aspect_Default_Initial_Condition,
     Aspect_Default_Iterator             => Aspect_Default_Iterator,
     Aspect_Default_Value                => Aspect_Default_Value,
     Aspect_Depends                      => Aspect_Depends,
@@ -542,7 +544,9 @@ package body Aspects is
     Aspect_Linker_Section               => Aspect_Linker_Section,
     Aspect_Lock_Free                    => Aspect_Lock_Free,
     Aspect_Machine_Radix                => Aspect_Machine_Radix,
+    Aspect_No_Elaboration_Code_All      => Aspect_No_Elaboration_Code_All,
     Aspect_No_Return                    => Aspect_No_Return,
+    Aspect_Obsolescent                  => Aspect_Obsolescent,
     Aspect_Object_Size                  => Aspect_Object_Size,
     Aspect_Output                       => Aspect_Output,
     Aspect_Pack                         => Aspect_Pack,
@@ -583,6 +587,7 @@ package body Aspects is
     Aspect_Suppress_Debug_Info          => Aspect_Suppress_Debug_Info,
     Aspect_Synchronization              => Aspect_Synchronization,
     Aspect_Test_Case                    => Aspect_Test_Case,
+    Aspect_Thread_Local_Storage         => Aspect_Thread_Local_Storage,
     Aspect_Type_Invariant               => Aspect_Invariant,
     Aspect_Unchecked_Union              => Aspect_Unchecked_Union,
     Aspect_Universal_Aliasing           => Aspect_Universal_Aliasing,

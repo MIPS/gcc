@@ -523,9 +523,9 @@ special_function_p (const_tree fndecl, int flags)
 
   /* For instrumentation clones we want to derive flags
      from the original name.  */
-  if (cgraph_get_node (fndecl)
-      && cgraph_get_node (fndecl)->instrumentation_clone)
-    name_decl = DECL_NAME (cgraph_get_node (fndecl)->orig_decl);
+  if (cgraph_node::get (fndecl)
+      && cgraph_node::get (fndecl)->instrumentation_clone)
+    name_decl = DECL_NAME (cgraph_node::get (fndecl)->orig_decl);
 
   if (fndecl && name_decl
       && IDENTIFIER_LENGTH (name_decl) <= 17
@@ -1129,8 +1129,6 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 {
   CUMULATIVE_ARGS *args_so_far_pnt = get_cumulative_args (args_so_far);
   location_t loc = EXPR_LOCATION (exp);
-  /* 1 if scanning parms front to back, -1 if scanning back to front.  */
-  int inc;
 
   /* Count arg position in order args appear.  */
   int argpos;
@@ -1141,22 +1139,9 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
   args_size->var = 0;
 
   /* In this loop, we consider args in the order they are written.
-     We fill up ARGS from the front or from the back if necessary
-     so that in any case the first arg to be pushed ends up at the front.  */
+     We fill up ARGS from the back.  */
 
-  if (PUSH_ARGS_REVERSED)
-    {
-      i = num_actuals - 1, inc = -1;
-      /* In this case, must reverse order of args
-	 so that we compute and push the last arg first.  */
-    }
-  else
-    {
-      i = 0, inc = 1;
-    }
-
-  /* First fill in the actual arguments in the ARGS array, splitting
-     complex arguments if necessary.  */
+  i = num_actuals - 1;
   {
     int j = i, ptr_arg = -1;
     call_expr_arg_iterator iter;
@@ -1166,8 +1151,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
     if (struct_value_addr_value)
       {
 	args[j].tree_value = struct_value_addr_value;
-
-	j += inc;
+	j--;
 
 	/* If we pass structure address then we need to
 	   create bounds for it.  Since created bounds is
@@ -1180,9 +1164,8 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	      = chkp_make_bounds_for_struct_addr (struct_value_addr_value);
 	    expand_expr_real (args[j].tree_value, args[j].value, VOIDmode,
 			      EXPAND_NORMAL, 0, false);
-	    args[j].pointer_arg = j - inc;
-
-	    j += inc;
+	    args[j].pointer_arg = j + 1;
+	    j--;
 	  }
       }
     FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
@@ -1243,12 +1226,12 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	  {
 	    tree subtype = TREE_TYPE (argtype);
 	    args[j].tree_value = build1 (REALPART_EXPR, subtype, arg);
-	    j += inc;
+	    j--;
 	    args[j].tree_value = build1 (IMAGPART_EXPR, subtype, arg);
 	  }
 	else
 	  args[j].tree_value = arg;
-	j += inc;
+	j--;
       }
 
     if (slots)
@@ -1256,7 +1239,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
   }
 
   /* I counts args in order (to be) pushed; ARGPOS counts in order written.  */
-  for (argpos = 0; argpos < num_actuals; i += inc, argpos++)
+  for (argpos = 0; argpos < num_actuals; i--, argpos++)
     {
       tree type = TREE_TYPE (args[i].tree_value);
       int unsignedp;
@@ -1357,7 +1340,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	      else
 		copy = assign_temp (type, 1, 0);
 
-	      store_expr (args[i].tree_value, copy, 0, false, NULL);
+	      store_expr (args[i].tree_value, copy, 0, false);
 
 	      /* Just change the const function to pure and then let
 		 the next test clear the pure based on
@@ -2065,7 +2048,7 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 
 	  else if (partial == 0 || args[i].pass_on_stack)
 	    {
-	      rtx mem = validize_mem (args[i].value);
+	      rtx mem = validize_mem (copy_rtx (args[i].value));
 
 	      /* Check for overlap with already clobbered argument area,
 	         providing that this has non-zero size.  */
@@ -3067,9 +3050,8 @@ expand_call (tree exp, rtx target, int ignore)
 
       compute_argument_addresses (args, argblock, num_actuals);
 
-      /* If we push args individually in reverse order, perform stack alignment
-	 before the first push (the last arg).  */
-      if (PUSH_ARGS_REVERSED && argblock == 0
+      /* Perform stack alignment before the first push (the last arg).  */
+      if (argblock == 0
           && adjusted_args_size.constant > reg_parm_stack_space
 	  && adjusted_args_size.constant != unadjusted_args_size)
 	{
@@ -3239,12 +3221,6 @@ expand_call (tree exp, rtx target, int ignore)
 			  : &args[args[i].pointer_arg]);
 	}
 
-      /* If we pushed args in forward order, perform stack alignment
-	 after pushing the last arg.  */
-      if (!PUSH_ARGS_REVERSED && argblock == 0)
-	anti_adjust_stack (GEN_INT (adjusted_args_size.constant
-				    - unadjusted_args_size));
-
       /* If register arguments require space on the stack and stack space
 	 was not preallocated, allocate stack space here for arguments
 	 passed in registers.  */
@@ -3294,8 +3270,7 @@ expand_call (tree exp, rtx target, int ignore)
       if (pass == 1 && (return_flags & ERF_RETURNS_ARG))
 	{
 	  int arg_nr = return_flags & ERF_RETURN_ARG_MASK;
-	  if (PUSH_ARGS_REVERSED)
-	    arg_nr = num_actuals - arg_nr - 1;
+	  arg_nr = num_actuals - arg_nr - 1;
 	  if (arg_nr >= 0
 	      && arg_nr < num_actuals
 	      && args[arg_nr].reg
@@ -3319,6 +3294,19 @@ expand_call (tree exp, rtx target, int ignore)
 		   adjusted_args_size.constant, struct_value_size,
 		   next_arg_reg, valreg, old_inhibit_defer_pop, call_fusage,
 		   flags, args_so_far);
+
+      if (flag_use_caller_save)
+	{
+	  rtx last, datum = NULL_RTX;
+	  if (fndecl != NULL_TREE)
+	    {
+	      datum = XEXP (DECL_RTL (fndecl), 0);
+	      gcc_assert (datum != NULL_RTX
+			  && GET_CODE (datum) == SYMBOL_REF);
+	    }
+	  last = last_call_insn ();
+	  add_reg_note (last, REG_CALL_DECL, datum);
+	}
 
       /* If the call setup or the call itself overlaps with anything
 	 of the argument setup we probably clobbered our call address.
@@ -3742,7 +3730,6 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
      isn't present here, so we default to native calling abi here.  */
   tree fndecl ATTRIBUTE_UNUSED = NULL_TREE; /* library calls default to host calling abi ? */
   tree fntype ATTRIBUTE_UNUSED = NULL_TREE; /* library calls default to host calling abi ? */
-  int inc;
   int count;
   rtx argblock = 0;
   CUMULATIVE_ARGS args_so_far_v;
@@ -4091,22 +4078,13 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	argblock = push_block (GEN_INT (args_size.constant), 0, 0);
     }
 
-  /* If we push args individually in reverse order, perform stack alignment
+  /* We push args individually in reverse order, perform stack alignment
      before the first push (the last arg).  */
-  if (argblock == 0 && PUSH_ARGS_REVERSED)
+  if (argblock == 0)
     anti_adjust_stack (GEN_INT (args_size.constant
 				- original_args_size.constant));
 
-  if (PUSH_ARGS_REVERSED)
-    {
-      inc = -1;
-      argnum = nargs - 1;
-    }
-  else
-    {
-      inc = 1;
-      argnum = 0;
-    }
+  argnum = nargs - 1;
 
 #ifdef REG_PARM_STACK_SPACE
   if (ACCUMULATE_OUTGOING_ARGS)
@@ -4123,7 +4101,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 
   /* ARGNUM indexes the ARGVEC array in the order in which the arguments
      are to be pushed.  */
-  for (count = 0; count < nargs; count++, argnum += inc)
+  for (count = 0; count < nargs; count++, argnum--)
     {
       enum machine_mode mode = argvec[argnum].mode;
       rtx val = argvec[argnum].value;
@@ -4179,7 +4157,8 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 					     argvec[argnum].locate.size.constant
 					     );
 
-		      emit_block_move (validize_mem (argvec[argnum].save_area),
+		      emit_block_move (validize_mem
+				         (copy_rtx (argvec[argnum].save_area)),
 				       stack_area,
 				       GEN_INT (argvec[argnum].locate.size.constant),
 				       BLOCK_OP_CALL_PARM);
@@ -4225,16 +4204,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	}
     }
 
-  /* If we pushed args in forward order, perform stack alignment
-     after pushing the last arg.  */
-  if (argblock == 0 && !PUSH_ARGS_REVERSED)
-    anti_adjust_stack (GEN_INT (args_size.constant
-				- original_args_size.constant));
-
-  if (PUSH_ARGS_REVERSED)
-    argnum = nargs - 1;
-  else
-    argnum = 0;
+  argnum = nargs - 1;
 
   fun = prepare_call_address (NULL, fun, NULL, &call_fusage, 0, 0);
 
@@ -4242,7 +4212,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 
   /* ARGNUM indexes the ARGVEC array in the order in which the arguments
      are to be pushed.  */
-  for (count = 0; count < nargs; count++, argnum += inc)
+  for (count = 0; count < nargs; count++, argnum--)
     {
       enum machine_mode mode = argvec[argnum].mode;
       rtx val = argvec[argnum].value;
@@ -4350,6 +4320,14 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	       valreg,
 	       old_inhibit_defer_pop + 1, call_fusage, flags, args_so_far);
 
+  if (flag_use_caller_save)
+    {
+      rtx last, datum = orgfun;
+      gcc_assert (GET_CODE (datum) == SYMBOL_REF);
+      last = last_call_insn ();
+      add_reg_note (last, REG_CALL_DECL, datum);
+    }
+
   /* Right-shift returned value if necessary.  */
   if (!pcc_struct_value
       && TYPE_MODE (tfom) != BLKmode
@@ -4455,7 +4433,8 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 
 	    if (save_mode == BLKmode)
 	      emit_block_move (stack_area,
-			       validize_mem (argvec[count].save_area),
+			       validize_mem
+			         (copy_rtx (argvec[count].save_area)),
 			       GEN_INT (argvec[count].locate.size.constant),
 			       BLOCK_OP_CALL_PARM);
 	    else
@@ -4661,7 +4640,8 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 		  arg->save_area
 		    = assign_temp (TREE_TYPE (arg->tree_value), 1, 1);
 		  preserve_temp_slots (arg->save_area);
-		  emit_block_move (validize_mem (arg->save_area), stack_area,
+		  emit_block_move (validize_mem (copy_rtx (arg->save_area)),
+				   stack_area,
 				   GEN_INT (arg->locate.size.constant),
 				   BLOCK_OP_CALL_PARM);
 		}

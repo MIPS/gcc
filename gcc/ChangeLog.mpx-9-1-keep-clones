@@ -1,4 +1,5 @@
-2013-11-06  Ilya Enkovich  <ilya.enkovich@intel.com>
+2014-08-08  Ilya Enkovich  <ilya.enkovich@intel.com>
 
-	* cgraph.c (cgraph_can_remove_if_no_direct_calls_and_refs_p): Keep
+	* cgraph.c: Include tree-chkp.h.
+	(cgraph_can_remove_if_no_direct_calls_and_refs_p): Keep
 	all not instrumented instrumentation clones alive.

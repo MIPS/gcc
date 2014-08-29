@@ -1,6 +1,8 @@
-2013-11-13  Ilya Enkovich  <ilya.enkovich@intel.com>
+2014-08-15  Ilya Enkovich  <ilya.enkovich@intel.com>
 
 	* ipa-split.c: Include tree-chkp.h.
-	(consider_split): Do not split when return bounds.
+	(find_retbnd): New.
+	(consider_split): Do not split retbnd and retval
+	producers.
 	(split_function): Propagate Pointer Bounds Checker
-	instrumentation marks.
+	instrumentation marks and handle returned bounds.

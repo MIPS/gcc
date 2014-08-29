@@ -104,6 +104,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "valtrack.h"
 #include "cgraph.h"
 #include "obstack.h"
+#include "statistics.h"
+#include "params.h"
 
 /* Number of attempts to combine instructions in this function.  */
 
@@ -985,7 +987,7 @@ create_log_links (void)
 {
   basic_block bb;
   rtx *next_use, insn;
-  df_ref *def_vec, *use_vec;
+  df_ref def, use;
 
   next_use = XCNEWVEC (rtx, max_reg_num ());
 
@@ -1008,9 +1010,8 @@ create_log_links (void)
 	  /* Log links are created only once.  */
 	  gcc_assert (!LOG_LINKS (insn));
 
-          for (def_vec = DF_INSN_DEFS (insn); *def_vec; def_vec++)
+	  FOR_EACH_INSN_DEF (def, insn)
             {
-	      df_ref def = *def_vec;
               int regno = DF_REF_REGNO (def);
               rtx use_insn;
 
@@ -1061,9 +1062,8 @@ create_log_links (void)
               next_use[regno] = NULL_RTX;
             }
 
-          for (use_vec = DF_INSN_USES (insn); *use_vec; use_vec++)
+	  FOR_EACH_INSN_USE (use, insn)
             {
-	      df_ref use = *use_vec;
 	      int regno = DF_REF_REGNO (use);
 
               /* Do not consider the usage of the stack pointer
@@ -1211,6 +1211,7 @@ combine_instructions (rtx f, unsigned int nregs)
   init_reg_last ();
   setup_incoming_promotions (first);
   last_bb = ENTRY_BLOCK_PTR_FOR_FN (cfun);
+  int max_combine = PARAM_VALUE (PARAM_MAX_COMBINE_INSNS);
 
   FOR_EACH_BB_FN (this_basic_block, cfun)
     {
@@ -1231,218 +1232,246 @@ combine_instructions (rtx f, unsigned int nregs)
 	   insn = next ? next : NEXT_INSN (insn))
 	{
 	  next = 0;
-	  if (NONDEBUG_INSN_P (insn))
-	    {
-	      while (last_combined_insn
-		     && INSN_DELETED_P (last_combined_insn))
-		last_combined_insn = PREV_INSN (last_combined_insn);
-	      if (last_combined_insn == NULL_RTX
-		  || BARRIER_P (last_combined_insn)
-		  || BLOCK_FOR_INSN (last_combined_insn) != this_basic_block
-		  || DF_INSN_LUID (last_combined_insn) <= DF_INSN_LUID (insn))
-		last_combined_insn = insn;
+	  if (!NONDEBUG_INSN_P (insn))
+	    continue;
 
-	      /* See if we know about function return values before this
-		 insn based upon SUBREG flags.  */
-	      check_promoted_subreg (insn, PATTERN (insn));
+	  while (last_combined_insn
+		 && INSN_DELETED_P (last_combined_insn))
+	    last_combined_insn = PREV_INSN (last_combined_insn);
+	  if (last_combined_insn == NULL_RTX
+	      || BARRIER_P (last_combined_insn)
+	      || BLOCK_FOR_INSN (last_combined_insn) != this_basic_block
+	      || DF_INSN_LUID (last_combined_insn) <= DF_INSN_LUID (insn))
+	    last_combined_insn = insn;
 
-	      /* See if we can find hardregs and subreg of pseudos in
-		 narrower modes.  This could help turning TRUNCATEs
-		 into SUBREGs.  */
-	      note_uses (&PATTERN (insn), record_truncated_values, NULL);
+	  /* See if we know about function return values before this
+	     insn based upon SUBREG flags.  */
+	  check_promoted_subreg (insn, PATTERN (insn));
 
-	      /* Try this insn with each insn it links back to.  */
+	  /* See if we can find hardregs and subreg of pseudos in
+	     narrower modes.  This could help turning TRUNCATEs
+	     into SUBREGs.  */
+	  note_uses (&PATTERN (insn), record_truncated_values, NULL);
 
-	      FOR_EACH_LOG_LINK (links, insn)
-		if ((next = try_combine (insn, links->insn, NULL_RTX,
-					 NULL_RTX, &new_direct_jump_p,
-					 last_combined_insn)) != 0)
-		  goto retry;
+	  /* Try this insn with each insn it links back to.  */
 
-	      /* Try each sequence of three linked insns ending with this one.  */
+	  FOR_EACH_LOG_LINK (links, insn)
+	    if ((next = try_combine (insn, links->insn, NULL_RTX,
+				     NULL_RTX, &new_direct_jump_p,
+				     last_combined_insn)) != 0)
+	      {
+		statistics_counter_event (cfun, "two-insn combine", 1);
+		goto retry;
+	      }
 
-	      FOR_EACH_LOG_LINK (links, insn)
-		{
-		  rtx link = links->insn;
+	  /* Try each sequence of three linked insns ending with this one.  */
 
-		  /* If the linked insn has been replaced by a note, then there
-		     is no point in pursuing this chain any further.  */
-		  if (NOTE_P (link))
-		    continue;
+	  if (max_combine >= 3)
+	    FOR_EACH_LOG_LINK (links, insn)
+	      {
+		rtx link = links->insn;
 
-		  FOR_EACH_LOG_LINK (nextlinks, link)
-		    if ((next = try_combine (insn, link, nextlinks->insn,
-					     NULL_RTX, &new_direct_jump_p,
-					     last_combined_insn)) != 0)
+		/* If the linked insn has been replaced by a note, then there
+		   is no point in pursuing this chain any further.  */
+		if (NOTE_P (link))
+		  continue;
+
+		FOR_EACH_LOG_LINK (nextlinks, link)
+		  if ((next = try_combine (insn, link, nextlinks->insn,
+					   NULL_RTX, &new_direct_jump_p,
+					   last_combined_insn)) != 0)
+		    {
+		      statistics_counter_event (cfun, "three-insn combine", 1);
 		      goto retry;
-		}
+		    }
+	      }
 
 #ifdef HAVE_cc0
-	      /* Try to combine a jump insn that uses CC0
-		 with a preceding insn that sets CC0, and maybe with its
-		 logical predecessor as well.
-		 This is how we make decrement-and-branch insns.
-		 We need this special code because data flow connections
-		 via CC0 do not get entered in LOG_LINKS.  */
+	  /* Try to combine a jump insn that uses CC0
+	     with a preceding insn that sets CC0, and maybe with its
+	     logical predecessor as well.
+	     This is how we make decrement-and-branch insns.
+	     We need this special code because data flow connections
+	     via CC0 do not get entered in LOG_LINKS.  */
 
-	      if (JUMP_P (insn)
-		  && (prev = prev_nonnote_insn (insn)) != 0
-		  && NONJUMP_INSN_P (prev)
-		  && sets_cc0_p (PATTERN (prev)))
-		{
-		  if ((next = try_combine (insn, prev, NULL_RTX, NULL_RTX,
-					   &new_direct_jump_p,
+	  if (JUMP_P (insn)
+	      && (prev = prev_nonnote_insn (insn)) != 0
+	      && NONJUMP_INSN_P (prev)
+	      && sets_cc0_p (PATTERN (prev)))
+	    {
+	      if ((next = try_combine (insn, prev, NULL_RTX, NULL_RTX,
+				       &new_direct_jump_p,
+				       last_combined_insn)) != 0)
+		goto retry;
+
+	      FOR_EACH_LOG_LINK (nextlinks, prev)
+		  if ((next = try_combine (insn, prev, nextlinks->insn,
+					   NULL_RTX, &new_direct_jump_p,
 					   last_combined_insn)) != 0)
 		    goto retry;
+	    }
 
-		  FOR_EACH_LOG_LINK (nextlinks, prev)
-		    if ((next = try_combine (insn, prev, nextlinks->insn,
-					     NULL_RTX, &new_direct_jump_p,
-					     last_combined_insn)) != 0)
-		      goto retry;
-		}
+	  /* Do the same for an insn that explicitly references CC0.  */
+	  if (NONJUMP_INSN_P (insn)
+	      && (prev = prev_nonnote_insn (insn)) != 0
+	      && NONJUMP_INSN_P (prev)
+	      && sets_cc0_p (PATTERN (prev))
+	      && GET_CODE (PATTERN (insn)) == SET
+	      && reg_mentioned_p (cc0_rtx, SET_SRC (PATTERN (insn))))
+	    {
+	      if ((next = try_combine (insn, prev, NULL_RTX, NULL_RTX,
+				       &new_direct_jump_p,
+				       last_combined_insn)) != 0)
+		goto retry;
 
-	      /* Do the same for an insn that explicitly references CC0.  */
-	      if (NONJUMP_INSN_P (insn)
-		  && (prev = prev_nonnote_insn (insn)) != 0
+	      FOR_EACH_LOG_LINK (nextlinks, prev)
+		  if ((next = try_combine (insn, prev, nextlinks->insn,
+					   NULL_RTX, &new_direct_jump_p,
+					   last_combined_insn)) != 0)
+		    goto retry;
+	    }
+
+	  /* Finally, see if any of the insns that this insn links to
+	     explicitly references CC0.  If so, try this insn, that insn,
+	     and its predecessor if it sets CC0.  */
+	  FOR_EACH_LOG_LINK (links, insn)
+	      if (NONJUMP_INSN_P (links->insn)
+		  && GET_CODE (PATTERN (links->insn)) == SET
+		  && reg_mentioned_p (cc0_rtx, SET_SRC (PATTERN (links->insn)))
+		  && (prev = prev_nonnote_insn (links->insn)) != 0
 		  && NONJUMP_INSN_P (prev)
 		  && sets_cc0_p (PATTERN (prev))
-		  && GET_CODE (PATTERN (insn)) == SET
-		  && reg_mentioned_p (cc0_rtx, SET_SRC (PATTERN (insn))))
-		{
-		  if ((next = try_combine (insn, prev, NULL_RTX, NULL_RTX,
-					   &new_direct_jump_p,
-					   last_combined_insn)) != 0)
-		    goto retry;
-
-		  FOR_EACH_LOG_LINK (nextlinks, prev)
-		    if ((next = try_combine (insn, prev, nextlinks->insn,
-					     NULL_RTX, &new_direct_jump_p,
-					     last_combined_insn)) != 0)
-		      goto retry;
-		}
-
-	      /* Finally, see if any of the insns that this insn links to
-		 explicitly references CC0.  If so, try this insn, that insn,
-		 and its predecessor if it sets CC0.  */
-	      FOR_EACH_LOG_LINK (links, insn)
-		if (NONJUMP_INSN_P (links->insn)
-		    && GET_CODE (PATTERN (links->insn)) == SET
-		    && reg_mentioned_p (cc0_rtx, SET_SRC (PATTERN (links->insn)))
-		    && (prev = prev_nonnote_insn (links->insn)) != 0
-		    && NONJUMP_INSN_P (prev)
-		    && sets_cc0_p (PATTERN (prev))
-		    && (next = try_combine (insn, links->insn,
-					    prev, NULL_RTX, &new_direct_jump_p,
-					    last_combined_insn)) != 0)
-		  goto retry;
+		  && (next = try_combine (insn, links->insn,
+					  prev, NULL_RTX, &new_direct_jump_p,
+					  last_combined_insn)) != 0)
+		goto retry;
 #endif
 
-	      /* Try combining an insn with two different insns whose results it
-		 uses.  */
-	      FOR_EACH_LOG_LINK (links, insn)
-		for (nextlinks = links->next; nextlinks;
-		     nextlinks = nextlinks->next)
-		  if ((next = try_combine (insn, links->insn,
-					   nextlinks->insn, NULL_RTX,
-					   &new_direct_jump_p,
-					   last_combined_insn)) != 0)
+	  /* Try combining an insn with two different insns whose results it
+	     uses.  */
+	  if (max_combine >= 3)
+	    FOR_EACH_LOG_LINK (links, insn)
+	      for (nextlinks = links->next; nextlinks;
+		   nextlinks = nextlinks->next)
+		if ((next = try_combine (insn, links->insn,
+					 nextlinks->insn, NULL_RTX,
+					 &new_direct_jump_p,
+					 last_combined_insn)) != 0)
+
+		  {
+		    statistics_counter_event (cfun, "three-insn combine", 1);
 		    goto retry;
+		  }
 
-	      /* Try four-instruction combinations.  */
-	      FOR_EACH_LOG_LINK (links, insn)
+	  /* Try four-instruction combinations.  */
+	  if (max_combine >= 4)
+	    FOR_EACH_LOG_LINK (links, insn)
+	      {
+		struct insn_link *next1;
+		rtx link = links->insn;
+
+		/* If the linked insn has been replaced by a note, then there
+		   is no point in pursuing this chain any further.  */
+		if (NOTE_P (link))
+		  continue;
+
+		FOR_EACH_LOG_LINK (next1, link)
+		  {
+		    rtx link1 = next1->insn;
+		    if (NOTE_P (link1))
+		      continue;
+		    /* I0 -> I1 -> I2 -> I3.  */
+		    FOR_EACH_LOG_LINK (nextlinks, link1)
+		      if ((next = try_combine (insn, link, link1,
+					       nextlinks->insn,
+					       &new_direct_jump_p,
+					       last_combined_insn)) != 0)
+			{
+			  statistics_counter_event (cfun, "four-insn combine", 1);
+			  goto retry;
+			}
+		    /* I0, I1 -> I2, I2 -> I3.  */
+		    for (nextlinks = next1->next; nextlinks;
+			 nextlinks = nextlinks->next)
+		      if ((next = try_combine (insn, link, link1,
+					       nextlinks->insn,
+					       &new_direct_jump_p,
+					       last_combined_insn)) != 0)
+			{
+			  statistics_counter_event (cfun, "four-insn combine", 1);
+			  goto retry;
+			}
+		  }
+
+		for (next1 = links->next; next1; next1 = next1->next)
+		  {
+		    rtx link1 = next1->insn;
+		    if (NOTE_P (link1))
+		      continue;
+		    /* I0 -> I2; I1, I2 -> I3.  */
+		    FOR_EACH_LOG_LINK (nextlinks, link)
+		      if ((next = try_combine (insn, link, link1,
+					       nextlinks->insn,
+					       &new_direct_jump_p,
+					       last_combined_insn)) != 0)
+			{
+			  statistics_counter_event (cfun, "four-insn combine", 1);
+			  goto retry;
+			}
+		    /* I0 -> I1; I1, I2 -> I3.  */
+		    FOR_EACH_LOG_LINK (nextlinks, link1)
+		      if ((next = try_combine (insn, link, link1,
+					       nextlinks->insn,
+					       &new_direct_jump_p,
+					       last_combined_insn)) != 0)
+			{
+			  statistics_counter_event (cfun, "four-insn combine", 1);
+			  goto retry;
+			}
+		  }
+	      }
+
+	  /* Try this insn with each REG_EQUAL note it links back to.  */
+	  FOR_EACH_LOG_LINK (links, insn)
+	    {
+	      rtx set, note;
+	      rtx temp = links->insn;
+	      if ((set = single_set (temp)) != 0
+		  && (note = find_reg_equal_equiv_note (temp)) != 0
+		  && (note = XEXP (note, 0), GET_CODE (note)) != EXPR_LIST
+		  /* Avoid using a register that may already been marked
+		     dead by an earlier instruction.  */
+		  && ! unmentioned_reg_p (note, SET_SRC (set))
+		  && (GET_MODE (note) == VOIDmode
+		      ? SCALAR_INT_MODE_P (GET_MODE (SET_DEST (set)))
+		      : GET_MODE (SET_DEST (set)) == GET_MODE (note)))
 		{
-		  struct insn_link *next1;
-		  rtx link = links->insn;
-
-		  /* If the linked insn has been replaced by a note, then there
-		     is no point in pursuing this chain any further.  */
-		  if (NOTE_P (link))
-		    continue;
-
-		  FOR_EACH_LOG_LINK (next1, link)
+		  /* Temporarily replace the set's source with the
+		     contents of the REG_EQUAL note.  The insn will
+		     be deleted or recognized by try_combine.  */
+		  rtx orig = SET_SRC (set);
+		  SET_SRC (set) = note;
+		  i2mod = temp;
+		  i2mod_old_rhs = copy_rtx (orig);
+		  i2mod_new_rhs = copy_rtx (note);
+		  next = try_combine (insn, i2mod, NULL_RTX, NULL_RTX,
+				      &new_direct_jump_p,
+				      last_combined_insn);
+		  i2mod = NULL_RTX;
+		  if (next)
 		    {
-		      rtx link1 = next1->insn;
-		      if (NOTE_P (link1))
-			continue;
-		      /* I0 -> I1 -> I2 -> I3.  */
-		      FOR_EACH_LOG_LINK (nextlinks, link1)
-			if ((next = try_combine (insn, link, link1,
-						 nextlinks->insn,
-						 &new_direct_jump_p,
-						 last_combined_insn)) != 0)
-			  goto retry;
-		      /* I0, I1 -> I2, I2 -> I3.  */
-		      for (nextlinks = next1->next; nextlinks;
-			   nextlinks = nextlinks->next)
-			if ((next = try_combine (insn, link, link1,
-						 nextlinks->insn,
-						 &new_direct_jump_p,
-						 last_combined_insn)) != 0)
-			  goto retry;
+		      statistics_counter_event (cfun, "insn-with-note combine", 1);
+		      goto retry;
 		    }
-
-		  for (next1 = links->next; next1; next1 = next1->next)
-		    {
-		      rtx link1 = next1->insn;
-		      if (NOTE_P (link1))
-			continue;
-		      /* I0 -> I2; I1, I2 -> I3.  */
-		      FOR_EACH_LOG_LINK (nextlinks, link)
-			if ((next = try_combine (insn, link, link1,
-						 nextlinks->insn,
-						 &new_direct_jump_p,
-						 last_combined_insn)) != 0)
-			  goto retry;
-		      /* I0 -> I1; I1, I2 -> I3.  */
-		      FOR_EACH_LOG_LINK (nextlinks, link1)
-			if ((next = try_combine (insn, link, link1,
-						 nextlinks->insn,
-						 &new_direct_jump_p,
-						 last_combined_insn)) != 0)
-			  goto retry;
-		    }
+		  SET_SRC (set) = orig;
 		}
-
-	      /* Try this insn with each REG_EQUAL note it links back to.  */
-	      FOR_EACH_LOG_LINK (links, insn)
-		{
-		  rtx set, note;
-		  rtx temp = links->insn;
-		  if ((set = single_set (temp)) != 0
-		      && (note = find_reg_equal_equiv_note (temp)) != 0
-		      && (note = XEXP (note, 0), GET_CODE (note)) != EXPR_LIST
-		      /* Avoid using a register that may already been marked
-			 dead by an earlier instruction.  */
-		      && ! unmentioned_reg_p (note, SET_SRC (set))
-		      && (GET_MODE (note) == VOIDmode
-			  ? SCALAR_INT_MODE_P (GET_MODE (SET_DEST (set)))
-			  : GET_MODE (SET_DEST (set)) == GET_MODE (note)))
-		    {
-		      /* Temporarily replace the set's source with the
-			 contents of the REG_EQUAL note.  The insn will
-			 be deleted or recognized by try_combine.  */
-		      rtx orig = SET_SRC (set);
-		      SET_SRC (set) = note;
-		      i2mod = temp;
-		      i2mod_old_rhs = copy_rtx (orig);
-		      i2mod_new_rhs = copy_rtx (note);
-		      next = try_combine (insn, i2mod, NULL_RTX, NULL_RTX,
-					  &new_direct_jump_p,
-					  last_combined_insn);
-		      i2mod = NULL_RTX;
-		      if (next)
-			goto retry;
-		      SET_SRC (set) = orig;
-		    }
-		}
-
-	      if (!NOTE_P (insn))
-		record_dead_and_set_regs (insn);
-
-	    retry:
-	      ;
 	    }
+
+	  if (!NOTE_P (insn))
+	    record_dead_and_set_regs (insn);
+
+retry:
+	  ;
 	}
     }
 
@@ -2671,22 +2700,15 @@ try_combine (rtx i3, rtx i2, rtx i1, rtx i0, int *new_direct_jump_p,
 	    offset = -1;
 	}
 
-      if (offset >= 0
-	  && (GET_MODE_PRECISION (GET_MODE (SET_DEST (temp)))
-	      <= HOST_BITS_PER_DOUBLE_INT))
+      if (offset >= 0)
 	{
-	  double_int m, o, i;
 	  rtx inner = SET_SRC (PATTERN (i3));
 	  rtx outer = SET_SRC (temp);
 
-	  o = rtx_to_double_int (outer);
-	  i = rtx_to_double_int (inner);
-
-	  m = double_int::mask (width);
-	  i &= m;
-	  m = m.llshift (offset, HOST_BITS_PER_DOUBLE_INT);
-	  i = i.llshift (offset, HOST_BITS_PER_DOUBLE_INT);
-	  o = o.and_not (m) | i;
+	  wide_int o
+	    = wi::insert (std::make_pair (outer, GET_MODE (SET_DEST (temp))),
+			  std::make_pair (inner, GET_MODE (dest)),
+			  offset, width);
 
 	  combine_merges++;
 	  subst_insn = i3;
@@ -2699,7 +2721,7 @@ try_combine (rtx i3, rtx i2, rtx i1, rtx i0, int *new_direct_jump_p,
 	     resulting insn the new pattern for I3.  Then skip to where we
 	     validate the pattern.  Everything was set up above.  */
 	  SUBST (SET_SRC (temp),
-		 immed_double_int_const (o, GET_MODE (SET_DEST (temp))));
+		 immed_wide_int_const (o, GET_MODE (SET_DEST (temp))));
 
 	  newpat = PATTERN (i2);
 
@@ -2746,9 +2768,10 @@ try_combine (rtx i3, rtx i2, rtx i1, rtx i0, int *new_direct_jump_p,
 	     never appear in the insn stream so giving it the same INSN_UID
 	     as I2 will not cause a problem.  */
 
-	  i1 = gen_rtx_INSN (VOIDmode, INSN_UID (i2), NULL_RTX, i2,
-			     BLOCK_FOR_INSN (i2), XVECEXP (PATTERN (i2), 0, 1),
-			     INSN_LOCATION (i2), -1, NULL_RTX);
+	  i1 = gen_rtx_INSN (VOIDmode, NULL_RTX, i2, BLOCK_FOR_INSN (i2),
+			     XVECEXP (PATTERN (i2), 0, 1), INSN_LOCATION (i2),
+			     -1, NULL_RTX);
+	  INSN_UID (i1) = INSN_UID (i2);
 
 	  SUBST (PATTERN (i2), XVECEXP (PATTERN (i2), 0, 0));
 	  SUBST (XEXP (SET_SRC (PATTERN (i2)), 0),
@@ -5139,7 +5162,7 @@ subst (rtx x, rtx from, rtx to, int in_dest, int in_cond, int unique_copy)
 		  if (! x)
 		    x = gen_rtx_CLOBBER (mode, const0_rtx);
 		}
-	      else if (CONST_INT_P (new_rtx)
+	      else if (CONST_SCALAR_INT_P (new_rtx)
 		       && GET_CODE (x) == ZERO_EXTEND)
 		{
 		  x = simplify_unary_operation (ZERO_EXTEND, GET_MODE (x),
@@ -10355,9 +10378,10 @@ simplify_shift_const_1 (enum rtx_code code, enum machine_mode result_mode,
 	  /* (ashift (plus foo C) N) is (plus (ashift foo N) C').  */
 	  if (code == ASHIFT
 	      && CONST_INT_P (XEXP (varop, 1))
-	      && (new_rtx = simplify_const_binary_operation (ASHIFT, result_mode,
-							 XEXP (varop, 1),
-							 GEN_INT (count))) != 0
+	      && (new_rtx = simplify_const_binary_operation
+		  (ASHIFT, result_mode,
+		   gen_int_mode (INTVAL (XEXP (varop, 1)), result_mode),
+		   GEN_INT (count))) != 0
 	      && CONST_INT_P (new_rtx)
 	      && merge_outer_ops (&outer_op, &outer_const, PLUS,
 				  INTVAL (new_rtx), result_mode, &complement_p))
@@ -10374,9 +10398,10 @@ simplify_shift_const_1 (enum rtx_code code, enum machine_mode result_mode,
 	  if (code == LSHIFTRT
 	      && CONST_INT_P (XEXP (varop, 1))
 	      && mode_signbit_p (result_mode, XEXP (varop, 1))
-	      && (new_rtx = simplify_const_binary_operation (code, result_mode,
-							 XEXP (varop, 1),
-							 GEN_INT (count))) != 0
+	      && (new_rtx = simplify_const_binary_operation
+		  (code, result_mode,
+		   gen_int_mode (INTVAL (XEXP (varop, 1)), result_mode),
+		   GEN_INT (count))) != 0
 	      && CONST_INT_P (new_rtx)
 	      && merge_outer_ops (&outer_op, &outer_const, XOR,
 				  INTVAL (new_rtx), result_mode, &complement_p))
@@ -11987,7 +12012,7 @@ simplify_comparison (enum rtx_code code, rtx *pop0, rtx *pop1)
 		= (unsigned HOST_WIDE_INT) 1 << (GET_MODE_BITSIZE (mode) - 1);
 	      op0 = simplify_gen_binary (AND, tmode,
 					 gen_lowpart (tmode, op0),
-					 gen_int_mode (sign, mode));
+					 gen_int_mode (sign, tmode));
 	      code = (code == LT) ? NE : EQ;
 	      break;
 	    }
@@ -13269,6 +13294,7 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2, rtx elim_i2,
 	case REG_NORETURN:
 	case REG_SETJMP:
 	case REG_TM:
+	case REG_CALL_DECL:
 	  /* These notes must remain with the call.  It should not be
 	     possible for both I2 and I3 to be a call.  */
 	  if (CALL_P (i3))
@@ -13854,12 +13880,6 @@ dump_combine_total_stats (FILE *file)
      total_attempts, total_merges, total_extras, total_successes);
 }
 
-static bool
-gate_handle_combine (void)
-{
-  return (optimize > 0);
-}
-
 /* Try combining insns through substitution.  */
 static unsigned int
 rest_of_handle_combine (void)
@@ -13897,14 +13917,12 @@ const pass_data pass_data_combine =
   RTL_PASS, /* type */
   "combine", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
-  true, /* has_execute */
   TV_COMBINE, /* tv_id */
   PROP_cfglayout, /* properties_required */
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  ( TODO_df_finish | TODO_verify_rtl_sharing ), /* todo_flags_finish */
+  TODO_df_finish, /* todo_flags_finish */
 };
 
 class pass_combine : public rtl_opt_pass
@@ -13915,8 +13933,11 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_handle_combine (); }
-  unsigned int execute () { return rest_of_handle_combine (); }
+  virtual bool gate (function *) { return (optimize > 0); }
+  virtual unsigned int execute (function *)
+    {
+      return rest_of_handle_combine ();
+    }
 
 }; // class pass_combine
 

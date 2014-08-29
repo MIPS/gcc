@@ -79,11 +79,6 @@ struct iv_to_split
 			   iterations are based.  */
   rtx step;		/* Step of the induction variable.  */
   struct iv_to_split *next; /* Next entry in walking order.  */
-  unsigned n_loc;
-  unsigned loc[3];	/* Location where the definition of the induction
-			   variable occurs in the insn.  For example if
-			   N_LOC is 2, the expression is located at
-			   XEXP (XEXP (single_set, loc[0]), loc[1]).  */
 };
 
 /* Information about accumulators to expand.  */
@@ -161,11 +156,11 @@ var_expand_hasher::equal (const value_type *i1, const compare_type *i2)
 
 struct opt_info
 {
-  hash_table <iv_split_hasher> insns_to_split; /* A hashtable of insns to
+  hash_table<iv_split_hasher> *insns_to_split; /* A hashtable of insns to
 						  split.  */
   struct iv_to_split *iv_to_split_head; /* The first iv to split.  */
   struct iv_to_split **iv_to_split_tail; /* Pointer to the tail of the list.  */
-  hash_table <var_expand_hasher> insns_with_var_to_expand; /* A hashtable of
+  hash_table<var_expand_hasher> *insns_with_var_to_expand; /* A hashtable of
 					insns with accumulators to expand.  */
   struct var_to_expand *var_to_expand_head; /* The first var to expand.  */
   struct var_to_expand **var_to_expand_tail; /* Pointer to the tail of the list.  */
@@ -548,7 +543,7 @@ decide_peel_completely (struct loop *loop, int flags ATTRIBUTE_UNUSED)
 	{
 	  fprintf (dump_file,
 		   ";; Not peeling loop completely, rolls too much (");
-	  fprintf (dump_file, HOST_WIDEST_INT_PRINT_DEC, desc->niter);
+	  fprintf (dump_file, "%"PRId64, desc->niter);
 	  fprintf (dump_file, " iterations > %d [maximum peelings])\n", npeel);
 	}
       return;
@@ -641,7 +636,7 @@ decide_unroll_constant_iterations (struct loop *loop, int flags)
 {
   unsigned nunroll, nunroll_by_av, best_copies, best_unroll = 0, n_copies, i;
   struct niter_desc *desc;
-  double_int iterations;
+  widest_int iterations;
 
   if (!(flags & UAP_UNROLL))
     {
@@ -694,7 +689,7 @@ decide_unroll_constant_iterations (struct loop *loop, int flags)
   if (desc->niter < 2 * nunroll
       || ((get_estimated_loop_iterations (loop, &iterations)
 	   || get_max_loop_iterations (loop, &iterations))
-	  && iterations.ult (double_int::from_shwi (2 * nunroll))))
+	  && wi::ltu_p (iterations, 2 * nunroll)))
     {
       if (dump_file)
 	fprintf (dump_file, ";; Not unrolling loop, doesn't roll\n");
@@ -814,11 +809,10 @@ unroll_loop_constant_iterations (struct loop *loop)
 
 	  desc->noloop_assumptions = NULL_RTX;
 	  desc->niter -= exit_mod;
-	  loop->nb_iterations_upper_bound -= double_int::from_uhwi (exit_mod);
+	  loop->nb_iterations_upper_bound -= exit_mod;
 	  if (loop->any_estimate
-	      && double_int::from_uhwi (exit_mod).ule
-	           (loop->nb_iterations_estimate))
-	    loop->nb_iterations_estimate -= double_int::from_uhwi (exit_mod);
+	      && wi::leu_p (exit_mod, loop->nb_iterations_estimate))
+	    loop->nb_iterations_estimate -= exit_mod;
 	  else
 	    loop->any_estimate = false;
 	}
@@ -858,11 +852,10 @@ unroll_loop_constant_iterations (struct loop *loop)
   	    apply_opt_in_copies (opt_info, exit_mod + 1, false, false);
 
 	  desc->niter -= exit_mod + 1;
-	  loop->nb_iterations_upper_bound -= double_int::from_uhwi (exit_mod + 1);
+	  loop->nb_iterations_upper_bound -= exit_mod + 1;
 	  if (loop->any_estimate
-	      && double_int::from_uhwi (exit_mod + 1).ule
-	           (loop->nb_iterations_estimate))
-	    loop->nb_iterations_estimate -= double_int::from_uhwi (exit_mod + 1);
+	      && wi::leu_p (exit_mod + 1, loop->nb_iterations_estimate))
+	    loop->nb_iterations_estimate -= exit_mod + 1;
 	  else
 	    loop->any_estimate = false;
 	  desc->noloop_assumptions = NULL_RTX;
@@ -914,14 +907,10 @@ unroll_loop_constant_iterations (struct loop *loop)
 
   desc->niter /= max_unroll + 1;
   loop->nb_iterations_upper_bound
-    = loop->nb_iterations_upper_bound.udiv (double_int::from_uhwi (max_unroll
-								   + 1),
-					    TRUNC_DIV_EXPR);
+    = wi::udiv_trunc (loop->nb_iterations_upper_bound, max_unroll + 1);
   if (loop->any_estimate)
     loop->nb_iterations_estimate
-      = loop->nb_iterations_estimate.udiv (double_int::from_uhwi (max_unroll
-							          + 1),
-				           TRUNC_DIV_EXPR);
+      = wi::udiv_trunc (loop->nb_iterations_estimate, max_unroll + 1);
   desc->niter_expr = GEN_INT (desc->niter);
 
   /* Remove the edges.  */
@@ -941,7 +930,7 @@ decide_unroll_runtime_iterations (struct loop *loop, int flags)
 {
   unsigned nunroll, nunroll_by_av, i;
   struct niter_desc *desc;
-  double_int iterations;
+  widest_int iterations;
 
   if (!(flags & UAP_UNROLL))
     {
@@ -997,7 +986,7 @@ decide_unroll_runtime_iterations (struct loop *loop, int flags)
   /* Check whether the loop rolls.  */
   if ((get_estimated_loop_iterations (loop, &iterations)
        || get_max_loop_iterations (loop, &iterations))
-      && iterations.ult (double_int::from_shwi (2 * nunroll)))
+      && wi::ltu_p (iterations, 2 * nunroll))
     {
       if (dump_file)
 	fprintf (dump_file, ";; Not unrolling loop, doesn't roll\n");
@@ -1032,7 +1021,7 @@ split_edge_and_insert (edge e, rtx insns)
      CFG.  For this purpose we used to set the BB_SUPERBLOCK flag on BB
      and call break_superblocks when going out of cfglayout mode.  But it
      turns out that this never happens; and that if it does ever happen,
-     the TODO_verify_flow at the end of the RTL loop passes would fail.
+     the verify_flow_info at the end of the RTL loop passes would fail.
 
      There are two reasons why we expected we could have control flow insns
      in INSNS.  The first is when a comparison has to be done in parts, and
@@ -1058,6 +1047,59 @@ split_edge_and_insert (edge e, rtx insns)
      fix it.  */
 
   return bb;
+}
+
+/* Prepare a sequence comparing OP0 with OP1 using COMP and jumping to LABEL if
+   true, with probability PROB.  If CINSN is not NULL, it is the insn to copy
+   in order to create a jump.  */
+
+static rtx
+compare_and_jump_seq (rtx op0, rtx op1, enum rtx_code comp, rtx label, int prob,
+		      rtx cinsn)
+{
+  rtx seq, jump, cond;
+  enum machine_mode mode;
+
+  mode = GET_MODE (op0);
+  if (mode == VOIDmode)
+    mode = GET_MODE (op1);
+
+  start_sequence ();
+  if (GET_MODE_CLASS (mode) == MODE_CC)
+    {
+      /* A hack -- there seems to be no easy generic way how to make a
+	 conditional jump from a ccmode comparison.  */
+      gcc_assert (cinsn);
+      cond = XEXP (SET_SRC (pc_set (cinsn)), 0);
+      gcc_assert (GET_CODE (cond) == comp);
+      gcc_assert (rtx_equal_p (op0, XEXP (cond, 0)));
+      gcc_assert (rtx_equal_p (op1, XEXP (cond, 1)));
+      emit_jump_insn (copy_insn (PATTERN (cinsn)));
+      jump = get_last_insn ();
+      gcc_assert (JUMP_P (jump));
+      JUMP_LABEL (jump) = JUMP_LABEL (cinsn);
+      LABEL_NUSES (JUMP_LABEL (jump))++;
+      redirect_jump (jump, label, 0);
+    }
+  else
+    {
+      gcc_assert (!cinsn);
+
+      op0 = force_operand (op0, NULL_RTX);
+      op1 = force_operand (op1, NULL_RTX);
+      do_compare_rtx_and_jump (op0, op1, comp, 0,
+			       mode, NULL_RTX, NULL_RTX, label, -1);
+      jump = get_last_insn ();
+      gcc_assert (JUMP_P (jump));
+      JUMP_LABEL (jump) = label;
+      LABEL_NUSES (label)++;
+    }
+  add_int_reg_note (jump, REG_BR_PROB, prob);
+
+  seq = get_insns ();
+  end_sequence ();
+
+  return seq;
 }
 
 /* Unroll LOOP for which we are able to count number of iterations in runtime
@@ -1304,14 +1346,10 @@ unroll_loop_runtime_iterations (struct loop *loop)
     simplify_gen_binary (UDIV, desc->mode, old_niter,
 			 gen_int_mode (max_unroll + 1, desc->mode));
   loop->nb_iterations_upper_bound
-    = loop->nb_iterations_upper_bound.udiv (double_int::from_uhwi (max_unroll
-								   + 1),
-					    TRUNC_DIV_EXPR);
+    = wi::udiv_trunc (loop->nb_iterations_upper_bound, max_unroll + 1);
   if (loop->any_estimate)
     loop->nb_iterations_estimate
-      = loop->nb_iterations_estimate.udiv (double_int::from_uhwi (max_unroll
-							          + 1),
-				           TRUNC_DIV_EXPR);
+      = wi::udiv_trunc (loop->nb_iterations_estimate, max_unroll + 1);
   if (exit_at_end)
     {
       desc->niter_expr =
@@ -1319,7 +1357,7 @@ unroll_loop_runtime_iterations (struct loop *loop)
       desc->noloop_assumptions = NULL_RTX;
       --loop->nb_iterations_upper_bound;
       if (loop->any_estimate
-	  && loop->nb_iterations_estimate != double_int_zero)
+	  && loop->nb_iterations_estimate != 0)
 	--loop->nb_iterations_estimate;
       else
 	loop->any_estimate = false;
@@ -1337,7 +1375,7 @@ static void
 decide_peel_simple (struct loop *loop, int flags)
 {
   unsigned npeel;
-  double_int iterations;
+  widest_int iterations;
 
   if (!(flags & UAP_PEEL))
     {
@@ -1381,13 +1419,13 @@ decide_peel_simple (struct loop *loop, int flags)
   /* If we have realistic estimate on number of iterations, use it.  */
   if (get_estimated_loop_iterations (loop, &iterations))
     {
-      if (double_int::from_shwi (npeel).ule (iterations))
+      if (wi::leu_p (npeel, iterations))
 	{
 	  if (dump_file)
 	    {
 	      fprintf (dump_file, ";; Not peeling loop, rolls too much (");
-	      fprintf (dump_file, HOST_WIDEST_INT_PRINT_DEC,
-		       (HOST_WIDEST_INT) (iterations.to_shwi () + 1));
+	      fprintf (dump_file, "%"PRId64,
+		       (int64_t) (iterations.to_shwi () + 1));
 	      fprintf (dump_file, " iterations > %d [maximum peelings])\n",
 		       npeel);
 	    }
@@ -1398,7 +1436,7 @@ decide_peel_simple (struct loop *loop, int flags)
   /* If we have small enough bound on iterations, we can still peel (completely
      unroll).  */
   else if (get_max_loop_iterations (loop, &iterations)
-           && iterations.ult (double_int::from_shwi (npeel)))
+           && wi::ltu_p (iterations, npeel))
     npeel = iterations.to_shwi () + 1;
   else
     {
@@ -1492,7 +1530,7 @@ decide_unroll_stupid (struct loop *loop, int flags)
 {
   unsigned nunroll, nunroll_by_av, i;
   struct niter_desc *desc;
-  double_int iterations;
+  widest_int iterations;
 
   if (!(flags & UAP_UNROLL_ALL))
     {
@@ -1549,7 +1587,7 @@ decide_unroll_stupid (struct loop *loop, int flags)
   /* Check whether the loop rolls.  */
   if ((get_estimated_loop_iterations (loop, &iterations)
        || get_max_loop_iterations (loop, &iterations))
-      && iterations.ult (double_int::from_shwi (2 * nunroll)))
+      && wi::ltu_p (iterations, 2 * nunroll))
     {
       if (dump_file)
 	fprintf (dump_file, ";; Not unrolling loop, doesn't roll\n");
@@ -1899,8 +1937,6 @@ analyze_iv_to_split_insn (rtx insn)
   ivts->base_var = NULL_RTX;
   ivts->step = iv.step;
   ivts->next = NULL;
-  ivts->n_loc = 1;
-  ivts->loc[0] = 1;
 
   return ivts;
 }
@@ -1931,7 +1967,8 @@ analyze_insns_in_loop (struct loop *loop)
 
   if (flag_split_ivs_in_unroller)
     {
-      opt_info->insns_to_split.create (5 * loop->num_nodes);
+      opt_info->insns_to_split
+       	= new hash_table<iv_split_hasher> (5 * loop->num_nodes);
       opt_info->iv_to_split_head = NULL;
       opt_info->iv_to_split_tail = &opt_info->iv_to_split_head;
     }
@@ -1952,7 +1989,8 @@ analyze_insns_in_loop (struct loop *loop)
   if (flag_variable_expansion_in_unroller
       && can_apply)
     {
-      opt_info->insns_with_var_to_expand.create (5 * loop->num_nodes);
+      opt_info->insns_with_var_to_expand
+       	= new hash_table<var_expand_hasher> (5 * loop->num_nodes);
       opt_info->var_to_expand_head = NULL;
       opt_info->var_to_expand_tail = &opt_info->var_to_expand_head;
     }
@@ -1968,12 +2006,12 @@ analyze_insns_in_loop (struct loop *loop)
         if (!INSN_P (insn))
           continue;
 
-        if (opt_info->insns_to_split.is_created ())
+        if (opt_info->insns_to_split)
           ivts = analyze_iv_to_split_insn (insn);
 
         if (ivts)
           {
-            slot1 = opt_info->insns_to_split.find_slot (ivts, INSERT);
+            slot1 = opt_info->insns_to_split->find_slot (ivts, INSERT);
 	    gcc_assert (*slot1 == NULL);
             *slot1 = ivts;
 	    *opt_info->iv_to_split_tail = ivts;
@@ -1981,12 +2019,12 @@ analyze_insns_in_loop (struct loop *loop)
             continue;
           }
 
-        if (opt_info->insns_with_var_to_expand.is_created ())
+        if (opt_info->insns_with_var_to_expand)
           ves = analyze_insn_to_expand_var (loop, insn);
 
         if (ves)
           {
-            slot2 = opt_info->insns_with_var_to_expand.find_slot (ves, INSERT);
+            slot2 = opt_info->insns_with_var_to_expand->find_slot (ves, INSERT);
 	    gcc_assert (*slot2 == NULL);
             *slot2 = ves;
 	    *opt_info->var_to_expand_tail = ves;
@@ -2035,27 +2073,12 @@ determine_split_iv_delta (unsigned n_copy, unsigned n_copies, bool unrolling)
     }
 }
 
-/* Locate in EXPR the expression corresponding to the location recorded
-   in IVTS, and return a pointer to the RTX for this location.  */
-
-static rtx *
-get_ivts_expr (rtx expr, struct iv_to_split *ivts)
-{
-  unsigned i;
-  rtx *ret = &expr;
-
-  for (i = 0; i < ivts->n_loc; i++)
-    ret = &XEXP (*ret, ivts->loc[i]);
-
-  return ret;
-}
-
 /* Allocate basic variable for the induction variable chain.  */
 
 static void
 allocate_basic_variable (struct iv_to_split *ivts)
 {
-  rtx expr = *get_ivts_expr (single_set (ivts->insn), ivts);
+  rtx expr = SET_SRC (single_set (ivts->insn));
 
   ivts->base_var = gen_reg_rtx (GET_MODE (expr));
 }
@@ -2066,7 +2089,7 @@ allocate_basic_variable (struct iv_to_split *ivts)
 static void
 insert_base_initialization (struct iv_to_split *ivts, rtx insn)
 {
-  rtx expr = copy_rtx (*get_ivts_expr (single_set (insn), ivts));
+  rtx expr = copy_rtx (SET_SRC (single_set (insn)));
   rtx seq;
 
   start_sequence ();
@@ -2101,7 +2124,7 @@ split_iv (struct iv_to_split *ivts, rtx insn, unsigned delta)
     }
 
   /* Figure out where to do the replacement.  */
-  loc = get_ivts_expr (single_set (insn), ivts);
+  loc = &SET_SRC (single_set (insn));
 
   /* If we can make the replacement right away, we're done.  */
   if (validate_change (insn, loc, expr, 0))
@@ -2364,7 +2387,7 @@ apply_opt_in_copies (struct opt_info *opt_info,
   gcc_assert (!unrolling || rewrite_original_loop);
 
   /* Allocate the basic variables (i0).  */
-  if (opt_info->insns_to_split.is_created ())
+  if (opt_info->insns_to_split)
     for (ivts = opt_info->iv_to_split_head; ivts; ivts = ivts->next)
       allocate_basic_variable (ivts);
 
@@ -2398,11 +2421,11 @@ apply_opt_in_copies (struct opt_info *opt_info,
           ve_templ.insn = orig_insn;
 
           /* Apply splitting iv optimization.  */
-          if (opt_info->insns_to_split.is_created ())
+          if (opt_info->insns_to_split)
             {
 	      maybe_strip_eq_note_for_split_iv (opt_info, insn);
 
-              ivts = opt_info->insns_to_split.find (&ivts_templ);
+              ivts = opt_info->insns_to_split->find (&ivts_templ);
 
               if (ivts)
                 {
@@ -2415,10 +2438,10 @@ apply_opt_in_copies (struct opt_info *opt_info,
                 }
             }
           /* Apply variable expansion optimization.  */
-          if (unrolling && opt_info->insns_with_var_to_expand.is_created ())
+          if (unrolling && opt_info->insns_with_var_to_expand)
             {
               ves = (struct var_to_expand *)
-		opt_info->insns_with_var_to_expand.find (&ve_templ);
+		opt_info->insns_with_var_to_expand->find (&ve_templ);
               if (ves)
                 {
 		  gcc_assert (GET_CODE (PATTERN (insn))
@@ -2435,7 +2458,7 @@ apply_opt_in_copies (struct opt_info *opt_info,
 
   /* Initialize the variable expansions in the loop preheader
      and take care of combining them at the loop exit.  */
-  if (opt_info->insns_with_var_to_expand.is_created ())
+  if (opt_info->insns_with_var_to_expand)
     {
       for (ves = opt_info->var_to_expand_head; ves; ves = ves->next)
 	insert_var_expansion_initialization (ves, opt_info->loop_preheader);
@@ -2466,12 +2489,12 @@ apply_opt_in_copies (struct opt_info *opt_info,
  	    continue;
 
           ivts_templ.insn = orig_insn;
-          if (opt_info->insns_to_split.is_created ())
+          if (opt_info->insns_to_split)
             {
 	      maybe_strip_eq_note_for_split_iv (opt_info, orig_insn);
 
               ivts = (struct iv_to_split *)
-		opt_info->insns_to_split.find (&ivts_templ);
+		opt_info->insns_to_split->find (&ivts_templ);
               if (ivts)
                 {
                   if (!delta)
@@ -2490,15 +2513,16 @@ apply_opt_in_copies (struct opt_info *opt_info,
 static void
 free_opt_info (struct opt_info *opt_info)
 {
-  if (opt_info->insns_to_split.is_created ())
-    opt_info->insns_to_split.dispose ();
-  if (opt_info->insns_with_var_to_expand.is_created ())
+  delete opt_info->insns_to_split;
+  opt_info->insns_to_split = NULL;
+  if (opt_info->insns_with_var_to_expand)
     {
       struct var_to_expand *ves;
 
       for (ves = opt_info->var_to_expand_head; ves; ves = ves->next)
 	ves->var_expansions.release ();
-      opt_info->insns_with_var_to_expand.dispose ();
+      delete opt_info->insns_with_var_to_expand;
+      opt_info->insns_with_var_to_expand = NULL;
     }
   free (opt_info);
 }

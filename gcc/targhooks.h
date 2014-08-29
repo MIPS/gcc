@@ -195,6 +195,7 @@ extern int default_jump_align_max_skip (rtx);
 extern section * default_function_section(tree decl, enum node_frequency freq,
 					  bool startup, bool exit);
 extern enum machine_mode default_get_reg_raw_mode (int);
+extern bool default_keep_leaf_when_profiled ();
 
 extern void *default_get_pch_validity (size_t *);
 extern const char *default_pch_valid_p (const void *, size_t);
@@ -206,12 +207,14 @@ extern bool default_member_type_forces_blk (const_tree, enum machine_mode);
 extern void default_atomic_assign_expand_fenv (tree *, tree *, tree *);
 extern tree build_va_arg_indirect_ref (tree);
 extern tree std_gimplify_va_arg_expr (tree, tree, gimple_seq *, gimple_seq *);
+extern bool can_use_doloop_if_innermost (const widest_int &,
+					 const widest_int &,
+					 unsigned int, bool);
 
 extern rtx default_load_bounds_for_arg (rtx, rtx, rtx);
 extern void default_store_bounds_for_arg (rtx, rtx, rtx, rtx);
 extern rtx default_load_returned_bounds (rtx);
 extern void default_store_returned_bounds (rtx,rtx);
-extern tree default_fn_abi_va_list_bounds_size (tree);
 extern tree default_chkp_bound_type (void);
 extern enum machine_mode default_chkp_bound_mode (void);
 extern tree default_builtin_chkp_function (unsigned int);
@@ -224,5 +227,3 @@ extern void default_setup_incoming_vararg_bounds (cumulative_args_t ca ATTRIBUTE
 						  tree type ATTRIBUTE_UNUSED,
 						  int *pretend_arg_size ATTRIBUTE_UNUSED,
 						  int second_time ATTRIBUTE_UNUSED);
-extern bool can_use_doloop_if_innermost (double_int, double_int,
-					 unsigned int, bool);

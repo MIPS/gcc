@@ -456,14 +456,6 @@ build_tm_abort_call (location_t loc, bool is_outer)
 					     AR_USERABORT
 					     | (is_outer ? AR_OUTERABORT : 0)));
 }
-
-/* Common gateing function for several of the TM passes.  */
-
-static bool
-gate_tm (void)
-{
-  return flag_tm;
-}
 
 /* Map for aribtrary function replacement under TM, as created
    by the tm_wrap attribute.  */
@@ -487,7 +479,7 @@ record_tm_replacement (tree from, tree to)
   if (tm_wrap_map == NULL)
     tm_wrap_map = htab_create_ggc (32, tree_map_hash, tree_map_eq, 0);
 
-  h = ggc_alloc_tree_map ();
+  h = ggc_alloc<tree_map> ();
   h->hash = htab_hash_pointer (from);
   h->base.from = from;
   h->to = to;
@@ -846,8 +838,6 @@ const pass_data pass_data_diagnose_tm_blocks =
   GIMPLE_PASS, /* type */
   "*diagnose_tm_blocks", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
-  true, /* has_execute */
   TV_TRANS_MEM, /* tv_id */
   PROP_gimple_any, /* properties_required */
   0, /* properties_provided */
@@ -864,8 +854,8 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_tm (); }
-  unsigned int execute () { return diagnose_tm_blocks (); }
+  virtual bool gate (function *) { return flag_tm; }
+  virtual unsigned int execute (function *) { return diagnose_tm_blocks (); }
 
 }; // class pass_diagnose_tm_blocks
 
@@ -991,7 +981,7 @@ log_entry_hasher::remove (value_type *lp)
 
 
 /* The actual log.  */
-static hash_table <log_entry_hasher> tm_log;
+static hash_table<log_entry_hasher> *tm_log;
 
 /* Addresses to log with a save/restore sequence.  These should be in
    dominator order.  */
@@ -1036,14 +1026,14 @@ tm_mem_map_hasher::equal (const value_type *v, const compare_type *c)
 
 /* Map for an SSA_NAME originally pointing to a non aliased new piece
    of memory (malloc, alloc, etc).  */
-static hash_table <tm_mem_map_hasher> tm_new_mem_hash;
+static hash_table<tm_mem_map_hasher> *tm_new_mem_hash;
 
 /* Initialize logging data structures.  */
 static void
 tm_log_init (void)
 {
-  tm_log.create (10);
-  tm_new_mem_hash.create (5);
+  tm_log = new hash_table<log_entry_hasher> (10);
+  tm_new_mem_hash = new hash_table<tm_mem_map_hasher> (5);
   tm_log_save_addresses.create (5);
 }
 
@@ -1051,8 +1041,10 @@ tm_log_init (void)
 static void
 tm_log_delete (void)
 {
-  tm_log.dispose ();
-  tm_new_mem_hash.dispose ();
+  delete tm_log;
+  tm_log = NULL;
+  delete tm_new_mem_hash;
+  tm_new_mem_hash = NULL;
   tm_log_save_addresses.release ();
 }
 
@@ -1097,7 +1089,7 @@ tm_log_add (basic_block entry_block, tree addr, gimple stmt)
   struct tm_log_entry l, *lp;
 
   l.addr = addr;
-  slot = tm_log.find_slot (&l, INSERT);
+  slot = tm_log->find_slot (&l, INSERT);
   if (!*slot)
     {
       tree type = TREE_TYPE (addr);
@@ -1240,10 +1232,10 @@ tm_log_emit_stmt (tree addr, gimple stmt)
 static void
 tm_log_emit (void)
 {
-  hash_table <log_entry_hasher>::iterator hi;
+  hash_table<log_entry_hasher>::iterator hi;
   struct tm_log_entry *lp;
 
-  FOR_EACH_HASH_TABLE_ELEMENT (tm_log, lp, tm_log_entry_t, hi)
+  FOR_EACH_HASH_TABLE_ELEMENT (*tm_log, lp, tm_log_entry_t, hi)
     {
       size_t i;
       gimple stmt;
@@ -1285,7 +1277,7 @@ tm_log_emit_saves (basic_block entry_block, basic_block bb)
   for (i = 0; i < tm_log_save_addresses.length (); ++i)
     {
       l.addr = tm_log_save_addresses[i];
-      lp = *(tm_log.find_slot (&l, NO_INSERT));
+      lp = *(tm_log->find_slot (&l, NO_INSERT));
       gcc_assert (lp->save_var != NULL);
 
       /* We only care about variables in the current transaction.  */
@@ -1321,7 +1313,7 @@ tm_log_emit_restores (basic_block entry_block, basic_block bb)
   for (i = tm_log_save_addresses.length () - 1; i >= 0; i--)
     {
       l.addr = tm_log_save_addresses[i];
-      lp = *(tm_log.find_slot (&l, NO_INSERT));
+      lp = *(tm_log->find_slot (&l, NO_INSERT));
       gcc_assert (lp->save_var != NULL);
 
       /* We only care about variables in the current transaction.  */
@@ -1372,7 +1364,7 @@ thread_private_new_memory (basic_block entry_block, tree x)
 
   /* Look in cache first.  */
   elt.val = x;
-  slot = tm_new_mem_hash.find_slot (&elt, INSERT);
+  slot = tm_new_mem_hash->find_slot (&elt, INSERT);
   elt_p = *slot;
   if (elt_p)
     return elt_p->local_new_memory;
@@ -1769,8 +1761,6 @@ const pass_data pass_data_lower_tm =
   GIMPLE_PASS, /* type */
   "tmlower", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
-  true, /* has_execute */
   TV_TRANS_MEM, /* tv_id */
   PROP_gimple_lcf, /* properties_required */
   0, /* properties_provided */
@@ -1787,8 +1777,8 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_tm (); }
-  unsigned int execute () { return execute_lower_tm (); }
+  virtual bool gate (function *) { return flag_tm; }
+  virtual unsigned int execute (function *) { return execute_lower_tm (); }
 
 }; // class pass_lower_tm
 
@@ -2047,8 +2037,6 @@ const pass_data pass_data_tm_init =
   GIMPLE_PASS, /* type */
   "*tminit", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
-  false, /* has_execute */
   TV_TRANS_MEM, /* tv_id */
   ( PROP_ssa | PROP_cfg ), /* properties_required */
   0, /* properties_provided */
@@ -2065,7 +2053,7 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_tm_init (); }
+  virtual bool gate (function *) { return gate_tm_init (); }
 
 }; // class pass_tm_init
 
@@ -2381,7 +2369,7 @@ expand_call_tm (struct tm_region *region,
       return false;
     }
 
-  node = cgraph_get_node (fn_decl);
+  node = cgraph_node::get (fn_decl);
   /* All calls should have cgraph here.  */
   if (!node)
     {
@@ -2401,7 +2389,7 @@ expand_call_tm (struct tm_region *region,
 	{
 	  gimple_call_set_fndecl (stmt, repl);
 	  update_stmt (stmt);
-	  node = cgraph_create_node (repl);
+	  node = cgraph_node::create (repl);
 	  node->local.tm_may_enter_irr = false;
 	  return expand_call_tm (region, gsi);
 	}
@@ -2756,12 +2744,9 @@ expand_transaction (struct tm_region *region, void *data ATTRIBUTE_UNUSED)
       basic_block test_bb = create_empty_bb (transaction_bb);
       basic_block code_bb = create_empty_bb (test_bb);
       basic_block join_bb = create_empty_bb (code_bb);
-      if (current_loops && transaction_bb->loop_father)
-	{
-	  add_bb_to_loop (test_bb, transaction_bb->loop_father);
-	  add_bb_to_loop (code_bb, transaction_bb->loop_father);
-	  add_bb_to_loop (join_bb, transaction_bb->loop_father);
-	}
+      add_bb_to_loop (test_bb, transaction_bb->loop_father);
+      add_bb_to_loop (code_bb, transaction_bb->loop_father);
+      add_bb_to_loop (join_bb, transaction_bb->loop_father);
       if (region->restart_block == region->entry_block)
 	region->restart_block = test_bb;
 
@@ -2802,8 +2787,7 @@ expand_transaction (struct tm_region *region, void *data ATTRIBUTE_UNUSED)
   if (abort_edge)
     {
       basic_block test_bb = create_empty_bb (transaction_bb);
-      if (current_loops && transaction_bb->loop_father)
-	add_bb_to_loop (test_bb, transaction_bb->loop_father);
+      add_bb_to_loop (test_bb, transaction_bb->loop_father);
       if (region->restart_block == region->entry_block)
 	region->restart_block = test_bb;
 
@@ -2845,8 +2829,7 @@ expand_transaction (struct tm_region *region, void *data ATTRIBUTE_UNUSED)
   if (inst_edge && uninst_edge)
     {
       basic_block test_bb = create_empty_bb (transaction_bb);
-      if (current_loops && transaction_bb->loop_father)
-	add_bb_to_loop (test_bb, transaction_bb->loop_father);
+      add_bb_to_loop (test_bb, transaction_bb->loop_father);
       if (region->restart_block == region->entry_block)
 	region->restart_block = test_bb;
 
@@ -2897,8 +2880,7 @@ expand_transaction (struct tm_region *region, void *data ATTRIBUTE_UNUSED)
     {
       basic_block empty_bb = create_empty_bb (transaction_bb);
       region->restart_block = empty_bb;
-      if (current_loops && transaction_bb->loop_father)
-	add_bb_to_loop (empty_bb, transaction_bb->loop_father);
+      add_bb_to_loop (empty_bb, transaction_bb->loop_father);
 
       redirect_edge_pred (fallthru_edge, empty_bb);
       make_edge (transaction_bb, empty_bb, EDGE_FALLTHRU);
@@ -3023,14 +3005,12 @@ const pass_data pass_data_tm_mark =
   GIMPLE_PASS, /* type */
   "tmmark", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  false, /* has_gate */
-  true, /* has_execute */
   TV_TRANS_MEM, /* tv_id */
   ( PROP_ssa | PROP_cfg ), /* properties_required */
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  ( TODO_update_ssa | TODO_verify_ssa ), /* todo_flags_finish */
+  TODO_update_ssa, /* todo_flags_finish */
 };
 
 class pass_tm_mark : public gimple_opt_pass
@@ -3041,7 +3021,7 @@ public:
   {}
 
   /* opt_pass methods: */
-  unsigned int execute () { return execute_tm_mark (); }
+  virtual unsigned int execute (function *) { return execute_tm_mark (); }
 
 }; // class pass_tm_mark
 
@@ -3082,7 +3062,7 @@ split_bb_make_tm_edge (gimple stmt, basic_block dest_bb,
   struct tm_restart_node *n = (struct tm_restart_node *) *slot;
   if (n == NULL)
     {
-      n = ggc_alloc_tm_restart_node ();
+      n = ggc_alloc<tm_restart_node> ();
       *n = dummy;
     }
   else
@@ -3174,8 +3154,35 @@ expand_block_edges (struct tm_region *const region, basic_block bb)
 
 /* Entry point to the final expansion of transactional nodes. */
 
-static unsigned int
-execute_tm_edges (void)
+namespace {
+
+const pass_data pass_data_tm_edges =
+{
+  GIMPLE_PASS, /* type */
+  "tmedge", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  TV_TRANS_MEM, /* tv_id */
+  ( PROP_ssa | PROP_cfg ), /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  TODO_update_ssa, /* todo_flags_finish */
+};
+
+class pass_tm_edges : public gimple_opt_pass
+{
+public:
+  pass_tm_edges (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_tm_edges, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  virtual unsigned int execute (function *);
+
+}; // class pass_tm_edges
+
+unsigned int
+pass_tm_edges::execute (function *fun)
 {
   vec<tm_region_p> bb_regions
     = get_bb_regions_instrumented (/*traverse_clones=*/false,
@@ -3185,7 +3192,7 @@ execute_tm_edges (void)
 
   FOR_EACH_VEC_ELT (bb_regions, i, r)
     if (r != NULL)
-      expand_block_edges (r, BASIC_BLOCK_FOR_FN (cfun, i));
+      expand_block_edges (r, BASIC_BLOCK_FOR_FN (fun, i));
 
   bb_regions.release ();
 
@@ -3198,35 +3205,6 @@ execute_tm_edges (void)
 
   return 0;
 }
-
-namespace {
-
-const pass_data pass_data_tm_edges =
-{
-  GIMPLE_PASS, /* type */
-  "tmedge", /* name */
-  OPTGROUP_NONE, /* optinfo_flags */
-  false, /* has_gate */
-  true, /* has_execute */
-  TV_TRANS_MEM, /* tv_id */
-  ( PROP_ssa | PROP_cfg ), /* properties_required */
-  0, /* properties_provided */
-  0, /* properties_destroyed */
-  0, /* todo_flags_start */
-  ( TODO_update_ssa | TODO_verify_ssa ), /* todo_flags_finish */
-};
-
-class pass_tm_edges : public gimple_opt_pass
-{
-public:
-  pass_tm_edges (gcc::context *ctxt)
-    : gimple_opt_pass (pass_data_tm_edges, ctxt)
-  {}
-
-  /* opt_pass methods: */
-  unsigned int execute () { return execute_tm_edges (); }
-
-}; // class pass_tm_edges
 
 } // anon namespace
 
@@ -3359,7 +3337,7 @@ static bitmap_obstack tm_memopt_obstack;
 /* Unique counter for TM loads and stores. Loads and stores of the
    same address get the same ID.  */
 static unsigned int tm_memopt_value_id;
-static hash_table <tm_memop_hasher> tm_memopt_value_numbers;
+static hash_table<tm_memop_hasher> *tm_memopt_value_numbers;
 
 #define STORE_AVAIL_IN(BB) \
   ((struct tm_memopt_bitmaps *) ((BB)->aux))->store_avail_in
@@ -3393,7 +3371,7 @@ tm_memopt_value_number (gimple stmt, enum insert_option op)
 
   gcc_assert (is_tm_load (stmt) || is_tm_store (stmt));
   tmpmem.addr = gimple_call_arg (stmt, 0);
-  slot = tm_memopt_value_numbers.find_slot (&tmpmem, op);
+  slot = tm_memopt_value_numbers->find_slot (&tmpmem, op);
   if (*slot)
     mem = *slot;
   else if (op == INSERT)
@@ -3453,11 +3431,11 @@ dump_tm_memopt_set (const char *set_name, bitmap bits)
   fprintf (dump_file, "TM memopt: %s: [", set_name);
   EXECUTE_IF_SET_IN_BITMAP (bits, 0, i, bi)
     {
-      hash_table <tm_memop_hasher>::iterator hi;
+      hash_table<tm_memop_hasher>::iterator hi;
       struct tm_memop *mem = NULL;
 
       /* Yeah, yeah, yeah.  Whatever.  This is just for debugging.  */
-      FOR_EACH_HASH_TABLE_ELEMENT (tm_memopt_value_numbers, mem, tm_memop_t, hi)
+      FOR_EACH_HASH_TABLE_ELEMENT (*tm_memopt_value_numbers, mem, tm_memop_t, hi)
 	if (mem->value_id == i)
 	  break;
       gcc_assert (mem->value_id == i);
@@ -3893,7 +3871,7 @@ execute_tm_memopt (void)
   vec<basic_block> bbs;
 
   tm_memopt_value_id = 0;
-  tm_memopt_value_numbers.create (10);
+  tm_memopt_value_numbers = new hash_table<tm_memop_hasher> (10);
 
   for (region = all_tm_regions; region; region = region->next)
     {
@@ -3927,17 +3905,12 @@ execute_tm_memopt (void)
       tm_memopt_free_sets (bbs);
       bbs.release ();
       bitmap_obstack_release (&tm_memopt_obstack);
-      tm_memopt_value_numbers.empty ();
+      tm_memopt_value_numbers->empty ();
     }
 
-  tm_memopt_value_numbers.dispose ();
+  delete tm_memopt_value_numbers;
+  tm_memopt_value_numbers = NULL;
   return 0;
-}
-
-static bool
-gate_tm_memopt (void)
-{
-  return flag_tm && optimize > 0;
 }
 
 namespace {
@@ -3947,8 +3920,6 @@ const pass_data pass_data_tm_memopt =
   GIMPLE_PASS, /* type */
   "tmmemopt", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
-  true, /* has_execute */
   TV_TRANS_MEM, /* tv_id */
   ( PROP_ssa | PROP_cfg ), /* properties_required */
   0, /* properties_provided */
@@ -3965,8 +3936,8 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_tm_memopt (); }
-  unsigned int execute () { return execute_tm_memopt (); }
+  virtual bool gate (function *) { return flag_tm && optimize > 0; }
+  virtual unsigned int execute (function *) { return execute_tm_memopt (); }
 
 }; // class pass_tm_memopt
 
@@ -4061,7 +4032,7 @@ struct tm_ipa_cg_data
   bool want_irr_scan_normal;
 };
 
-typedef vec<cgraph_node_ptr> cgraph_node_queue;
+typedef vec<cgraph_node *> cgraph_node_queue;
 
 /* Return the ipa data associated with NODE, allocating zeroed memory
    if necessary.  TRAVERSE_ALIASES is true if we must traverse aliases
@@ -4073,7 +4044,7 @@ get_cg_data (struct cgraph_node **node, bool traverse_aliases)
   struct tm_ipa_cg_data *d;
 
   if (traverse_aliases && (*node)->alias)
-    *node = cgraph_alias_target (*node);
+    *node = (*node)->get_alias_target ();
 
   d = (struct tm_ipa_cg_data *) (*node)->aux;
 
@@ -4157,7 +4128,7 @@ ipa_tm_scan_calls_block (cgraph_node_queue *callees_p,
 	      if (find_tm_replacement_function (fndecl))
 		continue;
 
-	      node = cgraph_get_node (fndecl);
+	      node = cgraph_node::get (fndecl);
 	      gcc_assert (node != NULL);
 	      d = get_cg_data (&node, true);
 
@@ -4324,7 +4295,7 @@ ipa_tm_scan_irr_block (basic_block bb)
 		if (find_tm_replacement_function (fn))
 		  break;
 
-		node = cgraph_get_node (fn);
+		node = cgraph_node::get (fn);
 		d = get_cg_data (&node, true);
 
 		/* Return true if irrevocable, but above all, believe
@@ -4497,7 +4468,7 @@ ipa_tm_decrement_clone_counts (basic_block bb, bool for_clone)
 	      if (find_tm_replacement_function (fndecl))
 		continue;
 
-	      tnode = cgraph_get_node (fndecl);
+	      tnode = cgraph_node::get (fndecl);
 	      d = get_cg_data (&tnode, true);
 
 	      pcallers = (for_clone ? &d->tm_callers_clone
@@ -4639,7 +4610,7 @@ ipa_tm_mayenterirr_function (struct cgraph_node *node)
 
   /* If we aren't seeing the final version of the function we don't
      know what it will contain at runtime.  */
-  if (cgraph_function_body_availability (node) < AVAIL_AVAILABLE)
+  if (node->get_availability () < AVAIL_AVAILABLE)
     return true;
 
   /* If the function must go irrevocable, then of course true.  */
@@ -4660,7 +4631,7 @@ ipa_tm_mayenterirr_function (struct cgraph_node *node)
      result in one of the bits above being set so that we will not
      have to recurse next time.  */
   if (node->alias)
-    return ipa_tm_mayenterirr_function (cgraph_get_node (node->thunk.alias));
+    return ipa_tm_mayenterirr_function (cgraph_node::get (node->thunk.alias));
 
   /* What remains is unmarked local functions without items that force
      the function to go irrevocable.  */
@@ -4818,7 +4789,7 @@ tm_mangle (tree old_asm_id)
 static inline void
 ipa_tm_mark_force_output_node (struct cgraph_node *node)
 {
-  cgraph_mark_force_output_node (node);
+  node->mark_force_output ();
   node->analyzed = true;
 }
 
@@ -4872,9 +4843,10 @@ ipa_tm_create_version_alias (struct cgraph_node *node, void *data)
 
   /* Perform the same remapping to the comdat group.  */
   if (DECL_ONE_ONLY (new_decl))
-    DECL_COMDAT_GROUP (new_decl) = tm_mangle (DECL_COMDAT_GROUP (old_decl));
+    varpool_node::get (new_decl)->set_comdat_group
+      (tm_mangle (decl_comdat_group_id (old_decl)));
 
-  new_node = cgraph_same_body_alias (NULL, new_decl, info->new_decl);
+  new_node = cgraph_node::create_same_body_alias (new_decl, info->new_decl);
   new_node->tm_clone = true;
   new_node->externally_visible = info->old_node->externally_visible;
   /* ?? Do not traverse aliases here.  */
@@ -4883,7 +4855,7 @@ ipa_tm_create_version_alias (struct cgraph_node *node, void *data)
   record_tm_clone_pair (old_decl, new_decl);
 
   if (info->old_node->force_output
-      || ipa_ref_list_first_referring (&info->old_node->ref_list))
+      || info->old_node->ref_list.first_referring ())
     ipa_tm_mark_force_output_node (new_node);
   if (info->old_node->forced_by_abi)
     ipa_tm_mark_forced_by_abi_node (new_node);
@@ -4912,16 +4884,18 @@ ipa_tm_create_version (struct cgraph_node *old_node)
 
   /* Perform the same remapping to the comdat group.  */
   if (DECL_ONE_ONLY (new_decl))
-    DECL_COMDAT_GROUP (new_decl) = tm_mangle (DECL_COMDAT_GROUP (old_decl));
+    varpool_node::get (new_decl)->set_comdat_group
+      (tm_mangle (DECL_COMDAT_GROUP (old_decl)));
 
-  new_node = cgraph_copy_node_for_versioning (old_node, new_decl, vNULL, NULL);
+  gcc_assert (!old_node->ipa_transforms_to_apply.exists ());
+  new_node = old_node->create_version_clone (new_decl, vNULL, NULL);
   new_node->local.local = false;
   new_node->externally_visible = old_node->externally_visible;
   new_node->lowered = true;
   new_node->tm_clone = 1;
   get_cg_data (&old_node, true)->clone = new_node;
 
-  if (cgraph_function_body_availability (old_node) >= AVAIL_OVERWRITABLE)
+  if (old_node->get_availability () >= AVAIL_INTERPOSABLE)
     {
       /* Remap extern inline to static inline.  */
       /* ??? Is it worth trying to use make_decl_one_only?  */
@@ -4939,9 +4913,9 @@ ipa_tm_create_version (struct cgraph_node *old_node)
 
   record_tm_clone_pair (old_decl, new_decl);
 
-  cgraph_call_function_insertion_hooks (new_node);
+  new_node->call_function_insertion_hooks ();
   if (old_node->force_output
-      || ipa_ref_list_first_referring (&old_node->ref_list))
+      || old_node->ref_list.first_referring ())
     ipa_tm_mark_force_output_node (new_node);
   if (old_node->forced_by_abi)
     ipa_tm_mark_forced_by_abi_node (new_node);
@@ -4951,8 +4925,8 @@ ipa_tm_create_version (struct cgraph_node *old_node)
     struct create_version_alias_info data;
     data.old_node = old_node;
     data.new_decl = new_decl;
-    cgraph_for_node_and_aliases (old_node, ipa_tm_create_version_alias,
-				 &data, true);
+    old_node->call_for_symbol_thunks_and_aliases (ipa_tm_create_version_alias,
+						&data, true);
   }
 }
 
@@ -4974,12 +4948,11 @@ ipa_tm_insert_irr_call (struct cgraph_node *node, struct tm_region *region,
   gsi = gsi_after_labels (bb);
   gsi_insert_before (&gsi, g, GSI_SAME_STMT);
 
-  cgraph_create_edge (node,
-	       cgraph_get_create_node
-		  (builtin_decl_explicit (BUILT_IN_TM_IRREVOCABLE)),
-		      g, 0,
-		      compute_call_stmt_bb_frequency (node->decl,
-						      gimple_bb (g)));
+  node->create_edge (cgraph_node::get_create
+		       (builtin_decl_explicit (BUILT_IN_TM_IRREVOCABLE)),
+		     g, 0,
+		     compute_call_stmt_bb_frequency (node->decl,
+						     gimple_bb (g)));
 }
 
 /* Construct a call to TM_GETTMCLONE and insert it before GSI.  */
@@ -5004,9 +4977,9 @@ ipa_tm_insert_gettmclone_call (struct cgraph_node *node,
 	 technically taking the address of the original function and
 	 its clone.  Explain this so inlining will know this function
 	 is needed.  */
-      cgraph_mark_address_taken_node (cgraph_get_node (fndecl));
+      cgraph_node::get (fndecl)->mark_address_taken () ;
       if (clone)
-	cgraph_mark_address_taken_node (cgraph_get_node (clone));
+	cgraph_node::get (clone)->mark_address_taken ();
     }
 
   safe = is_tm_safe (TREE_TYPE (old_fn));
@@ -5027,9 +5000,9 @@ ipa_tm_insert_gettmclone_call (struct cgraph_node *node,
 
   gsi_insert_before (gsi, g, GSI_SAME_STMT);
 
-  cgraph_create_edge (node, cgraph_get_create_node (gettm_fn), g, 0,
-		      compute_call_stmt_bb_frequency (node->decl,
-						      gimple_bb (g)));
+  node->create_edge (cgraph_node::get_create (gettm_fn), g, 0,
+		     compute_call_stmt_bb_frequency (node->decl,
+						     gimple_bb (g)));
 
   /* Cast return value from tm_gettmclone* into appropriate function
      pointer.  */
@@ -5085,7 +5058,7 @@ ipa_tm_transform_calls_redirect (struct cgraph_node *node,
 {
   gimple stmt = gsi_stmt (*gsi);
   struct cgraph_node *new_node;
-  struct cgraph_edge *e = cgraph_edge (node, stmt);
+  struct cgraph_edge *e = node->get_edge (stmt);
   tree fndecl = gimple_call_fndecl (stmt);
 
   /* For indirect calls, pass the address through the runtime.  */
@@ -5115,7 +5088,7 @@ ipa_tm_transform_calls_redirect (struct cgraph_node *node,
   fndecl = find_tm_replacement_function (fndecl);
   if (fndecl)
     {
-      new_node = cgraph_get_create_node (fndecl);
+      new_node = cgraph_node::get_create (fndecl);
 
       /* ??? Mark all transaction_wrap functions tm_may_enter_irr.
 
@@ -5320,7 +5293,7 @@ ipa_tm_execute (void)
   unsigned int i;
 
 #ifdef ENABLE_CHECKING
-  verify_cgraph ();
+  cgraph_node::verify_cgraph_nodes ();
 #endif
 
   bitmap_obstack_initialize (&tm_obstack);
@@ -5329,7 +5302,7 @@ ipa_tm_execute (void)
   /* For all local functions marked tm_callable, queue them.  */
   FOR_EACH_DEFINED_FUNCTION (node)
     if (is_tm_callable (node->decl)
-	&& cgraph_function_body_availability (node) >= AVAIL_OVERWRITABLE)
+	&& node->get_availability () >= AVAIL_INTERPOSABLE)
       {
 	d = get_cg_data (&node, true);
 	maybe_push_queue (node, &tm_callees, &d->in_callee_queue);
@@ -5338,7 +5311,7 @@ ipa_tm_execute (void)
   /* For all local reachable functions...  */
   FOR_EACH_DEFINED_FUNCTION (node)
     if (node->lowered
-	&& cgraph_function_body_availability (node) >= AVAIL_OVERWRITABLE)
+	&& node->get_availability () >= AVAIL_INTERPOSABLE)
       {
 	/* ... marked tm_pure, record that fact for the runtime by
 	   indicating that the pure function is its own tm_callable.
@@ -5378,7 +5351,7 @@ ipa_tm_execute (void)
   for (i = 0; i < tm_callees.length (); ++i)
     {
       node = tm_callees[i];
-      a = cgraph_function_body_availability (node);
+      a = node->get_availability ();
       d = get_cg_data (&node, true);
 
       /* Put it in the worklist so we can scan the function later
@@ -5393,7 +5366,7 @@ ipa_tm_execute (void)
       else if (a <= AVAIL_NOT_AVAILABLE
 	       && !is_tm_safe_or_pure (node->decl))
 	ipa_tm_note_irrevocable (node, &irr_worklist);
-      else if (a >= AVAIL_OVERWRITABLE)
+      else if (a >= AVAIL_INTERPOSABLE)
 	{
 	  if (!tree_versionable_function_p (node->decl))
 	    ipa_tm_note_irrevocable (node, &irr_worklist);
@@ -5403,7 +5376,7 @@ ipa_tm_execute (void)
 		 we need not scan the callees now, as the base will do.  */
 	      if (node->alias)
 		{
-		  node = cgraph_get_node (node->thunk.alias);
+		  node = cgraph_node::get (node->thunk.alias);
 		  d = get_cg_data (&node, true);
 		  maybe_push_queue (node, &tm_callees, &d->in_callee_queue);
 		  continue;
@@ -5462,7 +5435,6 @@ ipa_tm_execute (void)
       struct cgraph_node *caller;
       struct cgraph_edge *e;
       struct ipa_ref *ref;
-      unsigned j;
 
       if (i > 256 && i == irr_worklist.length () / 8)
 	{
@@ -5488,11 +5460,10 @@ ipa_tm_execute (void)
 	}
 
       /* Propagate back to referring aliases as well.  */
-      for (j = 0; ipa_ref_list_referring_iterate (&node->ref_list, j, ref); j++)
+      FOR_EACH_ALIAS (node, ref)
 	{
-	  caller = cgraph (ref->referring);
-	  if (ref->use == IPA_REF_ALIAS
-	      && !caller->local.tm_may_enter_irr)
+	  caller = dyn_cast<cgraph_node *> (ref->referring);
+	  if (!caller->local.tm_may_enter_irr)
 	    {
 	      /* ?? Do not traverse aliases here.  */
 	      d = get_cg_data (&caller, false);
@@ -5505,7 +5476,7 @@ ipa_tm_execute (void)
      other functions.  */
   FOR_EACH_DEFINED_FUNCTION (node)
     if (node->lowered
-	&& cgraph_function_body_availability (node) >= AVAIL_OVERWRITABLE)
+	&& node->get_availability () >= AVAIL_INTERPOSABLE)
       {
 	d = get_cg_data (&node, true);
 	if (is_tm_safe (node->decl))
@@ -5525,7 +5496,7 @@ ipa_tm_execute (void)
       if (node->cpp_implicit_alias)
 	continue;
 
-      a = cgraph_function_body_availability (node);
+      a = node->get_availability ();
       d = get_cg_data (&node, true);
 
       if (a <= AVAIL_NOT_AVAILABLE)
@@ -5553,7 +5524,7 @@ ipa_tm_execute (void)
     }
   FOR_EACH_DEFINED_FUNCTION (node)
     if (node->lowered
-	&& cgraph_function_body_availability (node) >= AVAIL_OVERWRITABLE)
+	&& node->get_availability () >= AVAIL_INTERPOSABLE)
       {
 	d = get_cg_data (&node, true);
 	if (d->all_tm_regions)
@@ -5570,7 +5541,7 @@ ipa_tm_execute (void)
     node->aux = NULL;
 
 #ifdef ENABLE_CHECKING
-  verify_cgraph ();
+  cgraph_node::verify_cgraph_nodes ();
 #endif
 
   return 0;
@@ -5583,8 +5554,6 @@ const pass_data pass_data_ipa_tm =
   SIMPLE_IPA_PASS, /* type */
   "tmipa", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
-  true, /* has_execute */
   TV_TRANS_MEM, /* tv_id */
   ( PROP_ssa | PROP_cfg ), /* properties_required */
   0, /* properties_provided */
@@ -5601,8 +5570,8 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_tm (); }
-  unsigned int execute () { return ipa_tm_execute (); }
+  virtual bool gate (function *) { return flag_tm; }
+  virtual unsigned int execute (function *) { return ipa_tm_execute (); }
 
 }; // class pass_ipa_tm
 

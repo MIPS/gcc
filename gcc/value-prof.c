@@ -59,6 +59,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "data-streamer.h"
 #include "builtins.h"
 #include "tree-nested.h"
+#include "hash-set.h"
 #include "tree-chkp.h"
 
 /* In this file value profile based optimizations are placed.  Currently the
@@ -267,11 +268,11 @@ dump_histogram_value (FILE *dump_file, histogram_value hist)
 	   unsigned int i;
 	   fprintf (dump_file, " [");
            for (i = 0; i < hist->hdata.intvl.steps; i++)
-	     fprintf (dump_file, " %d:"HOST_WIDEST_INT_PRINT_DEC,
+	     fprintf (dump_file, " %d:%"PRId64,
 		      hist->hdata.intvl.int_start + i,
-		      (HOST_WIDEST_INT) hist->hvalue.counters[i]);
-	   fprintf (dump_file, " ] outside range:"HOST_WIDEST_INT_PRINT_DEC,
-		    (HOST_WIDEST_INT) hist->hvalue.counters[i]);
+		      (int64_t) hist->hvalue.counters[i]);
+	   fprintf (dump_file, " ] outside range:%"PRId64,
+		    (int64_t) hist->hvalue.counters[i]);
 	}
       fprintf (dump_file, ".\n");
       break;
@@ -280,10 +281,10 @@ dump_histogram_value (FILE *dump_file, histogram_value hist)
       fprintf (dump_file, "Pow2 counter ");
       if (hist->hvalue.counters)
 	{
-	   fprintf (dump_file, "pow2:"HOST_WIDEST_INT_PRINT_DEC
-		    " nonpow2:"HOST_WIDEST_INT_PRINT_DEC,
-		    (HOST_WIDEST_INT) hist->hvalue.counters[0],
-		    (HOST_WIDEST_INT) hist->hvalue.counters[1]);
+	   fprintf (dump_file, "pow2:%"PRId64
+		    " nonpow2:%"PRId64,
+		    (int64_t) hist->hvalue.counters[0],
+		    (int64_t) hist->hvalue.counters[1]);
 	}
       fprintf (dump_file, ".\n");
       break;
@@ -292,12 +293,12 @@ dump_histogram_value (FILE *dump_file, histogram_value hist)
       fprintf (dump_file, "Single value ");
       if (hist->hvalue.counters)
 	{
-	   fprintf (dump_file, "value:"HOST_WIDEST_INT_PRINT_DEC
-		    " match:"HOST_WIDEST_INT_PRINT_DEC
-		    " wrong:"HOST_WIDEST_INT_PRINT_DEC,
-		    (HOST_WIDEST_INT) hist->hvalue.counters[0],
-		    (HOST_WIDEST_INT) hist->hvalue.counters[1],
-		    (HOST_WIDEST_INT) hist->hvalue.counters[2]);
+	   fprintf (dump_file, "value:%"PRId64
+		    " match:%"PRId64
+		    " wrong:%"PRId64,
+		    (int64_t) hist->hvalue.counters[0],
+		    (int64_t) hist->hvalue.counters[1],
+		    (int64_t) hist->hvalue.counters[2]);
 	}
       fprintf (dump_file, ".\n");
       break;
@@ -306,10 +307,10 @@ dump_histogram_value (FILE *dump_file, histogram_value hist)
       fprintf (dump_file, "Average value ");
       if (hist->hvalue.counters)
 	{
-	   fprintf (dump_file, "sum:"HOST_WIDEST_INT_PRINT_DEC
-		    " times:"HOST_WIDEST_INT_PRINT_DEC,
-		    (HOST_WIDEST_INT) hist->hvalue.counters[0],
-		    (HOST_WIDEST_INT) hist->hvalue.counters[1]);
+	   fprintf (dump_file, "sum:%"PRId64
+		    " times:%"PRId64,
+		    (int64_t) hist->hvalue.counters[0],
+		    (int64_t) hist->hvalue.counters[1]);
 	}
       fprintf (dump_file, ".\n");
       break;
@@ -318,8 +319,8 @@ dump_histogram_value (FILE *dump_file, histogram_value hist)
       fprintf (dump_file, "IOR value ");
       if (hist->hvalue.counters)
 	{
-	   fprintf (dump_file, "ior:"HOST_WIDEST_INT_PRINT_DEC,
-		    (HOST_WIDEST_INT) hist->hvalue.counters[0]);
+	   fprintf (dump_file, "ior:%"PRId64,
+		    (int64_t) hist->hvalue.counters[0]);
 	}
       fprintf (dump_file, ".\n");
       break;
@@ -328,12 +329,12 @@ dump_histogram_value (FILE *dump_file, histogram_value hist)
       fprintf (dump_file, "Constant delta ");
       if (hist->hvalue.counters)
 	{
-	   fprintf (dump_file, "value:"HOST_WIDEST_INT_PRINT_DEC
-		    " match:"HOST_WIDEST_INT_PRINT_DEC
-		    " wrong:"HOST_WIDEST_INT_PRINT_DEC,
-		    (HOST_WIDEST_INT) hist->hvalue.counters[0],
-		    (HOST_WIDEST_INT) hist->hvalue.counters[1],
-		    (HOST_WIDEST_INT) hist->hvalue.counters[2]);
+	   fprintf (dump_file, "value:%"PRId64
+		    " match:%"PRId64
+		    " wrong:%"PRId64,
+		    (int64_t) hist->hvalue.counters[0],
+		    (int64_t) hist->hvalue.counters[1],
+		    (int64_t) hist->hvalue.counters[2]);
 	}
       fprintf (dump_file, ".\n");
       break;
@@ -341,12 +342,12 @@ dump_histogram_value (FILE *dump_file, histogram_value hist)
       fprintf (dump_file, "Indirect call ");
       if (hist->hvalue.counters)
 	{
-	   fprintf (dump_file, "value:"HOST_WIDEST_INT_PRINT_DEC
-		    " match:"HOST_WIDEST_INT_PRINT_DEC
-		    " all:"HOST_WIDEST_INT_PRINT_DEC,
-		    (HOST_WIDEST_INT) hist->hvalue.counters[0],
-		    (HOST_WIDEST_INT) hist->hvalue.counters[1],
-		    (HOST_WIDEST_INT) hist->hvalue.counters[2]);
+	   fprintf (dump_file, "value:%"PRId64
+		    " match:%"PRId64
+		    " all:%"PRId64,
+		    (int64_t) hist->hvalue.counters[0],
+		    (int64_t) hist->hvalue.counters[1],
+		    (int64_t) hist->hvalue.counters[2]);
 	}
       fprintf (dump_file, ".\n");
       break;
@@ -354,8 +355,8 @@ dump_histogram_value (FILE *dump_file, histogram_value hist)
       fprintf (dump_file, "Time profile ");
       if (hist->hvalue.counters)
       {
-        fprintf (dump_file, "time:"HOST_WIDEST_INT_PRINT_DEC,
-                 (HOST_WIDEST_INT) hist->hvalue.counters[0]);
+        fprintf (dump_file, "time:%"PRId64,
+                 (int64_t) hist->hvalue.counters[0]);
       }
       fprintf (dump_file, ".\n");
       break;
@@ -516,10 +517,10 @@ static bool error_found = false;
 static int
 visit_hist (void **slot, void *data)
 {
-  struct pointer_set_t *visited = (struct pointer_set_t *) data;
+  hash_set<histogram_value> *visited = (hash_set<histogram_value> *) data;
   histogram_value hist = *(histogram_value *) slot;
 
-  if (!pointer_set_contains (visited, hist)
+  if (!visited->contains (hist)
       && hist->type != HIST_TYPE_TIME_PROFILE)
     {
       error ("dead histogram");
@@ -539,10 +540,9 @@ verify_histograms (void)
   basic_block bb;
   gimple_stmt_iterator gsi;
   histogram_value hist;
-  struct pointer_set_t *visited_hists;
 
   error_found = false;
-  visited_hists = pointer_set_create ();
+  hash_set<histogram_value> visited_hists;
   FOR_EACH_BB_FN (bb, cfun)
     for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
       {
@@ -559,12 +559,11 @@ verify_histograms (void)
 		dump_histogram_value (stderr, hist);
 		error_found = true;
 	      }
-            pointer_set_insert (visited_hists, hist);
+            visited_hists.add (hist);
 	  }
       }
   if (VALUE_HISTOGRAMS (cfun))
-    htab_traverse (VALUE_HISTOGRAMS (cfun), visit_hist, visited_hists);
-  pointer_set_destroy (visited_hists);
+    htab_traverse (VALUE_HISTOGRAMS (cfun), visit_hist, &visited_hists);
   if (error_found)
     internal_error ("verify_histograms failed");
 }
@@ -835,9 +834,17 @@ gimple_divmod_fixed_value_transform (gimple_stmt_iterator *si)
   else
     prob = 0;
 
-  tree_val = build_int_cst_wide (get_gcov_type (),
-				 (unsigned HOST_WIDE_INT) val,
-				 val >> (HOST_BITS_PER_WIDE_INT - 1) >> 1);
+  if (sizeof (gcov_type) == sizeof (HOST_WIDE_INT))
+    tree_val = build_int_cst (get_gcov_type (), val);
+  else
+    {
+      HOST_WIDE_INT a[2];
+      a[0] = (unsigned HOST_WIDE_INT) val;
+      a[1] = val >> (HOST_BITS_PER_WIDE_INT - 1) >> 1;
+
+      tree_val = wide_int_to_tree (get_gcov_type (), wide_int::from_array (a, 2,
+	TYPE_PRECISION (get_gcov_type ()), false));
+    }
   result = gimple_divmod_fixed_value (stmt, tree_val, prob, count, all);
 
   if (dump_file)
@@ -1203,7 +1210,17 @@ gimple_mod_subtract_transform (gimple_stmt_iterator *si)
   return true;
 }
 
-static pointer_map_t *cgraph_node_map;
+static pointer_map_t *cgraph_node_map = 0;
+
+/* Returns true if node graph is initialized. This
+   is used to test if profile_id has been created
+   for cgraph_nodes.  */
+
+bool
+coverage_node_map_initialized_p (void)
+{
+  return cgraph_node_map != 0;
+}
 
 /* Initialize map from PROFILE_ID to CGRAPH_NODE.
    When LOCAL is true, the PROFILE_IDs are computed.  when it is false we assume
@@ -1216,8 +1233,7 @@ init_node_map (bool local)
   cgraph_node_map = pointer_map_create ();
 
   FOR_EACH_DEFINED_FUNCTION (n)
-    if (cgraph_function_with_gimple_body_p (n)
-	&& !cgraph_only_called_directly_p (n))
+    if (n->has_gimple_body_p ())
       {
 	void **val;
 	if (local)
@@ -1464,7 +1480,8 @@ gimple_ic (gimple icall_stmt, struct cgraph_node *direct_call,
 	      add_phi_arg (phi, gimple_call_lhs (iretbnd_stmt),
 			   e_ij, UNKNOWN_LOCATION);
 
-	      gsi_commit_edge_inserts ();
+	      gsi_commit_one_edge_insert (e_dj, NULL);
+	      gsi_commit_one_edge_insert (e_ij, NULL);
 	    }
 	  else
 	    {
@@ -1580,8 +1597,8 @@ gimple_ic_transform (gimple_stmt_iterator *gsi)
       print_generic_expr (dump_file, direct_call->decl, TDF_SLIM);
       fprintf (dump_file, " transformation on insn postponned to ipa-profile");
       print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
-      fprintf (dump_file, "hist->count "HOST_WIDEST_INT_PRINT_DEC
-	       " hist->all "HOST_WIDEST_INT_PRINT_DEC"\n", count, all);
+      fprintf (dump_file, "hist->count %"PRId64
+	       " hist->all %"PRId64"\n", count, all);
     }
 
   return true;
@@ -1792,9 +1809,18 @@ gimple_stringops_transform (gimple_stmt_iterator *gsi)
     default:
       gcc_unreachable ();
     }
-  tree_val = build_int_cst_wide (get_gcov_type (),
-				 (unsigned HOST_WIDE_INT) val,
-				 val >> (HOST_BITS_PER_WIDE_INT - 1) >> 1);
+  if (sizeof (gcov_type) == sizeof (HOST_WIDE_INT))
+    tree_val = build_int_cst (get_gcov_type (), val);
+  else
+    {
+      HOST_WIDE_INT a[2];
+      a[0] = (unsigned HOST_WIDE_INT) val;
+      a[1] = val >> (HOST_BITS_PER_WIDE_INT - 1) >> 1;
+
+      tree_val = wide_int_to_tree (get_gcov_type (), wide_int::from_array (a, 2,
+	TYPE_PRECISION (get_gcov_type ()), false));
+    }
+
   if (dump_file)
     {
       fprintf (dump_file, "Single value %i stringop transformation on ",

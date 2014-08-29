@@ -533,7 +533,11 @@ reinit_regs (void)
   init_regs ();
   /* caller_save needs to be re-initialized.  */
   caller_save_initialized_p = false;
-  ira_init ();
+  if (this_target_rtl->target_specific_initialized)
+    {
+      ira_init ();
+      recog_init ();
+    }
 }
 
 /* Initialize some fake stack-frame MEM references for use in
@@ -968,8 +972,6 @@ const pass_data pass_data_reginfo_init =
   RTL_PASS, /* type */
   "reginfo", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  false, /* has_gate */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -986,7 +988,7 @@ public:
   {}
 
   /* opt_pass methods: */
-  unsigned int execute () { return reginfo_init (); }
+  virtual unsigned int execute (function *) { return reginfo_init (); }
 
 }; // class pass_reginfo_init
 

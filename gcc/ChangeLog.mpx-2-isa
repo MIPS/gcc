@@ -1,48 +1,39 @@
-2013-07-23  Ilya Enkovich  <ilya.enkovich@intel.com>
+2014-05-19  Ilya Enkovich  <ilya.enkovich@intel.com>
 
-	* mode-classes.def (MODE_BOUND): New.
-	* tree.def (BOUND_TYPE): New.
-	* genmodes.c (complete_mode): Support MODE_BOUND.
-	(BOUND_MODE): New.
-	(make_bound_mode): New.
-	* machmode.h (BOUND_MODE_P): New.
-	* stor-layout.c (int_mode_for_mode): Support MODE_BOUND.
-	(layout_type): Support BOUND_TYPE.
-	* tree-pretty-print.c (dump_generic_node): Support BOUND_TYPE.
-	* tree.c (build_int_cst_wide): Support BOUND_TYPE.
-	(type_contains_placeholder_1): Likewise.
-	* tree.h (BOUND_TYPE_P): New.
-	* varasm.c (output_constant): Support BOUND_TYPE.
-	* config/i386/constraints.md (B): New.
+	* config/i386/constraints.md (w): New.
 	(Ti): New.
 	(Tb): New.
+	* config/i386/i386-c.c (ix86_target_macros_internal): Add __MPX__.
 	* config/i386/i386-modes.def (BND32): New.
 	(BND64): New.
 	* config/i386/i386-protos.h (ix86_bnd_prefixed_insn_p): New.
-	* config/i386/i386.c (isa_opts): Add mmpx.
-	(regclass_map): Add bound registers.
+	* config/i386/i386.c (regclass_map): Add bound registers.
 	(dbx_register_map): Likewise.
 	(dbx64_register_map): Likewise.
 	(svr4_dbx_register_map): Likewise.
+	(isa_opts): Add -mmpx.
 	(PTA_MPX): New.
-	(ix86_option_override_internal) Support MPX ISA.
+	(ix86_option_override_internal): Support MPX ISA.
+	(ix86_conditional_register_usage): Support bound registers.
 	(ix86_code_end): Add MPX bnd prefix.
 	(output_set_got): Likewise.
-	(ix86_output_call_insn): Likewise.
-	(get_some_local_dynamic_name): Add '!' (MPX bnd) print prefix support.
+	(print_reg): Avoid prefixes for bound registers.
+	(ix86_print_operand): Add '!' (MPX bnd) print prefix support.
 	(ix86_print_operand_punct_valid_p): Likewise.
 	(ix86_print_operand_address): Support UNSPEC_BNDMK_ADDR and
-	UNSPEC_BNDMK_ADDR.
+	UNSPEC_BNDLDX_ADDR.
+	(ix86_output_call_insn): Add MPX bnd prefix to branch instructions.
 	(ix86_class_likely_spilled_p): Add bound regs support.
 	(ix86_hard_regno_mode_ok): Likewise.
 	(x86_order_regs_for_local_alloc): Likewise.
 	(ix86_bnd_prefixed_insn_p): New.
-	* config/i386/i386.h (FIRST_PSEUDO_REGISTER): Fix to new value.
+	* config/i386/i386.h (TARGET_MPX): New.
+	(TARGET_MPX_P): New.
+	(FIRST_PSEUDO_REGISTER): Fix to new value.
 	(FIXED_REGISTERS): Add bound registers.
 	(CALL_USED_REGISTERS): Likewise.
 	(REG_ALLOC_ORDER): Likewise.
 	(HARD_REGNO_NREGS): Likewise.
-	(TARGET_MPX): New.
 	(VALID_BND_REG_MODE): New.
 	(FIRST_BND_REG): New.
 	(LAST_BND_REG): New.
@@ -65,22 +56,24 @@
 	(BND0_REG): New.
 	(BND1_REG): New.
 	(type): Add mpxmov, mpxmk, mpxchk, mpxld, mpxst.
-	(length_immediate): Likewise.
-	(prefix_0f): Likewise.
-	(memory): Likewise.
+	(length_immediate): Support mpxmov, mpxmk, mpxchk, mpxld, mpxst.
 	(prefix_rep): Check for bnd prefix.
+	(prefix_0f): Support mpxmov, mpxmk, mpxchk, mpxld, mpxst.
+	(length_nobnd): New.
+	(length): Use length_nobnd when specified.
+	(memory): Support mpxmov, mpxmk, mpxchk, mpxld, mpxst.
 	(BND): New.
 	(bnd_ptr): New.
 	(BNDCHECK): New.
 	(bndcheck): New.
-	(*jcc_1): Add MPX bnd prefix and fix length.
+	(*jcc_1): Add MPX bnd prefix.
 	(*jcc_2): Likewise.
 	(jump): Likewise.
-	(simple_return_internal): Likewise.
-	(simple_return_pop_internal): Likewise.
-	(*indirect_jump): Add MPX bnd prefix.
+	(*indirect_jump): Likewise.
 	(*tablejump_1): Likewise.
+	(simple_return_internal): Likewise.
 	(simple_return_internal_long): Likewise.
+	(simple_return_pop_internal): Likewise.
 	(simple_return_indirect_internal): Likewise.
 	(<mode>_mk): New.
 	(*<mode>_mk): New.
@@ -92,9 +85,11 @@
 	(*<mode>_ldx): New.
 	(<mode>_stx): New.
 	(*<mode>_stx): New.
-	* config/i386/predicates.md (lea_address_operand) Rename to...
-	(address_no_seg_operand): ... this.
-	(address_mpx_no_base_operand): New.
+	* config/i386/predicates.md (address_mpx_no_base_operand): New.
 	(address_mpx_no_index_operand): New.
 	(bnd_mem_operator): New.
 	* config/i386/i386.opt (mmpx): New.
+	* doc/rtl.texi (BND32mode): New.
+	(BND64mode): New.
+	* doc/invoke.texi (-mmpx): New.
+	(-mno-mpx): New.

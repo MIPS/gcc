@@ -52,6 +52,8 @@ namespace std _GLIBCXX_VISIBILITY(default)
 {
 namespace experimental
 {
+inline namespace fundamentals_v1
+{
 _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
@@ -736,12 +738,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template<typename _Tp>
     constexpr bool
     operator!=(const optional<_Tp>& __lhs, _Tp const& __rhs)
-    { return !__lhs || *__lhs != __rhs; }
+    { return !__lhs || !(*__lhs == __rhs); }
 
   template<typename _Tp>
     constexpr bool
     operator!=(const _Tp& __lhs, const optional<_Tp>& __rhs)
-    { return !__rhs || __lhs != *__rhs; }
+    { return !__rhs || !(__lhs == *__rhs); }
 
   template<typename _Tp>
     constexpr bool
@@ -797,6 +799,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   // @} group optional
 _GLIBCXX_END_NAMESPACE_VERSION
+} // namespace fundamentals_v1
 }
 
   // [X.Y.12]

@@ -1,0 +1,4 @@
+2014-08-15  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* tree-inline.c (copy_bb): Properly handle bounds in
+	va_arg_pack and va_arg_pack_len.

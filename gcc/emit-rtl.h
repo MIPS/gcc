@@ -20,6 +20,9 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_EMIT_RTL_H
 #define GCC_EMIT_RTL_H
 
+/* Return whether two MEM_ATTRs are equal.  */
+bool mem_attrs_eq_p (const struct mem_attrs *, const struct mem_attrs *);
+
 /* Set the alias set of MEM to SET.  */
 extern void set_mem_alias_set (rtx, alias_set_type);
 
@@ -52,10 +55,10 @@ extern tree get_spill_slot_decl (bool);
    ADDR.  The caller is asserting that the actual piece of memory pointed
    to is the same, just the form of the address is being changed, such as
    by putting something into a register.  */
-extern rtx replace_equiv_address (rtx, rtx);
+extern rtx replace_equiv_address (rtx, rtx, bool = false);
 
 /* Likewise, but the reference is not required to be valid.  */
-extern rtx replace_equiv_address_nv (rtx, rtx);
+extern rtx replace_equiv_address_nv (rtx, rtx, bool = false);
 
 extern rtx gen_blockage (void);
 extern rtvec gen_rtvec (int, ...);

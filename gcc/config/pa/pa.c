@@ -52,6 +52,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "df.h"
 #include "opts.h"
+#include "builtins.h"
 
 /* Return nonzero if there is a bypass for the output of 
    OUT_INSN and the fp store IN_INSN.  */
@@ -668,7 +669,7 @@ pa_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 static struct machine_function *
 pa_init_machine_status (void)
 {
-  return ggc_alloc_cleared_machine_function ();
+  return ggc_cleared_alloc<machine_function> ();
 }
 
 /* If FROM is a probable pointer register, mark TO as a probable
@@ -1036,7 +1037,7 @@ hppa_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
       && !REG_POINTER (XEXP (x, 1)))
     return gen_rtx_PLUS (Pmode, XEXP (x, 1), XEXP (x, 0));
 
-  if (pa_tls_referenced_p (x))
+  if (tls_referenced_p (x))
     return legitimize_tls_address (x);
   else if (flag_pic)
     return legitimize_pic_address (x, mode, gen_reg_rtx (Pmode));
@@ -1541,31 +1542,12 @@ force_mode (enum machine_mode mode, rtx orig)
   return gen_rtx_REG (mode, REGNO (orig));
 }
 
-/* Return 1 if *X is a thread-local symbol.  */
-
-static int
-pa_tls_symbol_ref_1 (rtx *x, void *data ATTRIBUTE_UNUSED)
-{
-  return PA_SYMBOL_REF_TLS_P (*x);
-}
-
-/* Return 1 if X contains a thread-local symbol.  */
-
-bool
-pa_tls_referenced_p (rtx x)
-{
-  if (!TARGET_HAVE_TLS)
-    return false;
-
-  return for_each_rtx (&x, &pa_tls_symbol_ref_1, 0);
-}
-
 /* Implement TARGET_CANNOT_FORCE_CONST_MEM.  */
 
 static bool
 pa_cannot_force_const_mem (enum machine_mode mode ATTRIBUTE_UNUSED, rtx x)
 {
-  return pa_tls_referenced_p (x);
+  return tls_referenced_p (x);
 }
 
 /* Emit insns to move operands[1] into operands[0].
@@ -1920,7 +1902,7 @@ pa_emit_move_sequence (rtx *operands, enum machine_mode mode, rtx scratch_reg)
       || (GET_CODE (operand1) == HIGH
 	  && symbolic_operand (XEXP (operand1, 0), mode))
       || function_label_operand (operand1, VOIDmode)
-      || pa_tls_referenced_p (operand1))
+      || tls_referenced_p (operand1))
     {
       int ishighonly = 0;
 
@@ -2080,7 +2062,7 @@ pa_emit_move_sequence (rtx *operands, enum machine_mode mode, rtx scratch_reg)
 	    }
 	  return 1;
 	}
-      else if (pa_tls_referenced_p (operand1))
+      else if (tls_referenced_p (operand1))
 	{
 	  rtx tmp = operand1;
 	  rtx addend = NULL;
@@ -5583,7 +5565,7 @@ pa_get_deferred_plabel (rtx symbol)
       tree id;
 
       if (deferred_plabels == 0)
-	deferred_plabels =  ggc_alloc_deferred_plabel ();
+	deferred_plabels =  ggc_alloc<deferred_plabel> ();
       else
         deferred_plabels = GGC_RESIZEVEC (struct deferred_plabel,
                                           deferred_plabels,
@@ -10261,10 +10243,10 @@ pa_function_section (tree decl, enum node_frequency freq,
   /* Force nested functions into the same section as the containing
      function.  */
   if (decl
-      && DECL_SECTION_NAME (decl) == NULL_TREE
+      && DECL_SECTION_NAME (decl) == NULL
       && DECL_CONTEXT (decl) != NULL_TREE
       && TREE_CODE (DECL_CONTEXT (decl)) == FUNCTION_DECL
-      && DECL_SECTION_NAME (DECL_CONTEXT (decl)) == NULL_TREE)
+      && DECL_SECTION_NAME (DECL_CONTEXT (decl)) == NULL)
     return function_section (DECL_CONTEXT (decl));
 
   /* Otherwise, use the default function section.  */
@@ -10292,7 +10274,7 @@ pa_legitimate_constant_p (enum machine_mode mode, rtx x)
   /* TLS_MODEL_GLOBAL_DYNAMIC and TLS_MODEL_LOCAL_DYNAMIC are not
      legitimate constants.  The other variants can't be handled by
      the move patterns after reload starts.  */
-  if (pa_tls_referenced_p (x))
+  if (tls_referenced_p (x))
     return false;
 
   if (TARGET_64BIT && GET_CODE (x) == CONST_DOUBLE)

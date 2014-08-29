@@ -428,7 +428,7 @@ determine_versionability (struct cgraph_node *node)
     reason = "alias or thunk";
   else if (!node->local.versionable)
     reason = "not a tree_versionable_function";
-  else if (cgraph_function_body_availability (node) <= AVAIL_OVERWRITABLE)
+  else if (node->get_availability () <= AVAIL_INTERPOSABLE)
     reason = "insufficient body availability";
   else if (!opt_for_fn (node->decl, optimize)
 	   || !opt_for_fn (node->decl, flag_ipa_cp))
@@ -442,7 +442,7 @@ determine_versionability (struct cgraph_node *node)
     }
   /* Don't clone decls local to a comdat group; it breaks and for C++
      decloned constructors, inlining is always better anyway.  */
-  else if (symtab_comdat_local_p (node))
+  else if (node->comdat_local_p ())
     reason = "comdat-local function";
 
   if (reason && dump_file && !node->alias && !node->thunk.thunk_p)
@@ -491,8 +491,8 @@ gather_caller_stats (struct cgraph_node *node, void *data)
 
   for (cs = node->callers; cs; cs = cs->next_caller)
     if (cs->caller->thunk.thunk_p)
-      cgraph_for_node_and_aliases (cs->caller, gather_caller_stats,
-				   stats, false);
+      cs->caller->call_for_symbol_thunks_and_aliases (gather_caller_stats,
+						    stats, false);
     else
       {
 	stats->count_sum += cs->count;
@@ -512,7 +512,7 @@ ipcp_cloning_candidate_p (struct cgraph_node *node)
 {
   struct caller_statistics stats;
 
-  gcc_checking_assert (cgraph_function_with_gimple_body_p (node));
+  gcc_checking_assert (node->has_gimple_body_p ());
 
   if (!flag_ipa_cp_clone)
     {
@@ -533,7 +533,7 @@ ipcp_cloning_candidate_p (struct cgraph_node *node)
     }
 
   init_caller_stats (&stats);
-  cgraph_for_node_and_aliases (node, gather_caller_stats, &stats, false);
+  node->call_for_symbol_thunks_and_aliases (gather_caller_stats, &stats, false);
 
   if (inline_summary (node)->self_size < stats.n_calls)
     {
@@ -698,11 +698,8 @@ initialize_node_lattices (struct cgraph_node *node)
   bool disable = false, variable = false;
   int i;
 
-  gcc_checking_assert (cgraph_function_with_gimple_body_p (node));
-  if (!node->local.local
-      || (node->instrumentation_clone
-	  && node->instrumented_version
-	  && !node->instrumented_version->local.local))
+  gcc_checking_assert (node->has_gimple_body_p ());
+  if (!cgraph_local_p (node))
     {
       /* When cloning is allowed, we can assume that externally visible
 	 functions are not called.  We will compensate this by cloning
@@ -792,6 +789,19 @@ ipa_get_jf_ancestor_result (struct ipa_jump_func *jfunc, tree input)
     {
       if (!ipa_get_jf_ancestor_type_preserved (jfunc))
 	return NULL;
+      /* FIXME: At LTO we can't propagate to non-polymorphic type, because
+	 we have no ODR equivalency on those.  This should be fixed by
+	 propagating on types rather than binfos that would make type
+	 matching here unnecesary.  */
+      if (in_lto_p
+	  && (TREE_CODE (ipa_get_jf_ancestor_type (jfunc)) != RECORD_TYPE
+	      || !TYPE_BINFO (ipa_get_jf_ancestor_type (jfunc))
+	      || !BINFO_VTABLE (TYPE_BINFO (ipa_get_jf_ancestor_type (jfunc)))))
+	{
+	  if (!ipa_get_jf_ancestor_offset (jfunc))
+	    return input;
+	  return NULL;
+	}
       return get_binfo_at_offset (input,
 				  ipa_get_jf_ancestor_offset (jfunc),
 				  ipa_get_jf_ancestor_type (jfunc));
@@ -887,7 +897,7 @@ ipcp_verify_propagated_values (void)
 	    {
 	      if (dump_file)
 		{
-		  dump_symtab (dump_file);
+		  symtab_node::dump_table (dump_file);
 		  fprintf (dump_file, "\nIPA lattices after constant "
 			   "propagation, before gcc_unreachable:\n");
 		  print_all_lattices (dump_file, true, false);
@@ -1425,10 +1435,10 @@ propagate_constants_accross_call (struct cgraph_edge *cs)
   bool ret = false;
   int i, args_count, parms_count;
 
-  callee = cgraph_function_node (cs->callee, &availability);
+  callee = cs->callee->function_symbol (&availability);
   if (!callee->definition)
     return false;
-  gcc_checking_assert (cgraph_function_with_gimple_body_p (callee));
+  gcc_checking_assert (callee->has_gimple_body_p ());
   callee_info = IPA_NODE_REF (callee);
 
   args = IPA_EDGE_REF (cs);
@@ -1437,14 +1447,31 @@ propagate_constants_accross_call (struct cgraph_edge *cs)
   if (parms_count == 0)
     return false;
 
+  /* No propagation through instrumentation thunks is available yet.
+     It should be possible with proper mapping of call args and
+     instrumented callee params in the propagation loop below.  But
+     this case mostly occurs when legacy code calls instrumented code
+     and it is not a primary target for optimizations.
+     We detect instrumentation thunks in aliases and thunks chain by
+     checking instrumentation_clone flag for chain source and target.
+     Going through instrumentation thunks we always have it changed
+     from 0 to 1 and all other nodes do not change it.  */
+  if (!cs->callee->instrumentation_clone
+      && callee->instrumentation_clone)
+    {
+      for (i = 0; i < parms_count; i++)
+	ret |= set_all_contains_variable (ipa_get_parm_lattices (callee_info,
+								 i));
+      return ret;
+    }
+
   /* If this call goes through a thunk we must not propagate to the first (0th)
      parameter.  However, we might need to uncover a thunk from below a series
      of aliases first.  */
   alias_or_thunk = cs->callee;
   while (alias_or_thunk->alias)
-    alias_or_thunk = cgraph_alias_target (alias_or_thunk);
-  if (alias_or_thunk->thunk.thunk_p
-      && !alias_or_thunk->thunk.add_pointer_bounds_args)
+    alias_or_thunk = alias_or_thunk->get_alias_target ();
+  if (alias_or_thunk->thunk.thunk_p)
     {
       ret |= set_all_contains_variable (ipa_get_parm_lattices (callee_info,
 							       0));
@@ -1453,27 +1480,13 @@ propagate_constants_accross_call (struct cgraph_edge *cs)
   else
     i = 0;
 
-  /* No propagation through instrumentation thunks is available yet.
-     It should be possible with proper mapping of call args and
-     instrumented callee params in the propagation loop below.  But
-     this case mostly occurs when legacy code calls instrumented code
-     and it is not a primary target for optimizations.  */
-  if (!alias_or_thunk->instrumentation_clone
-      && callee->instrumentation_clone)
-    {
-      for (; i < parms_count; i++)
-	ret |= set_all_contains_variable (ipa_get_parm_lattices (callee_info,
-								 i));
-      return ret;
-    }
-
   for (; (i < args_count) && (i < parms_count); i++)
     {
       struct ipa_jump_func *jump_func = ipa_get_ith_jump_func (args, i);
       struct ipcp_param_lattices *dest_plats;
 
       dest_plats = ipa_get_parm_lattices (callee_info, i);
-      if (availability == AVAIL_OVERWRITABLE)
+      if (availability == AVAIL_INTERPOSABLE)
 	ret |= set_all_contains_variable (dest_plats);
       else
 	{
@@ -1604,16 +1617,8 @@ ipa_get_indirect_edge_target_1 (struct cgraph_edge *ie,
 	      if ((TREE_CODE (TREE_TYPE (target)) == FUNCTION_TYPE
 		   && DECL_FUNCTION_CODE (target) == BUILT_IN_UNREACHABLE)
 		  || !possible_polymorphic_call_target_p
-		       (ie, cgraph_get_node (target)))
-		{
-		  if (dump_file)
-		    fprintf (dump_file,
-			     "Type inconsident devirtualization: %s/%i->%s\n",
-			     ie->caller->name (), ie->caller->order,
-			     IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (target)));
-		  target = builtin_decl_implicit (BUILT_IN_UNREACHABLE);
-		  cgraph_get_create_node (target);
-		}
+		       (ie, cgraph_node::get (target)))
+		target = ipa_impossible_devirt_target (ie, target);
 	      return target;
 	    }
 	}
@@ -1647,7 +1652,7 @@ ipa_get_indirect_edge_target_1 (struct cgraph_edge *ie,
       if (targets.length () == 1)
 	target = targets[0]->decl;
       else
-	target = builtin_decl_implicit (BUILT_IN_UNREACHABLE);
+	target = ipa_impossible_devirt_target (ie, NULL_TREE);
     }
   else
     {
@@ -1660,16 +1665,8 @@ ipa_get_indirect_edge_target_1 (struct cgraph_edge *ie,
     }
 
   if (target && !possible_polymorphic_call_target_p (ie,
-						     cgraph_get_node (target)))
-    {
-      if (dump_file)
-	fprintf (dump_file,
-		 "Type inconsident devirtualization: %s/%i->%s\n",
-		 ie->caller->name (), ie->caller->order,
-		 IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (target)));
-      target = builtin_decl_implicit (BUILT_IN_UNREACHABLE);
-      cgraph_get_create_node (target);
-    }
+						     cgraph_node::get (target)))
+    target = ipa_impossible_devirt_target (ie, target);
 
   return target;
 }
@@ -1705,6 +1702,7 @@ devirtualization_time_bonus (struct cgraph_node *node,
     {
       struct cgraph_node *callee;
       struct inline_summary *isummary;
+      enum availability avail;
       tree target;
 
       target = ipa_get_indirect_edge_target (ie, known_csts, known_binfos,
@@ -1714,8 +1712,11 @@ devirtualization_time_bonus (struct cgraph_node *node,
 
       /* Only bare minimum benefit for clearly un-inlineable targets.  */
       res += 1;
-      callee = cgraph_get_node (target);
+      callee = cgraph_node::get (target);
       if (!callee || !callee->definition)
+	continue;
+      callee = callee->function_symbol (&avail);
+      if (avail < AVAIL_AVAILABLE)
 	continue;
       isummary = inline_summary (callee);
       if (!isummary->inlinable)
@@ -1766,13 +1767,13 @@ good_cloning_opportunity_p (struct cgraph_node *node, int time_benefit,
   if (max_count)
     {
       int factor = (count_sum * 1000) / max_count;
-      HOST_WIDEST_INT evaluation = (((HOST_WIDEST_INT) time_benefit * factor)
+      int64_t evaluation = (((int64_t) time_benefit * factor)
 				    / size_cost);
 
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "     good_cloning_opportunity_p (time: %i, "
 		 "size: %i, count_sum: " HOST_WIDE_INT_PRINT_DEC
-		 ") -> evaluation: " HOST_WIDEST_INT_PRINT_DEC
+		 ") -> evaluation: " "%"PRId64
 		 ", threshold: %i\n",
 		 time_benefit, size_cost, (HOST_WIDE_INT) count_sum,
 		 evaluation, PARAM_VALUE (PARAM_IPA_CP_EVAL_THRESHOLD));
@@ -1781,13 +1782,13 @@ good_cloning_opportunity_p (struct cgraph_node *node, int time_benefit,
     }
   else
     {
-      HOST_WIDEST_INT evaluation = (((HOST_WIDEST_INT) time_benefit * freq_sum)
+      int64_t evaluation = (((int64_t) time_benefit * freq_sum)
 				    / size_cost);
 
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "     good_cloning_opportunity_p (time: %i, "
 		 "size: %i, freq_sum: %i) -> evaluation: "
-		 HOST_WIDEST_INT_PRINT_DEC ", threshold: %i\n",
+		 "%"PRId64 ", threshold: %i\n",
 		 time_benefit, size_cost, freq_sum, evaluation,
 		 PARAM_VALUE (PARAM_IPA_CP_EVAL_THRESHOLD));
 
@@ -1862,7 +1863,7 @@ gather_context_independent_values (struct ipa_node_params *info,
 	      (*known_csts)[i] = val->value;
 	      if (removable_params_cost)
 		*removable_params_cost
-		  += estimate_move_cost (TREE_TYPE (val->value));
+		  += estimate_move_cost (TREE_TYPE (val->value), false);
 	      ret = true;
 	    }
 	  else if (plats->virt_call)
@@ -1948,7 +1949,8 @@ estimate_local_effects (struct cgraph_node *node)
       int time, size;
 
       init_caller_stats (&stats);
-      cgraph_for_node_and_aliases (node, gather_caller_stats, &stats, false);
+      node->call_for_symbol_thunks_and_aliases (gather_caller_stats, &stats,
+					      false);
       estimate_ipcp_clone_size_and_time (node, known_csts, known_binfos,
 					 known_aggs_ptrs, &size, &time, &hints);
       time -= devirtualization_time_bonus (node, known_csts, known_binfos,
@@ -1962,7 +1964,7 @@ estimate_local_effects (struct cgraph_node *node)
 		 "time_benefit: %i\n", size, base_time - time);
 
       if (size <= 0
-	  || cgraph_will_be_removed_from_program_if_no_direct_calls (node))
+	  || node->will_be_removed_from_program_if_no_direct_calls_p ())
 	{
 	  info->do_clone_for_all_contexts = true;
 	  base_time = time;
@@ -2014,7 +2016,7 @@ estimate_local_effects (struct cgraph_node *node)
 	    {
 	      known_csts[i] = val->value;
 	      known_binfos[i] = NULL_TREE;
-	      emc = estimate_move_cost (TREE_TYPE (val->value));
+	      emc = estimate_move_cost (TREE_TYPE (val->value), true);
 	    }
 	  else if (plats->virt_call)
 	    {
@@ -2224,12 +2226,12 @@ propagate_constants_topo (struct topo_info *topo)
     {
       unsigned j;
       struct cgraph_node *v, *node = topo->order[i];
-      vec<cgraph_node_ptr> cycle_nodes = ipa_get_nodes_in_cycle (node);
+      vec<cgraph_node *> cycle_nodes = ipa_get_nodes_in_cycle (node);
 
       /* First, iteratively propagate within the strongly connected component
 	 until all lattices stabilize.  */
       FOR_EACH_VEC_ELT (cycle_nodes, j, v)
-	if (cgraph_function_with_gimple_body_p (v))
+	if (v->has_gimple_body_p ())
 	  push_node_to_stack (topo, v);
 
       v = pop_node_from_stack (topo);
@@ -2248,7 +2250,7 @@ propagate_constants_topo (struct topo_info *topo)
 	 the local effects of the discovered constants and all valid values to
 	 their topological sort.  */
       FOR_EACH_VEC_ELT (cycle_nodes, j, v)
-	if (cgraph_function_with_gimple_body_p (v))
+	if (v->has_gimple_body_p ())
 	  {
 	    struct cgraph_edge *cs;
 
@@ -2331,7 +2333,7 @@ ipcp_propagate_stage (struct topo_info *topo)
     struct ipa_node_params *info = IPA_NODE_REF (node);
 
     determine_versionability (node);
-    if (cgraph_function_with_gimple_body_p (node))
+    if (node->has_gimple_body_p ())
       {
 	info->lattices = XCNEWVEC (struct ipcp_param_lattices,
 				   ipa_get_param_count (info));
@@ -2405,14 +2407,12 @@ ipcp_discover_new_direct_edges (struct cgraph_node *node,
 		    fprintf (dump_file, "     controlled uses count of param "
 			     "%i bumped down to %i\n", param_index, c);
 		  if (c == 0
-		      && (to_del = ipa_find_reference (node,
-						       cs->callee,
-						       NULL, 0)))
+		      && (to_del = node->find_reference (cs->callee, NULL, 0)))
 		    {
 		      if (dump_file && (dump_flags & TDF_DETAILS))
 			fprintf (dump_file, "       and even removing its "
 				 "cloning-created reference\n");
-		      ipa_remove_reference (to_del);
+		      to_del->remove_reference ();
 		    }
 		}
 	    }
@@ -2426,8 +2426,8 @@ ipcp_discover_new_direct_edges (struct cgraph_node *node,
 /* Vector of pointers which for linked lists of clones of an original crgaph
    edge. */
 
-static vec<cgraph_edge_p> next_edge_clone;
-static vec<cgraph_edge_p> prev_edge_clone;
+static vec<cgraph_edge *> next_edge_clone;
+static vec<cgraph_edge *> prev_edge_clone;
 
 static inline void
 grow_edge_clone_vectors (void)
@@ -2477,7 +2477,7 @@ ipcp_edge_removal_hook (struct cgraph_edge *cs, void *)
    parameter with the given INDEX.  */
 
 static tree
-get_clone_agg_value (struct cgraph_node *node, HOST_WIDEST_INT offset,
+get_clone_agg_value (struct cgraph_node *node, HOST_WIDE_INT offset,
 		     int index)
 {
   struct ipa_agg_replacement_value *aggval;
@@ -2500,7 +2500,8 @@ cgraph_edge_brings_value_p (struct cgraph_edge *cs,
 			    struct ipcp_value_source *src)
 {
   struct ipa_node_params *caller_info = IPA_NODE_REF (cs->caller);
-  struct ipa_node_params *dst_info = IPA_NODE_REF (cs->callee);
+  cgraph_node *real_dest = cs->callee->function_symbol ();
+  struct ipa_node_params *dst_info = IPA_NODE_REF (real_dest);
 
   if ((dst_info->ipcp_orig_node && !dst_info->is_all_contexts_clone)
       || caller_info->node_dead)
@@ -2587,11 +2588,11 @@ get_info_about_necessary_edges (struct ipcp_value *val, int *freq_sum,
 /* Return a vector of incoming edges that do bring value VAL.  It is assumed
    their number is known and equal to CALLER_COUNT.  */
 
-static vec<cgraph_edge_p> 
+static vec<cgraph_edge *>
 gather_edges_for_value (struct ipcp_value *val, int caller_count)
 {
   struct ipcp_value_source *src;
-  vec<cgraph_edge_p> ret;
+  vec<cgraph_edge *> ret;
 
   ret.create (caller_count);
   for (src = val->sources; src; src = src->next)
@@ -2617,7 +2618,7 @@ get_replacement_map (struct ipa_node_params *info, tree value, int parm_num)
   struct ipa_replace_map *replace_map;
 
 
-  replace_map = ggc_alloc_ipa_replace_map ();
+  replace_map = ggc_alloc<ipa_replace_map> ();
   if (dump_file)
     {
       fprintf (dump_file, "    replacing ");
@@ -2675,10 +2676,12 @@ update_profiling_info (struct cgraph_node *orig_node,
     return;
 
   init_caller_stats (&stats);
-  cgraph_for_node_and_aliases (orig_node, gather_caller_stats, &stats, false);
+  orig_node->call_for_symbol_thunks_and_aliases (gather_caller_stats, &stats,
+					       false);
   orig_sum = stats.count_sum;
   init_caller_stats (&stats);
-  cgraph_for_node_and_aliases (new_node, gather_caller_stats, &stats, false);
+  new_node->call_for_symbol_thunks_and_aliases (gather_caller_stats, &stats,
+					      false);
   new_sum = stats.count_sum;
 
   if (orig_node_count < orig_sum + new_sum)
@@ -2773,10 +2776,10 @@ static struct cgraph_node *
 create_specialized_node (struct cgraph_node *node,
 			 vec<tree> known_vals,
 			 struct ipa_agg_replacement_value *aggvals,
-			 vec<cgraph_edge_p> callers)
+			 vec<cgraph_edge *> callers)
 {
   struct ipa_node_params *new_info, *info = IPA_NODE_REF (node);
-  vec<ipa_replace_map_p, va_gc> *replace_trees = NULL;
+  vec<ipa_replace_map *, va_gc> *replace_trees = NULL;
   struct ipa_agg_replacement_value *av;
   struct cgraph_node *new_node;
   int i, count = ipa_get_param_count (info);
@@ -2816,12 +2819,11 @@ create_specialized_node (struct cgraph_node *node,
 	}
     }
 
-  new_node = cgraph_create_virtual_clone (node, callers, replace_trees,
-					  args_to_skip, "constprop");
+  new_node = node->create_virtual_clone (callers, replace_trees,
+					 args_to_skip, "constprop");
   ipa_set_node_agg_value_chain (new_node, aggvals);
   for (av = aggvals; av; av = av->next)
-    ipa_maybe_record_reference (new_node, av->value,
-				IPA_REF_ADDR, NULL);
+    new_node->maybe_add_reference (av->value, IPA_REF_ADDR, NULL);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -2849,7 +2851,7 @@ create_specialized_node (struct cgraph_node *node,
 static void
 find_more_scalar_values_for_callers_subset (struct cgraph_node *node,
 					    vec<tree> known_vals,
-					    vec<cgraph_edge_p> callers)
+					    vec<cgraph_edge *> callers)
 {
   struct ipa_node_params *info = IPA_NODE_REF (node);
   int i, count = ipa_get_param_count (info);
@@ -3158,7 +3160,7 @@ intersect_aggregates_with_edge (struct cgraph_edge *cs, int index,
 
 static struct ipa_agg_replacement_value *
 find_aggregate_values_for_callers_subset (struct cgraph_node *node,
-					  vec<cgraph_edge_p> callers)
+					  vec<cgraph_edge *> callers)
 {
   struct ipa_node_params *dest_info = IPA_NODE_REF (node);
   struct ipa_agg_replacement_value *res = NULL;
@@ -3200,7 +3202,7 @@ find_aggregate_values_for_callers_subset (struct cgraph_node *node,
 	  if (!item->value)
 	    continue;
 
-	  v = ggc_alloc_ipa_agg_replacement_value ();
+	  v = ggc_alloc<ipa_agg_replacement_value> ();
 	  v->index = i;
 	  v->offset = item->offset;
 	  v->value = item->value;
@@ -3230,7 +3232,7 @@ known_aggs_to_agg_replacement_list (vec<ipa_agg_jump_function> known_aggs)
     FOR_EACH_VEC_SAFE_ELT (aggjf->items, j, item)
       {
 	struct ipa_agg_replacement_value *v;
-	v = ggc_alloc_ipa_agg_replacement_value ();
+	v = ggc_alloc<ipa_agg_replacement_value> ();
 	v->index = i;
 	v->offset = item->offset;
 	v->value = item->value;
@@ -3365,10 +3367,9 @@ perhaps_add_new_callers (struct cgraph_node *node, struct ipcp_value *val)
       while (cs)
 	{
 	  enum availability availability;
-	  struct cgraph_node *dst = cgraph_function_node (cs->callee,
-							  &availability);
+	  struct cgraph_node *dst = cs->callee->function_symbol (&availability);
 	  if ((dst == node || IPA_NODE_REF (dst)->is_all_contexts_clone)
-	      && availability > AVAIL_OVERWRITABLE
+	      && availability > AVAIL_INTERPOSABLE
 	      && cgraph_edge_brings_value_p (cs, src))
 	    {
 	      if (cgraph_edge_brings_all_scalars_for_node (cs, val->spec_node)
@@ -3441,7 +3442,7 @@ decide_about_value (struct cgraph_node *node, int index, HOST_WIDE_INT offset,
   struct ipa_agg_replacement_value *aggvals;
   int freq_sum, caller_count;
   gcov_type count_sum;
-  vec<cgraph_edge_p> callers;
+  vec<cgraph_edge *> callers;
   vec<tree> kv;
 
   if (val->spec_node)
@@ -3561,14 +3562,14 @@ decide_whether_version_node (struct cgraph_node *node)
   if (info->do_clone_for_all_contexts)
     {
       struct cgraph_node *clone;
-      vec<cgraph_edge_p> callers;
+      vec<cgraph_edge *> callers;
 
       if (dump_file)
 	fprintf (dump_file, " - Creating a specialized node of %s/%i "
 		 "for all known contexts.\n", node->name (),
 		 node->order);
 
-      callers = collect_callers_of_node (node);
+      callers = node->collect_callers ();
       move_binfos_to_values (known_csts, known_binfos);
       clone = create_specialized_node (node, known_csts,
 			       known_aggs_to_agg_replacement_list (known_aggs),
@@ -3601,7 +3602,7 @@ spread_undeadness (struct cgraph_node *node)
 	struct cgraph_node *callee;
 	struct ipa_node_params *info;
 
-	callee = cgraph_function_node (cs->callee, NULL);
+	callee = cs->callee->function_symbol (NULL);
 	info = IPA_NODE_REF (callee);
 
 	if (info->node_dead)
@@ -3623,9 +3624,8 @@ has_undead_caller_from_outside_scc_p (struct cgraph_node *node,
 
   for (cs = node->callers; cs; cs = cs->next_caller)
     if (cs->caller->thunk.thunk_p
-	&& cgraph_for_node_and_aliases (cs->caller,
-					has_undead_caller_from_outside_scc_p,
-					NULL, true))
+	&& cs->caller->call_for_symbol_thunks_and_aliases
+	  (has_undead_caller_from_outside_scc_p, NULL, true))
       return true;
     else if (!ipa_edge_within_scc (cs)
 	     && !IPA_NODE_REF (cs->caller)->node_dead)
@@ -3642,10 +3642,9 @@ identify_dead_nodes (struct cgraph_node *node)
 {
   struct cgraph_node *v;
   for (v = node; v ; v = ((struct ipa_dfs_info *) v->aux)->next_cycle)
-    if (cgraph_will_be_removed_from_program_if_no_direct_calls (v)
-	&& !cgraph_for_node_and_aliases (v,
-					 has_undead_caller_from_outside_scc_p,
-					 NULL, true))
+    if (v->will_be_removed_from_program_if_no_direct_calls_p ()
+	&& !v->call_for_symbol_thunks_and_aliases
+	     (has_undead_caller_from_outside_scc_p, NULL, true))
       IPA_NODE_REF (v)->node_dead = 1;
 
   for (v = node; v ; v = ((struct ipa_dfs_info *) v->aux)->next_cycle)
@@ -3682,7 +3681,7 @@ ipcp_decision_stage (struct topo_info *topo)
 	  struct cgraph_node *v;
 	  iterate = false;
 	  for (v = node; v ; v = ((struct ipa_dfs_info *) v->aux)->next_cycle)
-	    if (cgraph_function_with_gimple_body_p (v)
+	    if (v->has_gimple_body_p ()
 		&& ipcp_versionable_function_p (v))
 	      iterate |= decide_whether_version_node (v);
 
@@ -3780,16 +3779,6 @@ ipcp_read_summary (void)
   ipa_prop_read_jump_functions ();
 }
 
-/* Gate for IPCP optimization.  */
-
-static bool
-cgraph_gate_cp (void)
-{
-  /* FIXME: We should remove the optimize check after we ensure we never run
-     IPA passes when not optimizing.  */
-  return flag_ipa_cp && optimize;
-}
-
 namespace {
 
 const pass_data pass_data_ipa_cp =
@@ -3797,8 +3786,6 @@ const pass_data pass_data_ipa_cp =
   IPA_PASS, /* type */
   "cp", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
-  true, /* has_execute */
   TV_IPA_CONSTANT_PROP, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -3826,8 +3813,14 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return cgraph_gate_cp (); }
-  unsigned int execute () { return ipcp_driver (); }
+  virtual bool gate (function *)
+    {
+      /* FIXME: We should remove the optimize check after we ensure we never run
+	 IPA passes when not optimizing.  */
+      return flag_ipa_cp && optimize;
+    }
+
+  virtual unsigned int execute (function *) { return ipcp_driver (); }
 
 }; // class pass_ipa_cp
 

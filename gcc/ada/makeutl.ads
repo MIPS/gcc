@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2004-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -78,6 +78,16 @@ package Makeutl is
 
    Create_Map_File_Switch : constant String := "--create-map-file";
    --  Switch to create a map file when an executable is linked
+
+   No_Exit_Message_Option : constant String := "--no-exit-message";
+   --  Switch to suppress exit error message when there are compilation
+   --  failures. This is useful when a tool, such as gnatprove, silently calls
+   --  the builder and does not want to pollute its output with error messages
+   --  coming from the builder. This is an internal switch.
+
+   Keep_Temp_Files_Option : constant String := "--keep-temp-files";
+   --  Switch to suppress deletion of temp files created by the builder.
+   --  Note that debug switch -gnatdn also has this effect.
 
    Load_Standard_Base : Boolean := True;
    --  False when gprbuild is called with --db-
@@ -323,7 +333,7 @@ package Makeutl is
 
    procedure Compute_Builder_Switches
      (Project_Tree     : Project_Tree_Ref;
-      Root_Environment : in out Prj.Tree.Environment;
+      Env              : in out Prj.Tree.Environment;
       Main_Project     : Project_Id;
       Only_For_Lang    : Name_Id := No_Name);
    --  Compute the builder switches and global compilation switches. Every time
@@ -489,8 +499,9 @@ package Makeutl is
          record
             case Format is
                when Format_Gprbuild =>
-                  Tree : Project_Tree_Ref := No_Project_Tree;
-                  Id   : Source_Id        := No_Source;
+                  Tree    : Project_Tree_Ref := No_Project_Tree;
+                  Id      : Source_Id        := No_Source;
+                  Closure : Boolean          := False;
 
                when Format_Gnatmake =>
                   File    : File_Name_Type := No_File;
@@ -504,7 +515,8 @@ package Makeutl is
       --  depends on the builder, and in particular whether it only supports
       --  project-based files (in which case we have a full Source_Id record).
 
-      No_Source_Info : constant Source_Info := (Format_Gprbuild, null, null);
+      No_Source_Info : constant Source_Info :=
+                         (Format_Gprbuild, null, null, False);
 
       procedure Initialize
         (Queue_Per_Obj_Dir : Boolean;

@@ -21,6 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_TREE_CHKP_H
 
 #include "tree.h"
+#include "cgraph.h"
 
 #define DECL_BOUNDS(NODE) (chkp_get_bounds (DECL_WRTL_CHECK (NODE)))
 
@@ -47,5 +48,8 @@ extern bool chkp_function_instrumented_p (tree fndecl);
 extern void chkp_function_mark_instrumented (tree fndecl);
 extern void chkp_copy_bounds_for_assign (gimple assign,
 					 struct cgraph_edge *edge);
+extern bool chkp_gimple_call_builtin_p (gimple call,
+					enum built_in_function code);
+extern cgraph_node *chkp_maybe_create_clone (tree fndecl);
 
 #endif /* GCC_TREE_CHKP_H */

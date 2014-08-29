@@ -1,6 +1,6 @@
-2013-11-15  Ilya Enkovich  <ilya.enkovich@intel.com>
+2014-06-05  Ilya Enkovich  <ilya.enkovich@intel.com>
 
-	* calls.c: Include tree-chkp.h, rtl-chkp.h.
+	* calls.c: Include tree-chkp.h, rtl-chkp.h, bitmap.h.
 	(arg_data): Add fields special_slot, pointer_arg and
 	pointer_offset.
 	(store_bounds): New.
@@ -17,15 +17,12 @@
 	(expand_return): Add returned bounds arg.  Handle returned bounds.
 	(expand_gimple_stmt_1): Adjust to new expand_return signature.
 	(gimple_expand_cfg): Reset rtx bounds map.
-	* expr.h (store_expr): Add param for bounds target.
 	* expr.c: Include tree-chkp.h, rtl-chkp.h.
 	(expand_assignment): Handle returned bounds.
-	(store_expr): Add bounds target argument.  Handle
-	bounds returned by calls.
-	(store_constructor): Adjust to new store_expr signature.
-	(store_field): Likewise.
-	(expand_expr_real_2): Likewise.
-	(expand_expr_real_1): Likewise.
+	(store_expr_with_bounds): New.  Replaces store_expr with new bounds
+	target argument.  Handle bounds returned by calls.
+	(store_expr): Now wraps store_expr_with_bounds.
+	* expr.h (store_expr_with_bounds): New.
 	* function.c: Include tree-chkp.h, rtl-chkp.h.
 	(bounds_parm_data): New.
 	(use_register_for_decl): Do not registerize decls used for bounds
@@ -42,5 +39,3 @@
 	(diddle_return_value_1): New.
 	(diddle_return_value): Handle returned bounds.
 	* function.h (rtl_data): Add field for returned bounds.
-	* tree-outof-ssa.c (insert_value_copy_on_edge): Adjust to new
-	store_expr signature.
