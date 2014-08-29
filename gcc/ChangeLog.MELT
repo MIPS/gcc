@@ -1,5 +1,9 @@
 
 2014-08-29  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-hooks.melt (hook_melt_do_initial_mode): Make an
+	error when a mode is unknown.
+
+2014-08-29  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/libmelt-ana-base.melt (each_cgraph_fun_call_flow_graph):
 	Keep the $EACHCGRAFUNCFG#_n_bb if no CFG available; somehow hacky,
 	since we should not call it in that case...
