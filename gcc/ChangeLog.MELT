@@ -1,5 +1,8 @@
 
 2014-08-29  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/generated/*: Regenerate.
+
+2014-08-29  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-hooks.melt (hook_melt_do_initial_mode): Make an
 	error when a mode is unknown.
 
