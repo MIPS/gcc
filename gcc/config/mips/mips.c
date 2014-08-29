@@ -20658,6 +20658,9 @@ mips_expand_msa_cmp (rtx dest, enum rtx_code cond, rtx op0, rtx op1)
 	case EQ:
 	  emit_insn (gen_msa_fceq_w (dest, op0, op1));
 	  break;
+	case NE:
+	  emit_insn (gen_msa_fcne_w (dest, op0, op1));
+	  break;
 	case LTGT:
 	  emit_insn (gen_msa_fcne_w (dest, op0, op1));
 	  break;
@@ -20698,6 +20701,9 @@ mips_expand_msa_cmp (rtx dest, enum rtx_code cond, rtx op0, rtx op1)
 	  break;
 	case EQ:
 	  emit_insn (gen_msa_fceq_d (dest, op0, op1));
+	  break;
+	case NE:
+	  emit_insn (gen_msa_fcne_d (dest, op0, op1));
 	  break;
 	case LTGT:
 	  emit_insn (gen_msa_fcne_d (dest, op0, op1));
@@ -20756,7 +20762,6 @@ mips_msa_reversed_fp_cond (enum rtx_code *code)
 {
   switch (*code)
     {
-    case NE:
     case ORDERED:
     case UNEQ:
       *code = reverse_condition_maybe_unordered (*code);
