@@ -229,17 +229,19 @@ GCCMELT_STAGE_ZERO = meltbuild-stage0-quicklybuilt
 
 all: melt-run.h melt.so melt-translator melt-applications melt-gendoc doc
 	@echo 
-	@echo '++++++++++++++++++++++++++++++++++++++'
+	@echo 
+	@echo '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
 	@date +'*** MELT plugin "$(melt_version_string)" compilation completed at %c ***%n'
 	@echo
-	@echo The MELT probe in simplemelt-gtkmm-probe.cc is probably obsolete.
+	@echo The MELT probe in simplemelt-gtkmm-probe.cc is obsolete.
 	@echo
 	@echo You may want to install this MELT plugin with e.g. \
-	  make install DESTDIR=/tmp/meltinstall \
+	  make install DESTDIR=/tmp/meltinstall-"$(melt_version_string)" \
 	  then copy your '$$DESTDIR' appropriately to the installation tree \
           to fill $(MELTGCC_PLUGIN_DIR)
 	@echo
 	@echo Please subscribe to http://groups.google.com/group/gcc-melt forum.
+	@echo
 	@echo
 
 

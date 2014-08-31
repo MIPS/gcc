@@ -749,12 +749,75 @@ function meltbuild_do_library () {
 } ## end function meltbuild_do_library  [+(.(fromline))+]
 
 
+function meltbuild_do_an_extra () {
+  xtrabase=$1
+  meltbuild_notice 'start doing an extra'  [+(.(fromline))+] doing an xtra $xtrabase
+  
+  if [ ! -f meltbuild-sources/$xtrabase.melt ]; then
+        meltbuild_symlink $GCCMELT_MELTSOURCEDIR/$xtrabase.melt meltbuild-sources/$xtrabase.melt
+  fi
+  
+  if [ ! -f meltbuild-sources/$xtrabase.cc -o  ! -f meltbuild-sources/$xtrabase+meltdesc.c \
+       -o meltbuild-sources/$xtrabase+meltdesc.c -ot meltbuild-final-translator.stamp \
+       -o meltbuild-sources/$xtrabase+meltdesc.c -ot meltbuild-final-library.stamp \
+       -o meltbuild-sources/$xtrabase+meltdesc.c -ot meltbuild-sources/$xtrabase.melt \
+  	 ; then
+      meltbuild_info [+(.(fromline))+] emit extra C++ code for $xtrabase
+      meltbuild_emit [+(.(fromline))+] \
+  	  translatefile \
+  	  $xtrabase \
+  	  meltbuild-sources \
+  	  meltbuild-modules \
+  	  [+FOR melt_translator_file ":"+][+base+].optimized[+ENDFOR melt_translator_file+][+FOR melt_library_file+]:[+base+].quicklybuilt[+ENDFOR melt_library_file+] \
+    "[+FOR includeload " "+][+includeload+][+ENDFOR includeload+]" \
+  	  || meltbuild_error [+(.(fromline))+] failed to generate C++ code of $xtrabase
+  else
+      meltbuild_info [+(.(fromline))+] DONT emit extra C++ code for $xtrabase
+  fi
+
+  [+FOR flavor IN quicklybuilt optimized debugnoline+]
+  # do_an_extra flavor [+flavor+]  [+(.(fromline))+]      
+  if [ ! -f meltbuild-modules/$xtrabase.meltmod-$meltlib_[+varsuf+]_cumulmd5.[+flavor+].so \
+      -o meltbuild-modules/$xtrabase.meltmod-$meltlib_[+varsuf+]_cumulmd5.[+flavor+].so -ot  meltbuild-final-translator.stamp \
+      -o  meltbuild-modules/$xtrabase.meltmod-$meltlib_[+varsuf+]_cumulmd5.[+flavor+].so -ot  meltbuild-sources/$xtrabase.cc \
+      -o  meltbuild-modules/$xtrabase.meltmod-$meltlib_[+varsuf+]_cumulmd5.[+flavor+].so -ot  meltbuild-sources/$xtrabase+meltdesc.c ]; then
+      meltbuild_info [+(.(fromline))+] compiling extra module for $xtrabase [+flavor+]
+      $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
+  	  GCCMELT_FROM=[+(.(fromline))+] \
+  	  GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
+  	  GCCMELT_MODULE_FLAVOR=[+flavor+] \
+  	  GCCMELT_COMPILER="$GCCMELT_COMPILER" \
+  	  GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
+  	  GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/$xtrabase \
+  	  GCCMELT_MODULE_BINARYBASE=meltbuild-modules/$xtrabase \
+  	  || ( meltbuild_notice [+(.(fromline))+] in meltbuild-modules failure to compile extra $xtrabase [+flavor+] ; \
+  	       $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
+  			     GCCMELT_FROM=[+(.(fromline))+] \
+  			     GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
+  			     GCCMELT_MODULE_FLAVOR=[+flavor+] \
+  			     GCCMELT_COMPILER="$GCCMELT_COMPILER" \
+  			     GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS -DMELTGCC_NOLINENUMBERING" \
+  			     GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/$xtrabase \
+  			     GCCMELT_MODULE_BINARYBASE=meltbuild-modules/$xtrabase ; \
+  	       meltbuild_error  [+(.(fromline))+] in meltbuild-modules failed to compile library $xtrabase [+flavor+] \
+  				"($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER_FLAGS cflags $GCCMELT_COMPILER_FLAGS )
+  	       else
+      meltbuild_info [+(.(fromline))+] not compiling extra module for $xtrabase [+flavor+]
+  fi
+  [+ENDFOR flavor+]
+
+} ## end function  meltbuild_do_an_extra 
+
 if [ ! -f  "$melt_final_library_stamp" \
      -o "$melt_final_library_stamp" -ot "$melt_final_translator_stamp" \
 [+FOR melt_library_file+] -o "$melt_final_library_stamp" -ot "$GCCMELT_MELTSOURCEDIR/[+base+].melt" \
 [+ENDFOR melt_library_file+] ]; then
     meltbuild_info [+(.(fromline))+] building MELT library
     meltbuild_do_library
+    [+FOR melt_extra_file+]
+    ## do an extra [+base+]  [+(.(fromline))+] 
+    meltbuild_do_an_extra [+base+]
+    [+ENDFOR melt_extra_file+]
 else
     meltbuild_info [+(.(fromline))+] not building MELT library because of libstamp  "$melt_final_library_stamp"
 fi
@@ -792,6 +855,7 @@ if [ ! -f "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.[+flavor+].modlis" \
  echo "# MELT extra modules with mode condition:" >> $melt_modlis_temp
  [+FOR melt_extra_file+]
  printf '# MELT extra module [+base+]\n' >> $melt_modlis_temp
+ [ -s  meltbuild-sources/[+base+].melt ] || meltbuild_error  [+(.(fromline))+] missing or empty meltbuild-sources/[+base+].melt
  $GAWK '-F\"' '/\(install_melt_mode /{if (length($2)>1) {nbmod++;printf("?%s [+base+].[+flavor+]\n", $2);}} END{printf("# %d MELT modes in [+base+]\n", nbmod);}' meltbuild-sources/[+base+].melt | sort -u >> $melt_modlis_temp
  [+ENDFOR melt_extra_file+]
  echo "# end MELT module list $MELTGCCBUILTIN_DEFAULT_MODLIS.[+flavor+].modlis" >> $melt_modlis_temp

@@ -1,4 +1,11 @@
 
+2014-08-31  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-build-script.tpl (meltbuild_do_an_extra): New function.
+	Call it for building the library.
+
+	* melt-build-script.sh: Regenerate.
+
 2014-08-29  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerate.
 

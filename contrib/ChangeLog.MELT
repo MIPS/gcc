@@ -1,4 +1,8 @@
 
+2014-08-31  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* MELT-Plugin-Makefile (all): Improve final message.
+
 2014-08-28  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* MELT-Plugin-Makefile: Use melt-runtime.ii...
