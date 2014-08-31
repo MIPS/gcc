@@ -1,5 +1,9 @@
 
 2014-08-31  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{MELT 1.1.2 release for GCC 4.8 & 4.9}}
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.1.2.
+
+2014-08-31  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.1.2pre7.
 

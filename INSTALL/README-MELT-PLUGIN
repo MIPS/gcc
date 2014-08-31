@@ -195,9 +195,40 @@ the subject line] and to <gcc-melt@googlegroups.com>
 
 
 
+
 ################################################################
-NEWS for 1.1.1 MELT plugin for GCC 4.8 & 4.9
-[[august, 11th, 2014]]
+NEWS for 1.1.2 MELT plugin for GCC 4.8 & 4.9
+[[august, 31th, 2014]]
+
+Bug-fix with minor improvements release w.r.t. to MELT plugin 1.1.1
+
+   Bug fixes
+   =========
+
+   Better plugin build (ending message mention that probe is obsolete)
+
+   All passes data are cleared in hook_all_passes_end.
+
+   Gives an error message for unknown mode.
+
+   Reject loading twice the same MELT module.
+
+   register_pre_genericize_first & register_pre_genericize_last
+   should work.
+
+   mixbigint-s are understood by output_json.
+
+   assert_msg don't loop with non-value arguments.
+   
+   do_blocking_jsonrpc2_call returns secondarily the time in
+   milliseconds needed to process the JSONRPC call.
+
+   register_gcc_attribute works, and is a macro.
+
+   tree_chain_to_tuple is a new function.
+   
+################################################################ NEWS
+for 1.1.1 MELT plugin for GCC 4.8 & 4.9 [[august, 11th, 2014]]
 
 Bug-fix release w.r.t. to MELT plugin 1.1
 
