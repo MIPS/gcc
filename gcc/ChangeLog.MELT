@@ -1,6 +1,12 @@
 
 2014-08-31  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.1.2pre7.
+
+	* melt/libmelt-ana-base.melt (each_cgraph_pushed_cfun): New.
+
+2014-08-31  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-build-script.tpl (meltbuild_do_an_extra): New function.
 	Call it for building the library.
 

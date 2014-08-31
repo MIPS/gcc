@@ -1257,7 +1257,7 @@ unsigned int melthk_rtl_execute(void)
    /* this assert fails when in a pass without control flow graph */
    melt_assertmsg ("no cfg in each_cgraph_fun_entryblock $EACHCGRAFUNENTRBLO",
 		   $EACHCGRAFUNENTRBLO#_fun->cfg != NULL);
-#if MELT_GCC_VERSION == 4009
+#if MELT_GCC_VERSION >= 4009
    /* GCC 4.9 in each_cgraph_fun_entryblock $EACHCGRAFUNENTRBLO : */
    $EACHCGRAFUNENTRBLO#_entrybb =
      ENTRY_BLOCK_PTR_FOR_FN ($EACHCGRAFUNENTRBLO#_fun);
@@ -1381,6 +1381,73 @@ unsigned int melthk_rtl_execute(void)
   }#
   #{ /*end with_cfun_decl $WITHCFUNDECL*/ }
   }#)
+
+
+;; iterator to push then pop every declared function
+(defciterator each_cgraph_pushed_cfun
+  () ;;;; no start formals
+  eachcgrapushcfun
+  (:tree funtree :basic_block funentrybb funexitbb)
+  :doc #{$EACH_CGRAPH_PUSHED_CFUN iterates on every callgraph
+  function with a body and a control flow graph, giving the
+  declaration $FUNTREE, the entry and exit basic blocks $FUNENTRYBB
+  and $FUNEXITBB, and pushing then popping at end of loop that
+  function as the current cfun.}#
+  ;; before expansion
+  #{ /* each_cgraph_pushed_cfun start $EACHCGRAPUSHCFUN */
+   struct cgraph_node *$EACHCGRAPUSHCFUN#_nd = NULL; 
+   /* each_cgraph_fun_call_flow_graph loop  $EACHCGRAPUSHCFUN;
+    * GCC 4.8 has  FOR_EACH_DEFINED_FUNCTION...  */
+   FOR_EACH_DEFINED_FUNCTION($EACHCGRAPUSHCFUN#_nd)
+    {
+      tree  $EACHCGRAPUSHCFUN#_dcl = NULL;
+      basic_block $EACHCGRAPUSHCFUN#_entrybb = NULL;
+      basic_block $EACHCGRAPUSHCFUN#_exitbb = NULL;
+      struct function *$EACHCGRAPUSHCFUN#_fun = NULL;
+      /* inside  each_cgraph_fun_call_flow_graph loop  $EACHCGRAPUSHCFUN */
+#if MELT_GCC_VERSION == 4008
+      $EACHCGRAPUSHCFUN#_dcl = $EACHCGRAPUSHCFUN#_nd->symbol.decl;
+#else /* GCC  4.9 but not 4.8 */
+      $EACHCGRAPUSHCFUN#_dcl = $EACHCGRAPUSHCFUN#_nd->decl;
+#endif /* older than GCC 4.8 */
+      if (! $EACHCGRAPUSHCFUN#_dcl) 
+        continue;
+      if (TREE_CODE($EACHCGRAPUSHCFUN#_dcl) != FUNCTION_DECL) 
+        continue;
+      $EACHCGRAPUSHCFUN#_fun = DECL_STRUCT_FUNCTION($EACHCGRAPUSHCFUN#_dcl);
+      if (!$EACHCGRAPUSHCFUN#_fun) 
+        continue;
+      debugeprintf("$EACHCGRAPUSHCFUN#_fun %p", (void*) $EACHCGRAPUSHCFUN#_fun);
+      $FUNTREE = $EACHCGRAPUSHCFUN#_dcl;
+#if MELT_GCC_VERSION >= 4009
+   /* GCC 4.9 in each_cgraph_fun_push_cfun $EACHCGRAPUSHCFUN : */
+   $EACHCGRAPUSHCFUN#_entrybb =
+     ENTRY_BLOCK_PTR_FOR_FN ($EACHCGRAPUSHCFUN#_fun);
+   if (!$EACHCGRAPUSHCFUN#_entrybb) continue;
+   $EACHCGRAPUSHCFUN#_exitbb =
+     EXIT_BLOCK_PTR_FOR_FN ($EACHCGRAPUSHCFUN#_fun);
+   if (! $EACHCGRAPUSHCFUN#_exitbb) continue;
+#else /*GCC 4.8 or earlier*/
+   $EACHCGRAPUSHCFUN#_entrybb = 
+     ENTRY_BLOCK_PTR_FOR_FUNCTION ($EACHCGRAPUSHCFUN#_fun);
+   if (!$EACHCGRAPUSHCFUN#_entrybb) continue;
+   $EACHCGRAPUSHCFUN#_exitbb = 
+     EXIT_BLOCK_PTR_FOR_FUNCTION ($EACHCGRAPUSHCFUN#_fun);
+   if (!$EACHCGRAPUSHCFUN#_exitbb) continue;
+   #endif /* GCC 4.8 or earlier */
+   $FUNENTRYBB = $EACHCGRAPUSHCFUN#_entrybb;
+   $FUNEXITBB = $EACHCGRAPUSHCFUN#_exitbb;
+   push_cfun ($EACHCGRAPUSHCFUN#_fun);
+   /* each_cgraph_pushed_cfun started $EACHCGRAPUSHCFUN */
+   }#
+   ;; after expansion
+   #{ /* each_cgraph_pushed_cfun ending $EACHCGRAPUSHCFUN */
+   $FUNENTRYBB = NULL;
+   $FUNEXITBB = NULL;
+   pop_cfun ();
+   } /* each_cgraph_pushed_cfun ended $EACHCGRAPUSHCFUN */
+   }#
+   )
 
 
 ;;; iterate on evey basicblock of the current cfun
@@ -2027,7 +2094,8 @@ current function and gives its declaration in $CFUNDECL}#
  each_bb_current_fun
  each_cgraph_fun_body
  each_cgraph_fun_call_flow_graph
- each_cgraph_fun_entryblock 
+ each_cgraph_fun_entryblock
+ each_cgraph_pushed_cfun
  each_local_decl_cfun
  each_param_in_fundecl
  eachgimple_in_basicblock
