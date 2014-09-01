@@ -3615,10 +3615,13 @@ mips_legitimize_const_move (enum machine_mode mode, rtx dest, rtx src)
 bool
 mips_legitimize_move (enum machine_mode mode, rtx dest, rtx src)
 {
-  if (!register_operand (dest, mode) && !reg_or_0_operand (src, mode))
+  if (!register_operand (dest, mode) && !register_operand (src, mode))
     {
-      mips_emit_move (dest, force_reg (mode, src));
-      return true;
+      if (!const_0_operand (src, mode) || MSA_SUPPORTED_MODE_P (mode))
+      {
+	mips_emit_move (dest, force_reg (mode, src));
+	return true;
+      }
     }
 
   /* We need to deal with constants that would be legitimate
