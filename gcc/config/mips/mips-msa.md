@@ -890,7 +890,7 @@
 	(match_operand:MODE128 1 "move_operand" "fYGYI,R,f,f,!d"))]
   "ISA_HAS_MSA
    && (register_operand (operands[0], <MODE>mode)
-       || reg_or_0yi_operand (operands[1], <MODE>mode))"
+       || register_operand (operands[1], <MODE>mode))"
 { return mips_output_move (operands[0], operands[1]); }
   [(set_attr "move_type"	"fmove,fpload,fpstore,fmove,fmove")
    (set_attr "mode"     "TI")])
