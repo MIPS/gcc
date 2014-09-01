@@ -1,3 +1,10 @@
+2014-09-01  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Fixing normalization in the presence of constructor calls.
+	* gcc/cp/constraint.cc (normalize_misc): Handle constructor
+	expressions.
+	* gcc/testsuite/g++.dg/concepts/req7.C: New.
+
 2014-08-29  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Fixing partial-template-id bug.

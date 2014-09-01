@@ -390,9 +390,10 @@ normalize_misc (tree t)
 {
   switch (TREE_CODE (t))
     {
-    // Errors and traits are atomic.
+    // All of these are atomic.
     case ERROR_MARK:
     case TRAIT_EXPR:
+    case CONSTRUCTOR:
       return t;
 
     case STATEMENT_LIST:
