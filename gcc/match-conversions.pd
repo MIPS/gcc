@@ -1,21 +1,42 @@
-#if GIMPLE
-/* Basic strip-useless-type-conversions.  */
-(simplify
-  (convert @0)
-  (if (useless_type_conversion_p (type, TREE_TYPE (@0)))
-   @0))
-#endif
-
-
 /* From fold_unary in order of appearance.  */
 
-#if GENERIC
-/* For GIMPLE this is convered by the useless_type_conversion stripping.  */
+/* Re-association barriers around constants and other re-association
+   barriers can be removed.  */
 (simplify
-  (convert @0)
-  (if (type == TREE_TYPE (@0))
-   @0))
-#endif
+ (paren CONSTANT_CLASS_P@0)
+ @0)
+(simplify
+ (paren (paren @0))
+ (paren @0))
+
+/* Basic strip-useless-type-conversions / strip_nops.  */
+(for cvt in convert view_convert
+ (simplify
+  (cvt @0)
+  (if ((GIMPLE && useless_type_conversion_p (type, TREE_TYPE (@0)))
+       || (GENERIC && type == TREE_TYPE (@0)))
+   @0)))
+
+/* If we have (type) (a CMP b) and type is an integral type, return
+   new expression involving the new type.  Canonicalize
+   (type) (a CMP b) to (a CMP b) ? (type) true : (type) false for
+   non-integral type.
+   Do not fold the result as that would not simplify further, also
+   folding again results in recursions.  */
+/* ???  Eh, do we want sth like (define-ops cmp lt le eq ...) to not
+   repeat this too many times?  */
+(for cmp in lt le eq ne ge gt unordered ordered unlt unle ungt unge uneq ltgt
+ (simplify
+   (convert (cmp@2 @0 @1))
+   (if (TREE_CODE (type) == BOOLEAN_TYPE)
+    (cmp @0 @1))
+   /* Not sure if the following makes sense for GIMPLE.  */
+   (if (!INTEGRAL_TYPE_P (type) && !VOID_TYPE_P (type)
+	&& TREE_CODE (type) != VECTOR_TYPE)
+    (cond @2
+      { constant_boolean_node (true, type); }
+      { constant_boolean_node (false, type); }))))
+
 
 /* Convert (T1)(~(T2)X) into ~(T1)X if T1 and T2 are integral types
    of the same precision, and X is an integer type not narrower than
@@ -28,6 +49,41 @@
       && INTEGRAL_TYPE_P (TREE_TYPE (@1))
       && TYPE_PRECISION (type) <= TYPE_PRECISION (TREE_TYPE (@1)))
   (bit_not (convert @1))))
+
+/* Convert (T1)(X * Y) into (T1)X * (T1)Y if T1 is narrower than the
+   type of X and Y (integer types only).  */
+(simplify
+ (convert (mult @0 @1))
+ (if (INTEGRAL_TYPE_P (type)
+      && INTEGRAL_TYPE_P (TREE_TYPE (@0))
+      && TYPE_PRECISION (type) < TYPE_PRECISION (TREE_TYPE (@0)))
+  (if (TYPE_OVERFLOW_WRAPS (type))
+   (mult (convert @0) (convert @1)))))
+#if 0
+  /* 1) We can't handle the two-conversions-in-a-row below.
+     2) We can't properly specify the type for the inner conversion
+        (unsigned_type_for).  Suggested syntax below.  */
+  (with { tree utype = unsigned_type_for (TREE_TYPE (@0)); }
+   (convert (mult (convert:utype @0) (convert:utype @1))))
+#endif
+
+
+/* For integral conversions with the same precision or pointer
+   conversions use a NOP_EXPR instead.  */
+(simplify
+  (view_convert @0)
+  (if ((INTEGRAL_TYPE_P (type) || POINTER_TYPE_P (type))
+       && (INTEGRAL_TYPE_P (TREE_TYPE (@0)) || POINTER_TYPE_P (TREE_TYPE (@0)))
+       && TYPE_PRECISION (type) == TYPE_PRECISION (TREE_TYPE (@0)))
+   (convert @0)))
+
+/* Strip inner integral conversions that do not change the precision.  */
+(simplify
+  (view_convert (convert@0 @1))
+  (if ((INTEGRAL_TYPE_P (TREE_TYPE (@0)) || POINTER_TYPE_P (TREE_TYPE (@0)))
+       && (INTEGRAL_TYPE_P (TREE_TYPE (@1)) || POINTER_TYPE_P (TREE_TYPE (@1)))
+       && (TYPE_PRECISION (TREE_TYPE (@0)) == TYPE_PRECISION (TREE_TYPE (@1))))
+   (view_convert @1)))
 
 
 /* From tree-ssa-forwprop.c:combine_conversions.  */
@@ -64,12 +120,9 @@
       handled below, if we are converting something to its own
       type via an object of identical or wider precision, neither
       conversion is needed.  */
-   (if (
-#if GIMPLE
-	useless_type_conversion_p (type, inside_type)
-#else
-	TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (inside_type)
-#endif
+   (if (((GIMPLE && useless_type_conversion_p (type, inside_type))
+	 || (GENERIC
+	     && TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (inside_type)))
 	&& (((inter_int || inter_ptr) && final_int)
 	    || (inter_float && final_float))
 	&& inter_prec >= final_prec)

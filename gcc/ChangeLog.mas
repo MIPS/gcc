@@ -1,3 +1,7 @@
+2014-09-02  Richard Biener  <rguenther@suse.de>
+
+	* match-conversions.pd: Add more patterns.
+
 2014-08-28  Richard Biener  <rguenther@suse.de>
 
 	* gimple-fold.c (fold_stmt_1): Move gimple_simplify dispatch
