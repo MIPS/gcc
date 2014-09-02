@@ -1,5 +1,8 @@
 
 2014-09-02  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/generated/*: Regenerate.
+
+2014-09-02  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-outobj.melt (outputcod_objapply): Avoid emitting
 	address of NULL cleverly....
 
