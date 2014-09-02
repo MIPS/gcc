@@ -44,6 +44,7 @@ bool gimple_simplify (gimple, code_helper *, tree *, gimple_seq *,
 		      tree (*)(tree));
 tree maybe_push_res_to_seq (code_helper, tree, tree *,
 			    gimple_seq *, tree res = NULL_TREE);
+void maybe_build_generic_op (enum tree_code, tree, tree *, tree, tree);
 
 
 #endif  /* GCC_GIMPLE_MATCH_H */

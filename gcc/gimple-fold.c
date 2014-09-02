@@ -2904,6 +2904,9 @@ fold_stmt_1 (gimple_stmt_iterator *gsi, bool inplace, tree (*valueize) (tree))
 			   && TREE_CODE (ops[2]) == SSA_NAME
 			   && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[2]))))
 		{
+		  maybe_build_generic_op (rcode,
+					  TREE_TYPE (gimple_assign_lhs (stmt)),
+					  &ops[0], ops[1], ops[2]);
 		  gimple_assign_set_rhs_with_ops_1 (gsi, rcode,
 						    ops[0], ops[1], ops[2]);
 		  if (dump_file && (dump_flags & TDF_DETAILS))

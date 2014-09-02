@@ -1,5 +1,12 @@
 2014-09-02  Richard Biener  <rguenther@suse.de>
 
+	* gimple-match-head.c (maybe_build_generic_op): New function.
+	(maybe_push_res_to_seq): Use it.
+	* gimple-match.h (maybe_build_generic_op): Declare.
+	* gimple-fold.c (fold_stmt_1): Use maybe_build_generic_op.
+
+2014-09-02  Richard Biener  <rguenther@suse.de>
+
 	* match-conversions.pd: Add more patterns.
 
 2014-08-28  Richard Biener  <rguenther@suse.de>

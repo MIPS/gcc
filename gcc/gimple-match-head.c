@@ -267,6 +267,27 @@ gimple_resimplify3 (gimple_seq *seq,
 }
 
 
+/* If in GIMPLE expressions with CODE go as single-rhs build
+   a GENERIC tree for that expression into *OP0.  */
+
+void
+maybe_build_generic_op (enum tree_code code, tree type,
+			tree *op0, tree op1, tree op2)
+{
+  switch (code)
+    {
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
+    case VIEW_CONVERT_EXPR:
+      *op0 = build1 (code, type, *op0);
+      break;
+    case BIT_FIELD_REF:
+      *op0 = build3 (code, type, *op0, op1, op2);
+      break;
+    default:;
+    }
+}
+
 /* Push the exploded expression described by RCODE, TYPE and OPS
    as a statement to SEQ if necessary and return a gimple value
    denoting the value of the expression.  If RES is not NULL
@@ -286,8 +307,6 @@ maybe_push_res_to_seq (code_helper rcode, tree type, tree *ops,
 	return ops[0];
       if (!seq)
 	return NULL_TREE;
-      if (!res)
-	res = make_ssa_name (type, NULL);
       /* Play safe and do not allow abnormals to be mentioned in
          newly created statements.  */
       if ((TREE_CODE (ops[0]) == SSA_NAME
@@ -299,6 +318,9 @@ maybe_push_res_to_seq (code_helper rcode, tree type, tree *ops,
 	      && TREE_CODE (ops[2]) == SSA_NAME
 	      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[2])))
 	return NULL_TREE;
+      if (!res)
+	res = make_ssa_name (type, NULL);
+      maybe_build_generic_op (rcode, type, &ops[0], ops[1], ops[2]);
       gimple new_stmt = gimple_build_assign_with_ops (rcode, res,
 						      ops[0], ops[1], ops[2]);
       gimple_seq_add_stmt_without_update (seq, new_stmt);
@@ -311,8 +333,6 @@ maybe_push_res_to_seq (code_helper rcode, tree type, tree *ops,
       tree decl = builtin_decl_implicit (rcode);
       if (!decl)
 	return NULL_TREE;
-      if (!res)
-	res = make_ssa_name (type, NULL);
       unsigned nargs = type_num_arguments (TREE_TYPE (decl));
       gcc_assert (nargs <= 3);
       /* Play safe and do not allow abnormals to be mentioned in
@@ -326,6 +346,8 @@ maybe_push_res_to_seq (code_helper rcode, tree type, tree *ops,
 	      && TREE_CODE (ops[2]) == SSA_NAME
 	      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[2])))
 	return NULL_TREE;
+      if (!res)
+	res = make_ssa_name (type, NULL);
       gimple new_stmt = gimple_build_call (decl, nargs, ops[0], ops[1], ops[2]);
       gimple_call_set_lhs (new_stmt, res);
       gimple_seq_add_stmt_without_update (seq, new_stmt);
