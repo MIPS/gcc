@@ -4247,7 +4247,7 @@ exit, in last place.}#
 	(forever pollingloop
 		 (setq loopcount (+i loopcount 1))
 		 (debug "do_blocking_jsonrpc2_call loopcount=" loopcount) 
-		 (hook_poll_inputs timeoutms)
+		 (hook_poll_inputs (if (>i timeoutms 300) (+i 30 (/i timeoutms 3)) timeoutms))
 		 (debug "do_blocking_jsonrpc2_call after timeoutms=" timeoutms 
 			" elapsed " (-i (relative_time_millisec) begtime)
 			" ms; gotreply=" gotreply " goterror=" goterror)

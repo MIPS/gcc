@@ -1,5 +1,9 @@
 
 2014-09-02  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-hooks.melt (do_blocking_jsonrpc2_call): For a large
+	timeoutms, poll several times ...
+
+2014-09-02  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.1.2post.
 	* melt/libmelt-ana-base.melt (each_cgraph_fun_call_flow_graph):
 	Test #if MELT_GCC_VERSION >= 4009, not == 4009....
