@@ -1,6 +1,10 @@
 
 2014-09-02  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-outobj.melt (outputcod_objapply): Avoid emitting
+	address of NULL cleverly....
+
+2014-09-02  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-outobj.melt (outputcod_objapply): Avoid emitting
 	address of NULL by filling the meltbp_aptr conditionally, only if
 	value is non-null..
 
