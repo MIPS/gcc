@@ -1124,11 +1124,24 @@
   treetypet
   :doc #{$TREE_TYPE_P match a type tree $TR and extract the inside type $TYPETR}#
   ;; test
-  #{ /*tree_type_p $TREETYPET ?*/ (($TR) && TYPE_P(($tr))) }#
+  #{ /*tree_type_p $TREETYPET ?*/ (($TR) && TYPE_P(($TR))) }#
   ;; fill
-  #{ /*tree_type_p $TREETYPET !*/ $TYPETR = TREE_TYPE($tr); }#
+  #{ /*tree_type_p $TREETYPET !*/ $TYPETR = TREE_TYPE($TR); }#
 )
 
+(defcmatcher tree_type_canonical
+  (:tree tr)
+  (:tree trcan)
+  treetypcanon
+  :doc #{$TREE_TYPE_CANONICAL match a type tree $TR and extract its canonical type.}#
+  ;; test expansion
+  #{ /* tree_type_canonical $TREETYPCANON ? */ (($TR) && TYPE_P(($TR))) }#
+  ;; fill expansion
+  #{ /* tree_type_canonical $TREETYPCANON ! */
+    $TRCAN = TYPE_CANONICAL($TR);
+  }#)
+  
+  
 ;;; pattern for pointer types (or reference type)
 (defcmatcher tree_pointer_type_p
   (:tree tr)
@@ -2305,7 +2318,8 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_ssa_name 
  tree_string_cst
  tree_type   
- tree_type_addr_space 
+ tree_type_addr_space
+ tree_type_canonical
  tree_type_decl
  tree_type_decl_named
  tree_type_declaration

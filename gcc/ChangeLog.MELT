@@ -1,4 +1,10 @@
 
+2014-09-02  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.1.2post.
+	* melt/libmelt-ana-base.melt (each_cgraph_fun_call_flow_graph):
+	Test #if MELT_GCC_VERSION >= 4009, not == 4009....
+	* melt/libmelt-ana-tree.melt (tree_type_canonical): New cmatcher.
+
 2014-08-31  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{MELT 1.1.2 release for GCC 4.8 & 4.9}}
 	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.1.2.
