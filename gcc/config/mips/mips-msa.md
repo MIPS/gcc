@@ -171,14 +171,16 @@
 (define_mode_iterator IMSA     [V2DI V4SI V8HI V16QI])
 
 ;; mode that can combine a copy+insert into insve.
-;; note V2DI is excluded because it will be split if !TARGET_64BIT.
-(define_mode_iterator INSVE    [V4SI V8HI V16QI])
+(define_mode_iterator INSVE    [V2DI V4SI V8HI V16QI])
 
 ;; mode that can be combine copy+insert with subreg info insve.
 (define_mode_iterator INSVE_2  [V8HI V16QI])
 
 ;; As IMSA but excludes V16QI.
 (define_mode_iterator IMSA_X   [V2DI V4SI V8HI])
+
+;; As IMSA but excludes V2DI
+(define_mode_iterator IMSA_X2  [V4SI V8HI V16QI])
 
 ;; Only integer modes for fixed-point madd_q/maddr_q.
 (define_mode_iterator QMSA     [V4SI V8HI])
@@ -349,8 +351,8 @@
 ;; ilvr/ilvl patterns with implicit type conversion.
 (define_insn "msa_tc_ilvr_<msafmt>"
   [(set (match_operand:<VDMODE> 0 "register_operand" "=f")
-	(unspec:<VDMODE> [(match_operand:INSVE 1 "register_operand" "f")
-		      (match_operand:INSVE 2 "register_operand" "f")]
+	(unspec:<VDMODE> [(match_operand:IMSA_X2 1 "register_operand" "f")
+		      (match_operand:IMSA_X2 2 "register_operand" "f")]
 		      UNSPEC_MSA_ILVR))]
   "ISA_HAS_MSA"
   "ilvr.<msafmt>\t%w0,%w1,%w2"
@@ -360,8 +362,8 @@
 
 (define_insn "msa_tc_ilvl_<msafmt>"
   [(set (match_operand:<VDMODE> 0 "register_operand" "=f")
-	(unspec:<VDMODE> [(match_operand:INSVE 1 "register_operand" "f")
-		      (match_operand:INSVE 2 "register_operand" "f")]
+	(unspec:<VDMODE> [(match_operand:IMSA_X2 1 "register_operand" "f")
+		      (match_operand:IMSA_X2 2 "register_operand" "f")]
 		     UNSPEC_MSA_ILVL))]
   "ISA_HAS_MSA"
   "ilvl.<msafmt>\t%w0,%w1,%w2"
@@ -403,7 +405,7 @@
 
 (define_expand "vec_unpacks_hi_<mode>"
   [(set (match_operand:<VDMODE> 0 "register_operand")
-	(match_operand:INSVE 1 "register_operand"))]
+	(match_operand:IMSA_X2 1 "register_operand"))]
   "ISA_HAS_MSA"
   {
     mips_expand_vec_unpack (operands, false/*unsigned_p*/, true/*high_p*/);
@@ -412,7 +414,7 @@
 
 (define_expand "vec_unpacks_lo_<mode>"
   [(set (match_operand:<VDMODE> 0 "register_operand")
-	(match_operand:INSVE 1 "register_operand"))]
+	(match_operand:IMSA_X2 1 "register_operand"))]
   "ISA_HAS_MSA"
   {
     mips_expand_vec_unpack (operands, false/*unsigned_p*/, false/*high_p*/);
@@ -421,7 +423,7 @@
 
 (define_expand "vec_unpacku_hi_<mode>"
   [(set (match_operand:<VDMODE> 0 "register_operand")
-	(match_operand:INSVE 1 "register_operand"))]
+	(match_operand:IMSA_X2 1 "register_operand"))]
   "ISA_HAS_MSA"
   {
     mips_expand_vec_unpack (operands, true/*unsigned_p*/, true/*high_p*/);
@@ -430,7 +432,7 @@
 
 (define_expand "vec_unpacku_lo_<mode>"
   [(set (match_operand:<VDMODE> 0 "register_operand")
-	(match_operand:INSVE 1 "register_operand"))]
+	(match_operand:IMSA_X2 1 "register_operand"))]
   "ISA_HAS_MSA"
   {
     mips_expand_vec_unpack (operands, true/*unsigned_p*/, false/*high_p*/);
