@@ -1,3 +1,7 @@
+2014-09-03  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* omp-low.c (expand_oacc_offload): Add child_fn to offload_funcs.
+
 2014-08-19  Ilya Verbin  <ilya.verbin@intel.com>
 
 	* Makefile.in (GTFILES): Add omp-low.h.

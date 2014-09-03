@@ -5351,6 +5351,9 @@ expand_oacc_offload (struct omp_region *region)
       DECL_STRUCT_FUNCTION (child_fn)->curr_properties = cfun->curr_properties;
       cgraph_add_new_function (child_fn, true);
 
+      /* Add the new function to the offload table.  */
+      vec_safe_push (offload_funcs, child_fn);
+
       /* Fix the callgraph edges for child_cfun.  Those for cfun will be
 	 fixed in a following pass.  */
       push_cfun (child_cfun);
