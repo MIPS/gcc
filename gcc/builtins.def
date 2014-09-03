@@ -151,7 +151,7 @@ along with GCC; see the file COPYING3.  If not see
 #undef DEF_GOACC_BUILTIN
 #define DEF_GOACC_BUILTIN(ENUM, NAME, TYPE, ATTRS) \
   DEF_BUILTIN (ENUM, "__builtin_" NAME, BUILT_IN_NORMAL, TYPE, TYPE,    \
-               false, true, true, ATTRS, false, flag_openacc)
+               false, true, true, ATTRS, false, TRUE || flag_openacc)
 
 /* Builtin used by the implementation of GNU OpenMP.  None of these are
    actually implemented in the compiler; they're all in libgomp.  */
