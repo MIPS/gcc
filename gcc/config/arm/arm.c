@@ -137,7 +137,7 @@ static void arm_output_function_epilogue (FILE *, HOST_WIDE_INT);
 static void arm_output_function_prologue (FILE *, HOST_WIDE_INT);
 static int arm_comp_type_attributes (const_tree, const_tree);
 static void arm_set_default_type_attributes (tree);
-static int arm_adjust_cost (rtx, rtx, rtx, int);
+static int arm_adjust_cost (rtx_insn *, rtx, rtx_insn *, int);
 static int arm_sched_reorder (FILE *, int, rtx_insn **, int *, int);
 static int optimal_immediate_sequence (enum rtx_code code,
 				       unsigned HOST_WIDE_INT val,
@@ -216,7 +216,7 @@ static bool arm_return_in_msb (const_tree);
 static bool arm_must_pass_in_stack (enum machine_mode, const_tree);
 static bool arm_return_in_memory (const_tree, const_tree);
 #if ARM_UNWIND_INFO
-static void arm_unwind_emit (FILE *, rtx);
+static void arm_unwind_emit (FILE *, rtx_insn *);
 static bool arm_output_ttype (rtx);
 static void arm_asm_emit_except_personality (rtx);
 static void arm_asm_init_sections (void);
@@ -238,7 +238,7 @@ static void arm_expand_builtin_va_start (tree, rtx);
 static tree arm_gimplify_va_arg_expr (tree, tree, gimple_seq *, gimple_seq *);
 static void arm_option_override (void);
 static unsigned HOST_WIDE_INT arm_shift_truncation_mask (enum machine_mode);
-static bool arm_cannot_copy_insn_p (rtx);
+static bool arm_cannot_copy_insn_p (rtx_insn *);
 static int arm_issue_rate (void);
 static void arm_output_dwarf_dtprel (FILE *, int, rtx) ATTRIBUTE_UNUSED;
 static bool arm_output_addr_const_extra (FILE *, rtx);
@@ -6416,7 +6416,7 @@ require_pic_register (void)
 	}
       else
 	{
-	  rtx seq, insn;
+	  rtx_insn *seq, *insn;
 
 	  if (!cfun->machine->pic_reg)
 	    cfun->machine->pic_reg = gen_reg_rtx (Pmode);
@@ -11886,7 +11886,7 @@ arm_sched_reorder (FILE *file, int verbose, rtx_insn **ready, int *n_readyp,
    adjust_cost function. Only put bits of code into arm_adjust_cost that
    are common across all cores.  */
 static int
-arm_adjust_cost (rtx insn, rtx link, rtx dep, int cost)
+arm_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep, int cost)
 {
   rtx i_pat, d_pat;
 
@@ -13115,7 +13115,7 @@ arm_note_pic_base (rtx *x, void *date ATTRIBUTE_UNUSED)
 }
 
 static bool
-arm_cannot_copy_insn_p (rtx insn)
+arm_cannot_copy_insn_p (rtx_insn *insn)
 {
   /* The tls call insn cannot be copied, as it is paired with a data
      word.  */
@@ -14490,7 +14490,7 @@ arm_block_move_unaligned_loop (rtx dest, rtx src, HOST_WIDE_INT length,
 			       unsigned int interleave_factor,
 			       HOST_WIDE_INT bytes_per_iter)
 {
-  rtx label, src_reg, dest_reg, final_src, test;
+  rtx src_reg, dest_reg, final_src, test;
   HOST_WIDE_INT leftover;
   
   leftover = length % bytes_per_iter;
@@ -14506,7 +14506,7 @@ arm_block_move_unaligned_loop (rtx dest, rtx src, HOST_WIDE_INT length,
 				   0, 0, OPTAB_WIDEN);
 
   /* Emit the start of the loop.  */
-  label = gen_label_rtx ();
+  rtx_code_label *label = gen_label_rtx ();
   emit_label (label);
   
   /* Emit the loop body.  */
@@ -16108,7 +16108,7 @@ struct minipool_fixup
 
 static Mnode *	minipool_vector_head;
 static Mnode *	minipool_vector_tail;
-static rtx	minipool_vector_label;
+static rtx_code_label	*minipool_vector_label;
 static int	minipool_pad;
 
 /* The linked list of all minipool fixes required for this function.  */
@@ -16697,7 +16697,7 @@ create_fix_barrier (Mfix *fix, HOST_WIDE_INT max_address)
   rtx_barrier *barrier;
   rtx_insn *from = fix->insn;
   /* The instruction after which we will insert the jump.  */
-  rtx selected = NULL;
+  rtx_insn *selected = NULL;
   int selected_cost;
   /* The address at which the jump instruction will be placed.  */
   HOST_WIDE_INT selected_address;
@@ -16767,7 +16767,7 @@ create_fix_barrier (Mfix *fix, HOST_WIDE_INT max_address)
      CALL_ARG_LOCATION note.  */
   if (CALL_P (selected))
     {
-      rtx next = NEXT_INSN (selected);
+      rtx_insn *next = NEXT_INSN (selected);
       if (next && NOTE_P (next)
 	  && NOTE_KIND (next) == NOTE_INSN_CALL_ARG_LOCATION)
 	  selected = next;
@@ -17047,7 +17047,7 @@ thumb1_reorg (void)
     {
       rtx dest, src;
       rtx pat, op0, set = NULL;
-      rtx prev, insn = BB_END (bb);
+      rtx_insn *prev, *insn = BB_END (bb);
       bool insn_clobbered = false;
 
       while (insn != BB_HEAD (bb) && !NONDEBUG_INSN_P (insn))
@@ -21325,7 +21325,7 @@ arm_expand_prologue (void)
     {
       /* This add can produce multiple insns for a large constant, so we
 	 need to get tricky.  */
-      rtx last = get_last_insn ();
+      rtx_insn *last = get_last_insn ();
 
       amount = GEN_INT (offsets->saved_args + saved_regs
 			- offsets->outgoing_args);
@@ -29353,7 +29353,7 @@ arm_unwind_emit_set (FILE * asm_out_file, rtx p)
 /* Emit unwind directives for the given insn.  */
 
 static void
-arm_unwind_emit (FILE * asm_out_file, rtx insn)
+arm_unwind_emit (FILE * asm_out_file, rtx_insn *insn)
 {
   rtx note, pat;
   bool handled_one = false;
@@ -29739,7 +29739,7 @@ arm_output_iwmmxt_tinsr (rtx *operands)
 const char *
 thumb1_output_casesi (rtx *operands)
 {
-  rtx diff_vec = PATTERN (NEXT_INSN (operands[0]));
+  rtx diff_vec = PATTERN (NEXT_INSN (as_a <rtx_insn *> (operands[0])));
 
   gcc_assert (GET_CODE (diff_vec) == ADDR_DIFF_VEC);
 
@@ -29762,7 +29762,7 @@ thumb1_output_casesi (rtx *operands)
 const char *
 thumb2_output_casesi (rtx *operands)
 {
-  rtx diff_vec = PATTERN (NEXT_INSN (operands[2]));
+  rtx diff_vec = PATTERN (NEXT_INSN (as_a <rtx_insn *> (operands[2])));
 
   gcc_assert (GET_CODE (diff_vec) == ADDR_DIFF_VEC);
 
@@ -29946,6 +29946,7 @@ arm_builtin_vectorized_function (tree fndecl, tree type_out, tree type_in)
 {
   enum machine_mode in_mode, out_mode;
   int in_n, out_n;
+  bool out_unsigned_p = TYPE_UNSIGNED (type_out);
 
   if (TREE_CODE (type_out) != VECTOR_TYPE
       || TREE_CODE (type_in) != VECTOR_TYPE)
@@ -29991,6 +29992,36 @@ arm_builtin_vectorized_function (tree fndecl, tree type_out, tree type_in)
             return ARM_FIND_VRINT_VARIANT (vrintz);
           case BUILT_IN_ROUNDF:
             return ARM_FIND_VRINT_VARIANT (vrinta);
+#undef ARM_CHECK_BUILTIN_MODE_1
+#define ARM_CHECK_BUILTIN_MODE_1(C) \
+  (out_mode == SImode && out_n == C \
+   && in_mode == SFmode && in_n == C)
+
+#define ARM_FIND_VCVT_VARIANT(N) \
+  (ARM_CHECK_BUILTIN_MODE (2) \
+   ? arm_builtin_decl(ARM_BUILTIN_NEON_##N##v2sfv2si, false) \
+   : (ARM_CHECK_BUILTIN_MODE (4) \
+     ? arm_builtin_decl(ARM_BUILTIN_NEON_##N##v4sfv4si, false) \
+     : NULL_TREE))
+
+#define ARM_FIND_VCVTU_VARIANT(N) \
+  (ARM_CHECK_BUILTIN_MODE (2) \
+   ? arm_builtin_decl(ARM_BUILTIN_NEON_##N##uv2sfv2si, false) \
+   : (ARM_CHECK_BUILTIN_MODE (4) \
+     ? arm_builtin_decl(ARM_BUILTIN_NEON_##N##uv4sfv4si, false) \
+     : NULL_TREE))
+          case BUILT_IN_LROUNDF:
+            return out_unsigned_p
+                     ? ARM_FIND_VCVTU_VARIANT (vcvta)
+                     : ARM_FIND_VCVT_VARIANT (vcvta);
+          case BUILT_IN_LCEILF:
+            return out_unsigned_p
+                     ? ARM_FIND_VCVTU_VARIANT (vcvtp)
+                     : ARM_FIND_VCVT_VARIANT (vcvtp);
+          case BUILT_IN_LFLOORF:
+            return out_unsigned_p
+                     ? ARM_FIND_VCVTU_VARIANT (vcvtm)
+                     : ARM_FIND_VCVT_VARIANT (vcvtm);
 #undef ARM_CHECK_BUILTIN_MODE
 #define ARM_CHECK_BUILTIN_MODE(C, N) \
   (out_mode == N##Imode && out_n == C \
@@ -30021,8 +30052,11 @@ arm_builtin_vectorized_function (tree fndecl, tree type_out, tree type_in)
     }
   return NULL_TREE;
 }
+#undef ARM_FIND_VCVT_VARIANT
+#undef ARM_FIND_VCVTU_VARIANT
 #undef ARM_CHECK_BUILTIN_MODE
 #undef ARM_FIND_VRINT_VARIANT
+
 
 /* The AAPCS sets the maximum alignment of a vector to 64 bits.  */
 static HOST_WIDE_INT

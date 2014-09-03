@@ -449,11 +449,11 @@ enum post_call_group
 /* Insns which affect pseudo-registers.  */
 struct deps_reg
 {
-  rtx uses;
-  rtx sets;
-  rtx implicit_sets;
-  rtx control_uses;
-  rtx clobbers;
+  rtx_insn_list *uses;
+  rtx_insn_list *sets;
+  rtx_insn_list *implicit_sets;
+  rtx_insn_list *control_uses;
+  rtx_insn_list *clobbers;
   int uses_length;
   int clobbers_length;
 };
@@ -471,19 +471,19 @@ struct deps_desc
      to a list more than once.  */
 
   /* An INSN_LIST containing all insns with pending read operations.  */
-  rtx pending_read_insns;
+  rtx_insn_list *pending_read_insns;
 
   /* An EXPR_LIST containing all MEM rtx's which are pending reads.  */
-  rtx pending_read_mems;
+  rtx_expr_list *pending_read_mems;
 
   /* An INSN_LIST containing all insns with pending write operations.  */
-  rtx pending_write_insns;
+  rtx_insn_list *pending_write_insns;
 
   /* An EXPR_LIST containing all MEM rtx's which are pending writes.  */
-  rtx pending_write_mems;
+  rtx_expr_list *pending_write_mems;
 
   /* An INSN_LIST containing all jump insns.  */
-  rtx pending_jump_insns;
+  rtx_insn_list *pending_jump_insns;
 
   /* We must prevent the above lists from ever growing too large since
      the number of dependencies produced is at least O(N*N),
@@ -510,27 +510,27 @@ struct deps_desc
      alias analysis, this restriction can be relaxed.
      This may also be an INSN that writes memory if the pending lists grow
      too large.  */
-  rtx last_pending_memory_flush;
+  rtx_insn_list *last_pending_memory_flush;
 
   /* A list of the last function calls we have seen.  We use a list to
      represent last function calls from multiple predecessor blocks.
      Used to prevent register lifetimes from expanding unnecessarily.  */
-  rtx last_function_call;
+  rtx_insn_list *last_function_call;
 
   /* A list of the last function calls that may not return normally
      we have seen.  We use a list to represent last function calls from
      multiple predecessor blocks.  Used to prevent moving trapping insns
      across such calls.  */
-  rtx last_function_call_may_noreturn;
+  rtx_insn_list *last_function_call_may_noreturn;
 
   /* A list of insns which use a pseudo register that does not already
      cross a call.  We create dependencies between each of those insn
      and the next call insn, to ensure that they won't cross a call after
      scheduling is done.  */
-  rtx sched_before_next_call;
+  rtx_insn_list *sched_before_next_call;
 
   /* Similarly, a list of insns which should not cross a branch.  */
-  rtx sched_before_next_jump;
+  rtx_insn_list *sched_before_next_jump;
 
   /* Used to keep post-call pseudo/hard reg movements together with
      the call.  */
@@ -737,7 +737,7 @@ struct _haifa_deps_insn_data
 
   /* For a conditional insn, a list of insns that could set the condition
      register.  Used when generating control dependencies.  */
-  rtx cond_deps;
+  rtx_insn_list *cond_deps;
 
   /* True if the condition in 'cond' should be reversed to get the actual
      condition.  */
@@ -1302,7 +1302,7 @@ extern void free_deps (struct deps_desc *);
 extern void init_deps_global (void);
 extern void finish_deps_global (void);
 extern void deps_analyze_insn (struct deps_desc *, rtx_insn *);
-extern void remove_from_deps (struct deps_desc *, rtx);
+extern void remove_from_deps (struct deps_desc *, rtx_insn *);
 extern void init_insn_reg_pressure_info (rtx);
 
 extern dw_t get_dep_weak (ds_t, ds_t);
@@ -1328,7 +1328,7 @@ extern void deps_start_bb (struct deps_desc *, rtx);
 extern enum reg_note ds_to_dt (ds_t);
 
 extern bool deps_pools_are_empty_p (void);
-extern void sched_free_deps (rtx, rtx, bool);
+extern void sched_free_deps (rtx_insn *, rtx_insn *, bool);
 extern void extend_dependency_caches (int, bool);
 
 extern void debug_ds (ds_t);
@@ -1342,14 +1342,14 @@ extern void free_global_sched_pressure_data (void);
 extern int haifa_classify_insn (const_rtx);
 extern void get_ebb_head_tail (basic_block, basic_block,
 			       rtx_insn **, rtx_insn **);
-extern int no_real_insns_p (const_rtx, const_rtx);
+extern int no_real_insns_p (const rtx_insn *, const rtx_insn *);
 
 extern int insn_cost (rtx_insn *);
 extern int dep_cost_1 (dep_t, dw_t);
 extern int dep_cost (dep_t);
 extern int set_priorities (rtx_insn *, rtx_insn *);
 
-extern void sched_setup_bb_reg_pressure_info (basic_block, rtx);
+extern void sched_setup_bb_reg_pressure_info (basic_block, rtx_insn *);
 extern bool schedule_block (basic_block *, state_t);
 
 extern int cycle_issued_insns;
@@ -1364,7 +1364,7 @@ extern int try_ready (rtx_insn *);
 extern void sched_extend_ready_list (int);
 extern void sched_finish_ready_list (void);
 extern void sched_change_pattern (rtx, rtx);
-extern int sched_speculate_insn (rtx, ds_t, rtx *);
+extern int sched_speculate_insn (rtx_insn *, ds_t, rtx *);
 extern void unlink_bb_notes (basic_block, basic_block);
 extern void add_block (basic_block, basic_block);
 extern rtx_note *bb_note (basic_block);

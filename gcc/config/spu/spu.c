@@ -2664,8 +2664,8 @@ spu_machine_dependent_reorg (void)
 	   label because GCC expects it at the beginning of the block. */
 	rtx unspec = SET_SRC (XVECEXP (PATTERN (insn), 0, 0));
 	rtx label_ref = XVECEXP (unspec, 0, 0);
-	rtx label = XEXP (label_ref, 0);
-	rtx branch;
+	rtx_insn *label = as_a <rtx_insn *> (XEXP (label_ref, 0));
+	rtx_insn *branch;
 	int offset = 0;
 	for (branch = NEXT_INSN (label);
 	     !JUMP_P (branch) && !CALL_P (branch);
@@ -2802,11 +2802,10 @@ spu_sched_init (FILE *file ATTRIBUTE_UNUSED, int verbose ATTRIBUTE_UNUSED,
 static int
 spu_sched_variable_issue (FILE *file ATTRIBUTE_UNUSED,
 			  int verbose ATTRIBUTE_UNUSED,
-			  rtx uncast_insn, int more)
+			  rtx_insn *insn, int more)
 {
   int len;
   int p;
-  rtx_insn *insn = as_a <rtx_insn *> (uncast_insn);
   if (GET_CODE (PATTERN (insn)) == USE
       || GET_CODE (PATTERN (insn)) == CLOBBER
       || (len = get_attr_length (insn)) == 0)
@@ -3000,11 +2999,9 @@ spu_sched_reorder (FILE *file ATTRIBUTE_UNUSED, int verbose ATTRIBUTE_UNUSED,
 
 /* INSN is dependent on DEP_INSN. */
 static int
-spu_sched_adjust_cost (rtx uncast_insn, rtx link, rtx uncast_dep_insn, int cost)
+spu_sched_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep_insn, int cost)
 {
   rtx set;
-  rtx_insn *insn = as_a <rtx_insn *> (uncast_insn);
-  rtx_insn *dep_insn = as_a <rtx_insn *> (uncast_dep_insn);
 
   /* The blockage pattern is used to prevent instructions from being
      moved across it and has no cost. */

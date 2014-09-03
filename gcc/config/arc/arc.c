@@ -395,7 +395,7 @@ static bool arc_vector_mode_supported_p (enum machine_mode);
 
 static bool arc_can_use_doloop_p (const widest_int &, const widest_int &,
 				  unsigned int, bool);
-static const char *arc_invalid_within_doloop (const_rtx);
+static const char *arc_invalid_within_doloop (const rtx_insn *);
 
 static void output_short_suffix (FILE *file);
 
@@ -572,7 +572,7 @@ static void arc_finalize_pic (void);
    use the peephole2 pattern.  */
 
 static int
-arc_sched_adjust_priority (rtx insn, int priority)
+arc_sched_adjust_priority (rtx_insn *insn, int priority)
 {
   rtx set = single_set (insn);
   if (set
@@ -2464,7 +2464,7 @@ arc_expand_epilogue (int sibcall_p)
  epilogue_done:
   if (!TARGET_EPILOGUE_CFI)
     {
-      rtx insn;
+      rtx_insn *insn;
 
       for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
 	RTX_FRAME_RELATED_P (insn) = 0;
@@ -3735,7 +3735,7 @@ arc_ccfsm_at_label (const char *prefix, int num, struct arc_ccfsm *state)
    the ccfsm state accordingly.
    REVERSE says branch will branch when the condition is false.  */
 void
-arc_ccfsm_record_condition (rtx cond, bool reverse, rtx jump,
+arc_ccfsm_record_condition (rtx cond, bool reverse, rtx_insn *jump,
 			    struct arc_ccfsm *state)
 {
   rtx_insn *seq_insn = NEXT_INSN (PREV_INSN (jump));
@@ -5720,7 +5720,7 @@ arc_can_use_doloop_p (const widest_int &iterations, const widest_int &,
    Otherwise return why doloop cannot be applied.  */
 
 static const char *
-arc_invalid_within_doloop (const_rtx insn)
+arc_invalid_within_doloop (const rtx_insn *insn)
 {
   if (CALL_P (insn))
     return "Function call in the loop.";
@@ -9177,7 +9177,7 @@ arc_label_align (rtx label)
 /* Return true if LABEL is in executable code.  */
 
 bool
-arc_text_label (rtx label)
+arc_text_label (rtx_insn *label)
 {
   rtx_insn *next;
 

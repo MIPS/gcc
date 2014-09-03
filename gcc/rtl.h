@@ -402,6 +402,92 @@ struct GTY((desc("0"), tag("0"),
   } GTY ((special ("rtx_def"), desc ("GET_CODE (&%0)"))) u;
 };
 
+/* A node for constructing singly-linked lists of rtx.  */
+
+class GTY(()) rtx_expr_list : public rtx_def
+{
+  /* No extra fields, but adds invariant: (GET_CODE (X) == EXPR_LIST).  */
+
+public:
+  /* Get next in list.  */
+  rtx_expr_list *next () const;
+
+  /* Get at the underlying rtx.  */
+  rtx element () const;
+};
+
+template <>
+template <>
+inline bool
+is_a_helper <rtx_expr_list *>::test (rtx rt)
+{
+  return rt->code == EXPR_LIST;
+}
+
+class GTY(()) rtx_insn_list : public rtx_def
+{
+  /* No extra fields, but adds invariant: (GET_CODE (X) == INSN_LIST).
+
+     This is an instance of:
+
+       DEF_RTL_EXPR(INSN_LIST, "insn_list", "ue", RTX_EXTRA)
+
+     i.e. a node for constructing singly-linked lists of rtx_insn *, where
+     the list is "external" to the insn (as opposed to the doubly-linked
+     list embedded within rtx_insn itself).  */
+
+public:
+  /* Get next in list.  */
+  rtx_insn_list *next () const;
+
+  /* Get at the underlying instruction.  */
+  rtx_insn *insn () const;
+
+};
+
+template <>
+template <>
+inline bool
+is_a_helper <rtx_insn_list *>::test (rtx rt)
+{
+  return rt->code == INSN_LIST;
+}
+
+/* A node with invariant GET_CODE (X) == SEQUENCE i.e. a vector of rtx,
+   typically (but not always) of rtx_insn *, used in the late passes.  */
+
+class GTY(()) rtx_sequence : public rtx_def
+{
+  /* No extra fields, but adds invariant: (GET_CODE (X) == SEQUENCE).  */
+
+public:
+  /* Get number of elements in sequence.  */
+  int len () const;
+
+  /* Get i-th element of the sequence.  */
+  rtx element (int index) const;
+
+  /* Get i-th element of the sequence, with a checked cast to
+     rtx_insn *.  */
+  rtx_insn *insn (int index) const;
+};
+
+template <>
+template <>
+inline bool
+is_a_helper <rtx_sequence *>::test (rtx rt)
+{
+  return rt->code == SEQUENCE;
+}
+
+template <>
+template <>
+inline bool
+is_a_helper <const rtx_sequence *>::test (const_rtx rt)
+{
+  return rt->code == SEQUENCE;
+}
+
 class GTY(()) rtx_insn : public rtx_def
 {
   /* No extra fields, but adds the invariant:
@@ -549,9 +635,9 @@ class GTY(()) rtx_note : public rtx_insn
                       || JUMP_TABLE_DATA_P (X)		\
                       || BARRIER_P (X)        		\
                       || LABEL_P (X))    		\
-                     && PREV_INSN (X) != NULL           \
-                     && NEXT_INSN (PREV_INSN (X)) == X  \
-                     ? PREV_INSN (X) : NULL)
+		     && PREV_INSN (as_a <rtx_insn *> (X)) != NULL	\
+                     && NEXT_INSN (PREV_INSN (as_a <rtx_insn *> (X))) == X \
+                     ? PREV_INSN (as_a <rtx_insn *> (X)) : NULL)
 
 /* Define macros to access the `code' field of the rtx.  */
 
@@ -1168,12 +1254,65 @@ extern void rtl_check_failed_flag (const char *, const_rtx, const char *,
 
 #define XC2EXP(RTX, N, C1, C2)      (RTL_CHECKC2 (RTX, N, C1, C2).rt_rtx)
 
+
+/* Methods of rtx_expr_list.  */
+
+inline rtx_expr_list *rtx_expr_list::next () const
+{
+  rtx tmp = XEXP (this, 1);
+  return safe_as_a <rtx_expr_list *> (tmp);
+}
+
+inline rtx rtx_expr_list::element () const
+{
+  return XEXP (this, 0);
+}
+
+/* Methods of rtx_insn_list.  */
+
+inline rtx_insn_list *rtx_insn_list::next () const
+{
+  rtx tmp = XEXP (this, 1);
+  return safe_as_a <rtx_insn_list *> (tmp);
+}
+
+inline rtx_insn *rtx_insn_list::insn () const
+{
+  rtx tmp = XEXP (this, 0);
+  return safe_as_a <rtx_insn *> (tmp);
+}
+
+/* Methods of rtx_sequence.  */
+
+inline int rtx_sequence::len () const
+{
+  return XVECLEN (this, 0);
+}
+
+inline rtx rtx_sequence::element (int index) const
+{
+  return XVECEXP (this, 0, index);
+}
+
+inline rtx_insn *rtx_sequence::insn (int index) const
+{
+  return as_a <rtx_insn *> (XVECEXP (this, 0, index));
+}
+
 /* ACCESS MACROS for particular fields of insns.  */
 
 /* Holds a unique number for each insn.
    These are not necessarily sequentially increasing.  */
-#define INSN_UID(INSN) \
-  (RTL_INSN_CHAIN_FLAG_CHECK ("INSN_UID", (INSN))->u2.insn_uid)
+inline int INSN_UID (const_rtx insn)
+{
+  return RTL_INSN_CHAIN_FLAG_CHECK ("INSN_UID",
+				    (insn))->u2.insn_uid;
+}
+inline int& INSN_UID (rtx insn)
+{
+  return RTL_INSN_CHAIN_FLAG_CHECK ("INSN_UID",
+				    (insn))->u2.insn_uid;
+}
 
 /* Chain insns together in sequence.  */
 
@@ -1182,37 +1321,63 @@ extern void rtl_check_failed_flag (const char *, const_rtx, const char *,
    and an lvalue form:
      SET_NEXT_INSN/SET_PREV_INSN.  */
 
-inline rtx_insn *PREV_INSN (const_rtx insn)
+inline rtx_insn *PREV_INSN (const rtx_insn *insn)
 {
   rtx prev = XEXP (insn, 0);
   return safe_as_a <rtx_insn *> (prev);
 }
 
-inline rtx& SET_PREV_INSN (rtx insn)
+inline rtx& SET_PREV_INSN (rtx_insn *insn)
 {
   return XEXP (insn, 0);
 }
 
-inline rtx_insn *NEXT_INSN (const_rtx insn)
+inline rtx_insn *NEXT_INSN (const rtx_insn *insn)
 {
   rtx next = XEXP (insn, 1);
   return safe_as_a <rtx_insn *> (next);
 }
 
-inline rtx& SET_NEXT_INSN (rtx insn)
+inline rtx& SET_NEXT_INSN (rtx_insn *insn)
 {
   return XEXP (insn, 1);
 }
 
-#define BLOCK_FOR_INSN(INSN) XBBDEF (INSN, 2)
+inline basic_block BLOCK_FOR_INSN (const_rtx insn)
+{
+  return XBBDEF (insn, 2);
+}
+
+inline basic_block& BLOCK_FOR_INSN (rtx insn)
+{
+  return XBBDEF (insn, 2);
+}
 
 /* The body of an insn.  */
-#define PATTERN(INSN)	XEXP (INSN, 3)
+inline rtx PATTERN (const_rtx insn)
+{
+  return XEXP (insn, 3);
+}
 
-#define INSN_LOCATION(INSN) XUINT (INSN, 4)
+inline rtx& PATTERN (rtx insn)
+{
+  return XEXP (insn, 3);
+}
 
-#define INSN_HAS_LOCATION(INSN) ((LOCATION_LOCUS (INSN_LOCATION (INSN)))\
-  != UNKNOWN_LOCATION)
+inline unsigned int INSN_LOCATION (const_rtx insn)
+{
+  return XUINT (insn, 4);
+}
+
+inline unsigned int& INSN_LOCATION (rtx insn)
+{
+  return XUINT (insn, 4);
+}
+
+inline bool INSN_HAS_LOCATION (const rtx_insn *insn)
+{
+  return LOCATION_LOCUS (INSN_LOCATION (insn)) != UNKNOWN_LOCATION;
+}
 
 /* LOCATION of an RTX if relevant.  */
 #define RTL_LOCATION(X) (INSN_P (X) ? \
@@ -1492,6 +1657,11 @@ enum label_kind
    so that if the JUMP_INSN is deleted, the label's LABEL_NUSES can
    be decremented and possibly the label can be deleted.  */
 #define JUMP_LABEL(INSN)   XCEXP (INSN, 7, JUMP_INSN)
+
+inline rtx_insn *JUMP_LABEL_AS_INSN (const rtx_insn *insn)
+{
+  return safe_as_a <rtx_insn *> (JUMP_LABEL (insn));
+}
 
 /* Once basic blocks are found, each CODE_LABEL starts a chain that
    goes through all the LABEL_REFs that jump to that label.  The chain
@@ -2328,6 +2498,7 @@ extern int rtx_equal_p (const_rtx, const_rtx);
 
 /* In emit-rtl.c */
 extern rtvec gen_rtvec_v (int, rtx *);
+extern rtvec gen_rtvec_v (int, rtx_insn **);
 extern rtx gen_reg_rtx (enum machine_mode);
 extern rtx gen_rtx_REG_offset (rtx, enum machine_mode, unsigned int, int);
 extern rtx gen_reg_rtx_offset (rtx, enum machine_mode, int);
@@ -2387,7 +2558,7 @@ extern rtx force_const_mem (enum machine_mode, rtx);
 /* In varasm.c  */
 
 struct function;
-extern rtx get_pool_constant (rtx);
+extern rtx get_pool_constant (const_rtx);
 extern rtx get_pool_constant_mark (rtx, bool *);
 extern enum machine_mode get_pool_mode (const_rtx);
 extern rtx simplify_subtraction (rtx);
@@ -2449,8 +2620,8 @@ extern rtx_insn *emit_use (rtx);
 extern rtx_insn *make_insn_raw (rtx);
 extern void add_function_usage_to (rtx, rtx);
 extern rtx_call_insn *last_call_insn (void);
-extern rtx_insn *previous_insn (rtx);
-extern rtx_insn *next_insn (rtx);
+extern rtx_insn *previous_insn (rtx_insn *);
+extern rtx_insn *next_insn (rtx_insn *);
 extern rtx_insn *prev_nonnote_insn (rtx);
 extern rtx_insn *prev_nonnote_insn_bb (rtx);
 extern rtx_insn *next_nonnote_insn (rtx);
@@ -2553,14 +2724,6 @@ extern void set_insn_deleted (rtx);
 		       : NULL_RTX)
 #define single_set_1(I) single_set_2 (I, PATTERN (I))
 
-/* Structure used for passing data to REPLACE_LABEL.  */
-struct replace_label_data
-{
-  rtx r1;
-  rtx r2;
-  bool update_label_nuses;
-};
-
 extern enum machine_mode get_address_mode (rtx mem);
 extern int rtx_addr_can_trap_p (const_rtx);
 extern bool nonzero_address_p (const_rtx);
@@ -2576,25 +2739,25 @@ extern bool unsigned_reg_p (rtx);
 extern int reg_mentioned_p (const_rtx, const_rtx);
 extern int count_occurrences (const_rtx, const_rtx, int);
 extern int reg_referenced_p (const_rtx, const_rtx);
-extern int reg_used_between_p (const_rtx, const_rtx, const_rtx);
+extern int reg_used_between_p (const_rtx, const rtx_insn *, const rtx_insn *);
 extern int reg_set_between_p (const_rtx, const_rtx, const_rtx);
 extern int commutative_operand_precedence (rtx);
 extern bool swap_commutative_operands_p (rtx, rtx);
 extern int modified_between_p (const_rtx, const_rtx, const_rtx);
-extern int no_labels_between_p (const_rtx, const_rtx);
+extern int no_labels_between_p (const rtx_insn *, const rtx_insn *);
 extern int modified_in_p (const_rtx, const_rtx);
 extern int reg_set_p (const_rtx, const_rtx);
 extern rtx single_set_2 (const_rtx, const_rtx);
 extern int multiple_sets (const_rtx);
 extern int set_noop_p (const_rtx);
 extern int noop_move_p (const_rtx);
-extern rtx find_last_value (rtx, rtx *, rtx, int);
 extern int refers_to_regno_p (unsigned int, unsigned int, const_rtx, rtx *);
 extern int reg_overlap_mentioned_p (const_rtx, const_rtx);
 extern const_rtx set_of (const_rtx, const_rtx);
 extern void record_hard_reg_sets (rtx, const_rtx, void *);
 extern void record_hard_reg_uses (rtx *, void *);
 #ifdef HARD_CONST
+extern void find_all_hard_regs (const_rtx, HARD_REG_SET *);
 extern void find_all_hard_reg_sets (const_rtx, HARD_REG_SET *, bool);
 #endif
 extern void note_stores (const_rtx, void (*) (rtx, const_rtx, void *), void *);
@@ -2625,15 +2788,16 @@ extern bool can_throw_external (const_rtx);
 extern bool insn_could_throw_p (const_rtx);
 extern bool insn_nothrow_p (const_rtx);
 extern bool can_nonlocal_goto (const_rtx);
-extern void copy_reg_eh_region_note_forward (rtx, rtx, rtx);
-extern void copy_reg_eh_region_note_backward (rtx, rtx, rtx);
+extern void copy_reg_eh_region_note_forward (rtx, rtx_insn *, rtx);
+extern void copy_reg_eh_region_note_backward (rtx, rtx_insn *, rtx);
 extern int inequality_comparisons_p (const_rtx);
 extern rtx replace_rtx (rtx, rtx, rtx);
-extern int replace_label (rtx *, void *);
-extern int rtx_referenced_p (rtx, rtx);
-extern bool tablejump_p (const_rtx, rtx *, rtx_jump_table_data **);
+extern void replace_label (rtx *, rtx, rtx, bool);
+extern void replace_label_in_insn (rtx_insn *, rtx, rtx, bool);
+extern bool rtx_referenced_p (const_rtx, const_rtx);
+extern bool tablejump_p (const rtx_insn *, rtx *, rtx_jump_table_data **);
 extern int computed_jump_p (const_rtx);
-extern bool tls_referenced_p (rtx);
+extern bool tls_referenced_p (const_rtx);
 
 typedef int (*rtx_function) (rtx *, void *);
 extern int for_each_rtx (rtx *, rtx_function, void *);
@@ -2643,12 +2807,11 @@ extern int for_each_rtx_in_insn (rtx_insn **, rtx_function, void *);
    within MEM that sets DEST to SRC + SRCOFF, or SRC if SRCOFF is
    NULL.  The callback is passed the same opaque ARG passed to
    for_each_inc_dec.  Return zero to continue looking for other
-   autoinc operations, -1 to skip OP's operands, and any other value
-   to interrupt the traversal and return that value to the caller of
-   for_each_inc_dec.  */
+   autoinc operations or any other value to interrupt the traversal and
+   return that value to the caller of for_each_inc_dec.  */
 typedef int (*for_each_inc_dec_fn) (rtx mem, rtx op, rtx dest, rtx src,
 				    rtx srcoff, void *arg);
-extern int for_each_inc_dec (rtx_insn **, for_each_inc_dec_fn, void *arg);
+extern int for_each_inc_dec (rtx, for_each_inc_dec_fn, void *arg);
 
 typedef int (*rtx_equal_p_callback_function) (const_rtx *, const_rtx *,
                                               rtx *, rtx *);
@@ -2663,11 +2826,12 @@ extern unsigned hash_rtx_cb (const_rtx, enum machine_mode, int *, int *,
 extern rtx regno_use_in (unsigned int, rtx);
 extern int auto_inc_p (const_rtx);
 extern int in_expr_list_p (const_rtx, const_rtx);
-extern void remove_node_from_expr_list (const_rtx, rtx *);
+extern void remove_node_from_expr_list (const_rtx, rtx_expr_list **);
+extern void remove_node_from_insn_list (const rtx_insn *, rtx_insn_list **);
 extern int loc_mentioned_in_p (rtx *, const_rtx);
-extern rtx_insn *find_first_parameter_load (rtx, rtx);
+extern rtx_insn *find_first_parameter_load (rtx_insn *, rtx_insn *);
 extern bool keep_with_call_p (const_rtx);
-extern bool label_is_jump_target_p (const_rtx, const_rtx);
+extern bool label_is_jump_target_p (const_rtx, const rtx_insn *);
 extern int insn_rtx_cost (rtx, bool);
 
 /* Given an insn and condition, return a canonical description of
@@ -2697,18 +2861,18 @@ extern void subreg_get_info (unsigned int, enum machine_mode,
 
 /* lists.c */
 
-extern void free_EXPR_LIST_list (rtx *);
-extern void free_INSN_LIST_list (rtx *);
+extern void free_EXPR_LIST_list (rtx_expr_list **);
+extern void free_INSN_LIST_list (rtx_insn_list **);
 extern void free_EXPR_LIST_node (rtx);
 extern void free_INSN_LIST_node (rtx);
-extern rtx alloc_INSN_LIST (rtx, rtx);
-extern rtx copy_INSN_LIST (rtx);
-extern rtx concat_INSN_LIST (rtx, rtx);
-extern rtx alloc_EXPR_LIST (int, rtx, rtx);
-extern void remove_free_INSN_LIST_elem (rtx, rtx *);
+extern rtx_insn_list *alloc_INSN_LIST (rtx, rtx);
+extern rtx_insn_list *copy_INSN_LIST (rtx_insn_list *);
+extern rtx_insn_list *concat_INSN_LIST (rtx_insn_list *, rtx_insn_list *);
+extern rtx_expr_list *alloc_EXPR_LIST (int, rtx, rtx);
+extern void remove_free_INSN_LIST_elem (rtx_insn *, rtx_insn_list **);
 extern rtx remove_list_elem (rtx, rtx *);
-extern rtx remove_free_INSN_LIST_node (rtx *);
-extern rtx remove_free_EXPR_LIST_node (rtx *);
+extern rtx_insn *remove_free_INSN_LIST_node (rtx_insn_list **);
+extern rtx remove_free_EXPR_LIST_node (rtx_expr_list **);
 
 
 /* reginfo.c */
@@ -2918,6 +3082,8 @@ get_mem_attrs (const_rtx x)
    generation functions included above do the raw handling.  If you
    add to this list, modify special_rtx in gengenrtl.c as well.  */
 
+extern rtx_expr_list *gen_rtx_EXPR_LIST (enum machine_mode, rtx, rtx);
+extern rtx_insn_list *gen_rtx_INSN_LIST (enum machine_mode, rtx, rtx);
 extern rtx gen_rtx_CONST_INT (enum machine_mode, HOST_WIDE_INT);
 extern rtx gen_rtx_CONST_VECTOR (enum machine_mode, rtvec);
 extern rtx gen_raw_REG (enum machine_mode, int);
@@ -3113,7 +3279,7 @@ extern void pop_topmost_sequence (void);
 extern void set_new_first_and_last_insn (rtx_insn *, rtx_insn *);
 extern unsigned int unshare_all_rtl (void);
 extern void unshare_all_rtl_again (rtx_insn *);
-extern void unshare_all_rtl_in_chain (rtx);
+extern void unshare_all_rtl_in_chain (rtx_insn *);
 extern void verify_rtl_sharing (void);
 extern void add_insn (rtx_insn *);
 extern void add_insn_before (rtx, rtx, basic_block);
@@ -3172,7 +3338,8 @@ extern void print_inline_rtx (FILE *, const_rtx, int);
    by the scheduler anymore but for all "slim" RTL dumping.  */
 extern void dump_value_slim (FILE *, const_rtx, int);
 extern void dump_insn_slim (FILE *, const_rtx);
-extern void dump_rtl_slim (FILE *, const_rtx, const_rtx, int, int);
+extern void dump_rtl_slim (FILE *, const rtx_insn *, const rtx_insn *,
+			   int, int);
 extern void print_value (pretty_printer *, const_rtx, int);
 extern void print_pattern (pretty_printer *, const_rtx, int);
 extern void print_insn (pretty_printer *, const_rtx, int);

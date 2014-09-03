@@ -98,6 +98,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "opts.h"
 #include "tree-dfa.h"
 #include "gdb/gdb-index.h"
+#include "rtl-iter.h"
 
 static void dwarf2out_source_line (unsigned int, const char *, int, bool);
 static rtx_insn *last_var_location_insn;
@@ -3159,7 +3160,7 @@ static dw_loc_descr_ref multiple_reg_loc_descriptor (rtx, rtx,
 static dw_loc_descr_ref based_loc_descr (rtx, HOST_WIDE_INT,
 					 enum var_init_status);
 static int is_based_loc (const_rtx);
-static int resolve_one_addr (rtx *, void *);
+static bool resolve_one_addr (rtx *);
 static dw_loc_descr_ref concat_loc_descriptor (rtx, rtx,
 					       enum var_init_status);
 static dw_loc_descr_ref loc_descriptor (rtx, enum machine_mode mode,
@@ -5033,7 +5034,7 @@ decl_piece_varloc_ptr (rtx piece)
 /* Create an EXPR_LIST for location note LOC_NOTE covering BITSIZE bits.
    Next is the chain of following piece nodes.  */
 
-static rtx
+static rtx_expr_list *
 decl_piece_node (rtx loc_note, HOST_WIDE_INT bitsize, rtx next)
 {
   if (bitsize <= (int) MAX_MACHINE_MODE)
@@ -11466,14 +11467,11 @@ expansion_failed (tree expr, rtx rtl, char const *reason)
     }
 }
 
-/* Helper function for const_ok_for_output, called either directly
-   or via for_each_rtx.  */
+/* Helper function for const_ok_for_output.  */
 
-static int
-const_ok_for_output_1 (rtx *rtlp, void *data ATTRIBUTE_UNUSED)
+static bool
+const_ok_for_output_1 (rtx rtl)
 {
-  rtx rtl = *rtlp;
-
   if (GET_CODE (rtl) == UNSPEC)
     {
       /* If delegitimize_address couldn't do anything with the UNSPEC, assume
@@ -11501,14 +11499,14 @@ const_ok_for_output_1 (rtx *rtlp, void *data ATTRIBUTE_UNUSED)
 #endif
       expansion_failed (NULL_TREE, rtl,
 			"UNSPEC hasn't been delegitimized.\n");
-      return 1;
+      return false;
     }
 
   if (targetm.const_not_ok_for_debug_p (rtl))
     {
       expansion_failed (NULL_TREE, rtl,
 			"Expression rejected for debug by the backend.\n");
-      return 1;
+      return false;
     }
 
   /* FIXME: Refer to PR60655. It is possible for simplification
@@ -11519,9 +11517,8 @@ const_ok_for_output_1 (rtx *rtlp, void *data ATTRIBUTE_UNUSED)
   if (GET_CODE (rtl) != SYMBOL_REF)
     {
       if (GET_CODE (rtl) == NOT)
-	  return 1;
-
-      return 0;
+	return false;
+      return true;
     }
 
   if (CONSTANT_POOL_ADDRESS_P (rtl))
@@ -11534,12 +11531,12 @@ const_ok_for_output_1 (rtx *rtlp, void *data ATTRIBUTE_UNUSED)
 	{
 	  expansion_failed (NULL_TREE, rtl,
 			    "Constant was removed from constant pool.\n");
-	  return 1;
+	  return false;
 	}
     }
 
   if (SYMBOL_REF_TLS_MODEL (rtl) != TLS_MODEL_NONE)
-    return 1;
+    return false;
 
   /* Avoid references to external symbols in debug info, on several targets
      the linker might even refuse to link when linking a shared library,
@@ -11554,11 +11551,11 @@ const_ok_for_output_1 (rtx *rtlp, void *data ATTRIBUTE_UNUSED)
 	{
 	  expansion_failed (NULL_TREE, rtl,
 			    "Symbol not defined in current TU.\n");
-	  return 1;
+	  return false;
 	}
     }
 
-  return 0;
+  return true;
 }
 
 /* Return true if constant RTL can be emitted in DW_OP_addr or
@@ -11569,10 +11566,16 @@ static bool
 const_ok_for_output (rtx rtl)
 {
   if (GET_CODE (rtl) == SYMBOL_REF)
-    return const_ok_for_output_1 (&rtl, NULL) == 0;
+    return const_ok_for_output_1 (rtl);
 
   if (GET_CODE (rtl) == CONST)
-    return for_each_rtx (&XEXP (rtl, 0), const_ok_for_output_1, NULL) == 0;
+    {
+      subrtx_var_iterator::array_type array;
+      FOR_EACH_SUBRTX_VAR (iter, array, XEXP (rtl, 0), ALL)
+	if (!const_ok_for_output_1 (*iter))
+	  return false;
+      return true;
+    }
 
   return true;
 }
@@ -12626,7 +12629,8 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
 	 pool.  */
     case CONST:
     case SYMBOL_REF:
-      if (GET_MODE_CLASS (mode) != MODE_INT
+      if ((GET_MODE_CLASS (mode) != MODE_INT
+	   && GET_MODE_CLASS (mode) != MODE_PARTIAL_INT)
 	  || (GET_MODE_SIZE (mode) > DWARF2_ADDR_SIZE
 #ifdef POINTERS_EXTEND_UNSIGNED
 	      && (mode != Pmode || mem_mode == VOIDmode)
@@ -13270,7 +13274,7 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
       break;
 
     case CONST_STRING:
-      resolve_one_addr (&rtl, NULL);
+      resolve_one_addr (&rtl);
       goto symref;
 
     default:
@@ -15325,7 +15329,7 @@ add_const_value_attribute (dw_die_ref die, rtx rtl)
       if (dwarf_version >= 4 || !dwarf_strict)
 	{
 	  dw_loc_descr_ref loc_result;
-	  resolve_one_addr (&rtl, NULL);
+	  resolve_one_addr (&rtl);
 	rtl_addr:
           loc_result = new_addr_loc_descr (rtl, dtprel_false);
 	  add_loc_descr (&loc_result, new_loc_descr (DW_OP_stack_value, 0, 0));
@@ -18099,17 +18103,15 @@ dwarf2out_abstract_function (tree decl)
    Marks the DIE of a given type in *SLOT as perennial, so it never gets
    marked as unused by prune_unused_types.  */
 
-static int
-premark_used_types_helper (void **slot, void *data ATTRIBUTE_UNUSED)
+bool
+premark_used_types_helper (tree const &type, void *)
 {
-  tree type;
   dw_die_ref die;
 
-  type = (tree) *slot;
   die = lookup_type_die (type);
   if (die != NULL)
     die->die_perennial_p = 1;
-  return 1;
+  return true;
 }
 
 /* Helper function of premark_types_used_by_global_vars which gets called
@@ -18152,7 +18154,7 @@ static void
 premark_used_types (struct function *fun)
 {
   if (fun && fun->used_types_hash)
-    htab_traverse (fun->used_types_hash, premark_used_types_helper, NULL);
+    fun->used_types_hash->traverse<void *, premark_used_types_helper> (NULL);
 }
 
 /* Mark all members of types_used_by_vars_entry as perennial.  */
@@ -23289,11 +23291,11 @@ move_marked_base_types (void)
 }
 
 /* Helper function for resolve_addr, attempt to resolve
-   one CONST_STRING, return non-zero if not successful.  Similarly verify that
+   one CONST_STRING, return true if successful.  Similarly verify that
    SYMBOL_REFs refer to variables emitted in the current CU.  */
 
-static int
-resolve_one_addr (rtx *addr, void *data ATTRIBUTE_UNUSED)
+static bool
+resolve_one_addr (rtx *addr)
 {
   rtx rtl = *addr;
 
@@ -23306,15 +23308,15 @@ resolve_one_addr (rtx *addr, void *data ATTRIBUTE_UNUSED)
 	= build_array_type (char_type_node, build_index_type (tlen));
       rtl = lookup_constant_def (t);
       if (!rtl || !MEM_P (rtl))
-	return 1;
+	return false;
       rtl = XEXP (rtl, 0);
       if (GET_CODE (rtl) == SYMBOL_REF
 	  && SYMBOL_REF_DECL (rtl)
 	  && !TREE_ASM_WRITTEN (SYMBOL_REF_DECL (rtl)))
-	return 1;
+	return false;
       vec_safe_push (used_rtx_array, rtl);
       *addr = rtl;
-      return 0;
+      return true;
     }
 
   if (GET_CODE (rtl) == SYMBOL_REF
@@ -23323,17 +23325,21 @@ resolve_one_addr (rtx *addr, void *data ATTRIBUTE_UNUSED)
       if (TREE_CONSTANT_POOL_ADDRESS_P (rtl))
 	{
 	  if (!TREE_ASM_WRITTEN (DECL_INITIAL (SYMBOL_REF_DECL (rtl))))
-	    return 1;
+	    return false;
 	}
       else if (!TREE_ASM_WRITTEN (SYMBOL_REF_DECL (rtl)))
-	return 1;
+	return false;
     }
 
-  if (GET_CODE (rtl) == CONST
-      && for_each_rtx (&XEXP (rtl, 0), resolve_one_addr, NULL))
-    return 1;
+  if (GET_CODE (rtl) == CONST)
+    {
+      subrtx_ptr_iterator::array_type array;
+      FOR_EACH_SUBRTX_PTR (iter, array, &XEXP (rtl, 0), ALL)
+	if (!resolve_one_addr (*iter))
+	  return false;
+    }
 
-  return 0;
+  return true;
 }
 
 /* For STRING_CST, return SYMBOL_REF of its constant pool entry,
@@ -23445,7 +23451,7 @@ resolve_addr_in_expr (dw_loc_descr_ref loc)
     switch (loc->dw_loc_opc)
       {
       case DW_OP_addr:
-	if (resolve_one_addr (&loc->dw_loc_oprnd1.v.val_addr, NULL))
+	if (!resolve_one_addr (&loc->dw_loc_oprnd1.v.val_addr))
 	  {
 	    if ((prev == NULL
 		 || prev->dw_loc_opc == DW_OP_piece
@@ -23464,7 +23470,7 @@ resolve_addr_in_expr (dw_loc_descr_ref loc)
             || (loc->dw_loc_opc == DW_OP_GNU_const_index && loc->dtprel))
           {
             rtx rtl = loc->dw_loc_oprnd1.val_entry->addr.rtl;
-            if (resolve_one_addr (&rtl, NULL))
+            if (!resolve_one_addr (&rtl))
               return false;
             remove_addr_table_entry (loc->dw_loc_oprnd1.val_entry);
             loc->dw_loc_oprnd1.val_entry =
@@ -23474,7 +23480,7 @@ resolve_addr_in_expr (dw_loc_descr_ref loc)
       case DW_OP_const4u:
       case DW_OP_const8u:
 	if (loc->dtprel
-	    && resolve_one_addr (&loc->dw_loc_oprnd1.v.val_addr, NULL))
+	    && !resolve_one_addr (&loc->dw_loc_oprnd1.v.val_addr))
 	  return false;
 	break;
       case DW_OP_plus_uconst:
@@ -23492,7 +23498,7 @@ resolve_addr_in_expr (dw_loc_descr_ref loc)
 	break;
       case DW_OP_implicit_value:
 	if (loc->dw_loc_oprnd2.val_class == dw_val_class_addr
-	    && resolve_one_addr (&loc->dw_loc_oprnd2.v.val_addr, NULL))
+	    && !resolve_one_addr (&loc->dw_loc_oprnd2.v.val_addr))
 	  return false;
 	break;
       case DW_OP_GNU_implicit_pointer:
@@ -23749,7 +23755,7 @@ resolve_addr (dw_die_ref die)
 	break;
       case dw_val_class_addr:
 	if (a->dw_attr == DW_AT_const_value
-	    && resolve_one_addr (&a->dw_attr_val.v.val_addr, NULL))
+	    && !resolve_one_addr (&a->dw_attr_val.v.val_addr))
 	  {
             if (AT_index (a) != NOT_INDEXED)
               remove_addr_table_entry (a->dw_attr_val.val_entry);

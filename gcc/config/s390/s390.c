@@ -4078,9 +4078,9 @@ s390_expand_movmem (rtx dst, rtx src, rtx len)
   else
     {
       rtx dst_addr, src_addr, count, blocks, temp;
-      rtx loop_start_label = gen_label_rtx ();
-      rtx loop_end_label = gen_label_rtx ();
-      rtx end_label = gen_label_rtx ();
+      rtx_code_label *loop_start_label = gen_label_rtx ();
+      rtx_code_label *loop_end_label = gen_label_rtx ();
+      rtx_code_label *end_label = gen_label_rtx ();
       enum machine_mode mode;
 
       mode = GET_MODE (len);
@@ -4203,9 +4203,9 @@ s390_expand_setmem (rtx dst, rtx len, rtx val)
   else
     {
       rtx dst_addr, count, blocks, temp, dstp1 = NULL_RTX;
-      rtx loop_start_label = gen_label_rtx ();
-      rtx loop_end_label = gen_label_rtx ();
-      rtx end_label = gen_label_rtx ();
+      rtx_code_label *loop_start_label = gen_label_rtx ();
+      rtx_code_label *loop_end_label = gen_label_rtx ();
+      rtx_code_label *end_label = gen_label_rtx ();
       enum machine_mode mode;
 
       mode = GET_MODE (len);
@@ -4329,9 +4329,9 @@ s390_expand_cmpmem (rtx target, rtx op0, rtx op1, rtx len)
   else
     {
       rtx addr0, addr1, count, blocks, temp;
-      rtx loop_start_label = gen_label_rtx ();
-      rtx loop_end_label = gen_label_rtx ();
-      rtx end_label = gen_label_rtx ();
+      rtx_code_label *loop_start_label = gen_label_rtx ();
+      rtx_code_label *loop_end_label = gen_label_rtx ();
+      rtx_code_label *end_label = gen_label_rtx ();
       enum machine_mode mode;
 
       mode = GET_MODE (len);
@@ -4886,7 +4886,7 @@ s390_expand_cs_hqi (enum machine_mode mode, rtx btarget, rtx vtarget, rtx mem,
   struct alignment_context ac;
   rtx cmpv, newv, val, cc, seq0, seq1, seq2, seq3;
   rtx res = gen_reg_rtx (SImode);
-  rtx csloop = NULL, csend = NULL;
+  rtx_code_label *csloop = NULL, *csend = NULL;
 
   gcc_assert (MEM_P (mem));
 
@@ -4969,7 +4969,7 @@ s390_expand_atomic (enum machine_mode mode, enum rtx_code code,
   rtx cmp;
   rtx new_rtx = gen_reg_rtx (SImode);
   rtx orig = gen_reg_rtx (SImode);
-  rtx csloop = gen_label_rtx ();
+  rtx_code_label *csloop = gen_label_rtx ();
 
   gcc_assert (!target || register_operand (target, VOIDmode));
   gcc_assert (MEM_P (mem));
@@ -5226,7 +5226,7 @@ get_some_local_dynamic_name_1 (rtx *px, void *data ATTRIBUTE_UNUSED)
 static const char *
 get_some_local_dynamic_name (void)
 {
-  rtx insn;
+  rtx_insn *insn;
 
   if (cfun->machine->some_ld_name)
     return cfun->machine->some_ld_name;
@@ -5864,7 +5864,7 @@ s390_agen_dep_p (rtx dep_insn, rtx insn)
    A STD instruction should be scheduled earlier,
    in order to use the bypass.  */
 static int
-s390_adjust_priority (rtx insn ATTRIBUTE_UNUSED, int priority)
+s390_adjust_priority (rtx_insn *insn, int priority)
 {
   if (! INSN_P (insn))
     return priority;
@@ -6030,7 +6030,7 @@ s390_split_branches (void)
   rtx temp_reg = gen_rtx_REG (Pmode, RETURN_REGNUM);
   int new_literal = 0, ret;
   rtx_insn *insn;
-  rtx pat, tmp, target;
+  rtx pat, target;
   rtx *label;
 
   /* We need correct insn addresses.  */
@@ -6076,10 +6076,10 @@ s390_split_branches (void)
       if (!flag_pic)
 	{
 	  new_literal = 1;
-	  tmp = force_const_mem (Pmode, *label);
-	  tmp = emit_insn_before (gen_rtx_SET (Pmode, temp_reg, tmp), insn);
-	  INSN_ADDRESSES_NEW (tmp, -1);
-	  annotate_constant_pool_refs (&PATTERN (tmp));
+	  rtx mem = force_const_mem (Pmode, *label);
+	  rtx_insn *set_insn = emit_insn_before (gen_rtx_SET (Pmode, temp_reg, mem), insn);
+	  INSN_ADDRESSES_NEW (set_insn, -1);
+	  annotate_constant_pool_refs (&PATTERN (set_insn));
 
 	  target = temp_reg;
 	}
@@ -6090,9 +6090,9 @@ s390_split_branches (void)
 				   UNSPEC_LTREL_OFFSET);
 	  target = gen_rtx_CONST (Pmode, target);
 	  target = force_const_mem (Pmode, target);
-	  tmp = emit_insn_before (gen_rtx_SET (Pmode, temp_reg, target), insn);
-	  INSN_ADDRESSES_NEW (tmp, -1);
-	  annotate_constant_pool_refs (&PATTERN (tmp));
+	  rtx_insn *set_insn = emit_insn_before (gen_rtx_SET (Pmode, temp_reg, target), insn);
+	  INSN_ADDRESSES_NEW (set_insn, -1);
+	  annotate_constant_pool_refs (&PATTERN (set_insn));
 
           target = gen_rtx_UNSPEC (Pmode, gen_rtvec (2, XEXP (target, 0),
 							cfun->machine->base_reg),
@@ -6540,7 +6540,7 @@ s390_execute_target (rtx insn)
    execute insns that carry a unique label.  */
 
 static bool
-s390_cannot_copy_insn_p (rtx insn)
+s390_cannot_copy_insn_p (rtx_insn *insn)
 {
   rtx label = s390_execute_label (insn);
   return label && label != const0_rtx;
@@ -6739,7 +6739,6 @@ static void
 s390_mainpool_finish (struct constant_pool *pool)
 {
   rtx base_reg = cfun->machine->base_reg;
-  rtx insn;
 
   /* If the pool is empty, we're done.  */
   if (pool->size == 0)
@@ -6760,8 +6759,8 @@ s390_mainpool_finish (struct constant_pool *pool)
      located in the .rodata section, so we emit it after the function.  */
   if (TARGET_CPU_ZARCH)
     {
-      insn = gen_main_base_64 (base_reg, pool->label);
-      insn = emit_insn_after (insn, pool->pool_insn);
+      rtx set = gen_main_base_64 (base_reg, pool->label);
+      rtx_insn *insn = emit_insn_after (set, pool->pool_insn);
       INSN_ADDRESSES_NEW (insn, -1);
       remove_insn (pool->pool_insn);
 
@@ -6778,8 +6777,8 @@ s390_mainpool_finish (struct constant_pool *pool)
   else if (INSN_ADDRESSES (INSN_UID (pool->emit_pool_after))
 	   + pool->size + 8 /* alignment slop */ < 4096)
     {
-      insn = gen_main_base_31_small (base_reg, pool->label);
-      insn = emit_insn_after (insn, pool->pool_insn);
+      rtx set = gen_main_base_31_small (base_reg, pool->label);
+      rtx_insn *insn = emit_insn_after (set, pool->pool_insn);
       INSN_ADDRESSES_NEW (insn, -1);
       remove_insn (pool->pool_insn);
 
@@ -6801,10 +6800,10 @@ s390_mainpool_finish (struct constant_pool *pool)
      over it, setting up the pool register at the same time.  */
   else
     {
-      rtx pool_end = gen_label_rtx ();
+      rtx_code_label *pool_end = gen_label_rtx ();
 
-      insn = gen_main_base_31_large (base_reg, pool->label, pool_end);
-      insn = emit_jump_insn_after (insn, pool->pool_insn);
+      rtx pat = gen_main_base_31_large (base_reg, pool->label, pool_end);
+      rtx_insn *insn = emit_jump_insn_after (pat, pool->pool_insn);
       JUMP_LABEL (insn) = pool_end;
       INSN_ADDRESSES_NEW (insn, -1);
       remove_insn (pool->pool_insn);
@@ -6824,7 +6823,7 @@ s390_mainpool_finish (struct constant_pool *pool)
 
   /* Replace all literal pool references.  */
 
-  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+  for (rtx_insn *insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
       if (INSN_P (insn))
 	replace_ltrel_base (&PATTERN (insn));
@@ -8002,7 +8001,7 @@ s390_optimize_nonescaping_tx (void)
 
 	  if (XINT (SET_SRC (pat), 1) == UNSPECV_TBEGIN)
 	    {
-	      rtx tmp;
+	      rtx_insn *tmp;
 
 	      tbegin_insn = insn;
 
@@ -8955,7 +8954,7 @@ s390_emit_prologue (void)
     {
       rtx_insn *insns = s390_load_got ();
 
-      for (insn = insns; insn; insn = NEXT_INSN (insn))
+      for (rtx_insn *insn = insns; insn; insn = NEXT_INSN (insn))
 	annotate_constant_pool_refs (&PATTERN (insn));
 
       emit_insn (insns);
@@ -9904,7 +9903,7 @@ s390_expand_tbegin (rtx dest, rtx tdb, rtx retry, bool clobber_fprs_p)
 {
   rtx retry_plus_two = gen_reg_rtx (SImode);
   rtx retry_reg = gen_reg_rtx (SImode);
-  rtx retry_label = NULL_RTX;
+  rtx_code_label *retry_label = NULL;
 
   if (retry != NULL_RTX)
     {
@@ -11712,9 +11711,8 @@ s390_sched_reorder (FILE *file, int verbose,
    last_scheduled_insn in order to make it available for
    s390_sched_reorder.  */
 static int
-s390_sched_variable_issue (FILE *file, int verbose, rtx uncast_insn, int more)
+s390_sched_variable_issue (FILE *file, int verbose, rtx_insn *insn, int more)
 {
-  rtx_insn *insn = as_a <rtx_insn *> (uncast_insn);
   last_scheduled_insn = insn;
 
   if (s390_tune == PROCESSOR_2827_ZEC12
@@ -12184,7 +12182,7 @@ s390_option_override (void)
 #define TARGET_CC_MODES_COMPATIBLE s390_cc_modes_compatible
 
 #undef TARGET_INVALID_WITHIN_DOLOOP
-#define TARGET_INVALID_WITHIN_DOLOOP hook_constcharptr_const_rtx_null
+#define TARGET_INVALID_WITHIN_DOLOOP hook_constcharptr_const_rtx_insn_null
 
 #ifdef HAVE_AS_TLS
 #undef TARGET_ASM_OUTPUT_DWARF_DTPREL
