@@ -274,9 +274,9 @@ static const struct cpu_addrcost_table generic_addrcost_table =
   .addr_scale_costs =
 #endif
     {
-      NAMED_PARAM (qi, 0),
       NAMED_PARAM (hi, 0),
       NAMED_PARAM (si, 0),
+      NAMED_PARAM (di, 0),
       NAMED_PARAM (ti, 0),
     },
   NAMED_PARAM (pre_modify, 0),
@@ -295,9 +295,9 @@ static const struct cpu_addrcost_table cortexa57_addrcost_table =
   .addr_scale_costs =
 #endif
     {
-      NAMED_PARAM (qi, 0),
       NAMED_PARAM (hi, 1),
       NAMED_PARAM (si, 0),
+      NAMED_PARAM (di, 0),
       NAMED_PARAM (ti, 1),
     },
   NAMED_PARAM (pre_modify, 0),
@@ -838,7 +838,7 @@ aarch64_load_symref_appropriately (rtx dest, rtx imm,
 
     case SYMBOL_SMALL_TLSGD:
       {
-	rtx insns;
+	rtx_insn *insns;
 	rtx result = gen_rtx_REG (Pmode, R0_REGNUM);
 
 	start_sequence ();
@@ -2071,7 +2071,7 @@ aarch64_layout_frame (void)
 static void
 aarch64_set_frame_expr (rtx frame_pattern)
 {
-  rtx insn;
+  rtx_insn *insn;
 
   insn = get_last_insn ();
   RTX_FRAME_RELATED_P (insn) = 1;
@@ -2151,7 +2151,7 @@ static void
 aarch64_pushwb_pair_reg (enum machine_mode mode, unsigned regno1,
 			 unsigned regno2, HOST_WIDE_INT adjustment)
 {
-  rtx insn;
+  rtx_insn *insn;
   rtx reg1 = gen_rtx_REG (mode, regno1);
   rtx reg2 = gen_rtx_REG (mode, regno2);
 
@@ -2242,7 +2242,7 @@ static void
 aarch64_save_callee_saves (enum machine_mode mode, HOST_WIDE_INT start_offset,
 			   unsigned start, unsigned limit, bool skip_wb)
 {
-  rtx insn;
+  rtx_insn *insn;
   rtx (*gen_mem_ref) (enum machine_mode, rtx) = (frame_pointer_needed
 						 ? gen_frame_mem : gen_rtx_MEM);
   unsigned regno;
@@ -2410,7 +2410,7 @@ aarch64_expand_prologue (void)
   */
   HOST_WIDE_INT frame_size, offset;
   HOST_WIDE_INT fp_offset;		/* Offset from hard FP to SP.  */
-  rtx insn;
+  rtx_insn *insn;
 
   aarch64_layout_frame ();
 
@@ -2564,7 +2564,7 @@ aarch64_expand_epilogue (bool for_sibcall)
 {
   HOST_WIDE_INT frame_size, offset;
   HOST_WIDE_INT fp_offset;
-  rtx insn;
+  rtx_insn *insn;
   rtx cfa_reg;
 
   aarch64_layout_frame ();
@@ -2905,7 +2905,8 @@ aarch64_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
      to return a pointer to an aggregate.  On AArch64 a result value
      pointer will be in x8.  */
   int this_regno = R0_REGNUM;
-  rtx this_rtx, temp0, temp1, addr, insn, funexp;
+  rtx this_rtx, temp0, temp1, addr, funexp;
+  rtx_insn *insn;
 
   reload_completed = 1;
   emit_note (NOTE_INSN_PROLOGUE_END);
@@ -3733,7 +3734,7 @@ aarch64_select_cc_mode (RTX_CODE code, rtx x, rtx y)
   return CCmode;
 }
 
-static unsigned
+static int
 aarch64_get_condition_code_1 (enum machine_mode mode, enum rtx_code comp_code)
 {
   switch (mode)
@@ -3754,7 +3755,7 @@ aarch64_get_condition_code_1 (enum machine_mode mode, enum rtx_code comp_code)
 	case UNLE: return AARCH64_LE;
 	case UNGT: return AARCH64_HI;
 	case UNGE: return AARCH64_PL;
-	default: gcc_unreachable ();
+	default: return -1;
 	}
       break;
 
@@ -3792,7 +3793,7 @@ aarch64_get_condition_code_1 (enum machine_mode mode, enum rtx_code comp_code)
 	case GTU: return AARCH64_HI;
 	case LEU: return AARCH64_LS;
 	case LTU: return AARCH64_CC;
-	default: gcc_unreachable ();
+	default: return -1;
 	}
       break;
 
@@ -3811,7 +3812,7 @@ aarch64_get_condition_code_1 (enum machine_mode mode, enum rtx_code comp_code)
 	case GTU: return AARCH64_CC;
 	case LEU: return AARCH64_CS;
 	case LTU: return AARCH64_HI;
-	default: gcc_unreachable ();
+	default: return -1;
 	}
       break;
 
@@ -3822,7 +3823,7 @@ aarch64_get_condition_code_1 (enum machine_mode mode, enum rtx_code comp_code)
 	case EQ: return AARCH64_EQ;
 	case GE: return AARCH64_PL;
 	case LT: return AARCH64_MI;
-	default: gcc_unreachable ();
+	default: return -1;
 	}
       break;
 
@@ -3831,17 +3832,17 @@ aarch64_get_condition_code_1 (enum machine_mode mode, enum rtx_code comp_code)
 	{
 	case NE: return AARCH64_NE;
 	case EQ: return AARCH64_EQ;
-	default: gcc_unreachable ();
+	default: return -1;
 	}
       break;
 
     default:
-      gcc_unreachable ();
+      return -1;
       break;
     }
 }
 
-static unsigned
+int
 aarch64_get_condition_code (rtx x)
 {
   enum machine_mode mode = GET_MODE (XEXP (x, 0));
@@ -3968,39 +3969,48 @@ aarch64_print_operand (FILE *f, rtx x, char code)
       break;
 
     case 'm':
-      /* Print a condition (eq, ne, etc).  */
+      {
+        int cond_code;
+        /* Print a condition (eq, ne, etc).  */
 
-      /* CONST_TRUE_RTX means always -- that's the default.  */
-      if (x == const_true_rtx)
-	return;
-
-      if (!COMPARISON_P (x))
-	{
-	  output_operand_lossage ("invalid operand for '%%%c'", code);
+        /* CONST_TRUE_RTX means always -- that's the default.  */
+        if (x == const_true_rtx)
 	  return;
-	}
 
-      fputs (aarch64_condition_codes[aarch64_get_condition_code (x)], f);
+        if (!COMPARISON_P (x))
+	  {
+	    output_operand_lossage ("invalid operand for '%%%c'", code);
+	    return;
+	  }
+
+        cond_code = aarch64_get_condition_code (x);
+        gcc_assert (cond_code >= 0);
+        fputs (aarch64_condition_codes[cond_code], f);
+      }
       break;
 
     case 'M':
-      /* Print the inverse of a condition (eq <-> ne, etc).  */
+      {
+        int cond_code;
+        /* Print the inverse of a condition (eq <-> ne, etc).  */
 
-      /* CONST_TRUE_RTX means never -- that's the default.  */
-      if (x == const_true_rtx)
-	{
-	  fputs ("nv", f);
-	  return;
-	}
+        /* CONST_TRUE_RTX means never -- that's the default.  */
+        if (x == const_true_rtx)
+	  {
+	    fputs ("nv", f);
+	    return;
+	  }
 
-      if (!COMPARISON_P (x))
-	{
-	  output_operand_lossage ("invalid operand for '%%%c'", code);
-	  return;
-	}
-
-      fputs (aarch64_condition_codes[AARCH64_INVERSE_CONDITION_CODE
-				  (aarch64_get_condition_code (x))], f);
+        if (!COMPARISON_P (x))
+	  {
+	    output_operand_lossage ("invalid operand for '%%%c'", code);
+	    return;
+	  }
+        cond_code = aarch64_get_condition_code (x);
+        gcc_assert (cond_code >= 0);
+        fputs (aarch64_condition_codes[AARCH64_INVERSE_CONDITION_CODE
+                                       (cond_code)], f);
+      }
       break;
 
     case 'b':
@@ -4768,7 +4778,7 @@ aarch64_output_casesi (rtx *operands)
 {
   char buf[100];
   char label[100];
-  rtx diff_vec = PATTERN (NEXT_INSN (operands[2]));
+  rtx diff_vec = PATTERN (NEXT_INSN (as_a <rtx_insn *> (operands[2])));
   int index;
   static const char *const patterns[4][2] =
   {
@@ -6256,7 +6266,7 @@ aarch64_macro_fusion_p (void)
 
 /* Return is the pair of instructions are macro fusion pairs. */
 static bool
-aarch64_macro_fusion_pair (rtx condgen, rtx)
+aarch64_macro_fusion_pair (rtx_insn *condgen, rtx_insn *)
 {
   if (aarch64_tune != thunderx)
     return false;
@@ -8838,7 +8848,8 @@ aarch64_split_compare_and_swap (rtx operands[])
   rtx rval, mem, oldval, newval, scratch;
   enum machine_mode mode;
   bool is_weak;
-  rtx label1, label2, x, cond;
+  rtx_code_label *label1, *label2;
+  rtx x, cond;
 
   rval = operands[0];
   mem = operands[1];
@@ -8848,7 +8859,7 @@ aarch64_split_compare_and_swap (rtx operands[])
   scratch = operands[7];
   mode = GET_MODE (mem);
 
-  label1 = NULL_RTX;
+  label1 = NULL;
   if (!is_weak)
     {
       label1 = gen_label_rtx ();
@@ -8891,7 +8902,8 @@ aarch64_split_atomic_op (enum rtx_code code, rtx old_out, rtx new_out, rtx mem,
 {
   enum machine_mode mode = GET_MODE (mem);
   enum machine_mode wmode = (mode == DImode ? DImode : SImode);
-  rtx label, x;
+  rtx_code_label *label;
+  rtx x;
 
   label = gen_label_rtx ();
   emit_label (label);

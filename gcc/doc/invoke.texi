@@ -7233,7 +7233,7 @@ Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
 @opindex foptimize-strlen
 Optimize various standard C string functions (e.g. @code{strlen},
 @code{strchr} or @code{strcpy}) and
-their _FORTIFY_SOURCE counterparts into faster alternatives.
+their @code{_FORTIFY_SOURCE} counterparts into faster alternatives.
 
 Enabled at levels @option{-O2}, @option{-O3}.
 
@@ -7402,7 +7402,7 @@ register, compare it against zero, then branch based upon the result.
 This option is only meaningful on architectures that support such
 instructions, which include x86, PowerPC, IA-64 and S/390.
 
-Enabled by default at -O1 and higher.
+Enabled by default at @option{-O1} and higher.
 
 The default is @option{-fbranch-count-reg}.
 
@@ -13820,7 +13820,7 @@ are compatible with as many systems and code bases as possible.
 @item -mkernel
 @opindex mkernel
 Enable kernel development mode.  The @option{-mkernel} option sets
-@option{-static}, @option{-fno-common}, @option{-fno-cxa-atexit},
+@option{-static}, @option{-fno-common}, @option{-fno-use-cxa-atexit},
 @option{-fno-exceptions}, @option{-fno-non-call-exceptions},
 @option{-fapple-kext}, @option{-fno-weak} and @option{-fno-rtti} where
 applicable.  This mode also sets @option{-mno-altivec},
@@ -20915,7 +20915,7 @@ Mark the @code{MAC} register as call-clobbered, even if
 @item -mieee
 @itemx -mno-ieee
 @opindex mieee
-@opindex mnoieee
+@opindex mno-ieee
 Control the IEEE compliance of floating-point comparisons, which affects the
 handling of cases where the result of a comparison is unordered.  By default
 @option{-mieee} is implicitly enabled.  If @option{-ffinite-math-only} is
@@ -20955,14 +20955,14 @@ separated list.  For details on the atomic built-in functions see
 
 @item none
 Disable compiler generated atomic sequences and emit library calls for atomic
-operations.  This is the default if the target is not @code{sh-*-linux*}.
+operations.  This is the default if the target is not @code{sh*-*-linux*}.
 
 @item soft-gusa
 Generate GNU/Linux compatible gUSA software atomic sequences for the atomic
 built-in functions.  The generated atomic sequences require additional support
 from the interrupt/exception handling code of the system and are only suitable
 for SH3* and SH4* single-core systems.  This option is enabled by default when
-the target is @code{sh-*-linux*} and SH3* or SH4*.  When the target is SH4A,
+the target is @code{sh*-*-linux*} and SH3* or SH4*.  When the target is SH4A,
 this option will also partially utilize the hardware atomic instructions
 @code{movli.l} and @code{movco.l} to create more efficient code, unless
 @samp{strict} is specified.  
@@ -20981,7 +20981,7 @@ setting @code{SR.IMASK = 1111}.  This model works only when the program runs
 in privileged mode and is only suitable for single-core systems.  Additional
 support from the interrupt/exception handling code of the system is not
 required.  This model is enabled by default when the target is
-@code{sh-*-linux*} and SH1* or SH2*.
+@code{sh*-*-linux*} and SH1* or SH2*.
 
 @item hard-llcs
 Generate hardware atomic sequences using the @code{movli.l} and @code{movco.l}
@@ -21022,11 +21022,14 @@ When generating position-independent code, emit function calls using
 the Global Offset Table instead of the Procedure Linkage Table.
 
 @item -musermode
+@itemx -mno-usermode
 @opindex musermode
-Don't generate privileged mode only code.  This option
-implies @option{-mno-inline-ic_invalidate}
-if the inlined code would not work in user mode.
-This is the default when the target is @code{sh-*-linux*}.
+@opindex mno-usermode
+Don't allow (allow) the compiler generating privileged mode code.  Specifying
+@option{-musermode} also implies @option{-mno-inline-ic_invalidate} if the
+inlined code would not work in user mode.  @option{-musermode} is the default
+when the target is @code{sh*-*-linux*}.  If the target is SH1* or SH2*
+@option{-musermode} has no effect, since there is no user mode.
 
 @item -multcost=@var{number}
 @opindex multcost=@var{number}

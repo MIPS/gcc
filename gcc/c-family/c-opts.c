@@ -381,41 +381,17 @@ c_common_handle_option (size_t scode, const char *arg, int value,
     case OPT_Wall:
       /* ??? Don't add new options here. Use LangEnabledBy in c.opt.  */
 
-      cpp_opts->warn_trigraphs = value;
       cpp_opts->warn_num_sign_change = value;
-      break;
-
-    case OPT_Wbuiltin_macro_redefined:
-      cpp_opts->warn_builtin_macro_redefined = value;
       break;
 
     case OPT_Wc___compat:
       cpp_opts->warn_cxx_operator_names = value;
       break;
 
-    case OPT_Wdeprecated:
-      cpp_opts->cpp_warn_deprecated = value;
-      break;
-
-    case OPT_Wendif_labels:
-      cpp_opts->warn_endif_labels = value;
-      break;
-
-    case OPT_Winvalid_pch:
-      cpp_opts->warn_invalid_pch = value;
-      break;
-
-    case OPT_Wliteral_suffix:
-      cpp_opts->warn_literal_suffix = value;
-      break;
-
     case OPT_Wlong_long:
       cpp_opts->cpp_warn_long_long = value;
       break;
 
-    case OPT_Wmissing_include_dirs:
-      cpp_opts->warn_missing_include_dirs = value;
-      break;
     case OPT_Wnormalized_:
       /* FIXME: Move all this to c.opt.  */
       if (kind == DK_ERROR)
@@ -441,14 +417,6 @@ c_common_handle_option (size_t scode, const char *arg, int value,
 
     case OPT_Wtraditional:
       cpp_opts->cpp_warn_traditional = value;
-      break;
-
-    case OPT_Wtrigraphs:
-      cpp_opts->warn_trigraphs = value;
-      break;
-
-    case OPT_Wundef:
-      cpp_opts->warn_undef = value;
       break;
 
     case OPT_Wunknown_pragmas:
@@ -698,12 +666,12 @@ c_common_handle_option (size_t scode, const char *arg, int value,
 	}
       break;
 
-    case OPT_std_c__1y:
-    case OPT_std_gnu__1y:
+    case OPT_std_c__14:
+    case OPT_std_gnu__14:
       if (!preprocessing_asm_p)
 	{
-	  set_std_cxx14 (code == OPT_std_c__1y /* ISO */);
-	  if (code == OPT_std_c__1y)
+	  set_std_cxx14 (code == OPT_std_c__14 /* ISO */);
+	  if (code == OPT_std_c__14)
 	    cpp_opts->ext_numeric_literals = 0;
 	}
       break;
@@ -1587,7 +1555,7 @@ set_std_cxx11 (int iso)
   cxx_dialect = cxx11;
 }
 
-/* Set the C++ 201y draft standard (without GNU extensions if ISO).  */
+/* Set the C++ 2014 draft standard (without GNU extensions if ISO).  */
 static void
 set_std_cxx14 (int iso)
 {

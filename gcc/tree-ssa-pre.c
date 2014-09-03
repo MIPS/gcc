@@ -719,8 +719,8 @@ sorted_array_from_bitmap_set (bitmap_set_t set)
   bitmap_iterator bi, bj;
   vec<pre_expr> result;
 
-  /* Pre-allocate roughly enough space for the array.  */
-  result.create (bitmap_count_bits (&set->values));
+  /* Pre-allocate enough space for the array.  */
+  result.create (bitmap_count_bits (&set->expressions));
 
   FOR_EACH_VALUE_ID_IN_SET (set, i, bi)
     {
@@ -738,7 +738,7 @@ sorted_array_from_bitmap_set (bitmap_set_t set)
       EXECUTE_IF_SET_IN_BITMAP (exprset, 0, j, bj)
 	{
 	  if (bitmap_bit_p (&set->expressions, j))
-	    result.safe_push (expression_for_id (j));
+	    result.quick_push (expression_for_id (j));
         }
     }
 
@@ -1536,12 +1536,11 @@ phi_translate_1 (pre_expr expr, bitmap_set_t set1, bitmap_set_t set2,
 	tree newvuse = vuse;
 	vec<vn_reference_op_s> newoperands = vNULL;
 	bool changed = false, same_valid = true;
-	unsigned int i, j, n;
+	unsigned int i, n;
 	vn_reference_op_t operand;
 	vn_reference_t newref;
 
-	for (i = 0, j = 0;
-	     operands.iterate (i, &operand); i++, j++)
+	for (i = 0; operands.iterate (i, &operand); i++)
 	  {
 	    pre_expr opresult;
 	    pre_expr leader;
@@ -1585,6 +1584,8 @@ phi_translate_1 (pre_expr expr, bitmap_set_t set1, bitmap_set_t set2,
 		newoperands.release ();
 		return NULL;
 	      }
+	    if (!changed)
+	      continue;
 	    if (!newoperands.exists ())
 	      newoperands = operands.copy ();
 	    /* We may have changed from an SSA_NAME to a constant */
@@ -1594,36 +1595,14 @@ phi_translate_1 (pre_expr expr, bitmap_set_t set1, bitmap_set_t set2,
 	    newop.op0 = op[0];
 	    newop.op1 = op[1];
 	    newop.op2 = op[2];
-	    /* If it transforms a non-constant ARRAY_REF into a constant
-	       one, adjust the constant offset.  */
-	    if (newop.opcode == ARRAY_REF
-		&& newop.off == -1
-		&& TREE_CODE (op[0]) == INTEGER_CST
-		&& TREE_CODE (op[1]) == INTEGER_CST
-		&& TREE_CODE (op[2]) == INTEGER_CST)
-	      {
-		offset_int off = ((wi::to_offset (op[0])
-				   - wi::to_offset (op[1]))
-				  * wi::to_offset (op[2]));
-		if (wi::fits_shwi_p (off))
-		  newop.off = off.to_shwi ();
-	      }
-	    newoperands[j] = newop;
-	    /* If it transforms from an SSA_NAME to an address, fold with
-	       a preceding indirect reference.  */
-	    if (j > 0 && op[0] && TREE_CODE (op[0]) == ADDR_EXPR
-		&& newoperands[j - 1].opcode == MEM_REF)
-	      vn_reference_fold_indirect (&newoperands, &j);
+	    newoperands[i] = newop;
 	  }
-	if (i != operands.length ())
-	  {
-	    newoperands.release ();
-	    return NULL;
-	  }
+	gcc_checking_assert (i == operands.length ());
 
 	if (vuse)
 	  {
-	    newvuse = translate_vuse_through_block (newoperands,
+	    newvuse = translate_vuse_through_block (newoperands.exists ()
+						    ? newoperands : operands,
 						    ref->set, ref->type,
 						    vuse, phiblock, pred,
 						    &same_valid);
@@ -1641,7 +1620,8 @@ phi_translate_1 (pre_expr expr, bitmap_set_t set1, bitmap_set_t set2,
 
 	    tree result = vn_reference_lookup_pieces (newvuse, ref->set,
 						      ref->type,
-						      newoperands,
+						      newoperands.exists ()
+						      ? newoperands : operands,
 						      &newref, VN_WALK);
 	    if (result)
 	      newoperands.release ();
@@ -1700,11 +1680,13 @@ phi_translate_1 (pre_expr expr, bitmap_set_t set1, bitmap_set_t set2,
 		  }
 		else
 		  new_val_id = ref->value_id;
+		if (!newoperands.exists ())
+		  newoperands = operands.copy ();
 		newref = vn_reference_insert_pieces (newvuse, ref->set,
 						     ref->type,
 						     newoperands,
 						     result, new_val_id);
-		newoperands.create (0);
+		newoperands = vNULL;
 		PRE_EXPR_REFERENCE (expr) = newref;
 		constant = fully_constant_expression (expr);
 		if (constant != expr)
@@ -1736,8 +1718,9 @@ phi_translate_1 (pre_expr expr, bitmap_set_t set1, bitmap_set_t set2,
 
 	    return get_or_alloc_expr_for_name (def);
 	  }
-	/* Otherwise return it unchanged - it will get cleaned if its
-	   value is not available in PREDs AVAIL_OUT set of expressions.  */
+	/* Otherwise return it unchanged - it will get removed if its
+	   value is not available in PREDs AVAIL_OUT set of expressions
+	   by the subtraction of TMP_GEN.  */
 	return expr;
       }
 
@@ -1976,14 +1959,14 @@ op_valid_in_sets (bitmap_set_t set1, bitmap_set_t set2, tree op)
    For loads/calls, we also see if the vuse is killed in this block.  */
 
 static bool
-valid_in_sets (bitmap_set_t set1, bitmap_set_t set2, pre_expr expr,
-	       basic_block block)
+valid_in_sets (bitmap_set_t set1, bitmap_set_t set2, pre_expr expr)
 {
   switch (expr->kind)
     {
     case NAME:
-      return bitmap_find_leader (AVAIL_OUT (block),
-				 get_expr_value_id (expr)) != NULL;
+      /* By construction all NAMEs are available.  Non-available
+	 NAMEs are removed by subtracting TMP_GEN from the sets.  */
+      return true;
     case NARY:
       {
 	unsigned int i;
@@ -2021,7 +2004,7 @@ valid_in_sets (bitmap_set_t set1, bitmap_set_t set2, pre_expr expr,
    PA_IN.  */
 
 static void
-dependent_clean (bitmap_set_t set1, bitmap_set_t set2, basic_block block)
+dependent_clean (bitmap_set_t set1, bitmap_set_t set2)
 {
   vec<pre_expr> exprs = sorted_array_from_bitmap_set (set1);
   pre_expr expr;
@@ -2029,7 +2012,7 @@ dependent_clean (bitmap_set_t set1, bitmap_set_t set2, basic_block block)
 
   FOR_EACH_VEC_ELT (exprs, i, expr)
     {
-      if (!valid_in_sets (set1, set2, expr, block))
+      if (!valid_in_sets (set1, set2, expr))
 	bitmap_remove_from_set (set1, expr);
     }
   exprs.release ();
@@ -2040,7 +2023,7 @@ dependent_clean (bitmap_set_t set1, bitmap_set_t set2, basic_block block)
    in SET.  */
 
 static void
-clean (bitmap_set_t set, basic_block block)
+clean (bitmap_set_t set)
 {
   vec<pre_expr> exprs = sorted_array_from_bitmap_set (set);
   pre_expr expr;
@@ -2048,7 +2031,7 @@ clean (bitmap_set_t set, basic_block block)
 
   FOR_EACH_VEC_ELT (exprs, i, expr)
     {
-      if (!valid_in_sets (set, NULL, expr, block))
+      if (!valid_in_sets (set, NULL, expr))
 	bitmap_remove_from_set (set, expr);
     }
   exprs.release ();
@@ -2250,7 +2233,7 @@ compute_antic_aux (basic_block block, bool block_has_abnormal_pred_edge)
     bitmap_value_insert_into_set (ANTIC_IN (block),
 				  expression_for_id (bii));
 
-  clean (ANTIC_IN (block), block);
+  clean (ANTIC_IN (block));
 
   if (!bitmap_set_equal (old, ANTIC_IN (block)))
     {
@@ -2405,7 +2388,7 @@ compute_partial_antic_aux (basic_block block,
   /* PA_IN[block] = PA_IN[block] - ANTIC_IN[block] */
   bitmap_set_subtract_values (PA_IN (block), ANTIC_IN (block));
 
-  dependent_clean (PA_IN (block), ANTIC_IN (block), block);
+  dependent_clean (PA_IN (block), ANTIC_IN (block));
 
   if (!bitmap_set_equal (old_PA_IN, PA_IN (block)))
     {
@@ -3766,17 +3749,14 @@ compute_avail (void)
 	    case GIMPLE_CALL:
 	      {
 		vn_reference_t ref;
+		vn_reference_s ref1;
 		pre_expr result = NULL;
-		auto_vec<vn_reference_op_s> ops;
 
 		/* We can value number only calls to real functions.  */
 		if (gimple_call_internal_p (stmt))
 		  continue;
 
-		copy_reference_ops_from_call (stmt, &ops);
-		vn_reference_lookup_pieces (gimple_vuse (stmt), 0,
-					    gimple_expr_type (stmt),
-					    ops, &ref, VN_NOWALK);
+		vn_reference_lookup_call (stmt, &ref, &ref1);
 		if (!ref)
 		  continue;
 

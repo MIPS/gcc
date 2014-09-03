@@ -81,6 +81,7 @@
 #include "builtins.h"
 #include "context.h"
 #include "tree-pass.h"
+#include "real.h"
 #if TARGET_XCOFF
 #include "xcoffout.h"  /* get declarations of xcoff_*_section_name */
 #endif
@@ -1076,7 +1077,7 @@ static int rs6000_memory_move_cost (enum machine_mode, reg_class_t, bool);
 static bool rs6000_debug_rtx_costs (rtx, int, int, int, int *, bool);
 static int rs6000_debug_address_cost (rtx, enum machine_mode, addr_space_t,
 				      bool);
-static int rs6000_debug_adjust_cost (rtx, rtx, rtx, int);
+static int rs6000_debug_adjust_cost (rtx_insn *, rtx, rtx_insn *, int);
 static bool is_microcoded_insn (rtx);
 static bool is_nonpipeline_insn (rtx);
 static bool is_cracked_insn (rtx);
@@ -7912,7 +7913,8 @@ bool
 rs6000_emit_set_const (rtx dest, rtx source)
 {
   enum machine_mode mode = GET_MODE (dest);
-  rtx temp, insn, set;
+  rtx temp, set;
+  rtx_insn *insn;
   HOST_WIDE_INT c;
 
   gcc_checking_assert (CONST_INT_P (source));
@@ -9054,7 +9056,7 @@ rs6000_return_in_msb (const_tree valtype)
 static bool
 call_ABI_of_interest (tree fndecl)
 {
-  if (cgraph_state == CGRAPH_STATE_EXPANSION)
+  if (symtab->state == EXPANSION)
     {
       struct cgraph_node *c_node;
 
@@ -17942,7 +17944,7 @@ extract_ME (rtx op)
 static const char *
 rs6000_get_some_local_dynamic_name (void)
 {
-  rtx insn;
+  rtx_insn *insn;
 
   if (cfun->machine->some_ld_name)
     return cfun->machine->some_ld_name;
@@ -19266,7 +19268,7 @@ rs6000_emit_cbranch (enum machine_mode mode, rtx operands[])
    INSN is the insn.  */
 
 char *
-output_cbranch (rtx op, const char *label, int reversed, rtx insn)
+output_cbranch (rtx op, const char *label, int reversed, rtx_insn *insn)
 {
   static char string[64];
   enum rtx_code code = GET_CODE (op);
@@ -20856,7 +20858,7 @@ compute_save_world_info (rs6000_stack_t *info_ptr)
      are none.  (This check is expensive, but seldom executed.) */
   if (WORLD_SAVE_P (info_ptr))
     {
-      rtx insn;
+      rtx_insn *insn;
       for (insn = get_last_insn_anywhere (); insn; insn = PREV_INSN (insn))
 	if (CALL_P (insn) && SIBLING_CALL_P (insn))
 	  {
@@ -21574,7 +21576,7 @@ rs6000_stack_info (void)
 static bool
 spe_func_has_64bit_regs_p (void)
 {
-  rtx insns, insn;
+  rtx_insn *insns, *insn;
 
   /* Functions that save and restore all the call-saved registers will
      need to save/restore the registers in 64-bits.  */
@@ -21843,9 +21845,9 @@ rs6000_function_ok_for_sibcall (tree decl, tree exp)
 static int
 rs6000_ra_ever_killed (void)
 {
-  rtx top;
+  rtx_insn *top;
   rtx reg;
-  rtx insn;
+  rtx_insn *insn;
 
   if (cfun->is_thunk)
     return 0;
@@ -22049,7 +22051,7 @@ get_TOC_alias_set (void)
 static int
 uses_TOC (void)
 {
-  rtx insn;
+  rtx_insn *insn;
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     if (INSN_P (insn))
@@ -22154,7 +22156,7 @@ rs6000_emit_stack_tie (rtx fp, bool hard_frame_needed)
 static void
 rs6000_emit_allocate_stack (HOST_WIDE_INT size, rtx copy_reg, int copy_off)
 {
-  rtx insn;
+  rtx_insn *insn;
   rtx stack_reg = gen_rtx_REG (Pmode, STACK_POINTER_REGNUM);
   rtx tmp_reg = gen_rtx_REG (Pmode, 0);
   rtx todec = gen_int_mode (-size, Pmode);
@@ -24052,7 +24054,7 @@ load_cr_save (int regno, rtx frame_reg_rtx, int offset, bool exit_func)
 {
   rtx mem = gen_frame_mem_offset (SImode, frame_reg_rtx, offset);
   rtx reg = gen_rtx_REG (SImode, regno);
-  rtx insn = emit_move_insn (reg, mem);
+  rtx_insn *insn = emit_move_insn (reg, mem);
 
   if (!exit_func && DEFAULT_ABI == ABI_V4)
     {
@@ -24083,7 +24085,7 @@ restore_saved_cr (rtx reg, int using_mfcr_multiple, bool exit_func)
 
   if (using_mfcr_multiple && count > 1)
     {
-      rtx insn;
+      rtx_insn *insn;
       rtvec p;
       int ndx;
 
@@ -24139,7 +24141,7 @@ restore_saved_cr (rtx reg, int using_mfcr_multiple, bool exit_func)
   if (!exit_func && DEFAULT_ABI != ABI_ELFv2
       && (DEFAULT_ABI == ABI_V4 || flag_shrink_wrap))
     {
-      rtx insn = get_last_insn ();
+      rtx_insn *insn = get_last_insn ();
       rtx cr = gen_rtx_REG (SImode, CR2_REGNO);
 
       add_reg_note (insn, REG_CFA_RESTORE, cr);
@@ -24166,7 +24168,7 @@ restore_saved_lr (int regno, bool exit_func)
 {
   rtx reg = gen_rtx_REG (Pmode, regno);
   rtx lr = gen_rtx_REG (Pmode, LR_REGNO);
-  rtx insn = emit_move_insn (lr, reg);
+  rtx_insn *insn = emit_move_insn (lr, reg);
 
   if (!exit_func && flag_shrink_wrap)
     {
@@ -24218,7 +24220,7 @@ offset_below_red_zone_p (HOST_WIDE_INT offset)
 static void
 emit_cfa_restores (rtx cfa_restores)
 {
-  rtx insn = get_last_insn ();
+  rtx_insn *insn = get_last_insn ();
   rtx *loc = &REG_NOTES (insn);
 
   while (*loc)
@@ -25098,8 +25100,8 @@ rs6000_output_function_epilogue (FILE *file,
   /* Mach-O doesn't support labels at the end of objects, so if
      it looks like we might want one, insert a NOP.  */
   {
-    rtx insn = get_last_insn ();
-    rtx deleted_debug_label = NULL_RTX;
+    rtx_insn *insn = get_last_insn ();
+    rtx_insn *deleted_debug_label = NULL;
     while (insn
 	   && NOTE_P (insn)
 	   && NOTE_KIND (insn) != NOTE_INSN_DELETED_LABEL)
@@ -25398,7 +25400,8 @@ rs6000_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 			HOST_WIDE_INT delta, HOST_WIDE_INT vcall_offset,
 			tree function)
 {
-  rtx this_rtx, insn, funexp;
+  rtx this_rtx, funexp;
+  rtx_insn *insn;
 
   reload_completed = 1;
   epilogue_completed = 1;
@@ -26326,7 +26329,7 @@ static int load_store_pendulum;
    instructions to issue in this cycle.  */
 
 static int
-rs6000_variable_issue_1 (rtx insn, int more)
+rs6000_variable_issue_1 (rtx_insn *insn, int more)
 {
   last_scheduled_insn = insn;
   if (GET_CODE (PATTERN (insn)) == USE
@@ -26366,7 +26369,7 @@ rs6000_variable_issue_1 (rtx insn, int more)
 }
 
 static int
-rs6000_variable_issue (FILE *stream, int verbose, rtx insn, int more)
+rs6000_variable_issue (FILE *stream, int verbose, rtx_insn *insn, int more)
 {
   int r = rs6000_variable_issue_1 (insn, more);
   if (verbose)
@@ -26378,7 +26381,7 @@ rs6000_variable_issue (FILE *stream, int verbose, rtx insn, int more)
    a dependency LINK or INSN on DEP_INSN.  COST is the current cost.  */
 
 static int
-rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
+rs6000_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep_insn, int cost)
 {
   enum attr_type attr_type;
 
@@ -26442,6 +26445,7 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
                 case TYPE_CR_LOGICAL:
                 case TYPE_DELAYED_CR:
 		  return cost + 2;
+                case TYPE_EXTS:
                 case TYPE_MUL:
 		  if (get_attr_dot (dep_insn) == DOT_YES)
 		    return cost + 2;
@@ -26647,7 +26651,8 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 /* Debug version of rs6000_adjust_cost.  */
 
 static int
-rs6000_debug_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
+rs6000_debug_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep_insn,
+			  int cost)
 {
   int ret = rs6000_adjust_cost (insn, link, dep_insn, cost);
 
@@ -26733,6 +26738,8 @@ is_cracked_insn (rtx insn)
 	      && get_attr_update (insn) == UPDATE_YES)
 	  || type == TYPE_DELAYED_CR
 	  || type == TYPE_COMPARE
+	  || (type == TYPE_EXTS
+	      && get_attr_dot (insn) == DOT_YES)
 	  || (type == TYPE_SHIFT
 	      && get_attr_dot (insn) == DOT_YES
 	      && get_attr_var_shift (insn) == VAR_SHIFT_NO)
@@ -26872,7 +26879,7 @@ mem_locations_overlap (rtx mem1, rtx mem2)
    priorities of insns.  */
 
 static int
-rs6000_adjust_priority (rtx insn ATTRIBUTE_UNUSED, int priority)
+rs6000_adjust_priority (rtx_insn *insn ATTRIBUTE_UNUSED, int priority)
 {
   rtx load_mem, str_mem;
   /* On machines (like the 750) which have asymmetric integer units,
@@ -27035,7 +27042,7 @@ rs6000_use_sched_lookahead (void)
 /* We are choosing insn from the ready queue.  Return zero if INSN can be
    chosen.  */
 static int
-rs6000_use_sched_lookahead_guard (rtx insn, int ready_index)
+rs6000_use_sched_lookahead_guard (rtx_insn *insn, int ready_index)
 {
   if (ready_index == 0)
     return 0;
@@ -27217,17 +27224,17 @@ rs6000_is_costly_dependence (dep_t dep, int cost, int distance)
    skipping any "non-active" insns - insns that will not actually occupy
    an issue slot.  Return NULL_RTX if such an insn is not found.  */
 
-static rtx
-get_next_active_insn (rtx insn, rtx tail)
+static rtx_insn *
+get_next_active_insn (rtx_insn *insn, rtx_insn *tail)
 {
   if (insn == NULL_RTX || insn == tail)
-    return NULL_RTX;
+    return NULL;
 
   while (1)
     {
       insn = NEXT_INSN (insn);
       if (insn == NULL_RTX || insn == tail)
-	return NULL_RTX;
+	return NULL;
 
       if (CALL_P (insn)
 	  || JUMP_P (insn) || JUMP_TABLE_DATA_P (insn)
@@ -27244,7 +27251,7 @@ get_next_active_insn (rtx insn, rtx tail)
 
 static int
 rs6000_sched_reorder (FILE *dump ATTRIBUTE_UNUSED, int sched_verbose,
-                        rtx *ready ATTRIBUTE_UNUSED,
+                        rtx_insn **ready ATTRIBUTE_UNUSED,
                         int *pn_ready ATTRIBUTE_UNUSED,
 		        int clock_var ATTRIBUTE_UNUSED)
 {
@@ -27261,7 +27268,7 @@ rs6000_sched_reorder (FILE *dump ATTRIBUTE_UNUSED, int sched_verbose,
         && (recog_memoized (ready[n_ready - 2]) > 0))
       /* Simply swap first two insns.  */
       {
-	rtx tmp = ready[n_ready - 1];
+	rtx_insn *tmp = ready[n_ready - 1];
 	ready[n_ready - 1] = ready[n_ready - 2];
 	ready[n_ready - 2] = tmp;
       }
@@ -27276,7 +27283,7 @@ rs6000_sched_reorder (FILE *dump ATTRIBUTE_UNUSED, int sched_verbose,
 /* Like rs6000_sched_reorder, but called after issuing each insn.  */
 
 static int
-rs6000_sched_reorder2 (FILE *dump, int sched_verbose, rtx *ready,
+rs6000_sched_reorder2 (FILE *dump, int sched_verbose, rtx_insn **ready,
 		         int *pn_ready, int clock_var ATTRIBUTE_UNUSED)
 {
   if (sched_verbose)
@@ -27326,7 +27333,8 @@ rs6000_sched_reorder2 (FILE *dump, int sched_verbose, rtx *ready,
     {
       int pos;
       int i;
-      rtx tmp, load_mem, str_mem;
+      rtx_insn *tmp;
+      rtx load_mem, str_mem;
 
       if (is_store_insn (last_scheduled_insn, &str_mem))
         /* Issuing a store, swing the load_store_pendulum to the left */
@@ -27620,6 +27628,7 @@ insn_must_be_first_in_group (rtx insn)
           return true;
         case TYPE_MUL:
         case TYPE_SHIFT:
+        case TYPE_EXTS:
           if (get_attr_dot (insn) == DOT_YES)
             return true;
           else
@@ -27661,6 +27670,7 @@ insn_must_be_first_in_group (rtx insn)
         case TYPE_MTJMPR:
           return true;
         case TYPE_SHIFT:
+        case TYPE_EXTS:
         case TYPE_MUL:
           if (get_attr_dot (insn) == DOT_YES)
             return true;
@@ -27999,9 +28009,10 @@ force_new_group (int sched_verbose, FILE *dump, rtx *group_insns,
      start a new group.  */
 
 static int
-redefine_groups (FILE *dump, int sched_verbose, rtx prev_head_insn, rtx tail)
+redefine_groups (FILE *dump, int sched_verbose, rtx_insn *prev_head_insn,
+		 rtx_insn *tail)
 {
-  rtx insn, next_insn;
+  rtx_insn *insn, *next_insn;
   int issue_rate;
   int can_issue_more;
   int slot, i;
@@ -28076,9 +28087,10 @@ redefine_groups (FILE *dump, int sched_verbose, rtx prev_head_insn, rtx tail)
    returns the number of dispatch groups found.  */
 
 static int
-pad_groups (FILE *dump, int sched_verbose, rtx prev_head_insn, rtx tail)
+pad_groups (FILE *dump, int sched_verbose, rtx_insn *prev_head_insn,
+	    rtx_insn *tail)
 {
-  rtx insn, next_insn;
+  rtx_insn *insn, *next_insn;
   rtx nop;
   int issue_rate;
   int can_issue_more;
@@ -31239,6 +31251,23 @@ rs6000_expand_interleave (rtx target, rtx op0, rtx op1, bool highp)
   rs6000_do_expand_vec_perm (target, op0, op1, vmode, nelt, perm);
 }
 
+/* Scale a V2DF vector SRC by two to the SCALE and place in TGT.  */
+void
+rs6000_scale_v2df (rtx tgt, rtx src, int scale)
+{
+  HOST_WIDE_INT hwi_scale (scale);
+  REAL_VALUE_TYPE r_pow;
+  rtvec v = rtvec_alloc (2);
+  rtx elt;
+  rtx scale_vec = gen_reg_rtx (V2DFmode);
+  (void)real_powi (&r_pow, DFmode, &dconst2, hwi_scale);
+  elt = CONST_DOUBLE_FROM_REAL_VALUE (r_pow, DFmode);
+  RTVEC_ELT (v, 0) = elt;
+  RTVEC_ELT (v, 1) = elt;
+  rs6000_expand_vector_init (scale_vec, gen_rtx_PARALLEL (V2DFmode, v));
+  emit_insn (gen_mulv2df3 (tgt, src, scale_vec));
+}
+
 /* Return an RTX representing where to find the function value of a
    function returning MODE.  */
 static rtx
@@ -31684,7 +31713,7 @@ rs6000_stack_protect_fail (void)
 }
 
 void
-rs6000_final_prescan_insn (rtx insn, rtx *operand ATTRIBUTE_UNUSED,
+rs6000_final_prescan_insn (rtx_insn *insn, rtx *operand ATTRIBUTE_UNUSED,
 			   int num_operands ATTRIBUTE_UNUSED)
 {
   if (rs6000_warn_cell_microcode)
@@ -33493,7 +33522,7 @@ class swap_web_entry : public web_entry_base
 {
  public:
   /* Pointer to the insn.  */
-  rtx insn;
+  rtx_insn *insn;
   /* Set if insn contains a mention of a vector register.  All other
      fields are undefined if this field is unset.  */
   unsigned int is_relevant : 1;
@@ -34037,7 +34066,7 @@ adjust_subreg_index (rtx op)
 
 /* Convert the non-permuting load INSN to a permuting one.  */
 static void
-permute_load (rtx insn)
+permute_load (rtx_insn *insn)
 {
   rtx body = PATTERN (insn);
   rtx mem_op = SET_SRC (body);
@@ -34063,7 +34092,7 @@ permute_load (rtx insn)
 
 /* Convert the non-permuting store INSN to a permuting one.  */
 static void
-permute_store (rtx insn)
+permute_store (rtx_insn *insn)
 {
   rtx body = PATTERN (insn);
   rtx src_reg = SET_SRC (body);
@@ -34091,7 +34120,7 @@ permute_store (rtx insn)
 static void
 handle_special_swappables (swap_web_entry *insn_entry, unsigned i)
 {
-  rtx insn = insn_entry[i].insn;
+  rtx_insn *insn = insn_entry[i].insn;
   rtx body = PATTERN (insn);
 
   switch (insn_entry[i].special_handling)
@@ -34130,11 +34159,11 @@ handle_special_swappables (swap_web_entry *insn_entry, unsigned i)
 static void
 replace_swap_with_copy (swap_web_entry *insn_entry, unsigned i)
 {
-  rtx insn = insn_entry[i].insn;
+  rtx_insn *insn = insn_entry[i].insn;
   rtx body = PATTERN (insn);
   rtx src_reg = XEXP (SET_SRC (body), 0);
   rtx copy = gen_rtx_SET (VOIDmode, SET_DEST (body), src_reg);
-  rtx new_insn = emit_insn_before (copy, insn);
+  rtx_insn *new_insn = emit_insn_before (copy, insn);
   set_block_for_insn (new_insn, BLOCK_FOR_INSN (insn));
   df_insn_rescan (new_insn);
 
@@ -34206,7 +34235,7 @@ rs6000_analyze_swaps (function *fun)
 {
   swap_web_entry *insn_entry;
   basic_block bb;
-  rtx insn;
+  rtx_insn *insn;
 
   /* Dataflow analysis for use-def chains.  */
   df_set_flags (DF_RD_PRUNE_DEAD_DEFS);

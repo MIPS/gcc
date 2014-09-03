@@ -412,6 +412,26 @@ convert_move (rtx to, rtx from, int unsignedp)
     }
 
   /* Handle pointer conversion.  */			/* SPEE 900220.  */
+  /* If the target has a converter from FROM_MODE to TO_MODE, use it.  */
+  {
+    convert_optab ctab;
+
+    if (GET_MODE_PRECISION (from_mode) > GET_MODE_PRECISION (to_mode))
+      ctab = trunc_optab;
+    else if (unsignedp)
+      ctab = zext_optab;
+    else
+      ctab = sext_optab;
+
+    if (convert_optab_handler (ctab, to_mode, from_mode)
+	!= CODE_FOR_nothing)
+      {
+	emit_unop_insn (convert_optab_handler (ctab, to_mode, from_mode),
+			to, from, UNKNOWN);
+	return;
+      }
+  }
+
   /* Targets are expected to provide conversion insns between PxImode and
      xImode for all MODE_PARTIAL_INT modes they use, but no others.  */
   if (GET_MODE_CLASS (to_mode) == MODE_PARTIAL_INT)
@@ -3985,11 +4005,12 @@ find_args_size_adjust (rtx insn)
 }
 
 int
-fixup_args_size_notes (rtx prev, rtx last, int end_args_size)
+fixup_args_size_notes (rtx prev, rtx uncast_last, int end_args_size)
 {
+  rtx_insn *last = safe_as_a <rtx_insn *> (uncast_last);
   int args_size = end_args_size;
   bool saw_unknown = false;
-  rtx insn;
+  rtx_insn *insn;
 
   for (insn = last; insn != prev; insn = PREV_INSN (insn))
     {
@@ -9804,7 +9825,7 @@ check_clobber_cc (rtx reg, const_rtx setter, void *data)
 /* Check whether INSN and all its NEXT_INSN clobber CC reg or not.  */
 
 static bool
-clobber_cc_p (rtx insn)
+clobber_cc_p (const rtx_insn *insn)
 {
   bool clobber = false;
   for (; insn; insn = NEXT_INSN (insn))
@@ -9826,7 +9847,7 @@ gen_ccmp_next (rtx prev, gimple g, enum tree_code code)
   rtx op0, op1;
   int unsignedp = TYPE_UNSIGNED (TREE_TYPE (gimple_assign_rhs1 (g)));
   enum rtx_code rcode = get_rtx_code (gimple_assign_rhs_code (g), unsignedp);
-  rtx last = get_last_insn ();
+  rtx_insn *last = get_last_insn ();
 
   expand_operands (gimple_assign_rhs1 (g),
 		   gimple_assign_rhs2 (g),
@@ -9947,7 +9968,7 @@ expand_ccmp_expr_1 (gimple g)
 static rtx
 expand_ccmp_expr (gimple g, machine_mode mode)
 {
-  rtx last = get_last_insn ();
+  rtx_insn *last = get_last_insn ();
   tree lhs = gimple_assign_lhs (g);
   rtx tmp = expand_ccmp_expr_1 (g);
 
@@ -11487,7 +11508,7 @@ is_aligning_offset (const_tree offset, const_tree exp)
       || !tree_fits_uhwi_p (TREE_OPERAND (offset, 1))
       || compare_tree_int (TREE_OPERAND (offset, 1),
 			   BIGGEST_ALIGNMENT / BITS_PER_UNIT) <= 0
-      || !exact_log2 (tree_to_uhwi (TREE_OPERAND (offset, 1)) + 1) < 0)
+      || exact_log2 (tree_to_uhwi (TREE_OPERAND (offset, 1)) + 1) < 0)
     return 0;
 
   /* Look at the first operand of BIT_AND_EXPR and strip any conversion.

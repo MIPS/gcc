@@ -57,7 +57,7 @@ struct load
 {
   rtx mem;
   rtx reg;
-  rtx reg_kill;
+  rtx_insn *reg_kill;
 };
 
 static htab_t htab_load;
@@ -150,7 +150,7 @@ alloc_load (rtx set)
    can eliminate.  */
 
 static bool
-interesting_second_load (rtx set, struct load ***load, rtx insn)
+interesting_second_load (rtx set, struct load ***load, rtx_insn *insn)
 {
   rtx mem, reg;
 
@@ -201,7 +201,7 @@ static int
 find_reg_kill_and_mem_invalidate (void **slot, void *arg)
 {
   struct load *load = (struct load *) *slot;
-  rtx insn = (rtx)arg;
+  rtx_insn *insn = (rtx_insn*)arg;
 
   /* Record the farthest one from the load.  Ignore the effect of a
      store we just added.  */
@@ -255,7 +255,7 @@ pass_postreload_load::execute (function*)
 
   FOR_EACH_BB_FN (bb, cfun)
     {
-      rtx insn;
+      rtx_insn *insn;
 
       htab_load = htab_create (10, load_htab_hash, load_htab_eq, NULL);
 
