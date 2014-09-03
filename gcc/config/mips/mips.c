@@ -13634,7 +13634,7 @@ mips_multipass_dfa_lookahead (void)
    ordering the queue.  */
 
 static int
-mips_adjust_priority (rtx insn, int priority)
+mips_adjust_priority (rtx_insn *insn, int priority)
 {
   /* Prefer single-issuable instructions over dual-issuable ones since
      they are more likely to conflict with other insns.  */
