@@ -1,3 +1,9 @@
+2014-09-03  Richard Biener  <rguenther@suse.de>
+
+	* match-conversions.pd
+	((view_convert (convert @0)) -> (view_convert @0)): Restrict to
+	conversions that do not change size.
+
 2014-09-02  Richard Biener  <rguenther@suse.de>
 
 	* fold-const.h (negate_expr_p): Declare.
