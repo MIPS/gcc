@@ -19962,6 +19962,17 @@ mips_expand_vec_perm_const (rtx operands[4])
   return ok;
 }
 
+/* Implement TARGET_SCHED_REASSOCIATION_WIDTH.  */
+
+static int
+mips_sched_reassociation_width (unsigned int opc, 
+			       enum machine_mode mode)
+{
+  if (MSA_SUPPORTED_MODE_P (mode))
+    return 2;
+  return 1;
+}
+
 /* Implement TARGET_VECTORIZE_VEC_PERM_CONST_OK.  */
 
 static bool
@@ -21232,6 +21243,9 @@ mips_lra_p (void)
 
 #undef TARGET_VECTORIZE_VEC_PERM_CONST_OK
 #define TARGET_VECTORIZE_VEC_PERM_CONST_OK mips_vectorize_vec_perm_const_ok
+
+#undef TARGET_SCHED_REASSOCIATION_WIDTH
+#define TARGET_SCHED_REASSOCIATION_WIDTH mips_sched_reassociation_width
 
 #undef TARGET_CASE_VALUES_THRESHOLD
 #define TARGET_CASE_VALUES_THRESHOLD mips_case_values_threshold
