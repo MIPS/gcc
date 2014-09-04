@@ -1,4 +1,11 @@
 
+2014-09-04  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-hooks.melt
+	(register_paragraph_input_channel_handler)
+	(register_raw_input_channel_handler): Returns the channel.
+	(unregister_input_channel): New function.
+	(do_blocking_jsonrpc2_call): Use it.
+
 2014-09-02  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerate.
 

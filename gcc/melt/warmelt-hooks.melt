@@ -3163,16 +3163,19 @@ exit, in last place.}#
 
 ;;;;;;;;;;;;;;;;
 (defun register_paragraph_input_channel_handler (clos data :long inchfd)
-  :doc #{$REGISTER_PARAGRAPH_INPUT_CHANNEL_HANDLER registers an asynchronous
-  paragraph input channel handler, such as for the graphical user interface
-  probe. $CLOS is the registered closure, $DATA is some client data,
-  $INCHFD is the input Unix file descriptor. When an entire
-  message (double-newline ended sequence of MELT values in MELT
-  syntax) is recieved from the $INCHFD, the $CLOS is applied to the
-  input channel handler -containing the data as its $INCH_DATA field-,
-  a read-only instance of $CLASS_INPUT_CHANNEL_HANDLER, and to the
-  read list. When end-of-file is obtained on $INCHFD, the closure is
-  similarily applied with a null value instead of the read list.}#
+  :doc #{$REGISTER_PARAGRAPH_INPUT_CHANNEL_HANDLER registers an
+  asynchronous paragraph input channel handler, such as for the
+  graphical user interface probe. $CLOS is the registered closure,
+  $DATA is some client data, $INCHFD is the input Unix file
+  descriptor. When an entire message (double-newline ended sequence of
+  MELT values in MELT syntax) is recieved from the $INCHFD, the $CLOS
+  is applied to the input channel handler -containing the data as its
+  $INCH_DATA field-, a read-only instance of
+  $CLASS_INPUT_CHANNEL_HANDLER, and to the read list. When end-of-file
+  is obtained on $INCHFD, the closure is similarily applied with a
+  null value instead of the read list. Returns an opaque channel of
+  $CLASS_PARAGRAPH_INPUT_CHANNEL_HANDLER that should not be mutated by
+  application code. See also $UNREGISTER_INPUT_CHANNEL.}#
   (debug "register_paragraph_input_channel_handler clos=" clos " data=" data 
 	 " inchfd=" inchfd)
   (let ( (:long goodinchfd 0) )
@@ -3214,6 +3217,7 @@ exit, in last place.}#
 			   (int) $INCHFD, xstrerror (errno));
           /* end  $FCNTLINCHFDCHK register_paragraph_input_channel_handler */
 	  }#)
+      (return inchdlr)
       )))
 
 ;;;;;;;;;;;;;;;;
@@ -3227,7 +3231,9 @@ exit, in last place.}#
   -containing the data as its $INCH_DATA field-, a read-only instance
   of $CLASS_INPUT_CHANNEL_HANDLER and to the contained string buffer.
   When end-of-file is obtained on $INCHFD, the closure is similarily
-  applied to the channel and a null value.}#
+  applied to the channel and a null value. Returns an opaque channel
+  of $CLASS_RAW_INPUT_CHANNEL_HANDLER that should not be mutated by
+  application code. See also $UNREGISTER_INPUT_CHANNEL.}#
   (debug "register_raw_input_channel_handler clos=" clos " data=" data 
 	 " inchfd=" inchfd)
   (let ( (:long goodinchfd 0) )
@@ -3269,7 +3275,39 @@ exit, in last place.}#
 			   (int) $INCHFD, xstrerror (errno));
           /* end  $FCNTLINCHFDCHK register_raw_input_channel_handler */
 	  }#)
+      (return inchdlr)
       )))
+
+;;;
+(defun unregister_input_channel (chanv)
+  :doc #{$UNREGISTER_INPUT_CHANNEL forcibly unregisters a channel
+  obtained by $REGISTER_PARAGRAPH_INPUT_CHANNEL_HANDLER or
+  $REGISTER_RAW_INPUT_CHANNEL_HANDLER. For gurus only.}#
+  (debug "unregister_input_channel start chanv=" chanv)
+  (let ( (:long inchfd -1)
+	 )
+    (cond ( (is_a chanv class_input_channel_handler)
+	    (setq inchfd (get_int chanv))
+	    (void))
+	  ( (is_integerbox chanv)
+	    (setq inchfd (get_int chanv))
+	    (void))
+	  (:else
+	   (return)))
+    (block_signals
+     () ()
+     (let ( (buck melt_inpchanbuck)
+	    (inchan (bucketlong_get buck inchfd))
+	    )
+       (when (is_a inchan class_input_channel_handler)
+	 (setq buck (bucketlong_remove buck inchfd))
+	 (setq melt_inpchanbuck buck)
+	 (debug "unregister_input_channel removed inchan=" debug_less inchan)
+	 )
+       )
+     )
+    )
+  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; connect to a server thru a socket
@@ -4279,6 +4317,7 @@ exit, in last place.}#
 				  xstrerror(errno));
 		    melt_close_file($SERVOUT);
 		    }#)
+	(unregister_input_channel (constant_box servfd))
 	(when !gotreply 
 	  (let ( (jreply !replyref)
 		 (jid (jsonobject_get_named jreply 'id))
@@ -4627,6 +4666,7 @@ exit, in last place.}#
  register_child_process_handler
  register_paragraph_input_channel_handler
  register_raw_input_channel_handler 
+ unregister_input_channel
  unregister_alarm_timer 
  unregister_child_process_handler
  )
