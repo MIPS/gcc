@@ -37,7 +37,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "target.h"
 #include "except.h"
-#include "pointer-set.h"
 #include "hash-table.h"
 #include "vec.h"
 #include "basic-block.h"
@@ -1150,7 +1149,7 @@ seh_frame_related_expr (FILE *f, struct seh_frame_state *seh, rtx pat)
    required for unwind of this insn.  */
 
 void
-i386_pe_seh_unwind_emit (FILE *asm_out_file, rtx insn)
+i386_pe_seh_unwind_emit (FILE *asm_out_file, rtx_insn *insn)
 {
   rtx note, pat;
   bool handled_one = false;

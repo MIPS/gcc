@@ -2337,11 +2337,46 @@ ipa_analyze_call_uses (struct func_body_info *fbi, gimple call)
           && !virtual_method_call_p (target)))
     return;
 
+  struct cgraph_edge *cs = fbi->node->get_edge (call);
   /* If we previously turned the call into a direct call, there is
      no need to analyze.  */
-  struct cgraph_edge *cs = fbi->node->get_edge (call);
   if (cs && !cs->indirect_unknown_callee)
     return;
+
+  if (cs->indirect_info->polymorphic)
+    {
+      tree otr_type;
+      HOST_WIDE_INT otr_token;
+      ipa_polymorphic_call_context context;
+      tree instance;
+      tree target = gimple_call_fn (call);
+
+      instance = get_polymorphic_call_info (current_function_decl,
+					    target,
+					    &otr_type, &otr_token,
+					    &context, call);
+
+      if (context.get_dynamic_type (instance,
+				    OBJ_TYPE_REF_OBJECT (target),
+				    otr_type, call))
+	{
+	  gcc_assert (TREE_CODE (otr_type) == RECORD_TYPE);
+	  cs->indirect_info->polymorphic = true;
+	  cs->indirect_info->param_index = -1;
+	  cs->indirect_info->otr_token = otr_token;
+	  cs->indirect_info->otr_type = otr_type;
+	  cs->indirect_info->outer_type = context.outer_type;
+	  cs->indirect_info->speculative_outer_type = context.speculative_outer_type;
+	  cs->indirect_info->offset = context.offset;
+	  cs->indirect_info->speculative_offset = context.speculative_offset;
+	  cs->indirect_info->maybe_in_construction
+	     = context.maybe_in_construction;
+	  cs->indirect_info->maybe_derived_type = context.maybe_derived_type;
+	  cs->indirect_info->speculative_maybe_derived_type
+	     = context.speculative_maybe_derived_type;
+	}
+    }
+
   if (TREE_CODE (target) == SSA_NAME)
     ipa_analyze_indirect_call_uses (fbi, call, target);
   else if (virtual_method_call_p (target))
@@ -2862,7 +2897,7 @@ ipa_make_edge_direct_to_target (struct cgraph_edge *ie, tree target)
 		       "converting indirect call in %s to direct call to %s\n",
 		       ie->caller->name (), callee->name ());
     }
-  ie = cgraph_make_edge_direct (ie, callee);
+  ie = ie->make_direct (callee);
   es = inline_edge_summary (ie);
   es->call_stmt_size -= (eni_size_weights.indirect_call_cost
 			 - eni_size_weights.call_cost);
@@ -3475,8 +3510,10 @@ void
 ipa_set_node_agg_value_chain (struct cgraph_node *node,
 			      struct ipa_agg_replacement_value *aggvals)
 {
-  if (vec_safe_length (ipa_node_agg_replacements) <= (unsigned) cgraph_max_uid)
-    vec_safe_grow_cleared (ipa_node_agg_replacements, cgraph_max_uid + 1);
+  if (vec_safe_length (ipa_node_agg_replacements)
+      <= (unsigned) symtab->cgraph_max_uid)
+    vec_safe_grow_cleared (ipa_node_agg_replacements,
+			   symtab->cgraph_max_uid + 1);
 
   (*ipa_node_agg_replacements)[node->uid] = aggvals;
 }
@@ -3664,18 +3701,18 @@ ipa_register_cgraph_hooks (void)
 {
   if (!edge_removal_hook_holder)
     edge_removal_hook_holder =
-      cgraph_add_edge_removal_hook (&ipa_edge_removal_hook, NULL);
+      symtab->add_edge_removal_hook (&ipa_edge_removal_hook, NULL);
   if (!node_removal_hook_holder)
     node_removal_hook_holder =
-      cgraph_add_node_removal_hook (&ipa_node_removal_hook, NULL);
+      symtab->add_cgraph_removal_hook (&ipa_node_removal_hook, NULL);
   if (!edge_duplication_hook_holder)
     edge_duplication_hook_holder =
-      cgraph_add_edge_duplication_hook (&ipa_edge_duplication_hook, NULL);
+      symtab->add_edge_duplication_hook (&ipa_edge_duplication_hook, NULL);
   if (!node_duplication_hook_holder)
     node_duplication_hook_holder =
-      cgraph_add_node_duplication_hook (&ipa_node_duplication_hook, NULL);
+      symtab->add_cgraph_duplication_hook (&ipa_node_duplication_hook, NULL);
   function_insertion_hook_holder =
-      cgraph_add_function_insertion_hook (&ipa_add_new_function, NULL);
+      symtab->add_cgraph_insertion_hook (&ipa_add_new_function, NULL);
 }
 
 /* Unregister our cgraph hooks if they are not already there.  */
@@ -3683,15 +3720,15 @@ ipa_register_cgraph_hooks (void)
 static void
 ipa_unregister_cgraph_hooks (void)
 {
-  cgraph_remove_edge_removal_hook (edge_removal_hook_holder);
+  symtab->remove_edge_removal_hook (edge_removal_hook_holder);
   edge_removal_hook_holder = NULL;
-  cgraph_remove_node_removal_hook (node_removal_hook_holder);
+  symtab->remove_cgraph_removal_hook (node_removal_hook_holder);
   node_removal_hook_holder = NULL;
-  cgraph_remove_edge_duplication_hook (edge_duplication_hook_holder);
+  symtab->remove_edge_duplication_hook (edge_duplication_hook_holder);
   edge_duplication_hook_holder = NULL;
-  cgraph_remove_node_duplication_hook (node_duplication_hook_holder);
+  symtab->remove_cgraph_duplication_hook (node_duplication_hook_holder);
   node_duplication_hook_holder = NULL;
-  cgraph_remove_function_insertion_hook (function_insertion_hook_holder);
+  symtab->remove_cgraph_insertion_hook (function_insertion_hook_holder);
   function_insertion_hook_holder = NULL;
 }
 
@@ -4221,7 +4258,7 @@ ipa_modify_call_arguments (struct cgraph_edge *cs, gimple stmt,
     }
   gsi_replace (&gsi, new_stmt, true);
   if (cs)
-    cgraph_set_call_stmt (cs, new_stmt);
+    cs->set_call_stmt (new_stmt);
   do
     {
       current_node->record_stmt_references (gsi_stmt (gsi));
@@ -4895,12 +4932,11 @@ ipa_prop_read_section (struct lto_file_decl_data *file_data, const char *data,
   const int main_offset = cfg_offset + header->cfg_size;
   const int string_offset = main_offset + header->main_size;
   struct data_in *data_in;
-  struct lto_input_block ib_main;
   unsigned int i;
   unsigned int count;
 
-  LTO_INIT_INPUT_BLOCK (ib_main, (const char *) data + main_offset, 0,
-			header->main_size);
+  lto_input_block ib_main ((const char *) data + main_offset,
+			   header->main_size);
 
   data_in =
     lto_data_in_create (file_data, (const char *) data + string_offset,
@@ -5073,12 +5109,11 @@ read_replacements_section (struct lto_file_decl_data *file_data,
   const int main_offset = cfg_offset + header->cfg_size;
   const int string_offset = main_offset + header->main_size;
   struct data_in *data_in;
-  struct lto_input_block ib_main;
   unsigned int i;
   unsigned int count;
 
-  LTO_INIT_INPUT_BLOCK (ib_main, (const char *) data + main_offset, 0,
-			header->main_size);
+  lto_input_block ib_main ((const char *) data + main_offset,
+			   header->main_size);
 
   data_in = lto_data_in_create (file_data, (const char *) data + string_offset,
 				header->string_size, vNULL);

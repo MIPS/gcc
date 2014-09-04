@@ -36,7 +36,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "attribs.h"
 #include "stor-layout.h"
 #include "calls.h"
-#include "pointer-set.h"
 #include "flags.h"
 #include "cp-tree.h"
 #include "decl.h"
@@ -524,6 +523,8 @@ check_member_template (tree tmpl)
 	 with member templates.  */
       DECL_IGNORED_P (tmpl) = 1;
     }
+  else if (variable_template_p (tmpl))
+    /* OK */;
   else
     error ("template declaration of %q#D", decl);
 }
@@ -786,6 +787,14 @@ note_vague_linkage_fn (tree decl)
   vec_safe_push (deferred_fns, decl);
 }
 
+/* As above, but for variable template instantiations.  */
+
+void
+note_variable_template_instantiation (tree decl)
+{
+  vec_safe_push (pending_statics, decl);
+}
+
 /* We have just processed the DECL, which is a static data member.
    The other parameters are as for cp_finish_decl.  */
 
@@ -869,11 +878,6 @@ grokfield (const cp_declarator *declarator,
   if (value == void_type_node)
     return value;
 
-  /* Pass friend decls back.  */
-  if ((TREE_CODE (value) == FUNCTION_DECL
-       || TREE_CODE (value) == TEMPLATE_DECL)
-      && DECL_CONTEXT (value) != current_class_type)
-    return value;
 
   name = DECL_NAME (value);
 
@@ -925,7 +929,9 @@ grokfield (const cp_declarator *declarator,
       return value;
     }
 
-  if (DECL_IN_AGGR_P (value))
+  int friendp = decl_spec_seq_has_spec_p (declspecs, ds_friend);
+
+  if (!friendp && DECL_IN_AGGR_P (value))
     {
       error ("%qD is already defined in %qT", value, DECL_CONTEXT (value));
       return void_type_node;
@@ -938,8 +944,6 @@ grokfield (const cp_declarator *declarator,
     {
       if (TREE_CODE (value) == FUNCTION_DECL)
 	{
-	  /* Initializers for functions are rejected early in the parser.
-	     If we get here, it must be a pure specifier for a method.  */
 	  if (init == ridpointers[(int)RID_DELETE])
 	    {
 	      DECL_DELETED_FN (value) = 1;
@@ -970,8 +974,12 @@ grokfield (const cp_declarator *declarator,
 	  else
 	    {
 	      gcc_assert (TREE_CODE (TREE_TYPE (value)) == FUNCTION_TYPE);
-	      error ("initializer specified for static member function %qD",
-		     value);
+	      if (friendp)
+		error ("initializer specified for friend function %qD",
+		       value);
+	      else
+		error ("initializer specified for static member function %qD",
+		       value);
 	    }
 	}
       else if (TREE_CODE (value) == FIELD_DECL)
@@ -979,6 +987,16 @@ grokfield (const cp_declarator *declarator,
       else if (!VAR_P (value))
 	gcc_unreachable ();
     }
+
+  /* Pass friend decls back.  */
+  if ((TREE_CODE (value) == FUNCTION_DECL
+       || TREE_CODE (value) == TEMPLATE_DECL)
+      && DECL_CONTEXT (value) != current_class_type)
+    return value;
+
+  /* Need to set this before push_template_decl.  */
+  if (TREE_CODE (value) == VAR_DECL)
+    DECL_CONTEXT (value) = current_class_type;
 
   if (processing_template_decl && VAR_OR_FUNCTION_DECL_P (value))
     {
@@ -1968,6 +1986,11 @@ decl_needed_p (tree decl)
      visible to other DLLs.  */
   if (flag_keep_inline_dllexport
       && lookup_attribute ("dllexport", DECL_ATTRIBUTES (decl)))
+    return true;
+  /* Virtual functions might be needed for devirtualization.  */
+  if (flag_devirtualize
+      && TREE_CODE (decl) == FUNCTION_DECL
+      && DECL_VIRTUAL_P (decl))
     return true;
   /* Otherwise, DECL does not need to be emitted -- yet.  A subsequent
      reference to DECL might cause it to be emitted later.  */
@@ -4297,7 +4320,7 @@ cp_write_global_declarations (void)
       return;
     }
 
-  cgraph_process_same_body_aliases ();
+  symtab->process_same_body_aliases ();
 
   /* Handle -fdump-ada-spec[-slim] */
   if (flag_dump_ada_spec || flag_dump_ada_spec_slim)
@@ -4640,7 +4663,7 @@ cp_write_global_declarations (void)
       vtv_build_vtable_verify_fndecl ();
     }
 
-  finalize_compilation_unit ();
+  symtab->finalize_compilation_unit ();
 
   if (flag_vtable_verify)
     {

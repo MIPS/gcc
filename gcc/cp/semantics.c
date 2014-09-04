@@ -44,7 +44,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "tree-iterator.h"
 #include "target.h"
-#include "pointer-set.h"
 #include "hash-table.h"
 #include "gimplify.h"
 #include "bitmap.h"
@@ -1611,7 +1610,7 @@ tree
 force_paren_expr (tree expr)
 {
   /* This is only needed for decltype(auto) in C++14.  */
-  if (cxx_dialect < cxx1y)
+  if (cxx_dialect < cxx14)
     return expr;
 
   /* If we're in unevaluated context, we can't be deducing a
@@ -2418,6 +2417,15 @@ finish_call_expr (tree fn, vec<tree, va_gc> **args, bool disallow_virtual,
   return result;
 }
 
+/* Instantiate a variable declaration from a TEMPLATE_ID_EXPR for use. */
+
+tree
+finish_template_variable (tree var)
+{
+  return instantiate_template (TREE_OPERAND (var, 0), TREE_OPERAND (var, 1),
+                               tf_error);
+}
+
 /* Finish a call to a postfix increment or decrement or EXPR.  (Which
    is indicated by CODE, which should be POSTINCREMENT_EXPR or
    POSTDECREMENT_EXPR.)  */
@@ -2589,8 +2597,8 @@ finish_compound_literal (tree type, tree compound_literal,
   compound_literal = reshape_init (type, compound_literal, complain);
   if (SCALAR_TYPE_P (type)
       && !BRACE_ENCLOSED_INITIALIZER_P (compound_literal)
-      && (complain & tf_warning_or_error))
-    check_narrowing (type, compound_literal);
+      && !check_narrowing (type, compound_literal, complain))
+    return error_mark_node;
   if (TREE_CODE (type) == ARRAY_TYPE
       && TYPE_DOMAIN (type) == NULL_TREE)
     {
@@ -3492,6 +3500,7 @@ finish_id_expression (tree id_expression,
       tree wrap;
       if (VAR_P (decl)
 	  && !cp_unevaluated_operand
+	  && !processing_template_decl
 	  && (TREE_STATIC (decl) || DECL_EXTERNAL (decl))
 	  && DECL_THREAD_LOCAL_P (decl)
 	  && (wrap = get_tls_wrapper_fn (decl)))
@@ -3499,6 +3508,12 @@ finish_id_expression (tree id_expression,
 	  /* Replace an evaluated use of the thread_local variable with
 	     a call to its wrapper.  */
 	  decl = build_cxx_call (wrap, 0, NULL, tf_warning_or_error);
+	}
+      else if (TREE_CODE (decl) == TEMPLATE_ID_EXPR
+	       && variable_template_p (TREE_OPERAND (decl, 0)))
+	{
+	  decl = finish_template_variable (decl);
+	  mark_used (decl);
 	}
       else if (scope)
 	{
@@ -4001,11 +4016,11 @@ expand_or_defer_fn_1 (tree fn)
 	 this function as needed so that finish_file will make sure to
 	 output it later.  Similarly, all dllexport'd functions must
 	 be emitted; there may be callers in other DLLs.  */
-      if ((flag_keep_inline_functions
-	   && DECL_DECLARED_INLINE_P (fn)
-	   && !DECL_REALLY_EXTERN (fn))
-	  || (flag_keep_inline_dllexport
-	      && lookup_attribute ("dllexport", DECL_ATTRIBUTES (fn))))
+      if (DECL_DECLARED_INLINE_P (fn)
+	  && !DECL_REALLY_EXTERN (fn)
+	  && (flag_keep_inline_functions
+	      || (flag_keep_inline_dllexport
+		  && lookup_attribute ("dllexport", DECL_ATTRIBUTES (fn)))))
 	{
 	  mark_needed (fn);
 	  DECL_EXTERNAL (fn) = 0;
@@ -4042,7 +4057,7 @@ expand_or_defer_fn (tree fn)
       function_depth++;
 
       /* Expand or defer, at the whim of the compilation unit manager.  */
-      cgraph_finalize_function (fn, function_depth > 1);
+      cgraph_node::finalize_function (fn, function_depth > 1);
       emit_associated_thunks (fn);
 
       function_depth--;
@@ -7050,7 +7065,7 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p,
 	}
     }
 
-  if (cxx_dialect >= cxx1y && array_of_runtime_bound_p (type)
+  if (cxx_dialect >= cxx14 && array_of_runtime_bound_p (type)
       && (flag_iso || warn_vla > 0))
     {
       if (complain & tf_warning_or_error)
@@ -8376,7 +8391,9 @@ cxx_eval_call_expression (const constexpr_call *old_call, tree t,
     {
       /* Might be a constexpr function pointer.  */
       fun = cxx_eval_constant_expression (old_call, fun, allow_non_constant,
-					  /*addr*/false, non_constant_p, overflow_p);
+					  /*addr*/false, non_constant_p,
+					  overflow_p);
+      STRIP_NOPS (fun);
       if (TREE_CODE (fun) == ADDR_EXPR)
 	fun = TREE_OPERAND (fun, 0);
     }
@@ -8963,7 +8980,9 @@ cxx_eval_bare_aggregate (const constexpr_call *call, tree t,
 	  constructor_elt *inner = base_field_constructor_elt (n, ce->index);
 	  inner->value = elt;
 	}
-      else if (ce->index && TREE_CODE (ce->index) == NOP_EXPR)
+      else if (ce->index
+	       && (TREE_CODE (ce->index) == NOP_EXPR
+		   || TREE_CODE (ce->index) == POINTER_PLUS_EXPR))
 	{
 	  /* This is an initializer for an empty base; now that we've
 	     checked that it's constant, we can ignore it.  */
@@ -9962,6 +9981,11 @@ maybe_constant_value (tree t)
 tree
 maybe_constant_init (tree t)
 {
+  if (TREE_CODE (t) == EXPR_STMT)
+    t = TREE_OPERAND (t, 0);
+  if (TREE_CODE (t) == CONVERT_EXPR
+      && VOID_TYPE_P (TREE_TYPE (t)))
+    t = TREE_OPERAND (t, 0);
   t = maybe_constant_value (t);
   if (TREE_CODE (t) == TARGET_EXPR)
     {

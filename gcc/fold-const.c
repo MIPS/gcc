@@ -6642,36 +6642,18 @@ reorder_operands_p (const_tree arg0, const_tree arg1)
 bool
 tree_swap_operands_p (const_tree arg0, const_tree arg1, bool reorder)
 {
-  STRIP_SIGN_NOPS (arg0);
-  STRIP_SIGN_NOPS (arg1);
-
-  if (TREE_CODE (arg1) == INTEGER_CST)
+  if (CONSTANT_CLASS_P (arg1))
     return 0;
-  if (TREE_CODE (arg0) == INTEGER_CST)
+  if (CONSTANT_CLASS_P (arg0))
     return 1;
 
-  if (TREE_CODE (arg1) == REAL_CST)
-    return 0;
-  if (TREE_CODE (arg0) == REAL_CST)
-    return 1;
-
-  if (TREE_CODE (arg1) == FIXED_CST)
-    return 0;
-  if (TREE_CODE (arg0) == FIXED_CST)
-    return 1;
-
-  if (TREE_CODE (arg1) == COMPLEX_CST)
-    return 0;
-  if (TREE_CODE (arg0) == COMPLEX_CST)
-    return 1;
+  STRIP_NOPS (arg0);
+  STRIP_NOPS (arg1);
 
   if (TREE_CONSTANT (arg1))
     return 0;
   if (TREE_CONSTANT (arg0))
     return 1;
-
-  if (optimize_function_for_size_p (cfun))
-    return 0;
 
   if (reorder && flag_evaluation_order
       && (TREE_SIDE_EFFECTS (arg0) || TREE_SIDE_EFFECTS (arg1)))
@@ -10830,6 +10812,19 @@ fold_binary_loc (location_t loc,
 				      fold_convert_loc (loc, type, arg1));
 	      if (tmp)
 	        return fold_build2_loc (loc, PLUS_EXPR, type, tmp, arg01);
+	    }
+	  /* PTR0 - (PTR1 p+ A) -> (PTR0 - PTR1) - A, assuming PTR0 - PTR1
+	     simplifies. */
+	  else if (TREE_CODE (arg1) == POINTER_PLUS_EXPR)
+	    {
+	      tree arg10 = fold_convert_loc (loc, type,
+					     TREE_OPERAND (arg1, 0));
+	      tree arg11 = fold_convert_loc (loc, type,
+					     TREE_OPERAND (arg1, 1));
+	      tree tmp = fold_binary_loc (loc, MINUS_EXPR, type, arg0,
+					  fold_convert_loc (loc, type, arg10));
+	      if (tmp)
+		return fold_build2_loc (loc, MINUS_EXPR, type, tmp, arg11);
 	    }
 	}
       /* A - (-B) -> A + B */

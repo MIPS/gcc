@@ -46,7 +46,6 @@
 #include "recog.h"
 #include "langhooks.h"
 #include "diagnostic-core.h"
-#include "pointer-set.h"
 #include "hash-table.h"
 #include "vec.h"
 #include "basic-block.h"
@@ -178,9 +177,9 @@ static const struct cpu_addrcost_table generic_addrcost_table =
   .addr_scale_costs =
 #endif
     {
-      NAMED_PARAM (qi, 0),
       NAMED_PARAM (hi, 0),
       NAMED_PARAM (si, 0),
+      NAMED_PARAM (di, 0),
       NAMED_PARAM (ti, 0),
     },
   NAMED_PARAM (pre_modify, 0),
@@ -199,9 +198,9 @@ static const struct cpu_addrcost_table cortexa57_addrcost_table =
   .addr_scale_costs =
 #endif
     {
-      NAMED_PARAM (qi, 0),
       NAMED_PARAM (hi, 1),
       NAMED_PARAM (si, 0),
+      NAMED_PARAM (di, 0),
       NAMED_PARAM (ti, 1),
     },
   NAMED_PARAM (pre_modify, 0),
@@ -692,7 +691,7 @@ aarch64_load_symref_appropriately (rtx dest, rtx imm,
 
     case SYMBOL_SMALL_TLSGD:
       {
-	rtx insns;
+	rtx_insn *insns;
 	rtx result = gen_rtx_REG (Pmode, R0_REGNUM);
 
 	start_sequence ();
@@ -1006,7 +1005,7 @@ aarch64_expand_mov_immediate (rtx dest, rtx imm)
   unsigned HOST_WIDE_INT val;
   bool subtargets;
   rtx subtarget;
-  int one_match, zero_match;
+  int one_match, zero_match, first_not_ffff_match;
 
   gcc_assert (mode == SImode || mode == DImode);
 
@@ -1107,29 +1106,30 @@ aarch64_expand_mov_immediate (rtx dest, rtx imm)
   one_match = 0;
   zero_match = 0;
   mask = 0xffff;
+  first_not_ffff_match = -1;
 
   for (i = 0; i < 64; i += 16, mask <<= 16)
     {
-      if ((val & mask) == 0)
-	zero_match++;
-      else if ((val & mask) == mask)
+      if ((val & mask) == mask)
 	one_match++;
+      else
+	{
+	  if (first_not_ffff_match < 0)
+	    first_not_ffff_match = i;
+	  if ((val & mask) == 0)
+	    zero_match++;
+	}
     }
 
   if (one_match == 2)
     {
-      mask = 0xffff;
-      for (i = 0; i < 64; i += 16, mask <<= 16)
-	{
-	  if ((val & mask) != mask)
-	    {
-	      emit_insn (gen_rtx_SET (VOIDmode, dest, GEN_INT (val | mask)));
-	      emit_insn (gen_insv_immdi (dest, GEN_INT (i),
-					 GEN_INT ((val >> i) & 0xffff)));
-	      return;
-	    }
-	}
-      gcc_unreachable ();
+      /* Set one of the quarters and then insert back into result.  */
+      mask = 0xffffll << first_not_ffff_match;
+      emit_insn (gen_rtx_SET (VOIDmode, dest, GEN_INT (val | mask)));
+      emit_insn (gen_insv_immdi (dest, GEN_INT (first_not_ffff_match),
+				 GEN_INT ((val >> first_not_ffff_match)
+					  & 0xffff)));
+      return;
     }
 
   if (zero_match == 2)
@@ -1246,6 +1246,24 @@ aarch64_expand_mov_immediate (rtx dest, rtx imm)
 		return;
 	      }
 	}
+    }
+
+  if (one_match > zero_match)
+    {
+      /* Set either first three quarters or all but the third.	 */
+      mask = 0xffffll << (16 - first_not_ffff_match);
+      emit_insn (gen_rtx_SET (VOIDmode, dest,
+			      GEN_INT (val | mask | 0xffffffff00000000ull)));
+
+      /* Now insert other two quarters.	 */
+      for (i = first_not_ffff_match + 16, mask <<= (first_not_ffff_match << 1);
+	   i < 64; i += 16, mask <<= 16)
+	{
+	  if ((val & mask) != mask)
+	    emit_insn (gen_insv_immdi (dest, GEN_INT (i),
+				       GEN_INT ((val >> i) & 0xffff)));
+	}
+      return;
     }
 
  simple_sequence:
@@ -1906,7 +1924,7 @@ aarch64_layout_frame (void)
 static void
 aarch64_set_frame_expr (rtx frame_pattern)
 {
-  rtx insn;
+  rtx_insn *insn;
 
   insn = get_last_insn ();
   RTX_FRAME_RELATED_P (insn) = 1;
@@ -1986,7 +2004,7 @@ static void
 aarch64_pushwb_pair_reg (enum machine_mode mode, unsigned regno1,
 			 unsigned regno2, HOST_WIDE_INT adjustment)
 {
-  rtx insn;
+  rtx_insn *insn;
   rtx reg1 = gen_rtx_REG (mode, regno1);
   rtx reg2 = gen_rtx_REG (mode, regno2);
 
@@ -2077,7 +2095,7 @@ static void
 aarch64_save_callee_saves (enum machine_mode mode, HOST_WIDE_INT start_offset,
 			   unsigned start, unsigned limit, bool skip_wb)
 {
-  rtx insn;
+  rtx_insn *insn;
   rtx (*gen_mem_ref) (enum machine_mode, rtx) = (frame_pointer_needed
 						 ? gen_frame_mem : gen_rtx_MEM);
   unsigned regno;
@@ -2245,7 +2263,7 @@ aarch64_expand_prologue (void)
   */
   HOST_WIDE_INT frame_size, offset;
   HOST_WIDE_INT fp_offset;		/* Offset from hard FP to SP.  */
-  rtx insn;
+  rtx_insn *insn;
 
   aarch64_layout_frame ();
 
@@ -2399,7 +2417,7 @@ aarch64_expand_epilogue (bool for_sibcall)
 {
   HOST_WIDE_INT frame_size, offset;
   HOST_WIDE_INT fp_offset;
-  rtx insn;
+  rtx_insn *insn;
   rtx cfa_reg;
 
   aarch64_layout_frame ();
@@ -2740,7 +2758,8 @@ aarch64_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
      to return a pointer to an aggregate.  On AArch64 a result value
      pointer will be in x8.  */
   int this_regno = R0_REGNUM;
-  rtx this_rtx, temp0, temp1, addr, insn, funexp;
+  rtx this_rtx, temp0, temp1, addr, funexp;
+  rtx_insn *insn;
 
   reload_completed = 1;
   emit_note (NOTE_INSN_PROLOGUE_END);
@@ -3250,11 +3269,11 @@ aarch64_classify_address (struct aarch64_address_info *info,
       op1 = XEXP (x, 1);
 
       if (! strict_p
-	  && GET_CODE (op0) == REG
+	  && REG_P (op0)
 	  && (op0 == virtual_stack_vars_rtx
 	      || op0 == frame_pointer_rtx
 	      || op0 == arg_pointer_rtx)
-	  && GET_CODE (op1) == CONST_INT)
+	  && CONST_INT_P (op1))
 	{
 	  info->type = ADDRESS_REG_IMM;
 	  info->base = op0;
@@ -3542,7 +3561,7 @@ aarch64_select_cc_mode (RTX_CODE code, rtx x, rtx y)
      the comparison will have to be swapped when we emit the assembly
      code.  */
   if ((GET_MODE (x) == SImode || GET_MODE (x) == DImode)
-      && (GET_CODE (y) == REG || GET_CODE (y) == SUBREG)
+      && (REG_P (y) || GET_CODE (y) == SUBREG)
       && (GET_CODE (x) == ASHIFT || GET_CODE (x) == ASHIFTRT
 	  || GET_CODE (x) == LSHIFTRT
 	  || GET_CODE (x) == ZERO_EXTEND || GET_CODE (x) == SIGN_EXTEND))
@@ -3551,7 +3570,7 @@ aarch64_select_cc_mode (RTX_CODE code, rtx x, rtx y)
   /* Similarly for a negated operand, but we can only do this for
      equalities.  */
   if ((GET_MODE (x) == SImode || GET_MODE (x) == DImode)
-      && (GET_CODE (y) == REG || GET_CODE (y) == SUBREG)
+      && (REG_P (y) || GET_CODE (y) == SUBREG)
       && (code == EQ || code == NE)
       && GET_CODE (x) == NEG)
     return CC_Zmode;
@@ -3711,7 +3730,7 @@ aarch64_print_operand (FILE *f, rtx x, char code)
       {
 	int n;
 
-	if (GET_CODE (x) != CONST_INT
+	if (!CONST_INT_P (x)
 	    || (n = exact_log2 (INTVAL (x) & ~7)) <= 0)
 	  {
 	    output_operand_lossage ("invalid operand for '%%%c'", code);
@@ -3741,7 +3760,7 @@ aarch64_print_operand (FILE *f, rtx x, char code)
 	int n;
 
 	/* Print N such that 2^N == X.  */
-	if (GET_CODE (x) != CONST_INT || (n = exact_log2 (INTVAL (x))) < 0)
+	if (!CONST_INT_P (x) || (n = exact_log2 (INTVAL (x))) < 0)
 	  {
 	    output_operand_lossage ("invalid operand for '%%%c'", code);
 	    return;
@@ -3753,7 +3772,7 @@ aarch64_print_operand (FILE *f, rtx x, char code)
 
     case 'P':
       /* Print the number of non-zero bits in X (a const_int).  */
-      if (GET_CODE (x) != CONST_INT)
+      if (!CONST_INT_P (x))
 	{
 	  output_operand_lossage ("invalid operand for '%%%c'", code);
 	  return;
@@ -3764,7 +3783,7 @@ aarch64_print_operand (FILE *f, rtx x, char code)
 
     case 'H':
       /* Print the higher numbered register of a pair (TImode) of regs.  */
-      if (GET_CODE (x) != REG || !GP_REGNUM_P (REGNO (x) + 1))
+      if (!REG_P (x) || !GP_REGNUM_P (REGNO (x) + 1))
 	{
 	  output_operand_lossage ("invalid operand for '%%%c'", code);
 	  return;
@@ -3838,7 +3857,7 @@ aarch64_print_operand (FILE *f, rtx x, char code)
 
     case 'X':
       /* Print bottom 16 bits of integer constant in hex.  */
-      if (GET_CODE (x) != CONST_INT)
+      if (!CONST_INT_P (x))
 	{
 	  output_operand_lossage ("invalid operand for '%%%c'", code);
 	  return;
@@ -4544,7 +4563,7 @@ aarch64_output_casesi (rtx *operands)
 {
   char buf[100];
   char label[100];
-  rtx diff_vec = PATTERN (NEXT_INSN (operands[2]));
+  rtx diff_vec = PATTERN (NEXT_INSN (as_a <rtx_insn *> (operands[2])));
   int index;
   static const char *const patterns[4][2] =
   {
@@ -5108,7 +5127,7 @@ aarch64_rtx_costs (rtx x, int code, int outer ATTRIBUTE_UNUSED,
 	    op1 = SUBREG_REG (op1);
 	  if ((GET_CODE (op1) == ZERO_EXTEND
 	       || GET_CODE (op1) == SIGN_EXTEND)
-	      && GET_CODE (XEXP (op0, 1)) == CONST_INT
+	      && CONST_INT_P (XEXP (op0, 1))
 	      && (GET_MODE_BITSIZE (GET_MODE (XEXP (op1, 0)))
 		  >= INTVAL (XEXP (op0, 1))))
 	    op1 = XEXP (op1, 0);
@@ -7677,7 +7696,7 @@ aarch64_simd_valid_immediate (rtx op, enum machine_mode mode, bool inverse,
       unsigned HOST_WIDE_INT elpart;
       unsigned int part, parts;
 
-      if (GET_CODE (el) == CONST_INT)
+      if (CONST_INT_P (el))
         {
           elpart = INTVAL (el);
           parts = 1;
@@ -7983,7 +8002,7 @@ aarch64_simd_check_vect_par_cnst_half (rtx op, enum machine_mode mode,
       rtx elt_op = XVECEXP (op, 0, i);
       rtx elt_ideal = XVECEXP (ideal, 0, i);
 
-      if (GET_CODE (elt_op) != CONST_INT
+      if (!CONST_INT_P (elt_op)
 	  || INTVAL (elt_ideal) != INTVAL (elt_op))
 	return false;
     }
@@ -7996,7 +8015,7 @@ void
 aarch64_simd_lane_bounds (rtx operand, HOST_WIDE_INT low, HOST_WIDE_INT high)
 {
   HOST_WIDE_INT lane;
-  gcc_assert (GET_CODE (operand) == CONST_INT);
+  gcc_assert (CONST_INT_P (operand));
   lane = INTVAL (operand);
 
   if (lane < low || lane >= high)
@@ -8006,7 +8025,7 @@ aarch64_simd_lane_bounds (rtx operand, HOST_WIDE_INT low, HOST_WIDE_INT high)
 void
 aarch64_simd_const_bounds (rtx operand, HOST_WIDE_INT low, HOST_WIDE_INT high)
 {
-  gcc_assert (GET_CODE (operand) == CONST_INT);
+  gcc_assert (CONST_INT_P (operand));
   HOST_WIDE_INT lane = INTVAL (operand);
 
   if (lane < low || lane >= high)
@@ -8044,7 +8063,7 @@ bool
 aarch64_simd_mem_operand_p (rtx op)
 {
   return MEM_P (op) && (GET_CODE (XEXP (op, 0)) == POST_INC
-			|| GET_CODE (XEXP (op, 0)) == REG);
+			|| REG_P (XEXP (op, 0)));
 }
 
 /* Set up OPERANDS for a register copy from SRC to DEST, taking care
@@ -8525,7 +8544,8 @@ aarch64_split_compare_and_swap (rtx operands[])
   rtx rval, mem, oldval, newval, scratch;
   enum machine_mode mode;
   bool is_weak;
-  rtx label1, label2, x, cond;
+  rtx_code_label *label1, *label2;
+  rtx x, cond;
 
   rval = operands[0];
   mem = operands[1];
@@ -8535,7 +8555,7 @@ aarch64_split_compare_and_swap (rtx operands[])
   scratch = operands[7];
   mode = GET_MODE (mem);
 
-  label1 = NULL_RTX;
+  label1 = NULL;
   if (!is_weak)
     {
       label1 = gen_label_rtx ();
@@ -8578,7 +8598,8 @@ aarch64_split_atomic_op (enum rtx_code code, rtx old_out, rtx new_out, rtx mem,
 {
   enum machine_mode mode = GET_MODE (mem);
   enum machine_mode wmode = (mode == DImode ? DImode : SImode);
-  rtx label, x;
+  rtx_code_label *label;
+  rtx x;
 
   label = gen_label_rtx ();
   emit_label (label);
@@ -9378,10 +9399,6 @@ aarch64_evpc_dup (struct expand_vec_perm_d *d)
   unsigned int i, elt, nelt = d->nelt;
   rtx lane;
 
-  /* TODO: This may not be big-endian safe.  */
-  if (BYTES_BIG_ENDIAN)
-    return false;
-
   elt = d->perm[0];
   for (i = 1; i < nelt; i++)
     {
@@ -9395,7 +9412,7 @@ aarch64_evpc_dup (struct expand_vec_perm_d *d)
      use d->op0 and need not do any extra arithmetic to get the
      correct lane number.  */
   in0 = d->op0;
-  lane = GEN_INT (elt);
+  lane = GEN_INT (elt); /* The pattern corrects for big-endian.  */
 
   switch (vmode)
     {
@@ -9476,13 +9493,13 @@ aarch64_expand_vec_perm_const_1 (struct expand_vec_perm_d *d)
 	return true;
       else if (aarch64_evpc_ext (d))
 	return true;
+      else if (aarch64_evpc_dup (d))
+	return true;
       else if (aarch64_evpc_zip (d))
 	return true;
       else if (aarch64_evpc_uzp (d))
 	return true;
       else if (aarch64_evpc_trn (d))
-	return true;
-      else if (aarch64_evpc_dup (d))
 	return true;
       return aarch64_evpc_tbl (d);
     }

@@ -4018,7 +4018,7 @@ package body Freeze is
                   while Present (Formal) loop
                      F_Type := Etype (Formal);
 
-                     --  AI05-0151 : incomplete types can appear in a profile.
+                     --  AI05-0151: incomplete types can appear in a profile.
                      --  By the time the entity is frozen, the full view must
                      --  be available, unless it is a limited view.
 
@@ -4202,10 +4202,7 @@ package body Freeze is
 
                      Late_Freezing :=
                        Get_Source_Unit (E) /= Get_Source_Unit (N)
-                         and then Expander_Active
-                         and then Ekind (Scope (E)) = E_Package
-                         and then Nkind (Unit_Declaration_Node (Scope (E)))
-                           = N_Package_Declaration
+                         and then Returns_Limited_View (E)
                          and then not In_Open_Scopes (Scope (E));
 
                      --  Freeze return type
@@ -4236,6 +4233,7 @@ package body Freeze is
                          Ekind (Non_Limited_View (R_Type)) = E_Incomplete_Type
                      then
                         Set_Is_Frozen (E, False);
+                        Set_Returns_Limited_View (E);
                         return Result;
                      end if;
 

@@ -30,7 +30,6 @@ along with GCC; see the file COPYING3.  If not see
 
 struct function;
 struct eh_region_d;
-struct pointer_map_t;
 
 /* The type of an exception region.  */
 enum eh_region_type
@@ -88,7 +87,7 @@ struct GTY(()) eh_landing_pad_d
      EXCEPTION_RECEIVER pattern will be expanded here, as well as other
      bookkeeping specific to exceptions.  There must not be normal edges
      into the block containing the landing-pad label.  */
-  rtx landing_pad;
+  rtx_code_label *landing_pad;
 
   /* The index of this landing pad within fun->eh->lp_array.  */
   int index;
@@ -253,7 +252,7 @@ typedef tree (*duplicate_eh_regions_map) (tree, void *);
 extern hash_map<void *, void *> *duplicate_eh_regions
   (struct function *, eh_region, int, duplicate_eh_regions_map, void *);
 
-extern void sjlj_emit_function_exit_after (rtx);
+extern void sjlj_emit_function_exit_after (rtx_insn *);
 
 extern eh_region gen_eh_region_cleanup (eh_region);
 extern eh_region gen_eh_region_try (eh_region);
