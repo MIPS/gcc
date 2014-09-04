@@ -7326,6 +7326,7 @@ gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
       break;
     case OACC_KERNELS:
       stmt = gimple_build_oacc_kernels (body, OACC_KERNELS_CLAUSES (expr));
+      cfun->contains_oacc_kernels = 1;
       break;
     case OACC_PARALLEL:
       stmt = gimple_build_oacc_parallel (body, OACC_PARALLEL_CLAUSES (expr));

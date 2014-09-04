@@ -670,6 +670,9 @@ struct GTY(()) function {
 
   /* Set when the tail call has been identified.  */
   unsigned int tail_call_marked : 1;
+
+  /* Set when the tail call has been identified.  */
+  unsigned int contains_oacc_kernels : 1;
 };
 
 /* Add the decl D to the local_decls list of FUN.  */
