@@ -1,5 +1,8 @@
 
 2014-09-05  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/generated/*: Regenerate.
+
+2014-09-05  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/libmelt-ana-tree.melt (tree_type_decl): Renamed as...
 	(tree_type_decl_with_name): Was the tree_type_decl cmatcher.
 	(tree_type_decl): New cmatcher, with different signature than the
