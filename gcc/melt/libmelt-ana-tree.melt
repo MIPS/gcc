@@ -591,22 +591,44 @@
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; pattern for defined types (tree_type_decl <type> <name> <uid>)
-(defcmatcher tree_type_decl 
+;; pattern for defined types (tree_type_decl_with_name <type> <name> <uid>)
+(defcmatcher tree_type_decl_with_name
   (:tree tr)
   (:tree type :cstring name :long uid)
   treeparmd				;statesym
-  :doc #{$TREE_TYPE_DECL match a tree type decl $TR extracting its $TYPE, $NAME, $UID}#
+  :doc #{$TREE_TYPE_DECL_WITH_NAME match a tree type decl $TR
+  extracting its $TYPE, $NAME, $UID. See also $TREE_TYPE_DECL and
+  $TREE_TYPE_DECL_NAMED.}#
   ;; test expansion
-  #{/* tree_type_decl $TREEPARMD ?*/ (($TR) && TREE_CODE($TR) == TYPE_DECL) }#
+  #{/* tree_type_decl_with_name $TREEPARMD ?*/ (($TR) && TREE_CODE($TR) == TYPE_DECL) }#
   ;; fill expansion
-  #{/* tree_type_decl $TREEPARMD !*/
+  #{/* tree_type_decl_with_name $TREEPARMD !*/
    $NAME =NULL;
    $TYPE = TREE_TYPE($TR);
    $UID = DECL_UID($TR);
    if (DECL_NAME($TR))
      $NAME = IDENTIFIER_POINTER(DECL_NAME($TR));
    }# )
+
+(defcmatcher tree_type_decl
+  (:tree tr)
+  (:tree type name ctx orig :long uid)
+  treetypd
+  :doc #{$TREE_TYPE_DECL match a tree type decl $TR extracting its
+  type tree as $TYPE, name tree as $NAME, context tree as $CTX,
+  original type as $ORIG and long $UID. See also
+  $TREE_TYPE_DECL_WITH_NAME etc...}#
+  ;; test
+  #{ /* tree_type_decl $TREETYPD ? */ (($TR) && TREE_CODE($TR) == TYPE_DECL) }#
+  ;; fill
+  #{ /* tree_type_decl $TREETYPD !*/
+  $TYPE = TREE_TYPE($TR);
+  $NAME = DECL_NAME($TR);
+  $CTX = TYPE_CONTEXT($TR);
+  $ORIG = DECL_ORIGINAL_TYPE($TR);
+  $UID = DECL_UID($TR);
+  }#
+  )
 
 ;; pattern for a typr_decl of given name
 (defcmatcher tree_type_decl_named 
@@ -2322,6 +2344,7 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_type_canonical
  tree_type_decl
  tree_type_decl_named
+ tree_type_decl_with_name
  tree_type_declaration
  tree_type_p
  tree_types_compatible_p

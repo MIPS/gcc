@@ -1,5 +1,13 @@
 
 2014-09-05  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/libmelt-ana-tree.melt (tree_type_decl): Renamed as...
+	(tree_type_decl_with_name): Was the tree_type_decl cmatcher.
+	(tree_type_decl): New cmatcher, with different signature than the
+	old one of same name...
+
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.1.3pre0.
+
+2014-09-05  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-debug.melt (dbgout_mapstring_method): Slighty
 	improved again...
 
