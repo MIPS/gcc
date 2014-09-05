@@ -1097,9 +1097,9 @@ $TORANK}#
     (add2sbuf_strconst sbuf "/")
     (add2sbuf_longdec sbuf mapcount)
     (if (and
-	 (melt_really_need_dbglim (+i depth 2) maxdepth)
+	 (melt_really_need_dbglim (+i depth 1) maxdepth)
 	 (<i (+i depth 2) maxdepth) 
-	 (or (<i depth 3) (<i mapcount 20))
+	 (or (<i depth 2) (<i mapcount 10))
 	 (is_a dbgi class_debug_output_information))
 	(let (
 	      (aux (mapstring_aux self))

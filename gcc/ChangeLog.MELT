@@ -1,4 +1,8 @@
 
+2014-09-05  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-debug.melt (dbgout_mapstring_method): Slighty
+	improved...
+
 2014-09-04  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-hooks.melt
 	(register_paragraph_input_channel_handler)
