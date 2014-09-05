@@ -44,8 +44,7 @@ host_modules= { module= fixincludes; bootstrap=true;
 host_modules= { module= flex; no_check_cross= true; };
 host_modules= { module= gas; bootstrap=true; };
 host_modules= { module= gcc; bootstrap=true; 
-		extra_configure_flags='@extra_target_gcc_configure_flags@';
-		extra_make_flags="$(EXTRA_GCC_FLAGS) $(EXTRA_TARGET_GCC_FLAGS)"; };
+		extra_make_flags="$(EXTRA_GCC_FLAGS)"; };
 host_modules= { module= gmp; lib_path=.libs; bootstrap=true;
 		extra_configure_flags='--disable-shared';
 		no_install= true;
@@ -221,7 +220,6 @@ flags_to_pass = { flag= sysconfdir ; };
 flags_to_pass = { flag= tooldir ; };
 flags_to_pass = { flag= build_tooldir ; };
 flags_to_pass = { flag= target_alias ; };
-flags_to_pass = { flag= accel_target_alias ; };
 
 // Build tools
 flags_to_pass = { flag= AWK ; };

@@ -705,7 +705,6 @@ BASE_FLAGS_TO_PASS = \
 	"tooldir=$(tooldir)" \
 	"build_tooldir=$(build_tooldir)" \
 	"target_alias=$(target_alias)" \
-	"accel_target_alias=$(accel_target_alias)" \
 	"AWK=$(AWK)" \
 	"BISON=$(BISON)" \
 	"CC_FOR_BUILD=$(CC_FOR_BUILD)" \
@@ -10100,7 +10099,7 @@ configure-gcc:
 	  $$s/$$module_srcdir/configure \
 	  --srcdir=$${topdir}/$$module_srcdir \
 	  $(HOST_CONFIGARGS) --build=${build_alias} --host=${host_alias} \
-	  --target=$${this_target} @extra_target_gcc_configure_flags@ \
+	  --target=$${this_target}  \
 	  || exit 1
 @endif gcc
 
@@ -10135,8 +10134,7 @@ configure-stage1-gcc:
 	  $(HOST_CONFIGARGS) --build=${build_alias} --host=${host_alias} \
 	  --target=${target_alias} \
 	   \
-	  $(STAGE1_CONFIGURE_FLAGS) \
-	  @extra_target_gcc_configure_flags@
+	  $(STAGE1_CONFIGURE_FLAGS)
 @endif gcc-bootstrap
 
 .PHONY: configure-stage2-gcc maybe-configure-stage2-gcc
@@ -10169,8 +10167,7 @@ configure-stage2-gcc:
 	  $(HOST_CONFIGARGS) --build=${build_alias} --host=${host_alias} \
 	  --target=${target_alias} \
 	   --with-build-libsubdir=$(HOST_SUBDIR)  \
-	  $(STAGE2_CONFIGURE_FLAGS) \
-	  @extra_target_gcc_configure_flags@
+	  $(STAGE2_CONFIGURE_FLAGS)
 @endif gcc-bootstrap
 
 .PHONY: configure-stage3-gcc maybe-configure-stage3-gcc
@@ -10203,8 +10200,7 @@ configure-stage3-gcc:
 	  $(HOST_CONFIGARGS) --build=${build_alias} --host=${host_alias} \
 	  --target=${target_alias} \
 	   --with-build-libsubdir=$(HOST_SUBDIR)  \
-	  $(STAGE3_CONFIGURE_FLAGS) \
-	  @extra_target_gcc_configure_flags@
+	  $(STAGE3_CONFIGURE_FLAGS)
 @endif gcc-bootstrap
 
 .PHONY: configure-stage4-gcc maybe-configure-stage4-gcc
@@ -10237,8 +10233,7 @@ configure-stage4-gcc:
 	  $(HOST_CONFIGARGS) --build=${build_alias} --host=${host_alias} \
 	  --target=${target_alias} \
 	   --with-build-libsubdir=$(HOST_SUBDIR)  \
-	  $(STAGE4_CONFIGURE_FLAGS) \
-	  @extra_target_gcc_configure_flags@
+	  $(STAGE4_CONFIGURE_FLAGS)
 @endif gcc-bootstrap
 
 .PHONY: configure-stageprofile-gcc maybe-configure-stageprofile-gcc
@@ -10271,8 +10266,7 @@ configure-stageprofile-gcc:
 	  $(HOST_CONFIGARGS) --build=${build_alias} --host=${host_alias} \
 	  --target=${target_alias} \
 	   --with-build-libsubdir=$(HOST_SUBDIR)  \
-	  $(STAGEprofile_CONFIGURE_FLAGS) \
-	  @extra_target_gcc_configure_flags@
+	  $(STAGEprofile_CONFIGURE_FLAGS)
 @endif gcc-bootstrap
 
 .PHONY: configure-stagefeedback-gcc maybe-configure-stagefeedback-gcc
@@ -10305,8 +10299,7 @@ configure-stagefeedback-gcc:
 	  $(HOST_CONFIGARGS) --build=${build_alias} --host=${host_alias} \
 	  --target=${target_alias} \
 	   --with-build-libsubdir=$(HOST_SUBDIR)  \
-	  $(STAGEfeedback_CONFIGURE_FLAGS) \
-	  @extra_target_gcc_configure_flags@
+	  $(STAGEfeedback_CONFIGURE_FLAGS)
 @endif gcc-bootstrap
 
 
@@ -10326,7 +10319,7 @@ all-gcc: configure-gcc
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS)  \
 	(cd $(HOST_SUBDIR)/gcc && \
-	  $(MAKE) $(BASE_FLAGS_TO_PASS) $(EXTRA_HOST_FLAGS) $(STAGE1_FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) $(EXTRA_TARGET_GCC_FLAGS) \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) $(EXTRA_HOST_FLAGS) $(STAGE1_FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) \
 		$(TARGET-gcc))
 @endif gcc
 
@@ -10355,7 +10348,7 @@ all-stage1-gcc: configure-stage1-gcc
 		CXXFLAGS_FOR_TARGET="$(CXXFLAGS_FOR_TARGET)" \
 		LIBCFLAGS_FOR_TARGET="$(LIBCFLAGS_FOR_TARGET)" \
 		$(EXTRA_HOST_FLAGS)  \
-		$(STAGE1_FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) $(EXTRA_TARGET_GCC_FLAGS) \
+		$(STAGE1_FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) \
 		TFLAGS="$(STAGE1_TFLAGS)" \
 		$(TARGET-stage1-gcc)
 
@@ -10370,7 +10363,7 @@ clean-stage1-gcc:
 	fi; \
 	cd $(HOST_SUBDIR)/gcc && \
 	$(MAKE) $(EXTRA_HOST_FLAGS)  \
-	$(STAGE1_FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) $(EXTRA_TARGET_GCC_FLAGS) clean
+	$(STAGE1_FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) clean
 @endif gcc-bootstrap
 
 
@@ -10397,7 +10390,7 @@ all-stage2-gcc: configure-stage2-gcc
 		CFLAGS_FOR_TARGET="$(CFLAGS_FOR_TARGET)" \
 		CXXFLAGS_FOR_TARGET="$(CXXFLAGS_FOR_TARGET)" \
 		LIBCFLAGS_FOR_TARGET="$(LIBCFLAGS_FOR_TARGET)" \
-		$(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) $(EXTRA_TARGET_GCC_FLAGS) \
+		$(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) \
 		TFLAGS="$(STAGE2_TFLAGS)" \
 		$(TARGET-stage2-gcc)
 
@@ -10411,7 +10404,7 @@ clean-stage2-gcc:
 	  $(MAKE) stage2-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/gcc && \
-	$(MAKE) $(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) $(EXTRA_TARGET_GCC_FLAGS) clean
+	$(MAKE) $(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) clean
 @endif gcc-bootstrap
 
 
@@ -10438,7 +10431,7 @@ all-stage3-gcc: configure-stage3-gcc
 		CFLAGS_FOR_TARGET="$(CFLAGS_FOR_TARGET)" \
 		CXXFLAGS_FOR_TARGET="$(CXXFLAGS_FOR_TARGET)" \
 		LIBCFLAGS_FOR_TARGET="$(LIBCFLAGS_FOR_TARGET)" \
-		$(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) $(EXTRA_TARGET_GCC_FLAGS) \
+		$(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) \
 		TFLAGS="$(STAGE3_TFLAGS)" \
 		$(TARGET-stage3-gcc)
 
@@ -10452,7 +10445,7 @@ clean-stage3-gcc:
 	  $(MAKE) stage3-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/gcc && \
-	$(MAKE) $(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) $(EXTRA_TARGET_GCC_FLAGS) clean
+	$(MAKE) $(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) clean
 @endif gcc-bootstrap
 
 
@@ -10479,7 +10472,7 @@ all-stage4-gcc: configure-stage4-gcc
 		CFLAGS_FOR_TARGET="$(CFLAGS_FOR_TARGET)" \
 		CXXFLAGS_FOR_TARGET="$(CXXFLAGS_FOR_TARGET)" \
 		LIBCFLAGS_FOR_TARGET="$(LIBCFLAGS_FOR_TARGET)" \
-		$(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) $(EXTRA_TARGET_GCC_FLAGS) \
+		$(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) \
 		TFLAGS="$(STAGE4_TFLAGS)" \
 		$(TARGET-stage4-gcc)
 
@@ -10493,7 +10486,7 @@ clean-stage4-gcc:
 	  $(MAKE) stage4-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/gcc && \
-	$(MAKE) $(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) $(EXTRA_TARGET_GCC_FLAGS) clean
+	$(MAKE) $(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) clean
 @endif gcc-bootstrap
 
 
@@ -10520,7 +10513,7 @@ all-stageprofile-gcc: configure-stageprofile-gcc
 		CFLAGS_FOR_TARGET="$(CFLAGS_FOR_TARGET)" \
 		CXXFLAGS_FOR_TARGET="$(CXXFLAGS_FOR_TARGET)" \
 		LIBCFLAGS_FOR_TARGET="$(LIBCFLAGS_FOR_TARGET)" \
-		$(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) $(EXTRA_TARGET_GCC_FLAGS) \
+		$(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) \
 		TFLAGS="$(STAGEprofile_TFLAGS)" \
 		$(TARGET-stageprofile-gcc)
 
@@ -10534,7 +10527,7 @@ clean-stageprofile-gcc:
 	  $(MAKE) stageprofile-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/gcc && \
-	$(MAKE) $(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) $(EXTRA_TARGET_GCC_FLAGS) clean
+	$(MAKE) $(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) clean
 @endif gcc-bootstrap
 
 
@@ -10561,7 +10554,7 @@ all-stagefeedback-gcc: configure-stagefeedback-gcc
 		CFLAGS_FOR_TARGET="$(CFLAGS_FOR_TARGET)" \
 		CXXFLAGS_FOR_TARGET="$(CXXFLAGS_FOR_TARGET)" \
 		LIBCFLAGS_FOR_TARGET="$(LIBCFLAGS_FOR_TARGET)" \
-		$(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) $(EXTRA_TARGET_GCC_FLAGS) \
+		$(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) \
 		TFLAGS="$(STAGEfeedback_TFLAGS)" \
 		$(TARGET-stagefeedback-gcc)
 
@@ -10575,7 +10568,7 @@ clean-stagefeedback-gcc:
 	  $(MAKE) stagefeedback-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/gcc && \
-	$(MAKE) $(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) $(EXTRA_TARGET_GCC_FLAGS) clean
+	$(MAKE) $(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) clean
 @endif gcc-bootstrap
 
 
@@ -10593,7 +10586,7 @@ check-gcc:
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
 	(cd $(HOST_SUBDIR)/gcc && \
-	  $(MAKE) $(FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) $(EXTRA_TARGET_GCC_FLAGS) check)
+	  $(MAKE) $(FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) check)
 
 @endif gcc
 
@@ -10608,7 +10601,7 @@ install-gcc: installdirs
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
 	(cd $(HOST_SUBDIR)/gcc && \
-	  $(MAKE) $(FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) $(EXTRA_TARGET_GCC_FLAGS) install)
+	  $(MAKE) $(FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) install)
 
 @endif gcc
 
@@ -10623,7 +10616,7 @@ install-strip-gcc: installdirs
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
 	(cd $(HOST_SUBDIR)/gcc && \
-	  $(MAKE) $(FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) $(EXTRA_TARGET_GCC_FLAGS) install-strip)
+	  $(MAKE) $(FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS) install-strip)
 
 @endif gcc
 
@@ -10640,7 +10633,7 @@ info-gcc: \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
-	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_GCC_FLAGS) $(EXTRA_TARGET_GCC_FLAGS); do \
+	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_GCC_FLAGS); do \
 	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
 	done; \
 	echo "Doing info in gcc" ; \
@@ -10665,7 +10658,7 @@ dvi-gcc: \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
-	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_GCC_FLAGS) $(EXTRA_TARGET_GCC_FLAGS); do \
+	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_GCC_FLAGS); do \
 	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
 	done; \
 	echo "Doing dvi in gcc" ; \
@@ -10690,7 +10683,7 @@ pdf-gcc: \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
-	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_GCC_FLAGS) $(EXTRA_TARGET_GCC_FLAGS); do \
+	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_GCC_FLAGS); do \
 	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
 	done; \
 	echo "Doing pdf in gcc" ; \
@@ -10715,7 +10708,7 @@ html-gcc: \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
-	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_GCC_FLAGS) $(EXTRA_TARGET_GCC_FLAGS); do \
+	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_GCC_FLAGS); do \
 	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
 	done; \
 	echo "Doing html in gcc" ; \
@@ -10740,7 +10733,7 @@ TAGS-gcc: \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
-	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_GCC_FLAGS) $(EXTRA_TARGET_GCC_FLAGS); do \
+	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_GCC_FLAGS); do \
 	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
 	done; \
 	echo "Doing TAGS in gcc" ; \
@@ -10766,7 +10759,7 @@ install-info-gcc: \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
-	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_GCC_FLAGS) $(EXTRA_TARGET_GCC_FLAGS); do \
+	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_GCC_FLAGS); do \
 	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
 	done; \
 	echo "Doing install-info in gcc" ; \
@@ -10792,7 +10785,7 @@ install-pdf-gcc: \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
-	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_GCC_FLAGS) $(EXTRA_TARGET_GCC_FLAGS); do \
+	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_GCC_FLAGS); do \
 	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
 	done; \
 	echo "Doing install-pdf in gcc" ; \
@@ -10818,7 +10811,7 @@ install-html-gcc: \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
-	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_GCC_FLAGS) $(EXTRA_TARGET_GCC_FLAGS); do \
+	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_GCC_FLAGS); do \
 	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
 	done; \
 	echo "Doing install-html in gcc" ; \
@@ -10843,7 +10836,7 @@ installcheck-gcc: \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
-	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_GCC_FLAGS) $(EXTRA_TARGET_GCC_FLAGS); do \
+	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_GCC_FLAGS); do \
 	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
 	done; \
 	echo "Doing installcheck in gcc" ; \
@@ -10867,7 +10860,7 @@ mostlyclean-gcc:
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
-	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_GCC_FLAGS) $(EXTRA_TARGET_GCC_FLAGS); do \
+	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_GCC_FLAGS); do \
 	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
 	done; \
 	echo "Doing mostlyclean in gcc" ; \
@@ -10891,7 +10884,7 @@ clean-gcc:
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
-	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_GCC_FLAGS) $(EXTRA_TARGET_GCC_FLAGS); do \
+	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_GCC_FLAGS); do \
 	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
 	done; \
 	echo "Doing clean in gcc" ; \
@@ -10915,7 +10908,7 @@ distclean-gcc:
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
-	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_GCC_FLAGS) $(EXTRA_TARGET_GCC_FLAGS); do \
+	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_GCC_FLAGS); do \
 	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
 	done; \
 	echo "Doing distclean in gcc" ; \
@@ -10939,7 +10932,7 @@ maintainer-clean-gcc:
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
-	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_GCC_FLAGS) $(EXTRA_TARGET_GCC_FLAGS); do \
+	for flag in $(EXTRA_HOST_FLAGS) $(EXTRA_GCC_FLAGS); do \
 	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
 	done; \
 	echo "Doing maintainer-clean in gcc" ; \

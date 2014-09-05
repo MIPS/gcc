@@ -887,19 +887,6 @@ AC_ARG_ENABLE(languages,
 esac],
 [enable_languages=c])
 
-offload_targets=
-AC_ARG_ENABLE(accelerator,
-[AS_HELP_STRING([--enable-accelerator], [build accelerator @<:@ARG={no,device-triplet}@:>@])],
-[
-  case $enable_accelerator in
-  no) ;;
-  *)
-    offload_targets=$enable_accelerator
-    ;;
-  esac
-], [enable_accelerator=no])
-AC_SUBST(enable_accelerator)
-
 AC_ARG_ENABLE(as-accelerator-for,
 [AS_HELP_STRING([--enable-as-accelerator-for], [build compiler as accelerator target for given host])],
 [
@@ -927,8 +914,8 @@ AC_ARG_ENABLE(offload-targets,
       offload_targets=$offload_targets,$enable_offload_targets
     fi
   fi
-], [enable_accelerator=no])
-AC_SUBST(enable_accelerator)
+], [offload_targets=])
+
 offload_targets=`echo $offload_targets | sed -e 's#,#:#g'`
 AC_DEFINE_UNQUOTED(OFFLOAD_TARGETS, "$offload_targets",
  [Define to hold the list of target names suitable for offloading.])

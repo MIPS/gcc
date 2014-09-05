@@ -1,3 +1,9 @@
+2014-09-05  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* configure.ac (enable-accelerator): Remove option.
+	(enable_accelerator): Don't subst.
+	* configure: Regenerate.
+
 2014-09-03  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* omp-low.c (expand_oacc_offload): Add child_fn to offload_funcs.

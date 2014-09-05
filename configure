@@ -673,14 +673,6 @@ LDFLAGS
 CFLAGS
 CC
 EXTRA_CONFIGARGS_LIBJAVA
-extra_accelerator_gcc_configure_flags
-extra_target_gcc_configure_flags
-accel_target_os
-accel_target_vendor
-accel_target_cpu
-accel_target_alias
-accel_target
-accel_target_noncanonical
 target_subdir
 host_subdir
 build_subdir
@@ -755,8 +747,6 @@ ac_user_opts='
 enable_option_checking
 with_build_libsubdir
 enable_offload_targets
-enable_target_gcc_configure_flags
-enable_accelerator_gcc_configure_flags
 enable_gold
 enable_ld
 enable_libquadmath
@@ -1478,12 +1468,6 @@ Optional Features:
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
   --enable-offload-targets=LIST
                           enable offloading to devices from LIST
-  --enable-target-gcc-configure-flags=FLAGS
-                          additional flags for configuring the target GCC
-                          [none]
-  --enable-accelerator-gcc-configure-flags=FLAGS
-                          additional flags for configuring the accelerator GCC
-                          [none]
   --enable-gold[=ARG]     build gold [ARG={default,yes,no}]
   --enable-ld[=ARG]       build ld [ARG={default,yes,no}]
   --disable-libquadmath   do not build libquadmath directory
@@ -2965,47 +2949,6 @@ if test "${enable_offload_targets+set}" = set; then :
 else
   enable_offload_targets=
 fi
-
-
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking accelerator target system type" >&5
-$as_echo_n "checking accelerator target system type... " >&6; }
-
-accel_target_alias=$accel_target_noncanonical
-case "$accel_target_alias" in
-NONE)
-  accel_target=NONE
-  ;;
-*)
-  accel_target=`$ac_config_sub $accel_target_alias`
-  ;;
-esac
-
-accel_target_cpu=`echo $accel_target | sed 's/^\([^-]*\)-\([^-]*\)-\(.*\)$/\1/'`
-accel_target_vendor=`echo $accel_target | sed 's/^\([^-]*\)-\([^-]*\)-\(.*\)$/\2/'`
-accel_target_os=`echo $accel_target | sed 's/^\([^-]*\)-\([^-]*\)-\(.*\)$/\3/'`
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $accel_target" >&5
-$as_echo "$accel_target" >&6; }
-
-
-# Allow for specifying configure flags that apply to only the target GCC, or
-# only the accelerator GCC.
-
-# Check whether --enable-target-gcc-configure-flags was given.
-if test "${enable_target_gcc_configure_flags+set}" = set; then :
-  enableval=$enable_target_gcc_configure_flags; extra_target_gcc_configure_flags=$enableval
-else
-  extra_target_gcc_configure_flags=
-fi
-
-
-
-# Check whether --enable-accelerator-gcc-configure-flags was given.
-if test "${enable_accelerator_gcc_configure_flags+set}" = set; then :
-  enableval=$enable_accelerator_gcc_configure_flags; extra_accelerator_gcc_configure_flags=$enableval
-else
-  extra_accelerator_gcc_configure_flags=
-fi
-
 
 
 # Handle --enable-gold, --enable-ld.
