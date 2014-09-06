@@ -1,4 +1,8 @@
 
+2014-09-05  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/generated/*: Regenerate.
+	* melt/generated/warmelt-hooks+04.cc: New file.
+
 2014-09-06  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/warmelt-hooks+03.cc: temporary manual patch to
 	add meltrout_107_WARMELTmiHOOKS_UNREGISTER_CHILD_PROCESS_HANDLER;
