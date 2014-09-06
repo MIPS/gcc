@@ -1,5 +1,11 @@
 
 2014-09-06  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.h (melt_wait_for_probe): Remove temporary
+	workaround.
+	* melt/generated/*: Regenerate.
+
+2014-09-06  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Removing the probe}}
 	* melt-runtime.h (melt_default_probe, melt_wait_for_probe)
 	(melt_probe_stop, melt_probe_start)

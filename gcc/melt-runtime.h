@@ -3777,9 +3777,4 @@ extern void melt_gt_ggc_mx_gimple_seq_d(void*);
 #endif /* GCC 4.9 */
 
 #endif /*MELT_INCLUDED_ */
-
-/// temporary workaround to remove probe
-static inline int melt_wait_for_probe(int waitopt)
-{ melt_fatal_error ("melt_wait_for_probe waitopt=%d", waitopt); }
-
 /* eof $Id$ */
