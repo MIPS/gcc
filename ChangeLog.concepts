@@ -1,4 +1,33 @@
-2014-09-01  Andrew Sutton  <andrew.n.sutton@gmail.com>
+2014-09-04  Braden Obrzut  <admin@maniacsvault.net>
+
+	Implement concept introductions.
+	* gcc/cp/constraint.cc (deduce_concept_introduction): New.
+	(build_concept_check): Allow arg to be NULL to skip placeholder.
+	(process_introduction_parm): New.
+	(finish_concept_introduction): New.
+	* gcc/cp/cp-objcp-common.c (cp_common_init_ts): Mark introduced parm.
+	* gcc/cp/cp-tree.def: New INTRODUCED_PARM_DECL.
+	* gcc/cp/parser.c (cp_parser_declaration): Tentatively parse for
+	concept introduction.
+	(cp_parser_introduction_list): New.
+	(cp_parser_member_declaration): Tentatively parse for concept
+	introduction.
+	(cp_parser_template_introduction): New.
+	(cp_parser_template_declaration_after_export): Parse concept
+	introductions.
+	* gcc/cp/pt.c (convert_template_argument): Treat INTRODUCED_PARM_DECL
+	as a placeholder.
+	(coerce_template_parms): If INTRODUCED_PARM_DECL represents a pack then
+	match the entire parameter pack of the template.
+	(type_dependent_expression_p): Treat INTRODUCED_PARM_DECL as a
+	placeholder.
+	* gcc/testsuite/g++.dg/concepts/introduction1.C: New.
+	* gcc/testsuite/g++.dg/concepts/introduction2.C: New.
+	* gcc/testsuite/g++.dg/concepts/introduction3.C: New.
+	* gcc/testsuite/g++.dg/concepts/introduction4.C: New.
+	* gcc/testsuite/g++.dg/concepts/introduction5.C: New.
+
+ 2014-09-01  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	Fixing normalization in the presence of constructor calls.
 	* gcc/cp/constraint.cc (normalize_misc): Handle constructor

@@ -6769,7 +6769,8 @@ convert_template_argument (tree parm,
   int is_type, requires_type, is_tmpl_type, requires_tmpl_type;
 
   // Trivially convert placeholders.
-  if (TREE_CODE (arg) == PLACEHOLDER_EXPR)
+  if (TREE_CODE (arg) == PLACEHOLDER_EXPR
+      || TREE_CODE (arg) == INTRODUCED_PARM_DECL)
     return convert_placeholder_argument (parm, arg);
 
   if (TREE_CODE (arg) == TREE_LIST
@@ -7085,6 +7086,15 @@ coerce_template_parameter_pack (tree parms,
         }
 
       packed_args = make_tree_vec (TREE_VEC_LENGTH (packed_parms));
+    }
+  /* Check if we have a placeholder pack, which indicates we're in the context
+     of a introduction list.  In that case we want to simply match this pack to
+     the single placeholder.  */
+  else if (arg_idx < nargs
+	   && IS_INTRODUCED_PACK (TREE_VEC_ELT (inner_args, arg_idx)))
+    {
+      nargs = arg_idx + 1;
+      packed_args = make_tree_vec (1);
     }
   else
     packed_args = make_tree_vec (nargs - arg_idx);
@@ -21590,7 +21600,8 @@ type_dependent_expression_p (tree expression)
   /* An unresolved name is always dependent.  */
   if (identifier_p (expression) 
       || TREE_CODE (expression) == USING_DECL
-      || TREE_CODE (expression) == PLACEHOLDER_EXPR)
+      || TREE_CODE (expression) == PLACEHOLDER_EXPR
+      || TREE_CODE (expression) == INTRODUCED_PARM_DECL)
     return true;
 
   /* Some expression forms are never type-dependent.  */

@@ -88,6 +88,7 @@ c-common.h, not after.
       PACK_EXPANSION_LOCAL_P (in *_PACK_EXPANSION)
       TINFO_RECHECK_ACCESS_P (in TEMPLATE_INFO)
       SIZEOF_EXPR_TYPE_P (in SIZEOF_EXPR)
+      INTRODUCED_PACK_P (in INTRODUCED_PARM_DECL)
    1: IDENTIFIER_VIRTUAL_P (in IDENTIFIER_NODE)
       TI_PENDING_TEMPLATE_FLAG.
       TEMPLATE_PARMS_FOR_INLINE.
@@ -3062,6 +3063,14 @@ extern void decl_shadowed_for_var_insert (tree, tree);
 
 /* True iff this pack expansion is within a function context.  */
 #define PACK_EXPANSION_LOCAL_P(NODE) TREE_LANG_FLAG_0 (NODE)
+
+/* True iff the introudced parm matches a template parameter pack.  */
+#define INTRODUCED_PACK_P(NODE) TREE_LANG_FLAG_0 (NODE)
+
+/* True iff this is a introduction representing a pack in an introduction
+   list.  */
+#define IS_INTRODUCED_PACK(NODE)					\
+  (TREE_CODE (NODE) == INTRODUCED_PARM_DECL && INTRODUCED_PACK_P (NODE))
 
 /* Determine if this is an argument pack.  */
 #define ARGUMENT_PACK_P(NODE)                          \
@@ -6436,6 +6445,7 @@ extern tree build_constrained_parameter         (tree, tree, tree = NULL_TREE);
 extern bool deduce_constrained_parameter        (tree, tree&, tree&);
 extern tree resolve_constraint_check            (tree);
 
+extern tree finish_concept_introduction         (tree, tree);
 extern tree finish_template_constraints         (tree);
 extern tree save_leading_constraints            (tree);
 extern tree save_trailing_constraints           (tree);

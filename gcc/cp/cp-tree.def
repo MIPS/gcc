@@ -500,6 +500,10 @@ DEFTREECODE (VALIDTYPE_EXPR, "validtype_expr", tcc_expression, 1)
    can be evaluated at compile time. */
 DEFTREECODE (CONSTEXPR_EXPR, "contexpr_expr", tcc_expression, 1)
 
+/* Alternative PLACEHOLDER_EXPR which is used for concept introductions.  This
+   is a temporary type which is used to produce normal template parameters.  */
+DEFTREECODE (INTRODUCED_PARM_DECL, "introduced_parm_decl", tcc_declaration, 0)
+
 /*
 Local variables:
 mode:c

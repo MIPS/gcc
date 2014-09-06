@@ -238,13 +238,43 @@ deduce_constrained_parameter (tree expr, tree& check, tree& proto)
     gcc_unreachable ();
 }
 
+// Given a call expression or template-id expression to a concept, EXPR,
+// deduce the concept being checked and return the template parameters.
+// Returns NULL_TREE if deduction fails.
+static tree
+deduce_concept_introduction (tree expr)
+{
+  if (TREE_CODE (expr) == TEMPLATE_ID_EXPR)
+    {
+      // Get the parameters from the template expression.
+      tree decl = TREE_OPERAND (expr, 0);
+      tree args = TREE_OPERAND (expr, 1);
+      tree var = DECL_TEMPLATE_RESULT (decl);
+      tree parms = TREE_VALUE (DECL_TEMPLATE_PARMS (decl));
+
+      parms = coerce_template_parms (parms, args, var);
+      // Check that we are returned a proper set of parameters.
+      if (parms == error_mark_node)
+        return NULL_TREE;
+      return parms;
+    }
+  else if (TREE_CODE (expr) == CALL_EXPR)
+    {
+      // Resolve the constraint check and return parameters.
+      if (tree info = resolve_constraint_check (expr))
+	return TREE_PURPOSE (info);
+      return NULL_TREE;
+    }
+  else
+    gcc_unreachable ();
+}
+
 // -------------------------------------------------------------------------- //
-// Requirement Reduction
+// Normalization
 //
-// Reduces a template requirement to a logical formula written in terms of
+// Normalize a template requirement to a logical formula written in terms of
 // atomic propositions, returing the new expression.  If the expression cannot
-// be reduced, a NULL_TREE is returned, indicating failure to reduce the
-// original requirment. 
+// be normalized, a NULL_TREE is returned.
 
 namespace {
 
@@ -344,7 +374,6 @@ normalize_expr (tree t)
       return normalize_atom (t);
     }
 }
-
 
 // Reduction rules for the statement T.
 tree
@@ -1080,7 +1109,8 @@ build_call_check (tree id)
 // arguments to the target are given by ARG and REST. If the target is
 // a function (overload set or baselink reffering to an overload set),
 // then ths builds the call expression  TARGET<ARG, REST>(). If REST is 
-// NULL_TREE, then the resulting check is just TARGET<ARG>().
+// NULL_TREE, then the resulting check is just TARGET<ARG>(). If ARG is
+// NULL_TREE, then the resulting check is TARGET<REST>().
 tree
 build_concept_check (tree target, tree arg, tree rest) 
 {
@@ -1089,19 +1119,26 @@ build_concept_check (tree target, tree arg, tree rest)
   // Build a template-id that acts as the call target using TARGET as
   // the template and ARG as the only explicit argument.
   int n = rest ? TREE_VEC_LENGTH (rest) : 0;
-  tree targs = make_tree_vec (n + 1);
-  TREE_VEC_ELT (targs, 0) = arg;
-  if (rest)
-    for (int i = 0; i < n; ++i)
-      TREE_VEC_ELT (targs, i + 1) = TREE_VEC_ELT (rest, i);
-  SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT (targs, n + 1);
+  tree targs;
+  if (arg)
+    {
+      targs = make_tree_vec (n + 1);
+      TREE_VEC_ELT (targs, 0) = arg;
+      if (rest)
+        for (int i = 0; i < n; ++i)
+          TREE_VEC_ELT (targs, i + 1) = TREE_VEC_ELT (rest, i);
+      SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT (targs, n + 1);
+    }
+  else
+    {
+      gcc_assert (rest != NULL_TREE);
+      targs = rest;
+    }
+
   if (variable_template_p (target))
     return lookup_template_variable (target, targs);
   else
-    {
-      tree id = lookup_template_function (target, targs);
-      return build_call_check (id);
-    }
+    return build_call_check (lookup_template_function (target, targs));
 }
 
 // Returns a TYPE_DECL that contains sufficient information to build
@@ -1184,6 +1221,125 @@ finish_shorthand_constraint (tree decl, tree constr)
 
   return check;
  }
+
+// Returns and chains a new parmater for PARAMETER_LIST which will conform to the
+// prototype given by SRC_PARM.  The new parameter will have it's identifier
+// and location set according to IDENT and PARM_LOC respectively.
+static tree
+process_introduction_parm (tree parameter_list, tree src_parm)
+{
+  // If we have a pack, we should have a single pack argument which is the
+  // placeholder we want to look at.
+  bool is_parameter_pack = ARGUMENT_PACK_P (src_parm);
+  if (is_parameter_pack)
+      src_parm = TREE_VEC_ELT (ARGUMENT_PACK_ARGS (src_parm), 0);
+
+  // At this point we should have a INTRODUCED_PARM_DECL, but we want to grab
+  // the associated decl from it.  Also grab the stored identifier and location
+  // that should be chained to it in a PARM_DECL.
+  gcc_assert (TREE_CODE (src_parm) == INTRODUCED_PARM_DECL);
+
+  tree ident = DECL_NAME (src_parm);
+  location_t parm_loc = DECL_SOURCE_LOCATION (src_parm);
+
+  // If we expect a pack and the deduced template is not a pack, or if the
+  // template is using a pack and we didn't declare a pack, throw an error.
+  if (is_parameter_pack != INTRODUCED_PACK_P (src_parm))
+    {
+      error_at (parm_loc, "can not match pack for introduced parameter");
+      tree err_parm = build_tree_list (error_mark_node, error_mark_node);
+      return chainon (parameter_list, err_parm);
+    }
+
+  src_parm = TREE_TYPE (src_parm);
+
+  tree parm;
+  bool is_non_type;
+  if (TREE_CODE (src_parm) == TYPE_DECL)
+    {
+      is_non_type = false;
+      parm = finish_template_type_parm (class_type_node, ident);
+    }
+  else if (TREE_CODE (src_parm) == TEMPLATE_DECL)
+    {
+      is_non_type = false;
+      current_template_parms = DECL_TEMPLATE_PARMS (src_parm);
+      parm = finish_template_template_parm (class_type_node, ident);
+    }
+  else
+    {
+      is_non_type = true;
+
+      // Since we don't have a declarator, so we can copy the source
+      // parameter and change the name and eventually the location.
+      parm = copy_decl (src_parm);
+      DECL_NAME (parm) = ident;
+    }
+
+  // Wrap in a TREE_LIST for process_template_parm.  Introductions do not
+  // retain the defaults from the source template.
+  parm = build_tree_list (NULL_TREE, parm);
+
+  return process_template_parm (parameter_list, parm_loc, parm,
+                                is_non_type, is_parameter_pack);
+}
+
+// Associates a constraint check to the current template based on the
+// introduction parameters.  INTRO_LIST should be a TREE_VEC of
+// INTRODUCED_PARM_DECLs containing a chained PARM_DECL which contains the
+// identifier as well as the source location.  TMPL_DECL is the decl for the
+// concept being used.  If we take some concept, C, this will form a check in
+// the form of C<INTRO_LIST> filling in any extra arguments needed by the
+// defaults deduced.
+//
+// Returns the template parameters as given from end_template_parm_list or
+// NULL_TREE if the process fails.
+tree
+finish_concept_introduction (tree tmpl_decl, tree intro_list)
+{
+  // Deduce the concept check.
+  tree expr = build_concept_check (tmpl_decl, NULL_TREE, intro_list);
+  if (expr == error_mark_node)
+    return NULL_TREE;
+
+  tree parms = deduce_concept_introduction (expr);
+  if (!parms)
+    return NULL_TREE;
+
+  // Build template parameter scope for introduction.
+  tree parm_list = NULL_TREE;
+  begin_template_parm_list ();
+
+  // Produce a parameter for each introduction argument according to the
+  // deduced form.
+  int nargs = MIN (TREE_VEC_LENGTH (parms), TREE_VEC_LENGTH (intro_list));
+  for (int n = 0; n < nargs; ++n)
+    parm_list = process_introduction_parm (parm_list, TREE_VEC_ELT (parms, n));
+
+  parm_list = end_template_parm_list (parm_list);
+
+  // Build a concept check for our constraint.
+  tree check_args = make_tree_vec (TREE_VEC_LENGTH (parms));
+
+  // Start with introduction parameters.
+  int n = 0;
+  for (; n < TREE_VEC_LENGTH (parm_list); ++n)
+    {
+      tree parm = TREE_VEC_ELT (parm_list, n);
+      TREE_VEC_ELT (check_args, n) = template_parm_to_arg (parm);
+    }
+  // If the template expects more parameters we should be able to use the
+  // defaults from our deduced form.
+  for (; n < TREE_VEC_LENGTH (parms); ++n)
+    TREE_VEC_ELT (check_args, n) = TREE_VEC_ELT (parms, n);
+
+  // Associate the constraint.
+  tree reqs = build_concept_check (tmpl_decl, NULL_TREE, check_args);
+  current_template_reqs = save_leading_constraints (reqs);
+  TEMPLATE_PARMS_CONSTRAINTS (current_template_parms) = current_template_reqs;
+
+  return parm_list;
+}
 
 // -------------------------------------------------------------------------- //
 // Substitution Rules
