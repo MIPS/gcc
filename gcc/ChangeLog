@@ -30,6 +30,714 @@
 	* targhooks.c (default_select_ccmp_cmp_order): New function.
 	* targhooks.h (default_select_ccmp_cmp_order): New prototypes.
 
+2014-09-05  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/63187
+	* config/rs6000/rs6000.md (*and<mode>3_imm_dot, *and<mode>3_imm_dot2):
+	Do not allow any_mask_operand for operands[2].
+	(*and<mode>3_imm_mask_dot, *and<mode>3_imm_mask_dot2): New.
+
+2014-09-05  David Malcolm  <dmalcolm@redhat.com>
+
+	* config/arc/arc.c (arc_print_operand): Use insn method of
+	final_sequence for type-safety.
+	* config/bfin/bfin.c (bfin_hardware_loop): Strengthen param
+	"insn" from rtx to rtx_insn *.
+	* config/frv/frv.c (frv_print_operand_jump_hint): Likewise.
+	* config/mn10300/mn10300.c (mn10300_scan_for_setlb_lcc):
+	Likewise for locals "branch", "label".
+	* config/h8300/h8300.c (same_cmp_preceding_p): Likewise for
+	locals "i1", "i2".  Use NULL rather than NULL_RTX in comparisons.
+	(same_cmp_following_p): Likewise for locals "i2", "i3".
+	* config/sh/sh_optimize_sett_clrt.cc
+	(sh_optimize_sett_clrt::sh_cbranch_ccreg_value): Likewise for
+	param "cbranch_insn".
+	* function.c (convert_jumps_to_returns): Likewis for local "jump".
+	* ifcvt.c (cond_exec_get_condition): Likewise for param "jump".
+	* jump.c (simplejump_p): Strengthen param "insn" from const_rtx to
+	const rtx_insn *.
+	(condjump_p): Likewise.
+	(condjump_in_parallel_p): Likewise.
+	(pc_set): Likewise.
+	(any_uncondjump_p): Likewise.
+	(any_condjump_p): Likewise.
+	(condjump_label): Likewise.
+	(returnjump_p): Strengthen param "insn" from rtx to
+	const rtx_insn *.
+	(onlyjump_p): Strengthen param "insn" from const_rtx to
+	const rtx_insn *.
+	(jump_to_label_p): Likewise.
+	(invert_jump_1): Strengthen param "jump" from rtx to rtx_insn *.
+	(invert_jump): Likewise.
+	* reorg.c (simplejump_or_return_p): Add checked cast when calling
+	simplejump_p.
+	(get_jump_flags): Strengthen param "insn" from rtx to
+	const rtx_insn *.
+	(get_branch_condition): Likewise.
+	(condition_dominates_p): Likewise.
+	(make_return_insns): Move declaration of local "pat" earlier, to
+	after we've handled NONJUMP_INSN_P and non-sequences, using its
+	methods to simplify the code and for type-safety.
+	* rtl.h (find_constant_src): Strengthen param from const_rtx to
+	const rtx_insn *.
+	(jump_to_label_p): Strengthen param from rtx to const rtx_insn *.
+	(condjump_p): Strengthen param from const_rtx to
+	const rtx_insn *.
+	(any_condjump_p): Likewise.
+	(any_uncondjump_p): Likewise.
+	(pc_set): Likewise.
+	(condjump_label): Likewise.
+	(simplejump_p): Likewise.
+	(returnjump_p): Likewise.
+	(onlyjump_p): Likewise.
+	(invert_jump_1): Strengthen param 1 from rtx to rtx_insn *.
+	(invert_jump): Likewise.
+	(condjump_in_parallel_p): Strengthen param from const_rtx to
+	const rtx_insn *.
+	* rtlanal.c (find_constant_src): Strengthen param from const_rtx
+	to const rtx_insn *.
+	* sel-sched-ir.c (fallthru_bb_of_jump): Strengthen param from rtx
+	to const rtx_insn *.
+	* sel-sched-ir.h (fallthru_bb_of_jump): Likewise.
+
+2014-09-05  David Malcolm  <dmalcolm@redhat.com>
+
+	* reorg.c (relax_delay_slots): Move declaration of "trial_seq"
+	above the conditional, and convert the check on GET_CODE to a
+	dyn_cast, so that "trial_seq" is available as an rtx_sequence * in
+	the conditional.  Simplify the conditional by using methods of
+	"trial_seq".
+
+2014-09-05  David Malcolm  <dmalcolm@redhat.com>
+
+	* haifa-sched.c (check_clobbered_conditions): Strengthen local
+	"link" from rtx to rtx_insn_list *, and use its methods for
+	clarity and type-safety.
+	(toggle_cancelled_flags): Likewise.
+	(restore_last_backtrack_point): Likewise.
+	(queue_to_ready): Use insn method of "link" in one place.
+	(schedule_block): Strengthen local "link" from rtx to
+	rtx_insn_list *, and use its methods for clarity and type-safety.
+
+2014-09-05  David Malcolm  <dmalcolm@redhat.com>
+
+	* sched-deps.c (sched_get_condition_with_rev_uncached): Strengthen
+	param "insn" from const_rtx to const rtx_insn *.
+	(sched_get_reverse_condition_uncached): Likewise.
+	(sched_get_condition_with_rev): Likewise.
+	(sched_has_condition_p): Likewise.
+	(sched_insns_conditions_mutex_p): Likewise for both params.
+	(sched_insn_is_legitimate_for_speculation_p): Likewise for param
+	"insn"; conver use of CONST_CAST_RTX to CONST_CAST_RTX_INSN.
+	(setup_insn_reg_uses): Move local "list" to be more tightly
+	scoped, strengthening it from an rtx to an rtx_insn_list *.  Use
+	its methods for clarity and type-safety.
+	(sched_analyze_1): Strengthen local "pending" from rtx to
+	rtx_insn_list *, and local "pending_mem" from rtx to
+	rtx_expr_list *.  Use methods of each for clarity and type-safety.
+	(sched_analyze_2): Likewise.
+	(sched_analyze_insn): Likewise.
+
+	* sched-int.h (sched_get_reverse_condition_uncached): Strengthen
+	param from const_rtx to const rtx_insn *.
+	(sched_insns_conditions_mutex_p): Likewise for both params.
+	(sched_insn_is_legitimate_for_speculation_p): Likewise for first
+	param.
+
+	* system.h (CONST_CAST_RTX_INSN): New macro.
+
+2014-09-05  David Malcolm  <dmalcolm@redhat.com>
+
+	* recog.c (peep2_attempt): Strengthen return type from rtx to
+	rtx_insn *.
+	(peep2_update_life): Likewise for params "last", "prev", removing
+	a checked cast made redundant by this.
+	(peephole2_optimize): Likewise for local "last".
+
+2014-09-05  David Malcolm  <dmalcolm@redhat.com>
+
+	* basic-block.h (set_block_for_insn): Eliminate this macro in
+	favor of...
+	* rtl.h (set_block_for_insn): New inline function, imposing the
+	requirement that the "insn" param is an rtx_insn *.
+
+2014-09-05  David Malcolm  <dmalcolm@redhat.com>
+
+	* caller-save.c (setup_save_areas): Strengthen local "insn" from
+	rtx to rtx_insn *.
+	* final.c (get_call_reg_set_usage): Likewise for first param,
+	eliminating a checked cast.
+	* regs.h (get_call_reg_set_usage): Likewise for first param.
+	* resource.c (mark_set_resources): Introduce local rtx_call_insn *
+	"call_insn" for the case of a MARK_SRC_DEST_CALL via a checked
+	cast, replacing references to "x" with "call_insn" where
+	appropriate.
+	(mark_target_live_regs): Strengthen local "real_insn" from rtx to
+	rtx_insn *, adding a checked cast.
+
+2014-09-05  David Malcolm  <dmalcolm@redhat.com>
+
+	* output.h (final_scan_insn): Strengthen first param from rtx to
+	rtx_insn *.
+
+	* final.c (final_scan_insn): Likewise, renaming it back from
+	"uncast_insn" to "insn", eliminating the checked cast.
+
+	* config/h8300/h8300.md (define_insn "jump"): Replace local rtx
+	"vec" with an rtx_sequence * "seq", taking a copy of
+	"final_sequence", and using methods of "seq" for clarity, and for
+	type-safety in the calls to final_scan_insn.
+	* config/mips/mips.c (mips_output_conditional_branch): Use methods
+	of "final_sequence" for clarity, and for type-safety in the call to
+	final_scan_insn.
+	* config/sh/sh.c (print_slot): Strengthen param from rtx to
+	rtx_sequence * and rename from "insn" to "seq".
+
+2014-09-05  David Malcolm  <dmalcolm@redhat.com>
+
+	* jump.c (delete_related_insns): Introduce a new local "table" by
+	replacing JUMP_TABLE_DATA_P with a dyn_cast, then use the
+	get_labels method of "table" to simplify access to the labels in
+	the jump table.
+
+2014-09-05  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/cortex-a53.md (cortex_a53_fpalu): Add f_rints, f_rintd,
+	f_minmaxs, f_minmaxd types.
+
+2014-09-05  Richard Biener  <rguenther@suse.de>
+
+	* cfgloop.c (mark_loop_for_removal): Record former header
+	when ENABLE_CHECKING.
+	* cfgloop.h (strut loop): Add former_header member when
+	ENABLE_CHECKING.
+	* loop-init.c (fix_loop_structure): Sanity check loops
+	marked for removal if they re-appeared.
+
+2014-09-05  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/aarch64/arm_neon.h (int32x1_t, int16x1_t, int8x1_t,
+	uint32x1_t, uint16x1_t, uint8x1_t): Remove typedefs.
+
+	(vqabsb_s8, vqabsh_s16, vqabss_s32, vqaddb_s8, vqaddh_s16, vqadds_s32,
+	vqaddb_u8, vqaddh_u16, vqadds_u32, vqdmlalh_s16, vqdmlalh_lane_s16,
+	vqdmlals_s32, vqdmlslh_s16, vqdmlslh_lane_s16, vqdmlsls_s32,
+	vqdmulhh_s16, vqdmulhh_lane_s16, vqdmulhs_s32, vqdmulhs_lane_s32,
+	vqdmullh_s16, vqdmullh_lane_s16, vqdmulls_s32, vqdmulls_lane_s32,
+	vqmovnh_s16, vqmovns_s32, vqmovnd_s64, vqmovnh_u16, vqmovns_u32,
+	vqmovnd_u64, vqmovunh_s16, vqmovuns_s32, vqmovund_s64, vqnegb_s8,
+	vqnegh_s16, vqnegs_s32, vqrdmulhh_s16, vqrdmulhh_lane_s16,
+	vqrdmulhs_s32, vqrdmulhs_lane_s32, vqrshlb_s8, vqrshlh_s16,
+	vqrshls_s32, vqrshlb_u8, vqrshlh_u16, vqrshls_u32, vqrshrnh_n_s16,
+	vqrshrns_n_s32, vqrshrnd_n_s64, vqrshrnh_n_u16, vqrshrns_n_u32,
+	vqrshrnd_n_u64, vqrshrunh_n_s16, vqrshruns_n_s32, vqrshrund_n_s64,
+	vqshlb_s8, vqshlh_s16, vqshls_s32, vqshlb_u8, vqshlh_u16, vqshls_u32,
+	vqshlb_n_s8, vqshlh_n_s16, vqshls_n_s32, vqshlb_n_u8, vqshlh_n_u16,
+	vqshls_n_u32, vqshlub_n_s8, vqshluh_n_s16, vqshlus_n_s32,
+	vqshrnh_n_s16, vqshrns_n_s32, vqshrnd_n_s64, vqshrnh_n_u16,
+	vqshrns_n_u32, vqshrnd_n_u64, vqshrunh_n_s16, vqshruns_n_s32,
+	vqshrund_n_s64, vqsubb_s8, vqsubh_s16, vqsubs_s32, vqsubb_u8,
+	vqsubh_u16, vqsubs_u32, vsqaddb_u8, vsqaddh_u16, vsqadds_u32,
+	vuqaddb_s8, vuqaddh_s16, vuqadds_s32): Replace all int{32,16,8}x1_t
+	with int{32,16,8}_t.
+
+2014-09-05  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/aarch64/arm_neon.h (__GET_HIGH): New macro.
+	(vget_high_f32, vget_high_f64, vget_high_p8, vget_high_p16,
+	vget_high_s8, vget_high_s16, vget_high_s32, vget_high_s64,
+	vget_high_u8, vget_high_u16, vget_high_u32, vget_high_u64):
+	Remove temporary __asm__ and reimplement.
+
+2014-09-05  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/aarch64/aarch64-builtins.c (aarch64_fold_builtin): Remove code
+	handling cmge, cmgt, cmeq, cmtst.
+
+	* config/aarch64/aarch64-simd-builtins.def (cmeq, cmge, cmgt, cmle,
+	cmlt, cmgeu, cmgtu, cmtst): Remove.
+
+	* config/aarch64/arm_neon.h (vceq_*, vceqq_*, vceqz_*, vceqzq_*,
+	vcge_*, vcgeq_*, vcgez_*, vcgezq_*, vcgt_*, vcgtq_*, vcgtz_*,
+	vcgtzq_*, vcle_*, vcleq_*, vclez_*, vclezq_*, vclt_*, vcltq_*,
+	vcltz_*, vcltzq_*, vtst_*, vtstq_*): Use gcc vector extensions.
+
+2014-09-05  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/aarch64/aarch64-builtins.c (aarch64_types_cmtst_qualifiers,
+	TYPES_TST): Define.
+	(aarch64_fold_builtin): Update pattern for cmtst.
+
+	* config/aarch64/aarch64-protos.h (aarch64_const_vec_all_same_int_p):
+	Declare.
+
+	* config/aarch64/aarch64-simd-builtins.def (cmtst): Update qualifiers.
+
+	* config/aarch64/aarch64-simd.md (aarch64_vcond_internal<mode><mode>):
+	Switch operands, separate out more cases, refactor.
+
+	(aarch64_cmtst<mode>): Rewrite pattern to match (plus ... -1).
+
+	* config/aarch64.c (aarch64_const_vec_all_same_int_p): Take single
+	argument; rename old version to...
+	(aarch64_const_vec_all_same_in_range_p): ...this.
+	(aarch64_print_operand, aarch64_simd_shift_imm_p): Follow renaming.
+
+	* config/aarch64/predicates.md (aarch64_simd_imm_minus_one): Define.
+
+2014-09-05  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/aarch64/aarch64-builtins.c (enum aarch64_type_qualifiers):
+	Remove qualifier_const_pointer, update comment.
+
+2014-09-05  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/aarch64/aarch64.md (adddi3_aarch64): set type to neon_add.
+
+2014-09-05  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/aarch64/aarch64-builtins.c (aarch64_simd_expand_args): Replace
+	varargs with pointer parameter.
+	(aarch64_simd_expand_builtin): pass pointer into previous.
+
+2014-09-05  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/cortex-a53.md (cortex_a53_alu_shift): Add alu_ext,
+	alus_ext.
+
+2014-09-05  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/aarch64/aarch64-simd.md (aarch64_rbit<mode>): New pattern.
+	* config/aarch64/aarch64-simd-builtins.def (rbit): New builtin.
+	* config/aarch64/arm_neon.h (vrbit_s8, vrbit_u8, vrbitq_s8, vrbitq_u8):
+	Replace temporary asm with call to builtin.
+	(vrbit_p8, vrbitq_p8): New functions.
+
+2014-09-05  Richard Biener  <rguenther@suse.de>
+
+	* cfgloop.c (mark_loop_for_removal): New function.
+	* cfgloop.h (mark_loop_for_removal): Declare.
+	* cfghooks.c (delete_basic_block): Use mark_loop_for_removal.
+	(merge_blocks): Likewise.
+	(duplicate_block): Likewise.
+	* except.c (sjlj_emit_dispatch_table): Likewise.
+	* tree-eh.c (cleanup_empty_eh_merge_phis): Likewise.
+	* tree-ssa-threadupdate.c (ssa_redirect_edges): Likewise.
+	(thread_through_loop_header): Likewise.
+
+2014-09-05  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/63148
+	* fold-const.c (try_move_mult_to_index): Remove.
+	(fold_binary_loc): Do not call it.
+	* tree-data-ref.c (dr_analyze_indices): Strip conversions
+	from the base object again.
+
+2014-09-05  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/aarch64/aarch64.md (sibcall_value_insn): Give operand 1
+	DImode.
+
+2014-09-05  Bin Cheng  <bin.cheng@arm.com>
+
+	PR target/55701
+	* config/arm/arm.md (setmem): New pattern.
+	* config/arm/arm-protos.h (struct tune_params): New fields.
+	(arm_gen_setmem): New prototype.
+	* config/arm/arm.c (arm_slowmul_tune): Initialize new fields.
+	(arm_fastmul_tune, arm_strongarm_tune, arm_xscale_tune): Ditto.
+	(arm_9e_tune, arm_v6t2_tune, arm_cortex_tune): Ditto.
+	(arm_cortex_a8_tune, arm_cortex_a7_tune): Ditto.
+	(arm_cortex_a15_tune, arm_cortex_a53_tune): Ditto.
+	(arm_cortex_a57_tune, arm_cortex_a5_tune): Ditto.
+	(arm_cortex_a9_tune, arm_cortex_a12_tune): Ditto.
+	(arm_v7m_tune, arm_v6m_tune, arm_fa726te_tune): Ditto.
+	(arm_const_inline_cost): New function.
+	(arm_block_set_max_insns): New function.
+	(arm_block_set_non_vect_profit_p): New function.
+	(arm_block_set_vect_profit_p): New function.
+	(arm_block_set_unaligned_vect): New function.
+	(arm_block_set_aligned_vect): New function.
+	(arm_block_set_unaligned_non_vect): New function.
+	(arm_block_set_aligned_non_vect): New function.
+	(arm_block_set_vect, arm_gen_setmem): New functions.
+
+2014-09-05  Bin Cheng  <bin.cheng@arm.com>
+
+	* config/arm/arm.md (arm_movqi_insn): Use Uh instead of m constraint.
+
+2014-09-05  Bin Cheng  <bin.cheng@arm.com>
+
+	* config/arm/arm.c (output_move_neon): Handle REG explicitly.
+
+2014-09-04  Trevor Saunders  <tsaunders@mozilla.com>
+
+	* valtrack.c (dead_debug_insert_temp): Take an rtx_insn * instead of
+	an rtx.
+	* valtrack.h: Adjust.
+
+2014-09-04  Trevor Saunders  <tsaunders@mozilla.com>
+
+	* emit-rtl.c (emit_insn_before_noloc): Take an rtx_insn * instead of
+	an rtx.
+	(emit_jump_insn_before_noloc): Likewise.
+	(emit_call_insn_before_noloc): Likewise.
+	(emit_label_before): Likewise.
+	(emit_label_after): Likewise.
+	(emit_insn_before_setloc): Likewise.
+	(emit_jump_insn_before_setloc): Likewise.
+	(emit_call_insn_before_setloc): Likewise.
+	(emit_call_insn_before): Likewise.
+	* rtl.h: Adjust.
+
+2014-09-05  David Malcolm  <dmalcolm@redhat.com>
+
+	* cse.c (cse_insn): Strengthen local "new_rtx" from rtx to
+	rtx_insn *, eliminating a checked cast.
+
+2014-09-05  David Malcolm  <dmalcolm@redhat.com>
+
+	* rtl.h (modified_between_p): Strengthen params 2 and 3 from
+	const_rtx to const rtx_insn *.
+	* rtlanal.c (modified_between_p): Likewise, eliminating a checked
+	cast.
+
+2014-09-05  David Malcolm  <dmalcolm@redhat.com>
+
+	* emit-rtl.c (try_split): Update NULL_RTX to NULL in call to
+	fixup_args_size_notes.
+	* expr.c (fixup_args_size_notes): Strengthen first two params from
+	rtx to rtx_insn *, eliminating a checked cast.
+	* rtl.h (fixup_args_size_notes): Strengthen first two params from
+	rtx to rtx_insn *.
+
+2014-09-05  David Malcolm  <dmalcolm@redhat.com>
+
+	* haifa-sched.c (get_ready_element): Strengthen return type from
+	rtx to rtx_insn *.
+	* sched-int.h (get_ready_element): Likewise.
+
+2014-09-04  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/63165
+	* config/rs6000/rs6000.md (floatsi<mode>2_lfiwax_mem): Use
+	indexed_or_indirect_operand instead of memory_operand.
+	(floatsi<mode>2_lfiwzx_mem): Ditto.
+
+2014-09-04  Trevor Saunders  <tsaunders@mozilla.com>
+
+	* config/bfin/bfin.c, config/c6x/c6x.c, config/m32c/m32c.c,
+	config/mn10300/mn10300.c, config/s390/s390.c, config/sh/sh.c,
+	ifcvt.c, reorg.c: Change types of variables from rtx to rtx_insn *.
+
+2014-09-04  Trevor Saunders  <tsaunders@mozilla.com>
+
+	* emit-rtl.c (get_first_nonnote_insn): Return rtx_insn * instead of
+	rtx.
+	(get_last_nonnote_insn): Likewise.
+	(next_nonnote_insn_bb): Take rtx_insn * instead of rtx.
+	* resource.c (find_basic_block): Likewise.
+	* rtl.h: Adjust.
+	* rtlanal.c (keep_with_call_p): Take const rtx_insn * instead of
+	const_rtx.
+
+2014-09-04  David Malcolm  <dmalcolm@redhat.com>
+
+	* genattr.c (main): Within the prototype of insn_latency written
+	out to insn-attr.h, strengthen both params from rtx to rtx_insn *.
+	* genautomata.c (output_internal_maximal_insn_latency_func):
+	Within the implementation of insn_latency written out to
+	insn-automata.c, strengthen both params from rtx to rtx_insn *,
+	eliminating a pair of checked casts.
+
+2014-09-04  David Malcolm  <dmalcolm@redhat.com>
+
+	* jump.c (eh_returnjump_p): Strengthen param "insn" from rtx to
+	rtx_insn *.
+
+	* rtl.h (eh_returnjump_p): Likewise.
+
+2014-09-04  Aldy Hernandez  <aldyh@redhat.com>
+
+	* Makefile.in (TAGS): Handle constructs in timevar.def.
+
+2014-09-04  Guozhi Wei  <carrot@google.com>
+
+	PR target/62040
+	* config/aarch64/iterators.md (VQ_NO2E, VQ_2E): New iterators.
+	* config/aarch64/aarch64-simd.md (move_lo_quad_internal_<mode>): Split
+	it into two patterns.
+	(move_lo_quad_internal_be_<mode>): Likewise.
+
+2014-09-04  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* doc/options.texi: Document that Var and Init are required if CPP
+	is given.
+	* optc-gen.awk: Require Var and Init if CPP is given.
+	* common.opt (Wpedantic): Use Init.
+
+2014-09-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (special_handling_values): Add
+	SH_EXTRACT.
+	(rtx_is_swappable_p): Look for patterns with a VEC_SELECT, perhaps
+	wrapped in a VEC_DUPLICATE, representing an extract.  Mark these
+	as swappable with special handling SH_EXTRACT.  Remove
+	UNSPEC_VSX_XXSPLTW from the list of disallowed unspecs for the
+	optimization.
+	(adjust_extract): New function.
+	(handle_special_swappables): Add default to case statement; add
+	case for SH_EXTRACT that calls adjust_extract.
+	(dump_swap_insn_table): Handle SH_EXTRACT.
+
+2014-09-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/vsx.md (*vsx_extract_<mode>_load): Always match
+	selection of 0th memory doubleword, regardless of endianness.
+
+2014-09-04  Jan-Benedict Glaw  <jbglaw@lug-owl.de>
+
+	* config/rx/rx.h (HARD_REGNO_MODE_OK): Add braces.
+
+2014-09-04  Alan Modra  <amodra@gmail.com>
+
+	PR debug/60655
+	* dwarf2out.c (mem_loc_descriptor <PLUS>): Return NULL if addend
+	can't be output.
+
+2014-09-03  Matthew Fortune  <matthew.fortune@imgtec.com>
+
+	* target.def (TARGET_DWARF_FRAME_REG_MODE): New target hook.
+	* targhooks.c (default_dwarf_frame_reg_mode): New function.
+	* targhooks.h (default_dwarf_frame_reg_mode): New prototype.
+	* doc/tm.texi.in (TARGET_DWARF_FRAME_REG_MODE): Document.
+	* doc/tm.texi: Regenerate.
+	* dwarf2cfi.c (expand_builtin_init_dwarf_reg_sizes): Abstract mode
+	selection logic to default_dwarf_frame_reg_mode.
+
+2014-09-03  Marek Polacek  <polacek@redhat.com>
+
+	* doc/invoke.texi: Document that -Wlogical-not-parentheses is enabled
+	by -Wall.
+
+2014-09-03  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* doc/rtl.texi (RTX_AUTOINC): Document that the first operand is
+	the automodified register.
+
+2014-09-03  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* output.h (get_some_local_dynamic_name): Declare.
+	* final.c (some_local_dynamic_name): New variable.
+	(get_some_local_dynamic_name): New function.
+	(final_end_function): Clear some_local_dynamic_name.
+	* config/alpha/alpha.c (machine_function): Remove some_ld_name.
+	(get_some_local_dynamic_name, get_some_local_dynamic_name_1): Delete.
+	(print_operand): Report an error if '%&' is used inappropriately.
+	* config/i386/i386.c (get_some_local_dynamic_name): Delete.
+	(get_some_local_dynamic_name_1): Delete.
+	* config/rs6000/rs6000.c (machine_function): Remove some_ld_name.
+	(rs6000_get_some_local_dynamic_name): Delete.
+	(rs6000_get_some_local_dynamic_name_1): Delete.
+	(print_operand): Report an error if '%&' is used inappropriately.
+	* config/s390/s390.c (machine_function): Remove some_ld_name.
+	(get_some_local_dynamic_name, get_some_local_dynamic_name_1): Delete.
+	(print_operand): Assert that get_some_local_dynamic_name is nonnull.
+	* config/sparc/sparc.c: Include rtl-iter.h.
+	(machine_function): Remove some_ld_name.
+	(sparc_print_operand): Report an error if '%&' is used inappropriately.
+	(get_some_local_dynamic_name, get_some_local_dynamic_name_1): Delete.
+
+2014-09-03  Richard Henderson  <rth@redhat.com>
+
+	* config/aarch64/aarch64.c (aarch64_popwb_single_reg): Remove.
+	(aarch64_popwb_pair_reg): Remove.
+	(aarch64_set_frame_expr): Remove.
+	(aarch64_restore_callee_saves): Add CFI_OPS argument; fill it with
+	the restore ops performed by the insns generated.
+	(aarch64_expand_epilogue): Attach CFI_OPS to the stack deallocation
+	insn.  Perform the calls_eh_return addition later; do not attempt to
+	preserve the CFA in that case.  Don't use aarch64_set_frame_expr.
+	(aarch64_expand_prologue): Use REG_CFA_ADJUST_CFA directly, or no
+	special markup at all.  Load cfun->machine->frame.hard_fp_offset
+	into a local variable.
+	(aarch64_frame_pointer_required): Don't check calls_alloca.
+
+2014-09-03  Richard Biener  <rguenther@suse.de>
+
+	* opts.c (default_options_optimization): Adjust
+	max-combine-insns to 2 for -Og.
+
+2014-09-03  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/62015
+	* ipa-cp.c (intersect_aggregates_with_edge): Handle impermissible
+	pass-trough jump functions correctly.
+
+2014-09-03  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/61986
+	* ipa-cp.c (find_aggregate_values_for_callers_subset): Chain
+	created replacements in ascending order of offsets.
+	(known_aggs_to_agg_replacement_list): Likewise.
+
+2014-09-03  Martin Liska  <mliska@suse.cz>
+
+	* tree-ssa-sccvn.c (vn_reference_lookup_call): default (NULL) value
+	is set to set uninitialized value for vnresult.
+
+2014-09-03  Chung-Ju Wu  <jasonwucj@gmail.com>
+
+	* config/nds32/nds32.c (nds32_must_pass_in_stack): New implementation
+	for TARGET_MUST_PASS_IN_STACK.
+
+2014-09-03  Chung-Ju Wu  <jasonwucj@gmail.com>
+
+	* config/nds32/nds32.c (nds32_arg_partial_bytes): New implementation
+	for TARGET_ARG_PARTIAL_BYTES.
+
+2014-09-03  Chung-Ju Wu  <jasonwucj@gmail.com>
+
+	* config/nds32/nds32.c (nds32_expand_prologue): Emit stack push
+	instructions for varargs implementation.
+	(nds32_expand_epilogue): Emit stack adjustment instructions for
+	varargs implementation.
+
+2014-09-03  Chung-Ju Wu  <jasonwucj@gmail.com>
+
+	* config/nds32/nds32.c (nds32_expand_prologue): Suppress fp-as-gp
+	optimization detection.
+
+2014-09-03  Chung-Ju Wu  <jasonwucj@gmail.com>
+
+	* config/nds32/nds32.c (nds32_function_arg): Deal with nameless
+	arguments.
+	(nds32_function_arg_advance): Deal with nameless arguments.
+	* config/nds32/nds32.h (NDS32_ARG_PASS_IN_REG_P): Split it into ...
+	(NDS32_ARG_ENTIRE_IN_GPR_REG_P): ... this one and ...
+	(NDS32_ARG_PARTIAL_IN_GPR_REG_P): ... this one.
+
+2014-09-03  Richard Biener  <rguenther@suse.de>
+
+	* tree-ssa-pre.c (alloc_expression_id): Use quick_grow_cleared.
+	(struct bb_bitmap_sets): Remove deferred member.
+	(BB_DEFERRED): Remove.
+	(defer_or_phi_translate_block): Remove.
+	(compute_antic_aux): Remove deferring of blocks, assert
+	proper iteration order.
+	(compute_antic): Do not set BB_DEFERRED.
+	(eliminate): Allocate el_avail of proper size initially.
+
+2014-09-03  Chung-Ju Wu  <jasonwucj@gmail.com>
+
+	* config/nds32/nds32.h (FIRST_PARM_OFFSET): Set proper location
+	according to the value of crtl->args.pretend_args_size.
+
+2014-09-03  Chung-Ju Wu  <jasonwucj@gmail.com>
+
+	* config/nds32/nds32.c (nds32_compute_stack_frame): Prepare necessary
+	varargs information.
+
+2014-09-03  Chung-Ju Wu  <jasonwucj@gmail.com>
+
+	* config/nds32/nds32.c (nds32_setup_incoming_varargs): New
+	implementation for TARGET_SETUP_INCOMING_VARARGS.
+	(nds32_strict_argument_naming): Refine comment.
+	* config/nds32/nds32.h (TARGET_SOFT_FLOAT, TARGET_HARD_FLOAT):
+	Define for future implementation.
+
+2014-09-03  Ilya Tocar  <ilya.tocar@intel.com>
+
+	* config/i386/adxintrin.h (_subborrow_u32): New.
+	(_addcarry_u32): Ditto.
+	(_subborrow_u64): Ditto.
+	(_addcarry_u64): Ditto.
+	* config/i386/i386.c (ix86_builtins): Add IX86_BUILTIN_SBB32,
+	IX86_BUILTIN_SBB64.
+	(ix86_init_mmx_sse_builtins): Handle __builtin_ia32_sbb_u32,
+	__builtin_ia32_sbb_u64
+
+2014-09-03  Chung-Ju Wu  <jasonwucj@gmail.com>
+
+	* config/nds32/nds32.c (nds32_function_arg): Define and rename some
+	GPR-specific stuff.
+	(nds32_function_arg_advance): Likewise.
+	(nds32_init_cumulative_args): Likewise.
+	* config/nds32/nds32.h (NDS32_MAX_GPR_REGS_FOR_ARGS): Define.
+	(NDS32_FIRST_GPR_REGNUM): Define.
+	(NDS32_LAST_GPR_REGNUM): Define.
+	(NDS32_AVAILABLE_REGNUM_FOR_GPR_ARG): Define.
+	(NDS32_ARG_PASS_IN_REG_P): Use NDS32_MAX_GPR_REGS_FOR_ARGS.
+	(FUNCTION_ARG_REGNO_P): Use NDS32_MAX_GPR_REGS_FOR_ARGS.
+	(machine_function): Use GRP-specific stuff.
+
+2014-09-03  Chung-Ju Wu  <jasonwucj@gmail.com>
+
+	* config/nds32/nds32.c (nds32_expand_prologue): Remove unused variables.
+	(nds32_expand_epilogue): Likewise.
+	(nds32_expand_prologue_v3push): Likewise.
+	(nds32_expand_epilogue_v3pop): Likewise.
+
+2014-09-03  Chung-Ju Wu  <jasonwucj@gmail.com>
+
+	* config/nds32/nds32.c (nds32_compute_stack_frame): Do not use
+	v3push/v3pop for variadic function.
+	* config/nds32/nds32.md (prologue, epilogue): Likewise.
+
+2014-09-03  Chung-Ju Wu  <jasonwucj@gmail.com>
+
+	* config/nds32/nds32-md-auxiliary.c (nds32_output_stack_push):
+	Check rtx for varargs implementation.
+	(nds32_output_stack_pop): Likewise.
+	* config/nds32/nds32-protos.h: Have a rtx argument for
+	nds32_output_stack_push and nds32_output_stack_pop.
+	* config/nds32/nds32.md: Likewise.
+
+2014-09-03  Chung-Ju Wu  <jasonwucj@gmail.com>
+
+	* config/nds32/nds32-isr.c (nds32_isr_function_p): Define new function
+	to check if FUNC is an interrupt service routine.
+	* config/nds32/nds32-protos.h (nds32_isr_function_p): Declaration.
+
+2014-09-03  Chung-Ju Wu  <jasonwucj@gmail.com>
+
+	* config/nds32/nds32.h (machine_function): Add some fields for variadic
+	arguments implementation.
+
+2014-09-03  Chung-Ju Wu  <jasonwucj@gmail.com>
+
+	* config/nds32/nds32-predicates.c
+	(nds32_valid_stack_push_pop): Rename to ...
+	(nds32_valid_stack_push_pop_p): ... this.
+	* config/nds32/nds32-protos.h: Likewise.
+	* config/nds32/predicates.md: Likewise.
+
+2014-09-03  Chung-Ju Wu  <jasonwucj@gmail.com>
+
+	* config/nds32/nds32.c (nds32_gen_stack_v3push): Rename to ...
+	(nds32_emit_stack_v3push): ... this.
+	(nds32_gen_stack_v3pop): Rename to ...
+	(nds32_emit_stack_v3pop): ... this and consider CFA restore
+	information.
+
+2014-09-03  Chung-Ju Wu  <jasonwucj@gmail.com>
+
+	* config/nds32/nds32.c (nds32_gen_stack_push_multiple): Rename to ...
+	(nds32_emit_stack_push_multiple): ... this.
+	(nds32_gen_stack_pop_multiple): Rename to ...
+	(nds32_emit_stack_pop_multiple): ... this and consider CFA restore
+	information.
+
+2014-09-03  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	PR target/61078
+	* config/s390/s390.md ("*negdi2_31"): Add s390_split_ok_p check
+	and add a second splitter to handle the remaining cases.
+
+2014-09-03  Chung-Ju Wu  <jasonwucj@gmail.com>
+
+	* config/nds32/nds32.h (PIC_OFFSET_TABLE_REGNUM): Define.
+
 2014-09-02  Trevor Saunders  <tsaunders@mozilla.com>
 
 	* cfgexpand.c (label_rtx_for_bb): Change type to

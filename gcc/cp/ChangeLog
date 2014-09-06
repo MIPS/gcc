@@ -1,3 +1,15 @@
+2014-09-05  Jason Merrill  <jason@redhat.com>
+
+	PR c++/62659
+	* semantics.c (potential_constant_expression_1): Handle un-folded
+	pointer to member constants.
+
+2014-09-04  Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	PR ipa/61659
+	* decl.c (duplicate_decls): Check DECL_DECLARED_INLINE_P on
+	newdecl, not olddecl.
+
 2014-09-02  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	DR 1453

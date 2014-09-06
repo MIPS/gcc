@@ -2152,6 +2152,9 @@ void
 vn_reference_lookup_call (gimple call, vn_reference_t *vnresult,
 			  vn_reference_t vr)
 {
+  if (vnresult)
+    *vnresult = NULL;
+
   tree vuse = gimple_vuse (call);
 
   vr->vuse = vuse ? SSA_VAL (vuse) : NULL_TREE;

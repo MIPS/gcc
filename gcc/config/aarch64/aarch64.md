@@ -747,7 +747,8 @@
 
 (define_insn "*sibcall_value_insn"
   [(set (match_operand 0 "" "")
-	(call (mem:DI (match_operand 1 "aarch64_call_insn_operand" "Ucs, Usf"))
+	(call (mem:DI
+		(match_operand:DI 1 "aarch64_call_insn_operand" "Ucs, Usf"))
 	      (match_operand 2 "" "")))
    (return)
    (use (match_operand 3 "" ""))]
@@ -1423,7 +1424,7 @@
   add\\t%x0, %x1, %x2
   sub\\t%x0, %x1, #%n2
   add\\t%d0, %d1, %d2"
-  [(set_attr "type" "alu_imm,alu_sreg,alu_imm,alu_sreg")
+  [(set_attr "type" "alu_imm,alu_sreg,alu_imm,neon_add")
    (set_attr "simd" "*,*,*,yes")]
 )
 
