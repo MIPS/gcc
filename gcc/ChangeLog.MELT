@@ -1,4 +1,22 @@
 
+2014-09-06  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{Removing the probe}}
+	* melt-runtime.h (melt_default_probe, melt_wait_for_probe)
+	(melt_probe_stop, melt_probe_start)
+	(melt_send_command_strbuf_to_probe): Remove declarations.
+	(melt_wait_for_probe): Provide a temporary workaround static
+	inline function.
+	* melt-runtime.cc: Don't include wordexp.h
+	(melt_probe_pid, melt_probe_reqfrom_fd, melt_probe_cmdto_fd)
+	(melt_wait_for_probe, melt_probe_start, melt_probe_stop)
+	(melt_send_command_strbuf_to_probe): Remove.
+	(melt_really_initialize): Don't print MELTGCCBUILTIN_PROBE.
+	* melt-build-script.def: Remove xtramelt-probe.
+	* melt-build-script.sh: Regenerate.
+	* melt/warmelt-hooks.melt
+	* melt/xtramelt-probe.melt: Moved to obsolete-melt/
+	* obsolete-melt/xtramelt-probe.melt: Moved from above.
+
 2014-09-05  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerate.
 	* melt/generated/warmelt-hooks+04.cc: New file.

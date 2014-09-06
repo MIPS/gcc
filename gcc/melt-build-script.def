@@ -114,11 +114,6 @@ melt_library_file = {
 // Each extra file is an independent example
 
 melt_extra_file = {
-  base = "xtramelt-probe";
-  varsuf = PROBE;
-};
-
-melt_extra_file = {
   base = "xtramelt-ana-simple";
   varsuf = ANA_SIMPLE;
 };

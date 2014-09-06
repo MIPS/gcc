@@ -155,7 +155,6 @@ extern const char melt_module_make_command[];
 extern const char melt_module_makefile[];
 extern const char melt_module_cflags[];
 extern const char melt_default_modlis[];
-extern const char melt_default_probe[];
 
 /* Set to 1 iff MELT is a plugin, otherwise 0 */
 extern const int melt_is_plugin;
@@ -3498,23 +3497,6 @@ melt_putstrbuf (FILE * f, melt_ptr_t sb)
     }
 }
 
-/* wait for the probe. waitopt is often WNOHANG; see waitpid(2);
-   return 0 if the wait was successful. */
-int melt_wait_for_probe (int waitopt);
-
-/* Stop the MELT probe process */
-void melt_probe_stop (void);
-
-
-/* Start the MELT probe process, and returns its pid.  Gives the file descriptors thru
-   toprobefdptr & fromprobefdptr if not null.  If probecmd is null or
-   empty, we use the -f[plugin-arg-]melt-probe program argument, or
-   else the GCCMELT_PROBE environment variable, or else the builtin
-   default melt_default_probe. */
-long melt_probe_start (const char* probecmd, int*toprobefdptr, int *fromprobefdptr);
-
-/* Send a stringbuffer command to probe */
-void melt_send_command_strbuf_to_probe (melt_ptr_t buf);
 
 /* output the option, declaration and implementation buffers of a
    generated file with a secondary rank*/
@@ -3795,5 +3777,9 @@ extern void melt_gt_ggc_mx_gimple_seq_d(void*);
 #endif /* GCC 4.9 */
 
 #endif /*MELT_INCLUDED_ */
+
+/// temporary workaround to remove probe
+static inline int melt_wait_for_probe(int waitopt)
+{ melt_fatal_error ("melt_wait_for_probe waitopt=%d", waitopt); }
 
 /* eof $Id$ */

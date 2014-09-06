@@ -1,4 +1,12 @@
 
+2014-09-06  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* MELT-Plugin-Makefile: Remove mention of probe.
+
+	* simplemelt-gtkmm-probe.cc: Remove file.
+
+	* simplemelt-pyqt4-probe.py: Remove file.
+
 2014-08-31  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* MELT-Plugin-Makefile (all): Improve final message.

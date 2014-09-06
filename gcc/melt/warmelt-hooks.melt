@@ -4515,11 +4515,6 @@ exit, in last place.}#
      (let ( (:long waitfail 0)
 	    (:long pidstat 0)
 	    )
-       (code_chunk 
-	waitprobchk
-	#{ /* hook_handle_sigchld $WAITPROBCHK */
-	$WAITFAIL = melt_wait_for_probe (WNOHANG) ;
-	}#)
        (unless waitfail
 	 (debug "hook_handle_sigchld waited for probe")
 	 (return))
