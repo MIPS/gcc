@@ -1,6 +1,10 @@
 
 2014-09-06  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.1.3pre1.
+
+2014-09-06  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.h (melt_wait_for_probe): Remove temporary
 	workaround.
 	* melt/generated/*: Regenerate.
