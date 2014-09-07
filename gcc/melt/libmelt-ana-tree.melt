@@ -334,17 +334,20 @@
   }#
 )
 
-;; pattern (tree_function_type <return type>) match a tree function type.
+;; pattern (tree_function_type <return type> <argtypes>) match a tree function type.
 (defcmatcher tree_function_type
   (:tree tr)
-  (:tree trtyp)
+  (:tree trtyp trargty)
   tfunt
-  :doc #{$TREE_FUNCTION_TYPE match a function type tree $TR extracting the result type tree $TRTYP}#
+  :doc #{$TREE_FUNCTION_TYPE match a function type tree $TR extracting
+  the result type tree $TRTYP and the list of type of arguments into
+  $TRARGTY}#
   ;; test expansion
   #{ /* tree_function_type $tfunt ? */ (($TR) && TREE_CODE($TR) == FUNCTION_TYPE) }#
   ;; fill expansion
   #{ /* tree_function_type $tfunt ! */
-      $TRTYP = TREE_TYPE($TR);
+  $TRTYP = TREE_TYPE($TR);
+  $TRARGTY = TYPE_ARG_TYPES($TR);
   }#)
 
 ;; pattern (tree_method_type <return type>) match a tree method type.

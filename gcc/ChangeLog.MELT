@@ -1,4 +1,10 @@
 
+2014-09-07  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/libmelt-ana-tree.melt (tree_function_type): Change
+	signature of cmatcher, since also extracts the list of types of
+	arguments.
+
 2014-09-06  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.1.3pre1.
