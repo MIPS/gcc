@@ -218,11 +218,11 @@ static rtx mep_convert_regnum (const struct cgen_regnum_operand *, rtx);
 static rtx mep_legitimize_arg (const struct insn_operand_data *, rtx, int);
 static void mep_incompatible_arg (const struct insn_operand_data *, rtx, int, tree);
 static rtx mep_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
-static int mep_adjust_cost (rtx, rtx, rtx, int);
+static int mep_adjust_cost (rtx_insn *, rtx, rtx_insn *, int);
 static int mep_issue_rate (void);
-static rtx mep_find_ready_insn (rtx *, int, enum attr_slot, int);
-static void mep_move_ready_insn (rtx *, int, rtx);
-static int mep_sched_reorder (FILE *, int, rtx *, int *, int);
+static rtx_insn *mep_find_ready_insn (rtx_insn **, int, enum attr_slot, int);
+static void mep_move_ready_insn (rtx_insn **, int, rtx_insn *);
+static int mep_sched_reorder (FILE *, int, rtx_insn **, int *, int);
 static rtx_insn *mep_make_bundle (rtx, rtx_insn *);
 static void mep_bundle_insns (rtx_insn *);
 static bool mep_rtx_cost (rtx, int, int, int, int *, bool);
@@ -3445,8 +3445,6 @@ mep_expand_builtin_saveregs (void)
   return XEXP (regbuf, 0);
 }
 
-#define VECTOR_TYPE_P(t) (TREE_CODE(t) == VECTOR_TYPE)
-
 static tree
 mep_build_builtin_va_list (void)
 {
@@ -5653,7 +5651,7 @@ mep_jmp_return_reorg (rtx_insn *insns)
 	     && (NOTE_P (ret)
 		 || LABEL_P (ret)
 		 || GET_CODE (PATTERN (ret)) == USE))
-	ret = NEXT_INSN (ret);
+	ret = NEXT_INSN (as_a <rtx_insn *> (ret));
 
       if (ret)
 	{
@@ -6477,7 +6475,7 @@ global_reg_mentioned_p (rtx x)
    insns.  Not implemented.  */
 
 static int
-mep_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
+mep_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep_insn, int cost)
 {
   int cost_specified;
 
@@ -6540,25 +6538,26 @@ mep_vliw_function_p (tree decl)
   return lookup_attribute ("vliw", TYPE_ATTRIBUTES (TREE_TYPE (decl))) != 0;
 }
 
-static rtx
-mep_find_ready_insn (rtx *ready, int nready, enum attr_slot slot, int length)
+static rtx_insn *
+mep_find_ready_insn (rtx_insn **ready, int nready, enum attr_slot slot,
+		     int length)
 {
   int i;
 
   for (i = nready - 1; i >= 0; --i)
     {
-      rtx insn = ready[i];
+      rtx_insn *insn = ready[i];
       if (recog_memoized (insn) >= 0
 	  && get_attr_slot (insn) == slot
 	  && get_attr_length (insn) == length)
 	return insn;
     }
 
-  return NULL_RTX;
+  return NULL;
 }
 
 static void
-mep_move_ready_insn (rtx *ready, int nready, rtx insn)
+mep_move_ready_insn (rtx_insn **ready, int nready, rtx_insn *insn)
 {
   int i;
 
@@ -6575,7 +6574,7 @@ mep_move_ready_insn (rtx *ready, int nready, rtx insn)
 }
 
 static void
-mep_print_sched_insn (FILE *dump, rtx insn)
+mep_print_sched_insn (FILE *dump, rtx_insn *insn)
 {
   const char *slots = "none";
   const char *name = NULL;
@@ -6620,11 +6619,11 @@ mep_print_sched_insn (FILE *dump, rtx insn)
 
 static int
 mep_sched_reorder (FILE *dump ATTRIBUTE_UNUSED,
-		   int sched_verbose ATTRIBUTE_UNUSED, rtx *ready,
+		   int sched_verbose ATTRIBUTE_UNUSED, rtx_insn **ready,
 		   int *pnready, int clock ATTRIBUTE_UNUSED)
 {
   int nready = *pnready;
-  rtx core_insn, cop_insn;
+  rtx_insn *core_insn, *cop_insn;
   int i;
 
   if (dump && sched_verbose > 1)
@@ -6803,38 +6802,42 @@ mep_ipipe_ldc_p (rtx_insn *insn)
    Emit the bundle in place of COP and return it.  */
 
 static rtx_insn *
-mep_make_bundle (rtx core, rtx_insn *cop)
+mep_make_bundle (rtx core_insn_or_pat, rtx_insn *cop)
 {
   rtx seq;
+  rtx_insn *core_insn;
   rtx_insn *insn;
 
   /* If CORE is an existing instruction, remove it, otherwise put
      the new pattern in an INSN harness.  */
-  if (INSN_P (core))
-    remove_insn (core);
+  if (INSN_P (core_insn_or_pat))
+    {
+      core_insn = as_a <rtx_insn *> (core_insn_or_pat);
+      remove_insn (core_insn);
+    }
   else
-    core = make_insn_raw (core);
+    core_insn = make_insn_raw (core_insn_or_pat);
 
   /* Generate the bundle sequence and replace COP with it.  */
-  seq = gen_rtx_SEQUENCE (VOIDmode, gen_rtvec (2, core, cop));
+  seq = gen_rtx_SEQUENCE (VOIDmode, gen_rtvec (2, core_insn, cop));
   insn = emit_insn_after (seq, cop);
   remove_insn (cop);
 
   /* Set up the links of the insns inside the SEQUENCE.  */
-  SET_PREV_INSN (core) = PREV_INSN (insn);
-  SET_NEXT_INSN (core) = cop;
-  SET_PREV_INSN (cop) = core;
+  SET_PREV_INSN (core_insn) = PREV_INSN (insn);
+  SET_NEXT_INSN (core_insn) = cop;
+  SET_PREV_INSN (cop) = core_insn;
   SET_NEXT_INSN (cop) = NEXT_INSN (insn);
 
   /* Set the VLIW flag for the coprocessor instruction.  */
-  PUT_MODE (core, VOIDmode);
+  PUT_MODE (core_insn, VOIDmode);
   PUT_MODE (cop, BImode);
 
   /* Derive a location for the bundle.  Individual instructions cannot
      have their own location because there can be no assembler labels
-     between CORE and COP.  */
-  INSN_LOCATION (insn) = INSN_LOCATION (INSN_LOCATION (core) ? core : cop);
-  INSN_LOCATION (core) = 0;
+     between CORE_INSN and COP.  */
+  INSN_LOCATION (insn) = INSN_LOCATION (INSN_LOCATION (core_insn) ? core_insn : cop);
+  INSN_LOCATION (core_insn) = 0;
   INSN_LOCATION (cop) = 0;
 
   return insn;
