@@ -837,7 +837,7 @@ Objective-C and Objective-C++ Dialects}.
 
 @emph{MSP430 Options}
 @gccoptlist{-msim -masm-hex -mmcu= -mcpu= -mlarge -msmall -mrelax @gol
--mhwmult=}
+-mhwmult= -minrt}
 
 @emph{NDS32 Options}
 @gccoptlist{-mbig-endian -mlittle-endian @gol
@@ -4799,6 +4799,8 @@ parentheses:
 @smallexample
 if ((!a) > 1) @{ @dots{} @}
 @end smallexample
+
+This warning is enabled by @option{-Wall}.
 
 @item -Waggregate-return
 @opindex Waggregate-return
@@ -13813,7 +13815,7 @@ are compatible with as many systems and code bases as possible.
 @item -mkernel
 @opindex mkernel
 Enable kernel development mode.  The @option{-mkernel} option sets
-@option{-static}, @option{-fno-common}, @option{-fno-cxa-atexit},
+@option{-static}, @option{-fno-common}, @option{-fno-use-cxa-atexit},
 @option{-fno-exceptions}, @option{-fno-non-call-exceptions},
 @option{-fapple-kext}, @option{-fno-weak} and @option{-fno-rtti} where
 applicable.  This mode also sets @option{-mno-altivec},
@@ -18583,6 +18585,13 @@ inline.  This makes for bigger, but faster code.
 The hardware multiply routines disable interrupts whilst running and
 restore the previous interrupt state when they finish.  This makes
 them safe to use inside interrupt handlers as well as in normal code.
+
+@item -minrt
+@opindex minrt
+Enable the use of a minimum runtime environment - no static
+initializers or constructors.  This is intended for memory-constrained
+devices.  The compiler will include special symbols in some objects
+that tell the linker and runtime which code fragments are required.
 
 @end table
 

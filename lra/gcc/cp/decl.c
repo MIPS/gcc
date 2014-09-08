@@ -2215,7 +2215,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 		      olddecl);
 
 	  SET_DECL_TEMPLATE_SPECIALIZATION (olddecl);
-	  DECL_COMDAT (newdecl) = DECL_DECLARED_INLINE_P (olddecl);
+	  DECL_COMDAT (newdecl) = DECL_DECLARED_INLINE_P (newdecl);
 
 	  /* Don't propagate visibility from the template to the
 	     specialization here.  We'll do that in determine_visibility if
@@ -4671,14 +4671,6 @@ start_decl (const cp_declarator *declarator,
 		      return error_mark_node;
 		    }
 		  field = DECL_TEMPLATE_RESULT (field);
-		}
-	      else if (this_tmpl)
-		{
-		  error_at (DECL_SOURCE_LOCATION (decl),
-			    "member template declaration of %qD", decl);
-		  inform (DECL_SOURCE_LOCATION (field), "does not match "
-			  "non-member-template declaration here");
-		  return error_mark_node;
 		}
 
 	      if (DECL_CONTEXT (field) != context)
