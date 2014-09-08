@@ -20031,7 +20031,7 @@ mips_expand_vec_unpack (rtx operands[2], bool unsigned_p, bool high_p)
     switch (imode)
       {
       case V4SImode:
-	if (high_p)
+	if (BYTES_BIG_ENDIAN != high_p)
 	  unpack = gen_msa_tc_ilvl_w;
 	else
 	  unpack = gen_msa_tc_ilvr_w;
@@ -20040,7 +20040,7 @@ mips_expand_vec_unpack (rtx operands[2], bool unsigned_p, bool high_p)
 	break;
 
       case V8HImode:
-	if (high_p)
+	if (BYTES_BIG_ENDIAN != high_p)
 	  unpack = gen_msa_tc_ilvl_h;
 	else
 	  unpack = gen_msa_tc_ilvr_h;
@@ -20049,7 +20049,7 @@ mips_expand_vec_unpack (rtx operands[2], bool unsigned_p, bool high_p)
 	break;
 
       case V16QImode:
-	if (high_p)
+	if (BYTES_BIG_ENDIAN != high_p)
 	  unpack = gen_msa_tc_ilvl_b;
 	else
 	  unpack = gen_msa_tc_ilvr_b;
