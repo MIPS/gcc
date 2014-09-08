@@ -905,21 +905,14 @@ AC_ARG_ENABLE(offload-targets,
 [AS_HELP_STRING([--enable-offload-targets=LIST],
  [enable offloading to devices from LIST])],
 [
-  if test x$enable_offload_targets = x; then
+  if test x"$enable_offload_targets" = x; then
     AC_MSG_ERROR([no offload targets specified])
-  else
-    if test x$offload_targets = x; then
-      offload_targets=$enable_offload_targets
-    else
-      offload_targets=$offload_targets,$enable_offload_targets
-    fi
   fi
-], [offload_targets=])
-
-offload_targets=`echo $offload_targets | sed -e 's#,#:#g'`
-AC_DEFINE_UNQUOTED(OFFLOAD_TARGETS, "$offload_targets",
+], [enable_offload_targets=])
+enable_offload_targets=`echo "$enable_offload_targets" | sed -e 's#,#:#g'`
+AC_DEFINE_UNQUOTED(OFFLOAD_TARGETS, "$enable_offload_targets",
  [Define to hold the list of target names suitable for offloading.])
-if test x$offload_targets != x; then
+if test x"$enable_offload_targets" != x; then
   AC_DEFINE(ENABLE_OFFLOADING, 1,
     [Define this to enable support for offloading.])
 fi

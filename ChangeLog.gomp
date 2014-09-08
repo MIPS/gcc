@@ -1,3 +1,12 @@
+2014-09-08  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* Makefile.tpl (accel_target_alias, accel_target_vendor)
+	(accel_target_os, accel_target): Remove.
+	(configure-[+prefix+][+module+]): Remove "accel-gcc" case.
+	* Makefile.in: Regenerate.
+	* configure.ac (offload_targets): Remove.
+	* configure: Regenerate.
+
 2014-09-05  Bernd Schmidt  <bernds@codesourcery.com>
 
 	* Makefile.def (host_modules, flags_to_pass): Remove accel-gcc remnants.

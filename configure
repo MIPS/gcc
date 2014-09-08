@@ -2937,12 +2937,10 @@ case ${with_newlib} in
   yes) skipdirs=`echo " ${skipdirs} " | sed -e 's/ target-newlib / /'` ;;
 esac
 
-offload_targets=
-
 # Check whether --enable-offload-targets was given.
 if test "${enable_offload_targets+set}" = set; then :
   enableval=$enable_offload_targets;
-  if test x$enable_offload_targets = x; then
+  if test x"$enable_offload_targets" = x; then
     as_fn_error "no offload targets specified" "$LINENO" 5
   fi
 
@@ -8156,6 +8154,7 @@ case " $configdirs " in
     test $host = $build && RUNTEST='$$s/$(HOST_SUBDIR)/dejagnu/runtest'
     ;;
 esac
+
 
 # Host tools.
 ncn_tool_prefix=

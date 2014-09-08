@@ -49,10 +49,6 @@ target_alias=@target_noncanonical@
 target_vendor=@target_vendor@
 target_os=@target_os@
 target=@target@
-accel_target_alias=@accel_target_noncanonical@
-accel_target_vendor=@accel_target_vendor@
-accel_target_os=@accel_target_os@
-accel_target=@accel_target@
 
 program_transform_name = @program_transform_name@
 
@@ -1000,11 +996,6 @@ configure-[+prefix+][+module+]: [+ IF bootstrap +][+ ELSE +]
 	$(SHELL) $(srcdir)/mkinstalldirs [+subdir+]/[+module+] ; \
 	[+exports+] [+extra_exports+] \
 	echo Configuring in [+subdir+]/[+module+]; \
-	[+ IF (= (get "module") "accel-gcc") +] \
-	this_target="$(accel_target_alias)"; \
-	[+ ELSE +] \
-	this_target="[+target_alias+]"; \
-	[+ ENDIF +] \
 	cd "[+subdir+]/[+module+]" || exit 1; \
 	case $(srcdir) in \
 	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
@@ -1017,7 +1008,7 @@ configure-[+prefix+][+module+]: [+ IF bootstrap +][+ ELSE +]
 	  $$s/$$module_srcdir/configure \
 	  --srcdir=$${topdir}/$$module_srcdir \
 	  [+args+] --build=${build_alias} --host=[+host_alias+] \
-	  --target=$${this_target} [+extra_configure_flags+] \
+	  --target=[+target_alias+] [+extra_configure_flags+] \
 	  || exit 1
 @endif [+prefix+][+module+]
 

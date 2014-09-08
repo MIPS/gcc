@@ -1,3 +1,8 @@
+2014-09-08  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* configure.ac (enable_accelerator, offload_targets): Remove.
+	* configure: Regenerate.
+
 2014-05-12  Bernd Schmidt  <bernds@codesourcery.com>
 
 	* ompstuff.c (_omp_func_table, _omp_var_table, _omp_funcs_end,
