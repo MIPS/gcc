@@ -10,7 +10,7 @@
  (paren @0))
 
 /* Basic strip-useless-type-conversions / strip_nops.  */
-(for cvt in convert view_convert
+(for cvt (convert view_convert)
  (simplify
   (cvt @0)
   (if ((GIMPLE && useless_type_conversion_p (type, TREE_TYPE (@0)))
@@ -25,7 +25,7 @@
    folding again results in recursions.  */
 /* ???  Eh, do we want sth like (define-ops cmp lt le eq ...) to not
    repeat this too many times?  */
-(for cmp in lt le eq ne ge gt unordered ordered unlt unle ungt unge uneq ltgt
+(for cmp (lt le eq ne ge gt unordered ordered unlt unle ungt unge uneq ltgt)
  (simplify
    (convert (cmp@2 @0 @1))
    (if (TREE_CODE (type) == BOOLEAN_TYPE)
@@ -90,8 +90,8 @@
 /* From tree-ssa-forwprop.c:combine_conversions.  */
 
 /* Combine two conversions in a row.  */
-(for ocvt in convert float fix_trunc
- (for icvt in convert float
+(for ocvt (convert float fix_trunc)
+ (for icvt (convert float)
   (simplify
    (ocvt (icvt@1 @0))
    (with

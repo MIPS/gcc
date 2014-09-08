@@ -7,7 +7,7 @@
   (convert @0)))
 
 /* Distribute operations in equality compares.  */
-(for op in eq ne
+(for op (eq ne)
  /* -exp op CST is exp op -CST.  */
  (simplify
   (op (negate @0) INTEGER_CST@1)
@@ -22,8 +22,8 @@
 /* From fold_comparison, in the order of transforms in there.  */
 
 /* Transform comparisons of the form X +- C1 CMP C2 to X CMP C2 -+ C1.  */
-(for cmp in lt le eq ge gt ne
- (for op in plus minus
+(for cmp (lt le eq ge gt ne)
+ (for op (plus minus)
   (simplify
    (cmp (op @0 INTEGER_CST@1) INTEGER_CST@2)
    (if ((cmp == NE_EXPR || cmp == EQ_EXPR
@@ -40,7 +40,7 @@
    is undefined for the type, but performing it here badly interacts
    with the transformation in fold_cond_expr_with_comparison which
    attempts to synthetize ABS_EXPR.  */
-(for cmp in eq ne
+(for cmp (eq ne)
  (simplify
   (cmp (minus @0 @1) integer_zerop)
   (cmp @0 @1)))
@@ -58,7 +58,7 @@
 #endif
 
 /* Simplify X * C1 CMP 0 to X CMP 0 if C1 is not zero.  */
-(for op in lt le eq ne ge gt
+(for op (lt le eq ne ge gt)
   (simplify
     (op (mult @0 INTEGER_CST@1) integer_zerop@2)
     /* In fold-const.c we have this and the following pattern
@@ -89,7 +89,7 @@
 
 /* Simplify comparison of something with itself.  For IEEE
    floating-point, we can only do some of these simplifications.  */
-(for cmp in ge le
+(for cmp (ge le)
  (simplify
   (cmp @0 @0)
   (eq @0 @0)))
@@ -98,7 +98,7 @@
  (if (! FLOAT_TYPE_P (TREE_TYPE (@0))
       || ! HONOR_NANS (TYPE_MODE (TREE_TYPE (@0))))
   { constant_boolean_node (true, type); }))
-(for cmp in ne gt lt
+(for cmp (ne gt lt)
  (simplify
   (cmp @0 @0)
   (if (cmp != NE_EXPR
@@ -124,13 +124,13 @@
 #endif
 
 /* Fold ~X op ~Y as Y op X.  */
-(for cmp in lt le eq ge gt ne
+(for cmp (lt le eq ge gt ne)
  (simplify
   (cmp (bit_not @0) (bit_not @1))
   (cmp @1 @0)))
 
 /* Fold ~X op C as X op' ~C, where op' is the swapped comparison.  */
-(for cmp in lt le eq ge gt ne
+(for cmp (lt le eq ge gt ne)
  (simplify
   (cmp (bit_not @0) @1)
   /* ???  (for cst in INTEGER_CST VECTOR_CST) is not supported yet.  */

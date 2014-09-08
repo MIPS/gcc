@@ -17,7 +17,7 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-(for op in plus pointer_plus minus bit_ior bit_xor
+(for op (plus pointer_plus minus bit_ior bit_xor)
   (simplify
     (op @0 integer_zerop)
     (if (GENERIC && !in_gimple_form)
@@ -40,7 +40,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Make sure to preserve divisions by zero.  This is the reason why
    we don't simplify x / x to 1 or 0 / x to 0.  */
-(for op in mult trunc_div ceil_div floor_div round_div
+(for op (mult trunc_div ceil_div floor_div round_div)
   (simplify
     (op @0 integer_onep)
     @0))

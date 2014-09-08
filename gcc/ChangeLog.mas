@@ -1,3 +1,13 @@
+2014-09-08  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	* genmatch.c (peek_ident): Change id to default argument with value 0.
+	(parse_for): Adjust syntax.
+	* match-builtin.pd: Rewrite for-patterns to match new syntax.
+	* match-comparison.pd: Likewise.
+	* match-constant-folding.pd: Likewise.
+	* match-conversions.pd: Likewise.
+	* match-rotate.pd: Likewise.
+
 2014-09-03  Richard Biener  <rguenther@suse.de>
 
 	* match-conversions.pd

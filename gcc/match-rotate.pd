@@ -19,7 +19,7 @@ along with GCC; see the file COPYING3.  If not see
 
 
 /* (x << CNT1) OP (x >> CNT2) -> x r<< CNT1 OP being +, |, ^ */
-(for op in plus bit_ior bit_xor 
+(for op (plus bit_ior bit_xor)
 (simplify
   (op:c (lshift @0 INTEGER_CST@1) (rshift @0 INTEGER_CST@2))
   (if (INTEGRAL_TYPE_P (type) && TYPE_UNSIGNED (type)

@@ -832,7 +832,7 @@ replace_id (operand *o, const char *user_id, const char *oper)
 
   return ne;
 }
-  
+
 void
 check_no_user_id (operand *o)
 {
@@ -2023,11 +2023,14 @@ peek (cpp_reader *r)
 }
 
 static const cpp_token *
-peek_ident (cpp_reader *r, const char *id)
+peek_ident (cpp_reader *r, const char *id = 0)
 {
   const cpp_token *token = peek (r);
   if (token->type != CPP_NAME)
     return 0;
+
+  if (id == 0)
+    return token; 
 
   const char *t = (const char *) CPP_HASHNODE (token->val.node.node)->ident.str;  
   if (strcmp (id, t) == 0)
@@ -2398,62 +2401,101 @@ parse_simplify (cpp_reader *r, source_location match_location,
 void parse_pattern (cpp_reader *, vec<simplify *>&);
 
 void
-parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers) 
+parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers)
 {
-  const char *user_id = get_ident (r);
-  eat_ident (r, "in");
-
-  if (get_operator (user_id) != 0)
-    fatal_at (peek (r), "%s is an operator, cannot be used as variable in for", user_id);
-
-  vec<const char *> opers = vNULL;
-
+  vec<const char *> user_ids = vNULL;
+  vec< vec<const char *> > opers_vec = vNULL;
   const cpp_token *token;
+  unsigned n_opers = 0;
+
   while (1)
     {
-      token = peek (r); 
-      if (token->type != CPP_NAME)
+      token = peek_ident (r);
+      if (token == 0)
 	break;
-      const char *id = get_ident (r);
-      id_base *idb = get_operator (id);
-      if (*idb == CONVERT0 || *idb == CONVERT1 || *idb == CONVERT2)
-	fatal_at (token, "conditional operators cannot be used inside for");
-      opers.safe_push (id);
+
+      const char *id = (const char *) NODE_NAME (token->val.node.node);
+      if (get_operator (id))
+	fatal ("built-in operators cannot be user defined identifiers in for");
+
+      user_ids.safe_push (id);
+      eat_token (r, CPP_NAME);
+
+      eat_token (r, CPP_OPEN_PAREN);
+
+      vec<const char *> opers = vNULL;
+
+      while ((token = peek_ident (r)) != 0)
+	{
+	  eat_token (r, CPP_NAME);
+	  const char *oper = (const char *) NODE_NAME (token->val.node.node);
+	  id_base *idb = get_operator (oper);
+	  if (idb == 0)
+	    fatal_at (token, "no such operator %s", oper);
+	  if (*idb == CONVERT0 || *idb == CONVERT1 || *idb == CONVERT2)
+	    fatal_at (token, "conditional operators cannot be used inside for");
+	  
+	  opers.safe_push (oper);
+	}
+      opers_vec.safe_push (opers);
+      if (n_opers == 0)
+	n_opers = opers.length ();
+      else if (n_opers != opers.length ())
+	fatal ("All user-defined identifiers must have same number of operator substitutions");
+      eat_token (r, CPP_CLOSE_PAREN);
+    }	  
+
+  if (user_ids.length () == 0)
+    fatal ("for requires at least one user-defined identifier");
+
+  fprintf (stderr, "Supriya\n");
+
+  vec<simplify *> for_simplifiers = vNULL;
+  while (1)
+    {
+      token = peek (r);
+      if (token->type == CPP_CLOSE_PAREN)
+ 	break;
+      parse_pattern (r, for_simplifiers);
     }
 
-  if (token->type == CPP_CLOSE_PAREN)
-    fatal_at (token, "no pattern defined in for");
+  if (for_simplifiers.length () == 0)
+    fatal ("no pattern defined in for");
 
-  while (1)
+  unsigned n_ids = user_ids.length ();
+
+  for (unsigned ix = 0; ix < for_simplifiers.length (); ++ix) 
     {
-      const cpp_token *token = peek (r);
-      if (token->type == CPP_CLOSE_PAREN)
-	break;
-      
-      vec<simplify *> for_simplifiers = vNULL;
-      parse_pattern (r, for_simplifiers);
+      simplify *s = for_simplifiers[ix];
 
-      for (unsigned i = 0; i < opers.length (); ++i)
+      for (unsigned j = 0; j < n_opers; ++j)
 	{
-	  id_base *idb = get_operator (opers[i]);	      
-	  gcc_assert (idb);
+	  vec<const char *> opers = vNULL;
+	  for (unsigned i = 0; i < opers_vec.length (); ++i)
+	    opers.safe_push (opers_vec[i][j]);
+	  
+	  operand *match_op = s->match;
+	  operand *result_op = s->result;
+	  vec<if_or_with> ifexpr_vec = vNULL;
 
-	  for (unsigned j = 0; j < for_simplifiers.length (); ++j)
+	  for (unsigned i = 0; i < s->ifexpr_vec.length (); ++i)
+	    ifexpr_vec.safe_push (if_or_with (s->ifexpr_vec[i].cexpr, s->ifexpr_vec[i].location, s->ifexpr_vec[i].is_with)); 
+
+	  for (unsigned i = 0; i < n_ids; ++i)
 	    {
-	      simplify *s = for_simplifiers[j];
-	      operand *match_op = replace_id (s->match, user_id, opers[i]);
-	      operand *result_op = replace_id (s->result, user_id, opers[i]);
-	      vec<if_or_with> ifexpr_vec = vNULL;
-	      for (unsigned j = 0; j < s->ifexpr_vec.length (); ++j)
-		ifexpr_vec.safe_push (if_or_with (replace_id (s->ifexpr_vec[j].cexpr, user_id, opers[i]), s->ifexpr_vec[j].location, s->ifexpr_vec[j].is_with));
-	      simplify *ns = new simplify (s->name, match_op, s->match_location,
-					   result_op, s->result_location, ifexpr_vec);
+	      match_op = replace_id (match_op, user_ids[i], opers[i]);
+	      result_op = replace_id (result_op, user_ids[i], opers[i]);
 
-	      simplifiers.safe_push (ns);
+	      for (unsigned k = 0; k < s->ifexpr_vec.length (); ++k)
+		ifexpr_vec[k].cexpr = replace_id (ifexpr_vec[k].cexpr, user_ids[i], opers[i]);
+
 	    }
+	    simplify *ns = new simplify (s->name, match_op, s->match_location,
+					 result_op, s->result_location, ifexpr_vec);
+	    simplifiers.safe_push (ns);
 	}
     }
-}
+} 
 
 void
 parse_if (cpp_reader *r, source_location loc, vec<simplify *>& simplifiers)
@@ -2616,3 +2658,4 @@ add_operator (CONVERT2, "CONVERT2", "tcc_unary", 1);
 
   return 0;
 }
+

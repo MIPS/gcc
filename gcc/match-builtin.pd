@@ -44,7 +44,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* From fold_builtin_fabs and fold_builtin_abs.  */
 /* Fold a call to fabs, fabsf or fabsl, to abs, labs, llabs or imaxabs.  */
-(for fn in BUILT_IN_FABS BUILT_IN_FABSF BUILT_IN_FABSL BUILT_IN_ABS BUILT_IN_LABS BUILT_IN_LLABS BUILT_IN_IMAXABS
+(for fn (BUILT_IN_FABS BUILT_IN_FABSF BUILT_IN_FABSL BUILT_IN_ABS BUILT_IN_LABS BUILT_IN_LLABS BUILT_IN_IMAXABS)
  (simplify
   (fn @0)
   (abs @0)))
@@ -80,7 +80,7 @@ along with GCC; see the file COPYING3.  If not see
 /* Strip sign ops from even integer powers.
    ???  The code in builtins.c manages to perform this recursively
    through the whole expression in arg0 of pow.  */
-(for sgnop in abs negate
+(for sgnop (abs negate)
   (simplify
     (BUILT_IN_POW (sgnop @0) REAL_CST@1)
     (with
@@ -98,12 +98,12 @@ along with GCC; see the file COPYING3.  If not see
 /* From fold_builtin_sqrt.  */
 (if (flag_unsafe_math_optimizations)
  /* Optimize sqrt(expN(x)) = expN(x*0.5).  */
- (for expfn in BUILT_IN_EXP10 BUILT_IN_POW10 BUILT_IN_EXP BUILT_IN_EXP2
+ (for expfn (BUILT_IN_EXP10 BUILT_IN_POW10 BUILT_IN_EXP BUILT_IN_EXP2)
   (simplify
    (BUILT_IN_SQRT (expfn @0))
    (expfn (mult @0 { build_real (type, dconsthalf); }))))
  /* Optimize sqrt(Nroot(x)) -> pow(x,1/(2*N)).  */
- (for rootfn in BUILT_IN_SQRT BUILT_IN_CBRT
+ (for rootfn (BUILT_IN_SQRT BUILT_IN_CBRT)
   (simplify
    (BUILT_IN_SQRT (rootfn @0))
    (with
