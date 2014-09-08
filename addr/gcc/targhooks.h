@@ -75,7 +75,7 @@ extern bool default_fixed_point_supported_p (void);
 
 extern bool default_has_ifunc_p (void);
 
-extern const char * default_invalid_within_doloop (const_rtx);
+extern const char * default_invalid_within_doloop (const rtx_insn *);
 
 extern tree default_builtin_vectorized_function (tree, tree, tree);
 
@@ -194,6 +194,7 @@ extern int default_label_align_max_skip (rtx);
 extern int default_jump_align_max_skip (rtx);
 extern section * default_function_section(tree decl, enum node_frequency freq,
 					  bool startup, bool exit);
+extern enum machine_mode default_dwarf_frame_reg_mode (int);
 extern enum machine_mode default_get_reg_raw_mode (int);
 extern bool default_keep_leaf_when_profiled ();
 

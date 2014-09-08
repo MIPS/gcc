@@ -125,9 +125,9 @@ struct m68k_address {
   int scale;
 };
 
-static int m68k_sched_adjust_cost (rtx, rtx, rtx, int);
+static int m68k_sched_adjust_cost (rtx_insn *, rtx, rtx_insn *, int);
 static int m68k_sched_issue_rate (void);
-static int m68k_sched_variable_issue (FILE *, int, rtx, int);
+static int m68k_sched_variable_issue (FILE *, int, rtx_insn *, int);
 static void m68k_sched_md_init_global (FILE *, int, int);
 static void m68k_sched_md_finish_global (FILE *, int);
 static void m68k_sched_md_init (FILE *, int, int);
@@ -1933,12 +1933,12 @@ m68k_jump_table_ref_p (rtx x)
   if (GET_CODE (x) != LABEL_REF)
     return false;
 
-  x = XEXP (x, 0);
-  if (!NEXT_INSN (x) && !PREV_INSN (x))
+  rtx_insn *insn = as_a <rtx_insn *> (XEXP (x, 0));
+  if (!NEXT_INSN (insn) && !PREV_INSN (insn))
     return true;
 
-  x = next_nonnote_insn (x);
-  return x && JUMP_TABLE_DATA_P (x);
+  insn = next_nonnote_insn (insn);
+  return insn && JUMP_TABLE_DATA_P (insn);
 }
 
 /* Return true if X is a legitimate address for values of mode MODE.
@@ -5921,8 +5921,8 @@ static state_t sched_adjust_cost_state;
 /* Implement adjust_cost scheduler hook.
    Return adjusted COST of dependency LINK between DEF_INSN and INSN.  */
 static int
-m68k_sched_adjust_cost (rtx insn, rtx link ATTRIBUTE_UNUSED, rtx def_insn,
-			int cost)
+m68k_sched_adjust_cost (rtx_insn *insn, rtx link ATTRIBUTE_UNUSED,
+			rtx_insn *def_insn, int cost)
 {
   int delay;
 
@@ -6032,7 +6032,7 @@ static int sched_mem_unit_code;
 static int
 m68k_sched_variable_issue (FILE *sched_dump ATTRIBUTE_UNUSED,
 			   int sched_verbose ATTRIBUTE_UNUSED,
-			   rtx insn, int can_issue_more)
+			   rtx_insn *insn, int can_issue_more)
 {
   int insn_size;
 
@@ -6126,12 +6126,12 @@ m68k_sched_md_init_global (FILE *sched_dump ATTRIBUTE_UNUSED,
   /* Check that all instructions have DFA reservations and
      that all instructions can be issued from a clean state.  */
   {
-    rtx insn;
+    rtx_insn *insn;
     state_t state;
 
     state = alloca (state_size ());
 
-    for (insn = get_insns (); insn != NULL_RTX; insn = NEXT_INSN (insn))
+    for (insn = get_insns (); insn != NULL; insn = NEXT_INSN (insn))
       {
  	if (INSN_P (insn) && recog_memoized (insn) >= 0)
 	  {
