@@ -30,6 +30,116 @@
 	* targhooks.c (default_select_ccmp_cmp_order): New function.
 	* targhooks.h (default_select_ccmp_cmp_order): New prototypes.
 
+2014-09-08  DJ Delorie  <dj@redhat.com>
+
+	* doc/invoke.texi (MSP430 Options): Add -minrt.
+
+2014-09-08  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (special_handling_values):  Add SH_SPLAT.
+	(rtx_is_swappable_p): Convert UNSPEC cascading ||s to a switch
+	statement; allow optimization of UNSPEC_VSPLT_DIRECT with special
+	handling SH_SPLAT.
+	(adjust_extract): Fix test for VEC_DUPLICATE case; fix adjustment
+	of extracted lane.
+	(adjust_splat): New function.
+	(handle_special_swappables): Call adjust_splat for SH_SPLAT.
+	(dump_swap_insn_table): Add case for SH_SPLAT.
+
+2014-09-08  Richard Biener  <rguenther@suse.de>
+
+	PR ipa/63196
+	* tree-inline.c (copy_loops): The source loop header should
+	always be non-NULL.
+	(tree_function_versioning): If loops need fixup after removing
+	unreachable blocks fix them.
+	* omp-low.c (simd_clone_adjust): Do not add incr block to
+	loop under construction.
+
+2014-09-08  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/aarch64/aarch64-builtins.c
+	(aarch64_types_cmtst_qualifiers, TYPES_TST): Remove as unused.
+
+2014-09-08  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/i386/cygming.h (TF_SIZE): Remove.
+	* config/i386/darwin.h (TF_SIZE): Remove.
+	* config/i386/dragonfly.h (TF_SIZE): Remove.
+	* config/i386/freebsd.h (TF_SIZE): Remove.
+	* config/i386/gnu-user-common.h (TF_SIZE): Remove.
+	* config/i386/openbsdelf.h (TF_SIZE): Remove.
+	* config/i386/sol2.h (TF_SIZE): Remove.
+	* config/ia64/hpux.h (XF_SIZE, TF_SIZE): Remove.
+	* config/ia64/linux.h (TF_SIZE): Remove.
+	* doc/tm.texi.in (SF_SIZE, DF_SIZE, XF_SIZE, TF_SIZE): Remove.
+	* doc/tm.texi: Regenerate.
+	* system.h (SF_SIZE, DF_SIZE, XF_SIZE, TF_SIZE): Poison.
+
+2014-09-08  Joseph Myers  <joseph@codesourcery.com>
+
+	* defaults.h (LARGEST_EXPONENT_IS_NORMAL, ROUND_TOWARDS_ZERO):
+	Remove.
+	* doc/tm.texi.in (ROUND_TOWARDS_ZERO, LARGEST_EXPONENT_IS_NORMAL):
+	Remove.
+	* doc/tm.texi: Regenerate.
+	* system.h (LARGEST_EXPONENT_IS_NORMAL, ROUND_TOWARDS_ZERO):
+	Poison.
+	* config/arm/arm.h (LARGEST_EXPONENT_IS_NORMAL): Remove.
+	* config/cris/cris.h (__make_dp): Remove.
+
+2014-09-08  Richard Biener  <rguenther@suse.de>
+
+	PR bootstrap/63204
+	* cfgloop.c (mark_loop_for_removal): Track former header
+	unconditionally.
+	* cfgloop.h (struct loop): Add former_header member unconditionally.
+	* loop-init.c (fix_loop_structure): Enable bogus loop removal
+	diagnostic unconditionally.
+
+2014-09-07 Venkataramanan Kumar <venkataramanan.kumar@linaro.org>
+
+	PR target/63190
+	* config/aarch64/aarch64.md (stack_protect_test_<mode>) Add register
+	constraint for operand0 and remove write only modifier from operand3.
+
+2014-09-07  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	PR rtl-optimization/62208
+	* simplify-rtx.c (simplify_relational_operation_1): Use CONST0_RTX
+	rather than const0_rtx in eq/ne-xor simplifications.
+
+2014-09-06  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* config/arc/arc.c (arc_print_operand): Fix format for HOST_WIDE_INT.
+	(arc_output_mi_thunk): Likewise.
+
+	* config/arc/arc.c (arc_predicate_delay_insns): Swap comparison
+	arguments to silence bogus warning.
+
+2014-09-06  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	PR middle-end/63171
+	* rtlanal.c (tls_referenced_p): Don't skip constant subrtxes.
+
+2014-09-06  Tom de Vries  <tom@codesourcery.com>
+
+	* ira-costs.c (ira_tune_allocno_costs): Don't conditionalize
+	IRA_HARD_REGNO_ADD_COST_MULTIPLIER code on
+	ALLOCNO_CROSSED_CALLS_CLOBBERED_REGS.
+
+2014-09-05  Dominique Dhumieres  <dominiq@lps.ens.fr>
+
+	PR target/63188
+	* config/darwin.h (INIT_SECTION_ASM_OP): Define to "".
+	* config/pa/pa64-hpux.h (INIT_SECTION_ASM_OP): Likewise.
+
+2014-09-05  Easwaran Raman  <eraman@google.com>
+
+	PR rtl-optimization/62146
+	* ifcvt.c (dead_or_predicable): Make removal of REG_EQUAL note of
+	hoisted instruction unconditional.
+
 2014-09-05  Segher Boessenkool  <segher@kernel.crashing.org>
 
 	PR target/63187

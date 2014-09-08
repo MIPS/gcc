@@ -1,3 +1,25 @@
+2014-09-08  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/swaps-p8-16.c: New test.
+
+2014-09-07  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gcc.target/i386/pr62208.c: New test.
+
+2014-09-06  John David Anglin  <danglin@gcc.gnu.org>
+
+	PR testsuite/56194
+	* g++.dg/init/const9.C: Skip scan-assembler-not "rodata" on hppa*-*-*.
+
+	* g++.dg/ipa/pr61800.C: Require visibility.
+
+	* gcc.dg/pr61868.c: Require lto.
+
+2014-09-05  Easwaran Raman  <eraman@google.com>
+
+	PR rtl-optimization/62146
+	* testsuite/g++.dg/opt/pr62146.C: New.
+
 2014-09-05  Marat Zakirov  <m.zakirov@samsung.com>
 
 	* gcc.dg/vect/vect-109.c: Skip predicate added.
