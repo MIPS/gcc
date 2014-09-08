@@ -2416,7 +2416,7 @@ parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers)
 
       const char *id = (const char *) NODE_NAME (token->val.node.node);
       if (get_operator (id))
-	fatal ("built-in operators cannot be user defined identifiers in for");
+	fatal_at (token, "built-in operators cannot be user defined identifiers in for");
 
       user_ids.safe_push (id);
       eat_token (r, CPP_NAME);
@@ -2441,14 +2441,12 @@ parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers)
       if (n_opers == 0)
 	n_opers = opers.length ();
       else if (n_opers != opers.length ())
-	fatal ("All user-defined identifiers must have same number of operator substitutions");
+	fatal_at (token, "All user-defined identifiers must have same number of operator substitutions");
       eat_token (r, CPP_CLOSE_PAREN);
     }	  
 
   if (user_ids.length () == 0)
-    fatal ("for requires at least one user-defined identifier");
-
-  fprintf (stderr, "Supriya\n");
+    fatal_at (token, "for requires at least one user-defined identifier");
 
   vec<simplify *> for_simplifiers = vNULL;
   while (1)
@@ -2460,7 +2458,7 @@ parse_for (cpp_reader *r, source_location, vec<simplify *>& simplifiers)
     }
 
   if (for_simplifiers.length () == 0)
-    fatal ("no pattern defined in for");
+    fatal_at (token, "no pattern defined in for");
 
   unsigned n_ids = user_ids.length ();
 

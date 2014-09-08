@@ -1,3 +1,10 @@
+2014-09-08  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (parse_for): Supply location for errors, remove
+	debug printf.
+	* match-builtin.pd (pow transforms): Provide an example
+	of multi-id for.
+
 2014-09-08  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
 
 	* genmatch.c (peek_ident): Change id to default argument with value 0.

@@ -54,8 +54,12 @@ along with GCC; see the file COPYING3.  If not see
 (simplify
  (BUILT_IN_POW real_onep@0 @1)
  @0)
+
+(for POW (BUILT_IN_POWF BUILT_IN_POW BUILT_IN_POWL)
+     SQRT (BUILT_IN_SQRTF BUILT_IN_SQRT BUILT_IN_SQRTL)
+     CBRT (BUILT_IN_CBRTF BUILT_IN_CBRT BUILT_IN_CBRTL)
 (simplify
- (BUILT_IN_POW @0 REAL_CST@1)
+ (POW @0 REAL_CST@1)
  (with { REAL_VALUE_TYPE c = TREE_REAL_CST (@1); }
   /* Optimize pow(x,0.0) = 1.0.  */
   (if (REAL_VALUES_EQUAL (c, dconst0))
@@ -69,14 +73,15 @@ along with GCC; see the file COPYING3.  If not see
   /* Optimize pow(x,0.5) = sqrt(x).  */
   (if (flag_unsafe_math_optimizations
        && REAL_VALUES_EQUAL (c, dconsthalf))
-   (BUILT_IN_SQRT @0))
+   (SQRT @0))
   /* Optimize pow(x,1.0/3.0) = cbrt(x).  */
   (with
     { const REAL_VALUE_TYPE dconstroot
         = real_value_truncate (TYPE_MODE (type), dconst_third ()); }
     (if (flag_unsafe_math_optimizations
 	 && REAL_VALUES_EQUAL (c, dconstroot))
-     (BUILT_IN_CBRT @0)))))
+     (CBRT @0))))))
+
 /* Strip sign ops from even integer powers.
    ???  The code in builtins.c manages to perform this recursively
    through the whole expression in arg0 of pow.  */
