@@ -1,3 +1,11 @@
+2014-09-09  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/test-nested-loops.c: New test case.
+	* jit.dg/all-non-failing-tests.h: Add test-nested-loops.c.
+	* jit.dg/test-combination.c (create_code): Likewise.
+	(verify_code): Likewise.
+	* jit.dg/test-threads.c (const): Add test-nested-loops.c.
+
 2014-08-11  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/test-threads.c: New test case, running all of the
