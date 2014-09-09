@@ -58,14 +58,9 @@
       && INTEGRAL_TYPE_P (TREE_TYPE (@0))
       && TYPE_PRECISION (type) < TYPE_PRECISION (TREE_TYPE (@0)))
   (if (TYPE_OVERFLOW_WRAPS (type))
-   (mult (convert @0) (convert @1)))))
-#if 0
-  /* 1) We can't handle the two-conversions-in-a-row below.
-     2) We can't properly specify the type for the inner conversion
-        (unsigned_type_for).  Suggested syntax below.  */
+   (mult (convert @0) (convert @1)))
   (with { tree utype = unsigned_type_for (TREE_TYPE (@0)); }
-   (convert (mult (convert:utype @0) (convert:utype @1))))
-#endif
+   (convert (mult (convert:utype @0) (convert:utype @1))))))
 
 
 /* For integral conversions with the same precision or pointer

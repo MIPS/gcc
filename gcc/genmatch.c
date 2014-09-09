@@ -259,10 +259,12 @@ struct e_operation {
 struct expr : public operand
 {
   expr (e_operation *operation_)
-    : operand (OP_EXPR), operation (operation_), ops (vNULL) {}
+    : operand (OP_EXPR), operation (operation_),
+      ops (vNULL), expr_type (NULL) {}
   void append_op (operand *op) { ops.safe_push (op); }
   e_operation *operation;
   vec<operand *> ops;
+  const char *expr_type;
   virtual void gen_transform (FILE *f, const char *, bool, int, const char *);
 };
 
@@ -883,10 +885,12 @@ expr::gen_transform (FILE *f, const char *dest, bool gimple, int depth,
 		     const char *in_type)
 {
   bool conversion_p = is_conversion (operation->op);
-
-  const char *type;
+  const char *type = expr_type;
   char optype[20];
-  if (conversion_p)
+  if (type)
+    /* If there was a type specification in the pattern use it.  */
+    ;
+  else if (conversion_p)
     /* For conversions we need to build the expression using the
        outer type passed in.  */
     type = in_type;
@@ -2146,6 +2150,7 @@ parse_expr (cpp_reader *r)
   const cpp_token *token = peek (r);
   operand *op;
   bool is_commutative = false;
+  const char *expr_type = NULL;
 
   if (token->type == CPP_COLON
       && !(token->flags & PREV_WHITE))
@@ -2158,12 +2163,14 @@ parse_expr (cpp_reader *r)
 	  const char *s = get_ident (r);
 	  if (s[0] == 'c' && !s[1])
 	    is_commutative = true;
+	  else if (s[1] != '\0')
+	    expr_type = s;
 	  else
-	    fatal_at (token, "predicates or flag %s not recognized", s);
+	    fatal_at (token, "flag %s not recognized", s);
 	  token = peek (r);
 	}
       else
-	fatal_at (token, "expected flag or predicate");
+	fatal_at (token, "expected flag or type specifying identifier");
     }
 
   if (token->type == CPP_ATSIGN
@@ -2184,6 +2191,7 @@ parse_expr (cpp_reader *r)
 	      else
 		fatal_at (token, "only binary operators or function with two arguments can be marked commutative");
 	    }
+	  e->expr_type = expr_type;
 	  return op;
 	}
       e->append_op (parse_op (r));

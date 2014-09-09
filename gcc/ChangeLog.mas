@@ -1,3 +1,12 @@
+2014-09-09  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (struct expr): Add expr_type member.
+	(expr::gen_transform): Honor explicitely specified type.
+	(parse_expr): Parse ':<ident>' on the operator as identifier
+	specifying the type to use when building the expression.
+	* match-conversions.pd ((T1)(X * Y) -> (T1)X * (T1)Y):
+	Complete.
+
 2014-09-08  Richard Biener  <rguenther@suse.de>
 
 	* genmatch.c (parse_for): Supply location for errors, remove
