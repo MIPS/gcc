@@ -147,10 +147,14 @@
 		chainon ($CHAIN1, $CHAIN2)
 	}#)
 
-(defun tree_chain_to_tuple (discr :tree tr)
+
+;;;;;;;;;;;;;;;;
+(defun tree_chain_to_tuple (discr :tree tr :value fun)
   :doc #{Make a boxed tree tuple of given $DISCR - default to
   $DISCR_MULTIPLE from the chain starting at tree $TR, i.e. unfold a
-  tree chain into a tuple of boxed trees}#
+  tree chain into a tuple of boxed trees, if a closure $FUN is given,
+  it is applied to every boxed component and its index before building
+  the tuple.}#
   (debug "tree_chain_to_tuple" " discr=" discr "; tr=" tr)
   (if (null discr) (setq discr discr_multiple))
   (if (is_not_a discr class_discriminant)
@@ -174,7 +178,7 @@
 	 (exit cntloop))
      (code_chunk chnext_chk
 		 #{ /* tree_chain_to_tuple $CHNEXT_CHK */
-		 $CTR = TREE_CHAIN($CTR);
+		 $CTR = TREE_CHAIN($CTR) ;
 		 }#)
      (setq len (+i len 1))
      )
@@ -182,27 +186,46 @@
 	   (:long ix 0)
 	   )
       (setq ctr tr)
-      (forever filltreeloop
-	       (debug "tree_chain_to_tuple" " loop ix=" ix "; ctr=" ctr)
-	       (code_chunk
-		exitfill_chk
-		#{ /* tree_chain_to_tuple $EXITFILL_CHK */
-		if (!$CTR || !CODE_CONTAINS_STRUCT (TREE_CODE($CTR), TS_COMMON))
-		$(exit filltreeloop)	;
-		}#)
-	       (multiple_put_nth tup ix (constant_box ctr))
-	       (code_chunk
-		nextchain_chk
-		#{ /* tree_chain_to_tuple $NEXTCHAIN_CHK */
-		$CTR = TREE_CHAIN($CTR)	;
-		}#)
-	       (setq ix (+i ix 1)))
+      (if (is_closure fun)
+	  (forever filltreefunloop
+		 (debug "tree_chain_to_tuple" " filltreefunloop ix=" ix "; ctr=" ctr)
+		 (code_chunk
+		  exitfillfun_chk
+		  #{ /* tree_chain_to_tuple $EXITFILLFUN_CHK */
+		  if (!$CTR || !CODE_CONTAINS_STRUCT (TREE_CODE($CTR), TS_COMMON))
+		     $(exit filltreefunloop) ;
+		  }#)
+		 (multiple_put_nth tup ix (fun (constant_box ctr) ix))
+		 (code_chunk
+		  nextchainfun_chk
+		  #{ /* tree_chain_to_tuple $NEXTCHAINFUN_CHK */
+		  $CTR = TREE_CHAIN($CTR) ;
+		  }#)
+		 (setq ix (+i ix 1))
+		   )
+	(forever filltreeloop
+		 (debug "tree_chain_to_tuple" " filltreeloop ix=" ix "; ctr=" ctr)
+		 (code_chunk
+		  exitfill_chk
+		  #{ /* tree_chain_to_tuple $EXITFILL_CHK */
+		  if (!$CTR || !CODE_CONTAINS_STRUCT (TREE_CODE($CTR), TS_COMMON))
+		  $(exit filltreeloop)	;
+		  }#)
+		 (multiple_put_nth tup ix (constant_box ctr))
+		 (code_chunk
+		  nextchain_chk
+		  #{ /* tree_chain_to_tuple $NEXTCHAIN_CHK */
+		  $CTR = TREE_CHAIN($CTR) ;
+		  }#)
+		 (setq ix (+i ix 1))
+		 )
+	)
       (debug "tree_chain_to_tuple" " result tup=" tup)
       (return tup)
       )
     )
   )
-
+;;;;;;;;;;;;;;;;
 
 (defprimitive build_identifier_tree (name) :tree
 	:doc #{Create and returns a new IDENTIFIER_NODE tree whose
@@ -232,6 +255,19 @@
 
 ;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;
+
+(defcmatcher tree_error_mark
+(:tree tr)
+() ;output
+treerr
+:doc #{$TREE_ERROR_MARK match an error mark.}#
+;; test
+#{ /* tree_error_mark $TREERR ? */ (($TR) && TREE_CODE($TR) == ERROR_MARK) }#
+;; fill
+#{ /* tree_error_mark $TREERR ! */ }#
+)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; pattern (tree_function_decl_named <funame> <initialtree>) match a tree for a function
 ;; declaration
 (defcmatcher tree_function_decl_named 
@@ -368,7 +404,7 @@
   (:tree tr)
   (:tree trtyp)
   treeoftype
-  :doc #{$TREE_FUNCTION_TYPE match any non-null tree $TR extracting the type tree $TRTYP}#
+  :doc #{$TREE_OF_TYPE match any non-null tree $TR extracting the type tree $TRTYP}#
   ;; test expansion
   #{ /* tree_of_type $treeoftype ?*/ ($TR) != NULL }#
   ;; fill expansion
@@ -2285,6 +2321,7 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_decl_at_source_location
  tree_double_type_node 
  tree_enumeral_type
+ tree_error_mark
  tree_expr_at_source_location
  tree_field_decl
  tree_fixed_point_type
