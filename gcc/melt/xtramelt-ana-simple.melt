@@ -51,7 +51,7 @@
 	 (if ttyp (justscan_tree jsdata ttyp)))
        (?(tree_var_decl ?_ ?_ ?_)
 	 )
-       (?(tree_block ?tvars ?tsublocks)
+       (?(tree_block ?tvars ?tsublocks ?tctx ?tchain ?torig)
 	 (if tvars (justscan_tree jsdata tvars))
 	 (if tsublocks (justscan_tree jsdata tsublocks))
 	 )

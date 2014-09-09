@@ -1,6 +1,15 @@
 
 2014-09-09  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/xtramelt-ana-simple.melt (justscan_tree): Correct use of
+	tree_decl.
+
+	* melt/libmelt-ana-tree.melt (tree_debug_expr_decl)
+	(tree_namespace_decl, tree_imported_decl, tree_namelist_decl)
+	(tree_translation_unit_decl): New.
+
+2014-09-09  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/libmelt-ana-tree.melt (tree_lang_type): New
 	(tree_any_type_of_size_mode): Change signature so rename as
 	(tree_any_type_of_size): Renaming of above.

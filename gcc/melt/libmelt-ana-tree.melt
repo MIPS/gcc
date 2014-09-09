@@ -588,8 +588,78 @@ treerr
   ;; fill expansion
   #{ /* tree_parm_decl $TREEPARMDE !*/ 
    $TRARGTYPE = DECL_ARG_TYPE($TR);
-   $TRDECLNAM = DECL_NAME($TR); }# )
+   $TRDECLNAM = DECL_NAME($TR);
+   }# )
 
+
+;;;; pattern for a debug_expr_decl
+(defcmatcher tree_debug_expr_decl
+  (:tree tr)
+  (:tree trtype trname)
+  trdbgexpdcl
+  :doc #{$TREE_DEBUG_EXPR_DECL match a declaration of debug temporary,
+  extracting its type $TRTYPE and name $TRNAME.}#
+  ;; test expansion
+  #{ /* tree_debug_expr_decl $TRDBGEXPDCL ? */ (($TR) && TREE_CODE($TR) == DEBUG_EXPR_DECL) }#
+  ;; fill expansion
+  #{ /* tree_debug_expr_decl $TRDBGEXPDCL ! */
+  $TRTYPE = TREE_TYPE($TR);
+  $TRNAME = DECL_NAME($TR);
+  }#)
+  
+
+
+(defcmatcher tree_namespace_decl
+  (:tree tr)
+  (:tree trname)
+  trnamespadcl
+  :doc #{$TREE_NAMESPACE_DECL match a name space declaration, extracting its name in $TRNAME.}#
+  ;; test
+  #{ /* tree_namespace_decl $TRNAMESPADCL ? */ (($TR) && TREE_CODE($TR) == NAMESPACE_DECL) }#
+  ;; fill
+  #{ /* tree_namespace_decl $TRNAMESPADCL ! */ $TRNAME = DECL_NAME($TR);
+  }#)
+
+
+;;;;
+(defcmatcher tree_imported_decl
+  (:tree tr)
+  (:tree trname)
+  trimportdcl
+  :doc #{$TREE_IMPORTED_DECL match an import declaration, extracting its name in $TRNAME.}#
+  ;; test
+  #{ /* tree_imported_decl $TRIMPORTDCL ? */ (($TR) && TREE_CODE($TR) == IMPORTED_DECL) }#
+  ;; fill
+  #{ /* tree_imported_decl $TRIMPORTDCL ! */ $TRNAME = DECL_NAME($TR);
+  }#)
+  
+;;;;
+(defcmatcher tree_namelist_decl
+  (:tree tr)
+  (:tree trdecl)
+  trnamlisdcl
+  :doc #{$TREE_NAMELIST_DECL match a namelist declaration, extracting the list into $TRDECL.}#
+  ;; test
+  #{ /* tree_namelist_decl $TRNAMLISDCL ? */ (($TR) && TREE_CODE($TR) == NAMELIST_DECL) }#
+  ;; fill
+  #{ /* tree_namelist_decl $TRNAMLISDCL ! */
+  $TRDECL = NAMELIST_DECL_ASSOCIATED_DECL ($TR);
+  }#)
+
+;;;;;;;;;;;;;;;;
+(defcmatcher tree_translation_unit_decl
+  (:tree tr)
+  (:tree tinit)
+  translunidcl
+  :doc #{$TREE_TRANSLATION_UNIT_DECL match a translation unit
+  declaration extracting its initial declaration $TINIT.}#
+  ;; test
+  #{ /* tree_translation_unit_decl $TRANSLUNIDCL ? */  (($TR) && TREE_CODE($TR) == TRANSLATION_UNIT_DECL) }#
+  ;; fill
+  #{ /* tree_translation_unit_decl $TRANSLUNIDCL ! */
+  $TINIT = DECL_INITIAL($TR);
+  }#
+  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; pattern for results (tree_result_decl <type> <name> <uid>)
@@ -2481,6 +2551,7 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_const_ptr_type_node 
  tree_content 
  tree_create_artificial_label
+ tree_debug_expr_decl
  tree_decl
  tree_decl_at_source_location
  tree_double_type_node 
@@ -2498,6 +2569,7 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_function_decl_of_type_and_result
  tree_function_type
  tree_identifier
+ tree_imported_decl
  tree_indirect_reference
  tree_int128_integer_type_node 
  tree_int128_unsigned_type_node 
@@ -2517,6 +2589,8 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_long_long_unsigned_type_node 
  tree_long_unsigned_type_node 
  tree_mem_ref
+ tree_namelist_decl
+ tree_namespace_decl
  tree_null_pointer_node 
  tree_nullptr_type
  tree_of_type
@@ -2545,6 +2619,7 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_size_type_node 
  tree_ssa_name 
  tree_string_cst
+ tree_translation_unit_decl
  tree_type   
  tree_type_addr_space
  tree_type_canonical
