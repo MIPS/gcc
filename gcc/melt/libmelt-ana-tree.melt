@@ -1003,6 +1003,121 @@ treerr
   $TORIG = DECL_ORIGIN($TR);
   }#
   )
+
+
+(defcmatcher tree_any_abstract_decl
+  (:tree tr)
+  ()
+  trabstdcl
+  :doc #{$TREE_ANY_ABSTRACT_DECL match any abstract declaration $TR}#
+  ;; test
+  #{ /* tree_any_abstract_decl $TRABSTDCL ? */ (($TR) && DECL_P($TR) && DECL_ABSTRACT($TR))}#
+  )
+  
+
+(defcmatcher tree_any_ignored_decl
+  (:tree tr)
+  ()
+  trigndcl
+  :doc #{$TREE_ANY_IGNORED_DECL match any ignored declaration $TR}#
+  ;; test
+  #{ /* tree_any_ignored_decl $TRIGNDCL ? */ (($TR) && DECL_P($TR) && DECL_IGNORED_P($TR))}#
+  )
+  
+(defcmatcher tree_any_external_decl
+  (:tree tr)
+  ()
+  trextdcl
+  :doc #{$TREE_ANY_EXTERNAL_DECL match any external declaration $TR}#
+  ;; test
+  #{ /* tree_any_external_decl $TREXTDCL ? */ (($TR) && DECL_P($TR) && DECL_EXTERNAL($TR))}#
+  )
+  
+(defcmatcher tree_any_local_decl
+  (:tree tr)
+  ()
+  trlocdcl
+  :doc #{$TREE_ANY_LOCAL_DECL match any local declaration $TR}#
+  ;; test
+  #{ /* tree_any_local_decl $TRLOCDCL ? */ (($TR) && DECL_P($TR) && !DECL_NONLOCAL($TR))}#
+  )
+  
+(defcmatcher tree_any_virtual_decl
+  (:tree tr)
+  ()
+  trvirdcl
+  :doc #{$TREE_ANY_VIRTUAL_DECL match any virtual declaration $TR}#
+  ;; test
+  #{ /* tree_any_virtual_decl $TRVIRDCL ? */ (($TR) && DECL_P($TR) && DECL_VIRTUAL_P($TR))}#
+  )
+  
+(defcmatcher tree_any_artificial_decl
+  (:tree tr)
+  ()
+  trartdcl
+  :doc #{$TREE_ANY_ARTIFICIAL_DECL match any artificial declaration $TR}#
+  ;; test
+  #{ /* tree_any_artificial_decl $TRARTDCL ? */ (($TR) && DECL_P($TR) && DECL_ARTIFICIAL($TR))}#
+  )
+  
+(defcmatcher tree_any_nonabstract_decl
+  (:tree tr)
+  ()
+  trabstdcl
+  :doc #{$TREE_ANY_NONABSTRACT_DECL match any nonabstract declaration $TR}#
+  ;; test
+  #{ /* tree_any_nonabstract_decl $TRABSTDCL ? */ (($TR) && DECL_P($TR) && !DECL_ABSTRACT($TR))}#
+  )
+  
+  
+(defcmatcher tree_any_nonartificial_decl
+  (:tree tr)
+  ()
+  trartdcl
+  :doc #{$TREE_ANY_NONARTIFICIAL_DECL match any nonartificial declaration $TR}#
+  ;; test
+  #{ /* tree_any_nonartificial_decl $TRARTDCL ? */ (($TR) && DECL_P($TR) && !DECL_ARTIFICIAL($TR))}#
+  )
+  
+
+(defcmatcher tree_any_nonignored_decl
+  (:tree tr)
+  ()
+  trigndcl
+  :doc #{$TREE_ANY_IGNORED_DECL match any nonignored declaration $TR}#
+  ;; test
+  #{ /* tree_any_nonignored_decl $TRIGNDCL ? */ (($TR) && DECL_P($TR) && !DECL_IGNORED_P($TR))}#
+  )
+  
+(defcmatcher tree_any_nonexternal_decl
+  (:tree tr)
+  ()
+  trextdcl
+  :doc #{$TREE_ANY_NONEXTERNAL_DECL match any nonexternal declaration $TR}#
+  ;; test
+  #{ /* tree_any_nonexternal_decl $TREXTDCL ? */ (($TR) && DECL_P($TR) && !DECL_EXTERNAL($TR))}#
+  )
+
+
+
+  
+(defcmatcher tree_any_nonlocal_decl
+  (:tree tr)
+  ()
+  trlocdcl
+  :doc #{$TREE_ANY_NONLOCAL_DECL match any nonlocal declaration $TR}#
+  ;; test
+  #{ /* tree_any_nonlocal_decl $TRLOCDCL ? */ (($TR) && DECL_P($TR) && DECL_NONLOCAL($TR))}#
+  )
+  
+(defcmatcher tree_any_nonvirtual_decl
+  (:tree tr)
+  ()
+  trvirdcl
+  :doc #{$TREE_ANY_NONVIRTUAL_DECL match any nonvirtual declaration $TR}#
+  ;; test
+  #{ /* tree_any_nonvirtual_decl $TRVIRDCL ? */ (($TR) && DECL_P($TR) && !DECL_VIRTUAL_P($TR))}#
+  )
   
 ;;;;;;;;;;;;;;;;
 (defcmatcher tree_any_decl_of_initial
@@ -2582,16 +2697,28 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  register_expanded_pragma
  register_plain_pragma
  tree_addr_expr
+ tree_any_abstract_decl
+ tree_any_artificial_decl
  tree_any_decl_of_context
  tree_any_decl_of_initial
  tree_any_decl_of_origin
  tree_any_decl_of_type_align_size
+ tree_any_external_decl
+ tree_any_ignored_decl
+ tree_any_local_decl
+ tree_any_nonabstract_decl
+ tree_any_nonartificial_decl
+ tree_any_nonexternal_decl
+ tree_any_nonignored_decl
+ tree_any_nonlocal_decl
+ tree_any_nonvirtual_decl
  tree_any_type
  tree_any_type_of_chain
  tree_any_type_of_context
  tree_any_type_of_pointer_to
  tree_any_type_of_size
  tree_any_type_of_variant
+ tree_any_virtual_decl
  tree_array_ref
  tree_array_ref_full
  tree_array_type
