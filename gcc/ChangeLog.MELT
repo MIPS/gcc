@@ -1,6 +1,13 @@
 
 2014-09-09  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/libmelt-ana-tree.melt (tree_block): Change signature.
+	(tree_any_type, tree_any_type_of_chain, tree_any_type_of_context)
+	(tree_any_type_of_pointer_to, tree_any_type_of_size_mode)
+	(tree_any_type_of_variant): New cmatchers.
+
+2014-09-09  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/libmelt-ana-tree.melt (tree_error_mark): New cmatcher.
 	(tree_chain_to_tuple): Accepts a third function argument, to be
 	applied to boxed chain elements and their index.

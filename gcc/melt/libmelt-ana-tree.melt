@@ -786,16 +786,21 @@ treerr
 (defcmatcher tree_block 
   (:tree tr)
   (					;output
-   :tree trvars  trsubblocks 	 
+   :tree trvars trsubblocks trctxt trchain trorig
    )
   treeblock				;statesym
-  :doc #{$TREE_BLOCK match a tree block extracting tree variables $TRVARS and subblocks $TRSUBBLOCKS}#
+  :doc #{$TREE_BLOCK match a tree block extracting tree variables
+  $TRVARS, subblocks $TRSUBBLOCKS, supercontext $TRCTXT, chain
+  $TRCHAIN, abstract origin $TRORIG.}#
   ;; test expander
    #{/*tree_block $TREEBLOCK ?*/ (($TR) && TREE_CODE($TR) == BLOCK)}#
   ;; fill expander
    #{ /*tree_block $TREEBLOCK !*/
    $TRVARS = BLOCK_VARS($TR);
    $TRSUBBLOCKS = BLOCK_SUBBLOCKS($TR);
+   $TRCTXT = BLOCK_SUPERCONTEXT($TR);
+   $TRCHAIN = BLOCK_CHAIN($TR);
+   $TRORIG = BLOCK_ABSTRACT_ORIGIN($TR);
    }# )
 
 ;;;;;;;;;;;;;;;;
@@ -921,6 +926,88 @@ treerr
      $COL = LOCATION_COLUMN ($TREEEXPRATLOC#_sloc);
    } /* end tree_expr_at_source_location $TREEEXPRATLOC */ }#)
 
+;;;;;;;;;;;;;;;;
+(defcmatcher tree_any_type
+  (:tree tr)
+  ()
+  tranytyp
+  :doc #{$TREE_ANY_TYPE matches any type tree.}#
+  ;;test
+  #{ /* tree_any_type $TRANYTYPE ? */ (($TR) && TYPE_P($TR)) }#
+  }#)
+
+;;;;;;;;;;;;;;;;
+(defcmatcher tree_any_type_of_size_mode
+  (:tree tr)
+  (:tree trsize trmode)
+  trsizmod
+  :doc #{$TREE_ANY_TYPE_OF_SIZE_MODE matches any type tree and extracts its size and mode.}#
+  ;;test
+  #{ /* tree_any_type_of_size_mode $TRSIZMOD ? */ (($TR) && TYPE_P($TR)) }#
+  ;;fill
+  #{ /* tree_any_type_of_size_mode $TRSIZMOD ! */
+  $TRSIZE = TYPE_SIZE($TR);
+  $TRMODE = TYPE_MODE($TR);
+  }#)
+;;;;;;;;;;;;;;;;
+
+(defcmatcher tree_any_type_of_pointer_to
+  (:tree tr)
+  (:tree tptrto)
+  trpointerto
+  :doc #{$TREE_ANY_TYPE_OF_POINTER_TO matches any type tree and
+  extracts its pointer to field $TPTRTO.}#
+  ;;test
+  #{ /* tree_any_type_of_pointer_to $TRPOINTERTO ? */ (($TR) && TYPE_P($TR)) }#
+  ;;fill
+  #{ /* tree_any_type_of_pointer_to $TRPOINTERTO ! */
+  $TPTRTO = TYPE_POINTER_TO($TR);
+  }#)
+
+;;;;;;;;;;;;;;;;
+
+(defcmatcher tree_any_type_of_variant
+  (:tree tr)
+  (:tree tnextvariant tmainvariant)
+  trtypvariant
+  :doc #{$TREE_ANY_TYPE_OF_VARIANT matches any type tree and
+  extracts its next variant $TNEXTVARIANT and main variant TMAINVARIANT fields.}#
+  ;;test
+  #{ /* tree_any_type_of_variant $TRTYPVARIANT ? */ (($TR) && TYPE_P($TR)) }#
+  ;;fill
+  #{ /* tree_any_type_of_variant $TRTYPVARIANT ! */
+  $TNEXTVARIANT = TYPE_NEXT_VARIANT($TR);
+  $TMAINVARIANT = TYPE_MAIN_VARIANT($TR);
+  }#)
+  
+(defcmatcher tree_any_type_of_chain
+  (:tree tr)
+  (:tree tchain)
+  trtypchain
+  :doc #{$TREE_ANY_TYPE_OF_VARIANT matches any type tree and
+  extracts its chain $TCHAIN field.}#
+  ;;test
+  #{ /* tree_any_type_of_chain $TRTYPCHAIN ? */ (($TR) && TYPE_P($TR)) }#
+  ;;fill
+  #{ /* tree_any_type_of_chain $TRTYPCHAIN ! */
+  $TCHAIN = TREE_CHAIN;
+  }#)
+  
+(defcmatcher tree_any_type_of_context
+  (:tree tr)
+  (:tree tctx)
+  trtypcontext
+  :doc #{$TREE_ANY_TYPE_OF_CONTEXT matches any type tree and
+  extracts its $TCTX context field.}#
+  ;;test
+  #{ /* tree_any_type_of_context $TRTYPCONTEXT ? */ (($TR) && TYPE_P($TR)) }#
+  ;;fill
+  #{ /* tree_any_type_of_variant $TRTYPCONTEXT ! */
+  $TCTX = TYPE_CONTEXT($TR);
+  }#)
+  
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
 ;; pattern tree_void_type
@@ -2294,6 +2381,12 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  register_expanded_pragma
  register_plain_pragma
  tree_addr_expr
+ tree_any_type
+ tree_any_type_of_chain
+ tree_any_type_of_context
+ tree_any_type_of_pointer_to
+ tree_any_type_of_size_mode
+ tree_any_type_of_variant
  tree_array_ref
  tree_array_ref_full
  tree_array_type
