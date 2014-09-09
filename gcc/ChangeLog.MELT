@@ -1,6 +1,10 @@
 
 2014-09-09  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/libmelt-ana-tree.melt (tree_obj_type_ref): New.
+
+2014-09-09  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/libmelt-ana-tree.melt (tree_array_range_ref_full)
 	(tree_realpart_expr, tree_imagpart_expr, tree_view_convert_expr)
 	(tree_bit_field_ref): New.

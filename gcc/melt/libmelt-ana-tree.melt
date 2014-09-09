@@ -1744,12 +1744,33 @@ treerr
        $reference = TREE_OPERAND ($tr, 0);
   }#)
 
+
+;;;;;;;;;;;;;;;;
+(defcmatcher tree_obj_type_ref
+  (:tree tr)
+  (:tree trefexp trefobj ttoken)
+  trobjtyref
+  :doc #{$TREE_OBJ_TYPE_REF match an @code{OBJ_TYPE_REF} tree $TR for
+  vtable lookup. $TREFEXPR is the tree of the expression value,
+  $TREFOBJ is the object on whose behalf the lookup is performed,
+  $TTOKEN is a tree integerer token, index into the vtable.}#
+  ;; test
+  #{ /* tree_obj_type_ref $TROBJTYREF ? */ (($TR) && TREE_CODE($TR) == OBJ_TYPE_REF) }#
+  ;; fill
+  #{ /* tree_obj_type_ref $TROBJTYREF ! */
+  $TREFEXP = OBJ_TYPE_REF_EXPR ($TR);
+  $TREFOBJ = OBJ_TYPE_REF_OBJECT ($TR);
+  $TTOKEN = OBJ_TYPE_REF_TOKEN ($TR);
+  }#)
+  
+
+;;;;;;;;;;;;;;;;
 (defcmatcher tree_addr_expr
   (:tree tr)
   (:tree type
    :tree expr)
   treeae
-  :doc #{$TREE_ADDR_EXPR match an ADDR_EXPR tree $TR extracting the $TYPE and $EXPR subtrees}#
+  :doc #{$TREE_ADDR_EXPR match an @code{ADDR_EXPR} tree $TR extracting the $TYPE and $EXPR subtrees}#
 
   #{ /*  tree_addr_expr $TREEAE ?*/
        (($tr) && TREE_CODE ($tr) == ADDR_EXPR)
@@ -2871,6 +2892,7 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_namespace_decl
  tree_null_pointer_node 
  tree_nullptr_type
+ tree_obj_type_ref
  tree_of_type
  tree_offset_type
  tree_parm_decl
