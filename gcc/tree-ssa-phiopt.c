@@ -74,6 +74,8 @@ static bool abs_replacement (basic_block, basic_block,
 			     edge, edge, gimple, tree, tree);
 static bool neg_replacement (basic_block, basic_block,
 			     edge, edge, gimple, tree, tree);
+static bool mul_identity_replacement (basic_block,
+			     edge, edge, gimple, tree, tree);
 static bool cond_store_replacement (basic_block, basic_block, edge, edge,
 				    hash_set<tree> *);
 static bool simple_cond_move_replacement (basic_block, basic_block,
@@ -361,6 +363,8 @@ tree_ssa_phiopt_worker (bool late, bool do_store_elim, bool do_hoist_loads)
 	  if (conditional_replacement (bb, bb1, e1, e2, phi, arg0, arg1))
 	    cfgchanged = true;
 	  else if (abs_replacement (bb, bb1, e1, e2, phi, arg0, arg1))
+	    cfgchanged = true;
+	  else if (mul_identity_replacement (bb2, e1, e2, phi, arg0, arg1))
 	    cfgchanged = true;
 	  else if (replace_conditional_negation
 		   && neg_replacement (bb, bb1, e1, e2, phi, arg0, arg1))
@@ -1363,6 +1367,144 @@ minmax_replacement (basic_block cond_bb, basic_block middle_bb,
   gsi_insert_before (&gsi, new_stmt, GSI_NEW_STMT);
 
   replace_phi_edge_with_variable (cond_bb, e1, phi, result);
+  return true;
+}
+
+/*  This function does multiply identities replacement.
+    Return true if the replacement is done.  Otherwise return
+    false.
+    arg0 is argument 0 from the phi.  Likewise for arg1.  */
+
+static bool
+mul_identity_replacement ( basic_block phi_block, edge e0, edge e1,
+		 gimple phi, tree arg0, tree arg1)
+{
+  gimple new_phi, use_stmt, new_assign;
+  tree rhs1, rhs2, lhs, res, new_arg, new_res;
+  use_operand_p use_op;
+  gimple_stmt_iterator gsi;
+  source_location locus;
+  gimple_seq phis;
+  edge e;
+
+  /* If the type says honor signed zeros we cannot do this
+     optimization.  */
+  if (HONOR_SIGNED_ZEROS (TYPE_MODE (TREE_TYPE (arg1))))
+     return false;
+
+  /* If phi arguments are not 1 and -1 then return. */
+  if (!((integer_onep (arg0) && integer_all_onesp (arg1))
+  || (integer_all_onesp (arg0) && integer_onep (arg1))))
+     return false;
+
+  /* Result of phi operation*/
+  res = gimple_phi_result (phi);
+
+  /*If the result has more than one use then exit. */
+  if (! has_single_use(res))
+     return false;
+
+  /* Get the use of the phi result.*/
+  single_imm_use(res, &use_op, &use_stmt);
+
+  /*If the usage of phi result is not a mult expression then exit.*/
+  if (gimple_code (use_stmt) != GIMPLE_ASSIGN)
+    return false;
+
+  if (gimple_assign_rhs_code (use_stmt) != MULT_EXPR)
+    return false;
+ 
+  /* Get the operators from mult expression.*/
+  rhs1 = gimple_assign_rhs1 (use_stmt);
+  rhs2 = gimple_assign_rhs2 (use_stmt);
+  lhs = gimple_assign_lhs (use_stmt);
+  locus = gimple_location (use_stmt);
+
+  /*Identify the operand which is multiplied with 1 and -1 
+    and take the other operand as new operand. */
+  if(rhs1 == res)
+   {
+     new_arg = rhs2;
+   }
+  else if (rhs2 == res)
+   {
+     new_arg = rhs1;
+   }
+
+   /*If def of the mul operand is within this block then
+    we cannot manipulate that in phi node as it is not yet defined.*/
+   if (gimple_bb(SSA_NAME_DEF_STMT(new_arg)) == phi_block)
+     return false;
+
+   /* Create a new phi node and set the result as def for this stmt. */
+   new_res  = make_ssa_name (TREE_TYPE (lhs), NULL);
+   new_phi = create_phi_node (new_res,phi_block);
+   SSA_NAME_DEF_STMT (new_res) = new_phi;
+     
+   /* Replace  multiply stmt with assignment statment. */
+   new_assign = gimple_build_assign_stat(lhs, new_res);
+   gsi = gsi_for_stmt (use_stmt);
+   gsi_replace(&gsi,new_assign,true);
+
+   /* Identify the edge where tmp = -b stmt to be inserted.*/
+   if(integer_onep (arg0))
+    {
+       e = e1;
+    }
+   else
+    {
+       e = e0;
+    } 
+  
+    /* Add an assignment statment in the block which gives us -1.
+       assignment should look like tmp = -b, 
+       here b is the multiplication operand. */
+
+    /* Insert assignment stmt in the block with edge e. */
+     {
+        gimple jumps, assign;
+        tree negb;
+        basic_block src_blk = e->src;
+        jumps = last_stmt(src_blk);
+        
+        /*Create tmp var.*/
+        negb  = make_ssa_name (TREE_TYPE (new_arg), NULL);
+
+        /*Generate neg stmt.*/
+        assign = gimple_build_assign_with_ops (NEGATE_EXPR, negb, new_arg, NULL);
+        
+        /*If there is no instruction in the pred block then use insert_on_edge
+          else insert before last instruction.*/
+        if (jumps != NULL)
+        { 
+          gimple_stmt_iterator gsi = gsi_for_stmt (jumps);
+          gsi_insert_before (&gsi, assign, GSI_SAME_STMT); 
+        }
+        else
+        { 
+          gsi_insert_on_edge_immediate(e,assign);
+        }
+
+        /*Add arguments to new phi node*/
+        if(integer_onep (arg0))
+        { 
+          /*Add new_arg which is the actual operand 
+           which will be multiplied with 1 and -1. */
+           add_phi_arg (new_phi, new_arg, e0, locus); 
+           add_phi_arg (new_phi, negb, e1, locus); 
+        }
+        else
+        {
+           add_phi_arg (new_phi, negb, e0, locus); 
+           add_phi_arg (new_phi, new_arg, e1, locus); 
+        } 
+     }
+
+    /* Remove old phi node with 1 and -1. */ 
+    gsi = gsi_for_stmt (phi);
+    remove_phi_node (&gsi,true ); 
+
+  /* Note that we optimized this PHI.  */
   return true;
 }
 
@@ -2505,6 +2647,38 @@ gate_hoist_loads (void)
        x' = ABS_EXPR< a >;
      bb2:
        x = PHI <x' (bb0), ...>;
+   
+   Multiply with identities replacement
+   ------------------------------------
+
+   This transformation, implemented in mul_identity_replacement replaces
+
+   bb0:
+      if (cond) goto bb1; else goto bb2;
+   bb1:
+      goto bb4;
+   bb2: 
+      goto bb5;
+
+  bb4:
+  bb5:
+      tmp= PHI <1 (bb4), -1(bb5)>;
+      x = b * tmp;
+
+ with
+
+   bb0:
+      if (cond) goto bb1; else goto bb2;
+   bb1:
+      goto bb4;
+   bb2: 
+      goto bb5;
+
+  bb4:
+  bb5:
+      tmp= PHI <b (bb4), -b(bb5)>;
+      x = tmp;
+   
 
    MIN/MAX Replacement
    -------------------
