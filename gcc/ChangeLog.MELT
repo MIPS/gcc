@@ -1,6 +1,14 @@
 
 2014-09-09  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/libmelt-ana-tree.melt (tree_lang_type): New
+	(tree_any_type_of_size_mode): Change signature so rename as
+	(tree_any_type_of_size): Renaming of above.
+	(tree_vector_type): New.
+	(tree_fixed_cst, tree_complex_cst, tree_vector_cst): New.
+
+2014-09-09  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/libmelt-ana-tree.melt (tree_block): Change signature.
 	(tree_any_type, tree_any_type_of_chain, tree_any_type_of_context)
 	(tree_any_type_of_pointer_to, tree_any_type_of_size_mode)

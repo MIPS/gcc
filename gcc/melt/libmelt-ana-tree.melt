@@ -391,7 +391,7 @@ treerr
   (:tree tr)
   (:tree trtyp)
   tmethoty
-  :doc #{$TREE_FUNCTION_TYPE match a method type tree $TR extracting the result type tree $TRTYP}#
+  :doc #{$TREE_METHOD_TYPE match a method type tree $TR extracting the result type tree $TRTYP}#
   ;; test expansion
   #{ /*  tree_method_type $TMETHOTY ? */ (($tr) && TREE_CODE($tr) == METHOD_TYPE) }#
   ;; fill expansion
@@ -399,6 +399,15 @@ treerr
       $TRTYP = TREE_TYPE($tr);
   }#)
 
+;; pattern (tree_lang_type)
+(defcmatcher tree_lang_type
+  (:tree tr)
+  ()
+  tlangty
+  :doc #{$TREE_LANG_TYPE match a language specific type.}#
+  #{ /* tree_lang_type $TLANGTY ? */ (($TR) && TREE_CODE($TR) == LANG_TYPE) }#
+  )
+  
 ;;;;;;;;;;;;;;;;
 (defcmatcher tree_of_type 
   (:tree tr)
@@ -933,21 +942,20 @@ treerr
   tranytyp
   :doc #{$TREE_ANY_TYPE matches any type tree.}#
   ;;test
-  #{ /* tree_any_type $TRANYTYPE ? */ (($TR) && TYPE_P($TR)) }#
-  }#)
+  #{ /* tree_any_type $TRANYTYP ? */ (($TR) && TYPE_P($TR)) }#
+  )
 
 ;;;;;;;;;;;;;;;;
-(defcmatcher tree_any_type_of_size_mode
+(defcmatcher tree_any_type_of_size
   (:tree tr)
-  (:tree trsize trmode)
+  (:tree trsize)
   trsizmod
-  :doc #{$TREE_ANY_TYPE_OF_SIZE_MODE matches any type tree and extracts its size and mode.}#
+  :doc #{$TREE_ANY_TYPE_OF_SIZE matches any type tree and extracts its size.}#
   ;;test
-  #{ /* tree_any_type_of_size_mode $TRSIZMOD ? */ (($TR) && TYPE_P($TR)) }#
+  #{ /* tree_any_type_of_size $TRSIZMOD ? */ (($TR) && TYPE_P($TR)) }#
   ;;fill
-  #{ /* tree_any_type_of_size_mode $TRSIZMOD ! */
+  #{ /* tree_any_type_of_size $TRSIZMOD ! */
   $TRSIZE = TYPE_SIZE($TR);
-  $TRMODE = TYPE_MODE($TR);
   }#)
 ;;;;;;;;;;;;;;;;
 
@@ -990,7 +998,7 @@ treerr
   #{ /* tree_any_type_of_chain $TRTYPCHAIN ? */ (($TR) && TYPE_P($TR)) }#
   ;;fill
   #{ /* tree_any_type_of_chain $TRTYPCHAIN ! */
-  $TCHAIN = TREE_CHAIN;
+  $TCHAIN = TREE_CHAIN($TR);
   }#)
   
 (defcmatcher tree_any_type_of_context
@@ -1002,7 +1010,7 @@ treerr
   ;;test
   #{ /* tree_any_type_of_context $TRTYPCONTEXT ? */ (($TR) && TYPE_P($TR)) }#
   ;;fill
-  #{ /* tree_any_type_of_variant $TRTYPCONTEXT ! */
+  #{ /* tree_any_type_of_context $TRTYPCONTEXT ! */
   $TCTX = TYPE_CONTEXT($TR);
   }#)
   
@@ -1208,6 +1216,27 @@ treerr
   }#
 )
 
+
+;;;;;;;;;;;;;;;;
+(defcmatcher tree_vector_type
+  (:tree tr)
+  (:tree trtyp :long lprec)
+  treevectyp
+  :doc #{ $TREE_VECTOR_TYPE match a vector type, extracting in $TRTYP
+  the data type of vector elements and in $LPREC the precision,
+  i.e. number of subparts}#
+  ;; test
+  #{ /* tree_vector_type $TREEVECTYP ? */ (($TR)
+					   && TREE_CODE($TR)==VECTOR_TYPE)
+  }#
+  ;; fill
+  #{ /* tree_vector_type $TREEVECTYP ! */
+  $TRTYP = TREE_TYPE($TR);
+  $LPREC = TYPE_PRECISION($TR);
+  }#
+  )
+
+;;;;;;;;;;;;;;;;
 ;;; pattern tree_integer_cst
 (defcmatcher tree_integer_cst
   (:tree tr)
@@ -1249,6 +1278,47 @@ treerr
                        TREE_REAL_CST(($tr))); }#
 )
 
+;;;;;;;
+(defcmatcher tree_fixed_cst
+  (:tree tr)
+  ()
+  treefixk
+  :doc #{ $TREE_FIXED_CST match a fixed constant.}#
+  ;; test expander
+  #{ /* tree_fixed_cst $TREEFIXK ? */ (($TR) && TREE_CODE($TR) == FIXED_CST) }#
+  ;; fill
+  #{ /* tree_fixed_cst $TREEFIXK ! */ 
+  }#)
+
+
+;;;;;;;
+(defcmatcher tree_complex_cst
+  (:tree tr)
+  (:tree trreal trimag)
+  treecplxk
+  :doc #{ $TREE_COMPELX_CST match a complex constant extracting real part in $TRREAL and imaginary part in $TRIMAG.}#
+  ;; test expander
+  #{ /* tree_complex_cst $TREECPLXK ? */ (($TR) && TREE_CODE($TR) == COMPLEX_CST) }#
+  ;; fill
+  #{ /* tree_complex_cst $TREECPLXK ! */
+  $TRREAL = TREE_REALPART($TR);
+  $TRIMAG = TREE_IMAGPART($TR);
+  }#)
+
+;;;;;;
+(defcmatcher tree_vector_cst
+  (:tree tr)
+  (:long lcnt)
+  treeveck
+  :doc #{ $TREE_VECTOR_CST match a vector constant extractings its count in $LCNT }#
+  ;; test
+  #{ /* tree_vector_cst $TREEVECK ? */ (($TR) && TREE_CODE($TR) == VECTOR_CST) }#
+  ;; fill
+  #{  /* tree_vector_cst $TREEVECK ! */ $LCNT = VECTOR_CST_NELTS($TR);
+  }#
+  )
+
+;;;;;;;
 (defcmatcher tree_string_cst
   (:tree tr)
   (:value v)
@@ -1264,7 +1334,7 @@ treerr
 				       TREE_STRING_POINTER ($tr),
 				       TREE_STRING_LENGTH ($tr));
   }#)
-       
+
 ;;; pattern for  types
 (defcmatcher tree_type_p
   (:tree tr)
@@ -2385,7 +2455,7 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_any_type_of_chain
  tree_any_type_of_context
  tree_any_type_of_pointer_to
- tree_any_type_of_size_mode
+ tree_any_type_of_size
  tree_any_type_of_variant
  tree_array_ref
  tree_array_ref_full
@@ -2400,6 +2470,7 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_chain_prepend
  tree_chain_to_tuple
  tree_char_type_node 
+ tree_complex_cst
  tree_complex_type
  tree_component_ref
  tree_component_ref_full
@@ -2417,6 +2488,7 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_error_mark
  tree_expr_at_source_location
  tree_field_decl
+ tree_fixed_cst
  tree_fixed_point_type
  tree_float_type_node 
  tree_function_decl 
@@ -2437,6 +2509,7 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_integer_type_node 
  tree_integer_zero_node 
  tree_label_decl
+ tree_lang_type
  tree_list
  tree_long_double_type_node 
  tree_long_integer_type_node 
@@ -2495,6 +2568,8 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_var_decl_named
  tree_var_decl_of_name
  tree_vec
+ tree_vector_cst
+ tree_vector_type
  tree_void_type
  tree_void_type_node 
  warning_at_tree
