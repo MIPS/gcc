@@ -1143,7 +1143,8 @@ gfc_omp_namelist;
 
 enum
 {
-  OMP_LIST_PRIVATE,
+  OMP_LIST_FIRST,
+  OMP_LIST_PRIVATE = OMP_LIST_FIRST,
   OMP_LIST_FIRSTPRIVATE,
   OMP_LIST_LASTPRIVATE,
   OMP_LIST_COPYPRIVATE,
@@ -1166,7 +1167,8 @@ enum
   OMP_LIST_HOST,
   OMP_LIST_DEVICE,
   OMP_LIST_CACHE,
-  OMP_LIST_NUM
+  OMP_LIST_NUM,
+  OMP_LIST_LAST = OMP_LIST_NUM
 };
 
 /* Because a symbol can belong to multiple namelists, they must be

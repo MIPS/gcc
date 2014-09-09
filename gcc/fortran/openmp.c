@@ -2708,6 +2708,29 @@ resolve_omp_udr_clause (gfc_omp_namelist *n, gfc_namespace *ns,
   return copy;
 }
 
+/* Returns true if clause in list 'list' is compatible with any of
+   of the clauses in lists [0..list-1].  E.g., a reduction variable may
+   appear in both reduction and private clauses, so this function
+   will return true in this case.  */
+
+static bool
+oacc_compatible_clauses (gfc_omp_clauses *clauses, int list,
+			   gfc_symbol *sym, bool openacc)
+{
+  gfc_omp_namelist *n;
+
+  if (!openacc)
+    return false;
+
+  if (list != OMP_LIST_REDUCTION)
+    return false;
+
+  for (n = clauses->lists[OMP_LIST_FIRST]; n; n = n->next)
+    if (n->sym == sym)
+      return true;
+
+  return false;
+}
 
 /* OpenMP directive resolving routines.  */
 
@@ -2821,7 +2844,8 @@ resolve_omp_clauses (gfc_code *code, locus *where,
 	&& list != OMP_LIST_TO)
       for (n = omp_clauses->lists[list]; n; n = n->next)
 	{
-	  if (n->sym->mark)
+	  if (n->sym->mark && !oacc_compatible_clauses (omp_clauses, list,
+							n->sym, openacc))
 	    gfc_error ("Symbol '%s' present on multiple clauses at %L",
 		       n->sym->name, where);
 	  else
@@ -3782,6 +3806,7 @@ struct omp_context
   struct pointer_set_t *sharing_clauses;
   struct pointer_set_t *private_iterators;
   struct omp_context *previous;
+  bool is_openmp;
 } *omp_current_ctx;
 static gfc_code *omp_current_do_code;
 static int omp_current_do_collapse;
@@ -3826,6 +3851,7 @@ gfc_resolve_omp_parallel_blocks (gfc_code *code, gfc_namespace *ns)
   ctx.sharing_clauses = pointer_set_create ();
   ctx.private_iterators = pointer_set_create ();
   ctx.previous = omp_current_ctx;
+  ctx.is_openmp = true;
   omp_current_ctx = &ctx;
 
   for (list = 0; list < OMP_LIST_NUM; list++)
@@ -3920,7 +3946,12 @@ gfc_resolve_do_iterator (gfc_code *code, gfc_symbol *sym)
   if (omp_current_ctx == NULL)
     return;
 
-  if (pointer_set_contains (omp_current_ctx->sharing_clauses, sym))
+  /* An openacc context may represent a data clause.  Abort if so.  */
+  if (!omp_current_ctx->is_openmp && !oacc_is_loop (omp_current_ctx->code))
+    return;
+
+  if (omp_current_ctx->is_openmp
+      && pointer_set_contains (omp_current_ctx->sharing_clauses, sym))
     return;
 
   if (! pointer_set_insert (omp_current_ctx->private_iterators, sym))
@@ -4101,9 +4132,6 @@ resolve_omp_do (gfc_code *code)
     }
 }
 
-typedef struct omp_context oacc_context;
-oacc_context *oacc_current_ctx;
-
 static bool
 oacc_is_parallel (gfc_code *code)
 {
@@ -4175,7 +4203,7 @@ switch (code->op)
 static void
 resolve_oacc_directive_inside_omp_region (gfc_code *code)
 {
-  if (omp_current_ctx != NULL)
+  if (omp_current_ctx != NULL && omp_current_ctx->is_openmp)
     {
       gfc_statement st = omp_code_to_statement (omp_current_ctx->code);
       gfc_statement oacc_st = oacc_code_to_statement (code);
@@ -4188,9 +4216,9 @@ resolve_oacc_directive_inside_omp_region (gfc_code *code)
 static void
 resolve_omp_directive_inside_oacc_region (gfc_code *code)
 {
-  if (oacc_current_ctx != NULL)
+  if (omp_current_ctx != NULL && !omp_current_ctx->is_openmp)
     {
-      gfc_statement st = oacc_code_to_statement (oacc_current_ctx->code);
+      gfc_statement st = oacc_code_to_statement (omp_current_ctx->code);
       gfc_statement omp_st = omp_code_to_statement (code);
       gfc_error ("The %s directive cannot be specified within "
 		 "a %s region at %L", gfc_ascii_statement (omp_st), 
@@ -4277,12 +4305,12 @@ resolve_oacc_nested_loops (gfc_code *code, gfc_code* do_code, int collapse,
 static void
 resolve_oacc_params_in_parallel (gfc_code *code, const char *clause)
 {
-  oacc_context *c;
+  omp_context *c;
 
   if (oacc_is_parallel (code))
     gfc_error ("!$ACC LOOP %s in PARALLEL region doesn't allow "
 	       "non-static arguments at %L", clause, &code->loc);
-  for (c = oacc_current_ctx; c; c = c->previous)
+  for (c = omp_current_ctx; c; c = c->previous)
     {
       if (oacc_is_loop (c->code))
 	break;
@@ -4296,13 +4324,13 @@ resolve_oacc_params_in_parallel (gfc_code *code, const char *clause)
 static void
 resolve_oacc_loop_blocks (gfc_code *code)
 {
-  oacc_context *c;
+  omp_context *c;
 
   if (!oacc_is_loop (code))
     return;
 
   if (code->op == EXEC_OACC_LOOP)
-    for (c = oacc_current_ctx; c; c = c->previous)
+    for (c = omp_current_ctx; c; c = c->previous)
       {
 	if (oacc_is_loop (c->code))
 	  {
@@ -4414,17 +4442,21 @@ resolve_oacc_loop_blocks (gfc_code *code)
 void
 gfc_resolve_oacc_blocks (gfc_code *code, gfc_namespace *ns)
 {
-  oacc_context ctx;
+  omp_context ctx;
 
   resolve_oacc_loop_blocks (code);
 
   ctx.code = code;
-  ctx.previous = oacc_current_ctx;
-  oacc_current_ctx = &ctx;
+  ctx.sharing_clauses = NULL;
+  ctx.private_iterators = pointer_set_create ();
+  ctx.previous = omp_current_ctx;
+  ctx.is_openmp = false;
+  omp_current_ctx = &ctx;
 
   gfc_resolve_blocks (code->block, ns);
 
-  oacc_current_ctx = ctx.previous;
+  pointer_set_destroy (ctx.private_iterators);
+  omp_current_ctx = ctx.previous;
 }
 
 

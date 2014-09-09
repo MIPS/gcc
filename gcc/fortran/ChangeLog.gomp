@@ -1,3 +1,22 @@
+2014-09-08  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gfortran.h (enum OMP_LIST_FIRST, OMP_LIST_LAST): New
+	OMP enums.
+	* openmp.c (oacc_compatible_clauses): New function.
+	(resolve_omp_clauses): Use it.
+	(struct omp_context): Add is_openmp member.
+	(gfc_resolve_omp_parallel_blocks): Set is_openmp true.
+	(gfc_resolve_do_iterator): Scan for compatible clauses.
+	(typedef oacc_context): Remove.
+	(oacc_current_ctx): Remove. Use omp_current_ctx for both
+	OpenACC and OpenMP.
+	(resolve_oacc_directive_inside_omp_region): Replace
+	oacc_current_ctx with omp_current_ctx.
+	(resolve_omp_directive_inside_oacc_region): Likewise.
+	(resolve_oacc_nested_loops): Likewise.
+	(resolve_oacc_params_in_parallel): Likewise.
+	(resolve_oacc_loop_blocks): Likewise. Set is_openmp to false.
+
 2014-07-28  Cesar Philippidis  <cesar@codesourcery.com>
 	    Thomas Schwinge  <thomas@codesourcery.com>
 	    Ilmir Usmanov  <i.usmanov@samsung.com>
