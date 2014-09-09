@@ -1,3 +1,49 @@
+2014-09-09  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (builtins.h): New #include.
+	(context.h): Likewise.
+	(tree-pass.h): Likewise.
+	(real.h): Likewise.
+	(make_pass_analyze_swaps): New forward declaration.
+	(rs6000_option_override): Register the analyze_swaps pass.
+	(swap_web_entry): New class.
+	(special_handling_values): New enum.
+	(union_defs): New function.
+	(union_uses): Likewise.
+	(insn_is_load_p): Likewise.
+	(insn_is_store_p): Likewise.
+	(insn_is_swap_p): Likewise.
+	(rtx_is_swappable_p): Likewise.
+	(insn_is_swappable_p): Likewise.
+	(chain_purpose): New enum.
+	(chain_contains_only_swaps): New function.
+	(mark_swaps_for_removal): Likewise.
+	(swap_const_vector_halves): Likewise.
+	(adjust_subreg_index): Likewise.
+	(permute_load): Likewise.
+	(permute_store): Likewise.
+	(adjust_extract): Likewise.
+	(adjust_splat): Likewise.
+	(handle_special_swappables): Likewise.
+	(replace_swap_with_copy): Likewise.
+	(dump_swap_insn_table): Likewise.
+	(rs6000_analyze_swaps): Likewise.
+	(pass_data_analyze_swaps): New pass_data.
+	(pass_analyze_swaps): New class.
+	(make_pass_analyze_swaps): New function.
+	* config/rs6000/rs6000.opt (moptimize-swaps): New option.
+	* config/rs6000/vsx.md (*vsx_extract_<mode>_load): Correct the
+	selected load offset.
+	* df.h (web_entry_base): Convert struct web_entry to a class.
+	* web.c (unionfind_root): Convert to use class web_entry_base.
+	(unionfind_union): Likewise.
+	(web_entry): New class.
+	(union_match_dups): Convert to use web_entry and web_entry_base.
+	(union_defs): Likewise.
+	(entry_register): Likewise.
+	(gate_handle_web): Likewise.
+	(web_main): Likewise.
+
 2014-08-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 214340.
