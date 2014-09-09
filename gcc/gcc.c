@@ -577,13 +577,19 @@ proper position among the other output files.  */
 #ifndef LIBLSAN_SPEC
 #define STATIC_LIBLSAN_LIBS \
   " %{static-liblsan:%:include(libsanitizer.spec)%(link_liblsan)}"
-#ifdef HAVE_LD_STATIC_DYNAMIC
-#define LIBLSAN_SPEC "%{!shared:%{static-liblsan:" LD_STATIC_OPTION \
+#ifdef LIBLSAN_EARLY_SPEC
+#define LIBLSAN_SPEC STATIC_LIBLSAN_LIBS
+#elif defined(HAVE_LD_STATIC_DYNAMIC)
+#define LIBLSAN_SPEC "%{static-liblsan:" LD_STATIC_OPTION \
 		     "} -llsan %{static-liblsan:" LD_DYNAMIC_OPTION "}" \
-		     STATIC_LIBLSAN_LIBS "}"
+		     STATIC_LIBLSAN_LIBS
 #else
-#define LIBLSAN_SPEC "%{!shared:-llsan" STATIC_LIBLSAN_LIBS "}"
+#define LIBLSAN_SPEC "-llsan" STATIC_LIBLSAN_LIBS
 #endif
+#endif
+
+#ifndef LIBLSAN_EARLY_SPEC
+#define LIBLSAN_EARLY_SPEC ""
 #endif
 
 #ifndef LIBUBSAN_SPEC
@@ -773,15 +779,15 @@ proper position among the other output files.  */
 #ifndef SANITIZER_EARLY_SPEC
 #define SANITIZER_EARLY_SPEC "\
 %{!nostdlib:%{!nodefaultlibs:%{%:sanitize(address):" LIBASAN_EARLY_SPEC "} \
-    %{%:sanitize(thread):" LIBTSAN_EARLY_SPEC "}}}"
+    %{%:sanitize(thread):" LIBTSAN_EARLY_SPEC "} \
+    %{%:sanitize(leak):" LIBLSAN_EARLY_SPEC "}}}"
 #endif
 
 /* Linker command line options for -fsanitize= late on the command line.  */
 #ifndef SANITIZER_SPEC
 #define SANITIZER_SPEC "\
 %{!nostdlib:%{!nodefaultlibs:%{%:sanitize(address):" LIBASAN_SPEC "\
-    %{static:%ecannot specify -static with -fsanitize=address}\
-    %{%:sanitize(thread):%e-fsanitize=address is incompatible with -fsanitize=thread}}\
+    %{static:%ecannot specify -static with -fsanitize=address}}\
     %{%:sanitize(thread):" LIBTSAN_SPEC "\
     %{!pie:%{!shared:%e-fsanitize=thread linking must be done with -pie or -shared}}}\
     %{%:sanitize(undefined):" LIBUBSAN_SPEC "}\
@@ -4900,7 +4906,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 		      {
 			saved_suffix
 			  = XNEWVEC (char, suffix_length
-				     + strlen (TARGET_OBJECT_SUFFIX));
+				     + strlen (TARGET_OBJECT_SUFFIX) + 1);
 			strncpy (saved_suffix, suffix, suffix_length);
 			strcpy (saved_suffix + suffix_length,
 				TARGET_OBJECT_SUFFIX);
@@ -8241,7 +8247,9 @@ sanitize_spec_function (int argc, const char **argv)
     return NULL;
 
   if (strcmp (argv[0], "address") == 0)
-    return (flag_sanitize & SANITIZE_ADDRESS) ? "" : NULL;
+    return (flag_sanitize & SANITIZE_USER_ADDRESS) ? "" : NULL;
+  if (strcmp (argv[0], "kernel-address") == 0)
+    return (flag_sanitize & SANITIZE_KERNEL_ADDRESS) ? "" : NULL;
   if (strcmp (argv[0], "thread") == 0)
     return (flag_sanitize & SANITIZE_THREAD) ? "" : NULL;
   if (strcmp (argv[0], "undefined") == 0)

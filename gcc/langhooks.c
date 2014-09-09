@@ -320,7 +320,7 @@ write_global_declarations (void)
   timevar_start (TV_PHASE_OPT_GEN);
   /* This lang hook is dual-purposed, and also finalizes the
      compilation unit.  */
-  finalize_compilation_unit ();
+  symtab->finalize_compilation_unit ();
   timevar_stop (TV_PHASE_OPT_GEN);
 
   timevar_start (TV_PHASE_DBGINFO);
@@ -661,14 +661,13 @@ lhd_begin_section (const char *name)
 
 
 /* Write DATA of length LEN to the current LTO output section.  This default
-   implementation just calls assemble_string and frees BLOCK.  */
+   implementation just calls assemble_string.  */
 
 void
-lhd_append_data (const void *data, size_t len, void *block)
+lhd_append_data (const void *data, size_t len, void *)
 {
   if (data)
     assemble_string ((const char *)data, len);
-  free (block);
 }
 
 

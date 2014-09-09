@@ -1,3 +1,64 @@
+2014-08-31  Tobias Burnus  <burnus@net-b.de>
+
+	* caf/libcaf.h (_gfortran_caf_send, _gfortran_caf_get,
+	_gfortran_caf_sendget): Update prototype.
+	* caf/single.c (_gfortran_caf_send, _gfortran_caf_get,
+	_gfortran_caf_sendget): Handle may_require_tmp.
+
+2014-08-20  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR libgfortran/62188
+	* m4/bessel.m4: Avoid indexing off the end of an array.
+	* generated/bessel_r10.c: Regenerated.
+	* generated/bessel_r16.c: Ditto.
+	* generated/bessel_r4.c: Ditto.
+	* generated/bessel_r8.c: Ditto.
+
+2014-08-14  Tobias Burnus  <burnus@net-b.de>
+
+	* caf/libcaf.h (caf_register_t): Update for critical.
+	(_gfortran_caf_critical, _gfortran_caf_end_critical): Remove.
+	(_gfortran_caf_lock, _gfortran_caf_unlock): Add.
+	* caf/single.c (_gfortran_caf_register): Handle locking
+	variables.
+	(_gfortran_caf_sendget): Re-name args for consistency.
+	(_gfortran_caf_lock, _gfortran_caf_unlock): Add.
+
+2014-08-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* runtime/memory.c (xmallocarray): Avoid division for the common case.
+
+2014-07-20  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/61632
+	* io/format.c (format_error): Avoid invalid string pointer by
+	using the fortran string length values to generate error string.
+	(parse_format): Allocate the null terminator for the format
+	string.
+
+2014-07-12  Tobias Burnus  <burnus@net-b.de>
+
+	* caf/libcaf.h (_gfortran_caf_atomic_define,
+	_gfortran_caf_atomic_ref, _gfortran_caf_atomic_op,
+	_gfortran_caf_atomic_cas): New prototypes.
+	* caf/single.c (_gfortran_caf_atomic_define,
+	_gfortran_caf_atomic_ref, _gfortran_caf_atomic_op,
+	_gfortran_caf_atomic_cas): New functions.
+
+2014-07-10  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* config/fpu-*.h (get_fpu_rounding_mode, set_fpu_rounding_mode,
+	support_fpu_rounding_mode): Clean up, mark unreachable code as such.
+
+2014-07-09  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* libgfortran.h (support_fpu_underflow_control,
+	get_fpu_underflow_mode, set_fpu_underflow_mode): New prototypes.
+	* config/fpu-*.h (support_fpu_underflow_control,
+	get_fpu_underflow_mode, set_fpu_underflow_mode):
+	New functions.
+	* ieee/ieee_arithmetic.F90: Support underflow control.
+
 2014-07-08  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
 
 	* config/fpu-sysv.h (get_fpu_rounding_mode): Use FP_RN, FP_RP,

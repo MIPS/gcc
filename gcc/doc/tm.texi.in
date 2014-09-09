@@ -3683,16 +3683,6 @@ If you enable it, GCC can save registers around function calls.  This
 makes it possible to use call-clobbered registers to hold variables that
 must live across calls.
 
-@defmac CALLER_SAVE_PROFITABLE (@var{refs}, @var{calls})
-A C expression to determine whether it is worthwhile to consider placing
-a pseudo-register in a call-clobbered hard register and saving and
-restoring it around each function call.  The expression should be 1 when
-this is worth doing, and 0 otherwise.
-
-If you don't define this macro, a default is used which is good on most
-machines: @code{4 * @var{calls} < @var{refs}}.
-@end defmac
-
 @defmac HARD_REGNO_CALLER_SAVE_MODE (@var{regno}, @var{nregs})
 A C expression specifying which mode is required for saving @var{nregs}
 of a pseudo-register in call-clobbered hard register @var{regno}.  If
@@ -6603,6 +6593,8 @@ the target supports DWARF 2 frame unwind information.
 @hook TARGET_TERMINATE_DW2_EH_FRAME_INFO
 
 @hook TARGET_DWARF_REGISTER_SPAN
+
+@hook TARGET_DWARF_FRAME_REG_MODE
 
 @hook TARGET_INIT_DWARF_REG_SIZES_EXTRA
 

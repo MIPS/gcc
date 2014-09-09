@@ -53,4 +53,4 @@ program test
   !$acc end kernels
   
 end program test
-! { dg-prune-output "error: may not be nested" }
+! { dg-prune-output "Error: may not be nested" }

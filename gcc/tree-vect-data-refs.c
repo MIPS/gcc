@@ -1515,10 +1515,20 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
       || !slpeel_can_duplicate_loop_p (loop, single_exit (loop)))
     do_peeling = false;
 
-  if (do_peeling && all_misalignments_unknown
+  /* If we don't know how many times the peeling loop will run
+     assume it will run VF-1 times and disable peeling if the remaining
+     iters are less than the vectorization factor.  */
+  if (do_peeling
+      && all_misalignments_unknown
+      && LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
+      && (LOOP_VINFO_INT_NITERS (loop_vinfo)
+	  < 2 * (unsigned) LOOP_VINFO_VECT_FACTOR (loop_vinfo) - 1))
+    do_peeling = false;
+
+  if (do_peeling
+      && all_misalignments_unknown
       && vect_supportable_dr_alignment (dr0, false))
     {
-
       /* Check if the target requires to prefer stores over loads, i.e., if
          misaligned stores are more expensive than misaligned loads (taking
          drs with same alignment into account).  */
@@ -1605,6 +1615,14 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 						   &body_cost_vec);
       if (!dr0 || !npeel)
         do_peeling = false;
+
+      /* If peeling by npeel will result in a remaining loop not iterating
+         enough to be vectorized then do not peel.  */
+      if (do_peeling
+	  && LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
+	  && (LOOP_VINFO_INT_NITERS (loop_vinfo)
+	      < LOOP_VINFO_VECT_FACTOR (loop_vinfo) + npeel))
+	do_peeling = false;
     }
 
   if (do_peeling)
@@ -3221,7 +3239,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo,
 		      tree fndecl = gimple_call_fndecl (stmt), op;
 		      if (fndecl != NULL_TREE)
 			{
-			  struct cgraph_node *node = cgraph_get_node (fndecl);
+			  struct cgraph_node *node = cgraph_node::get (fndecl);
 			  if (node != NULL && node->simd_clones != NULL)
 			    {
 			      unsigned int j, n = gimple_call_num_args (stmt);
@@ -5690,10 +5708,10 @@ vect_can_force_dr_alignment_p (const_tree decl, unsigned int alignment)
 
       /* When compiling partition, be sure the symbol is not output by other
 	 partition.  */
-      snode = symtab_get_node (decl);
+      snode = symtab_node::get (decl);
       if (flag_ltrans
 	  && (snode->in_other_partition
-	      || symtab_get_symbol_partitioning_class (snode) == SYMBOL_DUPLICATE))
+	      || snode->get_partitioning_class () == SYMBOL_DUPLICATE))
 	return false;
     }
 
@@ -5707,13 +5725,13 @@ vect_can_force_dr_alignment_p (const_tree decl, unsigned int alignment)
      software projects.  */
   if (TREE_STATIC (decl) 
       && DECL_SECTION_NAME (decl) != NULL
-      && !symtab_get_node (decl)->implicit_section)
+      && !symtab_node::get (decl)->implicit_section)
     return false;
 
   /* If symbol is an alias, we need to check that target is OK.  */
   if (TREE_STATIC (decl))
     {
-      tree target = symtab_alias_ultimate_target (symtab_get_node (decl))->decl;
+      tree target = symtab_node::get (decl)->ultimate_alias_target ()->decl;
       if (target != decl)
 	{
 	  if (DECL_PRESERVE_P (target))
