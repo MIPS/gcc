@@ -1778,6 +1778,20 @@ treerr
   $NELTS = CONSTRUCTOR_NELTS($TR);
   }#)
 
+(defciterator foreach_element_in_tree_constructor
+  (:tree trcons)
+  eachelcon
+  (:tree tindex tvalue :long num)
+  #{ /* foreach_element_in_tree_constructor $EACHELCON start */
+  if ($TRCONS && TREE_CODE($TRCONS) == CONSTRUCTOR) {
+    FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS ($TRCONS), $NUM, $TINDEX, $TVALUE) {
+  }#
+  #{ /* foreach_element_in_tree_constructor $EACHELCON ending */
+  } // end FOR_EACH_CONSTRUCTOR_ELT 
+  } // end if $TRCONS
+  }#
+)
+
 ;;;;;;;;;;;;;;;;
 (defcmatcher tree_addr_expr
   (:tree tr)
@@ -2791,6 +2805,7 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  build_string_tree
  check_c_frontend
  foreach_argument_in_function_tree
+ foreach_element_in_tree_constructor
  foreach_maptree
  inform_at_tree
  inside_c_frontend

@@ -1,6 +1,11 @@
 
 2014-09-09  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/libmelt-ana-tree.melt
+	(foreach_element_in_tree_constructor): New citerator.
+
+2014-09-09  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/libmelt-ana-tree.melt (tree_constructor): New.
 
 2014-09-09  Basile Starynkevitch  <basile@starynkevitch.net>
