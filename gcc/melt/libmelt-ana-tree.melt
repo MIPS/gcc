@@ -796,6 +796,68 @@ treerr
     $TRSIZE = ($TREEARRAYREFFULL#_len >= 4) ? TREE_OPERAND ($TR, 3) : (NULL_TREE);
   }#)
 
+
+;;;;;;;;;;;;;;;;
+;; pattern tree_array_range_ref_full
+(defcmatcher  tree_array_range_ref_full
+  (:tree tr)				;input
+  (:tree trarr trindex trmin trsize)
+  treearrayrangefull			 ;statesym
+  :doc #{$TREE_ARRAY_RANGE_REF_FULL match a tree array reference extracting array $TRARR and index $TRINDEX minimum $TRMIN and size $TRSIZE, for @code{ARRAY_RANGE_REF}}#
+  ;; test
+  #{ /* tree_array_range_ref_full $TREEARRAYRANGEFULL ?*/ (($TR) && TREE_CODE($TR) == ARRAY_RANGE_REF) }#
+  ;; fill
+  #{ /* tree_array_range_ref_full $TREEARRAYRANGEFULL !*/ 
+    int $TREEARRAYRANGEFULL#_len = TREE_OPERAND_LENGTH($TR);
+    $TRARR = TREE_OPERAND ($TR, 0);
+    $TRINDEX = TREE_OPERAND ($TR, 1);
+    $TRMIN = ($TREEARRAYRANGEFULL#_len >= 3) ? TREE_OPERAND ($TR, 2) : (NULL_TREE);
+    $TRSIZE = ($TREEARRAYRANGEFULL#_len >= 4) ? TREE_OPERAND ($TR, 3) : (NULL_TREE);
+  }#)
+
+
+;;;;;;;;;;;;;;;;
+(defcmatcher tree_realpart_expr
+  (:tree tr)
+  (:tree tpart)
+  trealpartx
+  :doc #{$TREE_REALPART_EXPR match and extract the real part $TPART of
+  complex tree expression $TR for @code{REALPART_EXPR}.}#
+  ;; test
+  #{ /* tree_realpart_expr $TREALPARTX ? */ (($TR) && TREE_CODE($TR) == REALPART_EXPR) }#
+  ;; fill
+  #{ /* tree_realpart_expr $TREALPARTX ! */
+  $TPART = TREE_OPERAND ($TR, 0);
+  }#)
+  
+;;;;;;;;;;;;;;;;
+(defcmatcher tree_imagpart_expr
+  (:tree tr)
+  (:tree tpart)
+  timagpartx
+  :doc #{$TREE_IMAGPART_EXPR match and extract the imaginary part
+  $TPART of complex tree expression $TR for @code{IMAGPART_EXPR}.}#
+  ;; test
+  #{ /* tree_imagpart_expr $TIMAGPARTX ? */ (($TR) && TREE_CODE($TR) == IMAGPART_EXPR) }#
+  ;; fill
+  #{ /* tree_imagpart_expr $TIMAGPARTX ! */
+  $TPART = TREE_OPERAND ($TR, 0);
+  }#)
+  
+;;;;;;;;;;;;;;;;
+(defcmatcher tree_view_convert_expr
+  (:tree tr)
+  (:tree tview)
+  tviewconx
+  :doc #{$TREE_VIEW_CONVERT_EXPR match and extract the view conversion
+  of tree expression $TR for @code{VIEW_CONVERT_EXPR}.}#
+  ;; test
+  #{ /* tree_view_convert_expr $TVIEWCONX ? */ (($TR) && TREE_CODE($TR) == VIEW_CONVERT_EXPR) }#
+  ;; fill
+  #{ /* tree_view_convert_expr $TVIEWCONX ! */
+  $TVIEW = TREE_OPERAND ($TR, 0);
+  }#)
+  
 ;;;;;;;;;;;;;;;;
 ;; pattern tree_component_ref matches an component reference with component and index
 (defcmatcher tree_component_ref
@@ -844,6 +906,27 @@ treerr
        $TYPE = TREE_TYPE ($tr);
        $TRAGGR = TREE_OPERAND ($tr, 0);
        $TRFIELD = TREE_OPERAND ($tr, 1);
+  }#)
+
+
+(defcmatcher tree_bit_field_ref
+  (:tree tr)
+  (:tree ttyp taggr tnbits tpos)
+  trbitf
+  :doc #{$TREE_BIT_FIELD_REF match a bit field reference tree $TR
+  extracting the type in $TTYP, the aggregate -record or union-
+  expression in $TAGGR, the number of bits tree in $TNBITS, the bit
+  position tree in $TPOS.}#
+  ;; test
+  #{ /* tree_bit_field_ref $TRBITF ? */
+  (($TR) && TREE_CODE($TR) == BIT_FIELD_REF)
+  }#
+  ;; fill
+  #{ /* tree_bit_field_ref $TRBITF ! */
+  $TTYP = TREE_TYPE ($TR);
+  $TAGGR = TREE_OPERAND ($TR, 0);
+  $TNBITS = TREE_OPERAND ($TR, 1);
+  $TPOS = TREE_OPERAND ($TR, 2);
   }#)
 
 ;; pattern tree_mem_ref matches a memory reference with pointer and offset
@@ -2719,9 +2802,11 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_any_type_of_size
  tree_any_type_of_variant
  tree_any_virtual_decl
+ tree_array_range_ref_full
  tree_array_ref
  tree_array_ref_full
  tree_array_type
+ tree_bit_field_ref
  tree_block
  tree_boolean_false_node 
  tree_boolean_true_node 
@@ -2761,6 +2846,7 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_function_decl_of_type_and_result
  tree_function_type
  tree_identifier
+ tree_imagpart_expr
  tree_imported_decl
  tree_indirect_reference
  tree_int128_integer_type_node 
@@ -2795,6 +2881,7 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_ptr_type_node 
  tree_qual_union_type
  tree_qual_union_type_with_fields
+ tree_realpart_expr
  tree_real_cst
  tree_real_type
  tree_record_type
@@ -2837,6 +2924,7 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_vec
  tree_vector_cst
  tree_vector_type
+ tree_view_convert_expr
  tree_void_type
  tree_void_type_node 
  warning_at_tree
