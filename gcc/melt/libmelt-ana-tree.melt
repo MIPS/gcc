@@ -958,6 +958,67 @@ treerr
    $UID = DECL_UID($tr);
    }# )
 
+
+
+;;;;;;;;;;;;;;;;
+(defcmatcher tree_any_decl_of_context
+  (:tree tr)
+  (:tree tctx)
+  trdeclctx
+  :doc #{$TREE_ANY_DECL_OF_CONTEXT match any declaration $TR extracting its context $TCTX.}#
+  ;; test
+  #{ /* tree_any_decl_of_context $TRDECLCTX ? */  (($TR) && DECL_P($TR))}#
+  ;; fill
+  #{ /* tree_any_decl_of_context $TRDECLCTX ! */
+  $TCTX = DECL_CONTEXT($TR);
+  }#)
+
+
+;;;;;;;;;;;;;;;;
+(defcmatcher tree_any_decl_of_type_align_size
+  (:tree tr)
+  (:tree ttyp tsize :long lalign)
+  trdecltyas
+  :doc #{$TREE_ANY_DECL_OF_TYPE_ALIGN_SIZE match any declaration $TR
+  extracting its type $TTYP, unit-alignment tree $TALIGN, tree-unit-size $TSIZE, alignment in bytes $LALIGN}#
+  ;; test
+  #{ /* tree_any_decl_of_type_align_size $TRDECLTYAS ? */  (($TR) && DECL_P($TR))}#
+  ;; fill
+  #{ /* tree_any_decl_of_type_align_size $TRDECLTYAS ! */
+  $TTYP = TREE_TYPE($TR);
+  $TSIZE = DECL_SIZE_UNIT ($TR);
+  $LALIGN = DECL_ALIGN_UNIT ($TR);
+  }#)
+  
+;;;;;;;;;;;;;;;;
+(defcmatcher tree_any_decl_of_origin
+  (:tree tr)
+  (:tree torig)
+  trdeclorig
+  :doc #{$TREE_ANY_DECL_OF_ORIGIN match any declaration $TR extracting its abstract origin $TORIG.}#
+  ;; test
+  #{ /* tree_any_decl_of_origin $TRDECLORIG ? */ (($TR) && DECL_P($TR))}#
+  ;; fill
+  #{ /* tree_any_decl_of_origin $TRDECLORIG ! */
+  $TORIG = DECL_ORIGIN($TR);
+  }#
+  )
+  
+;;;;;;;;;;;;;;;;
+(defcmatcher tree_any_decl_of_initial
+  (:tree tr)
+  (:tree tinit)
+  trdeclinit
+  :doc #{$TREE_ANY_DECL_OF_INITIAL match any declaration $TR extracting its initialization $TINIT.}#
+  ;; test
+  #{ /* tree_any_decl_of_initial $TRDECLINIT ? */ (($TR) && DECL_P($TR))}#
+  ;; fill
+  #{ /* tree_any_decl_of_initial $TRDECLINIT ! */
+  $TINIT = DECL_INITIAL ($TR);
+  }#
+  )
+  
+  
 ;; pattern tree_decl_at_source_location matches a declaration tree with a
 ;; known location
 (defcmatcher tree_decl_at_source_location 
@@ -2521,6 +2582,10 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  register_expanded_pragma
  register_plain_pragma
  tree_addr_expr
+ tree_any_decl_of_context
+ tree_any_decl_of_initial
+ tree_any_decl_of_origin
+ tree_any_decl_of_type_align_size
  tree_any_type
  tree_any_type_of_chain
  tree_any_type_of_context

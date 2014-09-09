@@ -1,6 +1,13 @@
 
 2014-09-09  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/libmelt-ana-tree.melt (tree_any_decl_of_context)
+	(tree_any_decl_of_initial)
+	(tree_any_decl_of_origin, tree_any_decl_of_type_align_size):
+	New.
+
+2014-09-09  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/xtramelt-ana-simple.melt (justscan_tree): Correct use of
 	tree_decl.
 
