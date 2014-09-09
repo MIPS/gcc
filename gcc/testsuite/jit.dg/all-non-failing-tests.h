@@ -109,6 +109,13 @@
 #undef create_code
 #undef verify_code
 
+/* test-nested-loops.c */
+#define create_code create_code_nested_loop
+#define verify_code verify_code_nested_loop
+#include "test-nested-loops.c"
+#undef create_code
+#undef verify_code
+
 /* test-reading-struct.c */
 #define create_code create_code_reading_struct
 #define verify_code verify_code_reading_struct

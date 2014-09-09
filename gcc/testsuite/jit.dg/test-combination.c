@@ -29,6 +29,7 @@ create_code (gcc_jit_context *ctxt, void * user_data)
   create_code_hello_world (ctxt, user_data);
   create_code_linked_list (ctxt, user_data);
   create_code_quadratic (ctxt, user_data);
+  create_code_nested_loop (ctxt, user_data);
   create_code_reading_struct  (ctxt, user_data);
   create_code_string_literal (ctxt, user_data);
   create_code_sum_of_squares (ctxt, user_data);
@@ -54,6 +55,7 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
   verify_code_hello_world (ctxt, result);
   verify_code_linked_list (ctxt, result);
   verify_code_quadratic (ctxt, result);
+  verify_code_nested_loop (ctxt, result);
   verify_code_reading_struct (ctxt, result);
   verify_code_string_literal (ctxt, result);
   verify_code_sum_of_squares (ctxt, result);
