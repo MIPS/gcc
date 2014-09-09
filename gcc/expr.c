@@ -3830,7 +3830,7 @@ mem_autoinc_base (rtx mem)
    cannot be trivially extracted, the return value is INT_MIN.  */
 
 HOST_WIDE_INT
-find_args_size_adjust (rtx insn)
+find_args_size_adjust (rtx_insn *insn)
 {
   rtx dest, set, pat;
   int i;
@@ -3953,9 +3953,8 @@ find_args_size_adjust (rtx insn)
 }
 
 int
-fixup_args_size_notes (rtx prev, rtx uncast_last, int end_args_size)
+fixup_args_size_notes (rtx_insn *prev, rtx_insn *last, int end_args_size)
 {
-  rtx_insn *last = safe_as_a <rtx_insn *> (uncast_last);
   int args_size = end_args_size;
   bool saw_unknown = false;
   rtx_insn *insn;

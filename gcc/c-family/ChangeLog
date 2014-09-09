@@ -1,3 +1,47 @@
+2014-09-09  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* c.opt: Add CppReason to various flags.
+	(Wdate-time): Re-sort.
+	* c-common.c: Include c-common.h earlier.
+	(struct reason_option_codes_t): Delete.
+	(c_option_controlling_cpp_error): Prefix global type and struct
+	with cpp_.
+
+2014-09-09  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* c.opt	(Wnormalized): New.
+	(Wnormalized=): Use Enum and Reject Negative.
+	* c-opts.c (c_common_handle_option): Do not handle Wnormalized here.
+
+2014-09-08  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Define macros for mantissa
+	digits of floating-point modes if -fbuilding-libgcc.
+
+2014-09-05  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Also define
+	__LIBGCC_EH_TABLES_CAN_BE_READ_ONLY__,
+	__LIBGCC_EH_FRAME_SECTION_NAME__, __LIBGCC_JCR_SECTION_NAME__,
+	__LIBGCC_CTORS_SECTION_ASM_OP__, __LIBGCC_DTORS_SECTION_ASM_OP__,
+	__LIBGCC_TEXT_SECTION_ASM_OP__, __LIBGCC_INIT_SECTION_ASM_OP__,
+	__LIBGCC_INIT_ARRAY_SECTION_ASM_OP__,
+	__LIBGCC_STACK_GROWS_DOWNWARD__,
+	__LIBGCC_DONT_USE_BUILTIN_SETJMP__,
+	__LIBGCC_DWARF_ALT_FRAME_RETURN_COLUMN__,
+	__LIBGCC_DWARF_FRAME_REGISTERS__,
+	__LIBGCC_EH_RETURN_STACKADJ_RTX__, __LIBGCC_JMP_BUF_SIZE__,
+	__LIBGCC_STACK_POINTER_REGNUM__ and
+	__LIBGCC_VTABLE_USES_DESCRIPTORS__ for -fbuilding-libgcc.
+	(builtin_define_with_value): Handle backslash-escaping in string
+	macro values.
+
+2014-09-05  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/63148
+	* c-format.c (check_format_arg): Properly handle
+	effectively signed POINTER_PLUS_EXPR offset.
+
 2014-09-04  Manuel López-Ibáñez  <manu@gcc.gnu.org>
 
 	* c.opt (Wc90-c99-compat,Wc++-compat,Wcomment,Wendif-labels,

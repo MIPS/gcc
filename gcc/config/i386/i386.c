@@ -25212,7 +25212,7 @@ memory_address_length (rtx addr, bool lea)
 /* Compute default value for "length_immediate" attribute.  When SHORTFORM
    is set, expect that insn have 8bit immediate alternative.  */
 int
-ix86_attr_length_immediate_default (rtx insn, bool shortform)
+ix86_attr_length_immediate_default (rtx_insn *insn, bool shortform)
 {
   int len = 0;
   int i;
@@ -25271,7 +25271,7 @@ ix86_attr_length_immediate_default (rtx insn, bool shortform)
 
 /* Compute default value for "length_address" attribute.  */
 int
-ix86_attr_length_address_default (rtx insn)
+ix86_attr_length_address_default (rtx_insn *insn)
 {
   int i;
 
@@ -25317,7 +25317,8 @@ ix86_attr_length_address_default (rtx insn)
    2 or 3 byte VEX prefix and 1 opcode byte.  */
 
 int
-ix86_attr_length_vex_default (rtx insn, bool has_0f_opcode, bool has_vex_w)
+ix86_attr_length_vex_default (rtx_insn *insn, bool has_0f_opcode,
+			      bool has_vex_w)
 {
   int i;
 
@@ -25395,7 +25396,7 @@ ix86_issue_rate (void)
    by DEP_INSN and nothing set by DEP_INSN.  */
 
 static bool
-ix86_flags_dependent (rtx insn, rtx dep_insn, enum attr_type insn_type)
+ix86_flags_dependent (rtx_insn *insn, rtx_insn *dep_insn, enum attr_type insn_type)
 {
   rtx set, set2;
 
@@ -25440,7 +25441,7 @@ ix86_flags_dependent (rtx insn, rtx dep_insn, enum attr_type insn_type)
    SET_INSN.  */
 
 bool
-ix86_agi_dependent (rtx set_insn, rtx use_insn)
+ix86_agi_dependent (rtx_insn *set_insn, rtx_insn *use_insn)
 {
   int i;
   extract_insn_cached (use_insn);
@@ -25503,7 +25504,7 @@ exact_dependency_1 (rtx addr, rtx insn)
 /* Return true if there exists exact dependency for store & load, i.e.
    the same memory address is used in them.  */
 static bool
-exact_store_load_dependency (rtx store, rtx load)
+exact_store_load_dependency (rtx_insn *store, rtx_insn *load)
 {
   rtx set1, set2;
 
@@ -25802,7 +25803,6 @@ static bool
 ix86_macro_fusion_pair_p (rtx_insn *condgen, rtx_insn *condjmp)
 {
   rtx src, dest;
-  rtx single_set = single_set (condgen);
   enum rtx_code ccode;
   rtx compare_set = NULL_RTX, test_if, cond;
   rtx alu_set = NULL_RTX, addr = NULL_RTX;
@@ -25816,13 +25816,12 @@ ix86_macro_fusion_pair_p (rtx_insn *condgen, rtx_insn *condjmp)
       && get_attr_type (condgen) != TYPE_ALU)
     return false;
 
-  if (single_set == NULL_RTX
+  compare_set = single_set (condgen);
+  if (compare_set == NULL_RTX
       && !TARGET_FUSE_ALU_AND_BRANCH)
     return false;
 
-  if (single_set != NULL_RTX)
-    compare_set = single_set;
-  else
+  if (compare_set == NULL_RTX)
     {
       int i;
       rtx pat = PATTERN (condgen);
@@ -39464,7 +39463,7 @@ ix86_reorg (void)
 /* Return nonzero when QImode register that must be represented via REX prefix
    is used.  */
 bool
-x86_extended_QIreg_mentioned_p (rtx insn)
+x86_extended_QIreg_mentioned_p (rtx_insn *insn)
 {
   int i;
   extract_insn_cached (insn);
@@ -42499,7 +42498,7 @@ ix86_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
    insn, so that expand_vselect{,_vconcat} doesn't have to create a fresh
    insn every time.  */
 
-static GTY(()) rtx vselect_insn;
+static GTY(()) rtx_insn *vselect_insn;
 
 /* Initialize vselect_insn.  */
 

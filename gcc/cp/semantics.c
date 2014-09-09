@@ -3814,7 +3814,7 @@ finish_bases (tree type, bool direct)
    fold_offsetof.  */
 
 tree
-finish_offsetof (tree expr)
+finish_offsetof (tree expr, location_t loc)
 {
   if (TREE_CODE (expr) == PSEUDO_DTOR_EXPR)
     {
@@ -3846,6 +3846,13 @@ finish_offsetof (tree expr)
       tree object = TREE_OPERAND (expr, 0);
       if (!complete_type_or_else (TREE_TYPE (object), object))
 	return error_mark_node;
+      if (warn_invalid_offsetof
+	  && CLASS_TYPE_P (TREE_TYPE (object))
+	  && CLASSTYPE_NON_STD_LAYOUT (TREE_TYPE (object))
+	  && cp_unevaluated_operand == 0)
+	pedwarn (loc, OPT_Winvalid_offsetof,
+		 "offsetof within non-standard-layout type %qT is undefined",
+		 TREE_TYPE (object));
     }
   return fold_offsetof (expr);
 }
@@ -10348,6 +10355,11 @@ potential_constant_expression_1 (tree t, bool want_rval, tsubst_flags_t flags)
             designates an object with thread or automatic storage
             duration;  */
       t = TREE_OPERAND (t, 0);
+
+      if (TREE_CODE (t) == OFFSET_REF && PTRMEM_OK_P (t))
+	/* A pointer-to-member constant.  */
+	return true;
+
 #if 0
       /* FIXME adjust when issue 1197 is fully resolved.  For now don't do
          any checking here, as we might dereference the pointer later.  If

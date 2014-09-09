@@ -2171,15 +2171,13 @@ call_from_call_insn (rtx_call_insn *insn)
    both NOTE_INSN_PROLOGUE_END and NOTE_INSN_FUNCTION_BEG.  */
 
 rtx_insn *
-final_scan_insn (rtx uncast_insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
+final_scan_insn (rtx_insn *insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 		 int nopeepholes ATTRIBUTE_UNUSED, int *seen)
 {
 #ifdef HAVE_cc0
   rtx set;
 #endif
   rtx_insn *next;
-
-  rtx_insn *insn = as_a <rtx_insn *> (uncast_insn);
 
   insn_counter++;
 
@@ -2493,7 +2491,8 @@ final_scan_insn (rtx uncast_insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	  rtx note = find_reg_note (insn, REG_CC_SETTER, NULL_RTX);
 	  if (note)
 	    {
-	      NOTICE_UPDATE_CC (PATTERN (XEXP (note, 0)), XEXP (note, 0));
+	      rtx_insn *other = as_a <rtx_insn *> (XEXP (note, 0));
+	      NOTICE_UPDATE_CC (PATTERN (other), other);
 	      cc_prev_status = cc_status;
 	    }
 	}
@@ -3105,7 +3104,7 @@ notice_source_line (rtx_insn *insn, bool *is_stmt)
    directly to the desired hard register.  */
 
 void
-cleanup_subreg_operands (rtx insn)
+cleanup_subreg_operands (rtx_insn *insn)
 {
   int i;
   bool changed = false;
@@ -3141,7 +3140,7 @@ cleanup_subreg_operands (rtx insn)
 	*recog_data.dup_loc[i] = walk_alter_subreg (recog_data.dup_loc[i], &changed);
     }
   if (changed)
-    df_insn_rescan (as_a <rtx_insn *> (insn));
+    df_insn_rescan (insn);
 }
 
 /* If X is a SUBREG, try to replace it with a REG or a MEM, based on
@@ -4881,10 +4880,9 @@ get_call_cgraph_rtl_info (rtx_insn *insn)
    in REG_SET.  Return DEFAULT_SET in REG_SET if not found.  */
 
 bool
-get_call_reg_set_usage (rtx uncast_insn, HARD_REG_SET *reg_set,
+get_call_reg_set_usage (rtx_insn *insn, HARD_REG_SET *reg_set,
 			HARD_REG_SET default_set)
 {
-  rtx_insn *insn = safe_as_a <rtx_insn *> (uncast_insn);
   if (flag_use_caller_save)
     {
       struct cgraph_rtl_info *node = get_call_cgraph_rtl_info (insn);

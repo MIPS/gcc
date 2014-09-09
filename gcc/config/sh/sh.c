@@ -184,13 +184,13 @@ static bool shmedia_space_reserved_for_target_registers;
 
 static void split_branches (rtx_insn *);
 static int branch_dest (rtx);
-static void print_slot (rtx);
+static void print_slot (rtx_sequence *);
 static rtx_code_label *add_constant (rtx, enum machine_mode, rtx);
 static void dump_table (rtx_insn *, rtx_insn *);
 static bool broken_move (rtx_insn *);
 static bool mova_p (rtx_insn *);
 static rtx_insn *find_barrier (int, rtx_insn *, rtx_insn *);
-static bool noncall_uses_reg (rtx, rtx, rtx *);
+static bool noncall_uses_reg (rtx, rtx_insn *, rtx *);
 static rtx_insn *gen_block_redirect (rtx_insn *, int, int);
 static void sh_reorg (void);
 static void sh_option_override (void);
@@ -2641,11 +2641,11 @@ output_movedouble (rtx insn ATTRIBUTE_UNUSED, rtx operands[],
    another instruction, but couldn't because the other instruction expanded
    into a sequence where putting the slot insn at the end wouldn't work.  */
 static void
-print_slot (rtx insn)
+print_slot (rtx_sequence *seq)
 {
-  final_scan_insn (XVECEXP (insn, 0, 1), asm_out_file, optimize, 1, NULL);
+  final_scan_insn (seq->insn (1), asm_out_file, optimize, 1, NULL);
 
-  INSN_DELETED_P (XVECEXP (insn, 0, 1)) = 1;
+  INSN_DELETED_P (seq->insn (1)) = 1;
 }
 
 const char *
@@ -4739,7 +4739,7 @@ dump_table (rtx_insn *start, rtx_insn *barrier)
     }
   if (TARGET_FMOVD && TARGET_ALIGN_DOUBLE && have_df)
     {
-      rtx align_insn = NULL_RTX;
+      rtx_insn *align_insn = NULL;
 
       scan = emit_label_after (gen_label_rtx (), scan);
       scan = emit_insn_after (gen_align_log (GEN_INT (3)), scan);
@@ -4768,7 +4768,7 @@ dump_table (rtx_insn *start, rtx_insn *barrier)
 					align_insn);
 		    }
 		  delete_insn (align_insn);
-		  align_insn = NULL_RTX;
+		  align_insn = NULL;
 		  continue;
 		}
 	      else
@@ -5405,7 +5405,7 @@ sfunc_uses_reg (rtx insn)
    setting it while calling it.  Set *SET to a SET rtx if the register
    is set by INSN.  */
 static bool
-noncall_uses_reg (rtx reg, rtx insn, rtx *set)
+noncall_uses_reg (rtx reg, rtx_insn *insn, rtx *set)
 {
   rtx pattern, reg2;
 
@@ -5737,7 +5737,7 @@ enum mdep_reorg_phase_e mdep_reorg_phase;
 static void
 gen_far_branch (struct far_branch *bp)
 {
-  rtx insn = bp->insert_place;
+  rtx_insn *insn = bp->insert_place;
   rtx_insn *jump;
   rtx_code_label *label = gen_label_rtx ();
   int ok;
@@ -5965,9 +5965,9 @@ barrier_align (rtx_insn *barrier_or_label)
    Applying loop alignment to small constant or switch tables is a waste
    of space, so we suppress this too.  */
 int
-sh_loop_align (rtx label)
+sh_loop_align (rtx_insn *label)
 {
-  rtx next = label;
+  rtx_insn *next = label;
 
   if (! optimize || optimize_size)
     return 0;
@@ -9953,12 +9953,13 @@ reg_unused_after (rtx reg, rtx_insn *insn)
 	 we must return 0.  */
       else if (code == INSN && GET_CODE (PATTERN (insn)) == SEQUENCE)
 	{
+	  rtx_sequence *seq = as_a <rtx_sequence *> (PATTERN (insn));
 	  int i;
 	  int retval = 0;
 
-	  for (i = 0; i < XVECLEN (PATTERN (insn), 0); i++)
+	  for (i = 0; i < seq->len (); i++)
 	    {
-	      rtx this_insn = XVECEXP (PATTERN (insn), 0, i);
+	      rtx_insn *this_insn = seq->insn (i);
 	      rtx set = single_set (this_insn);
 
 	      if (CALL_P (this_insn))

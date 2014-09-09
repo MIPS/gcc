@@ -5630,7 +5630,8 @@ free_lang_data (void)
   unsigned i;
 
   /* If we are the LTO frontend we have freed lang-specific data already.  */
-  if (in_lto_p)
+  if (in_lto_p
+      || !flag_generate_lto)
     return 0;
 
   /* Allocate and assign alias sets to the standard integer types
